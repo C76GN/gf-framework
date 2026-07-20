@@ -26,6 +26,9 @@ res://
     scripts/
     resources/
   generated/
+  .gf/
+    project_contract.json
+    ai/
   tests/
   tools/
   gf_project_profile.json
@@ -37,6 +40,7 @@ res://
 - `features/<feature_id>`：单个业务能力的内聚边界，禁止把脚本、场景和资源分散到全局大桶后再靠命名关联。
 - `shared`：明确跨 Feature 复用的通用能力，避免成为业务逻辑倾倒区。
 - `generated`：生成文件和可再生中间产物，防止和手写文件混在一起。
+- `.gf`：GF 项目状态边界；`.gf/project_contract.json` 是应版本化的项目意图，`.gf/ai/**` 是应忽略的可重建本地输出。
 - `tests`：项目测试、契约测试和 smoke 场景。
 - `tools`：项目自有编辑器期、导入期、构建期工具。
 
@@ -121,3 +125,19 @@ GF 不默认采用镜像式 `scripts/`、`scenes/`、`resources/` 全局分离�
 内聚式结构把业务边界放在第一层，适合长期演进、模块拆分、按 Feature 做测试和资源归属审查。它的风险是 `features` 内部可能变得不一致，所以需要 profile 把 Feature ID、允许子目录、生成物边界和命名约定固定下来。
 
 最佳实践是把项目结构规则作为项目侧 profile 管理：GF 提供通用 validator 和模板，项目保留调整权。
+
+## GF 受管产物路径
+
+GF 内核以 `GFProjectArtifactPaths` 和只读镜像 `project_artifact_policy.json` 维护工具间共享的默认路径，避免 Access、Config、Network 与 AI 工具各自发明输出位置：
+
+- `res://generated/gf_access.gd`
+- `res://generated/gf_project_access.gd`
+- `res://generated/gf_config_access.gd`
+- `res://generated/network/`
+- `.gf/project_contract.json`
+- `.gf/ai/project_snapshot.json`
+- `.gf/ai/feedback/`
+
+`res://generated/**` 是进入 Godot 导入与脚本解析链路的项目源码产物；项目需要在可复现构建和编辑器使用方式之间明确决定是否提交。`.gf/project_contract.json` 是人工维护的架构输入，应提交；`.gf/ai/**` 是脱敏后仍可能包含本地观测的可重建输出，应忽略。工具不得把 `.gf/ai` 快照写回契约，也不得把两类路径合并成一个整体忽略规则。
+
+9.0 不再使用 `res://gf/generated/**` 默认值。既有项目应先停止生成器，移动或删除旧产物，再用当前 Access、Config 和 Network 生成器重建 `res://generated/**`；不要同时保留两套 class_name 产物。自定义输出路径仍应落在 profile 明确声明的 generated zone，并由项目 CI 检查。

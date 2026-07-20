@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFRequestOutboxUtility" path="addons/gf/standard/utilities/io/gf_request_outbox_utility.gd" module="standard" extends="GFUtility" classDigest="a83fa92b526efe0fec225948555cafe90576ed1056cdec6d9e682a4b13259f47">
+<class name="GFRequestOutboxUtility" path="addons/gf/standard/utilities/io/gf_request_outbox_utility.gd" module="standard" extends="GFUtility" classDigest="eef8c90c15a19ebfeaa64da01d042cef779aa42adb41843ba8317911298dc4d2">
 	<description>GFRequestOutboxUtility: 通用离线请求队列。
 负责把项目提交的请求描述持久化、按重试策略重放，并通过 transport_callback
 交给项目自己的网络、SDK 或工具链发送。它不内置任何账号、云服务或业务协议。</description>
@@ -62,7 +62,7 @@
 				<tag name="param">operation: 失败操作，当前为 save 或 load；load 包含恢复候选提升。</tag>
 				<tag name="param">error: Godot 错误码。</tag>
 				<tag name="param">path: 队列持久化路径。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>
 	</signals>

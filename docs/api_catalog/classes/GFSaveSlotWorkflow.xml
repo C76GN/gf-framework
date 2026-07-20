@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSaveSlotWorkflow" path="addons/gf/extensions/save/slots/gf_save_slot_workflow.gd" module="extensions/save" extends="Resource" classDigest="8ad24d86e5fd5a3802ce6929fe12da1ce594f224d29d2e16247dca909c643a4d">
+<class name="GFSaveSlotWorkflow" path="addons/gf/extensions/save/slots/gf_save_slot_workflow.gd" module="extensions/save" extends="Resource" classDigest="0a9e0d86066c461d5d12a273dfaf65f9775de627739b6913d6953819bb84d188">
 	<description>GFSaveSlotWorkflow: 通用存档槽工作流配置。
 负责把槽位索引、逻辑标识、元数据和槽位摘要 DTO 串起来。
 不执行具体存取逻辑，也不写死任何游戏业务字段。</description>
@@ -58,6 +58,25 @@
 		</member>
 	</properties>
 	<methods>
+		<member kind="method" name="set_clock">
+			<signature>func set_clock(clock: GFClock) -&gt; bool:</signature>
+			<description>设置元数据时间戳使用的墙上时钟。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">clock: 新时钟。</tag>
+				<tag name="return">时钟合法并完成设置时返回 true。</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_clock">
+			<signature>func get_clock() -&gt; GFClock:</signature>
+			<description>获取元数据时间戳使用的时钟。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">当前时钟。</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
 		<member kind="method" name="select_slot_index">
 			<signature>func select_slot_index(index: int) -&gt; StringName:</signature>
 			<description>选择当前槽位。</description>

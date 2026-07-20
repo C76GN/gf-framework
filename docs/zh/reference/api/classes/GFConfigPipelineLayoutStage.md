@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：工具 API (`tool_api`)
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 Config Pipeline 的内置布局解析阶段。 把 Reader 原始载荷解码为记录、表头和来源位置，不推导 schema、不转换字段类型。 内置实现支持 CSV、JSON、ConfigFile 与 XLSX，格式专属细节在此阶段内收敛。
 
@@ -27,7 +27,7 @@ Config Pipeline 的内置布局解析阶段。 把 Reader 原始载荷解码为�
 ### `STAGE_ID`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 ```gdscript
 const STAGE_ID: String = "gf.config.layout.builtin"
@@ -40,7 +40,7 @@ Layout 阶段的稳定实现标识。
 ### `IMPLEMENTATION_VERSION`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 ```gdscript
 const IMPLEMENTATION_VERSION: int = 1
@@ -55,7 +55,7 @@ Layout 阶段的实现版本；改变布局解析语义时递增。
 ### `decode_source`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 ```gdscript
 func decode_source( source: GFConfigPipelineTableSource, read_result: Dictionary, options: Dictionary = {} ) -> Dictionary:
@@ -84,7 +84,7 @@ func decode_source( source: GFConfigPipelineTableSource, read_result: Dictionary
 ### `get_stage_descriptor`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 ```gdscript
 func get_stage_descriptor() -> Dictionary:

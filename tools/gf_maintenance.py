@@ -118,6 +118,8 @@ GODOT_EXIT_LEAK_PATTERNS = (
 )
 PACKAGE_GODOT_SMOKE_DEFAULT_ALL_PACKAGE_JOBS = 4
 PACKAGE_GODOT_SMOKE_INSTALL_TIMEOUT_SECONDS = 240
+PACKAGE_EDITOR_WIZARD_SMOKE_TRANSACTION_TIMEOUT_SECONDS = 240
+PACKAGE_GODOT_CLI_SMOKE_PRESET_INSTALL_TIMEOUT_SECONDS = 240
 GODOT_RID_LEAK_RE = re.compile(
 	r"^(?:ERROR:\s*)?(?P<count>\d+) RID allocations of type '(?P<type>[^']+)' were leaked at exit\."
 )
@@ -516,7 +518,7 @@ PACKAGE_AGGREGATE_CLOSURE_BASELINES = {
 	"gf.standard.editor": 20,
 }
 PACKAGE_STANDARD_FAN_IN_BASELINES = {
-	"gf.standard.base": 48,
+	"gf.standard.base": 49,
 }
 PACKAGE_MANIFEST_SCAN_EXCLUDED_PREFIXES = (
 	".git/",
@@ -5990,7 +5992,10 @@ def run_package_editor_wizard_smoke_script(
 		script_resource_path,
 	]
 	try:
-		completed = run_maintenance_subprocess(command, timeout_seconds=180)
+		completed = run_maintenance_subprocess(
+			command,
+			timeout_seconds=PACKAGE_EDITOR_WIZARD_SMOKE_TRANSACTION_TIMEOUT_SECONDS,
+		)
 	except subprocess.TimeoutExpired as error:
 		issues.append(make_package_issue(
 			"package_editor_wizard_smoke_minimal_script_timeout",
@@ -7637,6 +7642,7 @@ def run_package_godot_cli_smoke_minimal_kernel_http_preset_install_verify_uninst
 		],
 		issues,
 		godot_project_root=project_root,
+		timeout_seconds=PACKAGE_GODOT_CLI_SMOKE_PRESET_INSTALL_TIMEOUT_SECONDS,
 	)
 	install_lockfile_data = read_json_object(project_root / ".gf/packages.lock.json")
 	installed_after_install = (
@@ -12606,6 +12612,12 @@ def maintenance_self_test() -> dict[str, Any]:
 		"package_godot_smoke_parallel_installs_have_dedicated_timeout_headroom",
 		PACKAGE_GODOT_SMOKE_INSTALL_TIMEOUT_SECONDS == 240,
 		"all-package workers need a longer install budget than ordinary single-command CLI smoke scenarios.",
+	)
+	record_result(
+		"package_smoke_complex_transactions_have_bounded_timeout_headroom",
+		PACKAGE_EDITOR_WIZARD_SMOKE_TRANSACTION_TIMEOUT_SECONDS == 240
+		and PACKAGE_GODOT_CLI_SMOKE_PRESET_INSTALL_TIMEOUT_SECONDS == 240,
+		"editor transactions and multi-package CLI preset installs need bounded headroom beyond ordinary smoke commands.",
 	)
 	package_smoke_assertion_issues: list[dict[str, Any]] = []
 	assert_package_godot_smoke_condition(

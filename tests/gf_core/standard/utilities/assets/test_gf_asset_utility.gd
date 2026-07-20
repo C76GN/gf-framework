@@ -506,6 +506,123 @@ func test_cache_diagnostics_are_reported_in_asset_snapshot() -> void:
 	assert_eq(GFVariantData.get_option_int(diagnostics, "miss_count"), 1, "缓存未命中应被诊断统计记录。")
 
 
+func test_preload_session_atomically_commits_target_group() -> void:
+	_utility.put_cache("res://session_commit.tres", Resource.new())
+	var asset_plan: GFAssetPreloadPlan = GFAssetPreloadPlan.new()
+	var _configured: GFAssetPreloadPlan = asset_plan.configure(
+		&"session_target",
+		[{ "path": "res://session_commit.tres" }],
+		{ "plan_id": &"commit_plan", "pin_cache": true }
+	)
+
+	var session: GFAssetLoadSession = _utility.start_preload_session(asset_plan)
+	var result: GFAssetLoadSessionResult = session.get_result()
+
+	assert_not_null(result, "同步缓存命中后会话应立即产生终态结果。")
+	if result == null:
+		return
+	assert_eq(session.get_state(), GFAssetLoadSession.State.COMMITTED)
+	assert_true(result.is_successful(), "全部资源加载成功后应提交会话。")
+	assert_eq(result.get_plan_id(), &"commit_plan")
+	assert_eq(result.get_group_id(), &"session_target")
+	assert_eq(result.get_loaded_paths(), PackedStringArray(["res://session_commit.tres"]))
+	assert_eq(_utility.get_group_paths(&"session_target"), PackedStringArray(["res://session_commit.tres"]))
+	assert_true(_utility.is_cache_pinned("res://session_commit.tres"), "目标计划的 pin 策略应在提交时生效。")
+	assert_eq(_utility.get_active_preload_session_count(), 0, "终态会话应从 utility 活跃集合移除。")
+
+
+func test_preload_session_manual_rollback_keeps_shared_cache() -> void:
+	_utility.put_cache("res://session_rollback.tres", Resource.new())
+	var asset_plan: GFAssetPreloadPlan = GFAssetPreloadPlan.new()
+	var _configured: GFAssetPreloadPlan = asset_plan.configure(
+		&"rollback_target",
+		[{ "path": "res://session_rollback.tres" }]
+	)
+
+	var session: GFAssetLoadSession = _utility.start_preload_session(
+		asset_plan,
+		{ "auto_commit": false, "metadata": { "request": "preview" } }
+	)
+
+	assert_eq(session.get_state(), GFAssetLoadSession.State.READY, "关闭自动提交后应停留在 READY。")
+	assert_true(_utility.get_group_paths(&"rollback_target").is_empty(), "READY 前后都不应提前暴露目标分组。")
+	assert_eq(_utility.get_active_preload_session_count(), 1)
+	assert_true(session.rollback(&"preview_cancelled"), "READY 会话应接受首次回滚。")
+	var result: GFAssetLoadSessionResult = session.get_result()
+	assert_not_null(result)
+	if result == null:
+		return
+	assert_eq(result.get_status(), GFAssetLoadSessionResult.STATUS_ROLLED_BACK)
+	assert_eq(result.get_rollback_reason(), &"preview_cancelled")
+	assert_true(result.is_cache_retained_on_rollback(), "回滚只应撤销会话分组所有权。")
+	assert_true(_utility.is_cached("res://session_rollback.tres"), "共享缓存必须保留。")
+	assert_true(_utility.get_group_paths(&"rollback_target").is_empty())
+	assert_eq(_utility.get_active_preload_session_count(), 0)
+
+
+func test_preload_session_partial_failure_never_commits_target_group() -> void:
+	_utility.put_cache("res://session_valid.tres", Resource.new())
+	_utility.put_cache("res://session_wrong_type.tres", Resource.new())
+	var asset_plan: GFAssetPreloadPlan = GFAssetPreloadPlan.new()
+	var _configured: GFAssetPreloadPlan = asset_plan.configure(
+		&"failure_target",
+		[
+			{ "path": "res://session_valid.tres" },
+			{ "path": "res://session_wrong_type.tres", "type_hint": "Texture2D" },
+		]
+	)
+
+	var session: GFAssetLoadSession = _utility.start_preload_session(asset_plan)
+	assert_push_warning("[GFAssetUtility] 缓存资源类型与请求 type_hint 不匹配：res://session_wrong_type.tres (Texture2D)")
+	var result: GFAssetLoadSessionResult = session.get_result()
+
+	assert_not_null(result)
+	if result == null:
+		return
+	assert_eq(result.get_status(), GFAssetLoadSessionResult.STATUS_FAILED)
+	assert_eq(result.get_rollback_reason(), &"load_failed")
+	assert_eq(result.get_loaded_paths(), PackedStringArray(["res://session_valid.tres"]))
+	assert_eq(result.get_failed_paths(), PackedStringArray(["res://session_wrong_type.tres"]))
+	assert_true(_utility.get_group_paths(&"failure_target").is_empty(), "部分失败不得提交目标分组。")
+	assert_true(_utility.is_cached("res://session_valid.tres"), "回滚不得删除其他 owner 可能共享的缓存。")
+	assert_eq(_utility.get_active_preload_session_count(), 0)
+
+
+func test_preload_session_null_plan_fails_without_leaking_active_session() -> void:
+	var session: GFAssetLoadSession = _utility.start_preload_session(null)
+	var result: GFAssetLoadSessionResult = session.get_result()
+
+	assert_not_null(result, "空计划应形成明确失败终态。")
+	if result == null:
+		return
+	assert_eq(result.get_status(), GFAssetLoadSessionResult.STATUS_FAILED)
+	assert_eq(result.get_rollback_reason(), &"invalid_plan")
+	assert_eq(_utility.get_active_preload_session_count(), 0, "空计划不得泄漏活跃会话。")
+
+
+func test_dispose_aborts_active_preload_session() -> void:
+	var completing: CompletingAssetUtility = CompletingAssetUtility.new()
+	_replace_utility(completing)
+	var asset_plan: GFAssetPreloadPlan = GFAssetPreloadPlan.new()
+	var _configured: GFAssetPreloadPlan = asset_plan.configure(
+		&"dispose_target",
+		[{ "path": "res://session_pending.tres" }]
+	)
+	var session: GFAssetLoadSession = _utility.start_preload_session(asset_plan)
+
+	assert_eq(session.get_state(), GFAssetLoadSession.State.LOADING)
+	assert_eq(_utility.get_active_preload_session_count(), 1)
+	_utility.dispose()
+	var result: GFAssetLoadSessionResult = session.get_result()
+
+	assert_not_null(result, "dispose 应终止仍在加载的会话。")
+	if result == null:
+		return
+	assert_eq(result.get_status(), GFAssetLoadSessionResult.STATUS_FAILED)
+	assert_eq(result.get_rollback_reason(), &"asset_utility_disposed")
+	assert_eq(_utility.get_active_preload_session_count(), 0)
+
+
 # --- 私有/辅助方法 ---
 
 func _replace_utility(utility: GFAssetUtility) -> void:

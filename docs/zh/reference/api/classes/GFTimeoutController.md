@@ -20,8 +20,10 @@
 | 属性 | [`process_always`](#member-gftimeoutcontroller-properties-process_always) | `var process_always: bool = true` |
 | 属性 | [`process_in_physics`](#member-gftimeoutcontroller-properties-process_in_physics) | `var process_in_physics: bool = false` |
 | 属性 | [`ignore_time_scale`](#member-gftimeoutcontroller-properties-ignore_time_scale) | `var ignore_time_scale: bool = false` |
-| 方法 | [`_init`](#member-gftimeoutcontroller-methods-_init) | `func _init() -> void:` |
+| 方法 | [`_init`](#member-gftimeoutcontroller-methods-_init) | `func _init(clock: GFClock = null) -> void:` |
 | 方法 | [`get_token`](#member-gftimeoutcontroller-methods-get_token) | `func get_token() -> GFCancellationToken:` |
+| 方法 | [`set_clock`](#member-gftimeoutcontroller-methods-set_clock) | `func set_clock(clock: GFClock) -> bool:` |
+| 方法 | [`get_clock`](#member-gftimeoutcontroller-methods-get_clock) | `func get_clock() -> GFClock:` |
 | 方法 | [`start_seconds`](#member-gftimeoutcontroller-methods-start_seconds) | `func start_seconds( seconds: float, tree: SceneTree = null, reason: StringName = DEFAULT_TIMEOUT_REASON, metadata: Dictionary = {} ) -> GFCancellationToken:` |
 | 方法 | [`stop`](#member-gftimeoutcontroller-methods-stop) | `func stop() -> void:` |
 | 方法 | [`reset`](#member-gftimeoutcontroller-methods-reset) | `func reset() -> GFCancellationToken:` |
@@ -125,10 +127,16 @@ var ignore_time_scale: bool = false
 - 首次版本：`7.0.0`
 
 ```gdscript
-func _init() -> void:
+func _init(clock: GFClock = null) -> void:
 ```
 
 创建超时控制器。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `clock` | 可选单调时钟；为空时使用系统时钟。 |
 
 <a id="member-gftimeoutcontroller-methods-get_token"></a>
 
@@ -144,6 +152,42 @@ func get_token() -> GFCancellationToken:
 获取当前取消 token。
 
 返回：当前超时控制器持有的 token。
+
+<a id="member-gftimeoutcontroller-methods-set_clock"></a>
+
+### `set_clock`
+
+- API：`public`
+- 首次版本：`9.0.0`
+
+```gdscript
+func set_clock(clock: GFClock) -> bool:
+```
+
+替换耗时统计使用的单调时钟。 活动超时计划期间禁止替换，避免同一次统计跨越不同时间域。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `clock` | 新单调时钟。 |
+
+返回：时钟合法且当前无活动计划时返回 true。
+
+<a id="member-gftimeoutcontroller-methods-get_clock"></a>
+
+### `get_clock`
+
+- API：`public`
+- 首次版本：`9.0.0`
+
+```gdscript
+func get_clock() -> GFClock:
+```
+
+获取耗时统计使用的时钟。
+
+返回：当前时钟。
 
 <a id="member-gftimeoutcontroller-methods-start_seconds"></a>
 

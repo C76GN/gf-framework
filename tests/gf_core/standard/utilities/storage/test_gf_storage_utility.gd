@@ -93,14 +93,14 @@ func test_encryption() -> void:
 	var raw_content: String = FileAccess.get_file_as_string(_storage._get_full_path("test_encryption.json"))
 	assert_false(raw_content.contains("confidential_data"), "开启混淆后，文件内容不应包含明文。")
 
-	var loaded: Dictionary = _storage.load_data("test_encryption.json")
+	var loaded: Dictionary = _load_payload("test_encryption.json")
 	assert_eq(GFVariantData.get_option_string(loaded, "secret"), "confidential_data", "读取时应正确解码并恢复原始内容。")
 
 
-func test_legacy_methods() -> void:
+func test_pure_data_methods() -> void:
 	_storage.encrypt_key = 0
 	var _save_data_result_152: Variant = _storage.save_data("test_legacy.json", {"old": "data"})
-	var data: Dictionary = _storage.load_data("test_legacy.json")
+	var data: Dictionary = _load_payload("test_legacy.json")
 	assert_eq(GFVariantData.get_option_string(data, "old"), "data", "旧版纯数据 API 仍应正常读写。")
 
 
@@ -108,12 +108,12 @@ func test_pure_data_api_rejects_empty_file_name() -> void:
 	_storage.encrypt_key = 0
 
 	assert_eq(_storage.save_data("", { "value": 1 }), ERR_INVALID_PARAMETER, "空文件名不应被保存。")
-	assert_true(_storage.load_data("").is_empty(), "空文件名读取应返回空字典。")
-	assert_false(GFVariantData.get_option_bool(_storage.load_data_result(""), "ok"), "空文件名结果读取应标记失败。")
+	var read_result: GFStorageReadResult = _storage.load_data("")
+	assert_false(read_result.ok, "空文件名结果读取应标记失败。")
 	assert_false(FileAccess.file_exists(_storage._get_full_path("_invalid_storage_file")), "空文件名不应写入兜底文件。")
-	assert_false(GFVariantData.get_option_bool(_storage.last_load_result, "ok"), "空文件名读取结果应标记失败。")
+	assert_not_null(_storage.last_load_result, "失败读取也应留下结构化结果。")
+	assert_false(_storage.last_load_result.ok, "空文件名读取结果应标记失败。")
 	assert_push_error("[GFStorageUtility] save_data 失败：file_name 为空。")
-	assert_push_error("[GFStorageUtility] load_data 失败：file_name 为空。")
 	assert_push_error("[GFStorageUtility] load_data 失败：file_name 为空。")
 
 
@@ -127,7 +127,8 @@ func test_async_pure_data_api_rejects_empty_file_name_with_failure_signals() -> 
 	assert_eq(load_error, ERR_INVALID_PARAMETER, "空文件名异步读取应立即失败。")
 	assert_signal_emitted_with_parameters(_storage, "save_completed", ["", ERR_INVALID_PARAMETER])
 	assert_signal_emitted(_storage, "load_completed", "空文件名异步读取应发出失败完成信号。")
-	assert_false(GFVariantData.get_option_bool(_storage.last_load_result, "ok"), "空文件名异步读取结果应标记失败。")
+	assert_not_null(_storage.last_load_result, "异步失败应保存结构化结果。")
+	assert_false(_storage.last_load_result.ok, "空文件名异步读取结果应标记失败。")
 	assert_push_error("[GFStorageUtility] save_data_async 失败：file_name 为空。")
 	assert_push_error("[GFStorageUtility] load_data_async 失败：file_name 为空。")
 
@@ -141,15 +142,15 @@ func test_async_save_and_load_data_emit_completion_signals() -> void:
 
 	assert_eq(save_error, OK, "异步保存应成功启动。")
 	assert_signal_emitted(_storage, "save_completed", "异步保存完成时应发出 save_completed。")
-	assert_eq(GFVariantData.get_option_int(_storage.load_data("test_async.json"), "coins"), 123, "异步保存后的数据应可被同步读取。")
+	assert_eq(GFVariantData.get_option_int(_load_payload("test_async.json"), "coins"), 123, "异步保存后的数据应可被同步读取。")
 
 	var load_error: Error = _storage.load_data_async("test_async.json")
 	await _pump_storage_async_tasks()
-	var last_data: Dictionary = GFVariantData.get_option_dictionary(_storage.last_load_result, "data")
+	var last_data: Dictionary = _storage.last_load_result.payload
 
 	assert_eq(load_error, OK, "异步读取应成功启动。")
 	assert_signal_emitted(_storage, "load_completed", "异步读取完成时应发出 load_completed。")
-	assert_true(GFVariantData.get_option_bool(_storage.last_load_result, "ok"), "异步读取结果应标记成功。")
+	assert_true(_storage.last_load_result.ok, "异步读取结果应标记成功。")
 	assert_eq(GFVariantData.get_option_int(last_data, "coins"), 123, "异步读取应恢复保存的数据。")
 
 
@@ -159,7 +160,7 @@ func test_save_data_creates_nested_directories() -> void:
 
 	assert_eq(err, OK, "嵌套相对路径应自动创建目录并写入。")
 	assert_true(FileAccess.file_exists(_storage._get_full_path("nested/test_nested.json")), "嵌套路径文件应存在。")
-	assert_eq(GFVariantData.get_option_int(_storage.load_data("nested/test_nested.json"), "value"), 7, "嵌套路径数据应可读取。")
+	assert_eq(GFVariantData.get_option_int(_load_payload("nested/test_nested.json"), "value"), 7, "嵌套路径数据应可读取。")
 
 
 func test_save_data_group_commits_multiple_files_together() -> void:
@@ -171,8 +172,8 @@ func test_save_data_group_commits_multiple_files_together() -> void:
 	})
 
 	assert_eq(err, OK, "多文件事务保存应成功。")
-	assert_eq(GFVariantData.get_option_int(_storage.load_data("group/data.json"), "hp"), 10, "数据文件应写入。")
-	assert_eq(GFVariantData.get_option_string(_storage.load_data("group/meta.json"), "display_name"), "A", "元数据文件应写入。")
+	assert_eq(GFVariantData.get_option_int(_load_payload("group/data.json"), "hp"), 10, "数据文件应写入。")
+	assert_eq(GFVariantData.get_option_string(_load_payload("group/meta.json"), "display_name"), "A", "元数据文件应写入。")
 
 
 func test_save_data_group_rejects_unsafe_paths() -> void:
@@ -235,7 +236,7 @@ func test_async_saves_to_same_file_are_serialized() -> void:
 
 	await _pump_storage_async_tasks()
 
-	assert_eq(GFVariantData.get_option_int(_storage.load_data("queued_async.json"), "value"), 3, "同文件异步保存应按入队顺序串行，最终保留最后一次数据。")
+	assert_eq(GFVariantData.get_option_int(_load_payload("queued_async.json"), "value"), 3, "同文件异步保存应按入队顺序串行，最终保留最后一次数据。")
 
 
 func test_sync_save_waits_for_pending_same_file_async_tasks() -> void:
@@ -250,7 +251,7 @@ func test_sync_save_waits_for_pending_same_file_async_tasks() -> void:
 	assert_eq(save_error, OK, "同步保存应等待同文件异步任务收敛后再写入。")
 	assert_true(_storage._async_tasks.is_empty(), "同步保存后不应残留同文件运行中任务。")
 	assert_true(_storage._async_queue.is_empty(), "同步保存后不应残留同文件排队任务。")
-	assert_eq(GFVariantData.get_option_int(_storage.load_data("queued_async.json"), "value"), 3, "同步保存应成为最终文件内容。")
+	assert_eq(GFVariantData.get_option_int(_load_payload("queued_async.json"), "value"), 3, "同步保存应成为最终文件内容。")
 
 
 func test_dispose_notifies_queued_async_tasks_as_failed() -> void:
@@ -276,7 +277,7 @@ func test_dispose_notifies_queued_async_tasks_as_failed() -> void:
 
 func test_dispose_clears_transient_state_and_releases_helpers() -> void:
 	_storage.encrypt_key = 0
-	_storage.last_load_result = { "ok": true }
+	_storage.last_load_result = GFStorageReadResult.new().configure_success({ "ok": true })
 	assert_true(_storage.register_migration(1, 2, func(data: Dictionary, _from_version: int, _to_version: int) -> Dictionary:
 		return data
 	), "应能注册迁移用于验证 dispose 清理。")
@@ -288,7 +289,7 @@ func test_dispose_clears_transient_state_and_releases_helpers() -> void:
 	assert_true(_storage._async_queue.is_empty(), "dispose 后不应残留排队任务。")
 	assert_true(_storage._async_file_locks.is_empty(), "dispose 后不应残留文件锁。")
 	assert_true(_storage._migration_steps.is_empty(), "dispose 后应清理迁移注册表。")
-	assert_true(_storage.last_load_result.is_empty(), "dispose 后应清理最近读取结果。")
+	assert_null(_storage.last_load_result, "dispose 后应清理最近读取结果。")
 	assert_null(_storage._path_policy, "dispose 后应释放路径策略 helper。")
 	assert_null(_storage._file_ops, "dispose 后应释放文件操作 helper。")
 	assert_null(_storage._transaction_manager, "dispose 后应释放事务 helper。")
@@ -411,11 +412,11 @@ func test_delete_file_cleans_transaction_family_and_prevents_recovery() -> void:
 	assert_eq(_storage._write_transaction_markers(transaction_files, true), OK, "应能构造遗留事务标记。")
 
 	var delete_error: Error = _storage.delete_file(file_name)
-	var load_result: Dictionary = _storage.load_data_result(file_name)
+	var load_result: GFStorageReadResult = _storage.load_data(file_name)
 
 	assert_eq(delete_error, OK, "删除应清理正式文件和事务族。")
-	assert_false(GFVariantData.get_option_bool(load_result, "ok"), "删除后不应通过事务恢复读回数据。")
-	assert_eq(GFVariantData.get_option_string(load_result, "error"), "File not found", "删除后读取应稳定报告文件不存在。")
+	assert_false(load_result.ok, "删除后不应通过事务恢复读回数据。")
+	assert_eq(load_result.error, "File not found", "删除后读取应稳定报告文件不存在。")
 	assert_false(FileAccess.file_exists(_storage._get_full_path(file_name)), "正式文件应被删除。")
 	assert_false(FileAccess.file_exists(_storage._get_full_path(_storage._get_temp_filename(file_name))), "临时文件应被删除。")
 	assert_false(FileAccess.file_exists(_storage._get_full_path(_storage._get_backup_filename(file_name))), "备份文件应被删除。")
@@ -451,7 +452,7 @@ func test_transaction_marker_cannot_expand_recovery_beyond_requested_files() -> 
 		"请求范围外的备份文件不得被事务恢复流程消费。"
 	)
 	assert_eq(
-		GFVariantData.get_option_int(_storage.load_data(outsider_file_name), "value"),
+		GFVariantData.get_option_int(_load_payload(outsider_file_name), "value"),
 		1,
 		"marker 不得授权恢复当前请求之外的 file family。"
 	)
@@ -499,8 +500,8 @@ func test_save_data_group_preserves_existing_files_when_member_write_fails() -> 
 	})
 
 	assert_ne(err, OK, "覆盖事务任一成员写失败时应返回错误码。")
-	assert_eq(GFVariantData.get_option_int(_storage.load_data(data_file_name), "hp"), 10, "覆盖失败后应保留旧数据文件。")
-	assert_eq(GFVariantData.get_option_int(_storage.load_data(metadata_file_name), "level"), 1, "覆盖失败后应保留旧元数据文件。")
+	assert_eq(GFVariantData.get_option_int(_load_payload(data_file_name), "hp"), 10, "覆盖失败后应保留旧数据文件。")
+	assert_eq(GFVariantData.get_option_int(_load_payload(metadata_file_name), "level"), 1, "覆盖失败后应保留旧元数据文件。")
 
 
 func test_data_group_transaction_recovery_rolls_back_partial_commit() -> void:
@@ -534,8 +535,8 @@ func test_data_group_transaction_recovery_rolls_back_partial_commit() -> void:
 
 	_storage._recover_transaction_files(file_names)
 
-	assert_eq(GFVariantData.get_option_int(_storage.load_data(data_file_name), "hp"), 10, "未完成事务恢复后应回滚数据文件。")
-	assert_eq(GFVariantData.get_option_int(_storage.load_data(meta_file_name), "level"), 1, "未完成事务恢复后应回滚元数据文件。")
+	assert_eq(GFVariantData.get_option_int(_load_payload(data_file_name), "hp"), 10, "未完成事务恢复后应回滚数据文件。")
+	assert_eq(GFVariantData.get_option_int(_load_payload(meta_file_name), "level"), 1, "未完成事务恢复后应回滚元数据文件。")
 
 
 func test_single_member_load_recovers_entire_partially_committed_group() -> void:
@@ -569,10 +570,10 @@ func test_single_member_load_recovers_entire_partially_committed_group() -> void
 		"应能模拟只写完一个 committed marker。"
 	)
 
-	var loaded_data: Dictionary = _storage.load_data(data_file_name)
+	var loaded_data: Dictionary = _load_payload(data_file_name)
 
 	assert_eq(GFVariantData.get_option_int(loaded_data, "hp"), 10, "读取任一成员都应把整个未完整提交事务回滚到旧代次。")
-	assert_eq(GFVariantData.get_option_int(_storage.load_data(meta_file_name), "level"), 1, "同组其它成员不得保留新代次。")
+	assert_eq(GFVariantData.get_option_int(_load_payload(meta_file_name), "level"), 1, "同组其它成员不得保留新代次。")
 	for file_name: String in file_names:
 		assert_false(
 			FileAccess.file_exists(_storage._get_full_path(_storage._get_transaction_filename(file_name))),
@@ -586,7 +587,7 @@ func test_load_data_restores_backup_when_primary_file_is_missing() -> void:
 	var backup_file_name: String = _storage._get_backup_filename(file_name)
 	assert_eq(_storage._write_json(backup_file_name, {"hp": 77}), OK, "应能预先写入备份文件。")
 
-	var loaded: Dictionary = _storage.load_data(file_name)
+	var loaded: Dictionary = _load_payload(file_name)
 	var final_path: String = _storage._get_full_path(file_name)
 	var backup_path: String = _storage._get_full_path(backup_file_name)
 
@@ -601,7 +602,7 @@ func test_load_data_promotes_temp_file_when_no_committed_file_exists() -> void:
 	var temp_file_name: String = _storage._get_temp_filename(file_name)
 	assert_eq(_storage._write_json(temp_file_name, {"hp": 88}), OK, "应能预先写入临时文件。")
 
-	var loaded: Dictionary = _storage.load_data(file_name)
+	var loaded: Dictionary = _load_payload(file_name)
 	var final_path: String = _storage._get_full_path(file_name)
 	var temp_path: String = _storage._get_full_path(temp_file_name)
 
@@ -617,7 +618,7 @@ func test_load_data_discards_stale_temp_when_primary_file_already_exists() -> vo
 	assert_eq(_storage._write_json(file_name, {"hp": 11}), OK, "应能预先写入主文件。")
 	assert_eq(_storage._write_json(temp_file_name, {"hp": 99}), OK, "应能预先写入悬挂临时文件。")
 
-	var loaded: Dictionary = _storage.load_data(file_name)
+	var loaded: Dictionary = _load_payload(file_name)
 	var temp_path: String = _storage._get_full_path(temp_file_name)
 
 	assert_eq(GFVariantData.get_option_int(loaded, "hp"), 11, "已有主文件时，应优先保留已提交数据。")
@@ -632,7 +633,7 @@ func test_transaction_commit_deduplicates_file_names() -> void:
 	var error: Error = _storage._commit_transaction([file_name, file_name])
 
 	assert_eq(error, OK, "事务提交应忽略重复文件名。")
-	assert_eq(GFVariantData.get_option_int(_storage.load_data(file_name), "hp"), 42, "去重后的事务提交应产生正式文件。")
+	assert_eq(GFVariantData.get_option_int(_load_payload(file_name), "hp"), 42, "去重后的事务提交应产生正式文件。")
 	assert_false(FileAccess.file_exists(_storage._get_full_path(_storage._get_transaction_filename(file_name))), "提交完成后不应残留事务标记。")
 
 
@@ -649,34 +650,37 @@ func test_integrity_checksum_rejects_tampered_data() -> void:
 	var tampered: Dictionary = GFVariantData.get_option_dictionary({
 		"payload": JSON.parse_string(content),
 	}, "payload")
-	tampered["coins"] = 99
+	var tampered_payload: Dictionary = GFVariantData.get_option_dictionary(tampered, GFStorageCodec.PAYLOAD_KEY)
+	tampered_payload["coins"] = 99
+	tampered[GFStorageCodec.PAYLOAD_KEY] = tampered_payload
 	var file: FileAccess = FileAccess.open(path, FileAccess.WRITE)
 	var _store_string_result_473: Variant = file.store_string(JSON.stringify(tampered))
 	file.close()
 	watch_signals(_storage)
 
-	var loaded: Dictionary = _storage.load_data(file_name)
+	var loaded: GFStorageReadResult = _storage.load_data(file_name)
 
-	assert_true(loaded.is_empty(), "严格校验失败时不应返回被篡改数据。")
+	assert_false(loaded.ok, "严格校验失败时不应返回被篡改数据。")
+	assert_true(loaded.payload.is_empty(), "失败结果不得暴露可误用的被篡改数据。")
 	assert_signal_emitted(_storage, "data_integrity_failed", "校验失败应发出信号。")
 	assert_push_warning("[GFStorageUtility] 读取数据失败：user://test_saves/test_integrity.json，原因：Integrity checksum mismatch")
 
 
-func test_checksum_without_storage_metadata_does_not_write_version() -> void:
+func test_checksum_without_diagnostics_metadata_still_writes_data_version() -> void:
 	_storage.encrypt_key = 0
 	_storage.include_storage_metadata = false
 	_storage.use_integrity_checksum = true
 	var file_name: String = "test_checksum_only.json"
 
 	assert_eq(_storage.save_data(file_name, { "coins": 10 }), OK, "应能保存只带 checksum 的数据。")
-	var result: Dictionary = _storage.load_data_result(file_name)
-	var loaded: Dictionary = GFVariantData.get_option_dictionary(result, "data")
-	var metadata: Dictionary = GFVariantData.get_option_dictionary(result, "metadata")
+	var result: GFStorageReadResult = _storage.load_data(file_name)
+	var loaded: Dictionary = result.payload
+	var metadata: Dictionary = result.metadata
 
-	assert_true(GFVariantData.get_option_bool(result, "ok"), "只启用 checksum 时读取结果应成功。")
+	assert_true(result.ok, "只启用 checksum 时读取结果应成功。")
 	assert_eq(GFVariantData.get_option_int(loaded, "coins"), 10, "只启用 checksum 时应能正常读取。")
-	assert_true(metadata.has("checksum"), "只启用 checksum 时仍应写入 checksum。")
-	assert_false(metadata.has("version"), "未启用 include_storage_metadata 时不应写入 version。")
+	assert_eq(result.integrity_status, GFStorageReadResult.IntegrityStatus.VALID, "完整性状态应与 metadata 分离。")
+	assert_eq(GFVariantData.get_option_int(metadata, GFStorageCodec.VERSION_KEY), 1, "数据版本必须始终写入。")
 	assert_false(metadata.has("timestamp"), "未启用 include_storage_metadata 时不应写入 timestamp。")
 
 
@@ -691,9 +695,10 @@ func test_checksum_enabled_rejects_missing_checksum_file_by_default() -> void:
 	file.close()
 	watch_signals(_storage)
 
-	var loaded: Dictionary = _storage.load_data(file_name)
+	var loaded: GFStorageReadResult = _storage.load_data(file_name)
 
-	assert_true(loaded.is_empty(), "要求 checksum 时，缺少 checksum 的存档不应返回数据。")
+	assert_false(loaded.ok, "要求 checksum 时，缺少 checksum 的存档不应返回数据。")
+	assert_eq(loaded.integrity_status, GFStorageReadResult.IntegrityStatus.MISSING, "失败结果应区分缺少 checksum。")
 	assert_signal_emitted(_storage, "data_integrity_failed", "缺少 checksum 应发出完整性失败信号。")
 	assert_push_warning("[GFStorageUtility] 读取数据失败：user://test_saves/test_missing_checksum.json，原因：Integrity checksum missing")
 
@@ -710,56 +715,52 @@ func test_missing_checksum_file_can_be_allowed_for_migration() -> void:
 	file.close()
 	watch_signals(_storage)
 
-	var loaded: Dictionary = _storage.load_data(file_name)
+	var loaded: GFStorageReadResult = _storage.load_data(file_name)
 
-	assert_eq(GFVariantData.get_option_int(loaded, "coins"), 10, "迁移旧存档时可显式允许缺少 checksum 的文件。")
+	assert_true(loaded.ok, "可显式允许缺少 checksum 的文档。")
+	assert_eq(GFVariantData.get_option_int(loaded.payload, "coins"), 10, "允许缺少 checksum 时应返回业务 payload。")
 	assert_signal_not_emitted(_storage, "data_integrity_failed", "显式允许缺少 checksum 时不应发出完整性失败信号。")
 
 
-func test_legacy_plain_json_fallback_is_disabled_by_default() -> void:
+func test_plain_json_without_storage_document_is_rejected() -> void:
+	_storage.encrypt_key = 0
 	var file_name: String = "test_plain_json_strict.json"
-	assert_eq(_storage._write_plain_json(file_name, { "coins": 10 }), OK, "应能构造旧版纯 JSON 文件。")
+	assert_eq(_storage._write_plain_json(file_name, { "coins": 10 }), OK, "应能构造非 GF 文档 JSON 文件。")
 	watch_signals(_storage)
 
-	var loaded: Dictionary = _storage.load_data(file_name)
+	var loaded: GFStorageReadResult = _storage.load_data(file_name)
 
-	assert_true(loaded.is_empty(), "配置混淆密钥后，2.0 默认不应静默读取旧版纯 JSON 文件。")
-	assert_signal_emitted(_storage, "data_integrity_failed", "旧版纯 JSON 回退关闭时应发出读取失败信号。")
-	assert_push_error("[GFStorageUtility] 读取数据失败：%s，原因：Payload is empty" % _storage._get_full_path(file_name))
+	assert_false(loaded.ok, "运行时存储工具不应读取没有严格 Envelope 的 JSON。")
+	assert_signal_emitted(_storage, "data_integrity_failed", "非法存储文档应发出读取失败信号。")
+	assert_push_error("[GFStorageUtility] 读取数据失败：%s，原因：Storage document envelope missing or malformed" % _storage._get_full_path(file_name))
 
 
-func test_legacy_plain_json_fallback_can_be_enabled_for_migration() -> void:
-	_storage.allow_legacy_plain_json_fallback = true
+func test_removed_legacy_option_is_not_part_of_storage_utility() -> void:
 	var file_name: String = "test_plain_json_migration.json"
-	assert_eq(_storage._write_plain_json(file_name, { "coins": 10 }), OK, "应能构造旧版纯 JSON 文件。")
-	watch_signals(_storage)
-
-	var loaded: Dictionary = _storage.load_data(file_name)
-
-	assert_eq(GFVariantData.get_option_int(loaded, "coins"), 10, "迁移旧存档时可显式允许旧版纯 JSON 文件。")
-	assert_signal_not_emitted(_storage, "data_integrity_failed", "显式允许旧版纯 JSON 回退时不应发出读取失败信号。")
+	assert_false(_storage.get_property_list().any(func(property: Dictionary) -> bool:
+		return GFVariantData.get_option_string(property, "name") == "allow_legacy_plain_json_fallback"
+	), "运行时 Utility 不应保留 legacy fallback 开关。")
+	assert_false(FileAccess.file_exists(_storage._get_full_path(file_name)), "迁移测试不得创建运行时兼容文件。")
 
 
 func test_json_number_normalization_is_disabled_by_default() -> void:
 	_storage.encrypt_key = 0
 	var file_name: String = "test_json_number_preserve.json"
-	var file: FileAccess = FileAccess.open(_storage._get_full_path(file_name), FileAccess.WRITE)
-	var _store_string_result_566: Variant = file.store_string("{\"whole\": 1.0}")
-	file.close()
+	assert_eq(_storage.save_data(file_name, { "whole": 1.0 }), OK, "应能保存带 float 的严格存储文档。")
 
-	var preserved: Dictionary = _storage.load_data(file_name)
+	var preserved: Dictionary = _load_payload(file_name)
 	_storage.normalize_json_numbers = true
-	var normalized: Dictionary = _storage.load_data(file_name)
+	var normalized: Dictionary = _load_payload(file_name)
 
 	assert_eq(typeof(GFVariantData.get_option_value(preserved, "whole")), TYPE_FLOAT, "2.0 默认应保留 JSON float 类型。")
 	assert_eq(typeof(GFVariantData.get_option_value(normalized, "whole")), TYPE_INT, "迁移旧整数语义时可显式开启数字归一化。")
 
 
-func test_load_data_result_reports_missing_file() -> void:
-	var result: Dictionary = _storage.load_data_result("missing_result.json")
+func test_load_data_reports_missing_file() -> void:
+	var result: GFStorageReadResult = _storage.load_data("missing_result.json")
 
-	assert_false(GFVariantData.get_option_bool(result, "ok"), "缺失文件的结构化读取结果应标记失败。")
-	assert_eq(GFVariantData.get_option_string(result, "error"), "File not found", "缺失文件应返回明确错误。")
+	assert_false(result.ok, "缺失文件的结构化读取结果应标记失败。")
+	assert_eq(result.error, "File not found", "缺失文件应返回明确错误。")
 
 
 func test_wait_for_async_tasks_drains_queued_tasks() -> void:
@@ -773,7 +774,7 @@ func test_wait_for_async_tasks_drains_queued_tasks() -> void:
 
 	assert_true(_storage._async_tasks.is_empty(), "等待后不应残留运行中任务。")
 	assert_true(_storage._async_queue.is_empty(), "等待后不应残留排队任务。")
-	assert_eq(GFVariantData.get_option_int(_storage.load_data("test_wait_async.json"), "value"), 2, "等待应处理完整队列并保留最后一次写入。")
+	assert_eq(GFVariantData.get_option_int(_load_payload("test_wait_async.json"), "value"), 2, "等待应处理完整队列并保留最后一次写入。")
 
 
 func test_load_data_applies_version_defaults() -> void:
@@ -786,23 +787,23 @@ func test_load_data_applies_version_defaults() -> void:
 		"unlocked": true,
 	}
 	var file_name: String = "test_legacy_version.json"
-	var legacy_data: Dictionary = {
-		"_meta": {
-			"version": 1,
-		},
-		"stats": {},
-	}
+	var legacy_data: Dictionary = { "stats": {} }
 	var codec: GFStorageCodec = GFStorageCodec.new()
 	var file: FileAccess = FileAccess.open(_storage._get_full_path(file_name), FileAccess.WRITE)
-	var _store_buffer_result_626: Variant = file.store_buffer(codec.encode(legacy_data, { "obfuscation_key": 0 }))
+	var _store_buffer_result_626: Variant = file.store_buffer(codec.encode(legacy_data, {
+		"obfuscation_key": 0,
+		"version": 1,
+	}))
 	file.close()
 	watch_signals(_storage)
 
-	var loaded: Dictionary = _storage.load_data(file_name)
-	var metadata: Dictionary = GFVariantData.get_option_dictionary(loaded, "_meta")
+	var read_result: GFStorageReadResult = _storage.load_data(file_name)
+	var loaded: Dictionary = read_result.payload
+	var metadata: Dictionary = read_result.metadata
 	var stats: Dictionary = GFVariantData.get_option_dictionary(loaded, "stats")
 
-	assert_eq(GFVariantData.get_option_int(metadata, "version"), 2, "迁移后版本应更新为当前 save_version。")
+	assert_true(read_result.migrated, "旧数据版本应被显式标记为已迁移。")
+	assert_eq(GFVariantData.get_option_int(metadata, GFStorageCodec.VERSION_KEY), 2, "迁移后版本应更新为当前 save_version。")
 	assert_eq(GFVariantData.get_option_int(stats, "hp"), 100, "迁移时应深合并新增默认字段。")
 	assert_eq(GFVariantData.get_option_bool(loaded, "unlocked"), true, "迁移时应补齐顶层新增默认字段。")
 	assert_signal_emitted(_storage, "data_migrated", "旧版本数据迁移后应发出信号。")
@@ -822,21 +823,20 @@ func test_registered_migrations_run_as_version_chain() -> void:
 	var file_name: String = "test_registered_migration.json"
 	var codec: GFStorageCodec = GFStorageCodec.new()
 	var file: FileAccess = FileAccess.open(_storage._get_full_path(file_name), FileAccess.WRITE)
-	var _store_buffer_result_654: Variant = file.store_buffer(codec.encode({
-		"_meta": {
-			"version": 1,
-		},
-		"value": 10,
-	}, { "obfuscation_key": 0 }))
+	var _store_buffer_result_654: Variant = file.store_buffer(codec.encode({ "value": 10 }, {
+		"obfuscation_key": 0,
+		"version": 1,
+	}))
 	file.close()
 
-	var loaded: Dictionary = _storage.load_data(file_name)
+	var read_result: GFStorageReadResult = _storage.load_data(file_name)
+	var loaded: Dictionary = read_result.payload
 	var migrations: Array[Dictionary] = _storage.get_registered_migrations()
-	var metadata: Dictionary = GFVariantData.get_option_dictionary(loaded, "_meta")
+	var metadata: Dictionary = read_result.metadata
 
 	assert_eq(GFVariantData.get_option_bool(loaded, "step_one"), true, "第一段迁移应执行。")
 	assert_eq(GFVariantData.get_option_bool(loaded, "step_two"), true, "第二段迁移应执行。")
-	assert_eq(GFVariantData.get_option_int(metadata, "version"), 3, "迁移后版本应更新为当前版本。")
+	assert_eq(GFVariantData.get_option_int(metadata, GFStorageCodec.VERSION_KEY), 3, "迁移后版本应更新为当前版本。")
 	assert_eq(migrations.size(), 2, "迁移注册表应可查询。")
 
 
@@ -857,12 +857,13 @@ func test_migration_resolver_selects_reachable_shortest_path() -> void:
 	), "应能注册目标迁移。")
 	var file_name: String = "test_branching_migration.json"
 	var file: FileAccess = FileAccess.open(_storage._get_full_path(file_name), FileAccess.WRITE)
-	var _branching_store_result: Variant = file.store_buffer(GFStorageCodec.new().encode({
-		"_meta": { "version": 1 },
-	}, { "obfuscation_key": 0 }))
+	var _branching_store_result: Variant = file.store_buffer(GFStorageCodec.new().encode({}, {
+		"obfuscation_key": 0,
+		"version": 1,
+	}))
 	file.close()
 
-	var loaded: Dictionary = _storage.load_data(file_name)
+	var loaded: Dictionary = _load_payload(file_name)
 
 	assert_true(GFVariantData.get_option_bool(loaded, "reachable_branch"), "迁移解析器应避开较小但断链的目标。")
 	assert_true(GFVariantData.get_option_bool(loaded, "target_reached"), "迁移解析器应抵达目标版本。")
@@ -874,24 +875,25 @@ func test_future_storage_version_is_rejected_by_default() -> void:
 	_storage.save_version = 2
 	var file_name: String = "test_future_version.json"
 	var file: FileAccess = FileAccess.open(_storage._get_full_path(file_name), FileAccess.WRITE)
-	var _future_store_result: Variant = file.store_buffer(GFStorageCodec.new().encode({
-		"_meta": { "version": 5 },
-		"future_only": true,
-	}, { "obfuscation_key": 0 }))
+	var _future_store_result: Variant = file.store_buffer(GFStorageCodec.new().encode({ "future_only": true }, {
+		"obfuscation_key": 0,
+		"version": 5,
+	}))
 	file.close()
 	watch_signals(_storage)
 
-	var loaded: Dictionary = _storage.load_data(file_name)
+	var loaded: GFStorageReadResult = _storage.load_data(file_name)
 
-	assert_true(loaded.is_empty(), "未来版本数据应 fail closed，避免被当前 schema 降级保存。")
-	assert_false(GFVariantData.get_option_bool(_storage.last_load_result, "ok"), "未来版本应标记读取失败。")
+	assert_false(loaded.ok, "未来版本数据应 fail closed，避免被当前 schema 降级保存。")
+	assert_true(loaded.payload.is_empty(), "未来版本失败结果不得暴露可误用 payload。")
+	assert_false(_storage.last_load_result.ok, "未来版本应标记读取失败。")
 	assert_eq(
-		GFVariantData.get_option_string(_storage.last_load_result, "error"),
+		_storage.last_load_result.error,
 		"Unsupported future storage version: 5 > 2",
 		"未来版本失败原因应稳定。"
 	)
 	assert_signal_emitted(_storage, "data_integrity_failed", "未来版本拒绝应发出数据失败信号。")
-	assert_push_error("[GFStorageUtility] 读取失败：Unsupported future storage version: 5 > 2")
+	assert_push_error("[GFStorageUtility] 读取数据失败：user://test_saves/test_future_version.json，原因：Unsupported future storage version: 5 > 2")
 
 
 func test_missing_registered_migration_chain_fails_without_marking_target_version() -> void:
@@ -904,24 +906,23 @@ func test_missing_registered_migration_chain_fails_without_marking_target_versio
 	var file_name: String = "test_missing_migration_chain.json"
 	var codec: GFStorageCodec = GFStorageCodec.new()
 	var file: FileAccess = FileAccess.open(_storage._get_full_path(file_name), FileAccess.WRITE)
-	var _store_buffer_result_682: Variant = file.store_buffer(codec.encode({
-		"_meta": {
-			"version": 1,
-		},
-		"value": 10,
-	}, { "obfuscation_key": 0 }))
+	var _store_buffer_result_682: Variant = file.store_buffer(codec.encode({ "value": 10 }, {
+		"obfuscation_key": 0,
+		"version": 1,
+	}))
 	file.close()
 	watch_signals(_storage)
 
-	var loaded: Dictionary = _storage.load_data(file_name)
+	var loaded: GFStorageReadResult = _storage.load_data(file_name)
 
-	assert_true(loaded.is_empty(), "缺失迁移链时不应返回伪迁移数据。")
-	assert_false(GFVariantData.get_option_bool(_storage.last_load_result, "ok"), "缺失迁移链应标记读取失败。")
-	assert_eq(GFVariantData.get_option_string(_storage.last_load_result, "error"), "Missing migration chain: 1 -> 3", "失败原因应指出缺失链路。")
+	assert_false(loaded.ok, "缺失迁移链时不应返回伪迁移数据。")
+	assert_true(loaded.payload.is_empty(), "缺失迁移链失败结果不得暴露伪迁移数据。")
+	assert_false(_storage.last_load_result.ok, "缺失迁移链应标记读取失败。")
+	assert_eq(_storage.last_load_result.error, "Missing migration chain: 1 -> 3", "失败原因应指出缺失链路。")
 	assert_signal_emitted(_storage, "data_integrity_failed", "缺失迁移链应发出数据失败信号。")
 	assert_signal_not_emitted(_storage, "data_migrated", "缺失迁移链不应发出迁移成功信号。")
 	assert_push_warning("[GFStorageUtility] 未找到完整迁移链：1 -> 3。")
-	assert_push_error("[GFStorageUtility] 迁移失败：Missing migration chain: 1 -> 3")
+	assert_push_error("[GFStorageUtility] 读取数据失败：user://test_saves/test_missing_migration_chain.json，原因：Missing migration chain: 1 -> 3")
 
 
 func test_strict_schema_migrations_rejects_version_bump_without_registered_steps() -> void:
@@ -931,23 +932,22 @@ func test_strict_schema_migrations_rejects_version_bump_without_registered_steps
 	var file_name: String = "test_strict_migration_chain.json"
 	var codec: GFStorageCodec = GFStorageCodec.new()
 	var file: FileAccess = FileAccess.open(_storage._get_full_path(file_name), FileAccess.WRITE)
-	var _store_buffer_result_709: Variant = file.store_buffer(codec.encode({
-		"_meta": {
-			"version": 1,
-		},
-		"value": 10,
-	}, { "obfuscation_key": 0 }))
+	var _store_buffer_result_709: Variant = file.store_buffer(codec.encode({ "value": 10 }, {
+		"obfuscation_key": 0,
+		"version": 1,
+	}))
 	file.close()
 	watch_signals(_storage)
 
-	var loaded: Dictionary = _storage.load_data(file_name)
+	var loaded: GFStorageReadResult = _storage.load_data(file_name)
 
-	assert_true(loaded.is_empty(), "严格迁移模式下缺少迁移链时不应静默升级版本。")
-	assert_false(GFVariantData.get_option_bool(_storage.last_load_result, "ok"), "严格迁移失败应标记读取失败。")
-	assert_eq(GFVariantData.get_option_string(_storage.last_load_result, "error"), "Missing migration chain: 1 -> 2", "失败原因应指出缺失链路。")
+	assert_false(loaded.ok, "严格迁移模式下缺少迁移链时不应静默升级版本。")
+	assert_true(loaded.payload.is_empty(), "严格迁移失败不得暴露未迁移数据。")
+	assert_false(_storage.last_load_result.ok, "严格迁移失败应标记读取失败。")
+	assert_eq(_storage.last_load_result.error, "Missing migration chain: 1 -> 2", "失败原因应指出缺失链路。")
 	assert_signal_emitted(_storage, "data_integrity_failed", "严格迁移失败应发出数据失败信号。")
 	assert_signal_not_emitted(_storage, "data_migrated", "严格迁移失败不应发出迁移成功信号。")
-	assert_push_error("[GFStorageUtility] 迁移失败：Missing migration chain: 1 -> 2")
+	assert_push_error("[GFStorageUtility] 读取数据失败：user://test_saves/test_strict_migration_chain.json，原因：Missing migration chain: 1 -> 2")
 
 
 func test_storage_backend_default_contract_and_conflict_report_roundtrip() -> void:
@@ -980,6 +980,14 @@ func test_storage_backend_default_contract_and_conflict_report_roundtrip() -> vo
 		"冲突报告应提供独立 JSON-safe 投影，不改变 native to_dict() 契约。"
 	)
 	assert_ne(JSON.stringify(safe_report), "", "JSON-safe 冲突报告应可直接序列化。")
+
+
+func _load_payload(file_name: String) -> Dictionary:
+	var result: GFStorageReadResult = _storage.load_data(file_name)
+	assert_true(result.ok, "测试辅助读取应成功：%s；%s" % [file_name, result.error])
+	if not result.ok:
+		return {}
+	return result.payload.duplicate(true)
 
 
 func _pump_storage_async_tasks() -> void:

@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：工具 API (`tool_api`)
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 对话 JSON 文本编译器。 在制作期、编辑器期或 CI 中把严格、可审计的 JSON 文本编译为 GFDialogueResource。 编译器只解释对话资源已有字段，不定义角色、任务、本地化、UI 或项目状态语义。
 
@@ -27,7 +27,7 @@
 ### `SOURCE_FORMAT`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 ```gdscript
 const SOURCE_FORMAT: String = "gf.dialogue"
@@ -40,7 +40,7 @@ const SOURCE_FORMAT: String = "gf.dialogue"
 ### `SOURCE_SCHEMA_VERSION`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 ```gdscript
 const SOURCE_SCHEMA_VERSION: int = 1
@@ -55,7 +55,7 @@ const SOURCE_SCHEMA_VERSION: int = 1
 ### `compile_text`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 ```gdscript
 func compile_text(text: String, options: Dictionary = {}) -> Dictionary:
@@ -82,7 +82,7 @@ func compile_text(text: String, options: Dictionary = {}) -> Dictionary:
 ### `compile_source`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 ```gdscript
 func compile_source( source_key: String, loader: GFSourceTextLoader, options: Dictionary = {} ) -> Dictionary:

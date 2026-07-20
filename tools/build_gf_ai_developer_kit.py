@@ -22,6 +22,7 @@ from gdscript_api_parser import ApiDocs, ApiMember, collect_api_scripts, visibil
 ROOT = Path(__file__).resolve().parents[1]
 ADDON_ROOT = ROOT / "addons/gf/tools/ai_developer"
 API_INDEX_PATH = ADDON_ROOT / "knowledge/api_index.json"
+ARTIFACT_POLICY_PATH = ROOT / "addons/gf/kernel/core/project_artifact_policy.json"
 PLUGIN_NAME = "gf-ai-developer"
 ZIP_TIMESTAMP = (1980, 1, 1, 0, 0, 0)
 BLOCKED_PARTS = {"__pycache__", ".git", ".godot"}
@@ -202,6 +203,19 @@ def check_source(rendered_payload: dict[str, Any] | None = None) -> dict[str, An
 			read_strict_json_object(ADDON_ROOT / relative_path)
 		except ValueError as exc:
 			issues.append(f"{relative_path} is invalid UTF-8 JSON: {exc}")
+	try:
+		read_strict_json_object(ARTIFACT_POLICY_PATH)
+		sys.path.insert(0, str(ADDON_ROOT))
+		try:
+			from gf_ai.constants import ARTIFACT_POLICY_PATH as runtime_policy_path, load_artifact_paths
+			if runtime_policy_path.resolve() != ARTIFACT_POLICY_PATH.resolve():
+				issues.append("GF AI runtime does not resolve the canonical project artifact policy.")
+			load_artifact_paths()
+		finally:
+			if sys.path and sys.path[0] == str(ADDON_ROOT):
+				sys.path.pop(0)
+	except (OSError, RuntimeError, ValueError) as exc:
+		issues.append(f"project_artifact_policy.json is invalid: {exc}")
 	issues.extend(validate_contract_template())
 	issues.extend(validate_catalogs())
 	issues.extend(validate_agent_templates())
@@ -349,6 +363,7 @@ def plugin_entries(version: str) -> dict[str, bytes]:
 	entries[".codex-plugin/plugin.json"] = _json_bytes(manifest)
 	entries[".mcp.json"] = _json_bytes(mcp)
 	entries["LICENSE.md"] = _read_owned_source(ROOT / "LICENSE.md", ROOT)
+	entries["project_artifact_policy.json"] = _read_owned_source(ARTIFACT_POLICY_PATH, ROOT)
 	for path in sorted(ADDON_ROOT.rglob("*")):
 		if not path.is_file() or _blocked(path):
 			continue
@@ -393,6 +408,7 @@ def audit_plugin_archive(output: Path, expected_version: str = "") -> dict[str, 
 				".mcp.json",
 				"runtime/gf_ai_project.py",
 				"runtime/gf_ai_mcp_server.py",
+				"project_artifact_policy.json",
 				"skills/gf-project-development/SKILL.md",
 				"knowledge/api_index.json",
 				"schemas/project_contract.schema.json",

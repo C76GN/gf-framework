@@ -16,8 +16,8 @@
 | 类型 | 名称 | 签名 |
 |---|---|---|
 | 枚举 | [`TargetKind`](#member-gfaccessgenerator-enums-targetkind) | `enum TargetKind` |
-| 常量 | [`DEFAULT_OUTPUT_PATH`](#member-gfaccessgenerator-constants-default_output_path) | `const DEFAULT_OUTPUT_PATH: String = "res://gf/generated/gf_access.gd"` |
-| 常量 | [`DEFAULT_PROJECT_OUTPUT_PATH`](#member-gfaccessgenerator-constants-default_project_output_path) | `const DEFAULT_PROJECT_OUTPUT_PATH: String = "res://gf/generated/gf_project_access.gd"` |
+| 常量 | [`DEFAULT_OUTPUT_PATH`](#member-gfaccessgenerator-constants-default_output_path) | `const DEFAULT_OUTPUT_PATH: String = _GF_PROJECT_ARTIFACT_PATHS_SCRIPT.ACCESS_OUTPUT_PATH` |
+| 常量 | [`DEFAULT_PROJECT_OUTPUT_PATH`](#member-gfaccessgenerator-constants-default_project_output_path) | `const DEFAULT_PROJECT_OUTPUT_PATH: String = _GF_PROJECT_ARTIFACT_PATHS_SCRIPT.PROJECT_ACCESS_OUTPUT_PATH` |
 | 方法 | [`generate`](#member-gfaccessgenerator-methods-generate) | `func generate(output_path: String = DEFAULT_OUTPUT_PATH, overwrite_existing: bool = true) -> Error:` |
 | 方法 | [`generate_with_report`](#member-gfaccessgenerator-methods-generate_with_report) | `func generate_with_report(output_path: String = DEFAULT_OUTPUT_PATH, options: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`generate_project_access`](#member-gfaccessgenerator-methods-generate_project_access) | `func generate_project_access(output_path: String = DEFAULT_PROJECT_OUTPUT_PATH, overwrite_existing: bool = true) -> Error:` |
@@ -63,9 +63,10 @@ enum TargetKind {
 ### `DEFAULT_OUTPUT_PATH`
 
 - API：`public`
+- 首次版本：`9.0.0`
 
 ```gdscript
-const DEFAULT_OUTPUT_PATH: String = "res://gf/generated/gf_access.gd"
+const DEFAULT_OUTPUT_PATH: String = _GF_PROJECT_ARTIFACT_PATHS_SCRIPT.ACCESS_OUTPUT_PATH
 ```
 
 默认强类型访问器输出路径。
@@ -75,9 +76,10 @@ const DEFAULT_OUTPUT_PATH: String = "res://gf/generated/gf_access.gd"
 ### `DEFAULT_PROJECT_OUTPUT_PATH`
 
 - API：`public`
+- 首次版本：`9.0.0`
 
 ```gdscript
-const DEFAULT_PROJECT_OUTPUT_PATH: String = "res://gf/generated/gf_project_access.gd"
+const DEFAULT_PROJECT_OUTPUT_PATH: String = _GF_PROJECT_ARTIFACT_PATHS_SCRIPT.PROJECT_ACCESS_OUTPUT_PATH
 ```
 
 默认项目常量访问器输出路径。

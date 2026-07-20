@@ -32,6 +32,7 @@
 | 方法 | [`has_entry`](#member-gfassetcatalog-methods-has_entry) | `func has_entry(asset_id: StringName) -> bool:` |
 | 方法 | [`get_entry`](#member-gfassetcatalog-methods-get_entry) | `func get_entry(asset_id: StringName) -> GFAssetCatalogEntry:` |
 | 方法 | [`get_all_ids`](#member-gfassetcatalog-methods-get_all_ids) | `func get_all_ids() -> PackedStringArray:` |
+| 方法 | [`make_preload_plan`](#member-gfassetcatalog-methods-make_preload_plan) | `func make_preload_plan( asset_ids: PackedStringArray, group_id: StringName, options: Dictionary = {} ) -> GFAssetPreloadPlan:` |
 | 方法 | [`query`](#member-gfassetcatalog-methods-query) | `func query(field_id: StringName, field_value: Variant) -> PackedStringArray:` |
 | 方法 | [`query_many`](#member-gfassetcatalog-methods-query_many) | `func query_many(criteria: Dictionary, match_all: bool = true) -> PackedStringArray:` |
 | 方法 | [`merge_catalog`](#member-gfassetcatalog-methods-merge_catalog) | `func merge_catalog(catalog: GFAssetCatalog, options: Dictionary = {}) -> Dictionary:` |
@@ -310,6 +311,33 @@ func get_all_ids() -> PackedStringArray:
 获取全部有效资产 ID。
 
 返回：排序后的资产 ID 列表。
+
+<a id="member-gfassetcatalog-methods-make_preload_plan"></a>
+
+### `make_preload_plan`
+
+- API：`public`
+- 首次版本：`9.0.0`
+
+```gdscript
+func make_preload_plan( asset_ids: PackedStringArray, group_id: StringName, options: Dictionary = {} ) -> GFAssetPreloadPlan:
+```
+
+从稳定资产 ID 创建预加载计划。 输入会被去重并排序，目录中缺失的 ID 会保留为无效条目，使计划校验 fail-closed，而不是静默缩小调用方请求的资产集合。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `asset_ids` | 要解析的稳定资产 ID。 |
+| `group_id` | 目标资源分组。 |
+| `options` | GFAssetPreloadPlan 配置选项。 |
+
+返回：隔离的预加载计划。
+
+结构：
+
+- `options`: Dictionary with optional `plan_id: StringName`, `pin_cache: bool`, `lane_id: StringName`, `max_concurrent_loads: int`, and `metadata: Dictionary`.
 
 <a id="member-gfassetcatalog-methods-query"></a>
 

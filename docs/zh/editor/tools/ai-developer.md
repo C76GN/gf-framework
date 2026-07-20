@@ -6,8 +6,8 @@ AI Developer Kit 是可选的制作期工具包 `gf.tool.ai_developer`。它让�
 
 直接把整个框架源码交给 AI 临时分析，容易产生三类错误：把过期类名当成当前 API、把项目业务选择误认为框架规范，以及在缺少平台、持久化或网络约束时自行补全假设。套件用四份不同职责的数据避免这些问题：
 
-- `gf_project_contract.json`：由项目维护的意图、模块所有权、约束、未知项和验证命令。
-- `.gf/ai/project_snapshot.json`：工具生成的已安装包、GF/目录版本一致性、package 事实来源、插件状态、有界脚本使用扫描和契约漂移事实；超大项目达到扫描预算时会显式标记截断。
+- `.gf/project_contract.json`：由项目维护并进入版本控制的意图、模块所有权、约束、未知项和验证命令。
+- `.gf/ai/project_snapshot.json`：工具生成的已安装包、GF/目录版本一致性、package 事实来源、插件状态、有界 API 使用与模块依赖扫描，以及契约漂移事实；超大项目达到扫描预算时会显式标记截断。
 - `knowledge/capabilities.json`：按需求搜索的稳定能力目录，不把一个具体类当成架构入口。
 - `knowledge/api_index.json`：从同一 GF 发行版公开 API 生成的精确类、成员、包归属和源码路径索引。
 
@@ -88,6 +88,10 @@ python addons/gf/tools/ai_developer/gf_ai_project.py agent-uninstall --project-r
    python addons/gf/tools/ai_developer/gf_ai_project.py snapshot --project-root .
    ```
 
+快照会把 `architecture.modules[].roots` 编译成长根优先的所有权匹配器，再对 `.gd`、`.gdshader`、`.gdshaderinc`、`.tres` 和 `.tscn` 做有界依赖分析。GDScript 使用词法 token 集合识别唯一 `class_name` 引用和字符串资源路径，不把注释或普通字符串中的标识符误判为类引用；资源文本只分析路径证据。报告中的 `module_dependency_analysis` 包含模块文件计数、跨模块边、有限证据、未归属引用、重复 class、实际循环和完整性状态。
+
+分析结果只有在扫描预算未耗尽、模块根可读、路径安全且 class 身份无歧义时才标记 `complete`。禁止依赖优先于未声明依赖报告；观测到的边、循环或不完整扫描只生成漂移事实，工具不会改写契约中的允许关系。Agent 必须先解决 `forbidden_module_dependency`、`undeclared_module_dependency`、`observed_module_dependency_cycle` 和 `module_dependency_analysis_incomplete`，不能把不完整快照当成“没有依赖”。
+
 API 索引用于准确定位，不替代行为源码、测试和正式文档。涉及副作用、线程、生命周期、失败恢复或持久化兼容时，仍应打开索引返回的源码路径核对。
 
 独立 Kit 的 API 目录与 GF 发行版精确绑定。项目 `addons/gf/plugin.cfg` 版本缺失，或与目录的 `framework_version` 不相等时，能力、Recipe 和 API 查询统一 fail closed；不得用旧目录为新框架生成代码。Capability 与 Recipe 目录受严格 Schema 约束，API 索引还会复核记录计数与内容摘要；任一完整性检查失败时，整份目录都视为无效。
@@ -142,7 +146,7 @@ python addons/gf/tools/ai_developer/gf_ai_project.py feedback-submit --project-r
 
 ## 安全与版本规则
 
-- `gf_project_contract.json` 应进入项目版本控制；`.gf/ai/` 是可重建且可能包含本地诊断摘要的忽略目录。
+- `.gf/project_contract.json` 应进入项目版本控制；`.gf/ai/` 是可重建且可能包含本地诊断摘要的忽略目录。`.gf` 根不是整体忽略目录，避免连项目意图一起丢失。
 - 套件只读取项目相对路径，受控输出必须留在项目根目录内，并拒绝通过符号链接或父级片段越界。
 - 能力目录、API 索引、Schema、Skill 和独立插件 ZIP 与 GF 版本一起校验和发布，不从网络静默更新另一套知识。
 - 独立插件 ZIP 的条目集合、文件字节、顺序、时间戳、权限和压缩方式都会与同一次发布源码精确比对；仅有相似目录结构不能通过产物审计。

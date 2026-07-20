@@ -1,0 +1,321 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFPlatformAdapter" path="addons/gf/standard/platform/gf_platform_adapter.gd" module="standard" extends="RefCounted" classDigest="05a13e16941c4dcce7a1d61b917cf8f3b819590b230939fb80c4ea68758479ec">
+	<description>GFPlatformAdapter: 外部平台 adapter 协议。
+Steam、微信小游戏、主机平台或自建平台实现应继承该类型，把具体 SDK 回调
+转换为 GF 的上下文、生命周期事件和桥接结果。该基类不依赖任何平台 SDK。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">protocol</tag>
+		<tag name="since">9.0.0</tag>
+	</tags>
+	<signals>
+		<member kind="signal" name="state_changed">
+			<signature>signal state_changed(previous_state: State, current_state: State)</signature>
+			<description>Adapter 状态变化后发出。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">previous_state: 变化前状态。</tag>
+				<tag name="param">current_state: 变化后状态。</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="signal" name="context_changed">
+			<signature>signal context_changed(context: GFPlatformRuntimeContext)</signature>
+			<description>平台运行时上下文变化后发出。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">context: 新上下文副本。</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="signal" name="lifecycle_event">
+			<signature>signal lifecycle_event(event: GFPlatformLifecycleEvent)</signature>
+			<description>收到平台生命周期事件后发出。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">event: 生命周期事件副本。</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+	</signals>
+	<enums>
+		<member kind="enum" name="State">
+			<signature>enum State {
+	## 尚未初始化。
+	CREATED,
+	## 正在执行 adapter 初始化。
+	INITIALIZING,
+	## 可接受平台请求。
+	READY,
+	## 初始化失败。
+	FAILED,
+	## 已关闭且不可重新使用。
+	SHUTDOWN,
+}</signature>
+			<description>Adapter 生命周期状态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+	</enums>
+	<constants />
+	<properties />
+	<methods>
+		<member kind="method" name="configure">
+			<signature>func configure( adapter_id: StringName, platform_id: StringName, contract_ids: PackedStringArray, initial_context: GFPlatformRuntimeContext = null ) -&gt; bool:</signature>
+			<description>配置 adapter 身份和支持的桥接契约。
+配置只允许在 CREATED 状态执行，防止运行期间改变路由身份。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">adapter_id: Adapter 稳定标识。</tag>
+				<tag name="param">platform_id: 平台稳定标识。</tag>
+				<tag name="param">contract_ids: 支持的桥接契约 ID。</tag>
+				<tag name="param">initial_context: 可选初始上下文。</tag>
+				<tag name="return">配置成功返回 true。</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_adapter_id">
+			<signature>func get_adapter_id() -&gt; StringName:</signature>
+			<description>获取 adapter ID。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">Adapter ID。</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_platform_id">
+			<signature>func get_platform_id() -&gt; StringName:</signature>
+			<description>获取平台 ID。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">平台 ID。</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_contract_ids">
+			<signature>func get_contract_ids() -&gt; PackedStringArray:</signature>
+			<description>获取支持的桥接契约 ID 副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">排序去重后的契约 ID。</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="supports_contract">
+			<signature>func supports_contract(contract_id: StringName) -&gt; bool:</signature>
+			<description>检查 adapter 是否支持桥接契约。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">contract_id: 桥接契约 ID。</tag>
+				<tag name="return">已声明支持时返回 true。</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_state">
+			<signature>func get_state() -&gt; State:</signature>
+			<description>获取当前状态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">Adapter 状态。</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_ready">
+			<signature>func is_ready() -&gt; bool:</signature>
+			<description>检查 adapter 是否可接受请求。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">READY 状态返回 true。</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="initialize">
+			<signature>func initialize(options: Dictionary = {}) -&gt; GFAsyncCompletion:</signature>
+			<description>初始化 adapter。
+同一次初始化期间重复调用会返回同一个 completion；READY 状态返回立即成功的
+completion。FAILED 或 SHUTDOWN 状态不会隐式重试。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">options: Adapter 定义的初始化选项。</tag>
+				<tag name="return">初始化完成源，成功结果为 `GFPlatformRuntimeContext`。</tag>
+				<tag name="schema">options: Dictionary adapter-defined initialization options.</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_context">
+			<signature>func get_context() -&gt; GFPlatformRuntimeContext:</signature>
+			<description>获取运行时上下文副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">平台运行时上下文副本。</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="invoke">
+			<signature>func invoke(request: GFPlatformBridgeRequest) -&gt; GFPlatformRequestHandle:</signature>
+			<description>发起桥接请求。
+该入口统一做状态、请求身份和契约支持检查，具体 adapter 只重写 `_dispatch`。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">request: 平台桥接请求。</tag>
+				<tag name="return">一次性请求句柄。</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="poll">
+			<signature>func poll(delta: float) -&gt; void:</signature>
+			<description>推进需要 callback pump 的平台 SDK。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">delta: 未受游戏暂停和时间缩放影响的帧间隔。</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="shutdown">
+			<signature>func shutdown() -&gt; void:</signature>
+			<description>关闭 adapter 并释放平台资源。
+SHUTDOWN 为终态；需要重新连接时应创建新 adapter 实例。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_debug_snapshot">
+			<signature>func get_debug_snapshot() -&gt; Dictionary:</signature>
+			<description>获取 adapter 调试快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">Adapter 身份、状态、契约与上下文字典。</tag>
+				<tag name="schema">return: Dictionary with adapter_id, platform_id, state, state_name, contract_ids, and context.</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_initialize">
+			<signature>func _initialize(_options: Dictionary) -&gt; void:</signature>
+			<description>执行平台初始化。
+异步实现应在回调中调用 `_complete_initialization` 或 `_fail_initialization`；
+基类实现立即使用当前上下文完成。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">_options: Adapter 初始化选项。</tag>
+				<tag name="schema">_options: Dictionary adapter-defined initialization options.</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_dispatch">
+			<signature>func _dispatch(_request: GFPlatformBridgeRequest, _handle: GFPlatformRequestHandle) -&gt; bool:</signature>
+			<description>派发平台请求。
+实现可同步或异步调用 `_succeed_request` / `_fail_request`。返回 false 表示请求
+未被接受，基类会生成 dispatch_rejected 终态。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">_request: 请求副本。</tag>
+				<tag name="param">_handle: 由基类拥有的请求句柄。</tag>
+				<tag name="return">请求被接受时返回 true。</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_poll">
+			<signature>func _poll(_delta: float) -&gt; void:</signature>
+			<description>推进底层平台 callback pump。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">_delta: 未缩放帧间隔。</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_cancel_request">
+			<signature>func _cancel_request(_handle: GFPlatformRequestHandle, _reason: StringName) -&gt; void:</signature>
+			<description>处理请求取消或超时通知。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">_handle: 已进入取消或超时终态的句柄。</tag>
+				<tag name="param">_reason: 取消原因。</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_shutdown">
+			<signature>func _shutdown() -&gt; void:</signature>
+			<description>释放底层平台资源。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_complete_initialization">
+			<signature>func _complete_initialization(context: GFPlatformRuntimeContext) -&gt; bool:</signature>
+			<description>完成 adapter 初始化。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">context: 已验证的平台上下文。</tag>
+				<tag name="return">首次成功完成返回 true。</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_fail_initialization">
+			<signature>func _fail_initialization(error: String, metadata: Dictionary = {}) -&gt; bool:</signature>
+			<description>标记 adapter 初始化失败。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">error: 失败说明。</tag>
+				<tag name="param">metadata: Adapter 定义的失败元数据。</tag>
+				<tag name="return">首次失败完成返回 true。</tag>
+				<tag name="schema">metadata: Dictionary adapter-defined initialization failure metadata.</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_publish_context">
+			<signature>func _publish_context(context: GFPlatformRuntimeContext) -&gt; bool:</signature>
+			<description>发布更新后的平台上下文。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">context: 新上下文。</tag>
+				<tag name="return">身份匹配且发布成功返回 true。</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_publish_lifecycle_event">
+			<signature>func _publish_lifecycle_event(event: GFPlatformLifecycleEvent) -&gt; bool:</signature>
+			<description>发布平台生命周期事件。
+基类会覆盖 adapter 提供的 sequence，确保每个 adapter 的事件严格单调。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">event: 生命周期事件。</tag>
+				<tag name="return">事件有效并已发布时返回 true。</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_succeed_request">
+			<signature>func _succeed_request( handle: GFPlatformRequestHandle, value: Variant = null, status: StringName = &amp;"ok", metadata: Dictionary = {} ) -&gt; bool:</signature>
+			<description>以成功结果完成请求。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">handle: 待完成句柄。</tag>
+				<tag name="param">value: Adapter 返回值。</tag>
+				<tag name="param">status: 成功状态。</tag>
+				<tag name="param">metadata: Adapter 结果元数据。</tag>
+				<tag name="return">首次完成成功返回 true。</tag>
+				<tag name="schema">value: Adapter-defined result value.</tag>
+				<tag name="schema">metadata: Dictionary adapter-defined result metadata.</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_fail_request">
+			<signature>func _fail_request( handle: GFPlatformRequestHandle, status: StringName, error: String, metadata: Dictionary = {} ) -&gt; bool:</signature>
+			<description>以失败结果完成请求。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">handle: 待完成句柄。</tag>
+				<tag name="param">status: 稳定失败状态。</tag>
+				<tag name="param">error: 失败说明。</tag>
+				<tag name="param">metadata: Adapter 失败元数据。</tag>
+				<tag name="return">首次完成成功返回 true。</tag>
+				<tag name="schema">metadata: Dictionary adapter-defined failure metadata.</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

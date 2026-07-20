@@ -136,7 +136,7 @@ const TYPE_MEMORY_WARNING: StringName = &"memory_warning"
 ## [br]
 ## @param p_sequence: 单调递增序号。
 ## [br]
-## @param p_timestamp_msec: 时间戳；小于等于 0 时使用 Time.get_ticks_msec()。
+## @param p_timestamp_msec: 单调时间戳；0 表示由发布该事件的 adapter 填充。
 ## [br]
 ## @param p_metadata: 调用方元数据。
 ## [br]
@@ -157,7 +157,7 @@ func configure(
 	platform_id = p_platform_id
 	payload = p_payload.duplicate(true)
 	sequence = max(p_sequence, 0)
-	timestamp_msec = p_timestamp_msec if p_timestamp_msec > 0 else Time.get_ticks_msec()
+	timestamp_msec = maxi(p_timestamp_msec, 0)
 	metadata = p_metadata.duplicate(true)
 	return self
 

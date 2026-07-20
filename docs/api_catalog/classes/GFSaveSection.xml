@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFSaveSection" path="addons/gf/extensions/save/document/gf_save_section.gd" module="extensions/save" extends="RefCounted" classDigest="80d0cebd0a16ce2e77bfa26830665b41b02b7a819d5172643d60c17d075350e0">
+	<description>GFSaveSection: 版本化存档分区值对象。
+分区用稳定 section_id、独立 schema_version 和任意可持久化 payload
+表达一个模块拥有的数据边界，不解释项目业务字段。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">value_object</tag>
+		<tag name="since">9.0.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties />
+	<methods>
+		<member kind="method" name="configure">
+			<signature>func configure( section_id: StringName, schema_version: int, payload: Variant, metadata: Dictionary = {} ) -&gt; GFSaveSection:</signature>
+			<description>配置分区并复制所有动态数据。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">section_id: 稳定分区 ID。</tag>
+				<tag name="param">schema_version: 分区 schema 版本，必须大于 0。</tag>
+				<tag name="param">payload: 项目定义且可持久化的分区载荷。</tag>
+				<tag name="param">metadata: 项目定义且可持久化的分区元数据。</tag>
+				<tag name="return">当前分区。</tag>
+				<tag name="schema">payload: Variant accepted by GFSavePersistedValueValidator.</tag>
+				<tag name="schema">metadata: Dictionary with project-defined persisted metadata.</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_section_id">
+			<signature>func get_section_id() -&gt; StringName:</signature>
+			<description>获取稳定分区 ID。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">分区 ID。</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_schema_version">
+			<signature>func get_schema_version() -&gt; int:</signature>
+			<description>获取分区 schema 版本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">分区 schema 版本。</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_payload">
+			<signature>func get_payload() -&gt; Variant:</signature>
+			<description>获取分区载荷副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">深复制的项目载荷。</tag>
+				<tag name="schema">return: Variant accepted by GFSavePersistedValueValidator.</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_metadata">
+			<signature>func get_metadata() -&gt; Dictionary:</signature>
+			<description>获取分区元数据副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">深复制的分区元数据。</tag>
+				<tag name="schema">return: Dictionary with project-defined persisted metadata.</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="validate_section">
+			<signature>func validate_section() -&gt; Dictionary:</signature>
+			<description>校验分区身份、版本和持久化安全性。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">结构化校验报告。</tag>
+				<tag name="schema">return: GFValidationReportDictionary-compatible report with issues, counts, summary, and next_actions.</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="to_dict">
+			<signature>func to_dict() -&gt; Dictionary:</signature>
+			<description>转换为规范持久化字典。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">分区字典。</tag>
+				<tag name="schema">return: Dictionary with section_id, schema_version, payload, and metadata.</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="duplicate_section">
+			<signature>func duplicate_section() -&gt; GFSaveSection:</signature>
+			<description>创建隔离副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">分区副本。</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="from_dict">
+			<signature>static func from_dict(data: Dictionary) -&gt; GFSaveSection:</signature>
+			<description>从持久化字典创建分区。
+该方法执行严格边界检查，不修补非法字段或忽略未知字段。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">data: 分区字典。</tag>
+				<tag name="return">新分区；输入不规范时返回 null。</tag>
+				<tag name="schema">data: Dictionary with section_id, schema_version, payload, and metadata.</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

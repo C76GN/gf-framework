@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFFlowRunner" path="addons/gf/extensions/flow/runtime/gf_flow_runner.gd" module="extensions/flow" extends="RefCounted" classDigest="4c82d47ba61f6f59529e68cabe4ad1b1a6934164d18b263ca197d2982e437c0f">
+<class name="GFFlowRunner" path="addons/gf/extensions/flow/runtime/gf_flow_runner.gd" module="extensions/flow" extends="RefCounted" classDigest="4a2138724508c8b53d13afa4176606b5e060b2f0830d303e2d5ad427daea35f3">
 	<description>GFFlowRunner: 通用流程图执行器。
 按节点后继关系执行 GFFlowGraph，支持 Signal 等待、取消和简单循环保护。</description>
 	<tags>
@@ -65,7 +65,7 @@
 			<description>流程正常完成。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="OUTCOME_CANCELLED">
@@ -73,7 +73,7 @@
 			<description>流程收到显式取消请求。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="OUTCOME_ABORTED">
@@ -81,7 +81,7 @@
 			<description>流程因运行时保护条件中止。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="OUTCOME_REJECTED">
@@ -89,7 +89,7 @@
 			<description>run() 请求在开始执行前被拒绝。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>
 	</constants>
@@ -139,7 +139,7 @@
 			<description>运行报告最多保留多少条节点 trace；总数与丢弃数始终单独统计。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>
 	</properties>
@@ -182,7 +182,7 @@
 				<tag name="api">public</tag>
 				<tag name="return">最近报告；尚未调用 run() 时为空字典。</tag>
 				<tag name="schema">return: Dictionary，与 run() 返回结构相同。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>
 	</methods>

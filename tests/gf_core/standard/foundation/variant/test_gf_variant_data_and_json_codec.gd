@@ -129,6 +129,21 @@ func test_scalar_variant_narrowing_helpers_use_explicit_fallbacks() -> void:
 	assert_eq(GFVariantData.to_string_name(null, &"fallback"), &"fallback", "null 名称应返回 fallback。")
 
 
+func test_exact_integer_helpers_preserve_json_numbers_without_coercion() -> void:
+	assert_true(GFVariantData.is_exact_integer(1))
+	assert_true(GFVariantData.is_exact_integer(1.0), "JSON 解析产生的整数 float 应被接受。")
+	assert_true(GFVariantData.is_exact_integer(-2.0))
+	assert_false(GFVariantData.is_exact_integer(1.5), "不得截断小数。")
+	assert_false(GFVariantData.is_exact_integer("1"), "不得解析文本。")
+	assert_false(GFVariantData.is_exact_integer(true), "不得把 bool 当作整数。")
+	assert_false(GFVariantData.is_exact_integer(NAN))
+	assert_false(GFVariantData.is_exact_integer(INF))
+	assert_false(GFVariantData.is_exact_integer(9_007_199_254_740_992.0), "不接受超出 JSON 安全范围的 float。")
+	assert_eq(GFVariantData.to_exact_int(3.0, -1), 3)
+	assert_eq(GFVariantData.to_exact_int(3.5, -1), -1)
+	assert_eq(GFVariantData.to_exact_int("3", -1), -1)
+
+
 func test_values_equal_handles_numeric_and_string_name_options() -> void:
 	assert_true(GFVariantData.values_equal(1, 1.0), "int/float 同数值应按通用等值语义相等。")
 	assert_false(GFVariantData.values_equal(1.0, 1.01), "默认数值等值不应隐藏实际差异。")

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFObjectCandidateRegistry" path="addons/gf/standard/common/gf_object_candidate_registry.gd" module="standard" extends="RefCounted" classDigest="5be9918cad4f39c266e0ac348f7692e491fdb469437a69f6d3528ed54b90da6c">
+<class name="GFObjectCandidateRegistry" path="addons/gf/standard/common/gf_object_candidate_registry.gd" module="standard" extends="RefCounted" classDigest="de33107bf46c5a279187aa1b793c36ee06e055915c5cf23e99c6c48b04c8858e">
 	<description>GFObjectCandidateRegistry: 通用 Object 候选注册表。
 使用弱引用记录候选对象，并提供按 group、method、priority 和注册顺序筛选排序的
 候选快照。变更通知只报告记录已变化，不解释最佳候选等业务语义，适合交互、命中、
@@ -16,7 +16,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">revision: 变更后的单调递增版本号。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>
 	</signals>
@@ -132,7 +132,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">从 0 开始、只在候选记录实际变化时递增的版本号。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_debug_snapshot">

@@ -1,0 +1,147 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFAssetLoadSession" path="addons/gf/standard/utilities/assets/gf_asset_load_session.gd" module="standard" extends="RefCounted" classDigest="78abc1698b60f05d30ddc965becccd2a1f5ac26325e7a24ee49026ca0450f752">
+	<description>GFAssetLoadSession: 资产预加载事务句柄。
+会话先把资源加载到唯一 staging group，只有全部成功后才提交目标 group。
+失败或主动回滚只撤销 staging 所有权，不调用破坏共享句柄的 remove_cache()。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_handle</tag>
+		<tag name="since">9.0.0</tag>
+	</tags>
+	<signals>
+		<member kind="signal" name="state_changed">
+			<signature>signal state_changed(previous_state: State, current_state: State)</signature>
+			<description>会话状态变化后发出。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">previous_state: 变化前状态。</tag>
+				<tag name="param">current_state: 变化后状态。</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="signal" name="ready_to_commit">
+			<signature>signal ready_to_commit(session: GFAssetLoadSession)</signature>
+			<description>全部资源已加载且等待手动提交时发出。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">session: 当前会话。</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="signal" name="completed">
+			<signature>signal completed(result: GFAssetLoadSessionResult)</signature>
+			<description>会话进入 committed、failed 或 rolled_back 终态时发出一次。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">result: 隔离终态结果。</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+	</signals>
+	<enums>
+		<member kind="enum" name="State">
+			<signature>enum State {
+	## 已创建但未开始。
+	CREATED,
+	## 正在加载 staging group。
+	LOADING,
+	## 已加载并等待提交或回滚。
+	READY,
+	## 加载中收到回滚请求，等待在途回调收敛。
+	ROLLBACK_PENDING,
+	## 已提交目标 group。
+	COMMITTED,
+	## 加载或校验失败。
+	FAILED,
+	## 已由调用方回滚。
+	ROLLED_BACK,
+}</signature>
+			<description>资产加载会话状态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+	</enums>
+	<constants />
+	<properties />
+	<methods>
+		<member kind="method" name="get_session_id">
+			<signature>func get_session_id() -&gt; StringName:</signature>
+			<description>获取会话 ID。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">会话 ID。</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_group_id">
+			<signature>func get_group_id() -&gt; StringName:</signature>
+			<description>获取目标分组 ID。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">目标分组 ID。</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_state">
+			<signature>func get_state() -&gt; State:</signature>
+			<description>获取会话状态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">当前状态。</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_completed">
+			<signature>func is_completed() -&gt; bool:</signature>
+			<description>检查会话是否处于任一终态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">committed、failed 或 rolled_back 时返回 true。</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_result">
+			<signature>func get_result() -&gt; GFAssetLoadSessionResult:</signature>
+			<description>获取终态结果副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">终态结果；尚未完成时返回 null。</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_load_report">
+			<signature>func get_load_report() -&gt; Dictionary:</signature>
+			<description>获取底层加载报告副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">`preload_group_async` 报告副本。</tag>
+				<tag name="schema">return: Dictionary with ok, group_id, paths, failed_paths, total, and completed.</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="commit">
+			<signature>func commit() -&gt; bool:</signature>
+			<description>把已加载 staging 路径提交到目标 group。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">READY 状态首次提交成功返回 true。</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="rollback">
+			<signature>func rollback(reason: StringName = &amp;"caller_requested") -&gt; bool:</signature>
+			<description>回滚会话。
+READY 状态立即撤销 staging group；LOADING 状态只记录意图，等待在途回调
+收敛后再进入 rolled_back，避免迟到回调重新写入 staging group。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">reason: 回滚原因。</tag>
+				<tag name="return">首次接受回滚请求返回 true。</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

@@ -158,6 +158,48 @@ func test_resource_registry_asset_source_provider_converts_registry_entries() ->
 	assert_eq(GFVariantData.get_option_int(snapshot, "registry_entry_count"), 1)
 
 
+func test_asset_catalog_makes_deterministic_fail_closed_preload_plan() -> void:
+	var catalog: GF_ASSET_CATALOG_SCRIPT = GF_ASSET_CATALOG_SCRIPT.new()
+	_set_asset_entry(catalog, _make_asset_entry(&"ui.save", "res://ui/save.png", {
+		"type_hint": "Texture2D",
+		"source_id": &"manual",
+		"metadata": { "license": "CC0" },
+	}))
+
+	var asset_plan: GFAssetPreloadPlan = catalog.make_preload_plan(
+		PackedStringArray(["missing.asset", "ui.save", "ui.save"]),
+		&"catalog_preload",
+		{ "plan_id": &"catalog_plan", "pin_cache": false }
+	)
+	var validation: Dictionary = asset_plan.validate()
+	var described_entries: Array = GFVariantData.get_option_array(asset_plan.describe(), "entries")
+	var missing_entry: Dictionary = GFVariantData.as_dictionary(described_entries[0])
+	var resolved_entry: Dictionary = GFVariantData.as_dictionary(described_entries[1])
+
+	assert_eq(asset_plan.plan_id, &"catalog_plan")
+	assert_eq(asset_plan.group_id, &"catalog_preload")
+	assert_false(asset_plan.pin_cache)
+	assert_eq(asset_plan.get_entry_count(true), 2, "输入 ID 应去重并稳定排序。")
+	assert_false(GFVariantData.get_option_bool(validation, "ok"), "缺失 ID 应使计划 fail-closed。")
+	assert_eq(GFVariantData.get_option_int(validation, "invalid_count"), 1)
+	assert_eq(GFVariantData.get_option_string(missing_entry, "path"), "", "排序后缺失 ID 应保留无效条目。")
+	assert_eq(
+		GFVariantData.get_option_string_name(
+			GFVariantData.get_option_dictionary(missing_entry, "metadata"),
+			"catalog_resolution"
+		),
+		&"missing"
+	)
+	assert_eq(GFVariantData.get_option_string(resolved_entry, "path"), "res://ui/save.png")
+	assert_eq(
+		GFVariantData.get_option_string(
+			GFVariantData.get_option_dictionary(resolved_entry, "metadata"),
+			"license"
+		),
+		"CC0"
+	)
+
+
 # --- 私有/辅助方法 ---
 
 func _set_asset_entry(catalog: GF_ASSET_CATALOG_SCRIPT, entry: GF_ASSET_CATALOG_ENTRY_SCRIPT) -> void:

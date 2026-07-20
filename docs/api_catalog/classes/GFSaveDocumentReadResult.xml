@@ -1,0 +1,144 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFSaveDocumentReadResult" path="addons/gf/extensions/save/document/gf_save_document_read_result.gd" module="extensions/save" extends="RefCounted" classDigest="f9c27a37c5d073bcfdc220421842ac83759ca2051f4b16405f1fd9d86cfeefdc">
+	<description>GFSaveDocumentReadResult: 存档文档读取终态结果。
+结果保留物理存储读取、文档解析、schema 校验和迁移状态，避免调用方
+把读取失败、格式损坏、未来版本或迁移缺口都误判为空 Dictionary。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">value_object</tag>
+		<tag name="since">9.0.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants>
+		<member kind="const" name="STATUS_LOADED">
+			<signature>const STATUS_LOADED: StringName = &amp;"loaded"</signature>
+			<description>文档无需迁移并已加载。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_MIGRATED">
+			<signature>const STATUS_MIGRATED: StringName = &amp;"migrated"</signature>
+			<description>文档迁移后已加载。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_FAILED">
+			<signature>const STATUS_FAILED: StringName = &amp;"failed"</signature>
+			<description>文档读取失败。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+	</constants>
+	<properties />
+	<methods>
+		<member kind="method" name="is_successful">
+			<signature>func is_successful() -&gt; bool:</signature>
+			<description>检查读取、解析、迁移和最终校验是否全部成功。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">成功时返回 true。</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="was_migrated">
+			<signature>func was_migrated() -&gt; bool:</signature>
+			<description>检查是否执行过迁移。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">migrated 状态返回 true。</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_status">
+			<signature>func get_status() -&gt; StringName:</signature>
+			<description>获取终态状态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">loaded、migrated 或 failed。</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_document">
+			<signature>func get_document() -&gt; GFSaveDocument:</signature>
+			<description>获取有效文档副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">成功文档；失败时返回 null。</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_storage_result">
+			<signature>func get_storage_result() -&gt; GFStorageReadResult:</signature>
+			<description>获取底层存储读取结果副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">底层结果；尚未进入存储读取时可为 null。</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_migration_result">
+			<signature>func get_migration_result() -&gt; GFSaveMigrationResult:</signature>
+			<description>获取迁移结果副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">运行过迁移注册表时的结果，否则为 null。</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_validation_report">
+			<signature>func get_validation_report() -&gt; Dictionary:</signature>
+			<description>获取最终校验报告副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">文档或目标 schema 校验报告。</tag>
+				<tag name="schema">return: GFValidationReportDictionary-compatible report.</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_error_code">
+			<signature>func get_error_code() -&gt; Error:</signature>
+			<description>获取错误码。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">Godot Error 码。</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_error">
+			<signature>func get_error() -&gt; String:</signature>
+			<description>获取错误说明。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">失败说明。</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="to_dict">
+			<signature>func to_dict() -&gt; Dictionary:</signature>
+			<description>转换为诊断字典。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">读取结果摘要。</tag>
+				<tag name="schema">return: Dictionary with ok, status, error_code, error, migrated, document, storage_result, migration_result, and validation_report.</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="duplicate_result">
+			<signature>func duplicate_result() -&gt; GFSaveDocumentReadResult:</signature>
+			<description>创建结果副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">隔离结果。</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

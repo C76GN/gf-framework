@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSaveSlotStorageAdapter" path="addons/gf/extensions/save/slots/gf_save_slot_storage_adapter.gd" module="extensions/save" extends="Resource" classDigest="cdf884da4dd8353d448e2ccfec3f853ff1da7495308367bb6740de9118a80e10">
+<class name="GFSaveSlotStorageAdapter" path="addons/gf/extensions/save/slots/gf_save_slot_storage_adapter.gd" module="extensions/save" extends="Resource" classDigest="2b687d1ecb1421989c0c14f8a40db4c1085a7b0889d368da23025c18b7e984cb">
 	<description>GFSaveSlotStorageAdapter: Save 扩展的通用槽位存储适配器。
 把逻辑槽位索引映射到可配置的数据/元数据文件名，并通过 GFStorageUtility
 的通用字典事务 API 完成持久化。该类不定义项目存档字段，也不绑定 UI。</description>
@@ -48,11 +48,12 @@
 	</properties>
 	<methods>
 		<member kind="method" name="setup">
-			<signature>func setup(storage: GFStorageUtility) -&gt; GFSaveSlotStorageAdapter:</signature>
+			<signature>func setup(storage: GFStorageUtility, clock: GFClock = null) -&gt; GFSaveSlotStorageAdapter:</signature>
 			<description>设置底层存储工具。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">storage: 底层 GFStorageUtility。</tag>
+				<tag name="param">clock: 可选墙上时钟；为空时保留当前时钟。</tag>
 				<tag name="return">当前适配器。</tag>
 				<tag name="since">8.0.0</tag>
 			</tags>
@@ -64,6 +65,25 @@
 				<tag name="api">public</tag>
 				<tag name="return">当前 GFStorageUtility；未配置时返回 null。</tag>
 				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="set_clock">
+			<signature>func set_clock(clock: GFClock) -&gt; bool:</signature>
+			<description>设置缺省元数据时间戳使用的墙上时钟。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">clock: 新时钟。</tag>
+				<tag name="return">时钟合法并完成设置时返回 true。</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_clock">
+			<signature>func get_clock() -&gt; GFClock:</signature>
+			<description>获取缺省元数据时间戳使用的时钟。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">当前时钟。</tag>
+				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_data_file_name">
@@ -87,27 +107,29 @@
 			</tags>
 		</member>
 		<member kind="method" name="save_slot">
-			<signature>func save_slot(slot_index: int, data: Dictionary, metadata: Dictionary = {}) -&gt; Error:</signature>
-			<description>保存槽位数据和元数据。</description>
+			<signature>func save_slot( slot_index: int, document: GFSaveDocument, metadata: Dictionary = {} ) -&gt; Error:</signature>
+			<description>保存版本化槽位文档和元数据。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">slot_index: 槽位索引；必须大于等于 0。</tag>
-				<tag name="param">data: 项目聚合后的存档载荷。</tag>
+				<tag name="param">document: 项目聚合后的版本化存档文档。</tag>
 				<tag name="param">metadata: 槽位摘要元数据。</tag>
 				<tag name="return">Godot 的 `Error` 结果码。</tag>
-				<tag name="schema">data: Dictionary，项目自定义存档载荷。</tag>
 				<tag name="schema">metadata: Dictionary，通常来自 GFSaveSlotMetadata.to_dict()。</tag>
 				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="load_slot">
-			<signature>func load_slot(slot_index: int) -&gt; Dictionary:</signature>
-			<description>读取槽位数据。</description>
+			<signature>func load_slot( slot_index: int, target_schema: GFSaveDocumentSchema = null, migrations: GFSaveMigrationRegistry = null, context: Dictionary = {} ) -&gt; GFSaveDocumentReadResult:</signature>
+			<description>读取、迁移并校验槽位文档。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">slot_index: 槽位索引。</tag>
-				<tag name="return">存档载荷；读取失败时为空字典。</tag>
-				<tag name="schema">return: Dictionary，项目自定义存档载荷。</tag>
+				<tag name="param">target_schema: 可选目标 schema；提供后要求最终版本完全匹配。</tag>
+				<tag name="param">migrations: 可选迁移注册表；旧版本文档需要迁移时必须提供。</tag>
+				<tag name="param">context: 项目定义的迁移上下文。</tag>
+				<tag name="return">强类型读取结果。</tag>
+				<tag name="schema">context: Dictionary with caller-defined ephemeral migration data.</tag>
 				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>

@@ -80,13 +80,20 @@ var started_at_msec: int = 0
 var finished_at_msec: int = 0
 
 
+# --- 私有变量 ---
+
+var _clock: GFClock = null
+
+
 # --- Godot 生命周期方法 ---
 
 func _init(
 	p_operation: StringName = &"",
 	p_root_scope_key: StringName = &"",
-	p_shared: Dictionary = {}
+	p_shared: Dictionary = {},
+	clock: GFClock = null
 ) -> void:
+	_clock = clock if clock != null else GFClock.new()
 	var _begin_operation_result_67: Variant = begin_operation(p_operation, p_root_scope_key, p_shared)
 
 
@@ -119,7 +126,7 @@ func begin_operation(
 	warnings.clear()
 	errors.clear()
 	transaction_participants.clear()
-	started_at_msec = Time.get_ticks_msec()
+	started_at_msec = _clock.get_monotonic_msec()
 	finished_at_msec = 0
 	return self
 
@@ -153,7 +160,15 @@ func record_event(
 	payload: Dictionary = {},
 	severity: StringName = &"info"
 ) -> GFSavePipelineEvent:
-	var event: GFSavePipelineEvent = GFSavePipelineEvent.new().configure(stage, scope, source, message, payload, severity)
+	var event: GFSavePipelineEvent = GFSavePipelineEvent.new().configure(
+		stage,
+		scope,
+		source,
+		message,
+		payload,
+		severity,
+		_clock.get_monotonic_msec()
+	)
 	events.append(event)
 	return event
 
@@ -246,7 +261,7 @@ func clear_transaction_participants() -> void:
 ## [br]
 ## @since 3.17.0
 func finish() -> void:
-	finished_at_msec = Time.get_ticks_msec()
+	finished_at_msec = _clock.get_monotonic_msec()
 
 
 ## 当前流程是否已结束。
@@ -268,7 +283,7 @@ func is_finished() -> bool:
 ## [br]
 ## @return 耗时。
 func get_elapsed_msec() -> int:
-	var end_msec: int = finished_at_msec if finished_at_msec > 0 else Time.get_ticks_msec()
+	var end_msec: int = finished_at_msec if finished_at_msec > 0 else _clock.get_monotonic_msec()
 	return maxi(end_msec - started_at_msec, 0)
 
 

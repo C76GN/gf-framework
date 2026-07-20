@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：工具 API (`tool_api`)
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 Config Pipeline 的文件提交事务阶段。 在目标写入前捕获路径状态，并负责成功提交后的快照清理或失败后的逆序回滚。 该阶段不解释产物内容，也不决定输出路径策略。
 
@@ -29,7 +29,7 @@ Config Pipeline 的文件提交事务阶段。 在目标写入前捕获路径状
 ### `STAGE_ID`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 ```gdscript
 const STAGE_ID: String = "gf.config.commit.filesystem"
@@ -42,7 +42,7 @@ Commit 阶段的稳定实现标识。
 ### `IMPLEMENTATION_VERSION`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 ```gdscript
 const IMPLEMENTATION_VERSION: int = 1
@@ -57,7 +57,7 @@ Commit 阶段的实现版本；改变事务或回滚语义时递增。
 ### `begin`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 ```gdscript
 func begin(paths: PackedStringArray) -> Dictionary:
@@ -82,7 +82,7 @@ func begin(paths: PackedStringArray) -> Dictionary:
 ### `rollback`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 ```gdscript
 func rollback(transaction: Dictionary) -> Dictionary:
@@ -108,7 +108,7 @@ func rollback(transaction: Dictionary) -> Dictionary:
 ### `complete`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 ```gdscript
 func complete(transaction: Dictionary) -> Dictionary:
@@ -134,7 +134,7 @@ func complete(transaction: Dictionary) -> Dictionary:
 ### `get_stage_descriptor`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 ```gdscript
 func get_stage_descriptor() -> Dictionary:

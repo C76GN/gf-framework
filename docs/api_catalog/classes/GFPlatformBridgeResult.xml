@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFPlatformBridgeResult" path="addons/gf/standard/foundation/platform/gf_platform_bridge_result.gd" module="standard" extends="Resource" classDigest="e57cc28d2dcbb06890af993b7df04c700b637e7155b1cafcf1326ae75a0d9c92">
+<class name="GFPlatformBridgeResult" path="addons/gf/standard/foundation/platform/gf_platform_bridge_result.gd" module="standard" extends="Resource" classDigest="baa0c9123c8cdd73f9240c317fca72a50b001a4e73f3110938cdf946cc59bda2">
 	<description>GFPlatformBridgeResult: 平台桥接结果。
 用纯数据表达外部平台 adapter 对一次桥接请求的成功、失败、状态、返回值和耗时。
 它不包含平台 SDK 依赖，也不假设同步或异步实现方式。</description>
@@ -105,7 +105,7 @@
 				<tag name="param">p_value: 返回值。</tag>
 				<tag name="param">p_status: 状态码。</tag>
 				<tag name="param">p_started_at_msec: 开始时间戳。</tag>
-				<tag name="param">p_completed_at_msec: 完成时间戳；小于等于 0 时使用 Time.get_ticks_msec()。</tag>
+				<tag name="param">p_completed_at_msec: 完成单调时间戳；0 表示调用方未提供。</tag>
 				<tag name="param">p_metadata: 调用方元数据。</tag>
 				<tag name="return">当前结果。</tag>
 				<tag name="schema">p_value: Adapter-defined result value.</tag>
@@ -122,7 +122,7 @@
 				<tag name="param">p_error: 错误描述。</tag>
 				<tag name="param">p_status: 状态码。</tag>
 				<tag name="param">p_started_at_msec: 开始时间戳。</tag>
-				<tag name="param">p_completed_at_msec: 完成时间戳；小于等于 0 时使用 Time.get_ticks_msec()。</tag>
+				<tag name="param">p_completed_at_msec: 完成单调时间戳；0 表示调用方未提供。</tag>
 				<tag name="param">p_metadata: 调用方元数据。</tag>
 				<tag name="return">当前结果。</tag>
 				<tag name="schema">p_metadata: Dictionary caller-defined result metadata.</tag>

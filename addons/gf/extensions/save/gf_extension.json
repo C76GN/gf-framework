@@ -1,8 +1,8 @@
 {
   "id": "gf.save",
   "display_name": "GF Save",
-  "version": "9.0.0-dev.0",
-  "extension_version": "4.0.0",
+  "version": "9.0.0",
+  "extension_version": "5.0.0",
   "kind": "extension",
   "description": "Save graph composition, node serializers, generic data sources, save pipelines, scopes, sources, and slot workflows.",
   "dependencies": ["gf.kernel", "gf.standard"],

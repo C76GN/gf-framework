@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "paths": {
+    "generated_root": "res://generated",
+    "access_output_path": "res://generated/gf_access.gd",
+    "project_access_output_path": "res://generated/gf_project_access.gd",
+    "config_access_output_path": "res://generated/gf_config_access.gd",
+    "network_output_root": "res://generated/network",
+    "project_state_root": ".gf",
+    "project_contract_path": ".gf/project_contract.json",
+    "ai_output_root": ".gf/ai",
+    "ai_snapshot_path": ".gf/ai/project_snapshot.json",
+    "ai_feedback_root": ".gf/ai/feedback"
+  }
+}

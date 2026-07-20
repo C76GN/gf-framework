@@ -196,7 +196,7 @@ func configure_success( request: GFPlatformBridgeRequest, p_value: Variant = nul
 | `p_value` | 返回值。 |
 | `p_status` | 状态码。 |
 | `p_started_at_msec` | 开始时间戳。 |
-| `p_completed_at_msec` | 完成时间戳；小于等于 0 时使用 Time.get_ticks_msec()。 |
+| `p_completed_at_msec` | 完成单调时间戳；0 表示调用方未提供。 |
 | `p_metadata` | 调用方元数据。 |
 
 返回：当前结果。
@@ -227,7 +227,7 @@ func configure_failure( request: GFPlatformBridgeRequest, p_error: String, p_sta
 | `p_error` | 错误描述。 |
 | `p_status` | 状态码。 |
 | `p_started_at_msec` | 开始时间戳。 |
-| `p_completed_at_msec` | 完成时间戳；小于等于 0 时使用 Time.get_ticks_msec()。 |
+| `p_completed_at_msec` | 完成单调时间戳；0 表示调用方未提供。 |
 | `p_metadata` | 调用方元数据。 |
 
 返回：当前结果。

@@ -7,7 +7,7 @@
 输出路径由 `Project Settings > gf/codegen/access_output_path` 控制，默认是：
 
 ```text
-res://gf/generated/gf_access.gd
+res://generated/gf_access.gd
 ```
 
 生成后的调用示例：

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFConfigPipeline" path="addons/gf/tools/config_pipeline/gf_config_pipeline.gd" module="tools" extends="RefCounted" classDigest="e5d59b0d2b6ebb1197ec961ab95203281b58859f8d924cf5af4e9d179df17304">
+<class name="GFConfigPipeline" path="addons/gf/tools/config_pipeline/gf_config_pipeline.gd" module="tools" extends="RefCounted" classDigest="e9935bc75ee4704b7998379ef5e941724c74e2cdcb2c435bccacb1e57918a21e">
 	<description>GFConfigPipeline: 配置导表工具的资源构建入口。
 负责把 CSV / JSON / ConfigFile / XLSX 文件来源构建为 GFConfigTableResource 与 GFConfigDatabaseResource。
 该工具只处理通用导入、校验、索引重建和 Resource 保存，不绑定任何项目业务表或发布流程。</description>
@@ -25,7 +25,7 @@
 				<tag name="param">target_stage: 可选目标物化阶段。</tag>
 				<tag name="param">commit_stage: 可选文件提交事务阶段。</tag>
 				<tag name="return">当前 Pipeline，便于链式配置。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_stage_descriptors">
@@ -35,7 +35,7 @@
 				<tag name="api">public</tag>
 				<tag name="return">按 Reader、Layout、Validation、Target、Commit 排列的阶段描述。</tag>
 				<tag name="schema">return: Array[Dictionary]，每项包含 stage_id、implementation_version、implementation_path 和阶段契约字段。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="build_table">

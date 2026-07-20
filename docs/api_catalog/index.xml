@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<apiCatalog schemaVersion="2" name="GF Framework" sourceRoot="addons/gf" sourceDigest="ce5be7868942eced50fb9be049af14c2dcfed5e6110b2f6f225a041dc63affe7" classCount="721" methodCount="6380">
-	<module id="kernel" label="Kernel" classCount="69" methodCount="697">
+<apiCatalog schemaVersion="2" name="GF Framework" sourceRoot="addons/gf" sourceDigest="eba99f25e30d4cf5d03435e2eacb29d71b133472483a52f9be3189fbdf4c268a" classCount="736" methodCount="6558">
+	<module id="kernel" label="Kernel" classCount="70" methodCount="707">
 		<class name="GFAccessGenerator" path="classes/GFAccessGenerator.xml" sourcePath="addons/gf/kernel/editor/gf_access_generator.gd" extends="RefCounted" />
 		<class name="GFArchitecture" path="classes/GFArchitecture.xml" sourcePath="addons/gf/kernel/core/gf_architecture.gd" extends="Object" />
 		<class name="GFAsyncCompletion" path="classes/GFAsyncCompletion.xml" sourcePath="addons/gf/kernel/core/gf_async_completion.gd" extends="RefCounted" />
@@ -12,6 +12,7 @@
 		<class name="GFBindingLifetimes" path="classes/GFBindingLifetimes.xml" sourcePath="addons/gf/kernel/core/gf_binding_lifetimes.gd" extends="RefCounted" />
 		<class name="GFCancellationSource" path="classes/GFCancellationSource.xml" sourcePath="addons/gf/kernel/core/gf_cancellation_source.gd" extends="RefCounted" />
 		<class name="GFCancellationToken" path="classes/GFCancellationToken.xml" sourcePath="addons/gf/kernel/core/gf_cancellation_token.gd" extends="RefCounted" />
+		<class name="GFClock" path="classes/GFClock.xml" sourcePath="addons/gf/kernel/base/gf_clock.gd" extends="RefCounted" />
 		<class name="GFCommand" path="classes/GFCommand.xml" sourcePath="addons/gf/kernel/base/gf_command.gd" extends="Object" />
 		<class name="GFComputedProperty" path="classes/GFComputedProperty.xml" sourcePath="addons/gf/kernel/core/gf_computed_property.gd" extends="GFBindableProperty" />
 		<class name="GFConfig" path="classes/GFConfig.xml" sourcePath="addons/gf/kernel/base/gf_config.gd" extends="Resource" />
@@ -71,7 +72,7 @@
 		<class name="GFTypeEventSystem" path="classes/GFTypeEventSystem.xml" sourcePath="addons/gf/kernel/core/gf_type_event_system.gd" extends="Object" />
 		<class name="GFUtility" path="classes/GFUtility.xml" sourcePath="addons/gf/kernel/base/gf_utility.gd" extends="Object" />
 	</module>
-	<module id="standard" label="Standard" classCount="402" methodCount="4007">
+	<module id="standard" label="Standard" classCount="409" methodCount="4098">
 		<class name="GFActivationTransaction" path="classes/GFActivationTransaction.xml" sourcePath="addons/gf/standard/foundation/policy/gf_activation_transaction.gd" extends="RefCounted" />
 		<class name="GFAnalyticsConfig" path="classes/GFAnalyticsConfig.xml" sourcePath="addons/gf/standard/utilities/analytics/gf_analytics_config.gd" extends="Resource" />
 		<class name="GFAnalyticsUtility" path="classes/GFAnalyticsUtility.xml" sourcePath="addons/gf/standard/utilities/analytics/gf_analytics_utility.gd" extends="GFUtility" />
@@ -81,6 +82,8 @@
 		<class name="GFAssetCatalogSourceProvider" path="classes/GFAssetCatalogSourceProvider.xml" sourcePath="addons/gf/standard/utilities/assets/gf_asset_catalog_source_provider.gd" extends="RefCounted" />
 		<class name="GFAssetCatalogSourceRegistry" path="classes/GFAssetCatalogSourceRegistry.xml" sourcePath="addons/gf/standard/utilities/assets/gf_asset_catalog_source_registry.gd" extends="RefCounted" />
 		<class name="GFAssetHandle" path="classes/GFAssetHandle.xml" sourcePath="addons/gf/standard/utilities/assets/gf_asset_handle.gd" extends="RefCounted" />
+		<class name="GFAssetLoadSession" path="classes/GFAssetLoadSession.xml" sourcePath="addons/gf/standard/utilities/assets/gf_asset_load_session.gd" extends="RefCounted" />
+		<class name="GFAssetLoadSessionResult" path="classes/GFAssetLoadSessionResult.xml" sourcePath="addons/gf/standard/utilities/assets/gf_asset_load_session_result.gd" extends="RefCounted" />
 		<class name="GFAssetPreloadPlan" path="classes/GFAssetPreloadPlan.xml" sourcePath="addons/gf/standard/utilities/assets/gf_asset_preload_plan.gd" extends="Resource" />
 		<class name="GFAssetUtility" path="classes/GFAssetUtility.xml" sourcePath="addons/gf/standard/utilities/assets/gf_asset_utility.gd" extends="GFUtility" />
 		<class name="GFAsyncBatch" path="classes/GFAsyncBatch.xml" sourcePath="addons/gf/standard/utilities/io/gf_async_batch.gd" extends="RefCounted" />
@@ -273,6 +276,7 @@
 		<class name="GFLogSink" path="classes/GFLogSink.xml" sourcePath="addons/gf/standard/utilities/logging/gf_log_sink.gd" extends="RefCounted" />
 		<class name="GFLogUtility" path="classes/GFLogUtility.xml" sourcePath="addons/gf/standard/utilities/logging/gf_log_utility.gd" extends="GFUtility" />
 		<class name="GFMainThreadDispatchQueue" path="classes/GFMainThreadDispatchQueue.xml" sourcePath="addons/gf/standard/common/gf_main_thread_dispatch_queue.gd" extends="GFUtility" />
+		<class name="GFManualClock" path="classes/GFManualClock.xml" sourcePath="addons/gf/standard/utilities/time/gf_manual_clock.gd" extends="GFClock" />
 		<class name="GFManualTimerQueue" path="classes/GFManualTimerQueue.xml" sourcePath="addons/gf/standard/utilities/time/gf_manual_timer_queue.gd" extends="RefCounted" />
 		<class name="GFMetricSeries" path="classes/GFMetricSeries.xml" sourcePath="addons/gf/standard/utilities/debug/gf_metric_series.gd" extends="RefCounted" />
 		<class name="GFModalAction" path="classes/GFModalAction.xml" sourcePath="addons/gf/standard/utilities/ui/gf_modal_action.gd" extends="Resource" />
@@ -304,11 +308,14 @@
 		<class name="GFPattern2D" path="classes/GFPattern2D.xml" sourcePath="addons/gf/standard/foundation/math/gf_pattern_2d.gd" extends="Resource" />
 		<class name="GFPhysicsQueryUtility" path="classes/GFPhysicsQueryUtility.xml" sourcePath="addons/gf/standard/utilities/spatial/gf_physics_query_utility.gd" extends="GFUtility" />
 		<class name="GFPlacementSequenceMath" path="classes/GFPlacementSequenceMath.xml" sourcePath="addons/gf/standard/foundation/math/gf_placement_sequence_math.gd" extends="RefCounted" />
+		<class name="GFPlatformAdapter" path="classes/GFPlatformAdapter.xml" sourcePath="addons/gf/standard/platform/gf_platform_adapter.gd" extends="RefCounted" />
 		<class name="GFPlatformBridgeRequest" path="classes/GFPlatformBridgeRequest.xml" sourcePath="addons/gf/standard/foundation/platform/gf_platform_bridge_request.gd" extends="Resource" />
 		<class name="GFPlatformBridgeResult" path="classes/GFPlatformBridgeResult.xml" sourcePath="addons/gf/standard/foundation/platform/gf_platform_bridge_result.gd" extends="Resource" />
 		<class name="GFPlatformCapabilitySet" path="classes/GFPlatformCapabilitySet.xml" sourcePath="addons/gf/standard/foundation/platform/gf_platform_capability_set.gd" extends="Resource" />
 		<class name="GFPlatformLifecycleEvent" path="classes/GFPlatformLifecycleEvent.xml" sourcePath="addons/gf/standard/foundation/platform/gf_platform_lifecycle_event.gd" extends="Resource" />
 		<class name="GFPlatformLocaleMap" path="classes/GFPlatformLocaleMap.xml" sourcePath="addons/gf/standard/foundation/text/gf_platform_locale_map.gd" extends="Resource" />
+		<class name="GFPlatformRequestHandle" path="classes/GFPlatformRequestHandle.xml" sourcePath="addons/gf/standard/platform/gf_platform_request_handle.gd" extends="RefCounted" />
+		<class name="GFPlatformRuntime" path="classes/GFPlatformRuntime.xml" sourcePath="addons/gf/standard/platform/gf_platform_runtime.gd" extends="GFUtility" />
 		<class name="GFPlatformRuntimeContext" path="classes/GFPlatformRuntimeContext.xml" sourcePath="addons/gf/standard/foundation/platform/gf_platform_runtime_context.gd" extends="Resource" />
 		<class name="GFPointerActivityUtility" path="classes/GFPointerActivityUtility.xml" sourcePath="addons/gf/standard/input/runtime/gf_pointer_activity_utility.gd" extends="GFUtility" />
 		<class name="GFPointerCapture" path="classes/GFPointerCapture.xml" sourcePath="addons/gf/standard/input/common/gf_pointer_capture.gd" extends="RefCounted" />
@@ -408,6 +415,7 @@
 		<class name="GFStorageBackend" path="classes/GFStorageBackend.xml" sourcePath="addons/gf/standard/utilities/storage/gf_storage_backend.gd" extends="RefCounted" />
 		<class name="GFStorageCodec" path="classes/GFStorageCodec.xml" sourcePath="addons/gf/standard/utilities/storage/gf_storage_codec.gd" extends="Resource" />
 		<class name="GFStorageConflictReport" path="classes/GFStorageConflictReport.xml" sourcePath="addons/gf/standard/utilities/storage/gf_storage_conflict_report.gd" extends="Resource" />
+		<class name="GFStorageReadResult" path="classes/GFStorageReadResult.xml" sourcePath="addons/gf/standard/utilities/storage/gf_storage_read_result.gd" extends="RefCounted" />
 		<class name="GFStorageSectionCache" path="classes/GFStorageSectionCache.xml" sourcePath="addons/gf/standard/utilities/storage/gf_storage_section_cache.gd" extends="RefCounted" />
 		<class name="GFStorageSyncUtility" path="classes/GFStorageSyncUtility.xml" sourcePath="addons/gf/standard/utilities/storage/gf_storage_sync_utility.gd" extends="GFUtility" />
 		<class name="GFStorageUtility" path="classes/GFStorageUtility.xml" sourcePath="addons/gf/standard/utilities/storage/gf_storage_utility.gd" extends="GFUtility" />
@@ -707,7 +715,7 @@
 		<class name="GFGravityField3D" path="classes/GFGravityField3D.xml" sourcePath="addons/gf/extensions/physics/nodes/gf_gravity_field_3d.gd" extends="Node3D" />
 		<class name="GFGravityProbe3D" path="classes/GFGravityProbe3D.xml" sourcePath="addons/gf/extensions/physics/nodes/gf_gravity_probe_3d.gd" extends="Node3D" />
 	</module>
-	<module id="extensions/save" label="Save" classCount="27" methodCount="156">
+	<module id="extensions/save" label="Save" classCount="34" methodCount="233">
 		<class name="GFNodeAnimationPlayerSerializer" path="classes/GFNodeAnimationPlayerSerializer.xml" sourcePath="addons/gf/extensions/save/serializers/gf_node_animation_player_serializer.gd" extends="GFNodeSerializer" />
 		<class name="GFNodeAudioStreamPlayerSerializer" path="classes/GFNodeAudioStreamPlayerSerializer.xml" sourcePath="addons/gf/extensions/save/serializers/gf_node_audio_stream_player_serializer.gd" extends="GFNodeSerializer" />
 		<class name="GFNodeCanvasItemSerializer" path="classes/GFNodeCanvasItemSerializer.xml" sourcePath="addons/gf/extensions/save/serializers/gf_node_canvas_item_serializer.gd" extends="GFNodeSerializer" />
@@ -721,13 +729,20 @@
 		<class name="GFNodeTransform3DSerializer" path="classes/GFNodeTransform3DSerializer.xml" sourcePath="addons/gf/extensions/save/serializers/gf_node_transform_3d_serializer.gd" extends="GFNodeSerializer" />
 		<class name="GFPersistPropertiesSource" path="classes/GFPersistPropertiesSource.xml" sourcePath="addons/gf/extensions/save/core/gf_persist_properties_source.gd" extends="GFSaveSource" />
 		<class name="GFSaveDataSource" path="classes/GFSaveDataSource.xml" sourcePath="addons/gf/extensions/save/core/gf_save_data_source.gd" extends="GFSaveSource" />
+		<class name="GFSaveDocument" path="classes/GFSaveDocument.xml" sourcePath="addons/gf/extensions/save/document/gf_save_document.gd" extends="RefCounted" />
+		<class name="GFSaveDocumentReadResult" path="classes/GFSaveDocumentReadResult.xml" sourcePath="addons/gf/extensions/save/document/gf_save_document_read_result.gd" extends="RefCounted" />
+		<class name="GFSaveDocumentSchema" path="classes/GFSaveDocumentSchema.xml" sourcePath="addons/gf/extensions/save/document/gf_save_document_schema.gd" extends="Resource" />
 		<class name="GFSaveEntityFactory" path="classes/GFSaveEntityFactory.xml" sourcePath="addons/gf/extensions/save/core/gf_save_entity_factory.gd" extends="Resource" />
 		<class name="GFSaveGraphUtility" path="classes/GFSaveGraphUtility.xml" sourcePath="addons/gf/extensions/save/graph/gf_save_graph_utility.gd" extends="GFUtility" />
 		<class name="GFSaveIdentity" path="classes/GFSaveIdentity.xml" sourcePath="addons/gf/extensions/save/core/gf_save_identity.gd" extends="Node" />
+		<class name="GFSaveMigrationRegistry" path="classes/GFSaveMigrationRegistry.xml" sourcePath="addons/gf/extensions/save/document/gf_save_migration_registry.gd" extends="RefCounted" />
+		<class name="GFSaveMigrationResult" path="classes/GFSaveMigrationResult.xml" sourcePath="addons/gf/extensions/save/document/gf_save_migration_result.gd" extends="RefCounted" />
+		<class name="GFSaveMigrationStep" path="classes/GFSaveMigrationStep.xml" sourcePath="addons/gf/extensions/save/document/gf_save_migration_step.gd" extends="Resource" />
 		<class name="GFSavePipelineContext" path="classes/GFSavePipelineContext.xml" sourcePath="addons/gf/extensions/save/pipeline/gf_save_pipeline_context.gd" extends="RefCounted" />
 		<class name="GFSavePipelineEvent" path="classes/GFSavePipelineEvent.xml" sourcePath="addons/gf/extensions/save/pipeline/gf_save_pipeline_event.gd" extends="RefCounted" />
 		<class name="GFSavePipelineStep" path="classes/GFSavePipelineStep.xml" sourcePath="addons/gf/extensions/save/pipeline/gf_save_pipeline_step.gd" extends="Resource" />
 		<class name="GFSaveScope" path="classes/GFSaveScope.xml" sourcePath="addons/gf/extensions/save/core/gf_save_scope.gd" extends="Node" />
+		<class name="GFSaveSection" path="classes/GFSaveSection.xml" sourcePath="addons/gf/extensions/save/document/gf_save_section.gd" extends="RefCounted" />
 		<class name="GFSaveSlotCard" path="classes/GFSaveSlotCard.xml" sourcePath="addons/gf/extensions/save/slots/gf_save_slot_card.gd" extends="Resource" />
 		<class name="GFSaveSlotMetadata" path="classes/GFSaveSlotMetadata.xml" sourcePath="addons/gf/extensions/save/slots/gf_save_slot_metadata.gd" extends="Resource" />
 		<class name="GFSaveSlotStorageAdapter" path="classes/GFSaveSlotStorageAdapter.xml" sourcePath="addons/gf/extensions/save/slots/gf_save_slot_storage_adapter.gd" extends="Resource" />

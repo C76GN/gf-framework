@@ -8,7 +8,7 @@
 ## [br]
 ## @category runtime_service
 ## [br]
-## @since unreleased
+## @since 9.0.0
 class_name GFBuoyancyField3D
 extends Node3D
 
@@ -19,7 +19,7 @@ extends Node3D
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 9.0.0
 const FIELD_GROUP: StringName = &"gf_buoyancy_field_3d"
 
 const _BUOYANCY_MATH_SCRIPT = preload("res://addons/gf/extensions/physics/core/gf_buoyancy_math_3d.gd")
@@ -31,21 +31,21 @@ const _BUOYANCY_MATH_SCRIPT = preload("res://addons/gf/extensions/physics/core/g
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 9.0.0
 @export var enabled: bool = true
 
 ## 调用方组合多个流体场时可读取的优先级；数值越大优先级越高。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 9.0.0
 @export var priority: int = 0
 
 ## 默认平面相对节点局部原点的 Y 偏移。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 9.0.0
 @export var surface_offset: float = 0.0:
 	set(value):
 		surface_offset = _finite_float_or(value, 0.0)
@@ -54,7 +54,7 @@ const _BUOYANCY_MATH_SCRIPT = preload("res://addons/gf/extensions/physics/core/g
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 9.0.0
 @export var fluid_density: float = 1000.0:
 	set(value):
 		fluid_density = maxf(_finite_float_or(value, 0.0), 0.0)
@@ -63,7 +63,7 @@ const _BUOYANCY_MATH_SCRIPT = preload("res://addons/gf/extensions/physics/core/g
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 9.0.0
 @export var fluid_velocity: Vector3 = Vector3.ZERO:
 	set(value):
 		fluid_velocity = value if _is_finite_vector3(value) else Vector3.ZERO
@@ -72,7 +72,7 @@ const _BUOYANCY_MATH_SCRIPT = preload("res://addons/gf/extensions/physics/core/g
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 9.0.0
 @export var linear_drag_coefficient: float = 0.0:
 	set(value):
 		linear_drag_coefficient = maxf(_finite_float_or(value, 0.0), 0.0)
@@ -81,7 +81,7 @@ const _BUOYANCY_MATH_SCRIPT = preload("res://addons/gf/extensions/physics/core/g
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 9.0.0
 @export var quadratic_drag_coefficient: float = 0.0:
 	set(value):
 		quadratic_drag_coefficient = maxf(_finite_float_or(value, 0.0), 0.0)
@@ -103,7 +103,7 @@ func _exit_tree() -> void:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 9.0.0
 ## [br]
 ## @return 默认流体表面原点。
 func get_surface_origin() -> Vector3:
@@ -114,7 +114,7 @@ func get_surface_origin() -> Vector3:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 9.0.0
 ## [br]
 ## @param world_position: 世界空间采样点。
 ## [br]
@@ -130,7 +130,7 @@ func get_signed_depth_at(world_position: Vector3) -> float:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 9.0.0
 ## [br]
 ## @param world_position: 世界空间采样点。
 ## [br]
@@ -148,7 +148,7 @@ func get_surface_normal_at(world_position: Vector3) -> Vector3:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 9.0.0
 ## [br]
 ## @param world_position: 世界空间采样点。
 ## [br]
@@ -164,7 +164,7 @@ func get_fluid_velocity_at(world_position: Vector3) -> Vector3:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 9.0.0
 ## [br]
 ## @return 优先级数值，越大越优先。
 func get_buoyancy_priority() -> int:
@@ -178,7 +178,7 @@ func get_buoyancy_priority() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 9.0.0
 ## [br]
 ## @param world_position: 排水点世界坐标。
 ## [br]
@@ -256,7 +256,7 @@ func sample_point(
 ## [br]
 ## @api protected
 ## [br]
-## @since unreleased
+## @since 9.0.0
 ## [br]
 ## @param world_position: 世界空间采样点。
 ## [br]
@@ -272,7 +272,7 @@ func _get_signed_depth_at(world_position: Vector3) -> float:
 ## [br]
 ## @api protected
 ## [br]
-## @since unreleased
+## @since 9.0.0
 ## [br]
 ## @param world_position: 世界空间采样点。
 ## [br]
@@ -288,7 +288,7 @@ func _get_surface_normal_at(world_position: Vector3) -> Vector3:
 ## [br]
 ## @api protected
 ## [br]
-## @since unreleased
+## @since 9.0.0
 ## [br]
 ## @param world_position: 世界空间采样点。
 ## [br]

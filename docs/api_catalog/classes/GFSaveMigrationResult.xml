@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFSaveMigrationResult" path="addons/gf/extensions/save/document/gf_save_migration_result.gd" module="extensions/save" extends="RefCounted" classDigest="a38999ca7667dd774ee1870038bc364f2a3fc86ee408fc32999780c1d4796378">
+	<description>GFSaveMigrationResult: 存档迁移终态结果。
+结果持有隔离文档、迁移轨迹和失败位置。失败时不暴露部分迁移文档，
+确保调用方只能提交完整成功的迁移结果。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">value_object</tag>
+		<tag name="since">9.0.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties />
+	<methods>
+		<member kind="method" name="is_successful">
+			<signature>func is_successful() -&gt; bool:</signature>
+			<description>检查迁移是否完整成功。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">成功时返回 true。</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_document">
+			<signature>func get_document() -&gt; GFSaveDocument:</signature>
+			<description>获取成功文档副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">完整迁移后的文档；失败时返回 null。</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_error_code">
+			<signature>func get_error_code() -&gt; Error:</signature>
+			<description>获取错误码。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">Godot Error 码。</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_error">
+			<signature>func get_error() -&gt; String:</signature>
+			<description>获取错误说明。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">失败说明。</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_failed_step_id">
+			<signature>func get_failed_step_id() -&gt; StringName:</signature>
+			<description>获取失败步骤 ID。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">失败步骤 ID；非步骤失败时为空。</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="was_migrated">
+			<signature>func was_migrated() -&gt; bool:</signature>
+			<description>检查是否实际执行过迁移步骤。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">轨迹非空时返回 true。</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_trace">
+			<signature>func get_trace() -&gt; Array[Dictionary]:</signature>
+			<description>获取迁移轨迹副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">按执行顺序排列的步骤轨迹。</tag>
+				<tag name="schema">return: Array[Dictionary] with step_id, schema_id, section_id, scope, from_version, and to_version.</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="to_dict">
+			<signature>func to_dict() -&gt; Dictionary:</signature>
+			<description>转换为诊断字典。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">JSON-safe 迁移结果摘要。</tag>
+				<tag name="schema">return: Dictionary with ok, error_code, error, failed_step_id, source_document_version, target_document_version, source_section_versions, target_section_versions, migrated, trace, and document.</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="duplicate_result">
+			<signature>func duplicate_result() -&gt; GFSaveMigrationResult:</signature>
+			<description>创建结果副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">隔离结果。</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

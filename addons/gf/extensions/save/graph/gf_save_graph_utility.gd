@@ -24,6 +24,27 @@ const FORMAT_ID: String = "gf_save_graph"
 ## @api public
 const FORMAT_VERSION: int = 1
 
+## 独立 SaveGraph 文档使用的 schema ID。
+## [br]
+## @api public
+## [br]
+## @since 9.0.0
+const DOCUMENT_SCHEMA_ID: StringName = &"gf.save_graph"
+
+## 独立 SaveGraph 文档的当前 schema 版本。
+## [br]
+## @api public
+## [br]
+## @since 9.0.0
+const DOCUMENT_SCHEMA_VERSION: int = 1
+
+## SaveGraph 在版本化文档中的默认分区 ID。
+## [br]
+## @api public
+## [br]
+## @since 9.0.0
+const DOCUMENT_SECTION_ID: StringName = &"save_graph"
+
 const _GF_VALIDATION_REPORT_DICTIONARY_SCRIPT = preload("res://addons/gf/standard/foundation/validation/gf_validation_report_dictionary.gd")
 const _GF_SAVE_PERSISTED_VALUE_VALIDATOR = preload("res://addons/gf/extensions/save/core/gf_save_persisted_value_validator.gd")
 const _CREATED_ENTITIES_CONTEXT_KEY: String = "_gf_save_graph_created_entities"
@@ -48,9 +69,66 @@ var pipeline_steps: Array[GFSavePipelineStep] = []
 # --- 私有变量 ---
 
 var _entity_factories: Dictionary = {}
+var _clock: GFClock = null
+var _clock_explicit: bool = false
+
+
+# --- Godot 生命周期方法 ---
+
+func _init(clock: GFClock = null) -> void:
+	_clock = clock if clock != null else GFClock.new()
+	_clock_explicit = clock != null
+
+
+# --- GF 生命周期方法 ---
+
+## 在架构中自动采用已注册 GFTimeProvider 的底层时钟。
+##
+## 构造函数或 `set_clock()` 的显式注入不会被自动覆盖。
+## [br]
+## @api public
+## [br]
+## @since 9.0.0
+func ready() -> void:
+	if _clock_explicit:
+		return
+	var architecture: GFArchitecture = _get_architecture_or_null()
+	if architecture == null:
+		return
+	var provider_value: Variant = architecture.get_utility(GFTimeProvider)
+	if provider_value is GFTimeProvider:
+		var provider: GFTimeProvider = provider_value
+		_clock = provider.get_clock()
 
 
 # --- 公共方法 ---
+
+## 设置存档流水线诊断使用的单调时钟。
+## [br]
+## @api public
+## [br]
+## @since 9.0.0
+## [br]
+## @param clock: 新单调时钟。
+## [br]
+## @return 时钟合法并完成设置时返回 true。
+func set_clock(clock: GFClock) -> bool:
+	if clock == null:
+		return false
+	_clock = clock
+	_clock_explicit = true
+	return true
+
+
+## 获取存档流水线诊断使用的时钟。
+## [br]
+## @api public
+## [br]
+## @since 9.0.0
+## [br]
+## @return 当前时钟。
+func get_clock() -> GFClock:
+	return _clock
 
 ## 注册实体工厂。
 ## [br]
@@ -129,7 +207,185 @@ func create_pipeline_context(
 	shared: Dictionary = {}
 ) -> GFSavePipelineContext:
 	var root_scope_key: StringName = _get_scope_key_for_inspection(scope) if scope != null else &""
-	return GFSavePipelineContext.new(operation, root_scope_key, shared)
+	return GFSavePipelineContext.new(operation, root_scope_key, shared, _clock)
+
+
+## 创建独立 SaveGraph 文档的当前 schema。
+## [br]
+## @api public
+## [br]
+## @since 9.0.0
+## [br]
+## @return 要求默认 SaveGraph 分区的 schema。
+func create_document_schema() -> GFSaveDocumentSchema:
+	return GFSaveDocumentSchema.new().configure(
+		DOCUMENT_SCHEMA_ID,
+		DOCUMENT_SCHEMA_VERSION,
+		{ DOCUMENT_SECTION_ID: FORMAT_VERSION },
+		{
+			"required_sections": PackedStringArray([String(DOCUMENT_SECTION_ID)]),
+			"allow_unknown_sections": false,
+		}
+	)
+
+
+## 把 Scope 图采集为可组合版本化分区。
+## [br]
+## @api public
+## [br]
+## @since 9.0.0
+## [br]
+## @param scope: 根 Scope。
+## [br]
+## @param section_id: 项目文档中的分区 ID。
+## [br]
+## @param context: 调用上下文字典。
+## [br]
+## @schema context: Dictionary accepted by gather_scope().
+## [br]
+## @return 分区；采集失败时返回 null。
+func gather_section(
+	scope: GFSaveScope,
+	section_id: StringName = DOCUMENT_SECTION_ID,
+	context: Dictionary = {}
+) -> GFSaveSection:
+	if section_id == &"":
+		return null
+	var payload: Dictionary = gather_scope(scope, context)
+	if payload.is_empty():
+		return null
+	var section: GFSaveSection = GFSaveSection.new().configure(
+		section_id,
+		FORMAT_VERSION,
+		payload
+	)
+	var validation: Dictionary = section.validate_section()
+	return section if GFVariantData.get_option_bool(validation, "ok", false) else null
+
+
+## 应用可组合 SaveGraph 分区。
+## [br]
+## @api public
+## [br]
+## @since 9.0.0
+## [br]
+## @param scope: 根 Scope。
+## [br]
+## @param section: SaveGraph 分区。
+## [br]
+## @param context: 调用上下文字典。
+## [br]
+## @param strict: 为 true 时缺失 Source/Scope 会记录错误。
+## [br]
+## @schema context: Dictionary accepted by apply_scope().
+## [br]
+## @return apply_scope() 结果。
+## [br]
+## @schema return: Dictionary with ok, applied, errors, missing, and optional pipeline_trace.
+func apply_section(
+	scope: GFSaveScope,
+	section: GFSaveSection,
+	context: Dictionary = {},
+	strict: bool = false
+) -> Dictionary:
+	if section == null:
+		return _make_apply_result(false, 0, ["Save graph section is null."], [])
+	var section_validation: Dictionary = section.validate_section()
+	if not GFVariantData.get_option_bool(section_validation, "ok", false):
+		return _make_apply_result(
+			false,
+			0,
+			_get_validation_error_messages(section_validation),
+			[]
+		)
+	if section.get_schema_version() != FORMAT_VERSION:
+		return _make_apply_result(
+			false,
+			0,
+			["Save graph section version requires migration."],
+			[]
+		)
+	var payload_value: Variant = section.get_payload()
+	if not payload_value is Dictionary:
+		return _make_apply_result(false, 0, ["Save graph section payload must be a Dictionary."], [])
+	var payload: Dictionary = GFVariantData.as_dictionary(payload_value)
+	return apply_scope(scope, payload, context, strict)
+
+
+## 采集独立 SaveGraph 文档。
+## [br]
+## @api public
+## [br]
+## @since 9.0.0
+## [br]
+## @param scope: 根 Scope。
+## [br]
+## @param metadata: 可持久化文档元数据。
+## [br]
+## @param context: 调用上下文字典。
+## [br]
+## @schema metadata: Dictionary with project-defined persisted metadata.
+## [br]
+## @schema context: Dictionary accepted by gather_scope().
+## [br]
+## @return 独立文档；采集失败时返回 null。
+func gather_document(
+	scope: GFSaveScope,
+	metadata: Dictionary = {},
+	context: Dictionary = {}
+) -> GFSaveDocument:
+	var section: GFSaveSection = gather_section(scope, DOCUMENT_SECTION_ID, context)
+	if section == null:
+		return null
+	var document: GFSaveDocument = GFSaveDocument.new().configure(
+		DOCUMENT_SCHEMA_ID,
+		DOCUMENT_SCHEMA_VERSION,
+		[section],
+		metadata
+	)
+	var validation: Dictionary = create_document_schema().validate_document(document, true)
+	return document if GFVariantData.get_option_bool(validation, "ok", false) else null
+
+
+## 应用独立 SaveGraph 文档。
+## [br]
+## @api public
+## [br]
+## @since 9.0.0
+## [br]
+## @param scope: 根 Scope。
+## [br]
+## @param document: 独立 SaveGraph 文档。
+## [br]
+## @param context: 调用上下文字典。
+## [br]
+## @param strict: 为 true 时缺失 Source/Scope 会记录错误。
+## [br]
+## @schema context: Dictionary accepted by apply_scope().
+## [br]
+## @return apply_section() 结果。
+## [br]
+## @schema return: Dictionary with ok, applied, errors, missing, and optional pipeline_trace.
+func apply_document(
+	scope: GFSaveScope,
+	document: GFSaveDocument,
+	context: Dictionary = {},
+	strict: bool = false
+) -> Dictionary:
+	var validation: Dictionary = create_document_schema().validate_document(document, true)
+	if not GFVariantData.get_option_bool(validation, "ok", false):
+		return _make_apply_result(
+			false,
+			0,
+			_get_validation_error_messages(validation),
+			[]
+		)
+	return apply_section(
+		scope,
+		document.get_section(DOCUMENT_SECTION_ID),
+		context,
+		strict
+	)
 
 
 ## 检查 Scope 树的可保存结构。
@@ -625,11 +881,10 @@ func save_scope(
 		_push_persisted_validation_error("payload.metadata", metadata_validation)
 		return ERR_INVALID_DATA
 
-	var payload: Dictionary = gather_scope(scope, context)
-	if payload.is_empty():
+	var document: GFSaveDocument = gather_document(scope, metadata, context)
+	if document == null:
 		return ERR_INVALID_DATA
-	if not metadata.is_empty():
-		payload["metadata"] = metadata.duplicate(true)
+	var payload: Dictionary = document.to_dict()
 	var payload_validation: Dictionary = _GF_SAVE_PERSISTED_VALUE_VALIDATOR.validate(payload)
 	if not GFVariantData.get_option_bool(payload_validation, "ok", false):
 		_push_persisted_validation_error("payload", payload_validation)
@@ -664,9 +919,35 @@ func load_scope(
 	if storage == null:
 		return _make_apply_result(false, 0, ["GFStorageUtility is not registered."], [])
 
-	var payload: Dictionary = storage.load_data(file_name)
-	if payload.is_empty():
+	var read_result: GFStorageReadResult = storage.load_data(file_name)
+	if not read_result.ok or read_result.payload.is_empty():
 		return _make_apply_result(false, 0, ["Save payload is empty."], [])
+	var document_inspection: Dictionary = GFSaveDocument.inspect_dict(read_result.payload)
+	if not GFVariantData.get_option_bool(document_inspection, "ok", false):
+		return _make_apply_result(
+			false,
+			0,
+			_get_validation_error_messages(document_inspection),
+			[]
+		)
+	var document: GFSaveDocument = GFSaveDocument.from_dict(read_result.payload)
+	if document == null:
+		return _make_apply_result(false, 0, ["Save document could not be parsed."], [])
+	var document_validation: Dictionary = create_document_schema().validate_document(document, true)
+	if not GFVariantData.get_option_bool(document_validation, "ok", false):
+		return _make_apply_result(
+			false,
+			0,
+			_get_validation_error_messages(document_validation),
+			[]
+		)
+	var section: GFSaveSection = document.get_section(DOCUMENT_SECTION_ID)
+	if section == null:
+		return _make_apply_result(false, 0, ["Save graph document section is missing."], [])
+	var payload_value: Variant = section.get_payload()
+	if not payload_value is Dictionary:
+		return _make_apply_result(false, 0, ["Save graph document section payload must be a Dictionary."], [])
+	var payload: Dictionary = GFVariantData.as_dictionary(payload_value)
 	var validation_report: Dictionary = validate_payload_for_scope(scope, payload, strict)
 	if not GFVariantData.get_option_bool(validation_report, "ok", false):
 		return _make_apply_result(
@@ -675,7 +956,7 @@ func load_scope(
 			_get_validation_error_messages(validation_report),
 			GFVariantData.to_string_array(GFVariantData.get_option_value(validation_report, "missing", []))
 		)
-	return apply_scope(scope, payload, context, strict)
+	return apply_document(scope, document, context, strict)
 
 
 # --- 私有/辅助方法 ---

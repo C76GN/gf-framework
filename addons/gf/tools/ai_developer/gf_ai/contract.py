@@ -7,18 +7,18 @@ from pathlib import Path
 from typing import Any
 
 from . import catalog
-from .constants import DEFAULT_CONTRACT_NAME, DEFAULT_OFFICIAL_REPOSITORY, SCHEMA_ROOT, TEMPLATE_ROOT
+from .constants import DEFAULT_CONTRACT_PATH, DEFAULT_OFFICIAL_REPOSITORY, SCHEMA_ROOT, TEMPLATE_ROOT
 from .paths import atomic_write_json, read_json_object, resolve_project_path, sha256_json
 from .schema import validate_schema_file
 
 
-def contract_path(project_root: Path, relative_path: str = DEFAULT_CONTRACT_NAME) -> Path:
+def contract_path(project_root: Path, relative_path: str = DEFAULT_CONTRACT_PATH) -> Path:
 	return resolve_project_path(project_root, relative_path)
 
 
 def initialize_contract(
 	project_root: Path,
-	relative_path: str = DEFAULT_CONTRACT_NAME,
+	relative_path: str = DEFAULT_CONTRACT_PATH,
 ) -> dict[str, Any]:
 	path = contract_path(project_root, relative_path)
 	if path.exists():
@@ -41,7 +41,7 @@ def initialize_contract(
 
 def load_contract(
 	project_root: Path,
-	relative_path: str = DEFAULT_CONTRACT_NAME,
+	relative_path: str = DEFAULT_CONTRACT_PATH,
 ) -> dict[str, Any]:
 	path = contract_path(project_root, relative_path)
 	if not path.is_file():

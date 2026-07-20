@@ -172,7 +172,7 @@ func _on_load_pressed() -> void:
 		_set_status("Storage codec 不可用。", true)
 		return
 
-	var result: Dictionary = codec.decode(bytes, {
+	var result: GFStorageReadResult = codec.decode(bytes, {
 		"format": _get_selected_format(),
 		"obfuscation_key": int(_obfuscation_key_spin.value),
 		"use_compression": _compression_check.button_pressed,
@@ -180,24 +180,18 @@ func _on_load_pressed() -> void:
 		"strict_integrity": _strict_check.button_pressed,
 	})
 
-	if not GFVariantData.get_option_bool(result, "ok", false):
+	if not result.ok:
 		_output.text = ""
-		_set_status(GFVariantData.get_option_string(result, "error", "解码失败。"), true)
+		_set_status(result.error if not result.error.is_empty() else "解码失败。", true)
 		return
 
-	var data_value: Variant = GFVariantData.get_option_value(result, "data", {})
-	if not (data_value is Dictionary):
-		_output.text = ""
-		_set_status("解码后的存档 payload 不是 Dictionary。", true)
-		return
-
-	var data: Dictionary = GFVariantData.as_dictionary(data_value)
+	var data: Dictionary = result.payload.duplicate(true)
 	_output.text = _format_decoded_data_for_display(data)
 	_set_status(
 		"已加载：%d bytes，%d 个顶层键，完整性=%s" % [
 			bytes.size(),
 			data.size(),
-			str(GFVariantData.get_option_bool(result, "integrity_valid", true)),
+			str(result.is_integrity_accepted()),
 		],
 		false
 	)

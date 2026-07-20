@@ -7,7 +7,7 @@
 ## [br]
 ## @category tool_api
 ## [br]
-## @since unreleased
+## @since 9.0.0
 class_name GFConfigPipelineLayoutStage
 extends RefCounted
 
@@ -18,14 +18,14 @@ extends RefCounted
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 9.0.0
 const STAGE_ID: String = "gf.config.layout.builtin"
 
 ## Layout 阶段的实现版本；改变布局解析语义时递增。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 9.0.0
 const IMPLEMENTATION_VERSION: int = 1
 
 const _DEFAULT_MAX_XLSX_ENTRY_BYTES: int = 8 * 1024 * 1024
@@ -42,7 +42,7 @@ const _DEFAULT_MAX_XLSX_COLUMNS: int = 512
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 9.0.0
 ## [br]
 ## @param source: 单表来源声明。
 ## [br]
@@ -126,7 +126,7 @@ func decode_source(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 9.0.0
 ## [br]
 ## @return: 阶段描述。
 ## [br]

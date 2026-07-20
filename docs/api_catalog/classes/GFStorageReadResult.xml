@@ -1,0 +1,198 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFStorageReadResult" path="addons/gf/standard/utilities/storage/gf_storage_read_result.gd" module="standard" extends="RefCounted" classDigest="d97d63ef0c69386a2ee18607ce1e3da3a1668815c242cb8131a857efb02aa30d">
+	<description>GFStorageReadResult: 严格存储读取结果。
+将业务载荷、框架存储元数据、完整性状态和失败原因分离，避免调用方
+把空字典误判为成功，也避免存储层保留字段渗入业务数据。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">value_object</tag>
+		<tag name="since">9.0.0</tag>
+	</tags>
+	<signals />
+	<enums>
+		<member kind="enum" name="IntegrityStatus">
+			<signature>enum IntegrityStatus {
+	## 文档没有声明完整性校验，且调用方没有要求校验。
+	NOT_CHECKED,
+	## 文档完整性校验通过。
+	VALID,
+	## 调用方要求完整性校验，但文档没有校验信息。
+	MISSING,
+	## 文档完整性校验失败。
+	INVALID,
+}</signature>
+			<description>存储文档完整性状态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+	</enums>
+	<constants />
+	<properties>
+		<member kind="property" name="ok">
+			<signature>var ok: bool = false</signature>
+			<description>读取、解码和迁移是否全部成功。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="payload">
+			<signature>var payload: Dictionary = {}</signature>
+			<description>与框架存储字段完全隔离的业务载荷。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="schema">payload: Dictionary，项目写入的原始业务数据。</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="metadata">
+			<signature>var metadata: Dictionary = {}</signature>
+			<description>框架存储文档元数据。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="schema">metadata: Dictionary，包含 data_version 以及可选时间戳、格式和压缩信息。</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="integrity_status">
+			<signature>var integrity_status: IntegrityStatus = IntegrityStatus.NOT_CHECKED</signature>
+			<description>完整性校验状态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="error_code">
+			<signature>var error_code: Error = OK</signature>
+			<description>Godot 错误码；成功时为 OK。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="error">
+			<signature>var error: String = ""</signature>
+			<description>稳定、可展示的错误描述；成功时为空字符串。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="document_schema_version">
+			<signature>var document_schema_version: int = 0</signature>
+			<description>物理存储文档 schema 版本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="source_data_version">
+			<signature>var source_data_version: int = 0</signature>
+			<description>读取时发现的数据 schema 版本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="data_version">
+			<signature>var data_version: int = 0</signature>
+			<description>完成迁移后的数据 schema 版本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="migrated">
+			<signature>var migrated: bool = false</signature>
+			<description>本次读取是否执行过数据迁移。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+	</properties>
+	<methods>
+		<member kind="method" name="configure_success">
+			<signature>func configure_success( p_payload: Dictionary, p_metadata: Dictionary = {}, p_integrity_status: IntegrityStatus = IntegrityStatus.NOT_CHECKED, p_document_schema_version: int = 0 ) -&gt; GFStorageReadResult:</signature>
+			<description>配置成功结果。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">p_payload: 业务载荷。</tag>
+				<tag name="param">p_metadata: 框架存储元数据。</tag>
+				<tag name="param">p_integrity_status: 完整性状态。</tag>
+				<tag name="param">p_document_schema_version: 物理文档 schema 版本。</tag>
+				<tag name="return">当前结果。</tag>
+				<tag name="schema">p_payload: Dictionary，项目写入的业务数据。</tag>
+				<tag name="schema">p_metadata: Dictionary，框架存储元数据。</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="configure_failure">
+			<signature>func configure_failure( p_error: String, p_error_code: Error = ERR_INVALID_DATA, p_metadata: Dictionary = {}, p_integrity_status: IntegrityStatus = IntegrityStatus.NOT_CHECKED, p_document_schema_version: int = 0 ) -&gt; GFStorageReadResult:</signature>
+			<description>配置失败结果。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">p_error: 错误描述。</tag>
+				<tag name="param">p_error_code: Godot 错误码。</tag>
+				<tag name="param">p_metadata: 已能安全恢复的框架存储元数据。</tag>
+				<tag name="param">p_integrity_status: 完整性状态。</tag>
+				<tag name="param">p_document_schema_version: 物理文档 schema 版本。</tag>
+				<tag name="return">当前结果。</tag>
+				<tag name="schema">p_metadata: Dictionary，失败时仍可安全展示或诊断的框架存储元数据。</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_integrity_accepted">
+			<signature>func is_integrity_accepted() -&gt; bool:</signature>
+			<description>完整性状态是否允许调用方使用载荷。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">状态不是 MISSING 或 INVALID 时返回 true。</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="duplicate_result">
+			<signature>func duplicate_result() -&gt; GFStorageReadResult:</signature>
+			<description>创建读取结果深拷贝。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">新读取结果。</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="to_dict">
+			<signature>func to_dict() -&gt; Dictionary:</signature>
+			<description>转换为线程、报告和工具可传递的字典。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">读取结果字典。</tag>
+				<tag name="schema">return: Dictionary，包含 ok、payload、metadata、integrity_status、error_code、error、document_schema_version、source_data_version、data_version 和 migrated。</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="apply_dict">
+			<signature>func apply_dict(data: Dictionary) -&gt; void:</signature>
+			<description>从字典应用读取结果字段。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">data: 读取结果字典。</tag>
+				<tag name="schema">data: Dictionary，GFStorageReadResult.to_dict() 输出。</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="from_dict">
+			<signature>static func from_dict(data: Dictionary) -&gt; GFStorageReadResult:</signature>
+			<description>从字典创建读取结果。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">data: 读取结果字典。</tag>
+				<tag name="return">新读取结果。</tag>
+				<tag name="schema">data: Dictionary，GFStorageReadResult.to_dict() 输出。</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

@@ -75,28 +75,28 @@ const _GF_ASYNC_WAIT_SUPPORT = preload("res://addons/gf/standard/common/gf_async
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 9.0.0
 const OUTCOME_COMPLETED: StringName = &"completed"
 
 ## 流程收到显式取消请求。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 9.0.0
 const OUTCOME_CANCELLED: StringName = &"cancelled"
 
 ## 流程因运行时保护条件中止。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 9.0.0
 const OUTCOME_ABORTED: StringName = &"aborted"
 
 ## run() 请求在开始执行前被拒绝。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 9.0.0
 const OUTCOME_REJECTED: StringName = &"rejected"
 
 
@@ -141,7 +141,7 @@ var isolate_graph_runtime_state: bool = true
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 9.0.0
 var max_report_trace_entries: int = 128:
 	set(value):
 		max_report_trace_entries = maxi(value, 0)
@@ -252,7 +252,7 @@ func with_signal_timeout(seconds: float, respect_time_scale: bool = true) -> GFF
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 9.0.0
 ## [br]
 ## @return 最近报告；尚未调用 run() 时为空字典。
 ## [br]

@@ -60,6 +60,7 @@
     "gf.extension.save": [
       "res://tests/gf_core/extensions/save/test_gf_node_serializers_focused.gd",
       "res://tests/gf_core/extensions/save/test_gf_persist_properties_source.gd",
+      "res://tests/gf_core/extensions/save/test_gf_save_document.gd",
       "res://tests/gf_core/extensions/save/test_gf_save_graph_utility.gd",
       "res://tests/gf_core/extensions/save/test_gf_save_slot_workflow.gd"
     ],
@@ -240,6 +241,9 @@
     ],
     "gf.standard.display.settings": [
       "res://tests/gf_core/standard/utilities/display/test_gf_display_settings_utility.gd"
+    ],
+    "gf.standard.platform": [
+      "res://tests/gf_core/standard/platform/test_gf_platform_runtime.gd"
     ],
     "gf.standard.settings": [
       "res://tests/gf_core/standard/utilities/settings/test_gf_settings_utility.gd"

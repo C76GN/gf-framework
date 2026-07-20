@@ -1,0 +1,157 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFSaveDocumentSchema" path="addons/gf/extensions/save/document/gf_save_document_schema.gd" module="extensions/save" extends="Resource" classDigest="4fbbb92ccea11795ba49a3796bced8f39b0642c2ca7f564936033d618073cc44">
+	<description>GFSaveDocumentSchema: 项目存档文档的当前版本契约。
+项目用该 Resource 声明 schema_id、当前文档版本、已知分区版本和必需分区。
+GF 只校验结构与版本，不解释任何业务字段。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">resource_definition</tag>
+		<tag name="since">9.0.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties>
+		<member kind="property" name="schema_id" decorators="@export">
+			<signature>var schema_id: StringName = &amp;""</signature>
+			<description>项目存档 schema 的稳定 ID。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="schema_version" decorators="@export">
+			<signature>var schema_version: int = 1</signature>
+			<description>当前文档 schema 版本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="section_versions" decorators="@export">
+			<signature>var section_versions: Dictionary = {}</signature>
+			<description>已知分区及其当前版本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="schema">section_versions: Dictionary from non-empty section_id to positive int version.</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="required_sections" decorators="@export">
+			<signature>var required_sections: PackedStringArray = PackedStringArray()</signature>
+			<description>当前 schema 必须存在的分区。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="allow_unknown_sections" decorators="@export">
+			<signature>var allow_unknown_sections: bool = true</signature>
+			<description>是否允许并原样保留 schema 未声明的分区。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+	</properties>
+	<methods>
+		<member kind="method" name="configure">
+			<signature>func configure( p_schema_id: StringName, p_schema_version: int, p_section_versions: Dictionary = {}, options: Dictionary = {} ) -&gt; GFSaveDocumentSchema:</signature>
+			<description>配置当前 schema 契约。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">p_schema_id: 稳定 schema ID。</tag>
+				<tag name="param">p_schema_version: 当前文档版本。</tag>
+				<tag name="param">p_section_versions: 分区当前版本映射。</tag>
+				<tag name="param">options: 可包含 required_sections 与 allow_unknown_sections。</tag>
+				<tag name="return">当前 schema。</tag>
+				<tag name="schema">p_section_versions: Dictionary from non-empty section_id to positive int version.</tag>
+				<tag name="schema">options: Dictionary with optional required_sections: PackedStringArray and allow_unknown_sections: bool.</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_section_version">
+			<signature>func get_section_version(section_id: StringName) -&gt; int:</signature>
+			<description>获取指定分区的当前版本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">section_id: 分区 ID。</tag>
+				<tag name="return">已声明版本；未知分区返回 0。</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="has_section">
+			<signature>func has_section(section_id: StringName) -&gt; bool:</signature>
+			<description>检查是否声明了分区。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">section_id: 分区 ID。</tag>
+				<tag name="return">已声明时返回 true。</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_section_ids">
+			<signature>func get_section_ids() -&gt; PackedStringArray:</signature>
+			<description>获取排序后的已知分区 ID。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">已知分区 ID。</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="validate_schema">
+			<signature>func validate_schema() -&gt; Dictionary:</signature>
+			<description>校验 schema 自身。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">结构化校验报告。</tag>
+				<tag name="schema">return: GFValidationReportDictionary-compatible report with issues, counts, summary, and next_actions.</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="validate_document">
+			<signature>func validate_document( document: GFSaveDocument, require_current_versions: bool = true ) -&gt; Dictionary:</signature>
+			<description>校验文档是否符合该 schema。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">document: 待校验文档。</tag>
+				<tag name="param">require_current_versions: 为 true 时要求文档和已知分区恰好为当前版本；为 false 时旧版本仅产生迁移警告。</tag>
+				<tag name="return">结构化兼容性报告。</tag>
+				<tag name="schema">return: GFValidationReportDictionary-compatible report with compatible, migration_required, schema_id, schema_version, issues, counts, summary, and next_actions.</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="to_dict">
+			<signature>func to_dict() -&gt; Dictionary:</signature>
+			<description>转换为字典。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">schema 字典。</tag>
+				<tag name="schema">return: Dictionary with schema_id, schema_version, section_versions, required_sections, and allow_unknown_sections.</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="duplicate_schema">
+			<signature>func duplicate_schema() -&gt; GFSaveDocumentSchema:</signature>
+			<description>创建 schema 副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">隔离 schema。</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="from_dict">
+			<signature>static func from_dict(data: Dictionary) -&gt; GFSaveDocumentSchema:</signature>
+			<description>从字典创建 schema。
+该方法执行严格边界检查，不修补非法字段或忽略未知字段。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">data: schema 字典。</tag>
+				<tag name="return">新 schema；输入不规范或 schema 自身无效时返回 null。</tag>
+				<tag name="schema">data: Dictionary with schema_id, schema_version, section_versions, required_sections, and allow_unknown_sections.</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

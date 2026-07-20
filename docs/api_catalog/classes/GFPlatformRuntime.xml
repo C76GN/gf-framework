@@ -1,0 +1,279 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFPlatformRuntime" path="addons/gf/standard/platform/gf_platform_runtime.gd" module="standard" extends="GFUtility" classDigest="e5562e8473de1a3eb204174ad03030e2ae4e199459983291697e9c06afe4f391">
+	<description>GFPlatformRuntime: 平台 adapter 注册、路由与请求生命周期服务。
+运行时允许多个外部 adapter 共存，但不会在同一契约存在多个候选时按注册顺序
+猜测实现。项目必须通过 `set_contract_route` 显式消除歧义。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_service</tag>
+		<tag name="since">9.0.0</tag>
+	</tags>
+	<signals>
+		<member kind="signal" name="adapter_registered">
+			<signature>signal adapter_registered(adapter_id: StringName)</signature>
+			<description>Adapter 注册后发出。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">adapter_id: Adapter ID。</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="signal" name="adapter_unregistered">
+			<signature>signal adapter_unregistered(adapter_id: StringName)</signature>
+			<description>Adapter 注销后发出。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">adapter_id: Adapter ID。</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="signal" name="adapter_state_changed">
+			<signature>signal adapter_state_changed(adapter_id: StringName, previous_state: int, current_state: int)</signature>
+			<description>Adapter 状态变化后转发。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">adapter_id: Adapter ID。</tag>
+				<tag name="param">previous_state: 变化前状态。</tag>
+				<tag name="param">current_state: 变化后状态。</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="signal" name="context_changed">
+			<signature>signal context_changed(adapter_id: StringName, context: GFPlatformRuntimeContext)</signature>
+			<description>Adapter 上下文变化后转发。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">adapter_id: Adapter ID。</tag>
+				<tag name="param">context: 平台上下文副本。</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="signal" name="lifecycle_event">
+			<signature>signal lifecycle_event(adapter_id: StringName, event: GFPlatformLifecycleEvent)</signature>
+			<description>Adapter 生命周期事件转发。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">adapter_id: Adapter ID。</tag>
+				<tag name="param">event: 生命周期事件副本。</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="signal" name="request_started">
+			<signature>signal request_started(adapter_id: StringName, request: GFPlatformBridgeRequest)</signature>
+			<description>请求交给 adapter 前发出。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">adapter_id: 已解析的 Adapter ID；路由失败时为空。</tag>
+				<tag name="param">request: 请求副本。</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="signal" name="request_completed">
+			<signature>signal request_completed(adapter_id: StringName, result: GFPlatformBridgeResult)</signature>
+			<description>请求进入终态后发出。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">adapter_id: 处理请求的 Adapter ID；路由失败时为空。</tag>
+				<tag name="param">result: 请求终态结果副本。</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+	</signals>
+	<enums />
+	<constants />
+	<properties />
+	<methods>
+		<member kind="method" name="ready">
+			<signature>func ready() -&gt; void:</signature>
+			<description>在架构中自动采用已注册 GFTimeProvider 的底层时钟。
+通过构造函数或 `set_clock()` 显式注入后不会被自动覆盖。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="tick">
+			<signature>func tick(delta: float) -&gt; void:</signature>
+			<description>推进 adapter callback pump 并处理请求超时。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">delta: 引擎原始帧间隔。</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="dispose">
+			<signature>func dispose() -&gt; void:</signature>
+			<description>取消全部请求、注销 adapter 并关闭平台资源。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="set_clock">
+			<signature>func set_clock(clock: GFClock) -&gt; bool:</signature>
+			<description>设置平台请求截止时间与结果耗时使用的统一单调时钟。
+存在等待请求时拒绝替换，避免绝对截止值跨越两个时间域。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">clock: 新平台时钟。</tag>
+				<tag name="return">时钟合法且当前没有等待请求时返回 true。</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_clock">
+			<signature>func get_clock() -&gt; GFClock:</signature>
+			<description>获取当前平台时钟。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">当前时钟。</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="register_adapter">
+			<signature>func register_adapter(adapter: GFPlatformAdapter) -&gt; bool:</signature>
+			<description>注册平台 adapter。
+注册只建立候选关系，不自动初始化 adapter，也不在冲突候选间建立隐式优先级。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">adapter: 已配置的外部平台 adapter。</tag>
+				<tag name="return">注册成功返回 true。</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="unregister_adapter">
+			<signature>func unregister_adapter(adapter_id: StringName, shutdown_adapter: bool = true) -&gt; bool:</signature>
+			<description>注销平台 adapter。
+该 adapter 的等待请求会先进入 `adapter_unregistered` 取消终态，显式路由也会清除。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">adapter_id: Adapter ID。</tag>
+				<tag name="param">shutdown_adapter: 是否关闭 adapter 底层资源。</tag>
+				<tag name="return">找到并注销返回 true。</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="initialize_adapter">
+			<signature>func initialize_adapter(adapter_id: StringName, options: Dictionary = {}) -&gt; GFAsyncCompletion:</signature>
+			<description>初始化指定 adapter。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">adapter_id: Adapter ID。</tag>
+				<tag name="param">options: Adapter 定义的初始化选项。</tag>
+				<tag name="return">初始化完成源；adapter 不存在时立即失败。</tag>
+				<tag name="schema">options: Dictionary adapter-defined initialization options.</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="set_contract_route">
+			<signature>func set_contract_route(contract_id: StringName, adapter_id: StringName) -&gt; bool:</signature>
+			<description>为桥接契约设置显式 adapter 路由。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">contract_id: 桥接契约 ID。</tag>
+				<tag name="param">adapter_id: 必须声明支持该契约的 Adapter ID。</tag>
+				<tag name="return">路由有效并写入成功返回 true。</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="clear_contract_route">
+			<signature>func clear_contract_route(contract_id: StringName) -&gt; bool:</signature>
+			<description>清除桥接契约显式路由。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">contract_id: 桥接契约 ID。</tag>
+				<tag name="return">找到并清除返回 true。</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_contract_route">
+			<signature>func get_contract_route(contract_id: StringName) -&gt; StringName:</signature>
+			<description>获取桥接契约当前显式路由。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">contract_id: 桥接契约 ID。</tag>
+				<tag name="return">Adapter ID；未设置返回空。</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="invoke">
+			<signature>func invoke( request: GFPlatformBridgeRequest, adapter_id: StringName = &amp;"" ) -&gt; GFPlatformRequestHandle:</signature>
+			<description>提交完整平台桥接请求。
+`adapter_id` 非空时优先使用指定 adapter；否则使用显式路由；只有恰好一个
+候选时才允许自动解析。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">request: 完整桥接请求。</tag>
+				<tag name="param">adapter_id: 可选显式 Adapter ID。</tag>
+				<tag name="return">一次性请求句柄；所有输入和路由失败也返回终态句柄。</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="invoke_contract">
+			<signature>func invoke_contract( contract_id: StringName, method_id: StringName, payload: Dictionary = {}, options: Dictionary = {} ) -&gt; GFPlatformRequestHandle:</signature>
+			<description>构建并提交平台桥接请求。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">contract_id: 桥接契约 ID。</tag>
+				<tag name="param">method_id: 方法 ID。</tag>
+				<tag name="param">payload: Adapter 定义的请求载荷。</tag>
+				<tag name="param">options: 可包含 adapter_id、request_id、timeout_msec 和 metadata。</tag>
+				<tag name="return">一次性请求句柄。</tag>
+				<tag name="schema">payload: Dictionary adapter-defined request payload.</tag>
+				<tag name="schema">options: Dictionary with optional adapter_id, request_id, timeout_msec, and metadata fields.</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="cancel_request">
+			<signature>func cancel_request(request_id: StringName, reason: StringName = &amp;"cancelled") -&gt; bool:</signature>
+			<description>取消等待中的请求。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">request_id: 请求 ID。</tag>
+				<tag name="param">reason: 取消原因。</tag>
+				<tag name="return">找到等待请求并首次取消返回 true。</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_adapter_ids">
+			<signature>func get_adapter_ids() -&gt; PackedStringArray:</signature>
+			<description>获取注册的 Adapter ID。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">排序后的 Adapter ID。</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_context">
+			<signature>func get_context(adapter_id: StringName) -&gt; GFPlatformRuntimeContext:</signature>
+			<description>获取 adapter 上下文副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">adapter_id: Adapter ID。</tag>
+				<tag name="return">上下文副本；adapter 不存在时返回 null。</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="has_capability">
+			<signature>func has_capability(capability_id: StringName, adapter_id: StringName = &amp;"") -&gt; bool:</signature>
+			<description>检查一个或任意已就绪 adapter 是否声明能力。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">capability_id: 能力 ID。</tag>
+				<tag name="param">adapter_id: 指定 Adapter ID；为空时查询全部 READY adapter。</tag>
+				<tag name="return">能力存在返回 true。</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_debug_snapshot">
+			<signature>func get_debug_snapshot() -&gt; Dictionary:</signature>
+			<description>获取运行时调试快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">Adapter、路由和等待请求摘要。</tag>
+				<tag name="schema">return: Dictionary with adapters, contract_routes, and pending_request_count.</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

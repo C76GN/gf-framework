@@ -212,6 +212,23 @@ func test_timeout_controller_reuses_token_and_reports_timeout() -> void:
 	controller.dispose()
 
 
+func test_timeout_controller_elapsed_time_uses_injected_clock() -> void:
+	var clock: GFManualClock = GFManualClock.new(0, 1700000000000)
+	var controller: GFTimeoutController = GFTimeoutController.new(clock)
+	var _token: GFCancellationToken = controller.start_seconds(0.01, get_tree())
+
+	assert_true(clock.advance_msec(125), "测试时钟应确定推进。")
+	assert_eq(controller.get_elapsed_msec(), 125, "耗时统计应使用注入的单调时钟。")
+	assert_false(controller.set_clock(GFManualClock.new()), "活动计划期间不得替换时钟。")
+
+	controller.stop()
+	await get_tree().create_timer(0.02).timeout
+	var replacement: GFManualClock = GFManualClock.new(500000, 1700000000500)
+	assert_true(controller.set_clock(replacement), "停止计划后应能替换时钟。")
+	assert_same(controller.get_clock(), replacement, "控制器应持有替换后的时钟。")
+	controller.dispose()
+
+
 func test_async_wait_utility_waits_for_frames_delay_and_predicates() -> void:
 	var next_result: Dictionary = await GFAsyncWaitUtility.next_frame({ "tree": get_tree() })
 	assert_eq(GFVariantData.get_option_string_name(next_result, "status"), GFAsyncWaitUtility.STATUS_COMPLETED, "next_frame 应完成。")

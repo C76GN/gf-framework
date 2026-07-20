@@ -17,12 +17,14 @@ extends RefCounted
 
 # --- 常量 ---
 
+const _GF_PROJECT_ARTIFACT_PATHS_SCRIPT = preload("res://addons/gf/kernel/core/gf_project_artifact_paths.gd")
+
 ## 默认生成输出路径。
 ## [br]
 ## @api public
 ## [br]
 ## @since 3.17.0
-const DEFAULT_OUTPUT_PATH: String = "res://gf/generated/gf_config_access.gd"
+const DEFAULT_OUTPUT_PATH: String = _GF_PROJECT_ARTIFACT_PATHS_SCRIPT.CONFIG_ACCESS_OUTPUT_PATH
 
 ## 默认生成 class_name。
 ## [br]

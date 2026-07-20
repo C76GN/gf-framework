@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：工具 API (`tool_api`)
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 Config Pipeline 的内置语义校验阶段。 把 Layout 记录规范化，解析类型化表头，推导或复制 schema，执行类型转换与完整校验。 只有通过语义校验的数据才会形成 GFConfigPipelineTableIR。
 
@@ -27,7 +27,7 @@ Config Pipeline 的内置语义校验阶段。 把 Layout 记录规范化，解�
 ### `STAGE_ID`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 ```gdscript
 const STAGE_ID: String = "gf.config.validation.builtin"
@@ -40,7 +40,7 @@ Validation 阶段的稳定实现标识。
 ### `IMPLEMENTATION_VERSION`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 ```gdscript
 const IMPLEMENTATION_VERSION: int = 1
@@ -55,7 +55,7 @@ Validation 阶段的实现版本；改变语义校验或 IR 生成语义时递�
 ### `compile_table`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 ```gdscript
 func compile_table( source: GFConfigPipelineTableSource, layout_result: Dictionary, options: Dictionary = {} ) -> Dictionary:
@@ -84,7 +84,7 @@ func compile_table( source: GFConfigPipelineTableSource, layout_result: Dictiona
 ### `get_stage_descriptor`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 ```gdscript
 func get_stage_descriptor() -> Dictionary:

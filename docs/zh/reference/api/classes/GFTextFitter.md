@@ -31,7 +31,7 @@
 ### `MeasurementMode`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 ```gdscript
 enum MeasurementMode {

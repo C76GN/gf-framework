@@ -7,7 +7,7 @@
 ## [br]
 ## @category tool_api
 ## [br]
-## @since unreleased
+## @since 9.0.0
 class_name GFConfigPipelineTargetStage
 extends RefCounted
 
@@ -18,14 +18,14 @@ extends RefCounted
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 9.0.0
 const STAGE_ID: String = "gf.config.target.godot_resource"
 
 ## Target 阶段的实现版本；改变 Resource 或 JSON 物化语义时递增。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 9.0.0
 const IMPLEMENTATION_VERSION: int = 1
 
 const _JSON_EXPORT_FORMAT: String = "gf.config.database"
@@ -42,7 +42,7 @@ const _DEFAULT_JSON_INDENT: String = "\t"
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 9.0.0
 ## [br]
 ## @param table_ir: 已通过 Validation 的版本化单表 IR。
 ## [br]
@@ -85,7 +85,7 @@ func materialize_table(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 9.0.0
 ## [br]
 ## @param compilation_ir: 已完成单表校验的版本化数据库 IR。
 ## [br]
@@ -154,7 +154,7 @@ func materialize_database(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 9.0.0
 ## [br]
 ## @param database: 待导出的数据库资源。
 ## [br]
@@ -206,7 +206,7 @@ func make_database_export(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 9.0.0
 ## [br]
 ## @param database: 待导出的数据库资源。
 ## [br]
@@ -246,7 +246,7 @@ func make_database_json(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 9.0.0
 ## [br]
 ## @return: 阶段描述。
 ## [br]

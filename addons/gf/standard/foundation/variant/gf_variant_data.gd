@@ -12,6 +12,7 @@ class_name GFVariantData
 extends RefCounted
 
 const _GF_VARIANT_ACCESS_SCRIPT = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
+const _MAX_SAFE_JSON_INTEGER: float = 9_007_199_254_740_991.0
 
 
 # --- 公共方法 ---
@@ -160,6 +161,59 @@ static func to_bool(value: Variant, default_value: bool = false) -> bool:
 ## @return int 值。
 static func to_int(value: Variant, default_value: int = 0) -> int:
 	return _GF_VARIANT_ACCESS_SCRIPT.to_int(value, default_value)
+
+
+## 检查 Variant 是否为可无损解释为整数的数值。
+##
+## 接受 int，以及 JSON 解析产生的有限、无小数且位于安全整数范围内的 float。
+## 不接受 bool、字符串、NaN、Infinity 或带小数的 float。
+## [br]
+## @api public
+## [br]
+## @since 9.0.0
+## [br]
+## @param value: 待检查的值。
+## [br]
+## @schema value: Variant expected to be an int or an exact JSON integer number.
+## [br]
+## @return 可无损解释为整数时返回 true。
+static func is_exact_integer(value: Variant) -> bool:
+	if value is int:
+		return true
+	if not value is float:
+		return false
+	var float_value: float = value
+	return (
+		is_finite(float_value)
+		and absf(float_value) <= _MAX_SAFE_JSON_INTEGER
+		and float_value == floorf(float_value)
+	)
+
+
+## 将精确整数 Number 转为 int。
+##
+## 与宽松 to_int() 不同，该方法不会接受 bool 或文本，也不会截断小数。
+## [br]
+## @api public
+## [br]
+## @since 9.0.0
+## [br]
+## @param value: 待转换的精确整数 Number。
+## [br]
+## @schema value: Variant accepted by is_exact_integer().
+## [br]
+## @param default_value: 输入不满足精确整数约束时返回的值。
+## [br]
+## @return 精确整数或 default_value。
+static func to_exact_int(value: Variant, default_value: int = 0) -> int:
+	if value is int:
+		var int_value: int = value
+		return int_value
+	if value is float:
+		var float_value: float = value
+		if is_exact_integer(float_value):
+			return int(float_value)
+	return default_value
 
 
 ## 将 Variant 安全归一为 float。

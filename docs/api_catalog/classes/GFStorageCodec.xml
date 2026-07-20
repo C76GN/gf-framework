@@ -1,8 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFStorageCodec" path="addons/gf/standard/utilities/storage/gf_storage_codec.gd" module="standard" extends="Resource" classDigest="7599f07e46faf43dc6f2669f3e60ee79a7779af0e76b90a22bc904c32b803a72">
+<class name="GFStorageCodec" path="addons/gf/standard/utilities/storage/gf_storage_codec.gd" module="standard" extends="Resource" classDigest="e31f60e1b1313e0a75c28fe9464441e0c18925da9a3fc0635800f8dbc4806612">
 	<description>GFStorageCodec: 通用存档字典编码与解码策略。
-负责字典序列化、可选压缩、完整性校验和轻量混淆。
+负责严格存储文档的字典序列化、可选压缩、完整性校验和轻量混淆。
 JSON 格式会通过 GFVariantJsonCodec 保留 Godot 值类型和非有限浮点数。
+业务载荷始终位于独立 payload 字段中，框架元数据不会进入业务字典。
 它不负责路径、槽位、事务提交或云同步。</description>
 	<tags>
 		<tag name="api">public</tag>
@@ -25,18 +26,68 @@ JSON 格式会通过 GFVariantJsonCodec 保留 Godot 值类型和非有限浮点
 		</member>
 	</enums>
 	<constants>
-		<member kind="const" name="META_KEY">
-			<signature>const META_KEY: String = "_meta"</signature>
+		<member kind="const" name="DOCUMENT_KEY">
+			<signature>const DOCUMENT_KEY: String = "__gf_storage_document"</signature>
+			<description>存储文档描述字段名。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="PAYLOAD_KEY">
+			<signature>const PAYLOAD_KEY: String = "payload"</signature>
+			<description>存储文档业务载荷字段名。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="SCHEMA_VERSION_KEY">
+			<signature>const SCHEMA_VERSION_KEY: String = "schema_version"</signature>
+			<description>文档 schema 版本字段名。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="METADATA_KEY">
+			<signature>const METADATA_KEY: String = "metadata"</signature>
 			<description>存储元信息字段名。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="INTEGRITY_KEY">
+			<signature>const INTEGRITY_KEY: String = "integrity"</signature>
+			<description>存储完整性描述字段名。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="ALGORITHM_KEY">
+			<signature>const ALGORITHM_KEY: String = "algorithm"</signature>
+			<description>完整性算法字段名。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="DIGEST_KEY">
+			<signature>const DIGEST_KEY: String = "digest"</signature>
+			<description>完整性摘要字段名。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="VERSION_KEY">
-			<signature>const VERSION_KEY: String = "version"</signature>
+			<signature>const VERSION_KEY: String = "data_version"</signature>
 			<description>存储版本字段名。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="TIMESTAMP_KEY">
@@ -44,13 +95,7 @@ JSON 格式会通过 GFVariantJsonCodec 保留 Godot 值类型和非有限浮点
 			<description>存储时间戳字段名。</description>
 			<tags>
 				<tag name="api">public</tag>
-			</tags>
-		</member>
-		<member kind="const" name="CHECKSUM_KEY">
-			<signature>const CHECKSUM_KEY: String = "checksum"</signature>
-			<description>存储完整性校验字段名。</description>
-			<tags>
-				<tag name="api">public</tag>
+				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="FORMAT_KEY">
@@ -58,6 +103,7 @@ JSON 格式会通过 GFVariantJsonCodec 保留 Godot 值类型和非有限浮点
 			<description>存储编码格式字段名。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="COMPRESSION_KEY">
@@ -65,36 +111,15 @@ JSON 格式会通过 GFVariantJsonCodec 保留 Godot 值类型和非有限浮点
 			<description>存储压缩方式字段名。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>
-		<member kind="const" name="ENVELOPE_KEY">
-			<signature>const ENVELOPE_KEY: String = "__gf_storage_envelope"</signature>
-			<description>当用户数据自身包含 `_meta` 时，外层包裹使用的标记字段名。</description>
+		<member kind="const" name="DOCUMENT_SCHEMA_VERSION">
+			<signature>const DOCUMENT_SCHEMA_VERSION: int = 2</signature>
+			<description>当前存储文档 schema 版本。</description>
 			<tags>
 				<tag name="api">public</tag>
-			</tags>
-		</member>
-		<member kind="const" name="ENVELOPE_VERSION_KEY">
-			<signature>const ENVELOPE_VERSION_KEY: String = "__gf_storage_envelope_version"</signature>
-			<description>存储 envelope schema 版本字段名。</description>
-			<tags>
-				<tag name="api">public</tag>
-				<tag name="since">8.0.0</tag>
-			</tags>
-		</member>
-		<member kind="const" name="ENVELOPE_DATA_KEY">
-			<signature>const ENVELOPE_DATA_KEY: String = "data"</signature>
-			<description>存储 envelope 内原始用户数据的字段名。</description>
-			<tags>
-				<tag name="api">public</tag>
-			</tags>
-		</member>
-		<member kind="const" name="ENVELOPE_VERSION">
-			<signature>const ENVELOPE_VERSION: int = 1</signature>
-			<description>当前存储 envelope schema 版本。</description>
-			<tags>
-				<tag name="api">public</tag>
-				<tag name="since">8.0.0</tag>
+				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>
 	</constants>
@@ -115,9 +140,10 @@ JSON 格式会通过 GFVariantJsonCodec 保留 Godot 值类型和非有限浮点
 		</member>
 		<member kind="property" name="use_integrity_checksum" decorators="@export">
 			<signature>var use_integrity_checksum: bool = false</signature>
-			<description>是否在 `_meta.checksum` 中写入 SHA-256 完整性校验。</description>
+			<description>是否在文档完整性描述中写入 SHA-256 摘要。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="strict_integrity" decorators="@export">
@@ -129,16 +155,19 @@ JSON 格式会通过 GFVariantJsonCodec 保留 Godot 值类型和非有限浮点
 		</member>
 		<member kind="property" name="require_integrity_checksum" decorators="@export">
 			<signature>var require_integrity_checksum: bool = true</signature>
-			<description>启用完整性校验时，是否要求载荷必须包含 `_meta.checksum`。</description>
+			<description>启用完整性校验时，是否要求文档必须包含 SHA-256 摘要。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="include_metadata" decorators="@export">
 			<signature>var include_metadata: bool = false</signature>
-			<description>是否写入 `_meta.version` 和 `_meta.timestamp`。</description>
+			<description>是否写入时间戳、编码格式和压缩方式等诊断元数据。
+数据版本始终写入，不受该选项影响。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="version" decorators="@export">
@@ -162,13 +191,6 @@ JSON 格式会通过 GFVariantJsonCodec 保留 Godot 值类型和非有限浮点
 				<tag name="api">public</tag>
 			</tags>
 		</member>
-		<member kind="property" name="allow_legacy_plain_json_fallback" decorators="@export">
-			<signature>var allow_legacy_plain_json_fallback: bool = false</signature>
-			<description>解码失败时是否尝试按旧版未压缩、未混淆 JSON 读取原始 bytes。</description>
-			<tags>
-				<tag name="api">public</tag>
-			</tags>
-		</member>
 		<member kind="property" name="normalize_json_numbers" decorators="@export">
 			<signature>var normalize_json_numbers: bool = false</signature>
 			<description>JSON 解码时是否把接近整数的 float 归一为 int。Binary 格式不受影响。</description>
@@ -186,20 +208,21 @@ JSON 格式会通过 GFVariantJsonCodec 保留 Godot 值类型和非有限浮点
 				<tag name="param">data: 要编码的数据。</tag>
 				<tag name="param">options: 临时覆盖当前 codec 设置的选项字典。</tag>
 				<tag name="return">编码后的 bytes。</tag>
-				<tag name="schema">data: Dictionary，要序列化的数据载荷；启用存储元数据时，用户 `_meta` 键会通过信封结构保留。</tag>
+				<tag name="schema">data: Dictionary，要序列化的业务载荷；所有键都会原样保存在独立 payload 中。</tag>
 				<tag name="schema">options: Dictionary，可包含 format、use_compression、obfuscation_key、use_integrity_checksum、include_metadata、version 和 max_decompressed_bytes。</tag>
+				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="decode">
-			<signature>func decode(bytes: PackedByteArray, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<signature>func decode(bytes: PackedByteArray, options: Dictionary = {}) -&gt; GFStorageReadResult:</signature>
 			<description>从 bytes 解码字典。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">bytes: 文件读取到的 bytes。</tag>
 				<tag name="param">options: 临时覆盖当前 codec 设置的选项字典。</tag>
-				<tag name="return">结果字典，包含 ok、data、metadata、integrity_valid、error。</tag>
-				<tag name="schema">options: Dictionary，可包含 format、use_compression、obfuscation_key、allow_legacy_plain_json_fallback、use_integrity_checksum、strict_integrity、normalize_json_numbers、require_integrity_checksum 和 max_decompressed_bytes。</tag>
-				<tag name="schema">return: Dictionary，包含 ok: bool、data: Dictionary、metadata: Dictionary、integrity_valid: bool 和 error: String。</tag>
+				<tag name="return">强类型读取结果；业务载荷与框架元数据保持隔离。</tag>
+				<tag name="schema">options: Dictionary，可包含 format、use_compression、obfuscation_key、use_integrity_checksum、strict_integrity、normalize_json_numbers、require_integrity_checksum 和 max_decompressed_bytes。</tag>
+				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="serialize_dictionary">
@@ -235,38 +258,6 @@ JSON 格式会在 checksum 输入中规范化整数字面量，避免不同 Godo
 				<tag name="param">p_format: 序列化格式。</tag>
 				<tag name="return">checksum hex 字符串。</tag>
 				<tag name="schema">data: Dictionary，用作校验和输入的数据载荷。</tag>
-			</tags>
-		</member>
-		<member kind="method" name="verify_integrity">
-			<signature>func verify_integrity(data: Dictionary, p_format: Format = Format.JSON) -&gt; bool:</signature>
-			<description>校验 `_meta.checksum`。</description>
-			<tags>
-				<tag name="api">public</tag>
-				<tag name="param">data: 包含可选 `_meta.checksum` 的字典。</tag>
-				<tag name="param">p_format: checksum 计算使用的格式。</tag>
-				<tag name="return">缺少 checksum 或校验通过时返回 true。</tag>
-				<tag name="schema">data: Dictionary，包含可选 `_meta.checksum` 的数据载荷。</tag>
-			</tags>
-		</member>
-		<member kind="method" name="get_metadata">
-			<signature>func get_metadata(data: Dictionary) -&gt; Dictionary:</signature>
-			<description>获取存档元信息副本。</description>
-			<tags>
-				<tag name="api">public</tag>
-				<tag name="param">data: 存档数据。</tag>
-				<tag name="return">`_meta` 字典副本；不存在时为空字典。</tag>
-				<tag name="schema">data: Dictionary，可能包含 `_meta` 的数据载荷。</tag>
-				<tag name="schema">return: Dictionary，从 `_meta` 复制出的元数据；不存在元数据时为空字典。</tag>
-			</tags>
-		</member>
-		<member kind="method" name="has_integrity_checksum">
-			<signature>func has_integrity_checksum(data: Dictionary) -&gt; bool:</signature>
-			<description>判断字典是否包含完整性 checksum。</description>
-			<tags>
-				<tag name="api">public</tag>
-				<tag name="param">data: 存档数据。</tag>
-				<tag name="return">包含 `_meta.checksum` 时返回 true。</tag>
-				<tag name="schema">data: Dictionary，可能包含 `_meta.checksum` 的数据载荷。</tag>
 			</tags>
 		</member>
 	</methods>

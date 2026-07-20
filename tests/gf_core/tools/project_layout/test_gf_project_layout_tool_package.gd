@@ -29,6 +29,15 @@ func test_feature_cohesive_profile_is_valid_json_and_declares_rules() -> void:
 	var profile: Dictionary = profile_value
 	assert_eq(GFVariantData.get_option_int(profile, "schema_version"), 1, "项目结构模板 schema_version 必须固定。")
 	assert_eq(GFVariantData.get_option_string(profile, "id"), "gf.project_layout.feature_cohesive.v1", "项目结构模板 id 必须稳定。")
+	var zone_roots: Array[String] = []
+	for zone_value: Variant in GFVariantData.get_option_array(profile, "zones"):
+		if not zone_value is Dictionary:
+			continue
+		var zone: Dictionary = zone_value
+		for root_value: Variant in GFVariantData.get_option_array(zone, "roots"):
+			zone_roots.append(GFVariantData.to_text(root_value))
+	assert_true(zone_roots.has("generated"), "Profile 必须声明受控生成物根。")
+	assert_true(zone_roots.has(".gf"), "Profile 必须声明 GF 项目意图与本地工具状态根。")
 
 	var rules_value: Variant = profile.get("rules", [])
 	assert_true(rules_value is Array, "项目结构模板必须声明 rules。")

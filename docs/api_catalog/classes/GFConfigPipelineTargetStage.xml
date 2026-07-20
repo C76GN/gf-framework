@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFConfigPipelineTargetStage" path="addons/gf/tools/config_pipeline/gf_config_pipeline_target_stage.gd" module="tools" extends="RefCounted" classDigest="af6b249ec2ccb2f419cfb2e57c9a5f6811932c4786cac2492e68a27ced8ab948">
+<class name="GFConfigPipelineTargetStage" path="addons/gf/tools/config_pipeline/gf_config_pipeline_target_stage.gd" module="tools" extends="RefCounted" classDigest="096483caeca00f971aba1864f6fc8963f51d83d3580a248214cf88bfd984a762">
 	<description>GFConfigPipelineTargetStage: Config Pipeline 的内置目标物化阶段。
 只接受版本化 IR，并将其物化为 GFConfigTableResource、GFConfigDatabaseResource 或 JSON 兼容数据。
 Target 不读取来源，也不重新推导 schema 或解释项目业务语义。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">tool_api</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">9.0.0</tag>
 	</tags>
 	<signals />
 	<enums />
@@ -16,7 +16,7 @@ Target 不读取来源，也不重新推导 schema 或解释项目业务语义�
 			<description>Target 阶段的稳定实现标识。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="IMPLEMENTATION_VERSION">
@@ -24,7 +24,7 @@ Target 不读取来源，也不重新推导 schema 或解释项目业务语义�
 			<description>Target 阶段的实现版本；改变 Resource 或 JSON 物化语义时递增。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>
 	</constants>
@@ -40,7 +40,7 @@ Target 不读取来源，也不重新推导 schema 或解释项目业务语义�
 				<tag name="return">单表物化结果。</tag>
 				<tag name="schema">options: Dictionary，可包含 rebuild_indexes。</tag>
 				<tag name="schema">return: Dictionary，包含 success、phase、table、ir、error_kind 和 error。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="materialize_database">
@@ -53,7 +53,7 @@ Target 不读取来源，也不重新推导 schema 或解释项目业务语义�
 				<tag name="return">数据库物化结果。</tag>
 				<tag name="schema">options: Dictionary，可包含 rebuild_indexes、validate_database 和 validate_schema。</tag>
 				<tag name="schema">return: Dictionary，包含 success、phase、database、report、ir、error_kind 和 error。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="make_database_export">
@@ -66,7 +66,7 @@ Target 不读取来源，也不重新推导 schema 或解释项目业务语义�
 				<tag name="return">JSON 兼容导出结果。</tag>
 				<tag name="schema">options: Dictionary，可包含 include_schema、include_indexes 和 max_depth。</tag>
 				<tag name="schema">return: Dictionary，包含 success、data 和 error。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="make_database_json">
@@ -79,7 +79,7 @@ Target 不读取来源，也不重新推导 schema 或解释项目业务语义�
 				<tag name="return">JSON 目标结果。</tag>
 				<tag name="schema">options: Dictionary，可包含 include_schema、include_indexes、max_depth、indent 和 sort_keys。</tag>
 				<tag name="schema">return: Dictionary，包含 success、data、text 和 error。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_stage_descriptor">
@@ -89,7 +89,7 @@ Target 不读取来源，也不重新推导 schema 或解释项目业务语义�
 				<tag name="api">public</tag>
 				<tag name="return">阶段描述。</tag>
 				<tag name="schema">return: Dictionary，包含 stage_id、implementation_version、input_contracts 和 output_contracts。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>
 	</methods>

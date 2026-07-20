@@ -105,9 +105,21 @@ func test_duplicate_metadata_deep_copies_custom_metadata() -> void:
 
 
 func test_from_values_sets_slot_and_timestamps() -> void:
-	var meta: GFSaveSlotMetadata = GFSaveSlotMetadata.from_values(&"p1", "标题", { "x": true })
+	var meta: GFSaveSlotMetadata = GFSaveSlotMetadata.from_values(
+		&"p1",
+		"标题",
+		{ "x": true },
+		1700000000
+	)
 	assert_eq(meta.slot_id, &"p1")
 	assert_eq(meta.display_name, "标题")
 	assert_true(GFVariantData.get_option_bool(meta.custom_metadata, "x"))
-	assert_gt(meta.created_at_unix, 0)
+	assert_eq(meta.created_at_unix, 1700000000)
 	assert_eq(meta.updated_at_unix, meta.created_at_unix)
+
+
+func test_from_values_does_not_read_hidden_system_time() -> void:
+	var meta: GFSaveSlotMetadata = GFSaveSlotMetadata.from_values(&"p1")
+
+	assert_eq(meta.created_at_unix, 0, "未提供时间戳时值对象不得自行读取系统时间。")
+	assert_eq(meta.updated_at_unix, 0, "未知更新时间应保持显式 0。")

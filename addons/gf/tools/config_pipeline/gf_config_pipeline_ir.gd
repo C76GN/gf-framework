@@ -7,7 +7,7 @@
 ## [br]
 ## @category tool_api
 ## [br]
-## @since unreleased
+## @since 9.0.0
 class_name GFConfigPipelineIR
 extends RefCounted
 
@@ -18,14 +18,14 @@ extends RefCounted
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 9.0.0
 const FORMAT: String = "gf.config_pipeline.ir"
 
 ## 数据库 IR 的格式版本。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 9.0.0
 const FORMAT_VERSION: int = 1
 
 
@@ -45,7 +45,7 @@ var _sealed: bool = false
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 9.0.0
 ## [br]
 ## @param database_id: 数据库标识；可为空。
 ## [br]
@@ -72,7 +72,7 @@ static func create(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 9.0.0
 ## [br]
 ## @param table_ir: 已完成语义校验的单表 IR。
 ## [br]
@@ -114,7 +114,7 @@ func add_table(table_ir: GFConfigPipelineTableIR) -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 9.0.0
 ## [br]
 ## @return: 封存结果。
 ## [br]
@@ -133,7 +133,7 @@ func seal() -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 9.0.0
 ## [br]
 ## @return: 已封存时为 true。
 func is_sealed() -> bool:
@@ -144,7 +144,7 @@ func is_sealed() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 9.0.0
 ## [br]
 ## @return: 契约校验结果。
 ## [br]
@@ -162,7 +162,7 @@ func validate_contract() -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 9.0.0
 ## [br]
 ## @return: 数据库标识。
 func get_database_id() -> StringName:
@@ -173,7 +173,7 @@ func get_database_id() -> StringName:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 9.0.0
 ## [br]
 ## @return: 配置版本。
 func get_version() -> String:
@@ -184,7 +184,7 @@ func get_version() -> String:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 9.0.0
 ## [br]
 ## @return: 数据库元数据的深拷贝。
 ## [br]
@@ -197,7 +197,7 @@ func get_metadata() -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 9.0.0
 ## [br]
 ## @param table_name: 稳定表名。
 ## [br]
@@ -213,7 +213,7 @@ func get_table(table_name: StringName) -> GFConfigPipelineTableIR:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 9.0.0
 ## [br]
 ## @return: 单表 IR 列表；数组容器是副本，元素是不可变 IR。
 ## [br]
@@ -226,7 +226,7 @@ func get_tables() -> Array[GFConfigPipelineTableIR]:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 9.0.0
 ## [br]
 ## @return: 数据库 IR 副本；原 IR 已封存时，副本也会封存。
 func duplicate_ir() -> GFConfigPipelineIR:
@@ -242,7 +242,7 @@ func duplicate_ir() -> GFConfigPipelineIR:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 9.0.0
 ## [br]
 ## @return: IR 摘要。
 ## [br]

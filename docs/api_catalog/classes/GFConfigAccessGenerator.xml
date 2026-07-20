@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFConfigAccessGenerator" path="addons/gf/tools/config_pipeline/gf_config_access_generator.gd" module="tools" extends="RefCounted" classDigest="af40911533fbca24134d5a99d4a90d82e7646f37f7c25bf98a032707850e1af0">
+<class name="GFConfigAccessGenerator" path="addons/gf/tools/config_pipeline/gf_config_access_generator.gd" module="tools" extends="RefCounted" classDigest="ab9e7827eb1d155671bbc572342d5f5718ee40d9297ee0afcd90d6bc4f76e50c">
 	<description>GFConfigAccessGenerator: 生成静态导表访问器脚本。
 默认生成结果只封装 provider 的 `get_record()` / `get_table()` 调用，
 也可按 schema 字段声明生成可选记录包装类；生成器本身不规定项目表结构语义。</description>
@@ -12,7 +12,7 @@
 	<enums />
 	<constants>
 		<member kind="const" name="DEFAULT_OUTPUT_PATH">
-			<signature>const DEFAULT_OUTPUT_PATH: String = "res://gf/generated/gf_config_access.gd"</signature>
+			<signature>const DEFAULT_OUTPUT_PATH: String = _GF_PROJECT_ARTIFACT_PATHS_SCRIPT.CONFIG_ACCESS_OUTPUT_PATH</signature>
 			<description>默认生成输出路径。</description>
 			<tags>
 				<tag name="api">public</tag>

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFVariantData" path="addons/gf/standard/foundation/variant/gf_variant_data.gd" module="standard" extends="RefCounted" classDigest="5a6cb2b260db0b10fbffc51ac1d9d32e3d74dc6cdaaa7b0523f97606bebe01b3">
+<class name="GFVariantData" path="addons/gf/standard/foundation/variant/gf_variant_data.gd" module="standard" extends="RefCounted" classDigest="3f65cd3d8ebfc33fe2f26d26ac9e210ee6ff912583f3118816adaa30113ca81f">
 	<description>GFVariantData: 通用 Variant 数据复制与默认值合并。
 提供不依赖 GFArchitecture 的集合复制、Resource 可选复制、差异报告和默认值递归补齐。
 JSON 兼容编码由 GFVariantJsonCodec 负责。</description>
@@ -112,6 +112,32 @@ JSON 兼容编码由 GFVariantJsonCodec 负责。</description>
 				<tag name="param">default_value: 无法安全归一时返回的默认值。</tag>
 				<tag name="return">int 值。</tag>
 				<tag name="schema">value: 期望可表示 int 的 Variant 值。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_exact_integer">
+			<signature>static func is_exact_integer(value: Variant) -&gt; bool:</signature>
+			<description>检查 Variant 是否为可无损解释为整数的数值。
+接受 int，以及 JSON 解析产生的有限、无小数且位于安全整数范围内的 float。
+不接受 bool、字符串、NaN、Infinity 或带小数的 float。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">value: 待检查的值。</tag>
+				<tag name="return">可无损解释为整数时返回 true。</tag>
+				<tag name="schema">value: Variant expected to be an int or an exact JSON integer number.</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="to_exact_int">
+			<signature>static func to_exact_int(value: Variant, default_value: int = 0) -&gt; int:</signature>
+			<description>将精确整数 Number 转为 int。
+与宽松 to_int() 不同，该方法不会接受 bool 或文本，也不会截断小数。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">value: 待转换的精确整数 Number。</tag>
+				<tag name="param">default_value: 输入不满足精确整数约束时返回的值。</tag>
+				<tag name="return">精确整数或 default_value。</tag>
+				<tag name="schema">value: Variant accepted by is_exact_integer().</tag>
+				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="to_float">

@@ -8,7 +8,7 @@
 ## [br]
 ## @category value_object
 ## [br]
-## @since unreleased
+## @since 9.0.0
 class_name GFPriorityWorkQueue
 extends RefCounted
 
@@ -19,7 +19,7 @@ extends RefCounted
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 9.0.0
 var aging_interval_msec: int = 1000:
 	set(value):
 		aging_interval_msec = maxi(value, 1)
@@ -28,7 +28,7 @@ var aging_interval_msec: int = 1000:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 9.0.0
 var aging_step: float = 1.0:
 	set(value):
 		aging_step = value if is_finite(value) and value > 0.0 else 1.0
@@ -37,7 +37,7 @@ var aging_step: float = 1.0:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 9.0.0
 var max_size: int = 0:
 	set(value):
 		max_size = maxi(value, 0)
@@ -56,7 +56,7 @@ var _next_front_order: int = 0
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 9.0.0
 ## [br]
 ## @param value: 工作载荷。
 ## [br]
@@ -75,7 +75,7 @@ func push(value: Variant, priority: float = 0.0, front: bool = false) -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 9.0.0
 ## [br]
 ## @param value: 工作载荷。
 ## [br]
@@ -112,7 +112,7 @@ func push_at(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 9.0.0
 ## [br]
 ## @param default_value: 队列为空时的返回值。
 ## [br]
@@ -129,7 +129,7 @@ func pop(default_value: Variant = null) -> Variant:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 9.0.0
 ## [br]
 ## @param now_msec: 与入队时间相同时间域中的当前毫秒时间。
 ## [br]
@@ -154,7 +154,7 @@ func pop_at(now_msec: int, default_value: Variant = null) -> Variant:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 9.0.0
 ## [br]
 ## @param default_value: 队列为空时的返回值。
 ## [br]
@@ -171,7 +171,7 @@ func peek(default_value: Variant = null) -> Variant:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 9.0.0
 ## [br]
 ## @param now_msec: 与入队时间相同时间域中的当前毫秒时间。
 ## [br]
@@ -193,7 +193,7 @@ func peek_at(now_msec: int, default_value: Variant = null) -> Variant:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 9.0.0
 ## [br]
 ## @param value: 要移除的工作载荷。
 ## [br]
@@ -213,7 +213,7 @@ func remove_value(value: Variant) -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 9.0.0
 ## [br]
 ## @param value: 要更新的工作载荷。
 ## [br]
@@ -236,7 +236,7 @@ func set_priority(value: Variant, priority: float) -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 9.0.0
 func clear() -> void:
 	_entries.clear()
 	_next_order = 0
@@ -247,7 +247,7 @@ func clear() -> void:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 9.0.0
 ## [br]
 ## @return 为空时返回 true。
 func is_empty() -> bool:
@@ -258,7 +258,7 @@ func is_empty() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 9.0.0
 ## [br]
 ## @return 等待值数量。
 func size() -> int:
@@ -269,7 +269,7 @@ func size() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 9.0.0
 ## [br]
 ## @param now_msec: 与入队时间相同时间域中的当前毫秒时间；小于 0 时自动读取。
 ## [br]
@@ -289,7 +289,7 @@ func to_array(now_msec: int = -1, deep: bool = false) -> Array:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 9.0.0
 ## [br]
 ## @param now_msec: 与入队时间相同时间域中的当前毫秒时间；小于 0 时自动读取。
 ## [br]
@@ -318,7 +318,7 @@ func to_entry_array(now_msec: int = -1, deep: bool = false) -> Array[Dictionary]
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 9.0.0
 ## [br]
 ## @param now_msec: 与入队时间相同时间域中的当前毫秒时间；小于 0 时自动读取。
 ## [br]

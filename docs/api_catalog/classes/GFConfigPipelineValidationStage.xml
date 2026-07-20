@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFConfigPipelineValidationStage" path="addons/gf/tools/config_pipeline/gf_config_pipeline_validation_stage.gd" module="tools" extends="RefCounted" classDigest="2a3362e7d517aca536c3dc7850283fc04737650554455ffc2f9d2954cccb4ba3">
+<class name="GFConfigPipelineValidationStage" path="addons/gf/tools/config_pipeline/gf_config_pipeline_validation_stage.gd" module="tools" extends="RefCounted" classDigest="bf095bcf97a406efabea478e5e8fc7c27037cdffe985bbeb42822477db5165ef">
 	<description>GFConfigPipelineValidationStage: Config Pipeline 的内置语义校验阶段。
 把 Layout 记录规范化，解析类型化表头，推导或复制 schema，执行类型转换与完整校验。
 只有通过语义校验的数据才会形成 GFConfigPipelineTableIR。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">tool_api</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">9.0.0</tag>
 	</tags>
 	<signals />
 	<enums />
@@ -16,7 +16,7 @@
 			<description>Validation 阶段的稳定实现标识。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="IMPLEMENTATION_VERSION">
@@ -24,7 +24,7 @@
 			<description>Validation 阶段的实现版本；改变语义校验或 IR 生成语义时递增。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>
 	</constants>
@@ -42,7 +42,7 @@
 				<tag name="schema">layout_result: Dictionary，符合 gf.config_pipeline.layout_result@1。</tag>
 				<tag name="schema">options: Dictionary，可包含 parse_options；其字段覆盖 source.parse_options 并传给 schema 校验上下文。</tag>
 				<tag name="schema">return: Dictionary，包含 success、phase、ir、report、source_path、format、error_kind 和 error。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_stage_descriptor">
@@ -52,7 +52,7 @@
 				<tag name="api">public</tag>
 				<tag name="return">阶段描述。</tag>
 				<tag name="schema">return: Dictionary，包含 stage_id、implementation_version、input_contract 和 output_contract。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>
 	</methods>

@@ -1,8 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFTimeProvider" path="addons/gf/kernel/base/gf_time_provider.gd" module="kernel" extends="GFUtility" classDigest="2452fd28890d6b3fd64185fb685c23ff646ec85e44f69fb230bd40c293d20227">
-	<description>GFTimeProvider: 架构 tick 时间缩放协议。
+<class name="GFTimeProvider" path="addons/gf/kernel/base/gf_time_provider.gd" module="kernel" extends="GFUtility" classDigest="723dd52bdc787380671dc38d5f2636905bb1db77298668c4758c67dd5b38468a">
+	<description>GFTimeProvider: 架构 tick 时间缩放与时钟提供协议。
 该基类只定义 `GFArchitecture` 需要理解的时间控制契约。
-具体时间工具可以继承它来提供暂停、缩放和物理子步能力。</description>
+具体时间工具可以继承它来提供暂停、缩放和物理子步能力，并通过独立
+`GFClock` 明确区分单调运行时与 Unix 墙上时间。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">protocol</tag>
@@ -13,6 +14,62 @@
 	<constants />
 	<properties />
 	<methods>
+		<member kind="method" name="set_clock">
+			<signature>func set_clock(clock: GFClock) -&gt; bool:</signature>
+			<description>设置底层时钟。
+注入只改变后续读取，不修改缩放或暂停状态。传入 null 会被拒绝。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">clock: 系统、测试或模拟时钟。</tag>
+				<tag name="return">设置成功返回 true。</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_clock">
+			<signature>func get_clock() -&gt; GFClock:</signature>
+			<description>获取当前底层时钟。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">当前时钟实例。</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_monotonic_usec">
+			<signature>func get_monotonic_usec() -&gt; int:</signature>
+			<description>获取单调运行时微秒值。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">不受暂停、缩放或系统校时影响的微秒值。</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_monotonic_msec">
+			<signature>func get_monotonic_msec() -&gt; int:</signature>
+			<description>获取单调运行时毫秒值。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">不受暂停、缩放或系统校时影响的毫秒值。</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_unix_time_msec">
+			<signature>func get_unix_time_msec() -&gt; int:</signature>
+			<description>获取 Unix epoch 毫秒时间戳。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">可持久化、但可能因系统校时跳变的毫秒时间戳。</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_unix_time_seconds">
+			<signature>func get_unix_time_seconds() -&gt; int:</signature>
+			<description>获取 Unix epoch 秒时间戳。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">可持久化、但可能因系统校时跳变的秒时间戳。</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
 		<member kind="method" name="get_scaled_delta">
 			<signature>func get_scaled_delta(delta: float) -&gt; float:</signature>
 			<description>获取普通 tick 使用的 delta。</description>

@@ -7,7 +7,7 @@
 ## [br]
 ## @category tool_api
 ## [br]
-## @since unreleased
+## @since 9.0.0
 class_name GFConfigPipelineTableIR
 extends RefCounted
 
@@ -18,14 +18,14 @@ extends RefCounted
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 9.0.0
 const FORMAT: String = "gf.config_pipeline.table_ir"
 
 ## 单表 IR 的格式版本。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 9.0.0
 const FORMAT_VERSION: int = 1
 
 
@@ -46,7 +46,7 @@ var _metadata: Dictionary = {}
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 9.0.0
 ## [br]
 ## @param table_name: 稳定表名。
 ## [br]
@@ -93,7 +93,7 @@ static func create(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 9.0.0
 ## [br]
 ## @return: 契约校验结果。
 ## [br]
@@ -123,7 +123,7 @@ func validate_contract() -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 9.0.0
 ## [br]
 ## @return: 稳定表名。
 func get_table_name() -> StringName:
@@ -134,7 +134,7 @@ func get_table_name() -> StringName:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 9.0.0
 ## [br]
 ## @return: 原始来源路径。
 func get_source_path() -> String:
@@ -145,7 +145,7 @@ func get_source_path() -> String:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 9.0.0
 ## [br]
 ## @return: 来源格式。
 func get_source_format() -> StringName:
@@ -156,7 +156,7 @@ func get_source_format() -> StringName:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 9.0.0
 ## [br]
 ## @return: 规范记录列表。
 ## [br]
@@ -169,7 +169,7 @@ func get_records() -> Array[Dictionary]:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 9.0.0
 ## [br]
 ## @return: 表结构；未声明时返回 null。
 func get_schema() -> GFConfigTableSchema:
@@ -182,7 +182,7 @@ func get_schema() -> GFConfigTableSchema:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 9.0.0
 ## [br]
 ## @return: 来源定位映射的深拷贝。
 ## [br]
@@ -195,7 +195,7 @@ func get_source_map() -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 9.0.0
 ## [br]
 ## @return: 表元数据的深拷贝。
 ## [br]
@@ -208,7 +208,7 @@ func get_metadata() -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 9.0.0
 ## [br]
 ## @return: 单表 IR 副本。
 func duplicate_ir() -> GFConfigPipelineTableIR:
@@ -219,7 +219,7 @@ func duplicate_ir() -> GFConfigPipelineTableIR:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 9.0.0
 ## [br]
 ## @return: IR 摘要。
 ## [br]

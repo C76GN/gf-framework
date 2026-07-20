@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFNetworkContractGenerator" path="addons/gf/extensions/network/editor/gf_network_contract_generator.gd" module="extensions/network" extends="RefCounted" classDigest="d7cbaf240c0160c88842157b188f319d1a4ff05f0821cbf4a8b533f12824014d">
+<class name="GFNetworkContractGenerator" path="addons/gf/extensions/network/editor/gf_network_contract_generator.gd" module="extensions/network" extends="RefCounted" classDigest="f8c6d522fd7a891cdef76b50a7a517d735e2f7aa6466c2407a1d8eed28213d02">
 	<description>GFNetworkContractGenerator: 根据 GFNetworkContract 生成强类型消息辅助脚本。
 生成结果保持为 GDScript 轻量封装，围绕 GFNetworkMessage / GFNetworkUtility
 提供构造、发送、匹配和 payload 读取函数，不绑定任何具体业务协议。</description>
@@ -12,10 +12,11 @@
 	<enums />
 	<constants>
 		<member kind="const" name="DEFAULT_OUTPUT_DIR">
-			<signature>const DEFAULT_OUTPUT_DIR: String = "res://gf/generated/network"</signature>
+			<signature>const DEFAULT_OUTPUT_DIR: String = _GF_PROJECT_ARTIFACT_PATHS_SCRIPT.NETWORK_OUTPUT_ROOT</signature>
 			<description>默认生成脚本输出目录。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>
 	</constants>

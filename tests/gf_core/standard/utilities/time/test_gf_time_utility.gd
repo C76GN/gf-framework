@@ -122,6 +122,8 @@ func test_remove_group() -> void:
 
 ## 验证 init 重置所有状态。
 func test_init_resets_state() -> void:
+	var clock: GFManualClock = GFManualClock.new(120000, 1700000000000)
+	assert_true(_utility.set_clock(clock), "测试时钟应能注入。")
 	_utility.time_scale = 3.0
 	_utility.is_paused = true
 	_utility.set_group_paused(&"test", true)
@@ -129,6 +131,37 @@ func test_init_resets_state() -> void:
 	assert_almost_eq(_utility.time_scale, 1.0, 0.0001, "init 后缩放应重置为 1.0。")
 	assert_false(_utility.is_paused, "init 后暂停应重置为 false。")
 	assert_false(_utility.is_group_paused(&"test"), "init 后组暂停应被清除。")
+	assert_same(_utility.get_clock(), clock, "init 不应替换显式注入的时钟。")
+
+
+# --- 测试：时钟语义 ---
+
+func test_manual_clock_separates_monotonic_and_wall_time() -> void:
+	var clock: GFManualClock = GFManualClock.new(125000, 1700000000125)
+	assert_true(_utility.set_clock(clock), "GFTimeProvider 应接受明确时钟。")
+
+	assert_eq(_utility.get_monotonic_usec(), 125000, "单调微秒应来自注入时钟。")
+	assert_eq(_utility.get_monotonic_msec(), 125, "单调毫秒应来自注入时钟。")
+	assert_eq(_utility.get_unix_time_msec(), 1700000000125, "墙上时间应保持独立。")
+	assert_eq(_utility.get_unix_time_seconds(), 1700000000, "Unix 秒应按毫秒截断。")
+
+	assert_true(clock.advance_msec(25), "手动时钟应能确定推进。")
+	assert_eq(_utility.get_monotonic_msec(), 150, "推进后单调时间应增加。")
+	assert_eq(_utility.get_unix_time_msec(), 1700000000150, "推进后墙上时间应同步增加。")
+
+	assert_true(clock.set_unix_time_msec(1600000000000), "墙上时钟应允许模拟系统回拨。")
+	assert_eq(_utility.get_monotonic_msec(), 150, "墙上时钟回拨不得影响单调时间。")
+	assert_eq(_utility.get_unix_time_msec(), 1600000000000, "墙上时钟应使用显式新值。")
+
+
+func test_manual_clock_rejects_monotonic_rollback() -> void:
+	var clock: GFManualClock = GFManualClock.new(1000, 2000)
+
+	assert_false(clock.advance_usec(-1), "单调微秒不得反向推进。")
+	assert_false(clock.advance_msec(-1), "单调毫秒不得反向推进。")
+	assert_false(clock.set_unix_time_msec(-1), "墙上时钟不得设置为负值。")
+	assert_eq(clock.get_monotonic_usec(), 1000, "非法推进不得修改单调时间。")
+	assert_eq(clock.get_unix_time_msec(), 2000, "非法设置不得修改墙上时间。")
 
 
 ## 验证模块可选择忽略 time_scale 但仍尊重暂停。

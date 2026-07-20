@@ -408,6 +408,62 @@ func test_fallback_persistence_rejects_native_absolute_paths() -> void:
 	assert_push_error("[GFSettingsUtility] 已拒绝原生绝对设置路径：C:/gf_settings_denied.json。")
 
 
+func test_storage_backed_settings_roundtrip_keeps_framework_metadata_out_of_business_data() -> void:
+	var storage: GFStorageUtility = GFStorageUtility.new()
+	storage.save_dir_name = "test_settings_storage"
+	storage.include_storage_metadata = true
+	storage.init()
+	var file_name: String = "settings_roundtrip.sav"
+	var settings: StorageBackedSettingsUtility = StorageBackedSettingsUtility.new()
+	settings.storage_backend = storage
+	settings.storage_file_name = file_name
+	settings.auto_load_on_init = false
+	settings.auto_save_on_change = false
+	settings.init()
+	var _register_profile_result: Variant = settings.register_setting(
+		&"profile/metadata",
+		{},
+		GFSettingDefinition.ValueType.DICTIONARY
+	)
+	settings.set_value(&"profile/metadata", {
+		"_meta": {"owner": "project"},
+		"value": 7,
+	}, false)
+
+	assert_eq(settings.save_settings(), OK, "Settings 应通过严格 Storage 文档保存。")
+	var storage_result: GFStorageReadResult = storage.load_data(file_name)
+	assert_true(storage_result.ok, "Settings 物理文档应可由 Storage 读取。")
+	assert_true(storage_result.metadata.has(GFStorageCodec.VERSION_KEY), "存储版本应位于独立 metadata。")
+	assert_false(storage_result.payload.has(GFStorageCodec.VERSION_KEY), "存储版本不得渗入 Settings 业务字典。")
+
+	var restored: StorageBackedSettingsUtility = StorageBackedSettingsUtility.new()
+	restored.storage_backend = storage
+	restored.storage_file_name = file_name
+	restored.auto_load_on_init = false
+	restored.auto_save_on_change = false
+	restored.init()
+	var _register_restored_profile_result: Variant = restored.register_setting(
+		&"profile/metadata",
+		{},
+		GFSettingDefinition.ValueType.DICTIONARY
+	)
+	var loaded: Dictionary = restored.load_settings()
+	var profile: Dictionary = GFVariantData.as_dictionary(restored.get_value(&"profile/metadata"))
+	var project_meta: Dictionary = GFVariantData.get_option_dictionary(profile, "_meta")
+
+	assert_false(loaded.has(GFStorageCodec.VERSION_KEY), "Settings 读取结果不得包含存储 metadata。")
+	assert_eq(GFVariantData.get_option_string(project_meta, "owner"), "project", "业务 `_meta` 应完整往返。")
+	assert_eq(GFVariantData.get_option_int(profile, "value"), 7, "业务设置值应完整往返。")
+
+	restored.dispose()
+	settings.dispose()
+	for suffix: String in ["", ".tmp", ".bak", ".txn"]:
+		var path: String = storage._get_full_path(file_name + suffix)
+		if FileAccess.file_exists(path):
+			var _remove_result: Error = DirAccess.remove_absolute(path)
+	storage.dispose()
+
+
 func test_fallback_persistence_rejects_parent_traversal_paths() -> void:
 	var _register_setting_result: Variant = _settings.register_setting(&"audio/master", 1.0, GFSettingDefinition.ValueType.FLOAT)
 
@@ -482,3 +538,12 @@ class LoadedSettingsUtility:
 
 	func _read_persisted_data(_file_name: String) -> Dictionary:
 		return loaded_data.duplicate(true)
+
+
+class StorageBackedSettingsUtility:
+	extends GFSettingsUtility
+
+	var storage_backend: GFStorageUtility
+
+	func _get_storage_utility() -> GFStorageUtility:
+		return storage_backend

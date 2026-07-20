@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFPlatformLifecycleEvent" path="addons/gf/standard/foundation/platform/gf_platform_lifecycle_event.gd" module="standard" extends="Resource" classDigest="71fc5b36649f6409c0957b0cd620824d422c34e209a1b0a0f017673f0c3067c6">
+<class name="GFPlatformLifecycleEvent" path="addons/gf/standard/foundation/platform/gf_platform_lifecycle_event.gd" module="standard" extends="Resource" classDigest="aac11f6376efd5c4c8a8a85fd4e68bc33cc4e743d6edefb5420012976a207d53">
 	<description>GFPlatformLifecycleEvent: 平台生命周期事件。
 用纯数据表达平台 adapter 观察到的前后台、窗口、网络、输入法或资源压力等事件。
 它不订阅任何平台回调，也不持有场景树状态。</description>
@@ -138,7 +138,7 @@
 				<tag name="param">p_platform_id: 平台标识。</tag>
 				<tag name="param">p_payload: 事件载荷。</tag>
 				<tag name="param">p_sequence: 单调递增序号。</tag>
-				<tag name="param">p_timestamp_msec: 时间戳；小于等于 0 时使用 Time.get_ticks_msec()。</tag>
+				<tag name="param">p_timestamp_msec: 单调时间戳；0 表示由发布该事件的 adapter 填充。</tag>
 				<tag name="param">p_metadata: 调用方元数据。</tag>
 				<tag name="return">当前事件。</tag>
 				<tag name="schema">p_payload: Dictionary adapter-defined event payload.</tag>

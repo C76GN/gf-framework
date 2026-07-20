@@ -158,7 +158,7 @@ signal queue_changed(snapshot: Dictionary)
 ### `persistence_failed`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 ```gdscript
 signal persistence_failed(operation: StringName, error: Error, path: String)

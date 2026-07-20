@@ -6,10 +6,10 @@
 
 | 类别 | 类 | 成员 | 方法 |
 |---|---:|---:|---:|
-| [运行时服务](#category-runtime_service) | 4 | 46 | 35 |
-| [协议与扩展点](#category-protocol) | 8 | 87 | 52 |
-| [资源定义](#category-resource_definition) | 10 | 49 | 39 |
-| [值对象](#category-value_object) | 3 | 54 | 24 |
+| [运行时服务](#category-runtime_service) | 5 | 66 | 52 |
+| [协议与扩展点](#category-protocol) | 9 | 97 | 57 |
+| [资源定义](#category-resource_definition) | 11 | 65 | 50 |
+| [值对象](#category-value_object) | 7 | 103 | 68 |
 | [领域模型](#category-domain_model) | 1 | 6 | 3 |
 | [事件契约](#category-event_contract) | 1 | 11 | 3 |
 
@@ -23,6 +23,7 @@
 |---|---|---|
 | [`GFNodeSerializerRegistry`](classes/GFNodeSerializerRegistry.md#gfnodeserializerregistry) | `RefCounted` | `addons/gf/extensions/save/serializers/gf_node_serializer_registry.gd` |
 | [`GFSaveGraphUtility`](classes/GFSaveGraphUtility.md#gfsavegraphutility) | `GFUtility` | `addons/gf/extensions/save/graph/gf_save_graph_utility.gd` |
+| [`GFSaveMigrationRegistry`](classes/GFSaveMigrationRegistry.md#gfsavemigrationregistry) | `RefCounted` | `addons/gf/extensions/save/document/gf_save_migration_registry.gd` |
 | [`GFSaveSlotStorageAdapter`](classes/GFSaveSlotStorageAdapter.md#gfsaveslotstorageadapter) | `Resource` | `addons/gf/extensions/save/slots/gf_save_slot_storage_adapter.gd` |
 | [`GFSaveSlotSyncBridge`](classes/GFSaveSlotSyncBridge.md#gfsaveslotsyncbridge) | `RefCounted` | `addons/gf/extensions/save/slots/gf_save_slot_sync_bridge.gd` |
 
@@ -36,6 +37,7 @@
 | [`GFPersistPropertiesSource`](classes/GFPersistPropertiesSource.md#gfpersistpropertiessource) | `GFSaveSource` | `addons/gf/extensions/save/core/gf_persist_properties_source.gd` |
 | [`GFSaveDataSource`](classes/GFSaveDataSource.md#gfsavedatasource) | `GFSaveSource` | `addons/gf/extensions/save/core/gf_save_data_source.gd` |
 | [`GFSaveEntityFactory`](classes/GFSaveEntityFactory.md#gfsaveentityfactory) | `Resource` | `addons/gf/extensions/save/core/gf_save_entity_factory.gd` |
+| [`GFSaveMigrationStep`](classes/GFSaveMigrationStep.md#gfsavemigrationstep) | `Resource` | `addons/gf/extensions/save/document/gf_save_migration_step.gd` |
 | [`GFSavePipelineStep`](classes/GFSavePipelineStep.md#gfsavepipelinestep) | `Resource` | `addons/gf/extensions/save/pipeline/gf_save_pipeline_step.gd` |
 | [`GFSaveScope`](classes/GFSaveScope.md#gfsavescope) | `Node` | `addons/gf/extensions/save/core/gf_save_scope.gd` |
 | [`GFSaveSource`](classes/GFSaveSource.md#gfsavesource) | `Node` | `addons/gf/extensions/save/core/gf_save_source.gd` |
@@ -56,6 +58,7 @@
 | [`GFNodeTimerSerializer`](classes/GFNodeTimerSerializer.md#gfnodetimerserializer) | `GFNodeSerializer` | `addons/gf/extensions/save/serializers/gf_node_timer_serializer.gd` |
 | [`GFNodeTransform2DSerializer`](classes/GFNodeTransform2DSerializer.md#gfnodetransform2dserializer) | `GFNodeSerializer` | `addons/gf/extensions/save/serializers/gf_node_transform_2d_serializer.gd` |
 | [`GFNodeTransform3DSerializer`](classes/GFNodeTransform3DSerializer.md#gfnodetransform3dserializer) | `GFNodeSerializer` | `addons/gf/extensions/save/serializers/gf_node_transform_3d_serializer.gd` |
+| [`GFSaveDocumentSchema`](classes/GFSaveDocumentSchema.md#gfsavedocumentschema) | `Resource` | `addons/gf/extensions/save/document/gf_save_document_schema.gd` |
 | [`GFSaveSlotWorkflow`](classes/GFSaveSlotWorkflow.md#gfsaveslotworkflow) | `Resource` | `addons/gf/extensions/save/slots/gf_save_slot_workflow.gd` |
 
 <a id="category-value_object"></a>
@@ -64,7 +67,11 @@
 
 | 类 | 继承 | 源文件 |
 |---|---|---|
+| [`GFSaveDocument`](classes/GFSaveDocument.md#gfsavedocument) | `RefCounted` | `addons/gf/extensions/save/document/gf_save_document.gd` |
+| [`GFSaveDocumentReadResult`](classes/GFSaveDocumentReadResult.md#gfsavedocumentreadresult) | `RefCounted` | `addons/gf/extensions/save/document/gf_save_document_read_result.gd` |
+| [`GFSaveMigrationResult`](classes/GFSaveMigrationResult.md#gfsavemigrationresult) | `RefCounted` | `addons/gf/extensions/save/document/gf_save_migration_result.gd` |
 | [`GFSavePipelineContext`](classes/GFSavePipelineContext.md#gfsavepipelinecontext) | `RefCounted` | `addons/gf/extensions/save/pipeline/gf_save_pipeline_context.gd` |
+| [`GFSaveSection`](classes/GFSaveSection.md#gfsavesection) | `RefCounted` | `addons/gf/extensions/save/document/gf_save_section.gd` |
 | [`GFSaveSlotCard`](classes/GFSaveSlotCard.md#gfsaveslotcard) | `Resource` | `addons/gf/extensions/save/slots/gf_save_slot_card.gd` |
 | [`GFSaveSlotMetadata`](classes/GFSaveSlotMetadata.md#gfsaveslotmetadata) | `Resource` | `addons/gf/extensions/save/slots/gf_save_slot_metadata.gd` |
 

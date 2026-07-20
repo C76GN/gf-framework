@@ -418,7 +418,7 @@ python tools\generate_api_coverage_matrix.py
 硬边界：
 
 - GF runtime、Godot 插件启动、导出游戏和普通包管理不能依赖 Python、MCP、Agent 客户端或该 tool 包；任何 runtime package 都不能反向依赖 `gf.tool.ai_developer`。
-- `gf_project_contract.json` 是项目维护的意图；`.gf/ai/project_snapshot.json` 是可重建观测。生成器不能把快照、默认模板或 AI 推断写回契约。
+- `.gf/project_contract.json` 是项目维护的意图；`.gf/ai/project_snapshot.json` 是可重建观测。生成器不能把快照、默认模板或 AI 推断写回契约。
 - `knowledge/api_index.json` 必须复用 `tools/gdscript_api_parser.py` 和 package ownership 规则生成，只收录 public/protected API；能力目录与 Recipe 引用的 class/package/id 必须被生成器验证。
 - 项目存在 `.gf/packages.lock.json` 时，只接受 Package Manager 的正式 `schema_version: 1` 与 `installed` 结构；损坏、未知包或版本漂移必须 fail closed，不能退回目录猜测。能力、Recipe、包和 API 查询必须要求知识目录版本与项目 `addons/gf/plugin.cfg` 精确一致。
 - CLI 与 MCP 必须复用 `gf_ai` 核心，不得分别实现契约、路径、快照、检索或反馈语义。所有项目路径都要限制在显式 project root 内，并拒绝父级或 link 穿越。

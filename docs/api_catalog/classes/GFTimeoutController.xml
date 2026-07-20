@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFTimeoutController" path="addons/gf/standard/common/gf_timeout_controller.gd" module="standard" extends="RefCounted" classDigest="163c5ba12e87611a51f03be4d8e818f5a7bb7942959ecadb9b1e390ab31cce6c">
+<class name="GFTimeoutController" path="addons/gf/standard/common/gf_timeout_controller.gd" module="standard" extends="RefCounted" classDigest="0a595a5d05de493c476b6323e6fcb0111789602ec3c46747ab72339871dc09e4">
 	<description>GFTimeoutController: 可复用的超时取消控制器。
 将“超时”建模为取消 token 的一种原因，并提供 start / reset / stop 的可复用生命周期。
 它只负责产生超时信号和 token，不执行重试、回滚或业务流程。</description>
@@ -60,10 +60,11 @@
 	</properties>
 	<methods>
 		<member kind="method" name="_init">
-			<signature>func _init() -&gt; void:</signature>
+			<signature>func _init(clock: GFClock = null) -&gt; void:</signature>
 			<description>创建超时控制器。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="param">clock: 可选单调时钟；为空时使用系统时钟。</tag>
 				<tag name="since">7.0.0</tag>
 			</tags>
 		</member>
@@ -74,6 +75,26 @@
 				<tag name="api">public</tag>
 				<tag name="return">当前超时控制器持有的 token。</tag>
 				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="set_clock">
+			<signature>func set_clock(clock: GFClock) -&gt; bool:</signature>
+			<description>替换耗时统计使用的单调时钟。
+活动超时计划期间禁止替换，避免同一次统计跨越不同时间域。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">clock: 新单调时钟。</tag>
+				<tag name="return">时钟合法且当前无活动计划时返回 true。</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_clock">
+			<signature>func get_clock() -&gt; GFClock:</signature>
+			<description>获取耗时统计使用的时钟。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">当前时钟。</tag>
+				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="start_seconds">

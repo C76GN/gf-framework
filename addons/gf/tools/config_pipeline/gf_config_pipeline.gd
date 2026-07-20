@@ -43,7 +43,7 @@ var _commit_stage: GFConfigPipelineCommitStage = GFConfigPipelineCommitStage.new
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 9.0.0
 ## [br]
 ## @param reader_stage: 可选来源读取阶段。
 ## [br]
@@ -80,7 +80,7 @@ func configure_stages(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 9.0.0
 ## [br]
 ## @return: 按 Reader、Layout、Validation、Target、Commit 排列的阶段描述。
 ## [br]

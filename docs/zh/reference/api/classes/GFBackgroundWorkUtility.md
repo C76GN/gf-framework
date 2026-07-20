@@ -243,7 +243,7 @@ var allow_object_payloads: bool = false
 ### `priority_aging_interval_msec`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 ```gdscript
 var priority_aging_interval_msec: int = 1000:
@@ -256,7 +256,7 @@ var priority_aging_interval_msec: int = 1000:
 ### `priority_aging_step`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 ```gdscript
 var priority_aging_step: float = 1.0:

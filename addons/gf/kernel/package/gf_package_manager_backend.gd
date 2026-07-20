@@ -311,11 +311,7 @@ static func get_default_registry_source_url() -> String:
 	if not environment_value.is_empty():
 		return environment_value
 	var framework_version: String = _read_project_framework_version(_resolve_project_root("res://"))
-	var parsed_version: Dictionary = _parse_semver(framework_version)
-	if not parsed_version.is_empty() and _semver_is_stable(parsed_version):
-		return DEFAULT_REGISTRY_SOURCE_RELEASE_URL_TEMPLATE % framework_version
-	return DEFAULT_REGISTRY_SOURCE_LATEST_URL
-
+	return _default_registry_source_url_for_version(framework_version)
 
 ## 恢复或收尾项目中遗留的 package 文件事务。
 ## [br]
@@ -1640,6 +1636,13 @@ static func scan_project_references(
 
 
 # --- 私有/辅助方法 ---
+
+static func _default_registry_source_url_for_version(framework_version: String) -> String:
+	var parsed_version: Dictionary = _parse_semver(framework_version)
+	if not parsed_version.is_empty() and _semver_is_stable(parsed_version):
+		return DEFAULT_REGISTRY_SOURCE_RELEASE_URL_TEMPLATE % framework_version
+	return DEFAULT_REGISTRY_SOURCE_LATEST_URL
+
 
 static func _append_lockfile_schema_issues(lockfile_data: Dictionary, issues: PackedStringArray) -> void:
 	_append_exact_dictionary_field_issues(

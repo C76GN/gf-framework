@@ -149,7 +149,7 @@ signal flow_cancelled(report: Dictionary)
 ### `OUTCOME_COMPLETED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 ```gdscript
 const OUTCOME_COMPLETED: StringName = &"completed"
@@ -162,7 +162,7 @@ const OUTCOME_COMPLETED: StringName = &"completed"
 ### `OUTCOME_CANCELLED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 ```gdscript
 const OUTCOME_CANCELLED: StringName = &"cancelled"
@@ -175,7 +175,7 @@ const OUTCOME_CANCELLED: StringName = &"cancelled"
 ### `OUTCOME_ABORTED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 ```gdscript
 const OUTCOME_ABORTED: StringName = &"aborted"
@@ -188,7 +188,7 @@ const OUTCOME_ABORTED: StringName = &"aborted"
 ### `OUTCOME_REJECTED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 ```gdscript
 const OUTCOME_REJECTED: StringName = &"rejected"
@@ -268,7 +268,7 @@ var isolate_graph_runtime_state: bool = true
 ### `max_report_trace_entries`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 ```gdscript
 var max_report_trace_entries: int = 128:
@@ -344,7 +344,7 @@ func with_signal_timeout(seconds: float, respect_time_scale: bool = true) -> GFF
 ### `get_last_run_report`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 ```gdscript
 func get_last_run_report() -> Dictionary:

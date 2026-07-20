@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from . import adapters, catalog, feedback, snapshot
-from .constants import KNOWLEDGE_ROOT, TOOL_VERSION
+from .constants import DEFAULT_CONTRACT_PATH, KNOWLEDGE_ROOT, TOOL_VERSION
 from .contract import load_contract
 from .paths import resolve_project_root, strict_json_loads
 from .schema import validate_schema
@@ -106,7 +106,7 @@ def handle_message(message: dict[str, Any]) -> dict[str, Any] | None:
 
 def list_tools() -> list[dict[str, Any]]:
 	project_root = {"type": "string", "minLength": 1, "maxLength": 1024, "description": "Absolute or client-workspace-relative Godot project root."}
-	contract_path = {"type": "string", "minLength": 1, "maxLength": 240, "default": "gf_project_contract.json"}
+	contract_path = {"type": "string", "minLength": 1, "maxLength": 240, "default": DEFAULT_CONTRACT_PATH}
 	return [
 		_tool("gf_project_context", "Return declared intent, observed project facts, drift, and required GF capabilities.", {"project_root": project_root, "contract": contract_path}, ["project_root"]),
 		_tool("gf_contract_validate", "Validate the strict project intent contract and observed drift.", {"project_root": project_root, "contract": contract_path}, ["project_root"]),
@@ -146,7 +146,7 @@ def _call_tool(request_id: Any, params: dict[str, Any]) -> dict[str, Any]:
 		return _error(request_id, -32602, message)
 	try:
 		project_root = resolve_project_root(_text_argument(arguments, "project_root"))
-		contract_path = _text_argument(arguments, "contract", "gf_project_contract.json")
+		contract_path = _text_argument(arguments, "contract", DEFAULT_CONTRACT_PATH)
 		if name == "gf_project_context":
 			data = snapshot.project_context(project_root, contract_path)
 		elif name == "gf_contract_validate":

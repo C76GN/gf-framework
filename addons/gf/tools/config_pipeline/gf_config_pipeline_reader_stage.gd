@@ -7,7 +7,7 @@
 ## [br]
 ## @category tool_api
 ## [br]
-## @since unreleased
+## @since 9.0.0
 class_name GFConfigPipelineReaderStage
 extends RefCounted
 
@@ -18,14 +18,14 @@ extends RefCounted
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 9.0.0
 const STAGE_ID: String = "gf.config.reader.builtin"
 
 ## Reader 阶段的实现版本；改变读取语义时递增。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 9.0.0
 const IMPLEMENTATION_VERSION: int = 1
 
 const _DEFAULT_MAX_SOURCE_FILE_BYTES: int = 64 * 1024 * 1024
@@ -38,7 +38,7 @@ const _DEFAULT_MAX_XLSX_FILE_BYTES: int = 64 * 1024 * 1024
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 9.0.0
 ## [br]
 ## @param source: 单表来源声明。
 ## [br]
@@ -127,7 +127,7 @@ func read_source(source: GFConfigPipelineTableSource, options: Dictionary = {}) 
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 9.0.0
 ## [br]
 ## @return: 阶段描述。
 ## [br]

@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFPlatformRequestHandle" path="addons/gf/standard/platform/gf_platform_request_handle.gd" module="standard" extends="RefCounted" classDigest="a89ba607ac8d1c9aa49e3a206f3633636b0931e21bbb1f40c7aae6bd6308f757">
+	<description>GFPlatformRequestHandle: 平台桥接请求运行时句柄。
+句柄保证一次请求只进入一个终态，并把取消、超时和 adapter 返回统一为
+`GFPlatformBridgeResult`。项目代码只读取句柄，不负责完成句柄。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_handle</tag>
+		<tag name="since">9.0.0</tag>
+	</tags>
+	<signals>
+		<member kind="signal" name="completed">
+			<signature>signal completed(result: GFPlatformBridgeResult)</signature>
+			<description>请求进入终态时发出一次。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">result: 请求终态结果。</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="signal" name="cancel_requested">
+			<signature>signal cancel_requested(reason: StringName)</signature>
+			<description>请求取消或超时时发出，供 adapter 停止底层调用。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">reason: 取消原因。</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+	</signals>
+	<enums />
+	<constants />
+	<properties />
+	<methods>
+		<member kind="method" name="get_request">
+			<signature>func get_request() -&gt; GFPlatformBridgeRequest:</signature>
+			<description>获取请求数据副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">请求数据副本。</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_request_id">
+			<signature>func get_request_id() -&gt; StringName:</signature>
+			<description>获取请求 ID。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">请求 ID。</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_pending">
+			<signature>func is_pending() -&gt; bool:</signature>
+			<description>检查请求是否仍在等待终态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">等待中返回 true。</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_completed">
+			<signature>func is_completed() -&gt; bool:</signature>
+			<description>检查请求是否已经完成。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">已有终态结果时返回 true。</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_successful">
+			<signature>func is_successful() -&gt; bool:</signature>
+			<description>检查请求是否成功。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">终态存在且成功时返回 true。</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_result">
+			<signature>func get_result() -&gt; GFPlatformBridgeResult:</signature>
+			<description>获取终态结果副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">终态结果副本；等待中返回 null。</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="cancel">
+			<signature>func cancel(reason: StringName = &amp;"cancelled") -&gt; bool:</signature>
+			<description>取消请求。
+取消立即成为本地终态；adapter 会在 `completed` 前收到 `cancel_requested`，
+但不能用迟到回调覆盖取消结果。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">reason: 取消原因。</tag>
+				<tag name="return">首次取消成功返回 true。</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_debug_snapshot">
+			<signature>func get_debug_snapshot() -&gt; Dictionary:</signature>
+			<description>获取稳定调试快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">包含 request、pending、completed、successful 和 result 的字典。</tag>
+				<tag name="schema">return: Dictionary with request, pending, completed, successful, and result fields.</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

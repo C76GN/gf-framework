@@ -2,8 +2,9 @@
 
 ## GFStorageCodec: 通用存档字典编码与解码策略。
 ##
-## 负责字典序列化、可选压缩、完整性校验和轻量混淆。
+## 负责严格存储文档的字典序列化、可选压缩、完整性校验和轻量混淆。
 ## JSON 格式会通过 GFVariantJsonCodec 保留 Godot 值类型和非有限浮点数。
+## 业务载荷始终位于独立 payload 字段中，框架元数据不会进入业务字典。
 ## 它不负责路径、槽位、事务提交或云同步。
 ## [br]
 ## @api public
@@ -30,61 +31,98 @@ enum Format {
 
 # --- 常量 ---
 
+## 存储文档描述字段名。
+## [br]
+## @api public
+## [br]
+## @since 9.0.0
+const DOCUMENT_KEY: String = "__gf_storage_document"
+
+## 存储文档业务载荷字段名。
+## [br]
+## @api public
+## [br]
+## @since 9.0.0
+const PAYLOAD_KEY: String = "payload"
+
+## 文档 schema 版本字段名。
+## [br]
+## @api public
+## [br]
+## @since 9.0.0
+const SCHEMA_VERSION_KEY: String = "schema_version"
+
 ## 存储元信息字段名。
 ## [br]
 ## @api public
-const META_KEY: String = "_meta"
+## [br]
+## @since 9.0.0
+const METADATA_KEY: String = "metadata"
+
+## 存储完整性描述字段名。
+## [br]
+## @api public
+## [br]
+## @since 9.0.0
+const INTEGRITY_KEY: String = "integrity"
+
+## 完整性算法字段名。
+## [br]
+## @api public
+## [br]
+## @since 9.0.0
+const ALGORITHM_KEY: String = "algorithm"
+
+## 完整性摘要字段名。
+## [br]
+## @api public
+## [br]
+## @since 9.0.0
+const DIGEST_KEY: String = "digest"
 
 ## 存储版本字段名。
 ## [br]
 ## @api public
-const VERSION_KEY: String = "version"
+## [br]
+## @since 9.0.0
+const VERSION_KEY: String = "data_version"
 
 ## 存储时间戳字段名。
 ## [br]
 ## @api public
-const TIMESTAMP_KEY: String = "timestamp"
-
-## 存储完整性校验字段名。
 ## [br]
-## @api public
-const CHECKSUM_KEY: String = "checksum"
+## @since 9.0.0
+const TIMESTAMP_KEY: String = "timestamp"
 
 ## 存储编码格式字段名。
 ## [br]
 ## @api public
+## [br]
+## @since 9.0.0
 const FORMAT_KEY: String = "format"
 
 ## 存储压缩方式字段名。
 ## [br]
 ## @api public
+## [br]
+## @since 9.0.0
 const COMPRESSION_KEY: String = "compression"
 
-## 当用户数据自身包含 `_meta` 时，外层包裹使用的标记字段名。
-## [br]
-## @api public
-const ENVELOPE_KEY: String = "__gf_storage_envelope"
-
-## 存储 envelope schema 版本字段名。
+## 当前存储文档 schema 版本。
 ## [br]
 ## @api public
 ## [br]
-## @since 8.0.0
-const ENVELOPE_VERSION_KEY: String = "__gf_storage_envelope_version"
-
-## 存储 envelope 内原始用户数据的字段名。
-## [br]
-## @api public
-const ENVELOPE_DATA_KEY: String = "data"
-
-## 当前存储 envelope schema 版本。
-## [br]
-## @api public
-## [br]
-## @since 8.0.0
-const ENVELOPE_VERSION: int = 1
+## @since 9.0.0
+const DOCUMENT_SCHEMA_VERSION: int = 2
 
 const _COMPRESSION_MODE: int = FileAccess.COMPRESSION_DEFLATE
+const _INTEGRITY_ALGORITHM: String = "sha256"
+const _METADATA_FIELDS: Array = [
+	VERSION_KEY,
+	TIMESTAMP_KEY,
+	FORMAT_KEY,
+	COMPRESSION_KEY,
+]
 
 
 # --- 导出变量 ---
@@ -99,9 +137,11 @@ const _COMPRESSION_MODE: int = FileAccess.COMPRESSION_DEFLATE
 ## @api public
 @export var use_compression: bool = false
 
-## 是否在 `_meta.checksum` 中写入 SHA-256 完整性校验。
+## 是否在文档完整性描述中写入 SHA-256 摘要。
 ## [br]
 ## @api public
+## [br]
+## @since 9.0.0
 @export var use_integrity_checksum: bool = false
 
 ## 校验失败时是否拒绝读取。
@@ -109,14 +149,19 @@ const _COMPRESSION_MODE: int = FileAccess.COMPRESSION_DEFLATE
 ## @api public
 @export var strict_integrity: bool = true
 
-## 启用完整性校验时，是否要求载荷必须包含 `_meta.checksum`。
+## 启用完整性校验时，是否要求文档必须包含 SHA-256 摘要。
 ## [br]
 ## @api public
+## [br]
+## @since 9.0.0
 @export var require_integrity_checksum: bool = true
 
-## 是否写入 `_meta.version` 和 `_meta.timestamp`。
+## 是否写入时间戳、编码格式和压缩方式等诊断元数据。
+## 数据版本始终写入，不受该选项影响。
 ## [br]
 ## @api public
+## [br]
+## @since 9.0.0
 @export var include_metadata: bool = false
 
 ## 当前数据版本。
@@ -136,11 +181,6 @@ const _COMPRESSION_MODE: int = FileAccess.COMPRESSION_DEFLATE
 ## @api public
 @export var max_decompressed_bytes: int = 64 * 1024 * 1024
 
-## 解码失败时是否尝试按旧版未压缩、未混淆 JSON 读取原始 bytes。
-## [br]
-## @api public
-@export var allow_legacy_plain_json_fallback: bool = false
-
 ## JSON 解码时是否把接近整数的 float 归一为 int。Binary 格式不受影响。
 ## [br]
 ## @api public
@@ -153,11 +193,13 @@ const _COMPRESSION_MODE: int = FileAccess.COMPRESSION_DEFLATE
 ## [br]
 ## @api public
 ## [br]
+## @since 9.0.0
+## [br]
 ## @param data: 要编码的数据。
 ## [br]
 ## @param options: 临时覆盖当前 codec 设置的选项字典。
 ## [br]
-## @schema data: Dictionary，要序列化的数据载荷；启用存储元数据时，用户 `_meta` 键会通过信封结构保留。
+## @schema data: Dictionary，要序列化的业务载荷；所有键都会原样保存在独立 payload 中。
 ## [br]
 ## @schema options: Dictionary，可包含 format、use_compression、obfuscation_key、use_integrity_checksum、include_metadata、version 和 max_decompressed_bytes。
 ## [br]
@@ -167,13 +209,14 @@ func encode(data: Dictionary, options: Dictionary = {}) -> PackedByteArray:
 	var should_compress: bool = GFVariantData.get_option_bool(options, "use_compression", use_compression)
 	var key: int = GFVariantData.get_option_int(options, "obfuscation_key", obfuscation_key)
 	var should_write_checksum: bool = GFVariantData.get_option_bool(options, "use_integrity_checksum", use_integrity_checksum)
-	var should_write_metadata: bool = GFVariantData.get_option_bool(options, "include_metadata", include_metadata) or should_write_checksum
-	var payload: Dictionary = _make_storage_payload(data, should_write_metadata)
-
-	if should_write_metadata:
-		_prepare_metadata(payload, active_format, should_compress, should_write_checksum, options)
-
-	var bytes: PackedByteArray = _serialize_dictionary(payload, active_format)
+	var document: Dictionary = _make_storage_document(
+		data,
+		active_format,
+		should_compress,
+		should_write_checksum,
+		options
+	)
+	var bytes: PackedByteArray = _serialize_dictionary(document, active_format)
 	if should_compress:
 		bytes = bytes.compress(_COMPRESSION_MODE)
 	if key != 0:
@@ -186,24 +229,19 @@ func encode(data: Dictionary, options: Dictionary = {}) -> PackedByteArray:
 ## [br]
 ## @api public
 ## [br]
+## @since 9.0.0
+## [br]
 ## @param bytes: 文件读取到的 bytes。
 ## [br]
 ## @param options: 临时覆盖当前 codec 设置的选项字典。
 ## [br]
-## @return 结果字典，包含 ok、data、metadata、integrity_valid、error。
+## @return 强类型读取结果；业务载荷与框架元数据保持隔离。
 ## [br]
-## @schema options: Dictionary，可包含 format、use_compression、obfuscation_key、allow_legacy_plain_json_fallback、use_integrity_checksum、strict_integrity、normalize_json_numbers、require_integrity_checksum 和 max_decompressed_bytes。
-## [br]
-## @schema return: Dictionary，包含 ok: bool、data: Dictionary、metadata: Dictionary、integrity_valid: bool 和 error: String。
-func decode(bytes: PackedByteArray, options: Dictionary = {}) -> Dictionary:
+## @schema options: Dictionary，可包含 format、use_compression、obfuscation_key、use_integrity_checksum、strict_integrity、normalize_json_numbers、require_integrity_checksum 和 max_decompressed_bytes。
+func decode(bytes: PackedByteArray, options: Dictionary = {}) -> GFStorageReadResult:
 	var active_format: Format = _get_format(options)
 	var should_compress: bool = GFVariantData.get_option_bool(options, "use_compression", use_compression)
 	var key: int = GFVariantData.get_option_int(options, "obfuscation_key", obfuscation_key)
-	var should_allow_legacy_plain_json: bool = GFVariantData.get_option_bool(
-		options,
-		"allow_legacy_plain_json_fallback",
-		allow_legacy_plain_json_fallback
-	)
 	var should_verify_checksum: bool = GFVariantData.get_option_bool(options, "use_integrity_checksum", use_integrity_checksum)
 	var should_reject_bad_checksum: bool = GFVariantData.get_option_bool(options, "strict_integrity", strict_integrity)
 	var should_normalize_json_numbers: bool = GFVariantData.get_option_bool(options, "normalize_json_numbers", normalize_json_numbers)
@@ -212,57 +250,77 @@ func decode(bytes: PackedByteArray, options: Dictionary = {}) -> Dictionary:
 		"require_integrity_checksum",
 		require_integrity_checksum
 	)
-	var payload_bytes: PackedByteArray = _decode_obfuscation(bytes, key, should_allow_legacy_plain_json)
+	var payload_bytes: PackedByteArray = _decode_obfuscation(bytes, key)
 	if payload_bytes.is_empty():
-		return _make_result(false, {}, "Payload is empty", true)
+		return _make_failure("Payload is empty", ERR_FILE_CORRUPT)
 
-	var deserialize_result: Dictionary = {}
 	if should_compress:
-		if should_allow_legacy_plain_json:
-			deserialize_result = _try_legacy_plain_json(bytes, should_normalize_json_numbers)
-		if GFVariantData.get_option_bool(deserialize_result, "ok"):
-			payload_bytes = bytes
-		else:
-			deserialize_result.clear()
-			payload_bytes = payload_bytes.decompress_dynamic(
-				GFVariantData.get_option_int(options, "max_decompressed_bytes", max_decompressed_bytes),
-				_COMPRESSION_MODE
-			)
-			if payload_bytes.is_empty() and not bytes.is_empty():
-				return _make_result(false, {}, "Decompression failed", true)
-
-	if deserialize_result.is_empty():
-		deserialize_result = _try_deserialize_dictionary(
-			payload_bytes,
-			active_format,
-			should_normalize_json_numbers
+		payload_bytes = payload_bytes.decompress_dynamic(
+			GFVariantData.get_option_int(options, "max_decompressed_bytes", max_decompressed_bytes),
+			_COMPRESSION_MODE
 		)
-	var data: Dictionary = GFVariantData.as_dictionary(GFVariantData.get_option_value(deserialize_result, "data", {}))
-	if (
-		should_allow_legacy_plain_json
-		and not GFVariantData.get_option_bool(deserialize_result, "ok")
-		and not payload_bytes.is_empty()
-	):
-		var fallback_result: Dictionary = _try_legacy_plain_json(bytes, should_normalize_json_numbers)
-		if GFVariantData.get_option_bool(fallback_result, "ok"):
-			data = GFVariantData.as_dictionary(GFVariantData.get_option_value(fallback_result, "data", {}))
-			deserialize_result = fallback_result
+		if payload_bytes.is_empty() and not bytes.is_empty():
+			return _make_failure("Decompression failed", ERR_FILE_CORRUPT)
 
-	if not GFVariantData.get_option_bool(deserialize_result, "ok") and not payload_bytes.is_empty():
-		return _make_result(false, {}, "Decode failed", true)
+	var deserialize_result: Dictionary = _try_deserialize_dictionary(
+		payload_bytes,
+		active_format,
+		should_normalize_json_numbers
+	)
+	if not GFVariantData.get_option_bool(deserialize_result, "ok"):
+		return _make_failure("Decode failed", ERR_PARSE_ERROR)
 
-	var integrity_valid: bool = true
-	if should_verify_checksum:
-		var has_checksum: bool = has_integrity_checksum(data)
-		integrity_valid = has_checksum and verify_integrity(data, active_format)
-		if not has_checksum and not should_require_checksum:
-			integrity_valid = true
-		elif not has_checksum and should_reject_bad_checksum:
-			return _make_result(false, _get_user_payload(data), "Integrity checksum missing", false, get_metadata(data))
-		if not integrity_valid and should_reject_bad_checksum:
-			return _make_result(false, _get_user_payload(data), "Integrity checksum mismatch", false, get_metadata(data))
+	var document: Dictionary = GFVariantData.get_option_dictionary(deserialize_result, "data")
+	var validation_error: String = _validate_storage_document(document)
+	if not validation_error.is_empty():
+		return _make_failure(validation_error, ERR_FILE_UNRECOGNIZED)
 
-	return _make_result(true, _get_user_payload(data), "", integrity_valid, get_metadata(data))
+	var descriptor: Dictionary = GFVariantData.get_option_dictionary(document, DOCUMENT_KEY)
+	var metadata: Dictionary = GFVariantData.get_option_dictionary(descriptor, METADATA_KEY)
+	var payload: Dictionary = GFVariantData.get_option_dictionary(document, PAYLOAD_KEY)
+	var integrity: Dictionary = GFVariantData.get_option_dictionary(descriptor, INTEGRITY_KEY)
+	var document_schema_version: int = GFVariantData.to_exact_int(
+		GFVariantData.get_option_value(descriptor, SCHEMA_VERSION_KEY)
+	)
+	var has_digest: bool = integrity.has(DIGEST_KEY)
+	var integrity_status: GFStorageReadResult.IntegrityStatus = GFStorageReadResult.IntegrityStatus.NOT_CHECKED
+
+	if has_digest:
+		if GFVariantData.get_option_string(integrity, ALGORITHM_KEY) != _INTEGRITY_ALGORITHM:
+			return _make_failure(
+				"Unsupported integrity algorithm",
+				ERR_FILE_UNRECOGNIZED,
+				metadata,
+				GFStorageReadResult.IntegrityStatus.INVALID,
+				document_schema_version
+			)
+		if _verify_document_integrity(document, active_format):
+			integrity_status = GFStorageReadResult.IntegrityStatus.VALID
+		else:
+			integrity_status = GFStorageReadResult.IntegrityStatus.INVALID
+			if should_reject_bad_checksum:
+				return _make_failure(
+					"Integrity checksum mismatch",
+					ERR_FILE_CORRUPT,
+					metadata,
+					integrity_status,
+					document_schema_version
+				)
+	elif should_verify_checksum and should_require_checksum:
+		return _make_failure(
+			"Integrity checksum missing",
+			ERR_FILE_CORRUPT,
+			metadata,
+			GFStorageReadResult.IntegrityStatus.MISSING,
+			document_schema_version
+		)
+
+	return GFStorageReadResult.new().configure_success(
+		payload,
+		metadata,
+		integrity_status,
+		document_schema_version
+	)
 
 
 ## 序列化字典。JSON 格式会递归排序字典键，并把 Godot 值类型转为 JSON 安全标记。
@@ -318,131 +376,124 @@ func calculate_checksum(data: Dictionary, p_format: Format = Format.JSON) -> Str
 	return hashing.finish().hex_encode()
 
 
-## 校验 `_meta.checksum`。
-## [br]
-## @api public
-## [br]
-## @param data: 包含可选 `_meta.checksum` 的字典。
-## [br]
-## @param p_format: checksum 计算使用的格式。
-## [br]
-## @schema data: Dictionary，包含可选 `_meta.checksum` 的数据载荷。
-## [br]
-## @return 缺少 checksum 或校验通过时返回 true。
-func verify_integrity(data: Dictionary, p_format: Format = Format.JSON) -> bool:
-	var metadata: Dictionary = get_metadata(data)
-	if not metadata.has(CHECKSUM_KEY):
-		return true
-
-	var expected: String = GFVariantData.get_option_string(metadata, CHECKSUM_KEY)
-	var copy: Dictionary = data.duplicate(true)
-	var copy_metadata: Dictionary = get_metadata(copy)
-	var _checksum_erased: bool = copy_metadata.erase(CHECKSUM_KEY)
-	if copy_metadata.is_empty():
-		var _metadata_erased: bool = copy.erase(META_KEY)
-	else:
-		copy[META_KEY] = copy_metadata
-
-	return calculate_checksum(copy, p_format) == expected
-
-
-## 获取存档元信息副本。
-## [br]
-## @api public
-## [br]
-## @param data: 存档数据。
-## [br]
-## @return `_meta` 字典副本；不存在时为空字典。
-## [br]
-## @schema data: Dictionary，可能包含 `_meta` 的数据载荷。
-## [br]
-## @schema return: Dictionary，从 `_meta` 复制出的元数据；不存在元数据时为空字典。
-func get_metadata(data: Dictionary) -> Dictionary:
-	var metadata_variant: Variant = GFVariantData.get_option_value(data, META_KEY, {})
-	if metadata_variant is Dictionary:
-		var metadata: Dictionary = metadata_variant
-		return metadata.duplicate(true)
-	return {}
-
-
-## 判断字典是否包含完整性 checksum。
-## [br]
-## @api public
-## [br]
-## @param data: 存档数据。
-## [br]
-## @schema data: Dictionary，可能包含 `_meta.checksum` 的数据载荷。
-## [br]
-## @return 包含 `_meta.checksum` 时返回 true。
-func has_integrity_checksum(data: Dictionary) -> bool:
-	return get_metadata(data).has(CHECKSUM_KEY)
-
-
 # --- 私有/辅助方法 ---
 
-func _prepare_metadata(
+func _make_storage_document(
 	payload: Dictionary,
 	active_format: Format,
 	should_compress: bool,
 	should_write_checksum: bool,
 	options: Dictionary
-) -> void:
-	var metadata: Dictionary = get_metadata(payload)
+) -> Dictionary:
+	var metadata: Dictionary = {
+		VERSION_KEY: maxi(GFVariantData.get_option_int(options, "version", version), 1),
+	}
 	var should_include_metadata: bool = GFVariantData.get_option_bool(options, "include_metadata", include_metadata)
 	if should_include_metadata:
-		metadata[VERSION_KEY] = GFVariantData.get_option_int(options, "version", version)
 		metadata[TIMESTAMP_KEY] = Time.get_datetime_string_from_system(true, true)
 		metadata[FORMAT_KEY] = _format_to_string(active_format)
 		if should_compress:
 			metadata[COMPRESSION_KEY] = "deflate"
 
-	if metadata.is_empty():
-		var _metadata_erased: bool = payload.erase(META_KEY)
-	else:
-		payload[META_KEY] = metadata
-
+	var integrity: Dictionary = {}
+	var descriptor: Dictionary = {
+		SCHEMA_VERSION_KEY: DOCUMENT_SCHEMA_VERSION,
+		METADATA_KEY: metadata,
+		INTEGRITY_KEY: integrity,
+	}
+	var document: Dictionary = {
+		DOCUMENT_KEY: descriptor,
+		PAYLOAD_KEY: payload.duplicate(true),
+	}
 	if should_write_checksum:
-		var _checksum_erased: bool = metadata.erase(CHECKSUM_KEY)
-		if metadata.is_empty():
-			var _checksum_metadata_erased: bool = payload.erase(META_KEY)
-		else:
-			payload[META_KEY] = metadata
-		metadata[CHECKSUM_KEY] = calculate_checksum(payload, active_format)
-		payload[META_KEY] = metadata
+		integrity[ALGORITHM_KEY] = _INTEGRITY_ALGORITHM
+		integrity[DIGEST_KEY] = calculate_checksum(document, active_format)
+		descriptor[INTEGRITY_KEY] = integrity
+		document[DOCUMENT_KEY] = descriptor
+	return document
 
 
-func _make_storage_payload(data: Dictionary, should_write_metadata: bool) -> Dictionary:
-	var payload: Dictionary = data.duplicate(true)
+func _validate_storage_document(document: Dictionary) -> String:
+	if document.size() != 2 or not document.has(DOCUMENT_KEY) or not document.has(PAYLOAD_KEY):
+		return "Storage document envelope missing or malformed"
+	if not GFVariantData.get_option_value(document, DOCUMENT_KEY) is Dictionary:
+		return "Storage document descriptor is not a Dictionary"
+	if not GFVariantData.get_option_value(document, PAYLOAD_KEY) is Dictionary:
+		return "Storage document payload is not a Dictionary"
+
+	var descriptor: Dictionary = GFVariantData.get_option_dictionary(document, DOCUMENT_KEY)
+	if descriptor.size() != 3:
+		return "Storage document descriptor contains unsupported fields"
 	if (
-		(should_write_metadata and payload.has(META_KEY))
-		or payload.has(ENVELOPE_KEY)
-		or payload.has(ENVELOPE_VERSION_KEY)
+		not descriptor.has(SCHEMA_VERSION_KEY)
+		or not descriptor.has(METADATA_KEY)
+		or not descriptor.has(INTEGRITY_KEY)
 	):
-		return {
-			ENVELOPE_KEY: true,
-			ENVELOPE_VERSION_KEY: ENVELOPE_VERSION,
-			ENVELOPE_DATA_KEY: payload,
-		}
-	return payload
+		return "Storage document descriptor is incomplete"
+	var schema_version_value: Variant = GFVariantData.get_option_value(descriptor, SCHEMA_VERSION_KEY)
+	if not GFVariantData.is_exact_integer(schema_version_value):
+		return "Storage document schema_version must be an integer"
+	var schema_version: int = GFVariantData.to_exact_int(schema_version_value, -1)
+	if schema_version != DOCUMENT_SCHEMA_VERSION:
+		return "Unsupported storage document schema: %d" % schema_version
+	if not GFVariantData.get_option_value(descriptor, METADATA_KEY) is Dictionary:
+		return "Storage document metadata is not a Dictionary"
+	if not GFVariantData.get_option_value(descriptor, INTEGRITY_KEY) is Dictionary:
+		return "Storage document integrity descriptor is not a Dictionary"
+
+	var metadata: Dictionary = GFVariantData.get_option_dictionary(descriptor, METADATA_KEY)
+	for metadata_key: Variant in metadata.keys():
+		if typeof(metadata_key) != TYPE_STRING or not _METADATA_FIELDS.has(metadata_key):
+			return "Storage document metadata contains unsupported fields"
+	var data_version_value: Variant = GFVariantData.get_option_value(metadata, VERSION_KEY)
+	if (
+		not GFVariantData.is_exact_integer(data_version_value)
+		or GFVariantData.to_exact_int(data_version_value) <= 0
+	):
+		return "Storage document data_version is missing or invalid"
+	if metadata.has(TIMESTAMP_KEY):
+		var timestamp_value: Variant = GFVariantData.get_option_value(metadata, TIMESTAMP_KEY)
+		if typeof(timestamp_value) != TYPE_STRING or GFVariantData.to_text(timestamp_value).is_empty():
+			return "Storage document timestamp is invalid"
+	if metadata.has(FORMAT_KEY):
+		var format_value: Variant = GFVariantData.get_option_value(metadata, FORMAT_KEY)
+		if (
+			typeof(format_value) != TYPE_STRING
+			or not ["json", "binary"].has(GFVariantData.to_text(format_value))
+		):
+			return "Storage document format metadata is invalid"
+	if metadata.has(COMPRESSION_KEY):
+		var compression_value: Variant = GFVariantData.get_option_value(metadata, COMPRESSION_KEY)
+		if typeof(compression_value) != TYPE_STRING or GFVariantData.to_text(compression_value) != "deflate":
+			return "Storage document compression metadata is invalid"
+	var integrity: Dictionary = GFVariantData.get_option_dictionary(descriptor, INTEGRITY_KEY)
+	if integrity.is_empty():
+		return ""
+	if integrity.size() != 2 or not integrity.has(ALGORITHM_KEY) or not integrity.has(DIGEST_KEY):
+		return "Storage document integrity descriptor is incomplete"
+	var algorithm_value: Variant = GFVariantData.get_option_value(integrity, ALGORITHM_KEY)
+	if typeof(algorithm_value) != TYPE_STRING or GFVariantData.to_text(algorithm_value).is_empty():
+		return "Storage document integrity algorithm is empty"
+	var digest_value: Variant = GFVariantData.get_option_value(integrity, DIGEST_KEY)
+	if typeof(digest_value) != TYPE_STRING or GFVariantData.to_text(digest_value).is_empty():
+		return "Storage document integrity digest is empty"
+	return ""
 
 
-func _get_user_payload(data: Dictionary) -> Dictionary:
-	if _is_storage_envelope(data):
-		return GFVariantData.to_dictionary(GFVariantData.get_option_value(data, ENVELOPE_DATA_KEY, {}))
-	return data
-
-
-func _is_storage_envelope(data: Dictionary) -> bool:
-	if not data.has(ENVELOPE_KEY) or not data[ENVELOPE_KEY] is bool or not data[ENVELOPE_KEY]:
+func _verify_document_integrity(document: Dictionary, active_format: Format) -> bool:
+	var descriptor: Dictionary = GFVariantData.get_option_dictionary(document, DOCUMENT_KEY)
+	var integrity: Dictionary = GFVariantData.get_option_dictionary(descriptor, INTEGRITY_KEY)
+	var expected: String = GFVariantData.get_option_string(integrity, DIGEST_KEY)
+	if expected.is_empty():
 		return false
-	if GFVariantData.get_option_int(data, ENVELOPE_VERSION_KEY, -1) != ENVELOPE_VERSION:
-		return false
-	if not GFVariantData.get_option_value(data, ENVELOPE_DATA_KEY) is Dictionary:
-		return false
-	for key: Variant in data.keys():
-		if key != ENVELOPE_KEY and key != ENVELOPE_VERSION_KEY and key != ENVELOPE_DATA_KEY and key != META_KEY:
-			return false
-	return true
+
+	var checksum_document: Dictionary = document.duplicate(true)
+	var checksum_descriptor: Dictionary = GFVariantData.get_option_dictionary(checksum_document, DOCUMENT_KEY)
+	var checksum_integrity: Dictionary = GFVariantData.get_option_dictionary(checksum_descriptor, INTEGRITY_KEY)
+	var _digest_erased: bool = checksum_integrity.erase(DIGEST_KEY)
+	checksum_descriptor[INTEGRITY_KEY] = checksum_integrity
+	checksum_document[DOCUMENT_KEY] = checksum_descriptor
+	return calculate_checksum(checksum_document, active_format) == expected
 
 
 func _serialize_dictionary(data: Dictionary, p_format: Format) -> PackedByteArray:
@@ -551,19 +602,16 @@ func _normalize_dictionary_numbers(data: Dictionary) -> Dictionary:
 
 func _decode_obfuscation(
 	bytes: PackedByteArray,
-	key: int,
-	should_allow_legacy_plain_json: bool
+	key: int
 ) -> PackedByteArray:
 	if key == 0:
 		return bytes
 
 	var encoded_text: String = bytes.get_string_from_utf8().strip_edges()
 	if not _looks_like_base64_text(encoded_text):
-		return bytes if should_allow_legacy_plain_json else PackedByteArray()
+		return PackedByteArray()
 
 	var raw: PackedByteArray = Marshalls.base64_to_raw(encoded_text)
-	if raw.is_empty() and not bytes.is_empty() and should_allow_legacy_plain_json:
-		return bytes
 	return _obfuscate_bytes(raw, key)
 
 
@@ -606,35 +654,20 @@ func _obfuscate_bytes(bytes: PackedByteArray, key: int) -> PackedByteArray:
 	return result
 
 
-func _try_legacy_plain_json(bytes: PackedByteArray, should_normalize_json_numbers: bool) -> Dictionary:
-	var parsed: Variant = JSON.parse_string(bytes.get_string_from_utf8())
-	var restored: Variant = GFVariantJsonCodec.json_compatible_to_variant(parsed)
-	if restored is Dictionary:
-		var data: Dictionary = restored
-		if should_normalize_json_numbers:
-			data = _normalize_dictionary_numbers(data)
-		return GFResultDictionary.make_success({
-			GFResultDictionary.KEY_DATA: data,
-		})
-	return GFResultDictionary.make_failure("", {
-		GFResultDictionary.KEY_DATA: {},
-	})
-
-
-func _make_result(
-	ok: bool,
-	data: Dictionary,
-	error: String,
-	integrity_valid: bool,
-	metadata: Dictionary = {}
-) -> Dictionary:
-	var result_metadata: Dictionary = metadata if not metadata.is_empty() else get_metadata(data)
-	return GFResultDictionary.make(ok, {
-		GFResultDictionary.KEY_DATA: data,
-		GFResultDictionary.KEY_METADATA: result_metadata,
-		GFResultDictionary.KEY_INTEGRITY_VALID: integrity_valid,
-		GFResultDictionary.KEY_ERROR: error,
-	})
+func _make_failure(
+	error_message: String,
+	error_code: Error,
+	metadata: Dictionary = {},
+	integrity_status: GFStorageReadResult.IntegrityStatus = GFStorageReadResult.IntegrityStatus.NOT_CHECKED,
+	document_schema_version: int = 0
+) -> GFStorageReadResult:
+	return GFStorageReadResult.new().configure_failure(
+		error_message,
+		error_code,
+		metadata,
+		integrity_status,
+		document_schema_version
+	)
 
 
 func _get_format(options: Dictionary) -> Format:

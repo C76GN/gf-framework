@@ -39,15 +39,21 @@ enum TargetKind {
 
 # --- 常量 ---
 
+const _GF_PROJECT_ARTIFACT_PATHS_SCRIPT = preload("res://addons/gf/kernel/core/gf_project_artifact_paths.gd")
+
 ## 默认强类型访问器输出路径。
 ## [br]
 ## @api public
-const DEFAULT_OUTPUT_PATH: String = "res://gf/generated/gf_access.gd"
+## [br]
+## @since 9.0.0
+const DEFAULT_OUTPUT_PATH: String = _GF_PROJECT_ARTIFACT_PATHS_SCRIPT.ACCESS_OUTPUT_PATH
 
 ## 默认项目常量访问器输出路径。
 ## [br]
 ## @api public
-const DEFAULT_PROJECT_OUTPUT_PATH: String = "res://gf/generated/gf_project_access.gd"
+## [br]
+## @since 9.0.0
+const DEFAULT_PROJECT_OUTPUT_PATH: String = _GF_PROJECT_ARTIFACT_PATHS_SCRIPT.PROJECT_ACCESS_OUTPUT_PATH
 const _BASE_MODEL_SCRIPT = preload("res://addons/gf/kernel/base/gf_model.gd")
 const _BASE_SYSTEM_SCRIPT = preload("res://addons/gf/kernel/base/gf_system.gd")
 const _BASE_UTILITY_SCRIPT = preload("res://addons/gf/kernel/base/gf_utility.gd")

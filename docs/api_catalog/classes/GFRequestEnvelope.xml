@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFRequestEnvelope" path="addons/gf/standard/utilities/io/gf_request_envelope.gd" module="standard" extends="RefCounted" classDigest="2f980cbde41df5288f43fc133721d78e2c73a3d8eed5a6c007c49a0c3410937a">
+<class name="GFRequestEnvelope" path="addons/gf/standard/utilities/io/gf_request_envelope.gd" module="standard" extends="RefCounted" classDigest="8bdc9ec9130fb3f3e6a933c20bc916f05e875132ced2b2b3462f3cc621067ed1">
 	<description>GFRequestEnvelope: 通用可重放请求描述。
 只保存请求方法、地址、载荷、Header、重试与元数据，不绑定具体服务端、
 账号、鉴权或业务协议。</description>
@@ -82,7 +82,7 @@
 			<description>下一次允许重试的 Unix 毫秒时间戳；可跨进程重启持久化。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="last_error">

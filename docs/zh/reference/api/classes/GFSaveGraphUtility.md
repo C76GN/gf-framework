@@ -17,8 +17,14 @@
 |---|---|---|
 | 常量 | [`FORMAT_ID`](#member-gfsavegraphutility-constants-format_id) | `const FORMAT_ID: String = "gf_save_graph"` |
 | 常量 | [`FORMAT_VERSION`](#member-gfsavegraphutility-constants-format_version) | `const FORMAT_VERSION: int = 1` |
+| 常量 | [`DOCUMENT_SCHEMA_ID`](#member-gfsavegraphutility-constants-document_schema_id) | `const DOCUMENT_SCHEMA_ID: StringName = &"gf.save_graph"` |
+| 常量 | [`DOCUMENT_SCHEMA_VERSION`](#member-gfsavegraphutility-constants-document_schema_version) | `const DOCUMENT_SCHEMA_VERSION: int = 1` |
+| 常量 | [`DOCUMENT_SECTION_ID`](#member-gfsavegraphutility-constants-document_section_id) | `const DOCUMENT_SECTION_ID: StringName = &"save_graph"` |
 | 属性 | [`serializer_registry`](#member-gfsavegraphutility-properties-serializer_registry) | `var serializer_registry: GFNodeSerializerRegistry = GFNodeSerializerRegistry.new()` |
 | 属性 | [`pipeline_steps`](#member-gfsavegraphutility-properties-pipeline_steps) | `var pipeline_steps: Array[GFSavePipelineStep] = []` |
+| 方法 | [`ready`](#member-gfsavegraphutility-methods-ready) | `func ready() -> void:` |
+| 方法 | [`set_clock`](#member-gfsavegraphutility-methods-set_clock) | `func set_clock(clock: GFClock) -> bool:` |
+| 方法 | [`get_clock`](#member-gfsavegraphutility-methods-get_clock) | `func get_clock() -> GFClock:` |
 | 方法 | [`register_entity_factory`](#member-gfsavegraphutility-methods-register_entity_factory) | `func register_entity_factory(factory: GFSaveEntityFactory) -> void:` |
 | 方法 | [`unregister_entity_factory`](#member-gfsavegraphutility-methods-unregister_entity_factory) | `func unregister_entity_factory(type_key: StringName) -> void:` |
 | 方法 | [`clear_entity_factories`](#member-gfsavegraphutility-methods-clear_entity_factories) | `func clear_entity_factories() -> void:` |
@@ -26,6 +32,11 @@
 | 方法 | [`remove_pipeline_step`](#member-gfsavegraphutility-methods-remove_pipeline_step) | `func remove_pipeline_step(step: GFSavePipelineStep) -> void:` |
 | 方法 | [`clear_pipeline_steps`](#member-gfsavegraphutility-methods-clear_pipeline_steps) | `func clear_pipeline_steps() -> void:` |
 | 方法 | [`create_pipeline_context`](#member-gfsavegraphutility-methods-create_pipeline_context) | `func create_pipeline_context( operation: StringName, scope: GFSaveScope = null, shared: Dictionary = {} ) -> GFSavePipelineContext:` |
+| 方法 | [`create_document_schema`](#member-gfsavegraphutility-methods-create_document_schema) | `func create_document_schema() -> GFSaveDocumentSchema:` |
+| 方法 | [`gather_section`](#member-gfsavegraphutility-methods-gather_section) | `func gather_section( scope: GFSaveScope, section_id: StringName = DOCUMENT_SECTION_ID, context: Dictionary = {} ) -> GFSaveSection:` |
+| 方法 | [`apply_section`](#member-gfsavegraphutility-methods-apply_section) | `func apply_section( scope: GFSaveScope, section: GFSaveSection, context: Dictionary = {}, strict: bool = false ) -> Dictionary:` |
+| 方法 | [`gather_document`](#member-gfsavegraphutility-methods-gather_document) | `func gather_document( scope: GFSaveScope, metadata: Dictionary = {}, context: Dictionary = {} ) -> GFSaveDocument:` |
+| 方法 | [`apply_document`](#member-gfsavegraphutility-methods-apply_document) | `func apply_document( scope: GFSaveScope, document: GFSaveDocument, context: Dictionary = {}, strict: bool = false ) -> Dictionary:` |
 | 方法 | [`inspect_scope`](#member-gfsavegraphutility-methods-inspect_scope) | `func inspect_scope(scope: GFSaveScope, context: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`build_scope_health_report`](#member-gfsavegraphutility-methods-build_scope_health_report) | `func build_scope_health_report(scope: GFSaveScope, context: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`validate_payload_for_scope`](#member-gfsavegraphutility-methods-validate_payload_for_scope) | `func validate_payload_for_scope(scope: GFSaveScope, payload: Dictionary, strict: bool = false) -> Dictionary:` |
@@ -61,6 +72,45 @@ const FORMAT_VERSION: int = 1
 
 当前存档图载荷格式版本。
 
+<a id="member-gfsavegraphutility-constants-document_schema_id"></a>
+
+### `DOCUMENT_SCHEMA_ID`
+
+- API：`public`
+- 首次版本：`9.0.0`
+
+```gdscript
+const DOCUMENT_SCHEMA_ID: StringName = &"gf.save_graph"
+```
+
+独立 SaveGraph 文档使用的 schema ID。
+
+<a id="member-gfsavegraphutility-constants-document_schema_version"></a>
+
+### `DOCUMENT_SCHEMA_VERSION`
+
+- API：`public`
+- 首次版本：`9.0.0`
+
+```gdscript
+const DOCUMENT_SCHEMA_VERSION: int = 1
+```
+
+独立 SaveGraph 文档的当前 schema 版本。
+
+<a id="member-gfsavegraphutility-constants-document_section_id"></a>
+
+### `DOCUMENT_SECTION_ID`
+
+- API：`public`
+- 首次版本：`9.0.0`
+
+```gdscript
+const DOCUMENT_SECTION_ID: StringName = &"save_graph"
+```
+
+SaveGraph 在版本化文档中的默认分区 ID。
+
 ## 属性
 
 <a id="member-gfsavegraphutility-properties-serializer_registry"></a>
@@ -88,6 +138,55 @@ var pipeline_steps: Array[GFSavePipelineStep] = []
 存档图流程步骤。按数组顺序执行，适合压缩前校验、调试标记、版本适配等通用处理。
 
 ## 方法
+
+<a id="member-gfsavegraphutility-methods-ready"></a>
+
+### `ready`
+
+- API：`public`
+- 首次版本：`9.0.0`
+
+```gdscript
+func ready() -> void:
+```
+
+在架构中自动采用已注册 GFTimeProvider 的底层时钟。 构造函数或 `set_clock()` 的显式注入不会被自动覆盖。
+
+<a id="member-gfsavegraphutility-methods-set_clock"></a>
+
+### `set_clock`
+
+- API：`public`
+- 首次版本：`9.0.0`
+
+```gdscript
+func set_clock(clock: GFClock) -> bool:
+```
+
+设置存档流水线诊断使用的单调时钟。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `clock` | 新单调时钟。 |
+
+返回：时钟合法并完成设置时返回 true。
+
+<a id="member-gfsavegraphutility-methods-get_clock"></a>
+
+### `get_clock`
+
+- API：`public`
+- 首次版本：`9.0.0`
+
+```gdscript
+func get_clock() -> GFClock:
+```
+
+获取存档流水线诊断使用的时钟。
+
+返回：当前时钟。
 
 <a id="member-gfsavegraphutility-methods-register_entity_factory"></a>
 
@@ -210,6 +309,134 @@ func create_pipeline_context( operation: StringName, scope: GFSaveScope = null, 
 结构：
 
 - `shared`: Dictionary，流程共享数据，可由步骤写入调试标记、迁移状态或项目自定义键。
+
+<a id="member-gfsavegraphutility-methods-create_document_schema"></a>
+
+### `create_document_schema`
+
+- API：`public`
+- 首次版本：`9.0.0`
+
+```gdscript
+func create_document_schema() -> GFSaveDocumentSchema:
+```
+
+创建独立 SaveGraph 文档的当前 schema。
+
+返回：要求默认 SaveGraph 分区的 schema。
+
+<a id="member-gfsavegraphutility-methods-gather_section"></a>
+
+### `gather_section`
+
+- API：`public`
+- 首次版本：`9.0.0`
+
+```gdscript
+func gather_section( scope: GFSaveScope, section_id: StringName = DOCUMENT_SECTION_ID, context: Dictionary = {} ) -> GFSaveSection:
+```
+
+把 Scope 图采集为可组合版本化分区。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `scope` | 根 Scope。 |
+| `section_id` | 项目文档中的分区 ID。 |
+| `context` | 调用上下文字典。 |
+
+返回：分区；采集失败时返回 null。
+
+结构：
+
+- `context`: Dictionary accepted by gather_scope().
+
+<a id="member-gfsavegraphutility-methods-apply_section"></a>
+
+### `apply_section`
+
+- API：`public`
+- 首次版本：`9.0.0`
+
+```gdscript
+func apply_section( scope: GFSaveScope, section: GFSaveSection, context: Dictionary = {}, strict: bool = false ) -> Dictionary:
+```
+
+应用可组合 SaveGraph 分区。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `scope` | 根 Scope。 |
+| `section` | SaveGraph 分区。 |
+| `context` | 调用上下文字典。 |
+| `strict` | 为 true 时缺失 Source/Scope 会记录错误。 |
+
+返回：apply_scope() 结果。
+
+结构：
+
+- `context`: Dictionary accepted by apply_scope().
+- `return`: Dictionary with ok, applied, errors, missing, and optional pipeline_trace.
+
+<a id="member-gfsavegraphutility-methods-gather_document"></a>
+
+### `gather_document`
+
+- API：`public`
+- 首次版本：`9.0.0`
+
+```gdscript
+func gather_document( scope: GFSaveScope, metadata: Dictionary = {}, context: Dictionary = {} ) -> GFSaveDocument:
+```
+
+采集独立 SaveGraph 文档。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `scope` | 根 Scope。 |
+| `metadata` | 可持久化文档元数据。 |
+| `context` | 调用上下文字典。 |
+
+返回：独立文档；采集失败时返回 null。
+
+结构：
+
+- `metadata`: Dictionary with project-defined persisted metadata.
+- `context`: Dictionary accepted by gather_scope().
+
+<a id="member-gfsavegraphutility-methods-apply_document"></a>
+
+### `apply_document`
+
+- API：`public`
+- 首次版本：`9.0.0`
+
+```gdscript
+func apply_document( scope: GFSaveScope, document: GFSaveDocument, context: Dictionary = {}, strict: bool = false ) -> Dictionary:
+```
+
+应用独立 SaveGraph 文档。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `scope` | 根 Scope。 |
+| `document` | 独立 SaveGraph 文档。 |
+| `context` | 调用上下文字典。 |
+| `strict` | 为 true 时缺失 Source/Scope 会记录错误。 |
+
+返回：apply_section() 结果。
+
+结构：
+
+- `context`: Dictionary accepted by apply_scope().
+- `return`: Dictionary with ok, applied, errors, missing, and optional pipeline_trace.
 
 <a id="member-gfsavegraphutility-methods-inspect_scope"></a>
 
