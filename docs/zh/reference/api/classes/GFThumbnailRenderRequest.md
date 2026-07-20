@@ -18,16 +18,22 @@
 | 枚举 | [`Kind`](#member-gfthumbnailrenderrequest-enums-kind) | `enum Kind` |
 | 方法 | [`for_node3d_image`](#member-gfthumbnailrenderrequest-methods-for_node3d_image) | `static func for_node3d_image( source: Node3D, size: Vector2i = Vector2i(256, 256), transparent: bool = true ) -> GFThumbnailRenderRequest:` |
 | 方法 | [`for_node3d_texture`](#member-gfthumbnailrenderrequest-methods-for_node3d_texture) | `static func for_node3d_texture( source: Node3D, size: Vector2i = Vector2i(256, 256), transparent: bool = true ) -> GFThumbnailRenderRequest:` |
+| 方法 | [`for_canvas_item_image`](#member-gfthumbnailrenderrequest-methods-for_canvas_item_image) | `static func for_canvas_item_image( source: CanvasItem, size: Vector2i = Vector2i(256, 256), transparent: bool = true, content_bounds: Rect2 = Rect2(), margin_ratio: float = 0.08 ) -> GFThumbnailRenderRequest:` |
+| 方法 | [`for_canvas_item_texture`](#member-gfthumbnailrenderrequest-methods-for_canvas_item_texture) | `static func for_canvas_item_texture( source: CanvasItem, size: Vector2i = Vector2i(256, 256), transparent: bool = true, content_bounds: Rect2 = Rect2(), margin_ratio: float = 0.08 ) -> GFThumbnailRenderRequest:` |
 | 方法 | [`for_mesh_image`](#member-gfthumbnailrenderrequest-methods-for_mesh_image) | `static func for_mesh_image( mesh: Mesh, size: Vector2i = Vector2i(256, 256), transparent: bool = true ) -> GFThumbnailRenderRequest:` |
 | 方法 | [`for_mesh_texture`](#member-gfthumbnailrenderrequest-methods-for_mesh_texture) | `static func for_mesh_texture( mesh: Mesh, size: Vector2i = Vector2i(256, 256), transparent: bool = true ) -> GFThumbnailRenderRequest:` |
 | 方法 | [`for_mesh_library_preview_plan`](#member-gfthumbnailrenderrequest-methods-for_mesh_library_preview_plan) | `static func for_mesh_library_preview_plan( mesh_library: MeshLibrary, size: Vector2i = Vector2i(128, 128), overwrite_existing: bool = true ) -> GFThumbnailRenderRequest:` |
 | 方法 | [`get_kind`](#member-gfthumbnailrenderrequest-methods-get_kind) | `func get_kind() -> Kind:` |
 | 方法 | [`get_source_node3d`](#member-gfthumbnailrenderrequest-methods-get_source_node3d) | `func get_source_node3d() -> Node3D:` |
+| 方法 | [`get_source_canvas_item`](#member-gfthumbnailrenderrequest-methods-get_source_canvas_item) | `func get_source_canvas_item() -> CanvasItem:` |
 | 方法 | [`get_mesh`](#member-gfthumbnailrenderrequest-methods-get_mesh) | `func get_mesh() -> Mesh:` |
 | 方法 | [`get_mesh_library`](#member-gfthumbnailrenderrequest-methods-get_mesh_library) | `func get_mesh_library() -> MeshLibrary:` |
 | 方法 | [`get_size`](#member-gfthumbnailrenderrequest-methods-get_size) | `func get_size() -> Vector2i:` |
 | 方法 | [`is_transparent`](#member-gfthumbnailrenderrequest-methods-is_transparent) | `func is_transparent() -> bool:` |
 | 方法 | [`should_overwrite_existing`](#member-gfthumbnailrenderrequest-methods-should_overwrite_existing) | `func should_overwrite_existing() -> bool:` |
+| 方法 | [`get_content_bounds`](#member-gfthumbnailrenderrequest-methods-get_content_bounds) | `func get_content_bounds() -> Rect2:` |
+| 方法 | [`has_content_bounds`](#member-gfthumbnailrenderrequest-methods-has_content_bounds) | `func has_content_bounds() -> bool:` |
+| 方法 | [`get_margin_ratio`](#member-gfthumbnailrenderrequest-methods-get_margin_ratio) | `func get_margin_ratio() -> float:` |
 | 方法 | [`is_valid`](#member-gfthumbnailrenderrequest-methods-is_valid) | `func is_valid() -> bool:` |
 
 ## 枚举
@@ -53,6 +59,10 @@ enum Kind {
 	MESH_TEXTURE,
 	## 为 MeshLibrary 构建预览修改计划。
 	MESH_LIBRARY_PREVIEW_PLAN,
+	## 将 CanvasItem 渲染为 Image。
+	CANVAS_ITEM_IMAGE,
+	## 将 CanvasItem 渲染为 ImageTexture。
+	CANVAS_ITEM_TEXTURE,
 }
 ```
 
@@ -105,6 +115,56 @@ static func for_node3d_texture( source: Node3D, size: Vector2i = Vector2i(256, 2
 | `transparent` | 是否透明背景。 |
 
 返回：Node3D ImageTexture 渲染请求。
+
+<a id="member-gfthumbnailrenderrequest-methods-for_canvas_item_image"></a>
+
+### `for_canvas_item_image`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+static func for_canvas_item_image( source: CanvasItem, size: Vector2i = Vector2i(256, 256), transparent: bool = true, content_bounds: Rect2 = Rect2(), margin_ratio: float = 0.08 ) -> GFThumbnailRenderRequest:
+```
+
+创建 CanvasItem Image 渲染请求。 `source` 可以是 Node2D 或 Control。显式边界为空或尺寸非正时，渲染器会 保守估算常见 CanvasItem 的内容边界；自定义 `_draw()` 节点应传入边界。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `source` | 要渲染的 2D 画布节点。 |
+| `size` | 输出尺寸。 |
+| `transparent` | 是否透明背景。 |
+| `content_bounds` | 来源局部坐标中的显式内容边界；非正尺寸表示自动估算。 |
+| `margin_ratio` | 内容边界四周的相对留白，钳制到 0.0 至 1.0。 |
+
+返回：CanvasItem Image 渲染请求。
+
+<a id="member-gfthumbnailrenderrequest-methods-for_canvas_item_texture"></a>
+
+### `for_canvas_item_texture`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+static func for_canvas_item_texture( source: CanvasItem, size: Vector2i = Vector2i(256, 256), transparent: bool = true, content_bounds: Rect2 = Rect2(), margin_ratio: float = 0.08 ) -> GFThumbnailRenderRequest:
+```
+
+创建 CanvasItem ImageTexture 渲染请求。 `source` 可以是 Node2D 或 Control。显式边界为空或尺寸非正时，渲染器会 保守估算常见 CanvasItem 的内容边界；自定义 `_draw()` 节点应传入边界。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `source` | 要渲染的 2D 画布节点。 |
+| `size` | 输出尺寸。 |
+| `transparent` | 是否透明背景。 |
+| `content_bounds` | 来源局部坐标中的显式内容边界；非正尺寸表示自动估算。 |
+| `margin_ratio` | 内容边界四周的相对留白，钳制到 0.0 至 1.0。 |
+
+返回：CanvasItem ImageTexture 渲染请求。
 
 <a id="member-gfthumbnailrenderrequest-methods-for_mesh_image"></a>
 
@@ -205,6 +265,21 @@ func get_source_node3d() -> Node3D:
 
 返回：Node3D 来源；非 Node3D 请求时返回 null。
 
+<a id="member-gfthumbnailrenderrequest-methods-get_source_canvas_item"></a>
+
+### `get_source_canvas_item`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func get_source_canvas_item() -> CanvasItem:
+```
+
+返回 CanvasItem 来源。
+
+返回：CanvasItem 来源；非 2D 请求时返回 null。
+
 <a id="member-gfthumbnailrenderrequest-methods-get_mesh"></a>
 
 ### `get_mesh`
@@ -279,6 +354,51 @@ func should_overwrite_existing() -> bool:
 返回 MeshLibrary 预览计划是否覆盖已有预览。
 
 返回：覆盖已有预览时返回 true。
+
+<a id="member-gfthumbnailrenderrequest-methods-get_content_bounds"></a>
+
+### `get_content_bounds`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func get_content_bounds() -> Rect2:
+```
+
+返回显式 2D 内容边界。
+
+返回：来源局部坐标中的内容边界；未设置时返回空 Rect2。
+
+<a id="member-gfthumbnailrenderrequest-methods-has_content_bounds"></a>
+
+### `has_content_bounds`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func has_content_bounds() -> bool:
+```
+
+返回请求是否携带有效的显式 2D 内容边界。
+
+返回：两个边长都为正时返回 true。
+
+<a id="member-gfthumbnailrenderrequest-methods-get_margin_ratio"></a>
+
+### `get_margin_ratio`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func get_margin_ratio() -> float:
+```
+
+返回 2D 内容相对留白。
+
+返回：0.0 至 1.0 的留白比例。
 
 <a id="member-gfthumbnailrenderrequest-methods-is_valid"></a>
 

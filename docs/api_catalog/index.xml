@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<apiCatalog schemaVersion="2" name="GF Framework" sourceRoot="addons/gf" sourceDigest="eba99f25e30d4cf5d03435e2eacb29d71b133472483a52f9be3189fbdf4c268a" classCount="736" methodCount="6558">
-	<module id="kernel" label="Kernel" classCount="70" methodCount="707">
+<apiCatalog schemaVersion="2" name="GF Framework" sourceRoot="addons/gf" sourceDigest="83bef77bd662b5ae096442aa8ee676803c673a64094c35f19dec8eb2bb11610d" classCount="738" methodCount="6592">
+	<module id="kernel" label="Kernel" classCount="70" methodCount="715">
 		<class name="GFAccessGenerator" path="classes/GFAccessGenerator.xml" sourcePath="addons/gf/kernel/editor/gf_access_generator.gd" extends="RefCounted" />
 		<class name="GFArchitecture" path="classes/GFArchitecture.xml" sourcePath="addons/gf/kernel/core/gf_architecture.gd" extends="Object" />
 		<class name="GFAsyncCompletion" path="classes/GFAsyncCompletion.xml" sourcePath="addons/gf/kernel/core/gf_async_completion.gd" extends="RefCounted" />
@@ -72,7 +72,7 @@
 		<class name="GFTypeEventSystem" path="classes/GFTypeEventSystem.xml" sourcePath="addons/gf/kernel/core/gf_type_event_system.gd" extends="Object" />
 		<class name="GFUtility" path="classes/GFUtility.xml" sourcePath="addons/gf/kernel/base/gf_utility.gd" extends="Object" />
 	</module>
-	<module id="standard" label="Standard" classCount="409" methodCount="4098">
+	<module id="standard" label="Standard" classCount="411" methodCount="4124">
 		<class name="GFActivationTransaction" path="classes/GFActivationTransaction.xml" sourcePath="addons/gf/standard/foundation/policy/gf_activation_transaction.gd" extends="RefCounted" />
 		<class name="GFAnalyticsConfig" path="classes/GFAnalyticsConfig.xml" sourcePath="addons/gf/standard/utilities/analytics/gf_analytics_config.gd" extends="Resource" />
 		<class name="GFAnalyticsUtility" path="classes/GFAnalyticsUtility.xml" sourcePath="addons/gf/standard/utilities/analytics/gf_analytics_utility.gd" extends="GFUtility" />
@@ -81,6 +81,7 @@
 		<class name="GFAssetCatalogEntry" path="classes/GFAssetCatalogEntry.xml" sourcePath="addons/gf/standard/utilities/assets/gf_asset_catalog_entry.gd" extends="Resource" />
 		<class name="GFAssetCatalogSourceProvider" path="classes/GFAssetCatalogSourceProvider.xml" sourcePath="addons/gf/standard/utilities/assets/gf_asset_catalog_source_provider.gd" extends="RefCounted" />
 		<class name="GFAssetCatalogSourceRegistry" path="classes/GFAssetCatalogSourceRegistry.xml" sourcePath="addons/gf/standard/utilities/assets/gf_asset_catalog_source_registry.gd" extends="RefCounted" />
+		<class name="GFAssetCollection" path="classes/GFAssetCollection.xml" sourcePath="addons/gf/standard/utilities/assets/gf_asset_collection.gd" extends="Resource" />
 		<class name="GFAssetHandle" path="classes/GFAssetHandle.xml" sourcePath="addons/gf/standard/utilities/assets/gf_asset_handle.gd" extends="RefCounted" />
 		<class name="GFAssetLoadSession" path="classes/GFAssetLoadSession.xml" sourcePath="addons/gf/standard/utilities/assets/gf_asset_load_session.gd" extends="RefCounted" />
 		<class name="GFAssetLoadSessionResult" path="classes/GFAssetLoadSessionResult.xml" sourcePath="addons/gf/standard/utilities/assets/gf_asset_load_session_result.gd" extends="RefCounted" />
@@ -415,6 +416,7 @@
 		<class name="GFStorageBackend" path="classes/GFStorageBackend.xml" sourcePath="addons/gf/standard/utilities/storage/gf_storage_backend.gd" extends="RefCounted" />
 		<class name="GFStorageCodec" path="classes/GFStorageCodec.xml" sourcePath="addons/gf/standard/utilities/storage/gf_storage_codec.gd" extends="Resource" />
 		<class name="GFStorageConflictReport" path="classes/GFStorageConflictReport.xml" sourcePath="addons/gf/standard/utilities/storage/gf_storage_conflict_report.gd" extends="Resource" />
+		<class name="GFStorageFailoverBackend" path="classes/GFStorageFailoverBackend.xml" sourcePath="addons/gf/standard/utilities/storage/gf_storage_failover_backend.gd" extends="GFStorageBackend" />
 		<class name="GFStorageReadResult" path="classes/GFStorageReadResult.xml" sourcePath="addons/gf/standard/utilities/storage/gf_storage_read_result.gd" extends="RefCounted" />
 		<class name="GFStorageSectionCache" path="classes/GFStorageSectionCache.xml" sourcePath="addons/gf/standard/utilities/storage/gf_storage_section_cache.gd" extends="RefCounted" />
 		<class name="GFStorageSyncUtility" path="classes/GFStorageSyncUtility.xml" sourcePath="addons/gf/standard/utilities/storage/gf_storage_sync_utility.gd" extends="GFUtility" />

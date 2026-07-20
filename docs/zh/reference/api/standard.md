@@ -6,9 +6,9 @@
 
 | 类别 | 类 | 成员 | 方法 |
 |---|---:|---:|---:|
-| [运行时服务](#category-runtime_service) | 178 | 3119 | 2117 |
+| [运行时服务](#category-runtime_service) | 179 | 3135 | 2132 |
 | [协议与扩展点](#category-protocol) | 22 | 309 | 251 |
-| [资源定义](#category-resource_definition) | 110 | 1424 | 735 |
+| [资源定义](#category-resource_definition) | 111 | 1440 | 746 |
 | [运行时句柄](#category-runtime_handle) | 41 | 704 | 457 |
 | [值对象](#category-value_object) | 35 | 648 | 408 |
 | [领域模型](#category-domain_model) | 4 | 61 | 42 |
@@ -166,6 +166,7 @@
 | [`GFSpringMath`](classes/GFSpringMath.md#gfspringmath) | `RefCounted` | `addons/gf/standard/foundation/math/gf_spring_math.gd` |
 | [`GFStateMachine`](classes/GFStateMachine.md#gfstatemachine) | `RefCounted` | `addons/gf/standard/state_machine/pure/gf_state_machine.gd` |
 | [`GFSteeringMath`](classes/GFSteeringMath.md#gfsteeringmath) | `RefCounted` | `addons/gf/standard/foundation/math/gf_steering_math.gd` |
+| [`GFStorageFailoverBackend`](classes/GFStorageFailoverBackend.md#gfstoragefailoverbackend) | `GFStorageBackend` | `addons/gf/standard/utilities/storage/gf_storage_failover_backend.gd` |
 | [`GFStorageSyncUtility`](classes/GFStorageSyncUtility.md#gfstoragesyncutility) | `GFUtility` | `addons/gf/standard/utilities/storage/gf_storage_sync_utility.gd` |
 | [`GFStorageUtility`](classes/GFStorageUtility.md#gfstorageutility) | `GFUtility` | `addons/gf/standard/utilities/storage/gf_storage_utility.gd` |
 | [`GFSupportReportUtility`](classes/GFSupportReportUtility.md#gfsupportreportutility) | `GFUtility` | `addons/gf/standard/utilities/debug/gf_support_report_utility.gd` |
@@ -241,6 +242,7 @@
 | [`GFAnalyticsConfig`](classes/GFAnalyticsConfig.md#gfanalyticsconfig) | `Resource` | `addons/gf/standard/utilities/analytics/gf_analytics_config.gd` |
 | [`GFAssetCatalog`](classes/GFAssetCatalog.md#gfassetcatalog) | `Resource` | `addons/gf/standard/utilities/assets/gf_asset_catalog.gd` |
 | [`GFAssetCatalogEntry`](classes/GFAssetCatalogEntry.md#gfassetcatalogentry) | `Resource` | `addons/gf/standard/utilities/assets/gf_asset_catalog_entry.gd` |
+| [`GFAssetCollection`](classes/GFAssetCollection.md#gfassetcollection) | `Resource` | `addons/gf/standard/utilities/assets/gf_asset_collection.gd` |
 | [`GFAssetPreloadPlan`](classes/GFAssetPreloadPlan.md#gfassetpreloadplan) | `Resource` | `addons/gf/standard/utilities/assets/gf_asset_preload_plan.gd` |
 | [`GFAudioBank`](classes/GFAudioBank.md#gfaudiobank) | `Resource` | `addons/gf/standard/utilities/audio/gf_audio_bank.gd` |
 | [`GFAudioClip`](classes/GFAudioClip.md#gfaudioclip) | `Resource` | `addons/gf/standard/utilities/audio/gf_audio_clip.gd` |

@@ -200,6 +200,55 @@ func test_asset_catalog_makes_deterministic_fail_closed_preload_plan() -> void:
 	)
 
 
+func test_asset_collection_resolves_in_order_and_reports_missing_ids() -> void:
+	var catalog: GF_ASSET_CATALOG_SCRIPT = GF_ASSET_CATALOG_SCRIPT.new()
+	_set_asset_entry(catalog, _make_asset_entry(&"hero", "res://hero.tscn"))
+	_set_asset_entry(catalog, _make_asset_entry(&"boss", "res://boss.tscn"))
+	var collection: GFAssetCollection = GFAssetCollection.new().configure(
+		&"encounter.cast",
+		PackedStringArray(["boss", "missing", "hero"]),
+		{
+			"title": "Encounter Cast",
+			"metadata": { "chapter": 2 },
+		}
+	)
+
+	var report: GFValidationReport = collection.validate_against(catalog)
+	var resolved_entries: Array[GFAssetCatalogEntry] = collection.resolve_entries(catalog)
+	var missing_ids: PackedStringArray = GFVariantData.get_option_packed_string_array(
+		report.extra_fields,
+		"missing_asset_ids"
+	)
+
+	assert_false(report.is_ok(), "缺失资产应使集合完整性校验失败。")
+	assert_eq(report.get_error_count(), 1)
+	assert_eq(missing_ids, PackedStringArray(["missing"]))
+	assert_eq(resolved_entries.size(), 2)
+	assert_eq(resolved_entries[0].asset_id, &"boss", "解析结果应保持集合顺序。")
+	assert_eq(resolved_entries[1].asset_id, &"hero", "缺失项不应改变其余条目的相对顺序。")
+	assert_eq(GFVariantData.get_option_int(collection.metadata, "chapter"), 2)
+
+
+func test_asset_collection_mutations_are_unique_ordered_and_serializable() -> void:
+	var collection: GFAssetCollection = GFAssetCollection.new().configure(
+		&"ui.icons",
+		PackedStringArray(["save", "load"]),
+		{ "description": "Toolbar icons" }
+	)
+
+	assert_true(collection.add_asset_id(&"settings", 1))
+	assert_false(collection.add_asset_id(&"save"), "集合不应接受重复资产 ID。")
+	assert_true(collection.move_asset_id(&"load", 0))
+	assert_true(collection.remove_asset_id(&"save"))
+
+	var restored: GFAssetCollection = GFAssetCollection.from_dict(collection.to_dict())
+
+	assert_eq(restored.collection_id, &"ui.icons")
+	assert_eq(restored.asset_ids, PackedStringArray(["load", "settings"]))
+	assert_eq(restored.description, "Toolbar icons")
+	assert_true(restored.has_asset_id(&"settings"))
+
+
 # --- 私有/辅助方法 ---
 
 func _set_asset_entry(catalog: GF_ASSET_CATALOG_SCRIPT, entry: GF_ASSET_CATALOG_ENTRY_SCRIPT) -> void:

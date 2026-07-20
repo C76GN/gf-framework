@@ -1,0 +1,176 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFAssetCollection" path="addons/gf/standard/utilities/assets/gf_asset_collection.gd" module="standard" extends="Resource" classDigest="61731c63004c11143c1461f0e7a54d038fd8f49e93cfc47380308b1d98e1258b">
+	<description>GFAssetCollection: 有序资产 ID 集合。
+集合只保存稳定 `asset_id`、展示信息和调用方元数据，不持有已加载资源，
+也不规定目录、分类、预览或业务用途。调用方可以用 `GFAssetCatalog`
+解析条目，并在使用前获得缺失、重复和无效 ID 的完整性报告。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">resource_definition</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties>
+		<member kind="property" name="collection_id" decorators="@export">
+			<signature>var collection_id: StringName = &amp;""</signature>
+			<description>集合稳定 ID。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="title" decorators="@export">
+			<signature>var title: String = ""</signature>
+			<description>集合展示标题。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="description" decorators="@export_multiline">
+			<signature>var description: String = ""</signature>
+			<description>集合用途说明。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="asset_ids" decorators="@export">
+			<signature>var asset_ids: PackedStringArray = PackedStringArray()</signature>
+			<description>按调用方期望顺序保存的稳定资产 ID。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="metadata" decorators="@export">
+			<signature>var metadata: Dictionary = {}</signature>
+			<description>调用方自定义元数据；框架不解释其中字段。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="schema">metadata: Dictionary，包含调用方自定义且可序列化的集合元数据。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</properties>
+	<methods>
+		<member kind="method" name="configure">
+			<signature>func configure( p_collection_id: StringName, p_asset_ids: PackedStringArray = PackedStringArray(), options: Dictionary = {} ) -&gt; GFAssetCollection:</signature>
+			<description>配置集合。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">p_collection_id: 集合稳定 ID。</tag>
+				<tag name="param">p_asset_ids: 有序资产 ID。</tag>
+				<tag name="param">options: 可选 title、description 和 metadata。</tag>
+				<tag name="return">当前集合。</tag>
+				<tag name="schema">options: Dictionary，包含 title: String、description: String 和 metadata: Dictionary。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="add_asset_id">
+			<signature>func add_asset_id(asset_id: StringName, index: int = -1) -&gt; bool:</signature>
+			<description>在指定位置添加资产 ID。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">asset_id: 要添加的稳定资产 ID。</tag>
+				<tag name="param">index: 插入位置；负数或超出末尾时追加。</tag>
+				<tag name="return">成功添加时返回 true；空 ID 或重复 ID 返回 false。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="remove_asset_id">
+			<signature>func remove_asset_id(asset_id: StringName) -&gt; bool:</signature>
+			<description>移除首次出现的资产 ID。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">asset_id: 要移除的稳定资产 ID。</tag>
+				<tag name="return">找到并移除时返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="move_asset_id">
+			<signature>func move_asset_id(asset_id: StringName, target_index: int) -&gt; bool:</signature>
+			<description>移动资产 ID 到新的有序位置。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">asset_id: 要移动的稳定资产 ID。</tag>
+				<tag name="param">target_index: 移除原位置后使用的目标下标；自动钳制到有效范围。</tag>
+				<tag name="return">找到并完成移动时返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="has_asset_id">
+			<signature>func has_asset_id(asset_id: StringName) -&gt; bool:</signature>
+			<description>检查集合是否包含资产 ID。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">asset_id: 要查询的稳定资产 ID。</tag>
+				<tag name="return">至少出现一次时返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="resolve_entries">
+			<signature>func resolve_entries(catalog: GFAssetCatalog) -&gt; Array[GFAssetCatalogEntry]:</signature>
+			<description>按集合顺序解析存在于目录中的资产条目。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">catalog: 用于解析稳定资产 ID 的目录。</tag>
+				<tag name="return">已解析条目；缺失、空或重复 ID 被跳过。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="validate_against">
+			<signature>func validate_against(catalog: GFAssetCatalog) -&gt; GFValidationReport:</signature>
+			<description>对照资产目录校验集合完整性。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">catalog: 用于解析稳定资产 ID 的目录。</tag>
+				<tag name="return">包含缺失、重复、空 ID 和有序解析摘要的通用校验报告。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="duplicate_collection">
+			<signature>func duplicate_collection() -&gt; GFAssetCollection:</signature>
+			<description>创建集合深拷贝。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">新集合实例。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="to_dict">
+			<signature>func to_dict() -&gt; Dictionary:</signature>
+			<description>转换为可序列化字典。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">集合字段深拷贝。</tag>
+				<tag name="schema">return: Dictionary，包含 collection_id、title、description、asset_ids 和 metadata。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="apply_dict">
+			<signature>func apply_dict(data: Dictionary) -&gt; void:</signature>
+			<description>从字典应用集合字段。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">data: GFAssetCollection.to_dict() 输出或兼容字段。</tag>
+				<tag name="schema">data: Dictionary，包含 collection_id、title、description、asset_ids 和 metadata。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="from_dict">
+			<signature>static func from_dict(data: Dictionary) -&gt; GFAssetCollection:</signature>
+			<description>从字典创建集合。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">data: GFAssetCollection.to_dict() 输出或兼容字段。</tag>
+				<tag name="return">新集合实例。</tag>
+				<tag name="schema">data: Dictionary，包含 collection_id、title、description、asset_ids 和 metadata。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

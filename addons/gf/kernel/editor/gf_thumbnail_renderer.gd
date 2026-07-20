@@ -2,7 +2,7 @@
 
 ## GFThumbnailRenderer: 编辑器缩略图渲染辅助节点。
 ##
-## 使用独立 SubViewport 渲染 Node3D 或 Mesh，供项目自定义编辑器工具复用。
+## 使用独立 SubViewport 渲染 CanvasItem、Node3D 或 Mesh，供项目自定义编辑器工具复用。
 ## [br]
 ## @api public
 ## [br]
@@ -22,6 +22,8 @@ var _world_root: Node3D
 var _camera: Camera3D
 var _key_light: DirectionalLight3D
 var _fill_light: DirectionalLight3D
+var _canvas_root: Node2D
+var _camera_2d: Camera2D
 var _pending_tasks: Array[GFThumbnailRenderTask] = []
 var _active_task: GFThumbnailRenderTask = null
 var _processing_task_queue: bool = false
@@ -43,6 +45,8 @@ func _exit_tree() -> void:
 	_camera = null
 	_key_light = null
 	_fill_light = null
+	_canvas_root = null
+	_camera_2d = null
 
 
 # --- 公共方法 ---
@@ -84,6 +88,86 @@ func render_node3d_texture(
 ) -> ImageTexture:
 	var task: GFThumbnailRenderTask = submit_render_request(
 		GFThumbnailRenderRequest.for_node3d_texture(source, size, transparent)
+	)
+	var result: Variant = await task.wait_completed()
+	return _variant_to_image_texture(result)
+
+
+## 渲染一个 CanvasItem 缩略图。
+##
+## `source` 可以是 Node2D 或 Control。自定义 `_draw()` 等无法可靠估算
+## 几何范围的节点应传入显式 `content_bounds`。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param source: 要渲染的 2D 画布节点，会被复制后放入内部 Viewport。
+## [br]
+## @param size: 输出尺寸。
+## [br]
+## @param transparent: 是否透明背景。
+## [br]
+## @param content_bounds: 来源局部坐标中的显式内容边界；非正尺寸表示自动估算。
+## [br]
+## @param margin_ratio: 内容边界四周的相对留白，钳制到 0.0 至 1.0。
+## [br]
+## @return 渲染出的 Image；失败时返回 null。
+func render_canvas_item(
+	source: CanvasItem,
+	size: Vector2i = Vector2i(256, 256),
+	transparent: bool = true,
+	content_bounds: Rect2 = Rect2(),
+	margin_ratio: float = 0.08
+) -> Image:
+	var task: GFThumbnailRenderTask = submit_render_request(
+		GFThumbnailRenderRequest.for_canvas_item_image(
+			source,
+			size,
+			transparent,
+			content_bounds,
+			margin_ratio
+		)
+	)
+	var result: Variant = await task.wait_completed()
+	return _variant_to_image(result)
+
+
+## 渲染一个 CanvasItem 缩略图纹理。
+##
+## `source` 可以是 Node2D 或 Control。自定义 `_draw()` 等无法可靠估算
+## 几何范围的节点应传入显式 `content_bounds`。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param source: 要渲染的 2D 画布节点。
+## [br]
+## @param size: 输出尺寸。
+## [br]
+## @param transparent: 是否透明背景。
+## [br]
+## @param content_bounds: 来源局部坐标中的显式内容边界；非正尺寸表示自动估算。
+## [br]
+## @param margin_ratio: 内容边界四周的相对留白，钳制到 0.0 至 1.0。
+## [br]
+## @return 渲染出的 ImageTexture；失败时返回 null。
+func render_canvas_item_texture(
+	source: CanvasItem,
+	size: Vector2i = Vector2i(256, 256),
+	transparent: bool = true,
+	content_bounds: Rect2 = Rect2(),
+	margin_ratio: float = 0.08
+) -> ImageTexture:
+	var task: GFThumbnailRenderTask = submit_render_request(
+		GFThumbnailRenderRequest.for_canvas_item_texture(
+			source,
+			size,
+			transparent,
+			content_bounds,
+			margin_ratio
+		)
 	)
 	var result: Variant = await task.wait_completed()
 	return _variant_to_image_texture(result)
@@ -396,6 +480,26 @@ func _execute_render_task_async(task: GFThumbnailRenderTask) -> void:
 				request.is_transparent()
 			)
 			_finish_render_task_with_result(task, node_texture)
+		GFThumbnailRenderRequest.Kind.CANVAS_ITEM_IMAGE:
+			var canvas_image: Image = await _render_canvas_item_direct(
+				request.get_source_canvas_item(),
+				request.get_size(),
+				request.is_transparent(),
+				request.get_content_bounds(),
+				request.has_content_bounds(),
+				request.get_margin_ratio()
+			)
+			_finish_render_task_with_result(task, canvas_image)
+		GFThumbnailRenderRequest.Kind.CANVAS_ITEM_TEXTURE:
+			var canvas_texture: ImageTexture = await _render_canvas_item_texture_direct(
+				request.get_source_canvas_item(),
+				request.get_size(),
+				request.is_transparent(),
+				request.get_content_bounds(),
+				request.has_content_bounds(),
+				request.get_margin_ratio()
+			)
+			_finish_render_task_with_result(task, canvas_texture)
 		GFThumbnailRenderRequest.Kind.MESH_IMAGE:
 			var mesh_image: Image = await _render_mesh_direct(
 				request.get_mesh(),
@@ -438,7 +542,7 @@ func _finish_render_task_with_result(task: GFThumbnailRenderTask, result: Varian
 
 
 func _render_node3d_direct(source: Node3D, size: Vector2i, transparent: bool) -> Image:
-	if source == null:
+	if source == null or not is_inside_tree():
 		return null
 
 	_ensure_viewport()
@@ -454,16 +558,71 @@ func _render_node3d_direct(source: Node3D, size: Vector2i, transparent: bool) ->
 	_prepare_instance(instance)
 	_render_prepare(_normalize_render_size(size), transparent, _get_combined_aabb(instance))
 
-	await RenderingServer.frame_post_draw
-	var image: Image = null
-	if is_instance_valid(_viewport) and _viewport.get_texture() != null:
-		image = _viewport.get_texture().get_image()
+	await get_tree().process_frame
+	RenderingServer.force_draw()
+	var image: Image = _capture_viewport_image()
 	_free_render_instance(instance)
 	return image
 
 
 func _render_node3d_texture_direct(source: Node3D, size: Vector2i, transparent: bool) -> ImageTexture:
 	var image: Image = await _render_node3d_direct(source, size, transparent)
+	if image == null:
+		return null
+	return ImageTexture.create_from_image(image)
+
+
+func _render_canvas_item_direct(
+	source: CanvasItem,
+	size: Vector2i,
+	transparent: bool,
+	content_bounds: Rect2,
+	has_content_bounds: bool,
+	margin_ratio: float
+) -> Image:
+	if source == null or not is_inside_tree():
+		return null
+
+	_ensure_viewport()
+	_clear_canvas_root()
+	var safe_size: Vector2i = _normalize_render_size(size)
+	_viewport.size = safe_size
+
+	var duplicated: Node = source.duplicate()
+	if not (duplicated is CanvasItem):
+		duplicated.free()
+		return null
+	var instance: CanvasItem = duplicated
+	_canvas_root.add_child(instance)
+	_prepare_canvas_item_instance(instance)
+	var bounds: Rect2 = content_bounds if has_content_bounds else _get_combined_canvas_rect(instance)
+	if not _is_usable_canvas_rect(bounds):
+		bounds = Rect2(Vector2(-0.5, -0.5), Vector2.ONE)
+	_render_canvas_prepare(safe_size, transparent, bounds, margin_ratio)
+
+	await get_tree().process_frame
+	RenderingServer.force_draw()
+	var image: Image = _capture_viewport_image()
+	_free_render_instance(instance)
+	return image
+
+
+func _render_canvas_item_texture_direct(
+	source: CanvasItem,
+	size: Vector2i,
+	transparent: bool,
+	content_bounds: Rect2,
+	has_content_bounds: bool,
+	margin_ratio: float
+) -> ImageTexture:
+	var image: Image = await _render_canvas_item_direct(
+		source,
+		size,
+		transparent,
+		content_bounds,
+		has_content_bounds,
+		margin_ratio
+	)
 	if image == null:
 		return null
 	return ImageTexture.create_from_image(image)
@@ -613,6 +772,17 @@ func _variant_to_texture(value: Variant) -> Texture2D:
 	return null
 
 
+func _capture_viewport_image() -> Image:
+	if not is_instance_valid(_viewport):
+		return null
+	if RenderingServer.get_video_adapter_name().strip_edges().is_empty():
+		return null
+	var viewport_texture: ViewportTexture = _viewport.get_texture()
+	if viewport_texture == null:
+		return null
+	return viewport_texture.get_image()
+
+
 func _ensure_viewport() -> void:
 	if is_instance_valid(_viewport):
 		return
@@ -621,6 +791,7 @@ func _ensure_viewport() -> void:
 	_viewport.name = "GFThumbnailViewport"
 	_viewport.transparent_bg = true
 	_viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
+	_viewport.msaa_2d = Viewport.MSAA_4X
 	_viewport.msaa_3d = Viewport.MSAA_4X
 	_viewport.world_3d = World3D.new()
 	_viewport.world_3d.environment = Environment.new()
@@ -646,11 +817,28 @@ func _ensure_viewport() -> void:
 	_fill_light.rotation_degrees = Vector3(35.0, 145.0, 0.0)
 	_world_root.add_child(_fill_light)
 
+	_canvas_root = Node2D.new()
+	_canvas_root.name = "CanvasRoot"
+	_viewport.add_child(_canvas_root)
+
+	_camera_2d = Camera2D.new()
+	_camera_2d.name = "Camera2D"
+	_camera_2d.enabled = true
+	_camera_2d.position_smoothing_enabled = false
+	_canvas_root.add_child(_camera_2d)
+
 
 func _clear_world_root() -> void:
 	for child: Node in _world_root.get_children():
 		if child != _camera and child != _key_light and child != _fill_light:
 			_world_root.remove_child(child)
+			child.free()
+
+
+func _clear_canvas_root() -> void:
+	for child: Node in _canvas_root.get_children():
+		if child != _camera_2d:
+			_canvas_root.remove_child(child)
 			child.free()
 
 
@@ -674,6 +862,17 @@ func _prepare_instance(instance: Node3D) -> void:
 	instance.global_position -= center
 
 
+func _prepare_canvas_item_instance(instance: CanvasItem) -> void:
+	if instance is Node2D:
+		var node_2d: Node2D = instance
+		node_2d.transform = Transform2D.IDENTITY
+	elif instance is Control:
+		var control: Control = instance
+		control.position = Vector2.ZERO
+		control.rotation = 0.0
+		control.scale = Vector2.ONE
+
+
 func _render_prepare(size: Vector2i, transparent: bool, bounds: AABB) -> void:
 	_viewport.size = size
 	_viewport.transparent_bg = transparent
@@ -689,7 +888,27 @@ func _render_prepare(size: Vector2i, transparent: bool, bounds: AABB) -> void:
 	_camera.look_at(center, Vector3.UP)
 	_camera.size = _calculate_orthographic_size_for_aabb(bounds, _camera) * 1.08
 	_viewport.render_target_update_mode = SubViewport.UPDATE_ONCE
-	RenderingServer.force_draw()
+
+
+func _render_canvas_prepare(
+	size: Vector2i,
+	transparent: bool,
+	bounds: Rect2,
+	margin_ratio: float
+) -> void:
+	_viewport.size = size
+	_viewport.transparent_bg = transparent
+	var safe_margin: float = clampf(margin_ratio, 0.0, 1.0)
+	var padded_size: Vector2 = bounds.size * (1.0 + safe_margin * 2.0)
+	padded_size.x = maxf(padded_size.x, 0.0001)
+	padded_size.y = maxf(padded_size.y, 0.0001)
+	var zoom_factor: float = minf(
+		float(size.x) / padded_size.x,
+		float(size.y) / padded_size.y
+	)
+	_camera_2d.position = bounds.get_center()
+	_camera_2d.zoom = Vector2.ONE * maxf(zoom_factor, 0.0001)
+	_viewport.render_target_update_mode = SubViewport.UPDATE_ONCE
 
 
 func _normalize_render_size(size: Vector2i) -> Vector2i:
@@ -732,6 +951,119 @@ func _get_combined_aabb(root: Node) -> AABB:
 	if not has_bounds:
 		return AABB(Vector3(-0.5, -0.5, -0.5), Vector3.ONE)
 	return combined
+
+
+func _get_combined_canvas_rect(root: CanvasItem) -> Rect2:
+	var combined: Rect2 = Rect2()
+	var has_bounds: bool = false
+	var root_inverse: Transform2D = root.get_global_transform().affine_inverse()
+	var stack: Array[Node] = [root]
+	while not stack.is_empty():
+		var current_value: Variant = stack.pop_back()
+		if not (current_value is Node):
+			continue
+		var current: Node = current_value
+		if current is CanvasItem:
+			var canvas_item: CanvasItem = current
+			if canvas_item.is_visible_in_tree():
+				var local_rect: Rect2 = _get_canvas_item_local_rect(canvas_item)
+				if _is_usable_canvas_rect(local_rect):
+					var relative_transform: Transform2D = root_inverse * canvas_item.get_global_transform()
+					var transformed_rect: Rect2 = _transform_canvas_rect(local_rect, relative_transform)
+					if not has_bounds:
+						combined = transformed_rect
+						has_bounds = true
+					else:
+						combined = combined.merge(transformed_rect)
+		for child: Node in current.get_children():
+			stack.append(child)
+
+	if not has_bounds:
+		return Rect2()
+	return combined
+
+
+func _get_canvas_item_local_rect(canvas_item: CanvasItem) -> Rect2:
+	if canvas_item is Sprite2D:
+		var sprite: Sprite2D = canvas_item
+		return sprite.get_rect()
+	if canvas_item is AnimatedSprite2D:
+		var animated_sprite: AnimatedSprite2D = canvas_item
+		return _get_animated_sprite_rect(animated_sprite)
+	if canvas_item is Control:
+		var control: Control = canvas_item
+		return Rect2(Vector2.ZERO, control.size)
+	if canvas_item is Polygon2D:
+		var polygon: Polygon2D = canvas_item
+		var polygon_rect: Rect2 = _get_points_rect(polygon.polygon)
+		return Rect2(polygon_rect.position + polygon.offset, polygon_rect.size)
+	if canvas_item is Line2D:
+		var line: Line2D = canvas_item
+		var line_rect: Rect2 = _get_points_rect(line.points)
+		return line_rect.grow(maxf(line.width * 0.5, 0.0)) if _is_usable_canvas_rect(line_rect) else line_rect
+	if canvas_item is GPUParticles2D:
+		var particles: GPUParticles2D = canvas_item
+		return particles.visibility_rect
+	return Rect2()
+
+
+func _get_animated_sprite_rect(animated_sprite: AnimatedSprite2D) -> Rect2:
+	var sprite_frames: SpriteFrames = animated_sprite.sprite_frames
+	if sprite_frames == null or not sprite_frames.has_animation(animated_sprite.animation):
+		return Rect2()
+	var frame_count: int = sprite_frames.get_frame_count(animated_sprite.animation)
+	if frame_count <= 0:
+		return Rect2()
+	var frame_index: int = clampi(animated_sprite.frame, 0, frame_count - 1)
+	var texture: Texture2D = sprite_frames.get_frame_texture(animated_sprite.animation, frame_index)
+	if texture == null:
+		return Rect2()
+	var texture_size: Vector2 = Vector2(texture.get_size())
+	var rect_position: Vector2 = animated_sprite.offset
+	if animated_sprite.centered:
+		rect_position -= texture_size * 0.5
+	return Rect2(rect_position, texture_size)
+
+
+func _get_points_rect(points: PackedVector2Array) -> Rect2:
+	if points.is_empty():
+		return Rect2()
+	var minimum: Vector2 = points[0]
+	var maximum: Vector2 = points[0]
+	for point: Vector2 in points:
+		minimum.x = minf(minimum.x, point.x)
+		minimum.y = minf(minimum.y, point.y)
+		maximum.x = maxf(maximum.x, point.x)
+		maximum.y = maxf(maximum.y, point.y)
+	return Rect2(minimum, maximum - minimum)
+
+
+func _transform_canvas_rect(rect: Rect2, transform: Transform2D) -> Rect2:
+	var corners: Array[Vector2] = [
+		transform * rect.position,
+		transform * Vector2(rect.end.x, rect.position.y),
+		transform * Vector2(rect.position.x, rect.end.y),
+		transform * rect.end,
+	]
+	var minimum: Vector2 = corners[0]
+	var maximum: Vector2 = corners[0]
+	for point: Vector2 in corners:
+		minimum.x = minf(minimum.x, point.x)
+		minimum.y = minf(minimum.y, point.y)
+		maximum.x = maxf(maximum.x, point.x)
+		maximum.y = maxf(maximum.y, point.y)
+	return Rect2(minimum, maximum - minimum)
+
+
+func _is_usable_canvas_rect(rect: Rect2) -> bool:
+	return (
+		is_finite(rect.position.x)
+		and is_finite(rect.position.y)
+		and is_finite(rect.size.x)
+		and is_finite(rect.size.y)
+		and rect.size.x > 0.0001
+		and rect.size.y > 0.0001
+	)
 
 
 func _calculate_orthographic_size_for_aabb(bounds: AABB, camera: Camera3D) -> float:

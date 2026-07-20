@@ -13,6 +13,38 @@ var report := backend.get_capability_report({
 })
 ```
 
+## 有序故障转移
+
+当多个后端表达的是同一份逻辑数据、但其中一个可能暂时不可用时，可以用 `GFStorageFailoverBackend` 组合已经创建和初始化的后端。组合器不持有子后端生命周期，也不会自动复制数据。
+
+```gdscript
+var backends: Array[GFStorageBackend] = [platform_backend, local_backend]
+var failover := GFStorageFailoverBackend.new()
+failover.configure_backends(
+	backends,
+	PackedStringArray(["platform", "local"]),
+	{
+		"mutation_policy": GFStorageFailoverBackend.MutationPolicy.FIRST_SUCCESS,
+		"failure_threshold": 2,
+		"cooldown_msec": 30_000,
+	}
+)
+
+var result := failover.load_data("profile.json")
+var operation_report := failover.get_last_operation_report()
+```
+
+读取始终按优先级尝试到首个成功后端。写入和删除有两种明确语义：
+
+- `PRIMARY_ONLY`：只访问第一个后端，适合不允许离线分叉的权威数据；失败会原样返回。
+- `FIRST_SUCCESS`：失败后访问下一个后端，适合平台 SDK 暂时不可用时保存到本地等可接受离线分叉的场景；首次成功后停止。
+
+冷却只统计 `ERR_UNAVAILABLE`、连接失败、超时和忙碌等明确暂时性错误；普通文件不存在或数据错误不会把后端误判为离线。达到阈值的后端会在冷却窗口中被跳过，窗口结束后自动允许一次正常探测。`get_last_operation_report()` 最多记录 32 个后端的成功、失败或跳过原因、错误码和健康计数，不记录保存数据或后端私有 metadata。
+
+`configure_backends()` 会事务式校验选项：`mutation_policy` 必须是已声明枚举，`failure_threshold` 必须在 0 至 1000，`cooldown_msec` 必须在 0 至 86400000。非法配置返回 `false`，不会部分替换既有后端或静默改变写入策略；完整重新配置省略选项时恢复默认的 `FIRST_SUCCESS`、阈值 2 和 30 秒冷却。
+
+故障转移不保证两个后端内容一致，也不提供跨后端原子写入。项目若在离线期间写入了本地后端，恢复联网后仍应显式使用 `GFStorageSyncUtility` 或项目 resolver 处理版本与冲突。
+
 ## 字典同步
 
 需要把两个后端做一次通用字典同步时，可以注册或直接创建 `GFStorageSyncUtility`。它只读取 `GFStorageBackend.load_data()`、调用 `save_data()` 写回，并按策略处理文件级冲突。
