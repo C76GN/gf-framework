@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFStorageBackend" path="addons/gf/standard/utilities/storage/gf_storage_backend.gd" module="standard" extends="RefCounted" classDigest="dc02237079f9c9fa4abe3aafa2a484342c341e9b7ba94a1d45529706c2a6f311">
+<class name="GFStorageBackend" path="addons/gf/standard/utilities/storage/gf_storage_backend.gd" module="standard" extends="RefCounted" classDigest="decc3ed5389d0287c3f7c076855f07a5d9cfc951da2a7a67add080b82b672da2">
 	<description>GFStorageBackend: 存储后端扩展接口。
 该类只定义通用后端协议，不绑定本地、云、平台 SDK 或同步策略。
 默认实现返回不可用结果；项目可继承它并由自定义 Utility 或派生的
@@ -50,8 +50,9 @@ GFStorageUtility 组合使用。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">file_name: 逻辑文件名。</tag>
-				<tag name="return">结果字典，包含 ok、data、metadata、error。</tag>
-				<tag name="schema">return: Dictionary，包含 ok: bool、data: Dictionary、metadata: Dictionary 和 error: String。</tag>
+				<tag name="return">结果字典，包含 ok、data、metadata、error 和 error_code。</tag>
+				<tag name="schema">return: Dictionary，包含 ok: bool、data: Dictionary、metadata: Dictionary、error: String 和 error_code: Error。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="delete_data">
@@ -138,8 +139,9 @@ GFStorageUtility 组合使用。</description>
 			<tags>
 				<tag name="api">protected</tag>
 				<tag name="param">_file_name: 逻辑文件名。</tag>
-				<tag name="return">结果字典，包含 ok、data、metadata、error。</tag>
-				<tag name="schema">return: Dictionary，包含 ok: bool、data: Dictionary、metadata: Dictionary 和 error: String。</tag>
+				<tag name="return">结果字典，包含 ok、data、metadata、error 和 error_code。</tag>
+				<tag name="schema">return: Dictionary，包含 ok: bool、data: Dictionary、metadata: Dictionary、error: String 和 error_code: Error。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="_delete_data">

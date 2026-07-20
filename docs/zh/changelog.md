@@ -20,6 +20,42 @@
 
 ---
 
+## [未发布]
+
+**版本概述**：补齐通用 2D 编辑器缩略图、有序资产集合和存储后端故障转移机制，同时保持预览 UI、资源业务分类、云服务协议和多后端同步策略在各自调用方边界内。
+
+### 🚀 新增特性 (Added)
+
+- `GFThumbnailRenderer` 与 `GFThumbnailRenderRequest` 支持 `CanvasItem` 的 `Image` / `ImageTexture` 缩略图请求，统一覆盖 `Node2D` 和 `Control`。调用方可以显式提供内容 `Rect2`，也可以让渲染器保守估算 Sprite、Control、Polygon、Line、AnimatedSprite 和 2D 粒子范围。
+- 新增 `GFAssetCollection`，用稳定 `collection_id` 和有序 `asset_ids` 描述可序列化资源集合，并通过 `GFValidationReport` 报告空 ID、重复 ID 和目录缺失项。
+- 新增 `GFStorageFailoverBackend`，按稳定后端 ID 提供有界顺序尝试、`PRIMARY_ONLY` / `FIRST_SUCCESS` 写删语义、暂时性错误冷却和不含业务载荷的结构化操作报告。
+
+### 🔄 机制更改 (Changed)
+
+- `GFStorageBackend.load_data()` 会为没有显式错误码的后端结果补齐 `error_code`，使组合后端能够区分成功、普通读取失败和明确的暂时性故障。
+- `GFStorageFailoverBackend.configure_backends()` 对策略、失败阈值和冷却窗口执行事务式 fail-closed 校验，非法配置不会部分替换既有后端或静默改变写入语义。
+- 缩略图渲染改为等待场景树更新后同步强制绘制，避免无持续绘制帧时错过 `frame_post_draw`；dummy 渲染后端现在会安全返回空结果，不再访问无纹理存储的 ViewportTexture。
+
+### 🔧 API 变动说明 (API Changes)
+
+- `GFThumbnailRenderRequest.Kind` 末尾新增 `CANVAS_ITEM_IMAGE` 和 `CANVAS_ITEM_TEXTURE`，既有枚举值保持不变。
+- 新增 `GFThumbnailRenderRequest.for_canvas_item_image()`、`for_canvas_item_texture()` 及相应来源、边界和留白读取入口。
+- 新增 `GFThumbnailRenderer.render_canvas_item()` 与 `render_canvas_item_texture()`。
+- 新增公开类型 `GFAssetCollection` 和 `GFStorageFailoverBackend`；均标记为 `@since unreleased`，不改变既有调用入口默认行为。
+
+### 📘 升级指南 (Migration Guide)
+
+- 既有 3D 缩略图、资产目录、存储后端与同步代码无需迁移。需要 2D 预览、有序资产集合或故障转移时显式采用新入口即可。
+- 自定义 `_draw()` 或无法可靠推断范围的 2D 节点应传入显式 `content_bounds`；多后端复制与冲突处理继续使用 `GFStorageSyncUtility`，不要把故障转移当作原子双写。
+
+### 📁 核心受影响文件 (Affected Files)
+
+- `addons/gf/kernel/editor/gf_thumbnail_render_request.gd`
+- `addons/gf/kernel/editor/gf_thumbnail_renderer.gd`
+- `addons/gf/standard/utilities/assets/gf_asset_collection.gd`
+- `addons/gf/standard/utilities/storage/gf_storage_backend.gd`
+- `addons/gf/standard/utilities/storage/gf_storage_failover_backend.gd`
+
 ## [9.0.1] - 2026-07-20
 
 **版本概述**：修复 Godot 原生 Package Manager 在 Linux 等平台安装含隐藏文件的合法包后无法完整清理事务暂存目录的问题，并保持隐藏链接审计继续 fail closed。

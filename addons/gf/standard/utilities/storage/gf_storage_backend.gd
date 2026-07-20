@@ -60,15 +60,20 @@ func save_data(file_name: String, data: Dictionary, metadata: Dictionary = {}) -
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param file_name: 逻辑文件名。
 ## [br]
-## @return 结果字典，包含 ok、data、metadata、error。
+## @return 结果字典，包含 ok、data、metadata、error 和 error_code。
 ## [br]
-## @schema return: Dictionary，包含 ok: bool、data: Dictionary、metadata: Dictionary 和 error: String。
+## @schema return: Dictionary，包含 ok: bool、data: Dictionary、metadata: Dictionary、error: String 和 error_code: Error。
 func load_data(file_name: String) -> Dictionary:
 	if file_name.is_empty():
-		return _make_result(false, {}, {}, "file_name is empty")
-	return _load_data(file_name)
+		return _make_result(false, {}, {}, "file_name is empty", ERR_INVALID_PARAMETER)
+	var result: Dictionary = _load_data(file_name)
+	if not result.has("error_code"):
+		result["error_code"] = int(OK if GFVariantData.get_option_bool(result, "ok") else ERR_CANT_OPEN)
+	return result
 
 
 ## 删除纯字典数据。
@@ -197,13 +202,15 @@ func _save_data(_file_name: String, _data: Dictionary, _metadata: Dictionary) ->
 ## [br]
 ## @api protected
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param _file_name: 逻辑文件名。
 ## [br]
-## @return 结果字典，包含 ok、data、metadata、error。
+## @return 结果字典，包含 ok、data、metadata、error 和 error_code。
 ## [br]
-## @schema return: Dictionary，包含 ok: bool、data: Dictionary、metadata: Dictionary 和 error: String。
+## @schema return: Dictionary，包含 ok: bool、data: Dictionary、metadata: Dictionary、error: String 和 error_code: Error。
 func _load_data(_file_name: String) -> Dictionary:
-	return _make_result(false, {}, {}, "backend unavailable")
+	return _make_result(false, {}, {}, "backend unavailable", ERR_UNAVAILABLE)
 
 
 ## 从具体后端删除纯字典数据。
@@ -258,11 +265,18 @@ func _get_capabilities() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
-func _make_result(ok: bool, data: Dictionary, metadata: Dictionary, error: String) -> Dictionary:
+func _make_result(
+	ok: bool,
+	data: Dictionary,
+	metadata: Dictionary,
+	error: String,
+	error_code: Error = OK
+) -> Dictionary:
 	return GFResultDictionary.make(ok, {
 		GFResultDictionary.KEY_DATA: data.duplicate(true),
 		GFResultDictionary.KEY_METADATA: metadata.duplicate(true),
 		GFResultDictionary.KEY_ERROR: error,
+		"error_code": int(error_code),
 	})
 
 

@@ -35,6 +35,10 @@ enum Kind {
 	MESH_TEXTURE,
 	## 为 MeshLibrary 构建预览修改计划。
 	MESH_LIBRARY_PREVIEW_PLAN,
+	## 将 CanvasItem 渲染为 Image。
+	CANVAS_ITEM_IMAGE,
+	## 将 CanvasItem 渲染为 ImageTexture。
+	CANVAS_ITEM_TEXTURE,
 }
 
 
@@ -42,11 +46,15 @@ enum Kind {
 
 var _kind: Kind = Kind.NONE
 var _source_node3d: Node3D = null
+var _source_canvas_item: CanvasItem = null
 var _mesh: Mesh = null
 var _mesh_library: MeshLibrary = null
 var _size: Vector2i = Vector2i(256, 256)
 var _transparent: bool = true
 var _overwrite_existing: bool = true
+var _content_bounds: Rect2 = Rect2()
+var _has_content_bounds: bool = false
+var _margin_ratio: float = 0.08
 
 
 # --- 公共方法 ---
@@ -91,6 +99,80 @@ static func for_node3d_texture(
 	transparent: bool = true
 ) -> GFThumbnailRenderRequest:
 	return _make_request(Kind.NODE3D_TEXTURE, source, null, null, size, transparent, true)
+
+
+## 创建 CanvasItem Image 渲染请求。
+##
+## `source` 可以是 Node2D 或 Control。显式边界为空或尺寸非正时，渲染器会
+## 保守估算常见 CanvasItem 的内容边界；自定义 `_draw()` 节点应传入边界。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param source: 要渲染的 2D 画布节点。
+## [br]
+## @param size: 输出尺寸。
+## [br]
+## @param transparent: 是否透明背景。
+## [br]
+## @param content_bounds: 来源局部坐标中的显式内容边界；非正尺寸表示自动估算。
+## [br]
+## @param margin_ratio: 内容边界四周的相对留白，钳制到 0.0 至 1.0。
+## [br]
+## @return CanvasItem Image 渲染请求。
+static func for_canvas_item_image(
+	source: CanvasItem,
+	size: Vector2i = Vector2i(256, 256),
+	transparent: bool = true,
+	content_bounds: Rect2 = Rect2(),
+	margin_ratio: float = 0.08
+) -> GFThumbnailRenderRequest:
+	return _make_canvas_item_request(
+		Kind.CANVAS_ITEM_IMAGE,
+		source,
+		size,
+		transparent,
+		content_bounds,
+		margin_ratio
+	)
+
+
+## 创建 CanvasItem ImageTexture 渲染请求。
+##
+## `source` 可以是 Node2D 或 Control。显式边界为空或尺寸非正时，渲染器会
+## 保守估算常见 CanvasItem 的内容边界；自定义 `_draw()` 节点应传入边界。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param source: 要渲染的 2D 画布节点。
+## [br]
+## @param size: 输出尺寸。
+## [br]
+## @param transparent: 是否透明背景。
+## [br]
+## @param content_bounds: 来源局部坐标中的显式内容边界；非正尺寸表示自动估算。
+## [br]
+## @param margin_ratio: 内容边界四周的相对留白，钳制到 0.0 至 1.0。
+## [br]
+## @return CanvasItem ImageTexture 渲染请求。
+static func for_canvas_item_texture(
+	source: CanvasItem,
+	size: Vector2i = Vector2i(256, 256),
+	transparent: bool = true,
+	content_bounds: Rect2 = Rect2(),
+	margin_ratio: float = 0.08
+) -> GFThumbnailRenderRequest:
+	return _make_canvas_item_request(
+		Kind.CANVAS_ITEM_TEXTURE,
+		source,
+		size,
+		transparent,
+		content_bounds,
+		margin_ratio
+	)
 
 
 ## 创建 Mesh Image 渲染请求。
@@ -178,6 +260,17 @@ func get_source_node3d() -> Node3D:
 	return _source_node3d
 
 
+## 返回 CanvasItem 来源。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @return CanvasItem 来源；非 2D 请求时返回 null。
+func get_source_canvas_item() -> CanvasItem:
+	return _source_canvas_item
+
+
 ## 返回 Mesh 来源。
 ## [br]
 ## @api public
@@ -233,6 +326,39 @@ func should_overwrite_existing() -> bool:
 	return _overwrite_existing
 
 
+## 返回显式 2D 内容边界。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @return 来源局部坐标中的内容边界；未设置时返回空 Rect2。
+func get_content_bounds() -> Rect2:
+	return _content_bounds
+
+
+## 返回请求是否携带有效的显式 2D 内容边界。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @return 两个边长都为正时返回 true。
+func has_content_bounds() -> bool:
+	return _has_content_bounds
+
+
+## 返回 2D 内容相对留白。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @return 0.0 至 1.0 的留白比例。
+func get_margin_ratio() -> float:
+	return _margin_ratio
+
+
 ## 返回请求输入是否完整。
 ## [br]
 ## @api public
@@ -244,6 +370,8 @@ func is_valid() -> bool:
 	match _kind:
 		Kind.NODE3D_IMAGE, Kind.NODE3D_TEXTURE:
 			return _source_node3d != null and is_instance_valid(_source_node3d)
+		Kind.CANVAS_ITEM_IMAGE, Kind.CANVAS_ITEM_TEXTURE:
+			return _source_canvas_item != null and is_instance_valid(_source_canvas_item)
 		Kind.MESH_IMAGE, Kind.MESH_TEXTURE:
 			return _mesh != null
 		Kind.MESH_LIBRARY_PREVIEW_PLAN:
@@ -271,4 +399,23 @@ static func _make_request(
 	request._size = size
 	request._transparent = transparent
 	request._overwrite_existing = overwrite_existing
+	return request
+
+
+static func _make_canvas_item_request(
+	kind: Kind,
+	source_canvas_item: CanvasItem,
+	size: Vector2i,
+	transparent: bool,
+	content_bounds: Rect2,
+	margin_ratio: float
+) -> GFThumbnailRenderRequest:
+	var request: GFThumbnailRenderRequest = GFThumbnailRenderRequest.new()
+	request._kind = kind
+	request._source_canvas_item = source_canvas_item
+	request._size = size
+	request._transparent = transparent
+	request._has_content_bounds = content_bounds.size.x > 0.0 and content_bounds.size.y > 0.0
+	request._content_bounds = content_bounds if request._has_content_bounds else Rect2()
+	request._margin_ratio = clampf(margin_ratio, 0.0, 1.0)
 	return request

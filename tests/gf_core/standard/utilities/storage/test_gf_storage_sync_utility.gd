@@ -58,6 +58,87 @@ class MemoryStorageBackend extends GFStorageBackend:
 		}
 
 
+class FailoverTestClock extends GFClock:
+	var monotonic_msec: int = 0
+
+	func get_monotonic_msec() -> int:
+		return monotonic_msec
+
+	func advance_msec(delta_msec: int) -> void:
+		monotonic_msec += maxi(delta_msec, 0)
+
+
+class FailoverTestBackend extends GFStorageBackend:
+	var records: Dictionary = {}
+	var load_error: Error = OK
+	var save_error: Error = OK
+	var delete_error: Error = OK
+	var load_calls: int = 0
+	var save_calls: int = 0
+
+	func set_record(file_name: String, data: Dictionary) -> void:
+		records[file_name] = data.duplicate(true)
+
+	func _save_data(file_name: String, data: Dictionary, _metadata: Dictionary) -> Error:
+		save_calls += 1
+		if save_error != OK:
+			return save_error
+		records[file_name] = data.duplicate(true)
+		return OK
+
+	func _load_data(file_name: String) -> Dictionary:
+		load_calls += 1
+		if load_error != OK:
+			return {
+				"ok": false,
+				"data": {},
+				"metadata": {},
+				"error": error_string(load_error),
+				"error_code": int(load_error),
+			}
+		if not records.has(file_name):
+			return {
+				"ok": false,
+				"data": {},
+				"metadata": {},
+				"error": "missing",
+				"error_code": int(ERR_DOES_NOT_EXIST),
+			}
+		return {
+			"ok": true,
+			"data": GFVariantData.get_option_dictionary(records, file_name),
+			"metadata": {},
+			"error": "",
+			"error_code": int(OK),
+		}
+
+	func _delete_data(file_name: String) -> Error:
+		if delete_error != OK:
+			return delete_error
+		var _erased: bool = records.erase(file_name)
+		return OK
+
+	func _has_data(file_name: String) -> bool:
+		return records.has(file_name)
+
+	func _list_data() -> Array[Dictionary]:
+		var file_names: PackedStringArray = PackedStringArray(records.keys())
+		file_names.sort()
+		var result: Array[Dictionary] = []
+		for file_name: String in file_names:
+			result.append({ "file_name": file_name, "metadata": {} })
+		return result
+
+	func _get_capabilities() -> Dictionary:
+		return {
+			"read": true,
+			"write": true,
+			"delete": true,
+			"list": true,
+			"sync": false,
+		}
+
+
 func test_missing_remote_is_filled_from_local() -> void:
 	var sync: GFStorageSyncUtility = GFStorageSyncUtility.new()
 	var local: MemoryStorageBackend = MemoryStorageBackend.new()
@@ -72,6 +153,17 @@ func test_missing_remote_is_filled_from_local() -> void:
 	assert_eq(GFVariantData.get_option_int(result, "status"), GFStorageSyncUtility.SyncStatus.COPIED_LOCAL_TO_REMOTE, "应报告 local -> remote 写回。")
 	assert_eq(GFVariantData.get_option_int(remote_data, "coins"), 10, "远端应获得本地数据。")
 	assert_has(GFVariantData.get_option_array(result, "written_backends"), "remote", "结果应记录写回的后端。")
+
+
+func test_storage_backend_normalizes_legacy_load_error_codes() -> void:
+	var backend: MemoryStorageBackend = MemoryStorageBackend.new()
+
+	var missing_result: Dictionary = backend.load_data("missing.json")
+	backend.set_record("present.json", { "value": 1 })
+	var present_result: Dictionary = backend.load_data("present.json")
+
+	assert_eq(GFVariantData.get_option_int(missing_result, "error_code"), ERR_CANT_OPEN)
+	assert_eq(GFVariantData.get_option_int(present_result, "error_code"), OK)
 
 
 func test_newer_remote_metadata_wins_default_strategy() -> void:
@@ -281,3 +373,134 @@ func test_sync_many_returns_status_counts() -> void:
 	assert_true(GFVariantData.get_option_bool(result, "ok"), "批量同步应整体成功。")
 	assert_eq(GFVariantData.get_option_int(counts, "copied_local_to_remote"), 1, "应统计复制项。")
 	assert_eq(GFVariantData.get_option_int(counts, "unchanged"), 1, "应统计未变化项。")
+
+
+func test_failover_backend_reads_first_available_backend_with_structured_report() -> void:
+	var primary: FailoverTestBackend = FailoverTestBackend.new()
+	var secondary: FailoverTestBackend = FailoverTestBackend.new()
+	primary.load_error = ERR_UNAVAILABLE
+	secondary.set_record("profile.json", { "coins": 42 })
+	var backend: GFStorageFailoverBackend = GFStorageFailoverBackend.new()
+	var configured_backends: Array[GFStorageBackend] = [primary, secondary]
+
+	assert_true(backend.configure_backends(
+		configured_backends,
+		PackedStringArray(["primary", "secondary"])
+	))
+	var result: Dictionary = backend.load_data("profile.json")
+	var report: Dictionary = backend.get_last_operation_report()
+	var attempts: Array = GFVariantData.get_option_array(report, "attempts")
+
+	assert_true(GFVariantData.get_option_bool(result, "ok"), "主后端不可用时应读取次后端。")
+	assert_eq(
+		GFVariantData.get_option_int(GFVariantData.get_option_dictionary(result, "data"), "coins"),
+		42
+	)
+	assert_eq(GFVariantData.get_option_string_name(report, "selected_backend_id"), &"secondary")
+	assert_eq(attempts.size(), 2, "报告应保留每次有界尝试。")
+	assert_eq(
+		GFVariantData.get_option_string(GFVariantData.as_dictionary(attempts[0]), "status"),
+		"failed"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(GFVariantData.as_dictionary(attempts[1]), "status"),
+		"succeeded"
+	)
+
+
+func test_failover_backend_cooldown_skips_unhealthy_primary_then_allows_probe() -> void:
+	var primary: FailoverTestBackend = FailoverTestBackend.new()
+	var secondary: FailoverTestBackend = FailoverTestBackend.new()
+	primary.save_error = ERR_UNAVAILABLE
+	var clock: FailoverTestClock = FailoverTestClock.new()
+	var backend: GFStorageFailoverBackend = GFStorageFailoverBackend.new()
+	var configured_backends: Array[GFStorageBackend] = [primary, secondary]
+	assert_true(backend.configure_backends(
+		configured_backends,
+		PackedStringArray(["primary", "secondary"]),
+		{
+			"failure_threshold": 1,
+			"cooldown_msec": 1000,
+		}
+	))
+	assert_true(backend.set_clock(clock))
+
+	assert_eq(backend.save_data("first.json", { "value": 1 }), OK)
+	assert_eq(primary.save_calls, 1)
+	assert_eq(secondary.save_calls, 1)
+	assert_eq(backend.save_data("second.json", { "value": 2 }), OK)
+	var cooldown_report: Dictionary = backend.get_last_operation_report()
+	var cooldown_attempts: Array = GFVariantData.get_option_array(cooldown_report, "attempts")
+	assert_eq(primary.save_calls, 1, "静默期内不应重复调用已打开熔断的主后端。")
+	assert_eq(
+		GFVariantData.get_option_string(GFVariantData.as_dictionary(cooldown_attempts[0]), "reason"),
+		"cooldown"
+	)
+
+	clock.advance_msec(1000)
+	primary.save_error = OK
+	assert_eq(backend.save_data("third.json", { "value": 3 }), OK)
+	var recovery_report: Dictionary = backend.get_last_operation_report()
+	assert_eq(primary.save_calls, 2, "冷却结束后应允许主后端探测恢复。")
+	assert_eq(GFVariantData.get_option_string_name(recovery_report, "selected_backend_id"), &"primary")
+	assert_false(secondary.records.has("third.json"), "FIRST_SUCCESS 不应在主后端成功后继续写入。")
+
+
+func test_failover_backend_primary_only_does_not_hide_primary_write_failure() -> void:
+	var primary: FailoverTestBackend = FailoverTestBackend.new()
+	var secondary: FailoverTestBackend = FailoverTestBackend.new()
+	primary.save_error = ERR_FILE_CANT_WRITE
+	var backend: GFStorageFailoverBackend = GFStorageFailoverBackend.new()
+	var configured_backends: Array[GFStorageBackend] = [primary, secondary]
+	assert_true(backend.configure_backends(
+		configured_backends,
+		PackedStringArray(["primary", "secondary"]),
+		{ "mutation_policy": GFStorageFailoverBackend.MutationPolicy.PRIMARY_ONLY }
+	))
+
+	var error: Error = backend.save_data("profile.json", { "coins": 7 })
+	var report: Dictionary = backend.get_last_operation_report()
+
+	assert_eq(error, ERR_FILE_CANT_WRITE)
+	assert_eq(primary.save_calls, 1)
+	assert_eq(secondary.save_calls, 0, "PRIMARY_ONLY 不应隐式把写入转移到次后端。")
+	assert_false(GFVariantData.get_option_bool(report, "ok"))
+
+
+func test_failover_backend_rejects_invalid_options_transactionally() -> void:
+	var primary: FailoverTestBackend = FailoverTestBackend.new()
+	var secondary: FailoverTestBackend = FailoverTestBackend.new()
+	var replacement: FailoverTestBackend = FailoverTestBackend.new()
+	var backend: GFStorageFailoverBackend = GFStorageFailoverBackend.new()
+	var configured_backends: Array[GFStorageBackend] = [primary, secondary]
+	assert_true(backend.configure_backends(
+		configured_backends,
+		PackedStringArray(["primary", "secondary"]),
+		{ "mutation_policy": GFStorageFailoverBackend.MutationPolicy.PRIMARY_ONLY }
+	))
+
+	var replacement_backends: Array[GFStorageBackend] = [replacement]
+	assert_false(backend.configure_backends(
+		replacement_backends,
+		PackedStringArray(["replacement"]),
+		{ "mutation_policy": 99 }
+	))
+	var snapshot: Dictionary = backend.get_health_snapshot()
+
+	assert_eq(backend.get_backend_ids(), PackedStringArray(["primary", "secondary"]))
+	assert_eq(
+		GFVariantData.get_option_int(snapshot, "mutation_policy"),
+		GFStorageFailoverBackend.MutationPolicy.PRIMARY_ONLY,
+		"非法配置不应部分替换既有写入策略。"
+	)
+	assert_eq(backend.get_backend_count(), 2, "非法配置不应部分替换既有后端。")
+
+	assert_true(backend.configure_backends(
+		replacement_backends,
+		PackedStringArray(["replacement"])
+	))
+	assert_eq(
+		GFVariantData.get_option_int(backend.get_health_snapshot(), "mutation_policy"),
+		GFStorageFailoverBackend.MutationPolicy.FIRST_SUCCESS,
+		"完整重新配置省略选项时应恢复声明默认值。"
+	)

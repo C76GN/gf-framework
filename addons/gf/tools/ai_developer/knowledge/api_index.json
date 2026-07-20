@@ -2,8 +2,8 @@
   "schema_version": 1,
   "catalog_version": "1.0.0",
   "framework_version": "9.0.1",
-  "source_digest": "7ee0440963d50564d8355c6ab7d2625927fbcb0f8a448d2ff7f69142e86ef66c",
-  "class_count": 712,
+  "source_digest": "5004c3f68461edc0eafb409517621cf140223ca096d83204a25a4da5bd49a92f",
+  "class_count": 714,
   "package_count": 50,
   "packages": [
     {
@@ -3067,6 +3067,130 @@
           "name": "build_catalog_report",
           "signature": "func build_catalog_report(options: Dictionary = {}) -> Dictionary",
           "summary": "构建 JSON-safe 资产目录诊断报告。",
+          "visibility": "public"
+        }
+      ]
+    },
+    "GFAssetCollection": {
+      "extends": "Resource",
+      "module": "standard",
+      "package_id": "gf.standard.assets",
+      "path": "addons/gf/standard/utilities/assets/gf_asset_collection.gd",
+      "summary": "GFAssetCollection: 有序资产 ID 集合。 集合只保存稳定 `asset_id`、展示信息和调用方元数据，不持有已加载资源， 也不规定目录、分类、预览或业务用途。调用方可以用 `GFAssetCatalog`",
+      "visibility": "public",
+      "category": "resource_definition",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "var",
+          "name": "collection_id",
+          "signature": "var collection_id: StringName = &\"\"",
+          "summary": "集合稳定 ID。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "title",
+          "signature": "var title: String = \"\"",
+          "summary": "集合展示标题。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "description",
+          "signature": "var description: String = \"\"",
+          "summary": "集合用途说明。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "asset_ids",
+          "signature": "var asset_ids: PackedStringArray = PackedStringArray()",
+          "summary": "按调用方期望顺序保存的稳定资产 ID。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "metadata",
+          "signature": "var metadata: Dictionary = {}",
+          "summary": "调用方自定义元数据；框架不解释其中字段。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "configure",
+          "signature": "func configure( p_collection_id: StringName, p_asset_ids: PackedStringArray = PackedStringArray(), options: Dictionary = {} ) -> GFAssetCollection",
+          "summary": "配置集合。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "add_asset_id",
+          "signature": "func add_asset_id(asset_id: StringName, index: int = -1) -> bool",
+          "summary": "在指定位置添加资产 ID。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "remove_asset_id",
+          "signature": "func remove_asset_id(asset_id: StringName) -> bool",
+          "summary": "移除首次出现的资产 ID。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "move_asset_id",
+          "signature": "func move_asset_id(asset_id: StringName, target_index: int) -> bool",
+          "summary": "移动资产 ID 到新的有序位置。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "has_asset_id",
+          "signature": "func has_asset_id(asset_id: StringName) -> bool",
+          "summary": "检查集合是否包含资产 ID。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "resolve_entries",
+          "signature": "func resolve_entries(catalog: GFAssetCatalog) -> Array[GFAssetCatalogEntry]",
+          "summary": "按集合顺序解析存在于目录中的资产条目。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "validate_against",
+          "signature": "func validate_against(catalog: GFAssetCatalog) -> GFValidationReport",
+          "summary": "对照资产目录校验集合完整性。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "duplicate_collection",
+          "signature": "func duplicate_collection() -> GFAssetCollection",
+          "summary": "创建集合深拷贝。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "to_dict",
+          "signature": "func to_dict() -> Dictionary",
+          "summary": "转换为可序列化字典。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "apply_dict",
+          "signature": "func apply_dict(data: Dictionary) -> void",
+          "summary": "从字典应用集合字段。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "from_dict",
+          "signature": "static func from_dict(data: Dictionary) -> GFAssetCollection",
+          "summary": "从字典创建集合。",
           "visibility": "public"
         }
       ]
@@ -71889,6 +72013,130 @@
         }
       ]
     },
+    "GFStorageFailoverBackend": {
+      "extends": "GFStorageBackend",
+      "module": "standard",
+      "package_id": "gf.standard.storage",
+      "path": "addons/gf/standard/utilities/storage/gf_storage_failover_backend.gd",
+      "summary": "GFStorageFailoverBackend: 有序存储故障转移后端。 该组合后端按稳定 ID 管理一组调用方持有的 `GFStorageBackend`。读取总是按序 尝试，写入和删除可选择只访问主后端或在失败后访问下一后端。它不会复制、",
+      "visibility": "public",
+      "category": "runtime_service",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "enum",
+          "name": "MutationPolicy",
+          "signature": "enum MutationPolicy {\n\t## 只访问第一个配置后端，错误原样返回。\n\tPRIMARY_ONLY,\n\t## 按顺序尝试，首次成功后立即停止。\n\tFIRST_SUCCESS,\n}",
+          "summary": "写入和删除的后端选择策略。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "configure_backends",
+          "signature": "func configure_backends( backends: Array[GFStorageBackend], backend_ids: PackedStringArray = PackedStringArray(), options: Dictionary = {} ) -> bool",
+          "summary": "原子替换有序子后端及其稳定 ID。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "set_clock",
+          "signature": "func set_clock(clock: GFClock) -> bool",
+          "summary": "注入用于冷却窗口的单调时钟。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_backend_count",
+          "signature": "func get_backend_count() -> int",
+          "summary": "返回当前子后端数量。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_backend_ids",
+          "signature": "func get_backend_ids() -> PackedStringArray",
+          "summary": "返回有序稳定后端 ID 副本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_last_operation_report",
+          "signature": "func get_last_operation_report() -> Dictionary",
+          "summary": "返回最近一次操作的结构化尝试报告。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_health_snapshot",
+          "signature": "func get_health_snapshot() -> Dictionary",
+          "summary": "返回后端健康与冷却状态快照。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "reset_backend_health",
+          "signature": "func reset_backend_health(backend_id: StringName = &\"\") -> bool",
+          "summary": "重置一个或全部后端的失败计数与冷却窗口。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "_initialize",
+          "signature": "func _initialize(config: Dictionary) -> Error",
+          "summary": "校验组合后端已配置，并应用故障转移选项；不初始化子后端。",
+          "visibility": "protected"
+        },
+        {
+          "kind": "func",
+          "name": "_shutdown",
+          "signature": "func _shutdown() -> void",
+          "summary": "清空运行期报告和健康状态；不关闭调用方持有的子后端。",
+          "visibility": "protected"
+        },
+        {
+          "kind": "func",
+          "name": "_save_data",
+          "signature": "func _save_data(file_name: String, data: Dictionary, metadata: Dictionary) -> Error",
+          "summary": "按当前 mutation_policy 保存数据。",
+          "visibility": "protected"
+        },
+        {
+          "kind": "func",
+          "name": "_load_data",
+          "signature": "func _load_data(file_name: String) -> Dictionary",
+          "summary": "按顺序读取首个成功结果。",
+          "visibility": "protected"
+        },
+        {
+          "kind": "func",
+          "name": "_delete_data",
+          "signature": "func _delete_data(file_name: String) -> Error",
+          "summary": "按当前 mutation_policy 删除数据。",
+          "visibility": "protected"
+        },
+        {
+          "kind": "func",
+          "name": "_has_data",
+          "signature": "func _has_data(file_name: String) -> bool",
+          "summary": "按顺序检查任一可读后端是否包含数据。",
+          "visibility": "protected"
+        },
+        {
+          "kind": "func",
+          "name": "_list_data",
+          "signature": "func _list_data() -> Array[Dictionary]",
+          "summary": "从首个支持枚举且未冷却的后端读取文件摘要。",
+          "visibility": "protected"
+        },
+        {
+          "kind": "func",
+          "name": "_get_capabilities",
+          "signature": "func _get_capabilities() -> Dictionary",
+          "summary": "汇总组合后端能力。",
+          "visibility": "protected"
+        }
+      ]
+    },
     "GFStorageReadResult": {
       "extends": "RefCounted",
       "module": "standard",
@@ -75326,7 +75574,7 @@
         {
           "kind": "enum",
           "name": "Kind",
-          "signature": "enum Kind {\n\t## 空请求。\n\tNONE,\n\t## 将 Node3D 渲染为 Image。\n\tNODE3D_IMAGE,\n\t## 将 Node3D 渲染为 ImageTexture。\n\tNODE3D_TEXTURE,\n\t## 将 Mesh 渲染为 Image。\n\tMESH_IMAGE,\n\t## 将 Mesh 渲染为 ImageTexture。\n\tMESH_TEXTURE,\n\t## 为 MeshLibrary 构建预览修改计划。\n\tMESH_LIBRARY_PREVIEW_PLAN,\n}",
+          "signature": "enum Kind {\n\t## 空请求。\n\tNONE,\n\t## 将 Node3D 渲染为 Image。\n\tNODE3D_IMAGE,\n\t## 将 Node3D 渲染为 ImageTexture。\n\tNODE3D_TEXTURE,\n\t## 将 Mesh 渲染为 Image。\n\tMESH_IMAGE,\n\t## 将 Mesh 渲染为 ImageTexture。\n\tMESH_TEXTURE,\n\t## 为 MeshLibrary 构建预览修改计划。\n\tMESH_LIBRARY_PREVIEW_PLAN,\n\t## 将 CanvasItem 渲染为 Image。\n\tCANVAS_ITEM_IMAGE,\n\t## 将 CanvasItem 渲染为 ImageTexture。\n\tCANVAS_ITEM_TEXTURE,\n}",
           "summary": "缩略图渲染请求类型。",
           "visibility": "public"
         },
@@ -75342,6 +75590,20 @@
           "name": "for_node3d_texture",
           "signature": "static func for_node3d_texture( source: Node3D, size: Vector2i = Vector2i(256, 256), transparent: bool = true ) -> GFThumbnailRenderRequest",
           "summary": "创建 Node3D ImageTexture 渲染请求。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "for_canvas_item_image",
+          "signature": "static func for_canvas_item_image( source: CanvasItem, size: Vector2i = Vector2i(256, 256), transparent: bool = true, content_bounds: Rect2 = Rect2(), margin_ratio: float = 0.08 ) -> GFThumbnailRenderRequest",
+          "summary": "创建 CanvasItem Image 渲染请求。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "for_canvas_item_texture",
+          "signature": "static func for_canvas_item_texture( source: CanvasItem, size: Vector2i = Vector2i(256, 256), transparent: bool = true, content_bounds: Rect2 = Rect2(), margin_ratio: float = 0.08 ) -> GFThumbnailRenderRequest",
+          "summary": "创建 CanvasItem ImageTexture 渲染请求。",
           "visibility": "public"
         },
         {
@@ -75381,6 +75643,13 @@
         },
         {
           "kind": "func",
+          "name": "get_source_canvas_item",
+          "signature": "func get_source_canvas_item() -> CanvasItem",
+          "summary": "返回 CanvasItem 来源。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
           "name": "get_mesh",
           "signature": "func get_mesh() -> Mesh",
           "summary": "返回 Mesh 来源。",
@@ -75412,6 +75681,27 @@
           "name": "should_overwrite_existing",
           "signature": "func should_overwrite_existing() -> bool",
           "summary": "返回 MeshLibrary 预览计划是否覆盖已有预览。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_content_bounds",
+          "signature": "func get_content_bounds() -> Rect2",
+          "summary": "返回显式 2D 内容边界。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "has_content_bounds",
+          "signature": "func has_content_bounds() -> bool",
+          "summary": "返回请求是否携带有效的显式 2D 内容边界。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_margin_ratio",
+          "signature": "func get_margin_ratio() -> float",
+          "summary": "返回 2D 内容相对留白。",
           "visibility": "public"
         },
         {
@@ -75601,7 +75891,7 @@
       "module": "kernel",
       "package_id": "gf.kernel",
       "path": "addons/gf/kernel/editor/gf_thumbnail_renderer.gd",
-      "summary": "GFThumbnailRenderer: 编辑器缩略图渲染辅助节点。 使用独立 SubViewport 渲染 Node3D 或 Mesh，供项目自定义编辑器工具复用。",
+      "summary": "GFThumbnailRenderer: 编辑器缩略图渲染辅助节点。 使用独立 SubViewport 渲染 CanvasItem、Node3D 或 Mesh，供项目自定义编辑器工具复用。",
       "visibility": "public",
       "category": "editor_api",
       "since": "3.17.0",
@@ -75618,6 +75908,20 @@
           "name": "render_node3d_texture",
           "signature": "func render_node3d_texture( source: Node3D, size: Vector2i = Vector2i(256, 256), transparent: bool = true ) -> ImageTexture",
           "summary": "渲染一个 3D 节点缩略图纹理。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "render_canvas_item",
+          "signature": "func render_canvas_item( source: CanvasItem, size: Vector2i = Vector2i(256, 256), transparent: bool = true, content_bounds: Rect2 = Rect2(), margin_ratio: float = 0.08 ) -> Image",
+          "summary": "渲染一个 CanvasItem 缩略图。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "render_canvas_item_texture",
+          "signature": "func render_canvas_item_texture( source: CanvasItem, size: Vector2i = Vector2i(256, 256), transparent: bool = true, content_bounds: Rect2 = Rect2(), margin_ratio: float = 0.08 ) -> ImageTexture",
+          "summary": "渲染一个 CanvasItem 缩略图纹理。",
           "visibility": "public"
         },
         {

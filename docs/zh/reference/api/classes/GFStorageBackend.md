@@ -103,6 +103,7 @@ func save_data(file_name: String, data: Dictionary, metadata: Dictionary = {}) -
 ### `load_data`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func load_data(file_name: String) -> Dictionary:
@@ -116,11 +117,11 @@ func load_data(file_name: String) -> Dictionary:
 |---|---|
 | `file_name` | 逻辑文件名。 |
 
-返回：结果字典，包含 ok、data、metadata、error。
+返回：结果字典，包含 ok、data、metadata、error 和 error_code。
 
 结构：
 
-- `return`: Dictionary，包含 ok: bool、data: Dictionary、metadata: Dictionary 和 error: String。
+- `return`: Dictionary，包含 ok: bool、data: Dictionary、metadata: Dictionary、error: String 和 error_code: Error。
 
 <a id="member-gfstoragebackend-methods-delete_data"></a>
 
@@ -292,6 +293,7 @@ func _save_data(_file_name: String, _data: Dictionary, _metadata: Dictionary) ->
 ### `_load_data`
 
 - API：`protected`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func _load_data(_file_name: String) -> Dictionary:
@@ -305,11 +307,11 @@ func _load_data(_file_name: String) -> Dictionary:
 |---|---|
 | `_file_name` | 逻辑文件名。 |
 
-返回：结果字典，包含 ok、data、metadata、error。
+返回：结果字典，包含 ok、data、metadata、error 和 error_code。
 
 结构：
 
-- `return`: Dictionary，包含 ok: bool、data: Dictionary、metadata: Dictionary 和 error: String。
+- `return`: Dictionary，包含 ok: bool、data: Dictionary、metadata: Dictionary、error: String 和 error_code: Error。
 
 <a id="member-gfstoragebackend-methods-_delete_data"></a>
 

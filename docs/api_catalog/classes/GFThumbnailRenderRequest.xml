@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFThumbnailRenderRequest" path="addons/gf/kernel/editor/gf_thumbnail_render_request.gd" module="kernel" extends="RefCounted" classDigest="c9ab0a30d5f54d727967972328a4f28044150cea6564f706646fd6fe798a5d92">
+<class name="GFThumbnailRenderRequest" path="addons/gf/kernel/editor/gf_thumbnail_render_request.gd" module="kernel" extends="RefCounted" classDigest="4d9ced61a7f94ab5313c936e9e776181cda15b90ed62b88c27906207ed8dfe62">
 	<description>GFThumbnailRenderRequest: 缩略图渲染请求描述。
 请求只描述一次缩略图渲染的输入，不持有执行状态；执行状态由 GFThumbnailRenderTask 承载。</description>
 	<tags>
@@ -24,6 +24,10 @@
 	MESH_TEXTURE,
 	## 为 MeshLibrary 构建预览修改计划。
 	MESH_LIBRARY_PREVIEW_PLAN,
+	## 将 CanvasItem 渲染为 Image。
+	CANVAS_ITEM_IMAGE,
+	## 将 CanvasItem 渲染为 ImageTexture。
+	CANVAS_ITEM_TEXTURE,
 }</signature>
 			<description>缩略图渲染请求类型。</description>
 			<tags>
@@ -57,6 +61,38 @@
 				<tag name="param">transparent: 是否透明背景。</tag>
 				<tag name="return">Node3D ImageTexture 渲染请求。</tag>
 				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="for_canvas_item_image">
+			<signature>static func for_canvas_item_image( source: CanvasItem, size: Vector2i = Vector2i(256, 256), transparent: bool = true, content_bounds: Rect2 = Rect2(), margin_ratio: float = 0.08 ) -&gt; GFThumbnailRenderRequest:</signature>
+			<description>创建 CanvasItem Image 渲染请求。
+`source` 可以是 Node2D 或 Control。显式边界为空或尺寸非正时，渲染器会
+保守估算常见 CanvasItem 的内容边界；自定义 `_draw()` 节点应传入边界。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">source: 要渲染的 2D 画布节点。</tag>
+				<tag name="param">size: 输出尺寸。</tag>
+				<tag name="param">transparent: 是否透明背景。</tag>
+				<tag name="param">content_bounds: 来源局部坐标中的显式内容边界；非正尺寸表示自动估算。</tag>
+				<tag name="param">margin_ratio: 内容边界四周的相对留白，钳制到 0.0 至 1.0。</tag>
+				<tag name="return">CanvasItem Image 渲染请求。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="for_canvas_item_texture">
+			<signature>static func for_canvas_item_texture( source: CanvasItem, size: Vector2i = Vector2i(256, 256), transparent: bool = true, content_bounds: Rect2 = Rect2(), margin_ratio: float = 0.08 ) -&gt; GFThumbnailRenderRequest:</signature>
+			<description>创建 CanvasItem ImageTexture 渲染请求。
+`source` 可以是 Node2D 或 Control。显式边界为空或尺寸非正时，渲染器会
+保守估算常见 CanvasItem 的内容边界；自定义 `_draw()` 节点应传入边界。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">source: 要渲染的 2D 画布节点。</tag>
+				<tag name="param">size: 输出尺寸。</tag>
+				<tag name="param">transparent: 是否透明背景。</tag>
+				<tag name="param">content_bounds: 来源局部坐标中的显式内容边界；非正尺寸表示自动估算。</tag>
+				<tag name="param">margin_ratio: 内容边界四周的相对留白，钳制到 0.0 至 1.0。</tag>
+				<tag name="return">CanvasItem ImageTexture 渲染请求。</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 		<member kind="method" name="for_mesh_image">
@@ -113,6 +149,15 @@
 				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
+		<member kind="method" name="get_source_canvas_item">
+			<signature>func get_source_canvas_item() -&gt; CanvasItem:</signature>
+			<description>返回 CanvasItem 来源。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">CanvasItem 来源；非 2D 请求时返回 null。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
 		<member kind="method" name="get_mesh">
 			<signature>func get_mesh() -&gt; Mesh:</signature>
 			<description>返回 Mesh 来源。</description>
@@ -156,6 +201,33 @@
 				<tag name="api">public</tag>
 				<tag name="return">覆盖已有预览时返回 true。</tag>
 				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_content_bounds">
+			<signature>func get_content_bounds() -&gt; Rect2:</signature>
+			<description>返回显式 2D 内容边界。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">来源局部坐标中的内容边界；未设置时返回空 Rect2。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="has_content_bounds">
+			<signature>func has_content_bounds() -&gt; bool:</signature>
+			<description>返回请求是否携带有效的显式 2D 内容边界。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">两个边长都为正时返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_margin_ratio">
+			<signature>func get_margin_ratio() -&gt; float:</signature>
+			<description>返回 2D 内容相对留白。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">0.0 至 1.0 的留白比例。</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 		<member kind="method" name="is_valid">

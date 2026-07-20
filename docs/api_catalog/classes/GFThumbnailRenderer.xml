@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFThumbnailRenderer" path="addons/gf/kernel/editor/gf_thumbnail_renderer.gd" module="kernel" extends="Node" classDigest="d424a78554498d03c088c3c0db8e2824a969143e2011468d9ff8b40b8a8fdbd8">
+<class name="GFThumbnailRenderer" path="addons/gf/kernel/editor/gf_thumbnail_renderer.gd" module="kernel" extends="Node" classDigest="e0abb9b701deaa989d696c0967588e88ae3f1a59d6479bcdf3c633d66a6a736d">
 	<description>GFThumbnailRenderer: 编辑器缩略图渲染辅助节点。
-使用独立 SubViewport 渲染 Node3D 或 Mesh，供项目自定义编辑器工具复用。</description>
+使用独立 SubViewport 渲染 CanvasItem、Node3D 或 Mesh，供项目自定义编辑器工具复用。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">editor_api</tag>
@@ -33,6 +33,38 @@
 				<tag name="param">size: 输出尺寸。</tag>
 				<tag name="param">transparent: 是否透明背景。</tag>
 				<tag name="return">渲染出的 ImageTexture；失败时返回 null。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="render_canvas_item">
+			<signature>func render_canvas_item( source: CanvasItem, size: Vector2i = Vector2i(256, 256), transparent: bool = true, content_bounds: Rect2 = Rect2(), margin_ratio: float = 0.08 ) -&gt; Image:</signature>
+			<description>渲染一个 CanvasItem 缩略图。
+`source` 可以是 Node2D 或 Control。自定义 `_draw()` 等无法可靠估算
+几何范围的节点应传入显式 `content_bounds`。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">source: 要渲染的 2D 画布节点，会被复制后放入内部 Viewport。</tag>
+				<tag name="param">size: 输出尺寸。</tag>
+				<tag name="param">transparent: 是否透明背景。</tag>
+				<tag name="param">content_bounds: 来源局部坐标中的显式内容边界；非正尺寸表示自动估算。</tag>
+				<tag name="param">margin_ratio: 内容边界四周的相对留白，钳制到 0.0 至 1.0。</tag>
+				<tag name="return">渲染出的 Image；失败时返回 null。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="render_canvas_item_texture">
+			<signature>func render_canvas_item_texture( source: CanvasItem, size: Vector2i = Vector2i(256, 256), transparent: bool = true, content_bounds: Rect2 = Rect2(), margin_ratio: float = 0.08 ) -&gt; ImageTexture:</signature>
+			<description>渲染一个 CanvasItem 缩略图纹理。
+`source` 可以是 Node2D 或 Control。自定义 `_draw()` 等无法可靠估算
+几何范围的节点应传入显式 `content_bounds`。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">source: 要渲染的 2D 画布节点。</tag>
+				<tag name="param">size: 输出尺寸。</tag>
+				<tag name="param">transparent: 是否透明背景。</tag>
+				<tag name="param">content_bounds: 来源局部坐标中的显式内容边界；非正尺寸表示自动估算。</tag>
+				<tag name="param">margin_ratio: 内容边界四周的相对留白，钳制到 0.0 至 1.0。</tag>
+				<tag name="return">渲染出的 ImageTexture；失败时返回 null。</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 		<member kind="method" name="render_mesh">

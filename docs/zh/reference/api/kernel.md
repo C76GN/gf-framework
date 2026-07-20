@@ -12,7 +12,7 @@
 | [运行时句柄](#category-runtime_handle) | 8 | 80 | 68 |
 | [值对象](#category-value_object) | 1 | 1 | 0 |
 | [事件契约](#category-event_contract) | 1 | 10 | 10 |
-| [编辑器 API](#category-editor_api) | 25 | 363 | 225 |
+| [编辑器 API](#category-editor_api) | 25 | 371 | 233 |
 
 ## 类
 

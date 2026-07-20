@@ -9,7 +9,7 @@
 - 类别：编辑器 API (`editor_api`)
 - 首次版本：`3.17.0`
 
-编辑器缩略图渲染辅助节点。 使用独立 SubViewport 渲染 Node3D 或 Mesh，供项目自定义编辑器工具复用。
+编辑器缩略图渲染辅助节点。 使用独立 SubViewport 渲染 CanvasItem、Node3D 或 Mesh，供项目自定义编辑器工具复用。
 
 ## 成员概览
 
@@ -17,6 +17,8 @@
 |---|---|---|
 | 方法 | [`render_node3d`](#member-gfthumbnailrenderer-methods-render_node3d) | `func render_node3d(source: Node3D, size: Vector2i = Vector2i(256, 256), transparent: bool = true) -> Image:` |
 | 方法 | [`render_node3d_texture`](#member-gfthumbnailrenderer-methods-render_node3d_texture) | `func render_node3d_texture( source: Node3D, size: Vector2i = Vector2i(256, 256), transparent: bool = true ) -> ImageTexture:` |
+| 方法 | [`render_canvas_item`](#member-gfthumbnailrenderer-methods-render_canvas_item) | `func render_canvas_item( source: CanvasItem, size: Vector2i = Vector2i(256, 256), transparent: bool = true, content_bounds: Rect2 = Rect2(), margin_ratio: float = 0.08 ) -> Image:` |
+| 方法 | [`render_canvas_item_texture`](#member-gfthumbnailrenderer-methods-render_canvas_item_texture) | `func render_canvas_item_texture( source: CanvasItem, size: Vector2i = Vector2i(256, 256), transparent: bool = true, content_bounds: Rect2 = Rect2(), margin_ratio: float = 0.08 ) -> ImageTexture:` |
 | 方法 | [`render_mesh`](#member-gfthumbnailrenderer-methods-render_mesh) | `func render_mesh(mesh: Mesh, size: Vector2i = Vector2i(256, 256), transparent: bool = true) -> Image:` |
 | 方法 | [`render_mesh_texture`](#member-gfthumbnailrenderer-methods-render_mesh_texture) | `func render_mesh_texture( mesh: Mesh, size: Vector2i = Vector2i(256, 256), transparent: bool = true ) -> ImageTexture:` |
 | 方法 | [`submit_render_request`](#member-gfthumbnailrenderer-methods-submit_render_request) | `func submit_render_request(request: GFThumbnailRenderRequest) -> GFThumbnailRenderTask:` |
@@ -70,6 +72,56 @@ func render_node3d_texture( source: Node3D, size: Vector2i = Vector2i(256, 256),
 | `source` | 要渲染的 3D 节点。 |
 | `size` | 输出尺寸。 |
 | `transparent` | 是否透明背景。 |
+
+返回：渲染出的 ImageTexture；失败时返回 null。
+
+<a id="member-gfthumbnailrenderer-methods-render_canvas_item"></a>
+
+### `render_canvas_item`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func render_canvas_item( source: CanvasItem, size: Vector2i = Vector2i(256, 256), transparent: bool = true, content_bounds: Rect2 = Rect2(), margin_ratio: float = 0.08 ) -> Image:
+```
+
+渲染一个 CanvasItem 缩略图。 `source` 可以是 Node2D 或 Control。自定义 `_draw()` 等无法可靠估算 几何范围的节点应传入显式 `content_bounds`。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `source` | 要渲染的 2D 画布节点，会被复制后放入内部 Viewport。 |
+| `size` | 输出尺寸。 |
+| `transparent` | 是否透明背景。 |
+| `content_bounds` | 来源局部坐标中的显式内容边界；非正尺寸表示自动估算。 |
+| `margin_ratio` | 内容边界四周的相对留白，钳制到 0.0 至 1.0。 |
+
+返回：渲染出的 Image；失败时返回 null。
+
+<a id="member-gfthumbnailrenderer-methods-render_canvas_item_texture"></a>
+
+### `render_canvas_item_texture`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func render_canvas_item_texture( source: CanvasItem, size: Vector2i = Vector2i(256, 256), transparent: bool = true, content_bounds: Rect2 = Rect2(), margin_ratio: float = 0.08 ) -> ImageTexture:
+```
+
+渲染一个 CanvasItem 缩略图纹理。 `source` 可以是 Node2D 或 Control。自定义 `_draw()` 等无法可靠估算 几何范围的节点应传入显式 `content_bounds`。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `source` | 要渲染的 2D 画布节点。 |
+| `size` | 输出尺寸。 |
+| `transparent` | 是否透明背景。 |
+| `content_bounds` | 来源局部坐标中的显式内容边界；非正尺寸表示自动估算。 |
+| `margin_ratio` | 内容边界四周的相对留白，钳制到 0.0 至 1.0。 |
 
 返回：渲染出的 ImageTexture；失败时返回 null。
 

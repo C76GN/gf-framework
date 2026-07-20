@@ -6,8 +6,8 @@
 
 | 模块 | 类 | 成员 | 页面内索引 |
 |---|---:|---:|---|
-| Kernel | 70 | 979 | [Kernel](#module-kernel) |
-| Standard | 409 | 6425 | [Standard](#module-standard) |
+| Kernel | 70 | 987 | [Kernel](#module-kernel) |
+| Standard | 411 | 6457 | [Standard](#module-standard) |
 | Action Queue | 16 | 214 | [Action Queue](#module-extensions-action_queue) |
 | Asset Metadata | 4 | 33 | [Asset Metadata](#module-extensions-asset_metadata) |
 | Behavior Tree | 22 | 89 | [Behavior Tree](#module-extensions-behavior_tree) |
@@ -103,8 +103,8 @@
 | [`GFScriptPatchUtility`](GFScriptPatchUtility.md#gfscriptpatchutility) | 编辑器 API (`editor_api`) | `RefCounted` | 3 | `addons/gf/kernel/editor/gf_script_patch_utility.gd` |
 | [`GFSourceBuilder`](GFSourceBuilder.md#gfsourcebuilder) | 编辑器 API (`editor_api`) | `RefCounted` | 8 | `addons/gf/kernel/editor/gf_source_builder.gd` |
 | [`GFTemplateGenerationManifest`](GFTemplateGenerationManifest.md#gftemplategenerationmanifest) | 编辑器 API (`editor_api`) | `RefCounted` | 12 | `addons/gf/kernel/editor/gf_template_generation_manifest.gd` |
-| [`GFThumbnailRenderRequest`](GFThumbnailRenderRequest.md#gfthumbnailrenderrequest) | 编辑器 API (`editor_api`) | `RefCounted` | 14 | `addons/gf/kernel/editor/gf_thumbnail_render_request.gd` |
-| [`GFThumbnailRenderer`](GFThumbnailRenderer.md#gfthumbnailrenderer) | 编辑器 API (`editor_api`) | `Node` | 11 | `addons/gf/kernel/editor/gf_thumbnail_renderer.gd` |
+| [`GFThumbnailRenderRequest`](GFThumbnailRenderRequest.md#gfthumbnailrenderrequest) | 编辑器 API (`editor_api`) | `RefCounted` | 20 | `addons/gf/kernel/editor/gf_thumbnail_render_request.gd` |
+| [`GFThumbnailRenderer`](GFThumbnailRenderer.md#gfthumbnailrenderer) | 编辑器 API (`editor_api`) | `Node` | 13 | `addons/gf/kernel/editor/gf_thumbnail_renderer.gd` |
 
 <a id="module-standard"></a>
 
@@ -254,6 +254,7 @@
 | [`GFSpringMath`](GFSpringMath.md#gfspringmath) | 运行时服务 (`runtime_service`) | `RefCounted` | 4 | `addons/gf/standard/foundation/math/gf_spring_math.gd` |
 | [`GFStateMachine`](GFStateMachine.md#gfstatemachine) | 运行时服务 (`runtime_service`) | `RefCounted` | 38 | `addons/gf/standard/state_machine/pure/gf_state_machine.gd` |
 | [`GFSteeringMath`](GFSteeringMath.md#gfsteeringmath) | 运行时服务 (`runtime_service`) | `RefCounted` | 16 | `addons/gf/standard/foundation/math/gf_steering_math.gd` |
+| [`GFStorageFailoverBackend`](GFStorageFailoverBackend.md#gfstoragefailoverbackend) | 运行时服务 (`runtime_service`) | `GFStorageBackend` | 16 | `addons/gf/standard/utilities/storage/gf_storage_failover_backend.gd` |
 | [`GFStorageSyncUtility`](GFStorageSyncUtility.md#gfstoragesyncutility) | 运行时服务 (`runtime_service`) | `GFUtility` | 11 | `addons/gf/standard/utilities/storage/gf_storage_sync_utility.gd` |
 | [`GFStorageUtility`](GFStorageUtility.md#gfstorageutility) | 运行时服务 (`runtime_service`) | `GFUtility` | 47 | `addons/gf/standard/utilities/storage/gf_storage_utility.gd` |
 | [`GFSupportReportUtility`](GFSupportReportUtility.md#gfsupportreportutility) | 运行时服务 (`runtime_service`) | `GFUtility` | 32 | `addons/gf/standard/utilities/debug/gf_support_report_utility.gd` |
@@ -315,6 +316,7 @@
 | [`GFAnalyticsConfig`](GFAnalyticsConfig.md#gfanalyticsconfig) | 资源定义 (`resource_definition`) | `Resource` | 19 | `addons/gf/standard/utilities/analytics/gf_analytics_config.gd` |
 | [`GFAssetCatalog`](GFAssetCatalog.md#gfassetcatalog) | 资源定义 (`resource_definition`) | `Resource` | 31 | `addons/gf/standard/utilities/assets/gf_asset_catalog.gd` |
 | [`GFAssetCatalogEntry`](GFAssetCatalogEntry.md#gfassetcatalogentry) | 资源定义 (`resource_definition`) | `Resource` | 20 | `addons/gf/standard/utilities/assets/gf_asset_catalog_entry.gd` |
+| [`GFAssetCollection`](GFAssetCollection.md#gfassetcollection) | 资源定义 (`resource_definition`) | `Resource` | 16 | `addons/gf/standard/utilities/assets/gf_asset_collection.gd` |
 | [`GFAssetPreloadPlan`](GFAssetPreloadPlan.md#gfassetpreloadplan) | 资源定义 (`resource_definition`) | `Resource` | 22 | `addons/gf/standard/utilities/assets/gf_asset_preload_plan.gd` |
 | [`GFAudioBank`](GFAudioBank.md#gfaudiobank) | 资源定义 (`resource_definition`) | `Resource` | 18 | `addons/gf/standard/utilities/audio/gf_audio_bank.gd` |
 | [`GFAudioClip`](GFAudioClip.md#gfaudioclip) | 资源定义 (`resource_definition`) | `Resource` | 17 | `addons/gf/standard/utilities/audio/gf_audio_clip.gd` |
