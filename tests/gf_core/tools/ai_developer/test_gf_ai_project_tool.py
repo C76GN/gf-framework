@@ -287,6 +287,20 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 		self.assertNotIn("undeclared_module_dependency", {item["code"] for item in report["drift"]["issues"]})
 		self.assertEqual(validate_schema_file(report, SCHEMA_ROOT / "project_snapshot.schema.json"), [])
 
+	def test_module_dependency_analysis_ignores_bare_resource_root(self) -> None:
+		self._set_modules([self._module("core")])
+		(self.project_root / "features/core/scan_root.gd").write_text(
+			'extends Node\nconst SCAN_ROOT := "res://"\n',
+			encoding="utf-8",
+		)
+
+		report = snapshot.build_snapshot(self.project_root)
+		analysis = report["project"]["module_dependency_analysis"]
+
+		self.assertEqual(analysis["unowned_reference_count"], 0)
+		self.assertEqual(analysis["unowned_references"], [])
+		self.assertEqual(validate_schema_file(report, SCHEMA_ROOT / "project_snapshot.schema.json"), [])
+
 	def test_module_dependency_analysis_enforces_forbidden_before_undeclared_edges(self) -> None:
 		self._set_modules([
 			self._module("core", forbidden=["shared"]),
