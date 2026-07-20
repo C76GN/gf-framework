@@ -1451,7 +1451,10 @@ static func _tree_has_link(path: String) -> bool:
 	if FileAccess.file_exists(path) or not DirAccess.dir_exists_absolute(path):
 		return false
 	var directory: DirAccess = DirAccess.open(path)
-	if directory == null or directory.list_dir_begin() != OK:
+	if directory == null:
+		return true
+	directory.include_hidden = true
+	if directory.list_dir_begin() != OK:
 		return true
 	var result: bool = false
 	var child_name: String = directory.get_next()
@@ -1678,6 +1681,7 @@ static func _remove_tree(path: String, issues: PackedStringArray) -> bool:
 	if directory == null:
 		var _append_open: bool = issues.append("Could not open package transaction directory for cleanup: %s" % normalized)
 		return false
+	directory.include_hidden = true
 	var children: PackedStringArray = PackedStringArray()
 	var list_error: Error = directory.list_dir_begin()
 	if list_error != OK:
