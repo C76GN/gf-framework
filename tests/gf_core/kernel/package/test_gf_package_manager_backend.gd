@@ -224,6 +224,37 @@ func test_native_install_local_archives_writes_files_and_lockfile() -> void:
 	assert_eq(GF_VARIANT_ACCESS.get_option_string(registry_source, "source"), registry_path, "lockfile 应记录安装使用的 registry 来源。")
 
 
+func test_native_install_cleans_hidden_archive_staging_files() -> void:
+	var project_root: String = TEST_ROOT.path_join("hidden_archive_install_project")
+	var registry_path: String = TEST_ROOT.path_join("registry/index.json")
+	var registry: Dictionary = _make_fixture_registry()
+	_write_fixture_archives(registry)
+	_write_package_archive(
+		registry,
+		"gf.extension.save",
+		{
+			"addons/gf/extensions/save/.gdignore": "# Keep authoring-only files outside the Godot resource graph.\n",
+			"addons/gf/extensions/save/gf_save_fixture.gd": "extends RefCounted\n",
+		}
+	)
+	_write_json(registry_path, registry)
+
+	var result: Dictionary = GF_PACKAGE_MANAGER_BACKEND.install_packages(
+		PackedStringArray(["gf.extension.save"]),
+		registry_path,
+		ProjectSettings.globalize_path(project_root)
+	)
+	var staging_files: PackedStringArray = PackedStringArray()
+	_collect_files_absolute(
+		ProjectSettings.globalize_path(project_root.path_join(".gf/t")),
+		staging_files
+	)
+
+	assert_true(GF_VARIANT_ACCESS.get_option_bool(result, "ok"), "合法隐藏文件不应阻断 package 安装。")
+	assert_true(_file_exists(project_root.path_join("addons/gf/extensions/save/.gdignore")), "隐藏 package 文件必须安装到最终目标。")
+	assert_true(staging_files.is_empty(), "事务完成后不得在 .gf/t 留下隐藏 staging 文件：%s" % [staging_files])
+
+
 func test_native_verify_accepts_round_tripped_lockfile_integer_fields() -> void:
 	var project_root: String = TEST_ROOT.path_join("verify_round_trip_project")
 	var registry_path: String = TEST_ROOT.path_join("registry/index.json")
@@ -2608,6 +2639,7 @@ func _collect_files_absolute(path: String, result: PackedStringArray) -> void:
 	var directory: DirAccess = DirAccess.open(path)
 	if directory == null:
 		return
+	directory.include_hidden = true
 	var list_error: Error = directory.list_dir_begin()
 	if list_error != OK:
 		return
@@ -2706,6 +2738,7 @@ func _remove_path_recursive(path: String) -> void:
 	var directory: DirAccess = DirAccess.open(absolute_path)
 	if directory == null:
 		return
+	directory.include_hidden = true
 	var list_error: Error = directory.list_dir_begin()
 	if list_error == OK:
 		while true:

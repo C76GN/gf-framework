@@ -32,6 +32,24 @@ func test_package_mutation_has_exactly_one_transaction_engine_owner() -> void:
 	assert_false(FileAccess.file_exists(PYTHON_INSTALLER_PATH), "不得恢复 Python 第二套 package installer。")
 
 
+func test_package_transaction_cleanup_and_link_audit_include_hidden_entries() -> void:
+	var godot_engine_source: String = _read_text(GODOT_ENGINE_PATH)
+	var godot_backend_source: String = _read_text(GODOT_BACKEND_PATH)
+
+	assert_true(
+		_function_source(godot_engine_source, "static func _tree_has_link(").contains("directory.include_hidden = true"),
+		"事务 link 审计必须覆盖隐藏目录项。"
+	)
+	assert_true(
+		_function_source(godot_engine_source, "static func _remove_tree(").contains("directory.include_hidden = true"),
+		"事务递归清理必须覆盖隐藏目录项。"
+	)
+	assert_true(
+		_function_source(godot_backend_source, "static func _remove_path_recursive_absolute(").contains("directory.include_hidden = true"),
+		"Backend 兜底清理必须覆盖隐藏目录项。"
+	)
+
+
 func test_package_transaction_engine_owns_one_versioned_schema() -> void:
 	var godot_engine_source: String = _read_text(GODOT_ENGINE_PATH)
 	var schema: Dictionary = _read_json(SHARED_SCHEMA_PATH)
@@ -93,6 +111,16 @@ func _read_json(path: String) -> Dictionary:
 		var data: Dictionary = parsed
 		return data
 	return {}
+
+
+func _function_source(source: String, declaration: String) -> String:
+	var start_index: int = source.find(declaration)
+	if start_index < 0:
+		return ""
+	var next_function_index: int = source.find("\nstatic func ", start_index + declaration.length())
+	if next_function_index < 0:
+		return source.substr(start_index)
+	return source.substr(start_index, next_function_index - start_index)
 
 
 func _dictionary_string_array(data: Dictionary, key: String) -> PackedStringArray:

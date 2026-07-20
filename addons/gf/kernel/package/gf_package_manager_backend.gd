@@ -4677,6 +4677,7 @@ static func _remove_path_recursive_absolute(path: String) -> void:
 
 	var directory: DirAccess = DirAccess.open(normalized)
 	if directory != null:
+		directory.include_hidden = true
 		var list_error: Error = directory.list_dir_begin()
 		if list_error == OK:
 			while true:
