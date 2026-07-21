@@ -544,7 +544,7 @@ def _normalize_resource_path(raw_path: str) -> str:
 		return ""
 	relative = normalized.removeprefix("res://")
 	if not relative:
-		return "res://"
+		return ""
 	parts = relative.split("/")
 	if any(part in ("", ".", "..") for part in parts):
 		return ""
