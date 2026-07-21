@@ -24,6 +24,7 @@
   },
   "architecture": {
     "modules": [],
+    "owned_resources": [],
     "global_rules": [
       "Project business code stays outside res://addons/gf.",
       "External platform SDKs are isolated behind project-owned adapters."

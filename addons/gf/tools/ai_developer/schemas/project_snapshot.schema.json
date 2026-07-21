@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://gf-framework.dev/schemas/project-snapshot-v2.json",
+  "$id": "https://gf-framework.dev/schemas/project-snapshot-v3.json",
   "title": "GF Observed Project Snapshot",
   "type": "object",
   "additionalProperties": false,
@@ -16,7 +16,7 @@
     "drift"
   ],
   "properties": {
-    "schema_version": {"type": "integer", "const": 2},
+    "schema_version": {"type": "integer", "const": 3},
     "generator_version": {"type": "string", "minLength": 1},
     "generated_at_utc": {"type": "string", "minLength": 1},
     "project_root": {"type": "string", "const": "."},
@@ -102,6 +102,13 @@
             "unreadable_file_count",
             "missing_root_count",
             "unsafe_path_count",
+            "declared_owned_resource_count",
+            "missing_owned_resource_count",
+            "unsafe_owned_resource_count",
+            "owned_resources",
+            "owned_resource_reference_count",
+            "owned_resource_references_truncated",
+            "owned_resource_references",
             "unowned_reference_count",
             "unowned_references_truncated",
             "unowned_references",
@@ -131,6 +138,38 @@
             "unreadable_file_count": {"type": "integer", "minimum": 0},
             "missing_root_count": {"type": "integer", "minimum": 0},
             "unsafe_path_count": {"type": "integer", "minimum": 0},
+            "declared_owned_resource_count": {"type": "integer", "minimum": 0, "maximum": 100},
+            "missing_owned_resource_count": {"type": "integer", "minimum": 0, "maximum": 100},
+            "unsafe_owned_resource_count": {"type": "integer", "minimum": 0, "maximum": 100},
+            "owned_resources": {
+              "type": "array",
+              "maxItems": 100,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["path", "status"],
+                "properties": {
+                  "path": {"type": "string", "pattern": "^res://.+$"},
+                  "status": {"type": "string", "enum": ["available", "missing", "unsafe"]}
+                }
+              }
+            },
+            "owned_resource_reference_count": {"type": "integer", "minimum": 0},
+            "owned_resource_references_truncated": {"type": "boolean"},
+            "owned_resource_references": {
+              "type": "array",
+              "maxItems": 100,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["source_path", "target_path", "line"],
+                "properties": {
+                  "source_path": {"type": "string", "pattern": "^res://.+$"},
+                  "target_path": {"type": "string", "pattern": "^res://.+$"},
+                  "line": {"type": "integer", "minimum": 1}
+                }
+              }
+            },
             "unowned_reference_count": {"type": "integer", "minimum": 0},
             "unowned_references_truncated": {"type": "boolean"},
             "unowned_references": {

@@ -4,16 +4,94 @@ from __future__ import annotations
 
 import json
 import os
+import posixpath
 import secrets
+import stat
 from pathlib import Path
 from typing import Any
 
 
 DEFAULT_MAX_JSON_BYTES = 16 * 1024 * 1024
+_RESOURCE_PATH_FORBIDDEN_CHARACTERS = frozenset('<>:"|?*[]')
+_WINDOWS_RESERVED_PATH_STEMS = frozenset({
+	"aux",
+	"con",
+	"nul",
+	"prn",
+	*(f"com{index}" for index in range(1, 10)),
+	*(f"lpt{index}" for index in range(1, 10)),
+})
 
 
 class PathBoundaryError(ValueError):
 	"""Raised when a project-side operation would escape its owned boundary."""
+
+
+def normalize_resource_path(raw_path: str) -> str:
+	"""Normalize one exact non-root res:// path without applying platform policy."""
+	normalized = raw_path.strip().replace("\\", "/")
+	if not normalized.startswith("res://"):
+		return ""
+	relative = normalized.removeprefix("res://")
+	if not relative:
+		return ""
+	parts = relative.split("/")
+	if any(part in ("", ".", "..") for part in parts):
+		return ""
+	return "res://" + posixpath.normpath(relative)
+
+
+def normalize_portable_ownership_path(raw_path: str) -> str:
+	"""Return a canonical cross-platform ownership path, or an empty string."""
+	if any(ord(character) < 32 or ord(character) == 127 for character in raw_path):
+		return ""
+	normalized = normalize_resource_path(raw_path)
+	if not normalized or normalized != raw_path:
+		return ""
+	parts = normalized.removeprefix("res://").split("/")
+	for part in parts:
+		if part != part.rstrip(" ."):
+			return ""
+		if any(character in _RESOURCE_PATH_FORBIDDEN_CHARACTERS for character in part):
+			return ""
+		if part.split(".", 1)[0].casefold() in _WINDOWS_RESERVED_PATH_STEMS:
+			return ""
+	return normalized
+
+
+def is_reserved_framework_resource_path(raw_path: str) -> bool:
+	"""Return whether a resource path addresses the reserved addons/gf boundary."""
+	normalized = normalize_resource_path(raw_path)
+	if not normalized:
+		return False
+	parts = tuple(part.casefold() for part in normalized.removeprefix("res://").split("/"))
+	return parts[0:2] == ("addons", "gf")
+
+
+def project_path_has_link_component(project_root: Path, relative_path: str) -> bool:
+	"""Fail closed when an existing project-relative path component is linked or reparsed."""
+	normalized = relative_path.strip().replace("\\", "/")
+	root = Path(os.path.abspath(os.fspath(project_root)))
+	target = Path(os.path.abspath(os.fspath(root / normalized)))
+	try:
+		relative = target.relative_to(root)
+	except ValueError:
+		return True
+	reparse_flag = getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0)
+	current = root
+	for part in relative.parts:
+		current /= part
+		try:
+			metadata = current.lstat()
+		except FileNotFoundError:
+			break
+		except OSError:
+			return True
+		if current.is_symlink():
+			return True
+		if reparse_flag and getattr(metadata, "st_file_attributes", 0) & reparse_flag:
+			return True
+	return False
 
 
 def resolve_project_root(raw_root: str | Path) -> Path:

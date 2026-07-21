@@ -8,7 +8,15 @@ from typing import Any
 
 from . import catalog
 from .constants import DEFAULT_CONTRACT_PATH, DEFAULT_OFFICIAL_REPOSITORY, SCHEMA_ROOT, TEMPLATE_ROOT
-from .paths import atomic_write_json, read_json_object, resolve_project_path, sha256_json
+from .paths import (
+	atomic_write_json,
+	is_reserved_framework_resource_path,
+	normalize_portable_ownership_path,
+	project_path_has_link_component,
+	read_json_object,
+	resolve_project_path,
+	sha256_json,
+)
 from .schema import validate_schema_file
 
 
@@ -129,6 +137,11 @@ def _semantic_issues(data: dict[str, Any], project_root: Path) -> list[dict[str,
 
 	architecture = _object(data, "architecture")
 	modules = _object_list(architecture, "modules")
+	owned_resources = [
+		raw_path
+		for raw_path in architecture.get("owned_resources", [])
+		if isinstance(raw_path, str)
+	]
 	module_ids = _unique_ids(modules, "$.architecture.modules", issues)
 	adapters = _object_list(framework, "adapter_boundaries")
 	adapter_ids = _unique_ids(adapters, "$.framework.adapter_boundaries", issues)
@@ -159,23 +172,31 @@ def _semantic_issues(data: dict[str, Any], project_root: Path) -> list[dict[str,
 			))
 		for root_index, raw_path in enumerate(module.get("roots", [])):
 			if isinstance(raw_path, str):
-				_validate_contract_path(
+				_validate_ownership_root_path(
 					project_root,
-					raw_path.removeprefix("res://"),
+					raw_path,
 					f"$.architecture.modules[{index}].roots[{root_index}]",
 					issues,
 				)
+	for index, raw_path in enumerate(owned_resources):
+		_validate_owned_resource_path(
+			project_root,
+			raw_path,
+			f"$.architecture.owned_resources[{index}]",
+			issues,
+		)
 	issues.extend(_module_dependency_cycle_issues(modules, module_ids))
 	for index, adapter in enumerate(adapters):
 		raw_path = adapter.get("project_root")
 		if isinstance(raw_path, str):
-			_validate_contract_path(
+			_validate_ownership_root_path(
 				project_root,
-				raw_path.removeprefix("res://"),
+				raw_path,
 				f"$.framework.adapter_boundaries[{index}].project_root",
 				issues,
 			)
 	issues.extend(_ownership_root_overlap_issues(modules, adapters))
+	issues.extend(_ownership_resource_overlap_issues(modules, adapters, owned_resources))
 	profile_path = architecture.get("project_profile_path")
 	if isinstance(profile_path, str) and profile_path:
 		_validate_contract_path(project_root, profile_path, "$.architecture.project_profile_path", issues)
@@ -218,6 +239,66 @@ def _validate_contract_path(
 		resolve_project_path(project_root, relative_path)
 	except ValueError as exc:
 		issues.append(_issue("error", "unsafe_project_path", path, str(exc)))
+		return
+	if project_path_has_link_component(project_root, relative_path):
+		issues.append(_issue(
+			"error",
+			"unsafe_project_path",
+			path,
+			"Project path crosses a symbolic link, junction, or reparse point.",
+		))
+
+
+def _validate_owned_resource_path(
+	project_root: Path,
+	raw_path: str,
+	path: str,
+	issues: list[dict[str, str]],
+) -> None:
+	normalized_path = normalize_portable_ownership_path(raw_path)
+	if not normalized_path:
+		issues.append(_issue(
+			"error",
+			"non_canonical_owned_resource_path",
+			path,
+			"Project-owned resource paths must use one canonical non-root res:// path.",
+		))
+		return
+	if is_reserved_framework_resource_path(normalized_path):
+		issues.append(_issue(
+			"error",
+			"framework_owned_resource",
+			path,
+			"Project-owned resources must stay outside the reserved res://addons/gf boundary.",
+		))
+		return
+	_validate_contract_path(project_root, normalized_path.removeprefix("res://"), path, issues)
+
+
+def _validate_ownership_root_path(
+	project_root: Path,
+	raw_path: str,
+	path: str,
+	issues: list[dict[str, str]],
+) -> None:
+	normalized_path = normalize_portable_ownership_path(raw_path)
+	if not normalized_path:
+		issues.append(_issue(
+			"error",
+			"non_canonical_ownership_root",
+			path,
+			"Ownership roots must use one canonical cross-platform non-root res:// path.",
+		))
+		return
+	if is_reserved_framework_resource_path(normalized_path):
+		issues.append(_issue(
+			"error",
+			"framework_ownership_root",
+			path,
+			"Project ownership roots must stay outside the reserved res://addons/gf boundary.",
+		))
+		return
+	_validate_contract_path(project_root, normalized_path.removeprefix("res://"), path, issues)
 
 
 def _unique_ids(
@@ -299,6 +380,37 @@ def _ownership_root_overlap_issues(
 				"ownership_root_overlap",
 				"$.architecture.modules",
 				f"Ownership roots overlap between {left_owner} ({left_path}) and {right_owner} ({right_path}).",
+			))
+	return issues
+
+
+def _ownership_resource_overlap_issues(
+	modules: list[dict[str, Any]],
+	adapters: list[dict[str, Any]],
+	owned_resources: list[str],
+) -> list[dict[str, str]]:
+	roots: list[tuple[str, str, tuple[str, ...]]] = []
+	for module in modules:
+		owner = f"module {module.get('id', '')}"
+		for raw_path in module.get("roots", []):
+			if isinstance(raw_path, str):
+				roots.append((owner, raw_path, _root_parts(raw_path)))
+	for adapter in adapters:
+		raw_path = adapter.get("project_root")
+		if isinstance(raw_path, str):
+			roots.append((f"adapter {adapter.get('id', '')}", raw_path, _root_parts(raw_path)))
+
+	issues: list[dict[str, str]] = []
+	for index, resource_path in enumerate(owned_resources):
+		resource_parts = _root_parts(resource_path)
+		for owner, root_path, root_parts in roots:
+			if not _parts_overlap(resource_parts, root_parts):
+				continue
+			issues.append(_issue(
+				"error",
+				"ownership_resource_overlap",
+				f"$.architecture.owned_resources[{index}]",
+				f"Project-owned resource {resource_path} overlaps {owner} ownership root {root_path}.",
 			))
 	return issues
 
