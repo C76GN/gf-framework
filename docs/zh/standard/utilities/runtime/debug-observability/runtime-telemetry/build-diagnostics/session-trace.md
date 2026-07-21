@@ -54,7 +54,9 @@ if not GFVariantData.get_option_bool(result, "ok"):
 	push_warning("Session trace rejected event: %s" % reason)
 ```
 
-每条成功事件包含会话 ID、单调序号、相对会话时间、可选模拟 tick、通道、事件 ID、载荷和 metadata。载荷在进入内存轨迹前会经过 `GFReportValueCodec` 编码和当前字节预算约束；默认使用 `privacy` profile。
+每条成功事件包含会话 ID、单调序号、相对会话时间、可选模拟 tick、通道、事件 ID、载荷和 metadata。载荷和单次记录提供的 metadata 在进入内存轨迹前会经过 `GFReportValueCodec` 编码和当前字节预算约束；默认使用 `privacy` profile。
+
+会话 context、通道 metadata 和 provider metadata 会被工具长期保存，并可能在 profile 改变后重复用于快照或事件。它们因此始终按 `privacy` 安全下限编码，不会因为注册时临时使用 `debug` 或 `support` 而保留对象实例 ID、节点名称或原始路径。确实需要本地调试细节时，应把经过项目字段白名单筛选的数据放进单次事件，而不是依赖长期目录 metadata。
 
 ## 在关键点采集状态
 
@@ -129,7 +131,7 @@ if not trace.configure_journal_sink(journal, {
 
 Journal 会先按 Session Trace 当前 `redaction_profile` 编码事件，再交给 sink。为了避免已经放宽的数据跨过更严格的输出边界，轨迹 profile 必须至少与 sink 的 `get_report_redaction_profile()` 声明一样严格：基础自定义 `GFLogSink` 默认声明 `public`，`GFJsonLineLogSink` 声明 `debug`，`GFBatchedLogSink` 声明 `privacy`。不安全或未知的组合会让 `configure_journal_sink()` 返回 `false`，且不会部分替换既有配置；每次写入还会重新读取声明，因此配置后无论项目把轨迹 profile 改弱，还是自定义 sink 动态改变输出 profile，后续不安全写入都会 fail closed，并计入 `journal_dropped_event_count`。
 
-Sink 的 `get_report_redaction_profile()`、`init()`、`write()`、`flush()` 和 `shutdown()` 都位于重入保护边界内。回调中触发新的轨迹写入不会递归进入同一 sink；清除或释放会先原子断开引用，再完成延迟清理。自定义 sink 仍应保持回调快速、同步，并避免修改 Session Trace 配置或执行项目业务副作用。
+Sink 的 `get_report_redaction_profile()`、`init()`、`write()`、`flush()` 和 `shutdown()` 都位于重入保护边界内。回调中触发新的轨迹写入不会递归进入同一 sink；`configure_journal_sink(null)`、清除或释放会先原子断开引用，再完成延迟清理。替换 sink 时，如果旧 sink 的清理回调主动置空配置，置空请求优先且外层替换返回 `false`，调用方可在回调结束后显式重试。同一个 sink 实例再次配置时只原位更新所有权和刷新选项，不会把仍要继续使用的实例提前 `flush()` 或 `shutdown()`；只有新配置再次显式传入 `initialize = true` 时才会调用 `init()`。自定义 sink 仍应保持回调快速、同步，并避免执行项目业务副作用。
 
 ## 容量与读取
 

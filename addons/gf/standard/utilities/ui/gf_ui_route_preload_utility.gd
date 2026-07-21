@@ -68,7 +68,7 @@ const DEFAULT_GROUP_ID: StringName = &"ui_route_preload"
 ## [br]
 ## @return 路由预加载结果。
 ## [br]
-## @schema return: Dictionary，包含 ok、healthy、reason、source_route_id、max_depth、max_routes、max_edges、max_catalog_routes、catalog_route_count、edge_count、truncated、catalog_budget_exhausted、route_budget_exhausted、edge_budget_exhausted、route_ids、fixed_route_ids、temporary_route_ids、scene_paths、missing_route_ids、routes_without_scene、missing_scene_paths、duplicate_route_ids、asset_plan 和 metadata；asset_plan 为 GFAssetPreloadPlan。
+## @schema return: Dictionary，包含 ok、healthy、reason、source_route_id、max_depth、max_routes、max_edges、max_catalog_routes、catalog_route_count、edge_count、truncated、catalog_budget_exhausted、route_budget_exhausted、edge_budget_exhausted、route_ids、fixed_route_ids、temporary_route_ids、scene_paths、missing_route_ids、routes_without_scene、missing_scene_paths、invalid_scene_type_paths、duplicate_route_ids、asset_plan 和 metadata；asset_plan 为 GFAssetPreloadPlan。
 static func build_plan(
 	routes: Array[GFUIRoute],
 	source_route_id: StringName,
@@ -180,6 +180,10 @@ static func build_plan(
 		route_path_result,
 		"missing_scene_paths"
 	)
+	var invalid_scene_type_paths: PackedStringArray = GFVariantData.get_option_packed_string_array(
+		route_path_result,
+		"invalid_scene_type_paths"
+	)
 	var scene_paths: PackedStringArray = GFVariantData.get_option_packed_string_array(
 		route_path_result,
 		"scene_paths"
@@ -202,6 +206,7 @@ static func build_plan(
 		missing_route_ids.is_empty()
 		and routes_without_scene.is_empty()
 		and missing_scene_paths.is_empty()
+		and invalid_scene_type_paths.is_empty()
 		and duplicate_route_ids.is_empty()
 		and not truncated
 	)
@@ -243,6 +248,7 @@ static func build_plan(
 		"missing_route_ids": missing_route_ids,
 		"routes_without_scene": routes_without_scene,
 		"missing_scene_paths": missing_scene_paths,
+		"invalid_scene_type_paths": invalid_scene_type_paths,
 		"duplicate_route_ids": duplicate_route_ids,
 		"asset_plan": plan,
 		"metadata": metadata,
@@ -409,6 +415,7 @@ static func _append_route_paths(
 	var scene_paths: PackedStringArray = PackedStringArray()
 	var routes_without_scene: PackedStringArray = PackedStringArray()
 	var missing_scene_paths: PackedStringArray = PackedStringArray()
+	var invalid_scene_type_paths: PackedStringArray = PackedStringArray()
 	var seen_cache_keys: Dictionary = {}
 	for fixed_text: String in fixed_route_ids:
 		_append_route_path(
@@ -423,6 +430,7 @@ static func _append_route_paths(
 			scene_paths,
 			routes_without_scene,
 			missing_scene_paths,
+			invalid_scene_type_paths,
 			seen_cache_keys
 		)
 	for route_text: String in route_ids:
@@ -441,6 +449,7 @@ static func _append_route_paths(
 			scene_paths,
 			routes_without_scene,
 			missing_scene_paths,
+			invalid_scene_type_paths,
 			seen_cache_keys
 		)
 	return {
@@ -449,6 +458,7 @@ static func _append_route_paths(
 		"scene_paths": scene_paths,
 		"routes_without_scene": routes_without_scene,
 		"missing_scene_paths": missing_scene_paths,
+		"invalid_scene_type_paths": invalid_scene_type_paths,
 	}
 
 
@@ -464,6 +474,7 @@ static func _append_route_path(
 	scene_paths: PackedStringArray,
 	routes_without_scene: PackedStringArray,
 	missing_scene_paths: PackedStringArray,
+	invalid_scene_type_paths: PackedStringArray,
 	seen_cache_keys: Dictionary
 ) -> void:
 	var route: GFUIRoute = _get_route(route_catalog, route_id)
@@ -483,8 +494,16 @@ static func _append_route_path(
 	if normalized_path.is_empty():
 		_append_unique_string(routes_without_scene, String(route_id))
 		return
-	if check_exists and not ResourceLoader.exists(normalized_path):
-		_append_unique_string(missing_scene_paths, normalized_path)
+	if check_exists:
+		if not ResourceLoader.exists(normalized_path):
+			_append_unique_string(missing_scene_paths, normalized_path)
+		elif (
+			not ResourceLoader.exists(normalized_path, "PackedScene")
+			or not ResourceLoader.get_recognized_extensions_for_type("PackedScene").has(
+				identity.extension
+			)
+		):
+			_append_unique_string(invalid_scene_type_paths, normalized_path)
 	if seen_cache_keys.has(identity.cache_key):
 		return
 	seen_cache_keys[identity.cache_key] = true
@@ -543,6 +562,7 @@ static func _make_missing_source_result(
 		"missing_route_ids": missing_route_ids,
 		"routes_without_scene": PackedStringArray(),
 		"missing_scene_paths": PackedStringArray(),
+		"invalid_scene_type_paths": PackedStringArray(),
 		"duplicate_route_ids": duplicate_route_ids,
 		"asset_plan": null,
 		"metadata": metadata,

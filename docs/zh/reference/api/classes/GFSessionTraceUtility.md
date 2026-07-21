@@ -9,7 +9,7 @@
 - 类别：运行时服务 (`runtime_service`)
 - 首次版本：`unreleased`
 
-有界的运行时会话轨迹记录器。 项目必须先显式注册通道，才能记录输入、路由、存档、网络或其他语义事件。 轨迹只保存经过技术脱敏和字节预算约束的结构化数据，不扫描场景树、节点属性或业务状态。 项目仍需通过字段白名单排除账号、令牌和其他无法由通用编码器识别的业务秘密。
+有界的运行时会话轨迹记录器。 项目必须先显式注册通道，才能记录输入、路由、存档、网络或其他语义事件。 轨迹只保存经过技术脱敏和字节预算约束的结构化数据，不扫描场景树、节点属性或业务状态。 长期保存的会话上下文与目录 metadata 始终使用 privacy 安全下限，避免运行期切换 profile 后泄漏旧值。 项目仍需通过字段白名单排除账号、令牌和其他无法由通用编码器识别的业务秘密。
 
 ## 成员概览
 
@@ -415,7 +415,7 @@ var max_journal_events: int = DEFAULT_MAX_JOURNAL_EVENTS:
 var redaction_profile: String = GFReportValueCodec.REDACTION_PROFILE_PRIVACY
 ```
 
-默认报告脱敏 profile。默认使用 privacy，不应为线上玩家数据改成 debug。
+事件载荷与单次 metadata 的报告脱敏 profile。默认使用 privacy，不应为线上玩家数据改成 debug。 会话上下文、通道 metadata 和 provider metadata 始终使用 privacy 安全下限。
 
 ## 方法
 
@@ -457,7 +457,7 @@ func start_session( requested_session_id: StringName = &"", context: Dictionary 
 
 结构：
 
-- `context`: Dictionary，由项目定义；进入轨迹前会使用当前 redaction_profile 和字节预算编码。
+- `context`: Dictionary，由项目定义；进入轨迹前会使用 privacy 安全下限和字节预算编码。
 - `options`: Dictionary，started_ticks_usec 可用于固定时钟或测试。
 
 <a id="member-gfsessiontraceutility-methods-stop_session"></a>
@@ -522,7 +522,7 @@ func register_channel(channel_id: StringName, options: Dictionary = {}) -> bool:
 
 结构：
 
-- `options`: Dictionary，可包含 enabled、include_in_snapshot、max_events、max_event_bytes 和 metadata；0 上限表示仅使用全局限制。
+- `options`: Dictionary，可包含 enabled、include_in_snapshot、max_events、max_event_bytes 和 metadata；0 上限表示仅使用全局限制，metadata 始终使用 privacy 安全下限。
 
 <a id="member-gfsessiontraceutility-methods-unregister_channel"></a>
 
@@ -663,7 +663,7 @@ func register_snapshot_provider( provider_id: StringName, channel_id: StringName
 
 结构：
 
-- `options`: Dictionary，可包含 enabled、event_id 和 metadata。
+- `options`: Dictionary，可包含 enabled、event_id 和 metadata；metadata 始终使用 privacy 安全下限。
 
 <a id="member-gfsessiontraceutility-methods-unregister_snapshot_provider"></a>
 

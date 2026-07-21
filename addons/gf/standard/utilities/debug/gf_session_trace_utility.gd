@@ -2,6 +2,7 @@
 ##
 ## 项目必须先显式注册通道，才能记录输入、路由、存档、网络或其他语义事件。
 ## 轨迹只保存经过技术脱敏和字节预算约束的结构化数据，不扫描场景树、节点属性或业务状态。
+## 长期保存的会话上下文与目录 metadata 始终使用 privacy 安全下限，避免运行期切换 profile 后泄漏旧值。
 ## 项目仍需通过字段白名单排除账号、令牌和其他无法由通用编码器识别的业务秘密。
 ## [br]
 ## @api public
@@ -228,7 +229,8 @@ var max_journal_events: int = DEFAULT_MAX_JOURNAL_EVENTS:
 	set(value):
 		max_journal_events = maxi(value, 0)
 
-## 默认报告脱敏 profile。默认使用 privacy，不应为线上玩家数据改成 debug。
+## 事件载荷与单次 metadata 的报告脱敏 profile。默认使用 privacy，不应为线上玩家数据改成 debug。
+## 会话上下文、通道 metadata 和 provider metadata 始终使用 privacy 安全下限。
 ## [br]
 ## @api public
 ## [br]
@@ -301,7 +303,7 @@ func dispose() -> void:
 ## [br]
 ## @param context: 项目显式提供的会话上下文。
 ## [br]
-## @schema context: Dictionary，由项目定义；进入轨迹前会使用当前 redaction_profile 和字节预算编码。
+## @schema context: Dictionary，由项目定义；进入轨迹前会使用 privacy 安全下限和字节预算编码。
 ## [br]
 ## @param options: 可选参数，支持 started_ticks_usec。
 ## [br]
@@ -320,7 +322,7 @@ func start_session(
 	_session_id = _normalize_id(requested_session_id)
 	if _session_id == &"":
 		_session_id = _make_session_id()
-	_session_context = _sanitize_dictionary(context, mini(max_event_bytes, 32 * 1024))
+	_session_context = _sanitize_persistent_dictionary(context, mini(max_event_bytes, 32 * 1024))
 	_stop_reason = &""
 	_started_ticks_usec = maxi(
 		GFVariantData.get_option_int(options, "started_ticks_usec", Time.get_ticks_usec()),
@@ -382,7 +384,7 @@ func clear() -> void:
 ## [br]
 ## @param options: 通道选项。
 ## [br]
-## @schema options: Dictionary，可包含 enabled、include_in_snapshot、max_events、max_event_bytes 和 metadata；0 上限表示仅使用全局限制。
+## @schema options: Dictionary，可包含 enabled、include_in_snapshot、max_events、max_event_bytes 和 metadata；0 上限表示仅使用全局限制，metadata 始终使用 privacy 安全下限。
 ## [br]
 ## @return 注册或更新成功时返回 true。
 func register_channel(channel_id: StringName, options: Dictionary = {}) -> bool:
@@ -397,7 +399,7 @@ func register_channel(channel_id: StringName, options: Dictionary = {}) -> bool:
 		"include_in_snapshot": GFVariantData.get_option_bool(options, "include_in_snapshot", true),
 		"max_events": maxi(GFVariantData.get_option_int(options, "max_events", 0), 0),
 		"max_event_bytes": maxi(GFVariantData.get_option_int(options, "max_event_bytes", 0), 0),
-		"metadata": _sanitize_dictionary(
+		"metadata": _sanitize_persistent_dictionary(
 			GFVariantData.get_option_dictionary(options, "metadata"),
 			mini(max_event_bytes, 4096)
 		),
@@ -530,7 +532,7 @@ func record_event(
 ## [br]
 ## @param options: provider 选项。
 ## [br]
-## @schema options: Dictionary，可包含 enabled、event_id 和 metadata。
+## @schema options: Dictionary，可包含 enabled、event_id 和 metadata；metadata 始终使用 privacy 安全下限。
 ## [br]
 ## @return 注册或更新成功时返回 true。
 func register_snapshot_provider(
@@ -555,7 +557,7 @@ func register_snapshot_provider(
 		"event_id": event_id,
 		"provider": provider,
 		"enabled": GFVariantData.get_option_bool(options, "enabled", true),
-		"metadata": _sanitize_dictionary(
+		"metadata": _sanitize_persistent_dictionary(
 			GFVariantData.get_option_dictionary(options, "metadata"),
 			mini(max_event_bytes, 4096)
 		),
@@ -674,11 +676,11 @@ func get_snapshot_provider_catalog() -> Dictionary:
 ## [br]
 ## @return sink 的输出 profile 与当前轨迹 profile 兼容且配置成功，或已成功清除时返回 true。
 func configure_journal_sink(sink: GFLogSink, options: Dictionary = {}) -> bool:
-	if _journal_callback_active:
-		return false
 	if sink == null:
 		clear_journal_sink(_journal_shutdown_on_dispose)
 		return true
+	if _journal_callback_active:
+		return false
 	var revision_before_profile: int = _journal_configuration_revision
 	_journal_callback_active = true
 	var sink_profile: String = _normalize_redaction_profile(sink.get_report_redaction_profile())
@@ -688,7 +690,11 @@ func configure_journal_sink(sink: GFLogSink, options: Dictionary = {}) -> bool:
 	if sink_profile.is_empty() or not _is_journal_profile_compatible(sink_profile):
 		return false
 
-	clear_journal_sink(_journal_shutdown_on_dispose)
+	if _journal_sink != sink:
+		var revision_before_clear: int = _journal_configuration_revision
+		clear_journal_sink(_journal_shutdown_on_dispose)
+		if _journal_configuration_revision != revision_before_clear + 1:
+			return false
 	_journal_sink = sink
 	_journal_shutdown_on_dispose = GFVariantData.get_option_bool(options, "shutdown_on_dispose", false)
 	_journal_flush_after_write = GFVariantData.get_option_bool(options, "flush_after_write", false)
@@ -936,9 +942,29 @@ func _sanitize_dictionary(value: Dictionary, byte_budget: int) -> Dictionary:
 	return {}
 
 
+func _sanitize_persistent_dictionary(value: Dictionary, byte_budget: int) -> Dictionary:
+	var sanitized: Variant = _sanitize_value_with_profile(
+		value,
+		byte_budget,
+		GFReportValueCodec.REDACTION_PROFILE_PRIVACY
+	)
+	if sanitized is Dictionary:
+		var dictionary_value: Dictionary = sanitized
+		return dictionary_value
+	return {}
+
+
 func _sanitize_value(value: Variant, byte_budget: int) -> Variant:
+	return _sanitize_value_with_profile(value, byte_budget, _resolve_redaction_profile())
+
+
+func _sanitize_value_with_profile(
+	value: Variant,
+	byte_budget: int,
+	profile: String
+) -> Variant:
 	var options: Dictionary = GFReportValueCodec.make_redaction_options(
-		_resolve_redaction_profile(),
+		profile,
 		{
 			"max_depth": 12,
 			"max_string_length": 2048,

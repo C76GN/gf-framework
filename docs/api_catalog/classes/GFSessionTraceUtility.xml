@@ -1,8 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSessionTraceUtility" path="addons/gf/standard/utilities/debug/gf_session_trace_utility.gd" module="standard" extends="GFUtility" classDigest="1196bd77b3d6f3ad24bcbd27a716710b7d6e19e849320186d7f56f328d777dd3">
+<class name="GFSessionTraceUtility" path="addons/gf/standard/utilities/debug/gf_session_trace_utility.gd" module="standard" extends="GFUtility" classDigest="8718c3d387b15c9338d8603882e8c9dff6091ad42b902f7d2400ce8872e1d408">
 	<description>GFSessionTraceUtility: 有界的运行时会话轨迹记录器。
 项目必须先显式注册通道，才能记录输入、路由、存档、网络或其他语义事件。
 轨迹只保存经过技术脱敏和字节预算约束的结构化数据，不扫描场景树、节点属性或业务状态。
+长期保存的会话上下文与目录 metadata 始终使用 privacy 安全下限，避免运行期切换 profile 后泄漏旧值。
 项目仍需通过字段白名单排除账号、令牌和其他无法由通用编码器识别的业务秘密。</description>
 	<tags>
 		<tag name="api">public</tag>
@@ -212,7 +213,8 @@
 		</member>
 		<member kind="property" name="redaction_profile">
 			<signature>var redaction_profile: String = GFReportValueCodec.REDACTION_PROFILE_PRIVACY</signature>
-			<description>默认报告脱敏 profile。默认使用 privacy，不应为线上玩家数据改成 debug。</description>
+			<description>事件载荷与单次 metadata 的报告脱敏 profile。默认使用 privacy，不应为线上玩家数据改成 debug。
+会话上下文、通道 metadata 和 provider metadata 始终使用 privacy 安全下限。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="since">unreleased</tag>
@@ -237,7 +239,7 @@
 				<tag name="param">context: 项目显式提供的会话上下文。</tag>
 				<tag name="param">options: 可选参数，支持 started_ticks_usec。</tag>
 				<tag name="return">实际会话标识。</tag>
-				<tag name="schema">context: Dictionary，由项目定义；进入轨迹前会使用当前 redaction_profile 和字节预算编码。</tag>
+				<tag name="schema">context: Dictionary，由项目定义；进入轨迹前会使用 privacy 安全下限和字节预算编码。</tag>
 				<tag name="schema">options: Dictionary，started_ticks_usec 可用于固定时钟或测试。</tag>
 				<tag name="since">unreleased</tag>
 			</tags>
@@ -269,7 +271,7 @@
 				<tag name="param">channel_id: 稳定通道标识。</tag>
 				<tag name="param">options: 通道选项。</tag>
 				<tag name="return">注册或更新成功时返回 true。</tag>
-				<tag name="schema">options: Dictionary，可包含 enabled、include_in_snapshot、max_events、max_event_bytes 和 metadata；0 上限表示仅使用全局限制。</tag>
+				<tag name="schema">options: Dictionary，可包含 enabled、include_in_snapshot、max_events、max_event_bytes 和 metadata；0 上限表示仅使用全局限制，metadata 始终使用 privacy 安全下限。</tag>
 				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
@@ -341,7 +343,7 @@ Provider 必须是无参数、快速、同步且不会修改游戏状态的 Call
 				<tag name="param">provider: 无参数同步 Callable。</tag>
 				<tag name="param">options: provider 选项。</tag>
 				<tag name="return">注册或更新成功时返回 true。</tag>
-				<tag name="schema">options: Dictionary，可包含 enabled、event_id 和 metadata。</tag>
+				<tag name="schema">options: Dictionary，可包含 enabled、event_id 和 metadata；metadata 始终使用 privacy 安全下限。</tag>
 				<tag name="since">unreleased</tag>
 			</tags>
 		</member>

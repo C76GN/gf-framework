@@ -2,7 +2,7 @@
   "schema_version": 1,
   "catalog_version": "1.0.0",
   "framework_version": "9.1.0-dev.0",
-  "source_digest": "22bd25808a65d832f2bef435a741b9e05f166d89ad67d601f35497561cd6706f",
+  "source_digest": "1f26e247b9aca35e744307e5c274b23a22c0077f889f162e53e4e5fb6545091e",
   "class_count": 716,
   "package_count": 50,
   "packages": [
@@ -66356,7 +66356,7 @@
           "kind": "var",
           "name": "redaction_profile",
           "signature": "var redaction_profile: String = GFReportValueCodec.REDACTION_PROFILE_PRIVACY",
-          "summary": "默认报告脱敏 profile。默认使用 privacy，不应为线上玩家数据改成 debug。",
+          "summary": "事件载荷与单次 metadata 的报告脱敏 profile。默认使用 privacy，不应为线上玩家数据改成 debug。",
           "visibility": "public"
         },
         {

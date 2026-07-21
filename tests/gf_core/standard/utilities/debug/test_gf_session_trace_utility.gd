@@ -72,6 +72,94 @@ func test_session_trace_applies_privacy_redaction_before_storage() -> void:
 	assert_false(JSON.stringify(event).contains("player_state.json"), "轨迹中不应残留原始私有路径。")
 
 
+func test_session_trace_persistent_metadata_uses_privacy_floor() -> void:
+	var trace: GFSessionTraceUtility = GFSessionTraceUtility.new()
+	trace.redaction_profile = GFReportValueCodec.REDACTION_PROFILE_DEBUG
+	assert_true(
+		trace.register_channel(
+			&"state",
+			{
+				"metadata": {
+					"channel_owner": self,
+					"channel_path": "res://private/channel_metadata.json",
+				},
+			}
+		),
+		"带 metadata 的通道应注册成功。"
+	)
+	assert_true(
+		trace.register_snapshot_provider(
+			&"state_provider",
+			&"state",
+			func() -> Dictionary:
+				return { "value": 1 },
+			{
+				"metadata": {
+					"provider_owner": self,
+					"provider_path": "res://private/provider_metadata.json",
+				},
+			}
+		),
+		"带 metadata 的 provider 应注册成功。"
+	)
+
+	var _session_id: StringName = trace.start_session(
+		&"metadata-profile",
+		{
+			"session_owner": self,
+			"session_path": "res://private/session_context.json",
+		}
+	)
+	trace.redaction_profile = GFReportValueCodec.REDACTION_PROFILE_PRIVACY
+	var direct: Dictionary = trace.record_event(&"state", &"direct")
+	var captured: Dictionary = trace.capture_snapshot_provider(&"state_provider")
+	var context: Dictionary = GFVariantData.get_option_dictionary(trace.build_snapshot(), "context")
+	var direct_event: Dictionary = GFVariantData.get_option_dictionary(direct, "event")
+	var captured_event: Dictionary = GFVariantData.get_option_dictionary(captured, "event")
+	var direct_metadata: Dictionary = GFVariantData.get_option_dictionary(direct_event, "metadata")
+	var captured_metadata: Dictionary = GFVariantData.get_option_dictionary(captured_event, "metadata")
+	var channel_owner: Dictionary = GFVariantData.get_option_dictionary(direct_metadata, "channel_owner")
+	var channel_marker: Dictionary = GFVariantData.get_option_dictionary(
+		channel_owner,
+		"__gf_report_value__"
+	)
+	var provider_owner: Dictionary = GFVariantData.get_option_dictionary(
+		captured_metadata,
+		"provider_owner"
+	)
+	var provider_marker: Dictionary = GFVariantData.get_option_dictionary(
+		provider_owner,
+		"__gf_report_value__"
+	)
+	var session_owner: Dictionary = GFVariantData.get_option_dictionary(context, "session_owner")
+	var session_marker: Dictionary = GFVariantData.get_option_dictionary(
+		session_owner,
+		"__gf_report_value__"
+	)
+
+	assert_false(session_marker.has("instance_id"), "长期 session context 不应保留对象实例 ID。")
+	assert_false(session_marker.has("node_name"), "长期 session context 不应保留节点名称。")
+	assert_false(channel_marker.has("instance_id"), "长期通道 metadata 不应保留对象实例 ID。")
+	assert_false(channel_marker.has("node_name"), "长期通道 metadata 不应保留节点名称。")
+	assert_false(provider_marker.has("instance_id"), "长期 provider metadata 不应保留对象实例 ID。")
+	assert_false(provider_marker.has("node_name"), "长期 provider metadata 不应保留节点名称。")
+	assert_eq(
+		GFVariantData.get_option_string(context, "session_path"),
+		"<redacted_path>",
+		"长期 session context 应始终使用 privacy 路径脱敏。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(direct_metadata, "channel_path"),
+		"<redacted_path>",
+		"长期通道 metadata 应始终使用 privacy 路径脱敏。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(captured_metadata, "provider_path"),
+		"<redacted_path>",
+		"长期 provider metadata 应始终使用 privacy 路径脱敏。"
+	)
+
+
 func test_session_trace_snapshot_provider_is_explicit_and_bounded() -> void:
 	var trace: GFSessionTraceUtility = GFSessionTraceUtility.new()
 	assert_true(trace.register_channel(&"model"), "模型通道应注册成功。")
@@ -180,6 +268,42 @@ func test_session_trace_forwards_only_bounded_events_to_journal_sink() -> void:
 	assert_eq(sink.flush_count, 1, "逐条 flush 选项应立即刷新。")
 	assert_eq(GFVariantData.get_option_int(summary, "journal_event_count"), 1, "成功 journal 写入应计数。")
 	assert_eq(GFVariantData.get_option_int(summary, "journal_dropped_event_count"), 1, "超出 journal 上限应计入丢弃数。")
+
+
+func test_session_trace_reconfigures_same_journal_sink_without_shutdown() -> void:
+	var trace: GFSessionTraceUtility = GFSessionTraceUtility.new()
+	var sink: StatefulJournalSink = StatefulJournalSink.new()
+	assert_true(
+		trace.configure_journal_sink(
+			sink,
+			{
+				"initialize": true,
+				"shutdown_on_dispose": true,
+			}
+		),
+		"有状态 journal sink 应完成首次配置。"
+	)
+	assert_true(
+		trace.configure_journal_sink(
+			sink,
+			{
+				"shutdown_on_dispose": true,
+				"flush_after_write": true,
+			}
+		),
+		"同一 sink 应能原位更新生命周期选项。"
+	)
+	assert_eq(sink.init_count, 1, "未请求 initialize 时不应重复初始化同一 sink。")
+	assert_eq(sink.flush_count, 0, "原位重配不应提前刷新同一 sink。")
+	assert_eq(sink.shutdown_count, 0, "原位重配不应关闭仍在使用的 sink。")
+
+	assert_true(trace.register_channel(&"route"), "路由通道应注册成功。")
+	var _session_id: StringName = trace.start_session(&"journal-reconfigure")
+	var _recorded: Dictionary = trace.record_event(&"route", &"opened")
+	assert_eq(sink.entries.size(), 1, "原位重配后 sink 仍应保持可写。")
+	assert_eq(sink.flush_count, 1, "更新后的逐条 flush 选项应生效。")
+	trace.dispose()
+	assert_eq(sink.shutdown_count, 1, "最终 dispose 应按更新后的所有权关闭 sink 一次。")
 
 
 func test_session_trace_stop_and_snapshot_expose_structured_summary() -> void:
@@ -313,6 +437,49 @@ func test_session_trace_guards_flush_and_deferred_sink_cleanup_reentry() -> void
 	assert_eq(sink.shutdown_count, 1, "延迟清理应在外层 write 返回后关闭 sink 一次。")
 
 
+func test_session_trace_allows_reentrant_configure_null_journal_clear() -> void:
+	var trace: GFSessionTraceUtility = GFSessionTraceUtility.new()
+	var sink: ConfigureNullJournalSink = ConfigureNullJournalSink.new()
+	sink.trace = trace
+	assert_true(
+		trace.configure_journal_sink(sink, { "shutdown_on_dispose": true }),
+		"回调清除测试 sink 应配置成功。"
+	)
+	assert_true(trace.register_channel(&"route"), "路由通道应注册成功。")
+	var _session_id: StringName = trace.start_session(&"journal-configure-null")
+	var _recorded: Dictionary = trace.record_event(&"route", &"clear_sink")
+
+	assert_true(sink.configure_null_result, "write 回调中的 configure_journal_sink(null) 应成功。")
+	assert_false(
+		GFVariantData.get_option_bool(trace.get_debug_snapshot(), "journal_configured", true),
+		"null 配置应在回调内先原子断开 sink。"
+	)
+	assert_eq(sink.shutdown_count, 1, "回调结束后应按既有所有权关闭 sink 一次。")
+
+
+func test_session_trace_preserves_reentrant_clear_during_sink_replacement() -> void:
+	var trace: GFSessionTraceUtility = GFSessionTraceUtility.new()
+	var old_sink: CleanupConfigureNullJournalSink = CleanupConfigureNullJournalSink.new()
+	var replacement_sink: MemoryJournalSink = MemoryJournalSink.new()
+	old_sink.trace = trace
+	assert_true(trace.configure_journal_sink(old_sink), "旧 journal sink 应配置成功。")
+	old_sink.clear_on_flush = true
+
+	assert_false(
+		trace.configure_journal_sink(replacement_sink),
+		"旧 sink 清理回调主动置空时，外层替换必须中止。"
+	)
+	assert_true(old_sink.configure_null_result, "旧 sink 的清理回调应能请求置空。")
+	assert_false(
+		GFVariantData.get_option_bool(trace.get_debug_snapshot(), "journal_configured", true),
+		"清理回调的置空结果不应被外层替换覆盖。"
+	)
+	assert_true(
+		trace.configure_journal_sink(replacement_sink),
+		"清理回调结束后应允许调用方显式重试替换。"
+	)
+
+
 func test_session_trace_rejects_journal_profile_weaker_than_sink_boundary() -> void:
 	var trace: GFSessionTraceUtility = GFSessionTraceUtility.new()
 	var sink: PrivacyJournalSink = PrivacyJournalSink.new()
@@ -368,6 +535,23 @@ class MemoryJournalSink extends GFLogSink:
 		shutdown_count += 1
 
 
+class StatefulJournalSink extends MemoryJournalSink:
+	var init_count: int = 0
+	var active: bool = false
+
+	func init(_owner: Object) -> void:
+		init_count += 1
+		active = true
+
+	func write(entry: Dictionary) -> void:
+		if active:
+			super.write(entry)
+
+	func shutdown() -> void:
+		active = false
+		super.shutdown()
+
+
 class ReentrantJournalSink extends GFLogSink:
 	var trace: GFSessionTraceUtility = null
 	var write_count: int = 0
@@ -392,6 +576,27 @@ class LifecycleReentrantJournalSink extends MemoryJournalSink:
 		super.flush()
 		if flush_count == 1:
 			var _nested: Dictionary = trace.record_event(&"route", &"flush_reentered")
+
+
+class ConfigureNullJournalSink extends MemoryJournalSink:
+	var trace: GFSessionTraceUtility = null
+	var configure_null_result: bool = false
+
+	func write(entry: Dictionary) -> void:
+		super.write(entry)
+		configure_null_result = trace.configure_journal_sink(null)
+
+
+class CleanupConfigureNullJournalSink extends MemoryJournalSink:
+	var trace: GFSessionTraceUtility = null
+	var clear_on_flush: bool = false
+	var configure_null_result: bool = false
+
+	func flush() -> void:
+		super.flush()
+		if clear_on_flush:
+			clear_on_flush = false
+			configure_null_result = trace.configure_journal_sink(null)
 
 
 class PrivacyJournalSink extends MemoryJournalSink:

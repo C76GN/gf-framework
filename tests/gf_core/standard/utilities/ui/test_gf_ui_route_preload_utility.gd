@@ -7,6 +7,7 @@ const _SCENE_A: String = "res://tests/gf_core/fixtures/scene_signal_audit_valid.
 const _SCENE_B: String = "res://addons/gut/gui/NormalGui.tscn"
 const _SCENE_C: String = "res://addons/gut/gui/MinGui.tscn"
 const _SCENE_D: String = "res://addons/gut/gui/GutRunner.tscn"
+const _NON_SCENE_RESOURCE: String = "res://addons/gf/standard/utilities/ui/gf_ui_route.gd"
 
 
 # --- 测试方法 ---
@@ -100,6 +101,42 @@ func test_route_preload_plan_reports_missing_routes_and_scene_resources() -> voi
 		GFVariantData.get_option_packed_string_array(result, "missing_scene_paths"),
 		PackedStringArray(["res://missing/ui_panel.tscn"]),
 		"应按选项报告缺失页面资源。"
+	)
+	assert_true(
+		GFVariantData.get_option_packed_string_array(result, "invalid_scene_type_paths").is_empty(),
+		"缺失资源不应混入类型错误诊断。"
+	)
+
+
+func test_route_preload_plan_rejects_existing_non_scene_resources() -> void:
+	assert_true(ResourceLoader.exists(_NON_SCENE_RESOURCE), "测试资源必须存在。")
+	assert_false(
+		ResourceLoader.get_recognized_extensions_for_type("PackedScene").has("gd"),
+		"测试资源不能被识别为 PackedScene。"
+	)
+	var routes: Array[GFUIRoute] = [
+		_make_route(&"home", _SCENE_A, PackedStringArray(["invalid_scene"])),
+		_make_route(&"invalid_scene", _NON_SCENE_RESOURCE),
+	]
+	var result: Dictionary = GFUIRoutePreloadUtility.build_plan(
+		routes,
+		&"home",
+		{ "check_exists": true }
+	)
+
+	assert_true(GFVariantData.get_option_bool(result, "ok"), "有效部分仍应生成稳定计划。")
+	assert_false(
+		GFVariantData.get_option_bool(result, "healthy", true),
+		"指向非场景资源的路由必须标记为不健康。"
+	)
+	assert_eq(
+		GFVariantData.get_option_packed_string_array(result, "invalid_scene_type_paths"),
+		PackedStringArray([_NON_SCENE_RESOURCE]),
+		"类型不匹配的既有资源应进入场景路径诊断。"
+	)
+	assert_true(
+		GFVariantData.get_option_packed_string_array(result, "missing_scene_paths").is_empty(),
+		"类型不匹配的既有资源不应误报为缺失。"
 	)
 
 

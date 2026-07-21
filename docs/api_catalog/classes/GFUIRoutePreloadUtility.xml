@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFUIRoutePreloadUtility" path="addons/gf/standard/utilities/ui/gf_ui_route_preload_utility.gd" module="standard" extends="RefCounted" classDigest="f214799fe4550e1a6576e0b17f93166378858dc6968307f285a6665db0b0d6f3">
+<class name="GFUIRoutePreloadUtility" path="addons/gf/standard/utilities/ui/gf_ui_route_preload_utility.gd" module="standard" extends="RefCounted" classDigest="1ed4fce708d670974324d407afcb04d0c265a6d5a3482d609bc63bb1896f5946">
 	<description>GFUIRoutePreloadUtility: 从显式 UI 路由关系构建资源预加载计划。
 该工具只做有界、确定性的可达性遍历，并把页面场景转换为 GFAssetPreloadPlan。
 权限、导航守卫、动态业务分支和实际预加载时机仍由项目负责。</description>
@@ -64,7 +64,7 @@
 				<tag name="param">options: 计划选项。</tag>
 				<tag name="return">路由预加载结果。</tag>
 				<tag name="schema">options: Dictionary，可包含 max_depth、max_routes、max_edges、max_catalog_routes、include_source、fixed_route_ids、group_id、plan_id、pin_cache、lane_id、max_concurrent_loads、check_exists 和 metadata；fixed_route_ids 优先占用 max_routes 预算，max_catalog_routes 限制输入目录检查数量。</tag>
-				<tag name="schema">return: Dictionary，包含 ok、healthy、reason、source_route_id、max_depth、max_routes、max_edges、max_catalog_routes、catalog_route_count、edge_count、truncated、catalog_budget_exhausted、route_budget_exhausted、edge_budget_exhausted、route_ids、fixed_route_ids、temporary_route_ids、scene_paths、missing_route_ids、routes_without_scene、missing_scene_paths、duplicate_route_ids、asset_plan 和 metadata；asset_plan 为 GFAssetPreloadPlan。</tag>
+				<tag name="schema">return: Dictionary，包含 ok、healthy、reason、source_route_id、max_depth、max_routes、max_edges、max_catalog_routes、catalog_route_count、edge_count、truncated、catalog_budget_exhausted、route_budget_exhausted、edge_budget_exhausted、route_ids、fixed_route_ids、temporary_route_ids、scene_paths、missing_route_ids、routes_without_scene、missing_scene_paths、invalid_scene_type_paths、duplicate_route_ids、asset_plan 和 metadata；asset_plan 为 GFAssetPreloadPlan。</tag>
 				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
