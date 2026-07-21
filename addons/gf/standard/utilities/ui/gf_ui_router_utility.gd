@@ -178,7 +178,7 @@ func register_routes(routes: Array[GFUIRoute]) -> void:
 ## [br]
 ## @param route_id: 路由标识。
 func unregister_route(route_id: StringName) -> void:
-	var _erased: bool = _routes.erase(route_id)
+	var _erased: bool = _routes.erase(_normalize_route_id(route_id))
 
 
 ## 清空路由表。
@@ -196,7 +196,9 @@ func clear_routes() -> void:
 ## [br]
 ## @return 路由资源；不存在时返回 null。
 func get_route(route_id: StringName) -> GFUIRoute:
-	return _get_route_value(GFVariantData.get_option_value(_routes, route_id))
+	return _get_route_value(
+		GFVariantData.get_option_value(_routes, _normalize_route_id(route_id))
+	)
 
 
 ## 检查路由是否已注册。
@@ -221,6 +223,41 @@ func get_route_ids() -> PackedStringArray:
 		var _appended: bool = ids.append(GFVariantData.to_text(key))
 	ids.sort()
 	return ids
+
+
+## 从已注册路由构建有界的页面资源预加载计划。
+## 结果中的 asset_plan 可直接交给 GFAssetUtility.preload_plan_async()。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param source_route_id: 起始路由标识。
+## [br]
+## @param options: 传给 GFUIRoutePreloadUtility.build_plan() 的选项。
+## [br]
+## @schema options: Dictionary，可包含 max_depth、max_catalog_routes、max_routes、max_edges、include_source、fixed_route_ids、group_id、plan_id、pin_cache、lane_id、max_concurrent_loads、check_exists 和 metadata。
+## [br]
+## @return 路由预加载结果。
+## [br]
+## @schema return: Dictionary，结构同 GFUIRoutePreloadUtility.build_plan()，其中 asset_plan 为 GFAssetPreloadPlan。
+func build_preload_plan(source_route_id: StringName, options: Dictionary = {}) -> Dictionary:
+	var max_catalog_routes: int = maxi(
+		GFVariantData.get_option_int(
+			options,
+			"max_catalog_routes",
+			GFUIRoutePreloadUtility.DEFAULT_MAX_CATALOG_ROUTES
+		),
+		0
+	)
+	var planner_input_limit: int = max_catalog_routes
+	if _routes.size() > max_catalog_routes:
+		planner_input_limit += 1
+	return GFUIRoutePreloadUtility.build_plan(
+		_get_registered_routes(planner_input_limit),
+		source_route_id,
+		options
+	)
 
 
 ## 压入一个路由面板。
@@ -423,20 +460,21 @@ func _open_route(
 	option_overrides: Dictionary,
 	config_callback: Callable
 ) -> Node:
-	var route: GFUIRoute = _resolve_route_or_fail(route_id)
+	var normalized_route_id: StringName = _normalize_route_id(route_id)
+	var route: GFUIRoute = _resolve_route_or_fail(normalized_route_id)
 	if route == null:
 		return null
 
 	var ui_utility: GFUIUtility = _get_ui_utility()
 	if ui_utility == null:
-		_fail_route(route_id, "missing_ui_utility")
+		_fail_route(normalized_route_id, "missing_ui_utility")
 		return null
 	var route_layer: int = _get_ui_layer(route.layer)
 	if not ui_utility.has_layer(route_layer):
-		_fail_route(route_id, "missing_ui_layer")
+		_fail_route(normalized_route_id, "missing_ui_layer")
 		return null
 
-	route_open_requested.emit(route_id, operation, params.duplicate(true))
+	route_open_requested.emit(normalized_route_id, operation, params.duplicate(true))
 	var options: Dictionary = route.build_options(params, option_overrides)
 	var wrapped_callback: Callable = _make_route_config_callback(route, params, config_callback, operation)
 	var panel: Node = null
@@ -457,7 +495,7 @@ func _open_route(
 		)
 
 	if panel == null:
-		_fail_route(route_id, "panel_open_failed")
+		_fail_route(normalized_route_id, "panel_open_failed")
 		return null
 
 	_record_route_open(route, panel, params, operation)
@@ -471,33 +509,34 @@ func _open_route_async(
 	option_overrides: Dictionary,
 	config_callback: Callable
 ) -> void:
-	var route: GFUIRoute = _resolve_route_or_fail(route_id)
+	var normalized_route_id: StringName = _normalize_route_id(route_id)
+	var route: GFUIRoute = _resolve_route_or_fail(normalized_route_id)
 	if route == null:
 		return
 
 	var ui_utility: GFUIUtility = _get_ui_utility()
 	if ui_utility == null:
-		_fail_route(route_id, "missing_ui_utility")
+		_fail_route(normalized_route_id, "missing_ui_utility")
 		return
 	var route_layer: int = _get_ui_layer(route.layer)
 	if not ui_utility.has_layer(route_layer):
-		_fail_route(route_id, "missing_ui_layer")
+		_fail_route(normalized_route_id, "missing_ui_layer")
 		return
 
 	var pending_route: Dictionary = _find_pending_async_route(route.scene_path, route.layer, operation)
 	if not pending_route.is_empty():
 		var pending_route_id: StringName = GFVariantData.get_option_string_name(pending_route, "route_id", &"")
-		if pending_route_id == route_id:
+		if pending_route_id == normalized_route_id:
 			return
-		_fail_route(route_id, "route_async_conflict")
+		_fail_route(normalized_route_id, "route_async_conflict")
 		return
 
-	route_open_requested.emit(route_id, operation, params.duplicate(true))
+	route_open_requested.emit(normalized_route_id, operation, params.duplicate(true))
 	var options: Dictionary = route.build_options(params, option_overrides)
 	var wrapped_callback: Callable = _make_route_config_callback(route, params, config_callback, operation)
 	_ensure_ui_async_signal_connected(ui_utility)
 	_pending_async_routes[_make_pending_async_route_key(route.scene_path, route.layer, operation)] = {
-		"route_id": route_id,
+		"route_id": normalized_route_id,
 		"layer": route.layer,
 		"operation": operation,
 	}
@@ -709,6 +748,23 @@ func _get_route_value(value: Variant) -> GFUIRoute:
 		var route: GFUIRoute = value
 		return route
 	return null
+
+
+func _normalize_route_id(route_id: StringName) -> StringName:
+	return StringName(String(route_id).strip_edges())
+
+
+func _get_registered_routes(limit: int) -> Array[GFUIRoute]:
+	var result: Array[GFUIRoute] = []
+	var inspected_count: int = 0
+	for route_key: Variant in _routes:
+		if inspected_count >= limit:
+			break
+		inspected_count += 1
+		var route: GFUIRoute = _get_route_value(_routes[route_key])
+		if route != null:
+			result.append(route)
+	return result
 
 
 func _get_ui_utility_value(value: Variant) -> GFUIUtility:

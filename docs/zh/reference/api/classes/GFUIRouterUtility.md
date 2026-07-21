@@ -32,6 +32,7 @@
 | 方法 | [`get_route`](#member-gfuirouterutility-methods-get_route) | `func get_route(route_id: StringName) -> GFUIRoute:` |
 | 方法 | [`has_route`](#member-gfuirouterutility-methods-has_route) | `func has_route(route_id: StringName) -> bool:` |
 | 方法 | [`get_route_ids`](#member-gfuirouterutility-methods-get_route_ids) | `func get_route_ids() -> PackedStringArray:` |
+| 方法 | [`build_preload_plan`](#member-gfuirouterutility-methods-build_preload_plan) | `func build_preload_plan(source_route_id: StringName, options: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`push_route`](#member-gfuirouterutility-methods-push_route) | `func push_route( route_id: StringName, params: Dictionary = {}, option_overrides: Dictionary = {}, config_callback: Callable = Callable() ) -> Node:` |
 | 方法 | [`replace_route`](#member-gfuirouterutility-methods-replace_route) | `func replace_route( route_id: StringName, params: Dictionary = {}, option_overrides: Dictionary = {}, config_callback: Callable = Callable() ) -> Node:` |
 | 方法 | [`push_route_async`](#member-gfuirouterutility-methods-push_route_async) | `func push_route_async( route_id: StringName, params: Dictionary = {}, option_overrides: Dictionary = {}, config_callback: Callable = Callable() ) -> void:` |
@@ -343,6 +344,33 @@ func get_route_ids() -> PackedStringArray:
 获取所有路由标识。
 
 返回：路由标识列表。
+
+<a id="member-gfuirouterutility-methods-build_preload_plan"></a>
+
+### `build_preload_plan`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func build_preload_plan(source_route_id: StringName, options: Dictionary = {}) -> Dictionary:
+```
+
+从已注册路由构建有界的页面资源预加载计划。 结果中的 asset_plan 可直接交给 GFAssetUtility.preload_plan_async()。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `source_route_id` | 起始路由标识。 |
+| `options` | 传给 GFUIRoutePreloadUtility.build_plan() 的选项。 |
+
+返回：路由预加载结果。
+
+结构：
+
+- `options`: Dictionary，可包含 max_depth、max_catalog_routes、max_routes、max_edges、include_source、fixed_route_ids、group_id、plan_id、pin_cache、lane_id、max_concurrent_loads、check_exists 和 metadata。
+- `return`: Dictionary，结构同 GFUIRoutePreloadUtility.build_plan()，其中 asset_plan 为 GFAssetPreloadPlan。
 
 <a id="member-gfuirouterutility-methods-push_route"></a>
 

@@ -168,7 +168,8 @@
       "res://tests/gf_core/standard/utilities/debug/test_gf_console_utility.gd",
       "res://tests/gf_core/standard/utilities/debug/test_gf_diagnostics_utility.gd",
       "res://tests/gf_core/standard/utilities/debug/test_gf_async_tracker_utility.gd",
-      "res://tests/gf_core/standard/utilities/debug/test_gf_operation_diagnostics_utility.gd"
+      "res://tests/gf_core/standard/utilities/debug/test_gf_operation_diagnostics_utility.gd",
+      "res://tests/gf_core/standard/utilities/debug/test_gf_session_trace_utility.gd"
     ],
     "gf.standard.deterministic": [
       "res://tests/gf_core/standard/foundation/deterministic/test_gf_deterministic_random.gd",
@@ -253,7 +254,8 @@
     ],
     "gf.standard.ui.navigation": [
       "res://tests/gf_core/standard/utilities/ui/test_gf_ui_utility.gd",
-      "res://tests/gf_core/standard/utilities/ui/test_gf_ui_router_utility.gd"
+      "res://tests/gf_core/standard/utilities/ui/test_gf_ui_router_utility.gd",
+      "res://tests/gf_core/standard/utilities/ui/test_gf_ui_route_preload_utility.gd"
     ],
     "gf.standard.ui.state": [
       "res://tests/gf_core/standard/utilities/ui/test_gf_item_list_binder.gd",

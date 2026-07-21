@@ -2,8 +2,8 @@
   "schema_version": 1,
   "catalog_version": "1.0.0",
   "framework_version": "9.1.0-dev.0",
-  "source_digest": "b4fdfdc3c6854c4a771e569719bb75cd85e209fe2a62ecbc18638abf917a18a3",
-  "class_count": 714,
+  "source_digest": "1f26e247b9aca35e744307e5c274b23a22c0077f889f162e53e4e5fb6545091e",
+  "class_count": 716,
   "package_count": 50,
   "packages": [
     {
@@ -298,7 +298,7 @@
         "gf.kernel",
         "gf.standard.base"
       ],
-      "description": "Runtime diagnostics, build info snapshots, operation timelines, and the lightweight developer console used by tools that only need observability hooks.",
+      "description": "Runtime diagnostics, build info snapshots, bounded session traces, operation timelines, and the lightweight developer console used by tools that only need observability hooks.",
       "representative_path": "addons/gf/standard/utilities/debug/gf_async_tracker_utility.gd"
     },
     {
@@ -477,7 +477,7 @@
         "gf.standard.assets",
         "gf.standard.ui"
       ],
-      "description": "Stack-based UI panel management, route resources, and route-driven navigation helpers.",
+      "description": "Stack-based UI panel management, route resources, bounded route preload planning, and route-driven navigation helpers.",
       "representative_path": "addons/gf/standard/utilities/ui/gf_ui_layer_definition.gd"
     },
     {
@@ -66181,6 +66181,326 @@
         }
       ]
     },
+    "GFSessionTraceUtility": {
+      "extends": "GFUtility",
+      "module": "standard",
+      "package_id": "gf.standard.diagnostics",
+      "path": "addons/gf/standard/utilities/debug/gf_session_trace_utility.gd",
+      "summary": "GFSessionTraceUtility: 有界的运行时会话轨迹记录器。 项目必须先显式注册通道，才能记录输入、路由、存档、网络或其他语义事件。 轨迹只保存经过技术脱敏和字节预算约束的结构化数据，不扫描场景树、节点属性或业务状态。",
+      "visibility": "public",
+      "category": "runtime_service",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "signal",
+          "name": "session_started",
+          "signature": "signal session_started(session_id: StringName, context: Dictionary)",
+          "summary": "会话开始后发出。",
+          "visibility": "public"
+        },
+        {
+          "kind": "signal",
+          "name": "session_stopped",
+          "signature": "signal session_stopped(summary: Dictionary)",
+          "summary": "会话停止后发出。",
+          "visibility": "public"
+        },
+        {
+          "kind": "signal",
+          "name": "event_recorded",
+          "signature": "signal event_recorded(event: Dictionary)",
+          "summary": "事件成功进入有界轨迹后发出。",
+          "visibility": "public"
+        },
+        {
+          "kind": "signal",
+          "name": "event_rejected",
+          "signature": "signal event_rejected(channel_id: StringName, event_id: StringName, reason: StringName)",
+          "summary": "事件被明确拒绝后发出。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "DEFAULT_MAX_EVENTS",
+          "signature": "const DEFAULT_MAX_EVENTS: int = 512",
+          "summary": "默认最多保留的内存事件数量。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "DEFAULT_MAX_EVENT_BUFFER_BYTES",
+          "signature": "const DEFAULT_MAX_EVENT_BUFFER_BYTES: int = 1024 * 1024",
+          "summary": "默认内存事件缓冲总字节预算。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "DEFAULT_MAX_EVENT_BYTES",
+          "signature": "const DEFAULT_MAX_EVENT_BYTES: int = 16 * 1024",
+          "summary": "默认单个事件字节预算。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "DEFAULT_MAX_CHANNELS",
+          "signature": "const DEFAULT_MAX_CHANNELS: int = 32",
+          "summary": "默认最多允许注册的通道数量。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "DEFAULT_MAX_SNAPSHOT_PROVIDERS",
+          "signature": "const DEFAULT_MAX_SNAPSHOT_PROVIDERS: int = 32",
+          "summary": "默认最多允许注册的同步快照 provider 数量。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "DEFAULT_MAX_JOURNAL_EVENTS",
+          "signature": "const DEFAULT_MAX_JOURNAL_EVENTS: int = 2048",
+          "summary": "默认单次会话最多写入 journal 的事件数量。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "REJECT_SESSION_INACTIVE",
+          "signature": "const REJECT_SESSION_INACTIVE: StringName = &\"session_inactive\"",
+          "summary": "拒绝原因：当前没有活动会话。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "REJECT_UNKNOWN_CHANNEL",
+          "signature": "const REJECT_UNKNOWN_CHANNEL: StringName = &\"unknown_channel\"",
+          "summary": "拒绝原因：通道未显式注册。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "REJECT_CHANNEL_DISABLED",
+          "signature": "const REJECT_CHANNEL_DISABLED: StringName = &\"channel_disabled\"",
+          "summary": "拒绝原因：通道当前被禁用。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "REJECT_INVALID_EVENT_ID",
+          "signature": "const REJECT_INVALID_EVENT_ID: StringName = &\"invalid_event_id\"",
+          "summary": "拒绝原因：事件标识为空。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "REJECT_EVENT_TOO_LARGE",
+          "signature": "const REJECT_EVENT_TOO_LARGE: StringName = &\"event_too_large\"",
+          "summary": "拒绝原因：单个事件或总轨迹预算无法容纳事件。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "REJECT_INVALID_PROVIDER",
+          "signature": "const REJECT_INVALID_PROVIDER: StringName = &\"invalid_provider\"",
+          "summary": "拒绝原因：快照 provider 不存在或失效。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "REJECT_PROVIDER_REENTRANT",
+          "signature": "const REJECT_PROVIDER_REENTRANT: StringName = &\"provider_reentrant\"",
+          "summary": "拒绝原因：快照 provider 发生重入调用。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "max_events",
+          "signature": "var max_events: int = DEFAULT_MAX_EVENTS",
+          "summary": "最多保留的内存事件数量。0 表示不保留新事件。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "max_event_buffer_bytes",
+          "signature": "var max_event_buffer_bytes: int = DEFAULT_MAX_EVENT_BUFFER_BYTES",
+          "summary": "内存事件缓冲总字节预算。会话上下文和有界目录 metadata 不计入该预算。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "max_event_bytes",
+          "signature": "var max_event_bytes: int = DEFAULT_MAX_EVENT_BYTES",
+          "summary": "单个事件字节预算；小于最小安全包络时会提升到最小值。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "max_channels",
+          "signature": "var max_channels: int = DEFAULT_MAX_CHANNELS",
+          "summary": "最多允许注册的通道数量。降低上限不会隐式删除既有通道。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "max_snapshot_providers",
+          "signature": "var max_snapshot_providers: int = DEFAULT_MAX_SNAPSHOT_PROVIDERS",
+          "summary": "最多允许注册的同步快照 provider 数量。降低上限不会隐式删除既有 provider。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "max_journal_events",
+          "signature": "var max_journal_events: int = DEFAULT_MAX_JOURNAL_EVENTS",
+          "summary": "单次会话最多写入 journal 的事件数量。0 表示禁用 journal 写入。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "redaction_profile",
+          "signature": "var redaction_profile: String = GFReportValueCodec.REDACTION_PROFILE_PRIVACY",
+          "summary": "事件载荷与单次 metadata 的报告脱敏 profile。默认使用 privacy，不应为线上玩家数据改成 debug。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "dispose",
+          "signature": "func dispose() -> void",
+          "summary": "停止活动会话、刷新 journal 并释放所有注册数据。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "start_session",
+          "signature": "func start_session( requested_session_id: StringName = &\"\", context: Dictionary = {}, options: Dictionary = {} ) -> StringName",
+          "summary": "开始新的会话。已有活动会话会先以 restarted 原因停止。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "stop_session",
+          "signature": "func stop_session(reason: StringName = &\"completed\") -> Dictionary",
+          "summary": "停止当前会话并返回不含完整事件载荷的摘要。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "clear",
+          "signature": "func clear() -> void",
+          "summary": "清空内存事件和计数，但保留通道、provider、journal 与当前会话配置。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "register_channel",
+          "signature": "func register_channel(channel_id: StringName, options: Dictionary = {}) -> bool",
+          "summary": "注册一个允许记录的事件通道。未知通道始终 fail closed。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "unregister_channel",
+          "signature": "func unregister_channel(channel_id: StringName) -> bool",
+          "summary": "注销事件通道。既有事件不会被删除。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "has_channel",
+          "signature": "func has_channel(channel_id: StringName) -> bool",
+          "summary": "检查通道是否已显式注册。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "set_channel_enabled",
+          "signature": "func set_channel_enabled(channel_id: StringName, enabled: bool) -> bool",
+          "summary": "启用或禁用已注册通道。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_channel_catalog",
+          "signature": "func get_channel_catalog() -> Dictionary",
+          "summary": "获取不含回调或事件载荷的通道目录。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "record_event",
+          "signature": "func record_event( channel_id: StringName, event_id: StringName, payload: Variant = null, options: Dictionary = {} ) -> Dictionary",
+          "summary": "记录一个显式通道事件。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "register_snapshot_provider",
+          "signature": "func register_snapshot_provider( provider_id: StringName, channel_id: StringName, provider: Callable, options: Dictionary = {} ) -> bool",
+          "summary": "注册一个由项目显式触发的同步快照 provider。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "unregister_snapshot_provider",
+          "signature": "func unregister_snapshot_provider(provider_id: StringName) -> bool",
+          "summary": "注销同步快照 provider。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "capture_snapshot_provider",
+          "signature": "func capture_snapshot_provider(provider_id: StringName, options: Dictionary = {}) -> Dictionary",
+          "summary": "显式调用一个同步快照 provider 并把结果记录为事件。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_snapshot_provider_catalog",
+          "signature": "func get_snapshot_provider_catalog() -> Dictionary",
+          "summary": "获取同步快照 provider 目录，不包含 Callable 本身。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "configure_journal_sink",
+          "signature": "func configure_journal_sink(sink: GFLogSink, options: Dictionary = {}) -> bool",
+          "summary": "配置可选 journal sink。GF 不会默认创建文件或上传边界。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "flush_journal",
+          "signature": "func flush_journal() -> void",
+          "summary": "刷新当前 journal sink。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "clear_journal_sink",
+          "signature": "func clear_journal_sink(shutdown: bool = false) -> void",
+          "summary": "清除 journal sink，并可选关闭其资源。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_events",
+          "signature": "func get_events(limit: int = 0, filters: Dictionary = {}) -> Array[Dictionary]",
+          "summary": "获取过滤后的事件副本。limit 保留最新 N 条并维持时间顺序。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "build_snapshot",
+          "signature": "func build_snapshot(options: Dictionary = {}) -> Dictionary",
+          "summary": "构建适合诊断快照或支持报告分区的结构化轨迹。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_debug_snapshot",
+          "signature": "func get_debug_snapshot() -> Dictionary",
+          "summary": "获取不含完整事件载荷的调试快照。",
+          "visibility": "public"
+        }
+      ]
+    },
     "GFSettingDefinition": {
       "extends": "Resource",
       "module": "standard",
@@ -78484,6 +78804,13 @@
           "visibility": "public"
         },
         {
+          "kind": "var",
+          "name": "adjacent_route_ids",
+          "signature": "var adjacent_route_ids: PackedStringArray = PackedStringArray()",
+          "summary": "从当前页面可能到达的相邻路由标识。",
+          "visibility": "public"
+        },
+        {
           "kind": "func",
           "name": "get_route_id",
           "signature": "func get_route_id() -> StringName",
@@ -78499,9 +78826,70 @@
         },
         {
           "kind": "func",
+          "name": "get_adjacent_route_ids",
+          "signature": "func get_adjacent_route_ids() -> PackedStringArray",
+          "summary": "获取去重且移除自引用后的相邻路由标识。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
           "name": "build_options",
           "signature": "func build_options(params: Dictionary = {}, option_overrides: Dictionary = {}) -> Dictionary",
           "summary": "合并默认选项、覆盖选项和路由参数。",
+          "visibility": "public"
+        }
+      ]
+    },
+    "GFUIRoutePreloadUtility": {
+      "extends": "RefCounted",
+      "module": "standard",
+      "package_id": "gf.standard.ui.navigation",
+      "path": "addons/gf/standard/utilities/ui/gf_ui_route_preload_utility.gd",
+      "summary": "GFUIRoutePreloadUtility: 从显式 UI 路由关系构建资源预加载计划。 该工具只做有界、确定性的可达性遍历，并把页面场景转换为 GFAssetPreloadPlan。 权限、导航守卫、动态业务分支和实际预加载时机仍由项目负责。",
+      "visibility": "public",
+      "category": "runtime_service",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "const",
+          "name": "DEFAULT_MAX_DEPTH",
+          "signature": "const DEFAULT_MAX_DEPTH: int = 1",
+          "summary": "默认搜索深度，只包含直接相邻路由。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "DEFAULT_MAX_ROUTES",
+          "signature": "const DEFAULT_MAX_ROUTES: int = 64",
+          "summary": "默认单次计划最多包含的路由数量。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "DEFAULT_MAX_EDGES",
+          "signature": "const DEFAULT_MAX_EDGES: int = 512",
+          "summary": "默认单次遍历最多检查的原始相邻关系数量。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "DEFAULT_MAX_CATALOG_ROUTES",
+          "signature": "const DEFAULT_MAX_CATALOG_ROUTES: int = 1024",
+          "summary": "默认单次规划最多检查的输入路由资源数量。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "DEFAULT_GROUP_ID",
+          "signature": "const DEFAULT_GROUP_ID: StringName = &\"ui_route_preload\"",
+          "summary": "默认资产预加载分组标识。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "build_plan",
+          "signature": "static func build_plan( routes: Array[GFUIRoute], source_route_id: StringName, options: Dictionary = {} ) -> Dictionary",
+          "summary": "从路由资源构建有界可达性报告和 GFAssetPreloadPlan。",
           "visibility": "public"
         }
       ]
@@ -78633,6 +79021,13 @@
           "name": "get_route_ids",
           "signature": "func get_route_ids() -> PackedStringArray",
           "summary": "获取所有路由标识。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "build_preload_plan",
+          "signature": "func build_preload_plan(source_route_id: StringName, options: Dictionary = {}) -> Dictionary",
+          "summary": "从已注册路由构建有界的页面资源预加载计划。",
           "visibility": "public"
         },
         {

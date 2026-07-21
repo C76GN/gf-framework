@@ -4,7 +4,7 @@
   "kind": "standard",
   "version": "unreleased",
   "display_name": "GF Standard UI Navigation",
-  "description": "Stack-based UI panel management, route resources, and route-driven navigation helpers.",
+  "description": "Stack-based UI panel management, route resources, bounded route preload planning, and route-driven navigation helpers.",
   "dependencies": [
     "gf.kernel",
     "gf.standard.base",
@@ -16,6 +16,8 @@
     "addons/gf/standard/utilities/ui/gf_ui_layer_definition.gd.uid",
     "addons/gf/standard/utilities/ui/gf_ui_route.gd",
     "addons/gf/standard/utilities/ui/gf_ui_route.gd.uid",
+    "addons/gf/standard/utilities/ui/gf_ui_route_preload_utility.gd",
+    "addons/gf/standard/utilities/ui/gf_ui_route_preload_utility.gd.uid",
     "addons/gf/standard/utilities/ui/gf_ui_router_utility.gd",
     "addons/gf/standard/utilities/ui/gf_ui_router_utility.gd.uid",
     "addons/gf/standard/utilities/ui/gf_ui_utility.gd",

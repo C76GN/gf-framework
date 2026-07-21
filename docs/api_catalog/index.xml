@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<apiCatalog schemaVersion="2" name="GF Framework" sourceRoot="addons/gf" sourceDigest="83bef77bd662b5ae096442aa8ee676803c673a64094c35f19dec8eb2bb11610d" classCount="738" methodCount="6592">
+<apiCatalog schemaVersion="2" name="GF Framework" sourceRoot="addons/gf" sourceDigest="32da46f19164356a2b472ca809c0e6f1e894dad8c7ea146bd66caecb91517699" classCount="740" methodCount="6615">
 	<module id="kernel" label="Kernel" classCount="70" methodCount="715">
 		<class name="GFAccessGenerator" path="classes/GFAccessGenerator.xml" sourcePath="addons/gf/kernel/editor/gf_access_generator.gd" extends="RefCounted" />
 		<class name="GFArchitecture" path="classes/GFArchitecture.xml" sourcePath="addons/gf/kernel/core/gf_architecture.gd" extends="Object" />
@@ -72,7 +72,7 @@
 		<class name="GFTypeEventSystem" path="classes/GFTypeEventSystem.xml" sourcePath="addons/gf/kernel/core/gf_type_event_system.gd" extends="Object" />
 		<class name="GFUtility" path="classes/GFUtility.xml" sourcePath="addons/gf/kernel/base/gf_utility.gd" extends="Object" />
 	</module>
-	<module id="standard" label="Standard" classCount="411" methodCount="4124">
+	<module id="standard" label="Standard" classCount="413" methodCount="4147">
 		<class name="GFActivationTransaction" path="classes/GFActivationTransaction.xml" sourcePath="addons/gf/standard/foundation/policy/gf_activation_transaction.gd" extends="RefCounted" />
 		<class name="GFAnalyticsConfig" path="classes/GFAnalyticsConfig.xml" sourcePath="addons/gf/standard/utilities/analytics/gf_analytics_config.gd" extends="Resource" />
 		<class name="GFAnalyticsUtility" path="classes/GFAnalyticsUtility.xml" sourcePath="addons/gf/standard/utilities/analytics/gf_analytics_utility.gd" extends="GFUtility" />
@@ -385,6 +385,7 @@
 		<class name="GFSeedUtility" path="classes/GFSeedUtility.xml" sourcePath="addons/gf/standard/utilities/random/gf_seed_utility.gd" extends="GFUtility" />
 		<class name="GFSequenceContext" path="classes/GFSequenceContext.xml" sourcePath="addons/gf/standard/sequence/gf_sequence_context.gd" extends="RefCounted" />
 		<class name="GFSequenceStep" path="classes/GFSequenceStep.xml" sourcePath="addons/gf/standard/sequence/gf_sequence_step.gd" extends="Resource" />
+		<class name="GFSessionTraceUtility" path="classes/GFSessionTraceUtility.xml" sourcePath="addons/gf/standard/utilities/debug/gf_session_trace_utility.gd" extends="GFUtility" />
 		<class name="GFSettingDefinition" path="classes/GFSettingDefinition.xml" sourcePath="addons/gf/standard/utilities/settings/gf_setting_definition.gd" extends="Resource" />
 		<class name="GFSettingsUtility" path="classes/GFSettingsUtility.xml" sourcePath="addons/gf/standard/utilities/settings/gf_settings_utility.gd" extends="GFUtility" />
 		<class name="GFShaderParameterBinder" path="classes/GFShaderParameterBinder.xml" sourcePath="addons/gf/standard/utilities/display/gf_shader_parameter_binder.gd" extends="Node" />
@@ -456,6 +457,7 @@
 		<class name="GFTransform3DMath" path="classes/GFTransform3DMath.xml" sourcePath="addons/gf/standard/foundation/math/gf_transform_3d_math.gd" extends="RefCounted" />
 		<class name="GFUILayerDefinition" path="classes/GFUILayerDefinition.xml" sourcePath="addons/gf/standard/utilities/ui/gf_ui_layer_definition.gd" extends="Resource" />
 		<class name="GFUIRoute" path="classes/GFUIRoute.xml" sourcePath="addons/gf/standard/utilities/ui/gf_ui_route.gd" extends="Resource" />
+		<class name="GFUIRoutePreloadUtility" path="classes/GFUIRoutePreloadUtility.xml" sourcePath="addons/gf/standard/utilities/ui/gf_ui_route_preload_utility.gd" extends="RefCounted" />
 		<class name="GFUIRouterUtility" path="classes/GFUIRouterUtility.xml" sourcePath="addons/gf/standard/utilities/ui/gf_ui_router_utility.gd" extends="GFUtility" />
 		<class name="GFUIUtility" path="classes/GFUIUtility.xml" sourcePath="addons/gf/standard/utilities/ui/gf_ui_utility.gd" extends="GFUtility" />
 		<class name="GFUndoableCommand" path="classes/GFUndoableCommand.xml" sourcePath="addons/gf/standard/command/gf_undoable_command.gd" extends="GFCommand" />

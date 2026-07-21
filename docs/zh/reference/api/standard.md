@@ -6,9 +6,9 @@
 
 | 类别 | 类 | 成员 | 方法 |
 |---|---:|---:|---:|
-| [运行时服务](#category-runtime_service) | 179 | 3135 | 2132 |
+| [运行时服务](#category-runtime_service) | 181 | 3186 | 2154 |
 | [协议与扩展点](#category-protocol) | 22 | 309 | 251 |
-| [资源定义](#category-resource_definition) | 111 | 1440 | 746 |
+| [资源定义](#category-resource_definition) | 111 | 1442 | 747 |
 | [运行时句柄](#category-runtime_handle) | 41 | 704 | 457 |
 | [值对象](#category-value_object) | 35 | 648 | 408 |
 | [领域模型](#category-domain_model) | 4 | 61 | 42 |
@@ -153,6 +153,7 @@
 | [`GFScreenshotUtility`](classes/GFScreenshotUtility.md#gfscreenshotutility) | `GFUtility` | `addons/gf/standard/utilities/debug/gf_screenshot_utility.gd` |
 | [`GFScriptStructureTools`](classes/GFScriptStructureTools.md#gfscriptstructuretools) | `RefCounted` | `addons/gf/standard/utilities/assets/gf_script_structure_tools.gd` |
 | [`GFSeedUtility`](classes/GFSeedUtility.md#gfseedutility) | `GFUtility` | `addons/gf/standard/utilities/random/gf_seed_utility.gd` |
+| [`GFSessionTraceUtility`](classes/GFSessionTraceUtility.md#gfsessiontraceutility) | `GFUtility` | `addons/gf/standard/utilities/debug/gf_session_trace_utility.gd` |
 | [`GFSettingsUtility`](classes/GFSettingsUtility.md#gfsettingsutility) | `GFUtility` | `addons/gf/standard/utilities/settings/gf_settings_utility.gd` |
 | [`GFShaderParameterUtility`](classes/GFShaderParameterUtility.md#gfshaderparameterutility) | `GFUtility` | `addons/gf/standard/utilities/display/gf_shader_parameter_utility.gd` |
 | [`GFSignalRuntimeProbe`](classes/GFSignalRuntimeProbe.md#gfsignalruntimeprobe) | `RefCounted` | `addons/gf/standard/utilities/debug/gf_signal_runtime_probe.gd` |
@@ -186,6 +187,7 @@
 | [`GFTouchButton`](classes/GFTouchButton.md#gftouchbutton) | `GFTouchControl2D` | `addons/gf/standard/input/touch/gf_touch_button.gd` |
 | [`GFTouchJoystick`](classes/GFTouchJoystick.md#gftouchjoystick) | `GFTouchControl2D` | `addons/gf/standard/input/touch/gf_touch_joystick.gd` |
 | [`GFTransform3DMath`](classes/GFTransform3DMath.md#gftransform3dmath) | `RefCounted` | `addons/gf/standard/foundation/math/gf_transform_3d_math.gd` |
+| [`GFUIRoutePreloadUtility`](classes/GFUIRoutePreloadUtility.md#gfuiroutepreloadutility) | `RefCounted` | `addons/gf/standard/utilities/ui/gf_ui_route_preload_utility.gd` |
 | [`GFUIRouterUtility`](classes/GFUIRouterUtility.md#gfuirouterutility) | `GFUtility` | `addons/gf/standard/utilities/ui/gf_ui_router_utility.gd` |
 | [`GFUIUtility`](classes/GFUIUtility.md#gfuiutility) | `GFUtility` | `addons/gf/standard/utilities/ui/gf_ui_utility.gd` |
 | [`GFValidationDiagnosticAdapter`](classes/GFValidationDiagnosticAdapter.md#gfvalidationdiagnosticadapter) | `RefCounted` | `addons/gf/standard/foundation/validation/gf_validation_diagnostic_adapter.gd` |
