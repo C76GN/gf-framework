@@ -18,7 +18,7 @@
 - [弹簧平滑数学](spring-math.md)：`GFSpringMath` 的标量、角度、Vector2 与 Vector3 二阶弹簧步进。
 - [2D 网格、生成管线与 Hex 网格](grid-2d-hex/index.md)：`GFGridMath`、`GFGridTransform2D`、`GFGridSelection2D`、`GFGridGenerationStep2D`、`GFGridGenerationPipeline2D` 与 `GFHexGridMath`。
 - [图搜索、布局与 3D 网格](graph-layout-3d/index.md)：`GFGraphMath`、`GFGraphLayoutUtility`、`GFVoronoi2D`、`GFGrid3DMath`、`GFGridKey3D` 与 `GFGridPlaneMapper3D`。
-- [Pattern2D 与 Steering](patterns-steering/index.md)：`GFPattern2D`、`GFSteeringAgent`、`GFSteeringMath` 和资源化 steering 组合。
+- [Pattern2D、轨迹与 Steering](patterns-steering/index.md)：`GFPattern2D`、`GFTrajectoryMath`、`GFSteeringAgent`、`GFSteeringMath` 和资源化 steering 组合。
 - [占用、TileMap 缓存、规则表与空间哈希](occupancy-tile-spatial/index.md)：`GFGridOccupancy`、`GFTileMapCache`、`GFTileRuleSet` 与 `GFSpatialHash3D`。
 
 ## 使用边界

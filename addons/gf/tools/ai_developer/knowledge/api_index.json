@@ -2,8 +2,8 @@
   "schema_version": 1,
   "catalog_version": "1.0.0",
   "framework_version": "10.0.0-dev.0",
-  "source_digest": "0dd80eb34d6b268f1c09cb2c45ddb430522741b9dea2e6162521e481f896682b",
-  "class_count": 716,
+  "source_digest": "25291a15383b9bb57ebc01ce8f469147b1f50c177be59acf4631adae31af7364",
+  "class_count": 717,
   "package_count": 50,
   "packages": [
     {
@@ -77778,6 +77778,130 @@
           "name": "clear",
           "signature": "func clear() -> void",
           "summary": "清空特征。",
+          "visibility": "public"
+        }
+      ]
+    },
+    "GFTrajectoryMath": {
+      "extends": "RefCounted",
+      "module": "standard",
+      "package_id": "gf.standard.spatial",
+      "path": "addons/gf/standard/foundation/math/gf_trajectory_math.gd",
+      "summary": "GFTrajectoryMath: 通用运动预测、拦截和公式轨迹采样工具。 运动预测和拦截入口是 GF 内部无节点副作用的纯计算，不负责绘制、物理推进、目标选择或业务策略。 公式采样会同步执行项目显式提供的可信 Callable，并在调用前执行硬预算校验；GF 本身不访问节点，",
+      "visibility": "public",
+      "category": "runtime_service",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "const",
+          "name": "REASON_NONE",
+          "signature": "const REASON_NONE: StringName = &\"\"",
+          "summary": "表示计算成功，没有失败原因。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "REASON_INVALID_ARGUMENT",
+          "signature": "const REASON_INVALID_ARGUMENT: StringName = &\"invalid_argument\"",
+          "summary": "表示输入参数无效、包含非有限数字，或计算结果无法保持有限。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "REASON_NO_SOLUTION",
+          "signature": "const REASON_NO_SOLUTION: StringName = &\"no_solution\"",
+          "summary": "表示拦截方程不存在非负实数解。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "REASON_BEYOND_HORIZON",
+          "signature": "const REASON_BEYOND_HORIZON: StringName = &\"beyond_horizon\"",
+          "summary": "表示拦截解超出调用方给定的时间窗口。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "REASON_INVALID_PROVIDER",
+          "signature": "const REASON_INVALID_PROVIDER: StringName = &\"invalid_provider\"",
+          "summary": "表示轨迹公式 Callable 无效。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "REASON_SAMPLE_LIMIT_EXCEEDED",
+          "signature": "const REASON_SAMPLE_LIMIT_EXCEEDED: StringName = &\"sample_limit_exceeded\"",
+          "summary": "表示请求采样数量超过本次预算。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "REASON_PROVIDER_FAILED",
+          "signature": "const REASON_PROVIDER_FAILED: StringName = &\"provider_failed\"",
+          "summary": "表示公式返回了错误类型或非有限坐标。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "DEFAULT_EPSILON",
+          "signature": "const DEFAULT_EPSILON: float = 0.000001",
+          "summary": "默认浮点容差。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "DEFAULT_MAX_SAMPLE_COUNT",
+          "signature": "const DEFAULT_MAX_SAMPLE_COUNT: int = 1024",
+          "summary": "单次公式采样的默认点数预算。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "ABSOLUTE_MAX_SAMPLE_COUNT",
+          "signature": "const ABSOLUTE_MAX_SAMPLE_COUNT: int = 16_384",
+          "summary": "单次公式采样不可绕过的绝对点数上限。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "predict_motion_2d",
+          "signature": "static func predict_motion_2d( initial_position: Vector2, initial_velocity: Vector2, acceleration: Vector2, time_seconds: float ) -> Dictionary",
+          "summary": "按恒定加速度预测 2D 未来位置和速度。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "predict_motion_3d",
+          "signature": "static func predict_motion_3d( initial_position: Vector3, initial_velocity: Vector3, acceleration: Vector3, time_seconds: float ) -> Dictionary",
+          "summary": "按恒定加速度预测 3D 未来位置和速度。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "solve_intercept_2d",
+          "signature": "static func solve_intercept_2d( source_position: Vector2, projectile_speed: float, target_position: Vector2, target_velocity: Vector2, max_time_seconds: float = -1.0, epsilon: float = DEFAULT_EPSILON ) -> Dictionary",
+          "summary": "求恒速发射体拦截匀速 2D 目标的最早非负解。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "solve_intercept_3d",
+          "signature": "static func solve_intercept_3d( source_position: Vector3, projectile_speed: float, target_position: Vector3, target_velocity: Vector3, max_time_seconds: float = -1.0, epsilon: float = DEFAULT_EPSILON ) -> Dictionary",
+          "summary": "求恒速发射体拦截匀速 3D 目标的最早非负解。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "sample_formula_2d",
+          "signature": "static func sample_formula_2d( position_provider: Callable, start_time_seconds: float, end_time_seconds: float, sample_count: int, max_sample_count: int = DEFAULT_MAX_SAMPLE_COUNT ) -> Dictionary",
+          "summary": "在闭区间内均匀调用同步公式并生成 2D 轨迹点。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "sample_formula_3d",
+          "signature": "static func sample_formula_3d( position_provider: Callable, start_time_seconds: float, end_time_seconds: float, sample_count: int, max_sample_count: int = DEFAULT_MAX_SAMPLE_COUNT ) -> Dictionary",
+          "summary": "在闭区间内均匀调用同步公式并生成 3D 轨迹点。",
           "visibility": "public"
         }
       ]

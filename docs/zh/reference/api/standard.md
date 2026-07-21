@@ -6,7 +6,7 @@
 
 | 类别 | 类 | 成员 | 方法 |
 |---|---:|---:|---:|
-| [运行时服务](#category-runtime_service) | 181 | 3186 | 2154 |
+| [运行时服务](#category-runtime_service) | 182 | 3202 | 2160 |
 | [协议与扩展点](#category-protocol) | 22 | 309 | 251 |
 | [资源定义](#category-resource_definition) | 111 | 1442 | 747 |
 | [运行时句柄](#category-runtime_handle) | 41 | 704 | 457 |
@@ -186,6 +186,7 @@
 | [`GFTimerUtility`](classes/GFTimerUtility.md#gftimerutility) | `GFUtility` | `addons/gf/standard/utilities/time/gf_timer_utility.gd` |
 | [`GFTouchButton`](classes/GFTouchButton.md#gftouchbutton) | `GFTouchControl2D` | `addons/gf/standard/input/touch/gf_touch_button.gd` |
 | [`GFTouchJoystick`](classes/GFTouchJoystick.md#gftouchjoystick) | `GFTouchControl2D` | `addons/gf/standard/input/touch/gf_touch_joystick.gd` |
+| [`GFTrajectoryMath`](classes/GFTrajectoryMath.md#gftrajectorymath) | `RefCounted` | `addons/gf/standard/foundation/math/gf_trajectory_math.gd` |
 | [`GFTransform3DMath`](classes/GFTransform3DMath.md#gftransform3dmath) | `RefCounted` | `addons/gf/standard/foundation/math/gf_transform_3d_math.gd` |
 | [`GFUIRoutePreloadUtility`](classes/GFUIRoutePreloadUtility.md#gfuiroutepreloadutility) | `RefCounted` | `addons/gf/standard/utilities/ui/gf_ui_route_preload_utility.gd` |
 | [`GFUIRouterUtility`](classes/GFUIRouterUtility.md#gfuirouterutility) | `GFUtility` | `addons/gf/standard/utilities/ui/gf_ui_router_utility.gd` |
