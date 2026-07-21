@@ -136,6 +136,19 @@ func test_solve_intercept_handles_equal_speed_approach() -> void:
 	_assert_vector2_close(_get_vector2(report, "position"), Vector2(5.0, 0.0))
 
 
+func test_solve_intercept_treats_length_derived_equal_speed_as_degenerate() -> void:
+	var target_velocity: Vector2 = Vector2(1.1, 2.2)
+	var report: Dictionary = GF_TRAJECTORY_MATH_SCRIPT.solve_intercept_2d(
+		Vector2.ZERO,
+		target_velocity.length(),
+		Vector2(-2.2, 1.1),
+		target_velocity
+	)
+
+	assert_false(_get_bool(report, "ok"), "同一向量推导的等速不应因平方往返误差伪造远期解。")
+	assert_eq(_get_reason(report), &"no_solution")
+
+
 func test_solve_intercept_preserves_near_equal_speed_quadratic_solution() -> void:
 	var report: Dictionary = GF_TRAJECTORY_MATH_SCRIPT.solve_intercept_2d(
 		Vector2.ZERO,
@@ -165,6 +178,22 @@ func test_solve_intercept_rejects_negative_discriminant_at_large_scale() -> void
 
 	assert_false(_get_bool(report, "ok"), "负判别式不能因大尺度容差被钳制成伪命中。")
 	assert_eq(_get_reason(report), &"no_solution")
+
+
+func test_solve_intercept_preserves_tangent_solution_with_roundoff() -> void:
+	var report: Dictionary = GF_TRAJECTORY_MATH_SCRIPT.solve_intercept_2d(
+		Vector2.ZERO,
+		1.0,
+		Vector2(1000.0, 577.3502691896258),
+		Vector2(-2.0, 0.0)
+	)
+
+	assert_true(_get_bool(report, "ok"), "有效切线解不应因判别式抵消误差被拒绝。")
+	assert_almost_eq(
+		_get_float(report, "time_seconds") / 666.6666666666666,
+		1.0,
+		0.000001
+	)
 
 
 func test_solve_intercept_respects_small_positive_epsilon_at_small_scale() -> void:

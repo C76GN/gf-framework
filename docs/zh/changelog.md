@@ -53,7 +53,7 @@
 - 修复同一 journal sink 原位重配时会先刷新并按旧所有权关闭实例、导致未重新初始化的 sink 后续静默失效的问题。
 - 修复 sink 回调内使用文档化的 `configure_journal_sink(null)` 无法原子断开并延迟清理当前 sink 的问题；替换 sink 时，旧 sink 清理回调发起的置空请求也不会再被外层配置覆盖。
 - 修复模块源码引用根级 Godot 治理文件时只能产生 `unowned_project_resource_reference`、或被迫把文件误填为模块扫描目录并导致分析不完整的问题。
-- 修复 `GFTrajectoryMath` 将近似等速目标的非零二次项误降阶而漏掉远期拦截，以及按大尺度相对容差把负判别式钳制成伪命中的问题；无实根场景现在稳定返回 `no_solution`。
+- 修复 `GFTrajectoryMath` 将近似等速目标的非零二次项误降阶而漏掉远期拦截，以及按大尺度相对容差把负判别式钳制成伪命中的问题；等速退化现在按未平方速度判定，判别式只在 Godot `real_t` 的单个机器精度包络内恢复切线根，从而同时保留 `length()` 派生等速、舍入后的有效切线和真实 `no_solution` 边界。
 
 ### 🔧 API 变动说明 (API Changes)
 

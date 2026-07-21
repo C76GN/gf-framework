@@ -85,6 +85,12 @@ const DEFAULT_MAX_SAMPLE_COUNT: int = 1024
 ## @since unreleased
 const ABSOLUTE_MAX_SAMPLE_COUNT: int = 16_384
 
+# Godot 标准构建的 real_t 为 float32；双精度构建使用 float64。
+const _FLOAT32_MACHINE_EPSILON: float = 0.00000011920928955078125
+const _FLOAT64_MACHINE_EPSILON: float = 0.0000000000000002220446049250313
+const _FLOAT32_HALF_ULP_AT_ONE: float = 0.000000059604644775390625
+const _DISCRIMINANT_ROUNDOFF_FACTOR: float = 1.0
+
 
 # --- 公共方法 ---
 
@@ -277,6 +283,7 @@ static func solve_intercept_2d(
 		relative_position.length_squared(),
 		relative_position.dot(target_velocity),
 		target_velocity.length_squared(),
+		target_velocity.length(),
 		projectile_speed,
 		max_time_seconds,
 		safe_epsilon
@@ -400,6 +407,7 @@ static func solve_intercept_3d(
 		relative_position.length_squared(),
 		relative_position.dot(target_velocity),
 		target_velocity.length_squared(),
+		target_velocity.length(),
 		projectile_speed,
 		max_time_seconds,
 		safe_epsilon
@@ -694,6 +702,7 @@ static func _solve_intercept_time(
 	relative_distance_squared: float,
 	relative_position_dot_velocity: float,
 	target_speed_squared: float,
+	target_speed: float,
 	projectile_speed: float,
 	max_time_seconds: float,
 	epsilon: float
@@ -702,7 +711,10 @@ static func _solve_intercept_time(
 		return _make_time_report(true, REASON_NONE, "", 0.0)
 
 	var projectile_speed_squared: float = projectile_speed * projectile_speed
-	var coefficient_a: float = target_speed_squared - projectile_speed_squared
+	var coefficient_a: float = 0.0
+	# 先比较未平方的速度，避免同一 Vector.length() 的平方往返误差伪造二次项。
+	if target_speed != projectile_speed:
+		coefficient_a = target_speed_squared - projectile_speed_squared
 	var coefficient_b: float = 2.0 * relative_position_dot_velocity
 	var coefficient_c: float = relative_distance_squared
 	if (
@@ -737,11 +749,16 @@ static func _solve_intercept_time(
 			absf(coefficient_b * coefficient_b),
 			absf(4.0 * coefficient_a * coefficient_c)
 		)
-		# 负判别式没有实根；按尺度放宽再钳制为零会制造无法到达的伪命中。
-		if discriminant < 0.0:
+		# 只吸收 real_t 和后续运算的机器舍入；调用方 epsilon 不能改变实根拓扑。
+		var discriminant_roundoff_limit: float = (
+			_get_real_component_machine_epsilon()
+			* _DISCRIMINANT_ROUNDOFF_FACTOR
+			* discriminant_scale
+		)
+		if discriminant < -discriminant_roundoff_limit:
 			return _make_time_report(false, REASON_NO_SOLUTION, "No real intercept solution exists.")
 
-		var sqrt_discriminant: float = sqrt(discriminant)
+		var sqrt_discriminant: float = sqrt(maxf(discriminant, 0.0))
 		var sqrt_discriminant_scale: float = sqrt(discriminant_scale)
 		if sqrt_discriminant <= epsilon * sqrt_discriminant_scale:
 			_append_nonnegative_root(
@@ -776,6 +793,13 @@ static func _solve_intercept_time(
 			"The earliest intercept solution exceeds max_time_seconds."
 		)
 	return _make_time_report(true, REASON_NONE, "", intercept_time)
+
+
+static func _get_real_component_machine_epsilon() -> float:
+	var precision_probe: float = Vector2(1.0 + _FLOAT32_HALF_ULP_AT_ONE, 0.0).x
+	if precision_probe == 1.0:
+		return _FLOAT32_MACHINE_EPSILON
+	return _FLOAT64_MACHINE_EPSILON
 
 
 static func _append_nonnegative_root(
