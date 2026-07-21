@@ -717,11 +717,8 @@ static func _solve_intercept_time(
 		)
 
 	var roots: PackedFloat64Array = PackedFloat64Array()
-	var coefficient_scale: float = maxf(
-		absf(target_speed_squared),
-		absf(projectile_speed_squared)
-	)
-	if absf(coefficient_a) <= epsilon * coefficient_scale:
+	# 非零二次项即使很小，也可能表示有效的远期拦截，不能用调用方容差降阶。
+	if coefficient_a == 0.0:
 		if coefficient_b == 0.0:
 			return _make_time_report(false, REASON_NO_SOLUTION, "No non-negative intercept solution exists.")
 		_append_nonnegative_root(roots, -coefficient_c / coefficient_b)
@@ -740,11 +737,11 @@ static func _solve_intercept_time(
 			absf(coefficient_b * coefficient_b),
 			absf(4.0 * coefficient_a * coefficient_c)
 		)
-		var discriminant_epsilon: float = epsilon * discriminant_scale
-		if discriminant < -discriminant_epsilon:
+		# 负判别式没有实根；按尺度放宽再钳制为零会制造无法到达的伪命中。
+		if discriminant < 0.0:
 			return _make_time_report(false, REASON_NO_SOLUTION, "No real intercept solution exists.")
 
-		var sqrt_discriminant: float = sqrt(maxf(discriminant, 0.0))
+		var sqrt_discriminant: float = sqrt(discriminant)
 		var sqrt_discriminant_scale: float = sqrt(discriminant_scale)
 		if sqrt_discriminant <= epsilon * sqrt_discriminant_scale:
 			_append_nonnegative_root(

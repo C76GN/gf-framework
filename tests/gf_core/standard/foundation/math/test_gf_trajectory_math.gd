@@ -136,6 +136,37 @@ func test_solve_intercept_handles_equal_speed_approach() -> void:
 	_assert_vector2_close(_get_vector2(report, "position"), Vector2(5.0, 0.0))
 
 
+func test_solve_intercept_preserves_near_equal_speed_quadratic_solution() -> void:
+	var report: Dictionary = GF_TRAJECTORY_MATH_SCRIPT.solve_intercept_2d(
+		Vector2.ZERO,
+		10.0,
+		Vector2(10.0, 0.0),
+		Vector2(0.0, 9.999999)
+	)
+
+	assert_true(_get_bool(report, "ok"), "近似等速的横向目标仍应保留远期二次方程解。")
+	var intercept_time: float = _get_float(report, "time_seconds")
+	var intercept_distance: float = _get_float(report, "distance")
+	assert_gt(intercept_time, 2000.0, "该场景应得到远期解，而不是被错误降阶。")
+	assert_almost_eq(
+		_get_vector2(report, "position").length() / intercept_distance,
+		1.0,
+		0.000001
+	)
+
+
+func test_solve_intercept_rejects_negative_discriminant_at_large_scale() -> void:
+	var report: Dictionary = GF_TRAJECTORY_MATH_SCRIPT.solve_intercept_2d(
+		Vector2.ZERO,
+		0.01,
+		Vector2(1000.0, 0.5),
+		Vector2(-1000.0, 0.0)
+	)
+
+	assert_false(_get_bool(report, "ok"), "负判别式不能因大尺度容差被钳制成伪命中。")
+	assert_eq(_get_reason(report), &"no_solution")
+
+
 func test_solve_intercept_respects_small_positive_epsilon_at_small_scale() -> void:
 	var report: Dictionary = GF_TRAJECTORY_MATH_SCRIPT.solve_intercept_2d(
 		Vector2.ZERO,
