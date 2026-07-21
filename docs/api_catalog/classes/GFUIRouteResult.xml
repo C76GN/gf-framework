@@ -1,0 +1,305 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFUIRouteResult" path="addons/gf/standard/utilities/ui/gf_ui_route_result.gd" module="standard" extends="RefCounted" classDigest="75707eef1aa3e3d378d9a7383ac5d0a8eb42c65791daf26d6d2aeefa786bab05">
+	<description>GFUIRouteResult: UI 路由异步打开的不可变终态。
+结果把路由校验、可选预加载、面板提交和生命周期中止统一为稳定状态，
+并保留预加载事务结果，避免项目通过日志或时序猜测失败阶段。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">value_object</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants>
+		<member kind="const" name="STATUS_OPENED">
+			<signature>const STATUS_OPENED: StringName = &amp;"opened"</signature>
+			<description>面板已进入目标 UI 栈。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_MISSING_ROUTE">
+			<signature>const STATUS_MISSING_ROUTE: StringName = &amp;"missing_route"</signature>
+			<description>路由不存在。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_INVALID_ROUTE">
+			<signature>const STATUS_INVALID_ROUTE: StringName = &amp;"invalid_route"</signature>
+			<description>路由资源无效。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_MISSING_UI_UTILITY">
+			<signature>const STATUS_MISSING_UI_UTILITY: StringName = &amp;"missing_ui_utility"</signature>
+			<description>Router 无法获取 UI Utility。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_MISSING_UI_LAYER">
+			<signature>const STATUS_MISSING_UI_LAYER: StringName = &amp;"missing_ui_layer"</signature>
+			<description>路由目标逻辑层未注册。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_ASYNC_CONFLICT">
+			<signature>const STATUS_ASYNC_CONFLICT: StringName = &amp;"async_conflict"</signature>
+			<description>同一路径、层级和操作已有不同路由请求。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_INVALID_PRELOAD_POLICY">
+			<signature>const STATUS_INVALID_PRELOAD_POLICY: StringName = &amp;"invalid_preload_policy"</signature>
+			<description>预加载策略不受支持。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_MISSING_ASSET_UTILITY">
+			<signature>const STATUS_MISSING_ASSET_UTILITY: StringName = &amp;"missing_asset_utility"</signature>
+			<description>预加载策略需要 Asset Utility，但当前架构未提供。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_PRELOAD_PLAN_FAILED">
+			<signature>const STATUS_PRELOAD_PLAN_FAILED: StringName = &amp;"preload_plan_failed"</signature>
+			<description>无法构建满足策略要求的预加载计划。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_PRELOAD_FAILED">
+			<signature>const STATUS_PRELOAD_FAILED: StringName = &amp;"preload_failed"</signature>
+			<description>资产预加载事务失败或回滚。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_PANEL_FAILED">
+			<signature>const STATUS_PANEL_FAILED: StringName = &amp;"panel_failed"</signature>
+			<description>面板资源加载、实例化或入栈失败。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_CANCELLED">
+			<signature>const STATUS_CANCELLED: StringName = &amp;"cancelled"</signature>
+			<description>底层 UI 请求在完成前被取消。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_DISPOSED">
+			<signature>const STATUS_DISPOSED: StringName = &amp;"disposed"</signature>
+			<description>Router 在面板提交前释放，结果确定为未打开。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_OUTCOME_UNKNOWN">
+			<signature>const STATUS_OUTCOME_UNKNOWN: StringName = &amp;"outcome_unknown"</signature>
+			<description>Router 在面板提交后释放，无法再可靠观察底层终态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</constants>
+	<properties />
+	<methods>
+		<member kind="method" name="get_request_id">
+			<signature>func get_request_id() -&gt; int:</signature>
+			<description>获取 Router 内唯一请求 ID。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">大于零的请求 ID。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_route_id">
+			<signature>func get_route_id() -&gt; StringName:</signature>
+			<description>获取规范化路由 ID。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">本次请求的路由 ID。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_operation">
+			<signature>func get_operation() -&gt; StringName:</signature>
+			<description>获取路由操作。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">`GFUIRouteOperation.OPERATION_*` 常量之一。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_status">
+			<signature>func get_status() -&gt; StringName:</signature>
+			<description>获取终态状态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">`STATUS_*` 常量之一。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_successful">
+			<signature>func is_successful() -&gt; bool:</signature>
+			<description>检查路由是否成功打开。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">面板已进入目标 UI 栈时返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_reason">
+			<signature>func get_reason() -&gt; StringName:</signature>
+			<description>获取稳定原因码。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">失败或尽力预加载降级原因；无原因时为空。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_layer">
+			<signature>func get_layer() -&gt; int:</signature>
+			<description>获取目标逻辑层。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">有效路由的目标层；路由解析前失败时为 -1。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_panel">
+			<signature>func get_panel() -&gt; Node:</signature>
+			<description>获取仍存活的面板实例。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">成功面板；失败或面板已释放时返回 null。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_preload_policy">
+			<signature>func get_preload_policy() -&gt; StringName:</signature>
+			<description>获取本次请求的预加载策略。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">Router 接受或拒绝的策略标识。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="was_preload_attempted">
+			<signature>func was_preload_attempted() -&gt; bool:</signature>
+			<description>检查是否实际启动过资产预加载事务。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">已创建并启动预加载会话时返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="was_preload_successful">
+			<signature>func was_preload_successful() -&gt; bool:</signature>
+			<description>检查预加载事务是否成功提交。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">会话进入 committed 终态时返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_preload_plan_report">
+			<signature>func get_preload_plan_report() -&gt; Dictionary:</signature>
+			<description>获取 JSON 安全的预加载规划报告副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">不包含 Resource 实例的规划摘要。</tag>
+				<tag name="schema">return: Dictionary with bounded route preload diagnostics and optional asset_plan_description.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_preload_result">
+			<signature>func get_preload_result() -&gt; GFAssetLoadSessionResult:</signature>
+			<description>获取资产预加载事务结果副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">已完成会话的结果；未启动或尚未完成时返回 null。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_started_at_msec">
+			<signature>func get_started_at_msec() -&gt; int:</signature>
+			<description>获取请求开始时间。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">单调时钟毫秒值。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_completed_at_msec">
+			<signature>func get_completed_at_msec() -&gt; int:</signature>
+			<description>获取请求完成时间。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">单调时钟毫秒值。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_duration_msec">
+			<signature>func get_duration_msec() -&gt; int:</signature>
+			<description>获取请求持续时间。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">非负毫秒数。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_metadata">
+			<signature>func get_metadata() -&gt; Dictionary:</signature>
+			<description>获取调用方元数据副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">`async_options.metadata` 的隔离副本。</tag>
+				<tag name="schema">return: Dictionary caller-defined route operation metadata.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="duplicate_result">
+			<signature>func duplicate_result() -&gt; GFUIRouteResult:</signature>
+			<description>创建隔离结果副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">新结果对象。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="to_dict">
+			<signature>func to_dict() -&gt; Dictionary:</signature>
+			<description>转换为可序列化诊断字典。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">请求身份、终态、预加载摘要和持续时间。</tag>
+				<tag name="schema">return: Dictionary with request_id, route_id, operation, status, ok, reason, layer, panel_instance_id, preload_policy, preload_attempted, preload_successful, preload_plan_report, preload_result, started_at_msec, completed_at_msec, duration_msec, and metadata.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

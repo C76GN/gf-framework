@@ -18,8 +18,12 @@
 | 信号 | [`route_open_requested`](#member-gfuirouterutility-signals-route_open_requested) | `signal route_open_requested(route_id: StringName, operation: Operation, params: Dictionary)` |
 | 信号 | [`route_opened`](#member-gfuirouterutility-signals-route_opened) | `signal route_opened(route_id: StringName, panel: Node, operation: Operation)` |
 | 信号 | [`route_open_failed`](#member-gfuirouterutility-signals-route_open_failed) | `signal route_open_failed(route_id: StringName, reason: String)` |
+| 信号 | [`route_operation_completed`](#member-gfuirouterutility-signals-route_operation_completed) | `signal route_operation_completed(result: GFUIRouteResult)` |
 | 信号 | [`route_back_completed`](#member-gfuirouterutility-signals-route_back_completed) | `signal route_back_completed(route_id: StringName, layer: int)` |
 | 枚举 | [`Operation`](#member-gfuirouterutility-enums-operation) | `enum Operation` |
+| 常量 | [`PRELOAD_NONE`](#member-gfuirouterutility-constants-preload_none) | `const PRELOAD_NONE: StringName = &"none"` |
+| 常量 | [`PRELOAD_BEST_EFFORT`](#member-gfuirouterutility-constants-preload_best_effort) | `const PRELOAD_BEST_EFFORT: StringName = &"best_effort"` |
+| 常量 | [`PRELOAD_REQUIRED`](#member-gfuirouterutility-constants-preload_required) | `const PRELOAD_REQUIRED: StringName = &"required"` |
 | 属性 | [`max_history`](#member-gfuirouterutility-properties-max_history) | `var max_history: int = 64` |
 | 方法 | [`init`](#member-gfuirouterutility-methods-init) | `func init() -> void:` |
 | 方法 | [`dispose`](#member-gfuirouterutility-methods-dispose) | `func dispose() -> void:` |
@@ -35,8 +39,8 @@
 | 方法 | [`build_preload_plan`](#member-gfuirouterutility-methods-build_preload_plan) | `func build_preload_plan(source_route_id: StringName, options: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`push_route`](#member-gfuirouterutility-methods-push_route) | `func push_route( route_id: StringName, params: Dictionary = {}, option_overrides: Dictionary = {}, config_callback: Callable = Callable() ) -> Node:` |
 | 方法 | [`replace_route`](#member-gfuirouterutility-methods-replace_route) | `func replace_route( route_id: StringName, params: Dictionary = {}, option_overrides: Dictionary = {}, config_callback: Callable = Callable() ) -> Node:` |
-| 方法 | [`push_route_async`](#member-gfuirouterutility-methods-push_route_async) | `func push_route_async( route_id: StringName, params: Dictionary = {}, option_overrides: Dictionary = {}, config_callback: Callable = Callable() ) -> void:` |
-| 方法 | [`replace_route_async`](#member-gfuirouterutility-methods-replace_route_async) | `func replace_route_async( route_id: StringName, params: Dictionary = {}, option_overrides: Dictionary = {}, config_callback: Callable = Callable() ) -> void:` |
+| 方法 | [`push_route_async`](#member-gfuirouterutility-methods-push_route_async) | `func push_route_async( route_id: StringName, params: Dictionary = {}, option_overrides: Dictionary = {}, config_callback: Callable = Callable(), async_options: Dictionary = {} ) -> GFUIRouteOperation:` |
+| 方法 | [`replace_route_async`](#member-gfuirouterutility-methods-replace_route_async) | `func replace_route_async( route_id: StringName, params: Dictionary = {}, option_overrides: Dictionary = {}, config_callback: Callable = Callable(), async_options: Dictionary = {} ) -> GFUIRouteOperation:` |
 | 方法 | [`back`](#member-gfuirouterutility-methods-back) | `func back(layer: int = -1, do_free: bool = true) -> bool:` |
 | 方法 | [`get_current_route_id`](#member-gfuirouterutility-methods-get_current_route_id) | `func get_current_route_id(layer: int = -1) -> StringName:` |
 | 方法 | [`get_route_history`](#member-gfuirouterutility-methods-get_route_history) | `func get_route_history() -> Array[Dictionary]:` |
@@ -108,6 +112,25 @@ signal route_open_failed(route_id: StringName, reason: String)
 | `route_id` | 路由标识。 |
 | `reason` | 失败原因。 |
 
+<a id="member-gfuirouterutility-signals-route_operation_completed"></a>
+
+### `route_operation_completed`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+signal route_operation_completed(result: GFUIRouteResult)
+```
+
+异步路由请求进入终态时触发。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `result` | 隔离的类型化终态结果。 |
+
 <a id="member-gfuirouterutility-signals-route_back_completed"></a>
 
 ### `route_back_completed`
@@ -145,6 +168,47 @@ enum Operation {
 ```
 
 路由打开操作。
+
+## 常量
+
+<a id="member-gfuirouterutility-constants-preload_none"></a>
+
+### `PRELOAD_NONE`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+const PRELOAD_NONE: StringName = &"none"
+```
+
+不执行路由预加载，直接提交异步面板请求。
+
+<a id="member-gfuirouterutility-constants-preload_best_effort"></a>
+
+### `PRELOAD_BEST_EFFORT`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+const PRELOAD_BEST_EFFORT: StringName = &"best_effort"
+```
+
+尽力执行路由预加载；规划或加载失败时仍继续打开面板。
+
+<a id="member-gfuirouterutility-constants-preload_required"></a>
+
+### `PRELOAD_REQUIRED`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+const PRELOAD_REQUIRED: StringName = &"required"
+```
+
+要求路由预加载完整成功；否则不提交面板请求。
 
 ## 属性
 
@@ -433,9 +497,10 @@ func replace_route( route_id: StringName, params: Dictionary = {}, option_overri
 ### `push_route_async`
 
 - API：`public`
+- 首次版本：`unreleased`
 
 ```gdscript
-func push_route_async( route_id: StringName, params: Dictionary = {}, option_overrides: Dictionary = {}, config_callback: Callable = Callable() ) -> void:
+func push_route_async( route_id: StringName, params: Dictionary = {}, option_overrides: Dictionary = {}, config_callback: Callable = Callable(), async_options: Dictionary = {} ) -> GFUIRouteOperation:
 ```
 
 异步压入一个路由面板。
@@ -448,20 +513,25 @@ func push_route_async( route_id: StringName, params: Dictionary = {}, option_ove
 | `params` | 路由参数。 |
 | `option_overrides` | 面板选项覆盖。 |
 | `config_callback` | 面板实例化后、入栈前的额外配置回调。 |
+| `async_options` | 异步协调选项。 |
+
+返回：可观察的异步路由句柄；相同 pending 请求返回同一句柄。
 
 结构：
 
 - `params`: Dictionary，本次打开路由携带的项目自定义参数。
 - `option_overrides`: Dictionary，字段同 GFUIUtility 打开面板 options，会覆盖路由 default_options。
+- `async_options`: Dictionary，可包含 preload_policy、preload_plan_options 和 metadata；preload_policy 使用 PRELOAD_* 常量，自动预加载始终包含当前路由，未指定 max_depth 时只加载当前页面。
 
 <a id="member-gfuirouterutility-methods-replace_route_async"></a>
 
 ### `replace_route_async`
 
 - API：`public`
+- 首次版本：`unreleased`
 
 ```gdscript
-func replace_route_async( route_id: StringName, params: Dictionary = {}, option_overrides: Dictionary = {}, config_callback: Callable = Callable() ) -> void:
+func replace_route_async( route_id: StringName, params: Dictionary = {}, option_overrides: Dictionary = {}, config_callback: Callable = Callable(), async_options: Dictionary = {} ) -> GFUIRouteOperation:
 ```
 
 异步替换路由所在层级。
@@ -474,11 +544,15 @@ func replace_route_async( route_id: StringName, params: Dictionary = {}, option_
 | `params` | 路由参数。 |
 | `option_overrides` | 面板选项覆盖。 |
 | `config_callback` | 面板实例化后、入栈前的额外配置回调。 |
+| `async_options` | 异步协调选项。 |
+
+返回：可观察的异步路由句柄；相同 pending 请求返回同一句柄。
 
 结构：
 
 - `params`: Dictionary，本次打开路由携带的项目自定义参数。
 - `option_overrides`: Dictionary，字段同 GFUIUtility 打开面板 options，会覆盖路由 default_options。
+- `async_options`: Dictionary，可包含 preload_policy、preload_plan_options 和 metadata；preload_policy 使用 PRELOAD_* 常量，自动预加载始终包含当前路由，未指定 max_depth 时只加载当前页面。
 
 <a id="member-gfuirouterutility-methods-back"></a>
 
@@ -568,4 +642,4 @@ func get_debug_snapshot() -> Dictionary:
 
 结构：
 
-- `return`: Dictionary，包含 route_count、history_count、pending_async_route_count、current_route_id 和 has_ui_utility。
+- `return`: Dictionary，包含 route_count、history_count、pending_async_route_count、pending_async_routes、current_route_id、has_ui_utility 和 disposed。

@@ -2,8 +2,8 @@
   "schema_version": 1,
   "catalog_version": "1.0.0",
   "framework_version": "10.0.0-dev.0",
-  "source_digest": "f2609ebd2e0c744075069f32394747d391ed58ca21429cd9f37db064892f2eaa",
-  "class_count": 731,
+  "source_digest": "e16ef04a68c4c1489eea54903823ae5226bc6018a72c607cccc770d122b74e39",
+  "class_count": 733,
   "package_count": 50,
   "packages": [
     {
@@ -477,7 +477,7 @@
         "gf.standard.assets",
         "gf.standard.ui"
       ],
-      "description": "Stack-based UI panel management, route resources, bounded route preload planning, and route-driven navigation helpers.",
+      "description": "Stack-based UI panel management, route resources, typed asynchronous navigation, and bounded route preload coordination.",
       "representative_path": "addons/gf/standard/utilities/ui/gf_ui_layer_definition.gd"
     },
     {
@@ -80616,6 +80616,109 @@
         }
       ]
     },
+    "GFUIRouteOperation": {
+      "extends": "RefCounted",
+      "module": "standard",
+      "package_id": "gf.standard.ui.navigation",
+      "path": "addons/gf/standard/utilities/ui/gf_ui_route_operation.gd",
+      "summary": "GFUIRouteOperation: 单次异步路由打开的可观察句柄。 句柄由 GFUIRouterUtility 分配请求身份并只接受一个终态。相同 pending 路由 会返回同一句柄，调用方无需自行按路径合并请求。",
+      "visibility": "public",
+      "category": "runtime_handle",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "signal",
+          "name": "completed",
+          "signature": "signal completed(result: GFUIRouteResult)",
+          "summary": "路由请求进入终态时发出一次。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "OPERATION_PUSH",
+          "signature": "const OPERATION_PUSH: StringName = &\"push\"",
+          "summary": "压入路由操作。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "OPERATION_REPLACE",
+          "signature": "const OPERATION_REPLACE: StringName = &\"replace\"",
+          "summary": "替换路由操作。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_request_id",
+          "signature": "func get_request_id() -> int",
+          "summary": "获取 Router 内唯一请求 ID。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_route_id",
+          "signature": "func get_route_id() -> StringName",
+          "summary": "获取规范化路由 ID。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_operation",
+          "signature": "func get_operation() -> StringName",
+          "summary": "获取 push 或 replace 操作。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_preload_policy",
+          "signature": "func get_preload_policy() -> StringName",
+          "summary": "获取请求预加载策略。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_started_at_msec",
+          "signature": "func get_started_at_msec() -> int",
+          "summary": "获取请求开始时间。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_pending",
+          "signature": "func is_pending() -> bool",
+          "summary": "检查请求是否仍在等待终态。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_completed",
+          "signature": "func is_completed() -> bool",
+          "summary": "检查请求是否已有终态。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_preload_session",
+          "signature": "func get_preload_session() -> GFAssetLoadSession",
+          "summary": "获取当前预加载会话。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_result",
+          "signature": "func get_result() -> GFUIRouteResult",
+          "summary": "获取终态结果副本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_debug_snapshot",
+          "signature": "func get_debug_snapshot() -> Dictionary",
+          "summary": "获取稳定调试快照。",
+          "visibility": "public"
+        }
+      ]
+    },
     "GFUIRoutePreloadUtility": {
       "extends": "RefCounted",
       "module": "standard",
@@ -80670,6 +80773,249 @@
         }
       ]
     },
+    "GFUIRouteResult": {
+      "extends": "RefCounted",
+      "module": "standard",
+      "package_id": "gf.standard.ui.navigation",
+      "path": "addons/gf/standard/utilities/ui/gf_ui_route_result.gd",
+      "summary": "GFUIRouteResult: UI 路由异步打开的不可变终态。 结果把路由校验、可选预加载、面板提交和生命周期中止统一为稳定状态， 并保留预加载事务结果，避免项目通过日志或时序猜测失败阶段。",
+      "visibility": "public",
+      "category": "value_object",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "const",
+          "name": "STATUS_OPENED",
+          "signature": "const STATUS_OPENED: StringName = &\"opened\"",
+          "summary": "面板已进入目标 UI 栈。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "STATUS_MISSING_ROUTE",
+          "signature": "const STATUS_MISSING_ROUTE: StringName = &\"missing_route\"",
+          "summary": "路由不存在。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "STATUS_INVALID_ROUTE",
+          "signature": "const STATUS_INVALID_ROUTE: StringName = &\"invalid_route\"",
+          "summary": "路由资源无效。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "STATUS_MISSING_UI_UTILITY",
+          "signature": "const STATUS_MISSING_UI_UTILITY: StringName = &\"missing_ui_utility\"",
+          "summary": "Router 无法获取 UI Utility。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "STATUS_MISSING_UI_LAYER",
+          "signature": "const STATUS_MISSING_UI_LAYER: StringName = &\"missing_ui_layer\"",
+          "summary": "路由目标逻辑层未注册。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "STATUS_ASYNC_CONFLICT",
+          "signature": "const STATUS_ASYNC_CONFLICT: StringName = &\"async_conflict\"",
+          "summary": "同一路径、层级和操作已有不同路由请求。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "STATUS_INVALID_PRELOAD_POLICY",
+          "signature": "const STATUS_INVALID_PRELOAD_POLICY: StringName = &\"invalid_preload_policy\"",
+          "summary": "预加载策略不受支持。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "STATUS_MISSING_ASSET_UTILITY",
+          "signature": "const STATUS_MISSING_ASSET_UTILITY: StringName = &\"missing_asset_utility\"",
+          "summary": "预加载策略需要 Asset Utility，但当前架构未提供。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "STATUS_PRELOAD_PLAN_FAILED",
+          "signature": "const STATUS_PRELOAD_PLAN_FAILED: StringName = &\"preload_plan_failed\"",
+          "summary": "无法构建满足策略要求的预加载计划。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "STATUS_PRELOAD_FAILED",
+          "signature": "const STATUS_PRELOAD_FAILED: StringName = &\"preload_failed\"",
+          "summary": "资产预加载事务失败或回滚。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "STATUS_PANEL_FAILED",
+          "signature": "const STATUS_PANEL_FAILED: StringName = &\"panel_failed\"",
+          "summary": "面板资源加载、实例化或入栈失败。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "STATUS_CANCELLED",
+          "signature": "const STATUS_CANCELLED: StringName = &\"cancelled\"",
+          "summary": "底层 UI 请求在完成前被取消。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "STATUS_DISPOSED",
+          "signature": "const STATUS_DISPOSED: StringName = &\"disposed\"",
+          "summary": "Router 在面板提交前释放，结果确定为未打开。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "STATUS_OUTCOME_UNKNOWN",
+          "signature": "const STATUS_OUTCOME_UNKNOWN: StringName = &\"outcome_unknown\"",
+          "summary": "Router 在面板提交后释放，无法再可靠观察底层终态。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_request_id",
+          "signature": "func get_request_id() -> int",
+          "summary": "获取 Router 内唯一请求 ID。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_route_id",
+          "signature": "func get_route_id() -> StringName",
+          "summary": "获取规范化路由 ID。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_operation",
+          "signature": "func get_operation() -> StringName",
+          "summary": "获取路由操作。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_status",
+          "signature": "func get_status() -> StringName",
+          "summary": "获取终态状态。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_successful",
+          "signature": "func is_successful() -> bool",
+          "summary": "检查路由是否成功打开。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_reason",
+          "signature": "func get_reason() -> StringName",
+          "summary": "获取稳定原因码。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_layer",
+          "signature": "func get_layer() -> int",
+          "summary": "获取目标逻辑层。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_panel",
+          "signature": "func get_panel() -> Node",
+          "summary": "获取仍存活的面板实例。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_preload_policy",
+          "signature": "func get_preload_policy() -> StringName",
+          "summary": "获取本次请求的预加载策略。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "was_preload_attempted",
+          "signature": "func was_preload_attempted() -> bool",
+          "summary": "检查是否实际启动过资产预加载事务。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "was_preload_successful",
+          "signature": "func was_preload_successful() -> bool",
+          "summary": "检查预加载事务是否成功提交。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_preload_plan_report",
+          "signature": "func get_preload_plan_report() -> Dictionary",
+          "summary": "获取 JSON 安全的预加载规划报告副本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_preload_result",
+          "signature": "func get_preload_result() -> GFAssetLoadSessionResult",
+          "summary": "获取资产预加载事务结果副本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_started_at_msec",
+          "signature": "func get_started_at_msec() -> int",
+          "summary": "获取请求开始时间。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_completed_at_msec",
+          "signature": "func get_completed_at_msec() -> int",
+          "summary": "获取请求完成时间。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_duration_msec",
+          "signature": "func get_duration_msec() -> int",
+          "summary": "获取请求持续时间。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_metadata",
+          "signature": "func get_metadata() -> Dictionary",
+          "summary": "获取调用方元数据副本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "duplicate_result",
+          "signature": "func duplicate_result() -> GFUIRouteResult",
+          "summary": "创建隔离结果副本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "to_dict",
+          "signature": "func to_dict() -> Dictionary",
+          "summary": "转换为可序列化诊断字典。",
+          "visibility": "public"
+        }
+      ]
+    },
     "GFUIRouterUtility": {
       "extends": "GFUtility",
       "module": "standard",
@@ -80703,6 +81049,13 @@
         },
         {
           "kind": "signal",
+          "name": "route_operation_completed",
+          "signature": "signal route_operation_completed(result: GFUIRouteResult)",
+          "summary": "异步路由请求进入终态时触发。",
+          "visibility": "public"
+        },
+        {
+          "kind": "signal",
           "name": "route_back_completed",
           "signature": "signal route_back_completed(route_id: StringName, layer: int)",
           "summary": "路由返回完成时触发。",
@@ -80713,6 +81066,27 @@
           "name": "Operation",
           "signature": "enum Operation {\n\t## 压入当前层级栈顶。\n\tPUSH,\n\t## 替换当前层级栈。\n\tREPLACE,\n}",
           "summary": "路由打开操作。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "PRELOAD_NONE",
+          "signature": "const PRELOAD_NONE: StringName = &\"none\"",
+          "summary": "不执行路由预加载，直接提交异步面板请求。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "PRELOAD_BEST_EFFORT",
+          "signature": "const PRELOAD_BEST_EFFORT: StringName = &\"best_effort\"",
+          "summary": "尽力执行路由预加载；规划或加载失败时仍继续打开面板。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "PRELOAD_REQUIRED",
+          "signature": "const PRELOAD_REQUIRED: StringName = &\"required\"",
+          "summary": "要求路由预加载完整成功；否则不提交面板请求。",
           "visibility": "public"
         },
         {
@@ -80823,14 +81197,14 @@
         {
           "kind": "func",
           "name": "push_route_async",
-          "signature": "func push_route_async( route_id: StringName, params: Dictionary = {}, option_overrides: Dictionary = {}, config_callback: Callable = Callable() ) -> void",
+          "signature": "func push_route_async( route_id: StringName, params: Dictionary = {}, option_overrides: Dictionary = {}, config_callback: Callable = Callable(), async_options: Dictionary = {} ) -> GFUIRouteOperation",
           "summary": "异步压入一个路由面板。",
           "visibility": "public"
         },
         {
           "kind": "func",
           "name": "replace_route_async",
-          "signature": "func replace_route_async( route_id: StringName, params: Dictionary = {}, option_overrides: Dictionary = {}, config_callback: Callable = Callable() ) -> void",
+          "signature": "func replace_route_async( route_id: StringName, params: Dictionary = {}, option_overrides: Dictionary = {}, config_callback: Callable = Callable(), async_options: Dictionary = {} ) -> GFUIRouteOperation",
           "summary": "异步替换路由所在层级。",
           "visibility": "public"
         },

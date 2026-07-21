@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<apiCatalog schemaVersion="2" name="GF Framework" sourceRoot="addons/gf" sourceDigest="665fd1ec51d513f5f7915bf1172832366c6c8f070e70db1e0383118ad5d7ada2" classCount="755" methodCount="6746">
+<apiCatalog schemaVersion="2" name="GF Framework" sourceRoot="addons/gf" sourceDigest="4bd7a479d94bf543ca571c271fc44dcee4689dac9e072c3f679d397e1dfaee59" classCount="757" methodCount="6775">
 	<module id="kernel" label="Kernel" classCount="70" methodCount="715">
 		<class name="GFAccessGenerator" path="classes/GFAccessGenerator.xml" sourcePath="addons/gf/kernel/editor/gf_access_generator.gd" extends="RefCounted" />
 		<class name="GFArchitecture" path="classes/GFArchitecture.xml" sourcePath="addons/gf/kernel/core/gf_architecture.gd" extends="Object" />
@@ -72,7 +72,7 @@
 		<class name="GFTypeEventSystem" path="classes/GFTypeEventSystem.xml" sourcePath="addons/gf/kernel/core/gf_type_event_system.gd" extends="Object" />
 		<class name="GFUtility" path="classes/GFUtility.xml" sourcePath="addons/gf/kernel/base/gf_utility.gd" extends="Object" />
 	</module>
-	<module id="standard" label="Standard" classCount="418" methodCount="4191">
+	<module id="standard" label="Standard" classCount="420" methodCount="4220">
 		<class name="GFActivationTransaction" path="classes/GFActivationTransaction.xml" sourcePath="addons/gf/standard/foundation/policy/gf_activation_transaction.gd" extends="RefCounted" />
 		<class name="GFAnalyticsConfig" path="classes/GFAnalyticsConfig.xml" sourcePath="addons/gf/standard/utilities/analytics/gf_analytics_config.gd" extends="Resource" />
 		<class name="GFAnalyticsUtility" path="classes/GFAnalyticsUtility.xml" sourcePath="addons/gf/standard/utilities/analytics/gf_analytics_utility.gd" extends="GFUtility" />
@@ -462,7 +462,9 @@
 		<class name="GFTransform3DMath" path="classes/GFTransform3DMath.xml" sourcePath="addons/gf/standard/foundation/math/gf_transform_3d_math.gd" extends="RefCounted" />
 		<class name="GFUILayerDefinition" path="classes/GFUILayerDefinition.xml" sourcePath="addons/gf/standard/utilities/ui/gf_ui_layer_definition.gd" extends="Resource" />
 		<class name="GFUIRoute" path="classes/GFUIRoute.xml" sourcePath="addons/gf/standard/utilities/ui/gf_ui_route.gd" extends="Resource" />
+		<class name="GFUIRouteOperation" path="classes/GFUIRouteOperation.xml" sourcePath="addons/gf/standard/utilities/ui/gf_ui_route_operation.gd" extends="RefCounted" />
 		<class name="GFUIRoutePreloadUtility" path="classes/GFUIRoutePreloadUtility.xml" sourcePath="addons/gf/standard/utilities/ui/gf_ui_route_preload_utility.gd" extends="RefCounted" />
+		<class name="GFUIRouteResult" path="classes/GFUIRouteResult.xml" sourcePath="addons/gf/standard/utilities/ui/gf_ui_route_result.gd" extends="RefCounted" />
 		<class name="GFUIRouterUtility" path="classes/GFUIRouterUtility.xml" sourcePath="addons/gf/standard/utilities/ui/gf_ui_router_utility.gd" extends="GFUtility" />
 		<class name="GFUIUtility" path="classes/GFUIUtility.xml" sourcePath="addons/gf/standard/utilities/ui/gf_ui_utility.gd" extends="GFUtility" />
 		<class name="GFUndoableCommand" path="classes/GFUndoableCommand.xml" sourcePath="addons/gf/standard/command/gf_undoable_command.gd" extends="GFCommand" />

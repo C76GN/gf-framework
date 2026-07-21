@@ -1,0 +1,136 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFUIRouteOperation" path="addons/gf/standard/utilities/ui/gf_ui_route_operation.gd" module="standard" extends="RefCounted" classDigest="639c71f0155e8a13a252cd653200e0453fb0f46700372c089b280c9cbf604e9d">
+	<description>GFUIRouteOperation: 单次异步路由打开的可观察句柄。
+句柄由 GFUIRouterUtility 分配请求身份并只接受一个终态。相同 pending 路由
+会返回同一句柄，调用方无需自行按路径合并请求。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_handle</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals>
+		<member kind="signal" name="completed">
+			<signature>signal completed(result: GFUIRouteResult)</signature>
+			<description>路由请求进入终态时发出一次。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">result: 与当前请求 ID 匹配的隔离结果。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</signals>
+	<enums />
+	<constants>
+		<member kind="const" name="OPERATION_PUSH">
+			<signature>const OPERATION_PUSH: StringName = &amp;"push"</signature>
+			<description>压入路由操作。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="OPERATION_REPLACE">
+			<signature>const OPERATION_REPLACE: StringName = &amp;"replace"</signature>
+			<description>替换路由操作。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</constants>
+	<properties />
+	<methods>
+		<member kind="method" name="get_request_id">
+			<signature>func get_request_id() -&gt; int:</signature>
+			<description>获取 Router 内唯一请求 ID。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">大于零的请求 ID。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_route_id">
+			<signature>func get_route_id() -&gt; StringName:</signature>
+			<description>获取规范化路由 ID。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">当前请求路由 ID。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_operation">
+			<signature>func get_operation() -&gt; StringName:</signature>
+			<description>获取 push 或 replace 操作。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">`OPERATION_*` 常量之一。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_preload_policy">
+			<signature>func get_preload_policy() -&gt; StringName:</signature>
+			<description>获取请求预加载策略。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">Router 接受或拒绝的策略标识。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_started_at_msec">
+			<signature>func get_started_at_msec() -&gt; int:</signature>
+			<description>获取请求开始时间。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">单调时钟毫秒值。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_pending">
+			<signature>func is_pending() -&gt; bool:</signature>
+			<description>检查请求是否仍在等待终态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">已配置且未完成时返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_completed">
+			<signature>func is_completed() -&gt; bool:</signature>
+			<description>检查请求是否已有终态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">已完成时返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_preload_session">
+			<signature>func get_preload_session() -&gt; GFAssetLoadSession:</signature>
+			<description>获取当前预加载会话。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">已启动的会话；未启用或尚未启动时返回 null。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_result">
+			<signature>func get_result() -&gt; GFUIRouteResult:</signature>
+			<description>获取终态结果副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">已完成结果；等待中返回 null。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_debug_snapshot">
+			<signature>func get_debug_snapshot() -&gt; Dictionary:</signature>
+			<description>获取稳定调试快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">请求身份、pending 状态、预加载会话和终态摘要。</tag>
+				<tag name="schema">return: Dictionary with request_id, route_id, operation, preload_policy, started_at_msec, pending, completed, preload_session_id, and result.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>
