@@ -1,0 +1,159 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFContentPackageQuery" path="addons/gf/extensions/content_package/resources/gf_content_package_query.gd" module="extensions/content_package" extends="Resource" classDigest="ac49129fe7d8290d2d4f88f94fcda9993d78aefae17ec1f7ad455544cef86e13">
+	<description>GFContentPackageQuery: 内容包目录的确定性通用查询条件。
+查询只描述 package、content type、依赖、资源键、安全分类和 metadata 约束，
+不解释项目业务语义。所有非空条件采用 AND 语义，列表条件要求 manifest 包含全部值。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">value_object</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties>
+		<member kind="property" name="query_id" decorators="@export">
+			<signature>var query_id: StringName = &amp;""</signature>
+			<description>查询稳定标识，仅用于诊断和追踪。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="package_ids" decorators="@export">
+			<signature>var package_ids: PackedStringArray = PackedStringArray()</signature>
+			<description>允许返回的 package ID；为空表示不限制。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="search_text" decorators="@export">
+			<signature>var search_text: String = ""</signature>
+			<description>在 package ID、显示名、版本和 content type 中匹配的大小写无关文本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="required_content_types" decorators="@export">
+			<signature>var required_content_types: PackedStringArray = PackedStringArray()</signature>
+			<description>manifest 必须包含的全部 content type。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="required_dependencies" decorators="@export">
+			<signature>var required_dependencies: PackedStringArray = PackedStringArray()</signature>
+			<description>manifest 必须声明的全部直接依赖 ID。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="required_resource_keys" decorators="@export">
+			<signature>var required_resource_keys: PackedStringArray = PackedStringArray()</signature>
+			<description>manifest 必须声明的全部资源键。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="allowed_safety_kinds" decorators="@export">
+			<signature>var allowed_safety_kinds: PackedStringArray = PackedStringArray()</signature>
+			<description>允许的安全分类；为空表示不限制。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="required_metadata" decorators="@export">
+			<signature>var required_metadata: Dictionary = {}</signature>
+			<description>manifest metadata 必须精确匹配的键值。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="schema">required_metadata: Dictionary with exact manifest metadata key/value filters.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="include_dependencies" decorators="@export">
+			<signature>var include_dependencies: bool = false</signature>
+			<description>是否把直接命中包的传递依赖加入结果。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="max_results" decorators="@export">
+			<signature>var max_results: int = 0</signature>
+			<description>直接命中包的最大数量；小于等于 0 表示不限制。依赖闭包不计入该限制。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="metadata" decorators="@export">
+			<signature>var metadata: Dictionary = {}</signature>
+			<description>调用方自定义查询元数据；GF 只负责复制和序列化。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="schema">metadata: Dictionary with caller-defined query metadata.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</properties>
+	<methods>
+		<member kind="method" name="matches">
+			<signature>func matches(manifest: GFContentPackageManifest) -&gt; bool:</signature>
+			<description>检查 manifest 是否满足全部非空查询条件。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">manifest: 要检查的内容包 manifest。</tag>
+				<tag name="return">满足查询条件返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="apply_dict">
+			<signature>func apply_dict(data: Dictionary) -&gt; void:</signature>
+			<description>从字典应用查询字段并执行集合归一化。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">data: 查询字典。</tag>
+				<tag name="schema">data: Dictionary with query_id, package_ids, search_text, required_content_types, required_dependencies, required_resource_keys, allowed_safety_kinds, required_metadata, include_dependencies, max_results, and metadata.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="to_dict">
+			<signature>func to_dict() -&gt; Dictionary:</signature>
+			<description>转换为归一化字典。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">查询字典副本。</tag>
+				<tag name="schema">return: Dictionary with query_id, package_ids, search_text, required_content_types, required_dependencies, required_resource_keys, allowed_safety_kinds, required_metadata, include_dependencies, max_results, and metadata.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="duplicate_query">
+			<signature>func duplicate_query() -&gt; GFContentPackageQuery:</signature>
+			<description>创建查询深拷贝。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">新查询。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="from_dict">
+			<signature>static func from_dict(data: Dictionary) -&gt; GFContentPackageQuery:</signature>
+			<description>从字典创建查询。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">data: 查询字典。</tag>
+				<tag name="return">新查询。</tag>
+				<tag name="schema">data: Dictionary with query_id, package_ids, search_text, required_content_types, required_dependencies, required_resource_keys, allowed_safety_kinds, required_metadata, include_dependencies, max_results, and metadata.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

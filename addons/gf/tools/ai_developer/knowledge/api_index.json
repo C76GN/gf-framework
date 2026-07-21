@@ -2,8 +2,8 @@
   "schema_version": 1,
   "catalog_version": "1.0.0",
   "framework_version": "10.0.0-dev.0",
-  "source_digest": "3cf947188dce2072a524e639c013e198a0a2c4433546be4c63f10e2b2e4f4b4e",
-  "class_count": 726,
+  "source_digest": "f2609ebd2e0c744075069f32394747d391ed58ca21429cd9f37db064892f2eaa",
+  "class_count": 731,
   "package_count": 50,
   "packages": [
     {
@@ -2945,6 +2945,247 @@
           "name": "from_resource_registry_entry",
           "signature": "static func from_resource_registry_entry( registry_entry: GFResourceRegistryEntry, options: Dictionary = {} ) -> GFAssetCatalogEntry",
           "summary": "从资源注册表条目创建资产条目。",
+          "visibility": "public"
+        }
+      ]
+    },
+    "GFAssetCatalogMount": {
+      "extends": "RefCounted",
+      "module": "standard",
+      "package_id": "gf.standard.assets",
+      "path": "addons/gf/standard/utilities/assets/gf_asset_catalog_mount.gd",
+      "summary": "GFAssetCatalogMount: 资产目录运行时挂载的生命周期句柄。 句柄保存提交时的目录快照、owner、mount ID、来源和 revision， 并提供幂等显式卸载入口。失败请求也返回带稳定状态与报告的非活动句柄。",
+      "visibility": "public",
+      "category": "runtime_handle",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "const",
+          "name": "STATUS_ACTIVE",
+          "signature": "const STATUS_ACTIVE: StringName = &\"active\"",
+          "summary": "Mount 已提交且仍活动。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "STATUS_UNMOUNTED",
+          "signature": "const STATUS_UNMOUNTED: StringName = &\"unmounted\"",
+          "summary": "Mount 已由调用方或 owner scope 释放。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "STATUS_CONFLICT",
+          "signature": "const STATUS_CONFLICT: StringName = &\"conflict\"",
+          "summary": "Mount 与已提交资产 ID 冲突。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "STATUS_BUILD_FAILED",
+          "signature": "const STATUS_BUILD_FAILED: StringName = &\"build_failed\"",
+          "summary": "Provider 未能构建目录。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "STATUS_DUPLICATE_MOUNT",
+          "signature": "const STATUS_DUPLICATE_MOUNT: StringName = &\"duplicate_mount\"",
+          "summary": "同一 owner 已存在相同 mount ID。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "STATUS_INVALID_REQUEST",
+          "signature": "const STATUS_INVALID_REQUEST: StringName = &\"invalid_request\"",
+          "summary": "Mount 请求缺少 owner、mount ID 或有效目录。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "STATUS_DISPOSED",
+          "signature": "const STATUS_DISPOSED: StringName = &\"disposed\"",
+          "summary": "所属 Runtime 已释放。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_active",
+          "signature": "func is_active() -> bool",
+          "summary": "检查 Mount 是否仍在 Runtime 中活动。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_status",
+          "signature": "func get_status() -> StringName",
+          "summary": "获取稳定终态状态。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_owner_id",
+          "signature": "func get_owner_id() -> StringName",
+          "summary": "获取 owner ID。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_mount_id",
+          "signature": "func get_mount_id() -> StringName",
+          "summary": "获取 owner scope 内稳定 mount ID。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_source_id",
+          "signature": "func get_source_id() -> StringName",
+          "summary": "获取来源 ID。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_priority",
+          "signature": "func get_priority() -> int",
+          "summary": "获取 Mount 优先级。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_revision",
+          "signature": "func get_revision() -> int",
+          "summary": "获取最近一次提交该 Mount 的 Runtime revision。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_catalog",
+          "signature": "func get_catalog() -> GFAssetCatalog",
+          "summary": "获取 Mount 自身的资产目录快照。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_report",
+          "signature": "func get_report() -> Dictionary",
+          "summary": "获取 Mount 请求或提交报告。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "unmount",
+          "signature": "func unmount() -> bool",
+          "summary": "从所属 Runtime 卸载当前 Mount。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "to_dict",
+          "signature": "func to_dict() -> Dictionary",
+          "summary": "转换为 JSON-safe 诊断摘要。",
+          "visibility": "public"
+        }
+      ]
+    },
+    "GFAssetCatalogRuntime": {
+      "extends": "GFUtility",
+      "module": "standard",
+      "package_id": "gf.standard.assets",
+      "path": "addons/gf/standard/utilities/assets/gf_asset_catalog_runtime.gd",
+      "summary": "GFAssetCatalogRuntime: owner-scoped 资产目录快照挂载与原子合并服务。 Runtime 只接收已经构建的目录快照或 Provider 输出，按稳定优先级合并并以 revision 发布。 任何无效请求、Provider 失败或严格冲突都不会替换上一份已提交目录。",
+      "visibility": "public",
+      "category": "runtime_service",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "signal",
+          "name": "catalog_changed",
+          "signature": "signal catalog_changed(catalog: GFAssetCatalog, revision: int)",
+          "summary": "资产目录成功提交新 revision 后发出。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "CONFLICT_REJECT",
+          "signature": "const CONFLICT_REJECT: StringName = &\"reject\"",
+          "summary": "任一重复 asset ID 都拒绝整次事务。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "CONFLICT_KEEP_HIGH_PRIORITY",
+          "signature": "const CONFLICT_KEEP_HIGH_PRIORITY: StringName = &\"keep_high_priority\"",
+          "summary": "重复 asset ID 显式保留高优先级 Mount 的条目。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "configure",
+          "signature": "func configure(conflict_policy: StringName = CONFLICT_REJECT) -> GFAssetCatalogRuntime",
+          "summary": "配置全局 asset ID 冲突政策。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "mount_catalog",
+          "signature": "func mount_catalog( owner_id: StringName, mount_id: StringName, catalog: GFAssetCatalog, priority: int = 0, source_id: StringName = &\"\" ) -> GFAssetCatalogMount",
+          "summary": "原子挂载一个资产目录快照。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "mount_provider",
+          "signature": "func mount_provider( owner_id: StringName, mount_id: StringName, provider: GFAssetCatalogSourceProvider, options: Dictionary = {} ) -> GFAssetCatalogMount",
+          "summary": "构建 Provider 快照并原子挂载。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "replace_mount_catalog",
+          "signature": "func replace_mount_catalog(mount: GFAssetCatalogMount, catalog: GFAssetCatalog) -> bool",
+          "summary": "原子替换一个活动 Mount 的目录快照。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "unmount_owner",
+          "signature": "func unmount_owner(owner_id: StringName) -> int",
+          "summary": "批量释放一个 owner 的全部 Mount，并只提交一个新 revision。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_catalog",
+          "signature": "func get_catalog() -> GFAssetCatalog",
+          "summary": "获取当前已提交资产目录快照。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_revision",
+          "signature": "func get_revision() -> int",
+          "summary": "获取当前目录 revision。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_mounts",
+          "signature": "func get_mounts() -> Array[GFAssetCatalogMount]",
+          "summary": "获取全部活动 Mount。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_last_report",
+          "signature": "func get_last_report() -> Dictionary",
+          "summary": "获取最近一次运行时报告。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_debug_snapshot",
+          "signature": "func get_debug_snapshot() -> Dictionary",
+          "summary": "获取 JSON-safe 调试快照。",
           "visibility": "public"
         }
       ]
@@ -19313,6 +19554,39 @@
         }
       ]
     },
+    "GFContentPackageAssetCatalogProvider": {
+      "extends": "GFAssetCatalogSourceProvider",
+      "module": "extensions/content_package",
+      "package_id": "gf.extension.content_package",
+      "path": "addons/gf/extensions/content_package/runtime/gf_content_package_asset_catalog_provider.gd",
+      "summary": "GFContentPackageAssetCatalogProvider: 内容包目录到通用资产目录的适配器。 Provider 持有内容包目录快照，通过可选 GFContentPackageQuery 选择 manifest， 再把资源映射转换为 GFAssetCatalogEntry。它不挂载目录、不下载内容，也不解释业务分类。",
+      "visibility": "public",
+      "category": "protocol",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "func",
+          "name": "configure_catalog",
+          "signature": "func configure_catalog( catalog: GFContentPackageCatalog, p_source_id: StringName = &\"content_packages\", query: GFContentPackageQuery = null, options: Dictionary = {} ) -> GFContentPackageAssetCatalogProvider",
+          "summary": "配置内容包目录快照和可选查询。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "build_catalog",
+          "signature": "func build_catalog(options: Dictionary = {}) -> GFAssetCatalog",
+          "summary": "构建资产目录快照。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_debug_snapshot",
+          "signature": "func get_debug_snapshot() -> Dictionary",
+          "summary": "获取 Provider 诊断快照。",
+          "visibility": "public"
+        }
+      ]
+    },
     "GFContentPackageCatalog": {
       "extends": "RefCounted",
       "module": "extensions/content_package",
@@ -19384,6 +19658,13 @@
           "name": "get_ordered_package_ids",
           "signature": "func get_ordered_package_ids() -> PackedStringArray",
           "summary": "获取按依赖优先排序的内容包 ID。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "query_packages",
+          "signature": "func query_packages( query: GFContentPackageQuery, options: Dictionary = {} ) -> GFContentPackageQueryResult",
+          "summary": "查询有效内容包并返回隔离结果。",
           "visibility": "public"
         },
         {
@@ -19748,6 +20029,226 @@
         }
       ]
     },
+    "GFContentPackageQuery": {
+      "extends": "Resource",
+      "module": "extensions/content_package",
+      "package_id": "gf.extension.content_package",
+      "path": "addons/gf/extensions/content_package/resources/gf_content_package_query.gd",
+      "summary": "GFContentPackageQuery: 内容包目录的确定性通用查询条件。 查询只描述 package、content type、依赖、资源键、安全分类和 metadata 约束， 不解释项目业务语义。所有非空条件采用 AND 语义，列表条件要求 manifest 包含全部值。",
+      "visibility": "public",
+      "category": "value_object",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "var",
+          "name": "query_id",
+          "signature": "var query_id: StringName = &\"\"",
+          "summary": "查询稳定标识，仅用于诊断和追踪。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "package_ids",
+          "signature": "var package_ids: PackedStringArray = PackedStringArray()",
+          "summary": "允许返回的 package ID；为空表示不限制。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "search_text",
+          "signature": "var search_text: String = \"\"",
+          "summary": "在 package ID、显示名、版本和 content type 中匹配的大小写无关文本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "required_content_types",
+          "signature": "var required_content_types: PackedStringArray = PackedStringArray()",
+          "summary": "manifest 必须包含的全部 content type。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "required_dependencies",
+          "signature": "var required_dependencies: PackedStringArray = PackedStringArray()",
+          "summary": "manifest 必须声明的全部直接依赖 ID。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "required_resource_keys",
+          "signature": "var required_resource_keys: PackedStringArray = PackedStringArray()",
+          "summary": "manifest 必须声明的全部资源键。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "allowed_safety_kinds",
+          "signature": "var allowed_safety_kinds: PackedStringArray = PackedStringArray()",
+          "summary": "允许的安全分类；为空表示不限制。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "required_metadata",
+          "signature": "var required_metadata: Dictionary = {}",
+          "summary": "manifest metadata 必须精确匹配的键值。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "include_dependencies",
+          "signature": "var include_dependencies: bool = false",
+          "summary": "是否把直接命中包的传递依赖加入结果。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "max_results",
+          "signature": "var max_results: int = 0",
+          "summary": "直接命中包的最大数量；小于等于 0 表示不限制。依赖闭包不计入该限制。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "metadata",
+          "signature": "var metadata: Dictionary = {}",
+          "summary": "调用方自定义查询元数据；GF 只负责复制和序列化。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "matches",
+          "signature": "func matches(manifest: GFContentPackageManifest) -> bool",
+          "summary": "检查 manifest 是否满足全部非空查询条件。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "apply_dict",
+          "signature": "func apply_dict(data: Dictionary) -> void",
+          "summary": "从字典应用查询字段并执行集合归一化。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "to_dict",
+          "signature": "func to_dict() -> Dictionary",
+          "summary": "转换为归一化字典。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "duplicate_query",
+          "signature": "func duplicate_query() -> GFContentPackageQuery",
+          "summary": "创建查询深拷贝。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "from_dict",
+          "signature": "static func from_dict(data: Dictionary) -> GFContentPackageQuery",
+          "summary": "从字典创建查询。",
+          "visibility": "public"
+        }
+      ]
+    },
+    "GFContentPackageQueryResult": {
+      "extends": "RefCounted",
+      "module": "extensions/content_package",
+      "package_id": "gf.extension.content_package",
+      "path": "addons/gf/extensions/content_package/runtime/gf_content_package_query_result.gd",
+      "summary": "GFContentPackageQueryResult: 内容包查询的不可变结果快照。 结果区分直接命中与依赖闭包，并保留隔离的 manifest 和验证报告， 调用方不需要从空数组推断查询失败或无匹配。",
+      "visibility": "public",
+      "category": "value_object",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "const",
+          "name": "STATUS_COMPLETED",
+          "signature": "const STATUS_COMPLETED: StringName = &\"completed\"",
+          "summary": "查询成功完成。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "STATUS_INVALID_QUERY",
+          "signature": "const STATUS_INVALID_QUERY: StringName = &\"invalid_query\"",
+          "summary": "查询对象为空或无效。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "STATUS_INVALID_CATALOG",
+          "signature": "const STATUS_INVALID_CATALOG: StringName = &\"invalid_catalog\"",
+          "summary": "内容包目录依赖图或 manifest 无效。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_successful",
+          "signature": "func is_successful() -> bool",
+          "summary": "检查查询是否成功完成。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_status",
+          "signature": "func get_status() -> StringName",
+          "summary": "获取稳定终态状态。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_query_id",
+          "signature": "func get_query_id() -> StringName",
+          "summary": "获取查询 ID。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_direct_package_ids",
+          "signature": "func get_direct_package_ids() -> PackedStringArray",
+          "summary": "获取不含自动依赖扩展的直接命中 package ID。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_package_ids",
+          "signature": "func get_package_ids() -> PackedStringArray",
+          "summary": "获取最终 package ID，包括请求的依赖闭包。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_manifest",
+          "signature": "func get_manifest(package_id: StringName) -> GFContentPackageManifest",
+          "summary": "获取一个命中 manifest 的隔离副本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_manifests",
+          "signature": "func get_manifests() -> Array[GFContentPackageManifest]",
+          "summary": "获取全部命中 manifest 的隔离副本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_report",
+          "signature": "func get_report() -> Dictionary",
+          "summary": "获取验证报告副本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "to_dict",
+          "signature": "func to_dict() -> Dictionary",
+          "summary": "转换为 JSON-safe 结果摘要。",
+          "visibility": "public"
+        }
+      ]
+    },
     "GFContentPackageUtility": {
       "extends": "GFUtility",
       "module": "extensions/content_package",
@@ -19766,24 +20267,73 @@
           "visibility": "public"
         },
         {
+          "kind": "const",
+          "name": "DEFAULT_SOURCE_ROOT_OWNER_ID",
+          "signature": "const DEFAULT_SOURCE_ROOT_OWNER_ID: StringName = &\"gf.content_package.manual\"",
+          "summary": "register_source_root() 等便捷入口使用的显式 owner scope。",
+          "visibility": "public"
+        },
+        {
           "kind": "func",
           "name": "register_source_root",
           "signature": "func register_source_root(root_path: String) -> bool",
-          "summary": "注册内容包 source root。",
+          "summary": "把内容包 source root 注册到默认 manual owner scope。",
           "visibility": "public"
         },
         {
           "kind": "func",
           "name": "unregister_source_root",
           "signature": "func unregister_source_root(root_path: String) -> bool",
-          "summary": "注销内容包 source root。",
+          "summary": "从默认 manual owner scope 注销内容包 source root。",
           "visibility": "public"
         },
         {
           "kind": "func",
           "name": "clear_source_roots",
           "signature": "func clear_source_roots() -> void",
-          "summary": "清空内容包 source root。",
+          "summary": "清空默认 manual owner scope 的内容包 source root。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "register_source_root_for_owner",
+          "signature": "func register_source_root_for_owner(owner_id: StringName, root_path: String) -> bool",
+          "summary": "为稳定 owner 注册内容包 source root。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "unregister_source_root_for_owner",
+          "signature": "func unregister_source_root_for_owner(owner_id: StringName, root_path: String) -> bool",
+          "summary": "从稳定 owner 注销一个内容包 source root。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "replace_owner_source_roots",
+          "signature": "func replace_owner_source_roots( owner_id: StringName, root_paths: PackedStringArray ) -> GFValidationReport",
+          "summary": "原子替换一个 owner 的全部 source root。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "clear_owner_source_roots",
+          "signature": "func clear_owner_source_roots(owner_id: StringName) -> int",
+          "summary": "释放一个 owner 的全部 source root。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_owner_source_roots",
+          "signature": "func get_owner_source_roots(owner_id: StringName) -> PackedStringArray",
+          "summary": "获取一个 owner 持有的 source root。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_source_root_owner_ids",
+          "signature": "func get_source_root_owner_ids() -> PackedStringArray",
+          "summary": "获取当前持有 source root 的 owner ID。",
           "visibility": "public"
         },
         {

@@ -22,12 +22,14 @@
 
 ## [未发布]
 
-**版本概述**：开发线升级为 `10.0.0-dev.0`，补齐通用 2D 编辑器缩略图、有序资产集合、存储后端故障转移、运行时会话轨迹、UI 路由预加载规划和轨迹预测数学，修正 AI Developer Kit 的项目级资源所有权表达，并更新 CI/Release 基础 Actions；业务策略仍保持在各自调用方边界内。
+**版本概述**：开发线升级为 `10.0.0-dev.0`，补齐通用 2D 编辑器缩略图、有序资产集合、内容包查询与运行时目录挂载、存储后端故障转移、运行时会话轨迹、UI 路由预加载规划和轨迹预测数学，修正 AI Developer Kit 的项目级资源所有权表达，并更新 CI/Release 基础 Actions；业务策略仍保持在各自调用方边界内。
 
 ### 🚀 新增特性 (Added)
 
 - `GFThumbnailRenderer` 与 `GFThumbnailRenderRequest` 支持 `CanvasItem` 的 `Image` / `ImageTexture` 缩略图请求，统一覆盖 `Node2D` 和 `Control`。调用方可以显式提供内容 `Rect2`，也可以让渲染器保守估算 Sprite、Control、Polygon、Line、AnimatedSprite 和 2D 粒子范围。
 - 新增 `GFAssetCollection`，用稳定 `collection_id` 和有序 `asset_ids` 描述可序列化资源集合，并通过 `GFValidationReport` 报告空 ID、重复 ID 和目录缺失项。
+- 新增 `GFContentPackageQuery`、`GFContentPackageQueryResult` 和 `GFContentPackageAssetCatalogProvider`，提供严格内容包筛选、dependency-first 闭包、类型化失败终态和 qualified 资产 ID 适配。
+- 新增 `GFAssetCatalogRuntime` 与 `GFAssetCatalogMount`，提供 owner-scoped 目录快照、严格或显式高优先级冲突政策、原子 revision 提交和幂等卸载。
 - 新增 `GFStorageFailoverBackend`，按稳定后端 ID 提供有界顺序尝试、`PRIMARY_ONLY` / `FIRST_SUCCESS` 写删语义、暂时性错误冷却和不含业务载荷的结构化操作报告。
 - 新增 `GFSessionTraceUtility`，提供显式通道白名单、事件数与字节双重预算、默认隐私脱敏、同步快照 provider、结构化支持报告快照和可选 `GFLogSink` journal。
 - 新增 `GFUIRoutePreloadUtility`，从 `GFUIRoute.adjacent_route_ids` 做有界、确定性的页面可达性遍历，并生成可直接交给 `GFAssetUtility` 的 `GFAssetPreloadPlan`。
@@ -39,6 +41,7 @@
 ### 🔄 机制更改 (Changed)
 
 - `GFStorageBackend.load_data()` 会为没有显式错误码的后端结果补齐 `error_code`，使组合后端能够区分成功、普通读取失败和明确的暂时性故障。
+- `GFContentPackageUtility` 的 source root 新增稳定 owner 关系和事务式整组替换；既有便捷入口只操作公开 manual owner scope，不再可能清除其他模块来源。
 - `GFStorageUtility` 的异步读写新增请求句柄入口；既有 `save_data_async()`、`load_data_async()` 和全局完成信号保持原行为，并与句柄共用同一调度队列。
 - `GFStorageFailoverBackend.configure_backends()` 对策略、失败阈值和冷却窗口执行事务式 fail-closed 校验，非法配置不会部分替换既有后端或静默改变写入语义。
 - 缩略图渲染改为等待场景树更新后同步强制绘制，避免无持续绘制帧时错过 `frame_post_draw`；dummy 渲染后端现在会安全返回空结果，不再访问无纹理存储的 ViewportTexture。
@@ -67,6 +70,7 @@
 - 新增 `GFThumbnailRenderRequest.for_canvas_item_image()`、`for_canvas_item_texture()` 及相应来源、边界和留白读取入口。
 - 新增 `GFThumbnailRenderer.render_canvas_item()` 与 `render_canvas_item_texture()`。
 - 新增公开类型 `GFAssetCollection` 和 `GFStorageFailoverBackend`；均标记为 `@since unreleased`，不改变既有调用入口默认行为。
+- 新增公开类型 `GFContentPackageQuery`、`GFContentPackageQueryResult`、`GFContentPackageAssetCatalogProvider`、`GFAssetCatalogRuntime` 和 `GFAssetCatalogMount`；`GFContentPackageCatalog` 新增 `query_packages()`，Content Package Utility 新增 owner-scoped root API，Asset Catalog Runtime 支持原子 `replace_mount_catalog()`。
 - 新增公开类型 `GFSessionTraceUtility`、`GFUIRoutePreloadUtility`，以及 `GFUIRoute.adjacent_route_ids`、`get_adjacent_route_ids()` 和 `GFUIRouterUtility.build_preload_plan()`；均标记为 `@since unreleased`。
 - 新增公开类型 `GFTrajectoryMath`，以及运动预测、恒速拦截和有界公式采样入口；均标记为 `@since unreleased`，不改变既有 Steering 行为。
 - 新增公开类型 `GFSaveProfile`、`GFSaveSectionProvider`、`GFSaveRecoveryPolicy`、`GFSaveProfileOperation`、`GFSaveProfileResult`、`GFSaveRollbackFailure` 和 `GFSaveProfileUtility`；Save 扩展安装器会自动注册 Profile Utility，既有 Save Graph 和 Slot API 不变。
@@ -78,6 +82,8 @@
 ### 📘 升级指南 (Migration Guide)
 
 - 既有 3D 缩略图、资产目录、存储后端与同步代码无需迁移。需要 2D 预览、有序资产集合或故障转移时显式采用新入口即可。
+- 既有单调用方 Content Package root 入口继续使用公开 manual owner scope；多模块、热插拔内容或场景生命周期应迁移到 `register_source_root_for_owner()` / `replace_owner_source_roots()`，并在模块退出时调用 `clear_owner_source_roots()`。
+- 运行时资产目录默认拒绝重复 `asset_id`。只有明确设计了覆盖层时，才在首个 Mount 前配置 `CONFLICT_KEEP_HIGH_PRIORITY`；不要依赖 Provider 注册时序决定胜者。
 - 自定义 `_draw()` 或无法可靠推断范围的 2D 节点应传入显式 `content_bounds`；多后端复制与冲突处理继续使用 `GFStorageSyncUtility`，不要把故障转移当作原子双写。
 - 既有 UI 路由无需迁移；只有需要候选页面预热时才声明 `adjacent_route_ids` 并显式执行生成的资产计划。需要发布后问题轨迹时，应由项目定义最小事件 schema、玩家许可和保留策略，再显式采用 `GFSessionTraceUtility`。
 - 既有曲线、Steering、发射体和节点移动逻辑无需迁移。只有需要结构化未来状态、拦截时间或公式点集时才显式采用 `GFTrajectoryMath`；绘制、物理推进、速度继承、重力拦截和业务命中规则继续由项目负责。
@@ -93,6 +99,11 @@
 - `addons/gf/kernel/editor/gf_thumbnail_render_request.gd`
 - `addons/gf/kernel/editor/gf_thumbnail_renderer.gd`
 - `addons/gf/standard/utilities/assets/gf_asset_collection.gd`
+- `addons/gf/standard/utilities/assets/gf_asset_catalog_runtime.gd`
+- `addons/gf/standard/utilities/assets/gf_asset_catalog_mount.gd`
+- `addons/gf/extensions/content_package/resources/gf_content_package_query.gd`
+- `addons/gf/extensions/content_package/runtime/gf_content_package_query_result.gd`
+- `addons/gf/extensions/content_package/runtime/gf_content_package_asset_catalog_provider.gd`
 - `addons/gf/standard/utilities/storage/gf_storage_backend.gd`
 - `addons/gf/standard/utilities/storage/gf_storage_failover_backend.gd`
 - `addons/gf/standard/utilities/storage/gf_storage_utility.gd`
@@ -110,31 +121,3 @@
 - `addons/gf/tools/ai_developer/schemas/project_snapshot.schema.json`
 - `.github/workflows/ci.yml`
 - `.github/workflows/release.yml`
-
-## [9.0.1] - 2026-07-20
-
-**版本概述**：修复 Godot 原生 Package Manager 在 Linux 等平台安装含隐藏文件的合法包后无法完整清理事务暂存目录的问题，并保持隐藏链接审计继续 fail closed。
-
-### 🔄 机制更改 (Changed)
-
-- Package Transaction Engine 的树清理与链接审计、Package Manager Backend 的兜底清理现在都会显式枚举隐藏目录项。该行为适用于所有合法 package 载荷，不为特定文件名或业务包增加例外。
-
-### 🐛 Bug 修复 (Fixed)
-
-- 修复合法 package 包含 `.gdignore` 等点号文件时，Linux 上的 `DirAccess` 默认隐藏文件过滤会让 `.gf/t` 保留 staging 副本的问题。该残留此前会被 release 全包 Godot matrix 判定为意外运行时写入，并阻止 GitHub Release 创建。
-- 修复事务树链接审计可能遗漏隐藏目录项的问题；隐藏符号链接或目录链接现在与普通目录项使用同一拒绝策略。
-
-### 🔧 API 变动说明 (API Changes)
-
-- 无公开 API、package schema、lockfile schema、持久化格式、协议或默认配置变化。
-
-### 📘 升级指南 (Migration Guide)
-
-- `9.0.0` 使用方可直接替换为 `9.0.1`。已安装的 package 文件和 `.gf/packages.lock.json` 无需迁移；如果项目残留旧 `.gf/t` 暂存目录，可在确认没有正在运行的 package 操作后删除该临时目录。
-
-### 📁 核心受影响文件 (Affected Files)
-
-- `addons/gf/kernel/package/gf_package_transaction_engine.gd`
-- `addons/gf/kernel/package/gf_package_manager_backend.gd`
-- `tests/gf_core/kernel/package/test_gf_package_manager_backend.gd`
-- `tests/gf_core/maintenance/test_package_transaction_boundary_validation.gd`

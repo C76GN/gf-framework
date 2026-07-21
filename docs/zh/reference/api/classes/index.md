@@ -7,14 +7,14 @@
 | 模块 | 类 | 成员 | 页面内索引 |
 |---|---:|---:|---|
 | Kernel | 70 | 987 | [Kernel](#module-kernel) |
-| Standard | 416 | 6548 | [Standard](#module-standard) |
+| Standard | 418 | 6579 | [Standard](#module-standard) |
 | Action Queue | 16 | 214 | [Action Queue](#module-extensions-action_queue) |
 | Asset Metadata | 4 | 33 | [Asset Metadata](#module-extensions-asset_metadata) |
 | Behavior Tree | 22 | 89 | [Behavior Tree](#module-extensions-behavior_tree) |
 | Camera | 7 | 130 | [Camera](#module-extensions-camera) |
 | Capability | 11 | 148 | [Capability](#module-extensions-capability) |
 | Combat | 51 | 609 | [Combat](#module-extensions-combat) |
-| Extensions / Content Package | 4 | 69 | [Extensions / Content Package](#module-extensions-content_package) |
+| Extensions / Content Package | 7 | 108 | [Extensions / Content Package](#module-extensions-content_package) |
 | Decision | 8 | 110 | [Decision](#module-extensions-decision) |
 | Dialogue | 5 | 75 | [Dialogue](#module-extensions-dialogue) |
 | Domain | 18 | 295 | [Domain](#module-extensions-domain) |
@@ -115,6 +115,7 @@
 | [`GFActivationTransaction`](GFActivationTransaction.md#gfactivationtransaction) | 运行时服务 (`runtime_service`) | `RefCounted` | 18 | `addons/gf/standard/foundation/policy/gf_activation_transaction.gd` |
 | [`GFAnalyticsUtility`](GFAnalyticsUtility.md#gfanalyticsutility) | 运行时服务 (`runtime_service`) | `GFUtility` | 21 | `addons/gf/standard/utilities/analytics/gf_analytics_utility.gd` |
 | [`GFArtifactFreshnessReport`](GFArtifactFreshnessReport.md#gfartifactfreshnessreport) | 运行时服务 (`runtime_service`) | `RefCounted` | 9 | `addons/gf/standard/foundation/policy/gf_artifact_freshness_report.gd` |
+| [`GFAssetCatalogRuntime`](GFAssetCatalogRuntime.md#gfassetcatalogruntime) | 运行时服务 (`runtime_service`) | `GFUtility` | 13 | `addons/gf/standard/utilities/assets/gf_asset_catalog_runtime.gd` |
 | [`GFAssetCatalogSourceRegistry`](GFAssetCatalogSourceRegistry.md#gfassetcatalogsourceregistry) | 运行时服务 (`runtime_service`) | `RefCounted` | 7 | `addons/gf/standard/utilities/assets/gf_asset_catalog_source_registry.gd` |
 | [`GFAssetUtility`](GFAssetUtility.md#gfassetutility) | 运行时服务 (`runtime_service`) | `GFUtility` | 39 | `addons/gf/standard/utilities/assets/gf_asset_utility.gd` |
 | [`GFAsyncFlowTools`](GFAsyncFlowTools.md#gfasyncflowtools) | 运行时服务 (`runtime_service`) | `RefCounted` | 8 | `addons/gf/standard/common/gf_async_flow_tools.gd` |
@@ -427,6 +428,7 @@
 | [`GFWaitSequenceStep`](GFWaitSequenceStep.md#gfwaitsequencestep) | 资源定义 (`resource_definition`) | `GFSequenceStep` | 3 | `addons/gf/standard/sequence/gf_wait_sequence_step.gd` |
 | [`GFWeightedEntry`](GFWeightedEntry.md#gfweightedentry) | 资源定义 (`resource_definition`) | `Resource` | 8 | `addons/gf/standard/foundation/math/gf_weighted_entry.gd` |
 | [`GFWeightedTable`](GFWeightedTable.md#gfweightedtable) | 资源定义 (`resource_definition`) | `Resource` | 17 | `addons/gf/standard/foundation/math/gf_weighted_table.gd` |
+| [`GFAssetCatalogMount`](GFAssetCatalogMount.md#gfassetcatalogmount) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 18 | `addons/gf/standard/utilities/assets/gf_asset_catalog_mount.gd` |
 | [`GFAssetHandle`](GFAssetHandle.md#gfassethandle) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 9 | `addons/gf/standard/utilities/assets/gf_asset_handle.gd` |
 | [`GFAssetLoadSession`](GFAssetLoadSession.md#gfassetloadsession) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 12 | `addons/gf/standard/utilities/assets/gf_asset_load_session.gd` |
 | [`GFAsyncBatch`](GFAsyncBatch.md#gfasyncbatch) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 31 | `addons/gf/standard/utilities/io/gf_async_batch.gd` |
@@ -688,10 +690,13 @@
 
 | 类 | 类别 | 继承 | 成员 | 源文件 |
 |---|---|---|---:|---|
-| [`GFContentPackageCatalog`](GFContentPackageCatalog.md#gfcontentpackagecatalog) | 运行时服务 (`runtime_service`) | `RefCounted` | 12 | `addons/gf/extensions/content_package/runtime/gf_content_package_catalog.gd` |
+| [`GFContentPackageCatalog`](GFContentPackageCatalog.md#gfcontentpackagecatalog) | 运行时服务 (`runtime_service`) | `RefCounted` | 13 | `addons/gf/extensions/content_package/runtime/gf_content_package_catalog.gd` |
 | [`GFContentPackageExportPlan`](GFContentPackageExportPlan.md#gfcontentpackageexportplan) | 运行时服务 (`runtime_service`) | `RefCounted` | 17 | `addons/gf/extensions/content_package/runtime/gf_content_package_export_plan.gd` |
-| [`GFContentPackageUtility`](GFContentPackageUtility.md#gfcontentpackageutility) | 运行时服务 (`runtime_service`) | `GFUtility` | 12 | `addons/gf/extensions/content_package/runtime/gf_content_package_utility.gd` |
+| [`GFContentPackageUtility`](GFContentPackageUtility.md#gfcontentpackageutility) | 运行时服务 (`runtime_service`) | `GFUtility` | 19 | `addons/gf/extensions/content_package/runtime/gf_content_package_utility.gd` |
+| [`GFContentPackageAssetCatalogProvider`](GFContentPackageAssetCatalogProvider.md#gfcontentpackageassetcatalogprovider) | 协议与扩展点 (`protocol`) | `GFAssetCatalogSourceProvider` | 3 | `addons/gf/extensions/content_package/runtime/gf_content_package_asset_catalog_provider.gd` |
 | [`GFContentPackageManifest`](GFContentPackageManifest.md#gfcontentpackagemanifest) | 资源定义 (`resource_definition`) | `Resource` | 28 | `addons/gf/extensions/content_package/resources/gf_content_package_manifest.gd` |
+| [`GFContentPackageQuery`](GFContentPackageQuery.md#gfcontentpackagequery) | 值对象 (`value_object`) | `Resource` | 16 | `addons/gf/extensions/content_package/resources/gf_content_package_query.gd` |
+| [`GFContentPackageQueryResult`](GFContentPackageQueryResult.md#gfcontentpackagequeryresult) | 值对象 (`value_object`) | `RefCounted` | 12 | `addons/gf/extensions/content_package/runtime/gf_content_package_query_result.gd` |
 
 <a id="module-extensions-decision"></a>
 

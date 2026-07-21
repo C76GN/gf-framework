@@ -11,6 +11,8 @@
 - `GFAssetCatalogSourceProvider`：资产来源 provider 基类，用于把项目目录、资源注册表、内容包、外部库或项目数据库转换为资产目录。
 - `GFAssetCatalogSourceRegistry`：来源注册表，按优先级汇聚多个 provider，生成可重建的 catalog snapshot 和 JSON-safe 报告。
 - `GFResourceRegistryAssetSourceProvider`：把现有 `GFResourceRegistry` 适配为资产目录来源。
+- `GFAssetCatalogRuntime`：按 owner 和 mount ID 原子组合已构建目录快照，只在完整候选成功时推进 revision。
+- `GFAssetCatalogMount`：活动挂载或失败请求的类型化生命周期句柄，提供状态、报告、来源快照和幂等卸载。
 - `GFAssetCollection`：只保存稳定、有序的 `asset_id` 集合以及展示信息和调用方 metadata，不持有资源实例。
 - `GFAssetPreloadPlan`：稳定 ID 解析后的不可变加载计划；缺失 ID 会保留为无效计划项，而不是静默缩小请求集合。
 - `GFAssetLoadSession` / `GFAssetLoadSessionResult`：把加载、提交和回滚组成一次明确终态的事务会话。
@@ -119,9 +121,34 @@ if result == null or not result.is_successful():
 
 默认合并时，高优先级 provider 先写入，同 `asset_id` 的低优先级条目会被跳过。需要诊断重复 ID 时调用 `build_catalog_report()`，报告会返回 `sources`、`entry_count`、`catalog_data` 和 `issues`。
 
+`GFAssetCatalogSourceRegistry` 适合一次性构建或编辑器预览。需要让场景、功能模块、内容包或可选插件在运行时贡献并释放目录时，使用 `GFAssetCatalogRuntime`。Provider 在 Mount 前只执行一次，其输出立即复制为快照；后续修改 Provider 或源目录不会暗中改变已提交 catalog。
+
+```gdscript
+var runtime := GFAssetCatalogRuntime.new()
+runtime.configure(GFAssetCatalogRuntime.CONFLICT_REJECT)
+runtime.init()
+
+var mount := runtime.mount_provider(
+	&"feature.inventory",
+	&"inventory_assets",
+	provider
+)
+if not mount.is_active():
+	push_error(JSON.stringify(mount.get_report()))
+
+var live_catalog := runtime.get_catalog()
+# feature 退出时显式释放；重复调用安全返回 false。
+mount.unmount()
+```
+
+默认 `CONFLICT_REJECT` 会把任一重复 `asset_id` 视为事务错误，上一份目录和 revision 保持不变。确实需要覆盖层时，必须在首个 Mount 前显式配置 `CONFLICT_KEEP_HIGH_PRIORITY`；Runtime 会按 priority 降序，再按 owner ID 与 mount ID 稳定排序，同优先级结果不依赖注册时序。`unmount_owner()` 会批量释放 owner 的全部 Mount，并只提交一个新 revision。
+
+Provider 或内容包目录更新后，使用 `replace_mount_catalog()` 原子替换现有 Mount。Runtime 会先在候选集合中完成冲突检查与合并，成功后才同时更新 Mount 快照、聚合目录和 revision；失败时旧快照保持可用。不要用“先 `unmount()`、再重新 mount”模拟更新，因为两次提交之间会暴露不必要的空目录或降级目录。
+
 ## 使用边界
 
 - `GFAssetCatalog` 是索引，不是资源缓存；加载和生命周期仍交给 `GFAssetUtility`、`GFResourceResolverUtility` 或项目自己的加载流程。项目若已有业务资源目录，应把它适配成 catalog/provider，不要复制一套缓存所有权。
+- `GFAssetCatalogRuntime` 挂载的是隔离索引快照，不持有已加载资源；Mount 释放不会直接卸载 `GFAssetHandle`，资源生命周期仍需独立 owner 或 group。
 - `asset_id` 应作为长期稳定 ID，不应直接等同资源路径。
 - `GFAssetCollection` 是有序引用集合，不是调色板 UI、收藏夹数据库或资源缓存；项目可以在它之上实现任意编辑器交互，但不能假设 GF 会解释集合用途。
 - 标签、分类、备注和 metadata 只作为通用字段保存和索引；GF 不解释 `character`、`weapon`、`quest`、`license` 等项目语义。

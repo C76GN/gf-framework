@@ -1,0 +1,152 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFAssetCatalogRuntime" path="addons/gf/standard/utilities/assets/gf_asset_catalog_runtime.gd" module="standard" extends="GFUtility" classDigest="814e37f3521ad847a984ff84fca9895f3777f7555d7a4e2ccd719f33783c73b2">
+	<description>GFAssetCatalogRuntime: owner-scoped 资产目录快照挂载与原子合并服务。
+Runtime 只接收已经构建的目录快照或 Provider 输出，按稳定优先级合并并以 revision 发布。
+任何无效请求、Provider 失败或严格冲突都不会替换上一份已提交目录。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_service</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals>
+		<member kind="signal" name="catalog_changed">
+			<signature>signal catalog_changed(catalog: GFAssetCatalog, revision: int)</signature>
+			<description>资产目录成功提交新 revision 后发出。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">catalog: 已提交目录的隔离快照。</tag>
+				<tag name="param">revision: 新 revision。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</signals>
+	<enums />
+	<constants>
+		<member kind="const" name="CONFLICT_REJECT">
+			<signature>const CONFLICT_REJECT: StringName = &amp;"reject"</signature>
+			<description>任一重复 asset ID 都拒绝整次事务。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="CONFLICT_KEEP_HIGH_PRIORITY">
+			<signature>const CONFLICT_KEEP_HIGH_PRIORITY: StringName = &amp;"keep_high_priority"</signature>
+			<description>重复 asset ID 显式保留高优先级 Mount 的条目。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</constants>
+	<properties />
+	<methods>
+		<member kind="method" name="configure">
+			<signature>func configure(conflict_policy: StringName = CONFLICT_REJECT) -&gt; GFAssetCatalogRuntime:</signature>
+			<description>配置全局 asset ID 冲突政策。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">conflict_policy: CONFLICT_REJECT 或 CONFLICT_KEEP_HIGH_PRIORITY。</tag>
+				<tag name="return">当前 Runtime；已有 Mount 或政策无效时保持原配置。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="mount_catalog">
+			<signature>func mount_catalog( owner_id: StringName, mount_id: StringName, catalog: GFAssetCatalog, priority: int = 0, source_id: StringName = &amp;"" ) -&gt; GFAssetCatalogMount:</signature>
+			<description>原子挂载一个资产目录快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">owner_id: 非空 owner ID。</tag>
+				<tag name="param">mount_id: owner scope 内非空稳定 ID。</tag>
+				<tag name="param">catalog: 要挂载的目录；Runtime 保存深拷贝。</tag>
+				<tag name="param">priority: 合并优先级，数值越大越先处理。</tag>
+				<tag name="param">source_id: 可选来源 ID；为空时使用 mount_id。</tag>
+				<tag name="return">活动 Mount 或带稳定失败状态的非活动 Mount。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="mount_provider">
+			<signature>func mount_provider( owner_id: StringName, mount_id: StringName, provider: GFAssetCatalogSourceProvider, options: Dictionary = {} ) -&gt; GFAssetCatalogMount:</signature>
+			<description>构建 Provider 快照并原子挂载。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">owner_id: 非空 owner ID。</tag>
+				<tag name="param">mount_id: owner scope 内稳定 ID。</tag>
+				<tag name="param">provider: 资产目录来源 Provider。</tag>
+				<tag name="param">options: 传给 Provider 的构建选项。</tag>
+				<tag name="return">活动 Mount 或带构建失败状态的非活动 Mount。</tag>
+				<tag name="schema">options: Dictionary with provider-defined build options.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="replace_mount_catalog">
+			<signature>func replace_mount_catalog(mount: GFAssetCatalogMount, catalog: GFAssetCatalog) -&gt; bool:</signature>
+			<description>原子替换一个活动 Mount 的目录快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">mount: 当前 Runtime 返回的活动 Mount。</tag>
+				<tag name="param">catalog: 新目录快照。</tag>
+				<tag name="return">完整候选成功提交返回 true；失败时保留原 Mount、目录和 revision。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="unmount_owner">
+			<signature>func unmount_owner(owner_id: StringName) -&gt; int:</signature>
+			<description>批量释放一个 owner 的全部 Mount，并只提交一个新 revision。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">owner_id: 要释放的 owner ID。</tag>
+				<tag name="return">释放的 Mount 数量。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_catalog">
+			<signature>func get_catalog() -&gt; GFAssetCatalog:</signature>
+			<description>获取当前已提交资产目录快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">深拷贝目录。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_revision">
+			<signature>func get_revision() -&gt; int:</signature>
+			<description>获取当前目录 revision。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">从 0 开始、仅成功提交时递增的 revision。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_mounts">
+			<signature>func get_mounts() -&gt; Array[GFAssetCatalogMount]:</signature>
+			<description>获取全部活动 Mount。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">按合并顺序排列的 Mount 句柄。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_last_report">
+			<signature>func get_last_report() -&gt; Dictionary:</signature>
+			<description>获取最近一次运行时报告。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">GFValidationReport 兼容字典副本。</tag>
+				<tag name="schema">return: GFValidationReport-compatible Dictionary with conflict_policy, revision, mount_count, asset_count, and issues.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_debug_snapshot">
+			<signature>func get_debug_snapshot() -&gt; Dictionary:</signature>
+			<description>获取 JSON-safe 调试快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">Runtime、Mount 和目录摘要。</tag>
+				<tag name="schema">return: Dictionary with conflict_policy, disposed, revision, mount_count, mounts, catalog, and last_report.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>
