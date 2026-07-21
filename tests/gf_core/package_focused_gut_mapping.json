@@ -208,6 +208,7 @@
       "res://tests/gf_core/standard/foundation/math/test_gf_grid_math.gd",
       "res://tests/gf_core/standard/foundation/math/test_gf_heightfield_and_surface_scatter.gd",
       "res://tests/gf_core/standard/foundation/math/test_gf_noise_field_tools.gd",
+      "res://tests/gf_core/standard/foundation/math/test_gf_trajectory_math.gd",
       "res://tests/gf_core/standard/foundation/math/test_gf_wave_function_collapse_2d.gd",
       "res://tests/gf_core/standard/foundation/math/test_gf_tile_utilities.gd",
       "res://tests/gf_core/standard/utilities/spatial/test_gf_physics_query_utility.gd",

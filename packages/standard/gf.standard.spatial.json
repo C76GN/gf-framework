@@ -107,6 +107,8 @@
     "addons/gf/standard/foundation/math/gf_tile_metadata_layer.gd.uid",
     "addons/gf/standard/foundation/math/gf_tile_rule_set.gd",
     "addons/gf/standard/foundation/math/gf_tile_rule_set.gd.uid",
+    "addons/gf/standard/foundation/math/gf_trajectory_math.gd",
+    "addons/gf/standard/foundation/math/gf_trajectory_math.gd.uid",
     "addons/gf/standard/foundation/math/gf_transform_3d_math.gd",
     "addons/gf/standard/foundation/math/gf_transform_3d_math.gd.uid",
     "addons/gf/standard/foundation/math/gf_voronoi_2d.gd",

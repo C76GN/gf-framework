@@ -1,0 +1,202 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFTrajectoryMath" path="addons/gf/standard/foundation/math/gf_trajectory_math.gd" module="standard" extends="RefCounted" classDigest="f06df9be701926a9ea5e7bae560d71c228e9cfbbb43a92323e4cd38812ff0a47">
+	<description>GFTrajectoryMath: 通用运动预测、拦截和公式轨迹采样工具。
+运动预测和拦截入口是 GF 内部无节点副作用的纯计算，不负责绘制、物理推进、目标选择或业务策略。
+公式采样会同步执行项目显式提供的可信 Callable，并在调用前执行硬预算校验；GF 本身不访问节点，
+但回调的副作用、阻塞与计算成本由调用方负责。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_service</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants>
+		<member kind="const" name="REASON_NONE">
+			<signature>const REASON_NONE: StringName = &amp;""</signature>
+			<description>表示计算成功，没有失败原因。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="REASON_INVALID_ARGUMENT">
+			<signature>const REASON_INVALID_ARGUMENT: StringName = &amp;"invalid_argument"</signature>
+			<description>表示输入参数无效、包含非有限数字，或计算结果无法保持有限。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="REASON_NO_SOLUTION">
+			<signature>const REASON_NO_SOLUTION: StringName = &amp;"no_solution"</signature>
+			<description>表示拦截方程不存在非负实数解。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="REASON_BEYOND_HORIZON">
+			<signature>const REASON_BEYOND_HORIZON: StringName = &amp;"beyond_horizon"</signature>
+			<description>表示拦截解超出调用方给定的时间窗口。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="REASON_INVALID_PROVIDER">
+			<signature>const REASON_INVALID_PROVIDER: StringName = &amp;"invalid_provider"</signature>
+			<description>表示轨迹公式 Callable 无效。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="REASON_SAMPLE_LIMIT_EXCEEDED">
+			<signature>const REASON_SAMPLE_LIMIT_EXCEEDED: StringName = &amp;"sample_limit_exceeded"</signature>
+			<description>表示请求采样数量超过本次预算。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="REASON_PROVIDER_FAILED">
+			<signature>const REASON_PROVIDER_FAILED: StringName = &amp;"provider_failed"</signature>
+			<description>表示公式返回了错误类型或非有限坐标。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="DEFAULT_EPSILON">
+			<signature>const DEFAULT_EPSILON: float = 0.000001</signature>
+			<description>默认浮点容差。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="DEFAULT_MAX_SAMPLE_COUNT">
+			<signature>const DEFAULT_MAX_SAMPLE_COUNT: int = 1024</signature>
+			<description>单次公式采样的默认点数预算。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="ABSOLUTE_MAX_SAMPLE_COUNT">
+			<signature>const ABSOLUTE_MAX_SAMPLE_COUNT: int = 16_384</signature>
+			<description>单次公式采样不可绕过的绝对点数上限。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</constants>
+	<properties />
+	<methods>
+		<member kind="method" name="predict_motion_2d">
+			<signature>static func predict_motion_2d( initial_position: Vector2, initial_velocity: Vector2, acceleration: Vector2, time_seconds: float ) -&gt; Dictionary:</signature>
+			<description>按恒定加速度预测 2D 未来位置和速度。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">initial_position: 当前世界或局部位置，由调用方保证坐标空间一致。</tag>
+				<tag name="param">initial_velocity: 当前速度。</tag>
+				<tag name="param">acceleration: 在预测区间内保持恒定的加速度。</tag>
+				<tag name="param">time_seconds: 非负预测秒数。</tag>
+				<tag name="return">运动预测报告。</tag>
+				<tag name="schema">return: Dictionary，字段为 ok: bool、reason: StringName（空或 invalid_argument）、error: String、time_seconds: float、position: Vector2、velocity: Vector2；成功时 time_seconds 等于请求值，失败时 time_seconds 为 0 且向量为零。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="predict_motion_3d">
+			<signature>static func predict_motion_3d( initial_position: Vector3, initial_velocity: Vector3, acceleration: Vector3, time_seconds: float ) -&gt; Dictionary:</signature>
+			<description>按恒定加速度预测 3D 未来位置和速度。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">initial_position: 当前世界或局部位置，由调用方保证坐标空间一致。</tag>
+				<tag name="param">initial_velocity: 当前速度。</tag>
+				<tag name="param">acceleration: 在预测区间内保持恒定的加速度。</tag>
+				<tag name="param">time_seconds: 非负预测秒数。</tag>
+				<tag name="return">运动预测报告。</tag>
+				<tag name="schema">return: Dictionary，字段为 ok: bool、reason: StringName（空或 invalid_argument）、error: String、time_seconds: float、position: Vector3、velocity: Vector3；成功时 time_seconds 等于请求值，失败时 time_seconds 为 0 且向量为零。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="solve_intercept_2d">
+			<signature>static func solve_intercept_2d( source_position: Vector2, projectile_speed: float, target_position: Vector2, target_velocity: Vector2, max_time_seconds: float = -1.0, epsilon: float = DEFAULT_EPSILON ) -&gt; Dictionary:</signature>
+			<description>求恒速发射体拦截匀速 2D 目标的最早非负解。
+发射速度使用当前坐标空间中的绝对速度，不隐式继承发射者速度。若发射体需要继承恒定的
+source_velocity，应传入 target_velocity - source_velocity；此时 launch_velocity 是相对发射者的速度，
+世界速度为 source_velocity + launch_velocity，世界命中点为 position + source_velocity * time_seconds。
+该方法不计算发射体加速度、重力或障碍物。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">source_position: 发射位置。</tag>
+				<tag name="param">projectile_speed: 发射体恒定速率，必须大于零。</tag>
+				<tag name="param">target_position: 目标当前位置。</tag>
+				<tag name="param">target_velocity: 目标恒定速度。</tag>
+				<tag name="param">max_time_seconds: 最大预测秒数；负值表示不限制。</tag>
+				<tag name="param">epsilon: 浮点判定容差；非正值使用 DEFAULT_EPSILON。</tag>
+				<tag name="return">最早拦截解报告。</tag>
+				<tag name="schema">return: Dictionary，字段为 ok: bool、reason: StringName（空、invalid_argument、no_solution 或 beyond_horizon）、error: String、time_seconds: float、position: Vector2、launch_velocity: Vector2、distance: float；成功时 time_seconds &gt;= 0，正时间解的 launch_velocity 长度等于 projectile_speed，t=0 时为零；失败时 time_seconds 为 -1，其余数值结果为零。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="solve_intercept_3d">
+			<signature>static func solve_intercept_3d( source_position: Vector3, projectile_speed: float, target_position: Vector3, target_velocity: Vector3, max_time_seconds: float = -1.0, epsilon: float = DEFAULT_EPSILON ) -&gt; Dictionary:</signature>
+			<description>求恒速发射体拦截匀速 3D 目标的最早非负解。
+发射速度使用当前坐标空间中的绝对速度，不隐式继承发射者速度。若发射体需要继承恒定的
+source_velocity，应传入 target_velocity - source_velocity；此时 launch_velocity 是相对发射者的速度，
+世界速度为 source_velocity + launch_velocity，世界命中点为 position + source_velocity * time_seconds。
+该方法不计算发射体加速度、重力或障碍物。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">source_position: 发射位置。</tag>
+				<tag name="param">projectile_speed: 发射体恒定速率，必须大于零。</tag>
+				<tag name="param">target_position: 目标当前位置。</tag>
+				<tag name="param">target_velocity: 目标恒定速度。</tag>
+				<tag name="param">max_time_seconds: 最大预测秒数；负值表示不限制。</tag>
+				<tag name="param">epsilon: 浮点判定容差；非正值使用 DEFAULT_EPSILON。</tag>
+				<tag name="return">最早拦截解报告。</tag>
+				<tag name="schema">return: Dictionary，字段为 ok: bool、reason: StringName（空、invalid_argument、no_solution 或 beyond_horizon）、error: String、time_seconds: float、position: Vector3、launch_velocity: Vector3、distance: float；成功时 time_seconds &gt;= 0，正时间解的 launch_velocity 长度等于 projectile_speed，t=0 时为零；失败时 time_seconds 为 -1，其余数值结果为零。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="sample_formula_2d">
+			<signature>static func sample_formula_2d( position_provider: Callable, start_time_seconds: float, end_time_seconds: float, sample_count: int, max_sample_count: int = DEFAULT_MAX_SAMPLE_COUNT ) -&gt; Dictionary:</signature>
+			<description>在闭区间内均匀调用同步公式并生成 2D 轨迹点。
+sample_count 为 1 时只采样 start_time_seconds；否则首尾时间都会被包含。
+反向时间区间是合法的。公式必须快速、同步且返回有限 Vector2。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">position_provider: 接收一个 float 秒数并返回 Vector2 的同步 Callable。</tag>
+				<tag name="param">start_time_seconds: 起始采样时间。</tag>
+				<tag name="param">end_time_seconds: 结束采样时间。</tag>
+				<tag name="param">sample_count: 请求采样点数量，必须大于零。</tag>
+				<tag name="param">max_sample_count: 本次预算，必须位于 1 到 ABSOLUTE_MAX_SAMPLE_COUNT。</tag>
+				<tag name="return">有界 2D 采样报告。</tag>
+				<tag name="schema">return: Dictionary，字段为 ok: bool、reason: StringName（空、invalid_argument、invalid_provider、sample_limit_exceeded 或 provider_failed）、error: String、start_time_seconds: float、end_time_seconds: float、requested_sample_count: int、sample_limit: int、sampled_count: int、failed_sample_index: int、times: PackedFloat64Array、points: PackedVector2Array；始终满足 sampled_count == times.size() == points.size()；成功时 failed_sample_index 为 -1，运行中失败时为首个失败索引并保留此前有效前缀，预检失败时数组为空且索引为 -1。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="sample_formula_3d">
+			<signature>static func sample_formula_3d( position_provider: Callable, start_time_seconds: float, end_time_seconds: float, sample_count: int, max_sample_count: int = DEFAULT_MAX_SAMPLE_COUNT ) -&gt; Dictionary:</signature>
+			<description>在闭区间内均匀调用同步公式并生成 3D 轨迹点。
+sample_count 为 1 时只采样 start_time_seconds；否则首尾时间都会被包含。
+反向时间区间是合法的。公式必须快速、同步且返回有限 Vector3。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">position_provider: 接收一个 float 秒数并返回 Vector3 的同步 Callable。</tag>
+				<tag name="param">start_time_seconds: 起始采样时间。</tag>
+				<tag name="param">end_time_seconds: 结束采样时间。</tag>
+				<tag name="param">sample_count: 请求采样点数量，必须大于零。</tag>
+				<tag name="param">max_sample_count: 本次预算，必须位于 1 到 ABSOLUTE_MAX_SAMPLE_COUNT。</tag>
+				<tag name="return">有界 3D 采样报告。</tag>
+				<tag name="schema">return: Dictionary，字段为 ok: bool、reason: StringName（空、invalid_argument、invalid_provider、sample_limit_exceeded 或 provider_failed）、error: String、start_time_seconds: float、end_time_seconds: float、requested_sample_count: int、sample_limit: int、sampled_count: int、failed_sample_index: int、times: PackedFloat64Array、points: PackedVector3Array；始终满足 sampled_count == times.size() == points.size()；成功时 failed_sample_index 为 -1，运行中失败时为首个失败索引并保留此前有效前缀，预检失败时数组为空且索引为 -1。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>
