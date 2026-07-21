@@ -20,8 +20,10 @@ UI 路由资源描述。 只描述路由标识、面板场景、目标层级和�
 | 属性 | [`layer`](#member-gfuiroute-properties-layer) | `var layer: int = GFUIUtility.Layer.POPUP` |
 | 属性 | [`default_options`](#member-gfuiroute-properties-default_options) | `var default_options: Dictionary = {}` |
 | 属性 | [`metadata`](#member-gfuiroute-properties-metadata) | `var metadata: Dictionary = {}` |
+| 属性 | [`adjacent_route_ids`](#member-gfuiroute-properties-adjacent_route_ids) | `var adjacent_route_ids: PackedStringArray = PackedStringArray()` |
 | 方法 | [`get_route_id`](#member-gfuiroute-methods-get_route_id) | `func get_route_id() -> StringName:` |
 | 方法 | [`is_valid_route`](#member-gfuiroute-methods-is_valid_route) | `func is_valid_route() -> bool:` |
+| 方法 | [`get_adjacent_route_ids`](#member-gfuiroute-methods-get_adjacent_route_ids) | `func get_adjacent_route_ids() -> PackedStringArray:` |
 | 方法 | [`build_options`](#member-gfuiroute-methods-build_options) | `func build_options(params: Dictionary = {}, option_overrides: Dictionary = {}) -> Dictionary:` |
 
 ## 属性
@@ -97,6 +99,19 @@ var metadata: Dictionary = {}
 
 - `metadata`: Dictionary，由项目定义的路由元数据；build_options() 会追加 route_id 和 route_params。
 
+<a id="member-gfuiroute-properties-adjacent_route_ids"></a>
+
+### `adjacent_route_ids`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+var adjacent_route_ids: PackedStringArray = PackedStringArray()
+```
+
+从当前页面可能到达的相邻路由标识。 该关系只用于显式的可达性分析和资源预加载，不等同于权限、守卫或业务跳转规则。
+
 ## 方法
 
 <a id="member-gfuiroute-methods-get_route_id"></a>
@@ -104,6 +119,7 @@ var metadata: Dictionary = {}
 ### `get_route_id`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func get_route_id() -> StringName:
@@ -111,7 +127,7 @@ func get_route_id() -> StringName:
 
 获取稳定路由标识。
 
-返回：路由标识；未显式设置时尝试使用资源路径。
+返回：去除首尾空白后的路由标识；未显式设置时尝试使用资源路径。
 
 <a id="member-gfuiroute-methods-is_valid_route"></a>
 
@@ -126,6 +142,21 @@ func is_valid_route() -> bool:
 检查路由是否具备可打开的基本信息。
 
 返回：路由有效时返回 true。
+
+<a id="member-gfuiroute-methods-get_adjacent_route_ids"></a>
+
+### `get_adjacent_route_ids`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func get_adjacent_route_ids() -> PackedStringArray:
+```
+
+获取去重且移除自引用后的相邻路由标识。
+
+返回：按资源声明顺序排列的相邻路由标识。
 
 <a id="member-gfuiroute-methods-build_options"></a>
 

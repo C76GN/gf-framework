@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFUIRoute" path="addons/gf/standard/utilities/ui/gf_ui_route.gd" module="standard" extends="Resource" classDigest="52feeccaa204d05245eed2ccd267ba2bbea99a2c566174a09eb4d8073a50ee3b">
+<class name="GFUIRoute" path="addons/gf/standard/utilities/ui/gf_ui_route.gd" module="standard" extends="Resource" classDigest="62ebc9b479323f9ce0528faf588879793aee40be56486b8be15d966ccb59247a">
 	<description>GFUIRoute: UI 路由资源描述。
 只描述路由标识、面板场景、目标层级和默认打开选项，不规定页面业务、
 动画实现或面板通信方式。</description>
@@ -53,6 +53,15 @@
 				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
+		<member kind="property" name="adjacent_route_ids" decorators="@export">
+			<signature>var adjacent_route_ids: PackedStringArray = PackedStringArray()</signature>
+			<description>从当前页面可能到达的相邻路由标识。
+该关系只用于显式的可达性分析和资源预加载，不等同于权限、守卫或业务跳转规则。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
 	</properties>
 	<methods>
 		<member kind="method" name="get_route_id">
@@ -60,7 +69,8 @@
 			<description>获取稳定路由标识。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="return">路由标识；未显式设置时尝试使用资源路径。</tag>
+				<tag name="return">去除首尾空白后的路由标识；未显式设置时尝试使用资源路径。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="is_valid_route">
@@ -69,6 +79,15 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">路由有效时返回 true。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_adjacent_route_ids">
+			<signature>func get_adjacent_route_ids() -&gt; PackedStringArray:</signature>
+			<description>获取去重且移除自引用后的相邻路由标识。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">按资源声明顺序排列的相邻路由标识。</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 		<member kind="method" name="build_options">

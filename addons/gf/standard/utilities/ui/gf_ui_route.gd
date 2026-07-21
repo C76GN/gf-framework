@@ -50,6 +50,14 @@ extends Resource
 ## @schema metadata: Dictionary，由项目定义的路由元数据；build_options() 会追加 route_id 和 route_params。
 @export var metadata: Dictionary = {}
 
+## 从当前页面可能到达的相邻路由标识。
+## 该关系只用于显式的可达性分析和资源预加载，不等同于权限、守卫或业务跳转规则。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+@export var adjacent_route_ids: PackedStringArray = PackedStringArray()
+
 
 # --- 公共方法 ---
 
@@ -57,12 +65,16 @@ extends Resource
 ## [br]
 ## @api public
 ## [br]
-## @return 路由标识；未显式设置时尝试使用资源路径。
+## @since 3.17.0
+## [br]
+## @return 去除首尾空白后的路由标识；未显式设置时尝试使用资源路径。
 func get_route_id() -> StringName:
-	if route_id != &"":
-		return route_id
-	if not resource_path.is_empty():
-		return StringName(resource_path)
+	var explicit_route_text: String = String(route_id).strip_edges()
+	if not explicit_route_text.is_empty():
+		return StringName(explicit_route_text)
+	var resource_path_text: String = resource_path.strip_edges()
+	if not resource_path_text.is_empty():
+		return StringName(resource_path_text)
 	return &""
 
 
@@ -73,6 +85,27 @@ func get_route_id() -> StringName:
 ## @return 路由有效时返回 true。
 func is_valid_route() -> bool:
 	return get_route_id() != &"" and not scene_path.is_empty() and layer >= 0
+
+
+## 获取去重且移除自引用后的相邻路由标识。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @return 按资源声明顺序排列的相邻路由标识。
+func get_adjacent_route_ids() -> PackedStringArray:
+	var result: PackedStringArray = PackedStringArray()
+	var own_route_id: StringName = get_route_id()
+	for raw_route_id: String in adjacent_route_ids:
+		var route_text: String = raw_route_id.strip_edges()
+		if route_text.is_empty():
+			continue
+		var adjacent_route_id: StringName = StringName(route_text)
+		if adjacent_route_id == own_route_id or result.has(route_text):
+			continue
+		var _appended: bool = result.append(route_text)
+	return result
 
 
 ## 合并默认选项、覆盖选项和路由参数。

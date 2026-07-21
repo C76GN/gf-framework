@@ -87,6 +87,26 @@ func test_push_route_records_history_and_options_metadata() -> void:
 	assert_eq(GFVariantData.get_option_string(metadata, "section"), "options", "路由元数据应被透传。")
 
 
+func test_route_open_signals_use_canonical_route_id() -> void:
+	var route: GFUIRoute = _make_route(&" settings ", GFUIUtility.Layer.POPUP)
+	assert_true(_router.register_route(route), "带首尾空白的声明应按规范化 ID 注册。")
+	watch_signals(_router)
+
+	var panel: Node = _router.push_route(&" settings ")
+
+	assert_not_null(panel, "规范化后的路由应可打开。")
+	assert_signal_emitted_with_parameters(
+		_router,
+		"route_open_requested",
+		[&"settings", GFUIRouterUtility.Operation.PUSH, {}]
+	)
+	assert_signal_emitted_with_parameters(
+		_router,
+		"route_opened",
+		[&"settings", panel, GFUIRouterUtility.Operation.PUSH]
+	)
+
+
 func test_route_supports_registered_custom_layer_id() -> void:
 	var definition: GFUILayerDefinition = GFUILayerDefinition.new()
 	definition.layer_id = 100
@@ -207,11 +227,12 @@ func test_duplicate_pending_push_route_async_opens_once() -> void:
 	var asset_util: ManualAssetUtility = ManualAssetUtility.new()
 	await _arch.register_utility_instance(asset_util)
 	await Gf.set_architecture(_arch)
-	var route: GFUIRoute = _make_route(&"inventory", GFUIUtility.Layer.POPUP)
+	var route: GFUIRoute = _make_route(&" inventory ", GFUIUtility.Layer.POPUP)
 	route.scene_path = "res://tests/pending_route_panel.tscn"
 	var _register_route_result_182: Variant = _router.register_route(route)
 
-	_router.push_route_async(&"inventory")
+	watch_signals(_router)
+	_router.push_route_async(&" inventory ")
 	_router.push_route_async(&"inventory")
 	asset_util.resolve("res://tests/pending_route_panel.tscn", _make_control_scene())
 	await get_tree().process_frame
@@ -219,6 +240,7 @@ func test_duplicate_pending_push_route_async_opens_once() -> void:
 
 	assert_eq(_ui_utility.get_stack_count(GFUIUtility.Layer.POPUP), 1, "重复异步打开同一路由时 UI 栈只应出现一个面板。")
 	assert_eq(_router.get_route_history().size(), 1, "重复异步打开同一路由时历史只应记录一次。")
+	assert_signal_emit_count(_router, "route_open_requested", 1, "规范化后相同的异步路由只应发出一次请求。")
 
 
 func test_async_route_sync_fallback_reaches_terminal_state() -> void:

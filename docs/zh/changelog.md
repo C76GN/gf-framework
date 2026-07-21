@@ -22,19 +22,23 @@
 
 ## [未发布]
 
-**版本概述**：补齐通用 2D 编辑器缩略图、有序资产集合和存储后端故障转移机制，同时保持预览 UI、资源业务分类、云服务协议和多后端同步策略在各自调用方边界内。
+**版本概述**：补齐通用 2D 编辑器缩略图、有序资产集合、存储后端故障转移、运行时会话轨迹和 UI 路由预加载规划，同时保持预览 UI、资源业务分类、云服务协议、线上采集策略和业务导航规则在各自调用方边界内。
 
 ### 🚀 新增特性 (Added)
 
 - `GFThumbnailRenderer` 与 `GFThumbnailRenderRequest` 支持 `CanvasItem` 的 `Image` / `ImageTexture` 缩略图请求，统一覆盖 `Node2D` 和 `Control`。调用方可以显式提供内容 `Rect2`，也可以让渲染器保守估算 Sprite、Control、Polygon、Line、AnimatedSprite 和 2D 粒子范围。
 - 新增 `GFAssetCollection`，用稳定 `collection_id` 和有序 `asset_ids` 描述可序列化资源集合，并通过 `GFValidationReport` 报告空 ID、重复 ID 和目录缺失项。
 - 新增 `GFStorageFailoverBackend`，按稳定后端 ID 提供有界顺序尝试、`PRIMARY_ONLY` / `FIRST_SUCCESS` 写删语义、暂时性错误冷却和不含业务载荷的结构化操作报告。
+- 新增 `GFSessionTraceUtility`，提供显式通道白名单、事件数与字节双重预算、默认隐私脱敏、同步快照 provider、结构化支持报告快照和可选 `GFLogSink` journal。
+- 新增 `GFUIRoutePreloadUtility`，从 `GFUIRoute.adjacent_route_ids` 做有界、确定性的页面可达性遍历，并生成可直接交给 `GFAssetUtility` 的 `GFAssetPreloadPlan`。
 
 ### 🔄 机制更改 (Changed)
 
 - `GFStorageBackend.load_data()` 会为没有显式错误码的后端结果补齐 `error_code`，使组合后端能够区分成功、普通读取失败和明确的暂时性故障。
 - `GFStorageFailoverBackend.configure_backends()` 对策略、失败阈值和冷却窗口执行事务式 fail-closed 校验，非法配置不会部分替换既有后端或静默改变写入语义。
 - 缩略图渲染改为等待场景树更新后同步强制绘制，避免无持续绘制帧时错过 `frame_post_draw`；dummy 渲染后端现在会安全返回空结果，不再访问无纹理存储的 ViewportTexture。
+- Session Trace journal 会校验轨迹与 sink 的脱敏 profile，且对 sink 生命周期、写入与刷新执行重入保护；不安全配置和运行期 profile 降级会 fail closed。
+- `GFUIRouterUtility` 可从当前已注册路由构建预加载计划；Planner 对目录、候选和边扫描分别设有硬上限，统一规范化路由 ID，只表达资源候选和诊断，不自动执行 IO，也不把相邻关系解释为权限或业务跳转。
 
 ### 🔧 API 变动说明 (API Changes)
 
@@ -42,11 +46,15 @@
 - 新增 `GFThumbnailRenderRequest.for_canvas_item_image()`、`for_canvas_item_texture()` 及相应来源、边界和留白读取入口。
 - 新增 `GFThumbnailRenderer.render_canvas_item()` 与 `render_canvas_item_texture()`。
 - 新增公开类型 `GFAssetCollection` 和 `GFStorageFailoverBackend`；均标记为 `@since unreleased`，不改变既有调用入口默认行为。
+- 新增公开类型 `GFSessionTraceUtility`、`GFUIRoutePreloadUtility`，以及 `GFUIRoute.adjacent_route_ids`、`get_adjacent_route_ids()` 和 `GFUIRouterUtility.build_preload_plan()`；均标记为 `@since unreleased`。
+- `GFUIRoute.get_route_id()` 以及 Router 的注册、查询、打开信号和异步 pending 身份统一去除 route ID 首尾空白。
 
 ### 📘 升级指南 (Migration Guide)
 
 - 既有 3D 缩略图、资产目录、存储后端与同步代码无需迁移。需要 2D 预览、有序资产集合或故障转移时显式采用新入口即可。
 - 自定义 `_draw()` 或无法可靠推断范围的 2D 节点应传入显式 `content_bounds`；多后端复制与冲突处理继续使用 `GFStorageSyncUtility`，不要把故障转移当作原子双写。
+- 既有 UI 路由无需迁移；只有需要候选页面预热时才声明 `adjacent_route_ids` 并显式执行生成的资产计划。需要发布后问题轨迹时，应由项目定义最小事件 schema、玩家许可和保留策略，再显式采用 `GFSessionTraceUtility`。
+- 历史配置若有意使用带首尾空白的 route ID，需迁移为去除空白后的稳定 ID；规范化后重复的 ID 会指向同一注册身份，不应再依赖空白区分页面。
 
 ### 📁 核心受影响文件 (Affected Files)
 
@@ -55,6 +63,10 @@
 - `addons/gf/standard/utilities/assets/gf_asset_collection.gd`
 - `addons/gf/standard/utilities/storage/gf_storage_backend.gd`
 - `addons/gf/standard/utilities/storage/gf_storage_failover_backend.gd`
+- `addons/gf/standard/utilities/debug/gf_session_trace_utility.gd`
+- `addons/gf/standard/utilities/ui/gf_ui_route.gd`
+- `addons/gf/standard/utilities/ui/gf_ui_route_preload_utility.gd`
+- `addons/gf/standard/utilities/ui/gf_ui_router_utility.gd`
 
 ## [9.0.1] - 2026-07-20
 

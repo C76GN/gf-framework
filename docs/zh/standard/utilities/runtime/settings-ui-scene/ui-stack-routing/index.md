@@ -5,7 +5,7 @@
 ## 阅读入口
 
 - [UI 面板栈与 Modal 协议](ui-stack-modal/index.md)：`GFUIUtility`、面板层级、异步加载、dismiss 策略、焦点辅助和 `GFModalResult`。
-- [UI 路由与导航历史](ui-router.md)：`GFUIRouterUtility`、`GFUIRoute`、路由参数、面板选项和返回行为。
+- [UI 路由与导航历史](ui-router.md)：`GFUIRouterUtility`、`GFUIRoute`、路由参数、相邻页面预加载计划和返回行为。
 - [视口、文本与节点树工具](viewport-text-node-tools/index.md)：`GFViewportUtility`、`GFTableDataView`、`GFTextFitter`、`GFTextAutoFit`、`GFRichTextFormatter` 和 `GFNodeTreeOps`。
 
 ## 使用边界

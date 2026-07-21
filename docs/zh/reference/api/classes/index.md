@@ -7,7 +7,7 @@
 | 模块 | 类 | 成员 | 页面内索引 |
 |---|---:|---:|---|
 | Kernel | 70 | 987 | [Kernel](#module-kernel) |
-| Standard | 411 | 6457 | [Standard](#module-standard) |
+| Standard | 413 | 6510 | [Standard](#module-standard) |
 | Action Queue | 16 | 214 | [Action Queue](#module-extensions-action_queue) |
 | Asset Metadata | 4 | 33 | [Asset Metadata](#module-extensions-asset_metadata) |
 | Behavior Tree | 22 | 89 | [Behavior Tree](#module-extensions-behavior_tree) |
@@ -241,6 +241,7 @@
 | [`GFScreenshotUtility`](GFScreenshotUtility.md#gfscreenshotutility) | 运行时服务 (`runtime_service`) | `GFUtility` | 22 | `addons/gf/standard/utilities/debug/gf_screenshot_utility.gd` |
 | [`GFScriptStructureTools`](GFScriptStructureTools.md#gfscriptstructuretools) | 运行时服务 (`runtime_service`) | `RefCounted` | 7 | `addons/gf/standard/utilities/assets/gf_script_structure_tools.gd` |
 | [`GFSeedUtility`](GFSeedUtility.md#gfseedutility) | 运行时服务 (`runtime_service`) | `GFUtility` | 18 | `addons/gf/standard/utilities/random/gf_seed_utility.gd` |
+| [`GFSessionTraceUtility`](GFSessionTraceUtility.md#gfsessiontraceutility) | 运行时服务 (`runtime_service`) | `GFUtility` | 44 | `addons/gf/standard/utilities/debug/gf_session_trace_utility.gd` |
 | [`GFSettingsUtility`](GFSettingsUtility.md#gfsettingsutility) | 运行时服务 (`runtime_service`) | `GFUtility` | 45 | `addons/gf/standard/utilities/settings/gf_settings_utility.gd` |
 | [`GFShaderParameterUtility`](GFShaderParameterUtility.md#gfshaderparameterutility) | 运行时服务 (`runtime_service`) | `GFUtility` | 15 | `addons/gf/standard/utilities/display/gf_shader_parameter_utility.gd` |
 | [`GFSignalRuntimeProbe`](GFSignalRuntimeProbe.md#gfsignalruntimeprobe) | 运行时服务 (`runtime_service`) | `RefCounted` | 27 | `addons/gf/standard/utilities/debug/gf_signal_runtime_probe.gd` |
@@ -274,7 +275,8 @@
 | [`GFTouchButton`](GFTouchButton.md#gftouchbutton) | 运行时服务 (`runtime_service`) | `GFTouchControl2D` | 12 | `addons/gf/standard/input/touch/gf_touch_button.gd` |
 | [`GFTouchJoystick`](GFTouchJoystick.md#gftouchjoystick) | 运行时服务 (`runtime_service`) | `GFTouchControl2D` | 26 | `addons/gf/standard/input/touch/gf_touch_joystick.gd` |
 | [`GFTransform3DMath`](GFTransform3DMath.md#gftransform3dmath) | 运行时服务 (`runtime_service`) | `RefCounted` | 11 | `addons/gf/standard/foundation/math/gf_transform_3d_math.gd` |
-| [`GFUIRouterUtility`](GFUIRouterUtility.md#gfuirouterutility) | 运行时服务 (`runtime_service`) | `GFUtility` | 26 | `addons/gf/standard/utilities/ui/gf_ui_router_utility.gd` |
+| [`GFUIRoutePreloadUtility`](GFUIRoutePreloadUtility.md#gfuiroutepreloadutility) | 运行时服务 (`runtime_service`) | `RefCounted` | 6 | `addons/gf/standard/utilities/ui/gf_ui_route_preload_utility.gd` |
+| [`GFUIRouterUtility`](GFUIRouterUtility.md#gfuirouterutility) | 运行时服务 (`runtime_service`) | `GFUtility` | 27 | `addons/gf/standard/utilities/ui/gf_ui_router_utility.gd` |
 | [`GFUIUtility`](GFUIUtility.md#gfuiutility) | 运行时服务 (`runtime_service`) | `GFUtility` | 49 | `addons/gf/standard/utilities/ui/gf_ui_utility.gd` |
 | [`GFValidationDiagnosticAdapter`](GFValidationDiagnosticAdapter.md#gfvalidationdiagnosticadapter) | 运行时服务 (`runtime_service`) | `RefCounted` | 6 | `addons/gf/standard/foundation/validation/gf_validation_diagnostic_adapter.gd` |
 | [`GFValidationJUnitExporter`](GFValidationJUnitExporter.md#gfvalidationjunitexporter) | 运行时服务 (`runtime_service`) | `RefCounted` | 2 | `addons/gf/standard/foundation/validation/gf_validation_junit_exporter.gd` |
@@ -418,7 +420,7 @@
 | [`GFTimedTextEntry`](GFTimedTextEntry.md#gftimedtextentry) | 资源定义 (`resource_definition`) | `Resource` | 9 | `addons/gf/standard/foundation/timeline/gf_timed_text_entry.gd` |
 | [`GFTimedTextTrack`](GFTimedTextTrack.md#gftimedtexttrack) | 资源定义 (`resource_definition`) | `Resource` | 13 | `addons/gf/standard/foundation/timeline/gf_timed_text_track.gd` |
 | [`GFUILayerDefinition`](GFUILayerDefinition.md#gfuilayerdefinition) | 资源定义 (`resource_definition`) | `Resource` | 7 | `addons/gf/standard/utilities/ui/gf_ui_layer_definition.gd` |
-| [`GFUIRoute`](GFUIRoute.md#gfuiroute) | 资源定义 (`resource_definition`) | `Resource` | 8 | `addons/gf/standard/utilities/ui/gf_ui_route.gd` |
+| [`GFUIRoute`](GFUIRoute.md#gfuiroute) | 资源定义 (`resource_definition`) | `Resource` | 10 | `addons/gf/standard/utilities/ui/gf_ui_route.gd` |
 | [`GFValidationConstraintRule`](GFValidationConstraintRule.md#gfvalidationconstraintrule) | 资源定义 (`resource_definition`) | `GFValidationRule` | 25 | `addons/gf/standard/foundation/validation/gf_validation_constraint_rule.gd` |
 | [`GFValidationSuite`](GFValidationSuite.md#gfvalidationsuite) | 资源定义 (`resource_definition`) | `Resource` | 23 | `addons/gf/standard/foundation/validation/gf_validation_suite.gd` |
 | [`GFWaitSequenceStep`](GFWaitSequenceStep.md#gfwaitsequencestep) | 资源定义 (`resource_definition`) | `GFSequenceStep` | 3 | `addons/gf/standard/sequence/gf_wait_sequence_step.gd` |
