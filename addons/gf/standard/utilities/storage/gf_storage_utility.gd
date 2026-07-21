@@ -210,6 +210,7 @@ var last_load_result: GFStorageReadResult
 var _async_tasks: Array[Dictionary] = []
 var _async_queue: Array[Dictionary] = []
 var _async_file_locks: Dictionary = {}
+var _next_async_request_id: int = 1
 var _migration_steps: Dictionary = {}
 var _path_policy: _StoragePathPolicy
 var _file_ops: _StorageFileOps
@@ -562,13 +563,34 @@ func save_data_group(files: Dictionary) -> Error:
 ## @return 强类型读取结果；调用方必须先检查 ok，再读取 payload。
 func load_data(file_name: String) -> GFStorageReadResult:
 	if not _validate_public_file_name(file_name, "load_data"):
-		last_load_result = _make_load_failure("file_name is empty", ERR_INVALID_PARAMETER)
+		last_load_result = _make_load_failure(
+			"Storage file name is invalid.",
+			ERR_INVALID_PARAMETER,
+			GFStorageReadResult.FailureKind.INVALID_REQUEST
+		)
 		return last_load_result.duplicate_result()
 
 	init()
 	_wait_for_async_tasks_for_file(file_name)
 	_recover_transaction_files([file_name])
 	return _read_json(file_name)
+
+
+## 规范化并校验一个数据文件名。
+##
+## 返回值与异步队列的同文件锁使用相同路径规则，可用于建立稳定所有权键。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param file_name: 待校验文件名。
+## [br]
+## @return 合法时返回规范化文件名；非法时返回空字符串。
+func canonicalize_data_file_name(file_name: String) -> String:
+	if not _validate_public_file_name(file_name, "canonicalize_data_file_name"):
+		return ""
+	return _canonicalize_storage_file_name(file_name)
 
 
 ## 在线程中异步保存纯字典数据。完成后从主线程发出 save_completed。
@@ -583,20 +605,31 @@ func load_data(file_name: String) -> GFStorageReadResult:
 ## [br]
 ## @return 启动线程的 Error 结果码。
 func save_data_async(file_name: String, data: Dictionary) -> Error:
-	if not _validate_public_file_name(file_name, "save_data_async"):
-		save_completed.emit(file_name, ERR_INVALID_PARAMETER)
-		return ERR_INVALID_PARAMETER
+	return _enqueue_async_save(file_name, data, null, "save_data_async")
 
-	init()
-	_async_queue.append({
-		"type": &"save",
-		"file_name": file_name,
-		"file_key": _get_async_file_key(file_name),
-		"data": data.duplicate(true),
-		"codec_options": _get_codec_options(),
-	})
-	_start_queued_async_tasks()
-	return OK
+
+## 在线程中异步保存纯字典数据，并返回请求专属句柄。
+##
+## 句柄终态不会与共享 Storage 上同文件的其他请求混淆。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param file_name: 目标文件名。
+## [br]
+## @param data: 要保存的字典。
+## [br]
+## @schema data: Dictionary，要序列化并保存的数据载荷。
+## [br]
+## @return 已配置的请求句柄；输入无效或启动失败时句柄立即进入失败终态。
+func save_data_request_async(file_name: String, data: Dictionary) -> GFStorageAsyncOperation:
+	var operation: GFStorageAsyncOperation = _make_async_operation(
+		GFStorageAsyncOperation.OPERATION_SAVE,
+		file_name
+	)
+	var _error: Error = _enqueue_async_save(file_name, data, operation, "save_data_request_async")
+	return operation
 
 
 ## 在线程中异步读取纯字典数据。完成后从主线程发出 load_completed。
@@ -607,20 +640,27 @@ func save_data_async(file_name: String, data: Dictionary) -> Error:
 ## [br]
 ## @return 启动线程的 Error 结果码。
 func load_data_async(file_name: String) -> Error:
-	if not _validate_public_file_name(file_name, "load_data_async"):
-		var failed_result: GFStorageReadResult = _make_load_failure("file_name is empty", ERR_INVALID_PARAMETER)
-		last_load_result = failed_result.duplicate_result()
-		load_completed.emit(file_name, failed_result.duplicate_result())
-		return ERR_INVALID_PARAMETER
+	return _enqueue_async_load(file_name, null, "load_data_async")
 
-	_async_queue.append({
-		"type": &"load",
-		"file_name": file_name,
-		"file_key": _get_async_file_key(file_name),
-		"codec_options": _get_codec_options(),
-	})
-	_start_queued_async_tasks()
-	return OK
+
+## 在线程中异步读取纯字典数据，并返回请求专属句柄。
+##
+## 读取终态通过句柄携带 `GFStorageReadResult`，调用方无需监听全局文件名信号。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param file_name: 目标文件名。
+## [br]
+## @return 已配置的请求句柄；输入无效或启动失败时句柄立即进入失败终态。
+func load_data_request_async(file_name: String) -> GFStorageAsyncOperation:
+	var operation: GFStorageAsyncOperation = _make_async_operation(
+		GFStorageAsyncOperation.OPERATION_LOAD,
+		file_name
+	)
+	var _error: Error = _enqueue_async_load(file_name, operation, "load_data_request_async")
+	return operation
 
 
 ## 等待已经入队和正在执行的异步纯数据任务全部完成。
@@ -648,9 +688,11 @@ func wait_for_async_tasks() -> void:
 		_start_queued_async_tasks()
 
 
-## 迁移存档数据。项目可继承 GFStorageUtility 并重写该方法。
+## 使用已注册步骤迁移存档数据。
 ## [br]
 ## @api public
+## [br]
+## @since 1.19.0
 ## [br]
 ## @param data: 已读取的数据副本。
 ## [br]
@@ -664,7 +706,21 @@ func wait_for_async_tasks() -> void:
 ## [br]
 ## @schema return: Dictionary，应用已注册迁移和默认值后的数据载荷。
 func migrate_data(data: Dictionary, _from_version: int, _to_version: int) -> Dictionary:
-	var migrated: Dictionary = _apply_registered_migrations(data, _from_version, _to_version)
+	var execution: Dictionary = _execute_registered_migrations(
+		data,
+		_from_version,
+		_to_version
+	)
+	if not GFVariantData.get_option_bool(execution, "ok", false):
+		push_error(
+			"[GFStorageUtility] migrate_data 失败：%s" % GFVariantData.get_option_string(
+				execution,
+				"error",
+				"Migration failed."
+			)
+		)
+		return data.duplicate(true)
+	var migrated: Dictionary = GFVariantData.get_option_dictionary(execution, "payload")
 	if not default_values_for_new_keys.is_empty():
 		migrated = _merge_default_values(migrated, default_values_for_new_keys)
 	return migrated
@@ -737,6 +793,108 @@ func get_registered_migrations() -> Array[Dictionary]:
 
 
 # --- 私有/辅助方法 ---
+
+func _make_async_operation(operation_kind: StringName, file_name: String) -> GFStorageAsyncOperation:
+	var operation: GFStorageAsyncOperation = GFStorageAsyncOperation.new()
+	var request_id: int = _next_async_request_id
+	_next_async_request_id += 1
+	if _next_async_request_id <= 0:
+		_next_async_request_id = 1
+	var _configured: bool = operation.configure_for_framework(request_id, operation_kind, file_name)
+	return operation
+
+
+func _enqueue_async_save(
+	file_name: String,
+	data: Dictionary,
+	operation: GFStorageAsyncOperation,
+	operation_name: String
+) -> Error:
+	var canonical_file_name: String = ""
+	if _validate_public_file_name(file_name, operation_name):
+		canonical_file_name = _canonicalize_storage_file_name(file_name)
+	if canonical_file_name.is_empty():
+		_complete_async_operation(operation, ERR_INVALID_PARAMETER, null)
+		save_completed.emit(file_name, ERR_INVALID_PARAMETER)
+		return ERR_INVALID_PARAMETER
+	if operation != null:
+		var _updated: bool = operation.set_file_name_for_framework(canonical_file_name)
+	init()
+	_async_queue.append({
+		"type": &"save",
+		"file_name": file_name,
+		"storage_file_name": canonical_file_name,
+		"file_key": _get_async_file_key(canonical_file_name),
+		"data": data.duplicate(true),
+		"codec_options": _get_codec_options(),
+		"operation": operation,
+	})
+	_start_queued_async_tasks()
+	return OK
+
+
+func _enqueue_async_load(
+	file_name: String,
+	operation: GFStorageAsyncOperation,
+	operation_name: String
+) -> Error:
+	var canonical_file_name: String = ""
+	if _validate_public_file_name(file_name, operation_name):
+		canonical_file_name = _canonicalize_storage_file_name(file_name)
+	if canonical_file_name.is_empty():
+		var failed_result: GFStorageReadResult = _make_load_failure(
+			"Storage file name is invalid.",
+			ERR_INVALID_PARAMETER,
+			GFStorageReadResult.FailureKind.INVALID_REQUEST
+		)
+		last_load_result = failed_result.duplicate_result()
+		_complete_async_operation(operation, failed_result.error_code, failed_result)
+		load_completed.emit(file_name, failed_result.duplicate_result())
+		return ERR_INVALID_PARAMETER
+	if operation != null:
+		var _updated: bool = operation.set_file_name_for_framework(canonical_file_name)
+	init()
+	_async_queue.append({
+		"type": &"load",
+		"file_name": file_name,
+		"storage_file_name": canonical_file_name,
+		"file_key": _get_async_file_key(canonical_file_name),
+		"codec_options": _get_codec_options(),
+		"operation": operation,
+	})
+	_start_queued_async_tasks()
+	return OK
+
+
+func _complete_async_operation(
+	operation: GFStorageAsyncOperation,
+	error_code: Error,
+	read_result: GFStorageReadResult
+) -> void:
+	if operation == null or operation.is_completed():
+		return
+	var ok: bool = error_code == OK
+	if operation.get_operation() == GFStorageAsyncOperation.OPERATION_LOAD:
+		ok = read_result != null and read_result.ok
+	var result: GFStorageAsyncResult = GFStorageAsyncResult.new()
+	var _configured: bool = result.configure_for_framework(
+		operation.get_request_id(),
+		operation.get_operation(),
+		operation.get_file_name(),
+		ok,
+		error_code,
+		read_result
+	)
+	var _completed: bool = operation.complete_for_framework(result)
+
+
+func _get_task_operation(task: Dictionary) -> GFStorageAsyncOperation:
+	var value: Variant = GFVariantData.get_option_value(task, "operation")
+	if value is GFStorageAsyncOperation:
+		var operation: GFStorageAsyncOperation = value
+		return operation
+	return null
+
 
 func _wait_for_async_tasks_for_file(file_name: String) -> void:
 	if not _has_pending_async_task_for_file(file_name):
@@ -823,6 +981,10 @@ func _get_task_file_name(task: Dictionary) -> String:
 	return GFVariantData.get_option_string(task, "file_name")
 
 
+func _get_task_storage_file_name(task: Dictionary) -> String:
+	return GFVariantData.get_option_string(task, "storage_file_name", _get_task_file_name(task))
+
+
 func _get_task_file_key(task: Dictionary) -> String:
 	return GFVariantData.get_option_string(task, "file_key")
 
@@ -886,26 +1048,26 @@ func _find_startable_async_task_index() -> int:
 
 
 func _start_async_task(task: Dictionary) -> void:
-	var file_name: String = _get_task_file_name(task)
+	var storage_file_name: String = _get_task_storage_file_name(task)
 	var task_type: StringName = _get_task_type(task)
 	var thread: Thread = Thread.new()
-	_recover_transaction_files([file_name])
+	_recover_transaction_files([storage_file_name])
 
 	var error: Error = ERR_INVALID_PARAMETER
 	if task_type == &"save":
 		error = thread.start(Callable(self, "_save_data_thread").bind(
-			file_name,
-			_get_full_path(file_name),
-			_get_full_path(_get_temp_filename(file_name)),
-			_get_full_path(_get_backup_filename(file_name)),
-			_get_full_path(_get_transaction_filename(file_name)),
+			storage_file_name,
+			_get_full_path(storage_file_name),
+			_get_full_path(_get_temp_filename(storage_file_name)),
+			_get_full_path(_get_backup_filename(storage_file_name)),
+			_get_full_path(_get_transaction_filename(storage_file_name)),
 			_get_task_dictionary(task, "data"),
 			_get_task_dictionary(task, "codec_options")
 		))
 	elif task_type == &"load":
 		error = thread.start(Callable(self, "_load_data_thread").bind(
-			file_name,
-			_get_full_path(file_name),
+			storage_file_name,
+			_get_full_path(storage_file_name),
 			_get_task_dictionary(task, "codec_options")
 		))
 
@@ -921,49 +1083,70 @@ func _start_async_task(task: Dictionary) -> void:
 func _emit_async_start_failed(task: Dictionary, error: Error) -> void:
 	var file_name: String = _get_task_file_name(task)
 	var task_type: StringName = _get_task_type(task)
+	var operation: GFStorageAsyncOperation = _get_task_operation(task)
 	if task_type == &"save":
 		push_error("[GFStorageUtility] 无法启动异步保存线程：%s，错误码：%s" % [file_name, error])
+		_complete_async_operation(operation, error, null)
 		save_completed.emit(file_name, error)
 	elif task_type == &"load":
 		push_error("[GFStorageUtility] 无法启动异步读取线程：%s，错误码：%s" % [file_name, error])
 		var failed_result: GFStorageReadResult = _make_load_failure(
 			"Thread start failed: %s" % error_string(error),
-			error
+			error,
+			GFStorageReadResult.FailureKind.IO_FAILED
 		)
 		last_load_result = failed_result.duplicate_result()
+		_complete_async_operation(operation, failed_result.error_code, failed_result)
 		load_completed.emit(file_name, failed_result.duplicate_result())
 
 
 func _complete_finished_async_task(task: Dictionary, result_variant: Variant) -> void:
 	var file_name: String = _get_task_file_name(task)
 	var task_type: StringName = _get_task_type(task)
+	var operation: GFStorageAsyncOperation = _get_task_operation(task)
 	if task_type == &"save":
 		var save_result: Dictionary = GFVariantData.as_dictionary(result_variant)
 		var error: Error = ERR_BUG
 		if not save_result.is_empty():
 			error = _get_result_error(save_result, ERR_BUG)
+		_complete_async_operation(operation, error, null)
 		save_completed.emit(file_name, error)
 	elif task_type == &"load":
-		_complete_async_load(file_name, result_variant)
+		_complete_async_load(file_name, result_variant, operation)
 
 
 func _fail_queued_async_tasks(reason: String) -> void:
 	for task: Dictionary in _async_queue:
 		var file_name: String = _get_task_file_name(task)
 		var task_type: StringName = _get_task_type(task)
+		var operation: GFStorageAsyncOperation = _get_task_operation(task)
 		if task_type == &"save":
+			_complete_async_operation(operation, ERR_UNAVAILABLE, null)
 			save_completed.emit(file_name, ERR_UNAVAILABLE)
 		elif task_type == &"load":
-			var failed_result: GFStorageReadResult = _make_load_failure(reason, ERR_UNAVAILABLE)
+			var failed_result: GFStorageReadResult = _make_load_failure(
+				reason,
+				ERR_UNAVAILABLE,
+				GFStorageReadResult.FailureKind.UNAVAILABLE
+			)
 			last_load_result = failed_result.duplicate_result()
+			_complete_async_operation(operation, failed_result.error_code, failed_result)
 			load_completed.emit(file_name, failed_result.duplicate_result())
 
 
-func _complete_async_load(file_name: String, result_variant: Variant) -> void:
+func _complete_async_load(
+	file_name: String,
+	result_variant: Variant,
+	operation: GFStorageAsyncOperation
+) -> void:
 	var result_data: Dictionary = GFVariantData.as_dictionary(result_variant)
 	var result: GFStorageReadResult
 	if result_data.is_empty():
-		result = _make_load_failure("Async load failed", ERR_CANT_ACQUIRE_RESOURCE)
+		result = _make_load_failure(
+			"Async load failed",
+			ERR_CANT_ACQUIRE_RESOURCE,
+			GFStorageReadResult.FailureKind.IO_FAILED
+		)
 	else:
 		result = GFStorageReadResult.from_dict(result_data)
 	result = _apply_schema_migrations(file_name, result)
@@ -971,11 +1154,13 @@ func _complete_async_load(file_name: String, result_variant: Variant) -> void:
 	if not result.ok:
 		if _should_emit_load_integrity_failed(result):
 			data_integrity_failed.emit(file_name, result.error)
+		_complete_async_operation(operation, result.error_code, result)
 		load_completed.emit(file_name, last_load_result.duplicate_result())
 		return
 
 	if result.integrity_status == GFStorageReadResult.IntegrityStatus.INVALID:
 		data_integrity_failed.emit(file_name, "Integrity checksum mismatch")
+	_complete_async_operation(operation, OK, result)
 	load_completed.emit(file_name, last_load_result.duplicate_result())
 
 
@@ -1055,26 +1240,46 @@ func _save_data_thread(
 
 func _load_data_thread(_file_name: String, path: String, codec_options: Dictionary) -> Dictionary:
 	if not FileAccess.file_exists(path):
-		return _make_thread_load_failure("File not found", ERR_FILE_NOT_FOUND)
+		return _make_thread_load_failure(
+			"File not found",
+			ERR_FILE_NOT_FOUND,
+			GFStorageReadResult.FailureKind.NOT_FOUND
+		)
 
 	var file: FileAccess = FileAccess.open(path, FileAccess.READ)
 	if file == null:
 		return _make_thread_load_failure(
 			"File open failed: %s" % error_string(FileAccess.get_open_error()),
-			ERR_FILE_CANT_OPEN
+			ERR_FILE_CANT_OPEN,
+			GFStorageReadResult.FailureKind.IO_FAILED
 		)
 
 	var bytes: PackedByteArray = file.get_buffer(file.get_length())
 	file.close()
 	if bytes.is_empty():
-		return _make_thread_load_failure("File is empty", ERR_FILE_CORRUPT)
+		return _make_thread_load_failure(
+			"File is empty",
+			ERR_FILE_CORRUPT,
+			GFStorageReadResult.FailureKind.CORRUPT
+		)
 
 	var thread_codec: GFStorageCodec = GFStorageCodec.new()
 	return thread_codec.decode(bytes, codec_options).to_dict()
 
 
-func _make_thread_load_failure(error_message: String, error_code: Error) -> Dictionary:
-	return GFStorageReadResult.new().configure_failure(error_message, error_code).to_dict()
+func _make_thread_load_failure(
+	error_message: String,
+	error_code: Error,
+	failure_kind: GFStorageReadResult.FailureKind
+) -> Dictionary:
+	return GFStorageReadResult.new().configure_failure(
+		error_message,
+		error_code,
+		{},
+		GFStorageReadResult.IntegrityStatus.NOT_CHECKED,
+		0,
+		failure_kind
+	).to_dict()
 
 
 func _ensure_absolute_parent_directory(path: String) -> Error:
@@ -1445,7 +1650,11 @@ func _read_json(file_name: String) -> GFStorageReadResult:
 
 	var path: String = _get_full_path(file_name)
 	if not FileAccess.file_exists(path):
-		last_load_result = _make_load_failure("File not found", ERR_FILE_NOT_FOUND)
+		last_load_result = _make_load_failure(
+			"File not found",
+			ERR_FILE_NOT_FOUND,
+			GFStorageReadResult.FailureKind.NOT_FOUND
+		)
 		return last_load_result.duplicate_result()
 
 	var file: FileAccess = FileAccess.open(path, FileAccess.READ)
@@ -1454,7 +1663,8 @@ func _read_json(file_name: String) -> GFStorageReadResult:
 		push_error("[GFStorageUtility] 无法读取文件：%s，错误码：%s" % [path, open_error])
 		last_load_result = _make_load_failure(
 			"File open failed: %s" % error_string(open_error),
-			open_error
+			open_error,
+			GFStorageReadResult.FailureKind.IO_FAILED
 		)
 		return last_load_result.duplicate_result()
 
@@ -1462,7 +1672,11 @@ func _read_json(file_name: String) -> GFStorageReadResult:
 	file.close()
 
 	if bytes.is_empty():
-		last_load_result = _make_load_failure("File is empty", ERR_FILE_CORRUPT)
+		last_load_result = _make_load_failure(
+			"File is empty",
+			ERR_FILE_CORRUPT,
+			GFStorageReadResult.FailureKind.CORRUPT
+		)
 		return last_load_result.duplicate_result()
 
 	var result: GFStorageReadResult = _get_codec().decode(bytes, _get_codec_options())
@@ -1518,7 +1732,20 @@ func _apply_schema_migrations(file_name: String, result: GFStorageReadResult) ->
 	if (strict_schema_migrations or not _migration_steps.is_empty()) and migration_chain.is_empty():
 		return _fail_schema_migration(result, from_version, to_version)
 
-	var migrated_payload: Dictionary = migrate_data(result.payload, from_version, to_version)
+	var execution: Dictionary = _execute_registered_migrations(
+		result.payload,
+		from_version,
+		to_version
+	)
+	if not GFVariantData.get_option_bool(execution, "ok", false):
+		return _make_migration_failure(
+			result,
+			GFVariantData.get_option_string(execution, "error", "Storage migration failed."),
+			GFStorageReadResult.FailureKind.MIGRATION_FAILED
+		)
+	var migrated_payload: Dictionary = GFVariantData.get_option_dictionary(execution, "payload")
+	if not default_values_for_new_keys.is_empty():
+		migrated_payload = _merge_default_values(migrated_payload, default_values_for_new_keys)
 	var migrated_metadata: Dictionary = result.metadata.duplicate(true)
 	migrated_metadata[GFStorageCodec.VERSION_KEY] = to_version
 	result.payload = migrated_payload
@@ -1529,28 +1756,45 @@ func _apply_schema_migrations(file_name: String, result: GFStorageReadResult) ->
 	return result
 
 
-func _apply_registered_migrations(data: Dictionary, from_version: int, to_version: int) -> Dictionary:
+func _execute_registered_migrations(
+	data: Dictionary,
+	from_version: int,
+	to_version: int
+) -> Dictionary:
 	var migrated: Dictionary = data.duplicate(true)
 	var chain: Array[int] = _resolve_migration_chain(from_version, to_version)
 	if chain.is_empty():
-		return migrated
+		return {"ok": true, "payload": migrated}
 
 	var current_version: int = from_version
 	for next_version: int in chain:
 		var entry: Dictionary = GFVariantData.get_option_dictionary(_migration_steps, _make_migration_key(current_version, next_version))
 		var callback: Callable = _get_callable_value(GFVariantData.get_option_value(entry, "callback", Callable()))
 		if not callback.is_valid():
-			push_warning("[GFStorageUtility] 迁移步骤无效，已跳过：%d -> %d。" % [current_version, next_version])
-			current_version = next_version
-			continue
+			return {
+				"ok": false,
+				"error": "Migration step %d -> %d is no longer callable." % [
+					current_version,
+					next_version,
+				],
+			}
 
-		var result: Variant = callback.call(migrated.duplicate(true), current_version, next_version)
-		if result is Dictionary:
-			migrated = GFVariantData.as_dictionary(result)
-		else:
-			push_warning("[GFStorageUtility] 迁移步骤未返回 Dictionary，保留原数据：%d -> %d。" % [current_version, next_version])
+		var step_result: Variant = callback.call(
+			migrated.duplicate(true),
+			current_version,
+			next_version
+		)
+		if not step_result is Dictionary:
+			return {
+				"ok": false,
+				"error": "Migration step %d -> %d must return Dictionary." % [
+					current_version,
+					next_version,
+				],
+			}
+		migrated = GFVariantData.as_dictionary(step_result)
 		current_version = next_version
-	return migrated
+	return {"ok": true, "payload": migrated}
 
 
 func _resolve_migration_chain(from_version: int, to_version: int) -> Array[int]:
@@ -1590,7 +1834,11 @@ func _fail_schema_migration(
 	to_version: int
 ) -> GFStorageReadResult:
 	var error_message: String = "Missing migration chain: %d -> %d" % [from_version, to_version]
-	return _make_migration_failure(result, error_message)
+	return _make_migration_failure(
+		result,
+		error_message,
+		GFStorageReadResult.FailureKind.MIGRATION_FAILED
+	)
 
 
 func _fail_future_storage_version(
@@ -1599,7 +1847,11 @@ func _fail_future_storage_version(
 	to_version: int
 ) -> GFStorageReadResult:
 	var error_message: String = "Unsupported future storage version: %d > %d" % [from_version, to_version]
-	return _make_migration_failure(result, error_message)
+	return _make_migration_failure(
+		result,
+		error_message,
+		GFStorageReadResult.FailureKind.FUTURE_VERSION
+	)
 
 
 func _get_migration_targets(from_version: int, to_version: int) -> Array[int]:
@@ -1628,19 +1880,35 @@ func _make_migration_key(from_version: int, to_version: int) -> String:
 	return "%d>%d" % [from_version, to_version]
 
 
-func _make_load_failure(error_message: String, error_code: Error) -> GFStorageReadResult:
-	return GFStorageReadResult.new().configure_failure(error_message, error_code)
+func _make_load_failure(
+	error_message: String,
+	error_code: Error,
+	failure_kind: GFStorageReadResult.FailureKind = GFStorageReadResult.FailureKind.IO_FAILED
+) -> GFStorageReadResult:
+	return GFStorageReadResult.new().configure_failure(
+		error_message,
+		error_code,
+		{},
+		GFStorageReadResult.IntegrityStatus.NOT_CHECKED,
+		0,
+		failure_kind
+	)
 
 
-func _make_migration_failure(result: GFStorageReadResult, error_message: String) -> GFStorageReadResult:
+func _make_migration_failure(
+	result: GFStorageReadResult,
+	error_message: String,
+	failure_kind: GFStorageReadResult.FailureKind
+) -> GFStorageReadResult:
 	if result == null:
-		return _make_load_failure(error_message, ERR_INVALID_DATA)
+		return _make_load_failure(error_message, ERR_INVALID_DATA, failure_kind)
 	return GFStorageReadResult.new().configure_failure(
 		error_message,
 		ERR_INVALID_DATA,
 		result.metadata,
 		result.integrity_status,
-		result.document_schema_version
+		result.document_schema_version,
+		failure_kind
 	)
 
 

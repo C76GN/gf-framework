@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFStorageReadResult" path="addons/gf/standard/utilities/storage/gf_storage_read_result.gd" module="standard" extends="RefCounted" classDigest="d97d63ef0c69386a2ee18607ce1e3da3a1668815c242cb8131a857efb02aa30d">
+<class name="GFStorageReadResult" path="addons/gf/standard/utilities/storage/gf_storage_read_result.gd" module="standard" extends="RefCounted" classDigest="9dcb8a10235ad3c085f21e566690b51db20f2e75729b45b3b6237168760108b3">
 	<description>GFStorageReadResult: 严格存储读取结果。
 将业务载荷、框架存储元数据、完整性状态和失败原因分离，避免调用方
 把空字典误判为成功，也避免存储层保留字段渗入业务数据。</description>
@@ -25,6 +25,32 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="enum" name="FailureKind">
+			<signature>enum FailureKind {
+	## 没有失败。
+	NONE,
+	## 请求参数或路径无效。
+	INVALID_REQUEST,
+	## 文件不存在。
+	NOT_FOUND,
+	## 文件 IO 或异步执行失败。
+	IO_FAILED,
+	## 文件格式、载荷或完整性损坏。
+	CORRUPT,
+	## 物理存储版本高于当前运行时。
+	FUTURE_VERSION,
+	## 物理存储迁移链缺失或迁移失败。
+	MIGRATION_FAILED,
+	## 请求在执行前被底层服务终止。
+	UNAVAILABLE,
+}</signature>
+			<description>读取失败的稳定分类。
+调用方必须依据该分类选择恢复策略，不得从 Error 码或错误文本推断数据语义。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 	</enums>
@@ -80,6 +106,14 @@
 				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>
+		<member kind="property" name="failure_kind">
+			<signature>var failure_kind: FailureKind = FailureKind.NONE</signature>
+			<description>读取失败的稳定分类；成功时为 `FailureKind.NONE`。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
 		<member kind="property" name="document_schema_version">
 			<signature>var document_schema_version: int = 0</signature>
 			<description>物理存储文档 schema 版本。</description>
@@ -130,7 +164,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="configure_failure">
-			<signature>func configure_failure( p_error: String, p_error_code: Error = ERR_INVALID_DATA, p_metadata: Dictionary = {}, p_integrity_status: IntegrityStatus = IntegrityStatus.NOT_CHECKED, p_document_schema_version: int = 0 ) -&gt; GFStorageReadResult:</signature>
+			<signature>func configure_failure( p_error: String, p_error_code: Error = ERR_INVALID_DATA, p_metadata: Dictionary = {}, p_integrity_status: IntegrityStatus = IntegrityStatus.NOT_CHECKED, p_document_schema_version: int = 0, p_failure_kind: FailureKind = FailureKind.IO_FAILED ) -&gt; GFStorageReadResult:</signature>
 			<description>配置失败结果。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -139,6 +173,7 @@
 				<tag name="param">p_metadata: 已能安全恢复的框架存储元数据。</tag>
 				<tag name="param">p_integrity_status: 完整性状态。</tag>
 				<tag name="param">p_document_schema_version: 物理文档 schema 版本。</tag>
+				<tag name="param">p_failure_kind: 稳定失败分类。</tag>
 				<tag name="return">当前结果。</tag>
 				<tag name="schema">p_metadata: Dictionary，失败时仍可安全展示或诊断的框架存储元数据。</tag>
 				<tag name="since">9.0.0</tag>
@@ -168,7 +203,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">读取结果字典。</tag>
-				<tag name="schema">return: Dictionary，包含 ok、payload、metadata、integrity_status、error_code、error、document_schema_version、source_data_version、data_version 和 migrated。</tag>
+				<tag name="schema">return: Dictionary，包含 ok、payload、metadata、integrity_status、error_code、error、failure_kind、document_schema_version、source_data_version、data_version 和 migrated。</tag>
 				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>

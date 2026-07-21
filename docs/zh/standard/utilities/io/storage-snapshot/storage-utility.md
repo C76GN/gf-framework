@@ -62,7 +62,36 @@ storage.allowed_resource_load_type_hints = PackedStringArray(["Resource"])
 var loaded_res := storage.load_resource("my_custom_resource.tres", "Resource")
 ```
 
-`GFStorageReadResult` 分离 `payload`、框架 `metadata`、`integrity_status`、Godot `error_code`、物理文档版本、数据迁移前后版本和 `migrated`。异步读取完成信号同样传递这个结果；`last_load_result` 只用于诊断最近一次读取，不应替代当前调用返回值。
+## 异步请求身份
+
+简单调用方可以继续使用 `save_data_async()` / `load_data_async()` 和全局完成信号。需要把
+终态精确关联到一次请求的协调器、自动保存服务或并发调用方，应使用请求句柄：
+
+```gdscript
+var operation: GFStorageAsyncOperation = storage.load_data_request_async("profile.json")
+var async_result: GFStorageAsyncResult
+if operation.is_completed():
+	async_result = operation.get_result()
+else:
+	async_result = await operation.completed
+
+if not async_result.is_successful():
+	var read_failure := async_result.get_read_result()
+	match read_failure.failure_kind:
+		GFStorageReadResult.FailureKind.NOT_FOUND:
+			_initialize_new_profile()
+		GFStorageReadResult.FailureKind.CORRUPT:
+			_offer_recovery(read_failure)
+		_:
+			_report_storage_failure(read_failure)
+```
+
+每个 `GFStorageAsyncOperation` 都持有唯一 request ID、规范文件名、操作类型和 exactly-once
+终态，`GFStorageAsyncResult` 是该请求身份与读写结果的不可变终态快照。不得用文件名或
+`last_load_result` 猜测某个句柄是否完成；同一文件可以存在来自不同调用方的多个排队
+请求。同步拒绝的非法请求也会返回已失败句柄，不会留下永不完成的等待。
+
+`GFStorageReadResult` 分离 `payload`、框架 `metadata`、`integrity_status`、Godot `error_code`、物理文档版本、数据迁移前后版本和 `migrated`。`failure_kind` 进一步区分非法请求、不存在、普通 IO、损坏、未来格式、迁移失败和服务不可用；上层恢复政策应根据该分类决定，不能仅凭同一个 `Error` 码把未来格式或迁移失败当成损坏。异步读取完成信号同样传递这个结果；`last_load_result` 只用于诊断最近一次读取，不应替代当前调用返回值。
 
 9.0 的物理存储文档是有意收紧的契约，不会把旧明文 JSON 或旧 envelope 当成当前格式。需要保留既有玩家数据的项目应在升级发布前使用独立、版本锁定的一次性导入器读取旧文件，验证后写成当前文档，再移除导入入口；不要在主读取路径长期保留格式猜测。
 

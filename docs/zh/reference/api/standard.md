@@ -6,11 +6,11 @@
 
 | 类别 | 类 | 成员 | 方法 |
 |---|---:|---:|---:|
-| [运行时服务](#category-runtime_service) | 182 | 3202 | 2160 |
+| [运行时服务](#category-runtime_service) | 182 | 3205 | 2163 |
 | [协议与扩展点](#category-protocol) | 22 | 309 | 251 |
 | [资源定义](#category-resource_definition) | 111 | 1442 | 747 |
-| [运行时句柄](#category-runtime_handle) | 41 | 704 | 457 |
-| [值对象](#category-value_object) | 35 | 648 | 408 |
+| [运行时句柄](#category-runtime_handle) | 42 | 713 | 463 |
+| [值对象](#category-value_object) | 36 | 658 | 416 |
 | [领域模型](#category-domain_model) | 4 | 61 | 42 |
 | [事件契约](#category-event_contract) | 5 | 47 | 17 |
 | [编辑器 API](#category-editor_api) | 11 | 68 | 46 |
@@ -397,6 +397,7 @@
 | [`GFShaderParameterBinder`](classes/GFShaderParameterBinder.md#gfshaderparameterbinder) | `Node` | `addons/gf/standard/utilities/display/gf_shader_parameter_binder.gd` |
 | [`GFSignalBridgeBinding`](classes/GFSignalBridgeBinding.md#gfsignalbridgebinding) | `RefCounted` | `addons/gf/standard/utilities/signals/bridge/gf_signal_bridge_binding.gd` |
 | [`GFSignalConnection`](classes/GFSignalConnection.md#gfsignalconnection) | `RefCounted` | `addons/gf/standard/utilities/signals/gf_signal_connection.gd` |
+| [`GFStorageAsyncOperation`](classes/GFStorageAsyncOperation.md#gfstorageasyncoperation) | `RefCounted` | `addons/gf/standard/utilities/storage/gf_storage_async_operation.gd` |
 | [`GFTextGenerationContext`](classes/GFTextGenerationContext.md#gftextgenerationcontext) | `RefCounted` | `addons/gf/standard/foundation/text/gf_text_generation_context.gd` |
 | [`GFTimeoutController`](classes/GFTimeoutController.md#gftimeoutcontroller) | `RefCounted` | `addons/gf/standard/common/gf_timeout_controller.gd` |
 | [`GFTouchControl2D`](classes/GFTouchControl2D.md#gftouchcontrol2d) | `Node2D` | `addons/gf/standard/input/touch/gf_touch_control_2d.gd` |
@@ -437,6 +438,7 @@
 | [`GFSpatialQueryIdentity`](classes/GFSpatialQueryIdentity.md#gfspatialqueryidentity) | `RefCounted` | `addons/gf/standard/foundation/math/gf_spatial_query_identity.gd` |
 | [`GFSteeringAcceleration`](classes/GFSteeringAcceleration.md#gfsteeringacceleration) | `RefCounted` | `addons/gf/standard/foundation/math/gf_steering_acceleration.gd` |
 | [`GFSteeringAgent`](classes/GFSteeringAgent.md#gfsteeringagent) | `RefCounted` | `addons/gf/standard/foundation/math/gf_steering_agent.gd` |
+| [`GFStorageAsyncResult`](classes/GFStorageAsyncResult.md#gfstorageasyncresult) | `RefCounted` | `addons/gf/standard/utilities/storage/gf_storage_async_result.gd` |
 | [`GFStorageConflictReport`](classes/GFStorageConflictReport.md#gfstorageconflictreport) | `Resource` | `addons/gf/standard/utilities/storage/gf_storage_conflict_report.gd` |
 | [`GFStorageReadResult`](classes/GFStorageReadResult.md#gfstoragereadresult) | `RefCounted` | `addons/gf/standard/utilities/storage/gf_storage_read_result.gd` |
 | [`GFStorageSectionCache`](classes/GFStorageSectionCache.md#gfstoragesectioncache) | `RefCounted` | `addons/gf/standard/utilities/storage/gf_storage_section_cache.gd` |

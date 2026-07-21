@@ -49,8 +49,11 @@ func after_each() -> void:
 			"test_registered_migration.json",
 			"test_missing_migration_chain.json",
 			"test_branching_migration.json",
+			"test_failed_migration.json",
 			"test_future_version.json",
 			"test_async.json",
+			"test_async_handle.json",
+			"nested/async_signal_alias.json",
 			"test_wait_async.json",
 			"recover_from_backup.json",
 			"recover_from_temp.json",
@@ -152,6 +155,66 @@ func test_async_save_and_load_data_emit_completion_signals() -> void:
 	assert_signal_emitted(_storage, "load_completed", "异步读取完成时应发出 load_completed。")
 	assert_true(_storage.last_load_result.ok, "异步读取结果应标记成功。")
 	assert_eq(GFVariantData.get_option_int(last_data, "coins"), 123, "异步读取应恢复保存的数据。")
+
+
+func test_async_request_handles_keep_identity_and_typed_failure_kind() -> void:
+	_storage.encrypt_key = 0
+	var save_operation: GFStorageAsyncOperation = _storage.save_data_request_async(
+		"test_async_handle.json",
+		{"coins": 321}
+	)
+	await _pump_storage_async_tasks()
+	assert_true(save_operation.is_completed())
+	assert_true(save_operation.get_result().is_successful())
+	assert_eq(
+		save_operation.get_result().get_operation(),
+		GFStorageAsyncOperation.OPERATION_SAVE
+	)
+
+	var load_operation: GFStorageAsyncOperation = _storage.load_data_request_async(
+		"test_async_handle.json"
+	)
+	await _pump_storage_async_tasks()
+	assert_ne(load_operation.get_request_id(), save_operation.get_request_id())
+	assert_true(load_operation.get_result().is_successful())
+	assert_eq(
+		GFVariantData.get_option_int(load_operation.get_result().get_read_result().payload, "coins"),
+		321
+	)
+
+	var missing_operation: GFStorageAsyncOperation = _storage.load_data_request_async(
+		"missing_async_handle.json"
+	)
+	await _pump_storage_async_tasks()
+	assert_false(missing_operation.get_result().is_successful())
+	assert_eq(
+		missing_operation.get_result().get_read_result().failure_kind,
+		GFStorageReadResult.FailureKind.NOT_FOUND
+	)
+
+
+func test_async_request_handle_rejects_invalid_path_without_hanging() -> void:
+	var operation: GFStorageAsyncOperation = _storage.load_data_request_async("")
+	assert_true(operation.is_completed())
+	assert_eq(operation.get_result().get_error_code(), ERR_INVALID_PARAMETER)
+	assert_eq(
+		operation.get_result().get_read_result().failure_kind,
+		GFStorageReadResult.FailureKind.INVALID_REQUEST
+	)
+	assert_push_error("[GFStorageUtility] load_data_request_async 失败：file_name 为空。")
+
+
+func test_async_request_handle_keeps_legacy_signal_file_name_and_canonical_identity() -> void:
+	var requested_file_name: String = "nested//async_signal_alias.json"
+	watch_signals(_storage)
+	var operation: GFStorageAsyncOperation = _storage.save_data_request_async(
+		requested_file_name,
+		{"value": 1}
+	)
+	await _pump_storage_async_tasks()
+	assert_true(operation.is_completed())
+	assert_eq(operation.get_file_name(), "nested/async_signal_alias.json")
+	assert_signal_emitted_with_parameters(_storage, "save_completed", [requested_file_name, OK])
 
 
 func test_save_data_creates_nested_directories() -> void:
@@ -838,6 +901,36 @@ func test_registered_migrations_run_as_version_chain() -> void:
 	assert_eq(GFVariantData.get_option_bool(loaded, "step_two"), true, "第二段迁移应执行。")
 	assert_eq(GFVariantData.get_option_int(metadata, GFStorageCodec.VERSION_KEY), 3, "迁移后版本应更新为当前版本。")
 	assert_eq(migrations.size(), 2, "迁移注册表应可查询。")
+
+
+func test_registered_migration_wrong_return_type_fails_without_advancing_version() -> void:
+	_storage.encrypt_key = 0
+	_storage.save_version = 2
+	assert_true(_storage.register_migration(1, 2, func(
+		_data: Dictionary,
+		_from_version: int,
+		_to_version: int
+	) -> Variant:
+		return 7
+	))
+	var file_name: String = "test_failed_migration.json"
+	var file: FileAccess = FileAccess.open(_storage._get_full_path(file_name), FileAccess.WRITE)
+	var _stored: Variant = file.store_buffer(GFStorageCodec.new().encode({"value": 10}, {
+		"obfuscation_key": 0,
+		"version": 1,
+	}))
+	file.close()
+	watch_signals(_storage)
+
+	var result: GFStorageReadResult = _storage.load_data(file_name)
+
+	assert_false(result.ok)
+	assert_eq(result.failure_kind, GFStorageReadResult.FailureKind.MIGRATION_FAILED)
+	assert_eq(result.data_version, 1)
+	assert_signal_not_emitted(_storage, "data_migrated")
+	assert_push_error(
+		"[GFStorageUtility] 读取数据失败：user://test_saves/test_failed_migration.json，原因：Migration step 1 -> 2 must return Dictionary."
+	)
 
 
 func test_migration_resolver_selects_reachable_shortest_path() -> void:

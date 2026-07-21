@@ -389,6 +389,42 @@ func test_storage_document_rejects_coercive_version_fields() -> void:
 		assert_false(data_version_result.ok, "data_version 不得接受隐式类型转换：%s" % [invalid_version])
 
 
+func test_future_storage_document_schema_has_typed_future_failure() -> void:
+	var codec: GFStorageCodec = GFStorageCodec.new()
+	var future_document: Dictionary = JSON.parse_string(
+		codec.encode({"future": true}, {"obfuscation_key": 0}).get_string_from_utf8()
+	)
+	var descriptor: Dictionary = GFVariantData.get_option_dictionary(
+		future_document,
+		GFStorageCodec.DOCUMENT_KEY
+	)
+	descriptor[GFStorageCodec.SCHEMA_VERSION_KEY] = GFStorageCodec.DOCUMENT_SCHEMA_VERSION + 1
+	future_document[GFStorageCodec.DOCUMENT_KEY] = descriptor
+
+	var result: GFStorageReadResult = codec.decode(
+		JSON.stringify(future_document).to_utf8_buffer(),
+		{"obfuscation_key": 0}
+	)
+
+	assert_false(result.ok)
+	assert_eq(result.failure_kind, GFStorageReadResult.FailureKind.FUTURE_VERSION)
+	assert_eq(result.document_schema_version, GFStorageCodec.DOCUMENT_SCHEMA_VERSION + 1)
+
+
+func test_storage_read_result_deserialization_enforces_success_failure_invariant() -> void:
+	var forged_success: GFStorageReadResult = GFStorageReadResult.from_dict({
+		"ok": true,
+		"failure_kind": GFStorageReadResult.FailureKind.CORRUPT,
+	})
+	var forged_failure: GFStorageReadResult = GFStorageReadResult.from_dict({
+		"ok": false,
+		"failure_kind": GFStorageReadResult.FailureKind.NONE,
+	})
+
+	assert_eq(forged_success.failure_kind, GFStorageReadResult.FailureKind.NONE)
+	assert_eq(forged_failure.failure_kind, GFStorageReadResult.FailureKind.IO_FAILED)
+
+
 func test_storage_document_rejects_noncanonical_metadata_and_integrity_types() -> void:
 	var codec: GFStorageCodec = GFStorageCodec.new()
 	var canonical: Dictionary = JSON.parse_string(

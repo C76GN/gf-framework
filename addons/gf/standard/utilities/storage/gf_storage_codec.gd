@@ -271,6 +271,23 @@ func decode(bytes: PackedByteArray, options: Dictionary = {}) -> GFStorageReadRe
 		return _make_failure("Decode failed", ERR_PARSE_ERROR)
 
 	var document: Dictionary = GFVariantData.get_option_dictionary(deserialize_result, "data")
+	var declared_schema_version: int = _get_declared_document_schema_version(document)
+	if declared_schema_version > DOCUMENT_SCHEMA_VERSION:
+		var future_descriptor: Dictionary = GFVariantData.get_option_dictionary(
+			document,
+			DOCUMENT_KEY
+		)
+		return _make_failure(
+			"Unsupported future storage document schema: %d > %d" % [
+				declared_schema_version,
+				DOCUMENT_SCHEMA_VERSION,
+			],
+			ERR_FILE_UNRECOGNIZED,
+			GFVariantData.get_option_dictionary(future_descriptor, METADATA_KEY),
+			GFStorageReadResult.IntegrityStatus.NOT_CHECKED,
+			declared_schema_version,
+			GFStorageReadResult.FailureKind.FUTURE_VERSION
+		)
 	var validation_error: String = _validate_storage_document(document)
 	if not validation_error.is_empty():
 		return _make_failure(validation_error, ERR_FILE_UNRECOGNIZED)
@@ -480,6 +497,20 @@ func _validate_storage_document(document: Dictionary) -> String:
 	return ""
 
 
+func _get_declared_document_schema_version(document: Dictionary) -> int:
+	var descriptor_value: Variant = GFVariantData.get_option_value(document, DOCUMENT_KEY)
+	if not descriptor_value is Dictionary:
+		return -1
+	var descriptor: Dictionary = descriptor_value
+	var schema_version_value: Variant = GFVariantData.get_option_value(
+		descriptor,
+		SCHEMA_VERSION_KEY
+	)
+	if not GFVariantData.is_exact_integer(schema_version_value):
+		return -1
+	return GFVariantData.to_exact_int(schema_version_value, -1)
+
+
 func _verify_document_integrity(document: Dictionary, active_format: Format) -> bool:
 	var descriptor: Dictionary = GFVariantData.get_option_dictionary(document, DOCUMENT_KEY)
 	var integrity: Dictionary = GFVariantData.get_option_dictionary(descriptor, INTEGRITY_KEY)
@@ -659,14 +690,16 @@ func _make_failure(
 	error_code: Error,
 	metadata: Dictionary = {},
 	integrity_status: GFStorageReadResult.IntegrityStatus = GFStorageReadResult.IntegrityStatus.NOT_CHECKED,
-	document_schema_version: int = 0
+	document_schema_version: int = 0,
+	failure_kind: GFStorageReadResult.FailureKind = GFStorageReadResult.FailureKind.CORRUPT
 ) -> GFStorageReadResult:
 	return GFStorageReadResult.new().configure_failure(
 		error_message,
 		error_code,
 		metadata,
 		integrity_status,
-		document_schema_version
+		document_schema_version,
+		failure_kind
 	)
 
 

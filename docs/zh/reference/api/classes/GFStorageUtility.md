@@ -54,8 +54,11 @@
 | 方法 | [`save_data`](#member-gfstorageutility-methods-save_data) | `func save_data(file_name: String, data: Dictionary) -> Error:` |
 | 方法 | [`save_data_group`](#member-gfstorageutility-methods-save_data_group) | `func save_data_group(files: Dictionary) -> Error:` |
 | 方法 | [`load_data`](#member-gfstorageutility-methods-load_data) | `func load_data(file_name: String) -> GFStorageReadResult:` |
+| 方法 | [`canonicalize_data_file_name`](#member-gfstorageutility-methods-canonicalize_data_file_name) | `func canonicalize_data_file_name(file_name: String) -> String:` |
 | 方法 | [`save_data_async`](#member-gfstorageutility-methods-save_data_async) | `func save_data_async(file_name: String, data: Dictionary) -> Error:` |
+| 方法 | [`save_data_request_async`](#member-gfstorageutility-methods-save_data_request_async) | `func save_data_request_async(file_name: String, data: Dictionary) -> GFStorageAsyncOperation:` |
 | 方法 | [`load_data_async`](#member-gfstorageutility-methods-load_data_async) | `func load_data_async(file_name: String) -> Error:` |
+| 方法 | [`load_data_request_async`](#member-gfstorageutility-methods-load_data_request_async) | `func load_data_request_async(file_name: String) -> GFStorageAsyncOperation:` |
 | 方法 | [`wait_for_async_tasks`](#member-gfstorageutility-methods-wait_for_async_tasks) | `func wait_for_async_tasks() -> void:` |
 | 方法 | [`migrate_data`](#member-gfstorageutility-methods-migrate_data) | `func migrate_data(data: Dictionary, _from_version: int, _to_version: int) -> Dictionary:` |
 | 方法 | [`register_migration`](#member-gfstorageutility-methods-register_migration) | `func register_migration(from_version: int, to_version: int, callback: Callable) -> bool:` |
@@ -682,6 +685,27 @@ func load_data(file_name: String) -> GFStorageReadResult:
 
 返回：强类型读取结果；调用方必须先检查 ok，再读取 payload。
 
+<a id="member-gfstorageutility-methods-canonicalize_data_file_name"></a>
+
+### `canonicalize_data_file_name`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func canonicalize_data_file_name(file_name: String) -> String:
+```
+
+规范化并校验一个数据文件名。 返回值与异步队列的同文件锁使用相同路径规则，可用于建立稳定所有权键。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `file_name` | 待校验文件名。 |
+
+返回：合法时返回规范化文件名；非法时返回空字符串。
+
 <a id="member-gfstorageutility-methods-save_data_async"></a>
 
 ### `save_data_async`
@@ -707,6 +731,32 @@ func save_data_async(file_name: String, data: Dictionary) -> Error:
 
 - `data`: Dictionary，要序列化并保存的数据载荷。
 
+<a id="member-gfstorageutility-methods-save_data_request_async"></a>
+
+### `save_data_request_async`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func save_data_request_async(file_name: String, data: Dictionary) -> GFStorageAsyncOperation:
+```
+
+在线程中异步保存纯字典数据，并返回请求专属句柄。 句柄终态不会与共享 Storage 上同文件的其他请求混淆。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `file_name` | 目标文件名。 |
+| `data` | 要保存的字典。 |
+
+返回：已配置的请求句柄；输入无效或启动失败时句柄立即进入失败终态。
+
+结构：
+
+- `data`: Dictionary，要序列化并保存的数据载荷。
+
 <a id="member-gfstorageutility-methods-load_data_async"></a>
 
 ### `load_data_async`
@@ -727,6 +777,27 @@ func load_data_async(file_name: String) -> Error:
 
 返回：启动线程的 Error 结果码。
 
+<a id="member-gfstorageutility-methods-load_data_request_async"></a>
+
+### `load_data_request_async`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func load_data_request_async(file_name: String) -> GFStorageAsyncOperation:
+```
+
+在线程中异步读取纯字典数据，并返回请求专属句柄。 读取终态通过句柄携带 `GFStorageReadResult`，调用方无需监听全局文件名信号。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `file_name` | 目标文件名。 |
+
+返回：已配置的请求句柄；输入无效或启动失败时句柄立即进入失败终态。
+
 <a id="member-gfstorageutility-methods-wait_for_async_tasks"></a>
 
 ### `wait_for_async_tasks`
@@ -744,12 +815,13 @@ func wait_for_async_tasks() -> void:
 ### `migrate_data`
 
 - API：`public`
+- 首次版本：`1.19.0`
 
 ```gdscript
 func migrate_data(data: Dictionary, _from_version: int, _to_version: int) -> Dictionary:
 ```
 
-迁移存档数据。项目可继承 GFStorageUtility 并重写该方法。
+使用已注册步骤迁移存档数据。
 
 参数：
 

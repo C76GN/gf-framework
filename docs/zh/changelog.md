@@ -32,11 +32,14 @@
 - 新增 `GFSessionTraceUtility`，提供显式通道白名单、事件数与字节双重预算、默认隐私脱敏、同步快照 provider、结构化支持报告快照和可选 `GFLogSink` journal。
 - 新增 `GFUIRoutePreloadUtility`，从 `GFUIRoute.adjacent_route_ids` 做有界、确定性的页面可达性遍历，并生成可直接交给 `GFAssetUtility` 的 `GFAssetPreloadPlan`。
 - 新增 `GFTrajectoryMath`，提供 2D/3D 恒加速度未来状态、恒速发射体对匀速目标的最早拦截解，以及带绝对点数上限的同步公式轨迹采样。
+- 新增 Save Profile 运行时：`GFSaveProfile`、`GFSaveSectionProvider`、`GFSaveRecoveryPolicy`、`GFSaveProfileUtility`、异步操作句柄和类型化终态结果共同提供多 section 所有权、generation 合并、flush 屏障、迁移校验和事务回滚。
+- 新增 `GFStorageAsyncOperation` 与 `GFStorageAsyncResult`，让并发调用方按唯一 request ID 观察单次读写终态；`GFStorageReadResult.FailureKind` 结构化区分非法请求、缺失、IO、损坏、未来格式、迁移失败和不可用。
 - AI Developer 项目契约新增可选 `architecture.owned_resources`，用于精确声明 `project.godot`、`export_presets.cfg` 等不属于业务模块的项目级治理文件。
 
 ### 🔄 机制更改 (Changed)
 
 - `GFStorageBackend.load_data()` 会为没有显式错误码的后端结果补齐 `error_code`，使组合后端能够区分成功、普通读取失败和明确的暂时性故障。
+- `GFStorageUtility` 的异步读写新增请求句柄入口；既有 `save_data_async()`、`load_data_async()` 和全局完成信号保持原行为，并与句柄共用同一调度队列。
 - `GFStorageFailoverBackend.configure_backends()` 对策略、失败阈值和冷却窗口执行事务式 fail-closed 校验，非法配置不会部分替换既有后端或静默改变写入语义。
 - 缩略图渲染改为等待场景树更新后同步强制绘制，避免无持续绘制帧时错过 `frame_post_draw`；dummy 渲染后端现在会安全返回空结果，不再访问无纹理存储的 ViewportTexture。
 - Session Trace journal 会校验轨迹与 sink 的脱敏 profile，且对 sink 生命周期、写入与刷新执行重入保护；不安全配置和运行期 profile 降级会 fail closed。
@@ -63,6 +66,8 @@
 - 新增公开类型 `GFAssetCollection` 和 `GFStorageFailoverBackend`；均标记为 `@since unreleased`，不改变既有调用入口默认行为。
 - 新增公开类型 `GFSessionTraceUtility`、`GFUIRoutePreloadUtility`，以及 `GFUIRoute.adjacent_route_ids`、`get_adjacent_route_ids()` 和 `GFUIRouterUtility.build_preload_plan()`；均标记为 `@since unreleased`。
 - 新增公开类型 `GFTrajectoryMath`，以及运动预测、恒速拦截和有界公式采样入口；均标记为 `@since unreleased`，不改变既有 Steering 行为。
+- 新增公开类型 `GFSaveProfile`、`GFSaveSectionProvider`、`GFSaveRecoveryPolicy`、`GFSaveProfileOperation`、`GFSaveProfileResult`、`GFSaveRollbackFailure` 和 `GFSaveProfileUtility`；Save 扩展安装器会自动注册 Profile Utility，既有 Save Graph 和 Slot API 不变。
+- 新增公开类型 `GFStorageAsyncOperation`、`GFStorageAsyncResult`，以及 `GFStorageUtility.save_data_request_async()`、`load_data_request_async()`、`canonicalize_data_file_name()`；`GFStorageReadResult` 新增只追加的 `FailureKind` 与 `failure_kind`。
 - `GFUIRoute.get_route_id()` 以及 Router 的注册、查询、打开信号和异步 pending 身份统一去除 route ID 首尾空白。
 - AI Developer 项目契约 schema v1 向后兼容地新增可选 `architecture.owned_resources`；项目快照 schema 从 v2 升为 v3，因此 AI Developer Kit 工具协议同步升为 3.0.0。
 - GF 开发身份从 `9.1.0-dev.0` 升为 `10.0.0-dev.0`，用于明确承载项目快照 v3 这一破坏性输出协议变化；本条只切换开发线，不创建正式版本或发布标签。
@@ -73,6 +78,7 @@
 - 自定义 `_draw()` 或无法可靠推断范围的 2D 节点应传入显式 `content_bounds`；多后端复制与冲突处理继续使用 `GFStorageSyncUtility`，不要把故障转移当作原子双写。
 - 既有 UI 路由无需迁移；只有需要候选页面预热时才声明 `adjacent_route_ids` 并显式执行生成的资产计划。需要发布后问题轨迹时，应由项目定义最小事件 schema、玩家许可和保留策略，再显式采用 `GFSessionTraceUtility`。
 - 既有曲线、Steering、发射体和节点移动逻辑无需迁移。只有需要结构化未来状态、拦截时间或公式点集时才显式采用 `GFTrajectoryMath`；绘制、物理推进、速度继承、重力拦截和业务命中规则继续由项目负责。
+- 既有 Save Graph、Slot 和直接 Storage 调用无需迁移。需要跨模块自动保存时，为每个稳定数据边界实现一个可回滚 `GFSaveSectionProvider`，注册 Profile 和完整迁移链；不要把缺失、损坏或未来版本统一重置为空存档。
 - 历史配置若有意使用带首尾空白的 route ID，需迁移为去除空白后的稳定 ID；规范化后重复的 ID 会指向同一注册身份，不应再依赖空白区分页面。
 - 既有项目契约无需修改。只有源码确实引用模块外项目治理文件时才添加精确 `res://` 文件路径；禁止填写裸 `res://`、目录、通配范围或模块根内文件。快照 v3 是有意的破坏性输出协议升级：消费方应先升级到 AI Developer Kit 3.x，再重新生成快照；不要把 v2 快照补字段后继续使用。
 - 从 `9.x` 开发线升级时，应同步更新 GF 插件与扩展清单到 `10.0.0-dev.0`，并重新生成 AI Developer Kit catalog；稳定版发布时间与版本号仍由后续独立发布流程决定。
@@ -86,11 +92,16 @@
 - `addons/gf/standard/utilities/assets/gf_asset_collection.gd`
 - `addons/gf/standard/utilities/storage/gf_storage_backend.gd`
 - `addons/gf/standard/utilities/storage/gf_storage_failover_backend.gd`
+- `addons/gf/standard/utilities/storage/gf_storage_utility.gd`
+- `addons/gf/standard/utilities/storage/gf_storage_async_operation.gd`
 - `addons/gf/standard/utilities/debug/gf_session_trace_utility.gd`
 - `addons/gf/standard/utilities/ui/gf_ui_route.gd`
 - `addons/gf/standard/utilities/ui/gf_ui_route_preload_utility.gd`
 - `addons/gf/standard/utilities/ui/gf_ui_router_utility.gd`
 - `addons/gf/standard/foundation/math/gf_trajectory_math.gd`
+- `addons/gf/extensions/save/profile/`
+- `docs/zh/extensions/save-graph/save-profile-runtime.md`
+- `docs/zh/extensions/save-graph/save-profile-adr.md`
 - `addons/gf/tools/ai_developer/gf_ai/dependencies.py`
 - `addons/gf/tools/ai_developer/schemas/project_contract.schema.json`
 - `addons/gf/tools/ai_developer/schemas/project_snapshot.schema.json`

@@ -1,0 +1,175 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFSaveSectionProvider" path="addons/gf/extensions/save/profile/gf_save_section_provider.gd" module="extensions/save" extends="Resource" classDigest="46e49f35046a00f0808221409c261914f27d1ce2c0f39f1e36fd1e4a59175ce9">
+	<description>GFSaveSectionProvider: Save Profile section 所有权协议。
+一个 provider 只拥有一个稳定 section。实现必须能够采集当前状态、应用已校验
+section，并在后续 provider 失败时恢复此前采集的 section。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">protocol</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties>
+		<member kind="property" name="section_id" decorators="@export">
+			<signature>var section_id: StringName = &amp;"":</signature>
+			<description>稳定且在 profile 内唯一的 section ID。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="schema_version" decorators="@export_range(1, 2_147_483_647, 1)">
+			<signature>var schema_version: int = 1:</signature>
+			<description>当前 section schema 版本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="save_enabled" decorators="@export">
+			<signature>var save_enabled: bool = true:</signature>
+			<description>是否参与保存采集。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="load_enabled" decorators="@export">
+			<signature>var load_enabled: bool = true:</signature>
+			<description>是否参与读取应用。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="required_on_load" decorators="@export">
+			<signature>var required_on_load: bool = true:</signature>
+			<description>读取时该 section 是否必须存在。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</properties>
+	<methods>
+		<member kind="method" name="validate_provider">
+			<signature>func validate_provider() -&gt; Dictionary:</signature>
+			<description>校验 provider 身份和能力配置。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">结构化校验报告。</tag>
+				<tag name="schema">return: GFValidationReportDictionary-compatible report with issues, counts, summary, and next_actions.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="gather_section">
+			<signature>func gather_section(context: Dictionary = {}) -&gt; GFSaveSection:</signature>
+			<description>采集当前状态为隔离 section。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">context: 本次操作的临时上下文。</tag>
+				<tag name="return">合法且身份匹配的 section；失败时返回 null。</tag>
+				<tag name="schema">context: Dictionary with caller-defined ephemeral operation data.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="capture_section">
+			<signature>func capture_section(context: Dictionary = {}) -&gt; GFSaveSection:</signature>
+			<description>采集应用前回滚快照。
+该能力独立于 `save_enabled`，允许只读取 provider 提供可回滚的内存快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">context: 本次操作的临时上下文。</tag>
+				<tag name="return">合法且身份匹配的当前 section；失败时返回 null。</tag>
+				<tag name="schema">context: Dictionary with caller-defined ephemeral operation data.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="apply_section">
+			<signature>func apply_section(section: GFSaveSection, context: Dictionary = {}) -&gt; Error:</signature>
+			<description>应用属于当前 provider 的 section。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">section: 已迁移并校验的当前版本 section。</tag>
+				<tag name="param">context: 本次操作的临时上下文。</tag>
+				<tag name="return">Godot Error 结果码。</tag>
+				<tag name="schema">context: Dictionary with caller-defined ephemeral operation data.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="rollback_section">
+			<signature>func rollback_section(previous_section: GFSaveSection, context: Dictionary = {}) -&gt; Error:</signature>
+			<description>使用应用前快照恢复当前 provider。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">previous_section: 应用前采集的当前版本 section。</tag>
+				<tag name="param">context: 本次操作的临时上下文。</tag>
+				<tag name="return">Godot Error 结果码。</tag>
+				<tag name="schema">context: Dictionary with caller-defined ephemeral operation data.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="make_section">
+			<signature>func make_section(payload: Variant, metadata: Dictionary = {}) -&gt; GFSaveSection:</signature>
+			<description>创建带当前 provider 身份的 section。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">payload: 可持久化 section 载荷。</tag>
+				<tag name="param">metadata: 可持久化 section 元数据。</tag>
+				<tag name="return">新 section。</tag>
+				<tag name="schema">payload: Variant accepted by GFSavePersistedValueValidator.</tag>
+				<tag name="schema">metadata: Dictionary with provider-defined persisted metadata.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_gather_section">
+			<signature>func _gather_section(_context: Dictionary = {}) -&gt; GFSaveSection:</signature>
+			<description>采集当前 section。返回 null 表示失败。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">_context: 本次操作的临时上下文。</tag>
+				<tag name="return">通过 `make_section()` 创建的当前版本 section。</tag>
+				<tag name="schema">_context: Dictionary with caller-defined ephemeral operation data.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_capture_section">
+			<signature>func _capture_section(context: Dictionary = {}) -&gt; GFSaveSection:</signature>
+			<description>采集应用前回滚快照。默认复用 `_gather_section()`。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">context: 本次操作的临时上下文。</tag>
+				<tag name="return">通过 `make_section()` 创建的当前版本 section。</tag>
+				<tag name="schema">context: Dictionary with caller-defined ephemeral operation data.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_apply_section">
+			<signature>func _apply_section(_section: GFSaveSection, _context: Dictionary = {}) -&gt; Error:</signature>
+			<description>应用当前版本 section。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">_section: 已校验的 section 副本。</tag>
+				<tag name="param">_context: 本次操作的临时上下文。</tag>
+				<tag name="return">Godot Error 结果码。</tag>
+				<tag name="schema">_context: Dictionary with caller-defined ephemeral operation data.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_rollback_section">
+			<signature>func _rollback_section(previous_section: GFSaveSection, context: Dictionary = {}) -&gt; Error:</signature>
+			<description>恢复应用前 section。默认复用 `_apply_section()`。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">previous_section: 应用前 section 副本。</tag>
+				<tag name="param">context: 本次操作的临时上下文。</tag>
+				<tag name="return">Godot Error 结果码。</tag>
+				<tag name="schema">context: Dictionary with caller-defined ephemeral operation data.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

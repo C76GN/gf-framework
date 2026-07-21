@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFStorageAsyncOperation" path="addons/gf/standard/utilities/storage/gf_storage_async_operation.gd" module="standard" extends="RefCounted" classDigest="d34fd656cdd3d628edb35173a361d75a186fba97b00a7f3b6f97ba60f8807434">
+	<description>GFStorageAsyncOperation: 单次异步存储请求句柄。
+句柄由 `GFStorageUtility` 分配唯一请求 ID，并且只接受一个终态。调用方应先
+检查 `is_completed()`，再决定是否等待 `completed` 信号。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_handle</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals>
+		<member kind="signal" name="completed">
+			<signature>signal completed(result: GFStorageAsyncResult)</signature>
+			<description>请求进入终态时发出一次。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">result: 与当前请求 ID 匹配的隔离结果。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</signals>
+	<enums />
+	<constants>
+		<member kind="const" name="OPERATION_SAVE">
+			<signature>const OPERATION_SAVE: StringName = &amp;"save"</signature>
+			<description>异步写入请求。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="OPERATION_LOAD">
+			<signature>const OPERATION_LOAD: StringName = &amp;"load"</signature>
+			<description>异步读取请求。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</constants>
+	<properties />
+	<methods>
+		<member kind="method" name="get_request_id">
+			<signature>func get_request_id() -&gt; int:</signature>
+			<description>获取 Utility 内唯一请求 ID。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">大于零的请求 ID。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_operation">
+			<signature>func get_operation() -&gt; StringName:</signature>
+			<description>获取请求类型。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">`OPERATION_SAVE` 或 `OPERATION_LOAD`。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_file_name">
+			<signature>func get_file_name() -&gt; String:</signature>
+			<description>获取规范化存储文件名。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">请求实际使用的文件名。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_pending">
+			<signature>func is_pending() -&gt; bool:</signature>
+			<description>检查请求是否等待终态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">已配置且未完成时返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_completed">
+			<signature>func is_completed() -&gt; bool:</signature>
+			<description>检查请求是否已有终态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">已完成时返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_result">
+			<signature>func get_result() -&gt; GFStorageAsyncResult:</signature>
+			<description>获取终态结果副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">已完成结果；等待中返回 null。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

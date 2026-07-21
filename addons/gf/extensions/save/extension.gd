@@ -5,6 +5,7 @@ extends GFInstaller
 # --- 常量 ---
 
 const _GF_SAVE_GRAPH_UTILITY_SCRIPT = preload("res://addons/gf/extensions/save/graph/gf_save_graph_utility.gd")
+const _GF_SAVE_PROFILE_UTILITY_SCRIPT = preload("res://addons/gf/extensions/save/profile/gf_save_profile_utility.gd")
 
 
 # --- 框架内部方法 ---
@@ -19,6 +20,11 @@ const _GF_SAVE_GRAPH_UTILITY_SCRIPT = preload("res://addons/gf/extensions/save/g
 func install(architecture: GFArchitecture, _scope: GFAsyncScope) -> void:
 	if architecture == null:
 		return
-	if architecture.get_local_utility(_GF_SAVE_GRAPH_UTILITY_SCRIPT) != null:
-		return
-	var _registered_save_graph: bool = await architecture.register_utility_instance(_GF_SAVE_GRAPH_UTILITY_SCRIPT.new())
+	if architecture.get_local_utility(_GF_SAVE_GRAPH_UTILITY_SCRIPT) == null:
+		var registered_save_graph: bool = await architecture.register_utility_instance(_GF_SAVE_GRAPH_UTILITY_SCRIPT.new())
+		if not registered_save_graph:
+			push_error("[GFSaveExtension] GFSaveGraphUtility registration failed.")
+	if architecture.get_local_utility(_GF_SAVE_PROFILE_UTILITY_SCRIPT) == null:
+		var registered_save_profile: bool = await architecture.register_utility_instance(_GF_SAVE_PROFILE_UTILITY_SCRIPT.new())
+		if not registered_save_profile:
+			push_error("[GFSaveExtension] GFSaveProfileUtility registration failed.")

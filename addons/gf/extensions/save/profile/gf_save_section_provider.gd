@@ -1,0 +1,335 @@
+## GFSaveSectionProvider: Save Profile section 所有权协议。
+##
+## 一个 provider 只拥有一个稳定 section。实现必须能够采集当前状态、应用已校验
+## section，并在后续 provider 失败时恢复此前采集的 section。
+## [br]
+## @api public
+## [br]
+## @category protocol
+## [br]
+## @since unreleased
+class_name GFSaveSectionProvider
+extends Resource
+
+
+# --- 导出变量 ---
+
+## 稳定且在 profile 内唯一的 section ID。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+@export var section_id: StringName = &"":
+	set(value):
+		if _definition_locked and value != section_id:
+			push_error("[GFSaveSectionProvider] 已注册的 section_id 不可修改。")
+			return
+		section_id = value
+
+## 当前 section schema 版本。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+@export_range(1, 2_147_483_647, 1) var schema_version: int = 1:
+	set(value):
+		if _definition_locked and value != schema_version:
+			push_error("[GFSaveSectionProvider] 已注册的 schema_version 不可修改。")
+			return
+		schema_version = value
+
+## 是否参与保存采集。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+@export var save_enabled: bool = true:
+	set(value):
+		if _definition_locked and value != save_enabled:
+			push_error("[GFSaveSectionProvider] 已注册的 save_enabled 不可修改。")
+			return
+		save_enabled = value
+
+## 是否参与读取应用。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+@export var load_enabled: bool = true:
+	set(value):
+		if _definition_locked and value != load_enabled:
+			push_error("[GFSaveSectionProvider] 已注册的 load_enabled 不可修改。")
+			return
+		load_enabled = value
+
+## 读取时该 section 是否必须存在。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+@export var required_on_load: bool = true:
+	set(value):
+		if _definition_locked and value != required_on_load:
+			push_error("[GFSaveSectionProvider] 已注册的 required_on_load 不可修改。")
+			return
+		required_on_load = value
+
+
+# --- 私有变量 ---
+
+var _definition_locked: bool = false
+
+
+# --- 公共方法 ---
+
+## 校验 provider 身份和能力配置。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @return 结构化校验报告。
+## [br]
+## @schema return: GFValidationReportDictionary-compatible report with issues, counts, summary, and next_actions.
+func validate_provider() -> Dictionary:
+	var report: Dictionary = {"issues": []}
+	if section_id == &"" or String(section_id) != String(section_id).strip_edges():
+		var _id_issue: Variant = GFValidationReportDictionary.append_issue(
+			report,
+			"error",
+			&"invalid_section_id",
+			"Section provider id must be non-empty and trimmed.",
+			{"path": "section_id"}
+		)
+	if schema_version <= 0:
+		var _version_issue: Variant = GFValidationReportDictionary.append_issue(
+			report,
+			"error",
+			&"invalid_section_version",
+			"Section provider schema version must be positive.",
+			{"path": "schema_version", "value": schema_version}
+		)
+	if not save_enabled and not load_enabled:
+		var _capability_issue: Variant = GFValidationReportDictionary.append_issue(
+			report,
+			"error",
+			&"provider_disabled",
+			"Section provider must support save, load, or both.",
+			{"path": "save_enabled"}
+		)
+	if required_on_load and not load_enabled:
+		var _required_issue: Variant = GFValidationReportDictionary.append_issue(
+			report,
+			"error",
+			&"required_provider_not_loadable",
+			"A required section provider must support load.",
+			{"path": "required_on_load"}
+		)
+	return GFValidationReportDictionary.finalize_report(report, "Save section provider", {
+		"include_issue_count": true,
+		"next_actions": {
+			"invalid_section_id": "Assign a non-empty trimmed section id owned by one module.",
+			"invalid_section_version": "Use a positive current section version.",
+			"provider_disabled": "Enable save, load, or both.",
+			"required_provider_not_loadable": "Enable load or make the section optional.",
+		},
+		"fallback_action": "Review the first section provider issue.",
+		"no_action": "Save section provider is valid.",
+	})
+
+
+## 采集当前状态为隔离 section。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param context: 本次操作的临时上下文。
+## [br]
+## @schema context: Dictionary with caller-defined ephemeral operation data.
+## [br]
+## @return 合法且身份匹配的 section；失败时返回 null。
+func gather_section(context: Dictionary = {}) -> GFSaveSection:
+	if not save_enabled:
+		return null
+	return _normalize_gathered_section(_gather_section(context))
+
+
+## 采集应用前回滚快照。
+##
+## 该能力独立于 `save_enabled`，允许只读取 provider 提供可回滚的内存快照。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param context: 本次操作的临时上下文。
+## [br]
+## @schema context: Dictionary with caller-defined ephemeral operation data.
+## [br]
+## @return 合法且身份匹配的当前 section；失败时返回 null。
+func capture_section(context: Dictionary = {}) -> GFSaveSection:
+	if not load_enabled:
+		return null
+	return _normalize_gathered_section(_capture_section(context))
+
+
+## 应用属于当前 provider 的 section。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param section: 已迁移并校验的当前版本 section。
+## [br]
+## @param context: 本次操作的临时上下文。
+## [br]
+## @schema context: Dictionary with caller-defined ephemeral operation data.
+## [br]
+## @return Godot Error 结果码。
+func apply_section(section: GFSaveSection, context: Dictionary = {}) -> Error:
+	if not load_enabled or not _matches_section(section):
+		return ERR_INVALID_DATA
+	return _apply_section(section.duplicate_section(), context)
+
+
+## 使用应用前快照恢复当前 provider。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param previous_section: 应用前采集的当前版本 section。
+## [br]
+## @param context: 本次操作的临时上下文。
+## [br]
+## @schema context: Dictionary with caller-defined ephemeral operation data.
+## [br]
+## @return Godot Error 结果码。
+func rollback_section(previous_section: GFSaveSection, context: Dictionary = {}) -> Error:
+	if not load_enabled or not _matches_section(previous_section):
+		return ERR_INVALID_DATA
+	return _rollback_section(previous_section.duplicate_section(), context)
+
+
+## 创建带当前 provider 身份的 section。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param payload: 可持久化 section 载荷。
+## [br]
+## @param metadata: 可持久化 section 元数据。
+## [br]
+## @schema payload: Variant accepted by GFSavePersistedValueValidator.
+## [br]
+## @schema metadata: Dictionary with provider-defined persisted metadata.
+## [br]
+## @return 新 section。
+func make_section(payload: Variant, metadata: Dictionary = {}) -> GFSaveSection:
+	return GFSaveSection.new().configure(section_id, schema_version, payload, metadata)
+
+
+# --- 可重写钩子 / 虚方法 ---
+
+## 采集当前 section。返回 null 表示失败。
+## [br]
+## @api protected
+## [br]
+## @since unreleased
+## [br]
+## @param _context: 本次操作的临时上下文。
+## [br]
+## @schema _context: Dictionary with caller-defined ephemeral operation data.
+## [br]
+## @return 通过 `make_section()` 创建的当前版本 section。
+func _gather_section(_context: Dictionary = {}) -> GFSaveSection:
+	return null
+
+
+## 采集应用前回滚快照。默认复用 `_gather_section()`。
+## [br]
+## @api protected
+## [br]
+## @since unreleased
+## [br]
+## @param context: 本次操作的临时上下文。
+## [br]
+## @schema context: Dictionary with caller-defined ephemeral operation data.
+## [br]
+## @return 通过 `make_section()` 创建的当前版本 section。
+func _capture_section(context: Dictionary = {}) -> GFSaveSection:
+	return _gather_section(context)
+
+
+## 应用当前版本 section。
+## [br]
+## @api protected
+## [br]
+## @since unreleased
+## [br]
+## @param _section: 已校验的 section 副本。
+## [br]
+## @param _context: 本次操作的临时上下文。
+## [br]
+## @schema _context: Dictionary with caller-defined ephemeral operation data.
+## [br]
+## @return Godot Error 结果码。
+func _apply_section(_section: GFSaveSection, _context: Dictionary = {}) -> Error:
+	return ERR_UNAVAILABLE
+
+
+## 恢复应用前 section。默认复用 `_apply_section()`。
+## [br]
+## @api protected
+## [br]
+## @since unreleased
+## [br]
+## @param previous_section: 应用前 section 副本。
+## [br]
+## @param context: 本次操作的临时上下文。
+## [br]
+## @schema context: Dictionary with caller-defined ephemeral operation data.
+## [br]
+## @return Godot Error 结果码。
+func _rollback_section(previous_section: GFSaveSection, context: Dictionary = {}) -> Error:
+	return _apply_section(previous_section, context)
+
+
+# --- 框架内部方法 ---
+
+## 锁定影响文档身份和能力的定义字段。
+##
+## Provider 首次注册后保持锁定；项目需要修改定义时必须创建新的 Provider。
+## [br]
+## @api framework_internal
+## [br]
+## @since unreleased
+## [br]
+## @return Provider 合法且已锁定时返回 true。
+func lock_definition_for_framework() -> bool:
+	if not GFVariantData.get_option_bool(validate_provider(), "ok", false):
+		return false
+	_definition_locked = true
+	return true
+
+
+# --- 私有/辅助方法 ---
+
+func _normalize_gathered_section(section: GFSaveSection) -> GFSaveSection:
+	if section == null:
+		return null
+	if section.get_section_id() != section_id or section.get_schema_version() != schema_version:
+		return null
+	if not GFVariantData.get_option_bool(section.validate_section(), "ok", false):
+		return null
+	return section.duplicate_section()
+
+func _matches_section(section: GFSaveSection) -> bool:
+	return (
+		section != null
+		and section.get_section_id() == section_id
+		and section.get_schema_version() == schema_version
+		and GFVariantData.get_option_bool(section.validate_section(), "ok", false)
+	)

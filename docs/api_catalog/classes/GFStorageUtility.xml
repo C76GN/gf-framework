@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFStorageUtility" path="addons/gf/standard/utilities/storage/gf_storage_utility.gd" module="standard" extends="GFUtility" classDigest="91498b73a2591c715dd18530de4b672deb956cbb6390196dd2d82166e07b105b">
+<class name="GFStorageUtility" path="addons/gf/standard/utilities/storage/gf_storage_utility.gd" module="standard" extends="GFUtility" classDigest="3def2ab5eaabf9721760151fd686163627df2df4e37be78cec6c423827012897">
 	<description>GFStorageUtility: 基于 `user://` 的轻量存档系统。
 支持槽位存档、元数据分离读取、`Resource` 存取，
 以及可配置 codec、完整性校验、版本迁移和简单混淆，适合通用本地持久化场景。
@@ -346,6 +346,17 @@
 				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>
+		<member kind="method" name="canonicalize_data_file_name">
+			<signature>func canonicalize_data_file_name(file_name: String) -&gt; String:</signature>
+			<description>规范化并校验一个数据文件名。
+返回值与异步队列的同文件锁使用相同路径规则，可用于建立稳定所有权键。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">file_name: 待校验文件名。</tag>
+				<tag name="return">合法时返回规范化文件名；非法时返回空字符串。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
 		<member kind="method" name="save_data_async">
 			<signature>func save_data_async(file_name: String, data: Dictionary) -&gt; Error:</signature>
 			<description>在线程中异步保存纯字典数据。完成后从主线程发出 save_completed。</description>
@@ -357,6 +368,19 @@
 				<tag name="schema">data: Dictionary，要序列化并保存的数据载荷。</tag>
 			</tags>
 		</member>
+		<member kind="method" name="save_data_request_async">
+			<signature>func save_data_request_async(file_name: String, data: Dictionary) -&gt; GFStorageAsyncOperation:</signature>
+			<description>在线程中异步保存纯字典数据，并返回请求专属句柄。
+句柄终态不会与共享 Storage 上同文件的其他请求混淆。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">file_name: 目标文件名。</tag>
+				<tag name="param">data: 要保存的字典。</tag>
+				<tag name="return">已配置的请求句柄；输入无效或启动失败时句柄立即进入失败终态。</tag>
+				<tag name="schema">data: Dictionary，要序列化并保存的数据载荷。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
 		<member kind="method" name="load_data_async">
 			<signature>func load_data_async(file_name: String) -&gt; Error:</signature>
 			<description>在线程中异步读取纯字典数据。完成后从主线程发出 load_completed。</description>
@@ -364,6 +388,17 @@
 				<tag name="api">public</tag>
 				<tag name="param">file_name: 目标文件名。</tag>
 				<tag name="return">启动线程的 Error 结果码。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="load_data_request_async">
+			<signature>func load_data_request_async(file_name: String) -&gt; GFStorageAsyncOperation:</signature>
+			<description>在线程中异步读取纯字典数据，并返回请求专属句柄。
+读取终态通过句柄携带 `GFStorageReadResult`，调用方无需监听全局文件名信号。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">file_name: 目标文件名。</tag>
+				<tag name="return">已配置的请求句柄；输入无效或启动失败时句柄立即进入失败终态。</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 		<member kind="method" name="wait_for_async_tasks">
@@ -376,7 +411,7 @@
 		</member>
 		<member kind="method" name="migrate_data">
 			<signature>func migrate_data(data: Dictionary, _from_version: int, _to_version: int) -&gt; Dictionary:</signature>
-			<description>迁移存档数据。项目可继承 GFStorageUtility 并重写该方法。</description>
+			<description>使用已注册步骤迁移存档数据。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">data: 已读取的数据副本。</tag>
@@ -385,6 +420,7 @@
 				<tag name="return">迁移后的数据。</tag>
 				<tag name="schema">data: Dictionary，在存档 schema 版本之间迁移的数据载荷。</tag>
 				<tag name="schema">return: Dictionary，应用已注册迁移和默认值后的数据载荷。</tag>
+				<tag name="since">1.19.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="register_migration">
