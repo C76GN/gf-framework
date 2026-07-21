@@ -32,6 +32,7 @@ from gf_ai.contract import initialize_contract, load_contract  # noqa: E402
 from gf_ai.paths import read_json_object, resolve_project_path  # noqa: E402
 from gf_ai.schema import validate_schema_definition, validate_schema_file  # noqa: E402
 import build_gf_ai_developer_kit  # noqa: E402
+from gf_maintenance import create_directory_link_fixture  # noqa: E402
 
 
 class GFAIDeveloperKitTest(unittest.TestCase):
@@ -287,6 +288,30 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 		self.assertNotIn("undeclared_module_dependency", {item["code"] for item in report["drift"]["issues"]})
 		self.assertEqual(validate_schema_file(report, SCHEMA_ROOT / "project_snapshot.schema.json"), [])
 
+	def test_module_dependency_analysis_preserves_literal_resource_path_characters(self) -> None:
+		self._set_modules([
+			self._module("core", allowed=["shared"]),
+			self._module("shared"),
+		])
+		(self.project_root / "features/shared/[data].tres").write_text(
+			"[gd_resource format=3]\n",
+			encoding="utf-8",
+		)
+		(self.project_root / "features/core/use_shared.gd").write_text(
+			'extends Node\nconst DATA = preload("res://features/shared/[data].tres")\n',
+			encoding="utf-8",
+		)
+
+		report = snapshot.build_snapshot(self.project_root)
+		analysis = report["project"]["module_dependency_analysis"]
+
+		self.assertEqual(analysis["status"], "complete")
+		self.assertEqual(len(analysis["edges"]), 1)
+		self.assertEqual(analysis["edges"][0]["source_module"], "core")
+		self.assertEqual(analysis["edges"][0]["target_module"], "shared")
+		self.assertEqual(analysis["edges"][0]["kinds"], ["resource_path"])
+		self.assertEqual(validate_schema_file(report, SCHEMA_ROOT / "project_snapshot.schema.json"), [])
+
 	def test_module_dependency_analysis_ignores_bare_resource_root(self) -> None:
 		self._set_modules([self._module("core")])
 		(self.project_root / "features/core/scan_root.gd").write_text(
@@ -300,6 +325,271 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 		self.assertEqual(analysis["unowned_reference_count"], 0)
 		self.assertEqual(analysis["unowned_references"], [])
 		self.assertEqual(validate_schema_file(report, SCHEMA_ROOT / "project_snapshot.schema.json"), [])
+
+	def test_module_dependency_analysis_accepts_auditable_owned_resource_references(self) -> None:
+		self._set_modules([self._module("core")])
+		(self.project_root / "export_presets.cfg").write_text("[preset.0]\n", encoding="utf-8")
+		self._set_owned_resources(["res://project.godot", "res://export_presets.cfg"])
+		(self.project_root / "features/core/project_metadata.gd").write_text(
+			'extends Node\nconst PROJECT_FILE := "res://project.godot"\n'
+			'const EXPORT_PRESETS := "res://export_presets.cfg"\n',
+			encoding="utf-8",
+		)
+
+		contract_result = load_contract(self.project_root)
+		report = snapshot.build_snapshot(self.project_root)
+		analysis = report["project"]["module_dependency_analysis"]
+		drift_codes = {item["code"] for item in report["drift"]["issues"]}
+
+		self.assertTrue(contract_result["ok"], contract_result)
+		self.assertEqual(analysis["status"], "complete")
+		self.assertEqual(analysis["declared_owned_resource_count"], 2)
+		self.assertEqual(analysis["missing_owned_resource_count"], 0)
+		self.assertEqual(analysis["unsafe_owned_resource_count"], 0)
+		self.assertEqual(
+			analysis["owned_resources"],
+			[
+				{"path": "res://export_presets.cfg", "status": "available"},
+				{"path": "res://project.godot", "status": "available"},
+			],
+		)
+		self.assertEqual(analysis["owned_resource_reference_count"], 2)
+		self.assertFalse(analysis["owned_resource_references_truncated"])
+		self.assertEqual(
+			analysis["owned_resource_references"],
+			[
+				{
+					"source_path": "res://features/core/project_metadata.gd",
+					"target_path": "res://project.godot",
+					"line": 2,
+				},
+				{
+					"source_path": "res://features/core/project_metadata.gd",
+					"target_path": "res://export_presets.cfg",
+					"line": 3,
+				},
+			],
+		)
+		self.assertEqual(analysis["unowned_reference_count"], 0)
+		self.assertEqual(analysis["edges"], [])
+		self.assertNotIn("unowned_project_resource_reference", drift_codes)
+		self.assertEqual(validate_schema_file(report, SCHEMA_ROOT / "project_snapshot.schema.json"), [])
+
+		with mock.patch.object(dependencies, "MAX_OWNED_RESOURCE_REFERENCE_EVIDENCE", 1):
+			bounded_analysis = snapshot.build_snapshot(self.project_root)["project"]["module_dependency_analysis"]
+		self.assertEqual(bounded_analysis["owned_resource_reference_count"], 2)
+		self.assertEqual(len(bounded_analysis["owned_resource_references"]), 1)
+		self.assertTrue(bounded_analysis["owned_resource_references_truncated"])
+
+	def test_module_dependency_analysis_fails_closed_for_invalid_owned_resources(self) -> None:
+		self._set_modules([self._module("core")])
+		(self.project_root / "governance").mkdir()
+		(self.project_root / "features/core/project_metadata.gd").write_text(
+			'extends Node\nconst MISSING := "res://missing.cfg"\n',
+			encoding="utf-8",
+		)
+		self._set_owned_resources(["res://missing.cfg", "res://governance"])
+
+		report = snapshot.build_snapshot(self.project_root)
+		analysis = report["project"]["module_dependency_analysis"]
+
+		self.assertEqual(analysis["status"], "incomplete")
+		self.assertFalse(analysis["complete"])
+		self.assertEqual(analysis["missing_owned_resource_count"], 1)
+		self.assertEqual(analysis["unsafe_owned_resource_count"], 1)
+		self.assertEqual(
+			analysis["owned_resources"],
+			[
+				{"path": "res://governance", "status": "unsafe"},
+				{"path": "res://missing.cfg", "status": "missing"},
+			],
+		)
+		self.assertEqual(analysis["owned_resource_reference_count"], 0)
+		self.assertEqual(analysis["unowned_reference_count"], 1)
+		self.assertIn("module_dependency_analysis_incomplete", {item["code"] for item in report["drift"]["issues"]})
+		self.assertEqual(validate_schema_file(report, SCHEMA_ROOT / "project_snapshot.schema.json"), [])
+
+	def test_contract_rejects_bare_or_overlapping_owned_resources(self) -> None:
+		self._set_modules([self._module("core")])
+		self._set_owned_resources(["res://"])
+
+		bare_result = load_contract(self.project_root)
+
+		self.assertFalse(bare_result["ok"])
+		self.assertTrue(any("owned_resources" in item["path"] for item in bare_result["issues"]))
+
+		contract_path = self.project_root / ".gf/project_contract.json"
+		contract = json.loads(contract_path.read_text(encoding="utf-8"))
+		contract["architecture"]["owned_resources"] = []
+		contract["architecture"]["modules"][0]["roots"] = ["res://"]
+		contract_path.write_text(json.dumps(contract, ensure_ascii=False), encoding="utf-8")
+		bare_module_result = load_contract(self.project_root)
+
+		self.assertFalse(bare_module_result["ok"])
+		self.assertTrue(any(".roots[0]" in item["path"] for item in bare_module_result["issues"]))
+
+		self._set_modules([self._module("core")])
+		self._set_owned_resources(["res://governance//rules.cfg"])
+		non_canonical_result = load_contract(self.project_root)
+
+		self.assertFalse(non_canonical_result["ok"])
+		self.assertIn("non_canonical_owned_resource_path", {item["code"] for item in non_canonical_result["issues"]})
+
+		self._set_owned_resources(["res://governance/line\nbreak.cfg"])
+		control_character_result = load_contract(self.project_root)
+		control_character_snapshot = snapshot.build_snapshot(self.project_root)
+
+		self.assertFalse(control_character_result["ok"])
+		self.assertTrue(any("owned_resources" in item["path"] for item in control_character_result["issues"]))
+		self.assertEqual(
+			validate_schema_file(control_character_snapshot, SCHEMA_ROOT / "project_snapshot.schema.json"),
+			[],
+		)
+
+		self._set_owned_resources(["res://Addons/GF/project.godot"])
+		framework_result = load_contract(self.project_root)
+
+		self.assertFalse(framework_result["ok"])
+		self.assertIn("framework_owned_resource", {item["code"] for item in framework_result["issues"]})
+
+		for unsafe_alias in (
+			"res://governance/*.cfg",
+			"res://governance/?.cfg",
+			"res://governance/[rules].cfg",
+			"res://addons./gf/plugin.cfg",
+			"res://addons/gf./plugin.cfg",
+			"res://addons/gf/plugin.cfg.",
+			"res://governance/data:stream",
+			"res://CON/settings.cfg",
+		):
+			with self.subTest(unsafe_alias=unsafe_alias):
+				self._set_owned_resources([unsafe_alias])
+				alias_result = load_contract(self.project_root)
+				self.assertFalse(alias_result["ok"])
+				self.assertTrue(
+					{item["code"] for item in alias_result["issues"]}.intersection({
+						"non_canonical_owned_resource_path",
+						"pattern_mismatch",
+					}),
+				)
+
+		self._set_owned_resources(["res://features/core/settings.cfg"])
+		overlap_result = load_contract(self.project_root)
+
+		self.assertFalse(overlap_result["ok"])
+		self.assertIn("ownership_resource_overlap", {item["code"] for item in overlap_result["issues"]})
+
+	def test_contract_rejects_owned_resources_and_adapter_roots_through_linked_parent(self) -> None:
+		self._set_modules([self._module("core")])
+		real_root = self.project_root / "governance-real"
+		real_root.mkdir()
+		(real_root / "rules.cfg").write_text("[rules]\n", encoding="utf-8")
+		linked_root = self.project_root / "governance-link"
+		create_directory_link_fixture(real_root, linked_root)
+		self._set_owned_resources(["res://governance-link/rules.cfg"])
+
+		owned_resource_result = load_contract(self.project_root)
+		report = snapshot.build_snapshot(self.project_root)
+
+		self.assertFalse(owned_resource_result["ok"])
+		self.assertIn("unsafe_project_path", {item["code"] for item in owned_resource_result["issues"]})
+		self.assertEqual(report["project"]["module_dependency_analysis"]["status"], "contract_invalid")
+		self.assertEqual(validate_schema_file(report, SCHEMA_ROOT / "project_snapshot.schema.json"), [])
+
+		self._set_owned_resources(["res://governance-real/rules.cfg"])
+		contract_path = self.project_root / ".gf/project_contract.json"
+		contract = json.loads(contract_path.read_text(encoding="utf-8"))
+		contract["framework"]["adapter_boundaries"] = [{
+			"id": "governance_adapter",
+			"provider": "test",
+			"project_root": "res://governance-link",
+			"responsibility": "Test linked adapter boundary",
+		}]
+		contract_path.write_text(json.dumps(contract, ensure_ascii=False), encoding="utf-8")
+
+		adapter_result = load_contract(self.project_root)
+
+		self.assertFalse(adapter_result["ok"])
+		self.assertIn("unsafe_project_path", {item["code"] for item in adapter_result["issues"]})
+
+	def test_contract_rejects_nonportable_or_reserved_ownership_roots(self) -> None:
+		contract_path = self.project_root / ".gf/project_contract.json"
+		for unsafe_root, expected_code in (
+			("res://Addons/GF", "framework_ownership_root"),
+			("res://addons./gf", "non_canonical_ownership_root"),
+			("res://addons/gf.", "non_canonical_ownership_root"),
+			("res://CON", "non_canonical_ownership_root"),
+		):
+			with self.subTest(unsafe_root=unsafe_root):
+				contract = json.loads(contract_path.read_text(encoding="utf-8"))
+				contract["architecture"]["modules"] = [{
+					**self._module("unsafe"),
+					"roots": [unsafe_root],
+				}]
+				contract_path.write_text(json.dumps(contract, ensure_ascii=False), encoding="utf-8")
+
+				result = load_contract(self.project_root)
+				report = snapshot.build_snapshot(self.project_root)
+
+				self.assertFalse(result["ok"])
+				self.assertIn(expected_code, {item["code"] for item in result["issues"]})
+				self.assertEqual(report["project"]["module_dependency_analysis"]["status"], "contract_invalid")
+
+		contract = json.loads(contract_path.read_text(encoding="utf-8"))
+		contract["architecture"]["modules"] = []
+		contract["framework"]["adapter_boundaries"] = [{
+			"id": "unsafe_adapter",
+			"provider": "test",
+			"project_root": "res://Addons/GF",
+			"responsibility": "Must not alias the framework boundary",
+		}]
+		contract_path.write_text(json.dumps(contract, ensure_ascii=False), encoding="utf-8")
+
+		adapter_result = load_contract(self.project_root)
+		self.assertFalse(adapter_result["ok"])
+		self.assertIn("framework_ownership_root", {item["code"] for item in adapter_result["issues"]})
+
+	def test_dependency_core_rejects_reserved_framework_root_when_contract_is_prevalidated(self) -> None:
+		(self.project_root / "addons/gf/unsafe.gd").write_text(
+			"extends Node\n",
+			encoding="utf-8",
+		)
+		unsafe_module = {
+			**self._module("unsafe"),
+			"roots": ["res://Addons/GF"],
+		}
+		contract_data = {
+			"architecture": {
+				"modules": [unsafe_module],
+				"owned_resources": [],
+			},
+		}
+
+		analysis = dependencies.analyze_module_dependencies(
+			self.project_root,
+			contract_data,
+			contract_valid=True,
+		)
+
+		self.assertEqual(analysis["status"], "incomplete")
+		self.assertFalse(analysis["complete"])
+		self.assertEqual(analysis["scanned_file_count"], 0)
+		self.assertEqual(analysis["unsafe_path_count"], 1)
+		self.assertEqual(
+			dependencies.ModuleOwnershipMatcher([unsafe_module]).owner_of("res://Addons/GF/unsafe.gd"),
+			"",
+		)
+
+	def test_module_dependency_analysis_keeps_missing_module_roots_fail_closed(self) -> None:
+		contract_path = self.project_root / ".gf/project_contract.json"
+		contract = json.loads(contract_path.read_text(encoding="utf-8"))
+		contract["architecture"]["modules"] = [self._module("missing")]
+		contract_path.write_text(json.dumps(contract, ensure_ascii=False), encoding="utf-8")
+
+		analysis = snapshot.build_snapshot(self.project_root)["project"]["module_dependency_analysis"]
+
+		self.assertEqual(analysis["status"], "incomplete")
+		self.assertEqual(analysis["missing_root_count"], 1)
 
 	def test_module_dependency_analysis_enforces_forbidden_before_undeclared_edges(self) -> None:
 		self._set_modules([
@@ -780,6 +1070,12 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 		for module in modules:
 			for root in module["roots"]:
 				(self.project_root / str(root).removeprefix("res://")).mkdir(parents=True, exist_ok=True)
+
+	def _set_owned_resources(self, paths: list[str]) -> None:
+		contract_path = self.project_root / ".gf/project_contract.json"
+		contract = json.loads(contract_path.read_text(encoding="utf-8"))
+		contract["architecture"]["owned_resources"] = paths
+		contract_path.write_text(json.dumps(contract, ensure_ascii=False), encoding="utf-8")
 
 	@staticmethod
 	def _module(

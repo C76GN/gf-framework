@@ -3,11 +3,16 @@
 from __future__ import annotations
 
 import os
-import posixpath
-import stat
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
+
+from .paths import (
+	is_reserved_framework_resource_path,
+	normalize_portable_ownership_path,
+	normalize_resource_path,
+	project_path_has_link_component,
+)
 
 
 MAX_DEPENDENCY_FILES = 20_000
@@ -16,6 +21,7 @@ MAX_DEPENDENCY_FILE_BYTES = 2 * 1024 * 1024
 MAX_EDGE_EVIDENCE = 12
 MAX_AMBIGUOUS_CLASSES = 100
 MAX_UNOWNED_REFERENCE_EVIDENCE = 100
+MAX_OWNED_RESOURCE_REFERENCE_EVIDENCE = 100
 SUPPORTED_EXTENSIONS = frozenset({".gd", ".gdshader", ".gdshaderinc", ".tres", ".tscn"})
 _RESOURCE_TEXT_EXTENSIONS = frozenset({".gdshader", ".gdshaderinc", ".tres", ".tscn"})
 _SKIPPED_DIRECTORY_NAMES = frozenset({".git", ".godot", ".import", "__pycache__", "node_modules"})
@@ -38,13 +44,13 @@ class ModuleOwnershipMatcher:
 			for raw_root in module.get("roots", []):
 				if not isinstance(raw_root, str):
 					continue
-				root = _normalize_resource_path(raw_root)
-				if root:
+				root = normalize_portable_ownership_path(raw_root)
+				if root and not is_reserved_framework_resource_path(root):
 					roots.append((root, module_id))
 		self._roots = sorted(roots, key=lambda item: (-len(item[0]), item[0], item[1]))
 
 	def owner_of(self, resource_path: str) -> str:
-		normalized = _normalize_resource_path(resource_path)
+		normalized = normalize_resource_path(resource_path)
 		if not normalized:
 			return ""
 		for root, module_id in self._roots:
@@ -62,11 +68,22 @@ def analyze_module_dependencies(
 	modules = _contract_modules(contract_data)
 	if not contract_valid:
 		return _empty_analysis("contract_invalid", modules, complete=False)
+	owned_resource_collection = _collect_owned_resources(project_root, contract_data)
 	if not modules:
-		return _empty_analysis("not_configured", modules, complete=True)
+		owned_resources_complete = (
+			owned_resource_collection["missing_count"] == 0
+			and owned_resource_collection["unsafe_count"] == 0
+		)
+		return _empty_analysis(
+			"not_configured" if owned_resources_complete else "incomplete",
+			modules,
+			complete=owned_resources_complete,
+			owned_resource_collection=owned_resource_collection,
+		)
 
 	matcher = ModuleOwnershipMatcher(modules)
 	collection = _collect_module_files(project_root, modules)
+	available_owned_resources = set(owned_resource_collection["available_paths"])
 	files: list[Path] = collection.pop("files")
 	class_definitions: dict[str, list[tuple[str, str]]] = {}
 	unreadable_paths: set[Path] = set()
@@ -96,6 +113,8 @@ def analyze_module_dependencies(
 	edges: dict[tuple[str, str], dict[str, Any]] = {}
 	unowned_reference_count = 0
 	unowned_references: list[dict[str, Any]] = []
+	owned_resource_reference_count = 0
+	owned_resource_references: list[dict[str, Any]] = []
 	for path in files:
 		if path in unreadable_paths:
 			continue
@@ -123,15 +142,19 @@ def analyze_module_dependencies(
 						token.line,
 					)
 				elif token.kind == "string":
-					unowned_reference_count += _record_path_reference(
+					unowned_increment, owned_increment = _record_path_reference(
 						edges,
 						matcher,
+						available_owned_resources,
 						source_module,
 						source_path,
 						token.value,
 						token.line,
 						unowned_references,
+						owned_resource_references,
 					)
+					unowned_reference_count += unowned_increment
+					owned_resource_reference_count += owned_increment
 		elif path.suffix.casefold() in _RESOURCE_TEXT_EXTENSIONS:
 			resource_tokens = (
 				lex_shader_text(text)
@@ -139,15 +162,19 @@ def analyze_module_dependencies(
 				else lex_resource_text(text)
 			)
 			for token in resource_tokens:
-				unowned_reference_count += _record_path_reference(
+				unowned_increment, owned_increment = _record_path_reference(
 					edges,
 					matcher,
+					available_owned_resources,
 					source_module,
 					source_path,
 					token.value,
 					token.line,
 					unowned_references,
+					owned_resource_references,
 				)
+				unowned_reference_count += unowned_increment
+				owned_resource_reference_count += owned_increment
 
 	edge_records = _edge_records(edges)
 	cycles = _dependency_cycles(edge_records, {str(module.get("id", "")) for module in modules})
@@ -173,6 +200,8 @@ def analyze_module_dependencies(
 		and unreadable_count == 0
 		and collection["missing_root_count"] == 0
 		and collection["unsafe_path_count"] == 0
+		and owned_resource_collection["missing_count"] == 0
+		and owned_resource_collection["unsafe_count"] == 0
 		and not all_ambiguous_classes
 	)
 	status = "complete" if complete else ("truncated" if truncated else "incomplete")
@@ -187,6 +216,13 @@ def analyze_module_dependencies(
 		"unreadable_file_count": unreadable_count,
 		"missing_root_count": int(collection["missing_root_count"]),
 		"unsafe_path_count": int(collection["unsafe_path_count"]),
+		"declared_owned_resource_count": len(owned_resource_collection["records"]),
+		"missing_owned_resource_count": int(owned_resource_collection["missing_count"]),
+		"unsafe_owned_resource_count": int(owned_resource_collection["unsafe_count"]),
+		"owned_resources": owned_resource_collection["records"],
+		"owned_resource_reference_count": owned_resource_reference_count,
+		"owned_resource_references_truncated": owned_resource_reference_count > len(owned_resource_references),
+		"owned_resource_references": owned_resource_references,
 		"unowned_reference_count": unowned_reference_count,
 		"unowned_references_truncated": unowned_reference_count > len(unowned_references),
 		"unowned_references": unowned_references,
@@ -329,12 +365,15 @@ def _collect_module_files(project_root: Path, modules: list[dict[str, Any]]) -> 
 	unsafe_path_count = 0
 	truncated = False
 	for raw_root in sorted({root for module in modules for root in module.get("roots", []) if isinstance(root, str)}):
-		normalized_root = _normalize_resource_path(raw_root)
+		normalized_root = normalize_portable_ownership_path(raw_root)
 		if normalized_root in ("", "res://"):
 			missing_root_count += 1
 			continue
+		if is_reserved_framework_resource_path(normalized_root):
+			unsafe_path_count += 1
+			continue
 		relative_root = normalized_root.removeprefix("res://")
-		root = (project_root / Path(*relative_root.split("/"))).resolve(strict=False)
+		root = project_root / Path(*relative_root.split("/"))
 		if not root.is_dir() or not _safe_path(project_root, root, directory=True):
 			missing_root_count += 1
 			continue
@@ -385,32 +424,72 @@ def _collect_module_files(project_root: Path, modules: list[dict[str, Any]]) -> 
 	}
 
 
+def _collect_owned_resources(project_root: Path, contract_data: dict[str, Any]) -> dict[str, Any]:
+	records: list[dict[str, str]] = []
+	available_paths: list[str] = []
+	missing_count = 0
+	unsafe_count = 0
+	for raw_path in _contract_owned_resources(contract_data):
+		normalized_path = normalize_portable_ownership_path(raw_path)
+		if not normalized_path or is_reserved_framework_resource_path(normalized_path):
+			records.append({"path": raw_path, "status": "unsafe"})
+			unsafe_count += 1
+			continue
+		relative_path = normalized_path.removeprefix("res://")
+		path = project_root / Path(*relative_path.split("/"))
+		if not path.exists():
+			status = "missing"
+			missing_count += 1
+		elif not _safe_path(project_root, path, directory=False):
+			status = "unsafe"
+			unsafe_count += 1
+		else:
+			status = "available"
+			available_paths.append(normalized_path)
+		records.append({"path": normalized_path, "status": status})
+	return {
+		"records": sorted(records, key=lambda item: item["path"]),
+		"available_paths": sorted(available_paths),
+		"missing_count": missing_count,
+		"unsafe_count": unsafe_count,
+	}
+
+
 def _record_path_reference(
 	edges: dict[tuple[str, str], dict[str, Any]],
 	matcher: ModuleOwnershipMatcher,
+	owned_resource_paths: set[str],
 	source_module: str,
 	source_path: str,
 	raw_target_path: str,
 	line: int,
 	unowned_references: list[dict[str, Any]],
-) -> int:
-	target_path = _normalize_resource_path(raw_target_path)
+	owned_resource_references: list[dict[str, Any]],
+) -> tuple[int, int]:
+	target_path = normalize_resource_path(raw_target_path)
 	if not target_path:
-		return 0
+		return 0, 0
 	target_module = matcher.owner_of(target_path)
 	if not target_module:
 		if target_path.startswith("res://addons/gf/"):
-			return 0
+			return 0, 0
 		candidate = {
 			"source_path": source_path,
 			"target_path": target_path,
 			"line": max(line, 1),
 		}
+		if target_path in owned_resource_paths:
+			if (
+				len(owned_resource_references) < MAX_OWNED_RESOURCE_REFERENCE_EVIDENCE
+				and candidate not in owned_resource_references
+			):
+				owned_resource_references.append(candidate)
+			return 0, 1
 		if len(unowned_references) < MAX_UNOWNED_REFERENCE_EVIDENCE and candidate not in unowned_references:
 			unowned_references.append(candidate)
-		return 1
+		return 1, 0
 	_add_reference(edges, source_module, target_module, source_path, target_path, "resource_path", raw_target_path, line)
-	return 0
+	return 0, 0
 
 
 def _add_reference(
@@ -511,7 +590,25 @@ def _contract_modules(contract_data: dict[str, Any]) -> list[dict[str, Any]]:
 	return [module for module in architecture["modules"] if isinstance(module, dict)]
 
 
-def _empty_analysis(status: str, modules: list[dict[str, Any]], *, complete: bool) -> dict[str, Any]:
+def _contract_owned_resources(contract_data: dict[str, Any]) -> list[str]:
+	architecture = contract_data.get("architecture", {})
+	if not isinstance(architecture, dict) or not isinstance(architecture.get("owned_resources"), list):
+		return []
+	return [path for path in architecture["owned_resources"] if isinstance(path, str)]
+
+
+def _empty_analysis(
+	status: str,
+	modules: list[dict[str, Any]],
+	*,
+	complete: bool,
+	owned_resource_collection: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+	resources = owned_resource_collection or {
+		"records": [],
+		"missing_count": 0,
+		"unsafe_count": 0,
+	}
 	return {
 		"status": status,
 		"complete": complete,
@@ -523,6 +620,13 @@ def _empty_analysis(status: str, modules: list[dict[str, Any]], *, complete: boo
 		"unreadable_file_count": 0,
 		"missing_root_count": 0,
 		"unsafe_path_count": 0,
+		"declared_owned_resource_count": len(resources["records"]),
+		"missing_owned_resource_count": int(resources["missing_count"]),
+		"unsafe_owned_resource_count": int(resources["unsafe_count"]),
+		"owned_resources": resources["records"],
+		"owned_resource_reference_count": 0,
+		"owned_resource_references_truncated": False,
+		"owned_resource_references": [],
 		"unowned_reference_count": 0,
 		"unowned_references_truncated": False,
 		"unowned_references": [],
@@ -538,19 +642,6 @@ def _empty_analysis(status: str, modules: list[dict[str, Any]], *, complete: boo
 	}
 
 
-def _normalize_resource_path(raw_path: str) -> str:
-	normalized = raw_path.strip().replace("\\", "/")
-	if not normalized.startswith("res://"):
-		return ""
-	relative = normalized.removeprefix("res://")
-	if not relative:
-		return ""
-	parts = relative.split("/")
-	if any(part in ("", ".", "..") for part in parts):
-		return ""
-	return "res://" + posixpath.normpath(relative)
-
-
 def _resource_path(project_root: Path, path: Path) -> str:
 	return "res://" + path.relative_to(project_root).as_posix()
 
@@ -564,13 +655,13 @@ def _read_utf8(path: Path) -> str | None:
 
 def _safe_path(project_root: Path, path: Path, *, directory: bool) -> bool:
 	try:
-		metadata = path.lstat()
-		if path.is_symlink():
+		lexical_root = project_root.absolute()
+		lexical_path = path.absolute()
+		relative_path = lexical_path.relative_to(lexical_root)
+		if project_path_has_link_component(project_root, relative_path.as_posix()):
 			return False
-		reparse_flag = getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0)
-		if reparse_flag and getattr(metadata, "st_file_attributes", 0) & reparse_flag:
-			return False
-		path.resolve(strict=True).relative_to(project_root)
-		return path.is_dir() if directory else path.is_file()
+		current_path = lexical_root / relative_path
+		current_path.resolve(strict=True).relative_to(lexical_root.resolve(strict=True))
+		return current_path.is_dir() if directory else current_path.is_file()
 	except (OSError, ValueError):
 		return False

@@ -254,13 +254,15 @@ def _module_dependency_drift_issues(
 		issues.append(_issue(
 			"error",
 			"module_dependency_analysis_incomplete",
-			"$.architecture.modules",
+			"$.architecture",
 			(
 				"Observed module dependency analysis is incomplete "
 				f"(status={status}, truncated={bool(analysis.get('truncated'))}, "
 				f"unreadable_files={int(analysis.get('unreadable_file_count', 0))}, "
 				f"missing_roots={int(analysis.get('missing_root_count', 0))}, "
 				f"unsafe_paths={int(analysis.get('unsafe_path_count', 0))}, "
+				f"missing_owned_resources={int(analysis.get('missing_owned_resource_count', 0))}, "
+				f"unsafe_owned_resources={int(analysis.get('unsafe_owned_resource_count', 0))}, "
 				f"ambiguous_classes={int(analysis.get('ambiguous_class_name_count', 0))})."
 			),
 		))

@@ -109,6 +109,32 @@ GDSCRIPT_RELOAD_WARNING_PATTERNS = (
 	"requires the subtype",
 	"is shadowing an already-declared",
 )
+GOVERNED_WORKFLOW_ACTION_VERSIONS = {
+	"actions/checkout": "v7",
+	"actions/setup-python": "v7",
+	"actions/upload-artifact": "v7",
+	"actions/download-artifact": "v8",
+}
+CI_WORKFLOW_ACTION_COUNTS = {
+	"actions/checkout": 4,
+	"actions/setup-python": 4,
+	"actions/upload-artifact": 0,
+	"actions/download-artifact": 0,
+}
+RELEASE_WORKFLOW_ACTION_COUNTS = {
+	"actions/checkout": 4,
+	"actions/setup-python": 4,
+	"actions/upload-artifact": 1,
+	"actions/download-artifact": 1,
+}
+GOVERNED_WORKFLOW_ACTION_RE = re.compile(
+	r"^\s*(?:-\s*)?uses\s*:\s+(?P<quote>['\"]?)"
+	r"(?P<action>(?i:actions/(?:checkout|setup-python|upload-artifact|download-artifact)))"
+	r"@(?P<ref>[^\s#'\"]+)(?P=quote)(?:\s+#.*)?\s*$"
+)
+GOVERNED_WORKFLOW_ACTION_TOKEN_RE = re.compile(
+	r"(?i:actions/(?:checkout|setup-python|upload-artifact|download-artifact))@"
+)
 GODOT_EXIT_LEAK_PATTERNS = (
 	"objectdb instances leaked at exit",
 	"resource still in use at exit",
@@ -9548,6 +9574,38 @@ def setup_godot_input_default(source: str, input_name: str) -> str:
 	return default_match.group(1) if default_match is not None else ""
 
 
+def audit_governed_workflow_actions(
+	source: str,
+	workflow_name: str,
+	expected_counts: dict[str, int],
+) -> list[str]:
+	issues: list[str] = []
+	observed_counts = {action: 0 for action in GOVERNED_WORKFLOW_ACTION_VERSIONS}
+	for line_number, line in enumerate(source.splitlines(), start=1):
+		content = line.split("#", 1)[0]
+		if GOVERNED_WORKFLOW_ACTION_TOKEN_RE.search(content) is None:
+			continue
+		match = GOVERNED_WORKFLOW_ACTION_RE.fullmatch(line)
+		if match is None:
+			issues.append(f"{workflow_name}:{line_number}: governed action use is malformed or has an unsupported ref.")
+			continue
+		action = match.group("action").casefold()
+		ref = match.group("ref")
+		observed_counts[action] += 1
+		expected_ref = GOVERNED_WORKFLOW_ACTION_VERSIONS[action]
+		if ref != expected_ref:
+			issues.append(
+				f"{workflow_name}:{line_number}: {action} must use {expected_ref}, found {ref}."
+			)
+	for action, expected_count in expected_counts.items():
+		actual_count = observed_counts.get(action, 0)
+		if actual_count != expected_count:
+			issues.append(
+				f"{workflow_name}: expected {expected_count} {action} use(s), found {actual_count}."
+			)
+	return issues
+
+
 def create_directory_link_fixture(target: Path, link: Path) -> None:
 	target_path = lexical_absolute_path(target)
 	link_path = lexical_absolute_path(link)
@@ -10448,6 +10506,51 @@ def maintenance_self_test() -> dict[str, Any]:
 	)
 	ci_workflow_source = read_text_file(ROOT / ".github/workflows/ci.yml")
 	release_workflow_source = read_text_file(ROOT / ".github/workflows/release.yml")
+	ci_action_issues = audit_governed_workflow_actions(
+		ci_workflow_source,
+		".github/workflows/ci.yml",
+		CI_WORKFLOW_ACTION_COUNTS,
+	)
+	release_action_issues = audit_governed_workflow_actions(
+		release_workflow_source,
+		".github/workflows/release.yml",
+		RELEASE_WORKFLOW_ACTION_COUNTS,
+	)
+	record_result(
+		"workflows_use_current_node24_action_majors",
+		not ci_action_issues and not release_action_issues,
+		"CI and release workflows must use the governed current Node.js 24 action majors without stale variants.",
+	)
+	stale_action_source = ci_workflow_source.replace("actions/checkout@v7", "actions/checkout@v6", 1)
+	commented_stale_action_source = ci_workflow_source.replace(
+		"actions/setup-python@v7",
+		"actions/setup-python@v6 # stale",
+		1,
+	)
+	missing_action_source = ci_workflow_source.replace("        uses: actions/checkout@v7\n", "", 1)
+	shorthand_stale_action_source = ci_workflow_source + "\n      - uses: actions/checkout@v4\n"
+	case_variant_action_source = ci_workflow_source + "\n      - uses: Actions/Checkout@v4\n"
+	record_result(
+		"workflow_action_audit_rejects_stale_commented_and_missing_steps",
+		bool(audit_governed_workflow_actions(stale_action_source, "ci-stale", CI_WORKFLOW_ACTION_COUNTS))
+		and bool(audit_governed_workflow_actions(
+			commented_stale_action_source,
+			"ci-commented-stale",
+			CI_WORKFLOW_ACTION_COUNTS,
+		))
+		and bool(audit_governed_workflow_actions(missing_action_source, "ci-missing", CI_WORKFLOW_ACTION_COUNTS))
+		and bool(audit_governed_workflow_actions(
+			shorthand_stale_action_source,
+			"ci-shorthand-stale",
+			CI_WORKFLOW_ACTION_COUNTS,
+		))
+		and bool(audit_governed_workflow_actions(
+			case_variant_action_source,
+			"ci-case-variant",
+			CI_WORKFLOW_ACTION_COUNTS,
+		)),
+		"Workflow action policy fixtures must detect stale refs, comments, missing steps, shorthand, and case variants.",
+	)
 	quick_job_match = re.search(
 		r"(?ms)^  quick-checks:\n(?P<body>.*?)(?=^  framework-checks:)",
 		ci_workflow_source,
@@ -10487,7 +10590,7 @@ def maintenance_self_test() -> dict[str, Any]:
 	record_result(
 		"ci_draft_quick_job_avoids_heavy_environment_bootstrap",
 		bool(quick_job_source)
-		and "actions/setup-python@v5" in quick_job_source
+		and "actions/setup-python@v7" in quick_job_source
 		and "docs/requirements.txt" not in quick_job_source
 		and ".github/actions/setup-godot" not in quick_job_source,
 		"Draft quick CI must remain pure Python and avoid documentation or Godot environment bootstrap.",
@@ -10521,8 +10624,8 @@ def maintenance_self_test() -> dict[str, Any]:
 		and release_workflow_source.count("--output-dir build/release") == 1
 		and "python tools/build_asset_store_package.py" not in release_workflow_source
 		and "python tools/build_gf_package.py" not in release_workflow_source
-		and "actions/upload-artifact@v4" in release_workflow_source
-		and "actions/download-artifact@v4" in release_workflow_source
+		and "actions/upload-artifact@v7" in release_workflow_source
+		and "actions/download-artifact@v8" in release_workflow_source
 		and "--validate-only" in release_workflow_source,
 		"Release workflow must build archives once, transport that immutable set, then validate without rebuilding.",
 	)

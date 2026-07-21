@@ -206,6 +206,17 @@
             }
           }
         },
+        "owned_resources": {
+          "type": "array",
+          "maxItems": 100,
+          "uniqueItems": true,
+          "description": "Exact project-owned resource files that are governance inputs rather than module dependency targets.",
+          "items": {
+            "type": "string",
+            "maxLength": 240,
+            "pattern": "^res://(?!addons/gf(?:/|$))[^\\u0000-\\u001F\\u007F\\\\]+$"
+          }
+        },
         "global_rules": {
           "type": "array",
           "maxItems": 100,
