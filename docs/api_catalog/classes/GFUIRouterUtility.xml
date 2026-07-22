@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFUIRouterUtility" path="addons/gf/standard/utilities/ui/gf_ui_router_utility.gd" module="standard" extends="GFUtility" classDigest="45d3dc55fd22ba728e25b7f455d2dd33bbf69875e52950fd756d40676b1001eb">
+<class name="GFUIRouterUtility" path="addons/gf/standard/utilities/ui/gf_ui_router_utility.gd" module="standard" extends="GFUtility" classDigest="48c7d9a934d367acacd135f1933e50943e5443b6d3da1f1dc2f1dcb4699a374b">
 	<description>GFUIRouterUtility: 基于路由 ID 的 UI 导航工具。
 作为 GFUIUtility 之上的轻量路由层，负责把稳定 route_id 映射到面板场景、
 打开参数、层级和历史记录，不接管具体页面业务或动画表现。</description>
@@ -39,6 +39,15 @@
 				<tag name="param">reason: 失败原因。</tag>
 			</tags>
 		</member>
+		<member kind="signal" name="route_operation_completed">
+			<signature>signal route_operation_completed(result: GFUIRouteResult)</signature>
+			<description>异步路由请求进入终态时触发。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">result: 隔离的类型化终态结果。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
 		<member kind="signal" name="route_back_completed">
 			<signature>signal route_back_completed(route_id: StringName, layer: int)</signature>
 			<description>路由返回完成时触发。</description>
@@ -63,7 +72,32 @@
 			</tags>
 		</member>
 	</enums>
-	<constants />
+	<constants>
+		<member kind="const" name="PRELOAD_NONE">
+			<signature>const PRELOAD_NONE: StringName = &amp;"none"</signature>
+			<description>不执行路由预加载，直接提交异步面板请求。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="PRELOAD_BEST_EFFORT">
+			<signature>const PRELOAD_BEST_EFFORT: StringName = &amp;"best_effort"</signature>
+			<description>尽力执行路由预加载；规划或加载失败时仍继续打开面板。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="PRELOAD_REQUIRED">
+			<signature>const PRELOAD_REQUIRED: StringName = &amp;"required"</signature>
+			<description>要求路由预加载完整成功；否则不提交面板请求。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</constants>
 	<properties>
 		<member kind="property" name="max_history">
 			<signature>var max_history: int = 64</signature>
@@ -206,7 +240,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="push_route_async">
-			<signature>func push_route_async( route_id: StringName, params: Dictionary = {}, option_overrides: Dictionary = {}, config_callback: Callable = Callable() ) -&gt; void:</signature>
+			<signature>func push_route_async( route_id: StringName, params: Dictionary = {}, option_overrides: Dictionary = {}, config_callback: Callable = Callable(), async_options: Dictionary = {} ) -&gt; GFUIRouteOperation:</signature>
 			<description>异步压入一个路由面板。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -214,12 +248,16 @@
 				<tag name="param">params: 路由参数。</tag>
 				<tag name="param">option_overrides: 面板选项覆盖。</tag>
 				<tag name="param">config_callback: 面板实例化后、入栈前的额外配置回调。</tag>
+				<tag name="param">async_options: 异步协调选项。</tag>
+				<tag name="return">可观察的异步路由句柄；相同 pending 请求返回同一句柄。</tag>
 				<tag name="schema">params: Dictionary，本次打开路由携带的项目自定义参数。</tag>
 				<tag name="schema">option_overrides: Dictionary，字段同 GFUIUtility 打开面板 options，会覆盖路由 default_options。</tag>
+				<tag name="schema">async_options: Dictionary，可包含 preload_policy、preload_plan_options 和 metadata；preload_policy 使用 PRELOAD_* 常量，自动预加载始终包含当前路由，未指定 max_depth 时只加载当前页面。</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 		<member kind="method" name="replace_route_async">
-			<signature>func replace_route_async( route_id: StringName, params: Dictionary = {}, option_overrides: Dictionary = {}, config_callback: Callable = Callable() ) -&gt; void:</signature>
+			<signature>func replace_route_async( route_id: StringName, params: Dictionary = {}, option_overrides: Dictionary = {}, config_callback: Callable = Callable(), async_options: Dictionary = {} ) -&gt; GFUIRouteOperation:</signature>
 			<description>异步替换路由所在层级。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -227,8 +265,12 @@
 				<tag name="param">params: 路由参数。</tag>
 				<tag name="param">option_overrides: 面板选项覆盖。</tag>
 				<tag name="param">config_callback: 面板实例化后、入栈前的额外配置回调。</tag>
+				<tag name="param">async_options: 异步协调选项。</tag>
+				<tag name="return">可观察的异步路由句柄；相同 pending 请求返回同一句柄。</tag>
 				<tag name="schema">params: Dictionary，本次打开路由携带的项目自定义参数。</tag>
 				<tag name="schema">option_overrides: Dictionary，字段同 GFUIUtility 打开面板 options，会覆盖路由 default_options。</tag>
+				<tag name="schema">async_options: Dictionary，可包含 preload_policy、preload_plan_options 和 metadata；preload_policy 使用 PRELOAD_* 常量，自动预加载始终包含当前路由，未指定 max_depth 时只加载当前页面。</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 		<member kind="method" name="back">
@@ -272,7 +314,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">诊断快照。</tag>
-				<tag name="schema">return: Dictionary，包含 route_count、history_count、pending_async_route_count、current_route_id 和 has_ui_utility。</tag>
+				<tag name="schema">return: Dictionary，包含 route_count、history_count、pending_async_route_count、pending_async_routes、current_route_id、has_ui_utility 和 disposed。</tag>
 				<tag name="since">3.0.0</tag>
 			</tags>
 		</member>

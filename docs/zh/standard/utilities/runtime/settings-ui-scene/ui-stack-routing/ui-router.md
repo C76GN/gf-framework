@@ -1,6 +1,6 @@
 # UI 路由与导航历史
 
-`GFUIRouterUtility` 把稳定 route id 映射到面板场景、逻辑层和打开选项，并在 `GFUIUtility` 之上维护轻量历史。两者都属于 `gf.standard.ui.navigation`，都需要由项目 Installer 显式注册；Router 不会因类存在而自动进入架构。
+`GFUIRouterUtility` 把稳定 route id 映射到面板场景、逻辑层和打开选项，并在 `GFUIUtility` 之上维护轻量历史。同步入口返回面板；异步入口返回 `GFUIRouteOperation`，将校验、可选预加载、面板提交和唯一终态统一为可观察契约。相关类型都属于 `gf.standard.ui.navigation`，`GFUIUtility` 与 Router 需要由项目 Installer 显式注册；Router 不会因类存在而自动进入架构。
 
 完整装配示例见 [面板栈与可扩展层级](ui-stack-modal/panel-stack.md)。启动代码必须先检查 `await Gf.init()`，再查询 ready Utility：
 
@@ -46,6 +46,72 @@ router.back()
 `route.layer` 是“这条 Route 属于哪个独立导航栈”，不是全局页面优先级。登录、认证、主页这类互斥页面应放在同一层并调用 `replace_route()`；跨到新层不会自动关闭旧层。真正需要跨层切换时，由项目流程先显式 `clear_layer(old_layer)`。绘制前后关系则读取目标层的 `GFUILayerDefinition.canvas_layer`，与 route 的逻辑层 ID 大小无关。
 
 如果面板实现 `set_route_params(params)` 或 `set_route_metadata(metadata)`，Router 会在入栈前传入副本。`back()` 只弹出当前 UI 栈顶且属于路由历史的面板；项目直接在同层压入普通面板后，应先关闭普通面板。
+
+## 类型化异步打开
+
+`push_route_async()` 与 `replace_route_async()` 始终返回 `GFUIRouteOperation`。输入校验失败也会返回已经完成的句柄，不再要求调用方从 warning 文本推断结果：
+
+```gdscript
+var operation: GFUIRouteOperation = router.push_route_async(
+	&"settings",
+	{ "tab": "audio" }
+)
+
+if operation.is_completed():
+	_handle_route_result(operation.get_result())
+else:
+	operation.completed.connect(_handle_route_result, CONNECT_ONE_SHOT)
+
+
+func _handle_route_result(result: GFUIRouteResult) -> void:
+	if result.is_successful():
+		var panel: Node = result.get_panel()
+		return
+	push_warning("route=%s status=%s reason=%s" % [
+		result.get_route_id(),
+		result.get_status(),
+		result.get_reason(),
+	])
+```
+
+句柄只接受一个终态，`get_result()` 返回隔离副本。Router 也会发出 `route_operation_completed(result)`，适合统一遥测；单次调用优先观察句柄，避免按 route id 猜测并发请求。`GFUIRouteResult.to_dict()` 使用 `GFReportValueCodec` 收束调用方 metadata、非有限浮点和运行时对象，可直接进入 JSON 报告边界；`get_metadata()` 则保留原始类型并返回深副本。
+
+相同 pending 请求只有在规范化 route id、操作、参数、面板选项、回调、预加载策略、预加载计划选项和 metadata 全部一致时才复用同一句柄。不同 Router 请求若占用相同场景路径、逻辑层和操作，会以 `STATUS_ASYNC_CONFLICT` 结束，不会静默覆盖先到请求。若项目绕过 Router，直接在同一 `GFUIUtility` 通道提交了相同 pending 面板请求，Router 也会返回 `ui_async_request_conflict`，避免把未执行路由配置回调的外部面板误记为路由成功。
+
+Router 释放时，尚未提交面板的预加载会回滚并返回 `STATUS_DISPOSED`。面板已经交给当前 `GFUIUtility` 后无法按单个路由请求撤回；此时返回 `STATUS_OUTCOME_UNKNOWN`，明确表示 Router 已失去观察能力，而不是声称面板一定取消或一定打开。调用方不应把 `outcome_unknown` 当作失败后可安全重试的证明。
+
+## 打开前预加载策略
+
+异步入口最后一个 `async_options` 参数支持：
+
+- `preload_policy`：`PRELOAD_NONE`、`PRELOAD_BEST_EFFORT` 或 `PRELOAD_REQUIRED`。
+- `preload_plan_options`：传给现有有界 Route Planner 的选项。
+- `metadata`：写入句柄终态和预加载会话的调用方上下文。
+
+默认 `PRELOAD_NONE` 保持直接提交面板请求的行为。`PRELOAD_BEST_EFFORT` 会执行可用计划，但规划不健康、缺少 `GFAssetUtility` 或事务失败时仍继续打开；成功结果可通过 `was_preload_attempted()`、`was_preload_successful()`、`get_preload_result()` 和非空 `reason` 识别降级。`PRELOAD_REQUIRED` 只有在计划健康且 `GFAssetLoadSession` 原子提交后才提交面板，否则返回对应 `STATUS_PRELOAD_*` 或 `STATUS_MISSING_ASSET_UTILITY` 终态。
+
+```gdscript
+var operation: GFUIRouteOperation = router.replace_route_async(
+	&"battle_hud",
+	{},
+	{},
+	Callable(),
+	{
+		"preload_policy": GFUIRouterUtility.PRELOAD_REQUIRED,
+		"preload_plan_options": {
+			"max_depth": 0,
+			"max_concurrent_loads": 2,
+		},
+		"metadata": {
+			"flow": "enter_battle",
+		},
+	}
+)
+```
+
+自动协调始终强制 `include_source = true`；没有指定 `max_depth` 时使用 `0`，只把当前页面作为打开屏障，避免相邻候选的配置错误意外阻断当前页面。显式提高深度后，`PRELOAD_REQUIRED` 会把整个有界计划的健康度纳入门禁，`PRELOAD_BEST_EFFORT` 则把不完整候选记录为降级。
+
+未显式提供 `group_id` 时，每个请求使用独占临时 owner group；面板进入终态后 Router 调用 `unload_group(group_id, false)` 释放所有权，不破坏共享缓存。显式提供 `group_id` 表示该分组由调用方管理，Router 不会代替项目释放。预加载只负责资源就绪，不实现权限、导航守卫、转场动画或业务恢复。
 
 ## 从路由关系构建预加载计划
 
@@ -124,6 +190,6 @@ assets.preload_plan_async(asset_plan, func(report: Dictionary) -> void:
 
 `ok` 表示是否成功识别起始路由并构建了稳定结果；`healthy` 还要求没有悬空路由、空场景、缺失资源、错误资源类型、重复 route ID 或容量截断。开发构建可以启用 `check_exists` 检查场景路径；Planner 会同时使用 `PackedScene` 类型提示和 Godot 为该类型认可的资源扩展，现有的脚本、纹理或普通 Resource 不会因为路径存在就被误判为健康页面。`missing_scene_paths` 只报告找不到的路径，`invalid_scene_type_paths` 单独报告路径存在但不能作为 `PackedScene` 使用的配置。发布运行时则可按项目成本策略决定是否检查。`max_catalog_routes` 默认是 `1024`，限制目录构建实际检查的原始路由数；Router 入口也只按注册顺序向 Planner 交付预算内条目和一个截断哨兵，不会预先复制完整目录。`catalog_route_count` 和 `catalog_budget_exhausted` 可用于判断目录是否完整。当起始路由可能位于尚未检查的尾部时，失败原因是 `catalog_budget_exhausted`，且不会把该 ID 放入 `missing_route_ids` 误报为确定缺失。`max_routes` 限制固定、可达和缺失候选的唯一 ID 总数，`max_edges` 限制实际扫描的原始相邻关系数；任一预算耗尽都会让 `truncated = true`，并反映到对应的 `catalog_budget_exhausted`、`route_budget_exhausted` 或 `edge_budget_exhausted`。
 
-Planner 只生成计划，不会自动发起 IO。项目可以在登录结束、切换章节或进入大厅后选择合适时机调用 `preload_plan_async()`；离开对应区域后可用 `GFAssetUtility.unload_group(group_id)` 释放分组 pin。权限变化、动态活动入口、网络条件、内存档位和实际预热时机仍由项目判断。
+单独调用 `build_preload_plan()` 时，Planner 只生成计划，不会自动发起 IO。项目可以在登录结束、切换章节或进入大厅后选择合适时机调用 `preload_plan_async()`；离开对应区域后可用 `GFAssetUtility.unload_group(group_id)` 释放分组 pin。异步路由入口只有在显式选择预加载策略时才协调计划与 IO。权限变化、动态活动入口、网络条件、内存档位和实际预热时机仍由项目判断。
 
-异步打开时，同一路径、逻辑层和操作上的相同 route 会复用 pending 边界；不同 route 指向同一 pending 目标时返回 `route_async_conflict`。复杂页面恢复、权限、转场动画和业务导航状态仍由项目 Model/System 或 UI 节点负责。
+复杂页面恢复、权限、转场动画和业务导航状态仍由项目 Model/System 或 UI 节点负责。

@@ -6,11 +6,11 @@
 
 | 类别 | 类 | 成员 | 方法 |
 |---|---:|---:|---:|
-| [运行时服务](#category-runtime_service) | 183 | 3218 | 2173 |
+| [运行时服务](#category-runtime_service) | 183 | 3222 | 2173 |
 | [协议与扩展点](#category-protocol) | 22 | 309 | 251 |
 | [资源定义](#category-resource_definition) | 111 | 1442 | 747 |
-| [运行时句柄](#category-runtime_handle) | 43 | 731 | 474 |
-| [值对象](#category-value_object) | 36 | 658 | 416 |
+| [运行时句柄](#category-runtime_handle) | 44 | 744 | 484 |
+| [值对象](#category-value_object) | 37 | 691 | 435 |
 | [领域模型](#category-domain_model) | 4 | 61 | 42 |
 | [事件契约](#category-event_contract) | 5 | 47 | 17 |
 | [编辑器 API](#category-editor_api) | 11 | 68 | 46 |
@@ -403,6 +403,7 @@
 | [`GFTextGenerationContext`](classes/GFTextGenerationContext.md#gftextgenerationcontext) | `RefCounted` | `addons/gf/standard/foundation/text/gf_text_generation_context.gd` |
 | [`GFTimeoutController`](classes/GFTimeoutController.md#gftimeoutcontroller) | `RefCounted` | `addons/gf/standard/common/gf_timeout_controller.gd` |
 | [`GFTouchControl2D`](classes/GFTouchControl2D.md#gftouchcontrol2d) | `Node2D` | `addons/gf/standard/input/touch/gf_touch_control_2d.gd` |
+| [`GFUIRouteOperation`](classes/GFUIRouteOperation.md#gfuirouteoperation) | `RefCounted` | `addons/gf/standard/utilities/ui/gf_ui_route_operation.gd` |
 | [`GFVirtualInputSource`](classes/GFVirtualInputSource.md#gfvirtualinputsource) | `RefCounted` | `addons/gf/standard/input/sources/gf_virtual_input_source.gd` |
 
 <a id="category-value_object"></a>
@@ -444,6 +445,7 @@
 | [`GFStorageConflictReport`](classes/GFStorageConflictReport.md#gfstorageconflictreport) | `Resource` | `addons/gf/standard/utilities/storage/gf_storage_conflict_report.gd` |
 | [`GFStorageReadResult`](classes/GFStorageReadResult.md#gfstoragereadresult) | `RefCounted` | `addons/gf/standard/utilities/storage/gf_storage_read_result.gd` |
 | [`GFStorageSectionCache`](classes/GFStorageSectionCache.md#gfstoragesectioncache) | `RefCounted` | `addons/gf/standard/utilities/storage/gf_storage_section_cache.gd` |
+| [`GFUIRouteResult`](classes/GFUIRouteResult.md#gfuirouteresult) | `RefCounted` | `addons/gf/standard/utilities/ui/gf_ui_route_result.gd` |
 | [`GFUuid`](classes/GFUuid.md#gfuuid) | `RefCounted` | `addons/gf/standard/foundation/identity/gf_uuid.gd` |
 | [`GFValidationIssue`](classes/GFValidationIssue.md#gfvalidationissue) | `RefCounted` | `addons/gf/standard/foundation/validation/gf_validation_issue.gd` |
 | [`GFValidationReport`](classes/GFValidationReport.md#gfvalidationreport) | `RefCounted` | `addons/gf/standard/foundation/validation/gf_validation_report.gd` |
