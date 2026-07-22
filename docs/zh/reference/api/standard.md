@@ -6,11 +6,11 @@
 
 | 类别 | 类 | 成员 | 方法 |
 |---|---:|---:|---:|
-| [运行时服务](#category-runtime_service) | 183 | 3222 | 2173 |
-| [协议与扩展点](#category-protocol) | 22 | 309 | 251 |
-| [资源定义](#category-resource_definition) | 111 | 1442 | 747 |
+| [运行时服务](#category-runtime_service) | 183 | 3231 | 2181 |
+| [协议与扩展点](#category-protocol) | 23 | 317 | 255 |
+| [资源定义](#category-resource_definition) | 114 | 1472 | 755 |
 | [运行时句柄](#category-runtime_handle) | 44 | 744 | 484 |
-| [值对象](#category-value_object) | 37 | 691 | 435 |
+| [值对象](#category-value_object) | 38 | 698 | 442 |
 | [领域模型](#category-domain_model) | 4 | 61 | 42 |
 | [事件契约](#category-event_contract) | 5 | 47 | 17 |
 | [编辑器 API](#category-editor_api) | 11 | 68 | 46 |
@@ -218,6 +218,7 @@
 | [`GFAudioBackend`](classes/GFAudioBackend.md#gfaudiobackend) | `RefCounted` | `addons/gf/standard/utilities/audio/gf_audio_backend.gd` |
 | [`GFConfigProvider`](classes/GFConfigProvider.md#gfconfigprovider) | `GFUtility` | `addons/gf/standard/utilities/config/gf_config_provider.gd` |
 | [`GFConfigValidationRule`](classes/GFConfigValidationRule.md#gfconfigvalidationrule) | `Resource` | `addons/gf/standard/utilities/config/validation/gf_config_validation_rule.gd` |
+| [`GFDiagnosticSnapshotProvider`](classes/GFDiagnosticSnapshotProvider.md#gfdiagnosticsnapshotprovider) | `RefCounted` | `addons/gf/standard/utilities/debug/gf_diagnostic_snapshot_provider.gd` |
 | [`GFFormula`](classes/GFFormula.md#gfformula) | `Resource` | `addons/gf/standard/foundation/formula/gf_formula.gd` |
 | [`GFGridSelection2D`](classes/GFGridSelection2D.md#gfgridselection2d) | `Resource` | `addons/gf/standard/foundation/math/gf_grid_selection_2d.gd` |
 | [`GFInputIconProvider`](classes/GFInputIconProvider.md#gfinputiconprovider) | `Resource` | `addons/gf/standard/input/formatting/gf_input_icon_provider.gd` |
@@ -330,6 +331,9 @@
 | [`GFSceneTransitionConfig`](classes/GFSceneTransitionConfig.md#gfscenetransitionconfig) | `Resource` | `addons/gf/standard/utilities/scene/gf_scene_transition_config.gd` |
 | [`GFSchemaField`](classes/GFSchemaField.md#gfschemafield) | `Resource` | `addons/gf/standard/foundation/schema/gf_schema_field.gd` |
 | [`GFScreenTransitionEffect`](classes/GFScreenTransitionEffect.md#gfscreentransitioneffect) | `Resource` | `addons/gf/standard/utilities/scene/gf_screen_transition_effect.gd` |
+| [`GFSessionTraceChannelDefinition`](classes/GFSessionTraceChannelDefinition.md#gfsessiontracechanneldefinition) | `Resource` | `addons/gf/standard/utilities/debug/gf_session_trace_channel_definition.gd` |
+| [`GFSessionTraceCheckpoint`](classes/GFSessionTraceCheckpoint.md#gfsessiontracecheckpoint) | `Resource` | `addons/gf/standard/utilities/debug/gf_session_trace_checkpoint.gd` |
+| [`GFSessionTraceRecipe`](classes/GFSessionTraceRecipe.md#gfsessiontracerecipe) | `Resource` | `addons/gf/standard/utilities/debug/gf_session_trace_recipe.gd` |
 | [`GFSettingDefinition`](classes/GFSettingDefinition.md#gfsettingdefinition) | `Resource` | `addons/gf/standard/utilities/settings/gf_setting_definition.gd` |
 | [`GFShaderParameterProfile`](classes/GFShaderParameterProfile.md#gfshaderparameterprofile) | `Resource` | `addons/gf/standard/utilities/display/gf_shader_parameter_profile.gd` |
 | [`GFSignalBridge`](classes/GFSignalBridge.md#gfsignalbridge) | `Resource` | `addons/gf/standard/utilities/signals/bridge/gf_signal_bridge.gd` |
@@ -419,6 +423,7 @@
 | [`GFByteCursor`](classes/GFByteCursor.md#gfbytecursor) | `RefCounted` | `addons/gf/standard/foundation/binary/gf_byte_cursor.gd` |
 | [`GFConfigValidationReport`](classes/GFConfigValidationReport.md#gfconfigvalidationreport) | `RefCounted` | `addons/gf/standard/utilities/config/gf_config_validation_report.gd` |
 | [`GFDeque`](classes/GFDeque.md#gfdeque) | `RefCounted` | `addons/gf/standard/foundation/collections/gf_deque.gd` |
+| [`GFDiagnosticProviderResult`](classes/GFDiagnosticProviderResult.md#gfdiagnosticproviderresult) | `RefCounted` | `addons/gf/standard/utilities/debug/gf_diagnostic_provider_result.gd` |
 | [`GFDirectoryChangeSet`](classes/GFDirectoryChangeSet.md#gfdirectorychangeset) | `RefCounted` | `addons/gf/standard/utilities/io/gf_directory_change_set.gd` |
 | [`GFDriftReport`](classes/GFDriftReport.md#gfdriftreport) | `RefCounted` | `addons/gf/standard/foundation/validation/gf_drift_report.gd` |
 | [`GFExecutionRequirement`](classes/GFExecutionRequirement.md#gfexecutionrequirement) | `RefCounted` | `addons/gf/standard/common/gf_execution_requirement.gd` |

@@ -82,6 +82,53 @@ var capture: Dictionary = trace.capture_snapshot_provider(
 
 Provider 必须快速、同步、无参数且没有副作用。读取普通轨迹或构建报告不会自动执行 provider；只有显式调用 `capture_snapshot_provider()` 且当前会话与目标通道允许记录时才会采集。这一边界避免被拒绝的诊断请求仍执行项目回调，也避免任意节点被隐式反射。
 
+## 用配方固定故障采集契约
+
+当同一类故障需要稳定的通道预算、检查点和快照默认值时，可以用 `GFSessionTraceRecipe` 描述配置，用 `GFSessionTraceChannelDefinition` 和 `GFSessionTraceCheckpoint` 组合原子采集边界：
+
+```gdscript
+var route_channel: GFSessionTraceChannelDefinition = (
+	GFSessionTraceChannelDefinition.new().configure(
+		&"route",
+		{ "max_events": 120 }
+	)
+)
+var route_failure: GFSessionTraceCheckpoint = GFSessionTraceCheckpoint.new().configure(
+	&"route_failure",
+	PackedStringArray(["route_state", "optional_input_state"]),
+	{ "optional_provider_ids": PackedStringArray(["optional_input_state"]) }
+)
+var recipe: GFSessionTraceRecipe = GFSessionTraceRecipe.new().configure(
+	&"ui_route_failure",
+	[route_channel],
+	[route_failure],
+	{
+		"max_events": 256,
+		"snapshot_limit": 120,
+		"include_context": false,
+	}
+)
+
+var applied: Dictionary = trace.apply_recipe(recipe)
+if not GFVariantData.get_option_bool(applied, "ok"):
+	push_error(GFVariantData.get_option_string(applied, "error_message"))
+```
+
+配方必须在第一次 `start_session()` 前应用。应用前会完整校验 ID、通道、检查点、冲突和容量；Utility 中若已有配方未声明的通道也会拒绝应用，避免相同配方指纹生成不同形状的支持报告。脚本直接写入 Resource 时必须满足 Inspector 声明的事件数与字节硬上限，不能依赖 `@export_range` 代替运行时校验。失败不会部分修改已有通道或全局预算。一个 Utility 生命周期只接受一份配方，同一指纹可幂等重放；应用后修改 Resource，或绕过配方修改、删除、新增运行时通道、容量与脱敏 profile，会让后续配方操作以 `recipe_changed` 或 `recipe_runtime_drift` fail closed。配置修订号是单调的，因此临时放宽配置后再恢复原值也不能清除漂移证据。检查点 metadata 的指纹使用配方实际 `redaction_profile`，确保 `support` / `debug` 下会改变事件内容的定义变化不会被更严格的目录脱敏掩盖。
+
+Provider 的运行时 Callable 仍由项目在配方应用后显式注册，配方只保存稳定 ID，不序列化闭包或业务对象。活动会话中可以执行检查点并使用配方默认值构建快照：
+
+```gdscript
+var checkpoint_result: Dictionary = trace.capture_recipe_checkpoint(
+	recipe,
+	&"route_failure",
+	{ "metadata": { "trigger": &"open_failed" } }
+)
+var snapshot: Dictionary = trace.build_recipe_snapshot(recipe)
+```
+
+检查点严格按声明顺序执行，单项失败不会阻止后续项。单个 Provider 列表最多 256 项；必需 Provider 失败会让检查点整体失败，只有明确列入 `optional_provider_ids` 的失败才会降级为可观察结果。`max_snapshot_providers` 仍只控制新注册容量，配方不会把调用时的可变容量误当成永久约束。配方不决定何时上传、是否提示玩家，也不把检查点解释成业务恢复策略。
+
 ## 接入支持报告
 
 `build_snapshot()` 返回普通、JSON-safe 的有界字典，可以作为 `GFSupportReportUtility` 的项目分区。注册分区仍不代表自动进入报告；构建报告时还要显式启用 `include_sections`：
@@ -133,6 +180,8 @@ Journal 会先按 Session Trace 当前 `redaction_profile` 编码事件，再交
 
 Sink 的 `get_report_redaction_profile()`、`init()`、`write()`、`flush()` 和 `shutdown()` 都位于重入保护边界内。回调中触发新的轨迹写入不会递归进入同一 sink；`configure_journal_sink(null)`、清除或释放会先原子断开引用，再完成延迟清理。替换 sink 时，如果旧 sink 的清理回调主动置空配置，置空请求优先且外层替换返回 `false`，调用方可在回调结束后显式重试。同一个 sink 实例再次配置时只原位更新所有权和刷新选项，不会把仍要继续使用的实例提前 `flush()` 或 `shutdown()`；只有新配置再次显式传入 `initialize = true` 时才会调用 `init()`。自定义 sink 仍应保持回调快速、同步，并避免执行项目业务副作用。
 
+自定义 sink 若需要反向访问 Session Trace，应保存 `WeakRef`，或在 `dispose()` 前主动断开反向引用。`GFSessionTraceUtility` 能释放自己持有的 sink，但无法自动打破外部对象自行建立的 RefCounted 强引用环。
+
 ## 容量与读取
 
 - `max_events`：内存最多保留的事件数，超限时淘汰最旧事件。
@@ -140,7 +189,7 @@ Sink 的 `get_report_redaction_profile()`、`init()`、`write()`、`flush()` 和
 - `max_event_bytes`：单事件上限；过大的事件会以稳定原因拒绝，而不是无界写入。
 - 通道 `max_events` / `max_event_bytes`：为高频通道设置更严格的局部预算。
 - `get_events(limit, filters)`：按通道、事件 ID 或序号范围读取最近事件。
-- `get_debug_snapshot()`：只返回计数、容量、拒绝原因和 journal 状态，不包含完整载荷。
+- `get_debug_snapshot()`：只返回计数、容量、当前配方身份、拒绝原因和 journal 状态，不包含完整载荷。
 - `build_snapshot(options)`：生成可交给支持报告、调试面板或离线分析器的结构化快照。
 
 `dropped_event_count` 表示容量淘汰，`rejected_event_count` 表示事件未进入轨迹。两者应该分别观察：前者通常意味着需要调整采样或预算，后者通常意味着通道未注册、已禁用、会话未开始或单事件过大。

@@ -2,8 +2,8 @@
   "schema_version": 1,
   "catalog_version": "1.0.0",
   "framework_version": "10.0.0-dev.0",
-  "source_digest": "e16ef04a68c4c1489eea54903823ae5226bc6018a72c607cccc770d122b74e39",
-  "class_count": 733,
+  "source_digest": "cd628a27afee75f10177b1e04969bd1c1094fd1d0abcced6894e0d28502894f2",
+  "class_count": 738,
   "package_count": 50,
   "packages": [
     {
@@ -298,7 +298,7 @@
         "gf.kernel",
         "gf.standard.base"
       ],
-      "description": "Runtime diagnostics, build info snapshots, bounded session traces, operation timelines, and the lightweight developer console used by tools that only need observability hooks.",
+      "description": "Runtime diagnostics, explicit lazy snapshot providers, recipe-driven bounded session traces, build info snapshots, operation timelines, and the lightweight developer console used by tools that only need observability hooks.",
       "representative_path": "addons/gf/standard/utilities/debug/gf_async_tracker_utility.gd"
     },
     {
@@ -22978,6 +22978,135 @@
         }
       ]
     },
+    "GFDiagnosticProviderResult": {
+      "extends": "RefCounted",
+      "module": "standard",
+      "package_id": "gf.standard.diagnostics",
+      "path": "addons/gf/standard/utilities/debug/gf_diagnostic_provider_result.gd",
+      "summary": "GFDiagnosticProviderResult: 惰性诊断 Provider 的类型化采集结果。 成功结果携带尚未编码的临时值；失败结果携带稳定错误码和面向维护者的说明。 非法错误码会归一为 `provider_failed`，错误说明最多保留 1024 个字符。",
+      "visibility": "public",
+      "category": "value_object",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "func",
+          "name": "succeeded",
+          "signature": "static func succeeded(value: Variant, metadata: Dictionary = {}) -> GFDiagnosticProviderResult",
+          "summary": "创建成功结果。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "failed",
+          "signature": "static func failed( error_code: StringName, error_message: String = \"\", metadata: Dictionary = {} ) -> GFDiagnosticProviderResult",
+          "summary": "创建失败结果。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_successful",
+          "signature": "func is_successful() -> bool",
+          "summary": "查询采集是否成功。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_value",
+          "signature": "func get_value() -> Variant",
+          "summary": "获取成功值副本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_error_code",
+          "signature": "func get_error_code() -> StringName",
+          "summary": "获取稳定错误码。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_error_message",
+          "signature": "func get_error_message() -> String",
+          "summary": "获取错误说明。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_metadata",
+          "signature": "func get_metadata() -> Dictionary",
+          "summary": "获取采集元数据副本。",
+          "visibility": "public"
+        }
+      ]
+    },
+    "GFDiagnosticSnapshotProvider": {
+      "extends": "RefCounted",
+      "module": "standard",
+      "package_id": "gf.standard.diagnostics",
+      "path": "addons/gf/standard/utilities/debug/gf_diagnostic_snapshot_provider.gd",
+      "summary": "GFDiagnosticSnapshotProvider: 按请求求值的诊断快照 Provider 协议。 Provider 不会被轮询或随普通快照隐式执行。项目必须显式请求稳定 Provider ID， 输出才会由 `GFDiagnosticsUtility` 在重入保护、结构预算和脱敏边界内采集。",
+      "visibility": "public",
+      "category": "protocol",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "const",
+          "name": "DEFAULT_MAX_DURATION_USEC",
+          "signature": "const DEFAULT_MAX_DURATION_USEC: int = 50_000",
+          "summary": "默认 Provider 返回后验收时长预算，单位微秒。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "provider_id",
+          "signature": "var provider_id: StringName = &\"\"",
+          "summary": "Provider 稳定 ID。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "max_duration_usec",
+          "signature": "var max_duration_usec: int = DEFAULT_MAX_DURATION_USEC",
+          "summary": "Provider 返回后的最大验收时长，单位微秒；0 表示不做时长拒绝。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "metadata",
+          "signature": "var metadata: Dictionary",
+          "summary": "Provider 目录元数据。注册后不可修改，读取时返回副本，输出前由聚合器执行预算和脱敏。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "configure",
+          "signature": "func configure( p_provider_id: StringName, options: Dictionary = {} ) -> GFDiagnosticSnapshotProvider",
+          "summary": "配置 Provider 定义并返回自身。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "validate_provider",
+          "signature": "func validate_provider() -> Dictionary",
+          "summary": "校验 Provider 定义。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "collect_snapshot",
+          "signature": "func collect_snapshot(request: Dictionary = {}) -> GFDiagnosticProviderResult",
+          "summary": "采集一次诊断结果。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "_collect_snapshot",
+          "signature": "func _collect_snapshot(_request: Dictionary = {}) -> GFDiagnosticProviderResult",
+          "summary": "实现一次同步、只读且有界的诊断采集。",
+          "visibility": "protected"
+        }
+      ]
+    },
     "GFDiagnosticsDock": {
       "extends": "Control",
       "module": "standard",
@@ -23016,7 +23145,7 @@
       "module": "standard",
       "package_id": "gf.standard.diagnostics",
       "path": "addons/gf/standard/utilities/debug/gf_diagnostics_utility.gd",
-      "summary": "GFDiagnosticsUtility: 运行时诊断聚合工具。 提供架构生命周期、事件系统、性能、日志和外部贡献诊断的统一快照。 外部监控和快照贡献采用 owner-bound 发布模型；采集路径只读取已验证缓存，不执行项目回调。",
+      "summary": "GFDiagnosticsUtility: 运行时诊断聚合工具。 提供架构生命周期、事件系统、性能、日志和外部贡献诊断的统一快照。 外部监控和快照贡献采用 owner-bound 发布模型；普通采集只读取已验证缓存。",
       "visibility": "public",
       "category": "runtime_service",
       "since": "3.17.0",
@@ -23197,6 +23326,13 @@
           "visibility": "public"
         },
         {
+          "kind": "var",
+          "name": "max_diagnostic_providers",
+          "signature": "var max_diagnostic_providers: int = 32",
+          "summary": "最多允许注册和单批请求的惰性诊断 Provider 数量。",
+          "visibility": "public"
+        },
+        {
           "kind": "func",
           "name": "init",
           "signature": "func init() -> void",
@@ -23369,6 +23505,41 @@
           "name": "has_snapshot_section",
           "signature": "func has_snapshot_section(section_id: StringName) -> bool",
           "summary": "检查快照分区是否存在。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "register_diagnostic_provider",
+          "signature": "func register_diagnostic_provider( owner: Object, provider: GFDiagnosticSnapshotProvider ) -> bool",
+          "summary": "注册一个仅在显式请求时执行的诊断 Provider。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "unregister_diagnostic_provider",
+          "signature": "func unregister_diagnostic_provider(owner: Object, provider_id: StringName) -> bool",
+          "summary": "注销惰性诊断 Provider。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "has_diagnostic_provider",
+          "signature": "func has_diagnostic_provider(provider_id: StringName) -> bool",
+          "summary": "检查惰性诊断 Provider 是否仍有效。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_diagnostic_provider_catalog",
+          "signature": "func get_diagnostic_provider_catalog() -> Dictionary",
+          "summary": "获取不含 Provider 实例的惰性诊断目录。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "collect_diagnostic_providers",
+          "signature": "func collect_diagnostic_providers( provider_ids: PackedStringArray, request: Dictionary = {} ) -> Dictionary",
+          "summary": "显式采集一组惰性诊断 Provider。",
           "visibility": "public"
         },
         {
@@ -67655,6 +67826,252 @@
         }
       ]
     },
+    "GFSessionTraceChannelDefinition": {
+      "extends": "Resource",
+      "module": "standard",
+      "package_id": "gf.standard.diagnostics",
+      "path": "addons/gf/standard/utilities/debug/gf_session_trace_channel_definition.gd",
+      "summary": "GFSessionTraceChannelDefinition: Session Trace 配方中的通道定义。 该资源只描述稳定通道 ID、可见性和容量，不持有运行时回调或业务状态。",
+      "visibility": "public",
+      "category": "resource_definition",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "var",
+          "name": "channel_id",
+          "signature": "var channel_id: StringName = &\"\"",
+          "summary": "稳定通道 ID。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "enabled",
+          "signature": "var enabled: bool = true",
+          "summary": "通道应用后是否启用。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "include_in_snapshot",
+          "signature": "var include_in_snapshot: bool = true",
+          "summary": "默认快照是否包含该通道事件。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "max_events",
+          "signature": "var max_events: int = 0",
+          "summary": "通道最多保留的事件数；0 表示只使用全局限制。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "max_event_bytes",
+          "signature": "var max_event_bytes: int = 0",
+          "summary": "通道单事件字节预算；0 表示只使用全局限制。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "metadata",
+          "signature": "var metadata: Dictionary = {}",
+          "summary": "使用 privacy 安全下限持久保存的目录元数据。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "configure",
+          "signature": "func configure( p_channel_id: StringName, options: Dictionary = {} ) -> GFSessionTraceChannelDefinition",
+          "summary": "配置通道定义并返回自身。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "validate_definition",
+          "signature": "func validate_definition() -> Dictionary",
+          "summary": "校验通道定义。",
+          "visibility": "public"
+        }
+      ]
+    },
+    "GFSessionTraceCheckpoint": {
+      "extends": "Resource",
+      "module": "standard",
+      "package_id": "gf.standard.diagnostics",
+      "path": "addons/gf/standard/utilities/debug/gf_session_trace_checkpoint.gd",
+      "summary": "GFSessionTraceCheckpoint: Session Trace 配方中的显式 Provider 采集点。 检查点只引用已经在运行时注册的 Provider ID，单个列表最多包含 256 项。 默认所有 Provider 都是必需项；`optional_provider_ids` 可把部分失败降级为",
+      "visibility": "public",
+      "category": "resource_definition",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "var",
+          "name": "checkpoint_id",
+          "signature": "var checkpoint_id: StringName = &\"\"",
+          "summary": "稳定检查点 ID。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "provider_ids",
+          "signature": "var provider_ids: PackedStringArray = PackedStringArray()",
+          "summary": "按顺序显式采集的 Provider ID。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "optional_provider_ids",
+          "signature": "var optional_provider_ids: PackedStringArray = PackedStringArray()",
+          "summary": "允许失败而不让检查点整体失败的 Provider ID，必须是 `provider_ids` 子集。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "metadata",
+          "signature": "var metadata: Dictionary = {}",
+          "summary": "合并进每次 Provider 事件的检查点元数据。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "configure",
+          "signature": "func configure( p_checkpoint_id: StringName, p_provider_ids: PackedStringArray, options: Dictionary = {} ) -> GFSessionTraceCheckpoint",
+          "summary": "配置检查点并返回自身。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "validate_checkpoint",
+          "signature": "func validate_checkpoint() -> Dictionary",
+          "summary": "校验检查点定义。",
+          "visibility": "public"
+        }
+      ]
+    },
+    "GFSessionTraceRecipe": {
+      "extends": "Resource",
+      "module": "standard",
+      "package_id": "gf.standard.diagnostics",
+      "path": "addons/gf/standard/utilities/debug/gf_session_trace_recipe.gd",
+      "summary": "GFSessionTraceRecipe: 可复用、可校验的 Session Trace 采集配方。 配方声明全局内存预算、允许的事件通道、显式检查点和快照读取默认值。 通道与检查点定义各自最多包含 256 项，数值预算会在运行时重新校验。",
+      "visibility": "public",
+      "category": "resource_definition",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "var",
+          "name": "recipe_id",
+          "signature": "var recipe_id: StringName = &\"\"",
+          "summary": "稳定配方 ID。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "max_events",
+          "signature": "var max_events: int = 512",
+          "summary": "全局内存事件数量上限。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "max_event_buffer_bytes",
+          "signature": "var max_event_buffer_bytes: int = 1024 * 1024",
+          "summary": "全局内存事件缓冲字节预算。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "max_event_bytes",
+          "signature": "var max_event_bytes: int = 16 * 1024",
+          "summary": "全局单事件字节预算。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "redaction_profile",
+          "signature": "var redaction_profile: String = GFReportValueCodec.REDACTION_PROFILE_PRIVACY",
+          "summary": "事件和单次 metadata 使用的脱敏 profile。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "channels",
+          "signature": "var channels: Array[GFSessionTraceChannelDefinition] = []",
+          "summary": "配方声明的事件通道。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "checkpoints",
+          "signature": "var checkpoints: Array[GFSessionTraceCheckpoint] = []",
+          "summary": "配方声明的显式采集检查点。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "snapshot_limit",
+          "signature": "var snapshot_limit: int = 0",
+          "summary": "配方快照默认保留的最新事件数；0 表示不限制。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "include_context",
+          "signature": "var include_context: bool = true",
+          "summary": "配方快照默认是否包含会话上下文。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "include_channel_catalog",
+          "signature": "var include_channel_catalog: bool = false",
+          "summary": "配方快照默认是否包含通道目录。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "include_provider_catalog",
+          "signature": "var include_provider_catalog: bool = false",
+          "summary": "配方快照默认是否包含 Provider 目录。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "metadata",
+          "signature": "var metadata: Dictionary = {}",
+          "summary": "配方目录元数据；不自动写入会话上下文或事件。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "configure",
+          "signature": "func configure( p_recipe_id: StringName, p_channels: Array[GFSessionTraceChannelDefinition], p_checkpoints: Array[GFSessionTraceCheckpoint] = [], options: Dictionary = {} ) -> GFSessionTraceRecipe",
+          "summary": "配置配方并返回自身。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "validate_recipe",
+          "signature": "func validate_recipe() -> Dictionary",
+          "summary": "校验配方结构和引用唯一性。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_checkpoint",
+          "signature": "func get_checkpoint(checkpoint_id: StringName) -> GFSessionTraceCheckpoint",
+          "summary": "获取指定检查点。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "to_report_dictionary",
+          "signature": "func to_report_dictionary() -> Dictionary",
+          "summary": "获取不含运行时回调的 JSON-safe 配方描述。",
+          "visibility": "public"
+        }
+      ]
+    },
     "GFSessionTraceUtility": {
       "extends": "GFUtility",
       "module": "standard",
@@ -67859,6 +68276,27 @@
           "name": "clear",
           "signature": "func clear() -> void",
           "summary": "清空内存事件和计数，但保留通道、provider、journal 与当前会话配置。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "apply_recipe",
+          "signature": "func apply_recipe( recipe: GFSessionTraceRecipe, options: Dictionary = {} ) -> Dictionary",
+          "summary": "原子应用一份 Session Trace 配方。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "capture_recipe_checkpoint",
+          "signature": "func capture_recipe_checkpoint( recipe: GFSessionTraceRecipe, checkpoint_id: StringName, options: Dictionary = {} ) -> Dictionary",
+          "summary": "执行配方中的一个显式检查点。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "build_recipe_snapshot",
+          "signature": "func build_recipe_snapshot( recipe: GFSessionTraceRecipe, options: Dictionary = {} ) -> Dictionary",
+          "summary": "使用配方默认值构建轨迹快照。",
           "visibility": "public"
         },
         {

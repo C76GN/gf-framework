@@ -14,7 +14,7 @@ var performance: Dictionary = diagnostics.execute_command(&"diagnostics.performa
 var tools: Dictionary = diagnostics.execute_command(&"diagnostics.tools")
 ```
 
-`collect_snapshot()` 是进程内 native snapshot，框架内置采样可以保留 Vector、Color、Resource 摘要所需的 Godot Variant。外部工具、分区和 monitor 必须在采集前通过发布式 API 写入有界的 report-safe 缓存，采集阶段不会执行项目回调；owner 释放后的缓存会被剪枝。把完整快照发送到 Debugger、写入 JSON 或并入支持报告前，仍应使用 `GFReportValueCodec` 应用最终导出与隐私策略，而不是直接依赖 `JSON.stringify()` 的隐式转换。
+`collect_snapshot()` 是进程内 native snapshot，框架内置采样可以保留 Vector、Color、Resource 摘要所需的 Godot Variant。外部工具、分区和 monitor 必须在采集前通过发布式 API 写入有界的 report-safe 缓存；普通采集只读缓存，不执行项目回调，owner 释放后的缓存会被剪枝。只有调用方显式传入非空 `diagnostic_provider_ids` 时，才会执行对应的[惰性诊断 Provider](lazy-providers.md)。把完整快照发送到 Debugger、写入 JSON 或并入支持报告前，仍应使用 `GFReportValueCodec` 应用最终导出与隐私策略，而不是直接依赖 `JSON.stringify()` 的隐式转换。
 
 ## 场景树快照
 

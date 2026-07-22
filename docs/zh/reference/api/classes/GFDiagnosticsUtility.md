@@ -9,7 +9,7 @@
 - 类别：运行时服务 (`runtime_service`)
 - 首次版本：`3.17.0`
 
-运行时诊断聚合工具。 提供架构生命周期、事件系统、性能、日志和外部贡献诊断的统一快照。 外部监控和快照贡献采用 owner-bound 发布模型；采集路径只读取已验证缓存，不执行项目回调。
+运行时诊断聚合工具。 提供架构生命周期、事件系统、性能、日志和外部贡献诊断的统一快照。 外部监控和快照贡献采用 owner-bound 发布模型；普通采集只读取已验证缓存。 只有调用方显式提供 `diagnostic_provider_ids` 时，才会执行对应的有界同步 Provider。
 
 ## 成员概览
 
@@ -40,6 +40,7 @@
 | 属性 | [`max_contribution_nodes`](#member-gfdiagnosticsutility-properties-max_contribution_nodes) | `var max_contribution_nodes: int = 2048:` |
 | 属性 | [`max_contribution_depth`](#member-gfdiagnosticsutility-properties-max_contribution_depth) | `var max_contribution_depth: int = 16:` |
 | 属性 | [`max_contribution_bytes`](#member-gfdiagnosticsutility-properties-max_contribution_bytes) | `var max_contribution_bytes: int = 262_144:` |
+| 属性 | [`max_diagnostic_providers`](#member-gfdiagnosticsutility-properties-max_diagnostic_providers) | `var max_diagnostic_providers: int = 32:` |
 | 方法 | [`init`](#member-gfdiagnosticsutility-methods-init) | `func init() -> void:` |
 | 方法 | [`ready`](#member-gfdiagnosticsutility-methods-ready) | `func ready() -> void:` |
 | 方法 | [`dispose`](#member-gfdiagnosticsutility-methods-dispose) | `func dispose() -> void:` |
@@ -65,6 +66,11 @@
 | 方法 | [`publish_snapshot_section`](#member-gfdiagnosticsutility-methods-publish_snapshot_section) | `func publish_snapshot_section(owner: Object, section_id: StringName, section: Dictionary) -> bool:` |
 | 方法 | [`remove_snapshot_section`](#member-gfdiagnosticsutility-methods-remove_snapshot_section) | `func remove_snapshot_section(owner: Object, section_id: StringName) -> bool:` |
 | 方法 | [`has_snapshot_section`](#member-gfdiagnosticsutility-methods-has_snapshot_section) | `func has_snapshot_section(section_id: StringName) -> bool:` |
+| 方法 | [`register_diagnostic_provider`](#member-gfdiagnosticsutility-methods-register_diagnostic_provider) | `func register_diagnostic_provider( owner: Object, provider: GFDiagnosticSnapshotProvider ) -> bool:` |
+| 方法 | [`unregister_diagnostic_provider`](#member-gfdiagnosticsutility-methods-unregister_diagnostic_provider) | `func unregister_diagnostic_provider(owner: Object, provider_id: StringName) -> bool:` |
+| 方法 | [`has_diagnostic_provider`](#member-gfdiagnosticsutility-methods-has_diagnostic_provider) | `func has_diagnostic_provider(provider_id: StringName) -> bool:` |
+| 方法 | [`get_diagnostic_provider_catalog`](#member-gfdiagnosticsutility-methods-get_diagnostic_provider_catalog) | `func get_diagnostic_provider_catalog() -> Dictionary:` |
+| 方法 | [`collect_diagnostic_providers`](#member-gfdiagnosticsutility-methods-collect_diagnostic_providers) | `func collect_diagnostic_providers( provider_ids: PackedStringArray, request: Dictionary = {} ) -> Dictionary:` |
 | 方法 | [`publish_tool_snapshot`](#member-gfdiagnosticsutility-methods-publish_tool_snapshot) | `func publish_tool_snapshot(owner: Object, tool_id: StringName, snapshot: Dictionary) -> bool:` |
 | 方法 | [`remove_tool_snapshot`](#member-gfdiagnosticsutility-methods-remove_tool_snapshot) | `func remove_tool_snapshot(owner: Object, tool_id: StringName) -> bool:` |
 | 方法 | [`has_tool_snapshot`](#member-gfdiagnosticsutility-methods-has_tool_snapshot) | `func has_tool_snapshot(tool_id: StringName) -> bool:` |
@@ -442,6 +448,19 @@ var max_contribution_bytes: int = 262_144:
 ```
 
 外部诊断贡献允许保留的估算字节数。 该预算用于阻止诊断系统长期保留异常大的字符串、PackedArray 或集合，不代表精确内存占用。
+
+<a id="member-gfdiagnosticsutility-properties-max_diagnostic_providers"></a>
+
+### `max_diagnostic_providers`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+var max_diagnostic_providers: int = 32:
+```
+
+最多允许注册和单批请求的惰性诊断 Provider 数量。
 
 ## 方法
 
@@ -962,6 +981,117 @@ func has_snapshot_section(section_id: StringName) -> bool:
 
 返回：存在返回 true。
 
+<a id="member-gfdiagnosticsutility-methods-register_diagnostic_provider"></a>
+
+### `register_diagnostic_provider`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func register_diagnostic_provider( owner: Object, provider: GFDiagnosticSnapshotProvider ) -> bool:
+```
+
+注册一个仅在显式请求时执行的诊断 Provider。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `owner` | Provider 生命周期所有者；同 ID 只允许同一 owner 更新。 |
+| `provider` | 类型化同步 Provider。 |
+
+返回：注册成功返回 true。
+
+<a id="member-gfdiagnosticsutility-methods-unregister_diagnostic_provider"></a>
+
+### `unregister_diagnostic_provider`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func unregister_diagnostic_provider(owner: Object, provider_id: StringName) -> bool:
+```
+
+注销惰性诊断 Provider。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `owner` | 当前 Provider 所有者。 |
+| `provider_id` | Provider 稳定 ID。 |
+
+返回：owner 匹配且 Provider 未在采集时返回 true。
+
+<a id="member-gfdiagnosticsutility-methods-has_diagnostic_provider"></a>
+
+### `has_diagnostic_provider`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func has_diagnostic_provider(provider_id: StringName) -> bool:
+```
+
+检查惰性诊断 Provider 是否仍有效。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `provider_id` | Provider 稳定 ID。 |
+
+返回：owner 与 Provider 均存活时返回 true。
+
+<a id="member-gfdiagnosticsutility-methods-get_diagnostic_provider_catalog"></a>
+
+### `get_diagnostic_provider_catalog`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func get_diagnostic_provider_catalog() -> Dictionary:
+```
+
+获取不含 Provider 实例的惰性诊断目录。
+
+返回：以 Provider ID 为键的只读目录副本。
+
+结构：
+
+- `return`: Dictionary[StringName, Dictionary] with provider_class, max_duration_usec, and metadata.
+
+<a id="member-gfdiagnosticsutility-methods-collect_diagnostic_providers"></a>
+
+### `collect_diagnostic_providers`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func collect_diagnostic_providers( provider_ids: PackedStringArray, request: Dictionary = {} ) -> Dictionary:
+```
+
+显式采集一组惰性诊断 Provider。 空列表不会执行任何 Provider；重复 ID 只执行一次。原始列表最多包含 1024 项， 超限会在去重和项目回调前整体拒绝。不存在、失效、重入或输出被预算拒绝 都会成为独立失败结果，不会阻止其他 Provider 采集。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `provider_ids` | 本次允许执行的稳定 Provider ID。 |
+| `request` | 传给每个 Provider 的临时上下文。 |
+
+返回：有界的批量采集报告。
+
+结构：
+
+- `request`: Dictionary with caller-defined ephemeral fields.
+- `return`: Dictionary with ok, requested_count, unique_request_count, duplicate_count, invalid_count, executed_count, omitted_count, success_count, failure_count, error_code, error_message, duration_usec, and results keyed by provider id.
+
 <a id="member-gfdiagnosticsutility-methods-publish_tool_snapshot"></a>
 
 ### `publish_tool_snapshot`
@@ -1222,14 +1352,14 @@ func collect_snapshot(options: Dictionary = {}) -> Dictionary:
 
 | 名称 | 说明 |
 |---|---|
-| `options` | 可选参数，支持 recent_log_count、include_recent_logs、include_scene_tree、scene_tree_options、include_signal_graph、signal_graph_options。 |
+| `options` | 可选参数，支持 recent_log_count、include_recent_logs、include_scene_tree、scene_tree_options、include_signal_graph、signal_graph_options、diagnostic_provider_ids、diagnostic_provider_request。 |
 
 返回：快照字典。
 
 结构：
 
-- `options`: Dictionary，支持 recent_log_count、include_recent_logs、include_scene_tree、scene_tree_options、include_signal_graph、signal_graph_options、include_monitors、monitor_preset、monitor_ids、include_hidden_monitors。
-- `return`: Dictionary，包含 timestamp_unix、engine、build、architecture、event_system、performance、logs、tools，可选 scene_tree、signal_graph、monitors 和已发布分区。
+- `options`: Dictionary，支持 recent_log_count、include_recent_logs、include_scene_tree、scene_tree_options、include_signal_graph、signal_graph_options、include_monitors、monitor_preset、monitor_ids、include_hidden_monitors、diagnostic_provider_ids 和 diagnostic_provider_request；Provider 列表为空时不会执行项目代码。
+- `return`: Dictionary，包含 timestamp_unix、engine、build、architecture、event_system、performance、logs、tools，可选 scene_tree、signal_graph、monitors、diagnostic_providers 和已发布分区。
 
 <a id="member-gfdiagnosticsutility-methods-get_debugger_bridge_state"></a>
 

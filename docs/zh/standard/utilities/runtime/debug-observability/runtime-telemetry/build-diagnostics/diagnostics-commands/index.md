@@ -5,6 +5,7 @@
 ## 阅读入口
 
 - [快照与场景树诊断](snapshot-scene.md)：`collect_snapshot()`、内置诊断命令和只读场景树快照。
+- [惰性诊断 Provider](lazy-providers.md)：显式求值、owner 生命周期、时长与结构预算、类型化失败。
 - [命令 Schema](command-schema.md)：诊断命令参数 schema、启停控制和 JSON 安全结果。
 - [风险等级与认证](command-risk.md)：命令等级、认证 token、控制类命令和 `DANGER` 命令保护。
 

@@ -179,7 +179,10 @@ const _REDACTION_PROFILE_RANKS: Dictionary = {
 ## @since unreleased
 var max_events: int = DEFAULT_MAX_EVENTS:
 	set(value):
+		if maxi(value, 0) == max_events:
+			return
 		max_events = maxi(value, 0)
+		_mark_trace_configuration_changed()
 		_trim_to_global_limits()
 
 ## 内存事件缓冲总字节预算。会话上下文和有界目录 metadata 不计入该预算。
@@ -190,7 +193,10 @@ var max_events: int = DEFAULT_MAX_EVENTS:
 ## @since unreleased
 var max_event_buffer_bytes: int = DEFAULT_MAX_EVENT_BUFFER_BYTES:
 	set(value):
+		if maxi(value, 0) == max_event_buffer_bytes:
+			return
 		max_event_buffer_bytes = maxi(value, 0)
+		_mark_trace_configuration_changed()
 		_trim_to_global_limits()
 
 ## 单个事件字节预算；小于最小安全包络时会提升到最小值。
@@ -200,7 +206,10 @@ var max_event_buffer_bytes: int = DEFAULT_MAX_EVENT_BUFFER_BYTES:
 ## @since unreleased
 var max_event_bytes: int = DEFAULT_MAX_EVENT_BYTES:
 	set(value):
+		if maxi(value, _MIN_EVENT_BYTES) == max_event_bytes:
+			return
 		max_event_bytes = maxi(value, _MIN_EVENT_BYTES)
+		_mark_trace_configuration_changed()
 
 ## 最多允许注册的通道数量。降低上限不会隐式删除既有通道。
 ## [br]
@@ -235,7 +244,12 @@ var max_journal_events: int = DEFAULT_MAX_JOURNAL_EVENTS:
 ## @api public
 ## [br]
 ## @since unreleased
-var redaction_profile: String = GFReportValueCodec.REDACTION_PROFILE_PRIVACY
+var redaction_profile: String = GFReportValueCodec.REDACTION_PROFILE_PRIVACY:
+	set(value):
+		if value == redaction_profile:
+			return
+		redaction_profile = value
+		_mark_trace_configuration_changed()
 
 
 # --- 私有变量 ---
@@ -264,6 +278,11 @@ var _journal_callback_active: bool = false
 var _journal_configuration_revision: int = 0
 var _pending_journal_cleanup_sink: GFLogSink = null
 var _pending_journal_cleanup_shutdown: bool = false
+var _configured_recipe_id: StringName = &""
+var _configured_recipe_fingerprint: String = ""
+var _configured_recipe_runtime_fingerprint: String = ""
+var _configured_recipe_runtime_revision: int = 0
+var _trace_configuration_revision: int = 0
 
 
 # --- GF 生命周期方法 ---
@@ -289,6 +308,10 @@ func dispose() -> void:
 	_provider_capture_active = false
 	_journal_event_count = 0
 	_journal_dropped_event_count = 0
+	_configured_recipe_id = &""
+	_configured_recipe_fingerprint = ""
+	_configured_recipe_runtime_fingerprint = ""
+	_configured_recipe_runtime_revision = 0
 
 
 # --- 公共方法 ---
@@ -374,6 +397,304 @@ func clear() -> void:
 	_rejections_by_reason.clear()
 
 
+## 原子应用一份 Session Trace 配方。
+##
+## 默认拒绝覆盖既有同名通道，也拒绝配方未声明的既有通道或在活动会话中改写容量。
+## 一个 Utility 生命周期内只接受一份稳定配方；首次应用必须发生在任何会话开始之前，
+## 完全相同的配方可幂等重复应用，应用后的完整通道目录漂移会 fail closed。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param recipe: 要应用的配方资源。
+## [br]
+## @param options: 应用选项。
+## [br]
+## @schema options: Dictionary with replace_existing_channels: bool.
+## [br]
+## @return 原子应用报告。
+## [br]
+## @schema return: Dictionary with ok, recipe_id, fingerprint, applied_channels, reused, error_code, and error_message.
+func apply_recipe(
+	recipe: GFSessionTraceRecipe,
+	options: Dictionary = {}
+) -> Dictionary:
+	if recipe == null:
+		return _make_recipe_result(false, &"", "", &"invalid_recipe", "Session trace recipe is null.")
+	var validation: Dictionary = recipe.validate_recipe()
+	if not GFVariantData.get_option_bool(validation, "ok", false):
+		return _make_recipe_result(
+			false,
+			recipe.recipe_id,
+			"",
+			&"invalid_recipe",
+			"Session trace recipe validation failed.",
+			PackedStringArray(),
+			false,
+			validation
+		)
+	var fingerprint: String = recipe.get_fingerprint_for_framework()
+	if _configured_recipe_id == recipe.recipe_id:
+		if _configured_recipe_fingerprint != fingerprint:
+			return _make_recipe_result(
+				false,
+				recipe.recipe_id,
+				fingerprint,
+				&"recipe_changed",
+				"Session trace recipe changed after it was applied."
+			)
+		if (
+			_trace_configuration_revision != _configured_recipe_runtime_revision
+			or _make_recipe_runtime_fingerprint() != _configured_recipe_runtime_fingerprint
+		):
+			return _make_recipe_result(
+				false,
+				recipe.recipe_id,
+				fingerprint,
+				&"recipe_runtime_drift",
+				"Session trace runtime configuration drifted from the applied recipe."
+			)
+		return _make_recipe_result(
+			true,
+			recipe.recipe_id,
+			fingerprint,
+			&"",
+			"",
+			PackedStringArray(),
+			true
+		)
+	if _configured_recipe_id != &"":
+		return _make_recipe_result(
+			false,
+			recipe.recipe_id,
+			fingerprint,
+			&"recipe_conflict",
+			"A different session trace recipe is already configured."
+		)
+	if _active:
+		return _make_recipe_result(
+			false,
+			recipe.recipe_id,
+			fingerprint,
+			&"session_active",
+			"Session trace recipe cannot be applied during an active session."
+		)
+	if _session_id != &"" or not _events.is_empty():
+		return _make_recipe_result(
+			false,
+			recipe.recipe_id,
+			fingerprint,
+			&"trace_not_empty",
+			"Session trace recipe must be applied before the first session starts."
+		)
+	var replace_existing_channels: bool = GFVariantData.get_option_bool(
+		options,
+		"replace_existing_channels",
+		false
+	)
+	var recipe_channel_ids: Dictionary = {}
+	for channel: GFSessionTraceChannelDefinition in recipe.channels:
+		recipe_channel_ids[channel.channel_id] = true
+	for existing_channel_text: String in _get_sorted_channel_ids():
+		var existing_channel_id: StringName = StringName(existing_channel_text)
+		if not recipe_channel_ids.has(existing_channel_id):
+			return _make_recipe_result(
+				false,
+				recipe.recipe_id,
+				fingerprint,
+				&"unmanaged_channel_conflict",
+				"Session trace utility contains a channel not declared by the recipe: %s."
+				% existing_channel_text
+			)
+	var new_channel_count: int = 0
+	for channel: GFSessionTraceChannelDefinition in recipe.channels:
+		if _channels.has(channel.channel_id):
+			if not replace_existing_channels:
+				return _make_recipe_result(
+					false,
+					recipe.recipe_id,
+					fingerprint,
+					&"channel_conflict",
+					"Session trace recipe channel already exists: %s." % String(channel.channel_id)
+				)
+		else:
+			new_channel_count += 1
+	if _channels.size() + new_channel_count > max_channels:
+		return _make_recipe_result(
+			false,
+			recipe.recipe_id,
+			fingerprint,
+			&"channel_limit_exceeded",
+			"Session trace recipe exceeds the configured channel limit."
+		)
+
+	var previous_channels: Dictionary = _channels.duplicate(true)
+	var previous_max_events: int = max_events
+	var previous_max_event_buffer_bytes: int = max_event_buffer_bytes
+	var previous_max_event_bytes: int = max_event_bytes
+	var previous_redaction_profile: String = redaction_profile
+	max_events = recipe.max_events
+	max_event_buffer_bytes = recipe.max_event_buffer_bytes
+	max_event_bytes = recipe.max_event_bytes
+	redaction_profile = recipe.redaction_profile
+	var applied_channels: PackedStringArray = PackedStringArray()
+	for channel: GFSessionTraceChannelDefinition in recipe.channels:
+		if not register_channel(channel.channel_id, channel.to_channel_options_for_framework()):
+			_channels = previous_channels
+			max_events = previous_max_events
+			max_event_buffer_bytes = previous_max_event_buffer_bytes
+			max_event_bytes = previous_max_event_bytes
+			redaction_profile = previous_redaction_profile
+			return _make_recipe_result(
+				false,
+				recipe.recipe_id,
+				fingerprint,
+				&"channel_apply_failed",
+				"Session trace recipe channel could not be applied: %s." % String(channel.channel_id)
+			)
+		var _channel_appended: bool = applied_channels.append(String(channel.channel_id))
+	_configured_recipe_id = recipe.recipe_id
+	_configured_recipe_fingerprint = fingerprint
+	_configured_recipe_runtime_fingerprint = _make_recipe_runtime_fingerprint()
+	_configured_recipe_runtime_revision = _trace_configuration_revision
+	return _make_recipe_result(
+		true,
+		recipe.recipe_id,
+		fingerprint,
+		&"",
+		"",
+		applied_channels
+	)
+
+
+## 执行配方中的一个显式检查点。
+##
+## Provider 按声明顺序逐个采集，单个失败不会中断后续项；只有必需 Provider 失败
+## 才使检查点整体失败。配方在应用后发生变化时会 fail closed。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param recipe: 已应用且未变化的配方。
+## [br]
+## @param checkpoint_id: 要执行的检查点 ID。
+## [br]
+## @param options: 传给每次 Provider capture 的事件选项。
+## [br]
+## @schema options: Dictionary with ticks_usec, simulation_tick, and metadata.
+## [br]
+## @return 检查点采集报告。
+## [br]
+## @schema return: Dictionary with ok, recipe_id, checkpoint_id, success_count, failure_count, required_failure_count, optional_failure_count, and results.
+func capture_recipe_checkpoint(
+	recipe: GFSessionTraceRecipe,
+	checkpoint_id: StringName,
+	options: Dictionary = {}
+) -> Dictionary:
+	var recipe_issue: Dictionary = _get_configured_recipe_issue(recipe)
+	if not recipe_issue.is_empty():
+		return _make_checkpoint_result(
+			false,
+			recipe.recipe_id if recipe != null else &"",
+			checkpoint_id,
+			{},
+			GFVariantData.get_option_string_name(recipe_issue, "error_code"),
+			GFVariantData.get_option_string(recipe_issue, "error_message")
+		)
+	var checkpoint: GFSessionTraceCheckpoint = recipe.get_checkpoint(checkpoint_id)
+	if checkpoint == null:
+		return _make_checkpoint_result(
+			false,
+			recipe.recipe_id,
+			checkpoint_id,
+			{},
+			&"checkpoint_not_found",
+			"Session trace checkpoint was not found."
+		)
+
+	var results: Dictionary = {}
+	var success_count: int = 0
+	var required_failure_count: int = 0
+	var optional_failure_count: int = 0
+	for provider_text: String in checkpoint.provider_ids:
+		var provider_id: StringName = StringName(provider_text)
+		var capture_options: Dictionary = _duplicate_dictionary(options)
+		var _metadata_removed: bool = capture_options.erase("metadata")
+		var event_metadata: Dictionary = _sanitize_dictionary(
+			checkpoint.metadata,
+			mini(max_event_bytes, 4096)
+		)
+		var option_metadata: Dictionary = _sanitize_dictionary(
+			GFVariantData.as_dictionary(
+				GFVariantData.get_option_value(options, "metadata", {})
+			),
+			mini(max_event_bytes, 4096)
+		)
+		var _metadata_merge_result: Variant = GFVariantData.merge_metadata(
+			event_metadata,
+			option_metadata
+		)
+		event_metadata["recipe_id"] = String(recipe.recipe_id)
+		event_metadata["checkpoint_id"] = String(checkpoint_id)
+		capture_options["metadata"] = event_metadata
+		var capture_result: Dictionary = capture_snapshot_provider(provider_id, capture_options)
+		results[provider_id] = capture_result
+		if GFVariantData.get_option_bool(capture_result, "ok"):
+			success_count += 1
+		elif checkpoint.is_provider_optional_for_framework(provider_id):
+			optional_failure_count += 1
+		else:
+			required_failure_count += 1
+	return {
+		"ok": required_failure_count == 0,
+		"recipe_id": recipe.recipe_id,
+		"checkpoint_id": checkpoint_id,
+		"success_count": success_count,
+		"failure_count": required_failure_count + optional_failure_count,
+		"required_failure_count": required_failure_count,
+		"optional_failure_count": optional_failure_count,
+		"error_code": &"checkpoint_required_provider_failed" if required_failure_count > 0 else &"",
+		"error_message": "One or more required checkpoint providers failed." if required_failure_count > 0 else "",
+		"results": results,
+	}
+
+
+## 使用配方默认值构建轨迹快照。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param recipe: 已应用且未变化的配方。
+## [br]
+## @param options: 覆盖配方默认值的 `build_snapshot()` 选项。
+## [br]
+## @schema options: Dictionary with limit, filters, include_context, include_channel_catalog, and include_provider_catalog.
+## [br]
+## @return 带配方身份的有界轨迹快照；配方不匹配时返回结构化失败。
+## [br]
+## @schema return: 成功时为 build_snapshot() 字典并附加 recipe_id 和 recipe_fingerprint；失败时包含 ok=false、error_code 和 error_message。
+func build_recipe_snapshot(
+	recipe: GFSessionTraceRecipe,
+	options: Dictionary = {}
+) -> Dictionary:
+	var recipe_issue: Dictionary = _get_configured_recipe_issue(recipe)
+	if not recipe_issue.is_empty():
+		return recipe_issue
+	var snapshot_options: Dictionary = recipe.get_snapshot_options_for_framework()
+	var _options_merge_result: Variant = GFVariantData.merge_metadata(
+		snapshot_options,
+		options
+	)
+	var result: Dictionary = build_snapshot(snapshot_options)
+	result["ok"] = true
+	result["recipe_id"] = recipe.recipe_id
+	result["recipe_fingerprint"] = _configured_recipe_fingerprint
+	return result
+
+
 ## 注册一个允许记录的事件通道。未知通道始终 fail closed。
 ## [br]
 ## @api public
@@ -394,16 +715,22 @@ func register_channel(channel_id: StringName, options: Dictionary = {}) -> bool:
 	if not _channels.has(normalized_id) and _channels.size() >= max_channels:
 		return false
 
-	_channels[normalized_id] = {
+	var next_options: Dictionary = {
 		"enabled": GFVariantData.get_option_bool(options, "enabled", true),
 		"include_in_snapshot": GFVariantData.get_option_bool(options, "include_in_snapshot", true),
 		"max_events": maxi(GFVariantData.get_option_int(options, "max_events", 0), 0),
 		"max_event_bytes": maxi(GFVariantData.get_option_int(options, "max_event_bytes", 0), 0),
 		"metadata": _sanitize_persistent_dictionary(
-			GFVariantData.get_option_dictionary(options, "metadata"),
+			_get_dictionary(options, "metadata"),
 			mini(max_event_bytes, 4096)
 		),
 	}
+	if (
+		not _channels.has(normalized_id)
+		or _get_dictionary(_channels, normalized_id) != next_options
+	):
+		_mark_trace_configuration_changed()
+	_channels[normalized_id] = next_options
 	_trim_channel_to_limit(normalized_id)
 	return true
 
@@ -425,7 +752,10 @@ func unregister_channel(channel_id: StringName) -> bool:
 		var provider_entry: Dictionary = _get_dictionary(_snapshot_providers, provider_id)
 		if GFVariantData.get_option_string_name(provider_entry, "channel_id") == normalized_id:
 			var _provider_erased: bool = _snapshot_providers.erase(provider_id)
-	return _channels.erase(normalized_id)
+	var removed: bool = _channels.erase(normalized_id)
+	if removed:
+		_mark_trace_configuration_changed()
+	return removed
 
 
 ## 检查通道是否已显式注册。
@@ -457,8 +787,11 @@ func set_channel_enabled(channel_id: StringName, enabled: bool) -> bool:
 	if not _channels.has(normalized_id):
 		return false
 	var channel_options: Dictionary = _get_dictionary(_channels, normalized_id)
+	if GFVariantData.get_option_bool(channel_options, "enabled", true) == enabled:
+		return true
 	channel_options["enabled"] = enabled
 	_channels[normalized_id] = channel_options
+	_mark_trace_configuration_changed()
 	return true
 
 
@@ -558,7 +891,7 @@ func register_snapshot_provider(
 		"provider": provider,
 		"enabled": GFVariantData.get_option_bool(options, "enabled", true),
 		"metadata": _sanitize_persistent_dictionary(
-			GFVariantData.get_option_dictionary(options, "metadata"),
+			_get_dictionary(options, "metadata"),
 			mini(max_event_bytes, 4096)
 		),
 	}
@@ -616,11 +949,11 @@ func capture_snapshot_provider(provider_id: StringName, options: Dictionary = {}
 	_provider_capture_active = true
 	var payload: Variant = provider.call()
 	_provider_capture_active = false
-	var record_options: Dictionary = options.duplicate(true)
+	var record_options: Dictionary = _duplicate_dictionary(options)
 	var _metadata_removed: bool = record_options.erase("metadata")
 	var metadata: Dictionary = GFVariantData.get_option_dictionary(provider_entry, "metadata").duplicate(true)
 	var capture_metadata: Dictionary = _sanitize_dictionary(
-		GFVariantData.get_option_dictionary(options, "metadata"),
+		_get_dictionary(options, "metadata"),
 		mini(max_event_bytes, 4096)
 	)
 	var _metadata_merge_result: Variant = GFVariantData.merge_metadata(
@@ -807,14 +1140,16 @@ func build_snapshot(options: Dictionary = {}) -> Dictionary:
 ## [br]
 ## @since unreleased
 ## [br]
-## @return 当前容量、计数和 journal 状态。
+## @return 当前容量、计数、配方和 journal 状态。
 ## [br]
-## @schema return: Dictionary，包含 summary、channel_count、provider_count、max_events、max_event_buffer_bytes、max_event_bytes、max_journal_events、journal_configured 和 rejections_by_reason。
+## @schema return: Dictionary，包含 summary、channel_count、provider_count、configured_recipe_id、configured_recipe_fingerprint、max_events、max_event_buffer_bytes、max_event_bytes、max_journal_events、journal_configured 和 rejections_by_reason。
 func get_debug_snapshot() -> Dictionary:
 	return {
 		"summary": _make_summary(),
 		"channel_count": _channels.size(),
 		"provider_count": _snapshot_providers.size(),
+		"configured_recipe_id": _configured_recipe_id,
+		"configured_recipe_fingerprint": _configured_recipe_fingerprint,
 		"max_events": max_events,
 		"max_event_buffer_bytes": max_event_buffer_bytes,
 		"max_event_bytes": max_event_bytes,
@@ -825,6 +1160,117 @@ func get_debug_snapshot() -> Dictionary:
 
 
 # --- 私有/辅助方法 ---
+
+func _make_recipe_result(
+	ok: bool,
+	recipe_id: StringName,
+	fingerprint: String,
+	error_code: StringName,
+	error_message: String,
+	applied_channels: PackedStringArray = PackedStringArray(),
+	reused: bool = false,
+	validation: Dictionary = {}
+) -> Dictionary:
+	return {
+		"ok": ok,
+		"recipe_id": recipe_id,
+		"fingerprint": fingerprint,
+		"applied_channels": applied_channels.duplicate(),
+		"reused": reused,
+		"error_code": error_code,
+		"error_message": error_message,
+		"validation": validation.duplicate(true),
+	}
+
+
+func _get_configured_recipe_issue(recipe: GFSessionTraceRecipe) -> Dictionary:
+	if recipe == null:
+		return {
+			"ok": false,
+			"error_code": &"invalid_recipe",
+			"error_message": "Session trace recipe is null.",
+		}
+	var validation: Dictionary = recipe.validate_recipe()
+	if not GFVariantData.get_option_bool(validation, "ok", false):
+		return {
+			"ok": false,
+			"recipe_id": recipe.recipe_id,
+			"error_code": &"invalid_recipe",
+			"error_message": "Session trace recipe validation failed.",
+			"validation": validation,
+		}
+	if _configured_recipe_id != recipe.recipe_id:
+		return {
+			"ok": false,
+			"recipe_id": recipe.recipe_id,
+			"error_code": &"recipe_not_configured",
+			"error_message": "Session trace recipe is not configured on this utility.",
+		}
+	var current_fingerprint: String = recipe.get_fingerprint_for_framework()
+	if current_fingerprint != _configured_recipe_fingerprint:
+		return {
+			"ok": false,
+			"recipe_id": recipe.recipe_id,
+			"error_code": &"recipe_changed",
+			"error_message": "Session trace recipe changed after it was applied.",
+		}
+	if (
+		_trace_configuration_revision != _configured_recipe_runtime_revision
+		or _make_recipe_runtime_fingerprint() != _configured_recipe_runtime_fingerprint
+	):
+		return {
+			"ok": false,
+			"recipe_id": recipe.recipe_id,
+			"error_code": &"recipe_runtime_drift",
+			"error_message": "Session trace runtime configuration drifted from the applied recipe.",
+		}
+	return {}
+
+
+func _make_checkpoint_result(
+	ok: bool,
+	recipe_id: StringName,
+	checkpoint_id: StringName,
+	results: Dictionary,
+	error_code: StringName,
+	error_message: String
+) -> Dictionary:
+	return {
+		"ok": ok,
+		"recipe_id": recipe_id,
+		"checkpoint_id": checkpoint_id,
+		"success_count": 0,
+		"failure_count": 0,
+		"required_failure_count": 0,
+		"optional_failure_count": 0,
+		"error_code": error_code,
+		"error_message": error_message,
+		"results": results.duplicate(true),
+	}
+
+
+func _make_recipe_runtime_fingerprint() -> String:
+	var channel_records: Array[Dictionary] = []
+	for channel_text: String in _get_sorted_channel_ids():
+		var channel_id: StringName = StringName(channel_text)
+		var channel_options: Dictionary = _get_dictionary(_channels, channel_id)
+		channel_records.append({
+			"channel_id": channel_text,
+			"options": channel_options.duplicate(true),
+		})
+	var runtime_record: Dictionary = {
+		"max_events": max_events,
+		"max_event_buffer_bytes": max_event_buffer_bytes,
+		"max_event_bytes": max_event_bytes,
+		"redaction_profile": redaction_profile,
+		"channels": channel_records,
+	}
+	return JSON.stringify(runtime_record, "", true).sha256_text()
+
+
+func _mark_trace_configuration_changed() -> void:
+	_trace_configuration_revision += 1
+
 
 func _record_event_internal(
 	channel_id: StringName,
@@ -851,7 +1297,7 @@ func _record_event_internal(
 	var payload_budget: int = maxi(event_budget - _PAYLOAD_ENVELOPE_RESERVE_BYTES, 0)
 	var metadata: Dictionary = GFVariantData.get_option_dictionary(channel_options, "metadata").duplicate(true)
 	var option_metadata: Dictionary = _sanitize_dictionary(
-		GFVariantData.get_option_dictionary(options, "metadata"),
+		_get_dictionary(options, "metadata"),
 		mini(payload_budget, 4096)
 	)
 	var _metadata_merge_result: Variant = GFVariantData.merge_metadata(metadata, option_metadata)
@@ -1188,6 +1634,10 @@ func _get_dictionary(source: Dictionary, key: Variant) -> Dictionary:
 		var dictionary_value: Dictionary = value
 		return dictionary_value
 	return {}
+
+
+func _duplicate_dictionary(value: Dictionary) -> Dictionary:
+	return GFVariantData.as_dictionary(GFVariantData.duplicate_variant(value))
 
 
 func _get_callable(source: Dictionary, key: Variant) -> Callable:

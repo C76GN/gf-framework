@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<apiCatalog schemaVersion="2" name="GF Framework" sourceRoot="addons/gf" sourceDigest="4bd7a479d94bf543ca571c271fc44dcee4689dac9e072c3f679d397e1dfaee59" classCount="757" methodCount="6775">
+<apiCatalog schemaVersion="2" name="GF Framework" sourceRoot="addons/gf" sourceDigest="9cf06649ff763e608ba9f0f8f4bcefc73dea81904dad973814bb239650cc1195" classCount="762" methodCount="6802">
 	<module id="kernel" label="Kernel" classCount="70" methodCount="715">
 		<class name="GFAccessGenerator" path="classes/GFAccessGenerator.xml" sourcePath="addons/gf/kernel/editor/gf_access_generator.gd" extends="RefCounted" />
 		<class name="GFArchitecture" path="classes/GFArchitecture.xml" sourcePath="addons/gf/kernel/core/gf_architecture.gd" extends="Object" />
@@ -72,7 +72,7 @@
 		<class name="GFTypeEventSystem" path="classes/GFTypeEventSystem.xml" sourcePath="addons/gf/kernel/core/gf_type_event_system.gd" extends="Object" />
 		<class name="GFUtility" path="classes/GFUtility.xml" sourcePath="addons/gf/kernel/base/gf_utility.gd" extends="Object" />
 	</module>
-	<module id="standard" label="Standard" classCount="420" methodCount="4220">
+	<module id="standard" label="Standard" classCount="425" methodCount="4247">
 		<class name="GFActivationTransaction" path="classes/GFActivationTransaction.xml" sourcePath="addons/gf/standard/foundation/policy/gf_activation_transaction.gd" extends="RefCounted" />
 		<class name="GFAnalyticsConfig" path="classes/GFAnalyticsConfig.xml" sourcePath="addons/gf/standard/utilities/analytics/gf_analytics_config.gd" extends="Resource" />
 		<class name="GFAnalyticsUtility" path="classes/GFAnalyticsUtility.xml" sourcePath="addons/gf/standard/utilities/analytics/gf_analytics_utility.gd" extends="GFUtility" />
@@ -176,6 +176,8 @@
 		<class name="GFDeque" path="classes/GFDeque.xml" sourcePath="addons/gf/standard/foundation/collections/gf_deque.gd" extends="RefCounted" />
 		<class name="GFDeterministicRandom" path="classes/GFDeterministicRandom.xml" sourcePath="addons/gf/standard/foundation/deterministic/gf_deterministic_random.gd" extends="RefCounted" />
 		<class name="GFDeterministicVariantSerializer" path="classes/GFDeterministicVariantSerializer.xml" sourcePath="addons/gf/standard/foundation/deterministic/gf_deterministic_variant_serializer.gd" extends="RefCounted" />
+		<class name="GFDiagnosticProviderResult" path="classes/GFDiagnosticProviderResult.xml" sourcePath="addons/gf/standard/utilities/debug/gf_diagnostic_provider_result.gd" extends="RefCounted" />
+		<class name="GFDiagnosticSnapshotProvider" path="classes/GFDiagnosticSnapshotProvider.xml" sourcePath="addons/gf/standard/utilities/debug/gf_diagnostic_snapshot_provider.gd" extends="RefCounted" />
 		<class name="GFDiagnosticsDock" path="classes/GFDiagnosticsDock.xml" sourcePath="addons/gf/standard/utilities/debug/editor/gf_diagnostics_dock.gd" extends="Control" />
 		<class name="GFDiagnosticsUtility" path="classes/GFDiagnosticsUtility.xml" sourcePath="addons/gf/standard/utilities/debug/gf_diagnostics_utility.gd" extends="GFUtility" />
 		<class name="GFDictionarySchema" path="classes/GFDictionarySchema.xml" sourcePath="addons/gf/standard/foundation/schema/gf_dictionary_schema.gd" extends="Resource" />
@@ -387,6 +389,9 @@
 		<class name="GFSeedUtility" path="classes/GFSeedUtility.xml" sourcePath="addons/gf/standard/utilities/random/gf_seed_utility.gd" extends="GFUtility" />
 		<class name="GFSequenceContext" path="classes/GFSequenceContext.xml" sourcePath="addons/gf/standard/sequence/gf_sequence_context.gd" extends="RefCounted" />
 		<class name="GFSequenceStep" path="classes/GFSequenceStep.xml" sourcePath="addons/gf/standard/sequence/gf_sequence_step.gd" extends="Resource" />
+		<class name="GFSessionTraceChannelDefinition" path="classes/GFSessionTraceChannelDefinition.xml" sourcePath="addons/gf/standard/utilities/debug/gf_session_trace_channel_definition.gd" extends="Resource" />
+		<class name="GFSessionTraceCheckpoint" path="classes/GFSessionTraceCheckpoint.xml" sourcePath="addons/gf/standard/utilities/debug/gf_session_trace_checkpoint.gd" extends="Resource" />
+		<class name="GFSessionTraceRecipe" path="classes/GFSessionTraceRecipe.xml" sourcePath="addons/gf/standard/utilities/debug/gf_session_trace_recipe.gd" extends="Resource" />
 		<class name="GFSessionTraceUtility" path="classes/GFSessionTraceUtility.xml" sourcePath="addons/gf/standard/utilities/debug/gf_session_trace_utility.gd" extends="GFUtility" />
 		<class name="GFSettingDefinition" path="classes/GFSettingDefinition.xml" sourcePath="addons/gf/standard/utilities/settings/gf_setting_definition.gd" extends="Resource" />
 		<class name="GFSettingsUtility" path="classes/GFSettingsUtility.xml" sourcePath="addons/gf/standard/utilities/settings/gf_settings_utility.gd" extends="GFUtility" />
