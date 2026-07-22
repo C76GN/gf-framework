@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSessionTraceUtility" path="addons/gf/standard/utilities/debug/gf_session_trace_utility.gd" module="standard" extends="GFUtility" classDigest="8718c3d387b15c9338d8603882e8c9dff6091ad42b902f7d2400ce8872e1d408">
+<class name="GFSessionTraceUtility" path="addons/gf/standard/utilities/debug/gf_session_trace_utility.gd" module="standard" extends="GFUtility" classDigest="aaca6d7bb4745faab307d2033518e090014d8069740c2ae85019c2693c39a347">
 	<description>GFSessionTraceUtility: 有界的运行时会话轨迹记录器。
 项目必须先显式注册通道，才能记录输入、路由、存档、网络或其他语义事件。
 轨迹只保存经过技术脱敏和字节预算约束的结构化数据，不扫描场景树、节点属性或业务状态。
@@ -212,7 +212,7 @@
 			</tags>
 		</member>
 		<member kind="property" name="redaction_profile">
-			<signature>var redaction_profile: String = GFReportValueCodec.REDACTION_PROFILE_PRIVACY</signature>
+			<signature>var redaction_profile: String = GFReportValueCodec.REDACTION_PROFILE_PRIVACY:</signature>
 			<description>事件载荷与单次 metadata 的报告脱敏 profile。默认使用 privacy，不应为线上玩家数据改成 debug。
 会话上下文、通道 metadata 和 provider metadata 始终使用 privacy 安全下限。</description>
 			<tags>
@@ -260,6 +260,51 @@
 			<description>清空内存事件和计数，但保留通道、provider、journal 与当前会话配置。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="apply_recipe">
+			<signature>func apply_recipe( recipe: GFSessionTraceRecipe, options: Dictionary = {} ) -&gt; Dictionary:</signature>
+			<description>原子应用一份 Session Trace 配方。
+默认拒绝覆盖既有同名通道，也拒绝配方未声明的既有通道或在活动会话中改写容量。
+一个 Utility 生命周期内只接受一份稳定配方；首次应用必须发生在任何会话开始之前，
+完全相同的配方可幂等重复应用，应用后的完整通道目录漂移会 fail closed。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">recipe: 要应用的配方资源。</tag>
+				<tag name="param">options: 应用选项。</tag>
+				<tag name="return">原子应用报告。</tag>
+				<tag name="schema">options: Dictionary with replace_existing_channels: bool.</tag>
+				<tag name="schema">return: Dictionary with ok, recipe_id, fingerprint, applied_channels, reused, error_code, and error_message.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="capture_recipe_checkpoint">
+			<signature>func capture_recipe_checkpoint( recipe: GFSessionTraceRecipe, checkpoint_id: StringName, options: Dictionary = {} ) -&gt; Dictionary:</signature>
+			<description>执行配方中的一个显式检查点。
+Provider 按声明顺序逐个采集，单个失败不会中断后续项；只有必需 Provider 失败
+才使检查点整体失败。配方在应用后发生变化时会 fail closed。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">recipe: 已应用且未变化的配方。</tag>
+				<tag name="param">checkpoint_id: 要执行的检查点 ID。</tag>
+				<tag name="param">options: 传给每次 Provider capture 的事件选项。</tag>
+				<tag name="return">检查点采集报告。</tag>
+				<tag name="schema">options: Dictionary with ticks_usec, simulation_tick, and metadata.</tag>
+				<tag name="schema">return: Dictionary with ok, recipe_id, checkpoint_id, success_count, failure_count, required_failure_count, optional_failure_count, and results.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="build_recipe_snapshot">
+			<signature>func build_recipe_snapshot( recipe: GFSessionTraceRecipe, options: Dictionary = {} ) -&gt; Dictionary:</signature>
+			<description>使用配方默认值构建轨迹快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">recipe: 已应用且未变化的配方。</tag>
+				<tag name="param">options: 覆盖配方默认值的 `build_snapshot()` 选项。</tag>
+				<tag name="return">带配方身份的有界轨迹快照；配方不匹配时返回结构化失败。</tag>
+				<tag name="schema">options: Dictionary with limit, filters, include_context, include_channel_catalog, and include_provider_catalog.</tag>
+				<tag name="schema">return: 成功时为 build_snapshot() 字典并附加 recipe_id 和 recipe_fingerprint；失败时包含 ok=false、error_code 和 error_message。</tag>
 				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
@@ -441,8 +486,8 @@ Provider 必须是无参数、快速、同步且不会修改游戏状态的 Call
 			<description>获取不含完整事件载荷的调试快照。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="return">当前容量、计数和 journal 状态。</tag>
-				<tag name="schema">return: Dictionary，包含 summary、channel_count、provider_count、max_events、max_event_buffer_bytes、max_event_bytes、max_journal_events、journal_configured 和 rejections_by_reason。</tag>
+				<tag name="return">当前容量、计数、配方和 journal 状态。</tag>
+				<tag name="schema">return: Dictionary，包含 summary、channel_count、provider_count、configured_recipe_id、configured_recipe_fingerprint、max_events、max_event_buffer_bytes、max_event_bytes、max_journal_events、journal_configured 和 rejections_by_reason。</tag>
 				<tag name="since">unreleased</tag>
 			</tags>
 		</member>

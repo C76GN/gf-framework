@@ -38,11 +38,14 @@
 | 属性 | [`max_channels`](#member-gfsessiontraceutility-properties-max_channels) | `var max_channels: int = DEFAULT_MAX_CHANNELS:` |
 | 属性 | [`max_snapshot_providers`](#member-gfsessiontraceutility-properties-max_snapshot_providers) | `var max_snapshot_providers: int = DEFAULT_MAX_SNAPSHOT_PROVIDERS:` |
 | 属性 | [`max_journal_events`](#member-gfsessiontraceutility-properties-max_journal_events) | `var max_journal_events: int = DEFAULT_MAX_JOURNAL_EVENTS:` |
-| 属性 | [`redaction_profile`](#member-gfsessiontraceutility-properties-redaction_profile) | `var redaction_profile: String = GFReportValueCodec.REDACTION_PROFILE_PRIVACY` |
+| 属性 | [`redaction_profile`](#member-gfsessiontraceutility-properties-redaction_profile) | `var redaction_profile: String = GFReportValueCodec.REDACTION_PROFILE_PRIVACY:` |
 | 方法 | [`dispose`](#member-gfsessiontraceutility-methods-dispose) | `func dispose() -> void:` |
 | 方法 | [`start_session`](#member-gfsessiontraceutility-methods-start_session) | `func start_session( requested_session_id: StringName = &"", context: Dictionary = {}, options: Dictionary = {} ) -> StringName:` |
 | 方法 | [`stop_session`](#member-gfsessiontraceutility-methods-stop_session) | `func stop_session(reason: StringName = &"completed") -> Dictionary:` |
 | 方法 | [`clear`](#member-gfsessiontraceutility-methods-clear) | `func clear() -> void:` |
+| 方法 | [`apply_recipe`](#member-gfsessiontraceutility-methods-apply_recipe) | `func apply_recipe( recipe: GFSessionTraceRecipe, options: Dictionary = {} ) -> Dictionary:` |
+| 方法 | [`capture_recipe_checkpoint`](#member-gfsessiontraceutility-methods-capture_recipe_checkpoint) | `func capture_recipe_checkpoint( recipe: GFSessionTraceRecipe, checkpoint_id: StringName, options: Dictionary = {} ) -> Dictionary:` |
+| 方法 | [`build_recipe_snapshot`](#member-gfsessiontraceutility-methods-build_recipe_snapshot) | `func build_recipe_snapshot( recipe: GFSessionTraceRecipe, options: Dictionary = {} ) -> Dictionary:` |
 | 方法 | [`register_channel`](#member-gfsessiontraceutility-methods-register_channel) | `func register_channel(channel_id: StringName, options: Dictionary = {}) -> bool:` |
 | 方法 | [`unregister_channel`](#member-gfsessiontraceutility-methods-unregister_channel) | `func unregister_channel(channel_id: StringName) -> bool:` |
 | 方法 | [`has_channel`](#member-gfsessiontraceutility-methods-has_channel) | `func has_channel(channel_id: StringName) -> bool:` |
@@ -412,7 +415,7 @@ var max_journal_events: int = DEFAULT_MAX_JOURNAL_EVENTS:
 - 首次版本：`unreleased`
 
 ```gdscript
-var redaction_profile: String = GFReportValueCodec.REDACTION_PROFILE_PRIVACY
+var redaction_profile: String = GFReportValueCodec.REDACTION_PROFILE_PRIVACY:
 ```
 
 事件载荷与单次 metadata 的报告脱敏 profile。默认使用 privacy，不应为线上玩家数据改成 debug。 会话上下文、通道 metadata 和 provider metadata 始终使用 privacy 安全下限。
@@ -497,6 +500,88 @@ func clear() -> void:
 ```
 
 清空内存事件和计数，但保留通道、provider、journal 与当前会话配置。
+
+<a id="member-gfsessiontraceutility-methods-apply_recipe"></a>
+
+### `apply_recipe`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func apply_recipe( recipe: GFSessionTraceRecipe, options: Dictionary = {} ) -> Dictionary:
+```
+
+原子应用一份 Session Trace 配方。 默认拒绝覆盖既有同名通道，也拒绝配方未声明的既有通道或在活动会话中改写容量。 一个 Utility 生命周期内只接受一份稳定配方；首次应用必须发生在任何会话开始之前， 完全相同的配方可幂等重复应用，应用后的完整通道目录漂移会 fail closed。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `recipe` | 要应用的配方资源。 |
+| `options` | 应用选项。 |
+
+返回：原子应用报告。
+
+结构：
+
+- `options`: Dictionary with replace_existing_channels: bool.
+- `return`: Dictionary with ok, recipe_id, fingerprint, applied_channels, reused, error_code, and error_message.
+
+<a id="member-gfsessiontraceutility-methods-capture_recipe_checkpoint"></a>
+
+### `capture_recipe_checkpoint`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func capture_recipe_checkpoint( recipe: GFSessionTraceRecipe, checkpoint_id: StringName, options: Dictionary = {} ) -> Dictionary:
+```
+
+执行配方中的一个显式检查点。 Provider 按声明顺序逐个采集，单个失败不会中断后续项；只有必需 Provider 失败 才使检查点整体失败。配方在应用后发生变化时会 fail closed。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `recipe` | 已应用且未变化的配方。 |
+| `checkpoint_id` | 要执行的检查点 ID。 |
+| `options` | 传给每次 Provider capture 的事件选项。 |
+
+返回：检查点采集报告。
+
+结构：
+
+- `options`: Dictionary with ticks_usec, simulation_tick, and metadata.
+- `return`: Dictionary with ok, recipe_id, checkpoint_id, success_count, failure_count, required_failure_count, optional_failure_count, and results.
+
+<a id="member-gfsessiontraceutility-methods-build_recipe_snapshot"></a>
+
+### `build_recipe_snapshot`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func build_recipe_snapshot( recipe: GFSessionTraceRecipe, options: Dictionary = {} ) -> Dictionary:
+```
+
+使用配方默认值构建轨迹快照。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `recipe` | 已应用且未变化的配方。 |
+| `options` | 覆盖配方默认值的 `build_snapshot()` 选项。 |
+
+返回：带配方身份的有界轨迹快照；配方不匹配时返回结构化失败。
+
+结构：
+
+- `options`: Dictionary with limit, filters, include_context, include_channel_catalog, and include_provider_catalog.
+- `return`: 成功时为 build_snapshot() 字典并附加 recipe_id 和 recipe_fingerprint；失败时包含 ok=false、error_code 和 error_message。
 
 <a id="member-gfsessiontraceutility-methods-register_channel"></a>
 
@@ -856,8 +941,8 @@ func get_debug_snapshot() -> Dictionary:
 
 获取不含完整事件载荷的调试快照。
 
-返回：当前容量、计数和 journal 状态。
+返回：当前容量、计数、配方和 journal 状态。
 
 结构：
 
-- `return`: Dictionary，包含 summary、channel_count、provider_count、max_events、max_event_buffer_bytes、max_event_bytes、max_journal_events、journal_configured 和 rejections_by_reason。
+- `return`: Dictionary，包含 summary、channel_count、provider_count、configured_recipe_id、configured_recipe_fingerprint、max_events、max_event_buffer_bytes、max_event_bytes、max_journal_events、journal_configured 和 rejections_by_reason。

@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFDiagnosticSnapshotProvider" path="addons/gf/standard/utilities/debug/gf_diagnostic_snapshot_provider.gd" module="standard" extends="RefCounted" classDigest="25038c856bf972ee7b0a0687714b6124dd26ab96beca69af0c4d07f76047fc3c">
+	<description>GFDiagnosticSnapshotProvider: 按请求求值的诊断快照 Provider 协议。
+Provider 不会被轮询或随普通快照隐式执行。项目必须显式请求稳定 Provider ID，
+输出才会由 `GFDiagnosticsUtility` 在重入保护、结构预算和脱敏边界内采集。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">protocol</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants>
+		<member kind="const" name="DEFAULT_MAX_DURATION_USEC">
+			<signature>const DEFAULT_MAX_DURATION_USEC: int = 50_000</signature>
+			<description>默认 Provider 返回后验收时长预算，单位微秒。
+同步 GDScript 无法被安全抢占；该预算用于拒绝和诊断已经返回的慢采集结果，
+不能替代 Provider 自身的有界实现。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</constants>
+	<properties>
+		<member kind="property" name="provider_id">
+			<signature>var provider_id: StringName = &amp;"":</signature>
+			<description>Provider 稳定 ID。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="max_duration_usec">
+			<signature>var max_duration_usec: int = DEFAULT_MAX_DURATION_USEC:</signature>
+			<description>Provider 返回后的最大验收时长，单位微秒；0 表示不做时长拒绝。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="metadata">
+			<signature>var metadata: Dictionary:</signature>
+			<description>Provider 目录元数据。注册后不可修改，读取时返回副本，输出前由聚合器执行预算和脱敏。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="schema">metadata: Dictionary with provider-defined catalog metadata.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</properties>
+	<methods>
+		<member kind="method" name="configure">
+			<signature>func configure( p_provider_id: StringName, options: Dictionary = {} ) -&gt; GFDiagnosticSnapshotProvider:</signature>
+			<description>配置 Provider 定义并返回自身。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">p_provider_id: 稳定 Provider ID。</tag>
+				<tag name="param">options: 可选目录元数据。</tag>
+				<tag name="return">当前 Provider。</tag>
+				<tag name="schema">options: Dictionary with optional max_duration_usec: int and metadata: Dictionary.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="validate_provider">
+			<signature>func validate_provider() -&gt; Dictionary:</signature>
+			<description>校验 Provider 定义。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">GFValidationReportDictionary 兼容报告。</tag>
+				<tag name="schema">return: Dictionary with ok, issues, counts, summary, and next_actions.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="collect_snapshot">
+			<signature>func collect_snapshot(request: Dictionary = {}) -&gt; GFDiagnosticProviderResult:</signature>
+			<description>采集一次诊断结果。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">request: 调用方提供的临时只读上下文。</tag>
+				<tag name="return">类型化 Provider 结果；实现返回 null 时由聚合器按无效结果处理。</tag>
+				<tag name="schema">request: Dictionary with caller-defined ephemeral fields.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_collect_snapshot">
+			<signature>func _collect_snapshot(_request: Dictionary = {}) -&gt; GFDiagnosticProviderResult:</signature>
+			<description>实现一次同步、只读且有界的诊断采集。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">_request: 调用方提供的临时上下文副本。</tag>
+				<tag name="return">类型化采集结果。</tag>
+				<tag name="schema">_request: Dictionary with caller-defined ephemeral fields.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

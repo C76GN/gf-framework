@@ -1,7 +1,8 @@
 ## GFDiagnosticsUtility: 运行时诊断聚合工具。
 ##
 ## 提供架构生命周期、事件系统、性能、日志和外部贡献诊断的统一快照。
-## 外部监控和快照贡献采用 owner-bound 发布模型；采集路径只读取已验证缓存，不执行项目回调。
+## 外部监控和快照贡献采用 owner-bound 发布模型；普通采集只读取已验证缓存。
+## 只有调用方显式提供 `diagnostic_provider_ids` 时，才会执行对应的有界同步 Provider。
 ## [br]
 ## @api public
 ## [br]
@@ -114,6 +115,8 @@ const DEBUGGER_MESSAGE_CATALOG: String = "gf_diagnostics:catalog"
 ## @since 6.0.0
 const DEBUGGER_MESSAGE_COMMAND_RESULT: String = "gf_diagnostics:command_result"
 
+const _MAX_DIAGNOSTIC_PROVIDER_REQUEST_IDS: int = 1024
+
 
 # --- 公共变量 ---
 
@@ -207,6 +210,15 @@ var max_contribution_bytes: int = 262_144:
 	set(value):
 		max_contribution_bytes = maxi(value, 0)
 
+## 最多允许注册和单批请求的惰性诊断 Provider 数量。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+var max_diagnostic_providers: int = 32:
+	set(value):
+		max_diagnostic_providers = maxi(value, 0)
+
 
 # --- 私有变量 ---
 
@@ -216,6 +228,9 @@ var _monitors: Dictionary = {}
 var _monitor_presets: Dictionary = {}
 var _snapshot_sections: Dictionary = {}
 var _tool_snapshots: Dictionary = {}
+var _diagnostic_providers: Dictionary = {}
+var _active_diagnostic_provider_ids: Dictionary = {}
+var _diagnostic_provider_revision: int = 0
 var _monitor_order_counter: int = 0
 var _console_utility: GFConsoleUtility = null
 var _console_command_subscription: GFLifetimeSubscription = null
@@ -261,6 +276,9 @@ func dispose() -> void:
 	_monitor_presets.clear()
 	_snapshot_sections.clear()
 	_tool_snapshots.clear()
+	_diagnostic_provider_revision += 1
+	_diagnostic_providers.clear()
+	_active_diagnostic_provider_ids.clear()
 	_monitor_order_counter = 0
 
 
@@ -760,6 +778,219 @@ func has_snapshot_section(section_id: StringName) -> bool:
 	return _owned_registry_has_live_entry(_snapshot_sections, section_id)
 
 
+## 注册一个仅在显式请求时执行的诊断 Provider。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param owner: Provider 生命周期所有者；同 ID 只允许同一 owner 更新。
+## [br]
+## @param provider: 类型化同步 Provider。
+## [br]
+## @return 注册成功返回 true。
+func register_diagnostic_provider(
+	owner: Object,
+	provider: GFDiagnosticSnapshotProvider
+) -> bool:
+	if owner == null or provider == null:
+		return false
+	if not GFVariantData.get_option_bool(provider.validate_provider(), "ok", false):
+		return false
+	var provider_id: StringName = provider.provider_id
+	_prune_diagnostic_providers()
+	if not _can_register_owned_entry(_diagnostic_providers, provider_id, owner):
+		return false
+	if (
+		not _diagnostic_providers.has(provider_id)
+		and _diagnostic_providers.size() >= max_diagnostic_providers
+	):
+		return false
+	if _active_diagnostic_provider_ids.has(provider_id):
+		return false
+	var prepared_metadata: Dictionary = _prepare_contribution_value(provider.metadata)
+	if not GFVariantData.get_option_bool(prepared_metadata, "ok"):
+		return false
+	if not provider.lock_definition_for_framework():
+		return false
+	_diagnostic_provider_revision += 1
+	_diagnostic_providers[provider_id] = {
+		"owner_ref": weakref(owner),
+		"owner_instance_id": owner.get_instance_id(),
+		"provider_ref": weakref(provider),
+		"provider_instance_id": provider.get_instance_id(),
+		"registration_revision": _diagnostic_provider_revision,
+		"metadata": GFVariantData.get_option_dictionary(prepared_metadata, "value"),
+	}
+	return true
+
+
+## 注销惰性诊断 Provider。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param owner: 当前 Provider 所有者。
+## [br]
+## @param provider_id: Provider 稳定 ID。
+## [br]
+## @return owner 匹配且 Provider 未在采集时返回 true。
+func unregister_diagnostic_provider(owner: Object, provider_id: StringName) -> bool:
+	if _active_diagnostic_provider_ids.has(provider_id):
+		return false
+	if not _owned_entry_matches(_diagnostic_providers, provider_id, owner):
+		return false
+	var removed: bool = _diagnostic_providers.erase(provider_id)
+	if removed:
+		_diagnostic_provider_revision += 1
+	return removed
+
+
+## 检查惰性诊断 Provider 是否仍有效。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param provider_id: Provider 稳定 ID。
+## [br]
+## @return owner 与 Provider 均存活时返回 true。
+func has_diagnostic_provider(provider_id: StringName) -> bool:
+	_prune_diagnostic_providers()
+	return (
+		_diagnostic_providers.has(provider_id)
+		and _get_diagnostic_provider(
+			_get_dictionary_entry(_diagnostic_providers, provider_id)
+		) != null
+	)
+
+
+## 获取不含 Provider 实例的惰性诊断目录。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @return 以 Provider ID 为键的只读目录副本。
+## [br]
+## @schema return: Dictionary[StringName, Dictionary] with provider_class, max_duration_usec, and metadata.
+func get_diagnostic_provider_catalog() -> Dictionary:
+	_prune_diagnostic_providers()
+	var result: Dictionary = {}
+	var provider_ids: PackedStringArray = _get_sorted_registry_ids(_diagnostic_providers)
+	for provider_text: String in provider_ids:
+		var provider_id: StringName = StringName(provider_text)
+		var entry: Dictionary = _get_dictionary_entry(_diagnostic_providers, provider_id)
+		var provider: GFDiagnosticSnapshotProvider = _get_diagnostic_provider(entry)
+		if provider == null:
+			continue
+		result[provider_id] = {
+			"provider_class": provider.get_class(),
+			"max_duration_usec": provider.max_duration_usec,
+			"metadata": GFVariantData.get_option_dictionary(entry, "metadata").duplicate(true),
+		}
+	return result
+
+
+## 显式采集一组惰性诊断 Provider。
+##
+## 空列表不会执行任何 Provider；重复 ID 只执行一次。原始列表最多包含 1024 项，
+## 超限会在去重和项目回调前整体拒绝。不存在、失效、重入或输出被预算拒绝
+## 都会成为独立失败结果，不会阻止其他 Provider 采集。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param provider_ids: 本次允许执行的稳定 Provider ID。
+## [br]
+## @param request: 传给每个 Provider 的临时上下文。
+## [br]
+## @schema request: Dictionary with caller-defined ephemeral fields.
+## [br]
+## @return 有界的批量采集报告。
+## [br]
+## @schema return: Dictionary with ok, requested_count, unique_request_count, duplicate_count, invalid_count, executed_count, omitted_count, success_count, failure_count, error_code, error_message, duration_usec, and results keyed by provider id.
+func collect_diagnostic_providers(
+	provider_ids: PackedStringArray,
+	request: Dictionary = {}
+) -> Dictionary:
+	var started_at_usec: int = Time.get_ticks_usec()
+	if provider_ids.size() > _MAX_DIAGNOSTIC_PROVIDER_REQUEST_IDS:
+		return {
+			"ok": false,
+			"requested_count": provider_ids.size(),
+			"unique_request_count": 0,
+			"duplicate_count": 0,
+			"invalid_count": 0,
+			"executed_count": 0,
+			"omitted_count": 0,
+			"success_count": 0,
+			"failure_count": 0,
+			"error_code": &"provider_request_size_exceeded",
+			"error_message": "Diagnostic provider request contained more than 1024 raw ids.",
+			"duration_usec": maxi(Time.get_ticks_usec() - started_at_usec, 0),
+			"results": {},
+		}
+	var selection: Dictionary = _prepare_diagnostic_provider_selection(provider_ids)
+	var selected_ids: PackedStringArray = GFVariantData.get_option_packed_string_array(
+		selection,
+		"selected_ids"
+	)
+	var invalid_count: int = GFVariantData.get_option_int(selection, "invalid_count")
+	var duplicate_count: int = GFVariantData.get_option_int(selection, "duplicate_count")
+	var omitted_count: int = GFVariantData.get_option_int(selection, "omitted_count")
+	var batch: Dictionary = {
+		"ok": false,
+		"requested_count": provider_ids.size(),
+		"unique_request_count": GFVariantData.get_option_int(selection, "unique_request_count"),
+		"duplicate_count": duplicate_count,
+		"invalid_count": invalid_count,
+		"executed_count": 0,
+		"omitted_count": omitted_count,
+		"success_count": 0,
+		"failure_count": 0,
+		"error_code": &"",
+		"error_message": "",
+		"duration_usec": 0,
+		"results": {},
+	}
+	var request_validation: Dictionary = _validate_contribution_value(request)
+	if not GFVariantData.get_option_bool(request_validation, "ok"):
+		batch["error_code"] = &"provider_request_rejected"
+		batch["error_message"] = "Diagnostic provider request exceeded structural budgets."
+		batch["duration_usec"] = maxi(Time.get_ticks_usec() - started_at_usec, 0)
+		return batch
+
+	var results: Dictionary = {}
+	var success_count: int = 0
+	for provider_text: String in selected_ids:
+		var provider_id: StringName = StringName(provider_text)
+		var provider_result: Dictionary = _collect_diagnostic_provider(provider_id, request)
+		results[provider_id] = provider_result
+		if GFVariantData.get_option_bool(provider_result, "ok"):
+			success_count += 1
+	var executed_count: int = selected_ids.size()
+	var failure_count: int = executed_count - success_count
+	batch["ok"] = invalid_count == 0 and omitted_count == 0 and failure_count == 0
+	batch["executed_count"] = executed_count
+	batch["success_count"] = success_count
+	batch["failure_count"] = failure_count
+	batch["duration_usec"] = maxi(Time.get_ticks_usec() - started_at_usec, 0)
+	batch["results"] = results
+	if invalid_count > 0:
+		batch["error_code"] = &"invalid_provider_request"
+		batch["error_message"] = "Diagnostic provider request contained invalid provider ids."
+	elif omitted_count > 0:
+		batch["error_code"] = &"provider_request_limit_exceeded"
+		batch["error_message"] = "Diagnostic provider request exceeded the batch provider limit."
+	elif failure_count > 0:
+		batch["error_code"] = &"provider_collection_failed"
+		batch["error_message"] = "One or more diagnostic providers failed."
+	return batch
+
+
 ## 发布工具快照。用于扩展或项目把 get_debug_snapshot() 风格数据贡献到 tools 字段。
 ## [br]
 ## @api public
@@ -1035,13 +1266,13 @@ func command_result_to_json_compatible(result: Dictionary, options: Dictionary =
 ## [br]
 ## @since 3.17.0
 ## [br]
-## @param options: 可选参数，支持 recent_log_count、include_recent_logs、include_scene_tree、scene_tree_options、include_signal_graph、signal_graph_options。
+## @param options: 可选参数，支持 recent_log_count、include_recent_logs、include_scene_tree、scene_tree_options、include_signal_graph、signal_graph_options、diagnostic_provider_ids、diagnostic_provider_request。
 ## [br]
 ## @return 快照字典。
 ## [br]
-## @schema options: Dictionary，支持 recent_log_count、include_recent_logs、include_scene_tree、scene_tree_options、include_signal_graph、signal_graph_options、include_monitors、monitor_preset、monitor_ids、include_hidden_monitors。
+## @schema options: Dictionary，支持 recent_log_count、include_recent_logs、include_scene_tree、scene_tree_options、include_signal_graph、signal_graph_options、include_monitors、monitor_preset、monitor_ids、include_hidden_monitors、diagnostic_provider_ids 和 diagnostic_provider_request；Provider 列表为空时不会执行项目代码。
 ## [br]
-## @schema return: Dictionary，包含 timestamp_unix、engine、build、architecture、event_system、performance、logs、tools，可选 scene_tree、signal_graph、monitors 和已发布分区。
+## @schema return: Dictionary，包含 timestamp_unix、engine、build、architecture、event_system、performance、logs、tools，可选 scene_tree、signal_graph、monitors、diagnostic_providers 和已发布分区。
 func collect_snapshot(options: Dictionary = {}) -> Dictionary:
 	var build_info_utility: GFBuildInfoUtility = _get_build_info_utility()
 	var build_info: Dictionary = (
@@ -1097,6 +1328,16 @@ func collect_snapshot(options: Dictionary = {}) -> Dictionary:
 				monitor_ids,
 				GFVariantData.get_option_bool(options, "include_hidden_monitors", false)
 			)
+
+	var diagnostic_provider_ids: PackedStringArray = GFVariantData.get_option_packed_string_array(
+		options,
+		"diagnostic_provider_ids"
+	)
+	if not diagnostic_provider_ids.is_empty():
+		snapshot["diagnostic_providers"] = collect_diagnostic_providers(
+			diagnostic_provider_ids,
+			GFVariantData.get_option_dictionary(options, "diagnostic_provider_request")
+		)
 
 	snapshot_collected.emit(snapshot)
 	return snapshot
@@ -1393,7 +1634,7 @@ func _index_signal_graph(graph: Dictionary) -> Dictionary:
 
 func _is_reserved_snapshot_section_id(section_id: StringName) -> bool:
 	match section_id:
-		&"timestamp_unix", &"engine", &"build", &"architecture", &"event_system", &"performance", &"logs", &"tools", &"scene_tree", &"signal_graph", &"monitors":
+		&"timestamp_unix", &"engine", &"build", &"architecture", &"event_system", &"performance", &"logs", &"tools", &"scene_tree", &"signal_graph", &"monitors", &"diagnostic_providers":
 			return true
 		_:
 			return false
@@ -1519,11 +1760,212 @@ func _get_registration_owner(entry: Dictionary) -> Object:
 	return owner
 
 
+func _get_diagnostic_provider(entry: Dictionary) -> GFDiagnosticSnapshotProvider:
+	var provider_ref_value: Variant = GFVariantData.get_option_value(entry, "provider_ref")
+	if not (provider_ref_value is WeakRef):
+		return null
+	var provider_ref: WeakRef = provider_ref_value
+	var provider_value: Variant = provider_ref.get_ref()
+	if not (provider_value is GFDiagnosticSnapshotProvider):
+		return null
+	var provider: GFDiagnosticSnapshotProvider = provider_value
+	if provider.get_instance_id() != GFVariantData.get_option_int(entry, "provider_instance_id", -1):
+		return null
+	return provider
+
+
 func _get_callable_value(value: Variant) -> Callable:
 	if value is Callable:
 		var callable: Callable = value
 		return callable
 	return Callable()
+
+
+func _prune_diagnostic_providers() -> void:
+	var previous_size: int = _diagnostic_providers.size()
+	_prune_released_owned_entries(_diagnostic_providers)
+	var released_owner_count: int = previous_size - _diagnostic_providers.size()
+	if released_owner_count > 0:
+		_diagnostic_provider_revision += released_owner_count
+	var stale_ids: Array[Variant] = []
+	for provider_id: Variant in _diagnostic_providers.keys():
+		if _get_diagnostic_provider(_get_dictionary_entry(_diagnostic_providers, provider_id)) == null:
+			stale_ids.append(provider_id)
+	for provider_id: Variant in stale_ids:
+		var stale_provider_erased: bool = _diagnostic_providers.erase(provider_id)
+		if stale_provider_erased:
+			_diagnostic_provider_revision += 1
+
+
+func _get_sorted_registry_ids(registry: Dictionary) -> PackedStringArray:
+	var result: PackedStringArray = PackedStringArray()
+	for key_value: Variant in registry.keys():
+		var entry_id: StringName = GFVariantData.to_string_name(key_value)
+		if entry_id != &"":
+			var _id_appended: bool = result.append(String(entry_id))
+	result.sort()
+	return result
+
+
+func _prepare_diagnostic_provider_selection(provider_ids: PackedStringArray) -> Dictionary:
+	var selected_ids: PackedStringArray = PackedStringArray()
+	var seen: Dictionary = {}
+	var duplicate_count: int = 0
+	var invalid_count: int = 0
+	var omitted_count: int = 0
+	for provider_text: String in provider_ids:
+		var normalized_text: String = provider_text.strip_edges()
+		var provider_id: StringName = StringName(normalized_text)
+		if provider_id == &"" or normalized_text.length() > 128:
+			invalid_count += 1
+			continue
+		if seen.has(provider_id):
+			duplicate_count += 1
+			continue
+		seen[provider_id] = true
+		if selected_ids.size() >= max_diagnostic_providers:
+			omitted_count += 1
+			continue
+		var _provider_appended: bool = selected_ids.append(String(provider_id))
+	return {
+		"selected_ids": selected_ids,
+		"unique_request_count": seen.size(),
+		"duplicate_count": duplicate_count,
+		"invalid_count": invalid_count,
+		"omitted_count": omitted_count,
+	}
+
+
+func _collect_diagnostic_provider(provider_id: StringName, request: Dictionary) -> Dictionary:
+	if _active_diagnostic_provider_ids.has(provider_id):
+		return _make_diagnostic_provider_failure(
+			provider_id,
+			&"provider_reentrant",
+			"Diagnostic provider is already collecting."
+		)
+	if not has_diagnostic_provider(provider_id):
+		return _make_diagnostic_provider_failure(
+			provider_id,
+			&"provider_unavailable",
+			"Diagnostic provider is not registered or its owner was released."
+		)
+
+	var entry: Dictionary = _get_dictionary_entry(_diagnostic_providers, provider_id)
+	var provider: GFDiagnosticSnapshotProvider = _get_diagnostic_provider(entry)
+	if provider == null:
+		return _make_diagnostic_provider_failure(
+			provider_id,
+			&"provider_unavailable",
+			"Diagnostic provider instance was released."
+		)
+
+	var registration_revision: int = GFVariantData.get_option_int(
+		entry,
+		"registration_revision",
+		-1
+	)
+	var registry_revision: int = _diagnostic_provider_revision
+	var duration_budget_usec: int = provider.max_duration_usec
+	var started_at_usec: int = Time.get_ticks_usec()
+	_active_diagnostic_provider_ids[provider_id] = true
+	var collected: GFDiagnosticProviderResult = provider.collect_snapshot(request)
+	var _active_provider_erased: bool = _active_diagnostic_provider_ids.erase(provider_id)
+	var duration_usec: int = maxi(Time.get_ticks_usec() - started_at_usec, 0)
+	var current_entry: Dictionary = _get_dictionary_entry(_diagnostic_providers, provider_id)
+	var owner_released: bool = _get_registration_owner(current_entry) == null
+	if (
+		_diagnostic_provider_revision != registry_revision
+		or GFVariantData.get_option_int(current_entry, "registration_revision", -1) != registration_revision
+		or _get_diagnostic_provider(current_entry) != provider
+		or owner_released
+	):
+		if owner_released and _diagnostic_providers.erase(provider_id):
+			_diagnostic_provider_revision += 1
+		return _make_diagnostic_provider_failure(
+			provider_id,
+			&"provider_registration_changed",
+			"Diagnostic provider registration changed during collection.",
+			duration_usec
+		)
+	if collected == null:
+		return _make_diagnostic_provider_failure(
+			provider_id,
+			&"provider_invalid_result",
+			"Diagnostic provider returned null.",
+			duration_usec
+		)
+	if duration_budget_usec > 0 and duration_usec > duration_budget_usec:
+		return _make_diagnostic_provider_failure(
+			provider_id,
+			&"provider_duration_budget_exceeded",
+			"Diagnostic provider exceeded its post-return duration budget.",
+			duration_usec,
+			GFVariantData.get_option_dictionary(entry, "metadata")
+		)
+
+	var combined_metadata: Dictionary = GFVariantData.get_option_dictionary(
+		entry,
+		"metadata"
+	).duplicate(true)
+	var result_metadata: Dictionary = collected.get_metadata()
+	var _metadata_merge_result: Variant = GFVariantData.merge_metadata(
+		combined_metadata,
+		result_metadata
+	)
+	var prepared_metadata: Dictionary = _prepare_contribution_value(combined_metadata)
+	if not GFVariantData.get_option_bool(prepared_metadata, "ok"):
+		return _make_diagnostic_provider_failure(
+			provider_id,
+			&"provider_metadata_rejected",
+			String(GFVariantData.get_option_string_name(prepared_metadata, "reason")),
+			duration_usec
+		)
+	var safe_metadata: Dictionary = GFVariantData.get_option_dictionary(prepared_metadata, "value")
+	if not collected.is_successful():
+		return _make_diagnostic_provider_failure(
+			provider_id,
+			collected.get_error_code(),
+			collected.get_error_message(),
+			duration_usec,
+			safe_metadata
+		)
+
+	var prepared_value: Dictionary = _prepare_contribution_value(collected.get_value())
+	if not GFVariantData.get_option_bool(prepared_value, "ok"):
+		return _make_diagnostic_provider_failure(
+			provider_id,
+			&"provider_value_rejected",
+			String(GFVariantData.get_option_string_name(prepared_value, "reason")),
+			duration_usec,
+			safe_metadata
+		)
+	return {
+		"ok": true,
+		"provider_id": provider_id,
+		"value": GFVariantData.get_option_value(prepared_value, "value"),
+		"error_code": &"",
+		"error_message": "",
+		"duration_usec": duration_usec,
+		"metadata": safe_metadata,
+	}
+
+
+func _make_diagnostic_provider_failure(
+	provider_id: StringName,
+	error_code: StringName,
+	error_message: String,
+	duration_usec: int = 0,
+	metadata: Dictionary = {}
+) -> Dictionary:
+	return {
+		"ok": false,
+		"provider_id": provider_id,
+		"value": null,
+		"error_code": error_code,
+		"error_message": error_message,
+		"duration_usec": maxi(duration_usec, 0),
+		"metadata": metadata.duplicate(true),
+	}
 
 
 func _get_script_value(value: Variant) -> Script:
@@ -1616,6 +2058,7 @@ func _make_debugger_catalog() -> Dictionary:
 		"commands": get_command_catalog(),
 		"monitors": get_monitor_catalog(),
 		"monitor_presets": get_monitor_preset_ids(),
+		"diagnostic_providers": get_diagnostic_provider_catalog(),
 		"bridge": get_debugger_bridge_state(),
 	}
 

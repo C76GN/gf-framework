@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFDiagnosticProviderResult" path="addons/gf/standard/utilities/debug/gf_diagnostic_provider_result.gd" module="standard" extends="RefCounted" classDigest="734786a015a36bf24d2aaa80c0b4ddc0454c443f533407adde5fa1c113b7f78b">
+	<description>GFDiagnosticProviderResult: 惰性诊断 Provider 的类型化采集结果。
+成功结果携带尚未编码的临时值；失败结果携带稳定错误码和面向维护者的说明。
+非法错误码会归一为 `provider_failed`，错误说明最多保留 1024 个字符。
+`GFDiagnosticsUtility` 会在把结果纳入快照前执行结构预算、脱敏和 JSON-safe 编码。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">value_object</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties />
+	<methods>
+		<member kind="method" name="succeeded">
+			<signature>static func succeeded(value: Variant, metadata: Dictionary = {}) -&gt; GFDiagnosticProviderResult:</signature>
+			<description>创建成功结果。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">value: Provider 采集的临时值。</tag>
+				<tag name="param">metadata: 本次采集的附加元数据。</tag>
+				<tag name="return">新的成功结果。</tag>
+				<tag name="schema">value: Variant with provider-defined ephemeral diagnostic data.</tag>
+				<tag name="schema">metadata: Dictionary with provider-defined ephemeral metadata.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="failed">
+			<signature>static func failed( error_code: StringName, error_message: String = "", metadata: Dictionary = {} ) -&gt; GFDiagnosticProviderResult:</signature>
+			<description>创建失败结果。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">error_code: 非空、无首尾空白且不超过 128 个字符的稳定错误码；非法值回退为 provider_failed。</tag>
+				<tag name="param">error_message: 面向维护者的失败说明；最多保留 1024 个字符。</tag>
+				<tag name="param">metadata: 本次失败的附加元数据。</tag>
+				<tag name="return">新的失败结果。</tag>
+				<tag name="schema">metadata: Dictionary with provider-defined ephemeral metadata.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_successful">
+			<signature>func is_successful() -&gt; bool:</signature>
+			<description>查询采集是否成功。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">成功时返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_value">
+			<signature>func get_value() -&gt; Variant:</signature>
+			<description>获取成功值副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">Provider 值副本；失败时返回 null。</tag>
+				<tag name="schema">return: Provider-defined Variant copy, or null for a failed result.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_error_code">
+			<signature>func get_error_code() -&gt; StringName:</signature>
+			<description>获取稳定错误码。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">失败错误码；成功时为空。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_error_message">
+			<signature>func get_error_message() -&gt; String:</signature>
+			<description>获取错误说明。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">失败说明；成功时为空。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_metadata">
+			<signature>func get_metadata() -&gt; Dictionary:</signature>
+			<description>获取采集元数据副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">Provider 元数据副本。</tag>
+				<tag name="schema">return: Dictionary with provider-defined ephemeral metadata.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

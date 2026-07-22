@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFSessionTraceCheckpoint" path="addons/gf/standard/utilities/debug/gf_session_trace_checkpoint.gd" module="standard" extends="Resource" classDigest="663317a664648ac0ad3d723dc67760cdab4e37e6d04c416918aa56b14a02c94b">
+	<description>GFSessionTraceCheckpoint: Session Trace 配方中的显式 Provider 采集点。
+检查点只引用已经在运行时注册的 Provider ID，单个列表最多包含 256 项。
+默认所有 Provider 都是必需项；`optional_provider_ids` 可把部分失败降级为
+可观察但不阻断检查点的结果。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">resource_definition</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties>
+		<member kind="property" name="checkpoint_id" decorators="@export">
+			<signature>var checkpoint_id: StringName = &amp;""</signature>
+			<description>稳定检查点 ID。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="provider_ids" decorators="@export">
+			<signature>var provider_ids: PackedStringArray = PackedStringArray()</signature>
+			<description>按顺序显式采集的 Provider ID。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="optional_provider_ids" decorators="@export">
+			<signature>var optional_provider_ids: PackedStringArray = PackedStringArray()</signature>
+			<description>允许失败而不让检查点整体失败的 Provider ID，必须是 `provider_ids` 子集。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="metadata" decorators="@export">
+			<signature>var metadata: Dictionary = {}</signature>
+			<description>合并进每次 Provider 事件的检查点元数据。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="schema">metadata: Dictionary with project-defined checkpoint metadata.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</properties>
+	<methods>
+		<member kind="method" name="configure">
+			<signature>func configure( p_checkpoint_id: StringName, p_provider_ids: PackedStringArray, options: Dictionary = {} ) -&gt; GFSessionTraceCheckpoint:</signature>
+			<description>配置检查点并返回自身。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">p_checkpoint_id: 稳定检查点 ID。</tag>
+				<tag name="param">p_provider_ids: 按顺序采集的 Provider ID。</tag>
+				<tag name="param">options: 检查点选项。</tag>
+				<tag name="return">当前检查点。</tag>
+				<tag name="schema">options: Dictionary with optional_provider_ids and metadata.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="validate_checkpoint">
+			<signature>func validate_checkpoint() -&gt; Dictionary:</signature>
+			<description>校验检查点定义。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">GFValidationReportDictionary 兼容报告。</tag>
+				<tag name="schema">return: Dictionary with ok, issues, counts, summary, and next_actions.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

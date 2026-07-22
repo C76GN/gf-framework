@@ -22,7 +22,7 @@
 
 ## [未发布]
 
-**版本概述**：开发线升级为 `10.0.0-dev.0`，补齐通用 2D 编辑器缩略图、有序资产集合、内容包查询与运行时目录挂载、存储后端故障转移、运行时会话轨迹、UI 路由预加载规划和轨迹预测数学，修正 AI Developer Kit 的项目级资源所有权表达，并更新 CI/Release 基础 Actions；业务策略仍保持在各自调用方边界内。
+**版本概述**：开发线升级为 `10.0.0-dev.0`，补齐通用 2D 编辑器缩略图、有序资产集合、内容包查询与运行时目录挂载、存储后端故障转移、惰性诊断采集、配方化运行时会话轨迹、UI 路由预加载规划和轨迹预测数学，修正 AI Developer Kit 的项目级资源所有权表达，并更新 CI/Release 基础 Actions；业务策略仍保持在各自调用方边界内。
 
 ### 🚀 新增特性 (Added)
 
@@ -31,7 +31,8 @@
 - 新增 `GFContentPackageQuery`、`GFContentPackageQueryResult` 和 `GFContentPackageAssetCatalogProvider`，提供严格内容包筛选、dependency-first 闭包、类型化失败终态和 qualified 资产 ID 适配。
 - 新增 `GFAssetCatalogRuntime` 与 `GFAssetCatalogMount`，提供 owner-scoped 目录快照、严格或显式高优先级冲突政策、原子 revision 提交和幂等卸载。
 - 新增 `GFStorageFailoverBackend`，按稳定后端 ID 提供有界顺序尝试、`PRIMARY_ONLY` / `FIRST_SUCCESS` 写删语义、暂时性错误冷却和不含业务载荷的结构化操作报告。
-- 新增 `GFSessionTraceUtility`，提供显式通道白名单、事件数与字节双重预算、默认隐私脱敏、同步快照 provider、结构化支持报告快照和可选 `GFLogSink` journal。
+- 新增 `GFDiagnosticSnapshotProvider` 与 `GFDiagnosticProviderResult`，提供 owner-bound、仅显式求值的类型化诊断采集，以及重入、时长和结构预算隔离。
+- 新增 `GFSessionTraceUtility`、`GFSessionTraceRecipe`、`GFSessionTraceChannelDefinition` 与 `GFSessionTraceCheckpoint`，提供显式通道白名单、事件数与字节双重预算、默认隐私脱敏、配方化故障检查点、结构化支持报告快照和可选 `GFLogSink` journal。
 - 新增 `GFUIRoutePreloadUtility`，从 `GFUIRoute.adjacent_route_ids` 做有界、确定性的页面可达性遍历，并生成可直接交给 `GFAssetUtility` 的 `GFAssetPreloadPlan`。
 - 新增 `GFUIRouteOperation` 与 `GFUIRouteResult`，把异步路由的输入拒绝、预加载、面板打开、取消、释放和未知结果统一为单终态请求契约。
 - 新增 `GFTrajectoryMath`，提供 2D/3D 恒加速度未来状态、恒速发射体对匀速目标的最早拦截解，以及带绝对点数上限的同步公式轨迹采样。
@@ -47,6 +48,8 @@
 - `GFStorageFailoverBackend.configure_backends()` 对策略、失败阈值和冷却窗口执行事务式 fail-closed 校验，非法配置不会部分替换既有后端或静默改变写入语义。
 - 缩略图渲染改为等待场景树更新后同步强制绘制，避免无持续绘制帧时错过 `frame_post_draw`；dummy 渲染后端现在会安全返回空结果，不再访问无纹理存储的 ViewportTexture。
 - Session Trace journal 会校验轨迹与 sink 的脱敏 profile，且对 sink 生命周期、写入与刷新执行重入保护；不安全配置和运行期 profile 降级会 fail closed。
+- `GFDiagnosticsUtility.collect_snapshot()` 仅在调用方显式提交 `diagnostic_provider_ids` 时执行项目 Provider，并在回调返回后复核 owner、注册表修订、时长和输出预算；普通快照继续只读取已发布缓存。
+- Session Trace 配方首次应用必须早于任何会话历史，并对 Resource 定义、完整通道目录和运行时配置保留独立指纹与单调修订号；未声明的既有通道会阻止应用，应用后新增通道或临时改写预算、脱敏配置都会让配方操作 fail closed。必需与可选 Provider 失败会分别统计，单项失败不阻断后续检查点采集。
 - `GFUIRouterUtility` 可从当前已注册路由构建预加载计划；Planner 对目录、候选和边扫描分别设有硬上限，统一规范化路由 ID，只表达资源候选和诊断，不自动执行 IO，也不把相邻关系解释为权限或业务跳转。
 - `GFUIRouterUtility.push_route_async()` 与 `replace_route_async()` 现在返回类型化句柄，并支持 `none`、`best_effort`、`required` 三种显式打开前预加载策略；自动计划默认只包含当前页面，临时 owner group 会在面板终态后释放。
 - AI Developer Kit 3.0.0 将项目快照升级到 schema v3；依赖报告现在区分项目级资源状态、命中证据和未归属引用，缺失文件、目录或不安全路径继续 fail closed。
@@ -73,7 +76,7 @@
 - 新增 `GFThumbnailRenderer.render_canvas_item()` 与 `render_canvas_item_texture()`。
 - 新增公开类型 `GFAssetCollection` 和 `GFStorageFailoverBackend`；均标记为 `@since unreleased`，不改变既有调用入口默认行为。
 - 新增公开类型 `GFContentPackageQuery`、`GFContentPackageQueryResult`、`GFContentPackageAssetCatalogProvider`、`GFAssetCatalogRuntime` 和 `GFAssetCatalogMount`；`GFContentPackageCatalog` 新增 `query_packages()`，Content Package Utility 新增 owner-scoped root API，Asset Catalog Runtime 支持原子 `replace_mount_catalog()`。
-- 新增公开类型 `GFSessionTraceUtility`、`GFUIRoutePreloadUtility`，以及 `GFUIRoute.adjacent_route_ids`、`get_adjacent_route_ids()` 和 `GFUIRouterUtility.build_preload_plan()`；均标记为 `@since unreleased`。
+- 新增公开类型 `GFDiagnosticProviderResult`、`GFDiagnosticSnapshotProvider`、`GFSessionTraceUtility`、`GFSessionTraceRecipe`、`GFSessionTraceChannelDefinition`、`GFSessionTraceCheckpoint` 与 `GFUIRoutePreloadUtility`，以及 `GFDiagnosticsUtility` 的惰性 Provider 注册/采集 API、`GFUIRoute.adjacent_route_ids`、`get_adjacent_route_ids()` 和 `GFUIRouterUtility.build_preload_plan()`；均标记为 `@since unreleased`。
 - 新增公开类型 `GFUIRouteOperation`、`GFUIRouteResult`、`GFUIRouterUtility.route_operation_completed` 和 `PRELOAD_*` 常量；`push_route_async()`、`replace_route_async()` 新增 `async_options` 并从 `void` 改为返回句柄。
 - 新增公开类型 `GFTrajectoryMath`，以及运动预测、恒速拦截和有界公式采样入口；均标记为 `@since unreleased`，不改变既有 Steering 行为。
 - 新增公开类型 `GFSaveProfile`、`GFSaveSectionProvider`、`GFSaveRecoveryPolicy`、`GFSaveProfileOperation`、`GFSaveProfileResult`、`GFSaveRollbackFailure` 和 `GFSaveProfileUtility`；Save 扩展安装器会自动注册 Profile Utility，既有 Save Graph 和 Slot API 不变。
@@ -89,6 +92,8 @@
 - 运行时资产目录默认拒绝重复 `asset_id`。只有明确设计了覆盖层时，才在首个 Mount 前配置 `CONFLICT_KEEP_HIGH_PRIORITY`；不要依赖 Provider 注册时序决定胜者。
 - 自定义 `_draw()` 或无法可靠推断范围的 2D 节点应传入显式 `content_bounds`；多后端复制与冲突处理继续使用 `GFStorageSyncUtility`，不要把故障转移当作原子双写。
 - 既有 UI 路由无需迁移；只有需要候选页面预热时才声明 `adjacent_route_ids` 并显式执行生成的资产计划。需要发布后问题轨迹时，应由项目定义最小事件 schema、玩家许可和保留策略，再显式采用 `GFSessionTraceUtility`。
+- 既有诊断快照无需迁移。只有无法安全长期缓存的状态才实现 `GFDiagnosticSnapshotProvider`，并由故障点或支持报告入口显式请求；需要跨系统固定轨迹预算和检查点时，在首次会话前应用 `GFSessionTraceRecipe`，不要把上传、许可或业务恢复逻辑写进配方。
+- 历史代码若通过 `publish_snapshot_section()` 使用了 `diagnostic_providers` 分区 ID，必须迁移为项目自有稳定名称；该 ID 现为惰性 Provider 批量结果的内建保留字段，继续注册会被明确拒绝。
 - 既有曲线、Steering、发射体和节点移动逻辑无需迁移。只有需要结构化未来状态、拦截时间或公式点集时才显式采用 `GFTrajectoryMath`；绘制、物理推进、速度继承、重力拦截和业务命中规则继续由项目负责。
 - 既有 Save Graph、Slot 和直接 Storage 调用无需迁移。需要跨模块自动保存时，为每个稳定数据边界实现一个可回滚 `GFSaveSectionProvider`，注册 Profile 和完整迁移链；不要把缺失、损坏或未来版本统一重置为空存档。
 - 历史配置若有意使用带首尾空白的 route ID，需迁移为去除空白后的稳定 ID；规范化后重复的 ID 会指向同一注册身份，不应再依赖空白区分页面。
@@ -113,6 +118,11 @@
 - `addons/gf/standard/utilities/storage/gf_storage_utility.gd`
 - `addons/gf/standard/utilities/storage/gf_storage_async_operation.gd`
 - `addons/gf/standard/utilities/debug/gf_session_trace_utility.gd`
+- `addons/gf/standard/utilities/debug/gf_diagnostic_snapshot_provider.gd`
+- `addons/gf/standard/utilities/debug/gf_diagnostic_provider_result.gd`
+- `addons/gf/standard/utilities/debug/gf_session_trace_recipe.gd`
+- `addons/gf/standard/utilities/debug/gf_session_trace_channel_definition.gd`
+- `addons/gf/standard/utilities/debug/gf_session_trace_checkpoint.gd`
 - `addons/gf/standard/utilities/ui/gf_ui_route.gd`
 - `addons/gf/standard/utilities/ui/gf_ui_route_preload_utility.gd`
 - `addons/gf/standard/utilities/ui/gf_ui_route_operation.gd`
