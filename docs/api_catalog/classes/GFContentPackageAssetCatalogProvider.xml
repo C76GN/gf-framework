@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFContentPackageAssetCatalogProvider" path="addons/gf/extensions/content_package/runtime/gf_content_package_asset_catalog_provider.gd" module="extensions/content_package" extends="GFAssetCatalogSourceProvider" classDigest="c8b96e04fabade38cac3bdd9f68fc8445068f901e1eca69361f4f3e25256b296">
+	<description>GFContentPackageAssetCatalogProvider: 内容包目录到通用资产目录的适配器。
+Provider 持有内容包目录快照，通过可选 GFContentPackageQuery 选择 manifest，
+再把资源映射转换为 GFAssetCatalogEntry。它不挂载目录、不下载内容，也不解释业务分类。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">protocol</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties />
+	<methods>
+		<member kind="method" name="configure_catalog">
+			<signature>func configure_catalog( catalog: GFContentPackageCatalog, p_source_id: StringName = &amp;"content_packages", query: GFContentPackageQuery = null, options: Dictionary = {} ) -&gt; GFContentPackageAssetCatalogProvider:</signature>
+			<description>配置内容包目录快照和可选查询。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">catalog: 内容包目录；Provider 保存其深拷贝。</tag>
+				<tag name="param">p_source_id: 资产来源 ID。</tag>
+				<tag name="param">query: 可选内容包查询；为空时选择全部有效包。</tag>
+				<tag name="param">options: Provider 配置选项，支持 priority。</tag>
+				<tag name="return">当前 Provider。</tag>
+				<tag name="schema">options: Dictionary with optional priority: int.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="build_catalog">
+			<signature>func build_catalog(options: Dictionary = {}) -&gt; GFAssetCatalog:</signature>
+			<description>构建资产目录快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">options: 可选字段映射，支持 title_fields、description_fields、tag_fields、category_fields 和 preview_path_fields。</tag>
+				<tag name="return">转换后的资产目录；内容包目录无效时返回 null。</tag>
+				<tag name="schema">options: Dictionary with optional PackedStringArray field-name lists for title_fields, description_fields, tag_fields, category_fields, and preview_path_fields.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_debug_snapshot">
+			<signature>func get_debug_snapshot() -&gt; Dictionary:</signature>
+			<description>获取 Provider 诊断快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">来源、内容包目录和查询摘要。</tag>
+				<tag name="schema">return: Dictionary with source_id, priority, provider_class, content_catalog, and query.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

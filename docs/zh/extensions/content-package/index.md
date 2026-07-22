@@ -8,7 +8,9 @@ Content Package 扩展用于把项目或插件中的可选内容收束为稳定 
 
 - `GFContentPackageManifest` 描述一个内容包，读取 `gf_content_package.json`，并校验资源路径是否留在包根目录内。
 - `GFContentPackageCatalog` 管理一组 manifest，报告重复包 ID、缺失依赖和循环依赖，并按依赖优先顺序注册资源键。
-- `GFContentPackageUtility` 维护显式 source root，发现 root 或直接子目录中的 manifest，重建 catalog，并把资源映射同步到 `GFResourceResolverUtility`。
+- `GFContentPackageQuery` 与 `GFContentPackageQueryResult` 提供严格 AND 条件、可选依赖闭包和类型化查询终态，不用空数组混淆“零匹配”与“目录无效”。
+- `GFContentPackageUtility` 按稳定 owner 维护显式 source root，发现 root 或直接子目录中的 manifest，重建 catalog，并把资源映射同步到 `GFResourceResolverUtility`。
+- `GFContentPackageAssetCatalogProvider` 把查询后的内容包资源快照适配为通用 `GFAssetCatalog`，不负责运行时挂载或内容启用。
 
 ## Manifest 形态
 
@@ -42,7 +44,9 @@ JSON 字段按稳定 schema 严格读取。字符串、数组、字典、资源�
 
 ## 来源根与安全分类
 
-`GFContentPackageUtility.register_source_root()` 支持 `res://` 与 `user://` 来源根。项目可以把内置内容放在 `res://content_packages`，把运行时下载、编辑器导入或用户生成内容放在 `user://content_packages`，再用同一套 `rebuild_catalog()` 和资源键注册流程处理。
+`GFContentPackageUtility.register_source_root_for_owner()` 支持 `res://` 与 `user://` 来源根。项目可以把内置内容放在 `res://content_packages`，把运行时下载、编辑器导入或用户生成内容放在 `user://content_packages`，再用同一套 `rebuild_catalog()` 和资源键注册流程处理。多个 owner 可以共同持有同一 root；只有最后一个 owner 释放后，该 root 才会从有效来源集合移除。
+
+需要一次切换一组来源时，使用 `replace_owner_source_roots()`。它会先规范化并校验全部路径，任一无效路径都会拒绝整次替换，上一份 owner 快照保持不变。`register_source_root()`、`unregister_source_root()` 和 `clear_source_roots()` 仍可用于手工配置，但只操作公开常量 `DEFAULT_SOURCE_ROOT_OWNER_ID` 对应的 manual scope，不会清除其他模块持有的 root。
 
 `GFContentPackageManifest.safety_kind` 默认是 `data_only`。该分类会拒绝脚本、动态库、shader、shell 脚本等可执行或代码形态扩展名；项目可以通过 `forbidden_resource_extensions` 追加或替换拦截列表。只有确实由开发者控制、并且项目侧已经决定如何加载和审计代码资源时，才应把分类改成 `trusted_developer`。
 
@@ -58,13 +62,31 @@ JSON 字段按稳定 schema 严格读取。字符串、数组、字典、资源�
 
 Catalog 对 manifest 采用深快照语义：`add_manifest()` 不保留调用方对象，`get_manifest()`、`get_catalog()` 和 `catalog_rebuilt` 也不暴露内部可变实例。注册、注销或清空 source root 会立即失效当前 catalog，调用方必须重新 `rebuild_catalog()` 后再同步资源。
 
+## 查询与资产目录适配
+
+`GFContentPackageQuery` 的所有非空条件采用严格 AND 语义。列表条件要求 manifest 包含全部指定值；`package_ids` 和 `allowed_safety_kinds` 是允许集合。`max_results` 只限制直接命中包，`include_dependencies` 会在限制之后补齐传递依赖，并按 dependency-first 顺序返回。查询开始前会验证完整 catalog，依赖图或 manifest 无效时返回 `STATUS_INVALID_CATALOG`，不会泄漏部分匹配。
+
+```gdscript
+var query := GFContentPackageQuery.new()
+query.required_content_types = PackedStringArray(["theme"])
+query.required_metadata = {"channel": "stable"}
+query.include_dependencies = true
+
+var result := packages.get_catalog().query_packages(query)
+if result.is_successful():
+	for manifest in result.get_manifests():
+		print(manifest.package_id)
+```
+
+需要把内容包显示在素材浏览器或交给资产预加载计划时，使用 `GFContentPackageAssetCatalogProvider`。默认 `asset_id` 采用 `package_id/resource_key`，避免不同包中的局部资源键互相覆盖；原始资源键保留在 `resource_entry_ids` 和 metadata 中，可继续交给 Resolver。Provider 只构建隔离快照，项目可以把结果交给 `GFAssetCatalogRuntime` 挂载，或直接用于离线工具。
+
 需要把 manifest 或导出计划交给 JSON 日志、CI 或编辑器面板时，可以使用 `to_report_dictionary()`。它会通过 `GFReportValueCodec` 输出 JSON-safe 结构，避免 Resource、对象引用、非有限浮点或未脱敏路径直接进入公开报告。
 
 ## 典型流程
 
 ```gdscript
 var packages: GFContentPackageUtility = Gf.get_utility(GFContentPackageUtility)
-packages.register_source_root("res://content_packages")
+packages.register_source_root_for_owner(&"project.builtin_content", "res://content_packages")
 
 var report: Dictionary = packages.rebuild_catalog({
 	"check_resource_exists": true,
@@ -108,6 +130,7 @@ var report := plan.get_validation_report()
 
 - Content Package 不内置 `quest`、`item`、`biome`、`npc`、`skin` 等业务字段；这些字段应由项目 schema 或独立插件解释。
 - 内容包之间只声明依赖顺序，不声明启用条件、版本约束求解、下载来源或平台服务账号。
+- 查询只解释稳定 manifest 字段；复杂 OR、版本约束和业务 schema 查询应由项目组合多个查询结果或在独立规则层完成。
 - 资源键冲突时，依赖包先注册，依赖方后注册；项目可以用 resolver priority、owner-scoped 注册或 provider 明确覆盖基础包资源。
 - 需要多扩展组合时，在项目 Installer 或独立插件中组合 `GFContentPackageUtility`、`GFResourceResolverUtility` 和项目 schema，不把组合逻辑写回 GF 内置扩展。
 

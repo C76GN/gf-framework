@@ -27,7 +27,8 @@
       "res://tests/gf_core/extensions/combat/test_gf_projectiles.gd"
     ],
     "gf.extension.content_package": [
-      "res://tests/gf_core/extensions/content_package/test_gf_content_package.gd"
+      "res://tests/gf_core/extensions/content_package/test_gf_content_package.gd",
+      "res://tests/gf_core/extensions/content_package/test_gf_content_package_query.gd"
     ],
     "gf.extension.decision": [
       "res://tests/gf_core/extensions/decision/test_gf_decision_utility.gd"
@@ -91,6 +92,7 @@
       "res://tests/gf_core/standard/utilities/assets/test_gf_resource_registry.gd",
       "res://tests/gf_core/standard/utilities/assets/test_gf_resource_registry_tools.gd",
       "res://tests/gf_core/standard/utilities/assets/test_gf_resource_resolver_utility.gd",
+      "res://tests/gf_core/standard/utilities/assets/test_gf_asset_catalog_runtime.gd",
       "res://tests/gf_core/standard/utilities/io/test_gf_remote_cache_utility.gd",
       "res://tests/gf_core/standard/utilities/io/test_gf_async_batch.gd",
       "res://tests/gf_core/standard/utilities/io/test_gf_path_enumeration_tools.gd",

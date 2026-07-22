@@ -166,6 +166,78 @@ func get_ordered_package_ids() -> PackedStringArray:
 	return GFVariantData.get_option_packed_string_array(graph_report, "ordered_ids", PackedStringArray())
 
 
+## 查询有效内容包并返回隔离结果。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param query: 通用内容包查询。
+## [br]
+## @param options: manifest 和依赖图校验选项。
+## [br]
+## @return 类型化查询终态；目录无效时不返回部分结果。
+## [br]
+## @schema options: Dictionary，可包含 check_resource_exists: bool、check_resource_dependencies: bool 和 dependency_options: Dictionary。
+func query_packages(
+	query: GFContentPackageQuery,
+	options: Dictionary = {}
+) -> GFContentPackageQueryResult:
+	if query == null:
+		return _make_query_failure(
+			GFContentPackageQueryResult.STATUS_INVALID_QUERY,
+			&"",
+			&"invalid_query",
+			"content package query is required"
+		)
+	var graph_report: Dictionary = get_graph_report(options)
+	if not GFVariantData.get_option_bool(graph_report, "ok", false):
+		return GFContentPackageQueryResult.new().configure_result(
+			false,
+			GFContentPackageQueryResult.STATUS_INVALID_CATALOG,
+			query.query_id,
+			PackedStringArray(),
+			PackedStringArray(),
+			[],
+			graph_report
+		)
+
+	var direct_package_ids: PackedStringArray = PackedStringArray()
+	for package_id_text: String in get_ordered_package_ids():
+		var manifest: GFContentPackageManifest = _get_manifest_ref(StringName(package_id_text))
+		if manifest == null or not query.matches(manifest):
+			continue
+		var _direct_id_appended: bool = direct_package_ids.append(package_id_text)
+		if query.max_results > 0 and direct_package_ids.size() >= query.max_results:
+			break
+
+	var package_ids: PackedStringArray = direct_package_ids.duplicate()
+	if query.include_dependencies:
+		package_ids = _expand_dependency_closure(direct_package_ids)
+	var manifests: Array[GFContentPackageManifest] = []
+	for package_id_text: String in package_ids:
+		var manifest: GFContentPackageManifest = _get_manifest_ref(StringName(package_id_text))
+		if manifest != null:
+			manifests.append(manifest.duplicate_manifest())
+	var report: Dictionary = _make_report("Content package query")
+	report["query_id"] = query.query_id
+	report["status"] = GFContentPackageQueryResult.STATUS_COMPLETED
+	report["direct_package_ids"] = direct_package_ids.duplicate()
+	report["package_ids"] = package_ids.duplicate()
+	report["direct_package_count"] = direct_package_ids.size()
+	report["package_count"] = package_ids.size()
+	report = _finalize_report(report, "Content package query")
+	return GFContentPackageQueryResult.new().configure_result(
+		true,
+		GFContentPackageQueryResult.STATUS_COMPLETED,
+		query.query_id,
+		direct_package_ids,
+		package_ids,
+		manifests,
+		report
+	)
+
+
 ## 获取依赖图和 manifest 诊断报告。
 ## [br]
 ## @api public
@@ -305,6 +377,57 @@ func _get_manifest_ref(package_id: StringName) -> GFContentPackageManifest:
 		var manifest: GFContentPackageManifest = manifest_value
 		return manifest
 	return null
+
+
+func _expand_dependency_closure(direct_package_ids: PackedStringArray) -> PackedStringArray:
+	var included_ids: Dictionary = {}
+	var pending_ids: PackedStringArray = direct_package_ids.duplicate()
+	while not pending_ids.is_empty():
+		var package_id_text: String = pending_ids[pending_ids.size() - 1]
+		pending_ids.remove_at(pending_ids.size() - 1)
+		if included_ids.has(package_id_text):
+			continue
+		included_ids[package_id_text] = true
+		var manifest: GFContentPackageManifest = _get_manifest_ref(StringName(package_id_text))
+		if manifest == null:
+			continue
+		for dependency_id_text: String in manifest.dependencies:
+			if _manifests.has(StringName(dependency_id_text)) and not included_ids.has(dependency_id_text):
+				var _pending_id_appended: bool = pending_ids.append(dependency_id_text)
+	var result: PackedStringArray = PackedStringArray()
+	for package_id_text: String in get_ordered_package_ids():
+		if included_ids.has(package_id_text):
+			var _result_id_appended: bool = result.append(package_id_text)
+	return result
+
+
+func _make_query_failure(
+	status: StringName,
+	query_id: StringName,
+	kind: StringName,
+	message: String
+) -> GFContentPackageQueryResult:
+	var report: Dictionary = _make_report("Content package query")
+	var _issue: Dictionary = GFValidationReportDictionary.append_issue(
+		report,
+		"error",
+		kind,
+		message
+	)
+	report["query_id"] = query_id
+	report["status"] = status
+	report["direct_package_ids"] = PackedStringArray()
+	report["package_ids"] = PackedStringArray()
+	report = _finalize_report(report, "Content package query")
+	return GFContentPackageQueryResult.new().configure_result(
+		false,
+		status,
+		query_id,
+		PackedStringArray(),
+		PackedStringArray(),
+		[],
+		report
+	)
 
 func _add_duplicate_package_id(package_id: StringName) -> void:
 	var package_id_text: String = String(package_id)

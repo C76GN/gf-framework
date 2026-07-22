@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<apiCatalog schemaVersion="2" name="GF Framework" sourceRoot="addons/gf" sourceDigest="17a79558316bb21fbb2858a336eac49820a65294eb46cdb761efe6ff0e82eb61" classCount="750" methodCount="6701">
+<apiCatalog schemaVersion="2" name="GF Framework" sourceRoot="addons/gf" sourceDigest="665fd1ec51d513f5f7915bf1172832366c6c8f070e70db1e0383118ad5d7ada2" classCount="755" methodCount="6746">
 	<module id="kernel" label="Kernel" classCount="70" methodCount="715">
 		<class name="GFAccessGenerator" path="classes/GFAccessGenerator.xml" sourcePath="addons/gf/kernel/editor/gf_access_generator.gd" extends="RefCounted" />
 		<class name="GFArchitecture" path="classes/GFArchitecture.xml" sourcePath="addons/gf/kernel/core/gf_architecture.gd" extends="Object" />
@@ -72,13 +72,15 @@
 		<class name="GFTypeEventSystem" path="classes/GFTypeEventSystem.xml" sourcePath="addons/gf/kernel/core/gf_type_event_system.gd" extends="Object" />
 		<class name="GFUtility" path="classes/GFUtility.xml" sourcePath="addons/gf/kernel/base/gf_utility.gd" extends="Object" />
 	</module>
-	<module id="standard" label="Standard" classCount="416" methodCount="4170">
+	<module id="standard" label="Standard" classCount="418" methodCount="4191">
 		<class name="GFActivationTransaction" path="classes/GFActivationTransaction.xml" sourcePath="addons/gf/standard/foundation/policy/gf_activation_transaction.gd" extends="RefCounted" />
 		<class name="GFAnalyticsConfig" path="classes/GFAnalyticsConfig.xml" sourcePath="addons/gf/standard/utilities/analytics/gf_analytics_config.gd" extends="Resource" />
 		<class name="GFAnalyticsUtility" path="classes/GFAnalyticsUtility.xml" sourcePath="addons/gf/standard/utilities/analytics/gf_analytics_utility.gd" extends="GFUtility" />
 		<class name="GFArtifactFreshnessReport" path="classes/GFArtifactFreshnessReport.xml" sourcePath="addons/gf/standard/foundation/policy/gf_artifact_freshness_report.gd" extends="RefCounted" />
 		<class name="GFAssetCatalog" path="classes/GFAssetCatalog.xml" sourcePath="addons/gf/standard/utilities/assets/gf_asset_catalog.gd" extends="Resource" />
 		<class name="GFAssetCatalogEntry" path="classes/GFAssetCatalogEntry.xml" sourcePath="addons/gf/standard/utilities/assets/gf_asset_catalog_entry.gd" extends="Resource" />
+		<class name="GFAssetCatalogMount" path="classes/GFAssetCatalogMount.xml" sourcePath="addons/gf/standard/utilities/assets/gf_asset_catalog_mount.gd" extends="RefCounted" />
+		<class name="GFAssetCatalogRuntime" path="classes/GFAssetCatalogRuntime.xml" sourcePath="addons/gf/standard/utilities/assets/gf_asset_catalog_runtime.gd" extends="GFUtility" />
 		<class name="GFAssetCatalogSourceProvider" path="classes/GFAssetCatalogSourceProvider.xml" sourcePath="addons/gf/standard/utilities/assets/gf_asset_catalog_source_provider.gd" extends="RefCounted" />
 		<class name="GFAssetCatalogSourceRegistry" path="classes/GFAssetCatalogSourceRegistry.xml" sourcePath="addons/gf/standard/utilities/assets/gf_asset_catalog_source_registry.gd" extends="RefCounted" />
 		<class name="GFAssetCollection" path="classes/GFAssetCollection.xml" sourcePath="addons/gf/standard/utilities/assets/gf_asset_collection.gd" extends="Resource" />
@@ -613,10 +615,13 @@
 		<class name="GFSkillTargetingUtility2D" path="classes/GFSkillTargetingUtility2D.xml" sourcePath="addons/gf/extensions/combat/skills/gf_skill_targeting_utility_2d.gd" extends="GFUtility" />
 		<class name="GFTagComponent" path="classes/GFTagComponent.xml" sourcePath="addons/gf/extensions/combat/tags/gf_tag_component.gd" extends="RefCounted" />
 	</module>
-	<module id="extensions/content_package" label="Extensions / Content Package" classCount="4" methodCount="46">
+	<module id="extensions/content_package" label="Extensions / Content Package" classCount="7" methodCount="70">
+		<class name="GFContentPackageAssetCatalogProvider" path="classes/GFContentPackageAssetCatalogProvider.xml" sourcePath="addons/gf/extensions/content_package/runtime/gf_content_package_asset_catalog_provider.gd" extends="GFAssetCatalogSourceProvider" />
 		<class name="GFContentPackageCatalog" path="classes/GFContentPackageCatalog.xml" sourcePath="addons/gf/extensions/content_package/runtime/gf_content_package_catalog.gd" extends="RefCounted" />
 		<class name="GFContentPackageExportPlan" path="classes/GFContentPackageExportPlan.xml" sourcePath="addons/gf/extensions/content_package/runtime/gf_content_package_export_plan.gd" extends="RefCounted" />
 		<class name="GFContentPackageManifest" path="classes/GFContentPackageManifest.xml" sourcePath="addons/gf/extensions/content_package/resources/gf_content_package_manifest.gd" extends="Resource" />
+		<class name="GFContentPackageQuery" path="classes/GFContentPackageQuery.xml" sourcePath="addons/gf/extensions/content_package/resources/gf_content_package_query.gd" extends="Resource" />
+		<class name="GFContentPackageQueryResult" path="classes/GFContentPackageQueryResult.xml" sourcePath="addons/gf/extensions/content_package/runtime/gf_content_package_query_result.gd" extends="RefCounted" />
 		<class name="GFContentPackageUtility" path="classes/GFContentPackageUtility.xml" sourcePath="addons/gf/extensions/content_package/runtime/gf_content_package_utility.gd" extends="GFUtility" />
 	</module>
 	<module id="extensions/decision" label="Decision" classCount="8" methodCount="61">

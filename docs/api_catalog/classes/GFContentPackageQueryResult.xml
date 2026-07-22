@@ -1,0 +1,127 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFContentPackageQueryResult" path="addons/gf/extensions/content_package/runtime/gf_content_package_query_result.gd" module="extensions/content_package" extends="RefCounted" classDigest="74708156aa21f0a0895eeac4c8b6029f15a2aa1ce182989a7d2c31143bdf7385">
+	<description>GFContentPackageQueryResult: 内容包查询的不可变结果快照。
+结果区分直接命中与依赖闭包，并保留隔离的 manifest 和验证报告，
+调用方不需要从空数组推断查询失败或无匹配。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">value_object</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants>
+		<member kind="const" name="STATUS_COMPLETED">
+			<signature>const STATUS_COMPLETED: StringName = &amp;"completed"</signature>
+			<description>查询成功完成。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_INVALID_QUERY">
+			<signature>const STATUS_INVALID_QUERY: StringName = &amp;"invalid_query"</signature>
+			<description>查询对象为空或无效。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_INVALID_CATALOG">
+			<signature>const STATUS_INVALID_CATALOG: StringName = &amp;"invalid_catalog"</signature>
+			<description>内容包目录依赖图或 manifest 无效。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</constants>
+	<properties />
+	<methods>
+		<member kind="method" name="is_successful">
+			<signature>func is_successful() -&gt; bool:</signature>
+			<description>检查查询是否成功完成。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">查询成功返回 true；零匹配仍属于成功。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_status">
+			<signature>func get_status() -&gt; StringName:</signature>
+			<description>获取稳定终态状态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">`STATUS_*` 常量之一。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_query_id">
+			<signature>func get_query_id() -&gt; StringName:</signature>
+			<description>获取查询 ID。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">查询稳定 ID。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_direct_package_ids">
+			<signature>func get_direct_package_ids() -&gt; PackedStringArray:</signature>
+			<description>获取不含自动依赖扩展的直接命中 package ID。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">dependency-first 排序的 ID 副本。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_package_ids">
+			<signature>func get_package_ids() -&gt; PackedStringArray:</signature>
+			<description>获取最终 package ID，包括请求的依赖闭包。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">dependency-first 排序的 ID 副本。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_manifest">
+			<signature>func get_manifest(package_id: StringName) -&gt; GFContentPackageManifest:</signature>
+			<description>获取一个命中 manifest 的隔离副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">package_id: 内容包 ID。</tag>
+				<tag name="return">manifest 深拷贝；未命中返回 null。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_manifests">
+			<signature>func get_manifests() -&gt; Array[GFContentPackageManifest]:</signature>
+			<description>获取全部命中 manifest 的隔离副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">与 get_package_ids() 同序的 manifest 数组。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_report">
+			<signature>func get_report() -&gt; Dictionary:</signature>
+			<description>获取验证报告副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">GFValidationReportDictionary 兼容字典。</tag>
+				<tag name="schema">return: GFValidationReportDictionary-compatible Dictionary with query_id, status, direct_package_ids, and package_ids.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="to_dict">
+			<signature>func to_dict() -&gt; Dictionary:</signature>
+			<description>转换为 JSON-safe 结果摘要。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">不包含 Resource 对象的结果字典。</tag>
+				<tag name="schema">return: Dictionary with successful, status, query_id, direct_package_ids, package_ids, manifests, and report.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

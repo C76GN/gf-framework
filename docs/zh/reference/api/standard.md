@@ -6,10 +6,10 @@
 
 | 类别 | 类 | 成员 | 方法 |
 |---|---:|---:|---:|
-| [运行时服务](#category-runtime_service) | 182 | 3205 | 2163 |
+| [运行时服务](#category-runtime_service) | 183 | 3218 | 2173 |
 | [协议与扩展点](#category-protocol) | 22 | 309 | 251 |
 | [资源定义](#category-resource_definition) | 111 | 1442 | 747 |
-| [运行时句柄](#category-runtime_handle) | 42 | 713 | 463 |
+| [运行时句柄](#category-runtime_handle) | 43 | 731 | 474 |
 | [值对象](#category-value_object) | 36 | 658 | 416 |
 | [领域模型](#category-domain_model) | 4 | 61 | 42 |
 | [事件契约](#category-event_contract) | 5 | 47 | 17 |
@@ -27,6 +27,7 @@
 | [`GFActivationTransaction`](classes/GFActivationTransaction.md#gfactivationtransaction) | `RefCounted` | `addons/gf/standard/foundation/policy/gf_activation_transaction.gd` |
 | [`GFAnalyticsUtility`](classes/GFAnalyticsUtility.md#gfanalyticsutility) | `GFUtility` | `addons/gf/standard/utilities/analytics/gf_analytics_utility.gd` |
 | [`GFArtifactFreshnessReport`](classes/GFArtifactFreshnessReport.md#gfartifactfreshnessreport) | `RefCounted` | `addons/gf/standard/foundation/policy/gf_artifact_freshness_report.gd` |
+| [`GFAssetCatalogRuntime`](classes/GFAssetCatalogRuntime.md#gfassetcatalogruntime) | `GFUtility` | `addons/gf/standard/utilities/assets/gf_asset_catalog_runtime.gd` |
 | [`GFAssetCatalogSourceRegistry`](classes/GFAssetCatalogSourceRegistry.md#gfassetcatalogsourceregistry) | `RefCounted` | `addons/gf/standard/utilities/assets/gf_asset_catalog_source_registry.gd` |
 | [`GFAssetUtility`](classes/GFAssetUtility.md#gfassetutility) | `GFUtility` | `addons/gf/standard/utilities/assets/gf_asset_utility.gd` |
 | [`GFAsyncFlowTools`](classes/GFAsyncFlowTools.md#gfasyncflowtools) | `RefCounted` | `addons/gf/standard/common/gf_async_flow_tools.gd` |
@@ -360,6 +361,7 @@
 
 | 类 | 继承 | 源文件 |
 |---|---|---|
+| [`GFAssetCatalogMount`](classes/GFAssetCatalogMount.md#gfassetcatalogmount) | `RefCounted` | `addons/gf/standard/utilities/assets/gf_asset_catalog_mount.gd` |
 | [`GFAssetHandle`](classes/GFAssetHandle.md#gfassethandle) | `RefCounted` | `addons/gf/standard/utilities/assets/gf_asset_handle.gd` |
 | [`GFAssetLoadSession`](classes/GFAssetLoadSession.md#gfassetloadsession) | `RefCounted` | `addons/gf/standard/utilities/assets/gf_asset_load_session.gd` |
 | [`GFAsyncBatch`](classes/GFAsyncBatch.md#gfasyncbatch) | `RefCounted` | `addons/gf/standard/utilities/io/gf_async_batch.gd` |
