@@ -1,7 +1,7 @@
 ## GFSaveProfileUtility: 多 section 存档的异步协调器。
 ##
-## 每个 profile 独立串行 IO；连续保存通过 generation 合并为最新后续写入。
-## 读取在保存屏障后执行，并在主线程完成迁移、校验和 provider 事务化应用。
+## 每个 profile 只串行推进一个当前 IO；超时后无法取消的写入会 detached 保留路径所有权。
+## 连续保存通过 generation 合并为最新后续写入；读取在保存屏障后执行，并在主线程完成迁移、校验和 provider 事务化应用。
 ## [br]
 ## @api public
 ## [br]
@@ -536,33 +536,49 @@ func _schedule(state: ProfileState) -> void:
 		state.schedule_requested = false
 		while state.mode == STATE_IDLE and not _disposed and not _dispose_requested:
 			_complete_ready_flushes(state)
+			if state.save_turn_due:
+				state.save_turn_due = false
+				if not state.save_operations.is_empty():
+					_start_save(state)
+					if state.mode != STATE_IDLE:
+						break
+					continue
+			if not state.load_operations.is_empty():
+				var oldest_load: GFSaveProfileOperation = state.load_operations.front()
+				var target_generation: int = oldest_load.get_requested_generation()
+				var waiting_for_save: bool = (
+					target_generation > state.persisted_generation
+					and _has_pending_save_covering_generation(state, target_generation)
+				)
+				if not waiting_for_save:
+					var _removed_load: GFSaveProfileOperation = state.load_operations.pop_front()
+					state.save_turn_due = not state.save_operations.is_empty()
+					var barrier_failure: Dictionary = _get_barrier_failure(
+						state,
+						target_generation
+					)
+					if not barrier_failure.is_empty():
+						_complete_operation(
+							state,
+							oldest_load,
+							false,
+							GFVariantData.get_option_string_name(barrier_failure, "status"),
+							_get_error_code(barrier_failure, "error_code", FAILED),
+							"Load barrier failed: %s" % GFVariantData.get_option_string(
+								barrier_failure,
+								"error"
+							),
+							barrier_failure
+						)
+						continue
+					_start_load(state, oldest_load)
+					break
 			if not state.save_operations.is_empty():
+				state.save_turn_due = false
 				_start_save(state)
 				if state.mode != STATE_IDLE:
 					break
 				continue
-			if state.load_operations.is_empty():
-				break
-			var load_operation: GFSaveProfileOperation = state.load_operations.pop_front()
-			var barrier_failure: Dictionary = _get_barrier_failure(
-				state,
-				load_operation.get_requested_generation()
-			)
-			if not barrier_failure.is_empty():
-				_complete_operation(
-					state,
-					load_operation,
-					false,
-					GFVariantData.get_option_string_name(barrier_failure, "status"),
-					_get_error_code(barrier_failure, "error_code", FAILED),
-					"Load barrier failed: %s" % GFVariantData.get_option_string(
-						barrier_failure,
-						"error"
-					),
-					barrier_failure
-				)
-				continue
-			_start_load(state, load_operation)
 			break
 	state.is_scheduling = false
 
@@ -1042,9 +1058,25 @@ func _handle_corrupt_document(
 # 完成与清理
 
 func _complete_save_operations_success(state: ProfileState) -> void:
+	_complete_save_operations_success_through(
+		state,
+		state.current_generation,
+		state.current_document,
+		state.current_attempt_count,
+		state.current_storage_request_ids
+	)
+
+
+func _complete_save_operations_success_through(
+	state: ProfileState,
+	generation: int,
+	document: GFSaveDocument,
+	attempt_count: int,
+	storage_request_ids: PackedInt64Array
+) -> void:
 	var remaining: Array[GFSaveProfileOperation] = []
 	for operation: GFSaveProfileOperation in state.save_operations:
-		if operation.get_requested_generation() <= state.current_generation:
+		if operation.get_requested_generation() <= generation:
 			_complete_operation(
 				state,
 				operation,
@@ -1053,16 +1085,16 @@ func _complete_save_operations_success(state: ProfileState) -> void:
 				OK,
 				"",
 				{
-					"document": state.current_document,
-					"attempt_count": state.current_attempt_count,
-					"coalesced": operation.get_requested_generation() < state.current_generation,
-					"storage_request_ids": state.current_storage_request_ids,
+					"document": document,
+					"attempt_count": attempt_count,
+					"coalesced": operation.get_requested_generation() < generation,
+					"storage_request_ids": storage_request_ids,
 				}
 			)
 		else:
 			remaining.append(operation)
 	state.save_operations = remaining
-	if state.current_generation >= state.generation:
+	if generation >= state.generation:
 		state.latest_save_context.clear()
 		state.latest_save_metadata.clear()
 
@@ -1502,6 +1534,9 @@ func _detach_current_write(state: ProfileState) -> void:
 		"operation": operation,
 		"callback": callback,
 		"generation": state.current_generation,
+		"document": state.current_document,
+		"attempt_count": state.current_attempt_count,
+		"storage_request_ids": state.current_storage_request_ids.duplicate(),
 	}
 	if operation.is_completed():
 		_on_detached_write_completed(
@@ -1543,14 +1578,45 @@ func _on_detached_write_completed(
 		operation.completed.disconnect(callback)
 	var _erased: bool = state.detached_write_operations.erase(request_id)
 	_remove_unknown_request_id(state, generation, request_id)
-	if (
+	var successful: bool = (
 		result != null
 		and result.get_request_id() == request_id
 		and result.get_operation() == GFStorageAsyncOperation.OPERATION_SAVE
 		and result.is_successful()
-	):
+	)
+	if successful:
+		var document: GFSaveDocument = _get_document_value(
+			GFVariantData.get_option_value(record, "document")
+		)
+		var attempt_count: int = GFVariantData.get_option_int(record, "attempt_count")
+		var request_ids: PackedInt64Array = _get_request_id_array(
+			GFVariantData.get_option_value(record, "storage_request_ids", PackedInt64Array())
+		)
+		var owns_current_retry: bool = (
+			state.current_kind == GFSaveProfileOperation.OPERATION_SAVE
+			and state.current_generation == generation
+			and state.mode != STATE_IDLE
+		)
+		if owns_current_retry:
+			if state.current_document != null:
+				document = state.current_document
+			attempt_count = maxi(attempt_count, state.current_attempt_count)
+			for current_request_id: int in state.current_storage_request_ids:
+				_append_request_id(request_ids, current_request_id)
+			if state.current_storage_operation != null:
+				_detach_current_write(state)
 		state.persisted_generation = maxi(state.persisted_generation, generation)
 		_clear_generation_evidence_through(state, generation)
+		_complete_save_operations_success_through(
+			state,
+			generation,
+			document,
+			attempt_count,
+			request_ids
+		)
+		if owns_current_retry:
+			_clear_current(state)
+			_set_mode(state, STATE_IDLE)
 	elif generation > state.persisted_generation:
 		var error_code: Error = result.get_error_code() if result != null else FAILED
 		if not state.unknown_write_generations.has(generation):
@@ -2135,7 +2201,7 @@ class ProfileState extends RefCounted:
 	## [br]
 	## @api framework_internal
 	## [br]
-	## @schema detached_write_operations: Dictionary keyed by request ID with operation, callback, and generation.
+	## @schema detached_write_operations: Dictionary keyed by request ID with operation, callback, generation, document, attempt_count, and storage_request_ids.
 	var detached_write_operations: Dictionary = {}
 
 	## 是否正在迭代调度当前 profile。
@@ -2147,6 +2213,11 @@ class ProfileState extends RefCounted:
 	## [br]
 	## @api framework_internal
 	var schedule_requested: bool = false
+
+	## 已服务一个就绪读取后，是否应先给等待保存一个调度轮次。
+	## [br]
+	## @api framework_internal
+	var save_turn_due: bool = false
 
 	## 当前操作临时上下文。
 	## [br]

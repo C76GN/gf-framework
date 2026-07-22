@@ -76,9 +76,10 @@ section 版本落后时必须存在完整迁移链，未来版本始终拒绝读
 
 ## 保存、flush 与读取屏障
 
-每次保存请求获得递增 generation。同一 profile 只有一个底层 IO 在途；在途写入
-期间的多个请求会合并为一次最新 generation 写入。较早句柄只有在覆盖其 generation
-的写入完成后才进入终态。
+每次保存请求获得递增 generation。同一 profile 只推进一个当前 IO；在途写入期间的
+多个请求会合并为一次最新 generation 写入。较早句柄只有在覆盖其 generation 的写入
+完成后才进入终态。物理写入超时后无法可靠取消时，原请求会 detached 并继续保有路径
+所有权，因此它可能与后续重试短暂物理并存，但不再作为状态机的当前 IO。
 
 ```gdscript
 var operation := save_profiles.save_profile(&"project.player", {
@@ -95,9 +96,12 @@ if not result.is_successful():
 
 `flush_profile()` 捕获调用时可见的 generation，只在该 generation 或更新 generation
 真实持久化后成功。`load_profile()` 同样捕获写入屏障；屏障写入失败时不会静默读取
-旧文件。加载、迁移、应用期间的保存请求会以 `busy` 明确拒绝，避免旧文件覆盖刚应用
-到内存的新状态。provider 和状态变更回调中的重入请求会被拒绝；完成信号在状态稳定后
-发出，因此完成回调可以发起一个新的非递归操作。
+旧文件。最老读取的屏障一旦满足，就会先获得一个调度轮次，避免持续自动保存让已就绪
+读取长期饥饿；如果仍有保存等待，服务一个读取后会把下一轮交给保存，避免大量读取反向
+饿死保存和 flush。尚未满足的读取仍等待能够覆盖其 generation 的保存。加载、迁移、应用
+期间的保存请求会以 `busy` 明确拒绝，避免旧文件覆盖刚应用到内存的新状态。provider 和
+状态变更回调中的重入请求会被拒绝；完成信号在状态稳定后发出，因此完成回调可以发起一个
+新的非递归操作。
 
 Profile 层使用 `GFStorageAsyncOperation` 的 request ID 观察自己的底层请求，不依赖
 “文件名相同”的全局完成信号。因此其他调用方同时读写同一文件也不会完成错误句柄。
@@ -122,7 +126,9 @@ schema ID 不匹配、迁移失败和 provider 应用失败不进入损坏恢复
 写入无法可靠取消，因此超时或写入期间释放会返回 `outcome_unknown`，调用方不得假定磁盘
 未发生提交。未知证据按 generation 保存，结果中的 `storage_request_ids` 可用于对账；
 超时请求迟到完成前，Profile 继续占有规范路径，注销和同路径重新注册都会被拒绝。
-迟到的完成回调只用于内部收敛，不会二次完成操作句柄。
+迟到的完成回调不会改变已经进入终态的操作句柄；如果同一逻辑保存仍在等待或执行重试，
+任一覆盖其 generation 的物理写入成功会立即完成该句柄并取消尚未启动的重试。已经启动的
+其他写请求继续由 Profile 保有路径直到物理终态，但其后续失败不会翻转已确认的保存成功。
 
 未知 section 默认采用 `GFSaveProfile.UNKNOWN_SECTION_REJECT`，避免旧客户端读取后保存时
 静默删除新客户端数据。只有明确拥有向前兼容要求时才选择 `UNKNOWN_SECTION_PRESERVE`；

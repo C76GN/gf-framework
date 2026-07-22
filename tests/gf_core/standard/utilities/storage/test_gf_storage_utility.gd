@@ -5,6 +5,20 @@ extends GutTest
 var _storage: GFStorageUtility
 
 
+class MigrationOverrideStorageUtility extends GFStorageUtility:
+	var migration_call_count: int = 0
+
+	func migrate_data(data: Dictionary, _from_version: int, _to_version: int) -> Dictionary:
+		migration_call_count += 1
+		var migrated: Dictionary = data.duplicate(true)
+		migrated["custom_migration"] = true
+		return migrated
+
+
+class InheritedMigrationStorageUtility extends GFStorageUtility:
+	pass
+
+
 class FaultyStorageUtility extends GFStorageUtility:
 	var fail_on_file_name: String = ""
 
@@ -46,6 +60,7 @@ func after_each() -> void:
 			"test_plain_json_migration.json",
 			"test_json_number_preserve.json",
 			"test_legacy_version.json",
+			"test_migrate_override.json",
 			"test_registered_migration.json",
 			"test_missing_migration_chain.json",
 			"test_branching_migration.json",
@@ -872,6 +887,37 @@ func test_load_data_applies_version_defaults() -> void:
 	assert_signal_emitted(_storage, "data_migrated", "旧版本数据迁移后应发出信号。")
 
 
+func test_load_data_preserves_migrate_data_override_extension_point() -> void:
+	var override_storage: MigrationOverrideStorageUtility = MigrationOverrideStorageUtility.new()
+	override_storage.save_dir_name = "test_saves"
+	override_storage.init()
+	_storage = override_storage
+	_storage.encrypt_key = 0
+	_storage.save_version = 2
+	_storage.default_values_for_new_keys = {"framework_default": true}
+	var file_name: String = "test_migrate_override.json"
+	var file: FileAccess = FileAccess.open(_storage._get_full_path(file_name), FileAccess.WRITE)
+	var _stored: Variant = file.store_buffer(GFStorageCodec.new().encode({ "value": 10 }, {
+		"obfuscation_key": 0,
+		"version": 1,
+	}))
+	file.close()
+
+	var read_result: GFStorageReadResult = _storage.load_data(file_name)
+
+	assert_true(read_result.ok)
+	assert_true(read_result.migrated)
+	assert_eq(override_storage.migration_call_count, 1, "读取旧版本必须经过既有 migrate_data 覆写点。")
+	assert_true(
+		GFVariantData.get_option_bool(read_result.payload, "custom_migration"),
+		"覆写迁移产生的数据不得被注册链直调路径跳过。"
+	)
+	assert_false(
+		read_result.payload.has("framework_default"),
+		"自定义 migrate_data 返回的精确 schema 不得被外层再次补默认字段。"
+	)
+
+
 func test_registered_migrations_run_as_version_chain() -> void:
 	_storage.encrypt_key = 0
 	_storage.save_version = 3
@@ -904,6 +950,10 @@ func test_registered_migrations_run_as_version_chain() -> void:
 
 
 func test_registered_migration_wrong_return_type_fails_without_advancing_version() -> void:
+	var inherited_storage: InheritedMigrationStorageUtility = InheritedMigrationStorageUtility.new()
+	inherited_storage.save_dir_name = "test_saves"
+	inherited_storage.init()
+	_storage = inherited_storage
 	_storage.encrypt_key = 0
 	_storage.save_version = 2
 	assert_true(_storage.register_migration(1, 2, func(

@@ -9,7 +9,7 @@
 - 类别：运行时服务 (`runtime_service`)
 - 首次版本：`unreleased`
 
-多 section 存档的异步协调器。 每个 profile 独立串行 IO；连续保存通过 generation 合并为最新后续写入。 读取在保存屏障后执行，并在主线程完成迁移、校验和 provider 事务化应用。
+多 section 存档的异步协调器。 每个 profile 只串行推进一个当前 IO；超时后无法取消的写入会 detached 保留路径所有权。 连续保存通过 generation 合并为最新后续写入；读取在保存屏障后执行，并在主线程完成迁移、校验和 provider 事务化应用。
 
 ## 成员概览
 

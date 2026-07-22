@@ -244,6 +244,54 @@ func test_load_waits_for_save_barrier_before_starting_storage_read() -> void:
 	assert_eq(provider.value, 8)
 
 
+func test_ready_load_runs_before_newer_queued_save() -> void:
+	var provider: MemorySectionProvider = _make_provider(&"state", 1)
+	var profile: GFSaveProfile = _make_profile(&"test.load_fairness", provider)
+	assert_true(_register(profile))
+	var first_save: GFSaveProfileOperation = _utility.save_profile(profile.profile_id)
+	var load_operation: GFSaveProfileOperation = _utility.load_profile(profile.profile_id)
+	provider.value = 2
+	var second_save: GFSaveProfileOperation = _utility.save_profile(profile.profile_id)
+
+	_storage.complete_save(OK)
+
+	assert_true(first_save.get_result().is_successful())
+	assert_eq(_storage.load_calls.size(), 1, "generation 屏障满足后，最老读取必须先于更新保存启动。")
+	assert_eq(_storage.save_calls.size(), 1, "更新保存不得让已就绪读取持续饥饿。")
+	if _storage.load_calls.size() != 1:
+		return
+	_storage.complete_load(_read_success(_make_document(profile, {&"state": {"value": 8}})))
+	assert_true(load_operation.get_result().is_successful())
+	assert_eq(_storage.save_calls.size(), 2, "读取完成后应继续处理更新保存。")
+	_storage.complete_save(OK)
+	assert_true(second_save.get_result().is_successful())
+
+
+func test_ready_load_and_pending_save_use_bounded_fair_turns() -> void:
+	var provider: MemorySectionProvider = _make_provider(&"state", 1)
+	var profile: GFSaveProfile = _make_profile(&"test.load_save_fairness", provider)
+	assert_true(_register(profile))
+	var _first_save: GFSaveProfileOperation = _utility.save_profile(profile.profile_id)
+	var first_load: GFSaveProfileOperation = _utility.load_profile(profile.profile_id)
+	var second_load: GFSaveProfileOperation = _utility.load_profile(profile.profile_id)
+	provider.value = 2
+	var second_save: GFSaveProfileOperation = _utility.save_profile(profile.profile_id)
+
+	_storage.complete_save(OK)
+	assert_eq(_storage.load_calls.size(), 1, "保存后应先服务一个已就绪读取。")
+	assert_eq(_storage.save_calls.size(), 1)
+	_storage.complete_load(_read_success(_make_document(profile, {&"state": {"value": 8}})))
+
+	assert_true(first_load.get_result().is_successful())
+	assert_eq(_storage.save_calls.size(), 2, "服务一个就绪读取后必须给等待保存一个轮次。")
+	assert_eq(_storage.load_calls.size(), 1, "剩余就绪读取不得反向饿死等待保存。")
+	_storage.complete_save(OK)
+	assert_true(second_save.get_result().is_successful())
+	assert_eq(_storage.load_calls.size(), 2, "保存轮次结束后应继续处理最老读取。")
+	_storage.complete_load(_read_success(_make_document(profile, {&"state": {"value": 9}})))
+	assert_true(second_load.get_result().is_successful())
+
+
 func test_transient_write_failure_uses_bounded_monotonic_retry_schedule() -> void:
 	var provider: MemorySectionProvider = _make_provider(&"state", 4)
 	var policy: GFSaveRecoveryPolicy = GFSaveRecoveryPolicy.new()
@@ -673,6 +721,76 @@ func test_save_timeout_reports_outcome_unknown_and_ignores_late_completion() -> 
 	assert_eq(operation.get_result().get_storage_request_ids().size(), 1)
 	_storage.complete_save(OK)
 	assert_eq(operation.get_result().get_status(), GFSaveProfileResult.STATUS_OUTCOME_UNKNOWN)
+
+
+func test_detached_write_success_cancels_pending_retry() -> void:
+	var policy: GFSaveRecoveryPolicy = GFSaveRecoveryPolicy.new()
+	policy.io_timeout_msec = 10
+	policy.retry_delays_msec = PackedInt32Array([5])
+	var profile: GFSaveProfile = _make_profile(
+		&"test.detached_pending_retry_win",
+		_make_provider(&"state", 1),
+		policy
+	)
+	assert_true(_register(profile))
+	var operation: GFSaveProfileOperation = _utility.save_profile(profile.profile_id)
+	var _advanced_timeout: bool = _clock.advance_msec(10)
+	_utility.tick(0.0)
+
+	_storage.complete_save(OK)
+
+	assert_true(operation.is_completed(), "原写入在等待重试时晚到成功，应立即完成逻辑保存。")
+	if not operation.is_completed():
+		return
+	assert_true(operation.get_result().is_successful())
+	var _advanced_retry: bool = _clock.advance_msec(5)
+	_utility.tick(0.0)
+	assert_eq(_storage.save_calls.size(), 1, "已确认成功后不得再启动计划中的重试。")
+
+
+func test_detached_write_success_wins_over_active_retry_failure() -> void:
+	var policy: GFSaveRecoveryPolicy = GFSaveRecoveryPolicy.new()
+	policy.io_timeout_msec = 10
+	policy.retry_delays_msec = PackedInt32Array([5])
+	var profile: GFSaveProfile = _make_profile(
+		&"test.detached_retry_win",
+		_make_provider(&"state", 1),
+		policy
+	)
+	assert_true(_register(profile))
+	var operation: GFSaveProfileOperation = _utility.save_profile(profile.profile_id)
+	var _advanced_timeout: bool = _clock.advance_msec(10)
+	_utility.tick(0.0)
+	var _advanced_retry: bool = _clock.advance_msec(5)
+	_utility.tick(0.0)
+	assert_eq(_storage.save_calls.size(), 2, "超时后应按策略启动一次重试。")
+
+	_storage.complete_save(OK)
+
+	assert_true(operation.is_completed(), "原写入晚到成功后，受覆盖的逻辑保存应立即完成。")
+	if not operation.is_completed():
+		return
+	assert_true(operation.get_result().is_successful())
+	assert_eq(_utility.get_persisted_generation(profile.profile_id), 1)
+	assert_eq(
+		GFVariantData.get_option_int(
+			_utility.get_profile_state_snapshot(profile.profile_id),
+			"detached_write_count",
+			-1
+		),
+		1,
+		"已启动的重试仍应保持路径所有权，直到物理写入结束。"
+	)
+	_storage.complete_save(ERR_BUSY)
+	assert_true(operation.get_result().is_successful(), "后续重试失败不得翻转已确认的保存成功。")
+	assert_eq(
+		GFVariantData.get_option_int(
+			_utility.get_profile_state_snapshot(profile.profile_id),
+			"detached_write_count",
+			-1
+		),
+		0
+	)
 
 
 func test_generation_scoped_unknown_evidence_survives_a_later_gather_failure() -> void:

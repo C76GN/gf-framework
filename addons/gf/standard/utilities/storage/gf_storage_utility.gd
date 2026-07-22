@@ -1732,20 +1732,31 @@ func _apply_schema_migrations(file_name: String, result: GFStorageReadResult) ->
 	if (strict_schema_migrations or not _migration_steps.is_empty()) and migration_chain.is_empty():
 		return _fail_schema_migration(result, from_version, to_version)
 
-	var execution: Dictionary = _execute_registered_migrations(
-		result.payload,
-		from_version,
-		to_version
-	)
-	if not GFVariantData.get_option_bool(execution, "ok", false):
-		return _make_migration_failure(
-			result,
-			GFVariantData.get_option_string(execution, "error", "Storage migration failed."),
-			GFStorageReadResult.FailureKind.MIGRATION_FAILED
+	var migrated_payload: Dictionary = {}
+	if _has_migrate_data_override():
+		migrated_payload = migrate_data(result.payload, from_version, to_version)
+	else:
+		var execution: Dictionary = _execute_registered_migrations(
+			result.payload,
+			from_version,
+			to_version
 		)
-	var migrated_payload: Dictionary = GFVariantData.get_option_dictionary(execution, "payload")
-	if not default_values_for_new_keys.is_empty():
-		migrated_payload = _merge_default_values(migrated_payload, default_values_for_new_keys)
+		if not GFVariantData.get_option_bool(execution, "ok", false):
+			return _make_migration_failure(
+				result,
+				GFVariantData.get_option_string(
+					execution,
+					"error",
+					"Storage migration failed."
+				),
+				GFStorageReadResult.FailureKind.MIGRATION_FAILED
+			)
+		migrated_payload = GFVariantData.get_option_dictionary(execution, "payload")
+		if not default_values_for_new_keys.is_empty():
+			migrated_payload = _merge_default_values(
+				migrated_payload,
+				default_values_for_new_keys
+			)
 	var migrated_metadata: Dictionary = result.metadata.duplicate(true)
 	migrated_metadata[GFStorageCodec.VERSION_KEY] = to_version
 	result.payload = migrated_payload
@@ -1754,6 +1765,29 @@ func _apply_schema_migrations(file_name: String, result: GFStorageReadResult) ->
 	result.migrated = true
 	data_migrated.emit(file_name, from_version, to_version)
 	return result
+
+
+func _has_migrate_data_override() -> bool:
+	var script: Script = _get_script_value(get_script())
+	var framework_method_count: int = _count_script_methods(
+		GFStorageUtility,
+		&"migrate_data"
+	)
+	while script != null and script != GFStorageUtility:
+		if _count_script_methods(script, &"migrate_data") > framework_method_count:
+			return true
+		script = script.get_base_script()
+	return false
+
+
+func _count_script_methods(script: Script, method_name: StringName) -> int:
+	if script == null:
+		return 0
+	var count: int = 0
+	for method: Dictionary in script.get_script_method_list():
+		if GFVariantData.get_option_string(method, "name") == String(method_name):
+			count += 1
+	return count
 
 
 func _execute_registered_migrations(

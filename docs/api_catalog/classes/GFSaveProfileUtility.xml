@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSaveProfileUtility" path="addons/gf/extensions/save/profile/gf_save_profile_utility.gd" module="extensions/save" extends="GFUtility" classDigest="26a2e2d5f8d523929cb82f5de7f9682743c6b9ac252f8fb11fe28bef2e8798d4">
+<class name="GFSaveProfileUtility" path="addons/gf/extensions/save/profile/gf_save_profile_utility.gd" module="extensions/save" extends="GFUtility" classDigest="87d997949c2d97e533913fb8fd5ea3c96d5385c7e070aebec5a345875189f6a1">
 	<description>GFSaveProfileUtility: 多 section 存档的异步协调器。
-每个 profile 独立串行 IO；连续保存通过 generation 合并为最新后续写入。
-读取在保存屏障后执行，并在主线程完成迁移、校验和 provider 事务化应用。</description>
+每个 profile 只串行推进一个当前 IO；超时后无法取消的写入会 detached 保留路径所有权。
+连续保存通过 generation 合并为最新后续写入；读取在保存屏障后执行，并在主线程完成迁移、校验和 provider 事务化应用。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">runtime_service</tag>

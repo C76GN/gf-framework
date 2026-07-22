@@ -33,7 +33,7 @@ Profile 层不引入第二套文件格式，不解释业务字段，不绑定槽
 
 ## 核心不变量
 
-1. 同一 profile 最多只有一个底层 IO 在途。
+1. 同一 profile 最多只有一个由状态机推进的当前 IO；超时后无法取消的 detached 写入可与重试物理并存，但只保留路径所有权和终态观测，不再参与当前调度。
 2. 每次保存请求获得单调递增 generation；在途保存期间的新请求只保留最新 generation。
 3. 被合并的保存句柄只有在包含其 generation 的后续写入成功后才完成。
 4. `flush_profile()` 捕获调用时的目标 generation，不把“已入队”等同于“已持久化”。
@@ -50,6 +50,8 @@ Profile 层不引入第二套文件格式，不解释业务字段，不绑定槽
 15. 无法证明写入未提交时必须返回 `outcome_unknown`，不得伪装成确定失败。
 16. 失败和未知写入证据必须按 generation 保存，后续失败不得覆盖较早 generation 的未知结果。
 17. 超时写入在迟到终态前继续占有规范存储路径；不得注销 profile 或把路径转移给其他 profile。
+18. 同一逻辑保存仍在等待或执行重试时，任一覆盖该 generation 的物理写入成功都立即胜出；其他在途尝试只保留路径所有权，不得再翻转逻辑终态。
+19. 就绪读取和等待保存采用有界轮转：最老就绪读取不会被更新保存饿死，服务一个读取后也必须给等待保存一个轮次。
 
 ## 状态机
 
@@ -61,13 +63,16 @@ Profile 层不引入第二套文件格式，不解释业务字段，不绑定槽
 | `gathering` | 在主线程采集不可变保存快照 | `saving`、`idle` |
 | `saving` | 等待唯一写入请求的类型化终态 | `retry_wait`、`idle`、`gathering` |
 | `loading` | 等待读取终态 | `retry_wait`、`applying`、`idle` |
-| `retry_wait` | 等待单调时钟达到下一次重试时间 | `saving`、`loading` |
+| `retry_wait` | 等待单调时钟达到下一次重试时间 | `saving`、`loading`、`idle` |
 | `applying` | 主线程迁移、校验和事务化应用 | `idle` |
 | `disposed` | Utility 已释放，拒绝新任务 | 无 |
 
-`saving -> gathering` 表示当前 generation 完成后采集被合并的最新 generation，
-并不表示存在并行写入。读取请求在保存和 flush 收敛后执行，避免读到旧快照；加载或
-应用过程中不接受保存，以免基于旧内存状态覆盖新读取的数据。
+`saving -> gathering` 表示当前 generation 完成后采集被合并的最新 generation，正常
+调度不会主动并行启动两个当前写入。物理写入超时后无法证明已经取消，因此 detached
+原请求可与后续重试短暂并存；两者仍由同一 Profile 保有路径，只有重试属于当前 IO。
+读取请求在调用时捕获的 generation 屏障收敛后执行，不等待之后请求的更新保存；加载或
+应用过程中不接受保存，以免基于旧内存状态覆盖新读取的数据。`retry_wait -> idle` 表示
+等待期间 detached 写入迟到成功，计划重试随逻辑保存完成而取消。
 
 ## 失败矩阵
 
@@ -93,7 +98,7 @@ Profile 层不引入第二套文件格式，不解释业务字段，不绑定槽
 | provider 应用失败 | `apply_failed` | 自动逆序回滚已应用 provider | 失败 section、回滚错误 |
 | 回滚失败 | `rollback_failed` | 无静默降级，状态视为未知 | 原始失败和全部回滚错误 |
 | Utility 释放时存在未启动任务 | `disposed` | 无 | 未完成 operation 列表 |
-| 超时写入迟到完成 | 不改变既有句柄终态；更新 generation 证据后释放路径所有权 | 对账后继续 | request ID、generation、迟到终态 |
+| 超时写入迟到完成 | 已有句柄终态不变；仍在重试的逻辑保存以任一成功写入为准 | 对账后继续；成功会取消未启动重试 | request ID、generation、全部尝试 ID、迟到终态 |
 | 其他同名文件请求完成 | 不改变当前操作 | 无 | request ID、已完成句柄 |
 
 ## 恢复与重试政策
@@ -122,6 +127,8 @@ Profile 层不引入第二套文件格式，不解释业务字段，不绑定槽
 - load/apply 期间保存、provider/状态回调重入和完成回调释放都获得稳定、单次终态；
 - 完成回调在稳定终态后可安全发起新的非递归操作；
 - 写入超时/释放返回 outcome-unknown，迟到回调不会二次完成；
+- 原写入在等待重试或重试在途时迟到成功，会完成仍未终结的逻辑保存并阻止后续失败翻转结果；
+- 就绪读取与等待保存交替获得有界轮次，任一方向的持续请求都不能让另一方向无限饥饿；
 - 后续 generation 失败不会抹掉较早 generation 的 outcome-unknown，迟到终态前路径不能转移；
 - 未知 section 的 reject、preserve、drop 三种政策均有往返测试；
 - Storage 的未来格式、迁移失败和非严格完整性失败保持类型化分类；

@@ -2,7 +2,7 @@
   "schema_version": 1,
   "catalog_version": "1.0.0",
   "framework_version": "10.0.0-dev.0",
-  "source_digest": "26916705128b5a690b0ef259063b43322d5433822ef1f1be787713ae71e64d66",
+  "source_digest": "3cf947188dce2072a524e639c013e198a0a2c4433546be4c63f10e2b2e4f4b4e",
   "class_count": 726,
   "package_count": 50,
   "packages": [
@@ -63806,7 +63806,7 @@
       "module": "extensions/save",
       "package_id": "gf.extension.save",
       "path": "addons/gf/extensions/save/profile/gf_save_profile_utility.gd",
-      "summary": "GFSaveProfileUtility: 多 section 存档的异步协调器。 每个 profile 独立串行 IO；连续保存通过 generation 合并为最新后续写入。 读取在保存屏障后执行，并在主线程完成迁移、校验和 provider 事务化应用。",
+      "summary": "GFSaveProfileUtility: 多 section 存档的异步协调器。 每个 profile 只串行推进一个当前 IO；超时后无法取消的写入会 detached 保留路径所有权。 连续保存通过 generation 合并为最新后续写入；读取在保存屏障后执行，并在主线程完成迁移、校验和 provider 事务化应用。",
       "visibility": "public",
       "category": "runtime_service",
       "since": "unreleased",
