@@ -1677,6 +1677,7 @@ func test_enabled_extension_installer_registers_services_before_init() -> void:
 
 	await Gf.init()
 	var save_graph_utility: Object = Gf.get_utility(GFSaveGraphUtility)
+	var save_profile_utility: Object = Gf.get_utility(GFSaveProfileUtility)
 
 	ProjectSettings.set_setting(INSTALLERS_SETTING, previous_installers)
 	ProjectSettings.set_setting(GFExtensionSettings.ENABLED_EXTENSIONS_SETTING, previous_extensions)
@@ -1688,6 +1689,7 @@ func test_enabled_extension_installer_registers_services_before_init() -> void:
 	ProjectSettings.set_setting(GFExtensionSettings.AUTO_INSTALL_ENABLED_INSTALLERS_SETTING, previous_auto_install)
 
 	assert_not_null(save_graph_utility, "启用扩展 installer 应在三阶段初始化前注册扩展级服务。")
+	assert_not_null(save_profile_utility, "Save 扩展 installer 应同时注册 profile 协调器。")
 
 
 ## 验证 Installer 配置错误默认会中断架构初始化并记录失败原因。

@@ -62,6 +62,7 @@
       "res://tests/gf_core/extensions/save/test_gf_persist_properties_source.gd",
       "res://tests/gf_core/extensions/save/test_gf_save_document.gd",
       "res://tests/gf_core/extensions/save/test_gf_save_graph_utility.gd",
+      "res://tests/gf_core/extensions/save/test_gf_save_profile_utility.gd",
       "res://tests/gf_core/extensions/save/test_gf_save_slot_workflow.gd"
     ],
     "gf.extension.turn_based": [

@@ -30,6 +30,32 @@ enum IntegrityStatus {
 	INVALID,
 }
 
+## 读取失败的稳定分类。
+##
+## 调用方必须依据该分类选择恢复策略，不得从 Error 码或错误文本推断数据语义。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+enum FailureKind {
+	## 没有失败。
+	NONE,
+	## 请求参数或路径无效。
+	INVALID_REQUEST,
+	## 文件不存在。
+	NOT_FOUND,
+	## 文件 IO 或异步执行失败。
+	IO_FAILED,
+	## 文件格式、载荷或完整性损坏。
+	CORRUPT,
+	## 物理存储版本高于当前运行时。
+	FUTURE_VERSION,
+	## 物理存储迁移链缺失或迁移失败。
+	MIGRATION_FAILED,
+	## 请求在执行前被底层服务终止。
+	UNAVAILABLE,
+}
+
 
 # --- 公共变量 ---
 
@@ -78,6 +104,13 @@ var error_code: Error = OK
 ## [br]
 ## @since 9.0.0
 var error: String = ""
+
+## 读取失败的稳定分类；成功时为 `FailureKind.NONE`。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+var failure_kind: FailureKind = FailureKind.NONE
 
 ## 物理存储文档 schema 版本。
 ## [br]
@@ -141,6 +174,7 @@ func configure_success(
 	integrity_status = p_integrity_status
 	error_code = OK
 	error = ""
+	failure_kind = FailureKind.NONE
 	document_schema_version = maxi(p_document_schema_version, 0)
 	source_data_version = maxi(GFVariantData.get_option_int(metadata, "data_version", 1), 1)
 	data_version = source_data_version
@@ -164,6 +198,8 @@ func configure_success(
 ## [br]
 ## @param p_document_schema_version: 物理文档 schema 版本。
 ## [br]
+## @param p_failure_kind: 稳定失败分类。
+## [br]
 ## @schema p_metadata: Dictionary，失败时仍可安全展示或诊断的框架存储元数据。
 ## [br]
 ## @return 当前结果。
@@ -172,7 +208,8 @@ func configure_failure(
 	p_error_code: Error = ERR_INVALID_DATA,
 	p_metadata: Dictionary = {},
 	p_integrity_status: IntegrityStatus = IntegrityStatus.NOT_CHECKED,
-	p_document_schema_version: int = 0
+	p_document_schema_version: int = 0,
+	p_failure_kind: FailureKind = FailureKind.IO_FAILED
 ) -> GFStorageReadResult:
 	ok = false
 	payload.clear()
@@ -180,6 +217,7 @@ func configure_failure(
 	integrity_status = p_integrity_status
 	error_code = p_error_code
 	error = p_error.strip_edges()
+	failure_kind = p_failure_kind if p_failure_kind != FailureKind.NONE else FailureKind.IO_FAILED
 	document_schema_version = maxi(p_document_schema_version, 0)
 	source_data_version = maxi(GFVariantData.get_option_int(metadata, "data_version", 1), 1)
 	data_version = source_data_version
@@ -217,7 +255,7 @@ func duplicate_result() -> GFStorageReadResult:
 ## [br]
 ## @return 读取结果字典。
 ## [br]
-## @schema return: Dictionary，包含 ok、payload、metadata、integrity_status、error_code、error、document_schema_version、source_data_version、data_version 和 migrated。
+## @schema return: Dictionary，包含 ok、payload、metadata、integrity_status、error_code、error、failure_kind、document_schema_version、source_data_version、data_version 和 migrated。
 func to_dict() -> Dictionary:
 	return {
 		"ok": ok,
@@ -226,6 +264,7 @@ func to_dict() -> Dictionary:
 		"integrity_status": int(integrity_status),
 		"error_code": int(error_code),
 		"error": error,
+		"failure_kind": int(failure_kind),
 		"document_schema_version": document_schema_version,
 		"source_data_version": source_data_version,
 		"data_version": data_version,
@@ -249,6 +288,14 @@ func apply_dict(data: Dictionary) -> void:
 	integrity_status = _to_integrity_status(GFVariantData.get_option_int(data, "integrity_status"))
 	error_code = GFVariantData.get_option_int(data, "error_code", ERR_INVALID_DATA) as Error
 	error = GFVariantData.get_option_string(data, "error").strip_edges()
+	if ok:
+		failure_kind = FailureKind.NONE
+	else:
+		failure_kind = _to_failure_kind(
+			GFVariantData.get_option_int(data, "failure_kind", FailureKind.IO_FAILED)
+		)
+		if failure_kind == FailureKind.NONE:
+			failure_kind = FailureKind.IO_FAILED
 	document_schema_version = maxi(GFVariantData.get_option_int(data, "document_schema_version"), 0)
 	source_data_version = maxi(GFVariantData.get_option_int(data, "source_data_version", 1), 1)
 	data_version = maxi(GFVariantData.get_option_int(data, "data_version", source_data_version), 1)
@@ -284,3 +331,9 @@ static func _to_integrity_status(value: int) -> IntegrityStatus:
 			return IntegrityStatus.INVALID
 		_:
 			return IntegrityStatus.NOT_CHECKED
+
+
+static func _to_failure_kind(value: int) -> FailureKind:
+	if FailureKind.values().has(value):
+		return value as FailureKind
+	return FailureKind.IO_FAILED

@@ -2,8 +2,8 @@
   "schema_version": 1,
   "catalog_version": "1.0.0",
   "framework_version": "10.0.0-dev.0",
-  "source_digest": "25291a15383b9bb57ebc01ce8f469147b1f50c177be59acf4631adae31af7364",
-  "class_count": 717,
+  "source_digest": "3cf947188dce2072a524e639c013e198a0a2c4433546be4c63f10e2b2e4f4b4e",
+  "class_count": 726,
   "package_count": 50,
   "packages": [
     {
@@ -63268,6 +63268,813 @@
         }
       ]
     },
+    "GFSaveProfile": {
+      "extends": "Resource",
+      "module": "extensions/save",
+      "package_id": "gf.extension.save",
+      "path": "addons/gf/extensions/save/profile/gf_save_profile.gd",
+      "summary": "GFSaveProfile: 多 section 存档的项目级声明。 Profile 从 provider 列表派生唯一文档 schema，避免项目同时维护重复的 section 版本清单。运行时数据仍由 provider 持有，Profile 不解释业务字段。",
+      "visibility": "public",
+      "category": "resource_definition",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "const",
+          "name": "UNKNOWN_SECTION_REJECT",
+          "signature": "const UNKNOWN_SECTION_REJECT: StringName = &\"reject\"",
+          "summary": "拒绝当前 Profile 未声明的 section。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "UNKNOWN_SECTION_PRESERVE",
+          "signature": "const UNKNOWN_SECTION_PRESERVE: StringName = &\"preserve\"",
+          "summary": "读取时接受未知 section，并在后续保存中原样保留。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "UNKNOWN_SECTION_DROP",
+          "signature": "const UNKNOWN_SECTION_DROP: StringName = &\"drop\"",
+          "summary": "读取时接受未知 section，并在后续保存中显式丢弃。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "profile_id",
+          "signature": "var profile_id: StringName = &\"\"",
+          "summary": "稳定运行时 Profile ID。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "schema_id",
+          "signature": "var schema_id: StringName = &\"\"",
+          "summary": "稳定文档 schema ID；为空时使用 `profile_id`。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "file_name",
+          "signature": "var file_name: String = \"\"",
+          "summary": "`GFStorageUtility` 管理的相对文件名。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "schema_version",
+          "signature": "var schema_version: int = 1",
+          "summary": "当前文档 schema 版本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "providers",
+          "signature": "var providers: Array[GFSaveSectionProvider] = []",
+          "summary": "拥有各 section 的 provider，顺序决定采集与应用顺序。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "recovery_policy",
+          "signature": "var recovery_policy: GFSaveRecoveryPolicy = GFSaveRecoveryPolicy.new()",
+          "summary": "缺失、损坏和临时 IO 失败的显式政策。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "save_enabled",
+          "signature": "var save_enabled: bool = true",
+          "summary": "Profile 是否接受保存和 flush 请求。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "load_enabled",
+          "signature": "var load_enabled: bool = true",
+          "summary": "Profile 是否接受读取请求。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "unknown_section_policy",
+          "signature": "var unknown_section_policy: StringName = UNKNOWN_SECTION_REJECT",
+          "summary": "未声明 section 的处理政策。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "validate_profile",
+          "signature": "func validate_profile() -> Dictionary",
+          "summary": "校验 profile、恢复政策和全部 provider。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "build_schema",
+          "signature": "func build_schema() -> GFSaveDocumentSchema",
+          "summary": "从当前 provider 清单派生文档 schema。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_effective_schema_id",
+          "signature": "func get_effective_schema_id() -> StringName",
+          "summary": "获取写入文档使用的 schema ID。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_provider",
+          "signature": "func get_provider(section_id: StringName) -> GFSaveSectionProvider",
+          "summary": "获取指定 section 的唯一 provider。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_providers",
+          "signature": "func get_providers() -> Array[GFSaveSectionProvider]",
+          "summary": "获取 provider 引用的隔离数组。",
+          "visibility": "public"
+        }
+      ]
+    },
+    "GFSaveProfileOperation": {
+      "extends": "RefCounted",
+      "module": "extensions/save",
+      "package_id": "gf.extension.save",
+      "path": "addons/gf/extensions/save/profile/gf_save_profile_operation.gd",
+      "summary": "GFSaveProfileOperation: Save Profile 异步操作句柄。 句柄由 `GFSaveProfileUtility` 完成一次且只完成一次。调用方可在连接信号前检查 `is_completed()`，避免立即拒绝或同步恢复结果造成竞态。",
+      "visibility": "public",
+      "category": "runtime_handle",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "signal",
+          "name": "completed",
+          "signature": "signal completed(result: GFSaveProfileResult)",
+          "summary": "操作进入终态时发出一次。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "OPERATION_SAVE",
+          "signature": "const OPERATION_SAVE: StringName = &\"save\"",
+          "summary": "保存操作。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "OPERATION_LOAD",
+          "signature": "const OPERATION_LOAD: StringName = &\"load\"",
+          "summary": "读取操作。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "OPERATION_FLUSH",
+          "signature": "const OPERATION_FLUSH: StringName = &\"flush\"",
+          "summary": "flush 操作。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_operation",
+          "signature": "func get_operation() -> StringName",
+          "summary": "获取操作类型。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_profile_id",
+          "signature": "func get_profile_id() -> StringName",
+          "summary": "获取 profile ID。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_requested_generation",
+          "signature": "func get_requested_generation() -> int",
+          "summary": "获取调用时捕获的 generation。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_pending",
+          "signature": "func is_pending() -> bool",
+          "summary": "检查操作是否等待调度。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_running",
+          "signature": "func is_running() -> bool",
+          "summary": "检查操作是否正在运行。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_completed",
+          "signature": "func is_completed() -> bool",
+          "summary": "检查操作是否已有终态。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_result",
+          "signature": "func get_result() -> GFSaveProfileResult",
+          "summary": "获取终态结果副本。",
+          "visibility": "public"
+        }
+      ]
+    },
+    "GFSaveProfileResult": {
+      "extends": "RefCounted",
+      "module": "extensions/save",
+      "package_id": "gf.extension.save",
+      "path": "addons/gf/extensions/save/profile/gf_save_profile_result.gd",
+      "summary": "GFSaveProfileResult: Save Profile 操作的不可变终态快照。 结果同时保留 profile generation、底层存储结果、迁移/校验证据和回滚错误， 调用方无需从错误文本反推失败阶段。",
+      "visibility": "public",
+      "category": "value_object",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "const",
+          "name": "STATUS_SAVED",
+          "signature": "const STATUS_SAVED: StringName = &\"saved\"",
+          "summary": "保存 generation 已持久化。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "STATUS_LOADED",
+          "signature": "const STATUS_LOADED: StringName = &\"loaded\"",
+          "summary": "文档已迁移、校验并应用。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "STATUS_FLUSHED",
+          "signature": "const STATUS_FLUSHED: StringName = &\"flushed\"",
+          "summary": "flush 目标 generation 已持久化。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "STATUS_RECOVERED",
+          "signature": "const STATUS_RECOVERED: StringName = &\"recovered\"",
+          "summary": "恢复政策保留了当前内存状态。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "STATUS_INVALID_PROFILE",
+          "signature": "const STATUS_INVALID_PROFILE: StringName = &\"invalid_profile\"",
+          "summary": "Profile 配置或请求无效。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "STATUS_UNSUPPORTED_OPERATION",
+          "signature": "const STATUS_UNSUPPORTED_OPERATION: StringName = &\"unsupported_operation\"",
+          "summary": "当前 Profile 不支持请求的操作。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "STATUS_BUSY",
+          "signature": "const STATUS_BUSY: StringName = &\"busy\"",
+          "summary": "请求与正在执行的加载或 Provider 回调冲突。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "STATUS_GATHER_FAILED",
+          "signature": "const STATUS_GATHER_FAILED: StringName = &\"gather_failed\"",
+          "summary": "section 保存采集失败。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "STATUS_SNAPSHOT_FAILED",
+          "signature": "const STATUS_SNAPSHOT_FAILED: StringName = &\"snapshot_failed\"",
+          "summary": "section 应用前快照采集失败。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "STATUS_STORAGE_FAILED",
+          "signature": "const STATUS_STORAGE_FAILED: StringName = &\"storage_failed\"",
+          "summary": "底层存储启动或执行失败。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "STATUS_MISSING",
+          "signature": "const STATUS_MISSING: StringName = &\"missing\"",
+          "summary": "存档文件不存在。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "STATUS_CORRUPT",
+          "signature": "const STATUS_CORRUPT: StringName = &\"corrupt\"",
+          "summary": "存档文档损坏或完整性失败。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "STATUS_SCHEMA_MISMATCH",
+          "signature": "const STATUS_SCHEMA_MISMATCH: StringName = &\"schema_mismatch\"",
+          "summary": "文档 schema ID 与 profile 不匹配。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "STATUS_FUTURE_SCHEMA",
+          "signature": "const STATUS_FUTURE_SCHEMA: StringName = &\"future_schema\"",
+          "summary": "文档或 section 来自未来 schema。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "STATUS_MIGRATION_FAILED",
+          "signature": "const STATUS_MIGRATION_FAILED: StringName = &\"migration_failed\"",
+          "summary": "旧版本文档迁移失败或缺少迁移链。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "STATUS_VALIDATION_FAILED",
+          "signature": "const STATUS_VALIDATION_FAILED: StringName = &\"validation_failed\"",
+          "summary": "当前版本文档校验失败。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "STATUS_APPLY_FAILED",
+          "signature": "const STATUS_APPLY_FAILED: StringName = &\"apply_failed\"",
+          "summary": "section provider 应用失败且回滚成功。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "STATUS_ROLLBACK_FAILED",
+          "signature": "const STATUS_ROLLBACK_FAILED: StringName = &\"rollback_failed\"",
+          "summary": "section provider 应用失败且至少一个回滚失败。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "STATUS_DISPOSED",
+          "signature": "const STATUS_DISPOSED: StringName = &\"disposed\"",
+          "summary": "Utility 释放时操作仍未完成。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "STATUS_OUTCOME_UNKNOWN",
+          "signature": "const STATUS_OUTCOME_UNKNOWN: StringName = &\"outcome_unknown\"",
+          "summary": "写入已提交到底层但无法确认最终磁盘副作用。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_successful",
+          "signature": "func is_successful() -> bool",
+          "summary": "检查操作是否成功。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_status",
+          "signature": "func get_status() -> StringName",
+          "summary": "获取稳定终态状态。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_operation",
+          "signature": "func get_operation() -> StringName",
+          "summary": "获取操作类型。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_profile_id",
+          "signature": "func get_profile_id() -> StringName",
+          "summary": "获取 profile ID。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_requested_generation",
+          "signature": "func get_requested_generation() -> int",
+          "summary": "获取调用方请求时的 generation。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_persisted_generation",
+          "signature": "func get_persisted_generation() -> int",
+          "summary": "获取终态时已持久化的 generation。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_attempt_count",
+          "signature": "func get_attempt_count() -> int",
+          "summary": "获取底层 IO 尝试次数。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "was_coalesced",
+          "signature": "func was_coalesced() -> bool",
+          "summary": "检查保存请求是否由更新 generation 的写入覆盖完成。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "was_recovered",
+          "signature": "func was_recovered() -> bool",
+          "summary": "检查是否通过恢复政策保留了当前状态。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_recovery_action",
+          "signature": "func get_recovery_action() -> StringName",
+          "summary": "获取实际恢复动作。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_failed_section_id",
+          "signature": "func get_failed_section_id() -> StringName",
+          "summary": "获取首个失败 section ID。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_error_code",
+          "signature": "func get_error_code() -> Error",
+          "summary": "获取 Godot Error 码。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_error",
+          "signature": "func get_error() -> String",
+          "summary": "获取稳定错误描述。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_document",
+          "signature": "func get_document() -> GFSaveDocument",
+          "summary": "获取最终文档副本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_storage_result",
+          "signature": "func get_storage_result() -> GFStorageReadResult",
+          "summary": "获取底层读取结果副本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_migration_result",
+          "signature": "func get_migration_result() -> GFSaveMigrationResult",
+          "summary": "获取迁移结果副本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_validation_report",
+          "signature": "func get_validation_report() -> Dictionary",
+          "summary": "获取最终校验报告副本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_rollback_errors",
+          "signature": "func get_rollback_errors() -> Array[GFSaveRollbackFailure]",
+          "summary": "获取回滚失败证据副本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_duration_msec",
+          "signature": "func get_duration_msec() -> int",
+          "summary": "获取操作耗时。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_metadata",
+          "signature": "func get_metadata() -> Dictionary",
+          "summary": "获取调用方元数据副本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_storage_request_ids",
+          "signature": "func get_storage_request_ids() -> PackedInt64Array",
+          "summary": "获取支撑当前终态的底层 Storage 请求 ID。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "to_dict",
+          "signature": "func to_dict() -> Dictionary",
+          "summary": "转换为可报告字典。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "duplicate_result",
+          "signature": "func duplicate_result() -> GFSaveProfileResult",
+          "summary": "创建隔离结果副本。",
+          "visibility": "public"
+        }
+      ]
+    },
+    "GFSaveProfileUtility": {
+      "extends": "GFUtility",
+      "module": "extensions/save",
+      "package_id": "gf.extension.save",
+      "path": "addons/gf/extensions/save/profile/gf_save_profile_utility.gd",
+      "summary": "GFSaveProfileUtility: 多 section 存档的异步协调器。 每个 profile 只串行推进一个当前 IO；超时后无法取消的写入会 detached 保留路径所有权。 连续保存通过 generation 合并为最新后续写入；读取在保存屏障后执行，并在主线程完成迁移、校验和 provider 事务化应用。",
+      "visibility": "public",
+      "category": "runtime_service",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "signal",
+          "name": "profile_operation_completed",
+          "signature": "signal profile_operation_completed(result: GFSaveProfileResult)",
+          "summary": "任一 profile 操作进入终态时发出。",
+          "visibility": "public"
+        },
+        {
+          "kind": "signal",
+          "name": "profile_state_changed",
+          "signature": "signal profile_state_changed(profile_id: StringName, previous_state: StringName, current_state: StringName)",
+          "summary": "profile 状态机发生变化时发出。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "STATE_IDLE",
+          "signature": "const STATE_IDLE: StringName = &\"idle\"",
+          "summary": "Profile 空闲。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "STATE_GATHERING",
+          "signature": "const STATE_GATHERING: StringName = &\"gathering\"",
+          "summary": "正在同步采集 section。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "STATE_SAVING",
+          "signature": "const STATE_SAVING: StringName = &\"saving\"",
+          "summary": "正在等待保存 IO。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "STATE_LOADING",
+          "signature": "const STATE_LOADING: StringName = &\"loading\"",
+          "summary": "正在等待读取 IO。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "STATE_RETRY_WAIT",
+          "signature": "const STATE_RETRY_WAIT: StringName = &\"retry_wait\"",
+          "summary": "正在等待有界重试截止时间。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "STATE_APPLYING",
+          "signature": "const STATE_APPLYING: StringName = &\"applying\"",
+          "summary": "正在迁移、校验或事务化应用 section。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "STATE_DISPOSED",
+          "signature": "const STATE_DISPOSED: StringName = &\"disposed\"",
+          "summary": "Utility 已释放。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "ready",
+          "signature": "func ready() -> void",
+          "summary": "在架构 ready 阶段采用已注册的 Storage 和 Time 服务。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "tick",
+          "signature": "func tick(_delta: float) -> void",
+          "summary": "推进到期重试。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "dispose",
+          "signature": "func dispose() -> void",
+          "summary": "终止所有未完成操作并释放底层信号连接。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "setup",
+          "signature": "func setup(storage: GFStorageUtility, clock: GFClock = null) -> GFSaveProfileUtility",
+          "summary": "显式注入底层存储和可选时钟。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "register_profile",
+          "signature": "func register_profile( profile: GFSaveProfile, migrations: GFSaveMigrationRegistry = null ) -> Dictionary",
+          "summary": "注册一个 profile 及其可选迁移注册表。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "unregister_profile",
+          "signature": "func unregister_profile(profile_id: StringName) -> bool",
+          "summary": "注销空闲 profile。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "save_profile",
+          "signature": "func save_profile( profile_id: StringName, metadata: Dictionary = {}, context: Dictionary = {} ) -> GFSaveProfileOperation",
+          "summary": "请求异步保存 profile。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "load_profile",
+          "signature": "func load_profile( profile_id: StringName, context: Dictionary = {}, metadata: Dictionary = {} ) -> GFSaveProfileOperation",
+          "summary": "请求异步读取、迁移、校验并应用 profile。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "flush_profile",
+          "signature": "func flush_profile( profile_id: StringName, metadata: Dictionary = {} ) -> GFSaveProfileOperation",
+          "summary": "等待调用时可见的最新 generation 持久化。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_persisted_generation",
+          "signature": "func get_persisted_generation(profile_id: StringName) -> int",
+          "summary": "获取已成功持久化的 generation。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_profile_state_snapshot",
+          "signature": "func get_profile_state_snapshot(profile_id: StringName) -> Dictionary",
+          "summary": "获取稳定状态机快照。",
+          "visibility": "public"
+        }
+      ]
+    },
+    "GFSaveRecoveryPolicy": {
+      "extends": "Resource",
+      "module": "extensions/save",
+      "package_id": "gf.extension.save",
+      "path": "addons/gf/extensions/save/profile/gf_save_recovery_policy.gd",
+      "summary": "GFSaveRecoveryPolicy: Save Profile 的显式恢复与有界重试政策。 缺失和损坏数据默认失败；项目必须显式选择保留当前内存状态。 重试只接受列出的临时错误，并受有限延迟序列约束。",
+      "visibility": "public",
+      "category": "resource_definition",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "const",
+          "name": "ACTION_FAIL",
+          "signature": "const ACTION_FAIL: StringName = &\"fail\"",
+          "summary": "不执行自动恢复。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "ACTION_USE_CURRENT_STATE",
+          "signature": "const ACTION_USE_CURRENT_STATE: StringName = &\"use_current_state\"",
+          "summary": "保留当前内存状态，不写入或替换原文件。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "missing_file_action",
+          "signature": "var missing_file_action: StringName = ACTION_FAIL",
+          "summary": "文件缺失时的恢复动作。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "corrupt_file_action",
+          "signature": "var corrupt_file_action: StringName = ACTION_FAIL",
+          "summary": "文件损坏或完整性校验失败时的恢复动作。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "retry_delays_msec",
+          "signature": "var retry_delays_msec: PackedInt32Array = PackedInt32Array()",
+          "summary": "每次临时失败后的有限重试延迟，单位毫秒。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "transient_error_codes",
+          "signature": "var transient_error_codes: PackedInt32Array = PackedInt32Array([",
+          "summary": "允许重试的 Godot Error 码。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "io_timeout_msec",
+          "signature": "var io_timeout_msec: int = 30_000",
+          "summary": "单次底层 IO 的最大等待时间，单位毫秒。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "validate_policy",
+          "signature": "func validate_policy() -> Dictionary",
+          "summary": "检查策略自身是否合法。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "can_retry",
+          "signature": "func can_retry(error_code: Error, failed_attempt_count: int) -> bool",
+          "summary": "检查指定错误在当前失败次数后是否可以重试。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_retry_delay_msec",
+          "signature": "func get_retry_delay_msec(failed_attempt_count: int) -> int",
+          "summary": "获取指定失败次数后的重试延迟。",
+          "visibility": "public"
+        }
+      ]
+    },
+    "GFSaveRollbackFailure": {
+      "extends": "RefCounted",
+      "module": "extensions/save",
+      "package_id": "gf.extension.save",
+      "path": "addons/gf/extensions/save/profile/gf_save_rollback_failure.gd",
+      "summary": "GFSaveRollbackFailure: 单个 section 回滚失败证据。",
+      "visibility": "public",
+      "category": "value_object",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "func",
+          "name": "get_section_id",
+          "signature": "func get_section_id() -> StringName",
+          "summary": "获取回滚失败的 section ID。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_error_code",
+          "signature": "func get_error_code() -> Error",
+          "summary": "获取回滚 Error 码。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "duplicate_failure",
+          "signature": "func duplicate_failure() -> GFSaveRollbackFailure",
+          "summary": "创建隔离副本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "to_dict",
+          "signature": "func to_dict() -> Dictionary",
+          "summary": "转换为可报告字典。",
+          "visibility": "public"
+        }
+      ]
+    },
     "GFSaveScope": {
       "extends": "Node",
       "module": "extensions/save",
@@ -63478,6 +64285,123 @@
           "signature": "static func from_dict(data: Dictionary) -> GFSaveSection",
           "summary": "从持久化字典创建分区。",
           "visibility": "public"
+        }
+      ]
+    },
+    "GFSaveSectionProvider": {
+      "extends": "Resource",
+      "module": "extensions/save",
+      "package_id": "gf.extension.save",
+      "path": "addons/gf/extensions/save/profile/gf_save_section_provider.gd",
+      "summary": "GFSaveSectionProvider: Save Profile section 所有权协议。 一个 provider 只拥有一个稳定 section。实现必须能够采集当前状态、应用已校验 section，并在后续 provider 失败时恢复此前采集的 section。",
+      "visibility": "public",
+      "category": "protocol",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "var",
+          "name": "section_id",
+          "signature": "var section_id: StringName = &\"\"",
+          "summary": "稳定且在 profile 内唯一的 section ID。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "schema_version",
+          "signature": "var schema_version: int = 1",
+          "summary": "当前 section schema 版本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "save_enabled",
+          "signature": "var save_enabled: bool = true",
+          "summary": "是否参与保存采集。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "load_enabled",
+          "signature": "var load_enabled: bool = true",
+          "summary": "是否参与读取应用。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "required_on_load",
+          "signature": "var required_on_load: bool = true",
+          "summary": "读取时该 section 是否必须存在。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "validate_provider",
+          "signature": "func validate_provider() -> Dictionary",
+          "summary": "校验 provider 身份和能力配置。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "gather_section",
+          "signature": "func gather_section(context: Dictionary = {}) -> GFSaveSection",
+          "summary": "采集当前状态为隔离 section。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "capture_section",
+          "signature": "func capture_section(context: Dictionary = {}) -> GFSaveSection",
+          "summary": "采集应用前回滚快照。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "apply_section",
+          "signature": "func apply_section(section: GFSaveSection, context: Dictionary = {}) -> Error",
+          "summary": "应用属于当前 provider 的 section。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "rollback_section",
+          "signature": "func rollback_section(previous_section: GFSaveSection, context: Dictionary = {}) -> Error",
+          "summary": "使用应用前快照恢复当前 provider。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "make_section",
+          "signature": "func make_section(payload: Variant, metadata: Dictionary = {}) -> GFSaveSection",
+          "summary": "创建带当前 provider 身份的 section。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "_gather_section",
+          "signature": "func _gather_section(_context: Dictionary = {}) -> GFSaveSection",
+          "summary": "采集当前 section。返回 null 表示失败。",
+          "visibility": "protected"
+        },
+        {
+          "kind": "func",
+          "name": "_capture_section",
+          "signature": "func _capture_section(context: Dictionary = {}) -> GFSaveSection",
+          "summary": "采集应用前回滚快照。默认复用 `_gather_section()`。",
+          "visibility": "protected"
+        },
+        {
+          "kind": "func",
+          "name": "_apply_section",
+          "signature": "func _apply_section(_section: GFSaveSection, _context: Dictionary = {}) -> Error",
+          "summary": "应用当前版本 section。",
+          "visibility": "protected"
+        },
+        {
+          "kind": "func",
+          "name": "_rollback_section",
+          "signature": "func _rollback_section(previous_section: GFSaveSection, context: Dictionary = {}) -> Error",
+          "summary": "恢复应用前 section。默认复用 `_apply_section()`。",
+          "visibility": "protected"
         }
       ]
     },
@@ -71884,6 +72808,149 @@
         }
       ]
     },
+    "GFStorageAsyncOperation": {
+      "extends": "RefCounted",
+      "module": "standard",
+      "package_id": "gf.standard.storage",
+      "path": "addons/gf/standard/utilities/storage/gf_storage_async_operation.gd",
+      "summary": "GFStorageAsyncOperation: 单次异步存储请求句柄。 句柄由 `GFStorageUtility` 分配唯一请求 ID，并且只接受一个终态。调用方应先 检查 `is_completed()`，再决定是否等待 `completed` 信号。",
+      "visibility": "public",
+      "category": "runtime_handle",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "signal",
+          "name": "completed",
+          "signature": "signal completed(result: GFStorageAsyncResult)",
+          "summary": "请求进入终态时发出一次。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "OPERATION_SAVE",
+          "signature": "const OPERATION_SAVE: StringName = &\"save\"",
+          "summary": "异步写入请求。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "OPERATION_LOAD",
+          "signature": "const OPERATION_LOAD: StringName = &\"load\"",
+          "summary": "异步读取请求。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_request_id",
+          "signature": "func get_request_id() -> int",
+          "summary": "获取 Utility 内唯一请求 ID。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_operation",
+          "signature": "func get_operation() -> StringName",
+          "summary": "获取请求类型。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_file_name",
+          "signature": "func get_file_name() -> String",
+          "summary": "获取规范化存储文件名。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_pending",
+          "signature": "func is_pending() -> bool",
+          "summary": "检查请求是否等待终态。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_completed",
+          "signature": "func is_completed() -> bool",
+          "summary": "检查请求是否已有终态。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_result",
+          "signature": "func get_result() -> GFStorageAsyncResult",
+          "summary": "获取终态结果副本。",
+          "visibility": "public"
+        }
+      ]
+    },
+    "GFStorageAsyncResult": {
+      "extends": "RefCounted",
+      "module": "standard",
+      "package_id": "gf.standard.storage",
+      "path": "addons/gf/standard/utilities/storage/gf_storage_async_result.gd",
+      "summary": "GFStorageAsyncResult: 单次异步存储请求的不可变终态。 结果通过请求 ID 与具体句柄绑定；读取结果保留 `GFStorageReadResult` 的类型化 失败分类，写入结果只暴露稳定 Error 码。",
+      "visibility": "public",
+      "category": "value_object",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "func",
+          "name": "get_request_id",
+          "signature": "func get_request_id() -> int",
+          "summary": "获取 Storage Utility 分配的请求 ID。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_operation",
+          "signature": "func get_operation() -> StringName",
+          "summary": "获取请求类型。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_file_name",
+          "signature": "func get_file_name() -> String",
+          "summary": "获取规范化存储文件名。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_successful",
+          "signature": "func is_successful() -> bool",
+          "summary": "检查请求是否成功。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_error_code",
+          "signature": "func get_error_code() -> Error",
+          "summary": "获取请求 Error 码。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_read_result",
+          "signature": "func get_read_result() -> GFStorageReadResult",
+          "summary": "获取读取结果副本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "duplicate_result",
+          "signature": "func duplicate_result() -> GFStorageAsyncResult",
+          "summary": "创建隔离结果副本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "to_dict",
+          "signature": "func to_dict() -> Dictionary",
+          "summary": "转换为可报告字典。",
+          "visibility": "public"
+        }
+      ]
+    },
     "GFStorageBackend": {
       "extends": "RefCounted",
       "module": "standard",
@@ -72475,6 +73542,13 @@
           "visibility": "public"
         },
         {
+          "kind": "enum",
+          "name": "FailureKind",
+          "signature": "enum FailureKind {\n\t## 没有失败。\n\tNONE,\n\t## 请求参数或路径无效。\n\tINVALID_REQUEST,\n\t## 文件不存在。\n\tNOT_FOUND,\n\t## 文件 IO 或异步执行失败。\n\tIO_FAILED,\n\t## 文件格式、载荷或完整性损坏。\n\tCORRUPT,\n\t## 物理存储版本高于当前运行时。\n\tFUTURE_VERSION,\n\t## 物理存储迁移链缺失或迁移失败。\n\tMIGRATION_FAILED,\n\t## 请求在执行前被底层服务终止。\n\tUNAVAILABLE,\n}",
+          "summary": "读取失败的稳定分类。",
+          "visibility": "public"
+        },
+        {
           "kind": "var",
           "name": "ok",
           "signature": "var ok: bool = false",
@@ -72518,6 +73592,13 @@
         },
         {
           "kind": "var",
+          "name": "failure_kind",
+          "signature": "var failure_kind: FailureKind = FailureKind.NONE",
+          "summary": "读取失败的稳定分类；成功时为 `FailureKind.NONE`。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
           "name": "document_schema_version",
           "signature": "var document_schema_version: int = 0",
           "summary": "物理存储文档 schema 版本。",
@@ -72554,7 +73635,7 @@
         {
           "kind": "func",
           "name": "configure_failure",
-          "signature": "func configure_failure( p_error: String, p_error_code: Error = ERR_INVALID_DATA, p_metadata: Dictionary = {}, p_integrity_status: IntegrityStatus = IntegrityStatus.NOT_CHECKED, p_document_schema_version: int = 0 ) -> GFStorageReadResult",
+          "signature": "func configure_failure( p_error: String, p_error_code: Error = ERR_INVALID_DATA, p_metadata: Dictionary = {}, p_integrity_status: IntegrityStatus = IntegrityStatus.NOT_CHECKED, p_document_schema_version: int = 0, p_failure_kind: FailureKind = FailureKind.IO_FAILED ) -> GFStorageReadResult",
           "summary": "配置失败结果。",
           "visibility": "public"
         },
@@ -73079,6 +74160,13 @@
         },
         {
           "kind": "func",
+          "name": "canonicalize_data_file_name",
+          "signature": "func canonicalize_data_file_name(file_name: String) -> String",
+          "summary": "规范化并校验一个数据文件名。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
           "name": "save_data_async",
           "signature": "func save_data_async(file_name: String, data: Dictionary) -> Error",
           "summary": "在线程中异步保存纯字典数据。完成后从主线程发出 save_completed。",
@@ -73086,9 +74174,23 @@
         },
         {
           "kind": "func",
+          "name": "save_data_request_async",
+          "signature": "func save_data_request_async(file_name: String, data: Dictionary) -> GFStorageAsyncOperation",
+          "summary": "在线程中异步保存纯字典数据，并返回请求专属句柄。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
           "name": "load_data_async",
           "signature": "func load_data_async(file_name: String) -> Error",
           "summary": "在线程中异步读取纯字典数据。完成后从主线程发出 load_completed。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "load_data_request_async",
+          "signature": "func load_data_request_async(file_name: String) -> GFStorageAsyncOperation",
+          "summary": "在线程中异步读取纯字典数据，并返回请求专属句柄。",
           "visibility": "public"
         },
         {
@@ -73102,7 +74204,7 @@
           "kind": "func",
           "name": "migrate_data",
           "signature": "func migrate_data(data: Dictionary, _from_version: int, _to_version: int) -> Dictionary",
-          "summary": "迁移存档数据。项目可继承 GFStorageUtility 并重写该方法。",
+          "summary": "使用已注册步骤迁移存档数据。",
           "visibility": "public"
         },
         {

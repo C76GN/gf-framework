@@ -1,0 +1,389 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFSaveProfileResult" path="addons/gf/extensions/save/profile/gf_save_profile_result.gd" module="extensions/save" extends="RefCounted" classDigest="be2e588dda989fa0031b0bdea7825f775bb73999462099714ae792cda110b967">
+	<description>GFSaveProfileResult: Save Profile 操作的不可变终态快照。
+结果同时保留 profile generation、底层存储结果、迁移/校验证据和回滚错误，
+调用方无需从错误文本反推失败阶段。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">value_object</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants>
+		<member kind="const" name="STATUS_SAVED">
+			<signature>const STATUS_SAVED: StringName = &amp;"saved"</signature>
+			<description>保存 generation 已持久化。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_LOADED">
+			<signature>const STATUS_LOADED: StringName = &amp;"loaded"</signature>
+			<description>文档已迁移、校验并应用。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_FLUSHED">
+			<signature>const STATUS_FLUSHED: StringName = &amp;"flushed"</signature>
+			<description>flush 目标 generation 已持久化。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_RECOVERED">
+			<signature>const STATUS_RECOVERED: StringName = &amp;"recovered"</signature>
+			<description>恢复政策保留了当前内存状态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_INVALID_PROFILE">
+			<signature>const STATUS_INVALID_PROFILE: StringName = &amp;"invalid_profile"</signature>
+			<description>Profile 配置或请求无效。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_UNSUPPORTED_OPERATION">
+			<signature>const STATUS_UNSUPPORTED_OPERATION: StringName = &amp;"unsupported_operation"</signature>
+			<description>当前 Profile 不支持请求的操作。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_BUSY">
+			<signature>const STATUS_BUSY: StringName = &amp;"busy"</signature>
+			<description>请求与正在执行的加载或 Provider 回调冲突。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_GATHER_FAILED">
+			<signature>const STATUS_GATHER_FAILED: StringName = &amp;"gather_failed"</signature>
+			<description>section 保存采集失败。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_SNAPSHOT_FAILED">
+			<signature>const STATUS_SNAPSHOT_FAILED: StringName = &amp;"snapshot_failed"</signature>
+			<description>section 应用前快照采集失败。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_STORAGE_FAILED">
+			<signature>const STATUS_STORAGE_FAILED: StringName = &amp;"storage_failed"</signature>
+			<description>底层存储启动或执行失败。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_MISSING">
+			<signature>const STATUS_MISSING: StringName = &amp;"missing"</signature>
+			<description>存档文件不存在。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_CORRUPT">
+			<signature>const STATUS_CORRUPT: StringName = &amp;"corrupt"</signature>
+			<description>存档文档损坏或完整性失败。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_SCHEMA_MISMATCH">
+			<signature>const STATUS_SCHEMA_MISMATCH: StringName = &amp;"schema_mismatch"</signature>
+			<description>文档 schema ID 与 profile 不匹配。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_FUTURE_SCHEMA">
+			<signature>const STATUS_FUTURE_SCHEMA: StringName = &amp;"future_schema"</signature>
+			<description>文档或 section 来自未来 schema。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_MIGRATION_FAILED">
+			<signature>const STATUS_MIGRATION_FAILED: StringName = &amp;"migration_failed"</signature>
+			<description>旧版本文档迁移失败或缺少迁移链。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_VALIDATION_FAILED">
+			<signature>const STATUS_VALIDATION_FAILED: StringName = &amp;"validation_failed"</signature>
+			<description>当前版本文档校验失败。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_APPLY_FAILED">
+			<signature>const STATUS_APPLY_FAILED: StringName = &amp;"apply_failed"</signature>
+			<description>section provider 应用失败且回滚成功。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_ROLLBACK_FAILED">
+			<signature>const STATUS_ROLLBACK_FAILED: StringName = &amp;"rollback_failed"</signature>
+			<description>section provider 应用失败且至少一个回滚失败。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_DISPOSED">
+			<signature>const STATUS_DISPOSED: StringName = &amp;"disposed"</signature>
+			<description>Utility 释放时操作仍未完成。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_OUTCOME_UNKNOWN">
+			<signature>const STATUS_OUTCOME_UNKNOWN: StringName = &amp;"outcome_unknown"</signature>
+			<description>写入已提交到底层但无法确认最终磁盘副作用。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</constants>
+	<properties />
+	<methods>
+		<member kind="method" name="is_successful">
+			<signature>func is_successful() -&gt; bool:</signature>
+			<description>检查操作是否成功。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">成功终态返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_status">
+			<signature>func get_status() -&gt; StringName:</signature>
+			<description>获取稳定终态状态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">`STATUS_*` 常量之一。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_operation">
+			<signature>func get_operation() -&gt; StringName:</signature>
+			<description>获取操作类型。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">save、load 或 flush。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_profile_id">
+			<signature>func get_profile_id() -&gt; StringName:</signature>
+			<description>获取 profile ID。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">profile ID。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_requested_generation">
+			<signature>func get_requested_generation() -&gt; int:</signature>
+			<description>获取调用方请求时的 generation。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">非负 generation。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_persisted_generation">
+			<signature>func get_persisted_generation() -&gt; int:</signature>
+			<description>获取终态时已持久化的 generation。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">非负 generation。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_attempt_count">
+			<signature>func get_attempt_count() -&gt; int:</signature>
+			<description>获取底层 IO 尝试次数。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">未启动 IO 时为 0。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="was_coalesced">
+			<signature>func was_coalesced() -&gt; bool:</signature>
+			<description>检查保存请求是否由更新 generation 的写入覆盖完成。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">被合并时返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="was_recovered">
+			<signature>func was_recovered() -&gt; bool:</signature>
+			<description>检查是否通过恢复政策保留了当前状态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">使用恢复动作时返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_recovery_action">
+			<signature>func get_recovery_action() -&gt; StringName:</signature>
+			<description>获取实际恢复动作。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">未恢复时为空。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_failed_section_id">
+			<signature>func get_failed_section_id() -&gt; StringName:</signature>
+			<description>获取首个失败 section ID。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">非 section 失败时为空。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_error_code">
+			<signature>func get_error_code() -&gt; Error:</signature>
+			<description>获取 Godot Error 码。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">成功时为 OK。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_error">
+			<signature>func get_error() -&gt; String:</signature>
+			<description>获取稳定错误描述。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">成功时为空。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_document">
+			<signature>func get_document() -&gt; GFSaveDocument:</signature>
+			<description>获取最终文档副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">已采集或加载文档；不可用时为 null。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_storage_result">
+			<signature>func get_storage_result() -&gt; GFStorageReadResult:</signature>
+			<description>获取底层读取结果副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">load 操作的原始读取结果；其他操作或读取未启动时为 null。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_migration_result">
+			<signature>func get_migration_result() -&gt; GFSaveMigrationResult:</signature>
+			<description>获取迁移结果副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">执行迁移时的结果；否则为 null。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_validation_report">
+			<signature>func get_validation_report() -&gt; Dictionary:</signature>
+			<description>获取最终校验报告副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">结构化校验报告。</tag>
+				<tag name="schema">return: GFValidationReportDictionary-compatible report or an empty Dictionary.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_rollback_errors">
+			<signature>func get_rollback_errors() -&gt; Array[GFSaveRollbackFailure]:</signature>
+			<description>获取回滚失败证据副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">按回滚顺序记录的类型化失败证据。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_duration_msec">
+			<signature>func get_duration_msec() -&gt; int:</signature>
+			<description>获取操作耗时。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">单调毫秒耗时。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_metadata">
+			<signature>func get_metadata() -&gt; Dictionary:</signature>
+			<description>获取调用方元数据副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">调用方定义的临时结果元数据。</tag>
+				<tag name="schema">return: Dictionary with caller-defined operation metadata.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_storage_request_ids">
+			<signature>func get_storage_request_ids() -&gt; PackedInt64Array:</signature>
+			<description>获取支撑当前终态的底层 Storage 请求 ID。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">按发起顺序排列的请求 ID；没有底层 IO 时为空。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="to_dict">
+			<signature>func to_dict() -&gt; Dictionary:</signature>
+			<description>转换为可报告字典。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">不包含完整文档载荷的结果摘要。</tag>
+				<tag name="schema">return: Dictionary with ok, status, operation, profile_id, generation, timing, recovery, error, validation, rollback, and metadata fields.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="duplicate_result">
+			<signature>func duplicate_result() -&gt; GFSaveProfileResult:</signature>
+			<description>创建隔离结果副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">新结果对象。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

@@ -1,0 +1,219 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFSaveProfileUtility" path="addons/gf/extensions/save/profile/gf_save_profile_utility.gd" module="extensions/save" extends="GFUtility" classDigest="87d997949c2d97e533913fb8fd5ea3c96d5385c7e070aebec5a345875189f6a1">
+	<description>GFSaveProfileUtility: 多 section 存档的异步协调器。
+每个 profile 只串行推进一个当前 IO；超时后无法取消的写入会 detached 保留路径所有权。
+连续保存通过 generation 合并为最新后续写入；读取在保存屏障后执行，并在主线程完成迁移、校验和 provider 事务化应用。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_service</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals>
+		<member kind="signal" name="profile_operation_completed">
+			<signature>signal profile_operation_completed(result: GFSaveProfileResult)</signature>
+			<description>任一 profile 操作进入终态时发出。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">result: 隔离终态结果。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="signal" name="profile_state_changed">
+			<signature>signal profile_state_changed(profile_id: StringName, previous_state: StringName, current_state: StringName)</signature>
+			<description>profile 状态机发生变化时发出。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">profile_id: profile ID。</tag>
+				<tag name="param">previous_state: 变化前状态。</tag>
+				<tag name="param">current_state: 变化后状态。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</signals>
+	<enums />
+	<constants>
+		<member kind="const" name="STATE_IDLE">
+			<signature>const STATE_IDLE: StringName = &amp;"idle"</signature>
+			<description>Profile 空闲。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATE_GATHERING">
+			<signature>const STATE_GATHERING: StringName = &amp;"gathering"</signature>
+			<description>正在同步采集 section。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATE_SAVING">
+			<signature>const STATE_SAVING: StringName = &amp;"saving"</signature>
+			<description>正在等待保存 IO。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATE_LOADING">
+			<signature>const STATE_LOADING: StringName = &amp;"loading"</signature>
+			<description>正在等待读取 IO。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATE_RETRY_WAIT">
+			<signature>const STATE_RETRY_WAIT: StringName = &amp;"retry_wait"</signature>
+			<description>正在等待有界重试截止时间。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATE_APPLYING">
+			<signature>const STATE_APPLYING: StringName = &amp;"applying"</signature>
+			<description>正在迁移、校验或事务化应用 section。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATE_DISPOSED">
+			<signature>const STATE_DISPOSED: StringName = &amp;"disposed"</signature>
+			<description>Utility 已释放。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</constants>
+	<properties />
+	<methods>
+		<member kind="method" name="ready">
+			<signature>func ready() -&gt; void:</signature>
+			<description>在架构 ready 阶段采用已注册的 Storage 和 Time 服务。
+`setup()` 显式注入的依赖不会被覆盖。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="tick">
+			<signature>func tick(_delta: float) -&gt; void:</signature>
+			<description>推进到期重试。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">_delta: 未使用；重试只读取注入时钟的单调时间。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="dispose">
+			<signature>func dispose() -&gt; void:</signature>
+			<description>终止所有未完成操作并释放底层信号连接。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="setup">
+			<signature>func setup(storage: GFStorageUtility, clock: GFClock = null) -&gt; GFSaveProfileUtility:</signature>
+			<description>显式注入底层存储和可选时钟。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">storage: 底层事务存储工具。</tag>
+				<tag name="param">clock: 可选单调时钟；为空时保留当前时钟。</tag>
+				<tag name="return">当前 Utility；参数无效、已释放或已有注册 profile 时返回 null。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="register_profile">
+			<signature>func register_profile( profile: GFSaveProfile, migrations: GFSaveMigrationRegistry = null ) -&gt; Dictionary:</signature>
+			<description>注册一个 profile 及其可选迁移注册表。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">profile: profile 声明和 section providers。</tag>
+				<tag name="param">migrations: 该 profile 的迁移注册表。</tag>
+				<tag name="return">包含 registered、规范文件名和全部校验问题的结构化报告。</tag>
+				<tag name="schema">return: GFValidationReportDictionary-compatible report with registered, profile_id, schema_id, canonical_file_name, issues, counts, summary, and next_actions.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="unregister_profile">
+			<signature>func unregister_profile(profile_id: StringName) -&gt; bool:</signature>
+			<description>注销空闲 profile。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">profile_id: profile ID。</tag>
+				<tag name="return">profile 存在且没有未完成操作时返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="save_profile">
+			<signature>func save_profile( profile_id: StringName, metadata: Dictionary = {}, context: Dictionary = {} ) -&gt; GFSaveProfileOperation:</signature>
+			<description>请求异步保存 profile。
+在途写入期间的新请求只保留最新 generation；每个句柄在覆盖自身 generation
+的写入成功或失败后完成。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">profile_id: profile ID。</tag>
+				<tag name="param">metadata: 写入文档的持久化元数据。</tag>
+				<tag name="param">context: provider 采集使用的临时上下文。</tag>
+				<tag name="return">保存操作句柄；无效请求返回已失败句柄。</tag>
+				<tag name="schema">metadata: Dictionary with caller-defined persisted document metadata.</tag>
+				<tag name="schema">context: Dictionary with caller-defined ephemeral operation data.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="load_profile">
+			<signature>func load_profile( profile_id: StringName, context: Dictionary = {}, metadata: Dictionary = {} ) -&gt; GFSaveProfileOperation:</signature>
+			<description>请求异步读取、迁移、校验并应用 profile。
+调用时捕获当前 generation 作为写入屏障；相关保存失败时读取不会静默读取旧文件。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">profile_id: profile ID。</tag>
+				<tag name="param">context: 迁移和 provider 应用使用的临时上下文。</tag>
+				<tag name="param">metadata: 仅写入终态结果的调用方元数据。</tag>
+				<tag name="return">读取操作句柄；无效请求返回已失败句柄。</tag>
+				<tag name="schema">context: Dictionary with caller-defined ephemeral operation data.</tag>
+				<tag name="schema">metadata: Dictionary with caller-defined result metadata.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="flush_profile">
+			<signature>func flush_profile( profile_id: StringName, metadata: Dictionary = {} ) -&gt; GFSaveProfileOperation:</signature>
+			<description>等待调用时可见的最新 generation 持久化。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">profile_id: profile ID。</tag>
+				<tag name="param">metadata: 仅写入终态结果的调用方元数据。</tag>
+				<tag name="return">flush 操作句柄；没有待保存 generation 时立即成功。</tag>
+				<tag name="schema">metadata: Dictionary with caller-defined result metadata.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_persisted_generation">
+			<signature>func get_persisted_generation(profile_id: StringName) -&gt; int:</signature>
+			<description>获取已成功持久化的 generation。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">profile_id: profile ID。</tag>
+				<tag name="return">未注册或从未保存时返回 0。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_profile_state_snapshot">
+			<signature>func get_profile_state_snapshot(profile_id: StringName) -&gt; Dictionary:</signature>
+			<description>获取稳定状态机快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">profile_id: profile ID。</tag>
+				<tag name="return">profile 状态摘要；未注册时为空字典。</tag>
+				<tag name="schema">return: Dictionary with profile identity, generation evidence, detached writes, and queue counts.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

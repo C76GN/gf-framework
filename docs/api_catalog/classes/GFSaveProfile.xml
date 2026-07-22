@@ -1,0 +1,165 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFSaveProfile" path="addons/gf/extensions/save/profile/gf_save_profile.gd" module="extensions/save" extends="Resource" classDigest="31b4a15f8a7c4e64e17517b6434323f94f87c3fe2150ad2e467860b357dac0b3">
+	<description>GFSaveProfile: 多 section 存档的项目级声明。
+Profile 从 provider 列表派生唯一文档 schema，避免项目同时维护重复的 section
+版本清单。运行时数据仍由 provider 持有，Profile 不解释业务字段。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">resource_definition</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants>
+		<member kind="const" name="UNKNOWN_SECTION_REJECT">
+			<signature>const UNKNOWN_SECTION_REJECT: StringName = &amp;"reject"</signature>
+			<description>拒绝当前 Profile 未声明的 section。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="UNKNOWN_SECTION_PRESERVE">
+			<signature>const UNKNOWN_SECTION_PRESERVE: StringName = &amp;"preserve"</signature>
+			<description>读取时接受未知 section，并在后续保存中原样保留。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="UNKNOWN_SECTION_DROP">
+			<signature>const UNKNOWN_SECTION_DROP: StringName = &amp;"drop"</signature>
+			<description>读取时接受未知 section，并在后续保存中显式丢弃。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</constants>
+	<properties>
+		<member kind="property" name="profile_id" decorators="@export">
+			<signature>var profile_id: StringName = &amp;""</signature>
+			<description>稳定运行时 Profile ID。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="schema_id" decorators="@export">
+			<signature>var schema_id: StringName = &amp;""</signature>
+			<description>稳定文档 schema ID；为空时使用 `profile_id`。
+将它与运行时 ID 分离后，同一文档定义可用于多个槽位或存储目标。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="file_name" decorators="@export">
+			<signature>var file_name: String = ""</signature>
+			<description>`GFStorageUtility` 管理的相对文件名。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="schema_version" decorators="@export_range(1, 2_147_483_647, 1)">
+			<signature>var schema_version: int = 1</signature>
+			<description>当前文档 schema 版本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="providers" decorators="@export">
+			<signature>var providers: Array[GFSaveSectionProvider] = []</signature>
+			<description>拥有各 section 的 provider，顺序决定采集与应用顺序。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="recovery_policy" decorators="@export">
+			<signature>var recovery_policy: GFSaveRecoveryPolicy = GFSaveRecoveryPolicy.new()</signature>
+			<description>缺失、损坏和临时 IO 失败的显式政策。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="save_enabled" decorators="@export">
+			<signature>var save_enabled: bool = true</signature>
+			<description>Profile 是否接受保存和 flush 请求。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="load_enabled" decorators="@export">
+			<signature>var load_enabled: bool = true</signature>
+			<description>Profile 是否接受读取请求。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="unknown_section_policy" decorators="@export">
+			<signature>var unknown_section_policy: StringName = UNKNOWN_SECTION_REJECT</signature>
+			<description>未声明 section 的处理政策。
+默认拒绝，避免一次读取后再保存时静默删除未知数据。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</properties>
+	<methods>
+		<member kind="method" name="validate_profile">
+			<signature>func validate_profile() -&gt; Dictionary:</signature>
+			<description>校验 profile、恢复政策和全部 provider。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">结构化校验报告。</tag>
+				<tag name="schema">return: GFValidationReportDictionary-compatible report with issues, counts, summary, and next_actions.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="build_schema">
+			<signature>func build_schema() -&gt; GFSaveDocumentSchema:</signature>
+			<description>从当前 provider 清单派生文档 schema。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">当前文档 schema；profile 无效时仍返回可诊断对象。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_effective_schema_id">
+			<signature>func get_effective_schema_id() -&gt; StringName:</signature>
+			<description>获取写入文档使用的 schema ID。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">`schema_id` 非空时返回它，否则返回 `profile_id`。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_provider">
+			<signature>func get_provider(section_id: StringName) -&gt; GFSaveSectionProvider:</signature>
+			<description>获取指定 section 的唯一 provider。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">section_id: 目标 section ID。</tag>
+				<tag name="return">匹配 provider；不存在时返回 null。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_providers">
+			<signature>func get_providers() -&gt; Array[GFSaveSectionProvider]:</signature>
+			<description>获取 provider 引用的隔离数组。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">按声明顺序排列的 provider。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

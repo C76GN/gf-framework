@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFSaveRollbackFailure" path="addons/gf/extensions/save/profile/gf_save_rollback_failure.gd" module="extensions/save" extends="RefCounted" classDigest="c9f02e121810297b1a7aa6c83f24baf974d5e8a7314747821d21e9ede7b9d4e6">
+	<description>GFSaveRollbackFailure: 单个 section 回滚失败证据。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">value_object</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties />
+	<methods>
+		<member kind="method" name="get_section_id">
+			<signature>func get_section_id() -&gt; StringName:</signature>
+			<description>获取回滚失败的 section ID。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">section ID。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_error_code">
+			<signature>func get_error_code() -&gt; Error:</signature>
+			<description>获取回滚 Error 码。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">非 OK Error 码。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="duplicate_failure">
+			<signature>func duplicate_failure() -&gt; GFSaveRollbackFailure:</signature>
+			<description>创建隔离副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">新失败证据对象。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="to_dict">
+			<signature>func to_dict() -&gt; Dictionary:</signature>
+			<description>转换为可报告字典。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">section_id 与 error_code 字段。</tag>
+				<tag name="schema">return: Dictionary with section_id and error_code fields.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>
