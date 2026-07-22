@@ -29,6 +29,10 @@ _SKIPPED_DIRECTORIES = {
 }
 _MAX_PROJECT_SCRIPTS = 20000
 _MAX_SCRIPT_BYTES = 2 * 1024 * 1024
+_MAX_SOURCE_SCAN_BYTES = 128 * 1024 * 1024
+_MAX_CAPABILITY_RECIPE_PACKAGE_EVIDENCE = 40
+_MAX_CAPABILITY_RECIPE_GROUP_EVIDENCE = 40
+_MAX_CAPABILITY_CLASS_EVIDENCE = 80
 
 
 def build_snapshot(
@@ -45,6 +49,12 @@ def build_snapshot(
 	catalog_report = catalog.catalog_compatibility(project_root)
 	api_classes = catalog.known_api_classes()
 	source_scan = _scan_project_sources(project_root, api_classes)
+	capability_readiness = _build_capability_readiness(
+		contract_result,
+		contract_data,
+		package_ids,
+		source_scan,
+	)
 	declared_roots = _declared_roots(project_root, contract_data)
 	module_dependency_analysis = dependencies.analyze_module_dependencies(
 		project_root,
@@ -64,6 +74,7 @@ def build_snapshot(
 		package_ids,
 		package_report,
 		catalog_report,
+		capability_readiness,
 		declared_roots,
 		module_dependency_analysis,
 	)
@@ -77,6 +88,10 @@ def build_snapshot(
 			"valid": bool(contract_result.get("ok")),
 			"sha256": str(contract_result.get("sha256", "")),
 			"issue_count": len(contract_result.get("issues", [])),
+			"schema_version": int(contract_result.get("schema_version", 0)),
+			"current_schema_version": int(contract_result.get("current_schema_version", 0)),
+			"migration_required": bool(contract_result.get("migration_required")),
+			"migration_available": bool(contract_result.get("migration_available")),
 		},
 		"framework": {
 			"installed": _framework_plugin_exists(project_root),
@@ -92,13 +107,23 @@ def build_snapshot(
 				"issues": package_report["issues"],
 			},
 			"extensions": _enabled_extensions(project_source),
+			"capability_readiness": capability_readiness,
 		},
 		"project": {
 			"godot_features": _string_array_setting(project_source, "config/features"),
 			"script_count": source_scan["script_count"],
+			"scanned_script_count": source_scan["scanned_script_count"],
+			"scanned_script_bytes": source_scan["scanned_script_bytes"],
 			"test_script_count": source_scan["test_script_count"],
 			"source_scan_truncated": source_scan["source_scan_truncated"],
+			"source_scan_truncation_reason": source_scan["source_scan_truncation_reason"],
+			"source_scan_complete": source_scan["source_scan_complete"],
+			"skipped_large_script_count": source_scan["skipped_large_script_count"],
+			"unreadable_script_count": source_scan["unreadable_script_count"],
+			"unsafe_script_path_count": source_scan["unsafe_script_path_count"],
+			"unsafe_directory_count": source_scan["unsafe_directory_count"],
 			"gf_api_usage": source_scan["gf_api_usage"],
+			"test_gf_api_usage": source_scan["test_gf_api_usage"],
 			"declared_roots": declared_roots,
 			"module_dependency_analysis": module_dependency_analysis,
 		},
@@ -134,19 +159,31 @@ def project_context(
 	contract_result = load_contract(project_root, contract_relative_path)
 	snapshot = build_snapshot(project_root, contract_relative_path)
 	contract_data = contract_result.get("contract", {})
-	required_capabilities: list[dict[str, Any]] = []
+	capability_requirements: list[dict[str, Any]] = []
 	if isinstance(contract_data, dict):
 		framework = contract_data.get("framework", {})
 		if isinstance(framework, dict):
-			for capability_id in framework.get("required_capabilities", []):
-				if isinstance(capability_id, str):
-					required_capabilities.append(catalog.capability_by_id(capability_id, project_root))
+			readiness = {
+				str(item.get("id", "")): item
+				for item in snapshot["framework"]["capability_readiness"]
+				if isinstance(item, dict)
+			}
+			for requirement in framework.get("capability_requirements", []):
+				if not isinstance(requirement, dict):
+					continue
+				capability_id = str(requirement.get("id", ""))
+				capability_requirements.append({
+					"requirement": requirement,
+					"catalog": catalog.capability_by_id(capability_id, project_root),
+					"readiness": readiness.get(capability_id, {}),
+				})
 	return {
 		"ok": bool(contract_result.get("ok")) and bool(snapshot["drift"]["ok"]),
 		"contract": contract_result,
 		"snapshot": snapshot,
-		"required_capabilities": required_capabilities,
+		"capability_requirements": capability_requirements,
 		"workflow": [
+			"Migrate an older project contract before making architecture decisions.",
 			"Resolve explicit unknowns that block the requested work.",
 			"Query a GF capability and exact API signatures before implementation.",
 			"Keep project business rules and platform SDK adapters outside addons/gf.",
@@ -164,15 +201,17 @@ def _build_drift(
 	installed_packages: list[str],
 	package_report: dict[str, Any],
 	catalog_report: dict[str, Any],
+	capability_readiness: list[dict[str, Any]],
 	declared_roots: list[dict[str, Any]],
 	module_dependency_analysis: dict[str, Any],
 ) -> dict[str, Any]:
 	issues: list[dict[str, str]] = []
 	for item in contract_result.get("issues", []):
 		if isinstance(item, dict):
+			code = str(item.get("code", "contract_issue"))
 			issues.append({
-				"severity": str(item.get("severity", "error")),
-				"code": str(item.get("code", "contract_issue")),
+				"severity": "error" if code == "capability_requirement_pending_review" else str(item.get("severity", "error")),
+				"code": code,
 				"path": str(item.get("path", "")),
 				"message": str(item.get("message", "")),
 			})
@@ -182,6 +221,31 @@ def _build_drift(
 	if not catalog_report.get("ok"):
 		for message in catalog_report.get("issues", []):
 			issues.append(_issue("error", "catalog_framework_mismatch", "addons/gf/plugin.cfg", str(message)))
+	for readiness in capability_readiness:
+		status = str(readiness.get("status", ""))
+		capability_id = str(readiness.get("id", ""))
+		if status == "unavailable":
+			issues.append(_issue(
+				"error",
+				"required_capability_unavailable",
+				capability_id,
+				f"Required capability has no installed provider package: {capability_id}.",
+			))
+		elif status == "incomplete":
+			missing_parts: list[str] = []
+			missing_all = readiness.get("missing_recipe_all_of_packages", [])
+			if missing_all:
+				missing_parts.append("all_of=" + ", ".join(str(item) for item in missing_all))
+			unsatisfied_groups = readiness.get("unsatisfied_recipe_any_of_package_groups", [])
+			if unsatisfied_groups:
+				missing_parts.append("any_of=" + "; ".join(" | ".join(str(item) for item in group) for group in unsatisfied_groups))
+			missing = "; ".join(missing_parts) or "bounded evidence omitted"
+			issues.append(_issue(
+				"error",
+				"capability_recipe_package_missing",
+				capability_id,
+				f"Capability recipe packages are missing for {capability_id}: {missing}.",
+			))
 	if contract_result.get("ok"):
 		framework = contract_data.get("framework", {})
 		if isinstance(framework, dict):
@@ -217,6 +281,86 @@ def _build_drift(
 		"warning_count": warning_count,
 		"issues": issues,
 	}
+
+
+def _build_capability_readiness(
+	contract_result: dict[str, Any],
+	contract_data: dict[str, Any],
+	installed_packages: list[str],
+	source_scan: dict[str, Any],
+) -> list[dict[str, Any]]:
+	if not contract_result.get("ok"):
+		return []
+	framework = contract_data.get("framework", {})
+	if not isinstance(framework, dict):
+		return []
+	capabilities = catalog.capability_records_by_id()
+	recipes = catalog.recipe_records_by_id()
+	installed = set(installed_packages)
+	observed_usage = set(_string_values(source_scan.get("gf_api_usage", [])))
+	scan_complete = bool(source_scan.get("source_scan_complete"))
+	result: list[dict[str, Any]] = []
+	for requirement in framework.get("capability_requirements", []):
+		if not isinstance(requirement, dict):
+			continue
+		capability_id = str(requirement.get("id", ""))
+		capability = capabilities.get(capability_id, {})
+		catalog_packages = sorted(_string_values(capability.get("packages", [])))
+		installed_catalog_packages = sorted(installed.intersection(catalog_packages))
+		selected_recipes = sorted(_string_values(requirement.get("recipes", [])))
+		recipe_classes: set[str] = set()
+		for recipe_id in selected_recipes:
+			recipe_classes.update(_string_values(recipes.get(recipe_id, {}).get("primary_classes", [])))
+		package_readiness = catalog.recipe_package_readiness(selected_recipes, installed)
+		all_recipe_packages = package_readiness["all_of"]
+		all_missing_recipe_packages = package_readiness["missing_all_of"]
+		all_recipe_groups = package_readiness["any_of"]
+		all_unsatisfied_recipe_groups = package_readiness["unsatisfied_any_of"]
+		observation_candidates = set(_string_values(capability.get("primary_classes", []))).union(recipe_classes)
+		all_observed_classes = sorted(observed_usage.intersection(observation_candidates))
+		if not installed_catalog_packages:
+			status = "unavailable"
+		elif not package_readiness["satisfied"]:
+			status = "incomplete"
+		elif all_observed_classes:
+			status = "observed"
+		elif scan_complete:
+			status = "available_unobserved"
+		else:
+			status = "evidence_incomplete"
+		acceptance = requirement.get("acceptance", [])
+		recipe_packages = all_recipe_packages[:_MAX_CAPABILITY_RECIPE_PACKAGE_EVIDENCE]
+		missing_recipe_packages = all_missing_recipe_packages[:_MAX_CAPABILITY_RECIPE_PACKAGE_EVIDENCE]
+		recipe_groups = all_recipe_groups[:_MAX_CAPABILITY_RECIPE_GROUP_EVIDENCE]
+		unsatisfied_recipe_groups = all_unsatisfied_recipe_groups[:_MAX_CAPABILITY_RECIPE_GROUP_EVIDENCE]
+		observed_classes = all_observed_classes[:_MAX_CAPABILITY_CLASS_EVIDENCE]
+		result.append({
+			"id": capability_id,
+			"decision_state": str(requirement.get("decision_state", "")),
+			"owner": str(requirement.get("owner", "")),
+			"status": status,
+			"catalog_packages": catalog_packages,
+			"installed_catalog_packages": installed_catalog_packages,
+			"recipe_all_of_packages": recipe_packages,
+			"recipe_all_of_package_count": len(all_recipe_packages),
+			"recipe_all_of_packages_truncated": len(recipe_packages) < len(all_recipe_packages),
+			"missing_recipe_all_of_packages": missing_recipe_packages,
+			"missing_recipe_all_of_package_count": len(all_missing_recipe_packages),
+			"missing_recipe_all_of_packages_truncated": len(missing_recipe_packages) < len(all_missing_recipe_packages),
+			"recipe_any_of_package_groups": recipe_groups,
+			"recipe_any_of_package_group_count": len(all_recipe_groups),
+			"recipe_any_of_package_groups_truncated": len(recipe_groups) < len(all_recipe_groups),
+			"unsatisfied_recipe_any_of_package_groups": unsatisfied_recipe_groups,
+			"unsatisfied_recipe_any_of_package_group_count": len(all_unsatisfied_recipe_groups),
+			"unsatisfied_recipe_any_of_package_groups_truncated": len(unsatisfied_recipe_groups) < len(all_unsatisfied_recipe_groups),
+			"observed_classes": observed_classes,
+			"observed_class_count": len(all_observed_classes),
+			"observed_classes_truncated": len(observed_classes) < len(all_observed_classes),
+			"observation_complete": scan_complete,
+			"recipes": selected_recipes,
+			"acceptance_count": len(acceptance) if isinstance(acceptance, list) else 0,
+		})
+	return result
 
 
 def _declared_roots(project_root: Path, contract_data: dict[str, Any]) -> list[dict[str, Any]]:
@@ -360,44 +504,120 @@ def _dependency_edge_evidence(edge: dict[str, Any]) -> tuple[str, str]:
 
 def _scan_project_sources(project_root: Path, known_classes: set[str]) -> dict[str, Any]:
 	script_count = 0
+	scanned_script_count = 0
+	scanned_script_bytes = 0
 	test_script_count = 0
-	usage: set[str] = set()
-	for current_root, directory_names, file_names in os.walk(project_root, topdown=True, followlinks=False):
+	skipped_large_script_count = 0
+	unreadable_script_count = 0
+	unsafe_script_path_count = 0
+	unsafe_directory_count = 0
+	production_usage: set[str] = set()
+	test_usage: set[str] = set()
+	walk_errors: list[OSError] = []
+	for current_root, directory_names, file_names in os.walk(
+		project_root,
+		topdown=True,
+		followlinks=False,
+		onerror=walk_errors.append,
+	):
 		current_path = Path(current_root)
-		directory_names[:] = [
-			name for name in sorted(directory_names)
-			if name not in _SKIPPED_DIRECTORIES
-			and _safe_scan_directory(project_root, current_path / name)
-		]
+		safe_directories: list[str] = []
+		for name in sorted(directory_names):
+			if name in _SKIPPED_DIRECTORIES:
+				continue
+			if _safe_scan_directory(project_root, current_path / name):
+				safe_directories.append(name)
+			else:
+				unsafe_directory_count += 1
+		directory_names[:] = safe_directories
 		for file_name in sorted(file_names):
 			if not file_name.endswith(".gd"):
 				continue
 			if script_count >= _MAX_PROJECT_SCRIPTS:
-				return _source_scan_result(script_count, test_script_count, usage, True)
+				return _source_scan_result(
+					script_count,
+					scanned_script_count,
+					scanned_script_bytes,
+					test_script_count,
+					production_usage,
+					test_usage,
+					True,
+					"script_count",
+					skipped_large_script_count,
+					unreadable_script_count,
+					unsafe_script_path_count,
+					unsafe_directory_count + len(walk_errors),
+				)
 			path = current_path / file_name
-			if not _safe_scan_file(project_root, path):
-				continue
+			script_count += 1
 			try:
 				relative = path.relative_to(project_root)
-				size = path.stat().st_size
-			except (OSError, ValueError):
+			except ValueError:
+				unsafe_script_path_count += 1
 				continue
-			script_count += 1
-			if any(part in ("test", "tests") for part in relative.parts) or path.name.startswith("test_"):
+			is_test_script = (
+				any(part.casefold() in ("test", "tests") for part in relative.parts)
+				or path.name.casefold().startswith("test_")
+			)
+			if is_test_script:
 				test_script_count += 1
-			if size > _MAX_SCRIPT_BYTES:
+			if not _safe_scan_file(project_root, path):
+				unsafe_script_path_count += 1
 				continue
+			try:
+				size = path.stat().st_size
+			except OSError:
+				unreadable_script_count += 1
+				continue
+			if size > _MAX_SCRIPT_BYTES:
+				skipped_large_script_count += 1
+				continue
+			if scanned_script_bytes + size > _MAX_SOURCE_SCAN_BYTES:
+				return _source_scan_result(
+					script_count,
+					scanned_script_count,
+					scanned_script_bytes,
+					test_script_count,
+					production_usage,
+					test_usage,
+					True,
+					"byte_budget",
+					skipped_large_script_count,
+					unreadable_script_count,
+					unsafe_script_path_count,
+					unsafe_directory_count + len(walk_errors),
+				)
 			try:
 				text = path.read_text(encoding="utf-8")
 			except (OSError, UnicodeDecodeError):
+				unreadable_script_count += 1
 				continue
+			scanned_script_count += 1
+			scanned_script_bytes += size
 			identifiers = {
 				token.value
 				for token in dependencies.lex_gdscript(text)
 				if token.kind == "identifier"
 			}
-			usage.update(identifiers.intersection(known_classes))
-	return _source_scan_result(script_count, test_script_count, usage, False)
+			matched = identifiers.intersection(known_classes)
+			if is_test_script:
+				test_usage.update(matched)
+			else:
+				production_usage.update(matched)
+	return _source_scan_result(
+		script_count,
+		scanned_script_count,
+		scanned_script_bytes,
+		test_script_count,
+		production_usage,
+		test_usage,
+		False,
+		"",
+		skipped_large_script_count,
+		unreadable_script_count,
+		unsafe_script_path_count,
+		unsafe_directory_count + len(walk_errors),
+	)
 
 
 def _safe_scan_directory(project_root: Path, path: Path) -> bool:
@@ -430,15 +650,38 @@ def _safe_scan_file(project_root: Path, path: Path) -> bool:
 
 def _source_scan_result(
 	script_count: int,
+	scanned_script_count: int,
+	scanned_script_bytes: int,
 	test_script_count: int,
-	usage: set[str],
+	production_usage: set[str],
+	test_usage: set[str],
 	truncated: bool,
+	truncation_reason: str,
+	skipped_large_script_count: int,
+	unreadable_script_count: int,
+	unsafe_script_path_count: int,
+	unsafe_directory_count: int,
 ) -> dict[str, Any]:
+	complete = not truncated and not any((
+		skipped_large_script_count,
+		unreadable_script_count,
+		unsafe_script_path_count,
+		unsafe_directory_count,
+	))
 	return {
 		"script_count": script_count,
+		"scanned_script_count": scanned_script_count,
+		"scanned_script_bytes": scanned_script_bytes,
 		"test_script_count": test_script_count,
 		"source_scan_truncated": truncated,
-		"gf_api_usage": sorted(usage),
+		"source_scan_truncation_reason": truncation_reason,
+		"source_scan_complete": complete,
+		"skipped_large_script_count": skipped_large_script_count,
+		"unreadable_script_count": unreadable_script_count,
+		"unsafe_script_path_count": unsafe_script_path_count,
+		"unsafe_directory_count": unsafe_directory_count,
+		"gf_api_usage": sorted(production_usage),
+		"test_gf_api_usage": sorted(test_usage),
 	}
 
 

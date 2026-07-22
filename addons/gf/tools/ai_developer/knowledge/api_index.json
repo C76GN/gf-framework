@@ -2,7 +2,7 @@
   "schema_version": 1,
   "catalog_version": "1.0.0",
   "framework_version": "10.0.0-dev.0",
-  "source_digest": "cd628a27afee75f10177b1e04969bd1c1094fd1d0abcced6894e0d28502894f2",
+  "source_digest": "6e7b31919ecb9dc1f35018fbed0fe05a8d9f2cabd0ca29cfdefaee58acbb70dd",
   "class_count": 738,
   "package_count": 50,
   "packages": [
@@ -498,7 +498,7 @@
       "dependencies": [
         "gf.kernel"
       ],
-      "description": "Optional project intent contract, versioned GF knowledge, agent skills, local MCP/CLI, and approval-gated framework feedback workflow.",
+      "description": "Optional project intent contract, target-bound interactive contract migration, capability readiness evidence, versioned GF knowledge, agent skills, local MCP/CLI, and approval-gated framework feedback workflow.",
       "representative_path": "addons/gf/tools/ai_developer/knowledge/capabilities.json"
     },
     {

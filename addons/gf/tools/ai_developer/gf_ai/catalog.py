@@ -275,6 +275,26 @@ def known_capability_ids() -> set[str]:
 	}
 
 
+def capability_records_by_id() -> dict[str, dict[str, Any]]:
+	return {
+		str(item.get("id")): item
+		for item in load_capabilities().get("capabilities", [])
+		if isinstance(item, dict) and item.get("id")
+	}
+
+
+def recipe_records_by_id() -> dict[str, dict[str, Any]]:
+	return {
+		str(item.get("id")): item
+		for item in load_recipes().get("recipes", [])
+		if isinstance(item, dict) and item.get("id")
+	}
+
+
+def known_recipe_ids() -> set[str]:
+	return set(recipe_records_by_id())
+
+
 def known_package_ids() -> set[str]:
 	return {
 		str(item.get("id"))
@@ -285,6 +305,62 @@ def known_package_ids() -> set[str]:
 
 def known_api_classes() -> set[str]:
 	return set(_class_records(load_api_index()))
+
+
+def package_dependency_closure(package_ids: set[str] | list[str]) -> set[str]:
+	"""Return known transitive package dependencies plus the requested packages."""
+	package_records = {
+		str(item.get("id")): item
+		for item in load_api_index().get("packages", [])
+		if isinstance(item, dict) and item.get("id")
+	}
+	closure: set[str] = set()
+	pending = list(package_ids)
+	while pending:
+		package_id = str(pending.pop())
+		if not package_id or package_id in closure:
+			continue
+		closure.add(package_id)
+		record = package_records.get(package_id, {})
+		dependencies = record.get("dependencies", []) if isinstance(record, dict) else []
+		if isinstance(dependencies, list):
+			pending.extend(str(item) for item in dependencies if isinstance(item, str))
+	return closure
+
+
+def recipe_package_readiness(
+	recipe_ids: set[str] | list[str],
+	available_packages: set[str] | list[str],
+) -> dict[str, Any]:
+	"""Evaluate explicit Recipe package expressions without inferring intent from classes."""
+	recipes = recipe_records_by_id()
+	all_of: set[str] = set()
+	any_of_groups: set[tuple[str, ...]] = set()
+	for recipe_id in sorted(set(recipe_ids)):
+		record = recipes.get(recipe_id, {})
+		requirements = record.get("package_requirements", {}) if isinstance(record, dict) else {}
+		if not isinstance(requirements, dict):
+			continue
+		all_of.update(_string_items(requirements.get("all_of")))
+		groups = requirements.get("any_of", [])
+		if not isinstance(groups, list):
+			continue
+		for group in groups:
+			values = tuple(sorted(_string_items(group)))
+			if values:
+				any_of_groups.add(values)
+	available = package_dependency_closure(available_packages)
+	missing_all_of = sorted(all_of - available)
+	ordered_groups = sorted(any_of_groups)
+	unsatisfied_groups = [group for group in ordered_groups if not available.intersection(group)]
+	return {
+		"available_packages": sorted(available),
+		"all_of": sorted(all_of),
+		"missing_all_of": missing_all_of,
+		"any_of": [list(group) for group in ordered_groups],
+		"unsatisfied_any_of": [list(group) for group in unsatisfied_groups],
+		"satisfied": not missing_all_of and not unsatisfied_groups,
+	}
 
 
 def catalog_framework_version() -> str:
@@ -378,6 +454,9 @@ def installed_package_report(project_root: Path) -> dict[str, Any]:
 				issues.append(f"Package lockfile entry must be an object: {package_id}.")
 		for package_id in sorted(set(package_ids) - known_package_ids()):
 			issues.append(f"Package lockfile references a package absent from this GF release: {package_id}.")
+		missing_dependencies = sorted(package_dependency_closure(package_ids) - set(package_ids))
+		for package_id in missing_dependencies:
+			issues.append(f"Package lockfile omits an installed package dependency: {package_id}.")
 		lock_framework_version = str(data.get("framework_version", "")).strip()
 		project_version = project_framework_version(project_root)
 		if not lock_framework_version:
@@ -473,6 +552,8 @@ def _load_knowledge_cached(
 		issues.extend(_api_index_issues(data))
 	if record_key:
 		issues.extend(_catalog_record_id_issues(data, record_key))
+	if record_key == "recipes":
+		issues.extend(_recipe_catalog_reference_issues(data))
 	if issues:
 		raise ValueError("GF AI knowledge validation failed: " + "; ".join(issues[:20]))
 	return data
@@ -528,6 +609,17 @@ def _api_index_issues(data: dict[str, Any]) -> list[str]:
 			issues.append(f"API index package id is empty or duplicated: {package_id!r}.")
 			continue
 		package_ids.add(package_id)
+	for package in packages:
+		if not isinstance(package, dict):
+			continue
+		package_id = str(package.get("id", ""))
+		dependencies = package.get("dependencies", [])
+		if not isinstance(dependencies, list):
+			issues.append(f"API index package dependencies must be an array: {package_id}.")
+			continue
+		for dependency_id in dependencies:
+			if not isinstance(dependency_id, str) or dependency_id not in package_ids:
+				issues.append(f"API index package has an unknown dependency: {package_id} -> {dependency_id!r}.")
 	for class_name, record in classes.items():
 		if not isinstance(class_name, str) or not class_name or not isinstance(record, dict):
 			issues.append(f"API index class record is invalid: {class_name!r}.")
@@ -543,6 +635,32 @@ def _api_index_issues(data: dict[str, Any]) -> list[str]:
 	if not isinstance(digest, str) or digest != expected_digest:
 		issues.append("API index source_digest does not match its content.")
 	return issues
+
+
+def _recipe_catalog_reference_issues(data: dict[str, Any]) -> list[str]:
+	known_packages = known_package_ids()
+	issues: list[str] = []
+	for recipe in data.get("recipes", []):
+		if not isinstance(recipe, dict):
+			continue
+		recipe_id = str(recipe.get("id", ""))
+		requirements = recipe.get("package_requirements", {})
+		if not isinstance(requirements, dict):
+			continue
+		references = set(_string_items(requirements.get("all_of")))
+		groups = requirements.get("any_of", [])
+		if isinstance(groups, list):
+			for group in groups:
+				references.update(_string_items(group))
+		for package_id in sorted(references - known_packages):
+			issues.append(f"Recipe {recipe_id} references an unknown package: {package_id}.")
+	return issues
+
+
+def _string_items(value: Any) -> set[str]:
+	if not isinstance(value, (list, tuple, set)):
+		return set()
+	return {str(item) for item in value if isinstance(item, str) and item}
 
 
 def _text_score(needle: str, *values: str) -> int:

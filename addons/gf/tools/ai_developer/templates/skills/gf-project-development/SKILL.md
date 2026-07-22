@@ -21,8 +21,16 @@ Use the installed GF version and the project's declared intent as the source of 
    python <gf-ai-cli> context --project-root .
    ```
 
-3. Read `.gf/project_contract.json`. Do not infer values that it marks unknown. Stop for user input only when an unknown blocks the requested decision.
-4. If the contract is missing, initialize it, then ask only for material intent that cannot be observed:
+3. Read `.gf/project_contract.json`. If context reports a supported old schema, plan before writing:
+
+	```powershell
+	python <gf-ai-cli> contract-migration-plan --project-root .
+	python <gf-ai-cli> contract-migrate --project-root . --expected-plan-sha256 <reviewed-plan-sha256>
+	```
+
+	Review the complete candidate, source and target hashes, owner defaults, package policy, Recipe selection, acceptance conditions, and warnings before applying. The second command must run in a human-operated interactive terminal and requires the exact `MIGRATE <reviewed-plan-sha256>` phrase. MCP intentionally exposes only the read-only plan. Never derive intent from the generated snapshot.
+4. Do not infer values that the contract marks unknown. Stop for user input only when an unknown blocks the requested decision.
+5. If the contract is missing, initialize it, then ask only for material intent that cannot be observed:
 
    ```powershell
    python <gf-ai-cli> init-contract --project-root .
@@ -45,6 +53,8 @@ python <gf-ai-cli> recipe project-feature --project-root .
 
 Prefer the smallest installed capability that owns the needed mechanism. Verify signatures from the installed catalog; source remains the final authority for behavior, side effects, and lifecycle details.
 
+For every applicable `framework.capability_requirements` record, require `decision_state: confirmed`, then honor its project/module/adapter owner, selected Recipe ids, package policy, and project-owned acceptance conditions. A migrated `pending_review` requirement blocks implementation. Treat `capability_readiness` as bounded evidence: `available_unobserved` is not a defect and `evidence_incomplete` cannot support a negative conclusion.
+
 ## Implement
 
 - Keep business code and provider SDKs outside `addons/gf`.
@@ -53,7 +63,7 @@ Prefer the smallest installed capability that owns the needed mechanism. Verify 
 - Do not create a Model, System, Utility, extension, or adapter unless its responsibility earns that boundary.
 - Work within declared module roots and dependency rules. Do not turn a reference layout into a universal rule.
 
-Read `addons/gf/tools/ai_developer/knowledge/architecture.md` for boundary decisions and `workflow.md` for the end-to-end loop. In the generated Codex plugin, use `../../knowledge/` as the fallback location.
+Read `addons/gf/tools/ai_developer/knowledge/architecture.md` for boundary decisions, `workflow.md` for the end-to-end loop, and `migration.md` before changing an old contract. In the generated Codex plugin, use `../../knowledge/` as the fallback location.
 
 ## Verify And Feed Back
 
@@ -62,5 +72,7 @@ Review each `verification.checks` record before execution. The contract is decla
 ```powershell
 python <gf-ai-cli> snapshot --project-root .
 ```
+
+Resolve unavailable required capabilities and missing selected-Recipe packages. Investigate observed classes as evidence, but do not rewrite contract intent from scan results. Regenerate old snapshots with the current tool rather than migrating generated JSON.
 
 When evidence points to GF rather than project misuse, read `addons/gf/tools/ai_developer/knowledge/feedback.md` and use `feedback-analyze`, then `feedback-draft`. Submission always requires contract opt-in, duplicate checking, the exact payload hash, and explicit user approval in a human-operated interactive terminal. MCP cannot submit issues. Never upload project files, raw logs, credentials, or private source automatically.

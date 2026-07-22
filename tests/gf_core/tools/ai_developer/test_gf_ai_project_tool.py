@@ -21,12 +21,15 @@ FIXTURE_PATH = Path(__file__).with_name("fixtures") / "evaluation_cases.json"
 sys.path.insert(0, str(ADDON_ROOT))
 sys.path.insert(0, str(TOOLS_ROOT))
 
-from gf_ai import adapters, catalog, dependencies, feedback, mcp, snapshot  # noqa: E402
+from gf_ai import adapters, catalog, cli, dependencies, feedback, mcp, migration, paths, snapshot  # noqa: E402
 from gf_ai.constants import (  # noqa: E402
 	ARTIFACT_POLICY_PATH,
+	CONTRACT_SCHEMA_VERSION,
 	DEFAULT_CONTRACT_PATH,
 	PROJECT_ARTIFACT_PATHS,
 	SCHEMA_ROOT,
+	SNAPSHOT_SCHEMA_VERSION,
+	TOOL_VERSION,
 )
 from gf_ai.contract import initialize_contract, load_contract  # noqa: E402
 from gf_ai.paths import read_json_object, resolve_project_path  # noqa: E402
@@ -130,6 +133,284 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 		self.assertIn("unknown_package", codes)
 		self.assertIn("module_dependency_cycle", codes)
 
+	def test_contract_requires_capability_package_owner_and_advertised_recipe(self) -> None:
+		contract_path = self.project_root / ".gf/project_contract.json"
+		contract = json.loads(contract_path.read_text(encoding="utf-8"))
+		contract["framework"]["capability_requirements"].append({
+			"id": "storage-save",
+			"decision_state": "confirmed",
+			"owner": "missing_owner",
+			"recipes": ["ui-screen-flow"],
+			"acceptance": [],
+			"notes": "",
+		})
+		contract_path.write_text(json.dumps(contract), encoding="utf-8")
+
+		result = load_contract(self.project_root)
+		codes = {item["code"] for item in result["issues"]}
+
+		self.assertFalse(result["ok"])
+		self.assertIn("unknown_capability_owner", codes)
+		self.assertIn("capability_package_not_required", codes)
+		self.assertIn("capability_recipe_mismatch", codes)
+
+	def test_contract_migration_is_dry_run_first_hash_bound_and_atomic(self) -> None:
+		contract_path = self.project_root / ".gf/project_contract.json"
+		current = json.loads(contract_path.read_text(encoding="utf-8"))
+		legacy = dict(current)
+		legacy["schema_version"] = 1
+		legacy["framework"] = dict(current["framework"])
+		legacy["framework"]["required_capabilities"] = [
+			item["id"] for item in current["framework"]["capability_requirements"]
+		]
+		del legacy["framework"]["capability_requirements"]
+		contract_path.write_text(json.dumps(legacy, ensure_ascii=False), encoding="utf-8")
+		original_bytes = contract_path.read_bytes()
+
+		loaded = load_contract(self.project_root)
+		plan = migration.plan_contract_migration(self.project_root)
+
+		self.assertFalse(loaded["ok"])
+		self.assertTrue(loaded["migration_required"])
+		self.assertEqual(loaded["schema_version"], 1)
+		self.assertIn("contract_migration_required", {item["code"] for item in loaded["issues"]})
+		self.assertTrue(plan["ok"], plan)
+		self.assertEqual(plan["status"], "ready")
+		self.assertEqual(plan["source"]["schema_version"], 1)
+		self.assertEqual(plan["target"]["schema_version"], CONTRACT_SCHEMA_VERSION)
+		self.assertEqual(plan["candidate"]["schema_version"], CONTRACT_SCHEMA_VERSION)
+		self.assertIn("capability_requirements", plan["candidate"]["framework"])
+		self.assertNotIn("required_capabilities", plan["candidate"]["framework"])
+		self.assertEqual(contract_path.read_bytes(), original_bytes)
+
+		stale = migration.apply_contract_migration(self.project_root, "0" * 64)
+		self.assertFalse(stale["ok"])
+		self.assertEqual(stale["issues"][0]["code"], "migration_plan_changed")
+		self.assertEqual(contract_path.read_bytes(), original_bytes)
+		approval_required = migration.apply_contract_migration(self.project_root, plan["plan_sha256"])
+		self.assertFalse(approval_required["ok"])
+		self.assertEqual(approval_required["issues"][0]["code"], "human_approval_required")
+		self.assertEqual(contract_path.read_bytes(), original_bytes)
+
+		applied = migration.apply_contract_migration(
+			self.project_root,
+			plan["plan_sha256"],
+			human_approved=True,
+		)
+		self.assertTrue(applied["ok"], applied)
+		self.assertEqual(applied["status"], "applied")
+		migrated_contract = json.loads(contract_path.read_text(encoding="utf-8"))
+		self.assertEqual(migrated_contract["schema_version"], CONTRACT_SCHEMA_VERSION)
+		self.assertEqual(
+			migrated_contract["framework"]["capability_requirements"][0]["decision_state"],
+			"pending_review",
+		)
+		self.assertTrue(load_contract(self.project_root)["ok"])
+		migrated_snapshot = snapshot.build_snapshot(self.project_root)
+		self.assertFalse(migrated_snapshot["drift"]["ok"])
+		self.assertIn(
+			"capability_requirement_pending_review",
+			{item["code"] for item in migrated_snapshot["drift"]["issues"]},
+		)
+		self.assertEqual(migration.plan_contract_migration(self.project_root)["status"], "up_to_date")
+
+	def test_contract_and_migration_reject_a_linked_contract_path(self) -> None:
+		real_root = self.project_root / "contract-real"
+		real_root.mkdir()
+		(real_root / "project_contract.json").write_bytes(
+			(self.project_root / ".gf/project_contract.json").read_bytes()
+		)
+		linked_root = self.project_root / "contract-link"
+		create_directory_link_fixture(real_root, linked_root)
+
+		loaded = load_contract(self.project_root, "contract-link/project_contract.json")
+		plan = migration.plan_contract_migration(self.project_root, "contract-link/project_contract.json")
+
+		self.assertFalse(loaded["ok"])
+		self.assertIn("unsafe_contract_path", {item["code"] for item in loaded["issues"]})
+		self.assertFalse(plan["ok"])
+		self.assertEqual(plan["issues"][0]["code"], "unsafe_contract_path")
+
+	def test_contract_migration_rejects_invalid_or_unsupported_sources_without_writing(self) -> None:
+		contract_path = self.project_root / ".gf/project_contract.json"
+		legacy = json.loads(contract_path.read_text(encoding="utf-8"))
+		legacy["schema_version"] = 1
+		legacy["framework"]["required_capabilities"] = ["architecture", "architecture"]
+		del legacy["framework"]["capability_requirements"]
+		contract_path.write_text(json.dumps(legacy), encoding="utf-8")
+		legacy_bytes = contract_path.read_bytes()
+
+		invalid = migration.plan_contract_migration(self.project_root)
+		blocked_apply = migration.apply_contract_migration(self.project_root, "0" * 64)
+
+		self.assertFalse(invalid["ok"])
+		self.assertEqual(invalid["issues"][0]["code"], "duplicate_legacy_capability")
+		self.assertFalse(blocked_apply["ok"])
+		self.assertEqual(contract_path.read_bytes(), legacy_bytes)
+
+		legacy["schema_version"] = CONTRACT_SCHEMA_VERSION + 1
+		contract_path.write_text(json.dumps(legacy), encoding="utf-8")
+		future_bytes = contract_path.read_bytes()
+		unsupported = migration.plan_contract_migration(self.project_root)
+
+		self.assertFalse(unsupported["ok"])
+		self.assertEqual(unsupported["issues"][0]["code"], "unsupported_contract_migration")
+		self.assertEqual(contract_path.read_bytes(), future_bytes)
+
+	def test_contract_migration_plan_binds_the_reviewed_target(self) -> None:
+		contract_path = self.project_root / ".gf/project_contract.json"
+		legacy = json.loads(contract_path.read_text(encoding="utf-8"))
+		legacy["schema_version"] = 1
+		legacy["framework"]["required_capabilities"] = [
+			item["id"] for item in legacy["framework"].pop("capability_requirements")
+		]
+		contract_path.write_text(json.dumps(legacy), encoding="utf-8")
+		original_bytes = contract_path.read_bytes()
+		plan = migration.plan_contract_migration(self.project_root)
+		real_migrate = migration._migrate_v1_to_v2
+
+		def changed_migration(source: dict[str, object]) -> tuple[dict[str, object], list[dict[str, str]]]:
+			candidate, issues = real_migrate(source)
+			candidate["project"]["summary"] = "A different but schema-valid migration target."
+			return candidate, issues
+
+		with mock.patch.object(migration, "_migrate_v1_to_v2", side_effect=changed_migration):
+			blocked = migration.apply_contract_migration(self.project_root, plan["plan_sha256"])
+
+		self.assertFalse(blocked["ok"])
+		self.assertEqual(blocked["issues"][0]["code"], "migration_plan_changed")
+		self.assertEqual(contract_path.read_bytes(), original_bytes)
+
+	def test_contract_migration_plan_binds_the_contract_path(self) -> None:
+		current = json.loads((self.project_root / ".gf/project_contract.json").read_text(encoding="utf-8"))
+		current["schema_version"] = 1
+		current["framework"]["required_capabilities"] = [
+			item["id"] for item in current["framework"].pop("capability_requirements")
+		]
+		for name in ("first.json", "second.json"):
+			(self.project_root / ".gf" / name).write_text(json.dumps(current), encoding="utf-8")
+		plan = migration.plan_contract_migration(self.project_root, ".gf/first.json")
+
+		blocked = migration.apply_contract_migration(
+			self.project_root,
+			plan["plan_sha256"],
+			".gf/second.json",
+			human_approved=True,
+		)
+
+		self.assertFalse(blocked["ok"])
+		self.assertEqual(blocked["issues"][0]["code"], "migration_plan_changed")
+		self.assertEqual(json.loads((self.project_root / ".gf/second.json").read_text(encoding="utf-8"))["schema_version"], 1)
+
+	def test_contract_migration_validates_current_contract_and_rejects_apply_without_pending_plan(self) -> None:
+		contract_path = self.project_root / ".gf/project_contract.json"
+		contract = json.loads(contract_path.read_text(encoding="utf-8"))
+		contract["project"]["summary"] = ""
+		contract_path.write_text(json.dumps(contract), encoding="utf-8")
+
+		invalid_current = migration.plan_contract_migration(self.project_root)
+		invalid_authorization = migration.apply_contract_migration(self.project_root, "not-a-hash")
+
+		self.assertFalse(invalid_current["ok"])
+		self.assertEqual(invalid_current["issues"][0]["code"], "min_length")
+		self.assertFalse(invalid_authorization["ok"])
+		self.assertEqual(invalid_authorization["issues"][0]["code"], "invalid_expected_plan_sha256")
+
+		contract["project"]["summary"] = "Valid current contract."
+		contract_path.write_text(json.dumps(contract), encoding="utf-8")
+		no_pending = migration.apply_contract_migration(self.project_root, "0" * 64)
+
+		self.assertFalse(no_pending["ok"])
+		self.assertEqual(no_pending["issues"][0]["code"], "no_pending_contract_migration")
+
+	def test_atomic_compare_exchange_rejects_a_changed_source_and_reparse_parent(self) -> None:
+		path = self.project_root / ".gf/compare.json"
+		path.write_text('{"value": 1}', encoding="utf-8")
+		expected_sha256 = paths.sha256_json({"value": 1})
+		with mock.patch.object(
+			paths,
+			"_json_sha256_at_path",
+			side_effect=[expected_sha256, paths.sha256_json({"value": 2})],
+		):
+			with self.assertRaisesRegex(paths.CompareExchangeError, "changed during compare-exchange"):
+				paths.atomic_compare_exchange_json(path, expected_sha256, {"value": 3})
+
+		real_root = self.project_root / "write-real"
+		real_root.mkdir()
+		linked_root = self.project_root / "write-link"
+		create_directory_link_fixture(real_root, linked_root)
+		with self.assertRaisesRegex(ValueError, "linked or reparsed"):
+			paths.atomic_write_json(linked_root / "blocked.json", {"blocked": True})
+
+	def test_cli_contract_migration_round_trip_uses_reviewed_hash(self) -> None:
+		contract_path = self.project_root / ".gf/project_contract.json"
+		legacy = json.loads(contract_path.read_text(encoding="utf-8"))
+		legacy["schema_version"] = 1
+		legacy["framework"]["required_capabilities"] = [
+			item["id"] for item in legacy["framework"].pop("capability_requirements")
+		]
+		contract_path.write_text(json.dumps(legacy), encoding="utf-8")
+		cli = ADDON_ROOT / "gf_ai_project.py"
+
+		planned = subprocess.run(
+			[sys.executable, str(cli), "contract-migration-plan", "--project-root", str(self.project_root)],
+			capture_output=True,
+			text=True,
+			encoding="utf-8",
+			timeout=30,
+			check=False,
+		)
+		plan = json.loads(planned.stdout)
+		self.assertEqual(planned.returncode, 0, planned.stderr)
+		self.assertEqual(plan["status"], "ready")
+
+		applied = subprocess.run(
+			[
+				sys.executable,
+				str(cli),
+				"contract-migrate",
+				"--project-root",
+				str(self.project_root),
+				"--expected-plan-sha256",
+				plan["plan_sha256"],
+			],
+			capture_output=True,
+			text=True,
+			encoding="utf-8",
+			timeout=30,
+			check=False,
+		)
+
+		blocked = json.loads(applied.stdout)
+		self.assertEqual(applied.returncode, 1, applied.stderr)
+		self.assertEqual(blocked["issues"][0]["code"], "interactive_approval_required")
+		self.assertEqual(json.loads(contract_path.read_text(encoding="utf-8"))["schema_version"], 1)
+		core_applied = migration.apply_contract_migration(
+			self.project_root,
+			plan["plan_sha256"],
+			human_approved=True,
+		)
+		self.assertTrue(core_applied["ok"], core_applied)
+		self.assertEqual(json.loads(contract_path.read_text(encoding="utf-8"))["schema_version"], CONTRACT_SCHEMA_VERSION)
+
+	def test_cli_contract_migration_requires_the_exact_interactive_phrase(self) -> None:
+		plan_sha256 = "a" * 64
+		plan = {"plan_sha256": plan_sha256, "candidate": {"schema_version": CONTRACT_SCHEMA_VERSION}}
+		with (
+			mock.patch("sys.stdin.isatty", return_value=True),
+			mock.patch("sys.stdout.isatty", return_value=True),
+			mock.patch("builtins.input", return_value=f"MIGRATE {plan_sha256}"),
+			mock.patch("sys.stderr", io.StringIO()),
+		):
+			self.assertTrue(cli._confirm_contract_migration(plan, plan_sha256))
+		with (
+			mock.patch("sys.stdin.isatty", return_value=True),
+			mock.patch("sys.stdout.isatty", return_value=True),
+			mock.patch("builtins.input", return_value=plan_sha256),
+			mock.patch("sys.stderr", io.StringIO()),
+		):
+			self.assertFalse(cli._confirm_contract_migration(plan, plan_sha256))
+
 	def test_contract_rejects_ambiguous_component_ids_and_ownership_roots(self) -> None:
 		contract_path = self.project_root / ".gf/project_contract.json"
 		contract = json.loads(contract_path.read_text(encoding="utf-8"))
@@ -215,6 +496,112 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 			[],
 		)
 
+	def test_snapshot_reports_versioned_capability_readiness_without_inferring_intent(self) -> None:
+		contract_path = self.project_root / ".gf/project_contract.json"
+		contract = json.loads(contract_path.read_text(encoding="utf-8"))
+		contract["framework"]["required_packages"].append("gf.extension.save")
+		contract["framework"]["capability_requirements"].append({
+			"id": "storage-save",
+			"decision_state": "confirmed",
+			"owner": "project",
+			"recipes": ["save-profile"],
+			"acceptance": ["Interrupted writes preserve the previous committed generation."],
+			"notes": "",
+		})
+		contract_path.write_text(json.dumps(contract, ensure_ascii=False), encoding="utf-8")
+
+		report = snapshot.build_snapshot(self.project_root)
+		readiness = {item["id"]: item for item in report["framework"]["capability_readiness"]}
+
+		self.assertEqual(report["schema_version"], SNAPSHOT_SCHEMA_VERSION)
+		self.assertEqual(report["generator_version"], TOOL_VERSION)
+		self.assertEqual(report["contract"]["schema_version"], CONTRACT_SCHEMA_VERSION)
+		self.assertFalse(report["contract"]["migration_required"])
+		self.assertEqual(readiness["architecture"]["status"], "available_unobserved")
+		self.assertEqual(readiness["storage-save"]["status"], "unavailable")
+		self.assertEqual(readiness["storage-save"]["owner"], "project")
+		self.assertEqual(readiness["storage-save"]["recipes"], ["save-profile"])
+		self.assertEqual(readiness["storage-save"]["acceptance_count"], 1)
+		self.assertIn("gf.extension.save", readiness["storage-save"]["missing_recipe_all_of_packages"])
+		self.assertIn("required_capability_unavailable", {item["code"] for item in report["drift"]["issues"]})
+		self.assertEqual(validate_schema_file(report, SCHEMA_ROOT / "project_snapshot.schema.json"), [])
+
+	def test_capability_readiness_bounds_recipe_package_and_class_evidence(self) -> None:
+		class_names = [f"GFStress{index}" for index in range(100)]
+		package_ids = [f"gf.test.package_{index}" for index in range(50)]
+		api_index = {
+			"classes": {
+				class_name: {"package_id": package_ids[index % len(package_ids)]}
+				for index, class_name in enumerate(class_names)
+			}
+		}
+		contract_data = {
+			"framework": {
+				"capability_requirements": [{
+					"id": "stress",
+					"decision_state": "confirmed",
+					"owner": "project",
+					"recipes": ["stress-recipe"],
+					"acceptance": [],
+					"notes": "",
+				}],
+			}
+		}
+		with (
+			mock.patch.object(catalog, "capability_records_by_id", return_value={
+				"stress": {"packages": ["gf.kernel"], "primary_classes": class_names},
+			}),
+			mock.patch.object(catalog, "recipe_records_by_id", return_value={
+				"stress-recipe": {
+					"primary_classes": class_names,
+					"package_requirements": {"all_of": package_ids, "any_of": []},
+				},
+			}),
+			mock.patch.object(catalog, "load_api_index", return_value=api_index),
+		):
+			readiness = snapshot._build_capability_readiness(
+				{"ok": True},
+				contract_data,
+				["gf.kernel", *package_ids],
+				{"gf_api_usage": class_names, "source_scan_complete": True},
+			)[0]
+
+		self.assertEqual(readiness["recipe_all_of_package_count"], 50)
+		self.assertEqual(len(readiness["recipe_all_of_packages"]), 40)
+		self.assertTrue(readiness["recipe_all_of_packages_truncated"])
+		self.assertEqual(readiness["observed_class_count"], 100)
+		self.assertEqual(len(readiness["observed_classes"]), 80)
+		self.assertTrue(readiness["observed_classes_truncated"])
+
+	def test_provider_backend_recipe_accepts_one_explicit_provider_package(self) -> None:
+		contract_data = {
+			"framework": {
+				"capability_requirements": [{
+					"id": "audio",
+					"decision_state": "confirmed",
+					"owner": "project",
+					"recipes": ["provider-backend"],
+					"acceptance": ["Audio provider failures map to a stable project-facing result."],
+					"notes": "",
+				}],
+			}
+		}
+
+		readiness = snapshot._build_capability_readiness(
+			{"ok": True},
+			contract_data,
+			["gf.standard.audio"],
+			{"gf_api_usage": [], "source_scan_complete": True},
+		)[0]
+
+		self.assertEqual(readiness["status"], "available_unobserved")
+		self.assertEqual(readiness["recipe_all_of_packages"], [])
+		self.assertEqual(
+			readiness["recipe_any_of_package_groups"],
+			[["gf.extension.network", "gf.standard.audio", "gf.standard.storage"]],
+		)
+		self.assertEqual(readiness["unsatisfied_recipe_any_of_package_groups"], [])
+
 	def test_snapshot_uses_canonical_lockfile_and_exact_editor_plugin_section(self) -> None:
 		project_source = (
 			'[application]\nconfig/name="res://addons/gf/plugin.cfg"\n\n'
@@ -240,6 +627,20 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 		self.assertFalse(invalid_lockfile["valid"])
 		self.assertIn("framework_version", invalid_lockfile["issues"][0])
 
+	def test_package_lockfile_must_include_transitive_dependencies(self) -> None:
+		lockfile_path = self.project_root / ".gf/packages.lock.json"
+		lockfile = json.loads(lockfile_path.read_text(encoding="utf-8"))
+		lockfile["installed"]["gf.extension.save"] = {"version": catalog.catalog_framework_version()}
+		lockfile_path.write_text(json.dumps(lockfile), encoding="utf-8")
+
+		report = catalog.installed_package_report(self.project_root)
+
+		self.assertFalse(report["valid"])
+		self.assertIn(
+			"gf.standard.storage",
+			"\n".join(report["issues"]),
+		)
+
 	def test_snapshot_source_scan_prunes_framework_and_reports_budget_truncation(self) -> None:
 		source_root = self.project_root / "src"
 		source_root.mkdir()
@@ -256,10 +657,57 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 			report = snapshot.build_snapshot(self.project_root)
 
 		self.assertEqual(report["project"]["script_count"], 1)
+		self.assertEqual(report["project"]["scanned_script_count"], 1)
 		self.assertTrue(report["project"]["source_scan_truncated"])
+		self.assertEqual(report["project"]["source_scan_truncation_reason"], "script_count")
+		self.assertFalse(report["project"]["source_scan_complete"])
 		self.assertIn("GFArchitecture", report["project"]["gf_api_usage"])
 		self.assertNotIn("GFSettingsUtility", report["project"]["gf_api_usage"])
 		self.assertNotIn("GFStorageUtility", report["project"]["gf_api_usage"])
+
+	def test_snapshot_source_scan_has_a_total_byte_budget(self) -> None:
+		source_root = self.project_root / "src"
+		source_root.mkdir()
+		(source_root / "a.gd").write_text("extends Node\nvar first := GFArchitecture.new()\n", encoding="utf-8")
+		(source_root / "b.gd").write_text("extends Node\nvar second := GFStorageUtility.new()\n", encoding="utf-8")
+		first_size = (source_root / "a.gd").stat().st_size
+
+		with mock.patch.object(snapshot, "_MAX_SOURCE_SCAN_BYTES", first_size):
+			report = snapshot.build_snapshot(self.project_root)
+
+		self.assertTrue(report["project"]["source_scan_truncated"])
+		self.assertEqual(report["project"]["source_scan_truncation_reason"], "byte_budget")
+		self.assertEqual(report["project"]["scanned_script_count"], 1)
+		self.assertEqual(report["project"]["scanned_script_bytes"], first_size)
+		self.assertEqual(report["project"]["gf_api_usage"], ["GFArchitecture"])
+		self.assertFalse(report["project"]["source_scan_complete"])
+
+	def test_snapshot_source_scan_separates_tests_and_fails_closed_on_skipped_sources(self) -> None:
+		source_root = self.project_root / "src"
+		test_root = self.project_root / "Tests"
+		source_root.mkdir()
+		test_root.mkdir()
+		(source_root / "large.gd").write_text(
+			"extends Node\nvar architecture := GFArchitecture.new()\n" + ("# padding\n" * 20),
+			encoding="utf-8",
+		)
+		(test_root / "test_architecture.gd").write_text(
+			"extends Node\nvar architecture := GFArchitecture.new()\n",
+			encoding="utf-8",
+		)
+
+		with mock.patch.object(snapshot, "_MAX_SCRIPT_BYTES", 80):
+			report = snapshot.build_snapshot(self.project_root)
+
+		readiness = {item["id"]: item for item in report["framework"]["capability_readiness"]}
+		self.assertEqual(report["project"]["script_count"], 2)
+		self.assertEqual(report["project"]["scanned_script_count"], 1)
+		self.assertEqual(report["project"]["test_script_count"], 1)
+		self.assertEqual(report["project"]["skipped_large_script_count"], 1)
+		self.assertFalse(report["project"]["source_scan_complete"])
+		self.assertEqual(report["project"]["gf_api_usage"], [])
+		self.assertEqual(report["project"]["test_gf_api_usage"], ["GFArchitecture"])
+		self.assertEqual(readiness["architecture"]["status"], "evidence_incomplete")
 
 	def test_module_dependency_analysis_accepts_declared_class_and_resource_edges(self) -> None:
 		self._set_modules([
@@ -849,8 +1297,15 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 		self.assertIn("gf_issue_check_duplicates", names)
 		self.assertIn("gf_api_module", names)
 		self.assertIn("gf_package", names)
+		self.assertIn("gf_contract_migration_plan", names)
+		self.assertNotIn("gf_contract_migrate", names)
 		self.assertNotIn("gf_issue_submit", names)
-		self.assertTrue(all(item["annotations"]["destructiveHint"] is False for item in mcp.list_tools()))
+		tools_by_name = {item["name"]: item for item in mcp.list_tools()}
+		self.assertTrue(tools_by_name["gf_contract_migration_plan"]["annotations"]["readOnlyHint"])
+		self.assertTrue(all(
+			item["annotations"]["destructiveHint"] is False
+			for item in mcp.list_tools()
+		))
 
 	def test_mcp_validates_tool_arguments_before_dispatch(self) -> None:
 		valid = mcp.handle_message({
@@ -884,6 +1339,63 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 		self.assertTrue(valid["result"]["structuredContent"]["ok"], valid)
 		self.assertEqual(len(valid["result"]["structuredContent"]["classes"]), 2)
 		self.assertEqual(invalid["error"]["code"], -32602)
+
+	def test_mcp_contract_migration_is_plan_only(self) -> None:
+		contract_path = self.project_root / ".gf/project_contract.json"
+		legacy = json.loads(contract_path.read_text(encoding="utf-8"))
+		legacy["schema_version"] = 1
+		legacy["framework"]["required_capabilities"] = [
+			item["id"] for item in legacy["framework"].pop("capability_requirements")
+		]
+		contract_path.write_text(json.dumps(legacy), encoding="utf-8")
+		plan_response = mcp.handle_message({
+			"jsonrpc": "2.0",
+			"id": 10,
+			"method": "tools/call",
+			"params": {
+				"name": "gf_contract_migration_plan",
+				"arguments": {"project_root": str(self.project_root)},
+			},
+		})
+		plan = plan_response["result"]["structuredContent"]
+
+		apply_response = mcp.handle_message({
+			"jsonrpc": "2.0",
+			"id": 11,
+			"method": "tools/call",
+			"params": {
+				"name": "gf_contract_migrate",
+				"arguments": {
+					"project_root": str(self.project_root),
+					"expected_plan_sha256": plan["plan_sha256"],
+				},
+			},
+		})
+
+		self.assertEqual(plan["status"], "ready")
+		self.assertEqual(apply_response["error"]["code"], -32602)
+		self.assertEqual(json.loads(contract_path.read_text(encoding="utf-8"))["schema_version"], 1)
+
+	def test_cli_argument_errors_preserve_the_json_output_contract(self) -> None:
+		completed = subprocess.run(
+			[
+				sys.executable,
+				str(ADDON_ROOT / "gf_ai_project.py"),
+				"contract-migrate",
+				"--project-root",
+				str(self.project_root),
+			],
+			capture_output=True,
+			text=True,
+			encoding="utf-8",
+			timeout=30,
+			check=False,
+		)
+
+		payload = json.loads(completed.stdout)
+		self.assertEqual(completed.returncode, 1)
+		self.assertEqual(payload["issues"][0]["code"], "invalid_arguments")
+		self.assertIn("--expected-plan-sha256", payload["issues"][0]["message"])
 
 	def test_mcp_does_not_expose_unexpected_internal_failures(self) -> None:
 		request = {
@@ -933,6 +1445,11 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 			with self.subTest(query=case["query"]):
 				result = catalog.capability_search(case["query"], 10, self.project_root)
 				self.assertIn(case["expected_id"], [item["id"] for item in result["results"]])
+		for case in fixture["recipe_cases"]:
+			with self.subTest(recipe=case["recipe_id"]):
+				result = catalog.recipe_by_id(case["recipe_id"], self.project_root)
+				self.assertTrue(result["ok"], result)
+				self.assertIn(case["expected_class"], result["primary_classes"])
 		for case in fixture["api_queries"]:
 			with self.subTest(query=case["query"]):
 				result = catalog.api_search(case["query"], 10, self.project_root)
