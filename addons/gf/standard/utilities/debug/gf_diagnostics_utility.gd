@@ -1334,9 +1334,19 @@ func collect_snapshot(options: Dictionary = {}) -> Dictionary:
 		"diagnostic_provider_ids"
 	)
 	if not diagnostic_provider_ids.is_empty():
+		var _legacy_provider_section_removed: bool = snapshot.erase(&"diagnostic_providers")
+		var _provider_section_removed: bool = snapshot.erase("diagnostic_providers")
+		var diagnostic_provider_request_value: Variant = GFVariantData.get_option_value(
+			options,
+			"diagnostic_provider_request",
+			{}
+		)
+		var diagnostic_provider_request: Dictionary = GFVariantData.as_dictionary(
+			diagnostic_provider_request_value
+		)
 		snapshot["diagnostic_providers"] = collect_diagnostic_providers(
 			diagnostic_provider_ids,
-			GFVariantData.get_option_dictionary(options, "diagnostic_provider_request")
+			diagnostic_provider_request
 		)
 
 	snapshot_collected.emit(snapshot)
@@ -1634,7 +1644,7 @@ func _index_signal_graph(graph: Dictionary) -> Dictionary:
 
 func _is_reserved_snapshot_section_id(section_id: StringName) -> bool:
 	match section_id:
-		&"timestamp_unix", &"engine", &"build", &"architecture", &"event_system", &"performance", &"logs", &"tools", &"scene_tree", &"signal_graph", &"monitors", &"diagnostic_providers":
+		&"timestamp_unix", &"engine", &"build", &"architecture", &"event_system", &"performance", &"logs", &"tools", &"scene_tree", &"signal_graph", &"monitors":
 			return true
 		_:
 			return false

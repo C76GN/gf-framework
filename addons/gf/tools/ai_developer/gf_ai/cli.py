@@ -120,8 +120,14 @@ def _dispatch(args: argparse.Namespace, project_root: Path) -> dict[str, Any]:
 		return migration.plan_contract_migration(project_root, args.contract)
 	if args.command == "contract-migrate":
 		plan = migration.plan_contract_migration(project_root, args.contract)
-		if not plan.get("ok") or plan.get("status") != "ready":
+		if not plan.get("ok"):
 			return plan
+		if plan.get("status") != "ready":
+			return migration.apply_contract_migration(
+				project_root,
+				args.expected_plan_sha256,
+				args.contract,
+			)
 		if args.expected_plan_sha256 != plan.get("plan_sha256"):
 			return migration.apply_contract_migration(
 				project_root,

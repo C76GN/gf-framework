@@ -43,4 +43,6 @@ var text: String = diagnostics.export_monitor_snapshot(monitor_snapshot, &"text"
 
 外部分区和工具快照必须通过 `publish_snapshot_section()` / `publish_tool_snapshot()` 提交 `Dictionary`。监控值则先用 `register_monitor()` 声明 owner 和显示元数据，再用 `publish_monitor_sample()` 更新。发布时会检查 `max_contribution_collection_items`、`max_contribution_nodes`、`max_contribution_depth` 和 `max_contribution_bytes`，并立即转换为 report-safe 缓存；无效或超预算的新值会被拒绝，监控项继续保留上一份有效采样。
 
+为兼容既有集成，项目仍可发布名为 `diagnostic_providers` 的自定义分区。普通 `collect_snapshot()` 会返回这份缓存；只有调用方显式提交非空 `diagnostic_provider_ids` 时，当次快照的同名顶层键才由内置惰性 Provider 批次结果占用。这个临时覆盖不会注销自定义分区，后续普通快照仍会返回原缓存。
+
 同名贡献只允许当前 owner 更新或移除，owner 释放后会自动剪枝。`collect_snapshot()` 和 Overlay 刷新只读取缓存，不执行外部 `Callable`，因此观察行为不能重入业务逻辑或阻塞诊断 UI。框架内置采样仍可保留进程内 native Variant；把完整快照写入文件、Debugger 通道或支持报告时，继续通过 `GFReportValueCodec` 处理最终导出策略。

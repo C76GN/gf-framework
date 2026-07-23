@@ -393,6 +393,31 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 		self.assertTrue(core_applied["ok"], core_applied)
 		self.assertEqual(json.loads(contract_path.read_text(encoding="utf-8"))["schema_version"], CONTRACT_SCHEMA_VERSION)
 
+	def test_cli_contract_migrate_rejects_when_contract_is_current(self) -> None:
+		cli = ADDON_ROOT / "gf_ai_project.py"
+
+		completed = subprocess.run(
+			[
+				sys.executable,
+				str(cli),
+				"contract-migrate",
+				"--project-root",
+				str(self.project_root),
+				"--expected-plan-sha256",
+				"0" * 64,
+			],
+			capture_output=True,
+			text=True,
+			encoding="utf-8",
+			timeout=30,
+			check=False,
+		)
+
+		result = json.loads(completed.stdout)
+		self.assertEqual(completed.returncode, 1, completed.stderr)
+		self.assertFalse(result["ok"])
+		self.assertEqual(result["issues"][0]["code"], "no_pending_contract_migration")
+
 	def test_cli_contract_migration_requires_the_exact_interactive_phrase(self) -> None:
 		plan_sha256 = "a" * 64
 		plan = {"plan_sha256": plan_sha256, "candidate": {"schema_version": CONTRACT_SCHEMA_VERSION}}

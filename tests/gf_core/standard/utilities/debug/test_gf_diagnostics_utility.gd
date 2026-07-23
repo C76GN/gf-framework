@@ -334,6 +334,72 @@ func test_diagnostics_collects_external_published_snapshots() -> void:
 	assert_true(tool_monitors.has(&"runtime.pending"), "追加到 tools 预设的外部监控项应可采样。")
 
 
+func test_diagnostics_preserves_existing_diagnostic_providers_snapshot_section() -> void:
+	var diagnostics: GFDiagnosticsUtility = GFDiagnosticsUtility.new()
+	diagnostics.init()
+	var provider: CountingDiagnosticProvider = CountingDiagnosticProvider.new()
+	var _configured_provider: GFDiagnosticSnapshotProvider = provider.configure(&"game.compatibility")
+
+	assert_true(
+		diagnostics.publish_snapshot_section(
+			self,
+			&"diagnostic_providers",
+			{ "legacy_value": 7 }
+		),
+		"既有 diagnostic_providers 自定义分区应继续允许发布。"
+	)
+	var snapshot: Dictionary = diagnostics.collect_snapshot({
+		"include_monitors": false,
+		"include_recent_logs": false,
+	})
+	var section: Dictionary = GFVariantData.get_option_dictionary(
+		snapshot,
+		"diagnostic_providers"
+	)
+
+	assert_eq(
+		GFVariantData.get_option_int(section, "legacy_value"),
+		7,
+		"未显式请求惰性 Provider 时应保留既有自定义分区。"
+	)
+	assert_true(
+		diagnostics.register_diagnostic_provider(self, provider),
+		"兼容测试 Provider 应注册成功。"
+	)
+	var requested_snapshot: Dictionary = diagnostics.collect_snapshot({
+		"include_monitors": false,
+		"include_recent_logs": false,
+		"diagnostic_provider_ids": PackedStringArray(["game.compatibility"]),
+	})
+	var requested_batch: Dictionary = GFVariantData.get_option_dictionary(
+		requested_snapshot,
+		"diagnostic_providers"
+	)
+	var equivalent_key_count: int = 0
+	for key: Variant in requested_snapshot.keys():
+		if GFVariantData.to_text(key) == "diagnostic_providers":
+			equivalent_key_count += 1
+
+	assert_true(GFVariantData.get_option_bool(requested_batch, "ok"), "显式请求时内置 Provider 批次应优先。")
+	assert_eq(provider.call_count, 1, "显式请求应执行一次 Provider。")
+	assert_eq(equivalent_key_count, 1, "显式请求不得留下文本等价的双重顶层键。")
+	assert_true(diagnostics.has_snapshot_section(&"diagnostic_providers"), "内置批次覆盖不应注销既有分区。")
+	var later_snapshot: Dictionary = diagnostics.collect_snapshot({
+		"include_monitors": false,
+		"include_recent_logs": false,
+	})
+	var later_section: Dictionary = GFVariantData.get_option_dictionary(
+		later_snapshot,
+		"diagnostic_providers"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(later_section, "legacy_value"),
+		7,
+		"后续普通快照应继续恢复既有自定义分区。"
+	)
+	diagnostics.dispose()
+
+
 func test_diagnostics_rejects_external_contributions_for_reserved_snapshot_keys() -> void:
 	var diagnostics: GFDiagnosticsUtility = GFDiagnosticsUtility.new()
 	diagnostics.init()
@@ -773,6 +839,36 @@ func test_lazy_diagnostic_provider_rejects_unbounded_shared_request_before_callb
 	)
 	assert_eq(GFVariantData.get_option_int(batch, "executed_count"), 0, "非法 request 不得执行任何 Provider。")
 	assert_eq(provider.call_count, 0, "预算预检必须早于项目回调。")
+	diagnostics.dispose()
+
+
+func test_collect_snapshot_rejects_circular_provider_request_before_callbacks() -> void:
+	var diagnostics: GFDiagnosticsUtility = GFDiagnosticsUtility.new()
+	var provider: CountingDiagnosticProvider = CountingDiagnosticProvider.new()
+	var _configured_provider: GFDiagnosticSnapshotProvider = provider.configure(&"game.circular_request")
+	assert_true(diagnostics.register_diagnostic_provider(self, provider), "循环请求测试 Provider 应注册成功。")
+	var circular_request: Dictionary = {}
+	circular_request["self"] = circular_request
+
+	var snapshot: Dictionary = diagnostics.collect_snapshot({
+		"include_monitors": false,
+		"include_recent_logs": false,
+		"diagnostic_provider_ids": PackedStringArray(["game.circular_request"]),
+		&"diagnostic_provider_request": circular_request,
+	})
+	var batch: Dictionary = GFVariantData.get_option_dictionary(
+		snapshot,
+		"diagnostic_providers"
+	)
+
+	assert_false(GFVariantData.get_option_bool(batch, "ok", true), "循环 request 必须 fail closed。")
+	assert_eq(
+		GFVariantData.get_option_string_name(batch, "error_code"),
+		&"provider_request_rejected",
+		"循环 request 应返回稳定批次错误码。"
+	)
+	assert_eq(GFVariantData.get_option_int(batch, "executed_count"), 0, "循环 request 不得执行 Provider。")
+	assert_eq(provider.call_count, 0, "循环检测必须早于项目回调。")
 	diagnostics.dispose()
 
 
