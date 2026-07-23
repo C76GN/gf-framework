@@ -80,6 +80,9 @@
       "res://tests/gf_core/kernel/extension/test_gf_extension_manifest.gd",
       "res://tests/gf_core/kernel/package/test_gf_package_manager_backend.gd"
     ],
+    "gf.standard.agent_environment": [
+      "res://tests/gf_core/standard/utilities/agent/test_gf_runtime_agent_environment.gd"
+    ],
     "gf.standard.assets": [
       "res://tests/gf_core/standard/utilities/assets/test_gf_asset_utility.gd",
       "res://tests/gf_core/standard/utilities/assets/test_gf_threaded_resource_coordinator.gd",

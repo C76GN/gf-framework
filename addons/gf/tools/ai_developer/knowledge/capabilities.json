@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "catalog_version": "1.1.0",
+  "catalog_version": "1.2.0",
   "capabilities": [
     {
       "id": "architecture",
@@ -101,6 +101,16 @@
       "primary_classes": ["GFDiagnosticsUtility", "GFDiagnosticSnapshotProvider", "GFDiagnosticProviderResult", "GFSessionTraceUtility", "GFSessionTraceRecipe", "GFOperationDiagnosticsUtility", "GFSupportReportUtility"],
       "recipes": ["diagnostic-contribution", "session-trace", "feedback-candidate"],
       "boundary": "Collect the minimum needed data, bound all histories, and require explicit consent for precise or private diagnostics."
+    },
+    {
+      "id": "runtime-agent-environment",
+      "title": "Runtime Agent endpoint environment",
+      "summary": "Default-closed, transport-neutral runtime endpoints with strict JSON schemas, exact short-lived grants, replay and rate controls, policy checks, bounded responses, and payload-free audit.",
+      "keywords": ["runtime agent", "automation", "endpoint", "session", "grant", "bearer token", "replay", "rate limit", "policy", "audit"],
+      "packages": ["gf.standard.agent_environment"],
+      "primary_classes": ["GFRuntimeAgentEnvironment"],
+      "recipes": ["runtime-agent-endpoint"],
+      "boundary": "GF protects untrusted request data entering trusted synchronous handlers. Create the environment on its long-lived owner thread, marshal every transport call back to that thread, and call invalidate_policy_context before mutating registry, provider, or external policy state. Projects still own pre-decode body limits, transport authentication and throttling, user approval, business authorization, side-effect rollback, and process isolation."
     },
     {
       "id": "determinism",

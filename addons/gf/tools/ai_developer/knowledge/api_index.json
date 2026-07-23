@@ -2,9 +2,9 @@
   "schema_version": 1,
   "catalog_version": "1.0.0",
   "framework_version": "10.0.0-dev.0",
-  "source_digest": "6e7b31919ecb9dc1f35018fbed0fe05a8d9f2cabd0ca29cfdefaee58acbb70dd",
-  "class_count": 738,
-  "package_count": 50,
+  "source_digest": "d4200026bc81cf70d262aefeae934e7e9e463f5dbbc6b48f91115fd598cb974a",
+  "class_count": 739,
+  "package_count": 51,
   "packages": [
     {
       "id": "gf.extension.action_queue",
@@ -194,6 +194,16 @@
       "dependencies": [],
       "description": "Minimal GF framework core, plugin entry, lifecycle, extension manager, and Godot-native package management base.",
       "representative_path": "addons/gf/kernel/base/gf_clock.gd"
+    },
+    {
+      "id": "gf.standard.agent_environment",
+      "kind": "standard",
+      "dependencies": [
+        "gf.kernel",
+        "gf.standard.base"
+      ],
+      "description": "Transport-neutral, default-closed runtime Agent endpoint sessions with strict JSON schemas, exact grants, short-lived hashed credentials, replay and rate controls, policy checks, bounded results, and payload-free audit events.",
+      "representative_path": "addons/gf/standard/utilities/agent/gf_runtime_agent_environment.gd"
     },
     {
       "id": "gf.standard.assets",
@@ -61554,6 +61564,151 @@
           "signature": "func validate() -> bool",
           "summary": "校验规则的配置数据是否合法。",
           "visibility": "public"
+        }
+      ]
+    },
+    "GFRuntimeAgentEnvironment": {
+      "extends": "GFUtility",
+      "module": "standard",
+      "package_id": "gf.standard.agent_environment",
+      "path": "addons/gf/standard/utilities/agent/gf_runtime_agent_environment.gd",
+      "summary": "GFRuntimeAgentEnvironment: 传输无关的受限运行时 Agent 调用环境。 受信宿主显式注册严格 endpoint，再为调用方签发仅授权指定 endpoint 的短期 session。 环境负责协议版本、bearer token、TTL、限流、防重放、结构预算、策略检查和无载荷审计；",
+      "visibility": "public",
+      "category": "runtime_service",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "signal",
+          "name": "audit_event_recorded",
+          "signature": "signal audit_event_recorded(event: Dictionary)",
+          "summary": "追加安全审计事件时触发。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "PROTOCOL_VERSION",
+          "signature": "const PROTOCOL_VERSION: int = 1",
+          "summary": "Runtime Agent 请求协议版本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "SCHEMA_VERSION",
+          "signature": "const SCHEMA_VERSION: int = 1",
+          "summary": "Runtime Agent 结果与审计结构版本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "enabled",
+          "signature": "var enabled: bool = false",
+          "summary": "是否接受新 session 和请求。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "policy_registry",
+          "signature": "var policy_registry: GFPolicyRegistry = GFPolicyRegistry.new()",
+          "summary": "session 签发与请求执行使用的策略注册表。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "dispose",
+          "signature": "func dispose() -> void",
+          "summary": "释放 endpoint、session、凭据摘要与内存审计。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "register_endpoint",
+          "signature": "func register_endpoint( endpoint_id: String, request_schema: GFDictionarySchema, response_schema: GFDictionarySchema, handler: Callable ) -> Dictionary",
+          "summary": "注册一个受信 endpoint。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "unregister_endpoint",
+          "signature": "func unregister_endpoint(endpoint_id: String) -> Dictionary",
+          "summary": "注销 endpoint。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_endpoint_catalog",
+          "signature": "func get_endpoint_catalog() -> Dictionary",
+          "summary": "获取不含 handler、token、metadata 和默认值的 endpoint 目录。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "open_session",
+          "signature": "func open_session( endpoint_ids: PackedStringArray, options: Dictionary = {} ) -> Dictionary",
+          "summary": "为一组精确 endpoint grant 创建短期 session。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "close_session",
+          "signature": "func close_session(session_id: String, bearer_token: String) -> Dictionary",
+          "summary": "使用凭据关闭 session。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "revoke_session",
+          "signature": "func revoke_session(session_id: String) -> bool",
+          "summary": "由受信宿主按 session id 撤销凭据。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "invalidate_policy_context",
+          "signature": "func invalidate_policy_context() -> int",
+          "summary": "使策略上下文的任意原地或外部变化立即失效。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "execute_request",
+          "signature": "func execute_request(request: Dictionary, bearer_token: String) -> Dictionary",
+          "summary": "执行一个版本化 Runtime Agent 请求。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "prune_expired_sessions",
+          "signature": "func prune_expired_sessions() -> int",
+          "summary": "删除所有已过期 session。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_audit_events",
+          "signature": "func get_audit_events(limit: int = 64) -> Dictionary",
+          "summary": "获取最近的无载荷安全审计事件。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "clear_audit_events",
+          "signature": "func clear_audit_events() -> void",
+          "summary": "清空环境内存审计环形缓冲。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_debug_snapshot",
+          "signature": "func get_debug_snapshot() -> Dictionary",
+          "summary": "获取不含凭据、请求 ID 与业务值的调试快照。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "_get_current_time_msec",
+          "signature": "func _get_current_time_msec() -> int",
+          "summary": "获取环境单调毫秒时钟。",
+          "visibility": "protected"
         }
       ]
     },
