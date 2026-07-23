@@ -72,6 +72,10 @@
 - 修复 `GFStorageUtility` 读取旧版本数据时绕过派生类 `migrate_data()` 覆写的问题；自定义迁移继续经过公开扩展点，未覆写时仍保留注册迁移链的类型化失败结果。
 - 修复 Save Profile 持续收到更新保存请求时，generation 屏障已经满足的最老读取仍可能长期饥饿的问题；就绪读取与等待保存现在采用有界轮转，未满足屏障的读取仍会等待覆盖它的保存终态。
 - 修复超时写入在重试期间晚到成功后，逻辑保存仍可能被后续重试失败错误翻转的问题；已确认成功的 generation 会立即完成受覆盖请求，尚未终态的物理重试继续保留路径所有权直至结束。
+- 修复 Session Trace 的通道、Provider、直接事件与 Provider capture 读取 `metadata` 时依赖原生字典键比较的问题；这些入口现在通过 GF 的 String/StringName 等价键规则读取原引用，并在转发 capture 选项前移除两种键形态，继续保持循环 metadata 的有界处理。
+- 修复惰性诊断 Provider 引入后会拒绝历史 `diagnostic_providers` 自定义快照分区的问题；普通快照继续保留既有分区，只有显式提交非空 `diagnostic_provider_ids` 的当次快照由内置批次结果占用该顶层键，且不会注销已发布缓存。
+- 修复总快照入口会在结构与循环预检前深复制 `diagnostic_provider_request`、从而可能触发递归上限的问题；请求现在先按原引用 fail closed 校验，失败时不执行任何项目 Provider。
+- 修复当前契约已经是 schema v2 时，CLI `contract-migrate` 会把 `up_to_date` 计划当作成功应用并退出 0 的问题；没有待执行迁移时现在返回 `no_pending_contract_migration` 和非零退出码。
 
 ### 🔧 API 变动说明 (API Changes)
 
@@ -97,7 +101,7 @@
 - 自定义 `_draw()` 或无法可靠推断范围的 2D 节点应传入显式 `content_bounds`；多后端复制与冲突处理继续使用 `GFStorageSyncUtility`，不要把故障转移当作原子双写。
 - 既有 UI 路由无需迁移；只有需要候选页面预热时才声明 `adjacent_route_ids` 并显式执行生成的资产计划。需要发布后问题轨迹时，应由项目定义最小事件 schema、玩家许可和保留策略，再显式采用 `GFSessionTraceUtility`。
 - 既有诊断快照无需迁移。只有无法安全长期缓存的状态才实现 `GFDiagnosticSnapshotProvider`，并由故障点或支持报告入口显式请求；需要跨系统固定轨迹预算和检查点时，在首次会话前应用 `GFSessionTraceRecipe`，不要把上传、许可或业务恢复逻辑写进配方。
-- 历史代码若通过 `publish_snapshot_section()` 使用了 `diagnostic_providers` 分区 ID，必须迁移为项目自有稳定名称；该 ID 现为惰性 Provider 批量结果的内建保留字段，继续注册会被明确拒绝。
+- 历史代码通过 `publish_snapshot_section()` 使用 `diagnostic_providers` 分区 ID 时无需迁移：普通快照继续返回该缓存；只有当次显式请求惰性 Provider 时，同名顶层键才由内置批次结果确定性覆盖，后续普通快照仍恢复既有分区。
 - 既有曲线、Steering、发射体和节点移动逻辑无需迁移。只有需要结构化未来状态、拦截时间或公式点集时才显式采用 `GFTrajectoryMath`；绘制、物理推进、速度继承、重力拦截和业务命中规则继续由项目负责。
 - 既有 Save Graph、Slot 和直接 Storage 调用无需迁移。需要跨模块自动保存时，为每个稳定数据边界实现一个可回滚 `GFSaveSectionProvider`，注册 Profile 和完整迁移链；不要把缺失、损坏或未来版本统一重置为空存档。
 - 历史配置若有意使用带首尾空白的 route ID，需迁移为去除空白后的稳定 ID；规范化后重复的 ID 会指向同一注册身份，不应再依赖空白区分页面。
@@ -122,6 +126,7 @@
 - `addons/gf/standard/utilities/storage/gf_storage_failover_backend.gd`
 - `addons/gf/standard/utilities/storage/gf_storage_utility.gd`
 - `addons/gf/standard/utilities/storage/gf_storage_async_operation.gd`
+- `addons/gf/standard/utilities/debug/gf_diagnostics_utility.gd`
 - `addons/gf/standard/utilities/debug/gf_session_trace_utility.gd`
 - `addons/gf/standard/utilities/debug/gf_diagnostic_snapshot_provider.gd`
 - `addons/gf/standard/utilities/debug/gf_diagnostic_provider_result.gd`
@@ -137,6 +142,7 @@
 - `addons/gf/extensions/save/profile/`
 - `docs/zh/extensions/save-graph/save-profile-runtime.md`
 - `docs/zh/extensions/save-graph/save-profile-adr.md`
+- `addons/gf/tools/ai_developer/gf_ai/cli.py`
 - `addons/gf/tools/ai_developer/gf_ai/dependencies.py`
 - `addons/gf/tools/ai_developer/schemas/project_contract.schema.json`
 - `addons/gf/tools/ai_developer/schemas/project_snapshot.schema.json`

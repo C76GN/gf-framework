@@ -53,9 +53,11 @@ var snapshot: Dictionary = diagnostics.collect_snapshot({
 })
 ```
 
+总快照把内置批次写入顶层 `diagnostic_providers`。为兼容历史项目，普通快照仍允许同名的已发布自定义分区；只有显式提交非空 `diagnostic_provider_ids` 时，内置批次才在当次结果中确定性优先，且不会注销自定义缓存。
+
 结果按 Provider ID 隔离。不存在、重入、owner 释放、注册表变化、超时或非法输出只会让对应项失败，后续 Provider 仍会执行。批次会分别报告 `requested_count`、`unique_request_count`、`duplicate_count`、`invalid_count` 和真正因上限未执行的 `omitted_count`；重复 ID 只执行一次但不算容量丢失，非法 ID 和超过 `max_diagnostic_providers` 的唯一 ID 则使批次 fail closed。为限制去重本身的工作量，原始 ID 列表最多 1024 项；超限返回 `provider_request_size_exceeded`，且不会执行任何 Provider。
 
-共享 request 会在任何项目回调执行前通过同一套深度、节点数、集合项数和估算字节预算。预检失败时批次返回 `provider_request_rejected`、`executed_count = 0`，避免为每个 Provider 重复复制一个无界输入。
+共享 request 会在深复制和任何项目回调执行前，以原始引用通过同一套循环、深度、节点数、集合项数和估算字节预算。预检失败时批次返回 `provider_request_rejected`、`executed_count = 0`，避免递归复制或为每个 Provider 重复复制一个无界输入。
 
 `max_duration_usec` 是同步回调返回后的验收预算，不是可抢占 timeout。GDScript 回调一旦开始就无法被 GF 安全中止，因此 Provider 自身仍必须保证最坏执行时间；超时结果会被拒绝并记录 `duration_usec`，但已经消耗的主线程时间无法追回。`0` 只用于显式关闭返回后时长拒绝，负数不会被静默归一为 `0`，而会让 Provider 定义校验与注册失败。
 

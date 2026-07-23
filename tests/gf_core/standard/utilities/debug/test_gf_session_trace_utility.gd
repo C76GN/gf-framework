@@ -213,6 +213,71 @@ func test_session_trace_bounds_circular_metadata_at_every_public_recording_bound
 	trace.dispose()
 
 
+func test_session_trace_accepts_string_name_metadata_option_keys() -> void:
+	var trace: GFSessionTraceUtility = GFSessionTraceUtility.new()
+	assert_true(
+		trace.register_channel(
+			&"state",
+			{ &"metadata": { "channel_value": 1 } }
+		),
+		"通道注册应接受 StringName metadata 选项键。"
+	)
+	assert_true(
+		trace.register_snapshot_provider(
+			&"state_provider",
+			&"state",
+			func() -> Dictionary:
+				return { "ready": true },
+			{ &"metadata": { "provider_value": 2 } }
+		),
+		"Provider 注册应接受 StringName metadata 选项键。"
+	)
+	var _session_id: StringName = trace.start_session(&"string-name-metadata")
+	var direct_result: Dictionary = trace.record_event(
+		&"state",
+		&"direct",
+		{},
+		{ &"metadata": { "direct_value": 3 } }
+	)
+	var capture_result: Dictionary = trace.capture_snapshot_provider(
+		&"state_provider",
+		{ &"metadata": { "capture_value": 4 } }
+	)
+	var direct_event: Dictionary = GFVariantData.get_option_dictionary(direct_result, "event")
+	var capture_event: Dictionary = GFVariantData.get_option_dictionary(capture_result, "event")
+	var direct_metadata: Dictionary = GFVariantData.get_option_dictionary(direct_event, "metadata")
+	var capture_metadata: Dictionary = GFVariantData.get_option_dictionary(capture_event, "metadata")
+
+	assert_true(GFVariantData.get_option_bool(direct_result, "ok"), "直接事件应成功记录。")
+	assert_true(GFVariantData.get_option_bool(capture_result, "ok"), "Provider capture 应成功记录。")
+	assert_eq(
+		GFVariantData.get_option_int(direct_metadata, "channel_value"),
+		1,
+		"直接事件应保留通道 metadata。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(direct_metadata, "direct_value"),
+		3,
+		"直接事件应保留 StringName 键读取的调用 metadata。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(capture_metadata, "channel_value"),
+		1,
+		"Provider capture 应保留通道 metadata。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(capture_metadata, "provider_value"),
+		2,
+		"Provider capture 应保留注册 metadata。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(capture_metadata, "capture_value"),
+		4,
+		"Provider capture 应保留 StringName 键读取的调用 metadata。"
+	)
+	trace.dispose()
+
+
 func test_session_trace_snapshot_provider_is_explicit_and_bounded() -> void:
 	var trace: GFSessionTraceUtility = GFSessionTraceUtility.new()
 	assert_true(trace.register_channel(&"model"), "模型通道应注册成功。")

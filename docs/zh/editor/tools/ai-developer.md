@@ -59,7 +59,7 @@ python addons/gf/tools/ai_developer/gf_ai_project.py contract-migration-plan --p
 python addons/gf/tools/ai_developer/gf_ai_project.py contract-migrate --project-root . --expected-plan-sha256 <plan-sha256>
 ```
 
-CLI 会再次展示完整候选，并要求原样输入 `MIGRATE <plan-sha256>`。契约源或目标在审阅后发生变化、路径经过符号链接/junction/重解析点、迁移锁冲突、旧字段非法、目标契约不满足 Schema/语义约束或版本没有显式迁移路径时，compare-and-swap 写入会被拒绝。工具不会同时维护 v1/v2 两套运行格式，也不会从源码或 Snapshot 自动生成业务验收条件。应用后先把每项 `pending_review` 改成经过确认的 owner、Recipe 和验收条件，再执行 `validate` 和 `snapshot`；Snapshot 是可重建证据，禁止迁移旧 Snapshot 或手工补字段。
+CLI 会再次展示完整候选，并要求原样输入 `MIGRATE <plan-sha256>`。契约已经是当前 schema、契约源或目标在审阅后发生变化、路径经过符号链接/junction/重解析点、迁移锁冲突、旧字段非法、目标契约不满足 Schema/语义约束或版本没有显式迁移路径时，compare-and-swap 写入会被拒绝；当前契约没有待执行迁移时返回 `no_pending_contract_migration` 和非零退出码。工具不会同时维护 v1/v2 两套运行格式，也不会从源码或 Snapshot 自动生成业务验收条件。应用后先把每项 `pending_review` 改成经过确认的 owner、Recipe 和验收条件，再执行 `validate` 和 `snapshot`；Snapshot 是可重建证据，禁止迁移旧 Snapshot 或手工补字段。
 
 ## 为 Agent 安装项目规则
 

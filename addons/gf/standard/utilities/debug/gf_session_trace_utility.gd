@@ -951,6 +951,7 @@ func capture_snapshot_provider(provider_id: StringName, options: Dictionary = {}
 	_provider_capture_active = false
 	var record_options: Dictionary = _duplicate_dictionary(options)
 	var _metadata_removed: bool = record_options.erase("metadata")
+	var _metadata_name_removed: bool = record_options.erase(&"metadata")
 	var metadata: Dictionary = GFVariantData.get_option_dictionary(provider_entry, "metadata").duplicate(true)
 	var capture_metadata: Dictionary = _sanitize_dictionary(
 		_get_dictionary(options, "metadata"),
@@ -1629,7 +1630,7 @@ func _get_sorted_provider_ids() -> PackedStringArray:
 
 
 func _get_dictionary(source: Dictionary, key: Variant) -> Dictionary:
-	var value: Variant = source.get(key)
+	var value: Variant = GFVariantData.get_option_value(source, key)
 	if value is Dictionary:
 		var dictionary_value: Dictionary = value
 		return dictionary_value
