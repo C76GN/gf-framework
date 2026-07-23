@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "catalog_version": "1.2.0",
+  "catalog_version": "1.3.0",
   "capabilities": [
     {
       "id": "architecture",
@@ -165,12 +165,12 @@
     {
       "id": "spatial-physics",
       "title": "Spatial math and physics mechanisms",
-      "summary": "Grid/path math, spatial queries, camera mechanisms, hit detection, buoyancy sampling, and physics-independent policies.",
-      "keywords": ["spatial", "grid", "path", "physics", "camera", "hitbox", "buoyancy", "2d", "3d"],
-      "packages": ["gf.standard.spatial", "gf.extension.physics", "gf.extension.camera", "gf.extension.combat"],
-      "primary_classes": ["GFSpatialQueryIndex2D", "GFGridPathMath2D", "GFGraphPathSearchState", "GFBuoyancyField3D", "GFCameraOrbitRig3D", "GFHitBox2D"],
+      "summary": "Grid/path math, spatial queries, bounded 2D canvas orchestration, camera mechanisms, hit detection, buoyancy sampling, and physics-independent policies.",
+      "keywords": ["spatial", "grid", "path", "canvas", "selection", "placement", "physics", "camera", "hitbox", "buoyancy", "2d", "3d"],
+      "packages": ["gf.standard.spatial", "gf.standard.spatial.canvas", "gf.extension.physics", "gf.extension.camera", "gf.extension.combat"],
+      "primary_classes": ["GFSpatialQueryIndex2D", "GFGridPathMath2D", "GFGraphPathSearchState", "GFSpatialCanvas2D", "GFBuoyancyField3D", "GFCameraOrbitRig3D", "GFHitBox2D"],
       "recipes": ["spatial-policy"],
-      "boundary": "Projects own collision layers, world semantics, probe placement, authority, and force application policy."
+      "boundary": "GFSpatialCanvas2D orchestrates view, selection, and placement operation records only; projects own TileMap or scene mutation, business legality, persistence, UGC, collision layers, world semantics, authority, and force application policy."
     },
     {
       "id": "project-tooling",

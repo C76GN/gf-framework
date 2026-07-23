@@ -220,6 +220,9 @@
       "res://tests/gf_core/standard/utilities/spatial/test_gf_physics_query_utility.gd",
       "res://tests/gf_core/standard/utilities/spatial/test_gf_spatial_query_index.gd"
     ],
+    "gf.standard.spatial.canvas": [
+      "res://tests/gf_core/standard/utilities/spatial_canvas/test_gf_spatial_canvas_2d.gd"
+    ],
     "gf.standard.spatial.editor": [
       "res://tests/gf_core/standard/foundation/math/editor/test_gf_spatial_editor_package.gd"
     ],

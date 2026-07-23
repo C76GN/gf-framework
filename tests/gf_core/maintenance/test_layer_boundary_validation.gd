@@ -365,6 +365,7 @@ func test_2d_toolkit_preset_closure_stays_runtime_only_and_expected_size() -> vo
 		"gf.standard.deterministic",
 		"gf.standard.input",
 		"gf.standard.spatial",
+		"gf.standard.spatial.canvas",
 		"gf.standard.ui",
 	]
 	var actual_ids: Array[String] = _sorted_dictionary_string_keys(closure)

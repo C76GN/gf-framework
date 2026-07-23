@@ -1,0 +1,622 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFSpatialCanvas2D" path="addons/gf/standard/utilities/spatial_canvas/gf_spatial_canvas_2d.gd" module="standard" extends="Control" classDigest="6e35a41502fba4ef5f14bf7aeb6c6d3a9de2e74264f538c50014c8a57d025285">
+	<description>GFSpatialCanvas2D: 有界运行时 2D 空间交互画布。
+统一管理画布视图、世界/画布/格子坐标转换、显式条目查询、稳定选择和项目校验的
+放置会话。项目仍拥有内容节点、占位与权限规则、业务命令、存档和网络同步。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_service</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals>
+		<member kind="signal" name="view_changed">
+			<signature>signal view_changed(snapshot: Dictionary)</signature>
+			<description>视图状态变化时发出。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">snapshot: 隔离的视图快照。</tag>
+				<tag name="schema">snapshot: Dictionary，包含 world_center、zoom、visible_world_rect、world_bounds_enabled 和 world_bounds。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="signal" name="selection_changed">
+			<signature>signal selection_changed(selected_ids: PackedStringArray)</signature>
+			<description>选择集合变化时发出。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">selected_ids: 稳定条目 ID 的隔离副本。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="signal" name="placement_started">
+			<signature>signal placement_started(snapshot: Dictionary)</signature>
+			<description>放置会话开始时发出。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">snapshot: 放置预览的隔离副本。</tag>
+				<tag name="schema">snapshot: Dictionary，包含 session_id、type_id、footprint、world_position、rotation_radians、world_bounds、snap_to_grid 和 snap_rotation。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="signal" name="placement_preview_changed">
+			<signature>signal placement_preview_changed(snapshot: Dictionary)</signature>
+			<description>放置预览变化时发出。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">snapshot: 放置预览的隔离副本。</tag>
+				<tag name="schema">snapshot: Dictionary，结构与 placement_started 相同。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="signal" name="placement_committed">
+			<signature>signal placement_committed(report: Dictionary)</signature>
+			<description>放置会话成功冻结通用操作记录时发出。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">report: 成功提交报告的隔离副本。</tag>
+				<tag name="schema">report: Dictionary，包含 ok、reason、session_id 和 operation。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="signal" name="placement_cancelled">
+			<signature>signal placement_cancelled(report: Dictionary)</signature>
+			<description>放置会话取消时发出。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">report: 取消报告的隔离副本。</tag>
+				<tag name="schema">report: Dictionary，包含 ok、reason、session_id 和 preview。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="signal" name="history_operation_requested">
+			<signature>signal history_operation_requested(operation: Dictionary)</signature>
+			<description>历史 Hook 接受放置操作后发出。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">operation: 通用放置操作记录的隔离副本。</tag>
+				<tag name="schema">operation: Dictionary，包含 schema_version、operation、session_id、type_id、footprint、world_position、rotation_radians 和 world_bounds。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</signals>
+	<enums>
+		<member kind="enum" name="SelectionMode">
+			<signature>enum SelectionMode {
+	## 用候选替换当前选择。
+	REPLACE,
+	## 把候选加入当前选择。
+	ADD,
+	## 切换每个候选的选择状态。
+	TOGGLE,
+	## 从当前选择移除候选。
+	SUBTRACT,
+}</signature>
+			<description>选择集合更新模式。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</enums>
+	<constants>
+		<member kind="const" name="ABSOLUTE_MAX_ITEMS">
+			<signature>const ABSOLUTE_MAX_ITEMS: int = 65536</signature>
+			<description>单个画布允许登记的条目绝对上限。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="ABSOLUTE_MAX_SELECTION">
+			<signature>const ABSOLUTE_MAX_SELECTION: int = 16384</signature>
+			<description>单个画布允许保留的选择绝对上限。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="ABSOLUTE_MAX_QUERY_CANDIDATES">
+			<signature>const ABSOLUTE_MAX_QUERY_CANDIDATES: int = 16384</signature>
+			<description>单次查询允许进入精确命中与结果窗口的候选绝对上限。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="ABSOLUTE_MAX_GRID_LINES">
+			<signature>const ABSOLUTE_MAX_GRID_LINES: int = 2048</signature>
+			<description>单次绘制允许生成的网格线绝对上限。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</constants>
+	<properties />
+	<methods>
+		<member kind="method" name="get_content_root">
+			<signature>func get_content_root() -&gt; Node2D:</signature>
+			<description>获取承载项目 2D 内容的根节点。
+GF 只更新该节点的位置与缩放，不扫描、重挂或主动释放项目子节点。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">画布拥有的内容根。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="set_view">
+			<signature>func set_view(world_center: Vector2, zoom: float) -&gt; bool:</signature>
+			<description>原子设置世界中心与缩放。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">world_center: 目标世界中心。</tag>
+				<tag name="param">zoom: 每个世界单位对应的画布缩放。</tag>
+				<tag name="return">输入有限且缩放有效时返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_world_center">
+			<signature>func get_world_center() -&gt; Vector2:</signature>
+			<description>获取当前世界中心。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">当前世界中心。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_zoom">
+			<signature>func get_zoom() -&gt; float:</signature>
+			<description>获取当前缩放。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">当前缩放。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="set_zoom_limits">
+			<signature>func set_zoom_limits(minimum_zoom: float, maximum_zoom: float) -&gt; bool:</signature>
+			<description>原子设置缩放上下限。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">minimum_zoom: 最小缩放。</tag>
+				<tag name="param">maximum_zoom: 最大缩放。</tag>
+				<tag name="return">范围有限、为正且未突破绝对限制时返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="set_world_bounds">
+			<signature>func set_world_bounds(bounds: Rect2, enabled: bool = true) -&gt; bool:</signature>
+			<description>设置可选世界边界。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">bounds: 有效世界矩形。</tag>
+				<tag name="param">enabled: 是否启用中心约束。</tag>
+				<tag name="return">边界有限且启用时具有正面积，或显式禁用时返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="pan_by_canvas_delta">
+			<signature>func pan_by_canvas_delta(canvas_delta: Vector2) -&gt; bool:</signature>
+			<description>按画布像素增量平移内容。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">canvas_delta: 指针在画布空间的移动量。</tag>
+				<tag name="return">输入有效时返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="zoom_at">
+			<signature>func zoom_at(canvas_position: Vector2, factor: float) -&gt; bool:</signature>
+			<description>围绕指定画布焦点缩放。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">canvas_position: 缩放焦点。</tag>
+				<tag name="param">factor: 相对缩放因子。</tag>
+				<tag name="return">输入有限且 factor 为正时返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="focus_world_rect">
+			<signature>func focus_world_rect(world_rect: Rect2, canvas_margin: float = 0.0) -&gt; bool:</signature>
+			<description>让世界矩形适配当前画布。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">world_rect: 目标世界矩形。</tag>
+				<tag name="param">canvas_margin: 画布四周保留的像素边距。</tag>
+				<tag name="return">输入和当前画布尺寸有效时返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="world_to_canvas">
+			<signature>func world_to_canvas(world_position: Vector2) -&gt; Vector2:</signature>
+			<description>把世界坐标转换为本 Control 的画布坐标。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">world_position: 世界坐标。</tag>
+				<tag name="return">对应画布坐标；非法输入返回 Vector2.ZERO。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="canvas_to_world">
+			<signature>func canvas_to_world(canvas_position: Vector2) -&gt; Vector2:</signature>
+			<description>把本 Control 的画布坐标转换为世界坐标。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">canvas_position: 画布坐标。</tag>
+				<tag name="return">对应世界坐标；非法输入返回 Vector2.ZERO。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="world_to_screen">
+			<signature>func world_to_screen(world_position: Vector2) -&gt; Vector2:</signature>
+			<description>把世界坐标转换为 Viewport 屏幕坐标。
+该转换包含本 Control 及其 CanvasLayer/父级的画布变换。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">world_position: 世界坐标。</tag>
+				<tag name="return">对应 Viewport 屏幕坐标；输入或派生结果非法时返回 Vector2.ZERO。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="screen_to_world">
+			<signature>func screen_to_world(screen_position: Vector2) -&gt; Vector2:</signature>
+			<description>把 Viewport 屏幕坐标转换为世界坐标。
+该转换包含本 Control 及其 CanvasLayer/父级的画布变换。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">screen_position: Viewport 屏幕坐标。</tag>
+				<tag name="return">对应世界坐标；输入或画布变换不可逆时返回 Vector2.ZERO。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_visible_world_rect">
+			<signature>func get_visible_world_rect() -&gt; Rect2:</signature>
+			<description>获取当前可见世界矩形。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">当前画布对应的世界矩形。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="configure_grid">
+			<signature>func configure_grid( origin: Vector2, cell_size: Vector2, options: Dictionary = {} ) -&gt; bool:</signature>
+			<description>原子配置网格。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">origin: 网格原点。</tag>
+				<tag name="param">cell_size: 单元尺寸，两个分量都必须大于 0。</tag>
+				<tag name="param">options: 可选旋转步长与可见性。</tag>
+				<tag name="return">配置有效时返回 true。</tag>
+				<tag name="schema">options: Dictionary，可包含 rotation_step_radians: float 和 visible: bool。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_grid_origin">
+			<signature>func get_grid_origin() -&gt; Vector2:</signature>
+			<description>获取网格原点。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">当前网格原点。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_grid_size">
+			<signature>func get_grid_size() -&gt; Vector2:</signature>
+			<description>获取单元尺寸。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">当前网格尺寸。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="world_to_cell">
+			<signature>func world_to_cell(world_position: Vector2) -&gt; Vector2i:</signature>
+			<description>将世界坐标转换为格坐标。
+负坐标使用 floor 语义。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">world_position: 世界坐标。</tag>
+				<tag name="return">格坐标；非法输入返回 Vector2i.ZERO。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="cell_to_world">
+			<signature>func cell_to_world(cell: Vector2i, use_center: bool = false) -&gt; Vector2:</signature>
+			<description>将格坐标转换为世界坐标。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">cell: 格坐标。</tag>
+				<tag name="param">use_center: 为 true 时返回格子中心，否则返回格子原点。</tag>
+				<tag name="return">对应世界坐标；派生结果非有限时返回 Vector2.ZERO。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="snap_world_position">
+			<signature>func snap_world_position(world_position: Vector2) -&gt; Vector2:</signature>
+			<description>把世界坐标吸附到最近网格交点。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">world_position: 待吸附坐标。</tag>
+				<tag name="return">吸附坐标；非法输入返回 Vector2.ZERO。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="snap_rotation">
+			<signature>func snap_rotation(rotation_radians: float) -&gt; float:</signature>
+			<description>按网格旋转步长吸附角度。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">rotation_radians: 弧度角。</tag>
+				<tag name="return">规范化吸附角；未配置步长时只规范化输入，非有限输入返回 0.0。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="configure_budgets">
+			<signature>func configure_budgets(options: Dictionary) -&gt; bool:</signature>
+			<description>原子配置实例预算。
+所有值都只能在 1 与对应绝对上限之间。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">options: 预算选项。</tag>
+				<tag name="return">所有提供值都有效且不会低于当前状态占用时返回 true。</tag>
+				<tag name="schema">options: Dictionary，可包含 max_items、max_selection、max_query_candidates 和 max_grid_lines。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="upsert_item">
+			<signature>func upsert_item( item_id: StringName, world_bounds: Rect2, options: Dictionary = {} ) -&gt; bool:</signature>
+			<description>插入或更新一个稳定空间条目。
+条目只保存 ID、有限 AABB、是否可选、选择优先级和可选同步精确命中 Hook。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">item_id: 稳定条目标识。</tag>
+				<tag name="param">world_bounds: 世界空间 AABB。</tag>
+				<tag name="param">options: 通用选择选项。</tag>
+				<tag name="return">插入或更新成功时返回 true。</tag>
+				<tag name="schema">options: Dictionary，可包含 selectable: bool、selection_priority: int 和 exact_hit: Callable(item_id, world_point, bounds) -&gt; bool。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="remove_item">
+			<signature>func remove_item(item_id: StringName) -&gt; bool:</signature>
+			<description>移除条目并同步剔除选择。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">item_id: 条目标识。</tag>
+				<tag name="return">找到并移除时返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="clear_items">
+			<signature>func clear_items() -&gt; void:</signature>
+			<description>清空条目和选择。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_item">
+			<signature>func get_item(item_id: StringName) -&gt; Dictionary:</signature>
+			<description>获取不含回调的条目快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">item_id: 条目标识。</tag>
+				<tag name="return">包含 id、bounds、selectable 和 selection_priority 的字典；不存在时为空。</tag>
+				<tag name="schema">return: Dictionary，包含 id、bounds、selectable 和 selection_priority。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="query_items_at">
+			<signature>func query_items_at(world_position: Vector2) -&gt; PackedStringArray:</signature>
+			<description>查询包含世界点的条目。
+候选先以有界 top-K 保留全局 selection_priority 最高、稳定 ID 最小的窗口，
+再在预算内执行 exact_hit。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">world_position: 世界坐标。</tag>
+				<tag name="return">匹配的稳定 ID。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="query_items_in_rect">
+			<signature>func query_items_in_rect( world_rect: Rect2, fully_contained: bool = false ) -&gt; PackedStringArray:</signature>
+			<description>查询与世界矩形相交的条目。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">world_rect: 世界查询矩形。</tag>
+				<tag name="param">fully_contained: 为 true 时只保留完全位于矩形内的条目。</tag>
+				<tag name="return">匹配的稳定 ID。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="set_selection">
+			<signature>func set_selection( item_ids: PackedStringArray, mode: int = SelectionMode.REPLACE ) -&gt; PackedStringArray:</signature>
+			<description>按模式更新选择。
+只接受已登记且可选的稳定 ID；容量只限制替换或新增，不截断减去候选。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">item_ids: 候选条目 ID。</tag>
+				<tag name="param">mode: SelectionMode 值。</tag>
+				<tag name="return">更新后的隔离选择副本。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="select_point">
+			<signature>func select_point( canvas_position: Vector2, mode: int = SelectionMode.REPLACE ) -&gt; PackedStringArray:</signature>
+			<description>在画布坐标点选最高优先级条目。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">canvas_position: 本 Control 的画布坐标。</tag>
+				<tag name="param">mode: SelectionMode 值。</tag>
+				<tag name="return">更新后的选择。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="select_rect">
+			<signature>func select_rect( canvas_rect: Rect2, mode: int = SelectionMode.REPLACE, fully_contained: bool = false ) -&gt; PackedStringArray:</signature>
+			<description>在画布坐标框选条目。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">canvas_rect: 画布选择矩形。</tag>
+				<tag name="param">mode: SelectionMode 值。</tag>
+				<tag name="param">fully_contained: 为 true 时只选择完全位于矩形内的条目。</tag>
+				<tag name="return">更新后的选择。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="clear_selection">
+			<signature>func clear_selection() -&gt; void:</signature>
+			<description>清空选择。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_selection">
+			<signature>func get_selection() -&gt; PackedStringArray:</signature>
+			<description>获取选择集合隔离副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">稳定 ID 列表。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="set_placement_validator">
+			<signature>func set_placement_validator(callback: Callable) -&gt; void:</signature>
+			<description>设置项目同步放置校验器。
+回调签名为 Callable(preview: Dictionary) -&gt; bool 或 Dictionary。Dictionary 应包含 ok，
+可选 reason。空 Callable 表示不追加项目校验。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">callback: 受信同步校验回调。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="set_history_hook">
+			<signature>func set_history_hook(callback: Callable) -&gt; void:</signature>
+			<description>设置项目同步历史 Hook。
+回调签名为 Callable(operation: Dictionary) -&gt; bool 或 Dictionary。返回拒绝时放置会话
+保持活动。Dictionary 必须包含 ok: bool，可选 reason: StringName；回调收到操作记录的
+深副本。空 Callable 表示项目通过 placement_committed 信号自行处理。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">callback: 受信同步历史回调。</tag>
+				<tag name="schema">callback: Callable(operation: Dictionary) -&gt; bool 或 Dictionary{ok: bool, reason?: StringName}。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="begin_placement">
+			<signature>func begin_placement( type_id: StringName, footprint: Rect2, options: Dictionary = {} ) -&gt; int:</signature>
+			<description>开始一个通用放置会话。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">type_id: 项目稳定放置类型 ID。</tag>
+				<tag name="param">footprint: 相对放置锚点的局部 AABB。</tag>
+				<tag name="param">options: 初始位置、旋转和吸附选项。</tag>
+				<tag name="return">成功时返回正 session ID；非法输入或已有会话时返回 0。</tag>
+				<tag name="schema">options: Dictionary，可包含 initial_world_position: Vector2、initial_rotation_radians: float、snap_to_grid: bool 和 snap_rotation: bool。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="update_placement">
+			<signature>func update_placement( world_position: Vector2, options: Dictionary = {} ) -&gt; bool:</signature>
+			<description>更新活动放置预览。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">world_position: 新世界锚点。</tag>
+				<tag name="param">options: 可选旋转角。</tag>
+				<tag name="return">会话活动且输入有限时返回 true。</tag>
+				<tag name="schema">options: Dictionary，可包含 rotation_radians: float。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="commit_placement">
+			<signature>func commit_placement() -&gt; Dictionary:</signature>
+			<description>提交活动放置会话。
+该方法只冻结通用操作记录。项目校验器和历史 Hook 都接受后才结束会话；它不会创建
+节点、扣除资源、写入地图或保存文件。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">稳定提交报告。</tag>
+				<tag name="schema">return: Dictionary，包含 ok、reason、session_id 和 operation。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="cancel_placement">
+			<signature>func cancel_placement(reason: StringName = &amp;"cancelled") -&gt; Dictionary:</signature>
+			<description>取消活动放置会话。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">reason: 项目取消原因。</tag>
+				<tag name="return">稳定取消报告。</tag>
+				<tag name="schema">return: Dictionary，包含 ok、reason、session_id 和 preview。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="has_active_placement">
+			<signature>func has_active_placement() -&gt; bool:</signature>
+			<description>检查是否存在活动放置会话。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">有活动会话时返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_placement_snapshot">
+			<signature>func get_placement_snapshot() -&gt; Dictionary:</signature>
+			<description>获取放置预览隔离副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">活动预览；无会话时为空字典。</tag>
+				<tag name="schema">return: Dictionary，包含 session_id、type_id、footprint、world_position、rotation_radians、world_bounds、snap_to_grid 和 snap_rotation。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="handle_input_event">
+			<signature>func handle_input_event(event: InputEvent) -&gt; bool:</signature>
+			<description>处理一个项目转发的输入事件。
+中键/单指拖动用于平移，滚轮/捏合用于焦点缩放，左键用于点选、框选或活动放置。
+只有实际识别和消费的事件返回 true。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">event: Godot 输入事件。</tag>
+				<tag name="return">事件被画布消费时返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="handle_screen_input_event">
+			<signature>func handle_screen_input_event(event: InputEvent) -&gt; bool:</signature>
+			<description>处理一个使用 Viewport 屏幕坐标的输入事件。
+适合从 `_input()` 或自定义全局路由转发事件；事件会先复制并转换到本 Control
+的局部画布坐标。`_gui_input()` 已提供局部事件，应直接使用 handle_input_event()。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">event: 使用 Viewport 屏幕坐标的 Godot 输入事件。</tag>
+				<tag name="return">事件被画布消费时返回 true；变换不可逆时返回 false。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="set_input_enabled">
+			<signature>func set_input_enabled(enabled: bool) -&gt; void:</signature>
+			<description>启用或禁用画布输入处理。
+禁用时会释放瞬态选择和手势状态，但不会清除条目、选择或放置会话。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">enabled: 是否启用输入。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_debug_snapshot">
+			<signature>func get_debug_snapshot() -&gt; Dictionary:</signature>
+			<description>获取 JSON-safe 调试快照。
+快照不包含项目回调、任意 metadata/payload 或内容节点。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">有界调试状态。</tag>
+				<tag name="schema">return: JSON-compatible Dictionary，包含 view、grid、budgets、item_count、selection_count、placement_active、input_active、last_query_candidate_count、last_query_truncated、last_grid_line_count 和 grid_draw_truncated。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

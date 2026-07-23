@@ -7,7 +7,7 @@
 | 模块 | 类 | 成员 | 页面内索引 |
 |---|---:|---:|---|
 | Kernel | 70 | 987 | [Kernel](#module-kernel) |
-| Standard | 426 | 6702 | [Standard](#module-standard) |
+| Standard | 427 | 6759 | [Standard](#module-standard) |
 | Action Queue | 16 | 214 | [Action Queue](#module-extensions-action_queue) |
 | Asset Metadata | 4 | 33 | [Asset Metadata](#module-extensions-asset_metadata) |
 | Behavior Tree | 22 | 89 | [Behavior Tree](#module-extensions-behavior_tree) |
@@ -251,6 +251,7 @@
 | [`GFSnapshotHistoryUtility`](GFSnapshotHistoryUtility.md#gfsnapshothistoryutility) | 运行时服务 (`runtime_service`) | `GFUtility` | 21 | `addons/gf/standard/utilities/history/gf_snapshot_history_utility.gd` |
 | [`GFSourceTextLoader`](GFSourceTextLoader.md#gfsourcetextloader) | 运行时服务 (`runtime_service`) | `RefCounted` | 20 | `addons/gf/standard/utilities/io/gf_source_text_loader.gd` |
 | [`GFSourceTextPatchTools`](GFSourceTextPatchTools.md#gfsourcetextpatchtools) | 运行时服务 (`runtime_service`) | `RefCounted` | 8 | `addons/gf/standard/foundation/text/gf_source_text_patch_tools.gd` |
+| [`GFSpatialCanvas2D`](GFSpatialCanvas2D.md#gfspatialcanvas2d) | 运行时服务 (`runtime_service`) | `Control` | 57 | `addons/gf/standard/utilities/spatial_canvas/gf_spatial_canvas_2d.gd` |
 | [`GFSpatialHash3D`](GFSpatialHash3D.md#gfspatialhash3d) | 运行时服务 (`runtime_service`) | `RefCounted` | 17 | `addons/gf/standard/foundation/math/gf_spatial_hash_3d.gd` |
 | [`GFSpatialQueryIndex2D`](GFSpatialQueryIndex2D.md#gfspatialqueryindex2d) | 运行时服务 (`runtime_service`) | `RefCounted` | 29 | `addons/gf/standard/utilities/spatial/gf_spatial_query_index_2d.gd` |
 | [`GFSpatialQueryIndex3D`](GFSpatialQueryIndex3D.md#gfspatialqueryindex3d) | 运行时服务 (`runtime_service`) | `RefCounted` | 24 | `addons/gf/standard/utilities/spatial/gf_spatial_query_index_3d.gd` |

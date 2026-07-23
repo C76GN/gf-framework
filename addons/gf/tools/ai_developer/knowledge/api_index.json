@@ -2,9 +2,9 @@
   "schema_version": 1,
   "catalog_version": "1.0.0",
   "framework_version": "10.0.0-dev.0",
-  "source_digest": "d4200026bc81cf70d262aefeae934e7e9e463f5dbbc6b48f91115fd598cb974a",
-  "class_count": 739,
-  "package_count": 51,
+  "source_digest": "7aa0f18f75fbd6b96ad1893d97be50410d1e4115f2b4ee3ff56e04c6f334bf4c",
+  "class_count": 740,
+  "package_count": 52,
   "packages": [
     {
       "id": "gf.extension.action_queue",
@@ -404,6 +404,18 @@
       ],
       "description": "Graph/grid/math helpers, collision broadphase and narrowphase, spatial queries, pattern tools, packing, Poisson sampling, and Voronoi helpers.",
       "representative_path": "addons/gf/standard/foundation/math/gf_collision_broadphase_2d.gd"
+    },
+    {
+      "id": "gf.standard.spatial.canvas",
+      "kind": "standard",
+      "dependencies": [
+        "gf.kernel",
+        "gf.standard.base",
+        "gf.standard.input",
+        "gf.standard.spatial"
+      ],
+      "description": "Bounded runtime Control for 2D world navigation, grid snapping, stable item selection, and project-validated placement sessions.",
+      "representative_path": "addons/gf/standard/utilities/spatial_canvas/gf_spatial_canvas_2d.gd"
     },
     {
       "id": "gf.standard.spatial.editor",
@@ -72242,6 +72254,417 @@
           "name": "apply_text_edits",
           "signature": "static func apply_text_edits(source_text: String, edits: Array, options: Dictionary = {}) -> Dictionary",
           "summary": "应用文本 edit 集合。",
+          "visibility": "public"
+        }
+      ]
+    },
+    "GFSpatialCanvas2D": {
+      "extends": "Control",
+      "module": "standard",
+      "package_id": "gf.standard.spatial.canvas",
+      "path": "addons/gf/standard/utilities/spatial_canvas/gf_spatial_canvas_2d.gd",
+      "summary": "GFSpatialCanvas2D: 有界运行时 2D 空间交互画布。 统一管理画布视图、世界/画布/格子坐标转换、显式条目查询、稳定选择和项目校验的 放置会话。项目仍拥有内容节点、占位与权限规则、业务命令、存档和网络同步。",
+      "visibility": "public",
+      "category": "runtime_service",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "signal",
+          "name": "view_changed",
+          "signature": "signal view_changed(snapshot: Dictionary)",
+          "summary": "视图状态变化时发出。",
+          "visibility": "public"
+        },
+        {
+          "kind": "signal",
+          "name": "selection_changed",
+          "signature": "signal selection_changed(selected_ids: PackedStringArray)",
+          "summary": "选择集合变化时发出。",
+          "visibility": "public"
+        },
+        {
+          "kind": "signal",
+          "name": "placement_started",
+          "signature": "signal placement_started(snapshot: Dictionary)",
+          "summary": "放置会话开始时发出。",
+          "visibility": "public"
+        },
+        {
+          "kind": "signal",
+          "name": "placement_preview_changed",
+          "signature": "signal placement_preview_changed(snapshot: Dictionary)",
+          "summary": "放置预览变化时发出。",
+          "visibility": "public"
+        },
+        {
+          "kind": "signal",
+          "name": "placement_committed",
+          "signature": "signal placement_committed(report: Dictionary)",
+          "summary": "放置会话成功冻结通用操作记录时发出。",
+          "visibility": "public"
+        },
+        {
+          "kind": "signal",
+          "name": "placement_cancelled",
+          "signature": "signal placement_cancelled(report: Dictionary)",
+          "summary": "放置会话取消时发出。",
+          "visibility": "public"
+        },
+        {
+          "kind": "signal",
+          "name": "history_operation_requested",
+          "signature": "signal history_operation_requested(operation: Dictionary)",
+          "summary": "历史 Hook 接受放置操作后发出。",
+          "visibility": "public"
+        },
+        {
+          "kind": "enum",
+          "name": "SelectionMode",
+          "signature": "enum SelectionMode {\n\t## 用候选替换当前选择。\n\tREPLACE,\n\t## 把候选加入当前选择。\n\tADD,\n\t## 切换每个候选的选择状态。\n\tTOGGLE,\n\t## 从当前选择移除候选。\n\tSUBTRACT,\n}",
+          "summary": "选择集合更新模式。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "ABSOLUTE_MAX_ITEMS",
+          "signature": "const ABSOLUTE_MAX_ITEMS: int = 65536",
+          "summary": "单个画布允许登记的条目绝对上限。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "ABSOLUTE_MAX_SELECTION",
+          "signature": "const ABSOLUTE_MAX_SELECTION: int = 16384",
+          "summary": "单个画布允许保留的选择绝对上限。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "ABSOLUTE_MAX_QUERY_CANDIDATES",
+          "signature": "const ABSOLUTE_MAX_QUERY_CANDIDATES: int = 16384",
+          "summary": "单次查询允许进入精确命中与结果窗口的候选绝对上限。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "ABSOLUTE_MAX_GRID_LINES",
+          "signature": "const ABSOLUTE_MAX_GRID_LINES: int = 2048",
+          "summary": "单次绘制允许生成的网格线绝对上限。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_content_root",
+          "signature": "func get_content_root() -> Node2D",
+          "summary": "获取承载项目 2D 内容的根节点。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "set_view",
+          "signature": "func set_view(world_center: Vector2, zoom: float) -> bool",
+          "summary": "原子设置世界中心与缩放。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_world_center",
+          "signature": "func get_world_center() -> Vector2",
+          "summary": "获取当前世界中心。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_zoom",
+          "signature": "func get_zoom() -> float",
+          "summary": "获取当前缩放。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "set_zoom_limits",
+          "signature": "func set_zoom_limits(minimum_zoom: float, maximum_zoom: float) -> bool",
+          "summary": "原子设置缩放上下限。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "set_world_bounds",
+          "signature": "func set_world_bounds(bounds: Rect2, enabled: bool = true) -> bool",
+          "summary": "设置可选世界边界。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "pan_by_canvas_delta",
+          "signature": "func pan_by_canvas_delta(canvas_delta: Vector2) -> bool",
+          "summary": "按画布像素增量平移内容。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "zoom_at",
+          "signature": "func zoom_at(canvas_position: Vector2, factor: float) -> bool",
+          "summary": "围绕指定画布焦点缩放。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "focus_world_rect",
+          "signature": "func focus_world_rect(world_rect: Rect2, canvas_margin: float = 0.0) -> bool",
+          "summary": "让世界矩形适配当前画布。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "world_to_canvas",
+          "signature": "func world_to_canvas(world_position: Vector2) -> Vector2",
+          "summary": "把世界坐标转换为本 Control 的画布坐标。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "canvas_to_world",
+          "signature": "func canvas_to_world(canvas_position: Vector2) -> Vector2",
+          "summary": "把本 Control 的画布坐标转换为世界坐标。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "world_to_screen",
+          "signature": "func world_to_screen(world_position: Vector2) -> Vector2",
+          "summary": "把世界坐标转换为 Viewport 屏幕坐标。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "screen_to_world",
+          "signature": "func screen_to_world(screen_position: Vector2) -> Vector2",
+          "summary": "把 Viewport 屏幕坐标转换为世界坐标。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_visible_world_rect",
+          "signature": "func get_visible_world_rect() -> Rect2",
+          "summary": "获取当前可见世界矩形。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "configure_grid",
+          "signature": "func configure_grid( origin: Vector2, cell_size: Vector2, options: Dictionary = {} ) -> bool",
+          "summary": "原子配置网格。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_grid_origin",
+          "signature": "func get_grid_origin() -> Vector2",
+          "summary": "获取网格原点。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_grid_size",
+          "signature": "func get_grid_size() -> Vector2",
+          "summary": "获取单元尺寸。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "world_to_cell",
+          "signature": "func world_to_cell(world_position: Vector2) -> Vector2i",
+          "summary": "将世界坐标转换为格坐标。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "cell_to_world",
+          "signature": "func cell_to_world(cell: Vector2i, use_center: bool = false) -> Vector2",
+          "summary": "将格坐标转换为世界坐标。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "snap_world_position",
+          "signature": "func snap_world_position(world_position: Vector2) -> Vector2",
+          "summary": "把世界坐标吸附到最近网格交点。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "snap_rotation",
+          "signature": "func snap_rotation(rotation_radians: float) -> float",
+          "summary": "按网格旋转步长吸附角度。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "configure_budgets",
+          "signature": "func configure_budgets(options: Dictionary) -> bool",
+          "summary": "原子配置实例预算。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "upsert_item",
+          "signature": "func upsert_item( item_id: StringName, world_bounds: Rect2, options: Dictionary = {} ) -> bool",
+          "summary": "插入或更新一个稳定空间条目。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "remove_item",
+          "signature": "func remove_item(item_id: StringName) -> bool",
+          "summary": "移除条目并同步剔除选择。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "clear_items",
+          "signature": "func clear_items() -> void",
+          "summary": "清空条目和选择。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_item",
+          "signature": "func get_item(item_id: StringName) -> Dictionary",
+          "summary": "获取不含回调的条目快照。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "query_items_at",
+          "signature": "func query_items_at(world_position: Vector2) -> PackedStringArray",
+          "summary": "查询包含世界点的条目。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "query_items_in_rect",
+          "signature": "func query_items_in_rect( world_rect: Rect2, fully_contained: bool = false ) -> PackedStringArray",
+          "summary": "查询与世界矩形相交的条目。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "set_selection",
+          "signature": "func set_selection( item_ids: PackedStringArray, mode: int = SelectionMode.REPLACE ) -> PackedStringArray",
+          "summary": "按模式更新选择。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "select_point",
+          "signature": "func select_point( canvas_position: Vector2, mode: int = SelectionMode.REPLACE ) -> PackedStringArray",
+          "summary": "在画布坐标点选最高优先级条目。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "select_rect",
+          "signature": "func select_rect( canvas_rect: Rect2, mode: int = SelectionMode.REPLACE, fully_contained: bool = false ) -> PackedStringArray",
+          "summary": "在画布坐标框选条目。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "clear_selection",
+          "signature": "func clear_selection() -> void",
+          "summary": "清空选择。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_selection",
+          "signature": "func get_selection() -> PackedStringArray",
+          "summary": "获取选择集合隔离副本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "set_placement_validator",
+          "signature": "func set_placement_validator(callback: Callable) -> void",
+          "summary": "设置项目同步放置校验器。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "set_history_hook",
+          "signature": "func set_history_hook(callback: Callable) -> void",
+          "summary": "设置项目同步历史 Hook。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "begin_placement",
+          "signature": "func begin_placement( type_id: StringName, footprint: Rect2, options: Dictionary = {} ) -> int",
+          "summary": "开始一个通用放置会话。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "update_placement",
+          "signature": "func update_placement( world_position: Vector2, options: Dictionary = {} ) -> bool",
+          "summary": "更新活动放置预览。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "commit_placement",
+          "signature": "func commit_placement() -> Dictionary",
+          "summary": "提交活动放置会话。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "cancel_placement",
+          "signature": "func cancel_placement(reason: StringName = &\"cancelled\") -> Dictionary",
+          "summary": "取消活动放置会话。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "has_active_placement",
+          "signature": "func has_active_placement() -> bool",
+          "summary": "检查是否存在活动放置会话。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_placement_snapshot",
+          "signature": "func get_placement_snapshot() -> Dictionary",
+          "summary": "获取放置预览隔离副本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "handle_input_event",
+          "signature": "func handle_input_event(event: InputEvent) -> bool",
+          "summary": "处理一个项目转发的输入事件。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "handle_screen_input_event",
+          "signature": "func handle_screen_input_event(event: InputEvent) -> bool",
+          "summary": "处理一个使用 Viewport 屏幕坐标的输入事件。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "set_input_enabled",
+          "signature": "func set_input_enabled(enabled: bool) -> void",
+          "summary": "启用或禁用画布输入处理。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_debug_snapshot",
+          "signature": "func get_debug_snapshot() -> Dictionary",
+          "summary": "获取 JSON-safe 调试快照。",
           "visibility": "public"
         }
       ]

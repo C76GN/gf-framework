@@ -22,11 +22,12 @@
 
 ## [未发布]
 
-**版本概述**：开发线升级为 `10.0.0-dev.0`，补齐通用 2D 编辑器缩略图、有序资产集合、内容包查询与运行时目录挂载、存储后端故障转移、惰性诊断采集、配方化运行时会话轨迹、UI 路由预加载规划、轨迹预测数学和默认关闭的 Runtime Agent Environment，修正 AI Developer Kit 的项目级资源所有权表达，并更新 CI/Release 基础 Actions；业务策略仍保持在各自调用方边界内。
+**版本概述**：开发线升级为 `10.0.0-dev.0`，补齐通用 2D 编辑器缩略图、运行时 2D Spatial Canvas、有序资产集合、内容包查询与运行时目录挂载、存储后端故障转移、惰性诊断采集、配方化运行时会话轨迹、UI 路由预加载规划、轨迹预测数学和默认关闭的 Runtime Agent Environment，修正 AI Developer Kit 的项目级资源所有权表达，并更新 CI/Release 基础 Actions；业务策略仍保持在各自调用方边界内。
 
 ### 🚀 新增特性 (Added)
 
 - `GFThumbnailRenderer` 与 `GFThumbnailRenderRequest` 支持 `CanvasItem` 的 `Image` / `ImageTexture` 缩略图请求，统一覆盖 `Node2D` 和 `Control`。调用方可以显式提供内容 `Rect2`，也可以让渲染器保守估算 Sprite、Control、Polygon、Line、AnimatedSprite 和 2D 粒子范围。
+- 新增可选包 `gf.standard.spatial.canvas` 与运行时 `Control` `GFSpatialCanvas2D`：提供世界/画布变换、焦点缩放、有界平移、稳定网格吸附、带精确命中 Hook 的候选查询、隔离选择结果和项目校验的放置会话；条目、选择、查询候选与网格绘制均受可降低但不可突破的绝对预算约束，GF 不拥有项目节点、占位规则或最终业务命令。
 - 新增 `GFAssetCollection`，用稳定 `collection_id` 和有序 `asset_ids` 描述可序列化资源集合，并通过 `GFValidationReport` 报告空 ID、重复 ID 和目录缺失项。
 - 新增 `GFContentPackageQuery`、`GFContentPackageQueryResult` 和 `GFContentPackageAssetCatalogProvider`，提供严格内容包筛选、dependency-first 闭包、类型化失败终态和 qualified 资产 ID 适配。
 - 新增 `GFAssetCatalogRuntime` 与 `GFAssetCatalogMount`，提供 owner-scoped 目录快照、严格或显式高优先级冲突政策、原子 revision 提交和幂等卸载。
@@ -83,6 +84,7 @@
 - `GFThumbnailRenderRequest.Kind` 末尾新增 `CANVAS_ITEM_IMAGE` 和 `CANVAS_ITEM_TEXTURE`，既有枚举值保持不变。
 - 新增 `GFThumbnailRenderRequest.for_canvas_item_image()`、`for_canvas_item_texture()` 及相应来源、边界和留白读取入口。
 - 新增 `GFThumbnailRenderer.render_canvas_item()` 与 `render_canvas_item_texture()`。
+- 新增公开类型 `GFSpatialCanvas2D`，以及视图、坐标变换、网格、条目查询、选择和放置会话入口；均标记为 `@since unreleased`。它是项目显式挂载内容与提交输入的运行时 `Control`，不是编辑器、项目实体仓库或业务命令执行器。
 - 新增公开类型 `GFAssetCollection` 和 `GFStorageFailoverBackend`；均标记为 `@since unreleased`，不改变既有调用入口默认行为。
 - 新增公开类型 `GFContentPackageQuery`、`GFContentPackageQueryResult`、`GFContentPackageAssetCatalogProvider`、`GFAssetCatalogRuntime` 和 `GFAssetCatalogMount`；`GFContentPackageCatalog` 新增 `query_packages()`，Content Package Utility 新增 owner-scoped root API，Asset Catalog Runtime 支持原子 `replace_mount_catalog()`。
 - 新增公开类型 `GFDiagnosticProviderResult`、`GFDiagnosticSnapshotProvider`、`GFSessionTraceUtility`、`GFSessionTraceRecipe`、`GFSessionTraceChannelDefinition`、`GFSessionTraceCheckpoint` 与 `GFUIRoutePreloadUtility`，以及 `GFDiagnosticsUtility` 的惰性 Provider 注册/采集 API、`GFUIRoute.adjacent_route_ids`、`get_adjacent_route_ids()` 和 `GFUIRouterUtility.build_preload_plan()`；均标记为 `@since unreleased`。
@@ -98,6 +100,7 @@
 ### 📘 升级指南 (Migration Guide)
 
 - 既有 3D 缩略图、资产目录、存储后端与同步代码无需迁移。需要 2D 预览、有序资产集合或故障转移时显式采用新入口即可。
+- 既有项目画布与关卡编辑器无需迁移。只有需要通用运行时视图、稳定选择或受控放置会话时才安装 `gf.standard.spatial.canvas`（`gf.preset.2d_toolkit` 现已包含它），把项目可视节点显式挂到 `get_content_root()`，并由项目 Adapter 负责同步边界、占位校验、历史、权限和最终模型提交；不要把同步回调用于 IO、异步业务或回调重入。
 - 既有单调用方 Content Package root 入口继续使用公开 manual owner scope；多模块、热插拔内容或场景生命周期应迁移到 `register_source_root_for_owner()` / `replace_owner_source_roots()`，并在模块退出时调用 `clear_owner_source_roots()`。
 - 运行时资产目录默认拒绝重复 `asset_id`。只有明确设计了覆盖层时，才在首个 Mount 前配置 `CONFLICT_KEEP_HIGH_PRIORITY`；不要依赖 Provider 注册时序决定胜者。
 - 自定义 `_draw()` 或无法可靠推断范围的 2D 节点应传入显式 `content_bounds`；多后端复制与冲突处理继续使用 `GFStorageSyncUtility`，不要把故障转移当作原子双写。
@@ -119,6 +122,9 @@
 
 - `addons/gf/kernel/editor/gf_thumbnail_render_request.gd`
 - `addons/gf/kernel/editor/gf_thumbnail_renderer.gd`
+- `addons/gf/standard/utilities/spatial_canvas/`
+- `packages/standard/gf.standard.spatial.canvas.json`
+- `docs/zh/standard/input-flow/spatial-canvas-2d.md`
 - `addons/gf/standard/utilities/assets/gf_asset_collection.gd`
 - `addons/gf/standard/utilities/assets/gf_asset_catalog_runtime.gd`
 - `addons/gf/standard/utilities/assets/gf_asset_catalog_mount.gd`

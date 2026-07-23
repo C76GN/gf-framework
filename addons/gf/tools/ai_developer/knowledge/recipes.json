@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "catalog_version": "1.2.0",
+  "catalog_version": "1.3.0",
   "recipes": [
     {
       "id": "project-feature",
@@ -331,16 +331,17 @@
     {
       "id": "spatial-policy",
       "title": "Apply spatial or physics mechanisms",
-      "package_requirements": {"all_of": [], "any_of": [["gf.standard.spatial", "gf.extension.physics", "gf.extension.camera"]]},
-      "primary_classes": ["GFSpatialQueryIndex2D", "GFBuoyancyField3D", "GFCameraOrbitRig3D"],
+      "package_requirements": {"all_of": [], "any_of": [["gf.standard.spatial", "gf.standard.spatial.canvas", "gf.extension.physics", "gf.extension.camera"]]},
+      "primary_classes": ["GFSpatialQueryIndex2D", "GFSpatialCanvas2D", "GFBuoyancyField3D", "GFCameraOrbitRig3D"],
       "steps": [
         "Separate pure spatial math or sampling from world ownership and node mutation.",
         "Declare coordinate, units, layer, update cadence, and authority contracts.",
-        "Let the project choose candidates, probe placement, force application, and collision policy.",
+        "Use GFSpatialCanvas2D only to coordinate bounded view transforms, selection, and project-validated placement operation records.",
+        "Let the project choose candidates, validate placement, mutate TileMap or scene content, persist history or UGC, apply forces, and define collision policy.",
         "Bound queries and incremental work.",
         "Test empty worlds, invalid values, large coordinates, frame-rate variation, and disposal."
       ],
-      "avoid": ["Physics ownership hidden inside a math helper", "Unbounded world scans on frame callbacks"]
+      "avoid": ["Physics ownership hidden inside a math helper", "Treating GFSpatialCanvas2D as a TileMap editor, business-rule authority, save system, or UGC store", "Unbounded world scans on frame callbacks"]
     }
   ]
 }

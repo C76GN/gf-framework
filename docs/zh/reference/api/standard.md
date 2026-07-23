@@ -6,7 +6,7 @@
 
 | 类别 | 类 | 成员 | 方法 |
 |---|---:|---:|---:|
-| [运行时服务](#category-runtime_service) | 184 | 3250 | 2195 |
+| [运行时服务](#category-runtime_service) | 185 | 3307 | 2240 |
 | [协议与扩展点](#category-protocol) | 23 | 317 | 255 |
 | [资源定义](#category-resource_definition) | 114 | 1472 | 755 |
 | [运行时句柄](#category-runtime_handle) | 44 | 744 | 484 |
@@ -163,6 +163,7 @@
 | [`GFSnapshotHistoryUtility`](classes/GFSnapshotHistoryUtility.md#gfsnapshothistoryutility) | `GFUtility` | `addons/gf/standard/utilities/history/gf_snapshot_history_utility.gd` |
 | [`GFSourceTextLoader`](classes/GFSourceTextLoader.md#gfsourcetextloader) | `RefCounted` | `addons/gf/standard/utilities/io/gf_source_text_loader.gd` |
 | [`GFSourceTextPatchTools`](classes/GFSourceTextPatchTools.md#gfsourcetextpatchtools) | `RefCounted` | `addons/gf/standard/foundation/text/gf_source_text_patch_tools.gd` |
+| [`GFSpatialCanvas2D`](classes/GFSpatialCanvas2D.md#gfspatialcanvas2d) | `Control` | `addons/gf/standard/utilities/spatial_canvas/gf_spatial_canvas_2d.gd` |
 | [`GFSpatialHash3D`](classes/GFSpatialHash3D.md#gfspatialhash3d) | `RefCounted` | `addons/gf/standard/foundation/math/gf_spatial_hash_3d.gd` |
 | [`GFSpatialQueryIndex2D`](classes/GFSpatialQueryIndex2D.md#gfspatialqueryindex2d) | `RefCounted` | `addons/gf/standard/utilities/spatial/gf_spatial_query_index_2d.gd` |
 | [`GFSpatialQueryIndex3D`](classes/GFSpatialQueryIndex3D.md#gfspatialqueryindex3d) | `RefCounted` | `addons/gf/standard/utilities/spatial/gf_spatial_query_index_3d.gd` |

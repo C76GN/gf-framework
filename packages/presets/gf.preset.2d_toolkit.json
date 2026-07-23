@@ -4,8 +4,9 @@
   "kind": "preset",
   "version": "unreleased",
   "display_name": "GF 2D Toolkit Preset",
-  "description": "Installs camera, physics, flow, interaction, and UI packages commonly used by 2D projects.",
+  "description": "Installs the bounded 2D spatial canvas plus camera, physics, flow, interaction, and UI packages commonly used by 2D projects.",
   "packages": [
+    "gf.standard.spatial.canvas",
     "gf.extension.camera",
     "gf.extension.physics",
     "gf.extension.flow",
