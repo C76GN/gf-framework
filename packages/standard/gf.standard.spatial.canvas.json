@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "id": "gf.standard.spatial.canvas",
+  "kind": "standard",
+  "version": "unreleased",
+  "display_name": "GF Standard 2D Spatial Canvas",
+  "description": "Bounded runtime Control for 2D world navigation, grid snapping, stable item selection, and project-validated placement sessions.",
+  "dependencies": [
+    "gf.kernel",
+    "gf.standard.base",
+    "gf.standard.input",
+    "gf.standard.spatial"
+  ],
+  "paths": [
+    "addons/gf/standard/utilities/spatial_canvas/**"
+  ],
+  "metadata": {
+    "stage": "standard-split-v1"
+  }
+}

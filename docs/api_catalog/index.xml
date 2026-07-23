@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<apiCatalog schemaVersion="2" name="GF Framework" sourceRoot="addons/gf" sourceDigest="5af573605f40ac877167ff708b9971fe6fdef309ddb29bfeb4f9c89e8886b299" classCount="763" methodCount="6816">
+<apiCatalog schemaVersion="2" name="GF Framework" sourceRoot="addons/gf" sourceDigest="e6ca1af61508fa92a9777bff088077ca4da276258c67cc327128396057664b45" classCount="764" methodCount="6861">
 	<module id="kernel" label="Kernel" classCount="70" methodCount="715">
 		<class name="GFAccessGenerator" path="classes/GFAccessGenerator.xml" sourcePath="addons/gf/kernel/editor/gf_access_generator.gd" extends="RefCounted" />
 		<class name="GFArchitecture" path="classes/GFArchitecture.xml" sourcePath="addons/gf/kernel/core/gf_architecture.gd" extends="Object" />
@@ -72,7 +72,7 @@
 		<class name="GFTypeEventSystem" path="classes/GFTypeEventSystem.xml" sourcePath="addons/gf/kernel/core/gf_type_event_system.gd" extends="Object" />
 		<class name="GFUtility" path="classes/GFUtility.xml" sourcePath="addons/gf/kernel/base/gf_utility.gd" extends="Object" />
 	</module>
-	<module id="standard" label="Standard" classCount="426" methodCount="4261">
+	<module id="standard" label="Standard" classCount="427" methodCount="4306">
 		<class name="GFActivationTransaction" path="classes/GFActivationTransaction.xml" sourcePath="addons/gf/standard/foundation/policy/gf_activation_transaction.gd" extends="RefCounted" />
 		<class name="GFAnalyticsConfig" path="classes/GFAnalyticsConfig.xml" sourcePath="addons/gf/standard/utilities/analytics/gf_analytics_config.gd" extends="Resource" />
 		<class name="GFAnalyticsUtility" path="classes/GFAnalyticsUtility.xml" sourcePath="addons/gf/standard/utilities/analytics/gf_analytics_utility.gd" extends="GFUtility" />
@@ -410,6 +410,7 @@
 		<class name="GFSourceSpan" path="classes/GFSourceSpan.xml" sourcePath="addons/gf/standard/foundation/validation/gf_source_span.gd" extends="RefCounted" />
 		<class name="GFSourceTextLoader" path="classes/GFSourceTextLoader.xml" sourcePath="addons/gf/standard/utilities/io/gf_source_text_loader.gd" extends="RefCounted" />
 		<class name="GFSourceTextPatchTools" path="classes/GFSourceTextPatchTools.xml" sourcePath="addons/gf/standard/foundation/text/gf_source_text_patch_tools.gd" extends="RefCounted" />
+		<class name="GFSpatialCanvas2D" path="classes/GFSpatialCanvas2D.xml" sourcePath="addons/gf/standard/utilities/spatial_canvas/gf_spatial_canvas_2d.gd" extends="Control" />
 		<class name="GFSpatialHash3D" path="classes/GFSpatialHash3D.xml" sourcePath="addons/gf/standard/foundation/math/gf_spatial_hash_3d.gd" extends="RefCounted" />
 		<class name="GFSpatialQueryIdentity" path="classes/GFSpatialQueryIdentity.xml" sourcePath="addons/gf/standard/foundation/math/gf_spatial_query_identity.gd" extends="RefCounted" />
 		<class name="GFSpatialQueryIndex2D" path="classes/GFSpatialQueryIndex2D.xml" sourcePath="addons/gf/standard/utilities/spatial/gf_spatial_query_index_2d.gd" extends="RefCounted" />
