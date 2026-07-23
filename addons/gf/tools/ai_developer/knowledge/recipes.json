@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "catalog_version": "1.1.0",
+  "catalog_version": "1.2.0",
   "recipes": [
     {
       "id": "project-feature",
@@ -268,6 +268,23 @@
         "Test disabled consent, budget exhaustion, invalid recipes, provider failure, redaction, repeated sessions, and teardown."
       ],
       "avoid": ["Always-on precise telemetry", "Unbounded arbitrary Variant payloads", "Embedding upload or gameplay recovery policy in the trace recipe"]
+    },
+    {
+      "id": "runtime-agent-endpoint",
+      "title": "Expose a bounded runtime Agent endpoint",
+      "package_requirements": {"all_of": ["gf.standard.agent_environment"], "any_of": []},
+      "primary_classes": ["GFRuntimeAgentEnvironment", "GFDictionarySchema", "GFPolicyRegistry"],
+      "steps": [
+        "Define the smallest project-owned synchronous operation and closed JSON request/response schemas; do not expose arbitrary reflection or generic command dispatch.",
+        "Register endpoints while the environment is disabled, then install project policy providers for business authorization or approval requirements.",
+        "Create the environment on a long-lived owner thread; make transport workers enforce pre-decode body and connection limits, then marshal every environment call back to the owner thread.",
+        "Enable the environment only after the outer transport is authenticated, and issue a short-lived session with exact endpoint grants and finite rate/replay budgets.",
+        "Before mutating the registry, a Provider, or external policy state in place, call invalidate_policy_context on the owner thread so every earlier credential is revoked.",
+        "Keep the bearer token out of the request envelope, logs, URLs, snapshots, and persistence; use a unique request ID for every authenticated attempt.",
+        "Observe typed results and payload-free audit events, revoke sessions on ownership changes, and disable or dispose the environment during teardown.",
+        "Test invalid credentials, expiry, replay, rate exhaustion, schema and byte budgets, policy denial, policy-context invalidation, cross-thread rejection, endpoint re-registration, callback revocation, and secret absence."
+      ],
+      "avoid": ["Calling the environment or mutating policy objects directly from transport workers", "Generic reflection, file, shell, screenshot, or diagnostics bridges", "Treating an in-process callback boundary as an OS sandbox", "Persisting bearer tokens or copying business payloads into audit"]
     },
     {
       "id": "deterministic-scope",

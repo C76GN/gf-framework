@@ -6,7 +6,7 @@
 
 | 类别 | 类 | 成员 | 方法 |
 |---|---:|---:|---:|
-| [运行时服务](#category-runtime_service) | 183 | 3231 | 2181 |
+| [运行时服务](#category-runtime_service) | 184 | 3250 | 2195 |
 | [协议与扩展点](#category-protocol) | 23 | 317 | 255 |
 | [资源定义](#category-resource_definition) | 114 | 1472 | 755 |
 | [运行时句柄](#category-runtime_handle) | 44 | 744 | 484 |
@@ -144,6 +144,7 @@
 | [`GFResourceResolverUtility`](classes/GFResourceResolverUtility.md#gfresourceresolverutility) | `GFUtility` | `addons/gf/standard/utilities/assets/gf_resource_resolver_utility.gd` |
 | [`GFResourceVariantProvider`](classes/GFResourceVariantProvider.md#gfresourcevariantprovider) | `RefCounted` | `addons/gf/standard/utilities/assets/gf_resource_variant_provider.gd` |
 | [`GFRichTextFormatter`](classes/GFRichTextFormatter.md#gfrichtextformatter) | `RefCounted` | `addons/gf/standard/utilities/ui/gf_rich_text_formatter.gd` |
+| [`GFRuntimeAgentEnvironment`](classes/GFRuntimeAgentEnvironment.md#gfruntimeagentenvironment) | `GFUtility` | `addons/gf/standard/utilities/agent/gf_runtime_agent_environment.gd` |
 | [`GFRuntimeCleanupScope`](classes/GFRuntimeCleanupScope.md#gfruntimecleanupscope) | `RefCounted` | `addons/gf/standard/common/gf_runtime_cleanup_scope.gd` |
 | [`GFRuntimeInspectorUtility`](classes/GFRuntimeInspectorUtility.md#gfruntimeinspectorutility) | `GFUtility` | `addons/gf/standard/utilities/debug/gf_runtime_inspector_utility.gd` |
 | [`GFRuntimeTaskScheduler`](classes/GFRuntimeTaskScheduler.md#gfruntimetaskscheduler) | `GFUtility` | `addons/gf/standard/sequence/gf_runtime_task_scheduler.gd` |

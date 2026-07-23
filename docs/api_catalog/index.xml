@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<apiCatalog schemaVersion="2" name="GF Framework" sourceRoot="addons/gf" sourceDigest="9cf06649ff763e608ba9f0f8f4bcefc73dea81904dad973814bb239650cc1195" classCount="762" methodCount="6802">
+<apiCatalog schemaVersion="2" name="GF Framework" sourceRoot="addons/gf" sourceDigest="5af573605f40ac877167ff708b9971fe6fdef309ddb29bfeb4f9c89e8886b299" classCount="763" methodCount="6816">
 	<module id="kernel" label="Kernel" classCount="70" methodCount="715">
 		<class name="GFAccessGenerator" path="classes/GFAccessGenerator.xml" sourcePath="addons/gf/kernel/editor/gf_access_generator.gd" extends="RefCounted" />
 		<class name="GFArchitecture" path="classes/GFArchitecture.xml" sourcePath="addons/gf/kernel/core/gf_architecture.gd" extends="Object" />
@@ -72,7 +72,7 @@
 		<class name="GFTypeEventSystem" path="classes/GFTypeEventSystem.xml" sourcePath="addons/gf/kernel/core/gf_type_event_system.gd" extends="Object" />
 		<class name="GFUtility" path="classes/GFUtility.xml" sourcePath="addons/gf/kernel/base/gf_utility.gd" extends="Object" />
 	</module>
-	<module id="standard" label="Standard" classCount="425" methodCount="4247">
+	<module id="standard" label="Standard" classCount="426" methodCount="4261">
 		<class name="GFActivationTransaction" path="classes/GFActivationTransaction.xml" sourcePath="addons/gf/standard/foundation/policy/gf_activation_transaction.gd" extends="RefCounted" />
 		<class name="GFAnalyticsConfig" path="classes/GFAnalyticsConfig.xml" sourcePath="addons/gf/standard/utilities/analytics/gf_analytics_config.gd" extends="Resource" />
 		<class name="GFAnalyticsUtility" path="classes/GFAnalyticsUtility.xml" sourcePath="addons/gf/standard/utilities/analytics/gf_analytics_utility.gd" extends="GFUtility" />
@@ -366,6 +366,7 @@
 		<class name="GFResourceVariantProvider" path="classes/GFResourceVariantProvider.xml" sourcePath="addons/gf/standard/utilities/assets/gf_resource_variant_provider.gd" extends="RefCounted" />
 		<class name="GFResultDictionary" path="classes/GFResultDictionary.xml" sourcePath="addons/gf/standard/foundation/validation/gf_result_dictionary.gd" extends="RefCounted" />
 		<class name="GFRichTextFormatter" path="classes/GFRichTextFormatter.xml" sourcePath="addons/gf/standard/utilities/ui/gf_rich_text_formatter.gd" extends="RefCounted" />
+		<class name="GFRuntimeAgentEnvironment" path="classes/GFRuntimeAgentEnvironment.xml" sourcePath="addons/gf/standard/utilities/agent/gf_runtime_agent_environment.gd" extends="GFUtility" />
 		<class name="GFRuntimeCleanupScope" path="classes/GFRuntimeCleanupScope.xml" sourcePath="addons/gf/standard/common/gf_runtime_cleanup_scope.gd" extends="RefCounted" />
 		<class name="GFRuntimeDebuggerPlugin" path="classes/GFRuntimeDebuggerPlugin.xml" sourcePath="addons/gf/standard/utilities/debug/editor/gf_runtime_debugger_plugin.gd" extends="EditorDebuggerPlugin" />
 		<class name="GFRuntimeDebuggerTab" path="classes/GFRuntimeDebuggerTab.xml" sourcePath="addons/gf/standard/utilities/debug/editor/gf_runtime_debugger_tab.gd" extends="Control" />
