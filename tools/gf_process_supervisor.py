@@ -6,6 +6,7 @@ from __future__ import annotations
 import os
 import signal
 import subprocess
+import sys
 import threading
 import time
 from dataclasses import dataclass
@@ -16,6 +17,13 @@ from typing import Callable
 
 OUTPUT_DRAIN_GRACE_SECONDS = 1.0
 OUTPUT_CLEANUP_GRACE_SECONDS = 2.0
+LINUX_PROC_STAT_MAX_BYTES = 4096
+LINUX_PROC_SCAN_MAX_ENTRIES = 131072
+LINUX_PROC_SCAN_TIMEOUT_SECONDS = 0.25
+_LINUX_PROCESS_GROUP_ABSENT = "absent"
+_LINUX_PROCESS_GROUP_TERMINATED = "terminated"
+_LINUX_PROCESS_GROUP_LIVE = "live"
+_LINUX_TERMINATED_PROCESS_STATES = frozenset(("Z", "X", "x"))
 
 
 def _process_supervision_checkpoint(_name: str) -> None:
@@ -30,6 +38,74 @@ def _close_process_pipes(process: subprocess.Popen[str]) -> None:
 	finally:
 		if process.stderr is not None:
 			process.stderr.close()
+
+
+def _linux_process_group_cleanup_state(
+	process_group_id: int,
+	*,
+	proc_root: Path | None = None,
+	scan_deadline: float | None = None,
+) -> str | None:
+	"""Classify one Linux process group without treating terminal zombies as live."""
+	if process_group_id <= 0:
+		return None
+	if proc_root is None:
+		if not sys.platform.startswith("linux"):
+			return None
+		proc_root = Path("/proc")
+	if scan_deadline is None:
+		scan_deadline = time.perf_counter() + LINUX_PROC_SCAN_TIMEOUT_SECONDS
+	group_found = False
+	entry_count = 0
+	try:
+		process_entries = os.scandir(proc_root)
+	except OSError:
+		return None
+	with process_entries:
+		for process_entry in process_entries:
+			if not process_entry.name.isdecimal():
+				continue
+			entry_count += 1
+			if (
+				entry_count > LINUX_PROC_SCAN_MAX_ENTRIES
+				or time.perf_counter() >= scan_deadline
+			):
+				return None
+			stat_path = Path(process_entry.path) / "stat"
+			try:
+				with stat_path.open("rb") as stat_file:
+					stat_payload = stat_file.read(LINUX_PROC_STAT_MAX_BYTES + 1)
+			except FileNotFoundError:
+				continue
+			except OSError:
+				return None
+			if len(stat_payload) > LINUX_PROC_STAT_MAX_BYTES:
+				return None
+			_prefix, separator, stat_suffix = stat_payload.rpartition(b")")
+			stat_fields = stat_suffix.split()
+			if not separator or len(stat_fields) < 18 or len(stat_fields[0]) != 1:
+				return None
+			try:
+				member_group_id = int(stat_fields[2])
+				member_state = stat_fields[0].decode("ascii")
+				member_thread_count = int(stat_fields[17])
+			except (UnicodeDecodeError, ValueError):
+				return None
+			if member_group_id < 0 or member_thread_count < 0:
+				return None
+			if member_group_id != process_group_id:
+				continue
+			group_found = True
+			if (
+				member_state not in _LINUX_TERMINATED_PROCESS_STATES
+				or member_thread_count > 1
+			):
+				return _LINUX_PROCESS_GROUP_LIVE
+	return (
+		_LINUX_PROCESS_GROUP_TERMINATED
+		if group_found
+		else _LINUX_PROCESS_GROUP_ABSENT
+	)
 
 
 class _ProcessTreeOwner:
@@ -206,6 +282,9 @@ class _PosixProcessGroupOwner(_ProcessTreeOwner):
 			return []
 		process_group_id = self._cleanup_probe_group_id
 		cleanup_deadline = time.perf_counter() + OUTPUT_CLEANUP_GRACE_SECONDS
+		linux_cleanup_state: str | None = None
+		linux_scan_attempted = False
+		probe_permission_denied = False
 		while True:
 			try:
 				# Signal zero only probes existence and permissions; it does not deliver a signal.
@@ -215,12 +294,36 @@ class _PosixProcessGroupOwner(_ProcessTreeOwner):
 				self._cleanup_confirmation_succeeded = True
 				return []
 			except PermissionError:
-				pass
+				probe_permission_denied = True
 			except OSError as error:
 				self.cleanup_failed = True
 				return [f"Could not confirm POSIX process group {process_group_id} cleanup: {error}"]
-			if time.perf_counter() >= cleanup_deadline:
+			now = time.perf_counter()
+			if (
+				not probe_permission_denied
+				and (not linux_scan_attempted or now >= cleanup_deadline)
+			):
+				linux_cleanup_state = _linux_process_group_cleanup_state(process_group_id)
+				linux_scan_attempted = True
+				if linux_cleanup_state in (
+					_LINUX_PROCESS_GROUP_ABSENT,
+					_LINUX_PROCESS_GROUP_TERMINATED,
+				):
+					self._cleanup_probe_group_id = 0
+					self._cleanup_confirmation_succeeded = True
+					if linux_cleanup_state == _LINUX_PROCESS_GROUP_TERMINATED:
+						return [
+							f"Owned POSIX process group {process_group_id} retained only "
+							"terminated (zombie/dead) members after forced cleanup."
+						]
+					return []
+			if now >= cleanup_deadline:
 				self.cleanup_failed = True
+				if linux_cleanup_state == _LINUX_PROCESS_GROUP_LIVE:
+					return [
+						f"Owned POSIX process group {process_group_id} still had "
+						"non-terminal members after forced cleanup."
+					]
 				return [
 					f"Owned POSIX process group {process_group_id} still existed after forced cleanup."
 				]

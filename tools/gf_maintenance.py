@@ -13002,7 +13002,288 @@ def maintenance_self_test() -> dict[str, Any]:
 			and not detached_result.cancelled
 			and detached_ready_path.exists()
 			and not detached_marker_path.exists(),
-			"A successful direct child must not let DEVNULL background descendants escape its owned process tree.",
+			"A successful direct child must not let DEVNULL background descendants escape its owned process tree: "
+			f"{detached_result}.",
+		)
+
+		linux_proc_fixture_root = Path(temp_dir) / "linux-proc-fixture"
+		linux_proc_fixture_root.mkdir()
+
+		def write_linux_proc_stat(
+			process_id: int,
+			process_state: str,
+			process_group_id: int,
+			*,
+			thread_count: int = 1,
+		) -> None:
+			process_root = linux_proc_fixture_root / str(process_id)
+			process_root.mkdir()
+			stat_fields = [
+				process_state,
+				"1",
+				str(process_group_id),
+				"1",
+				"0",
+				"-1",
+				"0",
+				"0",
+				"0",
+				"0",
+				"0",
+				"0",
+				"0",
+				"0",
+				"0",
+				"20",
+				"0",
+				str(thread_count),
+			]
+			(process_root / "stat").write_bytes(
+				f"{process_id} (fixture) worker) {' '.join(stat_fields)}\n".encode("ascii")
+			)
+
+		terminated_process_group_id = 43100
+		live_process_group_id = 43101
+		multithreaded_terminal_group_id = 43103
+		write_linux_proc_stat(43110, "Z", terminated_process_group_id)
+		write_linux_proc_stat(43111, "X", terminated_process_group_id)
+		write_linux_proc_stat(43112, "x", terminated_process_group_id)
+		write_linux_proc_stat(43113, "S", live_process_group_id)
+		write_linux_proc_stat(43114, "R", 43199)
+		write_linux_proc_stat(43118, "S", 0)
+		write_linux_proc_stat(
+			43116,
+			"Z",
+			multithreaded_terminal_group_id,
+			thread_count=2,
+		)
+		(linux_proc_fixture_root / "43117").mkdir()
+		terminated_process_group_state = (
+			gf_process_supervisor._linux_process_group_cleanup_state(
+				terminated_process_group_id,
+				proc_root=linux_proc_fixture_root,
+			)
+		)
+		live_process_group_state = gf_process_supervisor._linux_process_group_cleanup_state(
+			live_process_group_id,
+			proc_root=linux_proc_fixture_root,
+		)
+		absent_process_group_state = gf_process_supervisor._linux_process_group_cleanup_state(
+			43102,
+			proc_root=linux_proc_fixture_root,
+		)
+		multithreaded_terminal_group_state = (
+			gf_process_supervisor._linux_process_group_cleanup_state(
+				multithreaded_terminal_group_id,
+				proc_root=linux_proc_fixture_root,
+			)
+		)
+		expired_process_group_state = gf_process_supervisor._linux_process_group_cleanup_state(
+			terminated_process_group_id,
+			proc_root=linux_proc_fixture_root,
+			scan_deadline=time.perf_counter() - 1.0,
+		)
+		malformed_process_root = linux_proc_fixture_root / "43115"
+		malformed_process_root.mkdir()
+		(malformed_process_root / "stat").write_bytes(b"malformed proc stat")
+		unavailable_process_group_state = (
+			gf_process_supervisor._linux_process_group_cleanup_state(
+				terminated_process_group_id,
+				proc_root=linux_proc_fixture_root,
+			)
+		)
+		(malformed_process_root / "stat").write_bytes(
+			b"x" * (gf_process_supervisor.LINUX_PROC_STAT_MAX_BYTES + 1)
+		)
+		oversized_process_group_state = (
+			gf_process_supervisor._linux_process_group_cleanup_state(
+				terminated_process_group_id,
+				proc_root=linux_proc_fixture_root,
+			)
+		)
+		record_result(
+			"linux_process_group_cleanup_state_is_terminal_only_and_fail_closed",
+			terminated_process_group_state
+			== gf_process_supervisor._LINUX_PROCESS_GROUP_TERMINATED
+			and live_process_group_state == gf_process_supervisor._LINUX_PROCESS_GROUP_LIVE
+			and absent_process_group_state == gf_process_supervisor._LINUX_PROCESS_GROUP_ABSENT
+			and multithreaded_terminal_group_state
+			== gf_process_supervisor._LINUX_PROCESS_GROUP_LIVE
+			and expired_process_group_state is None
+			and unavailable_process_group_state is None
+			and oversized_process_group_state is None,
+			"Linux process-group confirmation must distinguish absent, terminal-only, live, "
+			"multithreaded, expired, and uninspectable procfs snapshots.",
+		)
+
+		def run_posix_cleanup_confirmation_fixture(
+			cleanup_state: str | None,
+			*,
+			cleanup_state_sequence: tuple[str | None, ...] = (),
+			cleanup_grace_seconds: float = 0.0,
+			prior_cleanup_failure: bool = False,
+			probe_error: str = "",
+		) -> dict[str, Any]:
+			owner = object.__new__(gf_process_supervisor._PosixProcessGroupOwner)
+			gf_process_supervisor._ProcessTreeOwner.__init__(owner)
+			owner.cleanup_failed = prior_cleanup_failure
+			owner.process_group_id = 43200
+			owner._cleanup_probe_group_id = 0
+			original_linux_cleanup_state = (
+				gf_process_supervisor._linux_process_group_cleanup_state
+			)
+			original_cleanup_grace = gf_process_supervisor.OUTPUT_CLEANUP_GRACE_SECONDS
+			original_supervisor_time = gf_process_supervisor.time
+			had_killpg = hasattr(gf_process_supervisor.os, "killpg")
+			original_killpg = getattr(gf_process_supervisor.os, "killpg", None)
+			probe_calls: list[tuple[int, int]] = []
+			cleanup_state_calls: list[int] = []
+
+			class InjectedCleanupClock:
+				def __init__(self) -> None:
+					self.now = 0.0
+
+				def perf_counter(self) -> float:
+					return self.now
+
+				def sleep(self, seconds: float) -> None:
+					self.now += max(0.0, seconds)
+
+			injected_cleanup_clock = InjectedCleanupClock()
+
+			def report_injected_cleanup_state(injected_process_group_id: int) -> str | None:
+				cleanup_state_calls.append(injected_process_group_id)
+				if cleanup_state_sequence:
+					state_index = min(
+						len(cleanup_state_calls) - 1,
+						len(cleanup_state_sequence) - 1,
+					)
+					return cleanup_state_sequence[state_index]
+				return cleanup_state
+
+			def probe_injected_process_group(
+				injected_process_group_id: int,
+				signal_number: int,
+			) -> None:
+				probe_calls.append((injected_process_group_id, signal_number))
+				if probe_error == "missing":
+					raise ProcessLookupError("fixture process group disappeared")
+				if probe_error == "permission":
+					raise PermissionError("fixture process group permission denied")
+
+			try:
+				setattr(
+					gf_process_supervisor.os,
+					"killpg",
+					probe_injected_process_group,
+				)
+				gf_process_supervisor._linux_process_group_cleanup_state = (
+					report_injected_cleanup_state
+				)
+				gf_process_supervisor.OUTPUT_CLEANUP_GRACE_SECONDS = cleanup_grace_seconds
+				gf_process_supervisor.time = injected_cleanup_clock
+				confirmation_notes = owner.confirm_cleanup_after_reap()
+			finally:
+				gf_process_supervisor.time = original_supervisor_time
+				gf_process_supervisor.OUTPUT_CLEANUP_GRACE_SECONDS = original_cleanup_grace
+				gf_process_supervisor._linux_process_group_cleanup_state = (
+					original_linux_cleanup_state
+				)
+				if had_killpg:
+					setattr(gf_process_supervisor.os, "killpg", original_killpg)
+				else:
+					delattr(gf_process_supervisor.os, "killpg")
+			return {
+				"cleanup_failed": owner.cleanup_failed,
+				"confirmation_succeeded": owner.cleanup_confirmation_succeeded(),
+				"probe_group_id": owner._cleanup_probe_group_id,
+				"notes": confirmation_notes,
+				"probe_calls": probe_calls,
+				"cleanup_state_calls": cleanup_state_calls,
+			}
+
+		terminated_confirmation = run_posix_cleanup_confirmation_fixture(
+			gf_process_supervisor._LINUX_PROCESS_GROUP_TERMINATED
+		)
+		absent_confirmation = run_posix_cleanup_confirmation_fixture(
+			gf_process_supervisor._LINUX_PROCESS_GROUP_ABSENT
+		)
+		live_confirmation = run_posix_cleanup_confirmation_fixture(
+			gf_process_supervisor._LINUX_PROCESS_GROUP_LIVE
+		)
+		unavailable_confirmation = run_posix_cleanup_confirmation_fixture(None)
+		transitioning_confirmation = run_posix_cleanup_confirmation_fixture(
+			gf_process_supervisor._LINUX_PROCESS_GROUP_LIVE,
+			cleanup_state_sequence=(
+				gf_process_supervisor._LINUX_PROCESS_GROUP_LIVE,
+				gf_process_supervisor._LINUX_PROCESS_GROUP_TERMINATED,
+			),
+			cleanup_grace_seconds=0.05,
+		)
+		sticky_failure_confirmation = run_posix_cleanup_confirmation_fixture(
+			gf_process_supervisor._LINUX_PROCESS_GROUP_TERMINATED,
+			prior_cleanup_failure=True,
+		)
+		missing_confirmation = run_posix_cleanup_confirmation_fixture(
+			None,
+			probe_error="missing",
+		)
+		permission_confirmation = run_posix_cleanup_confirmation_fixture(
+			gf_process_supervisor._LINUX_PROCESS_GROUP_TERMINATED,
+			probe_error="permission",
+		)
+		record_result(
+			"posix_cleanup_confirmation_accepts_only_absent_or_terminal_groups",
+			terminated_confirmation["confirmation_succeeded"]
+			and not terminated_confirmation["cleanup_failed"]
+			and terminated_confirmation["probe_group_id"] == 0
+			and any(
+				"terminated" in note
+				for note in terminated_confirmation["notes"]
+			)
+			and absent_confirmation["confirmation_succeeded"]
+			and not absent_confirmation["cleanup_failed"]
+			and absent_confirmation["probe_group_id"] == 0
+			and not absent_confirmation["notes"]
+			and not live_confirmation["confirmation_succeeded"]
+			and live_confirmation["cleanup_failed"]
+			and live_confirmation["probe_group_id"] == 43200
+			and any("non-terminal" in note for note in live_confirmation["notes"])
+			and not unavailable_confirmation["confirmation_succeeded"]
+			and unavailable_confirmation["cleanup_failed"]
+			and unavailable_confirmation["probe_group_id"] == 43200
+			and transitioning_confirmation["confirmation_succeeded"]
+			and not transitioning_confirmation["cleanup_failed"]
+			and transitioning_confirmation["probe_group_id"] == 0
+			and len(transitioning_confirmation["cleanup_state_calls"]) == 2
+			and sticky_failure_confirmation["confirmation_succeeded"]
+			and sticky_failure_confirmation["cleanup_failed"]
+			and missing_confirmation["confirmation_succeeded"]
+			and not missing_confirmation["cleanup_failed"]
+			and missing_confirmation["probe_group_id"] == 0
+			and not missing_confirmation["cleanup_state_calls"]
+			and not permission_confirmation["confirmation_succeeded"]
+			and permission_confirmation["cleanup_failed"]
+			and permission_confirmation["probe_group_id"] == 43200
+			and not permission_confirmation["cleanup_state_calls"]
+			and all(
+				signal_number == 0
+				for confirmation in (
+					terminated_confirmation,
+					absent_confirmation,
+					live_confirmation,
+					unavailable_confirmation,
+					transitioning_confirmation,
+					sticky_failure_confirmation,
+					missing_confirmation,
+					permission_confirmation,
+				)
+				for _process_group_id, signal_number in confirmation["probe_calls"]
+			),
+			"Post-reap POSIX confirmation may accept absent or terminal-only groups without "
+			"clearing any earlier cleanup failure; live, uninspectable, and permission-denied "
+			"groups must still fail, a live-to-terminal transition must be retried, and "
+			"post-reap probes must remain signal zero.",
 		)
 
 		original_supervision_checkpoint = gf_process_supervisor._process_supervision_checkpoint
