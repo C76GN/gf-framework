@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFDeterministicVariantSerializer" path="addons/gf/standard/foundation/deterministic/gf_deterministic_variant_serializer.gd" module="standard" extends="RefCounted" classDigest="ba778442dde54980dd9fbf88f910edc21d64b5486a467297cb16c51c28edf80f">
+<class name="GFDeterministicVariantSerializer" path="addons/gf/standard/foundation/deterministic/gf_deterministic_variant_serializer.gd" module="standard" extends="RefCounted" classDigest="d782be25647c2945add3a09c6ecd8da1021080d751d6b54c0bc1c8db2ca0d3f4">
 	<description>GFDeterministicVariantSerializer: 纯 Variant 数据的确定性规范编码器。
 该类型为锁步、回放、黄金测试和内容 hash 提供稳定的 canonical value、JSON、
 UTF-8 bytes 与 SHA-256。强确定性输入应使用整数、字符串、布尔、整数向量、
@@ -24,7 +24,7 @@ PackedByteArray 或定点数编码；`allow_floats` 仅用于接受 Godot 浮点
 				<tag name="param">value: 待编码的 Variant。应为纯数据结构；Object、Resource、Callable、RID 和循环引用会失败。</tag>
 				<tag name="param">options: 可选项。支持 allow_floats、max_depth、max_items、max_string_length 和 max_output_bytes。</tag>
 				<tag name="return">规范化后的 JSON 兼容 Variant；失败时返回 null 并输出错误。</tag>
-				<tag name="schema">value: Variant value made from nil, bool, int, String, StringName, NodePath, integer vectors, arrays, dictionaries and packed scalar arrays. Float-based values require `options.allow_floats = true`.</tag>
+				<tag name="schema">value: Variant value made from scalar, string, path, vector, rectangle, color, plane, quaternion, AABB, basis, transform, projection, array, dictionary, and packed array values. Float-based values require `options.allow_floats = true`.</tag>
 				<tag name="schema">options: Dictionary with optional allow_floats, max_depth, max_items, max_string_length, and max_output_bytes limits.</tag>
 				<tag name="schema">return: Typed marker Dictionary using `__gf_deterministic_variant__`, or null when unsupported input is detected.</tag>
 				<tag name="since">5.0.0</tag>

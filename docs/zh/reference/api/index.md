@@ -5,9 +5,9 @@
 ## 范围
 
 - 源码根目录：`addons/gf`
-- 公开类：`764`
-- 公开成员：`11059`
-- 公开方法：`6861`
+- 公开类：`767`
+- 公开成员：`11102`
+- 公开方法：`6888`
 
 ## 模块
 
@@ -28,7 +28,7 @@
 | Feedback | 8 | 138 | 64 | [extensions-feedback.md](extensions-feedback.md) |
 | Flow | 7 | 138 | 84 | [extensions-flow.md](extensions-flow.md) |
 | Interaction | 6 | 82 | 29 | [extensions-interaction.md](extensions-interaction.md) |
-| Network | 31 | 442 | 250 | [extensions-network.md](extensions-network.md) |
+| Network | 34 | 485 | 277 | [extensions-network.md](extensions-network.md) |
 | Physics | 4 | 50 | 23 | [extensions-physics.md](extensions-physics.md) |
 | Save | 41 | 468 | 296 | [extensions-save.md](extensions-save.md) |
 | Turn Based | 4 | 49 | 24 | [extensions-turn-based.md](extensions-turn-based.md) |

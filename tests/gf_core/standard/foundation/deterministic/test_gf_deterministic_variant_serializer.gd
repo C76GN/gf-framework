@@ -208,6 +208,33 @@ func test_finite_floats_can_be_enabled_and_negative_zero_is_normalized() -> void
 	assert_true(vector_text.contains("\"type\":\"Vector2\""), "浮点向量应保留类型标记。")
 
 
+func test_projection_has_stable_canonical_encoding_when_floats_are_enabled() -> void:
+	var projection: Projection = Projection.create_perspective(
+		1.2,
+		16.0 / 9.0,
+		0.1,
+		100.0
+	)
+	var options: Dictionary = {"allow_floats": true}
+	var first_text: String = GF_DETERMINISTIC_VARIANT_SERIALIZER.to_canonical_json(
+		projection,
+		options
+	)
+	var second_text: String = GF_DETERMINISTIC_VARIANT_SERIALIZER.to_canonical_json(
+		projection,
+		options
+	)
+
+	assert_false(first_text.is_empty(), "有限 Projection 应能进入 canonical 编码。")
+	assert_true(first_text.contains("\"type\":\"Projection\""), "Projection 应保留类型标记。")
+	assert_eq(first_text, second_text, "相同 Projection 的 canonical 文本必须稳定。")
+	assert_eq(
+		GF_DETERMINISTIC_VARIANT_SERIALIZER.sha256(projection, options),
+		first_text.sha256_text(),
+		"Projection hash 应来自同一份 canonical UTF-8 文本。"
+	)
+
+
 func test_adjacent_float_values_have_distinct_canonical_encodings() -> void:
 	var options: Dictionary = {
 		"allow_floats": true,

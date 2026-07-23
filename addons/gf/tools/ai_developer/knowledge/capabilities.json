@@ -125,12 +125,12 @@
     {
       "id": "network",
       "title": "Network transport and contracts",
-      "summary": "Replaceable byte transports, channels, typed message contracts, snapshots, dirty state, histories, and session mechanisms.",
-      "keywords": ["network", "multiplayer", "transport", "rpc", "snapshot", "authority", "lobby", "steam", "server"],
+      "summary": "Replaceable byte transports, channels, typed contracts, snapshots, histories, and bounded authoritative synchronization with optional prediction correction.",
+      "keywords": ["network", "multiplayer", "transport", "rpc", "snapshot", "authority", "prediction", "rollback", "synchronization", "lobby", "steam", "server"],
       "packages": ["gf.extension.network"],
-      "primary_classes": ["GFNetworkBackend", "GFENetNetworkBackend", "GFNetworkContract", "GFNetworkUtility", "GFNetworkHistoryBuffer"],
-      "recipes": ["network-backend-adapter", "platform-lobby-adapter"],
-      "boundary": "GF does not choose authority, matchmaking, lobby policy, provider identity, prediction, or rollback for the project."
+      "primary_classes": ["GFNetworkBackend", "GFENetNetworkBackend", "GFNetworkContract", "GFNetworkUtility", "GFNetworkHistoryBuffer", "GFNetworkSyncCoordinator", "GFNetworkSimulationAdapter", "GFNetworkInputFrame"],
+      "recipes": ["network-backend-adapter", "network-sync-coordinator", "platform-lobby-adapter"],
+      "boundary": "GF can coordinate a bounded full-snapshot authority flow, but the project chooses trusted authority identity, entity control, state and input schemas, business conflict policy, matchmaking, lobby policy, and provider identity."
     },
     {
       "id": "platform-adapters",

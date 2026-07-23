@@ -52,7 +52,8 @@
       "res://tests/gf_core/extensions/interaction/test_gf_interaction_nodes.gd"
     ],
     "gf.extension.network": [
-      "res://tests/gf_core/extensions/network/test_gf_network_extension.gd"
+      "res://tests/gf_core/extensions/network/test_gf_network_extension.gd",
+      "res://tests/gf_core/extensions/network/test_gf_network_sync_coordinator.gd"
     ],
     "gf.extension.physics": [
       "res://tests/gf_core/extensions/physics/test_gf_buoyancy_3d.gd",

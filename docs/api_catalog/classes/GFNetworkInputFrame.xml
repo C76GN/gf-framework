@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFNetworkInputFrame" path="addons/gf/extensions/network/simulation/gf_network_input_frame.gd" module="extensions/network" extends="RefCounted" classDigest="8f83ea9841aebea97cf942bb0643926caa2451e3a9205b550627336428208f1c">
+	<description>GFNetworkInputFrame: 网络同步输入帧值对象。
+保存目标 tick、来源 peer、单调序号和项目输入载荷。该类型只负责值语义；
+非可信消息仍必须由 GFNetworkSyncCoordinator 结合实际传输 peer 校验。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">value_object</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties>
+		<member kind="property" name="tick">
+			<signature>var tick: int = 0</signature>
+			<description>输入应被模拟的目标 tick。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="peer_id">
+			<signature>var peer_id: int = -1</signature>
+			<description>输入来源 peer。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="sequence">
+			<signature>var sequence: int = 0</signature>
+			<description>来源 peer 内严格单调的输入序号。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="payload">
+			<signature>var payload: Dictionary = {}</signature>
+			<description>项目定义的输入载荷。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="schema">payload: Dictionary[StringName|String, Variant]，只允许网络传输安全值。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</properties>
+	<methods>
+		<member kind="method" name="to_dict">
+			<signature>func to_dict() -&gt; Dictionary:</signature>
+			<description>转为字典副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">输入帧字典。</tag>
+				<tag name="schema">return: Dictionary { tick: int, peer_id: int, sequence: int, payload: Dictionary }.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="from_dict">
+			<signature>func from_dict(data: Dictionary) -&gt; void:</signature>
+			<description>从已由调用方校验的字典恢复。
+该便利方法不建立传输身份或防重放边界；非可信数据应交给
+GFNetworkSyncCoordinator.handle_message()。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">data: 输入帧字典。</tag>
+				<tag name="schema">data: Dictionary { tick: int, peer_id: int, sequence: int, payload: Dictionary }.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="duplicate_frame">
+			<signature>func duplicate_frame() -&gt; GFNetworkInputFrame:</signature>
+			<description>复制输入帧。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">独立输入帧副本。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="validate_frame">
+			<signature>func validate_frame(options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>校验值对象的基础字段和载荷预算。
+该方法不校验 authority、epoch、顺序窗口或项目实体所有权。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">options: 结构预算；支持 max_depth、max_nodes 和 max_payload_bytes。</tag>
+				<tag name="return">统一校验报告。</tag>
+				<tag name="schema">options: Dictionary { max_depth?: int, max_nodes?: int, max_payload_bytes?: int }.</tag>
+				<tag name="schema">return: Dictionary { ok: bool, error: String, path: String, payload_bytes: int }.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

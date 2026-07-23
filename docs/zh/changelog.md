@@ -22,7 +22,7 @@
 
 ## [未发布]
 
-**版本概述**：开发线升级为 `10.0.0-dev.0`，补齐通用 2D 编辑器缩略图、运行时 2D Spatial Canvas、有序资产集合、内容包查询与运行时目录挂载、存储后端故障转移、惰性诊断采集、配方化运行时会话轨迹、UI 路由预加载规划、轨迹预测数学和默认关闭的 Runtime Agent Environment，修正 AI Developer Kit 的项目级资源所有权表达，并更新 CI/Release 基础 Actions；业务策略仍保持在各自调用方边界内。
+**版本概述**：开发线升级为 `10.0.0-dev.0`，补齐通用 2D 编辑器缩略图、运行时 2D Spatial Canvas、有序资产集合、内容包查询与运行时目录挂载、存储后端故障转移、惰性诊断采集、配方化运行时会话轨迹、UI 路由预加载规划、轨迹预测数学、有界权威快照同步协调和默认关闭的 Runtime Agent Environment，修正 AI Developer Kit 的项目级资源所有权表达，并更新 CI/Release 基础 Actions；业务策略仍保持在各自调用方边界内。
 
 ### 🚀 新增特性 (Added)
 
@@ -37,6 +37,7 @@
 - 新增 `GFUIRoutePreloadUtility`，从 `GFUIRoute.adjacent_route_ids` 做有界、确定性的页面可达性遍历，并生成可直接交给 `GFAssetUtility` 的 `GFAssetPreloadPlan`。
 - 新增 `GFUIRouteOperation` 与 `GFUIRouteResult`，把异步路由的输入拒绝、预加载、面板打开、取消、释放和未知结果统一为单终态请求契约。
 - 新增 `GFTrajectoryMath`，提供 2D/3D 恒加速度未来状态、恒速发射体对匀速目标的最早拦截解，以及带绝对点数上限的同步公式轨迹采样。
+- 新增 `GFNetworkSyncCoordinator`、`GFNetworkSimulationAdapter` 与 `GFNetworkInputFrame`：提供 actual peer、authority、recipient、epoch、sequence 与连续裁决 ack 绑定的全量权威快照流程，以及有界历史、输入窗口、目标 tick 动态授权复核和可选事务式预测纠偏；transport、项目状态 Schema、实体控制权、鉴权与复制语义仍由项目负责。
 - 新增可选包 `gf.standard.agent_environment` 与 `GFRuntimeAgentEnvironment`：受信宿主可声明严格 JSON endpoint，为调用方签发精确授权的短期 session，并统一执行创建线程绑定、token 摘要校验、TTL、固定窗口限流、防重放、策略上下文失效、输入输出硬预算和无业务载荷审计；环境默认关闭，不内置网络、模型 SDK、文件/命令执行、截图或任意反射。
 - 新增 Save Profile 运行时：`GFSaveProfile`、`GFSaveSectionProvider`、`GFSaveRecoveryPolicy`、`GFSaveProfileUtility`、异步操作句柄和类型化终态结果共同提供多 section 所有权、generation 合并、flush 屏障、迁移校验和事务回滚。
 - 新增 `GFStorageAsyncOperation` 与 `GFStorageAsyncResult`，让并发调用方按唯一 request ID 观察单次读写终态；`GFStorageReadResult.FailureKind` 结构化区分非法请求、缺失、IO、损坏、未来格式、迁移失败和不可用。
@@ -58,6 +59,7 @@
 - AI Developer 工具协议 4.0.0 将项目契约收敛到 schema v2：`required_capabilities` 被带 decision state、owner、Recipe、验收条件和备注的 `capability_requirements` 取代；必需能力必须显式选择 provider package，迁移占位项保持 `pending_review` 并阻断漂移门禁。
 - AI Developer 项目快照升级到 schema v4，新增契约迁移状态和 `capability_readiness`；目录包、安装包、Recipe 的显式 `all_of/any_of` 包表达式、生产/测试源码命中、累计字节预算与扫描完整性分别记录，不再从示例类反推依赖，也不把“未观察到类”误写成“未采用能力”。
 - Capability / Recipe 知识目录补齐 Save Profile、Content Package Catalog Mount、类型化异步 UI Route、惰性诊断 Provider 与 Session Trace 的项目侧采用边界。
+- Network Capability / Recipe 知识目录补齐有界权威快照协调、Adapter 纯校验、解码前 raw packet 限制、新 epoch 重同步和项目实体控制权边界。
 - AI Developer 项目契约的所有受控项目路径现在统一逐段拒绝符号链接、Windows junction 和其他重解析点；模块根、Adapter 根、project profile、验证必需路径与项目级资源不再允许通过链接别名绕过所有权边界。
 - 模块根与 Adapter 根额外采用跨平台规范化校验，并以大小写无关方式拒绝 `res://addons/gf` 及 Windows 尾点、保留名称等别名，避免把 GF 源码误归属为项目模块；普通源码资源引用不受这项契约限制。
 - CI 与 Release 工作流统一采用 Node.js 24 世代的 `actions/checkout@v7`、`actions/setup-python@v7`、`actions/upload-artifact@v7` 和 `actions/download-artifact@v8`，维护自检会阻止旧主版本回退。
@@ -78,6 +80,7 @@
 - 修复惰性诊断 Provider 引入后会拒绝历史 `diagnostic_providers` 自定义快照分区的问题；普通快照继续保留既有分区，只有显式提交非空 `diagnostic_provider_ids` 的当次快照由内置批次结果占用该顶层键，且不会注销已发布缓存。
 - 修复总快照入口会在结构与循环预检前深复制 `diagnostic_provider_request`、从而可能触发递归上限的问题；请求现在先按原引用 fail closed 校验，失败时不执行任何项目 Provider。
 - 修复当前契约已经是 schema v2 时，CLI `contract-migrate` 会把 `up_to_date` 计划当作成功应用并退出 0 的问题；没有待执行迁移时现在返回 `no_pending_contract_migration` 和非零退出码。
+- 修复有限 `Projection` 已通过 Network transport 值校验、却无法进入确定性规范指纹而导致同步消息在接收端失败的问题；`GFDeterministicVariantSerializer` 现在以 16 个浮点分量稳定编码 `Projection`。
 
 ### 🔧 API 变动说明 (API Changes)
 
@@ -90,6 +93,7 @@
 - 新增公开类型 `GFDiagnosticProviderResult`、`GFDiagnosticSnapshotProvider`、`GFSessionTraceUtility`、`GFSessionTraceRecipe`、`GFSessionTraceChannelDefinition`、`GFSessionTraceCheckpoint` 与 `GFUIRoutePreloadUtility`，以及 `GFDiagnosticsUtility` 的惰性 Provider 注册/采集 API、`GFUIRoute.adjacent_route_ids`、`get_adjacent_route_ids()` 和 `GFUIRouterUtility.build_preload_plan()`；均标记为 `@since unreleased`。
 - 新增公开类型 `GFUIRouteOperation`、`GFUIRouteResult`、`GFUIRouterUtility.route_operation_completed` 和 `PRELOAD_*` 常量；`push_route_async()`、`replace_route_async()` 新增 `async_options` 并从 `void` 改为返回句柄。
 - 新增公开类型 `GFTrajectoryMath`，以及运动预测、恒速拦截和有界公式采样入口；均标记为 `@since unreleased`，不改变既有 Steering 行为。
+- 新增公开类型 `GFNetworkInputFrame`、`GFNetworkSimulationAdapter` 与 `GFNetworkSyncCoordinator`，以及显式配置、peer 注册、本地输入、权威/预测 tick、recipient-bound 消息、重同步状态和有界调试快照入口；均标记为 `@since unreleased`。既有 Network transport、snapshot、delta/patch 与 lobby API 不变。
 - 新增公开类型 `GFRuntimeAgentEnvironment`，以及 endpoint 注册/目录、session 签发/撤销、`invalidate_policy_context()`、版本化请求执行、安全审计和调试快照入口；均标记为 `@since unreleased`。该类型绑定创建线程，只保护不可信请求进入受信同步 handler 的协议边界，不是 OS sandbox。
 - 新增公开类型 `GFSaveProfile`、`GFSaveSectionProvider`、`GFSaveRecoveryPolicy`、`GFSaveProfileOperation`、`GFSaveProfileResult`、`GFSaveRollbackFailure` 和 `GFSaveProfileUtility`；Save 扩展安装器会自动注册 Profile Utility，既有 Save Graph 和 Slot API 不变。
 - 新增公开类型 `GFStorageAsyncOperation`、`GFStorageAsyncResult`，以及 `GFStorageUtility.save_data_request_async()`、`load_data_request_async()`、`canonicalize_data_file_name()`；`GFStorageReadResult` 新增只追加的 `FailureKind` 与 `failure_kind`。
@@ -108,6 +112,7 @@
 - 既有诊断快照无需迁移。只有无法安全长期缓存的状态才实现 `GFDiagnosticSnapshotProvider`，并由故障点或支持报告入口显式请求；需要跨系统固定轨迹预算和检查点时，在首次会话前应用 `GFSessionTraceRecipe`，不要把上传、许可或业务恢复逻辑写进配方。
 - 历史代码通过 `publish_snapshot_section()` 使用 `diagnostic_providers` 分区 ID 时无需迁移：普通快照继续返回该缓存；只有当次显式请求惰性 Provider 时，同名顶层键才由内置批次结果确定性覆盖，后续普通快照仍恢复既有分区。
 - 既有曲线、Steering、发射体和节点移动逻辑无需迁移。只有需要结构化未来状态、拦截时间或公式点集时才显式采用 `GFTrajectoryMath`；绘制、物理推进、速度继承、重力拦截和业务命中规则继续由项目负责。
+- 既有自定义网络同步无需迁移。采用 `GFNetworkSyncCoordinator` 时，先为 `gf.sync` 注册可靠且有限的 raw packet 通道，保留 `GFNetworkUtility.validator`，由受信 session 签发不可复用 epoch 并显式注册 replica；项目 Adapter 必须实现纯校验、状态回滚和基于 actual peer 的控制权判断，并允许协调器在收包与目标 authority tick 各执行一次授权校验。`RESYNC_REQUIRED` 使用全新 epoch 重建状态，`FAULTED` 必须重建 coordinator 与 Adapter。
 - 既有诊断命令、开发者控制台与 AI Developer 工具无需迁移，也不得直接当作 Runtime Agent 权限入口。只有明确需要运行时自动化时才安装 `gf.standard.agent_environment`，在禁用态注册最小 endpoint 与 closed Schema，由项目策略负责业务授权/批准，并由外层传输负责身份认证和凭据保护。
 - 既有 Save Graph、Slot 和直接 Storage 调用无需迁移。需要跨模块自动保存时，为每个稳定数据边界实现一个可回滚 `GFSaveSectionProvider`，注册 Profile 和完整迁移链；不要把缺失、损坏或未来版本统一重置为空存档。
 - 历史配置若有意使用带首尾空白的 route ID，需迁移为去除空白后的稳定 ID；规范化后重复的 ID 会指向同一注册身份，不应再依赖空白区分页面。
@@ -148,6 +153,11 @@
 - `addons/gf/standard/utilities/ui/gf_ui_route_result.gd`
 - `addons/gf/standard/utilities/ui/gf_ui_router_utility.gd`
 - `addons/gf/standard/foundation/math/gf_trajectory_math.gd`
+- `addons/gf/standard/foundation/deterministic/gf_deterministic_variant_serializer.gd`
+- `addons/gf/extensions/network/simulation/gf_network_input_frame.gd`
+- `addons/gf/extensions/network/simulation/gf_network_simulation_adapter.gd`
+- `addons/gf/extensions/network/simulation/gf_network_sync_coordinator.gd`
+- `docs/zh/extensions/network-turnbased/network-sync-coordinator.md`
 - `addons/gf/standard/utilities/agent/gf_runtime_agent_environment.gd`
 - `docs/zh/standard/utilities/runtime/agent-environment.md`
 - `addons/gf/extensions/save/profile/`
