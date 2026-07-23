@@ -1,0 +1,124 @@
+name: CI manual diagnostics
+
+run-name: GF manual diagnostics|ref=${{ github.ref }}|sha=${{ github.sha }}
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-manual-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  manual-repository-policy:
+    name: GF manual repository policy
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Validate repository policy
+        run: python tools/gf_repository_policy.py validate --json
+
+  manual-full-validation:
+    name: GF manual Full validation
+    if: github.ref == 'refs/heads/main'
+    needs:
+      - manual-repository-policy
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Install documentation dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r docs/requirements.txt
+
+      - name: Set up Godot
+        uses: ./.github/actions/setup-godot
+
+      - name: Run full maintenance diagnostics
+        run: >
+          python tools/gf_maintenance.py check
+          --suite full
+          --failed-only
+          --github-annotations
+
+  manual-windows-process-supervision:
+    name: GF manual process supervision (Windows)
+    if: github.ref == 'refs/heads/main'
+    needs:
+      - manual-repository-policy
+    runs-on: windows-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Verify owned process-tree cleanup
+        run: python tools/gf_maintenance.py maintenance-self-test --json
+
+  manual-diagnostics-gate:
+    name: GF manual diagnostics gate
+    if: >-
+      !cancelled() &&
+      github.ref == 'refs/heads/main'
+    needs:
+      - manual-repository-policy
+      - manual-full-validation
+      - manual-windows-process-supervision
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Evaluate manual diagnostics
+        env:
+          POLICY_RESULT: ${{ needs.manual-repository-policy.result }}
+          FULL_RESULT: ${{ needs.manual-full-validation.result }}
+          WINDOWS_PROCESS_RESULT: ${{ needs.manual-windows-process-supervision.result }}
+        run: |
+          if [ "${POLICY_RESULT}" != "success" ]; then
+            echo "Manual repository policy failed: ${POLICY_RESULT}"
+            exit 1
+          fi
+          if [ "${FULL_RESULT}" != "success" ]; then
+            echo "Manual Full validation failed: ${FULL_RESULT}"
+            exit 1
+          fi
+          if [ "${WINDOWS_PROCESS_RESULT}" != "success" ]; then
+            echo "Manual Windows process supervision failed: ${WINDOWS_PROCESS_RESULT}"
+            exit 1
+          fi

@@ -1,5 +1,8 @@
 name: CI
 
+run-name: >-
+  GF CI|mode=${{ github.event_name == 'pull_request' && github.event.action == 'edited' && github.event.changes.base.ref.from == '' && 'metadata' || (github.event_name == 'pull_request' && github.event.pull_request.draft == true && 'draft' || 'full') }}|pr=${{ github.event.pull_request.number || 0 }}|head=${{ github.event.pull_request.head.sha || github.sha }}|base=${{ github.event.pull_request.base.sha || github.sha }}
+
 on:
   pull_request:
     types:
@@ -12,7 +15,6 @@ on:
   push:
     branches:
       - main
-  workflow_dispatch:
 
 permissions:
   contents: read
@@ -23,7 +25,7 @@ concurrency:
 
 jobs:
   repository-policy:
-    name: ${{ github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/main' && 'GF repository policy (manual non-main)' || 'GF repository policy' }}
+    name: GF repository policy
     runs-on: ubuntu-latest
     timeout-minutes: 5
 
@@ -82,7 +84,6 @@ jobs:
     name: GF framework checks (${{ matrix.name }})
     if: >-
       github.event_name == 'push' ||
-      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') ||
       (github.event_name == 'pull_request' &&
       github.event.pull_request.draft == false &&
       (github.event.action != 'edited' || github.event.changes.base.ref.from != ''))
@@ -143,7 +144,6 @@ jobs:
     name: GF package checks (${{ matrix.name }})
     if: >-
       github.event_name == 'push' ||
-      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') ||
       (github.event_name == 'pull_request' &&
       github.event.pull_request.draft == false &&
       (github.event.action != 'edited' || github.event.changes.base.ref.from != ''))
@@ -197,7 +197,6 @@ jobs:
     name: GF process supervision (Windows)
     if: >-
       github.event_name == 'push' ||
-      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') ||
       (github.event_name == 'pull_request' &&
       github.event.pull_request.draft == false &&
       (github.event.action != 'edited' || github.event.changes.base.ref.from != ''))
@@ -249,12 +248,11 @@ jobs:
             exit 1
           fi
 
-  merge-gate:
-    name: ${{ (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') || (github.event_name == 'pull_request' && github.event.pull_request.draft == false && (github.event.action != 'edited' || github.event.changes.base.ref.from != ''))) && 'GF merge gate' || 'GF merge gate (not applicable)' }}
+  full-validation-gate:
+    name: GF full validation (${{ github.event.pull_request.base.sha || github.sha }})
     if: >-
       !cancelled() &&
       (github.event_name == 'push' ||
-      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') ||
       (github.event_name == 'pull_request' &&
       github.event.pull_request.draft == false &&
       (github.event.action != 'edited' || github.event.changes.base.ref.from != '')))
@@ -267,7 +265,7 @@ jobs:
     timeout-minutes: 5
 
     steps:
-      - name: Evaluate required checks
+      - name: Evaluate Full validation
         env:
           POLICY_RESULT: ${{ needs.repository-policy.result }}
           FRAMEWORK_RESULT: ${{ needs.framework-checks.result }}
@@ -290,3 +288,83 @@ jobs:
             echo "Windows process supervision failed: ${WINDOWS_PROCESS_RESULT}"
             exit 1
           fi
+
+  merge-gate:
+    name: ${{ (github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.draft == false)) && 'GF merge gate' || 'GF merge gate (not applicable)' }}
+    if: >-
+      always() &&
+      (github.event_name == 'push' ||
+      (github.event_name == 'pull_request' &&
+      github.event.pull_request.draft == false))
+    permissions:
+      actions: read
+      checks: read
+      contents: read
+      pull-requests: read
+    needs:
+      - repository-policy
+      - full-validation-gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+
+    steps:
+      - name: Evaluate repository policy
+        env:
+          POLICY_RESULT: ${{ needs.repository-policy.result }}
+        run: |
+          if [ "${POLICY_RESULT}" != "success" ]; then
+            echo "Repository policy failed: ${POLICY_RESULT}"
+            exit 1
+          fi
+
+      - name: Evaluate current Full validation
+        if: >-
+          success() &&
+          (github.event_name == 'push' ||
+          (github.event_name == 'pull_request' &&
+          (github.event.action != 'edited' || github.event.changes.base.ref.from != '')))
+        env:
+          FULL_VALIDATION_RESULT: ${{ needs.full-validation-gate.result }}
+        run: |
+          if [ "${FULL_VALIDATION_RESULT}" != "success" ]; then
+            echo "Full validation failed: ${FULL_VALIDATION_RESULT}"
+            exit 1
+          fi
+
+      - name: Checkout relay policy
+        if: >-
+          success() &&
+          github.event_name == 'pull_request' &&
+          github.event.pull_request.draft == false &&
+          github.event.action == 'edited' &&
+          github.event.changes.base.ref.from == ''
+        uses: actions/checkout@v7
+
+      - name: Set up Python for relay
+        if: >-
+          success() &&
+          github.event_name == 'pull_request' &&
+          github.event.pull_request.draft == false &&
+          github.event.action == 'edited' &&
+          github.event.changes.base.ref.from == ''
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Reuse the latest matching Full validation epoch
+        if: >-
+          success() &&
+          github.event_name == 'pull_request' &&
+          github.event.pull_request.draft == false &&
+          github.event.action == 'edited' &&
+          github.event.changes.base.ref.from == ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GF_PR_NUMBER: ${{ github.event.pull_request.number }}
+          GF_PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          GF_PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: >
+          python tools/gf_repository_policy.py validate-pr-gate
+          --wait-seconds 1800
+          --poll-seconds 10
+          --json

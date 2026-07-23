@@ -5,10 +5,12 @@ from __future__ import annotations
 
 import argparse
 import configparser
+import datetime as dt
 import json
 import os
 import re
 import sys
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -21,6 +23,7 @@ POLICY_PATH = ROOT / ".github/repository-policy.json"
 GITHUB_API_URL = "https://api.github.com"
 STABLE_SEMVER_RE = re.compile(r"^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$")
 REPOSITORY_RE = re.compile(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
+COMMIT_SHA_RE = re.compile(r"^[0-9a-f]{40}$")
 POLICY_FIELDS = {
 	"schema_version",
 	"repository",
@@ -69,10 +72,23 @@ PACKAGE_CI_SUITES = (
 )
 REQUIRED_CI_SUITES = (*FRAMEWORK_CI_SUITES, *PACKAGE_CI_SUITES)
 DRAFT_GATE_NAME = "${{ github.event_name == 'pull_request' && github.event.pull_request.draft == true && (github.event.action != 'edited' || github.event.changes.base.ref.from != '') && 'GF draft gate' || 'GF draft gate (not applicable)' }}"
-REPOSITORY_POLICY_NAME = "${{ github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/main' && 'GF repository policy (manual non-main)' || 'GF repository policy' }}"
-READY_OR_MAIN_EVENT = "github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') || (github.event_name == 'pull_request' && github.event.pull_request.draft == false && (github.event.action != 'edited' || github.event.changes.base.ref.from != ''))"
-MERGE_GATE_NAME = "${{ (" + READY_OR_MAIN_EVENT + ") && 'GF merge gate' || 'GF merge gate (not applicable)' }}"
+REPOSITORY_POLICY_NAME = "GF repository policy"
+FULL_VALIDATION_EVENT = "github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.draft == false && (github.event.action != 'edited' || github.event.changes.base.ref.from != ''))"
+REQUIRED_GATE_EVENT = "github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.draft == false)"
+METADATA_READY_EVENT = "github.event_name == 'pull_request' && github.event.pull_request.draft == false && github.event.action == 'edited' && github.event.changes.base.ref.from == ''"
+METADATA_RELAY_STEP_IF = "success() && " + METADATA_READY_EVENT
+CI_RUN_NAME = "GF CI|mode=${{ github.event_name == 'pull_request' && github.event.action == 'edited' && github.event.changes.base.ref.from == '' && 'metadata' || (github.event_name == 'pull_request' && github.event.pull_request.draft == true && 'draft' || 'full') }}|pr=${{ github.event.pull_request.number || 0 }}|head=${{ github.event.pull_request.head.sha || github.sha }}|base=${{ github.event.pull_request.base.sha || github.sha }}"
+FULL_VALIDATION_GATE_NAME = "GF full validation (${{ github.event.pull_request.base.sha || github.sha }})"
+MERGE_GATE_NAME = "${{ (" + REQUIRED_GATE_EVENT + ") && 'GF merge gate' || 'GF merge gate (not applicable)' }}"
 METADATA_CONCURRENCY_GROUP = "ci-${{ github.event.pull_request.number || github.ref }}-${{ github.event_name == 'pull_request' && github.event.action == 'edited' && github.event.changes.base.ref.from == '' && 'policy' || 'validation' }}"
+GITHUB_ACTIONS_APP_ID = 15368
+FULL_VALIDATION_MAX_AGE = dt.timedelta(days=7)
+FULL_VALIDATION_RELAY_MAX_WAIT_SECONDS = 1800
+FULL_VALIDATION_RELAY_MAX_POLL_SECONDS = 60
+FULL_VALIDATION_RELAY_MAX_PAGES = 10
+GITHUB_REQUEST_TIMEOUT_SECONDS = 30.0
+MANUAL_CI_RUN_NAME = "GF manual diagnostics|ref=${{ github.ref }}|sha=${{ github.sha }}"
+MANUAL_MAIN_EVENT = "github.ref == 'refs/heads/main'"
 
 
 class DuplicateJsonKeyError(ValueError):
@@ -99,6 +115,18 @@ def main(argv: list[str] | None = None) -> int:
 	pr_parser.add_argument("--repository", default=os.environ.get("GITHUB_REPOSITORY", ""))
 	pr_parser.add_argument("--head-repository", default=os.environ.get("GF_HEAD_REPOSITORY", ""))
 	pr_parser.add_argument("--json", action="store_true", help="Print JSON output.")
+
+	gate_parser = subparsers.add_parser(
+		"validate-pr-gate",
+		help="Fail closed unless the latest matching Full validation epoch is reusable.",
+	)
+	gate_parser.add_argument("--repository", default=os.environ.get("GITHUB_REPOSITORY", ""))
+	gate_parser.add_argument("--pull-number", default=os.environ.get("GF_PR_NUMBER", ""))
+	gate_parser.add_argument("--head-sha", default=os.environ.get("GF_PR_HEAD_SHA", ""))
+	gate_parser.add_argument("--base-sha", default=os.environ.get("GF_PR_BASE_SHA", ""))
+	gate_parser.add_argument("--wait-seconds", type=int, default=FULL_VALIDATION_RELAY_MAX_WAIT_SECONDS)
+	gate_parser.add_argument("--poll-seconds", type=int, default=10)
+	gate_parser.add_argument("--json", action="store_true", help="Print JSON output.")
 
 	protection_parser = subparsers.add_parser(
 		"protection",
@@ -136,6 +164,22 @@ def main(argv: list[str] | None = None) -> int:
 			"repository": args.repository,
 			"head_repository": args.head_repository,
 		})
+		print_result(result, args.json)
+		return 0 if result["ok"] else 1
+	if args.command == "validate-pr-gate":
+		issues = [*load_issues]
+		if issues:
+			result = make_result("validate-pr-gate", issues)
+		else:
+			result = validate_pr_gate_relay(
+				policy,
+				repository=args.repository,
+				pull_number=args.pull_number,
+				head_sha=args.head_sha,
+				base_sha=args.base_sha,
+				wait_seconds=args.wait_seconds,
+				poll_seconds=args.poll_seconds,
+			)
 		print_result(result, args.json)
 		return 0 if result["ok"] else 1
 	if args.command == "protection":
@@ -258,6 +302,7 @@ def audit_repository_files(policy: dict[str, Any], root: Path = ROOT) -> list[st
 		root / ".github/CODEOWNERS",
 		root / ".github/PULL_REQUEST_TEMPLATE.md",
 		root / ".github/workflows/ci.yml",
+		root / ".github/workflows/ci-manual.yml",
 	)
 	for path in required_paths:
 		if not path.is_file():
@@ -267,6 +312,8 @@ def audit_repository_files(policy: dict[str, Any], root: Path = ROOT) -> list[st
 
 	ci_source = (root / ".github/workflows/ci.yml").read_text(encoding="utf-8")
 	issues.extend(audit_ci_workflow(policy, ci_source))
+	manual_ci_source = (root / ".github/workflows/ci-manual.yml").read_text(encoding="utf-8")
+	issues.extend(audit_manual_ci_workflow(manual_ci_source))
 
 	owner = str(policy["repository"]).split("/", 1)[0]
 	codeowners_source = (root / ".github/CODEOWNERS").read_text(encoding="utf-8")
@@ -292,6 +339,129 @@ def audit_repository_files(policy: dict[str, Any], root: Path = ROOT) -> list[st
 	return issues
 
 
+def audit_manual_ci_workflow(source: str) -> list[str]:
+	issues: list[str] = []
+	jobs, duplicate_jobs = extract_ci_job_blocks(source)
+	if duplicate_jobs:
+		issues.append(f"Manual CI workflow has duplicate job ids: {', '.join(sorted(duplicate_jobs))}.")
+	required_job_ids = {
+		"manual-repository-policy",
+		"manual-full-validation",
+		"manual-windows-process-supervision",
+		"manual-diagnostics-gate",
+	}
+	missing_job_ids = sorted(required_job_ids - set(jobs))
+	if missing_job_ids:
+		issues.append(f"Manual CI workflow is missing governed jobs: {', '.join(missing_job_ids)}.")
+	extra_job_ids = sorted(set(jobs) - required_job_ids)
+	if extra_job_ids:
+		issues.append(f"Manual CI workflow has unsupported jobs: {', '.join(extra_job_ids)}.")
+	if not extract_yaml_mapping_block(source, "on", 0, "workflow_dispatch", 2):
+		issues.append("Manual CI workflow_dispatch trigger is missing.")
+	for forbidden_event in ("pull_request", "push"):
+		if extract_yaml_mapping_block(source, "on", 0, forbidden_event, 2):
+			issues.append(f"Manual CI must not run automatically on {forbidden_event}.")
+	if extract_yaml_scalar(source, "run-name", 0) != MANUAL_CI_RUN_NAME:
+		issues.append("Manual CI run-name must remain isolated from required CI epochs.")
+	if "GF merge gate" in source:
+		issues.append("Manual CI must never emit or reference the protected GF merge gate context.")
+	permissions_source = extract_yaml_top_level_block(source, "permissions")
+	if extract_yaml_scalar(permissions_source, "contents", 2) != "read":
+		issues.append("Manual CI top-level permission contents must be read.")
+	for permission_name in ("actions", "checks", "pull-requests"):
+		if extract_yaml_scalar(permissions_source, permission_name, 2):
+			issues.append(f"Manual CI top-level permission {permission_name} must remain unset.")
+
+	repository_job = jobs.get("manual-repository-policy", "")
+	if repository_job:
+		require_exact_job_scalar(
+			repository_job,
+			"manual-repository-policy",
+			"name",
+			"GF manual repository policy",
+			issues,
+		)
+		require_job_code(
+			repository_job,
+			"manual-repository-policy",
+			"python tools/gf_repository_policy.py validate --json",
+			issues,
+		)
+	full_job = jobs.get("manual-full-validation", "")
+	if full_job:
+		require_exact_job_scalar(full_job, "manual-full-validation", "name", "GF manual Full validation", issues)
+		require_exact_job_scalar(full_job, "manual-full-validation", "if", MANUAL_MAIN_EVENT, issues)
+		require_exact_job_needs(
+			full_job,
+			"manual-full-validation",
+			("manual-repository-policy",),
+			issues,
+		)
+		require_job_code(full_job, "manual-full-validation", "--suite full", issues)
+	windows_job = jobs.get("manual-windows-process-supervision", "")
+	if windows_job:
+		require_exact_job_scalar(
+			windows_job,
+			"manual-windows-process-supervision",
+			"name",
+			"GF manual process supervision (Windows)",
+			issues,
+		)
+		require_exact_job_scalar(
+			windows_job,
+			"manual-windows-process-supervision",
+			"if",
+			MANUAL_MAIN_EVENT,
+			issues,
+		)
+		require_exact_job_needs(
+			windows_job,
+			"manual-windows-process-supervision",
+			("manual-repository-policy",),
+			issues,
+		)
+		require_exact_job_scalar(
+			windows_job,
+			"manual-windows-process-supervision",
+			"runs-on",
+			"windows-latest",
+			issues,
+		)
+		require_job_code(
+			windows_job,
+			"manual-windows-process-supervision",
+			"python tools/gf_maintenance.py maintenance-self-test --json",
+			issues,
+		)
+	gate_job = jobs.get("manual-diagnostics-gate", "")
+	if gate_job:
+		require_exact_job_scalar(
+			gate_job,
+			"manual-diagnostics-gate",
+			"name",
+			"GF manual diagnostics gate",
+			issues,
+		)
+		require_exact_job_scalar(
+			gate_job,
+			"manual-diagnostics-gate",
+			"if",
+			"!cancelled() && " + MANUAL_MAIN_EVENT,
+			issues,
+		)
+		require_exact_job_needs(
+			gate_job,
+			"manual-diagnostics-gate",
+			(
+				"manual-repository-policy",
+				"manual-full-validation",
+				"manual-windows-process-supervision",
+			),
+			issues,
+		)
+	return issues
+
+
 def audit_ci_workflow(policy: dict[str, Any], source: str) -> list[str]:
 	issues: list[str] = []
 	jobs, duplicate_jobs = extract_ci_job_blocks(source)
@@ -304,6 +474,7 @@ def audit_ci_workflow(policy: dict[str, Any], source: str) -> list[str]:
 		"package-checks",
 		"windows-process-supervision",
 		"draft-gate",
+		"full-validation-gate",
 		"merge-gate",
 	}
 	missing_job_ids = sorted(required_job_ids - set(jobs))
@@ -323,8 +494,19 @@ def audit_ci_workflow(policy: dict[str, Any], source: str) -> list[str]:
 			f"CI push.branches is {push_branches!r}, expected {expected_push_branches!r}."
 		)
 	workflow_dispatch_source = extract_yaml_mapping_block(source, "on", 0, "workflow_dispatch", 2)
-	if not workflow_dispatch_source:
-		issues.append("CI workflow_dispatch trigger is missing.")
+	if workflow_dispatch_source:
+		issues.append("Required CI must not expose workflow_dispatch; manual diagnostics belong to ci-manual.yml.")
+	if extract_yaml_scalar(source, "run-name", 0) != CI_RUN_NAME:
+		issues.append("CI run-name must freeze the governed mode, pull request, head SHA, and base SHA epoch.")
+	permissions_source = extract_yaml_top_level_block(source, "permissions")
+	if extract_yaml_scalar(permissions_source, "contents", 2) != "read":
+		issues.append("CI top-level permission contents must be read.")
+	for permission_name in ("actions", "checks", "pull-requests"):
+		if extract_yaml_scalar(permissions_source, permission_name, 2):
+			issues.append(
+				f"CI top-level permission {permission_name} must remain unset; "
+				"metadata relay access belongs only to merge-gate."
+			)
 	concurrency_source = extract_yaml_top_level_block(source, "concurrency")
 	concurrency_group = extract_yaml_scalar(concurrency_source, "group", 2)
 	if concurrency_group != METADATA_CONCURRENCY_GROUP:
@@ -352,7 +534,7 @@ def audit_ci_workflow(policy: dict[str, Any], source: str) -> list[str]:
 		require_exact_job_needs(quick_job, "quick-checks", ("repository-policy",), issues)
 		require_job_code(quick_job, "quick-checks", "--suite quick", issues)
 
-	ready_job_if = READY_OR_MAIN_EVENT
+	ready_job_if = FULL_VALIDATION_EVENT
 	framework_job = jobs.get("framework-checks", "")
 	if framework_job:
 		require_exact_job_scalar(framework_job, "framework-checks", "if", ready_job_if, issues)
@@ -417,19 +599,25 @@ def audit_ci_workflow(policy: dict[str, Any], source: str) -> list[str]:
 		)
 		require_exact_job_needs(draft_gate, "draft-gate", ("repository-policy", "quick-checks"), issues)
 
-	merge_gate = jobs.get("merge-gate", "")
-	if merge_gate:
-		require_exact_job_scalar(merge_gate, "merge-gate", "name", MERGE_GATE_NAME, issues)
+	full_validation_gate = jobs.get("full-validation-gate", "")
+	if full_validation_gate:
 		require_exact_job_scalar(
-			merge_gate,
-			"merge-gate",
+			full_validation_gate,
+			"full-validation-gate",
+			"name",
+			FULL_VALIDATION_GATE_NAME,
+			issues,
+		)
+		require_exact_job_scalar(
+			full_validation_gate,
+			"full-validation-gate",
 			"if",
-			"!cancelled() && (" + READY_OR_MAIN_EVENT + ")",
+			"!cancelled() && (" + FULL_VALIDATION_EVENT + ")",
 			issues,
 		)
 		require_exact_job_needs(
-			merge_gate,
-			"merge-gate",
+			full_validation_gate,
+			"full-validation-gate",
 			(
 				"repository-policy",
 				"framework-checks",
@@ -438,6 +626,55 @@ def audit_ci_workflow(policy: dict[str, Any], source: str) -> list[str]:
 			),
 			issues,
 		)
+
+	merge_gate = jobs.get("merge-gate", "")
+	if merge_gate:
+		require_exact_job_scalar(merge_gate, "merge-gate", "name", MERGE_GATE_NAME, issues)
+		require_exact_job_scalar(
+			merge_gate,
+			"merge-gate",
+			"if",
+			"always() && (" + REQUIRED_GATE_EVENT + ")",
+			issues,
+		)
+		require_exact_job_needs(
+			merge_gate,
+			"merge-gate",
+			(
+				"repository-policy",
+				"full-validation-gate",
+			),
+			issues,
+		)
+		for permission_name in ("actions", "checks", "contents", "pull-requests"):
+			if extract_yaml_scalar(merge_gate, permission_name, 6) != "read":
+				issues.append(f"CI job merge-gate permission {permission_name} must be read.")
+		for step_name in (
+			"Checkout relay policy",
+			"Set up Python for relay",
+			"Reuse the latest matching Full validation epoch",
+		):
+			step_source = extract_ci_step_block(merge_gate, step_name)
+			if not step_source:
+				issues.append(f"CI job merge-gate is missing governed step {step_name!r}.")
+				continue
+			if extract_yaml_scalar(step_source, "if", 8) != METADATA_RELAY_STEP_IF:
+				issues.append(f"CI job merge-gate step {step_name!r} has the wrong metadata-only condition.")
+		relay_step = extract_ci_step_block(
+			merge_gate,
+			"Reuse the latest matching Full validation epoch",
+		)
+		if relay_step and extract_yaml_scalar(relay_step, "GH_TOKEN", 10) != "${{ github.token }}":
+			issues.append("CI job merge-gate relay step must map GH_TOKEN from github.token.")
+		for fragment in (
+			"python tools/gf_repository_policy.py validate-pr-gate",
+			"--wait-seconds 1800",
+			"--poll-seconds 10",
+			"GF_PR_NUMBER: ${{ github.event.pull_request.number }}",
+			"GF_PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}",
+			"GF_PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}",
+		):
+			require_job_code(merge_gate, "merge-gate", fragment, issues)
 
 	configured_checks = policy.get("required_status_checks")
 	if isinstance(configured_checks, list):
@@ -471,6 +708,25 @@ def extract_ci_job_blocks(source: str) -> tuple[dict[str, str], set[str]]:
 		if current_job:
 			blocks[current_job].append(line)
 	return {job_id: "\n".join(lines) for job_id, lines in blocks.items()}, duplicates
+
+
+def extract_ci_step_block(job_source: str, step_name: str) -> str:
+	lines = job_source.splitlines()
+	start = -1
+	prefix = "      - name: "
+	for index, line in enumerate(lines):
+		if strip_yaml_comment(line) == prefix + step_name:
+			if start >= 0:
+				return ""
+			start = index
+	if start < 0:
+		return ""
+	end = len(lines)
+	for index in range(start + 1, len(lines)):
+		if strip_yaml_comment(lines[index]).startswith(prefix):
+			end = index
+			break
+	return "\n".join(lines[start:end])
 
 
 def extract_yaml_top_level_block(source: str, key: str) -> str:
@@ -716,7 +972,10 @@ def run_policy_self_tests(policy: dict[str, Any]) -> list[str]:
 		"required_status_checks": {
 			"strict": protection["strict_status_checks"],
 			"contexts": list(policy["required_status_checks"]),
-			"checks": [],
+			"checks": [
+				{"context": required_name, "app_id": GITHUB_ACTIONS_APP_ID}
+				for required_name in policy["required_status_checks"]
+			],
 		},
 		"enforce_admins": {"enabled": protection["enforce_admins"]},
 		"required_pull_request_reviews": {
@@ -741,9 +1000,15 @@ def run_policy_self_tests(policy: dict[str, Any]) -> list[str]:
 	if not any("allow_force_pushes" in issue for issue in audit_remote_policy(policy, repository_fixture, drifted_fixture)):
 		issues.append("Repository policy self-test did not detect force-push protection drift.")
 	missing_context_fixture = json.loads(json.dumps(protection_fixture))
-	missing_context_fixture["required_status_checks"]["contexts"] = list(policy["required_status_checks"])[1:]
+	missing_context_fixture["required_status_checks"]["checks"] = (
+		missing_context_fixture["required_status_checks"]["checks"][1:]
+	)
 	if not any("required status checks" in issue for issue in audit_remote_policy(policy, repository_fixture, missing_context_fixture)):
 		issues.append("Repository policy self-test did not detect a missing protected status check.")
+	wrong_app_fixture = json.loads(json.dumps(protection_fixture))
+	wrong_app_fixture["required_status_checks"]["checks"][0]["app_id"] = 1
+	if not any("required status checks" in issue for issue in audit_remote_policy(policy, repository_fixture, wrong_app_fixture)):
+		issues.append("Repository policy self-test did not detect a required status check bound to the wrong app.")
 	branch_fixture = {"commit": {"sha": "0123456789abcdef"}}
 	check_runs_fixture = {
 		"check_runs": [
@@ -751,6 +1016,7 @@ def run_policy_self_tests(policy: dict[str, Any]) -> list[str]:
 				"name": required_name,
 				"status": "completed",
 				"conclusion": "success",
+				"app": {"id": GITHUB_ACTIONS_APP_ID, "slug": "github-actions"},
 			}
 			for required_name in policy["required_status_checks"]
 		],
@@ -781,9 +1047,20 @@ def run_policy_self_tests(policy: dict[str, Any]) -> list[str]:
 	protection_payload = make_branch_protection_payload(policy)
 	if protection_payload["lock_branch"] or protection_payload["allow_fork_syncing"]:
 		issues.append("Repository policy self-test allowed fork syncing on an unlocked default branch.")
-	if protection_payload["required_status_checks"]["contexts"] != list(policy["required_status_checks"]):
-		issues.append("Repository policy self-test did not include every governed status check in protection payload.")
+	expected_protected_checks = [
+		{"context": required_name, "app_id": GITHUB_ACTIONS_APP_ID}
+		for required_name in policy["required_status_checks"]
+	]
+	if (
+		protection_payload["required_status_checks"]["contexts"] != []
+		or protection_payload["required_status_checks"]["checks"] != expected_protected_checks
+	):
+		issues.append(
+			"Repository policy self-test did not app-bind every governed status check in protection payload."
+		)
 	issues.extend(run_ci_workflow_mutation_self_tests(policy))
+	issues.extend(run_manual_ci_workflow_mutation_self_tests())
+	issues.extend(run_full_validation_relay_self_tests(policy))
 	return issues
 
 
@@ -801,18 +1078,37 @@ def run_ci_workflow_mutation_self_tests(policy: dict[str, Any]) -> list[str]:
 			"CI push.branches",
 		),
 		(
-			"unguarded_manual_full",
+			"unguarded_full_validation",
 			source.replace(
-				"github.event_name == 'push' ||\n      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') ||",
+				"github.event_name == 'push' ||\n      (github.event_name == 'pull_request' &&",
 				"github.event_name != 'pull_request' ||",
 				1,
 			),
 			"framework-checks if",
 		),
 		(
-			"manual_required_policy_name",
-			source.replace(REPOSITORY_POLICY_NAME, "GF repository policy", 1),
-			"repository-policy name",
+			"missing_epoch_run_name",
+			source.replace("GF CI|mode=", "GF CI|type=", 1),
+			"CI run-name",
+		),
+		(
+			"manual_dispatch_in_required_ci",
+			source.replace("\npermissions:\n", "\n  workflow_dispatch:\n\npermissions:\n", 1),
+			"must not expose workflow_dispatch",
+		),
+		(
+			"broad_top_level_actions_permission",
+			source.replace(
+				"permissions:\n  contents: read",
+				"permissions:\n  actions: read\n  contents: read",
+				1,
+			),
+			"top-level permission actions",
+		),
+		(
+			"missing_merge_gate_checks_permission",
+			source.replace("      checks: read", "      checks: none", 1),
+			"merge-gate permission checks",
 		),
 		(
 			"comment_spoofed_cancellation",
@@ -827,7 +1123,7 @@ def run_ci_workflow_mutation_self_tests(policy: dict[str, Any]) -> list[str]:
 		(
 			"comment_spoofed_merge_dependency",
 			source.replace("      - package-checks", "      # - package-checks", 1),
-			"merge-gate needs",
+			"full-validation-gate needs",
 		),
 		(
 			"wrong_windows_process_runner",
@@ -850,7 +1146,54 @@ def run_ci_workflow_mutation_self_tests(policy: dict[str, Any]) -> list[str]:
 				"      # - windows-process-supervision",
 				1,
 			),
+			"full-validation-gate needs",
+		),
+		(
+			"static_required_merge_name",
+			source.replace(MERGE_GATE_NAME, "GF merge gate", 1),
+			"merge-gate name",
+		),
+		(
+			"mutable_full_marker_name",
+			source.replace(
+				FULL_VALIDATION_GATE_NAME,
+				"GF full validation (${{ github.event.pull_request.head.sha || github.sha }})",
+				1,
+			),
+			"full-validation-gate name",
+		),
+		(
+			"missing_full_validation_merge_dependency",
+			source.replace("      - full-validation-gate", "      # - full-validation-gate", 1),
 			"merge-gate needs",
+		),
+		(
+			"skippable_required_merge_gate",
+			source.replace("      always() &&", "      !cancelled() &&", 1),
+			"merge-gate if",
+		),
+		(
+			"missing_metadata_relay",
+			source.replace(
+				"python tools/gf_repository_policy.py validate-pr-gate",
+				"python tools/gf_repository_policy.py validate-pr",
+				1,
+			),
+			"merge-gate is missing governed command",
+		),
+		(
+			"wrong_metadata_relay_step_condition",
+			source.replace(
+				"      - name: Checkout relay policy\n        if: >-\n          success() &&",
+				"      - name: Checkout relay policy\n        if: >-\n          always() &&",
+				1,
+			),
+			"wrong metadata-only condition",
+		),
+		(
+			"missing_metadata_relay_token",
+			source.replace("          GH_TOKEN: ${{ github.token }}", "          GF_TOKEN: ${{ github.token }}", 1),
+			"must map GH_TOKEN",
 		),
 		(
 			"wrong_job_quick_command",
@@ -871,6 +1214,1218 @@ def run_ci_workflow_mutation_self_tests(policy: dict[str, Any]) -> list[str]:
 				f"{mutation_issues}"
 			)
 	return issues
+
+
+def run_manual_ci_workflow_mutation_self_tests() -> list[str]:
+	try:
+		source = (ROOT / ".github/workflows/ci-manual.yml").read_text(encoding="utf-8")
+	except (OSError, UnicodeDecodeError) as error:
+		return [f"Repository policy self-test could not read manual CI workflow: {error}"]
+	if audit_manual_ci_workflow(source):
+		return []
+	mutations = (
+		(
+			"automatic_manual_ci",
+			source.replace("  workflow_dispatch:\n", "  workflow_dispatch:\n  pull_request:\n", 1),
+			"must not run automatically on pull_request",
+		),
+		(
+			"manual_protected_context",
+			source.replace("GF manual diagnostics gate", "GF merge gate", 1),
+			"must never emit or reference",
+		),
+		(
+			"manual_extra_job",
+			source.replace(
+				"\njobs:\n",
+				"\njobs:\n  ungoverned:\n    name: Ungoverned\n    runs-on: ubuntu-latest\n\n",
+				1,
+			),
+			"unsupported jobs",
+		),
+		(
+			"manual_broad_permission",
+			source.replace(
+				"permissions:\n  contents: read",
+				"permissions:\n  checks: read\n  contents: read",
+				1,
+			),
+			"permission checks",
+		),
+		(
+			"manual_full_on_nonmain",
+			source.replace("    if: github.ref == 'refs/heads/main'", "    if: always()", 1),
+			"manual-full-validation if",
+		),
+		(
+			"manual_missing_full_suite",
+			source.replace("          --suite full", "          --suite quick", 1),
+			"manual-full-validation is missing governed command",
+		),
+		(
+			"manual_missing_windows_gate_dependency",
+			source.replace(
+				"      - manual-windows-process-supervision",
+				"      # - manual-windows-process-supervision",
+				1,
+			),
+			"manual-diagnostics-gate needs",
+		),
+	)
+	issues: list[str] = []
+	for name, mutated_source, expected_fragment in mutations:
+		mutation_issues = audit_manual_ci_workflow(mutated_source)
+		if not any(expected_fragment in issue for issue in mutation_issues):
+			issues.append(
+				f"Repository policy self-test {name} did not detect its manual CI mutation: "
+				f"{mutation_issues}"
+			)
+	return issues
+
+
+def run_full_validation_relay_self_tests(policy: dict[str, Any]) -> list[str]:
+	repository = str(policy["repository"])
+	pull_number = 28
+	head_sha = "a" * 40
+	base_sha = "b" * 40
+	now = dt.datetime(2026, 1, 8, 12, 0, tzinfo=dt.timezone.utc)
+	run_id = 101
+	run_attempt = 2
+	check_suite_id = 202
+	job_id = 303
+	check_run_id = 404
+	started_at = "2026-01-08T10:59:00Z"
+	completed_at = "2026-01-08T11:00:00Z"
+	valid_run = {
+		"id": run_id,
+		"run_attempt": run_attempt,
+		"check_suite_id": check_suite_id,
+		"run_started_at": "2026-01-08T10:00:00Z",
+		"display_title": make_full_validation_run_name(pull_number, head_sha, base_sha),
+		"name": "CI",
+		"event": "pull_request",
+		"head_sha": head_sha,
+		"repository": {"full_name": repository},
+		"path": ".github/workflows/ci.yml@refs/pull/28/merge",
+		"status": "completed",
+		"conclusion": "success",
+		"pull_requests": [],
+	}
+	valid_job = {
+		"id": job_id,
+		"name": make_full_validation_marker_name(base_sha),
+		"status": "completed",
+		"conclusion": "success",
+		"run_id": run_id,
+		"run_attempt": run_attempt,
+		"head_sha": head_sha,
+		"html_url": f"https://github.com/{repository}/actions/runs/{run_id}/job/{job_id}",
+		"check_run_url": f"https://api.github.com/repos/{repository}/check-runs/{check_run_id}",
+		"started_at": started_at,
+		"completed_at": completed_at,
+	}
+	valid_check_run = {
+		"id": check_run_id,
+		"name": make_full_validation_marker_name(base_sha),
+		"status": "completed",
+		"conclusion": "success",
+		"head_sha": head_sha,
+		"app": {"id": GITHUB_ACTIONS_APP_ID, "slug": "github-actions"},
+		"check_suite": {"id": check_suite_id},
+		"details_url": valid_job["html_url"],
+		"started_at": started_at,
+		"completed_at": completed_at,
+		"pull_requests": [],
+	}
+	issues: list[str] = []
+
+	def record(condition: bool, name: str) -> None:
+		if not condition:
+			issues.append(f"Repository policy relay self-test failed: {name}.")
+
+	selection = select_latest_full_validation_epoch(
+		{"workflow_runs": [valid_run]},
+		repository=repository,
+		head_repository=repository,
+		pull_number=pull_number,
+		head_sha=head_sha,
+		base_sha=base_sha,
+		now=now,
+	)
+	record(selection.get("state") == "success" and object_value(selection.get("epoch")).get("run_id") == run_id, "valid epoch")
+
+	stale_old_run = json.loads(json.dumps(valid_run))
+	stale_old_run["id"] = 99
+	stale_old_run["run_attempt"] = 1
+	stale_old_run["check_suite_id"] = 199
+	stale_old_run["run_started_at"] = "2025-12-01T10:00:00Z"
+	stale_old_run["path"] = "malformed historical path"
+	selection_with_old_history = select_latest_full_validation_epoch(
+		{"workflow_runs": [stale_old_run, valid_run]},
+		repository=repository,
+		head_repository=repository,
+		pull_number=pull_number,
+		head_sha=head_sha,
+		base_sha=base_sha,
+		now=now,
+	)
+	record(
+		selection_with_old_history.get("state") == "success"
+		and object_value(selection_with_old_history.get("epoch")).get("run_id") == run_id,
+		"historical non-sort fields do not block a newer exact epoch",
+	)
+
+	newer_running = json.loads(json.dumps(valid_run))
+	newer_running["id"] = 102
+	newer_running["run_attempt"] = 1
+	newer_running["check_suite_id"] = 203
+	newer_running["run_started_at"] = "2026-01-08T11:30:00Z"
+	newer_running["status"] = "in_progress"
+	newer_running["conclusion"] = None
+	latest_running_selection = select_latest_full_validation_epoch(
+		{"workflow_runs": [valid_run, newer_running]},
+		repository=repository,
+		head_repository=repository,
+		pull_number=pull_number,
+		head_sha=head_sha,
+		base_sha=base_sha,
+		now=now,
+	)
+	record(
+		latest_running_selection.get("state") == "success"
+		and object_value(latest_running_selection.get("epoch")).get("run_id") == 102,
+		"newer Full intent supersedes an older success before its marker exists",
+	)
+
+	stale_only_selection = select_latest_full_validation_epoch(
+		{"workflow_runs": [stale_old_run]},
+		repository=repository,
+		head_repository=repository,
+		pull_number=pull_number,
+		head_sha=head_sha,
+		base_sha=base_sha,
+		now=now,
+	)
+	record(stale_only_selection.get("state") == "failure", "stale latest epoch fails closed")
+
+	job_state, job_issues = audit_full_validation_marker_job(
+		valid_job,
+		repository=repository,
+		run_id=run_id,
+		run_attempt=run_attempt,
+		head_sha=head_sha,
+		run_started_at=valid_run["run_started_at"],
+		now=now,
+	)
+	record(job_state == "success" and not job_issues, "valid marker job")
+	pending_job = json.loads(json.dumps(valid_job))
+	pending_job["status"] = "in_progress"
+	pending_job["conclusion"] = None
+	record(
+		audit_full_validation_marker_job(
+			pending_job,
+			repository=repository,
+			run_id=run_id,
+			run_attempt=run_attempt,
+			head_sha=head_sha,
+			run_started_at=valid_run["run_started_at"],
+			now=now,
+		)[0] == "pending",
+		"running marker waits",
+	)
+	skipped_job = json.loads(json.dumps(valid_job))
+	skipped_job["conclusion"] = "skipped"
+	record(
+		audit_full_validation_marker_job(
+			skipped_job,
+			repository=repository,
+			run_id=run_id,
+			run_attempt=run_attempt,
+			head_sha=head_sha,
+			run_started_at=valid_run["run_started_at"],
+			now=now,
+		)[0] == "failure",
+		"skipped marker cannot be reused",
+	)
+
+	record(
+		not audit_full_validation_check_run(
+			valid_check_run,
+			valid_job,
+			repository=repository,
+			head_repository=repository,
+			run_id=run_id,
+			run_attempt=run_attempt,
+			check_suite_id=check_suite_id,
+			check_run_id=check_run_id,
+			head_sha=head_sha,
+			base_sha=base_sha,
+			pull_number=pull_number,
+			now=now,
+		),
+		"valid GitHub Actions check run with empty fork associations",
+	)
+	wrong_app_check = json.loads(json.dumps(valid_check_run))
+	wrong_app_check["app"] = {"id": 1, "slug": "third-party"}
+	record(
+		bool(audit_full_validation_check_run(
+			wrong_app_check,
+			valid_job,
+			repository=repository,
+			head_repository=repository,
+			run_id=run_id,
+			run_attempt=run_attempt,
+			check_suite_id=check_suite_id,
+			check_run_id=check_run_id,
+			head_sha=head_sha,
+			base_sha=base_sha,
+			pull_number=pull_number,
+			now=now,
+		)),
+		"third-party check run fails closed",
+	)
+	wrong_suite_check = json.loads(json.dumps(valid_check_run))
+	wrong_suite_check["check_suite"]["id"] = 999
+	record(
+		bool(audit_full_validation_check_run(
+			wrong_suite_check,
+			valid_job,
+			repository=repository,
+			head_repository=repository,
+			run_id=run_id,
+			run_attempt=run_attempt,
+			check_suite_id=check_suite_id,
+			check_run_id=check_run_id,
+			head_sha=head_sha,
+			base_sha=base_sha,
+			pull_number=pull_number,
+			now=now,
+		)),
+		"cross-epoch check suite fails closed",
+	)
+	contradictory_association = json.loads(json.dumps(valid_check_run))
+	contradictory_association["pull_requests"] = [{
+		"number": pull_number,
+		"url": f"https://api.github.com/repos/{repository}/pulls/{pull_number}",
+		"head": {
+			"sha": "c" * 40,
+			"repo": {"url": f"https://api.github.com/repos/{repository}"},
+		},
+		"base": {
+			"sha": base_sha,
+			"repo": {"url": f"https://api.github.com/repos/{repository}"},
+		},
+	}]
+	record(
+		bool(audit_full_validation_check_run(
+			contradictory_association,
+			valid_job,
+			repository=repository,
+			head_repository=repository,
+			run_id=run_id,
+			run_attempt=run_attempt,
+			check_suite_id=check_suite_id,
+			check_run_id=check_run_id,
+			head_sha=head_sha,
+			base_sha=base_sha,
+			pull_number=pull_number,
+			now=now,
+		)),
+		"contradictory nonempty pull association fails closed",
+	)
+	mixed_associations = json.loads(json.dumps(valid_check_run))
+	mixed_associations["pull_requests"] = [
+		{
+			"number": pull_number,
+			"url": f"https://api.github.com/repos/{repository}/pulls/{pull_number}",
+			"head": {
+				"sha": head_sha,
+				"repo": {"url": f"https://api.github.com/repos/{repository}"},
+			},
+			"base": {
+				"sha": base_sha,
+				"repo": {"url": f"https://api.github.com/repos/{repository}"},
+			},
+		},
+		{
+			"number": pull_number + 1,
+			"url": f"https://api.github.com/repos/{repository}/pulls/{pull_number + 1}",
+			"head": {
+				"sha": head_sha,
+				"repo": {"url": f"https://api.github.com/repos/{repository}"},
+			},
+			"base": {
+				"sha": base_sha,
+				"repo": {"url": f"https://api.github.com/repos/{repository}"},
+			},
+		},
+	]
+	record(
+		bool(audit_full_validation_check_run(
+			mixed_associations,
+			valid_job,
+			repository=repository,
+			head_repository=repository,
+			run_id=run_id,
+			run_attempt=run_attempt,
+			check_suite_id=check_suite_id,
+			check_run_id=check_run_id,
+			head_sha=head_sha,
+			base_sha=base_sha,
+			pull_number=pull_number,
+			now=now,
+		)),
+		"mixed exact and contradictory pull associations fail closed",
+	)
+	record(
+		check_run_id_from_api_url(valid_job["check_run_url"], repository) == check_run_id
+		and check_run_id_from_api_url(valid_job["check_run_url"], "other/repository") == 0,
+		"check-run URL repository binding",
+	)
+	first_fingerprint, first_stable = advance_relay_stability(
+		"",
+		{"state": "success", "fingerprint": "epoch-a"},
+	)
+	second_fingerprint, second_stable = advance_relay_stability(
+		first_fingerprint,
+		{"state": "success", "fingerprint": "epoch-a"},
+	)
+	reset_fingerprint, reset_stable = advance_relay_stability(
+		second_fingerprint,
+		{"state": "pending", "fingerprint": "epoch-a"},
+	)
+	record(
+		not first_stable
+		and second_stable
+		and second_fingerprint == "epoch-a"
+		and reset_fingerprint == ""
+		and not reset_stable,
+		"two consecutive identical successes are required and pending resets stability",
+	)
+	issues.extend(run_full_validation_relay_transport_self_tests(
+		repository=repository,
+		pull_number=pull_number,
+		head_sha=head_sha,
+		base_sha=base_sha,
+		valid_run=valid_run,
+		valid_job=valid_job,
+		valid_check_run=valid_check_run,
+	))
+	return issues
+
+
+def run_full_validation_relay_transport_self_tests(
+	*,
+	repository: str,
+	pull_number: int,
+	head_sha: str,
+	base_sha: str,
+	valid_run: dict[str, Any],
+	valid_job: dict[str, Any],
+	valid_check_run: dict[str, Any],
+) -> list[str]:
+	fixture_now = dt.datetime.now(dt.timezone.utc)
+	started_at = (fixture_now - dt.timedelta(minutes=2)).strftime("%Y-%m-%dT%H:%M:%SZ")
+	job_started_at = (fixture_now - dt.timedelta(seconds=90)).strftime("%Y-%m-%dT%H:%M:%SZ")
+	completed_at = (fixture_now - dt.timedelta(minutes=1)).strftime("%Y-%m-%dT%H:%M:%SZ")
+	transport_run = json.loads(json.dumps(valid_run))
+	transport_job = json.loads(json.dumps(valid_job))
+	transport_check_run = json.loads(json.dumps(valid_check_run))
+	transport_run["run_started_at"] = started_at
+	transport_job["started_at"] = job_started_at
+	transport_job["completed_at"] = completed_at
+	transport_check_run["started_at"] = job_started_at
+	transport_check_run["completed_at"] = completed_at
+	run_query = urllib.parse.urlencode({
+		"event": "pull_request",
+		"head_sha": head_sha,
+		"per_page": 100,
+	})
+	run_path = f"/repos/{repository}/actions/workflows/ci.yml/runs?{run_query}&page=1"
+	job_path = (
+		f"/repos/{repository}/actions/runs/{transport_run['id']}/attempts/"
+		f"{transport_run['run_attempt']}/jobs?per_page=100&page=1"
+	)
+	check_path = f"/repos/{repository}/check-runs/{transport_check_run['id']}"
+	pull_path = f"/repos/{repository}/pulls/{pull_number}"
+	responses = {
+		pull_path: {
+			"number": pull_number,
+			"state": "open",
+			"draft": False,
+			"head": {
+				"sha": head_sha,
+				"repo": {
+					"full_name": repository,
+					"url": f"https://api.github.com/repos/{repository}",
+				},
+			},
+			"base": {
+				"sha": base_sha,
+				"repo": {
+					"full_name": repository,
+					"url": f"https://api.github.com/repos/{repository}",
+				},
+			},
+		},
+		run_path: {"total_count": 1, "workflow_runs": [transport_run]},
+		job_path: {"total_count": 1, "jobs": [transport_job]},
+		check_path: transport_check_run,
+	}
+	requested_paths: list[str] = []
+	original_request = github_request
+
+	def fixture_request(
+		method: str,
+		path: str,
+		token: str,
+		payload: dict[str, Any] | None = None,
+		*,
+		timeout_seconds: float = GITHUB_REQUEST_TIMEOUT_SECONDS,
+	) -> dict[str, Any]:
+		del payload, timeout_seconds
+		if method != "GET" or token != "fixture-token" or path not in responses:
+			raise GitHubApiError(0, f"Unexpected relay fixture request: {method} {path}")
+		requested_paths.append(path)
+		return json.loads(json.dumps(responses[path]))
+
+	issues: list[str] = []
+	globals()["github_request"] = fixture_request
+	try:
+		observation = inspect_full_validation_relay_epoch(
+			repository=repository,
+			pull_number=pull_number,
+			head_sha=head_sha,
+			base_sha=base_sha,
+			token="fixture-token",
+			deadline=time.monotonic() + 5.0,
+		)
+	except (GitHubApiError, KeyError, TypeError, ValueError) as error:
+		issues.append(f"Repository policy relay transport self-test raised unexpectedly: {error}")
+	else:
+		if observation.get("state") != "success" or not observation.get("fingerprint"):
+			issues.append(
+				f"Repository policy relay transport self-test rejected its valid fixture: {observation}"
+			)
+		expected_paths = [pull_path, run_path, job_path, check_path, pull_path, run_path]
+		if requested_paths != expected_paths:
+			issues.append(
+				"Repository policy relay transport self-test used unexpected endpoint order: "
+				f"{requested_paths!r}."
+			)
+	finally:
+		globals()["github_request"] = original_request
+
+	first_page_path = "/fixture/runs?per_page=100&page=1"
+	second_page_path = "/fixture/runs?per_page=100&page=2"
+	page_responses = {
+		first_page_path: {
+			"total_count": 101,
+			"workflow_runs": [{"id": index} for index in range(1, 101)],
+		},
+		second_page_path: {
+			"total_count": 102,
+			"workflow_runs": [{"id": 101}],
+		},
+	}
+
+	def drifting_page_request(
+		method: str,
+		path: str,
+		token: str,
+		payload: dict[str, Any] | None = None,
+		*,
+		timeout_seconds: float = GITHUB_REQUEST_TIMEOUT_SECONDS,
+	) -> dict[str, Any]:
+		del payload, timeout_seconds
+		if method != "GET" or token != "fixture-token" or path not in page_responses:
+			raise GitHubApiError(0, f"Unexpected pagination fixture request: {method} {path}")
+		return json.loads(json.dumps(page_responses[path]))
+
+	globals()["github_request"] = drifting_page_request
+	try:
+		try:
+			fetch_paginated_github_collection(
+				"/fixture/runs?per_page=100",
+				"workflow_runs",
+				"fixture-token",
+				time.monotonic() + 5.0,
+			)
+		except GitHubApiError as error:
+			if "total_count changed" not in str(error):
+				issues.append(
+					f"Repository policy relay pagination self-test reported the wrong failure: {error}"
+				)
+		else:
+			issues.append("Repository policy relay pagination self-test accepted a drifting total_count.")
+	finally:
+		globals()["github_request"] = original_request
+	return issues
+
+
+def make_full_validation_run_name(pull_number: int, head_sha: str, base_sha: str) -> str:
+	return f"GF CI|mode=full|pr={pull_number}|head={head_sha}|base={base_sha}"
+
+
+def make_full_validation_marker_name(base_sha: str) -> str:
+	return f"GF full validation ({base_sha})"
+
+
+def validate_pr_gate_relay(
+	policy: dict[str, Any],
+	*,
+	repository: str,
+	pull_number: Any,
+	head_sha: str,
+	base_sha: str,
+	wait_seconds: int,
+	poll_seconds: int,
+) -> dict[str, Any]:
+	repository = str(repository).strip()
+	head_sha = str(head_sha).strip().lower()
+	base_sha = str(base_sha).strip().lower()
+	input_issues: list[str] = []
+	try:
+		parsed_pull_number = int(str(pull_number).strip())
+	except ValueError:
+		parsed_pull_number = 0
+	if repository != policy.get("repository"):
+		input_issues.append(
+			f"Relay repository must match policy repository {policy.get('repository')!r}, got {repository!r}."
+		)
+	if parsed_pull_number <= 0:
+		input_issues.append("Relay pull request number must be a positive integer.")
+	if COMMIT_SHA_RE.fullmatch(head_sha) is None:
+		input_issues.append("Relay head SHA must be a lowercase 40-character hexadecimal commit SHA.")
+	if COMMIT_SHA_RE.fullmatch(base_sha) is None:
+		input_issues.append("Relay base SHA must be a lowercase 40-character hexadecimal commit SHA.")
+	if wait_seconds < 0 or wait_seconds > FULL_VALIDATION_RELAY_MAX_WAIT_SECONDS:
+		input_issues.append(
+			f"Relay wait-seconds must be between 0 and {FULL_VALIDATION_RELAY_MAX_WAIT_SECONDS}."
+		)
+	if poll_seconds < 1 or poll_seconds > FULL_VALIDATION_RELAY_MAX_POLL_SECONDS:
+		input_issues.append(
+			f"Relay poll-seconds must be between 1 and {FULL_VALIDATION_RELAY_MAX_POLL_SECONDS}."
+		)
+	token = os.environ.get("GH_TOKEN", "").strip() or os.environ.get("GITHUB_TOKEN", "").strip()
+	if not token:
+		input_issues.append("GH_TOKEN or GITHUB_TOKEN with Actions, Checks, and pull-request read access is required.")
+	context: dict[str, Any] = {
+		"repository": repository,
+		"pull_number": parsed_pull_number,
+		"head_sha": head_sha,
+		"base_sha": base_sha,
+		"marker_name": make_full_validation_marker_name(base_sha),
+		"wait_seconds": wait_seconds,
+		"poll_seconds": poll_seconds,
+	}
+	if input_issues:
+		return make_result("validate-pr-gate", input_issues, context)
+
+	poll_deadline = time.monotonic() + wait_seconds
+	request_deadline = poll_deadline + GITHUB_REQUEST_TIMEOUT_SECONDS
+	stable_fingerprint = ""
+	attempts = 0
+	last_issues = ["No matching Full validation epoch has been observed."]
+	while True:
+		attempts += 1
+		try:
+			observation = inspect_full_validation_relay_epoch(
+				repository=repository,
+				pull_number=parsed_pull_number,
+				head_sha=head_sha,
+				base_sha=base_sha,
+				token=token,
+				deadline=request_deadline,
+			)
+		except GitHubApiError as error:
+			observation = {
+				"state": "pending",
+				"issues": [f"GitHub API request failed closed ({error.status}): {error}"],
+			}
+		state = observation["state"]
+		last_issues = list(observation.get("issues", []))
+		if state == "failure":
+			context["attempts"] = attempts
+			context.update(object_value(observation.get("epoch")))
+			return make_result("validate-pr-gate", last_issues, context)
+		if state == "success":
+			stable_fingerprint, stable = advance_relay_stability(stable_fingerprint, observation)
+			if stable:
+				if time.monotonic() > request_deadline:
+					context["attempts"] = attempts
+					context["stable_observations"] = 1
+					context.update(object_value(observation.get("epoch")))
+					return make_result(
+						"validate-pr-gate",
+						["Metadata relay GitHub API deadline expired before stable success could be committed."],
+						context,
+					)
+				context["attempts"] = attempts
+				context["stable_observations"] = 2
+				context.update(object_value(observation.get("epoch")))
+				return make_result("validate-pr-gate", [], context)
+			last_issues = ["Full validation succeeded once; waiting for a second stable epoch observation."]
+		else:
+			stable_fingerprint = ""
+
+		remaining = poll_deadline - time.monotonic()
+		if remaining <= 0:
+			context["attempts"] = attempts
+			context["stable_observations"] = 1 if stable_fingerprint else 0
+			context.update(object_value(observation.get("epoch")))
+			return make_result(
+				"validate-pr-gate",
+				[
+					"Timed out without two consecutive stable observations of the latest Full validation epoch.",
+					*last_issues,
+				],
+				context,
+			)
+		time.sleep(min(float(poll_seconds), remaining))
+
+
+def advance_relay_stability(previous_fingerprint: str, observation: dict[str, Any]) -> tuple[str, bool]:
+	if observation.get("state") != "success":
+		return "", False
+	fingerprint = str(observation.get("fingerprint", ""))
+	if not fingerprint:
+		return "", False
+	return fingerprint, fingerprint == previous_fingerprint
+
+
+def inspect_full_validation_relay_epoch(
+	*,
+	repository: str,
+	pull_number: int,
+	head_sha: str,
+	base_sha: str,
+	token: str,
+	deadline: float,
+) -> dict[str, Any]:
+	pull_data = relay_github_request(
+		"GET",
+		f"/repos/{repository}/pulls/{pull_number}",
+		token,
+		deadline,
+	)
+	pull_issues = audit_relay_pull_snapshot(
+		pull_data,
+		repository=repository,
+		pull_number=pull_number,
+		head_sha=head_sha,
+		base_sha=base_sha,
+	)
+	if pull_issues:
+		return {"state": "failure", "issues": pull_issues}
+	head_repository = str(
+		object_value(object_value(pull_data.get("head")).get("repo")).get("full_name")
+	)
+
+	run_query = urllib.parse.urlencode({
+		"event": "pull_request",
+		"head_sha": head_sha,
+		"per_page": 100,
+	})
+	runs_data = fetch_paginated_github_collection(
+		f"/repos/{repository}/actions/workflows/ci.yml/runs?{run_query}",
+		"workflow_runs",
+		token,
+		deadline,
+	)
+	selection = select_latest_full_validation_epoch(
+		runs_data,
+		repository=repository,
+		head_repository=head_repository,
+		pull_number=pull_number,
+		head_sha=head_sha,
+		base_sha=base_sha,
+		now=dt.datetime.now(dt.timezone.utc),
+	)
+	if selection["state"] != "success":
+		return selection
+	epoch = object_value(selection.get("epoch"))
+	if epoch.get("status") != "completed" or epoch.get("conclusion") != "success":
+		return {
+			"state": "pending",
+			"issues": ["Latest Full validation epoch has not completed successfully yet."],
+			"epoch": epoch,
+		}
+	run_id = int(epoch["run_id"])
+	run_attempt = int(epoch["run_attempt"])
+	jobs_data = fetch_paginated_github_collection(
+		f"/repos/{repository}/actions/runs/{run_id}/attempts/{run_attempt}/jobs?per_page=100",
+		"jobs",
+		token,
+		deadline,
+	)
+	marker_name = make_full_validation_marker_name(base_sha)
+	marker_jobs = [
+		job
+		for job in object_array(jobs_data.get("jobs"))
+		if job.get("name") == marker_name
+	]
+	if len(marker_jobs) > 1:
+		return {
+			"state": "failure",
+			"issues": [f"Latest Full validation epoch contains duplicate marker jobs named {marker_name!r}."],
+			"epoch": epoch,
+		}
+	if not marker_jobs:
+		if epoch.get("status") == "completed":
+			return {
+				"state": "failure",
+				"issues": ["Latest Full validation epoch completed without its governed marker job."],
+				"epoch": epoch,
+			}
+		return {
+			"state": "pending",
+			"issues": ["Latest Full validation epoch exists, but its marker job has not been created yet."],
+			"epoch": epoch,
+		}
+	job = marker_jobs[0]
+	job_state, job_issues = audit_full_validation_marker_job(
+		job,
+		repository=repository,
+		run_id=run_id,
+		run_attempt=run_attempt,
+		head_sha=head_sha,
+		run_started_at=str(epoch["run_started_at"]),
+		now=dt.datetime.now(dt.timezone.utc),
+	)
+	if job_state != "success":
+		return {"state": job_state, "issues": job_issues, "epoch": epoch}
+
+	check_run_id = check_run_id_from_api_url(str(job["check_run_url"]), repository)
+	if check_run_id <= 0:
+		return {
+			"state": "failure",
+			"issues": ["Full validation marker job has an invalid or cross-repository check_run_url."],
+			"epoch": epoch,
+		}
+	check_run = relay_github_request(
+		"GET",
+		f"/repos/{repository}/check-runs/{check_run_id}",
+		token,
+		deadline,
+	)
+	check_issues = audit_full_validation_check_run(
+		check_run,
+		job,
+		repository=repository,
+		head_repository=head_repository,
+		run_id=run_id,
+		run_attempt=run_attempt,
+		check_suite_id=int(epoch["check_suite_id"]),
+		check_run_id=check_run_id,
+		head_sha=head_sha,
+		base_sha=base_sha,
+		pull_number=pull_number,
+		now=dt.datetime.now(dt.timezone.utc),
+	)
+	if check_issues:
+		return {"state": "failure", "issues": check_issues, "epoch": epoch}
+
+	final_pull_data = relay_github_request(
+		"GET",
+		f"/repos/{repository}/pulls/{pull_number}",
+		token,
+		deadline,
+	)
+	final_pull_issues = audit_relay_pull_snapshot(
+		final_pull_data,
+		repository=repository,
+		pull_number=pull_number,
+		head_sha=head_sha,
+		base_sha=base_sha,
+	)
+	if final_pull_issues:
+		return {"state": "failure", "issues": final_pull_issues}
+	final_runs_data = fetch_paginated_github_collection(
+		f"/repos/{repository}/actions/workflows/ci.yml/runs?{run_query}",
+		"workflow_runs",
+		token,
+		deadline,
+	)
+	final_selection = select_latest_full_validation_epoch(
+		final_runs_data,
+		repository=repository,
+		head_repository=head_repository,
+		pull_number=pull_number,
+		head_sha=head_sha,
+		base_sha=base_sha,
+		now=dt.datetime.now(dt.timezone.utc),
+	)
+	if final_selection["state"] != "success":
+		return final_selection
+	final_epoch = object_value(final_selection.get("epoch"))
+	epoch_identity_fields = (
+		"run_id",
+		"run_attempt",
+		"run_started_at",
+		"check_suite_id",
+		"status",
+		"conclusion",
+	)
+	if any(final_epoch.get(field) != epoch.get(field) for field in epoch_identity_fields):
+		return {
+			"state": "pending",
+			"issues": ["Latest Full validation epoch changed during relay verification."],
+			"epoch": final_epoch,
+		}
+	fingerprint = json.dumps(
+		{
+			"run_id": run_id,
+			"run_attempt": run_attempt,
+			"run_started_at": epoch["run_started_at"],
+			"check_suite_id": epoch["check_suite_id"],
+			"job_id": job["id"],
+			"check_run_id": check_run_id,
+			"completed_at": check_run["completed_at"],
+		},
+		sort_keys=True,
+		separators=(",", ":"),
+	)
+	return {
+		"state": "success",
+		"issues": [],
+		"fingerprint": fingerprint,
+		"epoch": epoch,
+	}
+
+
+def fetch_paginated_github_collection(
+	base_path: str,
+	collection_key: str,
+	token: str,
+	deadline: float,
+) -> dict[str, Any]:
+	separator = "&" if "?" in base_path else "?"
+	first_response = relay_github_request("GET", f"{base_path}{separator}page=1", token, deadline)
+	total_count = first_response.get("total_count")
+	first_items = first_response.get(collection_key)
+	if type(total_count) is not int or total_count < 0 or not isinstance(first_items, list):
+		raise GitHubApiError(0, f"GitHub {collection_key} response was malformed.")
+	page_count = max(1, (total_count + 99) // 100)
+	if page_count > FULL_VALIDATION_RELAY_MAX_PAGES:
+		raise GitHubApiError(
+			0,
+			f"GitHub {collection_key} response requires {page_count} pages; refusing an unbounded relay scan.",
+		)
+	items = list(first_items)
+	for page in range(2, page_count + 1):
+		response = relay_github_request("GET", f"{base_path}{separator}page={page}", token, deadline)
+		if response.get("total_count") != total_count:
+			raise GitHubApiError(0, f"GitHub {collection_key} pagination total_count changed during relay inspection.")
+		page_items = response.get(collection_key)
+		if not isinstance(page_items, list):
+			raise GitHubApiError(0, f"GitHub {collection_key} page {page} was malformed.")
+		items.extend(page_items)
+	identifiers = [
+		item.get("id")
+		for item in items
+		if isinstance(item, dict) and type(item.get("id")) is int
+	]
+	if len(items) != total_count or len(set(identifiers)) != len(items):
+		raise GitHubApiError(0, f"GitHub {collection_key} pagination changed or contained duplicate identities.")
+	return {"total_count": total_count, collection_key: items}
+
+
+def relay_github_request(
+	method: str,
+	path: str,
+	token: str,
+	deadline: float,
+) -> dict[str, Any]:
+	remaining = deadline - time.monotonic()
+	if remaining <= 0:
+		raise GitHubApiError(0, "Metadata relay GitHub API deadline expired.")
+	return github_request(
+		method,
+		path,
+		token,
+		timeout_seconds=min(GITHUB_REQUEST_TIMEOUT_SECONDS, remaining),
+	)
+
+
+def audit_relay_pull_snapshot(
+	pull_data: dict[str, Any],
+	*,
+	repository: str,
+	pull_number: int,
+	head_sha: str,
+	base_sha: str,
+) -> list[str]:
+	issues: list[str] = []
+	if pull_data.get("number") != pull_number:
+		issues.append("GitHub pull-request snapshot has the wrong pull request number.")
+	if pull_data.get("state") != "open" or pull_data.get("draft") is not False:
+		issues.append("Metadata relay is allowed only for an open Ready pull request.")
+	head = object_value(pull_data.get("head"))
+	base = object_value(pull_data.get("base"))
+	if str(head.get("sha", "")).lower() != head_sha:
+		issues.append("GitHub pull-request snapshot head SHA no longer matches the metadata event.")
+	if str(base.get("sha", "")).lower() != base_sha:
+		issues.append("GitHub pull-request snapshot base SHA no longer matches the metadata event.")
+	head_repository = object_value(head.get("repo")).get("full_name")
+	if not isinstance(head_repository, str) or REPOSITORY_RE.fullmatch(head_repository) is None:
+		issues.append("GitHub pull-request snapshot has an invalid head repository identity.")
+	base_repository = object_value(base.get("repo")).get("full_name")
+	if base_repository != repository:
+		issues.append("GitHub pull-request snapshot belongs to a different base repository.")
+	if object_value(base.get("repo")).get("url") != f"https://api.github.com/repos/{repository}":
+		issues.append("GitHub pull-request snapshot has the wrong base repository API URL.")
+	if (
+		isinstance(head_repository, str)
+		and object_value(head.get("repo")).get("url") != f"https://api.github.com/repos/{head_repository}"
+	):
+		issues.append("GitHub pull-request snapshot has the wrong head repository API URL.")
+	return issues
+
+
+def select_latest_full_validation_epoch(
+	runs_data: dict[str, Any],
+	*,
+	repository: str,
+	head_repository: str,
+	pull_number: int,
+	head_sha: str,
+	base_sha: str,
+	now: dt.datetime,
+) -> dict[str, Any]:
+	runs = runs_data.get("workflow_runs")
+	if not isinstance(runs, list):
+		return {"state": "failure", "issues": ["GitHub workflow-runs response was malformed."]}
+	expected_title = make_full_validation_run_name(pull_number, head_sha, base_sha)
+	candidates: list[tuple[dt.datetime, int, int, dict[str, Any]]] = []
+	for run in runs:
+		if not isinstance(run, dict) or run.get("display_title") != expected_title:
+			continue
+		run_id = run.get("id")
+		run_attempt = run.get("run_attempt")
+		started_at = parse_github_datetime(run.get("run_started_at"))
+		sort_issues: list[str] = []
+		if type(run_id) is not int or run_id <= 0:
+			sort_issues.append("Full validation epoch has an invalid run id.")
+		if type(run_attempt) is not int or run_attempt <= 0:
+			sort_issues.append("Full validation epoch has an invalid run attempt.")
+		if started_at is None:
+			sort_issues.append("Full validation epoch has an invalid run_started_at timestamp.")
+		if sort_issues:
+			return {"state": "failure", "issues": sort_issues}
+		assert started_at is not None
+		candidates.append((started_at, run_id, run_attempt, run))
+	if not candidates:
+		return {
+			"state": "pending",
+			"issues": ["No exact Full validation intent exists for this repository, pull request, head SHA, and base SHA."],
+		}
+	latest_started_at, run_id, run_attempt, latest = max(
+		candidates,
+		key=lambda item: (item[0], item[1], item[2]),
+	)
+	latest_issues: list[str] = []
+	check_suite_id = latest.get("check_suite_id")
+	if type(check_suite_id) is not int or check_suite_id <= 0:
+		latest_issues.append("Latest Full validation epoch has an invalid check suite id.")
+	if latest.get("name") != "CI" or latest.get("event") != "pull_request":
+		latest_issues.append("Latest Full validation epoch has the wrong workflow identity or event.")
+	if str(latest.get("head_sha", "")).lower() != head_sha:
+		latest_issues.append("Latest Full validation epoch has the wrong head SHA.")
+	if object_value(latest.get("repository")).get("full_name") != repository:
+		latest_issues.append("Latest Full validation epoch belongs to a different repository.")
+	if str(latest.get("path", "")).split("@", 1)[0] != ".github/workflows/ci.yml":
+		latest_issues.append("Latest Full validation epoch belongs to a different workflow path.")
+	status = latest.get("status")
+	if status not in {"queued", "in_progress", "completed", "requested", "waiting", "pending"}:
+		latest_issues.append("Latest Full validation epoch has an unsupported status.")
+	conclusion = latest.get("conclusion")
+	if status == "completed" and conclusion != "success":
+		latest_issues.append("Latest completed Full validation epoch did not conclude success.")
+	if status != "completed" and conclusion is not None:
+		latest_issues.append("Incomplete Full validation epoch has an unexpected conclusion.")
+	latest_issues.extend(audit_optional_pull_associations(
+		latest.get("pull_requests"),
+		repository=repository,
+		head_repository=head_repository,
+		pull_number=pull_number,
+		head_sha=head_sha,
+		base_sha=base_sha,
+	))
+	if latest_issues:
+		return {"state": "failure", "issues": latest_issues}
+	if latest_started_at > now or now - latest_started_at > FULL_VALIDATION_MAX_AGE:
+		return {
+			"state": "failure",
+			"issues": ["Latest matching Full validation intent is outside the seven-day reuse window."],
+		}
+	return {
+		"state": "success",
+		"issues": [],
+		"epoch": {
+			"run_id": run_id,
+			"run_attempt": run_attempt,
+			"run_started_at": latest["run_started_at"],
+			"check_suite_id": check_suite_id,
+			"status": status,
+			"conclusion": conclusion,
+		},
+	}
+
+
+def audit_full_validation_marker_job(
+	job: dict[str, Any],
+	*,
+	repository: str,
+	run_id: int,
+	run_attempt: int,
+	head_sha: str,
+	run_started_at: str,
+	now: dt.datetime,
+) -> tuple[str, list[str]]:
+	status = job.get("status")
+	if status in {"queued", "in_progress", "requested", "waiting", "pending"}:
+		return "pending", ["Latest Full validation marker job is not completed."]
+	if status != "completed":
+		return "failure", ["Latest Full validation marker job has an unsupported status."]
+	issues: list[str] = []
+	if job.get("conclusion") != "success":
+		issues.append(f"Latest Full validation marker concluded {job.get('conclusion')!r}, not success.")
+	if job.get("run_id") != run_id or job.get("run_attempt") != run_attempt:
+		issues.append("Full validation marker job is not bound to the selected run attempt.")
+	if str(job.get("head_sha", "")).lower() != head_sha:
+		issues.append("Full validation marker job has the wrong head SHA.")
+	job_id = job.get("id")
+	if type(job_id) is not int or job_id <= 0:
+		issues.append("Full validation marker job has an invalid id.")
+	expected_html_url = f"https://github.com/{repository}/actions/runs/{run_id}/job/{job_id}"
+	if job.get("html_url") != expected_html_url:
+		issues.append("Full validation marker job details URL is not bound to the selected run and job.")
+	run_started = parse_github_datetime(run_started_at)
+	job_started = parse_github_datetime(job.get("started_at"))
+	completed_at = parse_github_datetime(job.get("completed_at"))
+	if (
+		run_started is None
+		or job_started is None
+		or completed_at is None
+		or not run_started <= job_started <= completed_at <= now
+		or now - completed_at > FULL_VALIDATION_MAX_AGE
+	):
+		issues.append(
+			"Full validation marker job timestamps are malformed, out of order, or outside the seven-day reuse window."
+		)
+	if not isinstance(job.get("check_run_url"), str):
+		issues.append("Full validation marker job is missing its check-run URL.")
+	return ("failure", issues) if issues else ("success", [])
+
+
+def audit_full_validation_check_run(
+	check_run: dict[str, Any],
+	job: dict[str, Any],
+	*,
+	repository: str,
+	head_repository: str,
+	run_id: int,
+	run_attempt: int,
+	check_suite_id: int,
+	check_run_id: int,
+	head_sha: str,
+	base_sha: str,
+	pull_number: int,
+	now: dt.datetime,
+) -> list[str]:
+	issues: list[str] = []
+	if check_run.get("id") != check_run_id:
+		issues.append("Full validation check-run response has the wrong id.")
+	if check_run.get("name") != make_full_validation_marker_name(base_sha):
+		issues.append("Full validation check run has the wrong frozen marker name.")
+	if check_run.get("status") != "completed" or check_run.get("conclusion") != "success":
+		issues.append("Full validation check run is not completed with success.")
+	if str(check_run.get("head_sha", "")).lower() != head_sha:
+		issues.append("Full validation check run has the wrong head SHA.")
+	app = object_value(check_run.get("app"))
+	if app.get("id") != GITHUB_ACTIONS_APP_ID or app.get("slug") != "github-actions":
+		issues.append("Full validation check run was not created by the governed GitHub Actions app.")
+	if object_value(check_run.get("check_suite")).get("id") != check_suite_id:
+		issues.append("Full validation check run is not bound to the selected epoch check suite.")
+	if check_run.get("details_url") != job.get("html_url"):
+		issues.append("Full validation check run details URL is not bound to the selected run and job.")
+	job_started = parse_github_datetime(job.get("started_at"))
+	job_completed = parse_github_datetime(job.get("completed_at"))
+	check_started = parse_github_datetime(check_run.get("started_at"))
+	completed_at = parse_github_datetime(check_run.get("completed_at"))
+	if (
+		job_started is None
+		or job_completed is None
+		or check_started is None
+		or completed_at is None
+		or check_started != job_started
+		or completed_at != job_completed
+		or not check_started <= completed_at <= now
+		or now - completed_at > FULL_VALIDATION_MAX_AGE
+	):
+		issues.append(
+			"Full validation check-run timestamps do not exactly match the marker job or the reuse window."
+		)
+	issues.extend(audit_optional_pull_associations(
+		check_run.get("pull_requests"),
+		repository=repository,
+		head_repository=head_repository,
+		pull_number=pull_number,
+		head_sha=head_sha,
+		base_sha=base_sha,
+	))
+	if job.get("run_id") != run_id or job.get("run_attempt") != run_attempt:
+		issues.append("Full validation check run job binding changed during validation.")
+	return issues
+
+
+def audit_optional_pull_associations(
+	value: Any,
+	*,
+	repository: str,
+	head_repository: str,
+	pull_number: int,
+	head_sha: str,
+	base_sha: str,
+) -> list[str]:
+	if value == []:
+		return []
+	if not isinstance(value, list) or not all(isinstance(item, dict) for item in value):
+		return ["GitHub pull-request associations are malformed."]
+	for association in value:
+		head = object_value(association.get("head"))
+		base = object_value(association.get("base"))
+		if (
+			association.get("number") != pull_number
+			or association.get("url") != f"https://api.github.com/repos/{repository}/pulls/{pull_number}"
+			or str(head.get("sha", "")).lower() != head_sha
+			or object_value(head.get("repo")).get("url")
+			!= f"https://api.github.com/repos/{head_repository}"
+			or str(base.get("sha", "")).lower() != base_sha
+			or object_value(base.get("repo")).get("url") != f"https://api.github.com/repos/{repository}"
+		):
+			return ["GitHub pull-request associations contradict the selected pull request, head SHA, or base SHA."]
+	return []
+
+
+def check_run_id_from_api_url(value: str, repository: str) -> int:
+	parsed = urllib.parse.urlparse(value)
+	expected_prefix = f"/repos/{repository}/check-runs/"
+	if parsed.scheme != "https" or parsed.netloc != "api.github.com" or not parsed.path.startswith(expected_prefix):
+		return 0
+	suffix = parsed.path[len(expected_prefix):]
+	return int(suffix) if suffix.isdigit() and int(suffix) > 0 else 0
+
+
+def parse_github_datetime(value: Any) -> dt.datetime | None:
+	if not isinstance(value, str) or not value.endswith("Z"):
+		return None
+	try:
+		parsed = dt.datetime.fromisoformat(value[:-1] + "+00:00")
+	except ValueError:
+		return None
+	return parsed if parsed.tzinfo is not None else None
 
 
 def read_plugin_version(root: Path = ROOT) -> str:
@@ -1006,7 +2561,11 @@ def make_branch_protection_payload(policy: dict[str, Any]) -> dict[str, Any]:
 	return {
 		"required_status_checks": {
 			"strict": protection["strict_status_checks"],
-			"contexts": list(policy["required_status_checks"]),
+			"contexts": [],
+			"checks": [
+				{"context": required_name, "app_id": GITHUB_ACTIONS_APP_ID}
+				for required_name in policy["required_status_checks"]
+			],
 		},
 		"enforce_admins": protection["enforce_admins"],
 		"required_pull_request_reviews": {
@@ -1041,14 +2600,30 @@ def audit_remote_policy(
 	status_checks = object_value(protection_data.get("required_status_checks"))
 	if status_checks.get("strict") != protection["strict_status_checks"]:
 		issues.append("GitHub strict status-check mode differs from repository policy.")
-	contexts = set(string_array(status_checks.get("contexts")))
-	for check in object_array(status_checks.get("checks")):
-		context = check.get("context")
-		if isinstance(context, str):
-			contexts.add(context)
-	expected_contexts = {str(name) for name in policy["required_status_checks"]}
-	if contexts != expected_contexts:
-		issues.append(f"GitHub required status checks are {sorted(contexts)}, expected {sorted(expected_contexts)}.")
+	raw_contexts = status_checks.get("contexts")
+	contexts = string_array(raw_contexts)
+	checks = object_array(status_checks.get("checks"))
+	actual_checks = sorted(
+		(check.get("context"), check.get("app_id"))
+		for check in checks
+		if isinstance(check.get("context"), str) and type(check.get("app_id")) is int
+	)
+	expected_checks = sorted(
+		(str(name), GITHUB_ACTIONS_APP_ID)
+		for name in policy["required_status_checks"]
+	)
+	expected_contexts = sorted(str(name) for name in policy["required_status_checks"])
+	if (
+		not isinstance(raw_contexts, list)
+		or sorted(contexts) != expected_contexts
+		or len(checks) != len(actual_checks)
+		or actual_checks != expected_checks
+	):
+		issues.append(
+			"GitHub app-bound required status checks are "
+			f"{actual_checks!r} with mirrored contexts {sorted(contexts)!r}, "
+			f"expected {expected_checks!r} with contexts {expected_contexts!r}."
+		)
 	if enabled_value(protection_data.get("enforce_admins")) != protection["enforce_admins"]:
 		issues.append("GitHub admin enforcement differs from repository policy.")
 
@@ -1089,7 +2664,12 @@ def audit_required_status_checks(
 		matching_runs = [
 			run
 			for run in check_runs
-			if isinstance(run, dict) and run.get("name") == required_name
+			if (
+				isinstance(run, dict)
+				and run.get("name") == required_name
+				and object_value(run.get("app")).get("id") == GITHUB_ACTIONS_APP_ID
+				and object_value(run.get("app")).get("slug") == "github-actions"
+			)
 		]
 		if not matching_runs:
 			issues.append(
@@ -1108,6 +2688,8 @@ def github_request(
 	path: str,
 	token: str,
 	payload: dict[str, Any] | None = None,
+	*,
+	timeout_seconds: float = GITHUB_REQUEST_TIMEOUT_SECONDS,
 ) -> dict[str, Any]:
 	data = None if payload is None else json.dumps(payload, separators=(",", ":")).encode("utf-8")
 	request = urllib.request.Request(
@@ -1123,16 +2705,21 @@ def github_request(
 		},
 	)
 	try:
-		with urllib.request.urlopen(request, timeout=30) as response:
+		with urllib.request.urlopen(request, timeout=max(0.1, timeout_seconds)) as response:
 			body = response.read()
 	except urllib.error.HTTPError as error:
 		body = error.read().decode("utf-8", errors="replace")
 		raise GitHubApiError(error.code, body[:2000]) from error
 	except urllib.error.URLError as error:
 		raise GitHubApiError(0, str(error.reason)) from error
+	except (OSError, TimeoutError) as error:
+		raise GitHubApiError(0, str(error)) from error
 	if not body:
 		return {}
-	parsed = json.loads(body.decode("utf-8"))
+	try:
+		parsed = json.loads(body.decode("utf-8"))
+	except (UnicodeDecodeError, json.JSONDecodeError) as error:
+		raise GitHubApiError(0, f"GitHub API response was not strict UTF-8 JSON: {error}") from error
 	if not isinstance(parsed, dict):
 		raise GitHubApiError(0, "GitHub API response root was not an object.")
 	return parsed

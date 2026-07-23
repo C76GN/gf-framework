@@ -132,8 +132,14 @@ GOVERNED_WORKFLOW_ACTION_VERSIONS = {
 	"actions/download-artifact": "v8",
 }
 CI_WORKFLOW_ACTION_COUNTS = {
-	"actions/checkout": 5,
-	"actions/setup-python": 5,
+	"actions/checkout": 6,
+	"actions/setup-python": 6,
+	"actions/upload-artifact": 0,
+	"actions/download-artifact": 0,
+}
+MANUAL_CI_WORKFLOW_ACTION_COUNTS = {
+	"actions/checkout": 3,
+	"actions/setup-python": 3,
 	"actions/upload-artifact": 0,
 	"actions/download-artifact": 0,
 }
@@ -14769,6 +14775,7 @@ def maintenance_self_test() -> dict[str, Any]:
 		"setup-godot self-test fixtures must detect malformed digests, late checksum checks, and stale URLs.",
 	)
 	ci_workflow_source = read_text_file(ROOT / ".github/workflows/ci.yml")
+	manual_ci_workflow_source = read_text_file(ROOT / ".github/workflows/ci-manual.yml")
 	release_workflow_source = read_text_file(ROOT / ".github/workflows/release.yml")
 	ci_action_issues = audit_governed_workflow_actions(
 		ci_workflow_source,
@@ -14780,9 +14787,14 @@ def maintenance_self_test() -> dict[str, Any]:
 		".github/workflows/release.yml",
 		RELEASE_WORKFLOW_ACTION_COUNTS,
 	)
+	manual_ci_action_issues = audit_governed_workflow_actions(
+		manual_ci_workflow_source,
+		".github/workflows/ci-manual.yml",
+		MANUAL_CI_WORKFLOW_ACTION_COUNTS,
+	)
 	record_result(
 		"workflows_use_current_node24_action_majors",
-		not ci_action_issues and not release_action_issues,
+		not ci_action_issues and not manual_ci_action_issues and not release_action_issues,
 		"CI and release workflows must use the governed current Node.js 24 action majors without stale variants.",
 	)
 	stale_action_source = ci_workflow_source.replace("actions/checkout@v7", "actions/checkout@v6", 1)
@@ -14853,6 +14865,7 @@ def maintenance_self_test() -> dict[str, Any]:
 		and "quick-checks:" in ci_workflow_source
 		and "windows-process-supervision:" in ci_workflow_source
 		and "draft-gate:" in ci_workflow_source
+		and "full-validation-gate:" in ci_workflow_source
 		and "merge-gate:" in ci_workflow_source
 		and "GF draft gate" in ci_workflow_source
 		and "GF draft gate (not applicable)" in ci_workflow_source
@@ -14863,18 +14876,35 @@ def maintenance_self_test() -> dict[str, Any]:
 		and "ready_for_review" in ci_workflow_source
 		and "github.event.changes.base.ref.from" in ci_workflow_source
 		and "'policy' || 'validation'" in ci_workflow_source
+		and "GF CI|mode=" in ci_workflow_source
+		and "GF full validation (${{ github.event.pull_request.base.sha || github.sha }})" in ci_workflow_source
 		and "github.event.pull_request.draft == true" in ci_workflow_source
 		and "github.event.pull_request.draft == false" in ci_workflow_source
 		and re.search(r"(?ms)^  draft-gate:.*?if:.*?!cancelled\(\).*?needs:.*?repository-policy.*?quick-checks", ci_workflow_source) is not None
-		and re.search(r"(?ms)^  merge-gate:.*?if:.*?!cancelled\(\).*?needs:.*?repository-policy.*?framework-checks.*?package-checks.*?windows-process-supervision", ci_workflow_source) is not None
+		and re.search(r"(?ms)^  full-validation-gate:.*?if:.*?!cancelled\(\).*?needs:.*?repository-policy.*?framework-checks.*?package-checks.*?windows-process-supervision", ci_workflow_source) is not None
+		and re.search(r"(?ms)^  merge-gate:.*?if:.*?always\(\).*?needs:.*?repository-policy.*?full-validation-gate", ci_workflow_source) is not None
 		and re.search(r"(?ms)^  merge-gate:.*?needs:(?P<needs>.*?)(?=^    runs-on:)", ci_workflow_source) is not None
 		and "quick-checks" not in re.search(
 			r"(?ms)^  merge-gate:.*?needs:(?P<needs>.*?)(?=^    runs-on:)",
 			ci_workflow_source,
 		).group("needs")
 		and "python tools/gf_repository_policy.py validate --json" in ci_workflow_source
-		and "python tools/gf_repository_policy.py validate-pr --json" in ci_workflow_source,
-		"CI must isolate metadata edits, give Draft PRs their own gate, and expose the protected merge gate only for Ready PRs/main.",
+		and "python tools/gf_repository_policy.py validate-pr --json" in ci_workflow_source
+		and "python tools/gf_repository_policy.py validate-pr-gate" in ci_workflow_source
+		and "workflow_dispatch:" not in ci_workflow_source,
+		"CI must isolate metadata edits, freeze Full epochs, give Draft PRs their own gate, and expose the protected merge gate only for Ready PRs/main.",
+	)
+	record_result(
+		"manual_ci_isolated_from_required_contexts",
+		"workflow_dispatch:" in manual_ci_workflow_source
+		and "pull_request:" not in manual_ci_workflow_source
+		and "push:" not in manual_ci_workflow_source
+		and "GF manual repository policy" in manual_ci_workflow_source
+		and "GF manual diagnostics gate" in manual_ci_workflow_source
+		and "GF merge gate" not in manual_ci_workflow_source
+		and "--suite full" in manual_ci_workflow_source
+		and "github.ref == 'refs/heads/main'" in manual_ci_workflow_source,
+		"Manual diagnostics must stay in a separately named workflow and never emit protected CI contexts.",
 	)
 	record_result(
 		"ci_ready_main_runs_windows_process_supervision",
@@ -15006,7 +15036,7 @@ def maintenance_self_test() -> dict[str, Any]:
 		and "python tools/gf_maintenance.py check --suite package --json" in artifact_set_plan["recommended_checks"],
 		"package maintenance tool changes must still recommend package validation.",
 	)
-	workflow_plan = workspace_status(paths=[".github/workflows/ci.yml"])
+	workflow_plan = workspace_status(paths=[".github/workflows/ci.yml", ".github/workflows/ci-manual.yml"])
 	record_result(
 		"workspace_status_recommends_repository_policy_for_governed_workflows",
 		"python tools/gf_repository_policy.py validate --json" in workflow_plan["recommended_checks"],

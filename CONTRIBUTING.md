@@ -47,24 +47,32 @@ Draft and Ready PRs have different contracts:
   complete. CI runs every shard whose union is equivalent to the full suite;
   framework work is partitioned into `framework-gut`, `framework-lsp`, and
   `framework-static` so independent checks can finish concurrently. A focused
-  Windows job also verifies native process-tree cleanup before the merge gate.
+  Windows job also verifies native process-tree cleanup. These results are
+  aggregated into a frozen-base `GF full validation (<BASE_SHA>)` marker before
+  the merge gate.
 - **Mergeable**: both required checks, `GF repository policy` and the stable
-  `GF merge gate`, pass; all review
+  `GF merge gate`, pass as GitHub Actions app-bound checks; the merge gate runs
+  even after cancelled or skipped dependencies so those states fail closed; all review
   conversations are resolved, and the branch is current with `main`.
 
 Use squash merge for a normal single-outcome PR. Rebase merge is reserved for a
 deliberately structured commit series whose individual commits are independently
 valid. Merge commits are not part of the repository history.
 
-Editing only PR metadata such as the title or description reruns repository
-policy without cancelling validation already running for the same commit. A base
-branch change is not metadata-only: it reruns the Draft or Ready gate applicable
-to the PR's current state.
+Editing only PR metadata such as the title or description does not cancel Full
+validation already running for the same commit. It reruns repository policy and
+the exact `GF merge gate`; that gate may reuse only the newest successful Full
+validation epoch for the same repository, PR, head commit, and base commit from
+the last seven days. A newer Full run takes precedence immediately, even while
+its aggregate marker is still pending. Missing, stale, failed, malformed, or
+unverifiable evidence fails closed. A base branch change is not metadata-only:
+it reruns the Draft or Ready gate applicable to the PR's current state.
 
-Manual workflow runs emit the exact required-check names only on `main`. A
-non-`main` `workflow_dispatch` runs repository policy under a non-required name
-and does not run the Full-equivalent matrices or merge gate; use a Ready PR for
-merge evidence.
+Manual diagnostics run only through the separate `CI manual diagnostics`
+workflow and always use `GF manual ...` check names. A non-`main` manual run
+checks repository policy only; a `main` manual run also performs Full and
+Windows diagnostics. Manual runs never emit the protected `GF merge gate` and
+cannot be used as merge evidence; use a Ready PR for that purpose.
 
 ## Change Contract
 
