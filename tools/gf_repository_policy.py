@@ -1302,7 +1302,7 @@ def run_full_validation_relay_self_tests(policy: dict[str, Any]) -> list[str]:
 		"check_suite_id": check_suite_id,
 		"run_started_at": "2026-01-08T10:00:00Z",
 		"display_title": make_full_validation_run_name(pull_number, head_sha, base_sha),
-		"name": "CI",
+		"name": make_full_validation_run_name(pull_number, head_sha, base_sha),
 		"event": "pull_request",
 		"head_sha": head_sha,
 		"repository": {"full_name": repository},
@@ -2228,7 +2228,7 @@ def select_latest_full_validation_epoch(
 	check_suite_id = latest.get("check_suite_id")
 	if type(check_suite_id) is not int or check_suite_id <= 0:
 		latest_issues.append("Latest Full validation epoch has an invalid check suite id.")
-	if latest.get("name") != "CI" or latest.get("event") != "pull_request":
+	if latest.get("name") != expected_title or latest.get("event") != "pull_request":
 		latest_issues.append("Latest Full validation epoch has the wrong workflow identity or event.")
 	if str(latest.get("head_sha", "")).lower() != head_sha:
 		latest_issues.append("Latest Full validation epoch has the wrong head SHA.")
