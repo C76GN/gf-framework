@@ -31,6 +31,7 @@ import xml.etree.ElementTree as ET
 import zipfile
 from dataclasses import dataclass
 from pathlib import Path
+from pathlib import PureWindowsPath
 from typing import Any
 from typing import Callable
 
@@ -10761,6 +10762,319 @@ def maintenance_self_test() -> dict[str, Any]:
 			"Package smoke artifacts must bind provenance, honor absolute deadlines, isolate writes, clean failed staging, and refuse replaced roots.",
 		)
 
+	windows_short_repository_root = PureWindowsPath(
+		r"C:\Users\RUNNER~1\AppData\Local\Temp\gf-fixture\source"
+	)
+	windows_long_repository_root = PureWindowsPath(
+		r"C:\Users\runneradmin\AppData\Local\Temp\gf-fixture\source"
+	)
+
+	def injected_windows_long_path_name(
+		path_value: os.PathLike[str],
+		_deadline: float | None,
+	) -> os.PathLike[str]:
+		path = PureWindowsPath(path_value)
+		if path == windows_short_repository_root:
+			return windows_long_repository_root
+		return path
+
+	def failing_windows_long_path_name(
+		_path_value: os.PathLike[str],
+		_deadline: float | None,
+	) -> os.PathLike[str]:
+		raise OSError("fixture long-path expansion failure")
+
+	record_result(
+		"windows_repository_root_alias_only_accepts_bounded_long_name_expansion",
+		gf_parallel_validation._windows_long_repository_paths_match(
+			windows_short_repository_root,
+			windows_long_repository_root,
+			long_path_name=injected_windows_long_path_name,
+		)
+		and not gf_parallel_validation._windows_long_repository_paths_match(
+			PureWindowsPath(r"S:\gf-fixture\source"),
+			windows_long_repository_root,
+			long_path_name=injected_windows_long_path_name,
+		)
+		and not gf_parallel_validation._windows_long_repository_paths_match(
+			windows_short_repository_root,
+			PureWindowsPath(r"C:\Users\runneradmin\AppData\Local\Temp\other\source"),
+			long_path_name=injected_windows_long_path_name,
+		)
+		and not gf_parallel_validation._windows_long_repository_paths_match(
+			windows_short_repository_root,
+			windows_long_repository_root,
+			long_path_name=failing_windows_long_path_name,
+		),
+		"Repository roots may accept only same-drive Windows 8.3 names that expand exactly to Git's long path.",
+	)
+
+	windows_directory_mode = stat.S_IFDIR | 0o755
+
+	def windows_directory_metadata(inode: int) -> argparse.Namespace:
+		return argparse.Namespace(
+			st_mode=windows_directory_mode,
+			st_dev=7,
+			st_ino=inode,
+			st_file_attributes=0,
+		)
+
+	windows_drive_metadata = windows_directory_metadata(1)
+	windows_leaf_metadata = windows_directory_metadata(2)
+	stable_short_chain = (
+		(Path("short-drive"), windows_drive_metadata),
+		(Path("short-leaf"), windows_leaf_metadata),
+	)
+	stable_long_chain = (
+		(Path("long-drive"), windows_drive_metadata),
+		(Path("long-leaf"), windows_leaf_metadata),
+	)
+
+	def windows_snapshot_sequence(
+		snapshots: tuple[tuple[tuple[Path, argparse.Namespace], ...], ...],
+	) -> tuple[
+		Callable[[Path, float | None], tuple[tuple[Path, argparse.Namespace], ...]],
+		list[Path],
+	]:
+		calls: list[Path] = []
+
+		def snapshot(
+			path_value: Path,
+			_deadline: float | None,
+		) -> tuple[tuple[Path, argparse.Namespace], ...]:
+			calls.append(path_value)
+			return snapshots[len(calls) - 1]
+
+		return snapshot, calls
+
+	lexical_snapshot_calls: list[Path] = []
+	lexical_long_path_calls: list[os.PathLike[str]] = []
+
+	def reject_unexpected_windows_snapshot(
+		path_value: Path,
+		_deadline: float | None,
+	) -> tuple[tuple[Path, argparse.Namespace], ...]:
+		lexical_snapshot_calls.append(path_value)
+		raise AssertionError("lexically unsafe roots must not reach filesystem inspection")
+
+	def reject_unexpected_windows_long_path(
+		path_value: os.PathLike[str],
+		_deadline: float | None,
+	) -> os.PathLike[str]:
+		lexical_long_path_calls.append(path_value)
+		raise AssertionError("lexically unsafe roots must not reach WinAPI expansion")
+
+	record_result(
+		"windows_repository_root_alias_rejects_unsafe_namespaces_before_io",
+		all(
+			not gf_parallel_validation._windows_repository_root_alias_is_safe(
+				unsafe_root,
+				windows_long_repository_root,
+				deadline=None,
+				snapshot_directory_chain=reject_unexpected_windows_snapshot,
+				long_path_name=reject_unexpected_windows_long_path,
+			)
+			for unsafe_root in (
+				PureWindowsPath(r"S:\gf-fixture\source"),
+				PureWindowsPath(r"\\server\share\gf-fixture\source"),
+				PureWindowsPath(r"\\?\C:\gf-fixture\source"),
+				PureWindowsPath(r"gf-fixture\source"),
+			)
+		)
+		and not lexical_snapshot_calls
+		and not lexical_long_path_calls,
+		"Cross-drive, UNC, device, and relative Windows roots must be rejected before filesystem or WinAPI access.",
+	)
+
+	stable_snapshot, stable_snapshot_calls = windows_snapshot_sequence(
+		(stable_short_chain, stable_long_chain, stable_short_chain, stable_long_chain)
+	)
+	mismatched_leaf_chain = (
+		(Path("mismatched-drive"), windows_drive_metadata),
+		(Path("mismatched-leaf"), windows_directory_metadata(3)),
+	)
+	mismatch_snapshot, mismatch_snapshot_calls = windows_snapshot_sequence(
+		(stable_short_chain, mismatched_leaf_chain)
+	)
+	drifted_short_chain = (
+		(Path("short-drive"), windows_drive_metadata),
+		(Path("short-leaf"), windows_directory_metadata(4)),
+	)
+	root_drift_snapshot, root_drift_snapshot_calls = windows_snapshot_sequence(
+		(stable_short_chain, stable_long_chain, drifted_short_chain, stable_long_chain)
+	)
+	drifted_long_chain = (
+		(Path("long-drive"), windows_drive_metadata),
+		(Path("long-leaf"), windows_directory_metadata(5)),
+	)
+	reported_drift_snapshot, reported_drift_snapshot_calls = windows_snapshot_sequence(
+		(stable_short_chain, stable_long_chain, stable_short_chain, drifted_long_chain)
+	)
+	record_result(
+		"windows_repository_root_alias_pins_identity_and_both_directory_chains",
+		gf_parallel_validation._windows_repository_root_alias_is_safe(
+			windows_short_repository_root,
+			windows_long_repository_root,
+			deadline=None,
+			snapshot_directory_chain=stable_snapshot,
+			long_path_name=injected_windows_long_path_name,
+		)
+		and len(stable_snapshot_calls) == 4
+		and not gf_parallel_validation._windows_repository_root_alias_is_safe(
+			windows_short_repository_root,
+			windows_long_repository_root,
+			deadline=None,
+			snapshot_directory_chain=mismatch_snapshot,
+			long_path_name=injected_windows_long_path_name,
+		)
+		and len(mismatch_snapshot_calls) == 2
+		and not gf_parallel_validation._windows_repository_root_alias_is_safe(
+			windows_short_repository_root,
+			windows_long_repository_root,
+			deadline=None,
+			snapshot_directory_chain=root_drift_snapshot,
+			long_path_name=injected_windows_long_path_name,
+		)
+		and len(root_drift_snapshot_calls) == 4
+		and not gf_parallel_validation._windows_repository_root_alias_is_safe(
+			windows_short_repository_root,
+			windows_long_repository_root,
+			deadline=None,
+			snapshot_directory_chain=reported_drift_snapshot,
+			long_path_name=injected_windows_long_path_name,
+		)
+		and len(reported_drift_snapshot_calls) == 4,
+		"Windows root aliases must share one leaf identity and keep both directory chains stable around expansion.",
+	)
+
+	unsafe_snapshot_rejected = False
+	unsafe_snapshot_calls = 0
+
+	def reject_windows_reparse_snapshot(
+		_path_value: Path,
+		_deadline: float | None,
+	) -> tuple[tuple[Path, argparse.Namespace], ...]:
+		nonlocal unsafe_snapshot_calls
+		unsafe_snapshot_calls += 1
+		raise gf_parallel_validation.UnsafeWorkspacePathError("fixture reparse point")
+
+	try:
+		gf_parallel_validation._windows_repository_root_alias_is_safe(
+			windows_short_repository_root,
+			windows_long_repository_root,
+			deadline=None,
+			snapshot_directory_chain=reject_windows_reparse_snapshot,
+			long_path_name=injected_windows_long_path_name,
+		)
+	except gf_parallel_validation.UnsafeWorkspacePathError:
+		unsafe_snapshot_rejected = True
+	expired_snapshot_calls = 0
+	expired_long_path_calls = 0
+
+	def reject_expired_windows_snapshot(
+		_path_value: Path,
+		_deadline: float | None,
+	) -> tuple[tuple[Path, argparse.Namespace], ...]:
+		nonlocal expired_snapshot_calls
+		expired_snapshot_calls += 1
+		return stable_short_chain
+
+	def reject_expired_windows_long_path(
+		path_value: os.PathLike[str],
+		_deadline: float | None,
+	) -> os.PathLike[str]:
+		nonlocal expired_long_path_calls
+		expired_long_path_calls += 1
+		return path_value
+
+	expired_alias_rejected = False
+	try:
+		gf_parallel_validation._windows_repository_root_alias_is_safe(
+			windows_short_repository_root,
+			windows_long_repository_root,
+			deadline=time.perf_counter() - 1.0,
+			snapshot_directory_chain=reject_expired_windows_snapshot,
+			long_path_name=reject_expired_windows_long_path,
+		)
+	except WorkspaceDeadlineError:
+		expired_alias_rejected = True
+	record_result(
+		"windows_repository_root_alias_propagates_unsafe_snapshots_and_deadlines",
+		unsafe_snapshot_rejected
+		and unsafe_snapshot_calls == 1
+		and expired_alias_rejected
+		and expired_snapshot_calls == 0
+		and expired_long_path_calls == 0,
+		"Reparse-point rejection must propagate, and an expired deadline must stop before native or filesystem work.",
+	)
+
+	buffer_requests: list[int] = []
+
+	def grow_windows_long_path_buffer(
+		_path_text: str,
+		buffer_characters: int,
+	) -> tuple[int, str]:
+		buffer_requests.append(buffer_characters)
+		if len(buffer_requests) == 1:
+			return 512, ""
+		return len(str(windows_long_repository_root)), str(windows_long_repository_root)
+
+	over_limit_rejected = False
+	try:
+		gf_parallel_validation._bounded_windows_long_path_name(
+			windows_short_repository_root,
+			deadline=None,
+			read_long_path=lambda _path_text, _buffer_characters: (
+				gf_parallel_validation.WINDOWS_LONG_PATH_MAX_CHARACTERS + 1,
+				"",
+			),
+		)
+	except OSError:
+		over_limit_rejected = True
+	no_progress_rejected = False
+	try:
+		gf_parallel_validation._bounded_windows_long_path_name(
+			windows_short_repository_root,
+			deadline=None,
+			read_long_path=lambda _path_text, buffer_characters: (buffer_characters, ""),
+		)
+	except OSError:
+		no_progress_rejected = True
+	expired_buffer_calls = 0
+
+	def reject_expired_buffer_read(
+		_path_text: str,
+		_buffer_characters: int,
+	) -> tuple[int, str]:
+		nonlocal expired_buffer_calls
+		expired_buffer_calls += 1
+		return 1, "C:"
+
+	expired_buffer_rejected = False
+	try:
+		gf_parallel_validation._bounded_windows_long_path_name(
+			windows_short_repository_root,
+			deadline=time.perf_counter() - 1.0,
+			read_long_path=reject_expired_buffer_read,
+		)
+	except WorkspaceDeadlineError:
+		expired_buffer_rejected = True
+	record_result(
+		"windows_long_path_expansion_is_bounded_and_deadline_aware",
+		gf_parallel_validation._bounded_windows_long_path_name(
+			windows_short_repository_root,
+			deadline=None,
+			read_long_path=grow_windows_long_path_buffer,
+		)
+		== Path(str(windows_long_repository_root))
+		and buffer_requests == [260, 512]
+		and over_limit_rejected
+		and no_progress_rejected
+		and expired_buffer_rejected
+		and expired_buffer_calls == 0,
+		"WinAPI long-path expansion must grow monotonically within a hard cap and honor the suite deadline.",
+	)
+
 	with tempfile.TemporaryDirectory(prefix="gf-parallel-workspace-self-test-") as temp_dir:
 		fixture_root = Path(temp_dir)
 		source_root = fixture_root / "source"
@@ -11514,29 +11828,34 @@ def maintenance_self_test() -> dict[str, Any]:
 
 		pre_lstat_path = fingerprint_root / "fingerprint-pre-lstat.bin"
 		pre_lstat_path.write_bytes(b"pre-lstat")
-		original_fingerprint_os_lstat = gf_maintenance_check_graph.os.lstat
+		original_fingerprint_path_lstat = Path.lstat
 		pre_lstat_attempted = False
 		pre_lstat_rejected = False
 
 		def reject_fingerprint_pre_lstat(
-			path_value: str | bytes | os.PathLike[str] | os.PathLike[bytes],
+			path_value: Path,
 			*args: Any,
 			**kwargs: Any,
 		) -> os.stat_result:
 			nonlocal pre_lstat_attempted
-			if Path(path_value) == pre_lstat_path:
+			if path_value == pre_lstat_path:
 				pre_lstat_attempted = True
 				raise FileNotFoundError("fixture pre-lstat drift")
-			return original_fingerprint_os_lstat(path_value, *args, **kwargs)
+			return original_fingerprint_path_lstat(path_value, *args, **kwargs)
 
 		try:
-			gf_maintenance_check_graph.os.lstat = reject_fingerprint_pre_lstat
+			Path.lstat = reject_fingerprint_pre_lstat
 			try:
 				workspace_fingerprint(fingerprint_root)
 			except gf_maintenance_check_graph.WorkspaceFingerprintDriftError:
 				pre_lstat_rejected = True
 		finally:
-			gf_maintenance_check_graph.os.lstat = original_fingerprint_os_lstat
+			Path.lstat = original_fingerprint_path_lstat
+		record_result(
+			"workspace_fingerprint_fails_closed_before_lstat",
+			pre_lstat_attempted and pre_lstat_rejected,
+			"Git-enumerated untracked entries that disappear before lstat must abort provenance.",
+		)
 
 		readlink_path = fingerprint_root / "fingerprint-readlink.bin"
 		readlink_path.write_bytes(b"readlink")
@@ -11554,7 +11873,7 @@ def maintenance_self_test() -> dict[str, Any]:
 					st_mode=stat.S_IFLNK | 0o777,
 					st_size=len(b"readlink"),
 				)
-			return original_fingerprint_os_lstat(path_value, *args, **kwargs)
+			return original_fingerprint_path_lstat(path_value, *args, **kwargs)
 
 		def reject_fingerprint_readlink(
 			path_value: str | bytes | os.PathLike[str] | os.PathLike[bytes],
@@ -11568,7 +11887,7 @@ def maintenance_self_test() -> dict[str, Any]:
 			return original_fingerprint_os_readlink(path_value, *args, **kwargs)
 
 		try:
-			gf_maintenance_check_graph.os.lstat = present_fingerprint_path_as_symlink
+			Path.lstat = present_fingerprint_path_as_symlink
 			gf_maintenance_check_graph.os.readlink = reject_fingerprint_readlink
 			try:
 				workspace_fingerprint(fingerprint_root)
@@ -11576,14 +11895,11 @@ def maintenance_self_test() -> dict[str, Any]:
 				readlink_rejected = True
 		finally:
 			gf_maintenance_check_graph.os.readlink = original_fingerprint_os_readlink
-			gf_maintenance_check_graph.os.lstat = original_fingerprint_os_lstat
+			Path.lstat = original_fingerprint_path_lstat
 		record_result(
-			"workspace_fingerprint_fails_closed_before_lstat_and_readlink",
-			pre_lstat_attempted
-			and pre_lstat_rejected
-			and readlink_attempted
-			and readlink_rejected,
-			"Untracked entries that disappear before lstat or fail during readlink must abort provenance instead of hashing an error marker.",
+			"workspace_fingerprint_fails_closed_during_readlink",
+			readlink_attempted and readlink_rejected,
+			"Git-enumerated untracked symlinks that fail during readlink must abort provenance.",
 		)
 
 		identity_path = fingerprint_root / "fingerprint-identity.bin"

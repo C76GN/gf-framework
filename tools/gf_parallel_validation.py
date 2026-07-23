@@ -16,6 +16,7 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 from pathlib import PurePosixPath
+from pathlib import PureWindowsPath
 from types import MappingProxyType
 from typing import Callable
 from typing import Iterable
@@ -32,6 +33,7 @@ MAX_CAPTURED_UNTRACKED_FILE_BYTES = 64 * 1024 * 1024
 MAX_CAPTURED_UNTRACKED_TOTAL_BYTES = 256 * 1024 * 1024
 WORKSPACE_FINGERPRINT_PREFIX = b"gf-maintenance-workspace-v1\0"
 GIT_OBJECT_ID_PATTERN = re.compile(r"^[0-9a-f]{40}(?:[0-9a-f]{24})?$")
+WINDOWS_LONG_PATH_MAX_CHARACTERS = 32768
 
 
 class WorkspaceSnapshotError(RuntimeError):
@@ -649,9 +651,10 @@ def _materialize_untracked_files(
 			raise WorkspaceSnapshotError(
 				f"Could not create captured untracked file {captured_file.relative_path!r}: {exc}"
 			) from exc
+		desired_mode = stat.S_IMODE(captured_file.mode)
+		opened_after: os.stat_result
 		try:
-			with os.fdopen(file_descriptor, "wb") as output_file:
-				output_file.write(captured_file.data)
+			output_file = os.fdopen(file_descriptor, "wb")
 		except BaseException:
 			try:
 				os.close(file_descriptor)
@@ -659,11 +662,38 @@ def _materialize_untracked_files(
 				pass
 			raise
 		try:
-			os.chmod(path, stat.S_IMODE(captured_file.mode), follow_symlinks=False)
+			with output_file:
+				output_file.write(captured_file.data)
+				output_file.flush()
+				if hasattr(os, "fchmod"):
+					os.fchmod(output_file.fileno(), desired_mode)
+				elif os.name != "nt":
+					raise NotImplementedError("descriptor-based chmod is unavailable")
+				# Windows before Python 3.13 has no safe descriptor/no-follow chmod;
+				# its os.open creation mode is verified against this live handle below.
+				opened_after = os.fstat(output_file.fileno())
 		except (NotImplementedError, OSError) as exc:
 			raise WorkspaceSnapshotError(
-				f"Could not restore mode for untracked file {captured_file.relative_path!r}: {exc}"
+				f"Could not write or restore mode for untracked file "
+				f"{captured_file.relative_path!r}: {exc}"
 			) from exc
+		try:
+			materialized = os.lstat(path)
+		except OSError as exc:
+			raise WorkspaceSnapshotError(
+				f"Could not inspect materialized untracked file {captured_file.relative_path!r}: {exc}"
+			) from exc
+		if (
+			not stat.S_ISREG(materialized.st_mode)
+			or _stat_is_reparse(materialized)
+			or not _same_open_file_identity(opened_after, materialized)
+			or materialized.st_size != len(captured_file.data)
+			or stat.S_IMODE(materialized.st_mode) != desired_mode
+		):
+			raise WorkspaceSnapshotError(
+				f"Materialized untracked file identity, size, or mode drifted: "
+				f"{captured_file.relative_path!r}"
+			)
 		_assert_path_has_no_link_components(path)
 
 
@@ -701,11 +731,186 @@ def _validate_repository_root(root: Path, *, deadline: float | None = None) -> P
 		errors="surrogateescape",
 	).strip()
 	reported_path = _absolute_lexical_path(Path(reported_root))
-	if os.path.normcase(str(reported_path)) != os.path.normcase(str(root_path)):
+	if not _repository_root_paths_match(root_path, reported_path, deadline=deadline):
 		raise WorkspaceSnapshotError(
 			f"Expected repository root {root_path}, but Git reported {reported_path}."
 		)
 	return root_path
+
+
+def _repository_root_paths_match(
+	root_path: Path,
+	reported_path: Path,
+	*,
+	deadline: float | None = None,
+) -> bool:
+	"""Match exact roots plus a narrowly verified Windows DOS short-name spelling."""
+	_check_deadline(deadline, "repository root comparison")
+	if os.path.normcase(str(reported_path)) == os.path.normcase(str(root_path)):
+		return True
+	if os.name != "nt":
+		return False
+	return _windows_repository_root_alias_is_safe(
+		root_path,
+		reported_path,
+		deadline=deadline,
+		snapshot_directory_chain=lambda path, chain_deadline: _snapshot_real_directory_chain(
+			path,
+			deadline=chain_deadline,
+		),
+		long_path_name=_windows_long_path_name,
+	)
+
+
+def _windows_repository_root_alias_is_safe(
+	root_path: os.PathLike[str],
+	reported_path: os.PathLike[str],
+	*,
+	deadline: float | None,
+	snapshot_directory_chain: Callable[
+		[Path, float | None],
+		tuple[tuple[Path, os.stat_result], ...],
+	],
+	long_path_name: Callable[
+		[os.PathLike[str], float | None],
+		os.PathLike[str],
+	],
+) -> bool:
+	"""Verify one Windows short/long root pair without widening path aliases."""
+	_check_deadline(deadline, "Windows repository root alias validation")
+	if not _windows_repository_paths_share_normal_drive(root_path, reported_path):
+		return False
+	root_chain_before = snapshot_directory_chain(Path(root_path), deadline)
+	_check_deadline(deadline, "Windows repository root alias validation")
+	reported_chain_before = snapshot_directory_chain(Path(reported_path), deadline)
+	_check_deadline(deadline, "Windows repository root alias validation")
+	if not _same_owned_directory_identity(
+		root_chain_before[-1][1],
+		reported_chain_before[-1][1],
+	):
+		return False
+	if not _windows_long_repository_paths_match(
+		root_path,
+		reported_path,
+		deadline=deadline,
+		long_path_name=long_path_name,
+	):
+		return False
+	root_chain_after = snapshot_directory_chain(Path(root_path), deadline)
+	_check_deadline(deadline, "Windows repository root alias validation")
+	reported_chain_after = snapshot_directory_chain(Path(reported_path), deadline)
+	_check_deadline(deadline, "Windows repository root alias validation")
+	return (
+		_same_directory_chain_identity(root_chain_before, root_chain_after)
+		and _same_directory_chain_identity(reported_chain_before, reported_chain_after)
+		and _same_owned_directory_identity(
+			root_chain_after[-1][1],
+			reported_chain_after[-1][1],
+		)
+	)
+
+
+def _windows_repository_paths_share_normal_drive(
+	root_path: os.PathLike[str],
+	reported_path: os.PathLike[str],
+) -> bool:
+	"""Reject UNC, device, relative, and cross-drive aliases without filesystem I/O."""
+	root_windows_path = PureWindowsPath(root_path)
+	reported_windows_path = PureWindowsPath(reported_path)
+	return (
+		root_windows_path.is_absolute()
+		and reported_windows_path.is_absolute()
+		and re.fullmatch(r"[A-Za-z]:", root_windows_path.drive) is not None
+		and root_windows_path.drive.casefold() == reported_windows_path.drive.casefold()
+	)
+
+
+def _windows_long_repository_paths_match(
+	root_path: os.PathLike[str],
+	reported_path: os.PathLike[str],
+	*,
+	deadline: float | None = None,
+	long_path_name: Callable[
+		[os.PathLike[str], float | None],
+		os.PathLike[str],
+	],
+) -> bool:
+	"""Compare same-drive DOS paths after bounded long-name expansion."""
+	_check_deadline(deadline, "Windows repository root long-name expansion")
+	if not _windows_repository_paths_share_normal_drive(root_path, reported_path):
+		return False
+	try:
+		expanded_root = PureWindowsPath(long_path_name(root_path, deadline))
+		_check_deadline(deadline, "Windows repository root long-name expansion")
+		expanded_reported = PureWindowsPath(long_path_name(reported_path, deadline))
+		_check_deadline(deadline, "Windows repository root long-name expansion")
+	except (OSError, TypeError, ValueError):
+		return False
+	return (
+		expanded_root.is_absolute()
+		and expanded_reported.is_absolute()
+		and expanded_root == expanded_reported
+	)
+
+
+def _windows_long_path_name(
+	path: os.PathLike[str],
+	deadline: float | None = None,
+) -> Path:
+	"""Expand DOS 8.3 components without resolving links or namespace aliases."""
+	if os.name != "nt":
+		raise OSError("Windows long-path expansion is unavailable on this platform.")
+	import ctypes
+	from ctypes import wintypes
+
+	kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+	get_long_path_name = kernel32.GetLongPathNameW
+	get_long_path_name.argtypes = [
+		wintypes.LPCWSTR,
+		wintypes.LPWSTR,
+		wintypes.DWORD,
+	]
+	get_long_path_name.restype = wintypes.DWORD
+
+	def read_long_path(path_text: str, buffer_characters: int) -> tuple[int, str]:
+		buffer = ctypes.create_unicode_buffer(buffer_characters)
+		ctypes.set_last_error(0)
+		written = int(get_long_path_name(path_text, buffer, buffer_characters))
+		if written == 0:
+			error_code = ctypes.get_last_error()
+			raise OSError(error_code, ctypes.FormatError(error_code), path_text)
+		return written, buffer.value
+
+	return _bounded_windows_long_path_name(
+		path,
+		deadline=deadline,
+		read_long_path=read_long_path,
+	)
+
+
+def _bounded_windows_long_path_name(
+	path: os.PathLike[str],
+	*,
+	deadline: float | None,
+	read_long_path: Callable[[str, int], tuple[int, str]],
+) -> Path:
+	"""Grow a bounded WinAPI buffer and fail closed on malformed native results."""
+	path_text = os.fspath(path)
+	buffer_characters = 260
+	while buffer_characters <= WINDOWS_LONG_PATH_MAX_CHARACTERS:
+		_check_deadline(deadline, "Windows repository root long-name expansion")
+		written, expanded_path = read_long_path(path_text, buffer_characters)
+		_check_deadline(deadline, "Windows repository root long-name expansion")
+		if type(written) is not int or written <= 0:
+			raise OSError("Windows long-path expansion returned an invalid character count.")
+		if written < buffer_characters:
+			if not isinstance(expanded_path, str) or not expanded_path:
+				raise OSError("Windows long-path expansion returned an empty path.")
+			return Path(expanded_path)
+		if written == buffer_characters:
+			raise OSError("Windows long-path expansion did not make bounded buffer progress.")
+		buffer_characters = written
+	raise OSError("Windows long-path expansion exceeds the bounded buffer.")
 
 
 def _validate_workspace_tree_safety(
