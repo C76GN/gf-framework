@@ -28,7 +28,7 @@ POLICY_FIELDS = {
 	"internal_branch_pattern",
 	"bot_branch_patterns",
 	"development_version_pattern",
-	"required_status_check",
+	"required_status_checks",
 	"repository_settings",
 	"branch_protection",
 }
@@ -51,14 +51,28 @@ BRANCH_PROTECTION_FIELDS = {
 	"required_linear_history",
 	"strict_status_checks",
 }
-REQUIRED_CI_SUITES = (
-	"framework",
+REQUIRED_STATUS_CHECKS = (
+	"GF repository policy",
+	"GF merge gate",
+)
+FRAMEWORK_CI_SUITES = (
+	"framework-gut",
+	"framework-lsp",
+	"framework-static",
+)
+PACKAGE_CI_SUITES = (
 	"package-contract",
 	"package-editor",
 	"package-cli-local",
 	"package-cli-network",
 	"package-godot-ci",
 )
+REQUIRED_CI_SUITES = (*FRAMEWORK_CI_SUITES, *PACKAGE_CI_SUITES)
+DRAFT_GATE_NAME = "${{ github.event_name == 'pull_request' && github.event.pull_request.draft == true && (github.event.action != 'edited' || github.event.changes.base.ref.from != '') && 'GF draft gate' || 'GF draft gate (not applicable)' }}"
+REPOSITORY_POLICY_NAME = "${{ github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/main' && 'GF repository policy (manual non-main)' || 'GF repository policy' }}"
+READY_OR_MAIN_EVENT = "github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') || (github.event_name == 'pull_request' && github.event.pull_request.draft == false && (github.event.action != 'edited' || github.event.changes.base.ref.from != ''))"
+MERGE_GATE_NAME = "${{ (" + READY_OR_MAIN_EVENT + ") && 'GF merge gate' || 'GF merge gate (not applicable)' }}"
+METADATA_CONCURRENCY_GROUP = "ci-${{ github.event.pull_request.number || github.ref }}-${{ github.event_name == 'pull_request' && github.event.action == 'edited' && github.event.changes.base.ref.from == '' && 'policy' || 'validation' }}"
 
 
 class DuplicateJsonKeyError(ValueError):
@@ -165,14 +179,28 @@ def reject_duplicate_json_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
 def audit_policy_data(policy: dict[str, Any]) -> list[str]:
 	issues: list[str] = []
 	audit_exact_fields(policy, POLICY_FIELDS, "policy", issues)
-	if policy.get("schema_version") != 1:
-		issues.append("Repository policy schema_version must be the integer 1.")
+	if policy.get("schema_version") != 2:
+		issues.append("Repository policy schema_version must be the integer 2.")
 	repository = policy.get("repository")
 	if not isinstance(repository, str) or REPOSITORY_RE.fullmatch(repository) is None:
 		issues.append("Repository policy repository must use owner/name syntax.")
-	for field_name in ("default_branch", "internal_branch_pattern", "development_version_pattern", "required_status_check"):
+	for field_name in ("default_branch", "internal_branch_pattern", "development_version_pattern"):
 		if not isinstance(policy.get(field_name), str) or not str(policy.get(field_name, "")).strip():
 			issues.append(f"Repository policy {field_name} must be a non-empty string.")
+	required_status_checks = policy.get("required_status_checks")
+	if (
+		not isinstance(required_status_checks, list)
+		or not required_status_checks
+		or any(not isinstance(item, str) or not item.strip() for item in required_status_checks)
+	):
+		issues.append("Repository policy required_status_checks must be a non-empty string array.")
+	elif len(set(required_status_checks)) != len(required_status_checks):
+		issues.append("Repository policy required_status_checks must not contain duplicates.")
+	elif required_status_checks != list(REQUIRED_STATUS_CHECKS):
+		issues.append(
+			"Repository policy required_status_checks must be exactly "
+			f"{list(REQUIRED_STATUS_CHECKS)!r}."
+		)
 	for field_name in ("internal_branch_pattern", "development_version_pattern"):
 		audit_regex(policy.get(field_name), field_name, issues)
 	bot_patterns = policy.get("bot_branch_patterns")
@@ -238,24 +266,7 @@ def audit_repository_files(policy: dict[str, Any], root: Path = ROOT) -> list[st
 		return issues
 
 	ci_source = (root / ".github/workflows/ci.yml").read_text(encoding="utf-8")
-	required_status_check = str(policy["required_status_check"])
-	required_ci_fragments = (
-		f"name: {required_status_check}",
-		"python tools/gf_repository_policy.py validate",
-		"python tools/gf_repository_policy.py validate-pr",
-		"      - edited",
-		"github.event.pull_request.draft == true",
-		"github.event.pull_request.draft == false",
-		"--suite quick",
-		"--suite framework",
-		"--suite ${{ matrix.suite }}",
-	)
-	for fragment in required_ci_fragments:
-		if fragment not in ci_source:
-			issues.append(f"CI workflow is missing repository policy fragment: {fragment}")
-	for suite_name in REQUIRED_CI_SUITES[1:]:
-		if f"suite: {suite_name}" not in ci_source:
-			issues.append(f"CI workflow is missing full-suite shard: {suite_name}")
+	issues.extend(audit_ci_workflow(policy, ci_source))
 
 	owner = str(policy["repository"]).split("/", 1)[0]
 	codeowners_source = (root / ".github/CODEOWNERS").read_text(encoding="utf-8")
@@ -279,6 +290,356 @@ def audit_repository_files(policy: dict[str, Any], root: Path = ROOT) -> list[st
 		if not isinstance(manifest, dict) or manifest.get("version") != source_version:
 			issues.append(f"Extension manifest version must match plugin.cfg: {relative_path(manifest_path, root)}")
 	return issues
+
+
+def audit_ci_workflow(policy: dict[str, Any], source: str) -> list[str]:
+	issues: list[str] = []
+	jobs, duplicate_jobs = extract_ci_job_blocks(source)
+	if duplicate_jobs:
+		issues.append(f"CI workflow has duplicate job ids: {', '.join(sorted(duplicate_jobs))}.")
+	required_job_ids = {
+		"repository-policy",
+		"quick-checks",
+		"framework-checks",
+		"package-checks",
+		"windows-process-supervision",
+		"draft-gate",
+		"merge-gate",
+	}
+	missing_job_ids = sorted(required_job_ids - set(jobs))
+	if missing_job_ids:
+		issues.append(f"CI workflow is missing governed jobs: {', '.join(missing_job_ids)}.")
+
+	pull_request_source = extract_yaml_mapping_block(source, "on", 0, "pull_request", 2)
+	pull_request_types = extract_yaml_list(pull_request_source, "types", 4)
+	for event_name in ("opened", "synchronize", "reopened", "edited", "ready_for_review", "converted_to_draft"):
+		if event_name not in pull_request_types:
+			issues.append(f"CI pull_request.types is missing governed event: {event_name}.")
+	push_source = extract_yaml_mapping_block(source, "on", 0, "push", 2)
+	push_branches = extract_yaml_list(push_source, "branches", 4)
+	expected_push_branches = [str(policy["default_branch"])]
+	if push_branches != expected_push_branches:
+		issues.append(
+			f"CI push.branches is {push_branches!r}, expected {expected_push_branches!r}."
+		)
+	workflow_dispatch_source = extract_yaml_mapping_block(source, "on", 0, "workflow_dispatch", 2)
+	if not workflow_dispatch_source:
+		issues.append("CI workflow_dispatch trigger is missing.")
+	concurrency_source = extract_yaml_top_level_block(source, "concurrency")
+	concurrency_group = extract_yaml_scalar(concurrency_source, "group", 2)
+	if concurrency_group != METADATA_CONCURRENCY_GROUP:
+		issues.append("CI concurrency.group must isolate metadata-only policy runs from source validation runs.")
+	if extract_yaml_scalar(concurrency_source, "cancel-in-progress", 2) != "true":
+		issues.append("CI concurrency.cancel-in-progress must remain true.")
+
+	repository_job = jobs.get("repository-policy", "")
+	if repository_job:
+		require_exact_job_scalar(repository_job, "repository-policy", "name", REPOSITORY_POLICY_NAME, issues)
+		require_job_code(repository_job, "repository-policy", "python tools/gf_repository_policy.py validate --json", issues)
+		require_job_code(repository_job, "repository-policy", "python tools/gf_repository_policy.py validate-pr --json", issues)
+
+	quick_job = jobs.get("quick-checks", "")
+	if quick_job:
+		require_exact_job_scalar(quick_job, "quick-checks", "name", "GF draft quick checks", issues)
+		require_exact_job_scalar(
+			quick_job,
+			"quick-checks",
+			"if",
+			"github.event_name == 'pull_request' && github.event.pull_request.draft == true && "
+			"(github.event.action != 'edited' || github.event.changes.base.ref.from != '')",
+			issues,
+		)
+		require_exact_job_needs(quick_job, "quick-checks", ("repository-policy",), issues)
+		require_job_code(quick_job, "quick-checks", "--suite quick", issues)
+
+	ready_job_if = READY_OR_MAIN_EVENT
+	framework_job = jobs.get("framework-checks", "")
+	if framework_job:
+		require_exact_job_scalar(framework_job, "framework-checks", "if", ready_job_if, issues)
+		require_exact_job_needs(framework_job, "framework-checks", ("repository-policy",), issues)
+		require_exact_matrix_suites(framework_job, "framework-checks", FRAMEWORK_CI_SUITES, issues)
+		require_job_code(framework_job, "framework-checks", "--suite ${{ matrix.suite }}", issues)
+
+	package_job = jobs.get("package-checks", "")
+	if package_job:
+		require_exact_job_scalar(package_job, "package-checks", "if", ready_job_if, issues)
+		require_exact_job_needs(package_job, "package-checks", ("repository-policy",), issues)
+		require_exact_matrix_suites(package_job, "package-checks", PACKAGE_CI_SUITES, issues)
+		require_job_code(package_job, "package-checks", "--suite ${{ matrix.suite }}", issues)
+
+	windows_process_job = jobs.get("windows-process-supervision", "")
+	if windows_process_job:
+		require_exact_job_scalar(
+			windows_process_job,
+			"windows-process-supervision",
+			"name",
+			"GF process supervision (Windows)",
+			issues,
+		)
+		require_exact_job_scalar(
+			windows_process_job,
+			"windows-process-supervision",
+			"if",
+			ready_job_if,
+			issues,
+		)
+		require_exact_job_needs(
+			windows_process_job,
+			"windows-process-supervision",
+			("repository-policy",),
+			issues,
+		)
+		require_exact_job_scalar(
+			windows_process_job,
+			"windows-process-supervision",
+			"runs-on",
+			"windows-latest",
+			issues,
+		)
+		require_job_code(
+			windows_process_job,
+			"windows-process-supervision",
+			"python tools/gf_maintenance.py maintenance-self-test --json",
+			issues,
+		)
+
+	draft_gate = jobs.get("draft-gate", "")
+	if draft_gate:
+		require_exact_job_scalar(draft_gate, "draft-gate", "name", DRAFT_GATE_NAME, issues)
+		require_exact_job_scalar(
+			draft_gate,
+			"draft-gate",
+			"if",
+			"!cancelled() && github.event_name == 'pull_request' && "
+			"github.event.pull_request.draft == true && "
+			"(github.event.action != 'edited' || github.event.changes.base.ref.from != '')",
+			issues,
+		)
+		require_exact_job_needs(draft_gate, "draft-gate", ("repository-policy", "quick-checks"), issues)
+
+	merge_gate = jobs.get("merge-gate", "")
+	if merge_gate:
+		require_exact_job_scalar(merge_gate, "merge-gate", "name", MERGE_GATE_NAME, issues)
+		require_exact_job_scalar(
+			merge_gate,
+			"merge-gate",
+			"if",
+			"!cancelled() && (" + READY_OR_MAIN_EVENT + ")",
+			issues,
+		)
+		require_exact_job_needs(
+			merge_gate,
+			"merge-gate",
+			(
+				"repository-policy",
+				"framework-checks",
+				"package-checks",
+				"windows-process-supervision",
+			),
+			issues,
+		)
+
+	configured_checks = policy.get("required_status_checks")
+	if isinstance(configured_checks, list):
+		workflow_check_names = {
+			"GF repository policy" if extract_yaml_scalar(repository_job, "name", 4) == REPOSITORY_POLICY_NAME else "",
+			"GF merge gate" if extract_yaml_scalar(merge_gate, "name", 4) == MERGE_GATE_NAME else "",
+		}
+		for check_name in configured_checks:
+			if isinstance(check_name, str) and check_name not in workflow_check_names:
+				issues.append(f"CI workflow does not emit required status check {check_name!r} from its governed job.")
+	return issues
+
+
+def extract_ci_job_blocks(source: str) -> tuple[dict[str, str], set[str]]:
+	jobs_source = extract_yaml_top_level_block(source, "jobs")
+	if not jobs_source:
+		return {}, set()
+	lines = jobs_source.splitlines()
+	blocks: dict[str, list[str]] = {}
+	duplicates: set[str] = set()
+	current_job = ""
+	for line in lines[1:]:
+		match = re.fullmatch(r"  ([A-Za-z0-9_-]+):\s*", strip_yaml_comment(line))
+		if match is not None:
+			current_job = match.group(1)
+			if current_job in blocks:
+				duplicates.add(current_job)
+			else:
+				blocks[current_job] = [line]
+			continue
+		if current_job:
+			blocks[current_job].append(line)
+	return {job_id: "\n".join(lines) for job_id, lines in blocks.items()}, duplicates
+
+
+def extract_yaml_top_level_block(source: str, key: str) -> str:
+	lines = source.splitlines()
+	start = -1
+	for index, line in enumerate(lines):
+		if re.fullmatch(rf"{re.escape(key)}:\s*", strip_yaml_comment(line)) is not None:
+			start = index
+			break
+	if start < 0:
+		return ""
+	end = len(lines)
+	for index in range(start + 1, len(lines)):
+		line = strip_yaml_comment(lines[index])
+		if line and not line.startswith((" ", "\t")):
+			end = index
+			break
+	return "\n".join(lines[start:end])
+
+
+def extract_yaml_mapping_block(
+	source: str,
+	parent_key: str,
+	parent_indent: int,
+	child_key: str,
+	child_indent: int,
+) -> str:
+	parent_source = (
+		extract_yaml_top_level_block(source, parent_key)
+		if parent_indent == 0
+		else source
+	)
+	if not parent_source:
+		return ""
+	lines = parent_source.splitlines()
+	prefix = " " * child_indent
+	start = -1
+	for index, line in enumerate(lines):
+		if re.fullmatch(rf"{re.escape(prefix + child_key)}:\s*", strip_yaml_comment(line)) is not None:
+			start = index
+			break
+	if start < 0:
+		return ""
+	end = len(lines)
+	for index in range(start + 1, len(lines)):
+		code = strip_yaml_comment(lines[index])
+		if code and len(code) - len(code.lstrip(" ")) <= child_indent:
+			end = index
+			break
+	return "\n".join(lines[start:end])
+
+
+def extract_yaml_scalar(source: str, key: str, indent: int) -> str:
+	values: list[str] = []
+	lines = source.splitlines()
+	prefix = " " * indent
+	for index, line in enumerate(lines):
+		code = strip_yaml_comment(line)
+		match = re.fullmatch(rf"{re.escape(prefix + key)}:\s*(.*?)\s*", code)
+		if match is None:
+			continue
+		value = match.group(1)
+		if value in {">", ">-", "|", "|-"}:
+			parts: list[str] = []
+			for continuation in lines[index + 1:]:
+				continuation_code = strip_yaml_comment(continuation)
+				if continuation_code and len(continuation_code) - len(continuation_code.lstrip(" ")) <= indent:
+					break
+				if continuation_code.strip():
+					parts.append(continuation_code.strip())
+			value = " ".join(parts)
+		values.append(" ".join(value.split()))
+	return values[0] if len(values) == 1 else ""
+
+
+def extract_yaml_list(source: str, key: str, indent: int) -> list[str]:
+	lines = source.splitlines()
+	prefix = " " * indent
+	for index, line in enumerate(lines):
+		if re.fullmatch(rf"{re.escape(prefix + key)}:\s*", strip_yaml_comment(line)) is None:
+			continue
+		values: list[str] = []
+		for continuation in lines[index + 1:]:
+			code = strip_yaml_comment(continuation)
+			if code and len(code) - len(code.lstrip(" ")) <= indent:
+				break
+			match = re.fullmatch(rf"\s{{{indent + 2}}}-\s+([A-Za-z0-9_-]+)\s*", code)
+			if match is not None:
+				values.append(match.group(1))
+		return values
+	return []
+
+
+def extract_matrix_suites(job_source: str) -> list[str]:
+	lines = job_source.splitlines()
+	matrix_start = -1
+	for index, line in enumerate(lines):
+		if re.fullmatch(r"      matrix:\s*", strip_yaml_comment(line)) is not None:
+			matrix_start = index
+			break
+	if matrix_start < 0:
+		return []
+	suites: list[str] = []
+	for line in lines[matrix_start + 1:]:
+		code = strip_yaml_comment(line)
+		if code and len(code) - len(code.lstrip(" ")) <= 6:
+			break
+		match = re.fullmatch(r"            suite:\s*([a-z0-9][a-z0-9-]*)\s*", code)
+		if match is not None:
+			suites.append(match.group(1))
+	return suites
+
+
+def strip_yaml_comment(line: str) -> str:
+	in_single_quote = False
+	in_double_quote = False
+	escaped = False
+	for index, character in enumerate(line):
+		if character == "\\" and in_double_quote and not escaped:
+			escaped = True
+			continue
+		if character == "'" and not in_double_quote:
+			in_single_quote = not in_single_quote
+		elif character == '"' and not in_single_quote and not escaped:
+			in_double_quote = not in_double_quote
+		elif character == "#" and not in_single_quote and not in_double_quote:
+			return line[:index].rstrip()
+		escaped = False
+	return line.rstrip()
+
+
+def require_exact_job_scalar(
+	job_source: str,
+	job_id: str,
+	field_name: str,
+	expected: str,
+	issues: list[str],
+) -> None:
+	actual = extract_yaml_scalar(job_source, field_name, 4)
+	if actual != expected:
+		issues.append(f"CI job {job_id} {field_name} is {actual!r}, expected {expected!r}.")
+
+
+def require_exact_job_needs(
+	job_source: str,
+	job_id: str,
+	expected: tuple[str, ...],
+	issues: list[str],
+) -> None:
+	actual = extract_yaml_list(job_source, "needs", 4)
+	if actual != list(expected):
+		issues.append(f"CI job {job_id} needs is {actual!r}, expected {list(expected)!r}.")
+
+
+def require_exact_matrix_suites(
+	job_source: str,
+	job_id: str,
+	expected: tuple[str, ...],
+	issues: list[str],
+) -> None:
+	actual = extract_matrix_suites(job_source)
+	if actual != list(expected):
+		issues.append(f"CI job {job_id} matrix suites are {actual!r}, expected {list(expected)!r}.")
+
+
+def require_job_code(job_source: str, job_id: str, fragment: str, issues: list[str]) -> None:
+	code_source = "\n".join(strip_yaml_comment(line) for line in job_source.splitlines())
+	if fragment not in code_source:
+		issues.append(f"CI job {job_id} is missing governed command fragment: {fragment}.")
 
 
 def audit_pull_request(
@@ -340,12 +701,21 @@ def run_policy_self_tests(policy: dict[str, Any]) -> list[str]:
 		for fragment in expected_fragments:
 			if not any(fragment in issue for issue in actual_issues):
 				issues.append(f"Repository policy self-test {name} did not report {fragment!r}: {actual_issues}")
+	duplicate_checks_policy = json.loads(json.dumps(policy))
+	duplicate_checks_policy["required_status_checks"].append(policy["required_status_checks"][0])
+	if not any("duplicates" in issue for issue in audit_policy_data(duplicate_checks_policy)):
+		issues.append("Repository policy self-test did not reject duplicate required status checks.")
+	legacy_check_policy = json.loads(json.dumps(policy))
+	legacy_check_policy["required_status_check"] = legacy_check_policy.pop("required_status_checks")[0]
+	legacy_policy_issues = audit_policy_data(legacy_check_policy)
+	if not any("missing fields: required_status_checks" in issue for issue in legacy_policy_issues):
+		issues.append("Repository policy self-test did not reject the legacy required_status_check field.")
 	repository_fixture = dict(policy["repository_settings"])
 	protection = policy["branch_protection"]
 	protection_fixture = {
 		"required_status_checks": {
 			"strict": protection["strict_status_checks"],
-			"contexts": [policy["required_status_check"]],
+			"contexts": list(policy["required_status_checks"]),
 			"checks": [],
 		},
 		"enforce_admins": {"enabled": protection["enforce_admins"]},
@@ -370,22 +740,30 @@ def run_policy_self_tests(policy: dict[str, Any]) -> list[str]:
 	drifted_fixture["allow_force_pushes"]["enabled"] = not protection["allow_force_pushes"]
 	if not any("allow_force_pushes" in issue for issue in audit_remote_policy(policy, repository_fixture, drifted_fixture)):
 		issues.append("Repository policy self-test did not detect force-push protection drift.")
+	missing_context_fixture = json.loads(json.dumps(protection_fixture))
+	missing_context_fixture["required_status_checks"]["contexts"] = list(policy["required_status_checks"])[1:]
+	if not any("required status checks" in issue for issue in audit_remote_policy(policy, repository_fixture, missing_context_fixture)):
+		issues.append("Repository policy self-test did not detect a missing protected status check.")
 	branch_fixture = {"commit": {"sha": "0123456789abcdef"}}
 	check_runs_fixture = {
-		"check_runs": [{
-			"name": policy["required_status_check"],
-			"status": "completed",
-			"conclusion": "success",
-		}],
+		"check_runs": [
+			{
+				"name": required_name,
+				"status": "completed",
+				"conclusion": "success",
+			}
+			for required_name in policy["required_status_checks"]
+		],
 	}
-	if audit_required_merge_gate(policy, branch_fixture, check_runs_fixture):
-		issues.append("Repository policy self-test rejected a successful required merge gate.")
-	if not audit_required_merge_gate(policy, branch_fixture, {"check_runs": []}):
-		issues.append("Repository policy self-test did not reject a missing required merge gate.")
+	if audit_required_status_checks(policy, branch_fixture, check_runs_fixture):
+		issues.append("Repository policy self-test rejected successful required status checks.")
+	missing_check_runs_fixture = {"check_runs": check_runs_fixture["check_runs"][1:]}
+	if not audit_required_status_checks(policy, branch_fixture, missing_check_runs_fixture):
+		issues.append("Repository policy self-test did not reject a missing required status check.")
 	failed_check_runs_fixture = json.loads(json.dumps(check_runs_fixture))
 	failed_check_runs_fixture["check_runs"][0]["conclusion"] = "failure"
-	if not audit_required_merge_gate(policy, branch_fixture, failed_check_runs_fixture):
-		issues.append("Repository policy self-test did not reject a failing required merge gate.")
+	if not audit_required_status_checks(policy, branch_fixture, failed_check_runs_fixture):
+		issues.append("Repository policy self-test did not reject a failing required status check.")
 	not_started_context = make_protection_result_context(repository, True)
 	if not_started_context["applied"] or not_started_context["completed_mutations"]:
 		issues.append("Repository policy self-test reported an unstarted apply as completed.")
@@ -403,6 +781,95 @@ def run_policy_self_tests(policy: dict[str, Any]) -> list[str]:
 	protection_payload = make_branch_protection_payload(policy)
 	if protection_payload["lock_branch"] or protection_payload["allow_fork_syncing"]:
 		issues.append("Repository policy self-test allowed fork syncing on an unlocked default branch.")
+	if protection_payload["required_status_checks"]["contexts"] != list(policy["required_status_checks"]):
+		issues.append("Repository policy self-test did not include every governed status check in protection payload.")
+	issues.extend(run_ci_workflow_mutation_self_tests(policy))
+	return issues
+
+
+def run_ci_workflow_mutation_self_tests(policy: dict[str, Any]) -> list[str]:
+	try:
+		source = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
+	except (OSError, UnicodeDecodeError) as error:
+		return [f"Repository policy self-test could not read CI workflow: {error}"]
+	if audit_ci_workflow(policy, source):
+		return []
+	mutations = (
+		(
+			"wrong_push_branch",
+			source.replace("      - main", "      - release", 1),
+			"CI push.branches",
+		),
+		(
+			"unguarded_manual_full",
+			source.replace(
+				"github.event_name == 'push' ||\n      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') ||",
+				"github.event_name != 'pull_request' ||",
+				1,
+			),
+			"framework-checks if",
+		),
+		(
+			"manual_required_policy_name",
+			source.replace(REPOSITORY_POLICY_NAME, "GF repository policy", 1),
+			"repository-policy name",
+		),
+		(
+			"comment_spoofed_cancellation",
+			source.replace("      !cancelled() &&", "      always() && # !cancelled() &&", 1),
+			"draft-gate if",
+		),
+		(
+			"comment_spoofed_framework_suite",
+			source.replace("            suite: framework-lsp", "            # suite: framework-lsp", 1),
+			"framework-checks matrix suites",
+		),
+		(
+			"comment_spoofed_merge_dependency",
+			source.replace("      - package-checks", "      # - package-checks", 1),
+			"merge-gate needs",
+		),
+		(
+			"wrong_windows_process_runner",
+			source.replace("    runs-on: windows-latest", "    runs-on: ubuntu-latest", 1),
+			"windows-process-supervision runs-on",
+		),
+		(
+			"missing_windows_process_test",
+			source.replace(
+				"python tools/gf_maintenance.py maintenance-self-test --json",
+				"python tools/gf_maintenance.py summary --json",
+				1,
+			),
+			"windows-process-supervision is missing governed command",
+		),
+		(
+			"missing_windows_process_merge_dependency",
+			source.replace(
+				"      - windows-process-supervision",
+				"      # - windows-process-supervision",
+				1,
+			),
+			"merge-gate needs",
+		),
+		(
+			"wrong_job_quick_command",
+			source.replace("          --suite quick", "          --suite policy-only", 1).replace(
+				"python tools/gf_repository_policy.py validate --json",
+				"python tools/gf_repository_policy.py validate --json\n          # --suite quick",
+				1,
+			),
+			"quick-checks is missing governed command",
+		),
+	)
+	issues: list[str] = []
+	for name, mutated_source, expected_fragment in mutations:
+		mutation_issues = audit_ci_workflow(policy, mutated_source)
+		if not any(expected_fragment in issue for issue in mutation_issues):
+			issues.append(
+				f"Repository policy self-test {name} did not detect its structural CI mutation: "
+				f"{mutation_issues}"
+			)
 	return issues
 
 
@@ -439,13 +906,8 @@ def check_or_apply_remote_policy(policy: dict[str, Any], repository: str, apply:
 			branch = urllib.parse.quote(str(policy["default_branch"]), safe="")
 			branch_data = github_request("GET", f"/repos/{repository}/branches/{branch}", token)
 			head_sha = str(object_value(branch_data.get("commit")).get("sha", "")).strip()
-			encoded_check_name = urllib.parse.quote(str(policy["required_status_check"]), safe="")
-			check_runs_data = github_request(
-				"GET",
-				f"/repos/{repository}/commits/{head_sha}/check-runs?check_name={encoded_check_name}&filter=latest&per_page=100",
-				token,
-			) if head_sha else {"check_runs": []}
-			preflight_issues = audit_required_merge_gate(policy, branch_data, check_runs_data)
+			check_runs_data = fetch_required_check_runs(policy, repository, head_sha, token)
+			preflight_issues = audit_required_status_checks(policy, branch_data, check_runs_data)
 			if preflight_issues:
 				return make_result(
 					"protection",
@@ -495,6 +957,29 @@ def apply_remote_policy(
 	mutation_log.append("repository_settings")
 
 
+def fetch_required_check_runs(
+	policy: dict[str, Any],
+	repository: str,
+	head_sha: str,
+	token: str,
+) -> dict[str, Any]:
+	if not head_sha:
+		return {"check_runs": []}
+	check_runs: list[dict[str, Any]] = []
+	for required_name in policy["required_status_checks"]:
+		encoded_check_name = urllib.parse.quote(str(required_name), safe="")
+		response = github_request(
+			"GET",
+			f"/repos/{repository}/commits/{head_sha}/check-runs?check_name={encoded_check_name}&filter=latest&per_page=100",
+			token,
+		)
+		response_runs = response.get("check_runs")
+		if not isinstance(response_runs, list):
+			raise GitHubApiError(0, f"GitHub check-runs response for {required_name!r} was malformed.")
+		check_runs.extend(run for run in response_runs if isinstance(run, dict))
+	return {"check_runs": check_runs}
+
+
 def make_protection_result_context(
 	repository: str,
 	apply_requested: bool,
@@ -521,7 +1006,7 @@ def make_branch_protection_payload(policy: dict[str, Any]) -> dict[str, Any]:
 	return {
 		"required_status_checks": {
 			"strict": protection["strict_status_checks"],
-			"contexts": [policy["required_status_check"]],
+			"contexts": list(policy["required_status_checks"]),
 		},
 		"enforce_admins": protection["enforce_admins"],
 		"required_pull_request_reviews": {
@@ -561,7 +1046,7 @@ def audit_remote_policy(
 		context = check.get("context")
 		if isinstance(context, str):
 			contexts.add(context)
-	expected_contexts = {str(policy["required_status_check"])}
+	expected_contexts = {str(name) for name in policy["required_status_checks"]}
 	if contexts != expected_contexts:
 		issues.append(f"GitHub required status checks are {sorted(contexts)}, expected {sorted(expected_contexts)}.")
 	if enabled_value(protection_data.get("enforce_admins")) != protection["enforce_admins"]:
@@ -587,7 +1072,7 @@ def audit_remote_policy(
 	return issues
 
 
-def audit_required_merge_gate(
+def audit_required_status_checks(
 	policy: dict[str, Any],
 	branch_data: dict[str, Any],
 	check_runs_data: dict[str, Any],
@@ -599,16 +1084,22 @@ def audit_required_merge_gate(
 	check_runs = check_runs_data.get("check_runs")
 	if not isinstance(check_runs, list):
 		return ["Cannot apply protection because GitHub check-runs data is malformed."]
-	required_name = str(policy["required_status_check"])
-	matching_runs = [
-		run
-		for run in check_runs
-		if isinstance(run, dict) and run.get("name") == required_name
-	]
-	if not matching_runs:
-		return [f"Cannot apply protection before {required_name!r} appears on the current default-branch commit."]
-	if not any(run.get("status") == "completed" and run.get("conclusion") == "success" for run in matching_runs):
-		issues.append(f"Cannot apply protection until {required_name!r} succeeds on the current default-branch commit.")
+	for required_name_value in policy["required_status_checks"]:
+		required_name = str(required_name_value)
+		matching_runs = [
+			run
+			for run in check_runs
+			if isinstance(run, dict) and run.get("name") == required_name
+		]
+		if not matching_runs:
+			issues.append(
+				f"Cannot apply protection before {required_name!r} appears on the current default-branch commit."
+			)
+			continue
+		if not any(run.get("status") == "completed" and run.get("conclusion") == "success" for run in matching_runs):
+			issues.append(
+				f"Cannot apply protection until {required_name!r} succeeds on the current default-branch commit."
+			)
 	return issues
 
 

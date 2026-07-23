@@ -14,12 +14,14 @@
 ## Verification
 
 <!-- List exact focused commands and outcomes. Do not claim checks that were not run. -->
+<!-- Title/body-only edits rerun policy without cancelling this SHA's validation; changing the base reruns the applicable gate. -->
 
 - [ ] Focused tests cover the changed behavior and failure path.
 - [ ] `python tools/gf_maintenance.py check --suite quick --failed-only`
 - [ ] GDScript warning and LSP gates are clean when `.gd` files changed.
 - [ ] Generated API or knowledge output is fresh when its source changed.
-- [ ] Ready PR CI completed through `GF merge gate`.
+- [ ] Draft PR feedback completed through `GF draft gate` when applicable.
+- [ ] Ready PR CI completed through `GF repository policy` and `GF merge gate`.
 
 ## Documentation and Release
 

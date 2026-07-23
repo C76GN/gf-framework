@@ -6,12 +6,32 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import stat
 import subprocess
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 from typing import Iterable
 from typing import Mapping
+
+
+FILE_ATTRIBUTE_REPARSE_POINT = 0x0400
+WORKSPACE_FINGERPRINT_CHUNK_BYTES = 1024 * 1024
+MAX_WORKSPACE_FINGERPRINT_UNTRACKED_FILE_BYTES = 64 * 1024 * 1024
+MAX_WORKSPACE_FINGERPRINT_UNTRACKED_TOTAL_BYTES = 256 * 1024 * 1024
+
+
+class WorkspaceFingerprintError(RuntimeError):
+	"""Base error for fail-closed workspace fingerprint operations."""
+
+
+class WorkspaceFingerprintSetupError(WorkspaceFingerprintError):
+	"""Raised when a workspace entry cannot be fingerprinted safely."""
+
+
+class WorkspaceFingerprintDriftError(WorkspaceFingerprintError):
+	"""Raised when a workspace entry changes during fingerprinting."""
 
 
 def stable_fingerprint(value: Any) -> str:
@@ -25,11 +45,23 @@ def stable_fingerprint(value: Any) -> str:
 	return hashlib.sha256(payload).hexdigest()
 
 
-def workspace_fingerprint(root: Path) -> dict[str, Any]:
+def workspace_fingerprint(root: Path, *, deadline: float | None = None) -> dict[str, Any]:
 	"""Fingerprint committed state plus every non-ignored local change."""
-	head = run_git_bytes(root, ["rev-parse", "HEAD"]).decode("utf-8", errors="replace").strip()
-	diff = run_git_bytes(root, ["diff", "--binary", "--no-ext-diff", "HEAD", "--"])
-	untracked_output = run_git_bytes(root, ["ls-files", "--others", "--exclude-standard", "-z"])
+	_check_deadline(deadline, "workspace fingerprint")
+	head = run_git_bytes(root, ["rev-parse", "HEAD"], deadline=deadline).decode(
+		"utf-8",
+		errors="replace",
+	).strip()
+	diff = run_git_bytes(
+		root,
+		["diff", "--binary", "--no-ext-diff", "HEAD", "--"],
+		deadline=deadline,
+	)
+	untracked_output = run_git_bytes(
+		root,
+		["ls-files", "--others", "--exclude-standard", "-z"],
+		deadline=deadline,
+	)
 	untracked_paths = sorted(
 		path
 		for path in untracked_output.decode("utf-8", errors="surrogateescape").split("\0")
@@ -40,19 +72,50 @@ def workspace_fingerprint(root: Path) -> dict[str, Any]:
 	digest.update(head.encode("utf-8"))
 	digest.update(b"\0diff\0")
 	digest.update(diff)
+	untracked_regular_bytes = 0
 	for relative_path in untracked_paths:
+		_check_deadline(deadline, "workspace fingerprint")
 		digest.update(b"\0untracked\0")
 		digest.update(relative_path.encode("utf-8", errors="surrogateescape"))
 		path = root / relative_path
 		try:
 			file_stat = path.lstat()
-			digest.update(f"\0mode={file_stat.st_mode:o}\0size={file_stat.st_size}\0".encode("ascii"))
-			if path.is_symlink():
-				digest.update(os.readlink(path).encode("utf-8", errors="surrogateescape"))
-			elif path.is_file():
-				digest.update(path.read_bytes())
 		except OSError as exc:
-			digest.update(f"\0unreadable={type(exc).__name__}:{exc}\0".encode("utf-8", errors="replace"))
+			raise WorkspaceFingerprintDriftError(
+				f"Could not inspect Git-enumerated untracked workspace entry: {relative_path}: {exc}"
+			) from exc
+		digest.update(f"\0mode={file_stat.st_mode:o}\0size={file_stat.st_size}\0".encode("ascii"))
+		if stat.S_ISLNK(file_stat.st_mode):
+			try:
+				link_target = os.readlink(path)
+			except OSError as exc:
+				raise WorkspaceFingerprintDriftError(
+					"Could not read Git-enumerated untracked workspace symlink: "
+					f"{relative_path}: {exc}"
+				) from exc
+			digest.update(link_target.encode("utf-8", errors="surrogateescape"))
+		elif stat.S_ISREG(file_stat.st_mode):
+			if file_stat.st_size > MAX_WORKSPACE_FINGERPRINT_UNTRACKED_FILE_BYTES:
+				raise WorkspaceFingerprintSetupError(
+					"Untracked workspace file exceeds the "
+					f"{MAX_WORKSPACE_FINGERPRINT_UNTRACKED_FILE_BYTES}-byte fingerprint "
+					f"limit: {relative_path}"
+				)
+			projected_regular_bytes = untracked_regular_bytes + file_stat.st_size
+			if projected_regular_bytes > MAX_WORKSPACE_FINGERPRINT_UNTRACKED_TOTAL_BYTES:
+				raise WorkspaceFingerprintSetupError(
+					"Untracked workspace files exceed the "
+					f"{MAX_WORKSPACE_FINGERPRINT_UNTRACKED_TOTAL_BYTES}-byte total "
+					"fingerprint limit."
+				)
+			digest = _update_digest_from_stable_regular_file(
+				digest,
+				path,
+				file_stat,
+				deadline=deadline,
+			)
+			untracked_regular_bytes = projected_regular_bytes
+	_check_deadline(deadline, "workspace fingerprint")
 	return {
 		"schema_version": 1,
 		"head": head,
@@ -62,18 +125,183 @@ def workspace_fingerprint(root: Path) -> dict[str, Any]:
 	}
 
 
-def run_git_bytes(root: Path, args: list[str]) -> bytes:
+def _update_digest_from_stable_regular_file(
+	digest: Any,
+	path: Path,
+	before: os.stat_result,
+	*,
+	deadline: float | None,
+) -> Any:
+	"""Append one regular file without buffering it or accepting a replaced path."""
+	_check_deadline(deadline, "workspace fingerprint file reading")
+	if (
+		before.st_size < 0
+		or before.st_size > MAX_WORKSPACE_FINGERPRINT_UNTRACKED_FILE_BYTES
+	):
+		raise WorkspaceFingerprintSetupError(
+			"Untracked workspace file has an unsupported fingerprint size "
+			f"{before.st_size}: {path}"
+		)
+	if _stat_is_regular_reparse(before):
+		raise WorkspaceFingerprintSetupError(
+			f"Untracked workspace regular file is a reparse point: {path}"
+		)
+	if not _stat_has_verifiable_identity(before):
+		raise WorkspaceFingerprintSetupError(
+			f"Untracked workspace file identity is unavailable: {path}"
+		)
+	flags = (
+		os.O_RDONLY
+		| getattr(os, "O_BINARY", 0)
+		| getattr(os, "O_CLOEXEC", 0)
+		| getattr(os, "O_NOFOLLOW", 0)
+	)
+	try:
+		file_descriptor = os.open(path, flags)
+	except TimeoutError:
+		raise
+	except OSError as exc:
+		raise WorkspaceFingerprintSetupError(
+			f"Could not open untracked workspace file safely: {path}: {exc}"
+		) from exc
+	try:
+		candidate = digest.copy()
+		byte_count = 0
+		try:
+			opened_before = os.fstat(file_descriptor)
+			if _stat_is_regular_reparse(opened_before):
+				raise WorkspaceFingerprintDriftError(
+					f"Untracked workspace file became a reparse point while opening: {path}"
+				)
+			if not _stat_has_verifiable_identity(opened_before):
+				raise WorkspaceFingerprintSetupError(
+					f"Opened untracked workspace file identity is unavailable: {path}"
+				)
+			if not _same_regular_file_cross_view(before, opened_before):
+				raise WorkspaceFingerprintDriftError(
+					f"Untracked workspace file changed while opening: {path}"
+				)
+			while byte_count <= before.st_size:
+				_check_deadline(deadline, "workspace fingerprint file reading")
+				chunk = os.read(
+					file_descriptor,
+					min(
+						WORKSPACE_FINGERPRINT_CHUNK_BYTES,
+						before.st_size + 1 - byte_count,
+					),
+				)
+				_check_deadline(deadline, "workspace fingerprint file reading")
+				if not chunk:
+					break
+				candidate.update(chunk)
+				byte_count += len(chunk)
+			if byte_count > before.st_size:
+				raise WorkspaceFingerprintDriftError(
+					f"Untracked workspace file grew while being read: {path}"
+				)
+			opened_after = os.fstat(file_descriptor)
+		except TimeoutError:
+			raise
+		except OSError as exc:
+			raise WorkspaceFingerprintSetupError(
+				f"Could not read untracked workspace file safely: {path}: {exc}"
+			) from exc
+	finally:
+		try:
+			os.close(file_descriptor)
+		except TimeoutError:
+			raise
+		except OSError as exc:
+			raise WorkspaceFingerprintSetupError(
+				f"Could not close untracked workspace file safely: {path}: {exc}"
+			) from exc
+	try:
+		after = path.lstat()
+	except OSError as exc:
+		raise WorkspaceFingerprintDriftError(
+			f"Untracked workspace file disappeared while reading: {path}"
+		) from exc
+	if (
+		_stat_is_regular_reparse(after)
+		or not _stat_has_verifiable_identity(after)
+		or not _same_regular_file_snapshot(opened_before, opened_after)
+		or not _same_regular_file_cross_view(opened_after, after)
+		or not _same_regular_file_snapshot(before, after)
+		or byte_count != opened_after.st_size
+	):
+		raise WorkspaceFingerprintDriftError(
+			f"Untracked workspace file changed while being read: {path}"
+		)
+	_check_deadline(deadline, "workspace fingerprint file reading")
+	return candidate
+
+
+def _stat_has_verifiable_identity(value: os.stat_result) -> bool:
+	return int(getattr(value, "st_ino", 0)) != 0
+
+
+def _stat_is_regular_reparse(value: os.stat_result) -> bool:
+	return (
+		stat.S_ISREG(value.st_mode)
+		and bool(int(getattr(value, "st_file_attributes", 0)) & FILE_ATTRIBUTE_REPARSE_POINT)
+	)
+
+
+def _same_regular_file_snapshot(left: os.stat_result, right: os.stat_result) -> bool:
+	return (
+		_same_regular_file_cross_view(left, right)
+		and left.st_mode == right.st_mode
+		and left.st_size == right.st_size
+		and left.st_mtime_ns == right.st_mtime_ns
+		and left.st_ctime_ns == right.st_ctime_ns
+		and int(getattr(left, "st_file_attributes", 0))
+		== int(getattr(right, "st_file_attributes", 0))
+	)
+
+
+def _same_regular_file_cross_view(left: os.stat_result, right: os.stat_result) -> bool:
+	"""Compare lstat/fstat views without relying on Windows' differing ctime view."""
+	return (
+		stat.S_ISREG(left.st_mode)
+		and stat.S_ISREG(right.st_mode)
+		and not _stat_is_regular_reparse(left)
+		and not _stat_is_regular_reparse(right)
+		and _stat_has_verifiable_identity(left)
+		and _stat_has_verifiable_identity(right)
+		and os.path.samestat(left, right)
+		and left.st_mode == right.st_mode
+		and left.st_size == right.st_size
+		and left.st_mtime_ns == right.st_mtime_ns
+	)
+
+
+def run_git_bytes(root: Path, args: list[str], *, deadline: float | None = None) -> bytes:
+	timeout_seconds = _remaining_timeout(deadline, "workspace fingerprint git operation")
 	completed = subprocess.run(
 		["git", *args],
 		cwd=root,
 		capture_output=True,
 		check=False,
-		timeout=30,
+		timeout=min(30.0, timeout_seconds),
 	)
 	if completed.returncode != 0:
 		message = completed.stderr.decode("utf-8", errors="replace").strip()
 		raise RuntimeError(f"git {' '.join(args)} failed: {message}")
 	return completed.stdout
+
+
+def _remaining_timeout(deadline: float | None, operation: str) -> float:
+	if deadline is None:
+		return 30.0
+	remaining = deadline - time.perf_counter()
+	if remaining <= 0.0:
+		raise TimeoutError(f"Suite deadline exhausted during {operation}.")
+	return max(0.001, remaining)
+
+
+def _check_deadline(deadline: float | None, operation: str) -> None:
+	if deadline is not None and time.perf_counter() >= deadline:
+		raise TimeoutError(f"Suite deadline exhausted during {operation}.")
 
 
 class CheckGraph:

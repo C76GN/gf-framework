@@ -59,6 +59,7 @@
 - AI Developer 项目契约的所有受控项目路径现在统一逐段拒绝符号链接、Windows junction 和其他重解析点；模块根、Adapter 根、project profile、验证必需路径与项目级资源不再允许通过链接别名绕过所有权边界。
 - 模块根与 Adapter 根额外采用跨平台规范化校验，并以大小写无关方式拒绝 `res://addons/gf` 及 Windows 尾点、保留名称等别名，避免把 GF 源码误归属为项目模块；普通源码资源引用不受这项契约限制。
 - CI 与 Release 工作流统一采用 Node.js 24 世代的 `actions/checkout@v7`、`actions/setup-python@v7`、`actions/upload-artifact@v7` 和 `actions/download-artifact@v8`，维护自检会阻止旧主版本回退。
+- 验证链路将 Draft quick gate 与 Ready/main 完整门禁分离，`GF repository policy` 与 `GF merge gate` 共同作为 required checks，并把 framework 检查拆成 GUT、LSP 与静态检查并行分片；Ready/main 另由 `windows-latest` 聚焦任务验证原生 Job Object 清理并汇入 merge gate，非 `main` 手工运行不会生成同名 required context。本地 Full Suite 默认使用 3 个隔离 worker（可显式调整为 2–6 个），按批创建/执行/验收/清理工作区与私有用户目录，Windows 同时约束 clone、staging 和临时目录的投影路径预算并拒绝映射盘与 SUBST 别名，启动前由真实 Godot 验证平台用户目录边界，suite deadline 覆盖准备、源码分块捕获、制品扫描/哈希/复制、执行与复核全链路。每个 shard 由 POSIX process group 或 Windows Job Object 持有至完整后代树清空；单次 suite 的 package smoke 复用一份经源码指纹和哈希封存的构建产物，父进程精确核对 consumer 报告的 manifest 摘要与产物数量，并对报告和失败日志执行有界读取与完整目录链校验，同时保留严格 LSP 硬门禁与 `--jobs 1` 串行诊断退路。
 
 ### 🐛 Bug 修复 (Fixed)
 
@@ -141,3 +142,8 @@
 - `addons/gf/tools/ai_developer/schemas/project_snapshot.schema.json`
 - `.github/workflows/ci.yml`
 - `.github/workflows/release.yml`
+- `tools/gf_maintenance.py`
+- `tools/gf_parallel_validation.py`
+- `tools/gf_package_artifact_set.py`
+- `tools/gf_process_supervisor.py`
+- `tools/gf_repository_policy.py`

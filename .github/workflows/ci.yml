@@ -18,12 +18,12 @@ permissions:
   contents: read
 
 concurrency:
-  group: ci-${{ github.event.pull_request.number || github.ref }}
+  group: ci-${{ github.event.pull_request.number || github.ref }}-${{ github.event_name == 'pull_request' && github.event.action == 'edited' && github.event.changes.base.ref.from == '' && 'policy' || 'validation' }}
   cancel-in-progress: true
 
 jobs:
   repository-policy:
-    name: GF repository policy
+    name: ${{ github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/main' && 'GF repository policy (manual non-main)' || 'GF repository policy' }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
 
@@ -50,7 +50,10 @@ jobs:
 
   quick-checks:
     name: GF draft quick checks
-    if: github.event_name == 'pull_request' && github.event.pull_request.draft == true
+    if: >-
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.draft == true &&
+      (github.event.action != 'edited' || github.event.changes.base.ref.from != '')
     needs:
       - repository-policy
     runs-on: ubuntu-latest
@@ -76,12 +79,36 @@ jobs:
           --github-annotations
 
   framework-checks:
-    name: GF framework checks
-    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    name: GF framework checks (${{ matrix.name }})
+    if: >-
+      github.event_name == 'push' ||
+      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') ||
+      (github.event_name == 'pull_request' &&
+      github.event.pull_request.draft == false &&
+      (github.event.action != 'edited' || github.event.changes.base.ref.from != ''))
     needs:
       - repository-policy
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: ${{ matrix.timeout_minutes }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: GUT and warnings
+            suite: framework-gut
+            install_docs: false
+            setup_godot: true
+            timeout_minutes: 30
+          - name: LSP diagnostics
+            suite: framework-lsp
+            install_docs: false
+            setup_godot: true
+            timeout_minutes: 15
+          - name: static and docs
+            suite: framework-static
+            install_docs: true
+            setup_godot: false
+            timeout_minutes: 20
 
     steps:
       - name: Checkout
@@ -96,23 +123,30 @@ jobs:
           python-version: "3.12"
 
       - name: Install documentation dependencies
+        if: matrix.install_docs == true
         run: |
           python -m pip install --upgrade pip
           python -m pip install -r docs/requirements.txt
 
       - name: Set up Godot
+        if: matrix.setup_godot == true
         uses: ./.github/actions/setup-godot
 
       - name: Run framework maintenance shard
         run: >
           python tools/gf_maintenance.py check
-          --suite framework
+          --suite ${{ matrix.suite }}
           --failed-only
           --github-annotations
 
   package-checks:
     name: GF package checks (${{ matrix.name }})
-    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    if: >-
+      github.event_name == 'push' ||
+      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') ||
+      (github.event_name == 'pull_request' &&
+      github.event.pull_request.draft == false &&
+      (github.event.action != 'edited' || github.event.changes.base.ref.from != ''))
     needs:
       - repository-policy
     runs-on: ubuntu-latest
@@ -159,37 +193,90 @@ jobs:
           --failed-only
           --github-annotations
 
-  merge-gate:
-    name: GF merge gate
-    if: always()
+  windows-process-supervision:
+    name: GF process supervision (Windows)
+    if: >-
+      github.event_name == 'push' ||
+      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') ||
+      (github.event_name == 'pull_request' &&
+      github.event.pull_request.draft == false &&
+      (github.event.action != 'edited' || github.event.changes.base.ref.from != ''))
+    needs:
+      - repository-policy
+    runs-on: windows-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Verify owned process-tree cleanup
+        run: python tools/gf_maintenance.py maintenance-self-test --json
+
+  draft-gate:
+    name: ${{ github.event_name == 'pull_request' && github.event.pull_request.draft == true && (github.event.action != 'edited' || github.event.changes.base.ref.from != '') && 'GF draft gate' || 'GF draft gate (not applicable)' }}
+    if: >-
+      !cancelled() &&
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.draft == true &&
+      (github.event.action != 'edited' || github.event.changes.base.ref.from != '')
     needs:
       - repository-policy
       - quick-checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Evaluate Draft checks
+        env:
+          POLICY_RESULT: ${{ needs.repository-policy.result }}
+          QUICK_RESULT: ${{ needs.quick-checks.result }}
+        run: |
+          if [ "${POLICY_RESULT}" != "success" ]; then
+            echo "Repository policy failed: ${POLICY_RESULT}"
+            exit 1
+          fi
+          if [ "${QUICK_RESULT}" != "success" ]; then
+            echo "Draft quick checks failed: ${QUICK_RESULT}"
+            exit 1
+          fi
+
+  merge-gate:
+    name: ${{ (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') || (github.event_name == 'pull_request' && github.event.pull_request.draft == false && (github.event.action != 'edited' || github.event.changes.base.ref.from != ''))) && 'GF merge gate' || 'GF merge gate (not applicable)' }}
+    if: >-
+      !cancelled() &&
+      (github.event_name == 'push' ||
+      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') ||
+      (github.event_name == 'pull_request' &&
+      github.event.pull_request.draft == false &&
+      (github.event.action != 'edited' || github.event.changes.base.ref.from != '')))
+    needs:
+      - repository-policy
       - framework-checks
       - package-checks
+      - windows-process-supervision
     runs-on: ubuntu-latest
     timeout-minutes: 5
 
     steps:
       - name: Evaluate required checks
         env:
-          EVENT_NAME: ${{ github.event_name }}
-          IS_DRAFT: ${{ github.event_name == 'pull_request' && github.event.pull_request.draft }}
           POLICY_RESULT: ${{ needs.repository-policy.result }}
-          QUICK_RESULT: ${{ needs.quick-checks.result }}
           FRAMEWORK_RESULT: ${{ needs.framework-checks.result }}
           PACKAGE_RESULT: ${{ needs.package-checks.result }}
+          WINDOWS_PROCESS_RESULT: ${{ needs.windows-process-supervision.result }}
         run: |
           if [ "${POLICY_RESULT}" != "success" ]; then
             echo "Repository policy failed: ${POLICY_RESULT}"
             exit 1
-          fi
-          if [ "${EVENT_NAME}" = "pull_request" ] && [ "${IS_DRAFT}" = "true" ]; then
-            if [ "${QUICK_RESULT}" != "success" ]; then
-              echo "Draft quick checks failed: ${QUICK_RESULT}"
-              exit 1
-            fi
-            exit 0
           fi
           if [ "${FRAMEWORK_RESULT}" != "success" ]; then
             echo "Framework checks failed: ${FRAMEWORK_RESULT}"
@@ -197,5 +284,9 @@ jobs:
           fi
           if [ "${PACKAGE_RESULT}" != "success" ]; then
             echo "Package checks failed: ${PACKAGE_RESULT}"
+            exit 1
+          fi
+          if [ "${WINDOWS_PROCESS_RESULT}" != "success" ]; then
+            echo "Windows process supervision failed: ${WINDOWS_PROCESS_RESULT}"
             exit 1
           fi
