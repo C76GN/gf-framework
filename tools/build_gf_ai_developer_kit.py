@@ -217,6 +217,7 @@ def check_source(rendered_payload: dict[str, Any] | None = None) -> dict[str, An
 	except (OSError, RuntimeError, ValueError) as exc:
 		issues.append(f"project_artifact_policy.json is invalid: {exc}")
 	issues.extend(validate_contract_template())
+	issues.extend(validate_protocol_versions())
 	issues.extend(validate_catalogs())
 	issues.extend(validate_agent_templates())
 	return {
@@ -241,6 +242,28 @@ def validate_contract_template() -> list[str]:
 		issues.append(f"Contract template {item['path']}: {item['message']}")
 	for item in validate_schema_file(candidate, ADDON_ROOT / "schemas/feedback_candidate.schema.json"):
 		issues.append(f"Feedback template {item['path']}: {item['message']}")
+	return issues
+
+
+def validate_protocol_versions() -> list[str]:
+	sys.path.insert(0, str(ADDON_ROOT))
+	try:
+		from gf_ai.constants import CONTRACT_SCHEMA_VERSION, SNAPSHOT_SCHEMA_VERSION, TOOL_VERSION
+	finally:
+		if sys.path and sys.path[0] == str(ADDON_ROOT):
+			sys.path.pop(0)
+	contract_schema = read_strict_json_object(ADDON_ROOT / "schemas/project_contract.schema.json")
+	snapshot_schema = read_strict_json_object(ADDON_ROOT / "schemas/project_snapshot.schema.json")
+	template = read_strict_json_object(ADDON_ROOT / "templates/gf_project_contract.json")
+	issues: list[str] = []
+	if re.fullmatch(r"\d+\.\d+\.\d+", TOOL_VERSION) is None:
+		issues.append("GF AI TOOL_VERSION must be stable SemVer.")
+	contract_const = contract_schema.get("properties", {}).get("schema_version", {}).get("const")
+	snapshot_const = snapshot_schema.get("properties", {}).get("schema_version", {}).get("const")
+	if contract_const != CONTRACT_SCHEMA_VERSION or template.get("schema_version") != CONTRACT_SCHEMA_VERSION:
+		issues.append("Project contract template, schema, and runtime version are inconsistent.")
+	if snapshot_const != SNAPSHOT_SCHEMA_VERSION:
+		issues.append("Project snapshot schema and runtime version are inconsistent.")
 	return issues
 
 
@@ -282,6 +305,19 @@ def validate_catalogs() -> list[str]:
 			issues.append(f"Recipe id is empty or duplicated: {recipe_id!r}.")
 		seen_recipes.add(recipe_id)
 		issues.extend(_missing_references("recipe", recipe_id, "class", recipe.get("primary_classes", []), classes))
+		package_requirements = recipe.get("package_requirements", {})
+		if isinstance(package_requirements, dict):
+			issues.extend(_missing_references(
+				"recipe",
+				recipe_id,
+				"package",
+				package_requirements.get("all_of", []),
+				packages,
+			))
+			groups = package_requirements.get("any_of", [])
+			if isinstance(groups, list):
+				for group in groups:
+					issues.extend(_missing_references("recipe", recipe_id, "package", group, packages))
 	return issues
 
 
@@ -296,7 +332,7 @@ def validate_agent_templates() -> list[str]:
 		issues.append("GF project skill must stay under 500 lines.")
 	if not metadata.is_file() or "$gf-project-development" not in metadata.read_text(encoding="utf-8"):
 		issues.append("GF project skill agents/openai.yaml is missing or stale.")
-	for relative in ("knowledge/architecture.md", "knowledge/workflow.md", "knowledge/feedback.md", "templates/agent/project_instructions.md"):
+	for relative in ("knowledge/architecture.md", "knowledge/workflow.md", "knowledge/migration.md", "knowledge/feedback.md", "templates/agent/project_instructions.md"):
 		path = ADDON_ROOT / relative
 		if not path.is_file() or not path.read_text(encoding="utf-8").strip():
 			issues.append(f"Required AI knowledge file is missing or empty: {relative}.")
@@ -325,7 +361,7 @@ def plugin_entries(version: str) -> dict[str, bytes]:
 	manifest = {
 		"name": PLUGIN_NAME,
 		"version": version,
-		"description": "Contract-driven GF Framework project development with verified API context and approval-gated feedback.",
+		"description": "Contract-driven GF Framework project development with reviewed contract migration, capability readiness, verified API context, and approval-gated feedback.",
 		"author": {"name": "GF Framework Maintainers", "url": "https://github.com/C76GN/gf-framework"},
 		"homepage": "https://gf-framework.readthedocs.io/",
 		"repository": "https://github.com/C76GN/gf-framework",
@@ -336,13 +372,14 @@ def plugin_entries(version: str) -> dict[str, bytes]:
 		"interface": {
 			"displayName": "GF AI Developer",
 			"shortDescription": "Build Godot projects with verified GF context",
-			"longDescription": "Reads explicit project intent, queries versioned GF capabilities and APIs, validates project drift, guides provider-neutral adapter boundaries, and drafts redacted framework feedback that cannot be submitted without explicit approval.",
+			"longDescription": "Reads explicit project intent, plans target-bound contract migrations for interactive human approval, queries versioned GF capabilities and APIs, reports bounded capability readiness and project drift, guides provider-neutral adapter boundaries, and drafts redacted framework feedback that cannot be submitted without explicit approval.",
 			"developerName": "GF Framework Maintainers",
 			"category": "Developer Tools",
 			"capabilities": ["Read", "Write"],
 			"websiteURL": "https://gf-framework.readthedocs.io/",
 			"defaultPrompt": [
 				"Implement this feature using my GF project contract",
+				"Plan and review my GF project contract migration",
 				"Find the correct installed GF capability and API",
 				"Triage this project finding for GF feedback"
 			],

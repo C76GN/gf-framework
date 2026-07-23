@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "catalog_version": "1.0.0",
+  "catalog_version": "1.1.0",
   "capabilities": [
     {
       "id": "architecture",
@@ -28,7 +28,7 @@
       "summary": "Async resource handles, stable resource keys, catalogs, preload plans, and optional content packages.",
       "keywords": ["asset", "resource", "load", "cache", "preload", "catalog", "content package", "dlc"],
       "packages": ["gf.standard.assets", "gf.extension.content_package"],
-      "primary_classes": ["GFAssetUtility", "GFAssetHandle", "GFResourceResolverUtility", "GFAssetCatalog", "GFContentPackageUtility"],
+      "primary_classes": ["GFAssetUtility", "GFAssetHandle", "GFResourceResolverUtility", "GFAssetCatalogRuntime", "GFAssetCatalogMount", "GFContentPackageQuery", "GFContentPackageAssetCatalogProvider"],
       "recipes": ["owned-resource-load", "content-package"],
       "boundary": "Projects define content taxonomy and distribution policy; GF provides identity, lifecycle, plans, and diagnostics."
     },
@@ -45,11 +45,11 @@
     {
       "id": "storage-save",
       "title": "Storage, save graphs, and migration",
-      "summary": "Local storage codecs, backend synchronization, slot metadata, scene save graphs, identity, and explicit migration.",
-      "keywords": ["save", "load", "storage", "slot", "migration", "cloud save", "persistence", "serialize"],
+      "summary": "Local storage codecs, backend synchronization, slot metadata, scene save graphs, transactional save profiles, rollback, recovery, identity, and explicit migration.",
+      "keywords": ["save", "load", "storage", "slot", "profile", "transactional", "rollback", "recovery", "migration", "cloud save", "persistence", "serialize"],
       "packages": ["gf.standard.storage", "gf.extension.save"],
-      "primary_classes": ["GFStorageUtility", "GFStorageBackend", "GFStorageSyncUtility", "GFSaveGraphUtility", "GFSaveScope", "GFSaveIdentity"],
-      "recipes": ["save-boundary", "platform-storage-adapter"],
+      "primary_classes": ["GFStorageUtility", "GFStorageBackend", "GFStorageSyncUtility", "GFSaveGraphUtility", "GFSaveProfileUtility", "GFSaveSectionProvider", "GFSaveRecoveryPolicy"],
+      "recipes": ["save-boundary", "save-profile", "platform-storage-adapter"],
       "boundary": "Projects own save fields, compatibility guarantees, conflict policy, and cloud provider adapters."
     },
     {
@@ -68,8 +68,8 @@
       "summary": "Layered UI navigation, screen state, reactive binding, repeaters, transitions, and focus-friendly project composition.",
       "keywords": ["ui", "screen", "navigation", "binding", "reactive", "modal", "layer", "view"],
       "packages": ["gf.standard.ui", "gf.standard.ui.navigation", "gf.standard.ui.state"],
-      "primary_classes": ["GFUIUtility", "GFUILayerDefinition", "GFUIRoute", "GFUIRouterUtility", "GFReactiveStateStore", "GFReactiveStateControlBinder"],
-      "recipes": ["ui-screen-flow"],
+      "primary_classes": ["GFUIUtility", "GFUILayerDefinition", "GFUIRoute", "GFUIRouterUtility", "GFUIRouteOperation", "GFUIRouteResult", "GFUIRoutePreloadUtility", "GFReactiveStateStore"],
+      "recipes": ["ui-screen-flow", "ui-route-operation"],
       "boundary": "GF owns navigation and binding mechanics; projects own visual hierarchy, copy, and product flows."
     },
     {
@@ -95,11 +95,11 @@
     {
       "id": "diagnostics",
       "title": "Diagnostics, logs, support, and operations",
-      "summary": "Structured logs, bounded diagnostics, operation timelines, debug surfaces, support reports, and build metadata.",
-      "keywords": ["diagnostics", "log", "debug", "support report", "operation", "metrics", "build info", "console"],
+      "summary": "Structured logs, bounded lazy diagnostic providers, operation timelines, session traces, debug surfaces, support reports, and build metadata.",
+      "keywords": ["diagnostics", "lazy", "provider", "session trace", "log", "debug", "support report", "operation", "metrics", "build info", "console"],
       "packages": ["gf.standard.diagnostics", "gf.standard.debug"],
-      "primary_classes": ["GFDiagnosticsUtility", "GFLogUtility", "GFOperationDiagnosticsUtility", "GFSupportReportUtility", "GFBuildInfoUtility"],
-      "recipes": ["diagnostic-contribution", "feedback-candidate"],
+      "primary_classes": ["GFDiagnosticsUtility", "GFDiagnosticSnapshotProvider", "GFDiagnosticProviderResult", "GFSessionTraceUtility", "GFSessionTraceRecipe", "GFOperationDiagnosticsUtility", "GFSupportReportUtility"],
+      "recipes": ["diagnostic-contribution", "session-trace", "feedback-candidate"],
       "boundary": "Collect the minimum needed data, bound all histories, and require explicit consent for precise or private diagnostics."
     },
     {

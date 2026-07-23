@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://gf-framework.dev/schemas/project-snapshot-v3.json",
+  "$id": "https://gf-framework.dev/schemas/project-snapshot-v4.json",
   "title": "GF Observed Project Snapshot",
   "type": "object",
   "additionalProperties": false,
@@ -16,19 +16,23 @@
     "drift"
   ],
   "properties": {
-    "schema_version": {"type": "integer", "const": 3},
+    "schema_version": {"type": "integer", "const": 4},
     "generator_version": {"type": "string", "minLength": 1},
     "generated_at_utc": {"type": "string", "minLength": 1},
     "project_root": {"type": "string", "const": "."},
     "contract": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["path", "valid", "sha256", "issue_count"],
+      "required": ["path", "valid", "sha256", "issue_count", "schema_version", "current_schema_version", "migration_required", "migration_available"],
       "properties": {
         "path": {"type": "string", "minLength": 1},
         "valid": {"type": "boolean"},
         "sha256": {"type": "string", "pattern": "^$|^[0-9a-f]{64}$"},
-        "issue_count": {"type": "integer", "minimum": 0}
+        "issue_count": {"type": "integer", "minimum": 0},
+        "schema_version": {"type": "integer", "minimum": 0},
+        "current_schema_version": {"type": "integer", "const": 2},
+        "migration_required": {"type": "boolean"},
+        "migration_available": {"type": "boolean"}
       }
     },
     "framework": {
@@ -42,7 +46,8 @@
         "plugin_enabled",
         "packages",
         "package_state",
-        "extensions"
+        "extensions",
+        "capability_readiness"
       ],
       "properties": {
         "installed": {"type": "boolean"},
@@ -62,19 +67,71 @@
             "issues": {"type": "array", "items": {"type": "string"}}
           }
         },
-        "extensions": {"type": "array", "uniqueItems": true, "items": {"type": "string"}}
+        "extensions": {"type": "array", "uniqueItems": true, "items": {"type": "string"}},
+        "capability_readiness": {
+          "type": "array",
+          "maxItems": 100,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "decision_state", "owner", "status", "catalog_packages", "installed_catalog_packages", "recipe_all_of_packages", "recipe_all_of_package_count", "recipe_all_of_packages_truncated", "missing_recipe_all_of_packages", "missing_recipe_all_of_package_count", "missing_recipe_all_of_packages_truncated", "recipe_any_of_package_groups", "recipe_any_of_package_group_count", "recipe_any_of_package_groups_truncated", "unsatisfied_recipe_any_of_package_groups", "unsatisfied_recipe_any_of_package_group_count", "unsatisfied_recipe_any_of_package_groups_truncated", "observed_classes", "observed_class_count", "observed_classes_truncated", "observation_complete", "recipes", "acceptance_count"],
+            "properties": {
+              "id": {"type": "string", "maxLength": 120, "pattern": "^[a-z][a-z0-9_-]*$"},
+              "decision_state": {"type": "string", "enum": ["pending_review", "confirmed"]},
+              "owner": {"type": "string", "maxLength": 120, "pattern": "^[a-z][a-z0-9_-]*$"},
+              "status": {"type": "string", "enum": ["unavailable", "incomplete", "observed", "available_unobserved", "evidence_incomplete"]},
+              "catalog_packages": {"type": "array", "maxItems": 30, "uniqueItems": true, "items": {"type": "string"}},
+              "installed_catalog_packages": {"type": "array", "maxItems": 30, "uniqueItems": true, "items": {"type": "string"}},
+              "recipe_all_of_packages": {"type": "array", "maxItems": 40, "uniqueItems": true, "items": {"type": "string"}},
+              "recipe_all_of_package_count": {"type": "integer", "minimum": 0},
+              "recipe_all_of_packages_truncated": {"type": "boolean"},
+              "missing_recipe_all_of_packages": {"type": "array", "maxItems": 40, "uniqueItems": true, "items": {"type": "string"}},
+              "missing_recipe_all_of_package_count": {"type": "integer", "minimum": 0},
+              "missing_recipe_all_of_packages_truncated": {"type": "boolean"},
+              "recipe_any_of_package_groups": {
+                "type": "array",
+                "maxItems": 40,
+                "items": {"type": "array", "minItems": 2, "maxItems": 20, "uniqueItems": true, "items": {"type": "string"}}
+              },
+              "recipe_any_of_package_group_count": {"type": "integer", "minimum": 0},
+              "recipe_any_of_package_groups_truncated": {"type": "boolean"},
+              "unsatisfied_recipe_any_of_package_groups": {
+                "type": "array",
+                "maxItems": 40,
+                "items": {"type": "array", "minItems": 2, "maxItems": 20, "uniqueItems": true, "items": {"type": "string"}}
+              },
+              "unsatisfied_recipe_any_of_package_group_count": {"type": "integer", "minimum": 0},
+              "unsatisfied_recipe_any_of_package_groups_truncated": {"type": "boolean"},
+              "observed_classes": {"type": "array", "maxItems": 80, "uniqueItems": true, "items": {"type": "string", "pattern": "^GF[A-Za-z0-9_]+$"}},
+              "observed_class_count": {"type": "integer", "minimum": 0},
+              "observed_classes_truncated": {"type": "boolean"},
+              "observation_complete": {"type": "boolean"},
+              "recipes": {"type": "array", "maxItems": 20, "uniqueItems": true, "items": {"type": "string", "pattern": "^[a-z][a-z0-9_-]*$"}},
+              "acceptance_count": {"type": "integer", "minimum": 0, "maximum": 30}
+            }
+          }
+        }
       }
     },
     "project": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["godot_features", "script_count", "test_script_count", "source_scan_truncated", "gf_api_usage", "declared_roots", "module_dependency_analysis"],
+      "required": ["godot_features", "script_count", "scanned_script_count", "scanned_script_bytes", "test_script_count", "source_scan_truncated", "source_scan_truncation_reason", "source_scan_complete", "skipped_large_script_count", "unreadable_script_count", "unsafe_script_path_count", "unsafe_directory_count", "gf_api_usage", "test_gf_api_usage", "declared_roots", "module_dependency_analysis"],
       "properties": {
         "godot_features": {"type": "array", "uniqueItems": true, "items": {"type": "string"}},
         "script_count": {"type": "integer", "minimum": 0},
+        "scanned_script_count": {"type": "integer", "minimum": 0},
+        "scanned_script_bytes": {"type": "integer", "minimum": 0},
         "test_script_count": {"type": "integer", "minimum": 0},
         "source_scan_truncated": {"type": "boolean"},
+        "source_scan_truncation_reason": {"type": "string", "enum": ["", "script_count", "byte_budget"]},
+        "source_scan_complete": {"type": "boolean"},
+        "skipped_large_script_count": {"type": "integer", "minimum": 0},
+        "unreadable_script_count": {"type": "integer", "minimum": 0},
+        "unsafe_script_path_count": {"type": "integer", "minimum": 0},
+        "unsafe_directory_count": {"type": "integer", "minimum": 0},
         "gf_api_usage": {"type": "array", "uniqueItems": true, "items": {"type": "string"}},
+        "test_gf_api_usage": {"type": "array", "uniqueItems": true, "items": {"type": "string"}},
         "declared_roots": {
           "type": "array",
           "items": {

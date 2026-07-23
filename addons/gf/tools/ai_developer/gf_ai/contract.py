@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
+import os
 import re
 from pathlib import Path
 from typing import Any
 
 from . import catalog
-from .constants import DEFAULT_CONTRACT_PATH, DEFAULT_OFFICIAL_REPOSITORY, SCHEMA_ROOT, TEMPLATE_ROOT
+from .constants import CONTRACT_SCHEMA_VERSION, DEFAULT_CONTRACT_PATH, DEFAULT_OFFICIAL_REPOSITORY, SCHEMA_ROOT, TEMPLATE_ROOT
 from .paths import (
 	atomic_write_json,
 	is_reserved_framework_resource_path,
@@ -21,7 +22,11 @@ from .schema import validate_schema_file
 
 
 def contract_path(project_root: Path, relative_path: str = DEFAULT_CONTRACT_PATH) -> Path:
-	return resolve_project_path(project_root, relative_path)
+	resolve_project_path(project_root, relative_path)
+	if project_path_has_link_component(project_root, relative_path):
+		raise ValueError("Project contract path crosses a symbolic link, junction, or reparse point.")
+	normalized = relative_path.strip().replace("\\", "/")
+	return Path(os.path.abspath(os.fspath(project_root / Path(normalized))))
 
 
 def initialize_contract(
@@ -51,13 +56,32 @@ def load_contract(
 	project_root: Path,
 	relative_path: str = DEFAULT_CONTRACT_PATH,
 ) -> dict[str, Any]:
-	path = contract_path(project_root, relative_path)
+	try:
+		path = contract_path(project_root, relative_path)
+	except ValueError as exc:
+		return {
+			"ok": False,
+			"path": relative_path,
+			"contract": {},
+			"sha256": "",
+			"schema_version": 0,
+			"current_schema_version": CONTRACT_SCHEMA_VERSION,
+			"migration_required": False,
+			"migration_available": False,
+			"error_count": 1,
+			"warning_count": 0,
+			"issues": [_issue("error", "unsafe_contract_path", relative_path, str(exc))],
+		}
 	if not path.is_file():
 		return {
 			"ok": False,
 			"path": relative_path,
 			"contract": {},
 			"sha256": "",
+			"schema_version": 0,
+			"current_schema_version": CONTRACT_SCHEMA_VERSION,
+			"migration_required": False,
+			"migration_available": False,
 			"error_count": 1,
 			"warning_count": 0,
 			"issues": [_issue("error", "missing_contract", relative_path, "Project contract is missing.")],
@@ -70,16 +94,34 @@ def load_contract(
 			"path": relative_path,
 			"contract": {},
 			"sha256": "",
+			"schema_version": 0,
+			"current_schema_version": CONTRACT_SCHEMA_VERSION,
+			"migration_required": False,
+			"migration_available": False,
 			"error_count": 1,
 			"warning_count": 0,
 			"issues": [_issue("error", "invalid_contract_json", relative_path, str(exc))],
 		}
-	issues = [
-		_issue("error", str(item["code"]), str(item["path"]), str(item["message"]))
-		for item in validate_schema_file(data, SCHEMA_ROOT / "project_contract.schema.json")
-	]
-	if not issues:
-		issues.extend(_semantic_issues(data, project_root))
+	raw_schema_version = data.get("schema_version")
+	schema_version = raw_schema_version if isinstance(raw_schema_version, int) and not isinstance(raw_schema_version, bool) else 0
+	migration_required = schema_version > 0 and schema_version != CONTRACT_SCHEMA_VERSION
+	migration_available = schema_version == 1 and CONTRACT_SCHEMA_VERSION == 2
+	if migration_required and migration_available:
+		issues = [_issue(
+			"error",
+			"contract_migration_required",
+			"$.schema_version",
+			f"Project contract schema v{schema_version} must be migrated to v{CONTRACT_SCHEMA_VERSION}.",
+		)]
+	elif migration_required and schema_version > 0:
+		issues = [_issue(
+			"error",
+			"unsupported_contract_schema",
+			"$.schema_version",
+			f"Project contract schema v{schema_version} is not supported by this kit (expected v{CONTRACT_SCHEMA_VERSION}).",
+		)]
+	else:
+		issues = validate_contract_data(data, project_root)
 	error_count = sum(1 for issue in issues if issue["severity"] == "error")
 	warning_count = sum(1 for issue in issues if issue["severity"] == "warning")
 	return {
@@ -87,10 +129,24 @@ def load_contract(
 		"path": relative_path,
 		"contract": data,
 		"sha256": sha256_json(data),
+		"schema_version": schema_version,
+		"current_schema_version": CONTRACT_SCHEMA_VERSION,
+		"migration_required": migration_required,
+		"migration_available": migration_available,
 		"error_count": error_count,
 		"warning_count": warning_count,
 		"issues": issues,
 	}
+
+
+def validate_contract_data(data: dict[str, Any], project_root: Path) -> list[dict[str, str]]:
+	issues = [
+		_issue("error", str(item["code"]), str(item["path"]), str(item["message"]))
+		for item in validate_schema_file(data, SCHEMA_ROOT / "project_contract.schema.json")
+	]
+	if not issues:
+		issues.extend(_semantic_issues(data, project_root))
+	return issues
 
 
 def _semantic_issues(data: dict[str, Any], project_root: Path) -> list[dict[str, str]]:
@@ -126,12 +182,14 @@ def _semantic_issues(data: dict[str, Any], project_root: Path) -> list[dict[str,
 				f"$.framework.{field}",
 				f"GF package is not present in this installed kit: {package_id}.",
 			))
-	known_capabilities = catalog.known_capability_ids()
-	for capability_id in sorted(_string_set(framework, "required_capabilities") - known_capabilities):
+	capability_requirements = _object_list(framework, "capability_requirements")
+	capability_ids = _unique_ids(capability_requirements, "$.framework.capability_requirements", issues)
+	capability_records = catalog.capability_records_by_id()
+	for capability_id in sorted(capability_ids - set(capability_records)):
 		issues.append(_issue(
 			"error",
 			"unknown_capability",
-			"$.framework.required_capabilities",
+			"$.framework.capability_requirements",
 			f"GF capability is not present in this installed kit: {capability_id}.",
 		))
 
@@ -153,6 +211,82 @@ def _semantic_issues(data: dict[str, Any], project_root: Path) -> list[dict[str,
 			f"Module and adapter ids share one dependency namespace and must be distinct: {component_id}.",
 		))
 	known_dependencies = module_ids.union(adapter_ids).union({"gf", "godot"})
+	capability_owners = module_ids.union(adapter_ids).union({"project"})
+	known_recipes = catalog.known_recipe_ids()
+	for index, requirement in enumerate(capability_requirements):
+		capability_id = str(requirement.get("id", ""))
+		decision_state = str(requirement.get("decision_state", ""))
+		owner = str(requirement.get("owner", ""))
+		if decision_state == "pending_review":
+			issues.append(_issue(
+				"warning",
+				"capability_requirement_pending_review",
+				f"$.framework.capability_requirements[{index}].decision_state",
+				f"Capability requirement still needs explicit project review: {capability_id}.",
+			))
+		elif decision_state == "confirmed":
+			if not _string_set(requirement, "recipes"):
+				issues.append(_issue(
+					"error",
+					"confirmed_capability_recipe_required",
+					f"$.framework.capability_requirements[{index}].recipes",
+					f"Confirmed capability requirement must select at least one advertised Recipe: {capability_id}.",
+				))
+			if not _string_set(requirement, "acceptance"):
+				issues.append(_issue(
+					"error",
+					"confirmed_capability_acceptance_required",
+					f"$.framework.capability_requirements[{index}].acceptance",
+					f"Confirmed capability requirement must declare at least one project-owned acceptance condition: {capability_id}.",
+				))
+		if owner not in capability_owners:
+			issues.append(_issue(
+				"error",
+				"unknown_capability_owner",
+				f"$.framework.capability_requirements[{index}].owner",
+				f"Capability owner is not project, a declared module, or a declared adapter: {owner}.",
+			))
+		capability = capability_records.get(capability_id, {})
+		capability_packages = _string_set(capability, "packages")
+		if capability and not required.intersection(capability_packages):
+			issues.append(_issue(
+				"error",
+				"capability_package_not_required",
+				f"$.framework.capability_requirements[{index}].id",
+				f"Required capability {capability_id} has no provider package in required_packages.",
+			))
+		advertised_recipes = _string_set(capability, "recipes")
+		selected_recipes = _string_set(requirement, "recipes")
+		for recipe_id in sorted(selected_recipes):
+			if recipe_id not in known_recipes:
+				issues.append(_issue(
+					"error",
+					"unknown_capability_recipe",
+					f"$.framework.capability_requirements[{index}].recipes",
+					f"GF recipe is not present in this installed kit: {recipe_id}.",
+				))
+			elif capability and recipe_id not in advertised_recipes:
+				issues.append(_issue(
+					"error",
+					"capability_recipe_mismatch",
+					f"$.framework.capability_requirements[{index}].recipes",
+					f"Recipe {recipe_id} is not advertised for capability {capability_id}.",
+				))
+		recipe_readiness = catalog.recipe_package_readiness(selected_recipes, required)
+		for package_id in recipe_readiness["missing_all_of"]:
+			issues.append(_issue(
+				"error",
+				"capability_recipe_package_not_required",
+				f"$.framework.capability_requirements[{index}].recipes",
+				f"Selected Recipe for {capability_id} requires package {package_id} in the required package dependency closure.",
+			))
+		for group in recipe_readiness["unsatisfied_any_of"]:
+			issues.append(_issue(
+				"error",
+				"capability_recipe_package_alternative_not_required",
+				f"$.framework.capability_requirements[{index}].recipes",
+				f"Selected Recipe for {capability_id} requires one package from: {', '.join(group)}.",
+			))
 	for index, module in enumerate(modules):
 		allowed = _string_set(module, "allowed_dependencies")
 		blocked = _string_set(module, "forbidden_dependencies")

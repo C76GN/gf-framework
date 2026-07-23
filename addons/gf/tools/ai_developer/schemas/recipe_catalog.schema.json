@@ -14,10 +14,35 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["id", "title", "primary_classes", "steps", "avoid"],
+        "required": ["id", "title", "package_requirements", "primary_classes", "steps", "avoid"],
         "properties": {
           "id": {"type": "string", "pattern": "^[a-z][a-z0-9_-]*$", "maxLength": 120},
           "title": {"type": "string", "minLength": 1, "maxLength": 160},
+          "package_requirements": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["all_of", "any_of"],
+            "properties": {
+              "all_of": {
+                "type": "array",
+                "maxItems": 40,
+                "uniqueItems": true,
+                "items": {"type": "string", "pattern": "^gf\\.[a-z0-9_.-]+$"}
+              },
+              "any_of": {
+                "type": "array",
+                "maxItems": 20,
+                "uniqueItems": true,
+                "items": {
+                  "type": "array",
+                  "minItems": 2,
+                  "maxItems": 20,
+                  "uniqueItems": true,
+                  "items": {"type": "string", "pattern": "^gf\\.[a-z0-9_.-]+$"}
+                }
+              }
+            }
+          },
           "primary_classes": {
             "type": "array",
             "minItems": 1,

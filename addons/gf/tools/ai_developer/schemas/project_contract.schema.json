@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://gf-framework.dev/schemas/project-contract-v1.json",
+  "$id": "https://gf-framework.dev/schemas/project-contract-v2.json",
   "title": "GF Project Intent Contract",
   "type": "object",
   "additionalProperties": false,
@@ -18,7 +18,7 @@
   "properties": {
     "schema_version": {
       "type": "integer",
-      "const": 1
+      "const": 2
     },
     "project": {
       "type": "object",
@@ -70,7 +70,7 @@
         "required_packages",
         "optional_packages",
         "forbidden_packages",
-        "required_capabilities",
+        "capability_requirements",
         "adapter_boundaries"
       ],
       "properties": {
@@ -102,13 +102,53 @@
             "pattern": "^gf\\.[a-z0-9_.-]+$"
           }
         },
-        "required_capabilities": {
+        "capability_requirements": {
           "type": "array",
           "maxItems": 100,
-          "uniqueItems": true,
           "items": {
-            "type": "string",
-            "pattern": "^[a-z][a-z0-9_-]*$"
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "decision_state", "owner", "recipes", "acceptance", "notes"],
+            "properties": {
+              "id": {
+                "type": "string",
+                "maxLength": 120,
+                "pattern": "^[a-z][a-z0-9_-]*$"
+              },
+              "decision_state": {
+                "type": "string",
+                "enum": ["pending_review", "confirmed"]
+              },
+              "owner": {
+                "type": "string",
+                "maxLength": 120,
+                "pattern": "^[a-z][a-z0-9_-]*$"
+              },
+              "recipes": {
+                "type": "array",
+                "maxItems": 20,
+                "uniqueItems": true,
+                "items": {
+                  "type": "string",
+                  "maxLength": 120,
+                  "pattern": "^[a-z][a-z0-9_-]*$"
+                }
+              },
+              "acceptance": {
+                "type": "array",
+                "maxItems": 30,
+                "uniqueItems": true,
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 400
+                }
+              },
+              "notes": {
+                "type": "string",
+                "maxLength": 600
+              }
+            }
           }
         },
         "adapter_boundaries": {

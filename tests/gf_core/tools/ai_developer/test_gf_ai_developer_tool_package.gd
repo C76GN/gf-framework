@@ -46,16 +46,22 @@ func test_ai_developer_api_index_matches_installed_framework_version() -> void:
 	assert_false(GFVariantData.get_option_dictionary(index, "classes").is_empty())
 
 
-func test_ai_developer_skill_and_feedback_policy_are_shipped() -> void:
+func test_ai_developer_skill_feedback_and_migration_policy_are_shipped() -> void:
 	var skill_path: String = ADDON_ROOT.path_join("templates/skills/gf-project-development/SKILL.md")
 	var feedback_path: String = ADDON_ROOT.path_join("knowledge/feedback.md")
+	var migration_path: String = ADDON_ROOT.path_join("knowledge/migration.md")
 	var skill_text: String = FileAccess.get_file_as_string(skill_path)
 	var feedback_text: String = FileAccess.get_file_as_string(feedback_path)
+	var migration_text: String = FileAccess.get_file_as_string(migration_path)
 
 	assert_true(FileAccess.file_exists(skill_path))
 	assert_true(skill_text.begins_with("---\nname: gf-project-development\n"))
 	assert_true(feedback_text.contains("MCP intentionally cannot submit"))
 	assert_true(feedback_text.contains("interactive terminal"))
+	assert_true(migration_text.contains("expected-plan-sha256"))
+	assert_true(migration_text.contains("MCP exposes the read-only plan only"))
+	assert_true(migration_text.contains("decision_state: pending_review"))
+	assert_true(migration_text.contains("Project snapshots are generated evidence"))
 
 
 func _load_json_dictionary(path: String) -> Dictionary:

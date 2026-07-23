@@ -10,6 +10,8 @@ GF exists to provide stable mechanisms. A game project owns product rules, conte
 4. Keep business policy in project modules even when GF supplies the data structure or lifecycle host.
 5. Add a new boundary only when it gives ownership, replaceability, testability, or failure isolation.
 
+Each required GF capability is declared in `framework.capability_requirements` with one project, module, or adapter owner. Only `decision_state: confirmed` represents reviewed intent; migration placeholders remain `pending_review` and block project-context readiness. Selected Recipe ids describe the intended mechanism; acceptance entries describe project-owned outcomes. Package declarations remain explicit and must include a provider package for every required capability. Recipe package requirements use explicit `all_of` and alternative `any_of` groups; example classes never imply dependencies. Source observations can support or contradict a decision, but cannot create one.
+
 ## GF architecture roles
 
 - `GFModel`: authoritative project state and snapshots. It should not own rendering or platform SDK calls.
@@ -33,3 +35,4 @@ The adapter owns initialization, availability checks, callback-to-async conversi
 - Never call a provider SDK from domain models or portable systems.
 - Never keep an async operation without an owner, terminal state, cancellation path, and failure observation.
 - Never let generated artifacts become the only record of human intent.
+- Never infer that an available package is adopted, or that an unobserved class proves a capability is unused.

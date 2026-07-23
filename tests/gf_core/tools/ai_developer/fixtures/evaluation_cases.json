@@ -107,6 +107,32 @@
     {
       "query": "deterministic replay random",
       "expected_id": "determinism"
+    },
+    {
+      "query": "transactional save profile rollback",
+      "expected_id": "storage-save"
+    },
+    {
+      "query": "lazy diagnostics session trace",
+      "expected_id": "diagnostics"
+    }
+  ],
+  "recipe_cases": [
+    {
+      "recipe_id": "save-profile",
+      "expected_class": "GFSaveProfileUtility"
+    },
+    {
+      "recipe_id": "content-package",
+      "expected_class": "GFAssetCatalogRuntime"
+    },
+    {
+      "recipe_id": "ui-route-operation",
+      "expected_class": "GFUIRouteOperation"
+    },
+    {
+      "recipe_id": "session-trace",
+      "expected_class": "GFSessionTraceUtility"
     }
   ],
   "api_queries": [

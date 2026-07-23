@@ -27,6 +27,10 @@ class PathBoundaryError(ValueError):
 	"""Raised when a project-side operation would escape its owned boundary."""
 
 
+class CompareExchangeError(ValueError):
+	"""Raised when a guarded JSON replacement cannot prove its source or target."""
+
+
 def normalize_resource_path(raw_path: str) -> str:
 	"""Normalize one exact non-root res:// path without applying platform policy."""
 	normalized = raw_path.strip().replace("\\", "/")
@@ -179,7 +183,9 @@ def atomic_write_bytes(path: Path, data: bytes) -> None:
 			stream.write(data)
 			stream.flush()
 			os.fsync(stream.fileno())
+		_reject_linked_write_path(path)
 		os.replace(temporary, path)
+		_fsync_parent_directory(path)
 	finally:
 		if temporary.exists():
 			temporary.unlink()
@@ -188,6 +194,54 @@ def atomic_write_bytes(path: Path, data: bytes) -> None:
 def atomic_write_json(path: Path, value: Any) -> None:
 	text = json.dumps(value, ensure_ascii=False, indent=2, allow_nan=False) + "\n"
 	atomic_write_text(path, text)
+
+
+def atomic_compare_exchange_json(path: Path, expected_sha256: str, value: Any) -> str:
+	"""Atomically replace JSON after cooperative locking and two source comparisons."""
+	if not isinstance(expected_sha256, str) or len(expected_sha256) != 64 or any(
+		character not in "0123456789abcdef" for character in expected_sha256
+	):
+		raise CompareExchangeError("Expected JSON SHA-256 must be 64 lowercase hexadecimal characters.")
+	target_sha256 = sha256_json(value)
+	data = (json.dumps(value, ensure_ascii=False, indent=2, allow_nan=False) + "\n").encode("utf-8")
+	lock_path = path.with_name(f".{path.name}.gf-ai-migration.lock")
+	temporary = path.parent / f".{path.name}.gf-ai-{os.getpid()}-{secrets.token_hex(8)}.tmp"
+	lock_stream = None
+	lock_owned = False
+	_reject_linked_write_path(path)
+	path.parent.mkdir(parents=True, exist_ok=True)
+	_reject_linked_write_path(path)
+	try:
+		_reject_linked_write_path(lock_path)
+		try:
+			lock_stream = lock_path.open("xb")
+		except FileExistsError as exc:
+			raise CompareExchangeError(f"Project contract migration lock already exists: {lock_path}") from exc
+		lock_owned = True
+		lock_stream.write(f"pid={os.getpid()}\n".encode("ascii"))
+		lock_stream.flush()
+		os.fsync(lock_stream.fileno())
+		if _json_sha256_at_path(path) != expected_sha256:
+			raise CompareExchangeError("Project contract changed before compare-exchange started.")
+		with temporary.open("xb") as stream:
+			stream.write(data)
+			stream.flush()
+			os.fsync(stream.fileno())
+		_reject_linked_write_path(path)
+		if _json_sha256_at_path(path) != expected_sha256:
+			raise CompareExchangeError("Project contract changed during compare-exchange.")
+		os.replace(temporary, path)
+		_fsync_parent_directory(path)
+		if _json_sha256_at_path(path) != target_sha256:
+			raise CompareExchangeError("Migrated project contract target hash verification failed.")
+		return target_sha256
+	finally:
+		if lock_stream is not None:
+			lock_stream.close()
+		if temporary.exists():
+			temporary.unlink()
+		if lock_owned and lock_path.exists():
+			lock_path.unlink()
 
 
 def sha256_bytes(value: bytes) -> str:
@@ -201,15 +255,41 @@ def sha256_json(value: Any) -> str:
 
 
 def _reject_linked_write_path(path: Path) -> None:
-	current = path.parent
+	current = path
 	while True:
-		if current.exists() and current.is_symlink():
-			raise PathBoundaryError(f"Refusing to write through a linked directory: {current}")
+		if _path_is_link_or_reparse(current):
+			raise PathBoundaryError(f"Refusing to write through a linked or reparsed path: {current}")
 		if current.parent == current:
 			break
 		current = current.parent
-	if path.exists() and path.is_symlink():
-		raise PathBoundaryError(f"Refusing to replace a linked file: {path}")
+
+
+def _path_is_link_or_reparse(path: Path) -> bool:
+	try:
+		metadata = path.lstat()
+	except FileNotFoundError:
+		return False
+	except OSError:
+		return True
+	if path.is_symlink():
+		return True
+	reparse_flag = getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0)
+	return bool(reparse_flag and getattr(metadata, "st_file_attributes", 0) & reparse_flag)
+
+
+def _json_sha256_at_path(path: Path) -> str:
+	return sha256_json(read_json_object(path, max_bytes=1024 * 1024))
+
+
+def _fsync_parent_directory(path: Path) -> None:
+	if os.name == "nt":
+		return
+	flags = os.O_RDONLY | getattr(os, "O_DIRECTORY", 0)
+	descriptor = os.open(path.parent, flags)
+	try:
+		os.fsync(descriptor)
+	finally:
+		os.close(descriptor)
 
 
 def _reject_json_constant(value: str) -> Any:

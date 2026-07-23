@@ -39,6 +39,7 @@
 - 新增 Save Profile 运行时：`GFSaveProfile`、`GFSaveSectionProvider`、`GFSaveRecoveryPolicy`、`GFSaveProfileUtility`、异步操作句柄和类型化终态结果共同提供多 section 所有权、generation 合并、flush 屏障、迁移校验和事务回滚。
 - 新增 `GFStorageAsyncOperation` 与 `GFStorageAsyncResult`，让并发调用方按唯一 request ID 观察单次读写终态；`GFStorageReadResult.FailureKind` 结构化区分非法请求、缺失、IO、损坏、未来格式、迁移失败和不可用。
 - AI Developer 项目契约新增可选 `architecture.owned_resources`，用于精确声明 `project.godot`、`export_presets.cfg` 等不属于业务模块的项目级治理文件。
+- AI Developer 工具协议新增只读迁移计划入口与目标绑定、原子 compare-and-swap 的交互式 CLI `contract-migrate`；非交互工具不暴露迁移写入，只支持经过显式定义的单步契约迁移。
 
 ### 🔄 机制更改 (Changed)
 
@@ -52,7 +53,9 @@
 - Session Trace 配方首次应用必须早于任何会话历史，并对 Resource 定义、完整通道目录和运行时配置保留独立指纹与单调修订号；未声明的既有通道会阻止应用，应用后新增通道或临时改写预算、脱敏配置都会让配方操作 fail closed。必需与可选 Provider 失败会分别统计，单项失败不阻断后续检查点采集。
 - `GFUIRouterUtility` 可从当前已注册路由构建预加载计划；Planner 对目录、候选和边扫描分别设有硬上限，统一规范化路由 ID，只表达资源候选和诊断，不自动执行 IO，也不把相邻关系解释为权限或业务跳转。
 - `GFUIRouterUtility.push_route_async()` 与 `replace_route_async()` 现在返回类型化句柄，并支持 `none`、`best_effort`、`required` 三种显式打开前预加载策略；自动计划默认只包含当前页面，临时 owner group 会在面板终态后释放。
-- AI Developer Kit 3.0.0 将项目快照升级到 schema v3；依赖报告现在区分项目级资源状态、命中证据和未归属引用，缺失文件、目录或不安全路径继续 fail closed。
+- AI Developer 工具协议 4.0.0 将项目契约收敛到 schema v2：`required_capabilities` 被带 decision state、owner、Recipe、验收条件和备注的 `capability_requirements` 取代；必需能力必须显式选择 provider package，迁移占位项保持 `pending_review` 并阻断漂移门禁。
+- AI Developer 项目快照升级到 schema v4，新增契约迁移状态和 `capability_readiness`；目录包、安装包、Recipe 的显式 `all_of/any_of` 包表达式、生产/测试源码命中、累计字节预算与扫描完整性分别记录，不再从示例类反推依赖，也不把“未观察到类”误写成“未采用能力”。
+- Capability / Recipe 知识目录补齐 Save Profile、Content Package Catalog Mount、类型化异步 UI Route、惰性诊断 Provider 与 Session Trace 的项目侧采用边界。
 - AI Developer 项目契约的所有受控项目路径现在统一逐段拒绝符号链接、Windows junction 和其他重解析点；模块根、Adapter 根、project profile、验证必需路径与项目级资源不再允许通过链接别名绕过所有权边界。
 - 模块根与 Adapter 根额外采用跨平台规范化校验，并以大小写无关方式拒绝 `res://addons/gf` 及 Windows 尾点、保留名称等别名，避免把 GF 源码误归属为项目模块；普通源码资源引用不受这项契约限制。
 - CI 与 Release 工作流统一采用 Node.js 24 世代的 `actions/checkout@v7`、`actions/setup-python@v7`、`actions/upload-artifact@v7` 和 `actions/download-artifact@v8`，维护自检会阻止旧主版本回退。
@@ -82,8 +85,8 @@
 - 新增公开类型 `GFSaveProfile`、`GFSaveSectionProvider`、`GFSaveRecoveryPolicy`、`GFSaveProfileOperation`、`GFSaveProfileResult`、`GFSaveRollbackFailure` 和 `GFSaveProfileUtility`；Save 扩展安装器会自动注册 Profile Utility，既有 Save Graph 和 Slot API 不变。
 - 新增公开类型 `GFStorageAsyncOperation`、`GFStorageAsyncResult`，以及 `GFStorageUtility.save_data_request_async()`、`load_data_request_async()`、`canonicalize_data_file_name()`；`GFStorageReadResult` 新增只追加的 `FailureKind` 与 `failure_kind`。
 - `GFUIRoute.get_route_id()` 以及 Router 的注册、查询、打开信号和异步 pending 身份统一去除 route ID 首尾空白。
-- AI Developer 项目契约 schema v1 向后兼容地新增可选 `architecture.owned_resources`；项目快照 schema 从 v2 升为 v3，因此 AI Developer Kit 工具协议同步升为 3.0.0。
-- GF 开发身份从 `9.1.0-dev.0` 升为 `10.0.0-dev.0`，用于明确承载项目快照 v3 这一破坏性输出协议变化；本条只切换开发线，不创建正式版本或发布标签。
+- AI Developer 项目契约从 schema v1 升为 v2，项目快照从 schema v3 升为 v4，AI Developer Kit 工具协议同步升为 4.0.0；旧契约不保留双轨解析，旧 Snapshot 不进入迁移路径。
+- GF 开发身份从 `9.1.0-dev.0` 升为 `10.0.0-dev.0`，用于明确承载项目契约 v2、项目快照 v4 与相关破坏性工具协议变化；本条只切换开发线，不创建正式版本或发布标签。
 
 ### 📘 升级指南 (Migration Guide)
 
@@ -98,7 +101,8 @@
 - 既有 Save Graph、Slot 和直接 Storage 调用无需迁移。需要跨模块自动保存时，为每个稳定数据边界实现一个可回滚 `GFSaveSectionProvider`，注册 Profile 和完整迁移链；不要把缺失、损坏或未来版本统一重置为空存档。
 - 历史配置若有意使用带首尾空白的 route ID，需迁移为去除空白后的稳定 ID；规范化后重复的 ID 会指向同一注册身份，不应再依赖空白区分页面。
 - 严格 warning 项目必须接收 `push_route_async()` / `replace_route_async()` 的新返回值；需要结果时保存 `GFUIRouteOperation`，只需 fire-and-observe 全局信号时也应赋给带下划线的局部变量。打开前预加载必须显式选择策略，默认仍为 `PRELOAD_NONE`。
-- 既有项目契约无需修改。只有源码确实引用模块外项目治理文件时才添加精确 `res://` 文件路径；禁止填写裸 `res://`、目录、通配范围或模块根内文件。快照 v3 是有意的破坏性输出协议升级：消费方应先升级到 AI Developer Kit 3.x，再重新生成快照；不要把 v2 快照补字段后继续使用。
+- AI Developer 工具协议 3.x 的 schema v1 契约必须先运行 `contract-migration-plan`，审阅 `pending_review`、`owner: project` 默认值和完整候选，再由用户在交互终端用计划返回的 `plan_sha256` 执行 `contract-migrate` 并输入完整确认短语；随后确认 owner、Recipe 与验收条件并运行 `validate`。
+- Snapshot v4 是有意的破坏性生成协议升级：消费方应先升级到 AI Developer 工具协议 4.x，再重新生成快照；不要迁移 v3、复制字段或把观测结果反写为项目意图。独立 Kit ZIP 版本仍与 GF Framework 版本一致。
 - 从 `9.x` 开发线升级时，应同步更新 GF 插件与扩展清单到 `10.0.0-dev.0`，并重新生成 AI Developer Kit catalog；稳定版发布时间与版本号仍由后续独立发布流程决定。
 - 旧契约若把模块、Adapter、profile 或验证路径放在符号链接/junction 后方，应改为项目根内不经过链接的真实相对路径；工具不会为链接别名保留兼容分支。
 - 模块和 Adapter 所有权根若包含尾点/空格、Windows 保留名称、通配字符或大小写变体的 `addons/gf`，应迁移为跨平台规范目录；这些别名不再保留兼容解析。
