@@ -2,8 +2,8 @@
   "schema_version": 1,
   "catalog_version": "1.0.0",
   "framework_version": "10.0.0-dev.0",
-  "source_digest": "7aa0f18f75fbd6b96ad1893d97be50410d1e4115f2b4ee3ff56e04c6f334bf4c",
-  "class_count": 740,
+  "source_digest": "9f841ca47b8281ec0d51460ed099b8af71eb269b97486002293e4e21061347bf",
+  "class_count": 743,
   "package_count": 52,
   "packages": [
     {
@@ -45344,6 +45344,74 @@
         }
       ]
     },
+    "GFNetworkInputFrame": {
+      "extends": "RefCounted",
+      "module": "extensions/network",
+      "package_id": "gf.extension.network",
+      "path": "addons/gf/extensions/network/simulation/gf_network_input_frame.gd",
+      "summary": "GFNetworkInputFrame: 网络同步输入帧值对象。 保存目标 tick、来源 peer、单调序号和项目输入载荷。该类型只负责值语义； 非可信消息仍必须由 GFNetworkSyncCoordinator 结合实际传输 peer 校验。",
+      "visibility": "public",
+      "category": "value_object",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "var",
+          "name": "tick",
+          "signature": "var tick: int = 0",
+          "summary": "输入应被模拟的目标 tick。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "peer_id",
+          "signature": "var peer_id: int = -1",
+          "summary": "输入来源 peer。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "sequence",
+          "signature": "var sequence: int = 0",
+          "summary": "来源 peer 内严格单调的输入序号。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "payload",
+          "signature": "var payload: Dictionary = {}",
+          "summary": "项目定义的输入载荷。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "to_dict",
+          "signature": "func to_dict() -> Dictionary",
+          "summary": "转为字典副本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "from_dict",
+          "signature": "func from_dict(data: Dictionary) -> void",
+          "summary": "从已由调用方校验的字典恢复。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "duplicate_frame",
+          "signature": "func duplicate_frame() -> GFNetworkInputFrame",
+          "summary": "复制输入帧。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "validate_frame",
+          "signature": "func validate_frame(options: Dictionary = {}) -> Dictionary",
+          "summary": "校验值对象的基础字段和载荷预算。",
+          "visibility": "public"
+        }
+      ]
+    },
     "GFNetworkLobbyBackend": {
       "extends": "RefCounted",
       "module": "extensions/network",
@@ -47155,6 +47223,60 @@
         }
       ]
     },
+    "GFNetworkSimulationAdapter": {
+      "extends": "RefCounted",
+      "module": "extensions/network",
+      "package_id": "gf.extension.network",
+      "path": "addons/gf/extensions/network/simulation/gf_network_simulation_adapter.gd",
+      "summary": "GFNetworkSimulationAdapter: 网络协调器的项目模拟协议。 项目继承该类型并实现同步状态捕获、校验、恢复、输入授权和单 tick 模拟。 所有钩子必须同步完成，不应执行 await、网络发送或协调器重入。",
+      "visibility": "public",
+      "category": "protocol",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "func",
+          "name": "_capture_state",
+          "signature": "func _capture_state(_tick: int, _context: Dictionary) -> Dictionary",
+          "summary": "捕获指定 tick 的完整项目同步状态。",
+          "visibility": "protected"
+        },
+        {
+          "kind": "func",
+          "name": "_validate_state",
+          "signature": "func _validate_state(_state: Dictionary, _tick: int, _context: Dictionary) -> Dictionary",
+          "summary": "校验来自权威端的完整同步状态。",
+          "visibility": "protected"
+        },
+        {
+          "kind": "func",
+          "name": "_restore_state",
+          "signature": "func _restore_state(_state: Dictionary, _tick: int, _context: Dictionary) -> Dictionary",
+          "summary": "恢复指定 tick 的完整同步状态。",
+          "visibility": "protected"
+        },
+        {
+          "kind": "func",
+          "name": "_validate_input",
+          "signature": "func _validate_input( _frame: GFNetworkInputFrame, _actual_peer_id: int, _context: Dictionary ) -> Dictionary",
+          "summary": "校验并授权一帧输入。",
+          "visibility": "protected"
+        },
+        {
+          "kind": "func",
+          "name": "_simulate_tick",
+          "signature": "func _simulate_tick( _tick: int, _inputs: Array[GFNetworkInputFrame], _context: Dictionary ) -> Dictionary",
+          "summary": "执行一个完整模拟 tick。",
+          "visibility": "protected"
+        },
+        {
+          "kind": "func",
+          "name": "_states_equal",
+          "signature": "func _states_equal( predicted_state: Dictionary, authoritative_state: Dictionary, _tick: int, _context: Dictionary ) -> bool",
+          "summary": "比较预测状态与权威状态是否等价。",
+          "visibility": "protected"
+        }
+      ]
+    },
     "GFNetworkSnapshot": {
       "extends": "RefCounted",
       "module": "extensions/network",
@@ -47385,6 +47507,221 @@
           "name": "duplicate_schema",
           "signature": "func duplicate_schema() -> GFNetworkSnapshotSchema",
           "summary": "复制 Schema 配置。",
+          "visibility": "public"
+        }
+      ]
+    },
+    "GFNetworkSyncCoordinator": {
+      "extends": "RefCounted",
+      "module": "extensions/network",
+      "package_id": "gf.extension.network",
+      "path": "addons/gf/extensions/network/simulation/gf_network_sync_coordinator.gd",
+      "summary": "GFNetworkSyncCoordinator: 有界的权威快照与预测纠偏协调器。 协调器在项目模拟 Adapter 与 GFNetworkMessage 之间编排固定 tick、输入顺序、 全量权威快照、有限历史和事务式预测重放。它不创建 transport、不扫描节点树、",
+      "visibility": "public",
+      "category": "runtime_service",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "signal",
+          "name": "phase_changed",
+          "signature": "signal phase_changed(previous_phase: Phase, current_phase: Phase)",
+          "summary": "公开状态变化后发出。",
+          "visibility": "public"
+        },
+        {
+          "kind": "signal",
+          "name": "input_finalized",
+          "signature": "signal input_finalized(peer_id: int, sequence: int, accepted: bool, reason: StringName)",
+          "summary": "权威端最终裁决输入后发出。",
+          "visibility": "public"
+        },
+        {
+          "kind": "signal",
+          "name": "authority_snapshot_created",
+          "signature": "signal authority_snapshot_created(snapshot: GFNetworkSnapshot)",
+          "summary": "权威端完成一个 tick 并生成全量快照后发出。",
+          "visibility": "public"
+        },
+        {
+          "kind": "signal",
+          "name": "authoritative_snapshot_applied",
+          "signature": "signal authoritative_snapshot_applied(",
+          "summary": "Replica 原子应用权威快照后发出。",
+          "visibility": "public"
+        },
+        {
+          "kind": "signal",
+          "name": "synchronization_rejected",
+          "signature": "signal synchronization_rejected(peer_id: int, reason: StringName, details: Dictionary)",
+          "summary": "同步消息被拒绝后发出。",
+          "visibility": "public"
+        },
+        {
+          "kind": "signal",
+          "name": "resync_required",
+          "signature": "signal resync_required(reason: StringName, details: Dictionary)",
+          "summary": "Replica 需要由项目显式重建同步流时发出。",
+          "visibility": "public"
+        },
+        {
+          "kind": "enum",
+          "name": "Role",
+          "signature": "enum Role {\n\t## 尚未配置。\n\tNONE,\n\t## 负责模拟并发布全量权威快照。\n\tAUTHORITY,\n\t## 接收权威快照，可选执行本地输入预测。\n\tREPLICA,\n}",
+          "summary": "协调器角色。",
+          "visibility": "public"
+        },
+        {
+          "kind": "enum",
+          "name": "Phase",
+          "signature": "enum Phase {\n\t## 尚未配置。\n\tIDLE,\n\t## Replica 等待首个权威基线。\n\tAWAITING_BASELINE,\n\t## 可推进 tick 或处理同步消息。\n\tACTIVE,\n\t## 协议历史无法安全续接，需要显式新 epoch。\n\tRESYNC_REQUIRED,\n\t## Adapter 回滚失败，当前实例不可继续使用。\n\tFAULTED,\n}",
+          "summary": "同步流状态。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "PROTOCOL_VERSION",
+          "signature": "const PROTOCOL_VERSION: int = 1",
+          "summary": "同步消息协议版本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "INPUT_MESSAGE_TYPE",
+          "signature": "const INPUT_MESSAGE_TYPE: StringName = &\"gf.sync.input.v1\"",
+          "summary": "Replica 输入消息类型。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "SNAPSHOT_MESSAGE_TYPE",
+          "signature": "const SNAPSHOT_MESSAGE_TYPE: StringName = &\"gf.sync.snapshot.v1\"",
+          "summary": "权威全量快照消息类型。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "DEFAULT_CHANNEL_ID",
+          "signature": "const DEFAULT_CHANNEL_ID: StringName = &\"gf.sync\"",
+          "summary": "默认同步通道。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "configure",
+          "signature": "func configure( role: Role, local_peer_id: int, authority_peer_id: int, adapter: GFNetworkSimulationAdapter, options: Dictionary ) -> Dictionary",
+          "summary": "配置一个显式同步流。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "reset_stream",
+          "signature": "func reset_stream(new_epoch_id: String, start_tick: int = 0) -> Dictionary",
+          "summary": "使用新 epoch 重置所有序号、历史和待处理输入。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "register_replica_peer",
+          "signature": "func register_replica_peer(peer_id: int) -> bool",
+          "summary": "Authority 显式注册可提交输入的 replica peer。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "unregister_replica_peer",
+          "signature": "func unregister_replica_peer(peer_id: int) -> bool",
+          "summary": "Authority 注销 replica peer 并清除其尚未模拟的输入。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "submit_local_input",
+          "signature": "func submit_local_input(payload: Dictionary, target_tick: int = -1) -> Dictionary",
+          "summary": "Replica 创建、校验并保存一帧本地输入，同时返回待发送消息。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "make_input_message",
+          "signature": "func make_input_message(frame: GFNetworkInputFrame) -> GFNetworkMessage",
+          "summary": "将本地输入帧打包为专用同步消息。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "advance_authority_tick",
+          "signature": "func advance_authority_tick() -> Dictionary",
+          "summary": "Authority 推进一个连续 tick，原子捕获并提交全量快照。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "advance_prediction_tick",
+          "signature": "func advance_prediction_tick() -> Dictionary",
+          "summary": "Replica 在当前权威基线上推进一个本地预测 tick。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "make_snapshot_message",
+          "signature": "func make_snapshot_message( snapshot: GFNetworkSnapshot, replica_peer_id: int ) -> GFNetworkMessage",
+          "summary": "Authority 为指定 replica 构建最新的全量快照消息。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "handle_message",
+          "signature": "func handle_message(actual_peer_id: int, message: GFNetworkMessage) -> Dictionary",
+          "summary": "处理 GFNetworkUtility 已解码并绑定实际来源 peer 的同步消息。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_role",
+          "signature": "func get_role() -> Role",
+          "summary": "获取当前角色。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_phase",
+          "signature": "func get_phase() -> Phase",
+          "summary": "获取当前同步流状态。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_epoch_id",
+          "signature": "func get_epoch_id() -> String",
+          "summary": "获取当前同步 epoch。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_current_tick",
+          "signature": "func get_current_tick() -> int",
+          "summary": "获取当前本地模拟 tick。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_authoritative_history",
+          "signature": "func get_authoritative_history() -> GFNetworkHistoryBuffer",
+          "summary": "获取权威历史的独立副本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_prediction_history",
+          "signature": "func get_prediction_history() -> GFNetworkHistoryBuffer",
+          "summary": "获取预测历史的独立副本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_debug_snapshot",
+          "signature": "func get_debug_snapshot() -> Dictionary",
+          "summary": "获取无业务载荷的调试快照。",
           "visibility": "public"
         }
       ]

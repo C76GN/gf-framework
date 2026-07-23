@@ -2,13 +2,13 @@
   "id": "gf.network",
   "display_name": "GF Network",
   "version": "10.0.0-dev.0",
-  "extension_version": "4.1.0",
+  "extension_version": "4.2.0",
   "kind": "extension",
-  "description": "Pluggable network backends, sessions, messages, serializers, snapshots, and fixed tick helpers.",
+  "description": "Pluggable transports, messages, snapshots, fixed tick helpers, and bounded authoritative synchronization.",
   "dependencies": ["gf.kernel", "gf.standard"],
   "installer_paths": [
     "res://addons/gf/extensions/network/extension.gd"
   ],
   "enabled_by_default": false,
-  "tags": ["network", "transport", "snapshot"]
+  "tags": ["network", "transport", "snapshot", "sync"]
 }

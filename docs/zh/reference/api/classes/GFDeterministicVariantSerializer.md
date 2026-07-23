@@ -46,7 +46,7 @@ static func to_canonical_value(value: Variant, options: Dictionary = {}) -> Vari
 
 结构：
 
-- `value`: Variant value made from nil, bool, int, String, StringName, NodePath, integer vectors, arrays, dictionaries and packed scalar arrays. Float-based values require `options.allow_floats = true`.
+- `value`: Variant value made from scalar, string, path, vector, rectangle, color, plane, quaternion, AABB, basis, transform, projection, array, dictionary, and packed array values. Float-based values require `options.allow_floats = true`.
 - `options`: Dictionary with optional allow_floats, max_depth, max_items, max_string_length, and max_output_bytes limits.
 - `return`: Typed marker Dictionary using `__gf_deterministic_variant__`, or null when unsupported input is detected.
 

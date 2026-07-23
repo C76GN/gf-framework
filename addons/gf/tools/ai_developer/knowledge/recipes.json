@@ -157,6 +157,20 @@
       "avoid": ["Transport callbacks mutating gameplay state directly", "Assuming a transport implies authority policy"]
     },
     {
+      "id": "network-sync-coordinator",
+      "title": "Coordinate bounded authoritative snapshots",
+      "package_requirements": {"all_of": ["gf.extension.network"], "any_of": []},
+      "primary_classes": ["GFNetworkSyncCoordinator", "GFNetworkSimulationAdapter", "GFNetworkInputFrame", "GFNetworkSnapshot", "GFNetworkUtility"],
+      "steps": [
+        "Keep a finite raw packet limit and peer-binding validator in GFNetworkUtility, and pass its actual source peer to the coordinator.",
+        "Create a trusted unique epoch, configure explicit local and authority peers, and register each authorized replica from project session policy.",
+        "Implement a synchronous project adapter with strict state and input schemas, side-effect-free validation, and entity control checks based on actual_peer_id at enqueue and again at the target authority tick.",
+        "Submit recipient-bound inputs, advance one authority or prediction tick at a time, and send only the latest coordinator-issued full snapshot to each recipient.",
+        "Handle resync and permanent fault terminals explicitly, rebuild adapter state before a new epoch, and test spoofing, replay, stale packets, budget exhaustion, rollback failure, and callback reentry."
+      ],
+      "avoid": ["Authority inferred from payload or lobby metadata", "Automatic scene-tree or entity replication", "Inbound delta or patch without a versioned baseline protocol", "Unbounded history, pending input, replay, or packet limits", "Awaiting, networking, or state mutation inside adapter validation hooks"]
+    },
+    {
       "id": "feedback-candidate",
       "title": "Escalate a project finding to GF",
       "package_requirements": {"all_of": [], "any_of": [["gf.standard.diagnostics", "gf.standard.debug"]]},

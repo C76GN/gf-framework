@@ -58,11 +58,11 @@ var hash := GFDeterministicVariantSerializer.sha256({
 })
 ```
 
-即使开启 `allow_floats`，`NaN` 和 `Inf` 也会失败；`0.0` 与 `-0.0` 会归一到同一编码。
+即使开启 `allow_floats`，`NaN` 和 `Inf` 也会失败；`0.0` 与 `-0.0` 会归一到同一编码。有限的浮点向量、矩形、颜色、平面、四元数、AABB、Basis、Transform 与 `Projection` 也会按固定分量顺序编码；`Projection` 使用 `x/y/z/w` 四列共 16 个分量。
 
 ## 使用边界
 
-- 支持纯 Variant 数据、字符串 / 名称 /路径、整数向量、数组、字典和常见 packed 标量数组。
+- 支持纯 Variant 数据、字符串 / 名称 / 路径、整数向量、数组、字典和常见 packed 数组；显式开启 `allow_floats` 后支持文档化的有限浮点复合类型。
 - 字典 key 会按 key 的 canonical 表达排序，`1`、`"1"`、`StringName("1")` 不会被压成同一个字符串 key。
 - Object、Resource、Callable、RID、Signal、循环引用和超过 `max_depth` 的结构会失败。
 - 如果只是写入存档并需要压缩、metadata 或 checksum，继续使用 `GFStorageCodec`。

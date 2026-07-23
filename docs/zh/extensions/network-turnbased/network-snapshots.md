@@ -1,6 +1,6 @@
 # Network 固定 tick、快照与历史
 
-这一页说明面向同步、重放或插值的轻量原语。它们只保存 tick、状态字典和历史窗口，不实现预测、回滚、实体复制或服务器权威规则。
+这一页说明面向同步、重放或插值的轻量原语。它们自身只保存 tick、状态字典和历史窗口，不执行预测、回滚、实体复制或服务器权威规则。需要全量权威快照、输入 ack 和可选预测纠偏时，使用单独的 [Network 同步协调器](network-sync-coordinator.md)。
 
 ## 核心模型
 
@@ -80,7 +80,7 @@ var report := tracker.get_dirty_report({
 
 浮点、`Vector2`、`Vector3` 和 `Color` 会按 `epsilon` 做近似比较；其他值按普通相等比较。调用 `update_baseline(state, field_ids)` 可以在项目确认发送或应用后只更新部分字段。
 
-路径级 patch 用 `set` / `erase` 操作描述嵌套字典变化。它适合状态字典中有实体表、组件表或多层配置片段的同步场景；数组、向量和其他非字典值仍作为整体字段比较。需要压缩或量化 patch 时，`GFNetworkSnapshotSchema.encode_patch()` / `decode_patch()` 会复用已注册的顶层字段编码器。
+路径级 patch 用 `set` / `erase` 操作描述嵌套字典变化。它适合项目自定义同步流程中包含实体表、组件表或多层配置片段的状态字典；数组、向量和其他非字典值仍作为整体字段比较。需要压缩或量化 patch 时，`GFNetworkSnapshotSchema.encode_patch()` / `decode_patch()` 会复用已注册的顶层字段编码器。`GFNetworkSyncCoordinator` v1 只接收全量快照，不把这些 patch 当作入站同步协议。
 
 ```gdscript
 var patch := previous.make_patch_to(latest, {
@@ -96,4 +96,4 @@ var next_snapshot := previous.apply_patch(decoded_patch)
 
 `GFNetworkHistoryBuffer` 可查询 tick 范围或某个 tick 前后的快照，方便项目做插值、对账或回放定位。`GFNetworkSnapshot.make_message()` 可以把快照打包成 `GFNetworkMessage`，方便复用已有 serializer、channel 和 backend。
 
-浅层 delta 和脏字段 report 只比较字典第一层字段，适合简单状态或需要保持载荷结构极直观的流程；路径级 patch 只负责表达嵌套字典的字段变化，不决定实体复制、冲突解决、预测、回滚或安全过滤。接收端处理入站消息时，`GFNetworkUtility` 会以底层 backend 报告的 `peer_id` 覆盖 `message.sender_id`，项目不要信任客户端 payload 中自带的 sender 身份。
+浅层 delta 和脏字段 report 只比较字典第一层字段，适合简单状态或需要保持载荷结构极直观的项目流程；路径级 patch 只负责表达嵌套字典的字段变化，不决定实体复制、冲突解决或安全过滤。接收端处理入站消息时，`GFNetworkUtility` 会以底层 backend 报告的 `peer_id` 覆盖 `message.sender_id`，项目不要信任客户端 payload 中自带的 sender 身份。

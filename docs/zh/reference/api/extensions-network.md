@@ -6,11 +6,11 @@
 
 | 类别 | 类 | 成员 | 方法 |
 |---|---:|---:|---:|
-| [运行时服务](#category-runtime_service) | 3 | 60 | 35 |
-| [协议与扩展点](#category-protocol) | 4 | 72 | 37 |
+| [运行时服务](#category-runtime_service) | 4 | 89 | 52 |
+| [协议与扩展点](#category-protocol) | 5 | 78 | 43 |
 | [资源定义](#category-resource_definition) | 6 | 80 | 46 |
 | [运行时句柄](#category-runtime_handle) | 8 | 108 | 66 |
-| [值对象](#category-value_object) | 7 | 102 | 54 |
+| [值对象](#category-value_object) | 8 | 110 | 58 |
 | [事件契约](#category-event_contract) | 1 | 11 | 4 |
 | [编辑器 API](#category-editor_api) | 2 | 9 | 8 |
 
@@ -24,6 +24,7 @@
 |---|---|---|
 | [`GFNetworkDirtyStateTracker`](classes/GFNetworkDirtyStateTracker.md#gfnetworkdirtystatetracker) | `RefCounted` | `addons/gf/extensions/network/session/gf_network_dirty_state_tracker.gd` |
 | [`GFNetworkLobbyService`](classes/GFNetworkLobbyService.md#gfnetworklobbyservice) | `GFUtility` | `addons/gf/extensions/network/session/gf_network_lobby_service.gd` |
+| [`GFNetworkSyncCoordinator`](classes/GFNetworkSyncCoordinator.md#gfnetworksynccoordinator) | `RefCounted` | `addons/gf/extensions/network/simulation/gf_network_sync_coordinator.gd` |
 | [`GFNetworkUtility`](classes/GFNetworkUtility.md#gfnetworkutility) | `GFUtility` | `addons/gf/extensions/network/runtime/gf_network_utility.gd` |
 
 <a id="category-protocol"></a>
@@ -36,6 +37,7 @@
 | [`GFNetworkLobbyBackend`](classes/GFNetworkLobbyBackend.md#gfnetworklobbybackend) | `RefCounted` | `addons/gf/extensions/network/session/gf_network_lobby_backend.gd` |
 | [`GFNetworkMessageValidator`](classes/GFNetworkMessageValidator.md#gfnetworkmessagevalidator) | `RefCounted` | `addons/gf/extensions/network/messages/gf_network_message_validator.gd` |
 | [`GFNetworkSerializer`](classes/GFNetworkSerializer.md#gfnetworkserializer) | `RefCounted` | `addons/gf/extensions/network/serialization/gf_network_serializer.gd` |
+| [`GFNetworkSimulationAdapter`](classes/GFNetworkSimulationAdapter.md#gfnetworksimulationadapter) | `RefCounted` | `addons/gf/extensions/network/simulation/gf_network_simulation_adapter.gd` |
 
 <a id="category-resource_definition"></a>
 
@@ -71,6 +73,7 @@
 
 | 类 | 继承 | 源文件 |
 |---|---|---|
+| [`GFNetworkInputFrame`](classes/GFNetworkInputFrame.md#gfnetworkinputframe) | `RefCounted` | `addons/gf/extensions/network/simulation/gf_network_input_frame.gd` |
 | [`GFNetworkLobbyDescriptor`](classes/GFNetworkLobbyDescriptor.md#gfnetworklobbydescriptor) | `Resource` | `addons/gf/extensions/network/session/gf_network_lobby_descriptor.gd` |
 | [`GFNetworkLobbyJoinResult`](classes/GFNetworkLobbyJoinResult.md#gfnetworklobbyjoinresult) | `RefCounted` | `addons/gf/extensions/network/session/gf_network_lobby_join_result.gd` |
 | [`GFNetworkLobbyMember`](classes/GFNetworkLobbyMember.md#gfnetworklobbymember) | `Resource` | `addons/gf/extensions/network/session/gf_network_lobby_member.gd` |

@@ -36,7 +36,7 @@ GF 内置扩展默认关闭。新项目启用 GF 后会获得 kernel 与 standar
 - [Combat](combat/index.md)：战斗属性、技能、Buff、命中盒、投射物和统一命中结果。
 - [ActionQueue](action-queue/index.md)：可排队视觉动作、Tween 动作、拦截器和动作工厂。
 - [Asset Metadata](asset-metadata/index.md)：资产 metadata 读写、收集、导入扩展和报告。
-- [Network 与 TurnBased](network-turnbased/index.md)：网络消息、快照、后端协议、回合阶段和行动流。
+- [Network 与 TurnBased](network-turnbased/index.md)：网络消息、快照、后端协议、有界同步协调、回合阶段和行动流。
 - [Flow](flow/index.md)：资源化流程图、节点、端口、运行器和编辑器模型。
 - [BehaviorTree](behavior-tree/index.md)：纯代码行为树节点、Runner、黑板和调试快照。
 - [Decision](decision/index.md)：黑板、上下文、效用评分、候选集合和非 LLM 决策服务。

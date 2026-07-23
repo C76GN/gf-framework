@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<apiCatalog schemaVersion="2" name="GF Framework" sourceRoot="addons/gf" sourceDigest="e6ca1af61508fa92a9777bff088077ca4da276258c67cc327128396057664b45" classCount="764" methodCount="6861">
+<apiCatalog schemaVersion="2" name="GF Framework" sourceRoot="addons/gf" sourceDigest="e82ee2c7796c6ce475567f61c526e68b52a53e2af2435710c866d28e625db664" classCount="767" methodCount="6888">
 	<module id="kernel" label="Kernel" classCount="70" methodCount="715">
 		<class name="GFAccessGenerator" path="classes/GFAccessGenerator.xml" sourcePath="addons/gf/kernel/editor/gf_access_generator.gd" extends="RefCounted" />
 		<class name="GFArchitecture" path="classes/GFArchitecture.xml" sourcePath="addons/gf/kernel/core/gf_architecture.gd" extends="Object" />
@@ -697,7 +697,7 @@
 		<class name="GFInteractions" path="classes/GFInteractions.xml" sourcePath="addons/gf/extensions/interaction/runtime/gf_interactions.gd" extends="RefCounted" />
 		<class name="GFPointerInteraction3D" path="classes/GFPointerInteraction3D.xml" sourcePath="addons/gf/extensions/interaction/nodes/gf_pointer_interaction_3d.gd" extends="Node" />
 	</module>
-	<module id="extensions/network" label="Network" classCount="31" methodCount="250">
+	<module id="extensions/network" label="Network" classCount="34" methodCount="277">
 		<class name="GFENetNetworkBackend" path="classes/GFENetNetworkBackend.xml" sourcePath="addons/gf/extensions/network/backends/gf_enet_network_backend.gd" extends="GFNetworkBackend" />
 		<class name="GFFixedTickClock" path="classes/GFFixedTickClock.xml" sourcePath="addons/gf/extensions/network/simulation/gf_fixed_tick_clock.gd" extends="RefCounted" />
 		<class name="GFNetworkBackend" path="classes/GFNetworkBackend.xml" sourcePath="addons/gf/extensions/network/backends/gf_network_backend.gd" extends="RefCounted" />
@@ -710,6 +710,7 @@
 		<class name="GFNetworkDirtyStateTracker" path="classes/GFNetworkDirtyStateTracker.xml" sourcePath="addons/gf/extensions/network/session/gf_network_dirty_state_tracker.gd" extends="RefCounted" />
 		<class name="GFNetworkFieldSerializer" path="classes/GFNetworkFieldSerializer.xml" sourcePath="addons/gf/extensions/network/serialization/gf_network_field_serializer.gd" extends="Resource" />
 		<class name="GFNetworkHistoryBuffer" path="classes/GFNetworkHistoryBuffer.xml" sourcePath="addons/gf/extensions/network/snapshot/gf_network_history_buffer.gd" extends="RefCounted" />
+		<class name="GFNetworkInputFrame" path="classes/GFNetworkInputFrame.xml" sourcePath="addons/gf/extensions/network/simulation/gf_network_input_frame.gd" extends="RefCounted" />
 		<class name="GFNetworkLobbyBackend" path="classes/GFNetworkLobbyBackend.xml" sourcePath="addons/gf/extensions/network/session/gf_network_lobby_backend.gd" extends="RefCounted" />
 		<class name="GFNetworkLobbyDescriptor" path="classes/GFNetworkLobbyDescriptor.xml" sourcePath="addons/gf/extensions/network/session/gf_network_lobby_descriptor.gd" extends="Resource" />
 		<class name="GFNetworkLobbyInvite" path="classes/GFNetworkLobbyInvite.xml" sourcePath="addons/gf/extensions/network/session/gf_network_lobby_invite.gd" extends="Resource" />
@@ -725,8 +726,10 @@
 		<class name="GFNetworkSerializer" path="classes/GFNetworkSerializer.xml" sourcePath="addons/gf/extensions/network/serialization/gf_network_serializer.gd" extends="RefCounted" />
 		<class name="GFNetworkServiceDiscovery" path="classes/GFNetworkServiceDiscovery.xml" sourcePath="addons/gf/extensions/network/session/gf_network_service_discovery.gd" extends="RefCounted" />
 		<class name="GFNetworkSession" path="classes/GFNetworkSession.xml" sourcePath="addons/gf/extensions/network/session/gf_network_session.gd" extends="RefCounted" />
+		<class name="GFNetworkSimulationAdapter" path="classes/GFNetworkSimulationAdapter.xml" sourcePath="addons/gf/extensions/network/simulation/gf_network_simulation_adapter.gd" extends="RefCounted" />
 		<class name="GFNetworkSnapshot" path="classes/GFNetworkSnapshot.xml" sourcePath="addons/gf/extensions/network/snapshot/gf_network_snapshot.gd" extends="RefCounted" />
 		<class name="GFNetworkSnapshotSchema" path="classes/GFNetworkSnapshotSchema.xml" sourcePath="addons/gf/extensions/network/snapshot/gf_network_snapshot_schema.gd" extends="Resource" />
+		<class name="GFNetworkSyncCoordinator" path="classes/GFNetworkSyncCoordinator.xml" sourcePath="addons/gf/extensions/network/simulation/gf_network_sync_coordinator.gd" extends="RefCounted" />
 		<class name="GFNetworkUtility" path="classes/GFNetworkUtility.xml" sourcePath="addons/gf/extensions/network/runtime/gf_network_utility.gd" extends="GFUtility" />
 		<class name="GFWebSocketNetworkBackend" path="classes/GFWebSocketNetworkBackend.xml" sourcePath="addons/gf/extensions/network/backends/gf_websocket_network_backend.gd" extends="GFNetworkBackend" />
 	</module>

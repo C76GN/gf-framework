@@ -37,7 +37,7 @@ const _DEFAULT_MAX_OUTPUT_BYTES: int = 16 * 1024 * 1024
 ## [br]
 ## @param value: 待编码的 Variant。应为纯数据结构；Object、Resource、Callable、RID 和循环引用会失败。
 ## [br]
-## @schema value: Variant value made from nil, bool, int, String, StringName, NodePath, integer vectors, arrays, dictionaries and packed scalar arrays. Float-based values require `options.allow_floats = true`.
+## @schema value: Variant value made from scalar, string, path, vector, rectangle, color, plane, quaternion, AABB, basis, transform, projection, array, dictionary, and packed array values. Float-based values require `options.allow_floats = true`.
 ## [br]
 ## @param options: 可选项。支持 allow_floats、max_depth、max_items、max_string_length 和 max_output_bytes。
 ## [br]
@@ -281,6 +281,29 @@ static func _canonicalize_value(value: Variant, state: Dictionary, visited: Arra
 					_canonicalize_float_array([transform_3d.origin.x, transform_3d.origin.y, transform_3d.origin.z], state)
 				),
 			})
+		TYPE_PROJECTION:
+			var projection: Projection = value
+			return _make_typed_value(
+				"Projection",
+				_canonicalize_float_array([
+					projection.x.x,
+					projection.x.y,
+					projection.x.z,
+					projection.x.w,
+					projection.y.x,
+					projection.y.y,
+					projection.y.z,
+					projection.y.w,
+					projection.z.x,
+					projection.z.y,
+					projection.z.z,
+					projection.z.w,
+					projection.w.x,
+					projection.w.y,
+					projection.w.z,
+					projection.w.w,
+				], state)
+			)
 		TYPE_ARRAY:
 			return _canonicalize_array(value, state, visited, depth)
 		TYPE_DICTIONARY:

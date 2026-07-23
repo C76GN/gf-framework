@@ -21,7 +21,7 @@
 | Feedback | 8 | 138 | [Feedback](#module-extensions-feedback) |
 | Flow | 7 | 138 | [Flow](#module-extensions-flow) |
 | Interaction | 6 | 82 | [Interaction](#module-extensions-interaction) |
-| Network | 31 | 442 | [Network](#module-extensions-network) |
+| Network | 34 | 485 | [Network](#module-extensions-network) |
 | Physics | 4 | 50 | [Physics](#module-extensions-physics) |
 | Save | 41 | 468 | [Save](#module-extensions-save) |
 | Turn Based | 4 | 49 | [Turn Based](#module-extensions-turn_based) |
@@ -809,11 +809,13 @@
 |---|---|---|---:|---|
 | [`GFNetworkDirtyStateTracker`](GFNetworkDirtyStateTracker.md#gfnetworkdirtystatetracker) | 运行时服务 (`runtime_service`) | `RefCounted` | 11 | `addons/gf/extensions/network/session/gf_network_dirty_state_tracker.gd` |
 | [`GFNetworkLobbyService`](GFNetworkLobbyService.md#gfnetworklobbyservice) | 运行时服务 (`runtime_service`) | `GFUtility` | 23 | `addons/gf/extensions/network/session/gf_network_lobby_service.gd` |
+| [`GFNetworkSyncCoordinator`](GFNetworkSyncCoordinator.md#gfnetworksynccoordinator) | 运行时服务 (`runtime_service`) | `RefCounted` | 29 | `addons/gf/extensions/network/simulation/gf_network_sync_coordinator.gd` |
 | [`GFNetworkUtility`](GFNetworkUtility.md#gfnetworkutility) | 运行时服务 (`runtime_service`) | `GFUtility` | 26 | `addons/gf/extensions/network/runtime/gf_network_utility.gd` |
 | [`GFNetworkBackend`](GFNetworkBackend.md#gfnetworkbackend) | 协议与扩展点 (`protocol`) | `RefCounted` | 11 | `addons/gf/extensions/network/backends/gf_network_backend.gd` |
 | [`GFNetworkLobbyBackend`](GFNetworkLobbyBackend.md#gfnetworklobbybackend) | 协议与扩展点 (`protocol`) | `RefCounted` | 29 | `addons/gf/extensions/network/session/gf_network_lobby_backend.gd` |
 | [`GFNetworkMessageValidator`](GFNetworkMessageValidator.md#gfnetworkmessagevalidator) | 协议与扩展点 (`protocol`) | `RefCounted` | 23 | `addons/gf/extensions/network/messages/gf_network_message_validator.gd` |
 | [`GFNetworkSerializer`](GFNetworkSerializer.md#gfnetworkserializer) | 协议与扩展点 (`protocol`) | `RefCounted` | 9 | `addons/gf/extensions/network/serialization/gf_network_serializer.gd` |
+| [`GFNetworkSimulationAdapter`](GFNetworkSimulationAdapter.md#gfnetworksimulationadapter) | 协议与扩展点 (`protocol`) | `RefCounted` | 6 | `addons/gf/extensions/network/simulation/gf_network_simulation_adapter.gd` |
 | [`GFNetworkChannel`](GFNetworkChannel.md#gfnetworkchannel) | 资源定义 (`resource_definition`) | `Resource` | 9 | `addons/gf/extensions/network/session/gf_network_channel.gd` |
 | [`GFNetworkContract`](GFNetworkContract.md#gfnetworkcontract) | 资源定义 (`resource_definition`) | `Resource` | 18 | `addons/gf/extensions/network/contracts/gf_network_contract.gd` |
 | [`GFNetworkContractField`](GFNetworkContractField.md#gfnetworkcontractfield) | 资源定义 (`resource_definition`) | `Resource` | 16 | `addons/gf/extensions/network/contracts/gf_network_contract_field.gd` |
@@ -828,6 +830,7 @@
 | [`GFNetworkServiceDiscovery`](GFNetworkServiceDiscovery.md#gfnetworkservicediscovery) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 20 | `addons/gf/extensions/network/session/gf_network_service_discovery.gd` |
 | [`GFNetworkSession`](GFNetworkSession.md#gfnetworksession) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 17 | `addons/gf/extensions/network/session/gf_network_session.gd` |
 | [`GFWebSocketNetworkBackend`](GFWebSocketNetworkBackend.md#gfwebsocketnetworkbackend) | 运行时句柄 (`runtime_handle`) | `GFNetworkBackend` | 11 | `addons/gf/extensions/network/backends/gf_websocket_network_backend.gd` |
+| [`GFNetworkInputFrame`](GFNetworkInputFrame.md#gfnetworkinputframe) | 值对象 (`value_object`) | `RefCounted` | 8 | `addons/gf/extensions/network/simulation/gf_network_input_frame.gd` |
 | [`GFNetworkLobbyDescriptor`](GFNetworkLobbyDescriptor.md#gfnetworklobbydescriptor) | 值对象 (`value_object`) | `Resource` | 24 | `addons/gf/extensions/network/session/gf_network_lobby_descriptor.gd` |
 | [`GFNetworkLobbyJoinResult`](GFNetworkLobbyJoinResult.md#gfnetworklobbyjoinresult) | 值对象 (`value_object`) | `RefCounted` | 14 | `addons/gf/extensions/network/session/gf_network_lobby_join_result.gd` |
 | [`GFNetworkLobbyMember`](GFNetworkLobbyMember.md#gfnetworklobbymember) | 值对象 (`value_object`) | `Resource` | 11 | `addons/gf/extensions/network/session/gf_network_lobby_member.gd` |
