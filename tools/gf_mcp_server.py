@@ -148,10 +148,21 @@ def list_tools() -> list[dict[str, Any]]:
 					"suite": {"type": "string", "enum": sorted(gf_maintenance.CHECK_SUITES), "default": "quick"},
 					"checks": {
 						"type": "array",
+						"minItems": 1,
 						"items": {
 							"type": "string",
 							"enum": sorted([*gf_maintenance.CHECK_DEFINITIONS.keys(), "release_metadata"]),
 						},
+					},
+					"jobs": {
+						"type": "integer",
+						"minimum": 0,
+						"maximum": gf_maintenance.MAX_PARALLEL_FULL_JOBS,
+						"default": 0,
+						"description": (
+							"Full-suite shard workers: 0 selects the bounded default, "
+							"1 uses the serial diagnostic path."
+						),
 					},
 					"timeout_seconds": {
 						"type": "integer",
@@ -237,11 +248,14 @@ def call_tool(request_id: Any, params: dict[str, Any]) -> dict[str, Any]:
 			data = gf_maintenance.workspace_status()
 		elif name == "gf_run_checks":
 			checks = arguments.get("checks")
+			if checks == []:
+				checks = None
 			timeout_seconds = arguments.get("timeout_seconds")
 			suite_timeout_seconds = arguments.get("suite_timeout_seconds")
 			data = gf_maintenance.run_checks_with_log_hygiene(
 				suite=str(arguments.get("suite", "quick")),
 				checks=checks if isinstance(checks, list) else None,
+				jobs=int(arguments.get("jobs", 0)),
 				timeout_seconds=int(timeout_seconds) if timeout_seconds != None else None,
 				suite_timeout_seconds=(
 					int(suite_timeout_seconds)

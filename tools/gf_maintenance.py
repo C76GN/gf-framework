@@ -6,6 +6,8 @@ from __future__ import annotations
 import argparse
 import concurrent.futures
 import configparser
+import contextlib
+import ctypes
 import fnmatch
 import functools
 import hashlib
@@ -15,6 +17,7 @@ import math
 import os
 import posixpath
 import re
+import secrets
 import shutil
 import stat
 import subprocess
@@ -28,6 +31,7 @@ import xml.etree.ElementTree as ET
 import zipfile
 from dataclasses import dataclass
 from pathlib import Path
+from pathlib import PureWindowsPath
 from typing import Any
 from typing import Callable
 
@@ -42,6 +46,10 @@ from generated_output_transaction import lexical_absolute_path
 from generated_output_transaction import replace_generated_trees
 from generated_output_transaction import validate_controlled_path
 import gf_package_cache
+import gf_package_artifact_set
+import gf_parallel_validation
+import gf_maintenance_check_graph
+import gf_process_supervisor
 import gf_maintenance_rendering as maintenance_rendering
 import gf_maintenance_static_checks
 import gf_semver
@@ -57,6 +65,14 @@ from gf_maintenance_check_graph import workspace_fingerprint
 from gf_package_paths import ManifestPathIndex
 from gf_package_paths import manifest_path_matches as shared_manifest_path_matches
 from gf_package_paths import normalize_manifest_path as normalize_shared_manifest_path
+from gf_package_artifact_set import PackageArtifactSet
+from gf_package_artifact_set import PackageArtifactDeadlineError
+from gf_package_artifact_set import PackageArtifactSetError
+from gf_parallel_validation import CapturedWorkspace
+from gf_parallel_validation import ParallelShard
+from gf_parallel_validation import ParallelShardResult
+from gf_parallel_validation import WorkspaceSnapshotError
+from gf_parallel_validation import WorkspaceDeadlineError
 from gf_process_supervisor import run_supervised_completed_process
 from gf_process_supervisor import run_supervised_process
 from gf_workspace_snapshot import WorkspaceSnapshot
@@ -116,8 +132,14 @@ GOVERNED_WORKFLOW_ACTION_VERSIONS = {
 	"actions/download-artifact": "v8",
 }
 CI_WORKFLOW_ACTION_COUNTS = {
-	"actions/checkout": 4,
-	"actions/setup-python": 4,
+	"actions/checkout": 6,
+	"actions/setup-python": 6,
+	"actions/upload-artifact": 0,
+	"actions/download-artifact": 0,
+}
+MANUAL_CI_WORKFLOW_ACTION_COUNTS = {
+	"actions/checkout": 3,
+	"actions/setup-python": 3,
 	"actions/upload-artifact": 0,
 	"actions/download-artifact": 0,
 }
@@ -166,6 +188,16 @@ DEFAULT_REFERENCE_SMOKE_SCENE = "res://tests/smoke/driftbound_smoke.tscn"
 GODOT_LOG_DIR = ROOT / "ai_analysis" / "godot_logs"
 LEGACY_MAINTENANCE_LOG_DIR = ROOT / ".gf"
 MAINTENANCE_KEEP_LOGS_ENV_VAR = "GF_MAINTENANCE_KEEP_LOGS"
+MAINTENANCE_VALIDATION_TEMP_ROOT_ENV_VAR = "GF_MAINTENANCE_VALIDATION_TEMP_ROOT"
+WINDOWS_ARTIFACT_VALIDATION_ROOT_MAX_CHARACTERS = 64
+# The longest runner-owned materialization root adds 11 characters
+# (``bN/.sN.m/w``); keep it no longer than a normal 30-character checkout.
+WINDOWS_PARALLEL_VALIDATION_ROOT_MAX_CHARACTERS = 19
+WINDOWS_DRIVE_FIXED = 3
+WINDOWS_ERROR_INSUFFICIENT_BUFFER = 122
+WINDOWS_QUERY_DOS_DEVICE_INITIAL_CHARACTERS = 1024
+WINDOWS_QUERY_DOS_DEVICE_MAX_CHARACTERS = 32 * 1024
+WINDOWS_LOCAL_VOLUME_DEVICE_RE = re.compile(r"\\Device\\HarddiskVolume[0-9]+", re.IGNORECASE)
 DEFAULT_MAINTENANCE_LOG_MAX_FILES = 32
 DEFAULT_MAINTENANCE_LOG_MAX_AGE_DAYS = 7
 DEFAULT_MAINTENANCE_LOG_MAX_TOTAL_BYTES = 16 * 1024 * 1024
@@ -976,6 +1008,16 @@ CHECK_DEPENDENCIES: dict[str, list[str]] = {
 	"examples_coverage": ["examples_sync"],
 }
 
+PACKAGE_ARTIFACT_CONSUMER_CHECKS: frozenset[str] = frozenset({
+	"package_build_boundary",
+	"package_editor_wizard_smoke",
+	"package_godot_cli_smoke",
+	"package_godot_cli_local_smoke",
+	"package_godot_cli_network_smoke",
+	"package_godot_smoke",
+	"package_godot_matrix_smoke",
+})
+
 
 def expand_check_dependencies(check_names: list[str]) -> list[str]:
 	return maintenance_check_graph().expand(check_names)
@@ -1098,6 +1140,30 @@ RELEASE_CHECKS: list[str] = [
 	"diff",
 	"release_metadata",
 ]
+FRAMEWORK_GUT_CHECKS: list[str] = [
+	"gut",
+	"gdscript_warnings",
+]
+FRAMEWORK_LSP_CHECKS: list[str] = ["gdscript_lsp_diagnostics"]
+FRAMEWORK_STATIC_CHECKS: list[str] = [
+	"api",
+	"ai_api",
+	"ai_developer_kit",
+	"docs",
+	"public_docs_boundary",
+	"public_api_boundary",
+	"resource_boundary",
+	"content_package_boundary",
+	"asset_lifecycle_boundary",
+	"project_profile_boundary",
+	"mkdocs",
+	"api_since_touched",
+	"repository_policy",
+	"path_hygiene",
+	"maintenance_self_test",
+	"dependency_boundary",
+	"diff",
+]
 FRAMEWORK_CHECKS: list[str] = [
 	"gut",
 	"api",
@@ -1128,6 +1194,9 @@ CHECK_SUITES: dict[str, list[str]] = {
 	"docs": DOCS_CHECKS,
 	"examples": EXAMPLES_CHECKS,
 	"framework": FRAMEWORK_CHECKS,
+	"framework-gut": FRAMEWORK_GUT_CHECKS,
+	"framework-lsp": FRAMEWORK_LSP_CHECKS,
+	"framework-static": FRAMEWORK_STATIC_CHECKS,
 	"quick": QUICK_CHECKS,
 	"package": PACKAGE_CHECKS,
 	"package-contract": PACKAGE_CONTRACT_CHECKS,
@@ -1142,6 +1211,222 @@ CHECK_SUITES: dict[str, list[str]] = {
 	"full": FULL_CHECKS,
 	"release": RELEASE_CHECKS,
 }
+
+PARALLEL_FULL_SHARD_SUITES: tuple[str, ...] = (
+	"framework-gut",
+	"package-editor",
+	"package-cli-local",
+	"package-cli-network",
+	"package-godot-ci",
+	"framework-lsp",
+	"framework-static",
+	"package-contract",
+)
+DEFAULT_PARALLEL_FULL_JOBS: int = 3
+MAX_PARALLEL_FULL_JOBS: int = 6
+PARALLEL_FULL_SHARD_TIMEOUT_SECONDS: dict[str, int] = {
+	"framework-gut": 1800,
+	"framework-lsp": 900,
+	"framework-static": 1200,
+	"package-contract": 900,
+	"package-editor": 1800,
+	"package-cli-local": 1500,
+	"package-cli-network": 1500,
+	"package-godot-ci": 1200,
+}
+PARALLEL_SHARD_STARTUP_ALLOWANCE_SECONDS: int = 60
+PARALLEL_GODOT_PROBE_SENTINEL = "GF_PARALLEL_ISOLATION_PROBE="
+SHA256_HEX_RE = re.compile(r"^[0-9a-f]{64}$")
+MAX_PARALLEL_SHARD_REPORT_BYTES: int = 16 * 1024 * 1024
+PARALLEL_SHARD_REPORT_REQUIRED_FIELDS = frozenset({
+	"ok",
+	"suite",
+	"checks",
+	"completed_check_count",
+	"duration_seconds",
+	"suite_timeout_seconds",
+	"check_graph",
+	"workspace_fingerprint",
+	"results",
+	"workspace_snapshot",
+	"workspace",
+	"execution",
+	"jobs",
+})
+PARALLEL_SHARD_REPORT_OPTIONAL_FIELDS = frozenset({"package_artifact_set"})
+PARALLEL_SHARD_WORKSPACE_FIELDS = frozenset({
+	"schema_version",
+	"head",
+	"dirty",
+	"untracked_file_count",
+	"fingerprint",
+})
+PARALLEL_SHARD_SNAPSHOT_FIELDS = frozenset({
+	"text_entry_count",
+	"text_cache_hits",
+	"text_cache_misses",
+	"value_entry_count",
+	"value_cache_hits",
+	"value_cache_misses",
+})
+PARALLEL_SHARD_RESULT_REQUIRED_FIELDS = frozenset({
+	"name",
+	"command",
+	"cwd",
+	"exit_code",
+	"timed_out",
+	"cancelled",
+	"duration_seconds",
+	"execution",
+	"stdout",
+	"stderr",
+	"timeout_seconds",
+	"dependencies",
+	"dependency_fingerprints",
+	"input_fingerprint",
+	"result_fingerprint",
+	"timeout_budget",
+})
+PARALLEL_SHARD_RESULT_OPTIONAL_FIELDS = frozenset({
+	"pid",
+	"streamed_output",
+	"process_exit_code",
+	"notes",
+	"godot_exit_leak_warning_count",
+	"godot_exit_leak_warnings",
+	"godot_exit_leak_report",
+})
+
+
+@dataclass(frozen=True)
+class ParallelCheckShardPlan:
+	name: str
+	checks: tuple[str, ...]
+
+	def to_dict(self) -> dict[str, Any]:
+		return {
+			"name": self.name,
+			"checks": list(self.checks),
+		}
+
+
+def parallel_full_shard_plan() -> list[ParallelCheckShardPlan]:
+	full_check_set = set(FULL_CHECKS)
+	claimed_checks: set[str] = set()
+	plan: list[ParallelCheckShardPlan] = []
+	for suite_name in PARALLEL_FULL_SHARD_SUITES:
+		owned_checks = tuple(
+			check_name
+			for check_name in CHECK_SUITES[suite_name]
+			if check_name in full_check_set and check_name not in claimed_checks
+		)
+		if not owned_checks:
+			raise ValueError(f"Parallel Full shard owns no checks: {suite_name}")
+		claimed_checks.update(owned_checks)
+		plan.append(ParallelCheckShardPlan(suite_name, owned_checks))
+	missing_checks = [check_name for check_name in FULL_CHECKS if check_name not in claimed_checks]
+	extra_checks = sorted(claimed_checks.difference(full_check_set))
+	if missing_checks or extra_checks:
+		raise ValueError(
+			"Parallel Full shard plan is not set-equivalent to Full: "
+			f"missing={missing_checks}, extra={extra_checks}"
+		)
+	return plan
+
+
+def parallel_shard_timeout_seconds(
+	shard_plan: ParallelCheckShardPlan,
+	requested_timeout_seconds: int | None,
+) -> int:
+	"""Budget the whole sequential child closure without weakening per-check minima."""
+	expected_checks = expanded_check_names("quick", list(shard_plan.checks))
+	closure_budget = sum(
+		resolve_check_timeout_seconds(check_name, requested_timeout_seconds)
+		for check_name in expected_checks
+	)
+	return max(
+		PARALLEL_FULL_SHARD_TIMEOUT_SECONDS[shard_plan.name],
+		closure_budget + PARALLEL_SHARD_STARTUP_ALLOWANCE_SECONDS,
+	)
+
+
+def resolve_check_jobs(
+	suite: str,
+	checks: list[str] | None,
+	requested_jobs: int,
+	*,
+	sync_examples: bool = False,
+) -> int:
+	if requested_jobs < 0 or requested_jobs > MAX_PARALLEL_FULL_JOBS:
+		raise ValueError(
+			f"--jobs must be between 0 and {MAX_PARALLEL_FULL_JOBS}; got {requested_jobs}."
+		)
+	parallel_supported = suite == "full" and checks is None and not sync_examples
+	if not parallel_supported:
+		if requested_jobs > 1:
+			raise ValueError(
+				"Parallel check jobs are supported only for --suite full without --check or --sync-examples."
+			)
+		return 1
+	if requested_jobs == 1:
+		return 1
+	if requested_jobs > 1:
+		return requested_jobs
+	return DEFAULT_PARALLEL_FULL_JOBS
+
+
+def expanded_check_names(
+	suite: str,
+	checks: list[str] | None,
+	*,
+	sync_examples: bool = False,
+) -> list[str]:
+	check_names = list(checks if checks else CHECK_SUITES[suite])
+	if sync_examples:
+		check_names = [
+			"examples_sync_write" if name == "examples_sync" else name
+			for name in check_names
+		]
+		effective_dependencies = {
+			name: [
+				"examples_sync_write" if dependency == "examples_sync" else dependency
+				for dependency in dependencies
+			]
+			for name, dependencies in CHECK_DEPENDENCIES.items()
+		}
+		return CheckGraph(
+			[*CHECK_DEFINITIONS.keys(), "release_metadata"],
+			effective_dependencies,
+		).expand(check_names)
+	return maintenance_check_graph().expand(check_names)
+
+
+def package_artifact_is_required(check_names: list[str]) -> bool:
+	return any(name in PACKAGE_ARTIFACT_CONSUMER_CHECKS for name in check_names)
+
+
+def check_command(
+	name: str,
+	package_artifact_manifest: str = "",
+	package_artifact_manifest_sha256: str = "",
+) -> list[str]:
+	command = list(CHECK_DEFINITIONS.get(name, ["<in-process>", name]))
+	if name not in PACKAGE_ARTIFACT_CONSUMER_CHECKS:
+		return command
+	if not package_artifact_inputs_are_complete(
+		package_artifact_manifest,
+		package_artifact_manifest_sha256,
+	):
+		raise PackageArtifactSetError(
+			f"Package artifact inputs were not prepared for package consumer check: {name}"
+		)
+	return [
+		*command,
+		"--package-artifact-manifest",
+		package_artifact_manifest,
+		"--package-artifact-manifest-sha256",
+		package_artifact_manifest_sha256,
+	]
 
 DEFAULT_CHECK_TIMEOUT_SECONDS: int = 600
 CHECK_TIMEOUT_SECONDS: dict[str, int] = {
@@ -1163,6 +1448,7 @@ CHECK_TIMEOUT_SECONDS: dict[str, int] = {
 
 _API_CACHE: list[ApiScript] | None = None
 _ACTIVE_WORKSPACE_SNAPSHOT: WorkspaceSnapshot | None = None
+_ACTIVE_SUITE_DEADLINE: float | None = None
 
 
 @dataclass
@@ -1183,6 +1469,7 @@ class CommandResult:
 	execution: str = "subprocess"
 	pid: int | None = None
 	streamed_output: bool = False
+	cancelled: bool = False
 
 	def to_dict(self, max_output_chars: int = 12000) -> dict[str, Any]:
 		payload = {
@@ -1191,6 +1478,7 @@ class CommandResult:
 			"cwd": self.cwd,
 			"exit_code": self.exit_code,
 			"timed_out": self.timed_out,
+			"cancelled": self.cancelled,
 			"duration_seconds": round(self.duration_seconds, 3),
 			"execution": self.execution,
 			"stdout": trim_text(self.stdout, max_output_chars),
@@ -1212,6 +1500,20 @@ class CommandResult:
 		if self.godot_exit_leak_report:
 			payload["godot_exit_leak_report"] = self.godot_exit_leak_report
 		return payload
+
+
+def add_package_artifact_consumer_arguments(parser: argparse.ArgumentParser) -> None:
+	"""Add coordinator-owned immutable package artifact inputs to one command."""
+	parser.add_argument(
+		"--package-artifact-manifest",
+		default="",
+		help=argparse.SUPPRESS,
+	)
+	parser.add_argument(
+		"--package-artifact-manifest-sha256",
+		default="",
+		help=argparse.SUPPRESS,
+	)
 
 
 def main() -> int:
@@ -1378,6 +1680,7 @@ def main() -> int:
 		"package-build-boundary",
 		help="Build all modular GF package archives in a temp directory and validate the generated registry.",
 	)
+	add_package_artifact_consumer_arguments(package_build_boundary_parser)
 	package_build_boundary_parser.add_argument("--json", action="store_true", help="Print JSON instead of text.")
 
 	package_user_dependency_boundary_parser = subparsers.add_parser(
@@ -1413,6 +1716,7 @@ def main() -> int:
 		"package-editor-wizard-smoke",
 		help="Smoke-test the editor package manager wizard dock with focused GUT coverage.",
 	)
+	add_package_artifact_consumer_arguments(package_editor_wizard_smoke_parser)
 	package_editor_wizard_smoke_parser.add_argument("--json", action="store_true", help="Print JSON instead of text.")
 
 	package_focused_gut_mapping_parser = subparsers.add_parser(
@@ -1425,6 +1729,7 @@ def main() -> int:
 		"package-godot-cli-smoke",
 		help="Smoke-test the Godot-native package CLI without requiring Python on the user install path.",
 	)
+	add_package_artifact_consumer_arguments(package_godot_cli_smoke_parser)
 	package_godot_cli_smoke_parser.add_argument(
 		"--profile",
 		choices=("all", "local", "network"),
@@ -1437,6 +1742,7 @@ def main() -> int:
 		"package-godot-smoke",
 		help="Install package closures into temp projects and check Godot editor parse/reload output.",
 	)
+	add_package_artifact_consumer_arguments(package_godot_smoke_parser)
 	package_godot_smoke_parser.add_argument(
 		"--all-packages",
 		action="store_true",
@@ -1530,6 +1836,15 @@ def main() -> int:
 	check_parser = subparsers.add_parser("check", help="Run predefined maintenance checks.")
 	check_parser.add_argument("--suite", choices=sorted(CHECK_SUITES), default="quick")
 	check_parser.add_argument(
+		"--jobs",
+		type=int,
+		default=0,
+		help=(
+			f"Parallel shard workers for the Full suite. 0 uses the default of {DEFAULT_PARALLEL_FULL_JOBS}, "
+			"1 keeps the serial diagnostic path, and the maximum is 6."
+		),
+	)
+	check_parser.add_argument(
 		"--check",
 		action="append",
 		choices=sorted([*CHECK_DEFINITIONS.keys(), "release_metadata"]),
@@ -1576,6 +1891,7 @@ def main() -> int:
 		default="",
 		help="Prebuilt release artifact manifest required by the release_metadata check.",
 	)
+	add_package_artifact_consumer_arguments(check_parser)
 	check_parser.add_argument("--json", action="store_true", help="Print JSON instead of text.")
 
 	release_parser = subparsers.add_parser("release-status", help="Check release metadata consistency.")
@@ -1696,7 +2012,10 @@ def main() -> int:
 		maintenance_rendering.print_output(data, args.json, maintenance_rendering.render_package_source_boundary_text)
 		return 0 if data["ok"] else 1
 	if args.command == "package-build-boundary":
-		data = package_build_boundary()
+		data = package_build_boundary(
+			package_artifact_manifest=args.package_artifact_manifest,
+			package_artifact_manifest_sha256=args.package_artifact_manifest_sha256,
+		)
 		maintenance_rendering.print_output(data, args.json, maintenance_rendering.render_package_build_boundary_text)
 		return 0 if data["ok"] else 1
 	if args.command == "package-user-dependency-boundary":
@@ -1716,7 +2035,10 @@ def main() -> int:
 		maintenance_rendering.print_output(data, args.json, maintenance_rendering.render_core_plugin_bootstrap_smoke_text)
 		return 0 if data["ok"] else 1
 	if args.command == "package-editor-wizard-smoke":
-		data = package_editor_wizard_smoke()
+		data = package_editor_wizard_smoke(
+			package_artifact_manifest=args.package_artifact_manifest,
+			package_artifact_manifest_sha256=args.package_artifact_manifest_sha256,
+		)
 		maintenance_rendering.print_output(data, args.json, maintenance_rendering.render_package_editor_wizard_smoke_text)
 		return 0 if data["ok"] else 1
 	if args.command == "package-focused-gut-mapping":
@@ -1724,7 +2046,11 @@ def main() -> int:
 		maintenance_rendering.print_output(data, args.json, maintenance_rendering.render_package_focused_gut_mapping_text)
 		return 0 if data["ok"] else 1
 	if args.command == "package-godot-cli-smoke":
-		data = package_godot_cli_smoke(profile=args.profile)
+		data = package_godot_cli_smoke(
+			profile=args.profile,
+			package_artifact_manifest=args.package_artifact_manifest,
+			package_artifact_manifest_sha256=args.package_artifact_manifest_sha256,
+		)
 		maintenance_rendering.print_output(data, args.json, maintenance_rendering.render_package_godot_cli_smoke_text)
 		return 0 if data["ok"] else 1
 	if args.command == "package-godot-smoke":
@@ -1732,6 +2058,8 @@ def main() -> int:
 			all_packages=args.all_packages,
 			package_ids=args.package_ids,
 			jobs=args.jobs,
+			package_artifact_manifest=args.package_artifact_manifest,
+			package_artifact_manifest_sha256=args.package_artifact_manifest_sha256,
 		)
 		maintenance_rendering.print_output(data, args.json, maintenance_rendering.render_package_godot_smoke_text)
 		return 0 if data["ok"] else 1
@@ -1765,12 +2093,15 @@ def main() -> int:
 		data = run_checks(
 			suite=args.suite,
 			checks=args.check,
+			jobs=args.jobs,
 			timeout_seconds=args.timeout,
 			suite_timeout_seconds=args.suite_timeout,
 			fail_fast=args.fail_fast,
 			sync_examples=args.sync_examples,
 			allow_breaking_api=args.allow_breaking_api,
 			artifact_manifest=args.artifact_manifest,
+			package_artifact_manifest=args.package_artifact_manifest,
+			package_artifact_manifest_sha256=args.package_artifact_manifest_sha256,
 			progress_callback=None if args.json else maintenance_rendering.print_check_progress,
 			output_callback=None if args.json else maintenance_rendering.print_check_output,
 		)
@@ -3561,7 +3892,7 @@ def load_package_focused_gut_mapping_file() -> dict[str, Any]:
 
 	try:
 		data = json.loads(PACKAGE_FOCUSED_GUT_MAPPING_PATH.read_text(encoding="utf-8"))
-	except (OSError, UnicodeDecodeError, json.JSONDecodeError) as error:
+	except (OSError, UnicodeDecodeError, json.JSONDecodeError, ValueError) as error:
 		issues.append(make_package_issue(
 			"invalid_package_focused_gut_mapping_json",
 			PACKAGE_FOCUSED_GUT_MAPPING_RELATIVE_PATH,
@@ -3862,7 +4193,7 @@ def core_only_smoke() -> dict[str, Any]:
 
 
 def core_plugin_bootstrap_smoke() -> dict[str, Any]:
-	with tempfile.TemporaryDirectory(prefix="gf-core-plugin-bootstrap-smoke-", ignore_cleanup_errors=True) as temp_dir:
+	with strict_managed_temporary_directory(prefix="gf-core-plugin-bootstrap-smoke-") as temp_dir:
 		temp_root = Path(temp_dir)
 		issues: list[dict[str, Any]] = []
 		scenarios: list[dict[str, Any]] = []
@@ -4328,13 +4659,21 @@ def make_package_external_command_audit_payload(
 	}
 
 
-def package_build_boundary() -> dict[str, Any]:
-	with tempfile.TemporaryDirectory(prefix="gf-package-build-boundary-") as temp_dir:
-		temp_root = Path(temp_dir)
-		output_dir = temp_root / "packages"
-		registry_path = temp_root / "registry/index.json"
-		registry_source_path = temp_root / "registry/gf-registry-source.json"
-		offline_bundle_path = temp_root / "gf-package-offline-bundle.zip"
+def build_package_smoke_artifact_set(
+	artifact_root: Path,
+	workspace_state: dict[str, Any],
+	*,
+	source_root: Path = ROOT,
+	deadline: float | None = None,
+) -> PackageArtifactSet:
+	"""Build and seal one invocation-scoped package distribution."""
+	remaining = remaining_deadline_seconds(deadline, "package artifact preparation")
+	artifact_root.mkdir(parents=True, exist_ok=False)
+	output_dir = artifact_root / "packages"
+	registry_path = artifact_root / gf_package_artifact_set.REGISTRY_RELATIVE_PATH
+	registry_source_path = artifact_root / gf_package_artifact_set.REGISTRY_SOURCE_RELATIVE_PATH
+	offline_bundle_path = artifact_root / gf_package_artifact_set.OFFLINE_BUNDLE_RELATIVE_PATH
+	try:
 		completed = run_maintenance_subprocess(
 			[
 				sys.executable,
@@ -4350,29 +4689,526 @@ def package_build_boundary() -> dict[str, Any]:
 				str(offline_bundle_path),
 				"--json",
 			],
-			timeout_seconds=120,
+			timeout_seconds=min(120.0, remaining) if remaining is not None else 120.0,
+			cwd=source_root,
 		)
+	except subprocess.TimeoutExpired as error:
+		if deadline is not None and time.perf_counter() >= deadline:
+			raise WorkspaceDeadlineError(
+				"Suite deadline exhausted while building the package artifact set."
+			) from error
+		raise PackageArtifactSetError(f"Package builder timed out: {error}") from error
+	if completed.returncode != 0:
+		details = trim_text(completed.stderr.strip() or completed.stdout.strip(), 1200)
+		raise PackageArtifactSetError(
+			f"Package builder returned exit code {completed.returncode}: {details}"
+		)
+	try:
+		builder_data = json.loads(completed.stdout or "{}")
+	except json.JSONDecodeError as error:
+		raise PackageArtifactSetError(f"Package builder returned invalid JSON: {error}") from error
+	if not isinstance(builder_data, dict):
+		raise PackageArtifactSetError("Package builder JSON must be an object.")
+	remaining_deadline_seconds(deadline, "package artifact sealing")
+	artifact_set = gf_package_artifact_set.seal_package_artifact_set(
+		artifact_root,
+		builder_data,
+		workspace_state,
+		deadline=deadline,
+	)
+	remaining_deadline_seconds(deadline, "package artifact sealing")
+	return artifact_set
+
+
+def remaining_deadline_seconds(deadline: float | None, operation: str) -> float | None:
+	"""Return an absolute suite deadline's remaining budget or fail closed."""
+	if deadline is None:
+		return None
+	remaining = deadline - time.perf_counter()
+	if remaining <= 0.0:
+		raise WorkspaceDeadlineError(f"Suite deadline exhausted during {operation}.")
+	return max(0.001, remaining)
+
+
+@contextlib.contextmanager
+def managed_temporary_directory(
+	*,
+	prefix: str,
+	cleanup_errors: list[str],
+	directory: Path | None = None,
+) -> Any:
+	"""Own one temp tree and report bounded Windows cleanup failures structurally."""
+	path = Path(tempfile.mkdtemp(prefix=prefix, dir=directory))
+	identity = path.lstat()
+	try:
+		yield path
+	finally:
+		cleanup_error = remove_managed_temporary_tree(path, expected_identity=identity)
+		if cleanup_error:
+			cleanup_errors.append(cleanup_error)
+
+
+@contextlib.contextmanager
+def strict_managed_temporary_directory(
+	*,
+	prefix: str,
+	directory: Path | None = None,
+) -> Any:
+	"""Own a temp tree and turn any bounded cleanup failure into a hard error."""
+	cleanup_errors: list[str] = []
+	try:
+		with managed_temporary_directory(
+			prefix=prefix,
+			cleanup_errors=cleanup_errors,
+			directory=directory,
+		) as path:
+			yield path
+	finally:
+		if cleanup_errors:
+			raise WorkspaceSnapshotError("\n".join(cleanup_errors))
+
+
+@contextlib.contextmanager
+def managed_validation_directory(
+	*,
+	prefix: str,
+	cleanup_errors: list[str],
+	windows_max_characters: int,
+) -> Any:
+	"""Own a short temp root so Windows path limits cannot corrupt validation results."""
+	override = os.environ.get(MAINTENANCE_VALIDATION_TEMP_ROOT_ENV_VAR, "").strip()
+	if override:
+		candidate_roots = [Path(override)]
+	else:
+		candidate_roots = []
+		if os.name == "nt" and re.fullmatch(r"[A-Za-z]:\\", ROOT.anchor):
+			candidate_roots.append(Path(ROOT.anchor))
+		automatic_temp_root = Path(tempfile.gettempdir())
+		if os.name != "nt":
+			try:
+				automatic_temp_root = automatic_temp_root.resolve(strict=True)
+			except OSError:
+				pass
+		candidate_roots.append(automatic_temp_root)
+
+	creation_errors: list[str] = []
+	path: Path | None = None
+	identity: os.stat_result | None = None
+	for candidate_root in candidate_roots:
+		try:
+			candidate_issue = validation_temp_candidate_issue(candidate_root)
+			if candidate_issue:
+				raise ValueError(candidate_issue)
+			created = Path(tempfile.mkdtemp(prefix=prefix, dir=candidate_root))
+		except (OSError, ValueError) as error:
+			creation_errors.append(f"{candidate_root}: {error}")
+			if override:
+				break
+			continue
+
+		created_error = ""
+		created_metadata: os.stat_result | None = None
+		try:
+			created_metadata = created.lstat()
+			if (
+				not stat.S_ISDIR(created_metadata.st_mode)
+				or stat.S_ISLNK(created_metadata.st_mode)
+				or bool(int(getattr(created_metadata, "st_file_attributes", 0)) & 0x0400)
+			):
+				created_error = "created validation root is not a real directory"
+			elif paths_overlap(created, ROOT):
+				created_error = "created validation root overlaps the source workspace"
+			else:
+				created_error = validation_temp_candidate_issue(created)
+			if (
+				not created_error
+				and os.name == "nt"
+				and len(str(created)) > windows_max_characters
+			):
+				created_error = (
+					f"created validation root uses {len(str(created))} characters; "
+					f"the safe limit is {windows_max_characters}"
+				)
+		except OSError as error:
+			created_error = str(error)
+		if created_error:
+			cleanup_error = remove_managed_temporary_tree(
+				created,
+				expected_identity=created_metadata,
+			)
+			if cleanup_error:
+				raise WorkspaceSnapshotError(
+					f"Could not reject unsafe validation root {created}: {cleanup_error}"
+				)
+			creation_errors.append(f"{candidate_root}: {created_error}")
+			if override:
+				break
+			continue
+		path = created
+		identity = created_metadata
+		break
+
+	if path is None:
+		details = "; ".join(creation_errors) or "no candidate roots were available"
+		raise WorkspaceSnapshotError(
+			"Could not create a short, isolated validation root. "
+			f"Set {MAINTENANCE_VALIDATION_TEMP_ROOT_ENV_VAR} to an absolute real directory "
+			f"with a short path. Details: {details}"
+		)
+	try:
+		yield path
+	finally:
+		cleanup_error = remove_managed_temporary_tree(path, expected_identity=identity)
+		if cleanup_error:
+			cleanup_errors.append(cleanup_error)
+
+
+@contextlib.contextmanager
+def managed_owned_directory(path: Path, *, cleanup_errors: list[str]) -> Any:
+	"""Own one exact child directory under an already-owned real parent."""
+	owned_path = Path(os.path.abspath(path))
+	if not owned_path.is_absolute() or os.path.lexists(owned_path):
+		raise WorkspaceSnapshotError(f"Managed directory must be a new absolute path: {owned_path}")
+	parent_issue = real_directory_chain_issue(owned_path.parent)
+	if parent_issue:
+		raise WorkspaceSnapshotError(
+			f"Managed directory parent is unsafe ({owned_path.parent}): {parent_issue}"
+		)
+	owned_path.mkdir(exist_ok=False)
+	identity = owned_path.lstat()
+	try:
+		yield owned_path
+	finally:
+		cleanup_error = remove_managed_temporary_tree(
+			owned_path,
+			expected_identity=identity,
+		)
+		if cleanup_error:
+			cleanup_errors.append(cleanup_error)
+
+
+def paths_overlap(left: Path, right: Path) -> bool:
+	left_value = os.path.normcase(os.path.abspath(left))
+	right_value = os.path.normcase(os.path.abspath(right))
+	try:
+		common = os.path.normcase(os.path.commonpath((left_value, right_value)))
+	except ValueError:
+		return False
+	return common in {left_value, right_value}
+
+
+def path_is_within_or_equal(path: Path, parent: Path) -> bool:
+	path_value = os.path.normcase(os.path.abspath(path))
+	parent_value = os.path.normcase(os.path.abspath(parent))
+	try:
+		return os.path.normcase(os.path.commonpath((path_value, parent_value))) == parent_value
+	except ValueError:
+		return False
+
+
+def validation_temp_candidate_issue(candidate_root: Path) -> str:
+	if not candidate_root.is_absolute():
+		return "candidate root is not absolute"
+	if os.name == "nt":
+		candidate_value = str(candidate_root)
+		if (
+			candidate_value.startswith("\\\\")
+			or candidate_value.startswith("\\\\?\\")
+			or candidate_value.startswith("\\\\.\\")
+			or re.match(r"^[A-Za-z]:\\", candidate_value) is None
+		):
+			return "candidate root must use a normal local Windows drive path"
+		drive_issue = windows_validation_drive_issue(candidate_value[:3])
+		if drive_issue:
+			return drive_issue
+	if not os.path.lexists(candidate_root):
+		return "candidate root does not exist"
+	if path_is_within_or_equal(candidate_root, ROOT):
+		return "candidate root is inside the source workspace"
+	return real_directory_chain_issue(candidate_root)
+
+
+def windows_validation_drive_issue(
+	drive_root: str,
+	*,
+	drive_probe: Callable[[str], tuple[int, tuple[str, ...]]] | None = None,
+) -> str:
+	"""Require one direct local fixed-volume mapping for a Windows drive root."""
+	if re.fullmatch(r"[A-Za-z]:\\", drive_root) is None:
+		return "candidate root must resolve to one normal Windows drive root"
+	probe = inspect_windows_validation_drive if drive_probe is None else drive_probe
+	try:
+		drive_type, device_targets = probe(drive_root)
+	except (OSError, RuntimeError, TypeError, ValueError) as error:
+		return f"cannot prove candidate drive identity: {error}"
+	return windows_validation_drive_identity_issue(drive_type, device_targets)
+
+
+def windows_validation_drive_identity_issue(
+	drive_type: int,
+	device_targets: tuple[str, ...],
+) -> str:
+	"""Classify injected GetDriveTypeW and QueryDosDeviceW results fail-closed."""
+	if type(drive_type) is not int:
+		return "candidate drive type is invalid"
+	if drive_type != WINDOWS_DRIVE_FIXED:
+		return (
+			"candidate drive must be a local fixed volume "
+			f"(GetDriveTypeW returned {drive_type})"
+		)
+	if (
+		not isinstance(device_targets, tuple)
+		or len(device_targets) != 1
+		or not isinstance(device_targets[0], str)
+		or not device_targets[0]
+	):
+		return "candidate drive has an ambiguous QueryDosDeviceW mapping"
+	device_target = device_targets[0]
+	if WINDOWS_LOCAL_VOLUME_DEVICE_RE.fullmatch(device_target) is None:
+		return (
+			"candidate drive is mapped, substituted, aliased, or not backed directly "
+			"by a local fixed volume"
+		)
+	return ""
+
+
+def inspect_windows_validation_drive(drive_root: str) -> tuple[int, tuple[str, ...]]:
+	"""Read one Windows drive's type and DOS-device target through stable WinAPI calls."""
+	if os.name != "nt":
+		raise OSError("Windows drive inspection is unavailable on this platform")
+	from ctypes import wintypes
+
+	kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+	get_drive_type = kernel32.GetDriveTypeW
+	get_drive_type.argtypes = [wintypes.LPCWSTR]
+	get_drive_type.restype = wintypes.UINT
+	query_dos_device = kernel32.QueryDosDeviceW
+	query_dos_device.argtypes = [wintypes.LPCWSTR, wintypes.LPWSTR, wintypes.DWORD]
+	query_dos_device.restype = wintypes.DWORD
+	drive_type = int(get_drive_type(drive_root))
+	device_name = drive_root[:2]
+	buffer_characters = WINDOWS_QUERY_DOS_DEVICE_INITIAL_CHARACTERS
+	while buffer_characters <= WINDOWS_QUERY_DOS_DEVICE_MAX_CHARACTERS:
+		buffer = ctypes.create_unicode_buffer(buffer_characters)
+		ctypes.set_last_error(0)
+		written = int(query_dos_device(device_name, buffer, buffer_characters))
+		if written > 0:
+			targets = tuple(
+				value
+				for value in buffer[:written].split("\x00")
+				if value
+			)
+			if not targets:
+				raise OSError("QueryDosDeviceW returned no drive targets")
+			return drive_type, targets
+		error_code = ctypes.get_last_error()
+		if error_code != WINDOWS_ERROR_INSUFFICIENT_BUFFER:
+			raise OSError(error_code, ctypes.FormatError(error_code))
+		buffer_characters *= 2
+	raise OSError("QueryDosDeviceW mapping exceeds the bounded buffer")
+
+
+def real_directory_chain_issue(path: Path) -> str:
+	"""Reject missing, non-directory, symlink, or reparse components lexically."""
+	absolute = Path(os.path.abspath(path))
+	if not absolute.is_absolute():
+		return "path is not absolute"
+	parts = absolute.parts
+	if not parts:
+		return "path has no components"
+	current = Path(parts[0])
+	for index, part in enumerate(parts):
+		if index > 0:
+			current /= part
+		try:
+			metadata = current.lstat()
+		except OSError as error:
+			return f"cannot inspect {current}: {error}"
+		if (
+			not stat.S_ISDIR(metadata.st_mode)
+			or stat.S_ISLNK(metadata.st_mode)
+			or bool(int(getattr(metadata, "st_file_attributes", 0)) & 0x0400)
+		):
+			return f"path component is not a real directory: {current}"
+	return ""
+
+
+def remove_managed_temporary_tree(
+	path: Path,
+	*,
+	expected_identity: os.stat_result | None = None,
+) -> str:
+	last_error = ""
+	for attempt in range(8):
+		if not os.path.lexists(path):
+			return ""
+		try:
+			parent_issue = real_directory_chain_issue(path.parent)
+			if parent_issue:
+				return f"Refusing to clean managed temporary root through an unsafe parent: {parent_issue}"
+			metadata = path.lstat()
+			if (
+				not stat.S_ISDIR(metadata.st_mode)
+				or stat.S_ISLNK(metadata.st_mode)
+				or bool(int(getattr(metadata, "st_file_attributes", 0)) & 0x0400)
+			):
+				return f"Refusing to clean unsafe managed temporary root: {path}"
+			if expected_identity is not None and not same_owned_directory_identity(
+				expected_identity,
+				metadata,
+			):
+				return f"Refusing to clean replaced managed temporary root: {path}"
+			cleanup_path: Path | str = path
+			if os.name == "nt" and not str(path).startswith("\\\\?\\"):
+				cleanup_path = "\\\\?\\" + str(path)
+			shutil.rmtree(cleanup_path, onexc=make_managed_temp_remove_writable)
+		except FileNotFoundError:
+			return ""
+		except OSError as error:
+			last_error = str(error)
+		if not os.path.lexists(path):
+			return ""
+		time.sleep(min(0.1 * (2 ** attempt), 1.0))
+	return f"Could not clean managed temporary root {path} after bounded retries: {last_error}"
+
+
+def same_owned_directory_identity(left: os.stat_result, right: os.stat_result) -> bool:
+	left_device = int(getattr(left, "st_dev", 0))
+	left_inode = int(getattr(left, "st_ino", 0))
+	return (
+		stat.S_ISDIR(left.st_mode)
+		and stat.S_ISDIR(right.st_mode)
+		and left.st_mode == right.st_mode
+		and (left_device != 0 or left_inode != 0)
+		and left_device == int(getattr(right, "st_dev", 0))
+		and left_inode == int(getattr(right, "st_ino", 0))
+	)
+
+
+def make_managed_temp_remove_writable(
+	function: Callable[[str], object],
+	path: str,
+	error: BaseException,
+) -> None:
+	try:
+		os.chmod(path, stat.S_IWRITE)
+		function(path)
+	except OSError:
+		raise error
+
+
+def package_artifact_inputs_are_complete(manifest: str, manifest_sha256: str) -> bool:
+	if bool(manifest) != bool(manifest_sha256):
+		raise PackageArtifactSetError(
+			"Package artifact manifest and expected SHA-256 must be supplied together."
+		)
+	return bool(manifest)
+
+
+def load_or_build_private_package_artifact_set(
+	temp_root: Path,
+	consumer_root: Path,
+	package_artifact_manifest: str = "",
+	package_artifact_manifest_sha256: str = "",
+	workspace_state: dict[str, Any] | None = None,
+	*,
+	deadline: float | None = None,
+) -> tuple[PackageArtifactSet, PackageArtifactSet, bool]:
+	"""Load or build a sealed set, then give one consumer an independent copy."""
+	effective_deadline = _ACTIVE_SUITE_DEADLINE if deadline is None else deadline
+	effective_workspace = workspace_state or workspace_fingerprint(ROOT, deadline=effective_deadline)
+	reused = package_artifact_inputs_are_complete(
+		package_artifact_manifest,
+		package_artifact_manifest_sha256,
+	)
+	if reused:
+		source_set = gf_package_artifact_set.load_package_artifact_set(
+			package_artifact_manifest,
+			package_artifact_manifest_sha256,
+			effective_workspace,
+			deadline=effective_deadline,
+		)
+	else:
+		try:
+			captured_workspace = gf_parallel_validation.capture_workspace(
+				ROOT,
+				deadline=effective_deadline,
+			)
+		except WorkspaceSnapshotError as error:
+			raise PackageArtifactSetError(
+				f"Could not capture an immutable package artifact source workspace: {error}"
+			) from error
+		if captured_workspace.workspace_fingerprint != effective_workspace["fingerprint"]:
+			raise PackageArtifactSetError(
+				"Package artifact producer capture does not match the requested workspace provenance."
+			)
+		try:
+			producer_workspace = gf_parallel_validation.materialize_workspace(
+				captured_workspace,
+				temp_root / "artifact-source",
+				deadline=effective_deadline,
+			)
+		except WorkspaceSnapshotError as error:
+			raise PackageArtifactSetError(
+				f"Could not materialize the package artifact source workspace: {error}"
+			) from error
+		source_set = build_package_smoke_artifact_set(
+			temp_root / "artifact-producer",
+			effective_workspace,
+			source_root=producer_workspace,
+			deadline=effective_deadline,
+		)
+	private_set = gf_package_artifact_set.materialize_package_artifact_set(
+		source_set,
+		consumer_root,
+		deadline=effective_deadline,
+	)
+	return source_set, private_set, reused
+
+
+def package_artifact_details(
+	artifact_set: PackageArtifactSet,
+	*,
+	reused: bool,
+) -> dict[str, Any]:
+	return {
+		"reused": reused,
+		"manifest_sha256": artifact_set.manifest_sha256,
+		"artifact_count": len(artifact_set.artifacts),
+		"workspace_fingerprint": artifact_set.workspace_state["fingerprint"],
+	}
+
+
+def package_build_boundary(
+	package_artifact_manifest: str = "",
+	package_artifact_manifest_sha256: str = "",
+) -> dict[str, Any]:
+	with strict_managed_temporary_directory(prefix="gf-package-build-boundary-") as temp_dir:
+		temp_root = Path(temp_dir)
 		issues: list[dict[str, Any]] = []
 		builder_data: dict[str, Any] = {}
-		if completed.returncode != 0:
-			issues.append(make_package_issue(
-				"package_builder_failed",
-				"tools/build_gf_package.py",
-				"Package builder returned a failing exit code.",
-				actual_value=str(completed.returncode),
-				error=trim_text(completed.stderr.strip() or completed.stdout.strip(), 1000),
-			))
+		private_set: PackageArtifactSet | None = None
+		reused = False
 		try:
-			builder_data = json.loads(completed.stdout or "{}")
-		except json.JSONDecodeError as error:
+			source_set, private_set, reused = load_or_build_private_package_artifact_set(
+				temp_root,
+				temp_root / "artifact-consumer",
+				package_artifact_manifest,
+				package_artifact_manifest_sha256,
+			)
+			builder_data = private_set.rebased_builder_data()
+			source_set.revalidate(deadline=_ACTIVE_SUITE_DEADLINE)
+		except PackageArtifactSetError as error:
 			issues.append(make_package_issue(
-				"package_builder_invalid_json",
-				"tools/build_gf_package.py",
-				"Package builder must return JSON for package-build-boundary.",
-				error=trim_text(str(error), 300),
+				"package_artifact_set_invalid",
+				"tools/gf_package_artifact_set.py",
+				"Package build boundary could not obtain a trusted private artifact set.",
+				error=trim_text(str(error), 1000),
 			))
-			builder_data = {}
-		if builder_data:
+		registry_path = private_set.registry_path if private_set is not None else temp_root / "artifact-consumer/registry/index.json"
+		registry_source_path = private_set.registry_source_path if private_set is not None else temp_root / "artifact-consumer/registry/gf-registry-source.json"
+		offline_bundle_path = private_set.offline_bundle_path if private_set is not None else temp_root / "artifact-consumer/offline_bundle/gf-package-offline-bundle.zip"
+		if builder_data and private_set is not None:
 			issues.extend(audit_package_build_result(builder_data, registry_path))
 			issues.extend(audit_package_build_registry_source_manifest(registry_source_path, registry_path))
 			issues.extend(audit_package_build_offline_bundle(offline_bundle_path, registry_path, registry_source_path, builder_data))
@@ -4391,6 +5227,11 @@ def package_build_boundary() -> dict[str, Any]:
 			"issue_count": len(issues),
 			"issue_kind_counts": count_issue_field(issues, "kind"),
 			"issues": issues,
+			"artifact_set": (
+				package_artifact_details(private_set, reused=reused)
+				if private_set is not None
+				else {"reused": reused}
+			),
 		}
 
 
@@ -4556,7 +5397,10 @@ def package_status_index(status_data: dict[str, Any]) -> dict[str, dict[str, Any
 	}
 
 
-def package_editor_wizard_smoke() -> dict[str, Any]:
+def package_editor_wizard_smoke(
+	package_artifact_manifest: str = "",
+	package_artifact_manifest_sha256: str = "",
+) -> dict[str, Any]:
 	test_path = "res://tests/gf_core/kernel/editor/test_gf_package_manager_dock.gd"
 	log_path = GODOT_LOG_DIR / "package_editor_wizard_smoke.log"
 	import_log_path = GODOT_LOG_DIR / "package_editor_wizard_smoke_import.log"
@@ -4685,36 +5529,38 @@ def package_editor_wizard_smoke() -> dict[str, Any]:
 			"log_path": log_path.as_posix(),
 		},
 	)
-	with tempfile.TemporaryDirectory(prefix="gf-package-editor-wizard-smoke-", ignore_cleanup_errors=True) as temp_dir:
+	with strict_managed_temporary_directory(prefix="gf-package-editor-wizard-smoke-") as temp_dir:
 		temp_root = Path(temp_dir)
 		server_root = temp_root / "server"
-		output_dir = server_root / "packages"
-		registry_path = server_root / "registry/index.json"
-		registry_source_path = server_root / "registry/gf-registry-source.json"
-		offline_bundle_path = temp_root / "offline_bundle/gf-package-offline-bundle.zip"
-		build_data = run_package_smoke_json_command(
-			"package_editor_wizard_build_registry",
-			[
-				sys.executable,
-				"tools/build_gf_package.py",
-				"--all",
-				"--output-dir",
-				str(output_dir),
-				"--registry",
-				str(registry_path),
-				"--registry-source",
-				str(registry_source_path),
-				"--offline-bundle",
-				str(offline_bundle_path),
-				"--json",
-			],
-			issues,
-		)
+		private_set: PackageArtifactSet | None = None
+		reused = False
+		try:
+			source_set, private_set, reused = load_or_build_private_package_artifact_set(
+				temp_root,
+				server_root,
+				package_artifact_manifest,
+				package_artifact_manifest_sha256,
+			)
+			source_set.revalidate(deadline=_ACTIVE_SUITE_DEADLINE)
+		except PackageArtifactSetError as error:
+			issues.append(make_package_issue(
+				"package_editor_wizard_artifact_set_invalid",
+				"tools/gf_package_artifact_set.py",
+				"Editor package wizard smoke could not obtain a trusted private artifact set.",
+				row_key="build_registry",
+				error=trim_text(str(error), 1000),
+			))
+		registry_path = private_set.registry_path if private_set is not None else server_root / "registry/index.json"
+		offline_bundle_path = private_set.offline_bundle_path if private_set is not None else server_root / "offline_bundle/gf-package-offline-bundle.zip"
+		build_data = private_set.rebased_builder_data() if private_set is not None else {}
 		record_package_editor_wizard_smoke_scenario(
 			scenarios,
 			"build_registry",
-			bool(build_data.get("ok")),
-			{"package_count": build_data.get("package_count", 0)},
+			private_set is not None and bool(build_data.get("ok")),
+			{
+				"package_count": build_data.get("package_count", 0),
+				"artifact_set_reused": reused,
+			},
 		)
 		if bool(build_data.get("ok")):
 			run_package_editor_wizard_smoke_minimal_kernel_local_install(
@@ -6125,7 +6971,11 @@ def read_text_file_if_exists(path: Path) -> str:
 	return ""
 
 
-def package_godot_cli_smoke(profile: str = "all") -> dict[str, Any]:
+def package_godot_cli_smoke(
+	profile: str = "all",
+	package_artifact_manifest: str = "",
+	package_artifact_manifest_sha256: str = "",
+) -> dict[str, Any]:
 	if profile not in {"all", "local", "network"}:
 		return {
 			"ok": False,
@@ -6140,40 +6990,42 @@ def package_godot_cli_smoke(profile: str = "all") -> dict[str, Any]:
 				f"Unknown Godot CLI smoke profile: {profile}",
 			)],
 		}
-	with tempfile.TemporaryDirectory(prefix="gf-package-godot-cli-smoke-", ignore_cleanup_errors=True) as temp_dir:
+	with strict_managed_temporary_directory(prefix="gf-package-godot-cli-smoke-") as temp_dir:
 		temp_root = Path(temp_dir)
 		server_root = temp_root / "server"
-		output_dir = server_root / "packages"
-		registry_path = server_root / "registry/index.json"
-		registry_source_path = server_root / "registry/gf-registry-source.json"
-		offline_bundle_path = temp_root / "offline_bundle/gf-package-offline-bundle.zip"
 		project_root = temp_root / "local_cli_project"
 		issues: list[dict[str, Any]] = []
 		scenarios: list[dict[str, Any]] = []
 
-		build_data = run_package_smoke_json_command(
-			"build_registry",
-			[
-				sys.executable,
-				"tools/build_gf_package.py",
-				"--all",
-				"--output-dir",
-				str(output_dir),
-				"--registry",
-				str(registry_path),
-				"--registry-source",
-				str(registry_source_path),
-				"--offline-bundle",
-				str(offline_bundle_path),
-				"--json",
-			],
-			issues,
-		)
+		private_set: PackageArtifactSet | None = None
+		reused = False
+		try:
+			source_set, private_set, reused = load_or_build_private_package_artifact_set(
+				temp_root,
+				server_root,
+				package_artifact_manifest,
+				package_artifact_manifest_sha256,
+			)
+			source_set.revalidate(deadline=_ACTIVE_SUITE_DEADLINE)
+		except PackageArtifactSetError as error:
+			issues.append(make_package_issue(
+				"package_godot_cli_smoke_artifact_set_invalid",
+				"tools/gf_package_artifact_set.py",
+				"Godot package CLI smoke could not obtain a trusted private artifact set.",
+				row_key="build_registry",
+				error=trim_text(str(error), 1000),
+			))
+		registry_path = private_set.registry_path if private_set is not None else server_root / "registry/index.json"
+		offline_bundle_path = private_set.offline_bundle_path if private_set is not None else server_root / "offline_bundle/gf-package-offline-bundle.zip"
+		build_data = private_set.rebased_builder_data() if private_set is not None else {}
 		record_package_godot_cli_smoke_scenario(
 			scenarios,
 			"build_registry",
-			len(issues) == 0 and bool(build_data.get("ok")),
-			{"package_count": build_data.get("package_count", 0)},
+			private_set is not None and bool(build_data.get("ok")),
+			{
+				"package_count": build_data.get("package_count", 0),
+				"artifact_set_reused": reused,
+			},
 		)
 		if issues or not build_data.get("ok"):
 			if not build_data.get("ok") and not issues:
@@ -8701,36 +9553,45 @@ def package_godot_smoke(
 	all_packages: bool = False,
 	package_ids: list[str] | None = None,
 	jobs: int = 0,
+	package_artifact_manifest: str = "",
+	package_artifact_manifest_sha256: str = "",
 ) -> dict[str, Any]:
-	with tempfile.TemporaryDirectory(prefix="gf-package-godot-smoke-") as temp_dir:
+	with strict_managed_temporary_directory(prefix="gf-package-godot-smoke-") as temp_dir:
 		temp_root = Path(temp_dir)
-		output_dir = temp_root / "packages"
-		registry_path = temp_root / "registry/index.json"
 		issues: list[dict[str, Any]] = []
 		scenarios: list[dict[str, Any]] = []
 		selected_package_ids = normalize_package_godot_smoke_package_ids(package_ids or [])
 		mode = "selected" if selected_package_ids else ("all" if all_packages else "representative")
 		scenario_jobs = package_godot_smoke_job_count(mode, jobs)
 
-		build_data = run_package_smoke_json_command(
-			"build_registry",
-			[
-				sys.executable,
-				"tools/build_gf_package.py",
-				"--all",
-				"--output-dir",
-				str(output_dir),
-				"--registry",
-				str(registry_path),
-				"--json",
-			],
-			issues,
-		)
+		private_set: PackageArtifactSet | None = None
+		reused = False
+		try:
+			source_set, private_set, reused = load_or_build_private_package_artifact_set(
+				temp_root,
+				temp_root / "artifact-consumer",
+				package_artifact_manifest,
+				package_artifact_manifest_sha256,
+			)
+			source_set.revalidate(deadline=_ACTIVE_SUITE_DEADLINE)
+		except PackageArtifactSetError as error:
+			issues.append(make_package_issue(
+				"package_godot_smoke_artifact_set_invalid",
+				"tools/gf_package_artifact_set.py",
+				"Package Godot smoke could not obtain a trusted private artifact set.",
+				row_key="build_registry",
+				error=trim_text(str(error), 1000),
+			))
+		registry_path = private_set.registry_path if private_set is not None else temp_root / "artifact-consumer/registry/index.json"
+		build_data = private_set.rebased_builder_data() if private_set is not None else {}
 		record_package_smoke_scenario(
 			scenarios,
 			"build_registry",
-			len(issues) == 0 and bool(build_data.get("ok")),
-			{"package_count": build_data.get("package_count", 0)},
+			private_set is not None and bool(build_data.get("ok")),
+			{
+				"package_count": build_data.get("package_count", 0),
+				"artifact_set_reused": reused,
+			},
 		)
 		if issues or not build_data.get("ok"):
 			if not build_data.get("ok") and not issues:
@@ -9688,8 +10549,12 @@ def maintenance_self_test() -> dict[str, Any]:
 	record_result(
 		"mcp_checks_use_managed_log_hygiene_boundary",
 		"gf_maintenance.run_checks_with_log_hygiene(" in mcp_server_source
-		and '"suite_timeout_seconds"' in mcp_server_source,
-		"MCP checks must preserve managed log cleanup and expose the suite deadline separately.",
+		and '"suite_timeout_seconds"' in mcp_server_source
+		and '"jobs"' in mcp_server_source
+		and '"minItems": 1' in mcp_server_source
+		and "if checks == []:" in mcp_server_source
+		and "gf_maintenance.MAX_PARALLEL_FULL_JOBS" in mcp_server_source,
+		"MCP checks must preserve log cleanup, reject ambiguous empty selections, and expose bounded Full parallelism and deadlines.",
 	)
 	record_result(
 		"package_smoke_redirect_rejects_response_splitting_controls",
@@ -9781,6 +10646,1405 @@ def maintenance_self_test() -> dict[str, Any]:
 		"fingerprints must ignore dictionary insertion order but change with their inputs.",
 	)
 
+	with tempfile.TemporaryDirectory(prefix="gf-package-artifact-set-self-test-") as temp_dir:
+		fixture_root = Path(temp_dir)
+		producer_root = fixture_root / "producer"
+		(producer_root / "packages").mkdir(parents=True)
+		(producer_root / "registry").mkdir()
+		(producer_root / "offline_bundle").mkdir()
+		archive_path = producer_root / "packages/gf.fixture.zip"
+		registry_path = producer_root / gf_package_artifact_set.REGISTRY_RELATIVE_PATH
+		registry_source_path = producer_root / gf_package_artifact_set.REGISTRY_SOURCE_RELATIVE_PATH
+		offline_bundle_path = producer_root / gf_package_artifact_set.OFFLINE_BUNDLE_RELATIVE_PATH
+		archive_path.write_bytes(b"fixture-package-archive")
+		registry_path.write_text("{}\n", encoding="utf-8")
+		registry_source_path.write_text("{}\n", encoding="utf-8")
+		offline_bundle_path.write_bytes(b"fixture-offline-bundle")
+		fixture_workspace_state = {
+			"schema_version": 1,
+			"head": "1" * 40,
+			"dirty": True,
+			"fingerprint": "2" * 64,
+		}
+		fixture_builder_data = {
+			"ok": True,
+			"issues": [],
+			"output_dir": (producer_root / "packages").as_posix(),
+			"registry": registry_path.as_posix(),
+			"registry_source": registry_source_path.as_posix(),
+			"offline_bundle": offline_bundle_path.as_posix(),
+			"package_count": 1,
+			"packages": [{
+				"id": "gf.fixture",
+				"kind": "kernel",
+				"ok": True,
+				"issues": [],
+				"archive": archive_path.as_posix(),
+				"size_bytes": archive_path.stat().st_size,
+				"sha256": sha256_file(archive_path),
+			}],
+		}
+		sealed_set = gf_package_artifact_set.seal_package_artifact_set(
+			producer_root,
+			fixture_builder_data,
+			fixture_workspace_state,
+		)
+		private_set = gf_package_artifact_set.materialize_package_artifact_set(
+			sealed_set,
+			fixture_root / "consumer",
+		)
+		original_artifact_copy = gf_package_artifact_set._copy_regular_file_with_deadline
+		failed_private_cleanup_rejected = False
+		try:
+			def fail_private_artifact_copy(*_args: Any, **_kwargs: Any) -> None:
+				raise OSError("fixture copy failure")
+
+			gf_package_artifact_set._copy_regular_file_with_deadline = fail_private_artifact_copy
+			try:
+				gf_package_artifact_set.materialize_package_artifact_set(
+					sealed_set,
+					fixture_root / "failed-consumer",
+				)
+			except OSError:
+				failed_private_cleanup_rejected = True
+		finally:
+			gf_package_artifact_set._copy_regular_file_with_deadline = original_artifact_copy
+		artifact_cleanup_root = fixture_root / "artifact-cleanup-owned"
+		artifact_cleanup_moved = fixture_root / "artifact-cleanup-moved"
+		artifact_cleanup_root.mkdir()
+		artifact_cleanup_identity = artifact_cleanup_root.lstat()
+		os.replace(artifact_cleanup_root, artifact_cleanup_moved)
+		artifact_cleanup_root.mkdir()
+		artifact_identity_issue = gf_package_artifact_set._safe_remove_private_tree(
+			artifact_cleanup_root,
+			expected_identity=artifact_cleanup_identity,
+		)
+		private_archive = private_set.package_archive_paths[0]
+		artifact_deadline_rejected = False
+		try:
+			sealed_set.revalidate(deadline=time.perf_counter() - 1.0)
+		except PackageArtifactDeadlineError:
+			artifact_deadline_rejected = True
+		consumer_deadline_rejected = False
+		try:
+			load_or_build_private_package_artifact_set(
+				fixture_root,
+				fixture_root / "expired-consumer",
+				sealed_set.manifest_path.as_posix(),
+				sealed_set.manifest_sha256,
+				fixture_workspace_state,
+				deadline=time.perf_counter() - 1.0,
+			)
+		except PackageArtifactDeadlineError:
+			consumer_deadline_rejected = True
+		private_archive.write_bytes(b"tampered-private-copy")
+		private_tamper_rejected = False
+		workspace_mismatch_rejected = False
+		try:
+			private_set.revalidate()
+		except PackageArtifactSetError:
+			private_tamper_rejected = True
+		try:
+			gf_package_artifact_set.load_package_artifact_set(
+				sealed_set.manifest_path,
+				sealed_set.manifest_sha256,
+				{**fixture_workspace_state, "fingerprint": "3" * 64},
+			)
+		except PackageArtifactSetError:
+			workspace_mismatch_rejected = True
+		record_result(
+			"package_artifact_set_is_sealed_and_consumers_are_private",
+			sealed_set.revalidate().manifest_sha256 == sealed_set.manifest_sha256
+			and private_tamper_rejected
+			and workspace_mismatch_rejected
+			and artifact_deadline_rejected
+			and consumer_deadline_rejected
+			and failed_private_cleanup_rejected
+			and not list(fixture_root.glob(".failed-consumer.a-*"))
+			and bool(artifact_identity_issue)
+			and artifact_cleanup_root.exists()
+			and artifact_cleanup_moved.exists()
+			and archive_path.read_bytes() == b"fixture-package-archive",
+			"Package smoke artifacts must bind provenance, honor absolute deadlines, isolate writes, clean failed staging, and refuse replaced roots.",
+		)
+
+	windows_short_repository_root = PureWindowsPath(
+		r"C:\Users\RUNNER~1\AppData\Local\Temp\gf-fixture\source"
+	)
+	windows_long_repository_root = PureWindowsPath(
+		r"C:\Users\runneradmin\AppData\Local\Temp\gf-fixture\source"
+	)
+
+	def injected_windows_long_path_name(
+		path_value: os.PathLike[str],
+		_deadline: float | None,
+	) -> os.PathLike[str]:
+		path = PureWindowsPath(path_value)
+		if path == windows_short_repository_root:
+			return windows_long_repository_root
+		return path
+
+	def failing_windows_long_path_name(
+		_path_value: os.PathLike[str],
+		_deadline: float | None,
+	) -> os.PathLike[str]:
+		raise OSError("fixture long-path expansion failure")
+
+	record_result(
+		"windows_repository_root_alias_only_accepts_bounded_long_name_expansion",
+		gf_parallel_validation._windows_long_repository_paths_match(
+			windows_short_repository_root,
+			windows_long_repository_root,
+			long_path_name=injected_windows_long_path_name,
+		)
+		and not gf_parallel_validation._windows_long_repository_paths_match(
+			PureWindowsPath(r"S:\gf-fixture\source"),
+			windows_long_repository_root,
+			long_path_name=injected_windows_long_path_name,
+		)
+		and not gf_parallel_validation._windows_long_repository_paths_match(
+			windows_short_repository_root,
+			PureWindowsPath(r"C:\Users\runneradmin\AppData\Local\Temp\other\source"),
+			long_path_name=injected_windows_long_path_name,
+		)
+		and not gf_parallel_validation._windows_long_repository_paths_match(
+			windows_short_repository_root,
+			windows_long_repository_root,
+			long_path_name=failing_windows_long_path_name,
+		),
+		"Repository roots may accept only same-drive Windows 8.3 names that expand exactly to Git's long path.",
+	)
+
+	windows_directory_mode = stat.S_IFDIR | 0o755
+
+	def windows_directory_metadata(inode: int) -> argparse.Namespace:
+		return argparse.Namespace(
+			st_mode=windows_directory_mode,
+			st_dev=7,
+			st_ino=inode,
+			st_file_attributes=0,
+		)
+
+	windows_drive_metadata = windows_directory_metadata(1)
+	windows_leaf_metadata = windows_directory_metadata(2)
+	stable_short_chain = (
+		(Path("short-drive"), windows_drive_metadata),
+		(Path("short-leaf"), windows_leaf_metadata),
+	)
+	stable_long_chain = (
+		(Path("long-drive"), windows_drive_metadata),
+		(Path("long-leaf"), windows_leaf_metadata),
+	)
+
+	def windows_snapshot_sequence(
+		snapshots: tuple[tuple[tuple[Path, argparse.Namespace], ...], ...],
+	) -> tuple[
+		Callable[[Path, float | None], tuple[tuple[Path, argparse.Namespace], ...]],
+		list[Path],
+	]:
+		calls: list[Path] = []
+
+		def snapshot(
+			path_value: Path,
+			_deadline: float | None,
+		) -> tuple[tuple[Path, argparse.Namespace], ...]:
+			calls.append(path_value)
+			return snapshots[len(calls) - 1]
+
+		return snapshot, calls
+
+	lexical_snapshot_calls: list[Path] = []
+	lexical_long_path_calls: list[os.PathLike[str]] = []
+
+	def reject_unexpected_windows_snapshot(
+		path_value: Path,
+		_deadline: float | None,
+	) -> tuple[tuple[Path, argparse.Namespace], ...]:
+		lexical_snapshot_calls.append(path_value)
+		raise AssertionError("lexically unsafe roots must not reach filesystem inspection")
+
+	def reject_unexpected_windows_long_path(
+		path_value: os.PathLike[str],
+		_deadline: float | None,
+	) -> os.PathLike[str]:
+		lexical_long_path_calls.append(path_value)
+		raise AssertionError("lexically unsafe roots must not reach WinAPI expansion")
+
+	record_result(
+		"windows_repository_root_alias_rejects_unsafe_namespaces_before_io",
+		all(
+			not gf_parallel_validation._windows_repository_root_alias_is_safe(
+				unsafe_root,
+				windows_long_repository_root,
+				deadline=None,
+				snapshot_directory_chain=reject_unexpected_windows_snapshot,
+				long_path_name=reject_unexpected_windows_long_path,
+			)
+			for unsafe_root in (
+				PureWindowsPath(r"S:\gf-fixture\source"),
+				PureWindowsPath(r"\\server\share\gf-fixture\source"),
+				PureWindowsPath(r"\\?\C:\gf-fixture\source"),
+				PureWindowsPath(r"gf-fixture\source"),
+			)
+		)
+		and not lexical_snapshot_calls
+		and not lexical_long_path_calls,
+		"Cross-drive, UNC, device, and relative Windows roots must be rejected before filesystem or WinAPI access.",
+	)
+
+	stable_snapshot, stable_snapshot_calls = windows_snapshot_sequence(
+		(stable_short_chain, stable_long_chain, stable_short_chain, stable_long_chain)
+	)
+	mismatched_leaf_chain = (
+		(Path("mismatched-drive"), windows_drive_metadata),
+		(Path("mismatched-leaf"), windows_directory_metadata(3)),
+	)
+	mismatch_snapshot, mismatch_snapshot_calls = windows_snapshot_sequence(
+		(stable_short_chain, mismatched_leaf_chain)
+	)
+	drifted_short_chain = (
+		(Path("short-drive"), windows_drive_metadata),
+		(Path("short-leaf"), windows_directory_metadata(4)),
+	)
+	root_drift_snapshot, root_drift_snapshot_calls = windows_snapshot_sequence(
+		(stable_short_chain, stable_long_chain, drifted_short_chain, stable_long_chain)
+	)
+	drifted_long_chain = (
+		(Path("long-drive"), windows_drive_metadata),
+		(Path("long-leaf"), windows_directory_metadata(5)),
+	)
+	reported_drift_snapshot, reported_drift_snapshot_calls = windows_snapshot_sequence(
+		(stable_short_chain, stable_long_chain, stable_short_chain, drifted_long_chain)
+	)
+	record_result(
+		"windows_repository_root_alias_pins_identity_and_both_directory_chains",
+		gf_parallel_validation._windows_repository_root_alias_is_safe(
+			windows_short_repository_root,
+			windows_long_repository_root,
+			deadline=None,
+			snapshot_directory_chain=stable_snapshot,
+			long_path_name=injected_windows_long_path_name,
+		)
+		and len(stable_snapshot_calls) == 4
+		and not gf_parallel_validation._windows_repository_root_alias_is_safe(
+			windows_short_repository_root,
+			windows_long_repository_root,
+			deadline=None,
+			snapshot_directory_chain=mismatch_snapshot,
+			long_path_name=injected_windows_long_path_name,
+		)
+		and len(mismatch_snapshot_calls) == 2
+		and not gf_parallel_validation._windows_repository_root_alias_is_safe(
+			windows_short_repository_root,
+			windows_long_repository_root,
+			deadline=None,
+			snapshot_directory_chain=root_drift_snapshot,
+			long_path_name=injected_windows_long_path_name,
+		)
+		and len(root_drift_snapshot_calls) == 4
+		and not gf_parallel_validation._windows_repository_root_alias_is_safe(
+			windows_short_repository_root,
+			windows_long_repository_root,
+			deadline=None,
+			snapshot_directory_chain=reported_drift_snapshot,
+			long_path_name=injected_windows_long_path_name,
+		)
+		and len(reported_drift_snapshot_calls) == 4,
+		"Windows root aliases must share one leaf identity and keep both directory chains stable around expansion.",
+	)
+
+	unsafe_snapshot_rejected = False
+	unsafe_snapshot_calls = 0
+
+	def reject_windows_reparse_snapshot(
+		_path_value: Path,
+		_deadline: float | None,
+	) -> tuple[tuple[Path, argparse.Namespace], ...]:
+		nonlocal unsafe_snapshot_calls
+		unsafe_snapshot_calls += 1
+		raise gf_parallel_validation.UnsafeWorkspacePathError("fixture reparse point")
+
+	try:
+		gf_parallel_validation._windows_repository_root_alias_is_safe(
+			windows_short_repository_root,
+			windows_long_repository_root,
+			deadline=None,
+			snapshot_directory_chain=reject_windows_reparse_snapshot,
+			long_path_name=injected_windows_long_path_name,
+		)
+	except gf_parallel_validation.UnsafeWorkspacePathError:
+		unsafe_snapshot_rejected = True
+	expired_snapshot_calls = 0
+	expired_long_path_calls = 0
+
+	def reject_expired_windows_snapshot(
+		_path_value: Path,
+		_deadline: float | None,
+	) -> tuple[tuple[Path, argparse.Namespace], ...]:
+		nonlocal expired_snapshot_calls
+		expired_snapshot_calls += 1
+		return stable_short_chain
+
+	def reject_expired_windows_long_path(
+		path_value: os.PathLike[str],
+		_deadline: float | None,
+	) -> os.PathLike[str]:
+		nonlocal expired_long_path_calls
+		expired_long_path_calls += 1
+		return path_value
+
+	expired_alias_rejected = False
+	try:
+		gf_parallel_validation._windows_repository_root_alias_is_safe(
+			windows_short_repository_root,
+			windows_long_repository_root,
+			deadline=time.perf_counter() - 1.0,
+			snapshot_directory_chain=reject_expired_windows_snapshot,
+			long_path_name=reject_expired_windows_long_path,
+		)
+	except WorkspaceDeadlineError:
+		expired_alias_rejected = True
+	record_result(
+		"windows_repository_root_alias_propagates_unsafe_snapshots_and_deadlines",
+		unsafe_snapshot_rejected
+		and unsafe_snapshot_calls == 1
+		and expired_alias_rejected
+		and expired_snapshot_calls == 0
+		and expired_long_path_calls == 0,
+		"Reparse-point rejection must propagate, and an expired deadline must stop before native or filesystem work.",
+	)
+
+	buffer_requests: list[int] = []
+
+	def grow_windows_long_path_buffer(
+		_path_text: str,
+		buffer_characters: int,
+	) -> tuple[int, str]:
+		buffer_requests.append(buffer_characters)
+		if len(buffer_requests) == 1:
+			return 512, ""
+		return len(str(windows_long_repository_root)), str(windows_long_repository_root)
+
+	over_limit_rejected = False
+	try:
+		gf_parallel_validation._bounded_windows_long_path_name(
+			windows_short_repository_root,
+			deadline=None,
+			read_long_path=lambda _path_text, _buffer_characters: (
+				gf_parallel_validation.WINDOWS_LONG_PATH_MAX_CHARACTERS + 1,
+				"",
+			),
+		)
+	except OSError:
+		over_limit_rejected = True
+	no_progress_rejected = False
+	try:
+		gf_parallel_validation._bounded_windows_long_path_name(
+			windows_short_repository_root,
+			deadline=None,
+			read_long_path=lambda _path_text, buffer_characters: (buffer_characters, ""),
+		)
+	except OSError:
+		no_progress_rejected = True
+	expired_buffer_calls = 0
+
+	def reject_expired_buffer_read(
+		_path_text: str,
+		_buffer_characters: int,
+	) -> tuple[int, str]:
+		nonlocal expired_buffer_calls
+		expired_buffer_calls += 1
+		return 1, "C:"
+
+	expired_buffer_rejected = False
+	try:
+		gf_parallel_validation._bounded_windows_long_path_name(
+			windows_short_repository_root,
+			deadline=time.perf_counter() - 1.0,
+			read_long_path=reject_expired_buffer_read,
+		)
+	except WorkspaceDeadlineError:
+		expired_buffer_rejected = True
+	record_result(
+		"windows_long_path_expansion_is_bounded_and_deadline_aware",
+		gf_parallel_validation._bounded_windows_long_path_name(
+			windows_short_repository_root,
+			deadline=None,
+			read_long_path=grow_windows_long_path_buffer,
+		)
+		== Path(str(windows_long_repository_root))
+		and buffer_requests == [260, 512]
+		and over_limit_rejected
+		and no_progress_rejected
+		and expired_buffer_rejected
+		and expired_buffer_calls == 0,
+		"WinAPI long-path expansion must grow monotonically within a hard cap and honor the suite deadline.",
+	)
+
+	with tempfile.TemporaryDirectory(prefix="gf-parallel-workspace-self-test-") as temp_dir:
+		fixture_root = Path(temp_dir)
+		source_root = fixture_root / "source"
+		source_root.mkdir()
+		for git_args in (
+			["init", "--quiet"],
+			["config", "user.email", "gf-maintenance@example.invalid"],
+			["config", "user.name", "GF Maintenance"],
+			["config", "core.autocrlf", "false"],
+		):
+			subprocess.run(
+				["git", *git_args],
+				cwd=source_root,
+				check=True,
+				capture_output=True,
+			)
+		tracked_path = source_root / "tracked.txt"
+		tracked_path.write_text("committed\n", encoding="utf-8")
+		subprocess.run(["git", "add", "tracked.txt"], cwd=source_root, check=True, capture_output=True)
+		subprocess.run(
+			["git", "commit", "--quiet", "-m", "fixture"],
+			cwd=source_root,
+			check=True,
+			capture_output=True,
+		)
+		tracked_path.write_text("dirty\n", encoding="utf-8")
+		(source_root / "untracked.bin").write_bytes(b"\x00gf-parallel-fixture\xff")
+		captured_fixture = gf_parallel_validation.capture_workspace(source_root)
+		workspace_a = gf_parallel_validation.materialize_workspace(
+			captured_fixture,
+			fixture_root / "workspace-a",
+		)
+		workspace_b = gf_parallel_validation.materialize_workspace(
+			captured_fixture,
+			fixture_root / "workspace-b",
+		)
+		normal_parallel_results = gf_parallel_validation.run_parallel_shards(
+			[
+				ParallelShard("a", (sys.executable, "-c", "print('a')"), workspace_a, 10),
+				ParallelShard("b", (sys.executable, "-c", "print('b')"), workspace_b, 10),
+			],
+			max_workers=2,
+		)
+		fail_fast_results = gf_parallel_validation.run_parallel_shards(
+			[
+				ParallelShard("failure", (sys.executable, "-c", "raise SystemExit(7)"), workspace_a, 10),
+				ParallelShard("not-started", (sys.executable, "-c", "print('unexpected')"), workspace_b, 10),
+			],
+			max_workers=1,
+			fail_fast=True,
+		)
+		original_parallel_run_git = gf_parallel_validation._run_git
+		failed_materialization_cleaned = False
+		try:
+			def fail_materialization_git(*_args: Any, **_kwargs: Any) -> bytes:
+				raise WorkspaceSnapshotError("fixture materialization failure")
+
+			gf_parallel_validation._run_git = fail_materialization_git
+			failed_target = fixture_root / "failed-workspace"
+			try:
+				gf_parallel_validation.materialize_workspace(captured_fixture, failed_target)
+			except WorkspaceSnapshotError:
+				failed_materialization_cleaned = (
+					not os.path.lexists(failed_target)
+					and not os.path.lexists(fixture_root / ".failed-workspace.m")
+				)
+		finally:
+			gf_parallel_validation._run_git = original_parallel_run_git
+		record_result(
+			"parallel_validation_materializes_equivalent_isolated_workspaces",
+			captured_fixture.workspace_fingerprint == workspace_fingerprint(workspace_a)["fingerprint"]
+			and captured_fixture.workspace_fingerprint == workspace_fingerprint(workspace_b)["fingerprint"]
+			and (workspace_a / "tracked.txt").read_text(encoding="utf-8") == "dirty\n"
+			and (workspace_b / "untracked.bin").read_bytes() == b"\x00gf-parallel-fixture\xff"
+			and [result.name for result in normal_parallel_results] == ["a", "b"]
+			and all(result.ok for result in normal_parallel_results)
+			and failed_materialization_cleaned,
+			"Parallel Full workers must receive equivalent private source workspaces and clean failed staging safely.",
+		)
+		record_result(
+			"parallel_validation_fail_fast_cancels_unscheduled_shards",
+			fail_fast_results[0].exit_code == 7
+			and not fail_fast_results[0].cancelled
+			and fail_fast_results[1].exit_code == 130
+			and fail_fast_results[1].cancelled
+			and not fail_fast_results[1].started,
+			"Fail-fast must stop unscheduled shards with a stable structured cancellation result.",
+		)
+		capture_limit_path = source_root / "capture-limit.bin"
+		original_file_capture_limit = gf_parallel_validation.MAX_CAPTURED_UNTRACKED_FILE_BYTES
+		original_total_capture_limit = gf_parallel_validation.MAX_CAPTURED_UNTRACKED_TOTAL_BYTES
+		exact_limit_accepted = False
+		over_limit_rejected = False
+		total_limit_exact_accepted = False
+		total_limit_rejected = False
+		try:
+			gf_parallel_validation.MAX_CAPTURED_UNTRACKED_FILE_BYTES = 8
+			capture_limit_path.write_bytes(b"12345678")
+			exact_limit_accepted = (
+				gf_parallel_validation._capture_untracked_file(
+					source_root,
+					capture_limit_path.name,
+				).data
+				== b"12345678"
+			)
+			capture_limit_path.write_bytes(b"123456789")
+			try:
+				gf_parallel_validation._capture_untracked_file(
+					source_root,
+					capture_limit_path.name,
+				)
+			except WorkspaceSnapshotError:
+				over_limit_rejected = True
+			capture_limit_path.unlink()
+			total_source_root = fixture_root / "total-source"
+			total_source_root.mkdir()
+			for total_git_args in (
+				["init", "--quiet"],
+				["config", "user.email", "gf-maintenance@example.invalid"],
+				["config", "user.name", "GF Maintenance"],
+				["config", "core.autocrlf", "false"],
+			):
+				subprocess.run(
+					["git", *total_git_args],
+					cwd=total_source_root,
+					check=True,
+					capture_output=True,
+				)
+			(total_source_root / "tracked.txt").write_text("fixture\n", encoding="utf-8")
+			subprocess.run(
+				["git", "add", "tracked.txt"],
+				cwd=total_source_root,
+				check=True,
+				capture_output=True,
+			)
+			subprocess.run(
+				["git", "commit", "--quiet", "-m", "fixture"],
+				cwd=total_source_root,
+				check=True,
+				capture_output=True,
+			)
+			(total_source_root / "small-a.bin").write_bytes(b"aaaa")
+			(total_source_root / "small-b.bin").write_bytes(b"bbbb")
+			gf_parallel_validation.MAX_CAPTURED_UNTRACKED_TOTAL_BYTES = 8
+			total_limit_exact_accepted = (
+				sum(
+					captured.size_bytes
+					for captured in gf_parallel_validation.capture_workspace(
+						total_source_root
+					).untracked_files
+				)
+				== 8
+			)
+			(total_source_root / "small-c.bin").write_bytes(b"c")
+			try:
+				gf_parallel_validation.capture_workspace(total_source_root)
+			except WorkspaceSnapshotError:
+				total_limit_rejected = True
+		finally:
+			gf_parallel_validation.MAX_CAPTURED_UNTRACKED_FILE_BYTES = original_file_capture_limit
+			gf_parallel_validation.MAX_CAPTURED_UNTRACKED_TOTAL_BYTES = original_total_capture_limit
+			capture_limit_path.unlink(missing_ok=True)
+
+		open_race_path = source_root / "capture-open-race.bin"
+		open_race_replacement = source_root / "capture-open-race-replacement.bin"
+		open_race_original = source_root / "capture-open-race-original.bin"
+		open_race_path.write_bytes(b"original")
+		open_race_replacement.write_bytes(b"replaced")
+		original_os_open = gf_parallel_validation.os.open
+		open_replacement_rejected = False
+		open_was_replaced = False
+
+		def replace_capture_path_before_open(
+			path_value: str | bytes | os.PathLike[str] | os.PathLike[bytes],
+			flags: int,
+			*args: Any,
+			**kwargs: Any,
+		) -> int:
+			nonlocal open_was_replaced
+			if Path(path_value) == open_race_path and not open_was_replaced:
+				os.replace(open_race_path, open_race_original)
+				os.replace(open_race_replacement, open_race_path)
+				open_was_replaced = True
+			return original_os_open(path_value, flags, *args, **kwargs)
+
+		try:
+			gf_parallel_validation.os.open = replace_capture_path_before_open
+			try:
+				gf_parallel_validation._capture_untracked_file(
+					source_root,
+					open_race_path.name,
+				)
+			except WorkspaceSnapshotError:
+				open_replacement_rejected = True
+		finally:
+			gf_parallel_validation.os.open = original_os_open
+			for cleanup_path in (open_race_path, open_race_replacement, open_race_original):
+				cleanup_path.unlink(missing_ok=True)
+
+		chain_race_path = source_root / "capture-chain-race.bin"
+		chain_race_path.write_bytes(b"chain")
+		original_chain_snapshot = gf_parallel_validation._snapshot_real_directory_chain
+		chain_snapshot_calls = 0
+		chain_replacement_rejected = False
+
+		def drift_capture_chain(
+			directory: Path,
+			*,
+			deadline: float | None = None,
+		) -> tuple[tuple[Path, os.stat_result], ...]:
+			nonlocal chain_snapshot_calls
+			chain_snapshot_calls += 1
+			snapshot_value = original_chain_snapshot(directory, deadline=deadline)
+			return snapshot_value[:-1] if chain_snapshot_calls == 2 else snapshot_value
+
+		try:
+			gf_parallel_validation._snapshot_real_directory_chain = drift_capture_chain
+			try:
+				gf_parallel_validation._capture_untracked_file(
+					source_root,
+					chain_race_path.name,
+				)
+			except WorkspaceSnapshotError:
+				chain_replacement_rejected = True
+		finally:
+			gf_parallel_validation._snapshot_real_directory_chain = original_chain_snapshot
+			chain_race_path.unlink(missing_ok=True)
+
+		deadline_path = source_root / "capture-deadline.bin"
+		deadline_path.write_bytes(b"deadline")
+		original_os_read = gf_parallel_validation.os.read
+		original_deadline_check = gf_parallel_validation._check_deadline
+		read_occurred = False
+		read_descriptor = -1
+		chunk_deadline_rejected = False
+		deadline_descriptor_closed = False
+
+		def mark_capture_read(file_descriptor: int, byte_count: int) -> bytes:
+			nonlocal read_occurred
+			nonlocal read_descriptor
+			chunk = original_os_read(file_descriptor, byte_count)
+			read_occurred = True
+			read_descriptor = file_descriptor
+			return chunk
+
+		def expire_after_capture_read(deadline: float | None, phase: str) -> None:
+			if read_occurred and phase == "untracked workspace file reading":
+				raise WorkspaceDeadlineError("fixture chunk deadline")
+			original_deadline_check(deadline, phase)
+
+		try:
+			gf_parallel_validation.os.read = mark_capture_read
+			gf_parallel_validation._check_deadline = expire_after_capture_read
+			try:
+				gf_parallel_validation._capture_untracked_file(
+					source_root,
+					deadline_path.name,
+					deadline=time.perf_counter() + 10.0,
+				)
+			except WorkspaceDeadlineError:
+				chunk_deadline_rejected = True
+		finally:
+			gf_parallel_validation.os.read = original_os_read
+			gf_parallel_validation._check_deadline = original_deadline_check
+			deadline_path.unlink(missing_ok=True)
+		if read_descriptor >= 0:
+			try:
+				os.fstat(read_descriptor)
+			except OSError:
+				deadline_descriptor_closed = True
+
+		linked_capture_target = fixture_root / "capture-link-target"
+		linked_capture_target.mkdir()
+		(linked_capture_target / "payload.bin").write_bytes(b"linked")
+		linked_capture_parent = source_root / "capture-linked-parent"
+		create_directory_link_fixture(linked_capture_target, linked_capture_parent)
+		linked_parent_rejected = False
+		try:
+			gf_parallel_validation._capture_untracked_file(
+				source_root,
+				"capture-linked-parent/payload.bin",
+			)
+		except WorkspaceSnapshotError:
+			linked_parent_rejected = True
+		record_result(
+			"parallel_untracked_capture_is_bounded_and_identity_pinned",
+			exact_limit_accepted
+			and over_limit_rejected
+			and total_limit_exact_accepted
+			and total_limit_rejected
+			and open_replacement_rejected
+			and chain_replacement_rejected
+			and chunk_deadline_rejected
+			and deadline_descriptor_closed
+			and linked_parent_rejected,
+			"Untracked capture must enforce file/total limits, deadlines, stable handles, and real parent chains.",
+		)
+		report_root = workspace_a / "build" / "p"
+		report_root.mkdir(parents=True)
+		expected_report_checks = ["diff"]
+		expected_report_workspace = captured_fixture.workspace_state()
+		expected_package_manifest_sha256 = "5" * 64
+		expected_package_artifact_count = 7
+		valid_report = {
+			"ok": True,
+			"suite": "quick",
+			"checks": expected_report_checks,
+			"completed_check_count": 1,
+			"duration_seconds": 0.01,
+			"suite_timeout_seconds": None,
+			"check_graph": maintenance_check_graph().describe(expected_report_checks),
+			"workspace_fingerprint": captured_fixture.workspace_fingerprint,
+			"workspace_snapshot": {
+				"text_entry_count": 0,
+				"text_cache_hits": 0,
+				"text_cache_misses": 0,
+				"value_entry_count": 0,
+				"value_cache_hits": 0,
+				"value_cache_misses": 0,
+			},
+			"workspace": expected_report_workspace,
+			"execution": "serial",
+			"jobs": 1,
+			"results": [{
+				"name": "diff",
+				"command": ["git", "diff", "--check"],
+				"cwd": str(workspace_a),
+				"exit_code": 0,
+				"timed_out": False,
+				"cancelled": False,
+				"duration_seconds": 0.01,
+				"execution": "subprocess",
+				"stdout": "",
+				"stderr": "",
+				"timeout_seconds": 600.0,
+				"dependencies": [],
+				"dependency_fingerprints": {},
+				"input_fingerprint": "3" * 64,
+				"result_fingerprint": "4" * 64,
+				"timeout_budget": {
+					"policy_seconds": 600.0,
+					"requested_minimum_seconds": None,
+					"suite_remaining_seconds": None,
+					"effective_seconds": 600.0,
+				},
+			}],
+		}
+		passing_report_runner = ParallelShardResult(
+			name="report-fixture",
+			command=(sys.executable, "fixture.py"),
+			workspace=workspace_a,
+			exit_code=0,
+			process_exit_code=0,
+			stdout="",
+			stderr="",
+			timed_out=False,
+			cancelled=False,
+			duration_seconds=0.01,
+			pid=123,
+			started=True,
+		)
+
+		def write_report_fixture(name: str, payload: dict[str, Any]) -> Path:
+			path = report_root / f"{name}.json"
+			path.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8", newline="\n")
+			return path
+
+		valid_report_path = write_report_fixture("valid", valid_report)
+		valid_loaded, valid_issue = load_parallel_shard_report(
+			passing_report_runner,
+			valid_report_path,
+			expected_report_checks,
+			expected_report_workspace,
+			expected_package_artifact_manifest_sha256=expected_package_manifest_sha256,
+			expected_package_artifact_count=expected_package_artifact_count,
+		)
+		missing_report = json.loads(json.dumps(valid_report))
+		missing_report["results"] = []
+		missing_report["completed_check_count"] = 0
+		_, missing_issue = load_parallel_shard_report(
+			passing_report_runner,
+			write_report_fixture("missing", missing_report),
+			expected_report_checks,
+			expected_report_workspace,
+		)
+		invalid_exit_report = json.loads(json.dumps(valid_report))
+		invalid_exit_report["results"][0]["exit_code"] = None
+		_, invalid_exit_issue = load_parallel_shard_report(
+			passing_report_runner,
+			write_report_fixture("invalid-exit", invalid_exit_report),
+			expected_report_checks,
+			expected_report_workspace,
+		)
+		non_finite_report_path = report_root / "non-finite.json"
+		non_finite_report_path.write_text(
+			json.dumps(valid_report, ensure_ascii=False).replace('"duration_seconds": 0.01', '"duration_seconds": NaN', 1),
+			encoding="utf-8",
+			newline="\n",
+		)
+		_, non_finite_issue = load_parallel_shard_report(
+			passing_report_runner,
+			non_finite_report_path,
+			expected_report_checks,
+			expected_report_workspace,
+		)
+		duplicate_key_report_path = report_root / "duplicate-key.json"
+		duplicate_key_report_path.write_text(
+			json.dumps(valid_report, ensure_ascii=False).replace(
+				'{"ok": true,',
+				'{"ok": true, "ok": true,',
+				1,
+			),
+			encoding="utf-8",
+			newline="\n",
+		)
+		_, duplicate_key_issue = load_parallel_shard_report(
+			passing_report_runner,
+			duplicate_key_report_path,
+			expected_report_checks,
+			expected_report_workspace,
+		)
+		oversized_report_path = report_root / "oversized.json"
+		oversized_report_path.write_bytes(b"{}" + b" " * MAX_PARALLEL_SHARD_REPORT_BYTES)
+		_, oversized_issue = load_parallel_shard_report(
+			passing_report_runner,
+			oversized_report_path,
+			expected_report_checks,
+			expected_report_workspace,
+		)
+		extra_field_report = json.loads(json.dumps(valid_report))
+		extra_field_report["unexpected"] = True
+		_, extra_field_issue = load_parallel_shard_report(
+			passing_report_runner,
+			write_report_fixture("extra-field", extra_field_report),
+			expected_report_checks,
+			expected_report_workspace,
+		)
+		external_cwd_report = json.loads(json.dumps(valid_report))
+		external_cwd_report["results"][0]["cwd"] = str(fixture_root)
+		_, external_cwd_issue = load_parallel_shard_report(
+			passing_report_runner,
+			write_report_fixture("external-cwd", external_cwd_report),
+			expected_report_checks,
+			expected_report_workspace,
+		)
+		invalid_output_report = json.loads(json.dumps(valid_report))
+		invalid_output_report["results"][0]["stdout"] = []
+		_, invalid_output_issue = load_parallel_shard_report(
+			passing_report_runner,
+			write_report_fixture("invalid-output", invalid_output_report),
+			expected_report_checks,
+			expected_report_workspace,
+		)
+		failing_report_runner = ParallelShardResult(
+			**{
+				**passing_report_runner.__dict__,
+				"exit_code": 1,
+				"process_exit_code": 1,
+			}
+		)
+		_, mismatch_issue = load_parallel_shard_report(
+			failing_report_runner,
+			valid_report_path,
+			expected_report_checks,
+			expected_report_workspace,
+		)
+		record_result(
+			"parallel_shard_reports_are_strict_and_fail_closed",
+			valid_loaded is not None
+			and not valid_issue
+			and bool(missing_issue)
+			and bool(invalid_exit_issue)
+			and bool(non_finite_issue)
+			and bool(duplicate_key_issue)
+			and bool(oversized_issue)
+			and bool(extra_field_issue)
+			and bool(external_cwd_issue)
+			and bool(invalid_output_issue)
+			and bool(mismatch_issue),
+			"Parallel reports must reject missing or oversized results, invalid scalars, duplicate/non-finite JSON, schema drift, workspace escapes, and process/report disagreement.",
+		)
+		package_report_checks = ["package_build_boundary"]
+		package_report = json.loads(json.dumps(valid_report))
+		package_report["checks"] = package_report_checks
+		package_report["check_graph"] = maintenance_check_graph().describe(package_report_checks)
+		package_report["results"][0]["name"] = "package_build_boundary"
+		package_report["results"][0]["command"] = [
+			sys.executable,
+			"tools/gf_maintenance.py",
+			"package-build-boundary",
+		]
+		package_report["package_artifact_set"] = {
+			"reused": True,
+			"manifest_sha256": expected_package_manifest_sha256,
+			"artifact_count": expected_package_artifact_count,
+			"workspace_fingerprint": captured_fixture.workspace_fingerprint,
+		}
+		package_loaded, package_issue = load_parallel_shard_report(
+			passing_report_runner,
+			write_report_fixture("package-valid", package_report),
+			package_report_checks,
+			expected_report_workspace,
+			expected_package_artifact_manifest_sha256=expected_package_manifest_sha256,
+			expected_package_artifact_count=expected_package_artifact_count,
+		)
+		mutated_package_sha_report = json.loads(json.dumps(package_report))
+		mutated_package_sha_report["package_artifact_set"]["manifest_sha256"] = "6" * 64
+		_, mutated_package_sha_issue = load_parallel_shard_report(
+			passing_report_runner,
+			write_report_fixture("package-mutated-sha", mutated_package_sha_report),
+			package_report_checks,
+			expected_report_workspace,
+			expected_package_artifact_manifest_sha256=expected_package_manifest_sha256,
+			expected_package_artifact_count=expected_package_artifact_count,
+		)
+		mutated_package_count_report = json.loads(json.dumps(package_report))
+		mutated_package_count_report["package_artifact_set"]["artifact_count"] += 1
+		_, mutated_package_count_issue = load_parallel_shard_report(
+			passing_report_runner,
+			write_report_fixture("package-mutated-count", mutated_package_count_report),
+			package_report_checks,
+			expected_report_workspace,
+			expected_package_artifact_manifest_sha256=expected_package_manifest_sha256,
+			expected_package_artifact_count=expected_package_artifact_count,
+		)
+		non_package_artifact_report = json.loads(json.dumps(valid_report))
+		non_package_artifact_report["package_artifact_set"] = package_report["package_artifact_set"]
+		_, non_package_artifact_issue = load_parallel_shard_report(
+			passing_report_runner,
+			write_report_fixture("non-package-artifact", non_package_artifact_report),
+			expected_report_checks,
+			expected_report_workspace,
+			expected_package_artifact_manifest_sha256=expected_package_manifest_sha256,
+			expected_package_artifact_count=expected_package_artifact_count,
+		)
+		record_result(
+			"parallel_package_shard_reports_bind_exact_artifact_identity",
+			package_loaded is not None
+			and not package_issue
+			and bool(mutated_package_sha_issue)
+			and bool(mutated_package_count_issue)
+			and bool(non_package_artifact_issue),
+			"Package shard reports must match the parent sealed set exactly without widening non-package reports.",
+		)
+
+	with tempfile.TemporaryDirectory(prefix="gf-workspace-fingerprint-self-test-") as temp_dir:
+		fingerprint_fixture_root = Path(temp_dir)
+
+		def initialize_fingerprint_repository(repository_root: Path) -> None:
+			repository_root.mkdir(parents=True, exist_ok=True)
+			for git_args in (
+				["init", "--quiet"],
+				["config", "user.email", "gf-maintenance@example.invalid"],
+				["config", "user.name", "GF Maintenance"],
+				["config", "core.autocrlf", "false"],
+			):
+				subprocess.run(
+					["git", *git_args],
+					cwd=repository_root,
+					check=True,
+					capture_output=True,
+				)
+			(repository_root / "tracked.txt").write_text("fixture\n", encoding="utf-8")
+			subprocess.run(
+				["git", "add", "tracked.txt"],
+				cwd=repository_root,
+				check=True,
+				capture_output=True,
+			)
+			subprocess.run(
+				["git", "commit", "--quiet", "-m", "fixture"],
+				cwd=repository_root,
+				check=True,
+				capture_output=True,
+			)
+
+		fingerprint_root = fingerprint_fixture_root / "chunked"
+		initialize_fingerprint_repository(fingerprint_root)
+		fingerprint_path = fingerprint_root / "multi-chunk.bin"
+		fingerprint_path.write_bytes(b"0123456789-tail")
+		fingerprint_path_stat = fingerprint_path.lstat()
+		original_fingerprint_chunk_bytes = gf_maintenance_check_graph.WORKSPACE_FINGERPRINT_CHUNK_BYTES
+		original_fingerprint_os_read = gf_maintenance_check_graph.os.read
+		chunked_read_lengths: list[int] = []
+		chunked_requested_sizes: list[int] = []
+
+		def track_chunked_fingerprint_read(file_descriptor: int, size: int) -> bytes:
+			chunk = original_fingerprint_os_read(file_descriptor, size)
+			try:
+				is_target = os.path.samestat(fingerprint_path_stat, os.fstat(file_descriptor))
+			except OSError:
+				is_target = False
+			if is_target:
+				chunked_requested_sizes.append(size)
+				if chunk:
+					chunked_read_lengths.append(len(chunk))
+			return chunk
+
+		try:
+			gf_maintenance_check_graph.WORKSPACE_FINGERPRINT_CHUNK_BYTES = 4
+			gf_maintenance_check_graph.os.read = track_chunked_fingerprint_read
+			chunked_fingerprint = workspace_fingerprint(fingerprint_root)["fingerprint"]
+		finally:
+			gf_maintenance_check_graph.os.read = original_fingerprint_os_read
+			gf_maintenance_check_graph.WORKSPACE_FINGERPRINT_CHUNK_BYTES = original_fingerprint_chunk_bytes
+		captured_fingerprint = gf_parallel_validation.capture_workspace(
+			fingerprint_root
+		).workspace_fingerprint
+		record_result(
+			"workspace_fingerprint_chunking_preserves_v1_digest",
+			chunked_fingerprint == captured_fingerprint
+			and chunked_read_lengths == [4, 4, 4, 3]
+			and bool(chunked_requested_sizes)
+			and max(chunked_requested_sizes) <= 4,
+			"Chunked workspace hashing, including a tail chunk, must preserve the captured workspace v1 digest.",
+		)
+
+		deadline_before = fingerprint_path.lstat()
+		deadline_read_count = 0
+		deadline_digest_updates: list[bytes] = []
+		deadline_rejected_between_chunks = False
+
+		class TrackingFingerprintDigest:
+			def copy(self) -> TrackingFingerprintDigest:
+				return self
+
+			def update(self, payload: bytes) -> None:
+				deadline_digest_updates.append(bytes(payload))
+
+		def delay_first_fingerprint_read(file_descriptor: int, size: int) -> bytes:
+			nonlocal deadline_read_count
+			chunk = original_fingerprint_os_read(file_descriptor, size)
+			try:
+				is_target = os.path.samestat(deadline_before, os.fstat(file_descriptor))
+			except OSError:
+				is_target = False
+			if is_target and chunk:
+				deadline_read_count += 1
+				if deadline_read_count == 1:
+					time.sleep(0.3)
+			return chunk
+
+		try:
+			gf_maintenance_check_graph.WORKSPACE_FINGERPRINT_CHUNK_BYTES = 4
+			gf_maintenance_check_graph.os.read = delay_first_fingerprint_read
+			try:
+				gf_maintenance_check_graph._update_digest_from_stable_regular_file(
+					TrackingFingerprintDigest(),
+					fingerprint_path,
+					deadline_before,
+					deadline=time.perf_counter() + 0.2,
+				)
+			except TimeoutError:
+				deadline_rejected_between_chunks = True
+		finally:
+			gf_maintenance_check_graph.os.read = original_fingerprint_os_read
+			gf_maintenance_check_graph.WORKSPACE_FINGERPRINT_CHUNK_BYTES = original_fingerprint_chunk_bytes
+		record_result(
+			"workspace_fingerprint_checks_deadline_after_each_chunk",
+			deadline_rejected_between_chunks
+			and deadline_read_count == 1
+			and not deadline_digest_updates,
+			"Workspace fingerprinting must enforce its absolute deadline immediately after every file chunk.",
+		)
+
+		open_race_path = fingerprint_root / "fingerprint-open-race.bin"
+		open_race_replacement = fingerprint_root / "fingerprint-open-race-replacement.bin"
+		open_race_original = fingerprint_root / "fingerprint-open-race-original.bin"
+		open_race_path.write_bytes(b"original")
+		open_race_replacement.write_bytes(b"replaced")
+		open_race_before = open_race_path.lstat()
+		original_fingerprint_os_open = gf_maintenance_check_graph.os.open
+		open_race_rejected = False
+		open_race_swapped = False
+
+		def replace_fingerprint_path_before_open(
+			path_value: str | bytes | os.PathLike[str] | os.PathLike[bytes],
+			flags: int,
+			*args: Any,
+			**kwargs: Any,
+		) -> int:
+			nonlocal open_race_swapped
+			if Path(path_value) == open_race_path and not open_race_swapped:
+				os.replace(open_race_path, open_race_original)
+				os.replace(open_race_replacement, open_race_path)
+				open_race_swapped = True
+			return original_fingerprint_os_open(path_value, flags, *args, **kwargs)
+
+		try:
+			gf_maintenance_check_graph.os.open = replace_fingerprint_path_before_open
+			try:
+				gf_maintenance_check_graph._update_digest_from_stable_regular_file(
+					hashlib.sha256(),
+					open_race_path,
+					open_race_before,
+					deadline=None,
+				)
+			except gf_maintenance_check_graph.WorkspaceFingerprintDriftError:
+				open_race_rejected = True
+		finally:
+			gf_maintenance_check_graph.os.open = original_fingerprint_os_open
+
+		read_race_path = fingerprint_root / "fingerprint-read-race.bin"
+		read_race_replacement = fingerprint_root / "fingerprint-read-race-replacement.bin"
+		read_race_original = fingerprint_root / "fingerprint-read-race-original.bin"
+		read_race_path.write_bytes(b"read-original")
+		read_race_replacement.write_bytes(b"read-replaced")
+		read_race_before = read_race_path.lstat()
+		read_race_rejected = False
+		read_race_attempted = False
+		read_race_swapped = False
+
+		def replace_fingerprint_path_during_read(file_descriptor: int, size: int) -> bytes:
+			nonlocal read_race_attempted
+			nonlocal read_race_swapped
+			chunk = original_fingerprint_os_read(file_descriptor, size)
+			try:
+				is_target = os.path.samestat(read_race_before, os.fstat(file_descriptor))
+			except OSError:
+				is_target = False
+			if is_target and chunk and not read_race_swapped:
+				read_race_attempted = True
+				os.replace(read_race_path, read_race_original)
+				os.replace(read_race_replacement, read_race_path)
+				read_race_swapped = True
+			return chunk
+
+		try:
+			gf_maintenance_check_graph.WORKSPACE_FINGERPRINT_CHUNK_BYTES = 4
+			gf_maintenance_check_graph.os.read = replace_fingerprint_path_during_read
+			try:
+				gf_maintenance_check_graph._update_digest_from_stable_regular_file(
+					hashlib.sha256(),
+					read_race_path,
+					read_race_before,
+					deadline=None,
+				)
+			except gf_maintenance_check_graph.WorkspaceFingerprintError:
+				read_race_rejected = True
+		finally:
+			gf_maintenance_check_graph.os.read = original_fingerprint_os_read
+			gf_maintenance_check_graph.WORKSPACE_FINGERPRINT_CHUNK_BYTES = original_fingerprint_chunk_bytes
+		record_result(
+			"workspace_fingerprint_rejects_open_and_read_path_replacement",
+			open_race_swapped
+			and open_race_rejected
+			and read_race_attempted
+			and read_race_rejected,
+			"Stable fingerprint handles must reject path replacement both before open and during chunked reads.",
+		)
+
+		pre_lstat_path = fingerprint_root / "fingerprint-pre-lstat.bin"
+		pre_lstat_path.write_bytes(b"pre-lstat")
+		original_fingerprint_path_lstat = Path.lstat
+		pre_lstat_attempted = False
+		pre_lstat_rejected = False
+
+		def reject_fingerprint_pre_lstat(
+			path_value: Path,
+			*args: Any,
+			**kwargs: Any,
+		) -> os.stat_result:
+			nonlocal pre_lstat_attempted
+			if path_value == pre_lstat_path:
+				pre_lstat_attempted = True
+				raise FileNotFoundError("fixture pre-lstat drift")
+			return original_fingerprint_path_lstat(path_value, *args, **kwargs)
+
+		try:
+			Path.lstat = reject_fingerprint_pre_lstat
+			try:
+				workspace_fingerprint(fingerprint_root)
+			except gf_maintenance_check_graph.WorkspaceFingerprintDriftError:
+				pre_lstat_rejected = True
+		finally:
+			Path.lstat = original_fingerprint_path_lstat
+		record_result(
+			"workspace_fingerprint_fails_closed_before_lstat",
+			pre_lstat_attempted and pre_lstat_rejected,
+			"Git-enumerated untracked entries that disappear before lstat must abort provenance.",
+		)
+
+		readlink_path = fingerprint_root / "fingerprint-readlink.bin"
+		readlink_path.write_bytes(b"readlink")
+		original_fingerprint_os_readlink = gf_maintenance_check_graph.os.readlink
+		readlink_attempted = False
+		readlink_rejected = False
+
+		def present_fingerprint_path_as_symlink(
+			path_value: str | bytes | os.PathLike[str] | os.PathLike[bytes],
+			*args: Any,
+			**kwargs: Any,
+		) -> Any:
+			if Path(path_value) == readlink_path:
+				return argparse.Namespace(
+					st_mode=stat.S_IFLNK | 0o777,
+					st_size=len(b"readlink"),
+				)
+			return original_fingerprint_path_lstat(path_value, *args, **kwargs)
+
+		def reject_fingerprint_readlink(
+			path_value: str | bytes | os.PathLike[str] | os.PathLike[bytes],
+			*args: Any,
+			**kwargs: Any,
+		) -> str | bytes:
+			nonlocal readlink_attempted
+			if Path(path_value) == readlink_path:
+				readlink_attempted = True
+				raise PermissionError("fixture readlink drift")
+			return original_fingerprint_os_readlink(path_value, *args, **kwargs)
+
+		try:
+			Path.lstat = present_fingerprint_path_as_symlink
+			gf_maintenance_check_graph.os.readlink = reject_fingerprint_readlink
+			try:
+				workspace_fingerprint(fingerprint_root)
+			except gf_maintenance_check_graph.WorkspaceFingerprintDriftError:
+				readlink_rejected = True
+		finally:
+			gf_maintenance_check_graph.os.readlink = original_fingerprint_os_readlink
+			Path.lstat = original_fingerprint_path_lstat
+		record_result(
+			"workspace_fingerprint_fails_closed_during_readlink",
+			readlink_attempted and readlink_rejected,
+			"Git-enumerated untracked symlinks that fail during readlink must abort provenance.",
+		)
+
+		identity_path = fingerprint_root / "fingerprint-identity.bin"
+		identity_path.write_bytes(b"identity")
+		identity_stat = identity_path.lstat()
+		unknown_identity = argparse.Namespace(
+			st_mode=identity_stat.st_mode,
+			st_size=identity_stat.st_size,
+			st_ino=0,
+			st_dev=identity_stat.st_dev,
+			st_mtime_ns=identity_stat.st_mtime_ns,
+		)
+		regular_reparse = argparse.Namespace(
+			st_mode=identity_stat.st_mode,
+			st_size=identity_stat.st_size,
+			st_ino=identity_stat.st_ino,
+			st_file_attributes=gf_maintenance_check_graph.FILE_ATTRIBUTE_REPARSE_POINT,
+		)
+		unknown_identity_rejected = False
+		regular_reparse_rejected = False
+		try:
+			gf_maintenance_check_graph._update_digest_from_stable_regular_file(
+				hashlib.sha256(),
+				identity_path,
+				unknown_identity,
+				deadline=None,
+			)
+		except gf_maintenance_check_graph.WorkspaceFingerprintSetupError:
+			unknown_identity_rejected = True
+		try:
+			gf_maintenance_check_graph._update_digest_from_stable_regular_file(
+				hashlib.sha256(),
+				identity_path,
+				regular_reparse,
+				deadline=None,
+			)
+		except gf_maintenance_check_graph.WorkspaceFingerprintSetupError:
+			regular_reparse_rejected = True
+		record_result(
+			"workspace_fingerprint_rejects_unknown_identity_and_regular_reparse",
+			unknown_identity_rejected
+			and regular_reparse_rejected
+			and gf_maintenance_check_graph._stat_is_regular_reparse(regular_reparse),
+			"Workspace fingerprints must fail closed for unverifiable identities and regular-file reparse points.",
+		)
+
+		limit_root = fingerprint_fixture_root / "limits"
+		initialize_fingerprint_repository(limit_root)
+		original_fingerprint_file_limit = (
+			gf_maintenance_check_graph.MAX_WORKSPACE_FINGERPRINT_UNTRACKED_FILE_BYTES
+		)
+		original_fingerprint_total_limit = (
+			gf_maintenance_check_graph.MAX_WORKSPACE_FINGERPRINT_UNTRACKED_TOTAL_BYTES
+		)
+		file_limit_rejected = False
+		total_limit_exact_accepted = False
+		total_limit_rejected = False
+		try:
+			gf_maintenance_check_graph.MAX_WORKSPACE_FINGERPRINT_UNTRACKED_FILE_BYTES = 8
+			gf_maintenance_check_graph.MAX_WORKSPACE_FINGERPRINT_UNTRACKED_TOTAL_BYTES = 12
+			oversized_path = limit_root / "oversized.bin"
+			oversized_path.write_bytes(b"123456789")
+			try:
+				workspace_fingerprint(limit_root)
+			except gf_maintenance_check_graph.WorkspaceFingerprintSetupError:
+				file_limit_rejected = True
+			oversized_path.unlink()
+			(limit_root / "a.bin").write_bytes(b"aaaaaa")
+			(limit_root / "b.bin").write_bytes(b"bbbbbb")
+			total_limit_exact_accepted = workspace_fingerprint(limit_root)["untracked_file_count"] == 2
+			(limit_root / "c.bin").write_bytes(b"c")
+			try:
+				workspace_fingerprint(limit_root)
+			except gf_maintenance_check_graph.WorkspaceFingerprintSetupError:
+				total_limit_rejected = True
+		finally:
+			gf_maintenance_check_graph.MAX_WORKSPACE_FINGERPRINT_UNTRACKED_FILE_BYTES = (
+				original_fingerprint_file_limit
+			)
+			gf_maintenance_check_graph.MAX_WORKSPACE_FINGERPRINT_UNTRACKED_TOTAL_BYTES = (
+				original_fingerprint_total_limit
+			)
+		record_result(
+			"workspace_fingerprint_enforces_capture_aligned_size_limits",
+			file_limit_rejected
+			and total_limit_exact_accepted
+			and total_limit_rejected
+			and original_fingerprint_file_limit
+			== gf_parallel_validation.MAX_CAPTURED_UNTRACKED_FILE_BYTES
+			and original_fingerprint_total_limit
+			== gf_parallel_validation.MAX_CAPTURED_UNTRACKED_TOTAL_BYTES,
+			"Workspace fingerprinting must enforce the same per-file and aggregate untracked limits as capture.",
+		)
+
+		original_workspace_fingerprint_runner = globals()["workspace_fingerprint"]
+		structured_fingerprint_failure: dict[str, Any] | None = None
+		structured_fingerprint_error = ""
+
+		def fail_workspace_fingerprint_setup(
+			_root: Path,
+			*,
+			deadline: float | None = None,
+		) -> dict[str, Any]:
+			del deadline
+			raise gf_maintenance_check_graph.WorkspaceFingerprintSetupError(
+				"fixture fingerprint setup failure"
+			)
+
+		try:
+			globals()["workspace_fingerprint"] = fail_workspace_fingerprint_setup
+			try:
+				structured_fingerprint_failure = run_checks(
+					suite="quick",
+					checks=["api"],
+					jobs=1,
+				)
+			except BaseException as error:
+				structured_fingerprint_error = f"{type(error).__name__}: {error}"
+		finally:
+			globals()["workspace_fingerprint"] = original_workspace_fingerprint_runner
+		structured_results = (
+			structured_fingerprint_failure.get("results", [])
+			if isinstance(structured_fingerprint_failure, dict)
+			else []
+		)
+		record_result(
+			"workspace_fingerprint_setup_errors_are_structured",
+			not structured_fingerprint_error
+			and structured_fingerprint_failure is not None
+			and not structured_fingerprint_failure.get("ok", True)
+			and structured_fingerprint_failure.get("completed_check_count") == 0
+			and len(structured_results) == 1
+			and structured_results[0].get("name") == "workspace_fingerprint_setup"
+			and structured_results[0].get("exit_code") == 1
+			and "fixture fingerprint setup failure" in structured_results[0].get("stderr", ""),
+			"Fingerprint setup drift and safety failures must return structured check JSON instead of a traceback: "
+			f"error={structured_fingerprint_error!r}, payload={structured_fingerprint_failure}.",
+		)
+
 	with tempfile.TemporaryDirectory(prefix="gf-godot-resolver-self-test-") as temp_dir:
 		fixture_root = Path(temp_dir)
 		steam_launcher = fixture_root / "godot.exe"
@@ -9805,6 +12069,258 @@ def maintenance_self_test() -> dict[str, Any]:
 				platform_name="nt",
 			) == str(override_engine.resolve()),
 			"GF_GODOT_EXECUTABLE must remain the explicit cross-platform executable override.",
+		)
+		environment_workspace = fixture_root / "environment-workspace"
+		environment_workspace.mkdir()
+		external_private_root = fixture_root / "u0"
+		private_environment, private_root = parallel_shard_environment(
+			environment_workspace,
+			external_private_root,
+		)
+		if os.name == "nt":
+			platform_environment_fields = ("APPDATA", "LOCALAPPDATA", "TMPDIR", "TEMP", "TMP")
+		elif sys.platform == "darwin":
+			platform_environment_fields = ("HOME", "TMPDIR", "TEMP", "TMP")
+		else:
+			platform_environment_fields = (
+				"HOME",
+				"XDG_DATA_HOME",
+				"XDG_CONFIG_HOME",
+				"XDG_CACHE_HOME",
+				"TMPDIR",
+				"TEMP",
+				"TMP",
+			)
+		record_result(
+			"parallel_godot_environment_uses_platform_private_roots",
+			all(
+				path_is_within_private_root(private_environment[field_name], private_root)
+				for field_name in platform_environment_fields
+			)
+			and "GODOT_USER_HOME" not in private_environment
+			and private_root == external_private_root
+			and not paths_overlap(environment_workspace, private_root),
+			"Parallel Godot shards must use platform-native private data/config/cache roots.",
+		)
+		preexisting_private_root = fixture_root / "preexisting-private-root"
+		preexisting_private_root.mkdir()
+		preexisting_private_rejected = False
+		overlapping_private_rejected = False
+		try:
+			parallel_shard_environment(environment_workspace, preexisting_private_root)
+		except WorkspaceSnapshotError:
+			preexisting_private_rejected = True
+		try:
+			parallel_shard_environment(
+				environment_workspace,
+				environment_workspace / "nested-private-root",
+			)
+		except WorkspaceSnapshotError:
+			overlapping_private_rejected = True
+		record_result(
+			"parallel_private_roots_reject_existing_and_overlapping_paths",
+			preexisting_private_rejected and overlapping_private_rejected,
+			"Shard-private OS roots must be new external siblings, never preexisting or nested in a clone.",
+		)
+
+	injected_windows_drives = {
+		"C:\\": (WINDOWS_DRIVE_FIXED, (r"\Device\HarddiskVolume3",)),
+		"N:\\": (4, (r"\Device\Mup\server\share",)),
+		"S:\\": (WINDOWS_DRIVE_FIXED, (r"\??\C:\subst-root",)),
+		"A:\\": (WINDOWS_DRIVE_FIXED, (r"\DosDevices\C:\alias-root",)),
+		"R:\\": (2, (r"\Device\HarddiskVolume4",)),
+		"M:\\": (
+			WINDOWS_DRIVE_FIXED,
+			(r"\Device\HarddiskVolume5", r"\Device\HarddiskVolume6"),
+		),
+		"X:\\": (WINDOWS_DRIVE_FIXED, (r"\Device\Mup\server\share",)),
+	}
+
+	def injected_windows_drive_probe(drive_root: str) -> tuple[int, tuple[str, ...]]:
+		if drive_root not in injected_windows_drives:
+			raise OSError("fixture drive is unavailable")
+		return injected_windows_drives[drive_root]
+
+	record_result(
+		"windows_validation_drive_identity_rejects_remote_subst_and_aliases",
+		not windows_validation_drive_issue(
+			"C:\\",
+			drive_probe=injected_windows_drive_probe,
+		)
+		and all(
+			bool(windows_validation_drive_issue(
+				drive_root,
+				drive_probe=injected_windows_drive_probe,
+			))
+			for drive_root in ("N:\\", "S:\\", "A:\\", "R:\\", "M:\\", "X:\\", "Q:\\")
+		)
+		and bool(windows_validation_drive_issue(
+			"not-a-drive",
+			drive_probe=injected_windows_drive_probe,
+		)),
+		"Windows validation roots must resolve directly to one local fixed-volume device and fail closed on probe errors.",
+	)
+
+	with tempfile.TemporaryDirectory(prefix="gf-validation-root-policy-self-test-") as temp_dir:
+		fixture_root = Path(temp_dir)
+		missing_candidate = fixture_root / "missing"
+		link_target = fixture_root / "link-target"
+		link_target.mkdir()
+		linked_candidate = fixture_root / "linked-candidate"
+		create_directory_link_fixture(link_target, linked_candidate)
+		candidate_policy_ok = (
+			bool(validation_temp_candidate_issue(Path("relative-root")))
+			and bool(validation_temp_candidate_issue(missing_candidate))
+			and bool(validation_temp_candidate_issue(ROOT))
+			and bool(validation_temp_candidate_issue(linked_candidate))
+			and not validation_temp_candidate_issue(linked_candidate.resolve(strict=True))
+		)
+		if os.name == "nt":
+			candidate_policy_ok = candidate_policy_ok and bool(
+				validation_temp_candidate_issue(Path(r"\\server\share\gf"))
+			)
+		record_result(
+			"validation_temp_candidates_reject_unsafe_boundaries",
+			candidate_policy_ok,
+			"Validation roots must reject relative, missing, source-owned, linked, UNC, mapped, substituted, and device boundaries.",
+		)
+
+	short_root_issue = ""
+	short_root_cleanup_errors: list[str] = []
+	short_root: Path | None = None
+	short_root_was_safe = False
+	try:
+		with managed_validation_directory(
+			prefix="gfv-",
+			cleanup_errors=short_root_cleanup_errors,
+			windows_max_characters=WINDOWS_PARALLEL_VALIDATION_ROOT_MAX_CHARACTERS,
+		) as managed_root:
+			short_root = managed_root
+			metadata = managed_root.lstat()
+			projected_workspace = managed_root / "b0" / "s5"
+			projected_staging_workspace = managed_root / "b0" / ".s5.m" / "w"
+			projected_private_temp = managed_root / "b0" / "u" / "5" / "t"
+			short_root_was_safe = (
+				stat.S_ISDIR(metadata.st_mode)
+				and not stat.S_ISLNK(metadata.st_mode)
+				and not bool(int(getattr(metadata, "st_file_attributes", 0)) & 0x0400)
+				and not paths_overlap(managed_root, ROOT)
+				and (
+					os.name != "nt"
+					or (
+						len(str(managed_root)) <= WINDOWS_PARALLEL_VALIDATION_ROOT_MAX_CHARACTERS
+						and len(str(projected_workspace)) <= 30
+						and len(str(projected_staging_workspace)) <= 30
+						and len(str(projected_private_temp)) <= 30
+					)
+				)
+			)
+	except WorkspaceSnapshotError as error:
+		short_root_issue = str(error)
+	record_result(
+		"parallel_validation_owns_a_short_nonoverlapping_root",
+		short_root_was_safe
+		and short_root is not None
+		and not os.path.lexists(short_root)
+		and not short_root_cleanup_errors,
+		"Parallel Full must own and clean a short root outside the source workspace: "
+		f"{short_root_issue or short_root_cleanup_errors}",
+	)
+
+	with tempfile.TemporaryDirectory(prefix="gf-batch-cleanup-self-test-") as temp_dir:
+		batch_cleanup_errors: list[str] = []
+		batch_path = Path(temp_dir) / "b"
+		with managed_owned_directory(batch_path, cleanup_errors=batch_cleanup_errors) as batch_root:
+			batch_workspace = batch_root / "s0"
+			batch_workspace.mkdir()
+			_batch_environment, _batch_private_root = parallel_shard_environment(
+				batch_workspace,
+				batch_root / "u0",
+			)
+		record_result(
+			"parallel_batches_cleanup_workspaces_and_private_os_roots_together",
+			not batch_cleanup_errors and not os.path.lexists(batch_path),
+			f"Each batch must release clones, user data, caches, and temporary files together: {batch_cleanup_errors}",
+		)
+
+	managed_cleanup_root = Path(tempfile.mkdtemp(prefix="gf-managed-cleanup-self-test-"))
+	managed_cleanup_nested = managed_cleanup_root.joinpath(
+		*(f"long-{index}-" + "x" * 72 for index in range(4))
+	)
+	managed_cleanup_target: Path | str = managed_cleanup_nested
+	if os.name == "nt":
+		managed_cleanup_target = "\\\\?\\" + str(managed_cleanup_nested)
+	Path(managed_cleanup_target).mkdir(parents=True)
+	(Path(managed_cleanup_target) / "fixture.txt").write_text("fixture", encoding="utf-8")
+	managed_cleanup_issue = remove_managed_temporary_tree(managed_cleanup_root)
+	record_result(
+		"managed_temporary_cleanup_handles_extended_windows_paths",
+		not managed_cleanup_issue and not os.path.lexists(managed_cleanup_root),
+		f"Managed temporary cleanup must remove long owned trees with bounded retries: {managed_cleanup_issue}",
+	)
+
+	with tempfile.TemporaryDirectory(prefix="gf-managed-identity-self-test-") as temp_dir:
+		fixture_root = Path(temp_dir)
+		owned_root = fixture_root / "owned"
+		moved_root = fixture_root / "moved"
+		owned_root.mkdir()
+		owned_identity = owned_root.lstat()
+		os.replace(owned_root, moved_root)
+		owned_root.mkdir()
+		replacement_issue = remove_managed_temporary_tree(
+			owned_root,
+			expected_identity=owned_identity,
+		)
+		record_result(
+			"managed_cleanup_rejects_replaced_root_identity",
+			bool(replacement_issue) and owned_root.exists() and moved_root.exists(),
+			"Cleanup must not delete a path whose directory identity changed after ownership was recorded.",
+		)
+
+	with tempfile.TemporaryDirectory(prefix="gf-parallel-log-copy-self-test-") as temp_dir:
+		fixture_root = Path(temp_dir)
+		workspace_root = fixture_root / "workspace"
+		source_log_root = workspace_root / "ai_analysis" / "godot_logs"
+		destination_log_root = fixture_root / "destination"
+		source_log_root.mkdir(parents=True)
+		destination_log_root.mkdir()
+		(source_log_root / "gut.log").write_text("stable evidence", encoding="utf-8")
+		log_copy_issue = ""
+		try:
+			copy_parallel_log_tree(
+				source_log_root,
+				destination_log_root,
+				containment_root=workspace_root,
+				destination_containment_root=fixture_root,
+				expected_destination_identity=destination_log_root.lstat(),
+				expected_destination_containment_identity=fixture_root.lstat(),
+			)
+		except (OSError, ValueError) as error:
+			log_copy_issue = str(error)
+		overflow_source = workspace_root / "overflow-logs"
+		overflow_destination = fixture_root / "overflow-destination"
+		overflow_source.mkdir()
+		overflow_destination.mkdir()
+		for index in range(DEFAULT_MAINTENANCE_LOG_MAX_FILES + 1):
+			(overflow_source / f"{index:02d}.log").write_bytes(b"x")
+		overflow_rejected = False
+		try:
+			copy_parallel_log_tree(
+				overflow_source,
+				overflow_destination,
+				containment_root=workspace_root,
+				destination_containment_root=fixture_root,
+				expected_destination_identity=overflow_destination.lstat(),
+				expected_destination_containment_identity=fixture_root.lstat(),
+			)
+		except ValueError:
+			overflow_rejected = True
+		record_result(
+			"parallel_failure_logs_copy_from_stable_open_handles",
+			not log_copy_issue
+			and overflow_rejected
+			and (destination_log_root / "gut.log").read_text(encoding="utf-8") == "stable evidence",
+			f"Stable regular log files must survive bounded source/destination identity validation: {log_copy_issue}",
 		)
 
 	with tempfile.TemporaryDirectory(prefix="gf-maintenance-log-session-self-test-") as temp_dir:
@@ -10262,33 +12778,122 @@ def maintenance_self_test() -> dict[str, Any]:
 		)
 
 	with tempfile.TemporaryDirectory(prefix="gf-process-tree-self-test-") as temp_dir:
+		timeout_ready_path = Path(temp_dir) / "grandchild-ready.txt"
+		timeout_ready_observed_path = Path(temp_dir) / "grandchild-ready-observed.txt"
+		timeout_trigger_path = Path(temp_dir) / "grandchild-survival-trigger.txt"
 		marker_path = Path(temp_dir) / "grandchild-survived.txt"
-		grandchild_code = (
-			"import time; from pathlib import Path; "
-			"time.sleep(1.0); "
-			f"Path({str(marker_path)!r}).write_text('survived', encoding='utf-8')"
-		)
-		parent_code = (
-			"import subprocess, sys, time; "
-			f"subprocess.Popen([sys.executable, '-c', {grandchild_code!r}]); "
-			"time.sleep(30.0)"
-		)
-		tree_timeout_result = run_command(
-			"process_tree_timeout_fixture",
-			[sys.executable, "-c", parent_code],
-			0.3,
-		)
-		time.sleep(1.2)
+		grandchild_code = "\n".join([
+			"import time",
+			"from pathlib import Path",
+			f"Path({str(timeout_ready_path)!r}).write_text('ready', encoding='utf-8')",
+			f"trigger = Path({str(timeout_trigger_path)!r})",
+			"deadline = time.monotonic() + 30.0",
+			"while not trigger.exists() and time.monotonic() < deadline:",
+			"\ttime.sleep(0.01)",
+			"if trigger.exists():",
+			f"\tPath({str(marker_path)!r}).write_text('survived', encoding='utf-8')",
+		])
+		parent_code = "\n".join([
+			"import subprocess, sys, time",
+			"from pathlib import Path",
+			f"subprocess.Popen([sys.executable, '-c', {grandchild_code!r}])",
+			f"ready = Path({str(timeout_ready_path)!r})",
+			"deadline = time.monotonic() + 5.0",
+			"while not ready.exists() and time.monotonic() < deadline:",
+			"\ttime.sleep(0.01)",
+			"if not ready.exists():",
+			"\traise SystemExit(2)",
+			f"Path({str(timeout_ready_observed_path)!r}).write_text('observed', encoding='utf-8')",
+			"time.sleep(30.0)",
+		])
+		tree_timeout_result: CommandResult | None = None
+		try:
+			tree_timeout_result = run_command(
+				"process_tree_timeout_fixture",
+				[sys.executable, "-c", parent_code],
+				6.0,
+			)
+		finally:
+			# Always release a descendant that survived a failed or interrupted
+			# supervision attempt; its own deadline covers abrupt harness exit.
+			timeout_trigger_path.write_text("trigger", encoding="utf-8")
+			time.sleep(1.2)
 		record_result(
 			"run_command_timeout_terminates_descendant_processes",
-			tree_timeout_result.timed_out
+			tree_timeout_result is not None
+			and tree_timeout_result.timed_out
+			and not tree_timeout_result.cancelled
 			and tree_timeout_result.exit_code == 124
+			and timeout_ready_path.exists()
+			and timeout_ready_observed_path.exists()
 			and not marker_path.exists(),
-			f"timed-out checks must not leave descendants running: {tree_timeout_result.to_dict()}",
+			"timed-out checks must trigger only after the grandchild is ready and leave no descendants: "
+			f"{tree_timeout_result.to_dict()}",
 		)
+		pre_cancelled_event = threading.Event()
+		pre_cancelled_event.set()
+		pre_cancelled_result = run_supervised_process(
+			[sys.executable, "-c", "raise SystemExit(99)"],
+			cwd=ROOT,
+			timeout_seconds=10,
+			cancellation_event=pre_cancelled_event,
+		)
+		cancel_ready_path = Path(temp_dir) / "grandchild-ready-cancel.txt"
+		cancel_marker_path = Path(temp_dir) / "grandchild-survived-cancel.txt"
+		cancel_grandchild_code = (
+			"import time; from pathlib import Path; "
+			f"Path({str(cancel_ready_path)!r}).write_text('ready', encoding='utf-8'); "
+			"time.sleep(0.8); "
+			f"Path({str(cancel_marker_path)!r}).write_text('survived', encoding='utf-8')"
+		)
+		cancel_parent_code = (
+			"import subprocess, sys, time; "
+			f"subprocess.Popen([sys.executable, '-c', {cancel_grandchild_code!r}]); "
+			"time.sleep(30.0)"
+		)
+		running_cancel_event = threading.Event()
+
+		def cancel_when_grandchild_is_ready() -> None:
+			ready_deadline = time.monotonic() + 5.0
+			while not cancel_ready_path.exists() and time.monotonic() < ready_deadline:
+				time.sleep(0.01)
+			if cancel_ready_path.exists():
+				running_cancel_event.set()
+
+		cancel_thread = threading.Thread(
+			target=cancel_when_grandchild_is_ready,
+			name="gf-self-test-cancel-when-ready",
+			daemon=True,
+		)
+		cancel_thread.start()
+		try:
+			running_cancel_result = run_supervised_process(
+				[sys.executable, "-c", cancel_parent_code],
+				cwd=ROOT,
+				timeout_seconds=10,
+				cancellation_event=running_cancel_event,
+			)
+		finally:
+			cancel_thread.join()
+		time.sleep(1.0)
+		record_result(
+			"run_command_cancellation_is_structured_and_terminates_descendants",
+			pre_cancelled_result.cancelled
+			and not pre_cancelled_result.timed_out
+			and pre_cancelled_result.pid == 0
+			and running_cancel_result.cancelled
+			and not running_cancel_result.timed_out
+			and running_cancel_result.pid > 0
+			and cancel_ready_path.exists()
+			and not cancel_marker_path.exists(),
+			"Pre-start and ready-synchronized running cancellation must remain distinct from timeout "
+			"and clean descendant processes.",
+		)
+		interrupt_ready_path = Path(temp_dir) / "grandchild-ready-interrupt.txt"
 		interrupt_marker_path = Path(temp_dir) / "grandchild-survived-interrupt.txt"
 		interrupt_grandchild_code = (
 			"import time; from pathlib import Path; "
+			f"Path({str(interrupt_ready_path)!r}).write_text('ready', encoding='utf-8'); "
 			"time.sleep(0.6); "
 			f"Path({str(interrupt_marker_path)!r}).write_text('survived', encoding='utf-8')"
 		)
@@ -10300,7 +12905,8 @@ def maintenance_self_test() -> dict[str, Any]:
 		interrupted = False
 
 		def interrupt_heartbeat(_elapsed: float, _pid: int) -> None:
-			raise KeyboardInterrupt
+			if interrupt_ready_path.exists():
+				raise KeyboardInterrupt
 
 		try:
 			run_supervised_process(
@@ -10315,8 +12921,11 @@ def maintenance_self_test() -> dict[str, Any]:
 		time.sleep(0.8)
 		record_result(
 			"run_command_interrupt_terminates_descendant_processes",
-			interrupted and not interrupt_marker_path.exists(),
-			"interrupted checks must terminate their complete descendant process tree before propagating the interrupt.",
+			interrupted
+			and interrupt_ready_path.exists()
+			and not interrupt_marker_path.exists(),
+			"Interrupted checks must wait for grandchild readiness, then terminate their complete descendant "
+			"process tree before propagating the interrupt.",
 		)
 		streamed_events: list[tuple[str, str]] = []
 		stream_fixture = (
@@ -10364,6 +12973,1667 @@ def maintenance_self_test() -> dict[str, Any]:
 			and not orphan_marker_path.exists()
 			and any("Output pipes remained open" in note for note in orphan_result.notes),
 			f"checks must fail and clean descendants that outlive the direct child: {orphan_result}",
+		)
+		detached_ready_path = Path(temp_dir) / "detached-background-descendant-ready.txt"
+		detached_marker_path = Path(temp_dir) / "detached-background-descendant-survived.txt"
+		detached_grandchild_code = (
+			"import time; from pathlib import Path; "
+			f"Path({str(detached_ready_path)!r}).write_text('ready', encoding='utf-8'); "
+			"time.sleep(0.6); "
+			f"Path({str(detached_marker_path)!r}).write_text('survived', encoding='utf-8')"
+		)
+		detached_parent_code = "\n".join([
+			"import subprocess, sys, time",
+			"from pathlib import Path",
+			(
+				f"subprocess.Popen([sys.executable, '-c', {detached_grandchild_code!r}], "
+				"stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, close_fds=True)"
+			),
+			"deadline = time.monotonic() + 5.0",
+			f"ready = Path({str(detached_ready_path)!r})",
+			"while not ready.exists() and time.monotonic() < deadline:",
+			"\ttime.sleep(0.01)",
+			"raise SystemExit(0 if ready.exists() else 2)",
+		])
+		detached_result = run_supervised_process(
+			[sys.executable, "-c", detached_parent_code],
+			cwd=ROOT,
+			timeout_seconds=10,
+		)
+		time.sleep(0.8)
+		record_result(
+			"run_command_cleans_detached_descendants_after_normal_exit",
+			detached_result.return_code == 0
+			and not detached_result.timed_out
+			and not detached_result.cancelled
+			and detached_ready_path.exists()
+			and not detached_marker_path.exists(),
+			"A successful direct child must not let DEVNULL background descendants escape its owned process tree: "
+			f"{detached_result}.",
+		)
+
+		linux_proc_fixture_root = Path(temp_dir) / "linux-proc-fixture"
+		linux_proc_fixture_root.mkdir()
+
+		def write_linux_proc_stat(
+			process_id: int,
+			process_state: str,
+			process_group_id: int,
+			*,
+			thread_count: int = 1,
+		) -> None:
+			process_root = linux_proc_fixture_root / str(process_id)
+			process_root.mkdir()
+			stat_fields = [
+				process_state,
+				"1",
+				str(process_group_id),
+				"1",
+				"0",
+				"-1",
+				"0",
+				"0",
+				"0",
+				"0",
+				"0",
+				"0",
+				"0",
+				"0",
+				"0",
+				"20",
+				"0",
+				str(thread_count),
+			]
+			(process_root / "stat").write_bytes(
+				f"{process_id} (fixture) worker) {' '.join(stat_fields)}\n".encode("ascii")
+			)
+
+		terminated_process_group_id = 43100
+		live_process_group_id = 43101
+		multithreaded_terminal_group_id = 43103
+		write_linux_proc_stat(43110, "Z", terminated_process_group_id)
+		write_linux_proc_stat(43111, "X", terminated_process_group_id)
+		write_linux_proc_stat(43112, "x", terminated_process_group_id)
+		write_linux_proc_stat(43113, "S", live_process_group_id)
+		write_linux_proc_stat(43114, "R", 43199)
+		write_linux_proc_stat(43118, "S", 0)
+		write_linux_proc_stat(
+			43116,
+			"Z",
+			multithreaded_terminal_group_id,
+			thread_count=2,
+		)
+		(linux_proc_fixture_root / "43117").mkdir()
+		terminated_process_group_state = (
+			gf_process_supervisor._linux_process_group_cleanup_state(
+				terminated_process_group_id,
+				proc_root=linux_proc_fixture_root,
+			)
+		)
+		live_process_group_state = gf_process_supervisor._linux_process_group_cleanup_state(
+			live_process_group_id,
+			proc_root=linux_proc_fixture_root,
+		)
+		absent_process_group_state = gf_process_supervisor._linux_process_group_cleanup_state(
+			43102,
+			proc_root=linux_proc_fixture_root,
+		)
+		multithreaded_terminal_group_state = (
+			gf_process_supervisor._linux_process_group_cleanup_state(
+				multithreaded_terminal_group_id,
+				proc_root=linux_proc_fixture_root,
+			)
+		)
+		expired_process_group_state = gf_process_supervisor._linux_process_group_cleanup_state(
+			terminated_process_group_id,
+			proc_root=linux_proc_fixture_root,
+			scan_deadline=time.perf_counter() - 1.0,
+		)
+		malformed_process_root = linux_proc_fixture_root / "43115"
+		malformed_process_root.mkdir()
+		(malformed_process_root / "stat").write_bytes(b"malformed proc stat")
+		unavailable_process_group_state = (
+			gf_process_supervisor._linux_process_group_cleanup_state(
+				terminated_process_group_id,
+				proc_root=linux_proc_fixture_root,
+			)
+		)
+		(malformed_process_root / "stat").write_bytes(
+			b"x" * (gf_process_supervisor.LINUX_PROC_STAT_MAX_BYTES + 1)
+		)
+		oversized_process_group_state = (
+			gf_process_supervisor._linux_process_group_cleanup_state(
+				terminated_process_group_id,
+				proc_root=linux_proc_fixture_root,
+			)
+		)
+		record_result(
+			"linux_process_group_cleanup_state_is_terminal_only_and_fail_closed",
+			terminated_process_group_state
+			== gf_process_supervisor._LINUX_PROCESS_GROUP_TERMINATED
+			and live_process_group_state == gf_process_supervisor._LINUX_PROCESS_GROUP_LIVE
+			and absent_process_group_state == gf_process_supervisor._LINUX_PROCESS_GROUP_ABSENT
+			and multithreaded_terminal_group_state
+			== gf_process_supervisor._LINUX_PROCESS_GROUP_LIVE
+			and expired_process_group_state is None
+			and unavailable_process_group_state is None
+			and oversized_process_group_state is None,
+			"Linux process-group confirmation must distinguish absent, terminal-only, live, "
+			"multithreaded, expired, and uninspectable procfs snapshots.",
+		)
+
+		def run_posix_cleanup_confirmation_fixture(
+			cleanup_state: str | None,
+			*,
+			cleanup_state_sequence: tuple[str | None, ...] = (),
+			cleanup_grace_seconds: float = 0.0,
+			prior_cleanup_failure: bool = False,
+			probe_error: str = "",
+		) -> dict[str, Any]:
+			owner = object.__new__(gf_process_supervisor._PosixProcessGroupOwner)
+			gf_process_supervisor._ProcessTreeOwner.__init__(owner)
+			owner.cleanup_failed = prior_cleanup_failure
+			owner.process_group_id = 43200
+			owner._cleanup_probe_group_id = 0
+			original_linux_cleanup_state = (
+				gf_process_supervisor._linux_process_group_cleanup_state
+			)
+			original_cleanup_grace = gf_process_supervisor.OUTPUT_CLEANUP_GRACE_SECONDS
+			original_supervisor_time = gf_process_supervisor.time
+			had_killpg = hasattr(gf_process_supervisor.os, "killpg")
+			original_killpg = getattr(gf_process_supervisor.os, "killpg", None)
+			probe_calls: list[tuple[int, int]] = []
+			cleanup_state_calls: list[int] = []
+
+			class InjectedCleanupClock:
+				def __init__(self) -> None:
+					self.now = 0.0
+
+				def perf_counter(self) -> float:
+					return self.now
+
+				def sleep(self, seconds: float) -> None:
+					self.now += max(0.0, seconds)
+
+			injected_cleanup_clock = InjectedCleanupClock()
+
+			def report_injected_cleanup_state(injected_process_group_id: int) -> str | None:
+				cleanup_state_calls.append(injected_process_group_id)
+				if cleanup_state_sequence:
+					state_index = min(
+						len(cleanup_state_calls) - 1,
+						len(cleanup_state_sequence) - 1,
+					)
+					return cleanup_state_sequence[state_index]
+				return cleanup_state
+
+			def probe_injected_process_group(
+				injected_process_group_id: int,
+				signal_number: int,
+			) -> None:
+				probe_calls.append((injected_process_group_id, signal_number))
+				if probe_error == "missing":
+					raise ProcessLookupError("fixture process group disappeared")
+				if probe_error == "permission":
+					raise PermissionError("fixture process group permission denied")
+
+			try:
+				setattr(
+					gf_process_supervisor.os,
+					"killpg",
+					probe_injected_process_group,
+				)
+				gf_process_supervisor._linux_process_group_cleanup_state = (
+					report_injected_cleanup_state
+				)
+				gf_process_supervisor.OUTPUT_CLEANUP_GRACE_SECONDS = cleanup_grace_seconds
+				gf_process_supervisor.time = injected_cleanup_clock
+				confirmation_notes = owner.confirm_cleanup_after_reap()
+			finally:
+				gf_process_supervisor.time = original_supervisor_time
+				gf_process_supervisor.OUTPUT_CLEANUP_GRACE_SECONDS = original_cleanup_grace
+				gf_process_supervisor._linux_process_group_cleanup_state = (
+					original_linux_cleanup_state
+				)
+				if had_killpg:
+					setattr(gf_process_supervisor.os, "killpg", original_killpg)
+				else:
+					delattr(gf_process_supervisor.os, "killpg")
+			return {
+				"cleanup_failed": owner.cleanup_failed,
+				"confirmation_succeeded": owner.cleanup_confirmation_succeeded(),
+				"probe_group_id": owner._cleanup_probe_group_id,
+				"notes": confirmation_notes,
+				"probe_calls": probe_calls,
+				"cleanup_state_calls": cleanup_state_calls,
+			}
+
+		terminated_confirmation = run_posix_cleanup_confirmation_fixture(
+			gf_process_supervisor._LINUX_PROCESS_GROUP_TERMINATED
+		)
+		absent_confirmation = run_posix_cleanup_confirmation_fixture(
+			gf_process_supervisor._LINUX_PROCESS_GROUP_ABSENT
+		)
+		live_confirmation = run_posix_cleanup_confirmation_fixture(
+			gf_process_supervisor._LINUX_PROCESS_GROUP_LIVE
+		)
+		unavailable_confirmation = run_posix_cleanup_confirmation_fixture(None)
+		transitioning_confirmation = run_posix_cleanup_confirmation_fixture(
+			gf_process_supervisor._LINUX_PROCESS_GROUP_LIVE,
+			cleanup_state_sequence=(
+				gf_process_supervisor._LINUX_PROCESS_GROUP_LIVE,
+				gf_process_supervisor._LINUX_PROCESS_GROUP_TERMINATED,
+			),
+			cleanup_grace_seconds=0.05,
+		)
+		sticky_failure_confirmation = run_posix_cleanup_confirmation_fixture(
+			gf_process_supervisor._LINUX_PROCESS_GROUP_TERMINATED,
+			prior_cleanup_failure=True,
+		)
+		missing_confirmation = run_posix_cleanup_confirmation_fixture(
+			None,
+			probe_error="missing",
+		)
+		permission_confirmation = run_posix_cleanup_confirmation_fixture(
+			gf_process_supervisor._LINUX_PROCESS_GROUP_TERMINATED,
+			probe_error="permission",
+		)
+		record_result(
+			"posix_cleanup_confirmation_accepts_only_absent_or_terminal_groups",
+			terminated_confirmation["confirmation_succeeded"]
+			and not terminated_confirmation["cleanup_failed"]
+			and terminated_confirmation["probe_group_id"] == 0
+			and any(
+				"terminated" in note
+				for note in terminated_confirmation["notes"]
+			)
+			and absent_confirmation["confirmation_succeeded"]
+			and not absent_confirmation["cleanup_failed"]
+			and absent_confirmation["probe_group_id"] == 0
+			and not absent_confirmation["notes"]
+			and not live_confirmation["confirmation_succeeded"]
+			and live_confirmation["cleanup_failed"]
+			and live_confirmation["probe_group_id"] == 43200
+			and any("non-terminal" in note for note in live_confirmation["notes"])
+			and not unavailable_confirmation["confirmation_succeeded"]
+			and unavailable_confirmation["cleanup_failed"]
+			and unavailable_confirmation["probe_group_id"] == 43200
+			and transitioning_confirmation["confirmation_succeeded"]
+			and not transitioning_confirmation["cleanup_failed"]
+			and transitioning_confirmation["probe_group_id"] == 0
+			and len(transitioning_confirmation["cleanup_state_calls"]) == 2
+			and sticky_failure_confirmation["confirmation_succeeded"]
+			and sticky_failure_confirmation["cleanup_failed"]
+			and missing_confirmation["confirmation_succeeded"]
+			and not missing_confirmation["cleanup_failed"]
+			and missing_confirmation["probe_group_id"] == 0
+			and not missing_confirmation["cleanup_state_calls"]
+			and not permission_confirmation["confirmation_succeeded"]
+			and permission_confirmation["cleanup_failed"]
+			and permission_confirmation["probe_group_id"] == 43200
+			and not permission_confirmation["cleanup_state_calls"]
+			and all(
+				signal_number == 0
+				for confirmation in (
+					terminated_confirmation,
+					absent_confirmation,
+					live_confirmation,
+					unavailable_confirmation,
+					transitioning_confirmation,
+					sticky_failure_confirmation,
+					missing_confirmation,
+					permission_confirmation,
+				)
+				for _process_group_id, signal_number in confirmation["probe_calls"]
+			),
+			"Post-reap POSIX confirmation may accept absent or terminal-only groups without "
+			"clearing any earlier cleanup failure; live, uninspectable, and permission-denied "
+			"groups must still fail, a live-to-terminal transition must be retried, and "
+			"post-reap probes must remain signal zero.",
+		)
+
+		original_supervision_checkpoint = gf_process_supervisor._process_supervision_checkpoint
+		original_supervisor_popen = gf_process_supervisor.subprocess.Popen
+
+		platform_startup_checkpoints = (
+			["windows_process_started", "windows_process_assigned"]
+			if os.name == "nt"
+			else ["posix_process_started"]
+		)
+		startup_fault_checkpoints = platform_startup_checkpoints + ["process_owner_started"]
+
+		def run_startup_interrupt_fixture(target_checkpoint: str) -> dict[str, Any]:
+			marker_path = Path(temp_dir) / f"startup-{target_checkpoint}-survived.txt"
+			process_code = (
+				"import time; from pathlib import Path; "
+				"time.sleep(0.8); "
+				f"Path({str(marker_path)!r}).write_text('survived', encoding='utf-8')"
+			)
+			checkpoint_names: list[str] = []
+			processes: list[subprocess.Popen[str]] = []
+			interrupt_raised = False
+			interrupted = False
+
+			def capture_startup_process(*args: Any, **kwargs: Any) -> subprocess.Popen[str]:
+				process = original_supervisor_popen(*args, **kwargs)
+				processes.append(process)
+				return process
+
+			def interrupt_started_process(checkpoint_name: str) -> None:
+				nonlocal interrupt_raised
+				if checkpoint_name in startup_fault_checkpoints:
+					checkpoint_names.append(checkpoint_name)
+				if checkpoint_name == target_checkpoint and not interrupt_raised:
+					interrupt_raised = True
+					raise KeyboardInterrupt("startup checkpoint fixture")
+				original_supervision_checkpoint(checkpoint_name)
+
+			try:
+				gf_process_supervisor.subprocess.Popen = capture_startup_process
+				gf_process_supervisor._process_supervision_checkpoint = interrupt_started_process
+				try:
+					run_supervised_process(
+						[sys.executable, "-c", process_code],
+						cwd=ROOT,
+						timeout_seconds=10,
+					)
+				except KeyboardInterrupt:
+					interrupted = True
+			finally:
+				gf_process_supervisor._process_supervision_checkpoint = original_supervision_checkpoint
+				gf_process_supervisor.subprocess.Popen = original_supervisor_popen
+
+			process_reaped = False
+			process_pipes_closed = False
+			if len(processes) == 1:
+				process = processes[0]
+				process_reaped = process.returncode is not None
+				process_pipes_closed = (
+					(process.stdout is None or process.stdout.closed)
+					and (process.stderr is None or process.stderr.closed)
+				)
+				if not process_reaped:
+					try:
+						process.kill()
+						process.wait(timeout=2.0)
+					except (OSError, subprocess.TimeoutExpired):
+						pass
+			return {
+				"target": target_checkpoint,
+				"interrupt_raised": interrupt_raised,
+				"interrupted": interrupted,
+				"checkpoints": checkpoint_names,
+				"expected_checkpoints": startup_fault_checkpoints[
+					:startup_fault_checkpoints.index(target_checkpoint) + 1
+				],
+				"process_count": len(processes),
+				"process_reaped": process_reaped,
+				"process_pipes_closed": process_pipes_closed,
+				"marker_exists": marker_path.exists(),
+			}
+
+		startup_fixture_results = [
+			run_startup_interrupt_fixture(checkpoint_name)
+			for checkpoint_name in startup_fault_checkpoints
+		]
+		record_result(
+			"run_command_startup_interrupt_reaps_started_process",
+			all(
+				fixture["interrupt_raised"]
+				and fixture["interrupted"]
+				and fixture["checkpoints"] == fixture["expected_checkpoints"]
+				and fixture["process_count"] == 1
+				and fixture["process_reaped"]
+				and fixture["process_pipes_closed"]
+				and not fixture["marker_exists"]
+				for fixture in startup_fixture_results
+			),
+			"A BaseException at every startup ownership boundary must reap the actual process without escape: "
+			f"{startup_fixture_results}.",
+		)
+
+		cleanup_ready_path = Path(temp_dir) / "cleanup-interrupt-descendant-ready.txt"
+		cleanup_marker_path = Path(temp_dir) / "cleanup-interrupt-descendant-survived.txt"
+		cleanup_grandchild_code = (
+			"import time; from pathlib import Path; "
+			f"Path({str(cleanup_ready_path)!r}).write_text('ready', encoding='utf-8'); "
+			"time.sleep(1.5); "
+			f"Path({str(cleanup_marker_path)!r}).write_text('survived', encoding='utf-8')"
+		)
+		cleanup_parent_code = "\n".join([
+			"import subprocess, sys, time",
+			"from pathlib import Path",
+			(
+				f"subprocess.Popen([sys.executable, '-c', {cleanup_grandchild_code!r}], "
+				"stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, close_fds=True)"
+			),
+			f"ready = Path({str(cleanup_ready_path)!r})",
+			"deadline = time.monotonic() + 5.0",
+			"while not ready.exists() and time.monotonic() < deadline:",
+			"\ttime.sleep(0.01)",
+			"raise SystemExit(0 if ready.exists() else 2)",
+		])
+		cleanup_checkpoint_names: list[str] = []
+		cleanup_action_names: list[str] = []
+		cleanup_interrupt_raised = False
+		cleanup_interrupted = False
+		original_owner_factory = gf_process_supervisor._new_process_tree_owner
+		original_terminate_process_tree = gf_process_supervisor.terminate_process_tree
+		original_reap_direct_process = gf_process_supervisor.reap_direct_process
+
+		def interrupt_cleanup_checkpoint(checkpoint_name: str) -> None:
+			nonlocal cleanup_interrupt_raised
+			cleanup_checkpoint_names.append(checkpoint_name)
+			if checkpoint_name == "before_output_drain" and not cleanup_interrupt_raised:
+				cleanup_interrupt_raised = True
+				raise KeyboardInterrupt("cleanup checkpoint fixture")
+			original_supervision_checkpoint(checkpoint_name)
+
+		def instrument_cleanup_owner() -> Any:
+			owner = original_owner_factory()
+			original_confirm_cleanup = owner.confirm_cleanup_after_reap
+			original_owner_close = owner.close
+
+			def tracked_confirm_cleanup() -> list[str]:
+				cleanup_action_names.append("confirm")
+				return original_confirm_cleanup()
+
+			def tracked_owner_close() -> list[str]:
+				cleanup_action_names.append("close")
+				return original_owner_close()
+
+			owner.confirm_cleanup_after_reap = tracked_confirm_cleanup
+			owner.close = tracked_owner_close
+			return owner
+
+		def tracked_terminate_process_tree(process: subprocess.Popen[str]) -> list[str]:
+			cleanup_action_names.append("terminate")
+			return original_terminate_process_tree(process)
+
+		def tracked_reap_direct_process(
+			process: subprocess.Popen[str],
+			notes: list[str],
+		) -> None:
+			cleanup_action_names.append("reap")
+			original_reap_direct_process(process, notes)
+
+		try:
+			gf_process_supervisor._process_supervision_checkpoint = interrupt_cleanup_checkpoint
+			gf_process_supervisor._new_process_tree_owner = instrument_cleanup_owner
+			gf_process_supervisor.terminate_process_tree = tracked_terminate_process_tree
+			gf_process_supervisor.reap_direct_process = tracked_reap_direct_process
+			try:
+				run_supervised_process(
+					[sys.executable, "-c", cleanup_parent_code],
+					cwd=ROOT,
+					timeout_seconds=10,
+				)
+			except KeyboardInterrupt:
+				cleanup_interrupted = True
+		finally:
+			gf_process_supervisor.reap_direct_process = original_reap_direct_process
+			gf_process_supervisor.terminate_process_tree = original_terminate_process_tree
+			gf_process_supervisor._new_process_tree_owner = original_owner_factory
+			gf_process_supervisor._process_supervision_checkpoint = original_supervision_checkpoint
+		time.sleep(1.7)
+		expected_cleanup_checkpoints = (
+			["windows_process_started", "windows_process_assigned"]
+			if os.name == "nt"
+			else ["posix_process_started"]
+		) + [
+			"process_owner_started",
+			"before_output_drain",
+			"before_final_termination",
+			"before_direct_reap",
+			"before_cleanup_confirmation",
+			"before_owner_close",
+		]
+		expected_cleanup_actions = ["terminate", "reap", "confirm", "close"]
+		if os.name == "nt":
+			# Successful Job close is also the last-resort tree boundary. The
+			# supervisor performs one post-close reap before closing the pipes even
+			# when the earlier direct reap already observed the short-lived parent.
+			expected_cleanup_actions.append("reap")
+		record_result(
+			"run_command_cleanup_interrupt_runs_remaining_owner_steps",
+			cleanup_interrupt_raised
+			and cleanup_interrupted
+			and cleanup_ready_path.exists()
+			and not cleanup_marker_path.exists()
+			and cleanup_checkpoint_names == expected_cleanup_checkpoints
+			and cleanup_action_names == expected_cleanup_actions,
+			"A cleanup-boundary BaseException must preserve the first error only after terminate/reap/confirm/close "
+			f"kill a ready DEVNULL descendant: checkpoints={cleanup_checkpoint_names}, "
+			f"actions={cleanup_action_names}.",
+		)
+
+		persistent_failure_ready_path = Path(temp_dir) / "persistent-termination-ready.txt"
+		persistent_failure_release_path = Path(temp_dir) / "persistent-termination-release.txt"
+		persistent_failure_process_code = "\n".join([
+			"import time",
+			"from pathlib import Path",
+			f"ready = Path({str(persistent_failure_ready_path)!r})",
+			f"release = Path({str(persistent_failure_release_path)!r})",
+			"ready.write_text('ready', encoding='utf-8')",
+			"deadline = time.monotonic() + 10.0",
+			"while not release.exists() and time.monotonic() < deadline:",
+			"\ttime.sleep(0.01)",
+		])
+		persistent_failure_original_owner_factory = gf_process_supervisor._new_process_tree_owner
+		persistent_failure_original_drain_grace = gf_process_supervisor.OUTPUT_DRAIN_GRACE_SECONDS
+		persistent_failure_original_cleanup_grace = gf_process_supervisor.OUTPUT_CLEANUP_GRACE_SECONDS
+		persistent_failure_owner: Any | None = None
+		persistent_failure_process: subprocess.Popen[str] | None = None
+		persistent_failure_terminate_calls = 0
+		persistent_failure_result: Any | None = None
+		persistent_failure_error = ""
+		persistent_failure_elapsed = 0.0
+		persistent_failure_safety_fired = False
+		persistent_failure_safety_cancel = threading.Event()
+		persistent_failure_safety_seconds = 2.0
+
+		def instrument_persistent_failure_owner() -> Any:
+			nonlocal persistent_failure_owner
+			nonlocal persistent_failure_process
+			nonlocal persistent_failure_terminate_calls
+			owner = persistent_failure_original_owner_factory()
+			persistent_failure_owner = owner
+			original_owner_start = owner.start
+
+			def capture_persistent_failure_process(
+				command: list[str],
+				*,
+				cwd: Path,
+				environment: dict[str, str] | None,
+			) -> subprocess.Popen[str]:
+				nonlocal persistent_failure_process
+				process = original_owner_start(command, cwd=cwd, environment=environment)
+				persistent_failure_process = process
+				return process
+
+			def reject_persistent_termination(_process: subprocess.Popen[str]) -> list[str]:
+				nonlocal persistent_failure_terminate_calls
+				persistent_failure_terminate_calls += 1
+				owner.cleanup_failed = True
+				owner._termination_succeeded = False
+				return ["Fixture intentionally rejected process-tree termination."]
+
+			owner.start = capture_persistent_failure_process
+			owner.terminate = reject_persistent_termination
+			return owner
+
+		def release_persistent_failure_safety() -> None:
+			nonlocal persistent_failure_safety_fired
+			if persistent_failure_safety_cancel.wait(persistent_failure_safety_seconds):
+				return
+			persistent_failure_safety_fired = True
+			try:
+				persistent_failure_release_path.write_text("safety", encoding="utf-8")
+			except OSError:
+				pass
+
+		persistent_failure_safety_thread = threading.Thread(
+			target=release_persistent_failure_safety,
+			name="gf-self-test-persistent-termination-safety",
+			daemon=True,
+		)
+		persistent_failure_safety_thread.start()
+		persistent_failure_started = time.perf_counter()
+		try:
+			gf_process_supervisor._new_process_tree_owner = instrument_persistent_failure_owner
+			gf_process_supervisor.OUTPUT_DRAIN_GRACE_SECONDS = 0.05
+			gf_process_supervisor.OUTPUT_CLEANUP_GRACE_SECONDS = 0.05
+			try:
+				persistent_failure_result = run_supervised_process(
+					[sys.executable, "-c", persistent_failure_process_code],
+					cwd=ROOT,
+					timeout_seconds=0.5,
+				)
+			except BaseException as error:
+				persistent_failure_error = f"{type(error).__name__}: {error}"
+			finally:
+				persistent_failure_elapsed = time.perf_counter() - persistent_failure_started
+		finally:
+			gf_process_supervisor.OUTPUT_CLEANUP_GRACE_SECONDS = persistent_failure_original_cleanup_grace
+			gf_process_supervisor.OUTPUT_DRAIN_GRACE_SECONDS = persistent_failure_original_drain_grace
+			gf_process_supervisor._new_process_tree_owner = persistent_failure_original_owner_factory
+			persistent_failure_safety_cancel.set()
+			persistent_failure_release_path.write_text("cleanup", encoding="utf-8")
+			persistent_failure_safety_thread.join(timeout=1.0)
+
+		persistent_failure_process_reaped = False
+		persistent_failure_pipes_closed = False
+		if persistent_failure_process is not None:
+			try:
+				persistent_failure_process.wait(timeout=2.0)
+			except subprocess.TimeoutExpired:
+				try:
+					persistent_failure_process.kill()
+					persistent_failure_process.wait(timeout=2.0)
+				except (OSError, subprocess.TimeoutExpired):
+					pass
+			persistent_failure_process_reaped = persistent_failure_process.returncode is not None
+			pipe_close_deadline = time.monotonic() + 0.5
+			while (
+				(
+					(persistent_failure_process.stdout is not None and not persistent_failure_process.stdout.closed)
+					or (persistent_failure_process.stderr is not None and not persistent_failure_process.stderr.closed)
+				)
+				and time.monotonic() < pipe_close_deadline
+			):
+				time.sleep(0.01)
+			for pipe in (persistent_failure_process.stdout, persistent_failure_process.stderr):
+				if pipe is not None and not pipe.closed:
+					pipe.close()
+			persistent_failure_pipes_closed = (
+				(persistent_failure_process.stdout is None or persistent_failure_process.stdout.closed)
+				and (persistent_failure_process.stderr is None or persistent_failure_process.stderr.closed)
+			)
+		record_result(
+			"run_command_persistent_termination_failure_does_not_block_pipe_close",
+			not persistent_failure_error
+			and persistent_failure_result is not None
+			and persistent_failure_result.timed_out
+			and persistent_failure_owner is not None
+			and persistent_failure_process is not None
+			and persistent_failure_ready_path.exists()
+			and persistent_failure_terminate_calls >= 2
+			and not persistent_failure_safety_fired
+			and persistent_failure_elapsed < persistent_failure_safety_seconds * 0.75
+			and persistent_failure_process_reaped
+			and persistent_failure_pipes_closed,
+			"Repeated process-tree termination failure must return before the safety release instead of blocking "
+			"while closing pipes still owned by output pumps; "
+			f"calls={persistent_failure_terminate_calls}, elapsed={persistent_failure_elapsed:.3f}s, "
+			f"safety_fired={persistent_failure_safety_fired}, reaped={persistent_failure_process_reaped}, "
+			f"pipes_closed={persistent_failure_pipes_closed}, error={persistent_failure_error!r}.",
+		)
+
+		reap_noop_ready_path = Path(temp_dir) / "reap-noop-ready.txt"
+		reap_noop_release_path = Path(temp_dir) / "reap-noop-release.txt"
+		reap_noop_process_code = "\n".join([
+			"import time",
+			"from pathlib import Path",
+			f"ready = Path({str(reap_noop_ready_path)!r})",
+			f"release = Path({str(reap_noop_release_path)!r})",
+			"ready.write_text('ready', encoding='utf-8')",
+			"deadline = time.monotonic() + 10.0",
+			"while not release.exists() and time.monotonic() < deadline:",
+			"\ttime.sleep(0.01)",
+		])
+		reap_noop_original_owner_factory = gf_process_supervisor._new_process_tree_owner
+		reap_noop_original_reap = gf_process_supervisor.reap_direct_process
+		reap_noop_original_close_pipes = gf_process_supervisor._close_process_pipes
+		reap_noop_original_drain_grace = gf_process_supervisor.OUTPUT_DRAIN_GRACE_SECONDS
+		reap_noop_original_cleanup_grace = gf_process_supervisor.OUTPUT_CLEANUP_GRACE_SECONDS
+		reap_noop_owner: Any | None = None
+		reap_noop_process: subprocess.Popen[str] | None = None
+		reap_noop_result: Any | None = None
+		reap_noop_error = ""
+		reap_noop_cleanup_error = ""
+		reap_noop_terminate_calls = 0
+		reap_noop_reap_calls = 0
+		reap_noop_pipe_close_calls = 0
+		reap_noop_pipe_close_attempted_while_live = False
+		reap_noop_returned_before_release = False
+		reap_noop_elapsed = 0.0
+		reap_noop_safety_fired = False
+		reap_noop_safety_cancel = threading.Event()
+		reap_noop_safety_seconds = 2.0
+
+		def instrument_reap_noop_owner() -> Any:
+			nonlocal reap_noop_owner
+			nonlocal reap_noop_process
+			nonlocal reap_noop_terminate_calls
+			owner = reap_noop_original_owner_factory()
+			reap_noop_owner = owner
+			original_owner_start = owner.start
+
+			def capture_reap_noop_process(
+				command: list[str],
+				*,
+				cwd: Path,
+				environment: dict[str, str] | None,
+			) -> subprocess.Popen[str]:
+				nonlocal reap_noop_process
+				process = original_owner_start(command, cwd=cwd, environment=environment)
+				reap_noop_process = process
+				return process
+
+			def report_termination_without_stopping(
+				_process: subprocess.Popen[str],
+			) -> list[str]:
+				nonlocal reap_noop_terminate_calls
+				reap_noop_terminate_calls += 1
+				owner._termination_succeeded = True
+				return []
+
+			owner.start = capture_reap_noop_process
+			owner.terminate = report_termination_without_stopping
+			return owner
+
+		def leave_direct_process_unreaped(
+			_process: subprocess.Popen[str],
+			_notes: list[str],
+		) -> None:
+			nonlocal reap_noop_reap_calls
+			reap_noop_reap_calls += 1
+
+		def observe_reap_noop_pipe_close(process: subprocess.Popen[str]) -> None:
+			nonlocal reap_noop_pipe_close_calls
+			nonlocal reap_noop_pipe_close_attempted_while_live
+			reap_noop_pipe_close_calls += 1
+			if process.returncode is None and not reap_noop_release_path.exists():
+				reap_noop_pipe_close_attempted_while_live = True
+			reap_noop_original_close_pipes(process)
+
+		def release_reap_noop_safety() -> None:
+			nonlocal reap_noop_safety_fired
+			if reap_noop_safety_cancel.wait(reap_noop_safety_seconds):
+				return
+			reap_noop_safety_fired = True
+			try:
+				reap_noop_release_path.write_text("safety", encoding="utf-8")
+			except OSError:
+				pass
+
+		reap_noop_safety_thread = threading.Thread(
+			target=release_reap_noop_safety,
+			name="gf-self-test-reap-noop-safety",
+			daemon=True,
+		)
+		reap_noop_safety_thread.start()
+		reap_noop_started = time.perf_counter()
+		try:
+			gf_process_supervisor._new_process_tree_owner = instrument_reap_noop_owner
+			gf_process_supervisor.reap_direct_process = leave_direct_process_unreaped
+			gf_process_supervisor._close_process_pipes = observe_reap_noop_pipe_close
+			gf_process_supervisor.OUTPUT_DRAIN_GRACE_SECONDS = 0.05
+			gf_process_supervisor.OUTPUT_CLEANUP_GRACE_SECONDS = 0.05
+			try:
+				reap_noop_result = run_supervised_process(
+					[sys.executable, "-c", reap_noop_process_code],
+					cwd=ROOT,
+					timeout_seconds=0.5,
+				)
+			except BaseException as error:
+				reap_noop_error = f"{type(error).__name__}: {error}"
+			finally:
+				reap_noop_elapsed = time.perf_counter() - reap_noop_started
+				reap_noop_returned_before_release = not reap_noop_release_path.exists()
+		finally:
+			gf_process_supervisor.OUTPUT_CLEANUP_GRACE_SECONDS = reap_noop_original_cleanup_grace
+			gf_process_supervisor.OUTPUT_DRAIN_GRACE_SECONDS = reap_noop_original_drain_grace
+			gf_process_supervisor._close_process_pipes = reap_noop_original_close_pipes
+			gf_process_supervisor.reap_direct_process = reap_noop_original_reap
+			gf_process_supervisor._new_process_tree_owner = reap_noop_original_owner_factory
+			reap_noop_safety_cancel.set()
+			try:
+				reap_noop_release_path.write_text("cleanup", encoding="utf-8")
+			except OSError as error:
+				reap_noop_cleanup_error = f"{type(error).__name__}: {error}"
+			reap_noop_safety_thread.join(timeout=1.0)
+
+		if reap_noop_owner is not None and not reap_noop_owner.is_closed():
+			try:
+				reap_noop_owner.close()
+			except BaseException as error:
+				reap_noop_cleanup_error = (
+					reap_noop_cleanup_error
+					or f"{type(error).__name__}: {error}"
+				)
+		reap_noop_process_reaped = False
+		reap_noop_pipes_closed = False
+		if reap_noop_process is not None:
+			try:
+				reap_noop_process.wait(timeout=2.0)
+			except subprocess.TimeoutExpired:
+				try:
+					reap_noop_process.kill()
+					reap_noop_process.wait(timeout=2.0)
+				except (OSError, subprocess.TimeoutExpired) as error:
+					reap_noop_cleanup_error = (
+						reap_noop_cleanup_error
+						or f"{type(error).__name__}: {error}"
+					)
+			reap_noop_process_reaped = reap_noop_process.returncode is not None
+			pipe_close_deadline = time.monotonic() + 0.5
+			while (
+				(
+					(reap_noop_process.stdout is not None and not reap_noop_process.stdout.closed)
+					or (reap_noop_process.stderr is not None and not reap_noop_process.stderr.closed)
+				)
+				and time.monotonic() < pipe_close_deadline
+			):
+				time.sleep(0.01)
+			for pipe in (reap_noop_process.stdout, reap_noop_process.stderr):
+				if pipe is not None and not pipe.closed:
+					pipe.close()
+			reap_noop_pipes_closed = (
+				(reap_noop_process.stdout is None or reap_noop_process.stdout.closed)
+				and (reap_noop_process.stderr is None or reap_noop_process.stderr.closed)
+			)
+		record_result(
+			"run_command_reap_noop_does_not_close_live_pump_pipes",
+			not reap_noop_error
+			and not reap_noop_cleanup_error
+			and reap_noop_result is not None
+			and reap_noop_result.timed_out
+			and reap_noop_owner is not None
+			and reap_noop_process is not None
+			and reap_noop_ready_path.exists()
+			and reap_noop_terminate_calls >= 2
+			and reap_noop_reap_calls >= 1
+			and reap_noop_returned_before_release
+			and not reap_noop_safety_fired
+			and reap_noop_elapsed < reap_noop_safety_seconds * 0.75
+			and not reap_noop_pipe_close_attempted_while_live
+			and not reap_noop_safety_thread.is_alive()
+			and reap_noop_process_reaped
+			and reap_noop_pipes_closed,
+			"A successful termination report followed by a no-op reap must return without synchronously closing "
+			"pipes still owned by live pumps; "
+			f"terminates={reap_noop_terminate_calls}, reaps={reap_noop_reap_calls}, "
+			f"pipe_closes={reap_noop_pipe_close_calls}, "
+			f"live_close={reap_noop_pipe_close_attempted_while_live}, "
+			f"elapsed={reap_noop_elapsed:.3f}s, safety_fired={reap_noop_safety_fired}, "
+			f"reaped={reap_noop_process_reaped}, pipes_closed={reap_noop_pipes_closed}, "
+			f"error={reap_noop_error!r}, cleanup_error={reap_noop_cleanup_error!r}.",
+		)
+
+		terminate_retry_ready_path = Path(temp_dir) / "terminate-retry-descendant-ready.txt"
+		terminate_retry_trigger_path = Path(temp_dir) / "terminate-retry-trigger.txt"
+		terminate_retry_marker_path = Path(temp_dir) / "terminate-retry-descendant-survived.txt"
+		terminate_retry_grandchild_code = "\n".join([
+			"import time",
+			"from pathlib import Path",
+			f"ready = Path({str(terminate_retry_ready_path)!r})",
+			f"trigger = Path({str(terminate_retry_trigger_path)!r})",
+			f"marker = Path({str(terminate_retry_marker_path)!r})",
+			"ready.write_text('ready', encoding='utf-8')",
+			"deadline = time.monotonic() + 20.0",
+			"while not trigger.exists() and time.monotonic() < deadline:",
+			"\ttime.sleep(0.01)",
+			"if trigger.exists():",
+			"\tmarker.write_text('survived', encoding='utf-8')",
+		])
+		terminate_retry_parent_code = "\n".join([
+			"import subprocess, sys, time",
+			"from pathlib import Path",
+			(
+				f"subprocess.Popen([sys.executable, '-c', {terminate_retry_grandchild_code!r}], "
+				"stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, close_fds=True)"
+			),
+			f"ready = Path({str(terminate_retry_ready_path)!r})",
+			"deadline = time.monotonic() + 5.0",
+			"while not ready.exists() and time.monotonic() < deadline:",
+			"\ttime.sleep(0.01)",
+			"raise SystemExit(0 if ready.exists() else 2)",
+		])
+		terminate_retry_call_count = 0
+		terminate_retry_real_call_count = 0
+		terminate_retry_reap_started = False
+		terminate_retry_real_completed_before_reap = False
+		terminate_retry_owner_close_observed = False
+		terminate_retry_marker_before_owner_close = False
+		terminate_retry_owner: Any | None = None
+		terminate_retry_process: subprocess.Popen[str] | None = None
+		terminate_retry_error = ""
+		terminate_retry_original_owner_factory = gf_process_supervisor._new_process_tree_owner
+		terminate_retry_original_reap = gf_process_supervisor.reap_direct_process
+
+		def instrument_terminate_retry_owner() -> Any:
+			nonlocal terminate_retry_owner
+			owner = terminate_retry_original_owner_factory()
+			terminate_retry_owner = owner
+			original_owner_terminate = owner.terminate
+			original_owner_close = owner.close
+
+			def fail_first_termination(process: subprocess.Popen[str]) -> list[str]:
+				nonlocal terminate_retry_call_count
+				nonlocal terminate_retry_process
+				nonlocal terminate_retry_real_call_count
+				nonlocal terminate_retry_real_completed_before_reap
+				terminate_retry_call_count += 1
+				terminate_retry_process = process
+				if terminate_retry_call_count == 1:
+					owner.cleanup_failed = True
+					return ["Fixture intentionally skipped the first process-tree termination."]
+				terminate_retry_real_call_count += 1
+				termination_notes = original_owner_terminate(process)
+				if not terminate_retry_reap_started and owner.termination_succeeded():
+					terminate_retry_real_completed_before_reap = True
+				return termination_notes
+
+			def observe_descendant_before_owner_close() -> list[str]:
+				nonlocal terminate_retry_owner_close_observed
+				nonlocal terminate_retry_marker_before_owner_close
+				if not terminate_retry_owner_close_observed:
+					terminate_retry_owner_close_observed = True
+					terminate_retry_trigger_path.write_text("pre-close-check", encoding="utf-8")
+					observation_deadline = time.monotonic() + 1.0
+					while (
+						not terminate_retry_marker_path.exists()
+						and time.monotonic() < observation_deadline
+					):
+						time.sleep(0.01)
+					terminate_retry_marker_before_owner_close = terminate_retry_marker_path.exists()
+				return original_owner_close()
+
+			owner.terminate = fail_first_termination
+			owner.close = observe_descendant_before_owner_close
+			return owner
+
+		def track_terminate_retry_reap(
+			process: subprocess.Popen[str],
+			notes: list[str],
+		) -> None:
+			nonlocal terminate_retry_reap_started
+			terminate_retry_reap_started = True
+			terminate_retry_original_reap(process, notes)
+
+		try:
+			gf_process_supervisor._new_process_tree_owner = instrument_terminate_retry_owner
+			gf_process_supervisor.reap_direct_process = track_terminate_retry_reap
+			try:
+				run_supervised_process(
+					[sys.executable, "-c", terminate_retry_parent_code],
+					cwd=ROOT,
+					timeout_seconds=10,
+				)
+			except BaseException as error:
+				terminate_retry_error = f"{type(error).__name__}: {error}"
+		finally:
+			gf_process_supervisor.reap_direct_process = terminate_retry_original_reap
+			gf_process_supervisor._new_process_tree_owner = terminate_retry_original_owner_factory
+			if not terminate_retry_trigger_path.exists():
+				terminate_retry_trigger_path.write_text("cleanup", encoding="utf-8")
+		time.sleep(0.2)
+		terminate_retry_process_reaped = (
+			terminate_retry_process is not None
+			and terminate_retry_process.returncode is not None
+		)
+		if terminate_retry_process is not None and terminate_retry_process.returncode is None:
+			try:
+				terminate_retry_process.kill()
+				terminate_retry_process.wait(timeout=2.0)
+			except (OSError, subprocess.TimeoutExpired):
+				pass
+		record_result(
+			"run_command_retries_failed_tree_termination_before_reap",
+			not terminate_retry_error
+			and terminate_retry_owner is not None
+			and terminate_retry_ready_path.exists()
+			and not terminate_retry_marker_path.exists()
+			and terminate_retry_call_count >= 2
+			and terminate_retry_real_call_count >= 1
+			and terminate_retry_real_completed_before_reap
+			and terminate_retry_owner_close_observed
+			and not terminate_retry_marker_before_owner_close
+			and terminate_retry_process_reaped,
+			"A reported process-tree termination failure must be retried successfully before the direct child is reaped; "
+			f"calls={terminate_retry_call_count}, real_calls={terminate_retry_real_call_count}, "
+			f"real_before_reap={terminate_retry_real_completed_before_reap}, "
+			f"owner_close={terminate_retry_owner_close_observed}, "
+			f"marker_before_close={terminate_retry_marker_before_owner_close}, "
+			f"reaped={terminate_retry_process_reaped}, marker={terminate_retry_marker_path.exists()}, "
+			f"error={terminate_retry_error!r}.",
+		)
+
+		def run_windows_close_handle_interrupt_fixture(mode: str) -> dict[str, Any]:
+			state: dict[str, Any] = {
+				"mode": mode,
+				"owner": None,
+				"process": None,
+				"result": None,
+				"worker_start_attempts": 0,
+				"low_level_start_attempts": 0,
+				"operations": [],
+				"operation_handles": [],
+				"owner_handles_at_start": [],
+				"wrapper_results": [],
+				"native_results": [],
+				"worker_thread_names": [],
+				"interrupt_injected": False,
+				"second_interrupt_injected": False,
+				"boundary_after_success": False,
+				"interrupted": False,
+				"same_exception": False,
+				"handle_zero": False,
+				"owner_closed": False,
+				"process_reaped": False,
+				"pipes_closed": False,
+				"error": "",
+				"cleanup_error": "",
+			}
+			if os.name != "nt":
+				return state
+
+			original_owner_factory = gf_process_supervisor._new_process_tree_owner
+			original_popen = gf_process_supervisor.subprocess.Popen
+			original_close_handle = gf_process_supervisor._CLOSE_HANDLE
+			original_thread_start = gf_process_supervisor.threading.Thread.start
+			original_low_level_start = gf_process_supervisor._thread.start_new_thread
+			original_wait_for_close_event = gf_process_supervisor._wait_for_windows_close_event
+			injected_interrupt = KeyboardInterrupt(f"CloseHandle {mode} fixture")
+			second_injected_interrupt = KeyboardInterrupt(
+				f"CloseHandle {mode} second fixture"
+			)
+
+			def capture_owner() -> Any:
+				owner = original_owner_factory()
+				state["owner"] = owner
+				return owner
+
+			def capture_process(
+				*args: Any,
+				**kwargs: Any,
+			) -> subprocess.Popen[str]:
+				process = original_popen(*args, **kwargs)
+				state["process"] = process
+				return process
+
+			def track_real_close_handle(handle: Any) -> bool:
+				if mode == "false_retry" and not state["wrapper_results"]:
+					ctypes.set_last_error(6)
+					state["wrapper_results"].append(False)
+					state["worker_thread_names"].append(threading.current_thread().name)
+					return False
+				real_result = bool(original_close_handle(handle))
+				state["wrapper_results"].append(real_result)
+				state["native_results"].append(real_result)
+				state["worker_thread_names"].append(threading.current_thread().name)
+				return real_result
+
+			def interrupt_first_worker_start(
+				worker: threading.Thread,
+				*args: Any,
+				**kwargs: Any,
+			) -> Any:
+				if worker.name == "gf-windows-handle-close":
+					state["worker_start_attempts"] += 1
+					owner = state["owner"]
+					operation = owner._close_operation if owner is not None else None
+					state["operations"].append(operation)
+					state["operation_handles"].append(
+						operation.handle if operation is not None else 0
+					)
+					state["owner_handles_at_start"].append(
+						owner.handle if owner is not None else -1
+					)
+					if mode == "pre_call" and state["worker_start_attempts"] == 1:
+						state["interrupt_injected"] = True
+						raise injected_interrupt
+					if mode == "double_start_failure" and state["worker_start_attempts"] <= 2:
+						if state["worker_start_attempts"] == 1:
+							state["interrupt_injected"] = True
+							raise injected_interrupt
+						state["second_interrupt_injected"] = True
+						raise second_injected_interrupt
+				return original_thread_start(worker, *args, **kwargs)
+
+			def track_low_level_start(
+				function: Callable[..., Any],
+				args: tuple[Any, ...],
+				kwargs: dict[str, Any] | None = None,
+			) -> int:
+				state["low_level_start_attempts"] += 1
+				if kwargs is None:
+					return original_low_level_start(function, args)
+				return original_low_level_start(function, args, kwargs)
+
+			def interrupt_after_worker_commit(
+				event: threading.Event,
+				pending_error: BaseException | None,
+				pending_traceback: Any,
+			) -> tuple[BaseException | None, Any]:
+				wait_result = original_wait_for_close_event(
+					event,
+					pending_error,
+					pending_traceback,
+				)
+				if mode == "post_success" and not state["interrupt_injected"]:
+					owner = state["owner"]
+					state["boundary_after_success"] = (
+						state["wrapper_results"] == [True]
+						and state["native_results"] == [True]
+						and owner is not None
+						and owner.handle == 0
+						and owner.is_closed()
+					)
+					state["interrupt_injected"] = True
+					raise injected_interrupt
+				return wait_result
+
+			try:
+				gf_process_supervisor._new_process_tree_owner = capture_owner
+				gf_process_supervisor.subprocess.Popen = capture_process
+				gf_process_supervisor._CLOSE_HANDLE = track_real_close_handle
+				gf_process_supervisor.threading.Thread.start = interrupt_first_worker_start
+				gf_process_supervisor._thread.start_new_thread = track_low_level_start
+				gf_process_supervisor._wait_for_windows_close_event = interrupt_after_worker_commit
+				try:
+					state["result"] = run_supervised_process(
+						[sys.executable, "-c", "print('close-handle-fixture', flush=True)"],
+						cwd=ROOT,
+						timeout_seconds=10,
+					)
+				except KeyboardInterrupt as error:
+					state["interrupted"] = True
+					state["same_exception"] = error is injected_interrupt
+				except BaseException as error:
+					state["error"] = f"{type(error).__name__}: {error}"
+			finally:
+				gf_process_supervisor._wait_for_windows_close_event = original_wait_for_close_event
+				gf_process_supervisor._thread.start_new_thread = original_low_level_start
+				gf_process_supervisor.threading.Thread.start = original_thread_start
+				gf_process_supervisor._CLOSE_HANDLE = original_close_handle
+				gf_process_supervisor.subprocess.Popen = original_popen
+				gf_process_supervisor._new_process_tree_owner = original_owner_factory
+
+			owner = state["owner"]
+			process = state["process"]
+			if owner is not None:
+				state["handle_zero"] = owner.handle == 0
+				state["owner_closed"] = owner.is_closed()
+			if process is not None:
+				state["process_reaped"] = process.returncode is not None
+				state["pipes_closed"] = (
+					(process.stdout is None or process.stdout.closed)
+					and (process.stderr is None or process.stderr.closed)
+				)
+
+			# Snapshot the supervised outcome first, then release any real resource
+			# left behind by a failed fixture without masking the failed assertions.
+			if owner is not None and not owner.is_closed():
+				try:
+					owner.close()
+				except BaseException as error:
+					state["cleanup_error"] = f"{type(error).__name__}: {error}"
+			if process is not None and process.returncode is None:
+				try:
+					process.wait(timeout=2.0)
+				except subprocess.TimeoutExpired:
+					try:
+						process.kill()
+						process.wait(timeout=2.0)
+					except (OSError, subprocess.TimeoutExpired) as error:
+						state["cleanup_error"] = (
+							state["cleanup_error"]
+							or f"{type(error).__name__}: {error}"
+						)
+			if process is not None:
+				pipe_close_deadline = time.perf_counter() + 0.5
+				while time.perf_counter() < pipe_close_deadline:
+					if (
+						(process.stdout is None or process.stdout.closed)
+						and (process.stderr is None or process.stderr.closed)
+					):
+						break
+					time.sleep(0.01)
+				if process.stdout is not None and not process.stdout.closed:
+					process.stdout.close()
+				if process.stderr is not None and not process.stderr.closed:
+					process.stderr.close()
+			return state
+
+		windows_pre_call_state = run_windows_close_handle_interrupt_fixture("pre_call")
+		record_result(
+			"windows_job_closehandle_pre_call_interrupt_retries_safely",
+			os.name != "nt"
+			or (
+				not windows_pre_call_state["error"]
+				and not windows_pre_call_state["cleanup_error"]
+				and windows_pre_call_state["interrupt_injected"]
+				and windows_pre_call_state["interrupted"]
+				and windows_pre_call_state["same_exception"]
+				and windows_pre_call_state["worker_start_attempts"] == 2
+				and windows_pre_call_state["low_level_start_attempts"] == 0
+				and len(windows_pre_call_state["operations"]) == 2
+				and windows_pre_call_state["operations"][0] is windows_pre_call_state["operations"][1]
+				and windows_pre_call_state["operation_handles"][0] != 0
+				and windows_pre_call_state["operation_handles"][0] == windows_pre_call_state["operation_handles"][1]
+				and windows_pre_call_state["owner_handles_at_start"] == [0, 0]
+				and windows_pre_call_state["wrapper_results"] == [True]
+				and windows_pre_call_state["native_results"] == [True]
+				and windows_pre_call_state["worker_thread_names"] == ["gf-windows-handle-close"]
+				and windows_pre_call_state["owner"] is not None
+				and windows_pre_call_state["process"] is not None
+				and windows_pre_call_state["handle_zero"]
+				and windows_pre_call_state["owner_closed"]
+				and windows_pre_call_state["process_reaped"]
+				and windows_pre_call_state["pipes_closed"]
+			),
+			"A main-thread interruption before the CloseHandle worker starts must preserve the handle for one safe "
+			"emergency retry and propagate the same exception; "
+			f"platform={os.name}, starts={windows_pre_call_state['worker_start_attempts']}, "
+			f"low_level_starts={windows_pre_call_state['low_level_start_attempts']}, "
+			f"operation_handles={windows_pre_call_state['operation_handles']}, "
+			f"owner_handles_at_start={windows_pre_call_state['owner_handles_at_start']}, "
+			f"wrapper_results={windows_pre_call_state['wrapper_results']}, "
+			f"native_results={windows_pre_call_state['native_results']}, "
+			f"worker_threads={windows_pre_call_state['worker_thread_names']}, "
+			f"interrupted={windows_pre_call_state['interrupted']}, "
+			f"same_exception={windows_pre_call_state['same_exception']}, "
+			f"handle_zero={windows_pre_call_state['handle_zero']}, "
+			f"owner_closed={windows_pre_call_state['owner_closed']}, "
+			f"reaped={windows_pre_call_state['process_reaped']}, "
+			f"pipes_closed={windows_pre_call_state['pipes_closed']}, "
+			f"error={windows_pre_call_state['error']!r}, "
+			f"cleanup_error={windows_pre_call_state['cleanup_error']!r}.",
+		)
+
+		windows_double_start_state = run_windows_close_handle_interrupt_fixture(
+			"double_start_failure"
+		)
+		record_result(
+			"windows_job_closehandle_double_start_failure_uses_single_low_level_fallback",
+			os.name != "nt"
+			or (
+				not windows_double_start_state["error"]
+				and not windows_double_start_state["cleanup_error"]
+				and windows_double_start_state["interrupt_injected"]
+				and windows_double_start_state["second_interrupt_injected"]
+				and windows_double_start_state["interrupted"]
+				and windows_double_start_state["same_exception"]
+				and windows_double_start_state["worker_start_attempts"] == 2
+				and windows_double_start_state["low_level_start_attempts"] == 1
+				and len(windows_double_start_state["operations"]) == 2
+				and windows_double_start_state["operations"][0]
+				is windows_double_start_state["operations"][1]
+				and windows_double_start_state["operation_handles"][0] != 0
+				and windows_double_start_state["operation_handles"][0]
+				== windows_double_start_state["operation_handles"][1]
+				and windows_double_start_state["owner_handles_at_start"] == [0, 0]
+				and windows_double_start_state["wrapper_results"] == [True]
+				and windows_double_start_state["native_results"] == [True]
+				and len(windows_double_start_state["worker_thread_names"]) == 1
+				and windows_double_start_state["owner"] is not None
+				and windows_double_start_state["process"] is not None
+				and windows_double_start_state["handle_zero"]
+				and windows_double_start_state["owner_closed"]
+				and windows_double_start_state["process_reaped"]
+				and windows_double_start_state["pipes_closed"]
+			),
+			"Two pre-call Thread.start failures must retain one operation, close its numeric handle exactly once "
+			"through the low-level fallback, and propagate the first exception without a stale retry; "
+			f"platform={os.name}, starts={windows_double_start_state['worker_start_attempts']}, "
+			f"low_level_starts={windows_double_start_state['low_level_start_attempts']}, "
+			f"operation_handles={windows_double_start_state['operation_handles']}, "
+			f"owner_handles_at_start={windows_double_start_state['owner_handles_at_start']}, "
+			f"wrapper_results={windows_double_start_state['wrapper_results']}, "
+			f"native_results={windows_double_start_state['native_results']}, "
+			f"worker_threads={windows_double_start_state['worker_thread_names']}, "
+			f"interrupted={windows_double_start_state['interrupted']}, "
+			f"same_exception={windows_double_start_state['same_exception']}, "
+			f"handle_zero={windows_double_start_state['handle_zero']}, "
+			f"owner_closed={windows_double_start_state['owner_closed']}, "
+			f"reaped={windows_double_start_state['process_reaped']}, "
+			f"pipes_closed={windows_double_start_state['pipes_closed']}, "
+			f"error={windows_double_start_state['error']!r}, "
+			f"cleanup_error={windows_double_start_state['cleanup_error']!r}.",
+		)
+
+		windows_post_success_state = run_windows_close_handle_interrupt_fixture("post_success")
+		record_result(
+			"windows_job_closehandle_post_success_interrupt_avoids_stale_retry",
+			os.name != "nt"
+			or (
+				not windows_post_success_state["error"]
+				and not windows_post_success_state["cleanup_error"]
+				and windows_post_success_state["interrupt_injected"]
+				and windows_post_success_state["boundary_after_success"]
+				and windows_post_success_state["interrupted"]
+				and windows_post_success_state["same_exception"]
+				and windows_post_success_state["worker_start_attempts"] == 1
+				and windows_post_success_state["low_level_start_attempts"] == 0
+				and len(windows_post_success_state["operations"]) == 1
+				and windows_post_success_state["operation_handles"][0] != 0
+				and windows_post_success_state["owner_handles_at_start"] == [0]
+				and windows_post_success_state["wrapper_results"] == [True]
+				and windows_post_success_state["native_results"] == [True]
+				and windows_post_success_state["worker_thread_names"] == ["gf-windows-handle-close"]
+				and windows_post_success_state["owner"] is not None
+				and windows_post_success_state["process"] is not None
+				and windows_post_success_state["handle_zero"]
+				and windows_post_success_state["owner_closed"]
+				and windows_post_success_state["process_reaped"]
+				and windows_post_success_state["pipes_closed"]
+			),
+			"A main-thread interruption after successful CloseHandle publication must propagate the same exception "
+			"without retrying the consumed numeric handle; "
+			f"platform={os.name}, starts={windows_post_success_state['worker_start_attempts']}, "
+			f"low_level_starts={windows_post_success_state['low_level_start_attempts']}, "
+			f"operation_handles={windows_post_success_state['operation_handles']}, "
+			f"owner_handles_at_start={windows_post_success_state['owner_handles_at_start']}, "
+			f"wrapper_results={windows_post_success_state['wrapper_results']}, "
+			f"native_results={windows_post_success_state['native_results']}, "
+			f"worker_threads={windows_post_success_state['worker_thread_names']}, "
+			f"boundary_after_success={windows_post_success_state['boundary_after_success']}, "
+			f"interrupted={windows_post_success_state['interrupted']}, "
+			f"same_exception={windows_post_success_state['same_exception']}, "
+			f"handle_zero={windows_post_success_state['handle_zero']}, "
+			f"owner_closed={windows_post_success_state['owner_closed']}, "
+			f"reaped={windows_post_success_state['process_reaped']}, "
+			f"pipes_closed={windows_post_success_state['pipes_closed']}, "
+			f"error={windows_post_success_state['error']!r}, "
+			f"cleanup_error={windows_post_success_state['cleanup_error']!r}.",
+		)
+
+		windows_false_retry_state = run_windows_close_handle_interrupt_fixture("false_retry")
+		windows_false_retry_result = windows_false_retry_state["result"]
+		record_result(
+			"windows_job_closehandle_explicit_false_retries_same_handle_safely",
+			os.name != "nt"
+			or (
+				not windows_false_retry_state["error"]
+				and not windows_false_retry_state["cleanup_error"]
+				and not windows_false_retry_state["interrupt_injected"]
+				and not windows_false_retry_state["interrupted"]
+				and windows_false_retry_state["worker_start_attempts"] == 2
+				and windows_false_retry_state["low_level_start_attempts"] == 0
+				and len(windows_false_retry_state["operations"]) == 2
+				and windows_false_retry_state["operations"][0] is not windows_false_retry_state["operations"][1]
+				and windows_false_retry_state["operation_handles"][0] != 0
+				and windows_false_retry_state["operation_handles"][0] == windows_false_retry_state["operation_handles"][1]
+				and windows_false_retry_state["owner_handles_at_start"] == [0, 0]
+				and windows_false_retry_state["wrapper_results"] == [False, True]
+				and windows_false_retry_state["native_results"] == [True]
+				and windows_false_retry_state["worker_thread_names"]
+				== ["gf-windows-handle-close", "gf-windows-handle-close"]
+				and windows_false_retry_result is not None
+				and windows_false_retry_result.timed_out
+				and any(
+					"Could not close the owned Windows Job Object" in note
+					for note in windows_false_retry_result.notes
+				)
+				and windows_false_retry_state["owner"] is not None
+				and windows_false_retry_state["process"] is not None
+				and windows_false_retry_state["handle_zero"]
+				and windows_false_retry_state["owner_closed"]
+				and windows_false_retry_state["process_reaped"]
+				and windows_false_retry_state["pipes_closed"]
+			),
+			"An explicit CloseHandle False result must restore the same numeric handle for a fresh operation, then "
+			"close it exactly once through the native API on the emergency retry; "
+			f"platform={os.name}, starts={windows_false_retry_state['worker_start_attempts']}, "
+			f"low_level_starts={windows_false_retry_state['low_level_start_attempts']}, "
+			f"operation_handles={windows_false_retry_state['operation_handles']}, "
+			f"owner_handles_at_start={windows_false_retry_state['owner_handles_at_start']}, "
+			f"wrapper_results={windows_false_retry_state['wrapper_results']}, "
+			f"native_results={windows_false_retry_state['native_results']}, "
+			f"worker_threads={windows_false_retry_state['worker_thread_names']}, "
+			f"timed_out={getattr(windows_false_retry_result, 'timed_out', None)}, "
+			f"handle_zero={windows_false_retry_state['handle_zero']}, "
+			f"owner_closed={windows_false_retry_state['owner_closed']}, "
+			f"reaped={windows_false_retry_state['process_reaped']}, "
+			f"pipes_closed={windows_false_retry_state['pipes_closed']}, "
+			f"error={windows_false_retry_state['error']!r}, "
+			f"cleanup_error={windows_false_retry_state['cleanup_error']!r}.",
+		)
+
+		def run_windows_job_configuration_cleanup_fixture(mode: str) -> dict[str, Any]:
+			state: dict[str, Any] = {
+				"mode": mode,
+				"owner": None,
+				"set_calls": 0,
+				"real_set_result": None,
+				"captured_handle": 0,
+				"state_machine_close_calls": 0,
+				"worker_start_attempts": 0,
+				"operations": [],
+				"operation_handles": [],
+				"owner_handles_at_start": [],
+				"wrapper_results": [],
+				"native_results": [],
+				"close_handles": [],
+				"worker_thread_names": [],
+				"interrupt_injected": False,
+				"interrupted": False,
+				"same_exception": False,
+				"os_error": False,
+				"error": "",
+				"owner_closed": False,
+				"handle_zero": False,
+				"cleanup_close_result": None,
+				"cleanup_error": "",
+			}
+			if os.name != "nt":
+				return state
+
+			original_set_job_information = gf_process_supervisor._SET_JOB_INFORMATION
+			original_close_handle = gf_process_supervisor._CLOSE_HANDLE
+			original_close_in_worker = gf_process_supervisor._close_windows_handle_in_worker
+			original_thread_start = gf_process_supervisor.threading.Thread.start
+			injected_interrupt = KeyboardInterrupt(
+				f"SetInformationJobObject {mode} fixture"
+			)
+
+			def handle_value(handle: Any) -> int:
+				value = getattr(handle, "value", handle)
+				return int(value or 0)
+
+			def inject_job_configuration_result(
+				handle: Any,
+				information_class: int,
+				information: Any,
+				information_size: int,
+			) -> bool:
+				state["set_calls"] += 1
+				state["captured_handle"] = handle_value(handle)
+				if mode == "false_retry":
+					ctypes.set_last_error(5)
+					return False
+				real_result = bool(original_set_job_information(
+					handle,
+					information_class,
+					information,
+					information_size,
+				))
+				state["real_set_result"] = real_result
+				if real_result:
+					state["interrupt_injected"] = True
+					raise injected_interrupt
+				return real_result
+
+			def track_configuration_close_handle(handle: Any) -> bool:
+				numeric_handle = handle_value(handle)
+				state["close_handles"].append(numeric_handle)
+				state["worker_thread_names"].append(threading.current_thread().name)
+				if mode == "false_retry" and not state["wrapper_results"]:
+					ctypes.set_last_error(6)
+					state["wrapper_results"].append(False)
+					return False
+				real_result = bool(original_close_handle(handle))
+				state["wrapper_results"].append(real_result)
+				state["native_results"].append(real_result)
+				return real_result
+
+			def capture_configuration_state_machine(owner: Any) -> Any:
+				state["state_machine_close_calls"] += 1
+				state["owner"] = owner
+				return original_close_in_worker(owner)
+
+			def track_configuration_worker_start(
+				worker: threading.Thread,
+				*args: Any,
+				**kwargs: Any,
+			) -> Any:
+				if worker.name == "gf-windows-handle-close":
+					state["worker_start_attempts"] += 1
+					worker_args = getattr(worker, "_args", ())
+					owner = worker_args[0] if len(worker_args) >= 1 else None
+					operation = worker_args[1] if len(worker_args) >= 2 else None
+					if owner is not None:
+						state["owner"] = owner
+					state["operations"].append(operation)
+					state["operation_handles"].append(
+						operation.handle if operation is not None else 0
+					)
+					state["owner_handles_at_start"].append(
+						owner.handle if owner is not None else -1
+					)
+				return original_thread_start(worker, *args, **kwargs)
+
+			try:
+				gf_process_supervisor._SET_JOB_INFORMATION = inject_job_configuration_result
+				gf_process_supervisor._CLOSE_HANDLE = track_configuration_close_handle
+				gf_process_supervisor._close_windows_handle_in_worker = (
+					capture_configuration_state_machine
+				)
+				gf_process_supervisor.threading.Thread.start = (
+					track_configuration_worker_start
+				)
+				try:
+					gf_process_supervisor._WindowsJobOwner()
+				except KeyboardInterrupt as error:
+					state["interrupted"] = True
+					state["same_exception"] = error is injected_interrupt
+				except OSError:
+					state["os_error"] = True
+				except BaseException as error:
+					state["error"] = f"{type(error).__name__}: {error}"
+			finally:
+				gf_process_supervisor.threading.Thread.start = original_thread_start
+				gf_process_supervisor._close_windows_handle_in_worker = original_close_in_worker
+				gf_process_supervisor._CLOSE_HANDLE = original_close_handle
+				gf_process_supervisor._SET_JOB_INFORMATION = original_set_job_information
+
+			owner = state["owner"]
+			if owner is not None:
+				state["owner_closed"] = owner.is_closed()
+				state["handle_zero"] = owner.handle == 0
+
+			# A failed implementation may leave the empty Job open. Clean it only
+			# after snapshotting the assertions, and never retry a handle whose real
+			# CloseHandle result was already successful.
+			if owner is not None and not owner.is_closed():
+				try:
+					owner.close()
+				except BaseException as error:
+					state["cleanup_error"] = f"{type(error).__name__}: {error}"
+			if (
+				state["captured_handle"] != 0
+				and True not in state["native_results"]
+				and (owner is None or not owner.is_closed())
+			):
+				try:
+					state["cleanup_close_result"] = bool(
+						original_close_handle(
+							gf_process_supervisor.wintypes.HANDLE(
+								state["captured_handle"]
+							)
+						)
+					)
+				except BaseException as error:
+					state["cleanup_error"] = (
+						state["cleanup_error"]
+						or f"{type(error).__name__}: {error}"
+					)
+			return state
+
+		windows_set_false_state = run_windows_job_configuration_cleanup_fixture(
+			"false_retry"
+		)
+		record_result(
+			"windows_job_configuration_false_closes_empty_job_via_state_machine",
+			os.name != "nt"
+			or (
+				not windows_set_false_state["error"]
+				and not windows_set_false_state["cleanup_error"]
+				and windows_set_false_state["os_error"]
+				and not windows_set_false_state["interrupted"]
+				and windows_set_false_state["set_calls"] == 1
+				and windows_set_false_state["captured_handle"] != 0
+				and windows_set_false_state["state_machine_close_calls"] == 2
+				and windows_set_false_state["worker_start_attempts"] == 2
+				and len(windows_set_false_state["operations"]) == 2
+				and windows_set_false_state["operations"][0]
+				is not windows_set_false_state["operations"][1]
+				and windows_set_false_state["operation_handles"][0]
+				== windows_set_false_state["captured_handle"]
+				and windows_set_false_state["operation_handles"][0]
+				== windows_set_false_state["operation_handles"][1]
+				and windows_set_false_state["owner_handles_at_start"] == [0, 0]
+				and windows_set_false_state["wrapper_results"] == [False, True]
+				and windows_set_false_state["native_results"] == [True]
+				and windows_set_false_state["close_handles"]
+				== [
+					windows_set_false_state["captured_handle"],
+					windows_set_false_state["captured_handle"],
+				]
+				and windows_set_false_state["worker_thread_names"]
+				== ["gf-windows-handle-close", "gf-windows-handle-close"]
+				and windows_set_false_state["owner"] is not None
+				and windows_set_false_state["owner_closed"]
+				and windows_set_false_state["handle_zero"]
+				and windows_set_false_state["cleanup_close_result"] is None
+			),
+			"SetInformationJobObject False must preserve its original error while closing the real empty Job "
+			"through two state-machine operations when the first CloseHandle explicitly returns False; "
+			f"platform={os.name}, set_calls={windows_set_false_state['set_calls']}, "
+			f"handle={windows_set_false_state['captured_handle']}, "
+			f"state_machine_closes={windows_set_false_state['state_machine_close_calls']}, "
+			f"starts={windows_set_false_state['worker_start_attempts']}, "
+			f"operation_handles={windows_set_false_state['operation_handles']}, "
+			f"wrapper_results={windows_set_false_state['wrapper_results']}, "
+			f"native_results={windows_set_false_state['native_results']}, "
+			f"owner_closed={windows_set_false_state['owner_closed']}, "
+			f"handle_zero={windows_set_false_state['handle_zero']}, "
+			f"cleanup_close={windows_set_false_state['cleanup_close_result']}, "
+			f"error={windows_set_false_state['error']!r}, "
+			f"cleanup_error={windows_set_false_state['cleanup_error']!r}.",
+		)
+
+		windows_set_interrupt_state = run_windows_job_configuration_cleanup_fixture(
+			"interrupt_after_success"
+		)
+		record_result(
+			"windows_job_configuration_interrupt_closes_empty_job_via_state_machine",
+			os.name != "nt"
+			or (
+				not windows_set_interrupt_state["error"]
+				and not windows_set_interrupt_state["cleanup_error"]
+				and not windows_set_interrupt_state["os_error"]
+				and windows_set_interrupt_state["interrupt_injected"]
+				and windows_set_interrupt_state["interrupted"]
+				and windows_set_interrupt_state["same_exception"]
+				and windows_set_interrupt_state["set_calls"] == 1
+				and windows_set_interrupt_state["real_set_result"] is True
+				and windows_set_interrupt_state["captured_handle"] != 0
+				and windows_set_interrupt_state["state_machine_close_calls"] == 1
+				and windows_set_interrupt_state["worker_start_attempts"] == 1
+				and len(windows_set_interrupt_state["operations"]) == 1
+				and windows_set_interrupt_state["operation_handles"]
+				== [windows_set_interrupt_state["captured_handle"]]
+				and windows_set_interrupt_state["owner_handles_at_start"] == [0]
+				and windows_set_interrupt_state["wrapper_results"] == [True]
+				and windows_set_interrupt_state["native_results"] == [True]
+				and windows_set_interrupt_state["close_handles"]
+				== [windows_set_interrupt_state["captured_handle"]]
+				and windows_set_interrupt_state["worker_thread_names"]
+				== ["gf-windows-handle-close"]
+				and windows_set_interrupt_state["owner"] is not None
+				and windows_set_interrupt_state["owner_closed"]
+				and windows_set_interrupt_state["handle_zero"]
+				and windows_set_interrupt_state["cleanup_close_result"] is None
+			),
+			"An interruption immediately after successful SetInformationJobObject must close the real empty Job "
+			"once through the state machine before propagating the same exception; "
+			f"platform={os.name}, set_calls={windows_set_interrupt_state['set_calls']}, "
+			f"real_set={windows_set_interrupt_state['real_set_result']}, "
+			f"handle={windows_set_interrupt_state['captured_handle']}, "
+			f"state_machine_closes={windows_set_interrupt_state['state_machine_close_calls']}, "
+			f"starts={windows_set_interrupt_state['worker_start_attempts']}, "
+			f"operation_handles={windows_set_interrupt_state['operation_handles']}, "
+			f"wrapper_results={windows_set_interrupt_state['wrapper_results']}, "
+			f"native_results={windows_set_interrupt_state['native_results']}, "
+			f"same_exception={windows_set_interrupt_state['same_exception']}, "
+			f"owner_closed={windows_set_interrupt_state['owner_closed']}, "
+			f"handle_zero={windows_set_interrupt_state['handle_zero']}, "
+			f"cleanup_close={windows_set_interrupt_state['cleanup_close_result']}, "
+			f"error={windows_set_interrupt_state['error']!r}, "
+			f"cleanup_error={windows_set_interrupt_state['cleanup_error']!r}.",
 		)
 
 	from check_docs_quality import check_local_links
@@ -10505,6 +14775,7 @@ def maintenance_self_test() -> dict[str, Any]:
 		"setup-godot self-test fixtures must detect malformed digests, late checksum checks, and stale URLs.",
 	)
 	ci_workflow_source = read_text_file(ROOT / ".github/workflows/ci.yml")
+	manual_ci_workflow_source = read_text_file(ROOT / ".github/workflows/ci-manual.yml")
 	release_workflow_source = read_text_file(ROOT / ".github/workflows/release.yml")
 	ci_action_issues = audit_governed_workflow_actions(
 		ci_workflow_source,
@@ -10516,9 +14787,14 @@ def maintenance_self_test() -> dict[str, Any]:
 		".github/workflows/release.yml",
 		RELEASE_WORKFLOW_ACTION_COUNTS,
 	)
+	manual_ci_action_issues = audit_governed_workflow_actions(
+		manual_ci_workflow_source,
+		".github/workflows/ci-manual.yml",
+		MANUAL_CI_WORKFLOW_ACTION_COUNTS,
+	)
 	record_result(
 		"workflows_use_current_node24_action_majors",
-		not ci_action_issues and not release_action_issues,
+		not ci_action_issues and not manual_ci_action_issues and not release_action_issues,
 		"CI and release workflows must use the governed current Node.js 24 action majors without stale variants.",
 	)
 	stale_action_source = ci_workflow_source.replace("actions/checkout@v7", "actions/checkout@v6", 1)
@@ -10556,13 +14832,24 @@ def maintenance_self_test() -> dict[str, Any]:
 		ci_workflow_source,
 	)
 	quick_job_source = quick_job_match.group("body") if quick_job_match is not None else ""
+	windows_process_job_match = re.search(
+		r"(?ms)^  windows-process-supervision:\n(?P<body>.*?)(?=^  draft-gate:)",
+		ci_workflow_source,
+	)
+	windows_process_job_source = (
+		windows_process_job_match.group("body")
+		if windows_process_job_match is not None
+		else ""
+	)
 	record_result(
 		"ci_workflow_runs_all_full_suite_shards",
-		"--suite framework" in ci_workflow_source
-		and "--suite ${{ matrix.suite }}" in ci_workflow_source
+		ci_workflow_source.count("--suite ${{ matrix.suite }}") == 2
 		and all(
 			f"suite: {suite_name}" in ci_workflow_source
 			for suite_name in (
+				"framework-gut",
+				"framework-lsp",
+				"framework-static",
 				"package-contract",
 				"package-editor",
 				"package-cli-local",
@@ -10576,16 +14863,57 @@ def maintenance_self_test() -> dict[str, Any]:
 		"ci_workflow_layers_draft_ready_and_stable_merge_gate",
 		"repository-policy:" in ci_workflow_source
 		and "quick-checks:" in ci_workflow_source
+		and "windows-process-supervision:" in ci_workflow_source
+		and "draft-gate:" in ci_workflow_source
+		and "full-validation-gate:" in ci_workflow_source
 		and "merge-gate:" in ci_workflow_source
-		and "name: GF merge gate" in ci_workflow_source
+		and "GF draft gate" in ci_workflow_source
+		and "GF draft gate (not applicable)" in ci_workflow_source
+		and "GF merge gate" in ci_workflow_source
+		and "GF merge gate (not applicable)" in ci_workflow_source
 		and "converted_to_draft" in ci_workflow_source
 		and "edited" in ci_workflow_source
 		and "ready_for_review" in ci_workflow_source
+		and "github.event.changes.base.ref.from" in ci_workflow_source
+		and "'policy' || 'validation'" in ci_workflow_source
+		and "GF CI|mode=" in ci_workflow_source
+		and "GF full validation (${{ github.event.pull_request.base.sha || github.sha }})" in ci_workflow_source
 		and "github.event.pull_request.draft == true" in ci_workflow_source
 		and "github.event.pull_request.draft == false" in ci_workflow_source
+		and re.search(r"(?ms)^  draft-gate:.*?if:.*?!cancelled\(\).*?needs:.*?repository-policy.*?quick-checks", ci_workflow_source) is not None
+		and re.search(r"(?ms)^  full-validation-gate:.*?if:.*?!cancelled\(\).*?needs:.*?repository-policy.*?framework-checks.*?package-checks.*?windows-process-supervision", ci_workflow_source) is not None
+		and re.search(r"(?ms)^  merge-gate:.*?if:.*?always\(\).*?needs:.*?repository-policy.*?full-validation-gate", ci_workflow_source) is not None
+		and re.search(r"(?ms)^  merge-gate:.*?needs:(?P<needs>.*?)(?=^    runs-on:)", ci_workflow_source) is not None
+		and "quick-checks" not in re.search(
+			r"(?ms)^  merge-gate:.*?needs:(?P<needs>.*?)(?=^    runs-on:)",
+			ci_workflow_source,
+		).group("needs")
 		and "python tools/gf_repository_policy.py validate --json" in ci_workflow_source
-		and "python tools/gf_repository_policy.py validate-pr --json" in ci_workflow_source,
-		"CI must give Draft PRs a quick signal, reserve full shards for Ready PRs/main, and expose one stable protected check.",
+		and "python tools/gf_repository_policy.py validate-pr --json" in ci_workflow_source
+		and "python tools/gf_repository_policy.py validate-pr-gate" in ci_workflow_source
+		and "workflow_dispatch:" not in ci_workflow_source,
+		"CI must isolate metadata edits, freeze Full epochs, give Draft PRs their own gate, and expose the protected merge gate only for Ready PRs/main.",
+	)
+	record_result(
+		"manual_ci_isolated_from_required_contexts",
+		"workflow_dispatch:" in manual_ci_workflow_source
+		and "pull_request:" not in manual_ci_workflow_source
+		and "push:" not in manual_ci_workflow_source
+		and "GF manual repository policy" in manual_ci_workflow_source
+		and "GF manual diagnostics gate" in manual_ci_workflow_source
+		and "GF merge gate" not in manual_ci_workflow_source
+		and "--suite full" in manual_ci_workflow_source
+		and "github.ref == 'refs/heads/main'" in manual_ci_workflow_source,
+		"Manual diagnostics must stay in a separately named workflow and never emit protected CI contexts.",
+	)
+	record_result(
+		"ci_ready_main_runs_windows_process_supervision",
+		bool(windows_process_job_source)
+		and "runs-on: windows-latest" in windows_process_job_source
+		and "python tools/gf_maintenance.py maintenance-self-test --json" in windows_process_job_source
+		and "github.event.pull_request.draft == false" in windows_process_job_source
+		and "github.event.changes.base.ref.from" in windows_process_job_source,
+		"Ready/main CI must exercise kernel-owned process-tree cleanup on a Windows runner.",
 	)
 	record_result(
 		"ci_draft_quick_job_avoids_heavy_environment_bootstrap",
@@ -10701,10 +15029,18 @@ def maintenance_self_test() -> dict[str, Any]:
 	)
 
 	package_plan = workspace_status(paths=["tools/build_gf_release_artifacts.py"])
+	artifact_set_plan = workspace_status(paths=["tools/gf_package_artifact_set.py"])
 	record_result(
 		"workspace_status_path_scope_keeps_package_tool_recommendations",
-		"python tools/gf_maintenance.py check --suite package --json" in package_plan["recommended_checks"],
+		"python tools/gf_maintenance.py check --suite package --json" in package_plan["recommended_checks"]
+		and "python tools/gf_maintenance.py check --suite package --json" in artifact_set_plan["recommended_checks"],
 		"package maintenance tool changes must still recommend package validation.",
+	)
+	workflow_plan = workspace_status(paths=[".github/workflows/ci.yml", ".github/workflows/ci-manual.yml"])
+	record_result(
+		"workspace_status_recommends_repository_policy_for_governed_workflows",
+		"python tools/gf_repository_policy.py validate --json" in workflow_plan["recommended_checks"],
+		"Governed workflow edits must recommend the repository-policy validator.",
 	)
 
 	lsp_check_command = "python tools/gf_maintenance.py check --check gdscript_lsp_diagnostics --json"
@@ -10766,13 +15102,15 @@ def maintenance_self_test() -> dict[str, Any]:
 	record_result(
 		"quick_suite_excludes_maintenance_self_test",
 		"maintenance_self_test" not in CHECK_SUITES["quick"]
-		and "maintenance_self_test" in CHECK_SUITES["framework"],
+		and "maintenance_self_test" in CHECK_SUITES["framework"]
+		and "maintenance_self_test" in CHECK_SUITES["framework-static"],
 		"quick must keep the developer loop lean while framework/full retain maintenance tool self-tests.",
 	)
 	record_result(
 		"quick_uses_ai_developer_source_gate_while_full_runs_behavior_tests",
 		"ai_developer_kit_source" in CHECK_SUITES["quick"]
 		and "ai_developer_kit" not in CHECK_SUITES["quick"]
+		and "ai_developer_kit" in CHECK_SUITES["framework-static"]
 		and "ai_developer_kit" in CHECK_SUITES["framework"]
 		and "ai_developer_kit" in CHECK_SUITES["full"]
 		and "ai_developer_kit" in CHECK_SUITES["release"],
@@ -10781,6 +15119,7 @@ def maintenance_self_test() -> dict[str, Any]:
 	record_result(
 		"repository_policy_is_a_quick_and_full_gate",
 		"repository_policy" in CHECK_SUITES["quick"]
+		and "repository_policy" in CHECK_SUITES["framework-static"]
 		and "repository_policy" in CHECK_SUITES["framework"]
 		and "repository_policy" in CHECK_SUITES["full"]
 		and "repository_policy" in CHECK_SUITES["release"],
@@ -10845,7 +15184,26 @@ def maintenance_self_test() -> dict[str, Any]:
 	)
 	record_result(
 		"ci_shards_preserve_full_suite_coverage",
-		set(FULL_CHECKS) == set(FRAMEWORK_CHECKS).union(
+		set(FRAMEWORK_CHECKS) == set(FRAMEWORK_GUT_CHECKS).union(
+			FRAMEWORK_LSP_CHECKS,
+			FRAMEWORK_STATIC_CHECKS,
+		)
+		and all(
+			left.isdisjoint(right)
+			for index, left in enumerate((
+				set(FRAMEWORK_GUT_CHECKS),
+				set(FRAMEWORK_LSP_CHECKS),
+				set(FRAMEWORK_STATIC_CHECKS),
+			))
+			for right in (
+				set(FRAMEWORK_GUT_CHECKS),
+				set(FRAMEWORK_LSP_CHECKS),
+				set(FRAMEWORK_STATIC_CHECKS),
+			)[index + 1:]
+		)
+		and set(FULL_CHECKS) == set(FRAMEWORK_GUT_CHECKS).union(
+			FRAMEWORK_LSP_CHECKS,
+			FRAMEWORK_STATIC_CHECKS,
 			PACKAGE_CONTRACT_CHECKS,
 			PACKAGE_EDITOR_CHECKS,
 			PACKAGE_CLI_CHECKS,
@@ -10856,7 +15214,90 @@ def maintenance_self_test() -> dict[str, Any]:
 			PACKAGE_CLI_CHECKS,
 			{"package_godot_smoke"},
 		),
-		"parallel framework and package matrix shards must be set-equivalent to the full and package-ci suites.",
+		"parallel framework partitions and package matrix shards must be disjoint within framework and set-equivalent to full/package-ci.",
+	)
+	parallel_plan = parallel_full_shard_plan()
+	parallel_owned_checks = [
+		check_name
+		for shard in parallel_plan
+		for check_name in shard.checks
+	]
+	record_result(
+		"local_parallel_full_plan_has_unique_set_equivalent_ownership",
+		set(parallel_owned_checks) == set(FULL_CHECKS)
+		and len(parallel_owned_checks) == len(set(parallel_owned_checks))
+		and [shard.name for shard in parallel_plan] == list(PARALLEL_FULL_SHARD_SUITES)
+		and next(
+			shard.name
+			for shard in parallel_plan
+			if "gdscript_lsp_diagnostics" in shard.checks
+		) == "framework-lsp",
+		"Local parallel Full must assign every target check exactly once and keep LSP owned by its hard-gate shard.",
+	)
+	deadline_fixture_snapshot = CapturedWorkspace(
+		source_root=ROOT,
+		head="1" * 40,
+		binary_diff=b"",
+		untracked_files=(),
+		workspace_fingerprint="2" * 64,
+	)
+	deadline_fixture_result = make_parallel_full_deadline_result(
+		deadline_fixture_snapshot,
+		parallel_plan,
+		DEFAULT_PARALLEL_FULL_JOBS,
+		1,
+	)
+	record_result(
+		"parallel_deadline_reports_canonical_but_unstarted_results",
+		deadline_fixture_result.get("completed_check_count") == 0
+		and deadline_fixture_result.get("canonical_result_count") == len(FULL_CHECKS)
+		and deadline_fixture_result.get("not_started_check_count") == len(FULL_CHECKS)
+		and all(
+			item.get("execution") == "not_started"
+			and item.get("exit_code") == 124
+			and item.get("timed_out") is True
+			for item in deadline_fixture_result.get("results", [])
+		),
+		"A pre-worker deadline must distinguish canonical placeholders from completed checks.",
+	)
+	invalid_parallel_job_requests_rejected = False
+	try:
+		resolve_check_jobs("quick", None, 2)
+	except ValueError:
+		try:
+			resolve_check_jobs("full", ["api"], 2)
+		except ValueError:
+			try:
+				resolve_check_jobs("full", None, MAX_PARALLEL_FULL_JOBS + 1)
+			except ValueError:
+				invalid_parallel_job_requests_rejected = True
+	record_result(
+		"local_parallel_full_jobs_are_bounded_with_serial_escape",
+		resolve_check_jobs("full", None, 0) == DEFAULT_PARALLEL_FULL_JOBS
+		and resolve_check_jobs("full", None, 1) == 1
+		and resolve_check_jobs("full", None, 2) == 2
+		and resolve_check_jobs("quick", None, 0) == 1
+		and invalid_parallel_job_requests_rejected,
+		"Full parallelism must stay bounded, expose jobs=1 diagnostics, and reject ambiguous suite/check combinations.",
+	)
+	fixture_package_command = check_command(
+		"package_build_boundary",
+		"C:/fixture/gf-package-artifact-set.json",
+		"a" * 64,
+	)
+	record_result(
+		"parallel_full_shards_preserve_check_timeout_minima_and_scope_artifact_inputs",
+		set(PARALLEL_FULL_SHARD_TIMEOUT_SECONDS) == set(PARALLEL_FULL_SHARD_SUITES)
+		and all(value > 0 for value in PARALLEL_FULL_SHARD_TIMEOUT_SECONDS.values())
+		and all(
+			parallel_shard_timeout_seconds(shard, 3600)
+			>= len(expanded_check_names("quick", list(shard.checks))) * 3600
+			for shard in parallel_plan
+		)
+		and "--package-artifact-manifest" in fixture_package_command
+		and "--package-artifact-manifest-sha256" in fixture_package_command
+		and "--package-artifact-manifest" not in check_command("api"),
+		"Each shard budget must preserve every child check's requested minimum, while immutable package inputs reach only consumers.",
 	)
 	record_result(
 		"release_shards_preserve_release_suite_coverage",
@@ -10911,11 +15352,19 @@ def maintenance_self_test() -> dict[str, Any]:
 		"gdscript_lsp_diagnostics_is_a_full_and_release_hard_gate",
 		all(
 			"gdscript_lsp_diagnostics" in set(CHECK_SUITES[suite_name])
-			for suite_name in ("full", "release", "framework")
+			for suite_name in ("full", "release", "framework", "framework-lsp")
 		)
 		and all(
 			"gdscript_lsp_diagnostics" not in set(CHECK_SUITES[suite_name])
-			for suite_name in ("api", "docs", "examples", "quick", "package")
+			for suite_name in (
+				"api",
+				"docs",
+				"examples",
+				"quick",
+				"package",
+				"framework-gut",
+				"framework-static",
+			)
 		),
 		"Full, release, and their framework shard must fail on LSP diagnostics without making lighter suites run the editor scan.",
 	)
@@ -18488,7 +22937,8 @@ def recommend_checks(categories: dict[str, list[dict[str, str]]]) -> list[str]:
 		recommendations.extend([
 			(
 				"python -m py_compile tools/gf_maintenance.py tools/gf_mcp_server.py "
-				"tools/gf_godot_process.py tools/gf_package_paths.py tools/gf_process_supervisor.py "
+				"tools/gf_godot_process.py tools/gf_package_artifact_set.py tools/gf_package_paths.py "
+				"tools/gf_parallel_validation.py tools/gf_process_supervisor.py "
 				"tools/gf_repository_policy.py tools/gf_semver.py tools/gf_workspace_snapshot.py"
 			),
 			"python tools/gf_maintenance.py maintenance-self-test --json",
@@ -18500,6 +22950,8 @@ def recommend_checks(categories: dict[str, list[dict[str, str]]]) -> list[str]:
 				"python tools/gf_maintenance.py package-godot-smoke --json",
 				"python tools/gf_maintenance.py check --check package_godot_matrix_smoke --json",
 			])
+		if has_repository_policy_paths(categories["maintenance_tools"]):
+			recommendations.append("python tools/gf_repository_policy.py validate --json")
 	if categories["release_metadata"]:
 		release_version = read_plugin_version()
 		if SEMVER_RE.fullmatch(release_version):
@@ -18530,6 +22982,7 @@ def has_package_maintenance_paths(entries: list[dict[str, str]]) -> bool:
 	package_paths = {
 		"tools/build_gf_package.py",
 		"tools/build_gf_release_artifacts.py",
+		"tools/gf_package_artifact_set.py",
 		"tools/gf_path_security.py",
 		"tools/gf_package_resolver.py",
 		"tools/gf_semver.py",
@@ -18539,6 +22992,18 @@ def has_package_maintenance_paths(entries: list[dict[str, str]]) -> bool:
 		if path in package_paths or path.startswith("packages/"):
 			return True
 	return False
+
+
+def has_repository_policy_paths(entries: list[dict[str, str]]) -> bool:
+	governed_paths = {
+		".github/repository-policy.json",
+		"tools/gf_repository_policy.py",
+	}
+	return any(
+		entry["path"] in governed_paths
+		or entry["path"].startswith(".github/workflows/")
+		for entry in entries
+	)
 
 
 def dedupe_preserve_order(items: list[str]) -> list[str]:
@@ -18743,6 +23208,11 @@ def append_check_result_payload(
 	payload["input_fingerprint"] = input_fingerprint
 	payload["result_fingerprint"] = result_fingerprint
 	payload["timeout_budget"] = timeout_budget
+	payload.setdefault("command", list(CHECK_DEFINITIONS.get(name, ["<in-process>", name])))
+	payload.setdefault("cwd", str(ROOT))
+	payload.setdefault("cancelled", False)
+	payload.setdefault("duration_seconds", 0.0)
+	payload.setdefault("execution", "in_process")
 	results.append(payload)
 	result_exit_codes[name] = exit_code
 	result_fingerprints[name] = result_fingerprint
@@ -18752,43 +23222,1617 @@ def append_check_result_payload(
 def run_checks(
 	suite: str = "quick",
 	checks: list[str] | None = None,
+	jobs: int = 0,
 	timeout_seconds: int | None = None,
 	suite_timeout_seconds: int | None = None,
 	fail_fast: bool = False,
 	sync_examples: bool = False,
 	allow_breaking_api: bool = False,
 	artifact_manifest: str = "",
+	package_artifact_manifest: str = "",
+	package_artifact_manifest_sha256: str = "",
 	progress_callback: Callable[[str, str, float | None], None] | None = None,
 	output_callback: Callable[[str, str, str], None] | None = None,
 ) -> dict[str, Any]:
 	global _ACTIVE_WORKSPACE_SNAPSHOT
+	global _ACTIVE_SUITE_DEADLINE
 	global _API_CACHE
+	overall_started = time.perf_counter()
+	suite_deadline = (
+		overall_started + suite_timeout_seconds
+		if suite_timeout_seconds is not None
+		else None
+	)
 	previous_snapshot = _ACTIVE_WORKSPACE_SNAPSHOT
+	previous_suite_deadline = _ACTIVE_SUITE_DEADLINE
 	previous_api_cache = _API_CACHE
 	snapshot = WorkspaceSnapshot(ROOT)
-	workspace_state = workspace_fingerprint(ROOT)
+	try:
+		workspace_state = workspace_fingerprint(ROOT, deadline=suite_deadline)
+	except (TimeoutError, subprocess.TimeoutExpired) as error:
+		selected_names = expanded_check_names(suite, checks, sync_examples=sync_examples)
+		resolved_jobs = resolve_check_jobs(
+			suite,
+			checks,
+			jobs,
+			sync_examples=sync_examples,
+		)
+		workspace_state = {
+			"schema_version": 1,
+			"head": "",
+			"dirty": True,
+			"untracked_file_count": 0,
+			"fingerprint": "0" * 64,
+		}
+		data = make_check_deadline_failure(
+			suite,
+			selected_names,
+			workspace_state,
+			suite_timeout_seconds or 0,
+		)
+		data["results"][0]["stderr"] = str(error)
+		data["workspace_snapshot"] = snapshot.stats()
+		data["workspace"] = workspace_state
+		data["duration_seconds"] = round(time.perf_counter() - overall_started, 3)
+		data["execution"] = "parallel_shards" if resolved_jobs > 1 else "serial"
+		data["jobs"] = resolved_jobs
+		return data
+	except gf_maintenance_check_graph.WorkspaceFingerprintError as error:
+		selected_names = expanded_check_names(suite, checks, sync_examples=sync_examples)
+		resolved_jobs = resolve_check_jobs(
+			suite,
+			checks,
+			jobs,
+			sync_examples=sync_examples,
+		)
+		workspace_state = {
+			"schema_version": 1,
+			"head": "",
+			"dirty": True,
+			"untracked_file_count": 0,
+			"fingerprint": "0" * 64,
+		}
+		data = make_check_setup_failure(
+			suite,
+			selected_names,
+			workspace_state,
+			"workspace_fingerprint_setup",
+			str(error),
+		)
+		data["workspace_snapshot"] = snapshot.stats()
+		data["workspace"] = workspace_state
+		data["duration_seconds"] = round(time.perf_counter() - overall_started, 3)
+		data["execution"] = "parallel_shards" if resolved_jobs > 1 else "serial"
+		data["jobs"] = resolved_jobs
+		return data
+	data: dict[str, Any] | None = None
+	resolved_jobs = 1
+	package_artifact_set: PackageArtifactSet | None = None
+	package_artifact_reused = False
+	temporary_cleanup_errors: list[str] = []
 	_ACTIVE_WORKSPACE_SNAPSHOT = snapshot
+	_ACTIVE_SUITE_DEADLINE = suite_deadline
 	_API_CACHE = None
 	try:
-		data = run_checks_with_active_snapshot(
-			suite=suite,
-			checks=checks,
-			timeout_seconds=timeout_seconds,
-			suite_timeout_seconds=suite_timeout_seconds,
-			fail_fast=fail_fast,
-			sync_examples=sync_examples,
-			allow_breaking_api=allow_breaking_api,
-			artifact_manifest=artifact_manifest,
-			progress_callback=progress_callback,
-			output_callback=output_callback,
-			workspace_state=workspace_state,
-		)
+		with contextlib.ExitStack() as stack:
+			effective_package_manifest = package_artifact_manifest
+			effective_package_manifest_sha256 = package_artifact_manifest_sha256
+			selected_names = expanded_check_names(
+				suite,
+				checks,
+				sync_examples=sync_examples,
+			)
+			try:
+				resolved_jobs = resolve_check_jobs(
+					suite,
+					checks,
+					jobs,
+					sync_examples=sync_examples,
+				)
+				captured_workspace: CapturedWorkspace | None = None
+				artifact_source_workspace: Path | None = None
+				if resolved_jobs > 1 or package_artifact_is_required(selected_names):
+					captured_workspace = gf_parallel_validation.capture_workspace(
+						ROOT,
+						deadline=suite_deadline,
+					)
+					if captured_workspace.workspace_fingerprint != workspace_state["fingerprint"]:
+						raise WorkspaceSnapshotError(
+							"Parallel workspace capture does not match the maintenance workspace fingerprint."
+						)
+				if package_artifact_is_required(selected_names):
+					remaining_deadline_seconds(suite_deadline, "package artifact preparation")
+					if package_artifact_inputs_are_complete(
+						effective_package_manifest,
+						effective_package_manifest_sha256,
+					):
+						package_artifact_set = gf_package_artifact_set.load_package_artifact_set(
+							effective_package_manifest,
+							effective_package_manifest_sha256,
+							workspace_state,
+							deadline=suite_deadline,
+						)
+						remaining_deadline_seconds(suite_deadline, "package artifact loading")
+						package_artifact_reused = True
+					else:
+						artifact_temp = stack.enter_context(managed_validation_directory(
+							prefix="gfa-",
+							cleanup_errors=temporary_cleanup_errors,
+							windows_max_characters=WINDOWS_ARTIFACT_VALIDATION_ROOT_MAX_CHARACTERS,
+						))
+						if captured_workspace is None:
+							raise WorkspaceSnapshotError(
+								"Package artifact creation requires a captured source workspace."
+							)
+						artifact_source_workspace = gf_parallel_validation.materialize_workspace(
+							captured_workspace,
+							artifact_temp / "s",
+							deadline=suite_deadline,
+						)
+						package_artifact_set = build_package_smoke_artifact_set(
+							artifact_temp / "a",
+							workspace_state,
+							source_root=artifact_source_workspace,
+							deadline=suite_deadline,
+						)
+						effective_package_manifest = package_artifact_set.manifest_path.as_posix()
+						effective_package_manifest_sha256 = package_artifact_set.manifest_sha256
+				if resolved_jobs > 1 and captured_workspace is not None:
+					if package_artifact_set is None:
+						raise PackageArtifactSetError(
+							"Parallel Full requires one sealed package artifact set."
+						)
+					parallel_temp = stack.enter_context(managed_validation_directory(
+						prefix="gfv-",
+						cleanup_errors=temporary_cleanup_errors,
+						windows_max_characters=WINDOWS_PARALLEL_VALIDATION_ROOT_MAX_CHARACTERS,
+					))
+					data = run_parallel_full_checks(
+						captured_workspace,
+						parallel_temp,
+						jobs=resolved_jobs,
+						timeout_seconds=timeout_seconds,
+						suite_timeout_seconds=suite_timeout_seconds,
+						fail_fast=fail_fast,
+						package_artifact_manifest=effective_package_manifest,
+						package_artifact_manifest_sha256=effective_package_manifest_sha256,
+						package_artifact_count=len(package_artifact_set.artifacts),
+						progress_callback=progress_callback,
+						output_callback=output_callback,
+						overall_started=overall_started,
+						suite_deadline=suite_deadline,
+					)
+				else:
+					remaining_suite_timeout: int | None = None
+					if suite_timeout_seconds is not None:
+						remaining = suite_timeout_seconds - (time.perf_counter() - overall_started)
+						if remaining <= 0.0:
+							data = make_check_deadline_failure(
+								suite,
+								selected_names,
+								workspace_state,
+								suite_timeout_seconds,
+							)
+						else:
+							remaining_suite_timeout = math.ceil(remaining)
+					if data is None:
+						data = run_checks_with_active_snapshot(
+							suite=suite,
+							checks=checks,
+							timeout_seconds=timeout_seconds,
+							suite_timeout_seconds=remaining_suite_timeout,
+							fail_fast=fail_fast,
+							sync_examples=sync_examples,
+							allow_breaking_api=allow_breaking_api,
+							artifact_manifest=artifact_manifest,
+							package_artifact_manifest=effective_package_manifest,
+							package_artifact_manifest_sha256=effective_package_manifest_sha256,
+							progress_callback=progress_callback,
+							output_callback=output_callback,
+							workspace_state=workspace_state,
+						)
+				if package_artifact_set is not None:
+					remaining_deadline_seconds(suite_deadline, "package artifact revalidation")
+					package_artifact_set.revalidate(workspace_state, deadline=suite_deadline)
+					remaining_deadline_seconds(suite_deadline, "package artifact revalidation")
+					ending_workspace = workspace_fingerprint(ROOT, deadline=suite_deadline)
+					if ending_workspace["fingerprint"] != workspace_state["fingerprint"]:
+						raise PackageArtifactSetError(
+							"Workspace source changed while package artifact consumers were running."
+						)
+			except (WorkspaceDeadlineError, PackageArtifactDeadlineError, TimeoutError) as error:
+				if data is None:
+					data = make_check_deadline_failure(
+						suite,
+						selected_names,
+						workspace_state,
+						suite_timeout_seconds or 0,
+					)
+					data["results"][0]["stderr"] = str(error)
+				else:
+					append_check_orchestration_deadline(data, str(error))
+			except (
+				gf_maintenance_check_graph.WorkspaceFingerprintError,
+				PackageArtifactSetError,
+				WorkspaceSnapshotError,
+				OSError,
+				ValueError,
+			) as error:
+				if data is None:
+					failure_name = (
+						"package_artifact_preparation"
+						if isinstance(error, PackageArtifactSetError)
+						else "parallel_validation_setup"
+					)
+					data = make_check_setup_failure(
+						suite,
+						selected_names,
+						workspace_state,
+						failure_name,
+						str(error),
+					)
+				else:
+					append_check_orchestration_failure(
+						data,
+						"package_artifact_integrity",
+						str(error),
+					)
+		if temporary_cleanup_errors:
+			if data is None:
+				data = make_check_setup_failure(
+					suite,
+					expanded_check_names(suite, checks, sync_examples=sync_examples),
+					workspace_state,
+					"temporary_workspace_cleanup",
+					"\n".join(temporary_cleanup_errors),
+				)
+			else:
+				append_check_orchestration_failure(
+					data,
+					"temporary_workspace_cleanup",
+					"\n".join(temporary_cleanup_errors),
+				)
 	finally:
 		_ACTIVE_WORKSPACE_SNAPSHOT = previous_snapshot
+		_ACTIVE_SUITE_DEADLINE = previous_suite_deadline
 		_API_CACHE = previous_api_cache
+	if data is None:
+		raise RuntimeError("Maintenance checks did not produce a result.")
 	data["workspace_snapshot"] = snapshot.stats()
 	data["workspace"] = workspace_state
+	data["duration_seconds"] = round(time.perf_counter() - overall_started, 3)
+	data["suite_timeout_seconds"] = suite_timeout_seconds
+	data.setdefault("execution", "parallel_shards" if resolved_jobs > 1 else "serial")
+	data.setdefault("jobs", resolved_jobs)
+	if package_artifact_set is not None:
+		data["package_artifact_set"] = package_artifact_details(
+			package_artifact_set,
+			reused=package_artifact_reused,
+		)
 	return data
+
+
+def make_check_setup_failure(
+	suite: str,
+	check_names: list[str],
+	workspace_state: dict[str, Any],
+	name: str,
+	message: str,
+) -> dict[str, Any]:
+	graph = maintenance_check_graph()
+	return {
+		"ok": False,
+		"suite": suite,
+		"checks": check_names,
+		"completed_check_count": 0,
+		"duration_seconds": 0.0,
+		"suite_timeout_seconds": None,
+		"check_graph": graph.describe(check_names),
+		"workspace_fingerprint": workspace_state["fingerprint"],
+		"results": [{
+			"name": name,
+			"command": ["<orchestrator>", name],
+			"cwd": str(ROOT),
+			"exit_code": 1,
+			"timed_out": False,
+			"duration_seconds": 0.0,
+			"execution": "orchestrator",
+			"stdout": "",
+			"stderr": message,
+		}],
+	}
+
+
+def make_check_deadline_failure(
+	suite: str,
+	check_names: list[str],
+	workspace_state: dict[str, Any],
+	suite_timeout_seconds: int,
+) -> dict[str, Any]:
+	data = make_check_setup_failure(
+		suite,
+		check_names,
+		workspace_state,
+		"suite_deadline",
+		"Suite deadline exhausted before checks started.",
+	)
+	data["suite_timeout_seconds"] = suite_timeout_seconds
+	result = data["results"][0]
+	result["exit_code"] = 124
+	result["timed_out"] = True
+	return data
+
+
+def append_check_orchestration_failure(
+	data: dict[str, Any],
+	name: str,
+	message: str,
+) -> None:
+	data["ok"] = False
+	results = data.setdefault("results", [])
+	results.append({
+		"name": name,
+		"command": ["<orchestrator>", name],
+		"cwd": str(ROOT),
+		"exit_code": 1,
+		"timed_out": False,
+		"duration_seconds": 0.0,
+		"execution": "orchestrator",
+		"stdout": "",
+		"stderr": message,
+	})
+	data["completed_check_count"] = len(results)
+
+
+def append_check_orchestration_deadline(data: dict[str, Any], message: str) -> None:
+	data["ok"] = False
+	results = data.setdefault("results", [])
+	results.append({
+		"name": "suite_deadline",
+		"command": ["<orchestrator>", "suite_deadline"],
+		"cwd": str(ROOT),
+		"exit_code": 124,
+		"timed_out": True,
+		"cancelled": False,
+		"duration_seconds": 0.0,
+		"execution": "orchestrator",
+		"stdout": "",
+		"stderr": message,
+	})
+	data["completed_check_count"] = len(results)
+
+
+def parallel_shard_environment(
+	workspace: Path,
+	isolation_root: Path,
+) -> tuple[dict[str, str], Path]:
+	"""Create a platform-native private user/config/cache boundary for one shard."""
+	if not isolation_root.is_absolute():
+		raise WorkspaceSnapshotError("Parallel private user roots must be absolute paths.")
+	if os.path.lexists(isolation_root):
+		raise WorkspaceSnapshotError(f"Parallel private user root already exists: {isolation_root}")
+	if paths_overlap(workspace, isolation_root):
+		raise WorkspaceSnapshotError(
+			"Parallel private user roots must not contain or be contained by the shard workspace."
+		)
+	existing_parent = isolation_root.parent
+	while not os.path.lexists(existing_parent) and existing_parent != existing_parent.parent:
+		existing_parent = existing_parent.parent
+	parent_issue = real_directory_chain_issue(existing_parent)
+	if parent_issue:
+		raise WorkspaceSnapshotError(
+			f"Parallel private user root has an unsafe parent: {parent_issue}"
+		)
+	isolation_root.mkdir(parents=True, exist_ok=False)
+	root_issue = real_directory_chain_issue(isolation_root)
+	if root_issue:
+		raise WorkspaceSnapshotError(f"Parallel private user root is unsafe: {root_issue}")
+	directories = {
+		"home": isolation_root / "h",
+		"appdata": isolation_root / "a",
+		"localappdata": isolation_root / "l",
+		"data": isolation_root / "d",
+		"config": isolation_root / "c",
+		"cache": isolation_root / "k",
+		"temp": isolation_root / "t",
+	}
+	for directory in directories.values():
+		directory.mkdir(exist_ok=False)
+	environment = os.environ.copy()
+	environment.pop("GODOT_USER_HOME", None)
+	if os.name == "nt":
+		environment["APPDATA"] = str(directories["appdata"])
+		environment["LOCALAPPDATA"] = str(directories["localappdata"])
+		environment["TMPDIR"] = str(directories["temp"])
+		environment["TEMP"] = str(directories["temp"])
+		environment["TMP"] = str(directories["temp"])
+	elif sys.platform == "darwin":
+		environment["HOME"] = str(directories["home"])
+		environment["TMPDIR"] = str(directories["temp"])
+		environment["TEMP"] = str(directories["temp"])
+		environment["TMP"] = str(directories["temp"])
+	else:
+		environment["HOME"] = str(directories["home"])
+		environment["XDG_DATA_HOME"] = str(directories["data"])
+		environment["XDG_CONFIG_HOME"] = str(directories["config"])
+		environment["XDG_CACHE_HOME"] = str(directories["cache"])
+		environment["TMPDIR"] = str(directories["temp"])
+		environment["TEMP"] = str(directories["temp"])
+		environment["TMP"] = str(directories["temp"])
+	environment["PYTHONUTF8"] = "1"
+	return environment, isolation_root
+
+
+def path_is_within_private_root(value: str, private_root: Path) -> bool:
+	if not value or "\x00" in value:
+		return False
+	path = Path(value)
+	if not path.is_absolute():
+		return False
+	private_value = os.path.normcase(os.path.abspath(os.path.normpath(private_root)))
+	path_value = os.path.normcase(os.path.abspath(os.path.normpath(path)))
+	try:
+		common = os.path.normcase(os.path.commonpath((private_value, path_value)))
+	except ValueError:
+		return False
+	return common == private_value and path_value != private_value
+
+
+def write_parallel_godot_probe_project(project_root: Path, nonce: str) -> None:
+	project_root.mkdir(parents=True, exist_ok=False)
+	(project_root / "project.godot").write_text(
+		"; GF parallel isolation probe\n"
+		"config_version=5\n\n"
+		"[application]\n"
+		'config/name="GF Parallel Isolation Probe"\n',
+		encoding="utf-8",
+		newline="\n",
+	)
+	script = (
+		"extends SceneTree\n\n"
+		f'const NONCE := "{nonce}"\n'
+		"const SENTINEL := \"GF_PARALLEL_ISOLATION_PROBE=\"\n\n"
+		"func _initialize() -> void:\n"
+		"\tvar marker_path := \"user://gf_parallel_isolation_nonce.txt\"\n"
+		"\tvar writer := FileAccess.open(marker_path, FileAccess.WRITE)\n"
+		"\tif writer == null:\n"
+		"\t\tquit(2)\n"
+		"\t\treturn\n"
+		"\twriter.store_string(NONCE)\n"
+		"\twriter.close()\n"
+		"\tvar reader := FileAccess.open(marker_path, FileAccess.READ)\n"
+		"\tif reader == null:\n"
+		"\t\tquit(3)\n"
+		"\t\treturn\n"
+		"\tvar marker_value := reader.get_as_text()\n"
+		"\treader.close()\n"
+		"\tvar payload := {\n"
+		"\t\t\"nonce\": NONCE,\n"
+		"\t\t\"marker_value\": marker_value,\n"
+		"\t\t\"marker_path\": ProjectSettings.globalize_path(marker_path),\n"
+		"\t\t\"user_dir\": ProjectSettings.globalize_path(\"user://\"),\n"
+		"\t\t\"data_dir\": OS.get_data_dir(),\n"
+		"\t\t\"config_dir\": OS.get_config_dir(),\n"
+		"\t\t\"cache_dir\": OS.get_cache_dir(),\n"
+		"\t}\n"
+		"\tprint(SENTINEL + JSON.stringify(payload))\n"
+		"\tquit(0)\n"
+	)
+	(project_root / "probe.gd").write_text(script, encoding="utf-8", newline="\n")
+
+
+def parse_parallel_godot_probe_output(
+	result: ParallelShardResult,
+	private_root: Path,
+	expected_nonce: str,
+) -> dict[str, Any]:
+	if not result.ok:
+		raise WorkspaceSnapshotError(
+			f"Godot isolation probe {result.name!r} failed: "
+			f"{trim_text(result.stderr or result.stdout, 1000)}"
+		)
+	payload_text = ""
+	for line in result.stdout.splitlines():
+		if line.startswith(PARALLEL_GODOT_PROBE_SENTINEL):
+			payload_text = line[len(PARALLEL_GODOT_PROBE_SENTINEL):]
+	if not payload_text:
+		raise WorkspaceSnapshotError(
+			f"Godot isolation probe {result.name!r} did not emit its structured sentinel."
+		)
+	try:
+		payload = json.loads(payload_text)
+	except json.JSONDecodeError as error:
+		raise WorkspaceSnapshotError(
+			f"Godot isolation probe {result.name!r} emitted invalid JSON: {error}"
+		) from error
+	if not isinstance(payload, dict):
+		raise WorkspaceSnapshotError("Godot isolation probe payload must be an object.")
+	if payload.get("nonce") != expected_nonce or payload.get("marker_value") != expected_nonce:
+		raise WorkspaceSnapshotError(
+			f"Godot isolation probe {result.name!r} could not round-trip its private nonce."
+		)
+	for field_name in ("marker_path", "user_dir", "data_dir", "config_dir", "cache_dir"):
+		value = payload.get(field_name)
+		if not isinstance(value, str) or not path_is_within_private_root(value, private_root):
+			raise WorkspaceSnapshotError(
+				f"Godot isolation probe {result.name!r} escaped its private root via "
+				f"{field_name}={value!r}. Self-contained or unsupported Godot layouts cannot run in parallel."
+			)
+	return payload
+
+
+def run_parallel_godot_isolation_probe(
+	parallel_root: Path,
+	*,
+	deadline: float | None,
+	output_callback: Callable[[str, str, str], None] | None,
+) -> dict[str, Any]:
+	"""Prove that the current Godot executable honors two independent OS user roots."""
+	probe_root = parallel_root / "p"
+	probe_root.mkdir(parents=True, exist_ok=False)
+	shards: list[ParallelShard] = []
+	private_roots: dict[str, Path] = {}
+	nonces: dict[str, str] = {}
+	for label in ("a", "b"):
+		project_root = probe_root / label
+		nonce = f"{label}-{time.time_ns()}"
+		write_parallel_godot_probe_project(project_root, nonce)
+		environment, private_root = parallel_shard_environment(
+			project_root,
+			probe_root / "u" / f"p{label}",
+		)
+		private_roots[label] = private_root
+		nonces[label] = nonce
+		shards.append(ParallelShard(
+			name=label,
+			command=(
+				resolve_godot_executable(environment=environment),
+				"--headless",
+				"--path",
+				".",
+				"--script",
+				"res://probe.gd",
+			),
+			workspace=project_root,
+			timeout_seconds=30.0,
+			environment=environment,
+		))
+	remaining = remaining_deadline_seconds(deadline, "Godot isolation probe")
+	results = gf_parallel_validation.run_parallel_shards(
+		shards,
+		max_workers=2,
+		deadline_seconds=remaining,
+		fail_fast=True,
+		output_callback=output_callback,
+	)
+	payloads = {
+		result.name: parse_parallel_godot_probe_output(
+			result,
+			private_roots[result.name],
+			nonces[result.name],
+		)
+		for result in results
+	}
+	for field_name in ("marker_path", "user_dir", "data_dir", "config_dir", "cache_dir"):
+		if os.path.normcase(str(payloads["a"][field_name])) == os.path.normcase(str(payloads["b"][field_name])):
+			raise WorkspaceSnapshotError(
+				f"Godot isolation probes unexpectedly share {field_name}: {payloads['a'][field_name]}"
+			)
+	return {
+		"ok": True,
+		"probe_count": 2,
+		"fields": ["marker_path", "user_dir", "data_dir", "config_dir", "cache_dir"],
+		"private_roots": {name: str(root) for name, root in private_roots.items()},
+	}
+
+
+def run_parallel_full_checks(
+	captured_workspace: CapturedWorkspace,
+	parallel_root: Path,
+	*,
+	jobs: int,
+	timeout_seconds: int | None,
+	suite_timeout_seconds: int | None,
+	fail_fast: bool,
+	package_artifact_manifest: str,
+	package_artifact_manifest_sha256: str,
+	package_artifact_count: int,
+	progress_callback: Callable[[str, str, float | None], None] | None,
+	output_callback: Callable[[str, str, str], None] | None,
+	overall_started: float,
+	suite_deadline: float | None,
+) -> dict[str, Any]:
+	parallel_started = time.perf_counter()
+	plan = parallel_full_shard_plan()
+	if (
+		suite_timeout_seconds is not None
+		and time.perf_counter() - overall_started >= suite_timeout_seconds
+	):
+		return make_parallel_full_deadline_result(
+			captured_workspace,
+			plan,
+			jobs,
+			suite_timeout_seconds,
+		)
+	godot_isolation = run_parallel_godot_isolation_probe(
+		parallel_root,
+		deadline=suite_deadline,
+		output_callback=output_callback,
+	)
+	occurrences: dict[str, list[tuple[str, dict[str, Any]]]] = {}
+	parallel_shard_reports: list[dict[str, Any]] = []
+	failed_shards: list[str] = []
+	log_copy_errors: list[str] = []
+	shard_results: list[ParallelShardResult] = []
+	expected_checks_by_shard = {
+		shard_plan.name: expanded_check_names("quick", list(shard_plan.checks))
+		for shard_plan in plan
+	}
+	gf_parallel_validation.assert_source_matches_snapshot(
+		captured_workspace,
+		deadline=suite_deadline,
+	)
+	stop_after_batch = False
+	for batch_start in range(0, len(plan), jobs):
+		remaining_deadline_seconds(suite_deadline, "parallel Full scheduling")
+		batch_plan = plan[batch_start:batch_start + jobs]
+		batch_cleanup_errors: list[str] = []
+		with managed_owned_directory(
+			parallel_root / f"b{batch_start // jobs}",
+			cleanup_errors=batch_cleanup_errors,
+		) as batch_dir:
+			batch_root = batch_dir
+			workspace_by_shard = materialize_parallel_full_workspaces(
+				captured_workspace,
+				batch_root,
+				batch_plan,
+				deadline=suite_deadline,
+			)
+			batch_shards: list[ParallelShard] = []
+			report_paths: dict[str, Path] = {}
+			for batch_offset, shard_plan in enumerate(batch_plan):
+				workspace = workspace_by_shard[shard_plan.name]
+				shard, report_path = make_parallel_full_shard(
+					shard_plan,
+					workspace,
+					private_environment_root=(
+						batch_root / "u" / str(batch_offset)
+					),
+					timeout_seconds=timeout_seconds,
+					suite_deadline=suite_deadline,
+					fail_fast=fail_fast,
+					package_artifact_manifest=package_artifact_manifest,
+					package_artifact_manifest_sha256=package_artifact_manifest_sha256,
+				)
+				batch_shards.append(shard)
+				report_paths[shard.name] = report_path
+				if progress_callback is not None:
+					progress_callback("started", f"shard:{shard.name}", None)
+			run_remaining = remaining_deadline_seconds(suite_deadline, "parallel Full execution")
+			batch_results = gf_parallel_validation.run_parallel_shards(
+				batch_shards,
+				max_workers=min(jobs, len(batch_shards)),
+				deadline_seconds=run_remaining,
+				fail_fast=fail_fast,
+				output_callback=output_callback,
+			)
+			shard_results.extend(batch_results)
+			for shard_result in batch_results:
+				if progress_callback is not None:
+					progress_callback(
+						"finished",
+						f"shard:{shard_result.name}",
+						shard_result.duration_seconds,
+					)
+				expected_checks = expected_checks_by_shard[shard_result.name]
+				report, report_issue = load_parallel_shard_report(
+					shard_result,
+					report_paths[shard_result.name],
+					expected_checks,
+					captured_workspace.workspace_state(),
+					expected_package_artifact_manifest_sha256=package_artifact_manifest_sha256,
+					expected_package_artifact_count=package_artifact_count,
+				)
+				try:
+					shard_workspace_state = workspace_fingerprint(
+						shard_result.workspace,
+						deadline=suite_deadline,
+					)
+				except TimeoutError as error:
+					report_issue = append_issue_text(report_issue, str(error))
+				else:
+					if shard_workspace_state["fingerprint"] != captured_workspace.workspace_fingerprint:
+						report_issue = append_issue_text(
+							report_issue,
+							"Shard workspace source changed while validation was running.",
+						)
+				if report_issue:
+					failed_shards.append(shard_result.name)
+					for check_name in expected_checks:
+						occurrences.setdefault(check_name, []).append((
+							shard_result.name,
+							make_parallel_missing_check_result(check_name, shard_result, report_issue),
+						))
+				else:
+					assert report is not None
+					result_by_name = {
+						str(item.get("name", "")): item
+						for item in report.get("results", [])
+						if isinstance(item, dict)
+					}
+					for check_name in expected_checks:
+						result = result_by_name.get(check_name)
+						if result is None:
+							result = make_parallel_missing_check_result(
+								check_name,
+								shard_result,
+								"Shard ended before this check produced a result.",
+							)
+						occurrences.setdefault(check_name, []).append((shard_result.name, result))
+					if not shard_result.ok or not bool(report.get("ok")):
+						failed_shards.append(shard_result.name)
+				parallel_shard_reports.append({
+					"name": shard_result.name,
+					"expected_checks": expected_checks,
+					"report_valid": not report_issue,
+					"report_issue": report_issue,
+					"runner": shard_result.to_dict(),
+				})
+			batch_failed = {result.name for result in batch_results if not result.ok}
+			batch_failed.update(
+				name for name in failed_shards if name in {item.name for item in batch_plan}
+			)
+			if batch_failed:
+				log_copy_errors.extend(collect_parallel_failure_logs(
+					batch_results,
+					batch_failed,
+					captured_workspace.workspace_fingerprint,
+				))
+			if fail_fast and batch_failed:
+				append_unstarted_parallel_shards(
+					plan[batch_start + len(batch_plan):],
+					expected_checks_by_shard,
+					occurrences,
+					parallel_shard_reports,
+					failed_shards,
+					batch_root,
+					"fail-fast followed a failed parallel Full shard",
+					cancelled=True,
+				)
+				stop_after_batch = True
+		if batch_cleanup_errors:
+			log_copy_errors.extend(batch_cleanup_errors)
+		gf_parallel_validation.assert_source_matches_snapshot(
+			captured_workspace,
+			deadline=suite_deadline,
+		)
+		if stop_after_batch:
+			break
+
+	canonical_checks = expanded_check_names("full", None)
+	aggregated_results: list[dict[str, Any]] = []
+	for check_name in canonical_checks:
+		check_occurrences = occurrences.get(check_name, [])
+		if not check_occurrences:
+			fallback_shard = shard_results[0]
+			check_occurrences = [(
+				"orchestrator",
+				make_parallel_missing_check_result(
+					check_name,
+					fallback_shard,
+					"Parallel Full plan produced no occurrence for this check.",
+				),
+			)]
+		failing = next(
+			(item for _shard_name, item in check_occurrences if int(item.get("exit_code", 1)) != 0),
+			None,
+		)
+		selected = dict(failing or check_occurrences[0][1])
+		selected["parallel_occurrences"] = [
+			{
+				"shard": shard_name,
+				"exit_code": int(item.get("exit_code", 1)),
+				"timed_out": bool(item.get("timed_out", False)),
+				"cancelled": bool(item.get("cancelled", False)),
+				"duration_seconds": float(item.get("duration_seconds", 0.0)),
+				"input_fingerprint": str(item.get("input_fingerprint", "")),
+				"result_fingerprint": str(item.get("result_fingerprint", "")),
+			}
+			for shard_name, item in check_occurrences
+		]
+		aggregated_results.append(selected)
+
+	failed_shard_set = set(failed_shards)
+	ok = (
+		all(int(item.get("exit_code", 1)) == 0 for item in aggregated_results)
+		and not failed_shard_set
+		and not log_copy_errors
+	)
+	data: dict[str, Any] = {
+		"ok": ok,
+		"suite": "full",
+		"checks": canonical_checks,
+		"completed_check_count": sum(
+			1
+			for item in aggregated_results
+			if item.get("execution") not in {"not_started", "parallel_shard_invalid"}
+		),
+		"canonical_result_count": len(aggregated_results),
+		"not_started_check_count": sum(
+			1
+			for item in aggregated_results
+			if item.get("execution") in {"not_started", "parallel_shard_invalid"}
+		),
+		"duration_seconds": round(time.perf_counter() - parallel_started, 3),
+		"suite_timeout_seconds": suite_timeout_seconds,
+		"check_graph": maintenance_check_graph().describe(canonical_checks),
+		"workspace_fingerprint": captured_workspace.workspace_fingerprint,
+		"execution": "parallel_shards",
+		"jobs": jobs,
+		"parallel_plan": [
+			{
+				**shard.to_dict(),
+				"timeout_seconds": parallel_shard_timeout_seconds(shard, timeout_seconds),
+			}
+			for shard in plan
+		],
+		"godot_isolation": godot_isolation,
+		"parallel_shards": parallel_shard_reports,
+		"results": aggregated_results,
+	}
+	if log_copy_errors:
+		append_check_orchestration_failure(
+			data,
+			"parallel_failure_log_collection",
+			"\n".join(log_copy_errors),
+		)
+	return data
+
+
+def make_parallel_full_shard(
+	shard_plan: ParallelCheckShardPlan,
+	workspace: Path,
+	*,
+	private_environment_root: Path,
+	timeout_seconds: int | None,
+	suite_deadline: float | None,
+	fail_fast: bool,
+	package_artifact_manifest: str,
+	package_artifact_manifest_sha256: str,
+) -> tuple[ParallelShard, Path]:
+	report_relative_path = Path("build") / "p" / f"{shard_plan.name}.json"
+	command = [
+		sys.executable,
+		"tools/gf_maintenance.py",
+		"--json-output",
+		report_relative_path.as_posix(),
+		"check",
+		"--jobs",
+		"1",
+	]
+	for check_name in shard_plan.checks:
+		command.extend(["--check", check_name])
+	if timeout_seconds is not None:
+		command.extend(["--timeout", str(timeout_seconds)])
+	remaining = remaining_deadline_seconds(suite_deadline, "parallel shard command creation")
+	if remaining is not None:
+		command.extend(["--suite-timeout", str(max(1, math.ceil(remaining)))])
+	if fail_fast:
+		command.append("--fail-fast")
+	if any(name in PACKAGE_ARTIFACT_CONSUMER_CHECKS for name in shard_plan.checks):
+		command.extend([
+			"--package-artifact-manifest",
+			package_artifact_manifest,
+			"--package-artifact-manifest-sha256",
+			package_artifact_manifest_sha256,
+		])
+	command.append("--json")
+	environment, _private_user_root = parallel_shard_environment(
+		workspace,
+		private_environment_root,
+	)
+	return ParallelShard(
+		name=shard_plan.name,
+		command=tuple(command),
+		workspace=workspace,
+		timeout_seconds=parallel_shard_timeout_seconds(shard_plan, timeout_seconds),
+		environment=environment,
+	), workspace / report_relative_path
+
+
+def append_unstarted_parallel_shards(
+	remaining_plan: list[ParallelCheckShardPlan],
+	expected_checks_by_shard: dict[str, list[str]],
+	occurrences: dict[str, list[tuple[str, dict[str, Any]]]],
+	parallel_shard_reports: list[dict[str, Any]],
+	failed_shards: list[str],
+	workspace_root: Path,
+	reason: str,
+	*,
+	cancelled: bool,
+) -> None:
+	for shard_plan in remaining_plan:
+		workspace = workspace_root / f"unstarted-{shard_plan.name}"
+		shard_result = ParallelShardResult(
+			name=shard_plan.name,
+			command=("<not-started>", shard_plan.name),
+			workspace=workspace,
+			exit_code=130 if cancelled else 124,
+			process_exit_code=None,
+			stdout="",
+			stderr="",
+			timed_out=not cancelled,
+			cancelled=cancelled,
+			duration_seconds=0.0,
+			pid=0,
+			started=False,
+			notes=(reason,),
+		)
+		expected_checks = expected_checks_by_shard[shard_plan.name]
+		for check_name in expected_checks:
+			occurrences.setdefault(check_name, []).append((
+				shard_plan.name,
+				make_parallel_missing_check_result(check_name, shard_result, reason),
+			))
+		parallel_shard_reports.append({
+			"name": shard_plan.name,
+			"expected_checks": expected_checks,
+			"report_valid": False,
+			"report_issue": reason,
+			"runner": shard_result.to_dict(),
+		})
+		failed_shards.append(shard_plan.name)
+
+
+def materialize_parallel_full_workspaces(
+	captured_workspace: CapturedWorkspace,
+	parallel_root: Path,
+	plan: list[ParallelCheckShardPlan],
+	*,
+	deadline: float | None,
+) -> dict[str, Path]:
+	workspaces: dict[str, Path] = {}
+	remaining_deadline_seconds(deadline, "parallel workspace materialization")
+	with concurrent.futures.ThreadPoolExecutor(
+		max_workers=len(plan),
+		thread_name_prefix="gf-workspace-materialize",
+	) as executor:
+		future_by_name = {
+			shard_plan.name: executor.submit(
+				gf_parallel_validation.materialize_workspace,
+				captured_workspace,
+				parallel_root / f"s{index}",
+				deadline=deadline,
+				verify_source=False,
+			)
+			for index, shard_plan in enumerate(plan)
+		}
+		for shard_plan in plan:
+			workspaces[shard_plan.name] = future_by_name[shard_plan.name].result()
+	return workspaces
+
+
+def make_parallel_full_deadline_result(
+	captured_workspace: CapturedWorkspace,
+	plan: list[ParallelCheckShardPlan],
+	jobs: int,
+	suite_timeout_seconds: int,
+) -> dict[str, Any]:
+	canonical_checks = expanded_check_names("full", None)
+	results = [
+		{
+			"name": check_name,
+			"command": list(CHECK_DEFINITIONS.get(check_name, ["<in-process>", check_name])),
+			"cwd": str(ROOT),
+			"exit_code": 124,
+			"timed_out": True,
+			"cancelled": False,
+			"duration_seconds": 0.0,
+			"execution": "not_started",
+			"stdout": "",
+			"stderr": "Suite deadline exhausted before parallel validation workers started.",
+		}
+		for check_name in canonical_checks
+	]
+	return {
+		"ok": False,
+		"suite": "full",
+		"checks": canonical_checks,
+		"completed_check_count": 0,
+		"canonical_result_count": len(results),
+		"not_started_check_count": len(results),
+		"duration_seconds": 0.0,
+		"suite_timeout_seconds": suite_timeout_seconds,
+		"check_graph": maintenance_check_graph().describe(canonical_checks),
+		"workspace_fingerprint": captured_workspace.workspace_fingerprint,
+		"execution": "parallel_shards",
+		"jobs": jobs,
+		"parallel_plan": [shard.to_dict() for shard in plan],
+		"parallel_shards": [],
+		"results": results,
+	}
+
+
+def load_parallel_shard_report(
+	shard_result: ParallelShardResult,
+	report_path: Path,
+	expected_checks: list[str],
+	expected_workspace_state: dict[str, object],
+	*,
+	expected_package_artifact_manifest_sha256: str = "",
+	expected_package_artifact_count: int | None = None,
+) -> tuple[dict[str, Any] | None, str]:
+	try:
+		report_bytes = read_bounded_regular_file_under_root(
+			shard_result.workspace,
+			report_path,
+			MAX_PARALLEL_SHARD_REPORT_BYTES,
+			label="Shard report",
+		)
+		report = json.loads(
+			report_bytes.decode("utf-8", errors="strict"),
+			parse_constant=reject_non_finite_json_constant,
+			object_pairs_hook=reject_duplicate_json_object_keys,
+		)
+	except (OSError, UnicodeDecodeError, json.JSONDecodeError, ValueError) as error:
+		return None, f"Shard report is missing or invalid: {error}"
+	if not isinstance(report, dict):
+		return None, "Shard report root must be an object."
+	report_fields = set(report)
+	missing_report_fields = PARALLEL_SHARD_REPORT_REQUIRED_FIELDS.difference(report_fields)
+	extra_report_fields = report_fields.difference(
+		PARALLEL_SHARD_REPORT_REQUIRED_FIELDS | PARALLEL_SHARD_REPORT_OPTIONAL_FIELDS
+	)
+	if missing_report_fields or extra_report_fields:
+		return None, (
+			"Shard report root has an invalid field set: "
+			f"missing={sorted(missing_report_fields)}, extra={sorted(extra_report_fields)}"
+		)
+	if type(report.get("ok")) is not bool:
+		return None, "Shard report ok must be boolean."
+	if report.get("suite") != "quick" or report.get("execution") != "serial" or report.get("jobs") != 1:
+		return None, "Shard report must describe the single-worker explicit-check execution contract."
+	if not is_finite_non_negative_number(report.get("duration_seconds")):
+		return None, "Shard report duration_seconds must be finite and non-negative."
+	suite_timeout = report.get("suite_timeout_seconds")
+	if suite_timeout is not None and not is_finite_positive_number(suite_timeout):
+		return None, "Shard report suite_timeout_seconds must be null or finite and positive."
+	if report.get("checks") != expected_checks:
+		return None, (
+			"Shard report check closure differs from its assigned plan: "
+			f"expected={expected_checks}, actual={report.get('checks')}"
+		)
+	expected_workspace_fingerprint = expected_workspace_state.get("fingerprint")
+	if report.get("workspace_fingerprint") != expected_workspace_fingerprint:
+		return None, "Shard report workspace fingerprint differs from the captured source."
+	workspace = report.get("workspace")
+	if not isinstance(workspace, dict) or set(workspace) != PARALLEL_SHARD_WORKSPACE_FIELDS:
+		return None, "Shard report workspace provenance is missing or inconsistent."
+	for field_name in ("schema_version", "head", "dirty", "untracked_file_count", "fingerprint"):
+		if workspace.get(field_name) != expected_workspace_state.get(field_name):
+			return None, f"Shard report workspace {field_name} differs from the captured source."
+	expected_check_graph = maintenance_check_graph().describe(expected_checks)
+	if report.get("check_graph") != expected_check_graph:
+		return None, "Shard report check graph differs from its assigned closure."
+	workspace_snapshot = report.get("workspace_snapshot")
+	if (
+		not isinstance(workspace_snapshot, dict)
+		or set(workspace_snapshot) != PARALLEL_SHARD_SNAPSHOT_FIELDS
+		or any(type(value) is not int or value < 0 for value in workspace_snapshot.values())
+	):
+		return None, "Shard report workspace_snapshot has an invalid shape or counter."
+	requires_package_artifact = any(
+		name in PACKAGE_ARTIFACT_CONSUMER_CHECKS
+		for name in expected_checks
+	)
+	package_artifact_details_value = report.get("package_artifact_set")
+	if requires_package_artifact != ("package_artifact_set" in report):
+		return None, "Shard report package artifact provenance disagrees with its assigned checks."
+	if requires_package_artifact and (
+		SHA256_HEX_RE.fullmatch(expected_package_artifact_manifest_sha256) is None
+		or type(expected_package_artifact_count) is not int
+		or expected_package_artifact_count <= 0
+	):
+		return None, "Parent package artifact provenance is missing or invalid."
+	if package_artifact_details_value is not None:
+		if (
+			not isinstance(package_artifact_details_value, dict)
+			or set(package_artifact_details_value) != {
+				"reused",
+				"manifest_sha256",
+				"artifact_count",
+				"workspace_fingerprint",
+			}
+			or package_artifact_details_value.get("reused") is not True
+			or not isinstance(package_artifact_details_value.get("manifest_sha256"), str)
+			or SHA256_HEX_RE.fullmatch(package_artifact_details_value["manifest_sha256"]) is None
+			or type(package_artifact_details_value.get("artifact_count")) is not int
+			or package_artifact_details_value["artifact_count"] <= 0
+			or package_artifact_details_value.get("workspace_fingerprint") != expected_workspace_fingerprint
+		):
+			return None, "Shard report package artifact provenance is invalid."
+		if (
+			package_artifact_details_value["manifest_sha256"]
+			!= expected_package_artifact_manifest_sha256
+			or package_artifact_details_value["artifact_count"]
+			!= expected_package_artifact_count
+		):
+			return None, "Shard report package artifact identity differs from the parent sealed set."
+	results = report.get("results")
+	if not isinstance(results, list) or any(not isinstance(item, dict) for item in results):
+		return None, "Shard report results must be an array of objects."
+	completed_check_count = report.get("completed_check_count")
+	if type(completed_check_count) is not int or completed_check_count != len(results):
+		return None, "Shard report completed_check_count must equal its result count."
+	result_names = [item.get("name") for item in results]
+	if any(not isinstance(name, str) or not name for name in result_names):
+		return None, "Shard report result names must be non-empty strings."
+	if len(result_names) != len(set(result_names)):
+		return None, "Shard report contains duplicate check results."
+	if result_names != expected_checks[:len(result_names)]:
+		return None, "Shard report results must be an ordered prefix of its assigned check closure."
+	for result in results:
+		name = str(result["name"])
+		result_fields = set(result)
+		missing_result_fields = PARALLEL_SHARD_RESULT_REQUIRED_FIELDS.difference(result_fields)
+		extra_result_fields = result_fields.difference(
+			PARALLEL_SHARD_RESULT_REQUIRED_FIELDS | PARALLEL_SHARD_RESULT_OPTIONAL_FIELDS
+		)
+		if missing_result_fields or extra_result_fields:
+			return None, (
+				f"Shard result {name!r} has an invalid field set: "
+				f"missing={sorted(missing_result_fields)}, extra={sorted(extra_result_fields)}"
+			)
+		exit_code = result.get("exit_code")
+		if type(exit_code) is not int:
+			return None, f"Shard result {name!r} exit_code must be an integer."
+		for field_name in ("timed_out", "cancelled"):
+			if type(result.get(field_name)) is not bool:
+				return None, f"Shard result {name!r} {field_name} must be boolean."
+		duration_seconds = result.get("duration_seconds")
+		if not is_finite_non_negative_number(duration_seconds):
+			return None, f"Shard result {name!r} duration_seconds must be finite and non-negative."
+		command = result.get("command")
+		if not isinstance(command, list) or not command or any(not isinstance(part, str) or not part for part in command):
+			return None, f"Shard result {name!r} command must be a non-empty string array."
+		cwd = result.get("cwd")
+		if (
+			not isinstance(cwd, str)
+			or not cwd
+			or "\x00" in cwd
+			or not Path(cwd).is_absolute()
+			or os.path.normcase(os.path.abspath(cwd))
+			!= os.path.normcase(os.path.abspath(shard_result.workspace))
+		):
+			return None, f"Shard result {name!r} cwd must equal its assigned workspace."
+		if result.get("execution") not in {"subprocess", "in_process"}:
+			return None, f"Shard result {name!r} execution is unsupported."
+		if not isinstance(result.get("stdout"), str) or not isinstance(result.get("stderr"), str):
+			return None, f"Shard result {name!r} stdout and stderr must be strings."
+		if not is_finite_positive_number(result.get("timeout_seconds")):
+			return None, f"Shard result {name!r} timeout_seconds must be finite and positive."
+		dependencies = result.get("dependencies")
+		dependency_fingerprints = result.get("dependency_fingerprints")
+		if (
+			not isinstance(dependencies, list)
+			or any(not isinstance(value, str) or not value for value in dependencies)
+			or len(dependencies) != len(set(dependencies))
+			or not isinstance(dependency_fingerprints, dict)
+			or set(dependency_fingerprints) != set(dependencies)
+			or any(
+				not isinstance(value, str) or SHA256_HEX_RE.fullmatch(value) is None
+				for value in dependency_fingerprints.values()
+			)
+		):
+			return None, f"Shard result {name!r} dependency provenance is invalid."
+		if "pid" in result and (type(result["pid"]) is not int or result["pid"] <= 0):
+			return None, f"Shard result {name!r} pid must be a positive integer."
+		if "streamed_output" in result and type(result["streamed_output"]) is not bool:
+			return None, f"Shard result {name!r} streamed_output must be boolean."
+		if "process_exit_code" in result and type(result["process_exit_code"]) is not int:
+			return None, f"Shard result {name!r} process_exit_code must be an integer."
+		if "notes" in result and (
+			not isinstance(result["notes"], list)
+			or any(not isinstance(value, str) for value in result["notes"])
+		):
+			return None, f"Shard result {name!r} notes must be a string array."
+		if "godot_exit_leak_warning_count" in result and (
+			type(result["godot_exit_leak_warning_count"]) is not int
+			or result["godot_exit_leak_warning_count"] < 0
+		):
+			return None, f"Shard result {name!r} leak warning count is invalid."
+		if "godot_exit_leak_warnings" in result and (
+			not isinstance(result["godot_exit_leak_warnings"], list)
+			or any(not isinstance(value, str) for value in result["godot_exit_leak_warnings"])
+		):
+			return None, f"Shard result {name!r} leak warnings must be a string array."
+		if "godot_exit_leak_report" in result and not isinstance(result["godot_exit_leak_report"], dict):
+			return None, f"Shard result {name!r} leak report must be an object."
+		for fingerprint_field in ("input_fingerprint", "result_fingerprint"):
+			if not isinstance(result.get(fingerprint_field), str) or SHA256_HEX_RE.fullmatch(result[fingerprint_field]) is None:
+				return None, f"Shard result {name!r} {fingerprint_field} must be a SHA-256 hex digest."
+		timeout_budget = result.get("timeout_budget")
+		if not isinstance(timeout_budget, dict) or set(timeout_budget) != {
+			"policy_seconds",
+			"requested_minimum_seconds",
+			"suite_remaining_seconds",
+			"effective_seconds",
+		}:
+			return None, f"Shard result {name!r} timeout_budget has an invalid shape."
+		for budget_field in ("policy_seconds", "effective_seconds"):
+			budget_value = timeout_budget.get(budget_field)
+			if (
+				type(budget_value) not in {int, float}
+				or isinstance(budget_value, bool)
+				or not math.isfinite(float(budget_value))
+				or float(budget_value) <= 0.0
+			):
+				return None, f"Shard result {name!r} timeout_budget.{budget_field} must be positive and finite."
+		for budget_field in ("requested_minimum_seconds", "suite_remaining_seconds"):
+			budget_value = timeout_budget.get(budget_field)
+			if budget_value is not None and (
+				type(budget_value) not in {int, float}
+				or isinstance(budget_value, bool)
+				or not math.isfinite(float(budget_value))
+				or float(budget_value) < 0.0
+			):
+				return None, f"Shard result {name!r} timeout_budget.{budget_field} must be null or finite and non-negative."
+	result_success = (
+		len(results) == len(expected_checks)
+		and all(
+			int(item["exit_code"]) == 0
+			and not bool(item["timed_out"])
+			and not bool(item["cancelled"])
+			for item in results
+		)
+	)
+	if bool(report["ok"]) != result_success:
+		return None, "Shard report ok disagrees with its complete result set."
+	if shard_result.ok != bool(report.get("ok")):
+		return None, (
+			"Shard process outcome disagrees with its report: "
+			f"process_ok={shard_result.ok}, report_ok={report.get('ok')}"
+		)
+	return report, ""
+
+
+def reject_non_finite_json_constant(value: str) -> None:
+	raise ValueError(f"Non-finite JSON number is not allowed: {value}")
+
+
+def reject_duplicate_json_object_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+	payload: dict[str, Any] = {}
+	for key, value in pairs:
+		if key in payload:
+			raise ValueError(f"Duplicate JSON object key is not allowed: {key}")
+		payload[key] = value
+	return payload
+
+
+def is_finite_non_negative_number(value: Any) -> bool:
+	return (
+		type(value) in {int, float}
+		and not isinstance(value, bool)
+		and math.isfinite(float(value))
+		and float(value) >= 0.0
+	)
+
+
+def is_finite_positive_number(value: Any) -> bool:
+	return is_finite_non_negative_number(value) and float(value) > 0.0
+
+
+def make_parallel_missing_check_result(
+	check_name: str,
+	shard_result: ParallelShardResult,
+	reason: str,
+) -> dict[str, Any]:
+	exit_code = 130 if shard_result.cancelled else (124 if shard_result.timed_out else 125)
+	return {
+		"name": check_name,
+		"command": list(CHECK_DEFINITIONS.get(check_name, ["<in-process>", check_name])),
+		"cwd": str(shard_result.workspace),
+		"exit_code": exit_code,
+		"process_exit_code": shard_result.process_exit_code,
+		"timed_out": shard_result.timed_out,
+		"cancelled": shard_result.cancelled,
+		"duration_seconds": 0.0,
+		"execution": "not_started" if not shard_result.started else "parallel_shard_invalid",
+		"stdout": "",
+		"stderr": reason,
+		"notes": list(shard_result.notes),
+	}
+
+
+def append_issue_text(current: str, addition: str) -> str:
+	return f"{current}\n{addition}".strip() if current else addition
+
+
+def snapshot_real_directory_chain(
+	containment_root: Path,
+	directory: Path,
+) -> tuple[tuple[Path, os.stat_result], ...]:
+	"""Capture every real directory component through a contained directory."""
+	root = Path(os.path.abspath(containment_root))
+	target = Path(os.path.abspath(directory))
+	if not path_is_within_or_equal(target, root):
+		raise ValueError(f"Path escapes its managed containment root: {target}")
+	parent_issue = real_directory_chain_issue(root.parent)
+	if parent_issue:
+		raise ValueError(f"Managed containment parent is unsafe: {parent_issue}")
+	relative = Path(os.path.relpath(target, root))
+	parts = () if relative == Path(".") else relative.parts
+	if any(part in {"", ".", ".."} for part in parts):
+		raise ValueError(f"Managed directory has an unsafe relative path: {relative}")
+	current = root
+	snapshot: list[tuple[Path, os.stat_result]] = []
+	for index in range(len(parts) + 1):
+		if index > 0:
+			part = parts[index - 1]
+			current /= part
+		metadata = current.lstat()
+		if (
+			not stat.S_ISDIR(metadata.st_mode)
+			or stat.S_ISLNK(metadata.st_mode)
+			or bool(int(getattr(metadata, "st_file_attributes", 0)) & 0x0400)
+		):
+			raise ValueError(f"Managed path crosses a non-directory, link, or reparse component: {current}")
+		snapshot.append((current, metadata))
+	return tuple(snapshot)
+
+
+def same_directory_chain_snapshot(
+	before: tuple[tuple[Path, os.stat_result], ...],
+	after: tuple[tuple[Path, os.stat_result], ...],
+) -> bool:
+	return (
+		len(before) == len(after)
+		and all(
+			left_path == right_path and same_file_identity(left_metadata, right_metadata)
+			for (left_path, left_metadata), (right_path, right_metadata) in zip(before, after)
+		)
+	)
+
+
+def same_directory_chain_identity(
+	before: tuple[tuple[Path, os.stat_result], ...],
+	after: tuple[tuple[Path, os.stat_result], ...],
+) -> bool:
+	"""Compare directory ownership while allowing expected child-entry metadata changes."""
+	return (
+		len(before) == len(after)
+		and all(
+			left_path == right_path and same_owned_directory_identity(left_metadata, right_metadata)
+			for (left_path, left_metadata), (right_path, right_metadata) in zip(before, after)
+		)
+	)
+
+
+def read_bounded_regular_file_under_root(
+	containment_root: Path,
+	path: Path,
+	max_bytes: int,
+	*,
+	label: str,
+) -> bytes:
+	"""Read one contained regular file from a stable handle with a hard byte cap."""
+	if type(max_bytes) is not int or max_bytes < 0:
+		raise ValueError(f"{label} byte limit must be a non-negative integer.")
+	root = Path(os.path.abspath(containment_root))
+	source_path = Path(os.path.abspath(path))
+	if not path_is_within_or_equal(source_path, root) or source_path == root:
+		raise ValueError(f"{label} escapes its managed containment root.")
+	chain_before = snapshot_real_directory_chain(root, source_path.parent)
+	before = source_path.lstat()
+	if (
+		not stat.S_ISREG(before.st_mode)
+		or stat.S_ISLNK(before.st_mode)
+		or bool(int(getattr(before, "st_file_attributes", 0)) & 0x0400)
+	):
+		raise ValueError(f"{label} must be a regular file, not a link or reparse point.")
+	if before.st_size > max_bytes:
+		raise ValueError(f"{label} exceeds the managed size limit.")
+	flags = os.O_RDONLY | getattr(os, "O_BINARY", 0) | getattr(os, "O_CLOEXEC", 0)
+	flags |= getattr(os, "O_NOFOLLOW", 0)
+	file_descriptor = os.open(source_path, flags)
+	try:
+		opened_before = os.fstat(file_descriptor)
+		if (
+			not stat.S_ISREG(opened_before.st_mode)
+			or bool(int(getattr(opened_before, "st_file_attributes", 0)) & 0x0400)
+			or not same_open_file_identity(before, opened_before)
+		):
+			raise ValueError(f"{label} changed before it was opened.")
+		payload = bytearray()
+		while len(payload) <= max_bytes:
+			chunk = os.read(file_descriptor, min(64 * 1024, max_bytes + 1 - len(payload)))
+			if not chunk:
+				break
+			payload.extend(chunk)
+		opened_after = os.fstat(file_descriptor)
+	finally:
+		os.close(file_descriptor)
+	if len(payload) > max_bytes:
+		raise ValueError(f"{label} exceeds the managed size limit.")
+	after = source_path.lstat()
+	chain_after = snapshot_real_directory_chain(root, source_path.parent)
+	if (
+		not same_directory_chain_snapshot(chain_before, chain_after)
+		or not same_file_identity(before, after)
+		or not same_file_identity(opened_before, opened_after)
+		or not same_open_file_identity(opened_after, after)
+		or len(payload) != before.st_size
+		or len(payload) != opened_after.st_size
+		or stat.S_ISLNK(after.st_mode)
+		or bool(int(getattr(after, "st_file_attributes", 0)) & 0x0400)
+	):
+		raise ValueError(f"{label} or its directory chain changed while it was being read.")
+	return bytes(payload)
+
+
+def collect_parallel_failure_logs(
+	shard_results: list[ParallelShardResult],
+	failed_shards: set[str],
+	workspace_fingerprint_value: str,
+) -> list[str]:
+	errors: list[str] = []
+	session_root = GODOT_LOG_DIR / (
+		f"parallel-{time.strftime('%Y%m%d-%H%M%S')}-{time.time_ns()}-"
+		f"{workspace_fingerprint_value[:8]}-{secrets.token_hex(8)}"
+	)
+	session_identity: os.stat_result | None = None
+	for shard_result in shard_results:
+		if shard_result.name not in failed_shards:
+			continue
+		source_root = shard_result.workspace / "ai_analysis" / "godot_logs"
+		if not os.path.lexists(source_root):
+			continue
+		try:
+			if session_identity is None:
+				validate_controlled_path(session_root, GODOT_LOG_DIR)
+				parent_issue = real_directory_chain_issue(GODOT_LOG_DIR)
+				if parent_issue:
+					raise ValueError(f"Parallel log destination root is unsafe: {parent_issue}")
+				session_root.mkdir(exist_ok=False)
+				session_identity = session_root.lstat()
+			elif not same_owned_directory_identity(session_identity, session_root.lstat()):
+				raise ValueError("Parallel log session root was replaced after creation.")
+			destination_root = validate_controlled_path(
+				session_root / shard_result.name,
+				GODOT_LOG_DIR,
+			)
+			destination_root.mkdir(exist_ok=False)
+			destination_identity = destination_root.lstat()
+			copy_parallel_log_tree(
+				source_root,
+				destination_root,
+				containment_root=shard_result.workspace,
+				destination_containment_root=session_root,
+				expected_destination_identity=destination_identity,
+				expected_destination_containment_identity=session_identity,
+			)
+		except (OSError, ValueError) as error:
+			errors.append(f"{shard_result.name}: {error}")
+	return errors
+
+
+def copy_parallel_log_tree(
+	source_root: Path,
+	destination_root: Path,
+	*,
+	containment_root: Path | None = None,
+	destination_containment_root: Path | None = None,
+	expected_destination_identity: os.stat_result | None = None,
+	expected_destination_containment_identity: os.stat_result | None = None,
+) -> None:
+	managed_root = source_root if containment_root is None else containment_root
+	root_chain_before = snapshot_real_directory_chain(managed_root, source_root)
+	destination_managed_root = (
+		destination_root
+		if destination_containment_root is None
+		else destination_containment_root
+	)
+	destination_chain_before = snapshot_real_directory_chain(
+		destination_managed_root,
+		destination_root,
+	)
+	destination_metadata = destination_root.lstat()
+	if not same_owned_directory_identity(destination_metadata, destination_metadata):
+		raise ValueError("Parallel log destination must be a real identity-bearing directory.")
+	if (
+		expected_destination_identity is not None
+		and not same_owned_directory_identity(expected_destination_identity, destination_metadata)
+	):
+		raise ValueError("Parallel log destination root identity differs from its owner record.")
+	if (
+		expected_destination_containment_identity is not None
+		and not same_owned_directory_identity(
+			expected_destination_containment_identity,
+			destination_chain_before[0][1],
+		)
+	):
+		raise ValueError("Parallel log destination containment root was replaced.")
+	entry_names: list[str] = []
+	with os.scandir(source_root) as directory_entries:
+		for entry in directory_entries:
+			if len(entry_names) >= DEFAULT_MAINTENANCE_LOG_MAX_FILES:
+				raise ValueError(
+					f"Parallel log root exceeds the {DEFAULT_MAINTENANCE_LOG_MAX_FILES}-file collection limit."
+				)
+			entry_names.append(entry.name)
+	entries = sorted(entry_names)
+	root_chain_after_scan = snapshot_real_directory_chain(managed_root, source_root)
+	if not same_directory_chain_snapshot(root_chain_before, root_chain_after_scan):
+		raise ValueError("Parallel log directory chain changed while it was scanned.")
+	total_bytes = 0
+	for entry_name in entries:
+		if entry_name in {"", ".", ".."} or "/" in entry_name or "\\" in entry_name:
+			raise ValueError(f"Parallel log entry has an unsafe name: {entry_name!r}")
+		source_path = source_root / entry_name
+		remaining_bytes = DEFAULT_MAINTENANCE_LOG_MAX_TOTAL_BYTES - total_bytes
+		payload = read_bounded_regular_file_under_root(
+			managed_root,
+			source_path,
+			remaining_bytes,
+			label=f"Parallel log entry {entry_name!r}",
+		)
+		total_bytes += len(payload)
+		destination_chain_before_write = snapshot_real_directory_chain(
+			destination_managed_root,
+			destination_root,
+		)
+		if not same_directory_chain_identity(destination_chain_before, destination_chain_before_write):
+			raise ValueError("Parallel log destination directory chain changed before a write.")
+		destination_path = destination_root / entry_name
+		write_flags = os.O_CREAT | os.O_EXCL | os.O_WRONLY | getattr(os, "O_BINARY", 0)
+		if hasattr(os, "O_NOFOLLOW"):
+			write_flags |= os.O_NOFOLLOW
+		destination_descriptor = os.open(destination_path, write_flags, 0o600)
+		with os.fdopen(destination_descriptor, "wb") as destination_file:
+			destination_file.write(payload)
+		destination_file_metadata = destination_path.lstat()
+		destination_chain_after_write = snapshot_real_directory_chain(
+			destination_managed_root,
+			destination_root,
+		)
+		if (
+			not stat.S_ISREG(destination_file_metadata.st_mode)
+			or stat.S_ISLNK(destination_file_metadata.st_mode)
+			or bool(int(getattr(destination_file_metadata, "st_file_attributes", 0)) & 0x0400)
+			or destination_file_metadata.st_size != len(payload)
+			or not same_directory_chain_identity(destination_chain_before, destination_chain_after_write)
+		):
+			raise ValueError(f"Parallel log destination changed while writing: {entry_name}")
+	root_chain_after_copy = snapshot_real_directory_chain(managed_root, source_root)
+	if not same_directory_chain_snapshot(root_chain_before, root_chain_after_copy):
+		raise ValueError("Parallel log directory chain changed while files were collected.")
+	destination_chain_after_copy = snapshot_real_directory_chain(
+		destination_managed_root,
+		destination_root,
+	)
+	if not same_directory_chain_identity(destination_chain_before, destination_chain_after_copy):
+		raise ValueError("Parallel log destination directory chain changed while files were collected.")
+
+
+def same_file_identity(left: os.stat_result, right: os.stat_result) -> bool:
+	return (
+		left.st_mode == right.st_mode
+		and left.st_size == right.st_size
+		and left.st_mtime_ns == right.st_mtime_ns
+		and left.st_ctime_ns == right.st_ctime_ns
+		and getattr(left, "st_dev", 0) == getattr(right, "st_dev", 0)
+		and getattr(left, "st_ino", 0) == getattr(right, "st_ino", 0)
+	)
+
+
+def same_open_file_identity(left: os.stat_result, right: os.stat_result) -> bool:
+	"""Match a path stat to its opened handle; post-read metadata checks detect writes."""
+	return (
+		left.st_mode == right.st_mode
+		and left.st_size == right.st_size
+		and getattr(left, "st_dev", 0) == getattr(right, "st_dev", 0)
+		and getattr(left, "st_ino", 0) == getattr(right, "st_ino", 0)
+	)
 
 
 def run_checks_with_active_snapshot(
@@ -18800,6 +24844,8 @@ def run_checks_with_active_snapshot(
 	sync_examples: bool = False,
 	allow_breaking_api: bool = False,
 	artifact_manifest: str = "",
+	package_artifact_manifest: str = "",
+	package_artifact_manifest_sha256: str = "",
 	progress_callback: Callable[[str, str, float | None], None] | None = None,
 	output_callback: Callable[[str, str, str], None] | None = None,
 	workspace_state: dict[str, Any] | None = None,
@@ -18830,9 +24876,13 @@ def run_checks_with_active_snapshot(
 	result_fingerprints: dict[str, str] = {}
 	in_process_runners = maintenance_in_process_check_runners()
 	for name in check_names:
-		check_command = CHECK_DEFINITIONS.get(name, ["<in-process>", name])
+		check_command_value = check_command(
+			name,
+			package_artifact_manifest,
+			package_artifact_manifest_sha256,
+		)
 		if name == "release_metadata":
-			check_command = [*check_command, "--artifact-manifest", artifact_manifest]
+			check_command_value = [*check_command_value, "--artifact-manifest", artifact_manifest]
 		remaining_seconds = (
 			max(0.0, suite_deadline - time.perf_counter())
 			if suite_deadline is not None
@@ -18852,7 +24902,7 @@ def run_checks_with_active_snapshot(
 		}
 		input_fingerprint = make_check_input_fingerprint(
 			name,
-			check_command,
+			check_command_value,
 			workspace_state_fingerprint,
 			dependency_fingerprints,
 			timeout_budget,
@@ -18860,7 +24910,7 @@ def run_checks_with_active_snapshot(
 		if remaining_seconds is not None and remaining_seconds <= 0.0:
 			result = CommandResult(
 				name=name,
-				command=check_command,
+				command=check_command_value,
 				exit_code=124,
 				stdout="",
 				stderr="Suite deadline exhausted before this check started.",
@@ -18888,7 +24938,7 @@ def run_checks_with_active_snapshot(
 		if blocked_by:
 			result = CommandResult(
 				name=name,
-				command=check_command,
+				command=check_command_value,
 				exit_code=125,
 				stdout="",
 				stderr=f"Blocked by failed dependencies: {', '.join(blocked_by)}",
@@ -18955,7 +25005,7 @@ def run_checks_with_active_snapshot(
 		if name in in_process_runners:
 			result = run_in_process_check(name, in_process_runners[name], check_timeout_seconds)
 		else:
-			result = run_command(name, CHECK_DEFINITIONS[name], check_timeout_seconds, output_callback)
+			result = run_command(name, check_command_value, check_timeout_seconds, output_callback)
 		append_check_result(
 			results,
 			result_exit_codes,
@@ -18987,12 +25037,15 @@ def run_checks_with_active_snapshot(
 def run_checks_with_log_hygiene(
 	suite: str = "quick",
 	checks: list[str] | None = None,
+	jobs: int = 0,
 	timeout_seconds: int | None = None,
 	suite_timeout_seconds: int | None = None,
 	fail_fast: bool = False,
 	sync_examples: bool = False,
 	allow_breaking_api: bool = False,
 	artifact_manifest: str = "",
+	package_artifact_manifest: str = "",
+	package_artifact_manifest_sha256: str = "",
 	progress_callback: Callable[[str, str, float | None], None] | None = None,
 	output_callback: Callable[[str, str, str], None] | None = None,
 ) -> dict[str, Any]:
@@ -19002,12 +25055,15 @@ def run_checks_with_log_hygiene(
 		data = run_checks(
 			suite=suite,
 			checks=checks,
+			jobs=jobs,
 			timeout_seconds=timeout_seconds,
 			suite_timeout_seconds=suite_timeout_seconds,
 			fail_fast=fail_fast,
 			sync_examples=sync_examples,
 			allow_breaking_api=allow_breaking_api,
 			artifact_manifest=artifact_manifest,
+			package_artifact_manifest=package_artifact_manifest,
+			package_artifact_manifest_sha256=package_artifact_manifest_sha256,
 			progress_callback=progress_callback,
 			output_callback=output_callback,
 		)

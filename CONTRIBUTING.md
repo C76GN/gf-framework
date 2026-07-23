@@ -39,16 +39,40 @@ prefix, for example `fix/package-rollback` or `codex/workflow-governance`.
 Draft and Ready PRs have different contracts:
 
 - **Draft**: design and implementation may still change. CI runs the repository
-  policy and the pure-Python quick maintenance suite for early feedback without
-  bootstrapping Godot or the documentation build environment.
+  policy and the pure-Python quick maintenance suite behind the independent
+  `GF draft gate`, without bootstrapping Godot or the documentation build
+  environment. This gate provides early feedback but never makes a Draft PR
+  mergeable.
 - **Ready for review**: scope, migration impact, tests, and documentation are
-  complete. CI runs every shard whose union is equivalent to the full suite.
-- **Mergeable**: the stable `GF merge gate` check passes, all review
+  complete. CI runs every shard whose union is equivalent to the full suite;
+  framework work is partitioned into `framework-gut`, `framework-lsp`, and
+  `framework-static` so independent checks can finish concurrently. A focused
+  Windows job also verifies native process-tree cleanup. These results are
+  aggregated into a frozen-base `GF full validation (<BASE_SHA>)` marker before
+  the merge gate.
+- **Mergeable**: both required checks, `GF repository policy` and the stable
+  `GF merge gate`, pass as GitHub Actions app-bound checks; the merge gate runs
+  even after cancelled or skipped dependencies so those states fail closed; all review
   conversations are resolved, and the branch is current with `main`.
 
 Use squash merge for a normal single-outcome PR. Rebase merge is reserved for a
 deliberately structured commit series whose individual commits are independently
 valid. Merge commits are not part of the repository history.
+
+Editing only PR metadata such as the title or description does not cancel Full
+validation already running for the same commit. It reruns repository policy and
+the exact `GF merge gate`; that gate may reuse only the newest successful Full
+validation epoch for the same repository, PR, head commit, and base commit from
+the last seven days. A newer Full run takes precedence immediately, even while
+its aggregate marker is still pending. Missing, stale, failed, malformed, or
+unverifiable evidence fails closed. A base branch change is not metadata-only:
+it reruns the Draft or Ready gate applicable to the PR's current state.
+
+Manual diagnostics run only through the separate `CI manual diagnostics`
+workflow and always use `GF manual ...` check names. A non-`main` manual run
+checks repository policy only; a `main` manual run also performs Full and
+Windows diagnostics. Manual runs never emit the protected `GF merge gate` and
+cannot be used as merge evidence; use a Ready PR for that purpose.
 
 ## Change Contract
 
@@ -109,12 +133,38 @@ runner for repository gates:
 ```powershell
 python tools\gf_maintenance.py workspace-status --json
 python tools\gf_maintenance.py check --suite quick --failed-only
+python tools\gf_maintenance.py check --suite full --json
 ```
 
 Ready PRs and pushes to `main` must pass the CI shards whose union is equivalent
-to `check --suite full`. GDScript changes must also remain clean under the
-warning and LSP diagnostics gates. A release is a separate operation and must
-pass the Release workflow against one immutable artifact set.
+to `check --suite full`, plus the focused `windows-process-supervision` job that
+runs maintenance self-tests on `windows-latest`. A local full run defaults to
+three concurrent workers, each in an isolated workspace; `--jobs 2` through
+`--jobs 6` tune bounded parallelism, while `check --suite full --jobs 1` is the
+serial diagnostic path.
+Workers are prepared and cleaned in bounded batches, and a real Godot preflight
+proves that every platform data/config/cache path and `user://` stays private.
+On Windows, the runner also proves that its clone, staging, and private temporary
+roots fit the conservative local path budget. If automatic short-root selection
+is unavailable, `GF_MAINTENANCE_VALIDATION_TEMP_ROOT` may name an existing short
+local parent directory. The runner validates that parent, creates a random
+identity-pinned child below it, and rejects source-owned, linked, UNC, and device
+paths, mapped network drives, and substituted drive aliases. Untracked regular
+files are read through stable handles in deadline-aware chunks, capped at 64 MiB
+per file and 256 MiB in total. Every worker is held in an owned process group or
+Windows Job Object that is emptied before its report is accepted.
+The full suite always treats LSP
+errors, warnings, diagnostic timeouts, connection failures, and transport
+failures as hard failures.
+
+Within one suite invocation, package smoke checks reuse one sealed package
+artifact set. The runner verifies its hashes and source-workspace fingerprint,
+then gives every consumer a private copy and requires its report to match the
+same manifest digest and artifact count. Tree scans, hashing, copying, and final
+revalidation obey the suite's absolute deadline. It does not reuse package
+artifacts across revisions, and consumers must not mutate the shared bytes. A
+release is a separate operation and must pass the Release workflow against one
+immutable release artifact set.
 
 ## Hotfixes and Releases
 

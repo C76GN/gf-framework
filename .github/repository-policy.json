@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "repository": "C76GN/gf-framework",
   "default_branch": "main",
   "internal_branch_pattern": "^(?:feat|fix|refactor|perf|docs|test|build|ci|chore|hotfix|release|codex)/[a-z0-9](?:[a-z0-9._-]*[a-z0-9])?$",
@@ -7,7 +7,10 @@
     "^dependabot/[a-z0-9](?:[a-z0-9._/-]*[a-z0-9])?$"
   ],
   "development_version_pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)-dev\\.(0|[1-9][0-9]*)$",
-  "required_status_check": "GF merge gate",
+  "required_status_checks": [
+    "GF repository policy",
+    "GF merge gate"
+  ],
   "repository_settings": {
     "allow_auto_merge": true,
     "allow_merge_commit": false,
