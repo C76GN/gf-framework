@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFNetworkLobbyOperationHandle" path="addons/gf/extensions/network/session/gf_network_lobby_operation_handle.gd" module="extensions/network" extends="RefCounted" classDigest="fc770f5ab344b77a80088744242c66692ecde8569ea8939a9ec0b6ef85b0db30">
+	<description>GFNetworkLobbyOperationHandle: Lobby 操作运行时句柄。
+句柄保证请求只能进入一个终态，并把取消、超时、Backend 失败和 SDK 回调统一为
+`GFNetworkLobbyOperationResult`。调用方不能直接完成句柄。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_handle</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals>
+		<member kind="signal" name="completed">
+			<signature>signal completed(result: GFNetworkLobbyOperationResult)</signature>
+			<description>操作进入终态时发出一次。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">result: 终态结果副本。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="signal" name="cancel_requested">
+			<signature>signal cancel_requested(reason: StringName)</signature>
+			<description>操作取消或超时时发出，供 Backend 停止底层调用。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">reason: 取消原因。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</signals>
+	<enums />
+	<constants />
+	<properties />
+	<methods>
+		<member kind="method" name="get_request">
+			<signature>func get_request() -&gt; GFNetworkLobbyOperationRequest:</signature>
+			<description>获取请求副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">请求副本。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_request_id">
+			<signature>func get_request_id() -&gt; StringName:</signature>
+			<description>获取请求 ID。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">请求 ID。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_pending">
+			<signature>func is_pending() -&gt; bool:</signature>
+			<description>检查操作是否仍在等待终态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">等待中返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_completed">
+			<signature>func is_completed() -&gt; bool:</signature>
+			<description>检查操作是否已经完成。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">已有终态结果时返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_successful">
+			<signature>func is_successful() -&gt; bool:</signature>
+			<description>检查操作是否成功。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">终态存在且成功时返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_result">
+			<signature>func get_result() -&gt; GFNetworkLobbyOperationResult:</signature>
+			<description>获取终态结果副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">终态结果副本；等待中返回 null。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="cancel">
+			<signature>func cancel(reason: StringName = &amp;"cancelled") -&gt; bool:</signature>
+			<description>取消操作。
+取消立即成为本地终态。Backend 会先收到 cancel_requested，但迟到 SDK 回调不能覆盖结果。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">reason: 取消原因。</tag>
+				<tag name="return">首次取消成功返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_debug_snapshot">
+			<signature>func get_debug_snapshot() -&gt; Dictionary:</signature>
+			<description>获取稳定调试快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">请求和终态摘要。</tag>
+				<tag name="schema">return: Dictionary lobby operation handle snapshot.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

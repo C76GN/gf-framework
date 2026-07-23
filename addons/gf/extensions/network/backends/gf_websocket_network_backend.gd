@@ -159,7 +159,10 @@ func send_bytes(peer_id: int, bytes: PackedByteArray, _options: Dictionary = {})
 			return ERR_UNAVAILABLE
 		if peer_id != BROADCAST_PEER_ID and peer_id != SERVER_PEER_ID:
 			return ERR_DOES_NOT_EXIST
-		return _client.send(bytes, WebSocketPeer.WRITE_MODE_BINARY)
+		var client_error: Error = _client.send(bytes, WebSocketPeer.WRITE_MODE_BINARY)
+		if client_error == OK:
+			_record_transport_packet_sent(bytes.size())
+		return client_error
 	if _mode == Mode.SERVER:
 		return _send_server_bytes(peer_id, bytes)
 	return ERR_UNCONFIGURED
@@ -303,7 +306,10 @@ func _send_to_server_peer(peer_id: int, bytes: PackedByteArray) -> Error:
 		return ERR_DOES_NOT_EXIST
 	if peer.get_ready_state() != WebSocketPeer.STATE_OPEN:
 		return ERR_UNAVAILABLE
-	return peer.send(bytes, WebSocketPeer.WRITE_MODE_BINARY)
+	var error: Error = peer.send(bytes, WebSocketPeer.WRITE_MODE_BINARY)
+	if error == OK:
+		_record_transport_packet_sent(bytes.size())
+	return error
 
 
 func _mark_peer_open(peer_id: int) -> void:

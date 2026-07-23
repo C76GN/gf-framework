@@ -25,7 +25,13 @@
 | 方法 | [`disconnect_backend`](#member-gfnetworkbackend-methods-disconnect_backend) | `func disconnect_backend() -> void:` |
 | 方法 | [`send_bytes`](#member-gfnetworkbackend-methods-send_bytes) | `func send_bytes(_peer_id: int, _bytes: PackedByteArray, _options: Dictionary = {}) -> Error:` |
 | 方法 | [`poll`](#member-gfnetworkbackend-methods-poll) | `func poll(_delta: float) -> void:` |
+| 方法 | [`is_backend_connected`](#member-gfnetworkbackend-methods-is_backend_connected) | `func is_backend_connected() -> bool:` |
+| 方法 | [`get_session_bootstrap`](#member-gfnetworkbackend-methods-get_session_bootstrap) | `func get_session_bootstrap() -> Dictionary:` |
 | 方法 | [`get_debug_snapshot`](#member-gfnetworkbackend-methods-get_debug_snapshot) | `func get_debug_snapshot() -> Dictionary:` |
+| 方法 | [`get_transport_metrics`](#member-gfnetworkbackend-methods-get_transport_metrics) | `func get_transport_metrics() -> GFNetworkTransportMetrics:` |
+| 方法 | [`_enrich_transport_metrics`](#member-gfnetworkbackend-methods-_enrich_transport_metrics) | `func _enrich_transport_metrics(_metrics: GFNetworkTransportMetrics) -> void:` |
+| 方法 | [`_record_transport_packet_sent`](#member-gfnetworkbackend-methods-_record_transport_packet_sent) | `func _record_transport_packet_sent(byte_count: int) -> void:` |
+| 方法 | [`_reset_transport_metrics`](#member-gfnetworkbackend-methods-_reset_transport_metrics) | `func _reset_transport_metrics() -> void:` |
 
 ## 信号
 
@@ -221,6 +227,40 @@ func poll(_delta: float) -> void:
 |---|---|
 | `_delta` | 帧间隔。 |
 
+<a id="member-gfnetworkbackend-methods-is_backend_connected"></a>
+
+### `is_backend_connected`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func is_backend_connected() -> bool:
+```
+
+检查 Backend 是否已建立连接。
+
+返回：已收到连接终态且尚未断开时返回 true。
+
+<a id="member-gfnetworkbackend-methods-get_session_bootstrap"></a>
+
+### `get_session_bootstrap`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func get_session_bootstrap() -> Dictionary:
+```
+
+获取已建立外部连接的会话接管信息。 普通 Backend 返回空字典，由 `host()` / `connect_to_endpoint()` 建立 Session； 接管外部 Peer 的 Backend 可返回 mode、endpoint、local_peer_id 和 metadata。
+
+返回：可选会话接管字段。
+
+结构：
+
+- `return`: Dictionary with optional mode, endpoint, local_peer_id, and metadata.
+
 <a id="member-gfnetworkbackend-methods-get_debug_snapshot"></a>
 
 ### `get_debug_snapshot`
@@ -238,3 +278,69 @@ func get_debug_snapshot() -> Dictionary:
 结构：
 
 - `return`: Dictionary，包含 backend、available 以及后端自定义状态字段。
+
+<a id="member-gfnetworkbackend-methods-get_transport_metrics"></a>
+
+### `get_transport_metrics`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func get_transport_metrics() -> GFNetworkTransportMetrics:
+```
+
+获取当前传输指标快照。 基类统一统计成功发送和已派发接收的 bytes/packet 数。具体后端可通过 `_enrich_transport_metrics` 补充 RTT、丢包率或队列等可选指标。
+
+返回：当前指标快照；未知指标不会出现在快照中。
+
+<a id="member-gfnetworkbackend-methods-_enrich_transport_metrics"></a>
+
+### `_enrich_transport_metrics`
+
+- API：`protected`
+- 首次版本：`unreleased`
+
+```gdscript
+func _enrich_transport_metrics(_metrics: GFNetworkTransportMetrics) -> void:
+```
+
+向基础指标快照写入后端特有指标。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `_metrics` | 可追加已知指标的快照。 |
+
+<a id="member-gfnetworkbackend-methods-_record_transport_packet_sent"></a>
+
+### `_record_transport_packet_sent`
+
+- API：`protected`
+- 首次版本：`unreleased`
+
+```gdscript
+func _record_transport_packet_sent(byte_count: int) -> void:
+```
+
+记录一次成功发送。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `byte_count` | 已交给传输层的字节数。 |
+
+<a id="member-gfnetworkbackend-methods-_reset_transport_metrics"></a>
+
+### `_reset_transport_metrics`
+
+- API：`protected`
+- 首次版本：`unreleased`
+
+```gdscript
+func _reset_transport_metrics() -> void:
+```
+
+重置当前连接的累计传输指标。

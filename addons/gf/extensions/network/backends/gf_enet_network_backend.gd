@@ -147,6 +147,8 @@ func send_bytes(peer_id: int, bytes: PackedByteArray, options: Dictionary = {}) 
 	_peer.transfer_mode = _get_transfer_mode(options)
 	var error: Error = _peer.put_packet(bytes)
 	_peer.set_target_peer(MultiplayerPeer.TARGET_PEER_BROADCAST)
+	if error == OK:
+		_record_transport_packet_sent(bytes.size())
 	return error
 
 

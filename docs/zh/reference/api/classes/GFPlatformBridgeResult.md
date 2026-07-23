@@ -22,11 +22,11 @@
 | 属性 | [`status`](#member-gfplatformbridgeresult-properties-status) | `var status: StringName = &""` |
 | 属性 | [`value`](#member-gfplatformbridgeresult-properties-value) | `var value: Variant = null` |
 | 属性 | [`error`](#member-gfplatformbridgeresult-properties-error) | `var error: String = ""` |
-| 属性 | [`started_at_msec`](#member-gfplatformbridgeresult-properties-started_at_msec) | `var started_at_msec: int = 0` |
-| 属性 | [`completed_at_msec`](#member-gfplatformbridgeresult-properties-completed_at_msec) | `var completed_at_msec: int = 0` |
+| 属性 | [`started_at_msec`](#member-gfplatformbridgeresult-properties-started_at_msec) | `var started_at_msec: int = -1` |
+| 属性 | [`completed_at_msec`](#member-gfplatformbridgeresult-properties-completed_at_msec) | `var completed_at_msec: int = -1` |
 | 属性 | [`metadata`](#member-gfplatformbridgeresult-properties-metadata) | `var metadata: Dictionary = {}` |
-| 方法 | [`configure_success`](#member-gfplatformbridgeresult-methods-configure_success) | `func configure_success( request: GFPlatformBridgeRequest, p_value: Variant = null, p_status: StringName = &"ok", p_started_at_msec: int = 0, p_completed_at_msec: int = 0, p_metadata: Dictionary = {} ) -> GFPlatformBridgeResult:` |
-| 方法 | [`configure_failure`](#member-gfplatformbridgeresult-methods-configure_failure) | `func configure_failure( request: GFPlatformBridgeRequest, p_error: String, p_status: StringName = &"failed", p_started_at_msec: int = 0, p_completed_at_msec: int = 0, p_metadata: Dictionary = {} ) -> GFPlatformBridgeResult:` |
+| 方法 | [`configure_success`](#member-gfplatformbridgeresult-methods-configure_success) | `func configure_success( request: GFPlatformBridgeRequest, p_value: Variant = null, p_status: StringName = &"ok", p_started_at_msec: int = -1, p_completed_at_msec: int = -1, p_metadata: Dictionary = {} ) -> GFPlatformBridgeResult:` |
+| 方法 | [`configure_failure`](#member-gfplatformbridgeresult-methods-configure_failure) | `func configure_failure( request: GFPlatformBridgeRequest, p_error: String, p_status: StringName = &"failed", p_started_at_msec: int = -1, p_completed_at_msec: int = -1, p_metadata: Dictionary = {} ) -> GFPlatformBridgeResult:` |
 | 方法 | [`get_duration_msec`](#member-gfplatformbridgeresult-methods-get_duration_msec) | `func get_duration_msec() -> int:` |
 | 方法 | [`to_dict`](#member-gfplatformbridgeresult-methods-to_dict) | `func to_dict() -> Dictionary:` |
 | 方法 | [`apply_dict`](#member-gfplatformbridgeresult-methods-apply_dict) | `func apply_dict(data: Dictionary) -> void:` |
@@ -138,10 +138,10 @@ var error: String = ""
 - 首次版本：`8.0.0`
 
 ```gdscript
-var started_at_msec: int = 0
+var started_at_msec: int = -1
 ```
 
-开始时间戳，单位毫秒。
+开始时间戳，单位毫秒；-1 表示未知。
 
 <a id="member-gfplatformbridgeresult-properties-completed_at_msec"></a>
 
@@ -151,10 +151,10 @@ var started_at_msec: int = 0
 - 首次版本：`8.0.0`
 
 ```gdscript
-var completed_at_msec: int = 0
+var completed_at_msec: int = -1
 ```
 
-完成时间戳，单位毫秒。
+完成时间戳，单位毫秒；-1 表示未知。
 
 <a id="member-gfplatformbridgeresult-properties-metadata"></a>
 
@@ -183,7 +183,7 @@ var metadata: Dictionary = {}
 - 首次版本：`8.0.0`
 
 ```gdscript
-func configure_success( request: GFPlatformBridgeRequest, p_value: Variant = null, p_status: StringName = &"ok", p_started_at_msec: int = 0, p_completed_at_msec: int = 0, p_metadata: Dictionary = {} ) -> GFPlatformBridgeResult:
+func configure_success( request: GFPlatformBridgeRequest, p_value: Variant = null, p_status: StringName = &"ok", p_started_at_msec: int = -1, p_completed_at_msec: int = -1, p_metadata: Dictionary = {} ) -> GFPlatformBridgeResult:
 ```
 
 配置成功结果。
@@ -196,7 +196,7 @@ func configure_success( request: GFPlatformBridgeRequest, p_value: Variant = nul
 | `p_value` | 返回值。 |
 | `p_status` | 状态码。 |
 | `p_started_at_msec` | 开始时间戳。 |
-| `p_completed_at_msec` | 完成单调时间戳；0 表示调用方未提供。 |
+| `p_completed_at_msec` | 完成单调时间戳；-1 表示调用方未提供。 |
 | `p_metadata` | 调用方元数据。 |
 
 返回：当前结果。
@@ -214,7 +214,7 @@ func configure_success( request: GFPlatformBridgeRequest, p_value: Variant = nul
 - 首次版本：`8.0.0`
 
 ```gdscript
-func configure_failure( request: GFPlatformBridgeRequest, p_error: String, p_status: StringName = &"failed", p_started_at_msec: int = 0, p_completed_at_msec: int = 0, p_metadata: Dictionary = {} ) -> GFPlatformBridgeResult:
+func configure_failure( request: GFPlatformBridgeRequest, p_error: String, p_status: StringName = &"failed", p_started_at_msec: int = -1, p_completed_at_msec: int = -1, p_metadata: Dictionary = {} ) -> GFPlatformBridgeResult:
 ```
 
 配置失败结果。
@@ -227,7 +227,7 @@ func configure_failure( request: GFPlatformBridgeRequest, p_error: String, p_sta
 | `p_error` | 错误描述。 |
 | `p_status` | 状态码。 |
 | `p_started_at_msec` | 开始时间戳。 |
-| `p_completed_at_msec` | 完成单调时间戳；0 表示调用方未提供。 |
+| `p_completed_at_msec` | 完成单调时间戳；-1 表示调用方未提供。 |
 | `p_metadata` | 调用方元数据。 |
 
 返回：当前结果。

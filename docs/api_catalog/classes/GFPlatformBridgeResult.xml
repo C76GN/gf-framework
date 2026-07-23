@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFPlatformBridgeResult" path="addons/gf/standard/foundation/platform/gf_platform_bridge_result.gd" module="standard" extends="Resource" classDigest="baa0c9123c8cdd73f9240c317fca72a50b001a4e73f3110938cdf946cc59bda2">
+<class name="GFPlatformBridgeResult" path="addons/gf/standard/foundation/platform/gf_platform_bridge_result.gd" module="standard" extends="Resource" classDigest="07aa1c5d85d028a50f1c8d73adf9b1c0113be4191905be6b584a925ac56fdc17">
 	<description>GFPlatformBridgeResult: 平台桥接结果。
 用纯数据表达外部平台 adapter 对一次桥接请求的成功、失败、状态、返回值和耗时。
 它不包含平台 SDK 依赖，也不假设同步或异步实现方式。</description>
@@ -70,16 +70,16 @@
 			</tags>
 		</member>
 		<member kind="property" name="started_at_msec" decorators="@export">
-			<signature>var started_at_msec: int = 0</signature>
-			<description>开始时间戳，单位毫秒。</description>
+			<signature>var started_at_msec: int = -1</signature>
+			<description>开始时间戳，单位毫秒；-1 表示未知。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="completed_at_msec" decorators="@export">
-			<signature>var completed_at_msec: int = 0</signature>
-			<description>完成时间戳，单位毫秒。</description>
+			<signature>var completed_at_msec: int = -1</signature>
+			<description>完成时间戳，单位毫秒；-1 表示未知。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="since">8.0.0</tag>
@@ -97,7 +97,7 @@
 	</properties>
 	<methods>
 		<member kind="method" name="configure_success">
-			<signature>func configure_success( request: GFPlatformBridgeRequest, p_value: Variant = null, p_status: StringName = &amp;"ok", p_started_at_msec: int = 0, p_completed_at_msec: int = 0, p_metadata: Dictionary = {} ) -&gt; GFPlatformBridgeResult:</signature>
+			<signature>func configure_success( request: GFPlatformBridgeRequest, p_value: Variant = null, p_status: StringName = &amp;"ok", p_started_at_msec: int = -1, p_completed_at_msec: int = -1, p_metadata: Dictionary = {} ) -&gt; GFPlatformBridgeResult:</signature>
 			<description>配置成功结果。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -105,7 +105,7 @@
 				<tag name="param">p_value: 返回值。</tag>
 				<tag name="param">p_status: 状态码。</tag>
 				<tag name="param">p_started_at_msec: 开始时间戳。</tag>
-				<tag name="param">p_completed_at_msec: 完成单调时间戳；0 表示调用方未提供。</tag>
+				<tag name="param">p_completed_at_msec: 完成单调时间戳；-1 表示调用方未提供。</tag>
 				<tag name="param">p_metadata: 调用方元数据。</tag>
 				<tag name="return">当前结果。</tag>
 				<tag name="schema">p_value: Adapter-defined result value.</tag>
@@ -114,7 +114,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="configure_failure">
-			<signature>func configure_failure( request: GFPlatformBridgeRequest, p_error: String, p_status: StringName = &amp;"failed", p_started_at_msec: int = 0, p_completed_at_msec: int = 0, p_metadata: Dictionary = {} ) -&gt; GFPlatformBridgeResult:</signature>
+			<signature>func configure_failure( request: GFPlatformBridgeRequest, p_error: String, p_status: StringName = &amp;"failed", p_started_at_msec: int = -1, p_completed_at_msec: int = -1, p_metadata: Dictionary = {} ) -&gt; GFPlatformBridgeResult:</signature>
 			<description>配置失败结果。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -122,7 +122,7 @@
 				<tag name="param">p_error: 错误描述。</tag>
 				<tag name="param">p_status: 状态码。</tag>
 				<tag name="param">p_started_at_msec: 开始时间戳。</tag>
-				<tag name="param">p_completed_at_msec: 完成单调时间戳；0 表示调用方未提供。</tag>
+				<tag name="param">p_completed_at_msec: 完成单调时间戳；-1 表示调用方未提供。</tag>
 				<tag name="param">p_metadata: 调用方元数据。</tag>
 				<tag name="return">当前结果。</tag>
 				<tag name="schema">p_metadata: Dictionary caller-defined result metadata.</tag>

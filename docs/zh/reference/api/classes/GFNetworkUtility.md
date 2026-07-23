@@ -21,11 +21,14 @@
 | 信号 | [`disconnected`](#member-gfnetworkutility-signals-disconnected) | `signal disconnected(reason: String)` |
 | 信号 | [`peer_connected`](#member-gfnetworkutility-signals-peer_connected) | `signal peer_connected(peer_id: int)` |
 | 信号 | [`peer_disconnected`](#member-gfnetworkutility-signals-peer_disconnected) | `signal peer_disconnected(peer_id: int)` |
-| 属性 | [`backend`](#member-gfnetworkutility-properties-backend) | `var backend: GFNetworkBackend` |
+| 信号 | [`transport_metrics_sampled`](#member-gfnetworkutility-signals-transport_metrics_sampled) | `signal transport_metrics_sampled(metrics: GFNetworkTransportMetrics)` |
+| 属性 | [`backend`](#member-gfnetworkutility-properties-backend) | `var backend: GFNetworkBackend:` |
 | 属性 | [`serializer`](#member-gfnetworkutility-properties-serializer) | `var serializer: GFNetworkSerializer = GFNetworkSerializer.new()` |
 | 属性 | [`validator`](#member-gfnetworkutility-properties-validator) | `var validator: GFNetworkMessageValidator = GFNetworkMessageValidator.new()` |
 | 属性 | [`session`](#member-gfnetworkutility-properties-session) | `var session: GFNetworkSession = GFNetworkSession.new()` |
 | 属性 | [`connect_timeout_msec`](#member-gfnetworkutility-properties-connect_timeout_msec) | `var connect_timeout_msec: int = 15000` |
+| 属性 | [`transport_metrics_sample_interval_msec`](#member-gfnetworkutility-properties-transport_metrics_sample_interval_msec) | `var transport_metrics_sample_interval_msec: int = 1000` |
+| 属性 | [`max_transport_metric_samples`](#member-gfnetworkutility-properties-max_transport_metric_samples) | `var max_transport_metric_samples: int:` |
 | 方法 | [`ready`](#member-gfnetworkutility-methods-ready) | `func ready() -> void:` |
 | 方法 | [`tick`](#member-gfnetworkutility-methods-tick) | `func tick(delta: float) -> void:` |
 | 方法 | [`dispose`](#member-gfnetworkutility-methods-dispose) | `func dispose() -> void:` |
@@ -40,6 +43,9 @@
 | 方法 | [`disconnect_network`](#member-gfnetworkutility-methods-disconnect_network) | `func disconnect_network() -> void:` |
 | 方法 | [`send_message`](#member-gfnetworkutility-methods-send_message) | `func send_message(peer_id: int, message: GFNetworkMessage, options: Dictionary = {}) -> Error:` |
 | 方法 | [`send_message_on_channel`](#member-gfnetworkutility-methods-send_message_on_channel) | `func send_message_on_channel( peer_id: int, message: GFNetworkMessage, channel_id: StringName, options: Dictionary = {} ) -> Error:` |
+| 方法 | [`capture_transport_metrics`](#member-gfnetworkutility-methods-capture_transport_metrics) | `func capture_transport_metrics() -> GFNetworkTransportMetrics:` |
+| 方法 | [`get_transport_metric_samples`](#member-gfnetworkutility-methods-get_transport_metric_samples) | `func get_transport_metric_samples() -> Array[GFNetworkTransportMetrics]:` |
+| 方法 | [`clear_transport_metric_samples`](#member-gfnetworkutility-methods-clear_transport_metric_samples) | `func clear_transport_metric_samples() -> void:` |
 | 方法 | [`get_debug_snapshot`](#member-gfnetworkutility-methods-get_debug_snapshot) | `func get_debug_snapshot() -> Dictionary:` |
 
 ## 信号
@@ -153,6 +159,25 @@ signal peer_disconnected(peer_id: int)
 |---|---|
 | `peer_id` | 远端 peer 标识。 |
 
+<a id="member-gfnetworkutility-signals-transport_metrics_sampled"></a>
+
+### `transport_metrics_sampled`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+signal transport_metrics_sampled(metrics: GFNetworkTransportMetrics)
+```
+
+采集到传输指标快照后发出。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `metrics` | 指标快照副本。 |
+
 ## 属性
 
 <a id="member-gfnetworkutility-properties-backend"></a>
@@ -160,9 +185,10 @@ signal peer_disconnected(peer_id: int)
 ### `backend`
 
 - API：`public`
+- 首次版本：`3.6.0`
 
 ```gdscript
-var backend: GFNetworkBackend
+var backend: GFNetworkBackend:
 ```
 
 当前网络后端。
@@ -215,6 +241,32 @@ var connect_timeout_msec: int = 15000
 ```
 
 客户端连接超时时间，单位毫秒。小于等于 0 表示不主动超时。
+
+<a id="member-gfnetworkutility-properties-transport_metrics_sample_interval_msec"></a>
+
+### `transport_metrics_sample_interval_msec`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+var transport_metrics_sample_interval_msec: int = 1000
+```
+
+自动传输指标采样间隔，单位毫秒；小于等于 0 表示禁用自动采样。
+
+<a id="member-gfnetworkutility-properties-max_transport_metric_samples"></a>
+
+### `max_transport_metric_samples`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+var max_transport_metric_samples: int:
+```
+
+内存中最多保留的传输指标快照数量；小于等于 0 表示不保留。
 
 ## 方法
 
@@ -474,11 +526,59 @@ func send_message_on_channel( peer_id: int, message: GFNetworkMessage, channel_i
 
 - `options`: Dictionary，覆盖 GFNetworkChannel.build_send_options() 的发送选项。
 
+<a id="member-gfnetworkutility-methods-capture_transport_metrics"></a>
+
+### `capture_transport_metrics`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func capture_transport_metrics() -> GFNetworkTransportMetrics:
+```
+
+立即采集一次当前 Backend 的传输指标。
+
+返回：指标快照；未配置 Backend 时返回 null。
+
+<a id="member-gfnetworkutility-methods-get_transport_metric_samples"></a>
+
+### `get_transport_metric_samples`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func get_transport_metric_samples() -> Array[GFNetworkTransportMetrics]:
+```
+
+获取按时间排序的传输指标历史副本。
+
+返回：最旧到最新的指标快照。
+
+结构：
+
+- `return`: Array[GFNetworkTransportMetrics] bounded metric samples.
+
+<a id="member-gfnetworkutility-methods-clear_transport_metric_samples"></a>
+
+### `clear_transport_metric_samples`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func clear_transport_metric_samples() -> void:
+```
+
+清空传输指标历史。
+
 <a id="member-gfnetworkutility-methods-get_debug_snapshot"></a>
 
 ### `get_debug_snapshot`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func get_debug_snapshot() -> Dictionary:
@@ -490,4 +590,4 @@ func get_debug_snapshot() -> Dictionary:
 
 结构：
 
-- `return`: Dictionary，包含 backend_configured、serializer_configured、validator_configured、backend、session、channels、validator。
+- `return`: Dictionary including backend, session, channels, validator, and transport metrics.

@@ -7,7 +7,7 @@
 | 模块 | 类 | 成员 | 页面内索引 |
 |---|---:|---:|---|
 | Kernel | 70 | 987 | [Kernel](#module-kernel) |
-| Standard | 427 | 6759 | [Standard](#module-standard) |
+| Standard | 431 | 6821 | [Standard](#module-standard) |
 | Action Queue | 16 | 214 | [Action Queue](#module-extensions-action_queue) |
 | Asset Metadata | 4 | 33 | [Asset Metadata](#module-extensions-asset_metadata) |
 | Behavior Tree | 22 | 89 | [Behavior Tree](#module-extensions-behavior_tree) |
@@ -21,7 +21,7 @@
 | Feedback | 8 | 138 | [Feedback](#module-extensions-feedback) |
 | Flow | 7 | 138 | [Flow](#module-extensions-flow) |
 | Interaction | 6 | 82 | [Interaction](#module-extensions-interaction) |
-| Network | 34 | 485 | [Network](#module-extensions-network) |
+| Network | 38 | 574 | [Network](#module-extensions-network) |
 | Physics | 4 | 50 | [Physics](#module-extensions-physics) |
 | Save | 41 | 468 | [Save](#module-extensions-save) |
 | Turn Based | 4 | 49 | [Turn Based](#module-extensions-turn_based) |
@@ -208,7 +208,7 @@
 | [`GFPathEnumerationTools`](GFPathEnumerationTools.md#gfpathenumerationtools) | 运行时服务 (`runtime_service`) | `RefCounted` | 5 | `addons/gf/standard/utilities/io/gf_path_enumeration_tools.gd` |
 | [`GFPhysicsQueryUtility`](GFPhysicsQueryUtility.md#gfphysicsqueryutility) | 运行时服务 (`runtime_service`) | `GFUtility` | 3 | `addons/gf/standard/utilities/spatial/gf_physics_query_utility.gd` |
 | [`GFPlacementSequenceMath`](GFPlacementSequenceMath.md#gfplacementsequencemath) | 运行时服务 (`runtime_service`) | `RefCounted` | 7 | `addons/gf/standard/foundation/math/gf_placement_sequence_math.gd` |
-| [`GFPlatformRuntime`](GFPlatformRuntime.md#gfplatformruntime) | 运行时服务 (`runtime_service`) | `GFUtility` | 25 | `addons/gf/standard/platform/gf_platform_runtime.gd` |
+| [`GFPlatformRuntime`](GFPlatformRuntime.md#gfplatformruntime) | 运行时服务 (`runtime_service`) | `GFUtility` | 32 | `addons/gf/standard/platform/gf_platform_runtime.gd` |
 | [`GFPointerActivityUtility`](GFPointerActivityUtility.md#gfpointeractivityutility) | 运行时服务 (`runtime_service`) | `GFUtility` | 25 | `addons/gf/standard/input/runtime/gf_pointer_activity_utility.gd` |
 | [`GFPointerGestureUtility`](GFPointerGestureUtility.md#gfpointergestureutility) | 运行时服务 (`runtime_service`) | `GFUtility` | 14 | `addons/gf/standard/input/runtime/gf_pointer_gesture_utility.gd` |
 | [`GFPoissonDisc2D`](GFPoissonDisc2D.md#gfpoissondisc2d) | 运行时服务 (`runtime_service`) | `RefCounted` | 5 | `addons/gf/standard/foundation/math/gf_poisson_disc_2d.gd` |
@@ -312,7 +312,8 @@
 | [`GFNodeState`](GFNodeState.md#gfnodestate) | 协议与扩展点 (`protocol`) | `Node` | 46 | `addons/gf/standard/state_machine/node/gf_node_state.gd` |
 | [`GFNodeStateBehavior`](GFNodeStateBehavior.md#gfnodestatebehavior) | 协议与扩展点 (`protocol`) | `Resource` | 15 | `addons/gf/standard/state_machine/node/gf_node_state_behavior.gd` |
 | [`GFNodeStateCondition`](GFNodeStateCondition.md#gfnodestatecondition) | 协议与扩展点 (`protocol`) | `Resource` | 5 | `addons/gf/standard/state_machine/node/gf_node_state_condition.gd` |
-| [`GFPlatformAdapter`](GFPlatformAdapter.md#gfplatformadapter) | 协议与扩展点 (`protocol`) | `RefCounted` | 28 | `addons/gf/standard/platform/gf_platform_adapter.gd` |
+| [`GFPlatformAdapter`](GFPlatformAdapter.md#gfplatformadapter) | 协议与扩展点 (`protocol`) | `RefCounted` | 33 | `addons/gf/standard/platform/gf_platform_adapter.gd` |
+| [`GFPlatformAdapterConformance`](GFPlatformAdapterConformance.md#gfplatformadapterconformance) | 协议与扩展点 (`protocol`) | `RefCounted` | 11 | `addons/gf/standard/platform/gf_platform_adapter_conformance.gd` |
 | [`GFPolicyProvider`](GFPolicyProvider.md#gfpolicyprovider) | 协议与扩展点 (`protocol`) | `Resource` | 14 | `addons/gf/standard/foundation/policy/gf_policy_provider.gd` |
 | [`GFRuntimeTask`](GFRuntimeTask.md#gfruntimetask) | 协议与扩展点 (`protocol`) | `RefCounted` | 19 | `addons/gf/standard/sequence/gf_runtime_task.gd` |
 | [`GFSequenceStep`](GFSequenceStep.md#gfsequencestep) | 协议与扩展点 (`protocol`) | `Resource` | 4 | `addons/gf/standard/sequence/gf_sequence_step.gd` |
@@ -391,6 +392,8 @@
 | [`GFPlatformBridgeRequest`](GFPlatformBridgeRequest.md#gfplatformbridgerequest) | 资源定义 (`resource_definition`) | `Resource` | 12 | `addons/gf/standard/foundation/platform/gf_platform_bridge_request.gd` |
 | [`GFPlatformBridgeResult`](GFPlatformBridgeResult.md#gfplatformbridgeresult) | 资源定义 (`resource_definition`) | `Resource` | 17 | `addons/gf/standard/foundation/platform/gf_platform_bridge_result.gd` |
 | [`GFPlatformCapabilitySet`](GFPlatformCapabilitySet.md#gfplatformcapabilityset) | 资源定义 (`resource_definition`) | `Resource` | 20 | `addons/gf/standard/foundation/platform/gf_platform_capability_set.gd` |
+| [`GFPlatformContractDescriptor`](GFPlatformContractDescriptor.md#gfplatformcontractdescriptor) | 资源定义 (`resource_definition`) | `Resource` | 9 | `addons/gf/standard/foundation/platform/gf_platform_contract_descriptor.gd` |
+| [`GFPlatformContractMethodDescriptor`](GFPlatformContractMethodDescriptor.md#gfplatformcontractmethoddescriptor) | 资源定义 (`resource_definition`) | `Resource` | 16 | `addons/gf/standard/foundation/platform/gf_platform_contract_method_descriptor.gd` |
 | [`GFPlatformLifecycleEvent`](GFPlatformLifecycleEvent.md#gfplatformlifecycleevent) | 资源定义 (`resource_definition`) | `Resource` | 20 | `addons/gf/standard/foundation/platform/gf_platform_lifecycle_event.gd` |
 | [`GFPlatformLocaleMap`](GFPlatformLocaleMap.md#gfplatformlocalemap) | 资源定义 (`resource_definition`) | `Resource` | 12 | `addons/gf/standard/foundation/text/gf_platform_locale_map.gd` |
 | [`GFPlatformRuntimeContext`](GFPlatformRuntimeContext.md#gfplatformruntimecontext) | 资源定义 (`resource_definition`) | `Resource` | 26 | `addons/gf/standard/foundation/platform/gf_platform_runtime_context.gd` |
@@ -524,6 +527,7 @@
 | [`GFAudioParameter`](GFAudioParameter.md#gfaudioparameter) | 事件契约 (`event_contract`) | `Resource` | 5 | `addons/gf/standard/utilities/audio/gf_audio_parameter.gd` |
 | [`GFAudioState`](GFAudioState.md#gfaudiostate) | 事件契约 (`event_contract`) | `Resource` | 4 | `addons/gf/standard/utilities/audio/gf_audio_state.gd` |
 | [`GFAudioSwitch`](GFAudioSwitch.md#gfaudioswitch) | 事件契约 (`event_contract`) | `Resource` | 5 | `addons/gf/standard/utilities/audio/gf_audio_switch.gd` |
+| [`GFPlatformActivationIntent`](GFPlatformActivationIntent.md#gfplatformactivationintent) | 事件契约 (`event_contract`) | `Resource` | 14 | `addons/gf/standard/foundation/platform/gf_platform_activation_intent.gd` |
 | [`GFRequestEnvelope`](GFRequestEnvelope.md#gfrequestenvelope) | 事件契约 (`event_contract`) | `RefCounted` | 24 | `addons/gf/standard/utilities/io/gf_request_envelope.gd` |
 | [`GFBuildInfoExportPlugin`](GFBuildInfoExportPlugin.md#gfbuildinfoexportplugin) | 编辑器 API (`editor_api`) | `EditorExportPlugin` | 5 | `addons/gf/standard/utilities/debug/editor/gf_build_info_export_plugin.gd` |
 | [`GFConfigTableEditorTools`](GFConfigTableEditorTools.md#gfconfigtableeditortools) | 编辑器 API (`editor_api`) | `RefCounted` | 16 | `addons/gf/standard/utilities/config/gf_config_table_editor_tools.gd` |
@@ -808,11 +812,11 @@
 | 类 | 类别 | 继承 | 成员 | 源文件 |
 |---|---|---|---:|---|
 | [`GFNetworkDirtyStateTracker`](GFNetworkDirtyStateTracker.md#gfnetworkdirtystatetracker) | 运行时服务 (`runtime_service`) | `RefCounted` | 11 | `addons/gf/extensions/network/session/gf_network_dirty_state_tracker.gd` |
-| [`GFNetworkLobbyService`](GFNetworkLobbyService.md#gfnetworklobbyservice) | 运行时服务 (`runtime_service`) | `GFUtility` | 23 | `addons/gf/extensions/network/session/gf_network_lobby_service.gd` |
+| [`GFNetworkLobbyService`](GFNetworkLobbyService.md#gfnetworklobbyservice) | 运行时服务 (`runtime_service`) | `GFUtility` | 33 | `addons/gf/extensions/network/session/gf_network_lobby_service.gd` |
 | [`GFNetworkSyncCoordinator`](GFNetworkSyncCoordinator.md#gfnetworksynccoordinator) | 运行时服务 (`runtime_service`) | `RefCounted` | 29 | `addons/gf/extensions/network/simulation/gf_network_sync_coordinator.gd` |
-| [`GFNetworkUtility`](GFNetworkUtility.md#gfnetworkutility) | 运行时服务 (`runtime_service`) | `GFUtility` | 26 | `addons/gf/extensions/network/runtime/gf_network_utility.gd` |
-| [`GFNetworkBackend`](GFNetworkBackend.md#gfnetworkbackend) | 协议与扩展点 (`protocol`) | `RefCounted` | 11 | `addons/gf/extensions/network/backends/gf_network_backend.gd` |
-| [`GFNetworkLobbyBackend`](GFNetworkLobbyBackend.md#gfnetworklobbybackend) | 协议与扩展点 (`protocol`) | `RefCounted` | 29 | `addons/gf/extensions/network/session/gf_network_lobby_backend.gd` |
+| [`GFNetworkUtility`](GFNetworkUtility.md#gfnetworkutility) | 运行时服务 (`runtime_service`) | `GFUtility` | 32 | `addons/gf/extensions/network/runtime/gf_network_utility.gd` |
+| [`GFNetworkBackend`](GFNetworkBackend.md#gfnetworkbackend) | 协议与扩展点 (`protocol`) | `RefCounted` | 17 | `addons/gf/extensions/network/backends/gf_network_backend.gd` |
+| [`GFNetworkLobbyBackend`](GFNetworkLobbyBackend.md#gfnetworklobbybackend) | 协议与扩展点 (`protocol`) | `RefCounted` | 22 | `addons/gf/extensions/network/session/gf_network_lobby_backend.gd` |
 | [`GFNetworkMessageValidator`](GFNetworkMessageValidator.md#gfnetworkmessagevalidator) | 协议与扩展点 (`protocol`) | `RefCounted` | 23 | `addons/gf/extensions/network/messages/gf_network_message_validator.gd` |
 | [`GFNetworkSerializer`](GFNetworkSerializer.md#gfnetworkserializer) | 协议与扩展点 (`protocol`) | `RefCounted` | 9 | `addons/gf/extensions/network/serialization/gf_network_serializer.gd` |
 | [`GFNetworkSimulationAdapter`](GFNetworkSimulationAdapter.md#gfnetworksimulationadapter) | 协议与扩展点 (`protocol`) | `RefCounted` | 6 | `addons/gf/extensions/network/simulation/gf_network_simulation_adapter.gd` |
@@ -824,7 +828,9 @@
 | [`GFNetworkSnapshotSchema`](GFNetworkSnapshotSchema.md#gfnetworksnapshotschema) | 资源定义 (`resource_definition`) | `Resource` | 14 | `addons/gf/extensions/network/snapshot/gf_network_snapshot_schema.gd` |
 | [`GFENetNetworkBackend`](GFENetNetworkBackend.md#gfenetnetworkbackend) | 运行时句柄 (`runtime_handle`) | `GFNetworkBackend` | 8 | `addons/gf/extensions/network/backends/gf_enet_network_backend.gd` |
 | [`GFFixedTickClock`](GFFixedTickClock.md#gffixedtickclock) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 22 | `addons/gf/extensions/network/simulation/gf_fixed_tick_clock.gd` |
+| [`GFMultiplayerPeerNetworkBackend`](GFMultiplayerPeerNetworkBackend.md#gfmultiplayerpeernetworkbackend) | 运行时句柄 (`runtime_handle`) | `GFNetworkBackend` | 13 | `addons/gf/extensions/network/backends/gf_multiplayer_peer_network_backend.gd` |
 | [`GFNetworkHistoryBuffer`](GFNetworkHistoryBuffer.md#gfnetworkhistorybuffer) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 15 | `addons/gf/extensions/network/snapshot/gf_network_history_buffer.gd` |
+| [`GFNetworkLobbyOperationHandle`](GFNetworkLobbyOperationHandle.md#gfnetworklobbyoperationhandle) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 10 | `addons/gf/extensions/network/session/gf_network_lobby_operation_handle.gd` |
 | [`GFNetworkRateLimiter`](GFNetworkRateLimiter.md#gfnetworkratelimiter) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 6 | `addons/gf/extensions/network/session/gf_network_rate_limiter.gd` |
 | [`GFNetworkReconnectPolicy`](GFNetworkReconnectPolicy.md#gfnetworkreconnectpolicy) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 9 | `addons/gf/extensions/network/session/gf_network_reconnect_policy.gd` |
 | [`GFNetworkServiceDiscovery`](GFNetworkServiceDiscovery.md#gfnetworkservicediscovery) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 20 | `addons/gf/extensions/network/session/gf_network_service_discovery.gd` |
@@ -832,13 +838,15 @@
 | [`GFWebSocketNetworkBackend`](GFWebSocketNetworkBackend.md#gfwebsocketnetworkbackend) | 运行时句柄 (`runtime_handle`) | `GFNetworkBackend` | 11 | `addons/gf/extensions/network/backends/gf_websocket_network_backend.gd` |
 | [`GFNetworkInputFrame`](GFNetworkInputFrame.md#gfnetworkinputframe) | 值对象 (`value_object`) | `RefCounted` | 8 | `addons/gf/extensions/network/simulation/gf_network_input_frame.gd` |
 | [`GFNetworkLobbyDescriptor`](GFNetworkLobbyDescriptor.md#gfnetworklobbydescriptor) | 值对象 (`value_object`) | `Resource` | 24 | `addons/gf/extensions/network/session/gf_network_lobby_descriptor.gd` |
-| [`GFNetworkLobbyJoinResult`](GFNetworkLobbyJoinResult.md#gfnetworklobbyjoinresult) | 值对象 (`value_object`) | `RefCounted` | 14 | `addons/gf/extensions/network/session/gf_network_lobby_join_result.gd` |
 | [`GFNetworkLobbyMember`](GFNetworkLobbyMember.md#gfnetworklobbymember) | 值对象 (`value_object`) | `Resource` | 11 | `addons/gf/extensions/network/session/gf_network_lobby_member.gd` |
+| [`GFNetworkLobbyOperationResult`](GFNetworkLobbyOperationResult.md#gfnetworklobbyoperationresult) | 值对象 (`value_object`) | `RefCounted` | 21 | `addons/gf/extensions/network/session/gf_network_lobby_operation_result.gd` |
 | [`GFNetworkLobbyQuery`](GFNetworkLobbyQuery.md#gfnetworklobbyquery) | 值对象 (`value_object`) | `Resource` | 13 | `addons/gf/extensions/network/session/gf_network_lobby_query.gd` |
 | [`GFNetworkMessage`](GFNetworkMessage.md#gfnetworkmessage) | 值对象 (`value_object`) | `RefCounted` | 8 | `addons/gf/extensions/network/messages/gf_network_message.gd` |
 | [`GFNetworkPeerIdentity`](GFNetworkPeerIdentity.md#gfnetworkpeeridentity) | 值对象 (`value_object`) | `Resource` | 16 | `addons/gf/extensions/network/session/gf_network_peer_identity.gd` |
 | [`GFNetworkSnapshot`](GFNetworkSnapshot.md#gfnetworksnapshot) | 值对象 (`value_object`) | `RefCounted` | 16 | `addons/gf/extensions/network/snapshot/gf_network_snapshot.gd` |
+| [`GFNetworkTransportMetrics`](GFNetworkTransportMetrics.md#gfnetworktransportmetrics) | 值对象 (`value_object`) | `RefCounted` | 22 | `addons/gf/extensions/network/runtime/gf_network_transport_metrics.gd` |
 | [`GFNetworkLobbyInvite`](GFNetworkLobbyInvite.md#gfnetworklobbyinvite) | 事件契约 (`event_contract`) | `Resource` | 11 | `addons/gf/extensions/network/session/gf_network_lobby_invite.gd` |
+| [`GFNetworkLobbyOperationRequest`](GFNetworkLobbyOperationRequest.md#gfnetworklobbyoperationrequest) | 事件契约 (`event_contract`) | `RefCounted` | 22 | `addons/gf/extensions/network/session/gf_network_lobby_operation_request.gd` |
 | [`GFNetworkContractAudit`](GFNetworkContractAudit.md#gfnetworkcontractaudit) | 编辑器 API (`editor_api`) | `RefCounted` | 2 | `addons/gf/extensions/network/editor/gf_network_contract_audit.gd` |
 | [`GFNetworkContractGenerator`](GFNetworkContractGenerator.md#gfnetworkcontractgenerator) | 编辑器 API (`editor_api`) | `RefCounted` | 7 | `addons/gf/extensions/network/editor/gf_network_contract_generator.gd` |
 

@@ -26,6 +26,9 @@
 
 ### 🚀 新增特性 (Added)
 
+- 新增平台 Contract Descriptor、Activation Intent 有界去重队列与 `GFPlatformAdapterConformance`，让外部 SDK Adapter 可以声明请求/结果 Schema、字节预算、能力、并发、取消和敏感字段，并在不调用 SDK 时完成静态覆盖审查。
+- Network Lobby 升级为带唯一请求关联、单终态、取消、单调超时和迟到 callback 防护的类型化操作模型；新增可显式接管 owned/borrowed `MultiplayerPeer` 的通用 Backend，以及区分未知值的传输指标快照与有界采样历史。
+- AI Developer Kit 新增 Platform Adapter、Lobby Backend、契约测试、兼容性 Profile 和故障矩阵模板，并更新 Network / Platform capability 与 Recipe，使 AI 默认生成 Provider 中立且可验证的 Adapter 边界。
 - `GFThumbnailRenderer` 与 `GFThumbnailRenderRequest` 支持 `CanvasItem` 的 `Image` / `ImageTexture` 缩略图请求，统一覆盖 `Node2D` 和 `Control`。调用方可以显式提供内容 `Rect2`，也可以让渲染器保守估算 Sprite、Control、Polygon、Line、AnimatedSprite 和 2D 粒子范围。
 - 新增可选包 `gf.standard.spatial.canvas` 与运行时 `Control` `GFSpatialCanvas2D`：提供世界/画布变换、焦点缩放、有界平移、稳定网格吸附、带精确命中 Hook 的候选查询、隔离选择结果和项目校验的放置会话；条目、选择、查询候选与网格绘制均受可降低但不可突破的绝对预算约束，GF 不拥有项目节点、占位规则或最终业务命令。
 - 新增 `GFAssetCollection`，用稳定 `collection_id` 和有序 `asset_ids` 描述可序列化资源集合，并通过 `GFValidationReport` 报告空 ID、重复 ID 和目录缺失项。
@@ -46,6 +49,9 @@
 
 ### 🔄 机制更改 (Changed)
 
+- `GFPlatformAdapter` 会在派发前验证已描述 Contract 的方法、能力、Schema、请求预算和并发，并在成功回调处验证结果；关闭 Adapter 会统一取消全部活动 Handle，声明不支持取消的方法不会错误调用 Provider cancel。
+- `GFNetworkLobbyService` 现在拥有请求 ID、deadline、Backend 替换取消和快照提交；非请求驱动的成员、邀请和 Lobby 更新继续使用事件，请求终态不再依赖无法关联的全局 callback 信号。
+- `GFNetworkBackend` 统一累计成功发送与已派发接收的 bytes/packet 指标；ENet、WebSocket 和通用 MultiplayerPeer Backend 共用该统计边界，未支持的 RTT、jitter 或丢包率保持未知。
 - `GFStorageBackend.load_data()` 会为没有显式错误码的后端结果补齐 `error_code`，使组合后端能够区分成功、普通读取失败和明确的暂时性故障。
 - `GFContentPackageUtility` 的 source root 新增稳定 owner 关系和事务式整组替换；既有便捷入口只操作公开 manual owner scope，不再可能清除其他模块来源。
 - `GFStorageUtility` 的异步读写新增请求句柄入口；既有 `save_data_async()`、`load_data_async()` 和全局完成信号保持原行为，并与句柄共用同一调度队列。
@@ -84,6 +90,10 @@
 
 ### 🔧 API 变动说明 (API Changes)
 
+- 新增公开类型 `GFPlatformContractDescriptor`、`GFPlatformContractMethodDescriptor`、`GFPlatformActivationIntent`、`GFPlatformAdapterConformance`、`GFNetworkLobbyOperationRequest`、`GFNetworkLobbyOperationHandle`、`GFNetworkLobbyOperationResult`、`GFMultiplayerPeerNetworkBackend` 和 `GFNetworkTransportMetrics`，均标记为 `@since unreleased`。
+- `GFPlatformAdapter.configure()` 现在要求 `contract_ids` 与 `contract_descriptors` 一一对应，并新增 `activation_intent`、Contract Descriptor 查询和受保护发布入口；`GFPlatformRuntime` 新增 Activation Intent 接收、丢弃、按 Adapter 作用域消费、确认和容量配置 API。
+- `GFNetworkLobbyBackend` 移除旧的同步 accepted `Dictionary` 操作与请求完成信号，改为 `invoke_operation()` 和受保护 `_dispatch_operation()`；Network 扩展版本升至 `5.0.0`。`GFNetworkLobbyService` 的 create/query/join/leave/metadata 入口改为返回 `GFNetworkLobbyOperationHandle`，`set_backend()` 从 `void` 改为 `bool`，`lobby_created`、`lobbies_queried`、`lobby_joined`、`lobby_left` 的参数统一改为 `GFNetworkLobbyOperationResult`，并移除 `GFNetworkLobbyJoinResult`。
+- `GFNetworkBackend` 新增 `get_transport_metrics()` 与受保护指标扩展点；`GFNetworkUtility` 新增传输指标采集信号、采样配置、手动采集和有界历史查询 API。
 - `GFThumbnailRenderRequest.Kind` 末尾新增 `CANVAS_ITEM_IMAGE` 和 `CANVAS_ITEM_TEXTURE`，既有枚举值保持不变。
 - 新增 `GFThumbnailRenderRequest.for_canvas_item_image()`、`for_canvas_item_texture()` 及相应来源、边界和留白读取入口。
 - 新增 `GFThumbnailRenderer.render_canvas_item()` 与 `render_canvas_item_texture()`。
@@ -103,6 +113,9 @@
 
 ### 📘 升级指南 (Migration Guide)
 
+- 旧 Lobby Backend 应把 create/query/join/leave/metadata 覆写合并到 `_dispatch_operation(request, handle)`，在 Provider callback 中调用 `_succeed_operation()` / `_fail_operation()`；项目调用方保存返回 Handle 并读取 `GFNetworkLobbyOperationResult`，不再等待无法按请求关联的旧完成信号。
+- 新 Platform Adapter 应为正式 Contract 提供 Descriptor 并运行 `GFPlatformAdapterConformance.inspect()`；启动、邀请和 Join 回调转换为稳定 ID 的 `GFPlatformActivationIntent`。SDK 已提供 `MultiplayerPeer` 时采用通用 Backend 并明确所有权，不要在 GF 内新增 Provider 命名 Manager。
+- 读取传输指标前先调用 `has_metric()`；缺少 RTT 等指标表示 Backend 不支持或当前未知，不能把 `get_metric()` 的默认零值解释为观测结果。长时间会话应设置有界采样容量。
 - 既有 3D 缩略图、资产目录、存储后端与同步代码无需迁移。需要 2D 预览、有序资产集合或故障转移时显式采用新入口即可。
 - 既有项目画布与关卡编辑器无需迁移。只有需要通用运行时视图、稳定选择或受控放置会话时才安装 `gf.standard.spatial.canvas`（`gf.preset.2d_toolkit` 现已包含它），把项目可视节点显式挂到 `get_content_root()`，并由项目 Adapter 负责同步边界、占位校验、历史、权限和最终模型提交；不要把同步回调用于 IO、异步业务或回调重入。
 - 既有单调用方 Content Package root 入口继续使用公开 manual owner scope；多模块、热插拔内容或场景生命周期应迁移到 `register_source_root_for_owner()` / `replace_owner_source_roots()`，并在模块退出时调用 `clear_owner_source_roots()`。
@@ -125,6 +138,14 @@
 
 ### 📁 核心受影响文件 (Affected Files)
 
+- `addons/gf/standard/foundation/platform/`
+- `addons/gf/standard/platform/gf_platform_adapter.gd`
+- `addons/gf/standard/platform/gf_platform_runtime.gd`
+- `addons/gf/standard/platform/gf_platform_adapter_conformance.gd`
+- `addons/gf/extensions/network/backends/`
+- `addons/gf/extensions/network/runtime/gf_network_transport_metrics.gd`
+- `addons/gf/extensions/network/session/gf_network_lobby_*.gd`
+- `addons/gf/tools/ai_developer/templates/adapters/platform/`
 - `addons/gf/kernel/editor/gf_thumbnail_render_request.gd`
 - `addons/gf/kernel/editor/gf_thumbnail_renderer.gd`
 - `addons/gf/standard/utilities/spatial_canvas/`

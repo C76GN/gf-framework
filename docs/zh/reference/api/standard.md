@@ -6,13 +6,13 @@
 
 | 类别 | 类 | 成员 | 方法 |
 |---|---:|---:|---:|
-| [运行时服务](#category-runtime_service) | 185 | 3307 | 2240 |
-| [协议与扩展点](#category-protocol) | 23 | 317 | 255 |
-| [资源定义](#category-resource_definition) | 114 | 1472 | 755 |
+| [运行时服务](#category-runtime_service) | 185 | 3314 | 2245 |
+| [协议与扩展点](#category-protocol) | 24 | 333 | 262 |
+| [资源定义](#category-resource_definition) | 116 | 1497 | 766 |
 | [运行时句柄](#category-runtime_handle) | 44 | 744 | 484 |
 | [值对象](#category-value_object) | 38 | 698 | 442 |
 | [领域模型](#category-domain_model) | 4 | 61 | 42 |
-| [事件契约](#category-event_contract) | 5 | 47 | 17 |
+| [事件契约](#category-event_contract) | 6 | 61 | 23 |
 | [编辑器 API](#category-editor_api) | 11 | 68 | 46 |
 | [工具 API](#category-tool_api) | 3 | 45 | 25 |
 
@@ -232,6 +232,7 @@
 | [`GFNodeStateBehavior`](classes/GFNodeStateBehavior.md#gfnodestatebehavior) | `Resource` | `addons/gf/standard/state_machine/node/gf_node_state_behavior.gd` |
 | [`GFNodeStateCondition`](classes/GFNodeStateCondition.md#gfnodestatecondition) | `Resource` | `addons/gf/standard/state_machine/node/gf_node_state_condition.gd` |
 | [`GFPlatformAdapter`](classes/GFPlatformAdapter.md#gfplatformadapter) | `RefCounted` | `addons/gf/standard/platform/gf_platform_adapter.gd` |
+| [`GFPlatformAdapterConformance`](classes/GFPlatformAdapterConformance.md#gfplatformadapterconformance) | `RefCounted` | `addons/gf/standard/platform/gf_platform_adapter_conformance.gd` |
 | [`GFPolicyProvider`](classes/GFPolicyProvider.md#gfpolicyprovider) | `Resource` | `addons/gf/standard/foundation/policy/gf_policy_provider.gd` |
 | [`GFRuntimeTask`](classes/GFRuntimeTask.md#gfruntimetask) | `RefCounted` | `addons/gf/standard/sequence/gf_runtime_task.gd` |
 | [`GFSequenceStep`](classes/GFSequenceStep.md#gfsequencestep) | `Resource` | `addons/gf/standard/sequence/gf_sequence_step.gd` |
@@ -317,6 +318,8 @@
 | [`GFPlatformBridgeRequest`](classes/GFPlatformBridgeRequest.md#gfplatformbridgerequest) | `Resource` | `addons/gf/standard/foundation/platform/gf_platform_bridge_request.gd` |
 | [`GFPlatformBridgeResult`](classes/GFPlatformBridgeResult.md#gfplatformbridgeresult) | `Resource` | `addons/gf/standard/foundation/platform/gf_platform_bridge_result.gd` |
 | [`GFPlatformCapabilitySet`](classes/GFPlatformCapabilitySet.md#gfplatformcapabilityset) | `Resource` | `addons/gf/standard/foundation/platform/gf_platform_capability_set.gd` |
+| [`GFPlatformContractDescriptor`](classes/GFPlatformContractDescriptor.md#gfplatformcontractdescriptor) | `Resource` | `addons/gf/standard/foundation/platform/gf_platform_contract_descriptor.gd` |
+| [`GFPlatformContractMethodDescriptor`](classes/GFPlatformContractMethodDescriptor.md#gfplatformcontractmethoddescriptor) | `Resource` | `addons/gf/standard/foundation/platform/gf_platform_contract_method_descriptor.gd` |
 | [`GFPlatformLifecycleEvent`](classes/GFPlatformLifecycleEvent.md#gfplatformlifecycleevent) | `Resource` | `addons/gf/standard/foundation/platform/gf_platform_lifecycle_event.gd` |
 | [`GFPlatformLocaleMap`](classes/GFPlatformLocaleMap.md#gfplatformlocalemap) | `Resource` | `addons/gf/standard/foundation/text/gf_platform_locale_map.gd` |
 | [`GFPlatformRuntimeContext`](classes/GFPlatformRuntimeContext.md#gfplatformruntimecontext) | `Resource` | `addons/gf/standard/foundation/platform/gf_platform_runtime_context.gd` |
@@ -478,6 +481,7 @@
 | [`GFAudioParameter`](classes/GFAudioParameter.md#gfaudioparameter) | `Resource` | `addons/gf/standard/utilities/audio/gf_audio_parameter.gd` |
 | [`GFAudioState`](classes/GFAudioState.md#gfaudiostate) | `Resource` | `addons/gf/standard/utilities/audio/gf_audio_state.gd` |
 | [`GFAudioSwitch`](classes/GFAudioSwitch.md#gfaudioswitch) | `Resource` | `addons/gf/standard/utilities/audio/gf_audio_switch.gd` |
+| [`GFPlatformActivationIntent`](classes/GFPlatformActivationIntent.md#gfplatformactivationintent) | `Resource` | `addons/gf/standard/foundation/platform/gf_platform_activation_intent.gd` |
 | [`GFRequestEnvelope`](classes/GFRequestEnvelope.md#gfrequestenvelope) | `RefCounted` | `addons/gf/standard/utilities/io/gf_request_envelope.gd` |
 
 <a id="category-editor_api"></a>

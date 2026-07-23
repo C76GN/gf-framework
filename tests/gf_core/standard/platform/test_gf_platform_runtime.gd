@@ -6,7 +6,7 @@ extends GutTest
 
 func test_runtime_initializes_adapter_and_routes_single_candidate() -> void:
 	var runtime: GFPlatformRuntime = GFPlatformRuntime.new()
-	var adapter: TestPlatformAdapter = _make_adapter(&"primary", &"sample", true)
+	var adapter: PlatformAdapterFixture = _make_adapter(&"primary", &"sample", true)
 	watch_signals(runtime)
 
 	assert_true(runtime.register_adapter(adapter), "已配置 adapter 应能注册。")
@@ -30,8 +30,8 @@ func test_runtime_initializes_adapter_and_routes_single_candidate() -> void:
 
 func test_runtime_requires_explicit_route_for_multiple_candidates() -> void:
 	var runtime: GFPlatformRuntime = GFPlatformRuntime.new()
-	var first: TestPlatformAdapter = _make_adapter(&"first", &"sample", true)
-	var second: TestPlatformAdapter = _make_adapter(&"second", &"sample", true)
+	var first: PlatformAdapterFixture = _make_adapter(&"first", &"sample", true)
+	var second: PlatformAdapterFixture = _make_adapter(&"second", &"sample", true)
 	assert_true(runtime.register_adapter(first), "第一个 adapter 应能注册。")
 	assert_true(runtime.register_adapter(second), "同契约第二个 adapter 应作为候选注册。")
 	var _first_initialized: GFAsyncCompletion = runtime.initialize_adapter(&"first")
@@ -52,7 +52,7 @@ func test_runtime_requires_explicit_route_for_multiple_candidates() -> void:
 
 func test_pending_request_has_single_cancel_terminal_state() -> void:
 	var runtime: GFPlatformRuntime = GFPlatformRuntime.new()
-	var adapter: TestPlatformAdapter = _make_adapter(&"pending", &"sample", false)
+	var adapter: PlatformAdapterFixture = _make_adapter(&"pending", &"sample", false)
 	assert_true(runtime.register_adapter(adapter), "Adapter 应能注册。")
 	var _initialized: GFAsyncCompletion = runtime.initialize_adapter(&"pending")
 	watch_signals(runtime)
@@ -72,7 +72,7 @@ func test_pending_request_has_single_cancel_terminal_state() -> void:
 func test_pending_request_times_out_and_notifies_adapter() -> void:
 	var clock: GFManualClock = GFManualClock.new(1000000, 1700000000000)
 	var runtime: GFPlatformRuntime = GFPlatformRuntime.new(clock)
-	var adapter: TestPlatformAdapter = _make_adapter(&"timeout", &"sample", false)
+	var adapter: PlatformAdapterFixture = _make_adapter(&"timeout", &"sample", false)
 	assert_true(runtime.register_adapter(adapter), "Adapter 应能注册。")
 	var _initialized: GFAsyncCompletion = runtime.initialize_adapter(&"timeout")
 	var handle: GFPlatformRequestHandle = runtime.invoke_contract(
@@ -96,7 +96,7 @@ func test_pending_request_times_out_and_notifies_adapter() -> void:
 func test_runtime_forwards_context_and_monotonic_lifecycle_events() -> void:
 	var clock: GFManualClock = GFManualClock.new(2000000, 1700000000000)
 	var runtime: GFPlatformRuntime = GFPlatformRuntime.new(clock)
-	var adapter: TestPlatformAdapter = _make_adapter(&"events", &"sample", true)
+	var adapter: PlatformAdapterFixture = _make_adapter(&"events", &"sample", true)
 	assert_true(runtime.register_adapter(adapter), "Adapter 应能注册。")
 	var _initialized: GFAsyncCompletion = runtime.initialize_adapter(&"events")
 	watch_signals(runtime)
@@ -125,7 +125,7 @@ func test_runtime_forwards_context_and_monotonic_lifecycle_events() -> void:
 func test_runtime_rejects_clock_replacement_while_request_is_pending() -> void:
 	var first_clock: GFManualClock = GFManualClock.new(1000000, 1700000000000)
 	var runtime: GFPlatformRuntime = GFPlatformRuntime.new(first_clock)
-	var adapter: TestPlatformAdapter = _make_adapter(&"pending_clock", &"sample", false)
+	var adapter: PlatformAdapterFixture = _make_adapter(&"pending_clock", &"sample", false)
 	assert_true(runtime.register_adapter(adapter), "Adapter 应能注册。")
 	var _initialized: GFAsyncCompletion = runtime.initialize_adapter(&"pending_clock")
 	var handle: GFPlatformRequestHandle = runtime.invoke_contract(&"platform.share", &"hold")
@@ -144,27 +144,147 @@ func test_runtime_rejects_clock_replacement_while_request_is_pending() -> void:
 	runtime.dispose()
 
 
+func test_runtime_rejects_registration_when_adapter_has_provider_request_lease() -> void:
+	var adapter: PlatformAdapterFixture = _make_adapter(&"leased_before_register", &"sample", false)
+	var _initialized: GFAsyncCompletion = adapter.initialize()
+	var direct_handle: GFPlatformRequestHandle = adapter.invoke(
+		GFPlatformBridgeRequest.new().configure(
+			&"direct_before_register",
+			&"platform.share",
+			&"hold"
+		)
+	)
+	var runtime: GFPlatformRuntime = GFPlatformRuntime.new(
+		GFManualClock.new(9000000, 1800000000000)
+	)
+
+	assert_true(direct_handle.is_pending(), "直接调用应持有 Provider 请求租约。")
+	assert_false(
+		runtime.register_adapter(adapter),
+		"注册不得替换已有 Provider 请求使用的时钟域。"
+	)
+	assert_true(runtime.get_adapter_ids().is_empty(), "时钟注入失败后不得留下半注册 Adapter。")
+
+	adapter.shutdown()
+	runtime.dispose()
+
+
+func test_runtime_rejects_clock_replacement_for_direct_adapter_request() -> void:
+	var first_clock: GFManualClock = GFManualClock.new(1000000, 1700000000000)
+	var runtime: GFPlatformRuntime = GFPlatformRuntime.new(first_clock)
+	var adapter: PlatformAdapterFixture = _make_adapter(&"direct_clock_lease", &"sample", false)
+	assert_true(runtime.register_adapter(adapter), "Adapter 应能注册。")
+	var _initialized: GFAsyncCompletion = runtime.initialize_adapter(&"direct_clock_lease")
+	var direct_handle: GFPlatformRequestHandle = adapter.invoke(
+		GFPlatformBridgeRequest.new().configure(
+			&"direct_registered_request",
+			&"platform.share",
+			&"hold"
+		)
+	)
+
+	assert_true(direct_handle.is_pending(), "直接调用应保持等待。")
+	assert_false(
+		runtime.set_clock(GFManualClock.new(9000000, 1800000000000)),
+		"Runtime 未跟踪的 Adapter Provider 租约也必须阻止时钟替换。"
+	)
+	assert_same(runtime.get_clock(), first_clock, "失败的事务式时钟替换不得改变 Runtime 时钟。")
+
+	runtime.dispose()
+
+
+func test_request_started_reentry_cannot_reuse_reserved_request_id() -> void:
+	var runtime: GFPlatformRuntime = GFPlatformRuntime.new()
+	var adapter: PlatformAdapterFixture = _make_adapter(&"reentrant", &"sample", false)
+	assert_true(runtime.register_adapter(adapter), "Adapter 应能注册。")
+	var _initialized: GFAsyncCompletion = runtime.initialize_adapter(&"reentrant")
+	var nested_handles: Array[GFPlatformRequestHandle] = []
+	var started_callback: Callable = (
+		func(_adapter_id: StringName, _request: GFPlatformBridgeRequest) -> void:
+			nested_handles.append(runtime.invoke_contract(
+				&"platform.share",
+				&"hold",
+				{},
+				{"request_id": &"same_request"}
+			))
+	)
+	var connected: Error = runtime.request_started.connect(started_callback) as Error
+	assert_eq(connected, OK, "测试应监听开始信号。")
+
+	var original: GFPlatformRequestHandle = runtime.invoke_contract(
+		&"platform.share",
+		&"hold",
+		{},
+		{"request_id": &"same_request"}
+	)
+
+	assert_true(original.is_pending(), "原请求应保留唯一租约。")
+	assert_eq(nested_handles.size(), 1, "开始回调只应触发一次重入尝试。")
+	assert_eq(
+		nested_handles[0].get_result().status,
+		&"duplicate_request_id",
+		"开始信号重入不得绕过请求 ID 预留。"
+	)
+	assert_true(runtime.cancel_request(&"same_request"), "测试清理应取消原请求。")
+	runtime.request_started.disconnect(started_callback)
+	runtime.dispose()
+
+
+func test_platform_runtime_preserves_zero_timestamp_results() -> void:
+	var runtime: GFPlatformRuntime = GFPlatformRuntime.new(
+		GFManualClock.new(0, 1700000000000)
+	)
+	var adapter: PlatformAdapterFixture = _make_adapter(&"zero_time", &"sample", true)
+	assert_true(runtime.register_adapter(adapter), "Adapter 应能注册。")
+	var _initialized: GFAsyncCompletion = runtime.initialize_adapter(&"zero_time")
+
+	var handle: GFPlatformRequestHandle = runtime.invoke_contract(
+		&"platform.share",
+		&"share"
+	)
+	var result: GFPlatformBridgeResult = handle.get_result()
+
+	assert_true(handle.is_successful(), "零时间戳不得被视为缺失。")
+	assert_eq(result.started_at_msec, 0)
+	assert_eq(result.completed_at_msec, 0)
+	assert_eq(result.get_duration_msec(), 0)
+	runtime.dispose()
+
+
 # --- 私有/辅助方法 ---
 
 func _make_adapter(
 	adapter_id: StringName,
 	platform_id: StringName,
 	complete_immediately: bool
-) -> TestPlatformAdapter:
-	var adapter: TestPlatformAdapter = TestPlatformAdapter.new()
+) -> PlatformAdapterFixture:
+	var adapter: PlatformAdapterFixture = PlatformAdapterFixture.new()
 	adapter.complete_immediately = complete_immediately
 	var configured: bool = adapter.configure(
 		adapter_id,
 		platform_id,
-		PackedStringArray(["platform.share"])
+		PackedStringArray(["platform.share"]),
+		[_make_share_contract()]
 	)
 	assert_true(configured, "测试 adapter 配置应成功。")
 	return adapter
 
 
+func _make_share_contract() -> GFPlatformContractDescriptor:
+	var methods: Array[GFPlatformContractMethodDescriptor] = [
+		GFPlatformContractMethodDescriptor.new().configure(&"share"),
+		GFPlatformContractMethodDescriptor.new().configure(&"hold"),
+	]
+	return GFPlatformContractDescriptor.new().configure(
+		&"platform.share",
+		"1.0.0",
+		methods
+	)
+
+
 # --- 内部类 ---
 
-class TestPlatformAdapter extends GFPlatformAdapter:
+class PlatformAdapterFixture extends GFPlatformAdapter:
 	var complete_immediately: bool = true
 	var cancel_count: int = 0
 	var last_sequence: int = 0
@@ -190,3 +310,4 @@ class TestPlatformAdapter extends GFPlatformAdapter:
 
 	func _cancel_request(_handle: GFPlatformRequestHandle, _reason: StringName) -> void:
 		cancel_count += 1
+		var _released: bool = _release_request(_handle)

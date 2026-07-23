@@ -43,6 +43,15 @@ signal context_changed(context: GFPlatformRuntimeContext)
 ## @param event: 生命周期事件副本。
 signal lifecycle_event(event: GFPlatformLifecycleEvent)
 
+## 收到平台激活入口后发出。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param intent: 已规范化的激活意图副本。
+signal activation_intent(intent: GFPlatformActivationIntent)
+
 
 # --- 枚举 ---
 
@@ -75,6 +84,9 @@ var _context: GFPlatformRuntimeContext = GFPlatformRuntimeContext.new()
 var _initialization: GFAsyncCompletion = null
 var _lifecycle_sequence: int = 0
 var _clock: GFClock = GFClock.new()
+var _contract_descriptors: Dictionary = {}
+var _active_handles: Dictionary = {}
+var _active_method_counts: Dictionary = {}
 
 
 # --- 公共方法 ---
@@ -93,6 +105,10 @@ var _clock: GFClock = GFClock.new()
 ## [br]
 ## @param contract_ids: 支持的桥接契约 ID。
 ## [br]
+## @param contract_descriptors: 平台契约描述符；必须与 contract_ids 一一对应。
+## [br]
+## @schema contract_descriptors: Array[GFPlatformContractDescriptor] complete contract descriptors.
+## [br]
 ## @param initial_context: 可选初始上下文。
 ## [br]
 ## @return 配置成功返回 true。
@@ -100,6 +116,7 @@ func configure(
 	adapter_id: StringName,
 	platform_id: StringName,
 	contract_ids: PackedStringArray,
+	contract_descriptors: Array[GFPlatformContractDescriptor],
 	initial_context: GFPlatformRuntimeContext = null
 ) -> bool:
 	if _state != State.CREATED:
@@ -113,6 +130,9 @@ func configure(
 	_platform_id = normalized_platform_id
 	_contract_ids = normalized_contracts
 	_context = GFPlatformRuntimeContext.new().configure(_platform_id, {"adapter_id": _adapter_id})
+	if not _apply_contract_descriptors(contract_descriptors):
+		_reset_configuration()
+		return false
 	if initial_context != null and not _apply_context(initial_context):
 		_reset_configuration()
 		return false
@@ -150,6 +170,44 @@ func get_platform_id() -> StringName:
 ## @return 排序去重后的契约 ID。
 func get_contract_ids() -> PackedStringArray:
 	return _contract_ids.duplicate()
+
+
+## 获取声明的契约描述符副本。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @return 按 contract_id 排序的描述符副本。
+## [br]
+## @schema return: Array[GFPlatformContractDescriptor] declared platform contracts.
+func get_contract_descriptors() -> Array[GFPlatformContractDescriptor]:
+	var result: Array[GFPlatformContractDescriptor] = []
+	var descriptor_ids: PackedStringArray = PackedStringArray()
+	for key: Variant in _contract_descriptors.keys():
+		var _appended: bool = descriptor_ids.append(str(key))
+	descriptor_ids.sort()
+	for descriptor_id: String in descriptor_ids:
+		var descriptor: GFPlatformContractDescriptor = _get_contract_descriptor_internal(
+			StringName(descriptor_id)
+		)
+		if descriptor != null:
+			result.append(descriptor.duplicate_descriptor())
+	return result
+
+
+## 获取一个契约描述符副本。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param contract_id: 契约 ID。
+## [br]
+## @return 找到时返回描述符副本，否则返回 null。
+func get_contract_descriptor(contract_id: StringName) -> GFPlatformContractDescriptor:
+	var descriptor: GFPlatformContractDescriptor = _get_contract_descriptor_internal(contract_id)
+	return descriptor.duplicate_descriptor() if descriptor != null else null
 
 
 ## 检查 adapter 是否支持桥接契约。
@@ -242,34 +300,7 @@ func get_context() -> GFPlatformRuntimeContext:
 ## [br]
 ## @return 一次性请求句柄。
 func invoke(request: GFPlatformBridgeRequest) -> GFPlatformRequestHandle:
-	var handle: GFPlatformRequestHandle = GFPlatformRequestHandle.new()
-	if request == null or not handle._gf_configure(request, _clock):
-		var _invalid: bool = handle._gf_reject(
-			request,
-			&"invalid_request",
-			"Platform bridge request is incomplete.",
-			_clock
-		)
-		return handle
-	var cancel_callback: Callable = _on_handle_cancel_requested.bind(handle)
-	var _cancel_connected: Error = handle.cancel_requested.connect(
-		cancel_callback,
-		CONNECT_ONE_SHOT as Object.ConnectFlags
-	) as Error
-	if not is_ready():
-		var _not_ready: bool = _fail_request(handle, &"adapter_not_ready", "Platform adapter is not ready.")
-		return handle
-	if not supports_contract(request.contract_id):
-		var _unsupported: bool = _fail_request(
-			handle,
-			&"unsupported_contract",
-			"Platform adapter does not support the requested contract."
-		)
-		return handle
-	var accepted: bool = _dispatch(request.duplicate_request(), handle)
-	if not accepted and handle.is_pending():
-		var _rejected: bool = _fail_request(handle, &"dispatch_rejected", "Platform adapter rejected the request.")
-	return handle
+	return invoke_from_runtime(request, -1)
 
 
 ## 推进需要 callback pump 的平台 SDK。
@@ -294,10 +325,18 @@ func poll(delta: float) -> void:
 func shutdown() -> void:
 	if _state == State.SHUTDOWN:
 		return
+	_set_state(State.SHUTDOWN)
 	if _initialization != null and _initialization.is_pending():
 		var _cancelled: bool = _initialization.cancel(&"adapter_shutdown")
+	for request_key: Variant in _active_handles.keys().duplicate():
+		var active_handle: GFPlatformRequestHandle = _get_active_handle(
+			StringName(str(request_key))
+		)
+		if active_handle != null:
+			var _request_cancelled: bool = active_handle.cancel(&"adapter_shutdown")
 	_shutdown()
-	_set_state(State.SHUTDOWN)
+	_active_handles.clear()
+	_active_method_counts.clear()
 
 
 ## 获取 adapter 调试快照。
@@ -306,17 +345,22 @@ func shutdown() -> void:
 ## [br]
 ## @since 9.0.0
 ## [br]
-## @return Adapter 身份、状态、契约与上下文字典。
+## @return Adapter 身份、状态、契约与脱敏上下文摘要。
 ## [br]
-## @schema return: Dictionary with adapter_id, platform_id, state, state_name, contract_ids, and context.
+## @schema return: Dictionary with adapter identity, state, contracts, and redacted context summary.
 func get_debug_snapshot() -> Dictionary:
+	var descriptor_entries: Array[Dictionary] = []
+	for descriptor: GFPlatformContractDescriptor in get_contract_descriptors():
+		descriptor_entries.append(descriptor.to_dict())
 	return {
 		"adapter_id": _adapter_id,
 		"platform_id": _platform_id,
 		"state": _state,
 		"state_name": State.keys()[_state],
 		"contract_ids": _contract_ids.duplicate(),
-		"context": _context.to_dict(),
+		"contract_descriptors": descriptor_entries,
+		"active_request_count": _active_handles.size(),
+		"context": _make_context_debug_summary(),
 	}
 
 
@@ -378,6 +422,38 @@ func _poll(_delta: float) -> void:
 ## @param _reason: 取消原因。
 func _cancel_request(_handle: GFPlatformRequestHandle, _reason: StringName) -> void:
 	pass
+
+
+## 确认底层 Provider 调用已经停止并释放请求租约。
+##
+## 本地取消和超时只结束调用方 Handle，不代表不可取消或异步取消的 SDK 调用已经
+## 停止。Adapter 应在 Provider 确认取消后调用本方法；迟到成功或失败回调通过
+## `_succeed_request` / `_fail_request` 也会自动释放租约。
+## [br]
+## @api protected
+## [br]
+## @since unreleased
+## [br]
+## @param handle: 已停止底层工作的请求句柄。
+## [br]
+## @return 当前 Adapter 仍持有该请求租约并已释放时返回 true。
+func _release_request(handle: GFPlatformRequestHandle) -> bool:
+	if handle == null:
+		return false
+	var request: GFPlatformBridgeRequest = handle.get_request()
+	if request == null:
+		return false
+	var active_handle: GFPlatformRequestHandle = _get_active_handle(request.request_id)
+	if active_handle != handle:
+		return false
+	var _erased: bool = _active_handles.erase(String(request.request_id))
+	var method_key: String = _make_method_key(request.contract_id, request.method_id)
+	var active_count: int = GFVariantData.get_option_int(_active_method_counts, method_key)
+	if active_count <= 1:
+		var _count_erased: bool = _active_method_counts.erase(method_key)
+	else:
+		_active_method_counts[method_key] = active_count - 1
+	return true
 
 
 ## 释放底层平台资源。
@@ -472,6 +548,34 @@ func _publish_lifecycle_event(event: GFPlatformLifecycleEvent) -> bool:
 	return true
 
 
+## 发布平台激活意图。
+##
+## 基类补齐并校验 adapter/platform 身份和单调时间戳。Intent ID 必须由 adapter
+## 根据平台事件生成，确保重放回调可以去重。
+## [br]
+## @api protected
+## [br]
+## @since unreleased
+## [br]
+## @param intent: 平台激活意图。
+## [br]
+## @return 意图有效并已发布时返回 true。
+func _publish_activation_intent(intent: GFPlatformActivationIntent) -> bool:
+	if intent == null or intent.is_empty():
+		return false
+	var copy: GFPlatformActivationIntent = intent.duplicate_intent()
+	if copy.platform_id == &"":
+		copy.platform_id = _platform_id
+	if copy.adapter_id == &"":
+		copy.adapter_id = _adapter_id
+	if copy.platform_id != _platform_id or copy.adapter_id != _adapter_id:
+		return false
+	if copy.timestamp_msec <= 0:
+		copy.timestamp_msec = _clock.get_monotonic_msec()
+	activation_intent.emit(copy)
+	return true
+
+
 ## 以成功结果完成请求。
 ## [br]
 ## @api protected
@@ -499,7 +603,21 @@ func _succeed_request(
 ) -> bool:
 	if handle == null or not handle.is_pending():
 		return false
-	return handle._gf_succeed(value, status, metadata)
+	var request: GFPlatformBridgeRequest = handle.get_request()
+	var method: GFPlatformContractMethodDescriptor = _get_method_descriptor(request)
+	if method != null:
+		var result_report: GFValidationReport = method.validate_result(value)
+		if not result_report.is_ok():
+			var invalid_completed: bool = handle.fail_from_platform_layer(
+				&"invalid_adapter_result",
+				"Platform adapter result does not satisfy its declared contract.",
+				{"validation": result_report.to_dict()}
+			)
+			var _invalid_released: bool = _release_request(handle)
+			return invalid_completed
+	var completed: bool = handle.succeed_from_platform_layer(value, status, metadata)
+	var _released: bool = _release_request(handle)
+	return completed
 
 
 ## 以失败结果完成请求。
@@ -525,18 +643,154 @@ func _fail_request(
 	error: String,
 	metadata: Dictionary = {}
 ) -> bool:
-	return handle != null and handle._gf_fail(status, error.strip_edges(), metadata)
+	if handle == null:
+		return false
+	var completed: bool = handle.fail_from_platform_layer(
+		status,
+		error.strip_edges(),
+		metadata
+	)
+	var _released: bool = _release_request(handle)
+	return completed
 
 
-# --- 私有/辅助方法 ---
+# --- 层内方法 ---
 
-# 由 platform 运行时为后续请求与生命周期事件注入统一时钟。
-func _gf_set_clock(clock: GFClock) -> bool:
-	if clock == null:
+## 使用 Runtime 已捕获的单调起始时间发起桥接请求。
+## [br]
+## @api layer_internal
+## [br]
+## @layer standard/platform
+## [br]
+## @since unreleased
+## [br]
+## @param request: 平台桥接请求。
+## [br]
+## @param started_at_msec: Runtime 在开始信号前捕获的同时钟域起始时间。
+## [br]
+## @return 一次性请求句柄。
+func invoke_from_runtime(
+	request: GFPlatformBridgeRequest,
+	started_at_msec: int
+) -> GFPlatformRequestHandle:
+	var handle: GFPlatformRequestHandle = GFPlatformRequestHandle.new()
+	if (
+		request == null
+		or not handle.configure_from_platform_layer(request, _clock, started_at_msec)
+	):
+		var _invalid: bool = handle.reject_from_platform_layer(
+			request,
+			&"invalid_request",
+			"Platform bridge request is incomplete.",
+			_clock
+		)
+		return handle
+	var cancel_callback: Callable = _on_handle_cancel_requested.bind(handle)
+	var _cancel_connected: Error = handle.cancel_requested.connect(
+		cancel_callback,
+		CONNECT_ONE_SHOT as Object.ConnectFlags
+	) as Error
+	if not is_ready():
+		var _not_ready: bool = _fail_request(
+			handle,
+			&"adapter_not_ready",
+			"Platform adapter is not ready."
+		)
+		return handle
+	if not supports_contract(request.contract_id):
+		var _unsupported: bool = _fail_request(
+			handle,
+			&"unsupported_contract",
+			"Platform adapter does not support the requested contract."
+		)
+		return handle
+	if _active_handles.has(String(request.request_id)):
+		var _duplicate: bool = _fail_request(
+			handle,
+			&"duplicate_request_id",
+			"Platform request ID is already pending in this adapter."
+		)
+		return handle
+	var method: GFPlatformContractMethodDescriptor = _get_method_descriptor(request)
+	if _get_contract_descriptor_internal(request.contract_id) != null and method == null:
+		var _unknown_method: bool = _fail_request(
+			handle,
+			&"unknown_contract_method",
+			"Platform contract does not declare the requested method."
+		)
+		return handle
+	if method != null:
+		var request_report: GFValidationReport = method.validate_request(
+			request.payload,
+			_context.capabilities
+		)
+		if not request_report.is_ok():
+			var _invalid_contract_request: bool = _fail_request(
+				handle,
+				&"invalid_contract_request",
+				"Platform request does not satisfy its declared contract.",
+				{"validation": request_report.to_dict()}
+			)
+			return handle
+		var method_key: String = _make_method_key(request.contract_id, request.method_id)
+		if (
+			method.max_concurrent_requests > 0
+			and GFVariantData.get_option_int(_active_method_counts, method_key)
+				>= method.max_concurrent_requests
+		):
+			var _concurrency_rejected: bool = _fail_request(
+				handle,
+				&"contract_concurrency_exceeded",
+				"Platform contract method concurrency limit is reached."
+			)
+			return handle
+	_track_handle(request, handle)
+	var accepted: bool = _dispatch(request.duplicate_request(), handle)
+	if not accepted and handle.is_pending():
+		var _rejected: bool = _fail_request(
+			handle,
+			&"dispatch_rejected",
+			"Platform adapter rejected the request."
+		)
+	return handle
+
+
+## 注入 Runtime 统一单调时钟。
+## [br]
+## @api layer_internal
+## [br]
+## @layer standard/platform
+## [br]
+## @since unreleased
+## [br]
+## @param clock: Runtime 使用的时钟。
+## [br]
+## @return 时钟有效、当前没有活跃 Provider 请求租约并已采用时返回 true。
+func set_runtime_clock(clock: GFClock) -> bool:
+	if clock == null or not _active_handles.is_empty():
 		return false
 	_clock = clock
 	return true
 
+
+# --- 私有/辅助方法 ---
+
+func _make_context_debug_summary() -> Dictionary:
+	var storage_root_ids: PackedStringArray = PackedStringArray()
+	for key: Variant in _context.storage_roots.keys():
+		var _appended: bool = storage_root_ids.append(str(key))
+	storage_root_ids.sort()
+	return {
+		"platform_id": _context.platform_id,
+		"adapter_id": _context.adapter_id,
+		"display_name": _context.display_name,
+		"locale": _context.locale,
+		"fallback_locale": _context.fallback_locale,
+		"capability_ids": _context.capabilities.capabilities.duplicate(),
+		"storage_root_ids": storage_root_ids,
+		"launch_option_count": _context.launch_options.size(),
+		"metadata_count": _context.metadata.size(),
+	}
 
 func _apply_context(context: GFPlatformRuntimeContext) -> bool:
 	if context == null:
@@ -571,6 +825,9 @@ func _reset_configuration() -> void:
 	_adapter_id = &""
 	_platform_id = &""
 	_contract_ids.clear()
+	_contract_descriptors.clear()
+	_active_handles.clear()
+	_active_method_counts.clear()
 	_context = GFPlatformRuntimeContext.new()
 
 
@@ -583,7 +840,74 @@ func _set_state(next_state: State) -> void:
 
 
 func _on_handle_cancel_requested(reason: StringName, handle: GFPlatformRequestHandle) -> void:
-	_cancel_request(handle, reason)
+	var request: GFPlatformBridgeRequest = handle.get_request()
+	var method: GFPlatformContractMethodDescriptor = _get_method_descriptor(request)
+	if method == null or method.supports_cancellation:
+		_cancel_request(handle, reason)
+
+
+func _apply_contract_descriptors(
+	descriptors: Array[GFPlatformContractDescriptor]
+) -> bool:
+	_contract_descriptors.clear()
+	for descriptor: GFPlatformContractDescriptor in descriptors:
+		if descriptor == null or not descriptor.validate_definition().is_ok():
+			return false
+		if not _contract_ids.has(String(descriptor.contract_id)):
+			return false
+		if _contract_descriptors.has(String(descriptor.contract_id)):
+			return false
+		_contract_descriptors[String(descriptor.contract_id)] = descriptor.duplicate_descriptor()
+	return _contract_descriptors.size() == _contract_ids.size()
+
+
+func _get_contract_descriptor_internal(
+	contract_id: StringName
+) -> GFPlatformContractDescriptor:
+	var value: Variant = GFVariantData.get_option_value(
+		_contract_descriptors,
+		String(contract_id)
+	)
+	if value is GFPlatformContractDescriptor:
+		var descriptor: GFPlatformContractDescriptor = value
+		return descriptor
+	return null
+
+
+func _get_method_descriptor(
+	request: GFPlatformBridgeRequest
+) -> GFPlatformContractMethodDescriptor:
+	if request == null:
+		return null
+	var descriptor: GFPlatformContractDescriptor = _get_contract_descriptor_internal(
+		request.contract_id
+	)
+	return descriptor.get_method(request.method_id) if descriptor != null else null
+
+
+func _track_handle(
+	request: GFPlatformBridgeRequest,
+	handle: GFPlatformRequestHandle
+) -> void:
+	_active_handles[String(request.request_id)] = handle
+	var method: GFPlatformContractMethodDescriptor = _get_method_descriptor(request)
+	if method != null:
+		var method_key: String = _make_method_key(request.contract_id, request.method_id)
+		_active_method_counts[method_key] = (
+			GFVariantData.get_option_int(_active_method_counts, method_key) + 1
+		)
+
+
+func _get_active_handle(request_id: StringName) -> GFPlatformRequestHandle:
+	var value: Variant = GFVariantData.get_option_value(_active_handles, String(request_id))
+	if value is GFPlatformRequestHandle:
+		var handle: GFPlatformRequestHandle = value
+		return handle
+	return null
+
+
+static func _make_method_key(contract_id: StringName, method_id: StringName) -> String:
+	return "%s::%s" % [String(contract_id), String(method_id)]
 
 
 static func _normalize_string_set(values: PackedStringArray) -> PackedStringArray:

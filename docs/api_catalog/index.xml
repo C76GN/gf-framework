@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<apiCatalog schemaVersion="2" name="GF Framework" sourceRoot="addons/gf" sourceDigest="e82ee2c7796c6ce475567f61c526e68b52a53e2af2435710c866d28e625db664" classCount="767" methodCount="6888">
+<apiCatalog schemaVersion="2" name="GF Framework" sourceRoot="addons/gf" sourceDigest="c1914fb243a05180d282a62058f0290f9f932cc2ea5e21304e07c4d0561755c2" classCount="775" methodCount="6963">
 	<module id="kernel" label="Kernel" classCount="70" methodCount="715">
 		<class name="GFAccessGenerator" path="classes/GFAccessGenerator.xml" sourcePath="addons/gf/kernel/editor/gf_access_generator.gd" extends="RefCounted" />
 		<class name="GFArchitecture" path="classes/GFArchitecture.xml" sourcePath="addons/gf/kernel/core/gf_architecture.gd" extends="Object" />
@@ -72,7 +72,7 @@
 		<class name="GFTypeEventSystem" path="classes/GFTypeEventSystem.xml" sourcePath="addons/gf/kernel/core/gf_type_event_system.gd" extends="Object" />
 		<class name="GFUtility" path="classes/GFUtility.xml" sourcePath="addons/gf/kernel/base/gf_utility.gd" extends="Object" />
 	</module>
-	<module id="standard" label="Standard" classCount="427" methodCount="4306">
+	<module id="standard" label="Standard" classCount="431" methodCount="4335">
 		<class name="GFActivationTransaction" path="classes/GFActivationTransaction.xml" sourcePath="addons/gf/standard/foundation/policy/gf_activation_transaction.gd" extends="RefCounted" />
 		<class name="GFAnalyticsConfig" path="classes/GFAnalyticsConfig.xml" sourcePath="addons/gf/standard/utilities/analytics/gf_analytics_config.gd" extends="Resource" />
 		<class name="GFAnalyticsUtility" path="classes/GFAnalyticsUtility.xml" sourcePath="addons/gf/standard/utilities/analytics/gf_analytics_utility.gd" extends="GFUtility" />
@@ -313,10 +313,14 @@
 		<class name="GFPattern2D" path="classes/GFPattern2D.xml" sourcePath="addons/gf/standard/foundation/math/gf_pattern_2d.gd" extends="Resource" />
 		<class name="GFPhysicsQueryUtility" path="classes/GFPhysicsQueryUtility.xml" sourcePath="addons/gf/standard/utilities/spatial/gf_physics_query_utility.gd" extends="GFUtility" />
 		<class name="GFPlacementSequenceMath" path="classes/GFPlacementSequenceMath.xml" sourcePath="addons/gf/standard/foundation/math/gf_placement_sequence_math.gd" extends="RefCounted" />
+		<class name="GFPlatformActivationIntent" path="classes/GFPlatformActivationIntent.xml" sourcePath="addons/gf/standard/foundation/platform/gf_platform_activation_intent.gd" extends="Resource" />
 		<class name="GFPlatformAdapter" path="classes/GFPlatformAdapter.xml" sourcePath="addons/gf/standard/platform/gf_platform_adapter.gd" extends="RefCounted" />
+		<class name="GFPlatformAdapterConformance" path="classes/GFPlatformAdapterConformance.xml" sourcePath="addons/gf/standard/platform/gf_platform_adapter_conformance.gd" extends="RefCounted" />
 		<class name="GFPlatformBridgeRequest" path="classes/GFPlatformBridgeRequest.xml" sourcePath="addons/gf/standard/foundation/platform/gf_platform_bridge_request.gd" extends="Resource" />
 		<class name="GFPlatformBridgeResult" path="classes/GFPlatformBridgeResult.xml" sourcePath="addons/gf/standard/foundation/platform/gf_platform_bridge_result.gd" extends="Resource" />
 		<class name="GFPlatformCapabilitySet" path="classes/GFPlatformCapabilitySet.xml" sourcePath="addons/gf/standard/foundation/platform/gf_platform_capability_set.gd" extends="Resource" />
+		<class name="GFPlatformContractDescriptor" path="classes/GFPlatformContractDescriptor.xml" sourcePath="addons/gf/standard/foundation/platform/gf_platform_contract_descriptor.gd" extends="Resource" />
+		<class name="GFPlatformContractMethodDescriptor" path="classes/GFPlatformContractMethodDescriptor.xml" sourcePath="addons/gf/standard/foundation/platform/gf_platform_contract_method_descriptor.gd" extends="Resource" />
 		<class name="GFPlatformLifecycleEvent" path="classes/GFPlatformLifecycleEvent.xml" sourcePath="addons/gf/standard/foundation/platform/gf_platform_lifecycle_event.gd" extends="Resource" />
 		<class name="GFPlatformLocaleMap" path="classes/GFPlatformLocaleMap.xml" sourcePath="addons/gf/standard/foundation/text/gf_platform_locale_map.gd" extends="Resource" />
 		<class name="GFPlatformRequestHandle" path="classes/GFPlatformRequestHandle.xml" sourcePath="addons/gf/standard/platform/gf_platform_request_handle.gd" extends="RefCounted" />
@@ -697,9 +701,10 @@
 		<class name="GFInteractions" path="classes/GFInteractions.xml" sourcePath="addons/gf/extensions/interaction/runtime/gf_interactions.gd" extends="RefCounted" />
 		<class name="GFPointerInteraction3D" path="classes/GFPointerInteraction3D.xml" sourcePath="addons/gf/extensions/interaction/nodes/gf_pointer_interaction_3d.gd" extends="Node" />
 	</module>
-	<module id="extensions/network" label="Network" classCount="34" methodCount="277">
+	<module id="extensions/network" label="Network" classCount="38" methodCount="323">
 		<class name="GFENetNetworkBackend" path="classes/GFENetNetworkBackend.xml" sourcePath="addons/gf/extensions/network/backends/gf_enet_network_backend.gd" extends="GFNetworkBackend" />
 		<class name="GFFixedTickClock" path="classes/GFFixedTickClock.xml" sourcePath="addons/gf/extensions/network/simulation/gf_fixed_tick_clock.gd" extends="RefCounted" />
+		<class name="GFMultiplayerPeerNetworkBackend" path="classes/GFMultiplayerPeerNetworkBackend.xml" sourcePath="addons/gf/extensions/network/backends/gf_multiplayer_peer_network_backend.gd" extends="GFNetworkBackend" />
 		<class name="GFNetworkBackend" path="classes/GFNetworkBackend.xml" sourcePath="addons/gf/extensions/network/backends/gf_network_backend.gd" extends="RefCounted" />
 		<class name="GFNetworkChannel" path="classes/GFNetworkChannel.xml" sourcePath="addons/gf/extensions/network/session/gf_network_channel.gd" extends="Resource" />
 		<class name="GFNetworkContract" path="classes/GFNetworkContract.xml" sourcePath="addons/gf/extensions/network/contracts/gf_network_contract.gd" extends="Resource" />
@@ -714,8 +719,10 @@
 		<class name="GFNetworkLobbyBackend" path="classes/GFNetworkLobbyBackend.xml" sourcePath="addons/gf/extensions/network/session/gf_network_lobby_backend.gd" extends="RefCounted" />
 		<class name="GFNetworkLobbyDescriptor" path="classes/GFNetworkLobbyDescriptor.xml" sourcePath="addons/gf/extensions/network/session/gf_network_lobby_descriptor.gd" extends="Resource" />
 		<class name="GFNetworkLobbyInvite" path="classes/GFNetworkLobbyInvite.xml" sourcePath="addons/gf/extensions/network/session/gf_network_lobby_invite.gd" extends="Resource" />
-		<class name="GFNetworkLobbyJoinResult" path="classes/GFNetworkLobbyJoinResult.xml" sourcePath="addons/gf/extensions/network/session/gf_network_lobby_join_result.gd" extends="RefCounted" />
 		<class name="GFNetworkLobbyMember" path="classes/GFNetworkLobbyMember.xml" sourcePath="addons/gf/extensions/network/session/gf_network_lobby_member.gd" extends="Resource" />
+		<class name="GFNetworkLobbyOperationHandle" path="classes/GFNetworkLobbyOperationHandle.xml" sourcePath="addons/gf/extensions/network/session/gf_network_lobby_operation_handle.gd" extends="RefCounted" />
+		<class name="GFNetworkLobbyOperationRequest" path="classes/GFNetworkLobbyOperationRequest.xml" sourcePath="addons/gf/extensions/network/session/gf_network_lobby_operation_request.gd" extends="RefCounted" />
+		<class name="GFNetworkLobbyOperationResult" path="classes/GFNetworkLobbyOperationResult.xml" sourcePath="addons/gf/extensions/network/session/gf_network_lobby_operation_result.gd" extends="RefCounted" />
 		<class name="GFNetworkLobbyQuery" path="classes/GFNetworkLobbyQuery.xml" sourcePath="addons/gf/extensions/network/session/gf_network_lobby_query.gd" extends="Resource" />
 		<class name="GFNetworkLobbyService" path="classes/GFNetworkLobbyService.xml" sourcePath="addons/gf/extensions/network/session/gf_network_lobby_service.gd" extends="GFUtility" />
 		<class name="GFNetworkMessage" path="classes/GFNetworkMessage.xml" sourcePath="addons/gf/extensions/network/messages/gf_network_message.gd" extends="RefCounted" />
@@ -730,6 +737,7 @@
 		<class name="GFNetworkSnapshot" path="classes/GFNetworkSnapshot.xml" sourcePath="addons/gf/extensions/network/snapshot/gf_network_snapshot.gd" extends="RefCounted" />
 		<class name="GFNetworkSnapshotSchema" path="classes/GFNetworkSnapshotSchema.xml" sourcePath="addons/gf/extensions/network/snapshot/gf_network_snapshot_schema.gd" extends="Resource" />
 		<class name="GFNetworkSyncCoordinator" path="classes/GFNetworkSyncCoordinator.xml" sourcePath="addons/gf/extensions/network/simulation/gf_network_sync_coordinator.gd" extends="RefCounted" />
+		<class name="GFNetworkTransportMetrics" path="classes/GFNetworkTransportMetrics.xml" sourcePath="addons/gf/extensions/network/runtime/gf_network_transport_metrics.gd" extends="RefCounted" />
 		<class name="GFNetworkUtility" path="classes/GFNetworkUtility.xml" sourcePath="addons/gf/extensions/network/runtime/gf_network_utility.gd" extends="GFUtility" />
 		<class name="GFWebSocketNetworkBackend" path="classes/GFWebSocketNetworkBackend.xml" sourcePath="addons/gf/extensions/network/backends/gf_websocket_network_backend.gd" extends="GFNetworkBackend" />
 	</module>

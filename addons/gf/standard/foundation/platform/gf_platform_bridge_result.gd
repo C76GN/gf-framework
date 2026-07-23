@@ -65,19 +65,19 @@ extends Resource
 ## @since 8.0.0
 @export var error: String = ""
 
-## 开始时间戳，单位毫秒。
+## 开始时间戳，单位毫秒；-1 表示未知。
 ## [br]
 ## @api public
 ## [br]
 ## @since 8.0.0
-@export var started_at_msec: int = 0
+@export var started_at_msec: int = -1
 
-## 完成时间戳，单位毫秒。
+## 完成时间戳，单位毫秒；-1 表示未知。
 ## [br]
 ## @api public
 ## [br]
 ## @since 8.0.0
-@export var completed_at_msec: int = 0
+@export var completed_at_msec: int = -1
 
 ## 调用方元数据。
 ## [br]
@@ -105,7 +105,7 @@ extends Resource
 ## [br]
 ## @param p_started_at_msec: 开始时间戳。
 ## [br]
-## @param p_completed_at_msec: 完成单调时间戳；0 表示调用方未提供。
+## @param p_completed_at_msec: 完成单调时间戳；-1 表示调用方未提供。
 ## [br]
 ## @param p_metadata: 调用方元数据。
 ## [br]
@@ -118,8 +118,8 @@ func configure_success(
 	request: GFPlatformBridgeRequest,
 	p_value: Variant = null,
 	p_status: StringName = &"ok",
-	p_started_at_msec: int = 0,
-	p_completed_at_msec: int = 0,
+	p_started_at_msec: int = -1,
+	p_completed_at_msec: int = -1,
 	p_metadata: Dictionary = {}
 ) -> GFPlatformBridgeResult:
 	_apply_request(request)
@@ -127,8 +127,8 @@ func configure_success(
 	status = p_status
 	value = GFVariantData.duplicate_variant(p_value)
 	error = ""
-	started_at_msec = max(p_started_at_msec, 0)
-	completed_at_msec = maxi(p_completed_at_msec, 0)
+	started_at_msec = maxi(p_started_at_msec, -1)
+	completed_at_msec = maxi(p_completed_at_msec, -1)
 	metadata = p_metadata.duplicate(true)
 	return self
 
@@ -147,7 +147,7 @@ func configure_success(
 ## [br]
 ## @param p_started_at_msec: 开始时间戳。
 ## [br]
-## @param p_completed_at_msec: 完成单调时间戳；0 表示调用方未提供。
+## @param p_completed_at_msec: 完成单调时间戳；-1 表示调用方未提供。
 ## [br]
 ## @param p_metadata: 调用方元数据。
 ## [br]
@@ -158,8 +158,8 @@ func configure_failure(
 	request: GFPlatformBridgeRequest,
 	p_error: String,
 	p_status: StringName = &"failed",
-	p_started_at_msec: int = 0,
-	p_completed_at_msec: int = 0,
+	p_started_at_msec: int = -1,
+	p_completed_at_msec: int = -1,
 	p_metadata: Dictionary = {}
 ) -> GFPlatformBridgeResult:
 	_apply_request(request)
@@ -167,8 +167,8 @@ func configure_failure(
 	status = p_status
 	value = null
 	error = p_error.strip_edges()
-	started_at_msec = max(p_started_at_msec, 0)
-	completed_at_msec = maxi(p_completed_at_msec, 0)
+	started_at_msec = maxi(p_started_at_msec, -1)
+	completed_at_msec = maxi(p_completed_at_msec, -1)
 	metadata = p_metadata.duplicate(true)
 	return self
 
@@ -181,7 +181,7 @@ func configure_failure(
 ## [br]
 ## @return 完成时间减开始时间；缺少时间戳时返回 0。
 func get_duration_msec() -> int:
-	if started_at_msec <= 0 or completed_at_msec <= 0:
+	if started_at_msec < 0 or completed_at_msec < 0:
 		return 0
 	return max(completed_at_msec - started_at_msec, 0)
 
@@ -227,8 +227,8 @@ func apply_dict(data: Dictionary) -> void:
 	status = GFVariantData.get_option_string_name(data, "status")
 	value = GFVariantData.duplicate_variant(GFVariantData.get_option_value(data, "value"))
 	error = GFVariantData.get_option_string(data, "error").strip_edges()
-	started_at_msec = max(GFVariantData.get_option_int(data, "started_at_msec"), 0)
-	completed_at_msec = max(GFVariantData.get_option_int(data, "completed_at_msec"), 0)
+	started_at_msec = maxi(GFVariantData.get_option_int(data, "started_at_msec", -1), -1)
+	completed_at_msec = maxi(GFVariantData.get_option_int(data, "completed_at_msec", -1), -1)
 	metadata = GFVariantData.get_option_dictionary(data, "metadata")
 
 

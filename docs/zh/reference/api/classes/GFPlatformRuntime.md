@@ -20,6 +20,8 @@
 | 信号 | [`adapter_state_changed`](#member-gfplatformruntime-signals-adapter_state_changed) | `signal adapter_state_changed(adapter_id: StringName, previous_state: int, current_state: int)` |
 | 信号 | [`context_changed`](#member-gfplatformruntime-signals-context_changed) | `signal context_changed(adapter_id: StringName, context: GFPlatformRuntimeContext)` |
 | 信号 | [`lifecycle_event`](#member-gfplatformruntime-signals-lifecycle_event) | `signal lifecycle_event(adapter_id: StringName, event: GFPlatformLifecycleEvent)` |
+| 信号 | [`activation_intent_received`](#member-gfplatformruntime-signals-activation_intent_received) | `signal activation_intent_received(adapter_id: StringName, intent: GFPlatformActivationIntent)` |
+| 信号 | [`activation_intent_dropped`](#member-gfplatformruntime-signals-activation_intent_dropped) | `signal activation_intent_dropped(` |
 | 信号 | [`request_started`](#member-gfplatformruntime-signals-request_started) | `signal request_started(adapter_id: StringName, request: GFPlatformBridgeRequest)` |
 | 信号 | [`request_completed`](#member-gfplatformruntime-signals-request_completed) | `signal request_completed(adapter_id: StringName, result: GFPlatformBridgeResult)` |
 | 方法 | [`ready`](#member-gfplatformruntime-methods-ready) | `func ready() -> void:` |
@@ -27,6 +29,7 @@
 | 方法 | [`dispose`](#member-gfplatformruntime-methods-dispose) | `func dispose() -> void:` |
 | 方法 | [`set_clock`](#member-gfplatformruntime-methods-set_clock) | `func set_clock(clock: GFClock) -> bool:` |
 | 方法 | [`get_clock`](#member-gfplatformruntime-methods-get_clock) | `func get_clock() -> GFClock:` |
+| 方法 | [`configure_activation_queue`](#member-gfplatformruntime-methods-configure_activation_queue) | `func configure_activation_queue(max_pending: int, max_seen: int) -> bool:` |
 | 方法 | [`register_adapter`](#member-gfplatformruntime-methods-register_adapter) | `func register_adapter(adapter: GFPlatformAdapter) -> bool:` |
 | 方法 | [`unregister_adapter`](#member-gfplatformruntime-methods-unregister_adapter) | `func unregister_adapter(adapter_id: StringName, shutdown_adapter: bool = true) -> bool:` |
 | 方法 | [`initialize_adapter`](#member-gfplatformruntime-methods-initialize_adapter) | `func initialize_adapter(adapter_id: StringName, options: Dictionary = {}) -> GFAsyncCompletion:` |
@@ -38,6 +41,10 @@
 | 方法 | [`cancel_request`](#member-gfplatformruntime-methods-cancel_request) | `func cancel_request(request_id: StringName, reason: StringName = &"cancelled") -> bool:` |
 | 方法 | [`get_adapter_ids`](#member-gfplatformruntime-methods-get_adapter_ids) | `func get_adapter_ids() -> PackedStringArray:` |
 | 方法 | [`get_context`](#member-gfplatformruntime-methods-get_context) | `func get_context(adapter_id: StringName) -> GFPlatformRuntimeContext:` |
+| 方法 | [`get_activation_intents`](#member-gfplatformruntime-methods-get_activation_intents) | `func get_activation_intents() -> Array[GFPlatformActivationIntent]:` |
+| 方法 | [`consume_activation_intent`](#member-gfplatformruntime-methods-consume_activation_intent) | `func consume_activation_intent( adapter_id: StringName, intent_id: StringName ) -> GFPlatformActivationIntent:` |
+| 方法 | [`acknowledge_activation_intent`](#member-gfplatformruntime-methods-acknowledge_activation_intent) | `func acknowledge_activation_intent( adapter_id: StringName, intent_id: StringName ) -> bool:` |
+| 方法 | [`clear_activation_intents`](#member-gfplatformruntime-methods-clear_activation_intents) | `func clear_activation_intents(clear_dedupe_history: bool = false) -> void:` |
 | 方法 | [`has_capability`](#member-gfplatformruntime-methods-has_capability) | `func has_capability(capability_id: StringName, adapter_id: StringName = &"") -> bool:` |
 | 方法 | [`get_debug_snapshot`](#member-gfplatformruntime-methods-get_debug_snapshot) | `func get_debug_snapshot() -> Dictionary:` |
 
@@ -142,6 +149,47 @@ Adapter 生命周期事件转发。
 | `adapter_id` | Adapter ID。 |
 | `event` | 生命周期事件副本。 |
 
+<a id="member-gfplatformruntime-signals-activation_intent_received"></a>
+
+### `activation_intent_received`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+signal activation_intent_received(adapter_id: StringName, intent: GFPlatformActivationIntent)
+```
+
+平台激活意图进入有界队列后发出。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `adapter_id` | 来源 Adapter ID。 |
+| `intent` | 激活意图副本。 |
+
+<a id="member-gfplatformruntime-signals-activation_intent_dropped"></a>
+
+### `activation_intent_dropped`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+signal activation_intent_dropped(
+```
+
+激活意图因重复或容量限制未保留时发出。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `adapter_id` | 来源 Adapter ID。 |
+| `intent_id` | 被丢弃的 Intent ID。 |
+| `reason` | duplicate 或 capacity。 |
+
 <a id="member-gfplatformruntime-signals-request_started"></a>
 
 ### `request_started`
@@ -240,7 +288,7 @@ func dispose() -> void:
 func set_clock(clock: GFClock) -> bool:
 ```
 
-设置平台请求截止时间与结果耗时使用的统一单调时钟。 存在等待请求时拒绝替换，避免绝对截止值跨越两个时间域。
+设置平台请求截止时间与结果耗时使用的统一单调时钟。 存在 Runtime 等待请求或 Adapter Provider 请求租约时拒绝替换，避免绝对截止值 跨越两个时间域。
 
 参数：
 
@@ -248,7 +296,7 @@ func set_clock(clock: GFClock) -> bool:
 |---|---|
 | `clock` | 新平台时钟。 |
 
-返回：时钟合法且当前没有等待请求时返回 true。
+返回：时钟合法且当前没有请求或 Provider 租约时返回 true。
 
 <a id="member-gfplatformruntime-methods-get_clock"></a>
 
@@ -264,6 +312,28 @@ func get_clock() -> GFClock:
 获取当前平台时钟。
 
 返回：当前时钟。
+
+<a id="member-gfplatformruntime-methods-configure_activation_queue"></a>
+
+### `configure_activation_queue`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func configure_activation_queue(max_pending: int, max_seen: int) -> bool:
+```
+
+配置激活意图队列和去重窗口容量。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `max_pending` | 最多保留的待消费意图数。 |
+| `max_seen` | 最多记忆的近期 Intent ID 数；不得小于 max_pending。 |
+
+返回：容量有效并已应用时返回 true。
 
 <a id="member-gfplatformruntime-methods-register_adapter"></a>
 
@@ -506,6 +576,88 @@ func get_context(adapter_id: StringName) -> GFPlatformRuntimeContext:
 | `adapter_id` | Adapter ID。 |
 
 返回：上下文副本；adapter 不存在时返回 null。
+
+<a id="member-gfplatformruntime-methods-get_activation_intents"></a>
+
+### `get_activation_intents`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func get_activation_intents() -> Array[GFPlatformActivationIntent]:
+```
+
+获取当前待消费激活意图副本。
+
+返回：按接收顺序排列的意图副本。
+
+结构：
+
+- `return`: Array[GFPlatformActivationIntent] pending activation intents.
+
+<a id="member-gfplatformruntime-methods-consume_activation_intent"></a>
+
+### `consume_activation_intent`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func consume_activation_intent( adapter_id: StringName, intent_id: StringName ) -> GFPlatformActivationIntent:
+```
+
+消费并移除指定激活意图。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `adapter_id` | 来源 Adapter ID。 |
+| `intent_id` | 该 Adapter 内的 Intent ID。 |
+
+返回：找到时返回意图副本，否则返回 null。
+
+<a id="member-gfplatformruntime-methods-acknowledge_activation_intent"></a>
+
+### `acknowledge_activation_intent`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func acknowledge_activation_intent( adapter_id: StringName, intent_id: StringName ) -> bool:
+```
+
+确认并移除指定激活意图。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `adapter_id` | 来源 Adapter ID。 |
+| `intent_id` | 该 Adapter 内的 Intent ID。 |
+
+返回：找到并移除返回 true。
+
+<a id="member-gfplatformruntime-methods-clear_activation_intents"></a>
+
+### `clear_activation_intents`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func clear_activation_intents(clear_dedupe_history: bool = false) -> void:
+```
+
+清空待消费激活意图。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `clear_dedupe_history` | 是否同时清空近期 ID 去重窗口。 |
 
 <a id="member-gfplatformruntime-methods-has_capability"></a>
 

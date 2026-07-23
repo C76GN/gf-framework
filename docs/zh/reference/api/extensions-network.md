@@ -6,12 +6,12 @@
 
 | 类别 | 类 | 成员 | 方法 |
 |---|---:|---:|---:|
-| [运行时服务](#category-runtime_service) | 4 | 89 | 52 |
-| [协议与扩展点](#category-protocol) | 5 | 78 | 43 |
+| [运行时服务](#category-runtime_service) | 4 | 105 | 60 |
+| [协议与扩展点](#category-protocol) | 5 | 77 | 46 |
 | [资源定义](#category-resource_definition) | 6 | 80 | 46 |
-| [运行时句柄](#category-runtime_handle) | 8 | 108 | 66 |
-| [值对象](#category-value_object) | 8 | 110 | 58 |
-| [事件契约](#category-event_contract) | 1 | 11 | 4 |
+| [运行时句柄](#category-runtime_handle) | 10 | 131 | 83 |
+| [值对象](#category-value_object) | 9 | 139 | 69 |
+| [事件契约](#category-event_contract) | 2 | 33 | 11 |
 | [编辑器 API](#category-editor_api) | 2 | 9 | 8 |
 
 ## 类
@@ -60,7 +60,9 @@
 |---|---|---|
 | [`GFENetNetworkBackend`](classes/GFENetNetworkBackend.md#gfenetnetworkbackend) | `GFNetworkBackend` | `addons/gf/extensions/network/backends/gf_enet_network_backend.gd` |
 | [`GFFixedTickClock`](classes/GFFixedTickClock.md#gffixedtickclock) | `RefCounted` | `addons/gf/extensions/network/simulation/gf_fixed_tick_clock.gd` |
+| [`GFMultiplayerPeerNetworkBackend`](classes/GFMultiplayerPeerNetworkBackend.md#gfmultiplayerpeernetworkbackend) | `GFNetworkBackend` | `addons/gf/extensions/network/backends/gf_multiplayer_peer_network_backend.gd` |
 | [`GFNetworkHistoryBuffer`](classes/GFNetworkHistoryBuffer.md#gfnetworkhistorybuffer) | `RefCounted` | `addons/gf/extensions/network/snapshot/gf_network_history_buffer.gd` |
+| [`GFNetworkLobbyOperationHandle`](classes/GFNetworkLobbyOperationHandle.md#gfnetworklobbyoperationhandle) | `RefCounted` | `addons/gf/extensions/network/session/gf_network_lobby_operation_handle.gd` |
 | [`GFNetworkRateLimiter`](classes/GFNetworkRateLimiter.md#gfnetworkratelimiter) | `RefCounted` | `addons/gf/extensions/network/session/gf_network_rate_limiter.gd` |
 | [`GFNetworkReconnectPolicy`](classes/GFNetworkReconnectPolicy.md#gfnetworkreconnectpolicy) | `RefCounted` | `addons/gf/extensions/network/session/gf_network_reconnect_policy.gd` |
 | [`GFNetworkServiceDiscovery`](classes/GFNetworkServiceDiscovery.md#gfnetworkservicediscovery) | `RefCounted` | `addons/gf/extensions/network/session/gf_network_service_discovery.gd` |
@@ -75,12 +77,13 @@
 |---|---|---|
 | [`GFNetworkInputFrame`](classes/GFNetworkInputFrame.md#gfnetworkinputframe) | `RefCounted` | `addons/gf/extensions/network/simulation/gf_network_input_frame.gd` |
 | [`GFNetworkLobbyDescriptor`](classes/GFNetworkLobbyDescriptor.md#gfnetworklobbydescriptor) | `Resource` | `addons/gf/extensions/network/session/gf_network_lobby_descriptor.gd` |
-| [`GFNetworkLobbyJoinResult`](classes/GFNetworkLobbyJoinResult.md#gfnetworklobbyjoinresult) | `RefCounted` | `addons/gf/extensions/network/session/gf_network_lobby_join_result.gd` |
 | [`GFNetworkLobbyMember`](classes/GFNetworkLobbyMember.md#gfnetworklobbymember) | `Resource` | `addons/gf/extensions/network/session/gf_network_lobby_member.gd` |
+| [`GFNetworkLobbyOperationResult`](classes/GFNetworkLobbyOperationResult.md#gfnetworklobbyoperationresult) | `RefCounted` | `addons/gf/extensions/network/session/gf_network_lobby_operation_result.gd` |
 | [`GFNetworkLobbyQuery`](classes/GFNetworkLobbyQuery.md#gfnetworklobbyquery) | `Resource` | `addons/gf/extensions/network/session/gf_network_lobby_query.gd` |
 | [`GFNetworkMessage`](classes/GFNetworkMessage.md#gfnetworkmessage) | `RefCounted` | `addons/gf/extensions/network/messages/gf_network_message.gd` |
 | [`GFNetworkPeerIdentity`](classes/GFNetworkPeerIdentity.md#gfnetworkpeeridentity) | `Resource` | `addons/gf/extensions/network/session/gf_network_peer_identity.gd` |
 | [`GFNetworkSnapshot`](classes/GFNetworkSnapshot.md#gfnetworksnapshot) | `RefCounted` | `addons/gf/extensions/network/snapshot/gf_network_snapshot.gd` |
+| [`GFNetworkTransportMetrics`](classes/GFNetworkTransportMetrics.md#gfnetworktransportmetrics) | `RefCounted` | `addons/gf/extensions/network/runtime/gf_network_transport_metrics.gd` |
 
 <a id="category-event_contract"></a>
 
@@ -89,6 +92,7 @@
 | 类 | 继承 | 源文件 |
 |---|---|---|
 | [`GFNetworkLobbyInvite`](classes/GFNetworkLobbyInvite.md#gfnetworklobbyinvite) | `Resource` | `addons/gf/extensions/network/session/gf_network_lobby_invite.gd` |
+| [`GFNetworkLobbyOperationRequest`](classes/GFNetworkLobbyOperationRequest.md#gfnetworklobbyoperationrequest) | `RefCounted` | `addons/gf/extensions/network/session/gf_network_lobby_operation_request.gd` |
 
 <a id="category-editor_api"></a>
 

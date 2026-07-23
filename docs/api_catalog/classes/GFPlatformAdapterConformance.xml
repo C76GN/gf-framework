@@ -1,0 +1,126 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFPlatformAdapterConformance" path="addons/gf/standard/platform/gf_platform_adapter_conformance.gd" module="standard" extends="RefCounted" classDigest="c5cd05198084fcc5cfc76a695ba3dd1cde21f9b272b8cfb687b921d49a935150">
+	<description>GFPlatformAdapterConformance: Platform Adapter 静态一致性审查器。
+在不调用外部 SDK 的前提下检查 Adapter 身份、状态、契约描述符、必需方法、
+运行时能力和桥接覆盖。动态单终态、取消和结果 schema 由 GFPlatformAdapter
+基类保证，并应由 Adapter 自己的契约测试覆盖。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">protocol</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants>
+		<member kind="const" name="KIND_ADAPTER_INVALID">
+			<signature>const KIND_ADAPTER_INVALID: StringName = &amp;"platform_adapter_invalid"</signature>
+			<description>Adapter 为空或身份未配置。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="KIND_ADAPTER_STATE_INVALID">
+			<signature>const KIND_ADAPTER_STATE_INVALID: StringName = &amp;"platform_adapter_state_invalid"</signature>
+			<description>Adapter 处于不可用终态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="KIND_CONTRACT_MISSING">
+			<signature>const KIND_CONTRACT_MISSING: StringName = &amp;"platform_contract_missing"</signature>
+			<description>缺少必需契约。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="KIND_DESCRIPTOR_MISSING">
+			<signature>const KIND_DESCRIPTOR_MISSING: StringName = &amp;"platform_contract_descriptor_missing"</signature>
+			<description>缺少契约描述符。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="KIND_DESCRIPTOR_INVALID">
+			<signature>const KIND_DESCRIPTOR_INVALID: StringName = &amp;"platform_contract_descriptor_invalid"</signature>
+			<description>契约描述符定义无效。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="KIND_CONTRACT_VERSION_MISMATCH">
+			<signature>const KIND_CONTRACT_VERSION_MISMATCH: StringName = &amp;"platform_contract_version_mismatch"</signature>
+			<description>契约版本与消费方要求不一致。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="KIND_METHOD_MISSING">
+			<signature>const KIND_METHOD_MISSING: StringName = &amp;"platform_contract_method_missing"</signature>
+			<description>契约缺少必需方法。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="KIND_CAPABILITY_MISSING">
+			<signature>const KIND_CAPABILITY_MISSING: StringName = &amp;"platform_capability_missing"</signature>
+			<description>运行时上下文缺少必需能力。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</constants>
+	<properties />
+	<methods>
+		<member kind="method" name="validate">
+			<signature>static func validate( adapter: GFPlatformAdapter, options: Dictionary = {} ) -&gt; GFValidationReport:</signature>
+			<description>校验 Platform Adapter 的静态契约。
+options 支持 required_contract_ids、required_contract_versions、
+required_capability_ids、required_methods、require_descriptors（默认 true）和
+require_ready（默认 false）。版本采用精确匹配；required_methods 是 contract_id
+到 method ID 列表的字典。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">adapter: 待审查 Adapter。</tag>
+				<tag name="param">options: 审查约束。</tag>
+				<tag name="return">强类型校验报告。</tag>
+				<tag name="schema">options: Dictionary platform adapter conformance requirements.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="inspect">
+			<signature>static func inspect( adapter: GFPlatformAdapter, options: Dictionary = {} ) -&gt; Dictionary:</signature>
+			<description>生成 JSON 安全的一致性报告和桥接覆盖附录。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">adapter: 待审查 Adapter。</tag>
+				<tag name="param">options: 传给 validate 的审查约束。</tag>
+				<tag name="return">JSON 安全报告字典。</tag>
+				<tag name="schema">options: Dictionary platform adapter conformance requirements.</tag>
+				<tag name="schema">return: Dictionary validation report with bridge_coverage.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="make_bridge_entries">
+			<signature>static func make_bridge_entries( adapter: GFPlatformAdapter, options: Dictionary = {} ) -&gt; Dictionary:</signature>
+			<description>构建通用 GFBridgeContractReport 输入条目。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">adapter: Platform Adapter。</tag>
+				<tag name="param">options: 可包含 required_contract_ids。</tag>
+				<tag name="return">contract_entries 与 adapter_entries。</tag>
+				<tag name="schema">options: Dictionary platform adapter conformance requirements.</tag>
+				<tag name="schema">return: Dictionary bridge contract and adapter entry arrays.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>
