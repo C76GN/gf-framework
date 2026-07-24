@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<apiCatalog schemaVersion="2" name="GF Framework" sourceRoot="addons/gf" sourceDigest="a5bf02a213ef9a83c1e087d880e0640a909b8c9b853faf188fc238cfb7353edb" classCount="778" methodCount="6981">
-	<module id="kernel" label="Kernel" classCount="70" methodCount="715">
+<apiCatalog schemaVersion="2" name="GF Framework" sourceRoot="addons/gf" sourceDigest="5119bbdcd17c5ab66ab5b25228c0cd2017d397ac27f912b11530ede6d56b6a6e" classCount="779" methodCount="6983">
+	<module id="kernel" label="Kernel" classCount="71" methodCount="717">
 		<class name="GFAccessGenerator" path="classes/GFAccessGenerator.xml" sourcePath="addons/gf/kernel/editor/gf_access_generator.gd" extends="RefCounted" />
 		<class name="GFArchitecture" path="classes/GFArchitecture.xml" sourcePath="addons/gf/kernel/core/gf_architecture.gd" extends="Object" />
 		<class name="GFAsyncCompletion" path="classes/GFAsyncCompletion.xml" sourcePath="addons/gf/kernel/core/gf_async_completion.gd" extends="RefCounted" />
@@ -71,6 +71,7 @@
 		<class name="GFTimeProvider" path="classes/GFTimeProvider.xml" sourcePath="addons/gf/kernel/base/gf_time_provider.gd" extends="GFUtility" />
 		<class name="GFTypeEventSystem" path="classes/GFTypeEventSystem.xml" sourcePath="addons/gf/kernel/core/gf_type_event_system.gd" extends="Object" />
 		<class name="GFUtility" path="classes/GFUtility.xml" sourcePath="addons/gf/kernel/base/gf_utility.gd" extends="Object" />
+		<class name="GFWeakMethodInvocation" path="classes/GFWeakMethodInvocation.xml" sourcePath="addons/gf/kernel/core/gf_weak_method_invocation.gd" extends="RefCounted" />
 	</module>
 	<module id="standard" label="Standard" classCount="434" methodCount="4353">
 		<class name="GFActivationTransaction" path="classes/GFActivationTransaction.xml" sourcePath="addons/gf/standard/foundation/policy/gf_activation_transaction.gd" extends="RefCounted" />

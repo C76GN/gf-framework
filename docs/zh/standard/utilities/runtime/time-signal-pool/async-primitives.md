@@ -170,14 +170,16 @@ var report := await GFAsyncWaitUtility.await_signal_payload(batch.settled)
 var dispatch_queue := GFMainThreadDispatchQueue.new()
 dispatch_queue.init()
 
-dispatch_queue.post_owned(self, func() -> void:
-	_apply_loaded_data()
-, { "label": "apply_loaded_data" })
+dispatch_queue.post_method(self, &"_apply_loaded_data", {
+	"label": "apply_loaded_data",
+})
 
 dispatch_queue.dispatch(8, 0.002)
 ```
 
-队列只保证回调在调用 `dispatch()` 的位置执行；它不会自动创建线程，也不会判断回调是否应该重试、回滚或显示 UI。跨线程传入的载荷建议保持为纯数据，节点和资源修改放在派发回调中完成。
+`post_method()` 只保存 owner 的弱引用、初始实例 ID、方法名、label 和 front 选项，不保存 Callable、调用参数或 metadata；owner 已释放时记录会进入 `skipped_owner_count`。`post()` 只接收无 owner 的强 Callable；`post_owned()` 与 `post(options.owner)` 已移除，传入旧 owner 选项会 fail closed。
+
+队列只保证回调在调用 `dispatch()` 的位置执行；它不会自动创建线程，也不会判断回调是否应该重试、回滚或显示 UI。跨线程传入的载荷建议保持为纯数据，节点和资源修改放在派发方法中完成。
 
 需要把一批状态变化延后到帧末、系统阶段末或编辑器 apply 阶段时，用 `GFDeferredMutationQueue` 收集变更，再在明确的 playback 点稳定执行：
 
@@ -200,7 +202,11 @@ var damage_report := mutations.playback({ "phase": &"damage" })
 var cleanup_report := mutations.playback({ "phase": &"cleanup" })
 ```
 
+owner 自身的无参变更应使用 `record_method(owner, method_name, options)`。该入口保留 phase、sort key、order 和 label，但不会保存 metadata；owner 释放时记录会安全跳过。`record()` 只接收无 owner 的强 Callable；`record_owned()` 与 `record(options.owner)` 已移除，旧 owner 选项会被拒绝。
+
 队列不理解变更对象是什么，也不替代 UndoRedo、事务或存档系统。它只解决“先收集、后应用、顺序可诊断”的运行时边界。
+
+自定义运行时容器需要同样的语义时，可以直接保存 `GFWeakMethodInvocation`，在执行点调用 `invoke(arguments)`，并处理 `invoked`、`owner_released`、`method_missing`、`failed`。原语不保存参数，也不会把业务返回的 `false` 或 `{ "ok": false }` 擅自解释为调用失败；`failed` 覆盖无效定义和参数数量预检，`invoked` 只表示预检通过且 `Object.callv()` 已返回。GDScript 无法捕获 callv 期间的类型错误或被调方法内部错误，消费者仍须按自己的结果契约处理。
 
 需要把同一对象短时间内连续到达的变化合并成一次处理时，使用静默窗口协调器。例如文件监听器可能连续报告同一资源的写入，设置面板可能在拖动滑杆时产生大量变化，网络适配器也可能希望按实体把短时间内的 patch 合成一批：
 

@@ -28,7 +28,7 @@ func test_dispatch_queue_orders_front_and_tracks_counts() -> void:
 	assert_true(queue.has_dispatch_context(), "init 后队列应标记显式派发点。")
 
 
-func test_dispatch_queue_cancels_and_skips_released_owner() -> void:
+func test_dispatch_queue_cancels_pending_callback() -> void:
 	var queue: GF_MAIN_THREAD_DISPATCH_QUEUE_SCRIPT = GF_MAIN_THREAD_DISPATCH_QUEUE_SCRIPT.new()
 	queue.init()
 	var events: Array[String] = []
@@ -38,16 +38,148 @@ func test_dispatch_queue_cancels_and_skips_released_owner() -> void:
 	)
 	assert_true(queue.cancel(cancelled_handle), "未执行回调应可取消。")
 
-	var callback_owner: RefCounted = RefCounted.new()
-	var owner_handle: int = queue.post_owned(callback_owner, func() -> void:
-		events.append("owned")
+	var report: Dictionary = queue.dispatch()
+	var snapshot: Dictionary = queue.get_debug_snapshot()
+	assert_eq(events, [], "取消的回调不应执行。")
+	assert_eq(GFVariantData.get_option_int(report, "skipped_owner_count"), 0, "无 owner 回调不应产生 owner 跳过。")
+	assert_eq(GFVariantData.get_option_int(snapshot, "cancelled_count"), 1, "快照应统计取消数量。")
+
+
+func test_post_rejects_removed_owner_option() -> void:
+	var queue: GF_MAIN_THREAD_DISPATCH_QUEUE_SCRIPT = GF_MAIN_THREAD_DISPATCH_QUEUE_SCRIPT.new()
+	queue.init()
+	var legacy_owner: _MethodOwner = _MethodOwner.new()
+
+	var string_key_handle: int = queue.post(func() -> bool:
+		return legacy_owner.record_tail()
+	, { "owner": legacy_owner })
+
+	assert_push_error("[GFMainThreadDispatchQueue] post 失败：owner 选项已移除，请使用 post_method()。")
+	var string_name_key_handle: int = queue.post(func() -> bool:
+		return legacy_owner.record_tail()
+	, { &"owner": legacy_owner })
+	assert_push_error("[GFMainThreadDispatchQueue] post 失败：owner 选项已移除，请使用 post_method()。")
+
+	assert_eq(string_key_handle, 0, "String owner 选项必须 fail closed。")
+	assert_eq(string_name_key_handle, 0, "StringName owner 选项必须 fail closed。")
+	assert_true(queue.is_empty(), "被拒绝的旧式 owner 回调不得进入队列。")
+
+
+func test_post_method_preserves_order_and_owner_cancellation() -> void:
+	var queue: GF_MAIN_THREAD_DISPATCH_QUEUE_SCRIPT = GF_MAIN_THREAD_DISPATCH_QUEUE_SCRIPT.new()
+	queue.init()
+	var method_owner: _MethodOwner = _MethodOwner.new()
+	var cancelled_owner: _MethodOwner = _MethodOwner.new()
+
+	var tail_handle: int = queue.post_method(method_owner, &"record_tail")
+	var front_handle: int = queue.post_method(
+		method_owner,
+		&"record_front",
+		{ "front": true }
 	)
-	assert_gt(owner_handle, 0, "owner 回调应返回句柄。")
-	callback_owner = null
+	var cancelled_handle: int = queue.post_method(cancelled_owner, &"record_cancelled")
+
+	assert_gt(tail_handle, 0, "弱方法调用应返回句柄。")
+	assert_gt(front_handle, 0, "front 弱方法调用应返回句柄。")
+	assert_gt(cancelled_handle, 0, "可取消的弱方法调用应返回句柄。")
+	assert_eq(queue.cancel_owner(cancelled_owner), 1, "cancel_owner 应识别弱方法调用的初始 owner。")
 
 	var report: Dictionary = queue.dispatch()
 	var snapshot: Dictionary = queue.get_debug_snapshot()
-	assert_eq(events, [], "取消和 owner 释放的回调都不应执行。")
-	assert_eq(GFVariantData.get_option_int(report, "skipped_owner_count"), 1, "派发报告应统计 owner 跳过。")
-	assert_eq(GFVariantData.get_option_int(snapshot, "cancelled_count"), 1, "快照应统计取消数量。")
-	assert_eq(GFVariantData.get_option_int(snapshot, "skipped_owner_count"), 1, "快照应统计 owner 跳过数量。")
+	assert_eq(method_owner.events, ["front", "tail"], "弱方法调用应保留 front 顺序。")
+	assert_eq(GFVariantData.get_option_int(report, "dispatched_count"), 2, "成功的弱方法调用应计为 dispatched。")
+	assert_eq(GFVariantData.get_option_int(snapshot, "cancelled_count"), 1, "弱方法取消应进入既有统计。")
+
+
+func test_post_method_does_not_retain_ref_counted_owner() -> void:
+	var queue: GF_MAIN_THREAD_DISPATCH_QUEUE_SCRIPT = GF_MAIN_THREAD_DISPATCH_QUEUE_SCRIPT.new()
+	queue.init()
+	var method_owner: _MethodOwner = _MethodOwner.new()
+	var owner_ref: WeakRef = weakref(method_owner)
+	var options: Dictionary = { "metadata": { "owner": method_owner } }
+
+	var handle: int = queue.post_method(method_owner, &"record_tail", options)
+	assert_gt(handle, 0, "RefCounted owner 的弱方法调用应成功入队。")
+	options.clear()
+	method_owner = null
+
+	assert_true(owner_ref.get_ref() == null, "安全入口不得通过 Callable 或未声明 metadata 强持有 RefCounted owner。")
+	var report: Dictionary = queue.dispatch()
+	assert_eq(GFVariantData.get_option_int(report, "skipped_owner_count"), 1, "已释放 RefCounted owner 应计为 skipped。")
+	assert_eq(GFVariantData.get_option_int(report, "failed_count"), 0, "owner 释放不应计为调用失败。")
+
+
+func test_post_method_skips_freed_node_owner() -> void:
+	var queue: GF_MAIN_THREAD_DISPATCH_QUEUE_SCRIPT = GF_MAIN_THREAD_DISPATCH_QUEUE_SCRIPT.new()
+	queue.init()
+	var node_owner: Node = Node.new()
+	var owner_ref: WeakRef = weakref(node_owner)
+
+	var handle: int = queue.post_method(node_owner, &"get_name")
+	assert_gt(handle, 0, "Node owner 的弱方法调用应成功入队。")
+	node_owner.free()
+	node_owner = null
+
+	assert_true(owner_ref.get_ref() == null, "free 后 WeakRef 不应继续解析 Node。")
+	var report: Dictionary = queue.dispatch()
+	assert_eq(GFVariantData.get_option_int(report, "skipped_owner_count"), 1, "已 free 的 Node owner 应计为 skipped。")
+	assert_eq(GFVariantData.get_option_int(report, "failed_count"), 0, "Node owner 释放不应计为调用失败。")
+
+
+func test_post_method_maps_missing_and_failure_results_to_failed_count() -> void:
+	var queue: GF_MAIN_THREAD_DISPATCH_QUEUE_SCRIPT = GF_MAIN_THREAD_DISPATCH_QUEUE_SCRIPT.new()
+	queue.init()
+	var method_owner: _MethodOwner = _MethodOwner.new()
+
+	var missing_handle: int = queue.post_method(method_owner, &"missing_method")
+	var argument_mismatch_handle: int = queue.post_method(method_owner, &"requires_argument")
+	var false_handle: int = queue.post_method(method_owner, &"return_false")
+	var report_handle: int = queue.post_method(method_owner, &"return_failed_report")
+	assert_gt(missing_handle, 0, "缺失方法应延迟到派发时判定。")
+	assert_gt(argument_mismatch_handle, 0, "参数数量不匹配应延迟到派发时判定。")
+	assert_gt(false_handle, 0, "返回 false 的方法应成功入队。")
+	assert_gt(report_handle, 0, "返回失败报告的方法应成功入队。")
+
+	var report: Dictionary = queue.dispatch()
+	assert_eq(GFVariantData.get_option_int(report, "failed_count"), 4, "method_missing、原语 failed、false 和 ok=false 都应进入既有失败统计。")
+	assert_eq(GFVariantData.get_option_int(report, "dispatched_count"), 0, "失败结果不应计为成功派发。")
+	assert_eq(method_owner.invoked_count, 2, "缺失方法不应调用 owner，两个显式失败方法应各调用一次。")
+
+
+# --- 内部类 ---
+
+class _MethodOwner:
+	extends RefCounted
+
+	var events: Array[String] = []
+	var invoked_count: int = 0
+
+
+	func record_front() -> bool:
+		events.append("front")
+		return true
+
+
+	func record_tail() -> bool:
+		events.append("tail")
+		return true
+
+
+	func record_cancelled() -> bool:
+		events.append("cancelled")
+		return true
+
+
+	func requires_argument(_value: String) -> bool:
+		invoked_count += 1
+		return true
+
+
+	func return_false() -> bool:
+		invoked_count += 1
+		return false
+
+
+	func return_failed_report() -> Dictionary:
+		invoked_count += 1
+		return { "ok": false }

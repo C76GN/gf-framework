@@ -9,7 +9,7 @@
 - 类别：运行时服务 (`runtime_service`)
 - 首次版本：`7.0.0`
 
-主线程回调派发队列。 用于让后台线程、资源加载回调或项目侧异步流程把最终应用逻辑排回主线程。 队列只保存和派发 Callable，不创建线程、不校验线程身份，也不解释调用方的业务语义。
+主线程回调派发队列。 用于让后台线程、资源加载回调或项目侧异步流程把最终应用逻辑排回主线程。 post() 保存无 owner 的强 Callable；post_method() 通过弱 owner 和方法名保存生命周期调用。 队列不创建线程、不校验线程身份，也不解释调用方的业务语义。
 
 ## 成员概览
 
@@ -21,7 +21,7 @@
 | 方法 | [`tick`](#member-gfmainthreaddispatchqueue-methods-tick) | `func tick(_delta: float = 0.0) -> void:` |
 | 方法 | [`dispose`](#member-gfmainthreaddispatchqueue-methods-dispose) | `func dispose() -> void:` |
 | 方法 | [`post`](#member-gfmainthreaddispatchqueue-methods-post) | `func post(callback: Callable, options: Dictionary = {}) -> int:` |
-| 方法 | [`post_owned`](#member-gfmainthreaddispatchqueue-methods-post_owned) | `func post_owned(owner: Object, callback: Callable, options: Dictionary = {}) -> int:` |
+| 方法 | [`post_method`](#member-gfmainthreaddispatchqueue-methods-post_method) | `func post_method(owner: Object, method_name: StringName, options: Dictionary = {}) -> int:` |
 | 方法 | [`dispatch`](#member-gfmainthreaddispatchqueue-methods-dispatch) | `func dispatch(max_count: int = 0, max_seconds: float = 0.0) -> Dictionary:` |
 | 方法 | [`cancel`](#member-gfmainthreaddispatchqueue-methods-cancel) | `func cancel(handle: int) -> bool:` |
 | 方法 | [`cancel_owner`](#member-gfmainthreaddispatchqueue-methods-cancel_owner) | `func cancel_owner(owner: Object) -> int:` |
@@ -118,47 +118,47 @@ func dispose() -> void:
 func post(callback: Callable, options: Dictionary = {}) -> int:
 ```
 
-把回调加入主线程派发队列。
+把无 owner 的回调加入主线程派发队列。 该入口会强持有 callback；需要绑定 owner 生命周期时使用 post_method()。
 
 参数：
 
 | 名称 | 说明 |
 |---|---|
 | `callback` | 需要在显式派发点执行的回调。 |
-| `options` | 队列选项，支持 owner、metadata、label 和 front。 |
+| `options` | 队列选项，支持 metadata、label 和 front。 |
 
 返回：派发句柄；callback 无效时返回 0。
 
 结构：
 
-- `options`: Dictionary，可包含 owner: Object、metadata: Dictionary、label: String、front: bool。
+- `options`: Dictionary，可包含 metadata: Dictionary、label: String、front: bool。
 
-<a id="member-gfmainthreaddispatchqueue-methods-post_owned"></a>
+<a id="member-gfmainthreaddispatchqueue-methods-post_method"></a>
 
-### `post_owned`
+### `post_method`
 
 - API：`public`
-- 首次版本：`7.0.0`
+- 首次版本：`unreleased`
 
 ```gdscript
-func post_owned(owner: Object, callback: Callable, options: Dictionary = {}) -> int:
+func post_method(owner: Object, method_name: StringName, options: Dictionary = {}) -> int:
 ```
 
-把 owner 绑定回调加入主线程派发队列。owner 释放后回调会被跳过。
+把弱 owner 方法调用加入主线程派发队列。 队列只保存 owner 的弱引用与方法名，不保存绑定 Callable、调用参数或 owner 强引用。
 
 参数：
 
 | 名称 | 说明 |
 |---|---|
-| `owner` | 回调拥有者。 |
-| `callback` | 需要在显式派发点执行的回调。 |
-| `options` | 队列选项，支持 metadata、label 和 front。 |
+| `owner` | 方法调用拥有者。 |
+| `method_name` | 派发时调用的方法名。 |
+| `options` | 队列选项，支持 label 和 front。 |
 
-返回：派发句柄；参数无效时返回 0。
+返回：派发句柄；owner 或 method_name 无效时返回 0。
 
 结构：
 
-- `options`: Dictionary，可包含 metadata: Dictionary、label: String、front: bool。
+- `options`: Dictionary，可包含 label: String、front: bool。
 
 <a id="member-gfmainthreaddispatchqueue-methods-dispatch"></a>
 
@@ -203,7 +203,7 @@ func cancel(handle: int) -> bool:
 
 | 名称 | 说明 |
 |---|---|
-| `handle` | post() 返回的派发句柄。 |
+| `handle` | post() 或 post_method() 返回的派发句柄。 |
 
 返回：找到并取消时返回 true。
 
@@ -218,7 +218,7 @@ func cancel(handle: int) -> bool:
 func cancel_owner(owner: Object) -> int:
 ```
 
-取消指定 owner 绑定的全部待派发回调。
+取消指定 owner 的全部待派发弱方法调用。
 
 参数：
 

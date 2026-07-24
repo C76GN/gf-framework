@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFDeferredMutationQueue" path="addons/gf/standard/common/gf_deferred_mutation_queue.gd" module="standard" extends="GFUtility" classDigest="ea9d257d66eaab1a1930995b05ead0d0c02b03a2c9e77ea6d297c8ac8eafce7b">
+<class name="GFDeferredMutationQueue" path="addons/gf/standard/common/gf_deferred_mutation_queue.gd" module="standard" extends="GFUtility" classDigest="93e7fca44b5c4c42567696ec8416fb5cd01660725a6d5587abefa18e1a36469e">
 	<description>GFDeferredMutationQueue: 确定性延迟变更队列。
 用于把运行时或工具流程中收集到的状态变更延迟到显式 playback 点执行。
-队列只保存 Callable、排序信息和诊断 metadata，不解释调用方的实体、组件、
-节点或资源语义。</description>
+record() 保存无 owner 的强 Callable；record_method() 通过弱 owner 和方法名
+保存生命周期调用。队列不解释调用方的实体、组件、节点或资源语义。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">runtime_service</tag>
@@ -58,27 +58,30 @@
 		</member>
 		<member kind="method" name="record">
 			<signature>func record(mutation: Callable, options: Dictionary = {}) -&gt; int:</signature>
-			<description>记录一条延迟变更。</description>
+			<description>记录一条无 owner 的延迟变更。
+该入口会强持有 mutation；需要绑定 owner 生命周期时使用 record_method()。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">mutation: playback() 时执行的回调。</tag>
-				<tag name="param">options: 记录选项，支持 phase、sort_key、order、label、metadata 和 owner。</tag>
+				<tag name="param">options: 记录选项，支持 phase、sort_key、order、label 和 metadata。</tag>
 				<tag name="return">变更句柄；mutation 无效时返回 0。</tag>
-				<tag name="schema">options: Dictionary，可包含 phase: StringName、sort_key: int、order: int、label: String、metadata: Dictionary、owner: Object。</tag>
+				<tag name="schema">options: Dictionary，可包含 phase: StringName、sort_key: int、order: int、label: String、metadata: Dictionary。</tag>
 				<tag name="since">7.0.0</tag>
 			</tags>
 		</member>
-		<member kind="method" name="record_owned">
-			<signature>func record_owned(owner: Object, mutation: Callable, options: Dictionary = {}) -&gt; int:</signature>
-			<description>记录一条绑定 owner 的延迟变更。owner 释放后变更会在 playback() 时跳过。</description>
+		<member kind="method" name="record_method">
+			<signature>func record_method( owner: Object, method_name: StringName, options: Dictionary = {} ) -&gt; int:</signature>
+			<description>通过弱引用 owner 与方法名记录延迟变更。
+队列不会保存 owner、Callable 或任意持久调用参数的强引用。为避免 metadata
+间接保活 owner，安全入口只保存 phase、sort_key、order 和 label 选项。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">owner: 变更拥有者。</tag>
-				<tag name="param">mutation: playback() 时执行的回调。</tag>
-				<tag name="param">options: 记录选项，支持 phase、sort_key、order、label 和 metadata。</tag>
+				<tag name="param">method_name: playback() 时调用的 owner 方法名。</tag>
+				<tag name="param">options: 记录选项，支持 phase、sort_key、order 和 label。</tag>
 				<tag name="return">变更句柄；参数无效时返回 0。</tag>
-				<tag name="schema">options: Dictionary，可包含 phase: StringName、sort_key: int、order: int、label: String、metadata: Dictionary。</tag>
-				<tag name="since">7.0.0</tag>
+				<tag name="schema">options: Dictionary，可包含 phase: StringName、sort_key: int、order: int 和 label: String；不会保存 metadata。</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 		<member kind="method" name="playback">
@@ -110,14 +113,14 @@
 			<description>取消一条尚未应用的变更。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="param">handle: record() 返回的变更句柄。</tag>
+				<tag name="param">handle: record() 或 record_method() 返回的变更句柄。</tag>
 				<tag name="return">找到并取消时返回 true。</tag>
 				<tag name="since">7.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="cancel_owner">
 			<signature>func cancel_owner(owner: Object) -&gt; int:</signature>
-			<description>取消指定 owner 绑定的全部待应用变更。</description>
+			<description>取消指定 owner 的全部待应用弱方法调用。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">owner: 变更拥有者。</tag>

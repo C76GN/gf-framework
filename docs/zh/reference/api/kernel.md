@@ -9,7 +9,7 @@
 | [运行时服务](#category-runtime_service) | 14 | 285 | 219 |
 | [协议与扩展点](#category-protocol) | 19 | 195 | 170 |
 | [资源定义](#category-resource_definition) | 2 | 45 | 15 |
-| [运行时句柄](#category-runtime_handle) | 8 | 80 | 68 |
+| [运行时句柄](#category-runtime_handle) | 9 | 86 | 70 |
 | [值对象](#category-value_object) | 1 | 1 | 0 |
 | [事件契约](#category-event_contract) | 1 | 10 | 10 |
 | [编辑器 API](#category-editor_api) | 25 | 371 | 233 |
@@ -86,6 +86,7 @@
 | [`GFSignalSubscriptionToken`](classes/GFSignalSubscriptionToken.md#gfsignalsubscriptiontoken) | `GFSubscriptionToken` | `addons/gf/kernel/core/gf_signal_subscription_token.gd` |
 | [`GFSubscriptionToken`](classes/GFSubscriptionToken.md#gfsubscriptiontoken) | `RefCounted` | `addons/gf/kernel/core/gf_subscription_token.gd` |
 | [`GFThumbnailRenderTask`](classes/GFThumbnailRenderTask.md#gfthumbnailrendertask) | `RefCounted` | `addons/gf/kernel/editor/gf_thumbnail_render_task.gd` |
+| [`GFWeakMethodInvocation`](classes/GFWeakMethodInvocation.md#gfweakmethodinvocation) | `RefCounted` | `addons/gf/kernel/core/gf_weak_method_invocation.gd` |
 
 <a id="category-value_object"></a>
 
