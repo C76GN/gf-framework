@@ -1,0 +1,16 @@
+{
+  "profile_id": "project.sample_adapter",
+  "godot_version": "4.5.0",
+  "framework_version": "10.0.0",
+  "platforms": ["sample_platform"],
+  "features": ["platform_adapter", "platform_lobby"],
+  "packages": [
+    {"id": "gf.standard.platform", "version": ""},
+    {"id": "gf.extension.network", "version": ""}
+  ],
+  "artifacts": [],
+  "metadata": {
+    "adapter_id": "project.sample_adapter",
+    "contract_versions": {"project.platform.sample": "1.0.0"}
+  }
+}

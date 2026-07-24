@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFPlatformAdapter" path="addons/gf/standard/platform/gf_platform_adapter.gd" module="standard" extends="RefCounted" classDigest="05a13e16941c4dcce7a1d61b917cf8f3b819590b230939fb80c4ea68758479ec">
+<class name="GFPlatformAdapter" path="addons/gf/standard/platform/gf_platform_adapter.gd" module="standard" extends="RefCounted" classDigest="f54522a5cbd9dffd346e16c39b4e65587faa71e0628d206ab4a45aaa9f0a753b">
 	<description>GFPlatformAdapter: 外部平台 adapter 协议。
 Steam、微信小游戏、主机平台或自建平台实现应继承该类型，把具体 SDK 回调
 转换为 GF 的上下文、生命周期事件和桥接结果。该基类不依赖任何平台 SDK。</description>
@@ -37,6 +37,15 @@ Steam、微信小游戏、主机平台或自建平台实现应继承该类型，
 				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>
+		<member kind="signal" name="activation_intent">
+			<signature>signal activation_intent(intent: GFPlatformActivationIntent)</signature>
+			<description>收到平台激活入口后发出。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">intent: 已规范化的激活意图副本。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
 	</signals>
 	<enums>
 		<member kind="enum" name="State">
@@ -63,7 +72,7 @@ Steam、微信小游戏、主机平台或自建平台实现应继承该类型，
 	<properties />
 	<methods>
 		<member kind="method" name="configure">
-			<signature>func configure( adapter_id: StringName, platform_id: StringName, contract_ids: PackedStringArray, initial_context: GFPlatformRuntimeContext = null ) -&gt; bool:</signature>
+			<signature>func configure( adapter_id: StringName, platform_id: StringName, contract_ids: PackedStringArray, contract_descriptors: Array[GFPlatformContractDescriptor], initial_context: GFPlatformRuntimeContext = null ) -&gt; bool:</signature>
 			<description>配置 adapter 身份和支持的桥接契约。
 配置只允许在 CREATED 状态执行，防止运行期间改变路由身份。</description>
 			<tags>
@@ -71,8 +80,10 @@ Steam、微信小游戏、主机平台或自建平台实现应继承该类型，
 				<tag name="param">adapter_id: Adapter 稳定标识。</tag>
 				<tag name="param">platform_id: 平台稳定标识。</tag>
 				<tag name="param">contract_ids: 支持的桥接契约 ID。</tag>
+				<tag name="param">contract_descriptors: 平台契约描述符；必须与 contract_ids 一一对应。</tag>
 				<tag name="param">initial_context: 可选初始上下文。</tag>
 				<tag name="return">配置成功返回 true。</tag>
+				<tag name="schema">contract_descriptors: Array[GFPlatformContractDescriptor] complete contract descriptors.</tag>
 				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>
@@ -101,6 +112,26 @@ Steam、微信小游戏、主机平台或自建平台实现应继承该类型，
 				<tag name="api">public</tag>
 				<tag name="return">排序去重后的契约 ID。</tag>
 				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_contract_descriptors">
+			<signature>func get_contract_descriptors() -&gt; Array[GFPlatformContractDescriptor]:</signature>
+			<description>获取声明的契约描述符副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">按 contract_id 排序的描述符副本。</tag>
+				<tag name="schema">return: Array[GFPlatformContractDescriptor] declared platform contracts.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_contract_descriptor">
+			<signature>func get_contract_descriptor(contract_id: StringName) -&gt; GFPlatformContractDescriptor:</signature>
+			<description>获取一个契约描述符副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">contract_id: 契约 ID。</tag>
+				<tag name="return">找到时返回描述符副本，否则返回 null。</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 		<member kind="method" name="supports_contract">
@@ -187,8 +218,8 @@ SHUTDOWN 为终态；需要重新连接时应创建新 adapter 实例。</descri
 			<description>获取 adapter 调试快照。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="return">Adapter 身份、状态、契约与上下文字典。</tag>
-				<tag name="schema">return: Dictionary with adapter_id, platform_id, state, state_name, contract_ids, and context.</tag>
+				<tag name="return">Adapter 身份、状态、契约与脱敏上下文摘要。</tag>
+				<tag name="schema">return: Dictionary with adapter identity, state, contracts, and redacted context summary.</tag>
 				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>
@@ -234,6 +265,19 @@ SHUTDOWN 为终态；需要重新连接时应创建新 adapter 实例。</descri
 				<tag name="param">_handle: 已进入取消或超时终态的句柄。</tag>
 				<tag name="param">_reason: 取消原因。</tag>
 				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_release_request">
+			<signature>func _release_request(handle: GFPlatformRequestHandle) -&gt; bool:</signature>
+			<description>确认底层 Provider 调用已经停止并释放请求租约。
+本地取消和超时只结束调用方 Handle，不代表不可取消或异步取消的 SDK 调用已经
+停止。Adapter 应在 Provider 确认取消后调用本方法；迟到成功或失败回调通过
+`_succeed_request` / `_fail_request` 也会自动释放租约。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">handle: 已停止底层工作的请求句柄。</tag>
+				<tag name="return">当前 Adapter 仍持有该请求租约并已释放时返回 true。</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 		<member kind="method" name="_shutdown">
@@ -285,6 +329,18 @@ SHUTDOWN 为终态；需要重新连接时应创建新 adapter 实例。</descri
 				<tag name="param">event: 生命周期事件。</tag>
 				<tag name="return">事件有效并已发布时返回 true。</tag>
 				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_publish_activation_intent">
+			<signature>func _publish_activation_intent(intent: GFPlatformActivationIntent) -&gt; bool:</signature>
+			<description>发布平台激活意图。
+基类补齐并校验 adapter/platform 身份和单调时间戳。Intent ID 必须由 adapter
+根据平台事件生成，确保重放回调可以去重。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">intent: 平台激活意图。</tag>
+				<tag name="return">意图有效并已发布时返回 true。</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 		<member kind="method" name="_succeed_request">

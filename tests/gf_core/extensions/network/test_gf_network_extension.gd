@@ -13,6 +13,7 @@ class FakeBackend extends GFNetworkBackend:
 		sent_peer_id = peer_id
 		sent_bytes = bytes
 		sent_options = options.duplicate(true)
+		_record_transport_packet_sent(bytes.size())
 		return OK
 
 	func host(_options: Dictionary = {}) -> Error:
@@ -24,6 +25,13 @@ class FakeBackend extends GFNetworkBackend:
 	func disconnect_backend() -> void:
 		disconnected_by_utility = true
 		disconnected.emit("closed")
+
+	func emit_packet_for_test(peer_id: int, bytes: PackedByteArray) -> void:
+		_emit_message_received(peer_id, bytes)
+
+	func mark_connected_at_zero_for_test() -> void:
+		_transport_connected = true
+		_transport_connected_at_msec = 0
 
 
 class EagerConnectedBackend extends FakeBackend:
@@ -40,8 +48,120 @@ class FailingHostBackend extends FakeBackend:
 class FakeLobbyBackend extends GFNetworkLobbyBackend:
 	var closed: bool = false
 	var lobbies: Array[GFNetworkLobbyDescriptor] = []
+	var held_handles: Dictionary = {}
+	var cancel_count: int = 0
+	var complete_during_poll: bool = false
+	var reenter_on_cancel: bool = false
+	var reentrant_status: StringName = &""
 
-	func create_lobby(options: Dictionary = {}) -> Dictionary:
+	func _dispatch_operation(
+		request: GFNetworkLobbyOperationRequest,
+		handle: GFNetworkLobbyOperationHandle
+	) -> bool:
+		if GFVariantData.get_option_bool(request.provider_options, "hold"):
+			held_handles[String(request.request_id)] = handle
+			return true
+		if request.provider_options.has("malformed_lobbies"):
+			var malformed_lobbies: Variant = request.provider_options["malformed_lobbies"]
+			return _succeed_operation(handle, {"lobbies": malformed_lobbies})
+		if GFVariantData.get_option_bool(request.provider_options, "invalid_result"):
+			if request.operation == GFNetworkLobbyOperationRequest.OP_QUERY_LOBBIES:
+				var duplicate_lobby: GFNetworkLobbyDescriptor = (
+					GFNetworkLobbyDescriptor.new().configure("duplicate-lobby")
+				)
+				return _succeed_operation(handle, {
+					"lobbies": [duplicate_lobby, duplicate_lobby],
+				})
+			return _succeed_operation(handle)
+		match request.operation:
+			GFNetworkLobbyOperationRequest.OP_CREATE_LOBBY:
+				return _create_lobby(request, handle)
+			GFNetworkLobbyOperationRequest.OP_QUERY_LOBBIES:
+				return _query_lobbies(request, handle)
+			GFNetworkLobbyOperationRequest.OP_JOIN_LOBBY:
+				return _join_lobby(request, handle)
+			GFNetworkLobbyOperationRequest.OP_LEAVE_LOBBY:
+				return _succeed_operation(handle, {"lobby_id": request.lobby_id})
+			GFNetworkLobbyOperationRequest.OP_SET_LOBBY_METADATA:
+				return _set_lobby_metadata(request, handle)
+			GFNetworkLobbyOperationRequest.OP_SET_MEMBER_METADATA:
+				return _set_member_metadata(request, handle)
+		return false
+
+	func _cancel_operation(
+		_handle: GFNetworkLobbyOperationHandle,
+		_reason: StringName
+	) -> void:
+		cancel_count += 1
+		if reenter_on_cancel:
+			var reentrant_request: GFNetworkLobbyOperationRequest = (
+				GFNetworkLobbyOperationRequest.new().configure(
+					&"close_reentrant",
+					GFNetworkLobbyOperationRequest.OP_QUERY_LOBBIES
+				)
+			)
+			var reentrant: GFNetworkLobbyOperationHandle = invoke_operation(
+				reentrant_request
+			)
+			reentrant_status = reentrant.get_result().status
+
+	func _poll(_delta: float) -> void:
+		if not complete_during_poll:
+			return
+		complete_during_poll = false
+		for request_key: Variant in held_handles.keys().duplicate():
+			var _completed: bool = complete_held(StringName(str(request_key)))
+
+	func _close() -> void:
+		closed = true
+		held_handles.clear()
+
+	func complete_held(request_id: StringName) -> bool:
+		var value: Variant = GFVariantData.get_option_value(
+			held_handles,
+			String(request_id)
+		)
+		if not (value is GFNetworkLobbyOperationHandle):
+			return false
+		var handle: GFNetworkLobbyOperationHandle = value
+		var _erased: bool = held_handles.erase(String(request_id))
+		return _complete_handle_successfully(handle)
+
+	func complete_handle_late(handle: GFNetworkLobbyOperationHandle) -> bool:
+		if handle != null:
+			var _erased: bool = held_handles.erase(String(handle.get_request_id()))
+		return _succeed_operation(handle)
+
+	func _complete_handle_successfully(
+		handle: GFNetworkLobbyOperationHandle
+	) -> bool:
+		var request: GFNetworkLobbyOperationRequest = handle.get_request()
+		match request.operation:
+			GFNetworkLobbyOperationRequest.OP_CREATE_LOBBY:
+				var create_lobby_id: String = request.lobby_id
+				if create_lobby_id.is_empty():
+					create_lobby_id = "held-lobby"
+				var created_lobby: GFNetworkLobbyDescriptor = (
+					GFNetworkLobbyDescriptor.new().configure(create_lobby_id)
+				)
+				return _succeed_operation(handle, {"lobby": created_lobby})
+			GFNetworkLobbyOperationRequest.OP_JOIN_LOBBY:
+				var joined_lobby_id: String = request.lobby_id
+				if joined_lobby_id.is_empty():
+					joined_lobby_id = "held-lobby"
+				var joined_lobby: GFNetworkLobbyDescriptor = (
+					GFNetworkLobbyDescriptor.new().configure(joined_lobby_id)
+				)
+				return _succeed_operation(handle, {"lobby": joined_lobby})
+			GFNetworkLobbyOperationRequest.OP_QUERY_LOBBIES:
+				return _succeed_operation(handle, {"lobbies": []})
+		return _succeed_operation(handle, {"lobby_id": request.lobby_id})
+
+	func _create_lobby(
+		request: GFNetworkLobbyOperationRequest,
+		handle: GFNetworkLobbyOperationHandle
+	) -> bool:
+		var options: Dictionary = request.provider_options
 		var lobby: GFNetworkLobbyDescriptor = GFNetworkLobbyDescriptor.new().configure(
 			GFVariantData.get_option_string(options, "lobby_id", "test-lobby"),
 			{
@@ -53,10 +173,13 @@ class FakeLobbyBackend extends GFNetworkLobbyBackend:
 			}
 		)
 		_store_lobby(lobby)
-		_emit_lobby_created(GFNetworkLobbyJoinResult.success(lobby))
-		return _make_request_report(true, &"create_lobby")
+		return _succeed_operation(handle, {"lobby": lobby})
 
-	func query_lobbies(query: GFNetworkLobbyQuery = null, _options: Dictionary = {}) -> Dictionary:
+	func _query_lobbies(
+		request: GFNetworkLobbyOperationRequest,
+		handle: GFNetworkLobbyOperationHandle
+	) -> bool:
+		var query: GFNetworkLobbyQuery = request.query
 		var result: Array[GFNetworkLobbyDescriptor] = []
 		for lobby: GFNetworkLobbyDescriptor in lobbies:
 			if lobby == null:
@@ -66,32 +189,52 @@ class FakeLobbyBackend extends GFNetworkLobbyBackend:
 			result.append(lobby.duplicate_lobby())
 			if query != null and query.max_results > 0 and result.size() >= query.max_results:
 				break
-		_emit_lobbies_queried(result, { "query": query.to_dict() if query != null else {} })
-		return _make_request_report(true, &"query_lobbies")
+		return _succeed_operation(handle, {"lobbies": result})
 
-	func join_lobby(lobby_id: String, _options: Dictionary = {}) -> Dictionary:
-		var lobby: GFNetworkLobbyDescriptor = _find_lobby(lobby_id)
+	func _join_lobby(
+		request: GFNetworkLobbyOperationRequest,
+		handle: GFNetworkLobbyOperationHandle
+	) -> bool:
+		var lobby: GFNetworkLobbyDescriptor = _find_lobby(request.lobby_id)
 		if lobby == null:
-			_emit_lobby_joined(GFNetworkLobbyJoinResult.failure(lobby_id, &"not_found"))
-			return _make_request_report(true, &"join_lobby")
-		_emit_lobby_joined(GFNetworkLobbyJoinResult.success(lobby))
-		return _make_request_report(true, &"join_lobby")
+			return _fail_operation(handle, &"not_found", "Lobby was not found.")
+		return _succeed_operation(handle, {"lobby": lobby})
 
-	func leave_lobby(lobby_id: String = "", _options: Dictionary = {}) -> Dictionary:
-		_emit_lobby_left(lobby_id, "left")
-		return _make_request_report(true, &"leave_lobby")
-
-	func set_lobby_metadata(lobby_id: String, metadata: Dictionary, _options: Dictionary = {}) -> Dictionary:
-		var lobby: GFNetworkLobbyDescriptor = _find_lobby(lobby_id)
+	func _set_lobby_metadata(
+		request: GFNetworkLobbyOperationRequest,
+		handle: GFNetworkLobbyOperationHandle
+	) -> bool:
+		var lobby: GFNetworkLobbyDescriptor = _find_lobby(request.lobby_id)
 		if lobby == null:
-			return _make_request_report(false, &"set_lobby_metadata", &"not_found")
-		var _merged: Dictionary = GFVariantData.merge_dictionary(lobby.metadata, metadata, true)
+			return _fail_operation(handle, &"not_found", "Lobby was not found.")
+		lobby.metadata = GFVariantData.merge_dictionary(
+			lobby.metadata,
+			request.payload,
+			true
+		)
 		_store_lobby(lobby)
 		_emit_lobby_updated(lobby)
-		return _make_request_report(true, &"set_lobby_metadata")
+		return _succeed_operation(handle, {"lobby": lobby})
 
-	func close() -> void:
-		closed = true
+	func _set_member_metadata(
+		request: GFNetworkLobbyOperationRequest,
+		handle: GFNetworkLobbyOperationHandle
+	) -> bool:
+		var lobby: GFNetworkLobbyDescriptor = _find_lobby(request.lobby_id)
+		if lobby == null:
+			return _fail_operation(handle, &"not_found", "Lobby was not found.")
+		var member: GFNetworkLobbyMember = lobby.get_member(request.peer_id)
+		if member == null:
+			return _fail_operation(handle, &"member_not_found", "Lobby member was not found.")
+		member.metadata = GFVariantData.merge_dictionary(
+			member.metadata,
+			request.payload,
+			true
+		)
+		lobby.set_member(member)
+		_store_lobby(lobby)
+		_emit_lobby_updated(lobby)
+		return _succeed_operation(handle, {"lobby": lobby})
 
 	func emit_member_joined_for_test(lobby_id: String, member: GFNetworkLobbyMember) -> void:
 		_emit_member_joined(lobby_id, member)
@@ -551,10 +694,10 @@ func test_network_lobby_query_filters_tags_metadata_and_capacity() -> void:
 func test_network_lobby_service_tracks_backend_results_and_member_diffs() -> void:
 	var service: GFNetworkLobbyService = GFNetworkLobbyService.new()
 	var backend: FakeLobbyBackend = FakeLobbyBackend.new()
-	service.set_backend(backend)
+	var _backend_set: bool = service.set_backend(backend)
 	watch_signals(service)
 
-	var create_report: Dictionary = service.create_lobby({
+	var create_handle: GFNetworkLobbyOperationHandle = service.create_lobby({
 		"lobby_id": "room-1",
 		"display_name": "Room One",
 		"tags": PackedStringArray(["ranked"]),
@@ -564,16 +707,292 @@ func test_network_lobby_service_tracks_backend_results_and_member_diffs() -> voi
 	var current_after_join: GFNetworkLobbyDescriptor = service.current_lobby
 	backend.emit_member_left_for_test("room-1", 7)
 	var current_after_left: GFNetworkLobbyDescriptor = service.current_lobby
-	var leave_report: Dictionary = service.leave_lobby()
+	var leave_handle: GFNetworkLobbyOperationHandle = service.leave_lobby()
 
-	assert_true(GFVariantData.get_option_bool(create_report, "ok"), "创建请求应被 fake backend 接受。")
+	assert_true(create_handle.is_successful(), "创建请求应成功完成。")
 	assert_not_null(current_after_join, "创建成功后 service 应记录 current_lobby。")
 	assert_eq(current_after_join.get_member_count(), 1, "成员加入事件应更新 current_lobby。")
 	assert_eq(current_after_left.get_member_count(), 0, "成员离开事件应更新 current_lobby。")
-	assert_true(GFVariantData.get_option_bool(leave_report, "ok"), "离开请求应被 fake backend 接受。")
+	assert_true(leave_handle.is_successful(), "离开请求应成功完成。")
 	assert_signal_emitted(service, "lobby_created", "创建完成应转发 lobby_created。")
 	assert_signal_emitted(service, "member_joined", "成员加入应转发 member_joined。")
 	assert_signal_emitted(service, "member_left", "成员离开应转发 member_left。")
+
+
+func test_network_lobby_service_correlates_concurrent_operations() -> void:
+	var service: GFNetworkLobbyService = GFNetworkLobbyService.new()
+	var backend: FakeLobbyBackend = FakeLobbyBackend.new()
+	var _backend_set: bool = service.set_backend(backend)
+
+	var first: GFNetworkLobbyOperationHandle = service.create_lobby({
+		"request_id": &"first",
+		"hold": true,
+	})
+	var second: GFNetworkLobbyOperationHandle = service.query_lobbies(null, {
+		"request_id": &"second",
+		"hold": true,
+	})
+	var duplicate_handle: GFNetworkLobbyOperationHandle = service.create_lobby({
+		"request_id": &"first",
+	})
+
+	assert_true(first.is_pending(), "首个操作应保持等待。")
+	assert_true(second.is_pending(), "第二个操作应独立保持等待。")
+	assert_eq(duplicate_handle.get_result().status, &"duplicate_request_id", "等待中的请求 ID 不得复用。")
+	assert_true(backend.complete_held(&"second"), "应可按请求 ID 完成第二个操作。")
+	assert_true(second.is_successful(), "第二个操作应成功。")
+	assert_true(first.is_pending(), "完成第二个操作不应影响首个操作。")
+	assert_true(backend.complete_held(&"first"), "应可按请求 ID 完成首个操作。")
+	assert_eq(first.get_result().request_id, &"first", "结果必须保留请求关联。")
+
+
+func test_network_lobby_service_timeout_cancels_backend_and_ignores_late_callback() -> void:
+	var clock: GFManualClock = GFManualClock.new(1000000, 1700000000000)
+	var service: GFNetworkLobbyService = GFNetworkLobbyService.new(clock)
+	var backend: FakeLobbyBackend = FakeLobbyBackend.new()
+	var _backend_set: bool = service.set_backend(backend)
+	var handle: GFNetworkLobbyOperationHandle = service.create_lobby({
+		"request_id": &"slow",
+		"timeout_msec": 25,
+		"hold": true,
+	})
+
+	var _advanced: bool = clock.advance_msec(25)
+	service.tick(0.025)
+
+	assert_eq(handle.get_result().status, &"timed_out", "截止时间应产生稳定超时终态。")
+	assert_eq(backend.cancel_count, 1, "超时应通知 Backend 取消底层调用。")
+	assert_eq(
+		GFVariantData.get_option_int(backend.get_debug_snapshot(), "active_operation_count"),
+		1,
+		"Provider 确认前 Backend 必须保留操作租约。"
+	)
+	assert_false(backend.complete_handle_late(handle), "迟到回调不得覆盖超时结果。")
+	assert_eq(
+		GFVariantData.get_option_int(backend.get_debug_snapshot(), "active_operation_count"),
+		0,
+		"迟到 Provider 终态应释放操作租约。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(backend.get_debug_snapshot(), "ignored_terminal_count"),
+		1,
+		"Backend 应记录被忽略的迟到终态。"
+	)
+
+
+func test_network_lobby_service_backend_replacement_cancels_pending_operation() -> void:
+	var service: GFNetworkLobbyService = GFNetworkLobbyService.new()
+	var old_backend: FakeLobbyBackend = FakeLobbyBackend.new()
+	var next_backend: FakeLobbyBackend = FakeLobbyBackend.new()
+	var _backend_set: bool = service.set_backend(old_backend)
+	var populated: GFNetworkLobbyOperationHandle = service.create_lobby({
+		"lobby_id": "old-room",
+	})
+	assert_true(populated.is_successful(), "旧 Backend 应先建立可观察状态。")
+	assert_not_null(service.current_lobby, "测试应记录旧 Lobby。")
+	var handle: GFNetworkLobbyOperationHandle = service.create_lobby({"hold": true})
+
+	service.backend = next_backend
+
+	assert_eq(handle.get_result().status, &"backend_replaced", "替换 Backend 应取消等待操作。")
+	assert_eq(old_backend.cancel_count, 1, "旧 Backend 应收到取消通知。")
+	assert_true(old_backend.closed, "旧 Backend 应在断开信号后关闭。")
+	assert_eq(service.backend, next_backend, "Service 应切换到新 Backend。")
+	assert_null(service.current_lobby, "Backend 世代切换必须清除旧 current_lobby。")
+	assert_true(service.get_lobbies().is_empty(), "Backend 世代切换必须清除旧快照。")
+
+
+func test_network_lobby_operation_started_reentry_cannot_reuse_request_id() -> void:
+	var service: GFNetworkLobbyService = GFNetworkLobbyService.new()
+	var backend: FakeLobbyBackend = FakeLobbyBackend.new()
+	var _backend_set: bool = service.set_backend(backend)
+	var nested_handles: Array[GFNetworkLobbyOperationHandle] = []
+	var started_callback: Callable = (
+		func(_request: GFNetworkLobbyOperationRequest) -> void:
+			nested_handles.append(service.query_lobbies(null, {
+				"request_id": &"same_lobby_request",
+			}))
+	)
+	var connected: Error = service.operation_started.connect(started_callback) as Error
+	assert_eq(connected, OK, "测试应监听操作开始信号。")
+
+	var original: GFNetworkLobbyOperationHandle = service.query_lobbies(null, {
+		"request_id": &"same_lobby_request",
+		"hold": true,
+	})
+
+	assert_true(original.is_pending(), "原操作应保留唯一请求租约。")
+	assert_eq(nested_handles.size(), 1, "开始回调只应触发一次重入尝试。")
+	assert_eq(
+		nested_handles[0].get_result().status,
+		&"duplicate_request_id",
+		"开始信号重入不得绕过请求 ID 预留。"
+	)
+	service.operation_started.disconnect(started_callback)
+	assert_true(service.cancel_operation(&"same_lobby_request"), "测试清理应取消原操作。")
+	assert_false(backend.complete_held(&"same_lobby_request"), "迟到完成不得覆盖取消。")
+	service.dispose()
+
+
+func test_network_lobby_backend_change_during_start_fails_before_dispatch() -> void:
+	var service: GFNetworkLobbyService = GFNetworkLobbyService.new()
+	var old_backend: FakeLobbyBackend = FakeLobbyBackend.new()
+	var next_backend: FakeLobbyBackend = FakeLobbyBackend.new()
+	var _backend_set: bool = service.set_backend(old_backend)
+	var started_callback: Callable = (
+		func(_request: GFNetworkLobbyOperationRequest) -> void:
+			service.backend = next_backend
+	)
+	var connected: Error = service.operation_started.connect(started_callback) as Error
+	assert_eq(connected, OK, "测试应监听操作开始信号。")
+
+	var handle: GFNetworkLobbyOperationHandle = service.query_lobbies()
+
+	service.operation_started.disconnect(started_callback)
+	assert_eq(
+		handle.get_result().status,
+		&"backend_replaced_before_dispatch",
+		"开始回调替换 Backend 后不得向旧世代派发。"
+	)
+	assert_true(old_backend.closed, "旧 Backend 应关闭。")
+	assert_eq(service.backend, next_backend, "Service 应保留新 Backend。")
+	service.dispose()
+
+
+func test_network_lobby_invalid_success_results_fail_closed() -> void:
+	var service: GFNetworkLobbyService = GFNetworkLobbyService.new()
+	var backend: FakeLobbyBackend = FakeLobbyBackend.new()
+	var _backend_set: bool = service.set_backend(backend)
+
+	var create_handle: GFNetworkLobbyOperationHandle = service.create_lobby({
+		"invalid_result": true,
+	})
+	var query_handle: GFNetworkLobbyOperationHandle = service.query_lobbies(null, {
+		"invalid_result": true,
+	})
+	var malformed_entry_handle: GFNetworkLobbyOperationHandle = service.query_lobbies(null, {
+		"malformed_lobbies": [123],
+	})
+	var malformed_container_handle: GFNetworkLobbyOperationHandle = service.query_lobbies(null, {
+		"malformed_lobbies": "not-an-array",
+	})
+
+	assert_eq(
+		create_handle.get_result().status,
+		&"invalid_backend_result",
+		"创建成功不得缺少 Lobby。"
+	)
+	assert_eq(
+		query_handle.get_result().status,
+		&"invalid_backend_result",
+		"查询成功不得包含重复 Lobby ID。"
+	)
+	assert_eq(
+		malformed_entry_handle.get_result().status,
+		&"invalid_backend_result",
+		"查询成功不得静默丢弃非法 Lobby 条目。"
+	)
+	assert_eq(
+		malformed_container_handle.get_result().status,
+		&"invalid_backend_result",
+		"查询成功不得把非法 Lobby 容器降级为空列表。"
+	)
+	var malformed_serialized: GFNetworkLobbyOperationResult = (
+		GFNetworkLobbyOperationResult.from_dict({
+			"request_id": &"serialized_invalid_lobbies",
+			"operation": GFNetworkLobbyOperationRequest.OP_QUERY_LOBBIES,
+			"ok": true,
+			"status": &"ok",
+			"lobbies": [123],
+		})
+	)
+	assert_false(malformed_serialized.is_valid(), "反序列化结果不得丢弃非法 Lobby 条目。")
+	assert_false(
+		malformed_serialized.duplicate_result().is_valid(),
+		"非法载荷状态必须在结果深拷贝后保留。"
+	)
+	service.dispose()
+
+
+func test_network_lobby_timeout_wins_same_tick_provider_completion() -> void:
+	var clock: GFManualClock = GFManualClock.new(1000000, 1700000000000)
+	var service: GFNetworkLobbyService = GFNetworkLobbyService.new(clock)
+	var backend: FakeLobbyBackend = FakeLobbyBackend.new()
+	var _backend_set: bool = service.set_backend(backend)
+	var handle: GFNetworkLobbyOperationHandle = service.query_lobbies(null, {
+		"request_id": &"deadline_race",
+		"timeout_msec": 10,
+		"hold": true,
+	})
+	backend.complete_during_poll = true
+	var _advanced: bool = clock.advance_msec(10)
+
+	service.tick(0.01)
+
+	assert_eq(handle.get_result().status, &"timed_out", "截止时间终态必须先于同帧 poll。")
+	assert_eq(backend.cancel_count, 1, "超时只应请求一次 Provider 取消。")
+	assert_eq(
+		GFVariantData.get_option_int(backend.get_debug_snapshot(), "ignored_terminal_count"),
+		1,
+		"同帧迟到成功应被记录并忽略。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(backend.get_debug_snapshot(), "active_operation_count"),
+		0,
+		"迟到回调后 Provider 租约应释放。"
+	)
+	service.dispose()
+
+
+func test_network_lobby_debug_snapshot_omits_request_secrets_and_zero_time_is_valid() -> void:
+	var clock: GFManualClock = GFManualClock.new(0, 1700000000000)
+	var service: GFNetworkLobbyService = GFNetworkLobbyService.new(clock)
+	var backend: FakeLobbyBackend = FakeLobbyBackend.new()
+	var _backend_set: bool = service.set_backend(backend)
+	var pending_handle: GFNetworkLobbyOperationHandle = service.query_lobbies(null, {
+		"request_id": &"secret_lobby_request",
+		"hold": true,
+		"token": "provider-secret",
+		"metadata": {"access_token": "metadata-secret"},
+	})
+	var debug_text: String = JSON.stringify(pending_handle.get_debug_snapshot())
+
+	assert_false(debug_text.contains("provider-secret"), "Provider 选项不得进入句柄快照。")
+	assert_false(debug_text.contains("metadata-secret"), "请求 metadata 不得进入句柄快照。")
+	assert_true(service.cancel_operation(&"secret_lobby_request"), "测试应取消等待操作。")
+	assert_false(backend.complete_held(&"secret_lobby_request"), "迟到成功不得覆盖取消。")
+
+	var completed: GFNetworkLobbyOperationHandle = service.create_lobby({
+		"lobby_id": "zero-time-room",
+	})
+	assert_true(completed.is_successful(), "零时间戳成功结果必须有效。")
+	assert_eq(completed.get_result().started_at_msec, 0)
+	assert_eq(completed.get_result().completed_at_msec, 0)
+	assert_eq(completed.get_result().get_duration_msec(), 0)
+	service.dispose()
+
+
+func test_network_lobby_backend_close_blocks_cancel_hook_reentry() -> void:
+	var backend: FakeLobbyBackend = FakeLobbyBackend.new()
+	backend.reenter_on_cancel = true
+	var request: GFNetworkLobbyOperationRequest = (
+		GFNetworkLobbyOperationRequest.new().configure(
+			&"close_pending",
+			GFNetworkLobbyOperationRequest.OP_QUERY_LOBBIES,
+			{"provider_options": {"hold": true}}
+		)
+	)
+	var handle: GFNetworkLobbyOperationHandle = backend.invoke_operation(request)
+
+	backend.close()
+
+	assert_eq(handle.get_result().status, &"backend_closed", "关闭应结束等待操作。")
+	assert_eq(backend.cancel_count, 1, "关闭只应通知取消一次。")
+	assert_eq(
+		backend.reentrant_status,
+		&"backend_closed",
+		"取消钩子中的重入必须被关闭状态拒绝。"
+	)
 
 
 func test_network_message_validator_strict_contract_and_peer_context() -> void:
@@ -1287,6 +1706,264 @@ func test_enet_close_emits_disconnect_for_each_tracked_peer() -> void:
 	assert_eq(disconnected_peer_ids, [2, 4], "关闭 ENet 后端应逐个清理已跟踪 peer。")
 
 
+func test_multiplayer_peer_backend_enforces_explicit_peer_ownership() -> void:
+	var borrowed_peer: ENetMultiplayerPeer = ENetMultiplayerPeer.new()
+	var borrowed_port: int = 0
+	var borrowed_error: Error = ERR_UNAVAILABLE
+	for offset: int in range(20):
+		borrowed_port = 19400 + offset
+		borrowed_error = borrowed_peer.create_server(borrowed_port, 2)
+		if borrowed_error == OK:
+			break
+	assert_eq(borrowed_error, OK, "测试应能创建 borrowed ENet Peer。")
+	if borrowed_error != OK:
+		return
+
+	var backend: GFMultiplayerPeerNetworkBackend = GFMultiplayerPeerNetworkBackend.new()
+	var adopt_error: Error = backend.adopt_peer(borrowed_peer, {
+		"ownership": GFMultiplayerPeerNetworkBackend.Ownership.BORROWED,
+		"role": GFMultiplayerPeerNetworkBackend.Role.SERVER,
+		"endpoint": "enet://user:secret@127.0.0.1:%d?token=hidden" % borrowed_port,
+	})
+	var debug_text: String = JSON.stringify(backend.get_debug_snapshot())
+
+	assert_eq(adopt_error, OK, "已初始化 Peer 应可被接管。")
+	assert_eq(
+		backend.adopt_peer(borrowed_peer, {
+			"ownership": GFMultiplayerPeerNetworkBackend.Ownership.BORROWED,
+			"role": GFMultiplayerPeerNetworkBackend.Role.SERVER,
+		}),
+		ERR_ALREADY_IN_USE,
+		"同一 Peer 不得被重复接管并触发意外关闭。"
+	)
+	assert_eq(backend.get_peer(), borrowed_peer, "get_peer 应返回借用引用。")
+	assert_false(backend.owns_peer(), "BORROWED Peer 不应转移关闭责任。")
+	assert_false(debug_text.contains("secret"), "调试快照应移除 endpoint userinfo。")
+	assert_false(debug_text.contains("hidden"), "调试快照应移除 endpoint query。")
+
+	backend.disconnect_backend()
+	assert_eq(
+		borrowed_peer.get_connection_status(),
+		MultiplayerPeer.CONNECTION_CONNECTED,
+		"释放 BORROWED Peer 不得关闭外部连接。"
+	)
+	borrowed_peer.close()
+
+	var owned_peer: ENetMultiplayerPeer = ENetMultiplayerPeer.new()
+	var owned_error: Error = ERR_UNAVAILABLE
+	for offset: int in range(20):
+		owned_error = owned_peer.create_server(19420 + offset, 2)
+		if owned_error == OK:
+			break
+	assert_eq(owned_error, OK, "测试应能创建 owned ENet Peer。")
+	if owned_error != OK:
+		return
+	var owned_adopt_error: Error = backend.adopt_peer(owned_peer, {
+		"ownership": GFMultiplayerPeerNetworkBackend.Ownership.OWNED,
+		"role": GFMultiplayerPeerNetworkBackend.Role.SERVER,
+	})
+	assert_eq(owned_adopt_error, OK, "OWNED Peer 应可被接管。")
+	assert_true(backend.owns_peer(), "OWNED Peer 应由 Backend 负责关闭。")
+	backend.disconnect_backend()
+	assert_eq(
+		owned_peer.get_connection_status(),
+		MultiplayerPeer.CONNECTION_DISCONNECTED,
+		"释放 OWNED Peer 必须关闭底层连接。"
+	)
+
+
+func test_multiplayer_peer_backend_take_transfers_owned_lifecycle() -> void:
+	var peer: ENetMultiplayerPeer = ENetMultiplayerPeer.new()
+	var host_error: Error = ERR_UNAVAILABLE
+	for offset: int in range(20):
+		host_error = peer.create_server(19460 + offset, 2)
+		if host_error == OK:
+			break
+	assert_eq(host_error, OK, "测试应能创建 Owned Peer。")
+	if host_error != OK:
+		return
+	var backend: GFMultiplayerPeerNetworkBackend = GFMultiplayerPeerNetworkBackend.new()
+	assert_eq(
+		backend.adopt_peer(peer, {
+			"ownership": GFMultiplayerPeerNetworkBackend.Ownership.OWNED,
+			"role": GFMultiplayerPeerNetworkBackend.Role.SERVER,
+		}),
+		OK
+	)
+
+	var transferred: MultiplayerPeer = backend.take_peer()
+	backend.disconnect_backend()
+
+	assert_eq(transferred, peer, "take_peer 应返回原 Peer。")
+	assert_null(backend.get_peer(), "转移后 Backend 不得继续持有 Peer。")
+	assert_eq(
+		peer.get_connection_status(),
+		MultiplayerPeer.CONNECTION_CONNECTED,
+		"所有权转移后 Backend 不得关闭 Peer。"
+	)
+	peer.close()
+
+
+func test_network_utility_bootstraps_already_connected_multiplayer_peer() -> void:
+	var peer: ENetMultiplayerPeer = ENetMultiplayerPeer.new()
+	var host_error: Error = ERR_UNAVAILABLE
+	var port: int = 0
+	for offset: int in range(20):
+		port = 19480 + offset
+		host_error = peer.create_server(port, 2)
+		if host_error == OK:
+			break
+	assert_eq(host_error, OK, "测试应能创建已连接 Peer。")
+	if host_error != OK:
+		return
+	var backend: GFMultiplayerPeerNetworkBackend = GFMultiplayerPeerNetworkBackend.new()
+	assert_eq(backend.adopt_peer(peer, {
+		"ownership": GFMultiplayerPeerNetworkBackend.Ownership.BORROWED,
+		"role": GFMultiplayerPeerNetworkBackend.Role.SERVER,
+		"endpoint": "enet://127.0.0.1:%d" % port,
+	}), OK)
+	var utility: GFNetworkUtility = GFNetworkUtility.new()
+	watch_signals(utility)
+
+	utility.backend = backend
+
+	assert_true(utility.session.is_active, "接管时应创建 Session。")
+	assert_true(utility.session.has_connection, "已连接 Backend 应立即同步连接终态。")
+	assert_eq(utility.session.mode, GFNetworkSession.Mode.HOST)
+	assert_eq(utility.session.endpoint, "enet://127.0.0.1:%d" % port)
+	assert_eq(utility.session.local_peer_id, peer.get_unique_id())
+	assert_signal_emit_count(utility, "connected", 1, "采用已连接 Backend 应转发一次连接事件。")
+	utility.dispose()
+	assert_eq(
+		peer.get_connection_status(),
+		MultiplayerPeer.CONNECTION_CONNECTED,
+		"Utility 释放 Borrowed Peer 时不得关闭外部连接。"
+	)
+	peer.close()
+
+
+func test_multiplayer_peer_backend_rejects_unsupported_send_features() -> void:
+	var peer: ENetMultiplayerPeer = ENetMultiplayerPeer.new()
+	var host_error: Error = ERR_UNAVAILABLE
+	for offset: int in range(20):
+		host_error = peer.create_server(19440 + offset, 2)
+		if host_error == OK:
+			break
+	assert_eq(host_error, OK, "测试应能创建 ENet Peer。")
+	if host_error != OK:
+		return
+	var backend: GFMultiplayerPeerNetworkBackend = GFMultiplayerPeerNetworkBackend.new()
+	assert_eq(
+		backend.adopt_peer(peer),
+		ERR_INVALID_PARAMETER,
+		"接管必须显式声明 ownership 和 role。"
+	)
+	assert_eq(
+		backend.adopt_peer(peer, {
+			"ownership": 999,
+			"role": GFMultiplayerPeerNetworkBackend.Role.SERVER,
+		}),
+		ERR_INVALID_PARAMETER,
+		"未知 ownership 不得静默降级为 BORROWED。"
+	)
+	assert_eq(
+		backend.adopt_peer(peer, {
+			"ownership": "0",
+			"role": GFMultiplayerPeerNetworkBackend.Role.SERVER,
+		}),
+		ERR_INVALID_PARAMETER,
+		"ownership 必须使用明确的枚举整数类型。"
+	)
+	assert_eq(
+		backend.adopt_peer(peer, {
+			"ownership": GFMultiplayerPeerNetworkBackend.Ownership.BORROWED,
+			"role": "1",
+		}),
+		ERR_INVALID_PARAMETER,
+		"role 必须使用明确的枚举整数类型。"
+	)
+	var adopt_error: Error = backend.adopt_peer(peer, {
+		"ownership": GFMultiplayerPeerNetworkBackend.Ownership.OWNED,
+		"role": GFMultiplayerPeerNetworkBackend.Role.SERVER,
+		"supports_channels": false,
+		"supports_transfer_modes": false,
+	})
+
+	assert_eq(adopt_error, OK, "Peer 应可按能力声明接管。")
+	assert_eq(
+		backend.send_bytes(-1, PackedByteArray([1]), {"channel": 1}),
+		ERR_UNAVAILABLE,
+		"不支持 channel 的 Peer 必须明确拒绝非默认 channel。"
+	)
+	assert_eq(
+		backend.send_bytes(-1, PackedByteArray([1]), {"reliable": true}),
+		ERR_UNAVAILABLE,
+		"不支持 transfer mode 的 Peer 必须明确拒绝可靠性覆盖。"
+	)
+	backend.disconnect_backend()
+
+
+func test_network_transport_metrics_distinguish_unknown_values_and_bound_history() -> void:
+	var metrics: GFNetworkTransportMetrics = GFNetworkTransportMetrics.new()
+	var _rtt_set: bool = metrics.set_metric(
+		GFNetworkTransportMetrics.ROUND_TRIP_TIME_MSEC,
+		24.5
+	)
+	assert_true(metrics.has_metric(GFNetworkTransportMetrics.ROUND_TRIP_TIME_MSEC))
+	assert_eq(metrics.get_metric(GFNetworkTransportMetrics.ROUND_TRIP_TIME_MSEC), 24.5)
+	assert_false(
+		metrics.set_metric(GFNetworkTransportMetrics.PACKET_LOSS_RATIO, 1.5),
+		"非法丢包率不得进入指标快照。"
+	)
+	assert_false(metrics.set_metric(&"bad", NAN), "NaN 不得进入指标快照。")
+	assert_true(metrics.set_metric(&" custom_metric ", 7.0), "自定义指标 ID 应规范化后写入。")
+	assert_true(metrics.has_metric(&" custom_metric "), "查询应使用与写入一致的 ID 规范化。")
+	assert_eq(metrics.get_metric(&" custom_metric "), 7.0)
+	assert_true(metrics.clear_metric(&" custom_metric "), "移除应使用与写入一致的 ID 规范化。")
+	assert_false(metrics.has_metric(&"custom_metric"), "移除后规范化指标不应继续存在。")
+
+	var backend: FakeBackend = FakeBackend.new()
+	backend.mark_connected_at_zero_for_test()
+	var _send_error: Error = backend.send_bytes(1, PackedByteArray([1, 2, 3]))
+	backend.emit_packet_for_test(1, PackedByteArray([4, 5]))
+	var backend_metrics: GFNetworkTransportMetrics = backend.get_transport_metrics()
+	assert_eq(backend_metrics.get_metric(GFNetworkTransportMetrics.BYTES_SENT), 3.0)
+	assert_eq(backend_metrics.get_metric(GFNetworkTransportMetrics.BYTES_RECEIVED), 2.0)
+	assert_false(
+		backend_metrics.has_metric(GFNetworkTransportMetrics.ROUND_TRIP_TIME_MSEC),
+		"不支持 RTT 的 Backend 不得伪造零值。"
+	)
+	assert_true(
+		backend_metrics.has_metric(GFNetworkTransportMetrics.CONNECTION_AGE_MSEC),
+		"零毫秒连接起点仍应产生连接时长指标。"
+	)
+
+	var utility: GFNetworkUtility = GFNetworkUtility.new()
+	utility.max_transport_metric_samples = 2
+	utility.set_backend(backend)
+	var _first_sample: GFNetworkTransportMetrics = utility.capture_transport_metrics()
+	var _second_sample: GFNetworkTransportMetrics = utility.capture_transport_metrics()
+	var _third_sample: GFNetworkTransportMetrics = utility.capture_transport_metrics()
+	var samples: Array[GFNetworkTransportMetrics] = utility.get_transport_metric_samples()
+	assert_eq(samples.size(), 2, "指标历史必须遵守固定容量。")
+	utility.max_transport_metric_samples = 1
+	assert_eq(
+		utility.get_transport_metric_samples().size(),
+		1,
+		"降低容量应立即裁剪既有历史。"
+	)
+	var _mutated: bool = samples[0].set_metric(&"external_mutation", 1.0)
+	assert_false(
+		utility.get_transport_metric_samples()[0].has_metric(&"external_mutation"),
+		"返回的指标历史必须与内部快照隔离。"
+	)
+	utility.max_transport_metric_samples = 0
+	assert_true(
+		utility.get_transport_metric_samples().is_empty(),
+		"容量归零应立即释放指标历史。"
+	)
+
+
 func test_websocket_backend_round_trips_bytes() -> void:
 	var server: GFWebSocketNetworkBackend = GFWebSocketNetworkBackend.new()
 	var client: GFWebSocketNetworkBackend = GFWebSocketNetworkBackend.new()
@@ -1478,7 +2155,7 @@ func test_network_utility_replacing_backend_closes_previous_backend() -> void:
 	utility.set_backend(first_backend)
 	var _host_result_577: Variant = utility.host({ "port": 9000 })
 
-	utility.set_backend(second_backend)
+	utility.backend = second_backend
 
 	assert_true(first_backend.disconnected_by_utility, "替换后端时应关闭旧后端资源。")
 	assert_false(utility.session.is_active, "替换后端应清理旧会话状态。")

@@ -38,7 +38,8 @@ signal cancel_requested(reason: StringName)
 var _request: GFPlatformBridgeRequest = null
 var _result: GFPlatformBridgeResult = null
 var _clock: GFClock = null
-var _started_at_msec: int = 0
+var _started_at_msec: int = -1
+var _deadline_msec: int = -1
 var _initialized: bool = false
 
 
@@ -123,6 +124,8 @@ func get_result() -> GFPlatformBridgeResult:
 ## [br]
 ## @return 首次取消成功返回 true。
 func cancel(reason: StringName = &"cancelled") -> bool:
+	if _has_expired():
+		return timeout_from_platform_layer()
 	var normalized_reason: StringName = reason if reason != &"" else &"cancelled"
 	return _finish_failure(normalized_reason, "Platform request cancelled.", {}, true)
 
@@ -138,18 +141,32 @@ func cancel(reason: StringName = &"cancelled") -> bool:
 ## @schema return: Dictionary with request, pending, completed, successful, and result fields.
 func get_debug_snapshot() -> Dictionary:
 	return {
-		"request": _request.to_dict() if _request != null else {},
+		"request": _make_request_debug_summary(),
 		"pending": is_pending(),
 		"completed": is_completed(),
 		"successful": is_successful(),
-		"result": _result.to_dict() if _result != null else {},
+		"result": _make_result_debug_summary(),
 	}
 
 
-# --- 私有/辅助方法 ---
+# --- 层内方法 ---
 
-# 由 platform 层初始化句柄。
-func _gf_configure(
+## 由 Platform 层初始化句柄。
+## [br]
+## @api layer_internal
+## [br]
+## @layer standard/platform
+## [br]
+## @since unreleased
+## [br]
+## @param request: 已校验请求。
+## [br]
+## @param clock: 单调时钟。
+## [br]
+## @param started_at_msec: Runtime 捕获的起点；负数表示立即采样。
+## [br]
+## @return 首次初始化成功返回 true。
+func configure_from_platform_layer(
 	request: GFPlatformBridgeRequest,
 	clock: GFClock,
 	started_at_msec: int = -1
@@ -159,12 +176,33 @@ func _gf_configure(
 	_request = request.duplicate_request()
 	_clock = clock
 	_started_at_msec = started_at_msec if started_at_msec >= 0 else _clock.get_monotonic_msec()
+	_deadline_msec = (
+		_started_at_msec + _request.timeout_msec
+		if _request.timeout_msec > 0
+		else -1
+	)
 	_initialized = true
 	return true
 
 
-# 由 platform 层创建输入或路由拒绝终态。
-func _gf_reject(
+## 由 Platform 层创建输入或路由拒绝终态。
+## [br]
+## @api layer_internal
+## [br]
+## @layer standard/platform
+## [br]
+## @since unreleased
+## [br]
+## @param request: 原请求，可为空。
+## [br]
+## @param status: 稳定失败状态。
+## [br]
+## @param error: 人读失败说明。
+## [br]
+## @param clock: 单调时钟。
+## [br]
+## @return 首次拒绝成功返回 true。
+func reject_from_platform_layer(
 	request: GFPlatformBridgeRequest,
 	status: StringName,
 	error: String,
@@ -175,12 +213,23 @@ func _gf_reject(
 	_request = request.duplicate_request() if request != null else GFPlatformBridgeRequest.new()
 	_clock = clock
 	_started_at_msec = _clock.get_monotonic_msec()
+	_deadline_msec = -1
 	_initialized = true
 	return _finish_failure(status, error, {}, false)
 
 
-# 由 platform 层提交 adapter 结果。
-func _gf_resolve(result: GFPlatformBridgeResult) -> bool:
+## 由 Platform 层提交已构造结果。
+## [br]
+## @api layer_internal
+## [br]
+## @layer standard/platform
+## [br]
+## @since unreleased
+## [br]
+## @param result: 与当前请求匹配的结果。
+## [br]
+## @return 首次完成成功返回 true。
+func resolve_from_platform_layer(result: GFPlatformBridgeResult) -> bool:
 	if not is_pending() or result == null or not _matches_request(result):
 		return false
 	_result = result.duplicate_result()
@@ -188,14 +237,34 @@ func _gf_resolve(result: GFPlatformBridgeResult) -> bool:
 	return true
 
 
-# 由 platform 层提交成功终态。
-func _gf_succeed(
+## 由 Platform 层提交成功终态。
+## [br]
+## @api layer_internal
+## [br]
+## @layer standard/platform
+## [br]
+## @since unreleased
+## [br]
+## @param value: Adapter 返回值。
+## [br]
+## @param status: 稳定成功状态。
+## [br]
+## @param metadata: 已脱敏结果元数据。
+## [br]
+## @schema value: Adapter-defined result value.
+## [br]
+## @schema metadata: Dictionary adapter-defined result metadata.
+## [br]
+## @return 首次完成成功返回 true。
+func succeed_from_platform_layer(
 	value: Variant = null,
 	status: StringName = &"ok",
 	metadata: Dictionary = {}
 ) -> bool:
 	if not is_pending():
 		return false
+	if _has_expired():
+		return timeout_from_platform_layer()
 	var result: GFPlatformBridgeResult = GFPlatformBridgeResult.new().configure_success(
 		_request,
 		value,
@@ -204,17 +273,50 @@ func _gf_succeed(
 		_clock.get_monotonic_msec(),
 		metadata
 	)
-	return _gf_resolve(result)
+	return resolve_from_platform_layer(result)
 
 
-# 由 platform 层提交失败终态。
-func _gf_fail(status: StringName, error: String, metadata: Dictionary = {}) -> bool:
+## 由 Platform 层提交失败终态。
+## [br]
+## @api layer_internal
+## [br]
+## @layer standard/platform
+## [br]
+## @since unreleased
+## [br]
+## @param status: 稳定失败状态。
+## [br]
+## @param error: 人读失败说明。
+## [br]
+## @param metadata: 已脱敏失败元数据。
+## [br]
+## @schema metadata: Dictionary adapter-defined failure metadata.
+## [br]
+## @return 首次完成成功返回 true。
+func fail_from_platform_layer(
+	status: StringName,
+	error: String,
+	metadata: Dictionary = {}
+) -> bool:
+	if status != &"timed_out" and _has_expired():
+		return timeout_from_platform_layer()
 	return _finish_failure(status, error, metadata, false)
 
 
-# 由 platform 层提交超时终态。
-func _gf_timeout() -> bool:
+## 由 Platform 层提交超时终态。
+## [br]
+## @api layer_internal
+## [br]
+## @layer standard/platform
+## [br]
+## @since unreleased
+## [br]
+## @return 首次超时完成返回 true。
+func timeout_from_platform_layer() -> bool:
 	return _finish_failure(&"timed_out", "Platform request timed out.", {}, true)
+
+
+# --- 私有/辅助方法 ---
 
 func _finish_failure(
 	status: StringName,
@@ -237,6 +339,39 @@ func _finish_failure(
 		cancel_requested.emit(normalized_status)
 	completed.emit(_result.duplicate_result())
 	return true
+
+
+func _has_expired() -> bool:
+	return (
+		is_pending()
+		and _deadline_msec >= 0
+		and _clock.get_monotonic_msec() >= _deadline_msec
+	)
+
+
+func _make_request_debug_summary() -> Dictionary:
+	if _request == null:
+		return {}
+	return {
+		"request_id": _request.request_id,
+		"contract_id": _request.contract_id,
+		"method_id": _request.method_id,
+		"timeout_msec": _request.timeout_msec,
+	}
+
+
+func _make_result_debug_summary() -> Dictionary:
+	if _result == null:
+		return {}
+	return {
+		"request_id": _result.request_id,
+		"contract_id": _result.contract_id,
+		"method_id": _result.method_id,
+		"ok": _result.ok,
+		"status": _result.status,
+		"error": _result.error,
+		"duration_msec": _result.get_duration_msec(),
+	}
 
 
 func _matches_request(result: GFPlatformBridgeResult) -> bool:

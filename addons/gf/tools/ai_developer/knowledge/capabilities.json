@@ -125,20 +125,20 @@
     {
       "id": "network",
       "title": "Network transport and contracts",
-      "summary": "Replaceable byte transports, channels, typed contracts, snapshots, histories, and bounded authoritative synchronization with optional prediction correction.",
+      "summary": "Replaceable byte transports, adoptable MultiplayerPeer bridges, typed lobby operations, transport metrics, snapshots, histories, and bounded authoritative synchronization with optional prediction correction.",
       "keywords": ["network", "multiplayer", "transport", "rpc", "snapshot", "authority", "prediction", "rollback", "synchronization", "lobby", "steam", "server"],
       "packages": ["gf.extension.network"],
-      "primary_classes": ["GFNetworkBackend", "GFENetNetworkBackend", "GFNetworkContract", "GFNetworkUtility", "GFNetworkHistoryBuffer", "GFNetworkSyncCoordinator", "GFNetworkSimulationAdapter", "GFNetworkInputFrame"],
+      "primary_classes": ["GFNetworkBackend", "GFMultiplayerPeerNetworkBackend", "GFENetNetworkBackend", "GFNetworkLobbyService", "GFNetworkTransportMetrics", "GFNetworkContract", "GFNetworkUtility", "GFNetworkHistoryBuffer", "GFNetworkSyncCoordinator", "GFNetworkSimulationAdapter", "GFNetworkInputFrame"],
       "recipes": ["network-backend-adapter", "network-sync-coordinator", "platform-lobby-adapter"],
       "boundary": "GF can coordinate a bounded full-snapshot authority flow, but the project chooses trusted authority identity, entity control, state and input schemas, business conflict policy, matchmaking, lobby policy, and provider identity."
     },
     {
       "id": "platform-adapters",
       "title": "Platform and SDK adapters",
-      "summary": "Project-owned translation boundaries for identity, lobby, storage, achievements, social, lifecycle, payment, and other provider capabilities.",
+      "summary": "Contract-described project-owned translation boundaries for identity, lobby, activation intents, storage, achievements, social, lifecycle, payment, and other provider capabilities.",
       "keywords": ["steam", "wechat", "epic", "console", "sdk", "adapter", "identity", "achievement", "leaderboard", "payment"],
-      "packages": ["gf.kernel", "gf.standard.storage", "gf.extension.network"],
-      "primary_classes": ["GFInstaller", "GFStorageBackend", "GFNetworkBackend", "GFAsyncCompletion"],
+      "packages": ["gf.kernel", "gf.standard.platform", "gf.standard.storage", "gf.extension.network"],
+      "primary_classes": ["GFPlatformAdapter", "GFPlatformContractDescriptor", "GFPlatformAdapterConformance", "GFStorageBackend", "GFNetworkLobbyBackend"],
       "recipes": ["platform-lobby-adapter", "platform-storage-adapter", "provider-backend"],
       "boundary": "Provider code is a separate adapter. Only stable provider-neutral contracts are candidates for GF."
     },

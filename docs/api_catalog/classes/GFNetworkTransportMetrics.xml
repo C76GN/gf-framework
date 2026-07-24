@@ -1,0 +1,217 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFNetworkTransportMetrics" path="addons/gf/extensions/network/runtime/gf_network_transport_metrics.gd" module="extensions/network" extends="RefCounted" classDigest="c7b94e17bc477e3c29376bf6dfce53dd8b68ac720942329a150184b9b37492c5">
+	<description>GFNetworkTransportMetrics: 网络传输指标快照。
+指标只在显式写入后才视为已知，避免用 0 混淆“真实为零”与“后端不支持”。
+内置指标覆盖流量、包数、连接时长、队列、延迟、抖动和丢包率；Adapter
+也可以写入命名稳定的自定义非负指标。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">value_object</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants>
+		<member kind="const" name="BYTES_SENT">
+			<signature>const BYTES_SENT: StringName = &amp;"bytes_sent"</signature>
+			<description>已发送字节数。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="BYTES_RECEIVED">
+			<signature>const BYTES_RECEIVED: StringName = &amp;"bytes_received"</signature>
+			<description>已接收字节数。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="PACKETS_SENT">
+			<signature>const PACKETS_SENT: StringName = &amp;"packets_sent"</signature>
+			<description>已发送包数。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="PACKETS_RECEIVED">
+			<signature>const PACKETS_RECEIVED: StringName = &amp;"packets_received"</signature>
+			<description>已接收包数。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="CONNECTION_AGE_MSEC">
+			<signature>const CONNECTION_AGE_MSEC: StringName = &amp;"connection_age_msec"</signature>
+			<description>当前连接时长，单位毫秒。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="ROUND_TRIP_TIME_MSEC">
+			<signature>const ROUND_TRIP_TIME_MSEC: StringName = &amp;"round_trip_time_msec"</signature>
+			<description>往返延迟，单位毫秒。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="JITTER_MSEC">
+			<signature>const JITTER_MSEC: StringName = &amp;"jitter_msec"</signature>
+			<description>延迟抖动，单位毫秒。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="PACKET_LOSS_RATIO">
+			<signature>const PACKET_LOSS_RATIO: StringName = &amp;"packet_loss_ratio"</signature>
+			<description>丢包率，取值范围为 0 到 1。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="SEND_QUEUE_PACKETS">
+			<signature>const SEND_QUEUE_PACKETS: StringName = &amp;"send_queue_packets"</signature>
+			<description>发送队列包数。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="RECEIVE_QUEUE_PACKETS">
+			<signature>const RECEIVE_QUEUE_PACKETS: StringName = &amp;"receive_queue_packets"</signature>
+			<description>接收队列包数。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</constants>
+	<properties>
+		<member kind="property" name="sample_time_msec">
+			<signature>var sample_time_msec: int = 0</signature>
+			<description>采样单调时间戳，单位毫秒。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="sample_window_msec">
+			<signature>var sample_window_msec: int = 0</signature>
+			<description>统计窗口长度，单位毫秒；0 表示累计值或未知窗口。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</properties>
+	<methods>
+		<member kind="method" name="set_metric">
+			<signature>func set_metric(metric_id: StringName, value: float) -&gt; bool:</signature>
+			<description>写入一个已知指标。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">metric_id: 非空稳定指标 ID。</tag>
+				<tag name="param">value: 有限非负值；packet_loss_ratio 额外限制在 0 到 1。</tag>
+				<tag name="return">指标合法并已写入时返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="clear_metric">
+			<signature>func clear_metric(metric_id: StringName) -&gt; bool:</signature>
+			<description>移除一个指标，使其恢复为未知。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">metric_id: 指标 ID。</tag>
+				<tag name="return">指标原本存在时返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="has_metric">
+			<signature>func has_metric(metric_id: StringName) -&gt; bool:</signature>
+			<description>检查指标是否已知。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">metric_id: 指标 ID。</tag>
+				<tag name="return">指标存在时返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_metric">
+			<signature>func get_metric(metric_id: StringName, default_value: float = 0.0) -&gt; float:</signature>
+			<description>获取指标值。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">metric_id: 指标 ID。</tag>
+				<tag name="param">default_value: 指标未知时的返回值。</tag>
+				<tag name="return">指标值或默认值。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_metric_ids">
+			<signature>func get_metric_ids() -&gt; PackedStringArray:</signature>
+			<description>获取排序后的已知指标 ID。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">已知指标 ID。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="merge_from">
+			<signature>func merge_from(other: GFNetworkTransportMetrics) -&gt; void:</signature>
+			<description>合并另一个快照中的已知指标。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">other: 指标来源。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="to_dict">
+			<signature>func to_dict() -&gt; Dictionary:</signature>
+			<description>转换为 JSON 安全字典。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">指标快照字典。</tag>
+				<tag name="schema">return: Dictionary with sample_time_msec, sample_window_msec, and metrics.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="apply_dict">
+			<signature>func apply_dict(data: Dictionary) -&gt; void:</signature>
+			<description>从字典应用指标快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">data: 指标快照字典。</tag>
+				<tag name="schema">data: Dictionary with sample_time_msec, sample_window_msec, and metrics.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="duplicate_metrics">
+			<signature>func duplicate_metrics() -&gt; GFNetworkTransportMetrics:</signature>
+			<description>创建快照深拷贝。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">新指标快照。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="from_dict">
+			<signature>static func from_dict(data: Dictionary) -&gt; GFNetworkTransportMetrics:</signature>
+			<description>从字典创建指标快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">data: 指标快照字典。</tag>
+				<tag name="return">新指标快照。</tag>
+				<tag name="schema">data: Dictionary with sample_time_msec, sample_window_msec, and metrics.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

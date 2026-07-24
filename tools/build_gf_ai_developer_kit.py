@@ -23,6 +23,7 @@ ROOT = Path(__file__).resolve().parents[1]
 ADDON_ROOT = ROOT / "addons/gf/tools/ai_developer"
 API_INDEX_PATH = ADDON_ROOT / "knowledge/api_index.json"
 ARTIFACT_POLICY_PATH = ROOT / "addons/gf/kernel/core/project_artifact_policy.json"
+PLATFORM_ADAPTER_TEMPLATE_ROOT = ADDON_ROOT / "templates/adapters/platform"
 PLUGIN_NAME = "gf-ai-developer"
 ZIP_TIMESTAMP = (1980, 1, 1, 0, 0, 0)
 BLOCKED_PARTS = {"__pycache__", ".git", ".godot"}
@@ -220,6 +221,7 @@ def check_source(rendered_payload: dict[str, Any] | None = None) -> dict[str, An
 	issues.extend(validate_protocol_versions())
 	issues.extend(validate_catalogs())
 	issues.extend(validate_agent_templates())
+	issues.extend(validate_platform_adapter_templates())
 	return {
 		"ok": not issues,
 		"api_index": API_INDEX_PATH.relative_to(ROOT).as_posix(),
@@ -336,6 +338,120 @@ def validate_agent_templates() -> list[str]:
 		path = ADDON_ROOT / relative
 		if not path.is_file() or not path.read_text(encoding="utf-8").strip():
 			issues.append(f"Required AI knowledge file is missing or empty: {relative}.")
+	return issues
+
+
+def validate_platform_adapter_templates(
+	template_root: Path | None = None,
+) -> list[str]:
+	root = PLATFORM_ADAPTER_TEMPLATE_ROOT if template_root is None else template_root
+	issues: list[str] = []
+	required_text = {
+		"README.md": (
+			"GFPlatformAdapterConformance.inspect()",
+			"GFMultiplayerPeerNetworkBackend.adopt_peer()",
+			"provider cancellation requested once",
+		),
+		"platform_adapter.gd.txt": (
+			"extends GFPlatformAdapter",
+			"GFPlatformContractDescriptor",
+			"_release_request(handle)",
+			"_succeed_request(handle",
+		),
+		"lobby_backend.gd.txt": (
+			"extends GFNetworkLobbyBackend",
+			"GFNetworkLobbyOperationRequest",
+			"_release_operation(handle)",
+			"_succeed_operation(handle",
+		),
+		"adapter_contract_test.gd.txt": (
+			"GFPlatformAdapterConformance.inspect",
+			"test_adapter_failure_matrix",
+			"Replace this sentinel with the complete adapter failure matrix.",
+		),
+	}
+	for relative_path, required_fragments in required_text.items():
+		path = root / relative_path
+		try:
+			text = path.read_text(encoding="utf-8")
+		except (OSError, UnicodeDecodeError) as exc:
+			issues.append(f"Platform adapter template is missing or invalid UTF-8: {relative_path}: {exc}")
+			continue
+		if not text.strip():
+			issues.append(f"Platform adapter template is empty: {relative_path}.")
+			continue
+		for fragment in required_fragments:
+			if fragment not in text:
+				issues.append(
+					f"Platform adapter template {relative_path} is missing required contract text: {fragment}"
+				)
+
+	profile_path = root / "compatibility_profile.json"
+	try:
+		profile = read_strict_json_object(profile_path)
+	except (OSError, ValueError) as exc:
+		issues.append(f"Platform adapter compatibility profile is invalid UTF-8 JSON: {exc}")
+	else:
+		if not str(profile.get("profile_id", "")).strip():
+			issues.append("Platform adapter compatibility profile requires profile_id.")
+		for field_name in ("godot_version", "framework_version"):
+			value = str(profile.get(field_name, ""))
+			if re.fullmatch(r"\d+\.\d+\.\d+", value) is None:
+				issues.append(
+					f"Platform adapter compatibility profile {field_name} must be exact stable SemVer."
+				)
+		package_ids = {
+			str(item.get("id", ""))
+			for item in profile.get("packages", [])
+			if isinstance(item, dict)
+		}
+		for package_id in ("gf.standard.platform", "gf.extension.network"):
+			if package_id not in package_ids:
+				issues.append(
+					f"Platform adapter compatibility profile is missing package: {package_id}."
+				)
+		contract_versions = profile.get("metadata", {}).get("contract_versions", {})
+		if not isinstance(contract_versions, dict) or not contract_versions:
+			issues.append("Platform adapter compatibility profile requires contract_versions metadata.")
+		elif any(
+			not isinstance(contract_id, str)
+			or not contract_id.strip()
+			or re.fullmatch(r"\d+\.\d+\.\d+", str(version)) is None
+			for contract_id, version in contract_versions.items()
+		):
+			issues.append("Platform adapter contract_versions must map stable IDs to exact SemVer.")
+
+	try:
+		recipes = read_strict_json_object(ADDON_ROOT / "knowledge/recipes.json")
+		platform_recipe = next(
+			(
+				item
+				for item in recipes.get("recipes", [])
+				if isinstance(item, dict) and item.get("id") == "platform-lobby-adapter"
+			),
+			None,
+		)
+		all_of = set(
+			platform_recipe.get("package_requirements", {}).get("all_of", [])
+			if isinstance(platform_recipe, dict)
+			else []
+		)
+		for package_id in ("gf.standard.platform", "gf.extension.network"):
+			if package_id not in all_of:
+				issues.append(f"platform-lobby-adapter recipe must require package: {package_id}.")
+		capabilities = read_strict_json_object(ADDON_ROOT / "knowledge/capabilities.json")
+		platform_capability = next(
+			(
+				item
+				for item in capabilities.get("capabilities", [])
+				if isinstance(item, dict) and item.get("id") == "platform-adapters"
+			),
+			None,
+		)
+		if not isinstance(platform_capability, dict) or "gf.standard.platform" not in platform_capability.get("packages", []):
+			issues.append("platform-adapters capability must include gf.standard.platform.")
+	except (OSError, ValueError) as exc:
+		issues.append(f"Platform adapter catalog contract validation failed: {exc}")
 	return issues
 
 

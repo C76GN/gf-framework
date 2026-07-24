@@ -1,0 +1,214 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFNetworkLobbyOperationRequest" path="addons/gf/extensions/network/session/gf_network_lobby_operation_request.gd" module="extensions/network" extends="RefCounted" classDigest="163948ef60db58ea1453ea11d69d8da8a9196653725f060b907875bf67708ed5">
+	<description>GFNetworkLobbyOperationRequest: Lobby 操作请求。
+将创建、查询、加入、离开和 metadata 更新统一为可关联、可复制的请求值对象。
+Provider 专属参数只能放入 provider_options，不能泄漏到项目领域模型。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">event_contract</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants>
+		<member kind="const" name="OP_CREATE_LOBBY">
+			<signature>const OP_CREATE_LOBBY: StringName = &amp;"create_lobby"</signature>
+			<description>创建 Lobby 操作。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="OP_QUERY_LOBBIES">
+			<signature>const OP_QUERY_LOBBIES: StringName = &amp;"query_lobbies"</signature>
+			<description>查询 Lobby 操作。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="OP_JOIN_LOBBY">
+			<signature>const OP_JOIN_LOBBY: StringName = &amp;"join_lobby"</signature>
+			<description>加入 Lobby 操作。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="OP_LEAVE_LOBBY">
+			<signature>const OP_LEAVE_LOBBY: StringName = &amp;"leave_lobby"</signature>
+			<description>离开 Lobby 操作。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="OP_SET_LOBBY_METADATA">
+			<signature>const OP_SET_LOBBY_METADATA: StringName = &amp;"set_lobby_metadata"</signature>
+			<description>更新 Lobby metadata 操作。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="OP_SET_MEMBER_METADATA">
+			<signature>const OP_SET_MEMBER_METADATA: StringName = &amp;"set_member_metadata"</signature>
+			<description>更新成员 metadata 操作。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</constants>
+	<properties>
+		<member kind="property" name="request_id">
+			<signature>var request_id: StringName = &amp;""</signature>
+			<description>请求稳定 ID。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="operation">
+			<signature>var operation: StringName = &amp;""</signature>
+			<description>操作类型。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="lobby_id">
+			<signature>var lobby_id: String = ""</signature>
+			<description>目标 Lobby ID。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="peer_id">
+			<signature>var peer_id: int = 0</signature>
+			<description>目标成员 peer ID。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="query">
+			<signature>var query: GFNetworkLobbyQuery = null</signature>
+			<description>查询操作的过滤条件。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="payload">
+			<signature>var payload: Dictionary = {}</signature>
+			<description>操作载荷，例如 metadata patch。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="schema">payload: Dictionary operation payload.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="provider_options">
+			<signature>var provider_options: Dictionary = {}</signature>
+			<description>Provider 专属调用选项。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="schema">provider_options: Dictionary external provider options.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="timeout_msec">
+			<signature>var timeout_msec: int = 0</signature>
+			<description>超时时间，单位毫秒；0 表示由 Service 默认值决定或不限制。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="metadata">
+			<signature>var metadata: Dictionary = {}</signature>
+			<description>调用方元数据。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="schema">metadata: Dictionary caller-defined request metadata.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</properties>
+	<methods>
+		<member kind="method" name="configure">
+			<signature>func configure( p_request_id: StringName, p_operation: StringName, options: Dictionary = {} ) -&gt; GFNetworkLobbyOperationRequest:</signature>
+			<description>配置 Lobby 操作请求。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">p_request_id: 请求 ID。</tag>
+				<tag name="param">p_operation: 操作类型常量。</tag>
+				<tag name="param">options: 可包含 lobby_id、peer_id、query、payload、provider_options、timeout_msec 和 metadata。</tag>
+				<tag name="return">当前请求。</tag>
+				<tag name="schema">options: Dictionary lobby operation request fields.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_valid">
+			<signature>func is_valid() -&gt; bool:</signature>
+			<description>检查请求字段是否满足对应操作的最小契约。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">请求可派发时返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="to_dict">
+			<signature>func to_dict() -&gt; Dictionary:</signature>
+			<description>转换为字典。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">Lobby 操作请求字典。</tag>
+				<tag name="schema">return: Dictionary lobby operation request.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="apply_dict">
+			<signature>func apply_dict(data: Dictionary) -&gt; void:</signature>
+			<description>从字典应用请求字段。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">data: Lobby 操作请求字典。</tag>
+				<tag name="schema">data: Dictionary lobby operation request.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="duplicate_request">
+			<signature>func duplicate_request() -&gt; GFNetworkLobbyOperationRequest:</signature>
+			<description>创建请求深拷贝。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">新请求。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_supported_operations">
+			<signature>static func get_supported_operations() -&gt; PackedStringArray:</signature>
+			<description>获取全部支持的操作 ID。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">固定操作 ID 集合。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="from_dict">
+			<signature>static func from_dict(data: Dictionary) -&gt; GFNetworkLobbyOperationRequest:</signature>
+			<description>从字典创建请求。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">data: Lobby 操作请求字典。</tag>
+				<tag name="return">新请求。</tag>
+				<tag name="schema">data: Dictionary lobby operation request.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

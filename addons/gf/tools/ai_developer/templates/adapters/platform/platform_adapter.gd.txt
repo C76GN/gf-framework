@@ -1,0 +1,120 @@
+## Rename this class and keep it in project or external adapter code.
+class_name ProjectPlatformAdapter
+extends GFPlatformAdapter
+
+
+const CONTRACT_ID: StringName = &"project.platform.sample"
+const METHOD_ID: StringName = &"execute"
+
+var _provider: Object = null
+var _provider_calls: Dictionary = {}
+
+
+func configure_provider(provider: Object, context: GFPlatformRuntimeContext) -> bool:
+	_provider = provider
+	return configure(
+		&"project.sample_adapter",
+		&"sample_platform",
+		PackedStringArray([CONTRACT_ID]),
+		[_make_contract_descriptor()],
+		context
+	)
+
+
+func _initialize(_options: Dictionary) -> void:
+	if not is_instance_valid(_provider):
+		var _failed: bool = _fail_initialization("Platform provider is unavailable.")
+		return
+	# Start the provider here. For asynchronous SDKs, complete from its callback.
+	var _completed: bool = _complete_initialization(get_context())
+
+
+func _dispatch(
+	request: GFPlatformBridgeRequest,
+	handle: GFPlatformRequestHandle
+) -> bool:
+	if request.contract_id != CONTRACT_ID or request.method_id != METHOD_ID:
+		return false
+	# Store a provider call ID -> handle association before invoking the SDK so a
+	# synchronous callback cannot escape tracking.
+	var provider_call_id: String = String(request.request_id)
+	_provider_calls[provider_call_id] = handle
+	# Replace this line with one narrow provider call.
+	return true
+
+
+func on_provider_succeeded(provider_call_id: String, value: Dictionary) -> void:
+	var handle: GFPlatformRequestHandle = _take_handle(provider_call_id)
+	if handle != null:
+		var _completed: bool = _succeed_request(handle, value)
+
+
+func on_provider_failed(provider_call_id: String, error_code: StringName) -> void:
+	var handle: GFPlatformRequestHandle = _take_handle(provider_call_id)
+	if handle != null:
+		var _completed: bool = _fail_request(
+			handle,
+			error_code,
+			"Platform provider request failed."
+		)
+
+
+func _cancel_request(handle: GFPlatformRequestHandle, _reason: StringName) -> void:
+	if handle == null:
+		return
+	# Request provider cancellation, but keep the lease until the provider confirms.
+
+
+func on_provider_cancelled(provider_call_id: String) -> void:
+	var handle: GFPlatformRequestHandle = _take_handle(provider_call_id)
+	if handle != null:
+		var _released: bool = _release_request(handle)
+
+
+func _shutdown() -> void:
+	_provider_calls.clear()
+	_provider = null
+
+
+func _take_handle(provider_call_id: String) -> GFPlatformRequestHandle:
+	var value: Variant = GFVariantData.get_option_value(
+		_provider_calls,
+		provider_call_id
+	)
+	var _erased: bool = _provider_calls.erase(provider_call_id)
+	if value is GFPlatformRequestHandle:
+		var handle: GFPlatformRequestHandle = value
+		return handle
+	return null
+
+
+static func _make_contract_descriptor() -> GFPlatformContractDescriptor:
+	var request_schema: GFDictionarySchema = GFDictionarySchema.new().configure(
+		&"project_platform_sample_request",
+		[],
+		{"allow_extra_fields": false}
+	)
+	var result_schema: GFDictionarySchema = GFDictionarySchema.new().configure(
+		&"project_platform_sample_result",
+		[],
+		{"allow_extra_fields": false}
+	)
+	var method: GFPlatformContractMethodDescriptor = (
+		GFPlatformContractMethodDescriptor.new().configure(
+			METHOD_ID,
+			{
+				"request_schema": request_schema,
+				"result_schema": result_schema,
+				"max_request_bytes": 4096,
+				"max_result_bytes": 4096,
+				"max_concurrent_requests": 1,
+				"supports_cancellation": true,
+				"sensitive_fields": PackedStringArray(["token"]),
+			}
+		)
+	)
+	return GFPlatformContractDescriptor.new().configure(
+		CONTRACT_ID,
+		"1.0.0",
+		[method]
+	)

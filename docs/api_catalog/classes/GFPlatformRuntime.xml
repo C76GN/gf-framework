@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFPlatformRuntime" path="addons/gf/standard/platform/gf_platform_runtime.gd" module="standard" extends="GFUtility" classDigest="e5562e8473de1a3eb204174ad03030e2ae4e199459983291697e9c06afe4f391">
+<class name="GFPlatformRuntime" path="addons/gf/standard/platform/gf_platform_runtime.gd" module="standard" extends="GFUtility" classDigest="45d3d089e9b3a6e27f39a9d640595e67bb621d6551e65889284d11508aa78e3e">
 	<description>GFPlatformRuntime: 平台 adapter 注册、路由与请求生命周期服务。
 运行时允许多个外部 adapter 共存，但不会在同一契约存在多个候选时按注册顺序
 猜测实现。项目必须通过 `set_contract_route` 显式消除歧义。</description>
@@ -58,6 +58,27 @@
 				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>
+		<member kind="signal" name="activation_intent_received">
+			<signature>signal activation_intent_received(adapter_id: StringName, intent: GFPlatformActivationIntent)</signature>
+			<description>平台激活意图进入有界队列后发出。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">adapter_id: 来源 Adapter ID。</tag>
+				<tag name="param">intent: 激活意图副本。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="signal" name="activation_intent_dropped">
+			<signature>signal activation_intent_dropped(</signature>
+			<description>激活意图因重复或容量限制未保留时发出。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">adapter_id: 来源 Adapter ID。</tag>
+				<tag name="param">intent_id: 被丢弃的 Intent ID。</tag>
+				<tag name="param">reason: duplicate 或 capacity。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
 		<member kind="signal" name="request_started">
 			<signature>signal request_started(adapter_id: StringName, request: GFPlatformBridgeRequest)</signature>
 			<description>请求交给 adapter 前发出。</description>
@@ -112,11 +133,12 @@
 		<member kind="method" name="set_clock">
 			<signature>func set_clock(clock: GFClock) -&gt; bool:</signature>
 			<description>设置平台请求截止时间与结果耗时使用的统一单调时钟。
-存在等待请求时拒绝替换，避免绝对截止值跨越两个时间域。</description>
+存在 Runtime 等待请求或 Adapter Provider 请求租约时拒绝替换，避免绝对截止值
+跨越两个时间域。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">clock: 新平台时钟。</tag>
-				<tag name="return">时钟合法且当前没有等待请求时返回 true。</tag>
+				<tag name="return">时钟合法且当前没有请求或 Provider 租约时返回 true。</tag>
 				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>
@@ -127,6 +149,17 @@
 				<tag name="api">public</tag>
 				<tag name="return">当前时钟。</tag>
 				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="configure_activation_queue">
+			<signature>func configure_activation_queue(max_pending: int, max_seen: int) -&gt; bool:</signature>
+			<description>配置激活意图队列和去重窗口容量。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">max_pending: 最多保留的待消费意图数。</tag>
+				<tag name="param">max_seen: 最多记忆的近期 Intent ID 数；不得小于 max_pending。</tag>
+				<tag name="return">容量有效并已应用时返回 true。</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 		<member kind="method" name="register_adapter">
@@ -251,6 +284,47 @@
 				<tag name="param">adapter_id: Adapter ID。</tag>
 				<tag name="return">上下文副本；adapter 不存在时返回 null。</tag>
 				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_activation_intents">
+			<signature>func get_activation_intents() -&gt; Array[GFPlatformActivationIntent]:</signature>
+			<description>获取当前待消费激活意图副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">按接收顺序排列的意图副本。</tag>
+				<tag name="schema">return: Array[GFPlatformActivationIntent] pending activation intents.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="consume_activation_intent">
+			<signature>func consume_activation_intent( adapter_id: StringName, intent_id: StringName ) -&gt; GFPlatformActivationIntent:</signature>
+			<description>消费并移除指定激活意图。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">adapter_id: 来源 Adapter ID。</tag>
+				<tag name="param">intent_id: 该 Adapter 内的 Intent ID。</tag>
+				<tag name="return">找到时返回意图副本，否则返回 null。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="acknowledge_activation_intent">
+			<signature>func acknowledge_activation_intent( adapter_id: StringName, intent_id: StringName ) -&gt; bool:</signature>
+			<description>确认并移除指定激活意图。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">adapter_id: 来源 Adapter ID。</tag>
+				<tag name="param">intent_id: 该 Adapter 内的 Intent ID。</tag>
+				<tag name="return">找到并移除返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="clear_activation_intents">
+			<signature>func clear_activation_intents(clear_dedupe_history: bool = false) -&gt; void:</signature>
+			<description>清空待消费激活意图。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">clear_dedupe_history: 是否同时清空近期 ID 去重窗口。</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 		<member kind="method" name="has_capability">

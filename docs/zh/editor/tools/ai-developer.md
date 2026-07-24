@@ -154,6 +154,8 @@ Steam、微信小游戏、Epic、主机平台、云服务、支付和广告 SDK 
 
 一个抽象只有在至少两个独立实现中都能保持相同的状态、失败、所有权和生命周期语义时，才值得反馈为 GF 能力。平台登录流程、商店政策、好友 UI、活动任务、奖励数值和 SDK 初始化细节继续留在 Adapter 或项目业务层。
 
+Kit 的 `templates/adapters/platform/` 提供 Platform contract、Lobby Backend、契约测试、兼容性 Profile 和故障矩阵起点。Agent 应先用 `GFPlatformContractDescriptor` 声明 Schema 与预算，用 `GFPlatformAdapterConformance` 做无 SDK 静态审查，再实现 Provider callback 映射；Provider 返回 Godot Peer 时采用 `GFMultiplayerPeerNetworkBackend` 并显式选择 owned/borrowed，不能生成平台命名的 GF Core Manager。
+
 ## 反馈状态机
 
 项目开发暴露的问题按以下状态推进：

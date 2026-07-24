@@ -9,37 +9,85 @@
 - 类别：运行时服务 (`runtime_service`)
 - 首次版本：`8.0.0`
 
-平台中立 lobby 协调服务。 该服务只管理 backend 请求、当前 lobby 快照和信号转发。Steam、微信、LAN 或自建服务 的具体 API 必须由外部或可选 adapter 通过 GFNetworkLobbyBackend 实现。
+平台中立 Lobby 操作协调服务。 Service 统一生成请求 ID、管理单调超时、取消 Backend 替换时的等待操作，并维护 Lobby 快照。Steam、小游戏、LAN 或自建服务 API 只能存在于外部 Backend Adapter。
 
 ## 成员概览
 
 | 类型 | 名称 | 签名 |
 |---|---|---|
-| 信号 | [`lobby_created`](#member-gfnetworklobbyservice-signals-lobby_created) | `signal lobby_created(result: GFNetworkLobbyJoinResult)` |
-| 信号 | [`lobbies_queried`](#member-gfnetworklobbyservice-signals-lobbies_queried) | `signal lobbies_queried(lobbies: Array[GFNetworkLobbyDescriptor], metadata: Dictionary)` |
-| 信号 | [`lobby_joined`](#member-gfnetworklobbyservice-signals-lobby_joined) | `signal lobby_joined(result: GFNetworkLobbyJoinResult)` |
-| 信号 | [`lobby_left`](#member-gfnetworklobbyservice-signals-lobby_left) | `signal lobby_left(lobby_id: String, reason: String)` |
+| 信号 | [`operation_started`](#member-gfnetworklobbyservice-signals-operation_started) | `signal operation_started(request: GFNetworkLobbyOperationRequest)` |
+| 信号 | [`operation_completed`](#member-gfnetworklobbyservice-signals-operation_completed) | `signal operation_completed(result: GFNetworkLobbyOperationResult)` |
+| 信号 | [`lobby_created`](#member-gfnetworklobbyservice-signals-lobby_created) | `signal lobby_created(result: GFNetworkLobbyOperationResult)` |
+| 信号 | [`lobbies_queried`](#member-gfnetworklobbyservice-signals-lobbies_queried) | `signal lobbies_queried(result: GFNetworkLobbyOperationResult)` |
+| 信号 | [`lobby_joined`](#member-gfnetworklobbyservice-signals-lobby_joined) | `signal lobby_joined(result: GFNetworkLobbyOperationResult)` |
+| 信号 | [`lobby_left`](#member-gfnetworklobbyservice-signals-lobby_left) | `signal lobby_left(result: GFNetworkLobbyOperationResult)` |
+| 信号 | [`lobby_metadata_set`](#member-gfnetworklobbyservice-signals-lobby_metadata_set) | `signal lobby_metadata_set(result: GFNetworkLobbyOperationResult)` |
+| 信号 | [`member_metadata_set`](#member-gfnetworklobbyservice-signals-member_metadata_set) | `signal member_metadata_set(result: GFNetworkLobbyOperationResult)` |
 | 信号 | [`lobby_updated`](#member-gfnetworklobbyservice-signals-lobby_updated) | `signal lobby_updated(lobby: GFNetworkLobbyDescriptor)` |
 | 信号 | [`member_joined`](#member-gfnetworklobbyservice-signals-member_joined) | `signal member_joined(lobby_id: String, member: GFNetworkLobbyMember)` |
 | 信号 | [`member_left`](#member-gfnetworklobbyservice-signals-member_left) | `signal member_left(lobby_id: String, peer_id: int, reason: String)` |
 | 信号 | [`invite_received`](#member-gfnetworklobbyservice-signals-invite_received) | `signal invite_received(invite: GFNetworkLobbyInvite)` |
 | 信号 | [`backend_error`](#member-gfnetworklobbyservice-signals-backend_error) | `signal backend_error(operation: StringName, error: StringName, details: Dictionary)` |
-| 属性 | [`backend`](#member-gfnetworklobbyservice-properties-backend) | `var backend: GFNetworkLobbyBackend = null` |
+| 属性 | [`backend`](#member-gfnetworklobbyservice-properties-backend) | `var backend: GFNetworkLobbyBackend:` |
 | 属性 | [`current_lobby`](#member-gfnetworklobbyservice-properties-current_lobby) | `var current_lobby: GFNetworkLobbyDescriptor = null` |
+| 属性 | [`default_timeout_msec`](#member-gfnetworklobbyservice-properties-default_timeout_msec) | `var default_timeout_msec: int = 15000` |
+| 方法 | [`ready`](#member-gfnetworklobbyservice-methods-ready) | `func ready() -> void:` |
 | 方法 | [`tick`](#member-gfnetworklobbyservice-methods-tick) | `func tick(delta: float) -> void:` |
 | 方法 | [`dispose`](#member-gfnetworklobbyservice-methods-dispose) | `func dispose() -> void:` |
-| 方法 | [`set_backend`](#member-gfnetworklobbyservice-methods-set_backend) | `func set_backend(next_backend: GFNetworkLobbyBackend) -> void:` |
-| 方法 | [`create_lobby`](#member-gfnetworklobbyservice-methods-create_lobby) | `func create_lobby(options: Dictionary = {}) -> Dictionary:` |
-| 方法 | [`query_lobbies`](#member-gfnetworklobbyservice-methods-query_lobbies) | `func query_lobbies(query: GFNetworkLobbyQuery = null, options: Dictionary = {}) -> Dictionary:` |
-| 方法 | [`join_lobby`](#member-gfnetworklobbyservice-methods-join_lobby) | `func join_lobby(lobby_id: String, options: Dictionary = {}) -> Dictionary:` |
-| 方法 | [`leave_lobby`](#member-gfnetworklobbyservice-methods-leave_lobby) | `func leave_lobby(lobby_id: String = "", options: Dictionary = {}) -> Dictionary:` |
-| 方法 | [`set_lobby_metadata`](#member-gfnetworklobbyservice-methods-set_lobby_metadata) | `func set_lobby_metadata( metadata_patch: Dictionary, lobby_id: String = "", options: Dictionary = {} ) -> Dictionary:` |
-| 方法 | [`set_member_metadata`](#member-gfnetworklobbyservice-methods-set_member_metadata) | `func set_member_metadata( peer_id: int, metadata_patch: Dictionary, lobby_id: String = "", options: Dictionary = {} ) -> Dictionary:` |
+| 方法 | [`set_backend`](#member-gfnetworklobbyservice-methods-set_backend) | `func set_backend(next_backend: GFNetworkLobbyBackend) -> bool:` |
+| 方法 | [`set_clock`](#member-gfnetworklobbyservice-methods-set_clock) | `func set_clock(clock: GFClock) -> bool:` |
+| 方法 | [`get_clock`](#member-gfnetworklobbyservice-methods-get_clock) | `func get_clock() -> GFClock:` |
+| 方法 | [`create_lobby`](#member-gfnetworklobbyservice-methods-create_lobby) | `func create_lobby(options: Dictionary = {}) -> GFNetworkLobbyOperationHandle:` |
+| 方法 | [`query_lobbies`](#member-gfnetworklobbyservice-methods-query_lobbies) | `func query_lobbies( query: GFNetworkLobbyQuery = null, options: Dictionary = {} ) -> GFNetworkLobbyOperationHandle:` |
+| 方法 | [`join_lobby`](#member-gfnetworklobbyservice-methods-join_lobby) | `func join_lobby( lobby_id: String, options: Dictionary = {} ) -> GFNetworkLobbyOperationHandle:` |
+| 方法 | [`leave_lobby`](#member-gfnetworklobbyservice-methods-leave_lobby) | `func leave_lobby( lobby_id: String = "", options: Dictionary = {} ) -> GFNetworkLobbyOperationHandle:` |
+| 方法 | [`set_lobby_metadata`](#member-gfnetworklobbyservice-methods-set_lobby_metadata) | `func set_lobby_metadata( metadata_patch: Dictionary, lobby_id: String = "", options: Dictionary = {} ) -> GFNetworkLobbyOperationHandle:` |
+| 方法 | [`set_member_metadata`](#member-gfnetworklobbyservice-methods-set_member_metadata) | `func set_member_metadata( peer_id: int, metadata_patch: Dictionary, lobby_id: String = "", options: Dictionary = {} ) -> GFNetworkLobbyOperationHandle:` |
+| 方法 | [`invoke_operation`](#member-gfnetworklobbyservice-methods-invoke_operation) | `func invoke_operation( request: GFNetworkLobbyOperationRequest ) -> GFNetworkLobbyOperationHandle:` |
+| 方法 | [`cancel_operation`](#member-gfnetworklobbyservice-methods-cancel_operation) | `func cancel_operation( request_id: StringName, reason: StringName = &"cancelled" ) -> bool:` |
 | 方法 | [`get_lobby`](#member-gfnetworklobbyservice-methods-get_lobby) | `func get_lobby(lobby_id: String) -> GFNetworkLobbyDescriptor:` |
 | 方法 | [`get_lobbies`](#member-gfnetworklobbyservice-methods-get_lobbies) | `func get_lobbies() -> Array[GFNetworkLobbyDescriptor]:` |
 | 方法 | [`get_debug_snapshot`](#member-gfnetworklobbyservice-methods-get_debug_snapshot) | `func get_debug_snapshot() -> Dictionary:` |
 
 ## 信号
+
+<a id="member-gfnetworklobbyservice-signals-operation_started"></a>
+
+### `operation_started`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+signal operation_started(request: GFNetworkLobbyOperationRequest)
+```
+
+操作提交给 Backend 前发出。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `request` | 请求副本。 |
+
+<a id="member-gfnetworklobbyservice-signals-operation_completed"></a>
+
+### `operation_completed`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+signal operation_completed(result: GFNetworkLobbyOperationResult)
+```
+
+任意 Lobby 操作进入终态后发出。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `result` | 终态结果副本。 |
 
 <a id="member-gfnetworklobbyservice-signals-lobby_created"></a>
 
@@ -49,16 +97,16 @@
 - 首次版本：`8.0.0`
 
 ```gdscript
-signal lobby_created(result: GFNetworkLobbyJoinResult)
+signal lobby_created(result: GFNetworkLobbyOperationResult)
 ```
 
-Lobby 创建完成后发出。
+创建 Lobby 操作完成后发出。
 
 参数：
 
 | 名称 | 说明 |
 |---|---|
-| `result` | 创建结果。 |
+| `result` | 创建操作终态。 |
 
 <a id="member-gfnetworklobbyservice-signals-lobbies_queried"></a>
 
@@ -68,22 +116,16 @@ Lobby 创建完成后发出。
 - 首次版本：`8.0.0`
 
 ```gdscript
-signal lobbies_queried(lobbies: Array[GFNetworkLobbyDescriptor], metadata: Dictionary)
+signal lobbies_queried(result: GFNetworkLobbyOperationResult)
 ```
 
-Lobby 查询完成后发出。
+查询 Lobby 操作完成后发出。
 
 参数：
 
 | 名称 | 说明 |
 |---|---|
-| `lobbies` | Lobby 快照列表。 |
-| `metadata` | 查询元数据。 |
-
-结构：
-
-- `lobbies`: Array[GFNetworkLobbyDescriptor] lobby snapshots.
-- `metadata`: Dictionary query metadata.
+| `result` | 查询操作终态。 |
 
 <a id="member-gfnetworklobbyservice-signals-lobby_joined"></a>
 
@@ -93,16 +135,16 @@ Lobby 查询完成后发出。
 - 首次版本：`8.0.0`
 
 ```gdscript
-signal lobby_joined(result: GFNetworkLobbyJoinResult)
+signal lobby_joined(result: GFNetworkLobbyOperationResult)
 ```
 
-Lobby 加入完成后发出。
+加入 Lobby 操作完成后发出。
 
 参数：
 
 | 名称 | 说明 |
 |---|---|
-| `result` | 加入结果。 |
+| `result` | 加入操作终态。 |
 
 <a id="member-gfnetworklobbyservice-signals-lobby_left"></a>
 
@@ -112,17 +154,54 @@ Lobby 加入完成后发出。
 - 首次版本：`8.0.0`
 
 ```gdscript
-signal lobby_left(lobby_id: String, reason: String)
+signal lobby_left(result: GFNetworkLobbyOperationResult)
 ```
 
-离开 lobby 后发出。
+离开 Lobby 操作完成后发出。
 
 参数：
 
 | 名称 | 说明 |
 |---|---|
-| `lobby_id` | Lobby ID。 |
-| `reason` | 离开原因。 |
+| `result` | 离开操作终态。 |
+
+<a id="member-gfnetworklobbyservice-signals-lobby_metadata_set"></a>
+
+### `lobby_metadata_set`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+signal lobby_metadata_set(result: GFNetworkLobbyOperationResult)
+```
+
+Lobby metadata 操作完成后发出。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `result` | Metadata 操作终态。 |
+
+<a id="member-gfnetworklobbyservice-signals-member_metadata_set"></a>
+
+### `member_metadata_set`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+signal member_metadata_set(result: GFNetworkLobbyOperationResult)
+```
+
+成员 metadata 操作完成后发出。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `result` | Metadata 操作终态。 |
 
 <a id="member-gfnetworklobbyservice-signals-lobby_updated"></a>
 
@@ -135,7 +214,7 @@ signal lobby_left(lobby_id: String, reason: String)
 signal lobby_updated(lobby: GFNetworkLobbyDescriptor)
 ```
 
-Lobby 快照更新后发出。
+Lobby 快照发生非请求驱动的更新后发出。
 
 参数：
 
@@ -181,7 +260,7 @@ signal member_left(lobby_id: String, peer_id: int, reason: String)
 | 名称 | 说明 |
 |---|---|
 | `lobby_id` | Lobby ID。 |
-| `peer_id` | 成员 peer 标识。 |
+| `peer_id` | 成员 peer ID。 |
 | `reason` | 离开原因。 |
 
 <a id="member-gfnetworklobbyservice-signals-invite_received"></a>
@@ -195,7 +274,7 @@ signal member_left(lobby_id: String, peer_id: int, reason: String)
 signal invite_received(invite: GFNetworkLobbyInvite)
 ```
 
-收到 lobby 邀请后发出。
+收到 Lobby 邀请后发出。
 
 参数：
 
@@ -214,7 +293,7 @@ signal invite_received(invite: GFNetworkLobbyInvite)
 signal backend_error(operation: StringName, error: StringName, details: Dictionary)
 ```
 
-后端操作失败后发出。
+Backend 出现不属于具体请求的错误时发出。
 
 参数：
 
@@ -222,7 +301,7 @@ signal backend_error(operation: StringName, error: StringName, details: Dictiona
 |---|---|
 | `operation` | 操作标识。 |
 | `error` | 错误标识。 |
-| `details` | 错误详情。 |
+| `details` | 已脱敏错误详情。 |
 
 结构：
 
@@ -238,10 +317,10 @@ signal backend_error(operation: StringName, error: StringName, details: Dictiona
 - 首次版本：`8.0.0`
 
 ```gdscript
-var backend: GFNetworkLobbyBackend = null
+var backend: GFNetworkLobbyBackend:
 ```
 
-当前 lobby 后端。
+当前 Lobby Backend。
 
 <a id="member-gfnetworklobbyservice-properties-current_lobby"></a>
 
@@ -254,9 +333,35 @@ var backend: GFNetworkLobbyBackend = null
 var current_lobby: GFNetworkLobbyDescriptor = null
 ```
 
-当前已加入 lobby。未加入时为 null。
+当前已加入 Lobby；未加入时为 null。
+
+<a id="member-gfnetworklobbyservice-properties-default_timeout_msec"></a>
+
+### `default_timeout_msec`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+var default_timeout_msec: int = 15000
+```
+
+未显式传入 timeout_msec 时的操作超时；0 表示不限制。
 
 ## 方法
+
+<a id="member-gfnetworklobbyservice-methods-ready"></a>
+
+### `ready`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func ready() -> void:
+```
+
+在架构中自动采用已注册 GFTimeProvider 的底层时钟。
 
 <a id="member-gfnetworklobbyservice-methods-tick"></a>
 
@@ -269,13 +374,13 @@ var current_lobby: GFNetworkLobbyDescriptor = null
 func tick(delta: float) -> void:
 ```
 
-推进 lobby 后端轮询。
+推进 Backend callback pump 并处理操作超时。
 
 参数：
 
 | 名称 | 说明 |
 |---|---|
-| `delta` | 本帧时间增量（秒）。 |
+| `delta` | 引擎原始帧间隔。 |
 
 <a id="member-gfnetworklobbyservice-methods-dispose"></a>
 
@@ -288,7 +393,7 @@ func tick(delta: float) -> void:
 func dispose() -> void:
 ```
 
-关闭后端并清理 lobby 快照。
+取消全部操作、关闭 Backend 并清理快照。
 
 <a id="member-gfnetworklobbyservice-methods-set_backend"></a>
 
@@ -298,16 +403,54 @@ func dispose() -> void:
 - 首次版本：`8.0.0`
 
 ```gdscript
-func set_backend(next_backend: GFNetworkLobbyBackend) -> void:
+func set_backend(next_backend: GFNetworkLobbyBackend) -> bool:
 ```
 
-设置 lobby 后端。
+设置 Lobby Backend。 替换前会先取消旧 Backend 的全部等待操作，再断开事件并关闭旧资源。
 
 参数：
 
 | 名称 | 说明 |
 |---|---|
-| `next_backend` | 新后端。 |
+| `next_backend` | 新 Backend；null 表示清除。 |
+
+返回：Backend 可采用当前时钟并已设置时返回 true。
+
+<a id="member-gfnetworklobbyservice-methods-set_clock"></a>
+
+### `set_clock`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func set_clock(clock: GFClock) -> bool:
+```
+
+设置操作超时和耗时使用的统一单调时钟。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `clock` | 新时钟。 |
+
+返回：时钟有效且当前没有等待操作时返回 true。
+
+<a id="member-gfnetworklobbyservice-methods-get_clock"></a>
+
+### `get_clock`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func get_clock() -> GFClock:
+```
+
+获取当前时钟。
+
+返回：当前时钟。
 
 <a id="member-gfnetworklobbyservice-methods-create_lobby"></a>
 
@@ -317,23 +460,22 @@ func set_backend(next_backend: GFNetworkLobbyBackend) -> void:
 - 首次版本：`8.0.0`
 
 ```gdscript
-func create_lobby(options: Dictionary = {}) -> Dictionary:
+func create_lobby(options: Dictionary = {}) -> GFNetworkLobbyOperationHandle:
 ```
 
-创建 lobby。
+创建 Lobby。
 
 参数：
 
 | 名称 | 说明 |
 |---|---|
-| `options` | 后端选项。 |
+| `options` | Provider 选项；保留 request_id、timeout_msec 和 metadata 作为 Service 字段。 |
 
-返回：请求报告。
+返回：一次性操作句柄。
 
 结构：
 
-- `options`: Dictionary backend-defined create options.
-- `return`: Dictionary with ok, status, operation, request_id, and error.
+- `options`: Dictionary lobby create options.
 
 <a id="member-gfnetworklobbyservice-methods-query_lobbies"></a>
 
@@ -343,24 +485,23 @@ func create_lobby(options: Dictionary = {}) -> Dictionary:
 - 首次版本：`8.0.0`
 
 ```gdscript
-func query_lobbies(query: GFNetworkLobbyQuery = null, options: Dictionary = {}) -> Dictionary:
+func query_lobbies( query: GFNetworkLobbyQuery = null, options: Dictionary = {} ) -> GFNetworkLobbyOperationHandle:
 ```
 
-查询 lobby。
+查询 Lobby。
 
 参数：
 
 | 名称 | 说明 |
 |---|---|
 | `query` | 查询条件。 |
-| `options` | 后端选项。 |
+| `options` | Provider 选项；保留 request_id、timeout_msec 和 metadata 作为 Service 字段。 |
 
-返回：请求报告。
+返回：一次性操作句柄。
 
 结构：
 
-- `options`: Dictionary backend-defined query options.
-- `return`: Dictionary with ok, status, operation, request_id, and error.
+- `options`: Dictionary lobby query options.
 
 <a id="member-gfnetworklobbyservice-methods-join_lobby"></a>
 
@@ -370,24 +511,23 @@ func query_lobbies(query: GFNetworkLobbyQuery = null, options: Dictionary = {}) 
 - 首次版本：`8.0.0`
 
 ```gdscript
-func join_lobby(lobby_id: String, options: Dictionary = {}) -> Dictionary:
+func join_lobby( lobby_id: String, options: Dictionary = {} ) -> GFNetworkLobbyOperationHandle:
 ```
 
-加入 lobby。
+加入 Lobby。
 
 参数：
 
 | 名称 | 说明 |
 |---|---|
 | `lobby_id` | Lobby ID。 |
-| `options` | 后端选项。 |
+| `options` | Provider 选项；保留 request_id、timeout_msec 和 metadata 作为 Service 字段。 |
 
-返回：请求报告。
+返回：一次性操作句柄。
 
 结构：
 
-- `options`: Dictionary backend-defined join options.
-- `return`: Dictionary with ok, status, operation, request_id, and error.
+- `options`: Dictionary lobby join options.
 
 <a id="member-gfnetworklobbyservice-methods-leave_lobby"></a>
 
@@ -397,24 +537,23 @@ func join_lobby(lobby_id: String, options: Dictionary = {}) -> Dictionary:
 - 首次版本：`8.0.0`
 
 ```gdscript
-func leave_lobby(lobby_id: String = "", options: Dictionary = {}) -> Dictionary:
+func leave_lobby( lobby_id: String = "", options: Dictionary = {} ) -> GFNetworkLobbyOperationHandle:
 ```
 
-离开 lobby。
+离开当前或指定 Lobby。
 
 参数：
 
 | 名称 | 说明 |
 |---|---|
 | `lobby_id` | Lobby ID；为空时使用 current_lobby。 |
-| `options` | 后端选项。 |
+| `options` | Provider 选项；保留 request_id、timeout_msec 和 metadata 作为 Service 字段。 |
 
-返回：请求报告。
+返回：一次性操作句柄。
 
 结构：
 
-- `options`: Dictionary backend-defined leave options.
-- `return`: Dictionary with ok, status, operation, request_id, and error.
+- `options`: Dictionary lobby leave options.
 
 <a id="member-gfnetworklobbyservice-methods-set_lobby_metadata"></a>
 
@@ -424,26 +563,25 @@ func leave_lobby(lobby_id: String = "", options: Dictionary = {}) -> Dictionary:
 - 首次版本：`8.0.0`
 
 ```gdscript
-func set_lobby_metadata( metadata_patch: Dictionary, lobby_id: String = "", options: Dictionary = {} ) -> Dictionary:
+func set_lobby_metadata( metadata_patch: Dictionary, lobby_id: String = "", options: Dictionary = {} ) -> GFNetworkLobbyOperationHandle:
 ```
 
-设置当前或指定 lobby metadata。
+更新当前或指定 Lobby metadata。
 
 参数：
 
 | 名称 | 说明 |
 |---|---|
-| `metadata_patch` | Metadata 更新。 |
+| `metadata_patch` | Metadata patch。 |
 | `lobby_id` | Lobby ID；为空时使用 current_lobby。 |
-| `options` | 后端选项。 |
+| `options` | Provider 选项；保留 request_id、timeout_msec 和 metadata 作为 Service 字段。 |
 
-返回：请求报告。
+返回：一次性操作句柄。
 
 结构：
 
 - `metadata_patch`: Dictionary lobby metadata patch.
-- `options`: Dictionary backend-defined metadata options.
-- `return`: Dictionary with ok, status, operation, request_id, and error.
+- `options`: Dictionary lobby metadata options.
 
 <a id="member-gfnetworklobbyservice-methods-set_member_metadata"></a>
 
@@ -453,27 +591,69 @@ func set_lobby_metadata( metadata_patch: Dictionary, lobby_id: String = "", opti
 - 首次版本：`8.0.0`
 
 ```gdscript
-func set_member_metadata( peer_id: int, metadata_patch: Dictionary, lobby_id: String = "", options: Dictionary = {} ) -> Dictionary:
+func set_member_metadata( peer_id: int, metadata_patch: Dictionary, lobby_id: String = "", options: Dictionary = {} ) -> GFNetworkLobbyOperationHandle:
 ```
 
-设置当前或指定 lobby 的成员 metadata。
+更新当前或指定 Lobby 的成员 metadata。
 
 参数：
 
 | 名称 | 说明 |
 |---|---|
-| `peer_id` | 成员 peer 标识。 |
-| `metadata_patch` | Metadata 更新。 |
+| `peer_id` | 成员 peer ID。 |
+| `metadata_patch` | Metadata patch。 |
 | `lobby_id` | Lobby ID；为空时使用 current_lobby。 |
-| `options` | 后端选项。 |
+| `options` | Provider 选项；保留 request_id、timeout_msec 和 metadata 作为 Service 字段。 |
 
-返回：请求报告。
+返回：一次性操作句柄。
 
 结构：
 
 - `metadata_patch`: Dictionary member metadata patch.
-- `options`: Dictionary backend-defined metadata options.
-- `return`: Dictionary with ok, status, operation, request_id, and error.
+- `options`: Dictionary member metadata options.
+
+<a id="member-gfnetworklobbyservice-methods-invoke_operation"></a>
+
+### `invoke_operation`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func invoke_operation( request: GFNetworkLobbyOperationRequest ) -> GFNetworkLobbyOperationHandle:
+```
+
+提交完整 Lobby 操作请求。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `request` | 完整请求。 |
+
+返回：一次性操作句柄。
+
+<a id="member-gfnetworklobbyservice-methods-cancel_operation"></a>
+
+### `cancel_operation`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func cancel_operation( request_id: StringName, reason: StringName = &"cancelled" ) -> bool:
+```
+
+取消等待中的操作。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `request_id` | 请求 ID。 |
+| `reason` | 取消原因。 |
+
+返回：找到并首次取消返回 true。
 
 <a id="member-gfnetworklobbyservice-methods-get_lobby"></a>
 
@@ -486,7 +666,7 @@ func set_member_metadata( peer_id: int, metadata_patch: Dictionary, lobby_id: St
 func get_lobby(lobby_id: String) -> GFNetworkLobbyDescriptor:
 ```
 
-获取已知 lobby。
+获取已知 Lobby 快照。
 
 参数：
 
@@ -494,7 +674,7 @@ func get_lobby(lobby_id: String) -> GFNetworkLobbyDescriptor:
 |---|---|
 | `lobby_id` | Lobby ID。 |
 
-返回：Lobby 快照；不存在时返回 null。
+返回：找到时返回快照副本，否则返回 null。
 
 <a id="member-gfnetworklobbyservice-methods-get_lobbies"></a>
 
@@ -507,9 +687,9 @@ func get_lobby(lobby_id: String) -> GFNetworkLobbyDescriptor:
 func get_lobbies() -> Array[GFNetworkLobbyDescriptor]:
 ```
 
-获取全部已知 lobby 快照。
+获取全部已知 Lobby 快照。
 
-返回：Lobby 快照列表。
+返回：按 Lobby ID 排序的快照副本。
 
 结构：
 
@@ -526,10 +706,10 @@ func get_lobbies() -> Array[GFNetworkLobbyDescriptor]:
 func get_debug_snapshot() -> Dictionary:
 ```
 
-获取调试快照。
+获取 Service 调试快照。
 
-返回：调试快照。
+返回：不包含 provider 选项和 metadata 的摘要。
 
 结构：
 
-- `return`: Dictionary with backend_configured, backend, current_lobby, and known_lobby_count.
+- `return`: Dictionary lobby service debug snapshot.

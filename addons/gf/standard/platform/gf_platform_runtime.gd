@@ -67,6 +67,34 @@ signal context_changed(adapter_id: StringName, context: GFPlatformRuntimeContext
 ## @param event: 生命周期事件副本。
 signal lifecycle_event(adapter_id: StringName, event: GFPlatformLifecycleEvent)
 
+## 平台激活意图进入有界队列后发出。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param adapter_id: 来源 Adapter ID。
+## [br]
+## @param intent: 激活意图副本。
+signal activation_intent_received(adapter_id: StringName, intent: GFPlatformActivationIntent)
+
+## 激活意图因重复或容量限制未保留时发出。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param adapter_id: 来源 Adapter ID。
+## [br]
+## @param intent_id: 被丢弃的 Intent ID。
+## [br]
+## @param reason: duplicate 或 capacity。
+signal activation_intent_dropped(
+	adapter_id: StringName,
+	intent_id: StringName,
+	reason: StringName
+)
+
 ## 请求交给 adapter 前发出。
 ## [br]
 ## @api public
@@ -90,6 +118,12 @@ signal request_started(adapter_id: StringName, request: GFPlatformBridgeRequest)
 signal request_completed(adapter_id: StringName, result: GFPlatformBridgeResult)
 
 
+# --- 常量 ---
+
+const _DEFAULT_MAX_ACTIVATION_INTENTS: int = 64
+const _DEFAULT_MAX_SEEN_ACTIVATION_IDS: int = 256
+
+
 # --- 私有变量 ---
 
 var _adapters: Dictionary = {}
@@ -99,6 +133,11 @@ var _pending_requests: Dictionary = {}
 var _request_serial: int = 0
 var _clock: GFClock = null
 var _clock_explicit: bool = false
+var _activation_intents: Array[GFPlatformActivationIntent] = []
+var _seen_activation_ids: Dictionary = {}
+var _seen_activation_order: PackedStringArray = PackedStringArray()
+var _max_activation_intents: int = _DEFAULT_MAX_ACTIVATION_INTENTS
+var _max_seen_activation_ids: int = _DEFAULT_MAX_SEEN_ACTIVATION_IDS
 
 
 # --- Godot 生命周期方法 ---
@@ -161,13 +200,15 @@ func dispose() -> void:
 	_contract_candidates.clear()
 	_contract_routes.clear()
 	_pending_requests.clear()
+	clear_activation_intents(true)
 
 
 # --- 公共方法 ---
 
 ## 设置平台请求截止时间与结果耗时使用的统一单调时钟。
 ##
-## 存在等待请求时拒绝替换，避免绝对截止值跨越两个时间域。
+## 存在 Runtime 等待请求或 Adapter Provider 请求租约时拒绝替换，避免绝对截止值
+## 跨越两个时间域。
 ## [br]
 ## @api public
 ## [br]
@@ -175,7 +216,7 @@ func dispose() -> void:
 ## [br]
 ## @param clock: 新平台时钟。
 ## [br]
-## @return 时钟合法且当前没有等待请求时返回 true。
+## @return 时钟合法且当前没有请求或 Provider 租约时返回 true。
 func set_clock(clock: GFClock) -> bool:
 	return _apply_clock(clock, true)
 
@@ -189,6 +230,27 @@ func set_clock(clock: GFClock) -> bool:
 ## @return 当前时钟。
 func get_clock() -> GFClock:
 	return _clock
+
+
+## 配置激活意图队列和去重窗口容量。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param max_pending: 最多保留的待消费意图数。
+## [br]
+## @param max_seen: 最多记忆的近期 Intent ID 数；不得小于 max_pending。
+## [br]
+## @return 容量有效并已应用时返回 true。
+func configure_activation_queue(max_pending: int, max_seen: int) -> bool:
+	if max_pending <= 0 or max_seen < max_pending:
+		return false
+	_max_activation_intents = max_pending
+	_max_seen_activation_ids = max_seen
+	_trim_activation_queue()
+	_trim_seen_activation_ids()
+	return true
 
 ## 注册平台 adapter。
 ##
@@ -214,7 +276,7 @@ func register_adapter(adapter: GFPlatformAdapter) -> bool:
 		or adapter.get_state() in [GFPlatformAdapter.State.FAILED, GFPlatformAdapter.State.SHUTDOWN]
 	):
 		return false
-	var _clock_set: bool = adapter._gf_set_clock(_clock)
+	var _clock_set: bool = adapter.set_runtime_clock(_clock)
 	if not _clock_set:
 		return false
 	_adapters[String(adapter_id)] = adapter
@@ -353,13 +415,22 @@ func invoke(
 ) -> GFPlatformRequestHandle:
 	if request == null or request.is_empty():
 		return _make_rejected_handle(request, &"invalid_request", "Platform bridge request is incomplete.")
-	if _pending_requests.has(String(request.request_id)):
+	var request_key: String = String(request.request_id)
+	if _pending_requests.has(request_key):
 		return _make_rejected_handle(request, &"duplicate_request_id", "Platform request ID is already pending.")
+	var started_at_msec: int = _clock.get_monotonic_msec()
+	_pending_requests[request_key] = {
+		"adapter_id": adapter_id,
+		"deadline_msec": -1,
+		"handle": null,
+		"reserved": true,
+	}
 	var resolution: Dictionary = _resolve_adapter(request.contract_id, adapter_id)
 	var resolved_adapter_id: StringName = GFVariantData.get_option_string_name(resolution, "adapter_id")
 	request_started.emit(resolved_adapter_id, request.duplicate_request())
 	var routing_error: StringName = GFVariantData.get_option_string_name(resolution, "error")
 	if routing_error != &"":
+		var _routing_reservation_erased: bool = _pending_requests.erase(request_key)
 		var rejected: GFPlatformRequestHandle = _make_rejected_handle(
 			request,
 			routing_error,
@@ -369,6 +440,7 @@ func invoke(
 		return rejected
 	var adapter: GFPlatformAdapter = _get_adapter(resolved_adapter_id)
 	if adapter == null:
+		var _missing_reservation_erased: bool = _pending_requests.erase(request_key)
 		var missing: GFPlatformRequestHandle = _make_rejected_handle(
 			request,
 			&"adapter_not_found",
@@ -376,10 +448,14 @@ func invoke(
 		)
 		_emit_completed_handle(resolved_adapter_id, missing)
 		return missing
-	var handle: GFPlatformRequestHandle = adapter.invoke(request)
+	var handle: GFPlatformRequestHandle = adapter.invoke_from_runtime(
+		request,
+		started_at_msec
+	)
 	if handle.is_pending():
-		_track_pending_handle(resolved_adapter_id, request, handle)
+		_track_pending_handle(resolved_adapter_id, request, handle, started_at_msec)
 	else:
+		var _completed_reservation_erased: bool = _pending_requests.erase(request_key)
 		_emit_completed_handle(resolved_adapter_id, handle)
 	return handle
 
@@ -469,6 +545,80 @@ func get_context(adapter_id: StringName) -> GFPlatformRuntimeContext:
 	return adapter.get_context() if adapter != null else null
 
 
+## 获取当前待消费激活意图副本。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @return 按接收顺序排列的意图副本。
+## [br]
+## @schema return: Array[GFPlatformActivationIntent] pending activation intents.
+func get_activation_intents() -> Array[GFPlatformActivationIntent]:
+	var result: Array[GFPlatformActivationIntent] = []
+	for intent: GFPlatformActivationIntent in _activation_intents:
+		result.append(intent.duplicate_intent())
+	return result
+
+
+## 消费并移除指定激活意图。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param adapter_id: 来源 Adapter ID。
+## [br]
+## @param intent_id: 该 Adapter 内的 Intent ID。
+## [br]
+## @return 找到时返回意图副本，否则返回 null。
+func consume_activation_intent(
+	adapter_id: StringName,
+	intent_id: StringName
+) -> GFPlatformActivationIntent:
+	var normalized_adapter_id: StringName = StringName(String(adapter_id).strip_edges())
+	var normalized_id: StringName = StringName(String(intent_id).strip_edges())
+	for index: int in range(_activation_intents.size()):
+		var intent: GFPlatformActivationIntent = _activation_intents[index]
+		if intent.adapter_id != normalized_adapter_id or intent.intent_id != normalized_id:
+			continue
+		_activation_intents.remove_at(index)
+		return intent.duplicate_intent()
+	return null
+
+
+## 确认并移除指定激活意图。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param adapter_id: 来源 Adapter ID。
+## [br]
+## @param intent_id: 该 Adapter 内的 Intent ID。
+## [br]
+## @return 找到并移除返回 true。
+func acknowledge_activation_intent(
+	adapter_id: StringName,
+	intent_id: StringName
+) -> bool:
+	return consume_activation_intent(adapter_id, intent_id) != null
+
+
+## 清空待消费激活意图。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param clear_dedupe_history: 是否同时清空近期 ID 去重窗口。
+func clear_activation_intents(clear_dedupe_history: bool = false) -> void:
+	_activation_intents.clear()
+	if clear_dedupe_history:
+		_seen_activation_ids.clear()
+		_seen_activation_order.clear()
+
+
 ## 检查一个或任意已就绪 adapter 是否声明能力。
 ## [br]
 ## @api public
@@ -510,6 +660,8 @@ func get_debug_snapshot() -> Dictionary:
 		"adapters": adapter_snapshots,
 		"contract_routes": _contract_routes.duplicate(true),
 		"pending_request_count": _pending_requests.size(),
+		"pending_activation_intent_count": _activation_intents.size(),
+		"seen_activation_intent_count": _seen_activation_ids.size(),
 	}
 
 
@@ -573,18 +725,24 @@ func _make_rejected_handle(
 	error: String
 ) -> GFPlatformRequestHandle:
 	var handle: GFPlatformRequestHandle = GFPlatformRequestHandle.new()
-	var _rejected: bool = handle._gf_reject(request, status, error, _clock)
+	var _rejected: bool = handle.reject_from_platform_layer(
+		request,
+		status,
+		error,
+		_clock
+	)
 	return handle
 
 
 func _track_pending_handle(
 	adapter_id: StringName,
 	request: GFPlatformBridgeRequest,
-	handle: GFPlatformRequestHandle
+	handle: GFPlatformRequestHandle,
+	started_at_msec: int
 ) -> void:
-	var deadline_msec: int = 0
+	var deadline_msec: int = -1
 	if request.timeout_msec > 0:
-		deadline_msec = _clock.get_monotonic_msec() + request.timeout_msec
+		deadline_msec = started_at_msec + request.timeout_msec
 	_pending_requests[String(request.request_id)] = {
 		"adapter_id": adapter_id,
 		"deadline_msec": deadline_msec,
@@ -596,7 +754,10 @@ func _track_pending_handle(
 		CONNECT_ONE_SHOT as Object.ConnectFlags
 	) as Error
 	if connect_error != OK:
-		var _failed: bool = handle._gf_fail(&"signal_connection_failed", "Platform runtime could not track request completion.")
+		var _failed: bool = handle.fail_from_platform_layer(
+			&"signal_connection_failed",
+			"Platform runtime could not track request completion."
+		)
 		var _erased: bool = _pending_requests.erase(String(request.request_id))
 		_emit_completed_handle(adapter_id, handle)
 
@@ -624,24 +785,29 @@ func _expire_requests(now_msec: int) -> void:
 			continue
 		var record: Dictionary = record_value
 		var deadline_msec: int = GFVariantData.get_option_int(record, "deadline_msec")
-		if deadline_msec <= 0 or now_msec < deadline_msec:
+		if deadline_msec < 0 or now_msec < deadline_msec:
 			continue
 		var handle_value: Variant = GFVariantData.get_option_value(record, "handle")
 		if handle_value is GFPlatformRequestHandle:
 			var handle: GFPlatformRequestHandle = handle_value
-			var _timed_out: bool = handle._gf_timeout()
+			var _timed_out: bool = handle.timeout_from_platform_layer()
 
 
 func _apply_clock(clock: GFClock, explicit: bool) -> bool:
 	if clock == null or not _pending_requests.is_empty():
 		return false
-	_clock = clock
-	if explicit:
-		_clock_explicit = true
+	var updated_adapters: Array[GFPlatformAdapter] = []
 	for adapter_id: String in get_adapter_ids():
 		var adapter: GFPlatformAdapter = _get_adapter(StringName(adapter_id))
 		if adapter != null:
-			var _clock_set: bool = adapter._gf_set_clock(_clock)
+			if not adapter.set_runtime_clock(clock):
+				for updated_adapter: GFPlatformAdapter in updated_adapters:
+					var _restored: bool = updated_adapter.set_runtime_clock(_clock)
+				return false
+			updated_adapters.append(adapter)
+	_clock = clock
+	if explicit:
+		_clock_explicit = true
 	return true
 
 
@@ -672,6 +838,9 @@ func _connect_adapter(adapter: GFPlatformAdapter) -> void:
 	var _lifecycle_connected: Error = adapter.lifecycle_event.connect(
 		_on_adapter_lifecycle_event.bind(adapter_id)
 	) as Error
+	var _activation_connected: Error = adapter.activation_intent.connect(
+		_on_adapter_activation_intent.bind(adapter_id)
+	) as Error
 
 
 func _disconnect_adapter(adapter: GFPlatformAdapter) -> void:
@@ -679,12 +848,15 @@ func _disconnect_adapter(adapter: GFPlatformAdapter) -> void:
 	var state_callback: Callable = _on_adapter_state_changed.bind(adapter_id)
 	var context_callback: Callable = _on_adapter_context_changed.bind(adapter_id)
 	var lifecycle_callback: Callable = _on_adapter_lifecycle_event.bind(adapter_id)
+	var activation_callback: Callable = _on_adapter_activation_intent.bind(adapter_id)
 	if adapter.state_changed.is_connected(state_callback):
 		adapter.state_changed.disconnect(state_callback)
 	if adapter.context_changed.is_connected(context_callback):
 		adapter.context_changed.disconnect(context_callback)
 	if adapter.lifecycle_event.is_connected(lifecycle_callback):
 		adapter.lifecycle_event.disconnect(lifecycle_callback)
+	if adapter.activation_intent.is_connected(activation_callback):
+		adapter.activation_intent.disconnect(activation_callback)
 
 
 func _emit_completed_handle(adapter_id: StringName, handle: GFPlatformRequestHandle) -> void:
@@ -722,3 +894,43 @@ func _on_adapter_lifecycle_event(
 	adapter_id: StringName
 ) -> void:
 	lifecycle_event.emit(adapter_id, event.duplicate_event())
+
+
+func _on_adapter_activation_intent(
+	intent: GFPlatformActivationIntent,
+	adapter_id: StringName
+) -> void:
+	if intent == null or intent.is_empty() or intent.adapter_id != adapter_id:
+		return
+	var intent_key: String = _make_activation_intent_key(adapter_id, intent.intent_id)
+	if _seen_activation_ids.has(intent_key):
+		activation_intent_dropped.emit(adapter_id, intent.intent_id, &"duplicate")
+		return
+	_seen_activation_ids[intent_key] = true
+	var _seen_appended: bool = _seen_activation_order.append(intent_key)
+	_trim_seen_activation_ids()
+	if _activation_intents.size() >= _max_activation_intents:
+		var dropped: GFPlatformActivationIntent = _activation_intents.pop_front()
+		activation_intent_dropped.emit(dropped.adapter_id, dropped.intent_id, &"capacity")
+	_activation_intents.append(intent.duplicate_intent())
+	activation_intent_received.emit(adapter_id, intent.duplicate_intent())
+
+
+func _trim_activation_queue() -> void:
+	while _activation_intents.size() > _max_activation_intents:
+		var dropped: GFPlatformActivationIntent = _activation_intents.pop_front()
+		activation_intent_dropped.emit(dropped.adapter_id, dropped.intent_id, &"capacity")
+
+
+func _trim_seen_activation_ids() -> void:
+	while _seen_activation_order.size() > _max_seen_activation_ids:
+		var oldest_id: String = _seen_activation_order[0]
+		_seen_activation_order.remove_at(0)
+		var _erased: bool = _seen_activation_ids.erase(oldest_id)
+
+
+static func _make_activation_intent_key(
+	adapter_id: StringName,
+	intent_id: StringName
+) -> String:
+	return "%s::%s" % [String(adapter_id), String(intent_id)]

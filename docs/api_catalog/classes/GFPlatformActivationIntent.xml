@@ -1,0 +1,149 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFPlatformActivationIntent" path="addons/gf/standard/foundation/platform/gf_platform_activation_intent.gd" module="standard" extends="Resource" classDigest="a949406c16db708e50c1c91117c2a1aa485bb6eb2f02582430d176ce6242e645">
+	<description>GFPlatformActivationIntent: 平台激活入口事件。
+统一表达命令行启动、邀请加入、深链、前台恢复或平台入口参数。该值对象只记录
+平台事实，不解释奖励、导航、匹配或其他项目策略。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">event_contract</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties>
+		<member kind="property" name="intent_id" decorators="@export">
+			<signature>var intent_id: StringName = &amp;""</signature>
+			<description>平台侧或 adapter 生成的幂等 ID。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="intent_type" decorators="@export">
+			<signature>var intent_type: StringName = &amp;""</signature>
+			<description>Provider-neutral 意图类型。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="platform_id" decorators="@export">
+			<signature>var platform_id: StringName = &amp;""</signature>
+			<description>来源平台 ID。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="adapter_id" decorators="@export">
+			<signature>var adapter_id: StringName = &amp;""</signature>
+			<description>来源 Adapter ID。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="source" decorators="@export">
+			<signature>var source: StringName = &amp;""</signature>
+			<description>平台入口来源，例如 command_line、invite、deep_link 或 resume。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="timestamp_msec" decorators="@export">
+			<signature>var timestamp_msec: int = 0</signature>
+			<description>单调时间戳，单位毫秒。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="payload" decorators="@export">
+			<signature>var payload: Dictionary = {}</signature>
+			<description>Provider-neutral 入口载荷。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="schema">payload: Dictionary platform activation payload.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="metadata" decorators="@export">
+			<signature>var metadata: Dictionary = {}</signature>
+			<description>Adapter 定义的非敏感元数据。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="schema">metadata: Dictionary platform activation metadata.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</properties>
+	<methods>
+		<member kind="method" name="configure">
+			<signature>func configure( p_intent_id: StringName, p_intent_type: StringName, p_payload: Dictionary = {}, options: Dictionary = {} ) -&gt; GFPlatformActivationIntent:</signature>
+			<description>配置激活意图。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">p_intent_id: 幂等 ID。</tag>
+				<tag name="param">p_intent_type: Provider-neutral 意图类型。</tag>
+				<tag name="param">p_payload: 入口载荷。</tag>
+				<tag name="param">options: 可包含 platform_id、adapter_id、source、timestamp_msec 和 metadata。</tag>
+				<tag name="return">当前意图。</tag>
+				<tag name="schema">p_payload: Dictionary platform activation payload.</tag>
+				<tag name="schema">options: Dictionary platform activation options.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_empty">
+			<signature>func is_empty() -&gt; bool:</signature>
+			<description>检查是否缺少最小身份字段。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">缺少 intent_id 或 intent_type 时返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="to_dict">
+			<signature>func to_dict() -&gt; Dictionary:</signature>
+			<description>转换为字典。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">激活意图字典。</tag>
+				<tag name="schema">return: Dictionary platform activation intent.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="apply_dict">
+			<signature>func apply_dict(data: Dictionary) -&gt; void:</signature>
+			<description>从字典应用字段。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">data: 激活意图字典。</tag>
+				<tag name="schema">data: Dictionary platform activation intent.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="duplicate_intent">
+			<signature>func duplicate_intent() -&gt; GFPlatformActivationIntent:</signature>
+			<description>创建意图深拷贝。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">新意图。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="from_dict">
+			<signature>static func from_dict(data: Dictionary) -&gt; GFPlatformActivationIntent:</signature>
+			<description>从字典创建意图。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">data: 激活意图字典。</tag>
+				<tag name="return">新意图。</tag>
+				<tag name="schema">data: Dictionary platform activation intent.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

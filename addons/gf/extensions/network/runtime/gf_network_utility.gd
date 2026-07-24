@@ -61,13 +61,28 @@ signal peer_connected(peer_id: int)
 ## @param peer_id: 远端 peer 标识。
 signal peer_disconnected(peer_id: int)
 
+## 采集到传输指标快照后发出。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param metrics: 指标快照副本。
+signal transport_metrics_sampled(metrics: GFNetworkTransportMetrics)
+
 
 # --- 公共变量 ---
 
 ## 当前网络后端。
 ## [br]
 ## @api public
-var backend: GFNetworkBackend
+## [br]
+## @since 3.6.0
+var backend: GFNetworkBackend:
+	get:
+		return _backend
+	set(value):
+		set_backend(value)
 
 ## 消息编码器。
 ## [br]
@@ -91,13 +106,36 @@ var session: GFNetworkSession = GFNetworkSession.new()
 ## @since 6.0.0
 var connect_timeout_msec: int = 15000
 
+## 自动传输指标采样间隔，单位毫秒；小于等于 0 表示禁用自动采样。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+var transport_metrics_sample_interval_msec: int = 1000
+
+## 内存中最多保留的传输指标快照数量；小于等于 0 表示不保留。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+var max_transport_metric_samples: int:
+	get:
+		return _max_transport_metric_samples
+	set(value):
+		_max_transport_metric_samples = maxi(value, 0)
+		_trim_transport_metric_samples()
+
 
 # --- 私有变量 ---
 
 var _channels: Dictionary = {}
+var _backend: GFNetworkBackend = null
+var _max_transport_metric_samples: int = 120
 var _connect_timeout_active: bool = false
 var _connect_timeout_elapsed_msec: int = 0
 var _diagnostics_section_key: StringName = &""
+var _transport_metric_elapsed_msec: int = 0
+var _transport_metric_samples: Array[GFNetworkTransportMetrics] = []
 
 
 # --- GF 生命周期方法 ---
@@ -118,6 +156,7 @@ func tick(delta: float) -> void:
 	if backend != null:
 		backend.poll(delta)
 	_update_connect_timeout(delta)
+	_update_transport_metrics(delta)
 
 
 ## 释放后端、通道和诊断贡献。
@@ -308,13 +347,65 @@ func send_message_on_channel(
 	return _send_message_internal(peer_id, channel_message, channel.build_send_options(options), channel)
 
 
+## 立即采集一次当前 Backend 的传输指标。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @return 指标快照；未配置 Backend 时返回 null。
+func capture_transport_metrics() -> GFNetworkTransportMetrics:
+	if backend == null:
+		return null
+	var metrics: GFNetworkTransportMetrics = backend.get_transport_metrics()
+	if metrics == null:
+		return null
+	var snapshot: GFNetworkTransportMetrics = metrics.duplicate_metrics()
+	if max_transport_metric_samples > 0:
+		_transport_metric_samples.append(snapshot.duplicate_metrics())
+		_trim_transport_metric_samples()
+	transport_metrics_sampled.emit(snapshot.duplicate_metrics())
+	_publish_diagnostics_contribution()
+	return snapshot
+
+
+## 获取按时间排序的传输指标历史副本。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @return 最旧到最新的指标快照。
+## [br]
+## @schema return: Array[GFNetworkTransportMetrics] bounded metric samples.
+func get_transport_metric_samples() -> Array[GFNetworkTransportMetrics]:
+	var result: Array[GFNetworkTransportMetrics] = []
+	for metrics: GFNetworkTransportMetrics in _transport_metric_samples:
+		if metrics != null:
+			result.append(metrics.duplicate_metrics())
+	return result
+
+
+## 清空传输指标历史。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+func clear_transport_metric_samples() -> void:
+	_transport_metric_samples.clear()
+	_transport_metric_elapsed_msec = 0
+	_publish_diagnostics_contribution()
+
+
 ## 获取网络工具调试快照。
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @return 调试信息字典。
 ## [br]
-## @schema return: Dictionary，包含 backend_configured、serializer_configured、validator_configured、backend、session、channels、validator。
+## @schema return: Dictionary including backend, session, channels, validator, and transport metrics.
 func get_debug_snapshot() -> Dictionary:
 	var snapshot: Dictionary = {
 		"backend_configured": backend != null,
@@ -324,6 +415,14 @@ func get_debug_snapshot() -> Dictionary:
 		"session": session.get_debug_snapshot() if session != null else {},
 		"channels": _describe_channels(),
 		"validator": validator.get_debug_snapshot() if validator != null else {},
+		"transport_metrics": (
+			backend.get_transport_metrics().to_dict()
+			if backend != null
+			else {}
+		),
+		"transport_metric_sample_count": _transport_metric_samples.size(),
+		"transport_metrics_sample_interval_msec": transport_metrics_sample_interval_msec,
+		"max_transport_metric_samples": max_transport_metric_samples,
 	}
 	if backend != null:
 		snapshot["backend"] = backend.get_debug_snapshot()
@@ -393,21 +492,62 @@ func _disconnect_backend_signals(target_backend: GFNetworkBackend) -> void:
 
 
 func _replace_backend(next_backend: GFNetworkBackend, close_reason: String) -> void:
-	if backend == next_backend:
+	if _backend == next_backend:
 		return
 
 	_end_connect_timeout()
-	var previous_backend: GFNetworkBackend = backend
+	var previous_backend: GFNetworkBackend = _backend
 	if previous_backend != null:
 		_disconnect_backend_signals(previous_backend)
 		previous_backend.disconnect_backend()
 		if session != null:
 			session.close(close_reason)
 
-	backend = next_backend
-	if backend != null:
-		_connect_backend_signals(backend)
+	_backend = next_backend
+	_transport_metric_samples.clear()
+	_transport_metric_elapsed_msec = 0
+	if _backend != null:
+		_connect_backend_signals(_backend)
+		_apply_backend_session_bootstrap(_backend)
+		if _backend.is_backend_connected():
+			_on_backend_connected()
 	_publish_diagnostics_contribution()
+
+
+func _trim_transport_metric_samples() -> void:
+	if _max_transport_metric_samples <= 0:
+		_transport_metric_samples.clear()
+		return
+	while _transport_metric_samples.size() > _max_transport_metric_samples:
+		var _removed_sample: GFNetworkTransportMetrics = (
+			_transport_metric_samples.pop_front()
+		)
+
+
+func _apply_backend_session_bootstrap(target_backend: GFNetworkBackend) -> void:
+	if target_backend == null or session == null or session.is_active:
+		return
+	var bootstrap: Dictionary = target_backend.get_session_bootstrap()
+	var mode: int = GFVariantData.get_option_int(
+		bootstrap,
+		"mode",
+		GFNetworkSession.Mode.NONE
+	)
+	var endpoint: String = GFVariantData.get_option_string(
+		bootstrap,
+		"endpoint",
+		"multiplayer-peer"
+	)
+	var options: Dictionary = {
+		"endpoint": endpoint,
+		"local_peer_id": GFVariantData.get_option_int(bootstrap, "local_peer_id", -1),
+		"metadata": GFVariantData.get_option_dictionary(bootstrap, "metadata"),
+	}
+	match mode:
+		GFNetworkSession.Mode.HOST:
+			session.start_host(options)
+		GFNetworkSession.Mode.CLIENT:
+			session.start_client(endpoint, options)
 
 
 func _on_backend_connected() -> void:
@@ -555,6 +695,21 @@ func _update_connect_timeout(delta: float) -> void:
 	if session != null:
 		session.close("connect_timeout")
 	disconnected.emit("connect_timeout")
+
+
+func _update_transport_metrics(delta: float) -> void:
+	if (
+		backend == null
+		or transport_metrics_sample_interval_msec <= 0
+		or not is_finite(delta)
+		or delta <= 0.0
+	):
+		return
+	_transport_metric_elapsed_msec += maxi(roundi(delta * 1000.0), 0)
+	if _transport_metric_elapsed_msec < transport_metrics_sample_interval_msec:
+		return
+	_transport_metric_elapsed_msec %= transport_metrics_sample_interval_msec
+	var _metrics: GFNetworkTransportMetrics = capture_transport_metrics()
 
 
 func _copy_message_for_channel(message: GFNetworkMessage, channel_id: StringName) -> GFNetworkMessage:

@@ -1,0 +1,103 @@
+## Rename this class and keep it beside the provider adapter.
+class_name ProjectLobbyBackend
+extends GFNetworkLobbyBackend
+
+
+var _provider: Object = null
+var _calls: Dictionary = {}
+
+
+func configure_provider(provider: Object) -> bool:
+	if not is_instance_valid(provider):
+		return false
+	_provider = provider
+	backend_id = &"project.sample_lobby"
+	return true
+
+
+func _dispatch_operation(
+	request: GFNetworkLobbyOperationRequest,
+	handle: GFNetworkLobbyOperationHandle
+) -> bool:
+	if not is_instance_valid(_provider):
+		return false
+	var provider_call_id: String = String(request.request_id)
+	_calls[provider_call_id] = handle
+	match request.operation:
+		GFNetworkLobbyOperationRequest.OP_CREATE_LOBBY:
+			# Invoke provider create with request.provider_options.
+			return true
+		GFNetworkLobbyOperationRequest.OP_QUERY_LOBBIES:
+			# Translate request.query without changing project matchmaking policy.
+			return true
+		GFNetworkLobbyOperationRequest.OP_JOIN_LOBBY:
+			# Invoke provider join with request.lobby_id.
+			return true
+		GFNetworkLobbyOperationRequest.OP_LEAVE_LOBBY:
+			return true
+		GFNetworkLobbyOperationRequest.OP_SET_LOBBY_METADATA:
+			return true
+		GFNetworkLobbyOperationRequest.OP_SET_MEMBER_METADATA:
+			return true
+	var _erased: bool = _calls.erase(provider_call_id)
+	return false
+
+
+func on_provider_lobby_succeeded(
+	provider_call_id: String,
+	lobby: GFNetworkLobbyDescriptor
+) -> void:
+	var handle: GFNetworkLobbyOperationHandle = _take_handle(provider_call_id)
+	if handle != null:
+		var _completed: bool = _succeed_operation(handle, {"lobby": lobby})
+
+
+func on_provider_query_succeeded(
+	provider_call_id: String,
+	lobbies: Array[GFNetworkLobbyDescriptor]
+) -> void:
+	var handle: GFNetworkLobbyOperationHandle = _take_handle(provider_call_id)
+	if handle != null:
+		var _completed: bool = _succeed_operation(handle, {"lobbies": lobbies})
+
+
+func on_provider_failed(
+	provider_call_id: String,
+	error_code: StringName
+) -> void:
+	var handle: GFNetworkLobbyOperationHandle = _take_handle(provider_call_id)
+	if handle != null:
+		var _completed: bool = _fail_operation(
+			handle,
+			error_code,
+			"Lobby provider request failed."
+		)
+
+
+func _cancel_operation(
+	handle: GFNetworkLobbyOperationHandle,
+	_reason: StringName
+) -> void:
+	if handle == null:
+		return
+	# Request provider cancellation, but keep the request lease until confirmation.
+
+
+func on_provider_cancelled(provider_call_id: String) -> void:
+	var handle: GFNetworkLobbyOperationHandle = _take_handle(provider_call_id)
+	if handle != null:
+		var _released: bool = _release_operation(handle)
+
+
+func _close() -> void:
+	_calls.clear()
+	_provider = null
+
+
+func _take_handle(provider_call_id: String) -> GFNetworkLobbyOperationHandle:
+	var value: Variant = GFVariantData.get_option_value(_calls, provider_call_id)
+	var _erased: bool = _calls.erase(provider_call_id)
+	if value is GFNetworkLobbyOperationHandle:
+		var handle: GFNetworkLobbyOperationHandle = value
+		return handle
+	return null

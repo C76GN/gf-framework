@@ -1,0 +1,159 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFMultiplayerPeerNetworkBackend" path="addons/gf/extensions/network/backends/gf_multiplayer_peer_network_backend.gd" module="extensions/network" extends="GFNetworkBackend" classDigest="f19fcf56cbe7c036d1817ed5354fe88512adb6baab8df64852bc4ef32238259a">
+	<description>GFMultiplayerPeerNetworkBackend: 可接管外部 MultiplayerPeer 的通用网络后端。
+平台 Adapter 负责通过 Steam、小游戏或其他 SDK 创建 `MultiplayerPeer`，本类只负责
+GF bytes 边界、轮询、连接事件和所有权。它不依赖任何第三方 SDK 类型。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_handle</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals />
+	<enums>
+		<member kind="enum" name="Ownership">
+			<signature>enum Ownership {
+	## Backend 只借用 Peer，释放时不得关闭它。
+	BORROWED,
+	## Backend 拥有 Peer，释放时负责关闭它。
+	OWNED,
+}</signature>
+			<description>被接管 Peer 的所有权。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="enum" name="Role">
+			<signature>enum Role {
+	## Adapter 未声明角色。
+	UNKNOWN,
+	## 主机或服务器。
+	SERVER,
+	## 客户端。
+	CLIENT,
+}</signature>
+			<description>Peer 在当前会话中的角色。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</enums>
+	<constants>
+		<member kind="const" name="BROADCAST_PEER_ID">
+			<signature>const BROADCAST_PEER_ID: int = -1</signature>
+			<description>广播 peer 标识。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</constants>
+	<properties>
+		<member kind="property" name="max_packets_per_poll">
+			<signature>var max_packets_per_poll: int = 64</signature>
+			<description>每次 poll 最多派发的入站包数量。小于等于 0 表示不限制。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</properties>
+	<methods>
+		<member kind="method" name="adopt_peer">
+			<signature>func adopt_peer(peer: MultiplayerPeer, options: Dictionary = {}) -&gt; Error:</signature>
+			<description>接管一个已由外部 Adapter 初始化的 MultiplayerPeer。
+Peer 必须已经处于 connecting 或 connected。替换现有 Peer 时，旧 Peer 会按其
+ownership 关闭或仅解除借用。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">peer: 外部创建的 MultiplayerPeer。</tag>
+				<tag name="param">options: 支持 ownership、role、endpoint、supports_channels 和 supports_transfer_modes。</tag>
+				<tag name="return">Godot 错误码。</tag>
+				<tag name="schema">options: Dictionary adoptable MultiplayerPeer capabilities and ownership.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_peer">
+			<signature>func get_peer() -&gt; MultiplayerPeer:</signature>
+			<description>获取当前 Peer 的借用引用。
+该引用只用于 Provider 状态检查，不得 poll、读取包或装配到 SceneTree.multiplayer；
+Backend 独占 Peer 数据面。需要交给 SceneMultiplayer 时先使用 `take_peer()`。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">当前 Peer；未配置时返回 null。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="take_peer">
+			<signature>func take_peer() -&gt; MultiplayerPeer:</signature>
+			<description>将 Peer 及其关闭责任转移给调用方。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">原 Peer；未配置时返回 null。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="owns_peer">
+			<signature>func owns_peer() -&gt; bool:</signature>
+			<description>检查 Backend 是否拥有当前 Peer。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">当前 Peer 存在且 ownership 为 OWNED 时返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_session_bootstrap">
+			<signature>func get_session_bootstrap() -&gt; Dictionary:</signature>
+			<description>获取外部 Peer 的会话接管字段。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">role 对应的 Session mode、端点和本地 peer ID。</tag>
+				<tag name="schema">return: Dictionary network session bootstrap fields.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="disconnect_backend">
+			<signature>func disconnect_backend() -&gt; void:</signature>
+			<description>断开并释放当前 Peer。
+OWNED Peer 会关闭；BORROWED Peer 只解除信号和引用，由外部 Adapter 继续管理。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="send_bytes">
+			<signature>func send_bytes( peer_id: int, bytes: PackedByteArray, options: Dictionary = {} ) -&gt; Error:</signature>
+			<description>发送 bytes。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">peer_id: 目标 peer；-1 表示广播。</tag>
+				<tag name="param">bytes: 消息 bytes。</tag>
+				<tag name="param">options: 支持 channel、transfer_mode 和 reliable。</tag>
+				<tag name="return">Godot 错误码。</tag>
+				<tag name="schema">options: Dictionary generic MultiplayerPeer send options.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="poll">
+			<signature>func poll(_delta: float) -&gt; void:</signature>
+			<description>轮询 Peer 状态和入站包。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">_delta: 本帧时间增量；底层 MultiplayerPeer 自行维护时钟。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_debug_snapshot">
+			<signature>func get_debug_snapshot() -&gt; Dictionary:</signature>
+			<description>获取 Backend 调试快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">已脱敏 Backend 状态。</tag>
+				<tag name="schema">return: Dictionary adoptable MultiplayerPeer backend snapshot.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

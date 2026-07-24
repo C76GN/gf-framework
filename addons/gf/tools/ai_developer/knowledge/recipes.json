@@ -103,16 +103,17 @@
     {
       "id": "platform-lobby-adapter",
       "title": "Adapt a platform lobby provider",
-      "package_requirements": {"all_of": ["gf.extension.network"], "any_of": []},
-      "primary_classes": ["GFNetworkBackend", "GFAsyncCompletion", "GFInstaller"],
+      "package_requirements": {"all_of": ["gf.standard.platform", "gf.extension.network"], "any_of": []},
+      "primary_classes": ["GFPlatformAdapter", "GFPlatformContractDescriptor", "GFPlatformAdapterConformance", "GFNetworkLobbyBackend", "GFNetworkLobbyService", "GFMultiplayerPeerNetworkBackend"],
       "steps": [
-        "Define provider-neutral identity, lobby descriptor, member, invite, and error records in project or adapter code.",
+        "Declare provider-neutral contract methods, request/result schemas, byte budgets, capability requirements, concurrency, cancellation support, and sensitive fields.",
         "Keep Steam, Epic, console, or service SDK calls inside the adapter.",
-        "Normalize initialization, capability checks, callbacks, cancellation, and provider shutdown.",
-        "Let project code own lobby visibility, matchmaking policy, UI, and fallback.",
-        "Test unavailable SDK, late callbacks, disconnect, ownership transfer, and duplicate events."
+        "Map every lobby call to a GFNetworkLobbyOperationHandle by request ID and normalize initialization, cancellation, timeout, provider shutdown, and late callbacks.",
+        "Publish launch and invite callbacks as deduplicated GFPlatformActivationIntent records; adopt provider MultiplayerPeer instances with explicit owned or borrowed lifecycle.",
+        "Run GFPlatformAdapterConformance and fault-inject unavailable SDK, invalid schemas, concurrency, cancellation, timeout, duplicate terminal callbacks, disconnect, and ownership transfer.",
+        "Let project code own lobby visibility, matchmaking, authority, UI, product policy, and fallback."
       ],
-      "avoid": ["Provider IDs leaking into portable domain models", "A GFSteamManager-style global business facade"]
+      "avoid": ["Provider IDs leaking into portable domain models", "Uncorrelated callback-only completion", "A GFSteamManager-style global business facade"]
     },
     {
       "id": "platform-storage-adapter",
@@ -146,11 +147,11 @@
       "id": "network-backend-adapter",
       "title": "Implement a network transport backend",
       "package_requirements": {"all_of": ["gf.extension.network"], "any_of": []},
-      "primary_classes": ["GFNetworkBackend", "GFNetworkUtility", "GFNetworkChannel"],
+      "primary_classes": ["GFNetworkBackend", "GFMultiplayerPeerNetworkBackend", "GFNetworkUtility", "GFNetworkTransportMetrics", "GFNetworkChannel"],
       "steps": [
         "Keep transport bytes and connection state separate from project messages.",
         "Declare authority, reliability, ordering, and payload limits in project contracts.",
-        "Normalize peer identity and disconnect reasons at the adapter boundary.",
+        "Normalize peer identity, disconnect reasons, optional metrics, and MultiplayerPeer ownership at the adapter boundary.",
         "Use GF network contracts for stable payloads when appropriate.",
         "Test loss, duplication, reordering, reconnect, oversized payloads, and shutdown."
       ],

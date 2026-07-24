@@ -2,8 +2,8 @@
   "schema_version": 1,
   "catalog_version": "1.0.0",
   "framework_version": "10.0.0-dev.0",
-  "source_digest": "9f841ca47b8281ec0d51460ed099b8af71eb269b97486002293e4e21061347bf",
-  "class_count": 743,
+  "source_digest": "3bc9ba2a407a9142500657af69c48d8bce63fecca0319a8c0a6354355f566770",
+  "class_count": 751,
   "package_count": 52,
   "packages": [
     {
@@ -44330,6 +44330,109 @@
         }
       ]
     },
+    "GFMultiplayerPeerNetworkBackend": {
+      "extends": "GFNetworkBackend",
+      "module": "extensions/network",
+      "package_id": "gf.extension.network",
+      "path": "addons/gf/extensions/network/backends/gf_multiplayer_peer_network_backend.gd",
+      "summary": "GFMultiplayerPeerNetworkBackend: 可接管外部 MultiplayerPeer 的通用网络后端。 平台 Adapter 负责通过 Steam、小游戏或其他 SDK 创建 `MultiplayerPeer`，本类只负责 GF bytes 边界、轮询、连接事件和所有权。它不依赖任何第三方 SDK 类型。",
+      "visibility": "public",
+      "category": "runtime_handle",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "enum",
+          "name": "Ownership",
+          "signature": "enum Ownership {\n\t## Backend 只借用 Peer，释放时不得关闭它。\n\tBORROWED,\n\t## Backend 拥有 Peer，释放时负责关闭它。\n\tOWNED,\n}",
+          "summary": "被接管 Peer 的所有权。",
+          "visibility": "public"
+        },
+        {
+          "kind": "enum",
+          "name": "Role",
+          "signature": "enum Role {\n\t## Adapter 未声明角色。\n\tUNKNOWN,\n\t## 主机或服务器。\n\tSERVER,\n\t## 客户端。\n\tCLIENT,\n}",
+          "summary": "Peer 在当前会话中的角色。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "BROADCAST_PEER_ID",
+          "signature": "const BROADCAST_PEER_ID: int = -1",
+          "summary": "广播 peer 标识。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "max_packets_per_poll",
+          "signature": "var max_packets_per_poll: int = 64",
+          "summary": "每次 poll 最多派发的入站包数量。小于等于 0 表示不限制。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "adopt_peer",
+          "signature": "func adopt_peer(peer: MultiplayerPeer, options: Dictionary = {}) -> Error",
+          "summary": "接管一个已由外部 Adapter 初始化的 MultiplayerPeer。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_peer",
+          "signature": "func get_peer() -> MultiplayerPeer",
+          "summary": "获取当前 Peer 的借用引用。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "take_peer",
+          "signature": "func take_peer() -> MultiplayerPeer",
+          "summary": "将 Peer 及其关闭责任转移给调用方。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "owns_peer",
+          "signature": "func owns_peer() -> bool",
+          "summary": "检查 Backend 是否拥有当前 Peer。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_session_bootstrap",
+          "signature": "func get_session_bootstrap() -> Dictionary",
+          "summary": "获取外部 Peer 的会话接管字段。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "disconnect_backend",
+          "signature": "func disconnect_backend() -> void",
+          "summary": "断开并释放当前 Peer。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "send_bytes",
+          "signature": "func send_bytes( peer_id: int, bytes: PackedByteArray, options: Dictionary = {} ) -> Error",
+          "summary": "发送 bytes。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "poll",
+          "signature": "func poll(_delta: float) -> void",
+          "summary": "轮询 Peer 状态和入站包。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_debug_snapshot",
+          "signature": "func get_debug_snapshot() -> Dictionary",
+          "summary": "获取 Backend 调试快照。",
+          "visibility": "public"
+        }
+      ]
+    },
     "GFMutationBatch": {
       "extends": "RefCounted",
       "module": "standard",
@@ -44522,10 +44625,52 @@
         },
         {
           "kind": "func",
+          "name": "is_backend_connected",
+          "signature": "func is_backend_connected() -> bool",
+          "summary": "检查 Backend 是否已建立连接。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_session_bootstrap",
+          "signature": "func get_session_bootstrap() -> Dictionary",
+          "summary": "获取已建立外部连接的会话接管信息。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
           "name": "get_debug_snapshot",
           "signature": "func get_debug_snapshot() -> Dictionary",
           "summary": "获取后端调试快照。",
           "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_transport_metrics",
+          "signature": "func get_transport_metrics() -> GFNetworkTransportMetrics",
+          "summary": "获取当前传输指标快照。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "_enrich_transport_metrics",
+          "signature": "func _enrich_transport_metrics(_metrics: GFNetworkTransportMetrics) -> void",
+          "summary": "向基础指标快照写入后端特有指标。",
+          "visibility": "protected"
+        },
+        {
+          "kind": "func",
+          "name": "_record_transport_packet_sent",
+          "signature": "func _record_transport_packet_sent(byte_count: int) -> void",
+          "summary": "记录一次成功发送。",
+          "visibility": "protected"
+        },
+        {
+          "kind": "func",
+          "name": "_reset_transport_metrics",
+          "signature": "func _reset_transport_metrics() -> void",
+          "summary": "重置当前连接的累计传输指标。",
+          "visibility": "protected"
         }
       ]
     },
@@ -45417,44 +45562,16 @@
       "module": "extensions/network",
       "package_id": "gf.extension.network",
       "path": "addons/gf/extensions/network/session/gf_network_lobby_backend.gd",
-      "summary": "GFNetworkLobbyBackend: 平台中立 lobby 后端协议。 后端负责把 Steam、微信、自建匹配服、LAN 发现或其他平台能力映射到 GF lobby 事件与请求报告。该基类不执行任何平台调用。",
+      "summary": "GFNetworkLobbyBackend: 平台中立 Lobby 后端协议。 后端只负责把 Steam、小游戏、自建匹配服、LAN 或其他 provider 的异步调用 映射到强类型操作句柄。请求 ID、单终态、取消和迟到回调保护由基类统一拥有。",
       "visibility": "public",
       "category": "protocol",
       "since": "8.0.0",
       "members": [
         {
           "kind": "signal",
-          "name": "lobby_created",
-          "signature": "signal lobby_created(result: GFNetworkLobbyJoinResult)",
-          "summary": "Lobby 创建完成后发出。",
-          "visibility": "public"
-        },
-        {
-          "kind": "signal",
-          "name": "lobbies_queried",
-          "signature": "signal lobbies_queried(lobbies: Array[GFNetworkLobbyDescriptor], metadata: Dictionary)",
-          "summary": "Lobby 查询完成后发出。",
-          "visibility": "public"
-        },
-        {
-          "kind": "signal",
-          "name": "lobby_joined",
-          "signature": "signal lobby_joined(result: GFNetworkLobbyJoinResult)",
-          "summary": "Lobby 加入完成后发出。",
-          "visibility": "public"
-        },
-        {
-          "kind": "signal",
-          "name": "lobby_left",
-          "signature": "signal lobby_left(lobby_id: String, reason: String)",
-          "summary": "离开 lobby 后发出。",
-          "visibility": "public"
-        },
-        {
-          "kind": "signal",
           "name": "lobby_updated",
           "signature": "signal lobby_updated(lobby: GFNetworkLobbyDescriptor)",
-          "summary": "Lobby 快照更新后发出。",
+          "summary": "Lobby 快照发生非请求驱动的更新后发出。",
           "visibility": "public"
         },
         {
@@ -45475,14 +45592,14 @@
           "kind": "signal",
           "name": "invite_received",
           "signature": "signal invite_received(invite: GFNetworkLobbyInvite)",
-          "summary": "收到 lobby 邀请后发出。",
+          "summary": "收到 Lobby 邀请后发出。",
           "visibility": "public"
         },
         {
           "kind": "signal",
           "name": "backend_error",
           "signature": "signal backend_error(operation: StringName, error: StringName, details: Dictionary)",
-          "summary": "后端操作失败后发出。",
+          "summary": "后端出现不属于具体请求的错误时发出。",
           "visibility": "public"
         },
         {
@@ -45494,58 +45611,23 @@
         },
         {
           "kind": "func",
-          "name": "create_lobby",
-          "signature": "func create_lobby(_options: Dictionary = {}) -> Dictionary",
-          "summary": "创建 lobby。",
-          "visibility": "public"
-        },
-        {
-          "kind": "func",
-          "name": "query_lobbies",
-          "signature": "func query_lobbies(_query: GFNetworkLobbyQuery = null, _options: Dictionary = {}) -> Dictionary",
-          "summary": "查询 lobby。",
-          "visibility": "public"
-        },
-        {
-          "kind": "func",
-          "name": "join_lobby",
-          "signature": "func join_lobby(_lobby_id: String, _options: Dictionary = {}) -> Dictionary",
-          "summary": "加入 lobby。",
-          "visibility": "public"
-        },
-        {
-          "kind": "func",
-          "name": "leave_lobby",
-          "signature": "func leave_lobby(_lobby_id: String = \"\", _options: Dictionary = {}) -> Dictionary",
-          "summary": "离开 lobby。",
-          "visibility": "public"
-        },
-        {
-          "kind": "func",
-          "name": "set_lobby_metadata",
-          "signature": "func set_lobby_metadata(_lobby_id: String, _metadata: Dictionary, _options: Dictionary = {}) -> Dictionary",
-          "summary": "设置 lobby metadata。",
-          "visibility": "public"
-        },
-        {
-          "kind": "func",
-          "name": "set_member_metadata",
-          "signature": "func set_member_metadata( _lobby_id: String, _peer_id: int, _metadata: Dictionary, _options: Dictionary = {} ) -> Dictionary",
-          "summary": "设置成员 metadata。",
+          "name": "invoke_operation",
+          "signature": "func invoke_operation( request: GFNetworkLobbyOperationRequest ) -> GFNetworkLobbyOperationHandle",
+          "summary": "提交 Lobby 操作。",
           "visibility": "public"
         },
         {
           "kind": "func",
           "name": "poll",
-          "signature": "func poll(_delta: float) -> void",
-          "summary": "后端轮询入口。需要平台 callback pump 的后端可重写。",
+          "signature": "func poll(delta: float) -> void",
+          "summary": "推进需要 callback pump 的平台 SDK。",
           "visibility": "public"
         },
         {
           "kind": "func",
           "name": "close",
           "signature": "func close() -> void",
-          "summary": "关闭后端资源。",
+          "summary": "取消全部等待操作并关闭 provider 资源。",
           "visibility": "public"
         },
         {
@@ -45557,72 +45639,86 @@
         },
         {
           "kind": "func",
-          "name": "_make_request_report",
-          "signature": "func _make_request_report( ok: bool, operation: StringName, error: StringName = &\"\", options: Dictionary = {} ) -> Dictionary",
-          "summary": "构建请求报告。",
+          "name": "_dispatch_operation",
+          "signature": "func _dispatch_operation( _request: GFNetworkLobbyOperationRequest, _handle: GFNetworkLobbyOperationHandle ) -> bool",
+          "summary": "派发 provider 操作。",
           "visibility": "protected"
         },
         {
           "kind": "func",
-          "name": "_emit_lobby_created",
-          "signature": "func _emit_lobby_created(result: GFNetworkLobbyJoinResult) -> void",
-          "summary": "发出 lobby_created 信号。",
+          "name": "_cancel_operation",
+          "signature": "func _cancel_operation( _handle: GFNetworkLobbyOperationHandle, _reason: StringName ) -> void",
+          "summary": "处理取消或超时通知。",
           "visibility": "protected"
         },
         {
           "kind": "func",
-          "name": "_emit_lobbies_queried",
-          "signature": "func _emit_lobbies_queried(lobbies: Array[GFNetworkLobbyDescriptor], metadata: Dictionary = {}) -> void",
-          "summary": "发出 lobbies_queried 信号。",
+          "name": "_release_operation",
+          "signature": "func _release_operation(handle: GFNetworkLobbyOperationHandle) -> bool",
+          "summary": "确认底层 Provider 操作已经停止并释放请求租约。",
           "visibility": "protected"
         },
         {
           "kind": "func",
-          "name": "_emit_lobby_joined",
-          "signature": "func _emit_lobby_joined(result: GFNetworkLobbyJoinResult) -> void",
-          "summary": "发出 lobby_joined 信号。",
+          "name": "_poll",
+          "signature": "func _poll(_delta: float) -> void",
+          "summary": "推进底层 callback pump。",
           "visibility": "protected"
         },
         {
           "kind": "func",
-          "name": "_emit_lobby_left",
-          "signature": "func _emit_lobby_left(lobby_id: String, reason: String = \"left\") -> void",
-          "summary": "发出 lobby_left 信号。",
+          "name": "_close",
+          "signature": "func _close() -> void",
+          "summary": "释放底层 provider 资源。",
+          "visibility": "protected"
+        },
+        {
+          "kind": "func",
+          "name": "_succeed_operation",
+          "signature": "func _succeed_operation( handle: GFNetworkLobbyOperationHandle, options: Dictionary = {} ) -> bool",
+          "summary": "成功完成操作。",
+          "visibility": "protected"
+        },
+        {
+          "kind": "func",
+          "name": "_fail_operation",
+          "signature": "func _fail_operation( handle: GFNetworkLobbyOperationHandle, error: StringName, message: String = \"\", metadata: Dictionary = {} ) -> bool",
+          "summary": "失败完成操作。",
           "visibility": "protected"
         },
         {
           "kind": "func",
           "name": "_emit_lobby_updated",
           "signature": "func _emit_lobby_updated(lobby: GFNetworkLobbyDescriptor) -> void",
-          "summary": "发出 lobby_updated 信号。",
+          "summary": "发出 Lobby 更新事件。",
           "visibility": "protected"
         },
         {
           "kind": "func",
           "name": "_emit_member_joined",
-          "signature": "func _emit_member_joined(lobby_id: String, member: GFNetworkLobbyMember) -> void",
-          "summary": "发出 member_joined 信号。",
+          "signature": "func _emit_member_joined( lobby_id: String, member: GFNetworkLobbyMember ) -> void",
+          "summary": "发出成员加入事件。",
           "visibility": "protected"
         },
         {
           "kind": "func",
           "name": "_emit_member_left",
-          "signature": "func _emit_member_left(lobby_id: String, peer_id: int, reason: String = \"left\") -> void",
-          "summary": "发出 member_left 信号。",
+          "signature": "func _emit_member_left( lobby_id: String, peer_id: int, reason: String = \"left\" ) -> void",
+          "summary": "发出成员离开事件。",
           "visibility": "protected"
         },
         {
           "kind": "func",
           "name": "_emit_invite_received",
           "signature": "func _emit_invite_received(invite: GFNetworkLobbyInvite) -> void",
-          "summary": "发出 invite_received 信号。",
+          "summary": "发出邀请事件。",
           "visibility": "protected"
         },
         {
           "kind": "func",
           "name": "_emit_backend_error",
-          "signature": "func _emit_backend_error(operation: StringName, error: StringName, details: Dictionary = {}) -> void",
-          "summary": "发出 backend_error 信号。",
+          "signature": "func _emit_backend_error( operation: StringName, error: StringName, details: Dictionary = {} ) -> void",
+          "summary": "发出非请求错误事件。",
           "visibility": "protected"
         }
       ]
@@ -45896,116 +45992,6 @@
         }
       ]
     },
-    "GFNetworkLobbyJoinResult": {
-      "extends": "RefCounted",
-      "module": "extensions/network",
-      "package_id": "gf.extension.network",
-      "path": "addons/gf/extensions/network/session/gf_network_lobby_join_result.gd",
-      "summary": "GFNetworkLobbyJoinResult: Lobby 创建或加入结果。 该值对象统一表达同步或异步 backend 的最终结果，避免项目代码直接依赖 平台 SDK 的错误码枚举。",
-      "visibility": "public",
-      "category": "value_object",
-      "since": "8.0.0",
-      "members": [
-        {
-          "kind": "var",
-          "name": "ok",
-          "signature": "var ok: bool = false",
-          "summary": "操作是否成功。",
-          "visibility": "public"
-        },
-        {
-          "kind": "var",
-          "name": "lobby_id",
-          "signature": "var lobby_id: String = \"\"",
-          "summary": "相关 lobby ID。",
-          "visibility": "public"
-        },
-        {
-          "kind": "var",
-          "name": "lobby",
-          "signature": "var lobby: GFNetworkLobbyDescriptor = null",
-          "summary": "成功时的 lobby 快照。",
-          "visibility": "public"
-        },
-        {
-          "kind": "var",
-          "name": "error",
-          "signature": "var error: StringName = &\"\"",
-          "summary": "失败原因标识。",
-          "visibility": "public"
-        },
-        {
-          "kind": "var",
-          "name": "message",
-          "signature": "var message: String = \"\"",
-          "summary": "人读说明。",
-          "visibility": "public"
-        },
-        {
-          "kind": "var",
-          "name": "metadata",
-          "signature": "var metadata: Dictionary = {}",
-          "summary": "调用方自定义元数据。",
-          "visibility": "public"
-        },
-        {
-          "kind": "func",
-          "name": "configure_success",
-          "signature": "func configure_success(p_lobby: GFNetworkLobbyDescriptor, p_metadata: Dictionary = {}) -> GFNetworkLobbyJoinResult",
-          "summary": "配置成功结果。",
-          "visibility": "public"
-        },
-        {
-          "kind": "func",
-          "name": "configure_failure",
-          "signature": "func configure_failure( p_lobby_id: String, p_error: StringName, p_message: String = \"\", p_metadata: Dictionary = {} ) -> GFNetworkLobbyJoinResult",
-          "summary": "配置失败结果。",
-          "visibility": "public"
-        },
-        {
-          "kind": "func",
-          "name": "to_dict",
-          "signature": "func to_dict() -> Dictionary",
-          "summary": "转换为字典。",
-          "visibility": "public"
-        },
-        {
-          "kind": "func",
-          "name": "apply_dict",
-          "signature": "func apply_dict(data: Dictionary) -> void",
-          "summary": "从字典应用结果字段。",
-          "visibility": "public"
-        },
-        {
-          "kind": "func",
-          "name": "duplicate_result",
-          "signature": "func duplicate_result() -> GFNetworkLobbyJoinResult",
-          "summary": "创建结果深拷贝。",
-          "visibility": "public"
-        },
-        {
-          "kind": "func",
-          "name": "success",
-          "signature": "static func success(lobby_value: GFNetworkLobbyDescriptor, metadata_value: Dictionary = {}) -> GFNetworkLobbyJoinResult",
-          "summary": "创建成功结果。",
-          "visibility": "public"
-        },
-        {
-          "kind": "func",
-          "name": "failure",
-          "signature": "static func failure( lobby_id_value: String, error_value: StringName, message_value: String = \"\", metadata_value: Dictionary = {} ) -> GFNetworkLobbyJoinResult",
-          "summary": "创建失败结果。",
-          "visibility": "public"
-        },
-        {
-          "kind": "func",
-          "name": "from_dict",
-          "signature": "static func from_dict(data: Dictionary) -> GFNetworkLobbyJoinResult",
-          "summary": "从字典创建结果。",
-          "visibility": "public"
-        }
-      ]
-    },
     "GFNetworkLobbyMember": {
       "extends": "Resource",
       "module": "extensions/network",
@@ -46091,6 +46077,413 @@
           "name": "from_dict",
           "signature": "static func from_dict(data: Dictionary) -> GFNetworkLobbyMember",
           "summary": "从字典创建成员。",
+          "visibility": "public"
+        }
+      ]
+    },
+    "GFNetworkLobbyOperationHandle": {
+      "extends": "RefCounted",
+      "module": "extensions/network",
+      "package_id": "gf.extension.network",
+      "path": "addons/gf/extensions/network/session/gf_network_lobby_operation_handle.gd",
+      "summary": "GFNetworkLobbyOperationHandle: Lobby 操作运行时句柄。 句柄保证请求只能进入一个终态，并把取消、超时、Backend 失败和 SDK 回调统一为 `GFNetworkLobbyOperationResult`。调用方不能直接完成句柄。",
+      "visibility": "public",
+      "category": "runtime_handle",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "signal",
+          "name": "completed",
+          "signature": "signal completed(result: GFNetworkLobbyOperationResult)",
+          "summary": "操作进入终态时发出一次。",
+          "visibility": "public"
+        },
+        {
+          "kind": "signal",
+          "name": "cancel_requested",
+          "signature": "signal cancel_requested(reason: StringName)",
+          "summary": "操作取消或超时时发出，供 Backend 停止底层调用。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_request",
+          "signature": "func get_request() -> GFNetworkLobbyOperationRequest",
+          "summary": "获取请求副本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_request_id",
+          "signature": "func get_request_id() -> StringName",
+          "summary": "获取请求 ID。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_pending",
+          "signature": "func is_pending() -> bool",
+          "summary": "检查操作是否仍在等待终态。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_completed",
+          "signature": "func is_completed() -> bool",
+          "summary": "检查操作是否已经完成。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_successful",
+          "signature": "func is_successful() -> bool",
+          "summary": "检查操作是否成功。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_result",
+          "signature": "func get_result() -> GFNetworkLobbyOperationResult",
+          "summary": "获取终态结果副本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "cancel",
+          "signature": "func cancel(reason: StringName = &\"cancelled\") -> bool",
+          "summary": "取消操作。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_debug_snapshot",
+          "signature": "func get_debug_snapshot() -> Dictionary",
+          "summary": "获取稳定调试快照。",
+          "visibility": "public"
+        }
+      ]
+    },
+    "GFNetworkLobbyOperationRequest": {
+      "extends": "RefCounted",
+      "module": "extensions/network",
+      "package_id": "gf.extension.network",
+      "path": "addons/gf/extensions/network/session/gf_network_lobby_operation_request.gd",
+      "summary": "GFNetworkLobbyOperationRequest: Lobby 操作请求。 将创建、查询、加入、离开和 metadata 更新统一为可关联、可复制的请求值对象。 Provider 专属参数只能放入 provider_options，不能泄漏到项目领域模型。",
+      "visibility": "public",
+      "category": "event_contract",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "const",
+          "name": "OP_CREATE_LOBBY",
+          "signature": "const OP_CREATE_LOBBY: StringName = &\"create_lobby\"",
+          "summary": "创建 Lobby 操作。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "OP_QUERY_LOBBIES",
+          "signature": "const OP_QUERY_LOBBIES: StringName = &\"query_lobbies\"",
+          "summary": "查询 Lobby 操作。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "OP_JOIN_LOBBY",
+          "signature": "const OP_JOIN_LOBBY: StringName = &\"join_lobby\"",
+          "summary": "加入 Lobby 操作。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "OP_LEAVE_LOBBY",
+          "signature": "const OP_LEAVE_LOBBY: StringName = &\"leave_lobby\"",
+          "summary": "离开 Lobby 操作。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "OP_SET_LOBBY_METADATA",
+          "signature": "const OP_SET_LOBBY_METADATA: StringName = &\"set_lobby_metadata\"",
+          "summary": "更新 Lobby metadata 操作。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "OP_SET_MEMBER_METADATA",
+          "signature": "const OP_SET_MEMBER_METADATA: StringName = &\"set_member_metadata\"",
+          "summary": "更新成员 metadata 操作。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "request_id",
+          "signature": "var request_id: StringName = &\"\"",
+          "summary": "请求稳定 ID。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "operation",
+          "signature": "var operation: StringName = &\"\"",
+          "summary": "操作类型。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "lobby_id",
+          "signature": "var lobby_id: String = \"\"",
+          "summary": "目标 Lobby ID。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "peer_id",
+          "signature": "var peer_id: int = 0",
+          "summary": "目标成员 peer ID。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "query",
+          "signature": "var query: GFNetworkLobbyQuery = null",
+          "summary": "查询操作的过滤条件。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "payload",
+          "signature": "var payload: Dictionary = {}",
+          "summary": "操作载荷，例如 metadata patch。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "provider_options",
+          "signature": "var provider_options: Dictionary = {}",
+          "summary": "Provider 专属调用选项。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "timeout_msec",
+          "signature": "var timeout_msec: int = 0",
+          "summary": "超时时间，单位毫秒；0 表示由 Service 默认值决定或不限制。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "metadata",
+          "signature": "var metadata: Dictionary = {}",
+          "summary": "调用方元数据。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "configure",
+          "signature": "func configure( p_request_id: StringName, p_operation: StringName, options: Dictionary = {} ) -> GFNetworkLobbyOperationRequest",
+          "summary": "配置 Lobby 操作请求。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_valid",
+          "signature": "func is_valid() -> bool",
+          "summary": "检查请求字段是否满足对应操作的最小契约。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "to_dict",
+          "signature": "func to_dict() -> Dictionary",
+          "summary": "转换为字典。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "apply_dict",
+          "signature": "func apply_dict(data: Dictionary) -> void",
+          "summary": "从字典应用请求字段。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "duplicate_request",
+          "signature": "func duplicate_request() -> GFNetworkLobbyOperationRequest",
+          "summary": "创建请求深拷贝。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_supported_operations",
+          "signature": "static func get_supported_operations() -> PackedStringArray",
+          "summary": "获取全部支持的操作 ID。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "from_dict",
+          "signature": "static func from_dict(data: Dictionary) -> GFNetworkLobbyOperationRequest",
+          "summary": "从字典创建请求。",
+          "visibility": "public"
+        }
+      ]
+    },
+    "GFNetworkLobbyOperationResult": {
+      "extends": "RefCounted",
+      "module": "extensions/network",
+      "package_id": "gf.extension.network",
+      "path": "addons/gf/extensions/network/session/gf_network_lobby_operation_result.gd",
+      "summary": "GFNetworkLobbyOperationResult: Lobby 操作终态结果。 通过 request_id 和 operation 将 SDK 回调关联到唯一请求，并统一承载单个 Lobby、 查询列表、失败状态与耗时。结果是不可回写到 Handle 的深拷贝快照。",
+      "visibility": "public",
+      "category": "value_object",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "var",
+          "name": "request_id",
+          "signature": "var request_id: StringName = &\"\"",
+          "summary": "请求 ID。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "operation",
+          "signature": "var operation: StringName = &\"\"",
+          "summary": "操作类型。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "ok",
+          "signature": "var ok: bool = false",
+          "summary": "操作是否成功。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "status",
+          "signature": "var status: StringName = &\"\"",
+          "summary": "稳定终态状态。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "lobby_id",
+          "signature": "var lobby_id: String = \"\"",
+          "summary": "相关 Lobby ID。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "lobby",
+          "signature": "var lobby: GFNetworkLobbyDescriptor = null",
+          "summary": "单个 Lobby 快照。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "lobbies",
+          "signature": "var lobbies: Array[GFNetworkLobbyDescriptor] = []",
+          "summary": "查询操作返回的 Lobby 快照列表。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "error",
+          "signature": "var error: StringName = &\"\"",
+          "summary": "失败原因标识。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "message",
+          "signature": "var message: String = \"\"",
+          "summary": "人读说明。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "started_at_msec",
+          "signature": "var started_at_msec: int = -1",
+          "summary": "开始单调时间戳，单位毫秒；-1 表示未知。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "completed_at_msec",
+          "signature": "var completed_at_msec: int = -1",
+          "summary": "完成单调时间戳，单位毫秒；-1 表示未知。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "metadata",
+          "signature": "var metadata: Dictionary = {}",
+          "summary": "调用方或 Adapter 结果元数据。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "configure_success",
+          "signature": "func configure_success( request: GFNetworkLobbyOperationRequest, options: Dictionary = {} ) -> GFNetworkLobbyOperationResult",
+          "summary": "配置成功结果。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "configure_failure",
+          "signature": "func configure_failure( request: GFNetworkLobbyOperationRequest, p_error: StringName, p_message: String = \"\", options: Dictionary = {} ) -> GFNetworkLobbyOperationResult",
+          "summary": "配置失败结果。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_duration_msec",
+          "signature": "func get_duration_msec() -> int",
+          "summary": "获取操作耗时，单位毫秒。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_valid",
+          "signature": "func is_valid() -> bool",
+          "summary": "校验终态结构是否满足操作契约。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "matches_request",
+          "signature": "func matches_request(request: GFNetworkLobbyOperationRequest) -> bool",
+          "summary": "检查结果是否属于给定请求。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "to_dict",
+          "signature": "func to_dict() -> Dictionary",
+          "summary": "转换为字典。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "apply_dict",
+          "signature": "func apply_dict(data: Dictionary) -> void",
+          "summary": "从字典应用结果字段。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "duplicate_result",
+          "signature": "func duplicate_result() -> GFNetworkLobbyOperationResult",
+          "summary": "创建结果深拷贝。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "from_dict",
+          "signature": "static func from_dict(data: Dictionary) -> GFNetworkLobbyOperationResult",
+          "summary": "从字典创建结果。",
           "visibility": "public"
         }
       ]
@@ -46203,44 +46596,72 @@
       "module": "extensions/network",
       "package_id": "gf.extension.network",
       "path": "addons/gf/extensions/network/session/gf_network_lobby_service.gd",
-      "summary": "GFNetworkLobbyService: 平台中立 lobby 协调服务。 该服务只管理 backend 请求、当前 lobby 快照和信号转发。Steam、微信、LAN 或自建服务 的具体 API 必须由外部或可选 adapter 通过 GFNetworkLobbyBackend 实现。",
+      "summary": "GFNetworkLobbyService: 平台中立 Lobby 操作协调服务。 Service 统一生成请求 ID、管理单调超时、取消 Backend 替换时的等待操作，并维护 Lobby 快照。Steam、小游戏、LAN 或自建服务 API 只能存在于外部 Backend Adapter。",
       "visibility": "public",
       "category": "runtime_service",
       "since": "8.0.0",
       "members": [
         {
           "kind": "signal",
+          "name": "operation_started",
+          "signature": "signal operation_started(request: GFNetworkLobbyOperationRequest)",
+          "summary": "操作提交给 Backend 前发出。",
+          "visibility": "public"
+        },
+        {
+          "kind": "signal",
+          "name": "operation_completed",
+          "signature": "signal operation_completed(result: GFNetworkLobbyOperationResult)",
+          "summary": "任意 Lobby 操作进入终态后发出。",
+          "visibility": "public"
+        },
+        {
+          "kind": "signal",
           "name": "lobby_created",
-          "signature": "signal lobby_created(result: GFNetworkLobbyJoinResult)",
-          "summary": "Lobby 创建完成后发出。",
+          "signature": "signal lobby_created(result: GFNetworkLobbyOperationResult)",
+          "summary": "创建 Lobby 操作完成后发出。",
           "visibility": "public"
         },
         {
           "kind": "signal",
           "name": "lobbies_queried",
-          "signature": "signal lobbies_queried(lobbies: Array[GFNetworkLobbyDescriptor], metadata: Dictionary)",
-          "summary": "Lobby 查询完成后发出。",
+          "signature": "signal lobbies_queried(result: GFNetworkLobbyOperationResult)",
+          "summary": "查询 Lobby 操作完成后发出。",
           "visibility": "public"
         },
         {
           "kind": "signal",
           "name": "lobby_joined",
-          "signature": "signal lobby_joined(result: GFNetworkLobbyJoinResult)",
-          "summary": "Lobby 加入完成后发出。",
+          "signature": "signal lobby_joined(result: GFNetworkLobbyOperationResult)",
+          "summary": "加入 Lobby 操作完成后发出。",
           "visibility": "public"
         },
         {
           "kind": "signal",
           "name": "lobby_left",
-          "signature": "signal lobby_left(lobby_id: String, reason: String)",
-          "summary": "离开 lobby 后发出。",
+          "signature": "signal lobby_left(result: GFNetworkLobbyOperationResult)",
+          "summary": "离开 Lobby 操作完成后发出。",
+          "visibility": "public"
+        },
+        {
+          "kind": "signal",
+          "name": "lobby_metadata_set",
+          "signature": "signal lobby_metadata_set(result: GFNetworkLobbyOperationResult)",
+          "summary": "Lobby metadata 操作完成后发出。",
+          "visibility": "public"
+        },
+        {
+          "kind": "signal",
+          "name": "member_metadata_set",
+          "signature": "signal member_metadata_set(result: GFNetworkLobbyOperationResult)",
+          "summary": "成员 metadata 操作完成后发出。",
           "visibility": "public"
         },
         {
           "kind": "signal",
           "name": "lobby_updated",
           "signature": "signal lobby_updated(lobby: GFNetworkLobbyDescriptor)",
-          "summary": "Lobby 快照更新后发出。",
+          "summary": "Lobby 快照发生非请求驱动的更新后发出。",
           "visibility": "public"
         },
         {
@@ -46261,112 +46682,154 @@
           "kind": "signal",
           "name": "invite_received",
           "signature": "signal invite_received(invite: GFNetworkLobbyInvite)",
-          "summary": "收到 lobby 邀请后发出。",
+          "summary": "收到 Lobby 邀请后发出。",
           "visibility": "public"
         },
         {
           "kind": "signal",
           "name": "backend_error",
           "signature": "signal backend_error(operation: StringName, error: StringName, details: Dictionary)",
-          "summary": "后端操作失败后发出。",
+          "summary": "Backend 出现不属于具体请求的错误时发出。",
           "visibility": "public"
         },
         {
           "kind": "var",
           "name": "backend",
-          "signature": "var backend: GFNetworkLobbyBackend = null",
-          "summary": "当前 lobby 后端。",
+          "signature": "var backend: GFNetworkLobbyBackend",
+          "summary": "当前 Lobby Backend。",
           "visibility": "public"
         },
         {
           "kind": "var",
           "name": "current_lobby",
           "signature": "var current_lobby: GFNetworkLobbyDescriptor = null",
-          "summary": "当前已加入 lobby。未加入时为 null。",
+          "summary": "当前已加入 Lobby；未加入时为 null。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "default_timeout_msec",
+          "signature": "var default_timeout_msec: int = 15000",
+          "summary": "未显式传入 timeout_msec 时的操作超时；0 表示不限制。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "ready",
+          "signature": "func ready() -> void",
+          "summary": "在架构中自动采用已注册 GFTimeProvider 的底层时钟。",
           "visibility": "public"
         },
         {
           "kind": "func",
           "name": "tick",
           "signature": "func tick(delta: float) -> void",
-          "summary": "推进 lobby 后端轮询。",
+          "summary": "推进 Backend callback pump 并处理操作超时。",
           "visibility": "public"
         },
         {
           "kind": "func",
           "name": "dispose",
           "signature": "func dispose() -> void",
-          "summary": "关闭后端并清理 lobby 快照。",
+          "summary": "取消全部操作、关闭 Backend 并清理快照。",
           "visibility": "public"
         },
         {
           "kind": "func",
           "name": "set_backend",
-          "signature": "func set_backend(next_backend: GFNetworkLobbyBackend) -> void",
-          "summary": "设置 lobby 后端。",
+          "signature": "func set_backend(next_backend: GFNetworkLobbyBackend) -> bool",
+          "summary": "设置 Lobby Backend。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "set_clock",
+          "signature": "func set_clock(clock: GFClock) -> bool",
+          "summary": "设置操作超时和耗时使用的统一单调时钟。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_clock",
+          "signature": "func get_clock() -> GFClock",
+          "summary": "获取当前时钟。",
           "visibility": "public"
         },
         {
           "kind": "func",
           "name": "create_lobby",
-          "signature": "func create_lobby(options: Dictionary = {}) -> Dictionary",
-          "summary": "创建 lobby。",
+          "signature": "func create_lobby(options: Dictionary = {}) -> GFNetworkLobbyOperationHandle",
+          "summary": "创建 Lobby。",
           "visibility": "public"
         },
         {
           "kind": "func",
           "name": "query_lobbies",
-          "signature": "func query_lobbies(query: GFNetworkLobbyQuery = null, options: Dictionary = {}) -> Dictionary",
-          "summary": "查询 lobby。",
+          "signature": "func query_lobbies( query: GFNetworkLobbyQuery = null, options: Dictionary = {} ) -> GFNetworkLobbyOperationHandle",
+          "summary": "查询 Lobby。",
           "visibility": "public"
         },
         {
           "kind": "func",
           "name": "join_lobby",
-          "signature": "func join_lobby(lobby_id: String, options: Dictionary = {}) -> Dictionary",
-          "summary": "加入 lobby。",
+          "signature": "func join_lobby( lobby_id: String, options: Dictionary = {} ) -> GFNetworkLobbyOperationHandle",
+          "summary": "加入 Lobby。",
           "visibility": "public"
         },
         {
           "kind": "func",
           "name": "leave_lobby",
-          "signature": "func leave_lobby(lobby_id: String = \"\", options: Dictionary = {}) -> Dictionary",
-          "summary": "离开 lobby。",
+          "signature": "func leave_lobby( lobby_id: String = \"\", options: Dictionary = {} ) -> GFNetworkLobbyOperationHandle",
+          "summary": "离开当前或指定 Lobby。",
           "visibility": "public"
         },
         {
           "kind": "func",
           "name": "set_lobby_metadata",
-          "signature": "func set_lobby_metadata( metadata_patch: Dictionary, lobby_id: String = \"\", options: Dictionary = {} ) -> Dictionary",
-          "summary": "设置当前或指定 lobby metadata。",
+          "signature": "func set_lobby_metadata( metadata_patch: Dictionary, lobby_id: String = \"\", options: Dictionary = {} ) -> GFNetworkLobbyOperationHandle",
+          "summary": "更新当前或指定 Lobby metadata。",
           "visibility": "public"
         },
         {
           "kind": "func",
           "name": "set_member_metadata",
-          "signature": "func set_member_metadata( peer_id: int, metadata_patch: Dictionary, lobby_id: String = \"\", options: Dictionary = {} ) -> Dictionary",
-          "summary": "设置当前或指定 lobby 的成员 metadata。",
+          "signature": "func set_member_metadata( peer_id: int, metadata_patch: Dictionary, lobby_id: String = \"\", options: Dictionary = {} ) -> GFNetworkLobbyOperationHandle",
+          "summary": "更新当前或指定 Lobby 的成员 metadata。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "invoke_operation",
+          "signature": "func invoke_operation( request: GFNetworkLobbyOperationRequest ) -> GFNetworkLobbyOperationHandle",
+          "summary": "提交完整 Lobby 操作请求。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "cancel_operation",
+          "signature": "func cancel_operation( request_id: StringName, reason: StringName = &\"cancelled\" ) -> bool",
+          "summary": "取消等待中的操作。",
           "visibility": "public"
         },
         {
           "kind": "func",
           "name": "get_lobby",
           "signature": "func get_lobby(lobby_id: String) -> GFNetworkLobbyDescriptor",
-          "summary": "获取已知 lobby。",
+          "summary": "获取已知 Lobby 快照。",
           "visibility": "public"
         },
         {
           "kind": "func",
           "name": "get_lobbies",
           "signature": "func get_lobbies() -> Array[GFNetworkLobbyDescriptor]",
-          "summary": "获取全部已知 lobby 快照。",
+          "summary": "获取全部已知 Lobby 快照。",
           "visibility": "public"
         },
         {
           "kind": "func",
           "name": "get_debug_snapshot",
           "signature": "func get_debug_snapshot() -> Dictionary",
-          "summary": "获取调试快照。",
+          "summary": "获取 Service 调试快照。",
           "visibility": "public"
         }
       ]
@@ -47726,6 +48189,172 @@
         }
       ]
     },
+    "GFNetworkTransportMetrics": {
+      "extends": "RefCounted",
+      "module": "extensions/network",
+      "package_id": "gf.extension.network",
+      "path": "addons/gf/extensions/network/runtime/gf_network_transport_metrics.gd",
+      "summary": "GFNetworkTransportMetrics: 网络传输指标快照。 指标只在显式写入后才视为已知，避免用 0 混淆“真实为零”与“后端不支持”。 内置指标覆盖流量、包数、连接时长、队列、延迟、抖动和丢包率；Adapter",
+      "visibility": "public",
+      "category": "value_object",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "const",
+          "name": "BYTES_SENT",
+          "signature": "const BYTES_SENT: StringName = &\"bytes_sent\"",
+          "summary": "已发送字节数。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "BYTES_RECEIVED",
+          "signature": "const BYTES_RECEIVED: StringName = &\"bytes_received\"",
+          "summary": "已接收字节数。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "PACKETS_SENT",
+          "signature": "const PACKETS_SENT: StringName = &\"packets_sent\"",
+          "summary": "已发送包数。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "PACKETS_RECEIVED",
+          "signature": "const PACKETS_RECEIVED: StringName = &\"packets_received\"",
+          "summary": "已接收包数。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "CONNECTION_AGE_MSEC",
+          "signature": "const CONNECTION_AGE_MSEC: StringName = &\"connection_age_msec\"",
+          "summary": "当前连接时长，单位毫秒。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "ROUND_TRIP_TIME_MSEC",
+          "signature": "const ROUND_TRIP_TIME_MSEC: StringName = &\"round_trip_time_msec\"",
+          "summary": "往返延迟，单位毫秒。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "JITTER_MSEC",
+          "signature": "const JITTER_MSEC: StringName = &\"jitter_msec\"",
+          "summary": "延迟抖动，单位毫秒。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "PACKET_LOSS_RATIO",
+          "signature": "const PACKET_LOSS_RATIO: StringName = &\"packet_loss_ratio\"",
+          "summary": "丢包率，取值范围为 0 到 1。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "SEND_QUEUE_PACKETS",
+          "signature": "const SEND_QUEUE_PACKETS: StringName = &\"send_queue_packets\"",
+          "summary": "发送队列包数。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "RECEIVE_QUEUE_PACKETS",
+          "signature": "const RECEIVE_QUEUE_PACKETS: StringName = &\"receive_queue_packets\"",
+          "summary": "接收队列包数。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "sample_time_msec",
+          "signature": "var sample_time_msec: int = 0",
+          "summary": "采样单调时间戳，单位毫秒。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "sample_window_msec",
+          "signature": "var sample_window_msec: int = 0",
+          "summary": "统计窗口长度，单位毫秒；0 表示累计值或未知窗口。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "set_metric",
+          "signature": "func set_metric(metric_id: StringName, value: float) -> bool",
+          "summary": "写入一个已知指标。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "clear_metric",
+          "signature": "func clear_metric(metric_id: StringName) -> bool",
+          "summary": "移除一个指标，使其恢复为未知。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "has_metric",
+          "signature": "func has_metric(metric_id: StringName) -> bool",
+          "summary": "检查指标是否已知。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_metric",
+          "signature": "func get_metric(metric_id: StringName, default_value: float = 0.0) -> float",
+          "summary": "获取指标值。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_metric_ids",
+          "signature": "func get_metric_ids() -> PackedStringArray",
+          "summary": "获取排序后的已知指标 ID。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "merge_from",
+          "signature": "func merge_from(other: GFNetworkTransportMetrics) -> void",
+          "summary": "合并另一个快照中的已知指标。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "to_dict",
+          "signature": "func to_dict() -> Dictionary",
+          "summary": "转换为 JSON 安全字典。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "apply_dict",
+          "signature": "func apply_dict(data: Dictionary) -> void",
+          "summary": "从字典应用指标快照。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "duplicate_metrics",
+          "signature": "func duplicate_metrics() -> GFNetworkTransportMetrics",
+          "summary": "创建快照深拷贝。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "from_dict",
+          "signature": "static func from_dict(data: Dictionary) -> GFNetworkTransportMetrics",
+          "summary": "从字典创建指标快照。",
+          "visibility": "public"
+        }
+      ]
+    },
     "GFNetworkUtility": {
       "extends": "GFUtility",
       "module": "extensions/network",
@@ -47779,6 +48408,13 @@
           "visibility": "public"
         },
         {
+          "kind": "signal",
+          "name": "transport_metrics_sampled",
+          "signature": "signal transport_metrics_sampled(metrics: GFNetworkTransportMetrics)",
+          "summary": "采集到传输指标快照后发出。",
+          "visibility": "public"
+        },
+        {
           "kind": "var",
           "name": "backend",
           "signature": "var backend: GFNetworkBackend",
@@ -47811,6 +48447,20 @@
           "name": "connect_timeout_msec",
           "signature": "var connect_timeout_msec: int = 15000",
           "summary": "客户端连接超时时间，单位毫秒。小于等于 0 表示不主动超时。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "transport_metrics_sample_interval_msec",
+          "signature": "var transport_metrics_sample_interval_msec: int = 1000",
+          "summary": "自动传输指标采样间隔，单位毫秒；小于等于 0 表示禁用自动采样。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "max_transport_metric_samples",
+          "signature": "var max_transport_metric_samples: int",
+          "summary": "内存中最多保留的传输指标快照数量；小于等于 0 表示不保留。",
           "visibility": "public"
         },
         {
@@ -47909,6 +48559,27 @@
           "name": "send_message_on_channel",
           "signature": "func send_message_on_channel( peer_id: int, message: GFNetworkMessage, channel_id: StringName, options: Dictionary = {} ) -> Error",
           "summary": "通过指定通道发送消息。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "capture_transport_metrics",
+          "signature": "func capture_transport_metrics() -> GFNetworkTransportMetrics",
+          "summary": "立即采集一次当前 Backend 的传输指标。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_transport_metric_samples",
+          "signature": "func get_transport_metric_samples() -> Array[GFNetworkTransportMetrics]",
+          "summary": "获取按时间排序的传输指标历史副本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "clear_transport_metric_samples",
+          "signature": "func clear_transport_metric_samples() -> void",
+          "summary": "清空传输指标历史。",
           "visibility": "public"
         },
         {
@@ -52221,6 +52892,116 @@
         }
       ]
     },
+    "GFPlatformActivationIntent": {
+      "extends": "Resource",
+      "module": "standard",
+      "package_id": "gf.standard.base",
+      "path": "addons/gf/standard/foundation/platform/gf_platform_activation_intent.gd",
+      "summary": "GFPlatformActivationIntent: 平台激活入口事件。 统一表达命令行启动、邀请加入、深链、前台恢复或平台入口参数。该值对象只记录 平台事实，不解释奖励、导航、匹配或其他项目策略。",
+      "visibility": "public",
+      "category": "event_contract",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "var",
+          "name": "intent_id",
+          "signature": "var intent_id: StringName = &\"\"",
+          "summary": "平台侧或 adapter 生成的幂等 ID。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "intent_type",
+          "signature": "var intent_type: StringName = &\"\"",
+          "summary": "Provider-neutral 意图类型。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "platform_id",
+          "signature": "var platform_id: StringName = &\"\"",
+          "summary": "来源平台 ID。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "adapter_id",
+          "signature": "var adapter_id: StringName = &\"\"",
+          "summary": "来源 Adapter ID。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "source",
+          "signature": "var source: StringName = &\"\"",
+          "summary": "平台入口来源，例如 command_line、invite、deep_link 或 resume。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "timestamp_msec",
+          "signature": "var timestamp_msec: int = 0",
+          "summary": "单调时间戳，单位毫秒。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "payload",
+          "signature": "var payload: Dictionary = {}",
+          "summary": "Provider-neutral 入口载荷。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "metadata",
+          "signature": "var metadata: Dictionary = {}",
+          "summary": "Adapter 定义的非敏感元数据。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "configure",
+          "signature": "func configure( p_intent_id: StringName, p_intent_type: StringName, p_payload: Dictionary = {}, options: Dictionary = {} ) -> GFPlatformActivationIntent",
+          "summary": "配置激活意图。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_empty",
+          "signature": "func is_empty() -> bool",
+          "summary": "检查是否缺少最小身份字段。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "to_dict",
+          "signature": "func to_dict() -> Dictionary",
+          "summary": "转换为字典。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "apply_dict",
+          "signature": "func apply_dict(data: Dictionary) -> void",
+          "summary": "从字典应用字段。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "duplicate_intent",
+          "signature": "func duplicate_intent() -> GFPlatformActivationIntent",
+          "summary": "创建意图深拷贝。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "from_dict",
+          "signature": "static func from_dict(data: Dictionary) -> GFPlatformActivationIntent",
+          "summary": "从字典创建意图。",
+          "visibility": "public"
+        }
+      ]
+    },
     "GFPlatformAdapter": {
       "extends": "RefCounted",
       "module": "standard",
@@ -52253,6 +53034,13 @@
           "visibility": "public"
         },
         {
+          "kind": "signal",
+          "name": "activation_intent",
+          "signature": "signal activation_intent(intent: GFPlatformActivationIntent)",
+          "summary": "收到平台激活入口后发出。",
+          "visibility": "public"
+        },
+        {
           "kind": "enum",
           "name": "State",
           "signature": "enum State {\n\t## 尚未初始化。\n\tCREATED,\n\t## 正在执行 adapter 初始化。\n\tINITIALIZING,\n\t## 可接受平台请求。\n\tREADY,\n\t## 初始化失败。\n\tFAILED,\n\t## 已关闭且不可重新使用。\n\tSHUTDOWN,\n}",
@@ -52262,7 +53050,7 @@
         {
           "kind": "func",
           "name": "configure",
-          "signature": "func configure( adapter_id: StringName, platform_id: StringName, contract_ids: PackedStringArray, initial_context: GFPlatformRuntimeContext = null ) -> bool",
+          "signature": "func configure( adapter_id: StringName, platform_id: StringName, contract_ids: PackedStringArray, contract_descriptors: Array[GFPlatformContractDescriptor], initial_context: GFPlatformRuntimeContext = null ) -> bool",
           "summary": "配置 adapter 身份和支持的桥接契约。",
           "visibility": "public"
         },
@@ -52285,6 +53073,20 @@
           "name": "get_contract_ids",
           "signature": "func get_contract_ids() -> PackedStringArray",
           "summary": "获取支持的桥接契约 ID 副本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_contract_descriptors",
+          "signature": "func get_contract_descriptors() -> Array[GFPlatformContractDescriptor]",
+          "summary": "获取声明的契约描述符副本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_contract_descriptor",
+          "signature": "func get_contract_descriptor(contract_id: StringName) -> GFPlatformContractDescriptor",
+          "summary": "获取一个契约描述符副本。",
           "visibility": "public"
         },
         {
@@ -52380,6 +53182,13 @@
         },
         {
           "kind": "func",
+          "name": "_release_request",
+          "signature": "func _release_request(handle: GFPlatformRequestHandle) -> bool",
+          "summary": "确认底层 Provider 调用已经停止并释放请求租约。",
+          "visibility": "protected"
+        },
+        {
+          "kind": "func",
           "name": "_shutdown",
           "signature": "func _shutdown() -> void",
           "summary": "释放底层平台资源。",
@@ -52415,6 +53224,13 @@
         },
         {
           "kind": "func",
+          "name": "_publish_activation_intent",
+          "signature": "func _publish_activation_intent(intent: GFPlatformActivationIntent) -> bool",
+          "summary": "发布平台激活意图。",
+          "visibility": "protected"
+        },
+        {
+          "kind": "func",
           "name": "_succeed_request",
           "signature": "func _succeed_request( handle: GFPlatformRequestHandle, value: Variant = null, status: StringName = &\"ok\", metadata: Dictionary = {} ) -> bool",
           "summary": "以成功结果完成请求。",
@@ -52426,6 +53242,95 @@
           "signature": "func _fail_request( handle: GFPlatformRequestHandle, status: StringName, error: String, metadata: Dictionary = {} ) -> bool",
           "summary": "以失败结果完成请求。",
           "visibility": "protected"
+        }
+      ]
+    },
+    "GFPlatformAdapterConformance": {
+      "extends": "RefCounted",
+      "module": "standard",
+      "package_id": "gf.standard.platform",
+      "path": "addons/gf/standard/platform/gf_platform_adapter_conformance.gd",
+      "summary": "GFPlatformAdapterConformance: Platform Adapter 静态一致性审查器。 在不调用外部 SDK 的前提下检查 Adapter 身份、状态、契约描述符、必需方法、 运行时能力和桥接覆盖。动态单终态、取消和结果 schema 由 GFPlatformAdapter",
+      "visibility": "public",
+      "category": "protocol",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "const",
+          "name": "KIND_ADAPTER_INVALID",
+          "signature": "const KIND_ADAPTER_INVALID: StringName = &\"platform_adapter_invalid\"",
+          "summary": "Adapter 为空或身份未配置。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "KIND_ADAPTER_STATE_INVALID",
+          "signature": "const KIND_ADAPTER_STATE_INVALID: StringName = &\"platform_adapter_state_invalid\"",
+          "summary": "Adapter 处于不可用终态。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "KIND_CONTRACT_MISSING",
+          "signature": "const KIND_CONTRACT_MISSING: StringName = &\"platform_contract_missing\"",
+          "summary": "缺少必需契约。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "KIND_DESCRIPTOR_MISSING",
+          "signature": "const KIND_DESCRIPTOR_MISSING: StringName = &\"platform_contract_descriptor_missing\"",
+          "summary": "缺少契约描述符。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "KIND_DESCRIPTOR_INVALID",
+          "signature": "const KIND_DESCRIPTOR_INVALID: StringName = &\"platform_contract_descriptor_invalid\"",
+          "summary": "契约描述符定义无效。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "KIND_CONTRACT_VERSION_MISMATCH",
+          "signature": "const KIND_CONTRACT_VERSION_MISMATCH: StringName = &\"platform_contract_version_mismatch\"",
+          "summary": "契约版本与消费方要求不一致。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "KIND_METHOD_MISSING",
+          "signature": "const KIND_METHOD_MISSING: StringName = &\"platform_contract_method_missing\"",
+          "summary": "契约缺少必需方法。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "KIND_CAPABILITY_MISSING",
+          "signature": "const KIND_CAPABILITY_MISSING: StringName = &\"platform_capability_missing\"",
+          "summary": "运行时上下文缺少必需能力。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "validate",
+          "signature": "static func validate( adapter: GFPlatformAdapter, options: Dictionary = {} ) -> GFValidationReport",
+          "summary": "校验 Platform Adapter 的静态契约。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "inspect",
+          "signature": "static func inspect( adapter: GFPlatformAdapter, options: Dictionary = {} ) -> Dictionary",
+          "summary": "生成 JSON 安全的一致性报告和桥接覆盖附录。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "make_bridge_entries",
+          "signature": "static func make_bridge_entries( adapter: GFPlatformAdapter, options: Dictionary = {} ) -> Dictionary",
+          "summary": "构建通用 GFBridgeContractReport 输入条目。",
+          "visibility": "public"
         }
       ]
     },
@@ -52587,15 +53492,15 @@
         {
           "kind": "var",
           "name": "started_at_msec",
-          "signature": "var started_at_msec: int = 0",
-          "summary": "开始时间戳，单位毫秒。",
+          "signature": "var started_at_msec: int = -1",
+          "summary": "开始时间戳，单位毫秒；-1 表示未知。",
           "visibility": "public"
         },
         {
           "kind": "var",
           "name": "completed_at_msec",
-          "signature": "var completed_at_msec: int = 0",
-          "summary": "完成时间戳，单位毫秒。",
+          "signature": "var completed_at_msec: int = -1",
+          "summary": "完成时间戳，单位毫秒；-1 表示未知。",
           "visibility": "public"
         },
         {
@@ -52608,14 +53513,14 @@
         {
           "kind": "func",
           "name": "configure_success",
-          "signature": "func configure_success( request: GFPlatformBridgeRequest, p_value: Variant = null, p_status: StringName = &\"ok\", p_started_at_msec: int = 0, p_completed_at_msec: int = 0, p_metadata: Dictionary = {} ) -> GFPlatformBridgeResult",
+          "signature": "func configure_success( request: GFPlatformBridgeRequest, p_value: Variant = null, p_status: StringName = &\"ok\", p_started_at_msec: int = -1, p_completed_at_msec: int = -1, p_metadata: Dictionary = {} ) -> GFPlatformBridgeResult",
           "summary": "配置成功结果。",
           "visibility": "public"
         },
         {
           "kind": "func",
           "name": "configure_failure",
-          "signature": "func configure_failure( request: GFPlatformBridgeRequest, p_error: String, p_status: StringName = &\"failed\", p_started_at_msec: int = 0, p_completed_at_msec: int = 0, p_metadata: Dictionary = {} ) -> GFPlatformBridgeResult",
+          "signature": "func configure_failure( request: GFPlatformBridgeRequest, p_error: String, p_status: StringName = &\"failed\", p_started_at_msec: int = -1, p_completed_at_msec: int = -1, p_metadata: Dictionary = {} ) -> GFPlatformBridgeResult",
           "summary": "配置失败结果。",
           "visibility": "public"
         },
@@ -52804,6 +53709,205 @@
           "name": "from_dict",
           "signature": "static func from_dict(data: Dictionary) -> GFPlatformCapabilitySet",
           "summary": "从字典创建能力集合。",
+          "visibility": "public"
+        }
+      ]
+    },
+    "GFPlatformContractDescriptor": {
+      "extends": "Resource",
+      "module": "standard",
+      "package_id": "gf.standard.base",
+      "path": "addons/gf/standard/foundation/platform/gf_platform_contract_descriptor.gd",
+      "summary": "GFPlatformContractDescriptor: 平台桥接契约描述。 将一个 provider-neutral contract 的版本和方法集合固定为可校验数据。描述符不包含 Steam、微信、主机厂商或项目业务语义。",
+      "visibility": "public",
+      "category": "resource_definition",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "var",
+          "name": "contract_id",
+          "signature": "var contract_id: StringName = &\"\"",
+          "summary": "契约稳定标识。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "contract_version",
+          "signature": "var contract_version: String = \"1.0.0\"",
+          "summary": "契约版本。Adapter 应使用双方明确支持的版本，不做隐式降级。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "methods",
+          "signature": "var methods: Array[GFPlatformContractMethodDescriptor] = []",
+          "summary": "方法描述符列表。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "metadata",
+          "signature": "var metadata: Dictionary = {}",
+          "summary": "Adapter 作者定义的非业务元数据。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "configure",
+          "signature": "func configure( p_contract_id: StringName, p_contract_version: String, p_methods: Array[GFPlatformContractMethodDescriptor], p_metadata: Dictionary = {} ) -> GFPlatformContractDescriptor",
+          "summary": "配置平台契约。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_method",
+          "signature": "func get_method(method_id: StringName) -> GFPlatformContractMethodDescriptor",
+          "summary": "获取方法描述符副本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "validate_definition",
+          "signature": "func validate_definition() -> GFValidationReport",
+          "summary": "校验契约定义和重复方法。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "duplicate_descriptor",
+          "signature": "func duplicate_descriptor() -> GFPlatformContractDescriptor",
+          "summary": "创建契约描述符深拷贝。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "to_dict",
+          "signature": "func to_dict() -> Dictionary",
+          "summary": "转换为不包含请求和结果载荷的摘要字典。",
+          "visibility": "public"
+        }
+      ]
+    },
+    "GFPlatformContractMethodDescriptor": {
+      "extends": "Resource",
+      "module": "standard",
+      "package_id": "gf.standard.base",
+      "path": "addons/gf/standard/foundation/platform/gf_platform_contract_method_descriptor.gd",
+      "summary": "GFPlatformContractMethodDescriptor: 平台桥接方法契约。 描述单个 provider-neutral 方法的请求/结果 schema、能力前置条件、载荷预算、 并发上限与取消语义。具体 SDK 错误码和项目业务规则不得写入该描述符。",
+      "visibility": "public",
+      "category": "resource_definition",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "var",
+          "name": "method_id",
+          "signature": "var method_id: StringName = &\"\"",
+          "summary": "方法稳定标识。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "request_schema",
+          "signature": "var request_schema: GFDictionarySchema = null",
+          "summary": "可选请求 Dictionary schema。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "result_schema",
+          "signature": "var result_schema: GFDictionarySchema = null",
+          "summary": "可选成功结果 Dictionary schema。为空时允许任意结果值。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "required_capability_ids",
+          "signature": "var required_capability_ids: PackedStringArray = PackedStringArray()",
+          "summary": "调用该方法前 adapter 必须声明的全部能力。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "max_request_bytes",
+          "signature": "var max_request_bytes: int = 0",
+          "summary": "请求 JSON-compatible 编码后的最大字节数；0 表示不额外限制。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "max_result_bytes",
+          "signature": "var max_result_bytes: int = 0",
+          "summary": "成功结果 JSON-compatible 编码后的最大字节数；0 表示不额外限制。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "max_concurrent_requests",
+          "signature": "var max_concurrent_requests: int = 0",
+          "summary": "同一 adapter 上该方法允许的最大并发请求数；0 表示不额外限制。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "supports_cancellation",
+          "signature": "var supports_cancellation: bool = true",
+          "summary": "底层 provider 是否支持主动取消。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "sensitive_fields",
+          "signature": "var sensitive_fields: PackedStringArray = PackedStringArray()",
+          "summary": "请求或结果中必须在日志、诊断和支持报告中脱敏的字段名。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "metadata",
+          "signature": "var metadata: Dictionary = {}",
+          "summary": "Adapter 作者定义的非业务元数据。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "configure",
+          "signature": "func configure( p_method_id: StringName, options: Dictionary = {} ) -> GFPlatformContractMethodDescriptor",
+          "summary": "配置方法契约。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "validate_definition",
+          "signature": "func validate_definition() -> GFValidationReport",
+          "summary": "校验描述符定义。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "validate_request",
+          "signature": "func validate_request( payload: Dictionary, capabilities: GFPlatformCapabilitySet = null ) -> GFValidationReport",
+          "summary": "校验请求载荷和能力前置条件。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "validate_result",
+          "signature": "func validate_result(value: Variant) -> GFValidationReport",
+          "summary": "校验成功结果的 schema 与字节预算。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "duplicate_descriptor",
+          "signature": "func duplicate_descriptor() -> GFPlatformContractMethodDescriptor",
+          "summary": "创建描述符深拷贝。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "to_dict",
+          "signature": "func to_dict() -> Dictionary",
+          "summary": "转换为不包含敏感载荷的描述字典。",
           "visibility": "public"
         }
       ]
@@ -53185,6 +54289,20 @@
         },
         {
           "kind": "signal",
+          "name": "activation_intent_received",
+          "signature": "signal activation_intent_received(adapter_id: StringName, intent: GFPlatformActivationIntent)",
+          "summary": "平台激活意图进入有界队列后发出。",
+          "visibility": "public"
+        },
+        {
+          "kind": "signal",
+          "name": "activation_intent_dropped",
+          "signature": "signal activation_intent_dropped(",
+          "summary": "激活意图因重复或容量限制未保留时发出。",
+          "visibility": "public"
+        },
+        {
+          "kind": "signal",
           "name": "request_started",
           "signature": "signal request_started(adapter_id: StringName, request: GFPlatformBridgeRequest)",
           "summary": "请求交给 adapter 前发出。",
@@ -53230,6 +54348,13 @@
           "name": "get_clock",
           "signature": "func get_clock() -> GFClock",
           "summary": "获取当前平台时钟。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "configure_activation_queue",
+          "signature": "func configure_activation_queue(max_pending: int, max_seen: int) -> bool",
+          "summary": "配置激活意图队列和去重窗口容量。",
           "visibility": "public"
         },
         {
@@ -53307,6 +54432,34 @@
           "name": "get_context",
           "signature": "func get_context(adapter_id: StringName) -> GFPlatformRuntimeContext",
           "summary": "获取 adapter 上下文副本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_activation_intents",
+          "signature": "func get_activation_intents() -> Array[GFPlatformActivationIntent]",
+          "summary": "获取当前待消费激活意图副本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "consume_activation_intent",
+          "signature": "func consume_activation_intent( adapter_id: StringName, intent_id: StringName ) -> GFPlatformActivationIntent",
+          "summary": "消费并移除指定激活意图。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "acknowledge_activation_intent",
+          "signature": "func acknowledge_activation_intent( adapter_id: StringName, intent_id: StringName ) -> bool",
+          "summary": "确认并移除指定激活意图。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "clear_activation_intents",
+          "signature": "func clear_activation_intents(clear_dedupe_history: bool = false) -> void",
+          "summary": "清空待消费激活意图。",
           "visibility": "public"
         },
         {

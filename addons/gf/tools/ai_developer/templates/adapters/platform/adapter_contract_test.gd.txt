@@ -1,0 +1,55 @@
+extends GutTest
+
+
+func test_adapter_declares_complete_static_contract() -> void:
+	var adapter: ProjectPlatformAdapter = _make_adapter_with_fake_provider()
+	var report: Dictionary = GFPlatformAdapterConformance.inspect(adapter, {
+		"required_contract_ids": PackedStringArray([
+			ProjectPlatformAdapter.CONTRACT_ID,
+		]),
+		"required_contract_versions": {
+			String(ProjectPlatformAdapter.CONTRACT_ID): "1.0.0",
+		},
+		"required_methods": {
+			String(ProjectPlatformAdapter.CONTRACT_ID): PackedStringArray([
+				ProjectPlatformAdapter.METHOD_ID,
+			]),
+		},
+	})
+	assert_true(
+		GFVariantData.get_option_bool(report, "ok"),
+		JSON.stringify(report)
+	)
+
+
+func test_adapter_failure_matrix() -> void:
+	# Add focused tests for unavailable provider, sync callback, concurrent limit,
+	# cancellation, timeout, duplicate terminal callback, shutdown, invalid result,
+	# duplicate activation intent, and owned/borrowed MultiplayerPeer release.
+	fail_test("Replace this sentinel with the complete adapter failure matrix.")
+
+
+func _make_adapter_with_fake_provider() -> ProjectPlatformAdapter:
+	var adapter: ProjectPlatformAdapter = ProjectPlatformAdapter.new()
+	var capabilities: GFPlatformCapabilitySet = GFPlatformCapabilitySet.new().configure(
+		&"sample_platform",
+		PackedStringArray(),
+		{},
+		&"project.sample_adapter"
+	)
+	var context: GFPlatformRuntimeContext = GFPlatformRuntimeContext.new().configure(
+		&"sample_platform",
+		{
+			"adapter_id": &"project.sample_adapter",
+			"capabilities": capabilities,
+		}
+	)
+	assert_true(
+		adapter.configure_provider(FakeProvider.new(), context),
+		"Fake provider should configure the adapter."
+	)
+	return adapter
+
+
+class FakeProvider extends RefCounted:
+	pass

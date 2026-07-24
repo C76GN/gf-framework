@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import io
 import json
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -1506,6 +1507,38 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 			with zipfile.ZipFile(first, "a") as archive:
 				archive.writestr("unexpected.txt", "unexpected")
 			self.assertFalse(build_gf_ai_developer_kit.audit_plugin_archive(first, version)["ok"])
+
+	def test_platform_adapter_templates_are_strictly_validated(self) -> None:
+		self.assertEqual(build_gf_ai_developer_kit.validate_platform_adapter_templates(), [])
+		with tempfile.TemporaryDirectory(prefix="gf-ai-adapter-template-") as temporary:
+			template_root = Path(temporary) / "platform"
+			shutil.copytree(
+				build_gf_ai_developer_kit.PLATFORM_ADAPTER_TEMPLATE_ROOT,
+				template_root,
+			)
+			(template_root / "platform_adapter.gd.txt").write_text(
+				"extends RefCounted\n",
+				encoding="utf-8",
+			)
+			issues = build_gf_ai_developer_kit.validate_platform_adapter_templates(
+				template_root
+			)
+			self.assertTrue(
+				any("platform_adapter.gd.txt" in issue for issue in issues),
+				issues,
+			)
+
+			(template_root / "compatibility_profile.json").write_text(
+				'{"profile_id":"broken","godot_version":NaN}',
+				encoding="utf-8",
+			)
+			issues = build_gf_ai_developer_kit.validate_platform_adapter_templates(
+				template_root
+			)
+			self.assertTrue(
+				any("compatibility profile is invalid" in issue for issue in issues),
+				issues,
+			)
 
 	def test_plugin_builder_reads_only_owned_source_files(self) -> None:
 		with tempfile.TemporaryDirectory(prefix="gf-ai-owned-source-") as temporary:

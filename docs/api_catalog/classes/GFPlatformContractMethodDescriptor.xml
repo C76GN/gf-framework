@@ -1,0 +1,163 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFPlatformContractMethodDescriptor" path="addons/gf/standard/foundation/platform/gf_platform_contract_method_descriptor.gd" module="standard" extends="Resource" classDigest="5be26743b6be105f1d789fc27602f464681763b6f3fd3b5686a7d8617a5ca8d0">
+	<description>GFPlatformContractMethodDescriptor: 平台桥接方法契约。
+描述单个 provider-neutral 方法的请求/结果 schema、能力前置条件、载荷预算、
+并发上限与取消语义。具体 SDK 错误码和项目业务规则不得写入该描述符。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">resource_definition</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties>
+		<member kind="property" name="method_id" decorators="@export">
+			<signature>var method_id: StringName = &amp;""</signature>
+			<description>方法稳定标识。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="request_schema" decorators="@export">
+			<signature>var request_schema: GFDictionarySchema = null</signature>
+			<description>可选请求 Dictionary schema。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="result_schema" decorators="@export">
+			<signature>var result_schema: GFDictionarySchema = null</signature>
+			<description>可选成功结果 Dictionary schema。为空时允许任意结果值。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="required_capability_ids" decorators="@export">
+			<signature>var required_capability_ids: PackedStringArray = PackedStringArray()</signature>
+			<description>调用该方法前 adapter 必须声明的全部能力。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="max_request_bytes" decorators="@export">
+			<signature>var max_request_bytes: int = 0</signature>
+			<description>请求 JSON-compatible 编码后的最大字节数；0 表示不额外限制。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="max_result_bytes" decorators="@export">
+			<signature>var max_result_bytes: int = 0</signature>
+			<description>成功结果 JSON-compatible 编码后的最大字节数；0 表示不额外限制。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="max_concurrent_requests" decorators="@export">
+			<signature>var max_concurrent_requests: int = 0</signature>
+			<description>同一 adapter 上该方法允许的最大并发请求数；0 表示不额外限制。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="supports_cancellation" decorators="@export">
+			<signature>var supports_cancellation: bool = true</signature>
+			<description>底层 provider 是否支持主动取消。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="sensitive_fields" decorators="@export">
+			<signature>var sensitive_fields: PackedStringArray = PackedStringArray()</signature>
+			<description>请求或结果中必须在日志、诊断和支持报告中脱敏的字段名。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="metadata" decorators="@export">
+			<signature>var metadata: Dictionary = {}</signature>
+			<description>Adapter 作者定义的非业务元数据。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="schema">metadata: Dictionary adapter-authoring metadata.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</properties>
+	<methods>
+		<member kind="method" name="configure">
+			<signature>func configure( p_method_id: StringName, options: Dictionary = {} ) -&gt; GFPlatformContractMethodDescriptor:</signature>
+			<description>配置方法契约。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">p_method_id: 方法稳定标识。</tag>
+				<tag name="param">options: 可包含 request_schema、result_schema、required_capability_ids、max_request_bytes、max_result_bytes、max_concurrent_requests、supports_cancellation、sensitive_fields 和 metadata。</tag>
+				<tag name="return">当前描述符。</tag>
+				<tag name="schema">options: Dictionary platform contract method options.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="validate_definition">
+			<signature>func validate_definition() -&gt; GFValidationReport:</signature>
+			<description>校验描述符定义。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">标准校验报告。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="validate_request">
+			<signature>func validate_request( payload: Dictionary, capabilities: GFPlatformCapabilitySet = null ) -&gt; GFValidationReport:</signature>
+			<description>校验请求载荷和能力前置条件。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">payload: 请求载荷。</tag>
+				<tag name="param">capabilities: Adapter 当前能力集合。</tag>
+				<tag name="return">标准校验报告。</tag>
+				<tag name="schema">payload: Dictionary platform method request payload.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="validate_result">
+			<signature>func validate_result(value: Variant) -&gt; GFValidationReport:</signature>
+			<description>校验成功结果的 schema 与字节预算。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">value: Adapter 成功结果值。</tag>
+				<tag name="return">标准校验报告。</tag>
+				<tag name="schema">value: Adapter-defined result value.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="duplicate_descriptor">
+			<signature>func duplicate_descriptor() -&gt; GFPlatformContractMethodDescriptor:</signature>
+			<description>创建描述符深拷贝。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">新描述符。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="to_dict">
+			<signature>func to_dict() -&gt; Dictionary:</signature>
+			<description>转换为不包含敏感载荷的描述字典。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">方法契约摘要。</tag>
+				<tag name="schema">return: Dictionary platform contract method descriptor summary.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>
