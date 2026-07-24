@@ -88,7 +88,8 @@ func test_dispose_releases_callbacks_reinjected_by_flush_notifications() -> void
 			_fallback_accepted: int
 		) -> Dictionary:
 			return {}
-	analytics.flush_completed.connect(reinject_callbacks)
+	var connect_error: Error = analytics.flush_completed.connect(reinject_callbacks) as Error
+	assert_eq(connect_error, OK, "dispose 回归测试必须成功连接 flush 完成信号。")
 
 	analytics.dispose()
 	analytics.flush_completed.disconnect(reinject_callbacks)

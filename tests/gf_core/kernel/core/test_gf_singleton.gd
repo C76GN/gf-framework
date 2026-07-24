@@ -2498,7 +2498,8 @@ func test_architecture_dispose_rejects_parent_reinjection_from_completion_signal
 	await get_tree().process_frame
 	var reinject_parent: Callable = func() -> void:
 		child_arch.set_parent_architecture(parent_arch)
-	child_arch.initialization_finished.connect(reinject_parent)
+	var connect_error: Error = child_arch.initialization_finished.connect(reinject_parent) as Error
+	assert_eq(connect_error, OK, "dispose 回归测试必须成功连接完成信号。")
 
 	child_arch.dispose()
 	child_arch.initialization_finished.disconnect(reinject_parent)
