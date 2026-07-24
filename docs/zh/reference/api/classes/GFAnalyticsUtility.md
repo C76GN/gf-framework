@@ -20,6 +20,7 @@
 | 信号 | [`flush_completed`](#member-gfanalyticsutility-signals-flush_completed) | `signal flush_completed(result: Dictionary)` |
 | 信号 | [`flush_failed`](#member-gfanalyticsutility-signals-flush_failed) | `signal flush_failed(result: Dictionary)` |
 | 属性 | [`config`](#member-gfanalyticsutility-properties-config) | `var config: GFAnalyticsConfig:` |
+| 属性 | [`schema_registry`](#member-gfanalyticsutility-properties-schema_registry) | `var schema_registry: GFAnalyticsSchemaRegistry:` |
 | 属性 | [`payload_builder`](#member-gfanalyticsutility-properties-payload_builder) | `var payload_builder: Callable = Callable()` |
 | 属性 | [`transport_callback`](#member-gfanalyticsutility-properties-transport_callback) | `var transport_callback: Callable = Callable()` |
 | 属性 | [`response_parser`](#member-gfanalyticsutility-properties-response_parser) | `var response_parser: Callable = Callable()` |
@@ -29,6 +30,7 @@
 | 方法 | [`configure`](#member-gfanalyticsutility-methods-configure) | `func configure(analytics_config: GFAnalyticsConfig) -> void:` |
 | 方法 | [`identify`](#member-gfanalyticsutility-methods-identify) | `func identify(client_id: String) -> void:` |
 | 方法 | [`track`](#member-gfanalyticsutility-methods-track) | `func track(event_name: StringName, properties: Dictionary = {}) -> void:` |
+| 方法 | [`track_versioned`](#member-gfanalyticsutility-methods-track_versioned) | `func track_versioned( event_name: StringName, schema_version: int, properties: Dictionary = {} ) -> Dictionary:` |
 | 方法 | [`flush`](#member-gfanalyticsutility-methods-flush) | `func flush() -> void:` |
 | 方法 | [`shutdown`](#member-gfanalyticsutility-methods-shutdown) | `func shutdown(flush_remaining: bool = true) -> void:` |
 | 方法 | [`get_queue_size`](#member-gfanalyticsutility-methods-get_queue_size) | `func get_queue_size() -> int:` |
@@ -44,6 +46,7 @@
 ### `event_tracked`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 signal event_tracked(event_name: StringName, event_data: Dictionary)
@@ -60,7 +63,7 @@ signal event_tracked(event_name: StringName, event_data: Dictionary)
 
 结构：
 
-- `event_data`: Dictionary with `event`, `client_id`, `session_id`, `timestamp`, `properties`, and optional `context`.
+- `event_data`: Dictionary with `event`, `client_id`, `session_id`, `timestamp`, `properties`, optional `context`, and for versioned events `event_id` plus `schema_version`.
 
 <a id="member-gfanalyticsutility-signals-flush_started"></a>
 
@@ -89,6 +92,7 @@ signal flush_started(batch: Array)
 ### `flush_completed`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 signal flush_completed(result: Dictionary)
@@ -104,13 +108,14 @@ flush 完成时发出。失败结果也会通过该信号通知。
 
 结构：
 
-- `result`: Dictionary with at least `success: bool`; may include `accepted`, `error`, `dry_run`, or transport-specific fields.
+- `result`: Dictionary with `success`; may include `accepted`, `error`, `dry_run`, `dropped`, `retained`, `drop_reason`, or transport-specific fields.
 
 <a id="member-gfanalyticsutility-signals-flush_failed"></a>
 
 ### `flush_failed`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 signal flush_failed(result: Dictionary)
@@ -126,7 +131,7 @@ flush 失败时额外发出。
 
 结构：
 
-- `result`: Dictionary with `success: false` and an optional `error` field.
+- `result`: Dictionary with `success: false`; may include `error`, `dropped`, `retained`, `drop_reason`, and payload budget fields.
 
 ## 属性
 
@@ -143,6 +148,19 @@ var config: GFAnalyticsConfig:
 
 当前配置。
 
+<a id="member-gfanalyticsutility-properties-schema_registry"></a>
+
+### `schema_registry`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+var schema_registry: GFAnalyticsSchemaRegistry:
+```
+
+版本化事件 Schema 注册表。 注册表始终可用；赋值 null 会恢复为空注册表。Schema 只约束编码前的 properties， 不替代最终 JSON-safe 载荷预算或项目侧隐私、同意与业务策略。
+
 <a id="member-gfanalyticsutility-properties-payload_builder"></a>
 
 ### `payload_builder`
@@ -154,7 +172,7 @@ var config: GFAnalyticsConfig:
 var payload_builder: Callable = Callable()
 ```
 
-可选载荷信封构建回调。签名为 func(batch: Array) -> Dictionary。 batch 是隔离副本；返回值中的 events 会被忽略，以保持已编码事件批次的完整性。 flush 按最终信封字节预算缩小批次时可能多次调用该回调，因此实现必须无副作用且结果确定。
+可选载荷信封构建回调。签名为 func(batch: Array) -> Dictionary。 batch 是隔离副本；返回值中的 events 会被忽略，以保持已编码事件批次的完整性。 flush 按最终信封字节预算从最大前缀向下有界校验时可能多次调用该回调，因此实现必须 无副作用且结果确定；若评估工作预算耗尽，完整队列会保留并报告 planner_budget_exceeded。
 
 <a id="member-gfanalyticsutility-properties-transport_callback"></a>
 
@@ -247,6 +265,7 @@ func configure(analytics_config: GFAnalyticsConfig) -> void:
 ### `identify`
 
 - API：`public`
+- 首次版本：`8.0.0`
 
 ```gdscript
 func identify(client_id: String) -> void:
@@ -258,7 +277,7 @@ func identify(client_id: String) -> void:
 
 | 名称 | 说明 |
 |---|---|
-| `client_id` | 客户端标识。 |
+| `client_id` | 1..4096 字符且不含 C0/DEL 控制字符的客户端标识；非法值会被拒绝并保留原标识。 |
 
 <a id="member-gfanalyticsutility-methods-track"></a>
 
@@ -283,6 +302,34 @@ func track(event_name: StringName, properties: Dictionary = {}) -> void:
 
 - `properties`: Dictionary[String, Variant] copied into the queued event properties.
 
+<a id="member-gfanalyticsutility-methods-track_versioned"></a>
+
+### `track_versioned`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func track_versioned( event_name: StringName, schema_version: int, properties: Dictionary = {} ) -> Dictionary:
+```
+
+按精确 Schema 版本记录事件。 该入口在 JSON-safe 编码前执行有界输入校验；不会回退到其他版本，也不会自动迁移 旧事件。成功只表示事件已被 Analytics 接受，自动 flush 可能已同步完成或失败回灌。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `event_name` | 已注册的事件名。 |
+| `schema_version` | 已注册且位于 1..2_147_483_647 的 Schema 版本。 |
+| `properties` | 编码前的事件属性。 |
+
+返回：结构化记录结果。
+
+结构：
+
+- `properties`: Dictionary[String, Variant] validated against the exact registered analytics input schema.
+- `return`: Dictionary with ok, accepted, reason, event_name, schema_version, event_id, and validation.
+
 <a id="member-gfanalyticsutility-methods-flush"></a>
 
 ### `flush`
@@ -294,7 +341,7 @@ func track(event_name: StringName, properties: Dictionary = {}) -> void:
 func flush() -> void:
 ```
 
-立即上报最终信封字节预算内的最大事件前缀。
+立即上报最终信封字节预算内的最大事件前缀。 Planner 不假设 payload_builder 的大小随批次单调变化，而是从最大候选前缀向下 有界校验。评估次数或累计编码工作达到预算时，会通过 flush_failed 和 flush_completed 返回 retained=true、dropped=false、drop_reason=planner_budget_exceeded， 并保持完整队列；调用方应降低 batch_size 或简化 payload_builder 后再重试。只有已经 证明单个事件无法放入最终信封时，才会以 dropped=true 明确丢弃。
 
 <a id="member-gfanalyticsutility-methods-shutdown"></a>
 

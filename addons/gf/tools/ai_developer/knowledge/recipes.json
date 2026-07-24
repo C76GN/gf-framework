@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "catalog_version": "1.3.0",
+  "catalog_version": "1.4.0",
   "recipes": [
     {
       "id": "project-feature",
@@ -71,6 +71,22 @@
         "Verify freshness fingerprints and rollback."
       ],
       "avoid": ["Project columns hardcoded into GF stages", "Writing outputs before all semantic validation passes"]
+    },
+    {
+      "id": "analytics-schema-outbox",
+      "title": "Track versioned analytics through a dedicated outbox",
+      "package_requirements": {"all_of": ["gf.standard.base", "gf.standard.assets"], "any_of": []},
+      "primary_classes": ["GFAnalyticsEventSchema", "GFAnalyticsSchemaRegistry", "GFAnalyticsUtility", "GFAnalyticsOutboxAdapter", "GFRequestOutboxUtility"],
+      "steps": [
+        "Define one stable event name and a schema version in the exact 1..2_147_483_647 range with a strict GFDictionarySchema over caller-supplied properties only.",
+        "Register the exact GFAnalyticsEventSchema before producers call track_versioned, and treat missing or invalid versions as rejected events.",
+        "Add a new explicit schema version for contract changes; do not silently migrate, reinterpret, or select the latest version.",
+        "Create a dedicated GFRequestOutboxUtility with its own storage path, retention, replay filter, transport callback, and account or consent lifecycle.",
+        "Configure GFAnalyticsOutboxAdapter and attach enqueue_payload as the analytics transport callback; this adapter accepts a batch only after enqueue_with_report reports durable persistence.",
+        "Treat delivery as at-least-once, forward the stable idempotency key, and require the server to validate schema, identity, authorization, size, and duplicates.",
+        "Test invalid properties, unknown versions, persistence failure, restart recovery, duplicate delivery, account changes, consent withdrawal, and expired authentication."
+      ],
+      "avoid": ["PII collection inferred from a valid schema", "Analytics sharing an outbox with purchases or cloud saves", "Schema versions treated as authentication or migration permission", "Exactly-once claims without receiver-side idempotency"]
     },
     {
       "id": "save-boundary",

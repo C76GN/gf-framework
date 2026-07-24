@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFRequestOutboxUtility" path="addons/gf/standard/utilities/io/gf_request_outbox_utility.gd" module="standard" extends="GFUtility" classDigest="eef8c90c15a19ebfeaa64da01d042cef779aa42adb41843ba8317911298dc4d2">
+<class name="GFRequestOutboxUtility" path="addons/gf/standard/utilities/io/gf_request_outbox_utility.gd" module="standard" extends="GFUtility" classDigest="f4f35b4ebbb8f1482b5e3cc245a11e41b4ae3516d585b7aafcfc355bf6f39186">
 	<description>GFRequestOutboxUtility: 通用离线请求队列。
 负责把项目提交的请求描述持久化、按重试策略重放，并通过 transport_callback
 交给项目自己的网络、SDK 或工具链发送。它不内置任何账号、云服务或业务协议。</description>
@@ -14,7 +14,8 @@
 			<description>请求成功进入队列。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="param">envelope: 请求描述。</tag>
+				<tag name="param">envelope: 请求描述的隔离副本；监听器修改不会写回内部队列。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="signal" name="request_started">
@@ -22,7 +23,8 @@
 			<description>请求开始重放。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="param">envelope: 请求描述。</tag>
+				<tag name="param">envelope: 请求描述的隔离副本；监听器修改不会写回内部队列。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="signal" name="request_completed">
@@ -30,9 +32,10 @@
 			<description>请求成功完成。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="param">envelope: 请求描述。</tag>
-				<tag name="param">result: transport 返回的结果字典。</tag>
+				<tag name="param">envelope: 请求描述的隔离副本；监听器修改不会写回内部队列。</tag>
+				<tag name="param">result: transport 返回结果的隔离副本；监听器修改不会写回内部状态。</tag>
 				<tag name="schema">result: Dictionary，由 transport_callback 返回；ok 或 success=true 表示完成。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="signal" name="request_failed">
@@ -40,9 +43,10 @@
 			<description>请求失败。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="param">envelope: 请求描述。</tag>
-				<tag name="param">result: transport 返回的结果字典。</tag>
+				<tag name="param">envelope: 请求描述的隔离副本；监听器修改不会写回内部队列。</tag>
+				<tag name="param">result: transport 返回结果的隔离副本；监听器修改不会写回内部状态。</tag>
 				<tag name="schema">result: Dictionary，由 transport_callback 返回，包含 error 或 reason 字段。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="signal" name="queue_changed">
@@ -50,8 +54,9 @@
 			<description>队列快照变化。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="param">snapshot: 调试快照。</tag>
+				<tag name="param">snapshot: 隔离的调试快照。</tag>
 				<tag name="schema">snapshot: Dictionary，由 get_debug_snapshot() 返回的调试快照。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="signal" name="persistence_failed">
@@ -126,18 +131,36 @@
 				<tag name="api">public</tag>
 			</tags>
 		</member>
-		<member kind="property" name="transport_callback">
-			<signature>var transport_callback: Callable = Callable()</signature>
-			<description>传输回调，签名为 func(envelope: GFRequestEnvelope) -&gt; Dictionary；也可返回会发出结果值的 Signal。</description>
+		<member kind="property" name="max_storage_bytes">
+			<signature>var max_storage_bytes: int = _DEFAULT_MAX_STORAGE_BYTES</signature>
+			<description>持久化事务允许的最大 UTF-8 JSON 字节数，默认 16 MiB。
+保存和恢复候选都会执行该限制；小于等于 0 表示关闭可配置文件字节限制，但仍有
+不可关闭的 512 MiB 原始恢复/编码安全上限。
+保存结果超限时返回 ERR_OUT_OF_MEMORY，且不会提交临时事务或替换之前的
+有效文件。JSON 编码前仍固定限制递归深度 64、单集合 65_536 项、单字符串
+65_536 字符、累计 1_000_000 个值节点和 64 MiB 估算工作量；这些结构安全
+上限不受 max_storage_bytes 是否关闭影响。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="transport_callback">
+			<signature>var transport_callback: Callable = Callable()</signature>
+			<description>传输回调，签名为 func(envelope: GFRequestEnvelope) -&gt; Dictionary；也可返回会发出结果值的 Signal。
+envelope 是隔离副本，回调修改不会写回内部队列。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="replay_filter">
 			<signature>var replay_filter: Callable = Callable()</signature>
-			<description>可选重放过滤回调，签名为 func(envelope: GFRequestEnvelope) -&gt; bool。</description>
+			<description>可选重放过滤回调，签名为 func(envelope: GFRequestEnvelope) -&gt; bool。
+envelope 是隔离副本，回调修改不会写回内部队列。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</properties>
@@ -178,6 +201,26 @@
 				<tag name="api">public</tag>
 				<tag name="param">envelope: 请求描述。</tag>
 				<tag name="return">入队成功返回 true。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="enqueue_with_report">
+			<signature>func enqueue_with_report( envelope: GFRequestEnvelope, require_persistence: bool = false ) -&gt; Dictionary:</signature>
+			<description>以隔离快照入队请求，并返回内存与持久化结果。
+该入口不会把调用方持有的 envelope 直接放入内部队列。require_persistence=true 时，
+会先验证 body 与 metadata 可由 GFVariantJsonCodec 无损往返；Object、Callable、
+Signal、RID、循环集合、超过固定结构安全预算和其他不支持值会在修改队列前被
+拒绝。保存失败会回滚本次入队；false 时保持普通 enqueue() 的内存接受语义。
+通知监听器返回后会复核精确请求仍由队列持有且可靠状态有效。本次事务固定使用
+调用开始时的 storage_path，同步通知中的路径改写不会改变事务目标；同步清空、
+移除、释放或重新加载导致交接失效时返回 ok=false、reason=enqueue_invalidated，
+并补偿保存当前队列状态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">envelope: 请求描述；内部只保存它的深副本。</tag>
+				<tag name="param">require_persistence: 是否要求本次请求可靠写入 storage_path。</tag>
+				<tag name="return">入队报告。</tag>
+				<tag name="schema">return: Dictionary，包含 ok、status、reason、envelope、persisted 和 persistence_error。</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 		<member kind="method" name="replay">
@@ -250,7 +293,9 @@
 		</member>
 		<member kind="method" name="save_queue">
 			<signature>func save_queue() -&gt; Error:</signature>
-			<description>以同目录临时文件校验、旧文件备份和原子替换保存队列到 storage_path。</description>
+			<description>以同目录临时文件校验、旧文件备份和原子替换保存队列到 storage_path。
+不可无损编码的值图返回 ERR_INVALID_DATA；超过 max_storage_bytes 返回
+ERR_OUT_OF_MEMORY；两者都不会替换之前的有效事务。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">Godot 错误码。</tag>
@@ -259,7 +304,9 @@
 		</member>
 		<member kind="method" name="load_queue">
 			<signature>func load_queue() -&gt; Error:</signature>
-			<description>从 storage_path 读取队列；正式文件缺失或损坏时会尝试有效临时文件与备份。</description>
+			<description>从 storage_path 读取队列；正式文件缺失或损坏时会尝试有效临时文件与备份。
+所有候选都受 max_storage_bytes 与不可关闭的原始输入上限限制；读取长度变化、
+非规范 typed marker、解析或预算失败都不会替换当前内存状态。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">Godot 错误码。</tag>

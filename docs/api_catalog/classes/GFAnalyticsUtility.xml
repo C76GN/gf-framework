@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFAnalyticsUtility" path="addons/gf/standard/utilities/analytics/gf_analytics_utility.gd" module="standard" extends="GFUtility" classDigest="ffdb41d8e8f4ab1f6b58d3c8ee3a6ca72a18de455f35f060bf583214c2a01211">
+<class name="GFAnalyticsUtility" path="addons/gf/standard/utilities/analytics/gf_analytics_utility.gd" module="standard" extends="GFUtility" classDigest="9c87abf084c65baa50bdb2832c152eebb81e1b8233209149ebcffbc42bcf6052">
 	<description>GFAnalyticsUtility: 通用事件分析与批量上报工具。
 负责事件排队、环境上下文采集、批量 flush 与失败重排。
 endpoint 为空时不会访问网络，可作为本地事件汇聚或测试通道使用。</description>
@@ -16,7 +16,8 @@ endpoint 为空时不会访问网络，可作为本地事件汇聚或测试通�
 				<tag name="api">public</tag>
 				<tag name="param">event_name: 事件名。</tag>
 				<tag name="param">event_data: 已入队事件数据。</tag>
-				<tag name="schema">event_data: Dictionary with `event`, `client_id`, `session_id`, `timestamp`, `properties`, and optional `context`.</tag>
+				<tag name="schema">event_data: Dictionary with `event`, `client_id`, `session_id`, `timestamp`, `properties`, optional `context`, and for versioned events `event_id` plus `schema_version`.</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="signal" name="flush_started">
@@ -34,7 +35,8 @@ endpoint 为空时不会访问网络，可作为本地事件汇聚或测试通�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">result: flush 结果。</tag>
-				<tag name="schema">result: Dictionary with at least `success: bool`; may include `accepted`, `error`, `dry_run`, or transport-specific fields.</tag>
+				<tag name="schema">result: Dictionary with `success`; may include `accepted`, `error`, `dry_run`, `dropped`, `retained`, `drop_reason`, or transport-specific fields.</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="signal" name="flush_failed">
@@ -43,7 +45,8 @@ endpoint 为空时不会访问网络，可作为本地事件汇聚或测试通�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">result: 失败结果。</tag>
-				<tag name="schema">result: Dictionary with `success: false` and an optional `error` field.</tag>
+				<tag name="schema">result: Dictionary with `success: false`; may include `error`, `dropped`, `retained`, `drop_reason`, and payload budget fields.</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</signals>
@@ -58,11 +61,22 @@ endpoint 为空时不会访问网络，可作为本地事件汇聚或测试通�
 				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
+		<member kind="property" name="schema_registry">
+			<signature>var schema_registry: GFAnalyticsSchemaRegistry:</signature>
+			<description>版本化事件 Schema 注册表。
+注册表始终可用；赋值 null 会恢复为空注册表。Schema 只约束编码前的 properties，
+不替代最终 JSON-safe 载荷预算或项目侧隐私、同意与业务策略。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
 		<member kind="property" name="payload_builder">
 			<signature>var payload_builder: Callable = Callable()</signature>
 			<description>可选载荷信封构建回调。签名为 func(batch: Array) -&gt; Dictionary。
 batch 是隔离副本；返回值中的 events 会被忽略，以保持已编码事件批次的完整性。
-flush 按最终信封字节预算缩小批次时可能多次调用该回调，因此实现必须无副作用且结果确定。</description>
+flush 按最终信封字节预算从最大前缀向下有界校验时可能多次调用该回调，因此实现必须
+无副作用且结果确定；若评估工作预算耗尽，完整队列会保留并报告 planner_budget_exceeded。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="since">3.17.0</tag>
@@ -119,7 +133,8 @@ flush 按最终信封字节预算缩小批次时可能多次调用该回调，�
 			<description>设置稳定客户端标识。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="param">client_id: 客户端标识。</tag>
+				<tag name="param">client_id: 1..4096 字符且不含 C0/DEL 控制字符的客户端标识；非法值会被拒绝并保留原标识。</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="track">
@@ -132,9 +147,30 @@ flush 按最终信封字节预算缩小批次时可能多次调用该回调，�
 				<tag name="schema">properties: Dictionary[String, Variant] copied into the queued event properties.</tag>
 			</tags>
 		</member>
+		<member kind="method" name="track_versioned">
+			<signature>func track_versioned( event_name: StringName, schema_version: int, properties: Dictionary = {} ) -&gt; Dictionary:</signature>
+			<description>按精确 Schema 版本记录事件。
+该入口在 JSON-safe 编码前执行有界输入校验；不会回退到其他版本，也不会自动迁移
+旧事件。成功只表示事件已被 Analytics 接受，自动 flush 可能已同步完成或失败回灌。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">event_name: 已注册的事件名。</tag>
+				<tag name="param">schema_version: 已注册且位于 1..2_147_483_647 的 Schema 版本。</tag>
+				<tag name="param">properties: 编码前的事件属性。</tag>
+				<tag name="return">结构化记录结果。</tag>
+				<tag name="schema">properties: Dictionary[String, Variant] validated against the exact registered analytics input schema.</tag>
+				<tag name="schema">return: Dictionary with ok, accepted, reason, event_name, schema_version, event_id, and validation.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
 		<member kind="method" name="flush">
 			<signature>func flush() -&gt; void:</signature>
-			<description>立即上报最终信封字节预算内的最大事件前缀。</description>
+			<description>立即上报最终信封字节预算内的最大事件前缀。
+Planner 不假设 payload_builder 的大小随批次单调变化，而是从最大候选前缀向下
+有界校验。评估次数或累计编码工作达到预算时，会通过 flush_failed 和
+flush_completed 返回 retained=true、dropped=false、drop_reason=planner_budget_exceeded，
+并保持完整队列；调用方应降低 batch_size 或简化 payload_builder 后再重试。只有已经
+证明单个事件无法放入最终信封时，才会以 dropped=true 明确丢弃。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="since">3.17.0</tag>

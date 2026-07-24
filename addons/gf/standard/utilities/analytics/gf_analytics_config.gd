@@ -31,19 +31,23 @@ extends Resource
 	set(value):
 		flush_interval_seconds = maxf(value, 0.0)
 
-## 单批最大事件数。
+## 单批最大事件数；直接赋值会钳制到 1..500。
 ## [br]
 ## @api public
+## [br]
+## @since 8.0.0
 @export_range(1, 500, 1) var batch_size: int = 20:
 	set(value):
-		batch_size = maxi(value, 1)
+		batch_size = clampi(value, 1, 500)
 
-## 本地队列最大事件数。
+## 本地队列最大事件数；直接赋值会钳制到 1..100_000。
 ## [br]
 ## @api public
+## [br]
+## @since 8.0.0
 @export_range(1, 100000, 1) var max_queue_size: int = 1000:
 	set(value):
-		max_queue_size = maxi(value, 1)
+		max_queue_size = clampi(value, 1, 100000)
 
 ## 单个事件名允许的最大字符数。
 ## [br]

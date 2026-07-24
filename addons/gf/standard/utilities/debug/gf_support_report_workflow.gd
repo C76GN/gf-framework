@@ -14,7 +14,7 @@ extends GFUtility
 
 # --- 信号 ---
 
-## 工作流构建支持报告后发出。
+## 工作流构建支持报告后发出。report 是隔离副本。
 ## [br]
 ## @api public
 ## [br]
@@ -25,7 +25,7 @@ extends GFUtility
 ## @schema report: Dictionary，GFSupportReportUtility.build_report() 返回结构。
 signal workflow_report_built(report: Dictionary)
 
-## 工作流直接提交支持报告成功后发出。
+## 工作流直接提交支持报告成功后发出。report 与 result 都是隔离副本。
 ## [br]
 ## @api public
 ## [br]
@@ -40,7 +40,10 @@ signal workflow_report_built(report: Dictionary)
 ## @schema result: Dictionary，包含 ok、value、error、metadata。
 signal workflow_report_submitted(report: Dictionary, result: Dictionary)
 
-## 工作流把支持报告写入离线队列后发出。
+## 工作流把支持报告可靠写入离线队列后发出。
+##
+## 该信号是耐久交接完成后的通知；report 与 envelope 都是隔离副本。监听器随后
+## 清理或重放 Outbox 属于新的显式操作，不会反转 queue_report() 已完成的回执。
 ## [br]
 ## @api public
 ## [br]
@@ -53,7 +56,7 @@ signal workflow_report_submitted(report: Dictionary, result: Dictionary)
 ## @schema report: Dictionary，GFSupportReportUtility.build_report() 返回结构。
 signal workflow_report_queued(report: Dictionary, envelope: GFRequestEnvelope)
 
-## 工作流完成一次离线队列重放后发出。
+## 工作流完成一次离线队列重放后发出。result 是隔离副本。
 ## [br]
 ## @api public
 ## [br]
@@ -63,6 +66,12 @@ signal workflow_report_queued(report: Dictionary, envelope: GFRequestEnvelope)
 ## [br]
 ## @schema result: Dictionary，GFRequestOutboxUtility.replay() 返回结构。
 signal workflow_replay_completed(result: Dictionary)
+
+
+# --- 常量 ---
+
+const _MAX_REQUEST_ATTEMPTS: int = 64
+const _MAX_REPORT_ID_LENGTH: int = 4096
 
 
 # --- 公共变量 ---
@@ -79,14 +88,26 @@ var support_report_utility: GFSupportReportUtility = null
 ## @api public
 ## [br]
 ## @since 8.0.0
-var request_outbox: GFRequestOutboxUtility = null
+var request_outbox: GFRequestOutboxUtility = null:
+	set(value):
+		if request_outbox == value:
+			return
+		_unwire_outbox_transport()
+		request_outbox = value
+		_wire_outbox_transport()
 
 ## 直接提交或重放时使用的传输回调，建议签名为 func(report: Dictionary, options: Dictionary) -> Variant。
 ## [br]
 ## @api public
 ## [br]
 ## @since 8.0.0
-var transport_callback: Callable = Callable()
+var transport_callback: Callable = Callable():
+	set(value):
+		transport_callback = value
+		if transport_callback.is_valid():
+			_wire_outbox_transport()
+		else:
+			_unwire_outbox_transport()
 
 ## 离线队列请求目标。它只是逻辑端点，项目可按自己的传输层解释。
 ## [br]
@@ -109,12 +130,21 @@ var queue_on_submit_failure: bool = true
 ## @since 8.0.0
 var queue_when_transport_missing: bool = true
 
-## 设置 transport_callback 后是否自动把 request_outbox.transport_callback 指向本工作流。
+## 设置 transport_callback 后是否在 Outbox 尚无 transport 时自动绑定本工作流。
+## 建议只使用专用 Outbox；不会覆盖项目已经安装的共享 transport，且自动绑定的
+## transport 会拒绝所有不符合 Support Report 协议的请求。切换 Outbox、清空
+## transport、关闭自动绑定或释放工作流时，只解除仍由当前工作流拥有的绑定。
 ## [br]
 ## @api public
 ## [br]
 ## @since 8.0.0
-var auto_wire_outbox_transport: bool = true
+var auto_wire_outbox_transport: bool = true:
+	set(value):
+		auto_wire_outbox_transport = value
+		if auto_wire_outbox_transport:
+			_wire_outbox_transport()
+		else:
+			_unwire_outbox_transport()
 
 ## 每次构建报告都会合并的会话元数据。调用 build_report() 时传入的 metadata 优先生效。
 ## [br]
@@ -132,6 +162,7 @@ var _reports_built_count: int = 0
 var _reports_submitted_count: int = 0
 var _reports_queued_count: int = 0
 var _replay_completed_count: int = 0
+var _wired_outbox: GFRequestOutboxUtility = null
 
 
 # --- GF 生命周期方法 ---
@@ -142,6 +173,7 @@ var _replay_completed_count: int = 0
 ## [br]
 ## @since 8.0.0
 func dispose() -> void:
+	_unwire_outbox_transport()
 	support_report_utility = null
 	request_outbox = null
 	transport_callback = Callable()
@@ -236,7 +268,7 @@ func build_report(description: String = "", options: Dictionary = {}) -> Diction
 
 	var report: Dictionary = _get_support_report_utility().build_report(description, build_options)
 	_reports_built_count += 1
-	workflow_report_built.emit(report)
+	workflow_report_built.emit(report.duplicate(true))
 	return report
 
 
@@ -290,23 +322,52 @@ func submit_built_report(report: Dictionary, options: Dictionary = {}) -> Dictio
 		)
 		if GFVariantData.get_option_bool(submit_result, "ok"):
 			_reports_submitted_count += 1
-			workflow_report_submitted.emit(report, submit_result)
+			workflow_report_submitted.emit(report.duplicate(true), submit_result.duplicate(true))
 			return _make_workflow_result(true, &"submitted", report, submit_result, {}, "")
 
 		if GFVariantData.get_option_bool(options, "queue_on_failure", queue_on_submit_failure):
 			var failed_queue_result: Dictionary = queue_report(report, options)
 			if GFVariantData.get_option_bool(failed_queue_result, "ok"):
 				return _make_workflow_result(true, &"queued", report, submit_result, failed_queue_result, "")
+			return _make_workflow_result(
+				false,
+				&"failed",
+				report,
+				submit_result,
+				failed_queue_result,
+				GFVariantData.get_option_string(
+					failed_queue_result,
+					"error",
+					GFVariantData.get_option_string(submit_result, "error", "submit failed")
+				)
+			)
 		return _make_workflow_result(false, &"failed", report, submit_result, {}, GFVariantData.get_option_string(submit_result, "error", "submit failed"))
 
 	if GFVariantData.get_option_bool(options, "queue_when_missing_transport", queue_when_transport_missing):
 		var missing_transport_queue_result: Dictionary = queue_report(report, options)
 		if GFVariantData.get_option_bool(missing_transport_queue_result, "ok"):
 			return _make_workflow_result(true, &"queued", report, {}, missing_transport_queue_result, "")
+		return _make_workflow_result(
+			false,
+			&"failed",
+			report,
+			{},
+			missing_transport_queue_result,
+			GFVariantData.get_option_string(
+				missing_transport_queue_result,
+				"error",
+				"transport callback is invalid"
+			)
+		)
 	return _make_workflow_result(false, &"failed", report, {}, {}, "transport callback is invalid")
 
 
-## 将支持报告写入离线请求队列。
+## 将支持报告可靠写入离线请求队列。
+##
+## 只有 Outbox 完成持久化检查点且其同步通知没有撤销该精确请求时，才返回 queued。
+## workflow_report_queued 是耐久交接完成后的通知；监听器随后清理或重放 Outbox
+## 属于新的显式操作，不会反转已完成的回执。失败结果会保留稳定 reason 和
+## persistence_error。
 ## [br]
 ## @api public
 ## [br]
@@ -322,12 +383,24 @@ func submit_built_report(report: Dictionary, options: Dictionary = {}) -> Dictio
 ## [br]
 ## @schema options: Dictionary，包含 request_url、headers、request_metadata、transport_options、max_attempts、idempotency_key。
 ## [br]
-## @schema return: Dictionary，包含 ok、status、envelope、error。
+## @schema return: Dictionary，包含 ok、status、reason、envelope、persisted、persistence_error 和 error。
 func queue_report(report: Dictionary, options: Dictionary = {}) -> Dictionary:
 	if request_outbox == null:
-		return _make_queue_result(false, &"failed", null, "request outbox is null")
-	if report.is_empty():
-		return _make_queue_result(false, &"failed", null, "report is empty")
+		return _make_queue_result(
+			false,
+			&"failed",
+			null,
+			"request outbox is null",
+			&"missing_outbox"
+		)
+	if not _has_valid_report_id(report):
+		return _make_queue_result(
+			false,
+			&"failed",
+			null,
+			"report_id must contain 1..4096 characters without C0/DEL controls",
+			&"invalid_report"
+		)
 
 	_wire_outbox_transport()
 	var metadata: Dictionary = GFVariantData.get_option_dictionary(options, "request_metadata")
@@ -338,22 +411,95 @@ func queue_report(report: Dictionary, options: Dictionary = {}) -> Dictionary:
 	var body: Dictionary = {
 		"report": report.duplicate(true),
 	}
-	var envelope: GFRequestEnvelope = request_outbox.enqueue_request(
+	var envelope: GFRequestEnvelope = GFRequestEnvelope.new(
 		HTTPClient.METHOD_POST,
 		GFVariantData.get_option_string(options, "request_url", request_url),
 		body,
 		GFVariantData.get_option_packed_string_array(options, "headers"),
 		metadata
 	)
-	if envelope == null:
-		return _make_queue_result(false, &"failed", null, "enqueue failed")
+	envelope.max_attempts = clampi(
+		GFVariantData.get_option_int(
+			options,
+			"max_attempts",
+			request_outbox.default_max_attempts
+		),
+		1,
+		_MAX_REQUEST_ATTEMPTS
+	)
+	envelope.idempotency_key = GFVariantData.get_option_string(options, "idempotency_key")
+	if not handles_request(envelope):
+		return _make_queue_result(
+			false,
+			&"failed",
+			null,
+			"support report envelope is invalid",
+			&"invalid_request"
+		)
+	var enqueue_report: Dictionary = request_outbox.enqueue_with_report(envelope, true)
+	if not GFVariantData.get_option_bool(enqueue_report, "ok"):
+		var enqueue_reason: String = GFVariantData.get_option_string(
+			enqueue_report,
+			"reason",
+			"outbox_rejected"
+		)
+		var persistence_error: Error = GFVariantData.get_option_int(
+			enqueue_report,
+			"persistence_error",
+			OK
+		) as Error
+		var error_text: String = "enqueue failed: %s" % enqueue_reason
+		if persistence_error != OK:
+			error_text += " (%s)" % error_string(persistence_error)
+		return _make_queue_result(
+			false,
+			&"failed",
+			null,
+			error_text,
+			StringName(enqueue_reason),
+			false,
+			persistence_error
+		)
+	if not GFVariantData.get_option_bool(enqueue_report, "persisted"):
+		var missing_persistence_error: Error = GFVariantData.get_option_int(
+			enqueue_report,
+			"persistence_error",
+			ERR_CANT_CREATE
+		) as Error
+		if missing_persistence_error == OK:
+			missing_persistence_error = ERR_CANT_CREATE
+		return _make_queue_result(
+			false,
+			&"failed",
+			null,
+			"enqueue was not persisted",
+			&"persistence_failed",
+			false,
+			missing_persistence_error
+		)
 
-	var max_attempts: int = GFVariantData.get_option_int(options, "max_attempts", envelope.max_attempts)
-	envelope.max_attempts = max_attempts
-	envelope.idempotency_key = GFVariantData.get_option_string(options, "idempotency_key", envelope.idempotency_key)
+	envelope = _variant_to_request_envelope(
+		GFVariantData.get_option_value(enqueue_report, "envelope")
+	)
+	if envelope == null:
+		return _make_queue_result(
+			false,
+			&"failed",
+			null,
+			"enqueue returned no envelope",
+			&"invalid_receipt"
+		)
 	_reports_queued_count += 1
-	workflow_report_queued.emit(report, envelope)
-	return _make_queue_result(true, &"queued", envelope, "")
+	workflow_report_queued.emit(report.duplicate(true), envelope.duplicate_request())
+	return _make_queue_result(
+		true,
+		&"queued",
+		envelope,
+		"",
+		&"queued",
+		true,
+		OK
+	)
 
 
 ## 重放离线支持报告队列。
@@ -383,8 +529,67 @@ func replay_queued(max_count: int = 0) -> Dictionary:
 	_wire_outbox_transport()
 	var result: Dictionary = await request_outbox.replay(max_count)
 	_replay_completed_count += 1
-	workflow_replay_completed.emit(result)
+	workflow_replay_completed.emit(result.duplicate(true))
 	return result
+
+
+## 判断请求是否符合本工作流的持久化 Support Report 协议。
+##
+## 该检查用于共享边界 fail closed；仍建议为 Support Report 使用独立 Outbox。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param envelope: 待检查请求信封。
+## [br]
+## @return method、请求状态、body 与 metadata 身份一致时返回 true。
+func handles_request(envelope: GFRequestEnvelope) -> bool:
+	if envelope == null or not envelope.is_valid():
+		return false
+	if envelope.method != HTTPClient.METHOD_POST:
+		return false
+	if (
+		envelope.max_attempts < 1
+		or envelope.max_attempts > _MAX_REQUEST_ATTEMPTS
+		or envelope.attempt_count < 0
+		or envelope.next_attempt_at_unix_msec < 0
+	):
+		return false
+	if envelope.body.size() != 1 or not envelope.body.has("report"):
+		return false
+	var report_value: Variant = envelope.body["report"]
+	if not (report_value is Dictionary):
+		return false
+	var report: Dictionary = report_value
+	if report.is_empty():
+		return false
+	var report_id_value: Variant = GFVariantData.get_option_value(report, "report_id")
+	var metadata_report_id_value: Variant = GFVariantData.get_option_value(
+		envelope.metadata,
+		"report_id"
+	)
+	var request_kind_value: Variant = GFVariantData.get_option_value(
+		envelope.metadata,
+		"request_kind"
+	)
+	var transport_options_value: Variant = GFVariantData.get_option_value(
+		envelope.metadata,
+		"transport_options"
+	)
+	if (
+		not _is_text_value(report_id_value)
+		or not _is_text_value(metadata_report_id_value)
+		or not _is_text_value(request_kind_value)
+		or not (transport_options_value is Dictionary)
+	):
+		return false
+	var report_id: String = GFVariantData.to_text(report_id_value)
+	return (
+		_is_valid_report_id(report_id)
+		and GFVariantData.to_text(metadata_report_id_value) == report_id
+		and GFVariantData.to_text(request_kind_value) == "support_report"
+	)
 
 
 ## 获取工作流调试快照。
@@ -433,14 +638,30 @@ func _get_transport_from_options(options: Dictionary) -> Callable:
 func _wire_outbox_transport() -> void:
 	if request_outbox == null or not auto_wire_outbox_transport or not transport_callback.is_valid():
 		return
-	request_outbox.transport_callback = Callable(self, "_send_outbox_envelope")
+	var workflow_transport: Callable = Callable(self, "_send_outbox_envelope")
+	if (
+		request_outbox.transport_callback.is_valid()
+		and request_outbox.transport_callback != workflow_transport
+	):
+		return
+	request_outbox.transport_callback = workflow_transport
+	_wired_outbox = request_outbox
+
+
+func _unwire_outbox_transport() -> void:
+	if _wired_outbox == null:
+		return
+	var workflow_transport: Callable = Callable(self, "_send_outbox_envelope")
+	if _wired_outbox.transport_callback == workflow_transport:
+		_wired_outbox.transport_callback = Callable()
+	_wired_outbox = null
 
 
 func _send_outbox_envelope(envelope: GFRequestEnvelope) -> Variant:
-	if envelope == null:
+	if not handles_request(envelope):
 		return {
 			"ok": false,
-			"error": "envelope is null",
+			"error": "unsupported support report envelope",
 		}
 	if not transport_callback.is_valid():
 		return {
@@ -451,6 +672,35 @@ func _send_outbox_envelope(envelope: GFRequestEnvelope) -> Variant:
 	var report: Dictionary = GFVariantData.get_option_dictionary(envelope.body, "report")
 	var transport_options: Dictionary = GFVariantData.get_option_dictionary(envelope.metadata, "transport_options")
 	return transport_callback.call(report, transport_options)
+
+
+func _is_text_value(value: Variant) -> bool:
+	return value is String or value is StringName
+
+
+func _has_valid_report_id(report: Dictionary) -> bool:
+	var report_id_value: Variant = GFVariantData.get_option_value(report, "report_id")
+	return (
+		_is_text_value(report_id_value)
+		and _is_valid_report_id(GFVariantData.to_text(report_id_value))
+	)
+
+
+func _is_valid_report_id(report_id: String) -> bool:
+	if report_id.is_empty() or report_id.length() > _MAX_REPORT_ID_LENGTH:
+		return false
+	for index: int in range(report_id.length()):
+		var codepoint: int = report_id.unicode_at(index)
+		if codepoint < 0x20 or codepoint == 0x7f:
+			return false
+	return true
+
+
+func _variant_to_request_envelope(value: Variant) -> GFRequestEnvelope:
+	if value is GFRequestEnvelope:
+		var envelope: GFRequestEnvelope = value
+		return envelope
+	return null
 
 
 func _make_workflow_result(
@@ -471,10 +721,21 @@ func _make_workflow_result(
 	}
 
 
-func _make_queue_result(ok: bool, status: StringName, envelope: GFRequestEnvelope, error: String) -> Dictionary:
+func _make_queue_result(
+	ok: bool,
+	status: StringName,
+	envelope: GFRequestEnvelope,
+	error: String,
+	reason: StringName = &"",
+	persisted: bool = false,
+	persistence_error: Error = OK
+) -> Dictionary:
 	return {
 		"ok": ok,
 		"status": status,
-		"envelope": envelope,
+		"envelope": envelope.duplicate_request() if envelope != null else null,
 		"error": error,
+		"reason": reason,
+		"persisted": ok and persisted,
+		"persistence_error": persistence_error,
 	}

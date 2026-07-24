@@ -29,12 +29,14 @@
 | 属性 | [`retry_delays_msec`](#member-gfrequestoutboxutility-properties-retry_delays_msec) | `var retry_delays_msec: Array[int] = [500, 1000, 2000, 5000]` |
 | 属性 | [`keep_failed_requests`](#member-gfrequestoutboxutility-properties-keep_failed_requests) | `var keep_failed_requests: bool = true` |
 | 属性 | [`max_failed_requests`](#member-gfrequestoutboxutility-properties-max_failed_requests) | `var max_failed_requests: int = 32` |
+| 属性 | [`max_storage_bytes`](#member-gfrequestoutboxutility-properties-max_storage_bytes) | `var max_storage_bytes: int = _DEFAULT_MAX_STORAGE_BYTES` |
 | 属性 | [`transport_callback`](#member-gfrequestoutboxutility-properties-transport_callback) | `var transport_callback: Callable = Callable()` |
 | 属性 | [`replay_filter`](#member-gfrequestoutboxutility-properties-replay_filter) | `var replay_filter: Callable = Callable()` |
 | 方法 | [`init`](#member-gfrequestoutboxutility-methods-init) | `func init() -> void:` |
 | 方法 | [`dispose`](#member-gfrequestoutboxutility-methods-dispose) | `func dispose() -> void:` |
 | 方法 | [`enqueue_request`](#member-gfrequestoutboxutility-methods-enqueue_request) | `func enqueue_request( method: int, url: String, body: Dictionary = {}, headers: PackedStringArray = PackedStringArray(), metadata: Dictionary = {} ) -> GFRequestEnvelope:` |
 | 方法 | [`enqueue`](#member-gfrequestoutboxutility-methods-enqueue) | `func enqueue(envelope: GFRequestEnvelope) -> bool:` |
+| 方法 | [`enqueue_with_report`](#member-gfrequestoutboxutility-methods-enqueue_with_report) | `func enqueue_with_report( envelope: GFRequestEnvelope, require_persistence: bool = false ) -> Dictionary:` |
 | 方法 | [`replay`](#member-gfrequestoutboxutility-methods-replay) | `func replay(max_count: int = 0) -> Dictionary:` |
 | 方法 | [`remove_request`](#member-gfrequestoutboxutility-methods-remove_request) | `func remove_request(request_id: StringName) -> bool:` |
 | 方法 | [`clear_queue`](#member-gfrequestoutboxutility-methods-clear_queue) | `func clear_queue() -> void:` |
@@ -54,6 +56,7 @@
 ### `request_enqueued`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 signal request_enqueued(envelope: GFRequestEnvelope)
@@ -65,13 +68,14 @@ signal request_enqueued(envelope: GFRequestEnvelope)
 
 | 名称 | 说明 |
 |---|---|
-| `envelope` | 请求描述。 |
+| `envelope` | 请求描述的隔离副本；监听器修改不会写回内部队列。 |
 
 <a id="member-gfrequestoutboxutility-signals-request_started"></a>
 
 ### `request_started`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 signal request_started(envelope: GFRequestEnvelope)
@@ -83,13 +87,14 @@ signal request_started(envelope: GFRequestEnvelope)
 
 | 名称 | 说明 |
 |---|---|
-| `envelope` | 请求描述。 |
+| `envelope` | 请求描述的隔离副本；监听器修改不会写回内部队列。 |
 
 <a id="member-gfrequestoutboxutility-signals-request_completed"></a>
 
 ### `request_completed`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 signal request_completed(envelope: GFRequestEnvelope, result: Dictionary)
@@ -101,8 +106,8 @@ signal request_completed(envelope: GFRequestEnvelope, result: Dictionary)
 
 | 名称 | 说明 |
 |---|---|
-| `envelope` | 请求描述。 |
-| `result` | transport 返回的结果字典。 |
+| `envelope` | 请求描述的隔离副本；监听器修改不会写回内部队列。 |
+| `result` | transport 返回结果的隔离副本；监听器修改不会写回内部状态。 |
 
 结构：
 
@@ -113,6 +118,7 @@ signal request_completed(envelope: GFRequestEnvelope, result: Dictionary)
 ### `request_failed`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 signal request_failed(envelope: GFRequestEnvelope, result: Dictionary)
@@ -124,8 +130,8 @@ signal request_failed(envelope: GFRequestEnvelope, result: Dictionary)
 
 | 名称 | 说明 |
 |---|---|
-| `envelope` | 请求描述。 |
-| `result` | transport 返回的结果字典。 |
+| `envelope` | 请求描述的隔离副本；监听器修改不会写回内部队列。 |
+| `result` | transport 返回结果的隔离副本；监听器修改不会写回内部状态。 |
 
 结构：
 
@@ -136,6 +142,7 @@ signal request_failed(envelope: GFRequestEnvelope, result: Dictionary)
 ### `queue_changed`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 signal queue_changed(snapshot: Dictionary)
@@ -147,7 +154,7 @@ signal queue_changed(snapshot: Dictionary)
 
 | 名称 | 说明 |
 |---|---|
-| `snapshot` | 调试快照。 |
+| `snapshot` | 隔离的调试快照。 |
 
 结构：
 
@@ -276,29 +283,44 @@ var max_failed_requests: int = 32
 
 失败列表最多保留数量；小于等于 0 表示不保留。
 
+<a id="member-gfrequestoutboxutility-properties-max_storage_bytes"></a>
+
+### `max_storage_bytes`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+var max_storage_bytes: int = _DEFAULT_MAX_STORAGE_BYTES
+```
+
+持久化事务允许的最大 UTF-8 JSON 字节数，默认 16 MiB。 保存和恢复候选都会执行该限制；小于等于 0 表示关闭可配置文件字节限制，但仍有 不可关闭的 512 MiB 原始恢复/编码安全上限。 保存结果超限时返回 ERR_OUT_OF_MEMORY，且不会提交临时事务或替换之前的 有效文件。JSON 编码前仍固定限制递归深度 64、单集合 65_536 项、单字符串 65_536 字符、累计 1_000_000 个值节点和 64 MiB 估算工作量；这些结构安全 上限不受 max_storage_bytes 是否关闭影响。
+
 <a id="member-gfrequestoutboxutility-properties-transport_callback"></a>
 
 ### `transport_callback`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var transport_callback: Callable = Callable()
 ```
 
-传输回调，签名为 func(envelope: GFRequestEnvelope) -> Dictionary；也可返回会发出结果值的 Signal。
+传输回调，签名为 func(envelope: GFRequestEnvelope) -> Dictionary；也可返回会发出结果值的 Signal。 envelope 是隔离副本，回调修改不会写回内部队列。
 
 <a id="member-gfrequestoutboxutility-properties-replay_filter"></a>
 
 ### `replay_filter`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var replay_filter: Callable = Callable()
 ```
 
-可选重放过滤回调，签名为 func(envelope: GFRequestEnvelope) -> bool。
+可选重放过滤回调，签名为 func(envelope: GFRequestEnvelope) -> bool。 envelope 是隔离副本，回调修改不会写回内部队列。
 
 ## 方法
 
@@ -374,6 +396,32 @@ func enqueue(envelope: GFRequestEnvelope) -> bool:
 | `envelope` | 请求描述。 |
 
 返回：入队成功返回 true。
+
+<a id="member-gfrequestoutboxutility-methods-enqueue_with_report"></a>
+
+### `enqueue_with_report`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func enqueue_with_report( envelope: GFRequestEnvelope, require_persistence: bool = false ) -> Dictionary:
+```
+
+以隔离快照入队请求，并返回内存与持久化结果。 该入口不会把调用方持有的 envelope 直接放入内部队列。require_persistence=true 时， 会先验证 body 与 metadata 可由 GFVariantJsonCodec 无损往返；Object、Callable、 Signal、RID、循环集合、超过固定结构安全预算和其他不支持值会在修改队列前被 拒绝。保存失败会回滚本次入队；false 时保持普通 enqueue() 的内存接受语义。 通知监听器返回后会复核精确请求仍由队列持有且可靠状态有效。本次事务固定使用 调用开始时的 storage_path，同步通知中的路径改写不会改变事务目标；同步清空、 移除、释放或重新加载导致交接失效时返回 ok=false、reason=enqueue_invalidated， 并补偿保存当前队列状态。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `envelope` | 请求描述；内部只保存它的深副本。 |
+| `require_persistence` | 是否要求本次请求可靠写入 storage_path。 |
+
+返回：入队报告。
+
+结构：
+
+- `return`: Dictionary，包含 ok、status、reason、envelope、persisted 和 persistence_error。
 
 <a id="member-gfrequestoutboxutility-methods-replay"></a>
 
@@ -519,7 +567,7 @@ func get_failed_requests() -> Array[GFRequestEnvelope]:
 func save_queue() -> Error:
 ```
 
-以同目录临时文件校验、旧文件备份和原子替换保存队列到 storage_path。
+以同目录临时文件校验、旧文件备份和原子替换保存队列到 storage_path。 不可无损编码的值图返回 ERR_INVALID_DATA；超过 max_storage_bytes 返回 ERR_OUT_OF_MEMORY；两者都不会替换之前的有效事务。
 
 返回：Godot 错误码。
 
@@ -534,7 +582,7 @@ func save_queue() -> Error:
 func load_queue() -> Error:
 ```
 
-从 storage_path 读取队列；正式文件缺失或损坏时会尝试有效临时文件与备份。
+从 storage_path 读取队列；正式文件缺失或损坏时会尝试有效临时文件与备份。 所有候选都受 max_storage_bytes 与不可关闭的原始输入上限限制；读取长度变化、 非规范 typed marker、解析或预算失败都不会替换当前内存状态。
 
 返回：Godot 错误码。
 

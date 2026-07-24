@@ -78,24 +78,26 @@ var flush_interval_seconds: float = 5.0:
 ### `batch_size`
 
 - API：`public`
+- 首次版本：`8.0.0`
 
 ```gdscript
 var batch_size: int = 20:
 ```
 
-单批最大事件数。
+单批最大事件数；直接赋值会钳制到 1..500。
 
 <a id="member-gfanalyticsconfig-properties-max_queue_size"></a>
 
 ### `max_queue_size`
 
 - API：`public`
+- 首次版本：`8.0.0`
 
 ```gdscript
 var max_queue_size: int = 1000:
 ```
 
-本地队列最大事件数。
+本地队列最大事件数；直接赋值会钳制到 1..100_000。
 
 <a id="member-gfanalyticsconfig-properties-max_event_name_length"></a>
 

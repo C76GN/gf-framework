@@ -6,9 +6,9 @@
 
 | 类别 | 类 | 成员 | 方法 |
 |---|---:|---:|---:|
-| [运行时服务](#category-runtime_service) | 185 | 3314 | 2245 |
+| [运行时服务](#category-runtime_service) | 187 | 3341 | 2258 |
 | [协议与扩展点](#category-protocol) | 24 | 333 | 262 |
-| [资源定义](#category-resource_definition) | 116 | 1497 | 766 |
+| [资源定义](#category-resource_definition) | 117 | 1505 | 771 |
 | [运行时句柄](#category-runtime_handle) | 44 | 744 | 484 |
 | [值对象](#category-value_object) | 38 | 698 | 442 |
 | [领域模型](#category-domain_model) | 4 | 61 | 42 |
@@ -25,6 +25,8 @@
 | 类 | 继承 | 源文件 |
 |---|---|---|
 | [`GFActivationTransaction`](classes/GFActivationTransaction.md#gfactivationtransaction) | `RefCounted` | `addons/gf/standard/foundation/policy/gf_activation_transaction.gd` |
+| [`GFAnalyticsOutboxAdapter`](classes/GFAnalyticsOutboxAdapter.md#gfanalyticsoutboxadapter) | `RefCounted` | `addons/gf/standard/utilities/io/gf_analytics_outbox_adapter.gd` |
+| [`GFAnalyticsSchemaRegistry`](classes/GFAnalyticsSchemaRegistry.md#gfanalyticsschemaregistry) | `Resource` | `addons/gf/standard/utilities/analytics/gf_analytics_schema_registry.gd` |
 | [`GFAnalyticsUtility`](classes/GFAnalyticsUtility.md#gfanalyticsutility) | `GFUtility` | `addons/gf/standard/utilities/analytics/gf_analytics_utility.gd` |
 | [`GFArtifactFreshnessReport`](classes/GFArtifactFreshnessReport.md#gfartifactfreshnessreport) | `RefCounted` | `addons/gf/standard/foundation/policy/gf_artifact_freshness_report.gd` |
 | [`GFAssetCatalogRuntime`](classes/GFAssetCatalogRuntime.md#gfassetcatalogruntime) | `GFUtility` | `addons/gf/standard/utilities/assets/gf_asset_catalog_runtime.gd` |
@@ -248,6 +250,7 @@
 | 类 | 继承 | 源文件 |
 |---|---|---|
 | [`GFAnalyticsConfig`](classes/GFAnalyticsConfig.md#gfanalyticsconfig) | `Resource` | `addons/gf/standard/utilities/analytics/gf_analytics_config.gd` |
+| [`GFAnalyticsEventSchema`](classes/GFAnalyticsEventSchema.md#gfanalyticseventschema) | `Resource` | `addons/gf/standard/utilities/analytics/gf_analytics_event_schema.gd` |
 | [`GFAssetCatalog`](classes/GFAssetCatalog.md#gfassetcatalog) | `Resource` | `addons/gf/standard/utilities/assets/gf_asset_catalog.gd` |
 | [`GFAssetCatalogEntry`](classes/GFAssetCatalogEntry.md#gfassetcatalogentry) | `Resource` | `addons/gf/standard/utilities/assets/gf_asset_catalog_entry.gd` |
 | [`GFAssetCollection`](classes/GFAssetCollection.md#gfassetcollection) | `Resource` | `addons/gf/standard/utilities/assets/gf_asset_collection.gd` |

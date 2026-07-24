@@ -1,0 +1,178 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFAnalyticsOutboxAdapter" path="addons/gf/standard/utilities/io/gf_analytics_outbox_adapter.gd" module="standard" extends="RefCounted" classDigest="63d5bd3c6dae2f3160f30ffb60170185a97680ad8b19a19428653b55e978603e">
+	<description>GFAnalyticsOutboxAdapter: Analytics 批次到通用请求 Outbox 的有界持久交接适配器。
+把 GFAnalyticsUtility 的 JSON-safe events 封装为固定、版本化的中立请求信封，
+并在确认 GFRequestOutboxUtility 已可靠持久化后才接受整批事件。适配器不接管
+Outbox 的 transport_callback 或 replay_filter，也不持久化鉴权 Header；项目应在
+实际重放时根据当前会话动态注入鉴权、同意与供应商协议。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_service</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants>
+		<member kind="const" name="SCHEMA_ID">
+			<signature>const SCHEMA_ID: StringName = &amp;"gf.analytics.outbox"</signature>
+			<description>持久化批次协议标识。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="PROTOCOL_VERSION">
+			<signature>const PROTOCOL_VERSION: int = 1</signature>
+			<description>持久化批次协议版本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="DEFAULT_ENDPOINT_URL">
+			<signature>const DEFAULT_ENDPOINT_URL: String = "gf://analytics/events"</signature>
+			<description>默认逻辑端点。它不是供应商 URL，也不包含账号或鉴权信息。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</constants>
+	<properties>
+		<member kind="property" name="outbox">
+			<signature>var outbox: GFRequestOutboxUtility = null</signature>
+			<description>专用于 Analytics 的请求 Outbox。
+建议使用独立实例和 `user://gf_analytics_outbox.json`，避免与其他业务共享单一
+transport/filter 入口及存储生命周期。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="endpoint_url">
+			<signature>var endpoint_url: String = DEFAULT_ENDPOINT_URL</signature>
+			<description>写入请求信封的非敏感逻辑端点。
+该值会持久化并参与协议身份校验，不得包含 userinfo、凭据、query 或 fragment；
+不得为空、超过 2048 字符或包含空白、控制字符。供应商路由和鉴权应由 replay
+transport 动态注入。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="max_payload_bytes">
+			<signature>var max_payload_bytes: int = 256 * 1024:</signature>
+			<description>单个持久化批次的最终 JSON 字节上限；直接赋值会钳制到 1024..16 MiB。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="max_events_per_request">
+			<signature>var max_events_per_request: int = 500:</signature>
+			<description>单个持久化批次的事件数量上限；直接赋值会钳制到 1..500。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="max_attempts">
+			<signature>var max_attempts: int = 3:</signature>
+			<description>请求重放最大尝试次数；直接赋值和 configure() 都会钳制到 1..64。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="max_depth">
+			<signature>var max_depth: int = 16:</signature>
+			<description>单个事件嵌套深度上限；直接赋值会钳制到 1..32。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="max_collection_items">
+			<signature>var max_collection_items: int = 256:</signature>
+			<description>单个嵌套集合的元素上限；直接赋值会钳制到 1..4096。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="max_string_length">
+			<signature>var max_string_length: int = 4096:</signature>
+			<description>单个字符串的字符上限；直接赋值会钳制到 1..65_536。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="max_total_nodes">
+			<signature>var max_total_nodes: int = 8192:</signature>
+			<description>整批遍历的节点上限；直接赋值会钳制到 1..1_000_000。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</properties>
+	<methods>
+		<member kind="method" name="configure">
+			<signature>func configure( p_outbox: GFRequestOutboxUtility, options: Dictionary = {} ) -&gt; GFAnalyticsOutboxAdapter:</signature>
+			<description>配置适配器。
+本方法只保存 Outbox 引用和有界选项，不修改 Outbox 的 transport_callback、
+replay_filter、storage_path 或生命周期。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">p_outbox: 项目配置并拥有生命周期的专用 Outbox。</tag>
+				<tag name="param">options: 可选 endpoint_url、max_payload_bytes、max_events_per_request、max_attempts、max_depth、max_collection_items、max_string_length 和 max_total_nodes。</tag>
+				<tag name="return">当前适配器。</tag>
+				<tag name="schema">options: Dictionary of bounded adapter configuration overrides.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="enqueue_payload">
+			<signature>func enqueue_payload(payload: Dictionary) -&gt; Dictionary:</signature>
+			<description>把 Analytics payload 可靠交接给 Outbox。
+v1 采用整批成功或整批失败语义。版本化事件按有序 event_id 列表派生稳定
+batch/idempotency identity；legacy 事件使用持久化在信封内的随机 batch identity。
+精确匹配且尚可尝试的 pending 只有在重新保存并复核后才返回 already_queued；
+已耗尽但尚未迁移的 pending 返回 exhausted_pending，相同身份若已进入 failed
+store 则返回 already_failed。项目必须显式审查、清理或重新授权，Adapter 不会
+自动复活 dead-letter。
+v1 只接受唯一的 events 字段；payload_builder 添加其他顶层字段时会失败关闭，
+避免 Adapter 静默丢弃项目协议数据。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">payload: GFAnalyticsUtility transport_callback 提供的 JSON-safe payload。</tag>
+				<tag name="return">整批交接结果。</tag>
+				<tag name="schema">payload: Dictionary with an events Array[Dictionary].</tag>
+				<tag name="schema">return: Dictionary with success, accepted, queued, persisted, reason, request_id, idempotency_key, and persistence_error.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="handles_request">
+			<signature>func handles_request(envelope: GFRequestEnvelope) -&gt; bool:</signature>
+			<description>判断恢复出的请求是否属于当前 Adapter 且仍满足 v1 固定协议。
+项目 transport 可在路由后动态注入鉴权并发送；本方法不会调用 transport。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">envelope: 待路由的请求信封。</tag>
+				<tag name="return">身份、协议、预算和 body/metadata 一致时返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_debug_snapshot">
+			<signature>func get_debug_snapshot() -&gt; Dictionary:</signature>
+			<description>获取不包含事件、请求 body、业务字段或鉴权数据的调试快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">安全调试快照。</tag>
+				<tag name="schema">return: Dictionary with schema_id, protocol_version, configuration budgets, outbox availability, pending/failed counts, and last_reason.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

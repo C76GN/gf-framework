@@ -103,6 +103,7 @@
       "res://tests/gf_core/standard/utilities/io/test_gf_directory_watch_utility.gd",
       "res://tests/gf_core/standard/utilities/io/test_gf_protocol_ack_ledger.gd",
       "res://tests/gf_core/standard/utilities/io/test_gf_http_request_builder.gd",
+      "res://tests/gf_core/standard/utilities/io/test_gf_analytics_outbox_adapter.gd",
       "res://tests/gf_core/standard/utilities/io/test_gf_request_outbox_utility.gd",
       "res://tests/gf_core/standard/utilities/io/test_gf_source_text_loader.gd",
       "res://tests/gf_core/standard/utilities/jobs/test_gf_background_work_utility.gd",
@@ -144,6 +145,8 @@
       "res://tests/gf_core/standard/foundation/variant/test_gf_data_projection.gd",
       "res://tests/gf_core/standard/foundation/variant/test_gf_variant_data_and_json_codec.gd",
       "res://tests/gf_core/standard/sequence/test_gf_runtime_task_scheduler.gd",
+      "res://tests/gf_core/standard/utilities/analytics/test_gf_analytics_schema.gd",
+      "res://tests/gf_core/standard/utilities/analytics/test_gf_analytics_utility.gd",
       "res://tests/gf_core/standard/utilities/logging/test_gf_log_utility.gd",
       "res://tests/gf_core/standard/utilities/nodes/test_gf_node_tree_ops.gd",
       "res://tests/gf_core/standard/utilities/signals/test_gf_async_flow_tools.gd",
@@ -165,7 +168,8 @@
       "res://tests/gf_core/standard/utilities/debug/test_gf_debug_overlay_utility.gd",
       "res://tests/gf_core/standard/utilities/debug/test_gf_metric_series.gd",
       "res://tests/gf_core/standard/utilities/debug/test_gf_runtime_inspector_utility.gd",
-      "res://tests/gf_core/standard/utilities/debug/test_gf_screenshot_utility.gd"
+      "res://tests/gf_core/standard/utilities/debug/test_gf_screenshot_utility.gd",
+      "res://tests/gf_core/standard/utilities/debug/test_gf_support_report_workflow.gd"
     ],
     "gf.standard.debug.editor": [
       "res://tests/gf_core/standard/utilities/debug/test_gf_diagnostics_dock.gd"
