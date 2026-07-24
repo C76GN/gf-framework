@@ -79,6 +79,7 @@
 
 ### 🐛 Bug 修复 (Fixed)
 
+- 修复长期活动的 `GFRuntimeTask` 所持 `Node` requirement 已释放后，`GFRuntimeTaskScheduler` 的 owner 索引与诊断快照仍可能保留陈旧 ObjectID 的问题；活动任务和 live requirements 现在是唯一事实源，调度边界会先完整校验候选 owner map，再与活动集合一起提交，并在仲裁或释放回调期间拒绝会破坏已提交状态的重入写操作。
 - 修复 UI 路由启用资源存在性检查时，脚本或其他现有非场景资源可能被误判为健康 `PackedScene` 候选的问题；新增 `invalid_scene_type_paths`，将“资源存在但类型错误”与 `missing_scene_paths` 的“路径不存在”诊断明确分离。
 - 修复 Session Trace 在 `debug` 或 `support` 下注册的长期 context、通道 metadata 与 provider metadata，可能在随后收紧 profile 后继续保留对象实例 ID、节点名称或原始路径的问题；这些长期数据现在统一使用 `privacy` 安全下限。
 - 修复同一 journal sink 原位重配时会先刷新并按旧所有权关闭实例、导致未重新初始化的 sink 后续静默失效的问题。

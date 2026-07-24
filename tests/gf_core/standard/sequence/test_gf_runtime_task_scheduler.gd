@@ -104,6 +104,7 @@ class ReplacementObserverTask extends GFRuntimeTask:
 	var observed_owner: GFRuntimeTask = null
 	var reentrant_task: GFRuntimeTask = null
 	var reentrant_schedule_result: bool = true
+	var committed_task_cancel_result: bool = true
 
 	func end(interrupted: bool) -> void:
 		if not interrupted:
@@ -111,6 +112,32 @@ class ReplacementObserverTask extends GFRuntimeTask:
 		observed_owner = scheduler.get_task_for_requirement(get_requirements()[0])
 		var _mutation_result: GFRuntimeTask = challenger.add_requirement(protected_requirement)
 		reentrant_schedule_result = scheduler.schedule(reentrant_task)
+		committed_task_cancel_result = scheduler.cancel(challenger)
+		scheduler.dispose()
+		scheduler.tick(0.1)
+		scheduler.physics_tick(0.1)
+
+
+class DisposeObserverTask extends GFRuntimeTask:
+	var scheduler: GFRuntimeTaskScheduler = null
+	var reentrant_task: GFRuntimeTask = null
+	var reentrant_schedule_result: bool = true
+	var default_requirement: Object = null
+	var default_task: GFRuntimeTask = null
+	var default_registration_result: bool = true
+	var observed_active_count: int = -1
+	var end_count: int = 0
+
+	func end(interrupted: bool) -> void:
+		if not interrupted:
+			return
+		end_count += 1
+		observed_active_count = scheduler.get_active_tasks().size()
+		reentrant_schedule_result = scheduler.schedule(reentrant_task)
+		default_registration_result = scheduler.register_default_task(
+			default_requirement,
+			default_task
+		)
 
 
 # --- 测试方法 ---
@@ -483,6 +510,152 @@ func test_schedule_commits_requirement_ownership_before_interrupt_callbacks() ->
 	assert_same(scheduler.get_task_for_requirement(protected_requirement), protected_owner, "回调不能覆盖不可中断 requirement owner。")
 	assert_false(replacement_owner.reentrant_schedule_result, "所有权提交期间应拒绝重入 schedule()。")
 	assert_false(reentrant_task.is_scheduled(), "被拒绝的重入任务不应进入调度器。")
+	assert_false(
+		replacement_owner.committed_task_cancel_result,
+		"所有权提交期间应拒绝回调取消刚提交的任务。"
+	)
+	assert_true(challenger.is_scheduled(), "所有权提交期间的 dispose 回调不得清空刚提交的任务。")
+	assert_same(
+		scheduler.get_task_for_requirement(contested_requirement),
+		challenger,
+		"所有权提交回调结束后活动任务与 owner 索引应保持一致。"
+	)
+
+
+func test_requirement_index_rebuild_prunes_released_objects_from_active_tasks() -> void:
+	var scheduler: GFRuntimeTaskScheduler = GFRuntimeTaskScheduler.new()
+	var released_requirement: Node = Node.new()
+	var released_requirement_id: int = released_requirement.get_instance_id()
+	var live_requirement: RefCounted = RefCounted.new()
+	var live_requirement_id: int = live_requirement.get_instance_id()
+	var task: GFRuntimeTask = GFRuntimeTask.new(
+		[released_requirement, live_requirement],
+		false
+	)
+
+	assert_true(scheduler.schedule(task), "任务应能占用两个有效 requirements。")
+	released_requirement.free()
+	var rejected_challenger: GFRuntimeTask = GFRuntimeTask.new([live_requirement])
+
+	assert_false(
+		scheduler.schedule(rejected_challenger),
+		"仍有效 requirement 由不可中断任务占用时，新任务应被拒绝。"
+	)
+	assert_false(
+		scheduler._requirement_owners.has(released_requirement_id),
+		"被拒绝的调度边界也应提交从活动任务重建的当前 owner 索引。"
+	)
+
+	var snapshot: Dictionary = scheduler.get_debug_snapshot()
+	var owner_ids: Array = GFVariantData.get_option_array(snapshot, "requirement_owner_ids")
+	assert_false(owner_ids.has(released_requirement_id), "事务重建应删除活动任务已经释放的 requirement ID。")
+	assert_true(owner_ids.has(live_requirement_id), "事务重建不能删除同一活动任务仍有效的 requirement。")
+	assert_false(
+		scheduler._requirement_owners.has(released_requirement_id),
+		"诊断边界应将成功重建的 owner 索引原子提交回派生缓存。"
+	)
+	assert_same(scheduler.get_task_for_requirement(live_requirement), task, "仍有效 requirement 应继续解析到原活动任务。")
+
+
+func test_requirement_index_rebuild_does_not_publish_partial_duplicate_state() -> void:
+	var scheduler: GFRuntimeTaskScheduler = GFRuntimeTaskScheduler.new()
+	var duplicate_requirement: RefCounted = RefCounted.new()
+	var sentinel_requirement: RefCounted = RefCounted.new()
+	var sentinel_task: GFRuntimeTask = GFRuntimeTask.new([sentinel_requirement])
+	var first: GFRuntimeTask = GFRuntimeTask.new([duplicate_requirement])
+	var second: GFRuntimeTask = GFRuntimeTask.new([duplicate_requirement])
+	first.mark_scheduled()
+	second.mark_scheduled()
+	var corrupted_active_tasks: Array[GFRuntimeTask] = [first, second]
+	scheduler._active_tasks = corrupted_active_tasks
+	scheduler._requirement_owners = {
+		sentinel_requirement.get_instance_id(): {
+			"requirement_ref": weakref(sentinel_requirement),
+			"task": sentinel_task,
+		},
+	}
+
+	assert_false(scheduler._rebuild_requirement_owner_index(), "重复 owner 应使候选索引整体失败。")
+	assert_eq(scheduler._requirement_owners.size(), 1, "失败重建不得发布部分候选索引。")
+	assert_true(
+		scheduler._requirement_owners.has(sentinel_requirement.get_instance_id()),
+		"失败重建应保留此前完整索引，等待调用边界 fail closed。"
+	)
+
+
+func test_cancel_does_not_publish_partial_state_when_candidate_index_is_invalid() -> void:
+	var scheduler: GFRuntimeTaskScheduler = GFRuntimeTaskScheduler.new()
+	var order: Array[String] = []
+	var cancelled_task: RecordingTask = RecordingTask.new(order, "cancelled", [], true, 99)
+	var duplicate_requirement: RefCounted = RefCounted.new()
+	var sentinel_requirement: RefCounted = RefCounted.new()
+	var sentinel_task: GFRuntimeTask = GFRuntimeTask.new([sentinel_requirement])
+	var first: GFRuntimeTask = GFRuntimeTask.new([duplicate_requirement])
+	var second: GFRuntimeTask = GFRuntimeTask.new([duplicate_requirement])
+	cancelled_task.mark_scheduled()
+	first.mark_scheduled()
+	second.mark_scheduled()
+	var corrupted_active_tasks: Array[GFRuntimeTask] = [cancelled_task, first, second]
+	scheduler._active_tasks = corrupted_active_tasks
+	scheduler._requirement_owners = {
+		sentinel_requirement.get_instance_id(): {
+			"requirement_ref": weakref(sentinel_requirement),
+			"task": sentinel_task,
+		},
+	}
+
+	assert_false(scheduler.cancel(cancelled_task), "候选索引无效时取消操作应 fail closed。")
+	assert_eq(
+		scheduler.get_active_tasks(),
+		corrupted_active_tasks,
+		"失败取消不得先修改活动任务集合。"
+	)
+	assert_true(cancelled_task.is_scheduled(), "失败取消不得先修改任务 scheduled 状态。")
+	assert_true(order.is_empty(), "失败取消不得调用任务 end 回调。")
+	assert_eq(scheduler._requirement_owners.size(), 1, "失败取消不得替换此前完整索引。")
+	assert_true(
+		scheduler._requirement_owners.has(sentinel_requirement.get_instance_id()),
+		"失败取消应保留此前完整索引。"
+	)
+
+
+func test_dispose_commits_empty_active_state_before_callbacks_and_rejects_reentrant_schedule() -> void:
+	var scheduler: GFRuntimeTaskScheduler = GFRuntimeTaskScheduler.new()
+	var requirement: RefCounted = RefCounted.new()
+	var default_requirement: RefCounted = RefCounted.new()
+	var reentrant_task: GFRuntimeTask = GFRuntimeTask.new([requirement])
+	var default_task: GFRuntimeTask = GFRuntimeTask.new()
+	var active_task: DisposeObserverTask = DisposeObserverTask.new([requirement])
+	active_task.scheduler = scheduler
+	active_task.reentrant_task = reentrant_task
+	active_task.default_requirement = default_requirement
+	active_task.default_task = default_task
+	watch_signals(scheduler)
+
+	assert_true(scheduler.schedule(active_task), "任务应能在 dispose 前进入调度器。")
+	scheduler.dispose()
+
+	assert_eq(active_task.end_count, 1, "dispose 应恰好一次以 interrupted=true 结束活动任务。")
+	assert_eq(active_task.observed_active_count, 0, "结束回调应观察到已经提交的空活动任务集合。")
+	assert_false(active_task.reentrant_schedule_result, "dispose 生命周期窗口应拒绝回调重入 schedule()。")
+	assert_false(
+		active_task.default_registration_result,
+		"dispose 生命周期窗口应拒绝回调重新注册默认任务。"
+	)
+	assert_false(reentrant_task.is_scheduled(), "被拒绝的重入任务不应留下 scheduled 状态。")
+	assert_null(
+		scheduler.get_default_task(default_requirement),
+		"dispose 回调不得在释放后留下默认任务记录。"
+	)
+	assert_true(scheduler.get_active_tasks().is_empty(), "dispose 后活动任务集合应为空。")
+	assert_true(
+		GFVariantData.get_option_array(
+			scheduler.get_debug_snapshot(),
+			"requirement_owner_ids"
+		).is_empty(),
+		"dispose 后 requirement owner 索引应与空活动任务集合一致。"
+	)
+	assert_signal_emitted(scheduler, "task_rejected", "重入调度应明确发出 task_rejected。")
 
 
 func test_task_group_stops_initialization_when_child_cancels_parent() -> void:
