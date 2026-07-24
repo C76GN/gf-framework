@@ -381,7 +381,7 @@ static func _wait_signal_loop(
 	var tree: SceneTree = _get_scene_tree(options)
 	var process_in_physics: bool = GFVariantData.get_option_bool(options, "process_in_physics", false)
 	var should_continue: Callable = _get_callable(options, "should_continue")
-	var should_continue_was_provided: bool = options.has("should_continue")
+	var should_continue_is_configured: bool = not should_continue.is_null()
 	var should_pause_timeout: Callable = _get_callable(options, "should_pause_timeout")
 
 	while not GFVariantData.get_option_bool(completion_state, "completed"):
@@ -400,7 +400,7 @@ static func _wait_signal_loop(
 			completion_state["reason"] = &"guard_exited"
 			return STATUS_INVALID
 
-		if should_continue_was_provided:
+		if should_continue_is_configured:
 			if not should_continue.is_valid():
 				completion_state["reason"] = &"should_continue_invalid"
 				return STATUS_CANCELLED
