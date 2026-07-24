@@ -167,6 +167,8 @@ GODOT_EXIT_LEAK_PATTERNS = (
 GUT_LIFECYCLE_GATE_PREFIX = "GF_TEST_LIFECYCLE_GATE="
 GUT_LIFECYCLE_GATE_SCHEMA_VERSION = 1
 GUT_LIFECYCLE_GATE_MAX_DETAIL_COUNT = 20
+GUT_LIFECYCLE_GATE_MAX_TEXT_LENGTH = 512
+GUT_LIFECYCLE_GATE_MAX_JSON_BYTES = 65536
 GUT_LIFECYCLE_GATE_REQUIRED_KEYS = frozenset({
 	"schema_version",
 	"ok",
@@ -12993,13 +12995,64 @@ def maintenance_self_test() -> dict[str, Any]:
 			"unhandled_warning_count": 1,
 			"warnings": [{"test_id": "fixture", "code": "warning", "file": "fixture.gd"}],
 		}
+		oversized_text_payload = {
+			**clean_lifecycle_payload,
+			"configuration_error": "x" * (GUT_LIFECYCLE_GATE_MAX_TEXT_LENGTH + 1),
+		}
 		record_result(
 			"gut_lifecycle_marker_schema_is_closed_and_bounded",
 			validate_gut_lifecycle_gate_payload(clean_lifecycle_payload) == ""
 			and validate_gut_lifecycle_gate_payload(extra_field_payload) != ""
 			and validate_gut_lifecycle_gate_payload(invalid_truncation_payload) != ""
-			and validate_gut_lifecycle_gate_payload(invalid_warning_detail_payload) != "",
-			"Lifecycle marker v1 must reject extra fields, inconsistent truncation, and malformed details.",
+			and validate_gut_lifecycle_gate_payload(invalid_warning_detail_payload) != ""
+			and validate_gut_lifecycle_gate_payload(oversized_text_payload) != "",
+			"Lifecycle marker v1 must reject extra fields, inconsistent truncation, malformed details, and oversized text.",
+		)
+		clean_lifecycle_marker = (
+			GUT_LIFECYCLE_GATE_PREFIX
+			+ json.dumps(clean_lifecycle_payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+		)
+		invalid_lifecycle_payload = {
+			**clean_lifecycle_payload,
+			"ok": False,
+			"baseline_available": False,
+			"configuration_error": "fixture_baseline_unavailable",
+		}
+		invalid_lifecycle_marker = (
+			GUT_LIFECYCLE_GATE_PREFIX
+			+ json.dumps(invalid_lifecycle_payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+		)
+		identical_marker_report = parse_gut_lifecycle_gate_output(
+			f"{clean_lifecycle_marker}\n{clean_lifecycle_marker}\n",
+			"",
+		)
+		conflicting_marker_report = parse_gut_lifecycle_gate_output(
+			f"{clean_lifecycle_marker}\n{invalid_lifecycle_marker}\n",
+			"",
+		)
+		malformed_marker_report = parse_gut_lifecycle_gate_output(
+			f"{clean_lifecycle_marker}\n{GUT_LIFECYCLE_GATE_PREFIX}{{\n",
+			"",
+		)
+		oversized_marker_report = parse_gut_lifecycle_gate_output(
+			GUT_LIFECYCLE_GATE_PREFIX + ("x" * (GUT_LIFECYCLE_GATE_MAX_JSON_BYTES + 1)),
+			"",
+		)
+		record_result(
+			"gut_lifecycle_marker_duplicates_are_fail_closed",
+			identical_marker_report["ok"]
+			and identical_marker_report["marker_count"] == 2
+			and not identical_marker_report["marker_errors"]
+			and not conflicting_marker_report["ok"]
+			and "conflicting lifecycle markers" in conflicting_marker_report["marker_errors"]
+			and not malformed_marker_report["ok"]
+			and any(
+				error.startswith("invalid JSON:")
+				for error in malformed_marker_report["marker_errors"]
+			)
+			and not oversized_marker_report["ok"]
+			and "lifecycle marker exceeds the byte limit" in oversized_marker_report["marker_errors"],
+			"Identical duplicate lifecycle evidence may be mirrored into logs; conflicts or malformed copies must fail.",
 		)
 		run_summary_orphan_text = gut_success_summary.replace(
 			"---- All tests passed! ----\n",
@@ -15839,6 +15892,19 @@ def maintenance_self_test() -> dict[str, Any]:
 		and godot_47_summary_report["resource_summary_count"] == 1
 		and godot_47_summary_report["resource_summary_total"] == 113,
 		f"Godot 4.7 summary lines must be structured hard-gate evidence: {godot_47_summary_report}",
+	)
+	future_leak_report = godot_exit_leak_report_from_output(
+		"future_leak_fixture",
+		"WARNING: 3 objects were leaked at exit.",
+		"",
+	)
+	record_result(
+		"godot_exit_leak_report_fails_closed_on_unclassified_leak_evidence",
+		future_leak_report["has_leaks"]
+		and future_leak_report["warning_lines"] == [
+			"WARNING: 3 objects were leaked at exit."
+		],
+		f"Raw leak evidence must remain a hard gate when Godot changes its summary format: {future_leak_report}",
 	)
 	command_payload = CommandResult(
 		"fixture",
@@ -26299,7 +26365,8 @@ def godot_exit_leak_report_from_output(name: str, stdout: str, stderr: str) -> d
 
 def finalize_godot_exit_leak_report(report: dict[str, Any]) -> dict[str, Any]:
 	report["has_leaks"] = (
-		report["objectdb_warning_count"] > 0
+		bool(report["warning_lines"])
+		or report["objectdb_warning_count"] > 0
 		or report["resource_summary_count"] > 0
 		or report["resource_still_in_use_count"] > 0
 		or report["rid_allocation_total"] > 0
@@ -26505,6 +26572,9 @@ def parse_gut_lifecycle_gate_output(stdout: str, stderr: str) -> dict[str, Any]:
 		if not line.startswith(GUT_LIFECYCLE_GATE_PREFIX):
 			continue
 		payload_text = line[len(GUT_LIFECYCLE_GATE_PREFIX):]
+		if len(payload_text.encode("utf-8")) > GUT_LIFECYCLE_GATE_MAX_JSON_BYTES:
+			append_limited(marker_errors, "lifecycle marker exceeds the byte limit", 10)
+			continue
 		try:
 			payload = json.loads(payload_text)
 		except json.JSONDecodeError as exc:
@@ -26595,6 +26665,8 @@ def validate_gut_lifecycle_gate_payload(payload: Any) -> str:
 			return f"lifecycle marker {key} entries must be objects"
 	if not isinstance(payload.get("configuration_error"), str):
 		return "lifecycle marker configuration_error must be a string"
+	if len(payload["configuration_error"]) > GUT_LIFECYCLE_GATE_MAX_TEXT_LENGTH:
+		return "lifecycle marker configuration_error exceeds the text limit"
 
 	warning_count = int(payload["unhandled_warning_count"])
 	orphan_count = int(payload["orphan_count"])
@@ -26606,6 +26678,11 @@ def validate_gut_lifecycle_gate_payload(payload: Any) -> str:
 			return "lifecycle marker warning detail fields do not match the closed schema"
 		if not all(isinstance(warning_detail[key], str) for key in ("test_id", "code", "file")):
 			return "lifecycle marker warning detail text fields must be strings"
+		if any(
+			len(warning_detail[key]) > GUT_LIFECYCLE_GATE_MAX_TEXT_LENGTH
+			for key in ("test_id", "code", "file")
+		):
+			return "lifecycle marker warning detail text exceeds the text limit"
 		line = warning_detail["line"]
 		if isinstance(line, bool) or not isinstance(line, int) or line < 0:
 			return "lifecycle marker warning detail line must be a non-negative integer"
@@ -26617,6 +26694,11 @@ def validate_gut_lifecycle_gate_payload(payload: Any) -> str:
 			return "lifecycle marker orphan detail instance_id must be a positive integer"
 		if not all(isinstance(orphan_detail[key], str) for key in ("class", "name")):
 			return "lifecycle marker orphan detail text fields must be strings"
+		if any(
+			len(orphan_detail[key]) > GUT_LIFECYCLE_GATE_MAX_TEXT_LENGTH
+			for key in ("class", "name")
+		):
+			return "lifecycle marker orphan detail text exceeds the text limit"
 	expected_truncated = (
 		warning_count > GUT_LIFECYCLE_GATE_MAX_DETAIL_COUNT
 		or orphan_count > GUT_LIFECYCLE_GATE_MAX_DETAIL_COUNT
