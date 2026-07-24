@@ -1121,6 +1121,7 @@ func test_assignable_lookup_cache_invalidates_when_registry_changes() -> void:
 
 	await arch.register_utility_instance(alternate)
 	assert_null(arch.get_utility(UtilityBase), "新增第二个实现后，旧的基类查询缓存不应继续返回旧实例。")
+	assert_push_warning("[GFArchitecture] get_utility() 匹配到多个本地实例，本次查询不会回退父架构；请使用显式 alias 注册以消除歧义。")
 
 	arch.unregister_utility(AlternateConcreteUtility)
 	assert_eq(arch.get_utility(UtilityBase), concrete, "移除歧义实现后，基类查询应重新解析唯一实现。")

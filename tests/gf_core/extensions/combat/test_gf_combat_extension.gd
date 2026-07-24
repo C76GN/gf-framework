@@ -1240,6 +1240,7 @@ func test_hit_collision_shape_config_2d_generates_reusable_shapes() -> void:
 	hit_box.clear_generated_collision_shape()
 	assert_null(hit_box.get_generated_collision_shape(), "clear_generated_collision_shape 应移除框架管理的形状节点。")
 	instantiated.free()
+	await get_tree().process_frame
 
 
 func test_hit_collision_shape_config_3d_generates_reusable_shapes() -> void:
@@ -1306,6 +1307,7 @@ func test_hit_collision_shape_config_3d_generates_reusable_shapes() -> void:
 	hit_box.clear_generated_collision_shape()
 	assert_null(hit_box.get_generated_collision_shape(), "clear_generated_collision_shape 应移除框架管理的 3D 形状节点。")
 	instantiated.free()
+	await get_tree().process_frame
 
 
 func test_hit_box_2d_sends_generic_hit_context() -> void:

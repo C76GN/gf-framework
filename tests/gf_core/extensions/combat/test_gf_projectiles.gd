@@ -490,6 +490,7 @@ func test_projectile_emitter_2d_uses_explicit_object_pool() -> void:
 	assert_eq(pool.get_active_count(scene), 1, "发射器应通过显式对象池获取节点。")
 
 	pool.dispose()
+	await get_tree().process_frame
 
 
 func test_projectile_emitter_2d_disables_pooled_auto_launch_before_add() -> void:
@@ -511,6 +512,7 @@ func test_projectile_emitter_2d_disables_pooled_auto_launch_before_add() -> void
 	assert_not_null(motion, "池化发射体应保持测试用 motion。")
 	if motion == null:
 		pool.dispose()
+		await get_tree().process_frame
 		return
 
 	assert_eq(motion.setup_count, 1, "对象池新建节点不应在 emitter 准备上下文前 auto launch。")
@@ -519,6 +521,7 @@ func test_projectile_emitter_2d_disables_pooled_auto_launch_before_add() -> void
 	assert_eq(GFVariantData.get_option_string(context, "skill_id"), "pool_test", "唯一 launch 应使用调用方上下文。")
 
 	pool.dispose()
+	await get_tree().process_frame
 
 
 func test_projectile_emitter_2d_uses_injected_architecture_pool() -> void:
@@ -541,6 +544,7 @@ func test_projectile_emitter_2d_uses_injected_architecture_pool() -> void:
 	assert_eq(pool.get_active_count(scene), 1, "发射器应通过注入架构查询对象池。")
 
 	architecture.dispose()
+	await get_tree().process_frame
 
 
 func test_projectile_line_spawn_pattern_2d_distributes_points() -> void:

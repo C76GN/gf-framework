@@ -209,6 +209,10 @@ func test_scheduled_task_rejects_requirement_mutation() -> void:
 	assert_false(task.remove_requirement(requirement_a), "已调度任务不应允许移除 requirement。")
 	task.clear_requirements()
 	var _set_result: GFRuntimeTask = task.set_requirements([requirement_b])
+	for _index: int in range(4):
+		assert_push_warning(
+			"[GFRuntimeTask] 调度仲裁中或已调度的任务不能修改 requirements；请取消并重新配置。"
+		)
 
 	assert_true(task.has_requirement(requirement_a), "已调度任务应保留原 requirement。")
 	assert_false(task.has_requirement(requirement_b), "已调度任务不应接受新增 requirement。")
@@ -223,6 +227,7 @@ func test_register_default_task_rejects_scheduled_task_missing_requirement() -> 
 
 	assert_true(scheduler.schedule(task), "任务应能先进入调度器。")
 	assert_false(scheduler.register_default_task(default_requirement, task), "已调度且不能新增 requirement 的任务不应注册为默认任务。")
+	assert_push_warning("[GFRuntimeTask] 调度仲裁中或已调度的任务不能修改 requirements；请取消并重新配置。")
 
 	assert_false(task.has_requirement(default_requirement), "失败注册不应修改已调度任务 requirement。")
 	assert_null(scheduler.get_default_task(default_requirement), "失败注册不应留下默认任务记录。")
@@ -329,6 +334,8 @@ func test_scheduled_task_group_rejects_child_mutation() -> void:
 	var _add_result: GFRuntimeTaskGroup = group.add_task(second)
 	assert_false(group.remove_task(first), "已调度任务组不应允许移除子任务。")
 	group.rebuild_requirements()
+	for _index: int in range(3):
+		assert_push_warning("[GFRuntimeTaskGroup] 调度仲裁中或已调度的任务组不能修改配置。")
 
 	assert_eq(group.get_tasks(), [first], "已调度任务组不应接受子任务集合变更。")
 
@@ -384,6 +391,7 @@ func test_parallel_task_group_rejects_duplicate_child_requirements() -> void:
 	var group: GFRuntimeTaskGroup = GFRuntimeTaskGroup.new([first], GFRuntimeTaskGroup.Mode.PARALLEL_ALL)
 
 	var _add_result: GFRuntimeTaskGroup = group.add_task(second)
+	assert_push_warning("[GFRuntimeTaskGroup] 并行任务组不能包含占用相同 requirement 的子任务。")
 
 	assert_eq(group.get_tasks(), [first], "并行任务组不应接受共享 requirement 的第二个子任务。")
 
@@ -504,6 +512,7 @@ func test_schedule_commits_requirement_ownership_before_interrupt_callbacks() ->
 	assert_true(scheduler.schedule(protected_owner), "受保护 requirement 应先被不可中断任务占用。")
 	assert_true(scheduler.schedule(replacement_owner), "可中断 owner 应进入调度器。")
 	assert_true(scheduler.schedule(challenger), "challenger 应原子替换可中断 owner。")
+	assert_push_warning("[GFRuntimeTask] 调度仲裁中或已调度的任务不能修改 requirements；请取消并重新配置。")
 
 	assert_same(replacement_owner.observed_owner, challenger, "中断回调应观察到已经提交的新 owner。")
 	assert_false(challenger.has_requirement(protected_requirement), "中断回调不能修改已提交任务的 requirements。")
@@ -693,6 +702,7 @@ func test_task_group_configuration_is_controlled_and_transactional() -> void:
 	assert_eq(group.get_tasks(), [first], "失败的批量配置不应产生部分更新。")
 	assert_true(group.set_mode(GFRuntimeTaskGroup.Mode.PARALLEL_ALL), "无内部冲突的单任务组应允许切换到并行模式。")
 	var _add_conflicting_task_result: GFRuntimeTaskGroup = group.add_task(second)
+	assert_push_warning("[GFRuntimeTaskGroup] 并行任务组不能包含占用相同 requirement 的子任务。")
 	assert_eq(group.get_mode(), GFRuntimeTaskGroup.Mode.PARALLEL_ALL, "无内部冲突的单任务组应允许切换到并行模式。")
 	assert_eq(group.get_tasks(), [first], "冲突子任务不应被加入并行任务组。")
 

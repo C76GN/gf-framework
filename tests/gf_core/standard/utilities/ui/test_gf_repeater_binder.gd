@@ -20,6 +20,7 @@ func after_each() -> void:
 		if is_instance_valid(node):
 			node.free()
 	_nodes.clear()
+	await get_tree().process_frame
 
 
 # --- 测试方法 ---

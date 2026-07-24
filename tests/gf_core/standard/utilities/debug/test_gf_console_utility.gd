@@ -40,7 +40,9 @@ func test_register_command() -> void:
 
 func test_register_command_rejects_empty_name_and_invalid_callback() -> void:
 	_register_command("", Callable(), "空指令。")
+	assert_push_warning("[GFConsoleUtility] 注册命令失败：命令名为空。")
 	_register_command("broken", Callable(), "无效回调。")
+	assert_push_warning("[GFConsoleUtility] 注册命令失败：callback 无效：broken。")
 
 	assert_false(_console.has_command(""), "空命令名不应进入命令表。")
 	assert_false(_console.has_command("broken"), "无效 callback 不应进入命令表。")

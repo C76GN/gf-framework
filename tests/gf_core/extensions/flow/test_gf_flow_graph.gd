@@ -621,6 +621,7 @@ func test_flow_runner_loop_guard_cancels_instead_of_completing() -> void:
 	watch_signals(runner)
 
 	var report: Dictionary = await runner.run(graph, GFFlowContext.new())
+	assert_push_warning("[GFFlowRunner] 达到最大节点执行数量，流程停止。")
 
 	assert_eq(order, ["start", "start"], "loop guard 应在达到上限后停止。")
 	assert_eq(GFVariantData.get_option_string(report, "outcome"), "aborted", "loop guard 应报告 aborted。")
@@ -971,6 +972,7 @@ func test_flow_graph_dock_rejects_non_project_resource_paths_and_clears_view() -
 	assert_eq(dock._graph_path, "", "非项目资源路径不得保留为 dock 的可加载路径。")
 	assert_eq(dock.get_last_view_model(), {}, "拒绝路径后不得保留旧 graph 的 view model。")
 	dock.free()
+	await get_tree().process_frame
 
 
 func test_flow_graph_dock_starts_with_compact_empty_state() -> void:
@@ -1016,6 +1018,7 @@ func test_flow_graph_dock_connection_request_updates_graph() -> void:
 
 	assert_true(graph.has_connection(&"start", &"", &"end", &""), "GraphEdit 连线请求应写入 FlowGraph。")
 	dock.free()
+	await get_tree().process_frame
 
 
 func test_flow_graph_dock_canvas_move_updates_node_position() -> void:
@@ -1032,6 +1035,7 @@ func test_flow_graph_dock_canvas_move_updates_node_position() -> void:
 
 	assert_eq(start.editor_position, Vector2(42.0, 64.0), "GraphEdit 节点移动应写回 editor_position。")
 	dock.free()
+	await get_tree().process_frame
 
 
 ## 验证流程上下文可注册通用条件查询处理器。

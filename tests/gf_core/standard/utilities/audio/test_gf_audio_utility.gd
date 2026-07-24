@@ -768,6 +768,7 @@ func test_audio_catalog_provider_ignores_unknown_catalog_ids() -> void:
 	var catalog: GFAudioCatalogProvider = GFAudioCatalogProvider.new()
 
 	catalog.set_entry(&"parameter", &"intensity", { "min": 0.0 })
+	assert_push_warning("[GFAudioCatalogProvider] 未知音频目录：parameter。")
 
 	assert_eq(catalog.get_ids(&"events"), PackedStringArray(), "未知目录 ID 不应默认写入 events。")
 	assert_eq(catalog.get_ids(&"parameter"), PackedStringArray(), "未知目录 ID 查询应返回空列表。")

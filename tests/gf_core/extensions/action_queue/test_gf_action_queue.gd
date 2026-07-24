@@ -197,6 +197,7 @@ func after_each() -> void:
 	_dispose_queue(_system)
 	_system = null
 	_interceptor_fixtures = null
+	await get_tree().process_frame
 
 
 func _signal_from_result(result: Variant) -> Signal:

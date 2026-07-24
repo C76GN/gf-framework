@@ -2,7 +2,7 @@
 extends GutTest
 
 
-class TestAudioUtility:
+class AudioUtilityProbe:
 	extends GFAudioUtility
 
 	var played_paths: Array[String] = []
@@ -204,6 +204,7 @@ func test_move_tween_action_rejects_incompatible_target_value() -> void:
 
 	var action: GFVisualAction = GFMoveTweenAction.new(node, "bad_target", 0.0)
 	var result: Variant = action.execute()
+	assert_push_warning("[GFMoveTweenAction] 目标属性与目标值类型不兼容：position。")
 
 	assert_true(result == null, "类型不兼容的移动动作不应创建 Tween。")
 	assert_eq(node.position, Vector2.ZERO, "类型不兼容时不应写入目标属性。")
@@ -215,6 +216,7 @@ func test_move_tween_action_rejects_missing_property() -> void:
 
 	var action: GFVisualAction = GFMoveTweenAction.new(node, Vector2.ONE, 0.0, ^"missing_position")
 	var result: Variant = action.execute()
+	assert_push_warning("[GFMoveTweenAction] 目标属性不存在：missing_position。")
 
 	assert_true(result == null, "缺失属性不应创建移动 Tween。")
 
@@ -605,6 +607,9 @@ func test_action_race_can_keep_remaining_children_running() -> void:
 	assert_true(completed[0], "race 动作组应仍在首个子动作完成后结束。")
 	assert_false(slow.cancelled, "关闭取消策略时，race 不应替调用方取消剩余动作。")
 
+	slow.cancel()
+	await get_tree().process_frame
+
 
 func test_sequence_group_reexecute_cancels_previous_run_and_releases_waiter() -> void:
 	var first: ManualSignalAction = ManualSignalAction.new()
@@ -624,6 +629,9 @@ func test_sequence_group_reexecute_cancels_previous_run_and_releases_waiter() ->
 	assert_true(first.cancelled, "运行中重复 execute 应取消上一轮正在等待的子动作。")
 	assert_true(first_completed[0], "运行中重复 execute 应释放上一轮等待者。")
 	assert_true(second_result is Signal, "新一轮 execute 仍应返回可等待信号。")
+
+	group.cancel()
+	await get_tree().process_frame
 
 
 func test_repeat_action_creates_fresh_action_each_iteration() -> void:
@@ -661,6 +669,9 @@ func test_repeat_action_reexecute_cancels_previous_active_action() -> void:
 	assert_true(actions[0].cancelled, "运行中重复 execute 应取消上一轮当前动作。")
 	assert_true(first_completed[0], "运行中重复 execute 应释放上一轮等待者。")
 	assert_true(second_result is Signal, "第二轮 repeat 仍应返回完成信号。")
+
+	repeat.cancel()
+	await get_tree().process_frame
 
 
 func test_tween_action_step_apply_instant_relative_vector2() -> void:
@@ -817,6 +828,7 @@ func test_flash_action_rejects_non_color_property() -> void:
 
 	var action: GFVisualAction = GFFlashAction.new(item, Color.RED, 0.01, ^"visible")
 	var result: Variant = action.execute()
+	assert_push_warning("[GFFlashAction] 目标属性不是 Color：visible。")
 
 	assert_true(result == null, "非 Color 属性不应创建闪色 Tween。")
 	assert_true(item.visible, "非 Color 属性不应被闪色动作改写。")
@@ -828,6 +840,7 @@ func test_flash_action_rejects_missing_property() -> void:
 
 	var action: GFVisualAction = GFFlashAction.new(item, Color.RED, 0.01, ^"missing_color")
 	var result: Variant = action.execute()
+	assert_push_warning("[GFFlashAction] 目标属性不存在：missing_color。")
 
 	assert_true(result == null, "缺失属性不应创建闪色 Tween。")
 
@@ -1024,7 +1037,7 @@ func test_audio_action_is_fire_and_forget() -> void:
 	var arch: GFArchitecture = GFArchitecture.new()
 	Gf._architecture = arch
 
-	var audio: TestAudioUtility = TestAudioUtility.new()
+	var audio: AudioUtilityProbe = AudioUtilityProbe.new()
 	await Gf.register_utility(audio)
 	await Gf.set_architecture(arch)
 	await get_tree().process_frame
@@ -1041,7 +1054,7 @@ func test_audio_action_can_play_bank_clip() -> void:
 	var arch: GFArchitecture = GFArchitecture.new()
 	Gf._architecture = arch
 
-	var audio: TestAudioUtility = TestAudioUtility.new()
+	var audio: AudioUtilityProbe = AudioUtilityProbe.new()
 	await Gf.register_utility(audio)
 	await Gf.set_architecture(arch)
 	await get_tree().process_frame

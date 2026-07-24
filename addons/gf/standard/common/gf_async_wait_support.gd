@@ -399,6 +399,10 @@ static func _wait_signal_loop(
 			completion_state["reason"] = &"guard_exited"
 			return STATUS_INVALID
 
+		if should_continue.is_valid() and not GFVariantData.to_bool(should_continue.call()):
+			completion_state["reason"] = &"should_continue_false"
+			return STATUS_CANCELLED
+
 		var current_timeout_msec: int = Time.get_ticks_msec()
 		if timeout_msec > 0.0:
 			var timeout_is_paused: bool = (
@@ -415,10 +419,6 @@ static func _wait_signal_loop(
 				if elapsed_timeout_msec >= timeout_msec:
 					return STATUS_TIMEOUT
 		last_timeout_msec = current_timeout_msec
-
-		if should_continue.is_valid() and not GFVariantData.to_bool(should_continue.call()):
-			completion_state["reason"] = &"should_continue_false"
-			return STATUS_CANCELLED
 
 		await _await_frame(tree, process_in_physics)
 

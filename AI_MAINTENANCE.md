@@ -254,7 +254,7 @@ python tools\gf_maintenance.py check --check gdscript_lsp_diagnostics --json
 python tools\gf_maintenance.py log-hygiene --dry-run --json
 ```
 
-该测试集包含静态维护检查，例如 API 注释同步和 GDScript 布局约束。`gdscript_warnings` 会用 headless editor 捕获普通 GUT 可能漏掉的 GDScript reload warning。`gdscript_lsp_diagnostics` 优先连接已有 Godot editor LSP，通过 `textDocument/publishDiagnostics` 读取编辑器诊断；CI 没有可连接的 LSP 时才由 `--connect-or-spawn` 启动临时进程。该检查补充日志中没有稳定输出、但 Godot 面板能显示的 GDScript warning，并作为 `full` 与 `release` 的硬门禁：error、warning、诊断超时、连接或传输失败都会阻止 CI / 发布。Godot 退出期 ObjectDB、resource still in use 与 RID allocation leak warning 先由维护工具结构化记录为 cleanup debt，不立即作为 CI 失败条件；清理完成并建立稳定零基线后，再改成 hard fail。能用机器稳定判断的维护规则，应优先补到测试或工具中，而不是只写在文字说明里。
+该测试集包含静态维护检查，例如 API 注释同步和 GDScript 布局约束。`gdscript_warnings` 会用 headless editor 捕获普通 GUT 可能漏掉的 GDScript reload warning。`gdscript_lsp_diagnostics` 优先连接已有 Godot editor LSP，通过 `textDocument/publishDiagnostics` 读取编辑器诊断；CI 没有可连接的 LSP 时才由 `--connect-or-spawn` 启动临时进程。该检查补充日志中没有稳定输出、但 Godot 面板能显示的 GDScript warning，并作为 `full` 与 `release` 的硬门禁：error、warning、诊断超时、连接或传输失败都会阻止 CI / 发布。GUT 通过 pre/post hook 建立进程级 orphan 基线，并把未由 GUT warning 断言消费的 `push_warning`、新增 orphan Node 与 ObjectDB/resource/RID 退出泄漏全部作为硬失败；维护工具要求 `GF_TEST_LIFECYCLE_GATE` 结构化证据存在且为零，同时复核 GUT Summary。其他 Godot 检查的退出泄漏仍会结构化记录为 cleanup debt，直到各自建立零基线。能用机器稳定判断的维护规则，应优先补到测试或工具中，而不是只写在文字说明里。
 
 排查退出期泄漏时，先用 `--verbose` 生成 stdout/stderr 日志，再运行 `python tools\gf_maintenance.py godot-exit-leak-report --log <stdout.log> --log <stderr.log> --json` 聚合 ObjectDB、RID、resource path prefix 和 leaked instance type。维护命令成功后会自动删除本次生成或改写的托管日志；需要在后续命令中读取日志时，给产生日志的命令添加 `--keep-logs`，也可临时设置 `GF_MAINTENANCE_KEEP_LOGS=1`。该报告命令默认只诊断不失败；只有准备把基线接入闸门时才显式使用 `--fail-on-leaks`。
 

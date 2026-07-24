@@ -827,6 +827,7 @@ func test_add_scene_capability_frees_ignored_duplicate_instance() -> void:
 	var scene: PackedScene = _make_counting_capability_scene()
 
 	var result: Object = _utility.add_scene_capability(receiver, scene, CountingCapabilityNode)
+	assert_push_warning("[GFCapabilityUtility] add_scene_capability：目标对象已拥有该能力，已忽略新实例。")
 	var duplicate_node: CountingCapabilityNode = CountingCapabilityNode.created_nodes.back()
 
 	assert_eq(result, existing, "重复挂载场景能力时应返回已有实例。")

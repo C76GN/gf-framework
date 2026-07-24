@@ -792,6 +792,8 @@ func test_attribute_set_skips_entire_derived_cycle_without_partial_writes() -> v
 	attributes.derived_rules = [rule_a, rule_b]
 
 	attributes.recalculate_derived()
+	assert_push_warning("[GFAttributeSet] 检测到派生属性循环，已跳过：a")
+	assert_push_warning("[GFAttributeSet] 检测到派生属性循环，已跳过：b")
 
 	assert_eq(attributes.get_value(&"a"), 5.0, "派生规则成环时环内目标不应被部分写入。")
 	assert_eq(attributes.get_value(&"b"), 7.0, "派生规则成环时整组环内目标都应跳过。")

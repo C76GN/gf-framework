@@ -502,6 +502,10 @@ func test_json_line_log_sink_can_fail_when_custom_file_exists() -> void:
 
 	_log_util.add_sink(sink)
 	var snapshot: Dictionary = sink.get_debug_snapshot()
+	assert_push_warning(
+		"[GFJsonLineLogSink] JSONL 日志文件已存在：%s，错误码：%d"
+		% [jsonl_path, ERR_ALREADY_EXISTS]
+	)
 
 	assert_false(GFVariantData.get_option_bool(snapshot, "is_open", true), "FAIL_IF_EXISTS 应拒绝打开已有 JSONL 文件。")
 	assert_eq(GFVariantData.get_option_int(snapshot, "last_error"), ERR_ALREADY_EXISTS, "FAIL_IF_EXISTS 应报告 ERR_ALREADY_EXISTS。")
@@ -550,9 +554,14 @@ func test_json_line_log_sink_reports_parent_directory_errors() -> void:
 
 	_log_util.add_sink(sink)
 	var snapshot: Dictionary = sink.get_debug_snapshot()
+	var last_error: int = GFVariantData.get_option_int(snapshot, "last_error")
+	assert_push_warning(
+		"[GFJsonLineLogSink] 无法创建日志文件：%s，错误码：%d"
+		% [sink.file_path, last_error]
+	)
 
 	assert_false(GFVariantData.get_option_bool(snapshot, "is_open", true), "目录创建失败时 JSONL 文件不应保持打开。")
-	assert_ne(GFVariantData.get_option_int(snapshot, "last_error"), OK, "目录创建失败应记录错误码。")
+	assert_ne(last_error, OK, "目录创建失败应记录错误码。")
 	assert_true(
 		GFVariantData.get_option_string(snapshot, "last_error_message").contains(blocker_path),
 		"调试快照应保留失败路径。"
