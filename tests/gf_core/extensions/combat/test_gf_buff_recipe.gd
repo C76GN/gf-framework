@@ -61,6 +61,8 @@ func test_buff_check_blocks_combat_system_add_buff() -> void:
 	system.add_buff(entity, buff)
 
 	assert_false(system.has_buff(entity, &"blocked"), "检查失败的 Buff 不应进入 CombatSystem。")
+	system.dispose()
+	entity.free()
 
 
 func test_buff_state_snapshot_restores_generic_runtime_fields_and_effect_state() -> void:

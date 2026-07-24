@@ -312,6 +312,7 @@ func test_scene_transition_config_can_drive_scene_load() -> void:
 	config.cache_loaded_scene = false
 	config.params = { "spawn": "door_a" }
 	config.minimum_duration_seconds = 0.25
+	_scene_util.put_preloaded_scene(config.target_scene_path, _make_empty_scene())
 
 	var error: Error = _scene_util.load_scene_with_transition(config)
 
