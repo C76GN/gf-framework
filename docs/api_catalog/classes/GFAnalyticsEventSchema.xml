@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFAnalyticsEventSchema" path="addons/gf/standard/utilities/analytics/gf_analytics_event_schema.gd" module="standard" extends="Resource" classDigest="3abab15c7772531f48a41b4ad1820a59950d4b4a2965e0c3031e922abd2fc8d7">
+	<description>GFAnalyticsEventSchema: 版本化 Analytics 事件属性契约。
+用不超过 4096 字符且不含 C0/DEL 控制字符的稳定事件名、1..2_147_483_647 范围内的
+精确版本和严格 GFDictionarySchema 描述编码前的事件属性。
+校验会先执行有界、无复制的集合遍历，再进入通用 Dictionary Schema，
+避免不可信属性在深复制前消耗无界资源。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">resource_definition</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties>
+		<member kind="property" name="event_name" decorators="@export">
+			<signature>var event_name: StringName = &amp;""</signature>
+			<description>稳定事件名；不得为空、超过 4096 字符或包含 C0/DEL 控制字符。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="schema_version" decorators="@export">
+			<signature>var schema_version: int = 1</signature>
+			<description>事件属性 Schema 版本；必须位于 1..2_147_483_647。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="properties_schema" decorators="@export">
+			<signature>var properties_schema: GFDictionarySchema = null</signature>
+			<description>事件属性 Dictionary Schema。
+Analytics 契约要求根与所有嵌套 Dictionary 禁止额外字段和类型转换。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</properties>
+	<methods>
+		<member kind="method" name="configure">
+			<signature>func configure( p_event_name: StringName, p_schema_version: int, p_properties_schema: GFDictionarySchema ) -&gt; GFAnalyticsEventSchema:</signature>
+			<description>配置事件属性契约。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">p_event_name: 稳定事件名。</tag>
+				<tag name="param">p_schema_version: 1..2_147_483_647 范围内的 Schema 版本。</tag>
+				<tag name="param">p_properties_schema: 严格事件属性 Dictionary Schema。</tag>
+				<tag name="return">当前事件 Schema。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="validate_definition">
+			<signature>func validate_definition(options: Dictionary = {}) -&gt; GFValidationReport:</signature>
+			<description>校验事件 Schema 定义、递归严格性、图预算和回调纯度边界。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">options: 可选上下文，支持 subject、path、source_path 和 source。</tag>
+				<tag name="return">校验报告。</tag>
+				<tag name="schema">options: Dictionary validation context.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="validate_properties">
+			<signature>func validate_properties(properties: Dictionary, options: Dictionary = {}) -&gt; GFValidationReport:</signature>
+			<description>校验编码前的 Analytics 事件属性。
+该入口不会返回转换后的值，也不会把 Schema 描述为最终 JSON wire schema。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">properties: 待校验事件属性。</tag>
+				<tag name="param">options: 可选上下文与预算，支持 subject、path、source_path、source、max_depth、max_property_count、max_string_length、max_collection_items、max_total_nodes 和 max_total_bytes。</tag>
+				<tag name="return">校验报告。</tag>
+				<tag name="schema">properties: Dictionary analytics event properties before report encoding.</tag>
+				<tag name="schema">options: Dictionary validation context and bounded traversal options.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="duplicate_schema">
+			<signature>func duplicate_schema() -&gt; GFAnalyticsEventSchema:</signature>
+			<description>创建隔离的事件 Schema 副本。
+嵌套 Dictionary Schema、字段和规则通过 GFDictionarySchema.duplicate_schema() 复制；
+规则中的 Callable 仍遵循原规则的引用语义，但有效 callback 会被定义校验拒绝。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">新事件 Schema。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="describe">
+			<signature>func describe() -&gt; Dictionary:</signature>
+			<description>导出事件 Schema 摘要。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">事件 Schema 描述。</tag>
+				<tag name="schema">return: Dictionary with event_name, schema_version, and properties_schema.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

@@ -22,7 +22,7 @@
 
 ## [未发布]
 
-**版本概述**：开发线升级为 `10.0.0-dev.0`，补齐通用 2D 编辑器缩略图、运行时 2D Spatial Canvas、有序资产集合、内容包查询与运行时目录挂载、存储后端故障转移、惰性诊断采集、配方化运行时会话轨迹、UI 路由预加载规划、轨迹预测数学、有界权威快照同步协调和默认关闭的 Runtime Agent Environment，修正 AI Developer Kit 的项目级资源所有权表达，并更新 CI/Release 基础 Actions；业务策略仍保持在各自调用方边界内。
+**版本概述**：开发线升级为 `10.0.0-dev.0`，补齐通用 2D 编辑器缩略图、运行时 2D Spatial Canvas、有序资产集合、内容包查询与运行时目录挂载、存储后端故障转移、版本化 Analytics Schema 与专用 Outbox Adapter、惰性诊断采集、配方化运行时会话轨迹、UI 路由预加载规划、轨迹预测数学、有界权威快照同步协调和默认关闭的 Runtime Agent Environment，修正 AI Developer Kit 的项目级资源所有权表达，并更新 CI/Release 基础 Actions；业务策略仍保持在各自调用方边界内。
 
 ### 🚀 新增特性 (Added)
 
@@ -35,6 +35,8 @@
 - 新增 `GFContentPackageQuery`、`GFContentPackageQueryResult` 和 `GFContentPackageAssetCatalogProvider`，提供严格内容包筛选、dependency-first 闭包、类型化失败终态和 qualified 资产 ID 适配。
 - 新增 `GFAssetCatalogRuntime` 与 `GFAssetCatalogMount`，提供 owner-scoped 目录快照、严格或显式高优先级冲突政策、原子 revision 提交和幂等卸载。
 - 新增 `GFStorageFailoverBackend`，按稳定后端 ID 提供有界顺序尝试、`PRIMARY_ONLY` / `FIRST_SUCCESS` 写删语义、暂时性错误冷却和不含业务载荷的结构化操作报告。
+- 新增 `GFAnalyticsEventSchema` 与 `GFAnalyticsSchemaRegistry`，按稳定事件名和 `1..2_147_483_647` 范围内的版本校验 Analytics properties；`GFAnalyticsUtility.track_versioned()` 对缺失版本、非法 Schema 和不匹配属性 fail closed，不执行隐式迁移。
+- 新增 `GFAnalyticsOutboxAdapter`，按固定 v1 协议 Schema（`schema_id = "gf.analytics.outbox"`、`protocol_version = 1`）把 Analytics payload 耐久移交给专用 `GFRequestOutboxUtility`；尚可尝试的 pending 幂等复用会重新保存并复核，耗尽 pending 与 failed store 都不会被误报为成功，非敏感逻辑 endpoint 不进入调试快照，同时保留项目 transport、replay filter、PII/consent、鉴权和服务端幂等边界。
 - 新增 `GFDiagnosticSnapshotProvider` 与 `GFDiagnosticProviderResult`，提供 owner-bound、仅显式求值的类型化诊断采集，以及重入、时长和结构预算隔离。
 - 新增 `GFSessionTraceUtility`、`GFSessionTraceRecipe`、`GFSessionTraceChannelDefinition` 与 `GFSessionTraceCheckpoint`，提供显式通道白名单、事件数与字节双重预算、默认隐私脱敏、配方化故障检查点、结构化支持报告快照和可选 `GFLogSink` journal。
 - 新增 `GFUIRoutePreloadUtility`，从 `GFUIRoute.adjacent_route_ids` 做有界、确定性的页面可达性遍历，并生成可直接交给 `GFAssetUtility` 的 `GFAssetPreloadPlan`。
@@ -56,6 +58,10 @@
 - `GFContentPackageUtility` 的 source root 新增稳定 owner 关系和事务式整组替换；既有便捷入口只操作公开 manual owner scope，不再可能清除其他模块来源。
 - `GFStorageUtility` 的异步读写新增请求句柄入口；既有 `save_data_async()`、`load_data_async()` 和全局完成信号保持原行为，并与句柄共用同一调度队列。
 - `GFStorageFailoverBackend.configure_backends()` 对策略、失败阈值和冷却窗口执行事务式 fail-closed 校验，非法配置不会部分替换既有后端或静默改变写入语义。
+- `GFAnalyticsUtility` 的最终信封 Planner 现在按最大前缀向下有界校验，不假设自定义 `payload_builder` 的大小单调；工作预算耗尽时以 `planner_budget_exceeded` 保留完整队列，只有单事件已证明无法装入时才明确丢弃。
+- `GFAnalyticsConfig.batch_size` 与 `max_queue_size` 的 Inspector 和运行时赋值现在分别统一钳制到 `1..500` 与 `1..100_000`；`GFAnalyticsUtility.identify()` 只接受 `1..4096` 字符的 client id，client id 与事件名统一拒绝 C0/DEL 控制字符。`GFAnalyticsOutboxAdapter` v1 只接受精确 `{ events }` payload 与固定事件字段，额外 `payload_builder` 字段会 fail closed。
+- `GFRequestOutboxUtility.enqueue_with_report()` 显式区分内存入队与持久化结果；可靠入口会预检 codec 无损往返、复核同步通知后的精确所有权并补偿失效事务，`max_storage_bytes` 同时约束保存与恢复候选。请求信号、transport 和 replay filter 使用隔离副本；Outbox 继续只承诺 at-least-once 尝试。
+- `GFSupportReportWorkflow.queue_report()` 现在要求 `report_id` 为 `1..4096` 字符且不含 C0/DEL，要求 Outbox 完成持久化检查点，钳制重试次数到 `1..64`，并在顶层提交失败结果中保留 queue reason 与持久化错误。
 - 缩略图渲染改为等待场景树更新后同步强制绘制，避免无持续绘制帧时错过 `frame_post_draw`；dummy 渲染后端现在会安全返回空结果，不再访问无纹理存储的 ViewportTexture。
 - Session Trace journal 会校验轨迹与 sink 的脱敏 profile，且对 sink 生命周期、写入与刷新执行重入保护；不安全配置和运行期 profile 降级会 fail closed。
 - `GFDiagnosticsUtility.collect_snapshot()` 仅在调用方显式提交 `diagnostic_provider_ids` 时执行项目 Provider，并在回调返回后复核 owner、注册表修订、时长和输出预算；普通快照继续只读取已发布缓存。
@@ -64,7 +70,7 @@
 - `GFUIRouterUtility.push_route_async()` 与 `replace_route_async()` 现在返回类型化句柄，并支持 `none`、`best_effort`、`required` 三种显式打开前预加载策略；自动计划默认只包含当前页面，临时 owner group 会在面板终态后释放。
 - AI Developer 工具协议 4.0.0 将项目契约收敛到 schema v2：`required_capabilities` 被带 decision state、owner、Recipe、验收条件和备注的 `capability_requirements` 取代；必需能力必须显式选择 provider package，迁移占位项保持 `pending_review` 并阻断漂移门禁。
 - AI Developer 项目快照升级到 schema v4，新增契约迁移状态和 `capability_readiness`；目录包、安装包、Recipe 的显式 `all_of/any_of` 包表达式、生产/测试源码命中、累计字节预算与扫描完整性分别记录，不再从示例类反推依赖，也不把“未观察到类”误写成“未采用能力”。
-- Capability / Recipe 知识目录补齐 Save Profile、Content Package Catalog Mount、类型化异步 UI Route、惰性诊断 Provider 与 Session Trace 的项目侧采用边界。
+- Capability / Recipe 知识目录补齐版本化 Analytics Schema、专用 Outbox Adapter、Save Profile、Content Package Catalog Mount、类型化异步 UI Route、惰性诊断 Provider、Session Trace 与 Network Sync Coordinator 的项目侧采用边界。
 - Network Capability / Recipe 知识目录补齐有界权威快照协调、Adapter 纯校验、解码前 raw packet 限制、新 epoch 重同步和项目实体控制权边界。
 - AI Developer 项目契约的所有受控项目路径现在统一逐段拒绝符号链接、Windows junction 和其他重解析点；模块根、Adapter 根、project profile、验证必需路径与项目级资源不再允许通过链接别名绕过所有权边界。
 - 模块根与 Adapter 根额外采用跨平台规范化校验，并以大小写无关方式拒绝 `res://addons/gf` 及 Windows 尾点、保留名称等别名，避免把 GF 源码误归属为项目模块；普通源码资源引用不受这项契约限制。
@@ -98,6 +104,7 @@
 - 新增 `GFThumbnailRenderRequest.for_canvas_item_image()`、`for_canvas_item_texture()` 及相应来源、边界和留白读取入口。
 - 新增 `GFThumbnailRenderer.render_canvas_item()` 与 `render_canvas_item_texture()`。
 - 新增公开类型 `GFSpatialCanvas2D`，以及视图、坐标变换、网格、条目查询、选择和放置会话入口；均标记为 `@since unreleased`。它是项目显式挂载内容与提交输入的运行时 `Control`，不是编辑器、项目实体仓库或业务命令执行器。
+- 新增公开类型 `GFAnalyticsEventSchema`、`GFAnalyticsSchemaRegistry` 和 `GFAnalyticsOutboxAdapter`；`GFAnalyticsUtility` 新增永不为空的 `schema_registry` 与 `track_versioned(event_name, schema_version, properties)`，`GFRequestOutboxUtility` 新增 `enqueue_with_report(envelope, require_persistence)` 与 `max_storage_bytes`，`GFSupportReportWorkflow` 新增固定信封分类入口 `handles_request(envelope)`；均标记为 `@since unreleased`。
 - 新增公开类型 `GFAssetCollection` 和 `GFStorageFailoverBackend`；均标记为 `@since unreleased`，不改变既有调用入口默认行为。
 - 新增公开类型 `GFContentPackageQuery`、`GFContentPackageQueryResult`、`GFContentPackageAssetCatalogProvider`、`GFAssetCatalogRuntime` 和 `GFAssetCatalogMount`；`GFContentPackageCatalog` 新增 `query_packages()`，Content Package Utility 新增 owner-scoped root API，Asset Catalog Runtime 支持原子 `replace_mount_catalog()`。
 - 新增公开类型 `GFDiagnosticProviderResult`、`GFDiagnosticSnapshotProvider`、`GFSessionTraceUtility`、`GFSessionTraceRecipe`、`GFSessionTraceChannelDefinition`、`GFSessionTraceCheckpoint` 与 `GFUIRoutePreloadUtility`，以及 `GFDiagnosticsUtility` 的惰性 Provider 注册/采集 API、`GFUIRoute.adjacent_route_ids`、`get_adjacent_route_ids()` 和 `GFUIRouterUtility.build_preload_plan()`；均标记为 `@since unreleased`。
@@ -119,6 +126,8 @@
 - 既有 3D 缩略图、资产目录、存储后端与同步代码无需迁移。需要 2D 预览、有序资产集合或故障转移时显式采用新入口即可。
 - 既有项目画布与关卡编辑器无需迁移。只有需要通用运行时视图、稳定选择或受控放置会话时才安装 `gf.standard.spatial.canvas`（`gf.preset.2d_toolkit` 现已包含它），把项目可视节点显式挂到 `get_content_root()`，并由项目 Adapter 负责同步边界、占位校验、历史、权限和最终模型提交；不要把同步回调用于 IO、异步业务或回调重入。
 - 既有单调用方 Content Package root 入口继续使用公开 manual owner scope；多模块、热插拔内容或场景生命周期应迁移到 `register_source_root_for_owner()` / `replace_owner_source_roots()`，并在模块退出时调用 `clear_owner_source_roots()`。
+- 既有 `GFAnalyticsUtility.track()`、自定义 transport 和 `GFRequestOutboxUtility.enqueue()` 无需改签名；但依赖 `batch_size <= 0`、`max_queue_size <= 0`、超过 4096 字符的 client id，或在 client id / 事件名中保留 C0/DEL 的配置和数据应先迁移为有效稳定值。只有需要稳定事件契约时才注册 `1..2_147_483_647` 范围内的精确 `(event_name, schema_version)` 并调用 `track_versioned()`；需要离线移交时为 Analytics 配置专用 Outbox。Adapter v1 不保留自定义 payload 顶层字段，项目协议若依赖这些字段应继续使用自定义 transport；Schema 不自动迁移旧事件。相同身份已经进入 failed store 时 Adapter 返回 `already_failed`，项目应显式审查或清理；Outbox 不提供 exactly-once，PII、consent、鉴权和远端幂等仍须由项目显式处理。
+- 自定义 Support Report 若自行提供 `report_id`，应迁移为 `1..4096` 字符且不含 C0/DEL 的稳定 String/StringName；共享 Outbox 的项目 transport 应使用 `GFSupportReportWorkflow.handles_request()` 路由，自动装配不会覆盖已有 transport，非匹配请求会失败关闭。
 - 运行时资产目录默认拒绝重复 `asset_id`。只有明确设计了覆盖层时，才在首个 Mount 前配置 `CONFLICT_KEEP_HIGH_PRIORITY`；不要依赖 Provider 注册时序决定胜者。
 - 自定义 `_draw()` 或无法可靠推断范围的 2D 节点应传入显式 `content_bounds`；多后端复制与冲突处理继续使用 `GFStorageSyncUtility`，不要把故障转移当作原子双写。
 - 既有 UI 路由无需迁移；只有需要候选页面预热时才声明 `adjacent_route_ids` 并显式执行生成的资产计划。需要发布后问题轨迹时，应由项目定义最小事件 schema、玩家许可和保留策略，再显式采用 `GFSessionTraceUtility`。
@@ -161,6 +170,16 @@
 - `addons/gf/standard/utilities/storage/gf_storage_failover_backend.gd`
 - `addons/gf/standard/utilities/storage/gf_storage_utility.gd`
 - `addons/gf/standard/utilities/storage/gf_storage_async_operation.gd`
+- `addons/gf/standard/utilities/analytics/gf_analytics_config.gd`
+- `addons/gf/standard/utilities/analytics/gf_analytics_event_schema.gd`
+- `addons/gf/standard/utilities/analytics/gf_analytics_schema_registry.gd`
+- `addons/gf/standard/utilities/analytics/gf_analytics_utility.gd`
+- `addons/gf/standard/utilities/io/gf_analytics_outbox_adapter.gd`
+- `addons/gf/standard/utilities/io/gf_request_outbox_utility.gd`
+- `addons/gf/standard/utilities/debug/gf_support_report_workflow.gd`
+- `docs/zh/standard/utilities/io/config-remote-outbox/analytics-events.md`
+- `docs/zh/standard/utilities/io/config-remote-outbox/request-outbox.md`
+- `docs/zh/standard/utilities/runtime/debug-observability/support-notifications/support-report.md`
 - `addons/gf/standard/utilities/debug/gf_diagnostics_utility.gd`
 - `addons/gf/standard/utilities/debug/gf_session_trace_utility.gd`
 - `addons/gf/standard/utilities/debug/gf_diagnostic_snapshot_provider.gd`
@@ -186,6 +205,8 @@
 - `docs/zh/extensions/save-graph/save-profile-adr.md`
 - `addons/gf/tools/ai_developer/gf_ai/cli.py`
 - `addons/gf/tools/ai_developer/gf_ai/dependencies.py`
+- `addons/gf/tools/ai_developer/knowledge/capabilities.json`
+- `addons/gf/tools/ai_developer/knowledge/recipes.json`
 - `addons/gf/tools/ai_developer/schemas/project_contract.schema.json`
 - `addons/gf/tools/ai_developer/schemas/project_snapshot.schema.json`
 - `.github/workflows/ci.yml`

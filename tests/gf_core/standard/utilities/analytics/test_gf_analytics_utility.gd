@@ -59,6 +59,253 @@ func test_track_adds_event_to_queue() -> void:
 	assert_eq(_analytics.get_client_id(), "client-a", "identify 应替换 client_id。")
 
 
+func test_identify_rejects_oversized_client_id_before_event_encoding() -> void:
+	var original_client_id: String = _analytics.get_client_id()
+
+	_analytics.identify("x".repeat(4097))
+
+	assert_eq(_analytics.get_client_id(), original_client_id, "超长 client_id 不得替换稳定客户端标识。")
+	assert_push_warning("[GFAnalyticsUtility] client_id must contain 1..4096 characters without C0/DEL controls.")
+
+
+func test_identify_and_legacy_track_reject_c0_and_del_controls() -> void:
+	var original_client_id: String = _analytics.get_client_id()
+
+	_analytics.identify("client\u0001hidden")
+	_analytics.track(StringName("opened\u007fhidden"))
+
+	assert_eq(_analytics.get_client_id(), original_client_id, "控制字符 client_id 不得替换稳定客户端标识。")
+	assert_eq(_analytics.get_queue_size(), 0, "控制字符事件名不得进入 Analytics 队列。")
+	assert_push_warning("[GFAnalyticsUtility] client_id must contain 1..4096 characters without C0/DEL controls.")
+	assert_push_warning("[GFAnalyticsUtility] event_name contains control characters.")
+
+
+func test_legacy_track_payload_does_not_gain_version_identity_fields() -> void:
+	_analytics.config.batch_size = 10
+	var captured: AnalyticsPayloadCapture = AnalyticsPayloadCapture.new()
+	_analytics.transport_callback = func(payload: Dictionary) -> Dictionary:
+		captured.payload = payload.duplicate(true)
+		return { "success": true, "accepted": 1 }
+
+	_analytics.track(&"legacy_opened", { "index": 1 })
+	_analytics.flush()
+
+	var events: Array = GFVariantData.get_option_array(captured.payload, "events")
+	assert_eq(events.size(), 1, "legacy 事件仍应正常发送。")
+	if events.is_empty():
+		return
+	var event: Dictionary = GFVariantData.as_dictionary(events[0])
+	assert_false(event.has("event_id"), "legacy track 不得静默改变既有 payload。")
+	assert_false(event.has("schema_version"), "legacy track 不得静默增加版本字段。")
+
+
+func test_track_versioned_validates_and_adds_stable_identity_fields() -> void:
+	_analytics.config.batch_size = 10
+	var registration: Dictionary = _analytics.schema_registry.register_schema(
+		_make_versioned_event_schema()
+	)
+	var captured: AnalyticsPayloadCapture = AnalyticsPayloadCapture.new()
+	_analytics.transport_callback = func(payload: Dictionary) -> Dictionary:
+		captured.payload = payload.duplicate(true)
+		return { "success": true, "accepted": 1 }
+
+	var track_report: Dictionary = _analytics.track_versioned(
+		&"opened",
+		1,
+		{ "index": 1 }
+	)
+	_analytics.flush()
+
+	assert_true(GFVariantData.get_option_bool(registration, "ok"), "严格 Schema 应注册成功。")
+	assert_true(GFVariantData.get_option_bool(track_report, "ok"), "合法属性应通过精确版本校验。")
+	assert_true(GFVariantData.get_option_bool(track_report, "accepted"), "合法事件应被 Analytics 接受。")
+	assert_eq(
+		GFVariantData.get_option_string_name(track_report, "reason"),
+		&"tracked",
+		"成功应返回稳定 tracked 原因。"
+	)
+	var event_id: String = GFVariantData.get_option_string(track_report, "event_id")
+	assert_true(GFUuid.is_valid(event_id, 7), "版本化事件应获得 UUID v7 身份。")
+	var events: Array = GFVariantData.get_option_array(captured.payload, "events")
+	assert_eq(events.size(), 1, "版本化事件应进入 transport payload。")
+	if events.is_empty():
+		return
+	var event: Dictionary = GFVariantData.as_dictionary(events[0])
+	assert_eq(GFVariantData.get_option_string(event, "event_id"), event_id, "返回身份与发送身份应一致。")
+	assert_eq(GFVariantData.get_option_int(event, "schema_version"), 1, "发送事件应携带精确版本。")
+
+
+func test_track_versioned_invalid_properties_do_not_queue_or_emit() -> void:
+	var registration: Dictionary = _analytics.schema_registry.register_schema(
+		_make_versioned_event_schema()
+	)
+	watch_signals(_analytics)
+
+	var track_report: Dictionary = _analytics.track_versioned(
+		&"opened",
+		1,
+		{ "index": "1" }
+	)
+
+	assert_true(GFVariantData.get_option_bool(registration, "ok"), "严格 Schema 应注册成功。")
+	assert_false(GFVariantData.get_option_bool(track_report, "accepted"), "类型错误不得被接受。")
+	assert_eq(
+		GFVariantData.get_option_string_name(track_report, "reason"),
+		&"properties_invalid",
+		"普通 Schema 错误应返回 properties_invalid。"
+	)
+	assert_true(
+		GFVariantData.get_option_value(track_report, "validation") is GFValidationReport,
+		"失败结果应携带结构化校验报告。"
+	)
+	assert_eq(_analytics.get_queue_size(), 0, "无效事件不得入队。")
+	assert_signal_not_emitted(_analytics, "event_tracked", "无效事件不得发出 event_tracked。")
+
+
+func test_track_versioned_rejects_nested_report_budget_marker_after_encoding() -> void:
+	_analytics.config.max_payload_bytes = 4096
+	_analytics.config.max_collection_items = 256
+	var registration: Dictionary = _analytics.schema_registry.register_schema(
+		_make_any_payload_versioned_event_schema()
+	)
+	var packed_values: PackedInt32Array = PackedInt32Array()
+	var resize_error: Error = packed_values.resize(200) as Error
+
+	assert_eq(resize_error, OK, "测试载荷应成功扩容。")
+	var track_report: Dictionary = _analytics.track_versioned(
+		&"packed_payload",
+		1,
+		{
+			"payload": {
+				"values": packed_values,
+			},
+		}
+	)
+
+	assert_true(GFVariantData.get_option_bool(registration, "ok"), "ANY 属性 Schema 应注册成功。")
+	assert_false(GFVariantData.get_option_bool(track_report, "accepted"), "嵌套预算标记不得作为版本化属性入队。")
+	assert_eq(
+		GFVariantData.get_option_string_name(track_report, "reason"),
+		&"validation_budget_exceeded",
+		"编码后出现嵌套预算标记应失败关闭。"
+	)
+	assert_eq(_analytics.get_queue_size(), 0, "编码截断的版本化事件不得留在队列。")
+
+
+func test_track_versioned_requires_exact_registered_version() -> void:
+	var registration: Dictionary = _analytics.schema_registry.register_schema(
+		_make_versioned_event_schema()
+	)
+
+	var track_report: Dictionary = _analytics.track_versioned(
+		&"opened",
+		2,
+		{ "index": 1 }
+	)
+
+	assert_true(GFVariantData.get_option_bool(registration, "ok"), "版本 1 Schema 应注册成功。")
+	assert_eq(
+		GFVariantData.get_option_string_name(track_report, "reason"),
+		&"schema_not_registered",
+		"缺少版本 2 时不得隐式回退版本 1。"
+	)
+	assert_eq(_analytics.get_queue_size(), 0, "缺少精确版本时不得入队。")
+
+
+func test_track_versioned_rejects_schema_version_outside_positive_int32() -> void:
+	var track_report: Dictionary = _analytics.track_versioned(
+		&"opened",
+		2_147_483_648,
+		{ "index": 1 }
+	)
+
+	assert_false(GFVariantData.get_option_bool(track_report, "ok"), "版本越界不得进入 Registry 查询。")
+	assert_eq(
+		GFVariantData.get_option_string_name(track_report, "reason"),
+		&"invalid_schema_version",
+		"版本越界应返回稳定的非法版本原因。"
+	)
+	assert_eq(_analytics.get_queue_size(), 0, "版本越界不得留下事件。")
+
+
+func test_track_versioned_auto_flush_still_reports_accepted() -> void:
+	var registration: Dictionary = _analytics.schema_registry.register_schema(
+		_make_versioned_event_schema()
+	)
+	_analytics.config.batch_size = 1
+
+	var track_report: Dictionary = _analytics.track_versioned(
+		&"opened",
+		1,
+		{ "index": 1 }
+	)
+
+	assert_true(GFVariantData.get_option_bool(registration, "ok"), "严格 Schema 应注册成功。")
+	assert_true(GFVariantData.get_option_bool(track_report, "accepted"), "同步 dry-run 清队列后仍应报告事件已接受。")
+	assert_eq(_analytics.get_queue_size(), 0, "batch_size=1 应同步完成 dry-run。")
+	assert_false(track_report.has("queued"), "返回值不得用瞬时 queued 状态误导调用方。")
+
+
+func test_versioned_identity_survives_minimum_report_budgets() -> void:
+	_analytics.config.max_string_length = 1
+	_analytics.config.max_collection_items = 1
+	_analytics.config.max_total_nodes = 1
+	var tracked_events: Array[Dictionary] = []
+	var completed_results: Array[Dictionary] = []
+	var _tracked_connected: Error = _analytics.event_tracked.connect(
+		func(_event_name: StringName, event_data: Dictionary) -> void:
+			tracked_events.append(event_data.duplicate(true))
+	) as Error
+	var _completed_connected: Error = _analytics.flush_completed.connect(
+		func(result: Dictionary) -> void:
+			completed_results.append(result.duplicate(true))
+	) as Error
+	var registration: Dictionary = _analytics.schema_registry.register_schema(
+		_make_empty_versioned_event_schema()
+	)
+
+	var track_report: Dictionary = _analytics.track_versioned(&"opened", 1, {})
+
+	assert_true(GFVariantData.get_option_bool(registration, "ok"), "空属性 Schema 应注册成功。")
+	assert_true(GFVariantData.get_option_bool(track_report, "accepted"), "最小属性预算仍应接受空属性事件。")
+	assert_eq(tracked_events.size(), 1, "合法版本化事件应通过隔离信号公开完整信封。")
+	if tracked_events.is_empty():
+		return
+	var event: Dictionary = tracked_events[0]
+	assert_eq(
+		GFVariantData.get_option_string(event, "event_id"),
+		GFVariantData.get_option_string(track_report, "event_id"),
+		"可信 event_id 不得被属性报告预算截断。"
+	)
+	assert_true(
+		GFUuid.is_valid(GFVariantData.get_option_string(event, "event_id"), 7),
+		"队列中应保留完整 UUIDv7。"
+	)
+	assert_eq(GFVariantData.get_option_int(event, "schema_version"), 1, "可信 schema_version 不得丢失。")
+	assert_eq(GFVariantData.get_option_string(event, "event"), "opened", "可信事件名不得被字符串预算截断。")
+	assert_true(
+		GFVariantData.get_option_value(event, "properties") is Dictionary,
+		"properties 根容器应保持 Dictionary。"
+	)
+	_analytics.flush()
+	assert_eq(_analytics.get_queue_size(), 0, "最小报告预算不得把成功 transport 结果误判为失败。")
+	assert_eq(completed_results.size(), 1, "最小报告预算下 flush 仍应完成一次。")
+	if not completed_results.is_empty():
+		assert_true(GFVariantData.get_option_bool(completed_results[0], "success"), "可信 success 控制字段不得被报告预算截断。")
+		assert_eq(GFVariantData.get_option_int(completed_results[0], "accepted"), 1, "可信 accepted 控制字段不得被报告预算截断。")
+
+
+func test_schema_registry_assignment_never_exposes_null() -> void:
+	_analytics.schema_registry = null
+
+	assert_not_null(_analytics.schema_registry, "schema_registry 公共属性必须始终可用。")
+	assert_eq(
+		GFVariantData.get_option_int(_analytics.schema_registry.get_debug_snapshot(), "schema_count"),
+		0,
+		"null 赋值应恢复为空注册表。"
+	)
+
+
 ## 验证 endpoint 为空时 flush 走 dry-run 成功路径。
 func test_flush_without_endpoint_is_dry_run_success() -> void:
 	watch_signals(_analytics)
@@ -316,6 +563,105 @@ func test_flush_started_listener_cannot_mutate_transport_batch() -> void:
 	assert_eq(captured.events.size(), 1, "flush_started 监听器不应能清空即将发送的批次。")
 
 
+func test_flush_started_dispose_prevents_transport_after_notification() -> void:
+	_analytics.config.batch_size = 10
+	var captured: AnalyticsPayloadCapture = AnalyticsPayloadCapture.new()
+	_analytics.transport_callback = func(_payload: Dictionary) -> Dictionary:
+		captured.call_count += 1
+		return { "success": true, "accepted": 1 }
+	var analytics_ref: GFAnalyticsUtility = _analytics
+	var _started_connected: Error = _analytics.flush_started.connect(
+		func(_batch: Array) -> void:
+			analytics_ref.dispose()
+	) as Error
+	watch_signals(_analytics)
+	_analytics.track(&"dispose_on_start")
+
+	_analytics.flush()
+
+	assert_eq(captured.call_count, 0, "flush_started 中 dispose 后不得继续调用 transport。")
+	assert_signal_emitted(_analytics, "flush_failed", "被 dispose 中断的批次应明确失败。")
+	assert_signal_emitted(_analytics, "flush_completed", "中断批次仍应完成一次生命周期。")
+
+
+func test_transport_dispose_does_not_double_finish_flush() -> void:
+	_analytics.config.batch_size = 10
+	var captured: AnalyticsPayloadCapture = AnalyticsPayloadCapture.new()
+	var signal_counts: Array[int] = [0, 0]
+	var analytics_ref: GFAnalyticsUtility = _analytics
+	var _failure_connected: Error = _analytics.flush_failed.connect(
+		func(_result: Dictionary) -> void:
+			signal_counts[0] += 1
+	) as Error
+	var _completion_connected: Error = _analytics.flush_completed.connect(
+		func(_result: Dictionary) -> void:
+			signal_counts[1] += 1
+	) as Error
+	_analytics.transport_callback = func(_payload: Dictionary) -> Dictionary:
+		captured.call_count += 1
+		analytics_ref.dispose()
+		return { "success": true, "accepted": 1 }
+	_analytics.track(&"dispose_in_transport")
+
+	_analytics.flush()
+
+	assert_eq(captured.call_count, 1, "transport 应只调用一次。")
+	assert_eq(signal_counts[0], 1, "transport 中 dispose 应只完成一次失败。")
+	assert_eq(signal_counts[1], 1, "transport 中 dispose 应只完成一次 completion。")
+
+
+func test_flush_failed_dispose_is_non_recursive_and_completes_once() -> void:
+	_analytics.config.batch_size = 10
+	var signal_counts: Array[int] = [0, 0]
+	var analytics_ref: GFAnalyticsUtility = _analytics
+	var _failure_connected: Error = _analytics.flush_failed.connect(
+		func(_result: Dictionary) -> void:
+			signal_counts[0] += 1
+			analytics_ref.dispose()
+	) as Error
+	var _completion_connected: Error = _analytics.flush_completed.connect(
+		func(_result: Dictionary) -> void:
+			signal_counts[1] += 1
+	) as Error
+	_analytics.transport_callback = func(_payload: Dictionary) -> Dictionary:
+		return { "success": false, "error": "offline" }
+	_analytics.track(&"dispose_on_failure")
+
+	_analytics.flush()
+
+	assert_eq(signal_counts[0], 1, "flush_failed 监听器 dispose 不得递归再次发出失败。")
+	assert_eq(signal_counts[1], 1, "失败批次应只发出一次 completion。")
+
+
+func test_flush_completed_shutdown_drains_remaining_batches_without_looping() -> void:
+	_analytics.config.batch_size = 8
+	_analytics.config.flush_on_shutdown = true
+	var transport_calls: Array[int] = [0]
+	var completed_calls: Array[int] = [0]
+	_analytics.transport_callback = func(payload: Dictionary) -> Dictionary:
+		transport_calls[0] += 1
+		return {
+			"success": true,
+			"accepted": GFVariantData.get_option_array(payload, "events").size(),
+		}
+	var analytics_ref: GFAnalyticsUtility = _analytics
+	var _completed_connected: Error = _analytics.flush_completed.connect(
+		func(_result: Dictionary) -> void:
+			completed_calls[0] += 1
+			if completed_calls[0] == 1:
+				analytics_ref.shutdown(true)
+	) as Error
+	_analytics.track(&"first")
+	_analytics.track(&"second")
+	_analytics.config.batch_size = 1
+
+	_analytics.flush()
+
+	assert_eq(transport_calls[0], 2, "通知中的 shutdown 应在通知结束后继续排空剩余批次。")
+	assert_eq(completed_calls[0], 2, "每个排空批次都应完成一次。")
+	assert_eq(_analytics.get_queue_size(), 0, "shutdown drain 应清空剩余同步批次。")
+
+
 func test_partial_accepted_flush_requeues_unaccepted_events() -> void:
 	_analytics.config.batch_size = 3
 	_analytics.config.max_queue_size = 10
@@ -436,6 +782,96 @@ func test_payload_builder_cannot_mutate_or_replace_encoded_event_batch() -> void
 	assert_false(JSON.stringify(captured.payload).contains("PayloadBuilderPrivateNode"), "builder 不得绕过 analytics 隐私边界。")
 
 
+func test_payload_builder_flush_reentry_is_ignored_without_recursion() -> void:
+	var builder_calls: Array[int] = [0]
+	var transport_calls: Array[int] = [0]
+	_analytics.payload_builder = func(_batch: Array) -> Dictionary:
+		builder_calls[0] += 1
+		_analytics.flush()
+		return { "channel": "reentrant" }
+	_analytics.transport_callback = func(payload: Dictionary) -> Dictionary:
+		transport_calls[0] += 1
+		return {
+			"success": true,
+			"accepted": GFVariantData.get_option_array(payload, "events").size(),
+		}
+	_analytics.track(&"reentrant_builder")
+
+	_analytics.flush()
+
+	assert_eq(builder_calls[0], 1, "payload_builder 内 flush 不得递归进入 planner。")
+	assert_eq(transport_calls[0], 1, "合法外层批次仍应发送一次。")
+	assert_eq(_analytics.get_queue_size(), 0, "成功批次应正常完成。")
+
+
+func test_payload_builder_queue_mutation_invalidates_stale_plan() -> void:
+	var transport_calls: Array[int] = [0]
+	_analytics.payload_builder = func(_batch: Array) -> Dictionary:
+		_analytics.clear_queue()
+		return { "channel": "mutated" }
+	_analytics.transport_callback = func(_payload: Dictionary) -> Dictionary:
+		transport_calls[0] += 1
+		return { "success": true, "accepted": 1 }
+	_analytics.track(&"stale_plan")
+
+	_analytics.flush()
+
+	assert_eq(transport_calls[0], 0, "planner 回调改写队列后不得发送过期候选。")
+	assert_eq(_analytics.get_queue_size(), 0, "回调显式清空队列的结果应保留。")
+
+
+func test_non_monotonic_payload_builder_still_selects_largest_fitting_prefix() -> void:
+	_analytics.config.batch_size = 10
+	_analytics.config.max_queue_size = 10
+	_analytics.config.max_payload_bytes = 1024
+	_analytics.config.max_string_length = 1024
+	var captured: AnalyticsPayloadCapture = AnalyticsPayloadCapture.new()
+	_analytics.payload_builder = func(batch: Array) -> Dictionary:
+		if batch.size() == 3:
+			return { "mode": "fit" }
+		return { "padding": "p".repeat(850) }
+	_analytics.transport_callback = func(payload: Dictionary) -> Dictionary:
+		captured.events = GFVariantData.get_option_array(payload, "events").duplicate(true)
+		return { "success": true, "accepted": captured.events.size() }
+	for index: int in range(4):
+		_analytics.track(&"non_monotonic", { "index": index })
+
+	_analytics.flush()
+
+	assert_eq(captured.events.size(), 3, "planner 必须按最大到最小验证，不能用单调性假设跳过可发送前缀。")
+	assert_eq(_analytics.get_queue_size(), 1, "最大可发送前缀之后的事件应继续留队。")
+
+
+func test_planner_work_budget_retains_queue_instead_of_dropping() -> void:
+	_analytics.config.batch_size = 500
+	_analytics.config.max_queue_size = 500
+	_analytics.config.max_payload_bytes = 16 * 1024
+	_analytics.config.max_string_length = 16 * 1024
+	var failures: Array[Dictionary] = []
+	var transport_calls: Array[int] = [0]
+	_analytics.payload_builder = func(_batch: Array) -> Dictionary:
+		return { "padding": "p".repeat(15_000) }
+	_analytics.transport_callback = func(_payload: Dictionary) -> Dictionary:
+		transport_calls[0] += 1
+		return { "success": true, "accepted": 1 }
+	var _failure_connected: Error = _analytics.flush_failed.connect(
+		func(result: Dictionary) -> void:
+			failures.append(result.duplicate(true))
+	) as Error
+	for index: int in range(50):
+		_analytics.track(&"planner_budget", { "index": index })
+
+	_analytics.flush()
+
+	assert_eq(transport_calls[0], 0, "planner 尚未证明前缀可发送时不得调用 transport。")
+	assert_eq(_analytics.get_queue_size(), 50, "planner 工作预算耗尽必须保留完整队列。")
+	assert_eq(failures.size(), 1, "工作预算耗尽应产生一次明确失败进展。")
+	if not failures.is_empty():
+		assert_true(GFVariantData.get_option_bool(failures[0], "retained"), "失败结果应明确队列仍被保留。")
+		assert_false(GFVariantData.get_option_bool(failures[0], "dropped"), "工作预算失败不得伪装成 drop。")
+		assert_eq(GFVariantData.get_option_string(failures[0], "drop_reason"), "planner_budget_exceeded", "工作预算失败应返回稳定原因。")
+
+
 func test_final_envelope_budget_splits_batches_before_dequeue() -> void:
 	_analytics.config.batch_size = 10
 	_analytics.config.max_queue_size = 10
@@ -493,6 +929,103 @@ func test_unsendable_single_event_is_dropped_once_with_failure_progress() -> voi
 	if not failures.is_empty():
 		assert_true(GFVariantData.get_option_bool(failures[0], "dropped"), "失败结果应明确 dropped。")
 		assert_eq(GFVariantData.get_option_string(failures[0], "drop_reason"), "final_envelope_too_large", "drop 应提供稳定原因。")
+
+
+func test_oversized_drop_notifications_do_not_reenter_flush() -> void:
+	_analytics.config.batch_size = 1
+	_analytics.config.max_payload_bytes = 1024
+	_analytics.payload_builder = func(_batch: Array) -> Dictionary:
+		return { "padding": "p".repeat(900) }
+	var started_count: Array[int] = [0]
+	var analytics_ref: GFAnalyticsUtility = _analytics
+	var _started_connected: Error = _analytics.flush_started.connect(
+		func(_batch: Array) -> void:
+			started_count[0] += 1
+			if started_count[0] == 1:
+				analytics_ref.track(&"replacement", { "value": "v".repeat(180) })
+	) as Error
+	_analytics.track(&"oversized", { "value": "v".repeat(180) })
+
+	assert_eq(started_count[0], 1, "drop 通知中的自动 flush 必须被通知 guard 阻止。")
+	assert_eq(_analytics.get_queue_size(), 1, "通知中新入队事件应留给后续显式 flush。")
+
+
+func test_drop_notification_shutdown_drains_remaining_events() -> void:
+	_analytics.config.batch_size = 10
+	_analytics.config.max_payload_bytes = 1024
+	_analytics.config.flush_on_shutdown = true
+	_analytics.payload_builder = func(_batch: Array) -> Dictionary:
+		return { "padding": "p".repeat(900) }
+	var completion_count: Array[int] = [0]
+	var analytics_ref: GFAnalyticsUtility = _analytics
+	var _completed_connected: Error = _analytics.flush_completed.connect(
+		func(_result: Dictionary) -> void:
+			completion_count[0] += 1
+			if completion_count[0] == 1:
+				analytics_ref.shutdown(true)
+	) as Error
+	_analytics.track(&"first_oversized", { "value": "v".repeat(180) })
+	_analytics.track(&"second_oversized", { "value": "v".repeat(180) })
+
+	_analytics.flush()
+
+	assert_eq(completion_count[0], 2, "drop 通知中的 shutdown 应在通知结束后继续 drain。")
+	assert_eq(_analytics.get_queue_size(), 0, "shutdown drain 应处理全部不可发送事件并终止。")
+
+
+func test_response_parser_non_dictionary_fails_closed_and_requeues_batch() -> void:
+	var analytics: PendingHTTPResponseAnalyticsUtility = PendingHTTPResponseAnalyticsUtility.new()
+	analytics.init()
+	analytics.config.auto_capture_context = false
+	analytics.config.flush_interval_seconds = 0.0
+	analytics.response_parser = func(
+		_response_code: int,
+		_body: PackedByteArray,
+		_fallback_accepted: int
+	) -> Variant:
+		return null
+	var failures: Array[Dictionary] = []
+	var _failure_connected: Error = analytics.flush_failed.connect(
+		func(result: Dictionary) -> void:
+			failures.append(result.duplicate(true))
+	) as Error
+	analytics.track(&"pending_response")
+	analytics.flush()
+
+	analytics.complete_response("{}")
+
+	assert_eq(analytics.get_queue_size(), 1, "无效 parser 结果必须回灌原批次。")
+	assert_eq(failures.size(), 1, "无效 parser 结果应明确失败一次。")
+	analytics.dispose()
+
+
+func test_response_parser_state_change_cannot_finish_a_new_generation() -> void:
+	var analytics: PendingHTTPResponseAnalyticsUtility = PendingHTTPResponseAnalyticsUtility.new()
+	analytics.init()
+	analytics.config.auto_capture_context = false
+	analytics.config.flush_interval_seconds = 0.0
+	var parser_calls: Array[int] = [0]
+	var analytics_ref: PendingHTTPResponseAnalyticsUtility = analytics
+	analytics.response_parser = func(
+		_response_code: int,
+		_body: PackedByteArray,
+		_fallback_accepted: int
+	) -> Dictionary:
+		parser_calls[0] += 1
+		analytics_ref.dispose()
+		analytics_ref.init()
+		analytics_ref.config.auto_capture_context = false
+		analytics_ref.config.flush_interval_seconds = 0.0
+		analytics_ref.track(&"new_generation")
+		return { "success": true, "accepted": 1 }
+	analytics.track(&"old_generation")
+	analytics.flush()
+
+	analytics.complete_response("{}")
+
+	assert_eq(parser_calls[0], 1, "response_parser 应调用一次。")
+	assert_eq(analytics.get_queue_size(), 1, "旧 HTTP callback 不得完成 parser 中创建的新 generation。")
+	analytics.dispose()
 
 
 func test_dispose_reports_and_completes_in_flight_batch() -> void:
@@ -583,6 +1116,58 @@ func _remove_file_if_exists(path: String) -> void:
 		assert_eq(remove_error, OK, "测试应能删除 analytics 临时文件。")
 
 
+func _make_versioned_event_schema() -> GFAnalyticsEventSchema:
+	var field: GFSchemaField = GFSchemaField.new().configure(
+		&"index",
+		GFSchemaField.ValueType.INT,
+		{
+			"required": true,
+			"allow_null": false,
+		}
+	)
+	var properties_schema: GFDictionarySchema = GFDictionarySchema.new().configure(
+		&"analytics.opened.properties",
+		[field],
+		{
+			"allow_extra_fields": false,
+			"coerce_values": false,
+		}
+	)
+	return GFAnalyticsEventSchema.new().configure(&"opened", 1, properties_schema)
+
+
+func _make_empty_versioned_event_schema() -> GFAnalyticsEventSchema:
+	var properties_schema: GFDictionarySchema = GFDictionarySchema.new().configure(
+		&"analytics.opened.empty_properties",
+		[],
+		{
+			"allow_extra_fields": false,
+			"coerce_values": false,
+		}
+	)
+	return GFAnalyticsEventSchema.new().configure(&"opened", 1, properties_schema)
+
+
+func _make_any_payload_versioned_event_schema() -> GFAnalyticsEventSchema:
+	var field: GFSchemaField = GFSchemaField.new().configure(
+		&"payload",
+		GFSchemaField.ValueType.ANY,
+		{
+			"required": true,
+			"allow_null": false,
+		}
+	)
+	var properties_schema: GFDictionarySchema = GFDictionarySchema.new().configure(
+		&"analytics.packed_payload.properties",
+		[field],
+		{
+			"allow_extra_fields": false,
+			"coerce_values": false,
+		}
+	)
+	return GFAnalyticsEventSchema.new().configure(&"packed_payload", 1, properties_schema)
+
+
 # --- 内部类 ---
 
 class AnalyticsPayloadCapture:
@@ -596,6 +1181,20 @@ class AnalyticsPayloadCapture:
 class PendingAnalyticsUtility extends GFAnalyticsUtility:
 	func _send_batch(_batch: Array) -> void:
 		pass
+
+
+class PendingHTTPResponseAnalyticsUtility extends GFAnalyticsUtility:
+	func _send_batch(_batch: Array) -> void:
+		_active_http_generation = _flush_generation
+
+
+	func complete_response(body_text: String) -> void:
+		_on_request_completed(
+			HTTPRequest.RESULT_SUCCESS,
+			200,
+			PackedStringArray(),
+			body_text.to_utf8_buffer()
+		)
 
 
 class DeferredDrainAnalyticsUtility extends GFAnalyticsUtility:

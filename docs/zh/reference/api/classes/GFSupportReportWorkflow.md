@@ -20,12 +20,12 @@
 | 信号 | [`workflow_report_queued`](#member-gfsupportreportworkflow-signals-workflow_report_queued) | `signal workflow_report_queued(report: Dictionary, envelope: GFRequestEnvelope)` |
 | 信号 | [`workflow_replay_completed`](#member-gfsupportreportworkflow-signals-workflow_replay_completed) | `signal workflow_replay_completed(result: Dictionary)` |
 | 属性 | [`support_report_utility`](#member-gfsupportreportworkflow-properties-support_report_utility) | `var support_report_utility: GFSupportReportUtility = null` |
-| 属性 | [`request_outbox`](#member-gfsupportreportworkflow-properties-request_outbox) | `var request_outbox: GFRequestOutboxUtility = null` |
-| 属性 | [`transport_callback`](#member-gfsupportreportworkflow-properties-transport_callback) | `var transport_callback: Callable = Callable()` |
+| 属性 | [`request_outbox`](#member-gfsupportreportworkflow-properties-request_outbox) | `var request_outbox: GFRequestOutboxUtility = null:` |
+| 属性 | [`transport_callback`](#member-gfsupportreportworkflow-properties-transport_callback) | `var transport_callback: Callable = Callable():` |
 | 属性 | [`request_url`](#member-gfsupportreportworkflow-properties-request_url) | `var request_url: String = "gf://support-report"` |
 | 属性 | [`queue_on_submit_failure`](#member-gfsupportreportworkflow-properties-queue_on_submit_failure) | `var queue_on_submit_failure: bool = true` |
 | 属性 | [`queue_when_transport_missing`](#member-gfsupportreportworkflow-properties-queue_when_transport_missing) | `var queue_when_transport_missing: bool = true` |
-| 属性 | [`auto_wire_outbox_transport`](#member-gfsupportreportworkflow-properties-auto_wire_outbox_transport) | `var auto_wire_outbox_transport: bool = true` |
+| 属性 | [`auto_wire_outbox_transport`](#member-gfsupportreportworkflow-properties-auto_wire_outbox_transport) | `var auto_wire_outbox_transport: bool = true:` |
 | 属性 | [`session_metadata`](#member-gfsupportreportworkflow-properties-session_metadata) | `var session_metadata: Dictionary = {}` |
 | 方法 | [`dispose`](#member-gfsupportreportworkflow-methods-dispose) | `func dispose() -> void:` |
 | 方法 | [`setup`](#member-gfsupportreportworkflow-methods-setup) | `func setup( report_utility: GFSupportReportUtility = null, outbox: GFRequestOutboxUtility = null ) -> GFSupportReportWorkflow:` |
@@ -36,6 +36,7 @@
 | 方法 | [`submit_built_report`](#member-gfsupportreportworkflow-methods-submit_built_report) | `func submit_built_report(report: Dictionary, options: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`queue_report`](#member-gfsupportreportworkflow-methods-queue_report) | `func queue_report(report: Dictionary, options: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`replay_queued`](#member-gfsupportreportworkflow-methods-replay_queued) | `func replay_queued(max_count: int = 0) -> Dictionary:` |
+| 方法 | [`handles_request`](#member-gfsupportreportworkflow-methods-handles_request) | `func handles_request(envelope: GFRequestEnvelope) -> bool:` |
 | 方法 | [`get_debug_snapshot`](#member-gfsupportreportworkflow-methods-get_debug_snapshot) | `func get_debug_snapshot() -> Dictionary:` |
 
 ## 信号
@@ -51,7 +52,7 @@
 signal workflow_report_built(report: Dictionary)
 ```
 
-工作流构建支持报告后发出。
+工作流构建支持报告后发出。report 是隔离副本。
 
 参数：
 
@@ -74,7 +75,7 @@ signal workflow_report_built(report: Dictionary)
 signal workflow_report_submitted(report: Dictionary, result: Dictionary)
 ```
 
-工作流直接提交支持报告成功后发出。
+工作流直接提交支持报告成功后发出。report 与 result 都是隔离副本。
 
 参数：
 
@@ -99,7 +100,7 @@ signal workflow_report_submitted(report: Dictionary, result: Dictionary)
 signal workflow_report_queued(report: Dictionary, envelope: GFRequestEnvelope)
 ```
 
-工作流把支持报告写入离线队列后发出。
+工作流把支持报告可靠写入离线队列后发出。 该信号是耐久交接完成后的通知；report 与 envelope 都是隔离副本。监听器随后 清理或重放 Outbox 属于新的显式操作，不会反转 queue_report() 已完成的回执。
 
 参数：
 
@@ -123,7 +124,7 @@ signal workflow_report_queued(report: Dictionary, envelope: GFRequestEnvelope)
 signal workflow_replay_completed(result: Dictionary)
 ```
 
-工作流完成一次离线队列重放后发出。
+工作流完成一次离线队列重放后发出。result 是隔离副本。
 
 参数：
 
@@ -158,7 +159,7 @@ var support_report_utility: GFSupportReportUtility = null
 - 首次版本：`8.0.0`
 
 ```gdscript
-var request_outbox: GFRequestOutboxUtility = null
+var request_outbox: GFRequestOutboxUtility = null:
 ```
 
 可选离线请求队列。为空时 workflow 只尝试直接提交。
@@ -171,7 +172,7 @@ var request_outbox: GFRequestOutboxUtility = null
 - 首次版本：`8.0.0`
 
 ```gdscript
-var transport_callback: Callable = Callable()
+var transport_callback: Callable = Callable():
 ```
 
 直接提交或重放时使用的传输回调，建议签名为 func(report: Dictionary, options: Dictionary) -> Variant。
@@ -223,10 +224,10 @@ var queue_when_transport_missing: bool = true
 - 首次版本：`8.0.0`
 
 ```gdscript
-var auto_wire_outbox_transport: bool = true
+var auto_wire_outbox_transport: bool = true:
 ```
 
-设置 transport_callback 后是否自动把 request_outbox.transport_callback 指向本工作流。
+设置 transport_callback 后是否在 Outbox 尚无 transport 时自动绑定本工作流。 建议只使用专用 Outbox；不会覆盖项目已经安装的共享 transport，且自动绑定的 transport 会拒绝所有不符合 Support Report 协议的请求。切换 Outbox、清空 transport、关闭自动绑定或释放工作流时，只解除仍由当前工作流拥有的绑定。
 
 <a id="member-gfsupportreportworkflow-properties-session_metadata"></a>
 
@@ -422,7 +423,7 @@ func submit_built_report(report: Dictionary, options: Dictionary = {}) -> Dictio
 func queue_report(report: Dictionary, options: Dictionary = {}) -> Dictionary:
 ```
 
-将支持报告写入离线请求队列。
+将支持报告可靠写入离线请求队列。 只有 Outbox 完成持久化检查点且其同步通知没有撤销该精确请求时，才返回 queued。 workflow_report_queued 是耐久交接完成后的通知；监听器随后清理或重放 Outbox 属于新的显式操作，不会反转已完成的回执。失败结果会保留稳定 reason 和 persistence_error。
 
 参数：
 
@@ -437,7 +438,7 @@ func queue_report(report: Dictionary, options: Dictionary = {}) -> Dictionary:
 
 - `report`: Dictionary，GFSupportReportUtility.build_report() 返回结构。
 - `options`: Dictionary，包含 request_url、headers、request_metadata、transport_options、max_attempts、idempotency_key。
-- `return`: Dictionary，包含 ok、status、envelope、error。
+- `return`: Dictionary，包含 ok、status、reason、envelope、persisted、persistence_error 和 error。
 
 <a id="member-gfsupportreportworkflow-methods-replay_queued"></a>
 
@@ -463,6 +464,27 @@ func replay_queued(max_count: int = 0) -> Dictionary:
 结构：
 
 - `return`: Dictionary，GFRequestOutboxUtility.replay() 返回结构；缺少 outbox 时包含 ok=false 和 reason。
+
+<a id="member-gfsupportreportworkflow-methods-handles_request"></a>
+
+### `handles_request`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func handles_request(envelope: GFRequestEnvelope) -> bool:
+```
+
+判断请求是否符合本工作流的持久化 Support Report 协议。 该检查用于共享边界 fail closed；仍建议为 Support Report 使用独立 Outbox。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `envelope` | 待检查请求信封。 |
+
+返回：method、请求状态、body 与 metadata 身份一致时返回 true。
 
 <a id="member-gfsupportreportworkflow-methods-get_debug_snapshot"></a>
 

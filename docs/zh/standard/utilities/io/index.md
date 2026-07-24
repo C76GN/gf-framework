@@ -8,12 +8,12 @@
 
 - [资源加载、下载、任务队列与预热](assets-jobs-warmup/index.md)：资源生命周期、下载、任务队列、后台工作和渲染预热。
 - [本地存储、编码、同步与快照](storage-snapshot/index.md)：本地存档、编码、完整性校验、迁移、同步后端和快照历史。
-- [导表、分析、远程缓存与请求](config-remote-outbox/index.md)：配置表、分析事件、远程缓存、HTTP 请求和离线请求 Outbox。
+- [导表、分析、远程缓存与请求](config-remote-outbox/index.md)：配置表、版本化分析事件、远程缓存、HTTP 请求、专用 Analytics Adapter 和离线请求 Outbox。
 
 ## 使用边界
 
 - 本组 Utility 只负责资源、文件、配置和请求流程的通用机制。
-- 项目资源包发布、账号系统、云端协议、隐私合规、业务 DTO 和服务器错误语义应由项目层或外部 SDK 适配。
+- 项目资源包发布、账号系统、云端协议、PII 与用户同意、鉴权、业务 DTO 和服务器错误语义应由项目层或外部 SDK 适配。
 - 场景树级状态采集、实体恢复和存档图应用应使用 [Save 场景存档图](../../../extensions/save-graph/index.md)。
 - 纯数据结构、数值、标签、校验报告和 Variant 转换应放在 [Foundation](../../foundation/index.md)。
 

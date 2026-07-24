@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFAnalyticsSchemaRegistry" path="addons/gf/standard/utilities/analytics/gf_analytics_schema_registry.gd" module="standard" extends="Resource" classDigest="fa44eeecef4204705a1d02a25d994c26eed933417df3fb9f845d7fc4c3afad6e">
+	<description>GFAnalyticsSchemaRegistry: 精确版本 Analytics 事件 Schema 注册表。
+注册表以 event_name 与 schema_version 的组合保存隔离副本，
+禁止同版本覆盖，也不提供隐式 latest 回退。公开 getter 再返回副本，
+避免调用方通过可变 Resource 改写已经注册的契约。单个 Registry 最多保存
+1024 个 Schema、同一事件最多 32 个精确版本，并对定义图、辅助值和文本执行
+累计硬预算；只接受内置声明式 EventSchema、DictionarySchema、Field 和规则脚本。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_service</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties />
+	<methods>
+		<member kind="method" name="register_schema">
+			<signature>func register_schema(schema: GFAnalyticsEventSchema) -&gt; Dictionary:</signature>
+			<description>注册一个事件 Schema 的隔离副本。
+同一事件的同一版本只能注册一次；无效定义、容量超限或版本重复都会失败。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">schema: 待注册事件 Schema。</tag>
+				<tag name="return">注册结果。</tag>
+				<tag name="schema">return: Dictionary with ok, reason, event_name, schema_version, registered_count, and validation.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="has_schema">
+			<signature>func has_schema(event_name: StringName, schema_version: int) -&gt; bool:</signature>
+			<description>检查精确事件 Schema 版本是否存在。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">event_name: 稳定事件名。</tag>
+				<tag name="param">schema_version: 1..2_147_483_647 范围内的精确版本。</tag>
+				<tag name="return">已注册时返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_schema">
+			<signature>func get_schema( event_name: StringName, schema_version: int ) -&gt; GFAnalyticsEventSchema:</signature>
+			<description>获取精确事件 Schema 版本的隔离副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">event_name: 稳定事件名。</tag>
+				<tag name="param">schema_version: 1..2_147_483_647 范围内的精确版本。</tag>
+				<tag name="return">已注册 Schema 的副本；不存在时返回 null。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_versions">
+			<signature>func get_versions(event_name: StringName) -&gt; PackedInt32Array:</signature>
+			<description>获取事件已经注册的版本列表。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">event_name: 稳定事件名。</tag>
+				<tag name="return">升序版本数组。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="validate">
+			<signature>func validate( event_name: StringName, schema_version: int, properties: Dictionary, options: Dictionary = {} ) -&gt; GFValidationReport:</signature>
+			<description>使用精确注册版本校验事件属性。
+版本不存在时返回 schema_not_registered，不会自动选择其他版本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">event_name: 稳定事件名。</tag>
+				<tag name="param">schema_version: 1..2_147_483_647 范围内的精确版本。</tag>
+				<tag name="param">properties: 编码前事件属性。</tag>
+				<tag name="param">options: 传给事件 Schema 的校验上下文与预算。</tag>
+				<tag name="return">校验报告。</tag>
+				<tag name="schema">properties: Dictionary analytics event properties before report encoding.</tag>
+				<tag name="schema">options: Dictionary validation context and bounded traversal options.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_debug_snapshot">
+			<signature>func get_debug_snapshot() -&gt; Dictionary:</signature>
+			<description>获取不含业务属性和默认值的调试快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">注册表调试信息。</tag>
+				<tag name="schema">return: Dictionary with event_count, schema_count, registered footprint counters, registry limits, and events; each event contains event_name and versions.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

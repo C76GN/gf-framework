@@ -18,11 +18,13 @@ extends GFUtility
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param event_name: 事件名。
 ## [br]
 ## @param event_data: 已入队事件数据。
 ## [br]
-## @schema event_data: Dictionary with `event`, `client_id`, `session_id`, `timestamp`, `properties`, and optional `context`.
+## @schema event_data: Dictionary with `event`, `client_id`, `session_id`, `timestamp`, `properties`, optional `context`, and for versioned events `event_id` plus `schema_version`.
 signal event_tracked(event_name: StringName, event_data: Dictionary)
 
 ## 开始 flush 时发出。
@@ -38,24 +40,32 @@ signal flush_started(batch: Array)
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param result: flush 结果。
 ## [br]
-## @schema result: Dictionary with at least `success: bool`; may include `accepted`, `error`, `dry_run`, or transport-specific fields.
+## @schema result: Dictionary with `success`; may include `accepted`, `error`, `dry_run`, `dropped`, `retained`, `drop_reason`, or transport-specific fields.
 signal flush_completed(result: Dictionary)
 
 ## flush 失败时额外发出。
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param result: 失败结果。
 ## [br]
-## @schema result: Dictionary with `success: false` and an optional `error` field.
+## @schema result: Dictionary with `success: false`; may include `error`, `dropped`, `retained`, `drop_reason`, and payload budget fields.
 signal flush_failed(result: Dictionary)
 
 
 # --- 常量 ---
 
 const _GF_UUID = preload("res://addons/gf/standard/foundation/identity/gf_uuid.gd")
+const _MAX_CLIENT_ID_LENGTH: int = 4096
+const _MAX_SCHEMA_VERSION: int = 2_147_483_647
+const _MAX_PLANNER_EVALUATIONS: int = 64
+const _PLANNER_WORK_MULTIPLIER: int = 8
 
 
 # --- 公共变量 ---
@@ -73,9 +83,26 @@ var config: GFAnalyticsConfig:
 	set(value):
 		_config = value if value != null else GFAnalyticsConfig.new()
 
+## 版本化事件 Schema 注册表。
+##
+## 注册表始终可用；赋值 null 会恢复为空注册表。Schema 只约束编码前的 properties，
+## 不替代最终 JSON-safe 载荷预算或项目侧隐私、同意与业务策略。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+var schema_registry: GFAnalyticsSchemaRegistry:
+	get:
+		if _schema_registry == null:
+			_schema_registry = GFAnalyticsSchemaRegistry.new()
+		return _schema_registry
+	set(value):
+		_schema_registry = value if value != null else GFAnalyticsSchemaRegistry.new()
+
 ## 可选载荷信封构建回调。签名为 func(batch: Array) -> Dictionary。
 ## batch 是隔离副本；返回值中的 events 会被忽略，以保持已编码事件批次的完整性。
-## flush 按最终信封字节预算缩小批次时可能多次调用该回调，因此实现必须无副作用且结果确定。
+## flush 按最终信封字节预算从最大前缀向下有界校验时可能多次调用该回调，因此实现必须
+## 无副作用且结果确定；若评估工作预算耗尽，完整队列会保留并报告 planner_budget_exceeded。
 ## [br]
 ## @api public
 ## [br]
@@ -112,8 +139,14 @@ var _explicit_client_id: bool = false
 var _shutdown_watcher: _GFAnalyticsShutdownWatcher = null
 var _shutdown_watcher_attach_serial: int = 0
 var _config: GFAnalyticsConfig = GFAnalyticsConfig.new()
+var _schema_registry: GFAnalyticsSchemaRegistry = GFAnalyticsSchemaRegistry.new()
 var _is_initialized: bool = false
 var _reported_invalid_storage_path: bool = false
+var _flush_generation: int = 0
+var _active_http_generation: int = -1
+var _is_notifying_flush: bool = false
+var _is_planning: bool = false
+var _queue_generation: int = 0
 
 
 # --- GF 生命周期方法 ---
@@ -127,8 +160,13 @@ func init() -> void:
 	var should_keep_explicit_client_id: bool = _explicit_client_id and not _client_id.is_empty()
 	ignore_pause = true
 	_queue.clear()
+	_queue_generation += 1
 	_elapsed_since_flush = 0.0
 	_is_flushing = false
+	_flush_generation += 1
+	_active_http_generation = -1
+	_is_notifying_flush = false
+	_is_planning = false
 	_shutdown = false
 	_is_draining = false
 	_drain_loop_active = false
@@ -153,6 +191,8 @@ func dispose() -> void:
 	if not _is_initialized:
 		return
 	_shutdown_watcher_attach_serial += 1
+	_flush_generation += 1
+	_active_http_generation = -1
 	_shutdown = true
 	_is_draining = false
 	if is_instance_valid(_http_request):
@@ -164,6 +204,7 @@ func dispose() -> void:
 			"error": "analytics disposed while flush was in flight",
 		}, interrupted_batch)
 	_queue.clear()
+	_queue_generation += 1
 	_pending_batch.clear()
 	_pending_payload.clear()
 	_pending_payload_text = ""
@@ -218,9 +259,12 @@ func configure(analytics_config: GFAnalyticsConfig) -> void:
 ## [br]
 ## @api public
 ## [br]
-## @param client_id: 客户端标识。
+## @since 8.0.0
+## [br]
+## @param client_id: 1..4096 字符且不含 C0/DEL 控制字符的客户端标识；非法值会被拒绝并保留原标识。
 func identify(client_id: String) -> void:
-	if client_id.is_empty():
+	if not _is_valid_client_id(client_id):
+		push_warning("[GFAnalyticsUtility] client_id must contain 1..4096 characters without C0/DEL controls.")
 		return
 	_client_id = client_id
 	_explicit_client_id = true
@@ -238,49 +282,109 @@ func identify(client_id: String) -> void:
 ## [br]
 ## @schema properties: Dictionary[String, Variant] copied into the queued event properties.
 func track(event_name: StringName, properties: Dictionary = {}) -> void:
-	if _shutdown or not config.enabled or event_name == &"":
-		return
-	var event_name_text: String = String(event_name)
-	if event_name_text.length() > config.max_event_name_length:
-		push_warning("[GFAnalyticsUtility] event_name exceeds max_event_name_length.")
-		return
-	if event_name_text.contains("\r") or event_name_text.contains("\n"):
-		push_warning("[GFAnalyticsUtility] event_name contains control characters.")
-		return
-	if properties.size() > config.max_property_count:
-		push_warning("[GFAnalyticsUtility] properties exceed max_property_count.")
-		return
+	var _track_result: Dictionary = _track_event(event_name, properties)
 
-	var max_queue_size: int = _get_max_queue_size()
-	while _queue.size() >= max_queue_size:
-		var _dropped_event: Variant = _queue.pop_front()
 
-	var raw_event_data: Dictionary = {
-		"event": event_name_text,
-		"client_id": _client_id,
-		"session_id": _session_id,
-		"timestamp": Time.get_datetime_string_from_system(true, true),
-		"properties": properties,
+## 按精确 Schema 版本记录事件。
+##
+## 该入口在 JSON-safe 编码前执行有界输入校验；不会回退到其他版本，也不会自动迁移
+## 旧事件。成功只表示事件已被 Analytics 接受，自动 flush 可能已同步完成或失败回灌。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param event_name: 已注册的事件名。
+## [br]
+## @param schema_version: 已注册且位于 1..2_147_483_647 的 Schema 版本。
+## [br]
+## @param properties: 编码前的事件属性。
+## [br]
+## @return 结构化记录结果。
+## [br]
+## @schema properties: Dictionary[String, Variant] validated against the exact registered analytics input schema.
+## [br]
+## @schema return: Dictionary with ok, accepted, reason, event_name, schema_version, event_id, and validation.
+func track_versioned(
+	event_name: StringName,
+	schema_version: int,
+	properties: Dictionary = {}
+) -> Dictionary:
+	var result: Dictionary = {
+		"ok": false,
+		"accepted": false,
+		"reason": &"",
+		"event_name": event_name,
+		"schema_version": schema_version,
+		"event_id": "",
+		"validation": null,
 	}
+	if _shutdown:
+		result["reason"] = &"analytics_shutdown"
+		return result
+	if not config.enabled:
+		result["reason"] = &"analytics_disabled"
+		return result
+	if event_name == &"":
+		result["reason"] = &"invalid_event_name"
+		return result
+	if schema_version <= 0 or schema_version > _MAX_SCHEMA_VERSION:
+		result["reason"] = &"invalid_schema_version"
+		return result
+	if not schema_registry.has_schema(event_name, schema_version):
+		result["reason"] = &"schema_not_registered"
+		return result
 
-	if config.auto_capture_context:
-		var event_context: Dictionary = capture_context()
-		if not config.app_version.is_empty():
-			event_context["app_version"] = config.app_version
-		raw_event_data["context"] = event_context
-	var event_data: Dictionary = _json_safe_dictionary(raw_event_data)
-	if JSON.stringify(event_data).to_utf8_buffer().size() > config.max_payload_bytes:
-		push_warning("[GFAnalyticsUtility] event exceeds max_payload_bytes after report encoding.")
-		return
+	var validation: GFValidationReport = schema_registry.validate(
+		event_name,
+		schema_version,
+		properties,
+		{
+			"subject": "%s@%d" % [String(event_name), schema_version],
+			"max_depth": 16,
+			"max_property_count": config.max_property_count,
+			"max_string_length": config.max_string_length,
+			"max_collection_items": config.max_collection_items,
+			"max_total_nodes": config.max_total_nodes,
+			"max_total_bytes": config.max_payload_bytes,
+		}
+	)
+	result["validation"] = validation
+	if validation == null or not validation.is_ok():
+		result["reason"] = (
+			&"validation_budget_exceeded"
+			if _validation_has_budget_issue(validation)
+			else &"properties_invalid"
+		)
+		return result
 
-	_queue.append(event_data)
-	event_tracked.emit(event_name, event_data.duplicate(true))
+	var event_id: String = _GF_UUID.generate_v7()
+	var track_result: Dictionary = _track_event(
+		event_name,
+		properties,
+		{
+			"event_id": event_id,
+			"schema_version": schema_version,
+		}
+	)
+	if not GFVariantData.get_option_bool(track_result, "ok"):
+		result["reason"] = GFVariantData.get_option_string_name(track_result, "reason")
+		return result
 
-	if _queue.size() >= _get_batch_size():
-		flush()
+	result["ok"] = true
+	result["accepted"] = true
+	result["reason"] = &"tracked"
+	result["event_id"] = event_id
+	return result
 
 
 ## 立即上报最终信封字节预算内的最大事件前缀。
+##
+## Planner 不假设 payload_builder 的大小随批次单调变化，而是从最大候选前缀向下
+## 有界校验。评估次数或累计编码工作达到预算时，会通过 flush_failed 和
+## flush_completed 返回 retained=true、dropped=false、drop_reason=planner_budget_exceeded，
+## 并保持完整队列；调用方应降低 batch_size 或简化 payload_builder 后再重试。只有已经
+## 证明单个事件无法放入最终信封时，才会以 dropped=true 明确丢弃。
 ## [br]
 ## @api public
 ## [br]
@@ -340,6 +444,7 @@ func get_client_id() -> String:
 ## @api public
 func clear_queue() -> void:
 	_queue.clear()
+	_queue_generation += 1
 
 
 ## 采集通用运行环境上下文。
@@ -374,23 +479,121 @@ func capture_context() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+func _track_event(
+	event_name: StringName,
+	properties: Dictionary,
+	trusted_fields: Dictionary = {}
+) -> Dictionary:
+	if _shutdown:
+		return { "ok": false, "reason": &"analytics_shutdown" }
+	if not config.enabled:
+		return { "ok": false, "reason": &"analytics_disabled" }
+	if event_name == &"":
+		return { "ok": false, "reason": &"invalid_event_name" }
+	var event_name_text: String = String(event_name)
+	if event_name_text.length() > config.max_event_name_length:
+		push_warning("[GFAnalyticsUtility] event_name exceeds max_event_name_length.")
+		return { "ok": false, "reason": &"invalid_event_name" }
+	if _contains_control_character(event_name_text):
+		push_warning("[GFAnalyticsUtility] event_name contains control characters.")
+		return { "ok": false, "reason": &"invalid_event_name" }
+	if properties.size() > config.max_property_count:
+		push_warning("[GFAnalyticsUtility] properties exceed max_property_count.")
+		return { "ok": false, "reason": &"validation_budget_exceeded" }
+
+	var encoded_properties: Dictionary = _encode_event_properties(properties)
+	var trusted_event_id: String = GFVariantData.get_option_string(trusted_fields, "event_id")
+	var trusted_schema_version: int = GFVariantData.get_option_int(trusted_fields, "schema_version")
+	if (
+		not trusted_event_id.is_empty()
+		and trusted_schema_version > 0
+		and _contains_report_budget_marker(encoded_properties)
+	):
+		return { "ok": false, "reason": &"validation_budget_exceeded" }
+	var event_data: Dictionary = {
+		"event": event_name_text,
+		"client_id": _client_id,
+		"session_id": _session_id,
+		"timestamp": Time.get_datetime_string_from_system(true, true),
+		"properties": encoded_properties,
+	}
+	if not trusted_event_id.is_empty() and trusted_schema_version > 0:
+		event_data["event_id"] = trusted_event_id
+		event_data["schema_version"] = trusted_schema_version
+
+	if config.auto_capture_context:
+		var event_context: Dictionary = capture_context()
+		if not config.app_version.is_empty():
+			event_context["app_version"] = config.app_version
+		event_data["context"] = _json_safe_dictionary(event_context)
+	if JSON.stringify(event_data).to_utf8_buffer().size() > config.max_payload_bytes:
+		push_warning("[GFAnalyticsUtility] event exceeds max_payload_bytes after report encoding.")
+		return { "ok": false, "reason": &"payload_too_large" }
+
+	var max_queue_size: int = _get_max_queue_size()
+	while _queue.size() >= max_queue_size:
+		var _dropped_event: Variant = _queue.pop_front()
+	_queue.append(event_data)
+	_queue_generation += 1
+	event_tracked.emit(event_name, event_data.duplicate(true))
+
+	if _queue.size() >= _get_batch_size():
+		flush()
+	return { "ok": true, "reason": &"tracked" }
+
+
 func _flush_next(allow_shutdown: bool) -> void:
-	if (_shutdown and not allow_shutdown) or _is_flushing or _queue.is_empty():
+	if (
+		(_shutdown and not allow_shutdown)
+		or _is_flushing
+		or _is_notifying_flush
+		or _is_planning
+		or _queue.is_empty()
+	):
 		return
 	while not _queue.is_empty() and not _is_flushing:
+		if _shutdown and not allow_shutdown:
+			return
+		var planning_queue_generation: int = _queue_generation
+		var planning_flush_generation: int = _flush_generation
+		_is_planning = true
 		var plan: Dictionary = _make_next_batch_plan()
+		_is_planning = false
+		if (
+			not _is_initialized
+			or planning_queue_generation != _queue_generation
+			or planning_flush_generation != _flush_generation
+			or (_shutdown and not allow_shutdown)
+		):
+			return
 		if not GFVariantData.get_option_bool(plan, "success"):
+			if not GFVariantData.get_option_bool(plan, "drop_event", true):
+				_emit_planner_failure(plan)
+				return
+			var queue_size_before_drop: int = _queue.size()
 			var dropped_event: Dictionary = GFVariantData.as_dictionary(_queue.pop_front()).duplicate(true)
+			_queue_generation += 1
 			_emit_oversized_event_drop(dropped_event, plan)
+			if (
+				(not _is_initialized)
+				or (_shutdown and not allow_shutdown)
+				or _queue.size() >= queue_size_before_drop
+			):
+				return
 			continue
 		var batch: Array = GFVariantData.get_option_array(plan, "batch")
 		for _index: int in range(batch.size()):
 			var _removed_event: Variant = _queue.pop_front()
+		_queue_generation += 1
 		_pending_batch = _duplicate_batch(batch)
 		_pending_payload = GFVariantData.get_option_dictionary(plan, "payload").duplicate(true)
 		_pending_payload_text = GFVariantData.get_option_string(plan, "payload_text")
 		_is_flushing = true
+		_flush_generation += 1
+		var flush_generation: int = _flush_generation
 		flush_started.emit(_duplicate_batch(batch))
+		if not _is_flushing or flush_generation != _flush_generation:
+			return
 		_send_batch(batch)
 		return
 	if _queue.is_empty() and not _is_flushing:
@@ -398,44 +601,134 @@ func _flush_next(allow_shutdown: bool) -> void:
 
 
 func _make_next_batch_plan() -> Dictionary:
-	var count: int = mini(_get_batch_size(), _queue.size())
-	var candidate: Array = []
-	for index: int in range(count):
-		candidate.append(GFVariantData.as_dictionary(_queue[index]).duplicate(true))
-	while not candidate.is_empty():
-		var payload: Dictionary = _build_payload(candidate)
-		var payload_text: String = JSON.stringify(payload)
-		var payload_bytes: int = payload_text.to_utf8_buffer().size()
-		if payload_bytes <= config.max_payload_bytes:
-			return {
-				"success": true,
-				"batch": _duplicate_batch(candidate),
-				"payload": payload.duplicate(true),
-				"payload_text": payload_text,
-				"payload_bytes": payload_bytes,
-			}
-		if candidate.size() == 1:
+	var starting_queue_generation: int = _queue_generation
+	var starting_flush_generation: int = _flush_generation
+	var maximum_count: int = mini(_get_batch_size(), _queue.size())
+	if maximum_count <= 0:
+		return {
+			"success": false,
+			"error": "analytics batch planner produced no candidate",
+			"drop_reason": "empty_batch_plan",
+			"payload_bytes": 0,
+			"max_payload_bytes": config.max_payload_bytes,
+		}
+
+	var estimated_bytes: int = 13
+	var candidate_count: int = 0
+	for index: int in range(maximum_count):
+		var event: Dictionary = GFVariantData.as_dictionary(_queue[index])
+		var event_bytes: int = JSON.stringify(event).to_utf8_buffer().size()
+		var separator_bytes: int = 1 if candidate_count > 0 else 0
+		if (
+			candidate_count > 0
+			and estimated_bytes + event_bytes + separator_bytes > config.max_payload_bytes
+		):
+			break
+		candidate_count += 1
+		estimated_bytes += event_bytes + separator_bytes
+		if estimated_bytes > config.max_payload_bytes:
+			break
+
+	var planner_work_bytes: int = 0
+	var evaluation_count: int = 0
+	var planner_work_budget: int = config.max_payload_bytes * _PLANNER_WORK_MULTIPLIER
+	for prefix_count: int in range(candidate_count, 0, -1):
+		if (
+			evaluation_count >= _MAX_PLANNER_EVALUATIONS
+			or planner_work_bytes >= planner_work_budget
+		):
 			return {
 				"success": false,
-				"error": "single analytics event cannot fit final envelope",
-				"drop_reason": "final_envelope_too_large",
-				"payload_bytes": payload_bytes,
+				"drop_event": false,
+				"error": "analytics batch planner work budget exhausted",
+				"drop_reason": "planner_budget_exceeded",
+				"payload_bytes": planner_work_bytes,
 				"max_payload_bytes": config.max_payload_bytes,
 			}
-		var _removed_candidate: Variant = candidate.pop_back()
+		var prefix_plan: Dictionary = _evaluate_batch_prefix(prefix_count)
+		if (
+			starting_queue_generation != _queue_generation
+			or starting_flush_generation != _flush_generation
+			or not _is_initialized
+		):
+			return prefix_plan
+		evaluation_count += 1
+		planner_work_bytes += maxi(
+			GFVariantData.get_option_int(prefix_plan, "payload_bytes"),
+			1
+		)
+		if GFVariantData.get_option_bool(prefix_plan, "success"):
+			return prefix_plan
+		if prefix_count == 1:
+			prefix_plan["drop_event"] = true
+			return prefix_plan
 	return {
 		"success": false,
+		"drop_event": false,
 		"error": "analytics batch planner produced no candidate",
 		"drop_reason": "empty_batch_plan",
-		"payload_bytes": 0,
+		"payload_bytes": planner_work_bytes,
 		"max_payload_bytes": config.max_payload_bytes,
 	}
+
+
+func _evaluate_batch_prefix(count: int) -> Dictionary:
+	var candidate: Array = []
+	for index: int in range(mini(count, _queue.size())):
+		candidate.append(GFVariantData.as_dictionary(_queue[index]).duplicate(true))
+	if candidate.is_empty():
+		return {
+			"success": false,
+			"error": "analytics batch planner produced no candidate",
+			"drop_reason": "empty_batch_plan",
+			"payload_bytes": 0,
+			"max_payload_bytes": config.max_payload_bytes,
+		}
+	var payload: Dictionary = _build_payload(candidate)
+	var payload_text: String = JSON.stringify(payload)
+	var payload_bytes: int = payload_text.to_utf8_buffer().size()
+	if payload_bytes <= config.max_payload_bytes:
+		return {
+			"success": true,
+			"batch": _duplicate_batch(candidate),
+			"payload": payload.duplicate(true),
+			"payload_text": payload_text,
+			"payload_bytes": payload_bytes,
+		}
+	return {
+		"success": false,
+		"drop_event": count <= 1,
+		"error": "single analytics event cannot fit final envelope",
+		"drop_reason": "final_envelope_too_large",
+		"payload_bytes": payload_bytes,
+		"max_payload_bytes": config.max_payload_bytes,
+	}
+
+
+func _emit_planner_failure(plan: Dictionary) -> void:
+	var result: Dictionary = GFReportValueCodec.to_report_dictionary({
+		"success": false,
+		"error": GFVariantData.get_option_string(plan, "error"),
+		"dropped": false,
+		"retained": true,
+		"drop_reason": GFVariantData.get_option_string(plan, "drop_reason"),
+		"planner_work_bytes": GFVariantData.get_option_int(plan, "payload_bytes"),
+		"max_payload_bytes": GFVariantData.get_option_int(plan, "max_payload_bytes"),
+	}, _make_report_options())
+	result["success"] = false
+	result["dropped"] = false
+	result["retained"] = true
+	_is_notifying_flush = true
+	flush_failed.emit(result.duplicate(true))
+	flush_completed.emit(result.duplicate(true))
+	_is_notifying_flush = false
+	if _is_draining:
+		_is_draining = false
 
 
 func _emit_oversized_event_drop(event: Dictionary, plan: Dictionary) -> void:
 	_dropped_event_count += 1
 	var batch: Array = [event.duplicate(true)]
-	flush_started.emit(_duplicate_batch(batch))
 	var result: Dictionary = GFReportValueCodec.to_report_dictionary({
 		"success": false,
 		"error": GFVariantData.get_option_string(plan, "error"),
@@ -446,22 +739,41 @@ func _emit_oversized_event_drop(event: Dictionary, plan: Dictionary) -> void:
 		"payload_bytes": GFVariantData.get_option_int(plan, "payload_bytes"),
 		"max_payload_bytes": GFVariantData.get_option_int(plan, "max_payload_bytes"),
 	}, _make_report_options())
+	result["success"] = false
+	result["dropped"] = true
+	_is_notifying_flush = true
+	flush_started.emit(_duplicate_batch(batch))
 	flush_failed.emit(result.duplicate(true))
 	flush_completed.emit(result.duplicate(true))
+	_is_notifying_flush = false
+	if _is_draining and _is_initialized:
+		_drain_remaining()
 
 
 func _drain_remaining() -> void:
-	if not _is_draining or _drain_loop_active:
+	if not _is_draining or _drain_loop_active or _is_notifying_flush:
 		return
 	_drain_loop_active = true
 	while _is_draining and not _is_flushing and not _queue.is_empty():
+		var previous_queue_size: int = _queue.size()
+		var previous_flush_generation: int = _flush_generation
 		_flush_next(true)
+		if (
+			not _is_flushing
+			and previous_queue_size == _queue.size()
+			and previous_flush_generation == _flush_generation
+		):
+			_is_draining = false
+			break
 	if _queue.is_empty() and not _is_flushing:
 		_is_draining = false
 	_drain_loop_active = false
 
 
 func _send_batch(batch: Array) -> void:
+	if not _is_flushing:
+		return
+	var flush_generation: int = _flush_generation
 	var payload: Dictionary = _pending_payload.duplicate(true)
 	var payload_text: String = _pending_payload_text
 	if payload.is_empty() and payload_text.is_empty():
@@ -475,6 +787,8 @@ func _send_batch(batch: Array) -> void:
 		return
 	if transport_callback.is_valid():
 		var custom_result: Variant = transport_callback.call(payload.duplicate(true))
+		if not _is_flushing or flush_generation != _flush_generation:
+			return
 		if custom_result is Dictionary:
 			var custom_dictionary: Dictionary = custom_result
 			_finish_flush(custom_dictionary, batch)
@@ -493,8 +807,10 @@ func _send_batch(batch: Array) -> void:
 	if request == null:
 		_finish_flush({ "success": false, "error": "HTTPRequest unavailable" }, batch)
 		return
+	request.body_size_limit = config.max_payload_bytes
 
 	var error: Error = OK
+	_active_http_generation = flush_generation
 	if config.compress_payload:
 		error = request.request_raw(
 			config.endpoint_url,
@@ -510,6 +826,8 @@ func _send_batch(batch: Array) -> void:
 			payload_text
 		)
 	if error != OK:
+		if not _is_flushing or flush_generation != _flush_generation:
+			return
 		_finish_flush({
 			"success": false,
 			"error": "Request failed: %s" % error_string(error),
@@ -545,78 +863,138 @@ func _on_request_completed(
 	_headers: PackedStringArray,
 	body: PackedByteArray
 ) -> void:
+	if (
+		not _is_flushing
+		or _active_http_generation < 0
+		or _active_http_generation != _flush_generation
+	):
+		return
+	var completion_generation: int = _flush_generation
+	var completion_batch: Array = _duplicate_batch(_pending_batch)
 	if result != HTTPRequest.RESULT_SUCCESS:
 		_finish_flush({
 			"success": false,
 			"error": "HTTP request result: %d" % result,
-		}, _pending_batch)
+		}, completion_batch)
 		return
 
 	if response_code < 200 or response_code >= 300:
 		_finish_flush({
 			"success": false,
 			"error": "HTTP %d: %s" % [response_code, body.get_string_from_utf8()],
-		}, _pending_batch)
+		}, completion_batch)
 		return
 
-	var accepted: int = _pending_batch.size()
+	var accepted: int = completion_batch.size()
 	if response_parser.is_valid():
 		var parsed_result: Variant = response_parser.call(response_code, body, accepted)
+		if (
+			not _is_flushing
+			or completion_generation != _flush_generation
+			or _active_http_generation != completion_generation
+		):
+			return
 		if parsed_result is Dictionary:
 			var parsed_result_dictionary: Dictionary = parsed_result
-			_finish_flush(parsed_result_dictionary, _pending_batch)
+			_finish_flush(parsed_result_dictionary, completion_batch)
 			return
+		_finish_flush({
+			"success": false,
+			"error": "response_parser must return Dictionary",
+		}, completion_batch)
+		return
 	else:
 		var parsed: Variant = JSON.parse_string(body.get_string_from_utf8())
 		if parsed is Dictionary:
 			var parsed_dictionary: Dictionary = parsed
 			accepted = GFVariantData.get_option_int(parsed_dictionary, "accepted", accepted)
 
-	_finish_flush({ "success": true, "accepted": accepted }, _pending_batch)
+	_finish_flush({ "success": true, "accepted": accepted }, completion_batch)
 
 
 func _finish_flush(result: Dictionary, batch: Array) -> void:
-	var safe_result: Dictionary = GFReportValueCodec.to_report_dictionary(result, _make_report_options())
-	var success: bool = GFVariantData.get_option_bool(safe_result, "success")
+	if not _is_flushing:
+		return
+	var success: bool = GFVariantData.get_option_bool(result, "success")
 	var accepted_count: int = 0
 	if success:
 		accepted_count = clampi(
-			GFVariantData.get_option_int(safe_result, "accepted", batch.size()),
+			GFVariantData.get_option_int(result, "accepted", batch.size()),
 			0,
 			batch.size()
 		)
 		if not batch.is_empty() and accepted_count == 0:
 			success = false
-			safe_result["success"] = false
-			safe_result["error"] = "analytics transport accepted zero events"
+	var safe_result: Dictionary = GFReportValueCodec.to_report_dictionary(result, _make_report_options())
+	safe_result["success"] = success
+	if success:
+		safe_result["accepted"] = accepted_count
+	elif (
+		GFVariantData.get_option_bool(result, "success")
+		and not batch.is_empty()
+		and accepted_count == 0
+	):
+		safe_result["error"] = "analytics transport accepted zero events"
 	if not success:
 		for index: int in range(batch.size() - 1, -1, -1):
 			_queue.push_front(GFVariantData.as_dictionary(batch[index]).duplicate(true))
+		if not batch.is_empty():
+			_queue_generation += 1
 		_trim_queue_to_max_size()
-		flush_failed.emit(safe_result.duplicate(true))
 	else:
 		if accepted_count < batch.size():
 			for index: int in range(batch.size() - 1, accepted_count - 1, -1):
 				_queue.push_front(GFVariantData.as_dictionary(batch[index]).duplicate(true))
+			_queue_generation += 1
 			_trim_queue_to_max_size()
 
 	_pending_batch.clear()
 	_pending_payload.clear()
 	_pending_payload_text = ""
 	_is_flushing = false
-	flush_completed.emit(safe_result.duplicate(true))
+	_active_http_generation = -1
 	if _is_draining:
-		if success:
-			_drain_remaining()
-		else:
+		if not success:
 			_is_draining = false
+
+	_is_notifying_flush = true
+	if not success:
+		flush_failed.emit(safe_result.duplicate(true))
+	flush_completed.emit(safe_result.duplicate(true))
+	_is_notifying_flush = false
+	if _is_draining and _is_initialized:
+		_drain_remaining()
 
 
 func _trim_queue_to_max_size() -> void:
 	var max_queue_size: int = _get_max_queue_size()
+	var trimmed: bool = false
 	while _queue.size() > max_queue_size:
 		var _dropped_event: Variant = _queue.pop_back()
 		_dropped_event_count += 1
+		trimmed = true
+	if trimmed:
+		_queue_generation += 1
+
+
+func _validation_has_budget_issue(report: GFValidationReport) -> bool:
+	if report == null:
+		return false
+	var budget_kinds: Dictionary = {
+		&"properties_too_wide": true,
+		&"property_depth_exceeded": true,
+		&"property_collection_too_large": true,
+		&"property_node_budget_exceeded": true,
+		&"property_string_too_long": true,
+		&"property_byte_budget_exceeded": true,
+	}
+	for issue_ref: RefCounted in report.issues:
+		if not (issue_ref is GFValidationIssue):
+			continue
+		var issue: GFValidationIssue = issue_ref
+		if budget_kinds.has(issue.kind):
+			return true
+	return false
 
 
 func _generate_id() -> String:
@@ -661,6 +1039,40 @@ func _json_safe_dictionary(value: Dictionary) -> Dictionary:
 	return GFReportValueCodec.to_report_dictionary(value, _make_report_options())
 
 
+func _encode_event_properties(properties: Dictionary) -> Dictionary:
+	var options: Dictionary = _make_report_options()
+	options["max_collection_items"] = maxi(config.max_collection_items, properties.size())
+	return GFReportValueCodec.to_report_dictionary(properties, options)
+
+
+func _contains_report_budget_marker(value: Variant) -> bool:
+	var pending: Array = [value]
+	while not pending.is_empty():
+		var candidate: Variant = pending.pop_back()
+		if candidate is Dictionary:
+			var dictionary: Dictionary = candidate
+			if _is_report_budget_marker(dictionary):
+				return true
+			for key: Variant in dictionary.keys():
+				pending.append(dictionary[key])
+		elif candidate is Array:
+			var array: Array = candidate
+			for item: Variant in array:
+				pending.append(item)
+	return false
+
+
+func _is_report_budget_marker(value: Dictionary) -> bool:
+	var marker: Dictionary = GFVariantData.get_option_dictionary(value, "__gf_report_value__")
+	var marker_type: String = GFVariantData.get_option_string(marker, "type")
+	return marker_type in [
+		"ByteBudget",
+		"NodeBudget",
+		"MaxDepth",
+		"CollectionBudget",
+	]
+
+
 func _make_report_options() -> Dictionary:
 	return GFReportValueCodec.make_redaction_options(
 		GFReportValueCodec.REDACTION_PROFILE_PRIVACY,
@@ -696,11 +1108,16 @@ func _load_client_id() -> String:
 	if load_error != OK:
 		push_warning("[GFAnalyticsUtility] failed to load client id: %s." % error_string(load_error))
 		return ""
-	return GFVariantData.to_text(config_file.get_value("analytics", "client_id", ""))
+	var loaded_id: String = GFVariantData.to_text(
+		config_file.get_value("analytics", "client_id", "")
+	)
+	if not _is_valid_client_id(loaded_id):
+		return ""
+	return loaded_id
 
 
 func _save_client_id(client_id: String) -> void:
-	if client_id.is_empty():
+	if not _is_valid_client_id(client_id):
 		return
 	if not _is_valid_client_id_storage_path(config.client_id_storage_path):
 		_report_invalid_client_id_storage_path()
@@ -731,6 +1148,22 @@ func _is_valid_client_id_storage_path(path: String) -> bool:
 		if segment == "..":
 			return false
 	return not normalized.trim_prefix("user://").is_empty()
+
+
+func _is_valid_client_id(client_id: String) -> bool:
+	return (
+		not client_id.is_empty()
+		and client_id.length() <= _MAX_CLIENT_ID_LENGTH
+		and not _contains_control_character(client_id)
+	)
+
+
+func _contains_control_character(value: String) -> bool:
+	for index: int in range(value.length()):
+		var codepoint: int = value.unicode_at(index)
+		if codepoint < 0x20 or codepoint == 0x7f:
+			return true
+	return false
 
 
 func _report_invalid_client_id_storage_path() -> void:
@@ -788,6 +1221,8 @@ func _free_shutdown_watcher(watcher: Node) -> void:
 
 
 func _variant_to_node(value: Variant) -> Node:
+	if typeof(value) != TYPE_OBJECT or not is_instance_valid(value):
+		return null
 	if value is Node:
 		var node: Node = value
 		return node

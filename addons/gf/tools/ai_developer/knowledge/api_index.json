@@ -2,8 +2,8 @@
   "schema_version": 1,
   "catalog_version": "1.0.0",
   "framework_version": "10.0.0-dev.0",
-  "source_digest": "3bc9ba2a407a9142500657af69c48d8bce63fecca0319a8c0a6354355f566770",
-  "class_count": 751,
+  "source_digest": "17494b7a571932682fc9733fda14eef6ea4c2b09d43709367da74095bb1c3b70",
+  "class_count": 754,
   "package_count": 52,
   "packages": [
     {
@@ -1417,14 +1417,14 @@
           "kind": "var",
           "name": "batch_size",
           "signature": "var batch_size: int = 20",
-          "summary": "单批最大事件数。",
+          "summary": "单批最大事件数；直接赋值会钳制到 1..500。",
           "visibility": "public"
         },
         {
           "kind": "var",
           "name": "max_queue_size",
           "signature": "var max_queue_size: int = 1000",
-          "summary": "本地队列最大事件数。",
+          "summary": "本地队列最大事件数；直接赋值会钳制到 1..100_000。",
           "visibility": "public"
         },
         {
@@ -1527,6 +1527,252 @@
         }
       ]
     },
+    "GFAnalyticsEventSchema": {
+      "extends": "Resource",
+      "module": "standard",
+      "package_id": "gf.standard.base",
+      "path": "addons/gf/standard/utilities/analytics/gf_analytics_event_schema.gd",
+      "summary": "GFAnalyticsEventSchema: 版本化 Analytics 事件属性契约。 用不超过 4096 字符且不含 C0/DEL 控制字符的稳定事件名、1..2_147_483_647 范围内的 精确版本和严格 GFDictionarySchema 描述编码前的事件属性。",
+      "visibility": "public",
+      "category": "resource_definition",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "var",
+          "name": "event_name",
+          "signature": "var event_name: StringName = &\"\"",
+          "summary": "稳定事件名；不得为空、超过 4096 字符或包含 C0/DEL 控制字符。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "schema_version",
+          "signature": "var schema_version: int = 1",
+          "summary": "事件属性 Schema 版本；必须位于 1..2_147_483_647。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "properties_schema",
+          "signature": "var properties_schema: GFDictionarySchema = null",
+          "summary": "事件属性 Dictionary Schema。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "configure",
+          "signature": "func configure( p_event_name: StringName, p_schema_version: int, p_properties_schema: GFDictionarySchema ) -> GFAnalyticsEventSchema",
+          "summary": "配置事件属性契约。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "validate_definition",
+          "signature": "func validate_definition(options: Dictionary = {}) -> GFValidationReport",
+          "summary": "校验事件 Schema 定义、递归严格性、图预算和回调纯度边界。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "validate_properties",
+          "signature": "func validate_properties(properties: Dictionary, options: Dictionary = {}) -> GFValidationReport",
+          "summary": "校验编码前的 Analytics 事件属性。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "duplicate_schema",
+          "signature": "func duplicate_schema() -> GFAnalyticsEventSchema",
+          "summary": "创建隔离的事件 Schema 副本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "describe",
+          "signature": "func describe() -> Dictionary",
+          "summary": "导出事件 Schema 摘要。",
+          "visibility": "public"
+        }
+      ]
+    },
+    "GFAnalyticsOutboxAdapter": {
+      "extends": "RefCounted",
+      "module": "standard",
+      "package_id": "gf.standard.assets",
+      "path": "addons/gf/standard/utilities/io/gf_analytics_outbox_adapter.gd",
+      "summary": "GFAnalyticsOutboxAdapter: Analytics 批次到通用请求 Outbox 的有界持久交接适配器。 把 GFAnalyticsUtility 的 JSON-safe events 封装为固定、版本化的中立请求信封， 并在确认 GFRequestOutboxUtility 已可靠持久化后才接受整批事件。适配器不接管",
+      "visibility": "public",
+      "category": "runtime_service",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "const",
+          "name": "SCHEMA_ID",
+          "signature": "const SCHEMA_ID: StringName = &\"gf.analytics.outbox\"",
+          "summary": "持久化批次协议标识。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "PROTOCOL_VERSION",
+          "signature": "const PROTOCOL_VERSION: int = 1",
+          "summary": "持久化批次协议版本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "DEFAULT_ENDPOINT_URL",
+          "signature": "const DEFAULT_ENDPOINT_URL: String = \"gf://analytics/events\"",
+          "summary": "默认逻辑端点。它不是供应商 URL，也不包含账号或鉴权信息。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "outbox",
+          "signature": "var outbox: GFRequestOutboxUtility = null",
+          "summary": "专用于 Analytics 的请求 Outbox。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "endpoint_url",
+          "signature": "var endpoint_url: String = DEFAULT_ENDPOINT_URL",
+          "summary": "写入请求信封的非敏感逻辑端点。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "max_payload_bytes",
+          "signature": "var max_payload_bytes: int = 256 * 1024",
+          "summary": "单个持久化批次的最终 JSON 字节上限；直接赋值会钳制到 1024..16 MiB。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "max_events_per_request",
+          "signature": "var max_events_per_request: int = 500",
+          "summary": "单个持久化批次的事件数量上限；直接赋值会钳制到 1..500。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "max_attempts",
+          "signature": "var max_attempts: int = 3",
+          "summary": "请求重放最大尝试次数；直接赋值和 configure() 都会钳制到 1..64。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "max_depth",
+          "signature": "var max_depth: int = 16",
+          "summary": "单个事件嵌套深度上限；直接赋值会钳制到 1..32。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "max_collection_items",
+          "signature": "var max_collection_items: int = 256",
+          "summary": "单个嵌套集合的元素上限；直接赋值会钳制到 1..4096。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "max_string_length",
+          "signature": "var max_string_length: int = 4096",
+          "summary": "单个字符串的字符上限；直接赋值会钳制到 1..65_536。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "max_total_nodes",
+          "signature": "var max_total_nodes: int = 8192",
+          "summary": "整批遍历的节点上限；直接赋值会钳制到 1..1_000_000。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "configure",
+          "signature": "func configure( p_outbox: GFRequestOutboxUtility, options: Dictionary = {} ) -> GFAnalyticsOutboxAdapter",
+          "summary": "配置适配器。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "enqueue_payload",
+          "signature": "func enqueue_payload(payload: Dictionary) -> Dictionary",
+          "summary": "把 Analytics payload 可靠交接给 Outbox。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "handles_request",
+          "signature": "func handles_request(envelope: GFRequestEnvelope) -> bool",
+          "summary": "判断恢复出的请求是否属于当前 Adapter 且仍满足 v1 固定协议。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_debug_snapshot",
+          "signature": "func get_debug_snapshot() -> Dictionary",
+          "summary": "获取不包含事件、请求 body、业务字段或鉴权数据的调试快照。",
+          "visibility": "public"
+        }
+      ]
+    },
+    "GFAnalyticsSchemaRegistry": {
+      "extends": "Resource",
+      "module": "standard",
+      "package_id": "gf.standard.base",
+      "path": "addons/gf/standard/utilities/analytics/gf_analytics_schema_registry.gd",
+      "summary": "GFAnalyticsSchemaRegistry: 精确版本 Analytics 事件 Schema 注册表。 注册表以 event_name 与 schema_version 的组合保存隔离副本， 禁止同版本覆盖，也不提供隐式 latest 回退。公开 getter 再返回副本，",
+      "visibility": "public",
+      "category": "runtime_service",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "func",
+          "name": "register_schema",
+          "signature": "func register_schema(schema: GFAnalyticsEventSchema) -> Dictionary",
+          "summary": "注册一个事件 Schema 的隔离副本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "has_schema",
+          "signature": "func has_schema(event_name: StringName, schema_version: int) -> bool",
+          "summary": "检查精确事件 Schema 版本是否存在。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_schema",
+          "signature": "func get_schema( event_name: StringName, schema_version: int ) -> GFAnalyticsEventSchema",
+          "summary": "获取精确事件 Schema 版本的隔离副本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_versions",
+          "signature": "func get_versions(event_name: StringName) -> PackedInt32Array",
+          "summary": "获取事件已经注册的版本列表。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "validate",
+          "signature": "func validate( event_name: StringName, schema_version: int, properties: Dictionary, options: Dictionary = {} ) -> GFValidationReport",
+          "summary": "使用精确注册版本校验事件属性。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_debug_snapshot",
+          "signature": "func get_debug_snapshot() -> Dictionary",
+          "summary": "获取不含业务属性和默认值的调试快照。",
+          "visibility": "public"
+        }
+      ]
+    },
     "GFAnalyticsUtility": {
       "extends": "GFUtility",
       "module": "standard",
@@ -1570,6 +1816,13 @@
           "name": "config",
           "signature": "var config: GFAnalyticsConfig",
           "summary": "当前配置。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "schema_registry",
+          "signature": "var schema_registry: GFAnalyticsSchemaRegistry",
+          "summary": "版本化事件 Schema 注册表。",
           "visibility": "public"
         },
         {
@@ -1633,6 +1886,13 @@
           "name": "track",
           "signature": "func track(event_name: StringName, properties: Dictionary = {}) -> void",
           "summary": "记录一个事件。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "track_versioned",
+          "signature": "func track_versioned( event_name: StringName, schema_version: int, properties: Dictionary = {} ) -> Dictionary",
+          "summary": "按精确 Schema 版本记录事件。",
           "visibility": "public"
         },
         {
@@ -60655,6 +60915,13 @@
         },
         {
           "kind": "var",
+          "name": "max_storage_bytes",
+          "signature": "var max_storage_bytes: int = _DEFAULT_MAX_STORAGE_BYTES",
+          "summary": "持久化事务允许的最大 UTF-8 JSON 字节数，默认 16 MiB。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
           "name": "transport_callback",
           "signature": "var transport_callback: Callable = Callable()",
           "summary": "传输回调，签名为 func(envelope: GFRequestEnvelope) -> Dictionary；也可返回会发出结果值的 Signal。",
@@ -60693,6 +60960,13 @@
           "name": "enqueue",
           "signature": "func enqueue(envelope: GFRequestEnvelope) -> bool",
           "summary": "入队已有请求描述。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "enqueue_with_report",
+          "signature": "func enqueue_with_report( envelope: GFRequestEnvelope, require_persistence: bool = false ) -> Dictionary",
+          "summary": "以隔离快照入队请求，并返回内存与持久化结果。",
           "visibility": "public"
         },
         {
@@ -77594,28 +77868,28 @@
           "kind": "signal",
           "name": "workflow_report_built",
           "signature": "signal workflow_report_built(report: Dictionary)",
-          "summary": "工作流构建支持报告后发出。",
+          "summary": "工作流构建支持报告后发出。report 是隔离副本。",
           "visibility": "public"
         },
         {
           "kind": "signal",
           "name": "workflow_report_submitted",
           "signature": "signal workflow_report_submitted(report: Dictionary, result: Dictionary)",
-          "summary": "工作流直接提交支持报告成功后发出。",
+          "summary": "工作流直接提交支持报告成功后发出。report 与 result 都是隔离副本。",
           "visibility": "public"
         },
         {
           "kind": "signal",
           "name": "workflow_report_queued",
           "signature": "signal workflow_report_queued(report: Dictionary, envelope: GFRequestEnvelope)",
-          "summary": "工作流把支持报告写入离线队列后发出。",
+          "summary": "工作流把支持报告可靠写入离线队列后发出。",
           "visibility": "public"
         },
         {
           "kind": "signal",
           "name": "workflow_replay_completed",
           "signature": "signal workflow_replay_completed(result: Dictionary)",
-          "summary": "工作流完成一次离线队列重放后发出。",
+          "summary": "工作流完成一次离线队列重放后发出。result 是隔离副本。",
           "visibility": "public"
         },
         {
@@ -77664,7 +77938,7 @@
           "kind": "var",
           "name": "auto_wire_outbox_transport",
           "signature": "var auto_wire_outbox_transport: bool = true",
-          "summary": "设置 transport_callback 后是否自动把 request_outbox.transport_callback 指向本工作流。",
+          "summary": "设置 transport_callback 后是否在 Outbox 尚无 transport 时自动绑定本工作流。",
           "visibility": "public"
         },
         {
@@ -77727,7 +78001,7 @@
           "kind": "func",
           "name": "queue_report",
           "signature": "func queue_report(report: Dictionary, options: Dictionary = {}) -> Dictionary",
-          "summary": "将支持报告写入离线请求队列。",
+          "summary": "将支持报告可靠写入离线请求队列。",
           "visibility": "public"
         },
         {
@@ -77735,6 +78009,13 @@
           "name": "replay_queued",
           "signature": "func replay_queued(max_count: int = 0) -> Dictionary",
           "summary": "重放离线支持报告队列。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "handles_request",
+          "signature": "func handles_request(envelope: GFRequestEnvelope) -> bool",
+          "summary": "判断请求是否符合本工作流的持久化 Support Report 协议。",
           "visibility": "public"
         },
         {

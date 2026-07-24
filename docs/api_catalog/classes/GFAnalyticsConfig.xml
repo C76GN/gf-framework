@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFAnalyticsConfig" path="addons/gf/standard/utilities/analytics/gf_analytics_config.gd" module="standard" extends="Resource" classDigest="dadb668ace859bc479e6b14840f52c9f41d1f418ac78596ed47adb1689c34287">
+<class name="GFAnalyticsConfig" path="addons/gf/standard/utilities/analytics/gf_analytics_config.gd" module="standard" extends="Resource" classDigest="f3fba15c82eceb57e1d789fe70e9a99310044fb24c80ae4abb5b118a02392e48">
 	<description>GFAnalyticsConfig: 通用事件分析配置。
 默认不开启网络依赖；若未配置 endpoint，flush 会以 dry-run 成功完成，
 便于项目在本地或测试环境中保持同一套调用路径。</description>
@@ -35,16 +35,18 @@
 		</member>
 		<member kind="property" name="batch_size" decorators="@export_range(1, 500, 1)">
 			<signature>var batch_size: int = 20:</signature>
-			<description>单批最大事件数。</description>
+			<description>单批最大事件数；直接赋值会钳制到 1..500。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="max_queue_size" decorators="@export_range(1, 100000, 1)">
 			<signature>var max_queue_size: int = 1000:</signature>
-			<description>本地队列最大事件数。</description>
+			<description>本地队列最大事件数；直接赋值会钳制到 1..100_000。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="max_event_name_length" decorators="@export_range(1, 4096, 1)">

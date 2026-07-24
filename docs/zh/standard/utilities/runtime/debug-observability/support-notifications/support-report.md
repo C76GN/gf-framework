@@ -72,4 +72,8 @@ if result["status"] == &"queued":
 	print("报告已进入离线队列")
 ```
 
-`request_url` 只是 outbox 中的逻辑端点，默认不表示真实 HTTP 地址。`transport_callback` 的建议签名是 `func(report: Dictionary, options: Dictionary) -> Variant`，项目可在里面调用 HTTP、平台 SDK、本地文件或测试替身。`replay_queued()` 会把 outbox 中保存的报告重新交给同一个 transport；因此不要把账号 token、用户隐私许可或临时 UI 状态写死在 workflow 中，应该在 transport 或项目会话层动态处理。
+`request_url` 只是 outbox 中的逻辑端点，默认不表示真实 HTTP 地址。`transport_callback` 的建议签名是 `func(report: Dictionary, options: Dictionary) -> Variant`，项目可在里面调用 HTTP、平台 SDK、本地文件或测试替身。建议为 Support Report 使用独立的 `GFRequestOutboxUtility` 与 `storage_path`：Outbox 只有一个 transport/filter 入口，不同报告、Analytics、购买或云存档请求通常有不同隐私、许可和重放政策。
+
+`setup(..., outbox)` / `set_transport()` 的自动装配只会在 Outbox 尚未设置有效 `transport_callback` 时绑定 workflow 的内部路由，不会覆盖项目已有 transport。切换 Outbox、清空 transport、关闭自动装配或 `dispose()` 时，workflow 只解除仍由自己安装的绑定，不会清除项目后来替换的 transport。共享 Outbox 已有项目 transport 时，项目路由应先调用 `workflow.handles_request(envelope)`，只把匹配 Support Report 固定信封契约的请求交给 workflow；如果自动装配的内部路由收到非匹配请求，它会 fail closed，不调用 Support transport，请求按 Outbox 的重试/失败策略保留，而不会误把其他业务 body 当作报告发送。
+
+`queue_report()` 只接受 `report_id` 为 String/StringName、长度 `1..4096` 且不含 C0 控制字符（U+0000..U+001F）或 DEL（U+007F）的报告；不合法的报告会在修改 Outbox 前失败。只有在 Outbox 完成持久化检查点、且 Outbox 自己的同步通知没有撤销该精确请求后，才返回 `status = "queued"`。随后发出的 `workflow_report_queued` 是耐久成功后的通知，参数都是隔离副本；监听器在通知中清理或重放 Outbox 属于下一项显式操作，不会反转已经完成的回执。失败结果的 `queue_result` 会保留 `reason`、`persisted` 和 `persistence_error`，不会把仅内存状态描述为离线交接成功。`max_attempts` 会钳制到 `1..64`。`replay_queued()` 会把 outbox 中保存的报告重新交给同一个 transport；因此不要把账号 token、用户隐私许可或临时 UI 状态写死在 workflow 中，应该在 transport 或项目会话层动态处理。

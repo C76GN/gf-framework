@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "catalog_version": "1.3.0",
+  "catalog_version": "1.4.0",
   "capabilities": [
     {
       "id": "architecture",
@@ -41,6 +41,16 @@
       "primary_classes": ["GFConfigDatabaseResource", "GFConfigPipeline", "GFConfigPipelineIR", "GFConfigPipelineValidationStage"],
       "recipes": ["config-pipeline"],
       "boundary": "Business columns and schemas belong to project inputs; reusable reading, validation, target, and commit mechanics belong to the tool."
+    },
+    {
+      "id": "analytics-events",
+      "title": "Versioned analytics events and durable handoff",
+      "summary": "Exact event-name and schema-version validation, structured tracking reports, and provider-neutral handoff to a dedicated persistent request outbox.",
+      "keywords": ["analytics", "event", "schema", "version", "registry", "outbox", "offline", "idempotency", "telemetry", "consent"],
+      "packages": ["gf.standard.base", "gf.standard.assets"],
+      "primary_classes": ["GFAnalyticsEventSchema", "GFAnalyticsSchemaRegistry", "GFAnalyticsUtility", "GFAnalyticsOutboxAdapter", "GFRequestOutboxUtility"],
+      "recipes": ["analytics-schema-outbox"],
+      "boundary": "GF validates the declared properties contract and coordinates an at-least-once queue handoff. Projects own event taxonomy, explicit version migration, PII and consent policy, authentication, replay authorization, retention, and server-side idempotency."
     },
     {
       "id": "storage-save",
