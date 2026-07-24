@@ -217,6 +217,7 @@ func test_dictionary_schema_definition_detects_circular_schema() -> void:
 
 	assert_false(report.is_ok(), "循环 schema 定义应被报告而不是无限递归。")
 	assert_eq(_find_issue_kind(report, "circular_schema"), "circular_schema", "循环 schema 应有稳定 issue kind。")
+	child_field.dictionary_schema = null
 
 
 func test_dictionary_schema_required_default_still_requires_source_value() -> void:
@@ -246,6 +247,8 @@ func test_dictionary_schema_duplicate_preserves_circular_schema_references() -> 
 
 	assert_not_null(copied_child, "循环 schema 副本应保留字段。")
 	assert_same(copied_child.dictionary_schema, copied_schema, "循环 schema 副本应指向副本自身。")
+	child_field.dictionary_schema = null
+	copied_child.dictionary_schema = null
 
 
 func test_schema_field_duplicate_preserves_self_referential_array_item() -> void:
@@ -255,6 +258,8 @@ func test_schema_field_duplicate_preserves_self_referential_array_item() -> void
 	var copied_field: GFSchemaField = field.duplicate_field()
 
 	assert_same(copied_field.array_item_schema, copied_field, "字段自引用副本应指向字段副本自身。")
+	field.array_item_schema = null
+	copied_field.array_item_schema = null
 
 
 func test_dictionary_schema_configure_applies_options_without_fields() -> void:
@@ -390,6 +395,7 @@ func test_dictionary_schema_validate_dictionary_short_circuits_recursive_schema(
 
 	assert_false(report.is_ok(), "循环 schema 数据校验应返回报告而不是递归挂起。")
 	assert_eq(_find_issue_kind(report, "circular_schema"), "circular_schema", "循环 schema 应由定义自检稳定报告。")
+	child_field.dictionary_schema = null
 
 
 func test_schema_field_validation_rules_inherit_field_context() -> void:

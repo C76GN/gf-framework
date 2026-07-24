@@ -50,6 +50,54 @@ func test_dispose_defers_shutdown_watcher_detach_during_autoload_tree_exit() -> 
 	await get_tree().process_frame
 	assert_false(is_instance_valid(watcher), "退出阶段登记 queue_free 后关闭监听仍应完成释放。")
 
+
+func test_dispose_releases_project_owned_callbacks() -> void:
+	_analytics.payload_builder = func(_batch: Array) -> Dictionary:
+		return {}
+	_analytics.transport_callback = func(_payload: Dictionary) -> Dictionary:
+		return {}
+	_analytics.response_parser = func(
+		_response_code: int,
+		_body: PackedByteArray,
+		_fallback_accepted: int
+	) -> Dictionary:
+		return {}
+
+	_analytics.dispose()
+
+	assert_false(_analytics.payload_builder.is_valid(), "dispose 应释放项目注入的 payload builder。")
+	assert_false(_analytics.transport_callback.is_valid(), "dispose 应释放项目注入的 transport callback。")
+	assert_false(_analytics.response_parser.is_valid(), "dispose 应释放项目注入的 response parser。")
+
+
+func test_dispose_releases_callbacks_reinjected_by_flush_notifications() -> void:
+	var analytics: PendingAnalyticsUtility = PendingAnalyticsUtility.new()
+	analytics.init()
+	analytics.config.auto_capture_context = false
+	analytics.config.flush_interval_seconds = 0.0
+	analytics.track(&"pending")
+	analytics.flush()
+	var reinject_callbacks: Callable = func(_result: Dictionary) -> void:
+		analytics.payload_builder = func(_batch: Array) -> Dictionary:
+			return {}
+		analytics.transport_callback = func(_payload: Dictionary) -> Dictionary:
+			return {}
+		analytics.response_parser = func(
+			_response_code: int,
+			_body: PackedByteArray,
+			_fallback_accepted: int
+		) -> Dictionary:
+			return {}
+	analytics.flush_completed.connect(reinject_callbacks)
+
+	analytics.dispose()
+	analytics.flush_completed.disconnect(reinject_callbacks)
+
+	assert_false(analytics.payload_builder.is_valid(), "dispose 终态应释放通知回调重新注入的 payload builder。")
+	assert_false(analytics.transport_callback.is_valid(), "dispose 终态应释放通知回调重新注入的 transport callback。")
+	assert_false(analytics.response_parser.is_valid(), "dispose 终态应释放通知回调重新注入的 response parser。")
+
+
 ## 验证事件记录会进入队列并带上基础标识。
 func test_track_adds_event_to_queue() -> void:
 	_analytics.identify("client-a")
@@ -570,10 +618,9 @@ func test_flush_started_dispose_prevents_transport_after_notification() -> void:
 		captured.call_count += 1
 		return { "success": true, "accepted": 1 }
 	var analytics_ref: GFAnalyticsUtility = _analytics
-	var _started_connected: Error = _analytics.flush_started.connect(
-		func(_batch: Array) -> void:
-			analytics_ref.dispose()
-	) as Error
+	var on_flush_started: Callable = func(_batch: Array) -> void:
+		analytics_ref.dispose()
+	var _started_connected: Error = _analytics.flush_started.connect(on_flush_started) as Error
 	watch_signals(_analytics)
 	_analytics.track(&"dispose_on_start")
 
@@ -582,6 +629,7 @@ func test_flush_started_dispose_prevents_transport_after_notification() -> void:
 	assert_eq(captured.call_count, 0, "flush_started 中 dispose 后不得继续调用 transport。")
 	assert_signal_emitted(_analytics, "flush_failed", "被 dispose 中断的批次应明确失败。")
 	assert_signal_emitted(_analytics, "flush_completed", "中断批次仍应完成一次生命周期。")
+	_analytics.flush_started.disconnect(on_flush_started)
 
 
 func test_transport_dispose_does_not_double_finish_flush() -> void:
@@ -608,17 +656,17 @@ func test_transport_dispose_does_not_double_finish_flush() -> void:
 	assert_eq(captured.call_count, 1, "transport 应只调用一次。")
 	assert_eq(signal_counts[0], 1, "transport 中 dispose 应只完成一次失败。")
 	assert_eq(signal_counts[1], 1, "transport 中 dispose 应只完成一次 completion。")
+	assert_false(_analytics.transport_callback.is_valid(), "transport 中 dispose 应释放 transport callback。")
 
 
 func test_flush_failed_dispose_is_non_recursive_and_completes_once() -> void:
 	_analytics.config.batch_size = 10
 	var signal_counts: Array[int] = [0, 0]
 	var analytics_ref: GFAnalyticsUtility = _analytics
-	var _failure_connected: Error = _analytics.flush_failed.connect(
-		func(_result: Dictionary) -> void:
-			signal_counts[0] += 1
-			analytics_ref.dispose()
-	) as Error
+	var on_flush_failed: Callable = func(_result: Dictionary) -> void:
+		signal_counts[0] += 1
+		analytics_ref.dispose()
+	var _failure_connected: Error = _analytics.flush_failed.connect(on_flush_failed) as Error
 	var _completion_connected: Error = _analytics.flush_completed.connect(
 		func(_result: Dictionary) -> void:
 			signal_counts[1] += 1
@@ -631,6 +679,7 @@ func test_flush_failed_dispose_is_non_recursive_and_completes_once() -> void:
 
 	assert_eq(signal_counts[0], 1, "flush_failed 监听器 dispose 不得递归再次发出失败。")
 	assert_eq(signal_counts[1], 1, "失败批次应只发出一次 completion。")
+	_analytics.flush_failed.disconnect(on_flush_failed)
 
 
 func test_flush_completed_shutdown_drains_remaining_batches_without_looping() -> void:
@@ -643,14 +692,13 @@ func test_flush_completed_shutdown_drains_remaining_batches_without_looping() ->
 		return {
 			"success": true,
 			"accepted": GFVariantData.get_option_array(payload, "events").size(),
-		}
+	}
 	var analytics_ref: GFAnalyticsUtility = _analytics
-	var _completed_connected: Error = _analytics.flush_completed.connect(
-		func(_result: Dictionary) -> void:
-			completed_calls[0] += 1
-			if completed_calls[0] == 1:
-				analytics_ref.shutdown(true)
-	) as Error
+	var on_flush_completed: Callable = func(_result: Dictionary) -> void:
+		completed_calls[0] += 1
+		if completed_calls[0] == 1:
+			analytics_ref.shutdown(true)
+	var _completed_connected: Error = _analytics.flush_completed.connect(on_flush_completed) as Error
 	_analytics.track(&"first")
 	_analytics.track(&"second")
 	_analytics.config.batch_size = 1
@@ -660,6 +708,7 @@ func test_flush_completed_shutdown_drains_remaining_batches_without_looping() ->
 	assert_eq(transport_calls[0], 2, "通知中的 shutdown 应在通知结束后继续排空剩余批次。")
 	assert_eq(completed_calls[0], 2, "每个排空批次都应完成一次。")
 	assert_eq(_analytics.get_queue_size(), 0, "shutdown drain 应清空剩余同步批次。")
+	_analytics.flush_completed.disconnect(on_flush_completed)
 
 
 func test_partial_accepted_flush_requeues_unaccepted_events() -> void:
@@ -938,16 +987,16 @@ func test_oversized_drop_notifications_do_not_reenter_flush() -> void:
 		return { "padding": "p".repeat(900) }
 	var started_count: Array[int] = [0]
 	var analytics_ref: GFAnalyticsUtility = _analytics
-	var _started_connected: Error = _analytics.flush_started.connect(
-		func(_batch: Array) -> void:
-			started_count[0] += 1
-			if started_count[0] == 1:
-				analytics_ref.track(&"replacement", { "value": "v".repeat(180) })
-	) as Error
+	var on_flush_started: Callable = func(_batch: Array) -> void:
+		started_count[0] += 1
+		if started_count[0] == 1:
+			analytics_ref.track(&"replacement", { "value": "v".repeat(180) })
+	var _started_connected: Error = _analytics.flush_started.connect(on_flush_started) as Error
 	_analytics.track(&"oversized", { "value": "v".repeat(180) })
 
 	assert_eq(started_count[0], 1, "drop 通知中的自动 flush 必须被通知 guard 阻止。")
 	assert_eq(_analytics.get_queue_size(), 1, "通知中新入队事件应留给后续显式 flush。")
+	_analytics.flush_started.disconnect(on_flush_started)
 
 
 func test_drop_notification_shutdown_drains_remaining_events() -> void:
@@ -958,12 +1007,11 @@ func test_drop_notification_shutdown_drains_remaining_events() -> void:
 		return { "padding": "p".repeat(900) }
 	var completion_count: Array[int] = [0]
 	var analytics_ref: GFAnalyticsUtility = _analytics
-	var _completed_connected: Error = _analytics.flush_completed.connect(
-		func(_result: Dictionary) -> void:
-			completion_count[0] += 1
-			if completion_count[0] == 1:
-				analytics_ref.shutdown(true)
-	) as Error
+	var on_flush_completed: Callable = func(_result: Dictionary) -> void:
+		completion_count[0] += 1
+		if completion_count[0] == 1:
+			analytics_ref.shutdown(true)
+	var _completed_connected: Error = _analytics.flush_completed.connect(on_flush_completed) as Error
 	_analytics.track(&"first_oversized", { "value": "v".repeat(180) })
 	_analytics.track(&"second_oversized", { "value": "v".repeat(180) })
 
@@ -971,6 +1019,7 @@ func test_drop_notification_shutdown_drains_remaining_events() -> void:
 
 	assert_eq(completion_count[0], 2, "drop 通知中的 shutdown 应在通知结束后继续 drain。")
 	assert_eq(_analytics.get_queue_size(), 0, "shutdown drain 应处理全部不可发送事件并终止。")
+	_analytics.flush_completed.disconnect(on_flush_completed)
 
 
 func test_response_parser_non_dictionary_fails_closed_and_requeues_batch() -> void:
@@ -1025,6 +1074,7 @@ func test_response_parser_state_change_cannot_finish_a_new_generation() -> void:
 
 	assert_eq(parser_calls[0], 1, "response_parser 应调用一次。")
 	assert_eq(analytics.get_queue_size(), 1, "旧 HTTP callback 不得完成 parser 中创建的新 generation。")
+	assert_false(analytics.response_parser.is_valid(), "parser 中 dispose 应释放旧 generation 的 parser。")
 	analytics.dispose()
 
 

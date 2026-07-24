@@ -687,6 +687,7 @@ func test_task_group_stops_initialization_when_child_cancels_parent() -> void:
 	assert_eq(cancelling_child.end_count, 1, "父组取消应只结束当前子任务一次。")
 	assert_false(cancelling_child.has_initialized(), "已被父组结束的子任务不应在 initialize 返回后重新标记 initialized。")
 	assert_true(sibling_order.is_empty(), "父组取消后不应继续初始化后续并行子任务。")
+	cancelling_child.parent_group = null
 
 
 func test_task_group_configuration_is_controlled_and_transactional() -> void:

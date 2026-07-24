@@ -15,6 +15,7 @@ func after_each() -> void:
 	if _storage != null:
 		for file_name: String in _storage.list_files("", "", true):
 			var _delete_result: Error = _storage.delete_file(file_name)
+		_storage.dispose()
 		_storage = null
 
 

@@ -60,6 +60,10 @@ func test_resource_graph_scanner_reports_paths_and_cycles_without_editor_ui() ->
 	assert_true(paths.has("child"), "路径列表应包含资源属性路径。")
 	assert_true(paths.has("items"), "路径列表应包含数组属性路径。")
 	assert_true(paths.has("map"), "路径列表应包含字典属性路径。")
+	child.child = null
+	root.child = null
+	root.items.clear()
+	root.map.clear()
 
 
 func test_raw_resource_artifact_materializes_to_user_path_explicitly() -> void:

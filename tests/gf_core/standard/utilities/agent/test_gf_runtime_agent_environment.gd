@@ -102,6 +102,7 @@ func test_registration_requires_closed_json_only_schema_and_rejects_duplicates()
 	assert_true(GFVariantData.get_option_bool(first, "ok"), "严格 schema 应可注册。")
 	assert_false(GFVariantData.get_option_bool(duplicate_result, "ok"), "重复 endpoint 不得隐式替换 handler。")
 	assert_eq(GFVariantData.get_option_string(duplicate_result, "reason"), "endpoint_already_registered")
+	recursive_field.dictionary_schema = null
 
 
 func test_catalog_exposes_only_structural_schema_without_handler_metadata_or_defaults() -> void:

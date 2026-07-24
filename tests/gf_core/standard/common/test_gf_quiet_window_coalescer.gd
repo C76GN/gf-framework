@@ -144,14 +144,14 @@ func test_pending_limit_reserves_target_before_reentrant_same_key_submit() -> vo
 	coalescer.auto_flush = false
 	coalescer.max_pending_batches = 2
 	var callback_state: Dictionary = { "reentered": false }
-	var connect_error: Error = coalescer.batch_closed.connect(func(report: Dictionary) -> void:
+	var on_batch_closed: Callable = func(report: Dictionary) -> void:
 		if (
 			GFVariantData.get_option_string(report, "reason") == "pending_limit"
 			and not GFVariantData.get_option_bool(callback_state, "reentered")
 		):
 			callback_state["reentered"] = true
 			var _reentrant_batch_id: int = coalescer.submit_at(&"target", "callback", 1002)
-	) as Error
+	var connect_error: Error = coalescer.batch_closed.connect(on_batch_closed) as Error
 	assert_eq(connect_error, OK, "测试应能监听同 key 重入提交。")
 
 	var _first_batch_id: int = coalescer.submit_at(&"first", 1, 1000)
@@ -166,6 +166,7 @@ func test_pending_limit_reserves_target_before_reentrant_same_key_submit() -> vo
 		["outer", "callback"],
 		"容量回调提交到目标 key 时不得覆盖或丢失任一消息。"
 	)
+	coalescer.batch_closed.disconnect(on_batch_closed)
 
 
 func test_pending_limit_defers_reentrant_capacity_notifications() -> void:
@@ -303,11 +304,11 @@ func test_cancel_clear_and_flush_all_are_bounded_against_late_or_reentrant_timer
 	var coalescer: GF_QUIET_WINDOW_COALESCER_SCRIPT = GF_QUIET_WINDOW_COALESCER_SCRIPT.new()
 	coalescer.quiet_window_msec = 10
 	var emitted: Array[Dictionary] = []
-	var connect_error: Error = coalescer.batch_closed.connect(func(report: Dictionary) -> void:
+	var on_batch_closed: Callable = func(report: Dictionary) -> void:
 		emitted.append(report)
 		if GFVariantData.get_option_string(report, "key") == "first":
 			var _reentrant_batch_id: int = coalescer.submit(&"reentrant", 3)
-	) as Error
+	var connect_error: Error = coalescer.batch_closed.connect(on_batch_closed) as Error
 	assert_eq(connect_error, OK, "测试应能监听清理与重入边界。")
 
 	var _cancelled_batch_id: int = coalescer.submit(&"cancelled", 0)
@@ -327,6 +328,7 @@ func test_cancel_clear_and_flush_all_are_bounded_against_late_or_reentrant_timer
 	assert_eq(coalescer.get_pending_batch_count(), 1, "关闭回调重入提交的新批次应留给下一轮处理。")
 	var reentrant_report: Dictionary = coalescer.flush(&"reentrant")
 	assert_eq(GFVariantData.get_option_string(reentrant_report, "key"), "reentrant", "显式 flush 应关闭重入批次。")
+	coalescer.batch_closed.disconnect(on_batch_closed)
 
 
 func _wait_until_batch_count(

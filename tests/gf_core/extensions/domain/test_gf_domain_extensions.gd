@@ -519,14 +519,16 @@ func test_slot_inventory_rejects_reentrant_sort_during_change_signal() -> void:
 	var _add_item_to_slot_result_361: Variant = inventory.add_item_to_slot(0, &"HealthPotion", 1)
 	var sort_results: Array = []
 	var listener_snapshots: Array = []
-	var _connect_result_364: Variant = inventory.slot_state_changed.connect(func(_slot_index: int, _before_stack_data: Dictionary, _after_stack_data: Dictionary) -> void:
+	var sort_callback: Callable = func(_slot_index: int, _before_stack_data: Dictionary, _after_stack_data: Dictionary) -> void:
 		sort_results.append(inventory.sort_slots())
-	)
-	var _connect_result_367: Variant = inventory.slot_state_changed.connect(func(_slot_index: int, _before_stack_data: Dictionary, after_stack_data: Dictionary) -> void:
+	var snapshot_callback: Callable = func(_slot_index: int, _before_stack_data: Dictionary, after_stack_data: Dictionary) -> void:
 		listener_snapshots.append(after_stack_data.duplicate(true))
-	)
+	var _connect_result_364: Variant = inventory.slot_state_changed.connect(sort_callback)
+	var _connect_result_367: Variant = inventory.slot_state_changed.connect(snapshot_callback)
 
 	var _remove_item_from_slot_result_371: Variant = inventory.remove_item_from_slot(0, 1)
+	inventory.slot_state_changed.disconnect(sort_callback)
+	inventory.slot_state_changed.disconnect(snapshot_callback)
 
 	assert_push_error("[GFSlotInventoryModel] sort_slots 失败：库存变更通知派发中不允许同步修改库存。请使用 call_deferred() 或在当前通知结束后再修改。")
 	assert_eq(sort_results, [false], "通知派发中的同步排序应失败。")
@@ -542,12 +544,13 @@ func test_slot_inventory_deferred_sort_after_signal_is_safe() -> void:
 	inventory.set_slot_count(3)
 	var _add_item_to_slot_result_385: Variant = inventory.add_item_to_slot(0, &"z_item", 1)
 	var _add_item_to_slot_result_386: Variant = inventory.add_item_to_slot(1, &"a_item", 1)
-	var _connect_result_387: Variant = inventory.slot_emptied.connect(func(_slot_index: int, _previous_stack_data: Dictionary) -> void:
+	var emptied_callback: Callable = func(_slot_index: int, _previous_stack_data: Dictionary) -> void:
 		inventory.call_deferred("sort_slots")
-	)
+	var _connect_result_387: Variant = inventory.slot_emptied.connect(emptied_callback)
 
 	var _remove_item_from_slot_result_391: Variant = inventory.remove_item_from_slot(0, 1)
 	await get_tree().process_frame
+	inventory.slot_emptied.disconnect(emptied_callback)
 
 	assert_eq(GFVariantData.get_option_string(inventory.get_stack_data(0), "item_id"), "a_item", "延迟排序应在通知结束后把非空槽位前移。")
 	assert_true(inventory.is_slot_empty(1), "排序后原第二槽位应变为空。")
@@ -622,6 +625,7 @@ func test_slot_inventory_rejects_mutation_from_acceptance_checker() -> void:
 	assert_true(inventory.set_slot_definition(0, slot_definition))
 
 	var result: GFInventoryOperationResult = inventory.add_item_to_slot(0, &"item_a", 1)
+	slot_definition.acceptance_checker = Callable()
 
 	assert_true(result.ok, "只读接收回调仍应能返回接收结果。")
 	assert_true(attempted_clear[0], "测试回调应尝试一次嵌套 clear。")

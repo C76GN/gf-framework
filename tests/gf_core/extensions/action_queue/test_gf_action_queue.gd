@@ -641,6 +641,7 @@ func test_signal_timeout_allows_queue_to_continue() -> void:
 	assert_push_warning("[GFActionQueueSystem] 等待动作 Signal 超时，队列将继续执行后续动作。")
 	assert_eq(order, ["AFTER_TIMEOUT"], "Signal 超时后队列应继续执行后续动作。")
 	assert_false(_is_queue_processing(_system), "Signal 超时后队列不应继续卡在处理中。")
+	emitter.free()
 
 
 func test_signal_timeout_respects_time_utility_pause() -> void:
@@ -678,6 +679,7 @@ func test_signal_timeout_respects_time_utility_pause() -> void:
 	assert_eq(order, ["AFTER_TIMEOUT"], "恢复时间后，Signal 超时应继续推进并执行后续动作。")
 	assert_false(_is_queue_processing(queue), "恢复时间并超时后队列应排空。")
 
+	emitter.free()
 	arch.dispose()
 
 
@@ -708,6 +710,7 @@ func test_signal_timeout_is_frozen_while_current_action_is_paused() -> void:
 
 	assert_push_warning("[GFActionQueueSystem] 等待动作 Signal 超时，队列将继续执行后续动作。")
 	assert_eq(order, ["AFTER_TIMEOUT"], "恢复后 Signal timeout 应继续执行后续动作。")
+	emitter.free()
 
 
 func test_no_deadlock_on_freed_node() -> void:

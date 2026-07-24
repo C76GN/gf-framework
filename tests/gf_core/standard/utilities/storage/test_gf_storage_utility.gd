@@ -47,6 +47,11 @@ func before_each() -> void:
 	_storage.init()
 
 
+func _replace_storage(storage: GFStorageUtility) -> void:
+	_storage.dispose()
+	_storage = storage
+
+
 func after_each() -> void:
 	if _storage != null:
 		for file_name: String in [
@@ -100,6 +105,7 @@ func after_each() -> void:
 		_remove_directory_if_exists("_invalid_storage_directory")
 		_remove_directory_if_exists("nested")
 
+		_storage.dispose()
 		_storage = null
 
 
@@ -538,7 +544,7 @@ func test_transaction_marker_cannot_expand_recovery_beyond_requested_files() -> 
 
 func test_save_data_group_removes_orphaned_files_when_member_write_fails() -> void:
 	var faulty_storage: FaultyStorageUtility = FaultyStorageUtility.new()
-	_storage = faulty_storage
+	_replace_storage(faulty_storage)
 	_storage.save_dir_name = "test_saves"
 	_storage.init()
 	var data_file_name: String = "group/data.json"
@@ -566,7 +572,7 @@ func test_save_data_group_preserves_existing_files_when_member_write_fails() -> 
 	}), OK, "预置旧事务数据应成功。")
 
 	var faulty_storage: FaultyStorageUtility = FaultyStorageUtility.new()
-	_storage = faulty_storage
+	_replace_storage(faulty_storage)
 	_storage.save_dir_name = "test_saves"
 	_storage.encrypt_key = 0
 	_storage.init()
@@ -891,7 +897,7 @@ func test_load_data_preserves_migrate_data_override_extension_point() -> void:
 	var override_storage: MigrationOverrideStorageUtility = MigrationOverrideStorageUtility.new()
 	override_storage.save_dir_name = "test_saves"
 	override_storage.init()
-	_storage = override_storage
+	_replace_storage(override_storage)
 	_storage.encrypt_key = 0
 	_storage.save_version = 2
 	_storage.default_values_for_new_keys = {"framework_default": true}
@@ -953,7 +959,7 @@ func test_registered_migration_wrong_return_type_fails_without_advancing_version
 	var inherited_storage: InheritedMigrationStorageUtility = InheritedMigrationStorageUtility.new()
 	inherited_storage.save_dir_name = "test_saves"
 	inherited_storage.init()
-	_storage = inherited_storage
+	_replace_storage(inherited_storage)
 	_storage.encrypt_key = 0
 	_storage.save_version = 2
 	assert_true(_storage.register_migration(1, 2, func(

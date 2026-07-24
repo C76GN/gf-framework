@@ -235,9 +235,9 @@ func _assert_generated_source_compiles(source: String, access_class_name: String
 	var report: Dictionary = GF_TRANSIENT_GDSCRIPT_TEST_SUPPORT.compile_and_release(
 		source.replace("class_name %s\n" % access_class_name, "")
 	)
-	assert_eq(report.get("compile_error"), OK, message)
-	assert_eq(report.get("cleanup_errors"), [], "动态编译测试必须释放生成脚本的内部类图。")
-	assert_eq(report.get("configuration_error"), "", "动态编译测试必须使用匿名内建 GDScript 根。")
+	assert_eq(GFVariantData.get_option_int(report, "compile_error"), OK, message)
+	assert_eq(GFVariantData.get_option_array(report, "cleanup_errors"), [], "动态编译测试必须释放生成脚本的内部类图。")
+	assert_eq(GFVariantData.get_option_string(report, "configuration_error"), "", "动态编译测试必须使用匿名内建 GDScript 根。")
 
 
 # --- 内部类 ---

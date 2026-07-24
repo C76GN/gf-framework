@@ -169,6 +169,7 @@ GUT_LIFECYCLE_GATE_SCHEMA_VERSION = 1
 GUT_LIFECYCLE_GATE_MAX_DETAIL_COUNT = 20
 GUT_LIFECYCLE_GATE_MAX_TEXT_LENGTH = 512
 GUT_LIFECYCLE_GATE_MAX_JSON_BYTES = 65536
+GUT_LIFECYCLE_GATE_MAX_MIRRORED_MARKERS = 2
 GUT_LIFECYCLE_GATE_REQUIRED_KEYS = frozenset({
 	"schema_version",
 	"ok",
@@ -183,6 +184,7 @@ GUT_LIFECYCLE_GATE_REQUIRED_KEYS = frozenset({
 })
 GUT_LIFECYCLE_WARNING_DETAIL_KEYS = frozenset({"test_id", "code", "file", "line"})
 GUT_LIFECYCLE_ORPHAN_DETAIL_KEYS = frozenset({"instance_id", "class", "name"})
+GUT_LIFECYCLE_CLI_RESOURCE_PATH = "res://tests/gf_core/support/gf_gut_cli.gd"
 GUT_PRE_RUN_HOOK_RESOURCE_PATH = "res://tests/gf_core/support/gf_gut_pre_run_hook.gd"
 GUT_POST_RUN_HOOK_RESOURCE_PATH = "res://tests/gf_core/support/gf_gut_post_run_hook.gd"
 GUT_LIFECYCLE_HOOK_ARGUMENTS = (
@@ -377,6 +379,7 @@ RESOURCE_BOUNDARY_EDITOR_METADATA_TARGETS = {
 RESOURCE_BOUNDARY_OBSERVATION_KINDS = {
 	"direct_editor_metadata_load",
 	"direct_script_dependency_load",
+	"direct_test_fixture_resource_load",
 }
 RESOURCE_BOUNDARY_OBSERVATION_SAMPLE_LIMIT = 12
 CONTENT_PACKAGE_MANIFEST_FILE = "gf_content_package.json"
@@ -848,6 +851,11 @@ CHECK_DEFINITIONS: dict[str, list[str]] = {
 		".",
 		"--import",
 	],
+	"gut_lifecycle_smoke": [
+		sys.executable,
+		"tools/gf_gut_lifecycle_smoke.py",
+		"--json",
+	],
 	"gut": [
 		"godot",
 		"--headless",
@@ -856,7 +864,7 @@ CHECK_DEFINITIONS: dict[str, list[str]] = {
 		"--path",
 		".",
 		"-s",
-		"res://addons/gut/gut_cmdln.gd",
+		GUT_LIFECYCLE_CLI_RESOURCE_PATH,
 		"-gdir=res://tests/gf_core",
 		"-ginclude_subdirs",
 		*GUT_LIFECYCLE_HOOK_ARGUMENTS,
@@ -1033,6 +1041,7 @@ CHECK_DEFINITIONS: dict[str, list[str]] = {
 }
 
 CHECK_DEPENDENCIES: dict[str, list[str]] = {
+	"gut_lifecycle_smoke": ["godot_import"],
 	"gut": ["godot_import"],
 	"gdscript_warnings": ["godot_import"],
 	"gdscript_lsp_diagnostics": ["godot_import"],
@@ -1127,6 +1136,7 @@ QUICK_CHECKS: list[str] = [
 	*LIGHT_BOUNDARY_CHECKS,
 ]
 FULL_CHECKS: list[str] = [
+	"gut_lifecycle_smoke",
 	"gut",
 	"api",
 	"ai_api",
@@ -1151,6 +1161,7 @@ FULL_CHECKS: list[str] = [
 	"diff",
 ]
 RELEASE_CHECKS: list[str] = [
+	"gut_lifecycle_smoke",
 	"gut",
 	"api",
 	"ai_api",
@@ -1176,6 +1187,7 @@ RELEASE_CHECKS: list[str] = [
 	"release_metadata",
 ]
 FRAMEWORK_GUT_CHECKS: list[str] = [
+	"gut_lifecycle_smoke",
 	"gut",
 	"gdscript_warnings",
 ]
@@ -1200,6 +1212,7 @@ FRAMEWORK_STATIC_CHECKS: list[str] = [
 	"diff",
 ]
 FRAMEWORK_CHECKS: list[str] = [
+	"gut_lifecycle_smoke",
 	"gut",
 	"api",
 	"ai_api",
@@ -1465,6 +1478,8 @@ def check_command(
 
 DEFAULT_CHECK_TIMEOUT_SECONDS: int = 600
 CHECK_TIMEOUT_SECONDS: dict[str, int] = {
+	# Runs six focused process-level lifecycle scenarios after a shared import.
+	"gut_lifecycle_smoke": 360,
 	# The editor wizard smoke launches and tears down isolated editor projects;
 	# a clean Windows run is routinely longer than the generic ten-minute budget.
 	"package_editor_wizard_smoke": 1200,
@@ -5450,7 +5465,7 @@ def package_editor_wizard_smoke(
 		"--path",
 		".",
 		"-s",
-		"res://addons/gut/gut_cmdln.gd",
+		GUT_LIFECYCLE_CLI_RESOURCE_PATH,
 		f"-gtest={test_path}",
 		*GUT_LIFECYCLE_HOOK_ARGUMENTS,
 		"-gexit",
@@ -12999,14 +13014,19 @@ def maintenance_self_test() -> dict[str, Any]:
 			**clean_lifecycle_payload,
 			"configuration_error": "x" * (GUT_LIFECYCLE_GATE_MAX_TEXT_LENGTH + 1),
 		}
+		oversized_multibyte_text_payload = {
+			**clean_lifecycle_payload,
+			"configuration_error": "界" * GUT_LIFECYCLE_GATE_MAX_TEXT_LENGTH,
+		}
 		record_result(
 			"gut_lifecycle_marker_schema_is_closed_and_bounded",
 			validate_gut_lifecycle_gate_payload(clean_lifecycle_payload) == ""
 			and validate_gut_lifecycle_gate_payload(extra_field_payload) != ""
 			and validate_gut_lifecycle_gate_payload(invalid_truncation_payload) != ""
 			and validate_gut_lifecycle_gate_payload(invalid_warning_detail_payload) != ""
-			and validate_gut_lifecycle_gate_payload(oversized_text_payload) != "",
-			"Lifecycle marker v1 must reject extra fields, inconsistent truncation, malformed details, and oversized text.",
+			and validate_gut_lifecycle_gate_payload(oversized_text_payload) != ""
+			and validate_gut_lifecycle_gate_payload(oversized_multibyte_text_payload) != "",
+			"Lifecycle marker v1 must reject extra fields, inconsistent truncation, malformed details, and character/UTF-8 oversized text.",
 		)
 		clean_lifecycle_marker = (
 			GUT_LIFECYCLE_GATE_PREFIX
@@ -13026,6 +13046,10 @@ def maintenance_self_test() -> dict[str, Any]:
 			f"{clean_lifecycle_marker}\n{clean_lifecycle_marker}\n",
 			"",
 		)
+		excessive_identical_marker_report = parse_gut_lifecycle_gate_output(
+			"\n".join([clean_lifecycle_marker] * 3),
+			"",
+		)
 		conflicting_marker_report = parse_gut_lifecycle_gate_output(
 			f"{clean_lifecycle_marker}\n{invalid_lifecycle_marker}\n",
 			"",
@@ -13043,6 +13067,11 @@ def maintenance_self_test() -> dict[str, Any]:
 			identical_marker_report["ok"]
 			and identical_marker_report["marker_count"] == 2
 			and not identical_marker_report["marker_errors"]
+			and not excessive_identical_marker_report["ok"]
+			and (
+				"lifecycle marker exceeds the mirrored copy limit"
+				in excessive_identical_marker_report["marker_errors"]
+			)
 			and not conflicting_marker_report["ok"]
 			and "conflicting lifecycle markers" in conflicting_marker_report["marker_errors"]
 			and not malformed_marker_report["ok"]
@@ -13052,7 +13081,7 @@ def maintenance_self_test() -> dict[str, Any]:
 			)
 			and not oversized_marker_report["ok"]
 			and "lifecycle marker exceeds the byte limit" in oversized_marker_report["marker_errors"],
-			"Identical duplicate lifecycle evidence may be mirrored into logs; conflicts or malformed copies must fail.",
+			"Exactly one mirrored lifecycle copy is allowed; excessive, conflicting, or malformed copies must fail.",
 		)
 		run_summary_orphan_text = gut_success_summary.replace(
 			"---- All tests passed! ----\n",
@@ -15112,11 +15141,23 @@ def maintenance_self_test() -> dict[str, Any]:
 		and CHECK_DEPENDENCIES.get("gut") == ["godot_import"]
 		and expand_check_dependencies(["gut"]) == ["godot_import", "gut"]
 		and expand_check_dependencies(["godot_import", "gut"]) == ["godot_import", "gut"]
+		and GUT_LIFECYCLE_CLI_RESOURCE_PATH in CHECK_DEFINITIONS["gut"]
 		and all(argument in CHECK_DEFINITIONS["gut"] for argument in GUT_LIFECYCLE_HOOK_ARGUMENTS),
 		(
 			"GUT validation must import a clean Godot project exactly once before loading "
-			"class_name scripts and must install both lifecycle hooks."
+			"class_name scripts and must use the lifecycle-aware CLI with both hooks."
 		),
+	)
+	record_result(
+		"gut_lifecycle_smoke_is_a_framework_gate",
+		CHECK_DEPENDENCIES.get("gut_lifecycle_smoke") == ["godot_import"]
+		and expand_check_dependencies(["gut_lifecycle_smoke"])
+		== ["godot_import", "gut_lifecycle_smoke"]
+		and "gut_lifecycle_smoke" in CHECK_SUITES["framework-gut"]
+		and "gut_lifecycle_smoke" in CHECK_SUITES["framework"]
+		and "gut_lifecycle_smoke" in CHECK_SUITES["full"]
+		and "gut_lifecycle_smoke" in CHECK_SUITES["release"],
+		"Process-level lifecycle failure fixtures must remain a framework and release gate.",
 	)
 	gut_config_payload = read_json_object(ROOT / ".gutconfig.json")
 	record_result(
@@ -15125,8 +15166,12 @@ def maintenance_self_test() -> dict[str, Any]:
 			"pre_run_script": GUT_PRE_RUN_HOOK_RESOURCE_PATH,
 			"post_run_script": GUT_POST_RUN_HOOK_RESOURCE_PATH,
 		}
+		and GUT_LIFECYCLE_CLI_RESOURCE_PATH in CHECK_DEFINITIONS["gut"]
 		and all(argument in CHECK_DEFINITIONS["gut"] for argument in GUT_LIFECYCLE_HOOK_ARGUMENTS),
-		"Repository GUT defaults and the maintenance command must install the same lifecycle hooks.",
+		(
+			"Repository GUT defaults and the lifecycle-aware maintenance command must "
+			"install the same hooks."
+		),
 	)
 	record_result(
 		"gdscript_lsp_check_declares_clean_import_dependency",
@@ -16584,6 +16629,70 @@ def maintenance_self_test() -> dict[str, Any]:
 		"resource_boundary_ignores_load_calls_inside_plain_string_content",
 		not issue_exists(resource_boundary_issues, "direct_script_dependency_load", target="res://addons/gf/extensions/save_extra/example.gd"),
 		f"load calls embedded inside generated source strings should not be reported: {resource_boundary_issues}",
+	)
+	test_fixture_resource_issues = audit_resource_boundary_text(
+		'const RunnerScene = preload("res://tests/gf_core/support/runner.tscn")',
+		"tests/gf_core/support/fixture.gd",
+	)
+	record_result(
+		"resource_boundary_reports_test_owned_fixture_load_as_info",
+		issue_exists(
+			test_fixture_resource_issues,
+			"direct_test_fixture_resource_load",
+			target="res://tests/gf_core/support/runner.tscn",
+			severity="info",
+		),
+		f"test-owned fixture resources should remain observational: {test_fixture_resource_issues}",
+	)
+	runtime_test_fixture_issues = audit_resource_boundary_text(
+		'const RunnerScene = preload("res://tests/gf_core/support/runner.tscn")',
+		"addons/gf/kernel/fixture.gd",
+	)
+	record_result(
+		"resource_boundary_keeps_runtime_load_of_test_fixture_actionable",
+		issue_exists(
+			runtime_test_fixture_issues,
+			"direct_resource_path_load",
+			target="res://tests/gf_core/support/runner.tscn",
+			severity="warning",
+		),
+		f"runtime code must not inherit the test-fixture observation rule: {runtime_test_fixture_issues}",
+	)
+	traversal_fixture_resource_issues = audit_resource_boundary_text(
+		'const RuntimeScene = preload("res://tests/gf_core/../../addons/gf/runtime.tscn")',
+		"tests/gf_core/support/fixture.gd",
+	)
+	record_result(
+		"resource_boundary_rejects_test_fixture_path_traversal",
+		issue_exists(
+			traversal_fixture_resource_issues,
+			"direct_resource_path_load",
+			target="res://tests/gf_core/../../addons/gf/runtime.tscn",
+			severity="warning",
+		)
+		and not issue_exists(
+			traversal_fixture_resource_issues,
+			"direct_test_fixture_resource_load",
+		),
+		f"path traversal must not inherit the test-fixture observation rule: {traversal_fixture_resource_issues}",
+	)
+	traversal_source_resource_issues = audit_resource_boundary_text(
+		'const RunnerScene = preload("res://tests/gf_core/support/runner.tscn")',
+		"tests/gf_core/../runtime/fixture.gd",
+	)
+	record_result(
+		"resource_boundary_rejects_test_source_path_traversal",
+		issue_exists(
+			traversal_source_resource_issues,
+			"direct_resource_path_load",
+			target="res://tests/gf_core/support/runner.tscn",
+			severity="warning",
+		)
+		and not issue_exists(
+			traversal_source_resource_issues,
+			"direct_test_fixture_resource_load",
+		),
+		f"source traversal must not inherit the test-fixture observation rule: {traversal_source_resource_issues}",
 	)
 	record_result(
 		"resource_boundary_source_kind_classifies_common_roots",
@@ -22720,6 +22829,22 @@ def make_resource_boundary_issue(path: str, line_number: int, callee: str, targe
 			target_extension=extension,
 			source_kind=source_kind,
 		)
+	if (
+		source_kind == "test"
+		and is_normalized_test_owned_path(path)
+		and is_normalized_test_fixture_resource_path(target)
+	):
+		return make_boundary_issue(
+			"direct_test_fixture_resource_load",
+			path,
+			"Test-owned fixture resource loads remain visible without imposing runtime resource-domain policy.",
+			line=line_number,
+			severity="info",
+			callee=callee,
+			target=target,
+			target_extension=extension,
+			source_kind=source_kind,
+		)
 	if target.startswith("user://"):
 		return make_boundary_issue(
 			"direct_user_resource_load",
@@ -22755,6 +22880,24 @@ def make_resource_boundary_issue(path: str, line_number: int, callee: str, targe
 		target_extension=extension,
 		source_kind=source_kind,
 	)
+
+
+def is_normalized_test_owned_path(path: str) -> bool:
+	normalized_path = path.replace("\\", "/")
+	parts = normalized_path.split("/")
+	if ".." in parts:
+		return False
+	return posixpath.normpath(normalized_path).startswith("tests/gf_core/")
+
+
+def is_normalized_test_fixture_resource_path(target: str) -> bool:
+	if not target.startswith("res://"):
+		return False
+	resource_path = target[len("res://"):]
+	parts = resource_path.split("/")
+	if ".." in parts:
+		return False
+	return posixpath.normpath(resource_path).startswith("tests/gf_core/")
 
 
 def resource_boundary_source_kind(path: str) -> str:
@@ -26590,6 +26733,12 @@ def parse_gut_lifecycle_gate_output(stdout: str, stderr: str) -> dict[str, Any]:
 		json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
 		for payload in marker_payloads
 	}
+	if len(marker_payloads) > GUT_LIFECYCLE_GATE_MAX_MIRRORED_MARKERS:
+		append_limited(
+			marker_errors,
+			"lifecycle marker exceeds the mirrored copy limit",
+			10,
+		)
 	if len(distinct_payloads) > 1:
 		append_limited(marker_errors, "conflicting lifecycle markers", 10)
 	marker = marker_payloads[-1] if marker_payloads else None
@@ -26665,7 +26814,11 @@ def validate_gut_lifecycle_gate_payload(payload: Any) -> str:
 			return f"lifecycle marker {key} entries must be objects"
 	if not isinstance(payload.get("configuration_error"), str):
 		return "lifecycle marker configuration_error must be a string"
-	if len(payload["configuration_error"]) > GUT_LIFECYCLE_GATE_MAX_TEXT_LENGTH:
+	if (
+		len(payload["configuration_error"]) > GUT_LIFECYCLE_GATE_MAX_TEXT_LENGTH
+		or len(payload["configuration_error"].encode("utf-8"))
+		> GUT_LIFECYCLE_GATE_MAX_TEXT_LENGTH
+	):
 		return "lifecycle marker configuration_error exceeds the text limit"
 
 	warning_count = int(payload["unhandled_warning_count"])
@@ -26680,6 +26833,8 @@ def validate_gut_lifecycle_gate_payload(payload: Any) -> str:
 			return "lifecycle marker warning detail text fields must be strings"
 		if any(
 			len(warning_detail[key]) > GUT_LIFECYCLE_GATE_MAX_TEXT_LENGTH
+			or len(warning_detail[key].encode("utf-8"))
+			> GUT_LIFECYCLE_GATE_MAX_TEXT_LENGTH
 			for key in ("test_id", "code", "file")
 		):
 			return "lifecycle marker warning detail text exceeds the text limit"
@@ -26696,6 +26851,8 @@ def validate_gut_lifecycle_gate_payload(payload: Any) -> str:
 			return "lifecycle marker orphan detail text fields must be strings"
 		if any(
 			len(orphan_detail[key]) > GUT_LIFECYCLE_GATE_MAX_TEXT_LENGTH
+			or len(orphan_detail[key].encode("utf-8"))
+			> GUT_LIFECYCLE_GATE_MAX_TEXT_LENGTH
 			for key in ("class", "name")
 		):
 			return "lifecycle marker orphan detail text exceeds the text limit"

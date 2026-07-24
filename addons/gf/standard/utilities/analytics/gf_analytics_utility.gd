@@ -184,11 +184,14 @@ func init() -> void:
 	_is_initialized = true
 
 
-## 释放事件队列、HTTP 节点和关闭监听。
+## 释放事件队列、HTTP 节点、关闭监听和项目注入的回调。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 func dispose() -> void:
 	if not _is_initialized:
+		_release_injected_callbacks()
 		return
 	_shutdown_watcher_attach_serial += 1
 	_flush_generation += 1
@@ -216,6 +219,7 @@ func dispose() -> void:
 		_free_shutdown_watcher(_shutdown_watcher)
 	_shutdown_watcher = null
 	_is_initialized = false
+	_release_injected_callbacks()
 
 
 ## 推进运行时逻辑。
@@ -975,6 +979,12 @@ func _trim_queue_to_max_size() -> void:
 		trimmed = true
 	if trimmed:
 		_queue_generation += 1
+
+
+func _release_injected_callbacks() -> void:
+	payload_builder = Callable()
+	transport_callback = Callable()
+	response_parser = Callable()
 
 
 func _validation_has_budget_issue(report: GFValidationReport) -> bool:

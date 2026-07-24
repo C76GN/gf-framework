@@ -69,7 +69,7 @@ addons/gf/kernel <- addons/gf/standard <- addons/gf/extensions
 - 新增 `preload()`、`load()`、`ResourceLoader.load()`、`ResourceLoader.load_interactive()`、`ResourceLoader.load_threaded_request()` 或 `ResourceLoader.load_threaded_get()` 字面量时，先判断它是脚本依赖、编辑器工具、测试 fixture、迁移脚本，还是应收敛到 resolver/asset handle/content package 的运行时资源。不能收敛时，在代码或测试上下文中保留足够理由。
 - 使用 `GFAssetUtility` 加载可释放运行时资源时，应优先绑定 owner、group 或明确 cache/pin 策略；不要依赖 Godot 退出时的资源回收来证明生命周期正确。GF 只能追踪经过 GF 入口的引用，无法强制释放仍被节点、Resource、单例、脚本变量或第三方插件持有的对象。
 - 内容包、资源域或项目 profile 的目录和依赖规则只能作为项目侧或外部插件策略；GF 内核和标准库只沉淀稳定的 manifest、validator、resolver、diagnostics 和维护 gate，不硬编码单个游戏的包名、目录布局、热更流程或 CDN 规则。
-- `python tools\gf_maintenance.py resource-boundary --json` 用于统计直接资源加载字面量。默认 `issues` 只保留需要行动的资源加载问题；脚本依赖 preload/load 与编辑器 metadata 加载会进入 `observations` 汇总，并按 `source_kind` 区分 runtime、editor、tool、test 等来源，按 package manifest 归属汇总到 `source_package` / `target_package` 和 source-to-target package 矩阵，需要完整明细时显式传 `--include-observations --json`。维护检查套件使用 `--fail-on-issues`，让真实资源加载问题成为硬闸门，同时保留脚本依赖观测项。
+- `python tools\gf_maintenance.py resource-boundary --json` 用于统计直接资源加载字面量。默认 `issues` 只保留需要行动的资源加载问题；脚本依赖 preload/load、编辑器 metadata 加载，以及 `tests/gf_core/**` 内测试代码对同一测试树固定 fixture 的加载会进入 `observations` 汇总，并按 `source_kind` 区分 runtime、editor、tool、test 等来源，按 package manifest 归属汇总到 `source_package` / `target_package` 和 source-to-target package 矩阵，需要完整明细时显式传 `--include-observations --json`。测试 fixture 例外要求 source/target 都是无 `..` traversal 的规范化测试树路径，不得扩展到运行时代码或测试代码加载非测试资源。维护检查套件使用 `--fail-on-issues`，让真实资源加载问题成为硬闸门，同时保留脚本依赖观测项。
 - `python tools\gf_maintenance.py content-package-boundary --json` 是内容包 manifest 硬 gate；它扫描 tracked 和未忽略的 untracked `gf_content_package.json`，拒绝无效 JSON、非白名单字段、缺失或重复包 ID、缺失或循环依赖、资源路径越过包根，以及把下载地址、安装器、包管理策略写进 manifest 的做法。
 - `python tools\gf_maintenance.py asset-lifecycle-boundary --json` 当前是 report-only 生命周期基线检查；它扫描运行时代码中的 `acquire_handle()`、`load_handle_async()` 和 `request_entry_handle_async()`，报告同时缺少 owner 与 group 的句柄获取，因为这类资源只能依赖手动 release，容易形成长期 cache pin。
 - `python tools\gf_maintenance.py project-profile-boundary --json` 是可选项目结构 profile 检查；默认查找 `gf_project_profile.json`、`.gf/project_profile.json` 或 `project_profile.json`，没有 profile 时通过。Profile 只表达项目自有目录约定、zone、glob、扩展名、路径存在、命名、Feature 模块契约、生成物边界和大桶目录增长规则，不能反向变成 GF 对所有项目的固定目录要求。
@@ -254,7 +254,7 @@ python tools\gf_maintenance.py check --check gdscript_lsp_diagnostics --json
 python tools\gf_maintenance.py log-hygiene --dry-run --json
 ```
 
-该测试集包含静态维护检查，例如 API 注释同步和 GDScript 布局约束。`gdscript_warnings` 会用 headless editor 捕获普通 GUT 可能漏掉的 GDScript reload warning。`gdscript_lsp_diagnostics` 优先连接已有 Godot editor LSP，通过 `textDocument/publishDiagnostics` 读取编辑器诊断；CI 没有可连接的 LSP 时才由 `--connect-or-spawn` 启动临时进程。该检查补充日志中没有稳定输出、但 Godot 面板能显示的 GDScript warning，并作为 `full` 与 `release` 的硬门禁：error、warning、诊断超时、连接或传输失败都会阻止 CI / 发布。GUT 通过 pre/post hook 建立进程级 orphan 基线，并把未由 GUT warning 断言消费的 `push_warning`、新增 orphan Node 与 ObjectDB/resource/RID 退出泄漏全部作为硬失败；维护工具要求 `GF_TEST_LIFECYCLE_GATE` 结构化证据存在且为零，同时复核 GUT Summary。其他 Godot 检查的退出泄漏仍会结构化记录为 cleanup debt，直到各自建立零基线。能用机器稳定判断的维护规则，应优先补到测试或工具中，而不是只写在文字说明里。
+该测试集包含静态维护检查，例如 API 注释同步和 GDScript 布局约束。`gdscript_warnings` 会用 headless editor 捕获普通 GUT 可能漏掉的 GDScript reload warning。`gdscript_lsp_diagnostics` 优先连接已有 Godot editor LSP，通过 `textDocument/publishDiagnostics` 读取编辑器诊断；CI 没有可连接的 LSP 时才由 `--connect-or-spawn` 启动临时进程。该检查补充日志中没有稳定输出、但 Godot 面板能显示的 GDScript warning，并作为 `full` 与 `release` 的硬门禁：error、warning、诊断超时、连接或传输失败都会阻止 CI / 发布。GUT 通过 pre/post hook 建立进程级 orphan 基线，terminal capture 必须先于 tracker 最终快照切换，并把未由 GUT warning 断言消费的 `push_warning`、新增 orphan Node 与 ObjectDB/resource/RID 退出泄漏全部作为硬失败；失败 marker 必须同步产生非零进程退出码。维护工具要求 `GF_TEST_LIFECYCLE_GATE` closed-schema 证据存在且为零，只允许一份证据或 stdout/log 两份完全相同的镜像，同时复核 GUT Summary。生命周期 smoke 必须由统一 process-tree supervisor 执行 bootstrap、并发 cutover 和真实 orphan 故障注入，并在读取报告前确认完整后代树已退出。其他 Godot 检查的退出泄漏仍会结构化记录为 cleanup debt，直到各自建立零基线。能用机器稳定判断的维护规则，应优先补到测试或工具中，而不是只写在文字说明里。
 
 排查退出期泄漏时，先用 `--verbose` 生成 stdout/stderr 日志，再运行 `python tools\gf_maintenance.py godot-exit-leak-report --log <stdout.log> --log <stderr.log> --json` 聚合 ObjectDB、RID、resource path prefix 和 leaked instance type。维护命令成功后会自动删除本次生成或改写的托管日志；需要在后续命令中读取日志时，给产生日志的命令添加 `--keep-logs`，也可临时设置 `GF_MAINTENANCE_KEEP_LOGS=1`。该报告命令默认只诊断不失败；只有准备把基线接入闸门时才显式使用 `--fail-on-leaks`。
 
@@ -266,7 +266,7 @@ python tools\gf_maintenance.py log-hygiene --dry-run --json
 
 ```powershell
 godot --headless --path . --import
-godot --headless --path . -s res://addons/gut/gut_cmdln.gd -gtest=res://tests/gf_core/maintenance/test_layer_boundary_validation.gd -gexit
+godot --headless --path . -s res://tests/gf_core/support/gf_gut_cli.gd -gtest=res://tests/gf_core/maintenance/test_layer_boundary_validation.gd -gexit
 ```
 
 ## 文档维护标准

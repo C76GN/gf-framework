@@ -420,12 +420,13 @@ func test_flow_runner_cancel_from_node_started_skips_execution() -> void:
 	graph.start_node_id = &"start"
 	graph.nodes = [RecordingFlowNode.new(&"start", order)]
 	var runner: GFFlowRunner = GFFlowRunner.new()
-	var _connected: Variant = runner.node_started.connect(func(_node_id: StringName, _node: GFFlowNode) -> void:
+	var node_started_callback: Callable = func(_node_id: StringName, _node: GFFlowNode) -> void:
 		runner.cancel()
-	)
+	var _connected: Variant = runner.node_started.connect(node_started_callback)
 	watch_signals(runner)
 
 	var report: Dictionary = await runner.run(graph, GFFlowContext.new())
+	runner.node_started.disconnect(node_started_callback)
 
 	assert_eq(order, [], "node_started 中取消后不应继续执行当前节点。")
 	assert_eq(GFVariantData.get_option_string(report, "outcome"), "cancelled", "node_started 中取消应报告 cancelled。")
@@ -1052,6 +1053,7 @@ func test_flow_context_queries_condition_handlers() -> void:
 	var result: Dictionary = context.query_condition(&"ready", "go")
 	var missing: Dictionary = context.query_condition(&"missing")
 	var result_metadata: Dictionary = GFVariantData.get_option_dictionary(result, "metadata")
+	context.unregister_condition_handler(&"ready")
 
 	assert_true(GFVariantData.get_option_bool(result, "ok"), "有效条件查询应成功。")
 	assert_true(GFVariantData.get_option_bool(result, "value"), "条件处理器应返回归一化 value。")

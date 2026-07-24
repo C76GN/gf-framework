@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFTagExpression" path="addons/gf/standard/foundation/tags/gf_tag_expression.gd" module="standard" extends="Resource" classDigest="1acdd8ee6d96230e1821eeb621c2e5f2fd476b54e4122406abb450c000b3ed1e">
+<class name="GFTagExpression" path="addons/gf/standard/foundation/tags/gf_tag_expression.gd" module="standard" extends="Resource" classDigest="169967d22195d203e0342a22579604aef2b6d7c245017caf4ce7922c032aac47">
 	<description>GFTagExpression: 可嵌套标签查询表达式资源。
 在 GFTagQuery 的 all/any/none 单层查询之上提供组合表达式，适合描述
 “任意一组条件成立”“全部子条件成立”或“没有子条件成立”等通用标签规则。
@@ -45,11 +45,15 @@
 			</tags>
 		</member>
 		<member kind="property" name="expressions" decorators="@export">
-			<signature>var expressions: Array[GFTagExpression] = []</signature>
-			<description>子表达式列表。operator 为 ALL、ANY 或 NONE 时使用。</description>
+			<signature>var expressions: Array[Resource] = []</signature>
+			<description>子表达式列表。operator 为 ALL、ANY 或 NONE 时使用。公开语义只接受
+GFTagExpression 或 null；其他 Resource 会保留索引并按 null_expression 失败，
+不会被静默忽略。推荐通过 configure_all()、configure_any() 或 configure_none()
+写入强类型子表达式。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="schema">expressions: Array[GFTagExpression]，按数组顺序参与组合判断。</tag>
+				<tag name="schema">expressions: Array[GFTagExpression | null]，按数组顺序参与组合判断；底层使用 Array[Resource] 避免自引用 Resource 脚本被引擎永久保留。</tag>
+				<tag name="since">3.18.0</tag>
 			</tags>
 		</member>
 	</properties>

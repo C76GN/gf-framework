@@ -1,20 +1,20 @@
-# Captures the process-local orphan baseline used by the GF post-run gate.
+# Captures the process-local orphan baseline used by the GF lifecycle gate.
 extends GutHookScript
 
 
 # --- 常量 ---
 
-const ORPHAN_BASELINE_META_KEY: StringName = &"_gf_test_orphan_baseline"
+const GF_GUT_LIFECYCLE_STATE_SCRIPT = preload(
+	"res://tests/gf_core/support/gf_gut_lifecycle_state.gd"
+)
 
 
 # --- 可重写钩子 / 虚方法 ---
 
 func run() -> void:
-	if not gut is GutMain:
-		return
-
-	var gut_main: GutMain = gut
-	gut_main.set_meta(ORPHAN_BASELINE_META_KEY, _capture_orphan_ids())
+	GF_GUT_LIFECYCLE_STATE_SCRIPT.commit_orphan_baseline(
+		_capture_orphan_ids()
+	)
 
 
 # --- 私有/辅助方法 ---

@@ -172,6 +172,8 @@ func after_each() -> void:
 	if _utility != null:
 		_utility.dispose()
 	_utility = null
+	if _storage != null:
+		_storage.dispose()
 	_storage = null
 	_clock = null
 
@@ -586,6 +588,7 @@ func test_provider_reentrant_save_is_rejected_without_recursive_io() -> void:
 	assert_eq(nested_operations[0].get_result().get_status(), GFSaveProfileResult.STATUS_BUSY)
 	_storage.complete_save(OK)
 	assert_true(outer.get_result().is_successful())
+	provider.gather_callback = Callable()
 
 
 func test_completion_callback_dispose_leaves_disposed_as_final_state() -> void:
@@ -1136,6 +1139,7 @@ func test_real_storage_round_trip_completes_through_async_signals() -> void:
 	real_storage.wait_for_async_tasks()
 	var _delete_error: Error = real_storage.delete_file(profile.file_name)
 	real_utility.dispose()
+	real_storage.dispose()
 
 
 func test_extension_installer_ready_injects_storage_for_real_round_trip() -> void:

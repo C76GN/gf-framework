@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFAnalyticsUtility" path="addons/gf/standard/utilities/analytics/gf_analytics_utility.gd" module="standard" extends="GFUtility" classDigest="9c87abf084c65baa50bdb2832c152eebb81e1b8233209149ebcffbc42bcf6052">
+<class name="GFAnalyticsUtility" path="addons/gf/standard/utilities/analytics/gf_analytics_utility.gd" module="standard" extends="GFUtility" classDigest="ffa764544ce188bd56f4b0c8840ce3f3141b5a038cc89806e1ff921070210aad">
 	<description>GFAnalyticsUtility: 通用事件分析与批量上报工具。
 负责事件排队、环境上下文采集、批量 flush 与失败重排。
 endpoint 为空时不会访问网络，可作为本地事件汇聚或测试通道使用。</description>
@@ -107,9 +107,10 @@ flush 按最终信封字节预算从最大前缀向下有界校验时可能多�
 		</member>
 		<member kind="method" name="dispose">
 			<signature>func dispose() -&gt; void:</signature>
-			<description>释放事件队列、HTTP 节点和关闭监听。</description>
+			<description>释放事件队列、HTTP 节点、关闭监听和项目注入的回调。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="tick">

@@ -8,7 +8,7 @@ const _GF_SKILL_ACTIVATION_STEP_SCRIPT = preload("res://addons/gf/extensions/com
 
 # --- 辅助类 (模拟战斗实体) ---
 
-class MockEntity extends Object:
+class MockEntity extends RefCounted:
 	var tag_component: GFTagComponent = GFTagComponent.new()
 	var attributes: Dictionary = {}
 	var buffs: Array[GFBuff] = []
@@ -352,6 +352,7 @@ func test_skill_requires_tags_when_owner_has_no_tag_component() -> void:
 	skill.require_tags.append(&"Armed")
 
 	assert_false(skill.can_execute(), "存在必需标签但 owner 无标签组件时，技能不应允许施放。")
+	plain_owner.free()
 
 
 func test_skill_custom_can_execute_runs_without_tag_component() -> void:
@@ -360,6 +361,7 @@ func test_skill_custom_can_execute_runs_without_tag_component() -> void:
 	skill.owner = plain_owner
 
 	assert_false(skill.can_execute(), "owner 无标签组件且无必需标签时，仍应执行自定义施放检查。")
+	plain_owner.free()
 
 
 func test_skill_activation_report_uses_tag_query_and_callbacks() -> void:
@@ -429,6 +431,7 @@ func test_skill_commit_failure_blocks_activation_side_effects() -> void:
 	assert_eq(skill.cooldown_left, 0.0, "提交失败不应进入冷却。")
 	assert_eq(step.calls, [&"validate", &"apply"], "失败步骤不应被标记为已应用或进入回滚。")
 	assert_signal_emitted(skill, "activation_failed", "提交失败应发出激活失败信号。")
+	step.applied_context = null
 
 
 func test_skill_activation_context_commit_and_cooldown_flow() -> void:
@@ -462,6 +465,8 @@ func test_skill_activation_context_commit_and_cooldown_flow() -> void:
 	assert_true(GFVariantData.get_option_bool(context_metadata, "committed"), "提交回调 metadata 应合并到上下文。")
 	assert_eq(GFVariantData.get_option_string(context_metadata, "request"), "primary", "调用方 metadata 应保留。")
 	assert_signal_emitted(skill, "activation_committed", "执行成功应发出提交信号。")
+	step.applied_context = null
+	skill.activation_context = null
 
 
 func test_skill_rejects_freed_owner() -> void:
@@ -499,7 +504,7 @@ func test_buff_modifier_requires_explicit_attribute_id() -> void:
 
 
 func test_buff_ignores_freed_owner() -> void:
-	var entity: MockEntity = MockEntity.new()
+	var entity: Object = Object.new()
 	var buff: GFBuff = GFBuff.new()
 	buff.tags.append(&"Buffed")
 	buff.setup(&"Detached", 1.0, entity)
@@ -636,6 +641,7 @@ func test_skill_does_not_start_cooldown_when_execute_hook_fails() -> void:
 	assert_eq(step.calls, [&"validate", &"apply", &"rollback"], "执行失败应逆序回滚已应用步骤。")
 	assert_eq(resource_balance[0], 1, "执行失败不应留下已经扣除的资源。")
 	assert_eq(skill.cooldown_left, 0.0, "执行钩子失败时不应进入冷却。")
+	step.applied_context = null
 
 
 func test_add_skill_rebinds_existing_owner_to_registered_entity() -> void:
@@ -1051,7 +1057,7 @@ func test_update_active_status_cleans_orphaned_active_entry() -> void:
 
 func test_tick_cleans_freed_entities_from_internal_indices() -> void:
 	var system: GFCombatSystem = GFCombatSystem.new()
-	var entity: MockEntity = MockEntity.new()
+	var entity: Object = Object.new()
 
 	system._entities[entity.get_instance_id()] = {
 		"buffs": [],
@@ -1086,6 +1092,7 @@ func test_tick_skips_entity_removed_by_earlier_entity_callback() -> void:
 	system.tick(0.1)
 
 	assert_false(system._entities.has(entity_b.get_instance_id()), "tick 中被前一个实体注销的后续实体不应再被访问。")
+	system.dispose()
 
 
 func test_combat_event_dispatching() -> void:

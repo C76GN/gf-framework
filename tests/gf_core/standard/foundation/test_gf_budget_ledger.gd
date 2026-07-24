@@ -99,18 +99,20 @@ func test_budget_consumed_reentrancy_never_emits_stale_budget_changed_state() ->
 	var ledger: GFBudgetLedgerBase = GFBudgetLedgerBase.new()
 	ledger.set_capacity(&"energy", 10.0)
 	var observed_available: Array[float] = []
-	var _consumed_connected: Error = ledger.budget_consumed.connect(func(budget_id: StringName, _amount: float) -> void:
+	var on_budget_consumed: Callable = func(budget_id: StringName, _amount: float) -> void:
 		ledger.release(budget_id, 1.0)
-	) as Error
-	var _changed_connected: Error = ledger.budget_changed.connect(func(_budget_id: StringName, available: float, _capacity: float) -> void:
+	var on_budget_changed: Callable = func(_budget_id: StringName, available: float, _capacity: float) -> void:
 		observed_available.append(available)
-	) as Error
+	var _consumed_connected: Error = ledger.budget_consumed.connect(on_budget_consumed) as Error
+	var _changed_connected: Error = ledger.budget_changed.connect(on_budget_changed) as Error
 
 	var result: Dictionary = ledger.consume(&"energy", 3.0)
 
 	assert_true(GFVariantData.get_option_bool(result, "ok"), "测试消费应成功。")
 	assert_eq(ledger.get_available(&"energy"), 8.0, "重入 release 后账本真值应为 8。")
 	assert_eq(observed_available, [8.0, 8.0], "consume 的后续变化信号只能描述发射时的当前状态。")
+	ledger.budget_consumed.disconnect(on_budget_consumed)
+	ledger.budget_changed.disconnect(on_budget_changed)
 
 
 # --- 内部类 ---

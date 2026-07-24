@@ -18,7 +18,7 @@
 | 枚举 | [`Operator`](#member-gftagexpression-enums-operator) | `enum Operator` |
 | 属性 | [`operator`](#member-gftagexpression-properties-operator) | `var operator: Operator = Operator.QUERY` |
 | 属性 | [`query`](#member-gftagexpression-properties-query) | `var query: GFTagQuery = null` |
-| 属性 | [`expressions`](#member-gftagexpression-properties-expressions) | `var expressions: Array[GFTagExpression] = []` |
+| 属性 | [`expressions`](#member-gftagexpression-properties-expressions) | `var expressions: Array[Resource] = []` |
 | 方法 | [`is_empty`](#member-gftagexpression-methods-is_empty) | `func is_empty() -> bool:` |
 | 方法 | [`matches`](#member-gftagexpression-methods-matches) | `func matches(source: Variant) -> bool:` |
 | 方法 | [`get_match_report`](#member-gftagexpression-methods-get_match_report) | `func get_match_report(source: Variant) -> Dictionary:` |
@@ -85,16 +85,17 @@ var query: GFTagQuery = null
 ### `expressions`
 
 - API：`public`
+- 首次版本：`3.18.0`
 
 ```gdscript
-var expressions: Array[GFTagExpression] = []
+var expressions: Array[Resource] = []
 ```
 
-子表达式列表。operator 为 ALL、ANY 或 NONE 时使用。
+子表达式列表。operator 为 ALL、ANY 或 NONE 时使用。公开语义只接受 GFTagExpression 或 null；其他 Resource 会保留索引并按 null_expression 失败， 不会被静默忽略。推荐通过 configure_all()、configure_any() 或 configure_none() 写入强类型子表达式。
 
 结构：
 
-- `expressions`: Array[GFTagExpression]，按数组顺序参与组合判断。
+- `expressions`: Array[GFTagExpression | null]，按数组顺序参与组合判断；底层使用 Array[Resource] 避免自引用 Resource 脚本被引擎永久保留。
 
 ## 方法
 

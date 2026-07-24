@@ -5,6 +5,9 @@ extends GutTest
 const SCORE_MODEL_FIXTURE_PATH: String = "res://tests/gf_core/fixtures/model_serialization/score_model_fixture.gd"
 const SETTINGS_MODEL_FIXTURE_PATH: String = "res://tests/gf_core/fixtures/model_serialization/settings_model_fixture.gd"
 const GF_VARIANT_ACCESS = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
+const GF_TRANSIENT_GDSCRIPT_TEST_SUPPORT = preload(
+	"res://tests/gf_core/support/gf_transient_gdscript_test_support.gd"
+)
 
 
 # --- 测试：单 Model 序列化 ---
@@ -80,6 +83,12 @@ func to_dict() -> Dictionary:
 
 	assert_eq(state.size(), 0, "缺少稳定标识的运行时 Model 不应进入快照。")
 	assert_push_error("[GFArchitecture] 可序列化 Model 缺少稳定标识：请为脚本声明 class_name 或重写 get_save_key()。")
+
+	arch.dispose()
+	runtime_model = null
+	var cleanup_errors: Array[int] = GF_TRANSIENT_GDSCRIPT_TEST_SUPPORT.release(runtime_script)
+	runtime_script = null
+	assert_eq(cleanup_errors, [], "动态 Model 脚本依赖图应在实例和架构释放后完整拆除。")
 
 
 func test_architecture_prefers_model_save_key_for_serialization() -> void:

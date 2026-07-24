@@ -222,21 +222,29 @@ func test_turn_flow_start_and_stop_are_idempotent_under_signal_reentry() -> void
 	var system: GFTurnFlowSystem = GFTurnFlowSystem.new()
 	var started_count: Array[int] = [0]
 	var stopped_count: Array[int] = [0]
-	var _started_connection: Error = system.flow_started.connect(
+	var started_callback: Callable = (
 		func(_context: GFTurnContext) -> void:
 			started_count[0] += 1
 			system.start()
+	)
+	var _started_connection: Error = system.flow_started.connect(
+		started_callback
 	) as Error
-	var _stopped_connection: Error = system.flow_stopped.connect(
+	var stopped_callback: Callable = (
 		func(_context: GFTurnContext) -> void:
 			stopped_count[0] += 1
 			system.stop()
+	)
+	var _stopped_connection: Error = system.flow_stopped.connect(
+		stopped_callback
 	) as Error
 
 	system.start()
 	system.start(false)
 	system.stop()
 	system.stop(false)
+	system.flow_started.disconnect(started_callback)
+	system.flow_stopped.disconnect(stopped_callback)
 
 	assert_eq(started_count[0], 1, "start 及 flow_started 重入不得重复发出生命周期信号。")
 	assert_eq(stopped_count[0], 1, "stop 及 flow_stopped 重入不得重复发出生命周期信号。")
@@ -246,16 +254,20 @@ func test_turn_flow_start_and_stop_are_idempotent_under_signal_reentry() -> void
 func test_turn_flow_can_restart_from_completed_stop_notification() -> void:
 	var system: GFTurnFlowSystem = GFTurnFlowSystem.new()
 	var restarted: Array[bool] = [false]
-	var _stopped_connection: Error = system.flow_stopped.connect(
+	var stopped_callback: Callable = (
 		func(_context: GFTurnContext) -> void:
 			if restarted[0]:
 				return
 			restarted[0] = true
 			system.start(false)
+	)
+	var _stopped_connection: Error = system.flow_stopped.connect(
+		stopped_callback
 	) as Error
 
 	system.start()
 	system.stop()
+	system.flow_stopped.disconnect(stopped_callback)
 
 	assert_true(restarted[0], "flow_stopped 应观察到已完成的 stopped 状态并可启动新周期。")
 	assert_true(system.is_running, "旧 stop 调用链不得在通知返回后覆盖重入启动的新周期。")
@@ -303,12 +315,13 @@ func test_phase_changed_stop_prevents_phase_enter() -> void:
 	var phase: RecordingPhase = RecordingPhase.new(&"prepare", order)
 	var system: GFTurnFlowSystem = GFTurnFlowSystem.new()
 	system.set_phases([phase])
-	var _connect_result: Error = system.phase_changed.connect(func(_phase: GFTurnPhase, _index: int) -> void:
+	var phase_changed_callback: Callable = func(_phase: GFTurnPhase, _index: int) -> void:
 		system.stop()
-	) as Error
+	var _connect_result: Error = system.phase_changed.connect(phase_changed_callback) as Error
 
 	system.start()
 	await system.advance_phase()
+	system.phase_changed.disconnect(phase_changed_callback)
 
 	assert_eq(order, [], "phase_changed 中 stop 后不应继续调用新阶段 enter。")
 
@@ -325,6 +338,7 @@ func test_sync_phase_stop_prevents_auto_finish() -> void:
 
 	system.start()
 	await system.advance_phase()
+	phase.system = null
 
 	assert_eq(order, ["execute"], "同步 stop 后不应继续阶段完成流程。")
 	assert_eq(finished_count[0], 0, "同步 stop 后不应发出 finished。")

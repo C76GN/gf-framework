@@ -25,12 +25,7 @@ static func compile_and_release(source: String) -> Dictionary:
 		if runtime_script.get_global_name().is_empty()
 		else "transient_script_root_declares_global_name"
 	)
-	_release_script_graph(
-		runtime_script,
-		runtime_script.resource_path,
-		{},
-		cleanup_errors
-	)
+	cleanup_errors = release(runtime_script)
 	return {
 		"ok": (
 			compile_error == OK
@@ -41,6 +36,20 @@ static func compile_and_release(source: String) -> Dictionary:
 		"cleanup_errors": cleanup_errors,
 		"configuration_error": configuration_error,
 	}
+
+
+static func release(runtime_script: GDScript) -> Array[int]:
+	var cleanup_errors: Array[int] = []
+	if runtime_script == null:
+		cleanup_errors.append(ERR_INVALID_PARAMETER)
+		return cleanup_errors
+	_release_script_graph(
+		runtime_script,
+		runtime_script.resource_path,
+		{},
+		cleanup_errors
+	)
+	return cleanup_errors
 
 
 # --- 私有/辅助方法 ---

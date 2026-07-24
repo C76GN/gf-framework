@@ -587,6 +587,7 @@ class ReadyLookupReplacementUtility extends GFUtility:
 
 	func dispose() -> void:
 		disposed = true
+		ready_lookup = null
 
 
 class ReadyFailingReplacementUtility extends GFUtility:
@@ -764,7 +765,7 @@ func after_each() -> void:
 	if Gf.has_architecture():
 		var arch: GFArchitecture = Gf.get_architecture()
 		arch.dispose()
-		await Gf.set_architecture(GFArchitecture.new())
+		Gf._architecture = null
 	_clear_test_project_settings()
 
 # --- 测试用例 ---
@@ -2470,6 +2471,48 @@ func test_parent_architecture_rejects_self_and_cycles() -> void:
 	assert_push_error("[GFArchitecture] set_parent_architecture 失败：父级架构不能是自身。")
 	assert_push_error("[GFArchitecture] set_parent_architecture 失败：父级架构会形成循环引用。")
 	child_arch.dispose()
+	parent_arch.dispose()
+
+
+func test_architecture_dispose_releases_parent_reference() -> void:
+	var parent_arch: GFArchitecture = GFArchitecture.new()
+	var child_arch: GFArchitecture = GFArchitecture.new(parent_arch)
+
+	child_arch.dispose()
+
+	assert_null(
+		child_arch.get_parent_architecture(),
+		"dispose 后架构不得继续持有父架构强引用。"
+	)
+	parent_arch.dispose()
+
+
+func test_architecture_dispose_rejects_parent_reinjection_from_completion_signal() -> void:
+	var parent_arch: GFArchitecture = GFArchitecture.new()
+	var child_arch: GFArchitecture = GFArchitecture.new()
+	var slow_utility: SlowInitUtility = SlowInitUtility.new()
+	await child_arch.register_utility_instance(slow_utility)
+	var init_state: Dictionary = { "done": false }
+	@warning_ignore("missing_await")
+	_await_arch_init(child_arch, init_state)
+	await get_tree().process_frame
+	var reinject_parent: Callable = func() -> void:
+		child_arch.set_parent_architecture(parent_arch)
+	child_arch.initialization_finished.connect(reinject_parent)
+
+	child_arch.dispose()
+	child_arch.initialization_finished.disconnect(reinject_parent)
+	await get_tree().process_frame
+
+	assert_null(
+		child_arch.get_parent_architecture(),
+		"dispose 完成信号的同步回调不得重新注入父架构强引用。"
+	)
+	assert_push_error(
+		"[GFArchitecture] set_parent_architecture 失败：架构正在 dispose 或已 dispose，不能设置父级架构。"
+	)
+	slow_utility.async_continue.emit()
+	await get_tree().process_frame
 	parent_arch.dispose()
 
 
