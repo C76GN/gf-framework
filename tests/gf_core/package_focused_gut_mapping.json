@@ -73,6 +73,7 @@
     "gf.kernel": [
       "res://tests/gf_core/kernel/core/test_gf_report_value_codec.gd",
       "res://tests/gf_core/kernel/core/test_gf_singleton.gd",
+      "res://tests/gf_core/kernel/core/test_gf_weak_method_invocation.gd",
       "res://tests/gf_core/kernel/editor/test_gf_bake_dependency_report.gd",
       "res://tests/gf_core/kernel/editor/test_gf_editor_command_tools.gd",
       "res://tests/gf_core/kernel/editor/test_gf_editor_operation_plan.gd",

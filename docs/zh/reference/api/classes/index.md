@@ -6,7 +6,7 @@
 
 | 模块 | 类 | 成员 | 页面内索引 |
 |---|---:|---:|---|
-| Kernel | 70 | 987 | [Kernel](#module-kernel) |
+| Kernel | 71 | 993 | [Kernel](#module-kernel) |
 | Standard | 434 | 6856 | [Standard](#module-standard) |
 | Action Queue | 16 | 214 | [Action Queue](#module-extensions-action_queue) |
 | Asset Metadata | 4 | 33 | [Asset Metadata](#module-extensions-asset_metadata) |
@@ -78,6 +78,7 @@
 | [`GFSignalSubscriptionToken`](GFSignalSubscriptionToken.md#gfsignalsubscriptiontoken) | 运行时句柄 (`runtime_handle`) | `GFSubscriptionToken` | 4 | `addons/gf/kernel/core/gf_signal_subscription_token.gd` |
 | [`GFSubscriptionToken`](GFSubscriptionToken.md#gfsubscriptiontoken) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 4 | `addons/gf/kernel/core/gf_subscription_token.gd` |
 | [`GFThumbnailRenderTask`](GFThumbnailRenderTask.md#gfthumbnailrendertask) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 23 | `addons/gf/kernel/editor/gf_thumbnail_render_task.gd` |
+| [`GFWeakMethodInvocation`](GFWeakMethodInvocation.md#gfweakmethodinvocation) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 6 | `addons/gf/kernel/core/gf_weak_method_invocation.gd` |
 | [`GFBindingLifetimes`](GFBindingLifetimes.md#gfbindinglifetimes) | 值对象 (`value_object`) | `RefCounted` | 1 | `addons/gf/kernel/core/gf_binding_lifetimes.gd` |
 | [`GFEventListener`](GFEventListener.md#gfeventlistener) | 事件契约 (`event_contract`) | `RefCounted` | 10 | `addons/gf/kernel/core/gf_event_listener.gd` |
 | [`GFAccessGenerator`](GFAccessGenerator.md#gfaccessgenerator) | 编辑器 API (`editor_api`) | `RefCounted` | 13 | `addons/gf/kernel/editor/gf_access_generator.gd` |

@@ -1,7 +1,8 @@
 ## GFMainThreadDispatchQueue: 主线程回调派发队列。
 ##
 ## 用于让后台线程、资源加载回调或项目侧异步流程把最终应用逻辑排回主线程。
-## 队列只保存和派发 Callable，不创建线程、不校验线程身份，也不解释调用方的业务语义。
+## post() 保存无 owner 的强 Callable；post_method() 通过弱 owner 和方法名保存生命周期调用。
+## 队列不创建线程、不校验线程身份，也不解释调用方的业务语义。
 ## [br]
 ## @api public
 ## [br]
@@ -80,35 +81,12 @@ func dispose() -> void:
 
 # --- 公共方法 ---
 
-## 把回调加入主线程派发队列。
+## 把无 owner 的回调加入主线程派发队列。
+## 该入口会强持有 callback；需要绑定 owner 生命周期时使用 post_method()。
 ## [br]
 ## @api public
 ## [br]
 ## @since 7.0.0
-## [br]
-## @param callback: 需要在显式派发点执行的回调。
-## [br]
-## @param options: 队列选项，支持 owner、metadata、label 和 front。
-## [br]
-## @schema options: Dictionary，可包含 owner: Object、metadata: Dictionary、label: String、front: bool。
-## [br]
-## @return 派发句柄；callback 无效时返回 0。
-func post(callback: Callable, options: Dictionary = {}) -> int:
-	if not callback.is_valid():
-		push_error("[GFMainThreadDispatchQueue] post 失败：callback 无效。")
-		return 0
-
-	var owner: Object = _variant_to_object(GFVariantData.get_option_value(options, "owner"))
-	return _enqueue(callback, owner, options)
-
-
-## 把 owner 绑定回调加入主线程派发队列。owner 释放后回调会被跳过。
-## [br]
-## @api public
-## [br]
-## @since 7.0.0
-## [br]
-## @param owner: 回调拥有者。
 ## [br]
 ## @param callback: 需要在显式派发点执行的回调。
 ## [br]
@@ -116,16 +94,44 @@ func post(callback: Callable, options: Dictionary = {}) -> int:
 ## [br]
 ## @schema options: Dictionary，可包含 metadata: Dictionary、label: String、front: bool。
 ## [br]
-## @return 派发句柄；参数无效时返回 0。
-func post_owned(owner: Object, callback: Callable, options: Dictionary = {}) -> int:
-	if owner == null:
-		push_error("[GFMainThreadDispatchQueue] post_owned 失败：owner 为空。")
-		return 0
+## @return 派发句柄；callback 无效时返回 0。
+func post(callback: Callable, options: Dictionary = {}) -> int:
 	if not callback.is_valid():
-		push_error("[GFMainThreadDispatchQueue] post_owned 失败：callback 无效。")
+		push_error("[GFMainThreadDispatchQueue] post 失败：callback 无效。")
+		return 0
+	if options.has("owner") or options.has(&"owner"):
+		push_error("[GFMainThreadDispatchQueue] post 失败：owner 选项已移除，请使用 post_method()。")
 		return 0
 
-	return _enqueue(callback, owner, options)
+	return _enqueue(callback, options)
+
+
+## 把弱 owner 方法调用加入主线程派发队列。
+## 队列只保存 owner 的弱引用与方法名，不保存绑定 Callable、调用参数或 owner 强引用。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param owner: 方法调用拥有者。
+## [br]
+## @param method_name: 派发时调用的方法名。
+## [br]
+## @param options: 队列选项，支持 label 和 front。
+## [br]
+## @schema options: Dictionary，可包含 label: String、front: bool。
+## [br]
+## @return 派发句柄；owner 或 method_name 无效时返回 0。
+func post_method(owner: Object, method_name: StringName, options: Dictionary = {}) -> int:
+	if owner == null or not is_instance_valid(owner):
+		push_error("[GFMainThreadDispatchQueue] post_method 失败：owner 为空或已释放。")
+		return 0
+	if method_name == &"":
+		push_error("[GFMainThreadDispatchQueue] post_method 失败：method_name 为空。")
+		return 0
+
+	var invocation: GFWeakMethodInvocation = GFWeakMethodInvocation.new(owner, method_name)
+	return _enqueue_method(invocation, owner.get_instance_id(), options)
 
 
 ## 派发队列中的回调。
@@ -159,9 +165,28 @@ func dispatch(max_count: int = 0, max_seconds: float = 0.0) -> Dictionary:
 		if record.is_empty():
 			break
 
-		if _record_owner_is_released(record):
-			skipped_owner_now += 1
-			_skipped_owner_count += 1
+		var invocation: GFWeakMethodInvocation = _get_record_method_invocation(record)
+		if invocation != null:
+			var invocation_report: Dictionary = invocation.invoke()
+			var invocation_status: StringName = GFVariantData.get_option_string_name(
+				invocation_report,
+				"status",
+				GFWeakMethodInvocation.STATUS_FAILED
+			)
+			if invocation_status == GFWeakMethodInvocation.STATUS_OWNER_RELEASED:
+				skipped_owner_now += 1
+				_skipped_owner_count += 1
+			elif invocation_status != GFWeakMethodInvocation.STATUS_INVOKED:
+				failed_now += 1
+				_failed_count += 1
+			elif _callback_result_is_failure(
+				GFVariantData.get_option_value(invocation_report, "value")
+			):
+				failed_now += 1
+				_failed_count += 1
+			else:
+				dispatched_now += 1
+				_dispatched_count += 1
 			continue
 
 		var callback: Callable = _get_record_callback(record)
@@ -194,7 +219,7 @@ func dispatch(max_count: int = 0, max_seconds: float = 0.0) -> Dictionary:
 ## [br]
 ## @since 7.0.0
 ## [br]
-## @param handle: post() 返回的派发句柄。
+## @param handle: post() 或 post_method() 返回的派发句柄。
 ## [br]
 ## @return 找到并取消时返回 true。
 func cancel(handle: int) -> bool:
@@ -212,7 +237,7 @@ func cancel(handle: int) -> bool:
 	return false
 
 
-## 取消指定 owner 绑定的全部待派发回调。
+## 取消指定 owner 的全部待派发弱方法调用。
 ## [br]
 ## @api public
 ## [br]
@@ -222,7 +247,7 @@ func cancel(handle: int) -> bool:
 ## [br]
 ## @return 取消数量。
 func cancel_owner(owner: Object) -> int:
-	if owner == null:
+	if owner == null or not is_instance_valid(owner):
 		return 0
 
 	var owner_id: int = owner.get_instance_id()
@@ -340,17 +365,40 @@ func get_debug_snapshot() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
-func _enqueue(callback: Callable, owner: Object, options: Dictionary) -> int:
+func _enqueue(callback: Callable, options: Dictionary) -> int:
 	_mutex.lock()
 	var handle: int = _next_handle
 	_next_handle += 1
 	var record: Dictionary = {
 		"handle": handle,
 		"callback": callback,
-		"owner_ref": weakref(owner) if owner != null else null,
-		"owner_id": owner.get_instance_id() if owner != null else 0,
+		"owner_id": 0,
 		"label": GFVariantData.get_option_string(options, "label"),
 		"metadata": GFVariantData.get_option_dictionary(options, "metadata"),
+		"posted_msec": Time.get_ticks_msec(),
+	}
+	if GFVariantData.get_option_bool(options, "front", false):
+		_queue.push_front(record)
+	else:
+		_queue.append(record)
+	_posted_count += 1
+	_mutex.unlock()
+	return handle
+
+
+func _enqueue_method(
+	invocation: GFWeakMethodInvocation,
+	owner_id: int,
+	options: Dictionary
+) -> int:
+	_mutex.lock()
+	var handle: int = _next_handle
+	_next_handle += 1
+	var record: Dictionary = {
+		"handle": handle,
+		"invocation": invocation,
+		"owner_id": owner_id,
+		"label": GFVariantData.get_option_string(options, "label"),
 		"posted_msec": Time.get_ticks_msec(),
 	}
 	if GFVariantData.get_option_bool(options, "front", false):
@@ -379,11 +427,6 @@ func _is_dispatch_budget_exhausted(started_usec: int, max_seconds: float, proces
 	return elapsed_seconds >= max_seconds
 
 
-func _record_owner_is_released(record: Dictionary) -> bool:
-	var owner_ref: WeakRef = _get_record_owner_ref(record)
-	return owner_ref != null and owner_ref.get_ref() == null
-
-
 func _callback_result_is_failure(result: Variant) -> bool:
 	if result is bool:
 		var bool_result: bool = result
@@ -410,16 +453,9 @@ func _get_record_callback(record: Dictionary) -> Callable:
 	return Callable()
 
 
-func _get_record_owner_ref(record: Dictionary) -> WeakRef:
-	var value: Variant = GFVariantData.get_option_value(record, "owner_ref")
-	if value is WeakRef:
-		var owner_ref: WeakRef = value
-		return owner_ref
-	return null
-
-
-func _variant_to_object(value: Variant) -> Object:
-	if value is Object:
-		var object_value: Object = value
-		return object_value
+func _get_record_method_invocation(record: Dictionary) -> GFWeakMethodInvocation:
+	var value: Variant = GFVariantData.get_option_value(record, "invocation")
+	if value is GFWeakMethodInvocation:
+		var invocation: GFWeakMethodInvocation = value
+		return invocation
 	return null

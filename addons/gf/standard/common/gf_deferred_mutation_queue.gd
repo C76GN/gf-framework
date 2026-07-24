@@ -1,8 +1,8 @@
 ## GFDeferredMutationQueue: 确定性延迟变更队列。
 ##
 ## 用于把运行时或工具流程中收集到的状态变更延迟到显式 playback 点执行。
-## 队列只保存 Callable、排序信息和诊断 metadata，不解释调用方的实体、组件、
-## 节点或资源语义。
+## record() 保存无 owner 的强 Callable；record_method() 通过弱 owner 和方法名
+## 保存生命周期调用。队列不解释调用方的实体、组件、节点或资源语义。
 ## [br]
 ## @api public
 ## [br]
@@ -21,6 +21,9 @@ extends GFUtility
 ## [br]
 ## @since 7.0.0
 const DEFAULT_PHASE: StringName = &"default"
+
+const _RECORD_KIND_CALLABLE: StringName = &"callable"
+const _RECORD_KIND_WEAK_METHOD: StringName = &"weak_method"
 
 
 # --- 公共变量 ---
@@ -79,35 +82,12 @@ func dispose() -> void:
 
 # --- 公共方法 ---
 
-## 记录一条延迟变更。
+## 记录一条无 owner 的延迟变更。
+## 该入口会强持有 mutation；需要绑定 owner 生命周期时使用 record_method()。
 ## [br]
 ## @api public
 ## [br]
 ## @since 7.0.0
-## [br]
-## @param mutation: playback() 时执行的回调。
-## [br]
-## @param options: 记录选项，支持 phase、sort_key、order、label、metadata 和 owner。
-## [br]
-## @schema options: Dictionary，可包含 phase: StringName、sort_key: int、order: int、label: String、metadata: Dictionary、owner: Object。
-## [br]
-## @return 变更句柄；mutation 无效时返回 0。
-func record(mutation: Callable, options: Dictionary = {}) -> int:
-	if not mutation.is_valid():
-		push_error("[GFDeferredMutationQueue] record 失败：mutation 无效。")
-		return 0
-
-	var owner: Object = _variant_to_object(GFVariantData.get_option_value(options, "owner"))
-	return _enqueue(mutation, owner, options)
-
-
-## 记录一条绑定 owner 的延迟变更。owner 释放后变更会在 playback() 时跳过。
-## [br]
-## @api public
-## [br]
-## @since 7.0.0
-## [br]
-## @param owner: 变更拥有者。
 ## [br]
 ## @param mutation: playback() 时执行的回调。
 ## [br]
@@ -115,16 +95,49 @@ func record(mutation: Callable, options: Dictionary = {}) -> int:
 ## [br]
 ## @schema options: Dictionary，可包含 phase: StringName、sort_key: int、order: int、label: String、metadata: Dictionary。
 ## [br]
-## @return 变更句柄；参数无效时返回 0。
-func record_owned(owner: Object, mutation: Callable, options: Dictionary = {}) -> int:
-	if owner == null:
-		push_error("[GFDeferredMutationQueue] record_owned 失败：owner 为空。")
-		return 0
+## @return 变更句柄；mutation 无效时返回 0。
+func record(mutation: Callable, options: Dictionary = {}) -> int:
 	if not mutation.is_valid():
-		push_error("[GFDeferredMutationQueue] record_owned 失败：mutation 无效。")
+		push_error("[GFDeferredMutationQueue] record 失败：mutation 无效。")
+		return 0
+	if options.has("owner") or options.has(&"owner"):
+		push_error("[GFDeferredMutationQueue] record 失败：owner 选项已移除，请使用 record_method()。")
 		return 0
 
-	return _enqueue(mutation, owner, options)
+	return _enqueue(mutation, options)
+
+
+## 通过弱引用 owner 与方法名记录延迟变更。
+## 队列不会保存 owner、Callable 或任意持久调用参数的强引用。为避免 metadata
+## 间接保活 owner，安全入口只保存 phase、sort_key、order 和 label 选项。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param owner: 变更拥有者。
+## [br]
+## @param method_name: playback() 时调用的 owner 方法名。
+## [br]
+## @param options: 记录选项，支持 phase、sort_key、order 和 label。
+## [br]
+## @schema options: Dictionary，可包含 phase: StringName、sort_key: int、order: int 和 label: String；不会保存 metadata。
+## [br]
+## @return 变更句柄；参数无效时返回 0。
+func record_method(
+	owner: Object,
+	method_name: StringName,
+	options: Dictionary = {}
+) -> int:
+	if owner == null or not is_instance_valid(owner):
+		push_error("[GFDeferredMutationQueue] record_method 失败：owner 无效。")
+		return 0
+	if method_name == &"":
+		push_error("[GFDeferredMutationQueue] record_method 失败：method_name 为空。")
+		return 0
+
+	var invocation: GFWeakMethodInvocation = GFWeakMethodInvocation.new(owner, method_name)
+	return _enqueue_method(invocation, owner.get_instance_id(), options)
 
 
 ## 按 phase、sort_key、order 和记录句柄的稳定顺序应用延迟变更。
@@ -162,9 +175,33 @@ func playback(options: Dictionary = {}) -> Dictionary:
 		if mutation_record.is_empty():
 			break
 
-		if _record_owner_is_released(mutation_record):
-			skipped_owner_now += 1
-			_skipped_owner_count += 1
+		if _record_uses_weak_method(mutation_record):
+			var invocation: GFWeakMethodInvocation = _get_record_weak_method_invocation(mutation_record)
+			if invocation == null:
+				failed_now += 1
+				_failed_count += 1
+				processed_records.append(_record_to_snapshot(mutation_record))
+				continue
+
+			var invocation_result: Dictionary = invocation.invoke()
+			var invocation_status: StringName = GFVariantData.get_option_string_name(
+				invocation_result,
+				"status"
+			)
+			if invocation_status == GFWeakMethodInvocation.STATUS_OWNER_RELEASED:
+				skipped_owner_now += 1
+				_skipped_owner_count += 1
+			elif invocation_status != GFWeakMethodInvocation.STATUS_INVOKED:
+				failed_now += 1
+				_failed_count += 1
+			elif _mutation_result_is_failure(
+				GFVariantData.get_option_value(invocation_result, "value")
+			):
+				failed_now += 1
+				_failed_count += 1
+			else:
+				applied_now += 1
+				_applied_count += 1
 			processed_records.append(_record_to_snapshot(mutation_record))
 			continue
 
@@ -237,7 +274,7 @@ func preview(options: Dictionary = {}) -> Array[Dictionary]:
 ## [br]
 ## @since 7.0.0
 ## [br]
-## @param handle: record() 返回的变更句柄。
+## @param handle: record() 或 record_method() 返回的变更句柄。
 ## [br]
 ## @return 找到并取消时返回 true。
 func cancel(handle: int) -> bool:
@@ -255,7 +292,7 @@ func cancel(handle: int) -> bool:
 	return false
 
 
-## 取消指定 owner 绑定的全部待应用变更。
+## 取消指定 owner 的全部待应用弱方法调用。
 ## [br]
 ## @api public
 ## [br]
@@ -265,7 +302,7 @@ func cancel(handle: int) -> bool:
 ## [br]
 ## @return 取消数量。
 func cancel_owner(owner: Object) -> int:
-	if owner == null:
+	if owner == null or not is_instance_valid(owner):
 		return 0
 
 	var owner_id: int = owner.get_instance_id()
@@ -362,25 +399,51 @@ func get_debug_snapshot() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
-func _enqueue(mutation: Callable, owner: Object, options: Dictionary) -> int:
+func _enqueue(mutation: Callable, options: Dictionary) -> int:
+	return _enqueue_record({
+		"record_kind": _RECORD_KIND_CALLABLE,
+		"mutation": mutation,
+	}, 0, options, true)
+
+
+func _enqueue_method(
+	invocation: GFWeakMethodInvocation,
+	owner_id: int,
+	options: Dictionary
+) -> int:
+	return _enqueue_record({
+		"record_kind": _RECORD_KIND_WEAK_METHOD,
+		"weak_method_invocation": invocation,
+	}, owner_id, options, false)
+
+
+func _enqueue_record(
+	execution_record: Dictionary,
+	owner_id: int,
+	options: Dictionary,
+	persist_metadata: bool
+) -> int:
 	_mutex.lock()
 	var handle: int = _next_handle
 	_next_handle += 1
 	var order: int = GFVariantData.get_option_int(options, "order", _next_order)
 	if not options.has("order"):
 		_next_order += 1
+	var metadata: Dictionary = {}
+	if persist_metadata:
+		metadata = GFVariantData.get_option_dictionary(options, "metadata").duplicate(true)
 	var mutation_record: Dictionary = {
 		"handle": handle,
-		"mutation": mutation,
-		"owner_ref": weakref(owner) if owner != null else null,
-		"owner_id": owner.get_instance_id() if owner != null else 0,
+		"owner_id": owner_id,
 		"phase": GFVariantData.get_option_string_name(options, "phase", DEFAULT_PHASE),
 		"sort_key": GFVariantData.get_option_int(options, "sort_key"),
 		"order": order,
 		"label": GFVariantData.get_option_string(options, "label"),
-		"metadata": GFVariantData.get_option_dictionary(options, "metadata").duplicate(true),
+		"metadata": metadata,
 		"recorded_msec": Time.get_ticks_msec(),
 	}
+	for execution_key: Variant in execution_record:
+		mutation_record[execution_key] = execution_record[execution_key]
 	_insert_record_sorted(mutation_record)
 	_recorded_count += 1
 	_mutex.unlock()
@@ -423,11 +486,6 @@ func _is_playback_budget_exhausted(started_usec: int, max_seconds: float, proces
 	return elapsed_seconds >= max_seconds
 
 
-func _record_owner_is_released(mutation_record: Dictionary) -> bool:
-	var owner_ref: WeakRef = _get_record_owner_ref(mutation_record)
-	return owner_ref != null and owner_ref.get_ref() == null
-
-
 func _mutation_result_is_failure(result: Variant) -> bool:
 	if result is bool:
 		var bool_result: bool = result
@@ -436,6 +494,13 @@ func _mutation_result_is_failure(result: Variant) -> bool:
 		var dictionary_result: Dictionary = result
 		return not GFVariantData.get_option_bool(dictionary_result, "ok", true)
 	return false
+
+
+func _record_uses_weak_method(mutation_record: Dictionary) -> bool:
+	return (
+		GFVariantData.get_option_string_name(mutation_record, "record_kind")
+		== _RECORD_KIND_WEAK_METHOD
+	)
 
 
 func _record_to_snapshot(mutation_record: Dictionary) -> Dictionary:
@@ -503,16 +568,14 @@ func _get_record_mutation(mutation_record: Dictionary) -> Callable:
 	return Callable()
 
 
-func _get_record_owner_ref(mutation_record: Dictionary) -> WeakRef:
-	var value: Variant = GFVariantData.get_option_value(mutation_record, "owner_ref")
-	if value is WeakRef:
-		var owner_ref: WeakRef = value
-		return owner_ref
-	return null
-
-
-func _variant_to_object(value: Variant) -> Object:
-	if value is Object:
-		var object_value: Object = value
-		return object_value
+func _get_record_weak_method_invocation(
+	mutation_record: Dictionary
+) -> GFWeakMethodInvocation:
+	var value: Variant = GFVariantData.get_option_value(
+		mutation_record,
+		"weak_method_invocation"
+	)
+	if value is GFWeakMethodInvocation:
+		var invocation: GFWeakMethodInvocation = value
+		return invocation
 	return null

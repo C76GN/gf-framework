@@ -9,7 +9,7 @@
 - 类别：运行时服务 (`runtime_service`)
 - 首次版本：`7.0.0`
 
-确定性延迟变更队列。 用于把运行时或工具流程中收集到的状态变更延迟到显式 playback 点执行。 队列只保存 Callable、排序信息和诊断 metadata，不解释调用方的实体、组件、 节点或资源语义。
+确定性延迟变更队列。 用于把运行时或工具流程中收集到的状态变更延迟到显式 playback 点执行。 record() 保存无 owner 的强 Callable；record_method() 通过弱 owner 和方法名 保存生命周期调用。队列不解释调用方的实体、组件、节点或资源语义。
 
 ## 成员概览
 
@@ -21,7 +21,7 @@
 | 方法 | [`init`](#member-gfdeferredmutationqueue-methods-init) | `func init() -> void:` |
 | 方法 | [`dispose`](#member-gfdeferredmutationqueue-methods-dispose) | `func dispose() -> void:` |
 | 方法 | [`record`](#member-gfdeferredmutationqueue-methods-record) | `func record(mutation: Callable, options: Dictionary = {}) -> int:` |
-| 方法 | [`record_owned`](#member-gfdeferredmutationqueue-methods-record_owned) | `func record_owned(owner: Object, mutation: Callable, options: Dictionary = {}) -> int:` |
+| 方法 | [`record_method`](#member-gfdeferredmutationqueue-methods-record_method) | `func record_method( owner: Object, method_name: StringName, options: Dictionary = {} ) -> int:` |
 | 方法 | [`playback`](#member-gfdeferredmutationqueue-methods-playback) | `func playback(options: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`preview`](#member-gfdeferredmutationqueue-methods-preview) | `func preview(options: Dictionary = {}) -> Array[Dictionary]:` |
 | 方法 | [`cancel`](#member-gfdeferredmutationqueue-methods-cancel) | `func cancel(handle: int) -> bool:` |
@@ -113,47 +113,47 @@ func dispose() -> void:
 func record(mutation: Callable, options: Dictionary = {}) -> int:
 ```
 
-记录一条延迟变更。
+记录一条无 owner 的延迟变更。 该入口会强持有 mutation；需要绑定 owner 生命周期时使用 record_method()。
 
 参数：
 
 | 名称 | 说明 |
 |---|---|
 | `mutation` | playback() 时执行的回调。 |
-| `options` | 记录选项，支持 phase、sort_key、order、label、metadata 和 owner。 |
+| `options` | 记录选项，支持 phase、sort_key、order、label 和 metadata。 |
 
 返回：变更句柄；mutation 无效时返回 0。
 
 结构：
 
-- `options`: Dictionary，可包含 phase: StringName、sort_key: int、order: int、label: String、metadata: Dictionary、owner: Object。
+- `options`: Dictionary，可包含 phase: StringName、sort_key: int、order: int、label: String、metadata: Dictionary。
 
-<a id="member-gfdeferredmutationqueue-methods-record_owned"></a>
+<a id="member-gfdeferredmutationqueue-methods-record_method"></a>
 
-### `record_owned`
+### `record_method`
 
 - API：`public`
-- 首次版本：`7.0.0`
+- 首次版本：`unreleased`
 
 ```gdscript
-func record_owned(owner: Object, mutation: Callable, options: Dictionary = {}) -> int:
+func record_method( owner: Object, method_name: StringName, options: Dictionary = {} ) -> int:
 ```
 
-记录一条绑定 owner 的延迟变更。owner 释放后变更会在 playback() 时跳过。
+通过弱引用 owner 与方法名记录延迟变更。 队列不会保存 owner、Callable 或任意持久调用参数的强引用。为避免 metadata 间接保活 owner，安全入口只保存 phase、sort_key、order 和 label 选项。
 
 参数：
 
 | 名称 | 说明 |
 |---|---|
 | `owner` | 变更拥有者。 |
-| `mutation` | playback() 时执行的回调。 |
-| `options` | 记录选项，支持 phase、sort_key、order、label 和 metadata。 |
+| `method_name` | playback() 时调用的 owner 方法名。 |
+| `options` | 记录选项，支持 phase、sort_key、order 和 label。 |
 
 返回：变更句柄；参数无效时返回 0。
 
 结构：
 
-- `options`: Dictionary，可包含 phase: StringName、sort_key: int、order: int、label: String、metadata: Dictionary。
+- `options`: Dictionary，可包含 phase: StringName、sort_key: int、order: int 和 label: String；不会保存 metadata。
 
 <a id="member-gfdeferredmutationqueue-methods-playback"></a>
 
@@ -224,7 +224,7 @@ func cancel(handle: int) -> bool:
 
 | 名称 | 说明 |
 |---|---|
-| `handle` | record() 返回的变更句柄。 |
+| `handle` | record() 或 record_method() 返回的变更句柄。 |
 
 返回：找到并取消时返回 true。
 
@@ -239,7 +239,7 @@ func cancel(handle: int) -> bool:
 func cancel_owner(owner: Object) -> int:
 ```
 
-取消指定 owner 绑定的全部待应用变更。
+取消指定 owner 的全部待应用弱方法调用。
 
 参数：
 

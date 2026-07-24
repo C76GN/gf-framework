@@ -26,6 +26,7 @@
 
 ### 🚀 新增特性 (Added)
 
+- 新增 `GFWeakMethodInvocation` 框架级弱方法调用原语，以及 `GFMainThreadDispatchQueue.post_method()` 和 `GFDeferredMutationQueue.record_method()`：长期记录只保存 owner 的弱引用、初始实例 ID 和方法名，调用参数只在执行时传入；队列安全入口不持久化任意参数或 metadata，并把 owner 释放、方法缺失、预检失败与真实业务返回值明确分离。
 - 新增平台 Contract Descriptor、Activation Intent 有界去重队列与 `GFPlatformAdapterConformance`，让外部 SDK Adapter 可以声明请求/结果 Schema、字节预算、能力、并发、取消和敏感字段，并在不调用 SDK 时完成静态覆盖审查。
 - Network Lobby 升级为带唯一请求关联、单终态、取消、单调超时和迟到 callback 防护的类型化操作模型；新增可显式接管 owned/borrowed `MultiplayerPeer` 的通用 Backend，以及区分未知值的传输指标快照与有界采样历史。
 - AI Developer Kit 新增 Platform Adapter、Lobby Backend、契约测试、兼容性 Profile 和故障矩阵模板，并更新 Network / Platform capability 与 Recipe，使 AI 默认生成 Provider 中立且可验证的 Adapter 边界。
@@ -95,8 +96,13 @@
 - 修复当前契约已经是 schema v2 时，CLI `contract-migrate` 会把 `up_to_date` 计划当作成功应用并退出 0 的问题；没有待执行迁移时现在返回 `no_pending_contract_migration` 和非零退出码。
 - 修复有限 `Projection` 已通过 Network transport 值校验、却无法进入确定性规范指纹而导致同步消息在接收端失败的问题；`GFDeterministicVariantSerializer` 现在以 16 个浮点分量稳定编码 `Projection`。
 
+### ⚠️ 废弃与移除 (Deprecated/Removed)
+
+- 移除 `GFMainThreadDispatchQueue.post_owned()`、`GFDeferredMutationQueue.record_owned()`，并移除 `post()` / `record()` 的 `options.owner`。旧设计同时保存弱 owner 与完整 Callable，Callable 指向或捕获同一个 `RefCounted` owner 时会破坏弱生命周期语义；动态 options 继续传入 `owner` 会 fail closed，不会静默退化为无条件执行。
+
 ### 🔧 API 变动说明 (API Changes)
 
+- 新增公开类型 `GFWeakMethodInvocation`，提供 `invoked`、`owner_released`、`method_missing`、`failed` 四种稳定调用状态；`GFMainThreadDispatchQueue` 新增 `post_method()`，`GFDeferredMutationQueue` 新增 `record_method()`，均标记为 `@since unreleased`。两个旧式 `*_owned()` 入口及 `post()` / `record()` 的 `options.owner` 已直接移除。
 - 新增公开类型 `GFPlatformContractDescriptor`、`GFPlatformContractMethodDescriptor`、`GFPlatformActivationIntent`、`GFPlatformAdapterConformance`、`GFNetworkLobbyOperationRequest`、`GFNetworkLobbyOperationHandle`、`GFNetworkLobbyOperationResult`、`GFMultiplayerPeerNetworkBackend` 和 `GFNetworkTransportMetrics`，均标记为 `@since unreleased`。
 - `GFPlatformAdapter.configure()` 现在要求 `contract_ids` 与 `contract_descriptors` 一一对应，并新增 `activation_intent`、Contract Descriptor 查询和受保护发布入口；`GFPlatformRuntime` 新增 Activation Intent 接收、丢弃、按 Adapter 作用域消费、确认和容量配置 API。
 - `GFNetworkLobbyBackend` 移除旧的同步 accepted `Dictionary` 操作与请求完成信号，改为 `invoke_operation()` 和受保护 `_dispatch_operation()`；Network 扩展版本升至 `5.0.0`。`GFNetworkLobbyService` 的 create/query/join/leave/metadata 入口改为返回 `GFNetworkLobbyOperationHandle`，`set_backend()` 从 `void` 改为 `bool`，`lobby_created`、`lobbies_queried`、`lobby_joined`、`lobby_left` 的参数统一改为 `GFNetworkLobbyOperationResult`，并移除 `GFNetworkLobbyJoinResult`。
@@ -121,6 +127,7 @@
 
 ### 📘 升级指南 (Migration Guide)
 
+- 通过 `post_owned(owner, Callable(owner, method))`、`record_owned(owner, Callable(owner, method))`、`post/record(options.owner)` 或捕获 owner 的 lambda 延迟调用 owner 自身方法时，必须改用零参数 `post_method(owner, method_name)` / `record_method(owner, method_name)`。无 owner 的独立 Callable 继续使用 `post()` / `record()`。需要携带参数的自定义容器应保存 `GFWeakMethodInvocation`，只在实际执行点调用 `invoke(arguments)`；不要把 owner、Callable、Signal 或对象图重新塞进长期 options/metadata 绕过弱生命周期。
 - 旧 Lobby Backend 应把 create/query/join/leave/metadata 覆写合并到 `_dispatch_operation(request, handle)`，在 Provider callback 中调用 `_succeed_operation()` / `_fail_operation()`；项目调用方保存返回 Handle 并读取 `GFNetworkLobbyOperationResult`，不再等待无法按请求关联的旧完成信号。
 - 新 Platform Adapter 应为正式 Contract 提供 Descriptor 并运行 `GFPlatformAdapterConformance.inspect()`；启动、邀请和 Join 回调转换为稳定 ID 的 `GFPlatformActivationIntent`。SDK 已提供 `MultiplayerPeer` 时采用通用 Backend 并明确所有权，不要在 GF 内新增 Provider 命名 Manager。
 - 读取传输指标前先调用 `has_metric()`；缺少 RTT 等指标表示 Backend 不支持或当前未知，不能把 `get_metric()` 的默认零值解释为观测结果。长时间会话应设置有界采样容量。
@@ -148,6 +155,10 @@
 
 ### 📁 核心受影响文件 (Affected Files)
 
+- `addons/gf/kernel/core/gf_weak_method_invocation.gd`
+- `addons/gf/standard/common/gf_main_thread_dispatch_queue.gd`
+- `addons/gf/standard/common/gf_deferred_mutation_queue.gd`
+- `docs/zh/standard/utilities/runtime/time-signal-pool/async-primitives.md`
 - `addons/gf/standard/foundation/platform/`
 - `addons/gf/standard/platform/gf_platform_adapter.gd`
 - `addons/gf/standard/platform/gf_platform_runtime.gd`
