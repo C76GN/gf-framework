@@ -273,6 +273,10 @@ func _disconnect_binding(binding: Dictionary) -> void:
 	):
 		control.tree_exited.disconnect(tree_exited_callable)
 
+	# Binding callbacks capture this Dictionary, so releasing external connections alone
+	# does not break the self-reference cycle.
+	binding.clear()
+
 
 func _get_binding_store(binding: Dictionary) -> _GF_REACTIVE_STATE_STORE_SCRIPT:
 	var store_ref: WeakRef = _get_binding_weak_ref(binding, "store_ref")

@@ -35,19 +35,21 @@ func test_observable_array_batches_changes_until_end_batch() -> void:
 func test_observable_array_linearizes_reentrant_change_signals() -> void:
 	var resource: GFObservableArrayResource = GFObservableArrayResource.new()
 	var signal_order: Array[String] = []
-	var _item_connected: Error = resource.item_changed.connect(func(_operation: StringName, index: int, _old_value: Variant, _new_value: Variant, _metadata: Dictionary) -> void:
+	var on_item_changed: Callable = func(_operation: StringName, index: int, _old_value: Variant, _new_value: Variant, _metadata: Dictionary) -> void:
 		signal_order.append("item_%d" % index)
 		if index == 0:
 			var _nested_change: Dictionary = resource.append_item("nested")
-	) as Error
-	var _items_connected: Error = resource.items_changed.connect(func(changes: Array[Dictionary], _metadata: Dictionary) -> void:
+	var on_items_changed: Callable = func(changes: Array[Dictionary], _metadata: Dictionary) -> void:
 		signal_order.append("items_%d" % GFVariantData.get_option_int(changes[0], "index", -1))
-	) as Error
+	var _item_connected: Error = resource.item_changed.connect(on_item_changed) as Error
+	var _items_connected: Error = resource.items_changed.connect(on_items_changed) as Error
 
 	var _outer_change: Dictionary = resource.append_item("outer")
 
 	assert_eq(resource.get_items(), ["outer", "nested"], "重入 mutation 仍应立即更新集合。")
 	assert_eq(signal_order, ["item_0", "items_0", "item_1", "items_1"], "每条 mutation 的单项和汇总信号应连续、可重放。")
+	resource.item_changed.disconnect(on_item_changed)
+	resource.items_changed.disconnect(on_items_changed)
 
 
 func test_observable_dictionary_reports_set_and_erase() -> void:

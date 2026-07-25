@@ -227,6 +227,8 @@ func test_subscribe_collection_payloads_are_isolated_between_listeners() -> void
 	)
 
 	prop.set_value({ "hp": 20 })
+	var _unsubscribe_first_result: Variant = _unsubscribe_first.call()
+	var _unsubscribe_second_result: Variant = _unsubscribe_second.call()
 
 	assert_eq(second_listener_values.size(), 1, "第二个监听者应收到一次变化。")
 	if second_listener_values.size() == 1:
@@ -568,6 +570,7 @@ func test_computed_property_updates_from_sources() -> void:
 	first.value = 4
 
 	assert_eq(_value_int(computed), 12, "来源属性变化后 computed 属性应刷新。")
+	computed.dispose()
 
 
 func test_computed_property_dispose_stops_auto_refresh() -> void:
@@ -593,6 +596,7 @@ func test_computed_property_rejects_external_set() -> void:
 
 	assert_eq(_value_int(computed), 2, "外部写入 computed 属性不应改变派生值。")
 	assert_push_error("[GFComputedProperty] 当前属性由 compute 回调派生，请修改来源属性。")
+	computed.dispose()
 
 
 func test_computed_property_rejects_in_place_mutation_helpers() -> void:
@@ -621,6 +625,8 @@ func test_computed_property_rejects_in_place_mutation_helpers() -> void:
 	assert_signal_not_emitted(computed_array, "value_changed", "拒绝原地修改时不应发出数组变化信号。")
 	assert_signal_not_emitted(computed_dict, "value_changed", "拒绝原地修改时不应发出字典变化信号。")
 	assert_push_error_count(7, "每次外部原地修改尝试都应报告只读错误。")
+	computed_array.dispose()
+	computed_dict.dispose()
 
 
 func test_computed_property_get_value_returns_collection_copy() -> void:
@@ -639,6 +645,8 @@ func test_computed_property_get_value_returns_collection_copy() -> void:
 
 	assert_eq(_value_array(computed_array), ["base"], "computed get_value() 返回的数组副本不应影响内部值。")
 	assert_eq(_value_dictionary(computed_dict), { "hp": 1 }, "computed get_value() 返回的字典副本不应影响内部值。")
+	computed_array.dispose()
+	computed_dict.dispose()
 
 
 func test_read_only_bindable_property_rejects_in_place_mutation_helpers() -> void:

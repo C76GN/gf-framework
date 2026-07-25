@@ -1,6 +1,13 @@
 extends GutTest
 
 
+# --- 常量 ---
+
+const GF_TRANSIENT_GDSCRIPT_TEST_SUPPORT = preload(
+	"res://tests/gf_core/support/gf_transient_gdscript_test_support.gd"
+)
+
+
 # --- 测试用例 ---
 
 func test_build_source_generates_config_accessors() -> void:
@@ -225,9 +232,12 @@ func test_build_source_deduplicates_dirty_generated_identifiers() -> void:
 # --- 私有/辅助方法 ---
 
 func _assert_generated_source_compiles(source: String, access_class_name: String, message: String) -> void:
-	var runtime_script: GDScript = GDScript.new()
-	runtime_script.source_code = source.replace("class_name %s\n" % access_class_name, "")
-	assert_eq(runtime_script.reload(), OK, message)
+	var report: Dictionary = GF_TRANSIENT_GDSCRIPT_TEST_SUPPORT.compile_and_release(
+		source.replace("class_name %s\n" % access_class_name, "")
+	)
+	assert_eq(GFVariantData.get_option_int(report, "compile_error"), OK, message)
+	assert_eq(GFVariantData.get_option_array(report, "cleanup_errors"), [], "动态编译测试必须释放生成脚本的内部类图。")
+	assert_eq(GFVariantData.get_option_string(report, "configuration_error"), "", "动态编译测试必须使用匿名内建 GDScript 根。")
 
 
 # --- 内部类 ---

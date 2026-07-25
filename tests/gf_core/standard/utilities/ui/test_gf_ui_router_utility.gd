@@ -255,6 +255,7 @@ func test_async_route_sync_fallback_reaches_terminal_state() -> void:
 	assert_true(_router.register_route(route), "有效路由应可注册。")
 
 	var operation: GFUIRouteOperation = _router.push_route_async(&"inventory")
+	assert_push_warning("[GFUIUtility] GFAssetUtility 未注册，回退为同步加载。")
 	await get_tree().process_frame
 
 	var snapshot: Dictionary = _router.get_debug_snapshot()
@@ -338,6 +339,7 @@ func test_async_replace_failure_preserves_existing_route_history() -> void:
 	asset_util.resolve("res://tests/missing_async_replace_panel.tscn", null)
 	await get_tree().process_frame
 	await get_tree().process_frame
+	assert_push_warning("[GFUIRouterUtility] 路由打开失败：second (panel_async_failed)")
 
 	assert_eq(_router.get_current_route_id(), &"first", "异步 replace 失败后应保留旧路由历史。")
 	assert_true(_ui_utility.is_panel_open(first_panel, GFUIUtility.Layer.POPUP), "异步 replace 失败后旧面板应仍在 UI 栈中。")

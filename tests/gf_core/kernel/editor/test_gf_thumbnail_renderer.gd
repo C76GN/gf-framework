@@ -27,11 +27,12 @@ func test_free_render_instance_removes_temporary_child() -> void:
 func test_thumbnail_render_task_cancels_pending_task_through_kernel_token() -> void:
 	var task: GFThumbnailRenderTask = GFThumbnailRenderTask.new(GFThumbnailRenderRequest.new(), 7)
 	var completed_tasks: Array[GFThumbnailRenderTask] = []
-	var _connected_completed: Error = task.completed.connect(func(completed_task: GFThumbnailRenderTask) -> void:
+	var completed_callback: Callable = func(completed_task: GFThumbnailRenderTask) -> void:
 		completed_tasks.append(completed_task)
-	) as Error
+	var _connected_completed: Error = task.completed.connect(completed_callback) as Error
 
 	assert_true(task.cancel(&"test_cancel"), "pending 任务应能立即取消。")
+	task.completed.disconnect(completed_callback)
 
 	var completion: GFAsyncCompletion = task.get_completion()
 	assert_true(task.is_cancelled(), "任务应进入取消终态。")

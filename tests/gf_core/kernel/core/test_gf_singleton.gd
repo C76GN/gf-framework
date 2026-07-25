@@ -587,6 +587,7 @@ class ReadyLookupReplacementUtility extends GFUtility:
 
 	func dispose() -> void:
 		disposed = true
+		ready_lookup = null
 
 
 class ReadyFailingReplacementUtility extends GFUtility:
@@ -764,7 +765,7 @@ func after_each() -> void:
 	if Gf.has_architecture():
 		var arch: GFArchitecture = Gf.get_architecture()
 		arch.dispose()
-		await Gf.set_architecture(GFArchitecture.new())
+		Gf._architecture = null
 	_clear_test_project_settings()
 
 # --- 测试用例 ---
@@ -1121,6 +1122,7 @@ func test_assignable_lookup_cache_invalidates_when_registry_changes() -> void:
 
 	await arch.register_utility_instance(alternate)
 	assert_null(arch.get_utility(UtilityBase), "新增第二个实现后，旧的基类查询缓存不应继续返回旧实例。")
+	assert_push_warning("[GFArchitecture] get_utility() 匹配到多个本地实例，本次查询不会回退父架构；请使用显式 alias 注册以消除歧义。")
 
 	arch.unregister_utility(AlternateConcreteUtility)
 	assert_eq(arch.get_utility(UtilityBase), concrete, "移除歧义实现后，基类查询应重新解析唯一实现。")
@@ -2469,6 +2471,49 @@ func test_parent_architecture_rejects_self_and_cycles() -> void:
 	assert_push_error("[GFArchitecture] set_parent_architecture 失败：父级架构不能是自身。")
 	assert_push_error("[GFArchitecture] set_parent_architecture 失败：父级架构会形成循环引用。")
 	child_arch.dispose()
+	parent_arch.dispose()
+
+
+func test_architecture_dispose_releases_parent_reference() -> void:
+	var parent_arch: GFArchitecture = GFArchitecture.new()
+	var child_arch: GFArchitecture = GFArchitecture.new(parent_arch)
+
+	child_arch.dispose()
+
+	assert_null(
+		child_arch.get_parent_architecture(),
+		"dispose 后架构不得继续持有父架构强引用。"
+	)
+	parent_arch.dispose()
+
+
+func test_architecture_dispose_rejects_parent_reinjection_from_completion_signal() -> void:
+	var parent_arch: GFArchitecture = GFArchitecture.new()
+	var child_arch: GFArchitecture = GFArchitecture.new()
+	var slow_utility: SlowInitUtility = SlowInitUtility.new()
+	await child_arch.register_utility_instance(slow_utility)
+	var init_state: Dictionary = { "done": false }
+	@warning_ignore("missing_await")
+	_await_arch_init(child_arch, init_state)
+	await get_tree().process_frame
+	var reinject_parent: Callable = func() -> void:
+		child_arch.set_parent_architecture(parent_arch)
+	var connect_error: Error = child_arch.initialization_finished.connect(reinject_parent) as Error
+	assert_eq(connect_error, OK, "dispose 回归测试必须成功连接完成信号。")
+
+	child_arch.dispose()
+	child_arch.initialization_finished.disconnect(reinject_parent)
+	await get_tree().process_frame
+
+	assert_null(
+		child_arch.get_parent_architecture(),
+		"dispose 完成信号的同步回调不得重新注入父架构强引用。"
+	)
+	assert_push_error(
+		"[GFArchitecture] set_parent_architecture 失败：架构正在 dispose 或已 dispose，不能设置父级架构。"
+	)
+	slow_utility.async_continue.emit()
+	await get_tree().process_frame
 	parent_arch.dispose()
 
 

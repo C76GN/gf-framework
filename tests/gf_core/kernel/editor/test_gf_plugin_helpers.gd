@@ -207,6 +207,7 @@ func test_plugin_actions_use_dependency_provider_for_generation_and_extension_pa
 	_call_void(actions, &"handle_menu_id", [GF_PLUGIN_ACTIONS.MENU_GENERATE_ACCESSORS])
 	_call_void(actions, &"handle_menu_id", [GF_PLUGIN_ACTIONS.MENU_GENERATE_PROJECT_ACCESSORS])
 	_call_void(actions, &"cleanup")
+	await get_tree().process_frame
 
 	assert_eq(fake_dependencies.editor_action_path_call_count, 1, "扩展编辑器动作路径应由依赖 provider 提供。")
 	assert_eq(fake_dependencies.generated_access_path, fake_dependencies.access_output_path, "强类型访问器生成应通过依赖 provider 执行。")
@@ -1419,6 +1420,7 @@ func test_extension_manager_dock_writes_setup_policy_to_project_settings() -> vo
 	_restore_project_setting(GF_EXTENSION_SETTINGS_BASE.EXPORT_EXCLUDE_DISABLED_SETTING, export_exclude_restore)
 	_restore_project_setting(GF_EXTENSION_SETTINGS_BASE.AUTO_INSTALL_ENABLED_INSTALLERS_SETTING, auto_install_restore)
 	_restore_project_setting(GF_EXTENSION_SETTINGS_BASE.ENABLED_EXTENSIONS_SETTING, enabled_restore)
+	await get_tree().process_frame
 
 	assert_eq(stored_enabled_ids, [], "扩展 setup 面板应把当前勾选状态写入启用扩展设置。")
 	assert_eq(stored_selection_mode, GF_EXTENSION_SETTINGS_BASE.SELECTION_MODE_EXPLICIT, "手动勾选保存应进入显式扩展选择模式。")
@@ -1446,6 +1448,7 @@ func test_extension_manager_dock_restore_default_writes_default_selection_mode()
 	dock.free()
 	_restore_project_setting(GF_EXTENSION_SETTINGS_BASE.EXTENSION_SELECTION_MODE_SETTING, mode_restore)
 	_restore_project_setting(GF_EXTENSION_SETTINGS_BASE.ENABLED_EXTENSIONS_SETTING, enabled_restore)
+	await get_tree().process_frame
 
 	assert_eq(stored_selection_mode, GF_EXTENSION_SETTINGS_BASE.SELECTION_MODE_DEFAULT, "恢复默认保存时应保留 default 模式，而不是固化当前默认列表。")
 
@@ -1470,6 +1473,7 @@ func test_extension_manager_dock_exposes_extension_presets() -> void:
 	assert_true(selected_ids.is_empty(), "全部关闭 preset 应清空当前扩展选择。")
 
 	dock.free()
+	await get_tree().process_frame
 
 
 func test_extension_manager_dock_manages_project_preset_file_paths() -> void:

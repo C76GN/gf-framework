@@ -5,11 +5,15 @@ extends GutTest
 # --- 私有变量 ---
 
 var _controls: Array[Control] = []
+var _binders: Array[GFFormBinder] = []
 
 
 # --- Godot 生命周期方法 ---
 
 func after_each() -> void:
+	for binder: GFFormBinder in _binders:
+		binder.clear()
+	_binders.clear()
 	for control: Control in _controls:
 		if is_instance_valid(control):
 			control.free()
@@ -29,7 +33,7 @@ func test_option_button_uses_selected_index_not_button_pressed() -> void:
 
 
 func test_form_binder_reads_and_writes_common_controls() -> void:
-	var binder: GFFormBinder = GFFormBinder.new()
+	var binder: GFFormBinder = _make_binder()
 	var name_edit: LineEdit = LineEdit.new()
 	var enabled_check: CheckBox = CheckBox.new()
 	_track_control(name_edit)
@@ -49,7 +53,7 @@ func test_form_binder_reads_and_writes_common_controls() -> void:
 
 
 func test_form_binder_emits_field_changed_from_control_signal() -> void:
-	var binder: GFFormBinder = GFFormBinder.new()
+	var binder: GFFormBinder = _make_binder()
 	var name_edit: LineEdit = LineEdit.new()
 	_track_control(name_edit)
 	binder.bind_field(&"name", name_edit)
@@ -62,7 +66,7 @@ func test_form_binder_emits_field_changed_from_control_signal() -> void:
 
 
 func test_form_binder_rebind_disconnects_previous_signal_handlers() -> void:
-	var binder: GFFormBinder = GFFormBinder.new()
+	var binder: GFFormBinder = _make_binder()
 	var name_edit: LineEdit = LineEdit.new()
 	_track_control(name_edit)
 	binder.bind_field(&"name", name_edit)
@@ -76,7 +80,7 @@ func test_form_binder_rebind_disconnects_previous_signal_handlers() -> void:
 
 
 func test_form_binder_unbind_disconnects_signal_handlers() -> void:
-	var binder: GFFormBinder = GFFormBinder.new()
+	var binder: GFFormBinder = _make_binder()
 	var name_edit: LineEdit = LineEdit.new()
 	_track_control(name_edit)
 	binder.bind_field(&"name", name_edit)
@@ -93,3 +97,9 @@ func test_form_binder_unbind_disconnects_signal_handlers() -> void:
 
 func _track_control(control: Control) -> void:
 	_controls.append(control)
+
+
+func _make_binder() -> GFFormBinder:
+	var binder: GFFormBinder = GFFormBinder.new()
+	_binders.append(binder)
+	return binder

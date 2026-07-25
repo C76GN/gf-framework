@@ -217,12 +217,13 @@ func init() -> void:
 ### `dispose`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func dispose() -> void:
 ```
 
-释放事件队列、HTTP 节点和关闭监听。
+释放事件队列、HTTP 节点、关闭监听和项目注入的回调。
 
 <a id="member-gfanalyticsutility-methods-tick"></a>
 

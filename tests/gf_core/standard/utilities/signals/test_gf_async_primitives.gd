@@ -10,11 +10,12 @@ const GF_ASYNC_PROGRESS_AGGREGATOR_SCRIPT = preload("res://addons/gf/standard/co
 
 func test_cancel_source_cancels_token_once_with_metadata() -> void:
 	var source: GFCancellationSource = GFCancellationSource.new()
+	var token: GFCancellationToken = source.get_token()
 	var signal_state: Dictionary = {}
-	var connect_error: Error = source.get_token().cancel_requested.connect(func(reason: StringName) -> void:
+	var on_cancel_requested: Callable = func(reason: StringName) -> void:
 		signal_state["reason"] = reason
-		signal_state["metadata"] = source.get_token().get_cancel_metadata()
-	) as Error
+		signal_state["metadata"] = token.get_cancel_metadata()
+	var connect_error: Error = token.cancel_requested.connect(on_cancel_requested) as Error
 	assert_eq(connect_error, OK, "测试应能监听 token 取消信号。")
 
 	assert_true(source.cancel(&"user_cancelled", { "scope": "menu" }), "首次取消应成功。")
@@ -27,6 +28,7 @@ func test_cancel_source_cancels_token_once_with_metadata() -> void:
 	assert_eq(GFVariantData.get_option_string(metadata, "scope"), "menu", "token 应保留取消元数据。")
 	assert_eq(GFVariantData.get_option_string_name(signal_state, "reason"), &"user_cancelled", "取消信号应发出原因。")
 	assert_eq(GFVariantData.get_option_string(emitted_metadata, "scope"), "menu", "取消信号应复制元数据。")
+	token.cancel_requested.disconnect(on_cancel_requested)
 
 
 func test_cancel_source_links_upstream_and_timeout() -> void:

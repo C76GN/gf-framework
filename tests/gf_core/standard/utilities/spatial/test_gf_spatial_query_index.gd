@@ -87,7 +87,7 @@ func test_spatial_query_identity_is_shared_by_2d_and_3d_indexes() -> void:
 	var index_3d: GF_SPATIAL_QUERY_INDEX_3D_SCRIPT = GF_SPATIAL_QUERY_INDEX_3D_SCRIPT.new()
 	var _configured_3d: GF_SPATIAL_QUERY_INDEX_3D_SCRIPT = index_3d.configure(GF_SPATIAL_QUERY_INDEX_3D_SCRIPT.STRATEGY_LINEAR)
 	var node: Node = Node.new()
-	add_child(node)
+	add_child_autofree(node)
 
 	var _inserted_2d_name: bool = index_2d.upsert(&"unit", Rect2(Vector2.ZERO, Vector2(10.0, 10.0)))
 	var _inserted_3d_name: bool = index_3d.upsert(&"unit", AABB(Vector3.ZERO, Vector3.ONE))

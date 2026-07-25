@@ -7,7 +7,7 @@ const GF_LEVEL_UTILITY = preload("res://addons/gf/extensions/domain/level/gf_lev
 
 # --- 辅助类型 ---
 
-class TestConfigProvider extends GFConfigProvider:
+class ConfigProviderStub extends GFConfigProvider:
 	var records: Dictionary = {}
 
 	func get_record(table_name: StringName, id: Variant) -> Variant:
@@ -15,7 +15,7 @@ class TestConfigProvider extends GFConfigProvider:
 		return GFVariantData.get_option_value(table_records, id)
 
 
-class TestCommand extends GFUndoableCommand:
+class UndoableCommandStub extends GFUndoableCommand:
 	func execute() -> Variant:
 		return null
 
@@ -39,7 +39,7 @@ class WaitingAction extends GFVisualAction:
 
 var _arch: GFArchitecture
 var _level: GFLevelUtility
-var _config: TestConfigProvider
+var _config: ConfigProviderStub
 var _history: GFCommandHistoryUtility
 var _actions: GFActionQueueSystem
 var _progress: GFLevelProgressModel
@@ -50,7 +50,7 @@ var _progress: GFLevelProgressModel
 func before_each() -> void:
 	_arch = GFArchitecture.new()
 	_level = GF_LEVEL_UTILITY.new()
-	_config = TestConfigProvider.new()
+	_config = ConfigProviderStub.new()
 	_history = GFCommandHistoryUtility.new()
 	_actions = GFActionQueueSystem.new()
 	_progress = GFLevelProgressModel.new()
@@ -155,7 +155,7 @@ func test_strict_start_level_rejects_missing_data() -> void:
 
 
 func test_restart_level_clears_runtime_and_emits_signal() -> void:
-	var command: TestCommand = TestCommand.new()
+	var command: UndoableCommandStub = UndoableCommandStub.new()
 	_history.record(command)
 	var _start_level_result_139: Variant = _level.start_level(1)
 	watch_signals(_level)

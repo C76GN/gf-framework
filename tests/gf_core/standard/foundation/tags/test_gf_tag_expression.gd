@@ -59,6 +59,31 @@ func test_expression_dictionary_roundtrip_preserves_nested_logic() -> void:
 	assert_false(restored.matches([&"team.neutral"]), "字典往返后未满足条件仍应失败。")
 
 
+func test_expression_resource_roundtrip_preserves_typed_children() -> void:
+	var child: GFTagExpression = GFTagExpression.from_query(_make_query([&"team.enemy"]))
+	var children: Array[GFTagExpression] = [child]
+	var expression: GFTagExpression = GFTagExpression.new().configure_all(children)
+	var resource_path: String = "user://gf_tag_expression_roundtrip.tres"
+	var absolute_path: String = ProjectSettings.globalize_path(resource_path)
+	var _previous_file_removed: Error = DirAccess.remove_absolute(absolute_path)
+
+	var save_error: Error = ResourceSaver.save(expression, resource_path)
+	var loaded_resource: Resource = ResourceLoader.load(
+		resource_path,
+		"",
+		ResourceLoader.CACHE_MODE_IGNORE
+	)
+
+	assert_eq(save_error, OK, "标签表达式应能保存为 Resource。")
+	assert_true(loaded_resource is GFTagExpression, "资源往返后应恢复 GFTagExpression 类型。")
+	if loaded_resource is GFTagExpression:
+		var restored: GFTagExpression = loaded_resource
+		assert_eq(restored.expressions.size(), 1, "资源往返后应保留子表达式。")
+		assert_true(restored.expressions[0] is GFTagExpression, "资源往返后子项应保持表达式类型。")
+		assert_true(restored.matches([&"team.enemy"]), "资源往返后应保留嵌套匹配语义。")
+	var _resource_file_removed: Error = DirAccess.remove_absolute(absolute_path)
+
+
 func test_expression_dictionary_roundtrip_preserves_null_children() -> void:
 	var enemy: GFTagExpression = GFTagExpression.from_query(_make_query([&"team.enemy"]))
 	var children: Array[GFTagExpression] = [enemy, null]
@@ -70,6 +95,17 @@ func test_expression_dictionary_roundtrip_preserves_null_children() -> void:
 	assert_false(GFVariantData.get_option_bool(report, "ok"), "null 子表达式往返后仍应按失败处理。")
 	assert_eq(GFVariantData.get_option_array(report, "matched_indices"), [0], "非空子表达式应保留原索引。")
 	assert_eq(GFVariantData.get_option_array(report, "failed_indices"), [1], "null 子表达式不应在序列化时被静默丢弃。")
+
+
+func test_expression_treats_non_expression_resources_as_invalid_children() -> void:
+	var expression: GFTagExpression = GFTagExpression.new()
+	expression.operator = GFTagExpression.Operator.ALL
+	expression.expressions.append(Resource.new())
+
+	var report: Dictionary = expression.get_match_report([&"team.enemy"])
+
+	assert_false(GFVariantData.get_option_bool(report, "ok"), "非 GFTagExpression 资源不得被解释为有效子表达式。")
+	assert_eq(GFVariantData.get_option_array(report, "failed_indices"), [0], "非法资源应保留原索引并按失败处理。")
 
 
 func test_expression_dictionary_serialization_marks_cycles() -> void:

@@ -77,9 +77,16 @@
 - 模块根与 Adapter 根额外采用跨平台规范化校验，并以大小写无关方式拒绝 `res://addons/gf` 及 Windows 尾点、保留名称等别名，避免把 GF 源码误归属为项目模块；普通源码资源引用不受这项契约限制。
 - CI 与 Release 工作流统一采用 Node.js 24 世代的 `actions/checkout@v7`、`actions/setup-python@v7`、`actions/upload-artifact@v7` 和 `actions/download-artifact@v8`，维护自检会阻止旧主版本回退。
 - 验证链路将 Draft quick gate 与 Ready/main 完整门禁分离，`GF repository policy` 与 `GF merge gate` 共同作为 required checks，并把 framework 检查拆成 GUT、LSP 与静态检查并行分片；Ready/main 另由 `windows-latest` 聚焦任务验证原生 Job Object 清理并汇入 merge gate，非 `main` 手工运行不会生成同名 required context。本地 Full Suite 默认使用 3 个隔离 worker（可显式调整为 2–6 个），按批创建/执行/验收/清理工作区与私有用户目录，Windows 同时约束 clone、staging 和临时目录的投影路径预算并拒绝映射盘与 SUBST 别名，启动前由真实 Godot 验证平台用户目录边界，suite deadline 覆盖准备、源码分块捕获、制品扫描/哈希/复制、执行与复核全链路。每个 shard 由 POSIX process group 或 Windows Job Object 持有至完整后代树清空；单次 suite 的 package smoke 复用一份经源码指纹和哈希封存的构建产物，父进程精确核对 consumer 报告的 manifest 摘要与产物数量，并对报告和失败日志执行有界读取与完整目录链校验，同时保留严格 LSP 硬门禁与 `--jobs 1` 串行诊断退路。
+- GUT 新增生命周期感知的 CLI wrapper、自定义 Runner、pre/post run hook、进程级 early/tracked/terminal warning 汇聚和可复用 LIFO cleanup scope；terminal capture 会在 tracker 快照前原子切换，完整测试入口只在 SceneTree 最终化阶段输出一份、至多由 stdout/log 镜像为两份的 `GF_TEST_LIFECYCLE_GATE` closed-schema JSON 证据，失败报告同步设置非零进程退出码。专用 smoke 通过统一进程树监督执行 bootstrap 静态 warning、线程切换 warning、真实 orphan、配置缺失和有界详情等故障注入，并对测试发现期与终态 `push_warning`、新增 orphan Node、GDScript reload warning、非零 GUT Warnings/Orphans 摘要及 Godot 退出泄漏执行 fail-closed 硬门禁。
+- `GFTagExpression.expressions` 改为导出 `Array[Resource]`，并在读取、复制、匹配和序列化边界严格收窄到 `GFTagExpression`；这规避 Godot 4.7 对自引用脚本类型数组形成的脚本资源引用环，同时继续把 null 或其他 Resource 按非法子表达式处理。
 
 ### 🐛 Bug 修复 (Fixed)
 
+- 修复已销毁的 `GFArchitecture` 仍会保留父架构强引用的问题；`dispose()` 现在会在模块、工厂、服务和事件系统完成清理后断开 parent link，并拒绝 dispose 完成信号同步回调或后续调用重新注入 parent，即使内部状态被破坏为父链循环也不会让整组架构残留到进程退出。
+- 修复 `GFAsyncWaitSupport` 的 `should_continue` 回调宿主释放后，等待器会把失效 Callable 误当作未配置并继续存活到 timeout、进而在后续测试或场景中迟发 warning 的问题；只要调用方显式提交继续检查，进入等待前或等待期间失效都会立即以 `should_continue_invalid` 取消。
+- 修复 `GFTagExpression` 被加载或实例化后会在 Godot 退出时残留一个 `GDScript` 与一个 `GDScriptNativeClass` 的问题；Network 生成器和动态 Model 测试也统一拆除瞬态 GDScript 依赖图，不再把整张脚本资源图保留到测试进程退出。
+- 修复 `GFAnalyticsUtility.dispose()` 未释放项目注入的 payload builder、transport callback 和 response parser，以及 flush 终态通知同步回调可在 dispose 期间重新注入自引用回调的问题；最终通知结束后会再次清理注入引用。`GFReactiveStateControlBinder` 也不再在退订后由 binding callback 自引用保留整组状态与控件绑定。
+- 修复 `GFHapticUtility.dispose()` 只清空播放状态，却继续持有输入设备工具、震动后端、输出回调和停止回调的问题；这些项目注入依赖现在由工具生命周期统一释放，测试不再承担内部所有权清理。
 - 修复长期活动的 `GFRuntimeTask` 所持 `Node` requirement 已释放后，`GFRuntimeTaskScheduler` 的 owner 索引与诊断快照仍可能保留陈旧 ObjectID 的问题；活动任务和 live requirements 现在是唯一事实源，调度边界会先完整校验候选 owner map，再与活动集合一起提交，并在仲裁或释放回调期间拒绝会破坏已提交状态的重入写操作。
 - 修复 UI 路由启用资源存在性检查时，脚本或其他现有非场景资源可能被误判为健康 `PackedScene` 候选的问题；新增 `invalid_scene_type_paths`，将“资源存在但类型错误”与 `missing_scene_paths` 的“路径不存在”诊断明确分离。
 - 修复 Session Trace 在 `debug` 或 `support` 下注册的长期 context、通道 metadata 与 provider metadata，可能在随后收紧 profile 后继续保留对象实例 ID、节点名称或原始路径的问题；这些长期数据现在统一使用 `privacy` 安全下限。
@@ -121,6 +128,7 @@
 - 新增公开类型 `GFRuntimeAgentEnvironment`，以及 endpoint 注册/目录、session 签发/撤销、`invalidate_policy_context()`、版本化请求执行、安全审计和调试快照入口；均标记为 `@since unreleased`。该类型绑定创建线程，只保护不可信请求进入受信同步 handler 的协议边界，不是 OS sandbox。
 - 新增公开类型 `GFSaveProfile`、`GFSaveSectionProvider`、`GFSaveRecoveryPolicy`、`GFSaveProfileOperation`、`GFSaveProfileResult`、`GFSaveRollbackFailure` 和 `GFSaveProfileUtility`；Save 扩展安装器会自动注册 Profile Utility，既有 Save Graph 和 Slot API 不变。
 - 新增公开类型 `GFStorageAsyncOperation`、`GFStorageAsyncResult`，以及 `GFStorageUtility.save_data_request_async()`、`load_data_request_async()`、`canonicalize_data_file_name()`；`GFStorageReadResult` 新增只追加的 `FailureKind` 与 `failure_kind`。
+- `GFTagExpression.expressions` 的公开存储类型从 `Array[GFTagExpression]` 改为 `Array[Resource]`；元素语义仍严格限定为 `GFTagExpression` 或 null，方法参数和返回值不变。
 - `GFUIRoute.get_route_id()` 以及 Router 的注册、查询、打开信号和异步 pending 身份统一去除 route ID 首尾空白。
 - AI Developer 项目契约从 schema v1 升为 v2，项目快照从 schema v3 升为 v4，AI Developer Kit 工具协议同步升为 4.0.0；旧契约不保留双轨解析，旧 Snapshot 不进入迁移路径。
 - GF 开发身份从 `9.1.0-dev.0` 升为 `10.0.0-dev.0`，用于明确承载项目契约 v2、项目快照 v4 与相关破坏性工具协议变化；本条只切换开发线，不创建正式版本或发布标签。
@@ -146,6 +154,7 @@
 - 既有诊断命令、开发者控制台与 AI Developer 工具无需迁移，也不得直接当作 Runtime Agent 权限入口。只有明确需要运行时自动化时才安装 `gf.standard.agent_environment`，在禁用态注册最小 endpoint 与 closed Schema，由项目策略负责业务授权/批准，并由外层传输负责身份认证和凭据保护。
 - 既有 Save Graph、Slot 和直接 Storage 调用无需迁移。需要跨模块自动保存时，为每个稳定数据边界实现一个可回滚 `GFSaveSectionProvider`，注册 Profile 和完整迁移链；不要把缺失、损坏或未来版本统一重置为空存档。
 - 历史配置若有意使用带首尾空白的 route ID，需迁移为去除空白后的稳定 ID；规范化后重复的 ID 会指向同一注册身份，不应再依赖空白区分页面。
+- 直接读取 `GFTagExpression.expressions` 时，应把元素先用 `is GFTagExpression` 收窄再使用；项目若依赖变量的静态 `Array[GFTagExpression]` 类型，应改为通过 `configure_all()`、`configure_any()`、`configure_none()` 提交强类型输入，或显式构造经过校验的 `Array[Resource]`。
 - 严格 warning 项目必须接收 `push_route_async()` / `replace_route_async()` 的新返回值；需要结果时保存 `GFUIRouteOperation`，只需 fire-and-observe 全局信号时也应赋给带下划线的局部变量。打开前预加载必须显式选择策略，默认仍为 `PRELOAD_NONE`。
 - AI Developer 工具协议 3.x 的 schema v1 契约必须先运行 `contract-migration-plan`，审阅 `pending_review`、`owner: project` 默认值和完整候选，再由用户在交互终端用计划返回的 `plan_sha256` 执行 `contract-migrate` 并输入完整确认短语；随后确认 owner、Recipe 与验收条件并运行 `validate`。
 - Snapshot v4 是有意的破坏性生成协议升级：消费方应先升级到 AI Developer 工具协议 4.x，再重新生成快照；不要迁移 v3、复制字段或把观测结果反写为项目意图。独立 Kit ZIP 版本仍与 GF Framework 版本一致。
@@ -172,6 +181,9 @@
 - `addons/gf/standard/utilities/spatial_canvas/`
 - `packages/standard/gf.standard.spatial.canvas.json`
 - `docs/zh/standard/input-flow/spatial-canvas-2d.md`
+- `addons/gf/standard/foundation/tags/gf_tag_expression.gd`
+- `addons/gf/standard/common/gf_async_wait_support.gd`
+- `tests/gf_core/support/gf_gut_*.gd`
 - `addons/gf/standard/utilities/assets/gf_asset_collection.gd`
 - `addons/gf/standard/utilities/assets/gf_asset_catalog_runtime.gd`
 - `addons/gf/standard/utilities/assets/gf_asset_catalog_mount.gd`

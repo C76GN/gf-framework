@@ -470,7 +470,7 @@ class NonExecutableCommand extends GFEditorCommand:
 		return false
 
 
-class FakeUndoManager extends Object:
+class FakeUndoManager extends RefCounted:
 	var do_target: Object
 	var do_method: String = ""
 	var undo_target: Object

@@ -18,6 +18,7 @@ func before_each() -> void:
 
 
 func after_each() -> void:
+	_system.clear()
 	_system = null
 
 
@@ -29,6 +30,13 @@ func _type_listener(callback: Callable, debug_label: String = "type_event") -> G
 
 func _simple_listener(callback: Callable, debug_label: String = "simple_event") -> GFEventListener:
 	return GFEventListener.from_callable(callback, 1, debug_label)
+
+
+func _clear_state_callbacks(state: EventTestState) -> void:
+	state.cb_a = Callable()
+	state.cb_b = Callable()
+	state.late_cb = Callable()
+	state.replacement = Callable()
 
 
 # --- 辅助类型 ---
@@ -590,6 +598,7 @@ func test_unregister_during_traversal() -> void:
 
 	assert_eq(state.order.size(), 1, "回调 B 被注销后不应在本次 send 中执行。")
 	assert_eq(state.order[0], "A", "只有回调 A 应被执行。")
+	_clear_state_callbacks(state)
 
 
 ## 验证在回调内注销自身时，不会崩溃且逻辑正确。
@@ -606,6 +615,7 @@ func test_unregister_self_during_traversal() -> void:
 	_system.send(SampleEventA.new())
 
 	assert_eq(state.count, 1, "回调应该只执行一次，并在本次调用后注销自身。")
+	_clear_state_callbacks(state)
 
 
 ## 验证多个监听器都能收到事件。
@@ -718,6 +728,7 @@ func test_send_simple_unregister_during_traversal() -> void:
 
 	assert_eq(state.order.size(), 1, "简单事件：回调 B 被注销后不应在本次 send 中执行。")
 	assert_eq(state.order[0], "A", "只有回调 A 应被执行。")
+	_clear_state_callbacks(state)
 
 
 ## 验证简单事件回调注销自身时，不会崩溃且逻辑正确。
@@ -734,6 +745,7 @@ func test_send_simple_unregister_self_during_traversal() -> void:
 	_system.send_simple(event_id)
 
 	assert_eq(state.count, 1, "回调应该只执行一次，并在本次调用后注销自身。")
+	_clear_state_callbacks(state)
 
 
 ## 验证注销简单事件后不再触发。
@@ -801,6 +813,7 @@ func test_send_simple_register_during_nested_dispatch_waits_for_outermost_flush(
 
 	_system.send_simple(event_id)
 	assert_eq(state.order.slice(4), ["outer", "existing", "late"], "下一次简单事件派发应包含之前新增的回调。")
+	_clear_state_callbacks(state)
 
 
 ## 验证同一轮简单事件中先注册再注销的回调不会在 flush 后残留。
@@ -821,6 +834,7 @@ func test_send_simple_register_then_unregister_during_dispatch_does_not_leave_li
 	_system.send_simple(event_id)
 
 	assert_eq(state.count, 2, "同一轮派发中先注册再注销的简单事件回调不应残留到下一次派发。")
+	_clear_state_callbacks(state)
 
 
 ## 验证派发中跨简单事件 ID 先注册再注销的回调不会在 flush 后残留。
@@ -842,6 +856,7 @@ func test_send_simple_register_then_unregister_different_id_during_dispatch_does
 	_system.send_simple(inner_id)
 
 	assert_eq(state.count, 1, "跨简单事件 ID pending add 被注销后不应在下一次派发中触发。")
+	_clear_state_callbacks(state)
 
 
 # --- 测试：拥有者绑定 ---
@@ -977,6 +992,7 @@ func test_unregister_owner_then_register_same_owner_during_dispatch_keeps_new_li
 	_system.send(SampleEventA.new())
 
 	assert_eq(state.order, ["old", "replacement"], "同一 owner 重新注册的新监听应在下一轮派发生效。")
+	_clear_state_callbacks(state)
 
 
 # --- 测试：优先级排序 ---
@@ -1162,6 +1178,7 @@ func test_register_during_nested_dispatch_waits_for_outermost_flush() -> void:
 
 	_system.send(SampleEventA.new())
 	assert_eq(state.order.slice(4), ["outer", "existing", "late"], "下一次派发应包含之前新增的回调。")
+	_clear_state_callbacks(state)
 
 
 ## 验证同一轮类型事件中先注册再注销的回调不会在 flush 后残留。
@@ -1182,6 +1199,7 @@ func test_register_then_unregister_during_dispatch_does_not_leave_listener() -> 
 	_system.send(SampleEventA.new())
 
 	assert_eq(state.count, 2, "同一轮派发中先注册再注销的类型事件回调不应残留到下一次派发。")
+	_clear_state_callbacks(state)
 
 
 ## 验证派发中跨事件类型先注册再注销的回调不会在 flush 后残留。
@@ -1201,6 +1219,7 @@ func test_register_then_unregister_different_type_during_dispatch_does_not_leave
 	_system.send(SampleEventB.new())
 
 	assert_eq(state.count, 1, "跨事件类型 pending add 被注销后不应在下一次派发中触发。")
+	_clear_state_callbacks(state)
 
 
 ## 验证派发中跨可赋值类型先注册再注销的回调不会在 flush 后残留。
@@ -1220,6 +1239,7 @@ func test_register_then_unregister_different_assignable_type_during_dispatch_doe
 	_system.send(SampleEventB.new())
 
 	assert_eq(state.count, 1, "跨可赋值类型 pending add 被注销后不应在下一次派发中触发。")
+	_clear_state_callbacks(state)
 
 
 func _sum_listener_counts(value: Variant) -> int:

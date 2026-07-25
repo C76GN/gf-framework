@@ -217,6 +217,10 @@ func ready() -> void:
 ## @since 7.0.0
 func dispose() -> void:
 	clear()
+	input_device_utility = null
+	haptic_backend = null
+	output_handler = Callable()
+	stop_handler = Callable()
 
 
 ## 推进震动播放状态。

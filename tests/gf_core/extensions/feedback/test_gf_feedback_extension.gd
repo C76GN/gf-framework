@@ -823,6 +823,37 @@ func test_haptic_output_callback_cannot_reenter_state_mutation() -> void:
 	assert_push_error("[GFHapticUtility] clear 失败：输出后端或回调执行期间不允许同步修改震动状态。请在当前输出结束后再修改。")
 	assert_true(utility.is_haptic_active(haptic_id), "被拒绝的回调重入不得清除活跃状态。")
 	assert_eq(GFVariantData.get_option_int(report, "applied_count"), 1, "回调自身成功时本轮输出仍应按稳定快照完成。")
+	utility.dispose()
+	assert_false(utility.output_handler.is_valid(), "dispose 应由工具自身释放捕获工具的输出回调。")
+
+
+func test_haptic_dispose_releases_injected_dependencies_and_callbacks() -> void:
+	var utility: GFHapticUtility = GFHapticUtility.new()
+	utility.init()
+	utility.input_device_utility = GFInputDeviceUtility.new()
+	utility.haptic_backend = RefCounted.new()
+	utility.output_handler = func(
+		_target_type: int,
+		_target_id: int,
+		_weak_magnitude: float,
+		_strong_magnitude: float,
+		_duration_seconds: float,
+		_metadata: Dictionary
+	) -> bool:
+		return utility != null
+	utility.stop_handler = func(
+		_target_type: int,
+		_target_id: int,
+		_metadata: Dictionary
+	) -> bool:
+		return utility != null
+
+	utility.dispose()
+
+	assert_null(utility.input_device_utility, "dispose 应释放注入的输入设备工具。")
+	assert_null(utility.haptic_backend, "dispose 应释放注入的震动后端。")
+	assert_false(utility.output_handler.is_valid(), "dispose 应释放输出回调。")
+	assert_false(utility.stop_handler.is_valid(), "dispose 应释放停止回调。")
 
 
 func test_haptic_utility_clear_stops_and_clears_last_output_targets() -> void:

@@ -2,7 +2,7 @@
   "schema_version": 1,
   "catalog_version": "1.0.0",
   "framework_version": "10.0.0-dev.0",
-  "source_digest": "a1b5758e4dcb654df9a361dfb6d3be50040dc2b7712fe45c95ac89a7f07b0c42",
+  "source_digest": "04110f0aa20b6a4379ad862db42ec564d2b904c1b14165d841d8e7e973304fd5",
   "class_count": 755,
   "package_count": 52,
   "packages": [
@@ -1857,7 +1857,7 @@
           "kind": "func",
           "name": "dispose",
           "signature": "func dispose() -> void",
-          "summary": "释放事件队列、HTTP 节点和关闭监听。",
+          "summary": "释放事件队列、HTTP 节点、关闭监听和项目注入的回调。",
           "visibility": "public"
         },
         {
@@ -79277,8 +79277,8 @@
         {
           "kind": "var",
           "name": "expressions",
-          "signature": "var expressions: Array[GFTagExpression] = []",
-          "summary": "子表达式列表。operator 为 ALL、ANY 或 NONE 时使用。",
+          "signature": "var expressions: Array[Resource] = []",
+          "summary": "子表达式列表。operator 为 ALL、ANY 或 NONE 时使用。公开语义只接受",
           "visibility": "public"
         },
         {

@@ -405,7 +405,9 @@ func test_diagnostics_rejects_external_contributions_for_reserved_snapshot_keys(
 	diagnostics.init()
 
 	var section_registered: bool = diagnostics.publish_snapshot_section(self, &"build", { "fake": true })
+	assert_push_warning("[GFDiagnosticsUtility] 快照分区使用了保留字段，已拒绝：build。")
 	var tool_registered: bool = diagnostics.publish_tool_snapshot(self, &"timer", { "fake": true })
+	assert_push_warning("[GFDiagnosticsUtility] 工具快照使用了内置字段，已拒绝：timer。")
 	var snapshot: Dictionary = diagnostics.collect_snapshot({
 		"include_recent_logs": false,
 	})

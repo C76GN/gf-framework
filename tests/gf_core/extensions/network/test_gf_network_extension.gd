@@ -1,6 +1,14 @@
 ## 测试 GF 网络抽象的消息编码、后端桥接与限流器。
 extends GutTest
 
+
+# --- 常量 ---
+
+const GF_TRANSIENT_GDSCRIPT_TEST_SUPPORT = preload(
+	"res://tests/gf_core/support/gf_transient_gdscript_test_support.gd"
+)
+
+
 # --- 辅助类 ---
 
 class FakeBackend extends GFNetworkBackend:
@@ -1226,9 +1234,13 @@ func test_network_contract_generator_builds_typed_helpers() -> void:
 	assert_true(source.contains("static func send_player_ready(network: GFNetworkUtility, peer_id: int, slot: int, ready: bool = false, options: Dictionary = {}) -> Error:"), "应生成强类型发送函数。")
 	assert_true(source.contains("static func get_player_ready_slot(message: GFNetworkMessage, default_value: int = 0) -> int:"), "应生成字段读取函数。")
 
-	var runtime_script: GDScript = GDScript.new()
-	runtime_script.source_code = source.replace("class_name LobbyNetworkMessages\n", "")
-	assert_eq(runtime_script.reload(), OK, "生成源码去掉全局类注册行后应能被 GDScript 编译。")
+	var compile_report: Dictionary = GF_TRANSIENT_GDSCRIPT_TEST_SUPPORT.compile_and_release(
+		source.replace("class_name LobbyNetworkMessages\n", "")
+	)
+	assert_true(
+		GFVariantData.get_option_bool(compile_report, "ok"),
+		"生成源码去掉全局类注册行后应能被 GDScript 编译：%s" % compile_report
+	)
 
 
 func test_network_contract_generator_omits_optional_null_fields() -> void:
@@ -1252,9 +1264,13 @@ func test_network_contract_generator_omits_optional_null_fields() -> void:
 	assert_true(source.contains("static func make_player_note(slot: int, note: Variant = null, options: Dictionary = {}) -> GFNetworkMessage:"), "无默认值的可选字段应保留 null 作为未提供语义。")
 	assert_true(source.contains("if note != null or GFVariantData.get_option_bool(options, \"include_null_optional_fields\"):"), "payload 构建应默认省略 null 可选字段。")
 
-	var runtime_script: GDScript = GDScript.new()
-	runtime_script.source_code = source.replace("class_name LobbyNetworkMessages\n", "")
-	assert_eq(runtime_script.reload(), OK, "可选 null 语义生成源码应能编译。")
+	var compile_report: Dictionary = GF_TRANSIENT_GDSCRIPT_TEST_SUPPORT.compile_and_release(
+		source.replace("class_name LobbyNetworkMessages\n", "")
+	)
+	assert_true(
+		GFVariantData.get_option_bool(compile_report, "ok"),
+		"可选 null 语义生成源码应能编译：%s" % compile_report
+	)
 
 
 func test_network_contract_generator_reports_invalid_resources_with_standard_report() -> void:

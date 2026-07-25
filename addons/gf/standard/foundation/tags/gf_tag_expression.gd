@@ -47,12 +47,17 @@ const _MAX_RESTORE_DEPTH: int = 128
 ## @api public
 @export var query: GFTagQuery = null
 
-## 子表达式列表。operator 为 ALL、ANY 或 NONE 时使用。
+## 子表达式列表。operator 为 ALL、ANY 或 NONE 时使用。公开语义只接受
+## GFTagExpression 或 null；其他 Resource 会保留索引并按 null_expression 失败，
+## 不会被静默忽略。推荐通过 configure_all()、configure_any() 或 configure_none()
+## 写入强类型子表达式。
 ## [br]
 ## @api public
 ## [br]
-## @schema expressions: Array[GFTagExpression]，按数组顺序参与组合判断。
-@export var expressions: Array[GFTagExpression] = []
+## @since 3.18.0
+## [br]
+## @schema expressions: Array[GFTagExpression | null]，按数组顺序参与组合判断；底层使用 Array[Resource] 避免自引用 Resource 脚本被引擎永久保留。
+@export var expressions: Array[Resource] = []
 
 
 # --- 公共方法 ---
@@ -123,7 +128,7 @@ func configure_query(tag_query: GFTagQuery) -> GFTagExpression:
 func configure_all(child_expressions: Array[GFTagExpression]) -> GFTagExpression:
 	operator = Operator.ALL
 	query = null
-	expressions = child_expressions.duplicate()
+	_assign_expressions(child_expressions)
 	return self
 
 
@@ -139,7 +144,7 @@ func configure_all(child_expressions: Array[GFTagExpression]) -> GFTagExpression
 func configure_any(child_expressions: Array[GFTagExpression]) -> GFTagExpression:
 	operator = Operator.ANY
 	query = null
-	expressions = child_expressions.duplicate()
+	_assign_expressions(child_expressions)
 	return self
 
 
@@ -155,7 +160,7 @@ func configure_any(child_expressions: Array[GFTagExpression]) -> GFTagExpression
 func configure_none(child_expressions: Array[GFTagExpression]) -> GFTagExpression:
 	operator = Operator.NONE
 	query = null
-	expressions = child_expressions.duplicate()
+	_assign_expressions(child_expressions)
 	return self
 
 
@@ -271,7 +276,8 @@ func _duplicate_expression(visited: Dictionary) -> GFTagExpression:
 	visited[instance_id] = copy
 	copy.operator = operator
 	copy.query = query.duplicate_query() if query != null else null
-	for expression: GFTagExpression in expressions:
+	for expression_index: int in range(expressions.size()):
+		var expression: GFTagExpression = _get_expression_at(expression_index)
 		copy.expressions.append(expression._duplicate_expression(visited) if expression != null else null)
 	return copy
 
@@ -283,7 +289,8 @@ func _to_dictionary(visited: Dictionary) -> Dictionary:
 	visited[instance_id] = true
 
 	var child_dictionaries: Array[Dictionary] = []
-	for expression: GFTagExpression in expressions:
+	for expression_index: int in range(expressions.size()):
+		var expression: GFTagExpression = _get_expression_at(expression_index)
 		child_dictionaries.append(_make_null_dictionary() if expression == null else expression._to_dictionary(visited))
 	var _removed_visit: bool = visited.erase(instance_id)
 
@@ -356,7 +363,7 @@ func _get_children_match_report(
 	var matched_indices: Array[int] = []
 	var failed_indices: Array[int] = []
 	for index: int in range(expressions.size()):
-		var child: GFTagExpression = expressions[index]
+		var child: GFTagExpression = _get_expression_at(index)
 		var child_report: Dictionary = _get_null_child_report() if child == null else child._get_match_report(source, visited)
 		child_reports.append(child_report)
 		if GFVariantData.get_option_bool(child_report, "ok", false):
@@ -383,7 +390,7 @@ func _get_none_match_report(source: Variant, visited: Array[int]) -> Dictionary:
 	var matched_indices: Array[int] = []
 	var failed_indices: Array[int] = []
 	for index: int in range(expressions.size()):
-		var child: GFTagExpression = expressions[index]
+		var child: GFTagExpression = _get_expression_at(index)
 		var child_report: Dictionary = _get_null_child_report() if child == null else child._get_match_report(source, visited)
 		child_reports.append(child_report)
 		if GFVariantData.get_option_bool(child_report, "ok", false):
@@ -413,6 +420,22 @@ func _get_null_child_report() -> Dictionary:
 		"matched_indices": [],
 		"failed_indices": [],
 	}
+
+
+func _assign_expressions(child_expressions: Array[GFTagExpression]) -> void:
+	expressions.clear()
+	for child_expression: GFTagExpression in child_expressions:
+		expressions.append(child_expression)
+
+
+func _get_expression_at(index: int) -> GFTagExpression:
+	if index < 0 or index >= expressions.size():
+		return null
+	var value: Resource = expressions[index]
+	if value is GFTagExpression:
+		var expression: GFTagExpression = value
+		return expression
+	return null
 
 
 static func _make_null_dictionary() -> Dictionary:

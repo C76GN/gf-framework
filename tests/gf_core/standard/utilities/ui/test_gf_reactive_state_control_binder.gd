@@ -11,11 +11,15 @@ const GFReactiveStateStoreBase = preload("res://addons/gf/standard/utilities/sta
 # --- 私有变量 ---
 
 var _controls: Array[Control] = []
+var _binders: Array[GFReactiveStateControlBinderBase] = []
 
 
 # --- Godot 生命周期方法 ---
 
 func after_each() -> void:
+	for binder: GFReactiveStateControlBinderBase in _binders:
+		binder.dispose()
+	_binders.clear()
 	for control: Control in _controls:
 		if is_instance_valid(control):
 			control.free()
@@ -30,7 +34,7 @@ func test_bind_control_syncs_store_value_to_control() -> void:
 			"name": "Ada",
 		},
 	})
-	var binder: GFReactiveStateControlBinderBase = GFReactiveStateControlBinderBase.new()
+	var binder: GFReactiveStateControlBinderBase = _make_binder()
 	var line_edit: LineEdit = LineEdit.new()
 	_track_control(line_edit)
 
@@ -42,7 +46,7 @@ func test_bind_control_syncs_store_value_to_control() -> void:
 func test_bind_control_rejects_invalid_store_and_control() -> void:
 	var store: GFReactiveStateStoreBase = GFReactiveStateStoreBase.new({})
 	var invalid_store: RefCounted = RefCounted.new()
-	var binder: GFReactiveStateControlBinderBase = GFReactiveStateControlBinderBase.new()
+	var binder: GFReactiveStateControlBinderBase = _make_binder()
 	var line_edit: LineEdit = LineEdit.new()
 	var null_control: Control = null
 	_track_control(line_edit)
@@ -60,7 +64,7 @@ func test_control_signal_updates_store_path() -> void:
 			"name": "Ada",
 		},
 	})
-	var binder: GFReactiveStateControlBinderBase = GFReactiveStateControlBinderBase.new()
+	var binder: GFReactiveStateControlBinderBase = _make_binder()
 	var line_edit: LineEdit = LineEdit.new()
 	_track_control(line_edit)
 	var _bind_result: Variant = binder.bind_control(store, "profile.name", line_edit)
@@ -78,7 +82,7 @@ func test_rebinding_same_control_replaces_previous_path_subscription() -> void:
 			"last": "Lovelace",
 		},
 	})
-	var binder: GFReactiveStateControlBinderBase = GFReactiveStateControlBinderBase.new()
+	var binder: GFReactiveStateControlBinderBase = _make_binder()
 	var line_edit: LineEdit = LineEdit.new()
 	_track_control(line_edit)
 
@@ -99,7 +103,7 @@ func test_control_signal_prunes_binding_when_store_is_released() -> void:
 			"name": "Ada",
 		},
 	})
-	var binder: GFReactiveStateControlBinderBase = GFReactiveStateControlBinderBase.new()
+	var binder: GFReactiveStateControlBinderBase = _make_binder()
 	var line_edit: LineEdit = LineEdit.new()
 	_track_control(line_edit)
 	var _bind_result: Variant = binder.bind_control(store, "profile.name", line_edit)
@@ -119,7 +123,7 @@ func test_store_path_change_updates_control_without_duplicate_loop() -> void:
 	var store: GFReactiveStateStoreBase = GFReactiveStateStoreBase.new({
 		"enabled": false,
 	})
-	var binder: GFReactiveStateControlBinderBase = GFReactiveStateControlBinderBase.new()
+	var binder: GFReactiveStateControlBinderBase = _make_binder()
 	var checkbox: CheckBox = CheckBox.new()
 	_track_control(checkbox)
 	var _bind_result: Variant = binder.bind_control(store, "enabled", checkbox)
@@ -133,7 +137,7 @@ func test_store_path_change_updates_control_without_duplicate_loop() -> void:
 
 func test_write_initial_to_store_uses_control_value() -> void:
 	var store: GFReactiveStateStoreBase = GFReactiveStateStoreBase.new({})
-	var binder: GFReactiveStateControlBinderBase = GFReactiveStateControlBinderBase.new()
+	var binder: GFReactiveStateControlBinderBase = _make_binder()
 	var line_edit: LineEdit = LineEdit.new()
 	line_edit.text = "Initial"
 	_track_control(line_edit)
@@ -149,7 +153,7 @@ func test_control_tree_exit_clears_binding_and_store_subscription() -> void:
 	var store: GFReactiveStateStoreBase = GFReactiveStateStoreBase.new({
 		"name": "Ada",
 	})
-	var binder: GFReactiveStateControlBinderBase = GFReactiveStateControlBinderBase.new()
+	var binder: GFReactiveStateControlBinderBase = _make_binder()
 	var line_edit: LineEdit = LineEdit.new()
 	add_child(line_edit)
 	_controls.append(line_edit)
@@ -166,6 +170,12 @@ func test_control_tree_exit_clears_binding_and_store_subscription() -> void:
 
 func _track_control(control: Control) -> void:
 	_controls.append(control)
+
+
+func _make_binder() -> GFReactiveStateControlBinderBase:
+	var binder: GFReactiveStateControlBinderBase = GFReactiveStateControlBinderBase.new()
+	_binders.append(binder)
+	return binder
 
 
 func _get_signal_connection_count(control: Object, signal_name: StringName) -> int:

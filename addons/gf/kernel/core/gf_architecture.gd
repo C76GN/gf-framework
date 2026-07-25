@@ -444,6 +444,7 @@ func dispose() -> void:
 	last_initialization_error = ""
 	_reset_project_installers()
 	_refresh_tick_caches()
+	_parent_architecture = null
 	if was_initializing:
 		initialization_finished.emit()
 	_runtime.finish_dispose()
@@ -2623,6 +2624,12 @@ func _reset_project_installers() -> void:
 func _assign_parent_architecture(parent_architecture: GFArchitecture, context: String) -> void:
 	if parent_architecture == null:
 		_parent_architecture = null
+		return
+	if _runtime.is_disposing() or _runtime.is_disposed():
+		push_error(
+			"[GFArchitecture] %s 失败：架构正在 dispose 或已 dispose，不能设置父级架构。"
+			% context
+		)
 		return
 	if parent_architecture == self:
 		push_error("[GFArchitecture] %s 失败：父级架构不能是自身。" % context)

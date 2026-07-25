@@ -42,18 +42,19 @@ func test_audio_beat_clock_boundary_callback_can_reset_state() -> void:
 	var clock: GFAudioBeatClock = GFAudioBeatClock.new()
 	clock.configure(120.0, 4, 0.0)
 	var reset_done: Array[bool] = [false]
-	var _beat_connected: Error = clock.beat_reached.connect(func(_beat_index: int, _beat_in_measure: int, _position_seconds: float) -> void:
+	var on_beat_reached: Callable = func(_beat_index: int, _beat_in_measure: int, _position_seconds: float) -> void:
 		if reset_done[0]:
 			return
 		reset_done[0] = true
 		var _reset_snapshot: Dictionary = clock.reset(0.0)
-	) as Error
+	var _beat_connected: Error = clock.beat_reached.connect(on_beat_reached) as Error
 
 	var _initial_snapshot: Dictionary = clock.update(0.0)
 	var _later_snapshot: Dictionary = clock.update(2.1)
 
 	assert_true(reset_done[0], "推进时应触发至少一个 beat 回调。")
 	assert_almost_eq(clock.get_last_position_seconds(), 0.0, 0.001, "回调中的 reset 不应被 update 末尾覆盖。")
+	clock.beat_reached.disconnect(on_beat_reached)
 
 
 ## 验证同一次 update 内的边界位置使用采样时的节拍参数。
@@ -61,11 +62,11 @@ func test_audio_beat_clock_boundary_positions_use_sampled_timing() -> void:
 	var clock: GFAudioBeatClock = GFAudioBeatClock.new()
 	clock.configure(120.0, 4, 0.0)
 	var positions: Array[float] = []
-	var _beat_connected: Error = clock.beat_reached.connect(func(beat_index: int, _beat_in_measure: int, position_seconds: float) -> void:
+	var on_beat_reached: Callable = func(beat_index: int, _beat_in_measure: int, position_seconds: float) -> void:
 		positions.append(position_seconds)
 		if beat_index == 1:
 			clock.configure(60.0, 4, 1.0, false)
-	) as Error
+	var _beat_connected: Error = clock.beat_reached.connect(on_beat_reached) as Error
 
 	var _initial_snapshot: Dictionary = clock.update(0.0)
 	var _later_snapshot: Dictionary = clock.update(2.1)
@@ -75,6 +76,7 @@ func test_audio_beat_clock_boundary_positions_use_sampled_timing() -> void:
 	assert_almost_eq(positions[1], 1.0, 0.001, "后续边界不应被回调中修改 BPM 影响。")
 	assert_almost_eq(positions[2], 1.5, 0.001, "后续边界不应被回调中修改 offset 影响。")
 	assert_almost_eq(positions[3], 2.0, 0.001, "同一 update 内的边界时间应一致。")
+	clock.beat_reached.disconnect(on_beat_reached)
 
 
 ## 验证 reset 会建立当前位置但不发出历史边界。

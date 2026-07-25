@@ -1,0 +1,4 @@
+{
+  "pre_run_script": "res://tests/gf_core/support/gf_gut_pre_run_hook.gd",
+  "post_run_script": "res://tests/gf_core/support/gf_gut_post_run_hook.gd"
+}

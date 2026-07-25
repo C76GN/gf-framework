@@ -164,6 +164,35 @@ GODOT_EXIT_LEAK_PATTERNS = (
 	"rid allocations",
 	"were leaked at exit",
 )
+GUT_LIFECYCLE_GATE_PREFIX = "GF_TEST_LIFECYCLE_GATE="
+GUT_LIFECYCLE_GATE_SCHEMA_VERSION = 1
+GUT_LIFECYCLE_GATE_MAX_DETAIL_COUNT = 20
+GUT_LIFECYCLE_GATE_MAX_TEXT_LENGTH = 512
+GUT_LIFECYCLE_GATE_MAX_JSON_BYTES = 65536
+GUT_LIFECYCLE_GATE_MAX_MIRRORED_MARKERS = 2
+GUT_LIFECYCLE_GATE_REQUIRED_KEYS = frozenset({
+	"schema_version",
+	"ok",
+	"baseline_available",
+	"warning_tracking_available",
+	"unhandled_warning_count",
+	"orphan_count",
+	"warnings",
+	"orphans",
+	"details_truncated",
+	"configuration_error",
+})
+GUT_LIFECYCLE_WARNING_DETAIL_KEYS = frozenset({"test_id", "code", "file", "line"})
+GUT_LIFECYCLE_ORPHAN_DETAIL_KEYS = frozenset({"instance_id", "class", "name"})
+GUT_LIFECYCLE_CLI_RESOURCE_PATH = "res://tests/gf_core/support/gf_gut_cli.gd"
+GUT_PRE_RUN_HOOK_RESOURCE_PATH = "res://tests/gf_core/support/gf_gut_pre_run_hook.gd"
+GUT_POST_RUN_HOOK_RESOURCE_PATH = "res://tests/gf_core/support/gf_gut_post_run_hook.gd"
+GUT_LIFECYCLE_HOOK_ARGUMENTS = (
+	f"-gpre_run_script={GUT_PRE_RUN_HOOK_RESOURCE_PATH}",
+	f"-gpost_run_script={GUT_POST_RUN_HOOK_RESOURCE_PATH}",
+)
+GUT_TEST_ORPHAN_RE = re.compile(r"^\s*(?P<count>[1-9]\d*)\s+[Oo]rphans?\s*$")
+GUT_RUN_SUMMARY_ORPHAN_RE = re.compile(r"^\s*Orphans\s+(?P<count>[1-9]\d*)\s*$")
 PACKAGE_GODOT_SMOKE_DEFAULT_ALL_PACKAGE_JOBS = 4
 PACKAGE_GODOT_SMOKE_INSTALL_TIMEOUT_SECONDS = 240
 PACKAGE_EDITOR_WIZARD_SMOKE_TRANSACTION_TIMEOUT_SECONDS = 240
@@ -177,7 +206,14 @@ GODOT_LEAKED_INSTANCE_RE = re.compile(
 GODOT_RESOURCE_STILL_IN_USE_RE = re.compile(
 	r"^Resource still in use: (?P<path>.+?) \((?P<type>[^)]+)\)"
 )
-GODOT_RESOURCE_SUMMARY_RE = re.compile(r"^(?:ERROR:\s*)?(?P<count>\d+) resources? still in use at exit\.")
+GODOT_OBJECTDB_SUMMARY_RE = re.compile(
+	r"^(?:WARNING:\s*)?(?:(?P<count>\d+)\s+)?ObjectDB instances (?:were )?leaked at exit"
+	r"(?: \(run with [^)]+\))?\.$"
+)
+GODOT_RESOURCE_SUMMARY_RE = re.compile(
+	r"^(?:ERROR:\s*)?(?P<count>\d+) resources? still in use at exit"
+	r"(?: \(run with [^)]+\))?\.$"
+)
 REFERENCE_PROJECT_ENV_VAR = "GF_REFERENCE_PROJECT_PATH"
 DEFAULT_REFERENCE_PROJECT = os.environ.get(REFERENCE_PROJECT_ENV_VAR, "../gf-reference-project")
 REFERENCE_BOOT_SCENE_ENV_VAR = "GF_REFERENCE_BOOT_SCENE"
@@ -343,6 +379,7 @@ RESOURCE_BOUNDARY_EDITOR_METADATA_TARGETS = {
 RESOURCE_BOUNDARY_OBSERVATION_KINDS = {
 	"direct_editor_metadata_load",
 	"direct_script_dependency_load",
+	"direct_test_fixture_resource_load",
 }
 RESOURCE_BOUNDARY_OBSERVATION_SAMPLE_LIMIT = 12
 CONTENT_PACKAGE_MANIFEST_FILE = "gf_content_package.json"
@@ -814,6 +851,11 @@ CHECK_DEFINITIONS: dict[str, list[str]] = {
 		".",
 		"--import",
 	],
+	"gut_lifecycle_smoke": [
+		sys.executable,
+		"tools/gf_gut_lifecycle_smoke.py",
+		"--json",
+	],
 	"gut": [
 		"godot",
 		"--headless",
@@ -822,9 +864,10 @@ CHECK_DEFINITIONS: dict[str, list[str]] = {
 		"--path",
 		".",
 		"-s",
-		"res://addons/gut/gut_cmdln.gd",
+		GUT_LIFECYCLE_CLI_RESOURCE_PATH,
 		"-gdir=res://tests/gf_core",
 		"-ginclude_subdirs",
+		*GUT_LIFECYCLE_HOOK_ARGUMENTS,
 		"-gexit",
 	],
 	"api": [sys.executable, "tools/generate_api_reference.py", "--check"],
@@ -998,6 +1041,7 @@ CHECK_DEFINITIONS: dict[str, list[str]] = {
 }
 
 CHECK_DEPENDENCIES: dict[str, list[str]] = {
+	"gut_lifecycle_smoke": ["godot_import"],
 	"gut": ["godot_import"],
 	"gdscript_warnings": ["godot_import"],
 	"gdscript_lsp_diagnostics": ["godot_import"],
@@ -1092,6 +1136,7 @@ QUICK_CHECKS: list[str] = [
 	*LIGHT_BOUNDARY_CHECKS,
 ]
 FULL_CHECKS: list[str] = [
+	"gut_lifecycle_smoke",
 	"gut",
 	"api",
 	"ai_api",
@@ -1116,6 +1161,7 @@ FULL_CHECKS: list[str] = [
 	"diff",
 ]
 RELEASE_CHECKS: list[str] = [
+	"gut_lifecycle_smoke",
 	"gut",
 	"api",
 	"ai_api",
@@ -1141,6 +1187,7 @@ RELEASE_CHECKS: list[str] = [
 	"release_metadata",
 ]
 FRAMEWORK_GUT_CHECKS: list[str] = [
+	"gut_lifecycle_smoke",
 	"gut",
 	"gdscript_warnings",
 ]
@@ -1165,6 +1212,7 @@ FRAMEWORK_STATIC_CHECKS: list[str] = [
 	"diff",
 ]
 FRAMEWORK_CHECKS: list[str] = [
+	"gut_lifecycle_smoke",
 	"gut",
 	"api",
 	"ai_api",
@@ -1430,6 +1478,8 @@ def check_command(
 
 DEFAULT_CHECK_TIMEOUT_SECONDS: int = 600
 CHECK_TIMEOUT_SECONDS: dict[str, int] = {
+	# Runs six focused process-level lifecycle scenarios after a shared import.
+	"gut_lifecycle_smoke": 360,
 	# The editor wizard smoke launches and tears down isolated editor projects;
 	# a clean Windows run is routinely longer than the generic ten-minute budget.
 	"package_editor_wizard_smoke": 1200,
@@ -1463,6 +1513,7 @@ class CommandResult:
 	notes: list[str] | None = None
 	godot_exit_leak_warnings: list[str] | None = None
 	godot_exit_leak_report: dict[str, Any] | None = None
+	gut_lifecycle_report: dict[str, Any] | None = None
 	cwd: str = str(ROOT)
 	duration_seconds: float = 0.0
 	timeout_seconds: float | None = None
@@ -1499,6 +1550,8 @@ class CommandResult:
 			payload["godot_exit_leak_warnings"] = self.godot_exit_leak_warnings[:20]
 		if self.godot_exit_leak_report:
 			payload["godot_exit_leak_report"] = self.godot_exit_leak_report
+		if self.gut_lifecycle_report:
+			payload["gut_lifecycle_report"] = self.gut_lifecycle_report
 		return payload
 
 
@@ -5412,8 +5465,9 @@ def package_editor_wizard_smoke(
 		"--path",
 		".",
 		"-s",
-		"res://addons/gut/gut_cmdln.gd",
+		GUT_LIFECYCLE_CLI_RESOURCE_PATH,
 		f"-gtest={test_path}",
+		*GUT_LIFECYCLE_HOOK_ARGUMENTS,
 		"-gexit",
 		"-gdisable_colors",
 	]
@@ -5431,6 +5485,23 @@ def package_editor_wizard_smoke(
 		"--import",
 	]
 	try:
+		import_log_paths = prepare_command_log_paths(import_command)
+	except OSError as error:
+		issues.append(make_package_issue(
+			"package_editor_wizard_smoke_import_log_invalid",
+			test_path,
+			"Editor package wizard import preflight log path is unsafe or cannot be prepared.",
+			row_key=scenario,
+			error=trim_text(str(error), 600),
+		))
+		record_package_editor_wizard_smoke_scenario(
+			scenarios,
+			scenario,
+			False,
+			{"test_path": test_path, "log_path": import_log_path.as_posix()},
+		)
+		return make_package_editor_wizard_smoke_payload(command, scenarios, issues, test_path, log_path)
+	try:
 		import_completed = run_maintenance_subprocess(import_command, timeout_seconds=180)
 	except subprocess.TimeoutExpired as error:
 		issues.append(make_package_issue(
@@ -5444,19 +5515,44 @@ def package_editor_wizard_smoke(
 			scenarios,
 			scenario,
 			False,
-			{"test_path": test_path, "log_path": log_path.as_posix()},
+			{"test_path": test_path, "log_path": import_log_path.as_posix()},
 		)
 		return make_package_editor_wizard_smoke_payload(command, scenarios, issues, test_path, log_path)
-	import_log_text = read_text_file_if_exists(import_log_path)
+	import_log_text, import_log_errors = read_command_log_outputs(import_log_paths)
 	import_output = f"{import_completed.stdout}\n{import_completed.stderr}\n{import_log_text}"
-	if import_completed.returncode != 0 or has_godot_script_error(import_output, "") or has_gdscript_reload_warning(import_output, ""):
+	if (
+		import_completed.returncode != 0
+		or bool(import_log_errors)
+		or has_godot_script_error(import_output, "")
+		or has_gdscript_reload_warning(import_output, "")
+	):
 		issues.append(make_package_issue(
 			"package_editor_wizard_smoke_import_failed",
 			test_path,
 			"Editor package wizard focused GUT import preflight failed.",
 			row_key=scenario,
 			actual_value=str(import_completed.returncode),
-			error=trim_text(import_output.strip(), 1200),
+			error=trim_text(
+				"\n".join([*import_log_errors, import_output.strip()]).strip(),
+				1200,
+			),
+		))
+		record_package_editor_wizard_smoke_scenario(
+			scenarios,
+			scenario,
+			False,
+			{"test_path": test_path, "log_path": import_log_path.as_posix()},
+		)
+		return make_package_editor_wizard_smoke_payload(command, scenarios, issues, test_path, log_path)
+	try:
+		log_paths = prepare_command_log_paths(command)
+	except OSError as error:
+		issues.append(make_package_issue(
+			"package_editor_wizard_smoke_log_invalid",
+			test_path,
+			"Editor package wizard focused GUT log path is unsafe or cannot be prepared.",
+			row_key=scenario,
+			error=trim_text(str(error), 600),
 		))
 		record_package_editor_wizard_smoke_scenario(
 			scenarios,
@@ -5483,8 +5579,16 @@ def package_editor_wizard_smoke(
 		)
 		return make_package_editor_wizard_smoke_payload(command, scenarios, issues, test_path, log_path)
 
-	log_text = read_text_file_if_exists(log_path)
+	log_text, log_errors = read_command_log_outputs(log_paths)
 	combined_output = f"{completed.stdout}\n{completed.stderr}\n{log_text}"
+	if log_errors:
+		issues.append(make_package_issue(
+			"package_editor_wizard_smoke_log_missing",
+			test_path,
+			"Editor package wizard focused GUT did not produce a fresh readable managed log.",
+			row_key=scenario,
+			error=trim_text("\n".join(log_errors), 1200),
+		))
 	if completed.returncode != 0:
 		issues.append(make_package_issue(
 			"package_editor_wizard_smoke_command_failed",
@@ -5518,6 +5622,30 @@ def package_editor_wizard_smoke(
 			row_key=scenario,
 			error=trim_text(combined_output.strip(), 1200),
 		))
+	lifecycle_report = parse_gut_lifecycle_gate_output(combined_output, "")
+	if not lifecycle_report["ok"]:
+		issues.append(make_package_issue(
+			"package_editor_wizard_smoke_lifecycle_gate_failed",
+			test_path,
+			"Editor package wizard focused GUT did not produce a clean lifecycle report.",
+			row_key=scenario,
+			actual_value=json.dumps(lifecycle_report, ensure_ascii=False, sort_keys=True),
+			error=trim_text(combined_output.strip(), 1200),
+		))
+	exit_leak_report = godot_exit_leak_report_from_output(
+		"package_editor_wizard_smoke",
+		combined_output,
+		"",
+	)
+	if exit_leak_report["has_leaks"]:
+		issues.append(make_package_issue(
+			"package_editor_wizard_smoke_exit_leak",
+			test_path,
+			"Editor package wizard focused GUT reported a Godot exit leak.",
+			row_key=scenario,
+			actual_value=json.dumps(exit_leak_report, ensure_ascii=False, sort_keys=True),
+			error=trim_text(combined_output.strip(), 1200),
+		))
 
 	record_package_editor_wizard_smoke_scenario(
 		scenarios,
@@ -5527,6 +5655,8 @@ def package_editor_wizard_smoke(
 			"test_path": test_path,
 			"exit_code": completed.returncode,
 			"log_path": log_path.as_posix(),
+			"lifecycle_report": lifecycle_report,
+			"godot_exit_leak_report": exit_leak_report,
 		},
 	)
 	with strict_managed_temporary_directory(prefix="gf-package-editor-wizard-smoke-") as temp_dir:
@@ -6864,6 +6994,17 @@ def run_package_editor_wizard_smoke_script(
 		script_resource_path,
 	]
 	try:
+		log_paths = prepare_command_log_paths(command)
+	except OSError as error:
+		issues.append(make_package_issue(
+			"package_editor_wizard_smoke_minimal_log_invalid",
+			script_path.as_posix(),
+			"Minimal kernel editor wizard smoke log path is unsafe or cannot be prepared.",
+			row_key=scenario,
+			error=trim_text(str(error), 600),
+		))
+		return {}
+	try:
 		completed = run_maintenance_subprocess(
 			command,
 			timeout_seconds=PACKAGE_EDITOR_WIZARD_SMOKE_TRANSACTION_TIMEOUT_SECONDS,
@@ -6877,8 +7018,16 @@ def run_package_editor_wizard_smoke_script(
 			error=trim_text(str(error), 300),
 		))
 		return {}
-	log_text = read_text_file_if_exists(log_path)
+	log_text, log_errors = read_command_log_outputs(log_paths)
 	combined_output = f"{completed.stdout}\n{completed.stderr}\n{log_text}"
+	if log_errors:
+		issues.append(make_package_issue(
+			"package_editor_wizard_smoke_minimal_log_missing",
+			script_path.as_posix(),
+			"Minimal kernel editor wizard smoke did not produce a fresh readable managed log.",
+			row_key=scenario,
+			error=trim_text("\n".join(log_errors), 1200),
+		))
 	if completed.returncode != 0:
 		issues.append(make_package_issue(
 			"package_editor_wizard_smoke_minimal_script_failed",
@@ -6902,6 +7051,20 @@ def run_package_editor_wizard_smoke_script(
 			script_path.as_posix(),
 			"Minimal kernel editor wizard smoke script reported a GDScript reload warning.",
 			row_key=scenario,
+			error=trim_text(combined_output.strip(), 1200),
+		))
+	exit_leak_report = godot_exit_leak_report_from_output(
+		f"package_editor_wizard_smoke_{scenario}",
+		combined_output,
+		"",
+	)
+	if exit_leak_report["has_leaks"]:
+		issues.append(make_package_issue(
+			"package_editor_wizard_smoke_minimal_exit_leak",
+			script_path.as_posix(),
+			"Minimal kernel editor wizard smoke reported a Godot exit leak.",
+			row_key=scenario,
+			actual_value=json.dumps(exit_leak_report, ensure_ascii=False, sort_keys=True),
 			error=trim_text(combined_output.strip(), 1200),
 		))
 	data = parse_package_godot_cli_json(completed.stdout)
@@ -12639,6 +12802,12 @@ def maintenance_self_test() -> dict[str, Any]:
 			"Passing Tests 1",
 			"Asserts 1",
 			"---- All tests passed! ----",
+			(
+				f'{GUT_LIFECYCLE_GATE_PREFIX}'
+				'{"schema_version":1,"ok":true,"unhandled_warning_count":0,"orphan_count":0,'
+				'"baseline_available":true,"warning_tracking_available":true,'
+				'"warnings":[],"orphans":[],"details_truncated":false,"configuration_error":""}'
+			),
 			"",
 		])
 		passing_code = (
@@ -12654,9 +12823,16 @@ def maintenance_self_test() -> dict[str, Any]:
 			"run_command_reads_configured_log_for_gut_summary",
 			passing_result.exit_code == 0
 			and "---- All tests passed! ----" in passing_result.stdout
+			and passing_result.gut_lifecycle_report is not None
+			and passing_result.gut_lifecycle_report["ok"]
+			and passing_result.to_dict().get("gut_lifecycle_report", {}).get("schema_version")
+			== GUT_LIFECYCLE_GATE_SCHEMA_VERSION
 			and passing_result.duration_seconds > 0.0
 			and passing_result.timeout_seconds == 10,
-			f"configured GUT log must be part of command evaluation: {passing_result.to_dict()}",
+			(
+				"configured GUT log and lifecycle evidence must be part of command evaluation: "
+				f"{passing_result.to_dict()}"
+			),
 		)
 		per_script_code = (
 			"from pathlib import Path; "
@@ -12731,6 +12907,241 @@ def maintenance_self_test() -> dict[str, Any]:
 			"run_command_rejects_reload_warning_from_configured_log",
 			warning_result.exit_code != 0,
 			"GDScript reload warnings in --log-file output must fail the command.",
+		)
+		missing_lifecycle_marker_summary = gut_success_summary.replace(
+			next(
+				line
+				for line in gut_success_summary.splitlines()
+				if line.startswith(GUT_LIFECYCLE_GATE_PREFIX)
+			) + "\n",
+			"",
+		)
+		missing_lifecycle_marker_code = (
+			"from pathlib import Path; "
+			f"Path({str(log_path)!r}).write_text({missing_lifecycle_marker_summary!r}, encoding='utf-8')"
+		)
+		missing_lifecycle_marker_result = run_command(
+			"gut",
+			[sys.executable, "-c", missing_lifecycle_marker_code, "--log-file", str(log_path)],
+			10,
+		)
+		record_result(
+			"run_command_requires_gut_lifecycle_marker",
+			missing_lifecycle_marker_result.exit_code != 0
+			and missing_lifecycle_marker_result.gut_lifecycle_report is not None
+			and not missing_lifecycle_marker_result.gut_lifecycle_report["ok"],
+			"GUT success must be rejected when the lifecycle post-run hook did not report.",
+		)
+		warning_lifecycle_summary = gut_success_summary.replace(
+			'"ok":true,"unhandled_warning_count":0',
+			'"ok":false,"unhandled_warning_count":1',
+		).replace(
+			'"warnings":[]',
+			'"warnings":[{"test_id":"fixture","code":"warning","file":"fixture.gd","line":1}]',
+		).replace(
+			"Asserts 1\n",
+			"Asserts 1\nWarnings 1\n",
+		)
+		warning_lifecycle_code = (
+			"from pathlib import Path; "
+			f"Path({str(log_path)!r}).write_text({warning_lifecycle_summary!r}, encoding='utf-8')"
+		)
+		warning_lifecycle_result = run_command(
+			"gut",
+			[sys.executable, "-c", warning_lifecycle_code, "--log-file", str(log_path)],
+			10,
+		)
+		record_result(
+			"run_command_rejects_unhandled_gut_warnings",
+			warning_lifecycle_result.exit_code != 0
+			and warning_lifecycle_result.gut_lifecycle_report is not None
+			and warning_lifecycle_result.gut_lifecycle_report["unhandled_warning_count"] == 1
+			and warning_lifecycle_result.gut_lifecycle_report["summary_warning_count"] == 1,
+			"Unhandled push_warning records and non-zero GUT summary warnings must hard-fail.",
+		)
+		orphan_lifecycle_summary = gut_success_summary.replace(
+			'"ok":true,"unhandled_warning_count":0,"orphan_count":0',
+			'"ok":false,"unhandled_warning_count":0,"orphan_count":2',
+		).replace(
+			'"orphans":[]',
+			'"orphans":[{"instance_id":1,"class":"Node","name":"first"},'
+			'{"instance_id":2,"class":"Node","name":"second"}]',
+		).replace(
+			"---- All tests passed! ----\n",
+			"    2 Orphans\n---- All tests passed! ----\n",
+		)
+		orphan_lifecycle_code = (
+			"from pathlib import Path; "
+			f"Path({str(log_path)!r}).write_text({orphan_lifecycle_summary!r}, encoding='utf-8')"
+		)
+		orphan_lifecycle_result = run_command(
+			"gut",
+			[sys.executable, "-c", orphan_lifecycle_code, "--log-file", str(log_path)],
+			10,
+		)
+		record_result(
+			"run_command_rejects_gut_orphans",
+			orphan_lifecycle_result.exit_code != 0
+			and orphan_lifecycle_result.gut_lifecycle_report is not None
+			and orphan_lifecycle_result.gut_lifecycle_report["orphan_count"] == 2
+			and orphan_lifecycle_result.gut_lifecycle_report["reported_orphan_count"] == 2,
+			"GUT orphan reports must hard-fail even when every assertion passed.",
+		)
+		clean_lifecycle_payload = {
+			"schema_version": GUT_LIFECYCLE_GATE_SCHEMA_VERSION,
+			"ok": True,
+			"baseline_available": True,
+			"warning_tracking_available": True,
+			"unhandled_warning_count": 0,
+			"orphan_count": 0,
+			"warnings": [],
+			"orphans": [],
+			"details_truncated": False,
+			"configuration_error": "",
+		}
+		extra_field_payload = {**clean_lifecycle_payload, "unexpected": True}
+		invalid_truncation_payload = {
+			**clean_lifecycle_payload,
+			"details_truncated": True,
+		}
+		invalid_warning_detail_payload = {
+			**clean_lifecycle_payload,
+			"ok": False,
+			"unhandled_warning_count": 1,
+			"warnings": [{"test_id": "fixture", "code": "warning", "file": "fixture.gd"}],
+		}
+		oversized_text_payload = {
+			**clean_lifecycle_payload,
+			"configuration_error": "x" * (GUT_LIFECYCLE_GATE_MAX_TEXT_LENGTH + 1),
+		}
+		oversized_multibyte_text_payload = {
+			**clean_lifecycle_payload,
+			"configuration_error": "界" * GUT_LIFECYCLE_GATE_MAX_TEXT_LENGTH,
+		}
+		record_result(
+			"gut_lifecycle_marker_schema_is_closed_and_bounded",
+			validate_gut_lifecycle_gate_payload(clean_lifecycle_payload) == ""
+			and validate_gut_lifecycle_gate_payload(extra_field_payload) != ""
+			and validate_gut_lifecycle_gate_payload(invalid_truncation_payload) != ""
+			and validate_gut_lifecycle_gate_payload(invalid_warning_detail_payload) != ""
+			and validate_gut_lifecycle_gate_payload(oversized_text_payload) != ""
+			and validate_gut_lifecycle_gate_payload(oversized_multibyte_text_payload) != "",
+			"Lifecycle marker v1 must reject extra fields, inconsistent truncation, malformed details, and character/UTF-8 oversized text.",
+		)
+		clean_lifecycle_marker = (
+			GUT_LIFECYCLE_GATE_PREFIX
+			+ json.dumps(clean_lifecycle_payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+		)
+		invalid_lifecycle_payload = {
+			**clean_lifecycle_payload,
+			"ok": False,
+			"baseline_available": False,
+			"configuration_error": "fixture_baseline_unavailable",
+		}
+		invalid_lifecycle_marker = (
+			GUT_LIFECYCLE_GATE_PREFIX
+			+ json.dumps(invalid_lifecycle_payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+		)
+		identical_marker_report = parse_gut_lifecycle_gate_output(
+			f"{clean_lifecycle_marker}\n{clean_lifecycle_marker}\n",
+			"",
+		)
+		excessive_identical_marker_report = parse_gut_lifecycle_gate_output(
+			"\n".join([clean_lifecycle_marker] * 3),
+			"",
+		)
+		conflicting_marker_report = parse_gut_lifecycle_gate_output(
+			f"{clean_lifecycle_marker}\n{invalid_lifecycle_marker}\n",
+			"",
+		)
+		malformed_marker_report = parse_gut_lifecycle_gate_output(
+			f"{clean_lifecycle_marker}\n{GUT_LIFECYCLE_GATE_PREFIX}{{\n",
+			"",
+		)
+		oversized_marker_report = parse_gut_lifecycle_gate_output(
+			GUT_LIFECYCLE_GATE_PREFIX + ("x" * (GUT_LIFECYCLE_GATE_MAX_JSON_BYTES + 1)),
+			"",
+		)
+		record_result(
+			"gut_lifecycle_marker_duplicates_are_fail_closed",
+			identical_marker_report["ok"]
+			and identical_marker_report["marker_count"] == 2
+			and not identical_marker_report["marker_errors"]
+			and not excessive_identical_marker_report["ok"]
+			and (
+				"lifecycle marker exceeds the mirrored copy limit"
+				in excessive_identical_marker_report["marker_errors"]
+			)
+			and not conflicting_marker_report["ok"]
+			and "conflicting lifecycle markers" in conflicting_marker_report["marker_errors"]
+			and not malformed_marker_report["ok"]
+			and any(
+				error.startswith("invalid JSON:")
+				for error in malformed_marker_report["marker_errors"]
+			)
+			and not oversized_marker_report["ok"]
+			and "lifecycle marker exceeds the byte limit" in oversized_marker_report["marker_errors"],
+			"Exactly one mirrored lifecycle copy is allowed; excessive, conflicting, or malformed copies must fail.",
+		)
+		run_summary_orphan_text = gut_success_summary.replace(
+			"---- All tests passed! ----\n",
+			"Orphans              1\n---- All tests passed! ----\n",
+		)
+		run_summary_orphan_code = (
+			"from pathlib import Path; "
+			f"Path({str(log_path)!r}).write_text({run_summary_orphan_text!r}, encoding='utf-8')"
+		)
+		run_summary_orphan_result = run_command(
+			"gut",
+			[sys.executable, "-c", run_summary_orphan_code, "--log-file", str(log_path)],
+			10,
+		)
+		record_result(
+			"run_command_rejects_gut_run_summary_orphans_with_clean_hook_marker",
+			run_summary_orphan_result.exit_code != 0
+			and run_summary_orphan_result.gut_lifecycle_report is not None
+			and run_summary_orphan_result.gut_lifecycle_report["orphan_count"] == 0
+			and run_summary_orphan_result.gut_lifecycle_report["reported_orphan_count"] == 1,
+			"The label-first GUT Run Summary orphan count must independently hard-fail.",
+		)
+		exit_leak_summary = (
+			"WARNING: ObjectDB instances leaked at exit (run with --verbose for details).\n"
+			+ gut_success_summary
+		)
+		exit_leak_code = (
+			"from pathlib import Path; "
+			f"Path({str(log_path)!r}).write_text({exit_leak_summary!r}, encoding='utf-8')"
+		)
+		exit_leak_result = run_command(
+			"gut",
+			[sys.executable, "-c", exit_leak_code, "--log-file", str(log_path)],
+			10,
+		)
+		record_result(
+			"run_command_rejects_gut_exit_leaks",
+			exit_leak_result.exit_code != 0
+			and exit_leak_result.godot_exit_leak_report is not None
+			and exit_leak_result.godot_exit_leak_report["has_leaks"],
+			"Godot exit leak diagnostics from GUT must be a hard failure.",
+		)
+		lone_leaked_instance_summary = "Leaked instance: Node:123456\n" + gut_success_summary
+		lone_leaked_instance_code = (
+			"from pathlib import Path; "
+			f"Path({str(log_path)!r}).write_text({lone_leaked_instance_summary!r}, encoding='utf-8')"
+		)
+		lone_leaked_instance_result = run_command(
+			"gut",
+			[sys.executable, "-c", lone_leaked_instance_code, "--log-file", str(log_path)],
+			10,
+		)
+		record_result(
+			"run_command_rejects_structured_gut_exit_leak_without_summary_header",
+			lone_leaked_instance_result.exit_code != 0
+			and not lone_leaked_instance_result.godot_exit_leak_warnings
+			and lone_leaked_instance_result.godot_exit_leak_report is not None
+			and lone_leaked_instance_result.godot_exit_leak_report["has_leaks"]
+			and lone_leaked_instance_result.godot_exit_leak_report["leaked_instance_total"] == 1,
+			"Structured leaked-instance evidence must fail GUT even without an ObjectDB summary line.",
 		)
 		log_target_directory = Path(temp_dir) / "user-owned-logs"
 		log_target_directory.mkdir()
@@ -14729,8 +15140,38 @@ def maintenance_self_test() -> dict[str, Any]:
 		"godot_import" in CHECK_DEFINITIONS
 		and CHECK_DEPENDENCIES.get("gut") == ["godot_import"]
 		and expand_check_dependencies(["gut"]) == ["godot_import", "gut"]
-		and expand_check_dependencies(["godot_import", "gut"]) == ["godot_import", "gut"],
-		"GUT validation must import a clean Godot project exactly once before loading class_name scripts.",
+		and expand_check_dependencies(["godot_import", "gut"]) == ["godot_import", "gut"]
+		and GUT_LIFECYCLE_CLI_RESOURCE_PATH in CHECK_DEFINITIONS["gut"]
+		and all(argument in CHECK_DEFINITIONS["gut"] for argument in GUT_LIFECYCLE_HOOK_ARGUMENTS),
+		(
+			"GUT validation must import a clean Godot project exactly once before loading "
+			"class_name scripts and must use the lifecycle-aware CLI with both hooks."
+		),
+	)
+	record_result(
+		"gut_lifecycle_smoke_is_a_framework_gate",
+		CHECK_DEPENDENCIES.get("gut_lifecycle_smoke") == ["godot_import"]
+		and expand_check_dependencies(["gut_lifecycle_smoke"])
+		== ["godot_import", "gut_lifecycle_smoke"]
+		and "gut_lifecycle_smoke" in CHECK_SUITES["framework-gut"]
+		and "gut_lifecycle_smoke" in CHECK_SUITES["framework"]
+		and "gut_lifecycle_smoke" in CHECK_SUITES["full"]
+		and "gut_lifecycle_smoke" in CHECK_SUITES["release"],
+		"Process-level lifecycle failure fixtures must remain a framework and release gate.",
+	)
+	gut_config_payload = read_json_object(ROOT / ".gutconfig.json")
+	record_result(
+		"gut_lifecycle_hook_configuration_is_canonical",
+		gut_config_payload == {
+			"pre_run_script": GUT_PRE_RUN_HOOK_RESOURCE_PATH,
+			"post_run_script": GUT_POST_RUN_HOOK_RESOURCE_PATH,
+		}
+		and GUT_LIFECYCLE_CLI_RESOURCE_PATH in CHECK_DEFINITIONS["gut"]
+		and all(argument in CHECK_DEFINITIONS["gut"] for argument in GUT_LIFECYCLE_HOOK_ARGUMENTS),
+		(
+			"Repository GUT defaults and the lifecycle-aware maintenance command must "
+			"install the same hooks."
+		),
 	)
 	record_result(
 		"gdscript_lsp_check_declares_clean_import_dependency",
@@ -15480,6 +15921,36 @@ def maintenance_self_test() -> dict[str, Any]:
 		),
 		f"unexpected output leak report: {output_leak_report}",
 	)
+	godot_47_summary_report = godot_exit_leak_report_from_output(
+		"godot_47_fixture",
+		"",
+		"\n".join([
+			"WARNING: 235 ObjectDB instances were leaked at exit (run with `--verbose` for details).",
+			"ERROR: 113 resources still in use at exit (run with --verbose for details).",
+		]),
+	)
+	record_result(
+		"godot_exit_leak_report_accepts_current_summary_format",
+		godot_47_summary_report["has_leaks"]
+		and godot_47_summary_report["objectdb_warning_count"] == 1
+		and godot_47_summary_report["objectdb_instance_total"] == 235
+		and godot_47_summary_report["resource_summary_count"] == 1
+		and godot_47_summary_report["resource_summary_total"] == 113,
+		f"Godot 4.7 summary lines must be structured hard-gate evidence: {godot_47_summary_report}",
+	)
+	future_leak_report = godot_exit_leak_report_from_output(
+		"future_leak_fixture",
+		"WARNING: 3 objects were leaked at exit.",
+		"",
+	)
+	record_result(
+		"godot_exit_leak_report_fails_closed_on_unclassified_leak_evidence",
+		future_leak_report["has_leaks"]
+		and future_leak_report["warning_lines"] == [
+			"WARNING: 3 objects were leaked at exit."
+		],
+		f"Raw leak evidence must remain a hard gate when Godot changes its summary format: {future_leak_report}",
+	)
 	command_payload = CommandResult(
 		"fixture",
 		["godot", "--headless"],
@@ -16158,6 +16629,70 @@ def maintenance_self_test() -> dict[str, Any]:
 		"resource_boundary_ignores_load_calls_inside_plain_string_content",
 		not issue_exists(resource_boundary_issues, "direct_script_dependency_load", target="res://addons/gf/extensions/save_extra/example.gd"),
 		f"load calls embedded inside generated source strings should not be reported: {resource_boundary_issues}",
+	)
+	test_fixture_resource_issues = audit_resource_boundary_text(
+		'const RunnerScene = preload("res://tests/gf_core/support/runner.tscn")',
+		"tests/gf_core/support/fixture.gd",
+	)
+	record_result(
+		"resource_boundary_reports_test_owned_fixture_load_as_info",
+		issue_exists(
+			test_fixture_resource_issues,
+			"direct_test_fixture_resource_load",
+			target="res://tests/gf_core/support/runner.tscn",
+			severity="info",
+		),
+		f"test-owned fixture resources should remain observational: {test_fixture_resource_issues}",
+	)
+	runtime_test_fixture_issues = audit_resource_boundary_text(
+		'const RunnerScene = preload("res://tests/gf_core/support/runner.tscn")',
+		"addons/gf/kernel/fixture.gd",
+	)
+	record_result(
+		"resource_boundary_keeps_runtime_load_of_test_fixture_actionable",
+		issue_exists(
+			runtime_test_fixture_issues,
+			"direct_resource_path_load",
+			target="res://tests/gf_core/support/runner.tscn",
+			severity="warning",
+		),
+		f"runtime code must not inherit the test-fixture observation rule: {runtime_test_fixture_issues}",
+	)
+	traversal_fixture_resource_issues = audit_resource_boundary_text(
+		'const RuntimeScene = preload("res://tests/gf_core/../../addons/gf/runtime.tscn")',
+		"tests/gf_core/support/fixture.gd",
+	)
+	record_result(
+		"resource_boundary_rejects_test_fixture_path_traversal",
+		issue_exists(
+			traversal_fixture_resource_issues,
+			"direct_resource_path_load",
+			target="res://tests/gf_core/../../addons/gf/runtime.tscn",
+			severity="warning",
+		)
+		and not issue_exists(
+			traversal_fixture_resource_issues,
+			"direct_test_fixture_resource_load",
+		),
+		f"path traversal must not inherit the test-fixture observation rule: {traversal_fixture_resource_issues}",
+	)
+	traversal_source_resource_issues = audit_resource_boundary_text(
+		'const RunnerScene = preload("res://tests/gf_core/support/runner.tscn")',
+		"tests/gf_core/../runtime/fixture.gd",
+	)
+	record_result(
+		"resource_boundary_rejects_test_source_path_traversal",
+		issue_exists(
+			traversal_source_resource_issues,
+			"direct_resource_path_load",
+			target="res://tests/gf_core/support/runner.tscn",
+			severity="warning",
+		)
+		and not issue_exists(
+			traversal_source_resource_issues,
+			"direct_test_fixture_resource_load",
+		),
+		f"source traversal must not inherit the test-fixture observation rule: {traversal_source_resource_issues}",
 	)
 	record_result(
 		"resource_boundary_source_kind_classifies_common_roots",
@@ -22294,6 +22829,22 @@ def make_resource_boundary_issue(path: str, line_number: int, callee: str, targe
 			target_extension=extension,
 			source_kind=source_kind,
 		)
+	if (
+		source_kind == "test"
+		and is_normalized_test_owned_path(path)
+		and is_normalized_test_fixture_resource_path(target)
+	):
+		return make_boundary_issue(
+			"direct_test_fixture_resource_load",
+			path,
+			"Test-owned fixture resource loads remain visible without imposing runtime resource-domain policy.",
+			line=line_number,
+			severity="info",
+			callee=callee,
+			target=target,
+			target_extension=extension,
+			source_kind=source_kind,
+		)
 	if target.startswith("user://"):
 		return make_boundary_issue(
 			"direct_user_resource_load",
@@ -22329,6 +22880,24 @@ def make_resource_boundary_issue(path: str, line_number: int, callee: str, targe
 		target_extension=extension,
 		source_kind=source_kind,
 	)
+
+
+def is_normalized_test_owned_path(path: str) -> bool:
+	normalized_path = path.replace("\\", "/")
+	parts = normalized_path.split("/")
+	if ".." in parts:
+		return False
+	return posixpath.normpath(normalized_path).startswith("tests/gf_core/")
+
+
+def is_normalized_test_fixture_resource_path(target: str) -> bool:
+	if not target.startswith("res://"):
+		return False
+	resource_path = target[len("res://"):]
+	parts = resource_path.split("/")
+	if ".." in parts:
+		return False
+	return posixpath.normpath(resource_path).startswith("tests/gf_core/")
 
 
 def resource_boundary_source_kind(path: str) -> str:
@@ -25223,22 +25792,44 @@ def completed_command_result(
 	has_reload_warning = has_gdscript_reload_warning(stdout, stderr)
 	exit_leak_warnings = collect_godot_exit_leak_warnings(stdout, stderr)
 	exit_leak_report: dict[str, Any] | None = None
+	gut_lifecycle_report: dict[str, Any] | None = None
 	godot_checked_names = {"godot_import", "gut", "gdscript_warnings", "examples_scan", "examples_boot", "examples_smoke"}
 	if name in godot_checked_names:
 		exit_leak_report = godot_exit_leak_report_from_output(name, stdout, stderr)
+	if name == "gut":
+		gut_lifecycle_report = parse_gut_lifecycle_gate_output(stdout, stderr)
 	if name in godot_checked_names and has_script_error:
 		exit_code = 1
 		notes = append_note(notes, "Godot reported script loading or parse errors in output.")
 	if name in {"godot_import", "gut", "gdscript_warnings"} and has_reload_warning:
 		exit_code = 1
 		notes = append_note(notes, "Godot reported GDScript reload warnings in output.")
-	if exit_leak_warnings:
+	has_exit_leaks = (
+		bool(exit_leak_warnings)
+		or (
+			exit_leak_report is not None
+			and bool(exit_leak_report["has_leaks"])
+		)
+	)
+	if has_exit_leaks and name == "gut":
+		exit_code = 1
+		notes = append_note(
+			notes,
+			"Godot reported exit leak warnings during GUT; the lifecycle gate requires a zero-leak run.",
+		)
+	elif has_exit_leaks:
 		notes = append_note(
 			notes,
 			(
 				"Godot reported exit leak warnings. Current policy records these as cleanup debt "
 				"but does not fail the check until the baseline is cleaned."
 			),
+		)
+	if name == "gut" and gut_lifecycle_report is not None and not gut_lifecycle_report["ok"]:
+		exit_code = 1
+		notes = append_note(
+			notes,
+			"GUT lifecycle gate rejected unhandled warnings, orphans, or missing/invalid hook evidence.",
 		)
 	if name == "gut" and exit_code == 0 and not gut_report_all_tests_passed(stdout):
 		exit_code = 1
@@ -25257,6 +25848,7 @@ def completed_command_result(
 			if exit_leak_report is not None and exit_leak_report["has_leaks"]
 			else None
 		),
+		gut_lifecycle_report=gut_lifecycle_report,
 		duration_seconds=duration_seconds,
 		timeout_seconds=timeout_seconds,
 		pid=pid,
@@ -25916,7 +26508,8 @@ def godot_exit_leak_report_from_output(name: str, stdout: str, stderr: str) -> d
 
 def finalize_godot_exit_leak_report(report: dict[str, Any]) -> dict[str, Any]:
 	report["has_leaks"] = (
-		report["objectdb_warning_count"] > 0
+		bool(report["warning_lines"])
+		or report["objectdb_warning_count"] > 0
 		or report["resource_summary_count"] > 0
 		or report["resource_still_in_use_count"] > 0
 		or report["rid_allocation_total"] > 0
@@ -25939,6 +26532,7 @@ def make_empty_godot_exit_leak_report() -> dict[str, Any]:
 		"line_count": 0,
 		"warning_lines": [],
 		"objectdb_warning_count": 0,
+		"objectdb_instance_total": 0,
 		"resource_summary_count": 0,
 		"resource_summary_total": 0,
 		"resource_still_in_use_count": 0,
@@ -25997,8 +26591,12 @@ def parse_godot_exit_leak_line(raw_line: str, payload: dict[str, Any]) -> None:
 	if any(pattern in normalized_line for pattern in GODOT_EXIT_LEAK_PATTERNS):
 		append_limited(payload["warning_lines"], trim_text(line, 240), 40)
 
-	if "objectdb instances leaked at exit" in normalized_line:
+	objectdb_match = GODOT_OBJECTDB_SUMMARY_RE.match(line)
+	if objectdb_match != None:
 		payload["objectdb_warning_count"] += 1
+		count_text = objectdb_match.group("count")
+		if count_text is not None:
+			payload["objectdb_instance_total"] += int(count_text)
 		return
 
 	rid_match = GODOT_RID_LEAK_RE.match(line)
@@ -26034,6 +26632,7 @@ def parse_godot_exit_leak_line(raw_line: str, payload: dict[str, Any]) -> None:
 def merge_godot_exit_leak_payload(report: dict[str, Any], payload: dict[str, Any]) -> None:
 	report["line_count"] += payload["line_count"]
 	report["objectdb_warning_count"] += payload["objectdb_warning_count"]
+	report["objectdb_instance_total"] += payload["objectdb_instance_total"]
 	report["resource_summary_count"] += payload["resource_summary_count"]
 	report["resource_summary_total"] += payload["resource_summary_total"]
 	report["resource_still_in_use_count"] += payload["resource_still_in_use_count"]
@@ -26105,6 +26704,179 @@ def append_note(notes: list[str] | None, note: str) -> list[str]:
 		return [note]
 	notes.append(note)
 	return notes
+
+
+def parse_gut_lifecycle_gate_output(stdout: str, stderr: str) -> dict[str, Any]:
+	output = strip_ansi_codes(f"{stdout}\n{stderr}")
+	marker_payloads: list[dict[str, Any]] = []
+	marker_errors: list[str] = []
+	for raw_line in output.splitlines():
+		line = raw_line.strip()
+		if not line.startswith(GUT_LIFECYCLE_GATE_PREFIX):
+			continue
+		payload_text = line[len(GUT_LIFECYCLE_GATE_PREFIX):]
+		if len(payload_text.encode("utf-8")) > GUT_LIFECYCLE_GATE_MAX_JSON_BYTES:
+			append_limited(marker_errors, "lifecycle marker exceeds the byte limit", 10)
+			continue
+		try:
+			payload = json.loads(payload_text)
+		except json.JSONDecodeError as exc:
+			append_limited(marker_errors, f"invalid JSON: {exc.msg}", 10)
+			continue
+		payload_error = validate_gut_lifecycle_gate_payload(payload)
+		if payload_error:
+			append_limited(marker_errors, payload_error, 10)
+			continue
+		marker_payloads.append(payload)
+
+	distinct_payloads = {
+		json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+		for payload in marker_payloads
+	}
+	if len(marker_payloads) > GUT_LIFECYCLE_GATE_MAX_MIRRORED_MARKERS:
+		append_limited(
+			marker_errors,
+			"lifecycle marker exceeds the mirrored copy limit",
+			10,
+		)
+	if len(distinct_payloads) > 1:
+		append_limited(marker_errors, "conflicting lifecycle markers", 10)
+	marker = marker_payloads[-1] if marker_payloads else None
+
+	summary_warning_count = 0
+	run_summary_index = output.rfind("= Run Summary")
+	if run_summary_index >= 0:
+		summary_tail = output[run_summary_index:]
+		summary_warning_match = re.search(r"(?m)^\s*Warnings\s+(\d+)\s*$", summary_tail)
+		if summary_warning_match is not None:
+			summary_warning_count = int(summary_warning_match.group(1))
+
+	reported_orphan_count = 0
+	orphan_lines: list[str] = []
+	for raw_line in output.splitlines():
+		line = strip_ansi_codes(raw_line).strip()
+		orphan_match = GUT_TEST_ORPHAN_RE.match(line)
+		if orphan_match is None:
+			orphan_match = GUT_RUN_SUMMARY_ORPHAN_RE.match(line)
+		if orphan_match is None:
+			continue
+		reported_orphan_count = max(reported_orphan_count, int(orphan_match.group("count")))
+		append_limited(orphan_lines, trim_text(line, 160), 20)
+
+	unhandled_warning_count = int(marker["unhandled_warning_count"]) if marker is not None else 0
+	orphan_count = int(marker["orphan_count"]) if marker is not None else 0
+	ok = (
+		marker is not None
+		and not marker_errors
+		and bool(marker["ok"])
+		and unhandled_warning_count == 0
+		and orphan_count == 0
+		and summary_warning_count == 0
+		and reported_orphan_count == 0
+	)
+	return {
+		"schema_version": GUT_LIFECYCLE_GATE_SCHEMA_VERSION,
+		"ok": ok,
+		"marker_count": len(marker_payloads),
+		"marker_errors": marker_errors,
+		"unhandled_warning_count": unhandled_warning_count,
+		"orphan_count": orphan_count,
+		"summary_warning_count": summary_warning_count,
+		"reported_orphan_count": reported_orphan_count,
+		"orphan_lines": orphan_lines,
+		"marker": marker,
+	}
+
+
+def validate_gut_lifecycle_gate_payload(payload: Any) -> str:
+	if not isinstance(payload, dict):
+		return "lifecycle marker root must be an object"
+	if set(payload) != GUT_LIFECYCLE_GATE_REQUIRED_KEYS:
+		return "lifecycle marker fields do not match the closed schema"
+	if payload.get("schema_version") != GUT_LIFECYCLE_GATE_SCHEMA_VERSION:
+		return "lifecycle marker schema_version is unsupported"
+	if not isinstance(payload.get("ok"), bool):
+		return "lifecycle marker ok must be a boolean"
+	for key in ("baseline_available", "warning_tracking_available", "details_truncated"):
+		if not isinstance(payload.get(key), bool):
+			return f"lifecycle marker {key} must be a boolean"
+	for key in ("unhandled_warning_count", "orphan_count"):
+		value = payload.get(key)
+		if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+			return f"lifecycle marker {key} must be a non-negative integer"
+	for key in ("warnings", "orphans"):
+		value = payload.get(key)
+		if not isinstance(value, list):
+			return f"lifecycle marker {key} must be an array"
+		if len(value) > GUT_LIFECYCLE_GATE_MAX_DETAIL_COUNT:
+			return f"lifecycle marker {key} exceeds the detail limit"
+		if not all(isinstance(item, dict) for item in value):
+			return f"lifecycle marker {key} entries must be objects"
+	if not isinstance(payload.get("configuration_error"), str):
+		return "lifecycle marker configuration_error must be a string"
+	if (
+		len(payload["configuration_error"]) > GUT_LIFECYCLE_GATE_MAX_TEXT_LENGTH
+		or len(payload["configuration_error"].encode("utf-8"))
+		> GUT_LIFECYCLE_GATE_MAX_TEXT_LENGTH
+	):
+		return "lifecycle marker configuration_error exceeds the text limit"
+
+	warning_count = int(payload["unhandled_warning_count"])
+	orphan_count = int(payload["orphan_count"])
+	warning_details = payload["warnings"]
+	orphan_details = payload["orphans"]
+	details_truncated = bool(payload["details_truncated"])
+	for warning_detail in warning_details:
+		if set(warning_detail) != GUT_LIFECYCLE_WARNING_DETAIL_KEYS:
+			return "lifecycle marker warning detail fields do not match the closed schema"
+		if not all(isinstance(warning_detail[key], str) for key in ("test_id", "code", "file")):
+			return "lifecycle marker warning detail text fields must be strings"
+		if any(
+			len(warning_detail[key]) > GUT_LIFECYCLE_GATE_MAX_TEXT_LENGTH
+			or len(warning_detail[key].encode("utf-8"))
+			> GUT_LIFECYCLE_GATE_MAX_TEXT_LENGTH
+			for key in ("test_id", "code", "file")
+		):
+			return "lifecycle marker warning detail text exceeds the text limit"
+		line = warning_detail["line"]
+		if isinstance(line, bool) or not isinstance(line, int) or line < 0:
+			return "lifecycle marker warning detail line must be a non-negative integer"
+	for orphan_detail in orphan_details:
+		if set(orphan_detail) != GUT_LIFECYCLE_ORPHAN_DETAIL_KEYS:
+			return "lifecycle marker orphan detail fields do not match the closed schema"
+		instance_id = orphan_detail["instance_id"]
+		if isinstance(instance_id, bool) or not isinstance(instance_id, int) or instance_id <= 0:
+			return "lifecycle marker orphan detail instance_id must be a positive integer"
+		if not all(isinstance(orphan_detail[key], str) for key in ("class", "name")):
+			return "lifecycle marker orphan detail text fields must be strings"
+		if any(
+			len(orphan_detail[key]) > GUT_LIFECYCLE_GATE_MAX_TEXT_LENGTH
+			or len(orphan_detail[key].encode("utf-8"))
+			> GUT_LIFECYCLE_GATE_MAX_TEXT_LENGTH
+			for key in ("class", "name")
+		):
+			return "lifecycle marker orphan detail text exceeds the text limit"
+	expected_truncated = (
+		warning_count > GUT_LIFECYCLE_GATE_MAX_DETAIL_COUNT
+		or orphan_count > GUT_LIFECYCLE_GATE_MAX_DETAIL_COUNT
+	)
+	if details_truncated != expected_truncated:
+		return "lifecycle marker details_truncated is inconsistent with totals"
+	if (
+		len(warning_details) != min(warning_count, GUT_LIFECYCLE_GATE_MAX_DETAIL_COUNT)
+		or len(orphan_details) != min(orphan_count, GUT_LIFECYCLE_GATE_MAX_DETAIL_COUNT)
+	):
+		return "lifecycle marker detail arrays must exactly cover the bounded totals"
+	expected_ok = (
+		bool(payload["baseline_available"])
+		and bool(payload["warning_tracking_available"])
+		and warning_count == 0
+		and orphan_count == 0
+		and payload["configuration_error"] == ""
+	)
+	if bool(payload["ok"]) != expected_ok:
+		return "lifecycle marker ok is inconsistent with lifecycle evidence"
+	return ""
 
 
 def gut_report_all_tests_passed(stdout: str) -> bool:

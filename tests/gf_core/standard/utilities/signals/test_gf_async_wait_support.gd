@@ -44,6 +44,69 @@ func test_await_signal_state_reports_cancelled_token() -> void:
 	assert_eq(GFVariantData.get_option_string(metadata, "scope"), "test", "等待状态应保留取消元数据。")
 
 
+func test_await_signal_state_prioritizes_cancellation_over_due_timeout() -> void:
+	var emitter: WideSignalEmitter = WideSignalEmitter.new()
+	var continue_state: Dictionary = { "check_count": 0 }
+	add_child_autofree(emitter)
+
+	var result: Dictionary = await GF_ASYNC_WAIT_SUPPORT.await_signal_state(emitter.payload_ready, {
+		"tree": get_tree(),
+		"timeout_seconds": 0.001,
+		"respect_time_scale": false,
+		"timeout_warning": "[GFAsyncWaitSupportTest] cancellation must win over timeout.",
+		"should_continue": func() -> bool:
+			continue_state["check_count"] = (
+				GFVariantData.get_option_int(continue_state, "check_count") + 1
+			)
+			return GFVariantData.get_option_int(continue_state, "check_count") < 2,
+	})
+
+	assert_eq(GFVariantData.get_option_string_name(result, "status"), GF_ASYNC_WAIT_SUPPORT.STATUS_CANCELLED, "同一帧同时满足取消与超时时必须优先返回 cancelled。")
+	assert_eq(GFVariantData.get_option_string_name(result, "reason"), &"should_continue_false", "取消结果应保留 should_continue 终止原因。")
+	assert_eq(GFVariantData.get_option_int(continue_state, "check_count"), 2, "测试必须跨帧进入取消与 timeout 同时成立的仲裁点。")
+	assert_push_warning_count(0, "取消优先时不得迟发 timeout warning。")
+
+
+func test_await_signal_state_cancels_when_continue_owner_is_released() -> void:
+	var emitter: WideSignalEmitter = WideSignalEmitter.new()
+	var continue_owner: ContinueOwner = ContinueOwner.new()
+	add_child_autofree(emitter)
+	continue_owner.call_deferred(&"free")
+
+	var result: Dictionary = await GF_ASYNC_WAIT_SUPPORT.await_signal_state(emitter.payload_ready, {
+		"tree": get_tree(),
+		"timeout_seconds": 0.001,
+		"respect_time_scale": false,
+		"timeout_warning": "[GFAsyncWaitSupportTest] invalid continuation must cancel.",
+		"should_continue": Callable(continue_owner, &"should_continue"),
+	})
+
+	assert_eq(GFVariantData.get_option_string_name(result, "status"), GF_ASYNC_WAIT_SUPPORT.STATUS_CANCELLED, "继续检查宿主释放后应取消等待。")
+	assert_eq(GFVariantData.get_option_string_name(result, "reason"), &"should_continue_invalid", "取消结果应区分失效回调与主动返回 false。")
+	assert_push_warning_count(0, "失效继续检查必须先于 timeout 结束等待，不得迟发 warning。")
+
+
+func test_await_signal_state_rejects_continue_owner_released_before_wait() -> void:
+	var emitter: WideSignalEmitter = WideSignalEmitter.new()
+	var continue_owner: ContinueOwner = ContinueOwner.new()
+	add_child_autofree(emitter)
+	var stale_continue: Callable = Callable(continue_owner, &"should_continue")
+	continue_owner.free()
+
+	var result: Dictionary = await GF_ASYNC_WAIT_SUPPORT.await_signal_state(
+		emitter.payload_ready,
+		{
+			"tree": get_tree(),
+			"timeout_seconds": 0.1,
+			"respect_time_scale": false,
+			"should_continue": stale_continue,
+		}
+	)
+
+	assert_eq(GFVariantData.get_option_string_name(result, "status"), GF_ASYNC_WAIT_SUPPORT.STATUS_CANCELLED, "等待开始前已经失效的继续检查必须立即取消。")
+	assert_eq(GFVariantData.get_option_string_name(result, "reason"), &"should_continue_invalid", "预先失效的继续检查必须保留稳定原因。")
+
+
 func test_await_signal_safely_source_checks_connect_results() -> void:
 	var source: String = _read_text_file("res://addons/gf/standard/common/gf_async_wait_support.gd")
 
@@ -71,6 +134,13 @@ class WideSignalEmitter:
 
 	func emit_payload_ready() -> void:
 		payload_ready.emit(1, 2, 3, 4, 5, 6, 7, 8, 9)
+
+
+class ContinueOwner:
+	extends Object
+
+	func should_continue() -> bool:
+		return true
 
 
 # --- 私有/辅助方法 ---

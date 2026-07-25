@@ -727,16 +727,20 @@ func test_dialogue_response_mutation_reentry_preserves_replacement_session() -> 
 		return true
 	var runner: GFDialogueRunner = GFDialogueRunner.new()
 	var replaced: Array[bool] = [false]
-	var _connected: Error = runner.mutation_requested.connect(
+	var mutation_requested_callback: Callable = (
 		func(_mutation_id: StringName, _payload: Variant, _line: GFDialogueLine) -> void:
 			if replaced[0]:
 				return
 			replaced[0] = true
 			var _replacement_line: GFDialogueLine = runner.start(replacement)
+	)
+	var _connected: Error = runner.mutation_requested.connect(
+		mutation_requested_callback
 	) as Error
 	var _original_line: GFDialogueLine = runner.start(original, &"", context)
 
 	var stale_result: GFDialogueLine = runner.choose_response(&"pick")
+	runner.mutation_requested.disconnect(mutation_requested_callback)
 
 	assert_null(stale_result, "旧响应调用链在会话被替换后必须返回 null。")
 	assert_true(runner.is_running(), "旧 mutation 调用链不得结束重入创建的新会话。")
@@ -759,15 +763,19 @@ func test_dialogue_line_mutation_reentry_cannot_end_replacement_session() -> voi
 	replacement.set_line(_make_text_line(&"replacement", "Replacement", &""))
 	var runner: GFDialogueRunner = GFDialogueRunner.new()
 	var replaced: Array[bool] = [false]
-	var _connected: Error = runner.mutation_requested.connect(
+	var mutation_requested_callback: Callable = (
 		func(_mutation_id: StringName, _payload: Variant, _line: GFDialogueLine) -> void:
 			if replaced[0]:
 				return
 			replaced[0] = true
 			var _replacement_line: GFDialogueLine = runner.start(replacement)
+	)
+	var _connected: Error = runner.mutation_requested.connect(
+		mutation_requested_callback
 	) as Error
 
 	var stale_result: GFDialogueLine = runner.start(original, &"", GFDialogueContext.new())
+	runner.mutation_requested.disconnect(mutation_requested_callback)
 
 	assert_null(stale_result, "旧 mutation 行推进在会话被替换后必须返回 null。")
 	assert_true(runner.is_running(), "旧 mutation 行失败路径不得停止替换会话。")

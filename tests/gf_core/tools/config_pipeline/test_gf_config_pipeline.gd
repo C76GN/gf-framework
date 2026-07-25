@@ -4,6 +4,11 @@ extends GutTest
 
 # --- 常量 ---
 
+const GF_TRANSIENT_GDSCRIPT_TEST_SUPPORT = preload(
+	"res://tests/gf_core/support/gf_transient_gdscript_test_support.gd"
+)
+
+
 const GF_CONFIG_PIPELINE_COMMAND_SCRIPT = preload("res://addons/gf/tools/config_pipeline/gf_config_pipeline_command.gd")
 
 
@@ -536,9 +541,12 @@ func test_pipeline_profile_exports_access_script() -> void:
 	assert_true(access_source.contains("static func get_items_typed_record(id: Variant, provider: Variant = null) -> ItemsRecord:"), "访问器源码应包含 typed record 方法。")
 	assert_true(access_source.contains("func get_power() -> float:"), "访问器源码应根据 schema 字段生成 typed getter。")
 
-	var runtime_script: GDScript = GDScript.new()
-	runtime_script.source_code = access_source.replace("class_name ItemsConfigAccess\n", "")
-	assert_eq(runtime_script.reload(), OK, "Profile 生成的访问器源码应能编译。")
+	var compile_report: Dictionary = GF_TRANSIENT_GDSCRIPT_TEST_SUPPORT.compile_and_release(
+		access_source.replace("class_name ItemsConfigAccess\n", "")
+	)
+	assert_eq(GFVariantData.get_option_int(compile_report, "compile_error"), OK, "Profile 生成的访问器源码应能编译。")
+	assert_eq(GFVariantData.get_option_array(compile_report, "cleanup_errors"), [], "Profile 动态编译测试必须释放生成脚本的内部类图。")
+	assert_eq(GFVariantData.get_option_string(compile_report, "configuration_error"), "", "Profile 动态编译测试必须使用匿名内建 GDScript 根。")
 
 
 func test_pipeline_profile_and_source_duplicate_as_independent_resources() -> void:

@@ -208,13 +208,17 @@ func test_workflow_queue_listener_observes_count_and_dispose_keeps_it_reset() ->
 		outbox
 	)
 	var observed_queued_count: Array[int] = [-1]
+	var on_workflow_report_queued: Callable = func(
+		_report: Dictionary,
+		_envelope: GFRequestEnvelope
+	) -> void:
+		observed_queued_count[0] = GFVariantData.get_option_int(
+			workflow.get_debug_snapshot(),
+			"reports_queued_count"
+		)
+		workflow.dispose()
 	var _queued_connected: Error = workflow.workflow_report_queued.connect(
-		func(_report: Dictionary, _envelope: GFRequestEnvelope) -> void:
-			observed_queued_count[0] = GFVariantData.get_option_int(
-				workflow.get_debug_snapshot(),
-				"reports_queued_count"
-			)
-			workflow.dispose()
+		on_workflow_report_queued
 	) as Error
 
 	var result: Dictionary = workflow.queue_report({
@@ -230,6 +234,7 @@ func test_workflow_queue_listener_observes_count_and_dispose_keeps_it_reset() ->
 		"监听器 dispose 后不得由通知尾部重新写回旧计数。"
 	)
 	assert_eq(outbox.get_queue_size(), 1, "工作流 dispose 不得撤销外部 Outbox 的耐久所有权。")
+	workflow.workflow_report_queued.disconnect(on_workflow_report_queued)
 	outbox.dispose()
 
 
