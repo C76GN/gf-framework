@@ -22,9 +22,9 @@ exact 与 assignable 不自动去重。同一个 callable 如果同时注册到�
 
 ## 深度保护与 Trace
 
-从 `2.0.0` 起，`GFTypeEventSystem.max_dispatch_depth` 默认使用 `GFTypeEventSystem.DEFAULT_MAX_DISPATCH_DEPTH`，也就是 `64` 层，避免递归事件链无限嵌套。确实需要不受限制的项目可显式设为 `0`。
+从 `2.0.0` 起，`GFTypeEventSystem.max_dispatch_depth` 默认使用 `GFTypeEventSystem.DEFAULT_MAX_DISPATCH_DEPTH`，也就是 `64` 层，避免递归事件链无限嵌套。类型事件和 Simple Event 共享同一个全局 dispatch depth，因此交替递归也不能绕过上限。确实需要不受限制的项目可显式设为 `0`。
 
-`trace_enabled` 默认关闭，开启后可通过 `Gf.get_event_dispatch_trace()` 读取最近派发条目，包括轨道、事件标识、监听数量、深度和时间戳；生产环境只建议在诊断面板或临时排查中开启。
+`trace_enabled` 默认关闭，开启后可通过 `Gf.get_event_dispatch_trace()` 读取最近派发条目，包括单调递增的 sequence、轨道、事件标识、监听数量、深度和时间戳；裁剪 trace 或调用 clear 不会复用旧 sequence，也不会破坏累计派发统计。生产环境只建议在诊断面板或临时排查中开启。
 
 ```gdscript
 Gf.configure_event_debugging(8, true, 32)

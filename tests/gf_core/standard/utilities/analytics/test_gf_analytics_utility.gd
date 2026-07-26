@@ -757,16 +757,27 @@ func test_analytics_properties_are_json_safe() -> void:
 	var properties: Dictionary = GFVariantData.get_option_dictionary(event, "properties")
 	assert_false(payload_text.contains(":null"), "analytics payload 不应让非有限 float 被 JSON.stringify 替换成 null。")
 	var nan_marker: Dictionary = GFVariantData.get_option_dictionary(GFVariantData.get_option_dictionary(properties, "nan"), "__gf_variant__")
-	var tags_marker: Dictionary = GFVariantData.get_option_dictionary(GFVariantData.get_option_dictionary(properties, "tags"), "__gf_variant__")
+	var tags_marker: Dictionary = GFVariantData.get_option_dictionary(
+		GFVariantData.get_option_dictionary(properties, "tags"),
+		"__gf_report_value__"
+	)
 	var position_marker: Dictionary = GFVariantData.get_option_dictionary(GFVariantData.get_option_dictionary(properties, "position"), "__gf_variant__")
 	var circular_marker: Dictionary = GFVariantData.get_option_dictionary(
 		GFVariantData.get_option_dictionary(GFVariantData.get_option_dictionary(properties, "circular"), "self"),
 		"__gf_report_value__"
 	)
 	assert_eq(GFVariantData.get_option_string(nan_marker, "value"), "NaN", "NaN 应使用统一 typed marker。")
-	assert_eq(GFVariantData.get_option_string(tags_marker, "type"), "PackedStringArray", "PackedStringArray 应保留统一类型标记。")
+	assert_eq(GFVariantData.get_option_int(tags_marker, "version"), 1)
+	assert_eq(GFVariantData.get_option_string(tags_marker, "type"), "PackedArray")
+	assert_true(GFVariantData.get_option_bool(tags_marker, "redacted"))
+	assert_eq(GFVariantData.get_option_string(tags_marker, "collection_type"), "PackedStringArray")
+	assert_eq(GFVariantData.get_option_int(tags_marker, "count"), 2)
+	assert_eq(GFVariantData.get_option_array(tags_marker, "items"), ["a", "b"])
 	assert_eq(GFVariantData.get_option_string(position_marker, "type"), "Vector2", "Vector2 应使用统一 JSON-safe typed marker。")
+	assert_eq(GFVariantData.get_option_int(circular_marker, "version"), 1)
 	assert_eq(GFVariantData.get_option_string(circular_marker, "type"), "CircularReference", "循环 Dictionary 应使用统一 report marker。")
+	assert_true(GFVariantData.get_option_bool(circular_marker, "redacted"))
+	assert_eq(circular_marker.size(), 3, "循环 marker 只能暴露固定 schema 字段。")
 
 
 func test_analytics_privacy_policy_redacts_object_identity_and_paths() -> void:

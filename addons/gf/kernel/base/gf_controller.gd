@@ -48,17 +48,38 @@ var host: Node:
 
 var _event_architectures: Array[GFArchitecture] = []
 var _event_bindings: Array[Dictionary] = []
+var _active_event_architecture: GFArchitecture = null
 var _events_paused_by_pool: bool = false
+var _event_binding_revision: int = 0
+var _applied_event_binding_revision: int = -1
+var _observed_global_singleton: Node = null
+var _observed_event_context: GFNodeContextBase = null
+var _observed_event_architecture: GFArchitecture = null
 
 
 # --- Godot 生命周期方法 ---
 
+func _enter_tree() -> void:
+	_connect_event_architecture_observers()
+	_request_event_binding_sync()
+
+
 func _exit_tree() -> void:
-	if _events_paused_by_pool:
-		return
+	_disconnect_event_architecture_observers()
 	_remember_event_architecture(_get_architecture_or_null())
 	_unregister_all_tracked_owner_events()
-	_event_bindings.clear()
+
+
+func _notification(what: int) -> void:
+	if (
+		what != NOTIFICATION_PARENTED
+		and what != NOTIFICATION_UNPARENTED
+	):
+		return
+	if not is_inside_tree():
+		return
+	_connect_event_architecture_observers()
+	_request_event_binding_sync()
 
 
 # --- 公共方法（获取） ---
@@ -66,20 +87,28 @@ func _exit_tree() -> void:
 ## 获取当前 Controller 所属的架构。
 ##
 ## 优先沿场景树向上寻找 GFNodeContext；若未找到，则回退到全局 Gf 架构。
+## 若最近 Context 已失败或其架构正在/已经 dispose，则返回 null，不越过局部作用域。
 ## [br]
 ## @api public
+## [br]
+## @since 1.9.0
 ## [br]
 ## @return 当前可用的架构实例。
 func get_architecture() -> GFArchitecture:
 	var architecture: GFArchitecture = _get_architecture_or_null()
 	if architecture != null:
 		return architecture
+	if _find_nearest_context() != null:
+		return null
 	return GFAutoload.get_architecture()
 
 
 ## 获取当前 Controller 所属的架构，找不到时返回 null 且不触发全局错误。
+## 存在但失效的最近 Context 会阻止全局回退。
 ## [br]
 ## @api public
+## [br]
+## @since 1.9.2
 ## [br]
 ## @return 当前可用的架构实例。
 func get_architecture_or_null() -> GFArchitecture:
@@ -298,12 +327,7 @@ func send_query(query: Object) -> Variant:
 ## @param priority: 回调优先级，数值越大越先执行，默认为 0。
 func register_event(event_type: Script, listener: GFEventListener, priority: int = 0) -> void:
 	_remember_event_binding(_EVENT_BINDING_KIND_TYPE, event_type, listener, priority)
-	if _events_paused_by_pool:
-		return
-	var architecture: GFArchitecture = _get_architecture_or_null()
-	if architecture != null:
-		architecture.register_event_owned(self, event_type, listener, priority)
-		_remember_event_architecture(architecture)
+	_request_event_binding_sync()
 
 
 ## 注销类型事件监听器。
@@ -317,10 +341,7 @@ func register_event(event_type: Script, listener: GFEventListener, priority: int
 ## @param listener: 要移除的事件监听器契约。
 func unregister_event(event_type: Script, listener: GFEventListener) -> void:
 	_forget_event_binding(_EVENT_BINDING_KIND_TYPE, event_type, listener)
-	if not _unregister_event_from_tracked_architectures(event_type, listener):
-		var architecture: GFArchitecture = _get_architecture_or_null()
-		if architecture != null:
-			architecture.unregister_event_owned(self, event_type, listener)
+	_request_event_binding_sync()
 
 
 ## 注册可赋值类型事件监听器。
@@ -336,12 +357,7 @@ func unregister_event(event_type: Script, listener: GFEventListener) -> void:
 ## @param priority: 回调优先级，数值越大越先执行，默认为 0。
 func register_assignable_event(base_event_type: Script, listener: GFEventListener, priority: int = 0) -> void:
 	_remember_event_binding(_EVENT_BINDING_KIND_ASSIGNABLE, base_event_type, listener, priority)
-	if _events_paused_by_pool:
-		return
-	var architecture: GFArchitecture = _get_architecture_or_null()
-	if architecture != null:
-		architecture.register_assignable_event_owned(self, base_event_type, listener, priority)
-		_remember_event_architecture(architecture)
+	_request_event_binding_sync()
 
 
 ## 注销可赋值类型事件监听器。
@@ -355,10 +371,7 @@ func register_assignable_event(base_event_type: Script, listener: GFEventListene
 ## @param listener: 要移除的事件监听器契约。
 func unregister_assignable_event(base_event_type: Script, listener: GFEventListener) -> void:
 	_forget_event_binding(_EVENT_BINDING_KIND_ASSIGNABLE, base_event_type, listener)
-	if not _unregister_assignable_event_from_tracked_architectures(base_event_type, listener):
-		var architecture: GFArchitecture = _get_architecture_or_null()
-		if architecture != null:
-			architecture.unregister_assignable_event_owned(self, base_event_type, listener)
+	_request_event_binding_sync()
 
 
 ## 通过事件系统发送类型事件。
@@ -383,12 +396,7 @@ func send_event(event_instance: Object) -> void:
 ## @param listener: 简单事件监听器契约。
 func register_simple_event(event_id: StringName, listener: GFEventListener) -> void:
 	_remember_event_binding(_EVENT_BINDING_KIND_SIMPLE, event_id, listener, 0)
-	if _events_paused_by_pool:
-		return
-	var architecture: GFArchitecture = _get_architecture_or_null()
-	if architecture != null:
-		architecture.register_simple_event_owned(self, event_id, listener)
-		_remember_event_architecture(architecture)
+	_request_event_binding_sync()
 
 
 ## 注销轻量级 StringName 事件监听器。
@@ -402,10 +410,7 @@ func register_simple_event(event_id: StringName, listener: GFEventListener) -> v
 ## @param listener: 要移除的简单事件监听器契约。
 func unregister_simple_event(event_id: StringName, listener: GFEventListener) -> void:
 	_forget_event_binding(_EVENT_BINDING_KIND_SIMPLE, event_id, listener)
-	if not _unregister_simple_event_from_tracked_architectures(event_id, listener):
-		var architecture: GFArchitecture = _get_architecture_or_null()
-		if architecture != null:
-			architecture.unregister_simple_event_owned(self, event_id, listener)
+	_request_event_binding_sync()
 
 
 ## 发送轻量级 StringName 事件，避免高频 new() 带来的 GC 压力。
@@ -439,22 +444,25 @@ func _gf_on_object_pool_release() -> void:
 func _gf_on_object_pool_acquire() -> void:
 	if not _events_paused_by_pool:
 		return
-	var architecture: GFArchitecture = _get_architecture_or_null()
-	if architecture == null:
-		return
-
-	for binding: Dictionary in _event_bindings:
-		_register_event_binding(architecture, binding)
-	_remember_event_architecture(architecture)
 	_events_paused_by_pool = false
+	_request_event_binding_sync()
 
 
 func _get_architecture_or_null() -> GFArchitecture:
 	var context: GFNodeContextBase = _find_nearest_context()
 	if context != null:
+		if context.is_context_failed():
+			return null
 		var context_architecture: GFArchitecture = context.get_architecture()
-		if context_architecture != null:
-			return context_architecture
+		if context_architecture == null:
+			return null
+		if (
+			context_architecture.has_initialization_failed()
+			or context_architecture.is_disposing()
+			or context_architecture.is_disposed()
+		):
+			return null
+		return context_architecture
 
 	return GFAutoload.get_architecture_or_null()
 
@@ -464,6 +472,42 @@ func _remember_event_architecture(architecture: GFArchitecture) -> void:
 		return
 	if not _event_architectures.has(architecture):
 		_event_architectures.append(architecture)
+
+
+func _request_event_binding_sync() -> void:
+	if not is_inside_tree():
+		return
+	_observe_event_architecture(_get_event_architecture_candidate_or_null())
+	if _events_paused_by_pool:
+		return
+	if _event_bindings.is_empty():
+		_unregister_all_tracked_owner_events()
+		return
+
+	var architecture: GFArchitecture = _get_architecture_or_null()
+	if (
+		architecture == null
+		or not is_instance_valid(architecture)
+		or architecture.has_initialization_failed()
+		or architecture.is_disposing()
+		or architecture.is_disposed()
+	):
+		_unregister_all_tracked_owner_events()
+		return
+	if (
+		architecture != _active_event_architecture
+		or _applied_event_binding_revision != _event_binding_revision
+	):
+		_replace_active_event_architecture(architecture)
+
+
+func _replace_active_event_architecture(architecture: GFArchitecture) -> void:
+	_unregister_all_tracked_owner_events()
+	for binding: Dictionary in _event_bindings:
+		_register_event_binding(architecture, binding)
+	_remember_event_architecture(architecture)
+	_active_event_architecture = architecture
+	_applied_event_binding_revision = _event_binding_revision
 
 
 func _remember_event_binding(kind: StringName, event_key: Variant, listener: GFEventListener, priority: int) -> void:
@@ -481,9 +525,11 @@ func _remember_event_binding(kind: StringName, event_key: Variant, listener: GFE
 		"listener": listener,
 		"priority": priority,
 	})
+	_event_binding_revision += 1
 
 
 func _forget_event_binding(kind: StringName, event_key: Variant, listener: GFEventListener) -> void:
+	var removed_binding: bool = false
 	for i: int in range(_event_bindings.size() - 1, -1, -1):
 		var binding: Dictionary = _event_bindings[i]
 		if (
@@ -492,6 +538,9 @@ func _forget_event_binding(kind: StringName, event_key: Variant, listener: GFEve
 			and _listeners_match(_read_binding_listener(binding, "listener"), listener)
 		):
 			_event_bindings.remove_at(i)
+			removed_binding = true
+	if removed_binding:
+		_event_binding_revision += 1
 
 
 func _register_event_binding(architecture: GFArchitecture, binding: Dictionary) -> void:
@@ -522,6 +571,184 @@ func _unregister_all_tracked_owner_events() -> void:
 		if architecture != null and is_instance_valid(architecture):
 			architecture.unregister_owner_events(self)
 	_event_architectures.clear()
+	_active_event_architecture = null
+	_applied_event_binding_revision = -1
+
+
+func _connect_event_architecture_observers() -> void:
+	var global_singleton: Node = GFAutoload.get_singleton_or_null()
+	var global_callback: Callable = Callable(self, &"_on_global_architecture_identity_changed")
+	if _observed_global_singleton != global_singleton:
+		_disconnect_observed_global_singleton()
+		_observed_global_singleton = global_singleton
+	if (
+		_observed_global_singleton != null
+		and is_instance_valid(_observed_global_singleton)
+		and _observed_global_singleton.has_signal(&"architecture_identity_changed")
+		and not _observed_global_singleton.is_connected(
+			&"architecture_identity_changed",
+			global_callback
+		)
+	):
+		var _global_connect_error: Error = _observed_global_singleton.connect(
+			&"architecture_identity_changed",
+			global_callback
+		)
+
+	var nearest_context: GFNodeContextBase = _find_nearest_context()
+	if _observed_event_context == nearest_context:
+		return
+	_disconnect_observed_event_context()
+	_observed_event_context = nearest_context
+	if _observed_event_context == null:
+		return
+	var ready_callback: Callable = Callable(self, &"_on_observed_context_ready")
+	var failed_callback: Callable = Callable(self, &"_on_observed_context_failed")
+	if not _observed_event_context.context_ready.is_connected(ready_callback):
+		var _ready_connect_error: Error = (
+			_observed_event_context.context_ready.connect(ready_callback)
+		) as Error
+	if not _observed_event_context.context_failed.is_connected(failed_callback):
+		var _failed_connect_error: Error = (
+			_observed_event_context.context_failed.connect(failed_callback)
+		) as Error
+
+
+func _disconnect_event_architecture_observers() -> void:
+	_disconnect_observed_global_singleton()
+	_disconnect_observed_event_context()
+	_disconnect_observed_event_architecture()
+
+
+func _disconnect_observed_global_singleton() -> void:
+	var global_callback: Callable = Callable(self, &"_on_global_architecture_identity_changed")
+	if (
+		_observed_global_singleton != null
+		and is_instance_valid(_observed_global_singleton)
+		and _observed_global_singleton.has_signal(&"architecture_identity_changed")
+		and _observed_global_singleton.is_connected(
+			&"architecture_identity_changed",
+			global_callback
+		)
+	):
+		_observed_global_singleton.disconnect(
+			&"architecture_identity_changed",
+			global_callback
+		)
+	_observed_global_singleton = null
+
+
+func _disconnect_observed_event_context() -> void:
+	if _observed_event_context == null or not is_instance_valid(_observed_event_context):
+		_observed_event_context = null
+		return
+	var ready_callback: Callable = Callable(self, &"_on_observed_context_ready")
+	var failed_callback: Callable = Callable(self, &"_on_observed_context_failed")
+	if _observed_event_context.context_ready.is_connected(ready_callback):
+		_observed_event_context.context_ready.disconnect(ready_callback)
+	if _observed_event_context.context_failed.is_connected(failed_callback):
+		_observed_event_context.context_failed.disconnect(failed_callback)
+	_observed_event_context = null
+
+
+func _observe_event_architecture(architecture: GFArchitecture) -> void:
+	if _observed_event_architecture == architecture:
+		return
+	_disconnect_observed_event_architecture()
+	_observed_event_architecture = architecture
+	if (
+		_observed_event_architecture == null
+		or not is_instance_valid(_observed_event_architecture)
+	):
+		return
+	var finished_callback: Callable = Callable(
+		self,
+		&"_on_observed_architecture_initialization_finished"
+	)
+	var failed_callback: Callable = Callable(
+		self,
+		&"_on_observed_architecture_initialization_failed"
+	)
+	if not _observed_event_architecture.initialization_finished.is_connected(
+		finished_callback
+	):
+		var _finished_connect_error: Error = (
+			_observed_event_architecture.initialization_finished.connect(
+				finished_callback
+			)
+		) as Error
+	if not _observed_event_architecture.initialization_failed.is_connected(
+		failed_callback
+	):
+		var _failed_connect_error: Error = (
+			_observed_event_architecture.initialization_failed.connect(
+				failed_callback
+			)
+		) as Error
+
+
+func _disconnect_observed_event_architecture() -> void:
+	if (
+		_observed_event_architecture == null
+		or not is_instance_valid(_observed_event_architecture)
+	):
+		_observed_event_architecture = null
+		return
+	var finished_callback: Callable = Callable(
+		self,
+		&"_on_observed_architecture_initialization_finished"
+	)
+	var failed_callback: Callable = Callable(
+		self,
+		&"_on_observed_architecture_initialization_failed"
+	)
+	if _observed_event_architecture.initialization_finished.is_connected(
+		finished_callback
+	):
+		_observed_event_architecture.initialization_finished.disconnect(
+			finished_callback
+		)
+	if _observed_event_architecture.initialization_failed.is_connected(
+		failed_callback
+	):
+		_observed_event_architecture.initialization_failed.disconnect(
+			failed_callback
+		)
+	_observed_event_architecture = null
+
+
+func _get_event_architecture_candidate_or_null() -> GFArchitecture:
+	var context: GFNodeContextBase = _find_nearest_context()
+	if context != null:
+		if context.is_context_failed():
+			return null
+		return context.get_architecture()
+	return GFAutoload.get_architecture_or_null()
+
+
+func _on_global_architecture_identity_changed(
+	_previous_architecture: GFArchitecture,
+	_current_architecture: GFArchitecture
+) -> void:
+	_request_event_binding_sync()
+
+
+func _on_observed_context_ready(_architecture: GFArchitecture) -> void:
+	_request_event_binding_sync()
+
+
+func _on_observed_context_failed(_reason: String) -> void:
+	_request_event_binding_sync()
+
+
+func _on_observed_architecture_initialization_finished() -> void:
+	_applied_event_binding_revision = -1
+	_request_event_binding_sync()
+
+
+func _on_observed_architecture_initialization_failed(_reason: String) -> void:
+	_applied_event_binding_revision = -1
+	_request_event_binding_sync()
 
 
 func _read_binding_listener(binding: Dictionary, key: String) -> GFEventListener:
@@ -538,36 +765,6 @@ func _listeners_match(left_listener: GFEventListener, right_listener: GFEventLis
 	if left_listener == null or right_listener == null:
 		return false
 	return left_listener.get_callback() == right_listener.get_callback()
-
-
-func _unregister_event_from_tracked_architectures(event_type: Script, listener: GFEventListener) -> bool:
-	var handled: bool = false
-	for architecture: GFArchitecture in _event_architectures:
-		if architecture != null and is_instance_valid(architecture):
-			architecture.unregister_event_owned(self, event_type, listener)
-			handled = true
-	return handled
-
-
-func _unregister_assignable_event_from_tracked_architectures(
-	base_event_type: Script,
-	listener: GFEventListener
-) -> bool:
-	var handled: bool = false
-	for architecture: GFArchitecture in _event_architectures:
-		if architecture != null and is_instance_valid(architecture):
-			architecture.unregister_assignable_event_owned(self, base_event_type, listener)
-			handled = true
-	return handled
-
-
-func _unregister_simple_event_from_tracked_architectures(event_id: StringName, listener: GFEventListener) -> bool:
-	var handled: bool = false
-	for architecture: GFArchitecture in _event_architectures:
-		if architecture != null and is_instance_valid(architecture):
-			architecture.unregister_simple_event_owned(self, event_id, listener)
-			handled = true
-	return handled
 
 
 func _find_nearest_context() -> GFNodeContextBase:

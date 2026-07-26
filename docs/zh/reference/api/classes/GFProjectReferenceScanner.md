@@ -258,7 +258,7 @@ static func scan_references(targets: Array[Dictionary], options: Dictionary = {}
 
 - `targets`: Array[Dictionary]，每个目标支持 id、root_path 和 class_names；id 为空时使用 root_path。
 - `options`: Dictionary，支持 scan_roots、ignored_roots、additional_ignored_roots、max_references_per_target、max_weak_references_per_target、max_scan_depth、max_scanned_files、max_file_bytes、max_total_bytes、include_weak_references、use_resource_dependencies 和 warning_prefix。
-- `return`: Dictionary，包含 ok、partial_scan、budget_exceeded、input_target_count、target_count、reference_count、weak_reference_count、targets、weak_targets、references、weak_references、candidate_file_count、scanned_file_count、scanned_bytes、skipped_files 和 scan_warnings。
+- `return`: Dictionary，包含 ok、partial_scan、budget_exceeded、truncated、input_target_count、target_count、reference_count、weak_reference_count、targets、weak_targets、references、weak_references、candidate_file_count、scanned_file_count、scanned_bytes、skipped_files、scan_warnings、issue_count 和 issues。
 
 <a id="member-gfprojectreferencescanner-methods-scan_root_references"></a>
 

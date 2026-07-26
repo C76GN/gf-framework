@@ -2,7 +2,7 @@
   "schema_version": 1,
   "catalog_version": "1.0.0",
   "framework_version": "10.0.0-dev.0",
-  "source_digest": "04110f0aa20b6a4379ad862db42ec564d2b904c1b14165d841d8e7e973304fd5",
+  "source_digest": "45a7b9bbd3fadcf9279805d4582b53a559328ee33c24a5f0b3d3c63bad19fb0c",
   "class_count": 755,
   "package_count": 52,
   "packages": [
@@ -2091,6 +2091,20 @@
         },
         {
           "kind": "func",
+          "name": "is_disposed",
+          "signature": "func is_disposed() -> bool",
+          "summary": "检查架构是否已经完成释放并进入不可恢复终态。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_disposing",
+          "signature": "func is_disposing() -> bool",
+          "summary": "检查架构是否正在执行释放回调。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
           "name": "get_lifecycle_generation",
           "signature": "func get_lifecycle_generation() -> int",
           "summary": "获取当前架构生命周期 generation。",
@@ -2659,14 +2673,14 @@
         {
           "kind": "func",
           "name": "restore_all_models_state",
-          "signature": "func restore_all_models_state(data: Dictionary) -> void",
+          "signature": "func restore_all_models_state(data: Dictionary) -> Dictionary",
           "summary": "从状态字典恢复所有已注册 Model 的数据。",
           "visibility": "public"
         },
         {
           "kind": "func",
           "name": "restore_all_models_state_async",
-          "signature": "func restore_all_models_state_async(data: Dictionary, options: Dictionary = {}) -> bool",
+          "signature": "func restore_all_models_state_async( data: Dictionary, options: Dictionary = {} ) -> Dictionary",
           "summary": "分帧恢复所有已注册 Model 的数据。",
           "visibility": "public"
         },
@@ -2687,14 +2701,14 @@
         {
           "kind": "func",
           "name": "restore_global_snapshot",
-          "signature": "func restore_global_snapshot(data: Dictionary, command_builder: Callable = Callable()) -> void",
+          "signature": "func restore_global_snapshot( data: Dictionary, command_builder: Callable = Callable() ) -> Dictionary",
           "summary": "从全局快照中恢复整个框架的状态，包含 Model 状态以及可选命令历史记录。",
           "visibility": "public"
         },
         {
           "kind": "func",
           "name": "restore_global_snapshot_async",
-          "signature": "func restore_global_snapshot_async( data: Dictionary, command_builder: Callable = Callable(), options: Dictionary = {} ) -> bool",
+          "signature": "func restore_global_snapshot_async( data: Dictionary, command_builder: Callable = Callable(), options: Dictionary = {} ) -> Dictionary",
           "summary": "分帧恢复整个框架的全局快照。",
           "visibility": "public"
         },
@@ -6544,6 +6558,13 @@
         },
         {
           "kind": "func",
+          "name": "is_bgm_playing",
+          "signature": "func is_bgm_playing() -> bool",
+          "summary": "查询 BGM session 是否仍存在。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
           "name": "is_bgm_paused",
           "signature": "func is_bgm_paused() -> bool",
           "summary": "查询 BGM 是否暂停。",
@@ -6687,6 +6708,13 @@
           "name": "get_bus_volume",
           "signature": "func get_bus_volume(_bus_name: String) -> float",
           "summary": "获取总线音量。返回负数表示未处理。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_bus_mute",
+          "signature": "func get_bus_mute(_bus_name: String) -> Variant",
+          "summary": "获取总线静音状态。",
           "visibility": "public"
         },
         {
@@ -8395,7 +8423,7 @@
           "kind": "var",
           "name": "max_sfx_players",
           "signature": "var max_sfx_players: int = 32",
-          "summary": "同时播放的 SFX 数量上限；小于等于 0 表示不限制。",
+          "summary": "普通与空间 SFX 共用的并发播放数量上限；小于等于 0 表示不限制。",
           "visibility": "public"
         },
         {
@@ -8444,14 +8472,14 @@
           "kind": "func",
           "name": "play_bgm_with_options",
           "signature": "func play_bgm_with_options(path: String, options: Dictionary = {}) -> void",
-          "summary": "使用选项播放 BGM。",
+          "summary": "使用选项播放 BGM。每次请求创建新会话；异步加载、淡变与 finished 回调只可提交所属会话。",
           "visibility": "public"
         },
         {
           "kind": "func",
           "name": "play_bgm_clip",
           "signature": "func play_bgm_clip(clip: GFAudioClip, crossfade_seconds: float = -1.0) -> void",
-          "summary": "播放资源化 BGM 配置。",
+          "summary": "播放资源化 BGM 配置。后端与本地播放器按请求结果原子交接唯一通道所有权。",
           "visibility": "public"
         },
         {
@@ -8472,21 +8500,21 @@
           "kind": "func",
           "name": "stop_bgm",
           "signature": "func stop_bgm(fade_seconds: float = 0.0) -> void",
-          "summary": "停止当前 BGM。",
+          "summary": "停止当前 BGM。淡出只绑定当前会话，后续替换会使旧完成回调失效。",
           "visibility": "public"
         },
         {
           "kind": "func",
           "name": "pause_bgm",
           "signature": "func pause_bgm(fade_seconds: float = 0.0) -> bool",
-          "summary": "暂停当前 BGM。",
+          "summary": "暂停当前 BGM。仅 playing 状态可进入 pausing/paused，非法重复操作返回 false。",
           "visibility": "public"
         },
         {
           "kind": "func",
           "name": "resume_bgm",
           "signature": "func resume_bgm(from_position: float = -1.0, fade_seconds: float = 0.0) -> bool",
-          "summary": "恢复当前 BGM。",
+          "summary": "恢复当前 BGM。仅 paused 或尚未完成的 pausing 状态可恢复，已停止会话不会被复活。",
           "visibility": "public"
         },
         {
@@ -8501,6 +8529,13 @@
           "name": "get_bgm_playback_position",
           "signature": "func get_bgm_playback_position() -> float",
           "summary": "获取当前 BGM 播放位置。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_bgm_playing",
+          "signature": "func is_bgm_playing() -> bool",
+          "summary": "查询当前 BGM session 是否仍存在。暂停中的 BGM 仍视为 playing。",
           "visibility": "public"
         },
         {
@@ -8576,8 +8611,8 @@
         {
           "kind": "func",
           "name": "set_audio_backend",
-          "signature": "func set_audio_backend(backend: GFAudioBackend) -> void",
-          "summary": "设置可插拔音频后端。传入 null 时恢复默认 Godot 播放路径。",
+          "signature": "func set_audio_backend(backend: GFAudioBackend) -> bool",
+          "summary": "设置可插拔音频后端。传入 null 时恢复默认 Godot 播放路径；被替换后端拥有的通道会先停止。",
           "visibility": "public"
         },
         {
@@ -8590,8 +8625,8 @@
         {
           "kind": "func",
           "name": "clear_audio_backend",
-          "signature": "func clear_audio_backend(dispose_backend: bool = true) -> void",
-          "summary": "清除当前音频后端。",
+          "signature": "func clear_audio_backend(dispose_backend: bool = true) -> bool",
+          "summary": "清除当前音频后端。清除前会停止由该后端拥有的 BGM 与环境音会话。",
           "visibility": "public"
         },
         {
@@ -8626,14 +8661,14 @@
           "kind": "func",
           "name": "play_ambient",
           "signature": "func play_ambient(path: String, channel: StringName = &\"default\", fade_seconds: float = 0.0) -> void",
-          "summary": "播放环境音。",
+          "summary": "播放环境音。每次替换都会先递增通道 generation，使旧加载和淡变回调失效。",
           "visibility": "public"
         },
         {
           "kind": "func",
           "name": "play_ambient_clip",
           "signature": "func play_ambient_clip( clip: GFAudioClip, channel: StringName = &\"default\", fade_seconds: float = 0.0 ) -> void",
-          "summary": "播放资源化环境音配置。",
+          "summary": "播放资源化环境音配置。每个通道在本地播放器与后端之间只保留一个 owner。",
           "visibility": "public"
         },
         {
@@ -8654,14 +8689,14 @@
           "kind": "func",
           "name": "stop_ambient",
           "signature": "func stop_ambient(channel: StringName = &\"default\", fade_seconds: float = 0.0) -> void",
-          "summary": "停止指定环境音通道。",
+          "summary": "停止指定环境音通道。淡出完成只能终结调用时绑定的通道 generation。",
           "visibility": "public"
         },
         {
           "kind": "func",
           "name": "stop_all_ambient",
           "signature": "func stop_all_ambient(fade_seconds: float = 0.0) -> void",
-          "summary": "停止所有环境音通道。",
+          "summary": "停止所有环境音通道。后端拥有的通道优先批量停止，失败时逐通道回退。",
           "visibility": "public"
         },
         {
@@ -8794,14 +8829,14 @@
           "kind": "func",
           "name": "get_ambient_handle",
           "signature": "func get_ambient_handle(channel: StringName = &\"default\") -> GFAudioEmitterHandle",
-          "summary": "获取环境音通道的控制句柄。",
+          "summary": "获取环境音通道的控制句柄。句柄绑定当前播放 session，通道替换后旧句柄自动终结。",
           "visibility": "public"
         },
         {
           "kind": "func",
           "name": "set_bus_volume_db",
           "signature": "func set_bus_volume_db(bus_name: String, volume_db: float, transition_seconds: float = 0.0) -> bool",
-          "summary": "设置音频总线 dB 音量。",
+          "summary": "设置音频总线 dB 音量。增益与静音作为同一代事务提交，后发操作会使旧 tween 失效。",
           "visibility": "public"
         },
         {
@@ -8815,7 +8850,7 @@
           "kind": "func",
           "name": "set_bus_mute",
           "signature": "func set_bus_mute(bus_name: String, muted: bool) -> bool",
-          "summary": "设置音频总线静音状态。",
+          "summary": "设置音频总线静音状态，并取消同一总线上尚未提交的旧增益事务。",
           "visibility": "public"
         },
         {
@@ -8829,35 +8864,35 @@
           "kind": "func",
           "name": "capture_mix_snapshot",
           "signature": "func capture_mix_snapshot(bus_names: PackedStringArray = PackedStringArray()) -> Dictionary",
-          "summary": "捕获当前总线混音快照。",
+          "summary": "捕获当前总线混音快照。原始增益与静音状态独立保存，静音不会覆盖增益值。",
           "visibility": "public"
         },
         {
           "kind": "func",
           "name": "apply_mix_snapshot",
           "signature": "func apply_mix_snapshot(snapshot: Dictionary, transition_seconds: float = 0.0) -> Dictionary",
-          "summary": "应用混音快照。",
+          "summary": "应用混音快照。每个总线的增益与静音字段作为单个 generation 事务恢复。",
           "visibility": "public"
         },
         {
           "kind": "func",
           "name": "duck_bus",
           "signature": "func duck_bus( bus_name: String = BGM_BUS_NAME, amount: float = 0.5, transition_seconds: float = 0.25, duck_id: StringName = &\"default\" ) -> bool",
-          "summary": "按比例压低总线音量，并记住恢复基准。",
+          "summary": "按比例压低总线音量。每个总线保存一个稳定基准，并采用活跃作用域中的最强衰减。",
           "visibility": "public"
         },
         {
           "kind": "func",
           "name": "restore_ducked_bus",
           "signature": "func restore_ducked_bus( bus_name: String = BGM_BUS_NAME, transition_seconds: float = 0.25, duck_id: StringName = &\"default\" ) -> bool",
-          "summary": "恢复被 duck_bus() 压低的总线。",
+          "summary": "释放一个 duck_bus() 作用域，并根据剩余作用域重新计算；结果与释放顺序无关。",
           "visibility": "public"
         },
         {
           "kind": "func",
           "name": "set_bus_volume",
           "signature": "func set_bus_volume(bus_name: String, volume_linear: float) -> void",
-          "summary": "设置音频总线音量",
+          "summary": "设置音频总线线性音量，并以新事务取代同一总线上的未完成过渡。",
           "visibility": "public"
         },
         {
@@ -9884,7 +9919,7 @@
           "kind": "func",
           "name": "mutate",
           "signature": "func mutate(mutator: Callable) -> bool",
-          "summary": "通过回调修改当前值并强制广播。",
+          "summary": "通过回调计算并设置当前值。",
           "visibility": "public"
         },
         {
@@ -13335,7 +13370,7 @@
           "kind": "func",
           "name": "dispose",
           "signature": "func dispose() -> void",
-          "summary": "释放 source 持有的连接。",
+          "summary": "终结 source 并释放其持有的连接。",
           "visibility": "public"
         },
         {
@@ -52052,6 +52087,13 @@
         },
         {
           "kind": "func",
+          "name": "write_direct_property",
+          "signature": "static func write_direct_property( object: Object, property_name: StringName, value: Variant, options: Dictionary = {} ) -> Dictionary",
+          "summary": "按精确 StringName 写入对象的直接属性，不把 `/` 或 `:` 解释为 NodePath 分隔符。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
           "name": "value_matches_property_type",
           "signature": "static func value_matches_property_type(value: Variant, property_type: int) -> bool",
           "summary": "检查值是否可写入指定 Variant 类型。",
@@ -73407,7 +73449,7 @@
       "module": "standard",
       "package_id": "gf.standard.storage",
       "path": "addons/gf/standard/utilities/history/gf_snapshot_history_utility.gd",
-      "summary": "GFSnapshotHistoryUtility: 通用快照历史与回滚工具。 管理一组有序快照，支持捕获、前后跳转、按 ID 恢复和调试快照。 默认会使用注入架构的 `get_global_snapshot()` / `restore_global_snapshot()`，",
+      "summary": "GFSnapshotHistoryUtility: 通用快照历史与回滚工具。 管理一组有序快照，支持捕获、前后跳转、按 ID 恢复和调试快照。 默认会解包注入架构的显式捕获 Result，并仅在捕获成功时记录",
       "visibility": "public",
       "category": "runtime_service",
       "since": "3.17.0",
@@ -81626,7 +81668,7 @@
           "kind": "func",
           "name": "stop",
           "signature": "func stop() -> void",
-          "summary": "停止当前超时计划，不取消 token。",
+          "summary": "停止当前超时计划，不取消旧 token，并把控制器推进到新的空闲 token。",
           "visibility": "public"
         },
         {

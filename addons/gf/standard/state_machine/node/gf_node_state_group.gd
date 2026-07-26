@@ -96,6 +96,11 @@ enum StackExitPolicy {
 	FORCE,
 }
 
+const _REPORT_SCHEMA_PROJECTION = preload(
+	"res://addons/gf/kernel/core/gf_report_schema_projection.gd"
+)
+
+
 # --- 导出变量 ---
 
 ## 状态组注册名。为空时使用节点名称。
@@ -707,7 +712,34 @@ func get_state_snapshot() -> Dictionary:
 ## @schema return: Dictionary，包含 JSON-safe group_name、current_state、stack、history、states 和 blackboard 字段。
 func get_json_compatible_state_snapshot(options: Dictionary = {}) -> Dictionary:
 	var codec_options: Dictionary = options.duplicate(true)
-	return GFVariantData.as_dictionary(GFReportValueCodec.to_json_compatible(get_state_snapshot(), codec_options))
+	var snapshot: Dictionary = get_state_snapshot()
+	return {
+		"schema_version": GFVariantData.get_option_int(snapshot, "schema_version"),
+		"group_name": GFReportValueCodec.to_json_compatible(
+			GFVariantData.get_option_value(snapshot, "group_name"),
+			codec_options
+		),
+		"current_state": GFReportValueCodec.to_json_compatible(
+			GFVariantData.get_option_value(snapshot, "current_state"),
+			codec_options
+		),
+		"stack": GFReportValueCodec.to_json_compatible(
+			GFVariantData.get_option_value(snapshot, "stack"),
+			codec_options
+		),
+		"history": GFReportValueCodec.to_json_compatible(
+			GFVariantData.get_option_value(snapshot, "history"),
+			codec_options
+		),
+		"states": GFReportValueCodec.to_json_compatible(
+			GFVariantData.get_option_value(snapshot, "states"),
+			codec_options
+		),
+		"blackboard": _REPORT_SCHEMA_PROJECTION.to_report_dictionary(
+			GFVariantData.get_option_dictionary(snapshot, "blackboard"),
+			codec_options
+		),
+	}
 
 
 ## 从状态组快照恢复当前状态、暂停栈、历史与黑板。

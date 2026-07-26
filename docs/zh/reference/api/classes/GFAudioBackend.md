@@ -29,6 +29,7 @@ GFAudioUtility 的可插拔音频后端协议。 默认实现不处理任何请�
 | 方法 | [`resume_bgm`](#member-gfaudiobackend-methods-resume_bgm) | `func resume_bgm(_from_position: float = -1.0, _fade_seconds: float = 0.0) -> bool:` |
 | 方法 | [`seek_bgm`](#member-gfaudiobackend-methods-seek_bgm) | `func seek_bgm(_position_seconds: float) -> bool:` |
 | 方法 | [`get_bgm_playback_position`](#member-gfaudiobackend-methods-get_bgm_playback_position) | `func get_bgm_playback_position() -> float:` |
+| 方法 | [`is_bgm_playing`](#member-gfaudiobackend-methods-is_bgm_playing) | `func is_bgm_playing() -> bool:` |
 | 方法 | [`is_bgm_paused`](#member-gfaudiobackend-methods-is_bgm_paused) | `func is_bgm_paused() -> bool:` |
 | 方法 | [`play_ambient_path`](#member-gfaudiobackend-methods-play_ambient_path) | `func play_ambient_path(_path: String, _channel: StringName = &"default", _options: Dictionary = {}) -> bool:` |
 | 方法 | [`play_ambient_clip`](#member-gfaudiobackend-methods-play_ambient_clip) | `func play_ambient_clip(_clip: GFAudioClip, _channel: StringName = &"default", _options: Dictionary = {}) -> bool:` |
@@ -50,6 +51,7 @@ GFAudioUtility 的可插拔音频后端协议。 默认实现不处理任何请�
 | 方法 | [`set_bus_effect_property`](#member-gfaudiobackend-methods-set_bus_effect_property) | `func set_bus_effect_property( _bus_name: String, _effect_ref: Variant, _property_name: StringName, _value: Variant, _transition_seconds: float = 0.0 ) -> bool:` |
 | 方法 | [`apply_mix_snapshot`](#member-gfaudiobackend-methods-apply_mix_snapshot) | `func apply_mix_snapshot(_snapshot: Dictionary, _transition_seconds: float = 0.0) -> bool:` |
 | 方法 | [`get_bus_volume`](#member-gfaudiobackend-methods-get_bus_volume) | `func get_bus_volume(_bus_name: String) -> float:` |
+| 方法 | [`get_bus_mute`](#member-gfaudiobackend-methods-get_bus_mute) | `func get_bus_mute(_bus_name: String) -> Variant:` |
 | 方法 | [`get_debug_snapshot`](#member-gfaudiobackend-methods-get_debug_snapshot) | `func get_debug_snapshot() -> Dictionary:` |
 
 ## 属性
@@ -325,6 +327,21 @@ func get_bgm_playback_position() -> float:
 
 返回：播放秒数；负数表示后端不处理该查询。
 
+<a id="member-gfaudiobackend-methods-is_bgm_playing"></a>
+
+### `is_bgm_playing`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func is_bgm_playing() -> bool:
+```
+
+查询 BGM session 是否仍存在。 暂停中的 BGM 仍应返回 true；接管 BGM 的项目后端必须覆写该方法。
+
+返回：BGM 正在播放或暂停时返回 true；默认 fail closed 返回 false。
+
 <a id="member-gfaudiobackend-methods-is_bgm_paused"></a>
 
 ### `is_bgm_paused`
@@ -579,6 +596,7 @@ func can_handle_event(_event: GFAudioEvent, _options: Dictionary = {}) -> bool:
 ### `post_event`
 
 - API：`public`
+- 首次版本：`3.3.0`
 
 ```gdscript
 func post_event(_event: GFAudioEvent, _options: Dictionary = {}) -> GFAudioEmitterHandle:
@@ -593,7 +611,7 @@ func post_event(_event: GFAudioEvent, _options: Dictionary = {}) -> GFAudioEmitt
 | `_event` | 音频事件。 |
 | `_options` | 请求选项。 |
 
-返回：控制句柄；未处理返回 null。
+返回：控制句柄；未处理返回 null，GFAudioUtility 会继续本地回退。已处理但不暴露原生播放器时仍须返回非 null 句柄。
 
 结构：
 
@@ -796,6 +814,31 @@ func get_bus_volume(_bus_name: String) -> float:
 | `_bus_name` | 总线名或后端通道名。 |
 
 返回：线性音量；负数表示后端不处理该总线。
+
+<a id="member-gfaudiobackend-methods-get_bus_mute"></a>
+
+### `get_bus_mute`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func get_bus_mute(_bus_name: String) -> Variant:
+```
+
+获取总线静音状态。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `_bus_name` | 总线名或后端通道名。 |
+
+返回：已处理时返回 bool；无法观测该总线时返回 null。
+
+结构：
+
+- `return`: bool 或 null；null 表示后端不处理该总线的静音查询。
 
 <a id="member-gfaudiobackend-methods-get_debug_snapshot"></a>
 

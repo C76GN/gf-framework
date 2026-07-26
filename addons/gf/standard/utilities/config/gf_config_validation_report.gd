@@ -31,7 +31,7 @@ const CONTEXT_FIELDS: Array[String] = [
 	"supported_values",
 	"supported_values_count",
 	"supported_values_sample",
-	"supported_values_hash",
+	"supported_values_preview_hash",
 	"supported_values_truncated",
 	"supported_formats",
 	"supported_content_types",

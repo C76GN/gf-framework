@@ -73,12 +73,13 @@ Controller 控制的宿主节点。
 ### `get_architecture`
 
 - API：`public`
+- 首次版本：`1.9.0`
 
 ```gdscript
 func get_architecture() -> GFArchitecture:
 ```
 
-获取当前 Controller 所属的架构。 优先沿场景树向上寻找 GFNodeContext；若未找到，则回退到全局 Gf 架构。
+获取当前 Controller 所属的架构。 优先沿场景树向上寻找 GFNodeContext；若未找到，则回退到全局 Gf 架构。 若最近 Context 已失败或其架构正在/已经 dispose，则返回 null，不越过局部作用域。
 
 返回：当前可用的架构实例。
 
@@ -87,12 +88,13 @@ func get_architecture() -> GFArchitecture:
 ### `get_architecture_or_null`
 
 - API：`public`
+- 首次版本：`1.9.2`
 
 ```gdscript
 func get_architecture_or_null() -> GFArchitecture:
 ```
 
-获取当前 Controller 所属的架构，找不到时返回 null 且不触发全局错误。
+获取当前 Controller 所属的架构，找不到时返回 null 且不触发全局错误。 存在但失效的最近 Context 会阻止全局回退。
 
 返回：当前可用的架构实例。
 

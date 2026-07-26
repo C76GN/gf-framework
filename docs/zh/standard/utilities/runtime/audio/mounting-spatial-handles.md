@@ -25,7 +25,9 @@ if handle != null:
 	handle.stop(0.1)
 ```
 
-环境音通道可用 `get_ambient_handle(channel)` 获取当前播放器句柄。句柄只管理底层播放器的停止、淡出、音量、音高和可选 owner 生命周期绑定，不替项目决定混音快照、声音优先级或业务生命周期。
+环境音通道可用 `get_ambient_handle(channel)` 获取当前播放 session 的句柄。句柄会同时绑定 channel generation 与 playback session ID；同一 session 可签发多个句柄，Utility 会跟踪并在停止、自然结束、replacement、重新初始化或 dispose 时一起终结全部句柄。该通道被 replacement 后，所有旧句柄的停止或淡出都会变成 no-op，不能控制复用后的播放器。项目若绕过 handle 直接停止环境音原生播放器，`is_ambient_playing()`、`get_ambient_handle()` 或 `get_debug_snapshot()` 会按当前 generation 收敛 owner/state/session 并终结全部旧句柄，不会继续公开陈旧的 local/playing 状态。
+
+普通与空间 SFX 也使用独立 playback session；如果项目绕过 handle 直接对原生播放器调用 `stop()`，Utility 会在下一次容量、清理或诊断收敛点终结 active 或 retiring session、取消仍在运行的淡出 Tween、完成旧 handle 并立即释放容量。普通池播放器进入终态时还会显式断开当前 session 的 `finished` 回调，播放器复用后旧 callback 或旧 handle 都不能命中新 session。句柄只管理当前 session 的停止、淡出、音量、音高和可选 owner 生命周期绑定，不替项目决定混音快照、声音优先级或业务生命周期。
 
 ## 空间音效
 

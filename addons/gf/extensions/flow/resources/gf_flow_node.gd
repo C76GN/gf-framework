@@ -11,6 +11,13 @@ class_name GFFlowNode
 extends Resource
 
 
+# --- 常量 ---
+
+const _REPORT_SCHEMA_PROJECTION = preload(
+	"res://addons/gf/kernel/core/gf_report_schema_projection.gd"
+)
+
+
 # --- 导出变量 ---
 
 ## 节点稳定标识。
@@ -336,7 +343,7 @@ func clear_runtime_state() -> void:
 ## @schema return: runtime_state 的深拷贝 Dictionary。
 func serialize_runtime_state(json_compatible: bool = false) -> Dictionary:
 	if json_compatible:
-		return GFReportValueCodec.to_report_dictionary(_runtime_state, {
+		return _REPORT_SCHEMA_PROJECTION.to_report_dictionary(_runtime_state, {
 			"path_redaction": "basename",
 		})
 	return _runtime_state.duplicate(true)

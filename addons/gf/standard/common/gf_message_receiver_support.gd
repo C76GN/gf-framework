@@ -4,6 +4,13 @@
 extends RefCounted
 
 
+# --- 常量 ---
+
+const _REPORT_SCHEMA_PROJECTION = preload(
+	"res://addons/gf/kernel/core/gf_report_schema_projection.gd"
+)
+
+
 # --- 私有/辅助方法 ---
 
 static func _can_receive(
@@ -88,7 +95,8 @@ static func _receive_with_delegate(
 	delegate_args: Array,
 	missing_delegate_message: String,
 	invalid_delegate_report_message: String,
-	target_property: StringName = &"target"
+	target_property: StringName = &"target",
+	normalize_output: bool = true
 ) -> Dictionary:
 	if context == null:
 		var invalid_context_report: Dictionary = _make_report(
@@ -100,8 +108,13 @@ static func _receive_with_delegate(
 			invalid_context_message,
 			metadata
 		)
-		rejected_emitter.call(context, invalid_context_report)
-		return invalid_context_report
+		return _emit_and_return_report(
+			context,
+			invalid_context_report,
+			signal_owner,
+			rejected_emitter,
+			normalize_output
+		)
 
 	if not enabled:
 		var disabled_report: Dictionary = _make_report(
@@ -113,8 +126,13 @@ static func _receive_with_delegate(
 			disabled_message,
 			metadata
 		)
-		rejected_emitter.call(context, disabled_report)
-		return disabled_report
+		return _emit_and_return_report(
+			context,
+			disabled_report,
+			signal_owner,
+			rejected_emitter,
+			normalize_output
+		)
 
 	if rejected_ids.has(id_value):
 		var rejected_report: Dictionary = _make_report(
@@ -126,8 +144,13 @@ static func _receive_with_delegate(
 			rejected_id_message,
 			metadata
 		)
-		rejected_emitter.call(context, rejected_report)
-		return rejected_report
+		return _emit_and_return_report(
+			context,
+			rejected_report,
+			signal_owner,
+			rejected_emitter,
+			normalize_output
+		)
 
 	if not accepted_ids.is_empty() and not accepted_ids.has(id_value):
 		var blocked_report: Dictionary = _make_report(
@@ -139,13 +162,23 @@ static func _receive_with_delegate(
 			unaccepted_id_message,
 			metadata
 		)
-		rejected_emitter.call(context, blocked_report)
-		return blocked_report
+		return _emit_and_return_report(
+			context,
+			blocked_report,
+			signal_owner,
+			rejected_emitter,
+			normalize_output
+		)
 
 	if delegate_enabled and delegate_receiver == null:
 		var missing_delegate_report: Dictionary = _make_report(null, false, id_key, id_value, "missing_receiver", missing_delegate_message, metadata)
-		rejected_emitter.call(context, missing_delegate_report)
-		return missing_delegate_report
+		return _emit_and_return_report(
+			context,
+			missing_delegate_report,
+			null,
+			rejected_emitter,
+			normalize_output
+		)
 
 	var effective_receiver: Object = delegate_receiver if delegate_enabled else signal_owner
 	var target_key: String = String(target_property)
@@ -153,16 +186,26 @@ static func _receive_with_delegate(
 	if target_value == null or target_value == signal_owner:
 		context.set(target_key, effective_receiver)
 
-	var report: Dictionary = _make_report(effective_receiver, true, id_key, id_value, "accepted", "", metadata)
-	validating_emitter.call(context, report.duplicate(true))
+	var report: Dictionary = _make_report(
+		effective_receiver,
+		true,
+		id_key,
+		id_value,
+		"accepted",
+		"",
+		metadata
+	)
+	validating_emitter.call(
+		context,
+		_normalize_report(report, effective_receiver).duplicate(true)
+	)
 	if validation_callback.is_valid():
-		report = _apply_validation_result(report, validation_callback.call(context, report.duplicate(true)))
-	report = _normalize_report(report, effective_receiver)
+		report = _apply_validation_result(report, validation_callback.call(context, report.duplicate(false)))
 
 	if _report_is_ok(report) and delegate_enabled and delegate_receiver.has_method(delegate_method):
 		var delegated_value: Variant = delegate_receiver.callv(delegate_method, delegate_args)
 		if delegated_value is Dictionary:
-			report = GFVariantData.as_dictionary(GFVariantData.duplicate_variant(delegated_value))
+			report = GFVariantData.as_dictionary(delegated_value).duplicate(false)
 		elif delegated_value is bool:
 			report = _apply_validation_result(report, delegated_value)
 		elif delegated_value == null:
@@ -177,13 +220,15 @@ static func _receive_with_delegate(
 				invalid_delegate_report_message,
 				metadata
 			)
-		report = _normalize_report(report, delegate_receiver)
-
-	if _report_is_ok(report):
-		received_emitter.call(context, report)
-	else:
-		rejected_emitter.call(context, report)
-	return report
+	var report_receiver: Object = delegate_receiver if delegate_enabled else effective_receiver
+	var result_emitter: Callable = received_emitter if _report_is_ok(report) else rejected_emitter
+	return _emit_and_return_report(
+		context,
+		report,
+		report_receiver,
+		result_emitter,
+		normalize_output
+	)
 
 
 static func _make_report(
@@ -198,10 +243,10 @@ static func _make_report(
 	return {
 		"ok": ok,
 		id_key: id_value,
-		"receiver": _object_to_report_value(receiver),
+		"receiver": receiver,
 		"reason": reason,
 		"message": message,
-		"metadata": _dictionary_to_report_value(metadata),
+		"metadata": metadata.duplicate(false),
 	}
 
 
@@ -218,7 +263,7 @@ static func _apply_validation_result(report: Dictionary, validation_result: Vari
 	var result: Dictionary = GFVariantData.as_dictionary(validation_result)
 	for key: Variant in result.keys():
 		if key == "metadata" and result[key] is Dictionary:
-			var merged_metadata: Dictionary = GFVariantData.as_dictionary(GFVariantData.get_option_value(report, "metadata", {})).duplicate(true)
+			var merged_metadata: Dictionary = GFVariantData.as_dictionary(GFVariantData.get_option_value(report, "metadata", {})).duplicate(false)
 			var result_metadata: Dictionary = GFVariantData.as_dictionary(result[key])
 			for metadata_key: Variant in result_metadata.keys():
 				merged_metadata[metadata_key] = result_metadata[metadata_key]
@@ -239,24 +284,28 @@ static func _get_object_property(target: Object, property_name: String) -> Varia
 
 
 static func _normalize_report(report: Dictionary, default_receiver: Object) -> Dictionary:
-	var result: Dictionary = report.duplicate(true)
-	var receiver_value: Variant = GFVariantData.get_option_value(result, "receiver", default_receiver)
-	if receiver_value is Object:
-		result["receiver"] = _object_to_report_value(receiver_value)
-	elif not result.has("receiver"):
-		result["receiver"] = _object_to_report_value(default_receiver)
-	if result.has("metadata") and result["metadata"] is Dictionary:
-		result["metadata"] = _dictionary_to_report_value(GFVariantData.as_dictionary(result["metadata"]))
+	return _REPORT_SCHEMA_PROJECTION.to_report_dictionary(
+		_prepare_raw_report(report, default_receiver),
+		{
+			"path_redaction": "basename",
+		}
+	)
+
+
+static func _prepare_raw_report(report: Dictionary, default_receiver: Object) -> Dictionary:
+	var result: Dictionary = report.duplicate(false)
+	result["receiver"] = default_receiver
 	return result
 
 
-static func _object_to_report_value(value: Variant) -> Variant:
-	return GFReportValueCodec.to_json_compatible(value, {
-		"path_redaction": "basename",
-	})
-
-
-static func _dictionary_to_report_value(value: Dictionary) -> Dictionary:
-	return GFReportValueCodec.to_report_dictionary(value, {
-		"path_redaction": "basename",
-	})
+static func _emit_and_return_report(
+	context: Object,
+	raw_report: Dictionary,
+	default_receiver: Object,
+	emitter: Callable,
+	normalize_output: bool
+) -> Dictionary:
+	var prepared_report: Dictionary = _prepare_raw_report(raw_report, default_receiver)
+	var normalized_report: Dictionary = _normalize_report(prepared_report, default_receiver)
+	emitter.call(context, normalized_report.duplicate(true))
+	return normalized_report if normalize_output else prepared_report

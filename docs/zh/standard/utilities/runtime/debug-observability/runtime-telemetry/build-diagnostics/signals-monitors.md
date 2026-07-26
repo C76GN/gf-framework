@@ -12,7 +12,7 @@
 
 `GFSignalGraphDock` 则把当前编辑场景渲染为 `GF Workspace > 信号诊断` 页面，默认查看保存连接、过滤编辑器外部目标，并让节点统计聚焦实际参与连接的节点，方便查看 source、signal、target 和 method。
 
-`collect_signal_graph_snapshot()` 与内置命令 `diagnostics.signals` 会对当前场景根或传入根节点生成只读信号图；`collect_snapshot({ "include_signal_graph": true })` 可把它合并进完整诊断快照。它不会连接、断开或触发信号，只读取节点、信号和连接摘要。
+`collect_signal_graph_snapshot()` 与内置命令 `diagnostics.signals` 会对当前场景根或传入根节点生成只读信号图；`collect_snapshot({ "include_signal_graph": true })` 可把它合并进完整诊断快照。它不会连接、断开或触发信号，只读取节点、信号和连接摘要。采集同时受 `max_nodes`、`max_signals`、`max_connections` 与 `max_bytes` 约束；任一预算耗尽都会在顶层返回 `truncated=true` 和稳定 `truncation_reason`，可选 index 也必须留在同一字节预算内。
 
 ## 监控预设
 
@@ -37,11 +37,13 @@ var monitor_snapshot: Dictionary = diagnostics.collect_monitor_preset(&"runtime"
 var text: String = diagnostics.export_monitor_snapshot(monitor_snapshot, &"text")
 ```
 
+不存在的 preset 会返回 `ok=false`、空 `monitors` 和明确错误，不会退化为“采集全部”。每次成功的 `publish_monitor_sample()` 恰好发出一次 `monitor_sampled`；只读 collect 不会触发发布信号。
+
 快照默认可包含构建信息、最近日志、外部贡献分区、工具状态和项目自定义 monitor 输出。这些快照只表达版本、队列、缓存、pending 数量和运行状态，不解释项目业务含义。
 
 ## 发布边界
 
-外部分区和工具快照必须通过 `publish_snapshot_section()` / `publish_tool_snapshot()` 提交 `Dictionary`。监控值则先用 `register_monitor()` 声明 owner 和显示元数据，再用 `publish_monitor_sample()` 更新。发布时会检查 `max_contribution_collection_items`、`max_contribution_nodes`、`max_contribution_depth` 和 `max_contribution_bytes`，并立即转换为 report-safe 缓存；无效或超预算的新值会被拒绝，监控项继续保留上一份有效采样。
+外部分区和工具快照必须通过 `publish_snapshot_section()` / `publish_tool_snapshot()` 提交 `Dictionary`。监控值则先用 `register_monitor()` 声明 owner 和显示元数据，再用 `publish_monitor_sample()` 更新。发布时会检查 `max_contribution_collection_items`、`max_contribution_nodes`、`max_contribution_depth` 和 `max_contribution_bytes`，并立即转换为 report-safe 缓存；无效或超预算的新值会被拒绝，监控项继续保留上一份有效采样。每次 collect 和 `monitor_sampled` 都获得与内部缓存隔离的深副本，监听器或调用方可以修改返回值，但不能反向改写后续采样。
 
 为兼容既有集成，项目仍可发布名为 `diagnostic_providers` 的自定义分区。普通 `collect_snapshot()` 会返回这份缓存；只有调用方显式提交非空 `diagnostic_provider_ids` 时，当次快照的同名顶层键才由内置惰性 Provider 批次结果占用。这个临时覆盖不会注销自定义分区，后续普通快照仍会返回原缓存。
 

@@ -63,6 +63,9 @@ signal interaction_rejected(context: GFInteractionContext, receiver: Object, rep
 # --- 常量 ---
 
 const _MESSAGE_DISPATCH_SUPPORT = preload("res://addons/gf/standard/common/gf_message_dispatch_support.gd")
+const _REPORT_SCHEMA_PROJECTION = preload(
+	"res://addons/gf/kernel/core/gf_report_schema_projection.gd"
+)
 
 
 # --- 导出变量 ---
@@ -166,19 +169,28 @@ func send_to(
 ) -> Dictionary:
 	var effective_interaction_id: StringName = interaction_id_override if interaction_id_override != &"" else interaction_id
 	var context: GFInteractionContext = build_context(receiver, payload_override)
-	var report: Dictionary = _MESSAGE_DISPATCH_SUPPORT._dispatch_to_receiver(
-		enabled,
-		metadata,
-		receiver,
-		&"receive_interaction",
-		[context, effective_interaction_id],
-		"interaction_id",
-		effective_interaction_id,
-		"Interaction sensor is disabled.",
-		"Interaction receiver is null.",
-		"Receiver does not expose receive_interaction().",
-		"Receiver returned an invalid interaction report."
-	)
+	var report: Dictionary = {}
+	if enabled and receiver is GFInteractionReceiver:
+		var interaction_receiver: GFInteractionReceiver = receiver
+		report = interaction_receiver.receive_interaction_raw_for_framework(
+			context,
+			effective_interaction_id
+		)
+	else:
+		report = _MESSAGE_DISPATCH_SUPPORT._dispatch_to_receiver(
+			enabled,
+			metadata,
+			receiver,
+			&"receive_interaction",
+			[context, effective_interaction_id],
+			"interaction_id",
+			effective_interaction_id,
+			"Interaction sensor is disabled.",
+			"Interaction receiver is null.",
+			"Receiver does not expose receive_interaction().",
+			"Receiver returned an invalid interaction report.",
+			false
+		)
 	report = _normalize_report(report, receiver)
 	_emit_send_result(context, receiver, report)
 	return report
@@ -427,8 +439,12 @@ func broadcast_to_area_2d(
 		payload_override,
 		interaction_id_override,
 		&"receive_interaction",
-		Callable(self, "_emit_collision_dispatch_result") if dispatch_host != self else Callable()
+		Callable(self, "_emit_collision_dispatch_result") if dispatch_host != self else Callable(),
+		false
 	))
+	if dispatch_host != self:
+		for index: int in range(reports.size()):
+			reports[index] = _normalize_report(reports[index], null)
 	return reports
 
 
@@ -471,8 +487,12 @@ func broadcast_to_area_3d(
 		payload_override,
 		interaction_id_override,
 		&"receive_interaction",
-		Callable(self, "_emit_collision_dispatch_result") if dispatch_host != self else Callable()
+		Callable(self, "_emit_collision_dispatch_result") if dispatch_host != self else Callable(),
+		false
 	))
+	if dispatch_host != self:
+		for index: int in range(reports.size()):
+			reports[index] = _normalize_report(reports[index], null)
 	return reports
 
 
@@ -561,14 +581,15 @@ func _send_to_with_dispatch_host(
 	var report: Dictionary = GFVariantData.as_dictionary(report_value)
 	if report.is_empty():
 		report = _make_report(false, interaction_id_override if interaction_id_override != &"" else interaction_id, "invalid_report", "Dispatch host returned an empty interaction report.")
-	report = _normalize_report(report, receiver)
+	if dispatch_host != self:
+		report = _normalize_report(report, receiver)
 	if dispatch_host != self:
 		_emit_collision_dispatch_result(receiver, payload_override, interaction_id_override, report)
 	return report
 
 
 func _get_report_value(value: Variant) -> Dictionary:
-	return _normalize_report(GFVariantData.as_dictionary(value), null)
+	return GFVariantData.as_dictionary(value)
 
 
 func _can_use_send_to_override(candidate: Object) -> bool:
@@ -586,9 +607,10 @@ func _normalize_report(report: Dictionary, default_receiver: Object) -> Dictiona
 	if report.is_empty():
 		return {}
 	var raw_report: Dictionary = report.duplicate(false)
-	if not raw_report.has("receiver") and default_receiver != null:
+	var receiver_value: Variant = GFVariantData.get_option_value(raw_report, "receiver")
+	if default_receiver != null and not receiver_value is Object:
 		raw_report["receiver"] = default_receiver
-	return GFReportValueCodec.to_report_dictionary(raw_report, {
+	return _REPORT_SCHEMA_PROJECTION.to_report_dictionary(raw_report, {
 		"path_redaction": "basename",
 	})
 

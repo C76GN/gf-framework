@@ -63,7 +63,7 @@ Decision 负责“选什么”，BehaviorTree 和 Flow 更适合“选中后怎�
 
 `GFDecisionContext` 在分配主体和目标时先捕获 `get_decision_snapshot()`、`get_decision_values()` 或可存储属性，形成本次评价的快照视图。缺失 key 才会调用 `get_decision_value(key, fallback)` 并写入当前上下文的有界懒缓存；返回 `null` 表示显式输入值，返回传入 sentinel 才表示缺失。这样同一次评价不会因重复读取而反复触发 provider 副作用。
 
-默认主动快照最多 `DEFAULT_MAX_SNAPSHOT_ENTRIES` 条，反射捕获最多 `DEFAULT_MAX_REFLECTION_PROPERTIES` 条；构造 `GFDecisionContext` 时可通过第五个 `capture_options` 参数收紧预算。预算耗尽后不会继续调用懒 provider，`get_debug_snapshot().capture_diagnostics` 会报告来源、数量、限制和截断状态。上下文复制容器但保留嵌套 Object/Resource 身份，并只通过弱引用暴露主体和目标，因此它是稳定的评价视图，不是对象图序列化器。
+默认主动快照最多 `DEFAULT_MAX_SNAPSHOT_ENTRIES` 条，反射捕获最多 `DEFAULT_MAX_REFLECTION_PROPERTIES` 条；构造 `GFDecisionContext` 时可通过第五个 `capture_options` 参数收紧预算。预算耗尽后不会继续调用懒 provider，`get_debug_snapshot().capture_diagnostics` 会报告来源、数量、限制和截断状态。调试快照的 `subject_values`、`target_values` 与 `capture_diagnostics` 保持可直接按字符串键遍历的固定 JSON object 外壳，叶值再由 `GFReportValueCodec` 编码；遇到非字符串键、键规范化冲突或集合预算超限时会失败闭合为保真 marker。上下文复制容器但保留嵌套 Object/Resource 身份，并只通过弱引用暴露主体和目标，因此它是稳定的评价视图，不是对象图序列化器。
 
 `GFDecisionBlackboard.values`、`GFDecisionContext.metadata`、`GFDecisionOption.considerations` 和 `GFDecisionSet.decisions` 是可编辑集合。直接修改这些集合不会触发黑板变更信号，也不会执行添加、移除方法中的空值检查；需要信号或校验语义时使用对应方法。
 

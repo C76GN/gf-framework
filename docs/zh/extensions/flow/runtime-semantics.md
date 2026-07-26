@@ -16,7 +16,7 @@
 
 需要保存一次流程上下文的完整运行数据时，使用 `create_runtime_snapshot()`；恢复时调用 `restore_runtime_snapshot(snapshot)`。快照包含共享 `values`、显式后继覆盖和节点运行态，并可附带条件处理器 ID 供诊断展示。条件处理器 Callable、架构实例和正在等待的 Signal 不会被序列化，项目应在恢复后重新注册运行时服务与交互入口。
 
-诊断、CLI 或日志需要直接写 JSON 时，使用 `serialize_runtime_state(true)` 或 `create_runtime_snapshot({ "json_compatible": true })`。默认快照保留原始 Variant，只适合内存恢复或项目自有编码器；JSON-safe 快照会把 Object、Resource、循环集合和非有限数收束为报告 marker。
+诊断、CLI 或日志需要直接写 JSON 时，使用 `serialize_runtime_state(true)` 或 `create_runtime_snapshot({ "json_compatible": true })`。默认快照保留原始 Variant，只适合内存恢复或项目自有编码器；JSON-safe 快照会保持 `nodes`、节点运行态、`values` 和 `metadata` 的固定字符串键 object 外壳，并把叶值中的 Object、Resource、循环集合和非有限数收束为报告 marker。`next_node_ids`、`condition_handler_ids` 等 PackedArray 使用当前 `__gf_report_value__` PackedArray marker，不回退到旧的 variant marker 形态。
 
 `GFFlowRunner.isolate_graph_runtime_state` 默认开启。运行同一个 `GFFlowGraph` 资源时，它会把图内节点运行态隔离到当前 context，再在运行结束后恢复资源原状态，避免多个 NPC、任务实例或测试共享同一资源时串状态。返回 Signal 且要求等待的节点会持有运行态租约直到 Signal 完成、超时或取消，然后统一释放；因此超时不会留下永久占用的节点资源。返回 Signal 但 `wait_for_result = false` 的节点不会阻塞后继推进，不过租约仍保留到该 Signal 真正发出，防止异步回调在流程已继续后污染共享图资源；这类节点必须保证终态 Signal 最终发出。
 

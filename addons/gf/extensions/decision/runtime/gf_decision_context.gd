@@ -29,6 +29,9 @@ const DEFAULT_MAX_SNAPSHOT_ENTRIES: int = 1024
 ## @since 8.0.0
 const DEFAULT_MAX_REFLECTION_PROPERTIES: int = 256
 
+const _REPORT_SCHEMA_PROJECTION = preload(
+	"res://addons/gf/kernel/core/gf_report_schema_projection.gd"
+)
 const _HARD_MAX_CAPTURE_ENTRIES: int = 65536
 
 
@@ -306,15 +309,28 @@ func duplicate_context() -> GFDecisionContext:
 func get_debug_snapshot() -> Dictionary:
 	var current_subject: Object = get_subject_or_null()
 	var current_target: Object = get_target_or_null()
-	return GFReportValueCodec.to_report_dictionary({
-		"blackboard": _ensure_blackboard().get_debug_snapshot(),
-		"metadata": metadata.duplicate(true),
+	var report_options: Dictionary = {}
+	return {
+		"blackboard": GFReportValueCodec.to_report_dictionary(
+			_ensure_blackboard().get_debug_snapshot(),
+			report_options
+		),
+		"metadata": _REPORT_SCHEMA_PROJECTION.to_report_dictionary(metadata, report_options),
 		"subject_class": current_subject.get_class() if current_subject != null else "",
 		"target_class": current_target.get_class() if current_target != null else "",
-		"subject_values": subject_values.duplicate(true),
-		"target_values": target_values.duplicate(true),
-		"capture_diagnostics": _capture_diagnostics.duplicate(true),
-	})
+		"subject_values": _REPORT_SCHEMA_PROJECTION.to_report_dictionary(
+			subject_values,
+			report_options
+		),
+		"target_values": _REPORT_SCHEMA_PROJECTION.to_report_dictionary(
+			target_values,
+			report_options
+		),
+		"capture_diagnostics": _REPORT_SCHEMA_PROJECTION.to_report_dictionary(
+			_capture_diagnostics,
+			report_options
+		),
+	}
 
 
 # --- 私有/辅助方法 ---

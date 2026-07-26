@@ -608,7 +608,25 @@ func get_state_snapshot() -> Dictionary:
 ## @schema return: Dictionary，包含 JSON-safe groups 和 internal_group 字段。
 func get_json_compatible_state_snapshot(options: Dictionary = {}) -> Dictionary:
 	var codec_options: Dictionary = options.duplicate(true)
-	return GFVariantData.as_dictionary(GFReportValueCodec.to_json_compatible(get_state_snapshot(), codec_options))
+	var groups: Dictionary = {}
+	for group_key: Variant in _groups.keys():
+		var group: GFNodeStateGroup = _variant_to_state_group(_groups[group_key])
+		if group == null:
+			continue
+		if not (group_key is String or group_key is StringName):
+			return GFReportValueCodec.to_report_dictionary(get_state_snapshot(), codec_options)
+		var report_key: String = str(group_key)
+		if groups.has(report_key):
+			return GFReportValueCodec.to_report_dictionary(get_state_snapshot(), codec_options)
+		groups[report_key] = group.get_json_compatible_state_snapshot(codec_options)
+	return {
+		"schema_version": 1,
+		"groups": groups,
+		"internal_group": GFReportValueCodec.to_json_compatible(
+			INTERNAL_GROUP_NAME,
+			codec_options
+		),
+	}
 
 
 ## 从 get_state_snapshot() 的结果恢复所有已注册状态组。

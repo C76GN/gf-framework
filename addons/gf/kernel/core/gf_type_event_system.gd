@@ -66,6 +66,9 @@ var _simple_dispatch_depth: int = 0
 var _simple_dispatch_count: int = 0
 var _max_simple_dispatch_depth_observed: int = 0
 var _clear_requested_simple: bool = false
+var _dispatch_depth: int = 0
+var _max_dispatch_depth_observed: int = 0
+var _dispatch_sequence: int = 0
 var _listener_order_counter: int = 0
 var _dispatch_trace: Array[Dictionary] = []
 
@@ -120,6 +123,8 @@ func register(event_type: Script, listener: GFEventListener, priority: int = 0) 
 ## [br]
 ## @param priority: 回调优先级，数值越大越先执行，默认为 0。
 func register_owned(owner: Object, event_type: Script, listener: GFEventListener, priority: int = 0) -> void:
+	if not _validate_live_owner(owner, "register_owned"):
+		return
 	if listener == null:
 		register(event_type, null, priority)
 		return
@@ -162,7 +167,7 @@ func unregister(event_type: Script, listener: GFEventListener) -> void:
 ## [br]
 ## @param listener: 要移除的事件监听器契约。
 func unregister_owned(owner: Object, event_type: Script, listener: GFEventListener) -> void:
-	if owner == null or event_type == null:
+	if owner == null or not is_instance_valid(owner) or event_type == null:
 		return
 	var owner_id: int = owner.get_instance_id()
 	var callback: Callable = _get_listener_callback(listener)
@@ -231,6 +236,8 @@ func register_assignable_owned(
 	listener: GFEventListener,
 	priority: int = 0
 ) -> void:
+	if not _validate_live_owner(owner, "register_assignable_owned"):
+		return
 	if listener == null:
 		register_assignable(base_event_type, null, priority)
 		return
@@ -273,7 +280,7 @@ func unregister_assignable(base_event_type: Script, listener: GFEventListener) -
 ## [br]
 ## @param listener: 要移除的事件监听器契约。
 func unregister_assignable_owned(owner: Object, base_event_type: Script, listener: GFEventListener) -> void:
-	if owner == null or base_event_type == null:
+	if owner == null or not is_instance_valid(owner) or base_event_type == null:
 		return
 	var owner_id: int = owner.get_instance_id()
 	var callback: Callable = _get_listener_callback(listener)
@@ -294,8 +301,8 @@ func unregister_assignable_owned(owner: Object, base_event_type: Script, listene
 ## [br]
 ## @param event_instance: 要分发的事件实例。
 func send(event_instance: Object) -> void:
-	if event_instance == null:
-		push_error("[GFTypeEventSystem] 发送的事件实例为空。")
+	if event_instance == null or not is_instance_valid(event_instance):
+		push_error("[GFTypeEventSystem] 发送的事件实例为空或已释放。")
 		return
 
 	var event_type_variant: Variant = event_instance.get_script()
@@ -306,15 +313,17 @@ func send(event_instance: Object) -> void:
 		push_error("[GFTypeEventSystem] 发送的事件脚本类型无效。")
 		return
 	var event_type: Script = event_type_variant
-	if _would_exceed_dispatch_depth(_type_dispatch_depth):
+	if _would_exceed_dispatch_depth():
 		_report_dispatch_depth_exceeded("type", _script_debug_key(event_type))
 		return
 
 	var dispatch_entries: Array[Dictionary] = _get_type_dispatch_entries(event_type)
-	_record_dispatch_trace("type", _script_debug_key(event_type), dispatch_entries.size(), _type_dispatch_depth + 1)
+	_record_dispatch_trace("type", _script_debug_key(event_type), dispatch_entries.size(), _dispatch_depth + 1)
 	if dispatch_entries.is_empty():
 		return
 
+	_dispatch_depth += 1
+	_max_dispatch_depth_observed = maxi(_max_dispatch_depth_observed, _dispatch_depth)
 	_type_dispatch_depth += 1
 	_type_dispatch_count += 1
 	_max_type_dispatch_depth_observed = maxi(_max_type_dispatch_depth_observed, _type_dispatch_depth)
@@ -322,6 +331,7 @@ func send(event_instance: Object) -> void:
 	_dispatch_type_listener_entries(event_instance, dispatch_entries)
 
 	_type_dispatch_depth = maxi(_type_dispatch_depth - 1, 0)
+	_dispatch_depth = maxi(_dispatch_depth - 1, 0)
 	if _type_dispatch_depth == 0:
 		_clear_requested_type = false
 		_flush_type_pending()
@@ -372,6 +382,8 @@ func register_simple(event_id: StringName, listener: GFEventListener) -> void:
 ## [br]
 ## @param listener: 简单事件监听器契约。
 func register_simple_owned(owner: Object, event_id: StringName, listener: GFEventListener) -> void:
+	if not _validate_live_owner(owner, "register_simple_owned"):
+		return
 	if listener == null:
 		register_simple(event_id, null)
 		return
@@ -414,7 +426,7 @@ func unregister_simple(event_id: StringName, listener: GFEventListener) -> void:
 ## [br]
 ## @param listener: 要移除的事件监听器契约。
 func unregister_simple_owned(owner: Object, event_id: StringName, listener: GFEventListener) -> void:
-	if owner == null or not _validate_simple_event_id(event_id, "unregister_simple_owned"):
+	if owner == null or not is_instance_valid(owner) or not _validate_simple_event_id(event_id, "unregister_simple_owned"):
 		return
 	var owner_id: int = owner.get_instance_id()
 	var callback: Callable = _get_listener_callback(listener)
@@ -441,16 +453,18 @@ func unregister_simple_owned(owner: Object, event_id: StringName, listener: GFEv
 func send_simple(event_id: StringName, payload: Variant = null) -> void:
 	if not _validate_simple_event_id(event_id, "send_simple"):
 		return
-	if _would_exceed_dispatch_depth(_simple_dispatch_depth):
+	if _would_exceed_dispatch_depth():
 		_report_dispatch_depth_exceeded("simple", String(event_id))
 		return
 
 	if not _simple_event_listeners.has(event_id):
-		_record_dispatch_trace("simple", String(event_id), 0, _simple_dispatch_depth + 1)
+		_record_dispatch_trace("simple", String(event_id), 0, _dispatch_depth + 1)
 		return
 	var listeners: Array = _get_registry_array(_simple_event_listeners, event_id)
-	_record_dispatch_trace("simple", String(event_id), listeners.size(), _simple_dispatch_depth + 1)
+	_record_dispatch_trace("simple", String(event_id), listeners.size(), _dispatch_depth + 1)
 
+	_dispatch_depth += 1
+	_max_dispatch_depth_observed = maxi(_max_dispatch_depth_observed, _dispatch_depth)
 	_simple_dispatch_depth += 1
 	_simple_dispatch_count += 1
 	_max_simple_dispatch_depth_observed = maxi(_max_simple_dispatch_depth_observed, _simple_dispatch_depth)
@@ -486,6 +500,7 @@ func send_simple(event_id: StringName, payload: Variant = null) -> void:
 			has_pending_removes = true
 
 	_simple_dispatch_depth = maxi(_simple_dispatch_depth - 1, 0)
+	_dispatch_depth = maxi(_dispatch_depth - 1, 0)
 	if _simple_dispatch_depth == 0:
 		_clear_requested_simple = false
 		_flush_simple_pending()
@@ -497,7 +512,7 @@ func send_simple(event_id: StringName, payload: Variant = null) -> void:
 ## [br]
 ## @param owner: 监听拥有者。
 func unregister_owner(owner: Object) -> void:
-	if owner == null:
+	if owner == null or not is_instance_valid(owner):
 		return
 
 	var owner_id: int = owner.get_instance_id()
@@ -540,8 +555,10 @@ func get_debug_stats() -> Dictionary:
 		"pending_simple_owner_removes": _simple_track.pending_owner_removes.size(),
 		"type_dispatch_count": _type_dispatch_count,
 		"simple_dispatch_count": _simple_dispatch_count,
+		"dispatch_depth": _dispatch_depth,
 		"type_dispatch_depth": _type_dispatch_depth,
 		"simple_dispatch_depth": _simple_dispatch_depth,
+		"max_dispatch_depth_observed": _max_dispatch_depth_observed,
 		"max_type_dispatch_depth_observed": _max_type_dispatch_depth_observed,
 		"max_simple_dispatch_depth_observed": _max_simple_dispatch_depth_observed,
 		"max_dispatch_depth": max_dispatch_depth,
@@ -654,10 +671,6 @@ func clear() -> void:
 	else:
 		_simple_dispatch_depth = 0
 		_clear_requested_simple = false
-	_type_dispatch_count = 0
-	_simple_dispatch_count = 0
-	_max_type_dispatch_depth_observed = 0
-	_max_simple_dispatch_depth_observed = 0
 
 
 # --- 私有/辅助方法 ---
@@ -789,16 +802,28 @@ func _dispatch_type_listener_entries(event_instance: Object, listeners: Array[Di
 
 		callback.call(event_instance)
 
-		if _clear_requested_type or _event_is_consumed(event_instance):
+		if (
+			_clear_requested_type
+			or not is_instance_valid(event_instance)
+			or _event_is_consumed(event_instance)
+		):
 			break
 
 
 func _event_is_consumed(event_instance: Object) -> bool:
-	if event_instance == null:
+	if event_instance == null or not is_instance_valid(event_instance):
 		return false
-	if not "is_consumed" in event_instance:
-		return false
-	return _GF_VARIANT_ACCESS_SCRIPT.to_bool(event_instance.get_indexed(NodePath("is_consumed")))
+	for property_variant: Variant in event_instance.get_property_list():
+		if not property_variant is Dictionary:
+			continue
+		var property_info: Dictionary = property_variant
+		if (
+			_GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(property_info, "name") == &"is_consumed"
+			and _GF_VARIANT_ACCESS_SCRIPT.get_option_int(property_info, "type", TYPE_NIL) == TYPE_BOOL
+		):
+			var consumed_value: Variant = event_instance.get(&"is_consumed")
+			return consumed_value is bool and consumed_value
+	return false
 
 
 func _append_pending_type_remove(
@@ -811,8 +836,8 @@ func _append_pending_type_remove(
 	_get_type_track(assignable).queue_remove(event_type, callback, owner_id, owner_filter_enabled)
 
 
-func _would_exceed_dispatch_depth(current_depth: int) -> bool:
-	return max_dispatch_depth > 0 and current_depth >= max_dispatch_depth
+func _would_exceed_dispatch_depth() -> bool:
+	return max_dispatch_depth > 0 and _dispatch_depth >= max_dispatch_depth
 
 
 func _report_dispatch_depth_exceeded(track: String, event_key: String) -> void:
@@ -821,7 +846,10 @@ func _report_dispatch_depth_exceeded(track: String, event_key: String) -> void:
 
 
 func _record_dispatch_trace(track: String, event_key: String, listener_count: int, depth: int) -> void:
-	if not trace_enabled or max_trace_entries <= 0:
+	if not trace_enabled:
+		return
+	_dispatch_sequence += 1
+	if max_trace_entries <= 0:
 		return
 
 	_dispatch_trace.append({
@@ -829,7 +857,7 @@ func _record_dispatch_trace(track: String, event_key: String, listener_count: in
 		"event": event_key,
 		"listener_count": listener_count,
 		"depth": depth,
-		"dispatch_index": _type_dispatch_count + _simple_dispatch_count + 1,
+		"dispatch_index": _dispatch_sequence,
 		"ticks_msec": Time.get_ticks_msec(),
 	})
 	_trim_dispatch_trace()
@@ -1148,13 +1176,13 @@ func _get_pending_owner_id(pending: Dictionary) -> int:
 
 
 func _make_owner_ref(owner: Object) -> WeakRef:
-	if owner == null:
+	if owner == null or not is_instance_valid(owner):
 		return null
 	return weakref(owner)
 
 
 func _owner_instance_id(owner: Object) -> int:
-	if owner == null:
+	if owner == null or not is_instance_valid(owner):
 		return 0
 	return owner.get_instance_id()
 
@@ -1203,6 +1231,13 @@ func _validate_listener(
 		push_error("[GFTypeEventSystem] 注册的%s为空。" % callback_label)
 		return false
 	return listener.validate_for_dispatch(dispatch_argument_count, callback_label, arg_label)
+
+
+func _validate_live_owner(owner: Object, operation: String) -> bool:
+	if owner != null and is_instance_valid(owner):
+		return true
+	push_error("[GFTypeEventSystem] %s 失败：owner 为空或已释放。" % operation)
+	return false
 
 
 func _get_listener_callback(listener: GFEventListener) -> Callable:

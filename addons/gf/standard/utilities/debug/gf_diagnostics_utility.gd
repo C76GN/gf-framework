@@ -116,6 +116,35 @@ const DEBUGGER_MESSAGE_CATALOG: String = "gf_diagnostics:catalog"
 const DEBUGGER_MESSAGE_COMMAND_RESULT: String = "gf_diagnostics:command_result"
 
 const _MAX_DIAGNOSTIC_PROVIDER_REQUEST_IDS: int = 1024
+const _DEFAULT_SIGNAL_GRAPH_MAX_SIGNALS: int = 1024
+const _DEFAULT_SIGNAL_GRAPH_MAX_CONNECTIONS: int = 2048
+const _DEFAULT_SIGNAL_GRAPH_MAX_BYTES: int = 262_144
+const _COMMAND_AUTH_ARGUMENT_NAMES: Array[String] = ["auth_token", "_auth_token"]
+const _COMMAND_PARAMETER_SCHEMA_ERROR_KEY: String = "__gf_parameter_schema_error"
+const _COMMAND_PARAMETER_TYPES: Array[String] = [
+	"",
+	"any",
+	"variant",
+	"bool",
+	"boolean",
+	"int",
+	"integer",
+	"float",
+	"number",
+	"string",
+	"string_name",
+	"stringname",
+	"node_path",
+	"nodepath",
+	"dictionary",
+	"dict",
+	"array",
+	"packed_string_array",
+	"vector2",
+	"vector3",
+	"color",
+	"object",
+]
 
 
 # --- 公共变量 ---
@@ -317,13 +346,18 @@ func register_command(
 		return false
 	if not _can_register_owned_entry(_commands, command_name, owner):
 		return false
+	var normalized_parameters: Array[Dictionary] = _normalize_parameter_schema(
+		GFVariantData.get_option_value(options, "parameters", [])
+	)
+	if not _is_command_parameter_schema_valid(normalized_parameters):
+		return false
 	_commands[command_name] = {
 		"owner_ref": weakref(owner),
 		"owner_instance_id": owner.get_instance_id(),
 		"callback": callback,
 		"description": description,
 		"tier": tier,
-		"parameters": _normalize_parameter_schema(GFVariantData.get_option_value(options, "parameters", [])),
+		"parameters": normalized_parameters,
 		"metadata": GFVariantData.get_option_dictionary(options, "metadata"),
 	}
 	if options.has("enabled"):
@@ -378,8 +412,11 @@ func has_command(command_name: StringName) -> bool:
 func set_command_parameter_schema(command_name: StringName, parameters: Variant) -> bool:
 	if not _command_registration_is_live(command_name):
 		return false
+	var normalized_parameters: Array[Dictionary] = _normalize_parameter_schema(parameters)
+	if not _is_command_parameter_schema_valid(normalized_parameters):
+		return false
 	var entry: Dictionary = _get_dictionary_entry(_commands, command_name)
-	entry["parameters"] = _normalize_parameter_schema(parameters)
+	entry["parameters"] = normalized_parameters
 	_commands[command_name] = entry
 	return true
 
@@ -1100,20 +1137,30 @@ func collect_monitor_snapshot(
 ## [br]
 ## @api public
 ## [br]
+## @since 3.0.0
+## [br]
 ## @param preset_id: 预设唯一标识。
 ## [br]
 ## @param include_hidden: 为 true 时包含 visible=false 的监控项。
 ## [br]
 ## @return 监控快照字典。
 ## [br]
-## @schema return: Dictionary，包含 collect_monitor_snapshot() 字段以及 preset_id、preset_label、preset_metadata。
+## @schema return: Dictionary，成功时包含 ok=true、collect_monitor_snapshot() 字段、preset_id、preset_label、preset_metadata；预设缺失时包含 ok=false、timestamp_unix、monitor_count=0、monitors、preset_id 和 error。
 func collect_monitor_preset(preset_id: StringName, include_hidden: bool = false) -> Dictionary:
 	if not _monitor_presets.has(preset_id):
-		return collect_monitor_snapshot(PackedStringArray(), include_hidden)
+		return {
+			"ok": false,
+			"timestamp_unix": Time.get_unix_time_from_system(),
+			"monitor_count": 0,
+			"monitors": {},
+			"preset_id": preset_id,
+			"error": "Missing diagnostic monitor preset: %s" % String(preset_id),
+		}
 
 	var preset: Dictionary = _get_dictionary_entry(_monitor_presets, preset_id)
 	var ids: PackedStringArray = GFVariantData.get_option_packed_string_array(preset, "monitor_ids")
 	var snapshot: Dictionary = collect_monitor_snapshot(ids, include_hidden)
+	snapshot["ok"] = true
 	snapshot["preset_id"] = preset_id
 	snapshot["preset_label"] = GFVariantData.get_option_string(preset, "label", String(preset_id))
 	snapshot["preset_metadata"] = GFVariantData.get_option_dictionary(preset, "metadata")
@@ -1481,13 +1528,13 @@ func collect_scene_tree_snapshot(root: Node = null, options: Dictionary = {}) ->
 ## [br]
 ## @param root: 可选根节点；为空时优先使用当前场景，再回退到 Viewport root。
 ## [br]
-## @param options: 可选参数，支持 include_internal、persistent_only、include_empty_signals、include_external_targets、include_index、redact_paths。
+## @param options: 可选参数，支持 include_internal、persistent_only、include_empty_signals、include_external_targets、include_index、redact_paths，以及 max_nodes、max_signals、max_connections、max_bytes 有界预算。
 ## [br]
 ## @return 信号图快照字典。
 ## [br]
-## @schema options: Dictionary，支持 include_internal、persistent_only、include_empty_signals、include_external_targets、include_index、redact_paths、root_path、prefer_current_scene。
+## @schema options: Dictionary，支持 include_internal、persistent_only、include_empty_signals、include_external_targets、include_index、redact_paths、root_path、prefer_current_scene、max_nodes、max_signals、max_connections、max_bytes。
 ## [br]
-## @schema return: Dictionary，包含 ok、root_path、node_count、signal_count、connection_count、nodes、signals、connections，可选 index。
+## @schema return: Dictionary，包含 ok、root_path、node_count、signal_count、connection_count、nodes、signals、connections、truncated、truncation_reason、estimated_bytes，可选 index；根节点不可用时包含 message。
 func collect_signal_graph_snapshot(root: Node = null, options: Dictionary = {}) -> Dictionary:
 	var target_root: Node = root if root != null else _resolve_scene_tree_root(options)
 	if target_root == null:
@@ -1500,12 +1547,34 @@ func collect_signal_graph_snapshot(root: Node = null, options: Dictionary = {}) 
 			"nodes": [],
 			"signals": [],
 			"connections": [],
+			"truncated": false,
+			"truncation_reason": "",
+			"estimated_bytes": 0,
 			"message": "Signal graph root is unavailable.",
 		}
 
 	var graph: Dictionary = _build_runtime_signal_graph(target_root, options)
 	if GFVariantData.get_option_bool(options, "include_index", false):
-		graph["index"] = _index_signal_graph(graph)
+		var graph_index: Dictionary = _index_signal_graph(graph)
+		var max_bytes: int = maxi(
+			GFVariantData.get_option_int(
+				options,
+				"max_bytes",
+				_DEFAULT_SIGNAL_GRAPH_MAX_BYTES
+			),
+			512
+		)
+		var estimated_bytes: int = GFVariantData.get_option_int(graph, "estimated_bytes", 0)
+		var index_bytes: int = _estimate_signal_graph_entry_bytes(
+			graph_index,
+			maxi(max_bytes - estimated_bytes, 0)
+		)
+		if estimated_bytes + index_bytes <= max_bytes:
+			graph["index"] = graph_index
+			graph["estimated_bytes"] = estimated_bytes + index_bytes
+		else:
+			graph["truncated"] = true
+			graph["truncation_reason"] = "max_bytes"
 	return graph
 
 
@@ -1518,12 +1587,63 @@ func _build_runtime_signal_graph(root: Node, options: Dictionary) -> Dictionary:
 		"include_external_targets": GFVariantData.get_option_bool(options, "include_external_targets", true),
 		"persistent_only": GFVariantData.get_option_bool(options, "persistent_only", false),
 		"max_nodes": maxi(GFVariantData.get_option_int(options, "max_nodes", default_scene_tree_max_nodes), 1),
+		"max_signals": maxi(
+			GFVariantData.get_option_int(
+				options,
+				"max_signals",
+				_DEFAULT_SIGNAL_GRAPH_MAX_SIGNALS
+			),
+			1
+		),
+		"max_connections": maxi(
+			GFVariantData.get_option_int(
+				options,
+				"max_connections",
+				_DEFAULT_SIGNAL_GRAPH_MAX_CONNECTIONS
+			),
+			1
+		),
+		"max_bytes": maxi(
+			GFVariantData.get_option_int(
+				options,
+				"max_bytes",
+				_DEFAULT_SIGNAL_GRAPH_MAX_BYTES
+			),
+			512
+		),
+		"nodes_count": 0,
+		"signals_count": 0,
+		"connections_count": 0,
+		"estimated_bytes": 256,
 		"redact_paths": GFVariantData.get_option_bool(options, "redact_paths", false),
 		"truncated": false,
+		"truncation_reason": "",
 	}
+	var root_path: String = _redact_path_if_needed(
+		_get_node_path_or_empty(root),
+		state
+	)
+	var root_path_bytes: int = root_path.to_utf8_buffer().size()
+	if (
+		GFVariantData.get_option_int(state, "estimated_bytes", 0)
+		+ root_path_bytes
+		> GFVariantData.get_option_int(
+			state,
+			"max_bytes",
+			_DEFAULT_SIGNAL_GRAPH_MAX_BYTES
+		)
+	):
+		root_path = "<truncated>"
+		state["truncated"] = true
+		state["truncation_reason"] = "max_bytes"
+	else:
+		state["estimated_bytes"] = (
+			GFVariantData.get_option_int(state, "estimated_bytes", 0)
+			+ root_path_bytes
+		)
 	var graph: Dictionary = {
 		"ok": true,
-		"root_path": _redact_path_if_needed(_get_node_path_or_empty(root), state),
+		"root_path": root_path,
 		"node_count": 0,
 		"signal_count": 0,
 		"connection_count": 0,
@@ -1536,6 +1656,8 @@ func _build_runtime_signal_graph(root: Node, options: Dictionary) -> Dictionary:
 	graph["signal_count"] = GFVariantData.get_option_array(graph, "signals").size()
 	graph["connection_count"] = GFVariantData.get_option_array(graph, "connections").size()
 	graph["truncated"] = GFVariantData.get_option_bool(state, "truncated", false)
+	graph["truncation_reason"] = GFVariantData.get_option_string(state, "truncation_reason")
+	graph["estimated_bytes"] = GFVariantData.get_option_int(state, "estimated_bytes", 0)
 	return graph
 
 
@@ -1543,16 +1665,19 @@ func _collect_signal_graph_node(root: Node, node: Node, graph: Dictionary, state
 	if node == null or GFVariantData.get_option_bool(state, "truncated", false):
 		return
 	var nodes: Array = GFVariantData.get_option_array(graph, "nodes")
-	if nodes.size() >= GFVariantData.get_option_int(state, "max_nodes", default_scene_tree_max_nodes):
-		state["truncated"] = true
-		return
-
 	var node_path: String = _redact_path_if_needed(_get_node_path_or_empty(node), state)
-	nodes.append({
+	var node_entry: Dictionary = {
 		"path": node_path,
 		"name": node.name,
 		"type": node.get_class(),
-	})
+	}
+	var node_entry_bytes: int = _estimate_signal_graph_entry_bytes(
+		node_entry,
+		_remaining_signal_graph_bytes(state)
+	)
+	if not _try_consume_signal_graph_budget(state, "nodes", node_entry_bytes):
+		return
+	nodes.append(node_entry)
 	graph["nodes"] = nodes
 
 	for signal_info: Dictionary in node.get_signal_list():
@@ -1561,20 +1686,33 @@ func _collect_signal_graph_node(root: Node, node: Node, graph: Dictionary, state
 			continue
 		if not GFVariantData.get_option_bool(state, "include_internal", false) and String(signal_name).begins_with("_"):
 			continue
+		var signal_entry: Dictionary = {
+			"node_path": node_path,
+			"signal": String(signal_name),
+			"connection_count": 0,
+		}
+		var signal_entry_bytes: int = _estimate_signal_graph_entry_bytes(
+			signal_entry,
+			_remaining_signal_graph_bytes(state)
+		)
+		if not _try_consume_signal_graph_budget(state, "signals", signal_entry_bytes):
+			return
 		var raw_connections: Array = node.get_signal_connection_list(signal_name)
 		var connections: Array = _filter_signal_connections(root, node_path, signal_name, raw_connections, state)
 		if connections.is_empty() and not GFVariantData.get_option_bool(state, "include_empty_signals", false):
+			_release_signal_graph_budget(state, "signals", signal_entry_bytes)
+			if GFVariantData.get_option_bool(state, "truncated", false):
+				return
 			continue
 		var signals: Array = GFVariantData.get_option_array(graph, "signals")
-		signals.append({
-			"node_path": node_path,
-			"signal": String(signal_name),
-			"connection_count": connections.size(),
-		})
+		signal_entry["connection_count"] = connections.size()
+		signals.append(signal_entry)
 		graph["signals"] = signals
 		var graph_connections: Array = GFVariantData.get_option_array(graph, "connections")
 		graph_connections.append_array(connections)
 		graph["connections"] = graph_connections
+		if GFVariantData.get_option_bool(state, "truncated", false):
+			return
 
 	for child: Node in node.get_children():
 		_collect_signal_graph_node(root, child, graph, state)
@@ -1603,15 +1741,205 @@ func _filter_signal_connections(
 		if target is Node:
 			var target_node: Node = target
 			target_path = _redact_path_if_needed(_get_node_path_or_empty(target_node), state)
-		result.append({
+		var connection_entry: Dictionary = {
 			"source_path": source_path,
 			"signal": String(signal_name),
 			"target_path": target_path,
 			"target_class": target.get_class() if target != null else "",
 			"method": callback.get_method(),
 			"flags": flags,
-		})
+		}
+		var connection_entry_bytes: int = _estimate_signal_graph_entry_bytes(
+			connection_entry,
+			_remaining_signal_graph_bytes(state)
+		)
+		if not _try_consume_signal_graph_budget(
+			state,
+			"connections",
+			connection_entry_bytes
+		):
+			break
+		result.append(connection_entry)
 	return result
+
+
+func _try_consume_signal_graph_budget(
+	state: Dictionary,
+	category: String,
+	entry_bytes: int
+) -> bool:
+	var count_key: String = "%s_count" % category
+	var max_key: String = "max_%s" % category
+	var current_count: int = GFVariantData.get_option_int(state, count_key, 0)
+	var max_count: int = GFVariantData.get_option_int(state, max_key, 0)
+	if current_count >= max_count:
+		state["truncated"] = true
+		state["truncation_reason"] = max_key
+		return false
+
+	var estimated_bytes: int = GFVariantData.get_option_int(state, "estimated_bytes", 0)
+	var max_bytes: int = GFVariantData.get_option_int(
+		state,
+		"max_bytes",
+		_DEFAULT_SIGNAL_GRAPH_MAX_BYTES
+	)
+	if estimated_bytes + entry_bytes > max_bytes:
+		state["truncated"] = true
+		state["truncation_reason"] = "max_bytes"
+		return false
+
+	state[count_key] = current_count + 1
+	state["estimated_bytes"] = estimated_bytes + entry_bytes
+	return true
+
+
+func _release_signal_graph_budget(
+	state: Dictionary,
+	category: String,
+	entry_bytes: int
+) -> void:
+	var count_key: String = "%s_count" % category
+	state[count_key] = maxi(
+		GFVariantData.get_option_int(state, count_key, 0) - 1,
+		0
+	)
+	state["estimated_bytes"] = maxi(
+		GFVariantData.get_option_int(state, "estimated_bytes", 0) - entry_bytes,
+		0
+	)
+
+
+func _remaining_signal_graph_bytes(state: Dictionary) -> int:
+	return maxi(
+		GFVariantData.get_option_int(
+			state,
+			"max_bytes",
+			_DEFAULT_SIGNAL_GRAPH_MAX_BYTES
+		)
+		- GFVariantData.get_option_int(state, "estimated_bytes", 0),
+		0
+	)
+
+
+func _estimate_signal_graph_entry_bytes(entry: Dictionary, max_bytes: int) -> int:
+	# Signal graph entries are already JSON-compatible. Estimate them directly with
+	# the caller's remaining budget so GFReportValueCodec's independent 1 MiB
+	# fallback marker cannot make an oversized entry appear small.
+	var bounded_limit: int = maxi(max_bytes - 8, 0)
+	var value_bytes: int = _estimate_signal_graph_json_bytes(entry, bounded_limit)
+	if value_bytes > bounded_limit:
+		return max_bytes + 1
+	return value_bytes + 8
+
+
+func _estimate_signal_graph_json_bytes(value: Variant, max_bytes: int) -> int:
+	if max_bytes < 0:
+		return 0
+	if value == null:
+		return 4 if max_bytes >= 4 else max_bytes + 1
+	if value is bool:
+		var bool_bytes: int = 4 if value else 5
+		return bool_bytes if bool_bytes <= max_bytes else max_bytes + 1
+	if value is int or value is float:
+		var number_bytes: int = str(value).length()
+		return number_bytes if number_bytes <= max_bytes else max_bytes + 1
+	if value is String or value is StringName or value is NodePath:
+		return _estimate_signal_graph_json_string_bytes(
+			GFVariantData.to_text(value),
+			max_bytes
+		)
+	if value is Dictionary:
+		var dictionary: Dictionary = value
+		var dictionary_bytes: int = 2
+		if dictionary_bytes > max_bytes:
+			return max_bytes + 1
+		var first_entry: bool = true
+		for key: Variant in dictionary.keys():
+			if not (key is String or key is StringName):
+				return max_bytes + 1
+			if not first_entry:
+				dictionary_bytes += 1
+			first_entry = false
+			var key_budget: int = max_bytes - dictionary_bytes
+			var key_bytes: int = _estimate_signal_graph_json_string_bytes(
+				GFVariantData.to_text(key),
+				key_budget
+			)
+			if key_bytes > key_budget:
+				return max_bytes + 1
+			dictionary_bytes += key_bytes + 1
+			if dictionary_bytes > max_bytes:
+				return max_bytes + 1
+			var value_budget: int = max_bytes - dictionary_bytes
+			var child_bytes: int = _estimate_signal_graph_json_bytes(
+				dictionary[key],
+				value_budget
+			)
+			if child_bytes > value_budget:
+				return max_bytes + 1
+			dictionary_bytes += child_bytes
+		return dictionary_bytes
+	if value is Array:
+		var array_value: Array = value
+		return _estimate_signal_graph_json_array_bytes(array_value, max_bytes)
+	if value is PackedStringArray:
+		var packed_value: PackedStringArray = value
+		var array_value: Array = []
+		for item: String in packed_value:
+			array_value.append(item)
+		return _estimate_signal_graph_json_array_bytes(array_value, max_bytes)
+	return max_bytes + 1
+
+
+func _estimate_signal_graph_json_array_bytes(values: Array, max_bytes: int) -> int:
+	var array_bytes: int = 2
+	if array_bytes > max_bytes:
+		return max_bytes + 1
+	for index: int in range(values.size()):
+		if index > 0:
+			array_bytes += 1
+		var item_budget: int = max_bytes - array_bytes
+		if item_budget < 0:
+			return max_bytes + 1
+		var item_bytes: int = _estimate_signal_graph_json_bytes(
+			values[index],
+			item_budget
+		)
+		if item_bytes > item_budget:
+			return max_bytes + 1
+		array_bytes += item_bytes
+	return array_bytes
+
+
+func _estimate_signal_graph_json_string_bytes(value: String, max_bytes: int) -> int:
+	var string_bytes: int = 2
+	if string_bytes > max_bytes:
+		return max_bytes + 1
+	for index: int in range(value.length()):
+		var codepoint: int = value.unicode_at(index)
+		if (
+			codepoint == 8
+			or codepoint == 9
+			or codepoint == 10
+			or codepoint == 12
+			or codepoint == 13
+			or codepoint == 34
+			or codepoint == 92
+		):
+			string_bytes += 2
+		elif codepoint < 32:
+			string_bytes += 6
+		elif codepoint <= 0x7F:
+			string_bytes += 1
+		elif codepoint <= 0x7FF:
+			string_bytes += 2
+		elif codepoint <= 0xFFFF:
+			string_bytes += 3
+		else:
+			string_bytes += 4
+		if string_bytes > max_bytes:
+			return max_bytes + 1
+	return string_bytes
 
 
 func _signal_connection_target_allowed(root: Node, target: Object, state: Dictionary) -> bool:
@@ -2361,14 +2689,18 @@ func _sample_monitor(monitor_id: StringName, entry: Dictionary) -> Dictionary:
 		entry["last_sample"] = sample.duplicate(true)
 		_monitors[monitor_id] = entry
 	elif GFVariantData.get_option_bool(entry, "has_published_value"):
-		sample["value"] = GFVariantData.get_option_value(entry, "published_value")
-		sample["sample_metadata"] = GFVariantData.get_option_dictionary(entry, "published_metadata")
+		sample["value"] = GFVariantData.duplicate_variant(
+			GFVariantData.get_option_value(entry, "published_value")
+		)
+		sample["sample_metadata"] = GFVariantData.get_option_dictionary(
+			entry,
+			"published_metadata"
+		).duplicate(true)
 		sample["sampled_at_unix"] = GFVariantData.get_option_float(entry, "published_at_unix", 0.0)
 		sample["valid"] = true
 	else:
 		sample["error"] = "Monitor has no published sample."
 
-	monitor_sampled.emit(monitor_id, sample)
 	return sample
 
 
@@ -2748,12 +3080,20 @@ func _normalize_parameter_schema(parameters: Variant) -> Array[Dictionary]:
 	if parameters is Dictionary:
 		var parameter_map: Dictionary = parameters
 		for key: Variant in parameter_map.keys():
-			var definition: Dictionary = {}
+			if not (key is String or key is StringName):
+				result.append(_make_invalid_parameter_schema(
+					"命令参数 schema Dictionary 的键必须是 String 或 StringName。"
+				))
+				continue
 			var raw_definition: Variant = parameter_map[key]
-			if raw_definition is Dictionary:
-				var raw_definition_dictionary: Dictionary = raw_definition
-				definition = raw_definition_dictionary.duplicate(true)
-			definition["name"] = str(key)
+			if not raw_definition is Dictionary:
+				result.append(_make_invalid_parameter_schema(
+					"命令参数 schema Dictionary 的值必须是 Dictionary。"
+				))
+				continue
+			var raw_definition_dictionary: Dictionary = raw_definition
+			var definition: Dictionary = raw_definition_dictionary.duplicate(true)
+			definition["name"] = GFVariantData.to_text(key)
 			result.append(_normalize_parameter_definition(definition))
 	elif parameters is Array:
 		var parameter_array: Array = parameters
@@ -2761,16 +3101,37 @@ func _normalize_parameter_schema(parameters: Variant) -> Array[Dictionary]:
 			if item is Dictionary:
 				var item_definition: Dictionary = item
 				result.append(_normalize_parameter_definition(item_definition.duplicate(true)))
+			else:
+				result.append(_make_invalid_parameter_schema(
+					"命令参数 schema Array 的每一项都必须是 Dictionary。"
+				))
+	else:
+		result.append(_make_invalid_parameter_schema(
+			"命令参数 schema 顶层必须是 Array 或 Dictionary。"
+		))
 	return result
+
+
+func _make_invalid_parameter_schema(error_message: String) -> Dictionary:
+	return {
+		_COMMAND_PARAMETER_SCHEMA_ERROR_KEY: error_message,
+	}
 
 
 func _normalize_parameter_definition(definition: Dictionary) -> Dictionary:
 	var parameter_name: String = GFVariantData.get_option_string(definition, "name")
 	if parameter_name.is_empty():
 		return {}
+	var parameter_type: String = "any"
+	if definition.has("type"):
+		var raw_parameter_type: Variant = definition["type"]
+		if raw_parameter_type is String or raw_parameter_type is StringName:
+			parameter_type = GFVariantData.to_text(raw_parameter_type).to_lower()
+		else:
+			parameter_type = "<invalid:%s>" % type_string(typeof(raw_parameter_type))
 	return {
 		"name": parameter_name,
-		"type": GFVariantData.get_option_string(definition, "type", "any").to_lower(),
+		"type": parameter_type,
 		"required": GFVariantData.get_option_bool(definition, "required", false),
 		"allow_null": GFVariantData.get_option_bool(definition, "allow_null", false),
 		"default": GFVariantData.duplicate_variant(GFVariantData.get_option_value(definition, "default", null)),
@@ -2784,6 +3145,11 @@ func _normalize_parameter_definition(definition: Dictionary) -> Dictionary:
 
 func _prepare_command_args(args: Dictionary, entry: Dictionary) -> Dictionary:
 	var prepared: Dictionary = args.duplicate(true)
+	for auth_argument_name: String in _COMMAND_AUTH_ARGUMENT_NAMES:
+		var _auth_argument_erased: bool = prepared.erase(auth_argument_name)
+		var _auth_string_name_erased: bool = prepared.erase(
+			StringName(auth_argument_name)
+		)
 	var parameters: Array = GFVariantData.get_option_array(entry, "parameters")
 	for parameter_variant: Variant in parameters:
 		if not (parameter_variant is Dictionary):
@@ -2912,7 +3278,44 @@ func _does_value_match_parameter_type(value: Variant, type_name: String) -> bool
 		"object":
 			return value is Object
 		_:
-			return true
+			return false
+
+
+func _is_command_parameter_schema_valid(parameters: Array[Dictionary]) -> bool:
+	var used_names: Dictionary = {}
+	for parameter: Dictionary in parameters:
+		var schema_error: String = GFVariantData.get_option_string(
+			parameter,
+			_COMMAND_PARAMETER_SCHEMA_ERROR_KEY
+		)
+		if not schema_error.is_empty():
+			push_error("[GFDiagnosticsUtility] %s" % schema_error)
+			return false
+		var parameter_name: String = GFVariantData.get_option_string(parameter, "name")
+		var type_name: String = GFVariantData.get_option_string(parameter, "type", "any").to_lower()
+		if parameter_name.is_empty():
+			push_error("[GFDiagnosticsUtility] 命令参数 schema 包含空名称。")
+			return false
+		if _COMMAND_AUTH_ARGUMENT_NAMES.has(parameter_name):
+			push_error(
+				"[GFDiagnosticsUtility] 命令参数 schema 不得声明保留认证字段：%s。"
+				% parameter_name
+			)
+			return false
+		if used_names.has(parameter_name):
+			push_error(
+				"[GFDiagnosticsUtility] 命令参数 schema 包含重复名称：%s。"
+				% parameter_name
+			)
+			return false
+		if not _COMMAND_PARAMETER_TYPES.has(type_name):
+			push_error(
+				"[GFDiagnosticsUtility] 命令参数 schema 使用未知类型：%s。"
+				% type_name
+			)
+			return false
+		used_names[parameter_name] = true
+	return true
 
 
 func _get_tier_name(tier: int) -> String:

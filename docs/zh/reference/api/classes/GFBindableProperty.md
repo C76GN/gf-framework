@@ -166,7 +166,7 @@ func subscribe(callback: Callable, emit_current: bool = false) -> Callable:
 | `callback` | 变化回调，签名应为 func(old_value: Variant, new_value: Variant)。 |
 | `emit_current` | 是否立即以当前值调用一次回调；为 true 时 old_value 和 new_value 都是当前值。 |
 
-返回：可调用的取消订阅函数；callback 无效时返回空 Callable。
+返回：当前这次独立订阅的取消函数；callback 无效时返回空 Callable。
 
 <a id="member-gfbindableproperty-methods-subscribe_token"></a>
 
@@ -188,7 +188,7 @@ func subscribe_token(callback: Callable, emit_current: bool = false) -> GFSubscr
 | `callback` | 变化回调，签名应为 func(old_value: Variant, new_value: Variant)。 |
 | `emit_current` | 是否立即以当前值调用一次回调；为 true 时 old_value 和 new_value 都是当前值。 |
 
-返回：可取消订阅句柄；callback 无效时返回非活动句柄。
+返回：当前这次独立订阅的可取消句柄；callback 无效时返回非活动句柄。
 
 <a id="member-gfbindableproperty-methods-subscribe_owned"></a>
 
@@ -211,7 +211,7 @@ func subscribe_owned(owner: Object, callback: Callable, emit_current: bool = fal
 | `callback` | 变化回调，签名应为 func(old_value: Variant, new_value: Variant)。 |
 | `emit_current` | 是否立即以当前值调用一次回调；为 true 时 old_value 和 new_value 都是当前值。 |
 
-返回：绑定 owner 生命周期的订阅句柄；owner 或 callback 无效时返回非活动句柄。
+返回：当前这次独立订阅且绑定 owner 生命周期的句柄；owner 或 callback 无效时返回非活动句柄。
 
 <a id="member-gfbindableproperty-methods-subscribe_method"></a>
 
@@ -234,7 +234,7 @@ func subscribe_method(owner: Object, method_name: StringName, emit_current: bool
 | `method_name` | 变化回调方法名，方法签名应为 func(old_value: Variant, new_value: Variant)。 |
 | `emit_current` | 是否立即以当前值调用一次回调；为 true 时 old_value 和 new_value 都是当前值。 |
 
-返回：绑定 owner 生命周期的订阅句柄；owner 或方法无效时返回非活动句柄。
+返回：当前这次独立订阅且绑定 owner 生命周期的句柄；owner 或方法无效时返回非活动句柄。
 
 <a id="member-gfbindableproperty-methods-force_emit"></a>
 
@@ -253,18 +253,19 @@ func force_emit() -> void:
 ### `mutate`
 
 - API：`public`
+- 首次版本：`2.1.0`
 
 ```gdscript
 func mutate(mutator: Callable) -> bool:
 ```
 
-通过回调修改当前值并强制广播。
+通过回调计算并设置当前值。 回调接收当前值；Array、Dictionary 与 PackedArray 会深复制， Object/Resource 引用保持身份。回调必须返回完整 replacement value， 标量和集合遵循同一契约。仅当 replacement 与当前值不同时才广播。
 
 参数：
 
 | 名称 | 说明 |
 |---|---|
-| `mutator` | 修改当前值的回调。 |
+| `mutator` | replacement 回调，签名为 func(current_value: Variant) -> Variant。 |
 
 返回：回调有效时返回 true。
 

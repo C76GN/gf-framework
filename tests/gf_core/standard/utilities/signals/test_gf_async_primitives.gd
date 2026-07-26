@@ -68,6 +68,190 @@ func test_cancel_source_tracks_node_lifetime() -> void:
 	assert_eq(source.get_token().get_cancel_reason(), &"owner_released", "节点生命周期取消应保留原因。")
 
 
+func test_cancel_source_rejects_self_and_duplicate_registrations() -> void:
+	var upstream: GFCancellationSource = GFCancellationSource.new()
+	var node: Node = Node.new()
+	add_child_autofree(node)
+	var source: GFCancellationSource = GFCancellationSource.new()
+
+	assert_false(source.link_token(source.get_token()), "source 不应连接自己的 token。")
+	assert_true(source.link_token(upstream.get_token(), &"first_link"), "首次 token 连接应成功。")
+	assert_false(source.link_token(upstream.get_token(), &"second_link"), "重复 token 连接应明确失败。")
+	assert_true(source.cancel_when_node_exits(node, &"first_node"), "首次节点离树连接应成功。")
+	assert_false(source.cancel_when_node_exits(node, &"second_node"), "重复节点连接应明确失败。")
+
+	assert_true(upstream.cancel(&"upstream"), "上游 source 应能取消。")
+	assert_eq(source.get_token().get_cancel_reason(), &"first_link", "重复连接不得覆盖首次注册参数。")
+
+
+func test_cancel_source_requires_node_to_be_inside_tree() -> void:
+	var node: Node = Node.new()
+	var source: GFCancellationSource = GFCancellationSource.new()
+
+	assert_false(source.cancel_when_node_exits(node), "尚未入树的节点不满足离树监听前置条件。")
+	assert_false(source.is_cancel_requested(), "拒绝尚未入树节点时不应触发取消。")
+
+	node.free()
+	source.dispose()
+
+
+func test_cancel_source_snapshots_deferred_registration_metadata() -> void:
+	var upstream: GFCancellationSource = GFCancellationSource.new()
+	var linked_source: GFCancellationSource = GFCancellationSource.new()
+	var link_metadata: Dictionary = { "nested": { "value": 1 } }
+	assert_true(linked_source.link_token(upstream.get_token(), &"", link_metadata))
+	var link_nested: Dictionary = GFVariantData.get_option_dictionary(link_metadata, "nested")
+	link_nested["value"] = 99
+	assert_true(upstream.cancel(&"upstream"))
+
+	var linked_cancel_metadata: Dictionary = linked_source.get_token().get_cancel_metadata()
+	var linked_nested: Dictionary = GFVariantData.get_option_dictionary(linked_cancel_metadata, "nested")
+	assert_eq(GFVariantData.get_option_int(linked_nested, "value"), 1, "token 注册元数据应在连接时深复制。")
+
+	var node: Node = Node.new()
+	add_child(node)
+	var node_source: GFCancellationSource = GFCancellationSource.new()
+	var node_metadata: Dictionary = { "nested": { "value": 2 } }
+	assert_true(node_source.cancel_when_node_exits(node, &"node_exited", node_metadata))
+	var node_nested: Dictionary = GFVariantData.get_option_dictionary(node_metadata, "nested")
+	node_nested["value"] = 99
+	node.queue_free()
+	await get_tree().process_frame
+
+	var node_cancel_metadata: Dictionary = node_source.get_token().get_cancel_metadata()
+	var cancelled_node_nested: Dictionary = GFVariantData.get_option_dictionary(node_cancel_metadata, "nested")
+	assert_eq(GFVariantData.get_option_int(cancelled_node_nested, "value"), 2, "节点注册元数据应在连接时深复制。")
+
+	var timeout_source: GFCancellationSource = GFCancellationSource.new()
+	var timeout_metadata: Dictionary = { "nested": { "value": 3 } }
+	assert_true(timeout_source.cancel_after_seconds(0.01, get_tree(), &"timeout", timeout_metadata))
+	var timeout_nested: Dictionary = GFVariantData.get_option_dictionary(timeout_metadata, "nested")
+	timeout_nested["value"] = 99
+	await timeout_source.get_token().cancel_requested
+
+	var timeout_cancel_metadata: Dictionary = timeout_source.get_token().get_cancel_metadata()
+	var cancelled_timeout_nested: Dictionary = GFVariantData.get_option_dictionary(timeout_cancel_metadata, "nested")
+	assert_eq(GFVariantData.get_option_int(cancelled_timeout_nested, "value"), 3, "超时注册元数据应在安排时深复制。")
+
+
+func test_cancel_source_dispose_is_terminal_and_detaches_registrations() -> void:
+	var upstream: GFCancellationSource = GFCancellationSource.new()
+	var node: Node = Node.new()
+	add_child_autofree(node)
+	var source: GFCancellationSource = GFCancellationSource.new()
+
+	assert_true(source.link_token(upstream.get_token()))
+	assert_true(source.cancel_when_node_exits(node))
+	assert_true(source.cancel_after_seconds(1.0, get_tree()))
+	source.dispose()
+	source.dispose()
+
+	var snapshot: Dictionary = source.get_debug_snapshot()
+	assert_true(GFVariantData.get_option_bool(snapshot, "disposed"), "dispose 后调试快照应标记终态。")
+	assert_eq(GFVariantData.get_option_int(snapshot, "linked_token_count"), 0, "dispose 应断开上游 token。")
+	assert_eq(GFVariantData.get_option_int(snapshot, "node_lifetime_count"), 0, "dispose 应断开节点离树监听。")
+	assert_false(GFVariantData.get_option_bool(snapshot, "has_timeout"), "dispose 应停止并移除超时。")
+	assert_false(source.cancel(), "dispose 后不应再允许取消状态变更。")
+	assert_false(source.link_token(upstream.get_token()), "dispose 后不应再允许 token 连接。")
+	assert_false(source.cancel_when_node_exits(node), "dispose 后不应再允许节点连接。")
+	assert_false(source.cancel_after_seconds(0.01, get_tree()), "dispose 后不应再允许超时计划。")
+
+	assert_true(upstream.cancel(), "上游 source 自身仍应可取消。")
+	node.queue_free()
+	await get_tree().process_frame
+	assert_false(source.is_cancel_requested(), "dispose 清理后的外部事件不应再取消 source。")
+
+
+func test_cancel_source_rejects_non_finite_and_replaces_timeout() -> void:
+	var source: GFCancellationSource = GFCancellationSource.new()
+
+	assert_false(source.cancel_after_seconds(NAN, get_tree()), "NaN 超时应被拒绝。")
+	assert_false(source.cancel_after_seconds(INF, get_tree()), "正无穷超时应被拒绝。")
+	assert_false(source.cancel_after_seconds(-INF, get_tree()), "负无穷超时应被拒绝。")
+	assert_false(GFVariantData.get_option_bool(source.get_debug_snapshot(), "has_timeout"), "无效超时不得创建 timer。")
+
+	assert_true(source.cancel_after_seconds(0.01, get_tree(), &"stale_timeout"))
+	assert_true(source.cancel_after_seconds(0.25, get_tree(), &"replacement_timeout"))
+	await get_tree().create_timer(0.03).timeout
+	assert_false(source.is_cancel_requested(), "替换超时后旧 timer 不得继续触发取消。")
+	assert_true(source.cancel(&"test_cleanup"), "测试结束时应能取消 replacement timer。")
+
+
+func test_cancel_source_create_linked_fails_closed() -> void:
+	var upstream: GFCancellationSource = GFCancellationSource.new()
+	var invalid_source: GFCancellationSource = GFCancellationSource.create_linked([
+		upstream.get_token(),
+		"invalid",
+	])
+
+	assert_null(invalid_source, "无效 token 条目应使组合创建整体失败。")
+	assert_eq(upstream.get_token().cancel_requested.get_connections().size(), 0, "失败创建不得残留部分 token 连接。")
+
+	var duplicate_source: GFCancellationSource = GFCancellationSource.create_linked([
+		upstream.get_token(),
+		upstream.get_token(),
+	])
+	assert_null(duplicate_source, "重复 token 注册失败时不应返回部分组合 source。")
+	assert_eq(upstream.get_token().cancel_requested.get_connections().size(), 0, "重复 token 失败后应清理先前连接。")
+
+	var cancelled_upstream: GFCancellationSource = GFCancellationSource.new()
+	assert_true(cancelled_upstream.cancel(&"already_cancelled"))
+	var cancelled_source: GFCancellationSource = GFCancellationSource.create_linked([
+		cancelled_upstream.get_token(),
+		"ignored_after_terminal",
+	])
+	assert_not_null(cancelled_source, "首个已取消 token 应按 first-cancel-wins 返回终态 source。")
+	assert_true(cancelled_source.is_cancel_requested(), "已取消上游应立即取消组合 source。")
+	assert_eq(cancelled_source.get_token().get_cancel_reason(), &"already_cancelled")
+
+
+func test_cancel_source_registrations_do_not_retain_dropped_source() -> void:
+	var upstream: GFCancellationSource = GFCancellationSource.new()
+	var node: Node = Node.new()
+	add_child_autofree(node)
+	var source: GFCancellationSource = GFCancellationSource.new()
+
+	assert_true(source.link_token(upstream.get_token()))
+	assert_true(source.cancel_when_node_exits(node))
+	assert_true(source.cancel_after_seconds(0.01, get_tree()))
+	var source_ref: WeakRef = weakref(source)
+	source = null
+
+	assert_true(source_ref.get_ref() == null, "注册回调不得形成保留 source 的 RefCounted 自环。")
+	assert_true(upstream.cancel(), "释放 source 后触发上游信号不应访问失效目标。")
+	node.queue_free()
+	await get_tree().create_timer(0.03).timeout
+
+
+func test_cancel_source_mutators_reject_worker_thread_calls() -> void:
+	var upstream: GFCancellationSource = GFCancellationSource.new()
+	var node: Node = Node.new()
+	add_child_autofree(node)
+	var source: GFCancellationSource = GFCancellationSource.new()
+	var worker: Thread = Thread.new()
+	var start_error: Error = worker.start(
+		Callable(self, &"_call_cancel_source_mutators_from_worker").bind(
+			source,
+			upstream.get_token(),
+			node,
+			get_tree()
+		)
+	)
+	assert_eq(start_error, OK, "测试 worker 应能启动。")
+	var worker_value: Variant = worker.wait_to_finish()
+	var results: Dictionary = GFVariantData.as_dictionary(worker_value)
+
+	assert_false(GFVariantData.get_option_bool(results, "cancel"), "worker 不得触发 cancel。")
+	assert_false(GFVariantData.get_option_bool(results, "link_token"), "worker 不得连接 token。")
+	assert_false(GFVariantData.get_option_bool(results, "node_exit"), "worker 不得连接 Node 信号。")
+	assert_false(GFVariantData.get_option_bool(results, "timeout"), "worker 不得连接 SceneTreeTimer。")
+	assert_false(GFVariantData.get_option_bool(results, "disposed"), "worker 不得推进 dispose 终态。")
+	assert_false(GFVariantData.get_option_bool(results, "created_linked"), "worker 不得创建 linked source。")
+	assert_false(source.is_cancel_requested(), "被拒绝的 worker 操作不得改变 source。")
+	source.dispose()
+	assert_push_error_count(6, "六个非主线程 mutator 都应报告契约错误。")
+
+
 func test_async_completion_succeeds_once_and_binds_cancel_token() -> void:
 	var completion: GFAsyncCompletion = GFAsyncCompletion.new()
 	var signal_state: Dictionary = {}
@@ -214,6 +398,50 @@ func test_timeout_controller_reuses_token_and_reports_timeout() -> void:
 	controller.dispose()
 
 
+func test_timeout_controller_reentrant_restart_classifies_cancel_by_source_identity() -> void:
+	var controller: GFTimeoutController = GFTimeoutController.new()
+	var timeout_events: Array[StringName] = []
+	var timeout_connect_error: Error = controller.timed_out.connect(
+		func(reason: StringName, _metadata: Dictionary) -> void:
+			timeout_events.append(reason)
+	) as Error
+	assert_eq(timeout_connect_error, OK, "测试应能监听超时信号。")
+	var old_token: GFCancellationToken = controller.start_seconds(
+		10.0,
+		get_tree(),
+		&"old_timeout"
+	)
+	var reentry_state: Dictionary = { "replacement_token": null }
+	var restart_connect_error: Error = old_token.cancel_requested.connect(
+		func(_reason: StringName) -> void:
+			reentry_state["replacement_token"] = controller.start_seconds(
+				0.0,
+				get_tree(),
+				&"reentrant_timeout"
+			)
+	) as Error
+	assert_eq(restart_connect_error, OK, "测试应能从旧 token 取消回调重启控制器。")
+
+	assert_true(controller.cancel(&"manual_cancel"), "旧 source 的主动取消应成功。")
+
+	var replacement_value: Variant = GFVariantData.get_option_value(
+		reentry_state,
+		"replacement_token"
+	)
+	assert_true(
+		replacement_value is GFCancellationToken,
+		"旧 token listener 应同步创建 replacement source。"
+	)
+	if replacement_value is GFCancellationToken:
+		var replacement_token: GFCancellationToken = replacement_value
+		assert_true(replacement_token.is_cancel_requested(), "零秒 replacement 应立即取消。")
+		assert_eq(replacement_token.get_cancel_reason(), &"reentrant_timeout")
+	assert_true(controller.is_timeout(), "旧 source 的 manual 分类不得污染 replacement 超时。")
+	assert_false(controller.is_active(), "replacement 超时后控制器不应保持 active。")
+	assert_eq(timeout_events, [&"reentrant_timeout"], "replacement 应发出一次超时信号。")
+	controller.dispose()
+
+
 func test_timeout_controller_elapsed_time_uses_injected_clock() -> void:
 	var clock: GFManualClock = GFManualClock.new(0, 1700000000000)
 	var controller: GFTimeoutController = GFTimeoutController.new(clock)
@@ -228,6 +456,47 @@ func test_timeout_controller_elapsed_time_uses_injected_clock() -> void:
 	var replacement: GFManualClock = GFManualClock.new(500000, 1700000000500)
 	assert_true(controller.set_clock(replacement), "停止计划后应能替换时钟。")
 	assert_same(controller.get_clock(), replacement, "控制器应持有替换后的时钟。")
+	controller.dispose()
+
+
+func test_timeout_controller_restarts_after_stop_and_reset() -> void:
+	var controller: GFTimeoutController = GFTimeoutController.new()
+	var stopped_token: GFCancellationToken = controller.start_seconds(
+		0.25,
+		get_tree(),
+		&"stopped_plan"
+	)
+	controller.stop()
+	var idle_token: GFCancellationToken = controller.get_token()
+	var restarted_after_stop: GFCancellationToken = controller.start_seconds(
+		0.01,
+		get_tree(),
+		&"after_stop"
+	)
+	await restarted_after_stop.cancel_requested
+
+	assert_false(stopped_token.is_cancel_requested(), "stop 不应取消旧计划 token。")
+	assert_not_same(idle_token, stopped_token, "stop 应替换已经终结的 source。")
+	assert_not_same(restarted_after_stop, idle_token, "stop 后 restart 应创建新的计划 token。")
+	assert_eq(restarted_after_stop.get_cancel_reason(), &"after_stop")
+
+	var pending_token: GFCancellationToken = controller.start_seconds(
+		0.25,
+		get_tree(),
+		&"pending_reset"
+	)
+	var reset_token: GFCancellationToken = controller.reset()
+	var restarted_after_reset: GFCancellationToken = controller.start_seconds(
+		0.01,
+		get_tree(),
+		&"after_reset"
+	)
+	await restarted_after_reset.cancel_requested
+
+	assert_false(pending_token.is_cancel_requested(), "reset 不应取消旧计划 token。")
+	assert_not_same(reset_token, pending_token, "reset 应创建新的空闲 token。")
+	assert_not_same(restarted_after_reset, reset_token, "reset 后 restart 应创建新的计划 token。")
+	assert_eq(restarted_after_reset.get_cancel_reason(), &"after_reset")
 	controller.dispose()
 
 
@@ -447,6 +716,25 @@ func _read_text_file(path: String) -> String:
 	var text: String = file.get_as_text()
 	file.close()
 	return text
+
+
+func _call_cancel_source_mutators_from_worker(
+	source: GFCancellationSource,
+	upstream_token: GFCancellationToken,
+	node: Node,
+	tree: SceneTree
+) -> Dictionary:
+	var results: Dictionary = {
+		"cancel": source.cancel(),
+		"link_token": source.link_token(upstream_token),
+		"node_exit": source.cancel_when_node_exits(node),
+		"timeout": source.cancel_after_seconds(0.01, tree),
+	}
+	source.dispose()
+	results["disposed"] = GFVariantData.get_option_bool(source.get_debug_snapshot(), "disposed")
+	var created_source: GFCancellationSource = GFCancellationSource.create_linked([upstream_token])
+	results["created_linked"] = created_source != null
+	return results
 
 
 # --- 内部类 ---

@@ -140,6 +140,44 @@ class EmptyReportDispatchNode extends Node:
 		return {}
 
 
+class ForgedMarkerInteractionReceiver extends GFInteractionReceiver:
+	func receive_interaction_raw_for_framework(
+		_context: GFInteractionContext,
+		interaction_id: StringName = &""
+	) -> Dictionary:
+		var circular: Dictionary = {}
+		circular["self"] = circular
+		return {
+			"ok": true,
+			"interaction_id": interaction_id,
+			"receiver": {
+				"__gf_report_value__": {
+					"version": 1,
+					"type": "Object",
+					"redacted": true,
+					"object_instance_id": get_instance_id(),
+					"leaked_object": self,
+					"path": "res://private/receiver.tres",
+				},
+			},
+			"metadata": {
+				"forged": {
+					"__gf_report_value__": {
+						"version": 1,
+						"type": "Object",
+						"redacted": true,
+						"leaked_object": self,
+						"circular": circular,
+						"path": "res://private/metadata.tres",
+					},
+				},
+				"object": self,
+				"circular": circular,
+				"path": "res://private/report.json",
+			},
+		}
+
+
 # --- 测试方法 ---
 
 func test_sensor_send_to_receiver_builds_context_and_report() -> void:
@@ -176,6 +214,98 @@ func test_sensor_report_uses_receiver_summary_instead_of_live_object() -> void:
 	assert_false(receiver_report is Object, "交互报告不应携带 live receiver Object。")
 	assert_eq(_receiver_instance_id(report), receiver.get_instance_id(), "receiver 摘要应保留实例 ID 便于诊断关联。")
 	assert_true(receiver_summary.has("__gf_report_value__"), "receiver 应使用 GFReportValueCodec marker。")
+	assert_eq(
+		GFVariantData.get_option_string(
+			GFVariantData.get_option_dictionary(receiver_summary, "__gf_report_value__"),
+			"type"
+		),
+		"Object",
+		"receiver marker 应只编码一次，不能再次折叠成 Dictionary marker。"
+	)
+
+
+func test_receiver_report_metadata_is_encoded_once_at_public_boundary() -> void:
+	var receiver: GFInteractionReceiver = GFInteractionReceiver.new()
+	add_child_autofree(receiver)
+	var circular: Dictionary = {}
+	circular["self"] = circular
+	receiver.metadata = {
+		"object": receiver,
+		"circular": circular,
+		"tags": PackedStringArray(["alpha", "beta"]),
+		"path": "res://private/receiver.json",
+	}
+
+	var report: Dictionary = receiver.receive_interaction(
+		GFInteractionContext.new(),
+		&"inspect"
+	)
+	var report_metadata: Dictionary = GFVariantData.get_option_dictionary(
+		report,
+		"metadata"
+	)
+
+	assert_eq(_report_marker_type(report_metadata.get("object")), "Object")
+	assert_eq(
+		_report_marker_type(
+			GFVariantData.get_option_value(
+				GFVariantData.get_option_dictionary(report_metadata, "circular"),
+				"self"
+			)
+		),
+		"CircularReference"
+	)
+	assert_eq(_report_marker_type(report_metadata.get("tags")), "PackedArray")
+	assert_eq(
+		GFVariantData.get_option_string(report_metadata, "path"),
+		"receiver.json"
+	)
+	assert_false(_contains_live_object(report), "Receiver 公共报告不得残留 live Object。")
+	assert_false(JSON.stringify(report).is_empty(), "Receiver 公共报告必须可直接 JSON.stringify。")
+
+
+func test_sensor_does_not_trust_forged_report_marker_shape() -> void:
+	var sensor: GFInteractionSensor = GFInteractionSensor.new()
+	var receiver: ForgedMarkerInteractionReceiver = ForgedMarkerInteractionReceiver.new()
+	add_child_autofree(sensor)
+	add_child_autofree(receiver)
+
+	var report: Dictionary = sensor.send_to(receiver, null, &"inspect")
+	var receiver_marker: Dictionary = _report_marker(
+		GFVariantData.get_option_value(report, "receiver")
+	)
+	var report_metadata: Dictionary = GFVariantData.get_option_dictionary(
+		report,
+		"metadata"
+	)
+	var forged_marker: Dictionary = _report_marker(
+		GFVariantData.get_option_value(report_metadata, "forged")
+	)
+
+	assert_eq(GFVariantData.get_option_string(receiver_marker, "type"), "Object")
+	assert_eq(
+		GFVariantData.get_option_int(receiver_marker, "instance_id"),
+		receiver.get_instance_id(),
+		"Sensor 应以实际接收对象重建 receiver 摘要，不能信任用户 marker。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(forged_marker, "type"),
+		"Dictionary",
+		"用户伪造的 report marker 必须按普通 Dictionary 保真编码。"
+	)
+	assert_eq(_report_marker_type(report_metadata.get("object")), "Object")
+	assert_eq(
+		_report_marker_type(
+			GFVariantData.get_option_value(
+				GFVariantData.get_option_dictionary(report_metadata, "circular"),
+				"self"
+			)
+		),
+		"CircularReference"
+	)
+	assert_eq(GFVariantData.get_option_string(report_metadata, "path"), "report.json")
+	assert_false(_contains_live_object(report), "伪 marker 不得把 live Object 带过报告边界。")
+	assert_false(JSON.stringify(report).is_empty(), "伪 marker 报告仍必须可直接 JSON.stringify。")
 
 
 func test_receiver_filters_interaction_ids() -> void:
@@ -792,3 +922,32 @@ func _receiver_instance_id(report: Dictionary) -> int:
 	var receiver_report: Dictionary = GFVariantData.get_option_dictionary(report, "receiver")
 	var marker: Dictionary = GFVariantData.get_option_dictionary(receiver_report, "__gf_report_value__")
 	return GFVariantData.get_option_int(marker, "instance_id", -1)
+
+
+func _report_marker(value: Variant) -> Dictionary:
+	return GFVariantData.get_option_dictionary(
+		GFVariantData.as_dictionary(value),
+		"__gf_report_value__"
+	)
+
+
+func _report_marker_type(value: Variant) -> String:
+	return GFVariantData.get_option_string(_report_marker(value), "type")
+
+
+func _contains_live_object(value: Variant) -> bool:
+	var worklist: Array = [value]
+	while not worklist.is_empty():
+		var candidate: Variant = worklist.pop_back()
+		if candidate is Object:
+			return true
+		if candidate is Dictionary:
+			var dictionary: Dictionary = candidate
+			for key: Variant in dictionary.keys():
+				worklist.append(key)
+				worklist.append(dictionary[key])
+		elif candidate is Array:
+			var array: Array = candidate
+			for item: Variant in array:
+				worklist.append(item)
+	return false

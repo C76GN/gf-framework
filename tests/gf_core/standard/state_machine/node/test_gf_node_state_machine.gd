@@ -1096,6 +1096,8 @@ func test_node_state_machine_snapshot_has_json_safe_export() -> void:
 		raw_owner = raw_owner_value
 
 	assert_same(raw_owner, self, "raw 节点快照应保留运行时 Variant。")
+	assert_true(exported_groups.has("Body"), "groups 固定 schema 应保持可直接遍历的 JSON object。")
+	assert_false(exported_body.has("__gf_report_value__"), "状态组固定字段不应整体折叠为键保真 marker。")
 	assert_true(GFVariantData.get_option_bool(owner_marker, "redacted"), "JSON-safe 节点快照应脱敏运行时对象。")
 	assert_eq(GFVariantData.get_option_string(exported_blackboard, "path"), "<redacted_path>", "JSON-safe 节点快照应默认脱敏路径。")
 

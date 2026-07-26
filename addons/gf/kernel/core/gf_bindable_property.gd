@@ -125,7 +125,7 @@ func set_value(new_value: Variant) -> void:
 ## [br]
 ## @param emit_current: 是否立即以当前值调用一次回调；为 true 时 old_value 和 new_value 都是当前值。
 ## [br]
-## @return 可调用的取消订阅函数；callback 无效时返回空 Callable。
+## @return 当前这次独立订阅的取消函数；callback 无效时返回空 Callable。
 func subscribe(callback: Callable, emit_current: bool = false) -> Callable:
 	if not callback.is_valid():
 		push_error("[GFBindableProperty] subscribe 失败：callback 无效。")
@@ -144,7 +144,7 @@ func subscribe(callback: Callable, emit_current: bool = false) -> Callable:
 ## [br]
 ## @param emit_current: 是否立即以当前值调用一次回调；为 true 时 old_value 和 new_value 都是当前值。
 ## [br]
-## @return 可取消订阅句柄；callback 无效时返回非活动句柄。
+## @return 当前这次独立订阅的可取消句柄；callback 无效时返回非活动句柄。
 func subscribe_token(callback: Callable, emit_current: bool = false) -> GFSubscriptionToken:
 	if not callback.is_valid():
 		push_error("[GFBindableProperty] subscribe_token 失败：callback 无效。")
@@ -165,7 +165,7 @@ func subscribe_token(callback: Callable, emit_current: bool = false) -> GFSubscr
 ## [br]
 ## @param emit_current: 是否立即以当前值调用一次回调；为 true 时 old_value 和 new_value 都是当前值。
 ## [br]
-## @return 绑定 owner 生命周期的订阅句柄；owner 或 callback 无效时返回非活动句柄。
+## @return 当前这次独立订阅且绑定 owner 生命周期的句柄；owner 或 callback 无效时返回非活动句柄。
 func subscribe_owned(owner: Object, callback: Callable, emit_current: bool = false) -> GFLifetimeSubscription:
 	if owner == null or not is_instance_valid(owner):
 		push_error("[GFBindableProperty] subscribe_owned 失败：owner 无效。")
@@ -189,7 +189,7 @@ func subscribe_owned(owner: Object, callback: Callable, emit_current: bool = fal
 ## [br]
 ## @param emit_current: 是否立即以当前值调用一次回调；为 true 时 old_value 和 new_value 都是当前值。
 ## [br]
-## @return 绑定 owner 生命周期的订阅句柄；owner 或方法无效时返回非活动句柄。
+## @return 当前这次独立订阅且绑定 owner 生命周期的句柄；owner 或方法无效时返回非活动句柄。
 func subscribe_method(owner: Object, method_name: StringName, emit_current: bool = false) -> GFLifetimeSubscription:
 	if owner == null or not is_instance_valid(owner):
 		push_error("[GFBindableProperty] subscribe_method 失败：owner 无效。")
@@ -208,18 +208,24 @@ func force_emit() -> void:
 	_emit_value_changed(_value, _value)
 
 
-## 通过回调修改当前值并强制广播。
+## 通过回调计算并设置当前值。
+## 回调接收当前值；Array、Dictionary 与 PackedArray 会深复制，
+## Object/Resource 引用保持身份。回调必须返回完整 replacement value，
+## 标量和集合遵循同一契约。仅当 replacement 与当前值不同时才广播。
 ## [br]
 ## @api public
 ## [br]
-## @param mutator: 修改当前值的回调。
+## @since 2.1.0
+## [br]
+## @param mutator: replacement 回调，签名为 func(current_value: Variant) -> Variant。
 ## [br]
 ## @return 回调有效时返回 true。
 func mutate(mutator: Callable) -> bool:
 	if not mutator.is_valid():
 		return false
-	mutator.call(_value)
-	force_emit()
+	var current_value: Variant = _copy_signal_payload(_value)
+	var replacement_value: Variant = mutator.call(current_value)
+	set_value(replacement_value)
 	return true
 
 
@@ -239,8 +245,9 @@ func append_to_array(item: Variant) -> bool:
 	if not (_value is Array):
 		return false
 	var array_value: Array = _GF_VARIANT_ACCESS_SCRIPT.as_array(_value)
+	var old_value: Variant = _copy_signal_payload(array_value)
 	array_value.append(item)
-	force_emit()
+	_emit_value_changed(old_value, array_value)
 	return true
 
 
@@ -260,8 +267,9 @@ func append_array(items: Array) -> bool:
 	if not (_value is Array):
 		return false
 	var array_value: Array = _GF_VARIANT_ACCESS_SCRIPT.as_array(_value)
+	var old_value: Variant = _copy_signal_payload(array_value)
 	array_value.append_array(items)
-	force_emit()
+	_emit_value_changed(old_value, array_value)
 	return true
 
 
@@ -283,8 +291,9 @@ func erase_from_array(item: Variant) -> bool:
 	var array_value: Array = _GF_VARIANT_ACCESS_SCRIPT.as_array(_value)
 	if not array_value.has(item):
 		return false
+	var old_value: Variant = _copy_signal_payload(array_value)
 	array_value.erase(item)
-	force_emit()
+	_emit_value_changed(old_value, array_value)
 	return true
 
 
@@ -311,8 +320,9 @@ func set_dictionary_value(key: Variant, new_value: Variant) -> bool:
 	if not (_value is Dictionary):
 		return false
 	var dictionary_value: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.as_dictionary(_value)
+	var old_value: Variant = _copy_signal_payload(dictionary_value)
 	dictionary_value[key] = new_value
-	force_emit()
+	_emit_value_changed(old_value, dictionary_value)
 	return true
 
 
@@ -334,8 +344,9 @@ func erase_dictionary_key(key: Variant) -> bool:
 	var dictionary_value: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.as_dictionary(_value)
 	if not dictionary_value.has(key):
 		return false
+	var old_value: Variant = _copy_signal_payload(dictionary_value)
 	var _erase_result_273: Variant = dictionary_value.erase(key)
-	force_emit()
+	_emit_value_changed(old_value, dictionary_value)
 	return true
 
 
@@ -349,15 +360,17 @@ func clear_collection() -> bool:
 		var array_value: Array = _GF_VARIANT_ACCESS_SCRIPT.as_array(_value)
 		if array_value.is_empty():
 			return false
+		var old_value: Variant = _copy_signal_payload(array_value)
 		array_value.clear()
-		force_emit()
+		_emit_value_changed(old_value, array_value)
 		return true
 	if _value is Dictionary:
 		var dictionary_value: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.as_dictionary(_value)
 		if dictionary_value.is_empty():
 			return false
+		var old_value: Variant = _copy_signal_payload(dictionary_value)
 		dictionary_value.clear()
-		force_emit()
+		_emit_value_changed(old_value, dictionary_value)
 		return true
 	return false
 
@@ -479,6 +492,7 @@ func bind_to(node: Node, callable: Callable) -> void:
 
 func _emit_value_changed(old_value: Variant, new_value: Variant) -> void:
 	_prune_inactive_subscription_bindings()
+	_prune_invalid_node_bindings()
 	value_changed.emit(_copy_signal_payload(old_value), _copy_signal_payload(new_value))
 
 
@@ -492,27 +506,7 @@ func _on_node_exited(node: Node, callable: Callable) -> void:
 
 
 static func _are_values_equal(left: Variant, right: Variant) -> bool:
-	var left_type: int = typeof(left)
-	var right_type: int = typeof(right)
-	if left_type == right_type:
-		return left == right
-	if _is_numeric_variant_type(left_type) and _is_numeric_variant_type(right_type):
-		return _variant_to_float(left) == _variant_to_float(right)
-	return false
-
-
-static func _is_numeric_variant_type(variant_type: int) -> bool:
-	return variant_type == TYPE_INT or variant_type == TYPE_FLOAT
-
-
-static func _variant_to_float(raw_value: Variant) -> float:
-	if raw_value is int:
-		var int_value: int = raw_value
-		return float(int_value)
-	if raw_value is float:
-		var float_value: float = raw_value
-		return float_value
-	return 0.0
+	return _GF_VARIANT_ACCESS_SCRIPT.values_equal(left, right)
 
 
 func _make_unsubscribe_callable(subscription_token: GFSubscriptionToken) -> Callable:
@@ -524,13 +518,6 @@ func _make_unsubscribe_callable(subscription_token: GFSubscriptionToken) -> Call
 
 func _subscribe_callable_token(callback: Callable, emit_current: bool) -> GFSubscriptionToken:
 	_prune_inactive_subscription_bindings()
-	var existing_binding: Dictionary = _find_subscription_binding(&"callable", callback, 0, &"")
-	var existing_token: GFSubscriptionToken = _get_binding_subscription_token(existing_binding)
-	if existing_token != null:
-		if emit_current:
-			_call_subscription_callable(callback, _value, _value)
-		return existing_token
-
 	var signal_callback: Callable = func(old_value: Variant, new_value: Variant) -> void:
 		if callback.is_valid():
 			_call_subscription_callable(callback, old_value, new_value)
@@ -548,14 +535,6 @@ func _subscribe_callable_token(callback: Callable, emit_current: bool) -> GFSubs
 func _subscribe_owned_callable_token(owner: Object, callback: Callable, emit_current: bool) -> GFLifetimeSubscription:
 	_prune_inactive_subscription_bindings()
 	var owner_id: int = owner.get_instance_id()
-	var existing_binding: Dictionary = _find_subscription_binding(&"owned_callable", callback, owner_id, &"")
-	var existing_token: GFSubscriptionToken = _get_binding_subscription_token(existing_binding)
-	if existing_token is GFLifetimeSubscription:
-		var existing_lifetime_token: GFLifetimeSubscription = existing_token
-		if emit_current:
-			_call_subscription_callable(callback, _value, _value)
-		return existing_lifetime_token
-
 	var owner_ref: WeakRef = weakref(owner)
 	var signal_callback: Callable = func(old_value: Variant, new_value: Variant) -> void:
 		if _get_live_owner_from_ref(owner_ref) == null:
@@ -576,15 +555,6 @@ func _subscribe_owned_callable_token(owner: Object, callback: Callable, emit_cur
 func _subscribe_owner_method_token(owner: Object, method_name: StringName, emit_current: bool) -> GFLifetimeSubscription:
 	_prune_inactive_subscription_bindings()
 	var owner_id: int = owner.get_instance_id()
-	var existing_binding: Dictionary = _find_subscription_binding(&"owner_method", Callable(), owner_id, method_name)
-	var existing_token: GFSubscriptionToken = _get_binding_subscription_token(existing_binding)
-	if existing_token is GFLifetimeSubscription:
-		var existing_lifetime_token: GFLifetimeSubscription = existing_token
-		if emit_current:
-			var existing_owner_ref: WeakRef = weakref(owner)
-			_call_owner_method(existing_owner_ref, method_name, _value, _value)
-		return existing_lifetime_token
-
 	var owner_ref: WeakRef = weakref(owner)
 	var signal_callback: Callable = func(old_value: Variant, new_value: Variant) -> void:
 		_call_owner_method(owner_ref, method_name, old_value, new_value)
@@ -678,28 +648,6 @@ func _get_live_owner_from_ref(owner_ref: WeakRef) -> Object:
 	return null
 
 
-func _find_subscription_binding(
-	binding_kind: StringName,
-	callback: Callable,
-	owner_id: int,
-	method_name: StringName
-) -> Dictionary:
-	for binding: Dictionary in _subscription_bindings:
-		var subscription_token: GFSubscriptionToken = _get_binding_subscription_token(binding)
-		if subscription_token != null and not subscription_token.is_active():
-			continue
-		if _get_binding_string_name(binding, "kind") != binding_kind:
-			continue
-		if _get_binding_int(binding, "owner_id") != owner_id:
-			continue
-		if _get_binding_string_name(binding, "method_name") != method_name:
-			continue
-		if callback.is_valid() and _get_binding_callable(binding, "callback") != callback:
-			continue
-		return binding
-	return {}
-
-
 func _remove_subscription_binding_by_signal_callable(signal_callable: Callable) -> void:
 	for i: int in range(_subscription_bindings.size() - 1, -1, -1):
 		if _get_binding_callable(_subscription_bindings[i], "signal_callable") == signal_callable:
@@ -785,18 +733,6 @@ func _get_binding_subscription_token(binding: Dictionary) -> GFSubscriptionToken
 		var subscription_token: GFSubscriptionToken = raw_value
 		return subscription_token
 	return null
-
-
-func _get_binding_int(binding: Dictionary, key: String) -> int:
-	var raw_value: Variant = _GF_VARIANT_ACCESS_SCRIPT.get_option_value(binding, key, 0)
-	if raw_value is int:
-		var int_value: int = raw_value
-		return int_value
-	return 0
-
-
-func _get_binding_string_name(binding: Dictionary, key: String) -> StringName:
-	return _GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(binding, key)
 
 
 func _release_value_connection_if_unbound(callable: Callable, prune_invalid: bool = true) -> void:

@@ -22,7 +22,7 @@ if document == null:
 storage.save_data_async("hero_save.sav", document.to_dict())
 ```
 
-`gather_scope()` 会在主线程遍历当前场景节点。大型项目应把项目级 Model 聚合改用 `GFArchitecture.get_global_snapshot_async()`，或在项目自己的保存 System 中把多个 Scope/区域分帧采集，再交给 `GFStorageUtility.save_data_async()` 后台编码和落盘。不要在线程里直接访问 Node、Resource 或 `GFSaveSource` 实例。
+`gather_scope()` 会在主线程遍历当前场景节点。大型项目应把项目级 Model 聚合改用 `GFArchitecture.get_global_snapshot_async()`，检查捕获 Result 后只把其中的 `snapshot` 交给存储；也可以在项目自己的保存 System 中把多个 Scope/区域分帧采集，再交给 `GFStorageUtility.save_data_async()` 后台编码和落盘。不要在线程里直接访问 Node、Resource 或 `GFSaveSource` 实例。
 
 ```gdscript
 var read_result := storage.load_data("hero_save.sav")

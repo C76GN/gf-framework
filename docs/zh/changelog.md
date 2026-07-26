@@ -52,6 +52,16 @@
 
 ### 🔄 机制更改 (Changed)
 
+- Architecture assignment、Installer、动态模块注册/替换和 `GFNodeContext` 安装统一采用 generation/scope 驱动的 prepare / commit / rollback 事务；候选未提交前不会通过全局 facade 暴露，旧异步 continuation 和生命周期回调重入不能覆盖最新状态。
+- `GFBindableProperty` 的集合 helper 现在发出独立的修改前/后快照，`mutate()` 统一采用“回调返回完整 replacement”的标量/集合契约；失效且未曾入树的 Node binding 会在下一次发射时剪枝。
+- `GFCancellationSource` 收敛为主线程、一次性终结的取消拥有者：token、节点和 timeout 注册会冻结 metadata，重复注册与 self-link 明确失败，timeout replacement 会停止旧 timer，组合创建不再返回部分绑定结果。
+- `GFVariantAccess` / `GFVariantData` 统一精确数值比较、全部 PackedArray 深复制、Resource 共享拓扑、JSON 循环/节点/集合/字节预算和原子 merge 预检；`diff_variant()` 把循环重入移入有界 diagnostics，内容 change kind 只保留四种。
+- `GFReportValueCodec` 对未知 profile、未知 Variant、循环引用、Dictionary key 与保留 marker 全部 fail closed；完整 PackedArray 返回经脱敏 items，集合摘要把误导性的 `hash` 更名为 `encoded_preview_hash`。
+- Architecture Model/全局快照改为显式 capture/restore Result：capture 在首次让帧前完成正序冻结与反序稳定性复核，要求 Model 与命令历史的两次 JSON 观察完全一致，后序 `to_dict()` 或 History serializer 改写已捕获状态时 fail closed；restore 采用 exact-set validate/apply/commit，在每项与整组提交后复核 identity/save key/状态，并在失败后反向恢复和再次聚合验证 Model 与历史；四个 capture 与四个 restore 入口共享 single-flight generation gate，并发、跨帧交错或 Model/历史 callback 重入以稳定 `busy` Result 在读写前失败，capture busy 不返回可提交 snapshot；全局载荷固定使用精确整数 `format_version = 1`。
+- Architecture tick scheduler 在调用时间缩放、暂停、物理子步策略和步长 Provider 前即建立 drive guard；Provider 与模块回调中的 tick/physics_tick 重入统一 fail closed，最外层结束后再恢复 guard 与刷新缓存。
+- 项目引用扫描器对 UID/fallback、IO/解析失败、配额截断、重叠 root 和重复 target ID 统一输出确定性的 partial 结果；资源依赖确认只读取元数据与受限结构，不再实例化自定义 Resource；Type/Simple Event 共享全局派发深度与单调 trace sequence；Diagnostics monitor、命令 schema 和 signal graph 采用严格失败与共享输出预算。
+- Package Manager 对 download redirect、lock dependency closure、portable path、staging/offline extraction 实际字节预算、空 runtime archive、plan reasons 与 payload identity 统一采用事务前 fail-closed 校验；archive、offline bundle、lockfile、维护侧 resolver/builder 和事务目标共用跨平台字面路径身份，manifest glob 则采用不跨 segment 的 `*`/`?` 与仅末尾可用的 `**`。
+- `GFAudioUtility` 的 BGM、ambient、bus transition、duck 与全部 SFX 改为 generation/session 所有权模型；旧异步回调和 Tween 不能命中新播放，local/backend channel 互斥，mix snapshot 分离保存真实 gain 与 mute，普通/空间/retiring SFX 共用容量。项目 backend 回调统一进入同步非重入边界，返回后复核 backend、owner 与 request identity；backend BGM/ambient 的 playing 查询会提交自然结束终态。
 - `GFPlatformAdapter` 会在派发前验证已描述 Contract 的方法、能力、Schema、请求预算和并发，并在成功回调处验证结果；关闭 Adapter 会统一取消全部活动 Handle，声明不支持取消的方法不会错误调用 Provider cancel。
 - `GFNetworkLobbyService` 现在拥有请求 ID、deadline、Backend 替换取消和快照提交；非请求驱动的成员、邀请和 Lobby 更新继续使用事件，请求终态不再依赖无法关联的全局 callback 信号。
 - `GFNetworkBackend` 统一累计成功发送与已派发接收的 bytes/packet 指标；ENet、WebSocket 和通用 MultiplayerPeer Backend 共用该统计边界，未支持的 RTT、jitter 或丢包率保持未知。
@@ -82,7 +92,17 @@
 
 ### 🐛 Bug 修复 (Fixed)
 
+- 修复热注册或热替换模块在 injection/生命周期取消、失败和同 key 重入后仍可能残留 registry、service、event 或 scope 副作用的问题；失败事务现在恢复旧实例与所有相关索引，Architecture 进入失败或 dispose 终态后也不会保留 cleanup 重入登记的已取消异步作用域。
+- 修复 Controller 退出再入树、同树 reparent 切换 `GFNodeContext`、全局 Architecture replacement、同一架构内增删多类 desired bindings，或对象池 acquire 早于架构可用时丢失/残留事件绑定的问题；正式架构提交与绑定 revision 变化会同步 reconcile，不再依赖永久逐帧扫描。已失败或 dispose 的最近 Context 不会静默回退全局；即使共享 Architecture 以同一 identity 重试 READY，FAILED Context 子树中的 Controller 仍会拒绝恢复绑定以及架构、模块和消息代理访问，而无 Context 的全局 Controller 继续正常恢复。`GFNodeContext` 会固定每轮入树解析到的父级 Architecture identity，并在父级首次 READY 后固定其 lifecycle generation，父级在 install await 或 child READY 后失败、dispose、替换或跨 generation 重试都会取消当前安装 scope 并让 child fail closed。Scoped Context 失败会释放 owned Architecture 并停止 tick，READY 后 owned Architecture 被外部 dispose 也会撤销 READY，但不会接管父级释放；Inherited Context 同样不会释放共享架构。`context_ready` listener 同步改写生命周期后，等待入口会在返回前重新验证并拒绝泄漏失效架构。
+- 修复 `GFCancellationSource` 保存捕获自身的 lambda 导致未显式 dispose 时可能形成 RefCounted 环、树外新节点被误判为已经离树、非有限 timeout 被接受，以及 dispose 后仍可重新注册的问题；`GFTimeoutController` 的主动取消分类现在绑定 source identity，旧 token listener 重入启动的新超时不会继承外层 manual-cancel 状态。
+- 修复 `GFBindableProperty` 对相同 callback、owned callback 或 owner method 的重复订阅复用同一 token，导致取消一个句柄会连带取消另一次订阅的问题；每次订阅现在拥有独立 wrapper 与取消句柄。
+- 修复嵌套 `drive_tick()` / `drive_physics_tick()` 提前刷新外层迭代缓存，以及事件被释放、owner 已失效、鸭子类型 `is_consumed` 和 trace clear 导致的不安全访问或统计重复。
+- 修复对象属性动态 setter 拒绝后仍返回成功、property list group/category 被当成字段、Dictionary/Plane/Projection/Color 子路径被误拒绝，以及含 `/`、`:` 的直接属性快照无法对称写回。
+- 修复诊断 monitor 单次 publish 可能发出零次或两次信号、published 集合值与内部缓存共享引用、missing preset 扩大为全量采集、未知命令参数类型 fail open、认证 token 传入 callback，以及 signal graph 只限制节点不限制信号/连接/字节。
+- 修复 Package Manager 可能拒绝合法 GitHub asset redirect、遗漏 lock dependency、通过 registry/offline 路径越界、Windows 非法字符或 `COM¹`/`LPT³` 等 portable alias 绕过、让 glob 跨目录扩大 ownership、允许空 archive 保留旧 payload、维护侧计划遗漏 paths/archive/kind/扩展 ID/preset 集合变更、低估实际 staging 或 offline extraction 总字节，以及把事务前失败误报为已回滚的问题。
+- 修复 BGM/ambient 的陈旧 fade、load、finished 和旧 handle 可控制 replacement session，crossfade key/loop 与 pause 状态错配，bus Tween 覆盖新 mute，snapshot 丢失静音前 gain，duck 乱序或生命周期清理后未恢复，以及 spatial/retiring SFX 绕过总容量的问题；backend-only duck 现在必须先通过 `get_bus_mute()` 观测可恢复的静音基线，不再把未知状态猜成 `false`。同一 playback session 的全部句柄会一起终结。active/retiring SFX 或 ambient 原生播放器被外部 `stop()` 后会收敛 session/handle，retiring 会取消旧淡出并立即释放容量，普通池播放器会显式清除当前 `finished` 回调。后端事件返回 `null` 时恢复本地事件回退；backend detach/replace 保留可重试的 stop 拒绝语义，Utility/Architecture dispose 则记录 warning 并强制终态化。backend ambient stop-all 优先批量提交、失败后逐通道保留真实部分结果；BGM/ambient 自然结束查询只在 identity 复核后提交，BGM 的 `bgm_finished` 保持 exactly-once。
 - 修复已销毁的 `GFArchitecture` 仍会保留父架构强引用的问题；`dispose()` 现在会在模块、工厂、服务和事件系统完成清理后断开 parent link，并拒绝 dispose 完成信号同步回调或后续调用重新注入 parent，即使内部状态被破坏为父链循环也不会让整组架构残留到进程退出。
+- 修复迟到的 `fail_initialization()` 可把 `DISPOSED` Architecture 改写回 `FAILED` 的终态破坏；disposing/disposed 状态现在拒绝失败写回且不推进 generation。
 - 修复 `GFAsyncWaitSupport` 的 `should_continue` 回调宿主释放后，等待器会把失效 Callable 误当作未配置并继续存活到 timeout、进而在后续测试或场景中迟发 warning 的问题；只要调用方显式提交继续检查，进入等待前或等待期间失效都会立即以 `should_continue_invalid` 取消。
 - 修复 `GFTagExpression` 被加载或实例化后会在 Godot 退出时残留一个 `GDScript` 与一个 `GDScriptNativeClass` 的问题；Network 生成器和动态 Model 测试也统一拆除瞬态 GDScript 依赖图，不再把整张脚本资源图保留到测试进程退出。
 - 修复 `GFAnalyticsUtility.dispose()` 未释放项目注入的 payload builder、transport callback 和 response parser，以及 flush 终态通知同步回调可在 dispose 期间重新注入自引用回调的问题；最终通知结束后会再次清理注入引用。`GFReactiveStateControlBinder` 也不再在退订后由 binding callback 自引用保留整组状态与控件绑定。
@@ -109,6 +129,17 @@
 
 ### 🔧 API 变动说明 (API Changes)
 
+- `Gf.set_architecture()` 改为原子提交候选架构：Installer 和三阶段初始化成功前，`Gf` facade 只暴露既有已提交架构或空状态；pending assignment 被更新赋值、尚无已提交架构时由 `Gf.create_architecture()` 创建的默认架构，或 Gf 退出场景树替代时，会取消其异步作用域并 dispose 未提交候选。函数签名不变，但依赖 Installer 期间 facade 指向候选、或依赖被替代候选仍可复用的代码需要迁移。
+- `GFBindableProperty.mutate()` 的 callback 必须返回完整 replacement；void/in-place-only mutator 不再是有效写法。集合 helper 的 `value_changed` 参数改为独立 before/after 快照。
+- `GFBindableProperty.subscribe()`、`subscribe_token()`、`subscribe_owned()` 与 `subscribe_method()` 的每次调用都会创建独立订阅；相同参数不再复用既有 token。
+- `GFCancellationSource.cancel_when_node_exits()` 只接受当前已在树内的节点，重复 token/节点注册返回 `false`，`dispose()` 成为不可逆终态；`create_linked()` 遇到无效条目或注册失败时返回 `null`，已取消 token 仍按输入顺序 first-cancel-wins。`GFTimeoutController.start_seconds()`、`stop()` 与 `reset()` 会替换旧 source/token，旧 token 保持停止或替换时的状态。
+- `GFObjectPropertyTools` 新增 `write_direct_property(object, property_name, value, options)`；`apply_dictionary()` 改用精确 `StringName` 协议，`write_property()` 继续专用于 `NodePath` 子路径并执行写后验证。
+- `GFVariantData.diff_variant()` 新增 `diagnostic_count`、`diagnostics_truncated`、`max_diagnostics` 和 `diagnostics`；移除 `circular_reference` change kind，循环只记录 `cycle_detected` traversal diagnostic。
+- `GFReportValueCodec.make_collection_summary()` 将 `hash` 更名为 `encoded_preview_hash`；配置校验 issue 的 `supported_values_hash` 同步更名为 `supported_values_preview_hash`。自定义 `circular_reference` replacement 不再生效，未知 redaction profile 规范化为 `privacy`。
+- `GFArchitecture.get_all_models_state()`、`get_all_models_state_async()`、`get_global_snapshot()` 与 `get_global_snapshot_async()` 不再直接返回裸快照，统一返回 `{ ok, snapshot?, error }`；四个 `restore_*` 入口统一返回 `{ ok, phase, rolled_back, error }`。全局快照新增必需 `format_version: 1`，`command_history` 只接受 Dictionary。
+- `GFArchitecture` 新增 `is_disposing()` 与 `is_disposed()`，用于在释放回调、异步等待或作用域路由中辨认正在终结和已经完成释放的不可恢复终态。
+- `GFAudioUtility.set_audio_backend()` 与 `clear_audio_backend()` 从 `void` 改为返回 `bool`；当前后端拒绝停止其 owned BGM/ambient channel，或调用发生在 backend callback 重入边界内时返回 `false`。
+- `GFAudioBackend` 新增返回 `bool/null` 的 `get_bus_mute()`；`GFAudioBackend` 与 `GFAudioUtility` 新增 `is_bgm_playing() -> bool`，均标记为 `@since unreleased`。暂停中的 BGM session 仍返回 `true`，调试快照新增 `bgm_playing`。
 - 新增公开类型 `GFWeakMethodInvocation`，提供 `invoked`、`owner_released`、`method_missing`、`failed` 四种稳定调用状态；`GFMainThreadDispatchQueue` 新增 `post_method()`，`GFDeferredMutationQueue` 新增 `record_method()`，均标记为 `@since unreleased`。两个旧式 `*_owned()` 入口及 `post()` / `record()` 的 `options.owner` 已直接移除。
 - 新增公开类型 `GFPlatformContractDescriptor`、`GFPlatformContractMethodDescriptor`、`GFPlatformActivationIntent`、`GFPlatformAdapterConformance`、`GFNetworkLobbyOperationRequest`、`GFNetworkLobbyOperationHandle`、`GFNetworkLobbyOperationResult`、`GFMultiplayerPeerNetworkBackend` 和 `GFNetworkTransportMetrics`，均标记为 `@since unreleased`。
 - `GFPlatformAdapter.configure()` 现在要求 `contract_ids` 与 `contract_descriptors` 一一对应，并新增 `activation_intent`、Contract Descriptor 查询和受保护发布入口；`GFPlatformRuntime` 新增 Activation Intent 接收、丢弃、按 Adapter 作用域消费、确认和容量配置 API。
@@ -135,6 +166,16 @@
 
 ### 📘 升级指南 (Migration Guide)
 
+- 项目 Installer 必须改为通过 `install(architecture, scope)` 的显式 `architecture` 参数或 `install_bindings(binder, scope)` 的 `binder` 注册候选模块，不要在 `Gf.set_architecture()` 提交前使用 `Gf.register_*()`、`Gf.create_binder()` 或 `Gf.get_*()` 指向候选。异步 Installer 在每个 `await` 后检查 `scope.is_cancel_requested()` 并用 `scope.register_cleanup()` 释放临时资源；assignment 被替代并返回 `false` 后应创建新的 `GFArchitecture` 重试，不复用已经 dispose 的候选。释放回调和项目自定义等待器应通过 `is_disposing()` / `is_disposed()` 拒绝向终结中的架构提交新工作。
+- `GFNodeContext` 的父级 Architecture identity 与首次 READY generation 现在按每轮入树固定。不要在 child 场景分支仍活动时调用其 owned Architecture 的 `set_parent_architecture()`，也不要让父级失败后原地重试或热替换全局父级；需要绑定新父级或新 generation 时，应让对应 child 分支退出并重新进入，或重建该场景分支。
+- 把 `property.mutate(func(value): value[...] = ...)` 改为显式返回 replacement；标量同样返回新值。依赖集合 helper 把 old/new 指向同一对象的监听器应改为消费真实 before/after 快照。
+- 不要依赖重复 `subscribe*` 调用共享取消状态；需要单例订阅时由调用方保存并复用第一次返回的句柄。取消源应在主线程注册和终结，只把当前已入树节点传给 `cancel_when_node_exits()`，检查 `create_linked()` 的可空结果，并在 `dispose()` 后创建新 source 而不是复用旧实例。持有 `GFTimeoutController` 旧 token 的代码应把它视为单次计划快照，重启或重置后重新调用 `get_token()`。
+- 读取集合摘要时改用 `encoded_preview_hash`，配置校验展示字段改用 `supported_values_preview_hash`；这些字段只表示预算内编码预览，完整内容指纹应迁移到确定性序列化器或项目自己的 streaming hash。
+- 传入 `GFReportValueCodec` 的 profile 必须使用公开常量；用户 Dictionary 中的保留 marker key 和非 String key 会转为 entries envelope。依赖自定义循环 replacement 或未知 Variant 字符串化的报告消费者应改为识别固定受限 marker。
+- 对精确直接属性名使用 `write_direct_property()`；只有真正的冒号子路径使用 `write_property(NodePath(...))`。动态 setter、归一化 setter 或拒绝写入的 setter 现在可能返回 `ok=false`，批量回灌必须检查逐项 issues。
+- 把 `var snapshot = architecture.get_global_snapshot()` 改为先检查 `capture_result["ok"]`，再持久化或传入 restore 的 `capture_result["snapshot"]`；Model-only 入口同理。restore 调用方必须检查返回 Result，不能再把 async 返回值当作 bool。旧的无版本全局载荷、Array 命令历史、非精确整数版本、partial Model 集合和失败时以 `{}` 兜底的代码不再兼容：项目应重新捕获快照，或在调用 GF 前显式迁移成 `{ "format_version": 1, "models": Dictionary, "command_history"?: Dictionary }`，其中 `models` key 必须与当前可序列化 Model 精确一致。
+- 旧 package registry、offline bundle 或 lockfile 若包含空 `reasons`、缺失 dependency、非规范路径、Windows 非法字符/设备名/上标设备别名、大小写/尾点/尾空格别名、跨 segment glob、非末尾 `**`、空 runtime archive，或依赖只比较 version/SHA 的 metadata-only 更新，应先重新生成规范 registry 与 lockfile；这些载荷不保留兼容解析。事务尚未创建时失败结果的 `rolled_back` 现在为 `false`。
+- 混音快照消费者应把 bus 条目迁移为独立的 gain 与 `muted` 字段，不再依赖静音时 `volume_db = -80`。依赖旧 handle 控制 replacement ambient、重复 pause 覆盖增益、local/backend 同 channel 重叠，或只用普通 active SFX 解释 `max_sfx_players` 的代码应改为按 session/统一容量语义处理；仍在播放的 retiring session 占用容量，原生播放器被外部停止后会在收敛点立即释放。所有 `set_audio_backend()` / `clear_audio_backend()` 调用必须检查 `bool`；自定义 backend 不得在任何协议回调中同步重入同一个 Utility 修改通道、混音或 backend。backend-only 总线若需使用 duck，必须实现返回 `bool/null` 的 `get_bus_mute()` 并保留 `set_bus_mute()` 对称恢复能力；无法观测基线时 duck 会返回 `false`。接管 BGM 的 backend 必须实现 `is_bgm_playing()`，播放中或暂停中的现存 session 返回 `true`，自然结束后返回 `false`；漏实现会按基类默认 `false` 收敛并发出一次 `bgm_finished`。`post_event()` 返回 `null` 代表未处理并触发本地回退；backend stop 拒绝后，detach/replace 应保留该 owner 并在外层修正状态再重试，先前已经确认停止的其他通道不会回滚；dispose 不可重试，会强制解除 owner 并释放后端。
 - 通过 `post_owned(owner, Callable(owner, method))`、`record_owned(owner, Callable(owner, method))`、`post/record(options.owner)` 或捕获 owner 的 lambda 延迟调用 owner 自身方法时，必须改用零参数 `post_method(owner, method_name)` / `record_method(owner, method_name)`。无 owner 的独立 Callable 继续使用 `post()` / `record()`。需要携带参数的自定义容器应保存 `GFWeakMethodInvocation`，只在实际执行点调用 `invoke(arguments)`；不要把 owner、Callable、Signal 或对象图重新塞进长期 options/metadata 绕过弱生命周期。
 - 旧 Lobby Backend 应把 create/query/join/leave/metadata 覆写合并到 `_dispatch_operation(request, handle)`，在 Provider callback 中调用 `_succeed_operation()` / `_fail_operation()`；项目调用方保存返回 Handle 并读取 `GFNetworkLobbyOperationResult`，不再等待无法按请求关联的旧完成信号。
 - 新 Platform Adapter 应为正式 Contract 提供 Descriptor 并运行 `GFPlatformAdapterConformance.inspect()`；启动、邀请和 Join 回调转换为稳定 ID 的 `GFPlatformActivationIntent`。SDK 已提供 `MultiplayerPeer` 时采用通用 Backend 并明确所有权，不要在 GF 内新增 Provider 命名 Manager。
@@ -208,6 +249,9 @@
 - `addons/gf/standard/utilities/debug/gf_session_trace_utility.gd`
 - `addons/gf/standard/utilities/debug/gf_diagnostic_snapshot_provider.gd`
 - `addons/gf/standard/utilities/debug/gf_diagnostic_provider_result.gd`
+- `addons/gf/kernel/package/gf_package_manager_backend.gd`
+- `addons/gf/kernel/package/gf_package_transaction_engine.gd`
+- `addons/gf/standard/utilities/audio/gf_audio_utility.gd`
 - `addons/gf/standard/utilities/debug/gf_session_trace_recipe.gd`
 - `addons/gf/standard/utilities/debug/gf_session_trace_channel_definition.gd`
 - `addons/gf/standard/utilities/debug/gf_session_trace_checkpoint.gd`

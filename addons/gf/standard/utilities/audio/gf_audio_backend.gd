@@ -182,6 +182,18 @@ func get_bgm_playback_position() -> float:
 	return -1.0
 
 
+## 查询 BGM session 是否仍存在。
+## 暂停中的 BGM 仍应返回 true；接管 BGM 的项目后端必须覆写该方法。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @return: BGM 正在播放或暂停时返回 true；默认 fail closed 返回 false。
+func is_bgm_playing() -> bool:
+	return false
+
+
 ## 查询 BGM 是否暂停。
 ## [br]
 ## @api public
@@ -344,13 +356,15 @@ func can_handle_event(_event: GFAudioEvent, _options: Dictionary = {}) -> bool:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.3.0
+## [br]
 ## @param _event: 音频事件。
 ## [br]
 ## @param _options: 请求选项。
 ## [br]
 ## @schema _options: 请求选项 Dictionary；键和值由 GFAudioUtility 或具体后端约定。
 ## [br]
-## @return: 控制句柄；未处理返回 null。
+## @return: 控制句柄；未处理返回 null，GFAudioUtility 会继续本地回退。已处理但不暴露原生播放器时仍须返回非 null 句柄。
 func post_event(_event: GFAudioEvent, _options: Dictionary = {}) -> GFAudioEmitterHandle:
 	return null
 
@@ -482,6 +496,21 @@ func apply_mix_snapshot(_snapshot: Dictionary, _transition_seconds: float = 0.0)
 ## @return: 线性音量；负数表示后端不处理该总线。
 func get_bus_volume(_bus_name: String) -> float:
 	return -1.0
+
+
+## 获取总线静音状态。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param _bus_name: 总线名或后端通道名。
+## [br]
+## @return: 已处理时返回 bool；无法观测该总线时返回 null。
+## [br]
+## @schema return: bool 或 null；null 表示后端不处理该总线的静音查询。
+func get_bus_mute(_bus_name: String) -> Variant:
+	return null
 
 
 ## 获取后端调试快照。

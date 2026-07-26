@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFProjectReferenceScanner" path="addons/gf/kernel/core/gf_project_reference_scanner.gd" module="kernel" extends="RefCounted" classDigest="2bc0b2d7f570c0c9faf07b0c779758d216016bb6e806cc635404af1343612e28">
+<class name="GFProjectReferenceScanner" path="addons/gf/kernel/core/gf_project_reference_scanner.gd" module="kernel" extends="RefCounted" classDigest="35d1d43546d565c04e1cc3bec0af4d06ced2f77b8b9bf56087599d08d8c243cd">
 	<description>GFProjectReferenceScanner: 项目资源引用扫描服务。
 面向编辑器、CI 和框架诊断流程扫描项目资源与文本源码，按目标根目录和
 class_name 输出 verified、strong 与 weak 分级引用，并在文件数量、
@@ -146,7 +146,7 @@ class_name 输出 verified、strong 与 weak 分级引用，并在文件数量�
 				<tag name="return">项目引用扫描报告。</tag>
 				<tag name="schema">targets: Array[Dictionary]，每个目标支持 id、root_path 和 class_names；id 为空时使用 root_path。</tag>
 				<tag name="schema">options: Dictionary，支持 scan_roots、ignored_roots、additional_ignored_roots、max_references_per_target、max_weak_references_per_target、max_scan_depth、max_scanned_files、max_file_bytes、max_total_bytes、include_weak_references、use_resource_dependencies 和 warning_prefix。</tag>
-				<tag name="schema">return: Dictionary，包含 ok、partial_scan、budget_exceeded、input_target_count、target_count、reference_count、weak_reference_count、targets、weak_targets、references、weak_references、candidate_file_count、scanned_file_count、scanned_bytes、skipped_files 和 scan_warnings。</tag>
+				<tag name="schema">return: Dictionary，包含 ok、partial_scan、budget_exceeded、truncated、input_target_count、target_count、reference_count、weak_reference_count、targets、weak_targets、references、weak_references、candidate_file_count、scanned_file_count、scanned_bytes、skipped_files、scan_warnings、issue_count 和 issues。</tag>
 				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>

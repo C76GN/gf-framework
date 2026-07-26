@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFReportValueCodec" path="addons/gf/kernel/core/gf_report_value_codec.gd" module="kernel" extends="RefCounted" classDigest="dd648241b629d224f9dc064cb3ff52cde4355dc24b0807dba6a21bbf75ac0476">
+<class name="GFReportValueCodec" path="addons/gf/kernel/core/gf_report_value_codec.gd" module="kernel" extends="RefCounted" classDigest="ac5dc09c76cd61e9d70610e4c911b2a15eba74d568a9b9a8f338770c94e8cd4e">
 	<description>GFReportValueCodec: 报告与诊断快照的 JSON-safe 值编码器。
 用于把公开报告、调试快照和诊断事件中的任意 Variant 收束为
 JSON.stringify() 可安全处理的结构。Object、Callable、Signal 和 RID
@@ -49,13 +49,15 @@ JSON.stringify() 可安全处理的结构。Object、Callable、Signal 和 RID
 	<methods>
 		<member kind="method" name="make_redaction_options">
 			<signature>static func make_redaction_options(profile: String, overrides: Dictionary = {}) -&gt; Dictionary:</signature>
-			<description>根据内置脱敏 profile 构建报告编码选项。</description>
+			<description>根据内置脱敏 profile 构建报告编码选项。
+未知 profile 会 fail-closed 到 REDACTION_PROFILE_PRIVACY，且忽略 overrides，
+防止拼写错误扩大报告暴露面。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">profile: REDACTION_PROFILE_* 常量之一。</tag>
 				<tag name="param">overrides: 覆盖默认 profile 的选项。</tag>
-				<tag name="return">编码选项字典。</tag>
-				<tag name="schema">overrides: Dictionary，可覆盖 redaction_profile、path_redaction、include_node_name、include_node_path、include_object_instance_id、include_resource_path、max_depth、max_string_length、max_collection_items、max_packed_length、max_total_nodes 和 max_total_bytes。</tag>
+				<tag name="return">编码选项字典；redaction_profile 始终是实际生效的规范 profile。</tag>
+				<tag name="schema">overrides: Dictionary，可覆盖 path_redaction、include_node_name、include_node_path、include_object_instance_id、include_resource_path、max_depth、max_string_length、max_collection_items、max_packed_length、max_total_nodes 和 max_total_bytes；不能改写 profile 身份。</tag>
 				<tag name="schema">return: Dictionary，可直接传给 GFReportValueCodec 的编码选项。</tag>
 				<tag name="since">8.0.0</tag>
 			</tags>
@@ -66,10 +68,10 @@ JSON.stringify() 可安全处理的结构。Object、Callable、Signal 和 RID
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">value: 待转换的报告值。</tag>
-				<tag name="param">options: 可选项；支持 redaction_profile、circular_reference、include_resource_path、include_node_name、include_node_path、include_object_instance_id、max_depth、max_string_length、max_collection_items、max_packed_length、max_total_nodes、max_total_bytes 和 path_redaction；路径默认脱敏，所有非负预算均为遍历工作量与输出硬上限。</tag>
+				<tag name="param">options: 可选项；支持 redaction_profile、include_resource_path、include_node_name、include_node_path、include_object_instance_id、max_depth、max_string_length、max_collection_items、max_packed_length、max_total_nodes、max_total_bytes 和 path_redaction；路径默认脱敏，所有非负预算均为遍历工作量与输出硬上限。循环引用始终使用固定受限 marker，不接受自定义 replacement。</tag>
 				<tag name="return">JSON 兼容值；不支持的运行时类型会写入脱敏 marker。</tag>
 				<tag name="schema">value: Variant report value to encode.</tag>
-				<tag name="schema">options: Dictionary with redaction_profile, circular_reference, include_resource_path, include_node_name, include_node_path, include_object_instance_id, max_depth, max_string_length, max_collection_items, max_packed_length, max_total_nodes, max_total_bytes, path_redaction, and encode_dictionary_keys options; path_redaction defaults to redacted and non-negative budgets stop traversal immediately when exhausted.</tag>
+				<tag name="schema">options: Dictionary with redaction_profile, include_resource_path, include_node_name, include_node_path, include_object_instance_id, max_depth, max_string_length, max_collection_items, max_packed_length, max_total_nodes, max_total_bytes, path_redaction, and encode_dictionary_keys options; path_redaction defaults to redacted and non-negative budgets stop traversal immediately when exhausted.</tag>
 				<tag name="schema">return: Variant made only from JSON-compatible values, GF variant markers, and GF report redaction markers.</tag>
 				<tag name="since">8.0.0</tag>
 			</tags>
@@ -83,7 +85,7 @@ JSON.stringify() 可安全处理的结构。Object、Callable、Signal 和 RID
 				<tag name="param">options: 传给 to_json_compatible() 的编码选项。</tag>
 				<tag name="return">JSON-safe 字典；转换结果不是 Dictionary 时返回空字典。</tag>
 				<tag name="schema">value: Variant report value to encode before narrowing to Dictionary.</tag>
-				<tag name="schema">options: Dictionary with redaction_profile, circular_reference, include_resource_path, include_node_name, include_node_path, include_object_instance_id, max_depth, max_string_length, max_collection_items, max_packed_length, max_total_nodes, max_total_bytes, path_redaction, and encode_dictionary_keys options.</tag>
+				<tag name="schema">options: Dictionary with redaction_profile, include_resource_path, include_node_name, include_node_path, include_object_instance_id, max_depth, max_string_length, max_collection_items, max_packed_length, max_total_nodes, max_total_bytes, path_redaction, and encode_dictionary_keys options.</tag>
 				<tag name="schema">return: Dictionary made only from JSON-compatible values, GF variant markers, and GF report redaction markers.</tag>
 				<tag name="since">8.0.0</tag>
 			</tags>
@@ -99,13 +101,14 @@ JSON.stringify() 可安全处理的结构。Object、Callable、Signal 和 RID
 				<tag name="param">options: 传给 to_json_compatible() 的编码选项。</tag>
 				<tag name="return">JSON 文本。</tag>
 				<tag name="schema">value: Variant report value to encode before JSON.stringify().</tag>
-				<tag name="schema">options: Dictionary with redaction_profile, circular_reference, include_resource_path, include_node_name, include_node_path, include_object_instance_id, max_depth, max_string_length, max_collection_items, max_packed_length, max_total_nodes, max_total_bytes, path_redaction, and encode_dictionary_keys options.</tag>
+				<tag name="schema">options: Dictionary with redaction_profile, include_resource_path, include_node_name, include_node_path, include_object_instance_id, max_depth, max_string_length, max_collection_items, max_packed_length, max_total_nodes, max_total_bytes, path_redaction, and encode_dictionary_keys options.</tag>
 				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="make_collection_summary">
 			<signature>static func make_collection_summary(value: Variant, options: Dictionary = {}) -&gt; Dictionary:</signature>
-			<description>为报告中的大型集合生成稳定摘要。</description>
+			<description>为报告中的大型集合生成稳定摘要。
+`encoded_preview_hash` 只指纹化经过预算限制的编码预览，不代表完整集合内容 hash。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">value: 待摘要的集合值。</tag>
@@ -113,7 +116,7 @@ JSON.stringify() 可安全处理的结构。Object、Callable、Signal 和 RID
 				<tag name="return">摘要字典。</tag>
 				<tag name="schema">value: Variant collection value to summarize.</tag>
 				<tag name="schema">options: Dictionary with sample_count and GFReportValueCodec encoding options.</tag>
-				<tag name="schema">return: Dictionary with ok, collection_type, count, sample, truncated, and hash.</tag>
+				<tag name="schema">return: Dictionary with ok, collection_type, count, sample, truncated, and encoded_preview_hash.</tag>
 				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>

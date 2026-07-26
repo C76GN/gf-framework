@@ -22,27 +22,29 @@ static func _dispatch_to_receiver(
 	disabled_message: String,
 	missing_receiver_message: String,
 	invalid_receiver_message: String,
-	invalid_report_message: String
+	invalid_report_message: String,
+	normalize_output: bool = true
 ) -> Dictionary:
 	if not enabled:
-		return _make_report(false, id_key, id_value, "disabled", disabled_message, metadata)
+		return _make_report(false, id_key, id_value, "disabled", disabled_message, metadata, normalize_output)
 	if receiver == null:
-		return _make_report(false, id_key, id_value, "missing_receiver", missing_receiver_message, metadata)
+		return _make_report(false, id_key, id_value, "missing_receiver", missing_receiver_message, metadata, normalize_output)
 	if not receiver.has_method(receiver_method):
-		return _make_report(false, id_key, id_value, "invalid_receiver", invalid_receiver_message, metadata)
+		return _make_report(false, id_key, id_value, "invalid_receiver", invalid_receiver_message, metadata, normalize_output)
 
 	var value: Variant = receiver.callv(receiver_method, call_args)
 	if value is Dictionary:
 		var report: Dictionary = GFVariantData.as_dictionary(value)
 		if not report.is_empty():
-			return _normalize_report(report, receiver)
+			return _normalize_report(report, receiver) if normalize_output else _prepare_raw_report(report, receiver)
 	return _make_report(
 		false,
 		id_key,
 		id_value,
 		"invalid_report",
 		invalid_report_message,
-		metadata
+		metadata,
+		normalize_output
 	)
 
 
@@ -53,7 +55,8 @@ static func _send_to_collision_candidates(
 	payload_override: Variant,
 	id_override: StringName,
 	receiver_method: StringName,
-	send_result_callback: Callable = Callable()
+	send_result_callback: Callable = Callable(),
+	normalize_reports: bool = true
 ) -> Array[Dictionary]:
 	var reports: Array[Dictionary] = []
 	var visited_receivers: Dictionary = {}
@@ -72,7 +75,11 @@ static func _send_to_collision_candidates(
 		var report_value: Variant = dispatch_host.call("send_to", receiver, payload_override, id_override)
 		if report_value is Dictionary:
 			var report: Dictionary = GFVariantData.as_dictionary(report_value)
-			report = _normalize_report(report, receiver)
+			if normalize_reports:
+				if send_result_callback.is_valid():
+					report = _normalize_report(report, receiver)
+			else:
+				report = _prepare_raw_report(report, receiver)
 			reports.append(report)
 			if send_result_callback.is_valid():
 				send_result_callback.call(receiver, payload_override, id_override, report)
@@ -106,16 +113,18 @@ static func _make_report(
 	id_value: StringName,
 	reason: String,
 	message: String,
-	metadata: Dictionary
+	metadata: Dictionary,
+	normalize_output: bool = true
 ) -> Dictionary:
-	return {
+	var report: Dictionary = {
 		"ok": ok,
 		id_key: id_value,
-		"receiver": _object_to_report_value(null),
+		"receiver": null,
 		"reason": reason,
 		"message": message,
-		"metadata": _dictionary_to_report_value(metadata),
+		"metadata": metadata.duplicate(false),
 	}
+	return _normalize_report(report, null) if normalize_output else report
 
 
 static func _variant_to_node(value: Variant) -> Node:
@@ -126,14 +135,19 @@ static func _variant_to_node(value: Variant) -> Node:
 
 
 static func _normalize_report(report: Dictionary, default_receiver: Object) -> Dictionary:
-	var result: Dictionary = report.duplicate(true)
+	var result: Dictionary = _prepare_raw_report(report, default_receiver)
 	var receiver_value: Variant = GFVariantData.get_option_value(result, "receiver", default_receiver)
-	if receiver_value is Object:
+	if receiver_value == null or receiver_value is Object:
 		result["receiver"] = _object_to_report_value(receiver_value)
-	elif not result.has("receiver"):
-		result["receiver"] = _object_to_report_value(default_receiver)
 	if result.has("metadata") and result["metadata"] is Dictionary:
 		result["metadata"] = _dictionary_to_report_value(GFVariantData.as_dictionary(result["metadata"]))
+	return result
+
+
+static func _prepare_raw_report(report: Dictionary, default_receiver: Object) -> Dictionary:
+	var result: Dictionary = report.duplicate(false)
+	if not result.has("receiver"):
+		result["receiver"] = default_receiver
 	return result
 
 

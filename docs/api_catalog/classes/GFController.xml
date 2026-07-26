@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFController" path="addons/gf/kernel/base/gf_controller.gd" module="kernel" extends="Node" classDigest="f1f6f5d641dceda4a4b8c51a18990f6bfeebdd6cadd59898ed92f640421171dd">
+<class name="GFController" path="addons/gf/kernel/base/gf_controller.gd" module="kernel" extends="Node" classDigest="da48d91b3757ace16adfe6ec3f0a39365af30904d9f750ac4e09e99224752916">
 	<description>GFController: 连接 UI/输入与架构的控制器基类。
 提供访问架构的便捷代理。这里不缓存 Model/System/Utility 引用，
 以避免架构切换或模块注销后保留过期对象。</description>
@@ -32,18 +32,22 @@
 		<member kind="method" name="get_architecture">
 			<signature>func get_architecture() -&gt; GFArchitecture:</signature>
 			<description>获取当前 Controller 所属的架构。
-优先沿场景树向上寻找 GFNodeContext；若未找到，则回退到全局 Gf 架构。</description>
+优先沿场景树向上寻找 GFNodeContext；若未找到，则回退到全局 Gf 架构。
+若最近 Context 已失败或其架构正在/已经 dispose，则返回 null，不越过局部作用域。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">当前可用的架构实例。</tag>
+				<tag name="since">1.9.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_architecture_or_null">
 			<signature>func get_architecture_or_null() -&gt; GFArchitecture:</signature>
-			<description>获取当前 Controller 所属的架构，找不到时返回 null 且不触发全局错误。</description>
+			<description>获取当前 Controller 所属的架构，找不到时返回 null 且不触发全局错误。
+存在但失效的最近 Context 会阻止全局回退。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">当前可用的架构实例。</tag>
+				<tag name="since">1.9.2</tag>
 			</tags>
 		</member>
 		<member kind="method" name="wait_for_context_ready">

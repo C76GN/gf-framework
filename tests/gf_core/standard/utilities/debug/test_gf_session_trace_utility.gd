@@ -180,13 +180,27 @@ func test_session_trace_bounds_circular_metadata_at_every_public_recording_bound
 	)
 	var channel_catalog: Dictionary = trace.get_channel_catalog()
 	var provider_catalog: Dictionary = trace.get_snapshot_provider_catalog()
-	assert_true(
-		JSON.stringify(channel_catalog).contains("<circular_reference>"),
-		"通道目录不得保留循环引用。"
+	var channel_entry: Dictionary = GFVariantData.get_option_dictionary(
+		channel_catalog,
+		&"state"
 	)
-	assert_true(
-		JSON.stringify(provider_catalog).contains("<circular_reference>"),
-		"Provider 目录不得保留循环引用。"
+	var provider_entry: Dictionary = GFVariantData.get_option_dictionary(
+		provider_catalog,
+		&"state_provider"
+	)
+	_assert_circular_report_marker(
+		GFVariantData.get_option_value(
+			GFVariantData.get_option_dictionary(channel_entry, "metadata"),
+			"self"
+		),
+		"通道目录"
+	)
+	_assert_circular_report_marker(
+		GFVariantData.get_option_value(
+			GFVariantData.get_option_dictionary(provider_entry, "metadata"),
+			"self"
+		),
+		"Provider 目录"
 	)
 
 	var _session_id: StringName = trace.start_session(&"circular-public-boundaries")
@@ -202,13 +216,21 @@ func test_session_trace_bounds_circular_metadata_at_every_public_recording_bound
 	)
 	assert_true(GFVariantData.get_option_bool(direct_result, "ok"))
 	assert_true(GFVariantData.get_option_bool(capture_result, "ok"))
-	assert_true(
-		JSON.stringify(direct_result).contains("<circular_reference>"),
-		"直接事件 metadata 应编码为稳定循环引用标记。"
+	var direct_event: Dictionary = GFVariantData.get_option_dictionary(direct_result, "event")
+	var captured_event: Dictionary = GFVariantData.get_option_dictionary(capture_result, "event")
+	_assert_circular_report_marker(
+		GFVariantData.get_option_value(
+			GFVariantData.get_option_dictionary(direct_event, "metadata"),
+			"self"
+		),
+		"直接事件 metadata"
 	)
-	assert_true(
-		JSON.stringify(capture_result).contains("<circular_reference>"),
-		"Provider capture metadata 应编码为稳定循环引用标记。"
+	_assert_circular_report_marker(
+		GFVariantData.get_option_value(
+			GFVariantData.get_option_dictionary(captured_event, "metadata"),
+			"self"
+		),
+		"Provider capture metadata"
 	)
 	trace.dispose()
 
@@ -587,6 +609,38 @@ func test_session_trace_recipe_bounds_circular_metadata_without_recursion() -> v
 		[checkpoint],
 		{ "metadata": circular_metadata }
 	)
+	var recipe_report: Dictionary = recipe.to_report_dictionary()
+	var recipe_channel_records: Array = GFVariantData.get_option_array(
+		recipe_report,
+		"channels"
+	)
+	var recipe_checkpoint_records: Array = GFVariantData.get_option_array(
+		recipe_report,
+		"checkpoints"
+	)
+	var recipe_channel_record: Dictionary = GFVariantData.as_dictionary(
+		recipe_channel_records[0]
+	)
+	var recipe_checkpoint_record: Dictionary = GFVariantData.as_dictionary(
+		recipe_checkpoint_records[0]
+	)
+	_assert_circular_report_marker(
+		GFVariantData.get_option_value(
+			GFVariantData.get_option_dictionary(
+				GFVariantData.get_option_dictionary(recipe_channel_record, "options"),
+				"metadata"
+			),
+			"self"
+		),
+		"配方通道报告"
+	)
+	_assert_circular_report_marker(
+		GFVariantData.get_option_value(
+			GFVariantData.get_option_dictionary(recipe_checkpoint_record, "metadata"),
+			"self"
+		),
+		"配方检查点报告"
+	)
 	var trace: GFSessionTraceUtility = GFSessionTraceUtility.new()
 	assert_true(
 		GFVariantData.get_option_bool(trace.apply_recipe(recipe), "ok"),
@@ -619,9 +673,12 @@ func test_session_trace_recipe_bounds_circular_metadata_without_recursion() -> v
 
 	assert_true(GFVariantData.get_option_bool(checkpoint_result, "ok"))
 	assert_true(GFVariantData.get_option_bool(provider_result, "ok"))
-	assert_true(
-		JSON.stringify(event).contains("<circular_reference>"),
-		"循环 metadata 应编码为稳定截断标记，不得保留循环引用。"
+	_assert_circular_report_marker(
+		GFVariantData.get_option_value(
+			GFVariantData.get_option_dictionary(event, "metadata"),
+			"self"
+		),
+		"配方采集事件 metadata"
 	)
 	trace.dispose()
 
@@ -1059,6 +1116,29 @@ func _get_variant_marker_value(source: Dictionary, key: String) -> String:
 	var encoded: Dictionary = GFVariantData.get_option_dictionary(source, key)
 	var marker: Dictionary = GFVariantData.get_option_dictionary(encoded, "__gf_variant__")
 	return GFVariantData.get_option_string(marker, "value")
+
+
+func _assert_circular_report_marker(value: Variant, boundary: String) -> void:
+	var encoded: Dictionary = GFVariantData.as_dictionary(value)
+	var marker: Dictionary = GFVariantData.get_option_dictionary(
+		encoded,
+		"__gf_report_value__"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(marker, "version"),
+		1,
+		"%s 应使用 report marker schema v1。" % boundary
+	)
+	assert_eq(
+		GFVariantData.get_option_string(marker, "type"),
+		"CircularReference",
+		"%s 应直接发布 CircularReference marker。" % boundary
+	)
+	assert_true(
+		GFVariantData.get_option_bool(marker, "redacted"),
+		"%s 的循环 marker 应明确标记为已脱敏。" % boundary
+	)
+	assert_eq(marker.size(), 3, "%s 不得把 marker 再封装为用户 Dictionary。" % boundary)
 
 
 # --- 内部类 ---

@@ -149,6 +149,36 @@ func can_receive_interaction(interaction_id: StringName = &"") -> bool:
 ## [br]
 ## @schema return: 交互结果报告 Dictionary，包含 ok、interaction_id、receiver(JSON-safe 摘要)、reason、message 和 metadata 等字段。
 func receive_interaction(context: GFInteractionContext, interaction_id: StringName = &"") -> Dictionary:
+	return _receive_interaction_for_framework(context, interaction_id, true)
+
+
+## 接收一次交互并把未编码的报告交给框架内层发送边界。
+## [br]
+## @api framework_internal
+## [br]
+## @since unreleased
+## [br]
+## @param context: 交互上下文。
+## [br]
+## @param interaction_id: 交互 ID。
+## [br]
+## @return: 只供 GFInteractionSensor 完成单次报告编码的原始报告。
+## [br]
+## @schema return: Raw interaction report Dictionary; callers must encode it exactly once before publication.
+func receive_interaction_raw_for_framework(
+	context: GFInteractionContext,
+	interaction_id: StringName = &""
+) -> Dictionary:
+	return _receive_interaction_for_framework(context, interaction_id, false)
+
+
+# --- 私有/辅助方法 ---
+
+func _receive_interaction_for_framework(
+	context: GFInteractionContext,
+	interaction_id: StringName,
+	normalize_output: bool
+) -> Dictionary:
 	var receiver: Object = _resolve_receiver()
 	var has_receiver_path: bool = receiver_path != NodePath("")
 	var report: Dictionary = _MESSAGE_RECEIVER_SUPPORT._receive_with_delegate(
@@ -173,12 +203,12 @@ func receive_interaction(context: GFInteractionContext, interaction_id: StringNa
 		&"receive_interaction",
 		[context, interaction_id],
 		"Interaction delegate receiver is missing.",
-		"Interaction delegate receiver returned an invalid interaction report."
+		"Interaction delegate receiver returned an invalid interaction report.",
+		&"target",
+		normalize_output
 	)
 	return report
 
-
-# --- 私有/辅助方法 ---
 
 func _resolve_receiver() -> Object:
 	if receiver_path == NodePath(""):

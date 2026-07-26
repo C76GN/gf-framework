@@ -54,6 +54,22 @@ class SampleEventChild extends SampleEventA:
 	pass
 
 
+class MethodNamedConsumedEvent:
+	func is_consumed() -> bool:
+		return true
+
+
+class SignalNamedConsumedEvent:
+	signal is_consumed
+
+	func emit_consumed_signal() -> void:
+		is_consumed.emit()
+
+
+class FreedNodeEvent extends Node:
+	pass
+
+
 class EventTestState:
 	var value: int = -1
 	var count: int = 0
@@ -541,6 +557,37 @@ func test_max_dispatch_depth_stops_recursive_type_dispatch() -> void:
 	assert_push_error("[GFTypeEventSystem] type 事件派发超过最大嵌套深度 1")
 
 
+func test_max_dispatch_depth_is_shared_across_type_and_simple_tracks() -> void:
+	_system.max_dispatch_depth = 2
+	var state: EventTestState = EventTestState.new()
+	_system.register(
+		SampleEventA,
+		_type_listener(func(_event: SampleEventA) -> void:
+			state.order.append("type")
+			_system.send_simple(&"alternating_depth"),
+		)
+	)
+	_system.register_simple(
+		&"alternating_depth",
+		_simple_listener(func(_payload: Variant) -> void:
+			state.order.append("simple")
+			_system.send(SampleEventA.new()),
+		)
+	)
+
+	_system.send(SampleEventA.new())
+	var stats: Dictionary = _system.get_debug_stats()
+
+	assert_eq(state.order, ["type", "simple"], "type/simple 交替递归必须共享同一深度预算。")
+	assert_eq(
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_int(stats, "max_dispatch_depth_observed"),
+		2,
+		"诊断应报告跨轨道全局最大深度。"
+	)
+	assert_eq(_GF_VARIANT_ACCESS_SCRIPT.get_option_int(stats, "dispatch_depth"), 0, "最外层返回后全局深度应归零。")
+	assert_push_error("[GFTypeEventSystem] type 事件派发超过最大嵌套深度 2")
+
+
 ## 验证派发追踪会按容量保留最近记录。
 func test_dispatch_trace_records_recent_events() -> void:
 	_system.trace_enabled = true
@@ -565,6 +612,38 @@ func test_dispatch_trace_records_recent_events() -> void:
 
 	_system.clear_dispatch_trace()
 	assert_true(_system.get_dispatch_trace().is_empty(), "clear_dispatch_trace 应清空追踪记录。")
+
+
+func test_dispatch_trace_sequence_remains_monotonic_after_trim_and_clear() -> void:
+	_system.trace_enabled = true
+	_system.max_trace_entries = 2
+
+	_system.send_simple(&"trace_1")
+	_system.send_simple(&"trace_2")
+	_system.send_simple(&"trace_3")
+	var trimmed_trace: Array[Dictionary] = _system.get_dispatch_trace()
+	var trimmed_first: Dictionary = trimmed_trace[0]
+	var trimmed_second: Dictionary = trimmed_trace[1]
+
+	assert_eq(
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_int(trimmed_first, "dispatch_index"),
+		2,
+		"容量裁剪不得重用旧 sequence。"
+	)
+	assert_eq(
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_int(trimmed_second, "dispatch_index"),
+		3,
+		"每次记录都应获得单调 sequence。"
+	)
+
+	_system.clear_dispatch_trace()
+	_system.send_simple(&"trace_4")
+	var trace_after_clear: Array[Dictionary] = _system.get_dispatch_trace()
+	assert_eq(
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_int(trace_after_clear[0], "dispatch_index"),
+		4,
+		"清空可见 trace 不得重置 sequence。"
+	)
 
 
 ## 验证 unregister 后，send 不再调用该回调。
@@ -663,6 +742,13 @@ func test_clear_during_type_dispatch_stops_current_dispatch_safely() -> void:
 
 	assert_eq(state.order, ["first"], "clear 后本轮后续监听与下一轮派发都不应触发。")
 	assert_eq(_system._type_dispatch_depth, 0, "clear 不应让类型事件派发深度变成负数。")
+	var stats: Dictionary = _system.get_debug_stats()
+	assert_eq(
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_int(stats, "type_dispatch_count"),
+		1,
+		"派发中的 clear 只清监听，不得抹掉已经发生的派发统计。"
+	)
+	assert_eq(_GF_VARIANT_ACCESS_SCRIPT.get_option_int(stats, "dispatch_depth"), 0, "clear 后全局深度应保持平衡。")
 
 
 # --- 测试：简单事件 ---
@@ -1124,6 +1210,83 @@ func test_mid_priority_consumes() -> void:
 	assert_eq(state.order.size(), 2, "中间级消费后应只有高和中被调用。")
 	assert_eq(state.order[0], "high", "高优先级应先执行。")
 	assert_eq(state.order[1], "mid", "中优先级应第二执行。")
+
+
+func test_consumption_requires_an_explicit_bool_property() -> void:
+	var state: EventTestState = EventTestState.new()
+	_system.register(
+		MethodNamedConsumedEvent,
+		_type_listener(func(_event: MethodNamedConsumedEvent) -> void:
+			state.count += 1,
+		),
+		10
+	)
+	_system.register(
+		MethodNamedConsumedEvent,
+		_type_listener(func(_event: MethodNamedConsumedEvent) -> void:
+			state.count += 1,
+		),
+		0
+	)
+	_system.send(MethodNamedConsumedEvent.new())
+
+	_system.register(
+		SignalNamedConsumedEvent,
+		_type_listener(func(_event: SignalNamedConsumedEvent) -> void:
+			state.count += 1,
+		),
+		10
+	)
+	_system.register(
+		SignalNamedConsumedEvent,
+		_type_listener(func(_event: SignalNamedConsumedEvent) -> void:
+			state.count += 1,
+		),
+		0
+	)
+	_system.send(SignalNamedConsumedEvent.new())
+
+	assert_eq(
+		state.count,
+		4,
+		"同名 method/signal 不能被鸭子类型误判为 bool 消费属性。"
+	)
+
+
+func test_event_freed_by_listener_stops_remaining_dispatch_safely() -> void:
+	var state: EventTestState = EventTestState.new()
+	_system.register(
+		FreedNodeEvent,
+		_type_listener(func(event: FreedNodeEvent) -> void:
+			state.order.append("free")
+			event.free(),
+		),
+		10
+	)
+	_system.register(
+		FreedNodeEvent,
+		_type_listener(func(_event: FreedNodeEvent) -> void:
+			state.order.append("stale"),
+		),
+		0
+	)
+
+	_system.send(FreedNodeEvent.new())
+
+	assert_eq(state.order, ["free"], "事件被回调释放后不得继续传给后续监听器。")
+
+
+func test_owned_registration_rejects_null_owner() -> void:
+	_system.register_simple_owned(
+		null,
+		&"missing_owner",
+		_simple_listener(func(_payload: Variant) -> void:
+			pass,
+		)
+	)
+	assert_push_error(
+		"[GFTypeEventSystem] register_simple_owned 失败：owner 为空或已释放。"
+	)
 
 
 # --- 测试：遍历中注册 (Task 6) ---

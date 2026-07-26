@@ -189,8 +189,10 @@ func is_lifecycle_active() -> bool:
 ## [br]
 ## @layer kernel/core
 ## [br]
-## @return 新初始化流程的 generation。
+## @return 新初始化流程的 generation；正在或已经 dispose 时返回 -1。
 func begin_initialization() -> int:
+	if _state == LifecycleState.DISPOSING or _state == LifecycleState.DISPOSED:
+		return -1
 	_lifecycle_generation += 1
 	_state = LifecycleState.INITIALIZING
 	return _lifecycle_generation
@@ -224,7 +226,11 @@ func finish_initialization(lifecycle_generation: int) -> bool:
 ## [br]
 ## @return 首次进入 failed 状态时返回 true。
 func fail_initialization(lifecycle_generation: int) -> bool:
-	if _state == LifecycleState.FAILED:
+	if (
+		_state == LifecycleState.FAILED
+		or _state == LifecycleState.DISPOSING
+		or _state == LifecycleState.DISPOSED
+	):
 		return false
 	if not is_generation_current(lifecycle_generation):
 		return false

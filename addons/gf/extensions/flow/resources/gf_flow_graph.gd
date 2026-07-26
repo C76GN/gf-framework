@@ -570,14 +570,13 @@ func serialize_runtime_state(json_compatible: bool = false) -> Dictionary:
 			continue
 		var state: Dictionary = node.serialize_runtime_state(json_compatible)
 		if not state.is_empty():
-			node_states[node.node_id] = state
+			var state_key: Variant = node.node_id
+			if json_compatible:
+				state_key = String(node.node_id)
+			node_states[state_key] = state
 	var snapshot: Dictionary = {
 		"nodes": node_states,
 	}
-	if json_compatible:
-		return GFReportValueCodec.to_report_dictionary(snapshot, {
-			"path_redaction": "basename",
-		})
 	return snapshot
 
 

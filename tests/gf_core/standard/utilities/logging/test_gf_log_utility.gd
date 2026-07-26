@@ -298,9 +298,17 @@ func test_trace_id_and_global_context_are_merged_into_entries() -> void:
 	assert_eq(GFVariantData.get_option_string(context, "build"), "debug", "provider 上下文应参与合并。")
 	var tags_marker: Dictionary = GFVariantData.get_option_dictionary(
 		GFVariantData.get_option_dictionary(context, "tags"),
-		"__gf_variant__"
+		"__gf_report_value__"
 	)
-	assert_eq(GFVariantData.get_option_string(tags_marker, "type"), "PackedStringArray", "PackedStringArray 应保留 report codec 类型标记。")
+	assert_eq(GFVariantData.get_option_int(tags_marker, "version"), 1)
+	assert_eq(GFVariantData.get_option_string(tags_marker, "type"), "PackedArray")
+	assert_true(GFVariantData.get_option_bool(tags_marker, "redacted"))
+	assert_eq(
+		GFVariantData.get_option_string(tags_marker, "collection_type"),
+		"PackedStringArray"
+	)
+	assert_eq(GFVariantData.get_option_int(tags_marker, "count"), 2)
+	assert_eq(GFVariantData.get_option_array(tags_marker, "items"), ["alpha", "beta"])
 
 
 func test_sanitize_log_value_marks_circular_references() -> void:

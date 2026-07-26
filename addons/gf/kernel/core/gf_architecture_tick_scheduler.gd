@@ -31,7 +31,7 @@ var _tick_utilities: Array[GFArchitectureTickRecord] = []
 var _physics_utilities: Array[GFArchitectureTickRecord] = []
 var _tick_records: Array[GFArchitectureTickRecord] = []
 var _physics_records: Array[GFArchitectureTickRecord] = []
-var _is_iterating_tick_caches: bool = false
+var _drive_depth: int = 0
 var _tick_caches_dirty: bool = false
 
 
@@ -75,7 +75,7 @@ func configure(
 ## [br]
 ## @since 4.4.0
 func refresh() -> void:
-	if _is_iterating_tick_caches:
+	if _drive_depth > 0:
 		_tick_caches_dirty = true
 		return
 
@@ -92,9 +92,12 @@ func refresh() -> void:
 ## [br]
 ## @param time_provider: 当前架构解析到的时间提供器；为空时使用原始 delta。
 func drive_tick(delta: float, time_provider: Object) -> void:
+	if not _begin_drive():
+		return
 	var scaled_delta: float = _get_scaled_delta(delta, time_provider)
 	var time_paused: bool = _is_time_paused(time_provider)
 	_drive_records(_tick_records, delta, scaled_delta, time_paused)
+	_end_drive()
 
 
 ## 驱动所有参与 physics_tick 的 System 与 Utility。
@@ -107,21 +110,10 @@ func drive_tick(delta: float, time_provider: Object) -> void:
 ## [br]
 ## @param time_provider: 当前架构解析到的时间提供器；为空时使用原始 delta。
 func drive_physics_tick(delta: float, time_provider: Object) -> void:
-	if time_provider != null and _GF_VARIANT_ACCESS_SCRIPT.to_bool(time_provider.call("should_substep_physics", delta)):
-		var raw_scaled_steps: Variant = time_provider.call("get_physics_scaled_delta_steps", delta)
-		if not raw_scaled_steps is Array:
-			return
-		var scaled_steps: Array = raw_scaled_steps
-		if scaled_steps.is_empty():
-			return
-		var raw_step: float = delta / float(scaled_steps.size())
-		for scaled_step_variant: Variant in scaled_steps:
-			_drive_physics_tick_step(raw_step, _GF_VARIANT_ACCESS_SCRIPT.to_float(scaled_step_variant), time_provider)
+	if not _begin_drive():
 		return
-
-	var scaled_delta: float = _get_scaled_delta(delta, time_provider)
-	_drive_physics_tick_step(delta, scaled_delta, time_provider)
-
+	_drive_physics_tick(delta, time_provider)
+	_end_drive()
 
 ## 获取 tick 缓存诊断计数。
 ## [br]
@@ -167,6 +159,23 @@ func get_module_debug_fields(instance: Object) -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+func _drive_physics_tick(delta: float, time_provider: Object) -> void:
+	if time_provider != null and _GF_VARIANT_ACCESS_SCRIPT.to_bool(time_provider.call("should_substep_physics", delta)):
+		var raw_scaled_steps: Variant = time_provider.call("get_physics_scaled_delta_steps", delta)
+		if not raw_scaled_steps is Array:
+			return
+		var scaled_steps: Array = raw_scaled_steps
+		if scaled_steps.is_empty():
+			return
+		var raw_step: float = delta / float(scaled_steps.size())
+		for scaled_step_variant: Variant in scaled_steps:
+			_drive_physics_tick_step(raw_step, _GF_VARIANT_ACCESS_SCRIPT.to_float(scaled_step_variant), time_provider)
+		return
+
+	var scaled_delta: float = _get_scaled_delta(delta, time_provider)
+	_drive_physics_tick_step(delta, scaled_delta, time_provider)
+
+
 func _drive_physics_tick_step(raw_delta: float, scaled_delta: float, time_provider: Object) -> void:
 	var time_paused: bool = _is_time_paused(time_provider)
 	_drive_records(_physics_records, raw_delta, scaled_delta, time_paused)
@@ -178,12 +187,27 @@ func _drive_records(
 	scaled_delta: float,
 	time_paused: bool
 ) -> void:
-	_is_iterating_tick_caches = true
 	for record: GFArchitectureTickRecord in records:
 		if _is_tick_record_ready_for_tick(record):
 			record.invoke(raw_delta, scaled_delta, time_paused)
-	_is_iterating_tick_caches = false
-	_flush_tick_cache_refresh()
+
+
+func _begin_drive() -> bool:
+	if _drive_depth > 0:
+		push_warning(
+			"[GFArchitectureTickScheduler] 已拒绝嵌套 tick/physics_tick 调度；"
+			+ "同一架构的 drive 调用不能重入。"
+		)
+		return false
+
+	_drive_depth += 1
+	return true
+
+
+func _end_drive() -> void:
+	_drive_depth -= 1
+	if _drive_depth == 0:
+		_flush_tick_cache_refresh()
 
 
 func _get_scaled_delta(delta: float, time_provider: Object) -> float:

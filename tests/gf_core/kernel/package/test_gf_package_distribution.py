@@ -74,6 +74,58 @@ class BuildPackageManifestSchemaTests(unittest.TestCase):
 
 			self.assertTrue(any("schema_version must be the integer 1" in issue for issue in result["issues"]), result)
 
+	def test_builder_rejects_nonportable_manifest_paths_on_every_host(self) -> None:
+		unsafe_paths = (
+			"addons/gf/standard/fixture/\u001fscript.gd",
+			"addons/gf/standard/fixture/bad:name.gd",
+			"addons/gf/standard/fixture/bad<name.gd",
+			"addons/gf/standard/fixture/NUL.txt",
+			"addons/gf/standard/fixture/COM¹.gd",
+			"addons/**/fixture.gd",
+			"addons/gf/standard/prefix**",
+		)
+		for index, unsafe_path in enumerate(unsafe_paths):
+			with self.subTest(path=repr(unsafe_path)):
+				with tempfile.TemporaryDirectory(prefix="gf-package-builder-portable-") as temp_dir:
+					root = Path(temp_dir)
+					package_root = root / "packages"
+					package_root.mkdir(parents=True)
+					(package_root / f"fixture-{index}.json").write_text(
+						json.dumps({
+							"schema_version": 1,
+							"id": "gf.standard.fixture",
+							"kind": "standard",
+							"paths": [unsafe_path],
+						}),
+						encoding="utf-8",
+					)
+					with (
+						mock.patch.object(build_gf_package, "ROOT", root),
+						mock.patch.object(build_gf_package, "PACKAGE_ROOT", package_root),
+					):
+						result = build_gf_package.load_package_manifests()
+
+					self.assertTrue(
+						any("unsafe or non-portable path" in issue for issue in result["issues"]),
+						result,
+					)
+
+	def test_builder_literal_path_policy_is_windows_portable_on_every_host(self) -> None:
+		for unsafe_path in (
+			"addons/gf/standard/fixture/bad:name.gd",
+			"addons/gf/standard/fixture/bad?.gd",
+			"addons/gf/standard/fixture/NUL.txt",
+			"addons/gf/standard/fixture/LPT³.asset",
+			"addons/gf/standard/fixture/trailing. ",
+		):
+			with self.subTest(path=repr(unsafe_path)):
+				self.assertFalse(build_gf_package.is_windows_portable_relative_path(unsafe_path))
+		self.assertTrue(
+			build_gf_package.is_windows_portable_relative_path(
+				"addons/gf/standard/fixture/[literal]/valid.gd"
+			)
+		)
+
 	def test_builder_rejects_symlinked_package_source(self) -> None:
 		with tempfile.TemporaryDirectory(prefix="gf-package-builder-symlink-") as temp_dir:
 			root = Path(temp_dir)
@@ -190,6 +242,187 @@ class PackageResolverPlanTests(unittest.TestCase):
 			self.assertTrue(update_result["ok"], update_result["issues"])
 			self.assertEqual(install_result["planned_lockfile"]["installed"]["gf.kernel"]["file_metadata"], metadata)
 			self.assertEqual(update_result["planned_lockfile"]["installed"]["gf.kernel"]["file_metadata"], metadata)
+
+	def test_update_plan_uses_the_complete_native_payload_identity(self) -> None:
+		mutations = {
+			"version": lambda entry: entry.update({"version": "7.0.1"}),
+			"kind": lambda entry: entry.update({"kind": "extension"}),
+			"paths": lambda entry: entry.update({"paths": ["addons/gf/standard/fixture-v2/**"]}),
+			"archive": lambda entry: entry.update({"archive": "standard-v2.zip"}),
+			"sha256": lambda entry: entry.update({"sha256": "d" * 64}),
+			"gf_extension_id": lambda entry: entry.update({"gf_extension_id": "fixture.extension"}),
+		}
+		for label, mutate in mutations.items():
+			with self.subTest(field=label):
+				with tempfile.TemporaryDirectory(prefix="gf-package-plan-payload-") as temp_dir:
+					root = Path(temp_dir)
+					registry_path = root / "registry.json"
+					lockfile_path = root / "packages.lock.json"
+					kernel_entry = self._registry_entry("kernel", [])
+					baseline_entry = self._registry_entry("standard", ["gf.kernel"])
+					updated_entry = copy.deepcopy(baseline_entry)
+					mutate(updated_entry)
+					registry_path.write_text(json.dumps({
+						"schema_version": 2,
+						"framework_version": "7.0.0",
+						"minimum_framework_version": "7.0.0",
+						"maximum_framework_version_exclusive": "8.0.0",
+						"packages": {
+							"gf.kernel": kernel_entry,
+							"gf.standard.fixture": updated_entry,
+						},
+					}), encoding="utf-8")
+					lock_entry = gf_package_resolver.make_lock_entry(
+						baseline_entry,
+						"gf.standard.fixture",
+					)
+					lock_entry.update({
+						"reason": ["manual"],
+						"files": ["addons/gf/standard/fixture/example.gd"],
+						"file_metadata": {
+							"addons/gf/standard/fixture/example.gd": {
+								"sha256": "b" * 64,
+								"size_bytes": 19,
+							},
+						},
+					})
+					lockfile_path.write_text(json.dumps({
+						"schema_version": 1,
+						"framework_version": "7.0.0",
+						"installed": {
+							"gf.standard.fixture": lock_entry,
+						},
+					}), encoding="utf-8")
+
+					result = gf_package_resolver.update_plan(
+						str(registry_path),
+						str(lockfile_path),
+						["gf.standard.fixture"],
+						False,
+					)
+
+					self.assertTrue(result["ok"], result["issues"])
+					self.assertIn("gf.standard.fixture", result["to_update"], result)
+
+	def test_update_plan_treats_preset_packages_as_payload_identity(self) -> None:
+		with tempfile.TemporaryDirectory(prefix="gf-package-plan-preset-payload-") as temp_dir:
+			root = Path(temp_dir)
+			registry_path = root / "registry.json"
+			lockfile_path = root / "packages.lock.json"
+			kernel_entry = self._registry_entry("kernel", [])
+			first_entry = self._registry_entry("standard", ["gf.kernel"])
+			second_entry = {
+				**self._registry_entry("standard", ["gf.kernel"]),
+				"paths": ["addons/gf/standard/other/**"],
+				"archive": "other.zip",
+			}
+			old_preset = {
+				"version": "7.0.0",
+				"kind": "preset",
+				"paths": [],
+				"archive": "",
+				"sha256": "",
+				"packages": ["gf.standard.fixture"],
+				"minimum_framework_version": "7.0.0",
+				"maximum_framework_version_exclusive": "8.0.0",
+			}
+			new_preset = {**old_preset, "packages": ["gf.standard.other"]}
+			registry_path.write_text(json.dumps({
+				"schema_version": 2,
+				"framework_version": "7.0.0",
+				"minimum_framework_version": "7.0.0",
+				"maximum_framework_version_exclusive": "8.0.0",
+				"packages": {
+					"gf.kernel": kernel_entry,
+					"gf.standard.fixture": first_entry,
+					"gf.standard.other": second_entry,
+					"gf.preset.fixture": new_preset,
+				},
+			}), encoding="utf-8")
+			lock_entry = gf_package_resolver.make_lock_entry(old_preset, "gf.preset.fixture")
+			lock_entry["reason"] = ["preset"]
+			lockfile_path.write_text(json.dumps({
+				"schema_version": 1,
+				"framework_version": "7.0.0",
+				"installed": {"gf.preset.fixture": lock_entry},
+			}), encoding="utf-8")
+
+			result = gf_package_resolver.update_plan(
+				str(registry_path),
+				str(lockfile_path),
+				["gf.preset.fixture"],
+				False,
+			)
+
+			self.assertTrue(result["ok"], result["issues"])
+			self.assertIn("gf.preset.fixture", result["to_update"], result)
+
+	def test_registry_loader_rejects_every_nonportable_manifest_path_family(self) -> None:
+		unsafe_paths = (
+			"addons/gf/standard/fixture/\u001fscript.gd",
+			"addons/gf/standard/fixture/bad:name.gd",
+			"addons/gf/standard/fixture/bad|name.gd",
+			"addons/gf/standard/fixture/PRN.txt",
+			"addons/gf/standard/fixture/LPT².asset",
+			"addons/**/fixture.gd",
+			"addons/gf/standard/prefix**",
+		)
+		for unsafe_path in unsafe_paths:
+			with self.subTest(path=repr(unsafe_path)):
+				with tempfile.TemporaryDirectory(prefix="gf-package-registry-portable-") as temp_dir:
+					registry_path = Path(temp_dir) / "registry.json"
+					entry = self._registry_entry("standard", [])
+					entry["paths"] = [unsafe_path]
+					registry_path.write_text(json.dumps({
+						"schema_version": 2,
+						"framework_version": "7.0.0",
+						"minimum_framework_version": "7.0.0",
+						"maximum_framework_version_exclusive": "8.0.0",
+						"packages": {"gf.standard.fixture": entry},
+					}), encoding="utf-8")
+
+					result = gf_package_resolver.load_registry(registry_path)
+
+					self.assertNotIn("gf.standard.fixture", result["packages"])
+					self.assertTrue(
+						any("unsafe or non-portable registry path" in issue for issue in result["issues"]),
+						result,
+					)
+
+	def test_registry_and_builder_reject_case_insensitive_manifest_path_aliases(self) -> None:
+		paths = [
+			"addons/gf/standard/fixture/**",
+			"ADDONS/GF/STANDARD/FIXTURE/**",
+		]
+		with tempfile.TemporaryDirectory(prefix="gf-package-portable-alias-") as temp_dir:
+			root = Path(temp_dir)
+			registry_path = root / "registry.json"
+			entry = self._registry_entry("standard", [])
+			entry["paths"] = paths
+			registry_path.write_text(json.dumps({
+				"schema_version": 2,
+				"framework_version": "7.0.0",
+				"minimum_framework_version": "7.0.0",
+				"maximum_framework_version_exclusive": "8.0.0",
+				"packages": {"gf.standard.fixture": entry},
+			}), encoding="utf-8")
+
+			registry_result = gf_package_resolver.load_registry(registry_path)
+			builder_issues = build_gf_package.portable_manifest_path_list_issues(
+				"gf.standard.fixture",
+				"paths",
+				paths,
+			)
+
+			self.assertNotIn("gf.standard.fixture", registry_result["packages"])
+			self.assertTrue(
+				any("duplicate portable registry path" in issue for issue in registry_result["issues"]),
+				registry_result,
+			)
+			self.assertTrue(
+				any("duplicate portable path" in issue for issue in builder_issues),
+				builder_issues,
+			)
 
 	@staticmethod
 	def _registry_entry(kind: str, dependencies: list[str]) -> dict[str, object]:

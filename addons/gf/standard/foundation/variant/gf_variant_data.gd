@@ -13,6 +13,7 @@ extends RefCounted
 
 const _GF_VARIANT_ACCESS_SCRIPT = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
 const _MAX_SAFE_JSON_INTEGER: float = 9_007_199_254_740_991.0
+const _DEFAULT_MAX_DIFF_DIAGNOSTICS: int = 1024
 
 
 # --- 公共方法 ---
@@ -365,7 +366,8 @@ static func duplicate_metadata(metadata: Dictionary) -> Dictionary:
 
 ## 安全比较两个 Variant 值是否等价。
 ## [br]
-## 默认只在类型相同或 int/float 数值类型互比时返回 true。需要容忍浮点误差时可传入 numeric_epsilon。
+## int/int 始终精确比较；int/float 仅在 float 有限、为整数且双向转换安全时等价。
+## 需要容忍两个 float 之间的误差时可传入 numeric_epsilon。
 ## [br]
 ## @api public
 ## [br]
@@ -381,31 +383,20 @@ static func duplicate_metadata(metadata: Dictionary) -> Dictionary:
 ## [br]
 ## @param options: 比较选项。支持 numeric_epsilon 和 match_string_names。
 ## [br]
-## @schema options: Dictionary，可选字段：numeric_epsilon 为 int/float 误差，默认 0；match_string_names 为 true 时 String 与 StringName 按文本比较。
+## @schema options: Dictionary，可选字段：numeric_epsilon 为 float/float 误差，默认 0；match_string_names 为 true 时 String 与 StringName 按文本比较。
 ## [br]
 ## @return 两个值按 GF 通用 Variant 语义等价时返回 true。
 static func values_equal(left: Variant, right: Variant, options: Dictionary = {}) -> bool:
-	var left_type: int = typeof(left)
-	var right_type: int = typeof(right)
-	if left_type == right_type:
-		if _is_numeric_variant_type(left_type):
-			return _numeric_values_equal(left, right, options)
-		return left == right
-	if _is_numeric_variant_type(left_type) and _is_numeric_variant_type(right_type):
-		return _numeric_values_equal(left, right, options)
-	if (
-		_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(options, "match_string_names", false)
-		and _is_string_like_key(left)
-		and _is_string_like_key(right)
-	):
-		return to_text(left) == to_text(right)
-	return false
+	return _GF_VARIANT_ACCESS_SCRIPT.values_equal(left, right, options)
 
 
 ## 将 source 合并到 target。
 ## `String` 与 `StringName` 等价键会复用 target 中已有字段，避免重复键。
+## 合并前会统一预检 source 图；超过默认深度、节点或集合元素预算时会报告错误并保持 target 原样。
 ## [br]
 ## @api public
+## [br]
+## @since 3.22.0
 ## [br]
 ## @param target: 会被原地修改的目标字典。
 ## [br]
@@ -419,9 +410,9 @@ static func values_equal(left: Variant, right: Variant, options: Dictionary = {}
 ## [br]
 ## @param recursive: 为 true 时递归合并嵌套 Dictionary。
 ## [br]
-## @return 已合并的 target 字典。
+## @return 已合并的 target 字典；source 超出预算时返回未修改的 target。
 ## [br]
-## @schema return: 合并后的目标 Dictionary。
+## @schema return: 合并后的目标 Dictionary，或预算拒绝时保持原样的目标 Dictionary。
 static func merge_dictionary(
 	target: Dictionary,
 	source: Dictionary,
@@ -481,8 +472,11 @@ static func deep_merge_defaults(base: Dictionary, defaults: Dictionary) -> Dicti
 ## 对比两个 Variant 并返回结构化差异报告。
 ## [br]
 ## 该方法只比较纯 Variant 数据形状，不读取文件、不实例化脚本，也不解释业务字段。
+## Array/Dictionary 按展开后的数据内容比较，不比较共享引用拓扑；活动引用 pair 重入只记录为 traversal diagnostic。
 ## [br]
 ## @api public
+## [br]
+## @since 4.4.0
 ## [br]
 ## @param before: 变更前的 Variant 值。
 ## [br]
@@ -492,25 +486,32 @@ static func deep_merge_defaults(base: Dictionary, defaults: Dictionary) -> Dicti
 ## [br]
 ## @schema after: 待比较的 Variant 值。
 ## [br]
-## @param options: 可选项。支持 max_changes、copy_values。
+## @param options: 可选项。支持 max_changes、max_diagnostics、copy_values。
 ## [br]
-## @schema options: Dictionary，可选字段：max_changes 为最多记录差异数，默认 1024，<=0 表示不限；copy_values 默认为 true。
+## @schema options: Dictionary，可选字段：max_changes 为最多记录差异数，默认 1024；max_diagnostics 为最多记录遍历诊断数，默认 1024；两者 <=0 表示不限；copy_values 默认为 true。
 ## [br]
-## @return 差异报告。包含 changed、change_count、truncated、max_changes 与 changes。
+## @return 差异报告。内容差异与遍历诊断分别存放在 changes 和 diagnostics。
 ## [br]
-## @schema return: Dictionary；changes 每项包含 kind、path、path_segments、old_value、new_value、old_type、new_type。kind 为 added、removed、changed 或 type_changed。
+## @schema return: Dictionary；changes 每项包含 kind、path、path_segments、old_value、new_value、old_type、new_type，kind 仅为 added、removed、changed 或 type_changed；diagnostics 每项包含 kind、path、path_segments，循环重入 kind 为 cycle_detected。changed 不受 diagnostics 影响。
 static func diff_variant(before: Variant, after: Variant, options: Dictionary = {}) -> Dictionary:
 	var state: Dictionary = _make_diff_state(options)
 	_diff_variant_recursive(before, after, [], state)
 	var changes: Array = state["changes"]
+	var diagnostics: Array = state["diagnostics"]
 	var truncated: bool = state["truncated"]
+	var diagnostics_truncated: bool = state["diagnostics_truncated"]
 	var max_changes: int = state["max_changes"]
+	var max_diagnostics: int = state["max_diagnostics"]
 	return {
 		"changed": not changes.is_empty() or truncated,
 		"change_count": changes.size(),
 		"truncated": truncated,
 		"max_changes": max_changes,
 		"changes": changes,
+		"diagnostic_count": diagnostics.size(),
+		"diagnostics_truncated": diagnostics_truncated,
+		"max_diagnostics": max_diagnostics,
+		"diagnostics": diagnostics,
 	}
 
 
@@ -824,11 +825,19 @@ static func get_option_packed_string_array(
 
 static func _make_diff_state(options: Dictionary) -> Dictionary:
 	var max_changes: int = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(options, "max_changes", 1024)
+	var max_diagnostics: int = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+		options,
+		"max_diagnostics",
+		_DEFAULT_MAX_DIFF_DIAGNOSTICS
+	)
 	var copy_values: bool = _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(options, "copy_values", true)
 	return {
 		"changes": [],
 		"truncated": false,
 		"max_changes": max_changes,
+		"diagnostics": [],
+		"diagnostics_truncated": false,
+		"max_diagnostics": max_diagnostics,
 		"copy_values": copy_values,
 		"visited_pairs": [],
 	}
@@ -836,6 +845,8 @@ static func _make_diff_state(options: Dictionary) -> Dictionary:
 
 static func _diff_variant_recursive(before: Variant, after: Variant, path_segments: Array, state: Dictionary) -> void:
 	if _is_diff_truncated(state):
+		return
+	if _diff_values_are_identical(before, after):
 		return
 
 	var before_type: int = typeof(before)
@@ -846,7 +857,7 @@ static func _diff_variant_recursive(before: Variant, after: Variant, path_segmen
 
 	if before is Dictionary and after is Dictionary:
 		if _is_diff_pair_active(before, after, state):
-			_append_diff_change("circular_reference", path_segments, null, null, state)
+			_append_diff_diagnostic("cycle_detected", path_segments, state)
 			return
 		_push_diff_pair(before, after, state)
 		var before_dictionary: Dictionary = before
@@ -857,7 +868,7 @@ static func _diff_variant_recursive(before: Variant, after: Variant, path_segmen
 
 	if before is Array and after is Array:
 		if _is_diff_pair_active(before, after, state):
-			_append_diff_change("circular_reference", path_segments, null, null, state)
+			_append_diff_diagnostic("cycle_detected", path_segments, state)
 			return
 		_push_diff_pair(before, after, state)
 		var before_array: Array = before
@@ -977,6 +988,20 @@ static func _append_diff_change(
 	})
 
 
+static func _append_diff_diagnostic(kind: String, path_segments: Array, state: Dictionary) -> void:
+	var diagnostics: Array = state["diagnostics"]
+	var max_diagnostics: int = state["max_diagnostics"]
+	if max_diagnostics > 0 and diagnostics.size() >= max_diagnostics:
+		state["diagnostics_truncated"] = true
+		return
+
+	diagnostics.append({
+		"kind": kind,
+		"path": _format_diff_path(path_segments),
+		"path_segments": duplicate_variant(path_segments, true, false),
+	})
+
+
 static func _copy_diff_value(value: Variant, state: Dictionary) -> Variant:
 	var copy_values: bool = state["copy_values"]
 	if not copy_values:
@@ -986,6 +1011,16 @@ static func _copy_diff_value(value: Variant, state: Dictionary) -> Variant:
 
 static func _variant_values_equal(left: Variant, right: Variant) -> bool:
 	return values_equal(left, right)
+
+
+static func _diff_values_are_identical(before: Variant, after: Variant) -> bool:
+	if is_same(before, after):
+		return true
+	if before is float and after is float:
+		var before_float: float = before
+		var after_float: float = after
+		return is_nan(before_float) and is_nan(after_float)
+	return false
 
 
 static func _is_diff_truncated(state: Dictionary) -> bool:
@@ -1030,29 +1065,6 @@ static func _get_diff_pair_stack(state: Dictionary) -> Array:
 	var empty_pairs: Array = []
 	state["visited_pairs"] = empty_pairs
 	return empty_pairs
-
-
-static func _numeric_values_equal(left: Variant, right: Variant, options: Dictionary) -> bool:
-	var left_number: float = _variant_to_float(left)
-	var right_number: float = _variant_to_float(right)
-	var epsilon: float = maxf(_GF_VARIANT_ACCESS_SCRIPT.get_option_float(options, "numeric_epsilon", 0.0), 0.0)
-	if epsilon <= 0.0:
-		return left_number == right_number
-	return absf(left_number - right_number) <= epsilon
-
-
-static func _is_numeric_variant_type(variant_type: int) -> bool:
-	return variant_type == TYPE_INT or variant_type == TYPE_FLOAT
-
-
-static func _variant_to_float(value: Variant) -> float:
-	if value is int:
-		var int_value: int = value
-		return float(int_value)
-	if value is float:
-		var float_value: float = value
-		return float_value
-	return 0.0
 
 
 static func _is_string_like_key(key: Variant) -> bool:

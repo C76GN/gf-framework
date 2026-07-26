@@ -235,6 +235,28 @@ func is_lifecycle_active() -> bool:
 	return _runtime.is_lifecycle_active()
 
 
+## 检查架构是否已经完成释放并进入不可恢复终态。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @return dispose() 已完成时返回 true。
+func is_disposed() -> bool:
+	return _runtime.is_disposed()
+
+
+## 检查架构是否正在执行释放回调。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @return dispose() 已开始但尚未完成时返回 true。
+func is_disposing() -> bool:
+	return _runtime.is_disposing()
+
+
 ## 获取当前架构生命周期 generation。
 ## 每次 init()、dispose() 或初始化失败都会推进 generation，用于异步流程判断自身是否仍属于当前生命周期。
 ## [br]
@@ -272,8 +294,11 @@ func is_module_ready(instance: Object) -> bool:
 
 
 ## 将当前架构标记为初始化失败，并唤醒等待初始化或 Installer 的调用方。
+## DISPOSING / DISPOSED 是不可恢复终态，迟到调用不会改写其状态或 generation。
 ## [br]
 ## @api public
+## [br]
+## @since 1.23.2
 ## [br]
 ## @param reason: 初始化失败原因。
 func fail_initialization(reason: String) -> void:
@@ -379,8 +404,8 @@ func create_binder() -> GFBinder:
 ## [br]
 ## @return 初始化完成且架构处于 ready 状态时返回 true。
 func init() -> bool:
-	if _runtime.is_disposed():
-		push_error("[GFArchitecture] init 失败：架构已 dispose，不能重新初始化。")
+	if _runtime.is_disposing() or _runtime.is_disposed():
+		push_error("[GFArchitecture] init 失败：架构正在或已经 dispose，不能重新初始化。")
 		return false
 	if _runtime.is_ready():
 		return true
@@ -395,24 +420,32 @@ func init() -> bool:
 		return false
 
 	var current_serial: int = _runtime.begin_initialization()
+	if current_serial < 0:
+		return false
 	last_initialization_error = ""
 	_on_init()
 	if fail_on_missing_declared_dependencies and not _validate_declared_dependencies_or_fail(current_serial):
 		return false
-	await _advance_all_modules_to_stage(1, current_serial)
-	if not _is_lifecycle_current(current_serial) or _runtime.has_failed():
+	if not await _advance_all_modules_to_stage(1, current_serial):
 		return false
-	await _advance_all_modules_to_stage(2, current_serial)
-	if not _is_lifecycle_current(current_serial) or _runtime.has_failed():
+	if not await _advance_all_modules_to_stage(2, current_serial):
 		return false
-	await _advance_all_modules_to_stage(3, current_serial)
-	if not _is_lifecycle_current(current_serial) or _runtime.has_failed():
+	if not await _advance_all_modules_to_stage(3, current_serial):
+		return false
+	if not _all_registered_modules_reached_stage(3):
+		_fail_initialization(
+			"[GFArchitecture] 初始化提交失败：仍有已注册模块未完成 ready 阶段。",
+			current_serial
+		)
 		return false
 
 	_refresh_cached_utility_refs()
 	if _runtime.finish_initialization(current_serial):
 		initialization_finished.emit()
-		return true
+		return (
+			_runtime.is_ready()
+			and _runtime.is_generation_current(current_serial)
+		)
 	return false
 
 
@@ -880,7 +913,11 @@ func register_system(script_cls: Script, instance: Object) -> bool:
 
 	_refresh_tick_caches()
 	if _runtime.is_ready():
-		return await _initialize_registered_module(_system_registry, instance)
+		var initialized: bool = await _initialize_registered_module(_system_registry, instance)
+		if not initialized:
+			_rollback_registered_module_if_current(_system_registry, script_cls, instance)
+		_refresh_tick_caches()
+		return initialized
 	return true
 
 
@@ -900,7 +937,10 @@ func register_model(script_cls: Script, instance: Object) -> bool:
 		return false
 
 	if _runtime.is_ready():
-		return await _initialize_registered_module(_model_registry, instance)
+		var initialized: bool = await _initialize_registered_module(_model_registry, instance)
+		if not initialized:
+			_rollback_registered_module_if_current(_model_registry, script_cls, instance)
+		return initialized
 	return true
 
 
@@ -923,7 +963,10 @@ func register_utility(script_cls: Script, instance: Object) -> bool:
 	_refresh_tick_caches()
 	if _runtime.is_ready():
 		var initialized: bool = await _initialize_registered_module(_utility_registry, instance)
+		if not initialized:
+			_rollback_registered_module_if_current(_utility_registry, script_cls, instance)
 		_refresh_cached_utility_refs()
+		_refresh_tick_caches()
 		return initialized
 	return true
 
@@ -1577,19 +1620,24 @@ func inject_node_tree(node: Node) -> void:
 # --- 公共方法（序列化） ---
 
 ## 收集所有已注册 Model 的状态快照。
-## 遍历所有 Model，调用其 to_dict() 方法，以脚本类的全局类名为键汇聚成一个字典。
+## 捕获前会验证每个 Model 都有唯一稳定存档键；任一目标无效时整个捕获失败，
+## 且失败 Result 不包含 `snapshot`，持久化层不得提交失败结果。
 ## [br]
 ## @api public
 ## [br]
-## @return 包含所有 Model 状态的字典，可直接用于 JSON 序列化。
+## @since 3.0.0
 ## [br]
-## @schema return: Dictionary keyed by stable model save key, storing each Model.to_dict() result.
+## @return 显式捕获 Result；成功时需取 `result.snapshot` 交给存储或恢复接口。
+## [br]
+## @schema return: Dictionary with ok: bool, optional snapshot: Dictionary keyed by stable model save key, and error: String. A failed result never contains snapshot.
 func get_all_models_state() -> Dictionary:
 	return _snapshot_coordinator.get_all_models_state()
 
 
 ## 分帧收集所有已注册 Model 的状态快照。
-## 适合大型存档或移动端项目，避免单帧集中执行大量 to_dict()。
+## 为保证耦合 Model 的默认持久化一致性，所有 `Model.to_dict()` 会在首次让帧前
+## 同步冻结；`max_models_per_frame` 只分摊冻结数据的物化，不分摊 `to_dict()` 本身。
+## 等待期间若 Model 注册表身份或稳定键发生变化，捕获会显式失败且不返回 snapshot。
 ## [br]
 ## @api public
 ## [br]
@@ -1599,56 +1647,85 @@ func get_all_models_state() -> Dictionary:
 ## [br]
 ## @schema options: Dictionary，可包含 max_models_per_frame: int。
 ## [br]
-## @return 包含所有 Model 状态的字典，可直接交给项目存储层后台写入。
+## @return 显式捕获 Result；成功时需取 `result.snapshot` 交给存储或恢复接口。
 ## [br]
-## @schema return: Dictionary keyed by stable model save key, storing each Model.to_dict() result.
+## @schema return: Dictionary with ok: bool, optional snapshot: Dictionary keyed by stable model save key, and error: String. A failed result never contains snapshot.
 func get_all_models_state_async(options: Dictionary = {}) -> Dictionary:
 	return await _snapshot_coordinator.get_all_models_state_async(options)
 
 
 ## 从状态字典恢复所有已注册 Model 的数据。
+## `data` 必须是成功捕获 Result 的 `snapshot` 字段，而不是 Result 外壳。
+## 恢复会先验证全部目标并保存基线，再应用并核对每个 Model；任一步失败会回滚
+## 本事务已应用的全部 Model。快照键集合必须与当前直接注册的 Model 精确匹配；
+## 未知键或缺少任一已注册 Model 都会在写入前被拒绝。
 ## [br]
 ## @api public
 ## [br]
-## @param data: 由 get_all_models_state() 返回的状态字典。
+## @since 3.0.0
 ## [br]
-## @schema data: Dictionary keyed by stable model save key, storing serialized model data.
-func restore_all_models_state(data: Dictionary) -> void:
-	_snapshot_coordinator.restore_all_models_state(data)
+## @param data: 由 get_all_models_state() 成功 Result 的 `snapshot` 字段。
+## [br]
+## @schema data: Inner snapshot Dictionary keyed by stable model save key, storing serialized model data; do not pass the outer capture Result.
+## [br]
+## @return 原子恢复 Result；任一步失败时回滚已应用 Model。
+## 失败时 `phase` 标记 validate/apply/commit；`rolled_back` 表示失败前的已应用状态
+## 是否全部通过基线核对，validate 零写入失败固定为 false。
+## [br]
+## @schema return: Dictionary with ok: bool, phase: StringName, rolled_back: bool, and error: String.
+func restore_all_models_state(data: Dictionary) -> Dictionary:
+	return _snapshot_coordinator.restore_all_models_state(data)
 
 
 ## 分帧恢复所有已注册 Model 的数据。
+## 与同步版本使用相同的 validate/apply/commit 事务；Model 会按
+## `max_models_per_frame` 分帧应用和核对，失败时回滚本事务已应用的全部 Model。
+## 快照键集合必须与当前直接注册的 Model 精确匹配。
 ## [br]
 ## @api public
 ## [br]
 ## @since 5.0.0
 ## [br]
-## @param data: 由 get_all_models_state() 或 get_all_models_state_async() 返回的状态字典。
+## @param data: 由 get_all_models_state() 或 get_all_models_state_async() 成功 Result 的 `snapshot` 字段。
 ## [br]
-## @schema data: Dictionary keyed by stable model save key, storing serialized model data.
+## @schema data: Inner snapshot Dictionary keyed by stable model save key, storing serialized model data; do not pass the outer capture Result.
 ## [br]
 ## @param options: 可选参数，支持 max_models_per_frame；小于等于 0 时不主动让出帧。
 ## [br]
 ## @schema options: Dictionary，可包含 max_models_per_frame: int。
 ## [br]
-## @return 恢复流程被完整接受时返回 true。
-func restore_all_models_state_async(data: Dictionary, options: Dictionary = {}) -> bool:
+## @return 原子恢复 Result；任一步失败时回滚已应用 Model。
+## 失败时 `phase` 标记 validate/apply/commit；`rolled_back` 表示失败前的已应用状态
+## 是否全部通过基线核对，validate 零写入失败固定为 false。
+## [br]
+## @schema return: Dictionary with ok: bool, phase: StringName, rolled_back: bool, and error: String.
+func restore_all_models_state_async(
+	data: Dictionary,
+	options: Dictionary = {}
+) -> Dictionary:
 	return await _snapshot_coordinator.restore_all_models_state_async(data, options)
 
 
 ## 获取整个框架的全局快照，包含所有 Model 状态以及可选命令历史记录。
+## 捕获成功的 snapshot 固定包含 `format_version` 与 `models`，注册完整命令历史
+## 服务时还包含 Dictionary 形式的 `command_history`。任一捕获步骤失败时 Result
+## 不包含 snapshot，持久化层不得提交失败结果。
 ## [br]
 ## @api public
 ## [br]
-## @return 包含全局快照数据的字典。可直接用于 JSON 序列化。
+## @since 3.0.0
 ## [br]
-## @schema return: Dictionary with models and optional command_history fields.
+## @return 显式捕获 Result；成功时需取 `result.snapshot` 交给存储或恢复接口。
+## [br]
+## @schema return: Dictionary with ok: bool, optional snapshot: Dictionary with format_version: int, models: Dictionary, and optional command_history: Dictionary, and error: String. A failed result never contains snapshot.
 func get_global_snapshot() -> Dictionary:
 	return _snapshot_coordinator.get_global_snapshot()
 
 
 ## 分帧获取整个框架的全局快照。
-## Model 状态会按 options.max_models_per_frame 分帧收集；命令历史仍在 Model 快照完成后同步收集。
+## 为保证 Model 与命令历史属于同一默认捕获点，全部 `Model.to_dict()` 与命令历史
+## 会在首次让帧前同步冻结；`max_models_per_frame` 只分摊冻结 Model 数据的物化。
+## 等待期间若 Model 注册表身份或稳定键发生变化，捕获会显式失败且不返回 snapshot。
 ## [br]
 ## @api public
 ## [br]
@@ -1658,37 +1735,56 @@ func get_global_snapshot() -> Dictionary:
 ## [br]
 ## @schema options: Dictionary，可包含 max_models_per_frame: int。
 ## [br]
-## @return 包含全局快照数据的字典。可直接用于 JSON 序列化或交给项目存储层后台写入。
+## @return 显式捕获 Result；成功时需取 `result.snapshot` 交给存储或恢复接口。
 ## [br]
-## @schema return: Dictionary with models and optional command_history fields.
+## @schema return: Dictionary with ok: bool, optional snapshot: Dictionary with format_version: int, models: Dictionary, and optional command_history: Dictionary, and error: String. A failed result never contains snapshot.
 func get_global_snapshot_async(options: Dictionary = {}) -> Dictionary:
 	return await _snapshot_coordinator.get_global_snapshot_async(options)
 
 
 ## 从全局快照中恢复整个框架的状态，包含 Model 状态以及可选命令历史记录。
-## 注意：恢复命令历史需要外部传入 CommandBuilder 进行控制反转，因为它涉及到具体的业务命令类实例化。
+## `data` 必须是成功捕获 Result 的 `snapshot` 字段。仅接受当前
+## `format_version`、Dictionary `models` 与可选 Dictionary `command_history`；
+## `models` 键集合必须与当前直接注册的 Model 精确匹配；不兼容旧式无版本快照、
+## 缺项/未知 Model 键或 Array 命令历史。
+## 恢复会先验证全部输入并保存 Model/历史基线，再应用 Model，最后提交并核对历史。
+## validate 不写入；apply 或 commit 失败时会回滚全部已应用 Model 与命令历史。
+## 恢复命令历史必须传入可实例化具体业务命令的 `command_builder`。
 ## [br]
 ## @api public
 ## [br]
-## @param data: 由 get_global_snapshot() 导出的全局快照字典数据。
+## @since 3.0.0
 ## [br]
-## @schema data: Dictionary produced by get_global_snapshot().
+## @param data: 由 get_global_snapshot() 成功 Result 的 `snapshot` 字段。
+## [br]
+## @schema data: Inner snapshot Dictionary with the current format_version, models, and optional command_history fields; do not pass the outer capture Result.
 ## [br]
 ## @param command_builder: 【可选】如果需要恢复历史记录，必须传入用于反序列化具体 Command 实例的 Callable。
-func restore_global_snapshot(data: Dictionary, command_builder: Callable = Callable()) -> void:
-	_snapshot_coordinator.restore_global_snapshot(data, command_builder)
+## [br]
+## @return 原子恢复 Result；validate、apply 或 commit 失败时回滚全部 Model 与命令历史。
+## `rolled_back` 表示失败前的已应用状态是否全部通过基线核对；
+## validate 零写入失败固定为 false。
+## [br]
+## @schema return: Dictionary with ok: bool, phase: StringName, rolled_back: bool, and error: String.
+func restore_global_snapshot(
+	data: Dictionary,
+	command_builder: Callable = Callable()
+) -> Dictionary:
+	return _snapshot_coordinator.restore_global_snapshot(data, command_builder)
 
 
 ## 分帧恢复整个框架的全局快照。
-## Model 状态会按 options.max_models_per_frame 分帧恢复；命令历史仍在 Model 恢复完成后同步恢复。
+## 与同步版本使用相同的 validate/apply/commit 事务；Model 会分帧应用并逐项核对，
+## 命令历史只在全部 Model 成功后提交。任一阶段失败都会回滚全部已应用状态。
+## `models` 键集合必须与当前直接注册的 Model 精确匹配。
 ## [br]
 ## @api public
 ## [br]
 ## @since 5.0.0
 ## [br]
-## @param data: 由 get_global_snapshot() 或 get_global_snapshot_async() 导出的全局快照字典数据。
+## @param data: 由 get_global_snapshot() 或 get_global_snapshot_async() 成功 Result 的 `snapshot` 字段。
 ## [br]
-## @schema data: Dictionary produced by get_global_snapshot() or get_global_snapshot_async().
+## @schema data: Inner snapshot Dictionary with the current format_version, models, and optional command_history fields; do not pass the outer capture Result.
 ## [br]
 ## @param command_builder: 【可选】如果需要恢复历史记录，必须传入用于反序列化具体 Command 实例的 Callable。
 ## [br]
@@ -1696,12 +1792,16 @@ func restore_global_snapshot(data: Dictionary, command_builder: Callable = Calla
 ## [br]
 ## @schema options: Dictionary，可包含 max_models_per_frame: int。
 ## [br]
-## @return 恢复流程被完整接受时返回 true。
+## @return 原子恢复 Result；validate、apply 或 commit 失败时回滚全部 Model 与命令历史。
+## `rolled_back` 表示失败前的已应用状态是否全部通过基线核对；
+## validate 零写入失败固定为 false。
+## [br]
+## @schema return: Dictionary with ok: bool, phase: StringName, rolled_back: bool, and error: String.
 func restore_global_snapshot_async(
 	data: Dictionary,
 	command_builder: Callable = Callable(),
 	options: Dictionary = {}
-) -> bool:
+) -> Dictionary:
 	return await _snapshot_coordinator.restore_global_snapshot_async(data, command_builder, options)
 
 
@@ -1749,11 +1849,11 @@ func get_binding_diagnostics(options: Dictionary = {}) -> Dictionary:
 	var include_parent_chain: bool = _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(options, "include_parent_chain", true)
 	var max_parent_depth: int = maxi(_GF_VARIANT_ACCESS_SCRIPT.get_option_int(options, "max_parent_depth", 16), 0)
 	var registries: Dictionary = {
-		"models": _collect_binding_registry_diagnostics("model", _model_registry, include_entries),
-		"systems": _collect_binding_registry_diagnostics("system", _system_registry, include_entries),
-		"utilities": _collect_binding_registry_diagnostics("utility", _utility_registry, include_entries),
+		"models": _collect_binding_registry_diagnostics("model", _model_registry, true),
+		"systems": _collect_binding_registry_diagnostics("system", _system_registry, true),
+		"utilities": _collect_binding_registry_diagnostics("utility", _utility_registry, true),
 	}
-	var factories: Dictionary = _collect_binding_factory_diagnostics(include_entries)
+	var factories: Dictionary = _collect_binding_factory_diagnostics(true)
 	var issues: Array[Dictionary] = []
 	var parent_chain_report: Dictionary = _collect_parent_chain_report(max_parent_depth)
 	var parent_chain_entries: Array = _GF_VARIANT_ACCESS_SCRIPT.as_array(
@@ -1762,6 +1862,8 @@ func get_binding_diagnostics(options: Dictionary = {}) -> Dictionary:
 	_append_binding_registry_issues(issues, registries)
 	_append_binding_factory_issues(issues, factories)
 	_append_parent_chain_issues(issues, parent_chain_report)
+	if not include_entries:
+		_strip_binding_diagnostic_entries(registries, factories)
 
 	var result: Dictionary = {
 		"ok": issues.is_empty(),
@@ -1879,6 +1981,30 @@ func _on_init() -> void:
 ## @api protected
 func _on_dispose() -> void:
 	pass
+
+
+# --- 框架内部方法 ---
+
+## 登记一个由框架启动入口拥有、需要随架构失败或 dispose 一并取消的异步作用域。
+## [br]
+## @api framework_internal
+## [br]
+## @layer kernel/core
+## [br]
+## @param scope: 要登记的框架异步作用域。
+func track_framework_async_scope(scope: GFAsyncScope) -> void:
+	_track_async_scope(scope)
+
+
+## 注销一个已经结束或已由框架启动入口接管清理的异步作用域。
+## [br]
+## @api framework_internal
+## [br]
+## @layer kernel/core
+## [br]
+## @param scope: 要注销的框架异步作用域。
+func untrack_framework_async_scope(scope: GFAsyncScope) -> void:
+	_untrack_async_scope(scope)
 
 
 # --- 私有/辅助方法 ---
@@ -2839,6 +2965,15 @@ func _append_binding_factory_issues(issues: Array[Dictionary], factories: Dictio
 		})
 
 
+func _strip_binding_diagnostic_entries(registries: Dictionary, factories: Dictionary) -> void:
+	for registry_key: Variant in registries.keys():
+		var registry: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.as_dictionary(registries[registry_key])
+		var _removed_entries: bool = registry.erase("entries")
+		var _removed_aliases: bool = registry.erase("aliases")
+		var _removed_assignable_cache: bool = registry.erase("assignable_cache")
+	var _removed_factory_entries: bool = factories.erase("entries")
+
+
 func _collect_parent_chain_report(max_parent_depth: int) -> Dictionary:
 	var entries: Array[Dictionary] = []
 	var report: Dictionary = {
@@ -3026,6 +3161,21 @@ func _initialize_registered_module(module_registry: ModuleRegistry, instance: Ob
 		_is_lifecycle_current(current_serial)
 		and not _runtime.has_failed()
 		and _is_module_ready_for_lookup(instance)
+	)
+
+
+func _rollback_registered_module_if_current(
+	module_registry: ModuleRegistry,
+	script_cls: Script,
+	instance: Object
+) -> void:
+	if _get_dictionary_object(module_registry.instances, script_cls) != instance:
+		return
+	var _removed_instance: Object = _remove_registered_module(
+		module_registry,
+		script_cls,
+		true,
+		false
 	)
 
 
@@ -3226,11 +3376,11 @@ func _create_instance_for_requester(
 	return resolved_instance
 
 
-func _advance_all_modules_to_stage(target_stage: int, lifecycle_serial: int) -> void:
+func _advance_all_modules_to_stage(target_stage: int, lifecycle_serial: int) -> bool:
 	var pass_count: int = 0
 	while true:
 		if not _is_lifecycle_current(lifecycle_serial) or _runtime.has_failed():
-			return
+			return false
 		if pass_count >= module_lifecycle_max_stage_passes:
 			_fail_initialization(
 				"[GFArchitecture] 生命周期阶段推进超过上限：stage=%d, max_passes=%d。" % [
@@ -3239,7 +3389,7 @@ func _advance_all_modules_to_stage(target_stage: int, lifecycle_serial: int) -> 
 				],
 				lifecycle_serial
 			)
-			return
+			return false
 
 		var progressed: bool = false
 		if await _advance_module_registry_to_stage(_model_registry, target_stage, lifecycle_serial):
@@ -3249,8 +3399,31 @@ func _advance_all_modules_to_stage(target_stage: int, lifecycle_serial: int) -> 
 		if await _advance_module_registry_to_stage(_system_registry, target_stage, lifecycle_serial):
 			progressed = true
 		if not progressed:
-			return
+			if _all_registered_modules_reached_stage(target_stage):
+				return true
+			_fail_initialization(
+				"[GFArchitecture] 生命周期阶段推进停滞：stage=%d，仍有已注册模块未完成该阶段。" % target_stage,
+				lifecycle_serial
+			)
+			return false
 		pass_count += 1
+	return false
+
+
+func _all_registered_modules_reached_stage(target_stage: int) -> bool:
+	return (
+		_module_registry_reached_stage(_model_registry, target_stage)
+		and _module_registry_reached_stage(_utility_registry, target_stage)
+		and _module_registry_reached_stage(_system_registry, target_stage)
+	)
+
+
+func _module_registry_reached_stage(module_registry: ModuleRegistry, target_stage: int) -> bool:
+	for instance: Object in module_registry.instances.values():
+		var current_stage: int = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(_module_lifecycle_stages, instance, 0)
+		if current_stage < target_stage:
+			return false
+	return true
 
 
 func _advance_module_registry_to_stage(module_registry: ModuleRegistry, target_stage: int, lifecycle_serial: int) -> bool:
@@ -3409,11 +3582,42 @@ func _register_module(module_registry: ModuleRegistry, script_cls: Script, insta
 		])
 		return false
 
-	var _injected_dependencies: bool = _inject_dependencies_if_needed(instance, _get_active_lifecycle_serial_or_unbound())
+	var transaction: Dictionary = _runtime.begin_transaction("register_%s" % module_registry._label_key())
+	var injected_dependencies: bool = _inject_dependencies_if_needed(
+		instance,
+		_get_active_lifecycle_serial_or_unbound()
+	)
+	if not injected_dependencies:
+		_cleanup_uncommitted_module(instance)
+		_runtime.finish_transaction(transaction)
+		return false
+	if _runtime.is_transaction_invalidated(transaction):
+		push_error("[GFArchitecture] register_%s 失败：依赖注入期间注册事务已失效。" % module_registry._label_key())
+		_cleanup_uncommitted_module(instance)
+		_runtime.finish_transaction(transaction)
+		return false
+	if not _can_mutate_registration_state("register_%s" % module_registry._label_key()):
+		_cleanup_uncommitted_module(instance)
+		_runtime.finish_transaction(transaction)
+		return false
+	if module_registry._has_direct(script_cls):
+		var reentrant_instance: Object = _get_dictionary_object(module_registry.instances, script_cls)
+		_runtime.finish_transaction(transaction)
+		if reentrant_instance == instance:
+			return true
+		push_error("[GFArchitecture] register_%s 失败：依赖注入期间同一脚本键已被重入注册。" % module_registry._label_key())
+		_cleanup_uncommitted_module(instance)
+		return false
+	var reentrant_key: Script = module_registry._get_key_for_instance(instance)
+	if reentrant_key != null:
+		_runtime.finish_transaction(transaction)
+		push_error("[GFArchitecture] register_%s 失败：依赖注入期间同一实例已被重入注册。" % module_registry._label_key())
+		return false
 	module_registry.instances[script_cls] = instance
 	module_registry._track_instance_key(instance, script_cls)
 	module_registry._clear_assignable_cache()
 	_track_registered_module(instance)
+	_runtime.finish_transaction(transaction)
 	return true
 
 
@@ -3438,38 +3642,105 @@ func _replace_module(module_registry: ModuleRegistry, script_cls: Script, instan
 	if _runtime.is_ready():
 		return await _replace_initialized_module(module_registry, script_cls, instance)
 
-	if current_instance != null:
-		var _removed_current_instance: Object = _remove_registered_module(module_registry, script_cls, true, false)
-	if not _inject_dependencies_if_needed(instance, _get_active_lifecycle_serial_or_unbound()):
+	return _replace_uninitialized_module(
+		module_registry,
+		script_cls,
+		instance,
+		current_instance
+	)
+
+
+func _replace_uninitialized_module(
+	module_registry: ModuleRegistry,
+	script_cls: Script,
+	instance: Object,
+	current_instance: Object
+) -> bool:
+	var transaction: Dictionary = _runtime.begin_transaction("replace_%s" % module_registry._label_key())
+	var injected_dependencies: bool = _inject_dependencies_if_needed(
+		instance,
+		_get_active_lifecycle_serial_or_unbound()
+	)
+	if not injected_dependencies:
+		_cleanup_uncommitted_module_if_unregistered(module_registry, instance)
+		_runtime.finish_transaction(transaction)
 		return false
+	if _runtime.is_transaction_invalidated(transaction):
+		_cleanup_uncommitted_module_if_unregistered(module_registry, instance)
+		_runtime.finish_transaction(transaction)
+		return false
+	if not _can_mutate_registration_state("replace_%s" % module_registry._label_key()):
+		_cleanup_uncommitted_module_if_unregistered(module_registry, instance)
+		_runtime.finish_transaction(transaction)
+		return false
+	if _get_dictionary_object(module_registry.instances, script_cls) != current_instance:
+		_cleanup_uncommitted_module_if_unregistered(module_registry, instance)
+		_runtime.finish_transaction(transaction)
+		return false
+	if module_registry._get_key_for_instance(instance) != null:
+		_runtime.finish_transaction(transaction)
+		return false
+
+	if current_instance != null:
+		var _removed_current_instance: Object = _remove_registered_module(
+			module_registry,
+			script_cls,
+			true,
+			false
+		)
+	if _runtime.is_transaction_invalidated(transaction):
+		_cleanup_uncommitted_module_if_unregistered(module_registry, instance)
+		_runtime.finish_transaction(transaction)
+		return false
+	if not _can_mutate_registration_state("replace_%s" % module_registry._label_key()):
+		_cleanup_uncommitted_module_if_unregistered(module_registry, instance)
+		_runtime.finish_transaction(transaction)
+		return false
+	if (
+		module_registry._has_direct(script_cls)
+		or module_registry._get_key_for_instance(instance) != null
+	):
+		_cleanup_uncommitted_module_if_unregistered(module_registry, instance)
+		_runtime.finish_transaction(transaction)
+		return false
+
 	module_registry.instances[script_cls] = instance
 	module_registry._track_instance_key(instance, script_cls)
 	module_registry._clear_assignable_cache()
 	_track_registered_module(instance)
+	_runtime.finish_transaction(transaction)
 	return true
 
 
 func _replace_initialized_module(module_registry: ModuleRegistry, script_cls: Script, instance: Object) -> bool:
+	var previous_instance: Object = _get_dictionary_object(module_registry.instances, script_cls)
+	var previous_stage: int = 3
+	if previous_instance != null and _module_lifecycle_stages.has(previous_instance):
+		previous_stage = _GF_VARIANT_ACCESS_SCRIPT.to_int(
+			_module_lifecycle_stages[previous_instance],
+			previous_stage
+		)
+
 	var transaction: Dictionary = _runtime.begin_transaction("replace_%s" % module_registry._label_key())
 	var lifecycle_serial: int = _runtime.get_lifecycle_generation()
 	var prepared: bool = await _prepare_replacement_module(instance, lifecycle_serial)
 	if not prepared:
-		_call_module_dispose(instance)
-		_release_module_dependencies(instance)
+		_cleanup_uncommitted_module_if_unregistered(module_registry, instance)
 		_runtime.finish_transaction(transaction)
 		return false
 	if not _is_lifecycle_current(lifecycle_serial) or _runtime.has_failed():
-		_call_module_dispose(instance)
-		_release_module_dependencies(instance)
+		_cleanup_uncommitted_module_if_unregistered(module_registry, instance)
+		_runtime.finish_transaction(transaction)
+		return false
+	if _get_dictionary_object(module_registry.instances, script_cls) != previous_instance:
+		_cleanup_uncommitted_module_if_unregistered(module_registry, instance)
+		_runtime.finish_transaction(transaction)
+		return false
+	if module_registry._get_key_for_instance(instance) != null:
 		_runtime.finish_transaction(transaction)
 		return false
 
-	var previous_instance: Object = null
-	var previous_stage: int = 3
-	if module_registry._has_direct(script_cls):
-		previous_instance = _get_dictionary_object(module_registry.instances, script_cls)
-		if _module_lifecycle_stages.has(previous_instance):
-			previous_stage = _GF_VARIANT_ACCESS_SCRIPT.to_int(_module_lifecycle_stages[previous_instance], previous_stage)
+	if previous_instance != null:
 		module_registry._untrack_instance(previous_instance)
 		var _detached_previous_instance: bool = module_registry.instances.erase(script_cls)
 	module_registry.instances[script_cls] = instance
@@ -3485,12 +3756,27 @@ func _replace_initialized_module(module_registry: ModuleRegistry, script_cls: Sc
 			_rollback_initialized_replacement(module_registry, script_cls, instance, previous_instance, previous_stage)
 		_runtime.finish_transaction(transaction)
 		return false
+	if _get_dictionary_object(module_registry.instances, script_cls) != instance:
+		_cleanup_superseded_initialized_replacement(
+			module_registry,
+			instance,
+			previous_instance
+		)
+		_runtime.finish_transaction(transaction)
+		return false
 	if previous_instance != null:
-		_event_system.unregister_owner(previous_instance)
-		_unregister_services_for_owner(previous_instance)
-		_call_module_dispose(previous_instance)
-		_release_module_dependencies(previous_instance)
-		var _removed_previous_stage: bool = _module_lifecycle_stages.erase(previous_instance)
+		_cleanup_uncommitted_module(previous_instance)
+	if not _is_lifecycle_current(lifecycle_serial) or _runtime.has_failed():
+		_cleanup_failed_replacement(module_registry, instance, null)
+		_runtime.finish_transaction(transaction)
+		return false
+	if _get_dictionary_object(module_registry.instances, script_cls) != instance:
+		var _removed_superseded_stage: bool = _module_lifecycle_stages.erase(instance)
+		module_registry._clear_assignable_cache()
+		_refresh_cached_utility_refs()
+		_refresh_tick_caches()
+		_runtime.finish_transaction(transaction)
+		return false
 	_module_lifecycle_stages[instance] = 3
 	_runtime.finish_transaction(transaction)
 	return true
@@ -3509,10 +3795,7 @@ func _rollback_initialized_replacement(
 		module_registry._untrack_instance(replacement_instance)
 		var _removed_replacement: bool = module_registry.instances.erase(replacement_key)
 	if replacement_needs_cleanup:
-		_event_system.unregister_owner(replacement_instance)
-		_call_module_dispose(replacement_instance)
-		_release_module_dependencies(replacement_instance)
-		var _removed_replacement_stage: bool = _module_lifecycle_stages.erase(replacement_instance)
+		_cleanup_uncommitted_module(replacement_instance)
 
 	if previous_instance != null:
 		module_registry.instances[script_cls] = previous_instance
@@ -3536,17 +3819,52 @@ func _cleanup_failed_replacement(
 		var _removed_replacement: bool = module_registry.instances.erase(replacement_key)
 	module_registry._clear_assignable_cache()
 	if replacement_instance != null and replacement_needs_cleanup:
-		_event_system.unregister_owner(replacement_instance)
-		_unregister_services_for_owner(replacement_instance)
-		_call_module_dispose(replacement_instance)
-		_release_module_dependencies(replacement_instance)
-		var _removed_replacement_stage: bool = _module_lifecycle_stages.erase(replacement_instance)
+		_cleanup_uncommitted_module(replacement_instance)
 	if previous_instance != null:
 		_event_system.unregister_owner(previous_instance)
 		_unregister_services_for_owner(previous_instance)
 		_call_module_dispose(previous_instance)
 		_release_module_dependencies(previous_instance)
 		var _removed_previous_stage: bool = _module_lifecycle_stages.erase(previous_instance)
+
+
+func _cleanup_superseded_initialized_replacement(
+	module_registry: ModuleRegistry,
+	replacement_instance: Object,
+	previous_instance: Object
+) -> void:
+	if not _module_registry_contains_instance(module_registry, replacement_instance):
+		var _removed_replacement_stage: bool = _module_lifecycle_stages.erase(
+			replacement_instance
+		)
+	if (
+		previous_instance != null
+		and not _module_registry_contains_instance(module_registry, previous_instance)
+		and _module_lifecycle_stages.has(previous_instance)
+	):
+		_cleanup_uncommitted_module(previous_instance)
+	module_registry._clear_assignable_cache()
+	_refresh_cached_utility_refs()
+	_refresh_tick_caches()
+
+
+func _cleanup_uncommitted_module_if_unregistered(
+	module_registry: ModuleRegistry,
+	instance: Object
+) -> void:
+	if _module_registry_contains_instance(module_registry, instance):
+		return
+	_cleanup_uncommitted_module(instance)
+
+
+func _cleanup_uncommitted_module(instance: Object) -> void:
+	if instance == null:
+		return
+	_event_system.unregister_owner(instance)
+	_unregister_services_for_owner(instance)
+	_call_module_dispose(instance)
+	_release_module_dependencies(instance)
+	var _removed_stage: bool = _module_lifecycle_stages.erase(instance)
 
 
 func _prepare_replacement_module(instance: Object, lifecycle_serial: int) -> bool:
@@ -3682,13 +4000,15 @@ func _cancel_module_async_scope(async_scope: GFAsyncScope, reason: String) -> vo
 func _track_async_scope(scope: GFAsyncScope) -> void:
 	if scope == null:
 		return
+	if _runtime.is_disposing() or _runtime.is_disposed():
+		var _cancelled_disposed_scope: bool = scope.cancel("[GFArchitecture] 架构已 dispose。")
+		return
+	if _runtime.has_failed():
+		var _cancelled_failed_scope: bool = scope.cancel(last_initialization_error)
+		return
 	if _active_async_scopes.has(scope):
 		return
 	_active_async_scopes.append(scope)
-	if _runtime.is_disposing() or _runtime.is_disposed():
-		var _cancelled_disposed_scope: bool = scope.cancel("[GFArchitecture] 架构已 dispose。")
-	elif _runtime.has_failed():
-		var _cancelled_failed_scope: bool = scope.cancel(last_initialization_error)
 
 
 func _untrack_async_scope(scope: GFAsyncScope) -> void:
@@ -3792,6 +4112,7 @@ func _release_module_dependencies(instance: Object) -> void:
 
 func _stop_project_installers_after_failure() -> void:
 	var was_running: bool = _project_installers_running
+	_project_installers_applied = false
 	_project_installers_running = false
 	if was_running:
 		project_installers_finished.emit()
@@ -3942,8 +4263,7 @@ func _get_module_label_for_instance(instance: Object) -> String:
 func _is_module_ready_for_lookup(instance: Object) -> bool:
 	return (
 		instance != null
-		and _runtime.is_ready()
-		and not _runtime.has_failed()
+		and _runtime.is_lifecycle_active()
 		and _GF_VARIANT_ACCESS_SCRIPT.get_option_int(_module_lifecycle_stages, instance, 0) >= 3
 	)
 

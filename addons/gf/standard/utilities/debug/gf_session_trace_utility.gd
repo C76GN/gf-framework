@@ -622,15 +622,11 @@ func capture_recipe_checkpoint(
 		var provider_id: StringName = StringName(provider_text)
 		var capture_options: Dictionary = _duplicate_dictionary(options)
 		var _metadata_removed: bool = capture_options.erase("metadata")
-		var event_metadata: Dictionary = _sanitize_dictionary(
-			checkpoint.metadata,
-			mini(max_event_bytes, 4096)
-		)
-		var option_metadata: Dictionary = _sanitize_dictionary(
+		var event_metadata: Dictionary = _duplicate_dictionary(checkpoint.metadata)
+		var option_metadata: Dictionary = _duplicate_dictionary(
 			GFVariantData.as_dictionary(
 				GFVariantData.get_option_value(options, "metadata", {})
-			),
-			mini(max_event_bytes, 4096)
+			)
 		)
 		var _metadata_merge_result: Variant = GFVariantData.merge_metadata(
 			event_metadata,

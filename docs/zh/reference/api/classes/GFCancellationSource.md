@@ -9,7 +9,7 @@
 - 类别：运行时句柄 (`runtime_handle`)
 - 首次版本：`8.0.0`
 
-可触发取消的拥有者句柄。 source 负责创建和触发 [GFCancellationToken]，并可把上游 token、节点生命周期或 SceneTree 超时连接为统一取消请求。它不执行具体任务，也不假定取消后的业务回滚策略。
+可触发取消的拥有者句柄。 source 负责创建和触发 [GFCancellationToken]，并可把上游 token、节点生命周期或 SceneTree 超时连接为统一取消请求。它不执行具体任务，也不假定取消后的业务回滚策略。 所有改变 source 状态或信号连接的方法都只能在主线程调用；[method dispose] 是不可逆终态。
 
 ## 成员概览
 
@@ -129,9 +129,9 @@ func link_token(token: GFCancellationToken, reason: StringName = &"", metadata: 
 |---|---|
 | `token` | 上游取消 token。 |
 | `reason` | 可选覆盖原因；为空时使用上游原因。 |
-| `metadata` | 当前连接附加的元数据，会覆盖同名上游字段。 |
+| `metadata` | 当前连接附加的元数据；注册时深复制，并覆盖同名上游字段。 |
 
-返回：成功连接或上游已经触发取消时返回 true。
+返回：成功连接或上游已经触发取消时返回 true；重复、自连接、非主线程或终态 source 返回 false。
 
 结构：
 
@@ -156,9 +156,9 @@ func cancel_when_node_exits( node: Node, reason: StringName = &"node_exited", me
 |---|---|
 | `node` | 生命周期拥有者节点。 |
 | `reason` | 取消原因。 |
-| `metadata` | 取消上下文。 |
+| `metadata` | 取消上下文；注册时深复制。 |
 
-返回：成功连接或节点已经离树并触发取消时返回 true。
+返回：当前在树内的节点成功连接时返回 true；重复连接、树外节点、非主线程或终态 source 返回 false。
 
 结构：
 
@@ -181,15 +181,15 @@ func cancel_after_seconds( seconds: float, tree: SceneTree = null, reason: Strin
 
 | 名称 | 说明 |
 |---|---|
-| `seconds` | 超时时间；小于等于 0 时立即取消。 |
+| `seconds` | 有限超时时间；小于等于 0 时立即取消。 |
 | `tree` | 可选 SceneTree；为空时使用当前主循环。 |
 | `reason` | 超时取消原因。 |
-| `metadata` | 取消上下文。 |
+| `metadata` | 取消上下文；安排时深复制。 |
 | `process_always` | 是否在暂停时继续计时。 |
 | `process_in_physics` | 是否在物理帧处理。 |
 | `ignore_time_scale` | 是否忽略 Engine.time_scale。 |
 
-返回：成功安排或立即触发取消时返回 true。
+返回：成功安排或立即触发取消时返回 true；后续安排会停止并替换旧 timer。
 
 结构：
 
@@ -206,7 +206,7 @@ func cancel_after_seconds( seconds: float, tree: SceneTree = null, reason: Strin
 func dispose() -> void:
 ```
 
-释放 source 持有的连接。
+终结 source 并释放其持有的连接。 dispose 幂等且不可逆；之后所有 mutator 都会失败，既有 token 状态保持不变。
 
 <a id="member-gfcancellationsource-methods-get_debug_snapshot"></a>
 
@@ -225,7 +225,7 @@ func get_debug_snapshot() -> Dictionary:
 
 结构：
 
-- `return`: Dictionary，包含 token 状态、linked_token_count、node_lifetime_count 和 has_timeout。
+- `return`: Dictionary，包含 token 状态、disposed、linked_token_count、node_lifetime_count 和 has_timeout。
 
 <a id="member-gfcancellationsource-methods-create_linked"></a>
 
@@ -248,7 +248,7 @@ static func create_linked( tokens: Array, reason: StringName = &"", metadata: Di
 | `reason` | 可选覆盖原因；为空时使用上游原因。 |
 | `metadata` | 当前连接附加的元数据。 |
 
-返回：新建的取消 source。
+返回：完整连接的新 source；无效条目或连接失败时返回 null。若上游已取消，返回 first-cancel-wins 的终态 source。
 
 结构：
 

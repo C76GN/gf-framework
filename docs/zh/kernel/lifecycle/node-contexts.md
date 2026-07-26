@@ -56,11 +56,11 @@ func install_bindings(binder: Variant, _scope: GFAsyncScope) -> void:
 
 如果把 `auto_init` 设为 `false`，Context 仍会创建局部架构并执行 `install()` / `install_bindings()`，但不会自动进入三阶段生命周期。需要在合适的业务时机调用 `await context.initialize_context()`；该方法会等待安装完成、统一触发初始化，并在成功或失败时沿用 `context_ready` / `context_failed` 语义。
 
-`install()` 与 `install_bindings()` 收到的 `GFAsyncScope` 是该局部上下文安装过程的取消边界。`SCOPED` 节点退出树、父级架构失败或上下文失败时，框架会取消 scope 并执行登记的清理回调；安装逻辑中每次 `await` 后都应检查 `scope.is_cancel_requested()`，避免已离树的上下文继续写入外部副作用。
+`install()` 与 `install_bindings()` 收到的 `GFAsyncScope` 是该局部上下文安装过程的取消边界。`SCOPED` 节点退出树、父级架构失败、scope 自取消或上下文失败时，框架会取消 scope 并执行登记的清理回调；安装逻辑中每次 `await` 后都应检查 `scope.is_cancel_requested()`，避免已离树的上下文继续写入外部副作用。每次入树拥有独立 generation，旧协程迟到完成不能修改新一轮安装；Context 的 READY 与 FAILED 互斥，首次失败原因保持稳定。Context 会固定本轮选择的父级 Architecture identity，并在父级首次 READY 后固定其 lifecycle generation；install await、局部初始化和 Context READY 期间，父级被替换、失败、dispose 或跨 generation 重试都会让当前 Context fail closed。Scoped Context 一旦进入 FAILED，会立即 dispose 自己拥有的架构并停止 tick，但不会接管父级的释放；若 owned Architecture 在 READY 后被外部 dispose，Context 也会撤销 READY 并进入 FAILED。Inherited Context 不拥有共享架构，因此失败时同样不会替父级执行 dispose。
 
 如果把 `process_scoped_ticks` 设为 `false`，该 Context 只负责创建和生命周期管理，不再驱动局部架构的 `tick()` / `physics_tick()`。这种模式适合由外部调度器统一驱动局部架构；否则局部 `GFSystem.tick()` 和 `GFUtility.tick()` 不会自动执行。
 
-如果只想让某个节点树分支复用父级上下文，可以把 `scope_mode` 设为 `INHERITED`。继承模式不会创建或释放局部架构，但会在继承到的架构 ready 后发出同样的 `context_ready` 信号；如果父级架构稍后才初始化完成，上下文会等待后再发出信号。
+如果只想让某个节点树分支复用父级上下文，可以把 `scope_mode` 设为 `INHERITED`。继承模式不会创建或释放局部架构，但会在继承到的架构 ready 后发出同样的 `context_ready` 信号；如果父级架构稍后才初始化完成，上下文会等待后再发出信号。继承来源在本轮入树期间不会热迁移：全局或最近父 Context 改成另一 Architecture 时，当前 Inherited Context 会失败，调用方应让对应场景分支退出并重新进入以建立新 generation。等待、安装和 READY 期间若继承架构或 Scoped 架构的父级失败、`dispose()` 或生命周期 generation 漂移，Context 会立即进入 `FAILED` 并发出 `context_failed`；即使 `context_wait_timeout_seconds <= 0`，也不会对不可恢复的生命周期终态永久逐帧等待。`FAILED` 是当前 Context generation 的终态：即使共享 Architecture 随后以同一 identity 重试并重新 READY，该 Context 子树中的 `GFController` 仍不会恢复事件绑定，也不会通过架构、模块、命令、查询或事件代理访问它；无 Context 的全局 Controller 不受此限制，可随全局 Architecture 重试正常恢复。
 
 局部上下文中的 `GFController` 无需额外传参，会自动沿父节点查找最近的 `GFNodeContext`。注册到局部上下文的 `GFSystem` / `GFModel` / `GFUtility` 也会在注册时获得当前架构引用，因此基类提供的 `get_model()`、`get_system()`、`get_utility()` 会优先使用局部架构，并在本地未命中时回退父架构。
 
@@ -79,4 +79,4 @@ func _ready() -> void:
 	_refresh(battle_model)
 ```
 
-普通节点也可以直接等待 `GFNodeContext.wait_until_ready()`，它会在当前上下文架构真正就绪后返回可用的 `GFArchitecture`；如果上下文或父级架构失败，则返回 `null` 并发出 `context_failed`。
+普通节点也可以直接等待 `GFNodeContext.wait_until_ready()`，它会在当前上下文架构及本轮固定父级都保持有效时返回可用的 `GFArchitecture`；如果上下文或父级架构失败、等待目标已经 dispose、父级 identity 被替换或 generation 漂移，则返回 `null` 并发出 `context_failed`。`context_ready` 是同步信号；如果 listener 在回调中 dispose 架构、替换父级 identity 或让 Context 离树，`initialize_context()` / `wait_until_ready()` 会在返回前重新验证当前 generation，不会把回调已经失效的架构返回给等待方。`GFArchitecture.is_disposed()` 可用于项目自己的等待器辨认这一不可恢复终态。

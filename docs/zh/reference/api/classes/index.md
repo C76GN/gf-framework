@@ -6,8 +6,8 @@
 
 | 模块 | 类 | 成员 | 页面内索引 |
 |---|---:|---:|---|
-| Kernel | 71 | 993 | [Kernel](#module-kernel) |
-| Standard | 434 | 6856 | [Standard](#module-standard) |
+| Kernel | 71 | 996 | [Kernel](#module-kernel) |
+| Standard | 434 | 6859 | [Standard](#module-standard) |
 | Action Queue | 16 | 214 | [Action Queue](#module-extensions-action_queue) |
 | Asset Metadata | 4 | 33 | [Asset Metadata](#module-extensions-asset_metadata) |
 | Behavior Tree | 22 | 89 | [Behavior Tree](#module-extensions-behavior_tree) |
@@ -35,7 +35,7 @@
 
 | 类 | 类别 | 继承 | 成员 | 源文件 |
 |---|---|---|---:|---|
-| [`GFArchitecture`](GFArchitecture.md#gfarchitecture) | 运行时服务 (`runtime_service`) | `Object` | 111 | `addons/gf/kernel/core/gf_architecture.gd` |
+| [`GFArchitecture`](GFArchitecture.md#gfarchitecture) | 运行时服务 (`runtime_service`) | `Object` | 113 | `addons/gf/kernel/core/gf_architecture.gd` |
 | [`GFDependencyGraphTools`](GFDependencyGraphTools.md#gfdependencygraphtools) | 运行时服务 (`runtime_service`) | `RefCounted` | 1 | `addons/gf/kernel/core/gf_dependency_graph_tools.gd` |
 | [`GFExtensionCatalog`](GFExtensionCatalog.md#gfextensioncatalog) | 运行时服务 (`runtime_service`) | `RefCounted` | 5 | `addons/gf/kernel/extension/gf_extension_catalog.gd` |
 | [`GFExtensionManifestDiscovery`](GFExtensionManifestDiscovery.md#gfextensionmanifestdiscovery) | 运行时服务 (`runtime_service`) | `RefCounted` | 2 | `addons/gf/kernel/extension/gf_extension_manifest_discovery.gd` |
@@ -43,7 +43,7 @@
 | [`GFExtensionSelectionDiscovery`](GFExtensionSelectionDiscovery.md#gfextensionselectiondiscovery) | 运行时服务 (`runtime_service`) | `RefCounted` | 2 | `addons/gf/kernel/extension/gf_extension_selection_discovery.gd` |
 | [`GFExtensionSettings`](GFExtensionSettings.md#gfextensionsettings) | 运行时服务 (`runtime_service`) | `RefCounted` | 61 | `addons/gf/kernel/extension/gf_extension_settings.gd` |
 | [`GFNodeContext`](GFNodeContext.md#gfnodecontext) | 运行时服务 (`runtime_service`) | `Node` | 26 | `addons/gf/kernel/core/gf_node_context.gd` |
-| [`GFObjectPropertyTools`](GFObjectPropertyTools.md#gfobjectpropertytools) | 运行时服务 (`runtime_service`) | `RefCounted` | 15 | `addons/gf/kernel/core/gf_object_property_tools.gd` |
+| [`GFObjectPropertyTools`](GFObjectPropertyTools.md#gfobjectpropertytools) | 运行时服务 (`runtime_service`) | `RefCounted` | 16 | `addons/gf/kernel/core/gf_object_property_tools.gd` |
 | [`GFPathTools`](GFPathTools.md#gfpathtools) | 运行时服务 (`runtime_service`) | `RefCounted` | 7 | `addons/gf/kernel/core/gf_path_tools.gd` |
 | [`GFProjectReferenceScanner`](GFProjectReferenceScanner.md#gfprojectreferencescanner) | 运行时服务 (`runtime_service`) | `RefCounted` | 17 | `addons/gf/kernel/core/gf_project_reference_scanner.gd` |
 | [`GFProjectSettingsTools`](GFProjectSettingsTools.md#gfprojectsettingstools) | 运行时服务 (`runtime_service`) | `RefCounted` | 2 | `addons/gf/kernel/core/gf_project_settings_tools.gd` |
@@ -127,7 +127,7 @@
 | [`GFAudioCatalogProvider`](GFAudioCatalogProvider.md#gfaudiocatalogprovider) | 运行时服务 (`runtime_service`) | `RefCounted` | 9 | `addons/gf/standard/utilities/audio/gf_audio_catalog_provider.gd` |
 | [`GFAudioMetadataTools`](GFAudioMetadataTools.md#gfaudiometadatatools) | 运行时服务 (`runtime_service`) | `RefCounted` | 9 | `addons/gf/standard/utilities/audio/gf_audio_metadata_tools.gd` |
 | [`GFAudioPitchAnalysisTools`](GFAudioPitchAnalysisTools.md#gfaudiopitchanalysistools) | 运行时服务 (`runtime_service`) | `RefCounted` | 12 | `addons/gf/standard/utilities/audio/gf_audio_pitch_analysis_tools.gd` |
-| [`GFAudioUtility`](GFAudioUtility.md#gfaudioutility) | 运行时服务 (`runtime_service`) | `GFUtility` | 74 | `addons/gf/standard/utilities/audio/gf_audio_utility.gd` |
+| [`GFAudioUtility`](GFAudioUtility.md#gfaudioutility) | 运行时服务 (`runtime_service`) | `GFUtility` | 75 | `addons/gf/standard/utilities/audio/gf_audio_utility.gd` |
 | [`GFBackgroundWorkUtility`](GFBackgroundWorkUtility.md#gfbackgroundworkutility) | 运行时服务 (`runtime_service`) | `GFUtility` | 30 | `addons/gf/standard/utilities/jobs/gf_background_work_utility.gd` |
 | [`GFBatchedLogSink`](GFBatchedLogSink.md#gfbatchedlogsink) | 运行时服务 (`runtime_service`) | `GFLogSink` | 15 | `addons/gf/standard/utilities/logging/gf_batched_log_sink.gd` |
 | [`GFBridgeContractReport`](GFBridgeContractReport.md#gfbridgecontractreport) | 运行时服务 (`runtime_service`) | `RefCounted` | 26 | `addons/gf/standard/foundation/validation/gf_bridge_contract_report.gd` |
@@ -301,7 +301,7 @@
 | [`GFVoronoi2D`](GFVoronoi2D.md#gfvoronoi2d) | 运行时服务 (`runtime_service`) | `RefCounted` | 4 | `addons/gf/standard/foundation/math/gf_voronoi_2d.gd` |
 | [`GFWaveFunctionCollapse2D`](GFWaveFunctionCollapse2D.md#gfwavefunctioncollapse2d) | 运行时服务 (`runtime_service`) | `RefCounted` | 10 | `addons/gf/standard/foundation/math/gf_wave_function_collapse_2d.gd` |
 | [`GFAssetCatalogSourceProvider`](GFAssetCatalogSourceProvider.md#gfassetcatalogsourceprovider) | 协议与扩展点 (`protocol`) | `RefCounted` | 7 | `addons/gf/standard/utilities/assets/gf_asset_catalog_source_provider.gd` |
-| [`GFAudioBackend`](GFAudioBackend.md#gfaudiobackend) | 协议与扩展点 (`protocol`) | `RefCounted` | 36 | `addons/gf/standard/utilities/audio/gf_audio_backend.gd` |
+| [`GFAudioBackend`](GFAudioBackend.md#gfaudiobackend) | 协议与扩展点 (`protocol`) | `RefCounted` | 38 | `addons/gf/standard/utilities/audio/gf_audio_backend.gd` |
 | [`GFConfigProvider`](GFConfigProvider.md#gfconfigprovider) | 协议与扩展点 (`protocol`) | `GFUtility` | 10 | `addons/gf/standard/utilities/config/gf_config_provider.gd` |
 | [`GFConfigValidationRule`](GFConfigValidationRule.md#gfconfigvalidationrule) | 协议与扩展点 (`protocol`) | `Resource` | 18 | `addons/gf/standard/utilities/config/validation/gf_config_validation_rule.gd` |
 | [`GFDiagnosticSnapshotProvider`](GFDiagnosticSnapshotProvider.md#gfdiagnosticsnapshotprovider) | 协议与扩展点 (`protocol`) | `RefCounted` | 8 | `addons/gf/standard/utilities/debug/gf_diagnostic_snapshot_provider.gd` |

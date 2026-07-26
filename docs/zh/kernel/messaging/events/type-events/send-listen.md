@@ -30,6 +30,6 @@ func dispose() -> void:
 
 ## 消费语义与性能边界
 
-`GFPayload` 提供 `is_consumed` 字段。Type Event 派发后会检查事件实例上的 `is_consumed == true`，命中时停止后续监听。非 `GFPayload` 事件如果也定义并设置了同名字段，同样会触发消费语义。
+`GFPayload` 提供 bool 类型的 `is_consumed` 字段。Type Event 派发后会检查事件实例属性列表中明确声明的 bool `is_consumed == true`，命中时停止后续监听。非 `GFPayload` 事件可以声明同一字段来采用消费协议；同名 method 或 signal 不会被当作字段读取。监听回调释放事件实例时，当前派发会安全终止，不再访问失效对象。
 
 保持 Payload 轻量。Godot 4 的内存回收针对 `RefCounted` 已经优化，但在 `_physics_process` 这类高频循环中大量 `new` 强类型 Payload 仍会构成 GC 压力。这类场景可考虑改用 [Simple Event](../simple-events.md)。

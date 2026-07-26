@@ -2,6 +2,11 @@
 extends GutTest
 
 
+# --- 常量 ---
+
+const _GF_VARIANT_ACCESS_SCRIPT = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
+
+
 func test_duplicate_variant_deep_copies_collections() -> void:
 	var source: Dictionary = {
 		"items": [
@@ -35,6 +40,40 @@ func test_duplicate_variant_can_optionally_duplicate_resources() -> void:
 
 	assert_same(_as_resource(GFVariantData.duplicate_variant(resource)), resource, "默认应保留 Resource 引用。")
 	assert_ne(_as_resource(GFVariantData.duplicate_variant(resource, true, true)), resource, "显式要求时应复制 Resource。")
+
+
+func test_duplicate_variant_preserves_shared_resource_topology() -> void:
+	var shared_resource: Resource = Resource.new()
+	var source: Array = [shared_resource, shared_resource]
+
+	var copy: Array = _as_array(GFVariantData.duplicate_variant(source, true, true))
+	var first_copy: Resource = _as_resource(copy[0])
+	var second_copy: Resource = _as_resource(copy[1])
+
+	assert_not_same(first_copy, shared_resource, "显式复制 Resource 时必须断开源引用。")
+	assert_same(first_copy, second_copy, "同一源 Resource 在复制图中必须映射到同一副本。")
+
+
+func test_duplicate_variant_deep_copies_all_packed_array_types() -> void:
+	var packed_values: Array = [
+		PackedByteArray([1]),
+		PackedInt32Array([1]),
+		PackedInt64Array([1]),
+		PackedFloat32Array([1.0]),
+		PackedFloat64Array([1.0]),
+		PackedStringArray(["source"]),
+		PackedVector2Array([Vector2.ONE]),
+		PackedVector3Array([Vector3.ONE]),
+		PackedVector4Array([Vector4.ONE]),
+		PackedColorArray([Color.WHITE]),
+	]
+
+	for source_value: Variant in packed_values:
+		var copied_value: Variant = GFVariantData.duplicate_variant(source_value)
+		var mutated_copy: Variant = _replace_first_packed_value(copied_value)
+
+		assert_eq(typeof(copied_value), typeof(source_value), "深复制必须保留具体 PackedArray 类型。")
+		assert_false(_packed_values_equal(mutated_copy, source_value), "修改 PackedArray 副本不得污染源值。")
 
 
 func test_deep_merge_defaults_keeps_existing_values() -> void:
@@ -158,6 +197,26 @@ func test_values_equal_handles_numeric_and_string_name_options() -> void:
 	)
 
 
+func test_values_equal_preserves_integer_precision_and_safe_mixed_numeric_contract() -> void:
+	assert_false(
+		GFVariantData.values_equal(9_007_199_254_740_992, 9_007_199_254_740_993),
+		"int/int 必须保持完整 64 位精度。"
+	)
+	assert_false(
+		GFVariantData.values_equal(9_007_199_254_740_993, 9_007_199_254_740_992.0),
+		"不能安全往返的 int/float 不得等价。"
+	)
+	assert_true(
+		GFVariantData.values_equal(1_152_921_504_606_846_976, 1_152_921_504_606_846_976.0),
+		"可由 float 精确表示且能安全往返的大整数仍应等价。"
+	)
+	assert_false(
+		GFVariantData.values_equal(1, 1.25, { "numeric_epsilon": 0.5 }),
+		"numeric_epsilon 不得把非整数 float 与 int 混为一谈。"
+	)
+	assert_false(GFVariantData.values_equal(1, INF), "非有限 float 不得与 int 等价。")
+
+
 func test_vector_variant_narrowing_helpers_support_common_shapes() -> void:
 	var fallback_2: Vector2 = Vector2(9.0, 8.0)
 	var fallback_3: Vector3 = Vector3(7.0, 6.0, 5.0)
@@ -263,6 +322,186 @@ func test_merge_dictionary_stops_on_recursive_dictionary_pairs() -> void:
 	assert_true(is_same(target_settings["self"], target_settings), "已访问的循环分支不应被展开或替换。")
 
 
+func test_kernel_merge_dictionary_rejects_depth_budget_before_mutating_any_target_shape() -> void:
+	var source: Dictionary = {
+		"branch": {
+			"nested": {
+				"value": 1,
+			},
+		},
+	}
+	var missing_branch_target: Dictionary = {}
+	var shaped_target: Dictionary = {
+		"branch": {
+			"kept": true,
+		},
+	}
+	var shaped_before: Dictionary = shaped_target.duplicate(true)
+
+	var _ignored_missing_merge: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.merge_dictionary(
+		missing_branch_target,
+		source,
+		true,
+		true,
+		{ "max_depth": 1 }
+	)
+	assert_push_error("[GFVariantAccess] merge_dictionary 失败：source 超出 max_depth 预算，target 未修改。")
+	var _ignored_shaped_merge: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.merge_dictionary(
+		shaped_target,
+		source,
+		true,
+		true,
+		{ "max_depth": 1 }
+	)
+	assert_push_error("[GFVariantAccess] merge_dictionary 失败：source 超出 max_depth 预算，target 未修改。")
+
+	assert_eq(missing_branch_target.size(), 0, "target 缺少分支时也不得绕过深度预算。")
+	assert_eq(shaped_target, shaped_before, "target 已有同形分支时超限也必须保持原样。")
+
+
+func test_kernel_merge_dictionary_rejects_node_and_collection_budgets_atomically() -> void:
+	var source: Dictionary = {
+		"first": 1,
+		"second": 2,
+	}
+	var node_limited_target: Dictionary = { "kept": true }
+	var collection_limited_target: Dictionary = { "kept": true }
+
+	var _ignored_node_merge: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.merge_dictionary(
+		node_limited_target,
+		source,
+		true,
+		true,
+		{ "max_nodes": 1 }
+	)
+	assert_push_error("[GFVariantAccess] merge_dictionary 失败：source 超出 max_nodes 预算，target 未修改。")
+	var _ignored_collection_merge: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.merge_dictionary(
+		collection_limited_target,
+		source,
+		true,
+		true,
+		{ "max_collection_items": 1 }
+	)
+	assert_push_error("[GFVariantAccess] merge_dictionary 失败：source 超出 max_collection_items 预算，target 未修改。")
+
+	assert_eq(node_limited_target, { "kept": true }, "节点超限不得留下 partial merge。")
+	assert_eq(collection_limited_target, { "kept": true }, "集合元素超限不得留下 partial merge。")
+
+
+func test_kernel_merge_dictionary_produces_same_result_for_valid_target_shapes() -> void:
+	var source: Dictionary = {
+		"settings": {
+			"volume": 0.75,
+		},
+	}
+	var missing_branch_target: Dictionary = {}
+	var shaped_target: Dictionary = {
+		"settings": {},
+	}
+	var budget_options: Dictionary = {
+		"max_depth": 4,
+		"max_nodes": 32,
+		"max_collection_items": 16,
+	}
+
+	var _ignored_missing_merge: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.merge_dictionary(
+		missing_branch_target,
+		source,
+		true,
+		true,
+		budget_options
+	)
+	var _ignored_shaped_merge: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.merge_dictionary(
+		shaped_target,
+		source,
+		true,
+		true,
+		budget_options
+	)
+
+	assert_eq(missing_branch_target, shaped_target, "合法 source 的结果不应依赖 target 是否预先存在同形分支。")
+
+
+func test_merge_dictionary_rejects_source_beyond_default_depth_budget() -> void:
+	var source: Dictionary = {}
+	var cursor: Dictionary = source
+	for _depth: int in range(65):
+		var nested: Dictionary = {}
+		cursor["next"] = nested
+		cursor = nested
+	cursor["value"] = 1
+	var target: Dictionary = {}
+
+	var _ignored_merge: Dictionary = GFVariantData.merge_dictionary(target, source)
+	assert_push_error("[GFVariantAccess] merge_dictionary 失败：source 超出 max_depth 预算，target 未修改。")
+
+	assert_eq(target.size(), 0, "默认预算也必须在修改 target 前拒绝极深 source。")
+
+
+func test_kernel_json_conversion_marks_circular_references_without_expanding_aliases() -> void:
+	var source: Dictionary = {}
+	source["left"] = source
+	source["right"] = source
+
+	var encoded: Dictionary = _as_dictionary(_GF_VARIANT_ACCESS_SCRIPT.to_json_compatible(source, 4))
+
+	assert_eq(_as_string(encoded["left"]), "<circular_reference>", "循环边应立即使用稳定 marker。")
+	assert_eq(_as_string(encoded["right"]), "<circular_reference>", "共享循环别名不应按深度指数展开。")
+
+
+func test_kernel_json_conversion_fails_closed_when_budgets_are_exhausted() -> void:
+	var node_limited: Variant = _GF_VARIANT_ACCESS_SCRIPT.to_json_compatible(
+		[1, 2],
+		32,
+		{ "max_nodes": 2 }
+	)
+	var collection_limited: Variant = _GF_VARIANT_ACCESS_SCRIPT.to_json_compatible(
+		[1, 2],
+		32,
+		{ "max_collection_items": 1 }
+	)
+	var packed_collection_limited: Variant = _GF_VARIANT_ACCESS_SCRIPT.to_json_compatible(
+		PackedByteArray([1, 2]),
+		32,
+		{ "max_collection_items": 1 }
+	)
+	var byte_limited: Variant = _GF_VARIANT_ACCESS_SCRIPT.to_json_compatible(
+		"abcdef",
+		32,
+		{ "max_bytes": 4 }
+	)
+	var depth_limited: Variant = _GF_VARIANT_ACCESS_SCRIPT.to_json_compatible({ "value": 1 }, 0)
+
+	assert_eq(_as_string(node_limited), "<max_nodes>", "节点预算耗尽时不得返回 partial 数据。")
+	assert_eq(_as_string(collection_limited), "<max_collection_items>", "集合元素预算耗尽时不得继续展开。")
+	assert_eq(_as_string(packed_collection_limited), "<max_collection_items>", "PackedArray 必须在展开前检查集合元素预算。")
+	assert_eq(_as_string(byte_limited), "<max_bytes>", "输出字节预算耗尽时不得返回超限数据。")
+	assert_eq(_as_string(depth_limited), "<max_depth>", "深度预算耗尽时应返回顶层稳定 marker。")
+
+
+func test_kernel_json_conversion_rejects_non_string_and_colliding_dictionary_keys() -> void:
+	var non_string_source: Dictionary = {
+		Vector2i(1, 2): "cell",
+	}
+	var colliding_source: Dictionary = {
+		1: "numeric",
+		"1": "text",
+	}
+	var string_name_source: Dictionary = {
+		&"state": "ready",
+	}
+
+	var non_string_encoded: Variant = _GF_VARIANT_ACCESS_SCRIPT.to_json_compatible(non_string_source)
+	var colliding_encoded: Variant = _GF_VARIANT_ACCESS_SCRIPT.to_json_compatible(colliding_source)
+	var string_name_encoded: Dictionary = _as_dictionary(
+		_GF_VARIANT_ACCESS_SCRIPT.to_json_compatible(string_name_source)
+	)
+
+	assert_eq(_as_string(non_string_encoded), "<invalid_dictionary_key>", "非字符串 key 必须 fail-closed。")
+	assert_eq(_as_string(colliding_encoded), "<invalid_dictionary_key>", "非字符串与字符串同文本时不得静默覆盖字段。")
+	assert_eq(_as_string(string_name_encoded["state"]), "ready", "StringName key 可无损规范化为 JSON 字符串 key。")
+
+
 func test_diff_variant_reports_nested_dictionary_and_array_changes() -> void:
 	var before: Dictionary = {
 		"stats": {
@@ -351,17 +590,115 @@ func test_diff_variant_matches_string_and_string_name_keys_by_default() -> void:
 	assert_false(_as_bool(report["changed"]), "默认应复用 GF 的 String/StringName 等价 key 语义。")
 
 
-func test_diff_variant_reports_circular_dictionary_pairs() -> void:
+func test_diff_variant_is_reflexive_for_scalar_and_cyclic_values() -> void:
+	var recursive_dictionary: Dictionary = {}
+	recursive_dictionary["self"] = recursive_dictionary
+	var recursive_array: Array = []
+	recursive_array.append(recursive_array)
+	var shared_cycle: Dictionary = {
+		"value": 1,
+	}
+	shared_cycle["self"] = shared_cycle
+	var shared_graph: Dictionary = {
+		"left": shared_cycle,
+		"right": shared_cycle,
+	}
+	var values: Array = [
+		NAN,
+		recursive_dictionary,
+		recursive_array,
+		shared_graph,
+	]
+
+	for value: Variant in values:
+		var report: Dictionary = GFVariantData.diff_variant(value, value, { "copy_values": false })
+		var changes: Array = _as_array(report["changes"])
+
+		assert_false(_as_bool(report["changed"]), "任意值与自身比较都必须 unchanged。")
+		assert_eq(_as_int(report["change_count"]), 0, "自反比较不得生成 change。")
+		assert_eq(changes.size(), 0, "自反比较的 changes 必须为空。")
+
+
+func test_diff_variant_records_cycles_as_diagnostics_without_marking_changes() -> void:
 	var before: Dictionary = {}
 	before["self"] = before
 	var after: Dictionary = {}
 	after["self"] = after
 
 	var report: Dictionary = GFVariantData.diff_variant(before, after, { "copy_values": false })
-	var circular_change: Dictionary = _find_change(report, "self")
+	var changes: Array = _as_array(report["changes"])
+	var diagnostics: Array = _as_array(GFVariantData.get_option_value(report, "diagnostics", []))
+	var cycle_diagnostic: Dictionary = _as_dictionary(diagnostics[0] if not diagnostics.is_empty() else {})
 
-	assert_true(_as_bool(report["changed"]), "循环引用比较应报告诊断项而不是无限递归。")
-	assert_eq(_as_string(circular_change["kind"]), "circular_reference", "循环引用应有稳定差异类型。")
+	assert_false(_as_bool(report["changed"]), "两个同构循环图应按展开内容视为 unchanged。")
+	assert_eq(changes.size(), 0, "循环诊断不得伪装成 change。")
+	assert_eq(GFVariantData.get_option_int(report, "diagnostic_count"), 1, "应记录一次活动 pair 重入诊断。")
+	assert_false(GFVariantData.get_option_bool(report, "diagnostics_truncated"), "单个循环诊断不应被截断。")
+	assert_eq(GFVariantData.get_option_string(cycle_diagnostic, "kind"), "cycle_detected", "循环应使用独立 traversal diagnostic。")
+	assert_eq(GFVariantData.get_option_string(cycle_diagnostic, "path"), "self", "循环诊断应保留重入路径。")
+
+
+func test_diff_variant_treats_isomorphic_shared_cycles_as_unchanged() -> void:
+	var before_cycle: Dictionary = {
+		"value": 1,
+	}
+	before_cycle["self"] = before_cycle
+	var after_cycle: Dictionary = {
+		"value": 1,
+	}
+	after_cycle["self"] = after_cycle
+	var before: Dictionary = {
+		"left": before_cycle,
+		"right": before_cycle,
+	}
+	var after: Dictionary = {
+		"left": after_cycle,
+		"right": after_cycle,
+	}
+
+	var report: Dictionary = GFVariantData.diff_variant(before, after, {
+		"copy_values": false,
+		"max_diagnostics": 1,
+	})
+	var changes: Array = _as_array(report["changes"])
+	var diagnostics: Array = _as_array(GFVariantData.get_option_value(report, "diagnostics", []))
+
+	assert_false(_as_bool(report["changed"]), "独立但同构的共享循环图应按展开内容视为 unchanged。")
+	assert_eq(changes.size(), 0, "共享循环诊断不得进入 changes。")
+	assert_eq(diagnostics.size(), 1, "max_diagnostics 应限制记录的 traversal diagnostics。")
+	assert_true(GFVariantData.get_option_bool(report, "diagnostics_truncated"), "省略额外循环诊断时必须显式标记截断。")
+
+
+func test_diff_variant_keeps_shared_cycle_diagnostics_out_of_change_kinds() -> void:
+	var before_cycle: Dictionary = {
+		"value": 1,
+	}
+	before_cycle["self"] = before_cycle
+	var after_cycle: Dictionary = {
+		"value": 2,
+	}
+	after_cycle["self"] = after_cycle
+	var before: Dictionary = {
+		"left": before_cycle,
+		"right": before_cycle,
+	}
+	var after: Dictionary = {
+		"left": after_cycle,
+		"right": after_cycle,
+	}
+
+	var report: Dictionary = GFVariantData.diff_variant(before, after, { "copy_values": false })
+	var changes: Array = _as_array(report["changes"])
+	var diagnostics: Array = _as_array(GFVariantData.get_option_value(report, "diagnostics", []))
+
+	assert_true(_as_bool(report["changed"]), "循环图中的真实标量差异必须继续报告。")
+	assert_true(diagnostics.size() >= 1, "共享循环图的活动 pair 重入应进入 traversal diagnostics。")
+	for change_value: Variant in changes:
+		var change: Dictionary = _as_dictionary(change_value)
+		assert_true(
+			["added", "removed", "changed", "type_changed"].has(_as_string(change["kind"])),
+			"changes.kind 必须严格限制为公开声明的四种。"
+		)
 
 
 func test_json_codec_preserves_business_dictionary_that_matches_reserved_marker_shape() -> void:
@@ -759,7 +1096,11 @@ func test_report_value_codec_summarizes_large_collections() -> void:
 	assert_eq(GFVariantData.get_option_int(summary, "count"), 20, "集合摘要应保留总数。")
 	assert_eq(sample.size(), 3, "集合摘要应按 sample_count 截断样本。")
 	assert_true(GFVariantData.get_option_bool(summary, "truncated"), "集合摘要应说明截断。")
-	assert_false(GFVariantData.get_option_string(summary, "hash").is_empty(), "集合摘要应包含完整内容 hash。")
+	assert_false(
+		GFVariantData.get_option_string(summary, "encoded_preview_hash").is_empty(),
+		"集合摘要应明确提供预算内编码预览 hash。"
+	)
+	assert_false(summary.has("hash"), "预算内预览不得伪装成完整内容 hash。")
 	assert_false(JSON.stringify(summary).contains(":null"), "集合摘要不应触发 JSON 非有限值替换。")
 
 
@@ -1153,3 +1494,91 @@ func _as_node(value: Variant) -> Node:
 		var node: Node = value
 		return node
 	return null
+
+
+func _replace_first_packed_value(value: Variant) -> Variant:
+	if value is PackedByteArray:
+		var packed_bytes: PackedByteArray = value
+		packed_bytes[0] = 2
+		return packed_bytes
+	if value is PackedInt32Array:
+		var packed_int32: PackedInt32Array = value
+		packed_int32[0] = 2
+		return packed_int32
+	if value is PackedInt64Array:
+		var packed_int64: PackedInt64Array = value
+		packed_int64[0] = 2
+		return packed_int64
+	if value is PackedFloat32Array:
+		var packed_float32: PackedFloat32Array = value
+		packed_float32[0] = 2.0
+		return packed_float32
+	if value is PackedFloat64Array:
+		var packed_float64: PackedFloat64Array = value
+		packed_float64[0] = 2.0
+		return packed_float64
+	if value is PackedStringArray:
+		var packed_strings: PackedStringArray = value
+		packed_strings[0] = "copy"
+		return packed_strings
+	if value is PackedVector2Array:
+		var packed_vector2: PackedVector2Array = value
+		packed_vector2[0] = Vector2.ZERO
+		return packed_vector2
+	if value is PackedVector3Array:
+		var packed_vector3: PackedVector3Array = value
+		packed_vector3[0] = Vector3.ZERO
+		return packed_vector3
+	if value is PackedVector4Array:
+		var packed_vector4: PackedVector4Array = value
+		packed_vector4[0] = Vector4.ZERO
+		return packed_vector4
+	if value is PackedColorArray:
+		var packed_colors: PackedColorArray = value
+		packed_colors[0] = Color.BLACK
+		return packed_colors
+	return value
+
+
+func _packed_values_equal(left: Variant, right: Variant) -> bool:
+	if left is PackedByteArray and right is PackedByteArray:
+		var left_bytes: PackedByteArray = left
+		var right_bytes: PackedByteArray = right
+		return left_bytes == right_bytes
+	if left is PackedInt32Array and right is PackedInt32Array:
+		var left_int32: PackedInt32Array = left
+		var right_int32: PackedInt32Array = right
+		return left_int32 == right_int32
+	if left is PackedInt64Array and right is PackedInt64Array:
+		var left_int64: PackedInt64Array = left
+		var right_int64: PackedInt64Array = right
+		return left_int64 == right_int64
+	if left is PackedFloat32Array and right is PackedFloat32Array:
+		var left_float32: PackedFloat32Array = left
+		var right_float32: PackedFloat32Array = right
+		return left_float32 == right_float32
+	if left is PackedFloat64Array and right is PackedFloat64Array:
+		var left_float64: PackedFloat64Array = left
+		var right_float64: PackedFloat64Array = right
+		return left_float64 == right_float64
+	if left is PackedStringArray and right is PackedStringArray:
+		var left_strings: PackedStringArray = left
+		var right_strings: PackedStringArray = right
+		return left_strings == right_strings
+	if left is PackedVector2Array and right is PackedVector2Array:
+		var left_vector2: PackedVector2Array = left
+		var right_vector2: PackedVector2Array = right
+		return left_vector2 == right_vector2
+	if left is PackedVector3Array and right is PackedVector3Array:
+		var left_vector3: PackedVector3Array = left
+		var right_vector3: PackedVector3Array = right
+		return left_vector3 == right_vector3
+	if left is PackedVector4Array and right is PackedVector4Array:
+		var left_vector4: PackedVector4Array = left
+		var right_vector4: PackedVector4Array = right
+		return left_vector4 == right_vector4
+	if left is PackedColorArray and right is PackedColorArray:
+		var left_colors: PackedColorArray = left
+		var right_colors: PackedColorArray = right
+		return left_colors == right_colors
+	return false

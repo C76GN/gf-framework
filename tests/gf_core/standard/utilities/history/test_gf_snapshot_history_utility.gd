@@ -139,6 +139,72 @@ func test_default_capture_uses_injected_architecture_snapshot() -> void:
 	arch.dispose()
 
 
+func test_default_capture_does_not_record_failed_architecture_result() -> void:
+	var arch: GFArchitecture = GFArchitecture.new()
+	var first_model: DuplicateSnapshotModel = DuplicateSnapshotModel.new()
+	var second_model: DuplicateSnapshotModelPeer = DuplicateSnapshotModelPeer.new()
+	var history: GFSnapshotHistoryUtility = GFSnapshotHistoryUtility.new()
+
+	assert_true(await arch.register_model_instance(first_model))
+	assert_true(await arch.register_model_instance(second_model))
+	assert_true(await arch.register_utility_instance(history))
+
+	var snapshot_id: int = history.capture()
+
+	assert_eq(snapshot_id, 0, "架构捕获失败时不得提交 SnapshotHistory 记录。")
+	assert_eq(history.snapshot_count, 0, "失败 Result 不得作为普通快照载荷写入历史。")
+	assert_push_error(
+		"[GFArchitecture] Model 快照键重复：snapshot_history_duplicate。请为每个 Model 提供唯一 get_save_key()。"
+	)
+	assert_push_warning(
+		"[GFSnapshotHistoryUtility] capture() 失败：Model 快照键重复：snapshot_history_duplicate。请为每个 Model 提供唯一 get_save_key()。"
+	)
+
+	arch.dispose()
+
+
+func test_default_restore_failure_does_not_move_current_index() -> void:
+	var arch: GFArchitecture = GFArchitecture.new()
+	var model: SnapshotModel = SnapshotModel.new()
+	var history: GFSnapshotHistoryUtility = GFSnapshotHistoryUtility.new()
+
+	assert_true(await arch.register_model_instance(model))
+	assert_true(await arch.register_utility_instance(history))
+	var invalid_snapshot_id: int = history.push_snapshot(
+		{
+			"format_version": 1,
+			"models": {
+				"unknown_model": { "value": 10 },
+			},
+		}
+	)
+	model.value = 20
+	var valid_snapshot_id: int = history.capture()
+	model.value = 30
+	var current_index_before_restore: int = history.current_index
+
+	assert_false(
+		history.restore_snapshot_id(invalid_snapshot_id),
+		"架构 restore Result 失败时默认恢复路径必须返回 false。"
+	)
+	assert_eq(
+		history.current_index,
+		current_index_before_restore,
+		"架构 restore Result 失败时不得移动当前索引。"
+	)
+	assert_eq(model.value, 30, "validate 失败不得修改当前 Model 状态。")
+	assert_eq(
+		GFVariantData.get_option_int(history.get_current_snapshot(), "id"),
+		valid_snapshot_id,
+		"恢复失败后当前快照记录必须保持不变。"
+	)
+	assert_push_warning(
+		"[GFSnapshotHistoryUtility] restore 失败：快照包含未注册的 Model 键：unknown_model。"
+	)
+
+	arch.dispose()
+
+
 # --- 私有/辅助方法 ---
 
 func _snapshot_ids(history: GFSnapshotHistoryUtility) -> Array[int]:
@@ -175,3 +241,17 @@ class SnapshotModel:
 
 	func from_dict(data: Dictionary) -> void:
 		value = GFVariantData.get_option_int(data, "value", 0)
+
+
+class DuplicateSnapshotModel:
+	extends GFModel
+
+	func get_save_key() -> StringName:
+		return &"snapshot_history_duplicate"
+
+
+class DuplicateSnapshotModelPeer:
+	extends GFModel
+
+	func get_save_key() -> StringName:
+		return &"snapshot_history_duplicate"
