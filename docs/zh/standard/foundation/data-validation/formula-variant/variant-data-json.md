@@ -27,7 +27,7 @@ GFVariantData.deep_merge_defaults(settings, {
 })
 ```
 
-`GFVariantData.duplicate_variant()` 默认只深拷贝 `Dictionary` 和 `Array`，其他值保持原样返回；如果值中包含 `Object` 或 `Resource`，仍是引用语义。需要复制资源值时，可显式传入 `duplicate_variant(value, true, true)`。
+`GFVariantData.duplicate_variant()` 默认深拷贝 `Dictionary`、`Array` 和全部具体 PackedArray，PackedArray 副本保持原类型；如果值中包含 `Object` 或 `Resource`，默认仍是引用语义。需要复制 Resource 时，可显式传入 `duplicate_variant(value, true, true)`；同一源 Resource 在一次复制图中只产生一个副本，重复引用拓扑会保留。
 
 ## Variant 差异报告
 
@@ -42,13 +42,15 @@ for change in report["changes"]:
 	print(change["kind"], " ", change["path"])
 ```
 
-报告包含 `changed`、`change_count`、`truncated`、`max_changes` 和 `changes`。每条差异包含 `kind`、`path`、`path_segments`、`old_value`、`new_value`、`old_type` 与 `new_type`；`kind` 可为 `added`、`removed`、`changed` 或 `type_changed`。默认会复制差异值，避免修改报告污染原始数据；如果只需要轻量观察，可传 `{ "copy_values": false }`。`String` 与 `StringName` 字典键按同名字段匹配，和 options / merge 工具保持一致。
+报告包含 `changed`、`change_count`、`truncated`、`max_changes` 和 `changes`。每条差异包含 `kind`、`path`、`path_segments`、`old_value`、`new_value`、`old_type` 与 `new_type`；`kind` 只可能是 `added`、`removed`、`changed` 或 `type_changed`。默认会复制差异值，避免修改报告污染原始数据；如果只需要轻量观察，可传 `{ "copy_values": false }`。`String` 与 `StringName` 字典键按同名字段匹配，和 options / merge 工具保持一致。
+
+Array / Dictionary 按展开后的数据内容比较，不比较共享引用拓扑。同一引用（包括 NaN、自引用容器和共享循环图）与自身比较恒为 unchanged；遍历独立循环图时，活动引用 pair 的重入只写入有界 `diagnostics`，`kind = cycle_detected`，不会伪造第五种 change。可通过 `max_diagnostics` 控制诊断数量；诊断截断不改变 `changed`。
 
 该方法只比较 Variant 数据形状，不读取文件、不实例化脚本、不扫描对象属性，也不理解业务身份。需要对象图序列化、资源导入或领域级变更解释时，应在具体模块先转换成稳定 ID、路径或纯数据字典，再交给 diff 工具处理。
 
 ## Variant 等值判断
 
-`GFVariantData.values_equal()` 提供通用浅层等值判断，适合状态 store、导入计划、缓存键预检和轻量工具比较标量值。它默认要求类型一致；`int` 与 `float` 会按数值比较，必要时可通过 `numeric_epsilon` 给浮点比较设置容差。
+`GFVariantData.values_equal()` 提供通用浅层等值判断，适合状态 store、导入计划、缓存键预检和轻量工具比较标量值。`int` / `int` 保持完整 64 位精度；`float` / `float` 可通过 `numeric_epsilon` 设置容差；`int` / `float` 只有在 float 有限、无小数、位于 int64 范围且双向转换精确往返时才等价，epsilon 不会放宽这条混合类型规则。
 
 ```gdscript
 var same_number := GFVariantData.values_equal(1, 1.0)
@@ -167,11 +169,13 @@ var safe_report := GFReportValueCodec.to_json_compatible({
 var json_text := JSON.stringify(safe_report, "\t")
 ```
 
-`GFReportValueCodec` 会使用同一套 GF typed marker 形态处理 Vector、Color、PackedArray、`NaN` / `INF` / `-INF` 等 Godot 值，并把运行时对象写成 `__gf_report_value__` 脱敏 marker。路径字符串和 Resource 路径默认会被脱敏；开发态确实需要完整路径时，显式传入 `{ "path_redaction": "none" }`。它适合报告和日志边界，不用于保存可恢复对象图；需要恢复 Resource 或 Node 引用时仍使用 `GFVariantReferenceCodec`。
+`GFReportValueCodec` 会使用 GF typed marker 处理 Vector、Color、`NaN` / `INF` / `-INF` 等 Godot 值，PackedArray 则写成保留具体 collection type 和已处理 items 的 report marker；不安全 `PackedInt64Array` 元素仍使用精确 `Int64` 字符串 marker。运行时对象、未知 Variant 和循环引用只输出受限 `__gf_report_value__` marker，不调用任意值的 `str()`，也不接受自定义循环 replacement。
+
+路径字符串和 Resource 路径默认会被脱敏；开发态确实需要完整路径时，显式选择 `debug` profile 或传入 `{ "path_redaction": "none" }`。未知 profile 会忽略可能放宽暴露面的 overrides，并规范化为最严格的 `privacy`。普通 String 字典键可保持 JSON object 形态；其他键或脱敏后变化的键统一转为 entries envelope。用户数据中的 `__gf_report_value__` 保留键也会转义，不能伪造内部截断或脱敏 marker。该 codec 适合报告和日志边界，不用于保存可恢复对象图；需要恢复 Resource 或 Node 引用时仍使用 `GFVariantReferenceCodec`。
 
 公开对象如果需要标准报告形态，可以实现 `to_report_dictionary(options)` 并在内部调用 `GFReportValueCodec.to_report_dictionary()`。这个入口会把任意值包成 `{ "ok": true, "value": ... }` 或错误报告字典，适合导出命令、诊断面板和测试统一断言 JSON-safe 边界。
 
-大型集合不应完整塞进错误报告或支持报告。`GFReportValueCodec.make_collection_summary()` 会输出 `count`、固定数量 `sample`、`truncated` 和完整内容 `hash`，适合配置校验、导入器和诊断面板展示“足够定位问题但不膨胀报告”的上下文。
+大型集合不应完整塞进错误报告或支持报告。`GFReportValueCodec.make_collection_summary()` 会输出 `count`、固定数量 `sample`、`truncated` 和 `encoded_preview_hash`，适合配置校验、导入器和诊断面板展示“足够定位问题但不膨胀报告”的上下文。`encoded_preview_hash` 只覆盖经过深度、节点、集合和字节预算限制后的编码预览，不能作为完整集合的内容指纹。
 
 缓存、索引、查询签名和 keyed 异步 gate 需要“同一输入稳定得到同一 token”，应使用 `GFVariantKeyCodec`。默认允许 `bool`、`int`、`String`、`StringName`、`NodePath`、有限 `float`、有限 Vector/Rect/Color 这类稳定值；拒绝 `Array`、`Dictionary`、Object/Resource、Callable、RID、Signal 和 `NaN` / `Infinity`。
 

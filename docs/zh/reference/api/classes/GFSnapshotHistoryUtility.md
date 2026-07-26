@@ -9,7 +9,7 @@
 - 类别：运行时服务 (`runtime_service`)
 - 首次版本：`3.17.0`
 
-通用快照历史与回滚工具。 管理一组有序快照，支持捕获、前后跳转、按 ID 恢复和调试快照。 默认会使用注入架构的 `get_global_snapshot()` / `restore_global_snapshot()`， 也可以通过回调接入任意项目自定义状态。
+通用快照历史与回滚工具。 管理一组有序快照，支持捕获、前后跳转、按 ID 恢复和调试快照。 默认会解包注入架构的显式捕获 Result，并仅在捕获成功时记录 `get_global_snapshot()` 的 snapshot；恢复则仅在 `restore_global_snapshot()` 的事务 Result 成功时移动历史位置。 也可以通过回调接入任意项目自定义状态。
 
 ## 成员概览
 

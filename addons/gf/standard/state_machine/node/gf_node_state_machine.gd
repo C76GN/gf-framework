@@ -608,7 +608,25 @@ func get_state_snapshot() -> Dictionary:
 ## @schema return: Dictionary，包含 JSON-safe groups 和 internal_group 字段。
 func get_json_compatible_state_snapshot(options: Dictionary = {}) -> Dictionary:
 	var codec_options: Dictionary = options.duplicate(true)
-	return GFVariantData.as_dictionary(GFReportValueCodec.to_json_compatible(get_state_snapshot(), codec_options))
+	var groups: Dictionary = {}
+	for group_key: Variant in _groups.keys():
+		var group: GFNodeStateGroup = _variant_to_state_group(_groups[group_key])
+		if group == null:
+			continue
+		if not (group_key is String or group_key is StringName):
+			return GFReportValueCodec.to_report_dictionary(get_state_snapshot(), codec_options)
+		var report_key: String = str(group_key)
+		if groups.has(report_key):
+			return GFReportValueCodec.to_report_dictionary(get_state_snapshot(), codec_options)
+		groups[report_key] = _normalize_state_group_snapshot_report_keys(
+			group.get_state_snapshot()
+		)
+	var snapshot: Dictionary = {
+		"schema_version": 1,
+		"groups": groups,
+		"internal_group": INTERNAL_GROUP_NAME,
+	}
+	return GFReportValueCodec.to_report_dictionary(snapshot, codec_options)
 
 
 ## 从 get_state_snapshot() 的结果恢复所有已注册状态组。
@@ -1352,6 +1370,23 @@ func _variant_to_state_group(value: Variant) -> GFNodeStateGroup:
 	if value is GFNodeStateGroup:
 		return value
 	return null
+
+
+func _normalize_state_group_snapshot_report_keys(snapshot: Dictionary) -> Dictionary:
+	var raw_blackboard: Dictionary = GFVariantData.get_option_dictionary(
+		snapshot,
+		"blackboard"
+	)
+	var normalized_blackboard: Dictionary = {}
+	for raw_key: Variant in raw_blackboard.keys():
+		if not (raw_key is String or raw_key is StringName):
+			return snapshot
+		var report_key: String = str(raw_key)
+		if normalized_blackboard.has(report_key):
+			return snapshot
+		normalized_blackboard[report_key] = raw_blackboard[raw_key]
+	snapshot["blackboard"] = normalized_blackboard
+	return snapshot
 
 
 func _capture_state_snapshot() -> Dictionary:

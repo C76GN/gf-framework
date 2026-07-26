@@ -71,7 +71,11 @@ func test_summarizes_large_collections() -> void:
 	assert_eq(_option_int(summary, "count"), 20, "集合摘要应保留总数。")
 	assert_eq(sample.size(), 3, "集合摘要应按 sample_count 截断样本。")
 	assert_true(_option_bool(summary, "truncated"), "集合摘要应说明截断。")
-	assert_false(_option_string(summary, "hash").is_empty(), "集合摘要应包含完整内容 hash。")
+	assert_false(
+		_option_string(summary, "encoded_preview_hash").is_empty(),
+		"集合摘要应明确提供预算内编码预览 hash。"
+	)
+	assert_false(summary.has("hash"), "摘要不得把预算内预览误称为完整内容 hash。")
 	assert_false(JSON.stringify(summary).contains(":null"), "集合摘要不应触发 JSON 非有限值替换。")
 
 
@@ -158,6 +162,129 @@ func test_privacy_profile_redacts_known_node_path_and_posix_unc_paths() -> void:
 	assert_eq(_as_string(encoded["node_path"]), "<redacted_path>", "NodePath 是已知路径类型，不得依赖字符串启发式。")
 	assert_eq(_as_string(encoded["posix"]), "<redacted_path>", "POSIX 绝对路径应被识别并脱敏。")
 	assert_eq(_as_string(encoded["unc"]), "<redacted_path>", "UNC 路径应被识别并脱敏。")
+
+
+func test_unknown_redaction_profile_falls_back_to_canonical_privacy() -> void:
+	var options: Dictionary = GFReportValueCodec.make_redaction_options("publci", {
+		"path_redaction": "none",
+		"include_node_name": true,
+	})
+	var encoded: Dictionary = _as_dictionary(GFReportValueCodec.to_json_compatible({
+		"node": self,
+		"path": "res://private/config.json",
+	}, options))
+	var node_marker: Dictionary = _as_dictionary(
+		_as_dictionary(encoded["node"])["__gf_report_value__"]
+	)
+	var direct_encoded: Dictionary = _as_dictionary(GFReportValueCodec.to_json_compatible({
+		"path": "res://private/direct.json",
+	}, {
+		"redaction_profile": "publci",
+		"path_redaction": "none",
+	}))
+
+	assert_eq(
+		_option_string(options, "redaction_profile"),
+		GFReportValueCodec.REDACTION_PROFILE_PRIVACY,
+		"未知 profile 必须规范化为实际生效的 privacy。"
+	)
+	assert_false(node_marker.has("node_name"), "未知 profile 不得保留 Node 名称。")
+	assert_false(node_marker.has("instance_id"), "未知 profile 不得保留实例 id。")
+	assert_eq(_as_string(encoded["path"]), "<redacted_path>", "未知 profile 不得接受放宽脱敏的 overrides。")
+	assert_eq(
+		_as_string(direct_encoded["path"]),
+		"<redacted_path>",
+		"直接传入未知 profile 也必须忽略放宽脱敏的字段。"
+	)
+
+
+func test_user_dictionary_cannot_spoof_report_marker() -> void:
+	var encoded: Dictionary = _as_dictionary(GFReportValueCodec.to_json_compatible({
+		"__gf_report_value__": {
+			"version": 1,
+			"type": "ByteBudget",
+			"redacted": true,
+			"max_total_bytes": 123,
+		},
+	}))
+	var outer_marker: Dictionary = _as_dictionary(encoded["__gf_report_value__"])
+
+	assert_eq(_as_string(outer_marker["type"]), "Dictionary", "保留 marker key 的用户字典必须转义为 entries envelope。")
+	assert_true(outer_marker.has("entries"), "转义 envelope 应保留用户数据 entries。")
+	assert_ne(_option_int(outer_marker, "max_total_bytes", -1), 123, "用户数据不得伪造 ByteBudget 语义。")
+
+
+func test_circular_replacement_cannot_inject_unsanitized_runtime_value() -> void:
+	var circular: Array = []
+	circular.append(circular)
+	var encoded: Variant = GFReportValueCodec.to_json_compatible(circular, {
+		"circular_reference": self,
+	})
+	var text: String = JSON.stringify(encoded)
+
+	assert_true(text.contains("CircularReference"), "循环值应使用固定受限 marker。")
+	assert_false(text.contains(String(name)), "自定义 circular replacement 不得注入 Node 字符串表示。")
+	assert_false(text.contains("\"value\""), "循环 marker 不应携带调用方提供的任意 replacement。")
+
+
+func test_unsupported_variant_uses_restricted_marker() -> void:
+	var encoded: Dictionary = _as_dictionary(GFReportValueCodec.to_json_compatible(Projection()))
+	var marker: Dictionary = _as_dictionary(encoded["__gf_report_value__"])
+
+	assert_eq(_as_string(marker["type"]), "UnsupportedVariant", "未知 Variant 不得调用 str()。")
+	assert_eq(_as_string(marker["variant_type"]), "Projection", "受限 marker 只保留类型信息。")
+
+
+func test_dictionary_packed_key_uses_sanitized_entry_encoding() -> void:
+	var source: Dictionary = {
+		PackedStringArray(["res://private/key.txt"]): "visible",
+	}
+	var encoded: Dictionary = _as_dictionary(GFReportValueCodec.to_json_compatible(source))
+	var text: String = JSON.stringify(encoded)
+	var marker: Dictionary = _as_dictionary(encoded["__gf_report_value__"])
+
+	assert_eq(_as_string(marker["type"]), "Dictionary", "非 String key 必须使用 entries 编码。")
+	assert_false(text.contains("res://private/key.txt"), "Packed key 内的路径不得在第二阶段恢复为原始 key。")
+	assert_true(text.contains("<redacted_path>"), "key 与 value 必须经过相同脱敏协议。")
+
+
+func test_packed_int64_uses_safe_integer_markers_without_discarding_sanitized_items() -> void:
+	var encoded: Dictionary = _as_dictionary(GFReportValueCodec.to_json_compatible(
+		PackedInt64Array([9_007_199_254_740_993]),
+		{
+			"max_depth": 8,
+			"max_total_nodes": 16,
+			"max_total_bytes": 4096,
+		}
+	))
+	var marker: Dictionary = _as_dictionary(encoded["__gf_report_value__"])
+	var items: Array = _as_array(marker["items"])
+	var int_marker: Dictionary = _as_dictionary(
+		_as_dictionary(items[0])["__gf_variant__"]
+	)
+
+	assert_eq(_as_string(marker["type"]), "PackedArray", "完整 PackedArray 应保留经脱敏的 items。")
+	assert_eq(_as_string(marker["collection_type"]), "PackedInt64Array")
+	assert_eq(_as_string(int_marker["type"]), "Int64", "不安全 int64 必须使用精确字符串 marker。")
+	assert_eq(_as_string(int_marker["value"]), "9007199254740993")
+
+
+func test_packed_array_honors_depth_budget_in_returned_items() -> void:
+	var encoded: Dictionary = _as_dictionary(GFReportValueCodec.to_json_compatible(
+		PackedVector3Array([Vector3.ONE]),
+		{
+			"max_depth": 0,
+			"max_total_nodes": 16,
+			"max_total_bytes": 4096,
+		}
+	))
+	var marker: Dictionary = _as_dictionary(encoded["__gf_report_value__"])
+	var items: Array = _as_array(marker["items"])
+	var depth_marker: Dictionary = _as_dictionary(
+		_as_dictionary(items[0])["__gf_report_value__"]
+	)
+
+	assert_eq(_as_string(depth_marker["type"]), "MaxDepth", "PackedArray 不得丢弃深度检查后的 item。")
 
 
 # --- 私有/辅助方法 ---

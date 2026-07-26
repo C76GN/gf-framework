@@ -289,12 +289,26 @@ func to_report_dictionary() -> Dictionary:
 	for index: int in range(mini(channels.size(), _MAX_CHANNEL_DEFINITIONS)):
 		var channel: GFSessionTraceChannelDefinition = channels[index]
 		if channel != null:
-			channel_records.append(channel.to_report_dictionary_for_framework())
+			channel_records.append({
+				"channel_id": String(channel.channel_id),
+				"options": {
+					"enabled": channel.enabled,
+					"include_in_snapshot": channel.include_in_snapshot,
+					"max_events": channel.max_events,
+					"max_event_bytes": channel.max_event_bytes,
+					"metadata": channel.metadata,
+				},
+			})
 	var checkpoint_records: Array[Dictionary] = []
 	for index: int in range(mini(checkpoints.size(), _MAX_CHECKPOINT_DEFINITIONS)):
 		var checkpoint: GFSessionTraceCheckpoint = checkpoints[index]
 		if checkpoint != null:
-			checkpoint_records.append(checkpoint.to_report_dictionary_for_framework())
+			checkpoint_records.append({
+				"checkpoint_id": String(checkpoint.checkpoint_id),
+				"provider_ids": checkpoint.provider_ids,
+				"optional_provider_ids": checkpoint.optional_provider_ids,
+				"metadata": checkpoint.metadata,
+			})
 	return GFReportValueCodec.to_report_dictionary(
 		{
 			"recipe_id": String(recipe_id),

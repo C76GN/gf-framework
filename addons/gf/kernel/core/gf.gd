@@ -4,6 +4,23 @@ extends Node
 # Gf: 全局入口单例，负责架构生命周期管理。
 
 
+# --- 信号 ---
+
+## 已提交的全局架构 identity 发生变化时同步发出。
+##
+## 仅供 GF 场景桥接层在公开生命周期操作返回前完成依赖迁移。
+## [br]
+## @api framework_internal
+## [br]
+## @param previous_architecture: 提交前的全局架构；首次提交时为 null。
+## [br]
+## @param current_architecture: 提交后的全局架构；清理全局架构时为 null。
+signal architecture_identity_changed(
+	previous_architecture: GFArchitecture,
+	current_architecture: GFArchitecture
+)
+
+
 # --- 常量 ---
 
 const _GF_VARIANT_ACCESS_SCRIPT = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
@@ -65,12 +82,15 @@ var architecture: GFArchitecture:
 var _architecture: GFArchitecture = null
 var _architecture_assignment_serial: int = 0
 var _last_project_installer_error: String = ""
-var _installing_architecture_stack: Array[GFArchitecture] = []
+var _pending_architecture_assignment: GFArchitecture = null
+var _pending_architecture_assignment_scope: GFAsyncScope = null
+var _tree_exit_in_progress: bool = false
 
 
 # --- Godot 生命周期方法 ---
 
 func _enter_tree() -> void:
+	_tree_exit_in_progress = false
 	_GF_AUTOLOAD_SCRIPT.reset_tree_exit_state()
 
 
@@ -93,10 +113,12 @@ func _physics_process(delta: float) -> void:
 # 节点退出树时清理架构。
 func _exit_tree() -> void:
 	_GF_AUTOLOAD_SCRIPT.begin_tree_exit_scope()
+	_tree_exit_in_progress = true
+	_architecture_assignment_serial += 1
+	_cancel_pending_architecture_assignment("[GF] Gf 已退出场景树。")
 	if _architecture != null:
-		_architecture_assignment_serial += 1
 		_architecture.dispose()
-		_architecture = null
+	_commit_architecture_identity(null)
 	_GF_AUTOLOAD_SCRIPT.end_tree_exit_scope()
 
 
@@ -106,52 +128,99 @@ func _exit_tree() -> void:
 ## [br]
 ## @api public
 ## [br]
+## @since 1.5.0
+## [br]
 ## @return 已存在架构时返回 true。
 func has_architecture() -> bool:
-	return _get_installing_architecture_or_null() != null or _architecture != null
+	return (
+		_architecture != null
+		and not _architecture.is_disposing()
+		and not _architecture.is_disposed()
+	)
 
 
 ## 获取当前架构；若尚未创建，则自动创建一个默认 GFArchitecture。
+## 若同步取消旧 assignment 的 cleanup 触发更新架构操作，较新的操作拥有提交权，
+## 本次调用返回其最终提交结果，不会用陈旧默认实例覆盖。Gf 正在退出场景树，
+## 或当前 identity 正在 dispose 时返回 null；已完成 dispose 的 identity 会先被
+## 清除，再创建新的默认架构。
 ## [br]
 ## @api public
 ## [br]
-## @return 当前可用的 GFArchitecture 实例。
+## @since 1.5.0
+## [br]
+## @return 当前可用的 GFArchitecture 实例；退出树、同步释放或 listener 使提交失效时返回 null。
 func create_architecture() -> GFArchitecture:
-	var installing_architecture: GFArchitecture = _get_installing_architecture_or_null()
-	if installing_architecture != null:
-		return installing_architecture
-	if _architecture == null:
-		_architecture_assignment_serial += 1
-		_architecture = GFArchitecture.new()
-	return _architecture
+	if _tree_exit_in_progress:
+		return null
+	if _architecture != null:
+		if _architecture.is_disposing():
+			return null
+		if not _architecture.is_disposed():
+			return _architecture
+
+	_architecture_assignment_serial += 1
+	var assignment_serial: int = _architecture_assignment_serial
+	_cancel_pending_architecture_assignment("[GF] pending 架构赋值已被默认架构替代。")
+	if (
+		_tree_exit_in_progress
+		or not _is_architecture_assignment_serial_current(assignment_serial)
+	):
+		return _get_available_architecture_or_null()
+	if _architecture != null:
+		if _architecture.is_disposing():
+			return null
+		if _architecture.is_disposed():
+			_commit_architecture_identity(null)
+			if (
+				_tree_exit_in_progress
+				or not _is_architecture_assignment_serial_current(assignment_serial)
+			):
+				return _get_available_architecture_or_null()
+		else:
+			return _architecture
+	_commit_architecture_identity(GFArchitecture.new())
+	return _get_available_architecture_or_null()
 
 
 ## 为当前架构创建声明式装配器。
 ## [br]
 ## @api public
 ## [br]
+## @since 1.9.1
+## [br]
 ## @return 绑定到当前架构的装配器。
 ## [br]
 ## @schema return: GFBindBuilder-compatible binder owned by the current architecture.
 func create_binder() -> Variant:
-	return create_architecture().create_binder()
+	var current_architecture: GFArchitecture = create_architecture()
+	if current_architecture == null:
+		return null
+	return current_architecture.create_binder()
 
 
 ## 获取当前注册的架构实例。
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @return GFArchitecture 实例，如果未注册则返回 null。
 func get_architecture() -> GFArchitecture:
-	var installing_architecture: GFArchitecture = _get_installing_architecture_or_null()
-	if installing_architecture != null:
-		return installing_architecture
-	if _architecture == null:
-		push_error("[GF] 架构尚未初始化，请先注册架构。")
+	if not has_architecture():
+		push_error("[GF] 架构尚未初始化或正在释放，请先注册可用架构。")
+		return null
 	return _architecture
 
 
 ## 设置并初始化架构实例。该方法内部使用 await，调用方应加 await。
+## 候选架构只有在 Installer 与初始化完整成功后才会原子提交；提交前 Gf facade
+## 继续指向既有已提交架构，若尚无已提交架构则保持为空。Installer 必须使用传入的
+## architecture 参数或 binder，不得通过 Gf facade 隐式访问候选架构。
+## 若本次赋值被更新赋值、尚无已提交架构时由 create_architecture() 创建的默认架构，
+## 或 Gf 退出场景树替代，框架会取消本次异步作用域并 dispose 未提交候选；
+## 调用方不得假定该候选仍可复用。
+## 同一候选已有 pending 赋值时，并发重复调用会返回 false，且不会取消首个赋值。
 ## [br]
 ## @api public
 ## [br]
@@ -164,26 +233,88 @@ func set_architecture(architecture_instance: GFArchitecture) -> bool:
 	if architecture_instance == null:
 		push_error("[GF] set_architecture 失败：传入的架构实例为空。")
 		return false
+	if _tree_exit_in_progress:
+		return false
+	if architecture_instance.is_disposing() or architecture_instance.is_disposed():
+		return false
 
-	_architecture_assignment_serial += 1
+	var assignment_scope: GFAsyncScope = _begin_architecture_assignment(architecture_instance)
+	if assignment_scope == null:
+		return false
 	var assignment_serial: int = _architecture_assignment_serial
 	var previous_architecture: GFArchitecture = _architecture
-	var installers_ready: bool = await _run_project_installers(architecture_instance)
-	if not _is_architecture_assignment_serial_current(assignment_serial):
+	var installers_ready: bool = await _run_project_installers(architecture_instance, assignment_scope)
+	if not _is_pending_architecture_assignment_current(
+		architecture_instance,
+		assignment_scope,
+		assignment_serial
+	):
+		_reject_inactive_pending_architecture_assignment_if_owned(
+			architecture_instance,
+			assignment_scope,
+			assignment_serial
+		)
 		return false
 	if not installers_ready:
+		_finish_pending_architecture_assignment(
+			architecture_instance,
+			assignment_scope,
+			assignment_serial,
+			false
+		)
 		return false
 	if not architecture_instance.is_inited():
 		var initialized: bool = await architecture_instance.init()
-		if not initialized:
+		if not _is_pending_architecture_assignment_current(
+			architecture_instance,
+			assignment_scope,
+			assignment_serial
+		):
+			_reject_inactive_pending_architecture_assignment_if_owned(
+				architecture_instance,
+				assignment_scope,
+				assignment_serial
+			)
 			return false
-	if not _is_architecture_assignment_serial_current(assignment_serial):
-		return false
+		if not initialized:
+			_finish_pending_architecture_assignment(
+				architecture_instance,
+				assignment_scope,
+				assignment_serial,
+				false
+			)
+			return false
 	if architecture_instance.has_initialization_failed():
+		_finish_pending_architecture_assignment(
+			architecture_instance,
+			assignment_scope,
+			assignment_serial,
+			false
+		)
 		return false
 	if previous_architecture != null and previous_architecture != architecture_instance:
 		previous_architecture.dispose()
+		if not _is_pending_architecture_assignment_current(
+			architecture_instance,
+			assignment_scope,
+			assignment_serial
+		):
+			_reject_inactive_pending_architecture_assignment_if_owned(
+				architecture_instance,
+				assignment_scope,
+				assignment_serial
+			)
+			return false
+	var previous_identity: GFArchitecture = _architecture
 	_architecture = architecture_instance
+	_finish_pending_architecture_assignment(
+		architecture_instance,
+		assignment_scope,
+		assignment_serial,
+		true
+	)
+	if previous_identity != architecture_instance:
+		architecture_identity_changed.emit(previous_identity, architecture_instance)
 	return true
 
 
@@ -196,15 +327,26 @@ func set_architecture(architecture_instance: GFArchitecture) -> bool:
 ## @return 当前架构初始化成功时返回 true。
 func init() -> bool:
 	var current_arch: GFArchitecture = create_architecture()
+	if current_arch == null:
+		return false
 	var assignment_serial: int = _architecture_assignment_serial
 	var installers_ready: bool = await _run_project_installers(current_arch)
 	if not _is_architecture_assignment_current(current_arch, assignment_serial):
 		return false
 	if not installers_ready:
 		return false
+	var initialized: bool = true
 	if not current_arch.is_inited():
-		return await current_arch.init()
-	return current_arch.is_inited() and not current_arch.has_initialization_failed()
+		initialized = await current_arch.init()
+	if not _is_architecture_assignment_current(current_arch, assignment_serial):
+		return false
+	return (
+		initialized
+		and current_arch.is_inited()
+		and not current_arch.has_initialization_failed()
+		and not current_arch.is_disposing()
+		and not current_arch.is_disposed()
+	)
 
 
 ## 便捷注册 System 实例。
@@ -217,7 +359,10 @@ func init() -> bool:
 ## [br]
 ## @return 注册成功时返回 true。
 func register_system(instance: Object) -> bool:
-	return await create_architecture().register_system_instance(instance)
+	var current_architecture: GFArchitecture = create_architecture()
+	if current_architecture == null:
+		return false
+	return await current_architecture.register_system_instance(instance)
 
 ## 便捷注册 Model 实例。
 ## [br]
@@ -229,7 +374,10 @@ func register_system(instance: Object) -> bool:
 ## [br]
 ## @return 注册成功时返回 true。
 func register_model(instance: Object) -> bool:
-	return await create_architecture().register_model_instance(instance)
+	var current_architecture: GFArchitecture = create_architecture()
+	if current_architecture == null:
+		return false
+	return await current_architecture.register_model_instance(instance)
 
 ## 便捷注册 Utility 实例。
 ## [br]
@@ -241,7 +389,10 @@ func register_model(instance: Object) -> bool:
 ## [br]
 ## @return 注册成功时返回 true。
 func register_utility(instance: Object) -> bool:
-	return await create_architecture().register_utility_instance(instance)
+	var current_architecture: GFArchitecture = create_architecture()
+	if current_architecture == null:
+		return false
+	return await current_architecture.register_utility_instance(instance)
 
 ## 便捷替换 System 实例。
 ## [br]
@@ -255,7 +406,9 @@ func register_utility(instance: Object) -> bool:
 func replace_system(instance: Object) -> bool:
 	var script: Script = _get_instance_script_or_null(instance, "replace_system")
 	if script != null:
-		return await create_architecture().replace_system(script, instance)
+		var current_architecture: GFArchitecture = create_architecture()
+		if current_architecture != null:
+			return await current_architecture.replace_system(script, instance)
 	return false
 
 ## 便捷替换 Model 实例。
@@ -270,7 +423,9 @@ func replace_system(instance: Object) -> bool:
 func replace_model(instance: Object) -> bool:
 	var script: Script = _get_instance_script_or_null(instance, "replace_model")
 	if script != null:
-		return await create_architecture().replace_model(script, instance)
+		var current_architecture: GFArchitecture = create_architecture()
+		if current_architecture != null:
+			return await current_architecture.replace_model(script, instance)
 	return false
 
 ## 便捷替换 Utility 实例。
@@ -285,7 +440,9 @@ func replace_model(instance: Object) -> bool:
 func replace_utility(instance: Object) -> bool:
 	var script: Script = _get_instance_script_or_null(instance, "replace_utility")
 	if script != null:
-		return await create_architecture().replace_utility(script, instance)
+		var current_architecture: GFArchitecture = create_architecture()
+		if current_architecture != null:
+			return await current_architecture.replace_utility(script, instance)
 	return false
 
 ## 注册短生命周期对象工厂。
@@ -306,7 +463,10 @@ func register_factory(
 	factory: Callable,
 	lifetime: int = GFBindingLifetimesBase.Lifetime.TRANSIENT
 ) -> bool:
-	return create_architecture().register_factory(script_cls, factory, lifetime)
+	var current_architecture: GFArchitecture = create_architecture()
+	if current_architecture == null:
+		return false
+	return current_architecture.register_factory(script_cls, factory, lifetime)
 
 ## 注册已有实例作为短生命周期工厂入口。
 ## [br]
@@ -320,7 +480,10 @@ func register_factory(
 ## [br]
 ## @return 工厂入口注册成功时返回 true。
 func register_factory_instance(script_cls: Script, instance: Object) -> bool:
-	return create_architecture().register_factory_instance(script_cls, instance)
+	var current_architecture: GFArchitecture = create_architecture()
+	if current_architecture == null:
+		return false
+	return current_architecture.register_factory_instance(script_cls, instance)
 
 ## 替换短生命周期对象工厂。
 ## [br]
@@ -340,7 +503,10 @@ func replace_factory(
 	factory: Callable,
 	lifetime: int = GFBindingLifetimesBase.Lifetime.TRANSIENT
 ) -> bool:
-	return create_architecture().replace_factory(script_cls, factory, lifetime)
+	var current_architecture: GFArchitecture = create_architecture()
+	if current_architecture == null:
+		return false
+	return current_architecture.replace_factory(script_cls, factory, lifetime)
 
 ## 替换已有实例工厂入口。
 ## [br]
@@ -354,7 +520,10 @@ func replace_factory(
 ## [br]
 ## @return 工厂入口替换成功时返回 true。
 func replace_factory_instance(script_cls: Script, instance: Object) -> bool:
-	return create_architecture().replace_factory_instance(script_cls, instance)
+	var current_architecture: GFArchitecture = create_architecture()
+	if current_architecture == null:
+		return false
+	return current_architecture.replace_factory_instance(script_cls, instance)
 
 ## 注销短生命周期对象工厂。
 ## [br]
@@ -434,7 +603,10 @@ func inject_node_tree(node: Node) -> void:
 ## [br]
 ## @return 注册成功并写入 alias 时返回 true。
 func register_system_as(instance: Object, alias_cls: Script) -> bool:
-	return await create_architecture().register_system_instance_as(instance, alias_cls)
+	var current_architecture: GFArchitecture = create_architecture()
+	if current_architecture == null:
+		return false
+	return await current_architecture.register_system_instance_as(instance, alias_cls)
 
 ## 便捷注册 Model 实例，并额外登记一个查询别名。
 ## [br]
@@ -448,7 +620,10 @@ func register_system_as(instance: Object, alias_cls: Script) -> bool:
 ## [br]
 ## @return 注册成功并写入 alias 时返回 true。
 func register_model_as(instance: Object, alias_cls: Script) -> bool:
-	return await create_architecture().register_model_instance_as(instance, alias_cls)
+	var current_architecture: GFArchitecture = create_architecture()
+	if current_architecture == null:
+		return false
+	return await current_architecture.register_model_instance_as(instance, alias_cls)
 
 ## 便捷注册 Utility 实例，并额外登记一个查询别名。
 ## [br]
@@ -462,7 +637,10 @@ func register_model_as(instance: Object, alias_cls: Script) -> bool:
 ## [br]
 ## @return 注册成功并写入 alias 时返回 true。
 func register_utility_as(instance: Object, alias_cls: Script) -> bool:
-	return await create_architecture().register_utility_instance_as(instance, alias_cls)
+	var current_architecture: GFArchitecture = create_architecture()
+	if current_architecture == null:
+		return false
+	return await current_architecture.register_utility_instance_as(instance, alias_cls)
 
 ## 为已注册 System 添加查询别名。
 ## [br]
@@ -1005,35 +1183,136 @@ func unregister_utility(script_cls: Script) -> void:
 
 # --- 私有/辅助方法 ---
 
+func _commit_architecture_identity(next_architecture: GFArchitecture) -> void:
+	var previous_architecture: GFArchitecture = _architecture
+	if previous_architecture == next_architecture:
+		return
+	_architecture = next_architecture
+	architecture_identity_changed.emit(previous_architecture, next_architecture)
+
+
 func _get_architecture_or_null(context: String) -> GFArchitecture:
-	var installing_architecture: GFArchitecture = _get_installing_architecture_or_null()
-	if installing_architecture != null:
-		return installing_architecture
-	if _architecture == null:
-		push_error("[GF] %s 失败：架构尚未初始化，请先注册架构。" % context)
+	if not has_architecture():
+		push_error("[GF] %s 失败：架构尚未初始化或正在释放，请先注册可用架构。" % context)
 		return null
 	return _architecture
 
 
-func _get_installing_architecture_or_null() -> GFArchitecture:
-	while not _installing_architecture_stack.is_empty():
-		var architecture_instance: GFArchitecture = _installing_architecture_stack.back()
-		if architecture_instance != null:
-			return architecture_instance
-		var _removed_null_architecture: GFArchitecture = _installing_architecture_stack.pop_back()
-	return null
+func _get_available_architecture_or_null() -> GFArchitecture:
+	if not has_architecture():
+		return null
+	return _architecture
 
 
-func _push_installing_architecture(architecture_instance: GFArchitecture) -> void:
-	if architecture_instance != null:
-		_installing_architecture_stack.append(architecture_instance)
+func _begin_architecture_assignment(architecture_instance: GFArchitecture) -> GFAsyncScope:
+	if _pending_architecture_assignment == architecture_instance:
+		return null
+	_architecture_assignment_serial += 1
+	var assignment_serial: int = _architecture_assignment_serial
+	_cancel_pending_architecture_assignment("[GF] pending 架构赋值已被较新的赋值替代。")
+	if (
+		_tree_exit_in_progress
+		or not _is_architecture_assignment_serial_current(assignment_serial)
+	):
+		return null
+
+	var assignment_scope: GFAsyncScope = GFAsyncScope.new()
+	_pending_architecture_assignment = architecture_instance
+	_pending_architecture_assignment_scope = assignment_scope
+	architecture_instance.track_framework_async_scope(assignment_scope)
+	return assignment_scope
 
 
-func _pop_installing_architecture(architecture_instance: GFArchitecture) -> void:
-	for index: int in range(_installing_architecture_stack.size() - 1, -1, -1):
-		if _installing_architecture_stack[index] == architecture_instance:
-			_installing_architecture_stack.remove_at(index)
-			return
+func _cancel_pending_architecture_assignment(reason: String) -> void:
+	var pending_architecture: GFArchitecture = _pending_architecture_assignment
+	var pending_scope: GFAsyncScope = _pending_architecture_assignment_scope
+	_pending_architecture_assignment = null
+	_pending_architecture_assignment_scope = null
+
+	if pending_scope != null:
+		var _cancelled_scope: bool = pending_scope.cancel(reason)
+	if pending_architecture != null and pending_scope != null:
+		pending_architecture.untrack_framework_async_scope(pending_scope)
+	if (
+		pending_architecture != null
+		and pending_architecture != _architecture
+		and pending_architecture != _pending_architecture_assignment
+	):
+		pending_architecture.dispose()
+
+
+func _finish_pending_architecture_assignment(
+	architecture_instance: GFArchitecture,
+	assignment_scope: GFAsyncScope,
+	assignment_serial: int,
+	succeeded: bool
+) -> void:
+	if not _owns_pending_architecture_assignment(
+		architecture_instance,
+		assignment_scope,
+		assignment_serial
+	):
+		return
+
+	_pending_architecture_assignment = null
+	_pending_architecture_assignment_scope = null
+	architecture_instance.untrack_framework_async_scope(assignment_scope)
+	if succeeded:
+		assignment_scope.complete()
+	elif not assignment_scope.is_cancel_requested():
+		var _cancelled_scope: bool = assignment_scope.cancel(
+			"[GF] 架构赋值未能提交。"
+		)
+
+
+func _reject_inactive_pending_architecture_assignment_if_owned(
+	architecture_instance: GFArchitecture,
+	assignment_scope: GFAsyncScope,
+	assignment_serial: int
+) -> void:
+	if not _owns_pending_architecture_assignment(
+		architecture_instance,
+		assignment_scope,
+		assignment_serial
+	):
+		return
+	_finish_pending_architecture_assignment(
+		architecture_instance,
+		assignment_scope,
+		assignment_serial,
+		false
+	)
+	if architecture_instance != _architecture:
+		architecture_instance.dispose()
+
+
+func _is_pending_architecture_assignment_current(
+	architecture_instance: GFArchitecture,
+	assignment_scope: GFAsyncScope,
+	assignment_serial: int
+) -> bool:
+	return (
+		not _tree_exit_in_progress
+		and assignment_scope != null
+		and assignment_scope.is_active()
+		and _owns_pending_architecture_assignment(
+			architecture_instance,
+			assignment_scope,
+			assignment_serial
+		)
+	)
+
+
+func _owns_pending_architecture_assignment(
+	architecture_instance: GFArchitecture,
+	assignment_scope: GFAsyncScope,
+	assignment_serial: int
+) -> bool:
+	return (
+		_architecture_assignment_serial == assignment_serial
+		and _pending_architecture_assignment == architecture_instance
+		and _pending_architecture_assignment_scope == assignment_scope
+	)
 
 
 func _get_instance_script_or_null(instance: Object, context: String) -> Script:
@@ -1048,7 +1327,10 @@ func _get_instance_script_or_null(instance: Object, context: String) -> Script:
 	return script
 
 
-func _run_project_installers(architecture_instance: GFArchitecture) -> bool:
+func _run_project_installers(
+	architecture_instance: GFArchitecture,
+	assignment_scope: GFAsyncScope = null
+) -> bool:
 	if architecture_instance == null:
 		return false
 	if architecture_instance.has_project_installers_applied():
@@ -1061,14 +1343,18 @@ func _run_project_installers(architecture_instance: GFArchitecture) -> bool:
 	if not architecture_instance.begin_project_installers():
 		return architecture_instance.has_project_installers_applied()
 
-	var installer_scope: GFAsyncScope = GFAsyncScope.new()
-	architecture_instance._track_async_scope(installer_scope)
+	var installer_scope: GFAsyncScope = assignment_scope
+	var owns_installer_scope: bool = installer_scope == null
+	if owns_installer_scope:
+		installer_scope = GFAsyncScope.new()
+		architecture_instance.track_framework_async_scope(installer_scope)
 	var installers_completed: bool = await _apply_project_installers(architecture_instance, installer_scope)
-	architecture_instance._untrack_async_scope(installer_scope)
-	if installers_completed:
-		installer_scope.complete()
-	elif not installer_scope.is_cancel_requested():
-		var _cancelled_scope: bool = installer_scope.cancel(_get_project_installer_cancel_reason(architecture_instance))
+	if owns_installer_scope:
+		architecture_instance.untrack_framework_async_scope(installer_scope)
+		if installers_completed:
+			installer_scope.complete()
+		elif not installer_scope.is_cancel_requested():
+			var _cancelled_scope: bool = installer_scope.cancel(_get_project_installer_cancel_reason(architecture_instance))
 	return installers_completed
 
 
@@ -1110,9 +1396,7 @@ func _await_project_installer_install(
 	var timeout_seconds: float = _get_project_installer_timeout_seconds()
 	var scene_tree: SceneTree = _get_scene_tree_or_null()
 	if timeout_seconds <= 0.0 or scene_tree == null:
-		_push_installing_architecture(architecture_instance)
 		await installer.call(&"install", architecture_instance, installer_scope)
-		_pop_installing_architecture(architecture_instance)
 		return not architecture_instance.has_initialization_failed() and not installer_scope.is_cancel_requested()
 
 	var completion_state: Dictionary = {
@@ -1143,9 +1427,7 @@ func _await_project_installer_bindings(
 	var timeout_seconds: float = _get_project_installer_timeout_seconds()
 	var scene_tree: SceneTree = _get_scene_tree_or_null()
 	if timeout_seconds <= 0.0 or scene_tree == null:
-		_push_installing_architecture(architecture_instance)
 		await installer.call(&"install_bindings", architecture_instance.create_binder(), installer_scope)
-		_pop_installing_architecture(architecture_instance)
 		return not architecture_instance.has_initialization_failed() and not installer_scope.is_cancel_requested()
 
 	var completion_state: Dictionary = {
@@ -1173,9 +1455,7 @@ func _complete_project_installer_install(
 	installer_scope: GFAsyncScope,
 	completion_state: Dictionary
 ) -> void:
-	_push_installing_architecture(architecture_instance)
 	await installer.call(&"install", architecture_instance, installer_scope)
-	_pop_installing_architecture(architecture_instance)
 	if _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(completion_state, "write_blocked", false):
 		architecture_instance._end_stale_async_write_block()
 	completion_state["done"] = true
@@ -1187,9 +1467,7 @@ func _complete_project_installer_bindings(
 	installer_scope: GFAsyncScope,
 	completion_state: Dictionary
 ) -> void:
-	_push_installing_architecture(architecture_instance)
 	await installer.call(&"install_bindings", architecture_instance.create_binder(), installer_scope)
-	_pop_installing_architecture(architecture_instance)
 	if _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(completion_state, "write_blocked", false):
 		architecture_instance._end_stale_async_write_block()
 	completion_state["done"] = true

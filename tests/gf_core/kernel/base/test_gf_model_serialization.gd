@@ -58,12 +58,12 @@ func test_architecture_get_all_models_state() -> void:
 	await arch.register_model_instance(score_model)
 	await arch.register_model_instance(settings_model)
 
-	var state: Dictionary = arch.get_all_models_state()
+	var state: Dictionary = _capture_snapshot(arch.get_all_models_state())
 	assert_true(state.size() >= 2, "状态字典应至少包含 2 个 Model。")
 
 
-## 验证缺少稳定标识的运行时脚本 Model 不会被写入快照。
-func test_architecture_skips_model_without_stable_serialization_key() -> void:
+## 验证缺少稳定标识的运行时脚本 Model 会显式阻断快照。
+func test_architecture_rejects_model_without_stable_serialization_key() -> void:
 	var arch: GFArchitecture = GFArchitecture.new()
 	var runtime_script: GDScript = GDScript.new()
 	runtime_script.source_code = """extends GFModel
@@ -79,9 +79,17 @@ func to_dict() -> Dictionary:
 
 	await arch.register_model_instance(runtime_model)
 
-	var state: Dictionary = arch.get_all_models_state()
+	var result: Dictionary = arch.get_all_models_state()
 
-	assert_eq(state.size(), 0, "缺少稳定标识的运行时 Model 不应进入快照。")
+	assert_false(
+		GF_VARIANT_ACCESS.get_option_bool(result, "ok", true),
+		"缺少稳定标识的运行时 Model 必须显式使捕获失败。"
+	)
+	assert_false(result.has("snapshot"), "捕获失败不得留下可提交 snapshot。")
+	assert_false(
+		GF_VARIANT_ACCESS.get_option_string(result, "error").is_empty(),
+		"捕获失败必须返回错误原因。"
+	)
 	assert_push_error("[GFArchitecture] 可序列化 Model 缺少稳定标识：请为脚本声明 class_name 或重写 get_save_key()。")
 
 	arch.dispose()
@@ -97,16 +105,19 @@ func test_architecture_prefers_model_save_key_for_serialization() -> void:
 	model.value = 12
 
 	await arch.register_model_instance(model)
-	var state: Dictionary = arch.get_all_models_state()
+	var state: Dictionary = _capture_snapshot(arch.get_all_models_state())
 	var model_state: Dictionary = GF_VARIANT_ACCESS.get_option_dictionary(state, "stable_runtime_model")
 
 	model.value = 0
-	arch.restore_all_models_state({
-		"stable_runtime_model": { "value": 42 },
-	})
+	var restore_result: Dictionary = arch.restore_all_models_state(
+		{
+			"stable_runtime_model": { "value": 42 },
+		}
+	)
 
 	assert_true(state.has("stable_runtime_model"), "Model.get_save_key() 应优先作为架构级快照键。")
 	assert_eq(GF_VARIANT_ACCESS.get_option_int(model_state, "value"), 12, "快照应写入自定义存档键下。")
+	_assert_restore_succeeded(restore_result)
 	assert_eq(model.value, 42, "恢复时也应使用自定义存档键。")
 
 
@@ -120,9 +131,13 @@ func test_architecture_rejects_duplicate_model_save_keys_for_snapshot() -> void:
 	await arch.register_model_instance(first_model)
 	await arch.register_model_instance(second_model)
 
-	var state: Dictionary = arch.get_all_models_state()
+	var result: Dictionary = arch.get_all_models_state()
 
-	assert_true(state.is_empty(), "重复 Model 存档键应阻断快照，避免静默覆盖。")
+	assert_false(
+		GF_VARIANT_ACCESS.get_option_bool(result, "ok", true),
+		"重复 Model 存档键应显式阻断快照。"
+	)
+	assert_false(result.has("snapshot"), "重复键捕获失败不得留下可提交 snapshot。")
 	assert_push_error("[GFArchitecture] Model 快照键重复：duplicate_model。请为每个 Model 提供唯一 get_save_key()。")
 
 
@@ -136,10 +151,24 @@ func test_architecture_rejects_duplicate_model_save_keys_for_restore() -> void:
 	await arch.register_model_instance(first_model)
 	await arch.register_model_instance(second_model)
 
-	arch.restore_all_models_state({
-		"duplicate_model": { "value": 99 },
-	})
+	var result: Dictionary = arch.restore_all_models_state(
+		{
+			"duplicate_model": { "value": 99 },
+		}
+	)
 
+	assert_false(
+		GF_VARIANT_ACCESS.get_option_bool(result, "ok", true),
+		"重复键时 restore 必须在 validate 阶段失败。"
+	)
+	assert_eq(
+		GF_VARIANT_ACCESS.get_option_string_name(result, "phase"),
+		&"validate"
+	)
+	assert_false(
+		GF_VARIANT_ACCESS.get_option_bool(result, "rolled_back", true),
+		"validate 阶段未写入状态，不应伪报已执行 rollback。"
+	)
 	assert_eq(first_model.value, 10, "重复键时 restore 不应修改前面的 Model。")
 	assert_eq(second_model.value, 20, "重复键时 restore 不应修改后面的 Model。")
 	assert_push_error("[GFArchitecture] Model 快照键重复：duplicate_model。请为每个 Model 提供唯一 get_save_key()。")
@@ -158,14 +187,15 @@ func test_architecture_restore_all_models_state() -> void:
 	score_model.set("level", 10)
 	settings_model.set("volume", 0.3)
 
-	var state: Dictionary = arch.get_all_models_state()
+	var state: Dictionary = _capture_snapshot(arch.get_all_models_state())
 
 	score_model.set("score", 0)
 	score_model.set("level", 1)
 	settings_model.set("volume", 1.0)
 
-	arch.restore_all_models_state(state)
+	var restore_result: Dictionary = arch.restore_all_models_state(state)
 
+	_assert_restore_succeeded(restore_result)
 	assert_eq(_object_int(score_model, "score"), 100, "score 应恢复为 100。")
 	assert_eq(_object_int(score_model, "level"), 10, "level 应恢复为 10。")
 	assert_almost_eq(_object_float(settings_model, "volume"), 0.3, 0.001, "volume 应恢复为 0.3。")
@@ -183,9 +213,14 @@ func test_architecture_get_all_models_state_async() -> void:
 	await arch.register_model_instance(score_model)
 	await arch.register_model_instance(settings_model)
 
-	var state: Dictionary = await arch.get_all_models_state_async({ "max_models_per_frame": 1 })
+	var state: Dictionary = _capture_snapshot(
+		await arch.get_all_models_state_async({ "max_models_per_frame": 1 })
+	)
+	var synchronous_state: Dictionary = _capture_snapshot(
+		arch.get_all_models_state()
+	)
 
-	assert_eq(state, arch.get_all_models_state(), "分帧快照应与同步快照一致。")
+	assert_eq(state, synchronous_state, "分帧快照应与同步快照一致。")
 
 
 ## 验证分帧 Model 快照恢复。
@@ -200,30 +235,173 @@ func test_architecture_restore_all_models_state_async() -> void:
 	score_model.set("score", 33)
 	score_model.set("level", 4)
 	settings_model.set("volume", 0.6)
-	var state: Dictionary = await arch.get_all_models_state_async({ "max_models_per_frame": 1 })
+	var state: Dictionary = _capture_snapshot(
+		await arch.get_all_models_state_async({ "max_models_per_frame": 1 })
+	)
 
 	score_model.set("score", 0)
 	score_model.set("level", 0)
 	settings_model.set("volume", 1.0)
-	var restored: bool = await arch.restore_all_models_state_async(state, { "max_models_per_frame": 1 })
+	var restore_result: Dictionary = await arch.restore_all_models_state_async(
+		state,
+		{ "max_models_per_frame": 1 }
+	)
 
-	assert_true(restored, "restore_all_models_state_async() 完整恢复时应返回 true。")
+	_assert_restore_succeeded(restore_result)
 	assert_eq(_object_int(score_model, "score"), 33, "score 应通过分帧恢复。")
 	assert_eq(_object_int(score_model, "level"), 4, "level 应通过分帧恢复。")
 	assert_almost_eq(_object_float(settings_model, "volume"), 0.6, 0.001, "volume 应通过分帧恢复。")
 
 
-## 验证全局快照中的 models 字段类型错误时安全跳过。
-func test_restore_global_snapshot_skips_non_dictionary_models_data() -> void:
+## 验证非法全局快照会在 validate 阶段拒绝且不修改 Model。
+func test_restore_global_snapshot_rejects_non_dictionary_models_data() -> void:
 	var arch: GFArchitecture = GFArchitecture.new()
 	var score_model: Object = _create_score_model_fixture()
 	score_model.set("score", 55)
 	await arch.register_model_instance(score_model)
 
-	arch.restore_global_snapshot({ "models": [] })
+	var result: Dictionary = arch.restore_global_snapshot(
+		{
+			"format_version": 1,
+			"models": [],
+		}
+	)
 
 	assert_eq(_object_int(score_model, "score"), 55, "models 不是 Dictionary 时不应修改已注册 Model。")
-	assert_push_warning("[GFArchitecture] restore_global_snapshot：models 必须是 Dictionary，已跳过 Model 恢复。")
+	assert_false(
+		GF_VARIANT_ACCESS.get_option_bool(result, "ok", true),
+		"非法 models 类型必须使 restore 显式失败。"
+	)
+	assert_eq(
+		GF_VARIANT_ACCESS.get_option_string_name(result, "phase"),
+		&"validate"
+	)
+	assert_false(
+		GF_VARIANT_ACCESS.get_option_bool(result, "rolled_back", true),
+		"validate 阶段未写入状态，不应伪报已执行 rollback。"
+	)
+
+
+## 验证全局快照版本只接受精确 int 1，不接受可转换或相等的其他 Variant 类型。
+func test_restore_global_snapshot_requires_exact_integer_format_version() -> void:
+	var arch: GFArchitecture = GFArchitecture.new()
+	var score_model: Object = _create_score_model_fixture()
+	score_model.set("score", 55)
+	await arch.register_model_instance(score_model)
+	var invalid_versions: Array = ["1", true, 1.0, 2]
+
+	for invalid_version: Variant in invalid_versions:
+		score_model.set("score", 55)
+		var result: Dictionary = arch.restore_global_snapshot(
+			{
+				"format_version": invalid_version,
+				"models": {
+					"test_score_model_fixture": { "score": 99, "level": 1 },
+				},
+			}
+		)
+
+		assert_false(
+			GF_VARIANT_ACCESS.get_option_bool(result, "ok", true),
+			"format_version=%s（type=%d）必须被拒绝。"
+			% [str(invalid_version), typeof(invalid_version)]
+		)
+		assert_eq(
+			GF_VARIANT_ACCESS.get_option_string_name(result, "phase"),
+			&"validate",
+			"非法 format_version 必须在 validate 阶段失败。"
+		)
+		assert_false(
+			GF_VARIANT_ACCESS.get_option_bool(result, "rolled_back", true),
+			"版本验证失败前没有写入，不得报告 rollback。"
+		)
+		assert_eq(
+			_object_int(score_model, "score"),
+			55,
+			"非法 format_version 不得修改 Model。"
+		)
+
+	arch.dispose()
+
+
+## 验证 Model 快照顶层键必须是精确 String，StringName/数值键都不得隐式转换。
+func test_restore_models_rejects_non_string_snapshot_keys() -> void:
+	var arch: GFArchitecture = GFArchitecture.new()
+	var model: StableKeyModel = StableKeyModel.new()
+	model.value = 7
+	await arch.register_model_instance(model)
+	var invalid_model_maps: Array[Dictionary] = [
+		{ &"stable_runtime_model": { "value": 91 } },
+		{ 1: { "value": 92 } },
+	]
+
+	for invalid_models: Dictionary in invalid_model_maps:
+		model.value = 7
+		var result: Dictionary = arch.restore_all_models_state(invalid_models)
+
+		assert_false(
+			GF_VARIANT_ACCESS.get_option_bool(result, "ok", true),
+			"非 String Model 快照键必须被拒绝。"
+		)
+		assert_eq(
+			GF_VARIANT_ACCESS.get_option_string_name(result, "phase"),
+			&"validate",
+			"非 String 键必须在 validate 阶段失败。"
+		)
+		assert_false(
+			GF_VARIANT_ACCESS.get_option_bool(result, "rolled_back", true),
+			"键验证失败前没有写入，不得报告 rollback。"
+		)
+		assert_eq(model.value, 7, "非 String 键不得通过隐式转换修改 Model。")
+
+	arch.dispose()
+
+
+## 验证 model-only/global restore 都要求快照键与当前注册 Model 集合精确匹配。
+func test_restore_model_snapshots_require_exact_registered_key_set() -> void:
+	var arch: GFArchitecture = GFArchitecture.new()
+	var score_model: Object = _create_score_model_fixture()
+	var settings_model: Object = _create_settings_model_fixture()
+	score_model.set("score", 55)
+	settings_model.set("volume", 0.5)
+	assert_true(await arch.register_model_instance(score_model))
+	assert_true(await arch.register_model_instance(settings_model))
+	var incomplete_models: Dictionary = {
+		"test_score_model_fixture": { "score": 99, "level": 2 },
+	}
+
+	var model_result: Dictionary = arch.restore_all_models_state(
+		incomplete_models
+	)
+	var global_result: Dictionary = arch.restore_global_snapshot({
+		"format_version": 1,
+		"models": incomplete_models,
+	})
+
+	for result: Dictionary in [model_result, global_result]:
+		assert_false(
+			GF_VARIANT_ACCESS.get_option_bool(result, "ok", true),
+			"缺少当前已注册 Model 的快照必须被拒绝。"
+		)
+		assert_eq(
+			GF_VARIANT_ACCESS.get_option_string_name(result, "phase"),
+			&"validate",
+			"Model 键集合不完整必须在 validate 阶段失败。"
+		)
+		assert_false(
+			GF_VARIANT_ACCESS.get_option_bool(result, "rolled_back", true),
+			"键集合验证失败前没有写入，不得报告 rollback。"
+		)
+
+	assert_eq(_object_int(score_model, "score"), 55, "不完整快照不得修改已有 Model。")
+	assert_almost_eq(
+		_object_float(settings_model, "volume"),
+		0.5,
+		0.001,
+		"未出现在快照中的已注册 Model 也必须保持不变。"
+	)
+
+	arch.dispose()
 
 
 ## 验证 get_global_snapshot 包含 Model 与 CommandHistory 数据，及 restore_global_snapshot 正确恢复。
@@ -239,14 +417,18 @@ func test_architecture_global_snapshot_preserves_redo_history() -> void:
 	history_util.record(cmd2)
 	var _undo_last_result_154: Variant = history_util.undo_last()
 
-	var snapshot: Dictionary = arch.get_global_snapshot()
+	var snapshot: Dictionary = _capture_snapshot(arch.get_global_snapshot())
 	history_util.clear()
 
 	var builder: Callable = func(_data: Dictionary) -> GFUndoableCommand:
 		return GFUndoableCommand.new()
 
-	arch.restore_global_snapshot(snapshot, builder)
+	var restore_result: Dictionary = arch.restore_global_snapshot(
+		snapshot,
+		builder
+	)
 
+	_assert_restore_succeeded(restore_result)
 	assert_eq(history_util.undo_count, 1, "全局快照恢复后应保留 undo 栈。")
 	assert_eq(history_util.redo_count, 1, "全局快照恢复后应保留 redo 栈。")
 
@@ -263,11 +445,14 @@ func test_architecture_global_snapshot() -> void:
 	
 	# 构造一个虚假的序列化历史数据（不依赖具体的 command 类）
 	# 在真实场景下，这就代表了一个历史记录
-	var fake_history_data: Array = [{"snapshot": 1}]
+	var fake_history_data: Dictionary = {
+		"undo": [{ "snapshot": 1 }],
+		"redo": [],
+	}
 	# 模拟工具内有一些记录
 	history_util._undo_stack.append(GFUndoableCommand.new())
 	
-	var global_snap: Dictionary = arch.get_global_snapshot()
+	var global_snap: Dictionary = _capture_snapshot(arch.get_global_snapshot())
 	
 	assert_true(global_snap.has("models"), "全局快照必须包含 models。")
 	assert_true(global_snap.has("command_history"), "如果注册了命令历史工具，全局快照必须包含 command_history。")
@@ -285,8 +470,12 @@ func test_architecture_global_snapshot() -> void:
 	# 或者不改，依靠 deserialize_history 的能力即可
 	global_snap["command_history"] = fake_history_data
 		
-	arch.restore_global_snapshot(global_snap, mock_builder)
+	var restore_result: Dictionary = arch.restore_global_snapshot(
+		global_snap,
+		mock_builder
+	)
 	
+	_assert_restore_succeeded(restore_result)
 	assert_eq(_object_int(score_model, "score"), 99, "模型状态应通过全局快照恢复。")
 	assert_eq(history_util.undo_count, 1, "历史栈记录数量应通过全局快照及 builder 恢复。")
 
@@ -297,11 +486,17 @@ func test_architecture_global_snapshot_async() -> void:
 	score_model.set("score", 88)
 	await arch.register_model_instance(score_model)
 
-	var snapshot: Dictionary = await arch.get_global_snapshot_async({ "max_models_per_frame": 1 })
+	var snapshot: Dictionary = _capture_snapshot(
+		await arch.get_global_snapshot_async({ "max_models_per_frame": 1 })
+	)
 	score_model.set("score", 0)
-	var restored: bool = await arch.restore_global_snapshot_async(snapshot, Callable(), { "max_models_per_frame": 1 })
+	var restore_result: Dictionary = await arch.restore_global_snapshot_async(
+		snapshot,
+		Callable(),
+		{ "max_models_per_frame": 1 }
+	)
 
-	assert_true(restored, "restore_global_snapshot_async() 完整恢复时应返回 true。")
+	_assert_restore_succeeded(restore_result)
 	assert_eq(_object_int(score_model, "score"), 88, "分帧全局快照应恢复 Model 数据。")
 
 
@@ -310,7 +505,7 @@ func test_global_snapshot_ignores_incomplete_command_history_contract() -> void:
 	var history_util: IncompleteHistoryUtility = IncompleteHistoryUtility.new()
 	await arch.register_utility_instance(history_util)
 
-	var snapshot: Dictionary = arch.get_global_snapshot()
+	var snapshot: Dictionary = _capture_snapshot(arch.get_global_snapshot())
 
 	assert_false(snapshot.has("command_history"), "命令历史快照应要求完整序列化/反序列化契约。")
 
@@ -322,13 +517,44 @@ func test_register_service_rejects_multiple_command_history_stores() -> void:
 	await arch.register_utility_instance(first_history)
 	await arch.register_utility_instance(second_history)
 
-	var snapshot: Dictionary = arch.get_global_snapshot()
+	var snapshot: Dictionary = _capture_snapshot(arch.get_global_snapshot())
 
 	assert_true(snapshot.has("command_history"), "第二个服务 provider 被拒绝后，应继续使用第一个命令历史服务。")
 	assert_push_error("[GFArchitecture] register_service 失败：service_key 已注册：gf.kernel.command_history_store。")
 
 
 # --- 私有/辅助方法 ---
+
+func _capture_snapshot(result: Dictionary) -> Dictionary:
+	assert_true(
+		GF_VARIANT_ACCESS.get_option_bool(result, "ok"),
+		"捕获 Result 应成功：%s" % GF_VARIANT_ACCESS.get_option_string(
+			result,
+			"error"
+		)
+	)
+	assert_true(result.has("snapshot"), "成功捕获 Result 必须包含 snapshot。")
+	return GF_VARIANT_ACCESS.get_option_dictionary(result, "snapshot")
+
+
+func _assert_restore_succeeded(result: Dictionary) -> void:
+	assert_true(
+		GF_VARIANT_ACCESS.get_option_bool(result, "ok"),
+		"恢复 Result 应成功：%s" % GF_VARIANT_ACCESS.get_option_string(
+			result,
+			"error"
+		)
+	)
+	assert_eq(
+		GF_VARIANT_ACCESS.get_option_string_name(result, "phase"),
+		&"commit",
+		"成功恢复应完成 commit 阶段。"
+	)
+	assert_false(
+		GF_VARIANT_ACCESS.get_option_bool(result, "rolled_back", true),
+		"成功恢复不应发生回滚。"
+	)
+
 
 func _create_score_model_fixture() -> Object:
 	return _new_model_fixture(SCORE_MODEL_FIXTURE_PATH)

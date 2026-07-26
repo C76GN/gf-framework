@@ -1,7 +1,9 @@
 ## GFSnapshotHistoryUtility: 通用快照历史与回滚工具。
 ##
 ## 管理一组有序快照，支持捕获、前后跳转、按 ID 恢复和调试快照。
-## 默认会使用注入架构的 `get_global_snapshot()` / `restore_global_snapshot()`，
+## 默认会解包注入架构的显式捕获 Result，并仅在捕获成功时记录
+## `get_global_snapshot()` 的 snapshot；恢复则仅在
+## `restore_global_snapshot()` 的事务 Result 成功时移动历史位置。
 ## 也可以通过回调接入任意项目自定义状态。
 ## [br]
 ## @api public
@@ -330,7 +332,21 @@ func _capture_data() -> Variant:
 
 	var architecture: GFArchitecture = _get_architecture_or_null()
 	if architecture != null and architecture.has_method("get_global_snapshot"):
-		return architecture.get_global_snapshot()
+		var capture_result: Dictionary = architecture.get_global_snapshot()
+		if GFVariantData.get_option_bool(capture_result, "ok"):
+			return GFVariantData.get_option_dictionary(
+				capture_result,
+				"snapshot"
+			)
+		push_warning(
+			"[GFSnapshotHistoryUtility] capture() 失败：%s"
+			% GFVariantData.get_option_string(
+				capture_result,
+				"error",
+				"架构快照捕获失败。"
+			)
+		)
+		return null
 
 	push_warning("[GFSnapshotHistoryUtility] capture() 失败：未配置捕获回调，且没有可用架构快照。")
 	return null
@@ -351,8 +367,21 @@ func _restore_data(data: Variant) -> bool:
 	var architecture: GFArchitecture = _get_architecture_or_null()
 	if architecture != null and architecture.has_method("restore_global_snapshot") and data is Dictionary:
 		var snapshot_data: Dictionary = GFVariantData.as_dictionary(data)
-		architecture.restore_global_snapshot(snapshot_data, _restore_command_builder)
-		return true
+		var restore_result: Dictionary = architecture.restore_global_snapshot(
+			snapshot_data,
+			_restore_command_builder
+		)
+		if GFVariantData.get_option_bool(restore_result, "ok"):
+			return true
+		push_warning(
+			"[GFSnapshotHistoryUtility] restore 失败：%s"
+			% GFVariantData.get_option_string(
+				restore_result,
+				"error",
+				"架构快照恢复失败。"
+			)
+		)
+		return false
 
 	push_warning("[GFSnapshotHistoryUtility] restore 失败：未配置恢复回调，且没有可用架构快照。")
 	return false

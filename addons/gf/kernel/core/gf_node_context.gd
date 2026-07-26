@@ -43,6 +43,15 @@ enum ScopeMode {
 	SCOPED,
 }
 
+enum _ContextState {
+	DETACHED,
+	INSTALLING,
+	WAITING_INITIALIZATION,
+	INITIALIZING,
+	READY,
+	FAILED,
+}
+
 
 # --- 常量 ---
 
@@ -96,65 +105,110 @@ var architecture: GFArchitecture:
 
 var _architecture: GFArchitecture = null
 var _owns_architecture: bool = false
-var _is_context_ready: bool = false
-var _is_context_installing: bool = false
-var _context_ready_emitted: bool = false
-var _context_failed_emitted: bool = false
+var _context_state: _ContextState = _ContextState.DETACHED
 var _context_failure_reason: String = ""
 var _context_lifecycle_serial: int = 0
 var _context_install_scope: GFAsyncScope = null
+var _parent_architecture: GFArchitecture = null
+var _parent_architecture_initial_generation: int = -1
+var _parent_architecture_ready_generation: int = -1
 
 
 # --- Godot 生命周期方法 ---
 
 func _enter_tree() -> void:
 	_context_lifecycle_serial += 1
-	_context_ready_emitted = false
-	_context_failed_emitted = false
+	var lifecycle_serial: int = _context_lifecycle_serial
+	_context_state = _ContextState.DETACHED
 	_context_failure_reason = ""
 	_setup_architecture()
 	if _owns_architecture:
-		_is_context_installing = true
 		var context_architecture: GFArchitecture = _architecture
+		var architecture_lifecycle_generation: int = (
+			context_architecture.get_lifecycle_generation()
+		)
 		var install_scope: GFAsyncScope = _begin_context_install_scope()
-		var parent_ready: bool = await _wait_for_parent_architecture_ready(context_architecture)
+		var parent_ready: bool = await _wait_for_parent_architecture_ready(
+			context_architecture,
+			lifecycle_serial,
+			architecture_lifecycle_generation
+		)
 		if not parent_ready:
 			_cancel_context_install_scope_if_current(install_scope, "父级架构未就绪。")
-			_is_context_installing = false
 			return
-		if not _is_owned_architecture_current(context_architecture):
-			_cancel_context_install_scope_if_current(install_scope, "上下文已退出树。")
-			_is_context_installing = false
+		if not _can_continue_context_install(
+			lifecycle_serial,
+			context_architecture,
+			architecture_lifecycle_generation,
+			install_scope
+		):
+			_handle_context_install_interruption(
+				lifecycle_serial,
+				context_architecture,
+				architecture_lifecycle_generation,
+				install_scope
+			)
 			return
 		await call(&"install", context_architecture, install_scope)
-		if not _is_owned_architecture_current(context_architecture):
-			_cancel_context_install_scope_if_current(install_scope, "上下文已退出树。")
-			_is_context_installing = false
+		if not _can_continue_context_install(
+			lifecycle_serial,
+			context_architecture,
+			architecture_lifecycle_generation,
+			install_scope
+		):
+			_handle_context_install_interruption(
+				lifecycle_serial,
+				context_architecture,
+				architecture_lifecycle_generation,
+				install_scope
+			)
 			return
 		await call(&"install_bindings", context_architecture.create_binder(), install_scope)
-		if not _is_owned_architecture_current(context_architecture):
-			_cancel_context_install_scope_if_current(install_scope, "上下文已退出树。")
-			_is_context_installing = false
+		if not _can_continue_context_install(
+			lifecycle_serial,
+			context_architecture,
+			architecture_lifecycle_generation,
+			install_scope
+		):
+			_handle_context_install_interruption(
+				lifecycle_serial,
+				context_architecture,
+				architecture_lifecycle_generation,
+				install_scope
+			)
 			return
-		_is_context_installing = false
-		_complete_context_install_scope_if_current(install_scope)
+		if not _finish_context_install_if_current(
+			lifecycle_serial,
+			context_architecture,
+			architecture_lifecycle_generation,
+			install_scope
+		):
+			_handle_context_install_interruption(
+				lifecycle_serial,
+				context_architecture,
+				architecture_lifecycle_generation,
+				install_scope
+			)
+			return
 		if auto_init:
-			await _initialize_owned_architecture(context_architecture)
+			await _initialize_owned_architecture(context_architecture, lifecycle_serial)
 	elif _architecture == null:
 		_fail_context("未找到可继承的架构。")
 	else:
 		_GF_ASYNC_CALL_SCRIPT.run_detached(
 			Callable(self, &"_watch_inherited_architecture_ready"),
-			[_architecture, _context_lifecycle_serial]
+			[_architecture, lifecycle_serial]
 		)
 
 
 func _process(delta: float) -> void:
+	_synchronize_context_lifecycle()
 	if _should_tick_owned_architecture():
 		_architecture.tick(delta)
 
 
 func _physics_process(delta: float) -> void:
+	_synchronize_context_lifecycle()
 	if _should_tick_owned_architecture():
 		_architecture.physics_tick(delta)
 
@@ -166,12 +220,10 @@ func _exit_tree() -> void:
 		_architecture.dispose()
 	_architecture = null
 	_owns_architecture = false
-	_is_context_ready = false
-	_is_context_installing = false
-	_context_ready_emitted = false
-	_context_failed_emitted = false
+	_context_state = _ContextState.DETACHED
 	_context_failure_reason = ""
 	_context_install_scope = null
+	_clear_parent_architecture_tracking()
 
 
 # --- 公共方法 ---
@@ -219,7 +271,8 @@ func get_architecture() -> GFArchitecture:
 ## [br]
 ## @return 已完成初始化返回 true。
 func is_context_ready() -> bool:
-	return _is_context_ready
+	_synchronize_context_lifecycle()
+	return _context_state == _ContextState.READY
 
 
 ## 检查上下文是否已经进入失败终态。
@@ -230,7 +283,8 @@ func is_context_ready() -> bool:
 ## [br]
 ## @return 失败后返回 true。
 func is_context_failed() -> bool:
-	return _context_failed_emitted
+	_synchronize_context_lifecycle()
+	return _context_state == _ContextState.FAILED
 
 
 ## 获取上下文失败原因。
@@ -241,6 +295,7 @@ func is_context_failed() -> bool:
 ## [br]
 ## @return context_failed 发出的失败原因；未失败时为空字符串。
 func get_context_failure_reason() -> String:
+	_synchronize_context_lifecycle()
 	return _context_failure_reason
 
 
@@ -250,33 +305,55 @@ func get_context_failure_reason() -> String:
 ## [br]
 ## @return 初始化完成的架构；上下文失效或初始化失败时返回 null。
 func initialize_context() -> GFArchitecture:
-	if _context_failed_emitted:
+	_synchronize_context_lifecycle()
+	if _context_state == _ContextState.FAILED or _context_state == _ContextState.DETACHED:
 		return null
 	if _architecture == null:
 		return null
 	if not _owns_architecture:
 		return await wait_until_ready()
-	if _is_context_ready:
+	if _context_state == _ContextState.READY:
 		return _architecture
 
 	var context_architecture: GFArchitecture = _architecture
-	while _is_context_installing:
+	var lifecycle_serial: int = _context_lifecycle_serial
+	var architecture_lifecycle_generation: int = (
+		context_architecture.get_lifecycle_generation()
+	)
+	while _context_state == _ContextState.INSTALLING:
 		if not is_inside_tree():
 			return null
 		await get_tree().process_frame
-		if _architecture != context_architecture:
+		_synchronize_context_lifecycle()
+		if _context_state == _ContextState.FAILED:
+			return null
+		if not _is_owned_architecture_current(context_architecture, lifecycle_serial):
 			return null
 
-	if not _is_owned_architecture_current(context_architecture):
+	if _context_state == _ContextState.FAILED or _context_state == _ContextState.DETACHED:
 		return null
-	var parent_ready: bool = await _wait_for_parent_architecture_ready(context_architecture)
+	if _context_state == _ContextState.READY:
+		return context_architecture
+	if _context_state == _ContextState.INITIALIZING:
+		return await wait_until_ready()
+	if not _is_owned_architecture_current(context_architecture, lifecycle_serial):
+		return null
+	_context_state = _ContextState.INITIALIZING
+	var parent_ready: bool = await _wait_for_parent_architecture_ready(
+		context_architecture,
+		lifecycle_serial,
+		architecture_lifecycle_generation
+	)
 	if not parent_ready:
 		return null
-	if not _is_owned_architecture_current(context_architecture):
+	if not _is_owned_architecture_current(context_architecture, lifecycle_serial):
 		return null
 
-	await _initialize_owned_architecture(context_architecture)
-	if _is_owned_architecture_current(context_architecture) and context_architecture.is_inited():
+	await _initialize_owned_architecture(context_architecture, lifecycle_serial)
+	if (
+		_is_owned_architecture_current(context_architecture, lifecycle_serial)
+		and _context_state == _ContextState.READY
+	):
 		return context_architecture
 	return null
 
@@ -287,11 +364,14 @@ func initialize_context() -> GFArchitecture:
 ## [br]
 ## @return 当前上下文架构；上下文失效时返回 null。
 func wait_until_ready() -> GFArchitecture:
-	if _context_failed_emitted:
+	_synchronize_context_lifecycle()
+	if _context_state == _ContextState.FAILED or _context_state == _ContextState.DETACHED:
 		return null
 	var start_msec: int = Time.get_ticks_msec()
+	var lifecycle_serial: int = _context_lifecycle_serial
 	while _architecture != null and not _architecture.is_inited():
-		if _context_failed_emitted:
+		_synchronize_context_lifecycle()
+		if _context_state == _ContextState.FAILED:
 			return null
 		if not is_inside_tree():
 			return null
@@ -299,18 +379,26 @@ func wait_until_ready() -> GFArchitecture:
 		if waiting_architecture.has_initialization_failed():
 			_fail_context(_get_architecture_failure_reason(waiting_architecture, "上下文架构初始化失败。"))
 			return null
+		if waiting_architecture.is_disposed():
+			_fail_context("上下文架构生命周期已结束。")
+			return null
 		var timeout_reason: String = _get_wait_timeout_reason(start_msec, "等待上下文初始化超时。")
 		if not timeout_reason.is_empty():
 			_fail_context(timeout_reason)
 			return null
 		await get_tree().process_frame
-		if _architecture != waiting_architecture:
+		if (
+			_context_lifecycle_serial != lifecycle_serial
+			or _architecture != waiting_architecture
+		):
 			return null
 
 	if _architecture != null:
-		if _context_failed_emitted:
+		if _context_state == _ContextState.FAILED:
 			return null
 		_mark_context_ready(_architecture)
+		if _context_state != _ContextState.READY:
+			return null
 	return _architecture
 
 
@@ -428,12 +516,13 @@ func inject_node_tree(node: Node) -> void:
 
 func _setup_architecture() -> void:
 	var parent_architecture: GFArchitecture = _find_parent_architecture()
+	_capture_parent_architecture(parent_architecture)
 
 	match scope_mode:
 		ScopeMode.INHERITED:
 			_architecture = parent_architecture
 			_owns_architecture = false
-			_is_context_ready = _architecture != null and _architecture.is_inited()
+			_context_state = _ContextState.WAITING_INITIALIZATION
 
 		ScopeMode.SCOPED:
 			_architecture = GFArchitecture.new(parent_architecture)
@@ -441,38 +530,64 @@ func _setup_architecture() -> void:
 			if module_async_init_timeout_seconds > 0.0:
 				_architecture.module_async_init_timeout_seconds = module_async_init_timeout_seconds
 			_owns_architecture = true
-			_is_context_ready = false
+			_context_state = _ContextState.INSTALLING
 
 
-func _initialize_owned_architecture(architecture_instance: GFArchitecture = null) -> void:
-	if _context_failed_emitted:
+func _initialize_owned_architecture(
+	architecture_instance: GFArchitecture = null,
+	lifecycle_serial: int = -1
+) -> void:
+	if _context_state == _ContextState.FAILED or _context_state == _ContextState.DETACHED:
 		return
 	var initializing_architecture: GFArchitecture = architecture_instance
 	if initializing_architecture == null:
 		initializing_architecture = _architecture
 	if initializing_architecture == null:
 		return
+	var initializing_serial: int = lifecycle_serial
+	if initializing_serial < 0:
+		initializing_serial = _context_lifecycle_serial
+	if not _is_owned_architecture_current(initializing_architecture, initializing_serial):
+		return
+	if (
+		_context_state != _ContextState.WAITING_INITIALIZATION
+		and _context_state != _ContextState.INITIALIZING
+	):
+		return
+	if not _validate_parent_architecture_lifecycle(false):
+		return
+	_context_state = _ContextState.INITIALIZING
 
 	var initialized: bool = await initializing_architecture.init()
-	if _is_owned_architecture_current(initializing_architecture) and initialized:
+	if not _is_owned_architecture_current(initializing_architecture, initializing_serial):
+		return
+	if _context_state == _ContextState.FAILED:
+		return
+	if initializing_architecture.is_disposed():
+		_fail_context("上下文架构生命周期已结束。")
+		return
+	if not _validate_parent_architecture_lifecycle(false):
+		return
+	if initialized:
 		_mark_context_ready(initializing_architecture)
-	elif _is_owned_architecture_current(initializing_architecture) and initializing_architecture.has_initialization_failed():
+	elif initializing_architecture.has_initialization_failed():
 		_fail_context(_get_architecture_failure_reason(initializing_architecture, "上下文架构初始化失败。"))
+	else:
+		_fail_context("上下文架构初始化未能完成。")
 
 
 func _watch_inherited_architecture_ready(inherited_architecture: GFArchitecture, lifecycle_serial: int) -> void:
 	await get_tree().process_frame
-	if _context_failed_emitted:
+	if _context_state == _ContextState.FAILED:
 		return
 	var start_msec: int = Time.get_ticks_msec()
 	while _is_inherited_architecture_current(inherited_architecture, lifecycle_serial):
-		if _context_failed_emitted:
+		if _context_state == _ContextState.FAILED:
+			return
+		if not _validate_parent_architecture_lifecycle(true):
 			return
 		if inherited_architecture.is_inited():
 			_mark_context_ready(inherited_architecture)
-			return
-		if inherited_architecture.has_initialization_failed():
-			_fail_context(_get_architecture_failure_reason(inherited_architecture, "上下文架构初始化失败。"))
 			return
 		var timeout_reason: String = _get_wait_timeout_reason(start_msec, "等待上下文初始化超时。")
 		if not timeout_reason.is_empty():
@@ -481,34 +596,66 @@ func _watch_inherited_architecture_ready(inherited_architecture: GFArchitecture,
 		await get_tree().process_frame
 
 
-func _wait_for_parent_architecture_ready(architecture_instance: GFArchitecture = null) -> bool:
-	if _context_failed_emitted:
+func _wait_for_parent_architecture_ready(
+	architecture_instance: GFArchitecture = null,
+	lifecycle_serial: int = -1,
+	architecture_lifecycle_generation: int = -1
+) -> bool:
+	if _context_state == _ContextState.FAILED:
 		return false
 	var scoped_architecture: GFArchitecture = architecture_instance
 	if scoped_architecture == null:
 		scoped_architecture = _architecture
 	if scoped_architecture == null:
 		return true
+	var waiting_serial: int = lifecycle_serial
+	if waiting_serial < 0:
+		waiting_serial = _context_lifecycle_serial
+	var waiting_architecture_generation: int = architecture_lifecycle_generation
+	if waiting_architecture_generation < 0:
+		waiting_architecture_generation = scoped_architecture.get_lifecycle_generation()
+	if not _validate_owned_architecture_wait_target(
+		scoped_architecture,
+		waiting_serial,
+		waiting_architecture_generation
+	):
+		return false
+	if not _validate_parent_architecture_lifecycle(true):
+		return false
 
-	var parent_architecture: GFArchitecture = scoped_architecture.get_parent_architecture()
+	var parent_architecture: GFArchitecture = _parent_architecture
 	var start_msec: int = Time.get_ticks_msec()
 	while parent_architecture != null and not parent_architecture.is_inited():
-		if _context_failed_emitted:
+		if _context_state == _ContextState.FAILED:
 			return false
-		if not _is_owned_architecture_current(scoped_architecture):
+		if not _validate_owned_architecture_wait_target(
+			scoped_architecture,
+			waiting_serial,
+			waiting_architecture_generation
+		):
 			return false
-		if parent_architecture.has_initialization_failed():
-			_fail_context(_get_architecture_failure_reason(parent_architecture, "父级架构初始化失败。"))
+		if not _validate_parent_architecture_lifecycle(true):
 			return false
 		var timeout_reason: String = _get_wait_timeout_reason(start_msec, "等待父级架构初始化超时。")
 		if not timeout_reason.is_empty():
 			_fail_context(timeout_reason)
 			return false
 		await get_tree().process_frame
-		if not _is_owned_architecture_current(scoped_architecture):
+		if not _validate_owned_architecture_wait_target(
+			scoped_architecture,
+			waiting_serial,
+			waiting_architecture_generation
+		):
 			return false
-		parent_architecture = scoped_architecture.get_parent_architecture()
-	return true
+		if not _validate_parent_architecture_lifecycle(true):
+			return false
+	if not _validate_owned_architecture_wait_target(
+		scoped_architecture,
+		waiting_serial,
+		waiting_architecture_generation
+	):
+		return false
+	return _validate_parent_architecture_lifecycle(false)
 
 
 func _find_parent_architecture() -> GFArchitecture:
@@ -529,6 +676,8 @@ func _should_tick_owned_architecture() -> bool:
 		process_scoped_ticks
 		and _owns_architecture
 		and _architecture != null
+		and _context_state == _ContextState.READY
+		and _architecture.is_inited()
 	)
 
 
@@ -541,17 +690,136 @@ func _get_wait_timeout_reason(start_msec: int, reason: String) -> String:
 	return ""
 
 
-func _fail_context(reason: String) -> void:
+func _fail_context(reason: String, allow_ready_transition: bool = false) -> void:
 	if reason.is_empty():
 		return
-	_cancel_context_install_scope(reason)
-	_is_context_ready = false
-	_context_failure_reason = reason
-	if _context_failed_emitted:
+	if (
+		(_context_state == _ContextState.READY and not allow_ready_transition)
+		or _context_state == _ContextState.FAILED
+		or _context_state == _ContextState.DETACHED
+	):
 		return
-	_context_failed_emitted = true
+	var failure_lifecycle_serial: int = _context_lifecycle_serial
+	var failure_architecture: GFArchitecture = _architecture
+	var should_dispose_architecture: bool = _owns_architecture
+	_context_state = _ContextState.FAILED
+	_context_failure_reason = reason
+	_cancel_context_install_scope(reason)
+	if should_dispose_architecture and failure_architecture != null:
+		failure_architecture.dispose()
+	if (
+		_context_lifecycle_serial != failure_lifecycle_serial
+		or _context_state != _ContextState.FAILED
+		or _architecture != failure_architecture
+	):
+		return
 	push_warning("[GFNodeContext] %s" % reason)
 	context_failed.emit(reason)
+
+
+func _synchronize_context_lifecycle() -> void:
+	if (
+		_context_state == _ContextState.DETACHED
+		or _context_state == _ContextState.FAILED
+		or _architecture == null
+	):
+		return
+	var allow_ready_transition: bool = _context_state == _ContextState.READY
+	if _owns_architecture and _architecture.is_disposed():
+		_fail_context("上下文架构生命周期已结束。", allow_ready_transition)
+		return
+	if _owns_architecture and _architecture.has_initialization_failed():
+		_fail_context(
+			_get_architecture_failure_reason(
+				_architecture,
+				"上下文架构初始化失败。"
+			),
+			allow_ready_transition
+		)
+		return
+	if not _validate_parent_architecture_lifecycle(true):
+		return
+	if _context_state == _ContextState.READY and not _architecture.is_inited():
+		_fail_context("上下文架构生命周期已失效。", true)
+
+
+func _capture_parent_architecture(parent_architecture: GFArchitecture) -> void:
+	_parent_architecture = parent_architecture
+	_parent_architecture_initial_generation = -1
+	_parent_architecture_ready_generation = -1
+	if parent_architecture == null:
+		return
+	var lifecycle_generation: int = parent_architecture.get_lifecycle_generation()
+	_parent_architecture_initial_generation = lifecycle_generation
+	if parent_architecture.is_inited():
+		_parent_architecture_ready_generation = lifecycle_generation
+
+
+func _clear_parent_architecture_tracking() -> void:
+	_parent_architecture = null
+	_parent_architecture_initial_generation = -1
+	_parent_architecture_ready_generation = -1
+
+
+func _validate_parent_architecture_lifecycle(allow_pending: bool) -> bool:
+	var bound_parent_architecture: GFArchitecture = _get_bound_parent_architecture()
+	var relationship_name: String = "父级架构" if _owns_architecture else "继承架构"
+	var allow_ready_transition: bool = _context_state == _ContextState.READY
+	if _parent_architecture != null and _parent_architecture.is_disposed():
+		_fail_context("%s生命周期已结束。" % relationship_name, allow_ready_transition)
+		return false
+	if _parent_architecture != null and _parent_architecture.has_initialization_failed():
+		_fail_context(
+			_get_architecture_failure_reason(
+				_parent_architecture,
+				"%s初始化失败。" % relationship_name
+			),
+			allow_ready_transition
+		)
+		return false
+	if bound_parent_architecture != _parent_architecture:
+		_fail_context("%s身份已变化。" % relationship_name, allow_ready_transition)
+		return false
+	if _parent_architecture == null:
+		return true
+
+	var lifecycle_generation: int = _parent_architecture.get_lifecycle_generation()
+	if _parent_architecture_ready_generation >= 0:
+		if (
+			lifecycle_generation != _parent_architecture_ready_generation
+			or not _parent_architecture.is_inited()
+		):
+			_fail_context("%s生命周期已失效。" % relationship_name, allow_ready_transition)
+			return false
+		return true
+	if not _is_parent_architecture_wait_generation_valid(lifecycle_generation):
+		_fail_context("%s生命周期已失效。" % relationship_name, allow_ready_transition)
+		return false
+	if _parent_architecture.is_inited():
+		_parent_architecture_ready_generation = lifecycle_generation
+		return true
+	if not allow_pending:
+		_fail_context("%s未就绪。" % relationship_name, allow_ready_transition)
+		return false
+	return true
+
+
+func _get_bound_parent_architecture() -> GFArchitecture:
+	if not _owns_architecture:
+		return _find_parent_architecture()
+	if _architecture == null:
+		return null
+	return _architecture.get_parent_architecture()
+
+
+func _is_parent_architecture_wait_generation_valid(lifecycle_generation: int) -> bool:
+	if lifecycle_generation == _parent_architecture_initial_generation:
+		return true
+	return (
+		lifecycle_generation == _parent_architecture_initial_generation + 1
+		and _parent_architecture != null
+		and _parent_architecture.is_lifecycle_active()
+	)
 
 
 func _get_architecture_failure_reason(architecture_instance: GFArchitecture, fallback_reason: String) -> String:
@@ -560,12 +828,50 @@ func _get_architecture_failure_reason(architecture_instance: GFArchitecture, fal
 	return fallback_reason
 
 
-func _is_owned_architecture_current(architecture_instance: GFArchitecture) -> bool:
+func _is_owned_architecture_current(
+	architecture_instance: GFArchitecture,
+	lifecycle_serial: int = -1
+) -> bool:
 	return (
 		is_inside_tree()
 		and _owns_architecture
 		and _architecture == architecture_instance
+		and (
+			lifecycle_serial < 0
+			or _context_lifecycle_serial == lifecycle_serial
+		)
 	)
+
+
+func _validate_owned_architecture_wait_target(
+	architecture_instance: GFArchitecture,
+	lifecycle_serial: int,
+	architecture_lifecycle_generation: int
+) -> bool:
+	if architecture_instance == null:
+		return false
+	if _context_state == _ContextState.FAILED or _context_state == _ContextState.DETACHED:
+		return false
+	if not _is_owned_architecture_current(architecture_instance, lifecycle_serial):
+		return false
+	if architecture_instance.is_disposed():
+		_fail_context("上下文架构生命周期已结束。")
+		return false
+	if architecture_instance.has_initialization_failed():
+		_fail_context(
+			_get_architecture_failure_reason(
+				architecture_instance,
+				"上下文架构在等待父级期间初始化失败。"
+			)
+		)
+		return false
+	if (
+		architecture_instance.get_lifecycle_generation()
+		!= architecture_lifecycle_generation
+	):
+		_fail_context("上下文架构在等待父级期间生命周期已失效。")
+		return false
+	return true
 
 
 func _is_inherited_architecture_current(architecture_instance: GFArchitecture, lifecycle_serial: int) -> bool:
@@ -574,19 +880,36 @@ func _is_inherited_architecture_current(architecture_instance: GFArchitecture, l
 		and not _owns_architecture
 		and _architecture == architecture_instance
 		and _context_lifecycle_serial == lifecycle_serial
+		and _context_state != _ContextState.DETACHED
+		and _context_state != _ContextState.FAILED
 	)
 
 
 func _mark_context_ready(architecture_instance: GFArchitecture) -> void:
 	if architecture_instance == null:
 		return
-	_is_context_ready = true
-	if _context_ready_emitted:
-		return
 	if _architecture != architecture_instance:
 		return
-	_context_ready_emitted = true
+	if architecture_instance.has_initialization_failed() or architecture_instance.is_disposed():
+		return
+	if not is_inside_tree():
+		return
+	if (
+		_context_state == _ContextState.READY
+		or _context_state == _ContextState.FAILED
+		or _context_state == _ContextState.DETACHED
+	):
+		return
+	if (
+		_context_state != _ContextState.WAITING_INITIALIZATION
+		and _context_state != _ContextState.INITIALIZING
+	):
+		return
+	if not _validate_parent_architecture_lifecycle(false):
+		return
+	_context_state = _ContextState.READY
 	context_ready.emit(architecture_instance)
+	_synchronize_context_lifecycle()
 
 
 func _begin_context_install_scope() -> GFAsyncScope:
@@ -596,13 +919,23 @@ func _begin_context_install_scope() -> GFAsyncScope:
 	return install_scope
 
 
-func _complete_context_install_scope_if_current(install_scope: GFAsyncScope) -> void:
-	if install_scope == null:
-		return
-	if _context_install_scope != install_scope:
-		return
+func _finish_context_install_if_current(
+	lifecycle_serial: int,
+	architecture_instance: GFArchitecture,
+	architecture_lifecycle_generation: int,
+	install_scope: GFAsyncScope
+) -> bool:
+	if not _can_continue_context_install(
+		lifecycle_serial,
+		architecture_instance,
+		architecture_lifecycle_generation,
+		install_scope
+	):
+		return false
 	_context_install_scope = null
 	install_scope.complete()
+	_context_state = _ContextState.WAITING_INITIALIZATION
+	return true
 
 
 func _cancel_context_install_scope(reason: String) -> void:
@@ -619,3 +952,56 @@ func _cancel_context_install_scope_if_current(install_scope: GFAsyncScope, reaso
 	if _context_install_scope != install_scope:
 		return
 	_cancel_context_install_scope(reason)
+
+
+func _can_continue_context_install(
+	lifecycle_serial: int,
+	architecture_instance: GFArchitecture,
+	architecture_lifecycle_generation: int,
+	install_scope: GFAsyncScope
+) -> bool:
+	if _context_state != _ContextState.INSTALLING:
+		return false
+	if not _is_owned_architecture_current(architecture_instance, lifecycle_serial):
+		return false
+	if install_scope == null or _context_install_scope != install_scope:
+		return false
+	if install_scope.is_cancel_requested():
+		return false
+	if architecture_instance.is_disposed():
+		return false
+	if architecture_instance.has_initialization_failed():
+		return false
+	if architecture_instance.get_lifecycle_generation() != architecture_lifecycle_generation:
+		return false
+	return _validate_parent_architecture_lifecycle(false)
+
+
+func _handle_context_install_interruption(
+	lifecycle_serial: int,
+	architecture_instance: GFArchitecture,
+	architecture_lifecycle_generation: int,
+	install_scope: GFAsyncScope
+) -> void:
+	if _context_state != _ContextState.INSTALLING:
+		return
+	if not _is_owned_architecture_current(architecture_instance, lifecycle_serial):
+		return
+
+	var failure_reason: String = ""
+	if install_scope != null and install_scope.is_cancel_requested():
+		failure_reason = String(install_scope.get_cancel_reason())
+	elif architecture_instance.is_disposed():
+		failure_reason = "上下文架构在安装期间生命周期已结束。"
+	elif architecture_instance.has_initialization_failed():
+		failure_reason = _get_architecture_failure_reason(
+			architecture_instance,
+			"上下文架构在安装期间初始化失败。"
+		)
+	elif architecture_instance.get_lifecycle_generation() != architecture_lifecycle_generation:
+		failure_reason = "上下文架构在安装期间生命周期已失效。"
+	elif _context_install_scope != install_scope:
+		failure_reason = "上下文安装作用域已失效。"
+	else:
+		failure_reason = "上下文安装未能完成。"
+	_fail_context(failure_reason)

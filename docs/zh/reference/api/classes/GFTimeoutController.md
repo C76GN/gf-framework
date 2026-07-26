@@ -200,7 +200,7 @@ func get_clock() -> GFClock:
 func start_seconds( seconds: float, tree: SceneTree = null, reason: StringName = DEFAULT_TIMEOUT_REASON, metadata: Dictionary = {} ) -> GFCancellationToken:
 ```
 
-启动一个新的超时计划。
+启动一个新的超时计划。 每次调用都会终结旧 source 并创建新的 token；旧 token 保持当时的取消状态。
 
 参数：
 
@@ -228,7 +228,7 @@ func start_seconds( seconds: float, tree: SceneTree = null, reason: StringName =
 func stop() -> void:
 ```
 
-停止当前超时计划，不取消 token。
+停止当前超时计划，不取消旧 token，并把控制器推进到新的空闲 token。
 
 <a id="member-gftimeoutcontroller-methods-reset"></a>
 

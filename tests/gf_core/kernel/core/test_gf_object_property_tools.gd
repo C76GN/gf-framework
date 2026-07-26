@@ -116,19 +116,126 @@ func test_apply_dictionary_reports_partial_writes_and_unknown_properties() -> vo
 	assert_eq(object.target_path_value, ^"Child/Label")
 
 
+func test_write_property_reports_dynamic_set_rejection() -> void:
+	var object: DynamicPropertyObject = DynamicPropertyObject.new()
+
+	var result: Dictionary = GFObjectPropertyTools.write_property(
+		object,
+		^"rejected_number",
+		12
+	)
+
+	assert_false(
+		GF_VARIANT_ACCESS.get_option_bool(result, "ok"),
+		"`_set()` 返回 false 时不得报告写入成功。"
+	)
+	assert_true(
+		GF_VARIANT_ACCESS.get_option_string(result, "error").contains(
+			"Property write was rejected"
+		)
+	)
+	assert_eq(object.rejected_number_value, 9, "拒绝写入不得改变原值。")
+
+
+func test_property_queries_exclude_group_category_descriptors() -> void:
+	var object: DynamicPropertyObject = DynamicPropertyObject.new()
+
+	var names: PackedStringArray = GFObjectPropertyTools.get_property_names(object)
+	var snapshot: Dictionary = GFObjectPropertyTools.object_to_dictionary(object)
+
+	assert_false(names.has("Runtime Values"), "PROPERTY_USAGE_GROUP 描述符不是可读写属性。")
+	assert_false(snapshot.has("Runtime Values"), "属性快照不得包含 group/category 描述符。")
+
+
+func test_nested_plane_subproperty_uses_complete_variant_path_validation() -> void:
+	var object: PlanePropertyObject = PlanePropertyObject.new()
+
+	var result: Dictionary = GFObjectPropertyTools.write_property(
+		object,
+		^"plane_value:normal:x",
+		2.0
+	)
+
+	assert_true(GF_VARIANT_ACCESS.get_option_bool(result, "ok"), "Plane.normal.x 是引擎支持的合法属性路径。")
+	assert_eq(object.plane_value.normal.x, 2.0)
+
+
+func test_dictionary_and_extended_color_subproperties_use_engine_path_contract() -> void:
+	var object: NestedPropertyObject = NestedPropertyObject.new()
+
+	var dictionary_result: Dictionary = GFObjectPropertyTools.write_property(
+		object,
+		^"dictionary_value:nested:x",
+		12
+	)
+	var color_result: Dictionary = GFObjectPropertyTools.write_property(
+		object,
+		^"color_value:r8",
+		128
+	)
+	var nested: Dictionary = GF_VARIANT_ACCESS.get_option_dictionary(
+		object.dictionary_value,
+		"nested"
+	)
+
+	assert_true(
+		GF_VARIANT_ACCESS.get_option_bool(dictionary_result, "ok"),
+		"Dictionary 的字符串键路径应被 resolver 接受。"
+	)
+	assert_eq(
+		GF_VARIANT_ACCESS.get_option_int(nested, "x"),
+		12,
+		"Dictionary 子路径应由 Object.set_indexed 写回。"
+	)
+	assert_true(
+		GF_VARIANT_ACCESS.get_option_bool(color_result, "ok"),
+		"Color 的完整公开成员表应包含 r8。"
+	)
+	assert_eq(object.color_value.r8, 128, "Color.r8 应由引擎路径写回。")
+
+
+func test_snapshot_roundtrip_preserves_direct_property_names_with_separators() -> void:
+	var object: DynamicPropertyObject = DynamicPropertyObject.new()
+	var snapshot: Dictionary = GFObjectPropertyTools.object_to_dictionary(
+		object,
+		{
+			"include_properties": PackedStringArray(["path/like", "colon:like"]),
+		}
+	)
+	object.path_like_value = "changed"
+	object.colon_like_value = "changed"
+
+	var report: Dictionary = GFObjectPropertyTools.apply_dictionary(
+		object,
+		snapshot
+	)
+
+	assert_true(GF_VARIANT_ACCESS.get_option_bool(report, "ok"), "capture/apply 应共享精确直接属性标识协议。")
+	assert_eq(object.path_like_value, "path")
+	assert_eq(object.colon_like_value, "colon")
+
+
 # --- 内部类 ---
 
 class DynamicPropertyObject extends RefCounted:
 	var dynamic_number_value: int = 5
 	var locked_number_value: int = 7
+	var rejected_number_value: int = 9
 	var target_path_value: NodePath = NodePath("")
 	var payload_value: Dictionary = {
 		"tags": ["base"],
 	}
+	var path_like_value: String = "path"
+	var colon_like_value: String = "colon"
 
 
 	func _get_property_list() -> Array[Dictionary]:
 		return [
+			{
+				"name": "Runtime Values",
+				"type": TYPE_NIL,
+				"usage": PROPERTY_USAGE_GROUP,
+			},
 			{
 				"name": "dynamic_number",
 				"type": TYPE_INT,
@@ -140,6 +247,11 @@ class DynamicPropertyObject extends RefCounted:
 				"usage": PROPERTY_USAGE_DEFAULT | PROPERTY_USAGE_STORAGE | PROPERTY_USAGE_READ_ONLY,
 			},
 			{
+				"name": "rejected_number",
+				"type": TYPE_INT,
+				"usage": PROPERTY_USAGE_DEFAULT | PROPERTY_USAGE_STORAGE,
+			},
+			{
 				"name": "target_path",
 				"type": TYPE_NODE_PATH,
 				"usage": PROPERTY_USAGE_DEFAULT | PROPERTY_USAGE_STORAGE,
@@ -147,6 +259,16 @@ class DynamicPropertyObject extends RefCounted:
 			{
 				"name": "payload",
 				"type": TYPE_DICTIONARY,
+				"usage": PROPERTY_USAGE_DEFAULT | PROPERTY_USAGE_STORAGE,
+			},
+			{
+				"name": "path/like",
+				"type": TYPE_STRING,
+				"usage": PROPERTY_USAGE_DEFAULT | PROPERTY_USAGE_STORAGE,
+			},
+			{
+				"name": "colon:like",
+				"type": TYPE_STRING,
 				"usage": PROPERTY_USAGE_DEFAULT | PROPERTY_USAGE_STORAGE,
 			},
 			{
@@ -163,10 +285,16 @@ class DynamicPropertyObject extends RefCounted:
 				return dynamic_number_value
 			&"locked_number":
 				return locked_number_value
+			&"rejected_number":
+				return rejected_number_value
 			&"target_path":
 				return target_path_value
 			&"payload":
 				return payload_value
+			&"path/like":
+				return path_like_value
+			&"colon:like":
+				return colon_like_value
 			_:
 				return null
 
@@ -182,5 +310,24 @@ class DynamicPropertyObject extends RefCounted:
 			&"payload":
 				payload_value = GF_VARIANT_ACCESS.to_dictionary(value)
 				return true
+			&"path/like":
+				path_like_value = GF_VARIANT_ACCESS.to_text(value)
+				return true
+			&"colon:like":
+				colon_like_value = GF_VARIANT_ACCESS.to_text(value)
+				return true
 			_:
 				return false
+
+
+class PlanePropertyObject extends RefCounted:
+	var plane_value: Plane = Plane(Vector3.ONE, 1.0)
+
+
+class NestedPropertyObject extends RefCounted:
+	var dictionary_value: Dictionary = {
+		"nested": {
+			"x": 7,
+		},
+	}
+	var color_value: Color = Color(0.1, 0.2, 0.3, 0.4)

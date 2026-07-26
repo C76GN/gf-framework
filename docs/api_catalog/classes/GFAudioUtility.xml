@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFAudioUtility" path="addons/gf/standard/utilities/audio/gf_audio_utility.gd" module="standard" extends="GFUtility" classDigest="72301fa67c5b9848e55a09556b784eda1664e8433c034c894479f08ec5e465c4">
+<class name="GFAudioUtility" path="addons/gf/standard/utilities/audio/gf_audio_utility.gd" module="standard" extends="GFUtility" classDigest="6ea8dacb9929b4080b788125ee71565935ea3bc3cf08d6d05673823abbebbe98">
 	<description>GFAudioUtility: 全局音频管理器。
 管理 BGM 和 SFX 的播放与音量。
 注册 GFObjectPoolUtility 时会复用 AudioStreamPlayer，未注册时使用普通播放器。
@@ -59,9 +59,10 @@
 	<properties>
 		<member kind="property" name="max_sfx_players">
 			<signature>var max_sfx_players: int = 32</signature>
-			<description>同时播放的 SFX 数量上限；小于等于 0 表示不限制。</description>
+			<description>普通与空间 SFX 共用的并发播放数量上限；小于等于 0 表示不限制。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="sfx_overflow_policy">
@@ -96,9 +97,11 @@
 		</member>
 		<member kind="method" name="dispose">
 			<signature>func dispose() -&gt; void:</signature>
-			<description>释放播放器、后端、环境音和 SFX 运行时状态。</description>
+			<description>释放播放器、后端、环境音和 SFX 运行时状态。
+后端拒绝停止时会记录 warning，但生命周期仍会强制收敛为终态。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="play_bgm">
@@ -112,21 +115,23 @@
 		</member>
 		<member kind="method" name="play_bgm_with_options">
 			<signature>func play_bgm_with_options(path: String, options: Dictionary = {}) -&gt; void:</signature>
-			<description>使用选项播放 BGM。</description>
+			<description>使用选项播放 BGM。每次请求创建新会话；异步加载、淡变与 finished 回调只可提交所属会话。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">path: 音频资源路径或后端事件路径。</tag>
 				<tag name="param">options: 支持 crossfade_seconds、history_key、loop、bus_name、volume_db 和 pitch_scale。</tag>
 				<tag name="schema">options: Dictionary，可包含 crossfade_seconds、history_key、loop、bus_name、volume_db 和 pitch_scale 字段。</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="play_bgm_clip">
 			<signature>func play_bgm_clip(clip: GFAudioClip, crossfade_seconds: float = -1.0) -&gt; void:</signature>
-			<description>播放资源化 BGM 配置。</description>
+			<description>播放资源化 BGM 配置。后端与本地播放器按请求结果原子交接唯一通道所有权。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">clip: 音频片段配置。</tag>
 				<tag name="param">crossfade_seconds: 淡入淡出秒数；小于 0 时使用默认值。</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="play_bgm_from_bank">
@@ -151,29 +156,32 @@
 		</member>
 		<member kind="method" name="stop_bgm">
 			<signature>func stop_bgm(fade_seconds: float = 0.0) -&gt; void:</signature>
-			<description>停止当前 BGM。</description>
+			<description>停止当前 BGM。淡出只绑定当前会话，后续替换会使旧完成回调失效。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">fade_seconds: 淡出秒数。</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="pause_bgm">
 			<signature>func pause_bgm(fade_seconds: float = 0.0) -&gt; bool:</signature>
-			<description>暂停当前 BGM。</description>
+			<description>暂停当前 BGM。仅 playing 状态可进入 pausing/paused，非法重复操作返回 false。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">fade_seconds: 淡出到暂停的秒数。</tag>
 				<tag name="return">成功暂停或后端已处理时返回 true。</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="resume_bgm">
 			<signature>func resume_bgm(from_position: float = -1.0, fade_seconds: float = 0.0) -&gt; bool:</signature>
-			<description>恢复当前 BGM。</description>
+			<description>恢复当前 BGM。仅 paused 或尚未完成的 pausing 状态可恢复，已停止会话不会被复活。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">from_position: 大于等于 0 时从指定秒数恢复。</tag>
 				<tag name="param">fade_seconds: 淡入秒数。</tag>
 				<tag name="return">成功恢复或后端已处理时返回 true。</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="seek_bgm">
@@ -191,6 +199,16 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">当前播放秒数；无可查询播放器时返回 0。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_bgm_playing">
+			<signature>func is_bgm_playing() -&gt; bool:</signature>
+			<description>查询当前 BGM session 是否仍存在。暂停中的 BGM 仍视为 playing。
+backend-owned 会话会查询后端，并在稳定 identity 下提交自然结束终态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">当前 BGM 正在播放、淡变或暂停时返回 true。</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 		<member kind="method" name="is_bgm_paused">
@@ -279,11 +297,14 @@
 			</tags>
 		</member>
 		<member kind="method" name="set_audio_backend">
-			<signature>func set_audio_backend(backend: GFAudioBackend) -&gt; void:</signature>
-			<description>设置可插拔音频后端。传入 null 时恢复默认 Godot 播放路径。</description>
+			<signature>func set_audio_backend(backend: GFAudioBackend) -&gt; bool:</signature>
+			<description>设置可插拔音频后端。传入 null 时恢复默认 Godot 播放路径；替换前会停止旧后端通道，
+并按原 owner 恢复、清除所有活跃 duck 作用域。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">backend: 音频后端。</tag>
+				<tag name="return">后端已设置；旧通道停止、duck 基准恢复、dispose 或 setup 未完成时返回 false。</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_audio_backend">
@@ -295,11 +316,14 @@
 			</tags>
 		</member>
 		<member kind="method" name="clear_audio_backend">
-			<signature>func clear_audio_backend(dispose_backend: bool = true) -&gt; void:</signature>
-			<description>清除当前音频后端。</description>
+			<signature>func clear_audio_backend(dispose_backend: bool = true) -&gt; bool:</signature>
+			<description>清除当前音频后端。清除前会停止由该后端拥有的 BGM 与环境音会话，
+并恢复、清除绑定当前 local/backend owner 的活跃 duck 作用域。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">dispose_backend: 是否调用后端 dispose()。</tag>
+				<tag name="return">后端已清除；通道停止、duck 基准恢复或 backend dispose 未完成时返回 false。</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="post_audio_event">
@@ -309,8 +333,9 @@
 				<tag name="api">public</tag>
 				<tag name="param">event: 音频事件资源。</tag>
 				<tag name="param">options: 请求选项。</tag>
-				<tag name="return">控制句柄；不需要或无法返回句柄时返回 null。</tag>
+				<tag name="return">后端或 SFX 控制句柄；本地 BGM/环境音已发布或请求失败时返回 null。</tag>
 				<tag name="schema">options: Dictionary，作为事件请求附加选项，会与 GFAudioEvent.to_request_options() 的结果合并。</tag>
+				<tag name="since">3.3.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="set_audio_parameter">
@@ -342,22 +367,24 @@
 		</member>
 		<member kind="method" name="play_ambient">
 			<signature>func play_ambient(path: String, channel: StringName = &amp;"default", fade_seconds: float = 0.0) -&gt; void:</signature>
-			<description>播放环境音。</description>
+			<description>播放环境音。每次替换都会先递增通道 generation，使旧加载和淡变回调失效。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">path: 音频资源路径。</tag>
 				<tag name="param">channel: 环境音通道。</tag>
 				<tag name="param">fade_seconds: 淡入秒数。</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="play_ambient_clip">
 			<signature>func play_ambient_clip( clip: GFAudioClip, channel: StringName = &amp;"default", fade_seconds: float = 0.0 ) -&gt; void:</signature>
-			<description>播放资源化环境音配置。</description>
+			<description>播放资源化环境音配置。每个通道在本地播放器与后端之间只保留一个 owner。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">clip: 音频片段配置。</tag>
 				<tag name="param">channel: 环境音通道。</tag>
 				<tag name="param">fade_seconds: 淡入秒数。</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="play_ambient_from_bank">
@@ -384,19 +411,21 @@
 		</member>
 		<member kind="method" name="stop_ambient">
 			<signature>func stop_ambient(channel: StringName = &amp;"default", fade_seconds: float = 0.0) -&gt; void:</signature>
-			<description>停止指定环境音通道。</description>
+			<description>停止指定环境音通道。淡出完成只能终结调用时绑定的通道 generation。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">channel: 环境音通道。</tag>
 				<tag name="param">fade_seconds: 淡出秒数。</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="stop_all_ambient">
 			<signature>func stop_all_ambient(fade_seconds: float = 0.0) -&gt; void:</signature>
-			<description>停止所有环境音通道。</description>
+			<description>停止所有环境音通道。后端拥有的通道优先批量停止，失败时逐通道回退。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">fade_seconds: 淡出秒数。</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="is_ambient_playing">
@@ -582,22 +611,24 @@
 		</member>
 		<member kind="method" name="get_ambient_handle">
 			<signature>func get_ambient_handle(channel: StringName = &amp;"default") -&gt; GFAudioEmitterHandle:</signature>
-			<description>获取环境音通道的控制句柄。</description>
+			<description>获取环境音通道的控制句柄。句柄绑定当前播放 session，通道替换后旧句柄自动终结。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">channel: 环境音通道。</tag>
 				<tag name="return">控制句柄；通道不存在时返回 null。</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="set_bus_volume_db">
 			<signature>func set_bus_volume_db(bus_name: String, volume_db: float, transition_seconds: float = 0.0) -&gt; bool:</signature>
-			<description>设置音频总线 dB 音量。</description>
+			<description>设置音频总线 dB 音量。增益与静音作为同一代事务提交，后发操作会使旧 tween 失效。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">bus_name: 总线名称，如 "Master", "BGM", "SFX"。</tag>
 				<tag name="param">volume_db: 目标 dB 音量；小于等于 SILENCE_VOLUME_DB 时会静音该总线。</tag>
 				<tag name="param">transition_seconds: 平滑过渡秒数；小于等于 0 时立即应用。</tag>
 				<tag name="return">成功应用或已交给后端处理时返回 true。</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_bus_volume_db">
@@ -611,12 +642,13 @@
 		</member>
 		<member kind="method" name="set_bus_mute">
 			<signature>func set_bus_mute(bus_name: String, muted: bool) -&gt; bool:</signature>
-			<description>设置音频总线静音状态。</description>
+			<description>设置音频总线静音状态，并取消同一总线上尚未提交的旧增益事务。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">bus_name: 总线名称。</tag>
 				<tag name="param">muted: 是否静音。</tag>
 				<tag name="return">成功应用或已交给后端处理时返回 true。</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="set_bus_effect_property">
@@ -636,56 +668,63 @@
 		</member>
 		<member kind="method" name="capture_mix_snapshot">
 			<signature>func capture_mix_snapshot(bus_names: PackedStringArray = PackedStringArray()) -&gt; Dictionary:</signature>
-			<description>捕获当前总线混音快照。</description>
+			<description>捕获当前总线混音快照。原始增益与静音状态独立保存，静音不会覆盖增益值。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">bus_names: 要捕获的总线名；为空时捕获全部 Godot 总线。</tag>
 				<tag name="return">混音快照。</tag>
 				<tag name="schema">return: Dictionary，包含 buses 字典；每个总线条目包含 volume_db、volume_linear 和 muted。</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="apply_mix_snapshot">
 			<signature>func apply_mix_snapshot(snapshot: Dictionary, transition_seconds: float = 0.0) -&gt; Dictionary:</signature>
-			<description>应用混音快照。</description>
+			<description>应用混音快照。先尝试 backend bulk 接管；拒绝后按字段 backend-first，
+仅把明确未处理的增益或静音字段作为单个 local generation 事务回退。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">snapshot: 混音快照。</tag>
 				<tag name="param">transition_seconds: 默认平滑过渡秒数；单个效果条目可覆盖。</tag>
 				<tag name="return">应用报告。</tag>
-				<tag name="schema">snapshot: Dictionary，可包含 buses 字典和 effects 数组；buses 条目支持 volume_db、volume_linear、muted，effects 条目支持 bus、effect、property、value、transition_seconds。</tag>
-				<tag name="schema">return: Dictionary，包含 ok、applied、failed 和 warnings 字段。</tag>
+				<tag name="schema">snapshot: Dictionary，可包含 buses 字典和 effects 数组；buses 条目支持数值型 volume_db 简写，或包含 volume_db、volume_linear、muted 的字典；effects 条目支持 bus、effect、property、value、transition_seconds。</tag>
+				<tag name="schema">return: Dictionary，包含 ok、applied、failed 和 warnings 字段；backend identity 漂移、字段无本地回退目标或输入无效会进入 failed。</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="duck_bus">
 			<signature>func duck_bus( bus_name: String = BGM_BUS_NAME, amount: float = 0.5, transition_seconds: float = 0.25, duck_id: StringName = &amp;"default" ) -&gt; bool:</signature>
-			<description>按比例压低总线音量，并记住恢复基准。</description>
+			<description>按比例压低总线音量。配置 backend 时优先捕获其同名总线，并把 owner/backend identity
+固定到整个作用域生命周期；否则回退本地总线。每个总线采用活跃作用域中的最强衰减。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">bus_name: 总线名称。</tag>
 				<tag name="param">amount: 压低强度，0.0 不变化，1.0 最多压低 18 dB。</tag>
 				<tag name="param">transition_seconds: 平滑过渡秒数。</tag>
 				<tag name="param">duck_id: 同一总线上的压低作用域标识。</tag>
-				<tag name="return">成功应用时返回 true。</tag>
+				<tag name="return">成功应用时返回 true；backend 只暴露部分基准字段或 owner setter 拒绝时失败关闭。</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="restore_ducked_bus">
 			<signature>func restore_ducked_bus( bus_name: String = BGM_BUS_NAME, transition_seconds: float = 0.25, duck_id: StringName = &amp;"default" ) -&gt; bool:</signature>
-			<description>恢复被 duck_bus() 压低的总线。</description>
+			<description>释放一个 duck_bus() 作用域，并根据剩余作用域重新计算；结果与释放顺序无关。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">bus_name: 总线名称。</tag>
 				<tag name="param">transition_seconds: 平滑过渡秒数。</tag>
 				<tag name="param">duck_id: 同一总线上的压低作用域标识。</tag>
 				<tag name="return">找到恢复基准并开始恢复时返回 true。</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="set_bus_volume">
 			<signature>func set_bus_volume(bus_name: String, volume_linear: float) -&gt; void:</signature>
-			<description>设置音频总线音量</description>
+			<description>设置音频总线线性音量，并以新事务取代同一总线上的未完成过渡。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">bus_name: 总线名称，如 "Master", "BGM", "SFX"</tag>
 				<tag name="param">volume_linear: 线性音量 (0.0 到 1.0)</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_bus_volume">
@@ -703,7 +742,8 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">调试快照。</tag>
-				<tag name="schema">return: Dictionary，包含 backend、backend_snapshot、backend_capabilities、current_bgm_key、current_bgm_loop、bgm_paused、bgm_position、bgm_history、active_sfx_count、active_spatial_sfx_count、max_sfx_players、ambient_channels、audio_bank_count、ducked_bus_count 和 active_mix_tween_count 字段。</tag>
+				<tag name="schema">return: Dictionary，包含 backend、backend_snapshot、backend_capabilities、current_bgm_key、current_bgm_loop、bgm_state、bgm_owner、bgm_generation、bgm_playing、bgm_paused、bgm_position、bgm_history、active_sfx_count、active_spatial_sfx_count、max_sfx_players、ambient_channels、ambient_sessions、audio_bank_count、ducked_bus_count 和 active_mix_tween_count 字段。</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 	</methods>

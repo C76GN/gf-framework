@@ -34,6 +34,8 @@
 | 方法 | [`is_inited`](#member-gfarchitecture-methods-is_inited) | `func is_inited() -> bool:` |
 | 方法 | [`has_initialization_failed`](#member-gfarchitecture-methods-has_initialization_failed) | `func has_initialization_failed() -> bool:` |
 | 方法 | [`is_lifecycle_active`](#member-gfarchitecture-methods-is_lifecycle_active) | `func is_lifecycle_active() -> bool:` |
+| 方法 | [`is_disposed`](#member-gfarchitecture-methods-is_disposed) | `func is_disposed() -> bool:` |
+| 方法 | [`is_disposing`](#member-gfarchitecture-methods-is_disposing) | `func is_disposing() -> bool:` |
 | 方法 | [`get_lifecycle_generation`](#member-gfarchitecture-methods-get_lifecycle_generation) | `func get_lifecycle_generation() -> int:` |
 | 方法 | [`is_lifecycle_generation_active`](#member-gfarchitecture-methods-is_lifecycle_generation_active) | `func is_lifecycle_generation_active(lifecycle_generation: int) -> bool:` |
 | 方法 | [`is_module_ready`](#member-gfarchitecture-methods-is_module_ready) | `func is_module_ready(instance: Object) -> bool:` |
@@ -115,12 +117,12 @@
 | 方法 | [`inject_node_tree`](#member-gfarchitecture-methods-inject_node_tree) | `func inject_node_tree(node: Node) -> void:` |
 | 方法 | [`get_all_models_state`](#member-gfarchitecture-methods-get_all_models_state) | `func get_all_models_state() -> Dictionary:` |
 | 方法 | [`get_all_models_state_async`](#member-gfarchitecture-methods-get_all_models_state_async) | `func get_all_models_state_async(options: Dictionary = {}) -> Dictionary:` |
-| 方法 | [`restore_all_models_state`](#member-gfarchitecture-methods-restore_all_models_state) | `func restore_all_models_state(data: Dictionary) -> void:` |
-| 方法 | [`restore_all_models_state_async`](#member-gfarchitecture-methods-restore_all_models_state_async) | `func restore_all_models_state_async(data: Dictionary, options: Dictionary = {}) -> bool:` |
+| 方法 | [`restore_all_models_state`](#member-gfarchitecture-methods-restore_all_models_state) | `func restore_all_models_state(data: Dictionary) -> Dictionary:` |
+| 方法 | [`restore_all_models_state_async`](#member-gfarchitecture-methods-restore_all_models_state_async) | `func restore_all_models_state_async( data: Dictionary, options: Dictionary = {} ) -> Dictionary:` |
 | 方法 | [`get_global_snapshot`](#member-gfarchitecture-methods-get_global_snapshot) | `func get_global_snapshot() -> Dictionary:` |
 | 方法 | [`get_global_snapshot_async`](#member-gfarchitecture-methods-get_global_snapshot_async) | `func get_global_snapshot_async(options: Dictionary = {}) -> Dictionary:` |
-| 方法 | [`restore_global_snapshot`](#member-gfarchitecture-methods-restore_global_snapshot) | `func restore_global_snapshot(data: Dictionary, command_builder: Callable = Callable()) -> void:` |
-| 方法 | [`restore_global_snapshot_async`](#member-gfarchitecture-methods-restore_global_snapshot_async) | `func restore_global_snapshot_async( data: Dictionary, command_builder: Callable = Callable(), options: Dictionary = {} ) -> bool:` |
+| 方法 | [`restore_global_snapshot`](#member-gfarchitecture-methods-restore_global_snapshot) | `func restore_global_snapshot( data: Dictionary, command_builder: Callable = Callable() ) -> Dictionary:` |
+| 方法 | [`restore_global_snapshot_async`](#member-gfarchitecture-methods-restore_global_snapshot_async) | `func restore_global_snapshot_async( data: Dictionary, command_builder: Callable = Callable(), options: Dictionary = {} ) -> Dictionary:` |
 | 方法 | [`get_debug_lifecycle_state`](#member-gfarchitecture-methods-get_debug_lifecycle_state) | `func get_debug_lifecycle_state() -> Dictionary:` |
 | 方法 | [`get_binding_diagnostics`](#member-gfarchitecture-methods-get_binding_diagnostics) | `func get_binding_diagnostics(options: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`get_dependency_diagnostics`](#member-gfarchitecture-methods-get_dependency_diagnostics) | `func get_dependency_diagnostics(options: Dictionary = {}) -> Dictionary:` |
@@ -384,6 +386,36 @@ func is_lifecycle_active() -> bool:
 
 返回：正在初始化或已完成初始化，且未被 dispose() 或失败保护中断时返回 true。
 
+<a id="member-gfarchitecture-methods-is_disposed"></a>
+
+### `is_disposed`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func is_disposed() -> bool:
+```
+
+检查架构是否已经完成释放并进入不可恢复终态。
+
+返回：dispose() 已完成时返回 true。
+
+<a id="member-gfarchitecture-methods-is_disposing"></a>
+
+### `is_disposing`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func is_disposing() -> bool:
+```
+
+检查架构是否正在执行释放回调。
+
+返回：dispose() 已开始但尚未完成时返回 true。
+
 <a id="member-gfarchitecture-methods-get_lifecycle_generation"></a>
 
 ### `get_lifecycle_generation`
@@ -445,12 +477,13 @@ func is_module_ready(instance: Object) -> bool:
 ### `fail_initialization`
 
 - API：`public`
+- 首次版本：`1.23.2`
 
 ```gdscript
 func fail_initialization(reason: String) -> void:
 ```
 
-将当前架构标记为初始化失败，并唤醒等待初始化或 Installer 的调用方。
+将当前架构标记为初始化失败，并唤醒等待初始化或 Installer 的调用方。 DISPOSING / DISPOSED 是不可恢复终态，迟到调用不会改写其状态或 generation。
 
 参数：
 
@@ -1938,18 +1971,19 @@ func inject_node_tree(node: Node) -> void:
 ### `get_all_models_state`
 
 - API：`public`
+- 首次版本：`3.0.0`
 
 ```gdscript
 func get_all_models_state() -> Dictionary:
 ```
 
-收集所有已注册 Model 的状态快照。 遍历所有 Model，调用其 to_dict() 方法，以脚本类的全局类名为键汇聚成一个字典。
+收集所有已注册 Model 的状态快照。 捕获前会验证每个 Model 都有唯一稳定存档键；任一目标无效时整个捕获失败， 且失败 Result 不包含 `snapshot`，持久化层不得提交失败结果。
 
-返回：包含所有 Model 状态的字典，可直接用于 JSON 序列化。
+返回：显式捕获 Result；成功时需取 `result.snapshot` 交给存储或恢复接口。
 
 结构：
 
-- `return`: Dictionary keyed by stable model save key, storing each Model.to_dict() result.
+- `return`: Dictionary with ok: bool, optional snapshot: Dictionary keyed by stable model save key, and error: String. A failed result never contains snapshot.
 
 <a id="member-gfarchitecture-methods-get_all_models_state_async"></a>
 
@@ -1962,7 +1996,7 @@ func get_all_models_state() -> Dictionary:
 func get_all_models_state_async(options: Dictionary = {}) -> Dictionary:
 ```
 
-分帧收集所有已注册 Model 的状态快照。 适合大型存档或移动端项目，避免单帧集中执行大量 to_dict()。
+分帧收集所有已注册 Model 的状态快照。 为保证耦合 Model 的默认持久化一致性，所有 `Model.to_dict()` 会在首次让帧前 同步冻结；`max_models_per_frame` 只分摊冻结数据的物化，不分摊 `to_dict()` 本身。 等待期间若 Model 注册表身份或稳定键发生变化，捕获会显式失败且不返回 snapshot。
 
 参数：
 
@@ -1970,34 +2004,38 @@ func get_all_models_state_async(options: Dictionary = {}) -> Dictionary:
 |---|---|
 | `options` | 可选参数，支持 max_models_per_frame；小于等于 0 时不主动让出帧。 |
 
-返回：包含所有 Model 状态的字典，可直接交给项目存储层后台写入。
+返回：显式捕获 Result；成功时需取 `result.snapshot` 交给存储或恢复接口。
 
 结构：
 
 - `options`: Dictionary，可包含 max_models_per_frame: int。
-- `return`: Dictionary keyed by stable model save key, storing each Model.to_dict() result.
+- `return`: Dictionary with ok: bool, optional snapshot: Dictionary keyed by stable model save key, and error: String. A failed result never contains snapshot.
 
 <a id="member-gfarchitecture-methods-restore_all_models_state"></a>
 
 ### `restore_all_models_state`
 
 - API：`public`
+- 首次版本：`3.0.0`
 
 ```gdscript
-func restore_all_models_state(data: Dictionary) -> void:
+func restore_all_models_state(data: Dictionary) -> Dictionary:
 ```
 
-从状态字典恢复所有已注册 Model 的数据。
+从状态字典恢复所有已注册 Model 的数据。 `data` 必须是成功捕获 Result 的 `snapshot` 字段，而不是 Result 外壳。 恢复会先验证全部目标并保存基线，再应用并核对每个 Model；任一步失败会回滚 本事务已应用的全部 Model。快照键集合必须与当前直接注册的 Model 精确匹配； 未知键或缺少任一已注册 Model 都会在写入前被拒绝。 失败时 `phase` 标记 validate/apply/commit；`rolled_back` 表示失败前的已应用状态 是否全部通过基线核对，validate 零写入失败固定为 false。
 
 参数：
 
 | 名称 | 说明 |
 |---|---|
-| `data` | 由 get_all_models_state() 返回的状态字典。 |
+| `data` | 由 get_all_models_state() 成功 Result 的 `snapshot` 字段。 |
+
+返回：原子恢复 Result；任一步失败时回滚已应用 Model。
 
 结构：
 
-- `data`: Dictionary keyed by stable model save key, storing serialized model data.
+- `data`: Inner snapshot Dictionary keyed by stable model save key, storing serialized model data; do not pass the outer capture Result.
+- `return`: Dictionary with ok: bool, phase: StringName, rolled_back: bool, and error: String.
 
 <a id="member-gfarchitecture-methods-restore_all_models_state_async"></a>
 
@@ -2007,42 +2045,44 @@ func restore_all_models_state(data: Dictionary) -> void:
 - 首次版本：`5.0.0`
 
 ```gdscript
-func restore_all_models_state_async(data: Dictionary, options: Dictionary = {}) -> bool:
+func restore_all_models_state_async( data: Dictionary, options: Dictionary = {} ) -> Dictionary:
 ```
 
-分帧恢复所有已注册 Model 的数据。
+分帧恢复所有已注册 Model 的数据。 与同步版本使用相同的 validate/apply/commit 事务；Model 会按 `max_models_per_frame` 分帧应用和核对，失败时回滚本事务已应用的全部 Model。 快照键集合必须与当前直接注册的 Model 精确匹配。 失败时 `phase` 标记 validate/apply/commit；`rolled_back` 表示失败前的已应用状态 是否全部通过基线核对，validate 零写入失败固定为 false。
 
 参数：
 
 | 名称 | 说明 |
 |---|---|
-| `data` | 由 get_all_models_state() 或 get_all_models_state_async() 返回的状态字典。 |
+| `data` | 由 get_all_models_state() 或 get_all_models_state_async() 成功 Result 的 `snapshot` 字段。 |
 | `options` | 可选参数，支持 max_models_per_frame；小于等于 0 时不主动让出帧。 |
 
-返回：恢复流程被完整接受时返回 true。
+返回：原子恢复 Result；任一步失败时回滚已应用 Model。
 
 结构：
 
-- `data`: Dictionary keyed by stable model save key, storing serialized model data.
+- `data`: Inner snapshot Dictionary keyed by stable model save key, storing serialized model data; do not pass the outer capture Result.
 - `options`: Dictionary，可包含 max_models_per_frame: int。
+- `return`: Dictionary with ok: bool, phase: StringName, rolled_back: bool, and error: String.
 
 <a id="member-gfarchitecture-methods-get_global_snapshot"></a>
 
 ### `get_global_snapshot`
 
 - API：`public`
+- 首次版本：`3.0.0`
 
 ```gdscript
 func get_global_snapshot() -> Dictionary:
 ```
 
-获取整个框架的全局快照，包含所有 Model 状态以及可选命令历史记录。
+获取整个框架的全局快照，包含所有 Model 状态以及可选命令历史记录。 捕获成功的 snapshot 固定包含 `format_version` 与 `models`，注册完整命令历史 服务时还包含 Dictionary 形式的 `command_history`。任一捕获步骤失败时 Result 不包含 snapshot，持久化层不得提交失败结果。
 
-返回：包含全局快照数据的字典。可直接用于 JSON 序列化。
+返回：显式捕获 Result；成功时需取 `result.snapshot` 交给存储或恢复接口。
 
 结构：
 
-- `return`: Dictionary with models and optional command_history fields.
+- `return`: Dictionary with ok: bool, optional snapshot: Dictionary with format_version: int, models: Dictionary, and optional command_history: Dictionary, and error: String. A failed result never contains snapshot.
 
 <a id="member-gfarchitecture-methods-get_global_snapshot_async"></a>
 
@@ -2055,7 +2095,7 @@ func get_global_snapshot() -> Dictionary:
 func get_global_snapshot_async(options: Dictionary = {}) -> Dictionary:
 ```
 
-分帧获取整个框架的全局快照。 Model 状态会按 options.max_models_per_frame 分帧收集；命令历史仍在 Model 快照完成后同步收集。
+分帧获取整个框架的全局快照。 为保证 Model 与命令历史属于同一默认捕获点，全部 `Model.to_dict()` 与命令历史 会在首次让帧前同步冻结；`max_models_per_frame` 只分摊冻结 Model 数据的物化。 等待期间若 Model 注册表身份或稳定键发生变化，捕获会显式失败且不返回 snapshot。
 
 参数：
 
@@ -2063,35 +2103,39 @@ func get_global_snapshot_async(options: Dictionary = {}) -> Dictionary:
 |---|---|
 | `options` | 可选参数，支持 max_models_per_frame；小于等于 0 时不主动让出帧。 |
 
-返回：包含全局快照数据的字典。可直接用于 JSON 序列化或交给项目存储层后台写入。
+返回：显式捕获 Result；成功时需取 `result.snapshot` 交给存储或恢复接口。
 
 结构：
 
 - `options`: Dictionary，可包含 max_models_per_frame: int。
-- `return`: Dictionary with models and optional command_history fields.
+- `return`: Dictionary with ok: bool, optional snapshot: Dictionary with format_version: int, models: Dictionary, and optional command_history: Dictionary, and error: String. A failed result never contains snapshot.
 
 <a id="member-gfarchitecture-methods-restore_global_snapshot"></a>
 
 ### `restore_global_snapshot`
 
 - API：`public`
+- 首次版本：`3.0.0`
 
 ```gdscript
-func restore_global_snapshot(data: Dictionary, command_builder: Callable = Callable()) -> void:
+func restore_global_snapshot( data: Dictionary, command_builder: Callable = Callable() ) -> Dictionary:
 ```
 
-从全局快照中恢复整个框架的状态，包含 Model 状态以及可选命令历史记录。 注意：恢复命令历史需要外部传入 CommandBuilder 进行控制反转，因为它涉及到具体的业务命令类实例化。
+从全局快照中恢复整个框架的状态，包含 Model 状态以及可选命令历史记录。 `data` 必须是成功捕获 Result 的 `snapshot` 字段。仅接受当前 `format_version`、Dictionary `models` 与可选 Dictionary `command_history`； `models` 键集合必须与当前直接注册的 Model 精确匹配；不兼容旧式无版本快照、 缺项/未知 Model 键或 Array 命令历史。 恢复会先验证全部输入并保存 Model/历史基线，再应用 Model，最后提交并核对历史。 validate 不写入；apply 或 commit 失败时会回滚全部已应用 Model 与命令历史。 恢复命令历史必须传入可实例化具体业务命令的 `command_builder`。 `rolled_back` 表示失败前的已应用状态是否全部通过基线核对； validate 零写入失败固定为 false。
 
 参数：
 
 | 名称 | 说明 |
 |---|---|
-| `data` | 由 get_global_snapshot() 导出的全局快照字典数据。 |
+| `data` | 由 get_global_snapshot() 成功 Result 的 `snapshot` 字段。 |
 | `command_builder` | 【可选】如果需要恢复历史记录，必须传入用于反序列化具体 Command 实例的 Callable。 |
+
+返回：原子恢复 Result；validate、apply 或 commit 失败时回滚全部 Model 与命令历史。
 
 结构：
 
-- `data`: Dictionary produced by get_global_snapshot().
+- `data`: Inner snapshot Dictionary with the current format_version, models, and optional command_history fields; do not pass the outer capture Result.
+- `return`: Dictionary with ok: bool, phase: StringName, rolled_back: bool, and error: String.
 
 <a id="member-gfarchitecture-methods-restore_global_snapshot_async"></a>
 
@@ -2101,25 +2145,26 @@ func restore_global_snapshot(data: Dictionary, command_builder: Callable = Calla
 - 首次版本：`5.0.0`
 
 ```gdscript
-func restore_global_snapshot_async( data: Dictionary, command_builder: Callable = Callable(), options: Dictionary = {} ) -> bool:
+func restore_global_snapshot_async( data: Dictionary, command_builder: Callable = Callable(), options: Dictionary = {} ) -> Dictionary:
 ```
 
-分帧恢复整个框架的全局快照。 Model 状态会按 options.max_models_per_frame 分帧恢复；命令历史仍在 Model 恢复完成后同步恢复。
+分帧恢复整个框架的全局快照。 与同步版本使用相同的 validate/apply/commit 事务；Model 会分帧应用并逐项核对， 命令历史只在全部 Model 成功后提交。任一阶段失败都会回滚全部已应用状态。 `models` 键集合必须与当前直接注册的 Model 精确匹配。 `rolled_back` 表示失败前的已应用状态是否全部通过基线核对； validate 零写入失败固定为 false。
 
 参数：
 
 | 名称 | 说明 |
 |---|---|
-| `data` | 由 get_global_snapshot() 或 get_global_snapshot_async() 导出的全局快照字典数据。 |
+| `data` | 由 get_global_snapshot() 或 get_global_snapshot_async() 成功 Result 的 `snapshot` 字段。 |
 | `command_builder` | 【可选】如果需要恢复历史记录，必须传入用于反序列化具体 Command 实例的 Callable。 |
 | `options` | 可选参数，支持 max_models_per_frame；小于等于 0 时不主动让出帧。 |
 
-返回：恢复流程被完整接受时返回 true。
+返回：原子恢复 Result；validate、apply 或 commit 失败时回滚全部 Model 与命令历史。
 
 结构：
 
-- `data`: Dictionary produced by get_global_snapshot() or get_global_snapshot_async().
+- `data`: Inner snapshot Dictionary with the current format_version, models, and optional command_history fields; do not pass the outer capture Result.
 - `options`: Dictionary，可包含 max_models_per_frame: int。
+- `return`: Dictionary with ok: bool, phase: StringName, rolled_back: bool, and error: String.
 
 <a id="member-gfarchitecture-methods-get_debug_lifecycle_state"></a>
 

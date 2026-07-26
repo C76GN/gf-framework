@@ -22,4 +22,6 @@ await Gf.register_system(battle_system)
 await Gf.get_architecture().register_utility_instance(RuntimeConfigProvider.new())
 ```
 
-动态注册仍应遵守依赖边界。长期跨场景服务应在项目 Installer 中注册；关卡专属或临时模块应在卸载时明确注销，或通过场景切换瞬态清理机制处理。
+动态注册和替换采用 prepare / commit / rollback 事务。injection、`init()`、`async_init()` 或 `ready()` 中发生取消、失败、dispose 或同 key 重入时，候选实例不会留在 registry；其 service、event、injection scope 等副作用会一起回滚。替换过程中如果用户回调注册了更新实例，外层旧事务会返回失败，不会覆盖最新结果。
+
+动态注册仍应遵守依赖边界。长期跨场景服务应在项目 Installer 中注册；关卡专属或临时模块应在卸载时明确注销，或通过场景切换瞬态清理机制处理。注册返回 `false` 时不得把候选视为已归属架构；调用方应释放自己的外部资源或创建新候选重试。

@@ -97,6 +97,24 @@ func test_set_value_treats_numeric_variants_as_equal() -> void:
 	assert_signal_not_emitted(prop, "value_changed", "int 与等值 float 不应触发重复变化。")
 
 
+func test_set_value_distinguishes_adjacent_large_integers() -> void:
+	var prop: GFBindableProperty = GFBindableProperty.new(9_007_199_254_740_992)
+	watch_signals(prop)
+
+	prop.set_value(9_007_199_254_740_993)
+
+	assert_signal_emitted(prop, "value_changed", "相邻大整数不得因 float 精度折叠而被视为相等。")
+
+
+func test_set_value_rejects_unsafe_int_float_equivalence() -> void:
+	var prop: GFBindableProperty = GFBindableProperty.new(9_007_199_254_740_993)
+	watch_signals(prop)
+
+	prop.set_value(9_007_199_254_740_992.0)
+
+	assert_signal_emitted(prop, "value_changed", "int/float 只有能安全往返时才可视为相等。")
+
+
 ## 验证信号的 old_value / new_value 参数准确。
 func test_signal_parameters_are_correct() -> void:
 	_prop.set_value(3)
@@ -155,6 +173,23 @@ func test_subscribe_token_cancels_subscription() -> void:
 	assert_eq(state.count, 1, "token 取消后回调不应继续触发。")
 
 
+func test_callable_subscription_handles_are_independent() -> void:
+	var state: CounterState = CounterState.new()
+	var callback: Callable = func(_old_value: Variant, _new_value: Variant) -> void:
+		state.count += 1
+	var unsubscribe: Callable = _prop.subscribe(callback)
+	var subscription_token: GFSubscriptionToken = _prop.subscribe_token(callback)
+
+	_prop.value = 1
+	assert_eq(state.count, 2, "同一 callable 的两次订阅都应独立收到通知。")
+
+	var _unsubscribe_result: Variant = unsubscribe.call()
+	_prop.value = 2
+	assert_eq(state.count, 3, "取消第一个 callable 订阅不应影响第二个句柄。")
+	assert_true(subscription_token.is_active(), "第二个 callable 订阅句柄应保持活动。")
+	assert_true(subscription_token.cancel(), "第二个 callable 订阅应可独立取消。")
+
+
 func test_subscribe_owned_auto_cancels_when_owner_exits_tree() -> void:
 	var owner_node: Node = Node.new()
 	var state: CounterState = CounterState.new()
@@ -190,6 +225,24 @@ func test_subscribe_owned_prunes_released_non_node_owner() -> void:
 	assert_eq(_prop.value_changed.get_connections().size(), 0, "释放 owner 的订阅剪枝后不应残留托管信号连接。")
 
 
+func test_owned_callable_subscription_handles_are_independent() -> void:
+	var owner_node: Node = Node.new()
+	var state: CounterState = CounterState.new()
+	add_child_autofree(owner_node)
+	var callback: Callable = func(_old_value: Variant, _new_value: Variant) -> void:
+		state.count += 1
+	var first_token: GFLifetimeSubscription = _prop.subscribe_owned(owner_node, callback)
+	var second_token: GFLifetimeSubscription = _prop.subscribe_owned(owner_node, callback)
+
+	assert_not_same(first_token, second_token, "重复 owned 订阅应返回不同句柄。")
+	assert_true(first_token.cancel(), "第一个 owned 订阅应可独立取消。")
+	_prop.value = 1
+
+	assert_eq(state.count, 1, "取消第一个 owned 订阅不应影响第二个句柄。")
+	assert_true(second_token.is_active(), "第二个 owned 订阅句柄应保持活动。")
+	assert_true(second_token.cancel(), "第二个 owned 订阅应可独立取消。")
+
+
 func test_subscribe_method_uses_weak_owner_method() -> void:
 	var owner_node: SubscriptionMethodOwner = SubscriptionMethodOwner.new()
 	add_child_autofree(owner_node)
@@ -201,6 +254,21 @@ func test_subscribe_method_uses_weak_owner_method() -> void:
 
 	assert_eq(owner_node.values, [0, 4], "method 订阅应支持 emit_current 和后续变化。")
 	assert_false(subscription_token.is_active(), "手动 cancel 后 method 订阅应失活。")
+
+
+func test_method_subscription_handles_are_independent() -> void:
+	var owner_node: SubscriptionMethodOwner = SubscriptionMethodOwner.new()
+	add_child_autofree(owner_node)
+	var first_token: GFLifetimeSubscription = _prop.subscribe_method(owner_node, &"record_value_change")
+	var second_token: GFLifetimeSubscription = _prop.subscribe_method(owner_node, &"record_value_change")
+
+	assert_not_same(first_token, second_token, "重复 method 订阅应返回不同句柄。")
+	assert_true(first_token.cancel(), "第一个 method 订阅应可独立取消。")
+	_prop.value = 1
+
+	assert_eq(owner_node.values, [1], "取消第一个 method 订阅不应影响第二个句柄。")
+	assert_true(second_token.is_active(), "第二个 method 订阅句柄应保持活动。")
+	assert_true(second_token.cancel(), "第二个 method 订阅应可独立取消。")
 
 
 ## 验证 force_emit 可在引用类型原地变更后主动广播。
@@ -251,16 +319,29 @@ func test_value_changed_respects_godot_signal_blocking() -> void:
 	assert_eq(state.count, 1, "value_changed 应使用 Godot 原生 signal 发射并尊重 set_block_signals。")
 
 
-func test_mutate_helper_emits_after_in_place_change() -> void:
+func test_mutate_uses_returned_replacement_for_scalar_values() -> void:
+	var prop: GFBindableProperty = GFBindableProperty.new(10)
+	watch_signals(prop)
+
+	assert_true(prop.mutate(func(current_value: int) -> int:
+		return current_value + 5
+	))
+
+	assert_eq(_value_int(prop), 15, "mutate 应把回调返回值作为统一 replacement。")
+	assert_signal_emitted_with_parameters(prop, "value_changed", [10, 15])
+
+
+func test_mutate_helper_emits_independent_collection_snapshots() -> void:
 	var prop: GFBindableProperty = GFBindableProperty.new({ "hp": 10 })
 	watch_signals(prop)
 
-	assert_true(prop.mutate(func(value: Dictionary) -> void:
-		value["hp"] = 7
+	assert_true(prop.mutate(func(current_value: Dictionary) -> Dictionary:
+		current_value["hp"] = 7
+		return current_value
 	))
 
 	assert_eq(_GF_VARIANT_ACCESS_SCRIPT.get_option_int(_value_dictionary(prop), "hp"), 7)
-	assert_signal_emitted(prop, "value_changed")
+	assert_signal_emitted_with_parameters(prop, "value_changed", [{ "hp": 10 }, { "hp": 7 }])
 
 
 func test_array_mutation_helpers_emit_changes() -> void:
@@ -272,6 +353,27 @@ func test_array_mutation_helpers_emit_changes() -> void:
 	assert_true(prop.erase_from_array("b"))
 	assert_eq(_value_array(prop), ["a", "c"])
 	assert_signal_emit_count(prop, "value_changed", 3)
+
+
+func test_collection_mutation_helpers_emit_before_and_after_snapshots() -> void:
+	var array_prop: GFBindableProperty = GFBindableProperty.new(["before"])
+	var dictionary_prop: GFBindableProperty = GFBindableProperty.new({ "hp": 10 })
+	watch_signals(array_prop)
+	watch_signals(dictionary_prop)
+
+	assert_true(array_prop.append_to_array("after"))
+	assert_true(dictionary_prop.set_dictionary_value("hp", 5))
+
+	assert_signal_emitted_with_parameters(
+		array_prop,
+		"value_changed",
+		[["before"], ["before", "after"]]
+	)
+	assert_signal_emitted_with_parameters(
+		dictionary_prop,
+		"value_changed",
+		[{ "hp": 10 }, { "hp": 5 }]
+	)
 
 
 func test_dictionary_mutation_helpers_emit_changes() -> void:
@@ -472,6 +574,20 @@ func test_bind_to_same_callable_prunes_all_invalid_nodes_together() -> void:
 
 	assert_eq(state.count, 0, "同一回调的所有节点都失效后应整体断开托管连接。")
 	assert_eq(_prop.value_changed.get_connections().size(), 0, "批量剪枝失效节点后不应残留托管信号连接。")
+
+
+func test_value_emit_prunes_binding_for_node_that_never_entered_tree() -> void:
+	var state: CounterState = CounterState.new()
+	var node: Node = Node.new()
+	var callback: Callable = func(_old_value: Variant, _new_value: Variant) -> void:
+		state.count += 1
+
+	_prop.bind_to(node, callback)
+	node.free()
+	_prop.set_value(1)
+
+	assert_eq(state.count, 0, "已释放且从未入树的 owner 不应收到变化。")
+	assert_eq(_prop.value_changed.get_connections().size(), 0, "常规 emit 应清理已失效的 Node binding。")
 
 
 func test_reactive_effect_runs_when_any_source_changes() -> void:

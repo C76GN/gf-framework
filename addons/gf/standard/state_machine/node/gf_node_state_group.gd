@@ -707,7 +707,21 @@ func get_state_snapshot() -> Dictionary:
 ## @schema return: Dictionary，包含 JSON-safe group_name、current_state、stack、history、states 和 blackboard 字段。
 func get_json_compatible_state_snapshot(options: Dictionary = {}) -> Dictionary:
 	var codec_options: Dictionary = options.duplicate(true)
-	return GFVariantData.as_dictionary(GFReportValueCodec.to_json_compatible(get_state_snapshot(), codec_options))
+	var snapshot: Dictionary = get_state_snapshot()
+	var raw_blackboard: Dictionary = GFVariantData.get_option_dictionary(
+		snapshot,
+		"blackboard"
+	)
+	var normalized_blackboard: Dictionary = {}
+	for raw_key: Variant in raw_blackboard.keys():
+		if not (raw_key is String or raw_key is StringName):
+			return GFReportValueCodec.to_report_dictionary(snapshot, codec_options)
+		var report_key: String = str(raw_key)
+		if normalized_blackboard.has(report_key):
+			return GFReportValueCodec.to_report_dictionary(snapshot, codec_options)
+		normalized_blackboard[report_key] = raw_blackboard[raw_key]
+	snapshot["blackboard"] = normalized_blackboard
+	return GFReportValueCodec.to_report_dictionary(snapshot, codec_options)
 
 
 ## 从状态组快照恢复当前状态、暂停栈、历史与黑板。

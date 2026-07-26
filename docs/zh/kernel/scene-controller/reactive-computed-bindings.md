@@ -37,7 +37,22 @@ var effect := GFReactiveEffect.new(
 
 这两者都只服务局部响应式组合，不替代 `GFModel` 的数据归属，也不规定属性字段含义。无 owner 的 `GFReactiveEffect` 或 `GFComputedProperty` 需要由持有方在生命周期结束时调用 `stop()` 或 `dispose()`；传入 owner 时会随该节点退出树自动停止。
 
-如果某个对象需要把属性暴露给 UI 读取和订阅，但不希望外部调用方直接 `set_value()`，可以返回 `GFReadOnlyBindableProperty` 或由宿主对象封装只读视图。它复用 `GFBindableProperty` 的读取、`value_changed` 信号和 `bind_to()` 生命周期绑定能力，但外部写入和原地修改 helper 都会报错；真正的值更新应由宿主对象内部完成。对于 `Array` / `Dictionary` 等引用值，普通 `GFBindableProperty` 的原地修改不会自动触发变更信号；需要通知监听者时应重新 `set_value()` 一个副本，或在明确接受引用语义时调用 `force_emit()`、`mutate()`、`append_to_array()`、`set_dictionary_value()` 等辅助方法。
+如果某个对象需要把属性暴露给 UI 读取和订阅，但不希望外部调用方直接 `set_value()`，可以返回 `GFReadOnlyBindableProperty` 或由宿主对象封装只读视图。它复用 `GFBindableProperty` 的读取、`value_changed` 信号和 `bind_to()` 生命周期绑定能力，但外部写入和原地修改 helper 都会报错；真正的值更新应由宿主对象内部完成。
+
+普通 `GFBindableProperty` 的集合 helper 会在修改前后分别生成隔离快照，因此 `value_changed(old_value, new_value)` 不会把同一个已修改集合同时作为新旧值。`mutate()` 采用统一 replacement 契约：回调必须返回完整新值，标量和集合都通过同一入口提交；Array、Dictionary 与 PackedArray 参数会先深复制，Object/Resource 引用仍保持身份。
+
+```gdscript
+health.mutate(func(current: int) -> int:
+	return maxi(current - 10, 0)
+)
+
+inventory.mutate(func(current: Array) -> Array:
+	current.append("potion")
+	return current
+)
+```
+
+如果业务代码已经直接修改了属性持有的引用值、无法再取得修改前状态，才使用 `force_emit()`；此时新旧参数都表示当前值。`bind_to()` 创建的 Node 绑定会在节点退出树时自动断开，节点未曾入树便被释放的情况也会在下一次变化发射时剪枝。
 
 你可能会思考一个问题：如果局部 `value_changed` 这么好用，为什么不把全局事件框架全部改用它代替？
 

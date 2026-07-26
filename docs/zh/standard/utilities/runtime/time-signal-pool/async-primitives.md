@@ -6,7 +6,7 @@
 
 当一个流程会跨越多帧、后台任务、下载、编辑器工具或项目自定义 SDK 回调时，项目通常需要同一套取消和终态语义。GF 把这些机制拆成几个小对象：
 
-- `GFCancellationSource` 持有取消权，可由用户操作、上游 token、节点离树或超时触发；它位于 Kernel，可被生命周期、编辑器任务和标准层工具复用。
+- `GFCancellationSource` 持有取消权，可由用户操作、上游 token、节点离树或超时触发；它位于 Kernel，可被生命周期、编辑器任务和标准层工具复用。状态变更和连接入口只允许在主线程调用，`cancel_when_node_exits()` 只接受当前已入树节点，`dispose()` 是不可逆终态。
 - `GFCancellationToken` 只读暴露 `is_cancel_requested()`、原因、metadata、取消时间和 `cancel_requested` 信号。
 - `GFTimeoutController` 把可复用超时计划建模为取消 token，可 `start_seconds()`、`stop()` 或 `reset()`。
 - `GFAsyncCompletion` 把任意回调流程收敛到 succeeded、failed 或 cancelled 一次性终态；等待它时使用 `GFAsyncWaitUtility.wait_completion_async()`。
@@ -47,7 +47,7 @@ else:
 	completion.fail("request released")
 ```
 
-需要复用同一个超时控制器时，不必反复创建 source：
+需要复用同一个超时控制器时，不必反复创建 source；`start_seconds()`、`stop()` 与 `reset()` 都会终结旧 source 并推进到新 token，旧 token 保持当时状态，不会因停止或替换计划而被取消：
 
 ```gdscript
 var timeout := GFTimeoutController.new()
@@ -296,4 +296,4 @@ var health := lanes.get_health_snapshot()
 
 这些对象是协议、状态句柄和诊断容器，不是完整任务系统。需要按 requirement 仲裁多任务时使用 `GFRuntimeTaskScheduler`；需要批量聚合 HTTP 或手动异步条目时使用 `GFAsyncBatch`；需要真正的后台线程或 ResourceLoader 加载时使用 `GFBackgroundWorkUtility` 或 `GFAssetUtility`。`GFAsyncProgressAggregator` 只合并调用方喂入的进度，不执行子任务，也不做显示值缓动或最小前进速度；表现层平滑应放在 UI 或项目侧。`GFAsyncFlowTools` 适合局部 retry/each/fold 和少量 completion 组合，不替代项目任务队列；`GFMainThreadDispatchQueue` 适合做最终主线程应用点，不替代后台执行器；`GFDeferredMutationQueue` 适合做确定性状态应用点，不替代命令历史或存档事务；`GFQuietWindowCoalescer` 只收集和结批，不保证跨重启投递。需要观察未完成异步句柄时，可在 diagnostics 包中注册并启用 `GFAsyncTrackerUtility`。
 
-`metadata` 始终由调用方定义。GF 会复制字典边界，但不会解释字段，也不会把取消自动变成重试、回滚或 UI 提示。
+`metadata` 始终由调用方定义。GF 会复制字典边界，但不会解释字段，也不会把取消自动变成重试、回滚或 UI 提示。取消源会在 token、节点和 timeout 注册时深复制 metadata；树外节点、重复 token/节点连接和 self-link 返回 `false`。重复 `cancel_after_seconds()` 会停止旧 timer 并替换 deadline，非有限秒数会被拒绝；`dispose()` 会停止 timer、断开连接但不取消 token，之后所有 mutator 失败。`create_linked()` 遇到无效或重复条目、连接失败时清理部分连接并返回 `null`；若按输入顺序先遇到已取消 token，则立即返回 first-cancel-wins 的终态 source。

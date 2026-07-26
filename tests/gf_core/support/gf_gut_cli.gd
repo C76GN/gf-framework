@@ -10,7 +10,7 @@ const GF_GUT_LIFECYCLE_LOGGER_SCRIPT = preload(
 const GF_GUT_LIFECYCLE_STATE_SCRIPT = preload(
 	"res://tests/gf_core/support/gf_gut_lifecycle_state.gd"
 )
-const GF_GUT_RUNNER_SCENE_PATH: String = "res://tests/gf_core/support/gf_gut_runner.tscn"
+const GUT_RUNNER_SCENE_PATH: String = "res://addons/gut/gui/GutRunner.tscn"
 const GUT_VERSION_CONVERSION_SCRIPT_PATH: String = "res://addons/gut/version_conversion.gd"
 const BOOTSTRAP_FIXTURE_ENVIRONMENT: String = "GF_GUT_LIFECYCLE_BOOTSTRAP_FIXTURE"
 const BOOTSTRAP_WARNING_FIXTURE_PATH: String = (
@@ -26,6 +26,7 @@ const MAIN_LOOP_WAIT_LIMIT: int = 20
 
 var _raw_logger: Logger
 var _cli: Node
+var _gut_error_tracker: GutErrorTracker
 
 
 # --- Godot 生命周期方法 ---
@@ -93,7 +94,7 @@ func _init() -> void:
 		quit(EXIT_FAILURE)
 		return
 
-	var runner_scene_resource: Resource = load(GF_GUT_RUNNER_SCENE_PATH)
+	var runner_scene_resource: Resource = load(GUT_RUNNER_SCENE_PATH)
 	if not runner_scene_resource is PackedScene:
 		GF_GUT_LIFECYCLE_STATE_SCRIPT.record_configuration_error(
 			"gut_runner_scene_unavailable"
@@ -122,11 +123,22 @@ func _init() -> void:
 	_cli = cli_value
 	_cli.set(&"GutRunner", runner_scene)
 	get_root().add_child(_cli)
+
+	var raw_tracker: Variant = GutUtils.get_error_tracker()
+	var tracker_registered: bool = false
+	if raw_tracker is GutErrorTracker:
+		var tracker: GutErrorTracker = raw_tracker
+		_gut_error_tracker = tracker
+		GutErrorTracker.register_logger(tracker)
+		tracker_registered = GutErrorTracker.registered_loggers.has(tracker)
+	GF_GUT_LIFECYCLE_STATE_SCRIPT.enter_tracking_phase(tracker_registered)
 	var _main_result: Variant = _cli.call(&"main")
 
 
 func _finalize() -> void:
 	var report: Dictionary = GF_GUT_LIFECYCLE_STATE_SCRIPT.finalize_report()
+	if _gut_error_tracker != null:
+		GutErrorTracker.deregister_logger(_gut_error_tracker)
 	var report_ok_value: Variant = report.get("ok")
 	if not report_ok_value is bool or not report_ok_value:
 		quit(EXIT_FAILURE)
@@ -134,6 +146,7 @@ func _finalize() -> void:
 		OS.remove_logger(_raw_logger)
 	print(SENTINEL_PREFIX + JSON.stringify(report))
 	_cli = null
+	_gut_error_tracker = null
 	_raw_logger = null
 
 

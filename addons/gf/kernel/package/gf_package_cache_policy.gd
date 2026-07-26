@@ -479,7 +479,7 @@ static func _context_path_is_safe(context: Dictionary, path: String) -> bool:
 
 
 static func _path_has_link_component(path: String) -> bool:
-	return _GF_PACKAGE_TRANSACTION_ENGINE._path_has_link_component(path)
+	return _GF_PACKAGE_TRANSACTION_ENGINE.path_has_link_component(path)
 
 
 static func _make_initialize_report(cache_root: String, created: bool, issues: PackedStringArray) -> Dictionary:

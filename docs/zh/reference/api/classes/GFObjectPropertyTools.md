@@ -25,6 +25,7 @@ Godot Object 属性访问辅助。 集中处理属性列表查询、属性路径
 | 方法 | [`can_write_property`](#member-gfobjectpropertytools-methods-can_write_property) | `static func can_write_property(object: Object, property_path: NodePath) -> bool:` |
 | 方法 | [`read_property`](#member-gfobjectpropertytools-methods-read_property) | `static func read_property( object: Object, property_path: NodePath, default_value: Variant = null ) -> Variant:` |
 | 方法 | [`write_property`](#member-gfobjectpropertytools-methods-write_property) | `static func write_property( object: Object, property_path: NodePath, value: Variant, options: Dictionary = {} ) -> Dictionary:` |
+| 方法 | [`write_direct_property`](#member-gfobjectpropertytools-methods-write_direct_property) | `static func write_direct_property( object: Object, property_name: StringName, value: Variant, options: Dictionary = {} ) -> Dictionary:` |
 | 方法 | [`value_matches_property_type`](#member-gfobjectpropertytools-methods-value_matches_property_type) | `static func value_matches_property_type(value: Variant, property_type: int) -> bool:` |
 | 方法 | [`coerce_property_value`](#member-gfobjectpropertytools-methods-coerce_property_value) | `static func coerce_property_value(value: Variant, property_type: int) -> Variant:` |
 | 方法 | [`object_to_dictionary`](#member-gfobjectpropertytools-methods-object_to_dictionary) | `static func object_to_dictionary(object: Object, options: Dictionary = {}) -> Dictionary:` |
@@ -269,6 +270,36 @@ static func write_property( object: Object, property_path: NodePath, value: Vari
 结构：
 
 - `value`: Variant value requested for assignment.
+- `options`: Dictionary with optional bool keys check_writable, check_type, and coerce_value.
+- `return`: Dictionary { ok: bool, error: String, property_name: StringName, old_value: Variant, new_value: Variant }.
+
+<a id="member-gfobjectpropertytools-methods-write_direct_property"></a>
+
+### `write_direct_property`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+static func write_direct_property( object: Object, property_name: StringName, value: Variant, options: Dictionary = {} ) -> Dictionary:
+```
+
+按精确 StringName 写入对象的直接属性，不把 `/` 或 `:` 解释为 NodePath 分隔符。 写入后会读取属性并验证请求值确实落地；动态 `_set()` 拒绝或静默忽略时返回失败。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `object` | 目标对象。 |
+| `property_name` | 精确直接属性名。 |
+| `value` | 请求写入的值。 |
+| `options` | 与 write_property() 相同的校验和转换选项。 |
+
+返回：写入结果字典。
+
+结构：
+
+- `value`: Variant value requested for direct property assignment.
 - `options`: Dictionary with optional bool keys check_writable, check_type, and coerce_value.
 - `return`: Dictionary { ok: bool, error: String, property_name: StringName, old_value: Variant, new_value: Variant }.
 

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFVariantData" path="addons/gf/standard/foundation/variant/gf_variant_data.gd" module="standard" extends="RefCounted" classDigest="3f65cd3d8ebfc33fe2f26d26ac9e210ee6ff912583f3118816adaa30113ca81f">
+<class name="GFVariantData" path="addons/gf/standard/foundation/variant/gf_variant_data.gd" module="standard" extends="RefCounted" classDigest="7533cc12f33c29d3170c1d39219c5e1822d678fe5ae9c6a475dc8dafb46c2d8e">
 	<description>GFVariantData: 通用 Variant 数据复制与默认值合并。
 提供不依赖 GFArchitecture 的集合复制、Resource 可选复制、差异报告和默认值递归补齐。
 JSON 兼容编码由 GFVariantJsonCodec 负责。</description>
@@ -248,7 +248,8 @@ JSON 兼容编码由 GFVariantJsonCodec 负责。</description>
 		<member kind="method" name="values_equal">
 			<signature>static func values_equal(left: Variant, right: Variant, options: Dictionary = {}) -&gt; bool:</signature>
 			<description>安全比较两个 Variant 值是否等价。
-默认只在类型相同或 int/float 数值类型互比时返回 true。需要容忍浮点误差时可传入 numeric_epsilon。</description>
+int/int 始终精确比较；int/float 仅在 float 有限、为整数且双向转换安全时等价。
+需要容忍两个 float 之间的误差时可传入 numeric_epsilon。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">left: 左值。</tag>
@@ -257,24 +258,26 @@ JSON 兼容编码由 GFVariantJsonCodec 负责。</description>
 				<tag name="return">两个值按 GF 通用 Variant 语义等价时返回 true。</tag>
 				<tag name="schema">left: Variant comparison value.</tag>
 				<tag name="schema">right: Variant comparison value.</tag>
-				<tag name="schema">options: Dictionary，可选字段：numeric_epsilon 为 int/float 误差，默认 0；match_string_names 为 true 时 String 与 StringName 按文本比较。</tag>
+				<tag name="schema">options: Dictionary，可选字段：numeric_epsilon 为 float/float 误差，默认 0；match_string_names 为 true 时 String 与 StringName 按文本比较。</tag>
 				<tag name="since">6.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="merge_dictionary">
 			<signature>static func merge_dictionary( target: Dictionary, source: Dictionary, overwrite: bool = true, recursive: bool = true ) -&gt; Dictionary:</signature>
 			<description>将 source 合并到 target。
-`String` 与 `StringName` 等价键会复用 target 中已有字段，避免重复键。</description>
+`String` 与 `StringName` 等价键会复用 target 中已有字段，避免重复键。
+合并前会统一预检 source 图；超过默认深度、节点或集合元素预算时会报告错误并保持 target 原样。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">target: 会被原地修改的目标字典。</tag>
 				<tag name="param">source: 来源字典。</tag>
 				<tag name="param">overwrite: 为 true 时覆盖已有字段。</tag>
 				<tag name="param">recursive: 为 true 时递归合并嵌套 Dictionary。</tag>
-				<tag name="return">已合并的 target 字典。</tag>
+				<tag name="return">已合并的 target 字典；source 超出预算时返回未修改的 target。</tag>
 				<tag name="schema">target: 会被原地修改的目标 Dictionary。</tag>
 				<tag name="schema">source: 会复制到目标中的来源 Dictionary 值。</tag>
-				<tag name="schema">return: 合并后的目标 Dictionary。</tag>
+				<tag name="schema">return: 合并后的目标 Dictionary，或预算拒绝时保持原样的目标 Dictionary。</tag>
+				<tag name="since">3.22.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="merge_metadata">
@@ -308,17 +311,19 @@ JSON 兼容编码由 GFVariantJsonCodec 负责。</description>
 		<member kind="method" name="diff_variant">
 			<signature>static func diff_variant(before: Variant, after: Variant, options: Dictionary = {}) -&gt; Dictionary:</signature>
 			<description>对比两个 Variant 并返回结构化差异报告。
-该方法只比较纯 Variant 数据形状，不读取文件、不实例化脚本，也不解释业务字段。</description>
+该方法只比较纯 Variant 数据形状，不读取文件、不实例化脚本，也不解释业务字段。
+Array/Dictionary 按展开后的数据内容比较，不比较共享引用拓扑；活动引用 pair 重入只记录为 traversal diagnostic。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">before: 变更前的 Variant 值。</tag>
 				<tag name="param">after: 变更后的 Variant 值。</tag>
-				<tag name="param">options: 可选项。支持 max_changes、copy_values。</tag>
-				<tag name="return">差异报告。包含 changed、change_count、truncated、max_changes 与 changes。</tag>
+				<tag name="param">options: 可选项。支持 max_changes、max_diagnostics、copy_values。</tag>
+				<tag name="return">差异报告。内容差异与遍历诊断分别存放在 changes 和 diagnostics。</tag>
 				<tag name="schema">before: 待比较的 Variant 值。</tag>
 				<tag name="schema">after: 待比较的 Variant 值。</tag>
-				<tag name="schema">options: Dictionary，可选字段：max_changes 为最多记录差异数，默认 1024，&lt;=0 表示不限；copy_values 默认为 true。</tag>
-				<tag name="schema">return: Dictionary；changes 每项包含 kind、path、path_segments、old_value、new_value、old_type、new_type。kind 为 added、removed、changed 或 type_changed。</tag>
+				<tag name="schema">options: Dictionary，可选字段：max_changes 为最多记录差异数，默认 1024；max_diagnostics 为最多记录遍历诊断数，默认 1024；两者 &lt;=0 表示不限；copy_values 默认为 true。</tag>
+				<tag name="schema">return: Dictionary；changes 每项包含 kind、path、path_segments、old_value、new_value、old_type、new_type，kind 仅为 added、removed、changed 或 type_changed；diagnostics 每项包含 kind、path、path_segments，循环重入 kind 为 cycle_detected。changed 不受 diagnostics 影响。</tag>
+				<tag name="since">4.4.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_option_value">

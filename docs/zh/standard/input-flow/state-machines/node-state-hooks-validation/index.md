@@ -16,6 +16,6 @@
 
 `GFNodeStateMachine.dispatch_state_event(event_id, payload, group_name)` 可以指定某个状态组，也可以在 `group_name` 为空时按已注册状态组顺序广播。单个 `GFNodeStateGroup` 会先交给当前状态，再交给暂停栈中的状态。状态脚本重写 `_handle_state_event()` 并返回 `true` 即表示事件已处理。
 
-`get_state_snapshot()` 可返回各状态组当前状态、栈、历史、注册状态和黑板副本，适合调试面板或诊断命令消费。状态组和状态机快照都带 `schema_version = 1`；恢复入口只接受明确版本，不把任意调试字典当作恢复输入。
+`get_state_snapshot()` 可返回各状态组当前状态、栈、历史、注册状态和黑板副本，适合调试面板或诊断命令消费。状态组和状态机快照都带 `schema_version = 1`；恢复入口只接受明确版本，不把任意调试字典当作恢复输入。需要写入 JSON 时使用 `get_json_compatible_state_snapshot()`：`groups` 与各组 `blackboard` 保持可直接遍历的字符串键 object，叶值由 `GFReportValueCodec` 脱敏；键不安全或发生规范化冲突时失败闭合为保真 marker。
 
 `restore_state_snapshot()` 会先校验所有目标状态、当前状态、暂停栈、历史上限和 blackboard，再进入恢复事务。恢复 hook 中触发的 transition、push、pop、增删状态、start/stop/reload 会被阻止并写入 `blocked_operations`；任一组恢复失败时，状态机按恢复前快照整体回滚。返回报告稳定包含 `report_schema_version`、`status`、`ok`、`restored`、`partial` 和 `rolled_back`。快照中多出的未注册 group 仍按 lenient policy 记入 `unrestored_group_snapshots` 与 `partial`，不会动态创建业务状态组。

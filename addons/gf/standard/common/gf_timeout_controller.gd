@@ -69,7 +69,8 @@ var _source_callback: Callable = Callable()
 var _clock: GFClock = null
 var _active: bool = false
 var _timed_out: bool = false
-var _manual_cancel_pending: bool = false
+var _source_identity: int = 0
+var _manual_cancel_source_identity: int = 0
 var _timeout_seconds: float = 0.0
 var _started_msec: int = -1
 var _last_reason: StringName = &""
@@ -134,6 +135,7 @@ func get_clock() -> GFClock:
 
 
 ## 启动一个新的超时计划。
+## 每次调用都会终结旧 source 并创建新的 token；旧 token 保持当时的取消状态。
 ## [br]
 ## @api public
 ## [br]
@@ -156,10 +158,7 @@ func start_seconds(
 	reason: StringName = DEFAULT_TIMEOUT_REASON,
 	metadata: Dictionary = {}
 ) -> GFCancellationToken:
-	if _source == null or _source.is_cancel_requested():
-		_replace_source()
-	else:
-		_source.dispose()
+	_replace_source()
 
 	_active = true
 	_timed_out = false
@@ -182,14 +181,13 @@ func start_seconds(
 	return _source.get_token()
 
 
-## 停止当前超时计划，不取消 token。
+## 停止当前超时计划，不取消旧 token，并把控制器推进到新的空闲 token。
 ## [br]
 ## @api public
 ## [br]
 ## @since 7.0.0
 func stop() -> void:
-	if _source != null:
-		_source.dispose()
+	_replace_source()
 	_active = false
 
 
@@ -201,10 +199,7 @@ func stop() -> void:
 ## [br]
 ## @return 重置后的 token。
 func reset() -> GFCancellationToken:
-	if _source == null or _source.is_cancel_requested():
-		_replace_source()
-	else:
-		_source.dispose()
+	_replace_source()
 	_clear_timeout_state()
 	return _source.get_token()
 
@@ -225,9 +220,12 @@ func reset() -> GFCancellationToken:
 func cancel(reason: StringName = &"cancelled", metadata: Dictionary = {}) -> bool:
 	if _source == null:
 		return false
-	_manual_cancel_pending = true
-	var cancelled_now: bool = _source.cancel(reason, metadata)
-	_manual_cancel_pending = false
+	var cancelling_source: GFCancellationSource = _source
+	var cancelling_source_identity: int = _source_identity
+	_manual_cancel_source_identity = cancelling_source_identity
+	var cancelled_now: bool = cancelling_source.cancel(reason, metadata)
+	if _manual_cancel_source_identity == cancelling_source_identity:
+		_manual_cancel_source_identity = 0
 	return cancelled_now
 
 
@@ -313,9 +311,13 @@ func get_debug_snapshot() -> Dictionary:
 # --- 私有/辅助方法 ---
 
 func _replace_source() -> void:
+	var previous_source: GFCancellationSource = _source
 	_disconnect_source()
+	if previous_source != null:
+		previous_source.dispose()
 	_source = GFCancellationSource.new()
-	_source_callback = Callable(self, "_on_token_cancelled")
+	_source_identity = _source.get_instance_id()
+	_source_callback = Callable(self, "_on_token_cancelled").bind(_source_identity)
 	var _connect_error: Error = _source.get_token().cancel_requested.connect(
 		_source_callback,
 		CONNECT_ONE_SHOT as Object.ConnectFlags
@@ -337,16 +339,22 @@ func _disconnect_source() -> void:
 func _clear_timeout_state() -> void:
 	_active = false
 	_timed_out = false
-	_manual_cancel_pending = false
+	_manual_cancel_source_identity = 0
 	_timeout_seconds = 0.0
 	_started_msec = -1
 	_last_reason = &""
 	_last_metadata.clear()
 
 
-func _on_token_cancelled(reason: StringName) -> void:
+func _on_token_cancelled(reason: StringName, cancelled_source_identity: int) -> void:
+	if cancelled_source_identity != _source_identity:
+		return
 	var metadata: Dictionary = _source.get_token().get_cancel_metadata() if _source != null else {}
-	var cancelled_by_timeout: bool = _active and not _manual_cancel_pending and reason == _last_reason
+	var cancelled_by_timeout: bool = (
+		_active
+		and _manual_cancel_source_identity != cancelled_source_identity
+		and reason == _last_reason
+	)
 	_active = false
 	if not cancelled_by_timeout:
 		return

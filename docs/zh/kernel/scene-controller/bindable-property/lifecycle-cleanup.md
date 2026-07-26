@@ -21,4 +21,6 @@ func _ready() -> void:
 
 需要把取消动作作为显式运行时句柄传递时，使用 `subscribe_token()` 返回 `GFSubscriptionToken`。需要把订阅绑定到 owner 生命周期时，使用 `subscribe_owned(owner, callback)` 返回 `GFLifetimeSubscription`；如果回调是 owner 上的方法，优先使用 `subscribe_method(owner, method_name)`，它只弱引用 owner，避免为了订阅回调而延长 owner 生命周期。对非绑定属性的普通 Godot Signal，使用 `GFSignalSubscriptionToken` 把连接建模成可取消句柄；需要随 Node owner 自动清理时，用 `GFSignalSubscriptionToken.connect_owned(...)`。
 
+这四个 `subscribe*` 入口的每次调用都会建立独立订阅，即使 callback、owner 和 method name 完全相同，也会返回独立取消函数或 token。取消其中一个句柄只移除该次注册；需要去重时应由调用方保存并复用既有句柄，而不是依赖属性容器隐式合并。
+
 确实要清空 `value_changed` 上所有订阅者时，使用语义更明确的 `disconnect_all_subscribers()`。

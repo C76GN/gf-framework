@@ -163,6 +163,9 @@ func validate_definition() -> Dictionary:
 ## [br]
 ## @since unreleased
 ## [br]
+## metadata 保持为隔离的原始副本，由 GFSessionTraceUtility.register_channel()
+## 在唯一运行时边界统一执行隐私编码，避免已编码 marker 被再次当作用户字典处理。
+## [br]
 ## @return 通道选项副本。
 ## [br]
 ## @schema return: Dictionary with enabled, include_in_snapshot, max_events, max_event_bytes, and metadata.
@@ -172,12 +175,7 @@ func to_channel_options_for_framework() -> Dictionary:
 		"include_in_snapshot": include_in_snapshot,
 		"max_events": max_events,
 		"max_event_bytes": max_event_bytes,
-		"metadata": GFReportValueCodec.to_report_dictionary(
-			metadata,
-			GFReportValueCodec.make_redaction_options(
-				GFReportValueCodec.REDACTION_PROFILE_PRIVACY
-			)
-		),
+		"metadata": _duplicate_dictionary(metadata),
 	}
 
 

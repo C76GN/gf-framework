@@ -182,9 +182,22 @@ GUT_LIFECYCLE_GATE_REQUIRED_KEYS = frozenset({
 	"details_truncated",
 	"configuration_error",
 })
+GUT_LIFECYCLE_REPORT_REQUIRED_KEYS = frozenset({
+	"schema_version",
+	"ok",
+	"marker_count",
+	"marker_errors",
+	"unhandled_warning_count",
+	"orphan_count",
+	"summary_warning_count",
+	"reported_orphan_count",
+	"orphan_lines",
+	"marker",
+})
 GUT_LIFECYCLE_WARNING_DETAIL_KEYS = frozenset({"test_id", "code", "file", "line"})
 GUT_LIFECYCLE_ORPHAN_DETAIL_KEYS = frozenset({"instance_id", "class", "name"})
 GUT_LIFECYCLE_CLI_RESOURCE_PATH = "res://tests/gf_core/support/gf_gut_cli.gd"
+GUT_RUNNER_SCENE_RESOURCE_PATH = "res://addons/gut/gui/GutRunner.tscn"
 GUT_PRE_RUN_HOOK_RESOURCE_PATH = "res://tests/gf_core/support/gf_gut_pre_run_hook.gd"
 GUT_POST_RUN_HOOK_RESOURCE_PATH = "res://tests/gf_core/support/gf_gut_post_run_hook.gd"
 GUT_LIFECYCLE_HOOK_ARGUMENTS = (
@@ -1343,6 +1356,7 @@ PARALLEL_SHARD_RESULT_OPTIONAL_FIELDS = frozenset({
 	"godot_exit_leak_warning_count",
 	"godot_exit_leak_warnings",
 	"godot_exit_leak_report",
+	"gut_lifecycle_report",
 })
 
 
@@ -5390,6 +5404,11 @@ def package_smoke_url(base_url: str, relative_path: str) -> str:
 	return base_url.rstrip("/") + "/" + relative_path.strip("/")
 
 
+def package_smoke_default_registry_source_url(base_url: str) -> str:
+	"""Return the direct source URL used by the local HTTP default-source smoke."""
+	return package_smoke_url(base_url, "sources/default_godot_cli.json")
+
+
 def package_smoke_cache_has_file(cache_root: Path, child_dir: str, suffix: str) -> bool:
 	root = cache_root / child_dir
 	return root.is_dir() and any(path.is_file() and path.suffix == suffix for path in root.rglob("*"))
@@ -9094,7 +9113,10 @@ def run_package_godot_cli_smoke_default_source_install(
 		],
 		issues,
 		env={
-			"GF_PACKAGE_DEFAULT_REGISTRY_SOURCE": package_smoke_url(base_url, "redirect/sources/default_godot_cli.json"),
+			# Local smoke transport is intentionally HTTP. Redirect policy rejects
+			# every HTTP redirect, so exercise default-source selection directly;
+			# HTTPS asset-host redirects are covered by native policy tests.
+			"GF_PACKAGE_DEFAULT_REGISTRY_SOURCE": package_smoke_default_registry_source_url(base_url),
 		},
 	)
 	assert_package_godot_cli_smoke_condition(
@@ -9122,7 +9144,8 @@ def run_package_godot_cli_smoke_default_source_install(
 	assert_package_godot_cli_smoke_condition(
 		install_data.get("registry_channel") == "stable"
 		and int(install_data.get("registry_mirror_index", -2)) == -1
-		and str(install_data.get("registry_source_manifest", "")).startswith(package_smoke_url(base_url, "redirect/"))
+		and str(install_data.get("registry_source_manifest", ""))
+		== package_smoke_default_registry_source_url(base_url)
 		and is_sha256_hex(str(install_data.get("registry_source_sha256", "")))
 		and int_value(install_data.get("registry_source_size_bytes", 0)) > 0,
 		issues,
@@ -10019,7 +10042,7 @@ def package_godot_smoke_source_files_for_pattern(raw_path: str) -> list[str]:
 	pattern = normalize_package_manifest_path(raw_path)
 	if not pattern:
 		return []
-	if not any(character in pattern for character in "*?["):
+	if not any(character in pattern for character in "*?"):
 		source_path = ROOT / pattern
 		if source_path.is_file():
 			return [pattern]
@@ -10040,7 +10063,7 @@ def package_godot_smoke_source_files_for_pattern(raw_path: str) -> list[str]:
 	return [
 		path.relative_to(ROOT).as_posix()
 		for path in sorted(anchor_path.rglob("*"))
-		if path.is_file() and fnmatch.fnmatch(path.relative_to(ROOT).as_posix(), pattern)
+		if path.is_file() and package_manifest_path_matches(path.relative_to(ROOT).as_posix(), pattern)
 	]
 
 
@@ -10729,6 +10752,13 @@ def maintenance_self_test() -> dict[str, Any]:
 		and validate_package_smoke_header_value("/registry/index.json\nX-Injected: yes") is None
 		and validate_package_smoke_header_value("/registry/index.json\rX-Injected: yes") is None,
 		"package smoke redirects must preserve safe targets and reject every raw CR/LF header boundary.",
+	)
+	default_source_smoke_url = package_smoke_default_registry_source_url("http://127.0.0.1:8123")
+	record_result(
+		"package_default_source_smoke_does_not_depend_on_insecure_http_redirects",
+		default_source_smoke_url == "http://127.0.0.1:8123/sources/default_godot_cli.json"
+		and "/redirect/" not in urllib.parse.urlparse(default_source_smoke_url).path,
+		"The local HTTP default-source smoke must use the source manifest directly; redirect coverage belongs to the native HTTPS policy tests.",
 	)
 	with tempfile.TemporaryDirectory(prefix="gf-workspace-snapshot-self-test-") as temp_dir:
 		snapshot_path = Path(temp_dir) / "fixture.txt"
@@ -11697,6 +11727,99 @@ def maintenance_self_test() -> dict[str, Any]:
 			expected_report_checks,
 			expected_report_workspace,
 		)
+		clean_lifecycle_marker = {
+			"schema_version": GUT_LIFECYCLE_GATE_SCHEMA_VERSION,
+			"ok": True,
+			"baseline_available": True,
+			"warning_tracking_available": True,
+			"unhandled_warning_count": 0,
+			"orphan_count": 0,
+			"warnings": [],
+			"orphans": [],
+			"details_truncated": False,
+			"configuration_error": "",
+		}
+		clean_lifecycle_report = parse_gut_lifecycle_gate_output(
+			GUT_LIFECYCLE_GATE_PREFIX
+			+ json.dumps(
+				clean_lifecycle_marker,
+				ensure_ascii=False,
+				separators=(",", ":"),
+			),
+			"",
+		)
+		gut_report_checks = ["gut"]
+		gut_report = json.loads(json.dumps(valid_report))
+		gut_report["checks"] = gut_report_checks
+		gut_report["check_graph"] = maintenance_check_graph().describe(
+			gut_report_checks
+		)
+		gut_report["results"][0]["name"] = "gut"
+		gut_report["results"][0]["command"] = [
+			"godot",
+			"--headless",
+			"-s",
+			GUT_LIFECYCLE_CLI_RESOURCE_PATH,
+		]
+		gut_report["results"][0]["gut_lifecycle_report"] = (
+			clean_lifecycle_report
+		)
+		gut_loaded, gut_issue = load_parallel_shard_report(
+			passing_report_runner,
+			write_report_fixture("gut-valid", gut_report),
+			gut_report_checks,
+			expected_report_workspace,
+		)
+		non_gut_lifecycle_report = json.loads(json.dumps(valid_report))
+		non_gut_lifecycle_report["results"][0]["gut_lifecycle_report"] = (
+			clean_lifecycle_report
+		)
+		_, non_gut_lifecycle_issue = load_parallel_shard_report(
+			passing_report_runner,
+			write_report_fixture(
+				"non-gut-lifecycle",
+				non_gut_lifecycle_report,
+			),
+			expected_report_checks,
+			expected_report_workspace,
+		)
+		missing_gut_lifecycle_report = json.loads(json.dumps(gut_report))
+		del missing_gut_lifecycle_report["results"][0]["gut_lifecycle_report"]
+		_, missing_gut_lifecycle_issue = load_parallel_shard_report(
+			passing_report_runner,
+			write_report_fixture(
+				"gut-missing-lifecycle",
+				missing_gut_lifecycle_report,
+			),
+			gut_report_checks,
+			expected_report_workspace,
+		)
+		failed_gut_lifecycle_report = json.loads(json.dumps(gut_report))
+		failed_gut_lifecycle_report["results"][0]["gut_lifecycle_report"] = (
+			parse_gut_lifecycle_gate_output("", "")
+		)
+		_, failed_gut_lifecycle_issue = load_parallel_shard_report(
+			passing_report_runner,
+			write_report_fixture(
+				"gut-failed-lifecycle",
+				failed_gut_lifecycle_report,
+			),
+			gut_report_checks,
+			expected_report_workspace,
+		)
+		impossible_gut_lifecycle_report = json.loads(json.dumps(gut_report))
+		impossible_gut_lifecycle_report["results"][0][
+			"gut_lifecycle_report"
+		]["marker_count"] = GUT_LIFECYCLE_GATE_MAX_MIRRORED_MARKERS + 1
+		_, impossible_gut_lifecycle_issue = load_parallel_shard_report(
+			passing_report_runner,
+			write_report_fixture(
+				"gut-impossible-lifecycle",
+				impossible_gut_lifecycle_report,
+			),
+			gut_report_checks,
+			expected_report_workspace,
+		)
 		failing_report_runner = ParallelShardResult(
 			**{
 				**passing_report_runner.__dict__,
@@ -11722,8 +11845,14 @@ def maintenance_self_test() -> dict[str, Any]:
 			and bool(extra_field_issue)
 			and bool(external_cwd_issue)
 			and bool(invalid_output_issue)
+			and gut_loaded is not None
+			and not gut_issue
+			and bool(non_gut_lifecycle_issue)
+			and bool(missing_gut_lifecycle_issue)
+			and bool(failed_gut_lifecycle_issue)
+			and bool(impossible_gut_lifecycle_issue)
 			and bool(mismatch_issue),
-			"Parallel reports must reject missing or oversized results, invalid scalars, duplicate/non-finite JSON, schema drift, workspace escapes, and process/report disagreement.",
+			"Parallel reports must reject missing or oversized results, invalid scalars, duplicate/non-finite JSON, schema drift, missing/failed/impossible GUT lifecycle evidence, workspace escapes, and process/report disagreement.",
 		)
 		package_report_checks = ["package_build_boundary"]
 		package_report = json.loads(json.dumps(valid_report))
@@ -12907,6 +13036,36 @@ def maintenance_self_test() -> dict[str, Any]:
 			"run_command_rejects_reload_warning_from_configured_log",
 			warning_result.exit_code != 0,
 			"GDScript reload warnings in --log-file output must fail the command.",
+		)
+		lsp_parse_error_code = (
+			"from pathlib import Path; "
+			f"Path({str(log_path)!r}).write_text("
+			"'SCRIPT ERROR: Parse Error: Could not resolve super class path.\\n', encoding='utf-8')"
+		)
+		lsp_parse_error_result = run_command(
+			"gdscript_lsp_diagnostics",
+			[sys.executable, "-c", lsp_parse_error_code, "--log-file", str(log_path)],
+			10,
+		)
+		record_result(
+			"run_command_rejects_lsp_parse_error_from_configured_log",
+			lsp_parse_error_result.exit_code != 0,
+			"LSP startup parse errors in --log-file output must fail the command.",
+		)
+		lsp_reload_warning_code = (
+			"from pathlib import Path; "
+			f"Path({str(log_path)!r}).write_text("
+			"'GDScript::reload: fixture warning\\n', encoding='utf-8')"
+		)
+		lsp_reload_warning_result = run_command(
+			"gdscript_lsp_diagnostics",
+			[sys.executable, "-c", lsp_reload_warning_code, "--log-file", str(log_path)],
+			10,
+		)
+		record_result(
+			"run_command_rejects_lsp_reload_warning_from_configured_log",
+			lsp_reload_warning_result.exit_code != 0,
+			"LSP startup reload warnings in --log-file output must fail the command.",
 		)
 		missing_lifecycle_marker_summary = gut_success_summary.replace(
 			next(
@@ -15159,6 +15318,32 @@ def maintenance_self_test() -> dict[str, Any]:
 		and "gut_lifecycle_smoke" in CHECK_SUITES["release"],
 		"Process-level lifecycle failure fixtures must remain a framework and release gate.",
 	)
+	gut_lifecycle_cli_source = read_text_file(
+		ROOT / GUT_LIFECYCLE_CLI_RESOURCE_PATH.removeprefix("res://")
+	)
+	legacy_gut_runner_paths = (
+		"tests/gf_core/support/gf_gut_runner.gd",
+		"tests/gf_core/support/gf_gut_runner.gd.uid",
+		"tests/gf_core/support/gf_gut_runner.tscn",
+	)
+	record_result(
+		"gut_lifecycle_cli_owns_vendor_runner_tracking",
+		GUT_RUNNER_SCENE_RESOURCE_PATH in gut_lifecycle_cli_source
+		and "GutUtils.get_error_tracker()" in gut_lifecycle_cli_source
+		and "GutErrorTracker.register_logger(tracker)" in gut_lifecycle_cli_source
+		and "GutErrorTracker.registered_loggers.has(tracker)" in gut_lifecycle_cli_source
+		and "GF_GUT_LIFECYCLE_STATE_SCRIPT.enter_tracking_phase(tracker_registered)"
+		in gut_lifecycle_cli_source
+		and "GutErrorTracker.deregister_logger(_gut_error_tracker)"
+		in gut_lifecycle_cli_source
+		and "res://tests/gf_core/support/gf_gut_runner.tscn"
+		not in gut_lifecycle_cli_source
+		and all(not (ROOT / path).exists() for path in legacy_gut_runner_paths),
+		(
+			"The lifecycle CLI must own early warning-tracker registration around the vendored "
+			"GUT runner without a path-inheritance shim outside the LSP scan closure."
+		),
+	)
 	gut_config_payload = read_json_object(ROOT / ".gutconfig.json")
 	record_result(
 		"gut_lifecycle_hook_configuration_is_canonical",
@@ -17396,6 +17581,34 @@ def maintenance_self_test() -> dict[str, Any]:
 			"addons/gf/extensions/save/**",
 		),
 		"package matching must follow Godot resource path case semantics instead of host OS defaults.",
+	)
+	record_result(
+		"package_manifest_globs_are_segment_bounded_and_recursive_tail_only",
+		package_manifest_path_matches(
+			"addons/gf/kernel/core/service.gd",
+			"**",
+		)
+		and package_manifest_path_matches(
+			"addons/gf/kernel/core/service.gd",
+			"addons/g*/kernel*/**",
+		)
+		and not package_manifest_path_matches(
+			"addons/gf/kernel/core/service.gd",
+			"addons/gf/kernel/*",
+		)
+		and package_manifest_path_matches(
+			"addons/gf/kernel/[ab].gd",
+			"addons/gf/kernel/[ab].gd",
+		)
+		and not package_manifest_path_matches(
+			"addons/gf/kernel/a.gd",
+			"addons/gf/kernel/[ab].gd",
+		)
+		and not package_manifest_path_matches(
+			"addons/gf/kernel/core/service.gd",
+			"addons/**/service.gd",
+		),
+		"package globs must keep * and ? within one segment, treat brackets literally, and reserve ** for the final full segment.",
 	)
 
 	package_closure_records = [
@@ -21133,7 +21346,6 @@ def package_path_anchor(path: str) -> str:
 		[index for index in [
 			normalized_path.find("*"),
 			normalized_path.find("?"),
-			normalized_path.find("["),
 		] if index >= 0],
 		default=-1,
 	)
@@ -25017,6 +25229,32 @@ def load_parallel_shard_report(
 			return None, f"Shard result {name!r} leak warnings must be a string array."
 		if "godot_exit_leak_report" in result and not isinstance(result["godot_exit_leak_report"], dict):
 			return None, f"Shard result {name!r} leak report must be an object."
+		has_lifecycle_report = "gut_lifecycle_report" in result
+		if name == "gut" and not has_lifecycle_report:
+			return None, (
+				"Shard result 'gut' must include its lifecycle gate report."
+			)
+		if name != "gut" and has_lifecycle_report:
+			return None, (
+				f"Shard result {name!r} must not include GUT lifecycle evidence."
+			)
+		if has_lifecycle_report:
+			lifecycle_report_issue = validate_gut_lifecycle_report(
+				result["gut_lifecycle_report"]
+			)
+			if lifecycle_report_issue:
+				return None, (
+					f"Shard result {name!r} lifecycle report is invalid: "
+					f"{lifecycle_report_issue}."
+				)
+			if (
+				int(result["exit_code"]) == 0
+				and not bool(result["gut_lifecycle_report"]["ok"])
+			):
+				return None, (
+					"Shard result 'gut' reports a successful exit with a failed "
+					"lifecycle gate."
+				)
 		for fingerprint_field in ("input_fingerprint", "result_fingerprint"):
 			if not isinstance(result.get(fingerprint_field), str) or SHA256_HEX_RE.fullmatch(result[fingerprint_field]) is None:
 				return None, f"Shard result {name!r} {fingerprint_field} must be a SHA-256 hex digest."
@@ -25793,7 +26031,15 @@ def completed_command_result(
 	exit_leak_warnings = collect_godot_exit_leak_warnings(stdout, stderr)
 	exit_leak_report: dict[str, Any] | None = None
 	gut_lifecycle_report: dict[str, Any] | None = None
-	godot_checked_names = {"godot_import", "gut", "gdscript_warnings", "examples_scan", "examples_boot", "examples_smoke"}
+	godot_checked_names = {
+		"godot_import",
+		"gut",
+		"gdscript_warnings",
+		"gdscript_lsp_diagnostics",
+		"examples_scan",
+		"examples_boot",
+		"examples_smoke",
+	}
 	if name in godot_checked_names:
 		exit_leak_report = godot_exit_leak_report_from_output(name, stdout, stderr)
 	if name == "gut":
@@ -25801,7 +26047,7 @@ def completed_command_result(
 	if name in godot_checked_names and has_script_error:
 		exit_code = 1
 		notes = append_note(notes, "Godot reported script loading or parse errors in output.")
-	if name in {"godot_import", "gut", "gdscript_warnings"} and has_reload_warning:
+	if name in {"godot_import", "gut", "gdscript_warnings", "gdscript_lsp_diagnostics"} and has_reload_warning:
 		exit_code = 1
 		notes = append_note(notes, "Godot reported GDScript reload warnings in output.")
 	has_exit_leaks = (
@@ -26876,6 +27122,91 @@ def validate_gut_lifecycle_gate_payload(payload: Any) -> str:
 	)
 	if bool(payload["ok"]) != expected_ok:
 		return "lifecycle marker ok is inconsistent with lifecycle evidence"
+	return ""
+
+
+def validate_gut_lifecycle_report(report: Any) -> str:
+	if not isinstance(report, dict):
+		return "lifecycle report must be an object"
+	if set(report) != GUT_LIFECYCLE_REPORT_REQUIRED_KEYS:
+		return "lifecycle report fields do not match the closed schema"
+	if report.get("schema_version") != GUT_LIFECYCLE_GATE_SCHEMA_VERSION:
+		return "lifecycle report schema_version is unsupported"
+	if type(report.get("ok")) is not bool:
+		return "lifecycle report ok must be a boolean"
+	for key in (
+		"marker_count",
+		"unhandled_warning_count",
+		"orphan_count",
+		"summary_warning_count",
+		"reported_orphan_count",
+	):
+		value = report.get(key)
+		if type(value) is not int or value < 0:
+			return f"lifecycle report {key} must be a non-negative integer"
+	for key, maximum_count in (
+		("marker_errors", 10),
+		("orphan_lines", GUT_LIFECYCLE_GATE_MAX_DETAIL_COUNT),
+	):
+		value = report.get(key)
+		if (
+			not isinstance(value, list)
+			or len(value) > maximum_count
+			or any(
+				not isinstance(item, str)
+				or len(item) > GUT_LIFECYCLE_GATE_MAX_TEXT_LENGTH
+				or len(item.encode("utf-8")) > GUT_LIFECYCLE_GATE_MAX_TEXT_LENGTH
+				for item in value
+			)
+		):
+			return f"lifecycle report {key} must be a bounded string array"
+	marker = report.get("marker")
+	if marker is not None:
+		marker_error = validate_gut_lifecycle_gate_payload(marker)
+		if marker_error:
+			return f"lifecycle report marker is invalid: {marker_error}"
+	if (int(report["marker_count"]) == 0) != (marker is None):
+		return "lifecycle report marker_count and marker presence disagree"
+	mirrored_limit_error = "lifecycle marker exceeds the mirrored copy limit"
+	marker_exceeds_mirror_limit = (
+		int(report["marker_count"]) > GUT_LIFECYCLE_GATE_MAX_MIRRORED_MARKERS
+	)
+	if marker_exceeds_mirror_limit != (
+		mirrored_limit_error in report["marker_errors"]
+	):
+		return "lifecycle report marker_count and mirrored-copy evidence disagree"
+	if marker is not None and (
+		int(report["unhandled_warning_count"])
+		!= int(marker["unhandled_warning_count"])
+		or int(report["orphan_count"]) != int(marker["orphan_count"])
+	):
+		return "lifecycle report outer counts disagree with its marker"
+	if marker is None and (
+		int(report["unhandled_warning_count"]) != 0
+		or int(report["orphan_count"]) != 0
+	):
+		return "lifecycle report without a marker must have zero marker-derived counts"
+	if (
+		int(report["reported_orphan_count"]) == 0
+		and report["orphan_lines"]
+	):
+		return "lifecycle report orphan lines require a reported orphan count"
+	if (
+		int(report["reported_orphan_count"]) > 0
+		and not report["orphan_lines"]
+	):
+		return "lifecycle report reported orphan count requires orphan evidence"
+	expected_ok = (
+		marker is not None
+		and not report["marker_errors"]
+		and bool(marker["ok"])
+		and int(report["unhandled_warning_count"]) == 0
+		and int(report["orphan_count"]) == 0
+		and int(report["summary_warning_count"]) == 0
+		and int(report["reported_orphan_count"]) == 0
+	)
+	if bool(report["ok"]) != expected_ok:
+		return "lifecycle report ok is inconsistent with lifecycle evidence"
 	return ""
 
 

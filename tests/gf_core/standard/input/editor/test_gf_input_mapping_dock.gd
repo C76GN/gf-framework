@@ -106,12 +106,28 @@ func test_input_mapping_dock_details_json_is_safe_for_nonfinite_and_circular_val
 	assert_eq(_typed_marker_string_value(GFVariantData.get_option_value(parsed, "nan")), "NaN")
 	assert_eq(_typed_marker_string_value(GFVariantData.get_option_value(parsed, "positive_inf")), "INF")
 	assert_eq(_typed_marker_string_value(GFVariantData.get_option_value(parsed, "negative_inf")), "-INF")
-	assert_eq(_typed_marker_type(GFVariantData.get_option_value(parsed, "tags")), "PackedStringArray")
-	var tags_marker_value: Array = GFVariantData.as_array(
-		_typed_marker_value(GFVariantData.get_option_value(parsed, "tags"))
+	var tags_marker: Dictionary = _report_marker(
+		GFVariantData.get_option_value(parsed, "tags")
 	)
-	assert_eq(tags_marker_value, ["alpha", "beta"])
-	assert_eq(_report_marker_type(GFVariantData.get_option_value(parsed, "self")), "CircularReference")
+	assert_eq(GFVariantData.get_option_int(tags_marker, "version"), 1)
+	assert_eq(GFVariantData.get_option_string(tags_marker, "type"), "PackedArray")
+	assert_true(GFVariantData.get_option_bool(tags_marker, "redacted"))
+	assert_eq(
+		GFVariantData.get_option_string(tags_marker, "collection_type"),
+		"PackedStringArray"
+	)
+	assert_eq(GFVariantData.get_option_int(tags_marker, "count"), 2)
+	assert_eq(
+		GFVariantData.get_option_array(tags_marker, "items"),
+		["alpha", "beta"]
+	)
+	var circular_marker: Dictionary = _report_marker(
+		GFVariantData.get_option_value(parsed, "self")
+	)
+	assert_eq(GFVariantData.get_option_int(circular_marker, "version"), 1)
+	assert_eq(GFVariantData.get_option_string(circular_marker, "type"), "CircularReference")
+	assert_true(GFVariantData.get_option_bool(circular_marker, "redacted"))
+	assert_eq(circular_marker.size(), 3, "循环 marker 只能暴露固定 schema 字段。")
 
 	dock.free()
 
@@ -273,10 +289,36 @@ func test_input_mapping_dock_preserves_dictionary_key_identity_in_details() -> v
 	}
 
 	var parsed: Dictionary = GFVariantData.as_dictionary(JSON.parse_string(dock._safe_json(value)))
-	var marker: Dictionary = GFVariantData.get_option_dictionary(parsed, "__gf_variant__")
+	var marker: Dictionary = _report_marker(parsed)
+	var entries: Array = GFVariantData.get_option_array(marker, "entries")
+	var integer_entry: Dictionary = {}
+	var string_entry: Dictionary = {}
+	for entry_value: Variant in entries:
+		var entry: Dictionary = GFVariantData.as_dictionary(entry_value)
+		var entry_key: Variant = GFVariantData.get_option_value(entry, "key")
+		if entry_key is int or entry_key is float:
+			integer_entry = entry
+		elif entry_key is String:
+			string_entry = entry
 
 	assert_eq(GFVariantData.get_option_string(marker, "type"), "Dictionary", "显示编码不得通过字符串化键制造碰撞。")
-	assert_eq(GFVariantData.get_option_array(marker, "value").size(), 2, "碰撞键必须作为两个独立条目保留。")
+	assert_eq(GFVariantData.get_option_int(marker, "version"), 1)
+	assert_true(GFVariantData.get_option_bool(marker, "redacted"))
+	assert_eq(entries.size(), 2, "碰撞键必须作为两个独立条目保留。")
+	var decoded_number_key: Variant = GFVariantData.get_option_value(integer_entry, "key")
+	assert_true(
+		decoded_number_key is int or decoded_number_key is float,
+		"数值键在 JSON 往返后仍必须与 String 键可区分。"
+	)
+	if decoded_number_key is int:
+		var decoded_int_key: int = decoded_number_key
+		assert_eq(decoded_int_key, 1)
+	elif decoded_number_key is float:
+		var decoded_float_key: float = decoded_number_key
+		assert_eq(decoded_float_key, 1.0)
+	assert_eq(GFVariantData.get_option_string(integer_entry, "value"), "integer key")
+	assert_eq(GFVariantData.get_option_string(string_entry, "key"), "1")
+	assert_eq(GFVariantData.get_option_string(string_entry, "value"), "string key")
 
 	dock.free()
 
@@ -387,22 +429,15 @@ func _typed_marker_type(value: Variant) -> String:
 	return GFVariantData.get_option_string(marker, "type")
 
 
-func _typed_marker_value(value: Variant) -> Variant:
-	var container: Dictionary = GFVariantData.as_dictionary(value)
-	var marker: Dictionary = GFVariantData.as_dictionary(container.get("__gf_variant__", {}))
-	return GFVariantData.get_option_value(marker, "value")
-
-
 func _typed_marker_string_value(value: Variant) -> String:
 	var container: Dictionary = GFVariantData.as_dictionary(value)
 	var marker: Dictionary = GFVariantData.as_dictionary(container.get("__gf_variant__", {}))
 	return GFVariantData.get_option_string(marker, "value")
 
 
-func _report_marker_type(value: Variant) -> String:
+func _report_marker(value: Variant) -> Dictionary:
 	var container: Dictionary = GFVariantData.as_dictionary(value)
-	var marker: Dictionary = GFVariantData.as_dictionary(container.get("__gf_report_value__", {}))
-	return GFVariantData.get_option_string(marker, "type")
+	return GFVariantData.as_dictionary(container.get("__gf_report_value__", {}))
 
 
 func _write_text(path: String, content: String) -> void:

@@ -36,6 +36,7 @@
 | 方法 | [`resume_bgm`](#member-gfaudioutility-methods-resume_bgm) | `func resume_bgm(from_position: float = -1.0, fade_seconds: float = 0.0) -> bool:` |
 | 方法 | [`seek_bgm`](#member-gfaudioutility-methods-seek_bgm) | `func seek_bgm(position_seconds: float) -> bool:` |
 | 方法 | [`get_bgm_playback_position`](#member-gfaudioutility-methods-get_bgm_playback_position) | `func get_bgm_playback_position() -> float:` |
+| 方法 | [`is_bgm_playing`](#member-gfaudioutility-methods-is_bgm_playing) | `func is_bgm_playing() -> bool:` |
 | 方法 | [`is_bgm_paused`](#member-gfaudioutility-methods-is_bgm_paused) | `func is_bgm_paused() -> bool:` |
 | 方法 | [`get_bgm_history`](#member-gfaudioutility-methods-get_bgm_history) | `func get_bgm_history() -> PackedStringArray:` |
 | 方法 | [`get_current_bgm_key`](#member-gfaudioutility-methods-get_current_bgm_key) | `func get_current_bgm_key() -> String:` |
@@ -46,9 +47,9 @@
 | 方法 | [`mount_audio_bank`](#member-gfaudioutility-methods-mount_audio_bank) | `func mount_audio_bank( bank_id: StringName, bank: GFAudioBank, restore_previous_bank: bool = true ) -> int:` |
 | 方法 | [`unmount_audio_bank`](#member-gfaudioutility-methods-unmount_audio_bank) | `func unmount_audio_bank(bank_id: StringName, mount_token: int) -> bool:` |
 | 方法 | [`get_audio_bank`](#member-gfaudioutility-methods-get_audio_bank) | `func get_audio_bank(bank_id: StringName) -> GFAudioBank:` |
-| 方法 | [`set_audio_backend`](#member-gfaudioutility-methods-set_audio_backend) | `func set_audio_backend(backend: GFAudioBackend) -> void:` |
+| 方法 | [`set_audio_backend`](#member-gfaudioutility-methods-set_audio_backend) | `func set_audio_backend(backend: GFAudioBackend) -> bool:` |
 | 方法 | [`get_audio_backend`](#member-gfaudioutility-methods-get_audio_backend) | `func get_audio_backend() -> GFAudioBackend:` |
-| 方法 | [`clear_audio_backend`](#member-gfaudioutility-methods-clear_audio_backend) | `func clear_audio_backend(dispose_backend: bool = true) -> void:` |
+| 方法 | [`clear_audio_backend`](#member-gfaudioutility-methods-clear_audio_backend) | `func clear_audio_backend(dispose_backend: bool = true) -> bool:` |
 | 方法 | [`post_audio_event`](#member-gfaudioutility-methods-post_audio_event) | `func post_audio_event(event: GFAudioEvent, options: Dictionary = {}) -> GFAudioEmitterHandle:` |
 | 方法 | [`set_audio_parameter`](#member-gfaudioutility-methods-set_audio_parameter) | `func set_audio_parameter(parameter: GFAudioParameter) -> bool:` |
 | 方法 | [`set_audio_state`](#member-gfaudioutility-methods-set_audio_state) | `func set_audio_state(state: GFAudioState) -> bool:` |
@@ -174,12 +175,13 @@ GF 默认视为静音下限的 dB 值。
 ### `max_sfx_players`
 
 - API：`public`
+- 首次版本：`8.0.0`
 
 ```gdscript
 var max_sfx_players: int = 32
 ```
 
-同时播放的 SFX 数量上限；小于等于 0 表示不限制。
+普通与空间 SFX 共用的并发播放数量上限；小于等于 0 表示不限制。
 
 <a id="member-gfaudioutility-properties-sfx_overflow_policy"></a>
 
@@ -236,12 +238,13 @@ func init() -> void:
 ### `dispose`
 
 - API：`public`
+- 首次版本：`8.0.0`
 
 ```gdscript
 func dispose() -> void:
 ```
 
-释放播放器、后端、环境音和 SFX 运行时状态。
+释放播放器、后端、环境音和 SFX 运行时状态。 后端拒绝停止时会记录 warning，但生命周期仍会强制收敛为终态。
 
 <a id="member-gfaudioutility-methods-play_bgm"></a>
 
@@ -267,12 +270,13 @@ func play_bgm(path: String, crossfade_seconds: float = -1.0) -> void:
 ### `play_bgm_with_options`
 
 - API：`public`
+- 首次版本：`8.0.0`
 
 ```gdscript
 func play_bgm_with_options(path: String, options: Dictionary = {}) -> void:
 ```
 
-使用选项播放 BGM。
+使用选项播放 BGM。每次请求创建新会话；异步加载、淡变与 finished 回调只可提交所属会话。
 
 参数：
 
@@ -290,12 +294,13 @@ func play_bgm_with_options(path: String, options: Dictionary = {}) -> void:
 ### `play_bgm_clip`
 
 - API：`public`
+- 首次版本：`8.0.0`
 
 ```gdscript
 func play_bgm_clip(clip: GFAudioClip, crossfade_seconds: float = -1.0) -> void:
 ```
 
-播放资源化 BGM 配置。
+播放资源化 BGM 配置。后端与本地播放器按请求结果原子交接唯一通道所有权。
 
 参数：
 
@@ -349,12 +354,13 @@ func play_bgm_event( event_id: StringName, bank_id: StringName = &"", crossfade_
 ### `stop_bgm`
 
 - API：`public`
+- 首次版本：`8.0.0`
 
 ```gdscript
 func stop_bgm(fade_seconds: float = 0.0) -> void:
 ```
 
-停止当前 BGM。
+停止当前 BGM。淡出只绑定当前会话，后续替换会使旧完成回调失效。
 
 参数：
 
@@ -367,12 +373,13 @@ func stop_bgm(fade_seconds: float = 0.0) -> void:
 ### `pause_bgm`
 
 - API：`public`
+- 首次版本：`8.0.0`
 
 ```gdscript
 func pause_bgm(fade_seconds: float = 0.0) -> bool:
 ```
 
-暂停当前 BGM。
+暂停当前 BGM。仅 playing 状态可进入 pausing/paused，非法重复操作返回 false。
 
 参数：
 
@@ -387,12 +394,13 @@ func pause_bgm(fade_seconds: float = 0.0) -> bool:
 ### `resume_bgm`
 
 - API：`public`
+- 首次版本：`8.0.0`
 
 ```gdscript
 func resume_bgm(from_position: float = -1.0, fade_seconds: float = 0.0) -> bool:
 ```
 
-恢复当前 BGM。
+恢复当前 BGM。仅 paused 或尚未完成的 pausing 状态可恢复，已停止会话不会被复活。
 
 参数：
 
@@ -436,6 +444,21 @@ func get_bgm_playback_position() -> float:
 获取当前 BGM 播放位置。
 
 返回：当前播放秒数；无可查询播放器时返回 0。
+
+<a id="member-gfaudioutility-methods-is_bgm_playing"></a>
+
+### `is_bgm_playing`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func is_bgm_playing() -> bool:
+```
+
+查询当前 BGM session 是否仍存在。暂停中的 BGM 仍视为 playing。 backend-owned 会话会查询后端，并在稳定 identity 下提交自然结束终态。
+
+返回：当前 BGM 正在播放、淡变或暂停时返回 true。
 
 <a id="member-gfaudioutility-methods-is_bgm_paused"></a>
 
@@ -608,18 +631,21 @@ func get_audio_bank(bank_id: StringName) -> GFAudioBank:
 ### `set_audio_backend`
 
 - API：`public`
+- 首次版本：`8.0.0`
 
 ```gdscript
-func set_audio_backend(backend: GFAudioBackend) -> void:
+func set_audio_backend(backend: GFAudioBackend) -> bool:
 ```
 
-设置可插拔音频后端。传入 null 时恢复默认 Godot 播放路径。
+设置可插拔音频后端。传入 null 时恢复默认 Godot 播放路径；替换前会停止旧后端通道， 并按原 owner 恢复、清除所有活跃 duck 作用域。
 
 参数：
 
 | 名称 | 说明 |
 |---|---|
 | `backend` | 音频后端。 |
+
+返回：后端已设置；旧通道停止、duck 基准恢复、dispose 或 setup 未完成时返回 false。
 
 <a id="member-gfaudioutility-methods-get_audio_backend"></a>
 
@@ -640,12 +666,13 @@ func get_audio_backend() -> GFAudioBackend:
 ### `clear_audio_backend`
 
 - API：`public`
+- 首次版本：`8.0.0`
 
 ```gdscript
-func clear_audio_backend(dispose_backend: bool = true) -> void:
+func clear_audio_backend(dispose_backend: bool = true) -> bool:
 ```
 
-清除当前音频后端。
+清除当前音频后端。清除前会停止由该后端拥有的 BGM 与环境音会话， 并恢复、清除绑定当前 local/backend owner 的活跃 duck 作用域。
 
 参数：
 
@@ -653,11 +680,14 @@ func clear_audio_backend(dispose_backend: bool = true) -> void:
 |---|---|
 | `dispose_backend` | 是否调用后端 dispose()。 |
 
+返回：后端已清除；通道停止、duck 基准恢复或 backend dispose 未完成时返回 false。
+
 <a id="member-gfaudioutility-methods-post_audio_event"></a>
 
 ### `post_audio_event`
 
 - API：`public`
+- 首次版本：`3.3.0`
 
 ```gdscript
 func post_audio_event(event: GFAudioEvent, options: Dictionary = {}) -> GFAudioEmitterHandle:
@@ -672,7 +702,7 @@ func post_audio_event(event: GFAudioEvent, options: Dictionary = {}) -> GFAudioE
 | `event` | 音频事件资源。 |
 | `options` | 请求选项。 |
 
-返回：控制句柄；不需要或无法返回句柄时返回 null。
+返回：后端或 SFX 控制句柄；本地 BGM/环境音已发布或请求失败时返回 null。
 
 结构：
 
@@ -743,12 +773,13 @@ func set_audio_switch(audio_switch: GFAudioSwitch) -> bool:
 ### `play_ambient`
 
 - API：`public`
+- 首次版本：`8.0.0`
 
 ```gdscript
 func play_ambient(path: String, channel: StringName = &"default", fade_seconds: float = 0.0) -> void:
 ```
 
-播放环境音。
+播放环境音。每次替换都会先递增通道 generation，使旧加载和淡变回调失效。
 
 参数：
 
@@ -763,12 +794,13 @@ func play_ambient(path: String, channel: StringName = &"default", fade_seconds: 
 ### `play_ambient_clip`
 
 - API：`public`
+- 首次版本：`8.0.0`
 
 ```gdscript
 func play_ambient_clip( clip: GFAudioClip, channel: StringName = &"default", fade_seconds: float = 0.0 ) -> void:
 ```
 
-播放资源化环境音配置。
+播放资源化环境音配置。每个通道在本地播放器与后端之间只保留一个 owner。
 
 参数：
 
@@ -825,12 +857,13 @@ func play_ambient_event( event_id: StringName, channel: StringName = &"default",
 ### `stop_ambient`
 
 - API：`public`
+- 首次版本：`8.0.0`
 
 ```gdscript
 func stop_ambient(channel: StringName = &"default", fade_seconds: float = 0.0) -> void:
 ```
 
-停止指定环境音通道。
+停止指定环境音通道。淡出完成只能终结调用时绑定的通道 generation。
 
 参数：
 
@@ -844,12 +877,13 @@ func stop_ambient(channel: StringName = &"default", fade_seconds: float = 0.0) -
 ### `stop_all_ambient`
 
 - API：`public`
+- 首次版本：`8.0.0`
 
 ```gdscript
 func stop_all_ambient(fade_seconds: float = 0.0) -> void:
 ```
 
-停止所有环境音通道。
+停止所有环境音通道。后端拥有的通道优先批量停止，失败时逐通道回退。
 
 参数：
 
@@ -1236,12 +1270,13 @@ func play_sfx_clip_3d_handle( clip: GFAudioClip, source: Node3D, follow_source: 
 ### `get_ambient_handle`
 
 - API：`public`
+- 首次版本：`8.0.0`
 
 ```gdscript
 func get_ambient_handle(channel: StringName = &"default") -> GFAudioEmitterHandle:
 ```
 
-获取环境音通道的控制句柄。
+获取环境音通道的控制句柄。句柄绑定当前播放 session，通道替换后旧句柄自动终结。
 
 参数：
 
@@ -1256,12 +1291,13 @@ func get_ambient_handle(channel: StringName = &"default") -> GFAudioEmitterHandl
 ### `set_bus_volume_db`
 
 - API：`public`
+- 首次版本：`8.0.0`
 
 ```gdscript
 func set_bus_volume_db(bus_name: String, volume_db: float, transition_seconds: float = 0.0) -> bool:
 ```
 
-设置音频总线 dB 音量。
+设置音频总线 dB 音量。增益与静音作为同一代事务提交，后发操作会使旧 tween 失效。
 
 参数：
 
@@ -1298,12 +1334,13 @@ func get_bus_volume_db(bus_name: String) -> float:
 ### `set_bus_mute`
 
 - API：`public`
+- 首次版本：`8.0.0`
 
 ```gdscript
 func set_bus_mute(bus_name: String, muted: bool) -> bool:
 ```
 
-设置音频总线静音状态。
+设置音频总线静音状态，并取消同一总线上尚未提交的旧增益事务。
 
 参数：
 
@@ -1348,12 +1385,13 @@ func set_bus_effect_property( bus_name: String, effect_ref: Variant, property_na
 ### `capture_mix_snapshot`
 
 - API：`public`
+- 首次版本：`8.0.0`
 
 ```gdscript
 func capture_mix_snapshot(bus_names: PackedStringArray = PackedStringArray()) -> Dictionary:
 ```
 
-捕获当前总线混音快照。
+捕获当前总线混音快照。原始增益与静音状态独立保存，静音不会覆盖增益值。
 
 参数：
 
@@ -1372,12 +1410,13 @@ func capture_mix_snapshot(bus_names: PackedStringArray = PackedStringArray()) ->
 ### `apply_mix_snapshot`
 
 - API：`public`
+- 首次版本：`8.0.0`
 
 ```gdscript
 func apply_mix_snapshot(snapshot: Dictionary, transition_seconds: float = 0.0) -> Dictionary:
 ```
 
-应用混音快照。
+应用混音快照。先尝试 backend bulk 接管；拒绝后按字段 backend-first， 仅把明确未处理的增益或静音字段作为单个 local generation 事务回退。
 
 参数：
 
@@ -1390,20 +1429,21 @@ func apply_mix_snapshot(snapshot: Dictionary, transition_seconds: float = 0.0) -
 
 结构：
 
-- `snapshot`: Dictionary，可包含 buses 字典和 effects 数组；buses 条目支持 volume_db、volume_linear、muted，effects 条目支持 bus、effect、property、value、transition_seconds。
-- `return`: Dictionary，包含 ok、applied、failed 和 warnings 字段。
+- `snapshot`: Dictionary，可包含 buses 字典和 effects 数组；buses 条目支持数值型 volume_db 简写，或包含 volume_db、volume_linear、muted 的字典；effects 条目支持 bus、effect、property、value、transition_seconds。
+- `return`: Dictionary，包含 ok、applied、failed 和 warnings 字段；backend identity 漂移、字段无本地回退目标或输入无效会进入 failed。
 
 <a id="member-gfaudioutility-methods-duck_bus"></a>
 
 ### `duck_bus`
 
 - API：`public`
+- 首次版本：`8.0.0`
 
 ```gdscript
 func duck_bus( bus_name: String = BGM_BUS_NAME, amount: float = 0.5, transition_seconds: float = 0.25, duck_id: StringName = &"default" ) -> bool:
 ```
 
-按比例压低总线音量，并记住恢复基准。
+按比例压低总线音量。配置 backend 时优先捕获其同名总线，并把 owner/backend identity 固定到整个作用域生命周期；否则回退本地总线。每个总线采用活跃作用域中的最强衰减。
 
 参数：
 
@@ -1414,19 +1454,20 @@ func duck_bus( bus_name: String = BGM_BUS_NAME, amount: float = 0.5, transition_
 | `transition_seconds` | 平滑过渡秒数。 |
 | `duck_id` | 同一总线上的压低作用域标识。 |
 
-返回：成功应用时返回 true。
+返回：成功应用时返回 true；backend 只暴露部分基准字段或 owner setter 拒绝时失败关闭。
 
 <a id="member-gfaudioutility-methods-restore_ducked_bus"></a>
 
 ### `restore_ducked_bus`
 
 - API：`public`
+- 首次版本：`8.0.0`
 
 ```gdscript
 func restore_ducked_bus( bus_name: String = BGM_BUS_NAME, transition_seconds: float = 0.25, duck_id: StringName = &"default" ) -> bool:
 ```
 
-恢复被 duck_bus() 压低的总线。
+释放一个 duck_bus() 作用域，并根据剩余作用域重新计算；结果与释放顺序无关。
 
 参数：
 
@@ -1443,12 +1484,13 @@ func restore_ducked_bus( bus_name: String = BGM_BUS_NAME, transition_seconds: fl
 ### `set_bus_volume`
 
 - API：`public`
+- 首次版本：`8.0.0`
 
 ```gdscript
 func set_bus_volume(bus_name: String, volume_linear: float) -> void:
 ```
 
-设置音频总线音量
+设置音频总线线性音量，并以新事务取代同一总线上的未完成过渡。
 
 参数：
 
@@ -1482,6 +1524,7 @@ func get_bus_volume(bus_name: String) -> float:
 ### `get_debug_snapshot`
 
 - API：`public`
+- 首次版本：`8.0.0`
 
 ```gdscript
 func get_debug_snapshot() -> Dictionary:
@@ -1493,4 +1536,4 @@ func get_debug_snapshot() -> Dictionary:
 
 结构：
 
-- `return`: Dictionary，包含 backend、backend_snapshot、backend_capabilities、current_bgm_key、current_bgm_loop、bgm_paused、bgm_position、bgm_history、active_sfx_count、active_spatial_sfx_count、max_sfx_players、ambient_channels、audio_bank_count、ducked_bus_count 和 active_mix_tween_count 字段。
+- `return`: Dictionary，包含 backend、backend_snapshot、backend_capabilities、current_bgm_key、current_bgm_loop、bgm_state、bgm_owner、bgm_generation、bgm_playing、bgm_paused、bgm_position、bgm_history、active_sfx_count、active_spatial_sfx_count、max_sfx_players、ambient_channels、ambient_sessions、audio_bank_count、ducked_bus_count 和 active_mix_tween_count 字段。

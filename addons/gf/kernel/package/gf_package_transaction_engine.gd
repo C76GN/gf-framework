@@ -290,6 +290,47 @@ static func make_empty_report(operation: String = "") -> Dictionary:
 	return _make_report(true, "", operation, "", _OUTCOME_NONE, 0, 0, false, false, false, false, PackedStringArray())
 
 
+# --- 层内方法 ---
+
+## 判断字面路径组件是否符合 package 可移植路径策略。
+## [br]
+## @api layer_internal
+## [br]
+## @layer kernel/package
+## [br]
+## @param component: 不含路径分隔符或 glob 语法的单个字面路径组件。
+## [br]
+## @return 组件在受支持平台上可安全作为实体文件或目录名时返回 true。
+static func is_portable_literal_path_component(component: String) -> bool:
+	return _portable_path_component_is_valid(component, false)
+
+
+## 判断 manifest glob 路径组件是否符合 package 可移植路径策略。
+## [br]
+## @api layer_internal
+## [br]
+## @layer kernel/package
+## [br]
+## @param component: 可包含 * 或 ? 单组件 glob 的路径组件；[ 与 ] 按普通合法字面字符处理，** 只能独占组件。
+## [br]
+## @return 组件仅包含可移植字面字符和 manifest glob 字符时返回 true。
+static func is_portable_manifest_glob_component(component: String) -> bool:
+	return _portable_path_component_is_valid(component, true)
+
+
+## 判断路径是否经过文件系统链接或 Windows reparse point。
+## [br]
+## @api layer_internal
+## [br]
+## @layer kernel/package
+## [br]
+## @param path: 要验证的绝对或 Godot 虚拟路径。
+## [br]
+## @return 任一路径组件是链接或 reparse point 时返回 true。
+static func path_has_link_component(path: String) -> bool:
+	return _path_has_link_component(path)
+
+
 # --- 私有/辅助方法 ---
 
 static func _normalize_request(request: Dictionary, issues: PackedStringArray) -> Dictionary:
@@ -1351,13 +1392,7 @@ static func _normalize_payload_relative_path(path: String) -> String:
 		return ""
 	var parts: PackedStringArray = normalized.split("/", true)
 	for part: String in parts:
-		if (
-			part.is_empty()
-			or part == "."
-			or part == ".."
-			or part != part.rstrip(" .")
-			or _string_has_control_character(part)
-		):
+		if not is_portable_literal_path_component(part):
 			return ""
 	normalized = "/".join(parts)
 	if not normalized.begins_with(_PACKAGE_ROOT_PREFIX):
@@ -1476,6 +1511,40 @@ static func _string_has_control_character(value: String) -> bool:
 		if value.unicode_at(index) < 32:
 			return true
 	return false
+
+
+static func _portable_path_component_is_valid(
+	component: String,
+	allow_manifest_glob_characters: bool
+) -> bool:
+	if (
+		component.is_empty()
+		or component == "."
+		or component == ".."
+		or component != component.rstrip(" .")
+		or _string_has_control_character(component)
+	):
+		return false
+	var invalid_characters: String = "<>:\"/\\|"
+	if not allow_manifest_glob_characters:
+		invalid_characters += "?*"
+	for index: int in range(component.length()):
+		if invalid_characters.contains(component.substr(index, 1)):
+			return false
+	if allow_manifest_glob_characters and component.contains("**") and component != "**":
+		return false
+	var device_stem: String = component.split(".", true)[0].to_upper()
+	if ["CON", "PRN", "AUX", "NUL"].has(device_stem):
+		return false
+	if device_stem.length() == 4:
+		var device_prefix: String = device_stem.substr(0, 3)
+		var device_number: String = device_stem.substr(3, 1)
+		if (
+			(device_prefix == "COM" or device_prefix == "LPT")
+			and ("123456789".contains(device_number) or "¹²³".contains(device_number))
+		):
+			return false
+	return true
 
 
 static func _is_exact_integer(value: Variant) -> bool:

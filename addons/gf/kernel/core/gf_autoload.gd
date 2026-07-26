@@ -89,8 +89,8 @@ static func has_architecture() -> bool:
 	return _GF_VARIANT_ACCESS_SCRIPT.to_bool(singleton.call("has_architecture"))
 
 
-## 获取全局架构实例；AutoLoad 不可用或尚未创建架构时返回 null。
-## 该方法只表示架构实例存在，不保证架构已经完成 init()/ready()。
+## 获取全局架构实例；AutoLoad 不可用、尚未创建架构或 identity 正在/已经
+## dispose 时返回 null。该方法不要求架构已经完成 init()/ready()。
 ## [br]
 ## @api framework_internal
 ## [br]
@@ -102,6 +102,11 @@ static func get_architecture_or_null() -> GFArchitecture:
 	var silent_architecture: Variant = singleton.get("_architecture")
 	if silent_architecture is GFArchitecture:
 		var typed_silent_architecture: GFArchitecture = silent_architecture
+		if (
+			typed_silent_architecture.is_disposing()
+			or typed_silent_architecture.is_disposed()
+		):
+			return null
 		return typed_silent_architecture
 	if not singleton.has_method("has_architecture") or not singleton.has_method("get_architecture"):
 		return null

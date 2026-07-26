@@ -74,16 +74,21 @@ const REDACTION_PROFILE_PRIVACY: String = "privacy"
 ## [br]
 ## @since 8.0.0
 ## [br]
+## 未知 profile 会 fail-closed 到 REDACTION_PROFILE_PRIVACY，且忽略 overrides，
+## 防止拼写错误扩大报告暴露面。
+## [br]
 ## @param profile: REDACTION_PROFILE_* 常量之一。
 ## [br]
 ## @param overrides: 覆盖默认 profile 的选项。
 ## [br]
-## @return 编码选项字典。
+## @return 编码选项字典；redaction_profile 始终是实际生效的规范 profile。
 ## [br]
-## @schema overrides: Dictionary，可覆盖 redaction_profile、path_redaction、include_node_name、include_node_path、include_object_instance_id、include_resource_path、max_depth、max_string_length、max_collection_items、max_packed_length、max_total_nodes 和 max_total_bytes。
+## @schema overrides: Dictionary，可覆盖 path_redaction、include_node_name、include_node_path、include_object_instance_id、include_resource_path、max_depth、max_string_length、max_collection_items、max_packed_length、max_total_nodes 和 max_total_bytes；不能改写 profile 身份。
 ## [br]
 ## @schema return: Dictionary，可直接传给 GFReportValueCodec 的编码选项。
 static func make_redaction_options(profile: String, overrides: Dictionary = {}) -> Dictionary:
+	if not _is_supported_redaction_profile(profile):
+		return _get_profile_defaults(REDACTION_PROFILE_PRIVACY)
 	var result: Dictionary = _get_profile_defaults(profile)
 	for key: Variant in overrides.keys():
 		result[key] = _duplicate_variant(overrides[key])
@@ -99,13 +104,13 @@ static func make_redaction_options(profile: String, overrides: Dictionary = {}) 
 ## [br]
 ## @param value: 待转换的报告值。
 ## [br]
-## @param options: 可选项；支持 redaction_profile、circular_reference、include_resource_path、include_node_name、include_node_path、include_object_instance_id、max_depth、max_string_length、max_collection_items、max_packed_length、max_total_nodes、max_total_bytes 和 path_redaction；路径默认脱敏，所有非负预算均为遍历工作量与输出硬上限。
+## @param options: 可选项；支持 redaction_profile、include_resource_path、include_node_name、include_node_path、include_object_instance_id、max_depth、max_string_length、max_collection_items、max_packed_length、max_total_nodes、max_total_bytes 和 path_redaction；路径默认脱敏，所有非负预算均为遍历工作量与输出硬上限。循环引用始终使用固定受限 marker，不接受自定义 replacement。
 ## [br]
 ## @return JSON 兼容值；不支持的运行时类型会写入脱敏 marker。
 ## [br]
 ## @schema value: Variant report value to encode.
 ## [br]
-## @schema options: Dictionary with redaction_profile, circular_reference, include_resource_path, include_node_name, include_node_path, include_object_instance_id, max_depth, max_string_length, max_collection_items, max_packed_length, max_total_nodes, max_total_bytes, path_redaction, and encode_dictionary_keys options; path_redaction defaults to redacted and non-negative budgets stop traversal immediately when exhausted.
+## @schema options: Dictionary with redaction_profile, include_resource_path, include_node_name, include_node_path, include_object_instance_id, max_depth, max_string_length, max_collection_items, max_packed_length, max_total_nodes, max_total_bytes, path_redaction, and encode_dictionary_keys options; path_redaction defaults to redacted and non-negative budgets stop traversal immediately when exhausted.
 ## [br]
 ## @schema return: Variant made only from JSON-compatible values, GF variant markers, and GF report redaction markers.
 static func to_json_compatible(value: Variant, options: Dictionary = {}) -> Variant:
@@ -136,7 +141,7 @@ static func to_json_compatible(value: Variant, options: Dictionary = {}) -> Vari
 ## [br]
 ## @schema value: Variant report value to encode before narrowing to Dictionary.
 ## [br]
-## @schema options: Dictionary with redaction_profile, circular_reference, include_resource_path, include_node_name, include_node_path, include_object_instance_id, max_depth, max_string_length, max_collection_items, max_packed_length, max_total_nodes, max_total_bytes, path_redaction, and encode_dictionary_keys options.
+## @schema options: Dictionary with redaction_profile, include_resource_path, include_node_name, include_node_path, include_object_instance_id, max_depth, max_string_length, max_collection_items, max_packed_length, max_total_nodes, max_total_bytes, path_redaction, and encode_dictionary_keys options.
 ## [br]
 ## @schema return: Dictionary made only from JSON-compatible values, GF variant markers, and GF report redaction markers.
 static func to_report_dictionary(value: Variant, options: Dictionary = {}) -> Dictionary:
@@ -165,7 +170,7 @@ static func to_report_dictionary(value: Variant, options: Dictionary = {}) -> Di
 ## [br]
 ## @schema value: Variant report value to encode before JSON.stringify().
 ## [br]
-## @schema options: Dictionary with redaction_profile, circular_reference, include_resource_path, include_node_name, include_node_path, include_object_instance_id, max_depth, max_string_length, max_collection_items, max_packed_length, max_total_nodes, max_total_bytes, path_redaction, and encode_dictionary_keys options.
+## @schema options: Dictionary with redaction_profile, include_resource_path, include_node_name, include_node_path, include_object_instance_id, max_depth, max_string_length, max_collection_items, max_packed_length, max_total_nodes, max_total_bytes, path_redaction, and encode_dictionary_keys options.
 static func stringify_json_compatible(
 	value: Variant,
 	indent: String = "",
@@ -205,7 +210,9 @@ static func stringify_json_compatible(
 ## [br]
 ## @schema options: Dictionary with sample_count and GFReportValueCodec encoding options.
 ## [br]
-## @schema return: Dictionary with ok, collection_type, count, sample, truncated, and hash.
+## `encoded_preview_hash` 只指纹化经过预算限制的编码预览，不代表完整集合内容 hash。
+## [br]
+## @schema return: Dictionary with ok, collection_type, count, sample, truncated, and encoded_preview_hash.
 static func make_collection_summary(value: Variant, options: Dictionary = {}) -> Dictionary:
 	var collection_size: int = _get_collection_size(value)
 	if collection_size < 0:
@@ -215,20 +222,20 @@ static func make_collection_summary(value: Variant, options: Dictionary = {}) ->
 			"count": 0,
 			"sample": [],
 			"truncated": false,
-			"hash": "",
+			"encoded_preview_hash": "",
 		}
 
 	var effective_options: Dictionary = _normalize_options(options)
 	var sample_count: int = maxi(_option_int(effective_options, "sample_count", _DEFAULT_SUMMARY_SAMPLE_COUNT), 0)
 	var sample: Array = _make_collection_sample(value, mini(sample_count, collection_size))
-	var full_text: String = stringify_json_compatible(value, "", true, effective_options)
+	var encoded_preview_text: String = stringify_json_compatible(value, "", true, effective_options)
 	return {
 		"ok": true,
 		"collection_type": type_string(typeof(value)),
 		"count": collection_size,
 		"sample": to_json_compatible(sample, effective_options),
 		"truncated": collection_size > sample.size(),
-		"hash": full_text.sha256_text(),
+		"encoded_preview_hash": encoded_preview_text.sha256_text(),
 	}
 
 
@@ -273,9 +280,7 @@ static func _sanitize_report_value(
 			return value if sanitized_node_path == node_path_text else sanitized_node_path
 		TYPE_ARRAY:
 			if _visited_contains_reference(visited, value):
-				return _make_marker("CircularReference", {
-					"value": _option_value(options, "circular_reference", "<circular_reference>"),
-				})
+				return _make_marker("CircularReference", {})
 			visited.append(value)
 			var array_value: Array = value
 			var array_result: Array = []
@@ -295,14 +300,12 @@ static func _sanitize_report_value(
 			return array_result
 		TYPE_DICTIONARY:
 			if _visited_contains_reference(visited, value):
-				return _make_marker("CircularReference", {
-					"value": _option_value(options, "circular_reference", "<circular_reference>"),
-				})
+				return _make_marker("CircularReference", {})
 			visited.append(value)
 			var dictionary_value: Dictionary = value
 			var dictionary_result: Dictionary = {}
 			var encoded_entries: Array[Dictionary] = []
-			var requires_entry_encoding: bool = false
+			var requires_entry_encoding: bool = _uses_reserved_report_marker_key(dictionary_value)
 			var dictionary_keys: Array = dictionary_value.keys()
 			var dictionary_limit: int = _get_collection_limit(dictionary_keys.size(), options)
 			for index: int in range(dictionary_limit):
@@ -482,9 +485,11 @@ static func _sanitize_packed_array(
 	if _is_budget_exhausted(budget_state):
 		return _make_budget_exhaustion_marker(budget_state, options)
 	if item_count <= item_limit:
-		if typeof(value) == TYPE_PACKED_STRING_ARRAY:
-			return PackedStringArray(sample)
-		return value
+		return _make_marker("PackedArray", {
+			"collection_type": type_string(typeof(value)),
+			"count": item_count,
+			"items": sample,
+		})
 	_mark_budget_truncated(budget_state)
 	return _make_marker("CollectionBudget", {
 		"collection_type": type_string(typeof(value)),
@@ -495,12 +500,11 @@ static func _sanitize_packed_array(
 
 
 static func _report_key_requires_entry_encoding(source_key: Variant, sanitized_key: Variant) -> bool:
-	match typeof(source_key):
-		TYPE_OBJECT, TYPE_CALLABLE, TYPE_SIGNAL, TYPE_RID, TYPE_ARRAY, TYPE_DICTIONARY:
-			return true
-		TYPE_STRING, TYPE_STRING_NAME, TYPE_NODE_PATH:
-			return str(source_key) != str(sanitized_key) or typeof(source_key) != typeof(sanitized_key)
-	return false
+	if not (source_key is String) or not (sanitized_key is String):
+		return true
+	var source_text: String = source_key
+	var sanitized_text: String = sanitized_key
+	return source_text != sanitized_text
 
 
 static func _object_to_marker(value: Variant, options: Dictionary) -> Dictionary:
@@ -600,7 +604,7 @@ static func _variant_to_json_compatible(value: Variant, options: Dictionary, vis
 			})
 		TYPE_ARRAY:
 			if _visited_contains_reference(visited, value):
-				return _make_circular_reference_value(options)
+				return _make_circular_reference_value()
 			visited.append(value)
 			var array_value: Array = value
 			var result_array: Array = []
@@ -610,7 +614,7 @@ static func _variant_to_json_compatible(value: Variant, options: Dictionary, vis
 			return result_array
 		TYPE_DICTIONARY:
 			if _visited_contains_reference(visited, value):
-				return _make_circular_reference_value(options)
+				return _make_circular_reference_value()
 			visited.append(value)
 			var dictionary_value: Dictionary = value
 			var result_dictionary: Variant = _dictionary_to_json_compatible(dictionary_value, options, visited)
@@ -624,7 +628,10 @@ static func _variant_to_json_compatible(value: Variant, options: Dictionary, vis
 			return _make_json_typed_value("PackedInt32Array", Array(int_32_array))
 		TYPE_PACKED_INT64_ARRAY:
 			var int_64_array: PackedInt64Array = value
-			return _make_json_typed_value("PackedInt64Array", Array(int_64_array))
+			return _make_json_typed_value(
+				"PackedInt64Array",
+				_int_array_to_json_compatible(Array(int_64_array))
+			)
 		TYPE_PACKED_FLOAT32_ARRAY:
 			var float_32_array: PackedFloat32Array = value
 			return _make_json_typed_value("PackedFloat32Array", _float_array_to_json_compatible(Array(float_32_array)))
@@ -647,9 +654,10 @@ static func _variant_to_json_compatible(value: Variant, options: Dictionary, vis
 			var vector_4_array: PackedVector4Array = value
 			return _make_json_typed_value("PackedVector4Array", _vector_4_array_to_array(vector_4_array))
 		_:
-			if _option_string(options, "unsupported", "null") == "string":
-				return str(value)
-	return null
+			return _make_marker("UnsupportedVariant", {
+				"variant_type": type_string(typeof(value)),
+				"variant_type_id": typeof(value),
+			})
 
 
 static func _dictionary_to_json_compatible(value: Dictionary, options: Dictionary, visited: Array) -> Variant:
@@ -712,8 +720,6 @@ static func _make_variant_json_options(options: Dictionary) -> Dictionary:
 	return {
 		"encode_dictionary_keys": _option_bool(options, "encode_dictionary_keys", false),
 		"encode_unsafe_ints": true,
-		"unsupported": "string",
-		"circular_reference": _option_value(options, "circular_reference", "<circular_reference>"),
 	}
 
 
@@ -740,11 +746,8 @@ static func _make_final_byte_budget_value(max_total_bytes: int) -> Variant:
 	return null
 
 
-static func _make_circular_reference_value(options: Dictionary) -> Variant:
-	return _make_json_typed_value(
-		"CircularReference",
-		_option_value(options, "circular_reference", "<circular_reference>")
-	)
+static func _make_circular_reference_value() -> Variant:
+	return _make_marker("CircularReference", {})
 
 
 static func _sanitize_string_value(value: String, options: Dictionary) -> String:
@@ -890,6 +893,14 @@ static func _has_reserved_variant_marker_shape(value: Dictionary) -> bool:
 	return marker.has("type") and marker.has("value")
 
 
+static func _uses_reserved_report_marker_key(value: Dictionary) -> bool:
+	for key: Variant in value.keys():
+		if key is String or key is StringName:
+			if str(key) == _REPORT_MARKER_KEY:
+				return true
+	return false
+
+
 static func _visited_contains_reference(visited: Array, value: Variant) -> bool:
 	for item: Variant in visited:
 		if is_same(item, value):
@@ -927,6 +938,17 @@ static func _float_array_to_json_compatible(values: Array) -> Array:
 			result.append(float(int_value))
 		else:
 			result.append(0.0)
+	return result
+
+
+static func _int_array_to_json_compatible(values: Array) -> Array:
+	var result: Array = []
+	for value: Variant in values:
+		var int_value: int = _number_to_int(value)
+		if _is_unsafe_json_integer(int_value):
+			result.append(_make_json_typed_value("Int64", str(int_value)))
+		else:
+			result.append(int_value)
 	return result
 
 
@@ -1017,6 +1039,8 @@ static func _option_string(options: Dictionary, key: Variant, default_value: Str
 
 static func _normalize_options(options: Dictionary) -> Dictionary:
 	var profile: String = _option_string(options, "redaction_profile", REDACTION_PROFILE_SUPPORT)
+	if not _is_supported_redaction_profile(profile):
+		return _get_profile_defaults(REDACTION_PROFILE_PRIVACY)
 	var result: Dictionary = _get_profile_defaults(profile)
 	for key: Variant in options.keys():
 		result[key] = options[key]
@@ -1052,7 +1076,7 @@ static func _get_profile_defaults(profile: String) -> Dictionary:
 				"include_object_instance_id": false,
 				"include_resource_path": false,
 			}
-		_:
+		REDACTION_PROFILE_SUPPORT:
 			return {
 				"redaction_profile": REDACTION_PROFILE_SUPPORT,
 				"path_redaction": "redact",
@@ -1061,3 +1085,21 @@ static func _get_profile_defaults(profile: String) -> Dictionary:
 				"include_object_instance_id": true,
 				"include_resource_path": true,
 			}
+		_:
+			return {
+				"redaction_profile": REDACTION_PROFILE_PRIVACY,
+				"path_redaction": "redact",
+				"include_node_name": false,
+				"include_node_path": false,
+				"include_object_instance_id": false,
+				"include_resource_path": false,
+			}
+
+
+static func _is_supported_redaction_profile(profile: String) -> bool:
+	return profile in [
+		REDACTION_PROFILE_DEBUG,
+		REDACTION_PROFILE_SUPPORT,
+		REDACTION_PROFILE_PUBLIC,
+		REDACTION_PROFILE_PRIVACY,
+	]

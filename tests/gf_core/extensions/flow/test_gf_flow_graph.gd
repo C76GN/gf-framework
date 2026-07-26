@@ -1139,11 +1139,17 @@ func test_flow_runtime_snapshot_can_be_json_safe() -> void:
 		GFVariantData.get_option_dictionary(context_snapshot, "values"),
 		"owner"
 	)
+	var next_node_ids_marker: Dictionary = GFVariantData.get_option_dictionary(
+		GFVariantData.get_option_dictionary(context_snapshot, "next_node_ids"),
+		"__gf_report_value__"
+	)
 
 	assert_false(graph_json.is_empty(), "FlowGraph JSON-safe 运行态应可直接 JSON.stringify。")
 	assert_false(context_json.is_empty(), "FlowContext JSON-safe 快照应可直接 JSON.stringify。")
+	assert_true(GFVariantData.get_option_dictionary(graph_snapshot, "nodes").has("runtime"), "nodes 固定 schema 应保持可直接遍历。")
 	assert_true(graph_owner.has("__gf_report_value__"), "图运行态中的 Object 应转换为报告 marker。")
 	assert_true(context_owner.has("__gf_report_value__"), "上下文 values 中的 Object 应转换为报告 marker。")
+	assert_eq(GFVariantData.get_option_string(next_node_ids_marker, "type"), "PackedArray", "PackedArray 应使用当前报告 marker schema。")
 
 
 func test_flow_runner_isolates_node_runtime_state_into_context() -> void:

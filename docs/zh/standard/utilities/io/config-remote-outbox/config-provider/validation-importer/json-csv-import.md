@@ -34,7 +34,7 @@ var parsed := GFConfigTableImporter.parse_config_file_table(text, {
 
 ## 报告边界
 
-传入 `{ "source": "res://..." }` 后，CSV 校验报告会尽量附带行列位置，ConfigFile 校验报告会保留来源路径和记录索引，JSON 解析失败会附带解析行号。字段类型、集合、范围、资源路径和文本 key 等规则会尽量写入 `value`、`expected_value`、`actual_value`、`supported_values` 或 `supported_formats`，方便编辑器工具直接渲染可操作诊断；当集合白名单过大时，会改用 `supported_values_count`、`supported_values_sample`、`supported_values_hash` 和 `supported_values_truncated`。
+传入 `{ "source": "res://..." }` 后，CSV 校验报告会尽量附带行列位置，ConfigFile 校验报告会保留来源路径和记录索引，JSON 解析失败会附带解析行号。字段类型、集合、范围、资源路径和文本 key 等规则会尽量写入 `value`、`expected_value`、`actual_value`、`supported_values` 或 `supported_formats`，方便编辑器工具直接渲染可操作诊断；当集合白名单过大时，会改用 `supported_values_count`、`supported_values_sample`、`supported_values_preview_hash` 和 `supported_values_truncated`。其中 preview hash 只描述经过报告预算限制的编码预览，不代表完整白名单的内容指纹。
 
 它仍是轻量解析器，只取 `delimiter` 的第一个字符，空表头会跳过，条件表达式不解析布尔运算，ConfigFile 不反推源码行号，复杂 Excel、多 sheet 或编码探测仍建议交给项目导表流水线。
 

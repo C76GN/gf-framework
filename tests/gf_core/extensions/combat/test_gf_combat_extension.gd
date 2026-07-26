@@ -141,6 +141,29 @@ class RecordingHurtBox2D extends GFHurtBox2D:
 		}
 
 
+class MutatingValidationHurtBox2D extends GFHurtBox2D:
+	var saw_original_object: bool = false
+
+	func _init() -> void:
+		validation_callback = Callable(self, "_mutate_validation_report")
+
+	func _mutate_validation_report(
+		_context: GFCombatHitContext,
+		report: Dictionary
+	) -> bool:
+		var report_metadata: Dictionary = GFVariantData.as_dictionary(
+			report.get("metadata")
+		)
+		var nested_metadata: Dictionary = GFVariantData.as_dictionary(
+			report_metadata.get("nested")
+		)
+		var values: Array = GFVariantData.as_array(nested_metadata.get("values"))
+		saw_original_object = report_metadata.get("object") == self
+		nested_metadata["mutated"] = true
+		values.append("callback")
+		return true
+
+
 class BusinessHitReceiver extends Node:
 	var received_context: GFCombatHitContext = null
 
@@ -1340,6 +1363,46 @@ func test_hit_box_2d_sends_generic_hit_context() -> void:
 	assert_almost_eq(hurt_box.received_context.magnitude, 2.5, 0.001, "通用强度应写入上下文。")
 	assert_eq(hurt_box.received_context.tags, [&"melee"], "标签应写入上下文。")
 	assert_true(GFVariantData.get_option_bool(metadata, "validated"), "接收器校验结果应合并 metadata。")
+
+
+func test_validation_callback_cannot_mutate_persistent_nested_metadata() -> void:
+	var hurt_box: MutatingValidationHurtBox2D = MutatingValidationHurtBox2D.new()
+	add_child_autofree(hurt_box)
+	hurt_box.metadata = {
+		"nested": {
+			"state": "original",
+			"values": ["configured"],
+		},
+		"object": hurt_box,
+	}
+
+	var report: Dictionary = hurt_box.receive_hit(
+		GFCombatHitContext.new(null, hurt_box, null, &"impact")
+	)
+	var persistent_nested: Dictionary = GFVariantData.as_dictionary(
+		hurt_box.metadata.get("nested")
+	)
+	var persistent_values: Array = GFVariantData.as_array(
+		persistent_nested.get("values")
+	)
+	var report_metadata: Dictionary = GFVariantData.get_option_dictionary(
+		report,
+		"metadata"
+	)
+	var report_nested: Dictionary = GFVariantData.get_option_dictionary(
+		report_metadata,
+		"nested"
+	)
+
+	assert_true(hurt_box.saw_original_object, "校验副本应保留 raw Object 叶节点。")
+	assert_false(persistent_nested.has("mutated"), "校验回调不得污染 HurtBox 持久 metadata。")
+	assert_eq(persistent_values, ["configured"], "校验回调不得修改持久 metadata 的嵌套数组。")
+	assert_false(report_nested.has("mutated"), "校验回调不得修改最终报告的嵌套 metadata。")
+	assert_eq(
+		GFVariantData.get_option_array(report_nested, "values"),
+		["configured"],
+		"最终报告应保留回调执行前的嵌套 metadata。"
+	)
 
 
 func test_hurt_box_filters_hit_ids() -> void:

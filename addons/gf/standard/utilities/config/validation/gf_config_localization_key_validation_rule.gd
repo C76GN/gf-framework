@@ -151,7 +151,10 @@ func _make_issue_context(context: Dictionary, value: Variant, expected_value: Va
 		})
 		issue_context["supported_values_count"] = GFVariantData.get_option_int(summary, "count")
 		issue_context["supported_values_sample"] = GFVariantData.get_option_array(summary, "sample")
-		issue_context["supported_values_hash"] = GFVariantData.get_option_string(summary, "hash")
+		issue_context["supported_values_preview_hash"] = GFVariantData.get_option_string(
+			summary,
+			"encoded_preview_hash"
+		)
 		issue_context["supported_values_truncated"] = true
 	issue_context["supported_content_types"] = ["localization_key"]
 	return issue_context

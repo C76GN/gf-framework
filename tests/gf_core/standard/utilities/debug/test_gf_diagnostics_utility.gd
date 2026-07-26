@@ -87,15 +87,141 @@ func test_diagnostics_command_tier_denies_control_by_default() -> void:
 func test_diagnostics_command_requires_auth_token() -> void:
 	var diagnostics: GFDiagnosticsUtility = GFDiagnosticsUtility.new()
 	diagnostics.set_auth_token("secret")
-	var _command_registered: bool = diagnostics.register_command(self, &"diagnostics.test", func(_args: Dictionary) -> String:
+	var command_state: Dictionary = { "args": {} }
+	var _command_registered: bool = diagnostics.register_command(self, &"diagnostics.test", func(args: Dictionary) -> String:
+		command_state["args"] = args.duplicate(true)
 		return "ok"
 	)
 
 	var rejected: Dictionary = diagnostics.execute_command(&"diagnostics.test")
 	var accepted: Dictionary = diagnostics.execute_command(&"diagnostics.test", { "auth_token": "secret" })
+	var accepted_string_name: Dictionary = diagnostics.execute_command(
+		&"diagnostics.test",
+		{ &"auth_token": "secret" }
+	)
+	var received_args: Dictionary = GFVariantData.get_option_dictionary(command_state, "args")
 
 	assert_false(GFVariantData.get_option_bool(rejected, "ok"), "缺少 token 时命令应被拒绝。")
 	assert_true(GFVariantData.get_option_bool(accepted, "ok"), "提供正确 token 时命令应执行。")
+	assert_true(
+		GFVariantData.get_option_bool(accepted_string_name, "ok"),
+		"StringName token 键通过同一认证协议时命令应执行。"
+	)
+	assert_false(received_args.has("auth_token"), "认证字段验证后必须从回调参数中剥离。")
+	assert_false(received_args.has(&"auth_token"), "StringName 认证字段也必须从回调参数中剥离。")
+	assert_false(received_args.has("_auth_token"), "兼容认证字段也不得传给命令回调。")
+	assert_false(received_args.has(&"_auth_token"), "StringName 兼容认证字段也不得传给命令回调。")
+
+
+func test_diagnostics_command_schema_rejects_unknown_and_reserved_types() -> void:
+	var diagnostics: GFDiagnosticsUtility = GFDiagnosticsUtility.new()
+	var unknown_registered: bool = diagnostics.register_command(
+		self,
+		&"runtime.unknown_schema",
+		func(_args: Dictionary) -> void:
+			pass,
+		"",
+		GFDiagnosticsUtility.CommandTier.OBSERVE,
+		{
+			"parameters": [
+				{
+					"name": "count",
+					"type": "interger",
+				},
+			],
+		}
+	)
+	assert_false(unknown_registered, "未知 parameter type 必须在注册阶段 fail closed。")
+	assert_push_error(
+		"[GFDiagnosticsUtility] 命令参数 schema 使用未知类型：interger。"
+	)
+
+	var non_string_type_registered: bool = diagnostics.register_command(
+		self,
+		&"runtime.non_string_schema_type",
+		func(_args: Dictionary) -> void:
+			pass,
+		"",
+		GFDiagnosticsUtility.CommandTier.OBSERVE,
+		{
+			"parameters": [
+				{
+					"name": "count",
+					"type": 7,
+				},
+			],
+		}
+	)
+	assert_false(
+		non_string_type_registered,
+		"非字符串 parameter type 不能被静默归一为 any。"
+	)
+	assert_push_error(
+		"[GFDiagnosticsUtility] 命令参数 schema 使用未知类型：<invalid:int>。"
+	)
+
+	var invalid_container_registered: bool = diagnostics.register_command(
+		self,
+		&"runtime.invalid_schema_container",
+		func(_args: Dictionary) -> void:
+			pass,
+		"",
+		GFDiagnosticsUtility.CommandTier.OBSERVE,
+		{ "parameters": "count" }
+	)
+	assert_false(invalid_container_registered, "非 Array/Dictionary schema 顶层必须拒绝。")
+	assert_push_error(
+		"[GFDiagnosticsUtility] 命令参数 schema 顶层必须是 Array 或 Dictionary。"
+	)
+
+	var invalid_array_item_registered: bool = diagnostics.register_command(
+		self,
+		&"runtime.invalid_schema_array_item",
+		func(_args: Dictionary) -> void:
+			pass,
+		"",
+		GFDiagnosticsUtility.CommandTier.OBSERVE,
+		{ "parameters": ["count"] }
+	)
+	assert_false(invalid_array_item_registered, "Array schema 的非 Dictionary 项必须拒绝。")
+	assert_push_error(
+		"[GFDiagnosticsUtility] 命令参数 schema Array 的每一项都必须是 Dictionary。"
+	)
+
+	var invalid_map_value_registered: bool = diagnostics.register_command(
+		self,
+		&"runtime.invalid_schema_map_value",
+		func(_args: Dictionary) -> void:
+			pass,
+		"",
+		GFDiagnosticsUtility.CommandTier.OBSERVE,
+		{ "parameters": { "count": "int" } }
+	)
+	assert_false(invalid_map_value_registered, "Dictionary schema 的非 Dictionary value 必须拒绝。")
+	assert_push_error(
+		"[GFDiagnosticsUtility] 命令参数 schema Dictionary 的值必须是 Dictionary。"
+	)
+
+	var reserved_registered: bool = diagnostics.register_command(
+		self,
+		&"runtime.reserved_schema",
+		func(_args: Dictionary) -> void:
+			pass,
+		"",
+		GFDiagnosticsUtility.CommandTier.OBSERVE,
+		{
+			"parameters": [
+				{
+					"name": "auth_token",
+					"type": "string",
+				},
+			],
+		}
+	)
+	assert_false(reserved_registered, "命令 schema 不得把认证字段重新引入 callback。")
+	assert_push_error(
+		"[GFDiagnosticsUtility] 命令参数 schema 不得声明保留认证字段：auth_token。"
+	)
 
 
 func test_diagnostics_command_schema_validates_arguments_and_defaults() -> void:
@@ -270,6 +396,128 @@ func test_diagnostics_monitor_registry_collects_custom_monitor() -> void:
 	assert_eq(GFVariantData.get_option_int(sample, "value"), 7, "监控快照应包含已发布值。")
 	assert_eq(GFVariantData.get_option_string_name(preset_snapshot, "preset_id"), &"test", "预设快照应记录预设 id。")
 	assert_true("Value" in exported_text, "文本导出应包含监控标签。")
+
+
+func test_publish_monitor_emits_once_and_collect_is_side_effect_free() -> void:
+	var diagnostics: GFDiagnosticsUtility = GFDiagnosticsUtility.new()
+	watch_signals(diagnostics)
+	assert_true(
+		diagnostics.register_monitor(self, &"signal.count"),
+		"测试监控项应注册成功。"
+	)
+
+	assert_true(
+		diagnostics.publish_monitor_sample(self, &"signal.count", 1),
+		"发布有效采样应成功。"
+	)
+	assert_signal_emit_count(
+		diagnostics,
+		"monitor_sampled",
+		1,
+		"一次成功 publish 必须恰好发出一次 monitor_sampled。"
+	)
+
+	var _snapshot: Dictionary = diagnostics.collect_monitor_snapshot(
+		PackedStringArray(["signal.count"])
+	)
+	assert_signal_emit_count(
+		diagnostics,
+		"monitor_sampled",
+		1,
+		"只读 collect 不得额外产生 publish 信号。"
+	)
+
+
+func test_published_monitor_samples_do_not_alias_internal_cache() -> void:
+	var diagnostics: GFDiagnosticsUtility = GFDiagnosticsUtility.new()
+	assert_true(
+		diagnostics.register_monitor(self, &"sample.snapshot"),
+		"测试监控项应注册成功。"
+	)
+	var connect_error: Error = diagnostics.monitor_sampled.connect(
+		func(_monitor_id: StringName, emitted_sample: Dictionary) -> void:
+			var emitted_value: Dictionary = GFVariantData.as_dictionary(emitted_sample["value"])
+			var emitted_nested: Dictionary = GFVariantData.as_dictionary(emitted_value["nested"])
+			var emitted_metadata: Dictionary = GFVariantData.as_dictionary(
+				emitted_sample["sample_metadata"]
+			)
+			var emitted_source: Dictionary = GFVariantData.as_dictionary(
+				emitted_metadata["source"]
+			)
+			emitted_nested["count"] = 77
+			emitted_source["name"] = "listener_mutated"
+	) as Error
+	assert_eq(connect_error, OK, "测试应能监听 monitor_sampled。")
+	assert_true(
+		diagnostics.publish_monitor_sample(
+			self,
+			&"sample.snapshot",
+			{ "nested": { "count": 1 } },
+			{ "source": { "name": "original" } }
+		),
+		"集合采样应发布成功。"
+	)
+
+	var first_snapshot: Dictionary = diagnostics.collect_monitor_snapshot(
+		PackedStringArray(["sample.snapshot"])
+	)
+	var first_monitors: Dictionary = GFVariantData.as_dictionary(first_snapshot["monitors"])
+	var first_sample: Dictionary = GFVariantData.as_dictionary(first_monitors["sample.snapshot"])
+	var first_value: Dictionary = GFVariantData.as_dictionary(first_sample["value"])
+	var first_nested: Dictionary = GFVariantData.as_dictionary(first_value["nested"])
+	var first_metadata: Dictionary = GFVariantData.as_dictionary(first_sample["sample_metadata"])
+	var first_source: Dictionary = GFVariantData.as_dictionary(first_metadata["source"])
+	assert_eq(
+		GFVariantData.get_option_int(first_nested, "count"),
+		1,
+		"monitor_sampled 监听器修改 signal payload 不得反向篡改 monitor cache。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(first_source, "name"),
+		"original",
+		"monitor_sampled 监听器修改 metadata 不得反向篡改 monitor cache。"
+	)
+	first_nested["count"] = 99
+	first_source["name"] = "mutated"
+
+	var second_snapshot: Dictionary = diagnostics.collect_monitor_snapshot(
+		PackedStringArray(["sample.snapshot"])
+	)
+	var second_monitors: Dictionary = GFVariantData.get_option_dictionary(second_snapshot, "monitors")
+	var second_sample: Dictionary = GFVariantData.get_option_dictionary(second_monitors, "sample.snapshot")
+	var second_value: Dictionary = GFVariantData.get_option_dictionary(second_sample, "value")
+	var second_nested: Dictionary = GFVariantData.get_option_dictionary(second_value, "nested")
+	var second_metadata: Dictionary = GFVariantData.get_option_dictionary(second_sample, "sample_metadata")
+	var second_source: Dictionary = GFVariantData.get_option_dictionary(second_metadata, "source")
+
+	assert_eq(
+		GFVariantData.get_option_int(second_nested, "count"),
+		1,
+		"调用方修改已返回 value 不得反向篡改 monitor cache。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(second_source, "name"),
+		"original",
+		"调用方修改已返回 metadata 不得反向篡改 monitor cache。"
+	)
+
+
+func test_missing_monitor_preset_fails_closed_without_collecting_all() -> void:
+	var diagnostics: GFDiagnosticsUtility = GFDiagnosticsUtility.new()
+	assert_true(diagnostics.register_monitor(self, &"secret.monitor"), "测试监控项应注册成功。")
+	assert_true(
+		diagnostics.publish_monitor_sample(self, &"secret.monitor", "private"),
+		"测试监控采样应发布成功。"
+	)
+
+	var snapshot: Dictionary = diagnostics.collect_monitor_preset(&"missing")
+
+	assert_false(GFVariantData.get_option_bool(snapshot, "ok", true), "不存在的 preset 必须显式失败。")
+	assert_eq(GFVariantData.get_option_int(snapshot, "monitor_count", -1), 0, "missing preset 不得退化为全量采集。")
+	assert_true(
+		GFVariantData.get_option_dictionary(snapshot, "monitors").is_empty(),
+		"missing preset 结果不得泄漏任何 monitor。"
+	)
 
 
 func test_diagnostics_monitor_json_export_is_report_safe() -> void:
@@ -953,6 +1201,91 @@ func test_diagnostics_collects_signal_graph_snapshot() -> void:
 	assert_true(GFVariantData.get_option_bool(graph, "ok"), "传入根节点时信号图应可用。")
 	assert_eq(ping_connection_count, 1, "运行时连接应进入信号图。")
 	assert_true(index.has("by_source"), "include_index 应附加按来源节点索引。")
+
+
+func test_diagnostics_signal_graph_applies_all_output_budgets() -> void:
+	var root: Node = Node.new()
+	root.name = "BudgetRoot"
+	var emitter: SignalEmitter = SignalEmitter.new()
+	emitter.name = "Emitter"
+	root.add_child(emitter)
+	var _first_connection: Variant = emitter.ping.connect(func() -> void:
+		pass
+	)
+	var _second_connection: Variant = emitter.ping.connect(func() -> void:
+		pass
+	)
+	add_child_autofree(root)
+	var diagnostics: GFDiagnosticsUtility = GFDiagnosticsUtility.new()
+
+	var connection_limited: Dictionary = diagnostics.collect_signal_graph_snapshot(
+		root,
+		{
+			"max_nodes": 8,
+			"max_signals": 128,
+			"max_connections": 1,
+			"max_bytes": 65_536,
+		}
+	)
+	assert_true(
+		GFVariantData.get_option_bool(connection_limited, "truncated"),
+		"连接预算耗尽时应显式标记 truncated。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(connection_limited, "truncation_reason"),
+		"max_connections",
+		"连接预算应报告稳定截断原因。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(connection_limited, "connection_count"),
+		1,
+		"信号连接输出不得超过 max_connections。"
+	)
+
+	var signal_limited: Dictionary = diagnostics.collect_signal_graph_snapshot(
+		root,
+		{
+			"include_empty_signals": true,
+			"max_nodes": 8,
+			"max_signals": 1,
+			"max_connections": 8,
+			"max_bytes": 65_536,
+		}
+	)
+	assert_true(GFVariantData.get_option_bool(signal_limited, "truncated"), "signal 预算耗尽时应截断。")
+	assert_eq(GFVariantData.get_option_int(signal_limited, "signal_count"), 1, "信号输出不得超过 max_signals。")
+
+	var long_root: Node = Node.new()
+	long_root.name = "X".repeat(2048)
+	add_child_autofree(long_root)
+	var byte_limited: Dictionary = diagnostics.collect_signal_graph_snapshot(
+		long_root,
+		{
+			"include_empty_signals": true,
+			"max_nodes": 8,
+			"max_signals": 8,
+			"max_connections": 8,
+			"max_bytes": 512,
+		}
+	)
+	assert_true(GFVariantData.get_option_bool(byte_limited, "truncated"), "字节预算耗尽时应截断。")
+	assert_eq(
+		GFVariantData.get_option_string(byte_limited, "truncation_reason"),
+		"max_bytes",
+		"字节预算应报告稳定截断原因。"
+	)
+	assert_eq(GFVariantData.get_option_int(byte_limited, "node_count"), 0, "超长根路径不得绕过字节预算继续展开。")
+
+	var over_codec_default: String = "X".repeat(1_100_000)
+	var direct_estimate: int = diagnostics._estimate_signal_graph_entry_bytes(
+		{ "name": over_codec_default },
+		1_050_000
+	)
+	assert_gt(
+		direct_estimate,
+		1_050_000,
+		"超过 codec 默认预算的 entry 仍必须按 caller max_bytes 判定为超限，不能被小 marker 低估。"
+	)
 
 
 # --- 内部类 ---

@@ -20,7 +20,7 @@ receiver.validation_callback = func(context: GFInteractionContext, report: Dicti
 var result := sensor.send_to(receiver)
 ```
 
-返回报告用于日志和诊断，`receiver` 字段是 `GFReportValueCodec` 生成的 JSON-safe 摘要，不是 live `Object`。需要接收对象实例时，使用发送/接收信号里的 `receiver` 参数，或读取 `GFInteractionContext.target`。
+返回报告用于日志和诊断，`receiver` 字段是 `GFReportValueCodec` 生成且只经过一次编码的 JSON-safe Object 摘要，不是 live `Object`；Sensor 会保留框架 Receiver 已完成的受信报告字段，并只编码其余原始字段，避免 marker 被再次包装成 Dictionary marker。需要接收对象实例时，使用发送/接收信号里的 `receiver` 参数，或读取 `GFInteractionContext.target`。
 
 ## 业务目标桥接
 

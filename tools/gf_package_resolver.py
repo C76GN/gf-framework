@@ -15,6 +15,8 @@ from typing import Any
 import gf_path_security
 from gf_package_paths import normalize_manifest_path as normalize_shared_manifest_path
 from gf_package_paths import path_matches_any_manifest_path as shared_path_matches_any_manifest_path
+from gf_package_paths import portable_literal_path_identity as shared_portable_literal_path_identity
+from gf_package_paths import portable_manifest_path_identity as shared_portable_manifest_path_identity
 from gf_semver import parse_semver, reaches_exclusive_compatibility_bound
 
 
@@ -859,30 +861,15 @@ def path_is_within(path: Path, root: Path) -> bool:
 
 
 def normalize_package_file_path(path: str) -> str:
-	if path != path.strip():
-		return ""
-	normalized = path.replace("\\", "/")
-	if not normalized or normalized.startswith("/") or ":" in normalized:
-		return ""
-	parts = normalized.split("/")
-	if any(part in {"", ".", ".."} or part != part.rstrip(" .") or any(ord(character) < 32 for character in part) for part in parts):
-		return ""
-	return "/".join(parts)
+	return path if shared_portable_literal_path_identity(path) else ""
 
 
 def portable_package_path_identity(path: str) -> str:
-	normalized = normalize_package_file_path(path)
-	return normalized.lower() if normalized else ""
+	return shared_portable_literal_path_identity(path)
 
 
 def portable_manifest_path_identity(path: str) -> str:
-	normalized = normalize_manifest_path(path)
-	if not normalized or normalized != path:
-		return ""
-	parts = normalized.split("/")
-	if any(part in {"", ".", ".."} or part != part.rstrip(" .") for part in parts):
-		return ""
-	return normalized.lower()
+	return shared_portable_manifest_path_identity(path)
 
 
 def path_matches_any_manifest_path(path: str, patterns: list[str]) -> bool:
@@ -890,7 +877,7 @@ def path_matches_any_manifest_path(path: str, patterns: list[str]) -> bool:
 
 
 def contains_glob(value: str) -> bool:
-	return any(character in value for character in "*?[")
+	return any(character in value for character in "*?")
 
 
 def valid_file_metadata(value: Any) -> bool:
@@ -1100,23 +1087,41 @@ def expand_source_pattern(pattern: str, project_root: Path) -> list[Path]:
 	project_root = gf_path_security.absolute_lexical_path(project_root)
 	if gf_path_security.path_has_reparse_component(project_root):
 		return []
-	if normalized.endswith("/**") and not any(token in normalized[:-3] for token in ("*", "?", "[")):
-		directory = project_root / normalized[:-3].rstrip("/")
-		if not directory.is_dir():
-			return []
-		return sorted(
-			path
-			for path in directory.rglob("*")
-			if path.is_file() and not gf_path_security.path_has_reparse_component(path)
+	if not contains_glob(normalized):
+		package_source_root = gf_path_security.absolute_lexical_path(project_root / "addons/gf")
+		path = gf_path_security.absolute_lexical_path(project_root / normalized)
+		if (
+			gf_path_security.path_is_inside_lexical(package_source_root, path)
+			and path.is_file()
+			and not gf_path_security.path_has_reparse_component(path)
+		):
+			return [path]
+		return []
+
+	static_parts: list[str] = []
+	for part in normalized.split("/"):
+		if contains_glob(part):
+			break
+		static_parts.append(part)
+	search_root = gf_path_security.absolute_lexical_path(project_root.joinpath(*static_parts))
+	package_source_root = gf_path_security.absolute_lexical_path(project_root / "addons/gf")
+	if gf_path_security.path_is_inside_lexical(search_root, package_source_root):
+		search_root = package_source_root
+	if (
+		not gf_path_security.path_is_inside_lexical(package_source_root, search_root)
+		or gf_path_security.path_has_reparse_component(search_root)
+		or not search_root.is_dir()
+	):
+		return []
+	return sorted(
+		path
+		for path in search_root.rglob("*")
+		if (
+			path.is_file()
+			and not gf_path_security.path_has_reparse_component(path)
+			and path_matches_any_manifest_path(path.relative_to(project_root).as_posix(), [normalized])
 		)
-	if any(token in normalized for token in ("*", "?", "[")):
-		return sorted(
-			path
-			for path in project_root.glob(normalized)
-			if path.is_file() and not gf_path_security.path_has_reparse_component(path)
-		)
-	path = project_root / normalized
-	return [path] if path.is_file() and not gf_path_security.path_has_reparse_component(path) else []
+	)
 
 
 def package_path_tokens(paths: list[str]) -> list[str]:
@@ -1381,18 +1386,19 @@ def load_registry(path: Path) -> dict[str, Any]:
 			issues.append(f"Registry package id is invalid: {package_id_text}")
 			continue
 		if not isinstance(package_entry, dict):
+			issues.append(f"Registry package entry must be an object: {package_id_text}")
 			continue
-		has_unsupported_signature = False
+		issue_count_before_validation = len(issues)
 		for field_name in sorted(UNSUPPORTED_REGISTRY_PACKAGE_SIGNATURE_FIELDS.intersection(package_entry)):
-			has_unsupported_signature = True
 			issues.append(
 				"Registry package signature field is not supported until native verification is implemented: "
 				f"{package_id}.{field_name}"
 			)
+		issues.extend(registry_package_path_issues(package_id_text, package_entry))
 		for field_name in ["minimum_framework_version", "maximum_framework_version_exclusive"]:
 			if field_name not in package_entry:
 				issues.append(f"Registry package {package_id} is missing {field_name}.")
-		if has_unsupported_signature:
+		if len(issues) != issue_count_before_validation:
 			continue
 		clean_packages[package_id_text] = package_entry
 	return {
@@ -1402,6 +1408,24 @@ def load_registry(path: Path) -> dict[str, Any]:
 		"maximum_framework_version_exclusive": str(data.get("maximum_framework_version_exclusive", "")),
 		"issues": issues,
 	}
+
+
+def registry_package_path_issues(package_id: str, package_entry: dict[str, Any]) -> list[str]:
+	issues: list[str] = []
+	raw_paths = package_entry.get("paths")
+	if not valid_string_array(raw_paths):
+		return [f"Registry package paths must be an array of unique non-empty strings: {package_id}"]
+	seen_identities: set[str] = set()
+	for path in raw_paths:
+		identity = portable_manifest_path_identity(path)
+		if not identity:
+			issues.append(f"Registry package contains unsafe or non-portable registry path: {package_id}: {path}")
+			continue
+		if identity in seen_identities:
+			issues.append(f"Registry package contains duplicate portable registry path: {package_id}: {path}")
+			continue
+		seen_identities.add(identity)
+	return issues
 
 
 def package_id_is_valid(package_id: str) -> bool:
@@ -1435,21 +1459,95 @@ def load_lockfile(path: Path) -> dict[str, Any]:
 		return {"data": {"schema_version": LOCKFILE_SCHEMA_VERSION, "framework_version": "", "installed": {}}, "issues": [f"Could not read lockfile: {error}"]}
 	if not isinstance(data, dict):
 		return {"data": {"schema_version": LOCKFILE_SCHEMA_VERSION, "framework_version": "", "installed": {}}, "issues": ["Lockfile root must be an object."]}
-	if data.get("schema_version") != LOCKFILE_SCHEMA_VERSION:
-		issues.append(f"Lockfile schema_version must be {LOCKFILE_SCHEMA_VERSION}.")
+	issues.extend(lockfile_schema_issues(data))
 	installed = data.get("installed", {})
 	if not isinstance(installed, dict):
-		issues.append("Lockfile installed must be an object.")
 		installed = {}
-	data["installed"] = {str(package_id): entry for package_id, entry in installed.items() if isinstance(entry, dict)}
+	clean_installed: dict[str, dict[str, Any]] = {}
+	for raw_package_id, raw_entry in sorted(installed.items(), key=lambda item: str(item[0])):
+		package_id = str(raw_package_id)
+		if not package_id_is_valid(package_id):
+			issues.append(f"Lockfile contains invalid package id: {package_id}")
+			continue
+		if not isinstance(raw_entry, dict) or not raw_entry:
+			issues.append(f"Lockfile package entry must be a non-empty object: {package_id}")
+			continue
+		issues.extend(lock_entry_portable_path_issues(package_id, raw_entry))
+		clean_installed[package_id] = raw_entry
+	data["installed"] = clean_installed
 	return {"data": data, "issues": issues}
 
 
+def lock_entry_portable_path_issues(package_id: str, entry: dict[str, Any]) -> list[str]:
+	issues: list[str] = []
+	raw_paths = entry.get("paths")
+	if raw_paths is not None and not isinstance(raw_paths, list):
+		issues.append(f"Installed package paths must be an array: {package_id}")
+	elif isinstance(raw_paths, list):
+		seen_manifest_identities: set[str] = set()
+		for path in raw_paths:
+			if not isinstance(path, str):
+				issues.append(f"Installed package paths contains a non-string value: {package_id}")
+				continue
+			identity = portable_manifest_path_identity(path)
+			if not identity or identity in seen_manifest_identities:
+				issues.append(f"Installed package path identity is unsafe or duplicated: {package_id}: {path}")
+				continue
+			seen_manifest_identities.add(identity)
+	for field_name in ("files",):
+		raw_values = entry.get(field_name)
+		if raw_values is None:
+			continue
+		if not isinstance(raw_values, list):
+			issues.append(f"Installed package {field_name} must be an array: {package_id}")
+			continue
+		seen_literal_identities: set[str] = set()
+		for path in raw_values:
+			if not isinstance(path, str):
+				issues.append(f"Installed package {field_name} contains a non-string value: {package_id}")
+				continue
+			identity = portable_package_path_identity(path)
+			if not identity or identity in seen_literal_identities:
+				issues.append(f"Installed package {field_name} contains unsafe or aliased path: {package_id}: {path}")
+				continue
+			seen_literal_identities.add(identity)
+	raw_metadata = entry.get("file_metadata")
+	if isinstance(raw_metadata, dict):
+		seen_metadata_identities: set[str] = set()
+		for raw_path in raw_metadata:
+			path = str(raw_path)
+			identity = portable_package_path_identity(path)
+			if not identity or identity in seen_metadata_identities:
+				issues.append(f"Installed package file_metadata contains unsafe or aliased path: {package_id}: {path}")
+				continue
+			seen_metadata_identities.add(identity)
+	return issues
+
+
 def lock_entry_payload_changed(left: dict[str, Any], right: dict[str, Any]) -> bool:
-	return (
-		left.get("version") != right.get("version")
-		or left.get("sha256") != right.get("sha256")
-	)
+	return lock_entry_payload_identity(left) != lock_entry_payload_identity(right)
+
+
+def lock_entry_payload_identity(entry: dict[str, Any]) -> dict[str, Any]:
+	def string_field(field_name: str) -> str:
+		value = entry.get(field_name, "")
+		return value if isinstance(value, str) else ""
+
+	identity = {
+		"version": string_field("version"),
+		"kind": string_field("kind"),
+		"paths": copy.deepcopy(entry.get("paths", [])) if isinstance(entry.get("paths"), list) else [],
+		"archive": string_field("archive"),
+		"sha256": string_field("sha256"),
+		"gf_extension_id": string_field("gf_extension_id"),
+	}
+	if identity["kind"] == "preset":
+		identity["packages"] = (
+			copy.deepcopy(entry.get("packages", []))
+			if isinstance(entry.get("packages"), list)
+			else []
+		)
+	return identity
 
 
 def resolve_path(path: str) -> Path:

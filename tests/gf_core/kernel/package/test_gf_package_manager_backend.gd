@@ -42,6 +42,77 @@ func test_native_transaction_report_matches_shared_schema_contract() -> void:
 	assert_eq(actual_fields, expected_fields, "Godot 事务报告字段必须与共享 schema 完全一致。")
 
 
+func test_native_transaction_rejects_nonportable_windows_target_before_claim() -> void:
+	var project_root: String = TEST_ROOT.path_join("transaction_reserved_device_project")
+	var source_path: String = TEST_ROOT.path_join("transaction_reserved_device_source/source.gd")
+	_write_text(source_path, "extends RefCounted\n")
+	for reserved_component: String in [
+		"CON", "NUL.txt", "COM1", "LPT9.ext", "COM¹", "COM².txt", "LPT³.gd"
+	]:
+		assert_false(
+			GF_PACKAGE_TRANSACTION_ENGINE.is_portable_literal_path_component(reserved_component),
+			"portable path policy 必须拒绝 Windows 设备名（含扩展名）：%s" % reserved_component
+		)
+		assert_false(
+			GF_PACKAGE_TRANSACTION_ENGINE.is_portable_manifest_glob_component(reserved_component),
+			"manifest glob 组件也不能把 Windows 设备名作为字面目录：%s" % reserved_component
+		)
+	for invalid_component: String in [
+		"bad<name.gd", "bad>name.gd", "bad\"name.gd", "bad|name.gd", "bad?name.gd", "bad*name.gd"
+	]:
+		assert_false(
+			GF_PACKAGE_TRANSACTION_ENGINE.is_portable_literal_path_component(invalid_component),
+			"字面 target 必须拒绝 Windows 非法文件名字符：%s" % invalid_component
+		)
+	for invalid_manifest_component: String in [
+		"bad<name.gd", "bad>name.gd", "bad\"name.gd", "bad|name.gd"
+	]:
+		assert_false(
+			GF_PACKAGE_TRANSACTION_ENGINE.is_portable_manifest_glob_component(invalid_manifest_component),
+			"manifest glob 组件只能放宽 glob 字符，不能放宽其他 Windows 非法字符：%s" % invalid_manifest_component
+		)
+	for glob_component: String in ["*.gd", "fixture?.gd", "**"]:
+		assert_true(
+			GF_PACKAGE_TRANSACTION_ENGINE.is_portable_manifest_glob_component(glob_component),
+			"manifest glob 组件必须保留单组件 *、? 和完整 ** 语义：%s" % glob_component
+		)
+	assert_true(
+		GF_PACKAGE_TRANSACTION_ENGINE.is_portable_literal_path_component("[ab].gd"),
+		"[ 与 ] 是合法字面文件名字符，不能误判为 Windows 非法字符。"
+	)
+	assert_true(
+		GF_PACKAGE_TRANSACTION_ENGINE.is_portable_manifest_glob_component("[ab].gd"),
+		"manifest policy 必须把 [ 与 ] 当作普通字面字符。"
+	)
+	assert_false(
+		GF_PACKAGE_TRANSACTION_ENGINE.is_portable_manifest_glob_component("prefix**"),
+		"递归 ** 只能独占 manifest path component。"
+	)
+	var request: Dictionary = GF_PACKAGE_TRANSACTION_ENGINE.make_request(
+		"install",
+		ProjectSettings.globalize_path(project_root),
+		ProjectSettings.globalize_path(project_root.path_join(".gf/packages.lock.json")),
+		{
+			"schema_version": 1,
+			"framework_version": "unreleased",
+			"installed": {},
+		},
+		[{
+			"relative_path": "addons/gf/kernel/core/COM¹.gd",
+			"source_path": ProjectSettings.globalize_path(source_path),
+		}]
+	)
+
+	var report: Dictionary = GF_PACKAGE_TRANSACTION_ENGINE.execute(request)
+	var issues: PackedStringArray = GF_VARIANT_ACCESS.get_option_packed_string_array(report, "issues")
+
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(report, "ok"), "Windows 非可移植 target 不能进入 package transaction。")
+	assert_eq(GF_VARIANT_ACCESS.get_option_string(report, "outcome"), "blocked", "非可移植 target 应在 claim/事务前阻断。")
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(report, "rolled_back"), "事务前路径校验失败不应声称回滚。")
+	assert_true(_issues_contain(issues, "Invalid package transaction write entry"), "transaction 应按 portable path policy 拒绝非可移植 target。")
+	assert_false(_file_exists(project_root.path_join(".gf/packages.lock.json")), "事务前 target 校验失败不能写 lockfile。")
+
+
 func test_native_recovery_blocks_live_transaction_owner() -> void:
 	var project_root: String = TEST_ROOT.path_join("transaction_live_owner_project")
 	var registry_path: String = TEST_ROOT.path_join("registry/index.json")
@@ -187,6 +258,65 @@ func test_native_status_exposes_project_reference_uninstall_blocker() -> void:
 	assert_true(_blocked_contains_reason(blocked, "project_references"), "卸载预览应暴露项目引用阻断。")
 
 
+func test_native_status_scans_class_names_owned_by_recursive_glob_prefix() -> void:
+	var project_root: String = TEST_ROOT.path_join("glob_reference_project")
+	var registry_path: String = TEST_ROOT.path_join("registry/index.json")
+	var registry: Dictionary = _make_fixture_registry()
+	var packages: Dictionary = GF_VARIANT_ACCESS.get_option_dictionary(registry, "packages")
+	var storage_entry: Dictionary = GF_VARIANT_ACCESS.get_option_dictionary(packages, "gf.standard.storage")
+	storage_entry["paths"] = ["addons/gf/standard/util*/storage/**"]
+	packages["gf.standard.storage"] = storage_entry
+	registry["packages"] = packages
+	_write_fixture_archives(registry)
+	_write_package_archive(
+		registry,
+		"gf.standard.storage",
+		{
+			"addons/gf/standard/utilities/storage/gf_storage_fixture.gd": (
+				"class_name GFGlobStorageUtility\nextends RefCounted\n"
+			),
+		}
+	)
+	_write_json(registry_path, registry)
+	var install_result: Dictionary = GF_PACKAGE_MANAGER_BACKEND.install_packages(
+		PackedStringArray(["gf.standard.storage"]),
+		registry_path,
+		ProjectSettings.globalize_path(project_root)
+	)
+	_write_text(
+		project_root.path_join("scripts/use_glob_storage.gd"),
+		"extends Node\nvar storage: GFGlobStorageUtility\n"
+	)
+
+	var status: Dictionary = GF_PACKAGE_MANAGER_BACKEND.make_status(
+		registry_path,
+		ProjectSettings.globalize_path(project_root)
+	)
+	var installed_storage: Dictionary = GF_VARIANT_ACCESS.get_option_dictionary(
+		_package_index(status),
+		"gf.standard.storage"
+	)
+	var uninstall_preview: Dictionary = GF_VARIANT_ACCESS.get_option_dictionary(
+		installed_storage,
+		"uninstall_preview"
+	)
+	var blocked: Array = GF_VARIANT_ACCESS.get_option_array(uninstall_preview, "blocked")
+
+	assert_true(
+		GF_VARIANT_ACCESS.get_option_bool(install_result, "ok"),
+		"带 glob 前缀的递归 manifest 应覆盖并安装匹配 payload。"
+	)
+	assert_true(GF_VARIANT_ACCESS.get_option_bool(status, "ok"), "glob class_name 扫描不应破坏状态读取。")
+	assert_false(
+		GF_VARIANT_ACCESS.get_option_bool(uninstall_preview, "ok"),
+		"项目仍引用 glob-owned class_name 时必须阻断卸载。"
+	)
+	assert_true(
+		_blocked_contains_reason(blocked, "project_references"),
+		"glob-owned class_name 必须进入 project_references blocker。"
+	)
+
+
 func test_native_install_local_archives_writes_files_and_lockfile() -> void:
 	var project_root: String = TEST_ROOT.path_join("install_project")
 	var registry_path: String = TEST_ROOT.path_join("registry/index.json")
@@ -274,6 +404,62 @@ func test_native_verify_accepts_round_tripped_lockfile_integer_fields() -> void:
 	assert_true(GF_VARIANT_ACCESS.get_option_bool(lockfile_verify, "ok"), "round-trip lockfile 的完整 identity schema 应通过验证。")
 
 
+func test_native_verify_rejects_installed_package_with_missing_dependency() -> void:
+	var project_root: String = TEST_ROOT.path_join("verify_missing_dependency_project")
+	var registry_path: String = TEST_ROOT.path_join("registry/index.json")
+	var registry: Dictionary = _make_fixture_registry()
+	_write_fixture_archives(registry)
+	_write_json(registry_path, registry)
+	var install_result: Dictionary = _install_fixture_save(registry_path, project_root)
+	var lockfile: Dictionary = _read_json(project_root.path_join(".gf/packages.lock.json"))
+	var installed: Dictionary = GF_VARIANT_ACCESS.get_option_dictionary(lockfile, "installed")
+	var _removed_dependency: bool = installed.erase("gf.standard.storage")
+	lockfile["installed"] = installed
+
+	var verify_result: Dictionary = GF_PACKAGE_MANAGER_BACKEND.verify_lock_data(
+		GF_VARIANT_ACCESS.get_option_dictionary(registry, "packages"),
+		lockfile,
+		"unreleased"
+	)
+	var issues: PackedStringArray = GF_VARIANT_ACCESS.get_option_packed_string_array(verify_result, "issues")
+
+	assert_true(GF_VARIANT_ACCESS.get_option_bool(install_result, "ok"), "测试 fixture 应先完成安装。")
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(verify_result, "ok"), "缺失已安装包依赖时 lockfile 验证必须失败。")
+	assert_true(
+		_issues_contain(issues, "Installed package dependency is missing: gf.extension.save -> gf.standard.storage"),
+		"验证 issues 应明确指出缺失的依赖闭包边。"
+	)
+
+
+func test_native_verify_rejects_empty_lockfile_reason_array() -> void:
+	var project_root: String = TEST_ROOT.path_join("verify_empty_reason_project")
+	var registry_path: String = TEST_ROOT.path_join("registry/index.json")
+	var registry: Dictionary = _make_fixture_registry()
+	_write_fixture_archives(registry)
+	_write_json(registry_path, registry)
+	var install_result: Dictionary = _install_fixture_save(registry_path, project_root)
+	var lockfile: Dictionary = _read_json(project_root.path_join(".gf/packages.lock.json"))
+	var installed: Dictionary = GF_VARIANT_ACCESS.get_option_dictionary(lockfile, "installed")
+	var save_entry: Dictionary = GF_VARIANT_ACCESS.get_option_dictionary(installed, "gf.extension.save")
+	save_entry["reason"] = []
+	installed["gf.extension.save"] = save_entry
+	lockfile["installed"] = installed
+
+	var verify_result: Dictionary = GF_PACKAGE_MANAGER_BACKEND.verify_lock_data(
+		GF_VARIANT_ACCESS.get_option_dictionary(registry, "packages"),
+		lockfile,
+		"unreleased"
+	)
+	var issues: PackedStringArray = GF_VARIANT_ACCESS.get_option_packed_string_array(verify_result, "issues")
+
+	assert_true(GF_VARIANT_ACCESS.get_option_bool(install_result, "ok"), "测试 fixture 应先完成安装。")
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(verify_result, "ok"), "空 reason 数组必须让 lockfile 验证失败。")
+	assert_true(
+		_issues_contain(issues, "reason must contain at least one ownership reason"),
+		"验证 issues 应明确指出 reason 不能为空。"
+	)
+
+
 func test_native_install_refuses_to_overwrite_unowned_existing_gf_file() -> void:
 	var project_root: String = TEST_ROOT.path_join("install_unowned_existing_project")
 	var registry_path: String = TEST_ROOT.path_join("registry/index.json")
@@ -294,8 +480,45 @@ func test_native_install_refuses_to_overwrite_unowned_existing_gf_file() -> void
 
 	assert_false(GF_VARIANT_ACCESS.get_option_bool(result, "ok"), "安装不应覆盖 lockfile 未拥有的 GF 目标文件。")
 	assert_true(_issues_contain(issues, "not owned by the lockfile"), "未归属目标文件应进入 issues。")
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(result, "rolled_back"), "事务开始前的 ownership 冲突不应声称发生回滚。")
 	assert_false(_file_exists(project_root.path_join(".gf/packages.lock.json")), "失败安装不能写 lockfile。")
 	assert_true(_read_text(project_root.path_join("addons/gf/kernel/core/gf_core_fixture.gd")).contains("PROJECT_FILE"), "原项目文件应保持不变。")
+
+
+func test_native_install_rejects_cross_package_staged_target_conflict_before_transaction() -> void:
+	var project_root: String = TEST_ROOT.path_join("install_cross_package_conflict_project")
+	var registry_path: String = TEST_ROOT.path_join("registry/index.json")
+	var registry: Dictionary = _make_fixture_registry()
+	var packages: Dictionary = GF_VARIANT_ACCESS.get_option_dictionary(registry, "packages")
+	for package_id: String in ["gf.kernel", "gf.standard.base"]:
+		var package_entry: Dictionary = GF_VARIANT_ACCESS.get_option_dictionary(packages, package_id)
+		package_entry["paths"] = ["addons/gf/shared/**"]
+		packages[package_id] = package_entry
+	registry["packages"] = packages
+	_write_fixture_archives(registry)
+	for package_id: String in ["gf.kernel", "gf.standard.base"]:
+		_write_package_archive(
+			registry,
+			package_id,
+			{ "addons/gf/shared/duplicate.gd": "extends RefCounted\n" }
+		)
+	_write_json(registry_path, registry)
+
+	var result: Dictionary = GF_PACKAGE_MANAGER_BACKEND.install_packages(
+		PackedStringArray(["gf.standard.base"]),
+		registry_path,
+		ProjectSettings.globalize_path(project_root)
+	)
+	var issues: PackedStringArray = GF_VARIANT_ACCESS.get_option_packed_string_array(result, "issues")
+
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(result, "ok"), "多个包声明同一 portable target 时安装必须失败。")
+	assert_true(
+		_issues_contain(issues, "staged target is owned by multiple packages"),
+		"staging 应在事务前报告跨包 ownership 冲突：%s" % [issues]
+	)
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(result, "rolled_back"), "staging 冲突没有启动事务，不应声称回滚。")
+	assert_false(_file_exists(project_root.path_join(".gf/packages.lock.json")), "staging 冲突不能写 lockfile。")
+	assert_false(_file_exists(project_root.path_join("addons/gf/shared/duplicate.gd")), "staging 冲突不能写项目 payload。")
 
 
 func test_native_install_adopts_complete_matching_extracted_kernel() -> void:
@@ -437,6 +660,93 @@ func test_native_status_rejects_unsafe_registry_package_ids() -> void:
 	)
 
 
+func test_native_status_rejects_registry_path_that_escapes_project_root() -> void:
+	var project_root: String = TEST_ROOT.path_join("registry_escape_path_project")
+	var registry_path: String = TEST_ROOT.path_join("registry/index.json")
+	var registry: Dictionary = _make_fixture_registry()
+	var packages: Dictionary = GF_VARIANT_ACCESS.get_option_dictionary(registry, "packages")
+	var save_entry: Dictionary = GF_VARIANT_ACCESS.get_option_dictionary(packages, "gf.extension.save")
+	save_entry["paths"] = ["../outside/**"]
+	packages["gf.extension.save"] = save_entry
+	registry["packages"] = packages
+	_write_json(registry_path, registry)
+
+	var status: Dictionary = GF_PACKAGE_MANAGER_BACKEND.make_status(
+		registry_path,
+		ProjectSettings.globalize_path(project_root)
+	)
+	var issues: PackedStringArray = GF_VARIANT_ACCESS.get_option_packed_string_array(status, "issues")
+	var package_index: Dictionary = _package_index(status)
+
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(status, "ok"), "registry package path 越过项目根时必须拒绝整个 registry。")
+	assert_false(package_index.has("gf.extension.save"), "不安全 package entry 不应进入可安装列表。")
+	assert_true(
+		_issues_contain(issues, "unsafe or non-portable registry path"),
+		"registry path 校验应在任何项目扫描或写入前报告越界路径：%s" % [issues]
+	)
+
+
+func test_native_status_preserves_manifest_globs_and_rejects_nonportable_pattern_literals() -> void:
+	var project_root: String = TEST_ROOT.path_join("registry_portable_glob_project")
+	var valid_registry_path: String = TEST_ROOT.path_join("registry_portable_glob/valid.json")
+	var valid_registry: Dictionary = _make_fixture_registry()
+	var valid_packages: Dictionary = GF_VARIANT_ACCESS.get_option_dictionary(valid_registry, "packages")
+	var valid_save_entry: Dictionary = GF_VARIANT_ACCESS.get_option_dictionary(valid_packages, "gf.extension.save")
+	valid_save_entry["paths"] = [
+		"addons/gf/extensions/save/*.gd",
+		"addons/gf/extensions/save/fixture?.gd",
+		"addons/gf/extensions/save/[ab].gd",
+	]
+	valid_packages["gf.extension.save"] = valid_save_entry
+	valid_registry["packages"] = valid_packages
+	_write_json(valid_registry_path, valid_registry)
+
+	var valid_status: Dictionary = GF_PACKAGE_MANAGER_BACKEND.make_status(
+		valid_registry_path,
+		ProjectSettings.globalize_path(project_root)
+	)
+	assert_true(
+		GF_VARIANT_ACCESS.get_option_bool(valid_status, "ok"),
+		"registry manifest path 必须保留单组件 *、? glob，并允许字面 [ 与 ]。"
+	)
+	assert_true(
+		_package_index(valid_status).has("gf.extension.save"),
+		"合法 glob pattern 的 package 应进入 registry 状态。"
+	)
+
+	var invalid_registry_path: String = TEST_ROOT.path_join("registry_portable_glob/invalid.json")
+	var invalid_registry: Dictionary = _make_fixture_registry()
+	var invalid_packages: Dictionary = GF_VARIANT_ACCESS.get_option_dictionary(invalid_registry, "packages")
+	var invalid_save_entry: Dictionary = GF_VARIANT_ACCESS.get_option_dictionary(invalid_packages, "gf.extension.save")
+	invalid_save_entry["paths"] = [
+		"addons/gf/extensions/save/bad|name/**",
+		"addons/gf/extensions/save/COM³/**",
+		"addons/gf/extensions/**/save",
+		"addons/gf/extensions/save/prefix**",
+	]
+	invalid_packages["gf.extension.save"] = invalid_save_entry
+	invalid_registry["packages"] = invalid_packages
+	_write_json(invalid_registry_path, invalid_registry)
+
+	var invalid_status: Dictionary = GF_PACKAGE_MANAGER_BACKEND.make_status(
+		invalid_registry_path,
+		ProjectSettings.globalize_path(project_root)
+	)
+	var invalid_issues: PackedStringArray = GF_VARIANT_ACCESS.get_option_packed_string_array(invalid_status, "issues")
+	assert_false(
+		GF_VARIANT_ACCESS.get_option_bool(invalid_status, "ok"),
+		"manifest glob 只能放宽 glob 字符，其他 Windows 非法字符和设备名仍必须拒绝。"
+	)
+	assert_false(
+		_package_index(invalid_status).has("gf.extension.save"),
+		"非可移植 registry pattern 不得进入可安装列表。"
+	)
+	assert_true(
+		_issues_contain(invalid_issues, "unsafe or non-portable registry path"),
+		"非可移植 registry pattern 应在加载期报告：%s" % [invalid_issues]
+	)
+
+
 func test_native_update_all_installed_updates_changed_package_without_manual_pinning_dependency() -> void:
 	var project_root: String = TEST_ROOT.path_join("update_all_project")
 	var registry_path: String = TEST_ROOT.path_join("registry/index.json")
@@ -516,6 +826,32 @@ func test_native_update_all_installed_ignores_lockfile_key_order_only_changes() 
 	assert_true(GF_VARIANT_ACCESS.get_option_bool(result, "ok"), "无 payload 变化的 update-all 应成功。")
 	assert_false(GF_VARIANT_ACCESS.get_option_bool(result, "lockfile_written"), "仅 key 顺序不同不应触发 lockfile 写入。")
 	assert_eq(after_text, before_text, "仅 key 顺序不同的 lockfile 应保持原文本。")
+
+
+func test_native_update_plan_treats_manifest_paths_as_payload_identity() -> void:
+	var registry: Dictionary = _make_fixture_registry()
+	_write_fixture_archives(registry)
+	var lockfile: Dictionary = _make_planned_lockfile(
+		registry,
+		PackedStringArray(["gf.extension.save"])
+	)
+	var packages: Dictionary = GF_VARIANT_ACCESS.get_option_dictionary(registry, "packages")
+	var save_entry: Dictionary = GF_VARIANT_ACCESS.get_option_dictionary(packages, "gf.extension.save")
+	save_entry["paths"] = ["addons/gf/extensions/**"]
+	packages["gf.extension.save"] = save_entry
+
+	var plan: Dictionary = GF_PACKAGE_MANAGER_BACKEND.make_update_plan(
+		packages,
+		lockfile,
+		PackedStringArray(["gf.extension.save"])
+	)
+	var to_update: PackedStringArray = GF_VARIANT_ACCESS.get_option_packed_string_array(plan, "to_update")
+
+	assert_true(GF_VARIANT_ACCESS.get_option_bool(plan, "ok"), "合法 registry paths 变化应生成更新计划。")
+	assert_true(
+		to_update.has("gf.extension.save"),
+		"即使 version/sha256 未变，payload-affecting paths 变化也必须进入 to_update。"
+	)
 
 
 func test_native_update_removes_obsolete_package_files_when_old_hash_matches() -> void:
@@ -1004,6 +1340,63 @@ func test_default_registry_source_honors_environment_override() -> void:
 	assert_eq(registry_source_url, override_url, "显式 registry source 覆盖必须优先于版本解析。")
 
 
+func test_http_redirect_policy_allows_only_explicit_https_asset_hosts() -> void:
+	var parse_issues: PackedStringArray = PackedStringArray()
+	var github_source: Dictionary = GF_PACKAGE_MANAGER_BACKEND._parse_http_url(
+		"https://github.com/C76GN/gf-framework/releases/latest/download/gf-registry-source.json",
+		parse_issues
+	)
+	var allowed_issues: PackedStringArray = PackedStringArray()
+	var allowed_url: String = GF_PACKAGE_MANAGER_BACKEND._filter_http_redirect_url(
+		"https://release-assets.githubusercontent.com/github-production-release-asset/example",
+		github_source,
+		allowed_issues
+	)
+	var arbitrary_issues: PackedStringArray = PackedStringArray()
+	var arbitrary_url: String = GF_PACKAGE_MANAGER_BACKEND._filter_http_redirect_url(
+		"https://example.invalid/asset.zip",
+		github_source,
+		arbitrary_issues
+	)
+	var downgrade_issues: PackedStringArray = PackedStringArray()
+	var downgrade_url: String = GF_PACKAGE_MANAGER_BACKEND._filter_http_redirect_url(
+		"http://release-assets.githubusercontent.com/asset.zip",
+		github_source,
+		downgrade_issues
+	)
+	var credential_issues: PackedStringArray = PackedStringArray()
+	var credential_url: String = GF_PACKAGE_MANAGER_BACKEND._filter_http_redirect_url(
+		"https://user:password@release-assets.githubusercontent.com/asset.zip",
+		github_source,
+		credential_issues
+	)
+	var http_parse_issues: PackedStringArray = PackedStringArray()
+	var http_source: Dictionary = GF_PACKAGE_MANAGER_BACKEND._parse_http_url(
+		"http://packages.example.test/registry.json",
+		http_parse_issues
+	)
+	var relative_http_issues: PackedStringArray = PackedStringArray()
+	var relative_http_url: String = GF_PACKAGE_MANAGER_BACKEND._resolve_http_redirect_url(
+		"/redirected-registry.json",
+		"http://packages.example.test/registry.json",
+		http_source,
+		relative_http_issues
+	)
+
+	assert_true(parse_issues.is_empty(), "默认 GitHub registry source URL 应可解析。")
+	assert_false(allowed_url.is_empty(), "GitHub release 应允许重定向到明确列出的 HTTPS asset host。")
+	assert_true(allowed_issues.is_empty(), "允许的 asset host 不应产生 redirect issue。")
+	assert_true(arbitrary_url.is_empty(), "任意跨 host redirect 必须拒绝。")
+	assert_true(_issues_contain(arbitrary_issues, "not allowed by the asset-host policy"), "任意 host 拒绝应说明 asset-host policy。")
+	assert_true(downgrade_url.is_empty(), "HTTPS redirect 不能降级到 HTTP。")
+	assert_true(_issues_contain(downgrade_issues, "only allowed over HTTPS"), "协议降级拒绝应说明 HTTPS-only。")
+	assert_true(credential_url.is_empty(), "redirect URL 不能携带凭据。")
+	assert_true(_issues_contain(credential_issues, "credentials are not allowed"), "凭据拒绝应提供明确诊断。")
+	assert_true(http_parse_issues.is_empty(), "HTTP source URL 应能解析后交由 redirect policy 拒绝。")
+	assert_true(relative_http_url.is_empty(), "相对 redirect 也必须遵循 HTTPS-only 策略。")
+	assert_true(_issues_contain(relative_http_issues, "only allowed over HTTPS"), "相对 HTTP redirect 应提供 HTTPS-only 诊断。")
+
+
 func test_native_install_rejects_incompatible_registry_without_mutating_project() -> void:
 	var project_root: String = TEST_ROOT.path_join("old_framework_install_project")
 	var registry_path: String = TEST_ROOT.path_join("registry/index.json")
@@ -1149,6 +1542,67 @@ func test_native_install_archive_path_audit_failure_does_not_mutate_project() ->
 	assert_false(_file_exists(project_root.path_join("outside.txt")), "路径审计失败不能写越界文件。")
 
 
+func test_native_install_rejects_empty_runtime_package_archive_before_transaction() -> void:
+	var project_root: String = TEST_ROOT.path_join("empty_runtime_archive_project")
+	var registry_path: String = TEST_ROOT.path_join("registry/index.json")
+	var registry: Dictionary = _make_fixture_registry()
+	_write_fixture_archives(registry)
+	_write_package_archive(registry, "gf.extension.save", {})
+	_write_json(registry_path, registry)
+
+	var result: Dictionary = GF_PACKAGE_MANAGER_BACKEND.install_packages(
+		PackedStringArray(["gf.extension.save"]),
+		registry_path,
+		ProjectSettings.globalize_path(project_root)
+	)
+	var issues: PackedStringArray = GF_VARIANT_ACCESS.get_option_packed_string_array(result, "issues")
+
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(result, "ok"), "非 preset runtime 包的空 archive 必须拒绝。")
+	assert_true(
+		_issues_contain(issues, "runtime archive must contain at least one valid payload file"),
+		"空 runtime archive 应在 lockfile/transaction 前报告缺失 payload：%s" % [issues]
+	)
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(result, "rolled_back"), "空 archive 在事务前失败，不应声称回滚。")
+	assert_false(_file_exists(project_root.path_join(".gf/packages.lock.json")), "空 archive 不能写 lockfile。")
+	assert_false(_file_exists(project_root.path_join("addons/gf/kernel/core/gf_core_fixture.gd")), "空 archive 失败不能写依赖 payload。")
+
+
+func test_native_install_enforces_actual_cumulative_staging_byte_budget() -> void:
+	var project_root: String = TEST_ROOT.path_join("actual_staging_budget_project")
+	var registry_path: String = TEST_ROOT.path_join("registry/index.json")
+	var registry: Dictionary = _make_fixture_registry()
+	_write_fixture_archives(registry)
+	_write_package_archive(
+		registry,
+		"gf.kernel",
+		{
+			"addons/gf/kernel/core/payload-a.txt": _repeat_text("a", 16),
+			"addons/gf/kernel/core/payload-b.txt": _repeat_text("b", 16),
+		}
+	)
+	_write_json(registry_path, registry)
+
+	var result: Dictionary = GF_PACKAGE_MANAGER_BACKEND.install_packages(
+		PackedStringArray(["gf.kernel"]),
+		registry_path,
+		ProjectSettings.globalize_path(project_root),
+		".gf/packages.lock.json",
+		"manual",
+		false,
+		{ "max_staging_total_uncompressed_bytes": 20 }
+	)
+	var issues: PackedStringArray = GF_VARIANT_ACCESS.get_option_packed_string_array(result, "issues")
+
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(result, "ok"), "实际解压累计字节超过 staging 预算时必须失败。")
+	assert_true(
+		_issues_contain(issues, "actual staged payload size exceeds limit"),
+		"staging 必须按 read_file 的实际字节累计，而不是只信任 central directory：%s" % [issues]
+	)
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(result, "rolled_back"), "staging 预算失败没有启动事务，不应声称回滚。")
+	assert_false(_file_exists(project_root.path_join(".gf/packages.lock.json")), "staging 预算失败不能写 lockfile。")
+	assert_false(_file_exists(project_root.path_join("addons/gf/kernel/core/payload-a.txt")), "staging 预算失败不能写项目 payload。")
+
+
 func test_native_install_rejects_archive_entry_with_leading_slash() -> void:
 	var project_root: String = TEST_ROOT.path_join("leading_slash_archive_project")
 	var registry_path: String = TEST_ROOT.path_join("registry/index.json")
@@ -1179,6 +1633,209 @@ func test_native_install_rejects_archive_entry_with_leading_slash() -> void:
 	)
 	assert_false(_file_exists(project_root.path_join(".gf/packages.lock.json")), "绝对路径审计失败不能写 lockfile。")
 	assert_false(_file_exists(project_root.path_join("addons/gf/extensions/save/gf_save_fixture.gd")), "绝对路径审计失败不能写项目文件。")
+
+
+func test_native_install_rejects_windows_reserved_device_name_in_archive() -> void:
+	var project_root: String = TEST_ROOT.path_join("archive_reserved_device_project")
+	var registry_path: String = TEST_ROOT.path_join("registry/index.json")
+	var registry: Dictionary = _make_fixture_registry()
+	_write_fixture_archives(registry)
+	_write_package_archive(
+		registry,
+		"gf.kernel",
+		{
+			"addons/gf/kernel/core/NUL.txt": "reserved device payload",
+		}
+	)
+	_write_json(registry_path, registry)
+
+	var result: Dictionary = GF_PACKAGE_MANAGER_BACKEND.install_packages(
+		PackedStringArray(["gf.kernel"]),
+		registry_path,
+		ProjectSettings.globalize_path(project_root)
+	)
+	var issues: PackedStringArray = GF_VARIANT_ACCESS.get_option_packed_string_array(result, "issues")
+
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(result, "ok"), "archive 中带扩展名的 Windows 设备名必须拒绝。")
+	assert_true(_issues_contain(issues, "unsafe archive entry path"), "archive audit 应由 portable path policy 拒绝 NUL.txt。")
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(result, "rolled_back"), "archive audit 在事务前失败，不应声称回滚。")
+	assert_false(_file_exists(project_root.path_join(".gf/packages.lock.json")), "设备名 archive 不能写 lockfile。")
+
+
+func test_native_install_rejects_windows_invalid_characters_and_superscript_devices_in_archive() -> void:
+	var project_root: String = TEST_ROOT.path_join("archive_nonportable_literal_project")
+	var registry_path: String = TEST_ROOT.path_join("registry/index.json")
+	var registry: Dictionary = _make_fixture_registry()
+	_write_fixture_archives(registry)
+	_write_package_archive(
+		registry,
+		"gf.kernel",
+		{
+			"addons/gf/kernel/core/bad?.gd": "invalid Windows character",
+			"addons/gf/kernel/core/COM¹.gd": "superscript device payload",
+		}
+	)
+	_write_json(registry_path, registry)
+
+	var result: Dictionary = GF_PACKAGE_MANAGER_BACKEND.install_packages(
+		PackedStringArray(["gf.kernel"]),
+		registry_path,
+		ProjectSettings.globalize_path(project_root)
+	)
+	var issues: PackedStringArray = GF_VARIANT_ACCESS.get_option_packed_string_array(result, "issues")
+
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(result, "ok"), "archive 的字面 entry 不得包含 Windows 非法字符或上标设备名。")
+	assert_true(_issues_contain(issues, "unsafe archive entry path"), "archive audit 应按 strict literal policy 拒绝 entry。")
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(result, "rolled_back"), "archive audit 在事务前失败，不应声称回滚。")
+	assert_false(_file_exists(project_root.path_join(".gf/packages.lock.json")), "非可移植 archive 不能写 lockfile。")
+
+
+func test_native_install_matches_manifest_component_globs_and_literal_brackets() -> void:
+	var scenarios: Array[Dictionary] = [
+		{
+			"name": "star",
+			"pattern": "addons/gf/kernel/*.gd",
+			"entry": "addons/gf/kernel/star_fixture.gd",
+		},
+		{
+			"name": "question",
+			"pattern": "addons/gf/kernel/fixture?.gd",
+			"entry": "addons/gf/kernel/fixture1.gd",
+		},
+		{
+			"name": "literal_brackets",
+			"pattern": "addons/gf/kernel/[ab].gd",
+			"entry": "addons/gf/kernel/[ab].gd",
+		},
+	]
+	for scenario: Dictionary in scenarios:
+		var scenario_name: String = GF_VARIANT_ACCESS.get_option_string(scenario, "name")
+		var project_root: String = TEST_ROOT.path_join("manifest_component_glob_project").path_join(scenario_name)
+		var registry_path: String = TEST_ROOT.path_join("registry/index.json")
+		var registry: Dictionary = _make_fixture_registry()
+		var packages: Dictionary = GF_VARIANT_ACCESS.get_option_dictionary(registry, "packages")
+		var kernel_entry: Dictionary = GF_VARIANT_ACCESS.get_option_dictionary(packages, "gf.kernel")
+		kernel_entry["paths"] = [GF_VARIANT_ACCESS.get_option_string(scenario, "pattern")]
+		packages["gf.kernel"] = kernel_entry
+		registry["packages"] = packages
+		_write_fixture_archives(registry)
+		var archive_entry: String = GF_VARIANT_ACCESS.get_option_string(scenario, "entry")
+		var archive_files: Dictionary = {}
+		archive_files[archive_entry] = "extends RefCounted\n"
+		_write_package_archive(registry, "gf.kernel", archive_files)
+		_write_json(registry_path, registry)
+
+		var result: Dictionary = GF_PACKAGE_MANAGER_BACKEND.install_packages(
+			PackedStringArray(["gf.kernel"]),
+			registry_path,
+			ProjectSettings.globalize_path(project_root)
+		)
+
+		assert_true(
+			GF_VARIANT_ACCESS.get_option_bool(result, "ok"),
+			"manifest 单组件 glob 应匹配同一 segment 内的字面 archive entry：%s" % scenario_name
+		)
+		assert_true(
+			_file_exists(project_root.path_join(archive_entry)),
+			"合法单组件 glob 安装应写入匹配文件：%s" % archive_entry
+		)
+
+
+func test_native_install_matches_root_and_prefixed_recursive_globs() -> void:
+	var scenarios: Array[Dictionary] = [
+		{
+			"name": "root_recursive",
+			"pattern": "**",
+			"entry": "addons/gf/kernel/core/deep/root_recursive_fixture.gd",
+		},
+		{
+			"name": "glob_prefix_recursive",
+			"pattern": "addons/g*/kernel*/**",
+			"entry": "addons/gf/kernel/core/deep/prefix_recursive_fixture.gd",
+		},
+	]
+	for scenario: Dictionary in scenarios:
+		var scenario_name: String = GF_VARIANT_ACCESS.get_option_string(scenario, "name")
+		var project_root: String = TEST_ROOT.path_join("manifest_recursive_glob_project").path_join(scenario_name)
+		var registry_path: String = TEST_ROOT.path_join("registry/index.json")
+		var registry: Dictionary = _make_fixture_registry()
+		var packages: Dictionary = GF_VARIANT_ACCESS.get_option_dictionary(registry, "packages")
+		var kernel_entry: Dictionary = GF_VARIANT_ACCESS.get_option_dictionary(packages, "gf.kernel")
+		kernel_entry["paths"] = [GF_VARIANT_ACCESS.get_option_string(scenario, "pattern")]
+		packages["gf.kernel"] = kernel_entry
+		registry["packages"] = packages
+		_write_fixture_archives(registry)
+		var archive_entry: String = GF_VARIANT_ACCESS.get_option_string(scenario, "entry")
+		var archive_files: Dictionary = {}
+		archive_files[archive_entry] = "extends RefCounted\n"
+		_write_package_archive(registry, "gf.kernel", archive_files)
+		_write_json(registry_path, registry)
+
+		var result: Dictionary = GF_PACKAGE_MANAGER_BACKEND.install_packages(
+			PackedStringArray(["gf.kernel"]),
+			registry_path,
+			ProjectSettings.globalize_path(project_root)
+		)
+
+		assert_true(
+			GF_VARIANT_ACCESS.get_option_bool(result, "ok"),
+			"末尾完整 ** 应递归匹配任意剩余深度：%s" % scenario_name
+		)
+		assert_true(
+			_file_exists(project_root.path_join(archive_entry)),
+			"递归 glob 安装应写入匹配文件：%s" % archive_entry
+		)
+
+
+func test_native_install_does_not_allow_manifest_star_or_question_to_cross_separator() -> void:
+	var scenarios: Array[Dictionary] = [
+		{
+			"name": "star",
+			"pattern": "addons/gf/kernel/*",
+			"entry": "addons/gf/kernel/core/star_fixture.gd",
+		},
+		{
+			"name": "question",
+			"pattern": "addons/gf/kernel/core?fixture.gd",
+			"entry": "addons/gf/kernel/core/fixture.gd",
+		},
+	]
+	for scenario: Dictionary in scenarios:
+		var scenario_name: String = GF_VARIANT_ACCESS.get_option_string(scenario, "name")
+		var project_root: String = TEST_ROOT.path_join("manifest_separator_boundary_project").path_join(scenario_name)
+		var registry_path: String = TEST_ROOT.path_join("registry/index.json")
+		var registry: Dictionary = _make_fixture_registry()
+		var packages: Dictionary = GF_VARIANT_ACCESS.get_option_dictionary(registry, "packages")
+		var kernel_entry: Dictionary = GF_VARIANT_ACCESS.get_option_dictionary(packages, "gf.kernel")
+		kernel_entry["paths"] = [GF_VARIANT_ACCESS.get_option_string(scenario, "pattern")]
+		packages["gf.kernel"] = kernel_entry
+		registry["packages"] = packages
+		_write_fixture_archives(registry)
+		var archive_entry: String = GF_VARIANT_ACCESS.get_option_string(scenario, "entry")
+		var archive_files: Dictionary = {}
+		archive_files[archive_entry] = "extends RefCounted\n"
+		_write_package_archive(registry, "gf.kernel", archive_files)
+		_write_json(registry_path, registry)
+
+		var result: Dictionary = GF_PACKAGE_MANAGER_BACKEND.install_packages(
+			PackedStringArray(["gf.kernel"]),
+			registry_path,
+			ProjectSettings.globalize_path(project_root)
+		)
+		var issues: PackedStringArray = GF_VARIANT_ACCESS.get_option_packed_string_array(result, "issues")
+
+		assert_false(
+			GF_VARIANT_ACCESS.get_option_bool(result, "ok"),
+			"manifest 单组件 glob 不能跨越路径分隔符：%s" % scenario_name
+		)
+		assert_true(
+			_issues_contain(issues, "archive entry is not covered by registry paths"),
+			"越过 segment 的 archive entry 必须报告 ownership 不匹配：%s" % [issues]
+		)
+		assert_false(
+			_file_exists(project_root.path_join(".gf/packages.lock.json")),
+			"glob segment 越界必须在 transaction 前阻断。"
+		)
 
 
 func test_native_install_external_tool_payload_failure_does_not_mutate_project() -> void:
@@ -1668,6 +2325,112 @@ func test_native_status_rejects_offline_bundle_entry_path_over_limits() -> void:
 			"Offline bundle entry path is too long"
 		),
 		"超长 bundle entry path 应进入 issues。"
+	)
+
+
+func test_native_status_rejects_portable_aliases_in_offline_bundle() -> void:
+	var project_root: String = TEST_ROOT.path_join("offline_bundle_portable_alias_project")
+	var bundle_path: String = TEST_ROOT.path_join("bundle_alias/gf-package-offline-bundle.zip")
+	_write_zip_entries(bundle_path, {
+		"registry/index.json": "{}",
+		"REGISTRY/index.json": "{}",
+	})
+
+	var status: Dictionary = GF_PACKAGE_MANAGER_BACKEND.make_status(
+		bundle_path,
+		ProjectSettings.globalize_path(project_root)
+	)
+	var issues: PackedStringArray = GF_VARIANT_ACCESS.get_option_packed_string_array(status, "issues")
+
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(status, "ok"), "offline bundle 中的大小写 portable alias 必须拒绝。")
+	assert_eq(GF_VARIANT_ACCESS.get_option_int(status, "package_count"), 0, "bundle alias 校验失败时不应继续列包。")
+	assert_true(
+		_issues_contain(issues, "duplicate portable entry path"),
+		"bundle 审计应使用与 archive/transaction 相同的 portable identity。"
+	)
+
+
+func test_native_status_counts_actual_offline_bundle_bytes_and_cleans_partial_extraction() -> void:
+	var project_root: String = TEST_ROOT.path_join("offline_bundle_actual_budget_project")
+	var bundle_path: String = TEST_ROOT.path_join("bundle_actual_budget/gf-package-offline-bundle.zip")
+	_write_zip_entries(bundle_path, {
+		"packages/gf.kernel.zip": _repeat_text("a", 16),
+		"registry/index.json": _repeat_text("b", 16),
+	})
+
+	var status: Dictionary = GF_PACKAGE_MANAGER_BACKEND.make_status(
+		bundle_path,
+		ProjectSettings.globalize_path(project_root),
+		".gf/packages.lock.json",
+		{ "max_offline_bundle_actual_uncompressed_bytes": 20 }
+	)
+	var issues: PackedStringArray = GF_VARIANT_ACCESS.get_option_packed_string_array(status, "issues")
+	var extracted_root: String = GF_VARIANT_ACCESS.get_option_string(
+		status,
+		"registry_offline_bundle_extracted"
+	)
+
+	assert_false(
+		GF_VARIANT_ACCESS.get_option_bool(status, "ok"),
+		"central-directory 预检通过后，实际跨 entry 累计字节仍必须受硬上限约束。"
+	)
+	assert_true(
+		_issues_contain(issues, "actual extracted payload size exceeds limit"),
+		"离线包应报告实际解压累计字节超限：%s" % [issues]
+	)
+	assert_false(extracted_root.is_empty(), "失败结果应保留可诊断的受管 extraction root。")
+	assert_false(
+		_directory_exists(extracted_root),
+		"实际字节超限必须删除先前已写入的离线包 entry，不能留下 partial cache。"
+	)
+	assert_false(
+		_file_exists(project_root.path_join(".gf/packages.lock.json")),
+		"离线包预处理失败不能写入项目 lockfile。"
+	)
+
+
+func test_native_status_rejects_windows_reserved_device_name_in_offline_bundle() -> void:
+	var project_root: String = TEST_ROOT.path_join("offline_bundle_reserved_device_project")
+	var bundle_path: String = TEST_ROOT.path_join("bundle_reserved/gf-package-offline-bundle.zip")
+	_write_zip_entries(bundle_path, {
+		"registry/index.json": "{}",
+		"packages/LPT9.payload.zip": "not a real package archive",
+	})
+
+	var status: Dictionary = GF_PACKAGE_MANAGER_BACKEND.make_status(
+		bundle_path,
+		ProjectSettings.globalize_path(project_root)
+	)
+	var issues: PackedStringArray = GF_VARIANT_ACCESS.get_option_packed_string_array(status, "issues")
+
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(status, "ok"), "offline bundle 中带扩展名的 Windows 设备名必须拒绝。")
+	assert_eq(GF_VARIANT_ACCESS.get_option_int(status, "package_count"), 0, "设备名 bundle 校验失败时不应继续列包。")
+	assert_true(
+		_issues_contain(issues, "unsafe entry path"),
+		"offline bundle audit 应由共享 portable path policy 拒绝 LPT9.payload.zip。"
+	)
+
+
+func test_native_status_rejects_windows_invalid_characters_and_superscript_devices_in_offline_bundle() -> void:
+	var project_root: String = TEST_ROOT.path_join("offline_bundle_nonportable_literal_project")
+	var bundle_path: String = TEST_ROOT.path_join("bundle_nonportable/gf-package-offline-bundle.zip")
+	_write_zip_entries(bundle_path, {
+		"registry/index.json": "{}",
+		"packages/bad?.payload.zip": "invalid Windows character",
+		"packages/COM².payload.zip": "superscript device payload",
+	})
+
+	var status: Dictionary = GF_PACKAGE_MANAGER_BACKEND.make_status(
+		bundle_path,
+		ProjectSettings.globalize_path(project_root)
+	)
+	var issues: PackedStringArray = GF_VARIANT_ACCESS.get_option_packed_string_array(status, "issues")
+
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(status, "ok"), "offline bundle 的字面 entry 不得包含 Windows 非法字符或上标设备名。")
+	assert_eq(GF_VARIANT_ACCESS.get_option_int(status, "package_count"), 0, "非可移植 bundle 校验失败时不应继续列包。")
+	assert_true(
+		_issues_contain(issues, "unsafe entry path"),
+		"offline bundle audit 应按 strict literal policy 拒绝 entry。"
 	)
 
 

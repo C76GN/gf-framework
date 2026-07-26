@@ -1608,8 +1608,8 @@ func test_project_installer_non_string_path_fails_initialization() -> void:
 	assert_push_error(expected_error)
 
 
-## 验证 set_architecture 运行项目 Installer 时，Gf facade 会写入正在安装的新架构。
-func test_set_architecture_project_installer_facade_registers_into_new_architecture() -> void:
+## 验证项目 Installer 只使用显式架构，Gf facade 在提交前仍指向旧架构。
+func test_set_architecture_project_installer_uses_explicit_architecture() -> void:
 	var previous_installers: Variant = ProjectSettings.get_setting(INSTALLERS_SETTING, [])
 	ProjectSettings.set_setting(INSTALLERS_SETTING, [])
 
@@ -1629,8 +1629,12 @@ func test_set_architecture_project_installer_facade_registers_into_new_architect
 	ProjectSettings.set_setting(INSTALLERS_SETTING, previous_installers)
 
 	assert_same(Gf.get_architecture(), new_arch, "set_architecture 成功后全局架构应切换到新架构。")
-	assert_not_null(installed_utility, "Installer 中通过 Gf.register_utility 注册的 Utility 应进入新架构。")
-	assert_true(installed_utility != null and installed_utility.ready_called, "facade 注册的 Utility 应参与新架构生命周期。")
+	assert_true(
+		GFVariantData.to_bool(ProjectSettings.get_setting("gf/test/facade_installer_observed_committed_architecture", false)),
+		"Installer 执行期间 Gf facade 应继续暴露已提交的旧架构。"
+	)
+	assert_not_null(installed_utility, "Installer 应通过显式 architecture 参数向新架构注册 Utility。")
+	assert_true(installed_utility != null and installed_utility.ready_called, "显式注册的 Utility 应参与新架构生命周期。")
 
 
 ## 验证项目 Installer 的异步 install_bindings 会在架构 init 前完成。
@@ -2133,8 +2137,8 @@ func test_controller_wait_for_context_ready_returns_null_when_context_failed() -
 	var context: InheritedContext = InheritedContext.new()
 	var controller: ScopedController = ScopedController.new()
 	context.add_child(controller)
-	add_child(context)
 	watch_signals(context)
+	add_child(context)
 
 	var architecture: GFArchitecture = await controller.wait_for_context_ready()
 
@@ -3153,7 +3157,7 @@ func test_set_architecture_keeps_previous_architecture_when_new_init_fails() -> 
 	assert_false(failing_set, "新架构初始化失败时 set_architecture() 应返回 false。")
 	assert_eq(Gf.get_architecture(), old_arch, "新架构初始化失败时全局架构应仍指向旧架构。")
 	assert_true(old_arch.is_inited(), "旧架构不应被提前 dispose。")
-	assert_true(failing_arch.has_initialization_failed(), "失败的新架构应保留失败状态。")
+	assert_true(failing_arch.is_disposed(), "初始化失败且未提交的新架构应完成终态释放。")
 	assert_push_error_count(1, "失败的新架构初始化应输出错误。")
 
 	old_arch.dispose()
@@ -3370,7 +3374,7 @@ func test_disposed_architecture_rejects_reuse_and_late_registration() -> void:
 	assert_null(created, "dispose 后 create_instance 应返回 null。")
 	assert_true(command_result == null, "dispose 后 send_command 应返回 null。")
 	assert_push_error("[GFArchitecture] register_utility 失败：架构已 dispose，不能继续修改注册表。")
-	assert_push_error("[GFArchitecture] init 失败：架构已 dispose，不能重新初始化。")
+	assert_push_error("[GFArchitecture] init 失败：架构正在或已经 dispose，不能重新初始化。")
 	assert_push_error("[GFArchitecture] create_instance 失败：架构已 dispose。")
 	assert_push_error("[GFArchitecture] send_command 失败：架构已 dispose，不能继续执行。")
 	assert_push_error("[GFArchitecture] send_event 失败：架构已 dispose，不能继续执行。")
@@ -3386,7 +3390,7 @@ func test_facade_returns_null_when_architecture_missing() -> void:
 
 	var model: Variant = Gf.get_model(DummyModel)
 
-	assert_push_error("[GF] get_model 失败：架构尚未初始化，请先注册架构。")
+	assert_push_error("[GF] get_model 失败：架构尚未初始化或正在释放，请先注册可用架构。")
 	assert_true(model == null, "架构缺失时 get_model 应安全返回 null。")
 
 

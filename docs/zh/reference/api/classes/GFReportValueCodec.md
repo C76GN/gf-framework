@@ -92,7 +92,7 @@ const REDACTION_PROFILE_PRIVACY: String = "privacy"
 static func make_redaction_options(profile: String, overrides: Dictionary = {}) -> Dictionary:
 ```
 
-根据内置脱敏 profile 构建报告编码选项。
+根据内置脱敏 profile 构建报告编码选项。 未知 profile 会 fail-closed 到 REDACTION_PROFILE_PRIVACY，且忽略 overrides， 防止拼写错误扩大报告暴露面。
 
 参数：
 
@@ -101,11 +101,11 @@ static func make_redaction_options(profile: String, overrides: Dictionary = {}) 
 | `profile` | REDACTION_PROFILE_* 常量之一。 |
 | `overrides` | 覆盖默认 profile 的选项。 |
 
-返回：编码选项字典。
+返回：编码选项字典；redaction_profile 始终是实际生效的规范 profile。
 
 结构：
 
-- `overrides`: Dictionary，可覆盖 redaction_profile、path_redaction、include_node_name、include_node_path、include_object_instance_id、include_resource_path、max_depth、max_string_length、max_collection_items、max_packed_length、max_total_nodes 和 max_total_bytes。
+- `overrides`: Dictionary，可覆盖 path_redaction、include_node_name、include_node_path、include_object_instance_id、include_resource_path、max_depth、max_string_length、max_collection_items、max_packed_length、max_total_nodes 和 max_total_bytes；不能改写 profile 身份。
 - `return`: Dictionary，可直接传给 GFReportValueCodec 的编码选项。
 
 <a id="member-gfreportvaluecodec-methods-to_json_compatible"></a>
@@ -126,14 +126,14 @@ static func to_json_compatible(value: Variant, options: Dictionary = {}) -> Vari
 | 名称 | 说明 |
 |---|---|
 | `value` | 待转换的报告值。 |
-| `options` | 可选项；支持 redaction_profile、circular_reference、include_resource_path、include_node_name、include_node_path、include_object_instance_id、max_depth、max_string_length、max_collection_items、max_packed_length、max_total_nodes、max_total_bytes 和 path_redaction；路径默认脱敏，所有非负预算均为遍历工作量与输出硬上限。 |
+| `options` | 可选项；支持 redaction_profile、include_resource_path、include_node_name、include_node_path、include_object_instance_id、max_depth、max_string_length、max_collection_items、max_packed_length、max_total_nodes、max_total_bytes 和 path_redaction；路径默认脱敏，所有非负预算均为遍历工作量与输出硬上限。循环引用始终使用固定受限 marker，不接受自定义 replacement。 |
 
 返回：JSON 兼容值；不支持的运行时类型会写入脱敏 marker。
 
 结构：
 
 - `value`: Variant report value to encode.
-- `options`: Dictionary with redaction_profile, circular_reference, include_resource_path, include_node_name, include_node_path, include_object_instance_id, max_depth, max_string_length, max_collection_items, max_packed_length, max_total_nodes, max_total_bytes, path_redaction, and encode_dictionary_keys options; path_redaction defaults to redacted and non-negative budgets stop traversal immediately when exhausted.
+- `options`: Dictionary with redaction_profile, include_resource_path, include_node_name, include_node_path, include_object_instance_id, max_depth, max_string_length, max_collection_items, max_packed_length, max_total_nodes, max_total_bytes, path_redaction, and encode_dictionary_keys options; path_redaction defaults to redacted and non-negative budgets stop traversal immediately when exhausted.
 - `return`: Variant made only from JSON-compatible values, GF variant markers, and GF report redaction markers.
 
 <a id="member-gfreportvaluecodec-methods-to_report_dictionary"></a>
@@ -161,7 +161,7 @@ static func to_report_dictionary(value: Variant, options: Dictionary = {}) -> Di
 结构：
 
 - `value`: Variant report value to encode before narrowing to Dictionary.
-- `options`: Dictionary with redaction_profile, circular_reference, include_resource_path, include_node_name, include_node_path, include_object_instance_id, max_depth, max_string_length, max_collection_items, max_packed_length, max_total_nodes, max_total_bytes, path_redaction, and encode_dictionary_keys options.
+- `options`: Dictionary with redaction_profile, include_resource_path, include_node_name, include_node_path, include_object_instance_id, max_depth, max_string_length, max_collection_items, max_packed_length, max_total_nodes, max_total_bytes, path_redaction, and encode_dictionary_keys options.
 - `return`: Dictionary made only from JSON-compatible values, GF variant markers, and GF report redaction markers.
 
 <a id="member-gfreportvaluecodec-methods-stringify_json_compatible"></a>
@@ -191,7 +191,7 @@ static func stringify_json_compatible( value: Variant, indent: String = "", sort
 结构：
 
 - `value`: Variant report value to encode before JSON.stringify().
-- `options`: Dictionary with redaction_profile, circular_reference, include_resource_path, include_node_name, include_node_path, include_object_instance_id, max_depth, max_string_length, max_collection_items, max_packed_length, max_total_nodes, max_total_bytes, path_redaction, and encode_dictionary_keys options.
+- `options`: Dictionary with redaction_profile, include_resource_path, include_node_name, include_node_path, include_object_instance_id, max_depth, max_string_length, max_collection_items, max_packed_length, max_total_nodes, max_total_bytes, path_redaction, and encode_dictionary_keys options.
 
 <a id="member-gfreportvaluecodec-methods-make_collection_summary"></a>
 
@@ -204,7 +204,7 @@ static func stringify_json_compatible( value: Variant, indent: String = "", sort
 static func make_collection_summary(value: Variant, options: Dictionary = {}) -> Dictionary:
 ```
 
-为报告中的大型集合生成稳定摘要。
+为报告中的大型集合生成稳定摘要。 `encoded_preview_hash` 只指纹化经过预算限制的编码预览，不代表完整集合内容 hash。
 
 参数：
 
@@ -219,4 +219,4 @@ static func make_collection_summary(value: Variant, options: Dictionary = {}) ->
 
 - `value`: Variant collection value to summarize.
 - `options`: Dictionary with sample_count and GFReportValueCodec encoding options.
-- `return`: Dictionary with ok, collection_type, count, sample, truncated, and hash.
+- `return`: Dictionary with ok, collection_type, count, sample, truncated, and encoded_preview_hash.

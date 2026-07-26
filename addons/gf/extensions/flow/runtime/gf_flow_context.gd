@@ -11,6 +11,13 @@ class_name GFFlowContext
 extends RefCounted
 
 
+# --- 常量 ---
+
+const _REPORT_SCHEMA_PROJECTION = preload(
+	"res://addons/gf/kernel/core/gf_report_schema_projection.gd"
+)
+
+
 # --- 公共变量 ---
 
 ## 共享数据表。
@@ -317,14 +324,20 @@ func clear_node_runtime_state(node_id: StringName = &"") -> void:
 func create_runtime_snapshot(options: Dictionary = {}) -> Dictionary:
 	var json_compatible: bool = GFVariantData.get_option_bool(options, "json_compatible", false)
 	var snapshot: Dictionary = {
-		"values": _to_snapshot_value(values, json_compatible),
-		"next_node_ids": next_node_ids.duplicate(),
+		"values": _to_snapshot_dictionary(values, json_compatible),
+		"next_node_ids": _to_snapshot_value(next_node_ids, json_compatible),
 		"has_next_node_override": has_next_node_override,
 		"runtime_state": serialize_runtime_state(json_compatible),
-		"metadata": _to_snapshot_value(GFVariantData.get_option_dictionary(options, "metadata"), json_compatible),
+		"metadata": _to_snapshot_dictionary(
+			GFVariantData.get_option_dictionary(options, "metadata"),
+			json_compatible
+		),
 	}
 	if GFVariantData.get_option_bool(options, "include_condition_handler_ids", true):
-		snapshot["condition_handler_ids"] = _get_condition_handler_ids()
+		snapshot["condition_handler_ids"] = _to_snapshot_value(
+			_get_condition_handler_ids(),
+			json_compatible
+		)
 	return snapshot
 
 
@@ -369,13 +382,16 @@ func restore_runtime_snapshot(snapshot: Dictionary) -> bool:
 ## [br]
 ## @schema return: 包含 nodes 字段的 Dictionary；nodes 按 node_id 保存节点运行态 Dictionary。
 func serialize_runtime_state(json_compatible: bool = false) -> Dictionary:
+	var node_states: Dictionary = {}
+	for node_id: Variant in _node_runtime_states.keys():
+		var runtime_state: Dictionary = GFVariantData.as_dictionary(_node_runtime_states[node_id])
+		var state_key: Variant = node_id
+		if json_compatible:
+			state_key = GFVariantData.to_text(node_id)
+		node_states[state_key] = _to_snapshot_dictionary(runtime_state, json_compatible)
 	var state: Dictionary = {
-		"nodes": _node_runtime_states.duplicate(true),
+		"nodes": node_states,
 	}
-	if json_compatible:
-		return GFReportValueCodec.to_report_dictionary(state, {
-			"path_redaction": "basename",
-		})
 	return state
 
 
@@ -430,6 +446,14 @@ func _get_callable_value(value: Variant) -> Callable:
 	if value is Callable:
 		return value
 	return Callable()
+
+
+func _to_snapshot_dictionary(value: Dictionary, json_compatible: bool) -> Dictionary:
+	if not json_compatible:
+		return value.duplicate(true)
+	return _REPORT_SCHEMA_PROJECTION.to_report_dictionary(value, {
+		"path_redaction": "basename",
+	})
 
 
 func _to_snapshot_value(value: Variant, json_compatible: bool) -> Variant:

@@ -23,7 +23,7 @@ func tick(delta: float) -> void:
 
 `GFSystem` 基类提供空的 `tick()` / `physics_tick()` 模板，但架构不会把未重写模板的 System 自动加入热路径。需要使用基类模板入口时，应显式设置 `tick_enabled = true` 或 `physics_tick_enabled = true`。`GFUtility` 没有基类 tick 模板，需要声明对应方法才会被驱动；显式标记只负责让能力声明和缓存刷新更直接。这些标记在注册前或注册后设置都可以，已注入架构的模块会自动刷新 tick 缓存。
 
-内部调度由 `GFArchitectureTickScheduler` 维护，单条缓存记录由 `GFArchitectureTickRecord` 表示。它们都是框架内部类型，项目通常不需要直接创建；项目只需要继承 `GFSystem` / `GFUtility` 并声明 tick 能力。
+内部调度由 `GFArchitectureTickScheduler` 维护，单条缓存记录由 `GFArchitectureTickRecord` 表示。它们都是框架内部类型，项目通常不需要直接创建；项目只需要继承 `GFSystem` / `GFUtility` 并声明 tick 能力。同一 Scheduler 的 `drive_tick()` / `drive_physics_tick()` 不允许重入：guard 会在查询 `GFTimeProvider` 的缩放、暂停、物理子步策略与步长之前建立，因此时间提供器回调和模块 tick 回调触发的嵌套 drive 都会被拒绝；缓存失效与刷新会留到最外层遍历结束后处理，外层结束后 guard 恢复。
 
 在 `tick()` / `physics_tick()` 这类热路径里，推荐在 `ready()` 或初始化阶段缓存长期依赖的 Model、System、Utility 引用。`get_model()` / `get_system()` / `get_utility()` 适合表达依赖入口，但每帧重复查找没有必要；只有当项目会动态替换某个模块实例时，才需要在替换完成后刷新缓存。
 

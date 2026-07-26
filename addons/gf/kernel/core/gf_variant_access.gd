@@ -5,9 +5,60 @@
 # @layer kernel/core
 extends RefCounted
 
-const _MERGE_DICTIONARY_MAX_DEPTH: int = 64
+const _INT64_MIN_AS_FLOAT: float = -9_223_372_036_854_775_808.0
+const _INT64_MAX_EXCLUSIVE_AS_FLOAT: float = 9_223_372_036_854_775_808.0
+const _JSON_CIRCULAR_MARKER: String = "<circular_reference>"
+const _JSON_DEPTH_BUDGET_MARKER: String = "<max_depth>"
+const _JSON_NODE_BUDGET_MARKER: String = "<max_nodes>"
+const _JSON_COLLECTION_BUDGET_MARKER: String = "<max_collection_items>"
+const _JSON_BYTE_BUDGET_MARKER: String = "<max_bytes>"
+const _JSON_INVALID_DICTIONARY_KEY_MARKER: String = "<invalid_dictionary_key>"
+const _JSON_DICTIONARY_KEY_COLLISION_MARKER: String = "<dictionary_key_collision>"
+const _JSON_DEFAULT_MAX_NODES: int = 16_384
+const _JSON_DEFAULT_MAX_COLLECTION_ITEMS: int = 65_536
+const _JSON_DEFAULT_MAX_BYTES: int = 4 * 1024 * 1024
+const _MERGE_DEFAULT_MAX_DEPTH: int = 64
+const _MERGE_DEFAULT_MAX_NODES: int = 16_384
+const _MERGE_DEFAULT_MAX_COLLECTION_ITEMS: int = 65_536
 
 # --- 公共方法 ---
+
+## 安全比较两个 Variant 值是否等价。
+## [br]
+## @api framework_internal
+## [br]
+## @param left: 左值。
+## [br]
+## @schema left: Variant comparison value.
+## [br]
+## @param right: 右值。
+## [br]
+## @schema right: Variant comparison value.
+## [br]
+## @param options: 比较选项。支持 numeric_epsilon 和 match_string_names。
+## [br]
+## @schema options: Dictionary，可选字段：numeric_epsilon 只作用于 float/float，默认 0；match_string_names 为 true 时 String 与 StringName 按文本比较。
+## [br]
+## @return 两个值按 GF 通用 Variant 语义等价时返回 true。
+## [br]
+## @schema return: bool。
+static func values_equal(left: Variant, right: Variant, options: Dictionary = {}) -> bool:
+	var left_type: int = typeof(left)
+	var right_type: int = typeof(right)
+	if left_type == right_type:
+		if left_type == TYPE_FLOAT:
+			return _float_values_equal(left, right, options)
+		return left == right
+	if _is_numeric_variant_type(left_type) and _is_numeric_variant_type(right_type):
+		return _mixed_integer_float_values_equal(left, right)
+	if (
+		get_option_bool(options, "match_string_names", false)
+		and _is_string_like_value(left)
+		and _is_string_like_value(right)
+	):
+		return to_text(left) == to_text(right)
+	return false
+
 
 ## 复制集合 Variant，并可按需复制 Resource。
 ## [br]
@@ -39,6 +90,8 @@ static func duplicate_variant(value: Variant, deep: bool = true, duplicate_resou
 		if not deep:
 			return array.duplicate(false)
 		return _duplicate_variant_safe(array, duplicate_resources, [])
+	if deep and _is_packed_array_type(typeof(value)):
+		return _duplicate_packed_array(value)
 	if duplicate_resources and value is Resource:
 		var resource: Resource = value
 		return resource.duplicate(deep)
@@ -65,6 +118,7 @@ static func duplicate_collection(value: Variant, deep: bool = true) -> Variant:
 
 
 ## 转换为可交给 JSON.stringify 的值。
+## Dictionary 只接受 String/StringName key，并将 StringName 无损规范化为 String。
 ## [br]
 ## @api framework_internal
 ## [br]
@@ -76,11 +130,18 @@ static func duplicate_collection(value: Variant, deep: bool = true) -> Variant:
 ## [br]
 ## @schema max_depth: int，防止异常循环或过深结构阻塞编辑器。
 ## [br]
+## @param options: 转换预算选项。
+## [br]
+## @schema options: Dictionary，可选 max_nodes、max_collection_items、max_bytes 非负整数预算。
+## [br]
 ## @return JSON 兼容值；非有限 float 使用稳定文本表示。
 ## [br]
-## @schema return: JSON 兼容 Variant。
-static func to_json_compatible(value: Variant, max_depth: int = 32) -> Variant:
-	return _to_json_compatible(value, maxi(max_depth, 0), 0)
+## @schema return: JSON 兼容 Variant；预算耗尽、非法 Dictionary key 或 key 碰撞时返回稳定 marker。
+static func to_json_compatible(value: Variant, max_depth: int = 32, options: Dictionary = {}) -> Variant:
+	var state: Dictionary = _make_json_conversion_state(max_depth, options)
+	var converted: Variant = _to_json_compatible(value, state, 0)
+	var failure_marker: String = get_option_string(state, "failure_marker")
+	return failure_marker if not failure_marker.is_empty() else converted
 
 
 ## 将 Variant 收窄为 Dictionary 副本。
@@ -560,16 +621,28 @@ static func to_int_array(value: Variant, default_value: Array[int] = []) -> Arra
 ## [br]
 ## @schema recursive: bool，控制是否递归合并。
 ## [br]
+## @param budget_options: source 图的预检预算。
+## [br]
+## @schema budget_options: Dictionary，可选 max_depth、max_nodes、max_collection_items 非负整数预算。
+## [br]
 ## @return 被原地修改后的 target Dictionary。
 ## [br]
-## @schema return: 内部 Variant 访问辅助结果；返回形态由当前函数契约定义。
+## @schema return: 预算合法时返回原地修改后的 target；超限时 push_error 并返回保持原样的 target。
 static func merge_dictionary(
 	target: Dictionary,
 	source: Dictionary,
 	overwrite: bool = true,
-	recursive: bool = true
+	recursive: bool = true,
+	budget_options: Dictionary = {}
 ) -> Dictionary:
-	return _merge_dictionary(target, source, overwrite, recursive, [], [], 0)
+	var budget_failure: String = _validate_merge_source_budget(source, budget_options)
+	if not budget_failure.is_empty():
+		push_error(
+			"[GFVariantAccess] merge_dictionary 失败：source 超出 %s 预算，target 未修改。"
+			% budget_failure
+		)
+		return target
+	return _merge_dictionary(target, source, overwrite, recursive, [], [])
 
 
 ## 读取选项字段，并支持 String 与 StringName 等价键。
@@ -932,12 +1005,9 @@ static func _merge_dictionary(
 	overwrite: bool,
 	recursive: bool,
 	visited_targets: Array,
-	visited_sources: Array,
-	depth: int
+	visited_sources: Array
 ) -> Dictionary:
 	if recursive:
-		if depth >= _MERGE_DICTIONARY_MAX_DEPTH:
-			return target
 		if _has_visited_dictionary_pair(visited_targets, visited_sources, target, source):
 			return target
 		visited_targets.append(target)
@@ -960,8 +1030,7 @@ static func _merge_dictionary(
 				overwrite,
 				recursive,
 				visited_targets,
-				visited_sources,
-				depth + 1
+				visited_sources
 			)
 			continue
 		if overwrite or not target_has_key:
@@ -979,6 +1048,98 @@ static func _has_visited_dictionary_pair(
 		if is_same(visited_targets[index], target) and is_same(visited_sources[index], source):
 			return true
 	return false
+
+
+static func _validate_merge_source_budget(source: Dictionary, budget_options: Dictionary) -> String:
+	var state: Dictionary = {
+		"max_depth": maxi(get_option_int(budget_options, "max_depth", _MERGE_DEFAULT_MAX_DEPTH), 0),
+		"max_nodes": maxi(get_option_int(budget_options, "max_nodes", _MERGE_DEFAULT_MAX_NODES), 0),
+		"max_collection_items": maxi(
+			get_option_int(
+				budget_options,
+				"max_collection_items",
+				_MERGE_DEFAULT_MAX_COLLECTION_ITEMS
+			),
+			0
+		),
+		"node_count": 0,
+		"collection_item_count": 0,
+		"active_collections": [],
+	}
+	return _visit_merge_source_budget(source, state, 0)
+
+
+static func _visit_merge_source_budget(value: Variant, state: Dictionary, depth: int) -> String:
+	if depth > get_option_int(state, "max_depth"):
+		return "max_depth"
+	if not _consume_merge_nodes(state, 1):
+		return "max_nodes"
+
+	var value_type: int = typeof(value)
+	if _is_packed_array_type(value_type):
+		var packed_item_count: int = len(value)
+		if not _consume_merge_collection_items(state, packed_item_count):
+			return "max_collection_items"
+		if packed_item_count > 0 and depth + 1 > get_option_int(state, "max_depth"):
+			return "max_depth"
+		if not _consume_merge_nodes(state, packed_item_count):
+			return "max_nodes"
+		return ""
+	if value_type != TYPE_DICTIONARY and value_type != TYPE_ARRAY:
+		return ""
+
+	var active_collections: Array = _get_merge_active_collections(state)
+	if _has_active_collection(active_collections, value):
+		return ""
+	active_collections.append(value)
+
+	var failure: String
+	if value is Dictionary:
+		var dictionary: Dictionary = value
+		if not _consume_merge_collection_items(state, dictionary.size()):
+			failure = "max_collection_items"
+		else:
+			for key: Variant in dictionary.keys():
+				failure = _visit_merge_source_budget(key, state, depth + 1)
+				if not failure.is_empty():
+					break
+				failure = _visit_merge_source_budget(dictionary[key], state, depth + 1)
+				if not failure.is_empty():
+					break
+	else:
+		var array: Array = value
+		if not _consume_merge_collection_items(state, array.size()):
+			failure = "max_collection_items"
+		else:
+			for item: Variant in array:
+				failure = _visit_merge_source_budget(item, state, depth + 1)
+				if not failure.is_empty():
+					break
+
+	var _removed_collection: Variant = active_collections.pop_back()
+	return failure
+
+
+static func _consume_merge_nodes(state: Dictionary, amount: int) -> bool:
+	var node_count: int = get_option_int(state, "node_count") + maxi(amount, 0)
+	state["node_count"] = node_count
+	return node_count <= get_option_int(state, "max_nodes")
+
+
+static func _consume_merge_collection_items(state: Dictionary, amount: int) -> bool:
+	var item_count: int = get_option_int(state, "collection_item_count") + maxi(amount, 0)
+	state["collection_item_count"] = item_count
+	return item_count <= get_option_int(state, "max_collection_items")
+
+
+static func _get_merge_active_collections(state: Dictionary) -> Array:
+	var active_value: Variant = state.get("active_collections", [])
+	if active_value is Array:
+		var existing_active_collections: Array = active_value
+		return existing_active_collections
+	var created_active_collections: Array = []
+	state["active_collections"] = created_active_collections
+	return created_active_collections
 
 
 static func _duplicate_variant_safe(value: Variant, duplicate_resources: bool, visited: Array) -> Variant:
@@ -1009,9 +1170,55 @@ static func _duplicate_variant_safe(value: Variant, duplicate_resources: bool, v
 		for item: Variant in array:
 			array_copy.append(_duplicate_variant_safe(item, duplicate_resources, visited))
 		return array_copy
+	if _is_packed_array_type(typeof(value)):
+		return _duplicate_packed_array(value)
 	if duplicate_resources and value is Resource:
 		var resource: Resource = value
-		return resource.duplicate(true)
+		var existing_resource: Variant = _get_visited_duplicate(visited, resource)
+		if existing_resource is Resource:
+			return existing_resource
+		var resource_copy: Resource = resource.duplicate(true)
+		if resource_copy == null:
+			return null
+		visited.append({
+			"source": resource,
+			"copy": resource_copy,
+		})
+		return resource_copy
+	return value
+
+
+static func _duplicate_packed_array(value: Variant) -> Variant:
+	if value is PackedByteArray:
+		var packed_bytes: PackedByteArray = value
+		return packed_bytes.duplicate()
+	if value is PackedInt32Array:
+		var packed_int32: PackedInt32Array = value
+		return packed_int32.duplicate()
+	if value is PackedInt64Array:
+		var packed_int64: PackedInt64Array = value
+		return packed_int64.duplicate()
+	if value is PackedFloat32Array:
+		var packed_float32: PackedFloat32Array = value
+		return packed_float32.duplicate()
+	if value is PackedFloat64Array:
+		var packed_float64: PackedFloat64Array = value
+		return packed_float64.duplicate()
+	if value is PackedStringArray:
+		var packed_strings: PackedStringArray = value
+		return packed_strings.duplicate()
+	if value is PackedVector2Array:
+		var packed_vector2: PackedVector2Array = value
+		return packed_vector2.duplicate()
+	if value is PackedVector3Array:
+		var packed_vector3: PackedVector3Array = value
+		return packed_vector3.duplicate()
+	if value is PackedVector4Array:
+		var packed_vector4: PackedVector4Array = value
+		return packed_vector4.duplicate()
+	if value is PackedColorArray:
+		var packed_colors: PackedColorArray = value
+		return packed_colors.duplicate()
 	return value
 
 
@@ -1025,34 +1232,97 @@ static func _get_visited_duplicate(visited: Array, source: Variant) -> Variant:
 	return null
 
 
-static func _to_json_compatible(value: Variant, max_depth: int, depth: int) -> Variant:
-	if depth > max_depth:
-		return "<max_depth>"
+static func _float_values_equal(left: Variant, right: Variant, options: Dictionary) -> bool:
+	if not left is float or not right is float:
+		return false
+	var left_number: float = left
+	var right_number: float = right
+	if left_number == right_number:
+		return true
+	if is_nan(left_number) or is_nan(right_number) or is_inf(left_number) or is_inf(right_number):
+		return false
+	var epsilon: float = maxf(get_option_float(options, "numeric_epsilon", 0.0), 0.0)
+	return epsilon > 0.0 and absf(left_number - right_number) <= epsilon
 
+
+static func _mixed_integer_float_values_equal(left: Variant, right: Variant) -> bool:
+	var integer_value: int
+	var float_value: float
+	if left is int and right is float:
+		integer_value = left
+		float_value = right
+	elif left is float and right is int:
+		integer_value = right
+		float_value = left
+	else:
+		return false
+	if is_nan(float_value) or is_inf(float_value):
+		return false
+	if floorf(float_value) != float_value:
+		return false
+	if float_value < _INT64_MIN_AS_FLOAT or float_value >= _INT64_MAX_EXCLUSIVE_AS_FLOAT:
+		return false
+	var round_trip_integer: int = int(float_value)
+	return round_trip_integer == integer_value and float(round_trip_integer) == float_value
+
+
+static func _is_numeric_variant_type(variant_type: int) -> bool:
+	return variant_type == TYPE_INT or variant_type == TYPE_FLOAT
+
+
+static func _is_packed_array_type(variant_type: int) -> bool:
+	return (
+		variant_type == TYPE_PACKED_BYTE_ARRAY
+		or variant_type == TYPE_PACKED_INT32_ARRAY
+		or variant_type == TYPE_PACKED_INT64_ARRAY
+		or variant_type == TYPE_PACKED_FLOAT32_ARRAY
+		or variant_type == TYPE_PACKED_FLOAT64_ARRAY
+		or variant_type == TYPE_PACKED_STRING_ARRAY
+		or variant_type == TYPE_PACKED_VECTOR2_ARRAY
+		or variant_type == TYPE_PACKED_VECTOR3_ARRAY
+		or variant_type == TYPE_PACKED_VECTOR4_ARRAY
+		or variant_type == TYPE_PACKED_COLOR_ARRAY
+	)
+
+
+static func _is_string_like_value(value: Variant) -> bool:
+	return value is String or value is StringName
+
+
+static func _to_json_compatible(value: Variant, state: Dictionary, depth: int) -> Variant:
+	var existing_failure: String = get_option_string(state, "failure_marker")
+	if not existing_failure.is_empty():
+		return existing_failure
+	if depth > get_option_int(state, "max_depth"):
+		return _fail_json_conversion(state, _JSON_DEPTH_BUDGET_MARKER)
+	if not _consume_json_node(state):
+		return get_option_string(state, "failure_marker")
+
+	var converted: Variant
 	match typeof(value):
 		TYPE_NIL, TYPE_BOOL, TYPE_INT, TYPE_STRING:
-			return value
+			converted = value
 		TYPE_FLOAT:
 			var float_value: float = value
-			return _to_json_compatible_float(float_value)
+			converted = _to_json_compatible_float(float_value)
 		TYPE_STRING_NAME, TYPE_NODE_PATH:
-			return str(value)
+			converted = str(value)
 		TYPE_VECTOR2:
 			var vector2_value: Vector2 = value
-			return {
+			converted = {
 				"x": _to_json_compatible_float(vector2_value.x),
 				"y": _to_json_compatible_float(vector2_value.y),
 			}
 		TYPE_VECTOR3:
 			var vector3_value: Vector3 = value
-			return {
+			converted = {
 				"x": _to_json_compatible_float(vector3_value.x),
 				"y": _to_json_compatible_float(vector3_value.y),
 				"z": _to_json_compatible_float(vector3_value.z),
 			}
 		TYPE_VECTOR4:
 			var vector4_value: Vector4 = value
-			return {
+			converted = {
 				"x": _to_json_compatible_float(vector4_value.x),
 				"y": _to_json_compatible_float(vector4_value.y),
 				"z": _to_json_compatible_float(vector4_value.z),
@@ -1060,7 +1330,7 @@ static func _to_json_compatible(value: Variant, max_depth: int, depth: int) -> V
 			}
 		TYPE_COLOR:
 			var color_value: Color = value
-			return {
+			converted = {
 				"r": _to_json_compatible_float(color_value.r),
 				"g": _to_json_compatible_float(color_value.g),
 				"b": _to_json_compatible_float(color_value.b),
@@ -1068,66 +1338,203 @@ static func _to_json_compatible(value: Variant, max_depth: int, depth: int) -> V
 			}
 		TYPE_DICTIONARY:
 			var dictionary: Dictionary = value
-			var result: Dictionary = {}
-			for key: Variant in dictionary.keys():
-				var key_text: String = str(_to_json_compatible(key, max_depth, depth + 1))
-				result[key_text] = _to_json_compatible(dictionary[key], max_depth, depth + 1)
-			return result
+			return _json_dictionary_to_compatible(dictionary, state, depth)
 		TYPE_ARRAY:
 			var array: Array = value
-			var result: Array = []
-			for item: Variant in array:
-				result.append(_to_json_compatible(item, max_depth, depth + 1))
-			return result
+			return _json_array_to_compatible(array, state, depth)
 		TYPE_PACKED_BYTE_ARRAY:
 			var packed_bytes: PackedByteArray = value
-			return Array(packed_bytes)
+			return _json_packed_array_to_compatible(packed_bytes, state, depth)
 		TYPE_PACKED_INT32_ARRAY:
 			var packed_int32: PackedInt32Array = value
-			return Array(packed_int32)
+			return _json_packed_array_to_compatible(packed_int32, state, depth)
 		TYPE_PACKED_INT64_ARRAY:
 			var packed_int64: PackedInt64Array = value
-			return Array(packed_int64)
+			return _json_packed_array_to_compatible(packed_int64, state, depth)
 		TYPE_PACKED_STRING_ARRAY:
 			var packed_strings: PackedStringArray = value
-			return Array(packed_strings)
+			return _json_packed_array_to_compatible(packed_strings, state, depth)
 		TYPE_PACKED_FLOAT32_ARRAY:
-			var float32_values: Array = []
 			var packed_float32: PackedFloat32Array = value
-			for item: float in packed_float32:
-				float32_values.append(_to_json_compatible_float(item))
-			return float32_values
+			return _json_packed_array_to_compatible(packed_float32, state, depth)
 		TYPE_PACKED_FLOAT64_ARRAY:
-			var float64_values: Array = []
 			var packed_float64: PackedFloat64Array = value
-			for item: float in packed_float64:
-				float64_values.append(_to_json_compatible_float(item))
-			return float64_values
+			return _json_packed_array_to_compatible(packed_float64, state, depth)
 		TYPE_PACKED_VECTOR2_ARRAY:
-			var vector2_values: Array = []
 			var packed_vector2: PackedVector2Array = value
-			for item: Vector2 in packed_vector2:
-				vector2_values.append(_to_json_compatible(item, max_depth, depth + 1))
-			return vector2_values
+			return _json_packed_array_to_compatible(packed_vector2, state, depth)
 		TYPE_PACKED_VECTOR3_ARRAY:
-			var vector3_values: Array = []
 			var packed_vector3: PackedVector3Array = value
-			for item: Vector3 in packed_vector3:
-				vector3_values.append(_to_json_compatible(item, max_depth, depth + 1))
-			return vector3_values
+			return _json_packed_array_to_compatible(packed_vector3, state, depth)
 		TYPE_PACKED_VECTOR4_ARRAY:
-			var vector4_values: Array = []
 			var packed_vector4: PackedVector4Array = value
-			for item: Vector4 in packed_vector4:
-				vector4_values.append(_to_json_compatible(item, max_depth, depth + 1))
-			return vector4_values
+			return _json_packed_array_to_compatible(packed_vector4, state, depth)
 		TYPE_PACKED_COLOR_ARRAY:
-			var color_values: Array = []
 			var packed_colors: PackedColorArray = value
-			for item: Color in packed_colors:
-				color_values.append(_to_json_compatible(item, max_depth, depth + 1))
-			return color_values
-	return str(value)
+			return _json_packed_array_to_compatible(packed_colors, state, depth)
+		_:
+			converted = str(value)
+	if not _reserve_json_value_bytes(state, converted):
+		return get_option_string(state, "failure_marker")
+	return converted
+
+
+static func _json_dictionary_to_compatible(dictionary: Dictionary, state: Dictionary, depth: int) -> Variant:
+	var active_collections: Array = _get_json_active_collections(state)
+	if _has_active_collection(active_collections, dictionary):
+		return _json_marker_value(state, _JSON_CIRCULAR_MARKER)
+	if not _consume_json_collection_items(state, dictionary.size()):
+		return get_option_string(state, "failure_marker")
+	if not _reserve_json_bytes(state, 2 + maxi(dictionary.size() - 1, 0)):
+		return get_option_string(state, "failure_marker")
+
+	var source_keys: Array = dictionary.keys()
+	var key_texts: Array[String] = []
+	var seen_key_texts: Dictionary = {}
+	for key: Variant in source_keys:
+		var key_text: String
+		if key is String:
+			key_text = key
+		elif key is StringName:
+			var key_name: StringName = key
+			key_text = String(key_name)
+		else:
+			return _fail_json_conversion(state, _JSON_INVALID_DICTIONARY_KEY_MARKER)
+		if seen_key_texts.has(key_text):
+			return _fail_json_conversion(state, _JSON_DICTIONARY_KEY_COLLISION_MARKER)
+		seen_key_texts[key_text] = true
+		key_texts.append(key_text)
+		var encoded_key: String = JSON.stringify(key_text)
+		if not _reserve_json_bytes(state, encoded_key.to_utf8_buffer().size() + 1):
+			return get_option_string(state, "failure_marker")
+
+	active_collections.append(dictionary)
+	var result: Dictionary = {}
+	for key_index: int in range(source_keys.size()):
+		var key: Variant = source_keys[key_index]
+		var key_text: String = key_texts[key_index]
+		result[key_text] = _to_json_compatible(dictionary[key], state, depth + 1)
+		if not get_option_string(state, "failure_marker").is_empty():
+			break
+	var _removed_dictionary: Variant = active_collections.pop_back()
+	return result
+
+
+static func _json_array_to_compatible(array: Array, state: Dictionary, depth: int) -> Variant:
+	var active_collections: Array = _get_json_active_collections(state)
+	if _has_active_collection(active_collections, array):
+		return _json_marker_value(state, _JSON_CIRCULAR_MARKER)
+	active_collections.append(array)
+	var result: Variant = _json_sequence_to_compatible(array, state, depth)
+	var _removed_array: Variant = active_collections.pop_back()
+	return result
+
+
+static func _json_packed_array_to_compatible(value: Variant, state: Dictionary, depth: int) -> Variant:
+	var item_count: int = len(value)
+	if not _consume_json_collection_items(state, item_count):
+		return get_option_string(state, "failure_marker")
+	if not _reserve_json_bytes(state, 2 + maxi(item_count - 1, 0)):
+		return get_option_string(state, "failure_marker")
+
+	var result: Array = []
+	for index: int in range(item_count):
+		result.append(_to_json_compatible(value[index], state, depth + 1))
+		if not get_option_string(state, "failure_marker").is_empty():
+			break
+	return result
+
+
+static func _json_sequence_to_compatible(values: Array, state: Dictionary, depth: int) -> Variant:
+	if not _consume_json_collection_items(state, values.size()):
+		return get_option_string(state, "failure_marker")
+	if not _reserve_json_bytes(state, 2 + maxi(values.size() - 1, 0)):
+		return get_option_string(state, "failure_marker")
+
+	var result: Array = []
+	for item: Variant in values:
+		result.append(_to_json_compatible(item, state, depth + 1))
+		if not get_option_string(state, "failure_marker").is_empty():
+			break
+	return result
+
+
+static func _make_json_conversion_state(max_depth: int, options: Dictionary) -> Dictionary:
+	return {
+		"max_depth": maxi(max_depth, 0),
+		"max_nodes": maxi(get_option_int(options, "max_nodes", _JSON_DEFAULT_MAX_NODES), 0),
+		"max_collection_items": maxi(
+			get_option_int(options, "max_collection_items", _JSON_DEFAULT_MAX_COLLECTION_ITEMS),
+			0
+		),
+		"max_bytes": maxi(get_option_int(options, "max_bytes", _JSON_DEFAULT_MAX_BYTES), 0),
+		"node_count": 0,
+		"collection_item_count": 0,
+		"byte_count": 0,
+		"active_collections": [],
+		"failure_marker": "",
+	}
+
+
+static func _consume_json_node(state: Dictionary) -> bool:
+	var node_count: int = get_option_int(state, "node_count") + 1
+	state["node_count"] = node_count
+	if node_count > get_option_int(state, "max_nodes"):
+		var _failure: String = _fail_json_conversion(state, _JSON_NODE_BUDGET_MARKER)
+		return false
+	return true
+
+
+static func _consume_json_collection_items(state: Dictionary, item_count: int) -> bool:
+	var collection_item_count: int = get_option_int(state, "collection_item_count") + maxi(item_count, 0)
+	state["collection_item_count"] = collection_item_count
+	if collection_item_count > get_option_int(state, "max_collection_items"):
+		var _failure: String = _fail_json_conversion(state, _JSON_COLLECTION_BUDGET_MARKER)
+		return false
+	return true
+
+
+static func _reserve_json_value_bytes(state: Dictionary, value: Variant) -> bool:
+	var encoded: String = JSON.stringify(value)
+	return _reserve_json_bytes(state, encoded.to_utf8_buffer().size())
+
+
+static func _reserve_json_bytes(state: Dictionary, byte_count: int) -> bool:
+	var total_bytes: int = get_option_int(state, "byte_count") + maxi(byte_count, 0)
+	state["byte_count"] = total_bytes
+	if total_bytes > get_option_int(state, "max_bytes"):
+		var _failure: String = _fail_json_conversion(state, _JSON_BYTE_BUDGET_MARKER)
+		return false
+	return true
+
+
+static func _json_marker_value(state: Dictionary, marker: String) -> String:
+	if not _reserve_json_value_bytes(state, marker):
+		return get_option_string(state, "failure_marker")
+	return marker
+
+
+static func _fail_json_conversion(state: Dictionary, marker: String) -> String:
+	if get_option_string(state, "failure_marker").is_empty():
+		state["failure_marker"] = marker
+	return get_option_string(state, "failure_marker")
+
+
+static func _get_json_active_collections(state: Dictionary) -> Array:
+	var active_value: Variant = state.get("active_collections", [])
+	if active_value is Array:
+		var existing_active_collections: Array = active_value
+		return existing_active_collections
+	var created_active_collections: Array = []
+	state["active_collections"] = created_active_collections
+	return created_active_collections
+
+
+static func _has_active_collection(active_collections: Array, candidate: Variant) -> bool:
+	for active_value: Variant in active_collections:
+		if is_same(active_value, candidate):
+			return true
+	return false
 
 
 static func _to_json_compatible_float(value: float) -> Variant:

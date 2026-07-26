@@ -18,6 +18,8 @@ from typing import Any
 import gf_path_security
 from gf_package_paths import normalize_manifest_path as normalize_shared_manifest_path
 from gf_package_paths import path_matches_any_manifest_path as shared_path_matches_any_manifest_path
+from gf_package_paths import portable_literal_path_identity as shared_portable_literal_path_identity
+from gf_package_paths import portable_manifest_path_identity as shared_portable_manifest_path_identity
 from gf_semver import next_major_version
 from gf_semver import parse_semver
 
@@ -417,9 +419,24 @@ def load_package_manifests() -> dict[str, Any]:
 				issues.append(f"{relative_path}: forbidden package manifest field: {field_name}.")
 			elif field_name not in PACKAGE_MANIFEST_ALLOWED_FIELDS:
 				issues.append(f"{relative_path}: unsupported package manifest field: {field_name}.")
+		package_id = string_value(data.get("id", ""))
+		issues.extend(
+			portable_manifest_path_list_issues(
+				package_id or relative_path,
+				"paths",
+				data.get("paths", []),
+			)
+		)
+		issues.extend(
+			portable_manifest_path_list_issues(
+				package_id or relative_path,
+				"exclude_paths",
+				data.get("exclude_paths", []),
+			)
+		)
 		record = {
 			"path": relative_path,
-			"id": string_value(data.get("id", "")),
+			"id": package_id,
 			"kind": string_value(data.get("kind", "")),
 			"version": string_value(data.get("version", "unreleased")) or "unreleased",
 			"display_name": string_value(data.get("display_name", "")),
@@ -522,6 +539,13 @@ def collect_package_files(record: dict[str, Any], issues: list[str] | None = Non
 	files: list[Path] = []
 	seen_identities: dict[str, Path] = {}
 	exclude_patterns = record.get("exclude_paths", [])
+	path_issues = portable_manifest_path_list_issues(record["id"], "paths", record.get("paths"))
+	path_issues.extend(
+		portable_manifest_path_list_issues(record["id"], "exclude_paths", exclude_patterns)
+	)
+	if path_issues:
+		result_issues.extend(path_issues)
+		return files
 	for raw_pattern in record["paths"]:
 		pattern = normalize_manifest_path(raw_pattern)
 		if not pattern:
@@ -566,16 +590,37 @@ def collect_package_files(record: dict[str, Any], issues: list[str] | None = Non
 
 
 def expand_manifest_path(pattern: str) -> list[Path]:
-	if pattern.endswith("/**"):
-		directory_pattern = pattern[:-3].rstrip("/")
-		if not has_glob(directory_pattern):
-			directory = ROOT / directory_pattern
-			if directory.is_dir():
-				return [directory, *sorted(directory.rglob("*"))]
-	if has_glob(pattern):
-		return sorted(ROOT.glob(pattern))
-	path = ROOT / pattern
-	return [path] if path.exists() else []
+	normalized = normalize_manifest_path(pattern)
+	if not normalized:
+		return []
+	if not has_glob(normalized):
+		path = ROOT / normalized
+		package_source_root = gf_path_security.absolute_lexical_path(ROOT / "addons/gf")
+		path = gf_path_security.absolute_lexical_path(path)
+		if gf_path_security.path_is_inside_lexical(package_source_root, path) and path.exists():
+			return [path]
+		return []
+
+	static_parts: list[str] = []
+	for part in normalized.split("/"):
+		if has_glob(part):
+			break
+		static_parts.append(part)
+	search_root = gf_path_security.absolute_lexical_path(ROOT.joinpath(*static_parts))
+	package_source_root = gf_path_security.absolute_lexical_path(ROOT / "addons/gf")
+	if gf_path_security.path_is_inside_lexical(search_root, package_source_root):
+		search_root = package_source_root
+	if (
+		not gf_path_security.path_is_inside_lexical(package_source_root, search_root)
+		or gf_path_security.path_has_reparse_component(search_root)
+		or not search_root.is_dir()
+	):
+		return []
+	return sorted(
+		path
+		for path in search_root.rglob("*")
+		if path_matches_any_manifest_path(path.relative_to(ROOT).as_posix(), [normalized])
+	)
 
 
 def validate_package_file_list(record: dict[str, Any], files: list[Path]) -> list[str]:
@@ -633,6 +678,8 @@ def audit_package_archive(record: dict[str, Any], archive_path: Path, expected_f
 	for name in extra[:20]:
 		issues.append(f"{record['id']}: archive contains undeclared file: {name}")
 	for name in names:
+		if not is_windows_portable_relative_path(name):
+			issues.append(f"{record['id']}: archive entry is not portable to Windows path rules: {name}")
 		if not name.startswith("addons/gf/"):
 			issues.append(f"{record['id']}: archive entry is outside addons/gf: {name}")
 		parts = name.split("/")
@@ -853,10 +900,7 @@ def offline_bundle_common_root(files: list[Path]) -> Path:
 
 
 def is_safe_bundle_entry(entry_name: str) -> bool:
-	if not entry_name or entry_name.startswith("/") or "\\" in entry_name:
-		return False
-	parts = entry_name.split("/")
-	return all(part not in ("", ".", "..") for part in parts)
+	return bool(shared_portable_literal_path_identity(entry_name))
 
 
 def write_bundle_file(archive: zipfile.ZipFile, entry_name: str, path: Path) -> None:
@@ -936,7 +980,7 @@ def publish_staged_outputs(staged_outputs: dict[Path, Path], transaction_id: str
 				raise OSError(f"Staged output must be a sibling of its destination: {candidate_path.as_posix()}")
 			if not candidate_path.is_file():
 				raise OSError(f"Staged distribution output is missing: {candidate_path.as_posix()}")
-			identity = portable_path_identity(final_path.as_posix())
+			identity = final_path.as_posix().lower()
 			previous = seen_targets.get(identity)
 			if previous is not None:
 				raise OSError(
@@ -1102,19 +1146,37 @@ def normalize_manifest_path(path: str) -> str:
 
 
 def is_windows_portable_relative_path(path: str) -> bool:
-	normalized = path.replace("\\", "/")
-	if not normalized or normalized.startswith("/"):
-		return False
-	for part in normalized.split("/"):
-		if part in ("", ".", "..") or part != part.rstrip(" ."):
-			return False
-		if any(ord(character) < 32 for character in part):
-			return False
-	return True
+	return bool(shared_portable_literal_path_identity(path))
 
 
 def portable_path_identity(path: str) -> str:
-	return "/".join(part.rstrip(" .").lower() for part in path.replace("\\", "/").split("/"))
+	return shared_portable_literal_path_identity(path)
+
+
+def portable_manifest_path_list_issues(package_id: str, field_name: str, value: Any) -> list[str]:
+	if not isinstance(value, list):
+		return [f"{package_id}: package manifest {field_name} must be an array."]
+	issues: list[str] = []
+	seen_identities: set[str] = set()
+	for raw_path in value:
+		if not isinstance(raw_path, str) or not raw_path or raw_path != raw_path.strip():
+			issues.append(
+				f"{package_id}: package manifest {field_name} must contain canonical non-empty strings."
+			)
+			continue
+		identity = shared_portable_manifest_path_identity(raw_path)
+		if not identity:
+			issues.append(
+				f"{package_id}: package manifest {field_name} contains an unsafe or non-portable path: {raw_path}"
+			)
+			continue
+		if identity in seen_identities:
+			issues.append(
+				f"{package_id}: package manifest {field_name} contains a duplicate portable path: {raw_path}"
+			)
+			continue
+		seen_identities.add(identity)
+	return issues
 
 
 def path_matches_any_manifest_path(path: str, patterns: list[str]) -> bool:
@@ -1131,7 +1193,7 @@ def is_blocked_path(path: Path) -> bool:
 
 
 def has_glob(path: str) -> bool:
-	return any(token in path for token in ("*", "?", "["))
+	return any(token in path for token in ("*", "?"))
 
 
 def string_value(value: Any) -> str:

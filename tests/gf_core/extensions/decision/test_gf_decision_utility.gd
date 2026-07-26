@@ -493,6 +493,7 @@ func test_context_lazily_reads_virtual_decision_values_and_caches_them() -> void
 	assert_almost_eq(GFVariantData.to_float(first_value), 0.9, 0.001, "快照未包含的虚拟决策值应可从 provider 懒加载。")
 	assert_almost_eq(GFVariantData.to_float(second_value), 0.9, 0.001, "懒加载值应写回快照供后续读取。")
 	assert_eq(subject.call_count, 1, "虚拟决策值被缓存后不应重复调用 provider。")
+	assert_true(subject_values.has("virtual"), "固定 subject_values schema 应保持可直接遍历的 JSON object。")
 	assert_almost_eq(GFVariantData.get_option_float(subject_values, "virtual"), 0.9, 0.001, "调试快照应包含已缓存的虚拟值。")
 
 
@@ -513,6 +514,7 @@ func test_context_capture_budget_blocks_unbounded_lazy_provider_reads() -> void:
 
 	assert_eq(GFVariantData.to_text(value), "fallback")
 	assert_eq(subject.call_count, 0, "捕获预算耗尽时不应继续调用有副作用的 provider。")
+	assert_true(diagnostics.has("subject"), "固定 capture_diagnostics schema 不应被整体折叠为键保真 marker。")
 	assert_true(GFVariantData.get_option_bool(subject_diagnostics, "truncated"))
 
 

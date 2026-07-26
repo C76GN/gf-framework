@@ -1,8 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFCancellationSource" path="addons/gf/kernel/core/gf_cancellation_source.gd" module="kernel" extends="RefCounted" classDigest="0a4718ac00853d69bfff92dcc8af6a669aca520af73de6729a65376c69ab01c7">
+<class name="GFCancellationSource" path="addons/gf/kernel/core/gf_cancellation_source.gd" module="kernel" extends="RefCounted" classDigest="2744fbf5d29347ad94ec6e59d25a256209b7d2f4c3c93063f5b783f7d7defc0a">
 	<description>GFCancellationSource: 可触发取消的拥有者句柄。
 source 负责创建和触发 [GFCancellationToken]，并可把上游 token、节点生命周期或
-SceneTree 超时连接为统一取消请求。它不执行具体任务，也不假定取消后的业务回滚策略。</description>
+SceneTree 超时连接为统一取消请求。它不执行具体任务，也不假定取消后的业务回滚策略。
+所有改变 source 状态或信号连接的方法都只能在主线程调用；[method dispose] 是不可逆终态。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">runtime_handle</tag>
@@ -63,8 +64,8 @@ SceneTree 超时连接为统一取消请求。它不执行具体任务，也不�
 				<tag name="api">public</tag>
 				<tag name="param">token: 上游取消 token。</tag>
 				<tag name="param">reason: 可选覆盖原因；为空时使用上游原因。</tag>
-				<tag name="param">metadata: 当前连接附加的元数据，会覆盖同名上游字段。</tag>
-				<tag name="return">成功连接或上游已经触发取消时返回 true。</tag>
+				<tag name="param">metadata: 当前连接附加的元数据；注册时深复制，并覆盖同名上游字段。</tag>
+				<tag name="return">成功连接或上游已经触发取消时返回 true；重复、自连接、非主线程或终态 source 返回 false。</tag>
 				<tag name="schema">metadata: Dictionary，包含调用方定义的取消上下文。</tag>
 				<tag name="since">8.0.0</tag>
 			</tags>
@@ -76,8 +77,8 @@ SceneTree 超时连接为统一取消请求。它不执行具体任务，也不�
 				<tag name="api">public</tag>
 				<tag name="param">node: 生命周期拥有者节点。</tag>
 				<tag name="param">reason: 取消原因。</tag>
-				<tag name="param">metadata: 取消上下文。</tag>
-				<tag name="return">成功连接或节点已经离树并触发取消时返回 true。</tag>
+				<tag name="param">metadata: 取消上下文；注册时深复制。</tag>
+				<tag name="return">当前在树内的节点成功连接时返回 true；重复连接、树外节点、非主线程或终态 source 返回 false。</tag>
 				<tag name="schema">metadata: Dictionary，包含调用方定义的取消上下文。</tag>
 				<tag name="since">8.0.0</tag>
 			</tags>
@@ -87,21 +88,22 @@ SceneTree 超时连接为统一取消请求。它不执行具体任务，也不�
 			<description>在指定秒数后自动取消。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="param">seconds: 超时时间；小于等于 0 时立即取消。</tag>
+				<tag name="param">seconds: 有限超时时间；小于等于 0 时立即取消。</tag>
 				<tag name="param">tree: 可选 SceneTree；为空时使用当前主循环。</tag>
 				<tag name="param">reason: 超时取消原因。</tag>
-				<tag name="param">metadata: 取消上下文。</tag>
+				<tag name="param">metadata: 取消上下文；安排时深复制。</tag>
 				<tag name="param">process_always: 是否在暂停时继续计时。</tag>
 				<tag name="param">process_in_physics: 是否在物理帧处理。</tag>
 				<tag name="param">ignore_time_scale: 是否忽略 Engine.time_scale。</tag>
-				<tag name="return">成功安排或立即触发取消时返回 true。</tag>
+				<tag name="return">成功安排或立即触发取消时返回 true；后续安排会停止并替换旧 timer。</tag>
 				<tag name="schema">metadata: Dictionary，包含调用方定义的取消上下文。</tag>
 				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="dispose">
 			<signature>func dispose() -&gt; void:</signature>
-			<description>释放 source 持有的连接。</description>
+			<description>终结 source 并释放其持有的连接。
+dispose 幂等且不可逆；之后所有 mutator 都会失败，既有 token 状态保持不变。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="since">8.0.0</tag>
@@ -113,7 +115,7 @@ SceneTree 超时连接为统一取消请求。它不执行具体任务，也不�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">调试快照。</tag>
-				<tag name="schema">return: Dictionary，包含 token 状态、linked_token_count、node_lifetime_count 和 has_timeout。</tag>
+				<tag name="schema">return: Dictionary，包含 token 状态、disposed、linked_token_count、node_lifetime_count 和 has_timeout。</tag>
 				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
@@ -125,7 +127,7 @@ SceneTree 超时连接为统一取消请求。它不执行具体任务，也不�
 				<tag name="param">tokens: 上游 token 列表。</tag>
 				<tag name="param">reason: 可选覆盖原因；为空时使用上游原因。</tag>
 				<tag name="param">metadata: 当前连接附加的元数据。</tag>
-				<tag name="return">新建的取消 source。</tag>
+				<tag name="return">完整连接的新 source；无效条目或连接失败时返回 null。若上游已取消，返回 first-cancel-wins 的终态 source。</tag>
 				<tag name="schema">tokens: Array，元素应为 GFCancellationToken。</tag>
 				<tag name="schema">metadata: Dictionary，包含调用方定义的取消上下文。</tag>
 				<tag name="since">8.0.0</tag>

@@ -695,7 +695,10 @@ func test_set_rule_summarizes_large_supported_values() -> void:
 	assert_false(issue.has("supported_values"), "大集合不应完整塞进 issue context。")
 	assert_eq(GFVariantData.get_option_int(issue, "supported_values_count"), 40, "大集合报告应保留总数。")
 	assert_eq(GFVariantData.get_option_array(issue, "supported_values_sample").size(), 32, "大集合报告应保留固定样本。")
-	assert_false(GFVariantData.get_option_string(issue, "supported_values_hash").is_empty(), "大集合报告应提供稳定 hash。")
+	assert_false(
+		GFVariantData.get_option_string(issue, "supported_values_preview_hash").is_empty(),
+		"大集合报告应提供明确命名的预算内预览 hash。"
+	)
 	assert_true(GFVariantData.get_option_bool(issue, "supported_values_truncated"), "大集合报告应明确被截断。")
 
 

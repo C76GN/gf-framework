@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFBindableProperty" path="addons/gf/kernel/core/gf_bindable_property.gd" module="kernel" extends="RefCounted" classDigest="ee813c1403f2d55de217aaf98b2ba3ddc45d506cd22a816160090b9d45e6134f">
+<class name="GFBindableProperty" path="addons/gf/kernel/core/gf_bindable_property.gd" module="kernel" extends="RefCounted" classDigest="67706eeb8a6a4490dc8b61d4c56a329f24f31603278f564073cb60e495b58bf8">
 	<description>GFBindableProperty: 响应式数据绑定属性容器。
 封装一个 Variant 值，当值发生变化时自动发出 value_changed 信号。
 可用于 Controller 直接监听 Model 数据变化，无需通过事件总线中转。</description>
@@ -86,7 +86,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">callback: 变化回调，签名应为 func(old_value: Variant, new_value: Variant)。</tag>
 				<tag name="param">emit_current: 是否立即以当前值调用一次回调；为 true 时 old_value 和 new_value 都是当前值。</tag>
-				<tag name="return">可调用的取消订阅函数；callback 无效时返回空 Callable。</tag>
+				<tag name="return">当前这次独立订阅的取消函数；callback 无效时返回空 Callable。</tag>
 				<tag name="since">3.20.0</tag>
 			</tags>
 		</member>
@@ -97,7 +97,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">callback: 变化回调，签名应为 func(old_value: Variant, new_value: Variant)。</tag>
 				<tag name="param">emit_current: 是否立即以当前值调用一次回调；为 true 时 old_value 和 new_value 都是当前值。</tag>
-				<tag name="return">可取消订阅句柄；callback 无效时返回非活动句柄。</tag>
+				<tag name="return">当前这次独立订阅的可取消句柄；callback 无效时返回非活动句柄。</tag>
 				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
@@ -110,7 +110,7 @@ owner 为 Node 时，节点退出场景树会自动取消订阅。</description>
 				<tag name="param">owner: 订阅生命周期 owner。</tag>
 				<tag name="param">callback: 变化回调，签名应为 func(old_value: Variant, new_value: Variant)。</tag>
 				<tag name="param">emit_current: 是否立即以当前值调用一次回调；为 true 时 old_value 和 new_value 都是当前值。</tag>
-				<tag name="return">绑定 owner 生命周期的订阅句柄；owner 或 callback 无效时返回非活动句柄。</tag>
+				<tag name="return">当前这次独立订阅且绑定 owner 生命周期的句柄；owner 或 callback 无效时返回非活动句柄。</tag>
 				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
@@ -123,7 +123,7 @@ owner 为 Node 时，节点退出场景树会自动取消订阅。</description>
 				<tag name="param">owner: 订阅生命周期 owner，也是方法所属对象。</tag>
 				<tag name="param">method_name: 变化回调方法名，方法签名应为 func(old_value: Variant, new_value: Variant)。</tag>
 				<tag name="param">emit_current: 是否立即以当前值调用一次回调；为 true 时 old_value 和 new_value 都是当前值。</tag>
-				<tag name="return">绑定 owner 生命周期的订阅句柄；owner 或方法无效时返回非活动句柄。</tag>
+				<tag name="return">当前这次独立订阅且绑定 owner 生命周期的句柄；owner 或方法无效时返回非活动句柄。</tag>
 				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
@@ -137,11 +137,15 @@ owner 为 Node 时，节点退出场景树会自动取消订阅。</description>
 		</member>
 		<member kind="method" name="mutate">
 			<signature>func mutate(mutator: Callable) -&gt; bool:</signature>
-			<description>通过回调修改当前值并强制广播。</description>
+			<description>通过回调计算并设置当前值。
+回调接收当前值；Array、Dictionary 与 PackedArray 会深复制，
+Object/Resource 引用保持身份。回调必须返回完整 replacement value，
+标量和集合遵循同一契约。仅当 replacement 与当前值不同时才广播。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="param">mutator: 修改当前值的回调。</tag>
+				<tag name="param">mutator: replacement 回调，签名为 func(current_value: Variant) -&gt; Variant。</tag>
 				<tag name="return">回调有效时返回 true。</tag>
+				<tag name="since">2.1.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="append_to_array">

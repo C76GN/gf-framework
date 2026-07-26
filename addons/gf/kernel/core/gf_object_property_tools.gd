@@ -38,6 +38,8 @@ static func get_property_infos(object: Object, usage_filter: int = -1) -> Array[
 		return result
 
 	for property_info: Dictionary in object.get_property_list():
+		if not _is_concrete_property_info(property_info):
+			continue
 		if usage_filter >= 0 and (_GF_VARIANT_ACCESS_SCRIPT.get_option_int(property_info, "usage", 0) & usage_filter) == 0:
 			continue
 		result.append(property_info.duplicate(true))
@@ -96,7 +98,7 @@ static func get_property_names(object: Object, usage_filter: int = -1) -> Packed
 static func get_property_info(object: Object, property_name: StringName) -> Dictionary:
 	if property_name == &"" or not is_instance_valid(object):
 		return {}
-	for property_info: Dictionary in object.get_property_list():
+	for property_info: Dictionary in get_property_infos(object):
 		if _GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(property_info, "name", &"") == property_name:
 			return property_info.duplicate(true)
 	return {}
@@ -234,7 +236,105 @@ static func write_property(
 		value_to_write = coerce_property_value(value, property_type)
 
 	object.set_indexed(property_path, value_to_write)
-	return _make_write_result(true, "", root_property, old_value, object.get_indexed(property_path))
+	var applied_value: Variant = object.get_indexed(property_path)
+	if not _GF_VARIANT_ACCESS_SCRIPT.values_equal(applied_value, value_to_write):
+		return _make_write_result(
+			false,
+			"Property write was rejected: %s" % String(root_property),
+			root_property,
+			old_value,
+			applied_value
+		)
+	return _make_write_result(true, "", root_property, old_value, applied_value)
+
+
+## 按精确 StringName 写入对象的直接属性，不把 `/` 或 `:` 解释为 NodePath 分隔符。
+## 写入后会读取属性并验证请求值确实落地；动态 `_set()` 拒绝或静默忽略时返回失败。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param object: 目标对象。
+## [br]
+## @param property_name: 精确直接属性名。
+## [br]
+## @param value: 请求写入的值。
+## [br]
+## @schema value: Variant value requested for direct property assignment.
+## [br]
+## @param options: 与 write_property() 相同的校验和转换选项。
+## [br]
+## @schema options: Dictionary with optional bool keys check_writable, check_type, and coerce_value.
+## [br]
+## @return 写入结果字典。
+## [br]
+## @schema return: Dictionary { ok: bool, error: String, property_name: StringName, old_value: Variant, new_value: Variant }.
+static func write_direct_property(
+	object: Object,
+	property_name: StringName,
+	value: Variant,
+	options: Dictionary = {}
+) -> Dictionary:
+	if not is_instance_valid(object):
+		return _make_write_result(false, "Object is null.")
+	if property_name == &"":
+		return _make_write_result(false, "Property name is empty.")
+
+	var property_info: Dictionary = get_property_info(object, property_name)
+	if property_info.is_empty():
+		return _make_write_result(
+			false,
+			"Missing property: %s" % String(property_name),
+			property_name
+		)
+	if (
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(options, "check_writable", true)
+		and not is_property_writable(property_info)
+	):
+		return _make_write_result(
+			false,
+			"Property is not writable: %s" % String(property_name),
+			property_name
+		)
+
+	var old_value: Variant = object.get(property_name)
+	var property_type: int = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+		property_info,
+		"type",
+		TYPE_NIL
+	)
+	var value_to_write: Variant = value
+	if (
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(options, "check_type", true)
+		and not value_matches_property_type(value, property_type)
+	):
+		return _make_write_result(
+			false,
+			"Property type mismatch: %s" % String(property_name),
+			property_name,
+			old_value
+		)
+	if _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(options, "coerce_value", true):
+		value_to_write = coerce_property_value(value, property_type)
+
+	object.set(property_name, value_to_write)
+	var applied_value: Variant = object.get(property_name)
+	if not _GF_VARIANT_ACCESS_SCRIPT.values_equal(applied_value, value_to_write):
+		return _make_write_result(
+			false,
+			"Property write was rejected: %s" % String(property_name),
+			property_name,
+			old_value,
+			applied_value
+		)
+	return _make_write_result(
+		true,
+		"",
+		property_name,
+		old_value,
+		applied_value
+	)
 
 
 ## 检查值是否可写入指定 Variant 类型。
@@ -481,9 +581,9 @@ static func apply_dictionary(object: Object, values: Dictionary, options: Dictio
 				true,
 				duplicate_resources
 			)
-		var write_result: Dictionary = write_property(
+		var write_result: Dictionary = write_direct_property(
 			object,
-			NodePath(String(property_name)),
+			property_name,
 			value_to_write,
 			write_options
 		)
@@ -520,6 +620,26 @@ static func get_root_property_name(property_path: NodePath) -> StringName:
 
 
 # --- 私有/辅助方法 ---
+
+static func _is_concrete_property_info(property_info: Dictionary) -> bool:
+	var property_name: StringName = _GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(
+		property_info,
+		"name",
+		&""
+	)
+	if property_name == &"":
+		return false
+	var usage: int = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+		property_info,
+		"usage",
+		0
+	)
+	return (
+		(usage & PROPERTY_USAGE_GROUP) == 0
+		and (usage & PROPERTY_USAGE_SUBGROUP) == 0
+		and (usage & PROPERTY_USAGE_CATEGORY) == 0
+	)
+
 
 static func _get_effective_property_type(
 	property_path: NodePath,
@@ -569,6 +689,14 @@ static func _get_supported_subproperty_value(value: Variant, subname: StringName
 		if not is_instance_valid(object_value) or not has_property(object_value, subname):
 			return { "ok": false }
 		return { "ok": true, "value": object_value.get(subname) }
+	if value is Dictionary:
+		var dictionary_value: Dictionary = value
+		if dictionary_value.has(subname):
+			return { "ok": true, "value": dictionary_value[subname] }
+		var string_key: String = String(subname)
+		if dictionary_value.has(string_key):
+			return { "ok": true, "value": dictionary_value[string_key] }
+		return { "ok": false }
 
 	match typeof(value):
 		TYPE_VECTOR2:
@@ -636,6 +764,26 @@ static func _get_supported_subproperty_value(value: Variant, subname: StringName
 					return { "ok": true, "value": color_value.b }
 				&"a":
 					return { "ok": true, "value": color_value.a }
+				&"h":
+					return { "ok": true, "value": color_value.h }
+				&"s":
+					return { "ok": true, "value": color_value.s }
+				&"v":
+					return { "ok": true, "value": color_value.v }
+				&"r8":
+					return { "ok": true, "value": color_value.r8 }
+				&"g8":
+					return { "ok": true, "value": color_value.g8 }
+				&"b8":
+					return { "ok": true, "value": color_value.b8 }
+				&"a8":
+					return { "ok": true, "value": color_value.a8 }
+				&"ok_hsl_h":
+					return { "ok": true, "value": color_value.ok_hsl_h }
+				&"ok_hsl_s":
+					return { "ok": true, "value": color_value.ok_hsl_s }
+				&"ok_hsl_l":
+					return { "ok": true, "value": color_value.ok_hsl_l }
 		TYPE_QUATERNION:
 			var quaternion_value: Quaternion = value
 			match subname:
@@ -647,6 +795,19 @@ static func _get_supported_subproperty_value(value: Variant, subname: StringName
 					return { "ok": true, "value": quaternion_value.z }
 				&"w":
 					return { "ok": true, "value": quaternion_value.w }
+		TYPE_PLANE:
+			var plane_value: Plane = value
+			match subname:
+				&"normal":
+					return { "ok": true, "value": plane_value.normal }
+				&"x":
+					return { "ok": true, "value": plane_value.x }
+				&"y":
+					return { "ok": true, "value": plane_value.y }
+				&"z":
+					return { "ok": true, "value": plane_value.z }
+				&"d":
+					return { "ok": true, "value": plane_value.d }
 		TYPE_RECT2:
 			var rect2_value: Rect2 = value
 			match subname:
@@ -699,6 +860,17 @@ static func _get_supported_subproperty_value(value: Variant, subname: StringName
 					return { "ok": true, "value": transform3d_value.basis }
 				&"origin":
 					return { "ok": true, "value": transform3d_value.origin }
+		TYPE_PROJECTION:
+			var projection_value: Projection = value
+			match subname:
+				&"x":
+					return { "ok": true, "value": projection_value.x }
+				&"y":
+					return { "ok": true, "value": projection_value.y }
+				&"z":
+					return { "ok": true, "value": projection_value.z }
+				&"w":
+					return { "ok": true, "value": projection_value.w }
 		_:
 			pass
 	return { "ok": false }

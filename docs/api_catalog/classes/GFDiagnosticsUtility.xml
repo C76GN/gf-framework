@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFDiagnosticsUtility" path="addons/gf/standard/utilities/debug/gf_diagnostics_utility.gd" module="standard" extends="GFUtility" classDigest="56eb24228e46370926fa04cbe3170c78647805103c36ad033df74217a8bae138">
+<class name="GFDiagnosticsUtility" path="addons/gf/standard/utilities/debug/gf_diagnostics_utility.gd" module="standard" extends="GFUtility" classDigest="cf691edba54275f2702b199e4b87fe6fe35769582c7671aa20b5554e2e75a4e3">
 	<description>GFDiagnosticsUtility: 运行时诊断聚合工具。
 提供架构生命周期、事件系统、性能、日志和外部贡献诊断的统一快照。
 外部监控和快照贡献采用 owner-bound 发布模型；普通采集只读取已验证缓存。
@@ -596,7 +596,8 @@
 				<tag name="param">preset_id: 预设唯一标识。</tag>
 				<tag name="param">include_hidden: 为 true 时包含 visible=false 的监控项。</tag>
 				<tag name="return">监控快照字典。</tag>
-				<tag name="schema">return: Dictionary，包含 collect_monitor_snapshot() 字段以及 preset_id、preset_label、preset_metadata。</tag>
+				<tag name="schema">return: Dictionary，成功时包含 ok=true、collect_monitor_snapshot() 字段、preset_id、preset_label、preset_metadata；预设缺失时包含 ok=false、timestamp_unix、monitor_count=0、monitors、preset_id 和 error。</tag>
+				<tag name="since">3.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="export_monitor_snapshot">
@@ -717,10 +718,10 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">root: 可选根节点；为空时优先使用当前场景，再回退到 Viewport root。</tag>
-				<tag name="param">options: 可选参数，支持 include_internal、persistent_only、include_empty_signals、include_external_targets、include_index、redact_paths。</tag>
+				<tag name="param">options: 可选参数，支持 include_internal、persistent_only、include_empty_signals、include_external_targets、include_index、redact_paths，以及 max_nodes、max_signals、max_connections、max_bytes 有界预算。</tag>
 				<tag name="return">信号图快照字典。</tag>
-				<tag name="schema">options: Dictionary，支持 include_internal、persistent_only、include_empty_signals、include_external_targets、include_index、redact_paths、root_path、prefer_current_scene。</tag>
-				<tag name="schema">return: Dictionary，包含 ok、root_path、node_count、signal_count、connection_count、nodes、signals、connections，可选 index。</tag>
+				<tag name="schema">options: Dictionary，支持 include_internal、persistent_only、include_empty_signals、include_external_targets、include_index、redact_paths、root_path、prefer_current_scene、max_nodes、max_signals、max_connections、max_bytes。</tag>
+				<tag name="schema">return: Dictionary，包含 ok、root_path、node_count、signal_count、connection_count、nodes、signals、connections、truncated、truncation_reason、estimated_bytes，可选 index；根节点不可用时包含 message。</tag>
 				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>

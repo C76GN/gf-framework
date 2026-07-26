@@ -2,7 +2,7 @@
 
 需要做“状态快照级别”的撤回、回滚或编辑器预览恢复时，可以注册 `GFSnapshotHistoryUtility`。
 
-它默认使用所属 `GFArchitecture.get_global_snapshot()` / `restore_global_snapshot()` 捕获和恢复已注册 Model 及可选命令历史，也可以通过回调接入任意项目自定义状态。
+它默认使用所属 `GFArchitecture.get_global_snapshot()` / `restore_global_snapshot()` 捕获和恢复已注册 Model 及可选命令历史，也可以通过回调接入任意项目自定义状态。默认路径会解包 Architecture 的显式 Result：捕获失败时不新增历史记录，恢复事务失败时不移动当前索引。
 
 ```gdscript
 var snapshots := Gf.get_utility(GFSnapshotHistoryUtility) as GFSnapshotHistoryUtility

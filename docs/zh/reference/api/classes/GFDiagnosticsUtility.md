@@ -1192,6 +1192,7 @@ func collect_monitor_snapshot( monitor_ids: PackedStringArray = PackedStringArra
 ### `collect_monitor_preset`
 
 - API：`public`
+- 首次版本：`3.0.0`
 
 ```gdscript
 func collect_monitor_preset(preset_id: StringName, include_hidden: bool = false) -> Dictionary:
@@ -1210,7 +1211,7 @@ func collect_monitor_preset(preset_id: StringName, include_hidden: bool = false)
 
 结构：
 
-- `return`: Dictionary，包含 collect_monitor_snapshot() 字段以及 preset_id、preset_label、preset_metadata。
+- `return`: Dictionary，成功时包含 ok=true、collect_monitor_snapshot() 字段、preset_id、preset_label、preset_metadata；预设缺失时包含 ok=false、timestamp_unix、monitor_count=0、monitors、preset_id 和 error。
 
 <a id="member-gfdiagnosticsutility-methods-export_monitor_snapshot"></a>
 
@@ -1468,11 +1469,11 @@ func collect_signal_graph_snapshot(root: Node = null, options: Dictionary = {}) 
 | 名称 | 说明 |
 |---|---|
 | `root` | 可选根节点；为空时优先使用当前场景，再回退到 Viewport root。 |
-| `options` | 可选参数，支持 include_internal、persistent_only、include_empty_signals、include_external_targets、include_index、redact_paths。 |
+| `options` | 可选参数，支持 include_internal、persistent_only、include_empty_signals、include_external_targets、include_index、redact_paths，以及 max_nodes、max_signals、max_connections、max_bytes 有界预算。 |
 
 返回：信号图快照字典。
 
 结构：
 
-- `options`: Dictionary，支持 include_internal、persistent_only、include_empty_signals、include_external_targets、include_index、redact_paths、root_path、prefer_current_scene。
-- `return`: Dictionary，包含 ok、root_path、node_count、signal_count、connection_count、nodes、signals、connections，可选 index。
+- `options`: Dictionary，支持 include_internal、persistent_only、include_empty_signals、include_external_targets、include_index、redact_paths、root_path、prefer_current_scene、max_nodes、max_signals、max_connections、max_bytes。
+- `return`: Dictionary，包含 ok、root_path、node_count、signal_count、connection_count、nodes、signals、connections、truncated、truncation_reason、estimated_bytes，可选 index；根节点不可用时包含 message。
