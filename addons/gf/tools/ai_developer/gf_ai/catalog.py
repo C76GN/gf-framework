@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import configparser
+import re
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
@@ -12,24 +13,46 @@ from .paths import canonical_json_bytes, read_json_object, resolve_project_path,
 from .schema import validate_schema_file
 
 
+_CAMEL_ACRONYM_BOUNDARY = re.compile(r"(?<=[A-Z])(?=[A-Z][a-z])")
+_CAMEL_WORD_BOUNDARY = re.compile(r"(?<=[a-z0-9])(?=[A-Z])")
+_SEARCH_SEPARATOR = re.compile(r"[\W_]+", re.UNICODE)
+_SEARCH_STOP_WORDS = frozenset({
+	"a", "an", "and", "as", "at", "before", "between", "by", "each", "for",
+	"from", "in", "into", "of", "on", "or", "over", "the", "through", "to",
+	"with",
+})
+_PRIMARY_CLASS_PARTIAL_SCORE_LIMIT = 20
+
+
 def load_api_index() -> dict[str, Any]:
 	return _load_knowledge(KNOWLEDGE_ROOT / "api_index.json", validate_api_index=True)
 
 
 def load_capabilities() -> dict[str, Any]:
-	return _load_knowledge(
-		KNOWLEDGE_ROOT / "capabilities.json",
-		SCHEMA_ROOT / "capability_catalog.schema.json",
-		record_key="capabilities",
-	)
+	return _load_catalogs()[0]
 
 
 def load_recipes() -> dict[str, Any]:
-	return _load_knowledge(
+	return _load_catalogs()[1]
+
+
+def _load_catalogs() -> tuple[dict[str, Any], dict[str, Any]]:
+	capabilities = _load_knowledge(
+		KNOWLEDGE_ROOT / "capabilities.json",
+		SCHEMA_ROOT / "capability_catalog.schema.json",
+	)
+	recipes = _load_knowledge(
 		KNOWLEDGE_ROOT / "recipes.json",
 		SCHEMA_ROOT / "recipe_catalog.schema.json",
-		record_key="recipes",
 	)
+	issues = [
+		*_catalog_record_id_issues(capabilities, "capabilities"),
+		*_catalog_record_id_issues(recipes, "recipes"),
+		*catalog_reference_issues(load_api_index(), capabilities, recipes),
+	]
+	if issues:
+		raise ValueError("GF AI knowledge validation failed: " + "; ".join(issues[:20]))
+	return capabilities, recipes
 
 
 def api_search(query: str, limit: int = 20, project_root: Path | None = None) -> dict[str, Any]:
@@ -41,7 +64,7 @@ def api_search(query: str, limit: int = 20, project_root: Path | None = None) ->
 	query_issue = _text_query_issue(query, "query", 500)
 	if query_issue:
 		return {"ok": False, "query": query, "results": [], "issues": [query_issue]}
-	needle = query.strip().casefold()
+	needle = _normalize_search_text(query)
 	index = load_api_index()
 	results: list[dict[str, Any]] = []
 	for class_name, record in _class_records(index).items():
@@ -213,22 +236,34 @@ def capability_search(query: str, limit: int = 10, project_root: Path | None = N
 	query_issue = _text_query_issue(query, "query", 500)
 	if query_issue:
 		return {"ok": False, "query": query, "results": [], "issues": [query_issue]}
-	needle = query.strip().casefold()
+	needle = _normalize_search_text(query)
 	data = load_capabilities()
 	results: list[dict[str, Any]] = []
 	for capability in data.get("capabilities", []):
 		if not isinstance(capability, dict):
 			continue
+		keywords = [
+			str(item)
+			for item in capability.get("keywords", [])
+			if isinstance(item, str)
+		]
 		search_values = [
 			str(capability.get("id", "")),
 			str(capability.get("title", "")),
 			str(capability.get("summary", "")),
-			" ".join(str(item) for item in capability.get("keywords", [])),
+			*keywords,
 		]
-		score = max(
-			_text_score(needle, *search_values),
-			_text_score(needle, " ".join(search_values)),
+		semantic_score = max(
+			_text_score(needle, *search_values, allow_partial=True),
+			_text_score(needle, " ".join(search_values), allow_partial=True),
 		)
+		primary_classes = [
+			str(item)
+			for item in capability.get("primary_classes", [])
+			if isinstance(item, str)
+		]
+		class_score = _primary_class_score(needle, primary_classes)
+		score = max(semantic_score, class_score)
 		if score > 0:
 			results.append({**capability, "score": score})
 	results.sort(key=lambda item: (-int(item["score"]), str(item.get("id", ""))))
@@ -305,6 +340,69 @@ def known_package_ids() -> set[str]:
 
 def known_api_classes() -> set[str]:
 	return set(_class_records(load_api_index()))
+
+
+def catalog_reference_issues(
+	api_index: dict[str, Any],
+	capabilities: dict[str, Any],
+	recipes: dict[str, Any],
+) -> list[str]:
+	"""Validate catalog references against API class and package ownership."""
+	issues: list[str] = []
+	classes = _class_records(api_index)
+	package_records = {
+		str(item.get("id", "")): item
+		for item in api_index.get("packages", [])
+		if isinstance(item, dict) and item.get("id")
+	}
+	recipe_records = {
+		str(item.get("id", "")): item
+		for item in recipes.get("recipes", [])
+		if isinstance(item, dict) and item.get("id")
+	}
+	capability_version = str(capabilities.get("catalog_version", ""))
+	recipe_version = str(recipes.get("catalog_version", ""))
+	if capability_version != recipe_version:
+		issues.append(
+			"Capability catalog_version must match Recipe catalog_version: "
+			f"{capability_version} != {recipe_version}."
+		)
+
+	for capability in capabilities.get("capabilities", []):
+		if not isinstance(capability, dict):
+			continue
+		capability_id = str(capability.get("id", ""))
+		declared_packages = _string_items(capability.get("packages"))
+		for package_id in sorted(declared_packages - set(package_records)):
+			issues.append(f"Capability {capability_id} references an unknown package: {package_id}.")
+		provided_packages = _package_record_dependency_closure(
+			declared_packages,
+			package_records,
+		)
+		for class_name in sorted(_string_items(capability.get("primary_classes"))):
+			record = classes.get(class_name)
+			if not isinstance(record, dict):
+				issues.append(f"Capability {capability_id} references an unknown class: {class_name}.")
+				continue
+			owner_package = str(record.get("package_id", ""))
+			if owner_package not in provided_packages:
+				issues.append(
+					f"Capability {capability_id} primary class {class_name} is owned by "
+					f"{owner_package}, which is not provided by the declared package dependency closure."
+				)
+		issues.extend(_required_api_member_issues(
+			f"Capability {capability_id}",
+			capability,
+			classes,
+			provided_packages,
+			"the declared package dependency closure",
+		))
+		for recipe_id in sorted(_string_items(capability.get("recipes"))):
+			if recipe_id not in recipe_records:
+				issues.append(f"Capability {capability_id} references an unknown recipe: {recipe_id}.")
+
+	issues.extend(_recipe_reference_issues(api_index, recipes))
+	return issues
 
 
 def package_dependency_closure(package_ids: set[str] | list[str]) -> set[str]:
@@ -511,7 +609,6 @@ def _load_knowledge(
 	schema_path: Path | None = None,
 	*,
 	validate_api_index: bool = False,
-	record_key: str = "",
 ) -> dict[str, Any]:
 	try:
 		stat = path.stat()
@@ -526,7 +623,6 @@ def _load_knowledge(
 		schema_stat.st_mtime_ns if schema_stat is not None else 0,
 		schema_stat.st_size if schema_stat is not None else 0,
 		validate_api_index,
-		record_key,
 	)
 
 
@@ -539,7 +635,6 @@ def _load_knowledge_cached(
 	_schema_modified_ns: int,
 	_schema_size: int,
 	validate_api_index: bool,
-	record_key: str,
 ) -> dict[str, Any]:
 	data = read_json_object(Path(path))
 	issues: list[str] = []
@@ -550,10 +645,6 @@ def _load_knowledge_cached(
 		)
 	if validate_api_index:
 		issues.extend(_api_index_issues(data))
-	if record_key:
-		issues.extend(_catalog_record_id_issues(data, record_key))
-	if record_key == "recipes":
-		issues.extend(_recipe_catalog_reference_issues(data))
 	if issues:
 		raise ValueError("GF AI knowledge validation failed: " + "; ".join(issues[:20]))
 	return data
@@ -637,10 +728,18 @@ def _api_index_issues(data: dict[str, Any]) -> list[str]:
 	return issues
 
 
-def _recipe_catalog_reference_issues(data: dict[str, Any]) -> list[str]:
-	known_packages = known_package_ids()
+def _recipe_reference_issues(
+	api_index: dict[str, Any],
+	recipes: dict[str, Any],
+) -> list[str]:
 	issues: list[str] = []
-	for recipe in data.get("recipes", []):
+	classes = _class_records(api_index)
+	package_records = {
+		str(item.get("id", "")): item
+		for item in api_index.get("packages", [])
+		if isinstance(item, dict) and item.get("id")
+	}
+	for recipe in recipes.get("recipes", []):
 		if not isinstance(recipe, dict):
 			continue
 		recipe_id = str(recipe.get("id", ""))
@@ -652,9 +751,84 @@ def _recipe_catalog_reference_issues(data: dict[str, Any]) -> list[str]:
 		if isinstance(groups, list):
 			for group in groups:
 				references.update(_string_items(group))
-		for package_id in sorted(references - known_packages):
+		for package_id in sorted(references - set(package_records)):
 			issues.append(f"Recipe {recipe_id} references an unknown package: {package_id}.")
+		provided_packages = _package_record_dependency_closure(
+			references,
+			package_records,
+		)
+		for class_name in sorted(_string_items(recipe.get("primary_classes"))):
+			record = classes.get(class_name)
+			if not isinstance(record, dict):
+				issues.append(f"Recipe {recipe_id} references an unknown class: {class_name}.")
+				continue
+			owner_package = str(record.get("package_id", ""))
+			if owner_package not in provided_packages:
+				issues.append(
+					f"Recipe {recipe_id} primary class {class_name} is owned by "
+					f"{owner_package}, which is not provided by its package requirements."
+				)
+		issues.extend(_required_api_member_issues(
+			f"Recipe {recipe_id}",
+			recipe,
+			classes,
+			provided_packages,
+			"its package requirements",
+		))
 	return issues
+
+
+def _required_api_member_issues(
+	label: str,
+	record: dict[str, Any],
+	classes: dict[str, Any],
+	provided_packages: set[str],
+	package_context: str,
+) -> list[str]:
+	issues: list[str] = []
+	requirements = record.get("required_api_members", [])
+	if not isinstance(requirements, list):
+		return [f"{label} required_api_members must be an array."]
+	for requirement in requirements:
+		if not isinstance(requirement, dict):
+			issues.append(f"{label} required_api_members entries must be objects.")
+			continue
+		class_name = str(requirement.get("class_name", ""))
+		class_record = classes.get(class_name)
+		if not isinstance(class_record, dict):
+			issues.append(f"{label} requires an unknown API class: {class_name}.")
+			continue
+		owner_package = str(class_record.get("package_id", ""))
+		if owner_package not in provided_packages:
+			issues.append(
+				f"{label} required API class {class_name} is owned by "
+				f"{owner_package}, which is not provided by {package_context}."
+			)
+		known_members = {
+			str(member.get("name"))
+			for member in class_record.get("members", [])
+			if isinstance(member, dict) and isinstance(member.get("name"), str)
+		}
+		for member_name in sorted(_string_items(requirement.get("members")) - known_members):
+			issues.append(f"{label} requires an unknown API member: {class_name}.{member_name}.")
+	return issues
+
+
+def _package_record_dependency_closure(
+	package_ids: set[str],
+	package_records: dict[str, dict[str, Any]],
+) -> set[str]:
+	closure: set[str] = set()
+	pending = list(package_ids)
+	while pending:
+		package_id = pending.pop()
+		if package_id in closure:
+			continue
+		closure.add(package_id)
+		record = package_records.get(package_id, {})
+		dependencies = record.get("dependencies", []) if isinstance(record, dict) else []
+		pending.extend(_string_items(dependencies))
+	return closure
 
 
 def _string_items(value: Any) -> set[str]:
@@ -663,27 +837,113 @@ def _string_items(value: Any) -> set[str]:
 	return {str(item) for item in value if isinstance(item, str) and item}
 
 
-def _text_score(needle: str, *values: str) -> int:
+def _text_score(
+	needle: str,
+	*values: str,
+	allow_partial: bool = False,
+) -> int:
+	normalized_needle = _normalize_search_text(needle)
+	terms = (
+		_search_terms(normalized_needle)
+		if allow_partial
+		else normalized_needle.split()
+	)
+	if allow_partial:
+		if not terms:
+			return 0
+		normalized_needle = " ".join(terms)
 	score = 0
 	for value in values:
-		text = value.casefold()
-		if text == needle:
+		text = _normalize_search_text(value)
+		if text == normalized_needle:
 			score = max(score, 100)
-		elif text.startswith(needle):
+		elif text.startswith(normalized_needle):
 			score = max(score, 80)
-		elif needle in text:
+		elif (
+			normalized_needle in text
+			if not allow_partial
+			else _contains_token_phrase(text, normalized_needle)
+		):
 			score = max(score, 50)
-		else:
-			terms = [term for term in needle.split() if term]
-			if terms and all(_term_matches(term, text) for term in terms):
-				score = max(score, 30)
+		elif allow_partial and _contains_token_phrase(normalized_needle, text):
+			value_term_count = len(_search_terms(text))
+			score = max(score, 60 if value_term_count >= 2 else 35)
+		elif terms:
+			matched_terms = sum(
+				1
+				for term in terms
+				if _term_matches(term, text, expand_morphology=allow_partial)
+			)
+			if matched_terms == len(terms):
+				score = max(score, 45 if allow_partial else 30)
+			elif allow_partial:
+				coverage = matched_terms / len(terms)
+				if matched_terms >= 2 and coverage >= 0.5:
+					score = max(score, 20 + int(coverage * 20))
 	return score
 
 
-def _term_matches(term: str, text: str) -> bool:
-	if term in text:
+def _primary_class_score(needle: str, primary_classes: list[str]) -> int:
+	score = _text_score(needle, *primary_classes, allow_partial=True)
+	if score == 100:
+		return score
+	return min(score, _PRIMARY_CLASS_PARTIAL_SCORE_LIMIT)
+
+
+def _term_matches(
+	term: str,
+	text: str,
+	*,
+	expand_morphology: bool = False,
+) -> bool:
+	if not expand_morphology:
+		if term in text:
+			return True
+		return len(term) > 3 and term.endswith("s") and term[:-1] in text
+	return any(_token_matches(term, text_term) for text_term in text.split())
+
+
+def _token_matches(term: str, text_term: str) -> bool:
+	if term == text_term:
 		return True
-	return len(term) > 3 and term.endswith("s") and term[:-1] in text
+	if len(term) > 3 and term.endswith("s") and term[:-1] == text_term:
+		return True
+	if len(text_term) > 3 and text_term.endswith("s") and text_term[:-1] == term:
+		return True
+	if len(term) > 5 and term.endswith("ing"):
+		stem = term[:-3]
+		return text_term in {stem, f"{stem}e"}
+	if len(term) > 4 and term.endswith("ed"):
+		stem = term[:-2]
+		return text_term in {stem, f"{stem}e"}
+	return False
+
+
+def _contains_token_phrase(haystack: str, phrase: str) -> bool:
+	haystack_terms = haystack.split()
+	phrase_terms = phrase.split()
+	if not phrase_terms or len(phrase_terms) > len(haystack_terms):
+		return False
+	window_size = len(phrase_terms)
+	return any(
+		haystack_terms[index:index + window_size] == phrase_terms
+		for index in range(len(haystack_terms) - window_size + 1)
+	)
+
+
+def _normalize_search_text(value: str) -> str:
+	text = _CAMEL_ACRONYM_BOUNDARY.sub(" ", str(value))
+	text = _CAMEL_WORD_BOUNDARY.sub(" ", text)
+	text = _SEARCH_SEPARATOR.sub(" ", text.casefold())
+	return " ".join(text.split())
+
+
+def _search_terms(value: str) -> list[str]:
+	return [
+		term
+		for term in value.split()
+		if term and term not in _SEARCH_STOP_WORDS
+	]
 
 
 def _limit_is_valid(value: Any, maximum: int) -> bool:
@@ -695,4 +955,6 @@ def _text_query_issue(value: Any, field: str, maximum: int) -> str:
 		return f"{field} must be a non-empty string"
 	if len(value) > maximum:
 		return f"{field} must not exceed {maximum} characters"
+	if not _normalize_search_text(value):
+		return f"{field} must include at least one letter or number"
 	return ""

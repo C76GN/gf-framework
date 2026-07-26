@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "catalog_version": "1.4.0",
+  "catalog_version": "1.5.0",
   "capabilities": [
     {
       "id": "architecture",
@@ -83,6 +83,16 @@
       "boundary": "GF owns navigation and binding mechanics; projects own visual hierarchy, copy, and product flows."
     },
     {
+      "id": "ui-scalability",
+      "title": "Scalable and virtualized UI collections",
+      "summary": "Bounded virtual-list windows, stable item identity, focus projection, repeater binding, and large collection presentation.",
+      "keywords": ["virtual list", "virtualized list", "large list", "recycled rows", "recycler", "repeater", "repeater binding", "focus model", "focus projection", "windowed ui", "scroll performance"],
+      "packages": ["gf.standard.ui", "gf.standard.ui.state"],
+      "primary_classes": ["GFVirtualListModel", "GFVirtualListFocusModel", "GFRepeaterBinder"],
+      "recipes": ["scalable-ui-collection"],
+      "boundary": "GF owns bounded visible windows, stable identity and focus projection, and reusable binder lifecycle mechanics; projects own authoritative item identity, sorting, filtering, row visuals, input, accessibility, and product semantics."
+    },
+    {
       "id": "audio",
       "title": "Audio playback and backend adaptation",
       "summary": "Audio clips, banks, events, pooled emitters, buses, beat clocks, and optional middleware backends.",
@@ -93,6 +103,16 @@
       "boundary": "Middleware SDK calls belong in a backend adapter; projects own event naming and mix policy."
     },
     {
+      "id": "render-feedback",
+      "title": "Render preparation and multimodal feedback",
+      "summary": "Shader parameters, render warmup, screen transitions, haptics, and shake mechanisms for project-owned visual and tactile feedback.",
+      "keywords": ["shader", "shader parameter", "render warmup", "transition", "screen transition", "visual feedback", "haptic", "haptic feedback", "vibration", "shake", "camera shake", "reduced motion"],
+      "packages": ["gf.standard.display", "gf.standard.assets", "gf.extension.feedback"],
+      "primary_classes": ["GFShaderParameterUtility", "GFRenderWarmupUtility", "GFScreenTransitionUtility", "GFHapticUtility", "GFShakeUtility"],
+      "recipes": ["render-feedback-orchestration"],
+      "boundary": "GF owns reusable parameter application, warmup, transition, haptic, and shake lifecycles; projects own effect meaning, timing, budgets, art direction, accessibility policy, and static fallbacks."
+    },
+    {
       "id": "state-flow",
       "title": "State machines and flow orchestration",
       "summary": "Node and resource state machines, flow graphs, action queues, behavior trees, and decision mechanisms.",
@@ -101,6 +121,32 @@
       "primary_classes": ["GFNodeStateMachine", "GFFlowRunner", "GFFlowGraph", "GFActionQueueSystem", "GFBehaviorTree"],
       "recipes": ["state-or-flow"],
       "boundary": "Select one mechanism by state ownership and observability; do not layer several orchestrators without a distinct responsibility."
+    },
+    {
+      "id": "command-history",
+      "title": "Undo, redo, and command history",
+      "summary": "Undoable commands, bounded undo and redo stacks, snapshots, serialization, restoration, and failure-aware synchronous or asynchronous history transitions.",
+      "keywords": ["command history", "undo", "redo", "undoable command", "history stack", "snapshot", "serialize history", "reversible operation", "failed undo", "failed redo", "terminal result", "failure-aware transition"],
+      "packages": ["gf.standard.base", "gf.standard.storage"],
+      "primary_classes": ["GFUndoableCommand", "GFCommandHistoryUtility"],
+      "required_api_members": [
+        {
+          "class_name": "GFUndoableCommand",
+          "members": ["is_undo_successful", "is_redo_successful"]
+        }
+      ],
+      "recipes": ["undoable-command-history"],
+      "boundary": "GF owns bounded history stacks, invocation ordering, signal-completion waits, terminal-success hooks, and atomic cursor preservation when a transition fails; projects own command semantics, terminal-success policy, snapshot schemas, domain preconditions, restore atomicity, persistence policy, and business validation."
+    },
+    {
+      "id": "runtime-performance",
+      "title": "Bounded runtime work and object reuse",
+      "summary": "Explicit execution budgets and reusable object pools for keeping analysis, effects, and other bursty runtime work bounded.",
+      "keywords": ["execution budget", "time budget", "node budget", "object pool", "pooling", "object reuse", "performance", "frame budget", "bounded work", "incremental work"],
+      "packages": ["gf.standard.base"],
+      "primary_classes": ["GFExecutionBudget", "GFObjectPoolUtility"],
+      "recipes": ["bounded-runtime-work"],
+      "boundary": "GF supplies explicit budget checks and reusable pool lifecycle mechanics; projects must profile first and own capacity, frame priority, exhaustion behavior, reset semantics, and authoritative domain identity."
     },
     {
       "id": "diagnostics",
@@ -176,7 +222,7 @@
       "id": "spatial-physics",
       "title": "Spatial math and physics mechanisms",
       "summary": "Grid/path math, spatial queries, bounded 2D canvas orchestration, camera mechanisms, hit detection, buoyancy sampling, and physics-independent policies.",
-      "keywords": ["spatial", "grid", "path", "canvas", "selection", "placement", "physics", "camera", "hitbox", "buoyancy", "2d", "3d"],
+      "keywords": ["spatial", "grid", "path", "grid path", "path preview", "grid path preview", "pathfinding", "canvas", "selection", "placement", "physics", "camera", "hitbox", "buoyancy", "2d", "3d"],
       "packages": ["gf.standard.spatial", "gf.standard.spatial.canvas", "gf.extension.physics", "gf.extension.camera", "gf.extension.combat"],
       "primary_classes": ["GFSpatialQueryIndex2D", "GFGridPathMath2D", "GFGraphPathSearchState", "GFSpatialCanvas2D", "GFBuoyancyField3D", "GFCameraOrbitRig3D", "GFHitBox2D"],
       "recipes": ["spatial-policy"],

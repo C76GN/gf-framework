@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "catalog_version": "1.4.0",
+  "catalog_version": "1.5.0",
   "recipes": [
     {
       "id": "project-feature",
@@ -43,6 +43,21 @@
         "Observe every terminal state and test late callbacks."
       ],
       "avoid": ["Fire-and-forget work with hidden failure", "Awaiting a signal whose emitter can disappear"]
+    },
+    {
+      "id": "bounded-runtime-work",
+      "title": "Bound runtime work and object reuse",
+      "package_requirements": {"all_of": ["gf.standard.base"], "any_of": []},
+      "primary_classes": ["GFExecutionBudget", "GFObjectPoolUtility"],
+      "steps": [
+        "Profile the real workload before choosing a finite step, depth, output, time, or pool capacity.",
+        "Create or reset GFExecutionBudget at the operation boundary and consume the relevant checks inside every potentially unbounded loop.",
+        "Propagate cancellation and expose the budget violation reason instead of silently returning partial authoritative state.",
+        "Use GFObjectPoolUtility only for scene nodes with an explicit PackedScene identity, bounded prewarm, and symmetric acquire and release ownership.",
+        "Reset project-owned transient state through the documented pool hooks and keep durable domain identity outside pooled nodes.",
+        "Test exhaustion, cancellation, invalid releases, capacity trimming, owner disposal, and repeated acquire and release cycles."
+      ],
+      "avoid": ["Pooling before profiling", "Treating a budget as an automatic scheduler", "Pooling authoritative identity or state without an explicit reset contract"]
     },
     {
       "id": "owned-resource-load",
@@ -160,6 +175,21 @@
       "avoid": ["Provider-specific methods added to a generic protocol", "Silent fallback that changes product behavior"]
     },
     {
+      "id": "render-feedback-orchestration",
+      "title": "Orchestrate render preparation and feedback",
+      "package_requirements": {"all_of": [], "any_of": [["gf.standard.display", "gf.standard.assets", "gf.extension.feedback"]]},
+      "primary_classes": ["GFShaderParameterUtility", "GFRenderWarmupUtility", "GFScreenTransitionUtility", "GFHapticUtility", "GFShakeUtility"],
+      "steps": [
+        "Define project-owned feedback intent, timing, channels, accessibility policy, and finite effect budgets before selecting a mechanism.",
+        "Apply validated shader profiles or parameter batches without embedding art-direction rules in generic utilities.",
+        "Build and process bounded render warmup manifests at an explicit loading boundary, then release temporary nodes and cached resources with their owner.",
+        "Coordinate screen-transition completion or cancellation with project navigation instead of treating an overlay as authoritative scene state.",
+        "Play haptic and shake presets through explicit channels and lifecycle owners, with reduced-motion, unavailable-device, and static fallback policy in project code.",
+        "Test overlapping effects, cancellation, missing resources or devices, budget exhaustion, scene teardown, and disabled feedback."
+      ],
+      "avoid": ["Unbounded warmup during interactive frames", "Haptics or shake as mandatory gameplay information", "A transition overlay committing project navigation"]
+    },
+    {
       "id": "network-backend-adapter",
       "title": "Implement a network transport backend",
       "package_requirements": {"all_of": ["gf.extension.network"], "any_of": []},
@@ -244,6 +274,21 @@
       "avoid": ["Cross-layer cleanup assumed from replace", "Global UI state embedded in individual controls"]
     },
     {
+      "id": "scalable-ui-collection",
+      "title": "Present a scalable UI collection",
+      "package_requirements": {"all_of": [], "any_of": [["gf.standard.ui", "gf.standard.ui.state"]]},
+      "primary_classes": ["GFVirtualListModel", "GFVirtualListFocusModel", "GFRepeaterBinder"],
+      "steps": [
+        "Keep authoritative item identity, sorting, filtering, selection, and accessibility semantics in project state.",
+        "Configure GFVirtualListModel with the item count and measured or estimated extents, then request only the visible range for the current viewport.",
+        "Recycle project-owned row views by stable item identity and feed measured extent changes back into the layout model.",
+        "Use GFVirtualListFocusModel to preserve logical focus independently from the currently materialized row nodes.",
+        "When reactive repeater binding is needed, install gf.standard.ui.state and bind only the currently materialized visible slice to GFRepeaterBinder; never pass the complete large collection, and keep template and teardown ownership explicit.",
+        "Test empty and very large collections, variable extents, reorder and filter changes, focus repair, container disposal, and repeated bind and unbind cycles."
+      ],
+      "avoid": ["One Control node permanently allocated per large item", "Row node identity used as authoritative item identity", "Sorting or filtering hidden inside the framework binder"]
+    },
+    {
       "id": "ui-route-operation",
       "title": "Execute an asynchronous UI route transition",
       "package_requirements": {"all_of": ["gf.standard.ui.navigation"], "any_of": []},
@@ -270,6 +315,28 @@
         "Test interruption, loops, missing targets, and owner disposal."
       ],
       "avoid": ["Nesting orchestrators to model the same state", "Using a visual queue as authoritative domain state"]
+    },
+    {
+      "id": "undoable-command-history",
+      "title": "Maintain undoable command history",
+      "package_requirements": {"all_of": ["gf.standard.storage"], "any_of": []},
+      "primary_classes": ["GFUndoableCommand", "GFCommandHistoryUtility"],
+      "required_api_members": [
+        {
+          "class_name": "GFUndoableCommand",
+          "members": ["is_undo_successful", "is_redo_successful"]
+        }
+      ],
+      "steps": [
+        "Define one project-owned command with explicit execute, undo, snapshot, and domain precondition semantics.",
+        "Capture a bounded pure-Variant snapshot before mutation and keep restoration atomic within the command.",
+        "Execute through GFCommandHistoryUtility and use the asynchronous history entry points whenever execute or undo returns a Signal.",
+        "Override is_undo_successful or is_redo_successful when an operation can reach a failed terminal result; asynchronous hooks receive null for no arguments, one emitted value directly, or an Array for multiple emitted values, while the default true preserves commands that do not opt in.",
+        "Use should_record for initial execution eligibility and configure a finite history capacity; when a new command is successfully recorded, GFCommandHistoryUtility invalidates redo history, so projects must not maintain a parallel private stack.",
+        "Serialize only stable command data and restore through an explicit project command builder with version and compatibility checks.",
+        "Test empty history, capacity trimming, skipped recording, failed synchronous and asynchronous undo and redo transitions, lifecycle disposal, serialization, and restoration."
+      ],
+      "avoid": ["Recording a command before execution completes", "Using history serialization as authoritative save data without a project compatibility contract", "Undo logic that can leave partially restored domain state"]
     },
     {
       "id": "diagnostic-contribution",
@@ -363,10 +430,11 @@
       "id": "spatial-policy",
       "title": "Apply spatial or physics mechanisms",
       "package_requirements": {"all_of": [], "any_of": [["gf.standard.spatial", "gf.standard.spatial.canvas", "gf.extension.physics", "gf.extension.camera"]]},
-      "primary_classes": ["GFSpatialQueryIndex2D", "GFSpatialCanvas2D", "GFBuoyancyField3D", "GFCameraOrbitRig3D"],
+      "primary_classes": ["GFSpatialQueryIndex2D", "GFGridPathMath2D", "GFSpatialCanvas2D", "GFBuoyancyField3D", "GFCameraOrbitRig3D"],
       "steps": [
         "Separate pure spatial math or sampling from world ownership and node mutation.",
         "Declare coordinate, units, layer, update cadence, and authority contracts.",
+        "Use GFGridPathMath2D for bounded path or flow-field data, while project code owns cell legality, movement cost, authority, and preview rendering.",
         "Use GFSpatialCanvas2D only to coordinate bounded view transforms, selection, and project-validated placement operation records.",
         "Let the project choose candidates, validate placement, mutate TileMap or scene content, persist history or UGC, apply forces, and define collision policy.",
         "Bound queries and incremental work.",

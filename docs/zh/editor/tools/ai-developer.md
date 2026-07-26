@@ -132,7 +132,7 @@ python addons/gf/tools/ai_developer/gf_ai_project.py agent-uninstall --project-r
 
 API 索引用于准确定位，不替代行为源码、测试和正式文档。涉及副作用、线程、生命周期、失败恢复或持久化兼容时，仍应打开索引返回的源码路径核对。
 
-独立 Kit 的 API 目录与 GF 发行版精确绑定。项目 `addons/gf/plugin.cfg` 版本缺失，或与目录的 `framework_version` 不相等时，能力、Recipe 和 API 查询统一 fail closed；不得用旧目录为新框架生成代码。Capability 与 Recipe 目录受严格 Schema 约束，API 索引还会复核记录计数与内容摘要；任一完整性检查失败时，整份目录都视为无效。
+独立 Kit 的 API 目录与 GF 发行版精确绑定。项目 `addons/gf/plugin.cfg` 版本缺失，或与目录的 `framework_version` 不相等时，能力、Recipe 和 API 查询统一 fail closed；不得用旧目录为新框架生成代码。Capability 与 Recipe 目录使用同一目录版本并受严格 Schema 约束；目录加载还会交叉复核 Capability、Recipe、包、类及类所属包的依赖闭包，API 索引则复核记录计数与内容摘要。能力搜索会统一空格、标点、连字符和下划线，并只把主类名作为低权重定位线索。任一完整性检查失败时，整份目录都视为无效。
 
 ## MCP 接入
 
