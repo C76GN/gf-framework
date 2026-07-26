@@ -2,7 +2,7 @@
   "schema_version": 1,
   "catalog_version": "1.0.0",
   "framework_version": "10.0.0-dev.0",
-  "source_digest": "e5df39d918f5576ffcf94f502a1b7c33a97d4b296bd910ba4f7ff6ff1cf3233d",
+  "source_digest": "1fb53ddb3599ee632af501562e0789f8d06af57361f7c5df546847e6514025bb",
   "class_count": 755,
   "package_count": 52,
   "packages": [
@@ -15366,7 +15366,7 @@
           "kind": "var",
           "name": "is_processing_async",
           "signature": "var is_processing_async: bool",
-          "summary": "当前是否正在等待一条异步命令完成。",
+          "summary": "当前是否正在处理一条异步命令的等待、终态判断或历史栈提交。",
           "visibility": "public"
         },
         {
@@ -15401,28 +15401,28 @@
           "kind": "func",
           "name": "undo_last",
           "signature": "func undo_last() -> bool",
-          "summary": "撤销最后一条命令。",
+          "summary": "撤销最后一条命令，并仅在结果 hook 成功时提交历史栈移动。",
           "visibility": "public"
         },
         {
           "kind": "func",
           "name": "undo_last_async",
           "signature": "func undo_last_async() -> bool",
-          "summary": "异步撤销最后一条命令。",
+          "summary": "异步撤销最后一条命令，并仅在结果 hook 成功时提交历史栈移动。",
           "visibility": "public"
         },
         {
           "kind": "func",
           "name": "redo",
           "signature": "func redo() -> bool",
-          "summary": "重做最近被撤销的命令。",
+          "summary": "重做最近被撤销的命令，并仅在结果 hook 成功时提交历史栈移动。",
           "visibility": "public"
         },
         {
           "kind": "func",
           "name": "redo_async",
           "signature": "func redo_async() -> bool",
-          "summary": "异步重做最近被撤销的命令。",
+          "summary": "异步重做最近被撤销的命令，并仅在结果 hook 成功时提交历史栈移动。",
           "visibility": "public"
         },
         {
@@ -84465,6 +84465,20 @@
           "name": "should_record",
           "signature": "func should_record(_execute_result: Variant) -> bool",
           "summary": "判断 execute() 返回后是否应该写入命令历史。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_undo_successful",
+          "signature": "func is_undo_successful(_undo_result: Variant) -> bool",
+          "summary": "判断一次 undo() 的终态结果是否成功。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_redo_successful",
+          "signature": "func is_redo_successful(_execute_result: Variant) -> bool",
+          "summary": "判断一次重做 execute() 的终态结果是否成功。",
           "visibility": "public"
         },
         {

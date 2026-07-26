@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFUndoableCommand" path="addons/gf/standard/command/gf_undoable_command.gd" module="standard" extends="GFCommand" classDigest="79ed46c8bb37ec2fef09a5f180e02ca0ffd8eb62fba01c69936771c7d4f7d534">
+<class name="GFUndoableCommand" path="addons/gf/standard/command/gf_undoable_command.gd" module="standard" extends="GFCommand" classDigest="a8a83466481118205e83762b6badcd88511fdacd1ff80c33ee8082deae088816">
 	<description>GFUndoableCommand: 可撤销命令的抽象基类。
 继承自 GFCommand，在标准命令的基础上新增撤销能力。
 子类须在 execute() 执行前通过 set_snapshot() 保存当前状态快照，
@@ -49,6 +49,30 @@
 				<tag name="param">_execute_result: execute() 的最终返回值。</tag>
 				<tag name="return">返回 false 时，GFCommandHistoryUtility 不会记录该命令。</tag>
 				<tag name="schema">_execute_result: Variant returned by execute().</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_undo_successful">
+			<signature>func is_undo_successful(_undo_result: Variant) -&gt; bool:</signature>
+			<description>判断一次 undo() 的终态结果是否成功。
+该 hook 运行在非重入历史操作内，不得执行、记录、清空、调整容量或恢复历史。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">_undo_result: 同步返回值，或异步完成 Signal 的规范化 payload；异步最多捕获 16 个参数。</tag>
+				<tag name="return">返回 false 时，GFCommandHistoryUtility 会保留原撤销栈位置并报告失败。</tag>
+				<tag name="schema">_undo_result: Direct undo() result, null for a no-argument completion Signal, one emitted value, or an Array containing the first 2 to 16 emitted values.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_redo_successful">
+			<signature>func is_redo_successful(_execute_result: Variant) -&gt; bool:</signature>
+			<description>判断一次重做 execute() 的终态结果是否成功。
+该 hook 运行在非重入历史操作内，不得执行、记录、清空、调整容量或恢复历史。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">_execute_result: 同步返回值，或异步完成 Signal 的规范化 payload；异步最多捕获 16 个参数。</tag>
+				<tag name="return">返回 false 时，GFCommandHistoryUtility 会保留原重做栈位置并报告失败。</tag>
+				<tag name="schema">_execute_result: Direct execute() result, null for a no-argument completion Signal, one emitted value, or an Array containing the first 2 to 16 emitted values.</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 		<member kind="method" name="set_snapshot">

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFCommandHistoryUtility" path="addons/gf/standard/utilities/history/gf_command_history_utility.gd" module="standard" extends="GFUtility" classDigest="1c3760648441f785923cda5fef895615c5709f59fc5bcfe5d4c7555c9e8a479f">
+<class name="GFCommandHistoryUtility" path="addons/gf/standard/utilities/history/gf_command_history_utility.gd" module="standard" extends="GFUtility" classDigest="1ca87ce78d3f61ad62657b32967a57469655c0d617fec9d43a77b0bb9c734de1">
 	<description>GFCommandHistoryUtility: 可撤销命令历史管理器。
 负责维护 `GFUndoableCommand` 的撤销栈与重做栈，
 并提供同步/异步重放与历史序列化能力。</description>
@@ -44,9 +44,10 @@
 		</member>
 		<member kind="property" name="is_processing_async">
 			<signature>var is_processing_async: bool:</signature>
-			<description>当前是否正在等待一条异步命令完成。</description>
+			<description>当前是否正在处理一条异步命令的等待、终态判断或历史栈提交。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</properties>
@@ -85,34 +86,46 @@
 		</member>
 		<member kind="method" name="undo_last">
 			<signature>func undo_last() -&gt; bool:</signature>
-			<description>撤销最后一条命令。</description>
+			<description>撤销最后一条命令，并仅在结果 hook 成功时提交历史栈移动。
+`is_undo_successful()` 返回 `false` 时，命令保留在撤销栈原位置，重做栈不变。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="return">成功撤销时返回 `true`。</tag>
+				<tag name="return">成功提交撤销历史时返回 `true`，否则返回 `false`。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="undo_last_async">
 			<signature>func undo_last_async() -&gt; bool:</signature>
-			<description>异步撤销最后一条命令。</description>
+			<description>异步撤销最后一条命令，并仅在结果 hook 成功时提交历史栈移动。
+Signal 完成参数会规范化后传入 `is_undo_successful()`：无参数为 null，一个参数为该值，
+两个至 16 个参数为保持发射顺序的 Array；超过 16 个时告警并只保留前 16 个。
+结果 hook 返回 `false` 时，命令保留在撤销栈原位置，重做栈不变。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="return">成功撤销时返回 `true`。</tag>
+				<tag name="return">成功提交撤销历史时返回 `true`，否则返回 `false`。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="redo">
 			<signature>func redo() -&gt; bool:</signature>
-			<description>重做最近被撤销的命令。</description>
+			<description>重做最近被撤销的命令，并仅在结果 hook 成功时提交历史栈移动。
+`is_redo_successful()` 返回 `false` 时，命令保留在重做栈原位置，撤销栈不变。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="return">成功重做时返回 `true`。</tag>
+				<tag name="return">成功提交重做历史时返回 `true`，否则返回 `false`。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="redo_async">
 			<signature>func redo_async() -&gt; bool:</signature>
-			<description>异步重做最近被撤销的命令。</description>
+			<description>异步重做最近被撤销的命令，并仅在结果 hook 成功时提交历史栈移动。
+Signal 完成参数会规范化后传入 `is_redo_successful()`：无参数为 null，一个参数为该值，
+两个至 16 个参数为保持发射顺序的 Array；超过 16 个时告警并只保留前 16 个。
+结果 hook 返回 `false` 时，命令保留在重做栈原位置，撤销栈不变。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="return">成功重做时返回 `true`。</tag>
+				<tag name="return">成功提交重做历史时返回 `true`，否则返回 `false`。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="clear">

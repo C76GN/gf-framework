@@ -19,6 +19,8 @@
 | 方法 | [`execute`](#member-gfundoablecommand-methods-execute) | `func execute() -> Variant:` |
 | 方法 | [`undo`](#member-gfundoablecommand-methods-undo) | `func undo() -> Variant:` |
 | 方法 | [`should_record`](#member-gfundoablecommand-methods-should_record) | `func should_record(_execute_result: Variant) -> bool:` |
+| 方法 | [`is_undo_successful`](#member-gfundoablecommand-methods-is_undo_successful) | `func is_undo_successful(_undo_result: Variant) -> bool:` |
+| 方法 | [`is_redo_successful`](#member-gfundoablecommand-methods-is_redo_successful) | `func is_redo_successful(_execute_result: Variant) -> bool:` |
 | 方法 | [`set_snapshot`](#member-gfundoablecommand-methods-set_snapshot) | `func set_snapshot(data: Variant) -> bool:` |
 | 方法 | [`get_snapshot`](#member-gfundoablecommand-methods-get_snapshot) | `func get_snapshot() -> Variant:` |
 
@@ -97,6 +99,56 @@ func should_record(_execute_result: Variant) -> bool:
 结构：
 
 - `_execute_result`: Variant returned by execute().
+
+<a id="member-gfundoablecommand-methods-is_undo_successful"></a>
+
+### `is_undo_successful`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func is_undo_successful(_undo_result: Variant) -> bool:
+```
+
+判断一次 undo() 的终态结果是否成功。 该 hook 运行在非重入历史操作内，不得执行、记录、清空、调整容量或恢复历史。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `_undo_result` | 同步返回值，或异步完成 Signal 的规范化 payload；异步最多捕获 16 个参数。 |
+
+返回：返回 false 时，GFCommandHistoryUtility 会保留原撤销栈位置并报告失败。
+
+结构：
+
+- `_undo_result`: Direct undo() result, null for a no-argument completion Signal, one emitted value, or an Array containing the first 2 to 16 emitted values.
+
+<a id="member-gfundoablecommand-methods-is_redo_successful"></a>
+
+### `is_redo_successful`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func is_redo_successful(_execute_result: Variant) -> bool:
+```
+
+判断一次重做 execute() 的终态结果是否成功。 该 hook 运行在非重入历史操作内，不得执行、记录、清空、调整容量或恢复历史。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `_execute_result` | 同步返回值，或异步完成 Signal 的规范化 payload；异步最多捕获 16 个参数。 |
+
+返回：返回 false 时，GFCommandHistoryUtility 会保留原重做栈位置并报告失败。
+
+结构：
+
+- `_execute_result`: Direct execute() result, null for a no-argument completion Signal, one emitted value, or an Array containing the first 2 to 16 emitted values.
 
 <a id="member-gfundoablecommand-methods-set_snapshot"></a>
 
