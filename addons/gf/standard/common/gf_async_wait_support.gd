@@ -7,6 +7,8 @@ extends RefCounted
 
 # --- 常量 ---
 
+const _GF_INSTANCE_GUARD = preload("res://addons/gf/kernel/core/gf_instance_guard.gd")
+
 ## 单次等待最多捕获的 Signal 参数数量。
 ## [br]
 ## @api framework_internal
@@ -64,10 +66,6 @@ static func await_signal_state(result_signal: Signal, options: Dictionary = {}) 
 	if result_signal.is_null():
 		return _make_signal_wait_result(STATUS_INVALID, [], &"invalid_signal")
 
-	var target_obj: Object = result_signal.get_object()
-	if not is_instance_valid(target_obj):
-		return _make_signal_wait_result(STATUS_INVALID, [], &"target_invalid")
-
 	var cancel_token: GFCancellationToken = _get_cancel_token(options)
 	if cancel_token != null and cancel_token.is_cancel_requested():
 		return _make_signal_wait_result(
@@ -77,6 +75,16 @@ static func await_signal_state(result_signal: Signal, options: Dictionary = {}) 
 			cancel_token.get_cancel_metadata()
 		)
 
+	var target_obj: Object = result_signal.get_object()
+	if not is_instance_valid(target_obj):
+		return _make_signal_wait_result(STATUS_INVALID, [], &"target_invalid")
+
+	var guard_value: Variant = GFVariantData.get_option_value(options, "guard_node")
+	var guard_configured: bool = typeof(guard_value) != TYPE_NIL
+	var guard_node: Node = _GF_INSTANCE_GUARD._get_live_node(guard_value)
+	if guard_configured and guard_node == null:
+		return _make_signal_wait_result(STATUS_INVALID, [], &"guard_exited")
+
 	var completion_state: Dictionary = {
 		"completed": false,
 		"status": STATUS_COMPLETED,
@@ -85,16 +93,11 @@ static func await_signal_state(result_signal: Signal, options: Dictionary = {}) 
 		"args": [],
 	}
 	var on_signal_completed: Callable = func() -> void:
-		completion_state["completed"] = true
-		completion_state["status"] = STATUS_COMPLETED
+		_try_complete_signal_wait(completion_state, STATUS_COMPLETED)
 	var on_target_exited: Callable = func() -> void:
-		completion_state["completed"] = true
-		completion_state["status"] = STATUS_INVALID
-		completion_state["reason"] = &"target_exited"
+		_try_complete_signal_wait(completion_state, STATUS_INVALID, &"target_exited")
 	var on_guard_exited: Callable = func() -> void:
-		completion_state["completed"] = true
-		completion_state["status"] = STATUS_INVALID
-		completion_state["reason"] = &"guard_exited"
+		_try_complete_signal_wait(completion_state, STATUS_INVALID, &"guard_exited")
 	var capture_payload: bool = GFVariantData.get_option_bool(options, "capture_payload", false)
 	var result_callback: Callable = (
 		_make_signal_capture_callable(result_signal, completion_state)
@@ -132,7 +135,6 @@ static func await_signal_state(result_signal: Signal, options: Dictionary = {}) 
 				return _make_signal_wait_result(STATUS_INVALID, [], &"connect_failed")
 			tree_exit_signal = target_node.tree_exited
 
-	var guard_node: Node = _get_guard_node(options)
 	if guard_node != null and result_signal != guard_node.tree_exited and tree_exit_signal != guard_node.tree_exited:
 		if not guard_node.is_inside_tree():
 			disconnect_signal_if_connected(result_signal, result_callback)
@@ -162,13 +164,24 @@ static func await_signal_state(result_signal: Signal, options: Dictionary = {}) 
 	disconnect_signal_if_connected(tree_exit_signal, tree_exit_callback)
 	disconnect_signal_if_connected(guard_exit_signal, guard_exit_callback)
 
+	if (
+		status != STATUS_COMPLETED
+		and cancel_token != null
+		and cancel_token.is_cancel_requested()
+	):
+		status = STATUS_CANCELLED
+
 	if status == STATUS_TIMEOUT:
 		var timeout_warning: String = GFVariantData.get_option_string(options, "timeout_warning")
 		if not timeout_warning.is_empty():
 			push_warning(timeout_warning)
 
 	var args: Array = GFVariantData.as_array(GFVariantData.get_option_value(completion_state, "args", []))
-	if status == STATUS_CANCELLED and cancel_token != null:
+	if (
+		status == STATUS_CANCELLED
+		and cancel_token != null
+		and cancel_token.is_cancel_requested()
+	):
 		return _make_signal_wait_result(status, args, cancel_token.get_cancel_reason(), cancel_token.get_cancel_metadata())
 	return _make_signal_wait_result(
 		status,
@@ -472,13 +485,30 @@ static func _make_signal_capture_callable(target_signal: Signal, completion_stat
 			arg15,
 			arg16,
 		]
-		completion_state["completed"] = true
-		completion_state["status"] = STATUS_COMPLETED
-		completion_state["args"] = raw_args.slice(0, captured_argument_count)
+		_try_complete_signal_wait(
+			completion_state,
+			STATUS_COMPLETED,
+			&"",
+			raw_args.slice(0, captured_argument_count)
+		)
 
 	if argument_count > MAX_CAPTURED_SIGNAL_ARGUMENTS:
 		return capture_callback.unbind(argument_count - MAX_CAPTURED_SIGNAL_ARGUMENTS)
 	return capture_callback
+
+
+static func _try_complete_signal_wait(
+	completion_state: Dictionary,
+	status: StringName,
+	reason: StringName = &"",
+	args: Array = []
+) -> void:
+	if GFVariantData.get_option_bool(completion_state, "completed"):
+		return
+	completion_state["completed"] = true
+	completion_state["status"] = status
+	completion_state["reason"] = reason
+	completion_state["args"] = args
 
 
 static func _make_signal_wait_result(
@@ -513,10 +543,6 @@ static func _get_cancel_token(options: Dictionary) -> GFCancellationToken:
 		var token: GFCancellationToken = value
 		return token
 	return null
-
-
-static func _get_guard_node(options: Dictionary) -> Node:
-	return _variant_to_node(GFVariantData.get_option_value(options, "guard_node"))
 
 
 static func _get_time_utility(options: Dictionary) -> GFTimeUtility:

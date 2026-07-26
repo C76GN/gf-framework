@@ -10,8 +10,8 @@
 - `GFCancellationToken` 只读暴露 `is_cancel_requested()`、原因、metadata、取消时间和 `cancel_requested` 信号。
 - `GFTimeoutController` 把可复用超时计划建模为取消 token，可 `start_seconds()`、`stop()` 或 `reset()`。
 - `GFAsyncCompletion` 把任意回调流程收敛到 succeeded、failed 或 cancelled 一次性终态；等待它时使用 `GFAsyncWaitUtility.wait_completion_async()`。
-- `GFAsyncWaitUtility` 以字典结果等待 Godot Signal、帧、延迟、条件或值变化，并支持超时、取消 token、保护节点和 payload 捕获。
-- `GFAsyncChannel` 提供多生产者、单消费者的轻量事件通道，可写入、异步读取、关闭和导出调试快照。
+- `GFAsyncWaitUtility` 以字典结果等待 Godot Signal、帧、延迟、条件或值变化，并支持超时、取消 token、保护节点和 payload 捕获。未提交或显式传入 `null` 时不启用 guard；非空 guard 必须仍然有效且位于场景树内。guard 在等待开始前已经释放、等待期间释放或离树时返回 `status = invalid`、`reason = guard_exited`；帧、延迟、条件和值变化等待只跨帧记录实例 ID，Signal 等待则监听 guard 离树。帧、延迟、条件和值变化等轮询等待的检查顺序保持为场景树、取消 token、guard、超时，已发生的取消会优先保留 token 的 reason 与 metadata。Signal 等待会保留已经完成的目标 Signal；在提交 target/guard invalid、timeout 或其他非 completed 终态前则重新仲裁 token，若 token 已请求取消便返回 `cancelled` 并保留其 reason 与 metadata。未实际取消的 token 不会覆盖 `should_continue_false` 或 `should_continue_invalid` 原因。
+- `GFAsyncChannel` 提供多生产者、单消费者的轻量事件通道，可写入、异步读取、关闭和导出调试快照；`read_async()` 和 `wait_to_read_async()` 会透传等待器的生命周期结果。
 - `GFAsyncProgress` 统一 0 到 1 的进度值、消息和 metadata，并可按数值变化或时间间隔节流。
 - `GFAsyncProgressAggregator` 把多个带权重的子任务进度聚合成一个总进度，并复用 `GFAsyncProgress` 的节流信号。
 - `GFAsyncFlowTools` 在这些原语之上提供 `retry_async()`、`each_async()`、`fold_async()`、`wait_all_completions_async()` 和 `wait_any_completion_async()`，返回普通结果字典，不引入新的 Promise 类型；需要 HTTP、手动条目或 all-settled 报告时，`GFAsyncBatch.watch_completion()` 可复用 ALL / ANY / EACH 批处理策略。

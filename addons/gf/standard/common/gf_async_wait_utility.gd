@@ -16,6 +16,7 @@ extends RefCounted
 
 const _GF_ASYNC_WAIT_SUPPORT = preload("res://addons/gf/standard/common/gf_async_wait_support.gd")
 const _GF_ASYNC_RESULT_SUPPORT = preload("res://addons/gf/standard/common/gf_async_result_support.gd")
+const _GF_INSTANCE_GUARD = preload("res://addons/gf/kernel/core/gf_instance_guard.gd")
 
 ## 等待正常由目标 Signal 完成。
 ## [br]
@@ -338,10 +339,16 @@ static func _wait_predicate(predicate: Callable, desired_value: bool, options: D
 
 static func _make_wait_state(options: Dictionary) -> Dictionary:
 	var timeout_seconds: float = GFVariantData.get_option_float(options, "timeout_seconds", 0.0)
+	var guard_value: Variant = GFVariantData.get_option_value(options, "guard_node")
+	var guard_configured: bool = typeof(guard_value) != TYPE_NIL
+	var guard_node: Node = _GF_INSTANCE_GUARD._get_live_node(guard_value)
+	var guard_instance_id: int = guard_node.get_instance_id() if guard_node != null else 0
 	return {
 		"tree": _get_scene_tree(options),
 		"cancel_token": _get_cancel_token(options),
-		"guard_node": _get_guard_node(options),
+		"guard_configured": guard_configured,
+		"guard_instance_id": guard_instance_id,
+		"reason": &"",
 		"time_utility": _get_time_utility(options),
 		"respect_time_scale": GFVariantData.get_option_bool(options, "respect_time_scale", true),
 		"process_in_physics": GFVariantData.get_option_bool(options, "process_in_physics", false),
@@ -360,9 +367,11 @@ static func _get_common_wait_status(state: Dictionary) -> StringName:
 	if cancel_token != null and cancel_token.is_cancel_requested():
 		return STATUS_CANCELLED
 
-	var guard_node: Node = _state_to_guard_node(state)
-	if guard_node != null and (not is_instance_valid(guard_node) or not guard_node.is_inside_tree()):
-		return STATUS_INVALID
+	if GFVariantData.get_option_bool(state, "guard_configured"):
+		var guard_node: Node = _state_to_guard_node(state)
+		if guard_node == null or not guard_node.is_inside_tree():
+			state["reason"] = &"guard_exited"
+			return STATUS_INVALID
 
 	var timeout_msec: float = GFVariantData.get_option_float(state, "timeout_msec", 0.0)
 	if timeout_msec <= 0.0:
@@ -388,7 +397,7 @@ static func _make_status_result(status: StringName, state: Dictionary, extra: Di
 	var cancel_token: GFCancellationToken = _state_to_cancel_token(state)
 	if status == STATUS_CANCELLED and cancel_token != null:
 		return _make_result(status, [], cancel_token.get_cancel_reason(), cancel_token.get_cancel_metadata(), extra)
-	return _make_result(status, [], &"", {}, extra)
+	return _make_result(status, [], GFVariantData.get_option_string_name(state, "reason"), {}, extra)
 
 
 static func _await_signal_state(result_signal: Signal, options: Dictionary, capture_payload: bool) -> Dictionary:
@@ -432,10 +441,6 @@ static func _get_cancel_token(options: Dictionary) -> GFCancellationToken:
 	return null
 
 
-static func _get_guard_node(options: Dictionary) -> Node:
-	return _variant_to_node(GFVariantData.get_option_value(options, "guard_node"))
-
-
 static func _get_time_utility(options: Dictionary) -> GFTimeUtility:
 	var value: Variant = GFVariantData.get_option_value(options, "time_utility")
 	if value is GFTimeUtility:
@@ -460,13 +465,6 @@ static func _get_main_scene_tree() -> SceneTree:
 	return null
 
 
-static func _variant_to_node(value: Variant) -> Node:
-	if value is Node:
-		var node: Node = value
-		return node
-	return null
-
-
 static func _state_to_scene_tree(state: Dictionary) -> SceneTree:
 	var value: Variant = GFVariantData.get_option_value(state, "tree")
 	if value is SceneTree:
@@ -484,7 +482,10 @@ static func _state_to_cancel_token(state: Dictionary) -> GFCancellationToken:
 
 
 static func _state_to_guard_node(state: Dictionary) -> Node:
-	return _variant_to_node(GFVariantData.get_option_value(state, "guard_node"))
+	var instance_id: int = GFVariantData.get_option_int(state, "guard_instance_id")
+	if instance_id <= 0:
+		return null
+	return _GF_INSTANCE_GUARD._get_live_node_from_id(instance_id)
 
 
 static func _state_to_time_utility(state: Dictionary) -> GFTimeUtility:
