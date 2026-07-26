@@ -512,7 +512,8 @@ func _emit_collision_dispatch_result(
 	_interaction_id_override: StringName,
 	report: Dictionary
 ) -> void:
-	_emit_send_result(build_context(receiver, payload_override), receiver, report)
+	var normalized_report: Dictionary = _normalize_report(report, receiver)
+	_emit_send_result(build_context(receiver, payload_override), receiver, normalized_report)
 
 
 func _get_candidate_provider_objects(candidate_provider: Object, options: Dictionary) -> Array[Object]:
@@ -539,14 +540,29 @@ func _get_candidate_provider_objects(candidate_provider: Object, options: Dictio
 
 
 func _make_report(ok: bool, effective_interaction_id: StringName, reason: String, message: String) -> Dictionary:
-	return _normalize_report({
+	return _normalize_report(_make_raw_report(
+		ok,
+		effective_interaction_id,
+		reason,
+		message
+	), null)
+
+
+func _make_raw_report(
+	ok: bool,
+	effective_interaction_id: StringName,
+	reason: String,
+	message: String,
+	receiver: Object = null
+) -> Dictionary:
+	return {
 		"ok": ok,
 		"interaction_id": effective_interaction_id,
-		"receiver": null,
+		"receiver": receiver,
 		"reason": reason,
 		"message": message,
 		"metadata": metadata,
-	}, null)
+	}
 
 
 func _resolve_sender() -> Object:
@@ -574,17 +590,28 @@ func _send_to_with_dispatch_host(
 		return null
 	var report_value: Variant = dispatch_host.call("send_to", receiver, payload_override, interaction_id_override)
 	if not report_value is Dictionary:
-		var invalid_report: Dictionary = _make_report(false, interaction_id_override if interaction_id_override != &"" else interaction_id, "invalid_report", "Dispatch host returned a non-Dictionary interaction report.")
+		var invalid_report: Dictionary = _make_raw_report(
+			false,
+			interaction_id_override if interaction_id_override != &"" else interaction_id,
+			"invalid_report",
+			"Dispatch host returned a non-Dictionary interaction report.",
+			receiver
+		)
 		if dispatch_host != self:
 			_emit_collision_dispatch_result(receiver, payload_override, interaction_id_override, invalid_report)
-		return invalid_report
+		return _normalize_report(invalid_report, receiver)
 	var report: Dictionary = GFVariantData.as_dictionary(report_value)
 	if report.is_empty():
-		report = _make_report(false, interaction_id_override if interaction_id_override != &"" else interaction_id, "invalid_report", "Dispatch host returned an empty interaction report.")
-	if dispatch_host != self:
-		report = _normalize_report(report, receiver)
+		report = _make_raw_report(
+			false,
+			interaction_id_override if interaction_id_override != &"" else interaction_id,
+			"invalid_report",
+			"Dispatch host returned an empty interaction report.",
+			receiver
+		)
 	if dispatch_host != self:
 		_emit_collision_dispatch_result(receiver, payload_override, interaction_id_override, report)
+		report = _normalize_report(report, receiver)
 	return report
 
 

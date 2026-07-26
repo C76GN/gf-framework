@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFAudioUtility" path="addons/gf/standard/utilities/audio/gf_audio_utility.gd" module="standard" extends="GFUtility" classDigest="e9e49bfcd6862555effefd12e9d2dc750688408f39294282b9a37d7c69a84e22">
+<class name="GFAudioUtility" path="addons/gf/standard/utilities/audio/gf_audio_utility.gd" module="standard" extends="GFUtility" classDigest="6ea8dacb9929b4080b788125ee71565935ea3bc3cf08d6d05673823abbebbe98">
 	<description>GFAudioUtility: 全局音频管理器。
 管理 BGM 和 SFX 的播放与音量。
 注册 GFObjectPoolUtility 时会复用 AudioStreamPlayer，未注册时使用普通播放器。
@@ -298,11 +298,12 @@ backend-owned 会话会查询后端，并在稳定 identity 下提交自然结�
 		</member>
 		<member kind="method" name="set_audio_backend">
 			<signature>func set_audio_backend(backend: GFAudioBackend) -&gt; bool:</signature>
-			<description>设置可插拔音频后端。传入 null 时恢复默认 Godot 播放路径；被替换后端拥有的通道会先停止。</description>
+			<description>设置可插拔音频后端。传入 null 时恢复默认 Godot 播放路径；替换前会停止旧后端通道，
+并按原 owner 恢复、清除所有活跃 duck 作用域。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">backend: 音频后端。</tag>
-				<tag name="return">后端已设置；或当前后端拒绝停止拥有的通道时返回 false。</tag>
+				<tag name="return">后端已设置；旧通道停止、duck 基准恢复、dispose 或 setup 未完成时返回 false。</tag>
 				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
@@ -316,11 +317,12 @@ backend-owned 会话会查询后端，并在稳定 identity 下提交自然结�
 		</member>
 		<member kind="method" name="clear_audio_backend">
 			<signature>func clear_audio_backend(dispose_backend: bool = true) -&gt; bool:</signature>
-			<description>清除当前音频后端。清除前会停止由该后端拥有的 BGM 与环境音会话。</description>
+			<description>清除当前音频后端。清除前会停止由该后端拥有的 BGM 与环境音会话，
+并恢复、清除绑定当前 local/backend owner 的活跃 duck 作用域。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">dispose_backend: 是否调用后端 dispose()。</tag>
-				<tag name="return">后端已清除；或当前后端拒绝停止拥有的通道时返回 false。</tag>
+				<tag name="return">后端已清除；通道停止、duck 基准恢复或 backend dispose 未完成时返回 false。</tag>
 				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
@@ -677,27 +679,29 @@ backend-owned 会话会查询后端，并在稳定 identity 下提交自然结�
 		</member>
 		<member kind="method" name="apply_mix_snapshot">
 			<signature>func apply_mix_snapshot(snapshot: Dictionary, transition_seconds: float = 0.0) -&gt; Dictionary:</signature>
-			<description>应用混音快照。每个总线的增益与静音字段作为单个 generation 事务恢复。</description>
+			<description>应用混音快照。先尝试 backend bulk 接管；拒绝后按字段 backend-first，
+仅把明确未处理的增益或静音字段作为单个 local generation 事务回退。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">snapshot: 混音快照。</tag>
 				<tag name="param">transition_seconds: 默认平滑过渡秒数；单个效果条目可覆盖。</tag>
 				<tag name="return">应用报告。</tag>
-				<tag name="schema">snapshot: Dictionary，可包含 buses 字典和 effects 数组；buses 条目支持 volume_db、volume_linear、muted，effects 条目支持 bus、effect、property、value、transition_seconds。</tag>
-				<tag name="schema">return: Dictionary，包含 ok、applied、failed 和 warnings 字段。</tag>
+				<tag name="schema">snapshot: Dictionary，可包含 buses 字典和 effects 数组；buses 条目支持数值型 volume_db 简写，或包含 volume_db、volume_linear、muted 的字典；effects 条目支持 bus、effect、property、value、transition_seconds。</tag>
+				<tag name="schema">return: Dictionary，包含 ok、applied、failed 和 warnings 字段；backend identity 漂移、字段无本地回退目标或输入无效会进入 failed。</tag>
 				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="duck_bus">
 			<signature>func duck_bus( bus_name: String = BGM_BUS_NAME, amount: float = 0.5, transition_seconds: float = 0.25, duck_id: StringName = &amp;"default" ) -&gt; bool:</signature>
-			<description>按比例压低总线音量。每个总线保存一个稳定基准，并采用活跃作用域中的最强衰减。</description>
+			<description>按比例压低总线音量。配置 backend 时优先捕获其同名总线，并把 owner/backend identity
+固定到整个作用域生命周期；否则回退本地总线。每个总线采用活跃作用域中的最强衰减。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">bus_name: 总线名称。</tag>
 				<tag name="param">amount: 压低强度，0.0 不变化，1.0 最多压低 18 dB。</tag>
 				<tag name="param">transition_seconds: 平滑过渡秒数。</tag>
 				<tag name="param">duck_id: 同一总线上的压低作用域标识。</tag>
-				<tag name="return">成功应用时返回 true。</tag>
+				<tag name="return">成功应用时返回 true；backend 只暴露部分基准字段或 owner setter 拒绝时失败关闭。</tag>
 				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>

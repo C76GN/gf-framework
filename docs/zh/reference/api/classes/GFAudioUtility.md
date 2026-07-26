@@ -637,7 +637,7 @@ func get_audio_bank(bank_id: StringName) -> GFAudioBank:
 func set_audio_backend(backend: GFAudioBackend) -> bool:
 ```
 
-设置可插拔音频后端。传入 null 时恢复默认 Godot 播放路径；被替换后端拥有的通道会先停止。
+设置可插拔音频后端。传入 null 时恢复默认 Godot 播放路径；替换前会停止旧后端通道， 并按原 owner 恢复、清除所有活跃 duck 作用域。
 
 参数：
 
@@ -645,7 +645,7 @@ func set_audio_backend(backend: GFAudioBackend) -> bool:
 |---|---|
 | `backend` | 音频后端。 |
 
-返回：后端已设置；或当前后端拒绝停止拥有的通道时返回 false。
+返回：后端已设置；旧通道停止、duck 基准恢复、dispose 或 setup 未完成时返回 false。
 
 <a id="member-gfaudioutility-methods-get_audio_backend"></a>
 
@@ -672,7 +672,7 @@ func get_audio_backend() -> GFAudioBackend:
 func clear_audio_backend(dispose_backend: bool = true) -> bool:
 ```
 
-清除当前音频后端。清除前会停止由该后端拥有的 BGM 与环境音会话。
+清除当前音频后端。清除前会停止由该后端拥有的 BGM 与环境音会话， 并恢复、清除绑定当前 local/backend owner 的活跃 duck 作用域。
 
 参数：
 
@@ -680,7 +680,7 @@ func clear_audio_backend(dispose_backend: bool = true) -> bool:
 |---|---|
 | `dispose_backend` | 是否调用后端 dispose()。 |
 
-返回：后端已清除；或当前后端拒绝停止拥有的通道时返回 false。
+返回：后端已清除；通道停止、duck 基准恢复或 backend dispose 未完成时返回 false。
 
 <a id="member-gfaudioutility-methods-post_audio_event"></a>
 
@@ -1416,7 +1416,7 @@ func capture_mix_snapshot(bus_names: PackedStringArray = PackedStringArray()) ->
 func apply_mix_snapshot(snapshot: Dictionary, transition_seconds: float = 0.0) -> Dictionary:
 ```
 
-应用混音快照。每个总线的增益与静音字段作为单个 generation 事务恢复。
+应用混音快照。先尝试 backend bulk 接管；拒绝后按字段 backend-first， 仅把明确未处理的增益或静音字段作为单个 local generation 事务回退。
 
 参数：
 
@@ -1429,8 +1429,8 @@ func apply_mix_snapshot(snapshot: Dictionary, transition_seconds: float = 0.0) -
 
 结构：
 
-- `snapshot`: Dictionary，可包含 buses 字典和 effects 数组；buses 条目支持 volume_db、volume_linear、muted，effects 条目支持 bus、effect、property、value、transition_seconds。
-- `return`: Dictionary，包含 ok、applied、failed 和 warnings 字段。
+- `snapshot`: Dictionary，可包含 buses 字典和 effects 数组；buses 条目支持数值型 volume_db 简写，或包含 volume_db、volume_linear、muted 的字典；effects 条目支持 bus、effect、property、value、transition_seconds。
+- `return`: Dictionary，包含 ok、applied、failed 和 warnings 字段；backend identity 漂移、字段无本地回退目标或输入无效会进入 failed。
 
 <a id="member-gfaudioutility-methods-duck_bus"></a>
 
@@ -1443,7 +1443,7 @@ func apply_mix_snapshot(snapshot: Dictionary, transition_seconds: float = 0.0) -
 func duck_bus( bus_name: String = BGM_BUS_NAME, amount: float = 0.5, transition_seconds: float = 0.25, duck_id: StringName = &"default" ) -> bool:
 ```
 
-按比例压低总线音量。每个总线保存一个稳定基准，并采用活跃作用域中的最强衰减。
+按比例压低总线音量。配置 backend 时优先捕获其同名总线，并把 owner/backend identity 固定到整个作用域生命周期；否则回退本地总线。每个总线采用活跃作用域中的最强衰减。
 
 参数：
 
@@ -1454,7 +1454,7 @@ func duck_bus( bus_name: String = BGM_BUS_NAME, amount: float = 0.5, transition_
 | `transition_seconds` | 平滑过渡秒数。 |
 | `duck_id` | 同一总线上的压低作用域标识。 |
 
-返回：成功应用时返回 true。
+返回：成功应用时返回 true；backend 只暴露部分基准字段或 owner setter 拒绝时失败关闭。
 
 <a id="member-gfaudioutility-methods-restore_ducked_bus"></a>
 

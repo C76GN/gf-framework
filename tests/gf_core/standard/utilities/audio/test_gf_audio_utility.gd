@@ -292,6 +292,60 @@ class MockAudioBackend:
 		}
 
 
+class OwnedBusAudioBackend:
+	extends GFAudioBackend
+
+	var owned_bus_name: String = "Master"
+	var volume_db: float = -6.0
+	var muted: bool = false
+	var handle_volume: bool = true
+	var handle_mute: bool = true
+	var observe_volume: bool = true
+	var observe_mute: bool = true
+	var disposed: bool = false
+	var bulk_apply_count: int = 0
+	var volume_apply_count: int = 0
+	var mute_apply_count: int = 0
+	var last_transition_seconds: float = -1.0
+
+	func dispose() -> void:
+		disposed = true
+		super.dispose()
+
+	func apply_mix_snapshot(_snapshot: Dictionary, _transition_seconds: float = 0.0) -> bool:
+		bulk_apply_count += 1
+		return false
+
+	func set_bus_volume_db(
+		bus_name: String,
+		target_volume_db: float,
+		transition_seconds: float = 0.0
+	) -> bool:
+		if bus_name != owned_bus_name or not handle_volume:
+			return false
+		volume_apply_count += 1
+		volume_db = target_volume_db
+		last_transition_seconds = transition_seconds
+		return true
+
+	func set_bus_mute(bus_name: String, target_muted: bool) -> bool:
+		if bus_name != owned_bus_name or not handle_mute:
+			return false
+		mute_apply_count += 1
+		muted = target_muted
+		return true
+
+	func get_bus_volume(bus_name: String) -> float:
+		if bus_name != owned_bus_name or not observe_volume:
+			return -1.0
+		return db_to_linear(volume_db)
+
+	func get_bus_mute(bus_name: String) -> Variant:
+		if bus_name != owned_bus_name or not observe_mute:
+			return null
+		return muted
+
+
 class ReentrantAudioBackend:
 	extends MockAudioBackend
 
@@ -1488,6 +1542,155 @@ func test_audio_backend_can_handle_mix_controls() -> void:
 	assert_almost_eq(backend.handled_mix_transition, 0.3, 0.001, "快照过渡时间应传给后端。")
 
 
+func test_mix_snapshot_fallback_routes_same_name_bus_fields_to_backend_first() -> void:
+	var bus_index: int = AudioServer.get_bus_index("Master")
+	var original_db: float = AudioServer.get_bus_volume_db(bus_index)
+	var original_muted: bool = AudioServer.is_bus_mute(bus_index)
+	var backend: OwnedBusAudioBackend = OwnedBusAudioBackend.new()
+	backend.volume_db = -4.0
+	backend.muted = false
+	assert_true(_audio.set_audio_backend(backend), "测试后端应成功绑定。")
+	AudioServer.set_bus_volume_db(bus_index, -2.0)
+	AudioServer.set_bus_mute(bus_index, false)
+
+	var report: Dictionary = _audio.apply_mix_snapshot({
+		"buses": {
+			"Master": {
+				"volume_db": -16.0,
+				"muted": true,
+			},
+		},
+	}, 0.2)
+
+	assert_true(GFVariantData.get_option_bool(report, "ok"), "逐字段 backend fallback 全部接管时应成功。")
+	assert_eq(backend.bulk_apply_count, 1, "完整快照应先且仅先尝试一次 backend bulk 接管。")
+	assert_eq(backend.volume_apply_count, 1, "bulk 拒绝后应把同名总线增益交给 backend。")
+	assert_eq(backend.mute_apply_count, 1, "bulk 拒绝后应把同名总线 mute 交给 backend。")
+	assert_almost_eq(backend.volume_db, -16.0, 0.001, "backend 应接收目标增益。")
+	assert_true(backend.muted, "backend 应接收目标 mute。")
+	assert_almost_eq(backend.last_transition_seconds, 0.2, 0.001, "逐字段 backend 增益应收到快照过渡时间。")
+	assert_almost_eq(AudioServer.get_bus_volume_db(bus_index), -2.0, 0.001, "backend 接管的增益不得写入同名本地总线。")
+	assert_false(AudioServer.is_bus_mute(bus_index), "backend 接管的 mute 不得写入同名本地总线。")
+
+	AudioServer.set_bus_volume_db(bus_index, original_db)
+	AudioServer.set_bus_mute(bus_index, original_muted)
+
+
+func test_backend_owned_mix_snapshot_fields_do_not_cancel_local_transition() -> void:
+	var bus_index: int = AudioServer.get_bus_index("Master")
+	var original_db: float = AudioServer.get_bus_volume_db(bus_index)
+	var original_muted: bool = AudioServer.is_bus_mute(bus_index)
+	AudioServer.set_bus_volume_db(bus_index, -2.0)
+	AudioServer.set_bus_mute(bus_index, false)
+	assert_true(_audio.set_bus_volume_db("Master", -20.0, 0.05), "测试应先启动本地增益 transition。")
+	var backend: OwnedBusAudioBackend = OwnedBusAudioBackend.new()
+	assert_true(_audio.set_audio_backend(backend), "测试后端应成功绑定。")
+
+	var report: Dictionary = _audio.apply_mix_snapshot({
+		"buses": {
+			"Master": {
+				"volume_db": -12.0,
+				"muted": true,
+			},
+		},
+	})
+	await get_tree().create_timer(0.08).timeout
+
+	assert_true(GFVariantData.get_option_bool(report, "ok"), "backend 全接管的逐字段 fallback 应成功。")
+	assert_almost_eq(backend.volume_db, -12.0, 0.001, "快照增益应由 backend 接管。")
+	assert_true(backend.muted, "快照 mute 应由 backend 接管。")
+	assert_almost_eq(
+		AudioServer.get_bus_volume_db(bus_index),
+		-20.0,
+		0.001,
+		"backend 全接管时不得取消无关的同名本地 transition。"
+	)
+
+	AudioServer.set_bus_volume_db(bus_index, original_db)
+	AudioServer.set_bus_mute(bus_index, original_muted)
+
+
+func test_backend_owned_numeric_mix_snapshot_does_not_cancel_local_transition() -> void:
+	var bus_index: int = AudioServer.get_bus_index("Master")
+	var original_db: float = AudioServer.get_bus_volume_db(bus_index)
+	var original_muted: bool = AudioServer.is_bus_mute(bus_index)
+	AudioServer.set_bus_volume_db(bus_index, -2.0)
+	AudioServer.set_bus_mute(bus_index, false)
+	assert_true(_audio.set_bus_volume_db("Master", -20.0, 0.05), "测试应先启动本地增益 transition。")
+	var backend: OwnedBusAudioBackend = OwnedBusAudioBackend.new()
+	assert_true(_audio.set_audio_backend(backend), "测试后端应成功绑定。")
+
+	var report: Dictionary = _audio.apply_mix_snapshot({
+		"buses": {
+			"Master": -12.0,
+		},
+	})
+	await get_tree().create_timer(0.08).timeout
+
+	assert_true(GFVariantData.get_option_bool(report, "ok"), "数值简写的 backend fallback 应成功。")
+	assert_almost_eq(backend.volume_db, -12.0, 0.001, "数值简写增益应由 backend 接管。")
+	assert_almost_eq(
+		AudioServer.get_bus_volume_db(bus_index),
+		-20.0,
+		0.001,
+		"backend 接管数值简写时不得取消无关的同名本地 transition。"
+	)
+
+	AudioServer.set_bus_volume_db(bus_index, original_db)
+	AudioServer.set_bus_mute(bus_index, original_muted)
+
+
+func test_mix_snapshot_fallback_applies_only_backend_rejected_fields_locally() -> void:
+	var bus_index: int = AudioServer.get_bus_index("Master")
+	var original_db: float = AudioServer.get_bus_volume_db(bus_index)
+	var original_muted: bool = AudioServer.is_bus_mute(bus_index)
+	var backend: OwnedBusAudioBackend = OwnedBusAudioBackend.new()
+	assert_true(_audio.set_audio_backend(backend), "测试后端应成功绑定。")
+
+	backend.handle_volume = true
+	backend.handle_mute = false
+	backend.volume_db = -4.0
+	backend.muted = false
+	AudioServer.set_bus_volume_db(bus_index, -2.0)
+	AudioServer.set_bus_mute(bus_index, false)
+	var backend_volume_report: Dictionary = _audio.apply_mix_snapshot({
+		"buses": {
+			"Master": {
+				"volume_db": -12.0,
+				"muted": true,
+			},
+		},
+	})
+
+	assert_true(GFVariantData.get_option_bool(backend_volume_report, "ok"), "backend 增益与本地 mute 的部分接管应成功。")
+	assert_almost_eq(backend.volume_db, -12.0, 0.001, "backend 应接管其接受的增益字段。")
+	assert_true(AudioServer.is_bus_mute(bus_index), "backend 拒绝的 mute 字段应回退本地。")
+	assert_almost_eq(AudioServer.get_bus_volume_db(bus_index), -2.0, 0.001, "本地 mute fallback 不得覆盖 backend 接管的增益字段。")
+
+	backend.handle_volume = false
+	backend.handle_mute = true
+	backend.volume_db = -5.0
+	backend.muted = false
+	AudioServer.set_bus_volume_db(bus_index, -3.0)
+	AudioServer.set_bus_mute(bus_index, false)
+	var backend_mute_report: Dictionary = _audio.apply_mix_snapshot({
+		"buses": {
+			"Master": {
+				"volume_db": -18.0,
+				"muted": true,
+			},
+		},
+	})
+
+	assert_true(GFVariantData.get_option_bool(backend_mute_report, "ok"), "本地增益与 backend mute 的部分接管应成功。")
+	assert_true(backend.muted, "backend 应接管其接受的 mute 字段。")
+	assert_almost_eq(AudioServer.get_bus_volume_db(bus_index), -18.0, 0.001, "backend 拒绝的增益字段应回退本地。")
+	assert_false(AudioServer.is_bus_mute(bus_index), "本地增益 fallback 不得覆盖 backend 接管的 mute 字段。")
+
+	AudioServer.set_bus_volume_db(bus_index, original_db)
+	AudioServer.set_bus_mute(bus_index, original_muted)
+
+
 func test_mix_controls_reject_non_finite_values_before_backend_or_engine_write() -> void:
 	var backend: MockAudioBackend = MockAudioBackend.new()
 	assert_true(_audio.set_audio_backend(backend), "测试后端应成功绑定。")
@@ -1743,6 +1946,128 @@ func test_backend_duck_fails_closed_when_base_mute_is_not_observable() -> void:
 		0,
 		"失败关闭不得登记不可恢复的 duck 状态。"
 	)
+
+
+func test_backend_duck_scope_update_failure_preserves_existing_duck() -> void:
+	var backend: OwnedBusAudioBackend = OwnedBusAudioBackend.new()
+	backend.volume_db = -6.0
+	backend.muted = false
+	assert_true(_audio.set_audio_backend(backend), "测试后端应成功绑定。")
+	assert_true(_audio.duck_bus("Master", 0.5, 0.0, &"dialogue"), "初始 backend duck 应成功。")
+	assert_almost_eq(backend.volume_db, -15.0, 0.001, "初始作用域应建立已应用状态。")
+
+	backend.handle_volume = false
+	assert_false(
+		_audio.duck_bus("Master", 0.75, 0.0, &"notification"),
+		"backend 拒绝增益更新时新增作用域应失败。"
+	)
+	assert_almost_eq(backend.volume_db, -15.0, 0.001, "增益更新失败不得把已有 duck 恢复为 base。")
+	var state: Dictionary = GFVariantData.get_option_dictionary(_audio._duck_bus_states, "Master")
+	var scopes: Dictionary = GFVariantData.get_option_dictionary(state, "scopes")
+	assert_true(scopes.has(&"dialogue"), "失败后应保留原有作用域。")
+	assert_false(scopes.has(&"notification"), "失败后不得登记未应用的新作用域。")
+
+	backend.handle_volume = true
+	backend.handle_mute = false
+	var volume_apply_count: int = backend.volume_apply_count
+	assert_false(
+		_audio.duck_bus("Master", 0.75, 0.0, &"notification"),
+		"backend 拒绝 mute 保持请求时新增作用域应失败。"
+	)
+	assert_eq(backend.volume_apply_count, volume_apply_count, "mute 失败后不得继续写入增益。")
+	assert_almost_eq(backend.volume_db, -15.0, 0.001, "mute 失败不得破坏已有 duck。")
+
+	backend.handle_mute = true
+	assert_true(_audio.restore_ducked_bus("Master", 0.0, &"dialogue"), "恢复 setter 后应能释放原有作用域。")
+	assert_almost_eq(backend.volume_db, -6.0, 0.001, "最终应恢复稳定 backend 基准。")
+
+
+func test_same_name_backend_owns_duck_capture_apply_restore_and_dispose() -> void:
+	var bus_index: int = AudioServer.get_bus_index("Master")
+	var original_db: float = AudioServer.get_bus_volume_db(bus_index)
+	var original_muted: bool = AudioServer.is_bus_mute(bus_index)
+	AudioServer.set_bus_volume_db(bus_index, -2.0)
+	AudioServer.set_bus_mute(bus_index, false)
+	var backend: OwnedBusAudioBackend = OwnedBusAudioBackend.new()
+	backend.volume_db = -6.0
+	backend.muted = true
+	assert_true(_audio.set_audio_backend(backend), "测试后端应成功绑定。")
+
+	assert_true(_audio.duck_bus("Master", 0.5, 0.0, &"dialogue"), "同名 backend 总线应接管 duck。")
+	assert_almost_eq(backend.volume_db, -15.0, 0.001, "duck 应从 backend 观测到的基准增益计算。")
+	assert_true(backend.muted, "duck 应保留 backend 观测到的 mute 基准。")
+	assert_almost_eq(AudioServer.get_bus_volume_db(bus_index), -2.0, 0.001, "backend-owned duck 不得修改同名本地增益。")
+	assert_false(AudioServer.is_bus_mute(bus_index), "backend-owned duck 不得修改同名本地 mute。")
+
+	assert_true(_audio.restore_ducked_bus("Master", 0.0, &"dialogue"), "同名 backend 总线应恢复记录的 owner。")
+	assert_almost_eq(backend.volume_db, -6.0, 0.001, "显式 restore 应恢复 backend 基准增益。")
+	assert_true(backend.muted, "显式 restore 应恢复 backend 基准 mute。")
+
+	assert_true(_audio.duck_bus("Master", 0.25, 0.0, &"notification"), "dispose 前应再次建立 backend-owned duck。")
+	_audio.dispose()
+
+	assert_almost_eq(backend.volume_db, -6.0, 0.001, "dispose 应在释放 backend 前恢复其基准增益。")
+	assert_true(backend.muted, "dispose 应在释放 backend 前恢复其基准 mute。")
+	assert_true(backend.disposed, "恢复 duck 后应正常 dispose backend。")
+	assert_almost_eq(AudioServer.get_bus_volume_db(bus_index), -2.0, 0.001, "dispose 不得误恢复同名本地增益。")
+	assert_false(AudioServer.is_bus_mute(bus_index), "dispose 不得误恢复同名本地 mute。")
+
+	AudioServer.set_bus_volume_db(bus_index, original_db)
+	AudioServer.set_bus_mute(bus_index, original_muted)
+
+
+func test_backend_replacement_restores_duck_to_recorded_backend_identity() -> void:
+	var original_backend: OwnedBusAudioBackend = OwnedBusAudioBackend.new()
+	original_backend.volume_db = -6.0
+	original_backend.muted = false
+	var replacement_backend: OwnedBusAudioBackend = OwnedBusAudioBackend.new()
+	replacement_backend.volume_db = -3.0
+	replacement_backend.muted = true
+	assert_true(_audio.set_audio_backend(original_backend), "原 backend 应成功绑定。")
+	assert_true(_audio.duck_bus("Master", 0.5, 0.0, &"dialogue"), "原 backend 应接管 duck。")
+	assert_almost_eq(original_backend.volume_db, -15.0, 0.001, "替换前原 backend 应处于 duck 状态。")
+
+	assert_true(_audio.set_audio_backend(replacement_backend), "替换 backend 前应恢复原 owner。")
+
+	assert_almost_eq(original_backend.volume_db, -6.0, 0.001, "替换时应恢复记录在原 backend 上的基准增益。")
+	assert_false(original_backend.muted, "替换时应恢复记录在原 backend 上的基准 mute。")
+	assert_true(original_backend.disposed, "原 backend 恢复完成后才可 dispose。")
+	assert_same(_audio.get_audio_backend(), replacement_backend, "替换完成后应绑定新 backend identity。")
+	assert_almost_eq(replacement_backend.volume_db, -3.0, 0.001, "旧 duck 不得应用到新 backend。")
+	assert_true(replacement_backend.muted, "旧 duck 不得覆盖新 backend 的 mute。")
+	assert_eq(
+		GFVariantData.get_option_int(_audio.get_debug_snapshot(), "ducked_bus_count"),
+		0,
+		"完成 owner 切换后不得保留绑定旧 backend 的 duck 状态。"
+	)
+
+
+func test_configuring_backend_restores_active_local_duck_before_owner_transition() -> void:
+	var bus_index: int = AudioServer.get_bus_index("Master")
+	var original_db: float = AudioServer.get_bus_volume_db(bus_index)
+	var original_muted: bool = AudioServer.is_bus_mute(bus_index)
+	AudioServer.set_bus_volume_db(bus_index, -6.0)
+	AudioServer.set_bus_mute(bus_index, false)
+	assert_true(_audio.duck_bus("Master", 0.5, 0.0, &"dialogue"), "本地总线应先建立 duck。")
+	assert_almost_eq(AudioServer.get_bus_volume_db(bus_index), -15.0, 0.001, "本地 duck 应已生效。")
+	var backend: OwnedBusAudioBackend = OwnedBusAudioBackend.new()
+	backend.volume_db = -3.0
+	backend.muted = true
+
+	assert_true(_audio.set_audio_backend(backend), "配置 backend 前应收敛旧 local owner。")
+
+	assert_almost_eq(AudioServer.get_bus_volume_db(bus_index), -6.0, 0.001, "owner 切换前应恢复本地基准。")
+	assert_false(AudioServer.is_bus_mute(bus_index), "owner 切换前应恢复本地 mute。")
+	assert_almost_eq(backend.volume_db, -3.0, 0.001, "旧 local duck 不得迁移到新 backend。")
+	assert_true(backend.muted, "旧 local duck 不得覆盖新 backend mute。")
+	assert_eq(
+		GFVariantData.get_option_int(_audio.get_debug_snapshot(), "ducked_bus_count"),
+		0,
+		"owner 切换完成后不得保留绑定旧 local owner 的 duck 状态。"
+	)
+
+	AudioServer.set_bus_volume_db(bus_index, original_db)
+	AudioServer.set_bus_mute(bus_index, original_muted)
 
 
 func test_architecture_dispose_forces_audio_terminal_state_and_restores_duck_bus() -> void:

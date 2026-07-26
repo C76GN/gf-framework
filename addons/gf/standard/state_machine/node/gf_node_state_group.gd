@@ -96,11 +96,6 @@ enum StackExitPolicy {
 	FORCE,
 }
 
-const _REPORT_SCHEMA_PROJECTION = preload(
-	"res://addons/gf/kernel/core/gf_report_schema_projection.gd"
-)
-
-
 # --- 导出变量 ---
 
 ## 状态组注册名。为空时使用节点名称。
@@ -713,33 +708,20 @@ func get_state_snapshot() -> Dictionary:
 func get_json_compatible_state_snapshot(options: Dictionary = {}) -> Dictionary:
 	var codec_options: Dictionary = options.duplicate(true)
 	var snapshot: Dictionary = get_state_snapshot()
-	return {
-		"schema_version": GFVariantData.get_option_int(snapshot, "schema_version"),
-		"group_name": GFReportValueCodec.to_json_compatible(
-			GFVariantData.get_option_value(snapshot, "group_name"),
-			codec_options
-		),
-		"current_state": GFReportValueCodec.to_json_compatible(
-			GFVariantData.get_option_value(snapshot, "current_state"),
-			codec_options
-		),
-		"stack": GFReportValueCodec.to_json_compatible(
-			GFVariantData.get_option_value(snapshot, "stack"),
-			codec_options
-		),
-		"history": GFReportValueCodec.to_json_compatible(
-			GFVariantData.get_option_value(snapshot, "history"),
-			codec_options
-		),
-		"states": GFReportValueCodec.to_json_compatible(
-			GFVariantData.get_option_value(snapshot, "states"),
-			codec_options
-		),
-		"blackboard": _REPORT_SCHEMA_PROJECTION.to_report_dictionary(
-			GFVariantData.get_option_dictionary(snapshot, "blackboard"),
-			codec_options
-		),
-	}
+	var raw_blackboard: Dictionary = GFVariantData.get_option_dictionary(
+		snapshot,
+		"blackboard"
+	)
+	var normalized_blackboard: Dictionary = {}
+	for raw_key: Variant in raw_blackboard.keys():
+		if not (raw_key is String or raw_key is StringName):
+			return GFReportValueCodec.to_report_dictionary(snapshot, codec_options)
+		var report_key: String = str(raw_key)
+		if normalized_blackboard.has(report_key):
+			return GFReportValueCodec.to_report_dictionary(snapshot, codec_options)
+		normalized_blackboard[report_key] = raw_blackboard[raw_key]
+	snapshot["blackboard"] = normalized_blackboard
+	return GFReportValueCodec.to_report_dictionary(snapshot, codec_options)
 
 
 ## 从状态组快照恢复当前状态、暂停栈、历史与黑板。

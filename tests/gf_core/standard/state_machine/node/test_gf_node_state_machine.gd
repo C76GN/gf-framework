@@ -1070,8 +1070,8 @@ func test_node_state_machine_snapshot_has_json_safe_export() -> void:
 	body_group.name = "Body"
 	body_group.group_name = &"Body"
 	body_group.initial_state = &"Idle"
-	body_group.blackboard["owner"] = self
-	body_group.blackboard["path"] = "res://private/node_state.json"
+	body_group.blackboard[&"owner"] = self
+	body_group.blackboard[&"path"] = "res://private/node_state.json"
 	idle.name = "Idle"
 	add_child_autofree(machine)
 	machine.add_child(body_group)
@@ -1098,8 +1098,108 @@ func test_node_state_machine_snapshot_has_json_safe_export() -> void:
 	assert_same(raw_owner, self, "raw 节点快照应保留运行时 Variant。")
 	assert_true(exported_groups.has("Body"), "groups 固定 schema 应保持可直接遍历的 JSON object。")
 	assert_false(exported_body.has("__gf_report_value__"), "状态组固定字段不应整体折叠为键保真 marker。")
+	assert_true(exported_blackboard.has("owner"), "StringName blackboard key 应规范化为 JSON object 字符串键。")
 	assert_true(GFVariantData.get_option_bool(owner_marker, "redacted"), "JSON-safe 节点快照应脱敏运行时对象。")
 	assert_eq(GFVariantData.get_option_string(exported_blackboard, "path"), "<redacted_path>", "JSON-safe 节点快照应默认脱敏路径。")
+
+
+func test_state_group_json_snapshot_enforces_total_byte_budget() -> void:
+	var group: GFNodeStateGroup = GFNodeStateGroup.new()
+	group.group_name = &"Budgeted"
+	group.blackboard[&"payload"] = "x".repeat(160)
+	autofree(group)
+
+	var unbounded: Dictionary = group.get_json_compatible_state_snapshot({
+		"max_total_bytes": -1,
+	})
+	var largest_section_bytes: int = 0
+	for section_key: Variant in unbounded.keys():
+		var section_bytes: int = JSON.stringify(
+			unbounded[section_key]
+		).to_utf8_buffer().size()
+		largest_section_bytes = maxi(largest_section_bytes, section_bytes)
+	var max_total_bytes: int = largest_section_bytes + 32
+	var unbounded_bytes: int = JSON.stringify(unbounded).to_utf8_buffer().size()
+
+	assert_true(
+		unbounded_bytes > max_total_bytes,
+		"测试夹具必须让整体快照超过任一独立字段所需预算。"
+	)
+
+	var bounded: Dictionary = group.get_json_compatible_state_snapshot({
+		"max_total_bytes": max_total_bytes,
+	})
+	var bounded_bytes: int = JSON.stringify(bounded).to_utf8_buffer().size()
+	var budget_marker: Dictionary = GFVariantData.get_option_dictionary(
+		bounded,
+		"__gf_report_value__"
+	)
+
+	assert_true(
+		bounded_bytes <= max_total_bytes,
+		"状态组快照的 max_total_bytes 必须约束整体输出。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(budget_marker, "type"),
+		"ByteBudget",
+		"整体超预算时状态组快照应返回稳定 ByteBudget marker。"
+	)
+
+
+func test_node_state_machine_json_snapshot_enforces_total_byte_budget() -> void:
+	var machine: GFNodeStateMachine = GFNodeStateMachine.new()
+	var first_group: GFNodeStateGroup = GFNodeStateGroup.new()
+	var second_group: GFNodeStateGroup = GFNodeStateGroup.new()
+	first_group.group_name = &"First"
+	second_group.group_name = &"Second"
+	first_group.blackboard[&"payload"] = "a".repeat(96)
+	second_group.blackboard[&"payload"] = "b".repeat(96)
+	autofree(machine)
+	autofree(first_group)
+	autofree(second_group)
+	machine.add_state_group(first_group)
+	machine.add_state_group(second_group)
+
+	var unbounded_first: Dictionary = first_group.get_json_compatible_state_snapshot({
+		"max_total_bytes": -1,
+	})
+	var unbounded_second: Dictionary = second_group.get_json_compatible_state_snapshot({
+		"max_total_bytes": -1,
+	})
+	var largest_group_bytes: int = maxi(
+		JSON.stringify(unbounded_first).to_utf8_buffer().size(),
+		JSON.stringify(unbounded_second).to_utf8_buffer().size()
+	)
+	var max_total_bytes: int = largest_group_bytes + 32
+	var unbounded: Dictionary = machine.get_json_compatible_state_snapshot({
+		"max_total_bytes": -1,
+	})
+	var unbounded_bytes: int = JSON.stringify(unbounded).to_utf8_buffer().size()
+
+	assert_true(
+		unbounded_bytes > max_total_bytes,
+		"测试夹具必须让机器整体快照超过任一独立状态组所需预算。"
+	)
+
+	var bounded: Dictionary = machine.get_json_compatible_state_snapshot({
+		"max_total_bytes": max_total_bytes,
+	})
+	var bounded_bytes: int = JSON.stringify(bounded).to_utf8_buffer().size()
+	var budget_marker: Dictionary = GFVariantData.get_option_dictionary(
+		bounded,
+		"__gf_report_value__"
+	)
+
+	assert_true(
+		bounded_bytes <= max_total_bytes,
+		"节点状态机的 max_total_bytes 必须约束所有状态组组装后的整体输出。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(budget_marker, "type"),
+		"ByteBudget",
+		"机器整体超预算时应返回稳定 ByteBudget marker。"
+	)
+	machine.clear_state_groups(false)
 
 
 func test_node_state_event_architecture_cache_uses_weak_refs() -> void:

@@ -2,7 +2,7 @@
   "schema_version": 1,
   "catalog_version": "1.0.0",
   "framework_version": "10.0.0-dev.0",
-  "source_digest": "45a7b9bbd3fadcf9279805d4582b53a559328ee33c24a5f0b3d3c63bad19fb0c",
+  "source_digest": "e5df39d918f5576ffcf94f502a1b7c33a97d4b296bd910ba4f7ff6ff1cf3233d",
   "class_count": 755,
   "package_count": 52,
   "packages": [
@@ -8612,7 +8612,7 @@
           "kind": "func",
           "name": "set_audio_backend",
           "signature": "func set_audio_backend(backend: GFAudioBackend) -> bool",
-          "summary": "设置可插拔音频后端。传入 null 时恢复默认 Godot 播放路径；被替换后端拥有的通道会先停止。",
+          "summary": "设置可插拔音频后端。传入 null 时恢复默认 Godot 播放路径；替换前会停止旧后端通道，",
           "visibility": "public"
         },
         {
@@ -8626,7 +8626,7 @@
           "kind": "func",
           "name": "clear_audio_backend",
           "signature": "func clear_audio_backend(dispose_backend: bool = true) -> bool",
-          "summary": "清除当前音频后端。清除前会停止由该后端拥有的 BGM 与环境音会话。",
+          "summary": "清除当前音频后端。清除前会停止由该后端拥有的 BGM 与环境音会话，",
           "visibility": "public"
         },
         {
@@ -8871,14 +8871,14 @@
           "kind": "func",
           "name": "apply_mix_snapshot",
           "signature": "func apply_mix_snapshot(snapshot: Dictionary, transition_seconds: float = 0.0) -> Dictionary",
-          "summary": "应用混音快照。每个总线的增益与静音字段作为单个 generation 事务恢复。",
+          "summary": "应用混音快照。先尝试 backend bulk 接管；拒绝后按字段 backend-first，",
           "visibility": "public"
         },
         {
           "kind": "func",
           "name": "duck_bus",
           "signature": "func duck_bus( bus_name: String = BGM_BUS_NAME, amount: float = 0.5, transition_seconds: float = 0.25, duck_id: StringName = &\"default\" ) -> bool",
-          "summary": "按比例压低总线音量。每个总线保存一个稳定基准，并采用活跃作用域中的最强衰减。",
+          "summary": "按比例压低总线音量。配置 backend 时优先捕获其同名总线，并把 owner/backend identity",
           "visibility": "public"
         },
         {

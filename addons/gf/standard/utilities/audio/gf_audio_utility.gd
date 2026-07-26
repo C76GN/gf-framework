@@ -986,7 +986,8 @@ func get_audio_bank(bank_id: StringName) -> GFAudioBank:
 	return _get_audio_bank_by_id(bank_id)
 
 
-## 设置可插拔音频后端。传入 null 时恢复默认 Godot 播放路径；被替换后端拥有的通道会先停止。
+## 设置可插拔音频后端。传入 null 时恢复默认 Godot 播放路径；替换前会停止旧后端通道，
+## 并按原 owner 恢复、清除所有活跃 duck 作用域。
 ## [br]
 ## @api public
 ## [br]
@@ -994,13 +995,15 @@ func get_audio_bank(bank_id: StringName) -> GFAudioBank:
 ## [br]
 ## @param backend: 音频后端。
 ## [br]
-## @return: 后端已设置；或当前后端拒绝停止拥有的通道时返回 false。
+## @return: 后端已设置；旧通道停止、duck 基准恢复、dispose 或 setup 未完成时返回 false。
 func set_audio_backend(backend: GFAudioBackend) -> bool:
 	if _is_backend_dispatch_in_progress():
 		return false
 	if _audio_backend == backend:
 		return true
 	if not _stop_backend_owned_sessions():
+		return false
+	if not _restore_ducked_buses_for_backend_transition(_audio_backend):
 		return false
 	if not _clear_audio_backend(true):
 		return false
@@ -1021,7 +1024,8 @@ func get_audio_backend() -> GFAudioBackend:
 	return _audio_backend
 
 
-## 清除当前音频后端。清除前会停止由该后端拥有的 BGM 与环境音会话。
+## 清除当前音频后端。清除前会停止由该后端拥有的 BGM 与环境音会话，
+## 并恢复、清除绑定当前 local/backend owner 的活跃 duck 作用域。
 ## [br]
 ## @api public
 ## [br]
@@ -1029,11 +1033,15 @@ func get_audio_backend() -> GFAudioBackend:
 ## [br]
 ## @param dispose_backend: 是否调用后端 dispose()。
 ## [br]
-## @return: 后端已清除；或当前后端拒绝停止拥有的通道时返回 false。
+## @return: 后端已清除；通道停止、duck 基准恢复或 backend dispose 未完成时返回 false。
 func clear_audio_backend(dispose_backend: bool = true) -> bool:
 	if _is_backend_dispatch_in_progress():
 		return false
+	if _audio_backend == null:
+		return true
 	if not _stop_backend_owned_sessions():
+		return false
+	if not _restore_ducked_buses_for_backend_transition(_audio_backend):
 		return false
 	return _clear_audio_backend(dispose_backend)
 
@@ -1991,7 +1999,8 @@ func capture_mix_snapshot(bus_names: PackedStringArray = PackedStringArray()) ->
 	}
 
 
-## 应用混音快照。每个总线的增益与静音字段作为单个 generation 事务恢复。
+## 应用混音快照。先尝试 backend bulk 接管；拒绝后按字段 backend-first，
+## 仅把明确未处理的增益或静音字段作为单个 local generation 事务回退。
 ## [br]
 ## @api public
 ## [br]
@@ -1999,13 +2008,13 @@ func capture_mix_snapshot(bus_names: PackedStringArray = PackedStringArray()) ->
 ## [br]
 ## @param snapshot: 混音快照。
 ## [br]
-## @schema snapshot: Dictionary，可包含 buses 字典和 effects 数组；buses 条目支持 volume_db、volume_linear、muted，effects 条目支持 bus、effect、property、value、transition_seconds。
+## @schema snapshot: Dictionary，可包含 buses 字典和 effects 数组；buses 条目支持数值型 volume_db 简写，或包含 volume_db、volume_linear、muted 的字典；effects 条目支持 bus、effect、property、value、transition_seconds。
 ## [br]
 ## @param transition_seconds: 默认平滑过渡秒数；单个效果条目可覆盖。
 ## [br]
 ## @return: 应用报告。
 ## [br]
-## @schema return: Dictionary，包含 ok、applied、failed 和 warnings 字段。
+## @schema return: Dictionary，包含 ok、applied、failed 和 warnings 字段；backend identity 漂移、字段无本地回退目标或输入无效会进入 failed。
 func apply_mix_snapshot(snapshot: Dictionary, transition_seconds: float = 0.0) -> Dictionary:
 	var report: Dictionary = {
 		"ok": true,
@@ -2021,27 +2030,43 @@ func apply_mix_snapshot(snapshot: Dictionary, transition_seconds: float = 0.0) -
 		_append_mix_failure(report, "", "backend_reentry", "后端回调期间拒绝重入混音事务。")
 		report["ok"] = false
 		return report
-	if _backend_dispatch_returned_true(
-		_dispatch_backend_call(
+	var expected_backend: GFAudioBackend = _audio_backend
+	if expected_backend != null:
+		var bulk_result: Dictionary = _dispatch_backend_call(
 			&"apply_mix_snapshot",
 			[snapshot, transition_seconds],
-			_audio_backend
+			expected_backend
 		)
-	):
-		return {
-			"ok": true,
-			"applied": PackedStringArray(["backend"]),
-			"failed": [],
-			"warnings": [],
-		}
+		if not _backend_dispatch_completed(bulk_result):
+			_append_mix_failure(
+				report,
+				"",
+				"backend_identity_changed",
+				"混音快照 backend identity 在 bulk 派发期间发生变化。"
+			)
+			report["ok"] = false
+			return report
+		if _backend_dispatch_returned_true(bulk_result):
+			return {
+				"ok": true,
+				"applied": PackedStringArray(["backend"]),
+				"failed": [],
+				"warnings": [],
+			}
 
-	_apply_mix_snapshot_buses(GFVariantData.get_option_value(snapshot, _MIX_SNAPSHOT_BUSES_KEY, {}), transition_seconds, report)
+	_apply_mix_snapshot_buses(
+		GFVariantData.get_option_value(snapshot, _MIX_SNAPSHOT_BUSES_KEY, {}),
+		transition_seconds,
+		report,
+		expected_backend
+	)
 	_apply_mix_snapshot_effects(GFVariantData.get_option_value(snapshot, _MIX_SNAPSHOT_EFFECTS_KEY, []), transition_seconds, report)
 	report["ok"] = _get_report_array(report, "failed").is_empty()
 	return report
 
 
-## 按比例压低总线音量。每个总线保存一个稳定基准，并采用活跃作用域中的最强衰减。
+## 按比例压低总线音量。配置 backend 时优先捕获其同名总线，并把 owner/backend identity
+## 固定到整个作用域生命周期；否则回退本地总线。每个总线采用活跃作用域中的最强衰减。
 ## [br]
 ## @api public
 ## [br]
@@ -2055,7 +2080,7 @@ func apply_mix_snapshot(snapshot: Dictionary, transition_seconds: float = 0.0) -
 ## [br]
 ## @param duck_id: 同一总线上的压低作用域标识。
 ## [br]
-## @return: 成功应用时返回 true。
+## @return: 成功应用时返回 true；backend 只暴露部分基准字段或 owner setter 拒绝时失败关闭。
 func duck_bus(
 	bus_name: String = BGM_BUS_NAME,
 	amount: float = 0.5,
@@ -2069,19 +2094,10 @@ func duck_bus(
 	var state: Dictionary = _get_duck_bus_state(bus_name)
 	var state_was_created: bool = state.is_empty()
 	if state_was_created:
-		var bus_index: int = AudioServer.get_bus_index(bus_name)
-		var base_mute_result: Dictionary = _capture_duck_bus_base_mute(bus_name, bus_index)
-		if not GFVariantData.get_option_bool(base_mute_result, "ok"):
+		state = _capture_duck_bus_base_state(bus_name)
+		if not GFVariantData.get_option_bool(state, "ok"):
 			return false
-		state = {
-			"base_db": (
-				AudioServer.get_bus_volume_db(bus_index)
-				if bus_index >= 0
-				else get_bus_volume_db(bus_name)
-			),
-			"base_muted": GFVariantData.get_option_bool(base_mute_result, "muted"),
-			"scopes": {},
-		}
+		state["scopes"] = {}
 	var scopes: Dictionary = GFVariantData.get_option_dictionary(state, "scopes")
 	var had_previous_scope: bool = scopes.has(duck_id)
 	var previous_amount: Variant = scopes.get(duck_id)
@@ -2797,7 +2813,12 @@ func _is_finite_float(value: float) -> bool:
 	return not is_nan(value) and not is_inf(value)
 
 
-func _apply_mix_snapshot_buses(bus_payload: Variant, transition_seconds: float, report: Dictionary) -> void:
+func _apply_mix_snapshot_buses(
+	bus_payload: Variant,
+	transition_seconds: float,
+	report: Dictionary,
+	expected_backend: GFAudioBackend
+) -> void:
 	if not (bus_payload is Dictionary):
 		if bus_payload != null:
 			_append_mix_warning(report, "buses 字段必须是 Dictionary。")
@@ -2808,10 +2829,21 @@ func _apply_mix_snapshot_buses(bus_payload: Variant, transition_seconds: float, 
 		var bus_name: String = str(bus_key)
 		var bus_entry: Variant = buses[bus_key]
 		if bus_entry is Dictionary:
-			_apply_mix_snapshot_bus_entry(bus_name, GFVariantData.as_dictionary(bus_entry), transition_seconds, report)
+			_apply_mix_snapshot_bus_entry(
+				bus_name,
+				GFVariantData.as_dictionary(bus_entry),
+				transition_seconds,
+				report,
+				expected_backend
+			)
 		elif _is_numeric_variant(bus_entry):
-			if _apply_mix_snapshot_bus_volume_db(bus_name, GFVariantData.to_float(bus_entry), transition_seconds, report):
-				continue
+			_apply_mix_snapshot_bus_entry(
+				bus_name,
+				{ "volume_db": GFVariantData.to_float(bus_entry) },
+				transition_seconds,
+				report,
+				expected_backend
+			)
 		else:
 			_append_mix_failure(report, bus_name, "invalid_bus_entry", "总线快照条目必须是 Dictionary 或数值。")
 
@@ -2820,7 +2852,8 @@ func _apply_mix_snapshot_bus_entry(
 	bus_name: String,
 	entry: Dictionary,
 	transition_seconds: float,
-	report: Dictionary
+	report: Dictionary,
+	expected_backend: GFAudioBackend
 ) -> void:
 	var entry_transition: float = GFVariantData.get_option_float(entry, "transition_seconds", transition_seconds)
 	if not _is_finite_float(entry_transition):
@@ -2833,11 +2866,7 @@ func _apply_mix_snapshot_bus_entry(
 		return
 
 	var bus_index: int = AudioServer.get_bus_index(bus_name)
-	var target_db: float = (
-		AudioServer.get_bus_volume_db(bus_index)
-		if bus_index >= 0
-		else get_bus_volume_db(bus_name)
-	)
+	var target_db: float = AudioServer.get_bus_volume_db(bus_index) if bus_index >= 0 else 0.0
 	if entry.has("volume_db"):
 		target_db = GFVariantData.to_float(entry["volume_db"])
 		if not _is_finite_float(target_db):
@@ -2856,53 +2885,82 @@ func _apply_mix_snapshot_bus_entry(
 		if has_mute
 		else (AudioServer.is_bus_mute(bus_index) if bus_index >= 0 else false)
 	)
-	if bus_index >= 0:
-		var transaction_generation: int = _begin_bus_transaction(bus_name)
-		if not _start_local_bus_mix_transaction(
-			bus_name,
-			bus_index,
-			target_db,
-			target_muted,
-			entry_transition,
-			transaction_generation
-		):
-			_append_mix_failure(report, bus_name, "missing_bus", "无法应用总线混音状态。")
+
+	var backend_volume_handled: bool = false
+	if has_volume and expected_backend != null:
+		var volume_result: Dictionary = _dispatch_backend_call(
+			&"set_bus_volume_db",
+			[bus_name, target_db, entry_transition],
+			expected_backend
+		)
+		if not _backend_dispatch_completed(volume_result):
+			_append_mix_failure(
+				report,
+				bus_name,
+				"backend_identity_changed",
+				"设置总线音量时 backend identity 发生变化。"
+			)
 			return
-		if has_volume:
-			_append_mix_applied(report, "bus:%s:volume_db" % bus_name)
-		if has_mute:
-			_append_mix_applied(report, "bus:%s:muted" % bus_name)
+		backend_volume_handled = _backend_dispatch_returned_true(volume_result)
+
+	var backend_mute_handled: bool = false
+	if has_mute and expected_backend != null:
+		var mute_result: Dictionary = _dispatch_backend_call(
+			&"set_bus_mute",
+			[bus_name, target_muted],
+			expected_backend
+		)
+		if not _backend_dispatch_completed(mute_result):
+			_append_mix_failure(
+				report,
+				bus_name,
+				"backend_identity_changed",
+				"设置总线静音时 backend identity 发生变化。"
+			)
+			return
+		backend_mute_handled = _backend_dispatch_returned_true(mute_result)
+
+	if backend_volume_handled:
+		_append_mix_applied(report, "bus:%s:volume_db" % bus_name)
+	if backend_mute_handled:
+		_append_mix_applied(report, "bus:%s:muted" % bus_name)
+
+	var apply_local_volume: bool = has_volume and not backend_volume_handled
+	var apply_local_mute: bool = has_mute and not backend_mute_handled
+	if not apply_local_volume and not apply_local_mute:
+		return
+	if bus_index < 0:
+		if apply_local_volume:
+			_append_mix_failure(report, bus_name, "missing_bus", "无法设置总线音量。")
+		if apply_local_mute:
+			_append_mix_failure(report, bus_name, "missing_bus", "无法设置总线静音状态。")
 		return
 
-	var applied_any: bool = false
-	if has_volume:
-		applied_any = _apply_mix_snapshot_bus_volume_db(
-			bus_name,
-			target_db,
-			entry_transition,
-			report
-		)
-	if has_mute:
-		if set_bus_mute(bus_name, target_muted):
-			_append_mix_applied(report, "bus:%s:muted" % bus_name)
-			applied_any = true
-		else:
-			_append_mix_failure(report, bus_name, "missing_bus", "无法设置总线静音状态。")
-	if not applied_any:
+	var local_target_db: float = (
+		target_db
+		if apply_local_volume
+		else AudioServer.get_bus_volume_db(bus_index)
+	)
+	var local_target_muted: bool = (
+		target_muted
+		if apply_local_mute
+		else AudioServer.is_bus_mute(bus_index)
+	)
+	var transaction_generation: int = _begin_bus_transaction(bus_name)
+	if not _start_local_bus_mix_transaction(
+		bus_name,
+		bus_index,
+		local_target_db,
+		local_target_muted,
+		entry_transition,
+		transaction_generation
+	):
 		_append_mix_failure(report, bus_name, "missing_bus", "无法应用总线混音状态。")
-
-
-func _apply_mix_snapshot_bus_volume_db(
-	bus_name: String,
-	volume_db: float,
-	transition_seconds: float,
-	report: Dictionary
-) -> bool:
-	if set_bus_volume_db(bus_name, volume_db, transition_seconds):
+		return
+	if apply_local_volume:
 		_append_mix_applied(report, "bus:%s:volume_db" % bus_name)
-		return true
-	_append_mix_failure(report, bus_name, "missing_bus", "无法设置总线音量。")
-	return false
+	if apply_local_mute:
+		_append_mix_applied(report, "bus:%s:muted" % bus_name)
 
 
 func _apply_mix_snapshot_effects(effect_payload: Variant, transition_seconds: float, report: Dictionary) -> void:
@@ -2987,38 +3045,153 @@ func _get_duck_bus_state(bus_name: String) -> Dictionary:
 	return {}
 
 
-func _capture_duck_bus_base_mute(bus_name: String, bus_index: int) -> Dictionary:
-	if bus_index >= 0:
-		return {
-			"ok": true,
-			"muted": AudioServer.is_bus_mute(bus_index),
-		}
-	if _audio_backend == null or _is_backend_dispatch_in_progress():
-		return {
-			"ok": false,
-			"muted": false,
-		}
+func _capture_duck_bus_base_state(bus_name: String) -> Dictionary:
+	if _is_backend_dispatch_in_progress():
+		return { "ok": false }
 	var expected_backend: GFAudioBackend = _audio_backend
-	var mute_result: Dictionary = _dispatch_backend_call(
-		&"get_bus_mute",
-		[bus_name],
-		expected_backend
-	)
-	if not _backend_dispatch_completed(mute_result) or _audio_backend != expected_backend:
-		return {
-			"ok": false,
-			"muted": false,
-		}
-	var mute_value: Variant = GFVariantData.get_option_value(mute_result, "value")
-	if not mute_value is bool:
-		return {
-			"ok": false,
-			"muted": false,
-		}
+	if expected_backend != null:
+		var volume_result: Dictionary = _dispatch_backend_call(
+			&"get_bus_volume",
+			[bus_name],
+			expected_backend
+		)
+		if not _backend_dispatch_completed(volume_result):
+			return { "ok": false }
+		var mute_result: Dictionary = _dispatch_backend_call(
+			&"get_bus_mute",
+			[bus_name],
+			expected_backend
+		)
+		if not _backend_dispatch_completed(mute_result):
+			return { "ok": false }
+		var volume_value: Variant = GFVariantData.get_option_value(volume_result, "value")
+		var mute_value: Variant = GFVariantData.get_option_value(mute_result, "value")
+		var backend_volume_observed: bool = (
+			_is_numeric_variant(volume_value)
+			and _is_finite_numeric_variant(volume_value)
+			and GFVariantData.to_float(volume_value) >= 0.0
+		)
+		var backend_mute_observed: bool = mute_value is bool
+		if backend_volume_observed != backend_mute_observed:
+			return { "ok": false }
+		if backend_volume_observed:
+			var base_linear: float = GFVariantData.to_float(volume_value)
+			return {
+				"ok": true,
+				"owner": _OWNER_BACKEND,
+				"backend": expected_backend,
+				"base_db": (
+					SILENCE_VOLUME_DB
+					if base_linear <= 0.0
+					else maxf(linear_to_db(base_linear), SILENCE_VOLUME_DB)
+				),
+				"base_muted": mute_value,
+			}
+
+	var bus_index: int = AudioServer.get_bus_index(bus_name)
+	if bus_index < 0:
+		return { "ok": false }
 	return {
 		"ok": true,
-		"muted": mute_value,
+		"owner": _OWNER_LOCAL,
+		"backend": null,
+		"base_db": AudioServer.get_bus_volume_db(bus_index),
+		"base_muted": AudioServer.is_bus_mute(bus_index),
 	}
+
+
+func _get_duck_state_backend(state: Dictionary) -> GFAudioBackend:
+	var backend_value: Variant = GFVariantData.get_option_value(state, "backend")
+	if backend_value is GFAudioBackend:
+		var backend: GFAudioBackend = backend_value
+		return backend
+	return null
+
+
+func _apply_backend_duck_bus_mix_state(
+	bus_name: String,
+	state: Dictionary,
+	target_db: float,
+	target_muted: bool,
+	transition_seconds: float
+) -> bool:
+	var expected_backend: GFAudioBackend = _get_duck_state_backend(state)
+	if expected_backend == null or _audio_backend != expected_backend:
+		return false
+	var mute_result: Dictionary = _dispatch_backend_call(
+		&"set_bus_mute",
+		[bus_name, target_muted],
+		expected_backend
+	)
+	if not _backend_dispatch_returned_true(mute_result) or _audio_backend != expected_backend:
+		return false
+	var volume_result: Dictionary = _dispatch_backend_call(
+		&"set_bus_volume_db",
+		[bus_name, target_db, transition_seconds],
+		expected_backend
+	)
+	return _backend_dispatch_returned_true(volume_result) and _audio_backend == expected_backend
+
+
+func _apply_duck_bus_mix_state(
+	bus_name: String,
+	state: Dictionary,
+	target_db: float,
+	target_muted: bool,
+	transition_seconds: float
+) -> bool:
+	var owner: StringName = GFVariantData.get_option_string_name(
+		state,
+		"owner",
+		_OWNER_NONE
+	)
+	if owner == _OWNER_BACKEND:
+		return _apply_backend_duck_bus_mix_state(
+			bus_name,
+			state,
+			target_db,
+			target_muted,
+			transition_seconds
+		)
+	if owner != _OWNER_LOCAL:
+		return false
+
+	var bus_index: int = AudioServer.get_bus_index(bus_name)
+	if bus_index < 0:
+		return false
+	var generation: int = _begin_bus_transaction(bus_name)
+	return _start_local_bus_mix_transaction(
+		bus_name,
+		bus_index,
+		target_db,
+		target_muted,
+		transition_seconds,
+		generation
+	)
+
+
+func _restore_ducked_buses_for_backend_transition(expected_backend: GFAudioBackend) -> bool:
+	var bus_names: PackedStringArray = PackedStringArray()
+	for bus_name_value: Variant in _duck_bus_states.keys():
+		var bus_name: String = GFVariantData.to_text(bus_name_value)
+		var state: Dictionary = _get_duck_bus_state(bus_name)
+		var owner: StringName = GFVariantData.get_option_string_name(
+			state,
+			"owner",
+			_OWNER_NONE
+		)
+		if owner == _OWNER_BACKEND and _get_duck_state_backend(state) != expected_backend:
+			return false
+		if owner != _OWNER_BACKEND and owner != _OWNER_LOCAL:
+			return false
+		_append_packed_string(bus_names, bus_name)
+	bus_names.sort()
+	for bus_name: String in bus_names:
+		var state: Dictionary = _get_duck_bus_state(bus_name)
+		if not _restore_duck_bus_base_for_lifecycle(bus_name, state):
+			return false
+		_erase_dictionary_key(_duck_bus_states, bus_name)
+	return true
 
 
 func _apply_duck_bus_state(bus_name: String, transition_seconds: float) -> bool:
@@ -3034,17 +3207,12 @@ func _apply_duck_bus_state(bus_name: String, transition_seconds: float) -> bool:
 		)
 	var base_db: float = GFVariantData.get_option_float(state, "base_db", SILENCE_VOLUME_DB)
 	var target_db: float = base_db - strongest_amount * 18.0
-	var bus_index: int = AudioServer.get_bus_index(bus_name)
-	if bus_index < 0:
-		return set_bus_volume_db(bus_name, target_db, transition_seconds)
-	var generation: int = _begin_bus_transaction(bus_name)
-	return _start_local_bus_mix_transaction(
+	return _apply_duck_bus_mix_state(
 		bus_name,
-		bus_index,
+		state,
 		target_db,
 		GFVariantData.get_option_bool(state, "base_muted"),
-		transition_seconds,
-		generation
+		transition_seconds
 	)
 
 
@@ -3072,34 +3240,13 @@ func _restore_all_ducked_buses_for_lifecycle() -> bool:
 func _restore_duck_bus_base_for_lifecycle(bus_name: String, state: Dictionary) -> bool:
 	var base_db: float = GFVariantData.get_option_float(state, "base_db", SILENCE_VOLUME_DB)
 	var base_muted: bool = GFVariantData.get_option_bool(state, "base_muted")
-	var bus_index: int = AudioServer.get_bus_index(bus_name)
-	if bus_index >= 0:
-		var generation: int = _begin_bus_transaction(bus_name)
-		return _start_local_bus_mix_transaction(
-			bus_name,
-			bus_index,
-			base_db,
-			base_muted,
-			0.0,
-			generation
-		)
-	if _audio_backend == null or _is_backend_dispatch_in_progress():
-		return false
-
-	var expected_backend: GFAudioBackend = _audio_backend
-	var volume_result: Dictionary = _dispatch_backend_call(
-		&"set_bus_volume_db",
-		[bus_name, base_db, 0.0],
-		expected_backend
+	return _apply_duck_bus_mix_state(
+		bus_name,
+		state,
+		base_db,
+		base_muted,
+		0.0
 	)
-	var volume_restored: bool = _backend_dispatch_returned_true(volume_result)
-	var mute_result: Dictionary = _dispatch_backend_call(
-		&"set_bus_mute",
-		[bus_name, base_muted],
-		expected_backend
-	)
-	var mute_restored: bool = _backend_dispatch_returned_true(mute_result)
-	return volume_restored and mute_restored and _audio_backend == expected_backend
 
 
 func _clear_audio_backend(dispose_backend: bool) -> bool:

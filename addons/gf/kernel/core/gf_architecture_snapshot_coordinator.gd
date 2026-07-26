@@ -960,7 +960,8 @@ func _materialize_frozen_model_capture(
 	var materialized_state: Dictionary = {}
 	var max_models_per_frame: int = _get_snapshot_models_per_frame(options)
 	var processed_since_yield: int = 0
-	for entry_variant: Variant in entries:
+	for entry_index: int in range(entries.size()):
+		var entry_variant: Variant = entries[entry_index]
 		var entry: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.as_dictionary(
 			entry_variant
 		)
@@ -979,6 +980,8 @@ func _materialize_frozen_model_capture(
 			)
 		)
 		processed_since_yield += 1
+		if entry_index + 1 >= entries.size():
+			continue
 		var yielded: bool = await _wait_snapshot_frame_if_needed(
 			processed_since_yield,
 			max_models_per_frame
@@ -1370,7 +1373,8 @@ func _apply_model_restore_plan_async(
 	var applied_entries: Array[Dictionary] = []
 	var max_models_per_frame: int = _get_snapshot_models_per_frame(options)
 	var processed_since_yield: int = 0
-	for entry_variant: Variant in entries:
+	for entry_index: int in range(entries.size()):
+		var entry_variant: Variant = entries[entry_index]
 		var entry: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.as_dictionary(
 			entry_variant
 		)
@@ -1438,6 +1442,8 @@ func _apply_model_restore_plan_async(
 			)
 
 		processed_since_yield += 1
+		if entry_index + 1 >= entries.size():
+			continue
 		var yielded: bool = await _wait_snapshot_frame_if_needed(
 			processed_since_yield,
 			max_models_per_frame

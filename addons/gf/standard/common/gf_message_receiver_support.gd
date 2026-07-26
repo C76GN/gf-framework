@@ -200,7 +200,10 @@ static func _receive_with_delegate(
 		_normalize_report(report, effective_receiver).duplicate(true)
 	)
 	if validation_callback.is_valid():
-		report = _apply_validation_result(report, validation_callback.call(context, report.duplicate(false)))
+		report = _apply_validation_result(
+			report,
+			validation_callback.call(context, _duplicate_dictionary_structure(report))
+		)
 
 	if _report_is_ok(report) and delegate_enabled and delegate_receiver.has_method(delegate_method):
 		var delegated_value: Variant = delegate_receiver.callv(delegate_method, delegate_args)
@@ -246,7 +249,7 @@ static func _make_report(
 		"receiver": receiver,
 		"reason": reason,
 		"message": message,
-		"metadata": metadata.duplicate(false),
+		"metadata": _duplicate_dictionary_structure(metadata),
 	}
 
 
@@ -260,10 +263,16 @@ static func _apply_validation_result(report: Dictionary, validation_result: Vari
 	if not validation_result is Dictionary:
 		return report
 
-	var result: Dictionary = GFVariantData.as_dictionary(validation_result)
+	var result: Dictionary = _duplicate_dictionary_structure(
+		GFVariantData.as_dictionary(validation_result)
+	)
 	for key: Variant in result.keys():
 		if key == "metadata" and result[key] is Dictionary:
-			var merged_metadata: Dictionary = GFVariantData.as_dictionary(GFVariantData.get_option_value(report, "metadata", {})).duplicate(false)
+			var merged_metadata: Dictionary = _duplicate_dictionary_structure(
+				GFVariantData.as_dictionary(
+					GFVariantData.get_option_value(report, "metadata", {})
+				)
+			)
 			var result_metadata: Dictionary = GFVariantData.as_dictionary(result[key])
 			for metadata_key: Variant in result_metadata.keys():
 				merged_metadata[metadata_key] = result_metadata[metadata_key]
@@ -275,6 +284,12 @@ static func _apply_validation_result(report: Dictionary, validation_result: Vari
 
 static func _report_is_ok(report: Dictionary) -> bool:
 	return GFVariantData.get_option_bool(report, "ok", false)
+
+
+static func _duplicate_dictionary_structure(value: Dictionary) -> Dictionary:
+	return GFVariantData.as_dictionary(
+		GFVariantData.duplicate_variant(value, true, false)
+	)
 
 
 static func _get_object_property(target: Object, property_name: String) -> Variant:

@@ -46,7 +46,7 @@ audio.apply_mix_snapshot({
 audio.apply_mix_snapshot(before_menu, 0.25)
 ```
 
-混音快照只描述 Godot 总线和效果属性，不规定“菜单”“战斗”“对话”等业务状态。捕获结果会分别保存底层 `volume_db` / `volume_linear` 与 `muted`，即使总线当前静音也不会把真实增益改写成静音阈值；应用时 gain 与 mute 属于同一个 generation 事务，旧 Tween 不能在新的 mute 或 gain 操作后反向覆盖结果。`effect` 可以是效果索引，也可以是效果 `resource_name`、类名或类名片段；具体效果是否存在仍由项目的 Audio Bus Layout 决定。
+混音快照描述总线和效果属性，不规定“菜单”“战斗”“对话”等业务状态。`capture_mix_snapshot()` 只枚举 Godot `AudioServer` 总线，并分别保存底层 `volume_db` / `volume_linear` 与 `muted`，即使总线当前静音也不会把真实增益改写成静音阈值。应用快照时会先尝试 backend bulk 接管；backend 拒绝后，每个 gain / mute 字段仍先询问同一个 backend，只有明确未处理的字段才回退到同名 Godot 总线。全部本地字段作为同一个 generation 事务提交，旧 Tween 不能反向覆盖结果；backend 已接管的字段不会改写或取消同名本地状态。`effect` 可以是效果索引，也可以是效果 `resource_name`、类名或类名片段；具体本地效果是否存在仍由项目的 Audio Bus Layout 决定。
 
 需要临时压低某条总线时可使用 `duck_bus()` / `restore_ducked_bus()`：
 
@@ -55,7 +55,7 @@ audio.duck_bus("BGM", 0.5, 0.2, &"dialogue")
 audio.restore_ducked_bus("BGM", 0.3, &"dialogue")
 ```
 
-同一总线只捕获一次稳定 base gain/mute，并保存所有活跃 `duck_id`。实际衰减取当前作用域中的最强值；任意顺序释放作用域都会根据剩余集合重算，最后一个作用域释放后才恢复原始 base。Utility 重新初始化或 dispose 时会先立即恢复所有仍登记总线的 base gain/mute，再清除作用域和 Tween；生命周期终结不会把项目总线永久留在 duck 状态。由外部 backend 独占、在 `AudioServer` 中不存在的总线必须通过 `GFAudioBackend.get_bus_mute()` 返回当前 `bool` 静音状态，Utility 才能建立可逆的 duck 基线；返回 `null` 时 `duck_bus()` 会在修改 gain 前失败关闭，不会猜测该总线未静音。
+同一总线只捕获一次稳定 base gain/mute，并保存所有活跃 `duck_id`。配置 backend 时，即使 `AudioServer` 中存在同名总线，也会先成对查询 backend 的 `get_bus_volume()` / `get_bus_mute()`；两项都不可观测才回退本地，只有一项可观测则失败关闭。成功捕获后，local/backend owner 与 backend identity 会固定到整个 duck 生命周期，应用、释放和 dispose 都不会把状态误写到同名的另一 owner。实际衰减取当前作用域中的最强值；任意顺序释放作用域都会根据剩余集合重算，最后一个作用域释放后才恢复原始 base。替换或清除 backend、Utility 重新初始化或 dispose 时，会先按记录 owner 立即恢复仍登记总线的 base gain/mute，再清除作用域和 Tween；恢复失败时可重试的 backend 切换会返回 `false`，生命周期终结则记录 warning 并继续收敛。
 
 ## SFX 并发
 

@@ -22,9 +22,9 @@ if not audio.set_audio_backend(ProjectAudioBackend.new()):
 audio.play_sfx("event://ui/confirm")
 ```
 
-`GFAudioBackend` 是协议层，不内置任何第三方 SDK、事件命名或业务状态。后端可选择只处理部分 BGM、BGM transport、SFX、stop-all SFX、环境音、空间音效、总线音量、总线静音、总线效果属性或混音快照，其余请求保持默认行为。backend-only 总线若要支持 `duck_bus()`，必须同时实现 `get_bus_volume()`、`set_bus_volume_db()`、`set_bus_mute()` 和 `get_bus_mute()`；其中 `get_bus_mute()` 返回当前 `bool`，无法观测时返回 `null`，Utility 会在写入前失败关闭，避免生命周期恢复时把未知基线猜成未静音。BGM 与每个环境音 channel 都显式记录 local/backend owner；后端接管、后端替换、回退本地或 Utility dispose 时会终结旧 owner 的 session，迟到的本地加载与淡出回调不会形成双重播放。
+`GFAudioBackend` 是协议层，不内置任何第三方 SDK、事件命名或业务状态。后端可选择只处理部分 BGM、BGM transport、SFX、stop-all SFX、环境音、空间音效、总线音量、总线静音、总线效果属性或混音快照，其余请求保持默认行为。mix snapshot 的 bulk 接口返回 `false` 后，Utility 仍会按 gain / mute 字段逐项询问同一个 backend，只有明确拒绝的字段才进入本地原子回退；同名 `Master` / `BGM` 不会让 `AudioServer` 抢先接管。任何 backend 总线若要支持 `duck_bus()`，无论是否存在同名 Godot 总线，都必须同时实现 `get_bus_volume()`、`set_bus_volume_db()`、`set_bus_mute()` 和 `get_bus_mute()`；两项查询都表示未处理时才会回退本地，部分可观测会失败关闭。BGM、每个环境音 channel 和每个 duck 总线都显式记录 local/backend owner；后端接管、后端替换、回退本地或 Utility dispose 时会先收敛旧 owner，迟到的本地加载与淡出回调不会形成双重播放。
 
-`set_audio_backend()` 与 `clear_audio_backend()` 都返回 `bool`，调用方必须检查结果。替换或显式清除前，Utility 会按确定顺序停止当前后端拥有的 BGM 与环境音 channel。某个 `stop_*()` 返回 `true` 且通过 backend/request/owner identity 复核后，该通道会立即提交为 `stopped`；若后续通道拒绝停止，本次 detach/replace 返回 `false`，原 backend 保持绑定且不会被 dispose，但已经确认停止的通道不会被伪装成仍在播放或回滚 owner。修正后端状态后重试时，只会处理仍由该后端拥有的剩余 session。
+`set_audio_backend()` 与 `clear_audio_backend()` 都返回 `bool`，调用方必须检查结果。替换或显式清除前，Utility 会按确定顺序停止当前后端拥有的 BGM 与环境音 channel，再按记录的 owner/backend identity 恢复并清除全部活跃 duck 作用域。某个 `stop_*()` 返回 `true` 且通过 backend/request/owner identity 复核后，该通道会立即提交为 `stopped`；若后续通道或 duck 基准拒绝恢复，本次 detach/replace 返回 `false`，原 backend 保持绑定且不会被 dispose，但已经确认停止的通道不会被伪装成仍在播放或回滚 owner。修正后端状态后重试时，只会处理仍未收敛的状态。
 
 `dispose()` 属于不可重试的生命周期终态，不沿用 detach/replace 的保留语义。即使后端拒绝停止 owned channel 或 dispose 发生在后端回调边界内，Utility 也会记录 warning，强制解除内部 owner，恢复仍登记的 duck 总线基准，终结全部本地 playback handle，释放根播放器，并 dispose 或至少解除当前后端引用。架构释放因此不会被第三方后端的返回值卡住。
 

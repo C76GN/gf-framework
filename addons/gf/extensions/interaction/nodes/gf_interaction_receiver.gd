@@ -110,6 +110,12 @@ const _MESSAGE_RECEIVER_SUPPORT = preload("res://addons/gf/standard/common/gf_me
 var validation_callback: Callable = Callable()
 
 
+# --- 私有变量 ---
+
+var _framework_raw_dispatch_serial: int = 0
+var _framework_raw_dispatch_tokens: Array[Dictionary] = []
+
+
 # --- 公共方法 ---
 
 ## 检查指定交互 ID 是否可被当前接收器接受。
@@ -149,7 +155,11 @@ func can_receive_interaction(interaction_id: StringName = &"") -> bool:
 ## [br]
 ## @schema return: 交互结果报告 Dictionary，包含 ok、interaction_id、receiver(JSON-safe 摘要)、reason、message 和 metadata 等字段。
 func receive_interaction(context: GFInteractionContext, interaction_id: StringName = &"") -> Dictionary:
-	return _receive_interaction_for_framework(context, interaction_id, true)
+	return _receive_interaction_for_framework(
+		context,
+		interaction_id,
+		not _consume_framework_raw_dispatch_token(context, interaction_id)
+	)
 
 
 ## 接收一次交互并把未编码的报告交给框架内层发送边界。
@@ -169,10 +179,44 @@ func receive_interaction_raw_for_framework(
 	context: GFInteractionContext,
 	interaction_id: StringName = &""
 ) -> Dictionary:
-	return _receive_interaction_for_framework(context, interaction_id, false)
+	_framework_raw_dispatch_serial += 1
+	var dispatch_serial: int = _framework_raw_dispatch_serial
+	_framework_raw_dispatch_tokens.append({
+		"serial": dispatch_serial,
+		"context": context,
+		"interaction_id": interaction_id,
+	})
+	var report: Dictionary = receive_interaction(context, interaction_id)
+	_discard_framework_raw_dispatch_token(dispatch_serial)
+	return report
 
 
 # --- 私有/辅助方法 ---
+
+func _consume_framework_raw_dispatch_token(
+	context: GFInteractionContext,
+	interaction_id: StringName
+) -> bool:
+	if _framework_raw_dispatch_tokens.is_empty():
+		return false
+	var top_index: int = _framework_raw_dispatch_tokens.size() - 1
+	var token: Dictionary = _framework_raw_dispatch_tokens[top_index]
+	if token.get("context") != context:
+		return false
+	if GFVariantData.to_string_name(token.get("interaction_id", &"")) != interaction_id:
+		return false
+	_framework_raw_dispatch_tokens.remove_at(top_index)
+	return true
+
+
+func _discard_framework_raw_dispatch_token(dispatch_serial: int) -> void:
+	for index: int in range(_framework_raw_dispatch_tokens.size() - 1, -1, -1):
+		var token: Dictionary = _framework_raw_dispatch_tokens[index]
+		if GFVariantData.to_int(token.get("serial", -1)) != dispatch_serial:
+			continue
+		_framework_raw_dispatch_tokens.remove_at(index)
+		return
+
 
 func _receive_interaction_for_framework(
 	context: GFInteractionContext,

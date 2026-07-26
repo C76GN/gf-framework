@@ -178,6 +178,101 @@ class ForgedMarkerInteractionReceiver extends GFInteractionReceiver:
 		}
 
 
+class PublicOverrideInteractionReceiver extends GFInteractionReceiver:
+	var receive_count: int = 0
+	var received_context: GFInteractionContext = null
+	var received_id: StringName = &""
+
+	func receive_interaction(
+		context: GFInteractionContext,
+		interaction_id: StringName = &""
+	) -> Dictionary:
+		receive_count += 1
+		received_context = context
+		received_id = interaction_id
+		return {
+			"ok": true,
+			"interaction_id": interaction_id,
+			"receiver": self,
+			"metadata": {
+				"object": self,
+			},
+		}
+
+
+class DerivedPublicOverrideInteractionReceiver extends PublicOverrideInteractionReceiver:
+	pass
+
+
+class SuperCallingPublicOverrideInteractionReceiver extends GFInteractionReceiver:
+	var receive_count: int = 0
+
+	func receive_interaction(
+		context: GFInteractionContext,
+		interaction_id: StringName = &""
+	) -> Dictionary:
+		receive_count += 1
+		var report: Dictionary = super.receive_interaction(context, interaction_id)
+		report["reason"] = "extended"
+		return report
+
+
+class ReentrantInteractionObserver extends Node:
+	var receiver: SuperCallingPublicOverrideInteractionReceiver = null
+	var reentrant_report: Dictionary = {}
+	var did_reenter: bool = false
+
+	func on_interaction_received(
+		_context: GFInteractionContext,
+		_report: Dictionary
+	) -> void:
+		if did_reenter or receiver == null:
+			return
+		did_reenter = true
+		reentrant_report = receiver.receive_interaction(
+			GFInteractionContext.new(null, receiver),
+			&"reentrant"
+		)
+
+
+class NestedRawTokenInteractionReceiver extends GFInteractionReceiver:
+	var outer_context: GFInteractionContext = null
+	var nested_mismatch_report: Dictionary = {}
+
+	func receive_interaction(
+		context: GFInteractionContext,
+		interaction_id: StringName = &""
+	) -> Dictionary:
+		if interaction_id == &"inner":
+			nested_mismatch_report = super.receive_interaction(
+				outer_context,
+				&"outer"
+			)
+			return nested_mismatch_report
+		outer_context = context
+		var _nested_report: Dictionary = receive_interaction_raw_for_framework(
+			GFInteractionContext.new(null, self),
+			&"inner"
+		)
+		return super.receive_interaction(context, interaction_id)
+
+
+class InteractionCollisionArea2D extends Area2D:
+	func receive_interaction(
+		_context: GFInteractionContext,
+		_interaction_id: StringName = &""
+	) -> Dictionary:
+		return {}
+
+
+class InteractionCollisionArea3D extends Area3D:
+	func receive_interaction(
+		_context: GFInteractionContext,
+		_interaction_id: StringName = &""
+	) -> Dictionary:
+		return {}
+
+
 # --- 测试方法 ---
 
 func test_sensor_send_to_receiver_builds_context_and_report() -> void:
@@ -306,6 +401,126 @@ func test_sensor_does_not_trust_forged_report_marker_shape() -> void:
 	assert_eq(GFVariantData.get_option_string(report_metadata, "path"), "report.json")
 	assert_false(_contains_live_object(report), "伪 marker 不得把 live Object 带过报告边界。")
 	assert_false(JSON.stringify(report).is_empty(), "伪 marker 报告仍必须可直接 JSON.stringify。")
+
+
+func test_sensor_preserves_public_receive_override_across_script_chain() -> void:
+	var sensor: GFInteractionSensor = GFInteractionSensor.new()
+	var receiver: DerivedPublicOverrideInteractionReceiver = DerivedPublicOverrideInteractionReceiver.new()
+	add_child_autofree(sensor)
+	add_child_autofree(receiver)
+
+	var report: Dictionary = sensor.send_to(receiver, { "value": 3 }, &"inspect")
+	var report_metadata: Dictionary = GFVariantData.get_option_dictionary(
+		report,
+		"metadata"
+	)
+
+	assert_eq(receiver.receive_count, 1, "Sensor 必须保留 GFInteractionReceiver 子类的公开 receive_interaction override。")
+	assert_not_null(receiver.received_context, "公开 override 应收到 Sensor 构建的交互上下文。")
+	if receiver.received_context != null:
+		assert_same(receiver.received_context.target, receiver, "公开 override 的上下文 target 应指向实际接收器。")
+	assert_eq(receiver.received_id, &"inspect", "公开 override 应收到有效交互 ID。")
+	assert_eq(_report_marker_type(GFVariantData.get_option_value(report, "receiver")), "Object")
+	assert_eq(_report_marker_type(GFVariantData.get_option_value(report_metadata, "object")), "Object")
+	assert_false(_contains_live_object(report), "公开 override 返回值仍必须由 Sensor 转为 JSON-safe 报告。")
+	assert_false(JSON.stringify(report).is_empty(), "公开 override 报告必须可直接 JSON.stringify。")
+
+
+func test_sensor_encodes_super_calling_public_override_exactly_once() -> void:
+	var sensor: GFInteractionSensor = GFInteractionSensor.new()
+	var receiver: SuperCallingPublicOverrideInteractionReceiver = (
+		SuperCallingPublicOverrideInteractionReceiver.new()
+	)
+	add_child_autofree(sensor)
+	add_child_autofree(receiver)
+	receiver.metadata = {
+		"object": receiver,
+	}
+
+	var report: Dictionary = sensor.send_to(receiver, null, &"inspect")
+	var report_metadata: Dictionary = GFVariantData.get_option_dictionary(
+		report,
+		"metadata"
+	)
+
+	assert_eq(receiver.receive_count, 1, "Sensor 应且仅应调用一次公开 receive_interaction override。")
+	assert_eq(GFVariantData.get_option_string(report, "reason"), "extended")
+	assert_eq(
+		_report_marker_type(GFVariantData.get_option_value(report_metadata, "object")),
+		"Object",
+		"override 调用 super 时，base raw 报告必须只在 Sensor 边界编码一次。"
+	)
+	assert_false(_contains_live_object(report), "super override 的最终报告不得泄露 live Object。")
+	assert_false(JSON.stringify(report).is_empty(), "super override 的最终报告必须可直接 JSON.stringify。")
+
+
+func test_super_override_raw_token_does_not_leak_into_signal_reentry() -> void:
+	var sensor: GFInteractionSensor = GFInteractionSensor.new()
+	var receiver: SuperCallingPublicOverrideInteractionReceiver = (
+		SuperCallingPublicOverrideInteractionReceiver.new()
+	)
+	var observer: ReentrantInteractionObserver = ReentrantInteractionObserver.new()
+	add_child_autofree(sensor)
+	add_child_autofree(receiver)
+	add_child_autofree(observer)
+	receiver.metadata = {
+		"object": receiver,
+	}
+	observer.receiver = receiver
+	var connect_error: Error = receiver.interaction_received.connect(
+		Callable(observer, "on_interaction_received")
+	) as Error
+	assert_eq(connect_error, OK, "测试监听器应成功连接。")
+
+	var outer_report: Dictionary = sensor.send_to(receiver, null, &"inspect")
+	var reentrant_metadata: Dictionary = GFVariantData.get_option_dictionary(
+		observer.reentrant_report,
+		"metadata"
+	)
+
+	assert_true(observer.did_reenter, "Receiver 公开信号应触发一次同步重入测试。")
+	assert_eq(receiver.receive_count, 2, "外层 override 与重入公开调用应各执行一次。")
+	assert_eq(
+		_report_marker_type(
+			GFVariantData.get_option_value(reentrant_metadata, "object")
+		),
+		"Object",
+		"同步重入的独立公开调用必须保持自身的 JSON-safe 编码边界。"
+	)
+	assert_false(
+		_contains_live_object(observer.reentrant_report),
+		"外层 raw token 不得让信号监听器拿到未编码的公开调用报告。"
+	)
+	assert_false(_contains_live_object(outer_report), "外层 Sensor 报告仍必须保持单次编码。")
+
+
+func test_nested_raw_dispatch_cannot_consume_outer_token() -> void:
+	var sensor: GFInteractionSensor = GFInteractionSensor.new()
+	var receiver: NestedRawTokenInteractionReceiver = (
+		NestedRawTokenInteractionReceiver.new()
+	)
+	add_child_autofree(sensor)
+	add_child_autofree(receiver)
+	receiver.metadata = {
+		"object": receiver,
+	}
+
+	var report: Dictionary = sensor.send_to(receiver, null, &"outer")
+	var report_metadata: Dictionary = GFVariantData.get_option_dictionary(
+		report,
+		"metadata"
+	)
+
+	assert_false(
+		_contains_live_object(receiver.nested_mismatch_report),
+		"最内层参数不匹配的 super 调用不得越栈消费外层 raw token。"
+	)
+	assert_eq(
+		_report_marker_type(GFVariantData.get_option_value(report_metadata, "object")),
+		"Object",
+		"嵌套 raw 调用返回后，外层 token 仍应供对应 super 单次消费。"
+	)
+	assert_false(_contains_live_object(report), "嵌套 raw 调用后的外层报告必须保持 JSON-safe。")
 
 
 func test_receiver_filters_interaction_ids() -> void:
@@ -521,13 +736,26 @@ func test_sensor_broadcast_reports_empty_dispatch_override_result() -> void:
 	dispatch.name = "Dispatch"
 	sensor.sender_path = NodePath("../Dispatch")
 	sensor.group_name = &"targets"
+	sensor.metadata = {
+		"object": receiver,
+	}
 	receiver.add_to_group("targets")
+	watch_signals(sensor)
 
 	var reports: Array[Dictionary] = sensor.broadcast_to_group()
+	var signal_parameters: Array = get_signal_parameters(sensor, "interaction_rejected")
+	var signal_report: Dictionary = (
+		GFVariantData.as_dictionary(signal_parameters[2])
+		if signal_parameters.size() >= 3
+		else {}
+	)
 
 	assert_eq(reports.size(), 1, "空报告不应在广播路径中被吞掉。")
 	assert_false(GFVariantData.get_option_bool(reports[0], "ok"), "空报告应被转成失败报告。")
 	assert_eq(GFVariantData.get_option_string(reports[0], "reason"), "invalid_report", "失败原因应明确为 invalid_report。")
+	assert_false(_contains_live_object(signal_report), "空 override 报告的失败信号也必须保持 JSON-safe。")
+	if not reports.is_empty():
+		assert_eq(signal_report, reports[0], "空 override 报告的信号和返回值不得出现二次编码差异。")
 
 
 func test_pointer_context_does_not_allow_pointer_reserved_payload_override() -> void:
@@ -730,12 +958,19 @@ func test_sensor_normalizes_entire_override_report() -> void:
 	sensor.sender_path = NodePath("../Sender")
 	sensor.group_name = &"targets"
 	receiver.add_to_group("targets")
+	watch_signals(sensor)
 
 	var reports: Array[Dictionary] = sensor.broadcast_to_group()
 	assert_eq(reports.size(), 1, "sender override 应返回一个报告。")
 	if reports.is_empty():
 		return
 	var report: Dictionary = reports[0]
+	var signal_parameters: Array = get_signal_parameters(sensor, "interaction_sent")
+	var signal_report: Dictionary = (
+		GFVariantData.as_dictionary(signal_parameters[2])
+		if signal_parameters.size() >= 3
+		else {}
+	)
 	var nested_values: Array = GFVariantData.get_option_array(report, "nested_values")
 	var report_metadata: Dictionary = GFVariantData.get_option_dictionary(report, "metadata")
 
@@ -745,6 +980,8 @@ func test_sensor_normalizes_entire_override_report() -> void:
 		assert_false(nested_values[0] is Object, "嵌套数组中的 Object 也必须经过报告编码。")
 	assert_false(GFVariantData.get_option_value(report_metadata, "object") is Object, "metadata 应与整个报告使用同一编码边界。")
 	assert_true(GFVariantData.get_option_value(report_metadata, "object") is Dictionary, "metadata Object 不应被静默降级为 null。")
+	assert_false(_contains_live_object(signal_report), "自定义 sender 信号不得暴露 raw Object。")
+	assert_eq(signal_report, report, "自定义 sender 信号和返回值必须各自只编码一次。")
 
 
 func test_sensor_collision_candidates_resolve_receiver_ancestors() -> void:
@@ -800,6 +1037,76 @@ func test_sensor_collision_dispatch_uses_sender_send_to_override() -> void:
 	assert_eq(GFVariantData.as_dictionary(sender.received_payload), { "value": 3 }, "payload 覆盖值应透传给业务发送者。")
 	assert_eq(sender.received_id, &"use", "交互 ID 覆盖值应透传给业务发送者。")
 	assert_signal_emitted(sensor, "interaction_sent", "业务发送者接管碰撞分发时 Sensor 仍应发出 interaction_sent。")
+
+
+func test_sensor_area_2d_signal_receives_normalized_override_report() -> void:
+	var root: Node2D = Node2D.new()
+	var sensor: GFInteractionSensor = GFInteractionSensor.new()
+	var sender: UnsafeReportDispatchNode = UnsafeReportDispatchNode.new()
+	var query_area: Area2D = Area2D.new()
+	var receiver_area: InteractionCollisionArea2D = InteractionCollisionArea2D.new()
+	add_child_autofree(root)
+	root.add_child(sensor)
+	root.add_child(sender)
+	root.add_child(query_area)
+	root.add_child(receiver_area)
+	sender.name = "Sender"
+	sensor.sender_path = NodePath("../Sender")
+	_add_area_2d_shape(query_area)
+	_add_area_2d_shape(receiver_area)
+	watch_signals(sensor)
+	await get_tree().physics_frame
+	await get_tree().physics_frame
+
+	var reports: Array[Dictionary] = sensor.broadcast_to_area_2d(query_area)
+	var signal_parameters: Array = get_signal_parameters(sensor, "interaction_sent")
+	var signal_report: Dictionary = (
+		GFVariantData.as_dictionary(signal_parameters[2])
+		if signal_parameters.size() >= 3
+		else {}
+	)
+
+	assert_eq(reports.size(), 1, "Area2D 重叠接收器应产生一个报告。")
+	assert_eq(signal_parameters.size(), 3, "Area2D 碰撞分发应发出完整 interaction_sent 参数。")
+	assert_false(_contains_live_object(signal_report), "Area2D interaction_sent 不得先暴露 raw Object。")
+	assert_false(JSON.stringify(signal_report).is_empty(), "Area2D interaction_sent 报告必须可直接 JSON.stringify。")
+	if not reports.is_empty():
+		assert_eq(signal_report, reports[0], "Area2D 信号和返回值必须共享同一规范化报告。")
+
+
+func test_sensor_area_3d_signal_receives_normalized_override_report() -> void:
+	var root: Node3D = Node3D.new()
+	var sensor: GFInteractionSensor = GFInteractionSensor.new()
+	var sender: UnsafeReportDispatchNode = UnsafeReportDispatchNode.new()
+	var query_area: Area3D = Area3D.new()
+	var receiver_area: InteractionCollisionArea3D = InteractionCollisionArea3D.new()
+	add_child_autofree(root)
+	root.add_child(sensor)
+	root.add_child(sender)
+	root.add_child(query_area)
+	root.add_child(receiver_area)
+	sender.name = "Sender"
+	sensor.sender_path = NodePath("../Sender")
+	_add_area_3d_shape(query_area)
+	_add_area_3d_shape(receiver_area)
+	watch_signals(sensor)
+	await get_tree().physics_frame
+	await get_tree().physics_frame
+
+	var reports: Array[Dictionary] = sensor.broadcast_to_area_3d(query_area)
+	var signal_parameters: Array = get_signal_parameters(sensor, "interaction_sent")
+	var signal_report: Dictionary = (
+		GFVariantData.as_dictionary(signal_parameters[2])
+		if signal_parameters.size() >= 3
+		else {}
+	)
+
+	assert_eq(reports.size(), 1, "Area3D 重叠接收器应产生一个报告。")
+	assert_eq(signal_parameters.size(), 3, "Area3D 碰撞分发应发出完整 interaction_sent 参数。")
+	assert_false(_contains_live_object(signal_report), "Area3D interaction_sent 不得先暴露 raw Object。")
+	assert_false(JSON.stringify(signal_report).is_empty(), "Area3D interaction_sent 报告必须可直接 JSON.stringify。")
+	if not reports.is_empty():
+		assert_eq(signal_report, reports[0], "Area3D 信号和返回值必须共享同一规范化报告。")
 
 
 func test_pointer_interaction_3d_sends_click_context_to_receiver() -> void:
@@ -910,6 +1217,22 @@ func test_pointer_interaction_3d_disabling_resets_active_state() -> void:
 
 
 # --- 私有/辅助方法 ---
+
+func _add_area_2d_shape(area: Area2D) -> void:
+	var collision_shape: CollisionShape2D = CollisionShape2D.new()
+	var shape: CircleShape2D = CircleShape2D.new()
+	shape.radius = 8.0
+	collision_shape.shape = shape
+	area.add_child(collision_shape)
+
+
+func _add_area_3d_shape(area: Area3D) -> void:
+	var collision_shape: CollisionShape3D = CollisionShape3D.new()
+	var shape: SphereShape3D = SphereShape3D.new()
+	shape.radius = 8.0
+	collision_shape.shape = shape
+	area.add_child(collision_shape)
+
 
 func _make_mouse_button(button_index: MouseButton, pressed: bool) -> InputEventMouseButton:
 	var event: InputEventMouseButton = InputEventMouseButton.new()

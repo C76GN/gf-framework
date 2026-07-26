@@ -259,7 +259,6 @@ func test_async_global_capture_fails_when_frozen_registry_changes_between_frames
 		[architecture, pending_result]
 	)
 
-	await get_tree().process_frame
 	architecture.unregister_model(AsyncCaptureModelPeer)
 	assert_true(
 		await _wait_for_result(pending_result),
@@ -283,6 +282,69 @@ func test_async_global_capture_fails_when_frozen_registry_changes_between_frames
 		"跨帧一致性失败必须提供错误原因。"
 	)
 
+	architecture.dispose()
+
+
+func test_async_capture_with_single_final_batch_finishes_without_yield() -> void:
+	var architecture: GFArchitecture = GFArchitecture.new()
+	var model: AsyncCaptureModel = AsyncCaptureModel.new()
+	assert_true(await architecture.register_model_instance(model))
+	var pending_result: Dictionary = {
+		"done": false,
+		"result": {},
+	}
+
+	GF_ASYNC_CALL_SCRIPT.run_detached(
+		Callable(self, &"_capture_async_global_result"),
+		[architecture, pending_result]
+	)
+	var result: Dictionary = GFVariantData.get_option_dictionary(
+		pending_result,
+		"result"
+	)
+
+	assert_true(
+		GFVariantData.get_option_bool(pending_result, "done"),
+		"单个 Model 恰好填满末批时不应额外让出 process_frame。"
+	)
+	assert_true(
+		GFVariantData.get_option_bool(result, "ok"),
+		"没有后续批次的异步捕获应同步完成并返回成功。"
+	)
+	architecture.dispose()
+
+
+func test_async_capture_with_two_single_model_batches_yields_once() -> void:
+	var architecture: GFArchitecture = GFArchitecture.new()
+	var first_model: AsyncCaptureModel = AsyncCaptureModel.new()
+	var second_model: AsyncCaptureModelPeer = AsyncCaptureModelPeer.new()
+	assert_true(await architecture.register_model_instance(first_model))
+	assert_true(await architecture.register_model_instance(second_model))
+	var pending_result: Dictionary = {
+		"done": false,
+		"result": {},
+	}
+
+	GF_ASYNC_CALL_SCRIPT.run_detached(
+		Callable(self, &"_capture_async_global_result"),
+		[architecture, pending_result]
+	)
+
+	assert_false(
+		GFVariantData.get_option_bool(pending_result, "done"),
+		"两个单 Model 批次之间必须保留一次 process_frame 让帧。"
+	)
+	assert_true(
+		await _wait_for_result(pending_result, 1),
+		"第二个也是最终批次时应在一次让帧后完成，不得再次等待。"
+	)
+	assert_true(
+		GFVariantData.get_option_bool(
+			GFVariantData.get_option_dictionary(pending_result, "result"),
+			"ok"
+		),
+		"双批次异步捕获应成功。"
+	)
 	architecture.dispose()
 
 
@@ -335,6 +397,98 @@ func test_async_global_restore_rolls_back_models_and_history_when_commit_fails()
 		"异步 commit 失败后命令历史必须回滚。"
 	)
 
+	architecture.dispose()
+
+
+func test_async_restore_with_single_final_batch_finishes_without_yield() -> void:
+	var architecture: GFArchitecture = GFArchitecture.new()
+	var model: RollbackModel = RollbackModel.new()
+	model.value = 10
+	assert_true(await architecture.register_model_instance(model))
+	var pending_result: Dictionary = {
+		"done": false,
+		"result": {},
+	}
+
+	GF_ASYNC_CALL_SCRIPT.run_detached(
+		Callable(self, &"_restore_async_global_result"),
+		[
+			architecture,
+			{
+				"format_version": 1,
+				"models": {
+					"rollback_model": { "value": 100 },
+				},
+			},
+			Callable(),
+			pending_result,
+		]
+	)
+	var result: Dictionary = GFVariantData.get_option_dictionary(
+		pending_result,
+		"result"
+	)
+
+	assert_true(
+		GFVariantData.get_option_bool(pending_result, "done"),
+		"单个 Model 恰好填满末批时 restore 不应额外让出 process_frame。"
+	)
+	assert_true(
+		GFVariantData.get_option_bool(result, "ok"),
+		"没有后续批次的异步 restore 应同步提交成功。"
+	)
+	assert_eq(model.value, 100, "单批次 restore 应保持已提交目标状态。")
+	architecture.dispose()
+
+
+func test_async_restore_with_two_single_model_batches_yields_once() -> void:
+	var architecture: GFArchitecture = GFArchitecture.new()
+	var first_model: ConcurrentRestoreFirstModel = ConcurrentRestoreFirstModel.new()
+	var second_model: ConcurrentRestoreSecondModel = ConcurrentRestoreSecondModel.new()
+	first_model.value = 10
+	second_model.value = 20
+	assert_true(await architecture.register_model_instance(first_model))
+	assert_true(await architecture.register_model_instance(second_model))
+	var pending_result: Dictionary = {
+		"done": false,
+		"result": {},
+	}
+
+	GF_ASYNC_CALL_SCRIPT.run_detached(
+		Callable(self, &"_restore_async_global_result"),
+		[
+			architecture,
+			{
+				"format_version": 1,
+				"models": {
+					"concurrent_restore_first_model": { "value": 100 },
+					"concurrent_restore_second_model": { "value": 200 },
+				},
+			},
+			Callable(),
+			pending_result,
+		]
+	)
+
+	assert_false(
+		GFVariantData.get_option_bool(pending_result, "done"),
+		"两个单 Model restore 批次之间必须保留一次 process_frame 让帧。"
+	)
+	assert_eq(first_model.value, 100, "首批 Model 应在第一次让帧前完成应用。")
+	assert_eq(second_model.value, 20, "后续批次 Model 不应在第一次让帧前提前应用。")
+	assert_true(
+		await _wait_for_result(pending_result, 1),
+		"最终 restore 批次应在一次让帧后完成，不得再次等待。"
+	)
+	assert_true(
+		GFVariantData.get_option_bool(
+			GFVariantData.get_option_dictionary(pending_result, "result"),
+			"ok"
+		),
+		"双批次异步 restore 应成功。"
+	)
+	assert_eq(first_model.value, 100, "首批 Model 应保持目标状态。")
+	assert_eq(second_model.value, 200, "最终批次 Model 应提交目标状态。")
 	architecture.dispose()
 
 
@@ -544,11 +698,14 @@ func test_history_store_replacement_during_verify_is_detected() -> void:
 
 func test_async_global_restore_rechecks_history_store_after_model_yield() -> void:
 	var architecture: GFArchitecture = GFArchitecture.new()
-	var model: RollbackModel = RollbackModel.new()
+	var first_model: ConcurrentRestoreFirstModel = ConcurrentRestoreFirstModel.new()
+	var second_model: ConcurrentRestoreSecondModel = ConcurrentRestoreSecondModel.new()
 	var history_store: StableHistoryUtility = StableHistoryUtility.new()
 	var replacement_store: PassiveHistoryStore = PassiveHistoryStore.new()
-	model.value = 10
-	assert_true(await architecture.register_model_instance(model))
+	first_model.value = 10
+	second_model.value = 20
+	assert_true(await architecture.register_model_instance(first_model))
+	assert_true(await architecture.register_model_instance(second_model))
 	assert_true(await architecture.register_utility_instance(history_store))
 	var command_builder: Callable = func(_data: Dictionary) -> GFUndoableCommand:
 		return GFUndoableCommand.new()
@@ -564,7 +721,8 @@ func test_async_global_restore_rechecks_history_store_after_model_yield() -> voi
 			{
 				"format_version": 1,
 				"models": {
-					"rollback_model": { "value": 100 },
+					"concurrent_restore_first_model": { "value": 100 },
+					"concurrent_restore_second_model": { "value": 200 },
 				},
 				"command_history": {
 					"undo": [{ "id": "target" }],
@@ -575,7 +733,8 @@ func test_async_global_restore_rechecks_history_store_after_model_yield() -> voi
 			pending_result,
 		]
 	)
-	assert_eq(model.value, 100, "异步测试应在首个分帧等待前完成 Model apply。")
+	assert_eq(first_model.value, 100, "异步测试应在首个分帧等待前完成第一批 Model apply。")
+	assert_eq(second_model.value, 20, "后续批次应保持待恢复状态，证明测试发生在真实批间让帧。")
 	assert_true(
 		architecture.unregister_service(
 			GFArchitecture.SERVICE_COMMAND_HISTORY_STORE,
@@ -602,7 +761,8 @@ func test_async_global_restore_rechecks_history_store_after_model_yield() -> voi
 		GFVariantData.get_option_bool(result, "rolled_back", true),
 		"history store 漂移后整个事务不得报告完整 rollback。"
 	)
-	assert_eq(model.value, 10, "history commit 前检测漂移后已应用 Model 应回滚。")
+	assert_eq(first_model.value, 10, "history commit 前检测漂移后第一批 Model 应回滚。")
+	assert_eq(second_model.value, 20, "history commit 前检测漂移后最终批次 Model 应回滚。")
 	assert_eq(history_store.deserialize_calls, 0, "异步恢复不得向陈旧 history store commit。")
 	assert_eq(replacement_store.deserialize_calls, 0, "新 store 也不得接收旧事务的目标快照。")
 

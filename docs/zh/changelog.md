@@ -92,6 +92,10 @@
 
 ### 🐛 Bug 修复 (Fixed)
 
+- 修复 Interaction Sensor 对类型化 Receiver 派发时绕过项目 `receive_interaction()` 覆写，以及自定义 sender 的 2D/3D 碰撞广播在规范化报告前发出公开信号的问题；公开覆写继续参与派发，返回值和信号报告统一保持 JSON-safe。
+- 修复 Audio backend 接管 `Master`、`BGM` 等本地同名总线时，duck、生命周期恢复和 mix snapshot 的逐总线 fallback 仍会静默写入 `AudioServer` 的问题；总线所有权和 backend identity 现在贯穿捕获、应用与恢复，只有 backend 明确拒绝的字段才进入本地回退。
+- 修复 Architecture 快照 capture/restore 在最终完整批次后仍多等待一帧，以及 Node State Machine 按 group/字段重复重置 `max_total_bytes` 的问题；异步批处理只在仍有后续工作时让帧，状态机与单组快照都对完整 raw 结构执行一次统一编码预算。
+- 修复命中与交互接收器的 validation callback 只获得浅层报告副本、可通过嵌套集合污染节点持久 metadata 的问题；回调输入、报告初始 metadata 与合并结果现在隔离集合结构，同时保留 raw Object 叶节点供校验逻辑使用。
 - 修复热注册或热替换模块在 injection/生命周期取消、失败和同 key 重入后仍可能残留 registry、service、event 或 scope 副作用的问题；失败事务现在恢复旧实例与所有相关索引，Architecture 进入失败或 dispose 终态后也不会保留 cleanup 重入登记的已取消异步作用域。
 - 修复 Controller 退出再入树、同树 reparent 切换 `GFNodeContext`、全局 Architecture replacement、同一架构内增删多类 desired bindings，或对象池 acquire 早于架构可用时丢失/残留事件绑定的问题；正式架构提交与绑定 revision 变化会同步 reconcile，不再依赖永久逐帧扫描。已失败或 dispose 的最近 Context 不会静默回退全局；即使共享 Architecture 以同一 identity 重试 READY，FAILED Context 子树中的 Controller 仍会拒绝恢复绑定以及架构、模块和消息代理访问，而无 Context 的全局 Controller 继续正常恢复。`GFNodeContext` 会固定每轮入树解析到的父级 Architecture identity，并在父级首次 READY 后固定其 lifecycle generation，父级在 install await 或 child READY 后失败、dispose、替换或跨 generation 重试都会取消当前安装 scope 并让 child fail closed。Scoped Context 失败会释放 owned Architecture 并停止 tick，READY 后 owned Architecture 被外部 dispose 也会撤销 READY，但不会接管父级释放；Inherited Context 同样不会释放共享架构。`context_ready` listener 同步改写生命周期后，等待入口会在返回前重新验证并拒绝泄漏失效架构。
 - 修复 `GFCancellationSource` 保存捕获自身的 lambda 导致未显式 dispose 时可能形成 RefCounted 环、树外新节点被误判为已经离树、非有限 timeout 被接受，以及 dispose 后仍可重新注册的问题；`GFTimeoutController` 的主动取消分类现在绑定 source identity，旧 token listener 重入启动的新超时不会继承外层 manual-cancel 状态。
