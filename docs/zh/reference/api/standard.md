@@ -7,7 +7,7 @@
 | 类别 | 类 | 成员 | 方法 |
 |---|---:|---:|---:|
 | [运行时服务](#category-runtime_service) | 187 | 3342 | 2259 |
-| [协议与扩展点](#category-protocol) | 24 | 335 | 264 |
+| [协议与扩展点](#category-protocol) | 24 | 337 | 266 |
 | [资源定义](#category-resource_definition) | 117 | 1505 | 771 |
 | [运行时句柄](#category-runtime_handle) | 44 | 744 | 484 |
 | [值对象](#category-value_object) | 38 | 698 | 442 |

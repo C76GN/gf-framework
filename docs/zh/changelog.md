@@ -92,6 +92,7 @@
 
 ### 🐛 Bug 修复 (Fixed)
 
+- 修复 `GFCommandHistoryUtility` 在命令已进入终态但业务撤销/重做失败时仍推进历史游标的问题；`GFUndoableCommand` 新增默认成功的 `is_undo_successful()` / `is_redo_successful()` hook，同步与异步入口只在 hook 成功后复核来源栈顶身份并原子移动栈。异步 Signal 的零、单、二至 16 参数终态分别规范化为 `null`、单值和 `Array`，处理锁贯穿命令回调、等待、hook 与提交；等待和 hook 内的只读查询仍观察最近一次完整提交，失败不触碰任一栈的身份、顺序或容量，生命周期切代后的旧 continuation 也不会回填新历史。
 - 修复 Interaction Sensor 对类型化 Receiver 派发时绕过项目 `receive_interaction()` 覆写，以及自定义 sender 的 2D/3D 碰撞广播在规范化报告前发出公开信号的问题；公开覆写继续参与派发，返回值和信号报告统一保持 JSON-safe。
 - 修复 Audio backend 接管 `Master`、`BGM` 等本地同名总线时，duck、生命周期恢复和 mix snapshot 的逐总线 fallback 仍会静默写入 `AudioServer` 的问题；总线所有权和 backend identity 现在贯穿捕获、应用与恢复，只有 backend 明确拒绝的字段才进入本地回退。
 - 修复 Architecture 快照 capture/restore 在最终完整批次后仍多等待一帧，以及 Node State Machine 按 group/字段重复重置 `max_total_bytes` 的问题；异步批处理只在仍有后续工作时让帧，状态机与单组快照都对完整 raw 结构执行一次统一编码预算。
@@ -133,6 +134,7 @@
 
 ### 🔧 API 变动说明 (API Changes)
 
+- `GFUndoableCommand` 新增 `is_undo_successful(_undo_result)` 与 `is_redo_successful(_execute_result)`，均标记为 `@since unreleased` 且默认返回 `true`。同步历史入口传入命令的直接返回值；异步历史入口把完成 Signal 的零、单、二至 16 参数 payload 分别规范化为 `null`、单值和 `Array` 后传入，超过 16 个参数时告警并只保留前 16 个。
 - `Gf.set_architecture()` 改为原子提交候选架构：Installer 和三阶段初始化成功前，`Gf` facade 只暴露既有已提交架构或空状态；pending assignment 被更新赋值、尚无已提交架构时由 `Gf.create_architecture()` 创建的默认架构，或 Gf 退出场景树替代时，会取消其异步作用域并 dispose 未提交候选。函数签名不变，但依赖 Installer 期间 facade 指向候选、或依赖被替代候选仍可复用的代码需要迁移。
 - `GFBindableProperty.mutate()` 的 callback 必须返回完整 replacement；void/in-place-only mutator 不再是有效写法。集合 helper 的 `value_changed` 参数改为独立 before/after 快照。
 - `GFBindableProperty.subscribe()`、`subscribe_token()`、`subscribe_owned()` 与 `subscribe_method()` 的每次调用都会创建独立订阅；相同参数不再复用既有 token。
@@ -170,6 +172,7 @@
 
 ### 📘 升级指南 (Migration Guide)
 
+- 既有 `GFUndoableCommand` 若不重入历史写操作则无需迁移：两个历史结果 hook 默认成功，`null` 返回值和无参数完成 Signal 保持原行为。只有撤销或重做可能进入“已完成但业务失败”终态的命令才需要覆盖对应 hook；异步 hook 应按 `null`、单值或最多 16 项的多值 `Array` 读取规范化完成 payload，并返回明确的 `bool`，更多字段应封装成单个 Result 或 `Dictionary`。`execute()`、`undo()`、`should_record()` 和结果 hook 现在统一处于非重入历史操作内；原先从这些回调嵌套执行、记录、清空、修改容量或恢复历史的项目代码，应改为在外层历史 API 完成后由项目队列提交后续操作。
 - 项目 Installer 必须改为通过 `install(architecture, scope)` 的显式 `architecture` 参数或 `install_bindings(binder, scope)` 的 `binder` 注册候选模块，不要在 `Gf.set_architecture()` 提交前使用 `Gf.register_*()`、`Gf.create_binder()` 或 `Gf.get_*()` 指向候选。异步 Installer 在每个 `await` 后检查 `scope.is_cancel_requested()` 并用 `scope.register_cleanup()` 释放临时资源；assignment 被替代并返回 `false` 后应创建新的 `GFArchitecture` 重试，不复用已经 dispose 的候选。释放回调和项目自定义等待器应通过 `is_disposing()` / `is_disposed()` 拒绝向终结中的架构提交新工作。
 - `GFNodeContext` 的父级 Architecture identity 与首次 READY generation 现在按每轮入树固定。不要在 child 场景分支仍活动时调用其 owned Architecture 的 `set_parent_architecture()`，也不要让父级失败后原地重试或热替换全局父级；需要绑定新父级或新 generation 时，应让对应 child 分支退出并重新进入，或重建该场景分支。
 - 把 `property.mutate(func(value): value[...] = ...)` 改为显式返回 replacement；标量同样返回新值。依赖集合 helper 把 old/new 指向同一对象的监听器应改为消费真实 before/after 快照。

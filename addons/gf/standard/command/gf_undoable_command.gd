@@ -71,6 +71,40 @@ func should_record(_execute_result: Variant) -> bool:
 	return true
 
 
+## 判断一次 undo() 的终态结果是否成功。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## 该 hook 运行在非重入历史操作内，不得执行、记录、清空、调整容量或恢复历史。
+## [br]
+## @param _undo_result: 同步返回值，或异步完成 Signal 的规范化 payload；异步最多捕获 16 个参数。
+## [br]
+## @return 返回 false 时，GFCommandHistoryUtility 会保留原撤销栈位置并报告失败。
+## [br]
+## @schema _undo_result: Direct undo() result, null for a no-argument completion Signal, one emitted value, or an Array containing the first 2 to 16 emitted values.
+func is_undo_successful(_undo_result: Variant) -> bool:
+	return true
+
+
+## 判断一次重做 execute() 的终态结果是否成功。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## 该 hook 运行在非重入历史操作内，不得执行、记录、清空、调整容量或恢复历史。
+## [br]
+## @param _execute_result: 同步返回值，或异步完成 Signal 的规范化 payload；异步最多捕获 16 个参数。
+## [br]
+## @return 返回 false 时，GFCommandHistoryUtility 会保留原重做栈位置并报告失败。
+## [br]
+## @schema _execute_result: Direct execute() result, null for a no-argument completion Signal, one emitted value, or an Array containing the first 2 to 16 emitted values.
+func is_redo_successful(_execute_result: Variant) -> bool:
+	return true
+
+
 ## 保存执行前的状态快照。应在 execute() 内部、修改数据之前调用。
 ## [br]
 ## @api public

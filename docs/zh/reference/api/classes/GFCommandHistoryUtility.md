@@ -95,12 +95,13 @@ var async_stall_warning_seconds: float = 30.0:
 ### `is_processing_async`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var is_processing_async: bool:
 ```
 
-当前是否正在等待一条异步命令完成。
+当前是否正在处理一条异步命令的等待、终态判断或历史栈提交。
 
 ## 方法
 
@@ -175,56 +176,60 @@ func execute_command(cmd: GFUndoableCommand) -> Variant:
 ### `undo_last`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func undo_last() -> bool:
 ```
 
-撤销最后一条命令。
+撤销最后一条命令，并仅在结果 hook 成功时提交历史栈移动。 `is_undo_successful()` 返回 `false` 时，命令保留在撤销栈原位置，重做栈不变。
 
-返回：成功撤销时返回 `true`。
+返回：成功提交撤销历史时返回 `true`，否则返回 `false`。
 
 <a id="member-gfcommandhistoryutility-methods-undo_last_async"></a>
 
 ### `undo_last_async`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func undo_last_async() -> bool:
 ```
 
-异步撤销最后一条命令。
+异步撤销最后一条命令，并仅在结果 hook 成功时提交历史栈移动。 Signal 完成参数会规范化后传入 `is_undo_successful()`：无参数为 null，一个参数为该值， 两个至 16 个参数为保持发射顺序的 Array；超过 16 个时告警并只保留前 16 个。 结果 hook 返回 `false` 时，命令保留在撤销栈原位置，重做栈不变。
 
-返回：成功撤销时返回 `true`。
+返回：成功提交撤销历史时返回 `true`，否则返回 `false`。
 
 <a id="member-gfcommandhistoryutility-methods-redo"></a>
 
 ### `redo`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func redo() -> bool:
 ```
 
-重做最近被撤销的命令。
+重做最近被撤销的命令，并仅在结果 hook 成功时提交历史栈移动。 `is_redo_successful()` 返回 `false` 时，命令保留在重做栈原位置，撤销栈不变。
 
-返回：成功重做时返回 `true`。
+返回：成功提交重做历史时返回 `true`，否则返回 `false`。
 
 <a id="member-gfcommandhistoryutility-methods-redo_async"></a>
 
 ### `redo_async`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func redo_async() -> bool:
 ```
 
-异步重做最近被撤销的命令。
+异步重做最近被撤销的命令，并仅在结果 hook 成功时提交历史栈移动。 Signal 完成参数会规范化后传入 `is_redo_successful()`：无参数为 null，一个参数为该值， 两个至 16 个参数为保持发射顺序的 Array；超过 16 个时告警并只保留前 16 个。 结果 hook 返回 `false` 时，命令保留在重做栈原位置，撤销栈不变。
 
-返回：成功重做时返回 `true`。
+返回：成功提交重做历史时返回 `true`，否则返回 `false`。
 
 <a id="member-gfcommandhistoryutility-methods-clear"></a>
 
