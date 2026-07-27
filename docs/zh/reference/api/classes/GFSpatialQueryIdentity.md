@@ -9,7 +9,7 @@
 - 类别：值对象 (`value_object`)
 - 首次版本：`8.0.0`
 
-空间查询实体身份值对象。 将 Object、StringName、String 与 int 统一成稳定 key。Object 使用 weakref 保存，避免空间索引因为查询身份持有场景对象生命周期；值类型会复制保存。 Array、Dictionary 等可变复合值不会被接受为稳定空间查询身份。
+空间查询实体身份值对象。 将 Object、非空 StringName、非空 String 与 int 统一成稳定 key。Object 使用 weakref 保存，避免空间索引因为查询身份持有场景对象生命周期；值类型会复制保存。 Array、Dictionary 等可变复合值不会被接受为稳定空间查询身份。
 
 ## 成员概览
 
@@ -175,13 +175,13 @@ static func from_value(entity: Variant) -> GFSpatialQueryIdentity:
 
 | 名称 | 说明 |
 |---|---|
-| `entity` | Object、StringName、String 或 int 实体身份。 |
+| `entity` | Object、非空 StringName、非空 String 或 int 实体身份。 |
 
 返回：空间查询身份；不支持的实体值会返回空 key 身份。
 
 结构：
 
-- `entity`: Object, StringName, String, or int identity.
+- `entity`: Object, non-empty StringName, non-empty String, or int identity.
 
 <a id="member-gfspatialqueryidentity-methods-make_key"></a>
 
@@ -200,13 +200,13 @@ static func make_key(entity: Variant) -> String:
 
 | 名称 | 说明 |
 |---|---|
-| `entity` | Object、StringName、String 或 int 实体身份。 |
+| `entity` | Object、非空 StringName、非空 String 或 int 实体身份。 |
 
 返回：支持的实体值返回稳定 key；不支持时返回空字符串。
 
 结构：
 
-- `entity`: Object, StringName, String, or int identity.
+- `entity`: Object, non-empty StringName, non-empty String, or int identity.
 
 <a id="member-gfspatialqueryidentity-methods-supports_value"></a>
 
@@ -231,7 +231,7 @@ static func supports_value(entity: Variant) -> bool:
 
 结构：
 
-- `entity`: Object, StringName, String, or int identity candidate.
+- `entity`: Object, non-empty StringName, non-empty String, or int identity candidate.
 
 <a id="member-gfspatialqueryidentity-methods-sort_keys"></a>
 
@@ -329,7 +329,7 @@ func get_value() -> Variant:
 
 结构：
 
-- `return`: Object, StringName, String, int, or null entity value.
+- `return`: Object, non-empty StringName, non-empty String, int, or null entity value.
 
 <a id="member-gfspatialqueryidentity-methods-get_object"></a>
 

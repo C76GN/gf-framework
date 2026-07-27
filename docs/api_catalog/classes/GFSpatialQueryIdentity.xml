@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSpatialQueryIdentity" path="addons/gf/standard/foundation/math/gf_spatial_query_identity.gd" module="standard" extends="RefCounted" classDigest="13fd1b98a5c2cb3813d8dc692295c9c27715963c4a4a1154a7cfc3f0aa1c93f2">
+<class name="GFSpatialQueryIdentity" path="addons/gf/standard/foundation/math/gf_spatial_query_identity.gd" module="standard" extends="RefCounted" classDigest="6dae4f7193942280c7012bbf9c56618351e297b5509bffaa991443afc84f3a39">
 	<description>GFSpatialQueryIdentity: 空间查询实体身份值对象。
-将 Object、StringName、String 与 int 统一成稳定 key。Object 使用 weakref
+将 Object、非空 StringName、非空 String 与 int 统一成稳定 key。Object 使用 weakref
 保存，避免空间索引因为查询身份持有场景对象生命周期；值类型会复制保存。
 Array、Dictionary 等可变复合值不会被接受为稳定空间查询身份。</description>
 	<tags>
@@ -93,9 +93,9 @@ Array、Dictionary 等可变复合值不会被接受为稳定空间查询身份�
 			<description>从实体值创建空间查询身份。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="param">entity: Object、StringName、String 或 int 实体身份。</tag>
+				<tag name="param">entity: Object、非空 StringName、非空 String 或 int 实体身份。</tag>
 				<tag name="return">空间查询身份；不支持的实体值会返回空 key 身份。</tag>
-				<tag name="schema">entity: Object, StringName, String, or int identity.</tag>
+				<tag name="schema">entity: Object, non-empty StringName, non-empty String, or int identity.</tag>
 				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
@@ -104,9 +104,9 @@ Array、Dictionary 等可变复合值不会被接受为稳定空间查询身份�
 			<description>直接获取实体值对应的稳定 key。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="param">entity: Object、StringName、String 或 int 实体身份。</tag>
+				<tag name="param">entity: Object、非空 StringName、非空 String 或 int 实体身份。</tag>
 				<tag name="return">支持的实体值返回稳定 key；不支持时返回空字符串。</tag>
-				<tag name="schema">entity: Object, StringName, String, or int identity.</tag>
+				<tag name="schema">entity: Object, non-empty StringName, non-empty String, or int identity.</tag>
 				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
@@ -117,7 +117,7 @@ Array、Dictionary 等可变复合值不会被接受为稳定空间查询身份�
 				<tag name="api">public</tag>
 				<tag name="param">entity: 待检测实体身份。</tag>
 				<tag name="return">支持时返回 true。</tag>
-				<tag name="schema">entity: Object, StringName, String, or int identity candidate.</tag>
+				<tag name="schema">entity: Object, non-empty StringName, non-empty String, or int identity candidate.</tag>
 				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
@@ -167,7 +167,7 @@ Array、Dictionary 等可变复合值不会被接受为稳定空间查询身份�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">Object 身份返回 live Object；值身份返回保存的值；无效身份返回 null。</tag>
-				<tag name="schema">return: Object, StringName, String, int, or null entity value.</tag>
+				<tag name="schema">return: Object, non-empty StringName, non-empty String, int, or null entity value.</tag>
 				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>

@@ -1,6 +1,6 @@
 ## GFSpatialQueryIdentity: 空间查询实体身份值对象。
 ##
-## 将 Object、StringName、String 与 int 统一成稳定 key。Object 使用 weakref
+## 将 Object、非空 StringName、非空 String 与 int 统一成稳定 key。Object 使用 weakref
 ## 保存，避免空间索引因为查询身份持有场景对象生命周期；值类型会复制保存。
 ## Array、Dictionary 等可变复合值不会被接受为稳定空间查询身份。
 ## [br]
@@ -96,11 +96,11 @@ var _object_ref: WeakRef = null
 ## [br]
 ## @since 8.0.0
 ## [br]
-## @param entity: Object、StringName、String 或 int 实体身份。
+## @param entity: Object、非空 StringName、非空 String 或 int 实体身份。
 ## [br]
 ## @return 空间查询身份；不支持的实体值会返回空 key 身份。
 ## [br]
-## @schema entity: Object, StringName, String, or int identity.
+## @schema entity: Object, non-empty StringName, non-empty String, or int identity.
 static func from_value(entity: Variant) -> GFSpatialQueryIdentity:
 	var identity: GFSpatialQueryIdentity = GFSpatialQueryIdentity.new()
 	identity._assign(entity)
@@ -113,11 +113,11 @@ static func from_value(entity: Variant) -> GFSpatialQueryIdentity:
 ## [br]
 ## @since 8.0.0
 ## [br]
-## @param entity: Object、StringName、String 或 int 实体身份。
+## @param entity: Object、非空 StringName、非空 String 或 int 实体身份。
 ## [br]
 ## @return 支持的实体值返回稳定 key；不支持时返回空字符串。
 ## [br]
-## @schema entity: Object, StringName, String, or int identity.
+## @schema entity: Object, non-empty StringName, non-empty String, or int identity.
 static func make_key(entity: Variant) -> String:
 	return from_value(entity).key
 
@@ -132,7 +132,7 @@ static func make_key(entity: Variant) -> String:
 ## [br]
 ## @return 支持时返回 true。
 ## [br]
-## @schema entity: Object, StringName, String, or int identity candidate.
+## @schema entity: Object, non-empty StringName, non-empty String, or int identity candidate.
 static func supports_value(entity: Variant) -> bool:
 	return not make_key(entity).is_empty()
 
@@ -211,7 +211,7 @@ func is_valid() -> bool:
 ## [br]
 ## @return Object 身份返回 live Object；值身份返回保存的值；无效身份返回 null。
 ## [br]
-## @schema return: Object, StringName, String, int, or null entity value.
+## @schema return: Object, non-empty StringName, non-empty String, int, or null entity value.
 func get_value() -> Variant:
 	if kind == KIND_OBJECT:
 		return get_object()

@@ -2,7 +2,7 @@
   "schema_version": 1,
   "catalog_version": "1.0.0",
   "framework_version": "10.0.0-dev.0",
-  "source_digest": "d8a88824fe386f1a8d5e1654ab67b6c2719ac720e0decb71f479796c64b75c66",
+  "source_digest": "d39aae4d093b5f82d9df758dfd9a324b4cec8dd7e626c26ac8dc43888a76fced",
   "class_count": 760,
   "package_count": 52,
   "packages": [
@@ -33539,28 +33539,28 @@
           "kind": "signal",
           "name": "cell_occupied",
           "signature": "signal cell_occupied(receiver: Variant, cell: Vector2i)",
-          "summary": "接收者占用格子时发出。",
+          "summary": "接收者实际新建占用或移动到其他格子时发出。",
           "visibility": "public"
         },
         {
           "kind": "signal",
           "name": "cell_released",
           "signature": "signal cell_released(receiver: Variant, cell: Vector2i)",
-          "summary": "接收者释放格子时发出。",
+          "summary": "接收者的既有占用实际释放时发出。",
           "visibility": "public"
         },
         {
           "kind": "signal",
           "name": "cell_reserved",
           "signature": "signal cell_reserved(receiver: Variant, cell: Vector2i)",
-          "summary": "接收者预约格子时发出。",
+          "summary": "接收者实际新建预约或移动预约到其他格子时发出。",
           "visibility": "public"
         },
         {
           "kind": "signal",
           "name": "reservation_released",
           "signature": "signal reservation_released(receiver: Variant, cell: Vector2i)",
-          "summary": "接收者释放预约时发出。",
+          "summary": "接收者的既有预约实际释放时发出。",
           "visibility": "public"
         },
         {
@@ -33623,7 +33623,7 @@
           "kind": "func",
           "name": "occupy",
           "signature": "func occupy(receiver: Variant, cell: Vector2i) -> bool",
-          "summary": "占用格子。接收者若已占用其他格子，会先释放旧格子。",
+          "summary": "占用格子；已有其他格占用时先移动，已占用目标格时成功且不发信号。",
           "visibility": "public"
         },
         {
@@ -33644,7 +33644,7 @@
           "kind": "func",
           "name": "reserve_cell",
           "signature": "func reserve_cell(receiver: Variant, cell: Vector2i) -> bool",
-          "summary": "预约格子，防止其他接收者抢占。",
+          "summary": "预约格子；已有其他预约时先移动，已有效预约目标格时成功且不发释放或预约信号。",
           "visibility": "public"
         },
         {
@@ -75239,7 +75239,7 @@
       "module": "standard",
       "package_id": "gf.standard.spatial",
       "path": "addons/gf/standard/foundation/math/gf_spatial_query_identity.gd",
-      "summary": "GFSpatialQueryIdentity: 空间查询实体身份值对象。 将 Object、StringName、String 与 int 统一成稳定 key。Object 使用 weakref 保存，避免空间索引因为查询身份持有场景对象生命周期；值类型会复制保存。",
+      "summary": "GFSpatialQueryIdentity: 空间查询实体身份值对象。 将 Object、非空 StringName、非空 String 与 int 统一成稳定 key。Object 使用 weakref 保存，避免空间索引因为查询身份持有场景对象生命周期；值类型会复制保存。",
       "visibility": "public",
       "category": "value_object",
       "since": "8.0.0",

@@ -30,12 +30,12 @@ if not candidates.is_empty():
 	occupancy.reserve_cell(spawn_token, cell)
 ```
 
-`occupy()`、`release_cell()`、`reserve_cell()` 与 `confirm_reservation()` 等写入入口以单次事务更新占用、预约和接收者反向索引，再同步发出对应信号。因此信号回调可以查询完整提交后的状态，但不能在同一通知调用栈中再次修改这个 `GFGridOccupancy`；重入写入会明确失败，`bool` 入口返回 `false`，`void` 入口保持无操作。需要连锁移动、批量放置或响应式规则时，应先在项目 `System` 中计算完整计划，再按确定顺序提交后续事务，而不是在占用信号里继续写入。
+`occupy()`、`release_cell()`、`reserve_cell()` 与 `confirm_reservation()` 等写入入口以单次事务更新占用、预约和接收者反向索引，再同步发出对应信号。因此信号回调可以查询完整提交后的状态，但不能在同一通知调用栈中再次修改这个 `GFGridOccupancy`；重入写入会明确失败，`bool` 入口返回 `false`，`void` 入口保持无操作。公开信号只描述实际状态变化：接收者已经占用或有效预约目标格时，重复调用对应入口仍返回 `true`，但不会重复发出释放、占用或预约信号。调用方若需要为每次请求发送确认，应在项目流程中根据返回值显式确认，不应把状态变化信号当作逐请求回执。需要连锁移动、批量放置或响应式规则时，应先在项目 `System` 中计算完整计划，再按确定顺序提交后续事务，而不是在占用信号里继续写入。
 
 `grid_size` 与 `max_occupants_per_cell` 的直接赋值同样属于写事务：值实际变化时会清空既有占用与预约，容量会钳制到至少 1；通知期间的直接赋值会失败关闭。需要同时修改两个配置时优先调用 `configure()`，避免分别赋值造成两次清理。
 
 ## 生命周期与标识
 
-对象接收者使用弱引用记录。需要回收已释放对象留下的索引并通知缓存消费者时，显式调用 `prune_invalid_receivers()`，或等待下一次占用/预约事务在提交前执行清理；失效对象释放占用时会发出 `cell_released(null, cell)`。不要依赖任意查询触发清理信号。
+receiver 只接受 `Object`、非空 `StringName`、非空 `String` 或 `int`。这些类型与 `GFSpatialQueryIdentity` 使用同一稳定 key 规则；`StringName` 与 `String` 即使文本相同也属于不同身份。`Array`、`Dictionary`、空 `StringName` / `String` 和其他 Variant 类型会失败关闭，不能作为长期身份。项目若持有复合业务数据，应另外分配稳定 ID 或使用拥有该数据的 `Object`，不要让可变内容本身参与索引。
 
-非 `Object` 接收者会以 `typeof + str(value)` 生成内部 key，推荐使用 `StringName`、`int`、稳定字符串或 `Object`，不要直接把 `Dictionary` / `Array` 当作长期唯一标识。
+对象接收者以实例 ID 建立身份并使用弱引用记录，因此对象字段在同步通知回调中变化也不会让占用失去可达性。需要回收已释放对象留下的索引并通知缓存消费者时，显式调用 `prune_invalid_receivers()`，或等待下一次占用/预约事务在提交前执行清理；失效对象释放占用时会发出 `cell_released(null, cell)`。不要依赖任意查询触发清理信号。
