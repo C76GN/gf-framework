@@ -22,7 +22,7 @@
 
 ## [未发布]
 
-**版本概述**：开发线升级为 `10.0.0-dev.0`，补齐通用 2D 编辑器缩略图、运行时 2D Spatial Canvas、有序资产集合、内容包查询与运行时目录挂载、存储后端故障转移、版本化 Analytics Schema 与专用 Outbox Adapter、惰性诊断采集、配方化运行时会话轨迹、UI 路由预加载规划、轨迹预测数学、有界权威快照同步协调和默认关闭的 Runtime Agent Environment，修正 AI Developer Kit 的项目级资源所有权表达，并更新 CI/Release 基础 Actions；业务策略仍保持在各自调用方边界内。
+**版本概述**：开发线升级为 `10.0.0-dev.0`，补齐通用 2D 编辑器缩略图、运行时 2D Spatial Canvas、有序资产集合、显式 Live Asset Slot、内容包查询与运行时目录挂载、扩展级 Debugger 工具贡献、存储后端故障转移、版本化 Analytics Schema 与专用 Outbox Adapter、惰性诊断采集、配方化运行时会话轨迹、UI 路由预加载规划、轨迹预测数学、有界权威快照同步协调和默认关闭的 Runtime Agent Environment，修正 AI Developer Kit 的项目级资源所有权表达，并更新 CI/Release 基础 Actions；业务策略仍保持在各自调用方边界内。
 
 ### 🚀 新增特性 (Added)
 
@@ -34,6 +34,8 @@
 - `GFThumbnailRenderer` 与 `GFThumbnailRenderRequest` 支持 `CanvasItem` 的 `Image` / `ImageTexture` 缩略图请求，统一覆盖 `Node2D` 和 `Control`。调用方可以显式提供内容 `Rect2`，也可以让渲染器保守估算 Sprite、Control、Polygon、Line、AnimatedSprite 和 2D 粒子范围。
 - 新增可选包 `gf.standard.spatial.canvas` 与运行时 `Control` `GFSpatialCanvas2D`：提供世界/画布变换、焦点缩放、有界平移、稳定网格吸附、带精确命中 Hook 的候选查询、隔离选择结果和项目校验的放置会话；条目、选择、查询候选与网格绘制均受可降低但不可突破的绝对预算约束，GF 不拥有项目节点、占位规则或最终业务命令。
 - 新增 `GFAssetCollection`，用稳定 `collection_id` 和有序 `asset_ids` 描述可序列化资源集合，并通过 `GFValidationReport` 报告空 ID、重复 ID 和目录缺失项。
+- 新增显式 opt-in 的 `GFAssetSlot`，以固定的 `GFResourceIdentity`、可选类型提示、单调 generation 和终态释放表达可替换的当前资源引用；槽位强持有资源但不监听文件、不接管缓存，也不改变 `GFAssetHandle` 语义。
+- 扩展 tool contribution schema v2 新增 `debugger_plugin_paths`，让独立 tool package 为当前启用扩展贡献 `EditorDebuggerPlugin`；根插件先装载标准库记录，再按路径去重追加扩展脚本，并统一管理 add/remove 生命周期。
 - 新增 `GFContentPackageQuery`、`GFContentPackageQueryResult` 和 `GFContentPackageAssetCatalogProvider`，提供严格内容包筛选、dependency-first 闭包、类型化失败终态和 qualified 资产 ID 适配。
 - 新增 `GFAssetCatalogRuntime` 与 `GFAssetCatalogMount`，提供 owner-scoped 目录快照、严格或显式高优先级冲突政策、原子 revision 提交和幂等卸载。
 - 新增 `GFStorageFailoverBackend`，按稳定后端 ID 提供有界顺序尝试、`PRIMARY_ONLY` / `FIRST_SUCCESS` 写删语义、暂时性错误冷却和不含业务载荷的结构化操作报告。
@@ -163,6 +165,8 @@
 - 新增公开类型 `GFSpatialCanvas2D`，以及视图、坐标变换、网格、条目查询、选择和放置会话入口；均标记为 `@since unreleased`。它是项目显式挂载内容与提交输入的运行时 `Control`，不是编辑器、项目实体仓库或业务命令执行器。
 - 新增公开类型 `GFAnalyticsEventSchema`、`GFAnalyticsSchemaRegistry` 和 `GFAnalyticsOutboxAdapter`；`GFAnalyticsUtility` 新增永不为空的 `schema_registry` 与 `track_versioned(event_name, schema_version, properties)`，`GFRequestOutboxUtility` 新增 `enqueue_with_report(envelope, require_persistence)` 与 `max_storage_bytes`，`GFSupportReportWorkflow` 新增固定信封分类入口 `handles_request(envelope)`；均标记为 `@since unreleased`。
 - 新增公开类型 `GFAssetCollection` 和 `GFStorageFailoverBackend`；均标记为 `@since unreleased`，不改变既有调用入口默认行为。
+- 新增公开类型 `GFAssetSlot`，提供一次性 `configure()`、`is_configured()`、身份与类型提示查询、`accepts_resource()`、`replace()`、`release()`、单调 generation，以及提交后同步发出的 `resource_replaced` / `released` 信号；全部操作限定主线程并标记为 `@since unreleased`。
+- `GFExtensionToolContribution.SCHEMA_VERSION` 从 1 升为 2，新增工具专用 `debugger_plugin_paths`；`GFExtensionSettings` 新增 `get_enabled_debugger_plugin_paths()`。运行时 `GFExtensionManifest` 不接受该字段。
 - 新增公开类型 `GFContentPackageQuery`、`GFContentPackageQueryResult`、`GFContentPackageAssetCatalogProvider`、`GFAssetCatalogRuntime` 和 `GFAssetCatalogMount`；`GFContentPackageCatalog` 新增 `query_packages()`，Content Package Utility 新增 owner-scoped root API，Asset Catalog Runtime 支持原子 `replace_mount_catalog()`。
 - 新增公开类型 `GFDiagnosticProviderResult`、`GFDiagnosticSnapshotProvider`、`GFSessionTraceUtility`、`GFSessionTraceRecipe`、`GFSessionTraceChannelDefinition`、`GFSessionTraceCheckpoint` 与 `GFUIRoutePreloadUtility`，以及 `GFDiagnosticsUtility` 的惰性 Provider 注册/采集 API、`GFUIRoute.adjacent_route_ids`、`get_adjacent_route_ids()` 和 `GFUIRouterUtility.build_preload_plan()`；均标记为 `@since unreleased`。
 - 新增公开类型 `GFUIRouteOperation`、`GFUIRouteResult`、`GFUIRouterUtility.route_operation_completed` 和 `PRELOAD_*` 常量；`push_route_async()`、`replace_route_async()` 新增 `async_options` 并从 `void` 改为返回句柄。
@@ -195,6 +199,8 @@
 - 新 Platform Adapter 应为正式 Contract 提供 Descriptor 并运行 `GFPlatformAdapterConformance.inspect()`；启动、邀请和 Join 回调转换为稳定 ID 的 `GFPlatformActivationIntent`。SDK 已提供 `MultiplayerPeer` 时采用通用 Backend 并明确所有权，不要在 GF 内新增 Provider 命名 Manager。
 - 读取传输指标前先调用 `has_metric()`；缺少 RTT 等指标表示 Backend 不支持或当前未知，不能把 `get_metric()` 的默认零值解释为观测结果。长时间会话应设置有界采样容量。
 - 既有 3D 缩略图、资产目录、存储后端与同步代码无需迁移。需要 2D 预览、有序资产集合或故障转移时显式采用新入口即可。
+- 既有资源加载、缓存和句柄调用无需迁移；只有需要共享可替换的当前资源时才创建 `GFAssetSlot`。槽位不会自动观察磁盘或替换已经发出的 `GFAssetHandle`，项目应在显式加载和校验候选后调用 `replace()`，并在 owner 结束或不再需要时 `release()`。
+- 所有 `editor/gf_tool_contribution.json` 必须把 `schema_version` 从 1 升为 2；不保留 v1 双读，即使文件没有 Debugger 贡献也必须升级。扩展级 Debugger 路径应写入 `debugger_plugin_paths`，若先前误写进运行时 manifest，需从 manifest 移除并放入随 tool package 安装的 contribution 文件。
 - 既有项目画布与关卡编辑器无需迁移。只有需要通用运行时视图、稳定选择或受控放置会话时才安装 `gf.standard.spatial.canvas`（`gf.preset.2d_toolkit` 现已包含它），把项目可视节点显式挂到 `get_content_root()`，并由项目 Adapter 负责同步边界、占位校验、历史、权限和最终模型提交；不要把同步回调用于 IO、异步业务或回调重入。
 - 既有单调用方 Content Package root 入口继续使用公开 manual owner scope；多模块、热插拔内容或场景生命周期应迁移到 `register_source_root_for_owner()` / `replace_owner_source_roots()`，并在模块退出时调用 `clear_owner_source_roots()`。
 - 既有 `GFAnalyticsUtility.track()`、自定义 transport 和 `GFRequestOutboxUtility.enqueue()` 无需改签名；但依赖 `batch_size <= 0`、`max_queue_size <= 0`、超过 4096 字符的 client id，或在 client id / 事件名中保留 C0/DEL 的配置和数据应先迁移为有效稳定值。只有需要稳定事件契约时才注册 `1..2_147_483_647` 范围内的精确 `(event_name, schema_version)` 并调用 `track_versioned()`；需要离线移交时为 Analytics 配置专用 Outbox。Adapter v1 不保留自定义 payload 顶层字段，项目协议若依赖这些字段应继续使用自定义 transport；Schema 不自动迁移旧事件。相同身份已经进入 failed store 时 Adapter 返回 `already_failed`，项目应显式审查或清理；Outbox 不提供 exactly-once，PII、consent、鉴权和远端幂等仍须由项目显式处理。
@@ -240,6 +246,12 @@
 - `addons/gf/standard/common/gf_async_wait_support.gd`
 - `tests/gf_core/support/gf_gut_*.gd`
 - `addons/gf/standard/utilities/assets/gf_asset_collection.gd`
+- `addons/gf/standard/utilities/assets/gf_asset_slot.gd`
+- `docs/zh/standard/utilities/io/assets-jobs-warmup/asset-utility/live-asset-slot.md`
+- `addons/gf/kernel/extension/gf_extension_tool_contribution.gd`
+- `addons/gf/kernel/editor/gf_plugin_debugger_tools.gd`
+- `docs/zh/editor/workspace.md`
+- `docs/zh/extensions/installation.md`
 - `addons/gf/standard/utilities/assets/gf_asset_catalog_runtime.gd`
 - `addons/gf/standard/utilities/assets/gf_asset_catalog_mount.gd`
 - `addons/gf/extensions/content_package/resources/gf_content_package_query.gd`

@@ -10,7 +10,7 @@
 
 发现快照中的 `manifest_load_errors` 只表示文件无法读取或 JSON 无法解析；`manifest_validation_errors` 表示 manifest 已读取但字段不满足 GF 扩展契约；`invalid_manifests` 会聚合这两类问题，便于面板、导出检查和项目工具统一展示。
 
-启用状态、依赖补齐、启用/禁用 manifest 分组和 contribution 路径由 `GFExtensionSelectionDiscovery` 生成选择快照。快照会把 manifest 声明路径、`editor/gf_tool_contribution.json` 贡献路径和读取错误分层保存；manifest、启用 ID 或 contribution 文件内容变化时会自动刷新。
+启用状态、依赖补齐、启用/禁用 manifest 分组和 contribution 路径由 `GFExtensionSelectionDiscovery` 生成选择快照。快照会把 manifest 声明路径、`editor/gf_tool_contribution.json` schema v2 贡献路径和读取错误分层保存；manifest、启用 ID 或 contribution 文件内容变化时会自动刷新。
 
 “扩展组合”下拉框读取 `GFExtensionSettings.get_extension_presets()`，底层由 `GFExtensionPresetDiscovery` 生成 preset 快照。GF 内置只提供动态基础组合，例如默认选择、全部关闭和全部可发现扩展；项目或外部插件可以通过 `gf/extensions/preset_paths` 提供业务组合 JSON，也可以在面板中通过“添加组合文件”选择项目内的 JSON 文件。点击“应用组合”只会更新当前勾选状态，仍需要点击“保存设置”持久化；“移除组合文件”只会移除项目 preset 路径，不能删除内置动态组合。
 
@@ -24,7 +24,9 @@
 
 GF 自带的扩展相关编辑器增强会读取同一套启用状态。扩展可以用 `editor_action_paths` 声明 GF 工具菜单动作和脚本模板记录，用 `editor_dock_paths` 声明 `GF` 工作区页面，并通过 `editor_dock_order` 与 `editor_dock_short_label` 给页面提供排序和短标签，用 `editor_inspector_paths` 声明 `EditorInspectorPlugin`，用 `import_plugin_paths` 声明 `EditorImportPlugin`，用 `export_plugin_paths` 声明导出插件入口，用 `gltf_document_extension_paths` 声明 `GLTFDocumentExtension` 导入桥接，用 `access_generator_extension_paths` 声明访问器生成扩展。
 
-核心插件只负责按 manifest 装载启用扩展的贡献，不在 `kernel` 中硬编码可选扩展脚本、扩展 ID 或扩展内模板类型。
+核心插件只负责按当前选择快照装载启用扩展的贡献，不在 `kernel` 中硬编码可选扩展脚本、扩展 ID 或扩展内模板类型。
+
+扩展级 Debugger 插件是工具包能力，只能由 `editor/gf_tool_contribution.json` 的 `debugger_plugin_paths` 声明，不能写入运行时 manifest。根插件先装载标准库 data-only manifest 中的 Debugger 记录，再追加 `GFExtensionSettings.get_enabled_debugger_plugin_paths()` 返回的扩展脚本，并按路径去重；刷新和卸载使用同一组已装载实例完成对称清理。
 
 `access_generator_extension_paths` 会被 `GFAccessGenerator` 消费。扩展脚本建议继承 `RefCounted`，并实现 `append_access_source(builder, records)` 直接使用 `GFSourceBuilder` 追加源码；如果只需要返回静态片段，也可以实现 `get_access_source_sections(records)` 并返回字符串数组。扩展只会从当前启用扩展中读取，因此禁用扩展不会继续影响新生成的访问器。
 

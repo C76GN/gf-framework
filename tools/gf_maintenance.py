@@ -277,9 +277,10 @@ GF_MANIFEST_ALLOWED_FIELDS = {
 	"tags",
 	"version",
 }
-GF_TOOL_CONTRIBUTION_SCHEMA_VERSION = 1
+GF_TOOL_CONTRIBUTION_SCHEMA_VERSION = 2
 GF_TOOL_CONTRIBUTION_PATH_FIELDS = {
 	"access_generator_extension_paths",
+	"debugger_plugin_paths",
 	"editor_action_paths",
 	"editor_dock_paths",
 	"editor_inspector_paths",
@@ -16231,6 +16232,7 @@ def maintenance_self_test() -> dict[str, Any]:
 		"data": {
 			"schema_version": GF_TOOL_CONTRIBUTION_SCHEMA_VERSION,
 			"extension_id": "gf.fixture",
+			"debugger_plugin_paths": [],
 		},
 		"error": "",
 	}
@@ -16238,6 +16240,19 @@ def maintenance_self_test() -> dict[str, Any]:
 		"dependency_boundary_accepts_valid_tool_contribution_schema",
 		len(audit_bundled_tool_contributions([valid_tool_contribution_record])) == 0,
 		"valid tool contribution schema fixture should pass.",
+	)
+	legacy_tool_contribution_record = dict(valid_tool_contribution_record)
+	legacy_tool_contribution_record["data"] = {
+		"schema_version": GF_TOOL_CONTRIBUTION_SCHEMA_VERSION - 1,
+		"extension_id": "gf.fixture",
+	}
+	record_result(
+		"dependency_boundary_rejects_legacy_tool_contribution_schema",
+		issue_exists(
+			audit_bundled_tool_contributions([legacy_tool_contribution_record]),
+			"unsupported_tool_contribution_schema_version",
+		),
+		"Legacy tool contribution schema versions must fail closed instead of entering a compatibility path.",
 	)
 	float_tool_contribution_record = dict(valid_tool_contribution_record)
 	float_tool_contribution_record["data"] = {

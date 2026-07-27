@@ -44,7 +44,21 @@ Preset JSON 使用字段白名单，只描述 `id`、`display_name`、`descripti
 
 `GFExtensionPreset.from_json_file()` 只在 preset 文件可读、JSON 为对象且校验通过时返回对象。编辑器或项目工具需要展示诊断时，应使用 `from_json_file_report()`，它返回 JSON-safe 的 `preset_data` 与错误列表，适合直接进入日志、CI 报告或工具输出。
 
-Manifest、preset 和 tool contribution 的 JSON object 文件读取由 `GFExtensionJsonFileReader` 统一，扩展 ID 语法由 `GFExtensionIdValidator` 统一。`GFExtensionToolContribution` 负责 `editor/gf_tool_contribution.json` 的稳定 schema：只接受版本、所属扩展 ID 和已声明的路径字段，未知字段与未来版本默认拒绝。项目工具通常应通过 `GFExtensionManifest`、`GFExtensionPreset`、`GFExtensionPresetDiscovery`、`GFExtensionSelectionDiscovery` 和 `GFExtensionSettings` 这些更高层入口读取，不需要重复实现底层解析、ID 正则或贡献字段兼容分支。
+Manifest、preset 和 tool contribution 的 JSON object 文件读取由 `GFExtensionJsonFileReader` 统一，扩展 ID 语法由 `GFExtensionIdValidator` 统一。`GFExtensionToolContribution` 负责 `editor/gf_tool_contribution.json` 的严格 schema v2：只接受版本、所属扩展 ID 和已声明的路径字段，schema v1、未来版本与未知字段都会被拒绝。项目工具通常应通过 `GFExtensionManifest`、`GFExtensionPreset`、`GFExtensionPresetDiscovery`、`GFExtensionSelectionDiscovery` 和 `GFExtensionSettings` 这些更高层入口读取，不需要重复实现底层解析、ID 正则或贡献字段兼容分支。
+
+扩展级 `EditorDebuggerPlugin` 必须在 tool contribution 中显式声明，不能写入运行时 manifest：
+
+```json
+{
+  "schema_version": 2,
+  "extension_id": "acme.runtime_tools",
+  "debugger_plugin_paths": [
+    "res://addons/acme_extensions/runtime_tools/editor/acme_debugger_plugin.gd"
+  ]
+}
+```
+
+路径必须位于所属扩展根目录内，目标脚本应继承 `EditorDebuggerPlugin`。`GFExtensionSettings.get_enabled_debugger_plugin_paths()` 只返回当前启用扩展的有效工具贡献；没有安装 tool package 时不会从运行时包猜测或合成 Debugger 入口。
 
 扩展 manifest 的 `dependencies` 只描述启用当前扩展必须同时启用的基础能力。GF 内置扩展保持原子化，只声明 `gf.kernel` 与 `gf.standard`；跨扩展项目流程应放在项目 Installer 或 `addons/gf` 外的独立插件中。
 

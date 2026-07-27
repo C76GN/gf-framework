@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFExtensionSettings" path="addons/gf/kernel/extension/gf_extension_settings.gd" module="kernel" extends="RefCounted" classDigest="94080cc55c2ac78553ede9f035b80b72b17e445b4448bc7a4859f56ca50456c0">
+<class name="GFExtensionSettings" path="addons/gf/kernel/extension/gf_extension_settings.gd" module="kernel" extends="RefCounted" classDigest="b6e0b74fcf32645fa3c26930d58d7c486077a546454d486229d7406bf2004174">
 	<description>GFExtensionSettings: GF 扩展启用状态与 ProjectSettings 桥接。
 负责读取启用扩展 ID、解析扩展依赖、收集启用扩展 Installer，以及提供导出排除开关。</description>
 	<tags>
@@ -449,6 +449,15 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">Installer 路径列表。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_enabled_debugger_plugin_paths">
+			<signature>static func get_enabled_debugger_plugin_paths() -&gt; Array[String]:</signature>
+			<description>获取启用扩展工具贡献声明的 Debugger 插件路径。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">EditorDebuggerPlugin 脚本路径列表。</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_enabled_editor_action_paths">

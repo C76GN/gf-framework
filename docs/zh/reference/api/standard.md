@@ -9,7 +9,7 @@
 | [运行时服务](#category-runtime_service) | 187 | 3342 | 2259 |
 | [协议与扩展点](#category-protocol) | 24 | 337 | 266 |
 | [资源定义](#category-resource_definition) | 117 | 1505 | 771 |
-| [运行时句柄](#category-runtime_handle) | 44 | 744 | 484 |
+| [运行时句柄](#category-runtime_handle) | 45 | 757 | 495 |
 | [值对象](#category-value_object) | 38 | 698 | 442 |
 | [领域模型](#category-domain_model) | 4 | 61 | 42 |
 | [事件契约](#category-event_contract) | 6 | 61 | 23 |
@@ -376,6 +376,7 @@
 | [`GFAssetCatalogMount`](classes/GFAssetCatalogMount.md#gfassetcatalogmount) | `RefCounted` | `addons/gf/standard/utilities/assets/gf_asset_catalog_mount.gd` |
 | [`GFAssetHandle`](classes/GFAssetHandle.md#gfassethandle) | `RefCounted` | `addons/gf/standard/utilities/assets/gf_asset_handle.gd` |
 | [`GFAssetLoadSession`](classes/GFAssetLoadSession.md#gfassetloadsession) | `RefCounted` | `addons/gf/standard/utilities/assets/gf_asset_load_session.gd` |
+| [`GFAssetSlot`](classes/GFAssetSlot.md#gfassetslot) | `RefCounted` | `addons/gf/standard/utilities/assets/gf_asset_slot.gd` |
 | [`GFAsyncBatch`](classes/GFAsyncBatch.md#gfasyncbatch) | `RefCounted` | `addons/gf/standard/utilities/io/gf_async_batch.gd` |
 | [`GFAsyncChannel`](classes/GFAsyncChannel.md#gfasyncchannel) | `RefCounted` | `addons/gf/standard/common/gf_async_channel.gd` |
 | [`GFAsyncGateLease`](classes/GFAsyncGateLease.md#gfasyncgatelease) | `RefCounted` | `addons/gf/standard/common/gf_async_gate_lease.gd` |

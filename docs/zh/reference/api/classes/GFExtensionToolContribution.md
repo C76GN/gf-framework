@@ -15,7 +15,7 @@
 
 | 类型 | 名称 | 签名 |
 |---|---|---|
-| 常量 | [`SCHEMA_VERSION`](#member-gfextensiontoolcontribution-constants-schema_version) | `const SCHEMA_VERSION: int = 1` |
+| 常量 | [`SCHEMA_VERSION`](#member-gfextensiontoolcontribution-constants-schema_version) | `const SCHEMA_VERSION: int = 2` |
 | 常量 | [`PATH_FIELDS`](#member-gfextensiontoolcontribution-constants-path_fields) | `const PATH_FIELDS: Array[String] = [` |
 | 常量 | [`ALLOWED_FIELDS`](#member-gfextensiontoolcontribution-constants-allowed_fields) | `const ALLOWED_FIELDS: Array[String] = [` |
 | 方法 | [`parse_dictionary`](#member-gfextensiontoolcontribution-methods-parse_dictionary) | `static func parse_dictionary(data: Dictionary, expected_extension_id: String = "") -> Dictionary:` |
@@ -30,7 +30,7 @@
 - 首次版本：`8.0.0`
 
 ```gdscript
-const SCHEMA_VERSION: int = 1
+const SCHEMA_VERSION: int = 2
 ```
 
 当前支持的贡献文件 schema 版本。
@@ -74,7 +74,7 @@ const ALLOWED_FIELDS: Array[String] = [
 static func parse_dictionary(data: Dictionary, expected_extension_id: String = "") -> Dictionary:
 ```
 
-校验并规范化一个工具贡献字典。 未知字段、未来 schema、错误扩展 ID、非数组路径字段、非字符串或空路径都会使报告失败。
+校验并规范化一个工具贡献字典。 未知字段、非当前 schema（包括 v1 与未来版本）、错误扩展 ID、非数组路径字段、 非字符串或空路径都会使报告失败。
 
 参数：
 

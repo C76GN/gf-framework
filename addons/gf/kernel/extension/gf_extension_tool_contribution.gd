@@ -20,7 +20,7 @@ extends RefCounted
 ## @api public
 ## [br]
 ## @since 8.0.0
-const SCHEMA_VERSION: int = 1
+const SCHEMA_VERSION: int = 2
 
 ## 所有可声明的工具贡献路径字段。
 ## [br]
@@ -29,6 +29,7 @@ const SCHEMA_VERSION: int = 1
 ## @since 8.0.0
 const PATH_FIELDS: Array[String] = [
 	"access_generator_extension_paths",
+	"debugger_plugin_paths",
 	"editor_action_paths",
 	"editor_dock_paths",
 	"editor_inspector_paths",
@@ -46,6 +47,7 @@ const ALLOWED_FIELDS: Array[String] = [
 	"schema_version",
 	"extension_id",
 	"access_generator_extension_paths",
+	"debugger_plugin_paths",
 	"editor_action_paths",
 	"editor_dock_paths",
 	"editor_inspector_paths",
@@ -60,7 +62,8 @@ const _GF_EXTENSION_ID_VALIDATOR_SCRIPT = preload("res://addons/gf/kernel/extens
 
 ## 校验并规范化一个工具贡献字典。
 ##
-## 未知字段、未来 schema、错误扩展 ID、非数组路径字段、非字符串或空路径都会使报告失败。
+## 未知字段、非当前 schema（包括 v1 与未来版本）、错误扩展 ID、非数组路径字段、
+## 非字符串或空路径都会使报告失败。
 ## [br]
 ## @api public
 ## [br]

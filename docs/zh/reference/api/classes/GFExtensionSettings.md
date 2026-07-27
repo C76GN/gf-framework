@@ -66,6 +66,7 @@ GF 扩展启用状态与 ProjectSettings 桥接。 负责读取启用扩展 ID�
 | 方法 | [`get_enabled_manifests`](#member-gfextensionsettings-methods-get_enabled_manifests) | `static func get_enabled_manifests() -> Array[GFExtensionManifest]:` |
 | 方法 | [`get_disabled_manifests`](#member-gfextensionsettings-methods-get_disabled_manifests) | `static func get_disabled_manifests() -> Array[GFExtensionManifest]:` |
 | 方法 | [`get_enabled_installer_paths`](#member-gfextensionsettings-methods-get_enabled_installer_paths) | `static func get_enabled_installer_paths() -> Array[String]:` |
+| 方法 | [`get_enabled_debugger_plugin_paths`](#member-gfextensionsettings-methods-get_enabled_debugger_plugin_paths) | `static func get_enabled_debugger_plugin_paths() -> Array[String]:` |
 | 方法 | [`get_enabled_editor_action_paths`](#member-gfextensionsettings-methods-get_enabled_editor_action_paths) | `static func get_enabled_editor_action_paths() -> Array[String]:` |
 | 方法 | [`get_enabled_editor_dock_paths`](#member-gfextensionsettings-methods-get_enabled_editor_dock_paths) | `static func get_enabled_editor_dock_paths() -> Array[String]:` |
 | 方法 | [`get_enabled_editor_inspector_paths`](#member-gfextensionsettings-methods-get_enabled_editor_inspector_paths) | `static func get_enabled_editor_inspector_paths() -> Array[String]:` |
@@ -872,6 +873,21 @@ static func get_enabled_installer_paths() -> Array[String]:
 获取启用扩展声明的 Installer 路径。
 
 返回：Installer 路径列表。
+
+<a id="member-gfextensionsettings-methods-get_enabled_debugger_plugin_paths"></a>
+
+### `get_enabled_debugger_plugin_paths`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+static func get_enabled_debugger_plugin_paths() -> Array[String]:
+```
+
+获取启用扩展工具贡献声明的 Debugger 插件路径。
+
+返回：EditorDebuggerPlugin 脚本路径列表。
 
 <a id="member-gfextensionsettings-methods-get_enabled_editor_action_paths"></a>
 

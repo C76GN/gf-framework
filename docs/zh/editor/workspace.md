@@ -14,7 +14,9 @@
 
 内置页面共享 `GFEditorWorkspaceUI` 提供的页面根、工具栏、摘要、空状态和详情输出构建方式。新增页面应优先复用这些通用控件，再把真正的业务无关编辑逻辑放在页面自身脚本中，这样工作区的密度、状态颜色、空态文案和只读详情区会保持一致。
 
-可选扩展的编辑器工具可以放在独立 tool package 中，通过扩展目录下的 `editor/gf_tool_contribution.json` 贡献 action、dock、importer 或 inspector 路径。贡献文件必须声明 `schema_version: 1` 和与所属 manifest 一致的 `extension_id`，路径字段必须是非空字符串数组；未来 schema、未知字段、错误扩展 ID 或越过扩展根的路径都会被拒绝并进入选择快照的 `tool_contribution_errors`。运行时扩展 manifest 只描述运行时扩展自身；编辑器工具 contribution 由项目安装了对应 tool package 后才被发现，避免安装 runtime 包时隐式带入编辑器工具。
+可选扩展的编辑器工具可以放在独立 tool package 中，通过扩展目录下的 `editor/gf_tool_contribution.json` 贡献 action、dock、importer、inspector 或 Debugger 插件路径。贡献文件必须声明 `schema_version: 2` 和与所属 manifest 一致的 `extension_id`，路径字段必须是非空字符串数组；schema v1、未来 schema、未知字段、错误扩展 ID 或越过扩展根的路径都会被拒绝并进入选择快照的 `tool_contribution_errors`。
+
+`debugger_plugin_paths` 只属于 tool contribution，不是运行时 `gf_extension.json` 字段。项目安装对应 tool package 且扩展启用后，根编辑器插件才会在标准库 Debugger 记录之后装载这些 `EditorDebuggerPlugin` 脚本；重复路径只装载一次，并在插件刷新或卸载时由同一生命周期统一移除。
 
 ## Extensions 页面
 

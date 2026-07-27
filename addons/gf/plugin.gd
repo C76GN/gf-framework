@@ -130,7 +130,11 @@ func _enter_tree() -> void:
 
 	_dock_tools = GFPluginDockTools.new()
 	_debugger_tools = GFPluginDebuggerTools.new()
-	_debugger_tools.setup(self, _standard_editor_extension_records)
+	_debugger_tools.setup(
+		self,
+		_standard_editor_extension_records,
+		GFExtensionSettingsBase.get_enabled_debugger_plugin_paths()
+	)
 
 	_import_tools = GFPluginImportTools.new()
 	_import_tools.setup(self)
@@ -231,7 +235,11 @@ func _refresh_editor_contributions() -> void:
 
 	if _debugger_tools != null:
 		_debugger_tools.cleanup(self)
-		_debugger_tools.setup(self, _standard_editor_extension_records)
+		_debugger_tools.setup(
+			self,
+			_standard_editor_extension_records,
+			GFExtensionSettingsBase.get_enabled_debugger_plugin_paths()
+		)
 
 	if _import_tools != null:
 		_import_tools.cleanup(self)

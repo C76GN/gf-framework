@@ -766,6 +766,17 @@ static func get_enabled_installer_paths() -> Array[String]:
 	return _collect_enabled_manifest_paths("installer_paths")
 
 
+## 获取启用扩展工具贡献声明的 Debugger 插件路径。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @return EditorDebuggerPlugin 脚本路径列表。
+static func get_enabled_debugger_plugin_paths() -> Array[String]:
+	return _collect_enabled_editor_contribution_paths("debugger_plugin_paths")
+
+
 ## 获取启用扩展声明的编辑器菜单动作路径。
 ## [br]
 ## @api public

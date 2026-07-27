@@ -2,8 +2,8 @@
   "schema_version": 1,
   "catalog_version": "1.0.0",
   "framework_version": "10.0.0-dev.0",
-  "source_digest": "310fe1c262bca2ddeb5d73faf0f5f7bbd62feb16faec18c22610fec75d357fa8",
-  "class_count": 755,
+  "source_digest": "7bf8a342da3ab6d3a34ee2b181a97509116a7ed85266ef369a608a1e92a55968",
+  "class_count": 756,
   "package_count": 52,
   "packages": [
     {
@@ -4449,6 +4449,109 @@
           "name": "from_dictionary",
           "signature": "static func from_dictionary(data: Dictionary) -> GFAssetPreloadPlan",
           "summary": "从字典创建计划。",
+          "visibility": "public"
+        }
+      ]
+    },
+    "GFAssetSlot": {
+      "extends": "RefCounted",
+      "module": "standard",
+      "package_id": "gf.standard.assets",
+      "path": "addons/gf/standard/utilities/assets/gf_asset_slot.gd",
+      "summary": "GFAssetSlot: 稳定资源身份下的显式可替换资源槽位。 槽位强持有当前 Resource，并在成功配置、替换或终态释放后推进单调 generation。 它不监听文件变化、不接管 GFAssetUtility 缓存，也不改变 GFAssetHandle 的快照语义。",
+      "visibility": "public",
+      "category": "runtime_handle",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "signal",
+          "name": "resource_replaced",
+          "signature": "signal resource_replaced(previous_resource: Resource, current_resource: Resource, generation: int)",
+          "summary": "当前资源成功替换后发出。",
+          "visibility": "public"
+        },
+        {
+          "kind": "signal",
+          "name": "released",
+          "signature": "signal released(previous_resource: Resource, generation: int)",
+          "summary": "槽位进入不可逆释放终态后发出。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "configure",
+          "signature": "func configure( resource_identity: GFResourceIdentity, initial_resource: Resource = null, owner: Object = null, type_hint_override: String = \"\" ) -> bool",
+          "summary": "显式配置 live asset slot。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_resource_identity",
+          "signature": "func get_resource_identity() -> GFResourceIdentity",
+          "summary": "获取稳定资源身份副本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_resource",
+          "signature": "func get_resource() -> Resource",
+          "summary": "获取当前资源。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_type_hint",
+          "signature": "func get_type_hint() -> String",
+          "summary": "获取当前生效的资源类型提示。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_configured",
+          "signature": "func is_configured() -> bool",
+          "summary": "检查槽位是否已经成功配置。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_generation",
+          "signature": "func get_generation() -> int",
+          "summary": "获取当前单调 generation。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "has_resource",
+          "signature": "func has_resource() -> bool",
+          "summary": "检查槽位当前是否持有资源。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_released",
+          "signature": "func is_released() -> bool",
+          "summary": "检查槽位是否已经进入不可逆释放终态。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "accepts_resource",
+          "signature": "func accepts_resource(candidate_resource: Resource) -> bool",
+          "summary": "检查资源是否满足当前槽位类型契约。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "replace",
+          "signature": "func replace(next_resource: Resource) -> bool",
+          "summary": "原子替换当前资源。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "release",
+          "signature": "func release() -> bool",
+          "summary": "终态释放槽位持有的资源。",
           "visibility": "public"
         }
       ]
@@ -29588,6 +29691,13 @@
         },
         {
           "kind": "func",
+          "name": "get_enabled_debugger_plugin_paths",
+          "signature": "static func get_enabled_debugger_plugin_paths() -> Array[String]",
+          "summary": "获取启用扩展工具贡献声明的 Debugger 插件路径。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
           "name": "get_enabled_editor_action_paths",
           "signature": "static func get_enabled_editor_action_paths() -> Array[String]",
           "summary": "获取启用扩展声明的编辑器菜单动作路径。",
@@ -29671,7 +29781,7 @@
         {
           "kind": "const",
           "name": "SCHEMA_VERSION",
-          "signature": "const SCHEMA_VERSION: int = 1",
+          "signature": "const SCHEMA_VERSION: int = 2",
           "summary": "当前支持的贡献文件 schema 版本。",
           "visibility": "public"
         },
