@@ -276,6 +276,7 @@ def validate_catalogs() -> list[str]:
 	recipes = read_strict_json_object(ADDON_ROOT / "knowledge/recipes.json")
 	sys.path.insert(0, str(ADDON_ROOT))
 	try:
+		from gf_ai.catalog import catalog_reference_issues
 		from gf_ai.schema import validate_schema_file
 	finally:
 		if sys.path and sys.path[0] == str(ADDON_ROOT):
@@ -286,10 +287,8 @@ def validate_catalogs() -> list[str]:
 	):
 		for item in validate_schema_file(value, ADDON_ROOT / "schemas" / schema_name):
 			issues.append(f"{label} {item['path']}: {item['message']}")
-	classes = set(api.get("classes", {}))
-	packages = {str(item.get("id")) for item in api.get("packages", []) if isinstance(item, dict)}
+	issues.extend(catalog_reference_issues(api, capabilities, recipes))
 	recipe_records = [item for item in recipes.get("recipes", []) if isinstance(item, dict)]
-	recipe_ids = {str(item.get("id")) for item in recipe_records}
 	capability_records = [item for item in capabilities.get("capabilities", []) if isinstance(item, dict)]
 	capability_ids: set[str] = set()
 	for capability in capability_records:
@@ -297,29 +296,12 @@ def validate_catalogs() -> list[str]:
 		if not capability_id or capability_id in capability_ids:
 			issues.append(f"Capability id is empty or duplicated: {capability_id!r}.")
 		capability_ids.add(capability_id)
-		issues.extend(_missing_references("capability", capability_id, "class", capability.get("primary_classes", []), classes))
-		issues.extend(_missing_references("capability", capability_id, "package", capability.get("packages", []), packages))
-		issues.extend(_missing_references("capability", capability_id, "recipe", capability.get("recipes", []), recipe_ids))
 	seen_recipes: set[str] = set()
 	for recipe in recipe_records:
 		recipe_id = str(recipe.get("id", ""))
 		if not recipe_id or recipe_id in seen_recipes:
 			issues.append(f"Recipe id is empty or duplicated: {recipe_id!r}.")
 		seen_recipes.add(recipe_id)
-		issues.extend(_missing_references("recipe", recipe_id, "class", recipe.get("primary_classes", []), classes))
-		package_requirements = recipe.get("package_requirements", {})
-		if isinstance(package_requirements, dict):
-			issues.extend(_missing_references(
-				"recipe",
-				recipe_id,
-				"package",
-				package_requirements.get("all_of", []),
-				packages,
-			))
-			groups = package_requirements.get("any_of", [])
-			if isinstance(groups, list):
-				for group in groups:
-					issues.extend(_missing_references("recipe", recipe_id, "package", group, packages))
 	return issues
 
 
@@ -621,16 +603,6 @@ def _first_tag(docs: ApiDocs, name: str) -> str:
 
 def _member_kind(member: ApiMember) -> str:
 	return {"property": "var", "method": "func"}.get(member.kind, member.kind)
-
-
-def _missing_references(owner_kind: str, owner_id: str, reference_kind: str, values: Any, known: set[str]) -> list[str]:
-	if not isinstance(values, list):
-		return [f"{owner_kind} {owner_id} {reference_kind} references must be an array."]
-	return [
-		f"{owner_kind} {owner_id} references missing {reference_kind}: {value}."
-		for value in values
-		if not isinstance(value, str) or value not in known
-	]
 
 
 def _blocked(path: Path) -> bool:

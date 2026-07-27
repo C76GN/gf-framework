@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import copy
 import io
 import json
 import shutil
@@ -628,6 +629,115 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 		)
 		self.assertEqual(readiness["unsatisfied_recipe_any_of_package_groups"], [])
 
+	def test_new_recipe_package_readiness_matches_declared_requirements(self) -> None:
+		scalable_group = [["gf.standard.ui", "gf.standard.ui.state"]]
+		render_group = [["gf.extension.feedback", "gf.standard.assets", "gf.standard.display"]]
+		cases = [
+			{
+				"recipe_id": "bounded-runtime-work",
+				"available": ["gf.standard.base"],
+				"satisfied": True,
+				"all_of": ["gf.standard.base"],
+				"missing_all_of": [],
+				"any_of": [],
+				"unsatisfied_any_of": [],
+			},
+			{
+				"recipe_id": "bounded-runtime-work",
+				"available": ["gf.kernel"],
+				"satisfied": False,
+				"all_of": ["gf.standard.base"],
+				"missing_all_of": ["gf.standard.base"],
+				"any_of": [],
+				"unsatisfied_any_of": [],
+			},
+			{
+				"recipe_id": "undoable-command-history",
+				"available": ["gf.standard.storage"],
+				"satisfied": True,
+				"all_of": ["gf.standard.storage"],
+				"missing_all_of": [],
+				"any_of": [],
+				"unsatisfied_any_of": [],
+			},
+			{
+				"recipe_id": "undoable-command-history",
+				"available": ["gf.standard.base"],
+				"satisfied": False,
+				"all_of": ["gf.standard.storage"],
+				"missing_all_of": ["gf.standard.storage"],
+				"any_of": [],
+				"unsatisfied_any_of": [],
+			},
+			{
+				"recipe_id": "scalable-ui-collection",
+				"available": ["gf.standard.ui"],
+				"satisfied": True,
+				"all_of": [],
+				"missing_all_of": [],
+				"any_of": scalable_group,
+				"unsatisfied_any_of": [],
+			},
+			{
+				"recipe_id": "scalable-ui-collection",
+				"available": ["gf.standard.ui.state"],
+				"satisfied": True,
+				"all_of": [],
+				"missing_all_of": [],
+				"any_of": scalable_group,
+				"unsatisfied_any_of": [],
+			},
+			{
+				"recipe_id": "scalable-ui-collection",
+				"available": ["gf.kernel"],
+				"satisfied": False,
+				"all_of": [],
+				"missing_all_of": [],
+				"any_of": scalable_group,
+				"unsatisfied_any_of": scalable_group,
+			},
+			*[
+				{
+					"recipe_id": "render-feedback-orchestration",
+					"available": [package_id],
+					"satisfied": True,
+					"all_of": [],
+					"missing_all_of": [],
+					"any_of": render_group,
+					"unsatisfied_any_of": [],
+				}
+				for package_id in (
+					"gf.standard.display",
+					"gf.standard.assets",
+					"gf.extension.feedback",
+				)
+			],
+			{
+				"recipe_id": "render-feedback-orchestration",
+				"available": ["gf.standard.base"],
+				"satisfied": False,
+				"all_of": [],
+				"missing_all_of": [],
+				"any_of": render_group,
+				"unsatisfied_any_of": render_group,
+			},
+		]
+
+		for case in cases:
+			with self.subTest(recipe_id=case["recipe_id"], available=case["available"]):
+				readiness = catalog.recipe_package_readiness(
+					[case["recipe_id"]],
+					case["available"],
+				)
+				for field in (
+					"satisfied",
+					"all_of",
+					"missing_all_of",
+					"any_of",
+					"unsatisfied_any_of",
+				):
+					self.assertEqual(readiness[field], case[field], readiness)
+
 	def test_snapshot_uses_canonical_lockfile_and_exact_editor_plugin_section(self) -> None:
 		project_source = (
 			'[application]\nconfig/name="res://addons/gf/plugin.cfg"\n\n'
@@ -1177,6 +1287,102 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 			with self.assertRaisesRegex(ValueError, "Field is not part of the schema"):
 				catalog.load_capabilities()
 
+		valid_api_index = json.loads((ADDON_ROOT / "knowledge/api_index.json").read_text(encoding="utf-8"))
+		valid_capabilities = json.loads((ADDON_ROOT / "knowledge/capabilities.json").read_text(encoding="utf-8"))
+		mismatched_recipes = json.loads((ADDON_ROOT / "knowledge/recipes.json").read_text(encoding="utf-8"))
+		mismatched_recipes["catalog_version"] = "9.9.9"
+		(knowledge_root / "api_index.json").write_text(json.dumps(valid_api_index), encoding="utf-8")
+		(knowledge_root / "capabilities.json").write_text(json.dumps(valid_capabilities), encoding="utf-8")
+		(knowledge_root / "recipes.json").write_text(json.dumps(mismatched_recipes), encoding="utf-8")
+
+		with mock.patch.object(catalog, "KNOWLEDGE_ROOT", knowledge_root):
+			with self.assertRaisesRegex(ValueError, "catalog_version must match"):
+				catalog.load_recipes()
+
+	def test_catalog_cross_references_classes_packages_recipes_and_owners(self) -> None:
+		api_index = json.loads((ADDON_ROOT / "knowledge/api_index.json").read_text(encoding="utf-8"))
+		capabilities = json.loads((ADDON_ROOT / "knowledge/capabilities.json").read_text(encoding="utf-8"))
+		recipes = json.loads((ADDON_ROOT / "knowledge/recipes.json").read_text(encoding="utf-8"))
+
+		self.assertEqual(catalog.catalog_reference_issues(api_index, capabilities, recipes), [])
+
+		unknown_class = copy.deepcopy(capabilities)
+		unknown_class["capabilities"][0]["primary_classes"].append("GFMissingCatalogClass")
+		self.assertTrue(any(
+			"unknown class: GFMissingCatalogClass" in issue
+			for issue in catalog.catalog_reference_issues(api_index, unknown_class, recipes)
+		))
+
+		unknown_package = copy.deepcopy(capabilities)
+		unknown_package["capabilities"][0]["packages"].append("gf.unknown")
+		self.assertTrue(any(
+			"unknown package: gf.unknown" in issue
+			for issue in catalog.catalog_reference_issues(api_index, unknown_package, recipes)
+		))
+
+		unknown_recipe = copy.deepcopy(capabilities)
+		unknown_recipe["capabilities"][0]["recipes"].append("unknown-recipe")
+		self.assertTrue(any(
+			"unknown recipe: unknown-recipe" in issue
+			for issue in catalog.catalog_reference_issues(api_index, unknown_recipe, recipes)
+		))
+
+		invalid_capability_owner = copy.deepcopy(capabilities)
+		ui_navigation = next(
+			item for item in invalid_capability_owner["capabilities"]
+			if item["id"] == "ui-navigation"
+		)
+		ui_navigation["packages"] = ["gf.kernel"]
+		self.assertTrue(any(
+			"primary class GFUIUtility is owned by gf.standard.ui" in issue
+			for issue in catalog.catalog_reference_issues(api_index, invalid_capability_owner, recipes)
+		))
+
+		invalid_recipe_owner = copy.deepcopy(recipes)
+		owned_resource_load = next(
+			item for item in invalid_recipe_owner["recipes"]
+			if item["id"] == "owned-resource-load"
+		)
+		owned_resource_load["package_requirements"] = {"all_of": ["gf.kernel"], "any_of": []}
+		self.assertTrue(any(
+			"primary class GFAssetUtility is owned by gf.standard.assets" in issue
+			for issue in catalog.catalog_reference_issues(api_index, capabilities, invalid_recipe_owner)
+		))
+
+		mismatched_version = copy.deepcopy(recipes)
+		mismatched_version["catalog_version"] = "9.9.9"
+		self.assertTrue(any(
+			"catalog_version must match" in issue
+			for issue in catalog.catalog_reference_issues(api_index, capabilities, mismatched_version)
+		))
+
+		fixture = json.loads(FIXTURE_PATH.read_text(encoding="utf-8"))
+		missing_members = copy.deepcopy(api_index)
+		required_members_by_class: dict[str, set[str]] = {}
+		for case in fixture["catalog_api_requirements"]:
+			required_members_by_class.setdefault(case["class_name"], set()).update(case["members"])
+		for class_name, required_members in required_members_by_class.items():
+			self.assertIn(class_name, missing_members["classes"])
+			class_members = missing_members["classes"][class_name]["members"]
+			missing_members["classes"][class_name]["members"] = [
+				member
+				for member in class_members
+				if member.get("name") not in required_members
+			]
+		missing_member_issues = catalog.catalog_reference_issues(
+			missing_members,
+			capabilities,
+			recipes,
+		)
+		for case in fixture["catalog_api_requirements"]:
+			label = "Capability" if case["catalog"] == "capability" else "Recipe"
+			for member_name in case["members"]:
+				self.assertIn(
+					f"{label} {case['record_id']} requires an unknown API member: "
+					f"{case['class_name']}.{member_name}.",
+					missing_member_issues,
+				)
+
 	def test_catalog_exposes_bounded_module_and_package_context(self) -> None:
 		module = catalog.api_module("kernel", 3, self.project_root)
 		package = catalog.package_by_id("gf.kernel", 3, self.project_root)
@@ -1462,6 +1668,48 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 
 	def test_versioned_evaluation_cases(self) -> None:
 		fixture = json.loads(FIXTURE_PATH.read_text(encoding="utf-8"))
+		api_index = catalog.load_api_index()
+		catalogs = {
+			"capability": (catalog.load_capabilities(), "capabilities"),
+			"recipe": (catalog.load_recipes(), "recipes"),
+		}
+		for case in fixture["catalog_api_requirements"]:
+			with self.subTest(
+				catalog=case["catalog"],
+				record_id=case["record_id"],
+				class_name=case["class_name"],
+			):
+				self.assertIn(case["catalog"], catalogs)
+				data, record_key = catalogs[case["catalog"]]
+				records = {
+					item["id"]: item
+					for item in data[record_key]
+					if isinstance(item, dict) and isinstance(item.get("id"), str)
+				}
+				self.assertIn(case["record_id"], records)
+				record = records[case["record_id"]]
+				declared_members = {
+					requirement["class_name"]: set(requirement["members"])
+					for requirement in record.get("required_api_members", [])
+					if (
+						isinstance(requirement, dict)
+						and isinstance(requirement.get("class_name"), str)
+						and isinstance(requirement.get("members"), list)
+					)
+				}
+				expected_members = set(case["members"])
+				self.assertIn(case["class_name"], declared_members)
+				self.assertTrue(
+					expected_members.issubset(declared_members[case["class_name"]]),
+					(case, declared_members),
+				)
+				self.assertIn(case["class_name"], api_index["classes"])
+				api_members = {
+					member["name"]
+					for member in api_index["classes"][case["class_name"]]["members"]
+					if isinstance(member, dict) and isinstance(member.get("name"), str)
+				}
+				self.assertTrue(expected_members.issubset(api_members), (case, api_members))
 		for case in fixture["feedback_cases"]:
 			with self.subTest(case=case["id"]):
 				result = feedback.analyze_candidate(self.project_root, case["candidate"])
@@ -1470,16 +1718,28 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 		for case in fixture["capability_queries"]:
 			with self.subTest(query=case["query"]):
 				result = catalog.capability_search(case["query"], 10, self.project_root)
-				self.assertIn(case["expected_id"], [item["id"] for item in result["results"]])
+				self.assertTrue(result["ok"], result)
+				self.assertEqual(result["issues"], [])
+				self.assertTrue(result["results"], result)
+				self.assertEqual(result["catalog_version"], fixture["catalog_version"])
+				self.assertEqual(result["results"][0]["id"], case["expected_id"], result)
 		for case in fixture["recipe_cases"]:
 			with self.subTest(recipe=case["recipe_id"]):
 				result = catalog.recipe_by_id(case["recipe_id"], self.project_root)
 				self.assertTrue(result["ok"], result)
 				self.assertIn(case["expected_class"], result["primary_classes"])
+				if "expected_step_fragment" in case:
+					self.assertTrue(any(
+						case["expected_step_fragment"] in step
+						for step in result["steps"]
+					), result)
 		for case in fixture["api_queries"]:
 			with self.subTest(query=case["query"]):
 				result = catalog.api_search(case["query"], 10, self.project_root)
-				self.assertIn(case["expected_class"], [item["class_name"] for item in result["results"]])
+				self.assertTrue(result["ok"], result)
+				self.assertEqual(result["issues"], [])
+				self.assertTrue(result["results"], result)
+				self.assertEqual(result["results"][0]["class_name"], case["expected_class"], result)
 		for case in fixture["module_queries"]:
 			with self.subTest(module=case["module"]):
 				result = catalog.api_module(case["module"], 200, self.project_root)
@@ -1488,6 +1748,36 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 			with self.subTest(package=case["package_id"]):
 				result = catalog.package_by_id(case["package_id"], 200, self.project_root)
 				self.assertIn(case["expected_class"], result["classes"])
+
+	def test_capability_search_does_not_match_inside_unrelated_words(self) -> None:
+		result = catalog.capability_search("build", 30, self.project_root)
+		self.assertTrue(result["ok"], result)
+		result_ids = {item["id"] for item in result["results"]}
+		self.assertNotIn("ui-navigation", result_ids)
+		self.assertNotIn("ui-scalability", result_ids)
+
+	def test_capability_search_prioritizes_exact_primary_class(self) -> None:
+		capabilities = catalog.load_capabilities()["capabilities"]
+		owners_by_class: dict[str, set[str]] = {}
+		for capability in capabilities:
+			for class_name in capability["primary_classes"]:
+				owners_by_class.setdefault(class_name, set()).add(capability["id"])
+
+		for class_name, owner_ids in owners_by_class.items():
+			with self.subTest(class_name=class_name):
+				result = catalog.capability_search(class_name, 10, self.project_root)
+				self.assertTrue(result["ok"], result)
+				self.assertTrue(result["results"], result)
+				self.assertIn(result["results"][0]["id"], owner_ids, result)
+				self.assertEqual(result["results"][0]["score"], 100, result)
+
+	def test_capability_search_ignores_stop_word_only_queries(self) -> None:
+		for query in ("and", "in", "the and"):
+			with self.subTest(query=query):
+				result = catalog.capability_search(query, 30, self.project_root)
+				self.assertTrue(result["ok"], result)
+				self.assertEqual(result["issues"], [])
+				self.assertEqual(result["results"], [])
 
 	def test_generated_catalog_and_plugin_archive_are_current_and_deterministic(self) -> None:
 		source_audit = build_gf_ai_developer_kit.check_source()

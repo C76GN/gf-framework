@@ -52,6 +52,7 @@
 
 ### 🔄 机制更改 (Changed)
 
+- AI Developer Capability / Recipe 知识目录同步升级到 `1.5.0`，补齐可伸缩 UI 集合、渲染反馈编排、命令历史、有界运行时工作与网格路径发现边界；能力搜索统一标点、连字符和下划线，目录完整性检查新增包、类、Recipe 与类所属包依赖闭包的交叉复核。
 - Architecture assignment、Installer、动态模块注册/替换和 `GFNodeContext` 安装统一采用 generation/scope 驱动的 prepare / commit / rollback 事务；候选未提交前不会通过全局 facade 暴露，旧异步 continuation 和生命周期回调重入不能覆盖最新状态。
 - `GFBindableProperty` 的集合 helper 现在发出独立的修改前/后快照，`mutate()` 统一采用“回调返回完整 replacement”的标量/集合契约；失效且未曾入树的 Node binding 会在下一次发射时剪枝。
 - `GFCancellationSource` 收敛为主线程、一次性终结的取消拥有者：token、节点和 timeout 注册会冻结 metadata，重复注册与 self-link 明确失败，timeout replacement 会停止旧 timer，组合创建不再返回部分绑定结果。

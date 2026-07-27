@@ -1,5 +1,26 @@
 {
   "schema_version": 1,
+  "catalog_version": "1.5.0",
+  "catalog_api_requirements": [
+    {
+      "catalog": "capability",
+      "record_id": "command-history",
+      "class_name": "GFUndoableCommand",
+      "members": [
+        "is_undo_successful",
+        "is_redo_successful"
+      ]
+    },
+    {
+      "catalog": "recipe",
+      "record_id": "undoable-command-history",
+      "class_name": "GFUndoableCommand",
+      "members": [
+        "is_undo_successful",
+        "is_redo_successful"
+      ]
+    }
+  ],
   "feedback_cases": [
     {
       "id": "framework_bug_with_reproduction",
@@ -115,6 +136,102 @@
     {
       "query": "lazy diagnostics session trace",
       "expected_id": "diagnostics"
+    },
+    {
+      "query": "virtual list for a large scrolling collection",
+      "expected_id": "ui-scalability"
+    },
+    {
+      "query": "focus model for recycled list rows",
+      "expected_id": "ui-scalability"
+    },
+    {
+      "query": "repeater binding for reactive UI rows",
+      "expected_id": "ui-scalability"
+    },
+    {
+      "query": "shader parameter controls for visual feedback",
+      "expected_id": "render-feedback"
+    },
+    {
+      "query": "render warmup before showing an effect",
+      "expected_id": "render-feedback"
+    },
+    {
+      "query": "screen transition between scenes",
+      "expected_id": "render-feedback"
+    },
+    {
+      "query": "screen transition",
+      "expected_id": "render-feedback"
+    },
+    {
+      "query": "haptic feedback for a controller",
+      "expected_id": "render-feedback"
+    },
+    {
+      "query": "camera shake feedback",
+      "expected_id": "render-feedback"
+    },
+    {
+      "query": "undo a command from history",
+      "expected_id": "command-history"
+    },
+    {
+      "query": "redo an undoable command",
+      "expected_id": "command-history"
+    },
+    {
+      "query": "serialize bounded command history",
+      "expected_id": "command-history"
+    },
+    {
+      "query": "failed undo preserves command history",
+      "expected_id": "command-history"
+    },
+    {
+      "query": "object pool for reusable nodes",
+      "expected_id": "runtime-performance"
+    },
+    {
+      "query": "execution budget for incremental work",
+      "expected_id": "runtime-performance"
+    },
+    {
+      "query": "frame budget for bounded work",
+      "expected_id": "runtime-performance"
+    },
+    {
+      "query": "bounded work each frame",
+      "expected_id": "runtime-performance"
+    },
+    {
+      "query": "bounded work",
+      "expected_id": "runtime-performance"
+    },
+    {
+      "query": "grid-path preview",
+      "expected_id": "spatial-physics"
+    },
+    {
+      "query": "grid-path",
+      "expected_id": "spatial-physics"
+    },
+    {
+      "query": "path preview across a grid",
+      "expected_id": "spatial-physics"
+    },
+    {
+      "query": "path preview",
+      "expected_id": "spatial-physics"
+    },
+    {
+      "query": "grid_path search helper",
+      "expected_id": "spatial-physics"
+    },
+    {
+      "query": "GFObjectPoolUtility",
+      "expected_id": "runtime-performance"
     }
   ],
   "recipe_cases": [
@@ -133,6 +250,27 @@
     {
       "recipe_id": "session-trace",
       "expected_class": "GFSessionTraceUtility"
+    },
+    {
+      "recipe_id": "scalable-ui-collection",
+      "expected_class": "GFVirtualListModel"
+    },
+    {
+      "recipe_id": "render-feedback-orchestration",
+      "expected_class": "GFShaderParameterUtility"
+    },
+    {
+      "recipe_id": "undoable-command-history",
+      "expected_class": "GFCommandHistoryUtility",
+      "expected_step_fragment": "GFCommandHistoryUtility invalidates redo history"
+    },
+    {
+      "recipe_id": "bounded-runtime-work",
+      "expected_class": "GFExecutionBudget"
+    },
+    {
+      "recipe_id": "spatial-policy",
+      "expected_class": "GFGridPathMath2D"
     }
   ],
   "api_queries": [
