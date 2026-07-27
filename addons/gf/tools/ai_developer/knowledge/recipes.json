@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "catalog_version": "1.5.0",
+  "catalog_version": "1.6.0",
   "recipes": [
     {
       "id": "project-feature",
@@ -138,13 +138,17 @@
       "primary_classes": ["GFPlatformAdapter", "GFPlatformContractDescriptor", "GFPlatformAdapterConformance", "GFNetworkLobbyBackend", "GFNetworkLobbyService", "GFMultiplayerPeerNetworkBackend"],
       "steps": [
         "Declare provider-neutral contract methods, request/result schemas, byte budgets, capability requirements, concurrency, cancellation support, and sensitive fields.",
-        "Keep Steam, Epic, console, or service SDK calls inside the adapter.",
+        "Keep every provider SDK call inside the project-owned adapter and correlate the GF handle before invoking a provider that may complete synchronously.",
+        "For native or GDExtension-backed providers, choose script_only, optional, or required mode; freeze the descriptor and exact platform, architecture, and build-configuration artifact matrix with hashes, sizes, immutable sources, licenses, Godot floor, and reload policy.",
+        "Keep detection side-effect free and fail closed on absent, ambiguous, stale, mismatched, or partially readable native evidence; never treat a runtime class name or filename as integrity proof.",
+        "Declare call and callback threads, copy worker callbacks into a bounded plain-data ingress queue, and pump them onto the main thread before touching Godot objects, GF handles, signals, or owner state.",
         "Map every lobby call to a GFNetworkLobbyOperationHandle by request ID and normalize initialization, cancellation, timeout, provider shutdown, and late callbacks.",
         "Publish launch and invite callbacks as deduplicated GFPlatformActivationIntent records; adopt provider MultiplayerPeer instances with explicit owned or borrowed lifecycle.",
-        "Run GFPlatformAdapterConformance and fault-inject unavailable SDK, invalid schemas, concurrency, cancellation, timeout, duplicate terminal callbacks, disconnect, and ownership transfer.",
+        "Pin native dependencies for offline reproduction, declare permissions and redaction, separate editor-only from runtime artifacts, and run load, request, cancellation, bounded worker shutdown, and integrity checks against every actual exported target.",
+        "Run GFPlatformAdapterConformance and fault-inject unavailable SDK, invalid schemas, concurrency, cancellation, timeout, duplicate or late callbacks, denied permissions, secret-shaped errors, disconnect, and ownership transfer.",
         "Let project code own lobby visibility, matchmaking, authority, UI, product policy, and fallback."
       ],
-      "avoid": ["Provider IDs leaking into portable domain models", "Uncorrelated callback-only completion", "A GFSteamManager-style global business facade"]
+      "avoid": ["Provider IDs leaking into portable domain models", "Uncorrelated callback-only completion", "Side-effecting native availability probes", "Worker callbacks touching Godot or GF objects", "Mutable or network-only native build inputs", "Editor-only success accepted as runtime proof", "A provider-specific global business facade"]
     },
     {
       "id": "platform-storage-adapter",
@@ -244,6 +248,44 @@
         "Test missing content, duplicate keys, priority ties, provider removal, stale mounts, dependency cycles, and owner disposal."
       ],
       "avoid": ["Download URLs embedded in runtime content records", "Gameplay rules keyed to physical file paths", "Global mounts without a lifecycle owner"]
+    },
+    {
+      "id": "external-artifact-export",
+      "title": "Export generated artifacts through a project adapter",
+      "package_requirements": {"all_of": ["gf.extension.content_package", "gf.standard.debug", "gf.standard.spatial"], "any_of": []},
+      "primary_classes": ["GFThumbnailRenderer", "GFScreenshotUtility", "GFRectPacking2D", "GFGeneratedArtifactReport", "GFContentPackageExportPlan"],
+      "required_api_members": [
+        {
+          "class_name": "GFThumbnailRenderer",
+          "members": ["submit_render_request", "cancel_render_task"]
+        },
+        {
+          "class_name": "GFScreenshotUtility",
+          "members": ["capture_viewport_image", "save_image"]
+        },
+        {
+          "class_name": "GFRectPacking2D",
+          "members": ["pack_fixed", "pack_square"]
+        },
+        {
+          "class_name": "GFGeneratedArtifactReport",
+          "members": ["save_text", "make_report", "summarize_reports"]
+        },
+        {
+          "class_name": "GFContentPackageExportPlan",
+          "members": ["add_entry", "get_validation_report", "get_artifact_report", "get_preflight_report"]
+        }
+      ],
+      "steps": [
+        "Freeze a project-owned export request with stable artifact IDs, stable input ordering, finite image count, resolution and atlas budgets, a bounded staging root, and an explicit cancellation owner.",
+        "Render asset previews through GFThumbnailRenderer and capture Viewport images through GFScreenshotUtility; reject null Images and release preview nodes and render tasks with the owning tool session.",
+        "Plan placements through GFRectPacking2D, fail the batch when any input is unplaced, and keep pixel copying, padding, atlas materialization, and metadata semantics in the project tool.",
+        "Save binary Images through GFScreenshotUtility.save_image, save text mappings through GFGeneratedArtifactReport.save_text with allowed_roots, normalize binary results through make_report, and summarize every produced or skipped artifact.",
+        "Build GFContentPackageExportPlan from a manifest or catalog, add the generated outputs, and require plan, artifact-integrity, and project compatibility preflight reports to pass before handoff.",
+        "Let a project-owned target adapter consume only the frozen plan, reports, and staging artifacts while it owns target schemas, authentication, rate limits, idempotency, retries, upload or file output, receipts, and cleanup.",
+        "Test dry-run, cancellation, empty images, budget overflow, unplaced inputs, duplicate archive paths, write failures, integrity mismatch, partial adapter failure, idempotent retry, and credential absence from reports."
+      ],
+      "avoid": ["A business-specific generator added to GF", "Upload or target authentication inside a renderer or export plan", "Publishing partial or unreported staging output", "Credentials or remote business state copied into generic artifact reports"]
     },
     {
       "id": "input-context",

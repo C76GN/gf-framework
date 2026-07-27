@@ -79,3 +79,14 @@ func is_active() -> bool:
 ## @return 创建订阅时传入的诊断标签。
 func get_debug_label() -> String:
 	return _debug_label
+
+
+# --- 框架内部方法 ---
+
+# 由订阅源在订阅自动结束时使句柄失效，但不再次执行取消回调。
+func _deactivate_from_source() -> bool:
+	if not _active:
+		return false
+	_active = false
+	_cancel_callback = Callable()
+	return true

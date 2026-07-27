@@ -156,6 +156,8 @@ Steam、微信小游戏、Epic、主机平台、云服务、支付和广告 SDK 
 
 Kit 的 `templates/adapters/platform/` 提供 Platform contract、Lobby Backend、契约测试、兼容性 Profile 和故障矩阵起点。Agent 应先用 `GFPlatformContractDescriptor` 声明 Schema 与预算，用 `GFPlatformAdapterConformance` 做无 SDK 静态审查，再实现 Provider callback 映射；Provider 返回 Godot Peer 时采用 `GFMultiplayerPeerNetworkBackend` 并显式选择 owned/borrowed，不能生成平台命名的 GF Core Manager。
 
+原生或 GDExtension-backed Adapter 还必须通过独立的原生边界验收：Profile 固定 descriptor、二进制哈希与 `platform + architecture + build_configuration` 矩阵；运行时只做无副作用可用性探测，必需能力缺失、目标歧义或证据不完整时 fail closed。后台回调只能先复制有界纯数据，再经主线程 callback pump 接触 Godot/GF 对象；关闭流程依次停止入口、取消句柄、解绑回调、有界等待自有线程并释放 Provider。依赖来源必须锁定且可离线复现，权限拒绝与敏感字段必须稳定失败并脱敏，编辑器专属产物不能进入运行时导出，所有声明目标都要在实际导出包中复跑加载、取消与关闭验收。
+
 ## 反馈状态机
 
 项目开发暴露的问题按以下状态推进：

@@ -44,12 +44,16 @@ func _dispatch(
 
 
 func on_provider_succeeded(provider_call_id: String, value: Dictionary) -> void:
+	# Native worker callbacks must copy bounded plain data into a project-owned
+	# main-thread pump before invoking this method.
 	var handle: GFPlatformRequestHandle = _take_handle(provider_call_id)
 	if handle != null:
 		var _completed: bool = _succeed_request(handle, value)
 
 
 func on_provider_failed(provider_call_id: String, error_code: StringName) -> void:
+	# Translate provider errors to stable, redacted contract status on the main
+	# thread; do not expose raw native error text or sensitive identifiers.
 	var handle: GFPlatformRequestHandle = _take_handle(provider_call_id)
 	if handle != null:
 		var _completed: bool = _fail_request(
@@ -66,12 +70,16 @@ func _cancel_request(handle: GFPlatformRequestHandle, _reason: StringName) -> vo
 
 
 func on_provider_cancelled(provider_call_id: String) -> void:
+	# Provider cancellation acknowledgement follows the same main-thread pump
+	# boundary as success and failure callbacks.
 	var handle: GFPlatformRequestHandle = _take_handle(provider_call_id)
 	if handle != null:
 		var _released: bool = _release_request(handle)
 
 
 func _shutdown() -> void:
+	# Before clearing state: stop callback ingress, request cancellation once,
+	# detach callbacks, and join Adapter-owned workers within a bounded timeout.
 	_provider_calls.clear()
 	_provider = null
 

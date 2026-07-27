@@ -617,6 +617,35 @@ func register_event_owned(owner: Object, event_type: Script, listener: GFEventLi
 	_event_system.register_owned(owner, event_type, listener, priority)
 
 
+## 订阅脚本类型事件并返回可取消句柄。
+##
+## listener 携带 owner 时返回的句柄会绑定该 owner 生命周期。`once` 订阅会在
+## 首个回调开始前失效，保证嵌套事件派发不会重复进入同一订阅。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param event_type: 要订阅的脚本类型。
+## [br]
+## @param listener: 事件监听器契约。
+## [br]
+## @param priority: 回调优先级，数值越大越先执行，默认为 0。
+## [br]
+## @param once: 是否在首个回调开始前自动取消订阅。
+## [br]
+## @return 可幂等取消的订阅句柄；架构不可修改或参数无效时返回非活动句柄。
+func subscribe_event(
+	event_type: Script,
+	listener: GFEventListener,
+	priority: int = 0,
+	once: bool = false
+) -> GFSubscriptionToken:
+	if not _can_mutate_runtime("subscribe_event"):
+		return GFSubscriptionToken.new()
+	return _event_system.subscribe(event_type, listener, priority, once)
+
+
 ## 为脚本类型注册可赋值事件监听器。
 ## 监听基类事件时，也会收到继承自该脚本类型的事件实例。
 ## [br]
@@ -657,6 +686,35 @@ func register_assignable_event_owned(
 	if not _can_mutate_runtime("register_assignable_event_owned"):
 		return
 	_event_system.register_assignable_owned(owner, base_event_type, listener, priority)
+
+
+## 订阅可赋值类型事件并返回可取消句柄。
+##
+## listener 携带 owner 时返回的句柄会绑定该 owner 生命周期。监听基类脚本时，
+## 订阅也会收到其派生脚本实例；`once` 在首个匹配回调开始前生效。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param base_event_type: 要订阅的基类脚本类型。
+## [br]
+## @param listener: 事件监听器契约。
+## [br]
+## @param priority: 回调优先级，数值越大越先执行，默认为 0。
+## [br]
+## @param once: 是否在首个匹配回调开始前自动取消订阅。
+## [br]
+## @return 可幂等取消的订阅句柄；架构不可修改或参数无效时返回非活动句柄。
+func subscribe_assignable_event(
+	base_event_type: Script,
+	listener: GFEventListener,
+	priority: int = 0,
+	once: bool = false
+) -> GFSubscriptionToken:
+	if not _can_mutate_runtime("subscribe_assignable_event"):
+		return GFSubscriptionToken.new()
+	return _event_system.subscribe_assignable(base_event_type, listener, priority, once)
 
 
 ## 为脚本类型注销事件监听器。
@@ -754,6 +812,32 @@ func register_simple_event_owned(owner: Object, event_id: StringName, listener: 
 	if not _can_mutate_runtime("register_simple_event_owned"):
 		return
 	_event_system.register_simple_owned(owner, event_id, listener)
+
+
+## 订阅轻量级 StringName 事件并返回可取消句柄。
+##
+## listener 携带 owner 时返回的句柄会绑定该 owner 生命周期。`once` 订阅会在
+## 首个回调开始前失效，保证嵌套事件派发不会重复进入同一订阅。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param event_id: StringName 事件标识符。
+## [br]
+## @param listener: 简单事件监听器契约。
+## [br]
+## @param once: 是否在首个回调开始前自动取消订阅。
+## [br]
+## @return 可幂等取消的订阅句柄；架构不可修改或参数无效时返回非活动句柄。
+func subscribe_simple_event(
+	event_id: StringName,
+	listener: GFEventListener,
+	once: bool = false
+) -> GFSubscriptionToken:
+	if not _can_mutate_runtime("subscribe_simple_event"):
+		return GFSubscriptionToken.new()
+	return _event_system.subscribe_simple(event_id, listener, once)
 
 
 ## 注销轻量级 StringName 事件监听器。

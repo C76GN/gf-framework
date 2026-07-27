@@ -29,6 +29,16 @@ func test_adapter_failure_matrix() -> void:
 	fail_test("Replace this sentinel with the complete adapter failure matrix.")
 
 
+func test_native_adapter_acceptance_matrix() -> void:
+	# For script_only mode, prove that exported builds contain no native payload.
+	# Otherwise verify the side-effect-free probe, exact platform/architecture/build
+	# tuples, descriptor and library hashes, immutable offline build inputs, Godot
+	# floor, reload policy, permission denial, worker-to-main callback pump, bounded
+	# queue pressure, cancellation, shutdown order, late callbacks, worker joins,
+	# redaction, and the installed/exported runtime artifact.
+	fail_test("Replace this sentinel with the native Adapter acceptance matrix.")
+
+
 func _make_adapter_with_fake_provider() -> ProjectPlatformAdapter:
 	var adapter: ProjectPlatformAdapter = ProjectPlatformAdapter.new()
 	var capabilities: GFPlatformCapabilitySet = GFPlatformCapabilitySet.new().configure(

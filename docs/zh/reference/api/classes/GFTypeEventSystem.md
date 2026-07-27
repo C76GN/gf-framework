@@ -21,15 +21,18 @@
 | 属性 | [`max_trace_entries`](#member-gftypeeventsystem-properties-max_trace_entries) | `var max_trace_entries: int = 64:` |
 | 方法 | [`register`](#member-gftypeeventsystem-methods-register) | `func register(event_type: Script, listener: GFEventListener, priority: int = 0) -> void:` |
 | 方法 | [`register_owned`](#member-gftypeeventsystem-methods-register_owned) | `func register_owned(owner: Object, event_type: Script, listener: GFEventListener, priority: int = 0) -> void:` |
+| 方法 | [`subscribe`](#member-gftypeeventsystem-methods-subscribe) | `func subscribe( event_type: Script, listener: GFEventListener, priority: int = 0, once: bool = false ) -> GFSubscriptionToken:` |
 | 方法 | [`unregister`](#member-gftypeeventsystem-methods-unregister) | `func unregister(event_type: Script, listener: GFEventListener) -> void:` |
 | 方法 | [`unregister_owned`](#member-gftypeeventsystem-methods-unregister_owned) | `func unregister_owned(owner: Object, event_type: Script, listener: GFEventListener) -> void:` |
 | 方法 | [`register_assignable`](#member-gftypeeventsystem-methods-register_assignable) | `func register_assignable(base_event_type: Script, listener: GFEventListener, priority: int = 0) -> void:` |
 | 方法 | [`register_assignable_owned`](#member-gftypeeventsystem-methods-register_assignable_owned) | `func register_assignable_owned( owner: Object, base_event_type: Script, listener: GFEventListener, priority: int = 0 ) -> void:` |
+| 方法 | [`subscribe_assignable`](#member-gftypeeventsystem-methods-subscribe_assignable) | `func subscribe_assignable( base_event_type: Script, listener: GFEventListener, priority: int = 0, once: bool = false ) -> GFSubscriptionToken:` |
 | 方法 | [`unregister_assignable`](#member-gftypeeventsystem-methods-unregister_assignable) | `func unregister_assignable(base_event_type: Script, listener: GFEventListener) -> void:` |
 | 方法 | [`unregister_assignable_owned`](#member-gftypeeventsystem-methods-unregister_assignable_owned) | `func unregister_assignable_owned(owner: Object, base_event_type: Script, listener: GFEventListener) -> void:` |
 | 方法 | [`send`](#member-gftypeeventsystem-methods-send) | `func send(event_instance: Object) -> void:` |
 | 方法 | [`register_simple`](#member-gftypeeventsystem-methods-register_simple) | `func register_simple(event_id: StringName, listener: GFEventListener) -> void:` |
 | 方法 | [`register_simple_owned`](#member-gftypeeventsystem-methods-register_simple_owned) | `func register_simple_owned(owner: Object, event_id: StringName, listener: GFEventListener) -> void:` |
+| 方法 | [`subscribe_simple`](#member-gftypeeventsystem-methods-subscribe_simple) | `func subscribe_simple( event_id: StringName, listener: GFEventListener, once: bool = false ) -> GFSubscriptionToken:` |
 | 方法 | [`unregister_simple`](#member-gftypeeventsystem-methods-unregister_simple) | `func unregister_simple(event_id: StringName, listener: GFEventListener) -> void:` |
 | 方法 | [`unregister_simple_owned`](#member-gftypeeventsystem-methods-unregister_simple_owned) | `func unregister_simple_owned(owner: Object, event_id: StringName, listener: GFEventListener) -> void:` |
 | 方法 | [`send_simple`](#member-gftypeeventsystem-methods-send_simple) | `func send_simple(event_id: StringName, payload: Variant = null) -> void:` |
@@ -138,6 +141,30 @@ func register_owned(owner: Object, event_type: Script, listener: GFEventListener
 | `listener` | 事件监听器契约。 |
 | `priority` | 回调优先级，数值越大越先执行，默认为 0。 |
 
+<a id="member-gftypeeventsystem-methods-subscribe"></a>
+
+### `subscribe`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func subscribe( event_type: Script, listener: GFEventListener, priority: int = 0, once: bool = false ) -> GFSubscriptionToken:
+```
+
+订阅特定脚本类型事件并返回可取消句柄。 每次调用都会创建独立的稳定订阅身份；即使回调和 owner 相同，取消一个句柄也不会影响其它订阅。 `once` 为 true 时，订阅会在首个回调开始前失效，因此嵌套派发不会再次调用它。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `event_type` | 要订阅的脚本类型。 |
+| `listener` | 事件监听器契约；其中携带的 owner 决定返回句柄的生命周期绑定。 |
+| `priority` | 回调优先级，数值越大越先执行，默认为 0。 |
+| `once` | 是否在首个回调开始前自动取消订阅。 |
+
+返回：可幂等取消的订阅句柄；参数无效时返回非活动句柄。
+
 <a id="member-gftypeeventsystem-methods-unregister"></a>
 
 ### `unregister`
@@ -221,6 +248,30 @@ func register_assignable_owned( owner: Object, base_event_type: Script, listener
 | `base_event_type` | 要监听的基类脚本类型。 |
 | `listener` | 事件监听器契约。 |
 | `priority` | 回调优先级，数值越大越先执行，默认为 0。 |
+
+<a id="member-gftypeeventsystem-methods-subscribe_assignable"></a>
+
+### `subscribe_assignable`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func subscribe_assignable( base_event_type: Script, listener: GFEventListener, priority: int = 0, once: bool = false ) -> GFSubscriptionToken:
+```
+
+订阅可赋值类型事件并返回可取消句柄。 监听基类脚本时也会收到其派生脚本实例。每次调用都创建独立订阅身份， `once` 会在首个匹配事件的用户回调开始前使句柄失效。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `base_event_type` | 要订阅的基类脚本类型。 |
+| `listener` | 事件监听器契约；其中携带的 owner 决定返回句柄的生命周期绑定。 |
+| `priority` | 回调优先级，数值越大越先执行，默认为 0。 |
+| `once` | 是否在首个匹配回调开始前自动取消订阅。 |
+
+返回：可幂等取消的订阅句柄；参数无效时返回非活动句柄。
 
 <a id="member-gftypeeventsystem-methods-unregister_assignable"></a>
 
@@ -321,6 +372,29 @@ func register_simple_owned(owner: Object, event_id: StringName, listener: GFEven
 | `owner` | 监听 owner。 |
 | `event_id` | StringName 事件标识符。 |
 | `listener` | 简单事件监听器契约。 |
+
+<a id="member-gftypeeventsystem-methods-subscribe_simple"></a>
+
+### `subscribe_simple`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func subscribe_simple( event_id: StringName, listener: GFEventListener, once: bool = false ) -> GFSubscriptionToken:
+```
+
+订阅轻量级 StringName 事件并返回可取消句柄。 每次调用都会创建独立的稳定订阅身份；`once` 为 true 时，订阅会在首个 用户回调开始前失效，因此同一回调中的嵌套派发不会再次调用它。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `event_id` | StringName 事件标识符。 |
+| `listener` | 简单事件监听器契约；其中携带的 owner 决定返回句柄的生命周期绑定。 |
+| `once` | 是否在首个回调开始前自动取消订阅。 |
+
+返回：可幂等取消的订阅句柄；参数无效时返回非活动句柄。
 
 <a id="member-gftypeeventsystem-methods-unregister_simple"></a>
 
@@ -433,7 +507,7 @@ func get_debug_stats() -> Dictionary:
 func get_listener_diagnostics(options: Dictionary = {}) -> Dictionary:
 ```
 
-获取事件监听器诊断明细。 默认只返回每条轨道的数量统计；传入 `{ "include_entries": true }` 时会附带每个监听器的事件 key、owner 状态、优先级和 Callable 状态。
+获取事件监听器诊断明细。 默认只返回每条轨道的数量统计；传入 `{ "include_entries": true }` 时会附带每个监听器的 事件 key、owner 状态、优先级、Callable 状态，以及订阅记录的稳定身份和 once 标记。
 
 参数：
 
@@ -446,7 +520,7 @@ func get_listener_diagnostics(options: Dictionary = {}) -> Dictionary:
 结构：
 
 - `options`: Dictionary，可包含 include_entries。
-- `return`: Dictionary containing listener counts, stale owner counts, track summaries, and optional entry rows.
+- `return`: Dictionary containing listener counts, stale owner counts, track summaries, and optional entry rows with subscription_id and once.
 
 <a id="member-gftypeeventsystem-methods-compact_released_owner_listeners"></a>
 

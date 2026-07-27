@@ -632,6 +632,11 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 	def test_new_recipe_package_readiness_matches_declared_requirements(self) -> None:
 		scalable_group = [["gf.standard.ui", "gf.standard.ui.state"]]
 		render_group = [["gf.extension.feedback", "gf.standard.assets", "gf.standard.display"]]
+		artifact_packages = [
+			"gf.extension.content_package",
+			"gf.standard.debug",
+			"gf.standard.spatial",
+		]
 		cases = [
 			{
 				"recipe_id": "bounded-runtime-work",
@@ -720,6 +725,27 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 				"missing_all_of": [],
 				"any_of": render_group,
 				"unsatisfied_any_of": render_group,
+			},
+			{
+				"recipe_id": "external-artifact-export",
+				"available": artifact_packages,
+				"satisfied": True,
+				"all_of": artifact_packages,
+				"missing_all_of": [],
+				"any_of": [],
+				"unsatisfied_any_of": [],
+			},
+			{
+				"recipe_id": "external-artifact-export",
+				"available": [
+					"gf.extension.content_package",
+					"gf.standard.spatial",
+				],
+				"satisfied": False,
+				"all_of": artifact_packages,
+				"missing_all_of": ["gf.standard.debug"],
+				"any_of": [],
+				"unsatisfied_any_of": [],
 			},
 		]
 
@@ -1800,30 +1826,216 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 
 	def test_platform_adapter_templates_are_strictly_validated(self) -> None:
 		self.assertEqual(build_gf_ai_developer_kit.validate_platform_adapter_templates(), [])
-		with tempfile.TemporaryDirectory(prefix="gf-ai-adapter-template-") as temporary:
-			template_root = Path(temporary) / "platform"
+		template_root = build_gf_ai_developer_kit.PLATFORM_ADAPTER_TEMPLATE_ROOT
+		readme_text = (template_root / "README.md").read_text(encoding="utf-8")
+		contract_test_text = (template_root / "adapter_contract_test.gd.txt").read_text(
+			encoding="utf-8"
+		)
+		platform_adapter_text = (template_root / "platform_adapter.gd.txt").read_text(
+			encoding="utf-8"
+		)
+		lobby_backend_text = (template_root / "lobby_backend.gd.txt").read_text(
+			encoding="utf-8"
+		)
+		profile = json.loads(
+			(template_root / "compatibility_profile.json").read_text(encoding="utf-8")
+		)
+		for heading in (
+			"## Native mode and fail-closed probing",
+			"## Native artifact matrix",
+			"## Threading and callback pump",
+			"## Shutdown and cancellation",
+			"## Permissions and sensitive data",
+			"## Reproducible supply chain",
+			"## Editor and export boundary",
+		):
+			self.assertIn(heading, readme_text)
+		self.assertIn("test_native_adapter_acceptance_matrix", contract_test_text)
+		self.assertIn(
+			"Replace this sentinel with the native Adapter acceptance matrix.",
+			contract_test_text,
+		)
+		self.assertIn("main-thread pump", platform_adapter_text)
+		self.assertIn("main-thread pump", lobby_backend_text)
+		self.assertIn("bounded timeout", platform_adapter_text)
+		self.assertIn("bounded timeout", lobby_backend_text)
+
+		native_boundary = profile["metadata"]["native_boundary"]
+		self.assertIn(native_boundary["mode"], ("script_only", "optional", "required"))
+		availability_probe = native_boundary["availability_probe"]
+		self.assertIn(availability_probe["kind"], ("class_db", "resource"))
+		self.assertTrue(availability_probe["side_effect_free"])
+		if availability_probe["kind"] == "class_db":
+			self.assertIn("class_name", availability_probe)
+		else:
+			self.assertIn("resource_path", availability_probe)
+		self.assertIn("call_thread", native_boundary)
+		self.assertIn("callback_thread", native_boundary)
+		self.assertIn("callback_pump", native_boundary)
+		self.assertGreater(native_boundary["shutdown_timeout_msec"], 0)
+		self.assertIn("permissions", native_boundary)
+		self.assertIn("editor_only", native_boundary)
+		self.assertIn("dependency_lock_path", native_boundary)
+		self.assertIn("offline_rebuild_verified", native_boundary)
+
+		artifacts = profile["artifacts"]
+		descriptor_artifacts = [
+			item for item in artifacts if item.get("kind") == "gdextension_descriptor"
+		]
+		native_libraries = [
+			item for item in artifacts if item.get("kind") == "native_library"
+		]
+		self.assertEqual(len(descriptor_artifacts), 1)
+		self.assertGreaterEqual(len(native_libraries), 2)
+		descriptor = descriptor_artifacts[0]
+		self.assertEqual(descriptor["path"], native_boundary["descriptor_path"])
+		self.assertIn("minimum_godot_version", descriptor["metadata"])
+		self.assertIn("reloadable", descriptor["metadata"])
+		target_tuples = set()
+		for artifact in native_libraries:
+			metadata = artifact["metadata"]
+			target_tuple = (
+				metadata["platform"],
+				metadata["architecture"],
+				metadata["build_configuration"],
+			)
+			self.assertNotIn(target_tuple, target_tuples)
+			target_tuples.add(target_tuple)
+			self.assertIn(metadata["export_scope"], ("editor", "runtime"))
+			self.assertIn("source_version", metadata)
+			self.assertIn("license_id", metadata)
+			self.assertIn("sha256", artifact)
+			self.assertIn("size_bytes", artifact)
+		declared_export_targets = {
+			(
+				item["platform"],
+				item["architecture"],
+				item["build_configuration"],
+			)
+			for item in native_boundary["export_targets"]
+		}
+		self.assertEqual(target_tuples, declared_export_targets)
+
+		native_dependencies = profile["metadata"]["native_dependencies"]
+		self.assertTrue(native_dependencies)
+		for dependency in native_dependencies:
+			self.assertIn("version", dependency)
+			self.assertIn("source", dependency)
+			self.assertIn("sha256", dependency)
+			self.assertIn("license_id", dependency)
+
+		with tempfile.TemporaryDirectory(prefix="gf-ai-native-profile-test-") as temporary:
+			copied_template_root = Path(temporary) / "platform"
 			shutil.copytree(
 				build_gf_ai_developer_kit.PLATFORM_ADAPTER_TEMPLATE_ROOT,
-				template_root,
+				copied_template_root,
 			)
-			(template_root / "platform_adapter.gd.txt").write_text(
+			copied_profile_path = copied_template_root / "compatibility_profile.json"
+			resource_profile = json.loads(copied_profile_path.read_text(encoding="utf-8"))
+			resource_probe = resource_profile["metadata"]["native_boundary"]["availability_probe"]
+			resource_probe["kind"] = "resource"
+			resource_probe.pop("class_name")
+			resource_probe["resource_path"] = resource_profile["metadata"]["native_boundary"][
+				"descriptor_path"
+			]
+			copied_profile_path.write_text(
+				json.dumps(resource_profile, ensure_ascii=False, indent=2) + "\n",
+				encoding="utf-8",
+			)
+			self.assertEqual(
+				build_gf_ai_developer_kit.validate_platform_adapter_templates(
+					copied_template_root
+				),
+				[],
+			)
+
+			resource_probe.pop("resource_path")
+			copied_profile_path.write_text(
+				json.dumps(resource_profile, ensure_ascii=False, indent=2) + "\n",
+				encoding="utf-8",
+			)
+			issues = build_gf_ai_developer_kit.validate_platform_adapter_templates(
+				copied_template_root
+			)
+			self.assertTrue(
+				any("resource_path" in issue for issue in issues),
+				issues,
+			)
+
+			script_only_profile = json.loads(
+				(template_root / "compatibility_profile.json").read_text(encoding="utf-8")
+			)
+			script_only_profile["metadata"]["native_boundary"]["mode"] = "script_only"
+			copied_profile_path.write_text(
+				json.dumps(script_only_profile, ensure_ascii=False, indent=2) + "\n",
+				encoding="utf-8",
+			)
+			issues = build_gf_ai_developer_kit.validate_platform_adapter_templates(
+				copied_template_root
+			)
+			self.assertTrue(
+				any("script_only native mode" in issue for issue in issues),
+				issues,
+			)
+
+			invalid_hash_profile = json.loads(
+				(template_root / "compatibility_profile.json").read_text(encoding="utf-8")
+			)
+			invalid_hash_profile["artifacts"][0]["sha256"] = "not-a-digest"
+			copied_profile_path.write_text(
+				json.dumps(invalid_hash_profile, ensure_ascii=False, indent=2) + "\n",
+				encoding="utf-8",
+			)
+			issues = build_gf_ai_developer_kit.validate_platform_adapter_templates(
+				copied_template_root
+			)
+			self.assertTrue(any("sha256" in issue for issue in issues), issues)
+
+			invalid_path_profile = json.loads(
+				(template_root / "compatibility_profile.json").read_text(encoding="utf-8")
+			)
+			invalid_path_profile["artifacts"][0][
+				"path"
+			] = "res://adapters/platform/../outside.gdextension"
+			invalid_path_profile["metadata"]["native_boundary"][
+				"descriptor_path"
+			] = "res://adapters/platform/../outside.gdextension"
+			copied_profile_path.write_text(
+				json.dumps(invalid_path_profile, ensure_ascii=False, indent=2) + "\n",
+				encoding="utf-8",
+			)
+			issues = build_gf_ai_developer_kit.validate_platform_adapter_templates(
+				copied_template_root
+			)
+			self.assertTrue(
+				any("canonical cross-platform" in issue for issue in issues),
+				issues,
+			)
+
+		with tempfile.TemporaryDirectory(prefix="gf-ai-adapter-template-") as temporary:
+			copied_template_root = Path(temporary) / "platform"
+			shutil.copytree(
+				build_gf_ai_developer_kit.PLATFORM_ADAPTER_TEMPLATE_ROOT,
+				copied_template_root,
+			)
+			(copied_template_root / "platform_adapter.gd.txt").write_text(
 				"extends RefCounted\n",
 				encoding="utf-8",
 			)
 			issues = build_gf_ai_developer_kit.validate_platform_adapter_templates(
-				template_root
+				copied_template_root
 			)
 			self.assertTrue(
 				any("platform_adapter.gd.txt" in issue for issue in issues),
 				issues,
 			)
 
-			(template_root / "compatibility_profile.json").write_text(
+			(copied_template_root / "compatibility_profile.json").write_text(
 				'{"profile_id":"broken","godot_version":NaN}',
 				encoding="utf-8",
 			)
 			issues = build_gf_ai_developer_kit.validate_platform_adapter_templates(
-				template_root
+				copied_template_root
 			)
 			self.assertTrue(
 				any("compatibility profile is invalid" in issue for issue in issues),

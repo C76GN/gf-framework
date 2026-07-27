@@ -28,6 +28,39 @@ func test_occupy_moves_receiver_between_cells() -> void:
 	assert_eq(grid.get_receiver_cell(actor), Vector2i(1, 0), "接收者当前位置应更新。")
 
 
+func test_occupy_move_commits_before_notifications_and_rejects_reentrant_mutation() -> void:
+	var grid: GFGridOccupancy = GFGridOccupancy.new(Vector2i(3, 1))
+	var actor_a: Object = _make_object()
+	var actor_b: Object = _make_object()
+	var source_cell: Vector2i = Vector2i.ZERO
+	var target_cell: Vector2i = Vector2i(1, 0)
+	var nested_results: Array[bool] = []
+	var observed_cells: Array[Vector2i] = []
+
+	assert_true(grid.occupy(actor_a, source_cell), "外层接收者应能建立初始占用。")
+	var release_callback: Callable = func(
+		_receiver: Variant,
+		released_cell: Vector2i
+	) -> void:
+		if released_cell != source_cell:
+			return
+		observed_cells.append(grid.get_receiver_cell(actor_a))
+		nested_results.append(grid.occupy(actor_b, target_cell))
+	var connect_error: Error = grid.cell_released.connect(
+		release_callback
+	) as Error
+	assert_eq(connect_error, OK, "测试应能监听格子释放通知。")
+
+	assert_true(grid.occupy(actor_a, target_cell), "外层移动事务应成功提交。")
+
+	assert_eq(observed_cells, [target_cell], "通知回调必须观察到已经完整提交的外层状态。")
+	assert_eq(nested_results, [false], "通知期的重入写入必须失败关闭。")
+	assert_push_error_count(1, "被拒绝的重入写入应报告一次明确错误。")
+	assert_false(grid.is_cell_occupied(source_cell), "外层移动后旧格子应为空。")
+	assert_eq(grid.get_cell_occupants(target_cell), [actor_a], "目标格不得因重入超过容量。")
+	grid.cell_released.disconnect(release_callback)
+
+
 func test_reservation_blocks_other_receivers_and_can_confirm() -> void:
 	var grid: GFGridOccupancy = GFGridOccupancy.new(Vector2i(3, 3))
 	var actor_a: Object = _make_object()
@@ -40,6 +73,64 @@ func test_reservation_blocks_other_receivers_and_can_confirm() -> void:
 	assert_false(grid.is_cell_reserved(Vector2i(2, 1)), "确认后预约记录应释放。")
 
 
+func test_confirm_reservation_is_atomic_against_release_notification_reentry() -> void:
+	var grid: GFGridOccupancy = GFGridOccupancy.new(Vector2i(2, 1))
+	var actor_a: Object = _make_object()
+	var actor_b: Object = _make_object()
+	var target_cell: Vector2i = Vector2i(1, 0)
+	var nested_results: Array[bool] = []
+
+	assert_true(grid.reserve_cell(actor_a, target_cell), "外层接收者应能预约目标格。")
+	var release_callback: Callable = func(
+		_receiver: Variant,
+		released_cell: Vector2i
+	) -> void:
+		if released_cell == target_cell:
+			nested_results.append(grid.occupy(actor_b, target_cell))
+	var connect_error: Error = grid.reservation_released.connect(
+		release_callback
+	) as Error
+	assert_eq(connect_error, OK, "测试应能监听预约释放通知。")
+
+	assert_true(grid.confirm_reservation(actor_a), "确认预约应原子提交为占用。")
+
+	assert_eq(nested_results, [false], "预约释放通知不得允许其他接收者抢占提交中的目标格。")
+	assert_push_error_count(1, "被拒绝的确认期重入应报告一次明确错误。")
+	assert_false(grid.is_cell_reserved(target_cell), "确认后预约记录应被清理。")
+	assert_eq(grid.get_cell_occupants(target_cell), [actor_a], "预约所有者应成为唯一占用者。")
+	grid.reservation_released.disconnect(release_callback)
+
+
+func test_reservation_move_is_atomic_against_release_notification_reentry() -> void:
+	var grid: GFGridOccupancy = GFGridOccupancy.new(Vector2i(3, 1))
+	var actor_a: Object = _make_object()
+	var actor_b: Object = _make_object()
+	var source_cell: Vector2i = Vector2i.ZERO
+	var target_cell: Vector2i = Vector2i(1, 0)
+	var nested_results: Array[bool] = []
+
+	assert_true(grid.reserve_cell(actor_a, source_cell), "外层接收者应能建立初始预约。")
+	var release_callback: Callable = func(
+		_receiver: Variant,
+		released_cell: Vector2i
+	) -> void:
+		if released_cell == source_cell:
+			nested_results.append(grid.reserve_cell(actor_b, target_cell))
+	var connect_error: Error = grid.reservation_released.connect(
+		release_callback
+	) as Error
+	assert_eq(connect_error, OK, "测试应能监听预约释放通知。")
+
+	assert_true(grid.reserve_cell(actor_a, target_cell), "外层预约移动应成功提交。")
+
+	assert_eq(nested_results, [false], "预约移动通知期的重入写入必须失败关闭。")
+	assert_push_error_count(1, "被拒绝的预约移动重入应报告一次明确错误。")
+	grid.release_reservation(actor_b)
+	assert_true(grid.is_cell_reserved(target_cell), "被拒绝的接收者不得残留可破坏预约的反向记录。")
+	assert_true(grid.confirm_reservation(actor_a), "外层接收者应能确认目标预约。")
+	grid.reservation_released.disconnect(release_callback)
+
+
 func test_max_occupants_per_cell_allows_shared_cells() -> void:
 	var grid: GFGridOccupancy = GFGridOccupancy.new(Vector2i(2, 2), 2)
 
@@ -47,6 +138,66 @@ func test_max_occupants_per_cell_allows_shared_cells() -> void:
 	assert_true(grid.occupy("b", Vector2i.ZERO), "容量允许时第二个值接收者应能共享格子。")
 	assert_false(grid.occupy("c", Vector2i.ZERO), "超过容量后不应继续占用。")
 	assert_eq(grid.get_cell_occupants(Vector2i.ZERO).size(), 2, "格子中应只有两个接收者。")
+
+
+func test_release_cell_is_atomic_against_reentrant_occupy() -> void:
+	var grid: GFGridOccupancy = GFGridOccupancy.new(Vector2i(1, 1), 2)
+	var nested_results: Array[bool] = []
+
+	assert_true(grid.occupy("a", Vector2i.ZERO), "第一个接收者应能占用格子。")
+	assert_true(grid.occupy("b", Vector2i.ZERO), "第二个接收者应能共享格子。")
+	var release_callback: Callable = func(
+		_receiver: Variant,
+		_released_cell: Vector2i
+	) -> void:
+		if not nested_results.is_empty():
+			return
+		nested_results.append(grid.occupy("c", Vector2i.ZERO))
+	var connect_error: Error = grid.cell_released.connect(
+		release_callback
+	) as Error
+	assert_eq(connect_error, OK, "测试应能监听批量释放通知。")
+
+	grid.release_cell(Vector2i.ZERO)
+
+	assert_eq(nested_results, [false], "批量释放通知期的重入占用必须失败关闭。")
+	assert_push_error_count(1, "被拒绝的批量释放重入应报告一次明确错误。")
+	assert_true(grid.get_cell_occupants(Vector2i.ZERO).is_empty(), "批量释放必须留下完整的空格状态。")
+	grid.cell_released.disconnect(release_callback)
+
+
+func test_configuration_property_writes_are_rejected_during_notification() -> void:
+	var grid: GFGridOccupancy = GFGridOccupancy.new(Vector2i(2, 1), 2)
+	var configuration_callback: Callable = func(
+		_receiver: Variant,
+		_cell: Vector2i
+	) -> void:
+		grid.grid_size = Vector2i.ZERO
+		grid.max_occupants_per_cell = 0
+	var connect_error: Error = grid.cell_occupied.connect(
+		configuration_callback
+	) as Error
+	assert_eq(connect_error, OK, "测试应能监听格子占用通知。")
+
+	assert_true(grid.occupy("actor", Vector2i.ZERO), "外层占用事务应成功提交。")
+
+	assert_eq(grid.grid_size, Vector2i(2, 1), "通知期不得直接改写网格尺寸。")
+	assert_eq(grid.max_occupants_per_cell, 2, "通知期不得直接改写格子容量。")
+	assert_eq(grid.get_cell_occupants(Vector2i.ZERO), ["actor"], "被拒绝的配置写入不得破坏已提交占用。")
+	assert_push_error_count(2, "两个被拒绝的配置写入都应报告明确错误。")
+	grid.cell_occupied.disconnect(configuration_callback)
+
+
+func test_configuration_property_write_clears_existing_records() -> void:
+	var grid: GFGridOccupancy = GFGridOccupancy.new(Vector2i(2, 1), 2)
+	assert_true(grid.occupy("actor", Vector2i.ZERO), "修改配置前应存在占用记录。")
+	assert_true(grid.reserve_cell("reservation", Vector2i(1, 0)), "修改配置前应存在预约记录。")
+
+	grid.max_occupants_per_cell = 1
+
+	assert_eq(grid.max_occupants_per_cell, 1, "直接配置赋值应规范化并提交新容量。")
+	assert_true(grid.get_occupied_cells().is_empty(), "直接配置赋值必须清空旧占用，避免容量失配。")
+	assert_true(grid.get_reserved_cells().is_empty(), "直接配置赋值必须清空旧预约，避免双向索引失配。")
 
 
 func test_occupied_and_reserved_cell_snapshots_are_stable() -> void:
@@ -97,6 +248,69 @@ func test_prune_invalid_receiver_releases_stale_reservation() -> void:
 	grid.prune_invalid_receivers()
 
 	assert_false(grid.is_cell_reserved(cell), "对象释放后预约应能被清理。")
+
+
+func test_queries_ignore_invalid_receiver_without_cleanup_side_effects() -> void:
+	var grid: GFGridOccupancy = GFGridOccupancy.new(Vector2i(2, 1))
+	var receiver: Node = Node.new()
+	var released_count: Array[int] = [0]
+	var release_callback: Callable = func(
+		_released_receiver: Variant,
+		_released_cell: Vector2i
+	) -> void:
+		released_count[0] += 1
+	var connect_error: Error = grid.cell_released.connect(
+		release_callback
+	) as Error
+	assert_eq(connect_error, OK, "测试应能监听格子释放通知。")
+	assert_true(grid.occupy(receiver, Vector2i.ZERO), "对象接收者应能建立占用。")
+
+	receiver.free()
+	receiver = null
+
+	assert_false(grid.is_cell_occupied(Vector2i.ZERO), "查询应忽略已释放对象。")
+	assert_true(grid.get_occupied_cells().is_empty(), "批量查询应过滤已释放对象。")
+	assert_eq(released_count[0], 0, "只读查询不得清理索引或发出释放通知。")
+
+	grid.prune_invalid_receivers()
+
+	assert_eq(released_count[0], 1, "显式清理应发出唯一释放通知。")
+
+
+func test_prune_keeps_reservation_release_before_occupancy_release() -> void:
+	var grid: GFGridOccupancy = GFGridOccupancy.new(Vector2i(2, 1))
+	var receiver: Node = Node.new()
+	var notification_order: Array[String] = []
+	var reservation_callback: Callable = func(
+		_released_receiver: Variant,
+		_released_cell: Vector2i
+	) -> void:
+		notification_order.append("reservation")
+	var occupancy_callback: Callable = func(
+		_released_receiver: Variant,
+		_released_cell: Vector2i
+	) -> void:
+		notification_order.append("occupancy")
+	var reservation_connect_error: Error = grid.reservation_released.connect(
+		reservation_callback
+	) as Error
+	var occupancy_connect_error: Error = grid.cell_released.connect(
+		occupancy_callback
+	) as Error
+	assert_eq(reservation_connect_error, OK, "测试应能监听预约释放通知。")
+	assert_eq(occupancy_connect_error, OK, "测试应能监听占用释放通知。")
+	assert_true(grid.occupy(receiver, Vector2i.ZERO), "对象接收者应能建立占用。")
+	assert_true(grid.reserve_cell(receiver, Vector2i(1, 0)), "同一接收者应能预约另一个格子。")
+
+	receiver.free()
+	receiver = null
+	grid.prune_invalid_receivers()
+
+	assert_eq(
+		notification_order,
+		["reservation", "occupancy"],
+		"同一失效接收者的预约应先于占用释放通知。"
+	)
 
 
 func test_prune_invalid_receiver_emits_cell_released() -> void:

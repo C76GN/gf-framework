@@ -981,6 +981,36 @@ func listen_owned(listener_owner: Object, event_type: Script, listener: GFEventL
 	if arch != null:
 		arch.register_event_owned(listener_owner, event_type, listener, priority)
 
+
+## 快捷订阅类型事件并返回可取消句柄。
+##
+## listener 携带 owner 时句柄会绑定该 owner 生命周期。`once` 订阅会在首个
+## 回调开始前失效，保证嵌套事件派发不会重复进入同一订阅。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param event_type: 要订阅的事件脚本类型。
+## [br]
+## @param listener: 事件监听器契约。
+## [br]
+## @param priority: 监听器优先级，数值越大越先执行。
+## [br]
+## @param once: 是否在首个回调开始前自动取消订阅。
+## [br]
+## @return 可幂等取消的订阅句柄；全局架构不可用时返回非活动句柄。
+func subscribe(
+	event_type: Script,
+	listener: GFEventListener,
+	priority: int = 0,
+	once: bool = false
+) -> GFSubscriptionToken:
+	var arch: GFArchitecture = _get_architecture_or_null("subscribe")
+	if arch == null:
+		return GFSubscriptionToken.new()
+	return arch.subscribe_event(event_type, listener, priority, once)
+
 ## 快捷注册可赋值类型事件监听。
 ## [br]
 ## @api public
@@ -1019,6 +1049,36 @@ func listen_assignable_owned(
 	var arch: GFArchitecture = _get_architecture_or_null("listen_assignable_owned")
 	if arch != null:
 		arch.register_assignable_event_owned(listener_owner, base_event_type, listener, priority)
+
+
+## 快捷订阅可赋值类型事件并返回可取消句柄。
+##
+## listener 携带 owner 时句柄会绑定该 owner 生命周期。监听基类脚本时也会
+## 收到其派生脚本实例；`once` 在首个匹配回调开始前生效。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param base_event_type: 要订阅的基类事件脚本类型。
+## [br]
+## @param listener: 事件监听器契约。
+## [br]
+## @param priority: 监听器优先级，数值越大越先执行。
+## [br]
+## @param once: 是否在首个匹配回调开始前自动取消订阅。
+## [br]
+## @return 可幂等取消的订阅句柄；全局架构不可用时返回非活动句柄。
+func subscribe_assignable(
+	base_event_type: Script,
+	listener: GFEventListener,
+	priority: int = 0,
+	once: bool = false
+) -> GFSubscriptionToken:
+	var arch: GFArchitecture = _get_architecture_or_null("subscribe_assignable")
+	if arch == null:
+		return GFSubscriptionToken.new()
+	return arch.subscribe_assignable_event(base_event_type, listener, priority, once)
 
 ## 快捷注销类型事件监听（别名：unlisten）。
 ## [br]
@@ -1109,6 +1169,33 @@ func listen_simple_owned(listener_owner: Object, event_id: StringName, listener:
 	var arch: GFArchitecture = _get_architecture_or_null("listen_simple_owned")
 	if arch != null:
 		arch.register_simple_event_owned(listener_owner, event_id, listener)
+
+
+## 快捷订阅轻量事件并返回可取消句柄。
+##
+## listener 携带 owner 时句柄会绑定该 owner 生命周期。`once` 订阅会在首个
+## 回调开始前失效，保证嵌套事件派发不会重复进入同一订阅。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param event_id: 简单事件标识符。
+## [br]
+## @param listener: 简单事件监听器契约。
+## [br]
+## @param once: 是否在首个回调开始前自动取消订阅。
+## [br]
+## @return 可幂等取消的订阅句柄；全局架构不可用时返回非活动句柄。
+func subscribe_simple(
+	event_id: StringName,
+	listener: GFEventListener,
+	once: bool = false
+) -> GFSubscriptionToken:
+	var arch: GFArchitecture = _get_architecture_or_null("subscribe_simple")
+	if arch == null:
+		return GFSubscriptionToken.new()
+	return arch.subscribe_simple_event(event_id, listener, once)
 
 ## 快捷注销轻量事件监听（别名：unlisten_simple）。
 ## [br]

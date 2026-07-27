@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFTypeEventSystem" path="addons/gf/kernel/core/gf_type_event_system.gd" module="kernel" extends="Object" classDigest="2e6678a20ca661133fb422de8edba0a0d3b79ad0f7bd2aca13bfe5a4f813fbb3">
+<class name="GFTypeEventSystem" path="addons/gf/kernel/core/gf_type_event_system.gd" module="kernel" extends="Object" classDigest="a836475360b2334f14fc0fd604daad64bcae2aa5bc4402159c721c0e683ebcda">
 	<description>GFTypeEventSystem: 基于类型和 StringName 的双轨事件系统。
 轨道一（类型事件）：使用 Script 类型作为键，以对象实例为载体分发事件。
 轨道二（简单事件）：使用 StringName 作为键，以 Variant 为 payload 分发事件。</description>
@@ -67,6 +67,21 @@
 				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
+		<member kind="method" name="subscribe">
+			<signature>func subscribe( event_type: Script, listener: GFEventListener, priority: int = 0, once: bool = false ) -&gt; GFSubscriptionToken:</signature>
+			<description>订阅特定脚本类型事件并返回可取消句柄。
+每次调用都会创建独立的稳定订阅身份；即使回调和 owner 相同，取消一个句柄也不会影响其它订阅。
+`once` 为 true 时，订阅会在首个回调开始前失效，因此嵌套派发不会再次调用它。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">event_type: 要订阅的脚本类型。</tag>
+				<tag name="param">listener: 事件监听器契约；其中携带的 owner 决定返回句柄的生命周期绑定。</tag>
+				<tag name="param">priority: 回调优先级，数值越大越先执行，默认为 0。</tag>
+				<tag name="param">once: 是否在首个回调开始前自动取消订阅。</tag>
+				<tag name="return">可幂等取消的订阅句柄；参数无效时返回非活动句柄。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
 		<member kind="method" name="unregister">
 			<signature>func unregister(event_type: Script, listener: GFEventListener) -&gt; void:</signature>
 			<description>注销特定脚本类型的事件监听器。</description>
@@ -110,6 +125,21 @@
 				<tag name="param">listener: 事件监听器契约。</tag>
 				<tag name="param">priority: 回调优先级，数值越大越先执行，默认为 0。</tag>
 				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="subscribe_assignable">
+			<signature>func subscribe_assignable( base_event_type: Script, listener: GFEventListener, priority: int = 0, once: bool = false ) -&gt; GFSubscriptionToken:</signature>
+			<description>订阅可赋值类型事件并返回可取消句柄。
+监听基类脚本时也会收到其派生脚本实例。每次调用都创建独立订阅身份，
+`once` 会在首个匹配事件的用户回调开始前使句柄失效。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">base_event_type: 要订阅的基类脚本类型。</tag>
+				<tag name="param">listener: 事件监听器契约；其中携带的 owner 决定返回句柄的生命周期绑定。</tag>
+				<tag name="param">priority: 回调优先级，数值越大越先执行，默认为 0。</tag>
+				<tag name="param">once: 是否在首个匹配回调开始前自动取消订阅。</tag>
+				<tag name="return">可幂等取消的订阅句柄；参数无效时返回非活动句柄。</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 		<member kind="method" name="unregister_assignable">
@@ -160,6 +190,20 @@
 				<tag name="param">event_id: StringName 事件标识符。</tag>
 				<tag name="param">listener: 简单事件监听器契约。</tag>
 				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="subscribe_simple">
+			<signature>func subscribe_simple( event_id: StringName, listener: GFEventListener, once: bool = false ) -&gt; GFSubscriptionToken:</signature>
+			<description>订阅轻量级 StringName 事件并返回可取消句柄。
+每次调用都会创建独立的稳定订阅身份；`once` 为 true 时，订阅会在首个
+用户回调开始前失效，因此同一回调中的嵌套派发不会再次调用它。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">event_id: StringName 事件标识符。</tag>
+				<tag name="param">listener: 简单事件监听器契约；其中携带的 owner 决定返回句柄的生命周期绑定。</tag>
+				<tag name="param">once: 是否在首个回调开始前自动取消订阅。</tag>
+				<tag name="return">可幂等取消的订阅句柄；参数无效时返回非活动句柄。</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 		<member kind="method" name="unregister_simple">
@@ -213,13 +257,14 @@
 		<member kind="method" name="get_listener_diagnostics">
 			<signature>func get_listener_diagnostics(options: Dictionary = {}) -&gt; Dictionary:</signature>
 			<description>获取事件监听器诊断明细。
-默认只返回每条轨道的数量统计；传入 `{ "include_entries": true }` 时会附带每个监听器的事件 key、owner 状态、优先级和 Callable 状态。</description>
+默认只返回每条轨道的数量统计；传入 `{ "include_entries": true }` 时会附带每个监听器的
+事件 key、owner 状态、优先级、Callable 状态，以及订阅记录的稳定身份和 once 标记。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">options: 诊断选项。</tag>
 				<tag name="return">监听器诊断报告。</tag>
 				<tag name="schema">options: Dictionary，可包含 include_entries。</tag>
-				<tag name="schema">return: Dictionary containing listener counts, stale owner counts, track summaries, and optional entry rows.</tag>
+				<tag name="schema">return: Dictionary containing listener counts, stale owner counts, track summaries, and optional entry rows with subscription_id and once.</tag>
 				<tag name="since">7.0.0</tag>
 			</tags>
 		</member>

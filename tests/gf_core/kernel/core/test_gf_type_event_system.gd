@@ -87,6 +87,7 @@ class EventTestState:
 	var cb_b: Callable = Callable()
 	var late_cb: Callable = Callable()
 	var replacement: Callable = Callable()
+	var subscription_token: GFSubscriptionToken = null
 
 class SimpleReceiver:
 	var payload: Variant = null
@@ -708,6 +709,141 @@ func test_multiple_listeners() -> void:
 	assert_eq(state.count, 2, "两个监听器都应被调用。")
 
 
+func test_subscribe_returns_independently_cancellable_tokens() -> void:
+	var state: EventTestState = EventTestState.new()
+	var listener: GFEventListener = _type_listener(func(_event: SampleEventA) -> void:
+		state.count += 1
+	)
+	var first_token: GFSubscriptionToken = _system.subscribe(SampleEventA, listener)
+	var second_token: GFSubscriptionToken = _system.subscribe(SampleEventA, listener)
+
+	assert_true(first_token.is_active(), "第一个订阅 token 应处于活动状态。")
+	assert_true(second_token.is_active(), "第二个订阅 token 应处于活动状态。")
+	assert_true(first_token.cancel(), "首次取消应只移除对应稳定身份的订阅。")
+	assert_false(first_token.cancel(), "重复取消应保持幂等。")
+	assert_false(first_token.is_active(), "已取消 token 应立即失效。")
+	assert_true(second_token.is_active(), "取消第一个 token 不应影响相同回调的独立订阅。")
+
+	_system.send(SampleEventA.new())
+
+	assert_eq(state.count, 1, "相同回调的另一个独立订阅仍应收到事件。")
+	assert_true(second_token.cancel(), "剩余订阅仍应可独立取消。")
+
+
+func test_once_subscription_is_removed_before_nested_type_dispatch() -> void:
+	var state: EventTestState = EventTestState.new()
+	var listener: GFEventListener = _type_listener(func(_event: SampleEventA) -> void:
+		state.count += 1
+		state.called = state.subscription_token != null and not state.subscription_token.is_active()
+		_system.send(SampleEventA.new())
+	)
+	state.subscription_token = _system.subscribe(SampleEventA, listener, 0, true)
+
+	_system.send(SampleEventA.new())
+
+	assert_eq(state.count, 1, "一次性订阅必须在嵌套派发前移除，不能重入第二次。")
+	assert_true(state.called, "一次性订阅 token 应在用户回调开始前失效。")
+	assert_false(state.subscription_token.is_active(), "一次性派发完成后 token 应保持失效。")
+	assert_false(state.subscription_token.cancel(), "自动失效后 cancel 应保持幂等并返回 false。")
+
+
+func test_once_assignable_subscription_accepts_only_first_matching_event() -> void:
+	var state: EventTestState = EventTestState.new()
+	var subscription_token: GFSubscriptionToken = _system.subscribe_assignable(
+		SampleEventA,
+		_type_listener(func(_event: SampleEventA) -> void:
+			state.count += 1,
+		),
+		0,
+		true
+	)
+
+	_system.send(SampleEventChild.new())
+	_system.send(SampleEventA.new())
+
+	assert_eq(state.count, 1, "可赋值一次性订阅应只接收首个匹配事件。")
+	assert_false(subscription_token.is_active(), "首个匹配事件后可赋值订阅 token 应失效。")
+
+
+func test_cancel_during_dispatch_skips_pending_listener_by_subscription_id() -> void:
+	var state: EventTestState = EventTestState.new()
+	state.subscription_token = _system.subscribe(
+		SampleEventA,
+		_type_listener(func(_event: SampleEventA) -> void:
+			state.count += 1,
+		)
+	)
+	_system.register(
+		SampleEventA,
+		_type_listener(func(_event: SampleEventA) -> void:
+			assert_true(state.subscription_token.cancel(), "派发中的 token.cancel 应立即使目标订阅失效。"),
+		),
+		10
+	)
+
+	_system.send(SampleEventA.new())
+
+	assert_eq(state.count, 0, "派发中取消的较低优先级订阅不应在本轮继续执行。")
+	assert_false(state.subscription_token.is_active(), "派发中取消后 token 应保持失效。")
+	assert_false(state.subscription_token.cancel(), "派发中取消后的重复 cancel 应保持幂等。")
+
+
+func test_unregister_owner_deactivates_owned_subscription_token() -> void:
+	var listener_owner: RefCounted = RefCounted.new()
+	var state: EventTestState = EventTestState.new()
+	var listener: GFEventListener = _type_listener(func(_event: SampleEventA) -> void:
+		state.count += 1
+	).with_owner(listener_owner)
+	var subscription_token: GFSubscriptionToken = _system.subscribe(SampleEventA, listener)
+
+	assert_true(subscription_token is GFLifetimeSubscription, "带 owner 的监听器应返回生命周期订阅 token。")
+	assert_true(subscription_token.is_active(), "owner 清理前订阅应处于活动状态。")
+
+	_system.unregister_owner(listener_owner)
+	_system.send(SampleEventA.new())
+
+	assert_eq(state.count, 0, "owner 清理后订阅不应收到事件。")
+	assert_false(subscription_token.is_active(), "owner 清理应使订阅 token 自动失效。")
+	assert_false(subscription_token.cancel(), "owner 清理后的 cancel 应保持幂等。")
+
+
+func test_clear_deactivates_subscription_tokens() -> void:
+	var type_token: GFSubscriptionToken = _system.subscribe(
+		SampleEventA,
+		_type_listener(func(_event: SampleEventA) -> void:
+			pass,
+		)
+	)
+	var simple_token: GFSubscriptionToken = _system.subscribe_simple(
+		&"clear_subscription",
+		_simple_listener(func(_payload: Variant) -> void:
+			pass,
+		)
+	)
+
+	_system.clear()
+
+	assert_false(type_token.is_active(), "clear 应使类型事件订阅 token 失效。")
+	assert_false(simple_token.is_active(), "clear 应使简单事件订阅 token 失效。")
+	assert_false(type_token.cancel(), "clear 后类型订阅 cancel 应保持幂等。")
+	assert_false(simple_token.cancel(), "clear 后简单订阅 cancel 应保持幂等。")
+
+
+func test_source_release_deactivates_subscription_token() -> void:
+	var source: GFTypeEventSystem = GFTypeEventSystem.new()
+	var subscription_token: GFSubscriptionToken = source.subscribe(
+		SampleEventA,
+		_type_listener(func(_event: SampleEventA) -> void:
+			pass,
+		)
+	)
+
+	source = null
+
+	assert_false(subscription_token.is_active(), "事件源释放前必须使仍被持有的订阅 token 失效。")
+	assert_false(subscription_token.cancel(), "事件源释放后的 cancel 应保持幂等并返回 false。")
+
+
 ## 验证 clear 后，send 不再触发任何回调。
 func test_clear() -> void:
 	var state: EventTestState = EventTestState.new()
@@ -762,6 +898,47 @@ func test_send_simple_register_and_send() -> void:
 	_system.send_simple(event_id, 99)
 
 	assert_eq(_GF_VARIANT_ACCESS_SCRIPT.to_int(state.payload), 99, "简单事件回调应接收到正确的 payload。")
+
+
+func test_once_simple_subscription_is_removed_before_nested_dispatch() -> void:
+	var state: EventTestState = EventTestState.new()
+	var event_id: StringName = &"once_nested_simple"
+	var listener: GFEventListener = _simple_listener(func(_payload: Variant) -> void:
+		state.count += 1
+		state.called = state.subscription_token != null and not state.subscription_token.is_active()
+		_system.send_simple(event_id)
+	)
+	state.subscription_token = _system.subscribe_simple(event_id, listener, true)
+
+	_system.send_simple(event_id)
+
+	assert_eq(state.count, 1, "简单事件一次性订阅必须在嵌套派发前移除。")
+	assert_true(state.called, "简单事件一次性 token 应在用户回调开始前失效。")
+	assert_false(state.subscription_token.cancel(), "自动失效后 cancel 应保持幂等。")
+
+
+func test_cancel_pending_subscription_prevents_later_registration() -> void:
+	var state: EventTestState = EventTestState.new()
+	var outer_listener: GFEventListener = _type_listener(func(_event: SampleEventA) -> void:
+		if state.subscription_token != null:
+			return
+		state.subscription_token = _system.subscribe(
+			SampleEventA,
+			_type_listener(func(_late_event: SampleEventA) -> void:
+				state.count += 10,
+			)
+		)
+		assert_true(state.subscription_token.cancel(), "派发中新增的 pending 订阅应可立即取消。")
+		assert_false(state.subscription_token.cancel(), "pending 订阅重复取消应保持幂等。")
+	)
+	_system.register(SampleEventA, outer_listener)
+
+	_system.send(SampleEventA.new())
+	_system.send(SampleEventA.new())
+
+	assert_eq(state.count, 0, "派发中创建后取消的订阅不应在后续派发中落地。")
+	assert_not_null(state.subscription_token, "回调应创建 pending 订阅 token。")
+	assert_false(state.subscription_token.is_active(), "已取消的 pending 订阅 token 应保持失效。")
 
 
 func test_register_simple_rejects_empty_event_id() -> void:

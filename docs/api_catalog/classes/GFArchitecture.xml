@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFArchitecture" path="addons/gf/kernel/core/gf_architecture.gd" module="kernel" extends="Object" classDigest="bdd882b7f99f10f4ea4874059aa0cc3fdc97fcbc6b89dc1c328c15bef9636b44">
+<class name="GFArchitecture" path="addons/gf/kernel/core/gf_architecture.gd" module="kernel" extends="Object" classDigest="d9e6a4f9f161bba088597788f2f672d85d91453af891c45c22ca5d86f4dbc6a8">
 	<description>GFArchitecture: 管理 Model、System 和 Utility 的注册与生命周期的容器。
 生命周期遵循三阶段初始化协议：
 阶段一 (init)       ：所有模块执行自身内部变量初始化。
@@ -380,6 +380,21 @@ query 缺少 execute() 方法时会输出 warning 并返回 null。</description
 				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
+		<member kind="method" name="subscribe_event">
+			<signature>func subscribe_event( event_type: Script, listener: GFEventListener, priority: int = 0, once: bool = false ) -&gt; GFSubscriptionToken:</signature>
+			<description>订阅脚本类型事件并返回可取消句柄。
+listener 携带 owner 时返回的句柄会绑定该 owner 生命周期。`once` 订阅会在
+首个回调开始前失效，保证嵌套事件派发不会重复进入同一订阅。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">event_type: 要订阅的脚本类型。</tag>
+				<tag name="param">listener: 事件监听器契约。</tag>
+				<tag name="param">priority: 回调优先级，数值越大越先执行，默认为 0。</tag>
+				<tag name="param">once: 是否在首个回调开始前自动取消订阅。</tag>
+				<tag name="return">可幂等取消的订阅句柄；架构不可修改或参数无效时返回非活动句柄。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
 		<member kind="method" name="register_assignable_event">
 			<signature>func register_assignable_event(base_event_type: Script, listener: GFEventListener, priority: int = 0) -&gt; void:</signature>
 			<description>为脚本类型注册可赋值事件监听器。
@@ -402,6 +417,21 @@ query 缺少 execute() 方法时会输出 warning 并返回 null。</description
 				<tag name="param">listener: 事件监听器契约。</tag>
 				<tag name="param">priority: 回调优先级，数值越大越先执行，默认为 0。</tag>
 				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="subscribe_assignable_event">
+			<signature>func subscribe_assignable_event( base_event_type: Script, listener: GFEventListener, priority: int = 0, once: bool = false ) -&gt; GFSubscriptionToken:</signature>
+			<description>订阅可赋值类型事件并返回可取消句柄。
+listener 携带 owner 时返回的句柄会绑定该 owner 生命周期。监听基类脚本时，
+订阅也会收到其派生脚本实例；`once` 在首个匹配回调开始前生效。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">base_event_type: 要订阅的基类脚本类型。</tag>
+				<tag name="param">listener: 事件监听器契约。</tag>
+				<tag name="param">priority: 回调优先级，数值越大越先执行，默认为 0。</tag>
+				<tag name="param">once: 是否在首个匹配回调开始前自动取消订阅。</tag>
+				<tag name="return">可幂等取消的订阅句柄；架构不可修改或参数无效时返回非活动句柄。</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 		<member kind="method" name="unregister_event">
@@ -466,6 +496,20 @@ query 缺少 execute() 方法时会输出 warning 并返回 null。</description
 				<tag name="param">event_id: StringName 事件标识符。</tag>
 				<tag name="param">listener: 简单事件监听器契约。</tag>
 				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="subscribe_simple_event">
+			<signature>func subscribe_simple_event( event_id: StringName, listener: GFEventListener, once: bool = false ) -&gt; GFSubscriptionToken:</signature>
+			<description>订阅轻量级 StringName 事件并返回可取消句柄。
+listener 携带 owner 时返回的句柄会绑定该 owner 生命周期。`once` 订阅会在
+首个回调开始前失效，保证嵌套事件派发不会重复进入同一订阅。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">event_id: StringName 事件标识符。</tag>
+				<tag name="param">listener: 简单事件监听器契约。</tag>
+				<tag name="param">once: 是否在首个回调开始前自动取消订阅。</tag>
+				<tag name="return">可幂等取消的订阅句柄；架构不可修改或参数无效时返回非活动句柄。</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 		<member kind="method" name="unregister_simple_event">

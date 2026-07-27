@@ -1,8 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFGridOccupancy" path="addons/gf/standard/foundation/math/gf_grid_occupancy.gd" module="standard" extends="RefCounted" classDigest="3cc9e7beadd77b6773ba1023ee640250f989e391eba62e6b9cdb829fd4e4a626">
+<class name="GFGridOccupancy" path="addons/gf/standard/foundation/math/gf_grid_occupancy.gd" module="standard" extends="RefCounted" classDigest="feba97fe54b6fe04063104c48b3f9aa19a9cc5cf344e3e25bf11cd1cd90f4910">
 	<description>GFGridOccupancy: 网格占用与预约数据结构。
 适合格子移动、战棋、推箱子和解谜类玩法在 System 中跟踪运行时占用。
-它不负责路径查找、碰撞或胜负规则。</description>
+它不负责路径查找、碰撞或胜负规则。
+占用变更会先完整提交内部映射，再同步发出通知；通知回调可以查询已提交状态，
+但通知期间重入调用本类型的写入方法会失败关闭，避免嵌套修改破坏容量与双向索引。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">runtime_service</tag>
@@ -54,17 +56,21 @@
 	<constants />
 	<properties>
 		<member kind="property" name="grid_size">
-			<signature>var grid_size: Vector2i = Vector2i.ZERO</signature>
-			<description>网格尺寸。小于等于 0 的维度会让所有格子视为越界。</description>
+			<signature>var grid_size: Vector2i:</signature>
+			<description>网格尺寸，默认为 [constant Vector2i.ZERO]。小于等于 0 的维度会让所有格子视为越界。
+直接赋值会像 configure() 一样清空现有占用与预约；通知期间的赋值会失败关闭。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="max_occupants_per_cell">
-			<signature>var max_occupants_per_cell: int = 1</signature>
-			<description>单格允许的最大占用数量。</description>
+			<signature>var max_occupants_per_cell: int:</signature>
+			<description>单格允许的最大占用数量，默认为 1，最小为 1。
+直接赋值会像 configure() 一样清空现有占用与预约；通知期间的赋值会失败关闭。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 	</properties>

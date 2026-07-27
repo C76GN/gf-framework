@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "catalog_version": "1.5.0",
+  "catalog_version": "1.6.0",
   "capabilities": [
     {
       "id": "architecture",
@@ -25,12 +25,12 @@
     {
       "id": "assets-content",
       "title": "Assets, resource identity, and content",
-      "summary": "Async resource handles, stable resource keys, catalogs, preload plans, and optional content packages.",
-      "keywords": ["asset", "resource", "load", "cache", "preload", "catalog", "content package", "dlc"],
+      "summary": "Async resource handles, stable resource keys, catalogs, preload plans, optional content packages, and auditable generated-artifact export plans.",
+      "keywords": ["asset", "resource", "load", "cache", "preload", "catalog", "content package", "dlc", "artifact export", "thumbnail", "screenshot", "atlas"],
       "packages": ["gf.standard.assets", "gf.extension.content_package"],
-      "primary_classes": ["GFAssetUtility", "GFAssetHandle", "GFResourceResolverUtility", "GFAssetCatalogRuntime", "GFAssetCatalogMount", "GFContentPackageQuery", "GFContentPackageAssetCatalogProvider"],
-      "recipes": ["owned-resource-load", "content-package"],
-      "boundary": "Projects define content taxonomy and distribution policy; GF provides identity, lifecycle, plans, and diagnostics."
+      "primary_classes": ["GFAssetUtility", "GFAssetHandle", "GFResourceResolverUtility", "GFAssetCatalogRuntime", "GFAssetCatalogMount", "GFContentPackageQuery", "GFContentPackageAssetCatalogProvider", "GFContentPackageExportPlan"],
+      "recipes": ["owned-resource-load", "content-package", "external-artifact-export"],
+      "boundary": "Projects define content taxonomy, materialization, target adapters, and distribution policy; GF provides identity, lifecycle, plans, and diagnostics."
     },
     {
       "id": "config-data",
