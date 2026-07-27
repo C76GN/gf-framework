@@ -9,7 +9,7 @@
 - 类别：运行时服务 (`runtime_service`)
 - 首次版本：`3.17.0`
 
-网格占用与预约数据结构。 适合格子移动、战棋、推箱子和解谜类玩法在 System 中跟踪运行时占用。 它不负责路径查找、碰撞或胜负规则。
+网格占用与预约数据结构。 适合格子移动、战棋、推箱子和解谜类玩法在 System 中跟踪运行时占用。 它不负责路径查找、碰撞或胜负规则。 占用变更会先完整提交内部映射，再同步发出通知；通知回调可以查询已提交状态， 但通知期间重入调用本类型的写入方法会失败关闭，避免嵌套修改破坏容量与双向索引。
 
 ## 成员概览
 
@@ -19,8 +19,8 @@
 | 信号 | [`cell_released`](#member-gfgridoccupancy-signals-cell_released) | `signal cell_released(receiver: Variant, cell: Vector2i)` |
 | 信号 | [`cell_reserved`](#member-gfgridoccupancy-signals-cell_reserved) | `signal cell_reserved(receiver: Variant, cell: Vector2i)` |
 | 信号 | [`reservation_released`](#member-gfgridoccupancy-signals-reservation_released) | `signal reservation_released(receiver: Variant, cell: Vector2i)` |
-| 属性 | [`grid_size`](#member-gfgridoccupancy-properties-grid_size) | `var grid_size: Vector2i = Vector2i.ZERO` |
-| 属性 | [`max_occupants_per_cell`](#member-gfgridoccupancy-properties-max_occupants_per_cell) | `var max_occupants_per_cell: int = 1` |
+| 属性 | [`grid_size`](#member-gfgridoccupancy-properties-grid_size) | `var grid_size: Vector2i:` |
+| 属性 | [`max_occupants_per_cell`](#member-gfgridoccupancy-properties-max_occupants_per_cell) | `var max_occupants_per_cell: int:` |
 | 方法 | [`configure`](#member-gfgridoccupancy-methods-configure) | `func configure(p_grid_size: Vector2i, p_max_occupants_per_cell: int = 1) -> void:` |
 | 方法 | [`is_in_bounds`](#member-gfgridoccupancy-methods-is_in_bounds) | `func is_in_bounds(cell: Vector2i) -> bool:` |
 | 方法 | [`can_occupy`](#member-gfgridoccupancy-methods-can_occupy) | `func can_occupy(receiver: Variant, cell: Vector2i) -> bool:` |
@@ -142,24 +142,26 @@ signal reservation_released(receiver: Variant, cell: Vector2i)
 ### `grid_size`
 
 - API：`public`
+- 首次版本：`10.0.0`
 
 ```gdscript
-var grid_size: Vector2i = Vector2i.ZERO
+var grid_size: Vector2i:
 ```
 
-网格尺寸。小于等于 0 的维度会让所有格子视为越界。
+网格尺寸，默认为 [constant Vector2i.ZERO]。小于等于 0 的维度会让所有格子视为越界。 直接赋值会像 configure() 一样清空现有占用与预约；通知期间的赋值会失败关闭。
 
 <a id="member-gfgridoccupancy-properties-max_occupants_per_cell"></a>
 
 ### `max_occupants_per_cell`
 
 - API：`public`
+- 首次版本：`10.0.0`
 
 ```gdscript
-var max_occupants_per_cell: int = 1
+var max_occupants_per_cell: int:
 ```
 
-单格允许的最大占用数量。
+单格允许的最大占用数量，默认为 1，最小为 1。 直接赋值会像 configure() 一样清空现有占用与预约；通知期间的赋值会失败关闭。
 
 ## 方法
 

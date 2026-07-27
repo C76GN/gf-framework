@@ -28,10 +28,16 @@ PLUGIN_NAME = "gf-ai-developer"
 ZIP_TIMESTAMP = (1980, 1, 1, 0, 0, 0)
 BLOCKED_PARTS = {"__pycache__", ".git", ".godot"}
 BLOCKED_SUFFIXES = {".pyc", ".pyo", ".tmp", ".log"}
+NATIVE_HASH_PLACEHOLDER = "replace-with-64-lowercase-sha256"
+NATIVE_THREAD_PLACEHOLDER = "replace-with-main-or-worker"
 
 sys.path.insert(0, str(ADDON_ROOT))
 try:
-	from gf_ai.paths import read_json_object as read_strict_json_object
+	from gf_ai.paths import (
+		is_reserved_framework_resource_path,
+		normalize_portable_ownership_path,
+		read_json_object as read_strict_json_object,
+	)
 finally:
 	sys.path.pop(0)
 
@@ -333,6 +339,11 @@ def validate_platform_adapter_templates(
 			"GFPlatformAdapterConformance.inspect()",
 			"GFMultiplayerPeerNetworkBackend.adopt_peer()",
 			"provider cancellation requested once",
+			"## Native mode and fail-closed probing",
+			"## Native artifact matrix",
+			"## Threading and callback pump",
+			"## Reproducible supply chain",
+			"## Editor and export boundary",
 		),
 		"platform_adapter.gd.txt": (
 			"extends GFPlatformAdapter",
@@ -350,6 +361,8 @@ def validate_platform_adapter_templates(
 			"GFPlatformAdapterConformance.inspect",
 			"test_adapter_failure_matrix",
 			"Replace this sentinel with the complete adapter failure matrix.",
+			"test_native_adapter_acceptance_matrix",
+			"Replace this sentinel with the native Adapter acceptance matrix.",
 		),
 	}
 	for relative_path, required_fragments in required_text.items():
@@ -402,6 +415,7 @@ def validate_platform_adapter_templates(
 			for contract_id, version in contract_versions.items()
 		):
 			issues.append("Platform adapter contract_versions must map stable IDs to exact SemVer.")
+		issues.extend(_validate_platform_native_profile(profile))
 
 	try:
 		recipes = read_strict_json_object(ADDON_ROOT / "knowledge/recipes.json")
@@ -421,6 +435,24 @@ def validate_platform_adapter_templates(
 		for package_id in ("gf.standard.platform", "gf.extension.network"):
 			if package_id not in all_of:
 				issues.append(f"platform-lobby-adapter recipe must require package: {package_id}.")
+		platform_steps = " ".join(
+			str(step)
+			for step in (
+				platform_recipe.get("steps", [])
+				if isinstance(platform_recipe, dict)
+				else []
+			)
+		)
+		for fragment in (
+			"native or GDExtension-backed providers",
+			"bounded plain-data ingress queue",
+			"actual exported target",
+		):
+			if fragment not in platform_steps:
+				issues.append(
+					"platform-lobby-adapter recipe is missing native acceptance guidance: "
+					f"{fragment}."
+				)
 		capabilities = read_strict_json_object(ADDON_ROOT / "knowledge/capabilities.json")
 		platform_capability = next(
 			(
@@ -435,6 +467,275 @@ def validate_platform_adapter_templates(
 	except (OSError, ValueError) as exc:
 		issues.append(f"Platform adapter catalog contract validation failed: {exc}")
 	return issues
+
+
+def _validate_platform_native_profile(profile: dict[str, Any]) -> list[str]:
+	issues: list[str] = []
+	metadata = profile.get("metadata")
+	if not isinstance(metadata, dict):
+		return ["Platform adapter compatibility profile requires metadata."]
+	native_boundary = metadata.get("native_boundary")
+	if not isinstance(native_boundary, dict):
+		return ["Platform adapter compatibility profile requires native_boundary metadata."]
+
+	mode = native_boundary.get("mode")
+	if mode not in {"script_only", "optional", "required"}:
+		issues.append(
+			"Platform adapter native_boundary.mode must be script_only, optional, or required."
+		)
+
+	artifacts_value = profile.get("artifacts")
+	if not isinstance(artifacts_value, list):
+		issues.append("Platform adapter compatibility profile artifacts must be an array.")
+		artifacts: list[dict[str, Any]] = []
+	else:
+		artifacts = [item for item in artifacts_value if isinstance(item, dict)]
+		if len(artifacts) != len(artifacts_value):
+			issues.append("Platform adapter compatibility profile artifacts must contain objects.")
+
+	artifact_ids: set[str] = set()
+	artifact_paths: set[str] = set()
+	descriptor_artifacts: list[dict[str, Any]] = []
+	native_libraries: list[dict[str, Any]] = []
+	library_targets: set[tuple[str, str, str]] = set()
+	for artifact in artifacts:
+		artifact_id = artifact.get("id")
+		path = artifact.get("path")
+		kind = artifact.get("kind")
+		if not isinstance(artifact_id, str) or not artifact_id.strip():
+			issues.append("Every native artifact requires a stable non-empty id.")
+		elif artifact_id in artifact_ids:
+			issues.append(f"Native artifact id is duplicated: {artifact_id}.")
+		else:
+			artifact_ids.add(artifact_id)
+		if not _is_project_owned_native_path(path):
+			issues.append(
+				f"Native artifact {artifact_id!r} requires a canonical cross-platform "
+				"project-owned res:// path."
+			)
+		elif path in artifact_paths:
+			issues.append(f"Native artifact path is duplicated: {path}.")
+		else:
+			artifact_paths.add(path)
+		if kind not in {"gdextension_descriptor", "native_library"}:
+			issues.append(f"Native artifact {artifact_id!r} has unsupported kind: {kind!r}.")
+
+		sha256 = artifact.get("sha256")
+		hash_is_placeholder = sha256 == NATIVE_HASH_PLACEHOLDER
+		if not hash_is_placeholder and (
+			not isinstance(sha256, str)
+			or re.fullmatch(r"[0-9a-f]{64}", sha256) is None
+		):
+			issues.append(
+				f"Native artifact {artifact_id!r} sha256 must be a lowercase digest or explicit template placeholder."
+			)
+		size_bytes = artifact.get("size_bytes")
+		if isinstance(size_bytes, bool) or not isinstance(size_bytes, int) or size_bytes < 0:
+			issues.append(f"Native artifact {artifact_id!r} size_bytes must be a non-negative integer.")
+		elif hash_is_placeholder and size_bytes != 0:
+			issues.append(
+				f"Unverified native artifact {artifact_id!r} must retain size_bytes = 0."
+			)
+		elif not hash_is_placeholder and size_bytes <= 0:
+			issues.append(
+				f"Verified native artifact {artifact_id!r} requires a positive size_bytes value."
+			)
+
+		artifact_metadata = artifact.get("metadata")
+		if not isinstance(artifact_metadata, dict):
+			issues.append(f"Native artifact {artifact_id!r} requires metadata.")
+			continue
+		if artifact_metadata.get("export_scope") not in {"editor", "runtime"}:
+			issues.append(
+				f"Native artifact {artifact_id!r} export_scope must be editor or runtime."
+			)
+		if kind == "gdextension_descriptor":
+			descriptor_artifacts.append(artifact)
+			minimum_godot_version = artifact_metadata.get("minimum_godot_version")
+			if (
+				not isinstance(minimum_godot_version, str)
+				or re.fullmatch(r"\d+\.\d+\.\d+", minimum_godot_version) is None
+			):
+				issues.append(
+					f"Native descriptor {artifact_id!r} requires an exact minimum_godot_version."
+				)
+			if not isinstance(artifact_metadata.get("reloadable"), bool):
+				issues.append(f"Native descriptor {artifact_id!r} requires a bool reloadable policy.")
+		elif kind == "native_library":
+			native_libraries.append(artifact)
+			target_values = tuple(
+				artifact_metadata.get(field_name)
+				for field_name in ("platform", "architecture", "build_configuration")
+			)
+			if any(not isinstance(value, str) or not value.strip() for value in target_values):
+				issues.append(
+					f"Native library {artifact_id!r} requires an exact platform/architecture/build_configuration tuple."
+				)
+			else:
+				target = (target_values[0], target_values[1], target_values[2])
+				if target in library_targets:
+					issues.append(f"Native library target tuple is duplicated: {target}.")
+				library_targets.add(target)
+			for field_name in ("source_id", "source_version", "license_id"):
+				value = artifact_metadata.get(field_name)
+				if not isinstance(value, str) or not value.strip():
+					issues.append(
+						f"Native library {artifact_id!r} requires non-empty {field_name}."
+					)
+
+	if mode == "script_only":
+		if artifacts:
+			issues.append("script_only native mode must not declare native artifacts.")
+	else:
+		if len(descriptor_artifacts) != 1:
+			issues.append("optional and required native modes require exactly one descriptor artifact.")
+		if not native_libraries:
+			issues.append("optional and required native modes require at least one native library.")
+
+	descriptor_path = native_boundary.get("descriptor_path")
+	if mode != "script_only":
+		if not _is_project_owned_native_path(descriptor_path):
+			issues.append(
+				"Native boundary descriptor_path must be a canonical cross-platform "
+				"project-owned res:// path."
+			)
+		elif len(descriptor_artifacts) == 1 and descriptor_artifacts[0].get("path") != descriptor_path:
+			issues.append("Native boundary descriptor_path must match the descriptor artifact.")
+
+	probe = native_boundary.get("availability_probe")
+	if not isinstance(probe, dict):
+		issues.append("Native boundary requires an availability_probe object.")
+	else:
+		probe_kind = probe.get("kind")
+		if probe_kind not in {"class_db", "resource"}:
+			issues.append("Native availability_probe.kind must be class_db or resource.")
+		elif probe_kind == "class_db":
+			if not isinstance(probe.get("class_name"), str) or not probe["class_name"].strip():
+				issues.append("class_db availability probes require class_name.")
+		elif not _is_project_owned_native_path(probe.get("resource_path")):
+			issues.append(
+				"resource availability probes require a canonical cross-platform "
+				"project-owned res:// resource_path."
+			)
+		if probe.get("side_effect_free") is not True:
+			issues.append("Native availability probes must declare side_effect_free = true.")
+
+	for field_name in ("call_thread", "callback_thread"):
+		thread_name = native_boundary.get(field_name)
+		if thread_name not in {"main", "worker", NATIVE_THREAD_PLACEHOLDER}:
+			issues.append(
+				f"Native boundary {field_name} must be main, worker, or the explicit template placeholder."
+			)
+	callback_pump = native_boundary.get("callback_pump")
+	if not isinstance(callback_pump, str) or not callback_pump.strip():
+		issues.append("Native boundary requires a non-empty callback_pump.")
+	shutdown_timeout_msec = native_boundary.get("shutdown_timeout_msec")
+	if (
+		isinstance(shutdown_timeout_msec, bool)
+		or not isinstance(shutdown_timeout_msec, int)
+		or shutdown_timeout_msec <= 0
+	):
+		issues.append("Native boundary shutdown_timeout_msec must be a positive integer.")
+	permissions = native_boundary.get("permissions")
+	if not isinstance(permissions, list) or any(
+		not isinstance(permission, str) or not permission.strip()
+		for permission in permissions
+	):
+		issues.append("Native boundary permissions must be an array of stable non-empty strings.")
+	if not isinstance(native_boundary.get("editor_only"), bool):
+		issues.append("Native boundary editor_only must be bool.")
+	dependency_lock_path = native_boundary.get("dependency_lock_path")
+	if (
+		mode != "script_only"
+		and not _is_project_owned_native_path(dependency_lock_path)
+	):
+		issues.append(
+			"Native boundary dependency_lock_path must be a canonical cross-platform "
+			"project-owned res:// path."
+		)
+	if not isinstance(native_boundary.get("offline_rebuild_verified"), bool):
+		issues.append("Native boundary offline_rebuild_verified must be bool.")
+
+	export_targets_value = native_boundary.get("export_targets")
+	if not isinstance(export_targets_value, list):
+		issues.append("Native boundary export_targets must be an array.")
+		export_targets: set[tuple[str, str, str]] = set()
+	else:
+		export_targets = set()
+		for target_value in export_targets_value:
+			if not isinstance(target_value, dict):
+				issues.append("Native boundary export_targets must contain objects.")
+				continue
+			target_values = tuple(
+				target_value.get(field_name)
+				for field_name in ("platform", "architecture", "build_configuration")
+			)
+			if any(not isinstance(value, str) or not value.strip() for value in target_values):
+				issues.append(
+					"Every native export target requires platform, architecture, and build_configuration."
+				)
+				continue
+			target = (target_values[0], target_values[1], target_values[2])
+			if target in export_targets:
+				issues.append(f"Native export target tuple is duplicated: {target}.")
+			export_targets.add(target)
+	if mode == "script_only" and export_targets:
+		issues.append("script_only native mode must not declare native export targets.")
+	elif mode in {"optional", "required"} and export_targets != library_targets:
+		issues.append("Native export targets must exactly match declared native library tuples.")
+
+	dependencies_value = metadata.get("native_dependencies")
+	if mode == "script_only":
+		if dependencies_value not in (None, []):
+			issues.append("script_only native mode must not declare native_dependencies.")
+	elif not isinstance(dependencies_value, list) or not dependencies_value:
+		issues.append("Native modes require a non-empty native_dependencies array.")
+	else:
+		dependency_ids: set[str] = set()
+		for dependency in dependencies_value:
+			if not isinstance(dependency, dict):
+				issues.append("native_dependencies must contain objects.")
+				continue
+			dependency_id = dependency.get("id")
+			if not isinstance(dependency_id, str) or not dependency_id.strip():
+				issues.append("Every native dependency requires a stable non-empty id.")
+			elif dependency_id in dependency_ids:
+				issues.append(f"Native dependency id is duplicated: {dependency_id}.")
+			else:
+				dependency_ids.add(dependency_id)
+			for field_name in ("version", "source", "license_id"):
+				value = dependency.get(field_name)
+				if not isinstance(value, str) or not value.strip():
+					issues.append(
+						f"Native dependency {dependency_id!r} requires non-empty {field_name}."
+					)
+			sha256 = dependency.get("sha256")
+			if sha256 != NATIVE_HASH_PLACEHOLDER and (
+				not isinstance(sha256, str)
+				or re.fullmatch(r"[0-9a-f]{64}", sha256) is None
+			):
+				issues.append(
+					f"Native dependency {dependency_id!r} sha256 must be a lowercase digest or explicit template placeholder."
+				)
+		for artifact in native_libraries:
+			artifact_metadata = artifact.get("metadata")
+			if (
+				isinstance(artifact_metadata, dict)
+				and artifact_metadata.get("source_id") not in dependency_ids
+			):
+				issues.append(
+					f"Native library {artifact.get('id')!r} source_id must reference native_dependencies."
+				)
+	return issues
+
+
+def _is_project_owned_native_path(value: Any) -> bool:
+	if not isinstance(value, str):
+		return False
+	return (
+		normalize_portable_ownership_path(value) == value
+		and not is_reserved_framework_resource_path(value)
+	)
 
 
 def build_plugin_archive(output: Path, version: str) -> None:

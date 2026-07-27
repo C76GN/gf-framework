@@ -27,9 +27,10 @@
 ### 🚀 新增特性 (Added)
 
 - 新增 `GFWeakMethodInvocation` 框架级弱方法调用原语，以及 `GFMainThreadDispatchQueue.post_method()` 和 `GFDeferredMutationQueue.record_method()`：长期记录只保存 owner 的弱引用、初始实例 ID 和方法名，调用参数只在执行时传入；队列安全入口不持久化任意参数或 metadata，并把 owner 释放、方法缺失、预检失败与真实业务返回值明确分离。
+- `GFTypeEventSystem` 新增 exact、assignable 与 simple 三类 token 订阅：每次订阅拥有独立稳定身份，可通过 `GFSubscriptionToken` 幂等取消；一次性订阅会在用户回调前退休，owner 清理、显式注销和事件系统清空也会同步使 token 失效。`GFArchitecture` 与 `Gf` 提供对应入口，而 `GFController` 的长期 desired binding 继续采用生命周期重建语义，不会让一次性订阅在架构切换后复活。
 - 新增平台 Contract Descriptor、Activation Intent 有界去重队列与 `GFPlatformAdapterConformance`，让外部 SDK Adapter 可以声明请求/结果 Schema、字节预算、能力、并发、取消和敏感字段，并在不调用 SDK 时完成静态覆盖审查。
 - Network Lobby 升级为带唯一请求关联、单终态、取消、单调超时和迟到 callback 防护的类型化操作模型；新增可显式接管 owned/borrowed `MultiplayerPeer` 的通用 Backend，以及区分未知值的传输指标快照与有界采样历史。
-- AI Developer Kit 新增 Platform Adapter、Lobby Backend、契约测试、兼容性 Profile 和故障矩阵模板，并更新 Network / Platform capability 与 Recipe，使 AI 默认生成 Provider 中立且可验证的 Adapter 边界。
+- AI Developer Kit 新增 Platform Adapter、Lobby Backend、契约测试、兼容性 Profile 和故障矩阵模板，并补齐原生模式、无副作用探针、descriptor/二进制目标矩阵、完整性与来源证据、线程和主线程回调泵、关闭/取消、权限脱敏、离线可复现依赖及真实导出包验收，使 AI 默认生成 Provider 中立且可验证的 Adapter 边界。
 - `GFThumbnailRenderer` 与 `GFThumbnailRenderRequest` 支持 `CanvasItem` 的 `Image` / `ImageTexture` 缩略图请求，统一覆盖 `Node2D` 和 `Control`。调用方可以显式提供内容 `Rect2`，也可以让渲染器保守估算 Sprite、Control、Polygon、Line、AnimatedSprite 和 2D 粒子范围。
 - 新增可选包 `gf.standard.spatial.canvas` 与运行时 `Control` `GFSpatialCanvas2D`：提供世界/画布变换、焦点缩放、有界平移、稳定网格吸附、带精确命中 Hook 的候选查询、隔离选择结果和项目校验的放置会话；条目、选择、查询候选与网格绘制均受可降低但不可突破的绝对预算约束，GF 不拥有项目节点、占位规则或最终业务命令。
 - 新增 `GFAssetCollection`，用稳定 `collection_id` 和有序 `asset_ids` 描述可序列化资源集合，并通过 `GFValidationReport` 报告空 ID、重复 ID 和目录缺失项。
@@ -52,7 +53,8 @@
 
 ### 🔄 机制更改 (Changed)
 
-- AI Developer Capability / Recipe 知识目录同步升级到 `1.5.0`，补齐可伸缩 UI 集合、渲染反馈编排、命令历史、有界运行时工作与网格路径发现边界；能力搜索统一标点、连字符和下划线，目录完整性检查新增包、类、Recipe 与类所属包依赖闭包的交叉复核。
+- AI Developer Capability / Recipe 知识目录同步升级到 `1.6.0`，补齐可伸缩 UI 集合、渲染反馈编排、命令历史、有界运行时工作、网格路径发现与通用外部产物导出边界；新导出配方只组合缩略图、截图、矩形打包、产物报告和内容包计划，最终格式、认证、幂等、重试与写出仍归项目 Adapter。能力搜索统一标点、连字符和下划线，目录完整性检查新增包、类、Recipe 与类所属包依赖闭包的交叉复核。
+- TurnBased 使用指南明确 `GFTurnAction` 只调度一次性行动请求、项目自有 `GFUndoableCommand` 唯一修改或恢复权威状态、`GFActionQueueSystem` 只编排提交后的视觉与音频表现；三者由项目 Coordinator/Installer 按需组合，不新增跨扩展耦合类型，也不把反向 Tween 当作撤销事实源。
 - Architecture assignment、Installer、动态模块注册/替换和 `GFNodeContext` 安装统一采用 generation/scope 驱动的 prepare / commit / rollback 事务；候选未提交前不会通过全局 facade 暴露，旧异步 continuation 和生命周期回调重入不能覆盖最新状态。
 - `GFBindableProperty` 的集合 helper 现在发出独立的修改前/后快照，`mutate()` 统一采用“回调返回完整 replacement”的标量/集合契约；失效且未曾入树的 Node binding 会在下一次发射时剪枝。
 - `GFCancellationSource` 收敛为主线程、一次性终结的取消拥有者：token、节点和 timeout 注册会冻结 metadata，重复注册与 self-link 明确失败，timeout replacement 会停止旧 timer，组合创建不再返回部分绑定结果。
@@ -93,6 +95,7 @@
 
 ### 🐛 Bug 修复 (Fixed)
 
+- 修复 `GFGridOccupancy` 在移动占用、移动预约、确认预约或批量释放的同步信号回调中发生重入写入时，外层后续提交可能突破格子容量、丢失预约或留下不一致反向索引的问题；所有内部映射现在先按单次事务完整提交，再发出通知，通知期的方法与配置属性写入均明确失败关闭。`grid_size` / `max_occupants_per_cell` 的实际变更会清空既有记录并保持容量至少为 1；查询改为只读过滤失效对象，清理索引和释放通知由显式 `prune_invalid_receivers()` 或下一次写事务负责。
 - 修复 `GFCommandHistoryUtility` 在命令已进入终态但业务撤销/重做失败时仍推进历史游标的问题；`GFUndoableCommand` 新增默认成功的 `is_undo_successful()` / `is_redo_successful()` hook，同步与异步入口只在 hook 成功后复核来源栈顶身份并原子移动栈。异步 Signal 的零、单、二至 16 参数终态分别规范化为 `null`、单值和 `Array`，处理锁贯穿命令回调、等待、hook 与提交；等待和 hook 内的只读查询仍观察最近一次完整提交，失败不触碰任一栈的身份、顺序或容量，生命周期切代后的旧 continuation 也不会回填新历史。
 - 修复 Interaction Sensor 对类型化 Receiver 派发时绕过项目 `receive_interaction()` 覆写，以及自定义 sender 的 2D/3D 碰撞广播在规范化报告前发出公开信号的问题；公开覆写继续参与派发，返回值和信号报告统一保持 JSON-safe。
 - 修复 Audio backend 接管 `Master`、`BGM` 等本地同名总线时，duck、生命周期恢复和 mix snapshot 的逐总线 fallback 仍会静默写入 `AudioServer` 的问题；总线所有权和 backend identity 现在贯穿捕获、应用与恢复，只有 backend 明确拒绝的字段才进入本地回退。
@@ -136,6 +139,7 @@
 
 ### 🔧 API 变动说明 (API Changes)
 
+- `GFTypeEventSystem` 新增 `subscribe()`、`subscribe_assignable()` 与 `subscribe_simple()`；`GFArchitecture` 新增 `subscribe_event()`、`subscribe_assignable_event()` 与 `subscribe_simple_event()`；`Gf` 新增同名三类快捷订阅入口。上述入口均返回 `GFSubscriptionToken`，接受 `once`，带 owner 的 `GFEventListener` 实际返回 `GFLifetimeSubscription`。`GFSubscriptionToken` 与 `GFLifetimeSubscription` 新增仅供订阅源使用的自动失效内部入口。
 - `GFUndoableCommand` 新增 `is_undo_successful(_undo_result)` 与 `is_redo_successful(_execute_result)`，均标记为 `@since unreleased` 且默认返回 `true`。同步历史入口传入命令的直接返回值；异步历史入口把完成 Signal 的零、单、二至 16 参数 payload 分别规范化为 `null`、单值和 `Array` 后传入，超过 16 个参数时告警并只保留前 16 个。
 - `Gf.set_architecture()` 改为原子提交候选架构：Installer 和三阶段初始化成功前，`Gf` facade 只暴露既有已提交架构或空状态；pending assignment 被更新赋值、尚无已提交架构时由 `Gf.create_architecture()` 创建的默认架构，或 Gf 退出场景树替代时，会取消其异步作用域并 dispose 未提交候选。函数签名不变，但依赖 Installer 期间 facade 指向候选、或依赖被替代候选仍可复用的代码需要迁移。
 - `GFBindableProperty.mutate()` 的 callback 必须返回完整 replacement；void/in-place-only mutator 不再是有效写法。集合 helper 的 `value_changed` 参数改为独立 before/after 快照。
@@ -174,6 +178,7 @@
 
 ### 📘 升级指南 (Migration Guide)
 
+- `GFGridOccupancy` 的查询不再隐式回收已释放 `Object` 或发出释放信号；依赖该副作用的调用方应在明确的维护边界调用 `prune_invalid_receivers()`，或让下一次占用/预约写事务负责清理。运行期修改 `grid_size` 或 `max_occupants_per_cell` 现在会像重新配置一样清空既有记录；需要保留棋盘状态时，应先导出项目自己的稳定状态，再按新配置显式重建。
 - 既有 `GFUndoableCommand` 若不重入历史写操作则无需迁移：两个历史结果 hook 默认成功，`null` 返回值和无参数完成 Signal 保持原行为。只有撤销或重做可能进入“已完成但业务失败”终态的命令才需要覆盖对应 hook；异步 hook 应按 `null`、单值或最多 16 项的多值 `Array` 读取规范化完成 payload，并返回明确的 `bool`，更多字段应封装成单个 Result 或 `Dictionary`。`execute()`、`undo()`、`should_record()` 和结果 hook 现在统一处于非重入历史操作内；原先从这些回调嵌套执行、记录、清空、修改容量或恢复历史的项目代码，应改为在外层历史 API 完成后由项目队列提交后续操作。
 - 项目 Installer 必须改为通过 `install(architecture, scope)` 的显式 `architecture` 参数或 `install_bindings(binder, scope)` 的 `binder` 注册候选模块，不要在 `Gf.set_architecture()` 提交前使用 `Gf.register_*()`、`Gf.create_binder()` 或 `Gf.get_*()` 指向候选。异步 Installer 在每个 `await` 后检查 `scope.is_cancel_requested()` 并用 `scope.register_cleanup()` 释放临时资源；assignment 被替代并返回 `false` 后应创建新的 `GFArchitecture` 重试，不复用已经 dispose 的候选。释放回调和项目自定义等待器应通过 `is_disposing()` / `is_disposed()` 拒绝向终结中的架构提交新工作。
 - `GFNodeContext` 的父级 Architecture identity 与首次 READY generation 现在按每轮入树固定。不要在 child 场景分支仍活动时调用其 owned Architecture 的 `set_parent_architecture()`，也不要让父级失败后原地重试或热替换全局父级；需要绑定新父级或新 generation 时，应让对应 child 分支退出并重新进入，或重建该场景分支。

@@ -8,9 +8,92 @@
     {"id": "gf.standard.platform", "version": ""},
     {"id": "gf.extension.network", "version": ""}
   ],
-  "artifacts": [],
+  "artifacts": [
+    {
+      "id": "project.sample_adapter.descriptor",
+      "path": "res://adapters/platform/sample/project_sample.gdextension",
+      "kind": "gdextension_descriptor",
+      "sha256": "replace-with-64-lowercase-sha256",
+      "size_bytes": 0,
+      "metadata": {
+        "export_scope": "runtime",
+        "minimum_godot_version": "4.5.0",
+        "reloadable": false
+      }
+    },
+    {
+      "id": "project.sample_adapter.windows_x86_64_debug",
+      "path": "res://adapters/platform/sample/bin/project_sample.windows.debug.x86_64.dll",
+      "kind": "native_library",
+      "sha256": "replace-with-64-lowercase-sha256",
+      "size_bytes": 0,
+      "metadata": {
+        "platform": "windows",
+        "architecture": "x86_64",
+        "build_configuration": "debug",
+        "export_scope": "runtime",
+        "source_id": "project.sample_native",
+        "source_version": "replace-with-exact-immutable-version",
+        "license_id": "replace-with-license-identifier"
+      }
+    },
+    {
+      "id": "project.sample_adapter.windows_x86_64_release",
+      "path": "res://adapters/platform/sample/bin/project_sample.windows.release.x86_64.dll",
+      "kind": "native_library",
+      "sha256": "replace-with-64-lowercase-sha256",
+      "size_bytes": 0,
+      "metadata": {
+        "platform": "windows",
+        "architecture": "x86_64",
+        "build_configuration": "release",
+        "export_scope": "runtime",
+        "source_id": "project.sample_native",
+        "source_version": "replace-with-exact-immutable-version",
+        "license_id": "replace-with-license-identifier"
+      }
+    }
+  ],
   "metadata": {
     "adapter_id": "project.sample_adapter",
-    "contract_versions": {"project.platform.sample": "1.0.0"}
+    "contract_versions": {"project.platform.sample": "1.0.0"},
+    "native_boundary": {
+      "mode": "required",
+      "descriptor_path": "res://adapters/platform/sample/project_sample.gdextension",
+      "availability_probe": {
+        "kind": "class_db",
+        "class_name": "ProjectSampleNative",
+        "side_effect_free": true
+      },
+      "call_thread": "replace-with-main-or-worker",
+      "callback_thread": "replace-with-main-or-worker",
+      "callback_pump": "replace-with-project-owned-main-thread-pump",
+      "shutdown_timeout_msec": 1000,
+      "permissions": [],
+      "editor_only": false,
+      "export_targets": [
+        {
+          "platform": "windows",
+          "architecture": "x86_64",
+          "build_configuration": "debug"
+        },
+        {
+          "platform": "windows",
+          "architecture": "x86_64",
+          "build_configuration": "release"
+        }
+      ],
+      "dependency_lock_path": "res://adapters/platform/sample/native-dependencies.lock.json",
+      "offline_rebuild_verified": false
+    },
+    "native_dependencies": [
+      {
+        "id": "project.sample_native",
+        "version": "replace-with-exact-immutable-version",
+        "source": "replace-with-immutable-source-identity",
+        "sha256": "replace-with-64-lowercase-sha256",
+        "license_id": "replace-with-license-identifier"
+      }
+    ]
   }
 }

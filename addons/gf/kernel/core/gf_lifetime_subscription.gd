@@ -104,6 +104,14 @@ func owner_is_released() -> bool:
 	return _owner_id != 0 and get_owner() == null
 
 
+# --- 框架内部方法 ---
+
+# 由订阅源在订阅自动结束时解除 owner 监听并使句柄失效。
+func _deactivate_from_source() -> bool:
+	_disconnect_owner_signal()
+	return super._deactivate_from_source()
+
+
 # --- 私有/辅助方法 ---
 
 func _set_owner(owner: Object) -> void:

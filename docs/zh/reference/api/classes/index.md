@@ -6,7 +6,7 @@
 
 | 模块 | 类 | 成员 | 页面内索引 |
 |---|---:|---:|---|
-| Kernel | 71 | 996 | [Kernel](#module-kernel) |
+| Kernel | 71 | 1002 | [Kernel](#module-kernel) |
 | Standard | 434 | 6861 | [Standard](#module-standard) |
 | Action Queue | 16 | 214 | [Action Queue](#module-extensions-action_queue) |
 | Asset Metadata | 4 | 33 | [Asset Metadata](#module-extensions-asset_metadata) |
@@ -35,7 +35,7 @@
 
 | 类 | 类别 | 继承 | 成员 | 源文件 |
 |---|---|---|---:|---|
-| [`GFArchitecture`](GFArchitecture.md#gfarchitecture) | 运行时服务 (`runtime_service`) | `Object` | 113 | `addons/gf/kernel/core/gf_architecture.gd` |
+| [`GFArchitecture`](GFArchitecture.md#gfarchitecture) | 运行时服务 (`runtime_service`) | `Object` | 116 | `addons/gf/kernel/core/gf_architecture.gd` |
 | [`GFDependencyGraphTools`](GFDependencyGraphTools.md#gfdependencygraphtools) | 运行时服务 (`runtime_service`) | `RefCounted` | 1 | `addons/gf/kernel/core/gf_dependency_graph_tools.gd` |
 | [`GFExtensionCatalog`](GFExtensionCatalog.md#gfextensioncatalog) | 运行时服务 (`runtime_service`) | `RefCounted` | 5 | `addons/gf/kernel/extension/gf_extension_catalog.gd` |
 | [`GFExtensionManifestDiscovery`](GFExtensionManifestDiscovery.md#gfextensionmanifestdiscovery) | 运行时服务 (`runtime_service`) | `RefCounted` | 2 | `addons/gf/kernel/extension/gf_extension_manifest_discovery.gd` |
@@ -48,7 +48,7 @@
 | [`GFProjectReferenceScanner`](GFProjectReferenceScanner.md#gfprojectreferencescanner) | 运行时服务 (`runtime_service`) | `RefCounted` | 17 | `addons/gf/kernel/core/gf_project_reference_scanner.gd` |
 | [`GFProjectSettingsTools`](GFProjectSettingsTools.md#gfprojectsettingstools) | 运行时服务 (`runtime_service`) | `RefCounted` | 2 | `addons/gf/kernel/core/gf_project_settings_tools.gd` |
 | [`GFReportValueCodec`](GFReportValueCodec.md#gfreportvaluecodec) | 运行时服务 (`runtime_service`) | `RefCounted` | 9 | `addons/gf/kernel/core/gf_report_value_codec.gd` |
-| [`GFTypeEventSystem`](GFTypeEventSystem.md#gftypeeventsystem) | 运行时服务 (`runtime_service`) | `Object` | 25 | `addons/gf/kernel/core/gf_type_event_system.gd` |
+| [`GFTypeEventSystem`](GFTypeEventSystem.md#gftypeeventsystem) | 运行时服务 (`runtime_service`) | `Object` | 28 | `addons/gf/kernel/core/gf_type_event_system.gd` |
 | [`GFBindBuilder`](GFBindBuilder.md#gfbindbuilder) | 协议与扩展点 (`protocol`) | `RefCounted` | 5 | `addons/gf/kernel/core/gf_bind_builder.gd` |
 | [`GFBindableProperty`](GFBindableProperty.md#gfbindableproperty) | 协议与扩展点 (`protocol`) | `RefCounted` | 22 | `addons/gf/kernel/core/gf_bindable_property.gd` |
 | [`GFBinder`](GFBinder.md#gfbinder) | 协议与扩展点 (`protocol`) | `RefCounted` | 4 | `addons/gf/kernel/core/gf_binder.gd` |

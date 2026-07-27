@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "catalog_version": "1.5.0",
+  "catalog_version": "1.6.0",
   "catalog_api_requirements": [
     {
       "catalog": "capability",
@@ -18,6 +18,54 @@
       "members": [
         "is_undo_successful",
         "is_redo_successful"
+      ]
+    },
+    {
+      "catalog": "recipe",
+      "record_id": "external-artifact-export",
+      "class_name": "GFThumbnailRenderer",
+      "members": [
+        "submit_render_request",
+        "cancel_render_task"
+      ]
+    },
+    {
+      "catalog": "recipe",
+      "record_id": "external-artifact-export",
+      "class_name": "GFScreenshotUtility",
+      "members": [
+        "capture_viewport_image",
+        "save_image"
+      ]
+    },
+    {
+      "catalog": "recipe",
+      "record_id": "external-artifact-export",
+      "class_name": "GFRectPacking2D",
+      "members": [
+        "pack_fixed",
+        "pack_square"
+      ]
+    },
+    {
+      "catalog": "recipe",
+      "record_id": "external-artifact-export",
+      "class_name": "GFGeneratedArtifactReport",
+      "members": [
+        "save_text",
+        "make_report",
+        "summarize_reports"
+      ]
+    },
+    {
+      "catalog": "recipe",
+      "record_id": "external-artifact-export",
+      "class_name": "GFContentPackageExportPlan",
+      "members": [
+        "add_entry",
+        "get_validation_report",
+        "get_artifact_report",
+        "get_preflight_report"
       ]
     }
   ],
@@ -232,6 +280,10 @@
     {
       "query": "GFObjectPoolUtility",
       "expected_id": "runtime-performance"
+    },
+    {
+      "query": "artifact export atlas",
+      "expected_id": "assets-content"
     }
   ],
   "recipe_cases": [
@@ -242,6 +294,16 @@
     {
       "recipe_id": "content-package",
       "expected_class": "GFAssetCatalogRuntime"
+    },
+    {
+      "recipe_id": "external-artifact-export",
+      "expected_class": "GFContentPackageExportPlan",
+      "expected_step_fragment": "project-owned target adapter"
+    },
+    {
+      "recipe_id": "platform-lobby-adapter",
+      "expected_class": "GFPlatformAdapter",
+      "expected_step_fragment": "native or GDExtension-backed providers"
     },
     {
       "recipe_id": "ui-route-operation",

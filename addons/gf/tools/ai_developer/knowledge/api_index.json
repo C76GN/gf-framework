@@ -2,7 +2,7 @@
   "schema_version": 1,
   "catalog_version": "1.0.0",
   "framework_version": "10.0.0-dev.0",
-  "source_digest": "1fb53ddb3599ee632af501562e0789f8d06af57361f7c5df546847e6514025bb",
+  "source_digest": "310fe1c262bca2ddeb5d73faf0f5f7bbd62feb16faec18c22610fec75d357fa8",
   "class_count": 755,
   "package_count": 52,
   "packages": [
@@ -2252,6 +2252,13 @@
         },
         {
           "kind": "func",
+          "name": "subscribe_event",
+          "signature": "func subscribe_event( event_type: Script, listener: GFEventListener, priority: int = 0, once: bool = false ) -> GFSubscriptionToken",
+          "summary": "订阅脚本类型事件并返回可取消句柄。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
           "name": "register_assignable_event",
           "signature": "func register_assignable_event(base_event_type: Script, listener: GFEventListener, priority: int = 0) -> void",
           "summary": "为脚本类型注册可赋值事件监听器。",
@@ -2262,6 +2269,13 @@
           "name": "register_assignable_event_owned",
           "signature": "func register_assignable_event_owned( owner: Object, base_event_type: Script, listener: GFEventListener, priority: int = 0 ) -> void",
           "summary": "为脚本类型注册带拥有者的可赋值事件监听器。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "subscribe_assignable_event",
+          "signature": "func subscribe_assignable_event( base_event_type: Script, listener: GFEventListener, priority: int = 0, once: bool = false ) -> GFSubscriptionToken",
+          "summary": "订阅可赋值类型事件并返回可取消句柄。",
           "visibility": "public"
         },
         {
@@ -2304,6 +2318,13 @@
           "name": "register_simple_event_owned",
           "signature": "func register_simple_event_owned(owner: Object, event_id: StringName, listener: GFEventListener) -> void",
           "summary": "注册带拥有者的轻量级 StringName 事件监听器。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "subscribe_simple_event",
+          "signature": "func subscribe_simple_event( event_id: StringName, listener: GFEventListener, once: bool = false ) -> GFSubscriptionToken",
+          "summary": "订阅轻量级 StringName 事件并返回可取消句柄。",
           "visibility": "public"
         },
         {
@@ -33296,15 +33317,15 @@
         {
           "kind": "var",
           "name": "grid_size",
-          "signature": "var grid_size: Vector2i = Vector2i.ZERO",
-          "summary": "网格尺寸。小于等于 0 的维度会让所有格子视为越界。",
+          "signature": "var grid_size: Vector2i",
+          "summary": "网格尺寸，默认为 [constant Vector2i.ZERO]。小于等于 0 的维度会让所有格子视为越界。",
           "visibility": "public"
         },
         {
           "kind": "var",
           "name": "max_occupants_per_cell",
-          "signature": "var max_occupants_per_cell: int = 1",
-          "summary": "单格允许的最大占用数量。",
+          "signature": "var max_occupants_per_cell: int",
+          "summary": "单格允许的最大占用数量，默认为 1，最小为 1。",
           "visibility": "public"
         },
         {
@@ -83169,6 +83190,13 @@
         },
         {
           "kind": "func",
+          "name": "subscribe",
+          "signature": "func subscribe( event_type: Script, listener: GFEventListener, priority: int = 0, once: bool = false ) -> GFSubscriptionToken",
+          "summary": "订阅特定脚本类型事件并返回可取消句柄。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
           "name": "unregister",
           "signature": "func unregister(event_type: Script, listener: GFEventListener) -> void",
           "summary": "注销特定脚本类型的事件监听器。",
@@ -83193,6 +83221,13 @@
           "name": "register_assignable_owned",
           "signature": "func register_assignable_owned( owner: Object, base_event_type: Script, listener: GFEventListener, priority: int = 0 ) -> void",
           "summary": "注册带 owner 的可赋值类型事件监听器。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "subscribe_assignable",
+          "signature": "func subscribe_assignable( base_event_type: Script, listener: GFEventListener, priority: int = 0, once: bool = false ) -> GFSubscriptionToken",
+          "summary": "订阅可赋值类型事件并返回可取消句柄。",
           "visibility": "public"
         },
         {
@@ -83228,6 +83263,13 @@
           "name": "register_simple_owned",
           "signature": "func register_simple_owned(owner: Object, event_id: StringName, listener: GFEventListener) -> void",
           "summary": "注册带 owner 的轻量级 StringName 事件监听器。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "subscribe_simple",
+          "signature": "func subscribe_simple( event_id: StringName, listener: GFEventListener, once: bool = false ) -> GFSubscriptionToken",
+          "summary": "订阅轻量级 StringName 事件并返回可取消句柄。",
           "visibility": "public"
         },
         {

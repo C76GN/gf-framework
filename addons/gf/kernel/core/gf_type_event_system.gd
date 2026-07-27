@@ -22,6 +22,9 @@ const DEFAULT_MAX_DISPATCH_DEPTH: int = 64
 const _INSTANCE_GUARD = preload("res://addons/gf/kernel/core/gf_instance_guard.gd")
 const _SCRIPT_TYPE_INSPECTOR = preload("res://addons/gf/kernel/core/gf_script_type_inspector.gd")
 const _GF_VARIANT_ACCESS_SCRIPT = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
+const _TRACK_TYPE: StringName = &"type"
+const _TRACK_ASSIGNABLE: StringName = &"assignable"
+const _TRACK_SIMPLE: StringName = &"simple"
 
 
 # --- 公共变量 ---
@@ -70,7 +73,18 @@ var _dispatch_depth: int = 0
 var _max_dispatch_depth_observed: int = 0
 var _dispatch_sequence: int = 0
 var _listener_order_counter: int = 0
+var _subscription_id_counter: int = 0
 var _dispatch_trace: Array[Dictionary] = []
+
+
+# --- Godot 生命周期方法 ---
+
+func _notification(what: int) -> void:
+	if what != NOTIFICATION_PREDELETE:
+		return
+	_type_track.clear_all()
+	_assignable_type_track.clear_all()
+	_simple_track.clear_all()
 
 
 # --- 公共方法 (类型事件) ---
@@ -131,6 +145,46 @@ func register_owned(owner: Object, event_type: Script, listener: GFEventListener
 	register(event_type, listener.with_owner(owner), priority)
 
 
+## 订阅特定脚本类型事件并返回可取消句柄。
+##
+## 每次调用都会创建独立的稳定订阅身份；即使回调和 owner 相同，取消一个句柄也不会影响其它订阅。
+## `once` 为 true 时，订阅会在首个回调开始前失效，因此嵌套派发不会再次调用它。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param event_type: 要订阅的脚本类型。
+## [br]
+## @param listener: 事件监听器契约；其中携带的 owner 决定返回句柄的生命周期绑定。
+## [br]
+## @param priority: 回调优先级，数值越大越先执行，默认为 0。
+## [br]
+## @param once: 是否在首个回调开始前自动取消订阅。
+## [br]
+## @return 可幂等取消的订阅句柄；参数无效时返回非活动句柄。
+func subscribe(
+	event_type: Script,
+	listener: GFEventListener,
+	priority: int = 0,
+	once: bool = false
+) -> GFSubscriptionToken:
+	if event_type == null:
+		push_error("[GFTypeEventSystem] subscribe 失败：event_type 为空。")
+		return GFSubscriptionToken.new()
+	if not _validate_listener(listener, 1, "类型事件回调", "事件实例"):
+		return GFSubscriptionToken.new()
+	return _subscribe_type_listener(
+		_type_track,
+		_TRACK_TYPE,
+		event_type,
+		listener,
+		priority,
+		once,
+		false
+	)
+
+
 ## 注销特定脚本类型的事件监听器。
 ## [br]
 ## @api public
@@ -146,6 +200,7 @@ func unregister(event_type: Script, listener: GFEventListener) -> void:
 	var callback: Callable = _get_listener_callback(listener)
 	if _type_dispatch_depth > 0:
 		_type_track.remove_pending_add(event_type, callback, 0, true)
+		_deactivate_matching_subscription_tokens(_type_track, event_type, callback, 0, true)
 		_type_track.queue_remove(event_type, callback, 0, true)
 		return
 
@@ -173,6 +228,7 @@ func unregister_owned(owner: Object, event_type: Script, listener: GFEventListen
 	var callback: Callable = _get_listener_callback(listener)
 	if _type_dispatch_depth > 0:
 		_type_track.remove_pending_add(event_type, callback, owner_id, true)
+		_deactivate_matching_subscription_tokens(_type_track, event_type, callback, owner_id, true)
 		_type_track.queue_remove(event_type, callback, owner_id, true)
 		return
 
@@ -244,6 +300,46 @@ func register_assignable_owned(
 	register_assignable(base_event_type, listener.with_owner(owner), priority)
 
 
+## 订阅可赋值类型事件并返回可取消句柄。
+##
+## 监听基类脚本时也会收到其派生脚本实例。每次调用都创建独立订阅身份，
+## `once` 会在首个匹配事件的用户回调开始前使句柄失效。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param base_event_type: 要订阅的基类脚本类型。
+## [br]
+## @param listener: 事件监听器契约；其中携带的 owner 决定返回句柄的生命周期绑定。
+## [br]
+## @param priority: 回调优先级，数值越大越先执行，默认为 0。
+## [br]
+## @param once: 是否在首个匹配回调开始前自动取消订阅。
+## [br]
+## @return 可幂等取消的订阅句柄；参数无效时返回非活动句柄。
+func subscribe_assignable(
+	base_event_type: Script,
+	listener: GFEventListener,
+	priority: int = 0,
+	once: bool = false
+) -> GFSubscriptionToken:
+	if base_event_type == null:
+		push_error("[GFTypeEventSystem] subscribe_assignable 失败：base_event_type 为空。")
+		return GFSubscriptionToken.new()
+	if not _validate_listener(listener, 1, "可赋值事件回调", "事件实例"):
+		return GFSubscriptionToken.new()
+	return _subscribe_type_listener(
+		_assignable_type_track,
+		_TRACK_ASSIGNABLE,
+		base_event_type,
+		listener,
+		priority,
+		once,
+		true
+	)
+
+
 ## 注销可赋值类型事件监听器。
 ## [br]
 ## @api public
@@ -259,6 +355,13 @@ func unregister_assignable(base_event_type: Script, listener: GFEventListener) -
 	var callback: Callable = _get_listener_callback(listener)
 	if _type_dispatch_depth > 0:
 		_assignable_type_track.remove_pending_add(base_event_type, callback, 0, true)
+		_deactivate_matching_subscription_tokens(
+			_assignable_type_track,
+			base_event_type,
+			callback,
+			0,
+			true
+		)
 		_assignable_type_track.queue_remove(base_event_type, callback, 0, true)
 		return
 
@@ -286,6 +389,13 @@ func unregister_assignable_owned(owner: Object, base_event_type: Script, listene
 	var callback: Callable = _get_listener_callback(listener)
 	if _type_dispatch_depth > 0:
 		_assignable_type_track.remove_pending_add(base_event_type, callback, owner_id, true)
+		_deactivate_matching_subscription_tokens(
+			_assignable_type_track,
+			base_event_type,
+			callback,
+			owner_id,
+			true
+		)
 		_assignable_type_track.queue_remove(base_event_type, callback, owner_id, true)
 		return
 
@@ -390,6 +500,68 @@ func register_simple_owned(owner: Object, event_id: StringName, listener: GFEven
 	register_simple(event_id, listener.with_owner(owner))
 
 
+## 订阅轻量级 StringName 事件并返回可取消句柄。
+##
+## 每次调用都会创建独立的稳定订阅身份；`once` 为 true 时，订阅会在首个
+## 用户回调开始前失效，因此同一回调中的嵌套派发不会再次调用它。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param event_id: StringName 事件标识符。
+## [br]
+## @param listener: 简单事件监听器契约；其中携带的 owner 决定返回句柄的生命周期绑定。
+## [br]
+## @param once: 是否在首个回调开始前自动取消订阅。
+## [br]
+## @return 可幂等取消的订阅句柄；参数无效时返回非活动句柄。
+func subscribe_simple(
+	event_id: StringName,
+	listener: GFEventListener,
+	once: bool = false
+) -> GFSubscriptionToken:
+	if not _validate_simple_event_id(event_id, "subscribe_simple"):
+		return GFSubscriptionToken.new()
+	if not _validate_listener(listener, 1, "简单事件回调", "payload"):
+		return GFSubscriptionToken.new()
+
+	var callback: Callable = listener.get_callback()
+	var owner: Object = listener.get_owner()
+	var subscription_id: int = _next_subscription_id()
+	var subscription_token: GFSubscriptionToken = _create_subscription_token(
+		_TRACK_SIMPLE,
+		event_id,
+		subscription_id,
+		owner,
+		listener.get_debug_label()
+	)
+	var subscription_token_ref: WeakRef = weakref(subscription_token)
+	if _simple_dispatch_depth > 0:
+		_simple_track.queue_add(
+			event_id,
+			callback,
+			0,
+			_make_owner_ref(owner),
+			_owner_instance_id(owner),
+			_next_listener_order(),
+			subscription_id,
+			once,
+			subscription_token_ref
+		)
+	else:
+		_add_simple_listener_entry(
+			event_id,
+			callback,
+			owner,
+			_next_listener_order(),
+			subscription_id,
+			once,
+			subscription_token_ref
+		)
+	return subscription_token
+
+
 ## 注销轻量级 StringName 事件监听器。
 ## [br]
 ## @api public
@@ -405,6 +577,7 @@ func unregister_simple(event_id: StringName, listener: GFEventListener) -> void:
 	var callback: Callable = _get_listener_callback(listener)
 	if _simple_dispatch_depth > 0:
 		_simple_track.remove_pending_add(event_id, callback, 0, true)
+		_deactivate_matching_subscription_tokens(_simple_track, event_id, callback, 0, true)
 		_simple_track.queue_remove(event_id, callback, 0, true)
 		return
 
@@ -432,6 +605,7 @@ func unregister_simple_owned(owner: Object, event_id: StringName, listener: GFEv
 	var callback: Callable = _get_listener_callback(listener)
 	if _simple_dispatch_depth > 0:
 		_simple_track.remove_pending_add(event_id, callback, owner_id, true)
+		_deactivate_matching_subscription_tokens(_simple_track, event_id, callback, owner_id, true)
 		_simple_track.queue_remove(event_id, callback, owner_id, true)
 		return
 
@@ -476,20 +650,29 @@ func send_simple(event_id: StringName, payload: Variant = null) -> void:
 			break
 
 		var callback: Callable = entry.callable
+		var subscription_id: int = _entry_subscription_id(entry)
 
+		if (
+			subscription_id != 0
+			and _simple_track.has_pending_subscription_remove(event_id, subscription_id)
+		):
+			continue
 		if _entry_owner_is_released(entry):
+			_deactivate_subscription_token_from_entry(entry)
 			_simple_track.queue_remove(event_id, callback, _entry_owner_id(entry), true)
 			has_pending_removes = true
 			continue
 		if has_pending_owner_removes and _is_pending_owner_remove(entry, _simple_track.pending_owner_removes):
 			continue
 		if not callback.is_valid() or (callback.get_object() != null and not is_instance_valid(callback.get_object())):
+			_deactivate_subscription_token_from_entry(entry)
 			_simple_track.queue_remove(event_id, callback, _entry_owner_id(entry), true)
 			has_pending_removes = true
 			continue
 		if has_pending_removes and _simple_track.has_pending_remove(event_id, callback, _entry_owner_id(entry), true):
 			continue
 
+		_retire_once_subscription_before_dispatch(_simple_track, event_id, entry)
 		callback.call(payload)
 
 		if _clear_requested_simple:
@@ -519,6 +702,8 @@ func unregister_owner(owner: Object) -> void:
 	if _type_dispatch_depth > 0:
 		_type_track.remove_pending_adds_for_owner_id(owner_id)
 		_assignable_type_track.remove_pending_adds_for_owner_id(owner_id)
+		_deactivate_owner_subscription_tokens(_type_track, owner_id)
+		_deactivate_owner_subscription_tokens(_assignable_type_track, owner_id)
 		_type_track.append_unique_owner_remove(owner_id)
 		_assignable_type_track.append_unique_owner_remove(owner_id)
 	else:
@@ -527,6 +712,7 @@ func unregister_owner(owner: Object) -> void:
 
 	if _simple_dispatch_depth > 0:
 		_simple_track.remove_pending_adds_for_owner_id(owner_id)
+		_deactivate_owner_subscription_tokens(_simple_track, owner_id)
 		_simple_track.append_unique_owner_remove(owner_id)
 	else:
 		_remove_owner_from_simple_listeners(owner_id)
@@ -572,7 +758,8 @@ func get_debug_stats() -> Dictionary:
 
 ## 获取事件监听器诊断明细。
 ## [br]
-## 默认只返回每条轨道的数量统计；传入 `{ "include_entries": true }` 时会附带每个监听器的事件 key、owner 状态、优先级和 Callable 状态。
+## 默认只返回每条轨道的数量统计；传入 `{ "include_entries": true }` 时会附带每个监听器的
+## 事件 key、owner 状态、优先级、Callable 状态，以及订阅记录的稳定身份和 once 标记。
 ## [br]
 ## @api public
 ## [br]
@@ -584,7 +771,7 @@ func get_debug_stats() -> Dictionary:
 ## [br]
 ## @return 监听器诊断报告。
 ## [br]
-## @schema return: Dictionary containing listener counts, stale owner counts, track summaries, and optional entry rows.
+## @schema return: Dictionary containing listener counts, stale owner counts, track summaries, and optional entry rows with subscription_id and once.
 func get_listener_diagnostics(options: Dictionary = {}) -> Dictionary:
 	var include_entries: bool = _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(options, "include_entries", false)
 	var type_track: Dictionary = _collect_track_diagnostics("type", _type_track, include_entries)
@@ -679,6 +866,195 @@ func _get_type_track(assignable: bool) -> EventListenerTrack:
 	return _assignable_type_track if assignable else _type_track
 
 
+func _subscribe_type_listener(
+	track: EventListenerTrack,
+	track_kind: StringName,
+	event_type: Script,
+	listener: GFEventListener,
+	priority: int,
+	once: bool,
+	assignable: bool
+) -> GFSubscriptionToken:
+	var callback: Callable = listener.get_callback()
+	var owner: Object = listener.get_owner()
+	var subscription_id: int = _next_subscription_id()
+	var subscription_token: GFSubscriptionToken = _create_subscription_token(
+		track_kind,
+		event_type,
+		subscription_id,
+		owner,
+		listener.get_debug_label()
+	)
+	var subscription_token_ref: WeakRef = weakref(subscription_token)
+	if _type_dispatch_depth > 0:
+		track.queue_add(
+			event_type,
+			callback,
+			priority,
+			_make_owner_ref(owner),
+			_owner_instance_id(owner),
+			_next_listener_order(),
+			subscription_id,
+			once,
+			subscription_token_ref
+		)
+	else:
+		_add_listener_entry(
+			track.listeners,
+			event_type,
+			callback,
+			priority,
+			owner,
+			_next_listener_order(),
+			assignable,
+			subscription_id,
+			once,
+			subscription_token_ref
+		)
+	return subscription_token
+
+
+func _create_subscription_token(
+	track_kind: StringName,
+	event_key: Variant,
+	subscription_id: int,
+	owner: Object,
+	listener_label: String
+) -> GFSubscriptionToken:
+	var cancel_invocation: GFWeakMethodInvocation = GFWeakMethodInvocation.new(
+		self,
+		&"_cancel_subscription"
+	)
+	var cancel_callback: Callable = func() -> void:
+		var _cancel_report: Dictionary = cancel_invocation.invoke([
+			track_kind,
+			event_key,
+			subscription_id,
+		])
+	var debug_label: String = "event:%s:%s#%d" % [
+		String(track_kind),
+		_track_key_debug_string(event_key),
+		subscription_id,
+	]
+	if not listener_label.is_empty():
+		debug_label += ":%s" % listener_label
+	if owner != null:
+		return GFLifetimeSubscription.new(owner, cancel_callback, debug_label)
+	return GFSubscriptionToken.new(cancel_callback, debug_label)
+
+
+func _cancel_subscription(
+	track_kind: StringName,
+	event_key: Variant,
+	subscription_id: int
+) -> void:
+	if subscription_id == 0:
+		return
+	var track: EventListenerTrack = _get_track_by_kind(track_kind)
+	if track == null:
+		return
+	if track.remove_pending_add_by_subscription_id(subscription_id):
+		return
+	if _get_track_dispatch_depth(track_kind) > 0:
+		track.queue_subscription_remove(event_key, subscription_id)
+		return
+	if not track.listeners.has(event_key):
+		return
+
+	var listeners: Array = _get_registry_array(track.listeners, event_key)
+	_remove_entry_by_subscription_id(
+		listeners,
+		subscription_id,
+		_event_type_from_key(event_key),
+		track_kind == _TRACK_ASSIGNABLE
+	)
+	_erase_listener_key_if_empty(track.listeners, event_key)
+
+
+func _get_track_by_kind(track_kind: StringName) -> EventListenerTrack:
+	match track_kind:
+		_TRACK_TYPE:
+			return _type_track
+		_TRACK_ASSIGNABLE:
+			return _assignable_type_track
+		_TRACK_SIMPLE:
+			return _simple_track
+	return null
+
+
+func _get_track_dispatch_depth(track_kind: StringName) -> int:
+	return _simple_dispatch_depth if track_kind == _TRACK_SIMPLE else _type_dispatch_depth
+
+
+func _retire_once_subscription_before_dispatch(
+	track: EventListenerTrack,
+	event_key: Variant,
+	entry: Dictionary
+) -> void:
+	var subscription_id: int = _entry_subscription_id(entry)
+	if subscription_id == 0 or not _entry_is_once(entry):
+		return
+	_deactivate_subscription_token_from_entry(entry)
+	track.queue_subscription_remove(event_key, subscription_id)
+
+
+func _deactivate_matching_subscription_tokens(
+	track: EventListenerTrack,
+	event_key: Variant,
+	callback: Callable,
+	owner_id: int,
+	owner_filter_enabled: bool
+) -> void:
+	if not track.listeners.has(event_key):
+		return
+	var listeners: Array = _get_registry_array(track.listeners, event_key)
+	for entry_variant: Variant in listeners:
+		var entry: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.as_dictionary(entry_variant)
+		if _get_callable_option(entry, "callable") != callback:
+			continue
+		if owner_filter_enabled and _entry_owner_id(entry) != owner_id:
+			continue
+		_deactivate_subscription_token_from_entry(entry)
+
+
+func _deactivate_owner_subscription_tokens(track: EventListenerTrack, owner_id: int) -> void:
+	for event_key: Variant in track.listeners.keys():
+		var listeners: Array = _get_registry_array(track.listeners, event_key)
+		for entry_variant: Variant in listeners:
+			var entry: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.as_dictionary(entry_variant)
+			if _entry_owner_id(entry) == owner_id:
+				_deactivate_subscription_token_from_entry(entry)
+
+
+func _deactivate_subscription_token_from_entry(entry: Dictionary) -> void:
+	var subscription_token_ref: WeakRef = _get_subscription_token_ref(entry)
+	if subscription_token_ref == null:
+		return
+	var token_value: Variant = subscription_token_ref.get_ref()
+	if token_value is GFSubscriptionToken:
+		var subscription_token: GFSubscriptionToken = token_value
+		var _deactivated: bool = subscription_token._deactivate_from_source()
+
+
+func _get_subscription_token_ref(entry: Dictionary) -> WeakRef:
+	var token_ref_value: Variant = _GF_VARIANT_ACCESS_SCRIPT.get_option_value(
+		entry,
+		"subscription_token_ref"
+	)
+	if token_ref_value is WeakRef:
+		var subscription_token_ref: WeakRef = token_ref_value
+		return subscription_token_ref
+	return null
+
+
+func _entry_subscription_id(entry: Dictionary) -> int:
+	return _GF_VARIANT_ACCESS_SCRIPT.get_option_int(entry, "subscription_id", 0)
+
+
+func _entry_is_once(entry: Dictionary) -> bool:
+	return _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(entry, "once", false)
+
+
 func _is_pending_owner_remove(entry: Dictionary, pending_owner_ids: Array[int]) -> bool:
 	var owner_id: int = _entry_owner_id(entry)
 	return owner_id != 0 and pending_owner_ids.has(owner_id)
@@ -691,15 +1067,19 @@ func _add_listener_entry(
 	priority: int,
 	owner: Object,
 	order: int,
-	assignable: bool
+	assignable: bool,
+	subscription_id: int = 0,
+	once: bool = false,
+	subscription_token_ref: WeakRef = null
 ) -> void:
 	if not registry.has(event_type):
 		registry[event_type] = []
 	var listeners: Array = _get_registry_array(registry, event_type)
 
-	for entry: Dictionary in listeners:
-		if _listener_entry_matches(entry, on_event, owner):
-			return
+	if subscription_id == 0:
+		for entry: Dictionary in listeners:
+			if _listener_entry_matches(entry, on_event, owner):
+				return
 
 	var new_entry: Dictionary = {
 		"callable": on_event,
@@ -707,6 +1087,9 @@ func _add_listener_entry(
 		"owner_ref": _make_owner_ref(owner),
 		"owner_id": _owner_instance_id(owner),
 		"order": order,
+		"subscription_id": subscription_id,
+		"once": once,
+		"subscription_token_ref": subscription_token_ref,
 	}
 	var inserted: bool = false
 	for i: int in range(listeners.size()):
@@ -728,21 +1111,28 @@ func _add_simple_listener_entry(
 	event_id: StringName,
 	on_event: Callable,
 	owner: Object,
-	order: int
+	order: int,
+	subscription_id: int = 0,
+	once: bool = false,
+	subscription_token_ref: WeakRef = null
 ) -> void:
 	if not _simple_event_listeners.has(event_id):
 		_simple_event_listeners[event_id] = []
 	var listeners: Array = _get_registry_array(_simple_event_listeners, event_id)
 
-	for entry: Dictionary in listeners:
-		if _listener_entry_matches(entry, on_event, owner):
-			return
+	if subscription_id == 0:
+		for entry: Dictionary in listeners:
+			if _listener_entry_matches(entry, on_event, owner):
+				return
 
 	listeners.append({
 		"callable": on_event,
 		"owner_ref": _make_owner_ref(owner),
 		"owner_id": _owner_instance_id(owner),
 		"order": order,
+		"subscription_id": subscription_id,
+		"once": once,
+		"subscription_token_ref": subscription_token_ref,
 	})
 
 
@@ -789,17 +1179,26 @@ func _dispatch_type_listener_entries(event_instance: Object, listeners: Array[Di
 		var event_type: Script = _get_script_option(entry, "event_type")
 		var assignable: bool = _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(entry, "assignable", false)
 		var track: EventListenerTrack = _get_type_track(assignable)
+		var subscription_id: int = _entry_subscription_id(entry)
+		if (
+			subscription_id != 0
+			and track.has_pending_subscription_remove(event_type, subscription_id)
+		):
+			continue
 		if _entry_owner_is_released(entry):
+			_deactivate_subscription_token_from_entry(entry)
 			_append_pending_type_remove(event_type, callback, assignable, _entry_owner_id(entry), true)
 			continue
 		if _is_pending_owner_remove(entry, track.pending_owner_removes):
 			continue
 		if not callback.is_valid() or (callback.get_object() != null and not is_instance_valid(callback.get_object())):
+			_deactivate_subscription_token_from_entry(entry)
 			_append_pending_type_remove(event_type, callback, assignable, _entry_owner_id(entry), true)
 			continue
 		if track.has_pending_remove(event_type, callback, _entry_owner_id(entry), true):
 			continue
 
+		_retire_once_subscription_before_dispatch(track, event_type, entry)
 		callback.call(event_instance)
 
 		if (
@@ -963,6 +1362,8 @@ func _make_listener_diagnostic_entry(
 		"callable_method": String(callback.get_method()) if callback.is_valid() else "",
 		"priority": _GF_VARIANT_ACCESS_SCRIPT.get_option_int(entry, "priority", 0),
 		"order": _GF_VARIANT_ACCESS_SCRIPT.get_option_int(entry, "order", 0),
+		"subscription_id": _entry_subscription_id(entry),
+		"once": _entry_is_once(entry),
 	}
 
 
@@ -1038,14 +1439,23 @@ func _flush_listener_track_removes(track: EventListenerTrack, assignable: bool) 
 		if not track.listeners.has(key):
 			continue
 		var listeners: Array = _get_registry_array(track.listeners, key)
-		_remove_entry_by_callable(
-			listeners,
-			_get_callable_option(pending, "callable"),
-			_event_type_from_key(key),
-			assignable,
-			_get_pending_owner_id(pending),
-			_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(pending, "owner_filter_enabled", true)
-		)
+		var subscription_id: int = _entry_subscription_id(pending)
+		if subscription_id != 0:
+			_remove_entry_by_subscription_id(
+				listeners,
+				subscription_id,
+				_event_type_from_key(key),
+				assignable
+			)
+		else:
+			_remove_entry_by_callable(
+				listeners,
+				_get_callable_option(pending, "callable"),
+				_event_type_from_key(key),
+				assignable,
+				_get_pending_owner_id(pending),
+				_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(pending, "owner_filter_enabled", true)
+			)
 		_erase_listener_key_if_empty(track.listeners, key)
 	track.pending_removes.clear()
 
@@ -1061,9 +1471,11 @@ func _flush_type_track_adds(track: EventListenerTrack, assignable: bool) -> void
 		var owner_ref: Variant = _GF_VARIANT_ACCESS_SCRIPT.get_option_value(pending, "owner_ref")
 		var binding_owner: Object = _owner_from_ref(owner_ref)
 		if owner_ref != null and binding_owner == null:
+			_deactivate_subscription_token_from_entry(pending)
 			continue
 		var event_type: Script = _get_script_option(pending, track.key_field)
 		if event_type == null:
+			_deactivate_subscription_token_from_entry(pending)
 			continue
 		_add_listener_entry(
 			track.listeners,
@@ -1072,7 +1484,10 @@ func _flush_type_track_adds(track: EventListenerTrack, assignable: bool) -> void
 			_GF_VARIANT_ACCESS_SCRIPT.get_option_int(pending, "priority", 0),
 			binding_owner,
 			_pending_listener_order(pending),
-			assignable
+			assignable,
+			_entry_subscription_id(pending),
+			_entry_is_once(pending),
+			_get_subscription_token_ref(pending)
 		)
 	track.pending_adds.clear()
 
@@ -1082,13 +1497,20 @@ func _flush_simple_track_adds() -> void:
 		var owner_ref: Variant = _GF_VARIANT_ACCESS_SCRIPT.get_option_value(pending, "owner_ref")
 		var binding_owner: Object = _owner_from_ref(owner_ref)
 		if owner_ref != null and binding_owner == null:
+			_deactivate_subscription_token_from_entry(pending)
 			continue
 		var event_id: StringName = _GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(pending, _simple_track.key_field, &"")
+		if event_id == &"":
+			_deactivate_subscription_token_from_entry(pending)
+			continue
 		_add_simple_listener_entry(
 			event_id,
 			_get_callable_option(pending, "callable"),
 			binding_owner,
-			_pending_listener_order(pending)
+			_pending_listener_order(pending),
+			_entry_subscription_id(pending),
+			_entry_is_once(pending),
+			_get_subscription_token_ref(pending)
 		)
 	_simple_track.pending_adds.clear()
 
@@ -1124,10 +1546,30 @@ func _remove_entry_by_callable(
 	for i: int in range(listeners.size() - 1, -1, -1):
 		var entry: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.as_dictionary(listeners[i])
 		if entry.callable == on_event and (not owner_filter_enabled or _entry_owner_id(entry) == owner_id):
+			_deactivate_subscription_token_from_entry(entry)
 			listeners.remove_at(i)
 			removed = true
 	if removed and event_type != null:
 		_invalidate_type_dispatch_cache_for_event(event_type, assignable)
+
+
+func _remove_entry_by_subscription_id(
+	listeners: Array,
+	subscription_id: int,
+	event_type: Script = null,
+	assignable: bool = false
+) -> void:
+	if subscription_id == 0:
+		return
+	for i: int in range(listeners.size() - 1, -1, -1):
+		var entry: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.as_dictionary(listeners[i])
+		if _entry_subscription_id(entry) != subscription_id:
+			continue
+		_deactivate_subscription_token_from_entry(entry)
+		listeners.remove_at(i)
+		if event_type != null:
+			_invalidate_type_dispatch_cache_for_event(event_type, assignable)
+		return
 
 
 func _remove_entries_by_owner_id(
@@ -1140,6 +1582,7 @@ func _remove_entries_by_owner_id(
 	for i: int in range(listeners.size() - 1, -1, -1):
 		var entry: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.as_dictionary(listeners[i])
 		if _entry_owner_id(entry) == owner_id:
+			_deactivate_subscription_token_from_entry(entry)
 			listeners.remove_at(i)
 			removed = true
 	if removed and event_type != null:
@@ -1202,6 +1645,8 @@ func _owner_id_from_ref(owner_ref_variant: Variant) -> int:
 
 
 func _listener_entry_matches(entry: Dictionary, on_event: Callable, owner: Object) -> bool:
+	if _entry_subscription_id(entry) != 0:
+		return false
 	if entry.callable != on_event:
 		return false
 	var owner_id: int = _owner_instance_id(owner)
@@ -1213,6 +1658,11 @@ func _listener_entry_matches(entry: Dictionary, on_event: Callable, owner: Objec
 func _next_listener_order() -> int:
 	_listener_order_counter += 1
 	return _listener_order_counter
+
+
+func _next_subscription_id() -> int:
+	_subscription_id_counter += 1
+	return _subscription_id_counter
 
 
 func _pending_listener_order(pending: Dictionary) -> int:
@@ -1281,6 +1731,7 @@ func _compact_released_owner_entries(track: EventListenerTrack, assignable: bool
 			if not _entry_owner_is_released(entry):
 				continue
 			compacted_count += 1
+			_deactivate_subscription_token_from_entry(entry)
 			var callback: Callable = _get_callable_option(entry, "callable")
 			if defer_remove:
 				track.queue_remove(key, callback, _entry_owner_id(entry), true)
@@ -1353,13 +1804,22 @@ class EventListenerTrack:
 	## @param owner_id: 监听 owner 实例 ID。
 	## [br]
 	## @param order: 注册顺序。
+	## [br]
+	## @param subscription_id: 可取消订阅的稳定身份；普通 register 为 0。
+	## [br]
+	## @param once: 是否在首个回调开始前移除。
+	## [br]
+	## @param subscription_token_ref: 订阅句柄弱引用。
 	func queue_add(
 		key: Variant,
 		on_event: Callable,
 		priority: int,
 		owner_ref: WeakRef,
 		owner_id: int,
-		order: int
+		order: int,
+		subscription_id: int = 0,
+		once: bool = false,
+		subscription_token_ref: WeakRef = null
 	) -> void:
 		var pending: Dictionary = {
 			"callable": on_event,
@@ -1367,6 +1827,9 @@ class EventListenerTrack:
 			"owner_ref": owner_ref,
 			"owner_id": owner_id,
 			"order": order,
+			"subscription_id": subscription_id,
+			"once": once,
+			"subscription_token_ref": subscription_token_ref,
 		}
 		pending[key_field] = key
 		pending_adds.append(pending)
@@ -1394,6 +1857,26 @@ class EventListenerTrack:
 			"callable": on_event,
 			"owner_id": owner_id,
 			"owner_filter_enabled": owner_filter_enabled,
+		}
+		pending[key_field] = key
+		pending_removes.append(pending)
+
+	## 暂存按稳定身份注销订阅。
+	## [br]
+	## @api framework_internal
+	## [br]
+	## @since unreleased
+	## [br]
+	## @param key: 监听轨道键。
+	## [br]
+	## @schema key: Script or StringName listener key matching key_field.
+	## [br]
+	## @param subscription_id: 要注销的稳定订阅身份。
+	func queue_subscription_remove(key: Variant, subscription_id: int) -> void:
+		if subscription_id == 0 or has_pending_subscription_remove(key, subscription_id):
+			return
+		var pending: Dictionary = {
+			"subscription_id": subscription_id,
 		}
 		pending[key_field] = key
 		pending_removes.append(pending)
@@ -1430,7 +1913,29 @@ class EventListenerTrack:
 				and pending_callable == on_event
 				and (not owner_filter_enabled or pending_owner_id == owner_id)
 			):
+				_deactivate_entry_subscription(pending)
 				pending_adds.remove_at(i)
+
+	## 按稳定身份移除同一派发周期内尚未落地的订阅。
+	## [br]
+	## @api framework_internal
+	## [br]
+	## @since unreleased
+	## [br]
+	## @param subscription_id: 要移除的稳定订阅身份。
+	## [br]
+	## @return 是否移除了 pending 订阅。
+	func remove_pending_add_by_subscription_id(subscription_id: int) -> bool:
+		if subscription_id == 0:
+			return false
+		for i: int in range(pending_adds.size() - 1, -1, -1):
+			var pending: Dictionary = pending_adds[i]
+			if _get_subscription_id_from_entry(pending) != subscription_id:
+				continue
+			_deactivate_entry_subscription(pending)
+			pending_adds.remove_at(i)
+			return true
+		return false
 
 	## 移除指定 owner 在同一派发周期内尚未落地的注册。
 	## [br]
@@ -1445,6 +1950,7 @@ class EventListenerTrack:
 			var pending: Dictionary = pending_variant
 			var pending_owner_id: int = _get_owner_id_from_pending(pending)
 			if pending_owner_id == owner_id:
+				_deactivate_entry_subscription(pending)
 				pending_adds.remove_at(i)
 
 	## 查询指定监听是否已暂存注销。
@@ -1487,6 +1993,31 @@ class EventListenerTrack:
 				return true
 		return false
 
+	## 查询指定稳定身份是否已暂存注销。
+	## [br]
+	## @api framework_internal
+	## [br]
+	## @since unreleased
+	## [br]
+	## @param key: 监听轨道键。
+	## [br]
+	## @schema key: Script or StringName listener key matching key_field.
+	## [br]
+	## @param subscription_id: 要查询的稳定订阅身份。
+	## [br]
+	## @return 已暂存注销时返回 true。
+	func has_pending_subscription_remove(key: Variant, subscription_id: int) -> bool:
+		if subscription_id == 0:
+			return false
+		for pending: Dictionary in pending_removes:
+			var pending_key: Variant = pending[key_field] if pending.has(key_field) else null
+			if (
+				pending_key == key
+				and _get_subscription_id_from_entry(pending) == subscription_id
+			):
+				return true
+		return false
+
 	func _get_owner_id_from_pending(pending: Dictionary) -> int:
 		if not pending.has("owner_id"):
 			return 0
@@ -1512,6 +2043,15 @@ class EventListenerTrack:
 	## [br]
 	## @api framework_internal
 	func clear_all() -> void:
+		for key: Variant in listeners.keys():
+			var listener_entries_value: Variant = listeners[key]
+			if not (listener_entries_value is Array):
+				continue
+			var listener_entries: Array = listener_entries_value
+			for entry_variant: Variant in listener_entries:
+				if entry_variant is Dictionary:
+					var entry: Dictionary = entry_variant
+					_deactivate_entry_subscription(entry)
 		listeners.clear()
 		clear_pending()
 
@@ -1519,6 +2059,32 @@ class EventListenerTrack:
 	## [br]
 	## @api framework_internal
 	func clear_pending() -> void:
+		for pending: Dictionary in pending_adds:
+			_deactivate_entry_subscription(pending)
 		pending_adds.clear()
 		pending_removes.clear()
 		pending_owner_removes.clear()
+
+	func _get_subscription_id_from_entry(entry: Dictionary) -> int:
+		if not entry.has("subscription_id"):
+			return 0
+		var subscription_id_value: Variant = entry["subscription_id"]
+		if subscription_id_value is int:
+			var subscription_id: int = subscription_id_value
+			return subscription_id
+		if subscription_id_value is float:
+			var subscription_id_float: float = subscription_id_value
+			return int(subscription_id_float)
+		return 0
+
+	func _deactivate_entry_subscription(entry: Dictionary) -> void:
+		if not entry.has("subscription_token_ref"):
+			return
+		var token_ref_value: Variant = entry["subscription_token_ref"]
+		if not (token_ref_value is WeakRef):
+			return
+		var subscription_token_ref: WeakRef = token_ref_value
+		var token_value: Variant = subscription_token_ref.get_ref()
+		if token_value is GFSubscriptionToken:
+			var subscription_token: GFSubscriptionToken = token_value
+			var _deactivated: bool = subscription_token._deactivate_from_source()

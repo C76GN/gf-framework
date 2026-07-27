@@ -126,6 +126,31 @@ var report := plan.get_validation_report()
 
 从 catalog 构建多包计划时，每个包的 archive path 会自动加上稳定 package ID 作用域，依赖条目也保留实际 owner package ID。这样两个包可以拥有相同相对路径而不会在归档中碰撞；单 manifest 计划仍按调用方传入的 `archive_root` 组织。
 
+### 项目侧外部产物导出配方
+
+项目需要生成预览图、截图、图集和映射文件，再交给外部目标时，可以在项目编辑器工具或独立插件中组合现有机制。这个配方不增加业务生成器，也不让 Content Package 承担写出或上传。
+
+| 组件 | 负责 | 不负责 |
+| --- | --- | --- |
+| `GFThumbnailRenderer` | 把 `CanvasItem`、`Node3D` 或 `Mesh` 渲染为短生命周期 `Image`，并为批量预览提供可取消任务 | 保存文件、拼图、目标平台命名或上传 |
+| `GFScreenshotUtility` | 捕获 Viewport，或把已有 `Image` 保存为 PNG、JPEG、WebP，并返回保存记录 | 解释素材业务类型或决定发布策略 |
+| `GFRectPacking2D` | 在显式数量和容器预算内计算图集放置矩形 | 复制像素、创建纹理资源或写入文件 |
+| `GFGeneratedArtifactReport` | 记录产物路径、状态、所有权和 dry-run 结果，并汇总批次 | 替代二进制写入器、内容校验或远端回执 |
+| `GFContentPackageExportPlan` | 收集源路径与归档路径，并生成计划、完整性和兼容性预检报告 | 创建归档、签名、联网、写入目标或启用内容 |
+
+推荐流程如下：
+
+1. 项目工具先冻结一份导出请求：稳定 artifact ID、稳定输入顺序、最大图片数量、分辨率、图集尺寸、暂存根目录和取消 owner 都必须显式给出。
+2. 资源预览通过 `GFThumbnailRenderer` 生成，Viewport 画面通过 `GFScreenshotUtility` 捕获；两类结果都先收束为 `Image`。空图像、已取消任务或超出预算应直接阻断本批次。
+3. 项目按稳定 ID 排序尺寸，再调用 `GFRectPacking2D.pack_fixed()` 或 `pack_square()`。只要存在未放置项，就报告失败；像素复制、边距填充和 atlas `Image` 创建仍由项目 materializer 实现。
+4. 二进制图像用 `GFScreenshotUtility.save_image()` 写入受控的 `res://` 或 `user://` 暂存根；映射 JSON 等文本用 `GFGeneratedArtifactReport.save_text()` 写入，并设置 `allowed_roots`。二进制保存记录可通过 `make_report()` 归一化，再用 `summarize_reports()` 汇总，避免未报告的部分产物进入后续步骤。
+5. 从 manifest 或 catalog 建立 `GFContentPackageExportPlan`，再用 `add_entry()` 把已生成的 atlas 和映射文件加入计划。只有计划校验、artifact 完整性报告和项目要求的 preflight 全部通过，才把不可变暂存集合交给下一层。
+6. 项目自有目标 Adapter 负责目标格式、认证、限流、幂等键、重试、上传或文件写出以及失败清理。Adapter 只消费已冻结的计划、报告和暂存产物；凭据、远端对象 ID 和业务发布状态不得写入通用产物报告。
+
+至少覆盖 dry-run、取消、空图像、超量输入、无法放置、重复归档路径、写入失败、完整性不匹配、Adapter 部分失败和幂等重试。编辑器预览节点与渲染任务归属当前工具会话，暂存文件归属项目生成目录，远端回执则由项目持久化边界管理。
+
+相关细节见[编辑器访问器与缩略图](../../kernel/architecture/editor-accessors.md)、[截图捕获与批量保存](../../standard/utilities/runtime/debug-observability/debug-visual-inspection/screenshots.md)、[2D 矩形打包](../../standard/foundation/grid-spatial/rect-packing-2d.md)和[编辑器命令、动作与工具协议](../../editor/tool-protocols.md)。
+
 ## 使用边界
 
 - Content Package 不内置 `quest`、`item`、`biome`、`npc`、`skin` 等业务字段；这些字段应由项目 schema 或独立插件解释。

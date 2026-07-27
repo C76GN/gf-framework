@@ -57,14 +57,17 @@
 | 方法 | [`send_event`](#member-gfarchitecture-methods-send_event) | `func send_event(event_instance: Object) -> void:` |
 | 方法 | [`register_event`](#member-gfarchitecture-methods-register_event) | `func register_event(event_type: Script, listener: GFEventListener, priority: int = 0) -> void:` |
 | 方法 | [`register_event_owned`](#member-gfarchitecture-methods-register_event_owned) | `func register_event_owned(owner: Object, event_type: Script, listener: GFEventListener, priority: int = 0) -> void:` |
+| 方法 | [`subscribe_event`](#member-gfarchitecture-methods-subscribe_event) | `func subscribe_event( event_type: Script, listener: GFEventListener, priority: int = 0, once: bool = false ) -> GFSubscriptionToken:` |
 | 方法 | [`register_assignable_event`](#member-gfarchitecture-methods-register_assignable_event) | `func register_assignable_event(base_event_type: Script, listener: GFEventListener, priority: int = 0) -> void:` |
 | 方法 | [`register_assignable_event_owned`](#member-gfarchitecture-methods-register_assignable_event_owned) | `func register_assignable_event_owned( owner: Object, base_event_type: Script, listener: GFEventListener, priority: int = 0 ) -> void:` |
+| 方法 | [`subscribe_assignable_event`](#member-gfarchitecture-methods-subscribe_assignable_event) | `func subscribe_assignable_event( base_event_type: Script, listener: GFEventListener, priority: int = 0, once: bool = false ) -> GFSubscriptionToken:` |
 | 方法 | [`unregister_event`](#member-gfarchitecture-methods-unregister_event) | `func unregister_event(event_type: Script, listener: GFEventListener) -> void:` |
 | 方法 | [`unregister_event_owned`](#member-gfarchitecture-methods-unregister_event_owned) | `func unregister_event_owned(owner: Object, event_type: Script, listener: GFEventListener) -> void:` |
 | 方法 | [`unregister_assignable_event`](#member-gfarchitecture-methods-unregister_assignable_event) | `func unregister_assignable_event(base_event_type: Script, listener: GFEventListener) -> void:` |
 | 方法 | [`unregister_assignable_event_owned`](#member-gfarchitecture-methods-unregister_assignable_event_owned) | `func unregister_assignable_event_owned(owner: Object, base_event_type: Script, listener: GFEventListener) -> void:` |
 | 方法 | [`register_simple_event`](#member-gfarchitecture-methods-register_simple_event) | `func register_simple_event(event_id: StringName, listener: GFEventListener) -> void:` |
 | 方法 | [`register_simple_event_owned`](#member-gfarchitecture-methods-register_simple_event_owned) | `func register_simple_event_owned(owner: Object, event_id: StringName, listener: GFEventListener) -> void:` |
+| 方法 | [`subscribe_simple_event`](#member-gfarchitecture-methods-subscribe_simple_event) | `func subscribe_simple_event( event_id: StringName, listener: GFEventListener, once: bool = false ) -> GFSubscriptionToken:` |
 | 方法 | [`unregister_simple_event`](#member-gfarchitecture-methods-unregister_simple_event) | `func unregister_simple_event(event_id: StringName, listener: GFEventListener) -> void:` |
 | 方法 | [`unregister_simple_event_owned`](#member-gfarchitecture-methods-unregister_simple_event_owned) | `func unregister_simple_event_owned(owner: Object, event_id: StringName, listener: GFEventListener) -> void:` |
 | 方法 | [`unregister_owner_events`](#member-gfarchitecture-methods-unregister_owner_events) | `func unregister_owner_events(owner: Object) -> void:` |
@@ -779,6 +782,30 @@ func register_event_owned(owner: Object, event_type: Script, listener: GFEventLi
 | `listener` | 事件监听器契约。 |
 | `priority` | 回调优先级，数值越大越先执行，默认为 0。 |
 
+<a id="member-gfarchitecture-methods-subscribe_event"></a>
+
+### `subscribe_event`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func subscribe_event( event_type: Script, listener: GFEventListener, priority: int = 0, once: bool = false ) -> GFSubscriptionToken:
+```
+
+订阅脚本类型事件并返回可取消句柄。 listener 携带 owner 时返回的句柄会绑定该 owner 生命周期。`once` 订阅会在 首个回调开始前失效，保证嵌套事件派发不会重复进入同一订阅。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `event_type` | 要订阅的脚本类型。 |
+| `listener` | 事件监听器契约。 |
+| `priority` | 回调优先级，数值越大越先执行，默认为 0。 |
+| `once` | 是否在首个回调开始前自动取消订阅。 |
+
+返回：可幂等取消的订阅句柄；架构不可修改或参数无效时返回非活动句柄。
+
 <a id="member-gfarchitecture-methods-register_assignable_event"></a>
 
 ### `register_assignable_event`
@@ -821,6 +848,30 @@ func register_assignable_event_owned( owner: Object, base_event_type: Script, li
 | `base_event_type` | 要监听的基类脚本类型。 |
 | `listener` | 事件监听器契约。 |
 | `priority` | 回调优先级，数值越大越先执行，默认为 0。 |
+
+<a id="member-gfarchitecture-methods-subscribe_assignable_event"></a>
+
+### `subscribe_assignable_event`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func subscribe_assignable_event( base_event_type: Script, listener: GFEventListener, priority: int = 0, once: bool = false ) -> GFSubscriptionToken:
+```
+
+订阅可赋值类型事件并返回可取消句柄。 listener 携带 owner 时返回的句柄会绑定该 owner 生命周期。监听基类脚本时， 订阅也会收到其派生脚本实例；`once` 在首个匹配回调开始前生效。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `base_event_type` | 要订阅的基类脚本类型。 |
+| `listener` | 事件监听器契约。 |
+| `priority` | 回调优先级，数值越大越先执行，默认为 0。 |
+| `once` | 是否在首个匹配回调开始前自动取消订阅。 |
+
+返回：可幂等取消的订阅句柄；架构不可修改或参数无效时返回非活动句柄。
 
 <a id="member-gfarchitecture-methods-unregister_event"></a>
 
@@ -944,6 +995,29 @@ func register_simple_event_owned(owner: Object, event_id: StringName, listener: 
 | `owner` | 监听器拥有者。 |
 | `event_id` | StringName 事件标识符。 |
 | `listener` | 简单事件监听器契约。 |
+
+<a id="member-gfarchitecture-methods-subscribe_simple_event"></a>
+
+### `subscribe_simple_event`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func subscribe_simple_event( event_id: StringName, listener: GFEventListener, once: bool = false ) -> GFSubscriptionToken:
+```
+
+订阅轻量级 StringName 事件并返回可取消句柄。 listener 携带 owner 时返回的句柄会绑定该 owner 生命周期。`once` 订阅会在 首个回调开始前失效，保证嵌套事件派发不会重复进入同一订阅。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `event_id` | StringName 事件标识符。 |
+| `listener` | 简单事件监听器契约。 |
+| `once` | 是否在首个回调开始前自动取消订阅。 |
+
+返回：可幂等取消的订阅句柄；架构不可修改或参数无效时返回非活动句柄。
 
 <a id="member-gfarchitecture-methods-unregister_simple_event"></a>
 
