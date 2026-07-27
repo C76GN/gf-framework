@@ -7,6 +7,7 @@ import os
 import posixpath
 import secrets
 import stat
+import unicodedata
 from pathlib import Path
 from typing import Any
 
@@ -61,6 +62,14 @@ def normalize_portable_ownership_path(raw_path: str) -> str:
 		if part.split(".", 1)[0].casefold() in _WINDOWS_RESERVED_PATH_STEMS:
 			return ""
 	return normalized
+
+
+def portable_ownership_path_identity(raw_path: str) -> str:
+	"""Return the Unicode-normalized case-folded identity of a portable ownership path."""
+	normalized = normalize_portable_ownership_path(raw_path)
+	if not normalized:
+		return ""
+	return unicodedata.normalize("NFC", normalized).casefold()
 
 
 def is_reserved_framework_resource_path(raw_path: str) -> bool:
@@ -152,11 +161,14 @@ def read_json_object(path: Path, max_bytes: int = DEFAULT_MAX_JSON_BYTES) -> dic
 
 
 def strict_json_loads(source: str) -> Any:
-	return json.loads(
-		source,
-		parse_constant=_reject_json_constant,
-		object_pairs_hook=_strict_json_object,
-	)
+	try:
+		return json.loads(
+			source,
+			parse_constant=_reject_json_constant,
+			object_pairs_hook=_strict_json_object,
+		)
+	except RecursionError as exc:
+		raise ValueError("JSON nesting exceeds the parser limit.") from exc
 
 
 def canonical_json_bytes(value: Any) -> bytes:

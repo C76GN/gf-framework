@@ -1,0 +1,377 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gf-framework.dev/internal/platform_adapter_profile.schema.json",
+  "title": "GF Platform Adapter Compatibility Profile",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "profile_id",
+    "godot_version",
+    "framework_version",
+    "platforms",
+    "features",
+    "packages",
+    "artifacts",
+    "metadata"
+  ],
+  "properties": {
+    "profile_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "godot_version": {
+      "type": "string",
+      "maxLength": 128,
+      "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"
+    },
+    "framework_version": {
+      "type": "string",
+      "minLength": 5,
+      "maxLength": 128
+    },
+    "platforms": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 64,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+      }
+    },
+    "features": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 128,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+      }
+    },
+    "packages": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 256,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "version"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "version": {
+            "type": "string",
+            "maxLength": 128
+          }
+        }
+      }
+    },
+    "artifacts": {
+      "type": "array",
+      "maxItems": 1024,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "path",
+          "kind",
+          "sha256",
+          "size_bytes",
+          "metadata"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "path": {
+            "type": "string",
+            "minLength": 7,
+            "maxLength": 1024
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "gdextension_descriptor",
+              "native_library"
+            ]
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^(replace-with-64-lowercase-sha256|[0-9a-f]{64})$"
+          },
+          "size_bytes": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "metadata": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "export_scope"
+            ],
+            "properties": {
+              "export_scope": {
+                "type": "string",
+                "enum": [
+                  "editor",
+                  "runtime"
+                ]
+              },
+              "minimum_godot_version": {
+                "type": "string",
+                "maxLength": 128,
+                "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"
+              },
+              "reloadable": {
+                "type": "boolean"
+              },
+              "platform": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "architecture": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "build_configuration": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "source_id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "source_version": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "license_id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              }
+            }
+          }
+        }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "adapter_id",
+        "contract_versions",
+        "native_boundary",
+        "native_dependencies"
+      ],
+      "properties": {
+        "adapter_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "contract_versions": {
+          "type": "object",
+          "minProperties": 1
+        },
+        "native_boundary": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "mode",
+            "availability_probe",
+            "call_thread",
+            "callback_thread",
+            "callback_pump",
+            "shutdown_timeout_msec",
+            "permissions",
+            "editor_only",
+            "export_targets",
+            "offline_rebuild_verified"
+          ],
+          "properties": {
+            "mode": {
+              "type": "string",
+              "enum": [
+                "script_only",
+                "optional",
+                "required"
+              ]
+            },
+            "descriptor_path": {
+              "type": "string",
+              "minLength": 7,
+              "maxLength": 1024
+            },
+            "availability_probe": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "kind",
+                "side_effect_free"
+              ],
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "class_db",
+                    "resource"
+                  ]
+                },
+                "class_name": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 256
+                },
+                "resource_path": {
+                  "type": "string",
+                  "minLength": 7,
+                  "maxLength": 1024
+                },
+                "side_effect_free": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "call_thread": {
+              "type": "string",
+              "enum": [
+                "main",
+                "worker",
+                "replace-with-main-or-worker"
+              ]
+            },
+            "callback_thread": {
+              "type": "string",
+              "enum": [
+                "main",
+                "worker",
+                "replace-with-main-or-worker"
+              ]
+            },
+            "callback_pump": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 512
+            },
+            "shutdown_timeout_msec": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 600000
+            },
+            "permissions": {
+              "type": "array",
+              "maxItems": 256,
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              }
+            },
+            "editor_only": {
+              "type": "boolean"
+            },
+            "export_targets": {
+              "type": "array",
+              "maxItems": 1024,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "platform",
+                  "architecture",
+                  "build_configuration"
+                ],
+                "properties": {
+                  "platform": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128
+                  },
+                  "architecture": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128
+                  },
+                  "build_configuration": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128
+                  }
+                }
+              }
+            },
+            "dependency_lock_path": {
+              "type": "string",
+              "minLength": 7,
+              "maxLength": 1024
+            },
+            "offline_rebuild_verified": {
+              "type": "boolean"
+            }
+          }
+        },
+        "native_dependencies": {
+          "type": "array",
+          "maxItems": 256,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "id",
+              "version",
+              "source",
+              "sha256",
+              "license_id"
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "version": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "source": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 2048
+              },
+              "sha256": {
+                "type": "string",
+                "pattern": "^(replace-with-64-lowercase-sha256|[0-9a-f]{64})$"
+              },
+              "license_id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

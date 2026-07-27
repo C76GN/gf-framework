@@ -17,6 +17,7 @@ from typing import Any
 
 import build_gf_package
 from gdscript_api_parser import ApiDocs, ApiMember, collect_api_scripts, visibility_of
+from gf_semver import SemVer, parse_semver
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -24,6 +25,9 @@ ADDON_ROOT = ROOT / "addons/gf/tools/ai_developer"
 API_INDEX_PATH = ADDON_ROOT / "knowledge/api_index.json"
 ARTIFACT_POLICY_PATH = ROOT / "addons/gf/kernel/core/project_artifact_policy.json"
 PLATFORM_ADAPTER_TEMPLATE_ROOT = ADDON_ROOT / "templates/adapters/platform"
+PLATFORM_ADAPTER_PROFILE_SCHEMA_PATH = (
+	ROOT / "tools/schemas/platform_adapter_profile.schema.json"
+)
 PLUGIN_NAME = "gf-ai-developer"
 ZIP_TIMESTAMP = (1980, 1, 1, 0, 0, 0)
 BLOCKED_PARTS = {"__pycache__", ".git", ".godot"}
@@ -36,8 +40,10 @@ try:
 	from gf_ai.paths import (
 		is_reserved_framework_resource_path,
 		normalize_portable_ownership_path,
+		portable_ownership_path_identity,
 		read_json_object as read_strict_json_object,
 	)
+	from gf_ai.schema import validate_schema_file
 finally:
 	sys.path.pop(0)
 
@@ -344,6 +350,14 @@ def validate_platform_adapter_templates(
 			"## Threading and callback pump",
 			"## Reproducible supply chain",
 			"## Editor and export boundary",
+			"`resource_path` must exactly match",
+			"`metadata.native_boundary.descriptor_path`",
+			"case-insensitive portable path identity",
+			"`source_version` and `license_id`",
+			"`metadata.native_boundary.editor_only: false`",
+			"`export_scope: runtime`",
+			"remove the `descriptor_path` and `dependency_lock_path` keys",
+			"`metadata.native_dependencies` to empty arrays",
 		),
 		"platform_adapter.gd.txt": (
 			"extends GFPlatformAdapter",
@@ -387,35 +401,72 @@ def validate_platform_adapter_templates(
 	except (OSError, ValueError) as exc:
 		issues.append(f"Platform adapter compatibility profile is invalid UTF-8 JSON: {exc}")
 	else:
-		if not str(profile.get("profile_id", "")).strip():
-			issues.append("Platform adapter compatibility profile requires profile_id.")
-		for field_name in ("godot_version", "framework_version"):
-			value = str(profile.get(field_name, ""))
-			if re.fullmatch(r"\d+\.\d+\.\d+", value) is None:
+		profile_schema_valid = False
+		try:
+			profile_schema_issues = validate_schema_file(
+				profile,
+				PLATFORM_ADAPTER_PROFILE_SCHEMA_PATH,
+			)
+		except (OSError, ValueError) as exc:
+			issues.append(
+				f"Platform adapter compatibility profile schema is invalid: {exc}"
+			)
+		else:
+			profile_schema_valid = not profile_schema_issues
+			for item in profile_schema_issues:
 				issues.append(
-					f"Platform adapter compatibility profile {field_name} must be exact stable SemVer."
+					f"Platform adapter compatibility profile {item['path']}: "
+					f"{item['message']}"
 				)
-		package_ids = {
-			str(item.get("id", ""))
-			for item in profile.get("packages", [])
-			if isinstance(item, dict)
-		}
-		for package_id in ("gf.standard.platform", "gf.extension.network"):
-			if package_id not in package_ids:
+		if profile_schema_valid:
+			if not str(profile.get("profile_id", "")).strip():
+				issues.append("Platform adapter compatibility profile requires profile_id.")
+			if _parse_exact_stable_version(profile.get("godot_version")) is None:
 				issues.append(
-					f"Platform adapter compatibility profile is missing package: {package_id}."
+					"Platform adapter compatibility profile godot_version "
+					"must be exact stable SemVer."
 				)
-		contract_versions = profile.get("metadata", {}).get("contract_versions", {})
-		if not isinstance(contract_versions, dict) or not contract_versions:
-			issues.append("Platform adapter compatibility profile requires contract_versions metadata.")
-		elif any(
-			not isinstance(contract_id, str)
-			or not contract_id.strip()
-			or re.fullmatch(r"\d+\.\d+\.\d+", str(version)) is None
-			for contract_id, version in contract_versions.items()
-		):
-			issues.append("Platform adapter contract_versions must map stable IDs to exact SemVer.")
-		issues.extend(_validate_platform_native_profile(profile))
+			framework_version = profile.get("framework_version")
+			if _parse_exact_semver(framework_version) is None:
+				issues.append(
+					"Platform adapter compatibility profile framework_version "
+					"must be exact SemVer."
+				)
+			elif framework_version != read_plugin_version():
+				issues.append(
+					"Platform adapter compatibility profile framework_version "
+					"must match the GF Framework version."
+				)
+			package_ids = {
+				str(item.get("id", ""))
+				for item in profile.get("packages", [])
+				if isinstance(item, dict)
+			}
+			for package_id in ("gf.standard.platform", "gf.extension.network"):
+				if package_id not in package_ids:
+					issues.append(
+						f"Platform adapter compatibility profile is missing package: {package_id}."
+					)
+			profile_metadata = profile.get("metadata")
+			contract_versions = (
+				profile_metadata.get("contract_versions", {})
+				if isinstance(profile_metadata, dict)
+				else {}
+			)
+			if not isinstance(contract_versions, dict) or not contract_versions:
+				issues.append(
+					"Platform adapter compatibility profile requires contract_versions metadata."
+				)
+			elif any(
+				not isinstance(contract_id, str)
+				or not contract_id.strip()
+				or _parse_exact_stable_version(version) is None
+				for contract_id, version in contract_versions.items()
+			):
+				issues.append(
+					"Platform adapter contract_versions must map stable IDs to exact SemVer."
+				)
+			issues.extend(_validate_platform_native_profile(profile))
 
 	try:
 		recipes = read_strict_json_object(ADDON_ROOT / "knowledge/recipes.json")
@@ -478,11 +529,16 @@ def _validate_platform_native_profile(profile: dict[str, Any]) -> list[str]:
 	if not isinstance(native_boundary, dict):
 		return ["Platform adapter compatibility profile requires native_boundary metadata."]
 
-	mode = native_boundary.get("mode")
-	if mode not in {"script_only", "optional", "required"}:
+	mode_value = native_boundary.get("mode")
+	mode = mode_value if isinstance(mode_value, str) else ""
+	if mode not in ("script_only", "optional", "required"):
 		issues.append(
 			"Platform adapter native_boundary.mode must be script_only, optional, or required."
 		)
+	editor_only = native_boundary.get("editor_only")
+	if not isinstance(editor_only, bool):
+		issues.append("Native boundary editor_only must be bool.")
+	target_godot_version = _parse_exact_stable_version(profile.get("godot_version"))
 
 	artifacts_value = profile.get("artifacts")
 	if not isinstance(artifacts_value, list):
@@ -494,7 +550,7 @@ def _validate_platform_native_profile(profile: dict[str, Any]) -> list[str]:
 			issues.append("Platform adapter compatibility profile artifacts must contain objects.")
 
 	artifact_ids: set[str] = set()
-	artifact_paths: set[str] = set()
+	artifact_paths: dict[str, str] = {}
 	descriptor_artifacts: list[dict[str, Any]] = []
 	native_libraries: list[dict[str, Any]] = []
 	library_targets: set[tuple[str, str, str]] = set()
@@ -513,11 +569,19 @@ def _validate_platform_native_profile(profile: dict[str, Any]) -> list[str]:
 				f"Native artifact {artifact_id!r} requires a canonical cross-platform "
 				"project-owned res:// path."
 			)
-		elif path in artifact_paths:
-			issues.append(f"Native artifact path is duplicated: {path}.")
 		else:
-			artifact_paths.add(path)
-		if kind not in {"gdextension_descriptor", "native_library"}:
+			path_identity = portable_ownership_path_identity(path)
+			if path_identity in artifact_paths:
+				issues.append(
+					f"Native artifact path is duplicated across portable case-insensitive "
+					f"filesystems: {path!r} conflicts with {artifact_paths[path_identity]!r}."
+				)
+			else:
+				artifact_paths[path_identity] = path
+		if not isinstance(kind, str) or kind not in (
+			"gdextension_descriptor",
+			"native_library",
+		):
 			issues.append(f"Native artifact {artifact_id!r} has unsupported kind: {kind!r}.")
 
 		sha256 = artifact.get("sha256")
@@ -545,19 +609,45 @@ def _validate_platform_native_profile(profile: dict[str, Any]) -> list[str]:
 		if not isinstance(artifact_metadata, dict):
 			issues.append(f"Native artifact {artifact_id!r} requires metadata.")
 			continue
-		if artifact_metadata.get("export_scope") not in {"editor", "runtime"}:
+		export_scope = artifact_metadata.get("export_scope")
+		if not isinstance(export_scope, str) or export_scope not in ("editor", "runtime"):
 			issues.append(
 				f"Native artifact {artifact_id!r} export_scope must be editor or runtime."
 			)
+		elif isinstance(editor_only, bool) and mode in ("optional", "required"):
+			expected_export_scope = "editor" if editor_only else "runtime"
+			if export_scope != expected_export_scope:
+				adapter_scope = (
+					"an editor-only adapter"
+					if editor_only
+					else "a non-editor-only adapter"
+				)
+				issues.append(
+					f"Native artifact {artifact_id!r} for {adapter_scope} "
+					f"must use {expected_export_scope} export_scope."
+				)
 		if kind == "gdextension_descriptor":
 			descriptor_artifacts.append(artifact)
+			if isinstance(path, str) and not path.endswith(".gdextension"):
+				issues.append(
+					f"Native descriptor {artifact_id!r} must use a .gdextension path."
+				)
 			minimum_godot_version = artifact_metadata.get("minimum_godot_version")
-			if (
-				not isinstance(minimum_godot_version, str)
-				or re.fullmatch(r"\d+\.\d+\.\d+", minimum_godot_version) is None
-			):
+			parsed_minimum_godot_version = _parse_exact_stable_version(
+				minimum_godot_version
+			)
+			if parsed_minimum_godot_version is None:
 				issues.append(
 					f"Native descriptor {artifact_id!r} requires an exact minimum_godot_version."
+				)
+			elif (
+				target_godot_version is not None
+				and parsed_minimum_godot_version > target_godot_version
+			):
+				issues.append(
+					f"Native descriptor {artifact_id!r} minimum_godot_version "
+					f"{minimum_godot_version} exceeds target Godot version "
+					f"{profile.get('godot_version')}."
 				)
 			if not isinstance(artifact_metadata.get("reloadable"), bool):
 				issues.append(f"Native descriptor {artifact_id!r} requires a bool reloadable policy.")
@@ -593,7 +683,10 @@ def _validate_platform_native_profile(profile: dict[str, Any]) -> list[str]:
 			issues.append("optional and required native modes require at least one native library.")
 
 	descriptor_path = native_boundary.get("descriptor_path")
-	if mode != "script_only":
+	if mode == "script_only":
+		if "descriptor_path" in native_boundary:
+			issues.append("script_only native mode must not declare descriptor_path.")
+	elif mode in ("optional", "required"):
 		if not _is_project_owned_native_path(descriptor_path):
 			issues.append(
 				"Native boundary descriptor_path must be a canonical cross-platform "
@@ -607,22 +700,44 @@ def _validate_platform_native_profile(profile: dict[str, Any]) -> list[str]:
 		issues.append("Native boundary requires an availability_probe object.")
 	else:
 		probe_kind = probe.get("kind")
-		if probe_kind not in {"class_db", "resource"}:
+		if not isinstance(probe_kind, str) or probe_kind not in ("class_db", "resource"):
 			issues.append("Native availability_probe.kind must be class_db or resource.")
 		elif probe_kind == "class_db":
 			if not isinstance(probe.get("class_name"), str) or not probe["class_name"].strip():
 				issues.append("class_db availability probes require class_name.")
-		elif not _is_project_owned_native_path(probe.get("resource_path")):
-			issues.append(
-				"resource availability probes require a canonical cross-platform "
-				"project-owned res:// resource_path."
-			)
+		else:
+			resource_path = probe.get("resource_path")
+			if not _is_project_owned_native_path(resource_path):
+				issues.append(
+					"resource availability probes require a canonical cross-platform "
+					"project-owned res:// resource_path."
+				)
+			elif (
+				mode in ("optional", "required")
+				and (
+					len(descriptor_artifacts) != 1
+					or descriptor_artifacts[0].get("path") != resource_path
+				)
+			):
+				issues.append(
+					"resource availability_probe.resource_path must match the "
+					"descriptor artifact."
+				)
+			elif mode == "script_only":
+				issues.append(
+					"resource availability probes require a declared descriptor "
+					"artifact and are invalid in script_only mode."
+				)
 		if probe.get("side_effect_free") is not True:
 			issues.append("Native availability probes must declare side_effect_free = true.")
 
 	for field_name in ("call_thread", "callback_thread"):
 		thread_name = native_boundary.get(field_name)
-		if thread_name not in {"main", "worker", NATIVE_THREAD_PLACEHOLDER}:
+		if not isinstance(thread_name, str) or thread_name not in (
+			"main",
+			"worker",
+			NATIVE_THREAD_PLACEHOLDER,
+		):
 			issues.append(
 				f"Native boundary {field_name} must be main, worker, or the explicit template placeholder."
 			)
@@ -642,17 +757,16 @@ def _validate_platform_native_profile(profile: dict[str, Any]) -> list[str]:
 		for permission in permissions
 	):
 		issues.append("Native boundary permissions must be an array of stable non-empty strings.")
-	if not isinstance(native_boundary.get("editor_only"), bool):
-		issues.append("Native boundary editor_only must be bool.")
 	dependency_lock_path = native_boundary.get("dependency_lock_path")
-	if (
-		mode != "script_only"
-		and not _is_project_owned_native_path(dependency_lock_path)
-	):
-		issues.append(
-			"Native boundary dependency_lock_path must be a canonical cross-platform "
-			"project-owned res:// path."
-		)
+	if mode == "script_only":
+		if "dependency_lock_path" in native_boundary:
+			issues.append("script_only native mode must not declare dependency_lock_path.")
+	elif mode in ("optional", "required"):
+		if not _is_project_owned_native_path(dependency_lock_path):
+			issues.append(
+				"Native boundary dependency_lock_path must be a canonical cross-platform "
+				"project-owned res:// path."
+			)
 	if not isinstance(native_boundary.get("offline_rebuild_verified"), bool):
 		issues.append("Native boundary offline_rebuild_verified must be bool.")
 
@@ -681,7 +795,7 @@ def _validate_platform_native_profile(profile: dict[str, Any]) -> list[str]:
 			export_targets.add(target)
 	if mode == "script_only" and export_targets:
 		issues.append("script_only native mode must not declare native export targets.")
-	elif mode in {"optional", "required"} and export_targets != library_targets:
+	elif mode in ("optional", "required") and export_targets != library_targets:
 		issues.append("Native export targets must exactly match declared native library tuples.")
 
 	dependencies_value = metadata.get("native_dependencies")
@@ -692,6 +806,7 @@ def _validate_platform_native_profile(profile: dict[str, Any]) -> list[str]:
 		issues.append("Native modes require a non-empty native_dependencies array.")
 	else:
 		dependency_ids: set[str] = set()
+		dependencies_by_id: dict[str, dict[str, Any]] = {}
 		for dependency in dependencies_value:
 			if not isinstance(dependency, dict):
 				issues.append("native_dependencies must contain objects.")
@@ -703,6 +818,7 @@ def _validate_platform_native_profile(profile: dict[str, Any]) -> list[str]:
 				issues.append(f"Native dependency id is duplicated: {dependency_id}.")
 			else:
 				dependency_ids.add(dependency_id)
+				dependencies_by_id[dependency_id] = dependency
 			for field_name in ("version", "source", "license_id"):
 				value = dependency.get(field_name)
 				if not isinstance(value, str) or not value.strip():
@@ -719,14 +835,57 @@ def _validate_platform_native_profile(profile: dict[str, Any]) -> list[str]:
 				)
 		for artifact in native_libraries:
 			artifact_metadata = artifact.get("metadata")
-			if (
-				isinstance(artifact_metadata, dict)
-				and artifact_metadata.get("source_id") not in dependency_ids
-			):
+			if not isinstance(artifact_metadata, dict):
+				continue
+			source_id = artifact_metadata.get("source_id")
+			if not isinstance(source_id, str) or source_id not in dependency_ids:
 				issues.append(
 					f"Native library {artifact.get('id')!r} source_id must reference native_dependencies."
 				)
+				continue
+			dependency = dependencies_by_id[source_id]
+			for field_name, dependency_field_name in (
+				("source_version", "version"),
+				("license_id", "license_id"),
+			):
+				artifact_value = artifact_metadata.get(field_name)
+				dependency_value = dependency.get(dependency_field_name)
+				if (
+					isinstance(artifact_value, str)
+					and artifact_value.strip()
+					and isinstance(dependency_value, str)
+					and dependency_value.strip()
+					and artifact_value != dependency_value
+				):
+					issues.append(
+						f"Native library {artifact.get('id')!r} {field_name} must "
+						f"match native dependency {source_id!r} {dependency_field_name}."
+					)
 	return issues
+
+
+def _parse_exact_semver(value: Any) -> SemVer | None:
+	if (
+		not isinstance(value, str)
+		or value != value.strip()
+		or len(value) > 128
+	):
+		return None
+	try:
+		return parse_semver(value)
+	except ValueError:
+		return None
+
+
+def _parse_exact_stable_version(value: Any) -> SemVer | None:
+	parsed = _parse_exact_semver(value)
+	if (
+		parsed is None
+		or not parsed.is_stable
+		or value != f"{parsed.major}.{parsed.minor}.{parsed.patch}"
+	):
+		return None
+	return parsed
 
 
 def _is_project_owned_native_path(value: Any) -> bool:

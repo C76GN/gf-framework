@@ -1,7 +1,7 @@
 {
   "profile_id": "project.sample_adapter",
-  "godot_version": "4.5.0",
-  "framework_version": "10.0.0",
+  "godot_version": "4.7.0",
+  "framework_version": "10.0.0-dev.0",
   "platforms": ["sample_platform"],
   "features": ["platform_adapter", "platform_lobby"],
   "packages": [
@@ -17,7 +17,7 @@
       "size_bytes": 0,
       "metadata": {
         "export_scope": "runtime",
-        "minimum_godot_version": "4.5.0",
+        "minimum_godot_version": "4.7.0",
         "reloadable": false
       }
     },

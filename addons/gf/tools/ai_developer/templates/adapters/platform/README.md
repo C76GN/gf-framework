@@ -33,8 +33,10 @@ package. Do not place provider SDK code under `res://addons/gf`.
 
 Choose exactly one native mode in `metadata.native_boundary.mode`:
 
-- `script_only`: remove the native artifacts and prove that no native payload
-  belonging to this Adapter is included in exported builds.
+- `script_only`: remove the `descriptor_path` and `dependency_lock_path` keys;
+  set `artifacts`, `metadata.native_boundary.export_targets`, and
+  `metadata.native_dependencies` to empty arrays; then prove that no native
+  payload belonging to this Adapter is included in exported builds.
 - `optional`: an absent native provider leaves the Adapter unregistered and
   publishes no provider capability.
 - `required`: an absent, mismatched, or unverifiable provider fails
@@ -47,6 +49,9 @@ runtime probe is side-effect free: first match the declared
 resource or registered class. Do not instantiate or initialize a native type
 only to detect it. `ClassDB.class_exists()` is an availability fact after engine
 loading, not proof of provenance, integrity, compatibility, or permission.
+For a `resource` probe, `resource_path` must exactly match
+`metadata.native_boundary.descriptor_path`; an unrelated project resource is
+not evidence that the declared native provider can load.
 Required evidence that is missing, stale, ambiguous, or only partially readable
 must fail closed.
 
@@ -59,9 +64,12 @@ and `editor` or `runtime` export scope. Reject duplicate tuples, undeclared
 filename fallbacks, placeholder hashes, missing files, hash mismatches, and a
 descriptor whose library mapping disagrees with the profile.
 
-Record the exact Godot compatibility floor and reloadability policy. A
-non-reloadable extension requires an editor or process restart; an Adapter must
-not claim hot-reload support merely because a script can be reloaded.
+Artifact paths are unique under a case-insensitive portable path identity, and
+descriptor artifacts use the `.gdextension` resource form. Record the exact
+Godot compatibility floor and reloadability policy; `godot_version` must meet
+or exceed the descriptor's `minimum_godot_version`. A non-reloadable extension
+requires an editor or process restart; an Adapter must not claim hot-reload
+support merely because a script can be reloaded.
 
 ## Threading and callback pump
 
@@ -116,6 +124,8 @@ must be repeatable offline from reviewed, locked inputs; mutable branches,
 implicit package-manager resolution, build-time downloads, and locally
 discovered binaries are rejection conditions. Record the resulting artifact
 hashes and sizes in the compatibility profile instead of trusting filenames.
+Each library's `source_id` must resolve one declared native dependency, and its
+`source_version` and `license_id` must exactly match that dependency record.
 
 ## Editor and export boundary
 
@@ -125,6 +135,11 @@ libraries must be selected by each export preset. Run the load, request,
 cancellation, and shutdown matrix against the exported artifact on every
 declared target tuple. An Adapter that works only inside the editor has not
 passed runtime acceptance.
+
+When `metadata.native_boundary.editor_only: true`, every declared descriptor
+and native library must use `export_scope: editor`. When
+`metadata.native_boundary.editor_only: false`, every artifact must instead use
+`export_scope: runtime`; one scope mismatch invalidates the Adapter profile.
 
 ## Failure matrix
 

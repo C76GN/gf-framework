@@ -13,6 +13,7 @@ import tempfile
 import unittest
 import zipfile
 from pathlib import Path
+from typing import Any
 from unittest import mock
 
 
@@ -69,6 +70,31 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 	def tearDown(self) -> None:
 		self._temporary.cleanup()
 
+	def _load_platform_adapter_profile(self) -> dict[str, Any]:
+		profile_path = (
+			build_gf_ai_developer_kit.PLATFORM_ADAPTER_TEMPLATE_ROOT
+			/ "compatibility_profile.json"
+		)
+		return json.loads(profile_path.read_text(encoding="utf-8"))
+
+	def _validate_platform_adapter_profile(
+		self,
+		profile: dict[str, Any],
+	) -> list[str]:
+		with tempfile.TemporaryDirectory(prefix="gf-ai-native-profile-case-") as temporary:
+			copied_template_root = Path(temporary) / "platform"
+			shutil.copytree(
+				build_gf_ai_developer_kit.PLATFORM_ADAPTER_TEMPLATE_ROOT,
+				copied_template_root,
+			)
+			(copied_template_root / "compatibility_profile.json").write_text(
+				json.dumps(profile, ensure_ascii=False, indent=2) + "\n",
+				encoding="utf-8",
+			)
+			return build_gf_ai_developer_kit.validate_platform_adapter_templates(
+				copied_template_root
+			)
+
 	def test_artifact_policy_is_shared_and_contract_defaults_to_project_state_root(self) -> None:
 		policy = json.loads(ARTIFACT_POLICY_PATH.read_text(encoding="utf-8"))
 
@@ -90,7 +116,7 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 		with self.assertRaises(ValueError):
 			resolve_project_path(self.project_root, "../outside.json")
 
-	def test_strict_json_rejects_duplicate_keys_and_non_finite_numbers(self) -> None:
+	def test_strict_json_rejects_duplicate_non_finite_and_parser_recursion(self) -> None:
 		path = self.project_root / "strict.json"
 		path.write_text('{"value": 1, "value": 2}', encoding="utf-8")
 		with self.assertRaisesRegex(ValueError, "Duplicate JSON object key"):
@@ -98,6 +124,14 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 		path.write_text('{"value": NaN}', encoding="utf-8")
 		with self.assertRaisesRegex(ValueError, "Non-finite JSON number"):
 			read_json_object(path)
+		path.write_text('{"value": 1}', encoding="utf-8")
+		with mock.patch.object(
+			paths.json,
+			"loads",
+			side_effect=RecursionError("maximum JSON nesting exceeded"),
+		):
+			with self.assertRaisesRegex(ValueError, "JSON file is unreadable"):
+				read_json_object(path)
 
 	def test_schema_definition_rejects_keywords_the_validator_does_not_implement(self) -> None:
 		issues = validate_schema_definition({"type": "string", "format": "uri"})
@@ -1159,6 +1193,19 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 		self.assertFalse(adapter_result["ok"])
 		self.assertIn("framework_ownership_root", {item["code"] for item in adapter_result["issues"]})
 
+	def test_portable_ownership_path_identity_normalizes_case_and_unicode(self) -> None:
+		composed = "res://adapters/platform/Café/Provider.gdextension"
+		decomposed = "res://adapters/platform/cafe\u0301/provider.gdextension"
+
+		self.assertEqual(
+			paths.portable_ownership_path_identity(composed),
+			paths.portable_ownership_path_identity(decomposed),
+		)
+		self.assertEqual(
+			paths.portable_ownership_path_identity("res://adapters/../provider"),
+			"",
+		)
+
 	def test_dependency_core_rejects_reserved_framework_root_when_contract_is_prevalidated(self) -> None:
 		(self.project_root / "addons/gf/unsafe.gd").write_text(
 			"extends Node\n",
@@ -1840,6 +1887,18 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 		profile = json.loads(
 			(template_root / "compatibility_profile.json").read_text(encoding="utf-8")
 		)
+		self.assertEqual(
+			validate_schema_file(
+				profile,
+				build_gf_ai_developer_kit.PLATFORM_ADAPTER_PROFILE_SCHEMA_PATH,
+			),
+			[],
+		)
+		self.assertEqual(profile["godot_version"], "4.7.0")
+		self.assertEqual(
+			profile["framework_version"],
+			build_gf_ai_developer_kit.read_plugin_version(),
+		)
 		for heading in (
 			"## Native mode and fail-closed probing",
 			"## Native artifact matrix",
@@ -2041,6 +2100,385 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 				any("compatibility profile is invalid" in issue for issue in issues),
 				issues,
 			)
+
+	def test_platform_native_profile_rejects_non_scalar_mode_without_crashing(self) -> None:
+		for invalid_mode in ([], {}):
+			with self.subTest(invalid_mode=invalid_mode):
+				profile = self._load_platform_adapter_profile()
+				profile["metadata"]["native_boundary"]["mode"] = invalid_mode
+
+				issues = self._validate_platform_adapter_profile(profile)
+
+				self.assertTrue(
+					any("native_boundary.mode" in issue for issue in issues),
+					issues,
+				)
+
+	def test_platform_native_profile_schema_rejects_malformed_shapes_without_crashing(
+		self,
+	) -> None:
+		oversized_version = f"{'9' * 5000}.0.0"
+		mutations = (
+			(
+				"artifacts[0].kind",
+				lambda profile: profile["artifacts"][0].__setitem__("kind", []),
+			),
+			(
+				"artifacts[0].metadata.export_scope",
+				lambda profile: profile["artifacts"][0]["metadata"].__setitem__(
+					"export_scope",
+					{},
+				),
+			),
+			(
+				"metadata.native_boundary.availability_probe.kind",
+				lambda profile: profile["metadata"]["native_boundary"][
+					"availability_probe"
+				].__setitem__("kind", []),
+			),
+			(
+				"metadata.native_boundary.call_thread",
+				lambda profile: profile["metadata"]["native_boundary"].__setitem__(
+					"call_thread",
+					[],
+				),
+			),
+			(
+				"artifacts[1].metadata.source_id",
+				lambda profile: profile["artifacts"][1]["metadata"].__setitem__(
+					"source_id",
+					[],
+				),
+			),
+			(
+				"metadata",
+				lambda profile: profile.__setitem__("metadata", []),
+			),
+			(
+				"packages",
+				lambda profile: profile.__setitem__("packages", None),
+			),
+			(
+				"godot_version",
+				lambda profile: profile.__setitem__(
+					"godot_version",
+					oversized_version,
+				),
+			),
+			(
+				"artifacts[0].metadata.minimum_godot_version",
+				lambda profile: profile["artifacts"][0]["metadata"].__setitem__(
+					"minimum_godot_version",
+					oversized_version,
+				),
+			),
+			(
+				"contract_versions",
+				lambda profile: profile["metadata"]["contract_versions"].__setitem__(
+					"gf.test.contract",
+					oversized_version,
+				),
+			),
+		)
+		for expected_path, mutate in mutations:
+			with self.subTest(expected_path=expected_path):
+				profile = self._load_platform_adapter_profile()
+				mutate(profile)
+
+				issues = self._validate_platform_adapter_profile(profile)
+
+				self.assertTrue(
+					any(expected_path in issue for issue in issues),
+					issues,
+				)
+		self.assertIsNone(
+			build_gf_ai_developer_kit._parse_exact_semver(oversized_version)
+		)
+
+	def test_ai_kit_source_check_reports_invalid_platform_profile_without_crashing(
+		self,
+	) -> None:
+		with tempfile.TemporaryDirectory(prefix="gf-ai-native-profile-source-") as temporary:
+			copied_template_root = Path(temporary) / "platform"
+			shutil.copytree(
+				build_gf_ai_developer_kit.PLATFORM_ADAPTER_TEMPLATE_ROOT,
+				copied_template_root,
+			)
+			profile_path = copied_template_root / "compatibility_profile.json"
+			profile = json.loads(profile_path.read_text(encoding="utf-8"))
+			profile["metadata"]["native_boundary"]["mode"] = []
+			profile_path.write_text(
+				json.dumps(profile, ensure_ascii=False, indent=2) + "\n",
+				encoding="utf-8",
+			)
+			api_index = json.loads(
+				(build_gf_ai_developer_kit.API_INDEX_PATH).read_text(encoding="utf-8")
+			)
+			with mock.patch.object(
+				build_gf_ai_developer_kit,
+				"PLATFORM_ADAPTER_TEMPLATE_ROOT",
+				copied_template_root,
+			):
+				result = build_gf_ai_developer_kit.check_source(api_index)
+
+		self.assertFalse(result["ok"], result)
+		self.assertTrue(
+			any("native_boundary.mode" in issue for issue in result["issues"]),
+			result,
+		)
+
+	def test_platform_native_profile_binds_resource_probe_to_descriptor(self) -> None:
+		valid_resource_profile = self._load_platform_adapter_profile()
+		valid_resource_boundary = valid_resource_profile["metadata"]["native_boundary"]
+		valid_resource_probe = valid_resource_boundary["availability_probe"]
+		valid_resource_probe["kind"] = "resource"
+		valid_resource_probe.pop("class_name")
+		valid_resource_probe["resource_path"] = valid_resource_boundary["descriptor_path"]
+		self.assertEqual(
+			self._validate_platform_adapter_profile(valid_resource_profile),
+			[],
+		)
+
+		for resource_path in (
+			"res://icon.svg",
+			self._load_platform_adapter_profile()["artifacts"][1]["path"],
+		):
+			with self.subTest(resource_path=resource_path):
+				profile = self._load_platform_adapter_profile()
+				probe = profile["metadata"]["native_boundary"]["availability_probe"]
+				probe["kind"] = "resource"
+				probe.pop("class_name")
+				probe["resource_path"] = resource_path
+
+				issues = self._validate_platform_adapter_profile(profile)
+
+				self.assertTrue(
+					any(
+						"resource_path must match the descriptor artifact" in issue
+						for issue in issues
+					),
+					issues,
+				)
+
+		script_only_profile = self._load_platform_adapter_profile()
+		script_only_boundary = script_only_profile["metadata"]["native_boundary"]
+		script_only_boundary["mode"] = "script_only"
+		script_only_boundary.pop("descriptor_path")
+		script_only_boundary.pop("dependency_lock_path")
+		script_only_boundary["export_targets"] = []
+		script_only_profile["artifacts"] = []
+		script_only_profile["metadata"]["native_dependencies"] = []
+		self.assertEqual(
+			self._validate_platform_adapter_profile(script_only_profile),
+			[],
+		)
+		for field_name, field_value in (
+			(
+				"descriptor_path",
+				"res://adapters/platform/sample/native/sample.gdextension",
+			),
+			(
+				"dependency_lock_path",
+				"res://adapters/platform/sample/native/dependencies.lock.json",
+			),
+		):
+			with self.subTest(script_only_native_path=field_name):
+				script_only_boundary[field_name] = field_value
+				issues = self._validate_platform_adapter_profile(script_only_profile)
+				self.assertTrue(
+					any(
+						f"script_only native mode must not declare {field_name}" in issue
+						for issue in issues
+					),
+					issues,
+				)
+				script_only_boundary.pop(field_name)
+
+		script_only_probe = script_only_boundary["availability_probe"]
+		script_only_probe["kind"] = "resource"
+		script_only_probe.pop("class_name")
+		script_only_probe["resource_path"] = "res://adapters/platform/sample/probe.tres"
+		script_only_issues = self._validate_platform_adapter_profile(script_only_profile)
+		self.assertTrue(
+			any("invalid in script_only mode" in issue for issue in script_only_issues),
+			script_only_issues,
+		)
+
+	def test_platform_native_profile_requires_runtime_scope_for_runtime_adapter(self) -> None:
+		for native_mode in ("required", "optional"):
+			valid_runtime_profile = self._load_platform_adapter_profile()
+			valid_runtime_profile["metadata"]["native_boundary"]["mode"] = native_mode
+			self.assertEqual(
+				self._validate_platform_adapter_profile(valid_runtime_profile),
+				[],
+			)
+			for artifact_index, artifact in enumerate(valid_runtime_profile["artifacts"]):
+				with self.subTest(
+					native_mode=native_mode,
+					runtime_artifact=artifact["id"],
+				):
+					profile = self._load_platform_adapter_profile()
+					profile["metadata"]["native_boundary"]["mode"] = native_mode
+					profile["artifacts"][artifact_index]["metadata"][
+						"export_scope"
+					] = "editor"
+
+					issues = self._validate_platform_adapter_profile(profile)
+
+					self.assertTrue(
+						any(
+							artifact["id"] in issue
+							and "for a non-editor-only adapter" in issue
+							for issue in issues
+						),
+						issues,
+					)
+
+		valid_editor_profile = self._load_platform_adapter_profile()
+		valid_editor_profile["metadata"]["native_boundary"]["editor_only"] = True
+		for artifact in valid_editor_profile["artifacts"]:
+			artifact["metadata"]["export_scope"] = "editor"
+		self.assertEqual(
+			self._validate_platform_adapter_profile(valid_editor_profile),
+			[],
+		)
+		for artifact_index, artifact in enumerate(valid_editor_profile["artifacts"]):
+			with self.subTest(editor_artifact=artifact["id"]):
+				profile = self._load_platform_adapter_profile()
+				profile["metadata"]["native_boundary"]["editor_only"] = True
+				for candidate in profile["artifacts"]:
+					candidate["metadata"]["export_scope"] = "editor"
+				profile["artifacts"][artifact_index]["metadata"][
+					"export_scope"
+				] = "runtime"
+
+				issues = self._validate_platform_adapter_profile(profile)
+
+				self.assertTrue(
+					any(
+						artifact["id"] in issue
+						and "for an editor-only adapter" in issue
+						for issue in issues
+					),
+					issues,
+				)
+
+	def test_platform_native_profile_rejects_descriptor_above_target_godot(self) -> None:
+		for target_version, minimum_version in (
+			("4.5.0", "4.6.0"),
+			("4.9.0", "4.10.0"),
+			("4.5.0", "5.0.0"),
+		):
+			with self.subTest(
+				target_version=target_version,
+				minimum_version=minimum_version,
+			):
+				profile = self._load_platform_adapter_profile()
+				profile["godot_version"] = target_version
+				profile["artifacts"][0]["metadata"][
+					"minimum_godot_version"
+				] = minimum_version
+
+				issues = self._validate_platform_adapter_profile(profile)
+
+				self.assertTrue(
+					any("exceeds target Godot version" in issue for issue in issues),
+					issues,
+				)
+
+		for target_version, minimum_version in (
+			("4.7.0", "4.7.0"),
+			("4.10.0", "4.9.99"),
+			("10.0.0", "9.99.99"),
+		):
+			with self.subTest(
+				valid_target_version=target_version,
+				valid_minimum_version=minimum_version,
+			):
+				profile = self._load_platform_adapter_profile()
+				profile["godot_version"] = target_version
+				profile["artifacts"][0]["metadata"][
+					"minimum_godot_version"
+				] = minimum_version
+				self.assertEqual(
+					self._validate_platform_adapter_profile(profile),
+					[],
+				)
+
+	def test_platform_native_profile_tracks_framework_version_exactly(self) -> None:
+		profile = self._load_platform_adapter_profile()
+		current_version = build_gf_ai_developer_kit.read_plugin_version()
+		profile["framework_version"] = (
+			"0.0.1" if current_version == "0.0.0" else "0.0.0"
+		)
+
+		issues = self._validate_platform_adapter_profile(profile)
+
+		self.assertTrue(
+			any("must match the GF Framework version" in issue for issue in issues),
+			issues,
+		)
+
+	def test_platform_native_profile_deduplicates_paths_case_insensitively(self) -> None:
+		for first_path, duplicate_path in (
+			(
+				"res://adapters/platform/sample/bin/provider.dll",
+				"res://adapters/platform/sample/bin/PROVIDER.DLL",
+			),
+			(
+				"res://adapters/platform/sample/bin/café.dll",
+				"res://adapters/platform/sample/bin/cafe\u0301.dll",
+			),
+		):
+			with self.subTest(first_path=first_path, duplicate_path=duplicate_path):
+				profile = self._load_platform_adapter_profile()
+				profile["artifacts"][1]["path"] = first_path
+				profile["artifacts"][2]["path"] = duplicate_path
+
+				issues = self._validate_platform_adapter_profile(profile)
+
+				self.assertTrue(
+					any("path is duplicated" in issue for issue in issues),
+					issues,
+				)
+
+	def test_platform_native_profile_cross_checks_library_provenance(self) -> None:
+		for field_name, invalid_value in (
+			("source_version", "contradictory-version"),
+			("license_id", "contradictory-license"),
+		):
+			with self.subTest(field_name=field_name):
+				profile = self._load_platform_adapter_profile()
+				profile["artifacts"][1]["metadata"][field_name] = invalid_value
+
+				issues = self._validate_platform_adapter_profile(profile)
+
+				self.assertTrue(
+					any(
+						f"{field_name} must match native dependency" in issue
+						for issue in issues
+					),
+					issues,
+				)
+
+	def test_platform_native_profile_requires_gdextension_descriptor_path(self) -> None:
+		for invalid_suffix in (".txt", ".GDEXTENSION", ".gdextension.json", ""):
+			with self.subTest(invalid_suffix=invalid_suffix):
+				profile = self._load_platform_adapter_profile()
+				invalid_descriptor_path = (
+					"res://adapters/platform/sample/not_a_descriptor" + invalid_suffix
+				)
+				profile["artifacts"][0]["path"] = invalid_descriptor_path
+				profile["metadata"]["native_boundary"][
+					"descriptor_path"
+				] = invalid_descriptor_path
+
+				issues = self._validate_platform_adapter_profile(profile)
+
+				self.assertTrue(
+					any("must use a .gdextension path" in issue for issue in issues),
+					issues,
+				)
 
 	def test_plugin_builder_reads_only_owned_source_files(self) -> None:
 		with tempfile.TemporaryDirectory(prefix="gf-ai-owned-source-") as temporary:
