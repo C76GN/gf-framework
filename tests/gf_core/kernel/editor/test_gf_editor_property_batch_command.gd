@@ -9,6 +9,37 @@ const GF_VARIANT_ACCESS = preload("res://addons/gf/kernel/core/gf_variant_access
 
 # --- 测试 ---
 
+func test_empty_configuration_remains_invalid_for_transaction_command() -> void:
+	var command: GFEditorPropertyBatchCommand = GFEditorPropertyBatchCommand.new()
+	var _configured: GFEditorPropertyBatchCommand = command.configure([])
+
+	var validation: Dictionary = command.validate()
+	var execute_error: Error = command.execute()
+	var report: Dictionary = command.get_transaction_report()
+	var issues: Array = GF_VARIANT_ACCESS.as_array(validation.get("issues", []))
+	var first_issue: Dictionary = (
+		GF_VARIANT_ACCESS.as_dictionary(issues[0])
+		if not issues.is_empty()
+		else {}
+	)
+
+	assert_false(
+		GF_VARIANT_ACCESS.get_option_bool(validation, "ok"),
+		"通用属性事务命令必须拒绝没有变更的配置。"
+	)
+	assert_eq(issues.size(), 1)
+	assert_eq(
+		GF_VARIANT_ACCESS.get_option_string_name(first_issue, "kind"),
+		&"missing_changes"
+	)
+	assert_eq(execute_error, ERR_UNAVAILABLE)
+	assert_eq(
+		GF_VARIANT_ACCESS.get_option_string_name(report, "status"),
+		&"preflight_failed"
+	)
+	assert_false(command.is_executed())
+
+
 func test_preflight_failure_keeps_every_target_unchanged() -> void:
 	var first: ControlledTarget = ControlledTarget.new(1)
 	var second: ValueTarget = ValueTarget.new()

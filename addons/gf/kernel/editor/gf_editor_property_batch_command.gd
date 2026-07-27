@@ -110,7 +110,7 @@ var _last_transaction_report: Dictionary = {}
 
 ## 配置属性事务。
 ##
-## 每个 change 必须包含 target、new_value，以及且仅包含 property_name 或
+## changes 必须至少包含一项。每个 change 必须包含 target、new_value，以及且仅包含 property_name 或
 ## property_path。property_name 表示精确直接属性名；property_path 使用 Godot
 ## indexed path 语义。可选 metadata 会复制到条目和错误报告。
 ## [br]
@@ -118,11 +118,11 @@ var _last_transaction_report: Dictionary = {}
 ## [br]
 ## @since unreleased
 ## [br]
-## @param changes: 属性变更数组。
+## @param changes: 非空属性变更数组。
 ## [br]
 ## @param options: 配置选项。
 ## [br]
-## @schema changes: Array[Dictionary]，每项包含 target: Object、new_value: Variant、property_name: StringName/String 或 property_path: NodePath/String，以及可选 metadata: Dictionary。
+## @schema changes: 非空 Array[Dictionary]，每项包含 target: Object、new_value: Variant、property_name: StringName/String 或 property_path: NodePath/String，以及可选 metadata: Dictionary。
 ## [br]
 ## @schema options: Dictionary，可包含 command_name、metadata 和 duplicate_resources。
 ## [br]

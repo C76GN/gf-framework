@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFResourceTableEditor" path="addons/gf/kernel/editor/gf_resource_table_editor.gd" module="kernel" extends="VBoxContainer" classDigest="523698d30afa12033d65ddde07627ab31ef982837b5908b43e0f5e474e09b190">
+<class name="GFResourceTableEditor" path="addons/gf/kernel/editor/gf_resource_table_editor.gd" module="kernel" extends="VBoxContainer" classDigest="d3694a4803a0da9b63a3c0a98f6d70fbcd705222070c4a3acf2d717fe15339f7">
 	<description>GFResourceTableEditor: 通用 Resource 表格编辑控件。
 提供资源扫描、属性列提取、表格刷新与单元格提交，不绑定具体资源类型或业务数据。</description>
 	<tags>
@@ -19,7 +19,7 @@
 		</member>
 		<member kind="signal" name="cell_value_committed">
 			<signature>signal cell_value_committed(resource: Resource, property: StringName, old_value: Variant, new_value: Variant)</signature>
-			<description>单元格值提交后发出。</description>
+			<description>单元格值实际变化且整批事务成功后发出；空批次和规范化后同值的提交不发出。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">resource: 被修改的资源。</tag>
@@ -28,6 +28,7 @@
 				<tag name="param">new_value: 提交后的新值。</tag>
 				<tag name="schema">old_value: Variant value before commit.</tag>
 				<tag name="schema">new_value: Variant value after commit.</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="signal" name="resource_save_failed">
@@ -97,9 +98,11 @@
 	<properties>
 		<member kind="property" name="auto_save_committed_resources">
 			<signature>var auto_save_committed_resources: bool = false</signature>
-			<description>提交单元格后是否自动保存已绑定路径的 Resource。</description>
+			<description>是否自动保存成功事务中实际发生属性变化且已绑定路径的 Resource。
+空批次和规范化后同值的提交不会触发保存。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="search_text">
@@ -269,7 +272,9 @@
 		</member>
 		<member kind="method" name="commit_cell_value">
 			<signature>func commit_cell_value(row_index: int, property: StringName, new_value: Variant) -&gt; bool:</signature>
-			<description>提交单元格值。</description>
+			<description>提交单元格值。
+当规范化请求值与稳定当前值相同时返回成功，但不调用 setter、不发出
+cell_value_committed、不自动保存，也不刷新表格。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">row_index: 资源行索引。</tag>
@@ -282,7 +287,9 @@
 		</member>
 		<member kind="method" name="commit_visible_cell_value">
 			<signature>func commit_visible_cell_value(visible_row_index: int, property: StringName, new_value: Variant) -&gt; bool:</signature>
-			<description>提交当前可见行的单元格值。</description>
+			<description>提交当前可见行的单元格值。
+当规范化请求值与稳定当前值相同时返回成功，但不调用 setter、不发出
+cell_value_committed、不自动保存，也不刷新表格。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">visible_row_index: 过滤后的可见行索引。</tag>
@@ -290,6 +297,7 @@
 				<tag name="param">new_value: 新值。</tag>
 				<tag name="return">提交成功返回 true。</tag>
 				<tag name="schema">new_value: Variant value assigned to the resource property.</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="commit_cell_values">
@@ -297,7 +305,10 @@
 			<description>批量提交资源行单元格值。
 该方法先完成全部行、属性和值预检，再通过 GFEditorPropertyBatchCommand 原子提交。
 任一 setter 拒绝或最终状态验证失败时会恢复本次尝试前的资源属性。
-成功后统一刷新表格；启用自动保存时同一 Resource 只保存一次。</description>
+规范化后同值的条目计入 unchanged_count，不调用其 setter，也不发提交信号。
+仅当至少一项实际变化时统一刷新；启用自动保存时同一已变化 Resource 只保存一次。
+空变更数组返回 status = committed、error = OK 且全部计数为 0 的成功报告，
+不构造属性事务命令，也不触发信号、保存或刷新。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">changes: 单元格变更数组；每项包含 row_index、property 与 new_value。</tag>
@@ -311,8 +322,11 @@
 			<signature>func commit_visible_cell_values(changes: Array[Dictionary]) -&gt; Dictionary:</signature>
 			<description>批量提交可见资源行单元格值。
 可见行索引会在任何写入发生前解析为资源行索引，避免搜索过滤刷新导致同一批变更漂移。
-全部变更通过 GFEditorPropertyBatchCommand 原子提交；启用自动保存时同一 Resource
-只保存一次。</description>
+全部变更通过 GFEditorPropertyBatchCommand 原子提交。规范化后同值的条目计入
+unchanged_count，不调用其 setter，也不发提交信号。仅当至少一项实际变化时
+统一刷新；启用自动保存时同一已变化 Resource 只保存一次。
+空变更数组返回 status = committed、error = OK 且全部计数为 0 的成功报告，
+不构造属性事务命令，也不触发信号、保存或刷新。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">changes: 单元格变更数组；每项包含 visible_row_index、property 与 new_value。</tag>

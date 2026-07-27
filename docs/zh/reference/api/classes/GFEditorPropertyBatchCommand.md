@@ -165,20 +165,20 @@ const STATUS_ROLLBACK_FAILED: StringName = &"rollback_failed"
 func configure( changes: Array[Dictionary], options: Dictionary = {} ) -> GFEditorPropertyBatchCommand:
 ```
 
-配置属性事务。 每个 change 必须包含 target、new_value，以及且仅包含 property_name 或 property_path。property_name 表示精确直接属性名；property_path 使用 Godot indexed path 语义。可选 metadata 会复制到条目和错误报告。
+配置属性事务。 changes 必须至少包含一项。每个 change 必须包含 target、new_value，以及且仅包含 property_name 或 property_path。property_name 表示精确直接属性名；property_path 使用 Godot indexed path 语义。可选 metadata 会复制到条目和错误报告。
 
 参数：
 
 | 名称 | 说明 |
 |---|---|
-| `changes` | 属性变更数组。 |
+| `changes` | 非空属性变更数组。 |
 | `options` | 配置选项。 |
 
 返回：当前命令。
 
 结构：
 
-- `changes`: Array[Dictionary]，每项包含 target: Object、new_value: Variant、property_name: StringName/String 或 property_path: NodePath/String，以及可选 metadata: Dictionary。
+- `changes`: 非空 Array[Dictionary]，每项包含 target: Object、new_value: Variant、property_name: StringName/String 或 property_path: NodePath/String，以及可选 metadata: Dictionary。
 - `options`: Dictionary，可包含 command_name、metadata 和 duplicate_resources。
 
 <a id="member-gfeditorpropertybatchcommand-methods-validate"></a>

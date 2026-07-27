@@ -1,3 +1,5 @@
+@tool
+
 ## 测试通用资源表格编辑器的列提取与单元格提交。
 extends GutTest
 
@@ -211,6 +213,162 @@ func test_resource_table_commit_visible_cell_values_resolves_indices_before_refr
 		report.has("transaction_command"),
 		"成功报告不得暴露可绕过表格副作用链的已执行命令。"
 	)
+
+
+func test_resource_table_empty_batches_are_successful_no_ops() -> void:
+	var editor: TrackingResourceTableEditor = TrackingResourceTableEditor.new()
+	add_child_autofree(editor)
+	watch_signals(editor)
+	var refresh_count_before: int = editor.refresh_call_count
+
+	var reports: Array[Dictionary] = [
+		editor.commit_cell_values([]),
+		editor.commit_visible_cell_values([]),
+	]
+
+	for report: Dictionary in reports:
+		assert_true(GF_VARIANT_ACCESS.get_option_bool(report, "ok"), "空批次应是成功恒等操作。")
+		assert_eq(
+			GF_VARIANT_ACCESS.get_option_string_name(report, "status"),
+			&"committed",
+			"空批次应报告 committed。"
+		)
+		assert_eq(GF_VARIANT_ACCESS.get_option_int(report, "error"), OK)
+		assert_eq(GF_VARIANT_ACCESS.get_option_int(report, "requested_count"), 0)
+		assert_eq(GF_VARIANT_ACCESS.get_option_int(report, "applied_count"), 0)
+		assert_eq(GF_VARIANT_ACCESS.get_option_int(report, "unchanged_count"), 0)
+		assert_eq(GF_VARIANT_ACCESS.get_option_int(report, "failed_count"), 0)
+		assert_eq(GF_VARIANT_ACCESS.get_option_int(report, "issue_count"), 0)
+		assert_eq(GF_VARIANT_ACCESS.as_array(report.get("committed", [])), [])
+		assert_eq(GF_VARIANT_ACCESS.as_array(report.get("errors", [])), [])
+		assert_false(report.has("transaction_command"), "空批次不得暴露事务命令。")
+	assert_eq(editor.refresh_call_count, refresh_count_before, "空批次不得刷新表格。")
+	assert_signal_not_emitted(editor, "cell_value_committed", "空批次不得发出单元格提交信号。")
+
+
+func test_resource_table_unchanged_commits_are_side_effect_free() -> void:
+	var resource: RejectingTableResource = RejectingTableResource.new()
+	resource.ratio_value = 3.0
+	var editor: TrackingResourceTableEditor = TrackingResourceTableEditor.new()
+	add_child_autofree(editor)
+	editor.load_resources([resource], [{
+		"name": &"ratio",
+		"type": TYPE_FLOAT,
+	}])
+	watch_signals(editor)
+	var refresh_count_before: int = editor.refresh_call_count
+
+	var raw_committed: bool = editor.commit_cell_value(0, &"ratio", 3)
+	var visible_committed: bool = editor.commit_visible_cell_value(0, &"ratio", 3)
+	var raw_batch: Dictionary = editor.commit_cell_values([
+		{ "row_index": 0, "property": &"ratio", "new_value": 3 },
+	])
+	var visible_batch: Dictionary = editor.commit_visible_cell_values([
+		{ "visible_row_index": 0, "property": &"ratio", "new_value": 3 },
+	])
+
+	assert_true(raw_committed, "原始行规范化后同值的提交应成功。")
+	assert_true(visible_committed, "可见行规范化后同值的提交应成功。")
+	for report: Dictionary in [raw_batch, visible_batch]:
+		assert_true(GF_VARIANT_ACCESS.get_option_bool(report, "ok"), "规范化后同值的批次应成功。")
+		assert_eq(GF_VARIANT_ACCESS.get_option_int(report, "requested_count"), 1)
+		assert_eq(GF_VARIANT_ACCESS.get_option_int(report, "applied_count"), 0)
+		assert_eq(GF_VARIANT_ACCESS.get_option_int(report, "unchanged_count"), 1)
+		assert_eq(GF_VARIANT_ACCESS.get_option_int(report, "failed_count"), 0)
+	assert_eq(resource.ratio_value, 3.0)
+	assert_eq(resource.ratio_setter_call_count, 0, "所有规范化后同值入口都不得调用 setter。")
+	assert_eq(editor.refresh_call_count, refresh_count_before, "同值提交不得刷新表格。")
+	assert_signal_not_emitted(editor, "cell_value_committed", "同值提交不得发出变更信号。")
+
+
+func test_resource_table_uses_transaction_status_for_equivalent_variant_values() -> void:
+	var resource: RejectingTableResource = RejectingTableResource.new()
+	resource.variant_value = &"same"
+	var editor: TrackingResourceTableEditor = TrackingResourceTableEditor.new()
+	add_child_autofree(editor)
+	editor.load_resources([resource], [{
+		"name": &"variant_value",
+		"type": TYPE_NIL,
+	}])
+	watch_signals(editor)
+	var refresh_count_before: int = editor.refresh_call_count
+
+	var report: Dictionary = editor.commit_cell_values([
+		{ "row_index": 0, "property": &"variant_value", "new_value": "same" },
+	])
+
+	assert_true(GF_VARIANT_ACCESS.get_option_bool(report, "ok"))
+	assert_eq(GF_VARIANT_ACCESS.get_option_int(report, "applied_count"), 0)
+	assert_eq(GF_VARIANT_ACCESS.get_option_int(report, "unchanged_count"), 1)
+	assert_eq(typeof(resource.variant_value), TYPE_STRING_NAME)
+	assert_eq(str(resource.variant_value), "same")
+	assert_eq(resource.variant_setter_call_count, 0, "事务判定等价的 Variant 不得调用 setter。")
+	assert_eq(editor.refresh_call_count, refresh_count_before, "事务判定等价的 Variant 不得刷新表格。")
+	assert_signal_not_emitted(
+		editor,
+		"cell_value_committed",
+		"事务判定等价的 Variant 不得被适配层重新解释为实际变化。"
+	)
+
+
+func test_resource_table_no_op_commits_do_not_auto_save_resources() -> void:
+	var path: String = "user://gf_resource_table_no_op_auto_save.tres"
+	var resource: GFConfigTableColumn = GFConfigTableColumn.new()
+	resource.field_name = &"same"
+	resource.metadata = { "state": "persisted" }
+	assert_eq(ResourceSaver.save(resource, path), OK, "测试资源应能先保存到 user://。")
+
+	var loaded: GFConfigTableColumn = _as_config_table_column(
+		ResourceLoader.load(path, "", ResourceLoader.CACHE_MODE_IGNORE)
+	)
+	loaded.metadata = { "state": "dirty" }
+	var editor: TrackingResourceTableEditor = TrackingResourceTableEditor.new()
+	add_child_autofree(editor)
+	editor.auto_save_committed_resources = true
+	editor.load_resources([loaded], [{
+		"name": &"field_name",
+		"type": TYPE_STRING_NAME,
+	}])
+	watch_signals(editor)
+	var refresh_count_before: int = editor.refresh_call_count
+
+	var empty_reports: Array[Dictionary] = [
+		editor.commit_cell_values([]),
+		editor.commit_visible_cell_values([]),
+	]
+	var raw_committed: bool = editor.commit_cell_value(0, &"field_name", "same")
+	var visible_committed: bool = editor.commit_visible_cell_value(0, &"field_name", "same")
+	var unchanged_reports: Array[Dictionary] = [
+		editor.commit_cell_values([
+			{ "row_index": 0, "property": &"field_name", "new_value": "same" },
+		]),
+		editor.commit_visible_cell_values([
+			{ "visible_row_index": 0, "property": &"field_name", "new_value": "same" },
+		]),
+	]
+	var reloaded: GFConfigTableColumn = _as_config_table_column(
+		ResourceLoader.load(path, "", ResourceLoader.CACHE_MODE_IGNORE)
+	)
+	assert_eq(
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(path)),
+		OK,
+		"测试应能删除同值自动保存临时资源。"
+	)
+
+	for report: Dictionary in empty_reports:
+		assert_true(GF_VARIANT_ACCESS.get_option_bool(report, "ok"), "空批次应保持成功。")
+	for report: Dictionary in unchanged_reports:
+		assert_true(GF_VARIANT_ACCESS.get_option_bool(report, "ok"), "同值批次应保持成功。")
+		assert_eq(GF_VARIANT_ACCESS.get_option_int(report, "unchanged_count"), 1)
+	assert_true(raw_committed)
+	assert_true(visible_committed)
+	assert_eq(
+		GF_VARIANT_ACCESS.get_option_string(reloaded.metadata, "state"),
+		"persisted",
+		"空批次和规范化后同值提交不得把内存脏状态自动保存到资源文件。"
+	)
+	assert_eq(editor.refresh_call_count, refresh_count_before, "no-op 提交不得刷新表格。")
+	assert_signal_not_emitted(editor, "cell_value_committed", "no-op 提交不得发出变更信号。")
 
 
 func test_resource_table_failure_counts_unique_changes_and_exposes_only_recovery_handle() -> void:
@@ -482,31 +640,70 @@ class RejectingTableResource:
 	extends Resource
 
 	var amount_value: int = 0
+	var ratio_value: float = 0.0
+	var variant_value: Variant = null
 	var rejected_values: Array[int] = []
+	var ratio_setter_call_count: int = 0
+	var variant_setter_call_count: int = 0
 
 
 	func _get_property_list() -> Array[Dictionary]:
-		return [{
-			"name": "amount",
-			"type": TYPE_INT,
-			"usage": PROPERTY_USAGE_DEFAULT | PROPERTY_USAGE_STORAGE,
-		}]
+		return [
+			{
+				"name": "amount",
+				"type": TYPE_INT,
+				"usage": PROPERTY_USAGE_DEFAULT | PROPERTY_USAGE_STORAGE,
+			},
+			{
+				"name": "ratio",
+				"type": TYPE_FLOAT,
+				"usage": PROPERTY_USAGE_DEFAULT | PROPERTY_USAGE_STORAGE,
+			},
+			{
+				"name": "variant_value",
+				"type": TYPE_NIL,
+				"usage": PROPERTY_USAGE_DEFAULT | PROPERTY_USAGE_STORAGE,
+			},
+		]
 
 
 	func _get(property: StringName) -> Variant:
 		if property == &"amount":
 			return amount_value
+		if property == &"ratio":
+			return ratio_value
+		if property == &"variant_value":
+			return variant_value
 		return null
 
 
 	func _set(property: StringName, raw_value: Variant) -> bool:
-		if property != &"amount":
-			return false
-		var requested_value: int = GF_VARIANT_ACCESS.to_int(raw_value)
-		if rejected_values.has(requested_value):
-			return false
-		amount_value = requested_value
-		return true
+		if property == &"amount":
+			var requested_value: int = GF_VARIANT_ACCESS.to_int(raw_value)
+			if rejected_values.has(requested_value):
+				return false
+			amount_value = requested_value
+			return true
+		if property == &"ratio":
+			ratio_setter_call_count += 1
+			ratio_value = GF_VARIANT_ACCESS.to_float(raw_value)
+			return true
+		if property == &"variant_value":
+			variant_setter_call_count += 1
+			variant_value = raw_value
+			return true
+		return false
+
+
+class TrackingResourceTableEditor:
+	extends "res://addons/gf/kernel/editor/gf_resource_table_editor.gd"
+
+	var refresh_call_count: int = 0
+
+
+	func refresh() -> void:
+		refresh_call_count += 1
+		super.refresh()
 
 
 class CustomValueControl:

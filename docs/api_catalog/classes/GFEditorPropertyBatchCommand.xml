@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFEditorPropertyBatchCommand" path="addons/gf/kernel/editor/gf_editor_property_batch_command.gd" module="kernel" extends="GFEditorCommand" classDigest="868e3934d1bbfdc97bff03721905057a287e8f0822951b1158ca14de5530e5c8">
+<class name="GFEditorPropertyBatchCommand" path="addons/gf/kernel/editor/gf_editor_property_batch_command.gd" module="kernel" extends="GFEditorCommand" classDigest="b7d4e7a9dba69993f3e7a468e2403c5a954853bf9ee25c3b2261003407dfdbc5">
 	<description>GFEditorPropertyBatchCommand: 通用多目标属性事务命令。
 对调用方显式提供的 Object 属性先做全量零写入预检，再按稳定顺序提交。
 任一写入或最终状态验证失败时，会按相反顺序恢复本次尝试前的全部目标属性。
@@ -91,15 +91,15 @@
 		<member kind="method" name="configure">
 			<signature>func configure( changes: Array[Dictionary], options: Dictionary = {} ) -&gt; GFEditorPropertyBatchCommand:</signature>
 			<description>配置属性事务。
-每个 change 必须包含 target、new_value，以及且仅包含 property_name 或
+changes 必须至少包含一项。每个 change 必须包含 target、new_value，以及且仅包含 property_name 或
 property_path。property_name 表示精确直接属性名；property_path 使用 Godot
 indexed path 语义。可选 metadata 会复制到条目和错误报告。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="param">changes: 属性变更数组。</tag>
+				<tag name="param">changes: 非空属性变更数组。</tag>
 				<tag name="param">options: 配置选项。</tag>
 				<tag name="return">当前命令。</tag>
-				<tag name="schema">changes: Array[Dictionary]，每项包含 target: Object、new_value: Variant、property_name: StringName/String 或 property_path: NodePath/String，以及可选 metadata: Dictionary。</tag>
+				<tag name="schema">changes: 非空 Array[Dictionary]，每项包含 target: Object、new_value: Variant、property_name: StringName/String 或 property_path: NodePath/String，以及可选 metadata: Dictionary。</tag>
 				<tag name="schema">options: Dictionary，可包含 command_name、metadata 和 duplicate_resources。</tag>
 				<tag name="since">unreleased</tag>
 			</tags>

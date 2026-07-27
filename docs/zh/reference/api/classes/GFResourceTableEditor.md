@@ -74,12 +74,13 @@ signal resource_selected(resource: Resource)
 ### `cell_value_committed`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 signal cell_value_committed(resource: Resource, property: StringName, old_value: Variant, new_value: Variant)
 ```
 
-单元格值提交后发出。
+单元格值实际变化且整批事务成功后发出；空批次和规范化后同值的提交不发出。
 
 参数：
 
@@ -227,12 +228,13 @@ const DEFAULT_MAX_RESOURCE_PATHS: int = 10000
 ### `auto_save_committed_resources`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var auto_save_committed_resources: bool = false
 ```
 
-提交单元格后是否自动保存已绑定路径的 Resource。
+是否自动保存成功事务中实际发生属性变化且已绑定路径的 Resource。 空批次和规范化后同值的提交不会触发保存。
 
 <a id="member-gfresourcetableeditor-properties-search_text"></a>
 
@@ -579,7 +581,7 @@ func duplicate_resource(row_index: int, deep: bool = false, insert_after: bool =
 func commit_cell_value(row_index: int, property: StringName, new_value: Variant) -> bool:
 ```
 
-提交单元格值。
+提交单元格值。 当规范化请求值与稳定当前值相同时返回成功，但不调用 setter、不发出 cell_value_committed、不自动保存，也不刷新表格。
 
 参数：
 
@@ -600,12 +602,13 @@ func commit_cell_value(row_index: int, property: StringName, new_value: Variant)
 ### `commit_visible_cell_value`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func commit_visible_cell_value(visible_row_index: int, property: StringName, new_value: Variant) -> bool:
 ```
 
-提交当前可见行的单元格值。
+提交当前可见行的单元格值。 当规范化请求值与稳定当前值相同时返回成功，但不调用 setter、不发出 cell_value_committed、不自动保存，也不刷新表格。
 
 参数：
 
@@ -632,7 +635,7 @@ func commit_visible_cell_value(visible_row_index: int, property: StringName, new
 func commit_cell_values(changes: Array[Dictionary]) -> Dictionary:
 ```
 
-批量提交资源行单元格值。 该方法先完成全部行、属性和值预检，再通过 GFEditorPropertyBatchCommand 原子提交。 任一 setter 拒绝或最终状态验证失败时会恢复本次尝试前的资源属性。 成功后统一刷新表格；启用自动保存时同一 Resource 只保存一次。
+批量提交资源行单元格值。 该方法先完成全部行、属性和值预检，再通过 GFEditorPropertyBatchCommand 原子提交。 任一 setter 拒绝或最终状态验证失败时会恢复本次尝试前的资源属性。 规范化后同值的条目计入 unchanged_count，不调用其 setter，也不发提交信号。 仅当至少一项实际变化时统一刷新；启用自动保存时同一已变化 Resource 只保存一次。 空变更数组返回 status = committed、error = OK 且全部计数为 0 的成功报告， 不构造属性事务命令，也不触发信号、保存或刷新。
 
 参数：
 
@@ -658,7 +661,7 @@ func commit_cell_values(changes: Array[Dictionary]) -> Dictionary:
 func commit_visible_cell_values(changes: Array[Dictionary]) -> Dictionary:
 ```
 
-批量提交可见资源行单元格值。 可见行索引会在任何写入发生前解析为资源行索引，避免搜索过滤刷新导致同一批变更漂移。 全部变更通过 GFEditorPropertyBatchCommand 原子提交；启用自动保存时同一 Resource 只保存一次。
+批量提交可见资源行单元格值。 可见行索引会在任何写入发生前解析为资源行索引，避免搜索过滤刷新导致同一批变更漂移。 全部变更通过 GFEditorPropertyBatchCommand 原子提交。规范化后同值的条目计入 unchanged_count，不调用其 setter，也不发提交信号。仅当至少一项实际变化时 统一刷新；启用自动保存时同一已变化 Resource 只保存一次。 空变更数组返回 status = committed、error = OK 且全部计数为 0 的成功报告， 不构造属性事务命令，也不触发信号、保存或刷新。
 
 参数：
 

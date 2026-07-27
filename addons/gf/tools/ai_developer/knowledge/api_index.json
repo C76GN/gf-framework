@@ -2,7 +2,7 @@
   "schema_version": 1,
   "catalog_version": "1.0.0",
   "framework_version": "10.0.0-dev.0",
-  "source_digest": "4060bc33e2c708bffdc75ad59374c80fca8719b9b88f30cf6ffb4c0f5f6b717b",
+  "source_digest": "d8a88824fe386f1a8d5e1654ab67b6c2719ac720e0decb71f479796c64b75c66",
   "class_count": 760,
   "package_count": 52,
   "packages": [
@@ -63091,7 +63091,7 @@
           "kind": "signal",
           "name": "cell_value_committed",
           "signature": "signal cell_value_committed(resource: Resource, property: StringName, old_value: Variant, new_value: Variant)",
-          "summary": "单元格值提交后发出。",
+          "summary": "单元格值实际变化且整批事务成功后发出；空批次和规范化后同值的提交不发出。",
           "visibility": "public"
         },
         {
@@ -63147,7 +63147,7 @@
           "kind": "var",
           "name": "auto_save_committed_resources",
           "signature": "var auto_save_committed_resources: bool = false",
-          "summary": "提交单元格后是否自动保存已绑定路径的 Resource。",
+          "summary": "是否自动保存成功事务中实际发生属性变化且已绑定路径的 Resource。",
           "visibility": "public"
         },
         {

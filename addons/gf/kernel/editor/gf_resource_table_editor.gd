@@ -24,9 +24,11 @@ extends VBoxContainer
 ## @param resource: 被选中的资源。
 signal resource_selected(resource: Resource)
 
-## 单元格值提交后发出。
+## 单元格值实际变化且整批事务成功后发出；空批次和规范化后同值的提交不发出。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @param resource: 被修改的资源。
 ## [br]
@@ -108,9 +110,12 @@ const _SCRIPT_TYPE_INSPECTOR = preload("res://addons/gf/kernel/core/gf_script_ty
 
 # --- 公共变量 ---
 
-## 提交单元格后是否自动保存已绑定路径的 Resource。
+## 是否自动保存成功事务中实际发生属性变化且已绑定路径的 Resource。
+## 空批次和规范化后同值的提交不会触发保存。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 var auto_save_committed_resources: bool = false
 
 ## 当前搜索过滤文本。为空时显示全部资源。
@@ -431,6 +436,9 @@ func duplicate_resource(row_index: int, deep: bool = false, insert_after: bool =
 
 
 ## 提交单元格值。
+##
+## 当规范化请求值与稳定当前值相同时返回成功，但不调用 setter、不发出
+## cell_value_committed、不自动保存，也不刷新表格。
 ## [br]
 ## @api public
 ## [br]
@@ -455,8 +463,13 @@ func commit_cell_value(row_index: int, property: StringName, new_value: Variant)
 
 
 ## 提交当前可见行的单元格值。
+##
+## 当规范化请求值与稳定当前值相同时返回成功，但不调用 setter、不发出
+## cell_value_committed、不自动保存，也不刷新表格。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @param visible_row_index: 过滤后的可见行索引。
 ## [br]
@@ -477,7 +490,10 @@ func commit_visible_cell_value(visible_row_index: int, property: StringName, new
 ## [br]
 ## 该方法先完成全部行、属性和值预检，再通过 GFEditorPropertyBatchCommand 原子提交。
 ## 任一 setter 拒绝或最终状态验证失败时会恢复本次尝试前的资源属性。
-## 成功后统一刷新表格；启用自动保存时同一 Resource 只保存一次。
+## 规范化后同值的条目计入 unchanged_count，不调用其 setter，也不发提交信号。
+## 仅当至少一项实际变化时统一刷新；启用自动保存时同一已变化 Resource 只保存一次。
+## 空变更数组返回 status = committed、error = OK 且全部计数为 0 的成功报告，
+## 不构造属性事务命令，也不触发信号、保存或刷新。
 ## [br]
 ## @api public
 ## [br]
@@ -497,8 +513,11 @@ func commit_cell_values(changes: Array[Dictionary]) -> Dictionary:
 ## 批量提交可见资源行单元格值。
 ## [br]
 ## 可见行索引会在任何写入发生前解析为资源行索引，避免搜索过滤刷新导致同一批变更漂移。
-## 全部变更通过 GFEditorPropertyBatchCommand 原子提交；启用自动保存时同一 Resource
-## 只保存一次。
+## 全部变更通过 GFEditorPropertyBatchCommand 原子提交。规范化后同值的条目计入
+## unchanged_count，不调用其 setter，也不发提交信号。仅当至少一项实际变化时
+## 统一刷新；启用自动保存时同一已变化 Resource 只保存一次。
+## 空变更数组返回 status = committed、error = OK 且全部计数为 0 的成功报告，
+## 不构造属性事务命令，也不触发信号、保存或刷新。
 ## [br]
 ## @api public
 ## [br]
@@ -561,6 +580,17 @@ func _ensure_tree() -> void:
 func _commit_resource_cell_value_changes(changes: Array[Dictionary], use_visible_rows: bool) -> Dictionary:
 	var command_changes: Array[Dictionary] = []
 	var errors: Array[Dictionary] = []
+
+	if changes.is_empty():
+		return _make_resource_commit_batch_result(
+			0,
+			[],
+			[],
+			{
+				"status": GFEditorPropertyBatchCommand.STATUS_COMMITTED,
+				"error": OK,
+			}
+		)
 
 	for change_index: int in range(changes.size()):
 		var change: Dictionary = changes[change_index]
@@ -825,6 +855,13 @@ func _make_resource_committed_reports(
 			entry,
 			"new_value"
 		)
+		var entry_status: StringName = (
+			_GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(
+				entry,
+				"status",
+				&""
+			)
+		)
 		var report: Dictionary = _make_resource_cell_commit_success(
 			_GF_VARIANT_ACCESS_SCRIPT.get_option_int(
 				entry_metadata,
@@ -839,7 +876,7 @@ func _make_resource_committed_reports(
 			),
 			old_value,
 			new_value,
-			not _GF_VARIANT_ACCESS_SCRIPT.values_equal(old_value, new_value)
+			entry_status == &"applied"
 		)
 		report["index"] = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(
 			entry_metadata,
