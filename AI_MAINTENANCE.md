@@ -56,6 +56,7 @@ addons/gf/kernel <- addons/gf/standard <- addons/gf/extensions
 - `GFExtensionPreset` JSON 也使用字段白名单，只描述 `id`、`display_name`、`description`、`extension_ids` 和 `tags`。Preset 不能声明 `dependencies`、`optional_dependencies`、`load_after` 等软关系字段，也不能声明 `download_url`、`packages`、`registry`、`installer_paths` 等下载包或装配覆盖字段；这些能力应放在项目安装向导或 `addons/gf` 外的独立插件中。`maintenance-self-test` 必须校验 Python 维护规则和 `gf_extension_preset.gd` 运行时常量不漂移。
 - GF 内置扩展之间不能通过其他内置扩展的路径、扩展 ID、`class_name`、动态脚本加载、动态扩展探测或隐藏协议形成软协作。跨扩展组合属于项目 Installer、项目 preset JSON 或 `addons/gf` 外的独立插件，不能写回 GF 内置扩展。
 - `kernel/editor` 可以承载通用菜单、文件对话框和模板生成器，但不能硬编码 `standard` 或可选扩展的具体模板类型、基类或扩展 ID；标准库模板由 `addons/gf/standard/editor/gf_editor_contributions.json` data-only manifest 和模板文本注入，可选扩展模板由扩展自己的 `editor_action_paths` 注入。
+- 扩展级 `EditorDebuggerPlugin` 只能由 schema v2 `gf_tool_contribution.json` 的 `debugger_plugin_paths` 显式贡献，不得进入运行时 `gf_extension.json`。根插件必须先装载标准 debugger 记录、再装载扩展路径，并由同一 `kernel/editor` 辅助对象完成去重、添加和对称移除；装载器必须在实例化前验证脚本基类。
 - `GFEditorWorkspace` 未来可以承载更多原子化扩展工具，但内核只负责工作区外壳、导航、通用 UI、工具记录和生命周期；具体页面必须由 kernel、standard 或扩展按归属主动贡献。不要把单个扩展、项目业务或跨扩展组合流程硬编码进 workspace。
 - 根插件 `addons/gf/plugin.gd` 是组合入口，可以收集标准库编辑器增强并传给 `kernel/editor` 辅助脚本；这个例外不允许扩散到 `addons/gf/kernel/**`。
 - 移动层级边界时，同步更新源码路径、测试、正式文档、`docs/zh/changelog.md`、API Catalog 和 API Reference；不要留下重复路径副本造成重复 `class_name` 或 UID 冲突。
@@ -68,6 +69,7 @@ addons/gf/kernel <- addons/gf/standard <- addons/gf/extensions
 - 运行时业务资源优先通过 `GFResourceResolverUtility` 的稳定资源键、内容包 manifest、资源注册表或 `GFAssetUtility` 句柄入口访问；不要把 `res://`、`uid://` 或 `user://` 字面量散落到业务流程里作为长期契约。
 - 新增 `preload()`、`load()`、`ResourceLoader.load()`、`ResourceLoader.load_interactive()`、`ResourceLoader.load_threaded_request()` 或 `ResourceLoader.load_threaded_get()` 字面量时，先判断它是脚本依赖、编辑器工具、测试 fixture、迁移脚本，还是应收敛到 resolver/asset handle/content package 的运行时资源。不能收敛时，在代码或测试上下文中保留足够理由。
 - 使用 `GFAssetUtility` 加载可释放运行时资源时，应优先绑定 owner、group 或明确 cache/pin 策略；不要依赖 Godot 退出时的资源回收来证明生命周期正确。GF 只能追踪经过 GF 入口的引用，无法强制释放仍被节点、Resource、单例、脚本变量或第三方插件持有的对象。
+- `GFAssetSlot` 只用于项目显式 opt-in 的稳定身份资源切换：它复制身份、在主线程强持有当前 `Resource`，并以不可逆 `release()` 终结生命周期。不得把它增强为文件监听器、隐式热重载、第二套缓存或 `GFAssetHandle` 所有者；候选加载、业务校验和提交策略仍属于项目侧。
 - 内容包、资源域或项目 profile 的目录和依赖规则只能作为项目侧或外部插件策略；GF 内核和标准库只沉淀稳定的 manifest、validator、resolver、diagnostics 和维护 gate，不硬编码单个游戏的包名、目录布局、热更流程或 CDN 规则。
 - `python tools\gf_maintenance.py resource-boundary --json` 用于统计直接资源加载字面量。默认 `issues` 只保留需要行动的资源加载问题；脚本依赖 preload/load、编辑器 metadata 加载，以及 `tests/gf_core/**` 内测试代码对同一测试树固定 fixture 的加载会进入 `observations` 汇总，并按 `source_kind` 区分 runtime、editor、tool、test 等来源，按 package manifest 归属汇总到 `source_package` / `target_package` 和 source-to-target package 矩阵，需要完整明细时显式传 `--include-observations --json`。测试 fixture 例外要求 source/target 都是无 `..` traversal 的规范化测试树路径，不得扩展到运行时代码或测试代码加载非测试资源。维护检查套件使用 `--fail-on-issues`，让真实资源加载问题成为硬闸门，同时保留脚本依赖观测项。
 - `python tools\gf_maintenance.py content-package-boundary --json` 是内容包 manifest 硬 gate；它扫描 tracked 和未忽略的 untracked `gf_content_package.json`，拒绝无效 JSON、非白名单字段、缺失或重复包 ID、缺失或循环依赖、资源路径越过包根，以及把下载地址、安装器、包管理策略写进 manifest 的做法。

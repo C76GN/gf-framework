@@ -34,4 +34,6 @@ GF 内置扩展必须保持原子化，`dependencies` 只允许包含 `gf.kernel
 
 Manifest 只允许使用示例中的稳定字段。`optional_dependencies`、`peer_dependencies`、`extension_pack`、`preset`、`suggests`、`recommends`、`load_after` 等软依赖、组合包、推荐和加载顺序字段会被基础校验和维护检查拒绝。
 
+`debugger_plugin_paths` 也不是运行时 manifest 字段。需要贡献 `EditorDebuggerPlugin` 时，把它写入扩展目录下 schema v2 的 `editor/gf_tool_contribution.json`，让 Debugger 能力随独立 tool package 显式安装。
+
 `enabled_by_default` 对 GF 内置可选扩展必须显式为 `false`。新项目只启用 kernel 与 standard 基础能力，业务型扩展由项目在 `GF Extensions` 页面、安装向导或项目脚本中显式选择。

@@ -86,6 +86,7 @@
       "res://tests/gf_core/standard/utilities/agent/test_gf_runtime_agent_environment.gd"
     ],
     "gf.standard.assets": [
+      "res://tests/gf_core/standard/utilities/assets/test_gf_asset_slot.gd",
       "res://tests/gf_core/standard/utilities/assets/test_gf_asset_utility.gd",
       "res://tests/gf_core/standard/utilities/assets/test_gf_threaded_resource_coordinator.gd",
       "res://tests/gf_core/standard/utilities/assets/test_gf_import_plan.gd",

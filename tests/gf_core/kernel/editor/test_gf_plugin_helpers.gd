@@ -270,7 +270,7 @@ func test_plugin_helper_setup_methods_are_idempotent_by_contract() -> void:
 	)
 	var debugger_setup: String = _extract_function_source(
 		_read_text_file("res://addons/gf/kernel/editor/gf_plugin_debugger_tools.gd"),
-		"func setup(plugin: EditorPlugin, standard_records: Dictionary = {}) -> void:",
+		"func setup(\n\tplugin: EditorPlugin,\n\tstandard_records: Dictionary = {},",
 		"func cleanup(plugin: EditorPlugin) -> void:"
 	)
 	var preview_setup: String = _extract_function_source(
@@ -443,19 +443,66 @@ func test_standard_dock_records_use_standard_order_band() -> void:
 func test_standard_debugger_records_are_injected_without_kernel_hardcoding() -> void:
 	var tools: Object = _new_object(GF_PLUGIN_DEBUGGER_TOOLS)
 	var records: Array = _get_standard_editor_records(&"get_debugger_plugin_records")
-	var normalized: Array = _call_array(tools, &"_to_record_array", [records])
+	var standard_script_path: String = (
+		"res://addons/gf/standard/utilities/debug/editor/gf_runtime_debugger_plugin.gd"
+	)
+	var extension_script_path: String = (
+		"res://addons/example_extension/editor/example_debugger_plugin.gd"
+	)
+	var extension_paths: Array[String] = [
+		" ",
+		standard_script_path,
+		" %s " % extension_script_path,
+		extension_script_path,
+	]
+	var normalized: Array = _call_array(tools, &"_collect_debugger_records", [
+		{
+			"debugger_plugin_records": records,
+		},
+		extension_paths,
+	])
 
-	assert_eq(normalized.size(), 1, "标准库应贡献一个 Runtime Debugger 插件记录。")
-	if normalized.is_empty():
+	assert_eq(normalized.size(), 2, "标准库记录应优先，并与扩展路径合并去重。")
+	if normalized.size() < 2:
 		return
 
 	var record: Dictionary = _dictionary_at(normalized, 0)
 	var script_path: String = GF_VARIANT_ACCESS.get_option_string(record, "path")
+	var extension_record: Dictionary = _dictionary_at(normalized, 1)
 	var debugger_script: Script = _load_script_resource(script_path)
 	var debugger_source: String = _read_text_file(script_path)
+	var plugin_source: String = _read_text_file("res://addons/gf/plugin.gd")
+	var enter_tree_source: String = _extract_function_source(
+		plugin_source,
+		"func _enter_tree() -> void:",
+		"func _exit_tree() -> void:"
+	)
+	var refresh_source: String = _extract_function_source(
+		plugin_source,
+		"func _refresh_editor_contributions() -> void:",
+		"func _scan_editor_filesystem() -> void:"
+	)
 
-	assert_eq(script_path, "res://addons/gf/standard/utilities/debug/editor/gf_runtime_debugger_plugin.gd", "Debugger 插件记录应来自 standard 贡献。")
+	assert_eq(script_path, standard_script_path, "Debugger 插件记录应来自 standard 贡献。")
 	assert_eq(GF_VARIANT_ACCESS.get_option_string(record, "label"), "GF Runtime Debugger", "Debugger 插件记录应保留显示标签。")
+	assert_eq(
+		GF_VARIANT_ACCESS.get_option_string(extension_record, "path"),
+		extension_script_path,
+		"扩展 Debugger 插件路径应追加在标准库记录之后。"
+	)
+	assert_eq(
+		GF_VARIANT_ACCESS.get_option_string(extension_record, "label"),
+		extension_script_path,
+		"纯路径贡献应使用规范化路径作为诊断标签。"
+	)
+	assert_true(
+		enter_tree_source.contains("GFExtensionSettingsBase.get_enabled_debugger_plugin_paths()"),
+		"插件首次装配应查询当前启用扩展的 Debugger 插件路径。"
+	)
+	assert_true(
+		refresh_source.contains("GFExtensionSettingsBase.get_enabled_debugger_plugin_paths()"),
+		"插件刷新应重新查询当前启用扩展的 Debugger 插件路径。"
+	)
 	assert_not_null(debugger_script, "Debugger 插件脚本应可加载。")
 	if debugger_script == null:
 		return
@@ -467,6 +514,63 @@ func test_standard_debugger_records_are_injected_without_kernel_hardcoding() -> 
 	assert_true(debugger_source.contains("session.add_session_tab(tab)"), "Runtime Debugger 页签应注册到 EditorDebuggerSession。")
 	assert_false(debugger_source.contains("session.stopped.connect"), "stopped 只表示远端断开，不应销毁可复用的会话页签。")
 	assert_false(debugger_source.contains("tab.queue_free()"), "已注册页签必须由 EditorDebuggerSession 统一释放。")
+
+
+func test_debugger_loader_rejects_non_plugin_before_instantiation() -> void:
+	var tools: Object = _new_object(GF_PLUGIN_DEBUGGER_TOOLS)
+	var fixture_path: String = "user://gf_invalid_debugger_plugin.gd"
+	var side_effect_setting: String = (
+		_TEST_PROJECT_SETTING_PREFIX + "invalid_debugger_instantiated"
+	)
+	_remove_path_if_exists(fixture_path)
+	_clear_project_setting_if_exists(side_effect_setting)
+	_write_text_file(
+		fixture_path,
+		(
+			"extends RefCounted\n\n"
+			+ "func _init() -> void:\n"
+			+ "\tProjectSettings.set_setting("
+			+ JSON.stringify(side_effect_setting)
+			+ ", true)\n"
+		)
+	)
+	var invalid_script: Script = _load_script_resource(fixture_path)
+	var standard_script: Script = _load_script_resource(
+		"res://addons/gf/standard/utilities/debug/editor/"
+		+ "gf_runtime_debugger_plugin.gd"
+	)
+
+	assert_false(
+		_call_bool(
+			tools,
+			&"_is_editor_debugger_plugin_script",
+			[invalid_script]
+		),
+		"普通脚本不得通过 Debugger 插件基类预检。"
+	)
+	assert_true(
+		_call_bool(
+			tools,
+			&"_is_editor_debugger_plugin_script",
+			[standard_script]
+		),
+		"标准 Debugger 脚本应通过基类预检。"
+	)
+	var invalid_instance: Variant = _call_value(
+		tools,
+		&"_load_debugger_plugin",
+		[fixture_path, "Invalid fixture"]
+	)
+
+	assert_true(invalid_instance == null, "非法脚本应在实例化前失败关闭。")
+	assert_false(
+		ProjectSettings.has_setting(side_effect_setting),
+		"基类不匹配的脚本不得执行构造逻辑。"
+	)
+	assert_push_error(
+		"[GF Framework] Invalid fixture Debugger 插件脚本必须继承 EditorDebuggerPlugin。"
+	)
+	_remove_path_if_exists(fixture_path)
 
 
 func test_standard_project_setting_records_use_runtime_build_info_constants() -> void:

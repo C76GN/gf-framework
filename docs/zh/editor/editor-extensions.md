@@ -12,7 +12,7 @@
 - Signal Diagnostics 页面，用于查看当前编辑场景的信号连接、未连接信号和显式开启后的发射记录。
 - Diagnostics 页面，用于采集通用性能、架构、工具监控与可选场景树快照。
 
-Inspector 与导出插件仍按对应类型装载，例如 Node State Machine Inspector、Pattern2D Inspector、AudioBank Inspector 和 BuildInfo 导出插件。
+Inspector、Debugger 与导出插件仍按对应类型装载，例如 Node State Machine Inspector、Pattern2D Inspector、AudioBank Inspector、Runtime Debugger 和 BuildInfo 导出插件。
 
 ## 资源预览与路径字段
 
@@ -40,12 +40,13 @@ var preload_scene_paths: PackedStringArray = []
 
 ## 扩展贡献
 
-GF 内置扩展或外部扩展的编辑器增强由各自 manifest 声明：
+GF 内置扩展或外部扩展的编辑器增强由各自 manifest 或独立 tool contribution 声明：
 
 - `editor_action_paths`：GF 菜单动作，也可贡献脚本模板记录。
 - `editor_dock_paths`：GF 工作区页面。
 - `editor_inspector_paths`：`EditorInspectorPlugin`。
 - `export_plugin_paths`：扩展自己的导出插件。
 - `access_generator_extension_paths`：访问器生成扩展。
+- `debugger_plugin_paths`：`EditorDebuggerPlugin`，只允许写入 schema v2 的 `editor/gf_tool_contribution.json`。
 
-核心插件只按启用状态装载这些入口，不在 `kernel` 中硬编码标准库或可选扩展脚本。这样可选扩展被禁用或删除时，核心和标准库仍应可加载；标准库增强存在与否也不会改变 `kernel` 的源码依赖边界。
+核心插件只按启用状态装载这些入口，不在 `kernel` 中硬编码标准库或可选扩展脚本。Debugger 插件会在标准库记录之后追加、按路径去重，并与根插件生命周期一起注册和移除。这样可选扩展被禁用或删除时，核心和标准库仍应可加载；标准库增强存在与否也不会改变 `kernel` 的源码依赖边界。

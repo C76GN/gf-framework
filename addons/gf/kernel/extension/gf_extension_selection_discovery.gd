@@ -466,13 +466,22 @@ static func _collect_tool_contribution_path_dictionary(
 
 
 static func _merge_path_dictionaries(first_paths: Dictionary, second_paths: Dictionary) -> Dictionary:
-	var result: Dictionary = _make_empty_path_dictionary(_MANIFEST_PATH_FIELDS)
-	for property_name: String in _MANIFEST_PATH_FIELDS:
+	var field_names: Array[String] = _get_all_path_fields()
+	var result: Dictionary = _make_empty_path_dictionary(field_names)
+	for property_name: String in field_names:
 		var target_paths: Array = _GF_VARIANT_ACCESS_SCRIPT.get_option_array(result, property_name)
 		_append_unique_paths(target_paths, _GF_VARIANT_ACCESS_SCRIPT.get_option_string_array(first_paths, property_name))
 		_append_unique_paths(target_paths, _GF_VARIANT_ACCESS_SCRIPT.get_option_string_array(second_paths, property_name))
 		result[property_name] = target_paths
 	return result
+
+
+static func _get_all_path_fields() -> Array[String]:
+	var field_names: Array[String] = _MANIFEST_PATH_FIELDS.duplicate()
+	for property_name: String in _GF_EXTENSION_TOOL_CONTRIBUTION_SCRIPT.PATH_FIELDS:
+		if not field_names.has(property_name):
+			field_names.append(property_name)
+	return field_names
 
 
 static func _make_empty_path_dictionary(field_names: Array[String]) -> Dictionary:

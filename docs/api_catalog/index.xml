@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<apiCatalog schemaVersion="2" name="GF Framework" sourceRoot="addons/gf" sourceDigest="1361253ef33667c4fc00b9e0bd89b7c78e56b24a885c281b310a8f4069a52815" classCount="779" methodCount="6997">
-	<module id="kernel" label="Kernel" classCount="71" methodCount="726">
+<apiCatalog schemaVersion="2" name="GF Framework" sourceRoot="addons/gf" sourceDigest="bd0e613b70e4ff289dee37f0ea9d8821aa3a11a905a82f5ac467187b014925aa" classCount="780" methodCount="7009">
+	<module id="kernel" label="Kernel" classCount="71" methodCount="727">
 		<class name="GFAccessGenerator" path="classes/GFAccessGenerator.xml" sourcePath="addons/gf/kernel/editor/gf_access_generator.gd" extends="RefCounted" />
 		<class name="GFArchitecture" path="classes/GFArchitecture.xml" sourcePath="addons/gf/kernel/core/gf_architecture.gd" extends="Object" />
 		<class name="GFAsyncCompletion" path="classes/GFAsyncCompletion.xml" sourcePath="addons/gf/kernel/core/gf_async_completion.gd" extends="RefCounted" />
@@ -73,7 +73,7 @@
 		<class name="GFUtility" path="classes/GFUtility.xml" sourcePath="addons/gf/kernel/base/gf_utility.gd" extends="Object" />
 		<class name="GFWeakMethodInvocation" path="classes/GFWeakMethodInvocation.xml" sourcePath="addons/gf/kernel/core/gf_weak_method_invocation.gd" extends="RefCounted" />
 	</module>
-	<module id="standard" label="Standard" classCount="434" methodCount="4358">
+	<module id="standard" label="Standard" classCount="435" methodCount="4369">
 		<class name="GFActivationTransaction" path="classes/GFActivationTransaction.xml" sourcePath="addons/gf/standard/foundation/policy/gf_activation_transaction.gd" extends="RefCounted" />
 		<class name="GFAnalyticsConfig" path="classes/GFAnalyticsConfig.xml" sourcePath="addons/gf/standard/utilities/analytics/gf_analytics_config.gd" extends="Resource" />
 		<class name="GFAnalyticsEventSchema" path="classes/GFAnalyticsEventSchema.xml" sourcePath="addons/gf/standard/utilities/analytics/gf_analytics_event_schema.gd" extends="Resource" />
@@ -92,6 +92,7 @@
 		<class name="GFAssetLoadSession" path="classes/GFAssetLoadSession.xml" sourcePath="addons/gf/standard/utilities/assets/gf_asset_load_session.gd" extends="RefCounted" />
 		<class name="GFAssetLoadSessionResult" path="classes/GFAssetLoadSessionResult.xml" sourcePath="addons/gf/standard/utilities/assets/gf_asset_load_session_result.gd" extends="RefCounted" />
 		<class name="GFAssetPreloadPlan" path="classes/GFAssetPreloadPlan.xml" sourcePath="addons/gf/standard/utilities/assets/gf_asset_preload_plan.gd" extends="Resource" />
+		<class name="GFAssetSlot" path="classes/GFAssetSlot.xml" sourcePath="addons/gf/standard/utilities/assets/gf_asset_slot.gd" extends="RefCounted" />
 		<class name="GFAssetUtility" path="classes/GFAssetUtility.xml" sourcePath="addons/gf/standard/utilities/assets/gf_asset_utility.gd" extends="GFUtility" />
 		<class name="GFAsyncBatch" path="classes/GFAsyncBatch.xml" sourcePath="addons/gf/standard/utilities/io/gf_async_batch.gd" extends="RefCounted" />
 		<class name="GFAsyncChannel" path="classes/GFAsyncChannel.xml" sourcePath="addons/gf/standard/common/gf_async_channel.gd" extends="RefCounted" />

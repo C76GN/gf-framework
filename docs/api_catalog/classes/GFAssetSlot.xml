@@ -1,0 +1,162 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFAssetSlot" path="addons/gf/standard/utilities/assets/gf_asset_slot.gd" module="standard" extends="RefCounted" classDigest="6f8c2fbc488dffa8f6012dac67abe71720e292751a7251ce206ed2e1af0bcf6f">
+	<description>GFAssetSlot: 稳定资源身份下的显式可替换资源槽位。
+槽位强持有当前 Resource，并在成功配置、替换或终态释放后推进单调 generation。
+它不监听文件变化、不接管 GFAssetUtility 缓存，也不改变 GFAssetHandle 的快照语义。
+全部公开操作限定在主线程；其他线程上的调用会失败关闭且不改变槽位状态。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_handle</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals>
+		<member kind="signal" name="resource_replaced">
+			<signature>signal resource_replaced(previous_resource: Resource, current_resource: Resource, generation: int)</signature>
+			<description>当前资源成功替换后发出。
+信号发出前资源与 generation 已经提交；通知期间再次替换或释放会失败关闭。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">previous_resource: 替换前的资源；原先为空时为 null。</tag>
+				<tag name="param">current_resource: 替换后的资源。</tag>
+				<tag name="param">generation: 本次提交后的槽位 generation。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="signal" name="released">
+			<signature>signal released(previous_resource: Resource, generation: int)</signature>
+			<description>槽位进入不可逆释放终态后发出。
+信号发出前资源已经清空、generation 已经推进且 owner 监听已经解除。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">previous_resource: 释放前的资源；原先为空时为 null。</tag>
+				<tag name="param">generation: 本次提交后的槽位 generation。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</signals>
+	<enums />
+	<constants />
+	<properties />
+	<methods>
+		<member kind="method" name="configure">
+			<signature>func configure( resource_identity: GFResourceIdentity, initial_resource: Resource = null, owner: Object = null, type_hint_override: String = "" ) -&gt; bool:</signature>
+			<description>显式配置 live asset slot。
+每个槽位只允许成功配置一次。资源身份会被复制并固定；type_hint_override
+非空时覆盖身份中的 type_hint。空类型提示接受任意 Resource，非空类型提示
+同时支持 Godot 原生类名、脚本 global class_name 与脚本资源路径。
+owner 为 Node 时必须已经位于场景树中，退出场景树会自动释放槽位；其他 Object
+通过弱引用在后续读取活动状态或替换时检测生命周期。owner 不会被槽位强持有。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">resource_identity: 具有稳定 cache_key 的资源身份。</tag>
+				<tag name="param">initial_resource: 可选初始资源。</tag>
+				<tag name="param">owner: 可选生命周期 owner。</tag>
+				<tag name="param">type_hint_override: 可选显式类型提示；为空时使用身份中的 type_hint。</tag>
+				<tag name="return">本次是否成功提交配置。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_resource_identity">
+			<signature>func get_resource_identity() -&gt; GFResourceIdentity:</signature>
+			<description>获取稳定资源身份副本。
+身份不属于活动资源状态，因此槽位释放后仍可读取。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">已配置身份的副本；尚未成功配置时返回 null。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_resource">
+			<signature>func get_resource() -&gt; Resource:</signature>
+			<description>获取当前资源。
+若普通 Object owner 已释放，本次访问会先把槽位提交到释放终态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">当前强引用资源；槽位未配置或已释放时返回 null。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_type_hint">
+			<signature>func get_type_hint() -&gt; String:</signature>
+			<description>获取当前生效的资源类型提示。
+类型提示不属于活动资源状态，因此槽位释放后仍可读取。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">显式覆盖值、身份 type_hint 或空字符串。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_configured">
+			<signature>func is_configured() -&gt; bool:</signature>
+			<description>检查槽位是否已经成功配置。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">主线程上返回是否已经成功配置；其他线程返回 false。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_generation">
+			<signature>func get_generation() -&gt; int:</signature>
+			<description>获取当前单调 generation。
+generation 在成功配置、成功替换和首次释放后推进，且只应在同一个槽位内比较。
+若普通 Object owner 已释放，本次访问会先提交释放。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">当前 generation；新建但未配置的槽位为 0，其他线程返回 -1。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="has_resource">
+			<signature>func has_resource() -&gt; bool:</signature>
+			<description>检查槽位当前是否持有资源。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">槽位活动且持有资源时返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_released">
+			<signature>func is_released() -&gt; bool:</signature>
+			<description>检查槽位是否已经进入不可逆释放终态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">成功配置后已进入终态时返回 true；未配置时返回 false，其他线程返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="accepts_resource">
+			<signature>func accepts_resource(candidate_resource: Resource) -&gt; bool:</signature>
+			<description>检查资源是否满足当前槽位类型契约。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">candidate_resource: 待检查资源。</tag>
+				<tag name="return">槽位活动且资源非空、类型兼容时返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="replace">
+			<signature>func replace(next_resource: Resource) -&gt; bool:</signature>
+			<description>原子替换当前资源。
+成功时先提交资源和 generation，再同步发出 resource_replaced。相同实例、
+空资源、类型不兼容、释放终态或通知重入均保持原状态并返回 false。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">next_resource: 新资源实例。</tag>
+				<tag name="return">本次是否提交了替换。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="release">
+			<signature>func release() -&gt; bool:</signature>
+			<description>终态释放槽位持有的资源。
+首次成功释放会清空资源、推进 generation、解除 owner 监听，再同步发出 released。
+重复释放或通知重入没有副作用。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">本次是否首次提交了释放。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

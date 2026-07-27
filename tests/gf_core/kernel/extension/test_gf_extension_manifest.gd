@@ -6,6 +6,9 @@ extends GutTest
 
 const GF_EXTENSION_EXPORT_PLUGIN_BASE = preload("res://addons/gf/kernel/editor/extension/gf_extension_export_plugin.gd")
 const GF_EXTENSION_PRESET_BASE = preload("res://addons/gf/kernel/extension/gf_extension_preset.gd")
+const GF_EXTENSION_SELECTION_DISCOVERY_SCRIPT = preload(
+	"res://addons/gf/kernel/extension/gf_extension_selection_discovery.gd"
+)
 const GF_EXTENSION_TOOL_CONTRIBUTION_SCRIPT = preload("res://addons/gf/kernel/extension/gf_extension_tool_contribution.gd")
 const GF_VARIANT_ACCESS = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
 const EXTENSION_ROOT: String = "res://addons/gf/extensions"
@@ -219,6 +222,7 @@ func test_manifest_validation_rejects_unsupported_relation_fields() -> void:
 		"optional_dependencies": ["author.other"],
 		"preset": "project.rpg",
 		"load_after": ["author.base"],
+		"debugger_plugin_paths": ["editor/debugger_plugin.gd"],
 		"custom_field": true,
 	}, "res://addons/author_feature", "")
 	var errors: Array[String] = manifest.get_validation_errors()
@@ -239,6 +243,10 @@ func test_manifest_validation_rejects_unsupported_relation_fields() -> void:
 	assert_true(
 		errors.has("unsupported manifest field: custom_field"),
 		"未知字段不应被基础 manifest 校验静默忽略。"
+	)
+	assert_true(
+		errors.has("unsupported manifest field: debugger_plugin_paths"),
+		"Debugger 插件路径只属于 tool contribution，不应泄漏到 runtime manifest。"
 	)
 
 
@@ -1638,6 +1646,7 @@ func test_extension_settings_can_query_manifest_and_enabled_state() -> void:
 	var save_export_paths: Array[String] = GFExtensionSettings.get_enabled_export_plugin_paths()
 	var save_gltf_document_paths: Array[String] = GFExtensionSettings.get_enabled_gltf_document_extension_paths()
 	var save_access_extension_paths: Array[String] = GFExtensionSettings.get_enabled_access_generator_extension_paths()
+	var save_debugger_paths: Array[String] = GFExtensionSettings.get_enabled_debugger_plugin_paths()
 	var combat_script: Script = GFExtensionSettings.load_enabled_extension_script(
 		"gf.combat",
 		"actions/gf_combat_action.gd"
@@ -1670,6 +1679,7 @@ func test_extension_settings_can_query_manifest_and_enabled_state() -> void:
 	assert_true(save_export_paths.is_empty(), "Save 扩展未声明导出插件时应返回空导出插件路径。")
 	assert_true(save_gltf_document_paths.is_empty(), "Save 扩展未声明 glTF 文档扩展时应返回空 glTF 文档扩展路径。")
 	assert_true(save_access_extension_paths.is_empty(), "Save 扩展未声明访问器扩展时应返回空访问器扩展路径。")
+	assert_true(save_debugger_paths.is_empty(), "Save 扩展未声明 Debugger 插件时应返回空 Debugger 插件路径。")
 	assert_null(combat_script, "未启用扩展内脚本不应被统一加载入口加载。")
 
 
@@ -1696,15 +1706,25 @@ func test_extension_settings_collects_editor_tool_contribution_paths() -> void:
 
 func test_extension_tool_contribution_schema_normalizes_valid_paths() -> void:
 	var report: Dictionary = GF_EXTENSION_TOOL_CONTRIBUTION_SCRIPT.parse_dictionary({
-		"schema_version": 1.0,
+		"schema_version": float(GF_EXTENSION_TOOL_CONTRIBUTION_SCRIPT.SCHEMA_VERSION),
 		"extension_id": "author.feature",
+		"debugger_plugin_paths": [" editor/debugger_plugin.gd ", "editor/debugger_plugin.gd"],
 		"editor_action_paths": [" editor/action.gd ", "editor/action.gd"],
 	}, "author.feature")
 	var data: Dictionary = GF_VARIANT_ACCESS.get_option_dictionary(report, "data")
 
 	assert_true(GF_VARIANT_ACCESS.get_option_bool(report, "ok", false), "合法 tool contribution 应通过 schema 校验。")
-	assert_eq(GF_VARIANT_ACCESS.get_option_int(data, "schema_version"), 1, "规范化结果应保留明确 schema 版本。")
+	assert_eq(
+		GF_VARIANT_ACCESS.get_option_int(data, "schema_version"),
+		GF_EXTENSION_TOOL_CONTRIBUTION_SCRIPT.SCHEMA_VERSION,
+		"规范化结果应保留明确 schema 版本。"
+	)
 	assert_eq(GF_VARIANT_ACCESS.get_option_string(data, "extension_id"), "author.feature", "规范化结果应保留扩展 ID。")
+	assert_eq(
+		GF_VARIANT_ACCESS.get_option_array(data, "debugger_plugin_paths"),
+		["editor/debugger_plugin.gd"],
+		"Debugger 插件路径应去空白并去重。"
+	)
 	assert_eq(
 		GF_VARIANT_ACCESS.get_option_array(data, "editor_action_paths"),
 		["editor/action.gd"],
@@ -1712,22 +1732,41 @@ func test_extension_tool_contribution_schema_normalizes_valid_paths() -> void:
 	)
 
 
-func test_extension_tool_contribution_schema_rejects_future_and_unknown_fields() -> void:
+func test_extension_tool_contribution_schema_rejects_legacy_version() -> void:
+	var legacy_schema_version: int = GF_EXTENSION_TOOL_CONTRIBUTION_SCRIPT.SCHEMA_VERSION - 1
 	var report: Dictionary = GF_EXTENSION_TOOL_CONTRIBUTION_SCRIPT.parse_dictionary({
-		"schema_version": 2,
+		"schema_version": legacy_schema_version,
+		"extension_id": "author.feature",
+	}, "author.feature")
+	var errors: Array = GF_VARIANT_ACCESS.get_option_array(report, "errors")
+
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(report, "ok", true), "旧 tool contribution schema 不应隐式兼容。")
+	assert_true(
+		errors.has("unsupported tool contribution schema_version: %d" % legacy_schema_version),
+		"schema v1 应给出明确迁移错误。"
+	)
+
+
+func test_extension_tool_contribution_schema_rejects_future_and_unknown_fields() -> void:
+	var future_schema_version: int = GF_EXTENSION_TOOL_CONTRIBUTION_SCRIPT.SCHEMA_VERSION + 1
+	var report: Dictionary = GF_EXTENSION_TOOL_CONTRIBUTION_SCRIPT.parse_dictionary({
+		"schema_version": future_schema_version,
 		"extension_id": "author.feature",
 		"future_loader": "res://future.gd",
 	}, "author.feature")
 	var errors: Array = GF_VARIANT_ACCESS.get_option_array(report, "errors")
 
 	assert_false(GF_VARIANT_ACCESS.get_option_bool(report, "ok", true), "未来 schema 和未知字段必须 fail-closed。")
-	assert_true(errors.has("unsupported tool contribution schema_version: 2"), "应报告未来 schema。")
+	assert_true(
+		errors.has("unsupported tool contribution schema_version: %d" % future_schema_version),
+		"应报告未来 schema。"
+	)
 	assert_true(errors.has("unsupported tool contribution field: future_loader"), "应报告未知字段。")
 
 
 func test_extension_tool_contribution_schema_rejects_mismatched_id_and_invalid_paths() -> void:
 	var report: Dictionary = GF_EXTENSION_TOOL_CONTRIBUTION_SCRIPT.parse_dictionary({
-		"schema_version": 1,
+		"schema_version": GF_EXTENSION_TOOL_CONTRIBUTION_SCRIPT.SCHEMA_VERSION,
 		"extension_id": "author.other",
 		"editor_action_paths": ["", 42],
 	}, "author.feature")
@@ -1747,7 +1786,7 @@ func test_extension_tool_contribution_schema_rejects_mismatched_id_and_invalid_p
 
 func test_extension_tool_contribution_schema_rejects_invalid_id_without_expected_id() -> void:
 	var report: Dictionary = GF_EXTENSION_TOOL_CONTRIBUTION_SCRIPT.parse_dictionary({
-		"schema_version": 1,
+		"schema_version": GF_EXTENSION_TOOL_CONTRIBUTION_SCRIPT.SCHEMA_VERSION,
 		"extension_id": "Invalid Extension",
 	})
 	var errors: Array = GF_VARIANT_ACCESS.get_option_array(report, "errors")
@@ -1766,20 +1805,29 @@ func test_extension_selection_discovery_refreshes_when_tool_contribution_file_ch
 	var contribution_path: String = editor_dir.path_join("gf_tool_contribution.json")
 	var first_action_path: String = editor_dir.path_join("first_action.gd")
 	var second_action_path: String = editor_dir.path_join("second_action.gd")
+	var first_debugger_path: String = editor_dir.path_join("first_debugger_plugin.gd")
+	var second_debugger_path: String = editor_dir.path_join("second_debugger_plugin.gd")
 	_remove_path_if_exists(contribution_path)
 	_remove_path_if_exists(first_action_path)
 	_remove_path_if_exists(first_action_path + ".uid")
 	_remove_path_if_exists(second_action_path)
 	_remove_path_if_exists(second_action_path + ".uid")
+	_remove_path_if_exists(first_debugger_path)
+	_remove_path_if_exists(first_debugger_path + ".uid")
+	_remove_path_if_exists(second_debugger_path)
+	_remove_path_if_exists(second_debugger_path + ".uid")
 	_remove_path_if_exists(editor_dir)
 	_remove_path_if_exists(extension_dir)
 	_remove_path_if_exists(root_path)
 	var _make_dir_result: Variant = DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(editor_dir))
 	_write_text_file(first_action_path, "extends RefCounted\n")
 	_write_text_file(second_action_path, "extends RefCounted\n")
+	_write_text_file(first_debugger_path, "@tool\nextends EditorDebuggerPlugin\n")
+	_write_text_file(second_debugger_path, "@tool\nextends EditorDebuggerPlugin\n")
 	_write_text_file(contribution_path, JSON.stringify({
-		"schema_version": 1,
+		"schema_version": GF_EXTENSION_TOOL_CONTRIBUTION_SCRIPT.SCHEMA_VERSION,
 		"extension_id": "author.selection",
+		"debugger_plugin_paths": [first_debugger_path],
 		"editor_action_paths": [first_action_path],
 	}))
 	var manifest: GFExtensionManifest = GFExtensionManifest.from_dictionary({
@@ -1795,12 +1843,34 @@ func test_extension_selection_discovery_refreshes_when_tool_contribution_file_ch
 	GFExtensionSettings.set_cached_manifests([manifest])
 
 	var first_action_paths: Array[String] = GFExtensionSettings.get_enabled_editor_action_paths()
+	var first_debugger_paths: Array[String] = GFExtensionSettings.get_enabled_debugger_plugin_paths()
+	var selection_manifests: Array[GFExtensionManifest] = [manifest]
+	var selection_ids: Array[String] = ["author.selection"]
+	var first_snapshot: Dictionary = GF_EXTENSION_SELECTION_DISCOVERY_SCRIPT.get_snapshot(
+		selection_manifests,
+		selection_ids,
+		{
+			"builtin_extension_ids": GFExtensionSettings.BUILT_IN_EXTENSION_IDS,
+			"force_refresh": true,
+		}
+	)
+	var manifest_paths: Dictionary = GF_VARIANT_ACCESS.get_option_dictionary(
+		first_snapshot,
+		"manifest_paths"
+	)
+	var contribution_paths: Dictionary = GF_VARIANT_ACCESS.get_option_dictionary(
+		first_snapshot,
+		"contribution_paths"
+	)
+	var merged_paths: Dictionary = GF_VARIANT_ACCESS.get_option_dictionary(first_snapshot, "paths")
 	_write_text_file(contribution_path, JSON.stringify({
-		"schema_version": 1,
+		"schema_version": GF_EXTENSION_TOOL_CONTRIBUTION_SCRIPT.SCHEMA_VERSION,
 		"extension_id": "author.selection",
+		"debugger_plugin_paths": [second_debugger_path],
 		"editor_action_paths": [second_action_path],
 	}))
 	var second_action_paths: Array[String] = GFExtensionSettings.get_enabled_editor_action_paths()
+	var second_debugger_paths: Array[String] = GFExtensionSettings.get_enabled_debugger_plugin_paths()
 
 	GFExtensionSettings.clear_manifest_cache()
 	_restore_project_setting(GFExtensionSettings.ENABLED_EXTENSIONS_SETTING, restore)
@@ -1809,12 +1879,32 @@ func test_extension_selection_discovery_refreshes_when_tool_contribution_file_ch
 	_remove_path_if_exists(first_action_path + ".uid")
 	_remove_path_if_exists(second_action_path)
 	_remove_path_if_exists(second_action_path + ".uid")
+	_remove_path_if_exists(first_debugger_path)
+	_remove_path_if_exists(first_debugger_path + ".uid")
+	_remove_path_if_exists(second_debugger_path)
+	_remove_path_if_exists(second_debugger_path + ".uid")
 	_remove_path_if_exists(editor_dir)
 	_remove_path_if_exists(extension_dir)
 	_remove_path_if_exists(root_path)
 
 	assert_eq(first_action_paths, [first_action_path], "第一次读取应返回 tool contribution 的初始路径。")
 	assert_eq(second_action_paths, [second_action_path], "同一路径 tool contribution 文件变化后应刷新 selection snapshot。")
+	assert_eq(first_debugger_paths, [first_debugger_path], "第一次读取应返回扩展贡献的 Debugger 插件路径。")
+	assert_eq(second_debugger_paths, [second_debugger_path], "Debugger 插件贡献文件变化后应刷新 selection snapshot。")
+	assert_false(
+		manifest_paths.has("debugger_plugin_paths"),
+		"Debugger 插件路径不应进入 runtime manifest 路径集合。"
+	)
+	assert_eq(
+		GF_VARIANT_ACCESS.get_option_string_array(contribution_paths, "debugger_plugin_paths"),
+		[first_debugger_path],
+		"Debugger 插件路径应保留在 tool contribution 路径集合。"
+	)
+	assert_eq(
+		GF_VARIANT_ACCESS.get_option_string_array(merged_paths, "debugger_plugin_paths"),
+		[first_debugger_path],
+		"启用选择的合并路径应暴露扩展贡献的 Debugger 插件路径。"
+	)
 
 
 func test_load_enabled_extension_script_rejects_absolute_paths_outside_extension_root() -> void:

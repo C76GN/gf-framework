@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFExtensionToolContribution" path="addons/gf/kernel/extension/gf_extension_tool_contribution.gd" module="kernel" extends="RefCounted" classDigest="fae7e29a915cfb1d22752dc51f69d85f1ea47c809935b20e79c4ab0fb4a5f9d2">
+<class name="GFExtensionToolContribution" path="addons/gf/kernel/extension/gf_extension_tool_contribution.gd" module="kernel" extends="RefCounted" classDigest="7edec53de3012233e7a5e02ec414963d720713702b9b394b7b97cab55d53d7a3">
 	<description>GFExtensionToolContribution: 扩展编辑器工具贡献文件的稳定 schema 解析器。
 该类型只定义贡献文件协议，不负责加载脚本、验证资源存在性或管理编辑器生命周期。</description>
 	<tags>
@@ -12,7 +12,7 @@
 	<enums />
 	<constants>
 		<member kind="const" name="SCHEMA_VERSION">
-			<signature>const SCHEMA_VERSION: int = 1</signature>
+			<signature>const SCHEMA_VERSION: int = 2</signature>
 			<description>当前支持的贡献文件 schema 版本。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -41,7 +41,8 @@
 		<member kind="method" name="parse_dictionary">
 			<signature>static func parse_dictionary(data: Dictionary, expected_extension_id: String = "") -&gt; Dictionary:</signature>
 			<description>校验并规范化一个工具贡献字典。
-未知字段、未来 schema、错误扩展 ID、非数组路径字段、非字符串或空路径都会使报告失败。</description>
+未知字段、非当前 schema（包括 v1 与未来版本）、错误扩展 ID、非数组路径字段、
+非字符串或空路径都会使报告失败。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">data: 待校验的 JSON object 数据。</tag>
