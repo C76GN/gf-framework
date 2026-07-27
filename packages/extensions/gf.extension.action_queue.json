@@ -9,6 +9,7 @@
     "gf.kernel",
     "gf.standard.base",
     "gf.standard.audio",
+    "gf.standard.display",
     "gf.standard.diagnostics"
   ],
   "paths": [

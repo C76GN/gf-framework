@@ -115,6 +115,8 @@ func clear_parameters() -> void:
 ## [br]
 ## @api public
 ## [br]
+## @since 4.3.0
+## [br]
 ## @return: 参数名数组。
 ## [br]
 ## @schema return: Array[StringName]，当前 profile 中可识别的 shader 参数名。
@@ -124,7 +126,43 @@ func get_parameter_names() -> Array[StringName]:
 		var parameter_name: StringName = _variant_to_parameter_name(raw_key)
 		if parameter_name != &"":
 			names.append(parameter_name)
+	names.sort()
 	return names
+
+
+## 根据 Shader 接口快照校验当前参数。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param interface_snapshot: 期望接口快照。
+## [br]
+## @param options: 传给 GFShaderInterfaceSnapshot.validate_parameters() 的选项。
+## [br]
+## @schema options: Dictionary shader parameter validation options.
+## [br]
+## @return 标准校验报告。
+func validate_against(
+	interface_snapshot: GFShaderInterfaceSnapshot,
+	options: Dictionary = {}
+) -> GFValidationReport:
+	if interface_snapshot != null:
+		return interface_snapshot.validate_parameters(parameters, options)
+
+	var report: GFValidationReport = GFValidationReport.new(
+		GFVariantData.get_option_string(
+			options,
+			"subject",
+			"Shader parameter profile"
+		),
+		GFVariantData.get_option_dictionary(options, "metadata")
+	)
+	var _missing_snapshot_issue: RefCounted = report.add_error(
+		&"shader_interface_snapshot_missing",
+		"Shader interface snapshot is required to validate a parameter profile."
+	)
+	return report
 
 
 ## 合并另一个 profile。

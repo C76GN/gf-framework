@@ -1,0 +1,183 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFSettingsLoadResult" path="addons/gf/standard/utilities/settings/gf_settings_load_result.gd" module="standard" extends="RefCounted" classDigest="8605b593685a155c484764282736cb94a80c0c067fe5ce895fc3a0c416decc33">
+	<description>GFSettingsLoadResult: 设置加载操作的不可变终态快照。
+结果将“合法空设置”与缺失、损坏、未来版本和底层存储失败明确区分，
+并保留实际应用状态、恢复动作和底层读取证据。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">value_object</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants>
+		<member kind="const" name="STATUS_LOADED">
+			<signature>const STATUS_LOADED: StringName = &amp;"loaded"</signature>
+			<description>持久化设置已成功读取并应用。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_RECOVERED">
+			<signature>const STATUS_RECOVERED: StringName = &amp;"recovered"</signature>
+			<description>调用方选择的显式恢复动作已完成。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_INVALID_REQUEST">
+			<signature>const STATUS_INVALID_REQUEST: StringName = &amp;"invalid_request"</signature>
+			<description>文件名、路径或读取请求无效。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_MISSING">
+			<signature>const STATUS_MISSING: StringName = &amp;"missing"</signature>
+			<description>设置文件不存在。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_CORRUPT">
+			<signature>const STATUS_CORRUPT: StringName = &amp;"corrupt"</signature>
+			<description>设置文件格式、载荷或完整性损坏。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_FUTURE_SCHEMA">
+			<signature>const STATUS_FUTURE_SCHEMA: StringName = &amp;"future_schema"</signature>
+			<description>设置文件来自当前运行时无法读取的未来 schema。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_MIGRATION_FAILED">
+			<signature>const STATUS_MIGRATION_FAILED: StringName = &amp;"migration_failed"</signature>
+			<description>设置文件的迁移链缺失或迁移失败。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_STORAGE_FAILED">
+			<signature>const STATUS_STORAGE_FAILED: StringName = &amp;"storage_failed"</signature>
+			<description>底层存储读取失败或不可用。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</constants>
+	<properties />
+	<methods>
+		<member kind="method" name="is_successful">
+			<signature>func is_successful() -&gt; bool:</signature>
+			<description>检查加载是否进入成功终态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">设置已加载或已按显式策略恢复时返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_status">
+			<signature>func get_status() -&gt; StringName:</signature>
+			<description>获取稳定加载状态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">`STATUS_*` 常量之一。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_file_name">
+			<signature>func get_file_name() -&gt; String:</signature>
+			<description>获取本次加载使用的文件名。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">解析默认值后的设置文件名。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="was_applied">
+			<signature>func was_applied() -&gt; bool:</signature>
+			<description>检查本次操作是否替换了有效设置状态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">已应用持久化载荷或默认值恢复时返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="was_recovered">
+			<signature>func was_recovered() -&gt; bool:</signature>
+			<description>检查本次操作是否执行了显式恢复动作。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">使用恢复策略完成时返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_recovery_action">
+			<signature>func get_recovery_action() -&gt; StringName:</signature>
+			<description>获取实际恢复动作。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">未恢复时为空，否则为 `GFSettingsRecoveryPolicy.ACTION_*` 常量之一。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_error_code">
+			<signature>func get_error_code() -&gt; Error:</signature>
+			<description>获取 Godot Error 码。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">成功时为 OK。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_error">
+			<signature>func get_error() -&gt; String:</signature>
+			<description>获取稳定错误描述。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">成功时为空。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_storage_result">
+			<signature>func get_storage_result() -&gt; GFStorageReadResult:</signature>
+			<description>获取底层存储读取结果副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">原始读取证据的隔离副本；读取未启动时为 null。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="duplicate_result">
+			<signature>func duplicate_result() -&gt; GFSettingsLoadResult:</signature>
+			<description>创建结果的隔离副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">新结果对象。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="to_dict">
+			<signature>func to_dict() -&gt; Dictionary:</signature>
+			<description>转换为不包含设置载荷的报告字典。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">加载终态摘要。</tag>
+				<tag name="schema">return: Dictionary with ok, status, file_name, applied, recovered, recovery_action, error_code, error, and payload-free storage_result fields.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

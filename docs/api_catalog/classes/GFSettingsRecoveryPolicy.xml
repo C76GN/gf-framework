@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFSettingsRecoveryPolicy" path="addons/gf/standard/utilities/settings/gf_settings_recovery_policy.gd" module="standard" extends="Resource" classDigest="c66f5838692b440bb9bbe879b842b8bd4a350e613981675ade5bdd31d15134ff">
+	<description>GFSettingsRecoveryPolicy: 设置加载的显式恢复策略。
+缺失与损坏设置默认严格失败。项目可以显式选择保留当前内存状态，
+或把有效设置重置为已注册默认值；恢复不会创建或覆盖持久化文件。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">resource_definition</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants>
+		<member kind="const" name="ACTION_FAIL">
+			<signature>const ACTION_FAIL: StringName = &amp;"fail"</signature>
+			<description>不执行自动恢复。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="ACTION_USE_CURRENT_STATE">
+			<signature>const ACTION_USE_CURRENT_STATE: StringName = &amp;"use_current_state"</signature>
+			<description>保留当前有效值和暂存值。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="ACTION_RESET_TO_DEFAULTS">
+			<signature>const ACTION_RESET_TO_DEFAULTS: StringName = &amp;"reset_to_defaults"</signature>
+			<description>使用空 replace 语义恢复已注册默认值。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</constants>
+	<properties>
+		<member kind="property" name="missing_file_action" decorators="@export">
+			<signature>var missing_file_action: StringName = ACTION_FAIL</signature>
+			<description>文件缺失时的恢复动作。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="corrupt_file_action" decorators="@export">
+			<signature>var corrupt_file_action: StringName = ACTION_FAIL</signature>
+			<description>文件损坏或完整性校验失败时的恢复动作。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</properties>
+	<methods>
+		<member kind="method" name="validate_policy">
+			<signature>func validate_policy() -&gt; Dictionary:</signature>
+			<description>检查策略自身是否合法。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">结构化校验报告。</tag>
+				<tag name="schema">return: GFValidationReportDictionary-compatible report with issues, counts, summary, and next_actions.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

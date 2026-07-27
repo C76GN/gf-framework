@@ -22,7 +22,37 @@ settings.save_settings()
 
 未接入存储后端时，fallback 文件名必须是简单 basename，不能包含路径分隔符、`..`、盘符或绝对路径。需要把设置写到项目自定义目录时，应实现明确的存储后端，而不是把外部路径塞进 fallback 文件名。
 
-从持久化数据恢复时使用 `replace_from_dict()`：输入中缺失的已定义键恢复默认值，缺失的未定义旧键被移除；`load_settings()` 固定采用这一语义。只有明确把输入当作覆盖层时才使用 `merge_from_dict()`，它会保留输入中未出现的当前值。两种入口分离后，切换 profile 或读取空文件不会静默继承上一份 profile 的残留字段。
+从合法持久化数据恢复时使用 `replace_from_dict()`：输入中缺失的已定义键恢复默认值，缺失的未定义旧键被移除；`load_settings()` 固定采用这一语义。只有明确把输入当作覆盖层时才使用 `merge_from_dict()`，它会保留输入中未出现的当前值。两种入口分离后，切换 profile 或读取合法空对象不会静默继承上一份 profile 的残留字段。
+
+## 结构化加载与恢复
+
+`load_settings()` 返回 `GFSettingsLoadResult`，调用方应先检查终态，再读取当前设置。合法空对象 `{}` 是一次成功加载；文件缺失、空文件、格式损坏、完整性失败、未来 schema、迁移失败和 IO 失败则保留各自的稳定分类，不再被折叠为空字典。
+
+```gdscript
+var result: GFSettingsLoadResult = settings.load_settings()
+if result.is_successful():
+	print("设置终态：", result.get_status())
+else:
+	push_warning("设置加载失败：%s" % result.get_error())
+```
+
+默认的 null 恢复策略是严格模式：失败不会修改当前有效值或暂存值，也不会创建、修复或覆盖源文件。项目确实接受缺失或损坏数据时，必须显式提供 `GFSettingsRecoveryPolicy`。恢复只支持保留当前内存状态或重置为已注册默认值；未来 schema、迁移失败和存储 IO 失败始终不可恢复。
+
+```gdscript
+var policy := GFSettingsRecoveryPolicy.new()
+policy.missing_file_action = GFSettingsRecoveryPolicy.ACTION_USE_CURRENT_STATE
+policy.corrupt_file_action = GFSettingsRecoveryPolicy.ACTION_RESET_TO_DEFAULTS
+
+var result: GFSettingsLoadResult = settings.load_settings("", policy)
+if result.was_recovered():
+	print("恢复动作：", result.get_recovery_action())
+```
+
+加载与恢复本身都不会保存。确认恢复结果符合项目决策后，如需持久化默认值，调用方应在独立步骤中显式调用 `save_settings()`。这样损坏证据不会在读取阶段被静默覆盖。
+
+非空策略会在存储读取前完整校验；未知动作返回 `STATUS_INVALID_REQUEST`，不会访问存储或取消既有保存队列。合法加载请求一旦开始，则会作为全局顺序屏障取消此前尚未执行的延迟保存和批处理保存请求，而不只取消同名文件，避免加载 B 后把新内存状态写回旧来源 A。
+
+`auto_load_on_init` 使用严格 null 策略。启动阶段需要自定义恢复时，应把它设为 `false`，先完成设置定义注册，再显式调用带策略的 `load_settings()`；不要依赖初始化时自动猜测恢复动作。每次终态都会通过 `settings_load_completed` 发出隔离结果，也可用 `get_last_load_result()` 获取最近结果的副本。
 
 自动保存默认会按 `save_debounce_seconds` 做防抖，避免设置页拖动滑块时每次变化都落盘。需要一次性应用多个字段时，可用 `begin_batch()` / `end_batch()` 包裹，或手动 `queue_save()` 后在合适时机 `flush_pending_save()`。
 

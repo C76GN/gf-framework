@@ -6,11 +6,11 @@
 
 | 类别 | 类 | 成员 | 方法 |
 |---|---:|---:|---:|
-| [运行时服务](#category-runtime_service) | 187 | 3342 | 2259 |
+| [运行时服务](#category-runtime_service) | 187 | 3346 | 2263 |
 | [协议与扩展点](#category-protocol) | 24 | 337 | 266 |
-| [资源定义](#category-resource_definition) | 117 | 1505 | 771 |
+| [资源定义](#category-resource_definition) | 119 | 1528 | 788 |
 | [运行时句柄](#category-runtime_handle) | 45 | 757 | 495 |
-| [值对象](#category-value_object) | 38 | 698 | 442 |
+| [值对象](#category-value_object) | 39 | 717 | 453 |
 | [领域模型](#category-domain_model) | 4 | 61 | 42 |
 | [事件契约](#category-event_contract) | 6 | 61 | 23 |
 | [编辑器 API](#category-editor_api) | 11 | 68 | 46 |
@@ -343,6 +343,8 @@
 | [`GFSessionTraceCheckpoint`](classes/GFSessionTraceCheckpoint.md#gfsessiontracecheckpoint) | `Resource` | `addons/gf/standard/utilities/debug/gf_session_trace_checkpoint.gd` |
 | [`GFSessionTraceRecipe`](classes/GFSessionTraceRecipe.md#gfsessiontracerecipe) | `Resource` | `addons/gf/standard/utilities/debug/gf_session_trace_recipe.gd` |
 | [`GFSettingDefinition`](classes/GFSettingDefinition.md#gfsettingdefinition) | `Resource` | `addons/gf/standard/utilities/settings/gf_setting_definition.gd` |
+| [`GFSettingsRecoveryPolicy`](classes/GFSettingsRecoveryPolicy.md#gfsettingsrecoverypolicy) | `Resource` | `addons/gf/standard/utilities/settings/gf_settings_recovery_policy.gd` |
+| [`GFShaderInterfaceSnapshot`](classes/GFShaderInterfaceSnapshot.md#gfshaderinterfacesnapshot) | `Resource` | `addons/gf/standard/utilities/display/gf_shader_interface_snapshot.gd` |
 | [`GFShaderParameterProfile`](classes/GFShaderParameterProfile.md#gfshaderparameterprofile) | `Resource` | `addons/gf/standard/utilities/display/gf_shader_parameter_profile.gd` |
 | [`GFSignalBridge`](classes/GFSignalBridge.md#gfsignalbridge) | `Resource` | `addons/gf/standard/utilities/signals/bridge/gf_signal_bridge.gd` |
 | [`GFSignalSourceRef`](classes/GFSignalSourceRef.md#gfsignalsourceref) | `Resource` | `addons/gf/standard/utilities/signals/bridge/gf_signal_source_ref.gd` |
@@ -451,6 +453,7 @@
 | [`GFResourceLoadState`](classes/GFResourceLoadState.md#gfresourceloadstate) | `RefCounted` | `addons/gf/standard/utilities/assets/gf_resource_load_state.gd` |
 | [`GFResultDictionary`](classes/GFResultDictionary.md#gfresultdictionary) | `RefCounted` | `addons/gf/standard/foundation/validation/gf_result_dictionary.gd` |
 | [`GFSequenceContext`](classes/GFSequenceContext.md#gfsequencecontext) | `RefCounted` | `addons/gf/standard/sequence/gf_sequence_context.gd` |
+| [`GFSettingsLoadResult`](classes/GFSettingsLoadResult.md#gfsettingsloadresult) | `RefCounted` | `addons/gf/standard/utilities/settings/gf_settings_load_result.gd` |
 | [`GFSourceSpan`](classes/GFSourceSpan.md#gfsourcespan) | `RefCounted` | `addons/gf/standard/foundation/validation/gf_source_span.gd` |
 | [`GFSpatialQueryIdentity`](classes/GFSpatialQueryIdentity.md#gfspatialqueryidentity) | `RefCounted` | `addons/gf/standard/foundation/math/gf_spatial_query_identity.gd` |
 | [`GFSteeringAcceleration`](classes/GFSteeringAcceleration.md#gfsteeringacceleration) | `RefCounted` | `addons/gf/standard/foundation/math/gf_steering_acceleration.gd` |

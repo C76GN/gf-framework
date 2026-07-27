@@ -22,10 +22,14 @@
 
 ## [未发布]
 
-**版本概述**：开发线升级为 `10.0.0-dev.0`，补齐通用 2D 编辑器缩略图、运行时 2D Spatial Canvas、有序资产集合、显式 Live Asset Slot、内容包查询与运行时目录挂载、扩展级 Debugger 工具贡献、存储后端故障转移、版本化 Analytics Schema 与专用 Outbox Adapter、惰性诊断采集、配方化运行时会话轨迹、UI 路由预加载规划、轨迹预测数学、有界权威快照同步协调和默认关闭的 Runtime Agent Environment，修正 AI Developer Kit 的项目级资源所有权表达，并更新 CI/Release 基础 Actions；业务策略仍保持在各自调用方边界内。
+**版本概述**：开发线升级为 `10.0.0-dev.0`，补齐通用 2D 编辑器缩略图、运行时 2D Spatial Canvas、有序资产集合、显式 Live Asset Slot、内容包查询与运行时目录挂载、扩展级 Debugger 工具贡献、存储后端故障转移、版本化 Analytics Schema 与专用 Outbox Adapter、结构化 Settings 恢复、多目标属性事务、Shader 接口契约、惰性诊断采集、配方化运行时会话轨迹、UI 路由预加载规划、轨迹预测数学、有界权威快照同步协调和默认关闭的 Runtime Agent Environment，修正 AI Developer Kit 的项目级资源所有权表达，并更新 CI/Release 基础 Actions；业务策略仍保持在各自调用方边界内。
 
 ### 🚀 新增特性 (Added)
 
+- 新增 `GFSettingsLoadResult` 与 `GFSettingsRecoveryPolicy`：Settings 加载现在明确区分成功空载荷、缺失、损坏、未来 schema、迁移失败和存储失败；默认严格失败，只有 missing/corrupt 可由调用方显式选择保留当前状态或重置已注册默认值，恢复阶段不会自动保存或覆盖证据文件。
+- 新增 `GFEditorPropertyBatchCommand`：对多个 Object 的精确直接属性或 indexed path 做全量零写入预检、稳定顺序提交、反序撤销、最终状态复核和 attempt-guard 补偿；失败恢复不完整时通过结构化报告与 `recover()` 暴露明确恢复入口，磁盘保存和 setter 外部副作用不属于该内存事务。
+- 新增 `GFShaderInterfaceSnapshot`：把 Shader mode 与 uniform 的名称、Variant 类型、资源类、hint 和 usage 捕获为可持久化、稳定排序的接口快照，并提供严格参数校验和 expected/actual 漂移比较；不保存 shader 源码、材质当前值或渲染后端产物。
+- 新增共享键盘本地多人和非破坏式实时调参预览配方：前者组合玩家级 `GFVirtualInputSource` 与互斥物理键区，后者组合资源补丁、显式 `GFAssetSlot`、可取消缩略图任务和编辑器属性事务；加入/控制权、业务参数、面板布局和持久化时机仍由项目负责。
 - 新增 `GFWeakMethodInvocation` 框架级弱方法调用原语，以及 `GFMainThreadDispatchQueue.post_method()` 和 `GFDeferredMutationQueue.record_method()`：长期记录只保存 owner 的弱引用、初始实例 ID 和方法名，调用参数只在执行时传入；队列安全入口不持久化任意参数或 metadata，并把 owner 释放、方法缺失、预检失败与真实业务返回值明确分离。
 - `GFTypeEventSystem` 新增 exact、assignable 与 simple 三类 token 订阅：每次订阅拥有独立稳定身份，可通过 `GFSubscriptionToken` 幂等取消；一次性订阅会在用户回调前退休，owner 清理、显式注销和事件系统清空也会同步使 token 失效。`GFArchitecture` 与 `Gf` 提供对应入口，而 `GFController` 的长期 desired binding 继续采用生命周期重建语义，不会让一次性订阅在架构切换后复活。
 - 新增平台 Contract Descriptor、Activation Intent 有界去重队列与 `GFPlatformAdapterConformance`，让外部 SDK Adapter 可以声明请求/结果 Schema、字节预算、能力、并发、取消和敏感字段，并在不调用 SDK 时完成静态覆盖审查。
@@ -55,6 +59,9 @@
 
 ### 🔄 机制更改 (Changed)
 
+- `GFSettingsUtility.load_settings()` 改为返回结构化终态，并为每个终态发出隔离的 `settings_load_completed`；合法 `{}` 继续使用 replace 语义，失败不再降级为空字典，合法加载请求开始时会取消此前全部陈旧延迟与批处理保存，显式恢复也不会产生隐式写盘。
+- `GFResourceTableEditor.commit_cell_values()` 与 `commit_visible_cell_values()` 从“允许部分成功”收敛为事务式整批提交：所有行、属性和值先解析和预检；规范化后同值的条目成功但不调用 setter、不发变更信号，只有至少一项实际变化后才统一刷新和执行去重自动保存。空变更数组是 `committed` / `OK` 的全零计数成功恒等操作。
+- `GFShaderParameterUtility` 默认按捕获的单份接口快照跳过错型参数；`GFShaderParameterProfile` 新增快照校验入口，`GFShaderParameterAction` 在材质复制、初值捕获和 Tween 创建前验证 uniform 存在性与目标值类型。Action Queue 因此显式依赖 `gf.standard.display`。
 - AI Developer Capability / Recipe 知识目录同步升级到 `1.6.0`，补齐可伸缩 UI 集合、渲染反馈编排、命令历史、有界运行时工作、网格路径发现与通用外部产物导出边界；新导出配方只组合缩略图、截图、矩形打包、产物报告和内容包计划，最终格式、认证、幂等、重试与写出仍归项目 Adapter。能力搜索统一标点、连字符和下划线，目录完整性检查新增包、类、Recipe 与类所属包依赖闭包的交叉复核。
 - TurnBased 使用指南明确 `GFTurnAction` 只调度一次性行动请求、项目自有 `GFUndoableCommand` 唯一修改或恢复权威状态、`GFActionQueueSystem` 只编排提交后的视觉与音频表现；三者由项目 Coordinator/Installer 按需组合，不新增跨扩展耦合类型，也不把反向 Tween 当作撤销事实源。
 - Architecture assignment、Installer、动态模块注册/替换和 `GFNodeContext` 安装统一采用 generation/scope 驱动的 prepare / commit / rollback 事务；候选未提交前不会通过全局 facade 暴露，旧异步 continuation 和生命周期回调重入不能覆盖最新状态。
@@ -97,6 +104,7 @@
 
 ### 🐛 Bug 修复 (Fixed)
 
+- 修复 `GFResourceTableEditor` 把空单元格批次传给通用属性事务命令后错误报告 `missing_changes`、形成 `requested_count = 0` 但失败计数非零的问题；资源表适配层现在直接返回零计数成功报告，而 `GFEditorPropertyBatchCommand` 继续拒绝没有变更的事务配置。
 - 修复 `GFGridOccupancy` 在移动占用、移动预约、确认预约或批量释放的同步信号回调中发生重入写入时，外层后续提交可能突破格子容量、丢失预约或留下不一致反向索引的问题；所有内部映射现在先按单次事务完整提交，再发出通知，通知期的方法与配置属性写入均明确失败关闭。`grid_size` / `max_occupants_per_cell` 的实际变更会清空既有记录并保持容量至少为 1；查询改为只读过滤失效对象，清理索引和释放通知由显式 `prune_invalid_receivers()` 或下一次写事务负责。
 - 修复 `GFCommandHistoryUtility` 在命令已进入终态但业务撤销/重做失败时仍推进历史游标的问题；`GFUndoableCommand` 新增默认成功的 `is_undo_successful()` / `is_redo_successful()` hook，同步与异步入口只在 hook 成功后复核来源栈顶身份并原子移动栈。异步 Signal 的零、单、二至 16 参数终态分别规范化为 `null`、单值和 `Array`，处理锁贯穿命令回调、等待、hook 与提交；等待和 hook 内的只读查询仍观察最近一次完整提交，失败不触碰任一栈的身份、顺序或容量，生命周期切代后的旧 continuation 也不会回填新历史。
 - 修复 Interaction Sensor 对类型化 Receiver 派发时绕过项目 `receive_interaction()` 覆写，以及自定义 sender 的 2D/3D 碰撞广播在规范化报告前发出公开信号的问题；公开覆写继续参与派发，返回值和信号报告统一保持 JSON-safe。
@@ -141,6 +149,10 @@
 
 ### 🔧 API 变动说明 (API Changes)
 
+- 新增公开类型 `GFSettingsLoadResult`、`GFSettingsRecoveryPolicy`、`GFEditorPropertyBatchCommand` 和 `GFShaderInterfaceSnapshot`；新增 API 均标记为 `@since unreleased`。
+- `GFSettingsUtility.load_settings(file_name)` 从返回 `Dictionary` 改为 `load_settings(file_name, recovery_policy) -> GFSettingsLoadResult`；`settings_loaded(data)` 被 `settings_load_completed(result)` 取代，新增 `get_last_load_result()`，受保护 `_read_persisted_data()` 的返回类型从 `Dictionary` 改为 `GFStorageReadResult`。本开发线不保留双轨兼容。
+- `GFObjectPropertyTools` 新增 framework-internal 的零写入 prepare 入口，`GFEditorCommand` 新增受保护配置封存入口；`GFResourceTableEditor` 批量提交报告新增事务状态、回滚状态和可选恢复命令。空批次返回 `committed` / `OK` 的全零计数成功报告；规范化后同值的单格或批量条目不再作为 setter、`cell_value_committed`、自动保存或刷新触发器。
+- `GFShaderParameterUtility` 新增接口捕获、Profile 校验和参数校验入口；既有 `apply_profile()` / `apply_parameters()` 的默认选项新增严格类型校验和错型 warning。
 - `GFTypeEventSystem` 新增 `subscribe()`、`subscribe_assignable()` 与 `subscribe_simple()`；`GFArchitecture` 新增 `subscribe_event()`、`subscribe_assignable_event()` 与 `subscribe_simple_event()`；`Gf` 新增同名三类快捷订阅入口。上述入口均返回 `GFSubscriptionToken`，接受 `once`，带 owner 的 `GFEventListener` 实际返回 `GFLifetimeSubscription`。`GFSubscriptionToken` 与 `GFLifetimeSubscription` 新增仅供订阅源使用的自动失效内部入口。
 - `GFUndoableCommand` 新增 `is_undo_successful(_undo_result)` 与 `is_redo_successful(_execute_result)`，均标记为 `@since unreleased` 且默认返回 `true`。同步历史入口传入命令的直接返回值；异步历史入口把完成 Signal 的零、单、二至 16 参数 payload 分别规范化为 `null`、单值和 `Array` 后传入，超过 16 个参数时告警并只保留前 16 个。
 - `Gf.set_architecture()` 改为原子提交候选架构：Installer 和三阶段初始化成功前，`Gf` facade 只暴露既有已提交架构或空状态；pending assignment 被更新赋值、尚无已提交架构时由 `Gf.create_architecture()` 创建的默认架构，或 Gf 退出场景树替代时，会取消其异步作用域并 dispose 未提交候选。函数签名不变，但依赖 Installer 期间 facade 指向候选、或依赖被替代候选仍可复用的代码需要迁移。
@@ -182,6 +194,9 @@
 
 ### 📘 升级指南 (Migration Guide)
 
+- Settings 调用方应把 `Dictionary` 接收值改为 `GFSettingsLoadResult`，先检查 `is_successful()` / `get_status()`，再通过 Utility 读取当前值；监听器迁移到 `settings_load_completed`，自定义读取子类返回 `GFStorageReadResult`。依赖“文件缺失或损坏自动当作空设置”的项目必须显式配置 `GFSettingsRecoveryPolicy`，并在接受恢复结果后另行决定是否保存。
+- 依赖 `GFResourceTableEditor` 批量接口“有效项先提交、无效项单独报错”的工具应改为一次只提交可共同成功或共同失败的变更；收到 `recovery_required` 时先修复 setter 可写条件并调用返回命令的 `recover()`，不要在属性事务完成前保存资源。依赖等值提交触发 setter、通知、持久化或刷新副作用的工具应改用自己的显式项目流程；`10.0.0` 开发线不保留强制等值提交兼容入口。
+- Shader Profile 中 int/float 混用、错误资源类或未知 uniform 现在默认被跳过并报告 warning；项目应把参数改为 Shader 反射声明的精确 Variant 类型。需要 CI 漂移门禁时保存 `GFShaderInterfaceSnapshot` 基线并检查 `validate_shader()` / `validate_against()` 报告，不要从 shader 源码文本自行推断接口。
 - `GFGridOccupancy` 的查询不再隐式回收已释放 `Object` 或发出释放信号；依赖该副作用的调用方应在明确的维护边界调用 `prune_invalid_receivers()`，或让下一次占用/预约写事务负责清理。运行期修改 `grid_size` 或 `max_occupants_per_cell` 现在会像重新配置一样清空既有记录；需要保留棋盘状态时，应先导出项目自己的稳定状态，再按新配置显式重建。
 - 既有 `GFUndoableCommand` 若不重入历史写操作则无需迁移：两个历史结果 hook 默认成功，`null` 返回值和无参数完成 Signal 保持原行为。只有撤销或重做可能进入“已完成但业务失败”终态的命令才需要覆盖对应 hook；异步 hook 应按 `null`、单值或最多 16 项的多值 `Array` 读取规范化完成 payload，并返回明确的 `bool`，更多字段应封装成单个 Result 或 `Dictionary`。`execute()`、`undo()`、`should_record()` 和结果 hook 现在统一处于非重入历史操作内；原先从这些回调嵌套执行、记录、清空、修改容量或恢复历史的项目代码，应改为在外层历史 API 完成后由项目队列提交后续操作。
 - 项目 Installer 必须改为通过 `install(architecture, scope)` 的显式 `architecture` 参数或 `install_bindings(binder, scope)` 的 `binder` 注册候选模块，不要在 `Gf.set_architecture()` 提交前使用 `Gf.register_*()`、`Gf.create_binder()` 或 `Gf.get_*()` 指向候选。异步 Installer 在每个 `await` 后检查 `scope.is_cancel_requested()` 并用 `scope.register_cleanup()` 释放临时资源；assignment 被替代并返回 `false` 后应创建新的 `GFArchitecture` 重试，不复用已经 dispose 的候选。释放回调和项目自定义等待器应通过 `is_disposing()` / `is_disposed()` 拒绝向终结中的架构提交新工作。
@@ -225,6 +240,14 @@
 
 ### 📁 核心受影响文件 (Affected Files)
 
+- `addons/gf/standard/utilities/settings/`
+- `addons/gf/kernel/editor/gf_editor_property_batch_command.gd`
+- `addons/gf/kernel/editor/gf_resource_table_editor.gd`
+- `addons/gf/standard/utilities/display/gf_shader_interface_snapshot.gd`
+- `addons/gf/standard/utilities/display/gf_shader_parameter_*.gd`
+- `addons/gf/extensions/action_queue/actions/gf_shader_parameter_action.gd`
+- `docs/zh/editor/non-destructive-live-preview.md`
+- `docs/zh/standard/input-flow/input-assist/virtual-recording-remap/shared-keyboard-local-multiplayer.md`
 - `addons/gf/kernel/core/gf_weak_method_invocation.gd`
 - `addons/gf/standard/common/gf_main_thread_dispatch_queue.gd`
 - `addons/gf/standard/common/gf_deferred_mutation_queue.gd`

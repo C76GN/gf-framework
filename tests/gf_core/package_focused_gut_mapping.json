@@ -76,6 +76,7 @@
       "res://tests/gf_core/kernel/core/test_gf_weak_method_invocation.gd",
       "res://tests/gf_core/kernel/editor/test_gf_bake_dependency_report.gd",
       "res://tests/gf_core/kernel/editor/test_gf_editor_command_tools.gd",
+      "res://tests/gf_core/kernel/editor/test_gf_editor_property_batch_command.gd",
       "res://tests/gf_core/kernel/editor/test_gf_editor_operation_plan.gd",
       "res://tests/gf_core/kernel/editor/test_gf_generated_artifact_report.gd",
       "res://tests/gf_core/kernel/editor/test_gf_template_generation_manifest.gd",
@@ -254,6 +255,7 @@
       "res://tests/gf_core/standard/utilities/storage/editor/test_gf_storage_editor_package.gd"
     ],
     "gf.standard.display": [
+      "res://tests/gf_core/standard/utilities/display/test_gf_shader_interface_snapshot.gd",
       "res://tests/gf_core/standard/utilities/display/test_gf_shader_parameter_profile.gd",
       "res://tests/gf_core/standard/utilities/display/test_gf_viewport_utility.gd"
     ],

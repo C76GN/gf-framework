@@ -82,6 +82,8 @@ var restore_initial_value_on_finish: bool = false
 
 var _active_tween: Tween = null
 var _active_material: ShaderMaterial = null
+var _active_parameter_name: StringName = &""
+var _active_target_value: Variant = null
 var _duration: float = 0.2
 var _initial_value: Variant = null
 var _has_initial_value: bool = false
@@ -116,10 +118,25 @@ func execute() -> Variant:
 	_clear_active_tween()
 	_reset_completion_state()
 	_active_material = null
+	_active_parameter_name = &""
+	_active_target_value = null
+	var execution_parameter_name: StringName = parameter_name
+	var execution_target_value: Variant = GFVariantData.duplicate_variant(
+		target_value
+	)
 	var source_material: ShaderMaterial = _resolve_shader_material()
-	if source_material == null or not _has_shader_parameter(source_material):
+	if (
+		source_material == null
+		or not _accepts_shader_parameter(
+			source_material,
+			execution_parameter_name,
+			execution_target_value
+		)
+	):
 		return null
 
+	_active_parameter_name = execution_parameter_name
+	_active_target_value = execution_target_value
 	_capture_initial_value(source_material)
 	var tween_host: Node = null
 	if duration > 0.0:
@@ -134,7 +151,7 @@ func execute() -> Variant:
 	if _active_material == null:
 		return null
 	if duration <= 0.0:
-		_set_shader_parameter(target_value)
+		_set_shader_parameter(_active_target_value)
 		_restore_initial_value_on_finish()
 		return null
 
@@ -142,7 +159,7 @@ func execute() -> Variant:
 	var tweener: MethodTweener = _active_tween.tween_method(
 		Callable(self, "_set_shader_parameter"),
 		_initial_value,
-		target_value,
+		_active_target_value,
 		duration
 	)
 	var _set_ease_result_128: Variant = tweener.set_trans(transition_type).set_ease(ease_type)
@@ -184,7 +201,7 @@ func resume() -> void:
 func finish() -> void:
 	if is_instance_valid(_active_tween):
 		_clear_active_tween()
-		_set_shader_parameter(target_value)
+		_set_shader_parameter(_active_target_value)
 		_restore_initial_value_on_finish()
 		_emit_completed_once()
 		return
@@ -245,43 +262,65 @@ func _activate_shader_material(material: ShaderMaterial) -> ShaderMaterial:
 	return duplicated_material
 
 
-func _has_shader_parameter(material: ShaderMaterial) -> bool:
-	if parameter_name == &"":
+func _accepts_shader_parameter(
+	material: ShaderMaterial,
+	execution_parameter_name: StringName,
+	execution_target_value: Variant
+) -> bool:
+	if execution_parameter_name == &"":
 		push_warning("[GFShaderParameterAction] Shader 参数名为空。")
 		return false
 	if material.shader == null:
 		push_warning("[GFShaderParameterAction] ShaderMaterial 缺少 Shader。")
 		return false
 
-	for uniform_value: Variant in material.shader.get_shader_uniform_list():
-		if not (uniform_value is Dictionary):
-			continue
-		var uniform: Dictionary = uniform_value
-		if GFVariantData.get_option_string(uniform, "name") == String(parameter_name):
-			return true
-
-	push_warning("[GFShaderParameterAction] Shader 参数不存在：%s。" % String(parameter_name))
-	return false
+	var interface_snapshot: GFShaderInterfaceSnapshot = (
+		GFShaderInterfaceSnapshot.capture(material.shader)
+	)
+	if (
+		interface_snapshot == null
+		or not interface_snapshot.has_uniform(execution_parameter_name)
+	):
+		push_warning(
+			"[GFShaderParameterAction] Shader 参数不存在：%s。"
+			% String(execution_parameter_name)
+		)
+		return false
+	if not interface_snapshot.accepts_parameter_value(
+		execution_parameter_name,
+		execution_target_value
+	):
+		push_warning(
+			"[GFShaderParameterAction] Shader 参数值类型不符合声明：%s。"
+			% String(execution_parameter_name)
+		)
+		return false
+	return true
 
 
 func _capture_initial_value(material: ShaderMaterial) -> void:
-	_initial_value = GFVariantData.duplicate_variant(material.get_shader_parameter(parameter_name))
+	_initial_value = GFVariantData.duplicate_variant(
+		material.get_shader_parameter(_active_parameter_name)
+	)
 	_has_initial_value = true
 
 
 func _can_tween_parameter_value() -> bool:
 	if not _has_initial_value:
 		return false
-	if _values_are_tween_compatible(_initial_value, target_value):
+	if _values_are_tween_compatible(_initial_value, _active_target_value):
 		return true
-	push_warning("[GFShaderParameterAction] Shader 参数值类型不兼容：%s。" % String(parameter_name))
+	push_warning(
+		"[GFShaderParameterAction] Shader 参数值类型不兼容：%s。"
+		% String(_active_parameter_name)
+	)
 	return false
 
 
 func _set_shader_parameter(value: Variant) -> void:
 	if _active_material == null:
 		return
-	_active_material.set_shader_parameter(parameter_name, value)
+	_active_material.set_shader_parameter(_active_parameter_name, value)
 
 
 func _restore_initial_value_on_cancel() -> void:
@@ -297,7 +336,10 @@ func _restore_initial_value_on_finish() -> void:
 func _restore_initial_value() -> void:
 	if _active_material == null or not _has_initial_value:
 		return
-	_active_material.set_shader_parameter(parameter_name, GFVariantData.duplicate_variant(_initial_value))
+	_active_material.set_shader_parameter(
+		_active_parameter_name,
+		GFVariantData.duplicate_variant(_initial_value)
+	)
 
 
 func _get_tween_host() -> Node:

@@ -30,6 +30,7 @@
 | 方法 | [`_do_it`](#member-gfeditorcommand-methods-_do_it) | `func _do_it() -> Error:` |
 | 方法 | [`_undo_it`](#member-gfeditorcommand-methods-_undo_it) | `func _undo_it() -> Error:` |
 | 方法 | [`_can_change_configuration`](#member-gfeditorcommand-methods-_can_change_configuration) | `func _can_change_configuration(field_name: String) -> bool:` |
+| 方法 | [`_seal_configuration_for_execution`](#member-gfeditorcommand-methods-_seal_configuration_for_execution) | `func _seal_configuration_for_execution() -> void:` |
 
 ## 属性
 
@@ -70,6 +71,7 @@ var metadata: Dictionary:
 ### `execute`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func execute() -> Error:
@@ -268,3 +270,16 @@ func _can_change_configuration(field_name: String) -> bool:
 | `field_name` | 配置字段名。 |
 
 返回：配置未冻结时返回 true；已冻结时报告错误并返回 false。
+
+<a id="member-gfeditorcommand-methods-_seal_configuration_for_execution"></a>
+
+### `_seal_configuration_for_execution`
+
+- API：`protected`
+- 首次版本：`unreleased`
+
+```gdscript
+func _seal_configuration_for_execution() -> void:
+```
+
+冻结命令配置。 会在命令成功执行或注册到 UndoRedo 后由基类调用。可能发生部分写入的事务子类 应在第一笔实际写入前主动调用，确保失败恢复仍使用不可变配置与首次快照。

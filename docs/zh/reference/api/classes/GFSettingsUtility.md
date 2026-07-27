@@ -16,7 +16,7 @@
 | 类型 | 名称 | 签名 |
 |---|---|---|
 | 信号 | [`setting_changed`](#member-gfsettingsutility-signals-setting_changed) | `signal setting_changed(key: StringName, old_value: Variant, new_value: Variant)` |
-| 信号 | [`settings_loaded`](#member-gfsettingsutility-signals-settings_loaded) | `signal settings_loaded(data: Dictionary)` |
+| 信号 | [`settings_load_completed`](#member-gfsettingsutility-signals-settings_load_completed) | `signal settings_load_completed(result: GFSettingsLoadResult)` |
 | 信号 | [`settings_saved`](#member-gfsettingsutility-signals-settings_saved) | `signal settings_saved(data: Dictionary)` |
 | 信号 | [`staged_setting_changed`](#member-gfsettingsutility-signals-staged_setting_changed) | `signal staged_setting_changed(key: StringName)` |
 | 信号 | [`staged_settings_applied`](#member-gfsettingsutility-signals-staged_settings_applied) | `signal staged_settings_applied(report: Dictionary)` |
@@ -55,10 +55,11 @@
 | 方法 | [`to_dict`](#member-gfsettingsutility-methods-to_dict) | `func to_dict(persistent_only: bool = true) -> Dictionary:` |
 | 方法 | [`replace_from_dict`](#member-gfsettingsutility-methods-replace_from_dict) | `func replace_from_dict(data: Dictionary, emit_changes: bool = true) -> void:` |
 | 方法 | [`merge_from_dict`](#member-gfsettingsutility-methods-merge_from_dict) | `func merge_from_dict(data: Dictionary, emit_changes: bool = true) -> void:` |
-| 方法 | [`load_settings`](#member-gfsettingsutility-methods-load_settings) | `func load_settings(file_name: String = "") -> Dictionary:` |
+| 方法 | [`load_settings`](#member-gfsettingsutility-methods-load_settings) | `func load_settings( file_name: String = "", recovery_policy: GFSettingsRecoveryPolicy = null ) -> GFSettingsLoadResult:` |
+| 方法 | [`get_last_load_result`](#member-gfsettingsutility-methods-get_last_load_result) | `func get_last_load_result() -> GFSettingsLoadResult:` |
 | 方法 | [`save_settings`](#member-gfsettingsutility-methods-save_settings) | `func save_settings(file_name: String = "") -> Error:` |
 | 方法 | [`tick`](#member-gfsettingsutility-methods-tick) | `func tick(delta: float = 0.0) -> void:` |
-| 方法 | [`_read_persisted_data`](#member-gfsettingsutility-methods-_read_persisted_data) | `func _read_persisted_data(file_name: String) -> Dictionary:` |
+| 方法 | [`_read_persisted_data`](#member-gfsettingsutility-methods-_read_persisted_data) | `func _read_persisted_data(file_name: String) -> GFStorageReadResult:` |
 | 方法 | [`_write_persisted_data`](#member-gfsettingsutility-methods-_write_persisted_data) | `func _write_persisted_data(file_name: String, data: Dictionary) -> Error:` |
 
 ## 信号
@@ -88,27 +89,24 @@ signal setting_changed(key: StringName, old_value: Variant, new_value: Variant)
 - `old_value`: Variant previous setting value or null when the setting did not exist.
 - `new_value`: Variant next setting value or null when the setting was removed.
 
-<a id="member-gfsettingsutility-signals-settings_loaded"></a>
+<a id="member-gfsettingsutility-signals-settings_load_completed"></a>
 
-### `settings_loaded`
+### `settings_load_completed`
 
 - API：`public`
+- 首次版本：`unreleased`
 
 ```gdscript
-signal settings_loaded(data: Dictionary)
+signal settings_load_completed(result: GFSettingsLoadResult)
 ```
 
-设置加载完成时发出。
+设置加载进入终态时发出。
 
 参数：
 
 | 名称 | 说明 |
 |---|---|
-| `data` | 已加载的持久化设置数据。 |
-
-结构：
-
-- `data`: Dictionary[String, Variant] loaded persisted settings data.
+| `result` | 隔离的结构化加载结果。 |
 
 <a id="member-gfsettingsutility-signals-settings_saved"></a>
 
@@ -846,24 +844,41 @@ func merge_from_dict(data: Dictionary, emit_changes: bool = true) -> void:
 ### `load_settings`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func load_settings(file_name: String = "") -> Dictionary:
+func load_settings( file_name: String = "", recovery_policy: GFSettingsRecoveryPolicy = null ) -> GFSettingsLoadResult:
 ```
 
-读取持久化设置。
+读取持久化设置并返回结构化终态。 默认策略严格失败；缺失、损坏、未来 schema、迁移失败或 IO 失败不会被 降级为空字典。只有显式恢复策略可以处理缺失或损坏，且加载本身从不保存。 非空策略会在 IO 前验证；合法加载请求会取消全部旧延迟/批处理保存请求， 防止新加载状态被旧保存目标重新序列化。
 
 参数：
 
 | 名称 | 说明 |
 |---|---|
 | `file_name` | 可选文件名；为空时使用 storage_file_name。 |
+| `recovery_policy` | 可选显式恢复策略；null 表示严格失败。 |
 
-返回：已读取的数据。
+返回：隔离的结构化加载结果。
 
 结构：
 
-- `return`: Dictionary[String, Variant] loaded persisted settings data.
+- `return`: GFSettingsLoadResult preserving status, application state, recovery action, and storage evidence.
+
+<a id="member-gfsettingsutility-methods-get_last_load_result"></a>
+
+### `get_last_load_result`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func get_last_load_result() -> GFSettingsLoadResult:
+```
+
+获取最近一次加载终态。
+
+返回：最近结果的隔离副本；尚未加载或已释放时为 null。
 
 <a id="member-gfsettingsutility-methods-save_settings"></a>
 
@@ -908,9 +923,10 @@ func tick(delta: float = 0.0) -> void:
 ### `_read_persisted_data`
 
 - API：`protected`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func _read_persisted_data(file_name: String) -> Dictionary:
+func _read_persisted_data(file_name: String) -> GFStorageReadResult:
 ```
 
 读取持久化设置数据。子类可覆盖该钩子以接入自定义存储后端。
@@ -921,11 +937,11 @@ func _read_persisted_data(file_name: String) -> Dictionary:
 |---|---|
 | `file_name` | 要读取的设置文件名。 |
 
-返回：已读取的数据；不存在或无法解析时返回空字典。
+返回：保留成功空载荷与稳定失败分类的存储读取结果。
 
 结构：
 
-- `return`: Dictionary[String, Variant] persisted settings data.
+- `return`: GFStorageReadResult with isolated Settings payload and failure_kind evidence.
 
 <a id="member-gfsettingsutility-methods-_write_persisted_data"></a>
 

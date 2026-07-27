@@ -24,9 +24,11 @@ extends VBoxContainer
 ## @param resource: 被选中的资源。
 signal resource_selected(resource: Resource)
 
-## 单元格值提交后发出。
+## 单元格值实际变化且整批事务成功后发出；空批次和规范化后同值的提交不发出。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @param resource: 被修改的资源。
 ## [br]
@@ -108,9 +110,12 @@ const _SCRIPT_TYPE_INSPECTOR = preload("res://addons/gf/kernel/core/gf_script_ty
 
 # --- 公共变量 ---
 
-## 提交单元格后是否自动保存已绑定路径的 Resource。
+## 是否自动保存成功事务中实际发生属性变化且已绑定路径的 Resource。
+## 空批次和规范化后同值的提交不会触发保存。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 var auto_save_committed_resources: bool = false
 
 ## 当前搜索过滤文本。为空时显示全部资源。
@@ -431,8 +436,13 @@ func duplicate_resource(row_index: int, deep: bool = false, insert_after: bool =
 
 
 ## 提交单元格值。
+##
+## 当规范化请求值与稳定当前值相同时返回成功，但不调用 setter、不发出
+## cell_value_committed、不自动保存，也不刷新表格。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @param row_index: 资源行索引。
 ## [br]
@@ -444,25 +454,22 @@ func duplicate_resource(row_index: int, deep: bool = false, insert_after: bool =
 ## [br]
 ## @return 提交成功返回 true。
 func commit_cell_value(row_index: int, property: StringName, new_value: Variant) -> bool:
-	var report: Dictionary = _commit_resource_cell_value_internal(row_index, property, new_value, false)
-	if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(report, "ok"):
-		return false
-
-	var resource: Resource = _get_report_resource(report)
-	cell_value_committed.emit(
-		resource,
-		property,
-		_GF_VARIANT_ACCESS_SCRIPT.get_option_value(report, "old_value"),
-		_GF_VARIANT_ACCESS_SCRIPT.get_option_value(report, "new_value")
-	)
-	_save_resource_if_requested(resource)
-	refresh()
-	return true
+	var report: Dictionary = commit_cell_values([{
+		"row_index": row_index,
+		"property": property,
+		"new_value": new_value,
+	}])
+	return _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(report, "ok")
 
 
 ## 提交当前可见行的单元格值。
+##
+## 当规范化请求值与稳定当前值相同时返回成功，但不调用 setter、不发出
+## cell_value_committed、不自动保存，也不刷新表格。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @param visible_row_index: 过滤后的可见行索引。
 ## [br]
@@ -481,8 +488,12 @@ func commit_visible_cell_value(visible_row_index: int, property: StringName, new
 
 ## 批量提交资源行单元格值。
 ## [br]
-## 该方法会先处理所有变更，再统一刷新表格；启用自动保存时同一 Resource 只保存一次。
-## 它不是事务，部分失败不会回滚已成功的变更。
+## 该方法先完成全部行、属性和值预检，再通过 GFEditorPropertyBatchCommand 原子提交。
+## 任一 setter 拒绝或最终状态验证失败时会恢复本次尝试前的资源属性。
+## 规范化后同值的条目计入 unchanged_count，不调用其 setter，也不发提交信号。
+## 仅当至少一项实际变化时统一刷新；启用自动保存时同一已变化 Resource 只保存一次。
+## 空变更数组返回 status = committed、error = OK 且全部计数为 0 的成功报告，
+## 不构造属性事务命令，也不触发信号、保存或刷新。
 ## [br]
 ## @api public
 ## [br]
@@ -494,7 +505,7 @@ func commit_visible_cell_value(visible_row_index: int, property: StringName, new
 ## [br]
 ## @schema changes: Array[Dictionary]，每项包含 row_index: int、property: StringName/String、new_value: Variant。
 ## [br]
-## @schema return: Dictionary，包含 ok、requested_count、applied_count、unchanged_count、failed_count、committed 和 errors。
+## @schema return: Dictionary，包含 ok、status、error、requested_count、applied_count、unchanged_count、failed_count、issue_count、rolled_back、recovery_required、committed、errors，以及需要显式恢复时的 transaction_command。
 func commit_cell_values(changes: Array[Dictionary]) -> Dictionary:
 	return _commit_resource_cell_value_changes(changes, false)
 
@@ -502,7 +513,11 @@ func commit_cell_values(changes: Array[Dictionary]) -> Dictionary:
 ## 批量提交可见资源行单元格值。
 ## [br]
 ## 可见行索引会在任何写入发生前解析为资源行索引，避免搜索过滤刷新导致同一批变更漂移。
-## 启用自动保存时同一 Resource 只保存一次；该方法不是事务，部分失败不会回滚已成功的变更。
+## 全部变更通过 GFEditorPropertyBatchCommand 原子提交。规范化后同值的条目计入
+## unchanged_count，不调用其 setter，也不发提交信号。仅当至少一项实际变化时
+## 统一刷新；启用自动保存时同一已变化 Resource 只保存一次。
+## 空变更数组返回 status = committed、error = OK 且全部计数为 0 的成功报告，
+## 不构造属性事务命令，也不触发信号、保存或刷新。
 ## [br]
 ## @api public
 ## [br]
@@ -514,7 +529,7 @@ func commit_cell_values(changes: Array[Dictionary]) -> Dictionary:
 ## [br]
 ## @schema changes: Array[Dictionary]，每项包含 visible_row_index: int、property: StringName/String、new_value: Variant。
 ## [br]
-## @schema return: Dictionary，包含 ok、requested_count、applied_count、unchanged_count、failed_count、committed 和 errors。
+## @schema return: Dictionary，包含 ok、status、error、requested_count、applied_count、unchanged_count、failed_count、issue_count、rolled_back、recovery_required、committed、errors，以及需要显式恢复时的 transaction_command。
 func commit_visible_cell_values(changes: Array[Dictionary]) -> Dictionary:
 	return _commit_resource_cell_value_changes(changes, true)
 
@@ -563,9 +578,19 @@ func _ensure_tree() -> void:
 
 
 func _commit_resource_cell_value_changes(changes: Array[Dictionary], use_visible_rows: bool) -> Dictionary:
-	var committed: Array[Dictionary] = []
-	var changed_reports: Array[Dictionary] = []
+	var command_changes: Array[Dictionary] = []
 	var errors: Array[Dictionary] = []
+
+	if changes.is_empty():
+		return _make_resource_commit_batch_result(
+			0,
+			[],
+			[],
+			{
+				"status": GFEditorPropertyBatchCommand.STATUS_COMMITTED,
+				"error": OK,
+			}
+		)
 
 	for change_index: int in range(changes.size()):
 		var change: Dictionary = changes[change_index]
@@ -601,68 +626,273 @@ func _commit_resource_cell_value_changes(changes: Array[Dictionary], use_visible
 			continue
 
 		var new_value: Variant = _GF_VARIANT_ACCESS_SCRIPT.get_option_value(change, "new_value")
-		var report: Dictionary = _commit_resource_cell_value_internal(row_index, property, new_value, true)
-		report["index"] = change_index
-		if use_visible_rows:
-			report["visible_row_index"] = visible_row_index
-
-		if _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(report, "ok"):
-			committed.append(report)
-			if _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(report, "changed"):
-				changed_reports.append(report)
-		else:
-			var reason: StringName = _GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(report, "reason", &"commit_failed")
-			var failure_context: Dictionary = {
-				"message": _GF_VARIANT_ACCESS_SCRIPT.get_option_string(report, "message", String(reason)),
-			}
+		if row_index < 0 or row_index >= _resources.size():
+			var invalid_row_context: Dictionary = {}
 			if use_visible_rows:
-				failure_context["visible_row_index"] = visible_row_index
+				invalid_row_context["visible_row_index"] = visible_row_index
 			errors.append(_make_resource_commit_error(
 				change_index,
-				reason,
+				&"invalid_row_index",
 				row_index,
 				property,
-				failure_context
+				invalid_row_context
 			))
+			continue
+		if property == &"":
+			var missing_property_context: Dictionary = {}
+			if use_visible_rows:
+				missing_property_context["visible_row_index"] = visible_row_index
+			errors.append(_make_resource_commit_error(
+				change_index,
+				&"missing_property",
+				row_index,
+				property,
+				missing_property_context
+			))
+			continue
+		var resource: Resource = _resources[row_index]
+		if resource == null:
+			var missing_resource_context: Dictionary = {}
+			if use_visible_rows:
+				missing_resource_context["visible_row_index"] = visible_row_index
+			errors.append(_make_resource_commit_error(
+				change_index,
+				&"missing_resource",
+				row_index,
+				property,
+				missing_resource_context
+			))
+			continue
+		if not _OBJECT_PROPERTY_TOOLS.has_property(resource, property):
+			var unknown_property_context: Dictionary = {}
+			if use_visible_rows:
+				unknown_property_context["visible_row_index"] = visible_row_index
+			errors.append(_make_resource_commit_error(
+				change_index,
+				&"unknown_property",
+				row_index,
+				property,
+				unknown_property_context
+			))
+			continue
 
+		var change_metadata: Dictionary = {
+			"change_index": change_index,
+			"row_index": row_index,
+			"property": property,
+		}
+		if use_visible_rows:
+			change_metadata["visible_row_index"] = visible_row_index
+		command_changes.append({
+			"target": resource,
+			"property_name": property,
+			"new_value": new_value,
+			"metadata": change_metadata,
+		})
+
+	if not errors.is_empty():
+		return _make_resource_commit_batch_result(
+			changes.size(),
+			[],
+			errors,
+			{
+				"status": &"preflight_failed",
+				"error": ERR_INVALID_DATA,
+			}
+		)
+
+	var command: GFEditorPropertyBatchCommand = GFEditorPropertyBatchCommand.new()
+	var _configured_command: GFEditorPropertyBatchCommand = command.configure(
+		command_changes,
+		{
+			"command_name": "Edit Resource Table Cells",
+			"metadata": {
+				"source": &"GFResourceTableEditor",
+			},
+		}
+	)
+	var transaction_error: Error = command.execute()
+	var transaction_report: Dictionary = command.get_transaction_report()
+	if transaction_error != OK:
+		errors = _make_resource_transaction_errors(transaction_report)
+		if errors.is_empty():
+			errors.append(_make_resource_commit_error(
+				_GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+					transaction_report,
+					"failed_index",
+					-1
+				),
+				&"transaction_failed",
+				-1,
+				&"",
+				{
+					"message": "Resource property transaction failed.",
+				}
+			))
+		if _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+			transaction_report,
+			"recovery_required"
+		):
+			refresh()
+		return _make_resource_commit_batch_result(
+			changes.size(),
+			[],
+			errors,
+			transaction_report,
+			command
+		)
+
+	var committed: Array[Dictionary] = _make_resource_committed_reports(
+		transaction_report
+	)
+	var changed_reports: Array[Dictionary] = []
+	for report: Dictionary in committed:
+		if _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(report, "changed"):
+			changed_reports.append(report)
 	if not changed_reports.is_empty():
 		for report: Dictionary in changed_reports:
 			_emit_resource_cell_value_committed(report)
 		_save_changed_resources_if_requested(changed_reports)
 		refresh()
+	return _make_resource_commit_batch_result(
+		changes.size(),
+		committed,
+		[],
+		transaction_report,
+		command
+	)
 
-	return _make_resource_commit_batch_result(changes.size(), committed, errors)
+
+func _make_resource_transaction_errors(
+	transaction_report: Dictionary
+) -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	var issues_value: Variant = _GF_VARIANT_ACCESS_SCRIPT.get_option_value(
+		transaction_report,
+		"issues"
+	)
+	if not (issues_value is Array):
+		return result
+	var issues: Array = issues_value
+	for issue_value: Variant in issues:
+		if not (issue_value is Dictionary):
+			continue
+		var issue: Dictionary = issue_value
+		var issue_metadata: Dictionary = (
+			_GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(issue, "metadata")
+		)
+		var error_context: Dictionary = {
+			"message": _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
+				issue,
+				"message",
+				"Resource property transaction failed."
+			),
+		}
+		if _has_option_key(issue_metadata, &"visible_row_index"):
+			error_context["visible_row_index"] = (
+				_GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+					issue_metadata,
+					"visible_row_index",
+					-1
+				)
+			)
+		result.append(_make_resource_commit_error(
+			_GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+				issue_metadata,
+				"change_index",
+				_GF_VARIANT_ACCESS_SCRIPT.get_option_int(issue, "index", -1)
+			),
+			_GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(
+				issue,
+				"kind",
+				&"transaction_failed"
+			),
+			_GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+				issue_metadata,
+				"row_index",
+				-1
+			),
+			_GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(
+				issue_metadata,
+				"property",
+				&""
+			),
+			error_context
+		))
+	return result
 
 
-func _commit_resource_cell_value_internal(
-	row_index: int,
-	property: StringName,
-	new_value: Variant,
-	skip_unchanged: bool
-) -> Dictionary:
-	if row_index < 0 or row_index >= _resources.size():
-		return _make_resource_cell_commit_failure(row_index, property, &"invalid_row_index")
-	if property == &"":
-		return _make_resource_cell_commit_failure(row_index, property, &"missing_property")
-
-	var resource: Resource = _resources[row_index]
-	if resource == null:
-		return _make_resource_cell_commit_failure(row_index, property, &"missing_resource")
-	if not _OBJECT_PROPERTY_TOOLS.has_property(resource, property):
-		return _make_resource_cell_commit_failure(row_index, property, &"unknown_property")
-
-	var old_value: Variant = _OBJECT_PROPERTY_TOOLS.read_property(resource, NodePath(String(property)))
-	if skip_unchanged and old_value == new_value:
-		return _make_resource_cell_commit_success(row_index, resource, property, old_value, new_value, false)
-
-	var property_path: NodePath = NodePath(String(property))
-	var result: Dictionary = _OBJECT_PROPERTY_TOOLS.write_property(resource, property_path, new_value)
-	if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(result, "ok"):
-		return _make_resource_cell_commit_failure(row_index, property, &"write_failed")
-
-	var actual_value: Variant = _OBJECT_PROPERTY_TOOLS.read_property(resource, property_path)
-	var value_changed: bool = _GF_VARIANT_ACCESS_SCRIPT.to_bool(old_value != actual_value)
-	return _make_resource_cell_commit_success(row_index, resource, property, old_value, actual_value, value_changed)
+func _make_resource_committed_reports(
+	transaction_report: Dictionary
+) -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	var entries_value: Variant = _GF_VARIANT_ACCESS_SCRIPT.get_option_value(
+		transaction_report,
+		"entries"
+	)
+	if not (entries_value is Array):
+		return result
+	var entries: Array = entries_value
+	for entry_value: Variant in entries:
+		if not (entry_value is Dictionary):
+			continue
+		var entry: Dictionary = entry_value
+		var entry_metadata: Dictionary = (
+			_GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(entry, "metadata")
+		)
+		var resource_value: Variant = _GF_VARIANT_ACCESS_SCRIPT.get_option_value(
+			entry,
+			"target"
+		)
+		if not (resource_value is Resource):
+			continue
+		var resource: Resource = resource_value
+		var old_value: Variant = _GF_VARIANT_ACCESS_SCRIPT.get_option_value(
+			entry,
+			"old_value"
+		)
+		var new_value: Variant = _GF_VARIANT_ACCESS_SCRIPT.get_option_value(
+			entry,
+			"new_value"
+		)
+		var entry_status: StringName = (
+			_GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(
+				entry,
+				"status",
+				&""
+			)
+		)
+		var report: Dictionary = _make_resource_cell_commit_success(
+			_GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+				entry_metadata,
+				"row_index",
+				-1
+			),
+			resource,
+			_GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(
+				entry_metadata,
+				"property",
+				&""
+			),
+			old_value,
+			new_value,
+			entry_status == &"applied"
+		)
+		report["index"] = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+			entry_metadata,
+			"change_index",
+			-1
+		)
+		if _has_option_key(entry_metadata, &"visible_row_index"):
+			report["visible_row_index"] = (
+				_GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+					entry_metadata,
+					"visible_row_index",
+					-1
+				)
+			)
+		result.append(report)
+	return result
 
 
 func _emit_resource_cell_value_committed(report: Dictionary) -> void:
@@ -693,22 +923,66 @@ func _save_changed_resources_if_requested(changed_reports: Array[Dictionary]) ->
 func _make_resource_commit_batch_result(
 	requested_count: int,
 	committed: Array[Dictionary],
-	errors: Array[Dictionary]
+	errors: Array[Dictionary],
+	transaction_report: Dictionary = {},
+	transaction_command: GFEditorPropertyBatchCommand = null
 ) -> Dictionary:
 	var applied_count: int = 0
 	for report: Dictionary in committed:
 		if _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(report, "changed"):
 			applied_count += 1
 	var unchanged_count: int = committed.size() - applied_count
-	return {
+	var result: Dictionary = {
 		"ok": errors.is_empty(),
+		"status": _GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(
+			transaction_report,
+			"status",
+			&"committed" if errors.is_empty() else &"preflight_failed"
+		),
+		"error": _GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+			transaction_report,
+			"error",
+			OK if errors.is_empty() else ERR_INVALID_DATA
+		),
 		"requested_count": requested_count,
 		"applied_count": applied_count,
 		"unchanged_count": unchanged_count,
-		"failed_count": errors.size(),
+		"failed_count": _count_resource_commit_failed_indices(errors),
+		"issue_count": errors.size(),
+		"rolled_back": _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+			transaction_report,
+			"rolled_back"
+		),
+		"recovery_required": _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+			transaction_report,
+			"recovery_required"
+		),
 		"committed": committed,
 		"errors": errors,
 	}
+	if (
+		transaction_command != null
+		and _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+			result,
+			"recovery_required"
+		)
+	):
+		result["transaction_command"] = transaction_command
+	return result
+
+
+func _count_resource_commit_failed_indices(
+	errors: Array[Dictionary]
+) -> int:
+	var failed_indices: Dictionary = {}
+	for error: Dictionary in errors:
+		var index: int = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+			error,
+			"index",
+			-1
+		)
+		failed_indices[index] = true
+	return failed_indices.size()
 
 
 func _make_resource_cell_commit_success(
@@ -727,16 +1001,6 @@ func _make_resource_cell_commit_success(
 		"property": property,
 		"old_value": old_value,
 		"new_value": new_value,
-	}
-
-
-func _make_resource_cell_commit_failure(row_index: int, property: StringName, reason: StringName) -> Dictionary:
-	return {
-		"ok": false,
-		"row_index": row_index,
-		"property": property,
-		"reason": reason,
-		"message": String(reason),
 	}
 
 

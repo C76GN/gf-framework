@@ -5,6 +5,7 @@ extends GutTest
 # --- 私有变量 ---
 
 var _settings: GFSettingsUtility
+var _fallback_file_names: PackedStringArray = PackedStringArray()
 
 
 # --- Godot 生命周期方法 ---
@@ -20,6 +21,11 @@ func after_each() -> void:
 	if _settings != null:
 		_settings.dispose()
 		_settings = null
+	for file_name: String in _fallback_file_names:
+		var path: String = "user://" + file_name
+		if FileAccess.file_exists(path):
+			var _remove_error: Error = DirAccess.remove_absolute(path)
+	_fallback_file_names.clear()
 
 
 # --- 测试方法 ---
@@ -174,11 +180,538 @@ func test_load_settings_uses_replace_semantics() -> void:
 	settings.set_value(&"audio/music", 0.3, false)
 	settings.loaded_data = {"audio/master": 0.5}
 
-	var _loaded: Dictionary = settings.load_settings("profile.json")
+	var load_result: GFSettingsLoadResult = settings.load_settings("profile.json")
+	var storage_result: GFStorageReadResult = load_result.get_storage_result()
 
+	assert_true(load_result.is_successful(), "合法持久化数据应进入成功终态。")
+	assert_eq(load_result.get_status(), GFSettingsLoadResult.STATUS_LOADED, "成功读取应报告 loaded。")
+	assert_true(load_result.was_applied(), "成功读取应应用持久化设置。")
+	assert_false(load_result.was_recovered(), "普通成功读取不应标记为恢复。")
+	assert_not_null(storage_result, "Settings 结果应保留底层 Storage 结果。")
+	assert_true(storage_result.ok, "底层读取应保持成功证据。")
 	assert_eq(_setting_float(settings, &"audio/master"), 0.5, "load 应应用持久化值。")
 	assert_eq(_setting_float(settings, &"audio/music"), 0.8, "load 应重置持久化数据中缺失的已定义键。")
 	settings.dispose()
+
+
+func test_load_settings_treats_successful_empty_payload_as_loaded_replace() -> void:
+	var settings: ScriptedSettingsUtility = _make_scripted_settings(
+		GFStorageReadResult.new().configure_success({})
+	)
+	var _register_master: Variant = settings.register_setting(
+		&"audio/master",
+		1.0,
+		GFSettingDefinition.ValueType.FLOAT
+	)
+	settings.set_value(&"audio/master", 0.25, false)
+	settings.set_value(&"legacy/flag", true, false)
+	settings.stage_value(&"audio/master", 0.75)
+
+	var load_result: GFSettingsLoadResult = settings.load_settings("empty.json")
+	var storage_result: GFStorageReadResult = load_result.get_storage_result()
+
+	assert_true(load_result.is_successful(), "合法空载荷仍应是成功读取。")
+	assert_eq(load_result.get_status(), GFSettingsLoadResult.STATUS_LOADED, "合法空载荷不得被误判为 missing。")
+	assert_true(load_result.was_applied(), "合法空载荷应执行 replace 语义。")
+	assert_false(load_result.was_recovered(), "合法空载荷不应经过恢复策略。")
+	assert_not_null(storage_result, "结果应保留合法空载荷的底层读取证据。")
+	assert_true(storage_result.ok, "底层空载荷读取应保持 ok。")
+	assert_true(storage_result.payload.is_empty(), "底层载荷应保持合法空字典。")
+	assert_eq(_setting_float(settings, &"audio/master"), 1.0, "空载荷应把已定义键恢复默认值。")
+	assert_false(settings.has_setting(&"legacy/flag"), "空载荷应移除未定义的旧键。")
+	assert_false(settings.has_staged_values(), "成功 replace 后不应保留旧 staged 值。")
+	assert_eq(settings.write_count, 0, "读取合法空载荷不应产生保存副作用。")
+	settings.dispose()
+
+
+func test_load_settings_strict_missing_preserves_current_and_staged_state() -> void:
+	var settings: ScriptedSettingsUtility = _make_scripted_settings(
+		_make_storage_failure(
+			GFStorageReadResult.FailureKind.NOT_FOUND,
+			ERR_FILE_NOT_FOUND,
+			"Settings file not found."
+		)
+	)
+	var _register_master: Variant = settings.register_setting(
+		&"audio/master",
+		1.0,
+		GFSettingDefinition.ValueType.FLOAT
+	)
+	settings.set_value(&"audio/master", 0.25, false)
+	settings.set_value(&"runtime/marker", "current", false)
+	settings.stage_value(&"audio/master", 0.75)
+	var values_before: Dictionary = settings.to_dict(false)
+	var staged_before: Dictionary = settings.get_staged_values()
+	watch_signals(settings)
+
+	var load_result: GFSettingsLoadResult = settings.load_settings("missing.json")
+	var storage_result: GFStorageReadResult = load_result.get_storage_result()
+
+	assert_false(load_result.is_successful(), "默认策略下缺失文件应严格失败。")
+	assert_eq(load_result.get_status(), GFSettingsLoadResult.STATUS_MISSING, "缺失文件应保留稳定状态。")
+	assert_false(load_result.was_applied(), "严格失败不得应用空载荷。")
+	assert_false(load_result.was_recovered(), "未提供策略时不得自动恢复。")
+	assert_not_null(storage_result, "失败结果应保留底层 Storage 证据。")
+	assert_eq(storage_result.failure_kind, GFStorageReadResult.FailureKind.NOT_FOUND)
+	assert_eq(settings.to_dict(false), values_before, "缺失文件失败不得修改当前设置。")
+	assert_eq(settings.get_staged_values(), staged_before, "缺失文件失败不得清除 staged 设置。")
+	assert_eq(settings.write_count, 0, "缺失文件失败不得创建或覆盖文件。")
+	assert_signal_emitted(settings, "settings_load_completed", "失败读取也应发出类型化终态信号。")
+	assert_signal_not_emitted(settings, "setting_changed", "严格失败不得发出设置变化。")
+	settings.dispose()
+
+
+func test_load_settings_cancels_stale_batch_save_across_sources() -> void:
+	var settings: ScriptedSettingsUtility = _make_scripted_settings(
+		_make_storage_failure(
+			GFStorageReadResult.FailureKind.NOT_FOUND,
+			ERR_FILE_NOT_FOUND,
+			"Settings file not found."
+		)
+	)
+	settings.storage_file_name = "missing.json"
+	settings.auto_save_on_change = true
+	settings.save_debounce_seconds = 0.0
+	var _register_master: Variant = settings.register_setting(
+		&"audio/master",
+		1.0,
+		GFSettingDefinition.ValueType.FLOAT
+	)
+	settings.begin_batch()
+	settings.set_value(&"audio/master", 0.25)
+
+	var load_result: GFSettingsLoadResult = settings.load_settings("other_missing.json")
+	settings.end_batch()
+
+	assert_false(load_result.is_successful(), "严格缺失仍应失败。")
+	assert_eq(settings.write_count, 0, "加载屏障应取消其他源尚未形成的批处理自动保存。")
+	settings.dispose()
+
+
+func test_load_settings_cancels_queued_save_before_replacing_from_other_source() -> void:
+	var settings: ScriptedSettingsUtility = _make_scripted_settings(
+		GFStorageReadResult.new().configure_success({"audio/master": 0.8})
+	)
+	settings.storage_file_name = "source_a.json"
+	settings.auto_save_on_change = true
+	settings.save_debounce_seconds = 10.0
+	var _register_master: Variant = settings.register_setting(
+		&"audio/master",
+		1.0,
+		GFSettingDefinition.ValueType.FLOAT
+	)
+	settings.set_value(&"audio/master", 0.25)
+
+	var load_result: GFSettingsLoadResult = settings.load_settings("source_b.json")
+	settings.tick(20.0)
+
+	assert_true(load_result.is_successful(), "第二来源的合法设置应加载成功。")
+	assert_eq(_setting_float(settings, &"audio/master"), 0.8)
+	assert_eq(
+		settings.write_count,
+		0,
+		"加载后的值不得被陈旧队列重新序列化并写回先前来源。"
+	)
+	settings.dispose()
+
+
+func test_load_settings_strict_corrupt_preserves_current_and_staged_state() -> void:
+	var settings: ScriptedSettingsUtility = _make_scripted_settings(
+		_make_storage_failure(
+			GFStorageReadResult.FailureKind.CORRUPT,
+			ERR_FILE_CORRUPT,
+			"Settings payload is corrupt."
+		)
+	)
+	var _register_master: Variant = settings.register_setting(
+		&"audio/master",
+		1.0,
+		GFSettingDefinition.ValueType.FLOAT
+	)
+	settings.set_value(&"audio/master", 0.4, false)
+	settings.set_value(&"runtime/marker", "current", false)
+	settings.stage_value(&"audio/master", 0.8)
+	var values_before: Dictionary = settings.to_dict(false)
+	var staged_before: Dictionary = settings.get_staged_values()
+
+	var load_result: GFSettingsLoadResult = settings.load_settings("corrupt.json")
+	var storage_result: GFStorageReadResult = load_result.get_storage_result()
+
+	assert_false(load_result.is_successful(), "默认策略下损坏文件应严格失败。")
+	assert_eq(load_result.get_status(), GFSettingsLoadResult.STATUS_CORRUPT, "损坏文件应保留稳定状态。")
+	assert_false(load_result.was_applied(), "损坏文件不得被降级为空载荷应用。")
+	assert_false(load_result.was_recovered(), "未提供策略时不得自动恢复损坏文件。")
+	assert_not_null(storage_result, "损坏结果应保留底层 Storage 证据。")
+	assert_eq(storage_result.failure_kind, GFStorageReadResult.FailureKind.CORRUPT)
+	assert_eq(settings.to_dict(false), values_before, "损坏文件失败不得修改当前设置。")
+	assert_eq(settings.get_staged_values(), staged_before, "损坏文件失败不得清除 staged 设置。")
+	assert_eq(settings.write_count, 0, "损坏文件失败不得覆盖原文件。")
+	settings.dispose()
+
+
+func test_load_settings_can_explicitly_recover_missing_with_current_state() -> void:
+	var settings: ScriptedSettingsUtility = _make_scripted_settings(
+		_make_storage_failure(
+			GFStorageReadResult.FailureKind.NOT_FOUND,
+			ERR_FILE_NOT_FOUND,
+			"Settings file not found."
+		)
+	)
+	var _register_master: Variant = settings.register_setting(
+		&"audio/master",
+		1.0,
+		GFSettingDefinition.ValueType.FLOAT
+	)
+	settings.set_value(&"audio/master", 0.35, false)
+	settings.set_value(&"runtime/marker", "current", false)
+	settings.stage_value(&"audio/master", 0.7)
+	var values_before: Dictionary = settings.to_dict(false)
+	var staged_before: Dictionary = settings.get_staged_values()
+	var policy: GFSettingsRecoveryPolicy = GFSettingsRecoveryPolicy.new()
+	policy.missing_file_action = GFSettingsRecoveryPolicy.ACTION_USE_CURRENT_STATE
+
+	var load_result: GFSettingsLoadResult = settings.load_settings("missing.json", policy)
+
+	assert_true(load_result.is_successful(), "显式接受当前状态应形成成功恢复终态。")
+	assert_eq(load_result.get_status(), GFSettingsLoadResult.STATUS_RECOVERED)
+	assert_false(load_result.was_applied(), "保留当前状态不应应用替代载荷。")
+	assert_true(load_result.was_recovered(), "结果应记录恢复动作。")
+	assert_eq(
+		load_result.get_recovery_action(),
+		GFSettingsRecoveryPolicy.ACTION_USE_CURRENT_STATE
+	)
+	assert_eq(settings.to_dict(false), values_before, "保留当前状态不得修改有效设置。")
+	assert_eq(settings.get_staged_values(), staged_before, "保留当前状态不得清除 staged 设置。")
+	assert_eq(settings.write_count, 0, "显式接受当前状态仍不得自动保存。")
+	settings.dispose()
+
+
+func test_load_settings_can_explicitly_recover_corrupt_with_defaults_without_saving() -> void:
+	var settings: ScriptedSettingsUtility = _make_scripted_settings(
+		_make_storage_failure(
+			GFStorageReadResult.FailureKind.CORRUPT,
+			ERR_FILE_CORRUPT,
+			"Settings payload is corrupt."
+		)
+	)
+	var _register_master: Variant = settings.register_setting(
+		&"audio/master",
+		1.0,
+		GFSettingDefinition.ValueType.FLOAT
+	)
+	settings.set_value(&"audio/master", 0.2, false)
+	settings.set_value(&"legacy/flag", true, false)
+	settings.stage_value(&"audio/master", 0.8)
+	var policy: GFSettingsRecoveryPolicy = GFSettingsRecoveryPolicy.new()
+	policy.corrupt_file_action = GFSettingsRecoveryPolicy.ACTION_RESET_TO_DEFAULTS
+
+	var load_result: GFSettingsLoadResult = settings.load_settings("corrupt.json", policy)
+	var storage_result: GFStorageReadResult = load_result.get_storage_result()
+
+	assert_true(load_result.is_successful(), "显式默认值恢复应形成成功终态。")
+	assert_eq(load_result.get_status(), GFSettingsLoadResult.STATUS_RECOVERED)
+	assert_true(load_result.was_applied(), "默认值恢复应应用空 replace 语义。")
+	assert_true(load_result.was_recovered(), "结果应记录恢复动作。")
+	assert_eq(
+		load_result.get_recovery_action(),
+		GFSettingsRecoveryPolicy.ACTION_RESET_TO_DEFAULTS
+	)
+	assert_not_null(storage_result, "恢复结果仍应保留原始损坏证据。")
+	assert_eq(storage_result.failure_kind, GFStorageReadResult.FailureKind.CORRUPT)
+	assert_eq(_setting_float(settings, &"audio/master"), 1.0, "恢复应重置已定义设置。")
+	assert_false(settings.has_setting(&"legacy/flag"), "恢复应移除未定义旧设置。")
+	assert_false(settings.has_staged_values(), "默认值恢复应清除旧 staged 设置。")
+	assert_eq(settings.write_count, 0, "默认值恢复不得隐式覆盖损坏文件。")
+	settings.dispose()
+
+
+func test_settings_recovery_policy_defaults_to_strict_and_rejects_unknown_actions() -> void:
+	var policy: GFSettingsRecoveryPolicy = GFSettingsRecoveryPolicy.new()
+
+	assert_eq(policy.missing_file_action, GFSettingsRecoveryPolicy.ACTION_FAIL)
+	assert_eq(policy.corrupt_file_action, GFSettingsRecoveryPolicy.ACTION_FAIL)
+	assert_true(
+		GFVariantData.get_option_bool(policy.validate_policy(), "ok", false),
+		"默认策略应是合法的严格策略。"
+	)
+
+	policy.corrupt_file_action = &"overwrite_source"
+	var invalid_report: Dictionary = policy.validate_policy()
+
+	assert_false(
+		GFVariantData.get_option_bool(invalid_report, "ok", true),
+		"未知动作不得被恢复策略接受。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(invalid_report, "error_count"),
+		1,
+		"无效动作应形成结构化校验问题。"
+	)
+
+
+func test_load_settings_rejects_invalid_recovery_policy_before_storage_read() -> void:
+	var settings: ScriptedSettingsUtility = _make_scripted_settings(
+		GFStorageReadResult.new().configure_success({"audio/master": 0.1})
+	)
+	var _register_master: Variant = settings.register_setting(
+		&"audio/master",
+		1.0,
+		GFSettingDefinition.ValueType.FLOAT
+	)
+	settings.set_value(&"audio/master", 0.45, false)
+	settings.stage_value(&"audio/master", 0.9)
+	var values_before: Dictionary = settings.to_dict(false)
+	var staged_before: Dictionary = settings.get_staged_values()
+	var policy: GFSettingsRecoveryPolicy = GFSettingsRecoveryPolicy.new()
+	policy.corrupt_file_action = &"overwrite_source"
+	watch_signals(settings)
+
+	var load_result: GFSettingsLoadResult = settings.load_settings(
+		"profile.json",
+		policy
+	)
+	var storage_result: GFStorageReadResult = load_result.get_storage_result()
+
+	assert_false(load_result.is_successful(), "无效恢复策略必须形成失败终态。")
+	assert_eq(load_result.get_status(), GFSettingsLoadResult.STATUS_INVALID_REQUEST)
+	assert_eq(load_result.get_error_code(), ERR_INVALID_PARAMETER)
+	assert_not_null(storage_result)
+	assert_eq(
+		storage_result.failure_kind,
+		GFStorageReadResult.FailureKind.INVALID_REQUEST
+	)
+	assert_eq(settings.read_count, 0, "无效策略不得触发底层读取。")
+	assert_eq(settings.to_dict(false), values_before)
+	assert_eq(settings.get_staged_values(), staged_before)
+	assert_signal_emitted(settings, "settings_load_completed")
+	settings.dispose()
+
+
+func test_settings_load_result_rejects_status_storage_mismatch() -> void:
+	var missing_storage: GFStorageReadResult = _make_storage_failure(
+		GFStorageReadResult.FailureKind.NOT_FOUND,
+		ERR_FILE_NOT_FOUND,
+		"Settings file not found."
+	)
+	var load_result: GFSettingsLoadResult = GFSettingsLoadResult.new()
+
+	var configured: bool = load_result.configure_for_framework(
+		false,
+		GFSettingsLoadResult.STATUS_CORRUPT,
+		"profile.json",
+		false,
+		false,
+		&"",
+		ERR_FILE_CORRUPT,
+		"Settings payload is corrupt.",
+		missing_storage
+	)
+
+	assert_false(configured, "终态 status 必须与底层 Storage 失败分类一致。")
+	assert_push_error("[GFSettingsLoadResult] 已拒绝不一致的加载终态配置。")
+
+
+func test_load_settings_never_recovers_non_recoverable_failure_kinds() -> void:
+	var failure_kinds: Array[GFStorageReadResult.FailureKind] = [
+		GFStorageReadResult.FailureKind.INVALID_REQUEST,
+		GFStorageReadResult.FailureKind.IO_FAILED,
+		GFStorageReadResult.FailureKind.FUTURE_VERSION,
+		GFStorageReadResult.FailureKind.MIGRATION_FAILED,
+		GFStorageReadResult.FailureKind.UNAVAILABLE,
+	]
+	var error_codes: Array[Error] = [
+		ERR_INVALID_PARAMETER,
+		ERR_FILE_CANT_OPEN,
+		ERR_FILE_UNRECOGNIZED,
+		ERR_INVALID_DATA,
+		ERR_UNAVAILABLE,
+	]
+	var expected_statuses: Array[StringName] = [
+		GFSettingsLoadResult.STATUS_INVALID_REQUEST,
+		GFSettingsLoadResult.STATUS_STORAGE_FAILED,
+		GFSettingsLoadResult.STATUS_FUTURE_SCHEMA,
+		GFSettingsLoadResult.STATUS_MIGRATION_FAILED,
+		GFSettingsLoadResult.STATUS_STORAGE_FAILED,
+	]
+	var settings: ScriptedSettingsUtility = _make_scripted_settings(
+		_make_storage_failure(failure_kinds[0], error_codes[0], "Load failed.")
+	)
+	var _register_master: Variant = settings.register_setting(
+		&"audio/master",
+		1.0,
+		GFSettingDefinition.ValueType.FLOAT
+	)
+	settings.set_value(&"audio/master", 0.45, false)
+	settings.stage_value(&"audio/master", 0.9)
+	var values_before: Dictionary = settings.to_dict(false)
+	var staged_before: Dictionary = settings.get_staged_values()
+	var policy: GFSettingsRecoveryPolicy = GFSettingsRecoveryPolicy.new()
+	policy.missing_file_action = GFSettingsRecoveryPolicy.ACTION_RESET_TO_DEFAULTS
+	policy.corrupt_file_action = GFSettingsRecoveryPolicy.ACTION_RESET_TO_DEFAULTS
+
+	for index: int in range(failure_kinds.size()):
+		settings.read_result = _make_storage_failure(
+			failure_kinds[index],
+			error_codes[index],
+			"Load failed."
+		)
+		var load_result: GFSettingsLoadResult = settings.load_settings(
+			"unrecoverable_%d.json" % index,
+			policy
+		)
+
+		assert_false(load_result.is_successful(), "不可恢复失败不能被 missing/corrupt 策略接受。")
+		assert_eq(load_result.get_status(), expected_statuses[index])
+		assert_false(load_result.was_applied(), "不可恢复失败不得应用默认值。")
+		assert_false(load_result.was_recovered(), "不可恢复失败不得标记为 recovered。")
+		assert_eq(settings.to_dict(false), values_before, "不可恢复失败不得修改有效设置。")
+		assert_eq(settings.get_staged_values(), staged_before, "不可恢复失败不得清除 staged 设置。")
+
+	assert_eq(settings.write_count, 0, "不可恢复失败不得产生保存副作用。")
+	settings.dispose()
+
+
+func test_load_settings_rejects_unaccepted_integrity_even_when_storage_read_is_ok() -> void:
+	var read_result: GFStorageReadResult = GFStorageReadResult.new().configure_success(
+		{"audio/master": 0.1},
+		{},
+		GFStorageReadResult.IntegrityStatus.INVALID
+	)
+	var settings: ScriptedSettingsUtility = _make_scripted_settings(read_result)
+	var _register_master: Variant = settings.register_setting(
+		&"audio/master",
+		1.0,
+		GFSettingDefinition.ValueType.FLOAT
+	)
+	settings.set_value(&"audio/master", 0.55, false)
+	settings.stage_value(&"audio/master", 0.9)
+	var values_before: Dictionary = settings.to_dict(false)
+	var staged_before: Dictionary = settings.get_staged_values()
+
+	var load_result: GFSettingsLoadResult = settings.load_settings("invalid_integrity.json")
+	var stored_read_result: GFStorageReadResult = load_result.get_storage_result()
+
+	assert_false(load_result.is_successful(), "未接受的完整性状态不得应用。")
+	assert_eq(load_result.get_status(), GFSettingsLoadResult.STATUS_CORRUPT)
+	assert_false(load_result.was_applied(), "完整性失败不得应用底层 payload。")
+	assert_not_null(stored_read_result, "结果应保留底层完整性证据。")
+	assert_true(stored_read_result.ok, "底层非严格 codec 的 ok 证据不应被改写。")
+	assert_eq(
+		stored_read_result.integrity_status,
+		GFStorageReadResult.IntegrityStatus.INVALID
+	)
+	assert_eq(settings.to_dict(false), values_before, "完整性失败不得修改有效设置。")
+	assert_eq(settings.get_staged_values(), staged_before, "完整性失败不得清除 staged 设置。")
+	assert_eq(settings.write_count, 0, "完整性失败不得自动覆盖文件。")
+	settings.dispose()
+
+
+func test_load_settings_signal_and_last_result_are_defensive_copies() -> void:
+	var settings: ScriptedSettingsUtility = _make_scripted_settings(
+		GFStorageReadResult.new().configure_success({"audio/master": 0.4})
+	)
+	var _register_master: Variant = settings.register_setting(
+		&"audio/master",
+		1.0,
+		GFSettingDefinition.ValueType.FLOAT
+	)
+	watch_signals(settings)
+
+	var returned_result: GFSettingsLoadResult = settings.load_settings("profile.json")
+	var signal_parameters: Array = get_signal_parameters(settings, "settings_load_completed")
+	var signal_value: Variant = signal_parameters[0] if not signal_parameters.is_empty() else null
+	var first_last_result: GFSettingsLoadResult = settings.get_last_load_result()
+	var second_last_result: GFSettingsLoadResult = settings.get_last_load_result()
+
+	assert_signal_emitted(settings, "settings_load_completed")
+	assert_true(signal_value is GFSettingsLoadResult, "完成信号应携带类型化结果。")
+	assert_not_null(first_last_result, "最近读取结果应可观察。")
+	assert_not_null(second_last_result, "重复读取最近结果应继续可用。")
+	assert_false(is_same(returned_result, first_last_result), "last result 不应暴露返回对象身份。")
+	assert_false(is_same(first_last_result, second_last_result), "每次查询应返回隔离结果。")
+	if signal_value is GFSettingsLoadResult:
+		var signal_result: GFSettingsLoadResult = signal_value
+		assert_false(is_same(returned_result, signal_result), "信号应发送隔离结果副本。")
+		assert_eq(signal_result.get_status(), GFSettingsLoadResult.STATUS_LOADED)
+
+	var mutable_storage_copy: GFStorageReadResult = returned_result.get_storage_result()
+	mutable_storage_copy.payload["audio/master"] = 0.95
+	var observed_storage_copy: GFStorageReadResult = first_last_result.get_storage_result()
+	var result_summary: Dictionary = returned_result.to_dict()
+	var storage_summary: Dictionary = GFVariantData.get_option_dictionary(
+		result_summary,
+		"storage_result"
+	)
+	assert_eq(
+		GFVariantData.get_option_float(observed_storage_copy.payload, "audio/master"),
+		0.4,
+		"修改调用方取得的 Storage 副本不得污染 last result。"
+	)
+	assert_false(storage_summary.has("payload"), "可报告结果摘要不得泄露设置载荷。")
+	settings.dispose()
+
+
+func test_fallback_load_classifies_missing_corrupt_and_successful_empty_payloads() -> void:
+	var _register_master: Variant = _settings.register_setting(
+		&"audio/master",
+		1.0,
+		GFSettingDefinition.ValueType.FLOAT
+	)
+	_settings.set_value(&"audio/master", 0.3, false)
+	_settings.stage_value(&"audio/master", 0.8)
+	var values_before: Dictionary = _settings.to_dict(false)
+	var staged_before: Dictionary = _settings.get_staged_values()
+	var missing_file: String = _new_fallback_file_name("missing")
+
+	var missing_result: GFSettingsLoadResult = _settings.load_settings(missing_file)
+	var missing_storage: GFStorageReadResult = missing_result.get_storage_result()
+
+	assert_eq(missing_result.get_status(), GFSettingsLoadResult.STATUS_MISSING)
+	assert_eq(missing_storage.failure_kind, GFStorageReadResult.FailureKind.NOT_FOUND)
+	assert_eq(_settings.to_dict(false), values_before, "fallback 缺失失败不得修改当前值。")
+	assert_eq(_settings.get_staged_values(), staged_before, "fallback 缺失失败不得清 staged。")
+
+	var empty_file: String = _new_fallback_file_name("empty")
+	_write_fallback_text(empty_file, "")
+	var empty_result: GFSettingsLoadResult = _settings.load_settings(empty_file)
+	var empty_storage: GFStorageReadResult = empty_result.get_storage_result()
+
+	assert_eq(empty_result.get_status(), GFSettingsLoadResult.STATUS_CORRUPT)
+	assert_eq(empty_storage.failure_kind, GFStorageReadResult.FailureKind.CORRUPT)
+	assert_eq(_settings.to_dict(false), values_before, "空文件不得被降级为合法空载荷。")
+	assert_eq(_settings.get_staged_values(), staged_before, "空文件失败不得清 staged。")
+
+	var malformed_file: String = _new_fallback_file_name("malformed")
+	_write_fallback_text(malformed_file, "{invalid")
+	var malformed_result: GFSettingsLoadResult = _settings.load_settings(malformed_file)
+	var malformed_storage: GFStorageReadResult = malformed_result.get_storage_result()
+
+	assert_eq(malformed_result.get_status(), GFSettingsLoadResult.STATUS_CORRUPT)
+	assert_eq(malformed_storage.failure_kind, GFStorageReadResult.FailureKind.CORRUPT)
+	assert_eq(_settings.to_dict(false), values_before, "解析失败不得修改当前值。")
+	assert_eq(_settings.get_staged_values(), staged_before, "解析失败不得清 staged。")
+
+	var non_dictionary_file: String = _new_fallback_file_name("array")
+	_write_fallback_text(non_dictionary_file, "[]")
+	var non_dictionary_result: GFSettingsLoadResult = _settings.load_settings(non_dictionary_file)
+	var non_dictionary_storage: GFStorageReadResult = non_dictionary_result.get_storage_result()
+
+	assert_eq(non_dictionary_result.get_status(), GFSettingsLoadResult.STATUS_CORRUPT)
+	assert_eq(non_dictionary_storage.failure_kind, GFStorageReadResult.FailureKind.CORRUPT)
+	assert_eq(_settings.to_dict(false), values_before, "非 Dictionary JSON 不得当作合法空设置。")
+	assert_eq(_settings.get_staged_values(), staged_before, "非 Dictionary JSON 不得清 staged。")
+
+	var valid_empty_file: String = _new_fallback_file_name("valid_empty")
+	_write_fallback_text(valid_empty_file, "{}")
+	var valid_empty_result: GFSettingsLoadResult = _settings.load_settings(valid_empty_file)
+	var valid_empty_storage: GFStorageReadResult = valid_empty_result.get_storage_result()
+
+	assert_true(valid_empty_result.is_successful(), "合法空 JSON 对象应读取成功。")
+	assert_eq(valid_empty_result.get_status(), GFSettingsLoadResult.STATUS_LOADED)
+	assert_true(valid_empty_storage.ok, "合法空 JSON 对象应保留底层成功证据。")
+	assert_true(valid_empty_storage.payload.is_empty())
+	assert_eq(_setting_float(_settings, &"audio/master"), 1.0, "合法空对象应应用 replace 默认值。")
+	assert_false(_settings.has_staged_values(), "合法空对象成功应用后应清 staged。")
 
 
 func test_save_settings_rejects_cyclic_values_without_recursing() -> void:
@@ -400,10 +933,14 @@ func test_fallback_persistence_rejects_native_absolute_paths() -> void:
 	var _register_setting_result: Variant = _settings.register_setting(&"audio/master", 1.0, GFSettingDefinition.ValueType.FLOAT)
 
 	var save_error: Error = _settings.save_settings(native_absolute_path)
-	var loaded: Dictionary = _settings.load_settings(native_absolute_path)
+	var load_result: GFSettingsLoadResult = _settings.load_settings(native_absolute_path)
+	var storage_result: GFStorageReadResult = load_result.get_storage_result()
 
 	assert_eq(save_error, ERR_INVALID_PARAMETER, "无 GFStorageUtility 后端时 fallback 持久化不应写入原生绝对路径。")
-	assert_true(loaded.is_empty(), "被拒绝的原生绝对路径不应读取数据。")
+	assert_false(load_result.is_successful(), "被拒绝的原生绝对路径不应读取数据。")
+	assert_eq(load_result.get_status(), GFSettingsLoadResult.STATUS_INVALID_REQUEST)
+	assert_not_null(storage_result, "非法 fallback 路径应返回结构化读取失败。")
+	assert_eq(storage_result.failure_kind, GFStorageReadResult.FailureKind.INVALID_REQUEST)
 	assert_push_error("[GFSettingsUtility] 已拒绝原生绝对设置路径：C:/gf_settings_denied.json。")
 	assert_push_error("[GFSettingsUtility] 已拒绝原生绝对设置路径：C:/gf_settings_denied.json。")
 
@@ -447,11 +984,17 @@ func test_storage_backed_settings_roundtrip_keeps_framework_metadata_out_of_busi
 		{},
 		GFSettingDefinition.ValueType.DICTIONARY
 	)
-	var loaded: Dictionary = restored.load_settings()
+	var load_result: GFSettingsLoadResult = restored.load_settings()
+	var loaded_storage_result: GFStorageReadResult = load_result.get_storage_result()
 	var profile: Dictionary = GFVariantData.as_dictionary(restored.get_value(&"profile/metadata"))
 	var project_meta: Dictionary = GFVariantData.get_option_dictionary(profile, "_meta")
 
-	assert_false(loaded.has(GFStorageCodec.VERSION_KEY), "Settings 读取结果不得包含存储 metadata。")
+	assert_true(load_result.is_successful(), "Storage-backed Settings 应返回成功终态。")
+	assert_not_null(loaded_storage_result, "Settings 结果应保留底层读取结果。")
+	assert_false(
+		loaded_storage_result.payload.has(GFStorageCodec.VERSION_KEY),
+		"Settings 业务载荷不得包含存储 metadata。"
+	)
 	assert_eq(GFVariantData.get_option_string(project_meta, "owner"), "project", "业务 `_meta` 应完整往返。")
 	assert_eq(GFVariantData.get_option_int(profile, "value"), 7, "业务设置值应完整往返。")
 
@@ -468,15 +1011,65 @@ func test_fallback_persistence_rejects_parent_traversal_paths() -> void:
 	var _register_setting_result: Variant = _settings.register_setting(&"audio/master", 1.0, GFSettingDefinition.ValueType.FLOAT)
 
 	var save_error: Error = _settings.save_settings("../gf_settings_escape.json")
-	var loaded: Dictionary = _settings.load_settings("../gf_settings_escape.json")
+	var load_result: GFSettingsLoadResult = _settings.load_settings("../gf_settings_escape.json")
+	var storage_result: GFStorageReadResult = load_result.get_storage_result()
 
 	assert_eq(save_error, ERR_INVALID_PARAMETER, "fallback 持久化只应接受纯文件名。")
-	assert_true(loaded.is_empty(), "被拒绝的 traversal 路径不应读取数据。")
+	assert_false(load_result.is_successful(), "被拒绝的 traversal 路径不应读取数据。")
+	assert_eq(load_result.get_status(), GFSettingsLoadResult.STATUS_INVALID_REQUEST)
+	assert_not_null(storage_result, "非法 traversal 应返回结构化读取失败。")
+	assert_eq(storage_result.failure_kind, GFStorageReadResult.FailureKind.INVALID_REQUEST)
 	assert_push_error("[GFSettingsUtility] 已拒绝不安全设置文件名：../gf_settings_escape.json。")
 	assert_push_error("[GFSettingsUtility] 已拒绝不安全设置文件名：../gf_settings_escape.json。")
 
 
 # --- 私有/辅助方法 ---
+
+func _make_scripted_settings(read_result: GFStorageReadResult) -> ScriptedSettingsUtility:
+	var settings: ScriptedSettingsUtility = ScriptedSettingsUtility.new()
+	settings.read_result = read_result.duplicate_result()
+	settings.auto_load_on_init = false
+	settings.auto_save_on_change = false
+	settings.init()
+	return settings
+
+
+func _make_storage_failure(
+	failure_kind: GFStorageReadResult.FailureKind,
+	error_code: Error,
+	error_message: String
+) -> GFStorageReadResult:
+	return GFStorageReadResult.new().configure_failure(
+		error_message,
+		error_code,
+		{},
+		GFStorageReadResult.IntegrityStatus.NOT_CHECKED,
+		0,
+		failure_kind
+	)
+
+
+func _new_fallback_file_name(label: String) -> String:
+	var file_name: String = "gf_settings_contract_%d_%d_%s.json" % [
+		get_instance_id(),
+		_fallback_file_names.size(),
+		label,
+	]
+	var _appended: bool = _fallback_file_names.append(file_name)
+	var path: String = "user://" + file_name
+	if FileAccess.file_exists(path):
+		var _remove_error: Error = DirAccess.remove_absolute(path)
+	return file_name
+
+
+func _write_fallback_text(file_name: String, content: String) -> void:
+	var file: FileAccess = FileAccess.open("user://" + file_name, FileAccess.WRITE)
+	assert_not_null(file, "fallback 测试夹具应可写入 user://。")
+	if file == null:
+		return
+	var _store_result: Variant = file.store_string(content)
+	file.close()
+
 
 func _setting_bool(settings: GFSettingsUtility, key: StringName) -> bool:
 	return GFVariantData.to_bool(settings.get_value(key))
@@ -536,8 +1129,24 @@ class LoadedSettingsUtility:
 
 	var loaded_data: Dictionary = {}
 
-	func _read_persisted_data(_file_name: String) -> Dictionary:
-		return loaded_data.duplicate(true)
+	func _read_persisted_data(_file_name: String) -> GFStorageReadResult:
+		return GFStorageReadResult.new().configure_success(loaded_data)
+
+
+class ScriptedSettingsUtility:
+	extends GFSettingsUtility
+
+	var read_result: GFStorageReadResult = GFStorageReadResult.new().configure_success({})
+	var read_count: int = 0
+	var write_count: int = 0
+
+	func _read_persisted_data(_file_name: String) -> GFStorageReadResult:
+		read_count += 1
+		return read_result.duplicate_result()
+
+	func _write_persisted_data(_file_name: String, _data: Dictionary) -> Error:
+		write_count += 1
+		return OK
 
 
 class StorageBackedSettingsUtility:

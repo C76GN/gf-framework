@@ -40,7 +40,7 @@ q_sys.enqueue(GFAction.sequence([
 
 ## Shader 参数
 
-`GFShaderParameterAction` 只负责驱动 `ShaderMaterial` 的 uniform 参数，不提供任何具体 shader 或特效语义。目标可以直接是 `ShaderMaterial`，也可以是带 `material` 属性的节点；直接操作资源且需要 Tween 时，应通过 `host_node` 提供宿主节点。
+`GFShaderParameterAction` 只负责驱动 `ShaderMaterial` 的 uniform 参数，不提供任何具体 shader 或特效语义。目标可以直接是 `ShaderMaterial`，也可以是带 `material` 属性的节点；直接操作资源且需要 Tween 时，应通过 `host_node` 提供宿主节点。动作会在复制共享材质、捕获初值或创建 Tween 前，通过 `GFShaderInterfaceSnapshot` 检查参数是否存在并严格验证目标值类型；校验失败不会留下材质副本或部分写入。
 
 ```gdscript
 q_sys.enqueue(GFAction.shader_parameter(sprite, &"dissolve_progress", 1.0, 0.25, {
