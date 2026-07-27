@@ -370,6 +370,23 @@ func test_async_wait_utility_reports_guard_tree_exit() -> void:
 	assert_eq(GFVariantData.get_option_string_name(result, "reason"), &"guard_exited", "guard 离树应给出稳定原因。")
 
 
+func test_async_wait_utility_rejects_pre_freed_signal_guard() -> void:
+	var emitter: PayloadEmitter = PayloadEmitter.new()
+	var guard: Node = Node.new()
+	var released_guard: Variant = guard
+	add_child_autofree(emitter)
+	guard.free()
+
+	var result: Dictionary = await GFAsyncWaitUtility.await_signal(emitter.payload_ready, {
+		"guard_node": released_guard,
+		"tree": get_tree(),
+		"timeout_seconds": 0.01,
+	})
+
+	assert_eq(GFVariantData.get_option_string_name(result, "status"), GFAsyncWaitUtility.STATUS_INVALID, "预先释放的 Signal guard 应返回 invalid。")
+	assert_eq(GFVariantData.get_option_string_name(result, "reason"), &"guard_exited", "预先释放的 Signal guard 应给出稳定原因。")
+
+
 func test_timeout_controller_reuses_token_and_reports_timeout() -> void:
 	var controller: GFTimeoutController = GFTimeoutController.new()
 	var timeout_events: Array[StringName] = []
@@ -579,6 +596,168 @@ func test_async_wait_utility_checks_cancel_before_value_getter() -> void:
 
 	assert_eq(GFVariantData.get_option_string_name(result, "status"), GFAsyncWaitUtility.STATUS_CANCELLED, "已取消 token 应阻止 value getter 执行。")
 	assert_true(getter_calls.is_empty(), "取消已发生时不应调用 getter。")
+
+
+func test_async_wait_utility_delay_reports_released_guard() -> void:
+	var guard: Node = Node.new()
+	var fallback_source: GFCancellationSource = GFCancellationSource.new()
+	var state: Dictionary = {}
+	add_child(guard)
+	var wait_callable: Callable = func() -> void:
+		state["result"] = await GFAsyncWaitUtility.delay_seconds(1.0, {
+			"tree": get_tree(),
+			"guard_node": guard,
+			"cancel_token": fallback_source.get_token(),
+			"respect_time_scale": false,
+		})
+	@warning_ignore("missing_await")
+	wait_callable.call()
+
+	await get_tree().process_frame
+	guard.queue_free()
+	await get_tree().process_frame
+	await get_tree().process_frame
+	if not state.has("result"):
+		var _fallback_cancelled: bool = fallback_source.cancel(&"test_fallback")
+		await get_tree().process_frame
+
+	var result: Dictionary = GFVariantData.get_option_dictionary(state, "result")
+	assert_eq(GFVariantData.get_option_string_name(result, "status"), GFAsyncWaitUtility.STATUS_INVALID, "delay guard 释放后应返回 invalid。")
+	assert_eq(GFVariantData.get_option_string_name(result, "reason"), &"guard_exited", "delay guard 释放后应给出稳定原因。")
+	fallback_source.dispose()
+
+
+func test_async_wait_utility_next_frame_reports_released_guard() -> void:
+	var guard: Node = Node.new()
+	add_child(guard)
+	guard.queue_free()
+
+	var result: Dictionary = await GFAsyncWaitUtility.next_frame({
+		"tree": get_tree(),
+		"guard_node": guard,
+	})
+
+	assert_eq(GFVariantData.get_option_string_name(result, "status"), GFAsyncWaitUtility.STATUS_INVALID, "next_frame guard 释放后应返回 invalid。")
+	assert_eq(GFVariantData.get_option_string_name(result, "reason"), &"guard_exited", "next_frame guard 释放后应给出稳定原因。")
+
+
+func test_async_wait_utility_rejects_pre_freed_polling_guard() -> void:
+	var guard: Node = Node.new()
+	var released_guard: Variant = guard
+	guard.free()
+
+	var result: Dictionary = await GFAsyncWaitUtility.delay_seconds(0.0, {
+		"tree": get_tree(),
+		"guard_node": released_guard,
+	})
+
+	assert_eq(GFVariantData.get_option_string_name(result, "status"), GFAsyncWaitUtility.STATUS_INVALID, "预先释放的 polling guard 应返回 invalid。")
+	assert_eq(GFVariantData.get_option_string_name(result, "reason"), &"guard_exited", "预先释放的 polling guard 应给出稳定原因。")
+
+
+func test_async_wait_utility_rejects_live_guard_outside_tree() -> void:
+	var guard: Node = Node.new()
+
+	var result: Dictionary = await GFAsyncWaitUtility.delay_seconds(0.0, {
+		"tree": get_tree(),
+		"guard_node": guard,
+	})
+
+	assert_eq(GFVariantData.get_option_string_name(result, "status"), GFAsyncWaitUtility.STATUS_INVALID, "树外 live guard 应返回 invalid。")
+	assert_eq(GFVariantData.get_option_string_name(result, "reason"), &"guard_exited", "树外 live guard 应给出稳定原因。")
+	guard.free()
+
+
+func test_async_wait_utility_prefers_cancel_over_invalid_guard() -> void:
+	var source: GFCancellationSource = GFCancellationSource.new()
+	var guard: Node = Node.new()
+	var released_guard: Variant = guard
+	var _cancelled: bool = source.cancel(&"priority_cancel")
+	guard.free()
+
+	var result: Dictionary = await GFAsyncWaitUtility.delay_seconds(0.0, {
+		"tree": get_tree(),
+		"cancel_token": source.get_token(),
+		"guard_node": released_guard,
+	})
+
+	assert_eq(GFVariantData.get_option_string_name(result, "status"), GFAsyncWaitUtility.STATUS_CANCELLED, "取消应优先于失效 guard。")
+	assert_eq(GFVariantData.get_option_string_name(result, "reason"), &"priority_cancel", "优先命中的取消应保留 token 原因。")
+	source.dispose()
+
+
+func test_async_wait_utility_accepts_live_and_null_guards() -> void:
+	var guard: Node = Node.new()
+	add_child_autofree(guard)
+
+	var live_result: Dictionary = await GFAsyncWaitUtility.delay_seconds(0.0, {
+		"tree": get_tree(),
+		"guard_node": guard,
+	})
+	var null_result: Dictionary = await GFAsyncWaitUtility.delay_seconds(0.0, {
+		"tree": get_tree(),
+		"guard_node": null,
+	})
+
+	assert_eq(GFVariantData.get_option_string_name(live_result, "status"), GFAsyncWaitUtility.STATUS_COMPLETED, "树内 live guard 不应阻止等待完成。")
+	assert_eq(GFVariantData.get_option_string_name(null_result, "status"), GFAsyncWaitUtility.STATUS_COMPLETED, "null guard 应保持未配置语义。")
+
+
+func test_async_wait_utility_rejects_non_node_non_null_guards() -> void:
+	var emitter: PayloadEmitter = PayloadEmitter.new()
+	add_child_autofree(emitter)
+
+	var signal_result: Dictionary = await GFAsyncWaitUtility.await_signal(emitter.payload_ready, {
+		"tree": get_tree(),
+		"guard_node": 41,
+	})
+	var polling_result: Dictionary = await GFAsyncWaitUtility.delay_seconds(0.0, {
+		"tree": get_tree(),
+		"guard_node": { "not": "a_node" },
+	})
+
+	assert_eq(GFVariantData.get_option_string_name(signal_result, "status"), GFAsyncWaitUtility.STATUS_INVALID, "Signal 等待收到非 Node 非空 guard 时应 fail closed。")
+	assert_eq(GFVariantData.get_option_string_name(signal_result, "reason"), &"guard_exited", "Signal 非法 guard 应使用稳定生命周期原因。")
+	assert_eq(GFVariantData.get_option_string_name(polling_result, "status"), GFAsyncWaitUtility.STATUS_INVALID, "polling 等待收到非 Node 非空 guard 时应 fail closed。")
+	assert_eq(GFVariantData.get_option_string_name(polling_result, "reason"), &"guard_exited", "polling 非法 guard 应使用稳定生命周期原因。")
+
+
+func test_async_channel_read_reports_released_guard() -> void:
+	var channel: GFAsyncChannel = GFAsyncChannel.new()
+	var guard: Node = Node.new()
+	add_child(guard)
+	var timer: SceneTreeTimer = get_tree().create_timer(0.01)
+	var connect_error: Error = timer.timeout.connect(func() -> void:
+		guard.queue_free()
+	) as Error
+	assert_eq(connect_error, OK, "测试应能延迟释放 channel guard。")
+
+	var result: Dictionary = await channel.read_async({
+		"tree": get_tree(),
+		"guard_node": guard,
+		"timeout_seconds": 1.0,
+	})
+
+	assert_eq(GFVariantData.get_option_string_name(result, "status"), GFAsyncChannel.STATUS_INVALID, "channel guard 释放后应返回 invalid。")
+	assert_eq(GFVariantData.get_option_string_name(result, "reason"), &"guard_exited", "channel guard 释放后应透传稳定原因。")
+
+
+func test_async_channel_wait_to_read_reports_released_guard() -> void:
+	var channel: GFAsyncChannel = GFAsyncChannel.new()
+	var guard: Node = Node.new()
+	var released_guard: Variant = guard
+	guard.free()
+
+	var result: Dictionary = await channel.wait_to_read_async({
+		"tree": get_tree(),
+		"guard_node": released_guard,
+	})
+	var wait_result: Dictionary = GFVariantData.get_option_dictionary(result, "wait_result")
+
+	assert_eq(GFVariantData.get_option_string_name(result, "status"), GFAsyncChannel.STATUS_INVALID, "wait_to_read_async 应透传 released guard 的 invalid 状态。")
+	assert_false(GFVariantData.get_option_bool(result, "readable"), "released guard 不应伪装为 channel readable。")
+	assert_eq(GFVariantData.get_option_string_name(result, "reason"), &"guard_exited", "wait_to_read_async 应透传 guard 生命周期原因。")
+	assert_eq(GFVariantData.get_option_string_name(wait_result, "reason"), &"guard_exited", "嵌套 wait_result 应保留相同原因。")
 
 
 func test_async_channel_reads_written_items_and_closed_state() -> void:

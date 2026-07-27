@@ -46,11 +46,16 @@ func test_await_signal_state_reports_cancelled_token() -> void:
 
 func test_await_signal_state_prioritizes_cancellation_over_due_timeout() -> void:
 	var emitter: WideSignalEmitter = WideSignalEmitter.new()
-	var continue_state: Dictionary = { "check_count": 0 }
+	var source: GFCancellationSource = GFCancellationSource.new()
+	var continue_state: Dictionary = {
+		"check_count": 0,
+		"pause_count": 0,
+	}
 	add_child_autofree(emitter)
 
 	var result: Dictionary = await GF_ASYNC_WAIT_SUPPORT.await_signal_state(emitter.payload_ready, {
 		"tree": get_tree(),
+		"cancel_token": source.get_token(),
 		"timeout_seconds": 0.001,
 		"respect_time_scale": false,
 		"timeout_warning": "[GFAsyncWaitSupportTest] cancellation must win over timeout.",
@@ -59,12 +64,147 @@ func test_await_signal_state_prioritizes_cancellation_over_due_timeout() -> void
 				GFVariantData.get_option_int(continue_state, "check_count") + 1
 			)
 			return GFVariantData.get_option_int(continue_state, "check_count") < 2,
+		"should_pause_timeout": func() -> bool:
+			continue_state["pause_count"] = (
+				GFVariantData.get_option_int(continue_state, "pause_count") + 1
+			)
+			if GFVariantData.get_option_int(continue_state, "pause_count") == 1:
+				OS.delay_msec(2)
+				return true
+			return false,
 	})
 
 	assert_eq(GFVariantData.get_option_string_name(result, "status"), GF_ASYNC_WAIT_SUPPORT.STATUS_CANCELLED, "同一帧同时满足取消与超时时必须优先返回 cancelled。")
 	assert_eq(GFVariantData.get_option_string_name(result, "reason"), &"should_continue_false", "取消结果应保留 should_continue 终止原因。")
 	assert_eq(GFVariantData.get_option_int(continue_state, "check_count"), 2, "测试必须跨帧进入取消与 timeout 同时成立的仲裁点。")
+	assert_eq(GFVariantData.get_option_int(continue_state, "pause_count"), 1, "第二轮应在 timeout 检查前由 should_continue 结束。")
 	assert_push_warning_count(0, "取消优先时不得迟发 timeout warning。")
+	source.dispose()
+
+
+func test_await_signal_state_prefers_requested_token_over_same_frame_guard_exit() -> void:
+	var emitter: WideSignalEmitter = WideSignalEmitter.new()
+	var guard: Node = Node.new()
+	var source: GFCancellationSource = GFCancellationSource.new()
+	var state: Dictionary = {}
+	add_child_autofree(emitter)
+	add_child(guard)
+	var wait_callable: Callable = func() -> void:
+		state["result"] = await GF_ASYNC_WAIT_SUPPORT.await_signal_state(emitter.payload_ready, {
+			"tree": get_tree(),
+			"guard_node": guard,
+			"cancel_token": source.get_token(),
+			"timeout_seconds": 1.0,
+		})
+	@warning_ignore("missing_await")
+	wait_callable.call()
+
+	await get_tree().process_frame
+	var cancelled: bool = source.cancel(&"same_frame_cancel", { "scope": "guard_priority" })
+	guard.free()
+	await get_tree().process_frame
+
+	var result: Dictionary = GFVariantData.get_option_dictionary(state, "result")
+	var metadata: Dictionary = GFVariantData.get_option_dictionary(result, "metadata")
+	assert_true(cancelled, "测试应能在 guard 离树同帧请求取消。")
+	assert_eq(GFVariantData.get_option_string_name(result, "status"), GF_ASYNC_WAIT_SUPPORT.STATUS_CANCELLED, "已请求取消应优先于同帧 guard invalid。")
+	assert_eq(GFVariantData.get_option_string_name(result, "reason"), &"same_frame_cancel", "取消优先时应保留 token reason。")
+	assert_eq(GFVariantData.get_option_string(metadata, "scope"), "guard_priority", "取消优先时应保留 token metadata。")
+	source.dispose()
+
+
+func test_await_signal_state_preserves_completed_payload_over_late_cancel() -> void:
+	var emitter: WideSignalEmitter = WideSignalEmitter.new()
+	var source: GFCancellationSource = GFCancellationSource.new()
+	var state: Dictionary = {}
+	add_child_autofree(emitter)
+	var wait_callable: Callable = func() -> void:
+		state["result"] = await GF_ASYNC_WAIT_SUPPORT.await_signal_state(emitter.payload_ready, {
+			"tree": get_tree(),
+			"cancel_token": source.get_token(),
+			"capture_payload": true,
+			"timeout_seconds": 1.0,
+		})
+	@warning_ignore("missing_await")
+	wait_callable.call()
+
+	await get_tree().process_frame
+	emitter.payload_ready.emit(1, 2, 3, 4, 5, 6, 7, 8, 9)
+	var cancelled: bool = source.cancel(&"late_cancel", { "scope": "completed_priority" })
+	await get_tree().process_frame
+
+	var result: Dictionary = GFVariantData.get_option_dictionary(state, "result")
+	assert_true(cancelled, "测试应在目标 Signal 完成后成功请求取消。")
+	assert_eq(
+		GFVariantData.get_option_string_name(result, "status"),
+		GF_ASYNC_WAIT_SUPPORT.STATUS_COMPLETED,
+		"已完成 Signal 必须优先于随后到达的取消。"
+	)
+	assert_true(GFVariantData.get_option_bool(result, "completed"), "迟到取消不得覆盖 completed 标记。")
+	assert_false(GFVariantData.get_option_bool(result, "cancelled"), "迟到取消不得把完成结果改写为 cancelled。")
+	assert_eq(GFVariantData.get_option_array(result, "args"), [1, 2, 3, 4, 5, 6, 7, 8, 9], "完成结果必须保留 Signal payload。")
+	source.dispose()
+
+
+func test_await_signal_state_latches_completion_before_guard_exit() -> void:
+	var emitter: WideSignalEmitter = WideSignalEmitter.new()
+	var guard: Node = Node.new()
+	var state: Dictionary = {}
+	add_child_autofree(emitter)
+	add_child(guard)
+	var wait_callable: Callable = func() -> void:
+		state["result"] = await GF_ASYNC_WAIT_SUPPORT.await_signal_state(emitter.payload_ready, {
+			"tree": get_tree(),
+			"guard_node": guard,
+			"capture_payload": true,
+			"timeout_seconds": 1.0,
+		})
+	@warning_ignore("missing_await")
+	wait_callable.call()
+
+	await get_tree().process_frame
+	emitter.payload_ready.emit(1, 2, 3, 4, 5, 6, 7, 8, 9)
+	guard.free()
+	await get_tree().process_frame
+
+	var result: Dictionary = GFVariantData.get_option_dictionary(state, "result")
+	assert_eq(
+		GFVariantData.get_option_string_name(result, "status"),
+		GF_ASYNC_WAIT_SUPPORT.STATUS_COMPLETED,
+		"目标 Signal 先完成时，随后 guard 离树不得覆盖完成终态。"
+	)
+	assert_true(GFVariantData.get_option_bool(result, "completed"), "guard 离树不得清除 completed 标记。")
+	assert_false(GFVariantData.get_option_bool(result, "invalid"), "guard 离树不得把已完成等待改写为 invalid。")
+	assert_eq(GFVariantData.get_option_array(result, "args"), [1, 2, 3, 4, 5, 6, 7, 8, 9], "guard 离树后必须保留已捕获 payload。")
+
+
+func test_await_signal_state_latches_completion_before_target_exit() -> void:
+	var emitter: WideSignalEmitter = WideSignalEmitter.new()
+	var state: Dictionary = {}
+	add_child(emitter)
+	var wait_callable: Callable = func() -> void:
+		state["result"] = await GF_ASYNC_WAIT_SUPPORT.await_signal_state(emitter.payload_ready, {
+			"tree": get_tree(),
+			"capture_payload": true,
+			"timeout_seconds": 1.0,
+		})
+	@warning_ignore("missing_await")
+	wait_callable.call()
+
+	await get_tree().process_frame
+	emitter.payload_ready.emit(1, 2, 3, 4, 5, 6, 7, 8, 9)
+	emitter.free()
+	await get_tree().process_frame
+
+	var result: Dictionary = GFVariantData.get_option_dictionary(state, "result")
+	assert_eq(
+		GFVariantData.get_option_string_name(result, "status"),
+		GF_ASYNC_WAIT_SUPPORT.STATUS_COMPLETED,
+		"目标 Signal 先完成时，随后发射源离树不得覆盖完成终态。"
+	)
+	assert_true(GFVariantData.get_option_bool(result, "completed"), "发射源离树不得清除 completed 标记。")
+	assert_false(GFVariantData.get_option_bool(result, "invalid"), "发射源离树不得把已完成等待改写为 invalid。")
+	assert_eq(GFVariantData.get_option_array(result, "args"), [1, 2, 3, 4, 5, 6, 7, 8, 9], "发射源离树后必须保留已捕获 payload。")
 
 
 func test_await_signal_state_cancels_when_continue_owner_is_released() -> void:
@@ -89,6 +229,7 @@ func test_await_signal_state_cancels_when_continue_owner_is_released() -> void:
 func test_await_signal_state_rejects_continue_owner_released_before_wait() -> void:
 	var emitter: WideSignalEmitter = WideSignalEmitter.new()
 	var continue_owner: ContinueOwner = ContinueOwner.new()
+	var source: GFCancellationSource = GFCancellationSource.new()
 	add_child_autofree(emitter)
 	var stale_continue: Callable = Callable(continue_owner, &"should_continue")
 	continue_owner.free()
@@ -97,6 +238,7 @@ func test_await_signal_state_rejects_continue_owner_released_before_wait() -> vo
 		emitter.payload_ready,
 		{
 			"tree": get_tree(),
+			"cancel_token": source.get_token(),
 			"timeout_seconds": 0.1,
 			"respect_time_scale": false,
 			"should_continue": stale_continue,
@@ -105,6 +247,7 @@ func test_await_signal_state_rejects_continue_owner_released_before_wait() -> vo
 
 	assert_eq(GFVariantData.get_option_string_name(result, "status"), GF_ASYNC_WAIT_SUPPORT.STATUS_CANCELLED, "等待开始前已经失效的继续检查必须立即取消。")
 	assert_eq(GFVariantData.get_option_string_name(result, "reason"), &"should_continue_invalid", "预先失效的继续检查必须保留稳定原因。")
+	source.dispose()
 
 
 func test_await_signal_safely_source_checks_connect_results() -> void:
