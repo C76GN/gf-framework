@@ -17,6 +17,54 @@ shader_params.apply_profile($WeatherOverlay, profile, {
 
 目标可以直接是 `ShaderMaterial`，也可以是带 `material` 属性的节点。默认会检查 shader 是否声明了对应 uniform，避免 profile 中的拼写错误被静默吞掉。多个节点共享同一个材质资源时，传入 `"duplicate_material": true` 会先复制材质并写回目标属性，再应用参数。
 
+`apply_profile()` / `apply_parameters()` 还会默认拒绝与 uniform 声明类型不一致的值。GF 不做 int 到 float 等隐式数值兼容；需要在工具、CI 或资源导入阶段获得完整问题列表时，应先使用下节的显式契约校验，而不是只依赖应用数量和 warning。
+
+## 接口快照与参数契约
+
+`GFShaderInterfaceSnapshot` 把 `Shader.get_shader_uniform_list(false)` 公开的 uniform 接口规范化为稳定数据。快照记录 `schema_version`、`shader_mode`，以及按名称排序的 `name`、`type`、`class_name`、`hint`、`hint_string`、`usage`；它不会保存 shader 源码、默认值、材质当前值或渲染后端生成代码。
+
+从外部字典恢复时，`from_dict()` 只接受显式 schema 字段类型，不会把字符串数字或缺失的 `uniforms` 静默强转为合法契约；调用方应先检查 `validate_definition()`，再把快照作为基线使用。
+
+```gdscript
+var snapshot := GFShaderInterfaceSnapshot.capture(weather_material.shader)
+var report := runtime_profile.validate_against(snapshot)
+if not report.is_ok():
+	push_error(report.make_summary())
+	return
+
+shader_params.apply_profile(weather_material, runtime_profile)
+```
+
+Profile 被视为“部分覆盖”：默认不要求它提供 shader 的全部 uniform，但 Profile 中不存在于接口的参数、值类型错误和资源类错误会进入 `GFValidationReport`。需要校验一份完整参数集时，显式启用缺失错误：
+
+```gdscript
+var complete_report := snapshot.validate_parameters(parameters, {
+	"missing_severity": "error",
+})
+```
+
+数值类型使用严格 Variant 类型匹配，因此 `float` uniform 应提供 `float`，不能依赖 Godot 对错误类型写入的静默行为。纹理等 Object uniform 允许用 `null` 清除；非空对象还会根据反射得到的资源类进行校验。
+
+### 持久化基线与接口漂移
+
+快照是使用私有 storage 字段封存的 Resource。公开 getter 返回深拷贝，调用方不能通过正常 API 原地修改已捕获接口；制作工具可以用 `ResourceSaver` 保存基线，再用当前 Shader 重新捕获和比较：
+
+```gdscript
+var loaded_value: Variant = load(
+	"res://contracts/weather_shader_interface.tres"
+)
+if not loaded_value is GFShaderInterfaceSnapshot:
+	return
+var expected: GFShaderInterfaceSnapshot = loaded_value
+var drift_report := expected.validate_shader(weather_material.shader)
+if not drift_report.is_healthy():
+	push_warning(drift_report.make_summary())
+```
+
+直接 `GFShaderInterfaceSnapshot.new()` 得到的是未配置 Resource，不代表合法的空 spatial 接口；必须通过 `capture()` 或严格 `from_dict()` 建立快照，并在保存或作为门禁前检查 `validate_definition()`。Storage 在加载时会重新规范化 uniform 顺序，缺少配置标记、未来 schema、畸形字段或非规范字段类型仍会失败关闭。
+
+比较默认把 shader mode、缺失 uniform 和类型/提示签名变化作为 error，把新增 uniform 与 `usage` 变化作为 warning。调用方可以通过 `mode_mismatch_severity`、`missing_severity`、`extra_severity`、`signature_severity` 和 `usage_severity` 显式调整门禁，但 GF 不做隐式 schema 降级。
+
 ## 合并与过渡
 
 `merge_from()` 可把默认 profile、场景 profile 和运行时覆盖值合并成一个最终 profile。`blend_with()` 会对 float、int、`Color`、`Vector2`、`Vector3`、`Vector4` 和 `Quaternion` 做插值；纹理、bool、字符串等不可插值值会保持源值，权重到 1 时切换到目标值。需要平滑过渡的参数应在两端 profile 中都提供默认值。
@@ -68,6 +116,7 @@ Godot 的部分 `RenderingServer` 全局参数枚举和读回接口在不同渲�
 ## 使用边界
 
 - GF 只负责参数 profile 和写入流程；shader 代码、uniform 命名和视觉含义由项目维护。
+- 接口快照只约束可反射的 uniform 形状，不解析 shader 源码，也不承诺 GPU 后端二进制兼容。
 - 不要把某个游戏的海面、天气、选中态或后处理规则写进 GF。
 - Binder 只绑定 profile 到目标材质，不负责读取风、时间、角色状态或其他业务状态。
 - 对复杂 GPU compute、CompositorEffect 或 shader 变体编译缓存，应在出现明确重复需求后再做独立工具，不要塞进参数 profile。

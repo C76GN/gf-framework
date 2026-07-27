@@ -81,6 +81,33 @@ func test_profile_emits_changed_when_public_methods_mutate_parameters() -> void:
 	assert_eq(GFVariantData.get_option_int(counter, "count"), 2)
 
 
+func test_profile_validates_against_shader_interface_snapshot() -> void:
+	var material: ShaderMaterial = _make_test_shader_material()
+	var snapshot: GFShaderInterfaceSnapshot = GFShaderInterfaceSnapshot.capture(material.shader)
+	var profile: GFShaderParameterProfile = GFShaderParameterProfile.new()
+	var _set_valid_result: GFShaderParameterProfile = profile.set_parameter(
+		&"storm_pressure",
+		0.5
+	)
+
+	assert_true(profile.validate_against(snapshot).is_ok())
+
+	var _set_invalid_result: GFShaderParameterProfile = profile.set_parameter(
+		&"storm_pressure",
+		Vector2.ONE
+	)
+	var report: GFValidationReport = profile.validate_against(snapshot)
+
+	assert_false(report.is_ok(), "Profile 必须能在写入材质前验证 shader 参数类型。")
+	assert_eq(
+		GFVariantData.get_option_int(
+			report.get_issue_counts_by_kind(),
+			"shader_parameter_type_mismatch"
+		),
+		1
+	)
+
+
 func test_utility_applies_profile_to_shader_material() -> void:
 	var utility: GFShaderParameterUtility = GFShaderParameterUtility.new()
 	var material: ShaderMaterial = _make_test_shader_material()
@@ -108,6 +135,35 @@ func test_utility_skips_missing_declared_parameters_by_default() -> void:
 
 	assert_eq(applied_count, 1)
 	assert_almost_eq(GFVariantData.to_float(material.get_shader_parameter(&"storm_pressure")), 0.5, 0.001)
+
+
+func test_utility_skips_shader_parameter_type_mismatches_by_default() -> void:
+	var utility: GFShaderParameterUtility = GFShaderParameterUtility.new()
+	var material: ShaderMaterial = _make_test_shader_material()
+
+	var applied_count: int = utility.apply_parameters(material, {
+		&"storm_pressure": Vector2.ONE,
+	}, {
+		"warn_on_type_mismatch": false,
+	})
+	var report: GFValidationReport = utility.validate_parameters(material, {
+		&"storm_pressure": Vector2.ONE,
+	})
+
+	assert_eq(applied_count, 0, "默认应用流程不得把错型值交给 ShaderMaterial。")
+	assert_almost_eq(
+		GFVariantData.to_float(material.get_shader_parameter(&"storm_pressure")),
+		0.0,
+		0.001
+	)
+	assert_false(report.is_ok())
+	assert_eq(
+		GFVariantData.get_option_int(
+			report.get_issue_counts_by_kind(),
+			"shader_parameter_type_mismatch"
+		),
+		1
+	)
 
 
 func test_utility_duplicates_target_material_when_requested() -> void:

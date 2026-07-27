@@ -15,7 +15,7 @@ editor.move_resource(0, 2)
 
 `scan_resource_paths()` 默认限制递归深度和收集数量，项目工具可通过 `max_scan_depth` / `max_resource_paths` 调整。`commit_cell_value()` 始终接收原始资源行索引；启用过滤后可用 `get_visible_row_indices()` 做映射，或直接调用 `commit_visible_cell_value()`。
 
-需要一次性应用多格修改时，可使用 `commit_cell_values()` 或 `commit_visible_cell_values()`。前者接收原始资源行索引，后者接收当前可见行索引；可见行索引会在写入前统一解析，避免第一项修改刷新过滤结果后影响后续项。
+需要一次性应用多格修改时，可使用 `commit_cell_values()` 或 `commit_visible_cell_values()`。前者接收原始资源行索引，后者接收当前可见行索引；可见行索引会在写入前统一解析，避免第一项修改刷新过滤结果后影响后续项。两者都会先验证全部行和属性，再通过 `GFEditorPropertyBatchCommand` 原子提交：任一输入无效时零写入，运行期 setter 拒绝或最终状态不一致时恢复本次尝试前的全部显式属性。
 
 ```gdscript
 var report := editor.commit_visible_cell_values([
@@ -24,9 +24,9 @@ var report := editor.commit_visible_cell_values([
 ])
 ```
 
-批量提交不是事务；部分失败不会回滚已成功的资源修改。返回报告包含 `ok`、`requested_count`、`applied_count`、`unchanged_count`、`failed_count`、`committed` 和 `errors`。启用自动保存时，同一批中同一个 `Resource` 只会保存一次。
+返回报告包含 `ok`、`status`、`error`、`requested_count`、`applied_count`、`unchanged_count`、`failed_count`、`issue_count`、`rolled_back`、`recovery_required`、`committed` 和 `errors`。`failed_count` 按唯一变更索引计数，`issue_count` 保留写入、补偿与终态验证产生的全部问题数。仅当 `recovery_required = true` 时，报告才包含 `transaction_command`；调用方可在修复目标 setter 的可写条件后调用 `recover()`（未 executed 的失败也可调用 `revert()`），再刷新表格。正常成功和完整回滚不会暴露可绕过表格信号、自动保存与刷新链路的命令句柄。
 
-自动保存只会在 `auto_save_committed_resources = true` 且资源已有 `resource_path` 时触发；保存失败通过 `resource_save_failed` 交给调用方处理。
+`cell_value_committed`、刷新和自动保存只在整批属性事务成功后发生；同一批中同一个 `Resource` 只保存一次。自动保存只会在 `auto_save_committed_resources = true` 且资源已有 `resource_path` 时触发，保存失败通过 `resource_save_failed` 交给调用方处理。`ResourceSaver` 是属性事务完成后的副作用，不属于内存属性回滚边界，也不提供多文件磁盘事务保证。
 
 ## 值字段控件
 

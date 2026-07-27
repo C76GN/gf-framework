@@ -2,8 +2,8 @@
   "schema_version": 1,
   "catalog_version": "1.0.0",
   "framework_version": "10.0.0-dev.0",
-  "source_digest": "7bf8a342da3ab6d3a34ee2b181a97509116a7ed85266ef369a608a1e92a55968",
-  "class_count": 756,
+  "source_digest": "4060bc33e2c708bffdc75ad59374c80fca8719b9b88f30cf6ffb4c0f5f6b717b",
+  "class_count": 760,
   "package_count": 52,
   "packages": [
     {
@@ -13,6 +13,7 @@
         "gf.kernel",
         "gf.standard.base",
         "gf.standard.audio",
+        "gf.standard.display",
         "gf.standard.diagnostics"
       ],
       "description": "Package manifest for the bundled Action Queue extension.",
@@ -26824,6 +26825,13 @@
           "signature": "func _can_change_configuration(field_name: String) -> bool",
           "summary": "返回指定配置字段当前是否可修改。",
           "visibility": "protected"
+        },
+        {
+          "kind": "func",
+          "name": "_seal_configuration_for_execution",
+          "signature": "func _seal_configuration_for_execution() -> void",
+          "summary": "冻结命令配置。",
+          "visibility": "protected"
         }
       ]
     },
@@ -27326,6 +27334,137 @@
           "name": "_on_cancel",
           "signature": "func _on_cancel(_tool_context: GFEditorToolContextBase) -> void",
           "summary": "取消拾取流程时调用，供子类重写。",
+          "visibility": "protected"
+        }
+      ]
+    },
+    "GFEditorPropertyBatchCommand": {
+      "extends": "GFEditorCommand",
+      "module": "kernel",
+      "package_id": "gf.kernel",
+      "path": "addons/gf/kernel/editor/gf_editor_property_batch_command.gd",
+      "summary": "GFEditorPropertyBatchCommand: 通用多目标属性事务命令。 对调用方显式提供的 Object 属性先做全量零写入预检，再按稳定顺序提交。 任一写入或最终状态验证失败时，会按相反顺序恢复本次尝试前的全部目标属性。",
+      "visibility": "public",
+      "category": "editor_api",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "const",
+          "name": "STATUS_PENDING",
+          "signature": "const STATUS_PENDING: StringName = &\"pending\"",
+          "summary": "尚未验证或执行。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "STATUS_READY",
+          "signature": "const STATUS_READY: StringName = &\"ready\"",
+          "summary": "全量预检通过。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "STATUS_COMMITTED",
+          "signature": "const STATUS_COMMITTED: StringName = &\"committed\"",
+          "summary": "属性事务已提交。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "STATUS_REVERTED",
+          "signature": "const STATUS_REVERTED: StringName = &\"reverted\"",
+          "summary": "属性事务已撤销。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "STATUS_RECOVERED",
+          "signature": "const STATUS_RECOVERED: StringName = &\"recovered\"",
+          "summary": "未完整补偿的事务已恢复到该次操作开始前状态。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "STATUS_PREFLIGHT_FAILED",
+          "signature": "const STATUS_PREFLIGHT_FAILED: StringName = &\"preflight_failed\"",
+          "summary": "全量预检失败，未开始写入。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "STATUS_APPLY_FAILED",
+          "signature": "const STATUS_APPLY_FAILED: StringName = &\"apply_failed\"",
+          "summary": "提交失败，且已恢复本次尝试前状态。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "STATUS_REVERT_FAILED",
+          "signature": "const STATUS_REVERT_FAILED: StringName = &\"revert_failed\"",
+          "summary": "撤销失败，且已恢复撤销前状态。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "STATUS_ROLLBACK_FAILED",
+          "signature": "const STATUS_ROLLBACK_FAILED: StringName = &\"rollback_failed\"",
+          "summary": "补偿写入未完整恢复属性状态。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "configure",
+          "signature": "func configure( changes: Array[Dictionary], options: Dictionary = {} ) -> GFEditorPropertyBatchCommand",
+          "summary": "配置属性事务。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "validate",
+          "signature": "func validate() -> Dictionary",
+          "summary": "零写入验证全部属性变更。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_transaction_report",
+          "signature": "func get_transaction_report() -> Dictionary",
+          "summary": "获取最近一次预检、提交、撤销或恢复报告。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "recover",
+          "signature": "func recover() -> Error",
+          "summary": "恢复最近一次未完整补偿的操作。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "can_execute",
+          "signature": "func can_execute() -> bool",
+          "summary": "当前命令是否允许执行。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "can_revert_before_execute",
+          "signature": "func can_revert_before_execute() -> bool",
+          "summary": "首次执行未成功但留下残余状态时，允许显式调用 revert() 重试恢复。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "_do_it",
+          "signature": "func _do_it() -> Error",
+          "summary": "执行属性事务。",
+          "visibility": "protected"
+        },
+        {
+          "kind": "func",
+          "name": "_undo_it",
+          "signature": "func _undo_it() -> Error",
+          "summary": "撤销属性事务，或恢复首次执行失败留下的残余状态。",
           "visibility": "protected"
         }
       ]
@@ -70599,6 +70738,205 @@
         }
       ]
     },
+    "GFSettingsLoadResult": {
+      "extends": "RefCounted",
+      "module": "standard",
+      "package_id": "gf.standard.settings",
+      "path": "addons/gf/standard/utilities/settings/gf_settings_load_result.gd",
+      "summary": "GFSettingsLoadResult: 设置加载操作的不可变终态快照。 结果将“合法空设置”与缺失、损坏、未来版本和底层存储失败明确区分， 并保留实际应用状态、恢复动作和底层读取证据。",
+      "visibility": "public",
+      "category": "value_object",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "const",
+          "name": "STATUS_LOADED",
+          "signature": "const STATUS_LOADED: StringName = &\"loaded\"",
+          "summary": "持久化设置已成功读取并应用。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "STATUS_RECOVERED",
+          "signature": "const STATUS_RECOVERED: StringName = &\"recovered\"",
+          "summary": "调用方选择的显式恢复动作已完成。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "STATUS_INVALID_REQUEST",
+          "signature": "const STATUS_INVALID_REQUEST: StringName = &\"invalid_request\"",
+          "summary": "文件名、路径或读取请求无效。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "STATUS_MISSING",
+          "signature": "const STATUS_MISSING: StringName = &\"missing\"",
+          "summary": "设置文件不存在。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "STATUS_CORRUPT",
+          "signature": "const STATUS_CORRUPT: StringName = &\"corrupt\"",
+          "summary": "设置文件格式、载荷或完整性损坏。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "STATUS_FUTURE_SCHEMA",
+          "signature": "const STATUS_FUTURE_SCHEMA: StringName = &\"future_schema\"",
+          "summary": "设置文件来自当前运行时无法读取的未来 schema。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "STATUS_MIGRATION_FAILED",
+          "signature": "const STATUS_MIGRATION_FAILED: StringName = &\"migration_failed\"",
+          "summary": "设置文件的迁移链缺失或迁移失败。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "STATUS_STORAGE_FAILED",
+          "signature": "const STATUS_STORAGE_FAILED: StringName = &\"storage_failed\"",
+          "summary": "底层存储读取失败或不可用。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_successful",
+          "signature": "func is_successful() -> bool",
+          "summary": "检查加载是否进入成功终态。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_status",
+          "signature": "func get_status() -> StringName",
+          "summary": "获取稳定加载状态。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_file_name",
+          "signature": "func get_file_name() -> String",
+          "summary": "获取本次加载使用的文件名。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "was_applied",
+          "signature": "func was_applied() -> bool",
+          "summary": "检查本次操作是否替换了有效设置状态。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "was_recovered",
+          "signature": "func was_recovered() -> bool",
+          "summary": "检查本次操作是否执行了显式恢复动作。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_recovery_action",
+          "signature": "func get_recovery_action() -> StringName",
+          "summary": "获取实际恢复动作。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_error_code",
+          "signature": "func get_error_code() -> Error",
+          "summary": "获取 Godot Error 码。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_error",
+          "signature": "func get_error() -> String",
+          "summary": "获取稳定错误描述。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_storage_result",
+          "signature": "func get_storage_result() -> GFStorageReadResult",
+          "summary": "获取底层存储读取结果副本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "duplicate_result",
+          "signature": "func duplicate_result() -> GFSettingsLoadResult",
+          "summary": "创建结果的隔离副本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "to_dict",
+          "signature": "func to_dict() -> Dictionary",
+          "summary": "转换为不包含设置载荷的报告字典。",
+          "visibility": "public"
+        }
+      ]
+    },
+    "GFSettingsRecoveryPolicy": {
+      "extends": "Resource",
+      "module": "standard",
+      "package_id": "gf.standard.settings",
+      "path": "addons/gf/standard/utilities/settings/gf_settings_recovery_policy.gd",
+      "summary": "GFSettingsRecoveryPolicy: 设置加载的显式恢复策略。 缺失与损坏设置默认严格失败。项目可以显式选择保留当前内存状态， 或把有效设置重置为已注册默认值；恢复不会创建或覆盖持久化文件。",
+      "visibility": "public",
+      "category": "resource_definition",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "const",
+          "name": "ACTION_FAIL",
+          "signature": "const ACTION_FAIL: StringName = &\"fail\"",
+          "summary": "不执行自动恢复。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "ACTION_USE_CURRENT_STATE",
+          "signature": "const ACTION_USE_CURRENT_STATE: StringName = &\"use_current_state\"",
+          "summary": "保留当前有效值和暂存值。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "ACTION_RESET_TO_DEFAULTS",
+          "signature": "const ACTION_RESET_TO_DEFAULTS: StringName = &\"reset_to_defaults\"",
+          "summary": "使用空 replace 语义恢复已注册默认值。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "missing_file_action",
+          "signature": "var missing_file_action: StringName = ACTION_FAIL",
+          "summary": "文件缺失时的恢复动作。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "corrupt_file_action",
+          "signature": "var corrupt_file_action: StringName = ACTION_FAIL",
+          "summary": "文件损坏或完整性校验失败时的恢复动作。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "validate_policy",
+          "signature": "func validate_policy() -> Dictionary",
+          "summary": "检查策略自身是否合法。",
+          "visibility": "public"
+        }
+      ]
+    },
     "GFSettingsUtility": {
       "extends": "GFUtility",
       "module": "standard",
@@ -70618,9 +70956,9 @@
         },
         {
           "kind": "signal",
-          "name": "settings_loaded",
-          "signature": "signal settings_loaded(data: Dictionary)",
-          "summary": "设置加载完成时发出。",
+          "name": "settings_load_completed",
+          "signature": "signal settings_load_completed(result: GFSettingsLoadResult)",
+          "summary": "设置加载进入终态时发出。",
           "visibility": "public"
         },
         {
@@ -70892,8 +71230,15 @@
         {
           "kind": "func",
           "name": "load_settings",
-          "signature": "func load_settings(file_name: String = \"\") -> Dictionary",
-          "summary": "读取持久化设置。",
+          "signature": "func load_settings( file_name: String = \"\", recovery_policy: GFSettingsRecoveryPolicy = null ) -> GFSettingsLoadResult",
+          "summary": "读取持久化设置并返回结构化终态。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_last_load_result",
+          "signature": "func get_last_load_result() -> GFSettingsLoadResult",
+          "summary": "获取最近一次加载终态。",
           "visibility": "public"
         },
         {
@@ -70913,7 +71258,7 @@
         {
           "kind": "func",
           "name": "_read_persisted_data",
-          "signature": "func _read_persisted_data(file_name: String) -> Dictionary",
+          "signature": "func _read_persisted_data(file_name: String) -> GFStorageReadResult",
           "summary": "读取持久化设置数据。子类可覆盖该钩子以接入自定义存储后端。",
           "visibility": "protected"
         },
@@ -70923,6 +71268,130 @@
           "signature": "func _write_persisted_data(file_name: String, data: Dictionary) -> Error",
           "summary": "写入持久化设置数据。子类可覆盖该钩子以接入自定义存储后端。",
           "visibility": "protected"
+        }
+      ]
+    },
+    "GFShaderInterfaceSnapshot": {
+      "extends": "Resource",
+      "module": "standard",
+      "package_id": "gf.standard.display",
+      "path": "addons/gf/standard/utilities/display/gf_shader_interface_snapshot.gd",
+      "summary": "GFShaderInterfaceSnapshot: 可持久化的 Shader uniform 接口快照。 从 Shader 反射结果捕获稳定排序的 uniform 声明，并用同一份数据校验参数集合 或比较接口漂移。快照只保存公开接口字段，不保存 shader 源码、材质当前值、",
+      "visibility": "public",
+      "category": "resource_definition",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "const",
+          "name": "CURRENT_SCHEMA_VERSION",
+          "signature": "const CURRENT_SCHEMA_VERSION: int = 1",
+          "summary": "当前快照字典 schema 版本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "capture",
+          "signature": "static func capture(shader: Shader) -> GFShaderInterfaceSnapshot",
+          "summary": "从 Shader 当前反射接口创建快照。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "from_dict",
+          "signature": "static func from_dict(data: Dictionary) -> GFShaderInterfaceSnapshot",
+          "summary": "从字典创建快照。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_schema_version",
+          "signature": "func get_schema_version() -> int",
+          "summary": "获取快照 schema 版本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_shader_mode",
+          "signature": "func get_shader_mode() -> int",
+          "summary": "获取捕获时的 Shader 模式。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_uniforms",
+          "signature": "func get_uniforms() -> Array[Dictionary]",
+          "summary": "获取稳定排序的 uniform 条目深拷贝。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_uniform_names",
+          "signature": "func get_uniform_names() -> Array[StringName]",
+          "summary": "获取稳定排序的 uniform 名。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "has_uniform",
+          "signature": "func has_uniform(parameter_name: StringName) -> bool",
+          "summary": "检查接口是否声明 uniform。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_uniform",
+          "signature": "func get_uniform(parameter_name: StringName) -> Dictionary",
+          "summary": "获取 uniform 条目深拷贝。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "accepts_parameter_value",
+          "signature": "func accepts_parameter_value( parameter_name: StringName, value: Variant, options: Dictionary = {} ) -> bool",
+          "summary": "检查一个值是否符合已声明 uniform 类型。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "validate_definition",
+          "signature": "func validate_definition(options: Dictionary = {}) -> GFValidationReport",
+          "summary": "校验快照 schema、Shader 模式、uniform 字段和重复名称。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "validate_parameters",
+          "signature": "func validate_parameters( parameters: Dictionary, options: Dictionary = {} ) -> GFValidationReport",
+          "summary": "根据快照校验参数字典。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "compare_with",
+          "signature": "func compare_with( actual: GFShaderInterfaceSnapshot, options: Dictionary = {} ) -> GFValidationReport",
+          "summary": "比较期望快照与实际快照。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "validate_shader",
+          "signature": "func validate_shader( shader: Shader, options: Dictionary = {} ) -> GFValidationReport",
+          "summary": "将 Shader 当前接口与本快照比较。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "duplicate_snapshot",
+          "signature": "func duplicate_snapshot() -> GFShaderInterfaceSnapshot",
+          "summary": "创建快照深拷贝。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "to_dict",
+          "signature": "func to_dict() -> Dictionary",
+          "summary": "转换为稳定排序的快照字典。",
+          "visibility": "public"
         }
       ]
     },
@@ -71235,6 +71704,13 @@
         },
         {
           "kind": "func",
+          "name": "validate_against",
+          "signature": "func validate_against( interface_snapshot: GFShaderInterfaceSnapshot, options: Dictionary = {} ) -> GFValidationReport",
+          "summary": "根据 Shader 接口快照校验当前参数。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
           "name": "merge_from",
           "signature": "func merge_from(source: GFShaderParameterProfile, overwrite: bool = true) -> GFShaderParameterProfile",
           "summary": "合并另一个 profile。",
@@ -71327,6 +71803,27 @@
           "name": "resolve_shader_material",
           "signature": "func resolve_shader_material( target: Object, material_property: NodePath = DEFAULT_MATERIAL_PROPERTY ) -> ShaderMaterial",
           "summary": "从目标对象解析 ShaderMaterial。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "capture_shader_interface",
+          "signature": "func capture_shader_interface( material: ShaderMaterial ) -> GFShaderInterfaceSnapshot",
+          "summary": "捕获 ShaderMaterial 当前 uniform 接口。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "validate_profile",
+          "signature": "func validate_profile( material: ShaderMaterial, profile: GFShaderParameterProfile, options: Dictionary = {} ) -> GFValidationReport",
+          "summary": "校验 profile 是否符合 ShaderMaterial 当前 uniform 接口。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "validate_parameters",
+          "signature": "func validate_parameters( material: ShaderMaterial, parameters: Dictionary, options: Dictionary = {} ) -> GFValidationReport",
+          "summary": "校验参数字典是否符合 ShaderMaterial 当前 uniform 接口。",
           "visibility": "public"
         },
         {

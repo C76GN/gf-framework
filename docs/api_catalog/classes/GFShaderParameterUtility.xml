@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFShaderParameterUtility" path="addons/gf/standard/utilities/display/gf_shader_parameter_utility.gd" module="standard" extends="GFUtility" classDigest="e3472d0ef2e3145b0dfbcced63fa51d21e5981c642d023861840a3dec51071ca">
+<class name="GFShaderParameterUtility" path="addons/gf/standard/utilities/display/gf_shader_parameter_utility.gd" module="standard" extends="GFUtility" classDigest="bdc411b576636bc0c82540c62bb458f25d559aada0bc8f3cf7601d9c373d2124">
 	<description>GFShaderParameterUtility: 通用 ShaderMaterial 参数应用工具。
 将 `GFShaderParameterProfile` 或参数字典写入 ShaderMaterial，也可以从持有
 `material` 属性的节点解析材质。它只处理参数存在性校验、共享材质复制和批量写入，
@@ -29,9 +29,10 @@
 				<tag name="api">public</tag>
 				<tag name="param">target: ShaderMaterial，或持有材质属性的对象。</tag>
 				<tag name="param">profile: 要应用的 shader 参数 profile。</tag>
-				<tag name="param">options: 可选项，支持 material_property、duplicate_material、require_declared_parameters、warn_on_invalid_target、warn_on_missing_parameters 和 copy_values。</tag>
+				<tag name="param">options: 可选项，支持 material_property、duplicate_material、require_declared_parameters、validate_parameter_types、warn_on_invalid_target、warn_on_missing_parameters、warn_on_type_mismatch 和 copy_values。</tag>
 				<tag name="return">实际写入的参数数量。</tag>
-				<tag name="schema">options: Dictionary，material_property 为 NodePath/String，默认 material；duplicate_material 为 true 时会复制目标材质并写回属性；require_declared_parameters 默认为 true，会跳过 shader 未声明的 uniform；warn_on_invalid_target 和 warn_on_missing_parameters 控制警告；copy_values 默认为 true，会复制集合参数值后再写入。</tag>
+				<tag name="schema">options: Dictionary，material_property 为 NodePath/String，默认 material；duplicate_material 为 true 时会复制目标材质并写回属性；require_declared_parameters 默认为 true，会跳过 shader 未声明的 uniform；validate_parameter_types 默认为 true，会跳过与 uniform 声明不兼容的值；warn_on_invalid_target、warn_on_missing_parameters 和 warn_on_type_mismatch 控制警告；copy_values 默认为 true，会复制集合参数值后再写入。</tag>
+				<tag name="since">4.3.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="apply_global_profile">
@@ -54,10 +55,11 @@
 				<tag name="api">public</tag>
 				<tag name="param">target: ShaderMaterial，或持有材质属性的对象。</tag>
 				<tag name="param">parameters: 要应用的 shader 参数字典。</tag>
-				<tag name="param">options: 可选项，支持 material_property、duplicate_material、require_declared_parameters、warn_on_invalid_target、warn_on_missing_parameters 和 copy_values。</tag>
+				<tag name="param">options: 可选项，支持 material_property、duplicate_material、require_declared_parameters、validate_parameter_types、warn_on_invalid_target、warn_on_missing_parameters、warn_on_type_mismatch 和 copy_values。</tag>
 				<tag name="return">实际写入的参数数量。</tag>
 				<tag name="schema">parameters: Dictionary[StringName, Variant]，shader uniform 名到参数值的映射。</tag>
-				<tag name="schema">options: Dictionary，material_property 为 NodePath/String，默认 material；duplicate_material 为 true 时会复制目标材质并写回属性；require_declared_parameters 默认为 true，会跳过 shader 未声明的 uniform；warn_on_invalid_target 和 warn_on_missing_parameters 控制警告；copy_values 默认为 true，会复制集合参数值后再写入。</tag>
+				<tag name="schema">options: Dictionary，material_property 为 NodePath/String，默认 material；duplicate_material 为 true 时会复制目标材质并写回属性；require_declared_parameters 默认为 true，会跳过 shader 未声明的 uniform；validate_parameter_types 默认为 true，会跳过与 uniform 声明不兼容的值；warn_on_invalid_target、warn_on_missing_parameters 和 warn_on_type_mismatch 控制警告；copy_values 默认为 true，会复制集合参数值后再写入。</tag>
+				<tag name="since">4.3.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="apply_global_parameters">
@@ -82,6 +84,44 @@
 				<tag name="param">target: ShaderMaterial，或持有材质属性的对象。</tag>
 				<tag name="param">material_property: 当 target 不是 ShaderMaterial 时读取的材质属性路径。</tag>
 				<tag name="return">解析出的 ShaderMaterial；失败时返回 null。</tag>
+				<tag name="since">4.3.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="capture_shader_interface">
+			<signature>func capture_shader_interface( material: ShaderMaterial ) -&gt; GFShaderInterfaceSnapshot:</signature>
+			<description>捕获 ShaderMaterial 当前 uniform 接口。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">material: 目标 ShaderMaterial。</tag>
+				<tag name="return">接口快照；材质或 Shader 为空时返回 null。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="validate_profile">
+			<signature>func validate_profile( material: ShaderMaterial, profile: GFShaderParameterProfile, options: Dictionary = {} ) -&gt; GFValidationReport:</signature>
+			<description>校验 profile 是否符合 ShaderMaterial 当前 uniform 接口。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">material: 目标 ShaderMaterial。</tag>
+				<tag name="param">profile: 要校验的 profile。</tag>
+				<tag name="param">options: 传给 GFShaderInterfaceSnapshot.validate_parameters() 的选项。</tag>
+				<tag name="return">标准校验报告。</tag>
+				<tag name="schema">options: Dictionary shader parameter validation options.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="validate_parameters">
+			<signature>func validate_parameters( material: ShaderMaterial, parameters: Dictionary, options: Dictionary = {} ) -&gt; GFValidationReport:</signature>
+			<description>校验参数字典是否符合 ShaderMaterial 当前 uniform 接口。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">material: 目标 ShaderMaterial。</tag>
+				<tag name="param">parameters: uniform 参数字典。</tag>
+				<tag name="param">options: 传给 GFShaderInterfaceSnapshot.validate_parameters() 的选项。</tag>
+				<tag name="return">标准校验报告。</tag>
+				<tag name="schema">parameters: Dictionary[StringName|String, Variant] shader parameter values.</tag>
+				<tag name="schema">options: Dictionary shader parameter validation options.</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_shader_parameter_names">
@@ -92,6 +132,7 @@
 				<tag name="param">material: 目标 ShaderMaterial。</tag>
 				<tag name="return">参数名数组。</tag>
 				<tag name="schema">return: Array[StringName]，material.shader 声明的 shader uniform 名称。</tag>
+				<tag name="since">4.3.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="has_shader_parameter">
@@ -102,6 +143,7 @@
 				<tag name="param">material: 目标 ShaderMaterial。</tag>
 				<tag name="param">parameter_name: Shader uniform 参数名。</tag>
 				<tag name="return">参数存在时返回 true。</tag>
+				<tag name="since">4.3.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="ensure_global_parameter">

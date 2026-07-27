@@ -573,6 +573,7 @@ func duplicate_resource(row_index: int, deep: bool = false, insert_after: bool =
 ### `commit_cell_value`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func commit_cell_value(row_index: int, property: StringName, new_value: Variant) -> bool:
@@ -631,7 +632,7 @@ func commit_visible_cell_value(visible_row_index: int, property: StringName, new
 func commit_cell_values(changes: Array[Dictionary]) -> Dictionary:
 ```
 
-批量提交资源行单元格值。 该方法会先处理所有变更，再统一刷新表格；启用自动保存时同一 Resource 只保存一次。 它不是事务，部分失败不会回滚已成功的变更。
+批量提交资源行单元格值。 该方法先完成全部行、属性和值预检，再通过 GFEditorPropertyBatchCommand 原子提交。 任一 setter 拒绝或最终状态验证失败时会恢复本次尝试前的资源属性。 成功后统一刷新表格；启用自动保存时同一 Resource 只保存一次。
 
 参数：
 
@@ -644,7 +645,7 @@ func commit_cell_values(changes: Array[Dictionary]) -> Dictionary:
 结构：
 
 - `changes`: Array[Dictionary]，每项包含 row_index: int、property: StringName/String、new_value: Variant。
-- `return`: Dictionary，包含 ok、requested_count、applied_count、unchanged_count、failed_count、committed 和 errors。
+- `return`: Dictionary，包含 ok、status、error、requested_count、applied_count、unchanged_count、failed_count、issue_count、rolled_back、recovery_required、committed、errors，以及需要显式恢复时的 transaction_command。
 
 <a id="member-gfresourcetableeditor-methods-commit_visible_cell_values"></a>
 
@@ -657,7 +658,7 @@ func commit_cell_values(changes: Array[Dictionary]) -> Dictionary:
 func commit_visible_cell_values(changes: Array[Dictionary]) -> Dictionary:
 ```
 
-批量提交可见资源行单元格值。 可见行索引会在任何写入发生前解析为资源行索引，避免搜索过滤刷新导致同一批变更漂移。 启用自动保存时同一 Resource 只保存一次；该方法不是事务，部分失败不会回滚已成功的变更。
+批量提交可见资源行单元格值。 可见行索引会在任何写入发生前解析为资源行索引，避免搜索过滤刷新导致同一批变更漂移。 全部变更通过 GFEditorPropertyBatchCommand 原子提交；启用自动保存时同一 Resource 只保存一次。
 
 参数：
 
@@ -670,7 +671,7 @@ func commit_visible_cell_values(changes: Array[Dictionary]) -> Dictionary:
 结构：
 
 - `changes`: Array[Dictionary]，每项包含 visible_row_index: int、property: StringName/String、new_value: Variant。
-- `return`: Dictionary，包含 ok、requested_count、applied_count、unchanged_count、failed_count、committed 和 errors。
+- `return`: Dictionary，包含 ok、status、error、requested_count、applied_count、unchanged_count、failed_count、issue_count、rolled_back、recovery_required、committed、errors，以及需要显式恢复时的 transaction_command。
 
 <a id="member-gfresourcetableeditor-methods-refresh"></a>
 

@@ -29,14 +29,14 @@ extends GFUtility
 ## @schema new_value: Variant next setting value or null when the setting was removed.
 signal setting_changed(key: StringName, old_value: Variant, new_value: Variant)
 
-## 设置加载完成时发出。
+## 设置加载进入终态时发出。
 ## [br]
 ## @api public
 ## [br]
-## @param data: 已加载的持久化设置数据。
+## @since unreleased
 ## [br]
-## @schema data: Dictionary[String, Variant] loaded persisted settings data.
-signal settings_loaded(data: Dictionary)
+## @param result: 隔离的结构化加载结果。
+signal settings_load_completed(result: GFSettingsLoadResult)
 
 ## 设置保存完成时发出。
 ## [br]
@@ -117,6 +117,7 @@ var _save_elapsed_seconds: float = 0.0
 var _save_queued_file_name: String = ""
 var _batch_depth: int = 0
 var _batch_save_requested: bool = false
+var _last_load_result: GFSettingsLoadResult = null
 
 
 # --- GF 生命周期方法 ---
@@ -126,7 +127,7 @@ var _batch_save_requested: bool = false
 ## @api public
 func init() -> void:
 	if auto_load_on_init:
-		var _loaded_data: Dictionary = load_settings()
+		var _load_result: GFSettingsLoadResult = load_settings()
 	else:
 		_apply_defaults_to_missing()
 
@@ -144,6 +145,7 @@ func dispose() -> void:
 	_save_queued_file_name = ""
 	_batch_depth = 0
 	_batch_save_requested = false
+	_last_load_result = null
 
 
 # --- 公共方法 ---
@@ -720,22 +722,133 @@ func merge_from_dict(data: Dictionary, emit_changes: bool = true) -> void:
 		_reconcile_staged_value(GFVariantData.to_string_name(staged_key_variant))
 
 
-## 读取持久化设置。
+## 读取持久化设置并返回结构化终态。
+##
+## 默认策略严格失败；缺失、损坏、未来 schema、迁移失败或 IO 失败不会被
+## 降级为空字典。只有显式恢复策略可以处理缺失或损坏，且加载本身从不保存。
+## 非空策略会在 IO 前验证；合法加载请求会取消全部旧延迟/批处理保存请求，
+## 防止新加载状态被旧保存目标重新序列化。
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param file_name: 可选文件名；为空时使用 storage_file_name。
 ## [br]
-## @return 已读取的数据。
+## @param recovery_policy: 可选显式恢复策略；null 表示严格失败。
 ## [br]
-## @schema return: Dictionary[String, Variant] loaded persisted settings data.
-func load_settings(file_name: String = "") -> Dictionary:
+## @return 隔离的结构化加载结果。
+## [br]
+## @schema return: GFSettingsLoadResult preserving status, application state, recovery action, and storage evidence.
+func load_settings(
+	file_name: String = "",
+	recovery_policy: GFSettingsRecoveryPolicy = null
+) -> GFSettingsLoadResult:
 	var target_file_name: String = storage_file_name if file_name.is_empty() else file_name
-	_clear_pending_save(target_file_name)
-	var data: Dictionary = _read_persisted_data(target_file_name)
-	replace_from_dict(data, false)
-	settings_loaded.emit(data)
-	return data
+	if recovery_policy != null:
+		var policy_report: Dictionary = recovery_policy.validate_policy()
+		if not GFVariantData.get_option_bool(policy_report, "ok", false):
+			var policy_read_result: GFStorageReadResult = _make_persisted_read_failure(
+				"Settings recovery policy is invalid.",
+				ERR_INVALID_PARAMETER,
+				GFStorageReadResult.FailureKind.INVALID_REQUEST
+			)
+			return _complete_settings_load(
+				_make_settings_load_result(
+					false,
+					GFSettingsLoadResult.STATUS_INVALID_REQUEST,
+					target_file_name,
+					false,
+					false,
+					&"",
+					ERR_INVALID_PARAMETER,
+					"Settings recovery policy is invalid.",
+					policy_read_result
+				)
+			)
+
+	_clear_pending_saves_for_load()
+	var read_result: GFStorageReadResult = _read_persisted_data(target_file_name)
+	if read_result == null:
+		read_result = _make_persisted_read_failure(
+			"Settings storage returned no read result.",
+			ERR_INVALID_DATA,
+			GFStorageReadResult.FailureKind.IO_FAILED
+		)
+
+	var load_result: GFSettingsLoadResult
+	if read_result.ok and read_result.is_integrity_accepted():
+		replace_from_dict(read_result.payload, false)
+		load_result = _make_settings_load_result(
+			true,
+			GFSettingsLoadResult.STATUS_LOADED,
+			target_file_name,
+			true,
+			false,
+			&"",
+			OK,
+			"",
+			read_result
+		)
+	else:
+		var failure_status: StringName = _get_settings_load_failure_status(read_result)
+		var recovery_action: StringName = _resolve_settings_recovery_action(
+			read_result,
+			recovery_policy
+		)
+		match recovery_action:
+			GFSettingsRecoveryPolicy.ACTION_USE_CURRENT_STATE:
+				load_result = _make_settings_load_result(
+					true,
+					GFSettingsLoadResult.STATUS_RECOVERED,
+					target_file_name,
+					false,
+					true,
+					recovery_action,
+					OK,
+					"",
+					read_result
+				)
+			GFSettingsRecoveryPolicy.ACTION_RESET_TO_DEFAULTS:
+				replace_from_dict({}, false)
+				load_result = _make_settings_load_result(
+					true,
+					GFSettingsLoadResult.STATUS_RECOVERED,
+					target_file_name,
+					true,
+					true,
+					recovery_action,
+					OK,
+					"",
+					read_result
+				)
+			_:
+				var failure_error_code: Error = _get_settings_load_error_code(read_result)
+				var failure_error: String = _get_settings_load_error(read_result, failure_status)
+				load_result = _make_settings_load_result(
+					false,
+					failure_status,
+					target_file_name,
+					false,
+					false,
+					&"",
+					failure_error_code,
+					failure_error,
+					read_result
+				)
+
+	return _complete_settings_load(load_result)
+
+
+## 获取最近一次加载终态。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @return 最近结果的隔离副本；尚未加载或已释放时为 null。
+func get_last_load_result() -> GFSettingsLoadResult:
+	return _last_load_result.duplicate_result() if _last_load_result != null else null
 
 
 ## 保存持久化设置。
@@ -779,29 +892,86 @@ func tick(delta: float = 0.0) -> void:
 ## [br]
 ## @api protected
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param file_name: 要读取的设置文件名。
 ## [br]
-## @return 已读取的数据；不存在或无法解析时返回空字典。
+## @return 保留成功空载荷与稳定失败分类的存储读取结果。
 ## [br]
-## @schema return: Dictionary[String, Variant] persisted settings data.
-func _read_persisted_data(file_name: String) -> Dictionary:
+## @schema return: GFStorageReadResult with isolated Settings payload and failure_kind evidence.
+func _read_persisted_data(file_name: String) -> GFStorageReadResult:
 	var storage: GFStorageUtility = _get_storage_utility()
 	if storage != null:
 		var read_result: GFStorageReadResult = storage.load_data(file_name)
-		return read_result.payload.duplicate(true) if read_result.ok else {}
+		if read_result == null:
+			return _make_persisted_read_failure(
+				"Settings storage returned no read result.",
+				ERR_INVALID_DATA,
+				GFStorageReadResult.FailureKind.IO_FAILED
+			)
+		return read_result.duplicate_result()
 
 	var path: String = _get_fallback_path(file_name)
 	if path.is_empty():
-		return {}
+		return _make_persisted_read_failure(
+			"Settings file name is invalid.",
+			ERR_INVALID_PARAMETER,
+			GFStorageReadResult.FailureKind.INVALID_REQUEST
+		)
 	if not FileAccess.file_exists(path):
-		return {}
+		return _make_persisted_read_failure(
+			"Settings file does not exist.",
+			ERR_FILE_NOT_FOUND,
+			GFStorageReadResult.FailureKind.NOT_FOUND
+		)
 
-	var content: String = FileAccess.get_file_as_string(path)
+	var file: FileAccess = FileAccess.open(path, FileAccess.READ)
+	if file == null:
+		var open_error: Error = FileAccess.get_open_error()
+		return _make_persisted_read_failure(
+			"Settings file could not be opened: %s" % error_string(open_error),
+			open_error if open_error != OK else ERR_FILE_CANT_OPEN,
+			GFStorageReadResult.FailureKind.IO_FAILED
+		)
+
+	var content: String = file.get_as_text()
+	var read_error: Error = file.get_error()
+	file.close()
+	if read_error != OK:
+		return _make_persisted_read_failure(
+			"Settings file could not be read: %s" % error_string(read_error),
+			read_error,
+			GFStorageReadResult.FailureKind.IO_FAILED
+		)
 	if content.is_empty():
-		return {}
+		return _make_persisted_read_failure(
+			"Settings file is empty.",
+			ERR_FILE_CORRUPT,
+			GFStorageReadResult.FailureKind.CORRUPT
+		)
 
-	var parsed: Variant = JSON.parse_string(content)
-	return GFVariantData.as_dictionary(parsed)
+	var parser: JSON = JSON.new()
+	var parse_error: Error = parser.parse(content)
+	if parse_error != OK:
+		return _make_persisted_read_failure(
+			"Settings JSON parse failed at line %d: %s" % [
+				parser.get_error_line(),
+				parser.get_error_message(),
+			],
+			ERR_PARSE_ERROR,
+			GFStorageReadResult.FailureKind.CORRUPT
+		)
+
+	var parsed: Variant = parser.data
+	if not parsed is Dictionary:
+		return _make_persisted_read_failure(
+			"Settings JSON root must be a Dictionary.",
+			ERR_INVALID_DATA,
+			GFStorageReadResult.FailureKind.CORRUPT
+		)
+
+	var data: Dictionary = parsed
+	return GFStorageReadResult.new().configure_success(data)
 
 
 ## 写入持久化设置数据。子类可覆盖该钩子以接入自定义存储后端。
@@ -839,6 +1009,109 @@ func _write_persisted_data(file_name: String, data: Dictionary) -> Error:
 
 
 # --- 私有/辅助方法 ---
+
+func _make_settings_load_result(
+	ok: bool,
+	status: StringName,
+	file_name: String,
+	applied: bool,
+	recovered: bool,
+	recovery_action: StringName,
+	error_code: Error,
+	error_message: String,
+	storage_result: GFStorageReadResult
+) -> GFSettingsLoadResult:
+	var result: GFSettingsLoadResult = GFSettingsLoadResult.new()
+	var configured: bool = result.configure_for_framework(
+		ok,
+		status,
+		file_name,
+		applied,
+		recovered,
+		recovery_action,
+		error_code,
+		error_message,
+		storage_result
+	)
+	assert(configured, "GFSettingsUtility produced an invalid load result.")
+	return result
+
+
+func _get_settings_load_failure_status(read_result: GFStorageReadResult) -> StringName:
+	if read_result.ok and not read_result.is_integrity_accepted():
+		return GFSettingsLoadResult.STATUS_CORRUPT
+
+	match read_result.failure_kind:
+		GFStorageReadResult.FailureKind.INVALID_REQUEST:
+			return GFSettingsLoadResult.STATUS_INVALID_REQUEST
+		GFStorageReadResult.FailureKind.NOT_FOUND:
+			return GFSettingsLoadResult.STATUS_MISSING
+		GFStorageReadResult.FailureKind.CORRUPT:
+			return GFSettingsLoadResult.STATUS_CORRUPT
+		GFStorageReadResult.FailureKind.FUTURE_VERSION:
+			return GFSettingsLoadResult.STATUS_FUTURE_SCHEMA
+		GFStorageReadResult.FailureKind.MIGRATION_FAILED:
+			return GFSettingsLoadResult.STATUS_MIGRATION_FAILED
+		_:
+			return GFSettingsLoadResult.STATUS_STORAGE_FAILED
+
+
+func _resolve_settings_recovery_action(
+	read_result: GFStorageReadResult,
+	recovery_policy: GFSettingsRecoveryPolicy
+) -> StringName:
+	if recovery_policy == null:
+		return GFSettingsRecoveryPolicy.ACTION_FAIL
+
+	var failure_status: StringName = _get_settings_load_failure_status(read_result)
+	match failure_status:
+		GFSettingsLoadResult.STATUS_MISSING:
+			return recovery_policy.missing_file_action
+		GFSettingsLoadResult.STATUS_CORRUPT:
+			return recovery_policy.corrupt_file_action
+		_:
+			return GFSettingsRecoveryPolicy.ACTION_FAIL
+
+
+func _get_settings_load_error_code(read_result: GFStorageReadResult) -> Error:
+	if read_result.ok and not read_result.is_integrity_accepted():
+		return ERR_FILE_CORRUPT
+	return read_result.error_code if read_result.error_code != OK else FAILED
+
+
+func _get_settings_load_error(
+	read_result: GFStorageReadResult,
+	failure_status: StringName
+) -> String:
+	if read_result.ok and not read_result.is_integrity_accepted():
+		return "Settings integrity status is not accepted."
+	if not read_result.error.is_empty():
+		return read_result.error
+	return "Settings load failed with status: %s." % String(failure_status)
+
+
+func _make_persisted_read_failure(
+	error_message: String,
+	error_code: Error,
+	failure_kind: GFStorageReadResult.FailureKind
+) -> GFStorageReadResult:
+	return GFStorageReadResult.new().configure_failure(
+		error_message,
+		error_code,
+		{},
+		GFStorageReadResult.IntegrityStatus.NOT_CHECKED,
+		0,
+		failure_kind
+	)
+
+
+func _complete_settings_load(
+	load_result: GFSettingsLoadResult
+) -> GFSettingsLoadResult:
+	_last_load_result = load_result.duplicate_result()
+	settings_load_completed.emit(load_result.duplicate_result())
+	return load_result
+
 
 func _reset_value_internal(key: StringName, emit_change: bool, save_after_change: bool) -> void:
 	var definition: GFSettingDefinition = _get_definition(key)
@@ -997,10 +1270,19 @@ func _queue_auto_save() -> void:
 
 func _clear_pending_save(file_name: String) -> void:
 	var target_file_name: String = storage_file_name if file_name.is_empty() else file_name
+	if target_file_name == storage_file_name:
+		_batch_save_requested = false
 	if _save_queued and _save_queued_file_name == target_file_name:
 		_save_queued = false
 		_save_elapsed_seconds = 0.0
 		_save_queued_file_name = ""
+
+
+func _clear_pending_saves_for_load() -> void:
+	_save_queued = false
+	_save_elapsed_seconds = 0.0
+	_save_queued_file_name = ""
+	_batch_save_requested = false
 
 
 func _should_persist(key: StringName) -> bool:

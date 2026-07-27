@@ -1,0 +1,196 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFShaderInterfaceSnapshot" path="addons/gf/standard/utilities/display/gf_shader_interface_snapshot.gd" module="standard" extends="Resource" classDigest="30287a8add7b8f6f9b728af56b4fea4956994efa4b18dc385cbc38003a442eb9">
+	<description>GFShaderInterfaceSnapshot: 可持久化的 Shader uniform 接口快照。
+从 Shader 反射结果捕获稳定排序的 uniform 声明，并用同一份数据校验参数集合
+或比较接口漂移。快照只保存公开接口字段，不保存 shader 源码、材质当前值、
+渲染后端产物或项目视觉语义。直接 new() 的实例保持未配置，必须经 capture()
+或 from_dict() 建立后再使用。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">resource_definition</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants>
+		<member kind="const" name="CURRENT_SCHEMA_VERSION">
+			<signature>const CURRENT_SCHEMA_VERSION: int = 1</signature>
+			<description>当前快照字典 schema 版本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</constants>
+	<properties />
+	<methods>
+		<member kind="method" name="capture">
+			<signature>static func capture(shader: Shader) -&gt; GFShaderInterfaceSnapshot:</signature>
+			<description>从 Shader 当前反射接口创建快照。
+参数分组提示不会进入快照；uniform 会按名称和签名稳定排序。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">shader: 要捕获的 Shader；为空时返回 null。</tag>
+				<tag name="return">新快照，或 null。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="from_dict">
+			<signature>static func from_dict(data: Dictionary) -&gt; GFShaderInterfaceSnapshot:</signature>
+			<description>从字典创建快照。
+输入会被深复制并规范化，但不会强转字段类型；不支持的 schema、缺失数组和
+无效条目由 validate_definition() 报告。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">data: 快照字典。</tag>
+				<tag name="return">新快照。</tag>
+				<tag name="schema">data: Dictionary，包含 schema_version、shader_mode 和 uniforms；uniform 字段为 name、type、class_name、hint、hint_string、usage。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_schema_version">
+			<signature>func get_schema_version() -&gt; int:</signature>
+			<description>获取快照 schema 版本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">schema 版本。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_shader_mode">
+			<signature>func get_shader_mode() -&gt; int:</signature>
+			<description>获取捕获时的 Shader 模式。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">Shader.Mode 对应整数。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_uniforms">
+			<signature>func get_uniforms() -&gt; Array[Dictionary]:</signature>
+			<description>获取稳定排序的 uniform 条目深拷贝。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">uniform 条目数组。</tag>
+				<tag name="schema">return: Array[Dictionary]，每项包含 name、type、class_name、hint、hint_string 和 usage。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_uniform_names">
+			<signature>func get_uniform_names() -&gt; Array[StringName]:</signature>
+			<description>获取稳定排序的 uniform 名。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">uniform 名数组。</tag>
+				<tag name="schema">return: Array[StringName]，按名称稳定排序。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="has_uniform">
+			<signature>func has_uniform(parameter_name: StringName) -&gt; bool:</signature>
+			<description>检查接口是否声明 uniform。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">parameter_name: uniform 名。</tag>
+				<tag name="return">已声明时返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_uniform">
+			<signature>func get_uniform(parameter_name: StringName) -&gt; Dictionary:</signature>
+			<description>获取 uniform 条目深拷贝。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">parameter_name: uniform 名。</tag>
+				<tag name="return">uniform 条目；不存在时返回空字典。</tag>
+				<tag name="schema">return: Dictionary，包含 name、type、class_name、hint、hint_string 和 usage。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="accepts_parameter_value">
+			<signature>func accepts_parameter_value( parameter_name: StringName, value: Variant, options: Dictionary = {} ) -&gt; bool:</signature>
+			<description>检查一个值是否符合已声明 uniform 类型。
+数字类型严格匹配，不做 int/float 隐式转换；Object 参数会继续检查资源类。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">parameter_name: uniform 名。</tag>
+				<tag name="param">value: 候选值。</tag>
+				<tag name="param">options: 支持 allow_null_object，默认 true。</tag>
+				<tag name="return">已声明且值兼容时返回 true。</tag>
+				<tag name="schema">value: Variant shader parameter value.</tag>
+				<tag name="schema">options: Dictionary，allow_null_object 控制 TYPE_OBJECT uniform 是否接受 null。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="validate_definition">
+			<signature>func validate_definition(options: Dictionary = {}) -&gt; GFValidationReport:</signature>
+			<description>校验快照 schema、Shader 模式、uniform 字段和重复名称。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">options: 支持 subject 和 metadata。</tag>
+				<tag name="return">标准校验报告。</tag>
+				<tag name="schema">options: Dictionary，subject 覆盖报告主题，metadata 为调用方报告元数据。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="validate_parameters">
+			<signature>func validate_parameters( parameters: Dictionary, options: Dictionary = {} ) -&gt; GFValidationReport:</signature>
+			<description>根据快照校验参数字典。
+Profile 默认按部分覆盖处理，因此缺失 uniform 默认忽略；未知参数和错型值默认报错。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">parameters: uniform 名到参数值的映射。</tag>
+				<tag name="param">options: 支持 subject、metadata、missing_severity、extra_severity、type_mismatch_severity 和 allow_null_object。</tag>
+				<tag name="return">标准校验报告。</tag>
+				<tag name="schema">parameters: Dictionary[StringName|String, Variant] shader parameter values.</tag>
+				<tag name="schema">options: Dictionary，severity 可为 ignore、info、warning 或 error；missing 默认 ignore，extra/type mismatch 默认 error；allow_null_object 默认 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="compare_with">
+			<signature>func compare_with( actual: GFShaderInterfaceSnapshot, options: Dictionary = {} ) -&gt; GFValidationReport:</signature>
+			<description>比较期望快照与实际快照。
+当前快照作为 expected；actual 缺失和签名变化默认报错，新增 uniform 默认 warning。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">actual: 实际接口快照。</tag>
+				<tag name="param">options: 支持 subject、metadata、mode_mismatch_severity、missing_severity、extra_severity、signature_severity 和 usage_severity。</tag>
+				<tag name="return">标准校验报告。</tag>
+				<tag name="schema">options: Dictionary，severity 可为 ignore、info、warning 或 error；mode/missing/signature 默认 error，extra/usage 默认 warning。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="validate_shader">
+			<signature>func validate_shader( shader: Shader, options: Dictionary = {} ) -&gt; GFValidationReport:</signature>
+			<description>将 Shader 当前接口与本快照比较。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">shader: 实际 Shader。</tag>
+				<tag name="param">options: 传给 compare_with() 的报告和 severity 选项。</tag>
+				<tag name="return">标准校验报告。</tag>
+				<tag name="schema">options: Dictionary compare_with() options.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="duplicate_snapshot">
+			<signature>func duplicate_snapshot() -&gt; GFShaderInterfaceSnapshot:</signature>
+			<description>创建快照深拷贝。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">新快照。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="to_dict">
+			<signature>func to_dict() -&gt; Dictionary:</signature>
+			<description>转换为稳定排序的快照字典。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">快照字典。</tag>
+				<tag name="schema">return: Dictionary，包含 schema_version、shader_mode 和 uniforms。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

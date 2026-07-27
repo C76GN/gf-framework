@@ -249,6 +249,7 @@ static func read_property( object: Object, property_path: NodePath, default_valu
 ### `write_property`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 static func write_property( object: Object, property_path: NodePath, value: Variant, options: Dictionary = {} ) -> Dictionary:

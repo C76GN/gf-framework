@@ -35,15 +35,17 @@ static var _registered_global_parameter_names: Dictionary = {}
 ## [br]
 ## @api public
 ## [br]
+## @since 4.3.0
+## [br]
 ## @param target: ShaderMaterial，或持有材质属性的对象。
 ## [br]
 ## @param profile: 要应用的 shader 参数 profile。
 ## [br]
-## @param options: 可选项，支持 material_property、duplicate_material、require_declared_parameters、warn_on_invalid_target、warn_on_missing_parameters 和 copy_values。
+## @param options: 可选项，支持 material_property、duplicate_material、require_declared_parameters、validate_parameter_types、warn_on_invalid_target、warn_on_missing_parameters、warn_on_type_mismatch 和 copy_values。
 ## [br]
 ## @return: 实际写入的参数数量。
 ## [br]
-## @schema options: Dictionary，material_property 为 NodePath/String，默认 material；duplicate_material 为 true 时会复制目标材质并写回属性；require_declared_parameters 默认为 true，会跳过 shader 未声明的 uniform；warn_on_invalid_target 和 warn_on_missing_parameters 控制警告；copy_values 默认为 true，会复制集合参数值后再写入。
+## @schema options: Dictionary，material_property 为 NodePath/String，默认 material；duplicate_material 为 true 时会复制目标材质并写回属性；require_declared_parameters 默认为 true，会跳过 shader 未声明的 uniform；validate_parameter_types 默认为 true，会跳过与 uniform 声明不兼容的值；warn_on_invalid_target、warn_on_missing_parameters 和 warn_on_type_mismatch 控制警告；copy_values 默认为 true，会复制集合参数值后再写入。
 func apply_profile(
 	target: Object,
 	profile: GFShaderParameterProfile,
@@ -84,17 +86,19 @@ func apply_global_profile(profile: GFShaderParameterProfile, options: Dictionary
 ## [br]
 ## @api public
 ## [br]
+## @since 4.3.0
+## [br]
 ## @param target: ShaderMaterial，或持有材质属性的对象。
 ## [br]
 ## @param parameters: 要应用的 shader 参数字典。
 ## [br]
-## @param options: 可选项，支持 material_property、duplicate_material、require_declared_parameters、warn_on_invalid_target、warn_on_missing_parameters 和 copy_values。
+## @param options: 可选项，支持 material_property、duplicate_material、require_declared_parameters、validate_parameter_types、warn_on_invalid_target、warn_on_missing_parameters、warn_on_type_mismatch 和 copy_values。
 ## [br]
 ## @return: 实际写入的参数数量。
 ## [br]
 ## @schema parameters: Dictionary[StringName, Variant]，shader uniform 名到参数值的映射。
 ## [br]
-## @schema options: Dictionary，material_property 为 NodePath/String，默认 material；duplicate_material 为 true 时会复制目标材质并写回属性；require_declared_parameters 默认为 true，会跳过 shader 未声明的 uniform；warn_on_invalid_target 和 warn_on_missing_parameters 控制警告；copy_values 默认为 true，会复制集合参数值后再写入。
+## @schema options: Dictionary，material_property 为 NodePath/String，默认 material；duplicate_material 为 true 时会复制目标材质并写回属性；require_declared_parameters 默认为 true，会跳过 shader 未声明的 uniform；validate_parameter_types 默认为 true，会跳过与 uniform 声明不兼容的值；warn_on_invalid_target、warn_on_missing_parameters 和 warn_on_type_mismatch 控制警告；copy_values 默认为 true，会复制集合参数值后再写入。
 func apply_parameters(target: Object, parameters: Dictionary, options: Dictionary = {}) -> int:
 	if parameters.is_empty():
 		return 0
@@ -128,18 +132,44 @@ func apply_parameters(target: Object, parameters: Dictionary, options: Dictionar
 		"warn_on_missing_parameters",
 		true
 	)
+	var validate_parameter_types: bool = GFVariantData.get_option_bool(
+		options,
+		"validate_parameter_types",
+		true
+	)
+	var warn_on_type_mismatch: bool = GFVariantData.get_option_bool(
+		options,
+		"warn_on_type_mismatch",
+		true
+	)
+	var interface_snapshot: GFShaderInterfaceSnapshot = capture_shader_interface(material)
 	var copy_values: bool = GFVariantData.get_option_bool(options, "copy_values", true)
 	var applied_count: int = 0
 	for raw_key: Variant in parameters.keys():
 		var parameter_name: StringName = _variant_to_parameter_name(raw_key)
 		if parameter_name == &"":
 			continue
-		if require_declared_parameters and not has_shader_parameter(material, parameter_name):
+		var parameter_declared: bool = (
+			interface_snapshot != null
+			and interface_snapshot.has_uniform(parameter_name)
+		)
+		if require_declared_parameters and not parameter_declared:
 			if warn_on_missing_parameters:
 				push_warning("[GFShaderParameterUtility] Shader 参数不存在：%s。" % String(parameter_name))
 			continue
 
 		var value: Variant = parameters[raw_key]
+		if (
+			validate_parameter_types
+			and parameter_declared
+			and not interface_snapshot.accepts_parameter_value(parameter_name, value)
+		):
+			if warn_on_type_mismatch:
+				push_warning(
+					"[GFShaderParameterUtility] Shader 参数值类型不符合声明：%s。"
+					% String(parameter_name)
+				)
+			continue
 		material.set_shader_parameter(
 			parameter_name,
 			GFVariantData.duplicate_variant(value) if copy_values else value
@@ -244,6 +274,8 @@ func apply_global_parameters(parameters: Dictionary, options: Dictionary = {}) -
 ## [br]
 ## @api public
 ## [br]
+## @since 4.3.0
+## [br]
 ## @param target: ShaderMaterial，或持有材质属性的对象。
 ## [br]
 ## @param material_property: 当 target 不是 ShaderMaterial 时读取的材质属性路径。
@@ -256,9 +288,108 @@ func resolve_shader_material(
 	return _resolve_shader_material(target, material_property, false, false)
 
 
+## 捕获 ShaderMaterial 当前 uniform 接口。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param material: 目标 ShaderMaterial。
+## [br]
+## @return 接口快照；材质或 Shader 为空时返回 null。
+func capture_shader_interface(
+	material: ShaderMaterial
+) -> GFShaderInterfaceSnapshot:
+	if material == null or material.shader == null:
+		return null
+	return GFShaderInterfaceSnapshot.capture(material.shader)
+
+
+## 校验 profile 是否符合 ShaderMaterial 当前 uniform 接口。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param material: 目标 ShaderMaterial。
+## [br]
+## @param profile: 要校验的 profile。
+## [br]
+## @param options: 传给 GFShaderInterfaceSnapshot.validate_parameters() 的选项。
+## [br]
+## @schema options: Dictionary shader parameter validation options.
+## [br]
+## @return 标准校验报告。
+func validate_profile(
+	material: ShaderMaterial,
+	profile: GFShaderParameterProfile,
+	options: Dictionary = {}
+) -> GFValidationReport:
+	if profile == null:
+		var null_profile_report: GFValidationReport = GFValidationReport.new(
+			GFVariantData.get_option_string(
+				options,
+				"subject",
+				"Shader parameter profile"
+			),
+			GFVariantData.get_option_dictionary(options, "metadata")
+		)
+		var _null_profile_issue: RefCounted = null_profile_report.add_error(
+			&"shader_parameter_profile_missing",
+			"Shader parameter profile is missing."
+		)
+		return null_profile_report
+	return validate_parameters(material, profile.parameters, options)
+
+
+## 校验参数字典是否符合 ShaderMaterial 当前 uniform 接口。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param material: 目标 ShaderMaterial。
+## [br]
+## @param parameters: uniform 参数字典。
+## [br]
+## @param options: 传给 GFShaderInterfaceSnapshot.validate_parameters() 的选项。
+## [br]
+## @schema parameters: Dictionary[StringName|String, Variant] shader parameter values.
+## [br]
+## @schema options: Dictionary shader parameter validation options.
+## [br]
+## @return 标准校验报告。
+func validate_parameters(
+	material: ShaderMaterial,
+	parameters: Dictionary,
+	options: Dictionary = {}
+) -> GFValidationReport:
+	var interface_snapshot: GFShaderInterfaceSnapshot = capture_shader_interface(
+		material
+	)
+	if interface_snapshot != null:
+		return interface_snapshot.validate_parameters(parameters, options)
+
+	var report: GFValidationReport = GFValidationReport.new(
+		GFVariantData.get_option_string(
+			options,
+			"subject",
+			"Shader parameter contract"
+		),
+		GFVariantData.get_option_dictionary(options, "metadata")
+	)
+	var _missing_snapshot_issue: RefCounted = report.add_error(
+		&"shader_interface_snapshot_missing",
+		"ShaderMaterial must provide a Shader before its parameter contract can be validated."
+	)
+	return report
+
+
 ## 获取 ShaderMaterial 当前 shader 声明的 uniform 参数名。
 ## [br]
 ## @api public
+## [br]
+## @since 4.3.0
 ## [br]
 ## @param material: 目标 ShaderMaterial。
 ## [br]
@@ -266,23 +397,20 @@ func resolve_shader_material(
 ## [br]
 ## @schema return: Array[StringName]，material.shader 声明的 shader uniform 名称。
 func get_shader_parameter_names(material: ShaderMaterial) -> Array[StringName]:
-	var names: Array[StringName] = []
-	if material == null or material.shader == null:
-		return names
-
-	for uniform_value: Variant in material.shader.get_shader_uniform_list():
-		if not (uniform_value is Dictionary):
-			continue
-		var uniform: Dictionary = uniform_value
-		var parameter_name: StringName = GFVariantData.get_option_string_name(uniform, "name", &"")
-		if parameter_name != &"":
-			names.append(parameter_name)
-	return names
+	var interface_snapshot: GFShaderInterfaceSnapshot = capture_shader_interface(
+		material
+	)
+	if interface_snapshot == null:
+		var empty_names: Array[StringName] = []
+		return empty_names
+	return interface_snapshot.get_uniform_names()
 
 
 ## 检查 ShaderMaterial 的 shader 是否声明了指定 uniform。
 ## [br]
 ## @api public
+## [br]
+## @since 4.3.0
 ## [br]
 ## @param material: 目标 ShaderMaterial。
 ## [br]
@@ -292,7 +420,13 @@ func get_shader_parameter_names(material: ShaderMaterial) -> Array[StringName]:
 func has_shader_parameter(material: ShaderMaterial, parameter_name: StringName) -> bool:
 	if parameter_name == &"":
 		return false
-	return get_shader_parameter_names(material).has(parameter_name)
+	var interface_snapshot: GFShaderInterfaceSnapshot = capture_shader_interface(
+		material
+	)
+	return (
+		interface_snapshot != null
+		and interface_snapshot.has_uniform(parameter_name)
+	)
 
 
 ## 确保 RenderingServer 全局 shader 参数存在，并可选写入 ProjectSettings。

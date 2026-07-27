@@ -5,6 +5,7 @@
 ## 协议类型
 
 - `GFEditorCommand`：封装一次可执行、可撤销的编辑器修改，可直接 `execute()` / `revert()`，也可写入 `EditorUndoRedoManager`。
+- `GFEditorPropertyBatchCommand`：对多个 Object 属性做全量预检、原子提交、失败补偿和可撤销恢复。
 - `GFEditorSceneMetadataPatch`：把节点 metadata 的写入或移除封装成可撤销命令，适合场景级编辑器工具保存自己的纯数据标记。
 - `GFEditorCommandSession`：围绕一组命令提供 preview、commit、revert history 和 debug snapshot，适合需要连续交互的编辑器工具。
 - `GFEditorActionDefinition`：描述菜单、按钮或快捷键入口，通过 `command_factory` 按上下文创建命令。
@@ -72,6 +73,42 @@ context.commit_command(command, true)
 ```
 
 metadata key 和 payload 仍由工具或项目定义。GF 只负责捕获旧值、执行写入或移除、撤销恢复，以及保持命令协议一致；不要把节点分组、资源分类或项目业务状态写进通用命令本身。
+
+## 多目标属性事务
+
+编辑器批处理需要同时修改多个节点或资源属性时，可使用 `GFEditorPropertyBatchCommand`。命令会先对全部目标、selector、可写性、类型和规范化值做零写入预检；只有全批通过才捕获首次快照并开始写入：
+
+```gdscript
+var command := GFEditorPropertyBatchCommand.new()
+command.configure([
+	{
+		"target": resource_a,
+		"property_name": &"priority",
+		"new_value": 20,
+		"metadata": { "row": 0 },
+	},
+	{
+		"target": node_b,
+		"property_path": ^"position:x",
+		"new_value": 96.0,
+		"metadata": { "row": 1 },
+	},
+], {
+	"command_name": "Edit Selected Properties",
+})
+
+var preview := command.validate()
+if preview.ok:
+	context.commit_command(command, true)
+```
+
+`property_name` 表示精确直接属性名，包含 `/` 或 `:` 时不会被当作路径；`property_path` 使用 Godot indexed path 语义。每个 change 必须且只能使用其中一个 selector。同一目标上的重复 selector、直接根属性与其子路径、或彼此包含的路径会在预检阶段失败；同根下互不包含的兄弟子路径可以组合。
+
+首次进入写阶段时，命令会冻结配置并保留不可变 undo 基线。apply 按调用方顺序执行，undo 按相反顺序执行；失败补偿使用相反于当前阶段的顺序。每个阶段结束后还会再次读取全部显式属性，防止后续 setter 间接改坏前面已写入的目标。完整补偿后的失败报告使用 `apply_failed` 或 `revert_failed`，并令 `rolled_back = true`；补偿仍有残余时使用 `rollback_failed` 和 `recovery_required = true`。
+
+待恢复快照始终来自“本次失败操作开始前”的 attempt guard，而不是固定的首次 undo 基线，因此 redo 前的外部状态不会被错误覆盖。调用方修复目标可写条件后可调用 `recover()` 恢复该 guard；未处于 executed 状态的 apply / redo 失败也允许用 `revert()` 触发同一恢复。undo 补偿失败时应先调用 `recover()` 回到完整 executed guard，再重试 `revert()`。
+
+事务边界只包含 changes 中显式声明的属性值。setter 发出的信号、网络请求、文件写入、资源保存或其他不可逆副作用不会自动回滚；带这类副作用的 setter 不应直接参加属性事务。Array、Dictionary 和 PackedArray 配置值会复制，Resource/Object 默认保留身份；确实需要独立 Resource 值时可显式传 `duplicate_resources = true`。
 
 ## 动作注册表
 

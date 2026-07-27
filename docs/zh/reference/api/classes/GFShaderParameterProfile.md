@@ -23,6 +23,7 @@
 | 方法 | [`erase_parameter`](#member-gfshaderparameterprofile-methods-erase_parameter) | `func erase_parameter(parameter_name: StringName) -> bool:` |
 | 方法 | [`clear_parameters`](#member-gfshaderparameterprofile-methods-clear_parameters) | `func clear_parameters() -> void:` |
 | 方法 | [`get_parameter_names`](#member-gfshaderparameterprofile-methods-get_parameter_names) | `func get_parameter_names() -> Array[StringName]:` |
+| 方法 | [`validate_against`](#member-gfshaderparameterprofile-methods-validate_against) | `func validate_against( interface_snapshot: GFShaderInterfaceSnapshot, options: Dictionary = {} ) -> GFValidationReport:` |
 | 方法 | [`merge_from`](#member-gfshaderparameterprofile-methods-merge_from) | `func merge_from(source: GFShaderParameterProfile, overwrite: bool = true) -> GFShaderParameterProfile:` |
 | 方法 | [`blend_with`](#member-gfshaderparameterprofile-methods-blend_with) | `func blend_with( target_profile: GFShaderParameterProfile, weight: float, options: Dictionary = {} ) -> GFShaderParameterProfile:` |
 | 方法 | [`duplicate_profile`](#member-gfshaderparameterprofile-methods-duplicate_profile) | `func duplicate_profile() -> GFShaderParameterProfile:` |
@@ -174,6 +175,7 @@ func clear_parameters() -> void:
 ### `get_parameter_names`
 
 - API：`public`
+- 首次版本：`4.3.0`
 
 ```gdscript
 func get_parameter_names() -> Array[StringName]:
@@ -186,6 +188,32 @@ func get_parameter_names() -> Array[StringName]:
 结构：
 
 - `return`: Array[StringName]，当前 profile 中可识别的 shader 参数名。
+
+<a id="member-gfshaderparameterprofile-methods-validate_against"></a>
+
+### `validate_against`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func validate_against( interface_snapshot: GFShaderInterfaceSnapshot, options: Dictionary = {} ) -> GFValidationReport:
+```
+
+根据 Shader 接口快照校验当前参数。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `interface_snapshot` | 期望接口快照。 |
+| `options` | 传给 GFShaderInterfaceSnapshot.validate_parameters() 的选项。 |
+
+返回：标准校验报告。
+
+结构：
+
+- `options`: Dictionary shader parameter validation options.
 
 <a id="member-gfshaderparameterprofile-methods-merge_from"></a>
 

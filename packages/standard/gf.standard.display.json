@@ -14,6 +14,8 @@
     "addons/gf/standard/utilities/display/gf_render_warmup_manifest.gd.uid",
     "addons/gf/standard/utilities/display/gf_render_warmup_utility.gd",
     "addons/gf/standard/utilities/display/gf_render_warmup_utility.gd.uid",
+    "addons/gf/standard/utilities/display/gf_shader_interface_snapshot.gd",
+    "addons/gf/standard/utilities/display/gf_shader_interface_snapshot.gd.uid",
     "addons/gf/standard/utilities/display/gf_shader_parameter_binder.gd",
     "addons/gf/standard/utilities/display/gf_shader_parameter_binder.gd.uid",
     "addons/gf/standard/utilities/display/gf_shader_parameter_profile.gd",

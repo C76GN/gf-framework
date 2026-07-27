@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFObjectPropertyTools" path="addons/gf/kernel/core/gf_object_property_tools.gd" module="kernel" extends="RefCounted" classDigest="923a624a0bc553f9ecfeafae2a9c922355f22e1d3d808a4131db953c3fe8daff">
+<class name="GFObjectPropertyTools" path="addons/gf/kernel/core/gf_object_property_tools.gd" module="kernel" extends="RefCounted" classDigest="bedfcf63698d59afd42fb8df996782311ae67a7f5e6d6391437fd6d7230f4a51">
 	<description>GFObjectPropertyTools: Godot Object 属性访问辅助。
 集中处理属性列表查询、属性路径读写、可写性判断和基础类型校验。
 它不负责属性绑定、自动派发、表达式执行或业务字段解释。</description>
@@ -123,6 +123,7 @@
 				<tag name="schema">value: Variant value requested for assignment.</tag>
 				<tag name="schema">options: Dictionary with optional bool keys check_writable, check_type, and coerce_value.</tag>
 				<tag name="schema">return: Dictionary { ok: bool, error: String, property_name: StringName, old_value: Variant, new_value: Variant }.</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="write_direct_property">

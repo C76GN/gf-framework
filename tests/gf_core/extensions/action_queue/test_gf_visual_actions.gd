@@ -101,6 +101,7 @@ func _make_shader_material(initial_strength: float = 0.0) -> ShaderMaterial:
 	shader.code = (
 		"shader_type canvas_item;\n"
 		+ "uniform float strength = 0.0;\n"
+		+ "uniform float alternate_strength = 0.0;\n"
 		+ "uniform vec4 tint : source_color = vec4(1.0, 1.0, 1.0, 1.0);\n"
 		+ "void fragment() {\n"
 		+ "\tCOLOR = tint;\n"
@@ -113,9 +114,18 @@ func _make_shader_material(initial_strength: float = 0.0) -> ShaderMaterial:
 
 
 func _get_shader_strength(material: Material) -> float:
+	return _get_shader_float_parameter(material, &"strength")
+
+
+func _get_shader_float_parameter(
+	material: Material,
+	parameter_name: StringName
+) -> float:
 	if material is ShaderMaterial:
 		var shader_material: ShaderMaterial = material
-		return GFVariantData.to_float(shader_material.get_shader_parameter(&"strength"))
+		return GFVariantData.to_float(
+			shader_material.get_shader_parameter(parameter_name)
+		)
 	return 0.0
 
 
@@ -952,6 +962,37 @@ func test_shader_parameter_action_finish_sets_final_value_and_releases_waiters()
 	assert_almost_eq(_get_shader_strength(item.material), 1.0, 0.001, "finish 应直接写入 Shader 参数最终值。")
 
 
+func test_shader_parameter_action_seals_parameter_and_value_for_active_tween() -> void:
+	var item: ColorRect = ColorRect.new()
+	item.material = _make_shader_material()
+	add_child_autofree(item)
+	var action: GFShaderParameterAction = GFShaderParameterAction.new(
+		item,
+		&"strength",
+		1.0,
+		1.0
+	)
+	var result: Variant = action.execute()
+
+	action.parameter_name = &"alternate_strength"
+	action.target_value = 0.25
+	action.finish()
+
+	assert_true(result is Signal, "封存测试应先创建有效 Tween。")
+	assert_almost_eq(
+		_get_shader_strength(item.material),
+		1.0,
+		0.001,
+		"执行后的公开字段变化不得改写已校验动作的目标值。"
+	)
+	assert_almost_eq(
+		_get_shader_float_parameter(item.material, &"alternate_strength"),
+		0.0,
+		0.001,
+		"执行后的参数名变化不得把 Tween 重定向到未校验 uniform。"
+	)
+
+
 func test_shader_parameter_action_rejects_detached_target_for_timed_tween() -> void:
 	var item: ColorRect = ColorRect.new()
 	item.material = _make_shader_material()
@@ -1009,6 +1050,32 @@ func test_shader_parameter_action_validates_before_duplicating_material() -> voi
 	assert_true(result == null, "无效参数动作应同步拒绝。")
 	assert_same(item.material, shared_material, "校验失败前不得复制并写回材质。")
 	assert_push_warning("[GFShaderParameterAction] Shader 参数不存在：missing。")
+
+
+func test_shader_parameter_action_rejects_declared_type_mismatch_before_duplication() -> void:
+	var shared_material: ShaderMaterial = _make_shader_material()
+	var item: ColorRect = ColorRect.new()
+	item.material = shared_material
+	add_child_autofree(item)
+	var action: GFShaderParameterAction = GFShaderParameterAction.new(
+		item,
+		&"strength",
+		Vector2.ONE,
+		0.0
+	)
+	action.duplicate_material_on_execute = true
+
+	var result: Variant = action.execute()
+
+	assert_true(result == null, "错型 Shader 参数动作应同步拒绝。")
+	assert_same(item.material, shared_material, "类型校验失败前不得复制并写回材质。")
+	assert_almost_eq(
+		_get_shader_strength(item.material),
+		0.0,
+		0.001,
+		"类型校验失败不得修改原材质参数。"
+	)
+	assert_push_warning("[GFShaderParameterAction] Shader 参数值类型不符合声明：strength。")
 
 
 func test_shader_parameter_action_cancel_releases_waiters_and_restores() -> void:

@@ -12,7 +12,7 @@
 | [运行时句柄](#category-runtime_handle) | 9 | 86 | 70 |
 | [值对象](#category-value_object) | 1 | 1 | 0 |
 | [事件契约](#category-event_contract) | 1 | 10 | 10 |
-| [编辑器 API](#category-editor_api) | 25 | 371 | 233 |
+| [编辑器 API](#category-editor_api) | 26 | 389 | 242 |
 
 ## 类
 
@@ -118,6 +118,7 @@
 | [`GFEditorCommandSession`](classes/GFEditorCommandSession.md#gfeditorcommandsession) | `RefCounted` | `addons/gf/kernel/editor/gf_editor_command_session.gd` |
 | [`GFEditorOperationPlan`](classes/GFEditorOperationPlan.md#gfeditoroperationplan) | `RefCounted` | `addons/gf/kernel/editor/gf_editor_operation_plan.gd` |
 | [`GFEditorPickOperation`](classes/GFEditorPickOperation.md#gfeditorpickoperation) | `RefCounted` | `addons/gf/kernel/editor/gf_editor_pick_operation.gd` |
+| [`GFEditorPropertyBatchCommand`](classes/GFEditorPropertyBatchCommand.md#gfeditorpropertybatchcommand) | `GFEditorCommand` | `addons/gf/kernel/editor/gf_editor_property_batch_command.gd` |
 | [`GFEditorSceneMetadataPatch`](classes/GFEditorSceneMetadataPatch.md#gfeditorscenemetadatapatch) | `GFEditorCommand` | `addons/gf/kernel/editor/gf_editor_scene_metadata_patch.gd` |
 | [`GFEditorTool`](classes/GFEditorTool.md#gfeditortool) | `RefCounted` | `addons/gf/kernel/editor/gf_editor_tool.gd` |
 | [`GFEditorToolContext`](classes/GFEditorToolContext.md#gfeditortoolcontext) | `RefCounted` | `addons/gf/kernel/editor/gf_editor_tool_context.gd` |

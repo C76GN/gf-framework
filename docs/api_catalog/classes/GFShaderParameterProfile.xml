@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFShaderParameterProfile" path="addons/gf/standard/utilities/display/gf_shader_parameter_profile.gd" module="standard" extends="Resource" classDigest="43f5a408d2a3c248b39bf89e2a12b4dc6e0546cf98a685f4ce81adda9f945669">
+<class name="GFShaderParameterProfile" path="addons/gf/standard/utilities/display/gf_shader_parameter_profile.gd" module="standard" extends="Resource" classDigest="6c84bb059e32bb181c68cc19c9de19a77fd8cd039afb66e77035ae155d04d1a5">
 	<description>GFShaderParameterProfile: 通用 ShaderMaterial 参数集合资源。
 用 Resource 保存一组 shader uniform 参数值，便于项目把视觉 profile、天气表现、
 选中态或后处理参数声明为可合并、可复制、可插值的数据。它不提供具体 shader、
@@ -86,6 +86,19 @@
 				<tag name="api">public</tag>
 				<tag name="return">参数名数组。</tag>
 				<tag name="schema">return: Array[StringName]，当前 profile 中可识别的 shader 参数名。</tag>
+				<tag name="since">4.3.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="validate_against">
+			<signature>func validate_against( interface_snapshot: GFShaderInterfaceSnapshot, options: Dictionary = {} ) -&gt; GFValidationReport:</signature>
+			<description>根据 Shader 接口快照校验当前参数。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">interface_snapshot: 期望接口快照。</tag>
+				<tag name="param">options: 传给 GFShaderInterfaceSnapshot.validate_parameters() 的选项。</tag>
+				<tag name="return">标准校验报告。</tag>
+				<tag name="schema">options: Dictionary shader parameter validation options.</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 		<member kind="method" name="merge_from">

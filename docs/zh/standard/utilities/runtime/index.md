@@ -13,7 +13,7 @@
 - [视口、文本与节点树工具](settings-ui-scene/ui-stack-routing/viewport-text-node-tools/index.md)：分屏视口、文本适配、富文本格式化和节点树操作。
 - [场景与流程切换](settings-ui-scene/scene-flow/index.md)：场景切换、Loading 过渡、预加载缓存、场景参数和瞬态模块清理。
 - [3D 表面材质查询](settings-ui-scene/surface-query.md)：碰撞 face 到 Mesh surface 或材质的查询。
-- [Shader 参数 Profile](settings-ui-scene/shader-parameter-profile.md)：ShaderMaterial uniform 参数集合、合并、插值、批量写入和场景绑定。
+- [Shader 参数 Profile](settings-ui-scene/shader-parameter-profile.md)：ShaderMaterial uniform 接口快照、参数契约、合并、插值、批量写入和场景绑定。
 - [音频管理](audio/index.md)：背景音乐、音效、环境音、音频片段、音频 Bank 和可插拔后端。
 - [调试、日志、诊断与控制台](debug-observability/index.md)：开发期观测、运行时日志、诊断、支持报告、通知和控制台总览。
 - [调试可视化、运行时检查与信号诊断](debug-observability/debug-visual-inspection/index.md)：DebugDraw、Overlay、运行时调参和信号探针。

@@ -104,7 +104,7 @@ func test_resource_table_search_filters_visible_rows_and_commits_visible_cell() 
 	assert_eq(second.amount, 5, "可见行提交应更新匹配资源。")
 
 
-func test_resource_table_commit_cell_values_reports_partial_failures() -> void:
+func test_resource_table_commit_cell_values_is_atomic_when_preflight_fails() -> void:
 	var first: TableResource = TableResource.new()
 	first.label = "Alpha"
 	first.amount = 1
@@ -129,14 +129,54 @@ func test_resource_table_commit_cell_values_reports_partial_failures() -> void:
 		{ "row_index": 0, "property": &"missing", "new_value": 1 },
 	])
 
-	assert_false(GF_VARIANT_ACCESS.get_option_bool(report, "ok"), "部分失败时批量报告应标记为失败。")
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(report, "ok"), "任一预检失败时整批提交应失败。")
 	assert_eq(GF_VARIANT_ACCESS.get_option_int(report, "requested_count"), 4, "报告应记录请求数量。")
-	assert_eq(GF_VARIANT_ACCESS.get_option_int(report, "applied_count"), 1, "只应计入实际改值的单元格。")
-	assert_eq(GF_VARIANT_ACCESS.get_option_int(report, "unchanged_count"), 1, "相同值应计为未变化。")
+	assert_eq(GF_VARIANT_ACCESS.get_option_int(report, "applied_count"), 0, "事务失败后不得留下已应用单元格。")
 	assert_eq(GF_VARIANT_ACCESS.get_option_int(report, "failed_count"), 2, "无效行和未知属性应计为失败。")
-	assert_eq(first.label, "Gamma", "有效变更应写回资源。")
+	assert_eq(GF_VARIANT_ACCESS.get_option_int(report, "issue_count"), 2)
+	assert_eq(first.label, "Alpha", "后置无效条目不得让前置有效条目部分提交。")
 	assert_eq(second.amount, 2, "相同值应保持不变。")
-	assert_signal_emit_count(editor, "cell_value_committed", 1)
+	assert_signal_not_emitted(
+		editor,
+		"cell_value_committed",
+		"事务失败或回滚后不得发出提交信号。"
+	)
+
+
+func test_resource_table_commit_cell_values_rolls_back_runtime_setter_failure() -> void:
+	var first: TableResource = TableResource.new()
+	first.label = "Alpha"
+	var second: RejectingTableResource = RejectingTableResource.new()
+	second.amount_value = 2
+	second.rejected_values.append(9)
+	var editor: GFResourceTableEditor = GFResourceTableEditor.new()
+	add_child_autofree(editor)
+	watch_signals(editor)
+	editor.load_resources([first, second], [{
+		"name": &"label",
+		"type": TYPE_STRING,
+	}, {
+		"name": &"amount",
+		"type": TYPE_INT,
+	}])
+
+	var report: Dictionary = editor.commit_cell_values([
+		{ "row_index": 0, "property": &"label", "new_value": "Gamma" },
+		{ "row_index": 1, "property": &"amount", "new_value": 9 },
+	])
+
+	assert_false(
+		GF_VARIANT_ACCESS.get_option_bool(report, "ok"),
+		"运行期 setter 拒绝必须让资源批量事务失败。"
+	)
+	assert_true(
+		GF_VARIANT_ACCESS.get_option_bool(report, "rolled_back"),
+		"已完整恢复资源属性时报告应明确 rolled_back。"
+	)
+	assert_eq(GF_VARIANT_ACCESS.get_option_int(report, "applied_count"), 0)
+	assert_eq(first.label, "Alpha", "前置成功写入必须回滚。")
+	assert_eq(second.amount_value, 2)
+	assert_signal_not_emitted(editor, "cell_value_committed")
 
 
 func test_resource_table_commit_visible_cell_values_resolves_indices_before_refresh() -> void:
@@ -167,6 +207,50 @@ func test_resource_table_commit_visible_cell_values_resolves_indices_before_refr
 	assert_eq(first.label, "drop-a", "第一个可见行应仍指向提交前的 first。")
 	assert_eq(second.amount, 9, "第二个可见行应仍指向提交前的 second。")
 	assert_eq(editor.get_visible_row_indices(), PackedInt32Array([1]), "刷新后过滤结果应反映最终资源值。")
+	assert_false(
+		report.has("transaction_command"),
+		"成功报告不得暴露可绕过表格副作用链的已执行命令。"
+	)
+
+
+func test_resource_table_failure_counts_unique_changes_and_exposes_only_recovery_handle() -> void:
+	var first: RejectingTableResource = RejectingTableResource.new()
+	first.amount_value = 1
+	first.rejected_values.append(1)
+	var second: RejectingTableResource = RejectingTableResource.new()
+	second.amount_value = 2
+	second.rejected_values.append(9)
+	var editor: GFResourceTableEditor = GFResourceTableEditor.new()
+	add_child_autofree(editor)
+	editor.load_resources([first, second], [{
+		"name": &"amount",
+		"type": TYPE_INT,
+	}])
+
+	var report: Dictionary = editor.commit_cell_values([
+		{ "row_index": 0, "property": &"amount", "new_value": 5 },
+		{ "row_index": 1, "property": &"amount", "new_value": 9 },
+	])
+
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(report, "ok"))
+	assert_true(
+		GF_VARIANT_ACCESS.get_option_bool(report, "recovery_required"),
+		"回滚 setter 拒绝必须留下显式恢复句柄。"
+	)
+	assert_eq(
+		GF_VARIANT_ACCESS.get_option_int(report, "failed_count"),
+		2,
+		"同一变更的补偿与终态问题只能计为一个失败变更。"
+	)
+	assert_gt(
+		GF_VARIANT_ACCESS.get_option_int(report, "issue_count"),
+		GF_VARIANT_ACCESS.get_option_int(report, "failed_count"),
+		"issue_count 应保留同一变更上的多个诊断问题。"
+	)
+	assert_true(
+		report.has("transaction_command"),
+		"仅不完整回滚应暴露可显式恢复的事务句柄。"
+	)
 
 
 func test_resource_table_supports_sort_duplicate_move_and_remove() -> void:
@@ -392,6 +476,37 @@ class TableResource:
 
 	@export var label: String = ""
 	@export var amount: int = 0
+
+
+class RejectingTableResource:
+	extends Resource
+
+	var amount_value: int = 0
+	var rejected_values: Array[int] = []
+
+
+	func _get_property_list() -> Array[Dictionary]:
+		return [{
+			"name": "amount",
+			"type": TYPE_INT,
+			"usage": PROPERTY_USAGE_DEFAULT | PROPERTY_USAGE_STORAGE,
+		}]
+
+
+	func _get(property: StringName) -> Variant:
+		if property == &"amount":
+			return amount_value
+		return null
+
+
+	func _set(property: StringName, raw_value: Variant) -> bool:
+		if property != &"amount":
+			return false
+		var requested_value: int = GF_VARIANT_ACCESS.to_int(raw_value)
+		if rejected_values.has(requested_value):
+			return false
+		amount_value = requested_value
+		return true
 
 
 class CustomValueControl:

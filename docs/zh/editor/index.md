@@ -19,6 +19,7 @@ GF 的编辑器层只负责装配和生成，不承载可选扩展的运行时�
 - [GF Workspace](workspace.md)：独立工作区窗口、内置页面和 Extensions 页面。
 - [菜单与脚本模板](menus-templates.md)：`工具 > GF` 菜单、脚本模板和生成入口。
 - [编辑器命令、动作与工具协议](tool-protocols.md)：`GFEditorCommand`、Action、Tool、Context、Option 和 Pick Operation。
+- [非破坏式实时调参预览](non-destructive-live-preview.md)：用临时资源副本、显式资产槽位、可取消渲染和命令会话分离预览与确认。
 - [访问器生成](access-generator.md)：`GFAccessGenerator` 和扩展生成钩子。
 - [Inspector、工作区页面与导出插件](editor-extensions.md)：标准库和扩展贡献编辑器入口的方式。
 - [通用 Resource 表格控件](resource-table-editor.md)：`GFResourceTableEditor` 的扫描、显示和编辑能力。

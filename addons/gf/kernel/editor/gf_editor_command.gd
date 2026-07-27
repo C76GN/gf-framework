@@ -65,6 +65,8 @@ var _configuration_sealed: bool = false
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @return Godot 错误码。
 func execute() -> Error:
 	if not can_execute():
@@ -75,7 +77,7 @@ func execute() -> Error:
 	_last_execute_error = error
 	if error == OK:
 		_executed = true
-		_seal_configuration()
+		_seal_configuration_for_execution()
 	return error
 
 
@@ -137,9 +139,9 @@ func add_to_undo_manager(undo_manager: Object, execute_immediately: bool = true)
 		var commit_error_value: int = commit_result
 		var commit_error: Error = commit_error_value as Error
 		if commit_error == OK:
-			_seal_configuration()
+			_seal_configuration_for_execution()
 		return commit_error
-	_seal_configuration()
+	_seal_configuration_for_execution()
 	return OK
 
 
@@ -258,7 +260,16 @@ func _can_change_configuration(field_name: String) -> bool:
 	return false
 
 
-# --- 私有/辅助方法 ---
-
-func _seal_configuration() -> void:
+## 冻结命令配置。
+##
+## 会在命令成功执行或注册到 UndoRedo 后由基类调用。可能发生部分写入的事务子类
+## 应在第一笔实际写入前主动调用，确保失败恢复仍使用不可变配置与首次快照。
+## [br]
+## @api protected
+## [br]
+## @since unreleased
+func _seal_configuration_for_execution() -> void:
 	_configuration_sealed = true
+
+
+# --- 私有/辅助方法 ---

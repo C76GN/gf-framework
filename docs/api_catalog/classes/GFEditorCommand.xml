@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFEditorCommand" path="addons/gf/kernel/editor/gf_editor_command.gd" module="kernel" extends="RefCounted" classDigest="a886ab5ba03f85dee45fccf3989da803defd36f5f59dde39753c34b66ec7ccc4">
+<class name="GFEditorCommand" path="addons/gf/kernel/editor/gf_editor_command.gd" module="kernel" extends="RefCounted" classDigest="6f1264fa1cbeb3d7d7c165b7286aaaea3167f7f1ad455190e78c840c2abb451c">
 	<description>GFEditorCommand: 可撤销编辑器操作的通用基类。
 用于把编辑器 UI、快捷键或交互工具产生的修改收敛成可执行、可撤销的命令。
 命令只描述操作协议，不绑定具体资源、节点类型或业务含义。</description>
@@ -38,6 +38,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">Godot 错误码。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="revert">
@@ -147,6 +148,16 @@
 				<tag name="param">field_name: 配置字段名。</tag>
 				<tag name="return">配置未冻结时返回 true；已冻结时报告错误并返回 false。</tag>
 				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_seal_configuration_for_execution">
+			<signature>func _seal_configuration_for_execution() -&gt; void:</signature>
+			<description>冻结命令配置。
+会在命令成功执行或注册到 UndoRedo 后由基类调用。可能发生部分写入的事务子类
+应在第一笔实际写入前主动调用，确保失败恢复仍使用不可变配置与首次快照。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 	</methods>

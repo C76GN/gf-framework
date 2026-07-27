@@ -1,0 +1,177 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFEditorPropertyBatchCommand" path="addons/gf/kernel/editor/gf_editor_property_batch_command.gd" module="kernel" extends="GFEditorCommand" classDigest="868e3934d1bbfdc97bff03721905057a287e8f0822951b1158ca14de5530e5c8">
+	<description>GFEditorPropertyBatchCommand: 通用多目标属性事务命令。
+对调用方显式提供的 Object 属性先做全量零写入预检，再按稳定顺序提交。
+任一写入或最终状态验证失败时，会按相反顺序恢复本次尝试前的全部目标属性。
+命令只保证显式属性值边界，不代理 setter 的外部副作用、文件保存或业务事务。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">editor_api</tag>
+		<tag name="layer">kernel/editor</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants>
+		<member kind="const" name="STATUS_PENDING">
+			<signature>const STATUS_PENDING: StringName = &amp;"pending"</signature>
+			<description>尚未验证或执行。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_READY">
+			<signature>const STATUS_READY: StringName = &amp;"ready"</signature>
+			<description>全量预检通过。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_COMMITTED">
+			<signature>const STATUS_COMMITTED: StringName = &amp;"committed"</signature>
+			<description>属性事务已提交。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_REVERTED">
+			<signature>const STATUS_REVERTED: StringName = &amp;"reverted"</signature>
+			<description>属性事务已撤销。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_RECOVERED">
+			<signature>const STATUS_RECOVERED: StringName = &amp;"recovered"</signature>
+			<description>未完整补偿的事务已恢复到该次操作开始前状态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_PREFLIGHT_FAILED">
+			<signature>const STATUS_PREFLIGHT_FAILED: StringName = &amp;"preflight_failed"</signature>
+			<description>全量预检失败，未开始写入。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_APPLY_FAILED">
+			<signature>const STATUS_APPLY_FAILED: StringName = &amp;"apply_failed"</signature>
+			<description>提交失败，且已恢复本次尝试前状态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_REVERT_FAILED">
+			<signature>const STATUS_REVERT_FAILED: StringName = &amp;"revert_failed"</signature>
+			<description>撤销失败，且已恢复撤销前状态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_ROLLBACK_FAILED">
+			<signature>const STATUS_ROLLBACK_FAILED: StringName = &amp;"rollback_failed"</signature>
+			<description>补偿写入未完整恢复属性状态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</constants>
+	<properties />
+	<methods>
+		<member kind="method" name="configure">
+			<signature>func configure( changes: Array[Dictionary], options: Dictionary = {} ) -&gt; GFEditorPropertyBatchCommand:</signature>
+			<description>配置属性事务。
+每个 change 必须包含 target、new_value，以及且仅包含 property_name 或
+property_path。property_name 表示精确直接属性名；property_path 使用 Godot
+indexed path 语义。可选 metadata 会复制到条目和错误报告。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">changes: 属性变更数组。</tag>
+				<tag name="param">options: 配置选项。</tag>
+				<tag name="return">当前命令。</tag>
+				<tag name="schema">changes: Array[Dictionary]，每项包含 target: Object、new_value: Variant、property_name: StringName/String 或 property_path: NodePath/String，以及可选 metadata: Dictionary。</tag>
+				<tag name="schema">options: Dictionary，可包含 command_name、metadata 和 duplicate_resources。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="validate">
+			<signature>func validate() -&gt; Dictionary:</signature>
+			<description>零写入验证全部属性变更。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">结构化事务报告。</tag>
+				<tag name="schema">return: Dictionary，包含 ok、status、phase、error、requested_count、applied_count、unchanged_count、attempted_count、rollback_count、failed_count、failed_index、rolled_back、recovery_required、entries、issues 和 metadata。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_transaction_report">
+			<signature>func get_transaction_report() -&gt; Dictionary:</signature>
+			<description>获取最近一次预检、提交、撤销或恢复报告。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">结构化事务报告副本。</tag>
+				<tag name="schema">return: Dictionary，形状与 validate() 返回值相同。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="recover">
+			<signature>func recover() -&gt; Error:</signature>
+			<description>恢复最近一次未完整补偿的操作。
+恢复目标是该次失败 apply、redo 或 undo 开始前的 attempt guard，而不是固定的
+首次 undo 基线。undo 补偿失败时，恢复成功后命令仍保持 executed，调用方可再
+次调用 revert() 完成真正撤销。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">Godot 错误码。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="can_execute">
+			<signature>func can_execute() -&gt; bool:</signature>
+			<description>当前命令是否允许执行。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">配置完整、目标可写且没有待恢复残余状态时返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="can_revert_before_execute">
+			<signature>func can_revert_before_execute() -&gt; bool:</signature>
+			<description>首次执行未成功但留下残余状态时，允许显式调用 revert() 重试恢复。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">存在首次快照且需要恢复时返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_do_it">
+			<signature>func _do_it() -&gt; Error:</signature>
+			<description>执行属性事务。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="return">Godot 错误码。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_undo_it">
+			<signature>func _undo_it() -&gt; Error:</signature>
+			<description>撤销属性事务，或恢复首次执行失败留下的残余状态。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="return">Godot 错误码。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

@@ -215,6 +215,89 @@ func test_snapshot_roundtrip_preserves_direct_property_names_with_separators() -
 	assert_eq(object.colon_like_value, "colon")
 
 
+func test_prepare_property_write_validates_and_coerces_without_mutation() -> void:
+	var node: Node2D = Node2D.new()
+	node.position = Vector2(1.0, 2.0)
+
+	var result: Dictionary = GFObjectPropertyTools.prepare_property_write(
+		node,
+		^"position:x",
+		4
+	)
+
+	assert_true(
+		GF_VARIANT_ACCESS.get_option_bool(result, "ok"),
+		"零写入准备应接受可转换的 indexed property 值。"
+	)
+	assert_eq(
+		GF_VARIANT_ACCESS.get_option_float(result, "old_value"),
+		1.0,
+		"准备结果应包含当前属性值。"
+	)
+	assert_eq(
+		GF_VARIANT_ACCESS.get_option_float(result, "new_value"),
+		4.0,
+		"准备结果应包含与真实写入一致的规范化值。"
+	)
+	assert_eq(node.position, Vector2(1.0, 2.0), "prepare 不得修改目标对象。")
+
+	node.free()
+
+
+func test_prepare_direct_property_write_preserves_exact_name_without_mutation() -> void:
+	var object: DynamicPropertyObject = DynamicPropertyObject.new()
+
+	var result: Dictionary = GFObjectPropertyTools.prepare_direct_property_write(
+		object,
+		&"colon:like",
+		"next"
+	)
+
+	assert_true(
+		GF_VARIANT_ACCESS.get_option_bool(result, "ok"),
+		"直接属性准备应保留包含分隔符的精确 StringName。"
+	)
+	assert_eq(
+		GF_VARIANT_ACCESS.get_option_string_name(result, "property_name"),
+		&"colon:like"
+	)
+	assert_eq(
+		GF_VARIANT_ACCESS.get_option_string(result, "new_value"),
+		"next"
+	)
+	assert_eq(object.colon_like_value, "colon", "direct prepare 不得触发 `_set()`。")
+
+
+func test_prepare_property_write_rejects_invalid_input_without_setter_side_effects() -> void:
+	var object: DynamicPropertyObject = DynamicPropertyObject.new()
+	var before_value: int = object.dynamic_number_value
+
+	var read_only: Dictionary = GFObjectPropertyTools.prepare_direct_property_write(
+		object,
+		&"locked_number",
+		12
+	)
+	var type_mismatch: Dictionary = GFObjectPropertyTools.prepare_direct_property_write(
+		object,
+		&"dynamic_number",
+		"bad"
+	)
+
+	assert_false(
+		GF_VARIANT_ACCESS.get_option_bool(read_only, "ok"),
+		"只读属性必须在任何写入前失败。"
+	)
+	assert_false(
+		GF_VARIANT_ACCESS.get_option_bool(type_mismatch, "ok"),
+		"类型不匹配必须在任何写入前失败。"
+	)
+	assert_eq(
+		object.dynamic_number_value,
+		before_value,
+		"预检失败不得触发动态 setter。"
+	)
+
+
 # --- 内部类 ---
 
 class DynamicPropertyObject extends RefCounted:
