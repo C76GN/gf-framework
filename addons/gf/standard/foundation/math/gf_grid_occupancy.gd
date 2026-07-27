@@ -4,6 +4,8 @@
 ## 它不负责路径查找、碰撞或胜负规则。
 ## 占用变更会先完整提交内部映射，再同步发出通知；通知回调可以查询已提交状态，
 ## 但通知期间重入调用本类型的写入方法会失败关闭，避免嵌套修改破坏容量与双向索引。
+## receiver 只接受 Object、非空 StringName、非空 String 或 int 稳定身份；可变复合值
+## 和其他 Variant 类型失败关闭。公开信号只描述实际状态变化，成功恒等操作不发信号。
 ## [br]
 ## @api public
 ## [br]
@@ -16,46 +18,54 @@ extends RefCounted
 
 # --- 信号 ---
 
-## 接收者占用格子时发出。
+## 接收者实际新建占用或移动到其他格子时发出。
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param receiver: 接收者。
 ## [br]
-## @schema receiver: Variant receiver identity stored by value or weak Object reference.
+## @schema receiver: Object, non-empty StringName, non-empty String, or int stable identity.
 ## [br]
 ## @param cell: 格子坐标。
 signal cell_occupied(receiver: Variant, cell: Vector2i)
 
-## 接收者释放格子时发出。
+## 接收者的既有占用实际释放时发出。
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param receiver: 接收者。
 ## [br]
-## @schema receiver: Variant receiver identity stored by value or weak Object reference.
+## @schema receiver: Object, non-empty StringName, non-empty String, int, or null for an expired weak Object.
 ## [br]
 ## @param cell: 格子坐标。
 signal cell_released(receiver: Variant, cell: Vector2i)
 
-## 接收者预约格子时发出。
+## 接收者实际新建预约或移动预约到其他格子时发出。
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param receiver: 接收者。
 ## [br]
-## @schema receiver: Variant receiver identity stored by value or weak Object reference.
+## @schema receiver: Object, non-empty StringName, non-empty String, or int stable identity.
 ## [br]
 ## @param cell: 格子坐标。
 signal cell_reserved(receiver: Variant, cell: Vector2i)
 
-## 接收者释放预约时发出。
+## 接收者的既有预约实际释放时发出。
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param receiver: 接收者。
 ## [br]
-## @schema receiver: Variant receiver identity stored by value or weak Object reference.
+## @schema receiver: Object, non-empty StringName, non-empty String, int, or null for an expired weak Object.
 ## [br]
 ## @param cell: 格子坐标。
 signal reservation_released(receiver: Variant, cell: Vector2i)
@@ -150,15 +160,18 @@ func is_in_bounds(cell: Vector2i) -> bool:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param receiver: 接收者。
 ## [br]
-## @schema receiver: Variant receiver identity stored by value or weak Object reference.
+## @schema receiver: Object, non-empty StringName, non-empty String, or int stable identity.
 ## [br]
 ## @param cell: 格子坐标。
 ## [br]
 ## @return 可占用时返回 true。
 func can_occupy(receiver: Variant, cell: Vector2i) -> bool:
-	return _can_occupy_current(receiver, cell)
+	var receiver_key: String = _make_receiver_key(receiver)
+	return _can_occupy_key_current(receiver_key, cell, true)
 
 
 ## 获取当前被占用的格子快照。
@@ -191,29 +204,34 @@ func get_reserved_cells() -> Array[Vector2i]:
 ## [br]
 ## @param receiver: 接收者。
 ## [br]
-## @schema receiver: Variant receiver identity stored by value or weak Object reference.
+## @schema receiver: Object, non-empty StringName, non-empty String, or int stable identity.
 ## [br]
 ## @return 当前可被该接收者占用的格子数组，按 y/x 稳定顺序返回。
 func get_occupiable_cells(receiver: Variant) -> Array[Vector2i]:
 	var result: Array[Vector2i] = []
 	if grid_size.x <= 0 or grid_size.y <= 0:
 		return result
+	var receiver_key: String = _make_receiver_key(receiver)
+	if receiver_key.is_empty():
+		return result
 
 	for y: int in range(grid_size.y):
 		for x: int in range(grid_size.x):
 			var cell: Vector2i = Vector2i(x, y)
-			if _can_occupy_current(receiver, cell):
+			if _can_occupy_key_current(receiver_key, cell, true):
 				result.append(cell)
 	return result
 
 
-## 占用格子。接收者若已占用其他格子，会先释放旧格子。
+## 占用格子；已有其他格占用时先移动，已占用目标格时成功且不发信号。
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param receiver: 接收者。
 ## [br]
-## @schema receiver: Variant receiver identity stored by value or weak Object reference.
+## @schema receiver: Object, non-empty StringName, non-empty String, or int stable identity.
 ## [br]
 ## @param cell: 格子坐标。
 ## [br]
@@ -224,11 +242,11 @@ func occupy(receiver: Variant, cell: Vector2i) -> bool:
 
 	var notifications: Array[Dictionary] = []
 	_prune_invalid_records(notifications)
-	if not _can_occupy_current(receiver, cell):
+	var receiver_key: String = _make_receiver_key(receiver)
+	if not _can_occupy_key_current(receiver_key, cell, true):
 		_finish_mutation(notifications)
 		return false
 
-	var receiver_key: String = _make_receiver_key(receiver)
 	var current_record: Dictionary = _get_record(_receiver_records, receiver_key)
 	var current_cell: Vector2i = _get_record_cell(current_record)
 	if current_cell == cell:
@@ -251,9 +269,11 @@ func occupy(receiver: Variant, cell: Vector2i) -> bool:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param receiver: 接收者。
 ## [br]
-## @schema receiver: Variant receiver identity stored by value or weak Object reference.
+## @schema receiver: Object, non-empty StringName, non-empty String, or int stable identity.
 func release(receiver: Variant) -> void:
 	if not _begin_mutation(&"release"):
 		return
@@ -280,13 +300,15 @@ func release_cell(cell: Vector2i) -> void:
 	_finish_mutation(notifications)
 
 
-## 预约格子，防止其他接收者抢占。
+## 预约格子；已有其他预约时先移动，已有效预约目标格时成功且不发释放或预约信号。
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param receiver: 接收者。
 ## [br]
-## @schema receiver: Variant receiver identity stored by value or weak Object reference.
+## @schema receiver: Object, non-empty StringName, non-empty String, or int stable identity.
 ## [br]
 ## @param cell: 格子坐标。
 ## [br]
@@ -297,11 +319,11 @@ func reserve_cell(receiver: Variant, cell: Vector2i) -> bool:
 
 	var notifications: Array[Dictionary] = []
 	_prune_invalid_records(notifications)
-	if not _can_occupy_current(receiver, cell):
+	var receiver_key: String = _make_receiver_key(receiver)
+	if not _can_occupy_key_current(receiver_key, cell):
 		_finish_mutation(notifications)
 		return false
 
-	var receiver_key: String = _make_receiver_key(receiver)
 	var current_cell: Vector2i = _get_dictionary_vector2i(
 		_receiver_reservations,
 		receiver_key,
@@ -325,9 +347,11 @@ func reserve_cell(receiver: Variant, cell: Vector2i) -> bool:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param receiver: 接收者。
 ## [br]
-## @schema receiver: Variant receiver identity stored by value or weak Object reference.
+## @schema receiver: Object, non-empty StringName, non-empty String, or int stable identity.
 ## [br]
 ## @return 成功时返回 true。
 func confirm_reservation(receiver: Variant) -> bool:
@@ -346,7 +370,7 @@ func confirm_reservation(receiver: Variant) -> bool:
 		receiver_key,
 		_INVALID_CELL
 	)
-	if not _can_occupy_current(receiver, cell):
+	if not _can_occupy_key_current(receiver_key, cell):
 		_finish_mutation(notifications)
 		return false
 
@@ -372,9 +396,11 @@ func confirm_reservation(receiver: Variant) -> bool:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param receiver: 接收者。
 ## [br]
-## @schema receiver: Variant receiver identity stored by value or weak Object reference.
+## @schema receiver: Object, non-empty StringName, non-empty String, or int stable identity.
 func release_reservation(receiver: Variant) -> void:
 	if not _begin_mutation(&"release_reservation"):
 		return
@@ -443,9 +469,11 @@ func get_cell_occupant(cell: Vector2i) -> Variant:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param receiver: 接收者。
 ## [br]
-## @schema receiver: Variant receiver identity stored by value or weak Object reference.
+## @schema receiver: Object, non-empty StringName, non-empty String, or int stable identity.
 ## [br]
 ## @return 格子坐标；未占用时返回 Vector2i(-1, -1)。
 func get_receiver_cell(receiver: Variant) -> Vector2i:
@@ -577,13 +605,28 @@ func _get_or_create_occupant_keys(cell: Vector2i) -> Array:
 	return new_occupants
 
 
-func _can_occupy_current(receiver: Variant, cell: Vector2i) -> bool:
+func _can_occupy_key_current(
+	receiver_key: String,
+	cell: Vector2i,
+	allow_idempotent_occupant: bool = false
+) -> bool:
 	if not is_in_bounds(cell):
 		return false
-
-	var receiver_key: String = _make_receiver_key(receiver)
 	if receiver_key.is_empty():
 		return false
+
+	var valid_occupant_count: int = 0
+	var receiver_already_occupies: bool = false
+	for occupant_key: String in _get_occupant_keys(cell):
+		var record: Dictionary = _get_record(_receiver_records, occupant_key)
+		if not _record_is_valid(record) or _get_record_cell(record) != cell:
+			continue
+		if occupant_key == receiver_key:
+			receiver_already_occupies = true
+		else:
+			valid_occupant_count += 1
+	if allow_idempotent_occupant and receiver_already_occupies:
+		return true
 
 	var reserved_by: String = GFVariantData.get_option_string(_cell_reservations, cell, "")
 	if (
@@ -592,15 +635,8 @@ func _can_occupy_current(receiver: Variant, cell: Vector2i) -> bool:
 		and reserved_by != receiver_key
 	):
 		return false
-
-	var valid_occupant_count: int = 0
-	for occupant_key: String in _get_occupant_keys(cell):
-		var record: Dictionary = _get_record(_receiver_records, occupant_key)
-		if not _record_is_valid(record) or _get_record_cell(record) != cell:
-			continue
-		if occupant_key == receiver_key:
-			return true
-		valid_occupant_count += 1
+	if receiver_already_occupies:
+		return true
 	return valid_occupant_count < max_occupants_per_cell
 
 
@@ -661,12 +697,7 @@ func _reservation_is_valid_for_cell(receiver_key: String, cell: Vector2i) -> boo
 
 
 func _make_receiver_key(receiver: Variant) -> String:
-	if receiver == null:
-		return ""
-	if receiver is Object:
-		var object: Object = receiver
-		return "object:%d" % object.get_instance_id()
-	return "%d:%s" % [typeof(receiver), str(receiver)]
+	return GFSpatialQueryIdentity.make_key(receiver)
 
 
 func _make_receiver_record(receiver: Variant, cell: Vector2i) -> Dictionary:

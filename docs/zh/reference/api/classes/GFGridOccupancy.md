@@ -9,7 +9,7 @@
 - 类别：运行时服务 (`runtime_service`)
 - 首次版本：`3.17.0`
 
-网格占用与预约数据结构。 适合格子移动、战棋、推箱子和解谜类玩法在 System 中跟踪运行时占用。 它不负责路径查找、碰撞或胜负规则。 占用变更会先完整提交内部映射，再同步发出通知；通知回调可以查询已提交状态， 但通知期间重入调用本类型的写入方法会失败关闭，避免嵌套修改破坏容量与双向索引。
+网格占用与预约数据结构。 适合格子移动、战棋、推箱子和解谜类玩法在 System 中跟踪运行时占用。 它不负责路径查找、碰撞或胜负规则。 占用变更会先完整提交内部映射，再同步发出通知；通知回调可以查询已提交状态， 但通知期间重入调用本类型的写入方法会失败关闭，避免嵌套修改破坏容量与双向索引。 receiver 只接受 Object、非空 StringName、非空 String 或 int 稳定身份；可变复合值 和其他 Variant 类型失败关闭。公开信号只描述实际状态变化，成功恒等操作不发信号。
 
 ## 成员概览
 
@@ -48,12 +48,13 @@
 ### `cell_occupied`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 signal cell_occupied(receiver: Variant, cell: Vector2i)
 ```
 
-接收者占用格子时发出。
+接收者实际新建占用或移动到其他格子时发出。
 
 参数：
 
@@ -64,19 +65,20 @@ signal cell_occupied(receiver: Variant, cell: Vector2i)
 
 结构：
 
-- `receiver`: Variant receiver identity stored by value or weak Object reference.
+- `receiver`: Object, non-empty StringName, non-empty String, or int stable identity.
 
 <a id="member-gfgridoccupancy-signals-cell_released"></a>
 
 ### `cell_released`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 signal cell_released(receiver: Variant, cell: Vector2i)
 ```
 
-接收者释放格子时发出。
+接收者的既有占用实际释放时发出。
 
 参数：
 
@@ -87,19 +89,20 @@ signal cell_released(receiver: Variant, cell: Vector2i)
 
 结构：
 
-- `receiver`: Variant receiver identity stored by value or weak Object reference.
+- `receiver`: Object, non-empty StringName, non-empty String, int, or null for an expired weak Object.
 
 <a id="member-gfgridoccupancy-signals-cell_reserved"></a>
 
 ### `cell_reserved`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 signal cell_reserved(receiver: Variant, cell: Vector2i)
 ```
 
-接收者预约格子时发出。
+接收者实际新建预约或移动预约到其他格子时发出。
 
 参数：
 
@@ -110,19 +113,20 @@ signal cell_reserved(receiver: Variant, cell: Vector2i)
 
 结构：
 
-- `receiver`: Variant receiver identity stored by value or weak Object reference.
+- `receiver`: Object, non-empty StringName, non-empty String, or int stable identity.
 
 <a id="member-gfgridoccupancy-signals-reservation_released"></a>
 
 ### `reservation_released`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 signal reservation_released(receiver: Variant, cell: Vector2i)
 ```
 
-接收者释放预约时发出。
+接收者的既有预约实际释放时发出。
 
 参数：
 
@@ -133,7 +137,7 @@ signal reservation_released(receiver: Variant, cell: Vector2i)
 
 结构：
 
-- `receiver`: Variant receiver identity stored by value or weak Object reference.
+- `receiver`: Object, non-empty StringName, non-empty String, int, or null for an expired weak Object.
 
 ## 属性
 
@@ -209,6 +213,7 @@ func is_in_bounds(cell: Vector2i) -> bool:
 ### `can_occupy`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func can_occupy(receiver: Variant, cell: Vector2i) -> bool:
@@ -227,7 +232,7 @@ func can_occupy(receiver: Variant, cell: Vector2i) -> bool:
 
 结构：
 
-- `receiver`: Variant receiver identity stored by value or weak Object reference.
+- `receiver`: Object, non-empty StringName, non-empty String, or int stable identity.
 
 <a id="member-gfgridoccupancy-methods-get_occupied_cells"></a>
 
@@ -282,19 +287,20 @@ func get_occupiable_cells(receiver: Variant) -> Array[Vector2i]:
 
 结构：
 
-- `receiver`: Variant receiver identity stored by value or weak Object reference.
+- `receiver`: Object, non-empty StringName, non-empty String, or int stable identity.
 
 <a id="member-gfgridoccupancy-methods-occupy"></a>
 
 ### `occupy`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func occupy(receiver: Variant, cell: Vector2i) -> bool:
 ```
 
-占用格子。接收者若已占用其他格子，会先释放旧格子。
+占用格子；已有其他格占用时先移动，已占用目标格时成功且不发信号。
 
 参数：
 
@@ -307,13 +313,14 @@ func occupy(receiver: Variant, cell: Vector2i) -> bool:
 
 结构：
 
-- `receiver`: Variant receiver identity stored by value or weak Object reference.
+- `receiver`: Object, non-empty StringName, non-empty String, or int stable identity.
 
 <a id="member-gfgridoccupancy-methods-release"></a>
 
 ### `release`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func release(receiver: Variant) -> void:
@@ -329,7 +336,7 @@ func release(receiver: Variant) -> void:
 
 结构：
 
-- `receiver`: Variant receiver identity stored by value or weak Object reference.
+- `receiver`: Object, non-empty StringName, non-empty String, or int stable identity.
 
 <a id="member-gfgridoccupancy-methods-release_cell"></a>
 
@@ -354,12 +361,13 @@ func release_cell(cell: Vector2i) -> void:
 ### `reserve_cell`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func reserve_cell(receiver: Variant, cell: Vector2i) -> bool:
 ```
 
-预约格子，防止其他接收者抢占。
+预约格子；已有其他预约时先移动，已有效预约目标格时成功且不发释放或预约信号。
 
 参数：
 
@@ -372,13 +380,14 @@ func reserve_cell(receiver: Variant, cell: Vector2i) -> bool:
 
 结构：
 
-- `receiver`: Variant receiver identity stored by value or weak Object reference.
+- `receiver`: Object, non-empty StringName, non-empty String, or int stable identity.
 
 <a id="member-gfgridoccupancy-methods-confirm_reservation"></a>
 
 ### `confirm_reservation`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func confirm_reservation(receiver: Variant) -> bool:
@@ -396,13 +405,14 @@ func confirm_reservation(receiver: Variant) -> bool:
 
 结构：
 
-- `receiver`: Variant receiver identity stored by value or weak Object reference.
+- `receiver`: Object, non-empty StringName, non-empty String, or int stable identity.
 
 <a id="member-gfgridoccupancy-methods-release_reservation"></a>
 
 ### `release_reservation`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func release_reservation(receiver: Variant) -> void:
@@ -418,7 +428,7 @@ func release_reservation(receiver: Variant) -> void:
 
 结构：
 
-- `receiver`: Variant receiver identity stored by value or weak Object reference.
+- `receiver`: Object, non-empty StringName, non-empty String, or int stable identity.
 
 <a id="member-gfgridoccupancy-methods-is_cell_occupied"></a>
 
@@ -513,6 +523,7 @@ func get_cell_occupant(cell: Vector2i) -> Variant:
 ### `get_receiver_cell`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func get_receiver_cell(receiver: Variant) -> Vector2i:
@@ -530,7 +541,7 @@ func get_receiver_cell(receiver: Variant) -> Vector2i:
 
 结构：
 
-- `receiver`: Variant receiver identity stored by value or weak Object reference.
+- `receiver`: Object, non-empty StringName, non-empty String, or int stable identity.
 
 <a id="member-gfgridoccupancy-methods-prune_invalid_receivers"></a>
 

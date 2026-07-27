@@ -1,10 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFGridOccupancy" path="addons/gf/standard/foundation/math/gf_grid_occupancy.gd" module="standard" extends="RefCounted" classDigest="feba97fe54b6fe04063104c48b3f9aa19a9cc5cf344e3e25bf11cd1cd90f4910">
+<class name="GFGridOccupancy" path="addons/gf/standard/foundation/math/gf_grid_occupancy.gd" module="standard" extends="RefCounted" classDigest="889e3cd144159d0032978deea6f30021aad1847be4a7e3236b580eb6820c1d04">
 	<description>GFGridOccupancy: 网格占用与预约数据结构。
 适合格子移动、战棋、推箱子和解谜类玩法在 System 中跟踪运行时占用。
 它不负责路径查找、碰撞或胜负规则。
 占用变更会先完整提交内部映射，再同步发出通知；通知回调可以查询已提交状态，
-但通知期间重入调用本类型的写入方法会失败关闭，避免嵌套修改破坏容量与双向索引。</description>
+但通知期间重入调用本类型的写入方法会失败关闭，避免嵌套修改破坏容量与双向索引。
+receiver 只接受 Object、非空 StringName、非空 String 或 int 稳定身份；可变复合值
+和其他 Variant 类型失败关闭。公开信号只描述实际状态变化，成功恒等操作不发信号。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">runtime_service</tag>
@@ -13,42 +15,46 @@
 	<signals>
 		<member kind="signal" name="cell_occupied">
 			<signature>signal cell_occupied(receiver: Variant, cell: Vector2i)</signature>
-			<description>接收者占用格子时发出。</description>
+			<description>接收者实际新建占用或移动到其他格子时发出。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">receiver: 接收者。</tag>
 				<tag name="param">cell: 格子坐标。</tag>
-				<tag name="schema">receiver: Variant receiver identity stored by value or weak Object reference.</tag>
+				<tag name="schema">receiver: Object, non-empty StringName, non-empty String, or int stable identity.</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="signal" name="cell_released">
 			<signature>signal cell_released(receiver: Variant, cell: Vector2i)</signature>
-			<description>接收者释放格子时发出。</description>
+			<description>接收者的既有占用实际释放时发出。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">receiver: 接收者。</tag>
 				<tag name="param">cell: 格子坐标。</tag>
-				<tag name="schema">receiver: Variant receiver identity stored by value or weak Object reference.</tag>
+				<tag name="schema">receiver: Object, non-empty StringName, non-empty String, int, or null for an expired weak Object.</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="signal" name="cell_reserved">
 			<signature>signal cell_reserved(receiver: Variant, cell: Vector2i)</signature>
-			<description>接收者预约格子时发出。</description>
+			<description>接收者实际新建预约或移动预约到其他格子时发出。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">receiver: 接收者。</tag>
 				<tag name="param">cell: 格子坐标。</tag>
-				<tag name="schema">receiver: Variant receiver identity stored by value or weak Object reference.</tag>
+				<tag name="schema">receiver: Object, non-empty StringName, non-empty String, or int stable identity.</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="signal" name="reservation_released">
 			<signature>signal reservation_released(receiver: Variant, cell: Vector2i)</signature>
-			<description>接收者释放预约时发出。</description>
+			<description>接收者的既有预约实际释放时发出。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">receiver: 接收者。</tag>
 				<tag name="param">cell: 格子坐标。</tag>
-				<tag name="schema">receiver: Variant receiver identity stored by value or weak Object reference.</tag>
+				<tag name="schema">receiver: Object, non-empty StringName, non-empty String, int, or null for an expired weak Object.</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</signals>
@@ -101,7 +107,8 @@
 				<tag name="param">receiver: 接收者。</tag>
 				<tag name="param">cell: 格子坐标。</tag>
 				<tag name="return">可占用时返回 true。</tag>
-				<tag name="schema">receiver: Variant receiver identity stored by value or weak Object reference.</tag>
+				<tag name="schema">receiver: Object, non-empty StringName, non-empty String, or int stable identity.</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_occupied_cells">
@@ -129,19 +136,20 @@
 				<tag name="api">public</tag>
 				<tag name="param">receiver: 接收者。</tag>
 				<tag name="return">当前可被该接收者占用的格子数组，按 y/x 稳定顺序返回。</tag>
-				<tag name="schema">receiver: Variant receiver identity stored by value or weak Object reference.</tag>
+				<tag name="schema">receiver: Object, non-empty StringName, non-empty String, or int stable identity.</tag>
 				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="occupy">
 			<signature>func occupy(receiver: Variant, cell: Vector2i) -&gt; bool:</signature>
-			<description>占用格子。接收者若已占用其他格子，会先释放旧格子。</description>
+			<description>占用格子；已有其他格占用时先移动，已占用目标格时成功且不发信号。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">receiver: 接收者。</tag>
 				<tag name="param">cell: 格子坐标。</tag>
 				<tag name="return">成功时返回 true。</tag>
-				<tag name="schema">receiver: Variant receiver identity stored by value or weak Object reference.</tag>
+				<tag name="schema">receiver: Object, non-empty StringName, non-empty String, or int stable identity.</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="release">
@@ -150,7 +158,8 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">receiver: 接收者。</tag>
-				<tag name="schema">receiver: Variant receiver identity stored by value or weak Object reference.</tag>
+				<tag name="schema">receiver: Object, non-empty StringName, non-empty String, or int stable identity.</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="release_cell">
@@ -163,13 +172,14 @@
 		</member>
 		<member kind="method" name="reserve_cell">
 			<signature>func reserve_cell(receiver: Variant, cell: Vector2i) -&gt; bool:</signature>
-			<description>预约格子，防止其他接收者抢占。</description>
+			<description>预约格子；已有其他预约时先移动，已有效预约目标格时成功且不发释放或预约信号。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">receiver: 接收者。</tag>
 				<tag name="param">cell: 格子坐标。</tag>
 				<tag name="return">成功时返回 true。</tag>
-				<tag name="schema">receiver: Variant receiver identity stored by value or weak Object reference.</tag>
+				<tag name="schema">receiver: Object, non-empty StringName, non-empty String, or int stable identity.</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="confirm_reservation">
@@ -179,7 +189,8 @@
 				<tag name="api">public</tag>
 				<tag name="param">receiver: 接收者。</tag>
 				<tag name="return">成功时返回 true。</tag>
-				<tag name="schema">receiver: Variant receiver identity stored by value or weak Object reference.</tag>
+				<tag name="schema">receiver: Object, non-empty StringName, non-empty String, or int stable identity.</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="release_reservation">
@@ -188,7 +199,8 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">receiver: 接收者。</tag>
-				<tag name="schema">receiver: Variant receiver identity stored by value or weak Object reference.</tag>
+				<tag name="schema">receiver: Object, non-empty StringName, non-empty String, or int stable identity.</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="is_cell_occupied">
@@ -236,7 +248,8 @@
 				<tag name="api">public</tag>
 				<tag name="param">receiver: 接收者。</tag>
 				<tag name="return">格子坐标；未占用时返回 Vector2i(-1, -1)。</tag>
-				<tag name="schema">receiver: Variant receiver identity stored by value or weak Object reference.</tag>
+				<tag name="schema">receiver: Object, non-empty StringName, non-empty String, or int stable identity.</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="prune_invalid_receivers">

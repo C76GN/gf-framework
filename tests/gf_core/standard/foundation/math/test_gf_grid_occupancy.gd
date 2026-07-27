@@ -73,6 +73,205 @@ func test_reservation_blocks_other_receivers_and_can_confirm() -> void:
 	assert_false(grid.is_cell_reserved(Vector2i(2, 1)), "确认后预约记录应释放。")
 
 
+func test_supported_receiver_identities_are_distinct_and_reachable() -> void:
+	var grid: GFGridOccupancy = GFGridOccupancy.new(Vector2i(4, 1))
+	var actor: Object = _make_object()
+	var receivers: Array[Variant] = [
+		actor,
+		&"shared",
+		"shared",
+		17,
+	]
+
+	for index: int in range(receivers.size()):
+		var cell: Vector2i = Vector2i(index, 0)
+		var receiver: Variant = receivers[index]
+		assert_true(grid.occupy(receiver, cell), "受支持的稳定身份应能占用格子。")
+
+	for index: int in range(receivers.size()):
+		var cell: Vector2i = Vector2i(index, 0)
+		var receiver: Variant = receivers[index]
+		assert_eq(grid.get_receiver_cell(receiver), cell, "稳定身份应能查询自己的占用。")
+		assert_eq(grid.get_cell_occupants(cell), [receiver], "每种稳定身份都必须使用互异 key。")
+
+	for index: int in range(receivers.size()):
+		var cell: Vector2i = Vector2i(index, 0)
+		var receiver: Variant = receivers[index]
+		grid.release(receiver)
+		assert_false(grid.is_cell_occupied(cell), "受支持的稳定身份应能释放自己的占用。")
+		assert_eq(grid.get_receiver_cell(receiver), Vector2i(-1, -1))
+		for remaining_index: int in range(index + 1, receivers.size()):
+			assert_eq(
+				grid.get_receiver_cell(receivers[remaining_index]),
+				Vector2i(remaining_index, 0),
+				"释放一个身份不得让其他稳定身份失去可达性。"
+			)
+
+
+func test_unsupported_receiver_identities_fail_closed() -> void:
+	var unsupported_receivers: Array[Variant] = [
+		null,
+		true,
+		1.5,
+		"",
+		Vector2.ZERO,
+		Vector2i.ZERO,
+		Rect2(),
+		Rect2i(),
+		Vector3.ZERO,
+		Vector3i.ZERO,
+		Transform2D(),
+		Vector4.ZERO,
+		Vector4i.ZERO,
+		Plane(),
+		Quaternion(),
+		AABB(),
+		Basis(),
+		Transform3D(),
+		Projection(),
+		Color.WHITE,
+		&"",
+		NodePath(),
+		RID(),
+		Callable(),
+		Signal(),
+		{},
+		[],
+		PackedByteArray(),
+		PackedInt32Array(),
+		PackedInt64Array(),
+		PackedFloat32Array(),
+		PackedFloat64Array(),
+		PackedStringArray(),
+		PackedVector2Array(),
+		PackedVector3Array(),
+		PackedColorArray(),
+		PackedVector4Array(),
+	]
+
+	for receiver: Variant in unsupported_receivers:
+		var grid: GFGridOccupancy = GFGridOccupancy.new(Vector2i(3, 1), 2)
+		var occupied_cell: Vector2i = Vector2i.ZERO
+		var reserved_cell: Vector2i = Vector2i(1, 0)
+		var candidate_cell: Vector2i = Vector2i(2, 0)
+		assert_true(grid.occupy(&"baseline_occupant", occupied_cell))
+		assert_true(grid.reserve_cell(&"baseline_reservation", reserved_cell))
+		watch_signals(grid)
+
+		assert_false(grid.can_occupy(receiver, candidate_cell))
+		assert_true(grid.get_occupiable_cells(receiver).is_empty())
+		assert_false(grid.occupy(receiver, candidate_cell))
+		assert_false(grid.reserve_cell(receiver, candidate_cell))
+		assert_false(grid.confirm_reservation(receiver))
+		assert_eq(grid.get_receiver_cell(receiver), Vector2i(-1, -1))
+		grid.release(receiver)
+		grid.release_reservation(receiver)
+
+		assert_eq(grid.get_receiver_cell(&"baseline_occupant"), occupied_cell)
+		assert_eq(grid.get_occupied_cells(), [occupied_cell])
+		assert_eq(grid.get_reserved_cells(), [reserved_cell])
+		assert_signal_not_emitted(grid, "cell_occupied")
+		assert_signal_not_emitted(grid, "cell_released")
+		assert_signal_not_emitted(grid, "cell_reserved")
+		assert_signal_not_emitted(grid, "reservation_released")
+
+
+func test_same_cell_reservation_is_successful_without_duplicate_notifications() -> void:
+	var grid: GFGridOccupancy = GFGridOccupancy.new(Vector2i.ONE)
+	var receiver: StringName = &"actor"
+	watch_signals(grid)
+
+	assert_true(grid.reserve_cell(receiver, Vector2i.ZERO))
+	assert_true(grid.reserve_cell(receiver, Vector2i.ZERO))
+
+	assert_signal_emit_count(
+		grid,
+		"cell_reserved",
+		1,
+		"重复预约同一格只是成功恒等操作，不得重复发出预约通知。"
+	)
+	assert_signal_not_emitted(
+		grid,
+		"reservation_released",
+		"重复预约同一格不得伪造释放与重新预约状态变化。"
+	)
+	assert_true(grid.is_cell_reserved(Vector2i.ZERO))
+
+
+func test_existing_occupant_remains_idempotent_under_another_reservation() -> void:
+	var grid: GFGridOccupancy = GFGridOccupancy.new(Vector2i.ONE, 2)
+	var occupant: StringName = &"occupant"
+	var reserver: StringName = &"reserver"
+	watch_signals(grid)
+
+	assert_true(grid.occupy(occupant, Vector2i.ZERO))
+	assert_true(grid.reserve_cell(reserver, Vector2i.ZERO))
+	assert_true(
+		grid.can_occupy(occupant, Vector2i.ZERO),
+		"第三方预约不得让既有 occupant 的同格恒等查询失败。"
+	)
+	assert_eq(
+		grid.get_occupiable_cells(occupant),
+		[Vector2i.ZERO],
+		"第三方预约不得从既有 occupant 的可占用格快照中移除当前格。"
+	)
+	assert_true(
+		grid.occupy(occupant, Vector2i.ZERO),
+		"第三方预约不得让既有 occupant 的同格恒等提交失败。"
+	)
+
+	assert_signal_emit_count(
+		grid,
+		"cell_occupied",
+		1,
+		"既有 occupant 的同格恒等提交不得重复发出占用信号。"
+	)
+	assert_signal_not_emitted(grid, "cell_released")
+	assert_eq(grid.get_cell_occupants(Vector2i.ZERO), [occupant])
+	assert_true(grid.is_cell_reserved(Vector2i.ZERO))
+	assert_false(
+		grid.reserve_cell(occupant, Vector2i.ZERO),
+		"既有 occupant 不得越权覆盖另一个 receiver 的预约。"
+	)
+	assert_true(grid.is_cell_reserved(Vector2i.ZERO), "被拒绝的预约不得破坏现有预约。")
+	assert_true(grid.confirm_reservation(reserver), "原预约者仍应能确认预约。")
+	assert_eq(grid.get_cell_occupants(Vector2i.ZERO), [occupant, reserver])
+	assert_false(grid.is_cell_reserved(Vector2i.ZERO))
+
+
+func test_object_identity_remains_reachable_when_confirmation_callback_mutates_object() -> void:
+	var grid: GFGridOccupancy = GFGridOccupancy.new(Vector2i(2, 1))
+	var actor: Node = Node.new()
+	_objects.append(actor)
+	var target_cell: Vector2i = Vector2i(1, 0)
+	var observed_cells: Array[Vector2i] = []
+	watch_signals(grid)
+	var release_callback: Callable = func(
+		_receiver: Variant,
+		_released_cell: Vector2i
+	) -> void:
+		actor.set_meta(&"label", "changed")
+		observed_cells.append(grid.get_receiver_cell(actor))
+	var connect_error: Error = grid.reservation_released.connect(
+		release_callback
+	) as Error
+	assert_eq(connect_error, OK)
+
+	assert_true(grid.reserve_cell(actor, target_cell))
+	assert_true(grid.confirm_reservation(actor))
+
+	assert_eq(str(actor.get_meta(&"label")), "changed")
+	assert_eq(observed_cells, [target_cell], "回调应观察到已提交且仍可寻址的 Object 占用。")
+	assert_eq(grid.get_receiver_cell(actor), target_cell)
+	grid.release(actor)
+	assert_false(grid.is_cell_occupied(target_cell), "Object 内容变化不得破坏实例身份键。")
+	assert_signal_emit_count(grid, "cell_reserved", 1)
+	assert_signal_emit_count(grid, "reservation_released", 1)
+	assert_signal_emit_count(grid, "cell_occupied", 1)
+	assert_signal_emit_count(grid, "cell_released", 1)
+	grid.reservation_released.disconnect(release_callback)
+
+
 func test_confirm_reservation_is_atomic_against_release_notification_reentry() -> void:
 	var grid: GFGridOccupancy = GFGridOccupancy.new(Vector2i(2, 1))
 	var actor_a: Object = _make_object()
