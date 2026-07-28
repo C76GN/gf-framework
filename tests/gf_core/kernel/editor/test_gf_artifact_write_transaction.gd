@@ -27,10 +27,57 @@ func before_each() -> void:
 
 func after_each() -> void:
 	_GF_ARTIFACT_WRITE_TRANSACTION_SCRIPT._reset_test_owned_write_failures()
-	_remove_absolute_path(ProjectSettings.globalize_path(_temp_root))
+	assert_eq(
+		_GF_ARTIFACT_WRITE_TRANSACTION_SCRIPT._active_transactions.size(),
+		0,
+		"每个测试都必须终结其 artifact transaction ownership。"
+	)
+	_GF_ARTIFACT_WRITE_TRANSACTION_SCRIPT._active_transactions.clear()
+	_remove_absolute_path(ProjectSettings.globalize_path(_temp_root), true)
 
 
 # --- 测试用例 ---
+
+func test_sidecar_helpers_include_hidden_entries_and_bound_cleanup() -> void:
+	var hidden_path: String = _temp_root.path_join(
+		".gf-artifact-hidden-test"
+	)
+	_write_text(hidden_path, "sidecar")
+	var absolute_root: String = ProjectSettings.globalize_path(_temp_root)
+	var absolute_hidden_path: String = ProjectSettings.globalize_path(
+		hidden_path
+	)
+	var absolute_project_root: String = ProjectSettings.globalize_path(
+		"res://"
+	)
+
+	assert_eq(
+		_find_matching_file(absolute_root, ".gf-artifact-hidden-test"),
+		absolute_hidden_path,
+		"sidecar helper 必须跨平台枚举 dotfile。"
+	)
+	assert_eq(
+		_count_matching_files(absolute_root, ".gf-artifact-hidden-test"),
+		1
+	)
+	assert_false(
+		_is_path_inside_temp_root(absolute_root),
+		"测试主体不得删除临时根目录本身。"
+	)
+	assert_true(
+		_is_path_inside_temp_root(absolute_root, true),
+		"生命周期 cleanup 可显式接管临时根目录。"
+	)
+	assert_true(
+		_is_path_inside_temp_root(absolute_hidden_path),
+		"临时根目录内的 sidecar 应可安全清理。"
+	)
+	assert_false(
+		_is_path_inside_temp_root(absolute_project_root, true),
+		"即使启用根目录 cleanup，也不得越界到项目根目录。"
+	)
+	assert_false(_is_path_inside_temp_root("", true))
+
 
 func test_commit_writes_all_entries_and_returns_json_safe_reports() -> void:
 	var text_path: String = _temp_root.path_join("content/item.txt")
@@ -570,7 +617,12 @@ func test_begin_late_failure_keeps_cleanup_recovery_ownership() -> void:
 	assert_true(_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(transaction, "ok"))
 	var backup_path: String = _find_transaction_sidecar("backup")
 	assert_false(backup_path.is_empty(), "测试必须先建立受事务持有的 backup。")
+	if backup_path.is_empty():
+		return
 	var backup_absolute: String = ProjectSettings.globalize_path(backup_path)
+	assert_true(_is_path_inside_temp_root(backup_absolute))
+	if not _is_path_inside_temp_root(backup_absolute):
+		return
 	assert_eq(DirAccess.remove_absolute(backup_absolute), OK)
 	assert_eq(
 		DirAccess.make_dir_recursive_absolute(backup_absolute),
@@ -848,6 +900,8 @@ func test_rollback_preflights_every_snapshot_before_touching_targets() -> void:
 	assert_true(_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(transaction, "ok"))
 	var backup_path: String = _find_transaction_sidecar("backup")
 	assert_false(backup_path.is_empty(), "begin 应创建受控回滚快照。")
+	if backup_path.is_empty():
+		return
 	_write_text(existing_path, "writer-state")
 	_write_text(backup_path, "tampered")
 
@@ -955,6 +1009,8 @@ func test_rollback_retries_after_restore_verification_failure() -> void:
 	assert_true(_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(transaction, "ok"))
 	var backup_path: String = _find_transaction_sidecar("backup")
 	assert_false(backup_path.is_empty(), "测试必须保留原始 backup。")
+	if backup_path.is_empty():
+		return
 	_GF_ARTIFACT_WRITE_TRANSACTION_SCRIPT._enable_selective_rollback(
 		transaction
 	)
@@ -997,6 +1053,8 @@ func test_unknown_restore_failure_accepts_only_exact_original_state() -> void:
 	assert_true(_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(transaction, "ok"))
 	var backup_path: String = _find_transaction_sidecar("backup")
 	assert_false(backup_path.is_empty())
+	if backup_path.is_empty():
+		return
 	assert_eq(
 		DirAccess.remove_absolute(ProjectSettings.globalize_path(target_path)),
 		OK
@@ -1085,6 +1143,8 @@ func test_rollback_restore_partial_cleanup_retains_retryable_ownership() -> void
 		_GF_ARTIFACT_WRITE_TRANSACTION_SCRIPT.RECOVERY_ACTION_ROLLBACK
 	)
 	assert_false(restore_path.is_empty())
+	if restore_path.is_empty():
+		return
 	assert_true(FileAccess.file_exists(restore_path))
 	assert_eq(
 		_read_text(target_path),
@@ -1155,9 +1215,14 @@ func test_complete_failure_retains_narrowed_state_for_same_action_retry() -> voi
 	)
 	assert_false(first_backup_path.is_empty(), "首个目标应创建回滚快照。")
 	assert_false(second_backup_path.is_empty(), "第二个目标应创建回滚快照。")
+	if first_backup_path.is_empty() or second_backup_path.is_empty():
+		return
 	var second_backup_absolute: String = ProjectSettings.globalize_path(
 		second_backup_path
 	)
+	assert_true(_is_path_inside_temp_root(second_backup_absolute))
+	if not _is_path_inside_temp_root(second_backup_absolute):
+		return
 	assert_eq(
 		DirAccess.remove_absolute(second_backup_absolute),
 		OK,
@@ -1416,6 +1481,8 @@ func test_begin_partial_backup_cleanup_failure_returns_complete_recovery() -> vo
 		_GF_ARTIFACT_WRITE_TRANSACTION_SCRIPT.RECOVERY_ACTION_COMPLETE
 	)
 	assert_false(partial_backup_path.is_empty())
+	if partial_backup_path.is_empty():
+		return
 	assert_true(FileAccess.file_exists(partial_backup_path))
 
 	var retry_report: Dictionary = (
@@ -1477,6 +1544,8 @@ func test_commit_snapshot_failure_preserves_begin_complete_recovery() -> void:
 		_GF_ARTIFACT_WRITE_TRANSACTION_SCRIPT.RECOVERY_ACTION_COMPLETE
 	)
 	assert_false(partial_backup_path.is_empty())
+	if partial_backup_path.is_empty():
+		return
 	assert_true(FileAccess.file_exists(partial_backup_path))
 	assert_eq(_read_text(target_path), "before")
 
@@ -1518,6 +1587,8 @@ func test_partial_backup_recovery_refuses_identity_drift() -> void:
 		)
 	)
 	assert_false(partial_backup_path.is_empty())
+	if partial_backup_path.is_empty():
+		return
 	_write_text(partial_backup_path, "changed-after-failure")
 
 	var refused_report: Dictionary = (
@@ -1605,6 +1676,8 @@ func test_staging_partial_cleanup_failure_returns_complete_recovery() -> void:
 		_GF_ARTIFACT_WRITE_TRANSACTION_SCRIPT.RECOVERY_ACTION_COMPLETE
 	)
 	assert_false(partial_staging_path.is_empty())
+	if partial_staging_path.is_empty():
+		return
 	assert_true(FileAccess.file_exists(partial_staging_path))
 	assert_ne(
 		JSON.stringify(recovery_metadata).find("__gf_report_value__"),
@@ -1723,6 +1796,8 @@ func test_complete_staging_cleanup_failure_retains_recovery_ownership() -> void:
 		_GF_ARTIFACT_WRITE_TRANSACTION_SCRIPT.RECOVERY_ACTION_COMPLETE
 	)
 	assert_false(complete_staging_path.is_empty())
+	if complete_staging_path.is_empty():
+		return
 	assert_true(FileAccess.file_exists(complete_staging_path))
 	assert_false(FileAccess.file_exists(copied_target_path))
 	assert_false(FileAccess.file_exists(failed_target_path))
@@ -2054,6 +2129,13 @@ func _write_text(path: String, text: String) -> void:
 
 
 func _write_bytes(path: String, bytes: PackedByteArray) -> void:
+	var absolute_path: String = ProjectSettings.globalize_path(path)
+	assert_true(
+		_is_path_inside_temp_root(absolute_path),
+		"测试写入路径必须位于当前临时根目录内。"
+	)
+	if not _is_path_inside_temp_root(absolute_path):
+		return
 	var make_error: Error = DirAccess.make_dir_recursive_absolute(
 		ProjectSettings.globalize_path(path.get_base_dir())
 	)
@@ -2139,7 +2221,11 @@ func _find_matching_file(path: String, needle: String) -> String:
 	var directory: DirAccess = DirAccess.open(path)
 	if directory == null:
 		return ""
-	var _list_error: Error = directory.list_dir_begin()
+	directory.include_hidden = true
+	directory.include_navigational = false
+	var list_error: Error = directory.list_dir_begin()
+	if list_error != OK:
+		return ""
 	var entry_name: String = directory.get_next()
 	while not entry_name.is_empty():
 		if entry_name != "." and entry_name != "..":
@@ -2164,8 +2250,12 @@ func _count_matching_files(path: String, needle: String) -> int:
 	var directory: DirAccess = DirAccess.open(path)
 	if directory == null:
 		return 0
+	directory.include_hidden = true
+	directory.include_navigational = false
 	var count: int = 0
-	var _list_error: Error = directory.list_dir_begin()
+	var list_error: Error = directory.list_dir_begin()
+	if list_error != OK:
+		return 0
 	var entry_name: String = directory.get_next()
 	while not entry_name.is_empty():
 		if entry_name != "." and entry_name != "..":
@@ -2179,7 +2269,18 @@ func _count_matching_files(path: String, needle: String) -> int:
 	return count
 
 
-func _remove_absolute_path(path: String) -> void:
+func _remove_absolute_path(
+	path: String,
+	allow_temp_root: bool = false
+) -> void:
+	if not _is_path_inside_temp_root(path, allow_temp_root):
+		fail_test(
+			"拒绝清理当前测试临时根目录以外的路径：%s" % path
+		)
+		return
+	if _absolute_path_is_link(path):
+		var _remove_link_result: Error = DirAccess.remove_absolute(path)
+		return
 	if FileAccess.file_exists(path):
 		var _remove_file_result: Error = DirAccess.remove_absolute(path)
 		return
@@ -2188,11 +2289,58 @@ func _remove_absolute_path(path: String) -> void:
 	var directory: DirAccess = DirAccess.open(path)
 	if directory == null:
 		return
-	var _list_error: Error = directory.list_dir_begin()
+	directory.include_hidden = true
+	directory.include_navigational = false
+	var child_paths: PackedStringArray = PackedStringArray()
+	var list_error: Error = directory.list_dir_begin()
+	if list_error != OK:
+		fail_test("无法枚举测试清理目录：%s" % path)
+		return
 	var entry_name: String = directory.get_next()
 	while not entry_name.is_empty():
 		if entry_name != "." and entry_name != "..":
-			_remove_absolute_path(path.path_join(entry_name))
+			var _append_result: bool = child_paths.append(
+				path.path_join(entry_name)
+			)
 		entry_name = directory.get_next()
 	directory.list_dir_end()
+	for child_path: String in child_paths:
+		_remove_absolute_path(child_path)
 	var _remove_directory_result: Error = DirAccess.remove_absolute(path)
+
+
+func _is_path_inside_temp_root(
+	path: String,
+	allow_temp_root: bool = false
+) -> bool:
+	if path.is_empty() or _temp_root.is_empty():
+		return false
+	var normalized_path: String = _normalize_cleanup_path(path)
+	var normalized_temp_root: String = _normalize_cleanup_path(
+		ProjectSettings.globalize_path(_temp_root)
+	)
+	if normalized_path.is_empty() or normalized_temp_root.is_empty():
+		return false
+	if normalized_path == normalized_temp_root:
+		return allow_temp_root
+	return normalized_path.begins_with(normalized_temp_root + "/")
+
+
+func _normalize_cleanup_path(path: String) -> String:
+	var normalized_path: String = path.simplify_path().replace("\\", "/")
+	while normalized_path.length() > 1 and normalized_path.ends_with("/"):
+		normalized_path = normalized_path.trim_suffix("/")
+	if OS.has_feature("windows"):
+		return normalized_path.to_lower()
+	return normalized_path
+
+
+func _absolute_path_is_link(path: String) -> bool:
+	var parent_path: String = path.get_base_dir()
+	var entry_name: String = path.get_file()
+	if parent_path.is_empty() or entry_name.is_empty():
+		return false
+	var parent_directory: DirAccess = DirAccess.open(parent_path)
+	if parent_directory == null:
+		return false
+	return parent_directory.is_link(entry_name)
