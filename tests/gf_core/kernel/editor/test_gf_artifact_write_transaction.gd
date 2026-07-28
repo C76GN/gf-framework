@@ -80,21 +80,31 @@ func test_sidecar_helpers_include_hidden_entries_and_bound_cleanup() -> void:
 
 
 func test_sidecar_helpers_refuse_linked_escape_paths_when_supported() -> void:
-	var sentinel_path: String = _temp_root.path_join("sentinel.txt")
+	var scan_root_path: String = _temp_root.path_join("scan-root")
+	var linked_target_path: String = _temp_root.path_join("linked-target")
+	var sentinel_path: String = linked_target_path.path_join("sentinel.txt")
 	_write_text(sentinel_path, "sentinel")
-	var absolute_root: String = ProjectSettings.globalize_path(_temp_root)
-	var absolute_project_root: String = ProjectSettings.globalize_path(
-		"res://"
+	var absolute_scan_root: String = ProjectSettings.globalize_path(
+		scan_root_path
 	)
-	var absolute_link_path: String = absolute_root.path_join(
-		"linked-project"
+	var absolute_linked_target: String = ProjectSettings.globalize_path(
+		linked_target_path
 	)
-	var root_directory: DirAccess = DirAccess.open(absolute_root)
-	assert_not_null(root_directory, "测试应能打开临时根目录。")
-	if root_directory == null:
+	var make_scan_root_error: Error = (
+		DirAccess.make_dir_recursive_absolute(absolute_scan_root)
+	)
+	assert_eq(make_scan_root_error, OK, "测试应能创建独立扫描根目录。")
+	if make_scan_root_error != OK:
 		return
-	var link_error: Error = root_directory.create_link(
-		absolute_project_root,
+	var absolute_link_path: String = absolute_scan_root.path_join(
+		"linked-target"
+	)
+	var scan_root_directory: DirAccess = DirAccess.open(absolute_scan_root)
+	assert_not_null(scan_root_directory, "测试应能打开独立扫描根目录。")
+	if scan_root_directory == null:
+		return
+	var link_error: Error = scan_root_directory.create_link(
+		absolute_linked_target,
 		absolute_link_path
 	)
 	if link_error != OK:
@@ -106,19 +116,33 @@ func test_sidecar_helpers_refuse_linked_escape_paths_when_supported() -> void:
 		)
 		return
 
-	assert_true(_absolute_path_is_link(absolute_link_path))
+	var link_is_detected: bool = _absolute_path_is_link(absolute_link_path)
+	assert_true(link_is_detected)
+	if not link_is_detected:
+		var direct_unlink_error: Error = DirAccess.remove_absolute(
+			absolute_link_path
+		)
+		assert_eq(direct_unlink_error, OK)
+		return
 	assert_eq(
-		_find_matching_file(absolute_root, "project.godot"),
+		_find_matching_file(absolute_scan_root, "sentinel.txt"),
 		"",
 		"sidecar finder 不得沿链接越过临时根目录。"
 	)
-	assert_eq(_count_matching_files(absolute_root, "project.godot"), 0)
+	assert_eq(_count_matching_files(absolute_scan_root, "sentinel.txt"), 0)
+	var linked_sentinel_is_allowed: bool = _is_path_inside_temp_root(
+		absolute_link_path.path_join("sentinel.txt")
+	)
 	assert_false(
-		_is_path_inside_temp_root(
-			absolute_link_path.path_join("project.godot")
-		),
+		linked_sentinel_is_allowed,
 		"祖先链接后的词法子路径不得通过写入或删除门禁。"
 	)
+	if linked_sentinel_is_allowed:
+		var direct_unlink_error: Error = DirAccess.remove_absolute(
+			absolute_link_path
+		)
+		assert_eq(direct_unlink_error, OK)
+		return
 	_remove_absolute_path(absolute_link_path)
 	assert_false(
 		_absolute_path_is_link(absolute_link_path),
@@ -129,8 +153,8 @@ func test_sidecar_helpers_refuse_linked_escape_paths_when_supported() -> void:
 		"cleanup 后链接路径不得仍解析为目录。"
 	)
 	assert_true(
-		FileAccess.file_exists("res://project.godot"),
-		"清理链接只能 unlink 自身，不得触及项目根。"
+		FileAccess.file_exists(sentinel_path),
+		"清理链接只能 unlink 自身，不得触及 sibling target。"
 	)
 
 
