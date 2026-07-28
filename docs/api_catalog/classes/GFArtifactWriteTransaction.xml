@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFArtifactWriteTransaction" path="addons/gf/kernel/editor/gf_artifact_write_transaction.gd" module="kernel" extends="RefCounted" classDigest="86781c87748a47fa0c38c4c04c88034b3bdb9171db93b1fc65629c93b000e48b">
+<class name="GFArtifactWriteTransaction" path="addons/gf/kernel/editor/gf_artifact_write_transaction.gd" module="kernel" extends="RefCounted" classDigest="5fc5bd82a4a9c5183cf65c8b2f984df4b33971cca05b5dceeb749aa6be210646">
 	<description>GFArtifactWriteTransaction: 编辑器与项目工具可复用的多产物文件提交事务。
 在显式资源根、文件数量和字节预算内预检文本、字节或临时文件产物，
 先把全部内容写入目标同目录的 staging 文件，再逐项替换目标。任一提交
@@ -67,7 +67,7 @@ allowed_roots 必须位于调用方信任且不会被本机其他进程恶意交
 		</member>
 		<member kind="const" name="DEFAULT_MAX_BACKUP_BYTES">
 			<signature>const DEFAULT_MAX_BACKUP_BYTES: int = 256 * 1024 * 1024</signature>
-			<description>默认事务回滚快照最大总字节数。</description>
+			<description>默认事务 snapshots 与单个 restore working copy 的最大并发恢复字节数。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="since">unreleased</tag>
@@ -99,7 +99,7 @@ allowed_roots 必须位于调用方信任且不会被本机其他进程恶意交
 		</member>
 		<member kind="const" name="ABSOLUTE_MAX_BACKUP_BYTES">
 			<signature>const ABSOLUTE_MAX_BACKUP_BYTES: int = 256 * 1024 * 1024</signature>
-			<description>单次事务允许的回滚快照总字节数绝对上限。</description>
+			<description>单次事务 snapshots 与单个 restore working copy 的最大并发恢复字节数绝对上限。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="since">unreleased</tag>
@@ -203,7 +203,7 @@ dry_run 为 true 时只执行完整预检。成功写入时全部 staging 文件
 				<tag name="return">JSON-safe 提交报告。</tag>
 				<tag name="schema">entries: Array[Dictionary]，每项包含 kind、target_path、对应内容和可选 entry 选项。</tag>
 				<tag name="schema">options: Dictionary，必须包含非空 allowed_roots；可包含 overwrite_existing、max_file_count、max_file_bytes、max_total_bytes、max_backup_bytes、dry_run、scan_filesystem 和 metadata。</tag>
-				<tag name="schema">return: Dictionary，包含 ok、status、entry_count、written_count、unchanged_count、total_bytes、backup_bytes、rolled_back、rollback_complete、recovery_required、recovery_action、recovery_transaction、issues、reports 和 metadata；recovery_required 为 true 时，调用方必须按 recovery_action 将 recovery_transaction 原样交给 rollback() 或 complete()。</tag>
+				<tag name="schema">return: closed Dictionary，始终且仅包含 ok、status、entry_count、written_count、unchanged_count、total_bytes、backup_bytes、rolled_back、rollback_complete、recovery_required、recovery_action、recovery_transaction、issues、reports 和 metadata；backup_bytes 是 changed target snapshots 与单个 rollback restore working copy 的最大并发占用；recovery_required 为 true 时，调用方必须按 recovery_action 将 recovery_transaction 原样交给 rollback() 或 complete()。</tag>
 				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
@@ -218,7 +218,7 @@ begin() 成功后，调用方必须且只能调用 complete() 或 rollback() 之
 				<tag name="param">options: 快照边界选项。</tag>
 				<tag name="return">只能原样交给 complete() 或 rollback() 的完整性校验事务字典；调用方不得改写。</tag>
 				<tag name="schema">options: Dictionary，必须包含非空 allowed_roots；可包含 max_file_count、max_backup_bytes 和 metadata。</tag>
-				<tag name="schema">return: opaque Dictionary，包含 ok、format、format_version、state、transaction_id、transaction_token、entry_count、backup_bytes 和 metadata；不暴露目标或备份路径。</tag>
+				<tag name="schema">return: closed Dictionary，始终且仅包含 ok、format、format_version、state、transaction_id、transaction_token、entry_count、backup_bytes、issues、recovery_required、recovery_action、recovery_transaction 和 metadata；backup_bytes 是 snapshots 与单个 rollback restore working copy 的最大并发占用。ok=true 时 state=open、issues 为空且 recovery 字段为空；ok=false 时 state=failed、公开事务身份为空，只有 cleanup 未完成时 recovery_required=true、recovery_action=complete 且 recovery_transaction 为待终结的 opaque handle；不暴露目标或 sidecar 路径。</tag>
 				<tag name="since">unreleased</tag>
 			</tags>
 		</member>

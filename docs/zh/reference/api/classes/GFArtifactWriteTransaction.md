@@ -129,7 +129,7 @@ const DEFAULT_MAX_TOTAL_BYTES: int = 256 * 1024 * 1024
 const DEFAULT_MAX_BACKUP_BYTES: int = 256 * 1024 * 1024
 ```
 
-默认事务回滚快照最大总字节数。
+默认事务 snapshots 与单个 restore working copy 的最大并发恢复字节数。
 
 <a id="member-gfartifactwritetransaction-constants-absolute_max_file_count"></a>
 
@@ -181,7 +181,7 @@ const ABSOLUTE_MAX_TOTAL_BYTES: int = 256 * 1024 * 1024
 const ABSOLUTE_MAX_BACKUP_BYTES: int = 256 * 1024 * 1024
 ```
 
-单次事务允许的回滚快照总字节数绝对上限。
+单次事务 snapshots 与单个 restore working copy 的最大并发恢复字节数绝对上限。
 
 <a id="member-gfartifactwritetransaction-constants-absolute_max_active_transactions"></a>
 
@@ -362,7 +362,7 @@ static func commit( entries: Array[Dictionary], options: Dictionary = {} ) -> Di
 
 - `entries`: Array[Dictionary]，每项包含 kind、target_path、对应内容和可选 entry 选项。
 - `options`: Dictionary，必须包含非空 allowed_roots；可包含 overwrite_existing、max_file_count、max_file_bytes、max_total_bytes、max_backup_bytes、dry_run、scan_filesystem 和 metadata。
-- `return`: Dictionary，包含 ok、status、entry_count、written_count、unchanged_count、total_bytes、backup_bytes、rolled_back、rollback_complete、recovery_required、recovery_action、recovery_transaction、issues、reports 和 metadata；recovery_required 为 true 时，调用方必须按 recovery_action 将 recovery_transaction 原样交给 rollback() 或 complete()。
+- `return`: closed Dictionary，始终且仅包含 ok、status、entry_count、written_count、unchanged_count、total_bytes、backup_bytes、rolled_back、rollback_complete、recovery_required、recovery_action、recovery_transaction、issues、reports 和 metadata；backup_bytes 是 changed target snapshots 与单个 rollback restore working copy 的最大并发占用；recovery_required 为 true 时，调用方必须按 recovery_action 将 recovery_transaction 原样交给 rollback() 或 complete()。
 
 <a id="member-gfartifactwritetransaction-methods-begin"></a>
 
@@ -389,7 +389,7 @@ static func begin( paths: PackedStringArray, options: Dictionary = {} ) -> Dicti
 结构：
 
 - `options`: Dictionary，必须包含非空 allowed_roots；可包含 max_file_count、max_backup_bytes 和 metadata。
-- `return`: opaque Dictionary，包含 ok、format、format_version、state、transaction_id、transaction_token、entry_count、backup_bytes 和 metadata；不暴露目标或备份路径。
+- `return`: closed Dictionary，始终且仅包含 ok、format、format_version、state、transaction_id、transaction_token、entry_count、backup_bytes、issues、recovery_required、recovery_action、recovery_transaction 和 metadata；backup_bytes 是 snapshots 与单个 rollback restore working copy 的最大并发占用。ok=true 时 state=open、issues 为空且 recovery 字段为空；ok=false 时 state=failed、公开事务身份为空，只有 cleanup 未完成时 recovery_required=true、recovery_action=complete 且 recovery_transaction 为待终结的 opaque handle；不暴露目标或 sidecar 路径。
 
 <a id="member-gfartifactwritetransaction-methods-rollback"></a>
 

@@ -2,7 +2,7 @@
   "schema_version": 1,
   "catalog_version": "1.0.0",
   "framework_version": "10.0.0-dev.0",
-  "source_digest": "24ceb3ad8c76d868639b9559540a22bdd9d873f65121699cc5c2b1c5c6569a06",
+  "source_digest": "57687629ffbc7eec8929c543609ee0255943715d27e75e2957f5abcdf3b786e6",
   "class_count": 761,
   "package_count": 52,
   "packages": [
@@ -2902,7 +2902,7 @@
           "kind": "const",
           "name": "DEFAULT_MAX_BACKUP_BYTES",
           "signature": "const DEFAULT_MAX_BACKUP_BYTES: int = 256 * 1024 * 1024",
-          "summary": "默认事务回滚快照最大总字节数。",
+          "summary": "默认事务 snapshots 与单个 restore working copy 的最大并发恢复字节数。",
           "visibility": "public"
         },
         {
@@ -2930,7 +2930,7 @@
           "kind": "const",
           "name": "ABSOLUTE_MAX_BACKUP_BYTES",
           "signature": "const ABSOLUTE_MAX_BACKUP_BYTES: int = 256 * 1024 * 1024",
-          "summary": "单次事务允许的回滚快照总字节数绝对上限。",
+          "summary": "单次事务 snapshots 与单个 restore working copy 的最大并发恢复字节数绝对上限。",
           "visibility": "public"
         },
         {
@@ -89218,7 +89218,7 @@
           "kind": "func",
           "name": "disconnect_backend",
           "signature": "func disconnect_backend() -> void",
-          "summary": "断开 WebSocket 连接。",
+          "summary": "断开 WebSocket 连接；已完全断开时重复或重入调用为幂等 no-op，",
           "visibility": "public"
         },
         {

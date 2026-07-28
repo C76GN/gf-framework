@@ -900,6 +900,12 @@ CHECK_DEFINITIONS: dict[str, list[str]] = {
 		sys.executable,
 		"tests/gf_core/tools/ai_developer/test_gf_ai_project_tool.py",
 	],
+	"ai_developer_adapter_acceptance": [
+		sys.executable,
+		"tools/build_gf_ai_developer_kit.py",
+		"--storage-backend-acceptance",
+		"--json",
+	],
 	"ai_developer_kit_source": [
 		sys.executable,
 		"tools/build_gf_ai_developer_kit.py",
@@ -1132,7 +1138,7 @@ PACKAGE_SMOKE_CHECKS: list[str] = [
 	*PACKAGE_CLI_CHECKS,
 ]
 PACKAGE_CONTRACT_CHECKS: list[str] = [
-	"ai_developer_kit",
+	"ai_developer_adapter_acceptance",
 	"package_boundary",
 	"package_closure_audit",
 	"package_source_boundary",
@@ -1518,6 +1524,10 @@ DEFAULT_CHECK_TIMEOUT_SECONDS: int = 600
 CHECK_TIMEOUT_SECONDS: dict[str, int] = {
 	# Runs six focused process-level lifecycle scenarios after a shared import.
 	"gut_lifecycle_smoke": 360,
+	# The executable Adapter contract performs one isolated import and one GUT
+	# run. A measured Windows run takes about 5.5 minutes, so retain a bounded
+	# 15-minute outer budget while each supervised Godot phase stays capped.
+	"ai_developer_adapter_acceptance": 900,
 	# The editor wizard smoke launches and tears down isolated editor projects;
 	# a clean Windows run is routinely longer than the generic ten-minute budget.
 	"package_editor_wizard_smoke": 1200,
@@ -15769,11 +15779,26 @@ def maintenance_self_test() -> dict[str, Any]:
 		"quick_uses_ai_developer_source_gate_while_full_runs_behavior_tests",
 		"ai_developer_kit_source" in CHECK_SUITES["quick"]
 		and "ai_developer_kit" not in CHECK_SUITES["quick"]
+		and "ai_developer_adapter_acceptance" not in CHECK_SUITES["quick"]
+		and "ai_developer_kit" in CHECK_SUITES["api"]
 		and "ai_developer_kit" in CHECK_SUITES["framework-static"]
 		and "ai_developer_kit" in CHECK_SUITES["framework"]
+		and "ai_developer_kit" not in CHECK_SUITES["package-contract"]
+		and "ai_developer_kit" not in CHECK_SUITES["package"]
+		and "ai_developer_adapter_acceptance" not in CHECK_SUITES["api"]
+		and "ai_developer_adapter_acceptance" not in CHECK_SUITES["framework-static"]
+		and "ai_developer_adapter_acceptance" not in CHECK_SUITES["framework"]
+		and "ai_developer_adapter_acceptance" in CHECK_SUITES["package-contract"]
+		and "ai_developer_adapter_acceptance" in CHECK_SUITES["package"]
+		and {
+			"tools/build_gf_ai_developer_kit.py",
+			"--storage-backend-acceptance",
+		}.issubset(CHECK_DEFINITIONS["ai_developer_adapter_acceptance"])
 		and "ai_developer_kit" in CHECK_SUITES["full"]
-		and "ai_developer_kit" in CHECK_SUITES["release"],
-		"Draft feedback should check tracked AI Kit inputs quickly; merge and release gates must retain all behavior tests.",
+		and "ai_developer_adapter_acceptance" in CHECK_SUITES["full"]
+		and "ai_developer_kit" in CHECK_SUITES["release"]
+		and "ai_developer_adapter_acceptance" in CHECK_SUITES["release"],
+		"Draft feedback should check tracked AI Kit inputs quickly; static/API behavior and Godot-backed Adapter acceptance must retain distinct owners through merge and release.",
 	)
 	record_result(
 		"repository_policy_is_a_quick_and_full_gate",
@@ -15947,11 +15972,17 @@ def maintenance_self_test() -> dict[str, Any]:
 		DEFAULT_PARALLEL_FULL_JOBS,
 		1,
 	)
+	deadline_fixture_canonical_checks = expanded_check_names("full", None)
 	record_result(
 		"parallel_deadline_reports_canonical_but_unstarted_results",
 		deadline_fixture_result.get("completed_check_count") == 0
-		and deadline_fixture_result.get("canonical_result_count") == len(FULL_CHECKS)
-		and deadline_fixture_result.get("not_started_check_count") == len(FULL_CHECKS)
+		and deadline_fixture_result.get("checks") == deadline_fixture_canonical_checks
+		and deadline_fixture_result.get("canonical_result_count") == len(deadline_fixture_canonical_checks)
+		and deadline_fixture_result.get("not_started_check_count") == len(deadline_fixture_canonical_checks)
+		and [
+			item.get("name")
+			for item in deadline_fixture_result.get("results", [])
+		] == deadline_fixture_canonical_checks
 		and all(
 			item.get("execution") == "not_started"
 			and item.get("exit_code") == 124
@@ -16016,7 +16047,9 @@ def maintenance_self_test() -> dict[str, Any]:
 	)
 	record_result(
 		"long_package_smokes_have_dedicated_timeout_budgets",
-		resolve_check_timeout_seconds("package_editor_wizard_smoke", None) == 1200
+		resolve_check_timeout_seconds("ai_developer_adapter_acceptance", None) == 900
+		and resolve_check_timeout_seconds("ai_developer_adapter_acceptance", 45) == 900
+		and resolve_check_timeout_seconds("package_editor_wizard_smoke", None) == 1200
 		and resolve_check_timeout_seconds("package_editor_wizard_smoke", 45) == 1200
 		and resolve_check_timeout_seconds("package_godot_cli_smoke", None) == 2400
 		and resolve_check_timeout_seconds("package_godot_cli_smoke", 45) == 2400

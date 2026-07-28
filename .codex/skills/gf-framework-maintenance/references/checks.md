@@ -18,6 +18,7 @@ python tools\gf_maintenance.py check --suite framework-static --json
 python tools\gf_maintenance.py check --suite full --json
 python tools\gf_maintenance.py check --suite full --jobs 1 --json
 python tools\gf_maintenance.py check --suite api --json
+python tools\gf_maintenance.py check --check ai_developer_adapter_acceptance --json
 python tools\gf_maintenance.py check --suite docs --json
 python tools\gf_maintenance.py check --suite examples --json
 python tools\gf_maintenance.py summary --json
@@ -65,6 +66,7 @@ git diff --cached --check
 - Broad public API changes, removals, return type changes, or class moves: run `api-baseline-diff`. It compares the current generated API Catalog against the latest lower SemVer tag and reports added/removed classes, added/removed members, compatible/breaking signature changes, and extends changes. `release-status` reuses it and fails breaking changes unless the target release is a major bump, or the maintainer explicitly approves and records a minor/patch compatibility break before running `release-status --allow-breaking-api`.
 - Public API comments or signatures in a dirty worktree: run `api-since-touched`; quick/full/release suites include it. It checks changed `public` / `protected` API doc blocks without failing untouched historical migration debt.
 - Generated API docs: do not hand-edit `docs/api_catalog/**` or `docs/zh/reference/api/**`; regenerate with `tools/generate_api_reference.py`. The generator stages Catalog and Reference together and replaces both only after successful validation; changes to this path require rollback/escape-root self-tests.
+- AI Developer Kit source, catalogs, schemas, Adapter templates, or builder changes: run `check --check ai_developer_kit` for pure Python behavior and `check --check ai_developer_adapter_acceptance` for the isolated Godot-backed executable contract. The pure behavior check belongs to the focused API and `framework-static` suites; the executable acceptance belongs to `package-contract` and must not enter Draft or `framework-static`.
 - Handwritten docs: run `check --suite docs`; use `public-docs-boundary` when docs mention optional extension defaults, editor workspace pages, AI maintenance paths, external research notes, package signature/security claims, or user-facing package/extension install prerequisites.
 - Layer, extension dependency, manifest, preset, or contribution-boundary changes: run `dependency-boundary`, the full suite, and the specific maintenance tests for layer boundary and GDScript parse validation when relevant.
 - Resource loading, resolver, cache, owner handle, or scene/UI async loading changes: run `resource-boundary` and `asset-lifecycle-boundary`; `resource-boundary` is report-only by default and lists direct `preload()` / `load()` / `ResourceLoader.*` path literals before strict resource-domain gates are enabled, while `asset-lifecycle-boundary` reports GFAssetHandle acquisitions that lack both owner and group anchors.

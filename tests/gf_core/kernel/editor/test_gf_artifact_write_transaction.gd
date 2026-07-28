@@ -26,6 +26,7 @@ func before_each() -> void:
 
 
 func after_each() -> void:
+	_GF_ARTIFACT_WRITE_TRANSACTION_SCRIPT._reset_test_owned_write_failures()
 	_remove_absolute_path(ProjectSettings.globalize_path(_temp_root))
 
 
@@ -63,6 +64,7 @@ func test_commit_writes_all_entries_and_returns_json_safe_reports() -> void:
 		"reports"
 	)
 
+	_assert_closed_commit_shape(report)
 	assert_true(
 		_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(report, "ok"),
 		"全部 staging 成功后才应提交多产物事务。"
@@ -452,6 +454,174 @@ func test_external_writer_snapshot_budget_fails_before_creating_backups() -> voi
 	assert_eq(_count_transaction_sidecars(), 0)
 
 
+func test_begin_budgets_peak_snapshot_and_restore_bytes_with_closed_shape() -> void:
+	var first_path: String = _temp_root.path_join("first-budget.txt")
+	var second_path: String = _temp_root.path_join("second-budget.txt")
+	_write_text(first_path, "1234")
+	_write_text(second_path, "123456")
+
+	var rejected: Dictionary = _GF_ARTIFACT_WRITE_TRANSACTION_SCRIPT.begin(
+		PackedStringArray([first_path, second_path]),
+		{
+			"allowed_roots": [_temp_root],
+			"max_backup_bytes": 15,
+		}
+	)
+
+	_assert_closed_begin_shape(rejected)
+	assert_false(_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(rejected, "ok"))
+	assert_eq(
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_string(rejected, "state"),
+		"failed"
+	)
+	assert_eq(_count_transaction_sidecars(), 0)
+
+	var transaction: Dictionary = _GF_ARTIFACT_WRITE_TRANSACTION_SCRIPT.begin(
+		PackedStringArray([first_path, second_path]),
+		{
+			"allowed_roots": [_temp_root],
+			"max_backup_bytes": 16,
+		}
+	)
+
+	_assert_closed_begin_shape(transaction)
+	assert_true(_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(transaction, "ok"))
+	assert_eq(
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+			transaction,
+			"backup_bytes"
+		),
+		16,
+		"backup_bytes 应报告 snapshots 总和 10 加单个最大 restore working copy 6。"
+	)
+	var cleanup_report: Dictionary = (
+		_GF_ARTIFACT_WRITE_TRANSACTION_SCRIPT.complete(transaction)
+	)
+	assert_true(_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(cleanup_report, "ok"))
+	assert_eq(_count_transaction_sidecars(), 0)
+
+
+func test_commit_budgets_peak_snapshot_and_restore_bytes() -> void:
+	var first_path: String = _temp_root.path_join("first-commit-budget.txt")
+	var second_path: String = _temp_root.path_join("second-commit-budget.txt")
+	_write_text(first_path, "1234")
+	_write_text(second_path, "123456")
+	var entries: Array[Dictionary] = [
+		_GF_ARTIFACT_WRITE_TRANSACTION_SCRIPT.make_text_entry(
+			first_path,
+			"ABCD"
+		),
+		_GF_ARTIFACT_WRITE_TRANSACTION_SCRIPT.make_text_entry(
+			second_path,
+			"ABCDEF"
+		),
+	]
+
+	var rejected: Dictionary = _GF_ARTIFACT_WRITE_TRANSACTION_SCRIPT.commit(
+		entries,
+		{
+			"allowed_roots": [_temp_root],
+			"max_backup_bytes": 15,
+			"scan_filesystem": false,
+		}
+	)
+
+	_assert_closed_commit_shape(rejected)
+	assert_false(_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(rejected, "ok"))
+	assert_eq(
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_string(rejected, "status"),
+		"preflight_failed"
+	)
+	assert_eq(_read_text(first_path), "1234")
+	assert_eq(_read_text(second_path), "123456")
+	assert_eq(_count_transaction_sidecars(), 0)
+
+	var committed: Dictionary = _GF_ARTIFACT_WRITE_TRANSACTION_SCRIPT.commit(
+		entries,
+		{
+			"allowed_roots": [_temp_root],
+			"max_backup_bytes": 16,
+			"scan_filesystem": false,
+		}
+	)
+
+	_assert_closed_commit_shape(committed)
+	assert_true(_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(committed, "ok"))
+	assert_eq(
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+			committed,
+			"backup_bytes"
+		),
+		16,
+		"commit backup_bytes 应为 snapshots 总和 10 加单个最大 restore working copy 6。"
+	)
+	assert_eq(_read_text(first_path), "ABCD")
+	assert_eq(_read_text(second_path), "ABCDEF")
+	assert_eq(_count_transaction_sidecars(), 0)
+
+
+func test_begin_late_failure_keeps_cleanup_recovery_ownership() -> void:
+	var existing_path: String = _temp_root.path_join("existing.txt")
+	_write_text(existing_path, "before")
+	var transaction: Dictionary = _GF_ARTIFACT_WRITE_TRANSACTION_SCRIPT.begin(
+		PackedStringArray([existing_path]),
+		{ "allowed_roots": [_temp_root] }
+	)
+	assert_true(_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(transaction, "ok"))
+	var backup_path: String = _find_transaction_sidecar("backup")
+	assert_false(backup_path.is_empty(), "测试必须先建立受事务持有的 backup。")
+	var backup_absolute: String = ProjectSettings.globalize_path(backup_path)
+	assert_eq(DirAccess.remove_absolute(backup_absolute), OK)
+	assert_eq(
+		DirAccess.make_dir_recursive_absolute(backup_absolute),
+		OK,
+		"目录碰撞用于确定性注入 cleanup 失败。"
+	)
+
+	var failed_begin: Dictionary = (
+		_GF_ARTIFACT_WRITE_TRANSACTION_SCRIPT._finalize_failed_begin(
+			transaction,
+			PackedStringArray(["Injected late snapshot failure."])
+		)
+	)
+
+	assert_false(_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(failed_begin, "ok"))
+	assert_eq(
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_string(failed_begin, "state"),
+		"failed"
+	)
+	assert_true(
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+			failed_begin,
+			"recovery_required"
+		),
+		"cleanup 失败时 begin 必须保留结构化恢复所有权。"
+	)
+	assert_eq(
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(
+			failed_begin,
+			"recovery_action"
+		),
+		_GF_ARTIFACT_WRITE_TRANSACTION_SCRIPT.RECOVERY_ACTION_COMPLETE
+	)
+	_remove_absolute_path(backup_absolute)
+	var recovery_transaction: Dictionary = (
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(
+			failed_begin,
+			"recovery_transaction"
+		)
+	)
+	var retry_report: Dictionary = (
+		_GF_ARTIFACT_WRITE_TRANSACTION_SCRIPT.complete(recovery_transaction)
+	)
+	assert_true(
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(retry_report, "ok"),
+		"清除介质冲突后，begin 返回的 recovery handle 必须可完成 cleanup。"
+	)
+	assert_eq(_read_text(existing_path), "before")
+	assert_eq(_count_transaction_sidecars(), 0)
+
+
 func test_replace_revalidates_staging_content_immediately_before_rename() -> void:
 	var target_path: String = _temp_root.path_join("staging-drift.txt")
 	_write_text(target_path, "before")
@@ -731,6 +901,213 @@ func test_rollback_preflights_every_snapshot_before_touching_targets() -> void:
 	assert_eq(_count_transaction_sidecars(), 0)
 
 
+func test_rollback_retries_from_recorded_target_removed_state() -> void:
+	var target_path: String = _temp_root.path_join("target-removed.txt")
+	_write_text(target_path, "before")
+	var transaction: Dictionary = _GF_ARTIFACT_WRITE_TRANSACTION_SCRIPT.begin(
+		PackedStringArray([target_path]),
+		{ "allowed_roots": [_temp_root] }
+	)
+	assert_true(_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(transaction, "ok"))
+	_GF_ARTIFACT_WRITE_TRANSACTION_SCRIPT._enable_selective_rollback(
+		transaction
+	)
+	_write_text(target_path, "committed")
+	_GF_ARTIFACT_WRITE_TRANSACTION_SCRIPT._mark_transaction_path_modified(
+		transaction,
+		target_path,
+		true,
+		"committed".to_utf8_buffer().size(),
+		FileAccess.get_sha256(target_path).to_lower()
+	)
+	assert_eq(
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(target_path)),
+		OK,
+		"测试应模拟 rollback 已删除 committed replacement。"
+	)
+	assert_true(
+		_GF_ARTIFACT_WRITE_TRANSACTION_SCRIPT._record_rollback_target_removed(
+			transaction,
+			target_path
+		),
+		"删除后的中间状态必须写回受 registry 保护的事务。"
+	)
+
+	var retry_report: Dictionary = (
+		_GF_ARTIFACT_WRITE_TRANSACTION_SCRIPT.rollback(transaction)
+	)
+
+	assert_true(
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(retry_report, "ok"),
+		"backup rename 失败后返回的 rollback handle 必须能从 target_removed 重试。"
+	)
+	assert_eq(_read_text(target_path), "before")
+	assert_eq(_count_transaction_sidecars(), 0)
+
+
+func test_rollback_retries_after_restore_verification_failure() -> void:
+	var target_path: String = _temp_root.path_join("restore-verification.txt")
+	_write_text(target_path, "before")
+	var transaction: Dictionary = _GF_ARTIFACT_WRITE_TRANSACTION_SCRIPT.begin(
+		PackedStringArray([target_path]),
+		{ "allowed_roots": [_temp_root] }
+	)
+	assert_true(_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(transaction, "ok"))
+	var backup_path: String = _find_transaction_sidecar("backup")
+	assert_false(backup_path.is_empty(), "测试必须保留原始 backup。")
+	_GF_ARTIFACT_WRITE_TRANSACTION_SCRIPT._enable_selective_rollback(
+		transaction
+	)
+	_write_text(target_path, "failed-restore")
+	_GF_ARTIFACT_WRITE_TRANSACTION_SCRIPT._mark_transaction_path_modified(
+		transaction,
+		target_path,
+		true,
+		"failed-restore".to_utf8_buffer().size(),
+		FileAccess.get_sha256(target_path).to_lower()
+	)
+	assert_true(
+		_GF_ARTIFACT_WRITE_TRANSACTION_SCRIPT._record_rollback_restore_failure(
+			transaction,
+			target_path
+		),
+		"校验失败后的实际目标身份必须写回事务。"
+	)
+
+	var retry_report: Dictionary = (
+		_GF_ARTIFACT_WRITE_TRANSACTION_SCRIPT.rollback(transaction)
+	)
+
+	assert_true(
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(retry_report, "ok"),
+		"verification 失败后 recovery_action=rollback 必须能重用保留的 backup。"
+	)
+	assert_eq(_read_text(target_path), "before")
+	assert_false(FileAccess.file_exists(backup_path))
+	assert_eq(_count_transaction_sidecars(), 0)
+
+
+func test_unknown_restore_failure_accepts_only_exact_original_state() -> void:
+	var target_path: String = _temp_root.path_join("unknown-restore-state.txt")
+	_write_text(target_path, "before")
+	var transaction: Dictionary = _GF_ARTIFACT_WRITE_TRANSACTION_SCRIPT.begin(
+		PackedStringArray([target_path]),
+		{ "allowed_roots": [_temp_root] }
+	)
+	assert_true(_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(transaction, "ok"))
+	var backup_path: String = _find_transaction_sidecar("backup")
+	assert_false(backup_path.is_empty())
+	assert_eq(
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(target_path)),
+		OK
+	)
+	assert_eq(
+		DirAccess.make_dir_recursive_absolute(
+			ProjectSettings.globalize_path(target_path)
+		),
+		OK
+	)
+	assert_false(
+		_GF_ARTIFACT_WRITE_TRANSACTION_SCRIPT._record_rollback_restore_failure(
+			transaction,
+			target_path
+		),
+		"目录状态不可哈希时应记录 state_known=false。"
+	)
+	_remove_absolute_path(ProjectSettings.globalize_path(target_path))
+	_write_text(target_path, "mismatch")
+
+	var rejected: Dictionary = (
+		_GF_ARTIFACT_WRITE_TRANSACTION_SCRIPT.rollback(transaction)
+	)
+
+	assert_false(_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(rejected, "ok"))
+	assert_eq(
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_string(rejected, "status"),
+		"rollback_preflight_failed",
+		"未知失败状态不得把任意可读 replacement 当作已恢复目标。"
+	)
+	assert_eq(_read_text(target_path), "mismatch")
+	assert_true(FileAccess.file_exists(backup_path))
+	var recovery_transaction: Dictionary = (
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(
+			rejected,
+			"recovery_transaction"
+		)
+	)
+	_write_text(target_path, "before")
+
+	var recovered: Dictionary = (
+		_GF_ARTIFACT_WRITE_TRANSACTION_SCRIPT.rollback(recovery_transaction)
+	)
+
+	assert_true(
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(recovered, "ok"),
+		"目标后来精确等于原始快照时，应转为 target_restored 并只清理 backup。"
+	)
+	assert_eq(_read_text(target_path), "before")
+	assert_false(FileAccess.file_exists(backup_path))
+	assert_eq(_count_transaction_sidecars(), 0)
+
+
+func test_rollback_restore_partial_cleanup_retains_retryable_ownership() -> void:
+	var target_path: String = _temp_root.path_join("partial-restore.txt")
+	_write_text(target_path, "before")
+	var transaction: Dictionary = _GF_ARTIFACT_WRITE_TRANSACTION_SCRIPT.begin(
+		PackedStringArray([target_path]),
+		{ "allowed_roots": [_temp_root] }
+	)
+	assert_true(_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(transaction, "ok"))
+	_write_text(target_path, "after")
+	_GF_ARTIFACT_WRITE_TRANSACTION_SCRIPT._configure_test_owned_write_failures(
+		1,
+		0,
+		1
+	)
+
+	var failed: Dictionary = (
+		_GF_ARTIFACT_WRITE_TRANSACTION_SCRIPT.rollback(transaction)
+	)
+	var restore_path: String = _find_transaction_sidecar_for_target(
+		target_path,
+		"restore"
+	)
+
+	assert_false(_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(failed, "ok"))
+	assert_true(
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(failed, "recovery_required")
+	)
+	assert_eq(
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(
+			failed,
+			"recovery_action"
+		),
+		_GF_ARTIFACT_WRITE_TRANSACTION_SCRIPT.RECOVERY_ACTION_ROLLBACK
+	)
+	assert_false(restore_path.is_empty())
+	assert_true(FileAccess.file_exists(restore_path))
+	assert_eq(
+		_read_text(target_path),
+		"after",
+		"restore working copy 不完整时不得先删除权威目标。"
+	)
+	var recovery_transaction: Dictionary = (
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(
+			failed,
+			"recovery_transaction"
+		)
+	)
+
+	var recovered: Dictionary = (
+		_GF_ARTIFACT_WRITE_TRANSACTION_SCRIPT.rollback(recovery_transaction)
+	)
+
+	assert_true(_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(recovered, "ok"))
+	assert_eq(_read_text(target_path), "before")
+	assert_false(FileAccess.file_exists(restore_path))
+	assert_eq(_count_transaction_sidecars(), 0)
+
+
 func test_external_writer_rollback_does_not_remove_directory_collision() -> void:
 	var target_path: String = _temp_root.path_join("collision")
 	var transaction: Dictionary = _GF_ARTIFACT_WRITE_TRANSACTION_SCRIPT.begin(
@@ -880,7 +1257,797 @@ func test_complete_failure_retains_narrowed_state_for_same_action_retry() -> voi
 	assert_eq(_count_transaction_sidecars(), 0)
 
 
+func test_failed_owned_write_reports_cleanup_and_refuses_replacement_delete() -> void:
+	var target_path: String = _temp_root.path_join("owned-target.bin")
+	var staging_owner_id: String = "0".repeat(32)
+	var staging_path: String = (
+		_GF_ARTIFACT_WRITE_TRANSACTION_SCRIPT._make_sidecar_path(
+			target_path,
+			"staging",
+			staging_owner_id,
+			0
+		)
+	)
+	_write_bytes(staging_path, PackedByteArray([1, 2, 3]))
+	assert_true(FileAccess.file_exists(staging_path))
+	_GF_ARTIFACT_WRITE_TRANSACTION_SCRIPT._configure_test_owned_write_failures(
+		0,
+		0,
+		1
+	)
+	var write_report: Dictionary = {}
+
+	var resolved_error: Error = (
+		_GF_ARTIFACT_WRITE_TRANSACTION_SCRIPT._resolve_owned_write_failure(
+			staging_path,
+			ERR_FILE_CANT_WRITE,
+			write_report
+		)
+	)
+
+	assert_eq(
+		resolved_error,
+		ERR_CANT_CREATE,
+		"cleanup 失败必须成为主返回错误，不能被原 write error 吞掉。"
+	)
+	assert_eq(
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+			write_report,
+			"write_error"
+		),
+		ERR_FILE_CANT_WRITE
+	)
+	assert_eq(
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+			write_report,
+			"cleanup_error"
+		),
+		ERR_CANT_CREATE
+	)
+	assert_eq(
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(
+			write_report,
+			"state"
+		),
+		&"partial"
+	)
+	var recovery_entry: Dictionary = {
+		"target_path": target_path,
+		"staging_path": staging_path,
+		"staging_owner_id": staging_owner_id,
+		"staging_owner_index": 0,
+	}
+	_GF_ARTIFACT_WRITE_TRANSACTION_SCRIPT._apply_owned_write_report(
+		recovery_entry,
+		"staging",
+		write_report
+	)
+	_write_bytes(staging_path, PackedByteArray([9, 9, 9]))
+	_GF_ARTIFACT_WRITE_TRANSACTION_SCRIPT._reset_test_owned_write_failures()
+
+	var replacement_cleanup_error: Error = (
+		_GF_ARTIFACT_WRITE_TRANSACTION_SCRIPT._remove_owned_partial_sidecar(
+			recovery_entry,
+			"staging"
+		)
+	)
+
+	assert_eq(replacement_cleanup_error, ERR_FILE_CORRUPT)
+	assert_eq(
+		_read_bytes(staging_path),
+		PackedByteArray([9, 9, 9]),
+		"sidecar 路径被 replacement 占用后必须保留未知文件。"
+	)
+	assert_eq(
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(staging_path)),
+		OK
+	)
+	assert_eq(
+		DirAccess.make_dir_recursive_absolute(
+			ProjectSettings.globalize_path(staging_path)
+		),
+		OK
+	)
+	assert_eq(
+		_GF_ARTIFACT_WRITE_TRANSACTION_SCRIPT._remove_owned_partial_sidecar(
+			recovery_entry,
+			"staging"
+		),
+		ERR_UNAUTHORIZED,
+		"同名目录碰撞不得被当作 sidecar 已缺失。"
+	)
+	assert_true(
+		DirAccess.dir_exists_absolute(
+			ProjectSettings.globalize_path(staging_path)
+		),
+		"fail-closed cleanup 必须保留未知目录。"
+	)
+	assert_eq(
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(staging_path)),
+		OK
+	)
+	assert_eq(
+		_GF_ARTIFACT_WRITE_TRANSACTION_SCRIPT._remove_owned_partial_sidecar(
+			recovery_entry,
+			"staging"
+		),
+		OK,
+		"调用方清除 identity drift 后，恢复所有权应可完成收口。"
+	)
+
+
+func test_begin_partial_backup_cleanup_failure_returns_complete_recovery() -> void:
+	var target_path: String = _temp_root.path_join("partial-backup.txt")
+	_write_text(target_path, "before")
+	_GF_ARTIFACT_WRITE_TRANSACTION_SCRIPT._configure_test_owned_write_failures(
+		1,
+		0,
+		2
+	)
+
+	var failed_begin: Dictionary = _GF_ARTIFACT_WRITE_TRANSACTION_SCRIPT.begin(
+		PackedStringArray([target_path]),
+		{ "allowed_roots": [_temp_root] }
+	)
+	var recovery_transaction: Dictionary = (
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(
+			failed_begin,
+			"recovery_transaction"
+		)
+	)
+	var partial_backup_path: String = _find_transaction_sidecar_for_target(
+		target_path,
+		"backup"
+	)
+
+	assert_false(_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(failed_begin, "ok"))
+	assert_true(
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+			failed_begin,
+			"recovery_required"
+		),
+		"partial backup 即时删除失败后必须保留 complete recovery。"
+	)
+	assert_eq(
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(
+			failed_begin,
+			"recovery_action"
+		),
+		_GF_ARTIFACT_WRITE_TRANSACTION_SCRIPT.RECOVERY_ACTION_COMPLETE
+	)
+	assert_false(partial_backup_path.is_empty())
+	assert_true(FileAccess.file_exists(partial_backup_path))
+
+	var retry_report: Dictionary = (
+		_GF_ARTIFACT_WRITE_TRANSACTION_SCRIPT.complete(recovery_transaction)
+	)
+
+	assert_true(_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(retry_report, "ok"))
+	assert_false(FileAccess.file_exists(partial_backup_path))
+	assert_eq(_read_text(target_path), "before")
+
+
+func test_commit_snapshot_failure_preserves_begin_complete_recovery() -> void:
+	var target_path: String = _temp_root.path_join("commit-partial-backup.txt")
+	_write_text(target_path, "before")
+	_GF_ARTIFACT_WRITE_TRANSACTION_SCRIPT._configure_test_owned_write_failures(
+		1,
+		0,
+		2
+	)
+
+	var report: Dictionary = _GF_ARTIFACT_WRITE_TRANSACTION_SCRIPT.commit(
+		[
+			_GF_ARTIFACT_WRITE_TRANSACTION_SCRIPT.make_text_entry(
+				target_path,
+				"after"
+			),
+		],
+		{
+			"allowed_roots": [_temp_root],
+			"scan_filesystem": false,
+		}
+	)
+	_assert_closed_commit_shape(report)
+	var recovery_transaction: Dictionary = (
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(
+			report,
+			"recovery_transaction"
+		)
+	)
+	var partial_backup_path: String = _find_transaction_sidecar_for_target(
+		target_path,
+		"backup"
+	)
+
+	assert_false(_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(report, "ok"))
+	assert_eq(
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_string(report, "status"),
+		"snapshot_failed"
+	)
+	assert_true(
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(report, "recovery_required"),
+		"commit 必须透传 begin snapshot failure 的恢复所有权。"
+	)
+	assert_eq(
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(
+			report,
+			"recovery_action"
+		),
+		_GF_ARTIFACT_WRITE_TRANSACTION_SCRIPT.RECOVERY_ACTION_COMPLETE
+	)
+	assert_false(partial_backup_path.is_empty())
+	assert_true(FileAccess.file_exists(partial_backup_path))
+	assert_eq(_read_text(target_path), "before")
+
+	var retry_report: Dictionary = (
+		_GF_ARTIFACT_WRITE_TRANSACTION_SCRIPT.complete(recovery_transaction)
+	)
+
+	assert_true(_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(retry_report, "ok"))
+	assert_false(FileAccess.file_exists(partial_backup_path))
+	assert_eq(_read_text(target_path), "before")
+
+
+func test_partial_backup_recovery_refuses_identity_drift() -> void:
+	var target_path: String = _temp_root.path_join("partial-backup-drift.txt")
+	_write_text(target_path, "before")
+	_GF_ARTIFACT_WRITE_TRANSACTION_SCRIPT._configure_test_owned_write_failures(
+		1,
+		0,
+		2
+	)
+	var failed_begin: Dictionary = _GF_ARTIFACT_WRITE_TRANSACTION_SCRIPT.begin(
+		PackedStringArray([target_path]),
+		{ "allowed_roots": [_temp_root] }
+	)
+	var recovery_transaction: Dictionary = (
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(
+			failed_begin,
+			"recovery_transaction"
+		)
+	)
+	var partial_backup_path: String = _find_transaction_sidecar_for_target(
+		target_path,
+		"backup"
+	)
+	assert_true(
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+			failed_begin,
+			"recovery_required"
+		)
+	)
+	assert_false(partial_backup_path.is_empty())
+	_write_text(partial_backup_path, "changed-after-failure")
+
+	var refused_report: Dictionary = (
+		_GF_ARTIFACT_WRITE_TRANSACTION_SCRIPT.complete(recovery_transaction)
+	)
+
+	assert_false(
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(refused_report, "ok"),
+		"partial sidecar 身份漂移后 complete 不得删除未知字节。"
+	)
+	assert_true(FileAccess.file_exists(partial_backup_path))
+	assert_eq(_read_text(partial_backup_path), "changed-after-failure")
+	_remove_absolute_path(ProjectSettings.globalize_path(partial_backup_path))
+	var retry_transaction: Dictionary = (
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(
+			refused_report,
+			"recovery_transaction"
+		)
+	)
+	var retry_report: Dictionary = (
+		_GF_ARTIFACT_WRITE_TRANSACTION_SCRIPT.complete(retry_transaction)
+	)
+	assert_true(
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(retry_report, "ok"),
+		"调用方移除未知碰撞后，complete 应能终结 cleanup obligation。"
+	)
+	assert_eq(_read_text(target_path), "before")
+
+
+func test_staging_partial_cleanup_failure_returns_complete_recovery() -> void:
+	var target_path: String = _temp_root.path_join("partial-staging.txt")
+	_GF_ARTIFACT_WRITE_TRANSACTION_SCRIPT._configure_test_owned_write_failures(
+		0,
+		1,
+		2
+	)
+
+	var report: Dictionary = _GF_ARTIFACT_WRITE_TRANSACTION_SCRIPT.commit(
+		[
+			_GF_ARTIFACT_WRITE_TRANSACTION_SCRIPT.make_text_entry(
+				target_path,
+				"staged"
+			),
+		],
+		{
+			"allowed_roots": [_temp_root],
+			"scan_filesystem": false,
+			"metadata": {
+				"owner": self,
+				"private_path": "C:/private/project/secret.json",
+			},
+		}
+	)
+	var recovery_transaction: Dictionary = (
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(
+			report,
+			"recovery_transaction"
+		)
+	)
+	var partial_staging_path: String = _find_transaction_sidecar_for_target(
+		target_path,
+		"staging"
+	)
+	var recovery_metadata: Dictionary = (
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(
+			recovery_transaction,
+			"metadata"
+		)
+	)
+
+	assert_false(_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(report, "ok"))
+	assert_eq(
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_string(report, "status"),
+		"staging_failed"
+	)
+	assert_true(
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(report, "recovery_required"),
+		"partial staging 清理失败后不得遗留无主 sidecar。"
+	)
+	assert_eq(
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(
+			report,
+			"recovery_action"
+		),
+		_GF_ARTIFACT_WRITE_TRANSACTION_SCRIPT.RECOVERY_ACTION_COMPLETE
+	)
+	assert_false(partial_staging_path.is_empty())
+	assert_true(FileAccess.file_exists(partial_staging_path))
+	assert_ne(
+		JSON.stringify(recovery_metadata).find("__gf_report_value__"),
+		-1,
+		"staging cleanup recovery handle 不得泄漏运行时 Object。"
+	)
+	assert_eq(
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_string(
+			recovery_metadata,
+			"private_path"
+		),
+		"secret.json",
+		"staging cleanup recovery handle 中的路径 metadata 必须只保留 basename。"
+	)
+	assert_eq(
+		JSON.stringify(recovery_transaction).find("C:/private/project"),
+		-1,
+		"恢复句柄不得保留调用方的完整私有路径。"
+	)
+
+	var retry_report: Dictionary = (
+		_GF_ARTIFACT_WRITE_TRANSACTION_SCRIPT.complete(recovery_transaction)
+	)
+
+	assert_true(_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(retry_report, "ok"))
+	assert_false(FileAccess.file_exists(partial_staging_path))
+	assert_false(FileAccess.file_exists(target_path))
+
+
+func test_commit_accepts_portable_255_byte_target_leaf() -> void:
+	var target_leaf: String = "%s.bin" % "a".repeat(251)
+	var target_path: String = _temp_root.path_join(target_leaf)
+	var payload: PackedByteArray = PackedByteArray([2, 5, 5])
+	var entries: Array[Dictionary] = [
+		_GF_ARTIFACT_WRITE_TRANSACTION_SCRIPT.make_bytes_entry(
+			target_path,
+			payload
+		),
+	]
+
+	var report: Dictionary = _GF_ARTIFACT_WRITE_TRANSACTION_SCRIPT.commit(
+		entries,
+		{
+			"allowed_roots": [_temp_root],
+			"scan_filesystem": false,
+		}
+	)
+
+	assert_eq(target_leaf.to_utf8_buffer().size(), 255)
+	assert_true(
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(report, "ok"),
+		"合法的 255-byte 目标 leaf 不应被内部 sidecar 后缀挤出文件系统边界。"
+	)
+	assert_eq(_read_bytes(target_path), payload)
+	assert_eq(_count_transaction_sidecars(), 0)
+
+
+func test_complete_staging_cleanup_failure_retains_recovery_ownership() -> void:
+	var source_path: String = _temp_root.path_join("source.bin")
+	var copied_target_path: String = _temp_root.path_join("copied.bin")
+	var failed_target_path: String = _temp_root.path_join("failed.txt")
+	_write_bytes(source_path, PackedByteArray([1, 2, 3, 4]))
+	_GF_ARTIFACT_WRITE_TRANSACTION_SCRIPT._configure_test_owned_write_failures(
+		0,
+		1,
+		2
+	)
+	var entries: Array[Dictionary] = [
+		_GF_ARTIFACT_WRITE_TRANSACTION_SCRIPT.make_file_entry(
+			copied_target_path,
+			source_path
+		),
+		_GF_ARTIFACT_WRITE_TRANSACTION_SCRIPT.make_text_entry(
+			failed_target_path,
+			"fail after write"
+		),
+	]
+
+	var report: Dictionary = _GF_ARTIFACT_WRITE_TRANSACTION_SCRIPT.commit(
+		entries,
+		{
+			"allowed_roots": [_temp_root],
+			"scan_filesystem": false,
+		}
+	)
+	var recovery_transaction: Dictionary = (
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(
+			report,
+			"recovery_transaction"
+		)
+	)
+	var complete_staging_path: String = (
+		_find_transaction_sidecar_for_target(
+			copied_target_path,
+			"staging"
+		)
+	)
+
+	assert_false(_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(report, "ok"))
+	assert_eq(
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_string(report, "status"),
+		"staging_failed"
+	)
+	assert_true(
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+			report,
+			"recovery_required"
+		),
+		"完整 staging 删除失败也必须保留结构化 cleanup 所有权。"
+	)
+	assert_eq(
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(
+			report,
+			"recovery_action"
+		),
+		_GF_ARTIFACT_WRITE_TRANSACTION_SCRIPT.RECOVERY_ACTION_COMPLETE
+	)
+	assert_false(complete_staging_path.is_empty())
+	assert_true(FileAccess.file_exists(complete_staging_path))
+	assert_false(FileAccess.file_exists(copied_target_path))
+	assert_false(FileAccess.file_exists(failed_target_path))
+
+	var retry_report: Dictionary = (
+		_GF_ARTIFACT_WRITE_TRANSACTION_SCRIPT.complete(
+			recovery_transaction
+		)
+	)
+
+	assert_true(_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(retry_report, "ok"))
+	assert_false(FileAccess.file_exists(complete_staging_path))
+	assert_true(FileAccess.file_exists(source_path))
+	assert_eq(_count_transaction_sidecars(), 0)
+
+
+func test_staging_cleanup_recovery_retains_only_cleanup_metadata() -> void:
+	var target_path: String = _temp_root.path_join("bounded-recovery.txt")
+	var owner_id: String = "a".repeat(32)
+	var cleanup_entry: Dictionary = _make_complete_staging_cleanup_entry(
+		target_path,
+		"bounded recovery",
+		owner_id
+	)
+	cleanup_entry["resolved_bytes"] = PackedByteArray([1, 2, 3, 4])
+	cleanup_entry["resolved_source_path"] = "user://must-not-be-retained.bin"
+	cleanup_entry["metadata"] = {
+		"must_not_be_retained": PackedByteArray([5, 6, 7, 8]),
+	}
+	var recovery_transaction: Dictionary = (
+		_GF_ARTIFACT_WRITE_TRANSACTION_SCRIPT._register_staging_sidecar_cleanup(
+			[cleanup_entry],
+			{},
+			"b".repeat(32)
+		)
+	)
+
+	assert_false(recovery_transaction.is_empty())
+	var transaction_id: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
+		recovery_transaction,
+		"transaction_id"
+	)
+	var active_state: Dictionary = (
+		_GF_ARTIFACT_WRITE_TRANSACTION_SCRIPT._active_transactions[
+			transaction_id
+		]
+	)
+	var registered_entries: Array[Dictionary] = (
+		_GF_ARTIFACT_WRITE_TRANSACTION_SCRIPT._get_staging_cleanup_entries(
+			active_state
+		)
+	)
+	assert_eq(registered_entries.size(), 1)
+	var registered_entry: Dictionary = registered_entries[0]
+	assert_false(registered_entry.has("resolved_bytes"))
+	assert_false(registered_entry.has("resolved_source_path"))
+	assert_false(registered_entry.has("metadata"))
+	var expected_keys: PackedStringArray = PackedStringArray([
+		"content_sha256",
+		"size_bytes",
+		"staging_owner_id",
+		"staging_owner_index",
+		"staging_partial_identity_known",
+		"staging_partial_sha256",
+		"staging_partial_size_bytes",
+		"staging_path",
+		"staging_write_state",
+		"target_path",
+	])
+	var actual_keys: PackedStringArray = PackedStringArray()
+	for key_value: Variant in registered_entry.keys():
+		if not key_value is String:
+			fail_test("staging cleanup recovery keys must be Strings.")
+			continue
+		var key: String = key_value
+		var _key_appended: bool = actual_keys.append(key)
+	actual_keys.sort()
+	expected_keys.sort()
+	assert_eq(actual_keys, expected_keys)
+
+	var complete_report: Dictionary = (
+		_GF_ARTIFACT_WRITE_TRANSACTION_SCRIPT.complete(
+			recovery_transaction
+		)
+	)
+	assert_true(_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(complete_report, "ok"))
+	assert_eq(_count_transaction_sidecars(), 0)
+
+
+func test_complete_consumes_attached_staging_cleanup_with_retry() -> void:
+	var target_path: String = _temp_root.path_join("complete-target.txt")
+	_write_text(target_path, "before")
+	var transaction: Dictionary = _GF_ARTIFACT_WRITE_TRANSACTION_SCRIPT.begin(
+		PackedStringArray([target_path]),
+		{ "allowed_roots": [_temp_root] }
+	)
+	var cleanup_entry: Dictionary = _make_complete_staging_cleanup_entry(
+		target_path,
+		"complete-sidecar",
+		"b".repeat(32)
+	)
+	var cleanup_entries: Array[Dictionary] = [cleanup_entry]
+	var attached: Dictionary = (
+		_GF_ARTIFACT_WRITE_TRANSACTION_SCRIPT._register_staging_sidecar_cleanup(
+			cleanup_entries,
+			{},
+			"c".repeat(32),
+			transaction
+		)
+	)
+	var staging_path: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
+		cleanup_entry,
+		"staging_path"
+	)
+	_GF_ARTIFACT_WRITE_TRANSACTION_SCRIPT._configure_test_owned_write_failures(
+		0,
+		0,
+		1
+	)
+
+	var failed: Dictionary = (
+		_GF_ARTIFACT_WRITE_TRANSACTION_SCRIPT.complete(attached)
+	)
+
+	assert_false(_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(failed, "ok"))
+	assert_eq(
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_string(failed, "status"),
+		"cleanup_failed"
+	)
+	assert_eq(
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(
+			failed,
+			"recovery_action"
+		),
+		_GF_ARTIFACT_WRITE_TRANSACTION_SCRIPT.RECOVERY_ACTION_COMPLETE
+	)
+	assert_true(FileAccess.file_exists(staging_path))
+	_write_text(staging_path, "foreign replacement")
+	var drifted: Dictionary = (
+		_GF_ARTIFACT_WRITE_TRANSACTION_SCRIPT.complete(
+			_GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(
+				failed,
+				"recovery_transaction"
+			)
+		)
+	)
+	assert_false(
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(drifted, "ok"),
+		"complete staging identity 漂移后不得删除未知文件。"
+	)
+	assert_eq(_read_text(staging_path), "foreign replacement")
+	assert_eq(
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(staging_path)),
+		OK
+	)
+	var retry_report: Dictionary = (
+		_GF_ARTIFACT_WRITE_TRANSACTION_SCRIPT.complete(
+			_GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(
+				drifted,
+				"recovery_transaction"
+			)
+		)
+	)
+	assert_true(
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(retry_report, "ok"),
+		"调用方移除 complete staging collision 后必须可幂等完成 cleanup。"
+	)
+	assert_eq(_read_text(target_path), "before")
+	assert_eq(_count_transaction_sidecars(), 0)
+
+
+func test_rollback_consumes_attached_staging_cleanup_with_retry() -> void:
+	var target_path: String = _temp_root.path_join("rollback-target.txt")
+	_write_text(target_path, "before")
+	var transaction: Dictionary = _GF_ARTIFACT_WRITE_TRANSACTION_SCRIPT.begin(
+		PackedStringArray([target_path]),
+		{ "allowed_roots": [_temp_root] }
+	)
+	var cleanup_entry: Dictionary = _make_complete_staging_cleanup_entry(
+		target_path,
+		"rollback-sidecar",
+		"d".repeat(32)
+	)
+	var cleanup_entries: Array[Dictionary] = [cleanup_entry]
+	var attached: Dictionary = (
+		_GF_ARTIFACT_WRITE_TRANSACTION_SCRIPT._register_staging_sidecar_cleanup(
+			cleanup_entries,
+			{},
+			"e".repeat(32),
+			transaction
+		)
+	)
+	var staging_path: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
+		cleanup_entry,
+		"staging_path"
+	)
+	_write_text(target_path, "after")
+	_GF_ARTIFACT_WRITE_TRANSACTION_SCRIPT._configure_test_owned_write_failures(
+		0,
+		0,
+		1
+	)
+
+	var failed: Dictionary = (
+		_GF_ARTIFACT_WRITE_TRANSACTION_SCRIPT.rollback(attached)
+	)
+
+	assert_false(_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(failed, "ok"))
+	assert_eq(_read_text(target_path), "before")
+	assert_eq(
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(
+			failed,
+			"recovery_action"
+		),
+		_GF_ARTIFACT_WRITE_TRANSACTION_SCRIPT.RECOVERY_ACTION_ROLLBACK
+	)
+	assert_true(
+		FileAccess.file_exists(staging_path),
+		"rollback cleanup 失败后必须保留 staging obligation。"
+	)
+	var retry_report: Dictionary = (
+		_GF_ARTIFACT_WRITE_TRANSACTION_SCRIPT.rollback(
+			_GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(
+				failed,
+				"recovery_transaction"
+			)
+		)
+	)
+	assert_true(_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(retry_report, "ok"))
+	assert_eq(_read_text(target_path), "before")
+	assert_eq(_count_transaction_sidecars(), 0)
+
+
 # --- 私有/辅助方法 ---
+
+func _make_complete_staging_cleanup_entry(
+	target_path: String,
+	content: String,
+	owner_id: String
+) -> Dictionary:
+	var staging_path: String = (
+		_GF_ARTIFACT_WRITE_TRANSACTION_SCRIPT._make_sidecar_path(
+			target_path,
+			"staging",
+			owner_id,
+			0
+		)
+	)
+	_write_text(staging_path, content)
+	return {
+		"target_path": target_path,
+		"staging_path": staging_path,
+		"staging_owner_id": owner_id,
+		"staging_owner_index": 0,
+		"staging_write_state": &"complete",
+		"size_bytes": content.to_utf8_buffer().size(),
+		"content_sha256": FileAccess.get_sha256(staging_path).to_lower(),
+	}
+
+
+func _assert_closed_commit_shape(report: Dictionary) -> void:
+	var actual_keys: PackedStringArray = PackedStringArray()
+	for key_value: Variant in report.keys():
+		if not key_value is String:
+			fail_test("commit report keys must be Strings.")
+			continue
+		var key: String = key_value
+		var _key_appended: bool = actual_keys.append(key)
+	actual_keys.sort()
+	var expected_keys: PackedStringArray = PackedStringArray([
+		"backup_bytes",
+		"entry_count",
+		"issues",
+		"metadata",
+		"ok",
+		"recovery_action",
+		"recovery_required",
+		"recovery_transaction",
+		"reports",
+		"rollback_complete",
+		"rolled_back",
+		"status",
+		"total_bytes",
+		"unchanged_count",
+		"written_count",
+	])
+	expected_keys.sort()
+	assert_eq(
+		actual_keys,
+		expected_keys,
+		"commit success/failure must preserve one closed boundary shape."
+	)
+
+
+func _assert_closed_begin_shape(report: Dictionary) -> void:
+	var actual_keys: PackedStringArray = PackedStringArray()
+	for key_value: Variant in report.keys():
+		if not key_value is String:
+			fail_test("begin report keys must be Strings.")
+			continue
+		var key: String = key_value
+		var _key_appended: bool = actual_keys.append(key)
+	actual_keys.sort()
+	var expected_keys: PackedStringArray = PackedStringArray([
+		"backup_bytes",
+		"entry_count",
+		"format",
+		"format_version",
+		"issues",
+		"metadata",
+		"ok",
+		"recovery_action",
+		"recovery_required",
+		"recovery_transaction",
+		"state",
+		"transaction_id",
+		"transaction_token",
+	])
+	expected_keys.sort()
+	assert_eq(
+		actual_keys,
+		expected_keys,
+		"begin success/failure must preserve one closed boundary shape."
+	)
+
 
 func _write_text(path: String, text: String) -> void:
 	_write_bytes(path, text.to_utf8_buffer())
@@ -944,16 +2111,28 @@ func _find_transaction_sidecar_for_target(
 	kind: String
 ) -> String:
 	var absolute_target_path: String = ProjectSettings.globalize_path(target_path)
+	var target_hash: String = _sha256_text(target_path)
 	var absolute_path: String = _find_matching_file(
 		absolute_target_path.get_base_dir(),
-		"%s.gf-artifact-%s-" % [
-			absolute_target_path.get_file(),
+		".gf-artifact-%s-%s-" % [
 			kind,
+			target_hash,
 		]
 	)
 	if absolute_path.is_empty():
 		return ""
 	return ProjectSettings.localize_path(absolute_path)
+
+
+func _sha256_text(text: String) -> String:
+	var context: HashingContext = HashingContext.new()
+	var start_error: Error = context.start(HashingContext.HASH_SHA256)
+	if start_error != OK:
+		return ""
+	var update_error: Error = context.update(text.to_utf8_buffer())
+	if update_error != OK:
+		return ""
+	return context.finish().hex_encode()
 
 
 func _find_matching_file(path: String, needle: String) -> String:

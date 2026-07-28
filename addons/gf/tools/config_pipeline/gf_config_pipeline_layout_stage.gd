@@ -169,6 +169,15 @@ func _with_stage_result(
 
 func _parse_xlsx_file(path: String, options: Dictionary) -> Dictionary:
 	var file_limit: int = _get_xlsx_limit(options, "max_xlsx_file_bytes", _DEFAULT_MAX_XLSX_FILE_BYTES)
+	var archive_file_limit: int = _resolve_xlsx_archive_file_limit(
+		file_limit
+	)
+	var total_uncompressed_limit: int = (
+		_resolve_xlsx_total_uncompressed_limit(
+			options,
+			file_limit
+		)
+	)
 	var size_file: FileAccess = FileAccess.open(path, FileAccess.READ)
 	if size_file == null:
 		return _make_xlsx_parse_failure("XLSX open failed: %s" % error_string(FileAccess.get_open_error()), path)
@@ -180,7 +189,7 @@ func _parse_xlsx_file(path: String, options: Dictionary) -> Dictionary:
 	var archive_session: Dictionary = _GF_BOUNDED_ZIP_SUPPORT.open_archive(
 		path,
 		{
-			"max_archive_bytes": file_limit,
+			"max_archive_bytes": archive_file_limit,
 			"max_entry_count": _get_xlsx_limit(
 				options,
 				"max_xlsx_entry_count",
@@ -196,11 +205,7 @@ func _parse_xlsx_file(path: String, options: Dictionary) -> Dictionary:
 				"max_xlsx_entry_bytes",
 				_DEFAULT_MAX_XLSX_ENTRY_BYTES
 			),
-			"max_total_uncompressed_bytes": _get_xlsx_limit(
-				options,
-				"max_xlsx_total_uncompressed_bytes",
-				file_limit
-			),
+			"max_total_uncompressed_bytes": total_uncompressed_limit,
 			"max_compression_ratio": _get_xlsx_limit(
 				options,
 				"max_xlsx_compression_ratio",
@@ -297,6 +302,29 @@ func _parse_xlsx_file(path: String, options: Dictionary) -> Dictionary:
 	if worksheet_bytes.size() == 0:
 		return _make_xlsx_parse_failure("XLSX worksheet is empty: %s" % worksheet_path, path)
 	return _parse_xlsx_sheet(worksheet_bytes, shared_strings, options)
+
+
+func _resolve_xlsx_archive_file_limit(file_limit: int) -> int:
+	if file_limit != 0:
+		return file_limit
+	return _GF_BOUNDED_ZIP_SUPPORT.get_absolute_max_archive_bytes()
+
+
+func _resolve_xlsx_total_uncompressed_limit(
+	options: Dictionary,
+	file_limit: int
+) -> int:
+	var total_uncompressed_limit: int = _get_xlsx_limit(
+		options,
+		"max_xlsx_total_uncompressed_bytes",
+		file_limit
+	)
+	if total_uncompressed_limit != 0:
+		return total_uncompressed_limit
+	return (
+		_GF_BOUNDED_ZIP_SUPPORT
+		.get_absolute_max_total_uncompressed_bytes()
+	)
 
 
 func _read_xlsx_shared_strings(

@@ -501,7 +501,7 @@ func _parse_top_level_inner_class_name(line: String) -> String:
 
 
 func _line_starts_private_variable(line: String) -> bool:
-	if line.begins_with("var _"):
+	if line.begins_with("var _") or line.begins_with("static var _"):
 		return true
 	return line.begins_with("@export") and line.contains(" var _")
 

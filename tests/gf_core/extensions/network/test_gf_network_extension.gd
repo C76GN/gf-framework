@@ -201,6 +201,19 @@ class ReentrantLifecycleWebSocketBackend extends GFWebSocketNetworkBackend:
 		if mark_open:
 			_open_peer_ids[peer_id] = true
 
+	func start_scripted_server_with_open_peers(
+		endpoint: String,
+		peer_ids: Array[int]
+	) -> void:
+		start_scripted_server(endpoint)
+		for peer_id: int in peer_ids:
+			var peer: WebSocketPeer = WebSocketPeer.new()
+			_peers[peer_id] = peer
+			_service_peer_ids.append(peer_id)
+			server_ready_states[peer_id] = WebSocketPeer.STATE_OPEN
+			packet_queues[peer_id] = []
+			_open_peer_ids[peer_id] = true
+
 	func _poll_client_peer(_peer: WebSocketPeer) -> void:
 		pass
 
@@ -2744,6 +2757,10 @@ func test_websocket_peer_disconnected_rehost_stops_old_close_signals() -> void:
 		[],
 		true
 	)
+	var old_generation: int = GFVariantData.get_option_int(
+		backend.get_debug_snapshot(),
+		"session_generation"
+	)
 	var disconnected_peer_ids: Array[int] = []
 	var disconnected_reasons: PackedStringArray = PackedStringArray()
 	var peer_disconnected_callback: Callable = func(peer_id: int) -> void:
@@ -2773,6 +2790,74 @@ func test_websocket_peer_disconnected_rehost_stops_old_close_signals() -> void:
 	assert_eq(
 		GFVariantData.get_option_int(snapshot, "mode"),
 		GFWebSocketNetworkBackend.Mode.SERVER
+	)
+	assert_eq(
+		GFVariantData.get_option_int(snapshot, "session_generation"),
+		old_generation + 2,
+		"关闭旧会话与创建 replacement 会话必须分别推进 generation。"
+	)
+	backend.peer_disconnected.disconnect(peer_disconnected_callback)
+	backend.disconnected.disconnect(disconnected_callback)
+	backend.disconnect_backend()
+
+
+func test_websocket_nested_redundant_disconnect_preserves_close_notifications() -> void:
+	var backend: ReentrantLifecycleWebSocketBackend = (
+		ReentrantLifecycleWebSocketBackend.new()
+	)
+	backend.start_scripted_server_with_open_peers(
+		"nested-close-host:19112",
+		[2, 3]
+	)
+	var old_generation: int = GFVariantData.get_option_int(
+		backend.get_debug_snapshot(),
+		"session_generation"
+	)
+	var disconnected_peer_ids: Array[int] = []
+	var disconnected_reasons: PackedStringArray = PackedStringArray()
+	var nested_generations: Array[int] = []
+	var peer_disconnected_callback: Callable = func(peer_id: int) -> void:
+		disconnected_peer_ids.append(peer_id)
+		if disconnected_peer_ids.size() == 1:
+			nested_generations.append(GFVariantData.get_option_int(
+				backend.get_debug_snapshot(),
+				"session_generation"
+			))
+			backend.disconnect_backend()
+			nested_generations.append(GFVariantData.get_option_int(
+				backend.get_debug_snapshot(),
+				"session_generation"
+			))
+	var disconnected_callback: Callable = func(reason: String) -> void:
+		var _reason_appended: bool = disconnected_reasons.append(reason)
+	var _peer_disconnected_result: Variant = (
+		backend.peer_disconnected.connect(peer_disconnected_callback)
+	)
+	var _disconnected_result: Variant = backend.disconnected.connect(
+		disconnected_callback
+	)
+
+	backend.disconnect_backend()
+	var snapshot: Dictionary = backend.get_debug_snapshot()
+
+	assert_eq(disconnected_peer_ids.size(), 2)
+	assert_true(disconnected_peer_ids.has(2))
+	assert_true(disconnected_peer_ids.has(3))
+	assert_eq(
+		disconnected_reasons,
+		PackedStringArray(["closed"]),
+		"冗余嵌套 disconnect 不得抑制最终 disconnected。"
+	)
+	assert_eq(nested_generations.size(), 2)
+	assert_eq(
+		nested_generations[1],
+		nested_generations[0],
+		"完全断开的嵌套 no-op 不得推进 generation。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(snapshot, "session_generation"),
+		old_generation + 1,
+		"只有外层真实关闭应推进一次 generation。"
 	)
 	backend.peer_disconnected.disconnect(peer_disconnected_callback)
 	backend.disconnected.disconnect(disconnected_callback)

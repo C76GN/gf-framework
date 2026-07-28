@@ -27,6 +27,8 @@ const _REASON_PATH_NOT_ALLOWED: String = "path_not_allowed"
 const _REASON_INVALID_FILE_NAME: String = "invalid_file_name"
 const _REASON_EMPTY_DATA: String = "empty_data"
 const _REASON_WRITE_FAILED: String = "write_failed"
+const _MAX_PORTABLE_FILE_NAME_BYTES: int = 255
+const _MAX_GENERATED_EXTENSION_BYTES: int = 32
 const _GF_ARTIFACT_WRITE_TRANSACTION_SCRIPT = preload(
 	"res://addons/gf/kernel/editor/gf_artifact_write_transaction.gd"
 )
@@ -232,11 +234,11 @@ func materialize_to_path(target_path: String, options: Dictionary = {}) -> Dicti
 ## [br]
 ## @since 6.0.0
 ## [br]
-## @param options: 写入选项，可包含 directory_path、file_name、extension、overwrite；file_name 必须是非空 portable leaf，不能是 .、.. 或包含路径分隔符。
+## @param options: 写入选项，可包含 directory_path、file_name、extension、overwrite；显式 file_name 必须是最多 255 UTF-8 bytes 的非空 portable leaf，不能是 .、.. 或包含路径分隔符；省略时会从来源名和内容摘要生成稳定的 ASCII portable leaf。
 ## [br]
 ## @return 写入报告。
 ## [br]
-## @schema options: Dictionary，可包含 directory_path、file_name、extension、overwrite、allow_user_path、allow_res_path、max_file_bytes、max_total_bytes、max_backup_bytes 和 scan_filesystem；file_name 必须是 ASCII portable leaf，禁止 .、..、控制字符、路径分隔符、Windows 保留字符和设备名。
+## @schema options: Dictionary，可包含 directory_path、file_name、extension、overwrite、allow_user_path、allow_res_path、max_file_bytes、max_total_bytes、max_backup_bytes 和 scan_filesystem；显式 file_name 必须是最多 255 UTF-8 bytes 的 ASCII portable leaf，禁止 .、..、控制字符、路径分隔符、Windows 保留字符和设备名；省略 file_name 时框架会把来源名收敛为相同上限内的 ASCII portable leaf。
 ## [br]
 ## @schema return: Dictionary with ok, path, reason, size_bytes, metadata, recovery_required, recovery_action, and recovery_transaction.
 func materialize_temp(options: Dictionary = {}) -> Dictionary:
@@ -323,9 +325,55 @@ func _make_default_file_name(options: Dictionary) -> String:
 	var hash_text: String = str(var_to_str(data).hash()).replace("-", "n")
 	var basename: String = base_name.get_basename()
 	var file_extension: String = base_name.get_extension()
-	if file_extension.is_empty():
-		return "%s_%s" % [basename, hash_text]
-	return "%s_%s.%s" % [basename, hash_text, file_extension]
+	var default_file_name: String = "%s_%s" % [basename, hash_text]
+	if not file_extension.is_empty():
+		default_file_name += "." + file_extension
+	if _is_portable_file_name(default_file_name):
+		return default_file_name
+
+	basename = _make_portable_ascii_component(basename)
+	if basename.is_empty():
+		basename = "artifact"
+	file_extension = _make_portable_ascii_component(file_extension).left(
+		_MAX_GENERATED_EXTENSION_BYTES
+	)
+	var hash_suffix: String = "_%s" % hash_text
+	var extension_suffix: String = (
+		".%s" % file_extension
+		if not file_extension.is_empty()
+		else ""
+	)
+	var basename_budget: int = (
+		_MAX_PORTABLE_FILE_NAME_BYTES
+		- hash_suffix.length()
+		- extension_suffix.length()
+	)
+	basename = basename.left(maxi(basename_budget, 0))
+	if basename.is_empty():
+		basename = "artifact"
+	var portable_name: String = (
+		basename
+		+ hash_suffix
+		+ extension_suffix
+	)
+	if _is_portable_file_name(portable_name):
+		return portable_name
+	return "artifact%s" % hash_suffix
+
+
+func _make_portable_ascii_component(value: String) -> String:
+	var result: String = ""
+	for index: int in range(value.length()):
+		var codepoint: int = value.unicode_at(index)
+		if (
+			(codepoint >= 48 and codepoint <= 57)
+			or (codepoint >= 65 and codepoint <= 90)
+			or (codepoint >= 97 and codepoint <= 122)
+			or codepoint == 45
+			or codepoint == 95
+		):
+			result += String.chr(codepoint)
+	return result
 
 
 func _is_portable_file_name(file_name: String) -> bool:
@@ -336,6 +384,8 @@ func _is_portable_file_name(file_name: String) -> bool:
 		or file_name == ".."
 		or file_name != file_name.rstrip(" .")
 		or not _string_is_ascii(file_name)
+		or file_name.to_utf8_buffer().size()
+		> _MAX_PORTABLE_FILE_NAME_BYTES
 		or _string_has_control_character(file_name)
 	):
 		return false

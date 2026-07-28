@@ -75,6 +75,9 @@ and oversized strings therefore fail before deep copy or Provider dispatch.
 Provider `read_record` receives the complete read budget before it downloads,
 decodes, or allocates data. Provider `list_records` receives item,
 encoded-byte, graph, string, depth, and container budgets before enumeration.
+Every list budget applies to the complete response, including the outer Array
+and per-record wrapper Dictionaries; resetting structural budgets for each
+record is non-conforming.
 The Adapter repeats the validation after each Provider call. A Provider that
 first allocates an unbounded response and checks afterward does not satisfy
 this contract.

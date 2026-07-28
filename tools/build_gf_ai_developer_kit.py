@@ -29,6 +29,7 @@ from typing import Iterator
 
 import build_gf_package
 from gdscript_api_parser import ApiDocs, ApiMember, collect_api_scripts, visibility_of
+from gf_godot_process import GODOT_EXECUTABLE_ENV_VAR, resolve_godot_executable
 from gf_process_supervisor import SupervisedProcessResult, run_supervised_process
 from gf_semver import SemVer, parse_semver
 
@@ -57,6 +58,27 @@ STORAGE_ACCEPTANCE_COPY_FILE_LIMIT = 50_000
 STORAGE_ACCEPTANCE_COPY_BYTE_LIMIT = 1024 * 1024 * 1024
 STORAGE_ACCEPTANCE_COPY_SINGLE_FILE_LIMIT = 128 * 1024 * 1024
 STORAGE_REDACTION_CANARY = "REDACTION_CANARY_DO_NOT_EMIT"
+_STORAGE_ACCEPTANCE_LIFECYCLE_PREFIX = "GF_TEST_LIFECYCLE_GATE="
+_STORAGE_ACCEPTANCE_LIFECYCLE_MAX_JSON_BYTES = 65_536
+_STORAGE_ACCEPTANCE_LIFECYCLE_REQUIRED_KEYS = frozenset({
+	"schema_version",
+	"ok",
+	"baseline_available",
+	"warning_tracking_available",
+	"unhandled_warning_count",
+	"orphan_count",
+	"warnings",
+	"orphans",
+	"details_truncated",
+	"configuration_error",
+})
+_STORAGE_ACCEPTANCE_EXIT_LEAK_PATTERNS = (
+	"objectdb instances leaked at exit",
+	"resource still in use at exit",
+	"resources still in use at exit",
+	"rid allocations",
+	"were leaked at exit",
+)
 PLUGIN_SOURCE_DIRECTORY_LIMIT = 2_048
 PLUGIN_SOURCE_FILE_LIMIT = 10_000
 PLUGIN_SOURCE_SINGLE_FILE_LIMIT = 16 * 1024 * 1024
@@ -392,9 +414,27 @@ def main(argv: list[str] | None = None) -> int:
 	parser = argparse.ArgumentParser(description="Build and validate the GF AI Developer Kit.")
 	parser.add_argument("--version", default="", help="GF SemVer used for the generated Codex plugin.")
 	parser.add_argument("--output", default="", help="Output plugin zip path.")
-	parser.add_argument("--generate-source", action="store_true", help="Regenerate the tracked compact API index.")
-	parser.add_argument("--check-source", action="store_true", help="Check generated knowledge, schemas, catalogs, and templates.")
-	parser.add_argument("--validate-only", action="store_true", help="Audit an existing --output plugin zip.")
+	action_group = parser.add_mutually_exclusive_group()
+	action_group.add_argument(
+		"--generate-source",
+		action="store_true",
+		help="Regenerate the tracked compact API index.",
+	)
+	action_group.add_argument(
+		"--check-source",
+		action="store_true",
+		help="Check generated knowledge, schemas, catalogs, and templates.",
+	)
+	action_group.add_argument(
+		"--storage-backend-acceptance",
+		action="store_true",
+		help="Run the isolated Godot acceptance for the storage Adapter templates.",
+	)
+	action_group.add_argument(
+		"--validate-only",
+		action="store_true",
+		help="Audit an existing --output plugin zip.",
+	)
 	parser.add_argument("--json", action="store_true", help="Print JSON output.")
 	args = parser.parse_args(argv)
 	version = args.version.strip() or read_plugin_version()
@@ -408,6 +448,8 @@ def main(argv: list[str] | None = None) -> int:
 		result = check_source(payload)
 	elif args.check_source:
 		result = check_source()
+	elif args.storage_backend_acceptance:
+		result = run_storage_backend_template_acceptance()
 	elif args.validate_only:
 		result = audit_plugin_archive(
 			output,
@@ -978,6 +1020,10 @@ def validate_storage_backend_templates(
 			"test_defensive_copies_and_idempotent_shutdown",
 			"fail_next_atomic_commit",
 			"fail_next_failed_read_with_ok",
+			"_assert_list_budget_covers_complete_response",
+			"# --- 私有/辅助方法 ---",
+			"for storage_key_value: Variant in _records:",
+			"response_validation",
 		),
 	}
 	try:
@@ -1054,6 +1100,28 @@ def validate_storage_backend_templates(
 	return issues
 
 
+def resolve_storage_backend_acceptance_engine(godot_executable: str = "") -> str:
+	"""Resolve a real foreground Godot process before acceptance supervision."""
+	environment = os.environ.copy()
+	configured = godot_executable.strip()
+	if configured:
+		environment[GODOT_EXECUTABLE_ENV_VAR] = configured
+	configured_environment = environment.get(
+		GODOT_EXECUTABLE_ENV_VAR,
+		"",
+	).strip()
+	candidates = (
+		(configured or configured_environment,)
+		if configured_environment
+		else ("godot", "godot4")
+	)
+	for candidate in candidates:
+		resolved = resolve_godot_executable(candidate, environment=environment)
+		if Path(resolved).is_file() or shutil.which(resolved):
+			return resolved
+	return ""
+
+
 def run_storage_backend_template_acceptance(
 	godot_executable: str = "",
 ) -> dict[str, Any]:
@@ -1066,12 +1134,7 @@ def run_storage_backend_template_acceptance(
 			"issues": issues,
 		}
 
-	engine = godot_executable.strip() or os.environ.get(
-		"GF_GODOT_EXECUTABLE",
-		"",
-	).strip()
-	if not engine:
-		engine = shutil.which("godot") or shutil.which("godot4") or ""
+	engine = resolve_storage_backend_acceptance_engine(godot_executable)
 	if not engine:
 		return {
 			"ok": False,
@@ -1338,32 +1401,63 @@ def _combined_storage_acceptance_output(
 
 
 def _storage_acceptance_lifecycle_ok(output: str) -> bool:
-	prefix = "GF_TEST_LIFECYCLE_GATE="
+	normalized_output = output.lower()
+	if any(
+		pattern in normalized_output
+		for pattern in _STORAGE_ACCEPTANCE_EXIT_LEAK_PATTERNS
+	):
+		return False
 	encoded_payloads = [
-		line.split(prefix, 1)[1].strip()
+		line.split(_STORAGE_ACCEPTANCE_LIFECYCLE_PREFIX, 1)[1].strip()
 		for line in output.splitlines()
-		if prefix in line
+		if _STORAGE_ACCEPTANCE_LIFECYCLE_PREFIX in line
 	]
 	if not encoded_payloads or len(encoded_payloads) > 2:
 		return False
 	if any(payload != encoded_payloads[0] for payload in encoded_payloads[1:]):
 		return False
+	if (
+		not encoded_payloads[0]
+		or len(encoded_payloads[0].encode("utf-8"))
+		> _STORAGE_ACCEPTANCE_LIFECYCLE_MAX_JSON_BYTES
+	):
+		return False
 	try:
 		payload = json.loads(encoded_payloads[0])
 	except json.JSONDecodeError:
 		return False
+	if (
+		not isinstance(payload, dict)
+		or set(payload) != _STORAGE_ACCEPTANCE_LIFECYCLE_REQUIRED_KEYS
+		or type(payload["schema_version"]) is not int
+		or payload["schema_version"] != 1
+		or type(payload["ok"]) is not bool
+		or type(payload["baseline_available"]) is not bool
+		or type(payload["warning_tracking_available"]) is not bool
+		or type(payload["details_truncated"]) is not bool
+		or type(payload["unhandled_warning_count"]) is not int
+		or payload["unhandled_warning_count"] < 0
+		or type(payload["orphan_count"]) is not int
+		or payload["orphan_count"] < 0
+		or not isinstance(payload["warnings"], list)
+		or not isinstance(payload["orphans"], list)
+		or not isinstance(payload["configuration_error"], str)
+		or len(payload["configuration_error"].encode("utf-8")) > 512
+	):
+		return False
+	expected_ok = (
+		payload["baseline_available"]
+		and payload["warning_tracking_available"]
+		and payload["unhandled_warning_count"] == 0
+		and payload["orphan_count"] == 0
+		and payload["warnings"] == []
+		and payload["orphans"] == []
+		and payload["details_truncated"] is False
+		and payload["configuration_error"] == ""
+	)
 	return (
-		isinstance(payload, dict)
-		and payload.get("schema_version") == 1
-		and payload.get("ok") is True
-		and payload.get("baseline_available") is True
-		and payload.get("warning_tracking_available") is True
-		and payload.get("configuration_error") == ""
-		and payload.get("details_truncated") is False
-		and payload.get("orphan_count") == 0
-		and payload.get("unhandled_warning_count") == 0
-		and payload.get("orphans") == []
-		and payload.get("warnings") == []
+		payload["ok"] is expected_ok
+		and expected_ok
 	)
 
 
@@ -1907,7 +2001,7 @@ def build_plugin_archive(
 	work_budget: PluginWorkBudget | None = None,
 	work_limits: PluginWorkLimits | None = None,
 ) -> None:
-	if re.fullmatch(r"\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?", version) is None:
+	if _parse_exact_semver(version) is None:
 		raise ValueError(f"Plugin version must be SemVer: {version!r}")
 	active_work_budget = work_budget or PluginWorkBudget()
 	active_work_limits = work_limits or PluginWorkLimits()
@@ -2508,15 +2602,15 @@ def audit_plugin_archive(
 	issues: list[str] = []
 	names: list[str] = []
 	archive_sha256 = ""
-	safe_version = (
-		expected_version
-		if re.fullmatch(
-			r"\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?",
-			expected_version,
-		)
-		is not None
-		else ""
-	)
+	safe_version = ""
+	if expected_version:
+		if _parse_exact_semver(expected_version) is None:
+			_append_plugin_archive_issue(
+				issues,
+				"ai_kit.archive.expected_version_invalid",
+			)
+		else:
+			safe_version = expected_version
 
 	def make_result() -> dict[str, Any]:
 		return {
@@ -2527,6 +2621,9 @@ def audit_plugin_archive(
 			"sha256": archive_sha256,
 			"issues": issues,
 		}
+
+	if issues:
+		return make_result()
 
 	try:
 		archive_payload = _read_owned_bytes(
@@ -2791,13 +2888,7 @@ def audit_plugin_archive(
 				)
 				manifest = _strict_json_object(manifest_payload)
 				manifest_version = str(manifest.get("version", ""))
-				if (
-					re.fullmatch(
-						r"\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?",
-						manifest_version,
-					)
-					is None
-				):
+				if _parse_exact_semver(manifest_version) is None:
 					_append_plugin_archive_issue(
 						issues,
 						"ai_kit.archive.plugin_version_invalid",
@@ -2917,13 +3008,7 @@ def audit_plugin_archive(
 					"ai_kit.archive.plugin_version_mismatch",
 				)
 			manifest_version = str(manifest.get("version", ""))
-			if (
-				re.fullmatch(
-					r"\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?",
-					manifest_version,
-				)
-				is None
-			):
+			if _parse_exact_semver(manifest_version) is None:
 				_append_plugin_archive_issue(
 					issues,
 					"ai_kit.archive.plugin_version_invalid",

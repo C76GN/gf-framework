@@ -31,6 +31,7 @@ func test_rejects_unsafe_keys_options_config_and_value_graphs() -> void:
 
 func test_enforces_write_read_and_list_budgets() -> void:
 	run_enforces_write_read_and_list_budgets()
+	_assert_list_budget_covers_complete_response()
 
 
 func test_atomic_faults_and_opaque_revision_conditions_preserve_state() -> void:
@@ -49,6 +50,114 @@ func test_defensive_copies_and_idempotent_shutdown() -> void:
 
 func _create_provider_factory() -> ProjectStorageProviderFactory:
 	return MemoryStorageProviderFactory.new()
+
+
+# --- 私有/辅助方法 ---
+
+func _assert_list_budget_covers_complete_response() -> void:
+	var provider: ProjectStorageProvider = MemoryStorageProvider.new()
+	assert_true(provider.initialize() == OK)
+	assert_true(
+		provider.write_record_atomic(
+			"first.json",
+			{"value": 1},
+			{},
+			{}
+		) == OK
+	)
+	assert_true(
+		provider.write_record_atomic(
+			"second.json",
+			{"value": 2},
+			{},
+			{}
+		) == OK
+	)
+	assert_true(
+		provider.write_record_atomic(
+			"third.json",
+			{"value": 3},
+			{},
+			{}
+		) == OK
+	)
+	var list_result: Dictionary = provider.list_records(
+		"",
+		{
+			"max_items": 3,
+			"max_list_bytes": 4096,
+			"max_graph_nodes": 8,
+			"max_graph_depth": 8,
+			"max_string_bytes": 1024,
+			"max_container_entries": 16,
+		}
+	)
+	assert_false(
+		_get_bool(list_result, "ok"),
+		"The graph budget must cover the complete list response."
+	)
+	assert_true(
+		list_result.get("error_code") == int(ERR_OUT_OF_MEMORY),
+		"An aggregate list budget violation must fail before deep copy."
+	)
+	var container_result: Dictionary = provider.list_records(
+		"",
+		{
+			"max_items": 3,
+			"max_list_bytes": 4096,
+			"max_graph_nodes": 64,
+			"max_graph_depth": 8,
+			"max_string_bytes": 1024,
+			"max_container_entries": 2,
+		}
+	)
+	assert_false(
+		_get_bool(container_result, "ok"),
+		"The outer records array must respect max_container_entries."
+	)
+	assert_true(
+		container_result.get("error_code") == int(ERR_OUT_OF_MEMORY),
+		"An outer-container budget violation must fail before deep copy."
+	)
+	var byte_result: Dictionary = provider.list_records(
+		"",
+		{
+			"max_items": 3,
+			"max_list_bytes": 600,
+			"max_graph_nodes": 64,
+			"max_graph_depth": 8,
+			"max_string_bytes": 1024,
+			"max_container_entries": 16,
+		}
+	)
+	assert_false(
+		_get_bool(byte_result, "ok"),
+		"The byte budget must cover the complete list response."
+	)
+	assert_true(
+		byte_result.get("error_code") == int(ERR_OUT_OF_MEMORY),
+		"An aggregate list byte violation must fail before deep copy."
+	)
+	var depth_result: Dictionary = provider.list_records(
+		"first",
+		{
+			"max_items": 3,
+			"max_list_bytes": 4096,
+			"max_graph_nodes": 64,
+			"max_graph_depth": 2,
+			"max_string_bytes": 1024,
+			"max_container_entries": 16,
+		}
+	)
+	assert_false(
+		_get_bool(depth_result, "ok"),
+		"The item depth budget must account for the outer records array."
+	)
+	assert_true(
+		depth_result.get("error_code") == int(ERR_OUT_OF_MEMORY),
+		"An aggregate list depth violation must fail before deep copy."
+	)
+	provider.shutdown()
 
 
 # --- 内部类 ---
@@ -307,7 +416,7 @@ class MemoryStorageProvider extends ProjectStorageProvider:
 			return _list_failure(ERR_INVALID_PARAMETER)
 
 		var matching_keys: PackedStringArray = PackedStringArray()
-		for storage_key_value: Variant in _records.keys():
+		for storage_key_value: Variant in _records:
 			if not storage_key_value is String:
 				return _list_failure(ERR_INVALID_DATA)
 			var storage_key: String = storage_key_value
@@ -321,9 +430,23 @@ class MemoryStorageProvider extends ProjectStorageProvider:
 				):
 					return _list_failure(ERR_OUT_OF_MEMORY)
 		matching_keys.sort()
+		if matching_keys.size() > _get_int(
+			list_limits,
+			"max_container_entries"
+		):
+			return _list_failure(ERR_OUT_OF_MEMORY)
 
 		var records: Array = []
 		var consumed_bytes: int = 2
+		var consumed_nodes: int = 1
+		var item_depth_limit: int = (
+			_get_int(list_limits, "max_graph_depth") - 1
+		)
+		if consumed_bytes > _get_int(
+			list_limits,
+			"max_list_bytes"
+		):
+			return _list_failure(ERR_OUT_OF_MEMORY)
 		for storage_key: String in matching_keys:
 			var record_value: Variant = _records.get(storage_key)
 			if not record_value is Dictionary:
@@ -337,19 +460,26 @@ class MemoryStorageProvider extends ProjectStorageProvider:
 				"storage_key": storage_key,
 				"metadata": metadata,
 			}
+			if item_depth_limit <= 0:
+				return _list_failure(ERR_OUT_OF_MEMORY)
 			var remaining_bytes: int = (
 				_get_int(list_limits, "max_list_bytes")
 				- consumed_bytes
+				- 1
 			)
-			if remaining_bytes <= 0:
+			var remaining_nodes: int = (
+				_get_int(list_limits, "max_graph_nodes")
+				- consumed_nodes
+			)
+			if remaining_bytes <= 0 or remaining_nodes <= 0:
 				return _list_failure(ERR_OUT_OF_MEMORY)
-			var item_validation: Dictionary = (
+			var response_validation: Dictionary = (
 				ProjectStorageValueLimits.validate_plain_value(
 					item,
 					ProjectStorageValueLimits.make_limits(
 						remaining_bytes,
-						_get_int(list_limits, "max_graph_nodes"),
-						_get_int(list_limits, "max_graph_depth"),
+						remaining_nodes,
+						item_depth_limit,
 						_get_int(list_limits, "max_string_bytes"),
 						_get_int(
 							list_limits,
@@ -358,25 +488,26 @@ class MemoryStorageProvider extends ProjectStorageProvider:
 					)
 				)
 			)
-			if not _get_bool(item_validation, "ok"):
+			if not _get_bool(response_validation, "ok"):
 				return _list_failure(
 					_get_error(
-						item_validation,
+						response_validation,
 						"error_code",
 						ERR_INVALID_DATA
 					)
 				)
-			consumed_bytes += _get_int(
-				item_validation,
-				"size_bytes"
+			consumed_bytes += (
+				1
+				+ _get_int(response_validation, "size_bytes")
 			)
-			records.append({
-				"storage_key": storage_key,
-				"metadata": metadata.duplicate(true),
-			})
+			consumed_nodes += _get_int(
+				response_validation,
+				"node_count"
+			)
+			records.append(item)
 		return {
 			"ok": true,
-			"records": records,
+			"records": records.duplicate(true),
 			"error_code": int(OK),
 		}
 

@@ -500,7 +500,8 @@ func export_profile(profile: GFConfigPipelineProfile, options: Dictionary = {}) 
 			_join_commit_error(transaction_snapshot),
 			manifest_path,
 			manifest_result,
-			manifest
+			manifest,
+			transaction_snapshot
 		)
 
 	var save_result: Dictionary = save_database(database, output_path, save_options)

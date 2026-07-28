@@ -96,6 +96,62 @@ func test_raw_resource_artifact_rejects_res_path_by_default() -> void:
 	assert_eq(GFVariantData.get_option_string(report, "reason"), "path_not_allowed")
 
 
+func test_raw_resource_artifact_generates_portable_name_for_unicode_source() -> void:
+	var artifact: GFRawResourceArtifact = GFRawResourceArtifact.new()
+	var bytes: PackedByteArray = PackedByteArray([1, 2, 3])
+	var _configured: GFRawResourceArtifact = artifact.configure(
+		"res://数据/补丁.bin",
+		bytes
+	)
+
+	var report: Dictionary = artifact.materialize_temp({
+		"directory_path": TEMP_ARTIFACT_DIR,
+		"scan_filesystem": false,
+	})
+	var materialized_path: String = GFVariantData.get_option_string(
+		report,
+		"path"
+	)
+	var generated_file_name: String = materialized_path.get_file()
+
+	assert_true(
+		GFVariantData.get_option_bool(report, "ok"),
+		"省略 file_name 时，Unicode source_path 应生成 portable 默认名。"
+	)
+	assert_true(
+		_string_is_ascii(generated_file_name),
+		"框架生成的默认 leaf 必须只包含 ASCII。"
+	)
+	assert_true(
+		generated_file_name.ends_with(".bin"),
+		"portable 默认名应保留安全的 ASCII 扩展名。"
+	)
+	assert_true(FileAccess.file_exists(materialized_path))
+
+
+func test_raw_resource_artifact_bounds_generated_portable_name_length() -> void:
+	var artifact: GFRawResourceArtifact = GFRawResourceArtifact.new()
+	var _configured: GFRawResourceArtifact = artifact.configure(
+		"res://%s.bin" % "a".repeat(400),
+		PackedByteArray([1, 2, 3])
+	)
+
+	var report: Dictionary = artifact.materialize_temp({
+		"directory_path": TEMP_ARTIFACT_DIR,
+		"scan_filesystem": false,
+	})
+	var generated_file_name: String = (
+		GFVariantData.get_option_string(report, "path").get_file()
+	)
+
+	assert_true(GFVariantData.get_option_bool(report, "ok"))
+	assert_true(
+		generated_file_name.to_utf8_buffer().size() <= 255,
+		"框架生成的 portable leaf 不得超过常见文件组件硬上限。"
+	)
+	assert_true(generated_file_name.ends_with(".bin"))
+
+
 func test_raw_resource_artifact_rejects_nonportable_temp_file_names() -> void:
 	var artifact: GFRawResourceArtifact = GFRawResourceArtifact.new()
 	var _configured: GFRawResourceArtifact = artifact.configure(
@@ -108,6 +164,8 @@ func test_raw_resource_artifact_rejects_nonportable_temp_file_names() -> void:
 		"child/file.bin",
 		"child\\file.bin",
 		"CON.txt",
+		"补丁.bin",
+		"%s.bin" % "a".repeat(256),
 	]:
 		var report: Dictionary = artifact.materialize_temp({
 			"directory_path": TEMP_ARTIFACT_DIR,
@@ -224,6 +282,13 @@ func test_raw_resource_artifact_preserves_transaction_recovery_handle() -> void:
 
 
 # --- 私有/辅助方法 ---
+
+func _string_is_ascii(value: String) -> bool:
+	for index: int in range(value.length()):
+		if value.unicode_at(index) > 0x7f:
+			return false
+	return true
+
 
 func _remove_user_path_if_exists(path: String) -> void:
 	var absolute_path: String = ProjectSettings.globalize_path(path)

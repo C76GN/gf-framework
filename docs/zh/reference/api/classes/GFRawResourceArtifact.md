@@ -204,13 +204,13 @@ func materialize_temp(options: Dictionary = {}) -> Dictionary:
 
 | 名称 | 说明 |
 |---|---|
-| `options` | 写入选项，可包含 directory_path、file_name、extension、overwrite；file_name 必须是非空 portable leaf，不能是 .、.. 或包含路径分隔符。 |
+| `options` | 写入选项，可包含 directory_path、file_name、extension、overwrite；显式 file_name 必须是最多 255 UTF-8 bytes 的非空 portable leaf，不能是 .、.. 或包含路径分隔符；省略时会从来源名和内容摘要生成稳定的 ASCII portable leaf。 |
 
 返回：写入报告。
 
 结构：
 
-- `options`: Dictionary，可包含 directory_path、file_name、extension、overwrite、allow_user_path、allow_res_path、max_file_bytes、max_total_bytes、max_backup_bytes 和 scan_filesystem；file_name 必须是 ASCII portable leaf，禁止 .、..、控制字符、路径分隔符、Windows 保留字符和设备名。
+- `options`: Dictionary，可包含 directory_path、file_name、extension、overwrite、allow_user_path、allow_res_path、max_file_bytes、max_total_bytes、max_backup_bytes 和 scan_filesystem；显式 file_name 必须是最多 255 UTF-8 bytes 的 ASCII portable leaf，禁止 .、..、控制字符、路径分隔符、Windows 保留字符和设备名；省略 file_name 时框架会把来源名收敛为相同上限内的 ASCII portable leaf。
 - `return`: Dictionary with ok, path, reason, size_bytes, metadata, recovery_required, recovery_action, and recovery_transaction.
 
 <a id="member-gfrawresourceartifact-methods-to_summary_dictionary"></a>

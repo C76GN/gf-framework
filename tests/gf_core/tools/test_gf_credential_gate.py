@@ -1079,6 +1079,47 @@ class CredentialGateTests(unittest.TestCase):
 			)
 			self.assertNotIn("evidence", result)
 
+	def test_release_scan_rejects_manifest_replacement_before_success(self) -> None:
+		with tempfile.TemporaryDirectory() as temp_dir:
+			release_root = Path(temp_dir)
+			artifact_path = release_root / "release.txt"
+			artifact_path.write_text("ordinary content\n", encoding="utf-8")
+			manifest_path = self._write_manifest(release_root, artifact_path)
+			original_scan_path = credential_gate._scan_path
+			replaced = False
+
+			def scan_then_replace_manifest(*args: object, **kwargs: object) -> None:
+				nonlocal replaced
+				original_scan_path(*args, **kwargs)
+				if replaced:
+					return
+				replaced = True
+				replacement_path = release_root / "replacement.json"
+				replacement_path.write_bytes(manifest_path.read_bytes())
+				os.replace(replacement_path, manifest_path)
+
+			evidence: list[credential_gate.ReleaseEvidence] = []
+			with mock.patch.object(
+				credential_gate,
+				"_scan_path",
+				side_effect=scan_then_replace_manifest,
+			):
+				result = credential_gate.scan_release_manifest(
+					manifest_path,
+					evidence_out=evidence,
+				)
+
+			self.assertTrue(replaced)
+			self.assertFalse(result["ok"])
+			self.assertEqual(evidence, [])
+			self.assertEqual(
+				result["issues"],
+				[{
+					"rule_id": "credential_gate.release_manifest_changed",
+					"path": "manifest",
+				}],
+			)
+
 	def test_materialized_release_snapshot_isolated_from_original_mutation(self) -> None:
 		with tempfile.TemporaryDirectory() as temp_dir:
 			release_root = Path(temp_dir)

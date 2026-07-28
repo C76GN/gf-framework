@@ -496,12 +496,13 @@ func connect_to_endpoint(endpoint: String, options: Dictionary = {}) -> Error:
 ### `disconnect_backend`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func disconnect_backend() -> void:
 ```
 
-断开 WebSocket 连接。
+断开 WebSocket 连接；已完全断开时重复或重入调用为幂等 no-op， 不推进 session generation，也不重复派发生命周期信号。
 
 <a id="member-gfwebsocketnetworkbackend-methods-send_bytes"></a>
 

@@ -547,6 +547,15 @@ class ReleaseEvidence:
 
 
 @dataclass(frozen=True)
+class _RegularFileBinding:
+	"""Private file identity and content binding held across a multi-step scan."""
+
+	metadata: os.stat_result
+	parent_chain: tuple[tuple[Path, os.stat_result], ...]
+	sha256: bytes
+
+
+@dataclass(frozen=True)
 class ZipPreflight:
 	"""Bounded EOCD facts that must agree with the parsed central directory."""
 
@@ -1122,7 +1131,7 @@ def scan_release_manifest(
 		return _result("release", collector, stats)
 	manifest = absolute_lexical_path(manifest_path)
 	try:
-		manifest_bytes = _read_regular_file(
+		manifest_bytes, manifest_binding = _read_bound_regular_file(
 			manifest,
 			active_limits.max_manifest_bytes,
 			"credential_gate.release_manifest_budget_exceeded",
@@ -1234,6 +1243,33 @@ def scan_release_manifest(
 		)
 		if collector.exhausted or active_work_budget.hard_exhausted:
 			break
+	if not collector.issues and not active_work_budget.hard_exhausted:
+		try:
+			_final_manifest_bytes, final_manifest_binding = (
+				_read_bound_regular_file(
+					manifest,
+					active_limits.max_manifest_bytes,
+					"credential_gate.release_manifest_budget_exceeded",
+					containment_root=manifest.parent,
+					work_budget=active_work_budget,
+					limits=active_limits,
+				)
+			)
+			if not _same_regular_file_binding(
+				manifest_binding,
+				final_manifest_binding,
+			):
+				collector.add(
+					"credential_gate.release_manifest_changed",
+					"manifest",
+				)
+		except GateInputError as error:
+			rule_id = (
+				error.rule_id
+				if error.rule_id == "credential_gate.io_total_budget_exceeded"
+				else "credential_gate.release_manifest_changed"
+			)
+			collector.add(rule_id, "manifest")
 	result = _result("release", collector, stats)
 	if result.get("ok", False) and evidence_out is not None:
 		evidence_out.append(
@@ -1844,6 +1880,80 @@ def _read_regular_file(
 	) as (handle, expected_size):
 		payload = _read_bounded_stream(handle, expected_size, max_bytes, 64 * 1024)
 	return payload
+
+
+def _read_bound_regular_file(
+	path: Path,
+	max_bytes: int,
+	budget_rule_id: str,
+	*,
+	containment_root: Path,
+	work_budget: WorkBudget,
+	limits: GateLimits,
+) -> tuple[bytes, _RegularFileBinding]:
+	absolute_path, absolute_root = _controlled_absolute_path(
+		path,
+		containment_root,
+	)
+	parent_chain_before = _snapshot_directory_chain(
+		absolute_root,
+		absolute_path.parent,
+	)
+	try:
+		metadata_before = os.lstat(absolute_path)
+	except OSError:
+		raise GateInputError("credential_gate.file_unavailable") from None
+	if (
+		not stat.S_ISREG(metadata_before.st_mode)
+		or _metadata_is_link_or_reparse(metadata_before)
+	):
+		raise GateInputError("credential_gate.file_not_regular")
+	payload = _read_regular_file(
+		absolute_path,
+		max_bytes,
+		budget_rule_id,
+		containment_root=absolute_root,
+		work_budget=work_budget,
+		limits=limits,
+	)
+	try:
+		metadata_after = os.lstat(absolute_path)
+	except OSError:
+		raise GateInputError("credential_gate.file_changed") from None
+	parent_chain_after = _snapshot_directory_chain(
+		absolute_root,
+		absolute_path.parent,
+	)
+	if (
+		not _same_regular_file_identity(metadata_before, metadata_after)
+		or not _same_directory_chain_identity(
+			parent_chain_before,
+			parent_chain_after,
+		)
+	):
+		raise GateInputError("credential_gate.file_changed")
+	return (
+		payload,
+		_RegularFileBinding(
+			metadata=metadata_after,
+			parent_chain=parent_chain_after,
+			sha256=hashlib.sha256(payload).digest(),
+		),
+	)
+
+
+def _same_regular_file_binding(
+	before: _RegularFileBinding,
+	after: _RegularFileBinding,
+) -> bool:
+	return (
+		_same_regular_file_identity(before.metadata, after.metadata)
+		and _same_directory_chain_identity(
+			before.parent_chain,
+			after.parent_chain,
+		)
+		and before.sha256 == after.sha256
+	)
 
 
 def _read_bounded_stream(

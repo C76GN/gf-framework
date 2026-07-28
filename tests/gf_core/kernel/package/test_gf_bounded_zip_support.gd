@@ -412,7 +412,215 @@ func test_snapshot_cleanup_requires_the_current_process_owner_marker() -> void:
 	assert_false(FileAccess.file_exists(snapshot_path))
 
 
-func test_session_queries_and_reads_fail_closed_off_main_thread() -> void:
+func test_snapshot_materialization_retries_pending_cleanup_under_one_lock() -> void:
+	var archive_path: String = TEST_ROOT.path_join("atomic_cleanup.zip")
+	_write_zip(archive_path, { "entry.txt": "value" })
+	var session: Dictionary = GF_BOUNDED_ZIP_SUPPORT.open_archive(
+		archive_path,
+		_default_limits()
+	)
+	assert_true(_option_bool(session, "ok"))
+	var process_root: String = GF_BOUNDED_ZIP_SUPPORT._process_session_root
+	var marker_path: String = process_root.path_join(
+		GF_BOUNDED_ZIP_SUPPORT._PROCESS_ROOT_MARKER_FILE
+	)
+	var marker_bytes: PackedByteArray = _read_bytes(marker_path)
+	var owned_paths: Array = GF_BOUNDED_ZIP_SUPPORT._owned_snapshots.keys()
+	assert_eq(owned_paths.size(), 1)
+	var snapshot_path: String = (
+		str(owned_paths[0]) if not owned_paths.is_empty() else ""
+	)
+	_write_bytes(marker_path, "tampered".to_utf8_buffer())
+	assert_eq(
+		GF_BOUNDED_ZIP_SUPPORT.close_archive(session),
+		ERR_UNAUTHORIZED
+	)
+
+	var blocked_result: Dictionary = (
+		GF_BOUNDED_ZIP_SUPPORT._materialize_archive_snapshot(
+			archive_path,
+			_default_limits(),
+			{}
+		)
+	)
+
+	assert_false(
+		_option_bool(blocked_result, "ok"),
+		"未完成的旧快照清理必须阻止同一临界区中的新快照物化。"
+	)
+	assert_true(
+		_issue_codes(blocked_result).has("snapshot_cleanup_blocked"),
+		"快照 helper 必须在持有 snapshot mutex 时先重试 pending cleanup。"
+	)
+	assert_eq(
+		GF_BOUNDED_ZIP_SUPPORT._owned_snapshots.size(),
+		1,
+		"pending cleanup 失败后不得登记或复制另一个快照。"
+	)
+	_write_bytes(marker_path, marker_bytes)
+	assert_eq(
+		GF_BOUNDED_ZIP_SUPPORT._retry_pending_snapshot_cleanup(),
+		OK
+	)
+	assert_false(FileAccess.file_exists(snapshot_path))
+
+
+func test_session_capacity_counts_active_and_in_flight_opens() -> void:
+	var archive_path: String = TEST_ROOT.path_join("capacity.zip")
+	_write_zip(archive_path, { "entry.txt": "value" })
+	var active_session: Dictionary = GF_BOUNDED_ZIP_SUPPORT.open_archive(
+		archive_path,
+		_default_limits()
+	)
+	assert_true(_option_bool(active_session, "ok"))
+	var in_flight_count: int = (
+		GF_BOUNDED_ZIP_SUPPORT._ABSOLUTE_MAX_ACTIVE_SESSIONS - 1
+	)
+	for _index: int in range(in_flight_count):
+		assert_true(
+			GF_BOUNDED_ZIP_SUPPORT._reserve_session_capacity(),
+			"硬上限内的 opening session 应能预留容量。"
+		)
+	var snapshot_count_before: int = (
+		GF_BOUNDED_ZIP_SUPPORT._owned_snapshots.size()
+	)
+	var reserved_bytes_before: int = (
+		GF_BOUNDED_ZIP_SUPPORT._reserved_snapshot_bytes
+	)
+
+	var rejected_session: Dictionary = GF_BOUNDED_ZIP_SUPPORT.open_archive(
+		archive_path,
+		_default_limits()
+	)
+
+	assert_false(
+		_option_bool(rejected_session, "ok"),
+		"active 与 in-flight open 合计达到硬上限后必须失败关闭。"
+	)
+	assert_true(
+		_issue_codes(rejected_session).has("session_capacity"),
+		"容量拒绝应返回稳定 issue code。"
+	)
+	assert_eq(
+		GF_BOUNDED_ZIP_SUPPORT._owned_snapshots.size(),
+		snapshot_count_before,
+		"容量应在昂贵快照复制前预留并拒绝。"
+	)
+	assert_eq(
+		GF_BOUNDED_ZIP_SUPPORT._reserved_snapshot_bytes,
+		reserved_bytes_before,
+		"容量拒绝不得增加进程快照字节预留。"
+	)
+	assert_eq(
+		GF_BOUNDED_ZIP_SUPPORT._pending_session_reservations,
+		in_flight_count,
+		"被拒绝的 open 不得消费或泄漏其他 in-flight reservation。"
+	)
+	for _index: int in range(in_flight_count):
+		GF_BOUNDED_ZIP_SUPPORT._release_session_capacity_reservation()
+	assert_eq(
+		GF_BOUNDED_ZIP_SUPPORT.close_archive(active_session),
+		OK
+	)
+	assert_eq(GF_BOUNDED_ZIP_SUPPORT._pending_session_reservations, 0)
+	assert_true(GF_BOUNDED_ZIP_SUPPORT._active_sessions.is_empty())
+
+
+func test_open_releases_failed_reservation_and_consumes_successful_one() -> void:
+	var missing_result: Dictionary = GF_BOUNDED_ZIP_SUPPORT.open_archive(
+		TEST_ROOT.path_join("missing.zip"),
+		_default_limits()
+	)
+	assert_false(_option_bool(missing_result, "ok"))
+	assert_eq(
+		GF_BOUNDED_ZIP_SUPPORT._pending_session_reservations,
+		0,
+		"快照创建失败后必须释放 opening session reservation。"
+	)
+	assert_true(GF_BOUNDED_ZIP_SUPPORT._active_sessions.is_empty())
+	var archive_path: String = TEST_ROOT.path_join("consume.zip")
+	_write_zip(archive_path, { "entry.txt": "value" })
+
+	var session: Dictionary = GF_BOUNDED_ZIP_SUPPORT.open_archive(
+		archive_path,
+		_default_limits()
+	)
+
+	assert_true(_option_bool(session, "ok"))
+	assert_eq(
+		GF_BOUNDED_ZIP_SUPPORT._pending_session_reservations,
+		0,
+		"成功注册必须原子消费自己的 opening reservation。"
+	)
+	assert_eq(GF_BOUNDED_ZIP_SUPPORT._active_sessions.size(), 1)
+	assert_eq(GF_BOUNDED_ZIP_SUPPORT.close_archive(session), OK)
+	assert_true(GF_BOUNDED_ZIP_SUPPORT._active_sessions.is_empty())
+
+
+func test_session_can_be_owned_and_consumed_by_a_worker_thread() -> void:
+	var archive_path: String = TEST_ROOT.path_join("worker_owned.zip")
+	_write_zip(archive_path, { "entry.txt": "value" })
+	var worker: Thread = Thread.new()
+	assert_eq(
+		worker.start(
+			_open_and_read_zip_from_worker.bind(
+				archive_path,
+				_default_limits()
+			)
+		),
+		OK,
+		"测试 worker 应能启动。"
+	)
+	var worker_value: Variant = worker.wait_to_finish()
+	var worker_result: Dictionary = (
+		worker_value if worker_value is Dictionary else {}
+	)
+	var session: Dictionary = (
+		worker_result.get("session")
+		if worker_result.get("session") is Dictionary
+		else {}
+	)
+	var inspection: Dictionary = (
+		worker_result.get("inspection")
+		if worker_result.get("inspection") is Dictionary
+		else {}
+	)
+	var files: PackedStringArray = (
+		worker_result.get("files")
+		if worker_result.get("files") is PackedStringArray
+		else PackedStringArray()
+	)
+	var read_result: Dictionary = (
+		worker_result.get("read")
+		if worker_result.get("read") is Dictionary
+		else {}
+	)
+
+	assert_true(
+		_option_bool(session, "ok"),
+		"编辑器 package worker 应能创建有界 ZIP 会话。"
+	)
+	assert_true(
+		_option_bool(inspection, "ok"),
+		"会话 owner worker 应能查询预检结果。"
+	)
+	assert_eq(files, PackedStringArray(["entry.txt"]))
+	assert_true(
+		_option_bool(read_result, "ok"),
+		"会话 owner worker 应能读取受控 entry。"
+	)
+	assert_eq(
+		_option_bytes(read_result, "bytes").get_string_from_utf8(),
+		"value"
+	)
+	assert_eq(
+		_option_int(worker_result, "close_error", ERR_BUG),
+		OK,
+		"会话 owner worker 应能完成句柄与快照清理。"
+	)
+
+
+func test_session_rejects_cross_thread_access_without_invalidating_owner() -> void:
 	var archive_path: String = TEST_ROOT.path_join("thread.zip")
 	_write_zip(archive_path, { "entry.txt": "value" })
 	var session: Dictionary = GF_BOUNDED_ZIP_SUPPORT.open_archive(
@@ -444,6 +652,11 @@ func test_session_queries_and_reads_fail_closed_off_main_thread() -> void:
 		if worker_result.get("read") is Dictionary
 		else {}
 	)
+	var worker_close_error: int = _option_int(
+		worker_result,
+		"close_error",
+		ERR_BUG
+	)
 	var main_read: Dictionary = GF_BOUNDED_ZIP_SUPPORT.read_entry(
 		session,
 		"entry.txt"
@@ -452,12 +665,17 @@ func test_session_queries_and_reads_fail_closed_off_main_thread() -> void:
 
 	assert_true(
 		_issue_codes(worker_inspection).has("wrong_thread"),
-		"inspection 必须在 worker 上失败关闭。"
+		"非 owner worker 查询 inspection 必须失败关闭。"
 	)
-	assert_true(worker_files.is_empty(), "worker 不得读取 session 文件表。")
-	assert_false(_option_bool(worker_read, "ok"), "worker 不得读取共享归档游标。")
+	assert_true(worker_files.is_empty(), "非 owner worker 不得读取 session 文件表。")
+	assert_false(_option_bool(worker_read, "ok"), "非 owner worker 不得读取共享归档游标。")
 	assert_eq(_option_int(worker_read, "error_code"), ERR_UNAUTHORIZED)
-	assert_true(_option_bool(main_read, "ok"), "worker 拒绝不得破坏主线程会话。")
+	assert_eq(
+		worker_close_error,
+		ERR_UNAUTHORIZED,
+		"非 owner worker 不得关闭句柄或清理 owner 的快照。"
+	)
+	assert_true(_option_bool(main_read, "ok"), "跨线程拒绝不得破坏 owner 会话。")
 	assert_eq(close_error, OK)
 
 
@@ -650,6 +868,43 @@ func _query_zip_session_from_worker(session: Dictionary) -> Dictionary:
 			session,
 			"entry.txt"
 		),
+		"close_error": GF_BOUNDED_ZIP_SUPPORT.close_archive(session),
+	}
+
+
+func _open_and_read_zip_from_worker(
+	archive_path: String,
+	limits: Dictionary
+) -> Dictionary:
+	var session: Dictionary = GF_BOUNDED_ZIP_SUPPORT.open_archive(
+		archive_path,
+		limits
+	)
+	if not _option_bool(session, "ok"):
+		return {
+			"session": session,
+			"inspection": {},
+			"files": PackedStringArray(),
+			"read": {},
+			"close_error": ERR_INVALID_PARAMETER,
+		}
+	var inspection: Dictionary = GF_BOUNDED_ZIP_SUPPORT.get_inspection(
+		session
+	)
+	var files: PackedStringArray = GF_BOUNDED_ZIP_SUPPORT.get_files(
+		session
+	)
+	var read_result: Dictionary = GF_BOUNDED_ZIP_SUPPORT.read_entry(
+		session,
+		"entry.txt"
+	)
+	var close_error: Error = GF_BOUNDED_ZIP_SUPPORT.close_archive(session)
+	return {
+		"session": session,
+		"inspection": inspection,
+		"files": files,
+		"read": read_result,
+		"close_error": close_error,
 	}
 
 

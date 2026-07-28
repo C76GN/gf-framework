@@ -7,7 +7,9 @@
 # 容量是同一进程内的硬上限，不宣称跨进程全局配额；框架不会自动删除其他
 # 进程遗留的目录。GDScript 文件 API 无法固定父目录句柄，因此 user:// 根必须
 # 位于调用方信任且不会被本机其他进程恶意交换 junction 的目录；当前进程只会
-# 清理带内存登记身份且 process marker、大小与 SHA-256 均复核通过的快照。
+# 清理带内存登记身份且 process marker、大小与 SHA-256 均复核通过的快照。每个
+# session 绑定创建线程；共享登记和快照状态由 Mutex 保护，跨线程 session 操作
+# 失败关闭。
 extends RefCounted
 
 
@@ -55,18 +57,28 @@ const _ZIP_FLAG_UTF8: int = 0x0800
 const _ZIP_FLAG_MASKED_HEADERS: int = 0x2000
 const _SUPPORTED_COMPRESSION_METHODS: Array[int] = [0, 8]
 
+
+# --- 私有变量 ---
+
 static var _active_sessions: Dictionary[String, Dictionary] = {}
+static var _pending_session_reservations: int = 0
 static var _crc32_lookup: PackedInt64Array = PackedInt64Array()
 static var _process_session_root: String = ""
 static var _process_root_marker_sha256: String = ""
 static var _owned_snapshots: Dictionary[String, Dictionary] = {}
 static var _reserved_snapshot_bytes: int = 0
 static var _pending_snapshot_cleanup: Dictionary[String, bool] = {}
+static var _session_mutex: Mutex = Mutex.new()
+static var _snapshot_mutex: Mutex = Mutex.new()
 
 
 # --- 框架内部方法 ---
 
 ## 打开一个绑定受控归档快照、中央目录预检和随机访问句柄生命周期的会话。
+##
+## 调用线程成为会话 owner，后续查询、读取和关闭必须由同一线程完成；这允许
+## 编辑器后台 worker 完整拥有 package archive 生命周期，同时拒绝跨线程共享
+## FileAccess 游标或代替 owner 清理快照。
 ## [br]
 ## @api framework_internal
 ## [br]
@@ -87,28 +99,12 @@ static var _pending_snapshot_cleanup: Dictionary[String, bool] = {}
 ## @return opaque session；成功后只能交给本脚本的读取/查询/关闭方法。
 ## [br]
 ## @schema return: Dictionary，包含 ok、format、format_version、session_id、
-## session_token、issues 和 issue_codes。
+## session_token、issues 和 issue_codes；成功句柄绑定当前创建线程。
 static func open_archive(
 	archive_path: String,
 	limits: Dictionary = {},
 	expected_identity: Dictionary = {}
 ) -> Dictionary:
-	if not Thread.is_main_thread():
-		return _make_session_failure(
-			"wrong_thread",
-			"bounded ZIP sessions may only be opened on the main thread."
-		)
-	var pending_cleanup_error: Error = _retry_pending_snapshot_cleanup()
-	if pending_cleanup_error != OK:
-		return _make_session_failure(
-			"snapshot_cleanup_blocked",
-			"bounded ZIP cannot open another snapshot until prior cleanup succeeds."
-		)
-	if _active_sessions.size() >= _ABSOLUTE_MAX_ACTIVE_SESSIONS:
-		return _make_session_failure(
-			"session_capacity",
-			"bounded ZIP active-session capacity is exhausted."
-		)
 	var limits_result: Dictionary = _resolve_limits(limits)
 	if not _option_bool(limits_result, "ok"):
 		return _make_session_failure_from_limits(limits_result)
@@ -116,111 +112,41 @@ static func open_archive(
 		limits_result,
 		"limits"
 	)
-	var snapshot_result: Dictionary = _materialize_archive_snapshot(
+	if not _reserve_session_capacity():
+		return _make_session_failure(
+			"session_capacity",
+			"bounded ZIP active and opening session capacity is exhausted."
+		)
+	var result: Dictionary = _open_archive_with_reserved_capacity(
 		archive_path,
 		resolved_limits,
 		expected_identity
 	)
-	if not _option_bool(snapshot_result, "ok"):
-		return snapshot_result
-	var snapshot_path: String = _option_string(
-		snapshot_result,
-		"snapshot_path"
-	)
-	var inspection: Dictionary = _inspect_archive_file(
-		snapshot_path,
-		archive_path,
-		resolved_limits
-	)
-	if not _option_bool(inspection, "ok"):
-		var cleanup_error: Error = _remove_or_defer_snapshot(snapshot_path)
-		if cleanup_error != OK:
-			_append_inspection_cleanup_issue(inspection)
-		return _make_session_failure_from_inspection(inspection)
+	if not _option_bool(result, "ok"):
+		_release_session_capacity_reservation()
+	return result
 
-	var reader: ZIPReader = ZIPReader.new()
-	var open_error: Error = reader.open(snapshot_path)
-	if open_error != OK:
-		var cleanup_error: Error = _remove_or_defer_snapshot(snapshot_path)
-		if cleanup_error != OK:
-			return _make_session_failure(
-				"snapshot_cleanup_failed",
-				"bounded ZIP rejected the archive and could not clean its snapshot."
-			)
-		return _make_session_failure(
-			"unsupported_archive",
-			"ZIPReader rejected the inspected archive: %s"
-			% error_string(open_error)
-		)
-	var reader_close_error: Error = reader.close()
-	if reader_close_error != OK:
-		var cleanup_error: Error = _remove_or_defer_snapshot(snapshot_path)
-		if cleanup_error != OK:
-			return _make_session_failure(
-				"snapshot_cleanup_failed",
-				"bounded ZIP could not close the archive or clean its snapshot."
-			)
-		return _make_session_failure(
-			"archive_close_failed",
-			"ZIPReader could not close the validated archive."
-		)
-	var archive_file: FileAccess = FileAccess.open(
-		snapshot_path,
-		FileAccess.READ
-	)
-	if archive_file == null:
-		var cleanup_error: Error = _remove_or_defer_snapshot(snapshot_path)
-		if cleanup_error != OK:
-			return _make_session_failure(
-				"snapshot_cleanup_failed",
-				"bounded ZIP could not reopen or clean its snapshot."
-			)
-		return _make_session_failure(
-			"archive_open_failed",
-			"bounded ZIP snapshot could not be reopened."
-		)
-	var entries_by_path: Dictionary[String, Dictionary] = {}
-	var files: PackedStringArray = PackedStringArray()
-	for entry_value: Variant in _option_array(inspection, "entries"):
-		if not entry_value is Dictionary:
-			continue
-		var entry: Dictionary = entry_value
-		var entry_path: String = _option_string(entry, "path")
-		entries_by_path[entry_path] = entry
-		var _file_appended: bool = files.append(entry_path)
-	var session_id: String = _make_unique_session_id()
-	if session_id.is_empty():
-		archive_file.close()
-		var cleanup_error: Error = _remove_or_defer_snapshot(snapshot_path)
-		if cleanup_error != OK:
-			return _make_session_failure(
-				"snapshot_cleanup_failed",
-				"bounded ZIP could not allocate a session or clean its snapshot."
-			)
-		return _make_session_failure(
-			"session_identity",
-			"bounded ZIP session identity could not be allocated."
-		)
-	var handle: Dictionary = {
-		"ok": true,
-		"format": _SESSION_FORMAT,
-		"format_version": _SESSION_VERSION,
-		"session_id": session_id,
-		"session_token": _make_session_id(),
-		"issues": PackedStringArray(),
-		"issue_codes": PackedStringArray(),
-	}
-	_active_sessions[session_id] = {
-		"handle": handle.duplicate(true),
-		"archive_file": archive_file,
-		"snapshot_path": snapshot_path,
-		"inspection": inspection,
-		"entries_by_path": entries_by_path,
-		"files": files,
-		"consumed_entries": {},
-		"consumed_actual_bytes": 0,
-	}
-	return handle.duplicate(true)
+
+## 返回 bounded ZIP 对归档压缩字节数施加的框架绝对硬上限。
+## [br]
+## @api framework_internal
+## [br]
+## @layer kernel/package
+## [br]
+## @return 任何会话均不能越过的归档压缩字节数。
+static func get_absolute_max_archive_bytes() -> int:
+	return _ABSOLUTE_MAX_ARCHIVE_BYTES
+
+
+## 返回 bounded ZIP 对会话累计解压字节数施加的框架绝对硬上限。
+## [br]
+## @api framework_internal
+## [br]
+## @layer kernel/package
+## [br]
+## @return 任何会话均不能越过的累计解压字节数。
+static func get_absolute_max_total_uncompressed_bytes() -> int:
+	return _ABSOLUTE_MAX_TOTAL_UNCOMPRESSED_BYTES
 
 
 ## 在任何 entry 解压前，对受控快照执行 ZIP 格式、路径和资源预算预检。
@@ -944,11 +870,12 @@ static func _inspect_archive_file(
 ## [br]
 ## @return 会话绑定的只读预检报告副本。
 ## [br]
-## @schema session: Dictionary，必须是当前进程中仍处于 active 状态的原始会话句柄。
+## @schema session: Dictionary，必须是当前进程中仍处于 active 状态、且由当前线程创建的原始会话句柄。
 ## [br]
 ## @schema return: Dictionary，包含 ok、archive_size_bytes、entries、total_declared_uncompressed_bytes、compressed_work_bytes、issues、issue_codes 和 limits。
 static func get_inspection(session: Dictionary) -> Dictionary:
-	if not Thread.is_main_thread():
+	var access: Dictionary = _get_session_access(session)
+	if not _option_bool(access, "ok"):
 		return _make_inspection(
 			"",
 			0,
@@ -956,23 +883,17 @@ static func get_inspection(session: Dictionary) -> Dictionary:
 			0,
 			{},
 			PackedStringArray([
-				"bounded ZIP sessions may only be queried on the main thread.",
+				_option_string(
+					access,
+					"error",
+					"bounded ZIP session access failed."
+				),
 			]),
-			PackedStringArray(["wrong_thread"])
+			PackedStringArray([
+				_option_string(access, "issue_code", "invalid_session"),
+			])
 		)
-	var validation_error: String = _get_session_validation_error(session)
-	if not validation_error.is_empty():
-		return _make_inspection(
-			"",
-			0,
-			[],
-			0,
-			{},
-			PackedStringArray([validation_error]),
-			PackedStringArray(["invalid_session"])
-		)
-	var session_id: String = _option_string(session, "session_id")
-	var state: Dictionary = _active_sessions[session_id]
+	var state: Dictionary = _option_dictionary(access, "state")
 	return _option_dictionary(state, "inspection").duplicate(true)
 
 
@@ -986,15 +907,12 @@ static func get_inspection(session: Dictionary) -> Dictionary:
 ## [br]
 ## @return 中央目录中的精确 entry 路径副本。
 ## [br]
-## @schema session: Dictionary，必须是当前进程中仍处于 active 状态的原始会话句柄。
+## @schema session: Dictionary，必须是当前进程中仍处于 active 状态、且由当前线程创建的原始会话句柄。
 static func get_files(session: Dictionary) -> PackedStringArray:
-	if not Thread.is_main_thread():
+	var access: Dictionary = _get_session_access(session)
+	if not _option_bool(access, "ok"):
 		return PackedStringArray()
-	var validation_error: String = _get_session_validation_error(session)
-	if not validation_error.is_empty():
-		return PackedStringArray()
-	var session_id: String = _option_string(session, "session_id")
-	var state: Dictionary = _active_sessions[session_id]
+	var state: Dictionary = _option_dictionary(access, "state")
 	return _option_packed_string_array(state, "files").duplicate()
 
 
@@ -1017,7 +935,7 @@ static func get_files(session: Dictionary) -> PackedStringArray:
 ## [br]
 ## @return 读取结果；ok 为 true 时 bytes 可用。
 ## [br]
-## @schema session: Dictionary，必须是当前进程中仍处于 active 状态的原始会话句柄。
+## @schema session: Dictionary，必须是当前进程中仍处于 active 状态、且由当前线程创建的原始会话句柄。
 ## [br]
 ## @schema return: Dictionary，包含 ok、path、bytes、declared_size_bytes、
 ## actual_size_bytes、error 和 error_code。
@@ -1026,21 +944,23 @@ static func read_entry(
 	entry_path: String,
 	max_actual_bytes: int = -1
 ) -> Dictionary:
-	if not Thread.is_main_thread():
-		return _make_read_failure(
-			entry_path,
-			"bounded ZIP entries may only be read on the main thread.",
+	var access: Dictionary = _get_session_access(session)
+	if not _option_bool(access, "ok"):
+		var access_error_code: Error = (
 			ERR_UNAUTHORIZED
+			if _option_string(access, "issue_code") == "wrong_thread"
+			else ERR_INVALID_PARAMETER
 		)
-	var validation_error: String = _get_session_validation_error(session)
-	if not validation_error.is_empty():
 		return _make_read_failure(
 			entry_path,
-			validation_error,
-			ERR_INVALID_PARAMETER
+			_option_string(
+				access,
+				"error",
+				"bounded ZIP session access failed."
+			),
+			access_error_code
 		)
-	var session_id: String = _option_string(session, "session_id")
-	var state: Dictionary = _active_sessions[session_id]
+	var state: Dictionary = _option_dictionary(access, "state")
 	var entries_by_path: Dictionary = _option_dictionary(
 		state,
 		"entries_by_path"
@@ -1123,7 +1043,6 @@ static func read_entry(
 		)
 	consumed_entries[entry_path] = true
 	state["consumed_entries"] = consumed_entries
-	_active_sessions[session_id] = state
 	archive_file.seek(data_offset)
 	var compressed_bytes: PackedByteArray = archive_file.get_buffer(
 		compressed_size
@@ -1175,7 +1094,6 @@ static func read_entry(
 	var actual_size: int = bytes.size()
 	if actual_size > remaining_session_bytes:
 		state["consumed_actual_bytes"] = session_actual_limit
-		_active_sessions[session_id] = state
 		return _make_read_failure(
 			entry_path,
 			"ZIP entry actual size exceeds the remaining session read budget.",
@@ -1184,7 +1102,6 @@ static func read_entry(
 			actual_size
 		)
 	state["consumed_actual_bytes"] = consumed_actual_bytes + actual_size
-	_active_sessions[session_id] = state
 	if actual_size > effective_limit:
 		return _make_read_failure(
 			entry_path,
@@ -1230,16 +1147,16 @@ static func read_entry(
 ## [br]
 ## @return 关闭句柄并清理受控快照的 Godot 错误码。
 ## [br]
-## @schema session: Dictionary，必须是当前进程中仍处于 active 状态的原始会话句柄。
+## @schema session: Dictionary，必须是当前进程中仍处于 active 状态、且由当前线程创建的原始会话句柄。
 static func close_archive(session: Dictionary) -> Error:
-	if not Thread.is_main_thread():
-		return ERR_UNAUTHORIZED
-	var validation_error: String = _get_session_validation_error(session)
-	if not validation_error.is_empty():
-		return ERR_INVALID_PARAMETER
-	var session_id: String = _option_string(session, "session_id")
-	var state: Dictionary = _active_sessions[session_id]
-	var _session_erased: bool = _active_sessions.erase(session_id)
+	var access: Dictionary = _take_session_access(session)
+	if not _option_bool(access, "ok"):
+		return (
+			ERR_UNAUTHORIZED
+			if _option_string(access, "issue_code") == "wrong_thread"
+			else ERR_INVALID_PARAMETER
+		)
+	var state: Dictionary = _option_dictionary(access, "state")
 	var archive_file_value: Variant = state.get("archive_file")
 	if archive_file_value is FileAccess:
 		var archive_file: FileAccess = archive_file_value
@@ -1251,7 +1168,130 @@ static func close_archive(session: Dictionary) -> Error:
 
 # --- 私有/辅助方法 ---
 
+static func _open_archive_with_reserved_capacity(
+	archive_path: String,
+	resolved_limits: Dictionary,
+	expected_identity: Dictionary
+) -> Dictionary:
+	var snapshot_result: Dictionary = _materialize_archive_snapshot(
+		archive_path,
+		resolved_limits,
+		expected_identity
+	)
+	if not _option_bool(snapshot_result, "ok"):
+		return snapshot_result
+	var snapshot_path: String = _option_string(
+		snapshot_result,
+		"snapshot_path"
+	)
+	var inspection: Dictionary = _inspect_archive_file(
+		snapshot_path,
+		archive_path,
+		resolved_limits
+	)
+	if not _option_bool(inspection, "ok"):
+		var cleanup_error: Error = _remove_or_defer_snapshot(snapshot_path)
+		if cleanup_error != OK:
+			_append_inspection_cleanup_issue(inspection)
+		return _make_session_failure_from_inspection(inspection)
+
+	var reader: ZIPReader = ZIPReader.new()
+	var open_error: Error = reader.open(snapshot_path)
+	if open_error != OK:
+		var cleanup_error: Error = _remove_or_defer_snapshot(snapshot_path)
+		if cleanup_error != OK:
+			return _make_session_failure(
+				"snapshot_cleanup_failed",
+				"bounded ZIP rejected the archive and could not clean its snapshot."
+			)
+		return _make_session_failure(
+			"unsupported_archive",
+			"ZIPReader rejected the inspected archive: %s"
+			% error_string(open_error)
+		)
+	var reader_close_error: Error = reader.close()
+	if reader_close_error != OK:
+		var cleanup_error: Error = _remove_or_defer_snapshot(snapshot_path)
+		if cleanup_error != OK:
+			return _make_session_failure(
+				"snapshot_cleanup_failed",
+				"bounded ZIP could not close the archive or clean its snapshot."
+			)
+		return _make_session_failure(
+			"archive_close_failed",
+			"ZIPReader could not close the validated archive."
+		)
+	var archive_file: FileAccess = FileAccess.open(
+		snapshot_path,
+		FileAccess.READ
+	)
+	if archive_file == null:
+		var cleanup_error: Error = _remove_or_defer_snapshot(snapshot_path)
+		if cleanup_error != OK:
+			return _make_session_failure(
+				"snapshot_cleanup_failed",
+				"bounded ZIP could not reopen or clean its snapshot."
+			)
+		return _make_session_failure(
+			"archive_open_failed",
+			"bounded ZIP snapshot could not be reopened."
+		)
+	var entries_by_path: Dictionary[String, Dictionary] = {}
+	var files: PackedStringArray = PackedStringArray()
+	for entry_value: Variant in _option_array(inspection, "entries"):
+		if not entry_value is Dictionary:
+			continue
+		var entry: Dictionary = entry_value
+		var entry_path: String = _option_string(entry, "path")
+		entries_by_path[entry_path] = entry
+		var _file_appended: bool = files.append(entry_path)
+	var handle: Dictionary = _register_reserved_session({
+		"archive_file": archive_file,
+		"snapshot_path": snapshot_path,
+		"inspection": inspection,
+		"entries_by_path": entries_by_path,
+		"files": files,
+		"consumed_entries": {},
+		"consumed_actual_bytes": 0,
+	})
+	if not _option_bool(handle, "ok"):
+		archive_file.close()
+		var cleanup_error: Error = _remove_or_defer_snapshot(snapshot_path)
+		if cleanup_error != OK:
+			return _make_session_failure(
+				"snapshot_cleanup_failed",
+				"bounded ZIP could not register a session or clean its snapshot."
+			)
+		return handle
+	return handle.duplicate(true)
+
+
 static func _materialize_archive_snapshot(
+	archive_path: String,
+	limits: Dictionary,
+	expected_identity: Dictionary
+) -> Dictionary:
+	_snapshot_mutex.lock()
+	var result: Dictionary = {}
+	var pending_cleanup_error: Error = (
+		_retry_pending_snapshot_cleanup_locked()
+	)
+	if pending_cleanup_error != OK:
+		result = _make_session_failure(
+			"snapshot_cleanup_blocked",
+			"bounded ZIP cannot open another snapshot until prior cleanup succeeds."
+		)
+	else:
+		result = _materialize_archive_snapshot_locked(
+			archive_path,
+			limits,
+			expected_identity
+		)
+	_snapshot_mutex.unlock()
+	return result
+
+
+static func _materialize_archive_snapshot_locked(
 	archive_path: String,
 	limits: Dictionary,
 	expected_identity: Dictionary
@@ -1316,7 +1356,9 @@ static func _materialize_archive_snapshot(
 	)
 	if snapshot_file == null:
 		source_file.close()
-		var cleanup_error: Error = _remove_or_defer_snapshot(snapshot_path)
+		var cleanup_error: Error = _remove_or_defer_snapshot_locked(
+			snapshot_path
+		)
 		if cleanup_error != OK:
 			return _make_session_failure(
 				"snapshot_cleanup_failed",
@@ -1333,7 +1375,9 @@ static func _materialize_archive_snapshot(
 	if hash_start_error != OK:
 		source_file.close()
 		snapshot_file.close()
-		var cleanup_error: Error = _remove_or_defer_snapshot(snapshot_path)
+		var cleanup_error: Error = _remove_or_defer_snapshot_locked(
+			snapshot_path
+		)
 		if cleanup_error != OK:
 			return _make_session_failure(
 				"snapshot_cleanup_failed",
@@ -1380,7 +1424,9 @@ static func _materialize_archive_snapshot(
 		or source_final_size != archive_size
 		or _file_size(snapshot_path) != archive_size
 	):
-		var cleanup_error: Error = _remove_or_defer_snapshot(snapshot_path)
+		var cleanup_error: Error = _remove_or_defer_snapshot_locked(
+			snapshot_path
+		)
 		if cleanup_error != OK:
 			return _make_session_failure(
 				"snapshot_cleanup_failed",
@@ -1395,7 +1441,9 @@ static func _materialize_archive_snapshot(
 		archive_size,
 		copied_sha256
 	):
-		var cleanup_error: Error = _remove_or_defer_snapshot(snapshot_path)
+		var cleanup_error: Error = _remove_or_defer_snapshot_locked(
+			snapshot_path
+		)
 		if cleanup_error != OK:
 			return _make_session_failure(
 				"snapshot_cleanup_failed",
@@ -1406,7 +1454,9 @@ static func _materialize_archive_snapshot(
 			"bounded ZIP snapshot identity could not be bound."
 		)
 	if FileAccess.get_sha256(snapshot_path).to_lower() != copied_sha256:
-		var cleanup_error: Error = _remove_or_defer_snapshot(snapshot_path)
+		var cleanup_error: Error = _remove_or_defer_snapshot_locked(
+			snapshot_path
+		)
 		if cleanup_error != OK:
 			return _make_session_failure(
 				"snapshot_cleanup_failed",
@@ -1424,7 +1474,9 @@ static func _materialize_archive_snapshot(
 		not expected_sha256.is_empty()
 		and copied_sha256 != expected_sha256
 	):
-		var cleanup_error: Error = _remove_or_defer_snapshot(snapshot_path)
+		var cleanup_error: Error = _remove_or_defer_snapshot_locked(
+			snapshot_path
+		)
 		if cleanup_error != OK:
 			return _make_session_failure(
 				"snapshot_cleanup_failed",
@@ -1596,6 +1648,17 @@ static func _release_snapshot_reservation(
 
 
 static func _remove_or_defer_snapshot(snapshot_path: String) -> Error:
+	_snapshot_mutex.lock()
+	var remove_error: Error = _remove_or_defer_snapshot_locked(
+		snapshot_path
+	)
+	_snapshot_mutex.unlock()
+	return remove_error
+
+
+static func _remove_or_defer_snapshot_locked(
+	snapshot_path: String
+) -> Error:
 	var remove_error: Error = _remove_snapshot(snapshot_path)
 	if remove_error == OK:
 		var _pending_erased: bool = _pending_snapshot_cleanup.erase(
@@ -1608,6 +1671,13 @@ static func _remove_or_defer_snapshot(snapshot_path: String) -> Error:
 
 
 static func _retry_pending_snapshot_cleanup() -> Error:
+	_snapshot_mutex.lock()
+	var cleanup_error: Error = _retry_pending_snapshot_cleanup_locked()
+	_snapshot_mutex.unlock()
+	return cleanup_error
+
+
+static func _retry_pending_snapshot_cleanup_locked() -> Error:
 	if _pending_snapshot_cleanup.is_empty():
 		return OK
 	var pending_paths: PackedStringArray = PackedStringArray()
@@ -1838,7 +1908,117 @@ static func _make_session_failure_from_inspection(
 	}
 
 
-static func _get_session_validation_error(session: Dictionary) -> String:
+static func _reserve_session_capacity() -> bool:
+	_session_mutex.lock()
+	var has_capacity: bool = (
+		_active_sessions.size() + _pending_session_reservations
+		< _ABSOLUTE_MAX_ACTIVE_SESSIONS
+	)
+	if has_capacity:
+		_pending_session_reservations += 1
+	_session_mutex.unlock()
+	return has_capacity
+
+
+static func _release_session_capacity_reservation() -> void:
+	_session_mutex.lock()
+	if _pending_session_reservations > 0:
+		_pending_session_reservations -= 1
+	_session_mutex.unlock()
+
+
+static func _register_reserved_session(state: Dictionary) -> Dictionary:
+	_session_mutex.lock()
+	var handle: Dictionary
+	if (
+		_pending_session_reservations <= 0
+		or _active_sessions.size() >= _ABSOLUTE_MAX_ACTIVE_SESSIONS
+	):
+		handle = _make_session_failure(
+			"session_capacity",
+			"bounded ZIP session reservation is missing or exhausted."
+		)
+	else:
+		var session_id: String = _make_unique_session_id_locked()
+		if session_id.is_empty():
+			handle = _make_session_failure(
+				"session_identity",
+				"bounded ZIP session identity could not be allocated."
+			)
+		else:
+			handle = {
+				"ok": true,
+				"format": _SESSION_FORMAT,
+				"format_version": _SESSION_VERSION,
+				"session_id": session_id,
+				"session_token": _make_session_id(),
+				"issues": PackedStringArray(),
+				"issue_codes": PackedStringArray(),
+			}
+			_pending_session_reservations -= 1
+			_active_sessions[session_id] = {
+				"handle": handle.duplicate(true),
+				"owner_thread_id": OS.get_thread_caller_id(),
+				"state": state,
+			}
+	_session_mutex.unlock()
+	return handle
+
+
+static func _get_session_access(session: Dictionary) -> Dictionary:
+	_session_mutex.lock()
+	var access: Dictionary = _get_session_access_locked(session)
+	_session_mutex.unlock()
+	return access
+
+
+static func _take_session_access(session: Dictionary) -> Dictionary:
+	_session_mutex.lock()
+	var access: Dictionary = _get_session_access_locked(session)
+	if _option_bool(access, "ok"):
+		var session_id: String = _option_string(session, "session_id")
+		var _session_erased: bool = _active_sessions.erase(session_id)
+	_session_mutex.unlock()
+	return access
+
+
+static func _get_session_access_locked(session: Dictionary) -> Dictionary:
+	var validation_error: String = _get_session_validation_error_locked(
+		session
+	)
+	if not validation_error.is_empty():
+		return {
+			"ok": false,
+			"issue_code": "invalid_session",
+			"error": validation_error,
+			"state": {},
+		}
+	var session_id: String = _option_string(session, "session_id")
+	var record: Dictionary = _active_sessions[session_id]
+	var owner_thread_id: int = _option_int(
+		record,
+		"owner_thread_id",
+		-1
+	)
+	if owner_thread_id != OS.get_thread_caller_id():
+		return {
+			"ok": false,
+			"issue_code": "wrong_thread",
+			"error": "bounded ZIP session belongs to another thread.",
+			"state": {},
+		}
+	var state: Dictionary = _option_dictionary(record, "state")
+	return {
+		"ok": true,
+		"issue_code": "",
+		"error": "",
+		"state": state,
+	}
+
+
+static func _get_session_validation_error_locked(
+	session: Dictionary
+) -> String:
 	if not _option_bool(session, "ok"):
 		return "bounded ZIP session was not opened successfully."
 	if _option_string(session, "format") != _SESSION_FORMAT:
@@ -1848,13 +2028,13 @@ static func _get_session_validation_error(session: Dictionary) -> String:
 	var session_id: String = _option_string(session, "session_id")
 	if session_id.is_empty() or not _active_sessions.has(session_id):
 		return "bounded ZIP session is unknown or already closed."
-	var state: Dictionary = _active_sessions[session_id]
-	if session != _option_dictionary(state, "handle"):
+	var record: Dictionary = _active_sessions[session_id]
+	if session != _option_dictionary(record, "handle"):
 		return "bounded ZIP session integrity validation failed."
 	return ""
 
 
-static func _make_unique_session_id() -> String:
+static func _make_unique_session_id_locked() -> String:
 	for _attempt: int in range(8):
 		var candidate: String = _make_session_id()
 		if not candidate.is_empty() and not _active_sessions.has(candidate):
@@ -2337,6 +2517,7 @@ static func _read_uint32_le(bytes: PackedByteArray, offset: int) -> int:
 
 
 static func _crc32_table(bytes: PackedByteArray) -> int:
+	_session_mutex.lock()
 	if _crc32_lookup.size() != 256:
 		var _resize_error: int = _crc32_lookup.resize(256)
 		for table_index: int in range(256):
@@ -2348,6 +2529,7 @@ static func _crc32_table(bytes: PackedByteArray) -> int:
 					else table_value >> 1
 				)
 			_crc32_lookup[table_index] = table_value & 0xffffffff
+	_session_mutex.unlock()
 	var crc: int = 0xffffffff
 	for byte_value: int in bytes:
 		var lookup_index: int = (crc ^ byte_value) & 0xff

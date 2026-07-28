@@ -1874,7 +1874,7 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 				archive.writestr("unexpected.txt", "unexpected")
 			self.assertFalse(build_gf_ai_developer_kit.audit_plugin_archive(first, version)["ok"])
 
-	def test_storage_backend_templates_are_executable_acceptance_assets(self) -> None:
+	def test_storage_backend_templates_are_validated_and_packaged(self) -> None:
 		self.assertEqual(
 			build_gf_ai_developer_kit.validate_storage_backend_templates(),
 			[],
@@ -1944,11 +1944,19 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 			"test_normalizes_unknown_errors_and_redacts_malformed_results",
 			"test_defensive_copies_and_idempotent_shutdown",
 			"fail_next_failed_read_with_ok",
+			"_assert_list_budget_covers_complete_response",
+			"for storage_key_value: Variant in _records:",
+			"response_validation",
 		):
 			self.assertTrue(
 				fragment in contract_test_text,
 				"Storage contract fixture is missing a required behavior.",
 			)
+		self.assertLess(
+			contract_test_text.index("# --- 可重写钩子 / 虚方法 ---"),
+			contract_test_text.index("# --- 私有/辅助方法 ---"),
+			"Storage fixture helpers must follow the virtual hook section.",
+		)
 		self.assertIn("FAULT_FAILED_READ_WITH_OK", fault_driver_text)
 		self.assertTrue(
 			"FAULT_FAILED_READ_WITH_OK" in conformance_text,
@@ -2032,42 +2040,139 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 						== (template_root / file_name).read_bytes(),
 						"Archived storage template bytes must match their source.",
 					)
-		acceptance_outputs: list[str] = []
-		combine_acceptance_output = (
-			build_gf_ai_developer_kit
-			._combined_storage_acceptance_output
-		)
 
-		def capture_acceptance_output(
-			result: build_gf_ai_developer_kit.SupervisedProcessResult,
-			log_path: Path,
-		) -> str:
-			combined = combine_acceptance_output(result, log_path)
-			acceptance_outputs.append(combined)
-			return combined
-
-		with mock.patch.object(
-			build_gf_ai_developer_kit,
-			"_combined_storage_acceptance_output",
-			side_effect=capture_acceptance_output,
+	def test_storage_backend_acceptance_fails_closed_without_godot(self) -> None:
+		with (
+			mock.patch.dict(
+				build_gf_ai_developer_kit.os.environ,
+				{"GF_GODOT_EXECUTABLE": ""},
+				clear=False,
+			),
+			mock.patch.object(
+				build_gf_ai_developer_kit.shutil,
+				"which",
+				return_value=None,
+			),
 		):
 			acceptance = (
 				build_gf_ai_developer_kit
 				.run_storage_backend_template_acceptance()
 			)
-		self.assertTrue(acceptance["ok"], acceptance)
-		self.assertEqual(acceptance["phase"], "complete")
-		self.assertEqual(acceptance["passing_tests"], 8)
-		self.assertTrue(acceptance["lifecycle_ok"])
-		self.assertEqual(len(acceptance_outputs), 2)
-		redaction_canary = "REDACTION_CANARY_DO_NOT_EMIT"
-		self.assertFalse(
-			any(
-				redaction_canary in output
-				for output in acceptance_outputs
+
+		self.assertFalse(acceptance["ok"], acceptance)
+		self.assertEqual(acceptance["phase"], "engine_resolution")
+
+	def test_storage_backend_acceptance_uses_shared_godot_resolver(self) -> None:
+		configured = "D:/fixture/godot.exe"
+		resolved = "D:/fixture/godot.windows.opt.tools.64.exe"
+		with (
+			mock.patch.object(
+				build_gf_ai_developer_kit,
+				"resolve_godot_executable",
+				return_value=resolved,
+			) as resolve_godot,
+			mock.patch.object(
+				build_gf_ai_developer_kit.shutil,
+				"which",
+				return_value=resolved,
 			),
-			"Storage template acceptance output exposed its redaction canary.",
+		):
+			engine = (
+				build_gf_ai_developer_kit
+				.resolve_storage_backend_acceptance_engine(configured)
+			)
+
+		self.assertEqual(engine, resolved)
+		resolve_godot.assert_called_once()
+		self.assertEqual(resolve_godot.call_args.args, (configured,))
+		self.assertEqual(
+			resolve_godot.call_args.kwargs["environment"][
+				build_gf_ai_developer_kit.GODOT_EXECUTABLE_ENV_VAR
+			],
+			configured,
 		)
+
+	def test_storage_backend_acceptance_has_an_explicit_cli_action(self) -> None:
+		expected = {
+			"ok": True,
+			"phase": "complete",
+			"passing_tests": 8,
+			"lifecycle_ok": True,
+		}
+		with (
+			mock.patch.object(build_gf_ai_developer_kit, "configure_stdio"),
+			mock.patch.object(
+				build_gf_ai_developer_kit,
+				"run_storage_backend_template_acceptance",
+				return_value=expected,
+			) as acceptance,
+			mock.patch.object(
+				build_gf_ai_developer_kit,
+				"print_result",
+			) as print_result,
+		):
+			exit_code = build_gf_ai_developer_kit.main([
+				"--storage-backend-acceptance",
+				"--json",
+			])
+
+		self.assertEqual(exit_code, 0)
+		acceptance.assert_called_once_with()
+		print_result.assert_called_once_with(expected, True)
+
+	def test_storage_acceptance_lifecycle_marker_is_closed_and_leak_free(
+		self,
+	) -> None:
+		marker = {
+			"schema_version": 1,
+			"ok": True,
+			"baseline_available": True,
+			"warning_tracking_available": True,
+			"unhandled_warning_count": 0,
+			"orphan_count": 0,
+			"warnings": [],
+			"orphans": [],
+			"details_truncated": False,
+			"configuration_error": "",
+		}
+
+		def encode(payload: object) -> str:
+			return (
+				"GF_TEST_LIFECYCLE_GATE="
+				+ json.dumps(payload, separators=(",", ":"))
+			)
+
+		clean_output = encode(marker)
+		self.assertTrue(
+			build_gf_ai_developer_kit
+			._storage_acceptance_lifecycle_ok(clean_output)
+		)
+		malformed_markers = [
+			{**marker, "unexpected": "field"},
+			{**marker, "schema_version": True},
+			{**marker, "unhandled_warning_count": False},
+			{**marker, "details_truncated": 0},
+			{**marker, "ok": False},
+			{**marker, "warnings": [{}]},
+		]
+		for malformed in malformed_markers:
+			self.assertFalse(
+				build_gf_ai_developer_kit
+				._storage_acceptance_lifecycle_ok(encode(malformed)),
+				malformed,
+			)
+		for exit_leak in (
+			"WARNING: ObjectDB instances leaked at exit.",
+			"ERROR: 1 RID allocations of type 'Dummy' were leaked at exit.",
+			"ERROR: 1 resource still in use at exit.",
+		):
+			self.assertFalse(
+				build_gf_ai_developer_kit
+				._storage_acceptance_lifecycle_ok(
+					f"{clean_output}\n{exit_leak}"
+				),
+				exit_leak,
+			)
 
 	def test_storage_backend_template_validation_fails_closed(self) -> None:
 		with tempfile.TemporaryDirectory(
@@ -3366,6 +3471,70 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 					build_gf_ai_developer_kit._normalized_plugin_archive_path(
 						raw_path
 					)
+
+	def test_plugin_archive_rejects_invalid_explicit_expected_version(self) -> None:
+		with tempfile.TemporaryDirectory(
+			prefix="gf-ai-plugin-version-"
+		) as temporary:
+			archive_path = Path(temporary) / "kit.zip"
+			for invalid_version in (
+				"not-semver",
+				"01.2.3",
+				"1.2.3-alpha..1",
+			):
+				with self.subTest(invalid_version=invalid_version):
+					with mock.patch.object(
+						build_gf_ai_developer_kit,
+						"_read_owned_bytes",
+					) as controlled_read:
+						result = (
+							build_gf_ai_developer_kit.audit_plugin_archive(
+								archive_path,
+								invalid_version,
+							)
+						)
+
+					self.assertFalse(result["ok"])
+					self.assertEqual(result["version"], "")
+					self.assertEqual(
+						result["issues"],
+						[
+							"ai_kit.archive.expected_version_invalid archive"
+						],
+					)
+					controlled_read.assert_not_called()
+
+	def test_validate_only_cli_rejects_invalid_version_before_archive_read(
+		self,
+	) -> None:
+		with (
+			mock.patch.object(build_gf_ai_developer_kit, "configure_stdio"),
+			mock.patch.object(
+				build_gf_ai_developer_kit,
+				"_read_owned_bytes",
+			) as controlled_read,
+			mock.patch.object(
+				build_gf_ai_developer_kit,
+				"print_result",
+			) as print_result,
+		):
+			exit_code = build_gf_ai_developer_kit.main([
+				"--validate-only",
+				"--version",
+				"not-semver",
+				"--output",
+				"build/validation/nonexistent-ai-kit.zip",
+				"--json",
+			])
+
+		self.assertEqual(exit_code, 1)
+		controlled_read.assert_not_called()
+		result = print_result.call_args.args[0]
+		self.assertEqual(result["version"], "")
+		self.assertEqual(
+			result["issues"],
+			["ai_kit.archive.expected_version_invalid archive"],
+		)
 
 	def test_plugin_archive_rejects_portable_duplicates_and_prefixes_before_reads(
 		self,

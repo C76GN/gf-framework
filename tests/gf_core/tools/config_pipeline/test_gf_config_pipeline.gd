@@ -7,6 +7,9 @@ extends GutTest
 const GF_TRANSIENT_GDSCRIPT_TEST_SUPPORT = preload(
 	"res://tests/gf_core/support/gf_transient_gdscript_test_support.gd"
 )
+const GF_BOUNDED_ZIP_SUPPORT_SCRIPT = preload(
+	"res://addons/gf/kernel/package/gf_bounded_zip_support.gd"
+)
 
 
 const GF_CONFIG_PIPELINE_COMMAND_SCRIPT = preload("res://addons/gf/tools/config_pipeline/gf_config_pipeline_command.gd")
@@ -195,6 +198,54 @@ func test_pipeline_loads_xlsx_source_with_auto_format() -> void:
 	assert_eq(GFVariantData.get_option_string_name(table.metadata, "source_format"), GFConfigPipelineTableSource.FORMAT_XLSX, "表 metadata 应记录 xlsx 来源格式。")
 	assert_eq(GFVariantData.get_option_int(first_record, "id"), 1, "XLSX 字符串 ID 应按 schema 转为 int。")
 	assert_eq(GFVariantData.get_option_float(first_record, "power"), 2.5, "XLSX 字符串数值应按 schema 转为 float。")
+
+
+func test_pipeline_xlsx_unlimited_file_budget_uses_framework_archive_cap() -> void:
+	var layout_stage: GFConfigPipelineLayoutStage = (
+		GFConfigPipelineLayoutStage.new()
+	)
+	assert_eq(
+		layout_stage._resolve_xlsx_archive_file_limit(0),
+		GF_BOUNDED_ZIP_SUPPORT_SCRIPT.get_absolute_max_archive_bytes(),
+		"项目 unlimited sentinel 必须映射为 ZIP archive 绝对硬上限。"
+	)
+	assert_eq(
+		layout_stage._resolve_xlsx_total_uncompressed_limit(
+			{"max_xlsx_total_uncompressed_bytes": -1},
+			0
+		),
+		(
+			GF_BOUNDED_ZIP_SUPPORT_SCRIPT
+			.get_absolute_max_total_uncompressed_bytes()
+		),
+		"累计解压 unlimited sentinel 必须映射为 ZIP 绝对硬上限。"
+	)
+	var xlsx_path: String = _write_xlsx(
+		"user://gf_config_pipeline_unlimited_%d.xlsx"
+		% Time.get_ticks_usec(),
+		"Items",
+		[
+			PackedStringArray(["id", "name", "power"]),
+			PackedStringArray(["1", "Potion", "2.5"]),
+		]
+	)
+	var source: GFConfigPipelineTableSource = GFConfigPipelineTableSource.new()
+	source.source_path = xlsx_path
+	source.source_format = GFConfigPipelineTableSource.FORMAT_XLSX
+	source.schema = _make_item_schema()
+	source.parse_options = {
+		"sheet_name": "Items",
+		"max_xlsx_file_bytes": -1,
+	}
+
+	var table_result: Dictionary = _call_pipeline(&"build_table", [source])
+	var table: GFConfigTableResource = _get_table_from_result(table_result)
+
+	assert_true(
+		GFVariantData.get_option_bool(table_result, "success"),
+		"文档化的 -1 文件预算必须由 ZIP 层收敛到框架绝对硬上限。"
+	)
+	assert_not_null(table, "无限制文件预算下的合法 XLSX 应返回表资源。")
 
 
 func test_pipeline_xlsx_source_respects_comment_prefix_parse_options() -> void:
@@ -1467,6 +1518,70 @@ func test_pipeline_export_profile_propagates_transaction_recovery_contract() -> 
 	)
 
 
+func test_pipeline_export_profile_propagates_begin_recovery_contract() -> void:
+	var csv_path: String = _write_text(
+		"user://gf_config_pipeline_begin_recovery_items_%d.csv"
+		% Time.get_ticks_usec(),
+		"id,name,power\n1,Potion,2.5\n"
+	)
+	var output_path: String = _track_path(
+		"user://gf_config_pipeline_begin_recovery_database_%d.json"
+		% Time.get_ticks_usec()
+	)
+	var source: GFConfigPipelineTableSource = (
+		GFConfigPipelineTableSource.new()
+	)
+	source.table_name = &"items"
+	source.source_path = csv_path
+	source.schema = _make_item_schema()
+	var profile: GFConfigPipelineProfile = GFConfigPipelineProfile.new()
+	profile.profile_id = &"begin_recovery"
+	profile.database_id = &"main"
+	profile.output_path = output_path
+	profile.sources = [source]
+	var commit_stage: _BeginRecoveryReportingCommitStage = (
+		_BeginRecoveryReportingCommitStage.new()
+	)
+	var pipeline: GFConfigPipeline = GFConfigPipeline.new()
+	pipeline = pipeline.configure_stages(
+		null,
+		null,
+		null,
+		null,
+		commit_stage
+	)
+
+	var export_result: Dictionary = pipeline.export_profile(profile)
+	var transaction_result: Dictionary = GFVariantData.get_option_dictionary(
+		export_result,
+		"transaction_result"
+	)
+
+	assert_false(GFVariantData.get_option_bool(export_result, "success"))
+	assert_true(
+		GFVariantData.get_option_bool(export_result, "recovery_required"),
+		"begin cleanup 未终结时 Pipeline 顶层必须保留恢复要求。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string_name(
+			export_result,
+			"recovery_action"
+		),
+		GFArtifactWriteTransaction.RECOVERY_ACTION_COMPLETE
+	)
+	assert_eq(
+		GFVariantData.get_option_dictionary(
+			export_result,
+			"recovery_transaction"
+		),
+		GFVariantData.get_option_dictionary(
+			transaction_result,
+			"recovery_transaction"
+		),
+		"begin failure 的 opaque recovery handle 不得在 Pipeline 丢失。"
+	)
+
+
 func test_pipeline_json_export_rejects_non_finite_vector_components() -> void:
 	var database: GFConfigDatabaseResource = _build_items_database_from_csv("non_finite_vector")
 	database.metadata["position"] = Vector2(NAN, 1.0)
@@ -1902,4 +2017,27 @@ class _RecoveryReportingCommitStage extends GFConfigPipelineCommitStage:
 				GFArtifactWriteTransaction.RECOVERY_ACTION_COMPLETE
 			),
 			"recovery_transaction": transaction.duplicate(true),
+		}
+
+
+class _BeginRecoveryReportingCommitStage extends GFConfigPipelineCommitStage:
+	func begin(
+		_paths: PackedStringArray,
+		_options: Dictionary = {}
+	) -> Dictionary:
+		var recovery_transaction: Dictionary = {
+			"ok": true,
+			"format": "gf.artifact_write.transaction",
+			"state": "open",
+			"transaction_token": "opaque-begin-recovery-token",
+		}
+		return {
+			"ok": false,
+			"state": "failed",
+			"issues": PackedStringArray(["injected begin cleanup failure"]),
+			"recovery_required": true,
+			"recovery_action": (
+				GFArtifactWriteTransaction.RECOVERY_ACTION_COMPLETE
+			),
+			"recovery_transaction": recovery_transaction,
 		}

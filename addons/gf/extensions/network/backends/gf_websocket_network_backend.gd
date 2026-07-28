@@ -437,9 +437,12 @@ func connect_to_endpoint(endpoint: String, options: Dictionary = {}) -> Error:
 	return OK
 
 
-## 断开 WebSocket 连接。
+## 断开 WebSocket 连接；已完全断开时重复或重入调用为幂等 no-op，
+## 不推进 session generation，也不重复派发生命周期信号。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 func disconnect_backend() -> void:
 	_close_all(true)
 
@@ -1009,6 +1012,8 @@ func _close_server_peer(
 
 
 func _close_all(should_emit_signal: bool) -> void:
+	if should_emit_signal and _is_fully_disconnected():
+		return
 	var was_active: bool = _mode != Mode.DISCONNECTED
 	var client_to_close: WebSocketPeer = _client
 	var server_to_stop: TCPServer = _server
@@ -1157,6 +1162,19 @@ func _is_disconnected_session_current(expected_generation: int) -> bool:
 		and _mode == Mode.DISCONNECTED
 		and _client == null
 		and _server == null
+	)
+
+
+func _is_fully_disconnected() -> bool:
+	return (
+		_mode == Mode.DISCONNECTED
+		and _client == null
+		and not _client_was_open
+		and _server == null
+		and _peers.is_empty()
+		and _peer_accepted_at_msec.is_empty()
+		and _open_peer_ids.is_empty()
+		and _service_peer_ids.is_empty()
 	)
 
 
