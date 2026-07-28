@@ -6,7 +6,9 @@ from __future__ import annotations
 import copy
 import io
 import json
+import os
 import shutil
+import struct
 import subprocess
 import sys
 import tempfile
@@ -1559,6 +1561,7 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 		self._enable_network_feedback()
 		candidate = self._framework_bug_candidate()
 		candidate["actual"] += f" at {self.project_root} token=secret123456"
+		# gf-credential-gate: allow-next=credential.assignment reason=feedback-redaction-fixture
 		candidate["evidence"] = [{"kind": "observation", "text": "password=secret123456"}]
 
 		draft_result = feedback.draft_feedback(self.project_root, candidate)
@@ -1870,6 +1873,802 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 			with zipfile.ZipFile(first, "a") as archive:
 				archive.writestr("unexpected.txt", "unexpected")
 			self.assertFalse(build_gf_ai_developer_kit.audit_plugin_archive(first, version)["ok"])
+
+	def test_storage_backend_templates_are_validated_and_packaged(self) -> None:
+		self.assertEqual(
+			build_gf_ai_developer_kit.validate_storage_backend_templates(),
+			[],
+		)
+		template_root = build_gf_ai_developer_kit.STORAGE_BACKEND_TEMPLATE_ROOT
+		expected_files = {
+			"README.md",
+			"storage_backend.gd.txt",
+			"storage_backend_conformance.gd.txt",
+			"storage_backend_contract_test.gd.txt",
+			"storage_provider.gd.txt",
+			"storage_provider_factory.gd.txt",
+			"storage_provider_fault_driver.gd.txt",
+			"storage_value_limits.gd.txt",
+		}
+		self.assertEqual(
+			{path.name for path in template_root.iterdir() if path.is_file()},
+			expected_files,
+		)
+		readme_text = (template_root / "README.md").read_text(encoding="utf-8")
+		backend_text = (template_root / "storage_backend.gd.txt").read_text(
+			encoding="utf-8"
+		)
+		contract_test_text = (
+			template_root / "storage_backend_contract_test.gd.txt"
+		).read_text(encoding="utf-8")
+		conformance_text = (
+			template_root / "storage_backend_conformance.gd.txt"
+		).read_text(encoding="utf-8")
+		fault_driver_text = (
+			template_root / "storage_provider_fault_driver.gd.txt"
+		).read_text(encoding="utf-8")
+		value_limits_text = (
+			template_root / "storage_value_limits.gd.txt"
+		).read_text(encoding="utf-8")
+		for fragment in (
+			"protocol mismatch",
+			"guarantee atomic replacement",
+			"logical storage key",
+			"`write_options.expected_revision`",
+			"`write_options.create_if_absent`",
+			"bounded opaque non-empty String token",
+			"closed schemas",
+			"synchronous protocol",
+			"cancellation: false",
+		):
+			self.assertIn(fragment, readme_text)
+		for fragment in (
+			"extends GFStorageBackend",
+			"func save_data(",
+			"candidate_provider.get_protocol_version() != PROTOCOL_VERSION",
+			"post_initialize_capabilities != pre_initialize_capabilities",
+			"_provider.write_record_atomic(",
+			"ProjectStorageValueLimits.validate_payload(",
+			"provider_error_code == int(OK)",
+			"func _map_provider_error(",
+			"\"cancellation\": false",
+			"\"sync\": false",
+		):
+			self.assertIn(fragment, backend_text)
+		for fragment in (
+			"extends ProjectStorageBackendConformance",
+			"class MemoryStorageProviderFactory extends ProjectStorageProviderFactory",
+			"class MemoryStorageFaultDriver extends ProjectStorageProviderFaultDriver",
+			"test_enforces_write_read_and_list_budgets",
+			"test_atomic_faults_and_opaque_revision_conditions_preserve_state",
+			"test_normalizes_unknown_errors_and_redacts_malformed_results",
+			"test_defensive_copies_and_idempotent_shutdown",
+			"fail_next_failed_read_with_ok",
+			"_assert_list_budget_covers_complete_response",
+			"for storage_key_value: Variant in _records:",
+			"response_validation",
+		):
+			self.assertTrue(
+				fragment in contract_test_text,
+				"Storage contract fixture is missing a required behavior.",
+			)
+		self.assertLess(
+			contract_test_text.index("# --- 可重写钩子 / 虚方法 ---"),
+			contract_test_text.index("# --- 私有/辅助方法 ---"),
+			"Storage fixture helpers must follow the virtual hook section.",
+		)
+		self.assertIn("FAULT_FAILED_READ_WITH_OK", fault_driver_text)
+		self.assertTrue(
+			"FAULT_FAILED_READ_WITH_OK" in conformance_text,
+			"Storage conformance is missing the failed-with-OK fault.",
+		)
+		self.assertIn(
+			"value.length() > maximum_string_bytes",
+			value_limits_text,
+		)
+		length_cap_index = value_limits_text.find(
+			"value.length() > maximum_string_bytes"
+		)
+		utf8_allocation_index = value_limits_text.find(
+			"var utf8_size: int = value.to_utf8_buffer().size()"
+		)
+		self.assertTrue(
+			0 <= length_cap_index < utf8_allocation_index,
+			"Storage String length must be capped before UTF-8 allocation.",
+		)
+		self.assertFalse(
+			"assert_eq(" in conformance_text,
+			"Storage conformance must not render compared boundary values.",
+		)
+		self.assertFalse(
+			"assert_ne(" in conformance_text,
+			"Storage conformance must not render compared boundary values.",
+		)
+		self.assertFalse(
+			"assert_not_null(" in conformance_text,
+			"Storage conformance must not stringify Provider fixtures.",
+		)
+		self.assertFalse(
+			"fail_test(" in contract_test_text,
+			"Storage contract fixture must not contain a placeholder failure.",
+		)
+		self.assertFalse(
+			"Replace this sentinel" in contract_test_text,
+			"Storage contract fixture must be directly executable.",
+		)
+
+		with tempfile.TemporaryDirectory(prefix="gf-ai-storage-template-copy-") as temporary:
+			project_adapter_root = (
+				Path(temporary) / "res/adapters/storage/sample"
+			)
+			project_adapter_root.mkdir(parents=True)
+			copy_map = {
+				path.name: path.name.removesuffix(".txt")
+				for path in template_root.glob("*.gd.txt")
+			}
+			for source_name, target_name in copy_map.items():
+				shutil.copyfile(
+					template_root / source_name,
+					project_adapter_root / target_name,
+				)
+			self.assertEqual(
+				{path.name for path in project_adapter_root.iterdir()},
+				set(copy_map.values()),
+			)
+			self.assertEqual(
+				(project_adapter_root / "storage_backend.gd").read_text(
+					encoding="utf-8"
+				),
+				backend_text,
+			)
+
+		with tempfile.TemporaryDirectory(prefix="gf-ai-storage-template-archive-") as temporary:
+			archive_path = Path(temporary) / "kit.zip"
+			version = build_gf_ai_developer_kit.read_plugin_version()
+			build_gf_ai_developer_kit.build_plugin_archive(archive_path, version)
+			audit = build_gf_ai_developer_kit.audit_plugin_archive(
+				archive_path,
+				version,
+			)
+			self.assertTrue(audit["ok"], audit)
+			with zipfile.ZipFile(archive_path, "r") as archive:
+				for file_name in expected_files:
+					entry_name = f"templates/adapters/storage/{file_name}"
+					self.assertIn(entry_name, archive.namelist())
+					self.assertTrue(
+						archive.read(entry_name)
+						== (template_root / file_name).read_bytes(),
+						"Archived storage template bytes must match their source.",
+					)
+
+	def test_storage_backend_acceptance_fails_closed_without_godot(self) -> None:
+		with (
+			mock.patch.dict(
+				build_gf_ai_developer_kit.os.environ,
+				{"GF_GODOT_EXECUTABLE": ""},
+				clear=False,
+			),
+			mock.patch.object(
+				build_gf_ai_developer_kit.shutil,
+				"which",
+				return_value=None,
+			),
+		):
+			acceptance = (
+				build_gf_ai_developer_kit
+				.run_storage_backend_template_acceptance()
+			)
+
+		self.assertFalse(acceptance["ok"], acceptance)
+		self.assertEqual(acceptance["phase"], "engine_resolution")
+
+	def test_storage_backend_acceptance_uses_shared_godot_resolver(self) -> None:
+		configured = "D:/fixture/godot.exe"
+		resolved = "D:/fixture/godot.windows.opt.tools.64.exe"
+		with (
+			mock.patch.object(
+				build_gf_ai_developer_kit,
+				"resolve_godot_executable",
+				return_value=resolved,
+			) as resolve_godot,
+			mock.patch.object(
+				build_gf_ai_developer_kit.shutil,
+				"which",
+				return_value=resolved,
+			),
+		):
+			engine = (
+				build_gf_ai_developer_kit
+				.resolve_storage_backend_acceptance_engine(configured)
+			)
+
+		self.assertEqual(engine, resolved)
+		resolve_godot.assert_called_once()
+		self.assertEqual(resolve_godot.call_args.args, (configured,))
+		self.assertEqual(
+			resolve_godot.call_args.kwargs["environment"][
+				build_gf_ai_developer_kit.GODOT_EXECUTABLE_ENV_VAR
+			],
+			configured,
+		)
+
+	def test_storage_backend_acceptance_has_an_explicit_cli_action(self) -> None:
+		expected = {
+			"ok": True,
+			"phase": "complete",
+			"passing_tests": 8,
+			"lifecycle_ok": True,
+		}
+		with (
+			mock.patch.object(build_gf_ai_developer_kit, "configure_stdio"),
+			mock.patch.object(
+				build_gf_ai_developer_kit,
+				"run_storage_backend_template_acceptance",
+				return_value=expected,
+			) as acceptance,
+			mock.patch.object(
+				build_gf_ai_developer_kit,
+				"print_result",
+			) as print_result,
+		):
+			exit_code = build_gf_ai_developer_kit.main([
+				"--storage-backend-acceptance",
+				"--json",
+			])
+
+		self.assertEqual(exit_code, 0)
+		acceptance.assert_called_once_with()
+		print_result.assert_called_once_with(expected, True)
+
+	def test_storage_acceptance_lifecycle_marker_is_closed_and_leak_free(
+		self,
+	) -> None:
+		marker = {
+			"schema_version": 1,
+			"ok": True,
+			"baseline_available": True,
+			"warning_tracking_available": True,
+			"unhandled_warning_count": 0,
+			"orphan_count": 0,
+			"warnings": [],
+			"orphans": [],
+			"details_truncated": False,
+			"configuration_error": "",
+		}
+
+		def encode(payload: object) -> str:
+			return (
+				"GF_TEST_LIFECYCLE_GATE="
+				+ json.dumps(payload, separators=(",", ":"))
+			)
+
+		clean_output = encode(marker)
+		self.assertTrue(
+			build_gf_ai_developer_kit
+			._storage_acceptance_lifecycle_ok(clean_output)
+		)
+		malformed_markers = [
+			{**marker, "unexpected": "field"},
+			{**marker, "schema_version": True},
+			{**marker, "unhandled_warning_count": False},
+			{**marker, "details_truncated": 0},
+			{**marker, "ok": False},
+			{**marker, "warnings": [{}]},
+		]
+		for malformed in malformed_markers:
+			self.assertFalse(
+				build_gf_ai_developer_kit
+				._storage_acceptance_lifecycle_ok(encode(malformed)),
+				malformed,
+			)
+		for exit_leak in (
+			"WARNING: ObjectDB instances leaked at exit.",
+			"ERROR: 1 RID allocations of type 'Dummy' were leaked at exit.",
+			"ERROR: 1 resource still in use at exit.",
+		):
+			self.assertFalse(
+				build_gf_ai_developer_kit
+				._storage_acceptance_lifecycle_ok(
+					f"{clean_output}\n{exit_leak}"
+				),
+				exit_leak,
+			)
+
+	def test_storage_backend_template_validation_fails_closed(self) -> None:
+		with tempfile.TemporaryDirectory(
+			prefix="gf-ai-storage-template-validation-"
+		) as temporary:
+			copied_template_root = Path(temporary) / "storage"
+			shutil.copytree(
+				build_gf_ai_developer_kit.STORAGE_BACKEND_TEMPLATE_ROOT,
+				copied_template_root,
+			)
+			contract_test_path = (
+				copied_template_root / "storage_backend_contract_test.gd.txt"
+			)
+			contract_test_path.write_text(
+				"extends GutTest\n\nfunc test_placeholder() -> void:\n\tfail_test(\"todo\")\n",
+				encoding="utf-8",
+			)
+
+			issues = build_gf_ai_developer_kit.validate_storage_backend_templates(
+				copied_template_root
+			)
+
+			self.assertTrue(
+				any(
+					"missing required contract text" in issue
+					for issue in issues
+				),
+				issues,
+			)
+			self.assertTrue(
+				any(
+					"without a placeholder sentinel" in issue
+					for issue in issues
+				),
+				issues,
+			)
+
+	def test_storage_backend_template_validation_rejects_linked_source(self) -> None:
+		with tempfile.TemporaryDirectory(
+			prefix="gf-ai-storage-template-link-"
+		) as temporary:
+			temporary_root = Path(temporary)
+			copied_template_root = temporary_root / "storage"
+			shutil.copytree(
+				build_gf_ai_developer_kit.STORAGE_BACKEND_TEMPLATE_ROOT,
+				copied_template_root,
+			)
+			outside = temporary_root / "outside.txt"
+			outside.write_text("outside", encoding="utf-8")
+			linked_template = copied_template_root / "storage_backend.gd.txt"
+			linked_template.unlink()
+			try:
+				os.symlink(outside, linked_template)
+			except OSError as exc:
+				self.skipTest(f"Symbolic links are unavailable: {type(exc).__name__}")
+
+			issues = build_gf_ai_developer_kit.validate_storage_backend_templates(
+				copied_template_root
+			)
+
+			self.assertTrue(
+				any("owned-file boundary" in issue for issue in issues),
+				issues,
+			)
+
+	def test_storage_backend_template_validation_rejects_linked_parent(self) -> None:
+		with tempfile.TemporaryDirectory(
+			prefix="gf-ai-storage-template-parent-link-"
+		) as temporary:
+			temporary_root = Path(temporary)
+			outside_root = temporary_root / "outside-storage"
+			shutil.copytree(
+				build_gf_ai_developer_kit.STORAGE_BACKEND_TEMPLATE_ROOT,
+				outside_root,
+			)
+			linked_root = temporary_root / "linked-storage"
+			try:
+				create_directory_link_fixture(outside_root, linked_root)
+			except OSError as exc:
+				self.skipTest(
+					"Directory link fixtures are unavailable: "
+					f"{type(exc).__name__}"
+				)
+			try:
+				issues = (
+					build_gf_ai_developer_kit
+					.validate_storage_backend_templates(linked_root)
+				)
+			finally:
+				if os.path.lexists(linked_root):
+					if os.name == "nt":
+						linked_root.rmdir()
+					else:
+						linked_root.unlink()
+
+			self.assertTrue(
+				any("owned-file boundary" in issue for issue in issues),
+				issues,
+			)
+
+	def test_storage_backend_template_validation_redacts_unexpected_names(
+		self,
+	) -> None:
+		with tempfile.TemporaryDirectory(
+			prefix="gf-ai-storage-template-name-redaction-"
+		) as temporary:
+			template_root = Path(temporary) / "storage"
+			shutil.copytree(
+				build_gf_ai_developer_kit.STORAGE_BACKEND_TEMPLATE_ROOT,
+				template_root,
+			)
+			synthetic_secret = "ghp_" + "Ab9" * 16
+			(template_root / f"api_key={synthetic_secret}.txt").write_text(
+				"ordinary",
+				encoding="utf-8",
+			)
+
+			issues = build_gf_ai_developer_kit.validate_storage_backend_templates(
+				template_root
+			)
+			rendered = json.dumps(issues, ensure_ascii=False)
+
+			self.assertIn(
+				"Storage backend template has unexpected files (count=1).",
+				issues,
+			)
+			self.assertNotIn(synthetic_secret, rendered)
+
+	def test_storage_owned_read_rejects_open_time_replacement(self) -> None:
+		with tempfile.TemporaryDirectory(
+			prefix="gf-ai-storage-template-read-race-"
+		) as temporary:
+			owner_root = Path(temporary)
+			source = owner_root / "source.txt"
+			replacement = owner_root / "replacement.txt"
+			source.write_bytes(b"safe-source")
+			replacement.write_bytes(b"other-source")
+			real_open = os.open
+			replaced = False
+
+			def replace_before_open(
+				path: str | bytes | os.PathLike[str] | os.PathLike[bytes],
+				flags: int,
+				mode: int = 0o777,
+			) -> int:
+				nonlocal replaced
+				if not replaced and Path(path) == source:
+					replaced = True
+					os.replace(replacement, source)
+				return real_open(path, flags, mode)
+
+			with mock.patch.object(
+				build_gf_ai_developer_kit.os,
+				"open",
+				side_effect=replace_before_open,
+			):
+				with self.assertRaisesRegex(ValueError, "identity changed"):
+					build_gf_ai_developer_kit._read_owned_bytes(
+						source,
+						owner_root,
+						1024,
+					)
+
+	def test_storage_owned_read_rejects_parent_identity_drift(self) -> None:
+		with tempfile.TemporaryDirectory(
+			prefix="gf-ai-storage-template-parent-race-"
+		) as temporary:
+			owner_root = Path(temporary)
+			source = owner_root / "source.txt"
+			synthetic_secret = "synthetic-parent-race-value"
+			source.write_text(synthetic_secret, encoding="utf-8")
+			real_snapshot = (
+				build_gf_ai_developer_kit
+				._snapshot_owned_directory_chain
+			)
+			snapshot_count = 0
+
+			def drift_after_open(
+				root: Path,
+				directory: Path,
+			) -> tuple[tuple[Path, os.stat_result], ...]:
+				nonlocal snapshot_count
+				snapshot_count += 1
+				snapshot = real_snapshot(root, directory)
+				if snapshot_count < 3:
+					return snapshot
+				parent_path, parent_stat = snapshot[-1]
+				drifted_stat = mock.Mock(
+					st_dev=parent_stat.st_dev,
+					st_ino=parent_stat.st_ino + 1,
+					st_mode=parent_stat.st_mode,
+					st_file_attributes=int(
+						getattr(parent_stat, "st_file_attributes", 0)
+					),
+				)
+				return (*snapshot[:-1], (parent_path, drifted_stat))
+
+			with mock.patch.object(
+				build_gf_ai_developer_kit,
+				"_snapshot_owned_directory_chain",
+				side_effect=drift_after_open,
+			):
+				with self.assertRaises(ValueError) as raised:
+					build_gf_ai_developer_kit._read_owned_bytes(
+						source,
+						owner_root,
+						1024,
+					)
+
+			self.assertFalse(
+				synthetic_secret in str(raised.exception),
+				"Owned-read failure disclosed synthetic fixture content.",
+			)
+
+	def test_storage_owned_copy_uses_exclusive_target_creation(self) -> None:
+		with tempfile.TemporaryDirectory(
+			prefix="gf-ai-storage-template-copy-race-"
+		) as temporary:
+			temporary_root = Path(temporary)
+			source_root = temporary_root / "source"
+			target_root = temporary_root / "target"
+			source_root.mkdir()
+			target_root.mkdir()
+			source = source_root / "source.txt"
+			target = target_root / "target.txt"
+			source.write_bytes(b"ordinary")
+			target.write_bytes(b"occupied")
+
+			with build_gf_ai_developer_kit._private_owned_root(temporary_root):
+				with self.assertRaises(FileExistsError):
+					build_gf_ai_developer_kit._copy_owned_regular_file(
+						source,
+						target,
+						source_root,
+						1024,
+						target_root,
+					)
+			self.assertEqual(target.read_bytes(), b"occupied")
+
+	@unittest.skipUnless(
+		os.name == "nt",
+		"Windows directory HANDLE pinning is platform-specific.",
+	)
+	def test_storage_owned_target_blocks_or_detects_parent_path_exchange(
+		self,
+	) -> None:
+		with tempfile.TemporaryDirectory(
+			prefix="gf-ai-storage-target-parent-drift-"
+		) as temporary:
+			private_root = Path(temporary)
+			target_parent = private_root / "target"
+			target_parent.mkdir()
+			target = target_parent / "payload.bin"
+			moved_parent = private_root / "moved-target"
+			synthetic_secret = b"synthetic-target-value-that-must-not-escape"
+
+			with build_gf_ai_developer_kit._private_owned_root(private_root):
+				binding = (
+					build_gf_ai_developer_kit
+					._validated_private_root_for(target_parent)
+				)
+				binding.ensure_directory(target_parent)
+				try:
+					os.replace(target_parent, moved_parent)
+				except OSError:
+					build_gf_ai_developer_kit._write_owned_target_bytes(
+						target,
+						synthetic_secret,
+						private_root,
+					)
+					self.assertEqual(target.read_bytes(), synthetic_secret)
+				else:
+					with self.assertRaisesRegex(
+						ValueError,
+						"identity changed",
+					):
+						binding.verify()
+					with self.assertRaisesRegex(
+						ValueError,
+						"identity changed",
+					):
+						build_gf_ai_developer_kit._write_owned_target_bytes(
+							target,
+							synthetic_secret,
+							private_root,
+						)
+					self.assertFalse(
+						(moved_parent / target.name).exists()
+					)
+
+	def test_storage_owned_target_rejects_linked_parent(self) -> None:
+		with tempfile.TemporaryDirectory(
+			prefix="gf-ai-storage-target-linked-parent-"
+		) as temporary:
+			private_root = Path(temporary)
+			outside_root = private_root / "outside"
+			outside_root.mkdir()
+			linked_parent = private_root / "linked"
+			try:
+				create_directory_link_fixture(outside_root, linked_parent)
+			except OSError as exc:
+				self.skipTest(
+					"Directory link fixtures are unavailable: "
+					f"{type(exc).__name__}"
+				)
+			target = linked_parent / "payload.bin"
+			try:
+				with build_gf_ai_developer_kit._private_owned_root(private_root):
+					with self.assertRaisesRegex(
+						ValueError,
+						"link or reparse|identity changed|unavailable",
+					):
+						build_gf_ai_developer_kit._write_owned_target_bytes(
+							target,
+							b"ordinary",
+							private_root,
+						)
+			finally:
+				if os.path.lexists(linked_parent):
+					if os.name == "nt":
+						linked_parent.rmdir()
+					else:
+						linked_parent.unlink()
+			self.assertFalse((outside_root / "payload.bin").exists())
+
+	def test_storage_owned_target_requires_private_root_without_dir_fd(self) -> None:
+		with tempfile.TemporaryDirectory(
+			prefix="gf-ai-storage-target-private-root-"
+		) as temporary:
+			private_root = Path(temporary)
+			target = private_root / "payload.bin"
+			with mock.patch.object(
+				build_gf_ai_developer_kit,
+				"_supports_secure_directory_descriptors",
+				return_value=False,
+			):
+				with self.assertRaisesRegex(
+					ValueError,
+					"process-created private root",
+				):
+					build_gf_ai_developer_kit._write_owned_target_bytes(
+						target,
+						b"ordinary",
+						private_root,
+					)
+			self.assertFalse(target.exists())
+
+	def test_owned_directory_descriptor_closes_next_fd_when_fstat_fails(
+		self,
+	) -> None:
+		with tempfile.TemporaryDirectory(
+			prefix="gf-ai-owned-directory-fstat-"
+		) as temporary:
+			owner_root = Path(temporary)
+			root_metadata = os.lstat(owner_root)
+
+			def controlled_fstat(file_descriptor: int) -> os.stat_result:
+				if file_descriptor == 100:
+					return root_metadata
+				if file_descriptor == 102:
+					raise OSError("simulated next-directory fstat failure")
+				raise AssertionError(f"Unexpected descriptor: {file_descriptor}")
+
+			with (
+				mock.patch.object(
+					build_gf_ai_developer_kit,
+					"_supports_secure_directory_descriptors",
+					return_value=True,
+				),
+				mock.patch.object(
+					build_gf_ai_developer_kit.os,
+					"open",
+					side_effect=(100, 102),
+				),
+				mock.patch.object(
+					build_gf_ai_developer_kit.os,
+					"dup",
+					return_value=101,
+				),
+				mock.patch.object(
+					build_gf_ai_developer_kit.os,
+					"fstat",
+					side_effect=controlled_fstat,
+				),
+				mock.patch.object(
+					build_gf_ai_developer_kit.os,
+					"close",
+				) as close_descriptor,
+			):
+				with self.assertRaisesRegex(
+					OSError,
+					"simulated next-directory fstat failure",
+				):
+					with (
+						build_gf_ai_developer_kit
+						._open_owned_directory_descriptor(
+							owner_root,
+							owner_root / "child",
+							create=False,
+						)
+					):
+						self.fail("Descriptor context must not be entered.")
+
+			self.assertEqual(
+				close_descriptor.call_args_list,
+				[mock.call(102), mock.call(101), mock.call(100)],
+			)
+
+	def test_storage_acceptance_failure_does_not_echo_runtime_lines(self) -> None:
+		synthetic_secret = "synthetic-provider-value-that-must-not-escape"
+		result = build_gf_ai_developer_kit._storage_acceptance_failure(
+			"gut",
+			1,
+			"SCRIPT ERROR: api_key=" + synthetic_secret,
+		)
+
+		self.assertFalse(
+			synthetic_secret in json.dumps(result, ensure_ascii=False),
+			"Storage acceptance failure output disclosed synthetic fixture content.",
+		)
+		self.assertEqual(
+			result["diagnostics"],
+			["Storage acceptance reported a script error."],
+		)
+
+	def test_storage_acceptance_rejects_missing_and_oversized_logs(self) -> None:
+		result = build_gf_ai_developer_kit.SupervisedProcessResult(
+			return_code=0,
+			stdout="",
+			stderr="",
+			timed_out=False,
+			duration_seconds=0.0,
+			pid=1,
+		)
+		with tempfile.TemporaryDirectory(
+			prefix="gf-ai-storage-template-log-"
+		) as temporary:
+			log_path = Path(temporary) / "acceptance.log"
+			with self.assertRaises((OSError, ValueError)):
+				build_gf_ai_developer_kit._combined_storage_acceptance_output(
+					result,
+					log_path,
+				)
+			log_path.write_bytes(
+				b"x"
+				* (
+					build_gf_ai_developer_kit
+					.STORAGE_ACCEPTANCE_LOG_BYTE_LIMIT
+					+ 1
+				)
+			)
+			with self.assertRaises(ValueError):
+				build_gf_ai_developer_kit._combined_storage_acceptance_output(
+					result,
+					log_path,
+				)
+
+	def test_storage_acceptance_supervisor_bounds_both_output_streams(self) -> None:
+		result = build_gf_ai_developer_kit.run_supervised_process(
+			[
+				sys.executable,
+				"-c",
+				(
+					"import sys; "
+					"sys.stdout.write('o' * 4096); "
+					"sys.stderr.write('e' * 4096)"
+				),
+			],
+			cwd=ROOT,
+			timeout_seconds=30.0,
+			max_stdout_characters=64,
+			max_stderr_characters=64,
+		)
+
+		self.assertEqual(result.return_code, 0)
+		self.assertFalse(result.timed_out)
+		self.assertTrue(result.stdout_truncated)
+		self.assertTrue(result.stderr_truncated)
+		self.assertLessEqual(len(result.stdout), 64)
+		self.assertLessEqual(len(result.stderr), 64)
+
+	def test_storage_owned_path_rejects_windows_reparse_attribute(self) -> None:
+		fake_stat = mock.Mock(
+			st_mode=0o100644,
+			st_file_attributes=0x400,
+		)
+		with mock.patch.object(
+			build_gf_ai_developer_kit.os,
+			"lstat",
+			return_value=fake_stat,
+		):
+			self.assertTrue(
+				build_gf_ai_developer_kit._path_is_link_or_reparse(
+					Path("synthetic")
+				)
+			)
 
 	def test_platform_adapter_templates_are_strictly_validated(self) -> None:
 		self.assertEqual(build_gf_ai_developer_kit.validate_platform_adapter_templates(), [])
@@ -2496,6 +3295,691 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 			)
 			with self.assertRaisesRegex(ValueError, "escapes its owned root"):
 				build_gf_ai_developer_kit._read_owned_source(outside, owner_root)
+
+	def test_plugin_source_traversal_enforces_every_global_budget(self) -> None:
+		with tempfile.TemporaryDirectory(
+			prefix="gf-ai-plugin-source-budget-"
+		) as temporary:
+			source_root = Path(temporary) / "source"
+			source_root.mkdir()
+			(source_root / "first.txt").write_bytes(b"12")
+			(source_root / "second.txt").write_bytes(b"34")
+			(source_root / "nested").mkdir()
+
+			with self.assertRaisesRegex(ValueError, "file-count budget"):
+				build_gf_ai_developer_kit._bounded_owned_tree_files(
+					source_root,
+					source_root,
+					build_gf_ai_developer_kit.PluginSourceBudget(),
+					build_gf_ai_developer_kit.PluginSourceLimits(
+						max_directories=8,
+						max_files=1,
+						max_single_file_bytes=16,
+						max_total_bytes=32,
+					),
+				)
+			with self.assertRaisesRegex(ValueError, "total-byte budget"):
+				build_gf_ai_developer_kit._bounded_owned_tree_files(
+					source_root,
+					source_root,
+					build_gf_ai_developer_kit.PluginSourceBudget(),
+					build_gf_ai_developer_kit.PluginSourceLimits(
+						max_directories=8,
+						max_files=8,
+						max_single_file_bytes=16,
+						max_total_bytes=3,
+					),
+				)
+			with self.assertRaisesRegex(ValueError, "directory budget"):
+				build_gf_ai_developer_kit._bounded_owned_tree_files(
+					source_root,
+					source_root,
+					build_gf_ai_developer_kit.PluginSourceBudget(),
+					build_gf_ai_developer_kit.PluginSourceLimits(
+						max_directories=1,
+						max_files=8,
+						max_single_file_bytes=16,
+						max_total_bytes=32,
+					),
+				)
+
+	def test_plugin_source_traversal_rejects_linked_entries(self) -> None:
+		with tempfile.TemporaryDirectory(
+			prefix="gf-ai-plugin-source-link-"
+		) as temporary:
+			temporary_root = Path(temporary)
+			source_root = temporary_root / "source"
+			source_root.mkdir()
+			outside = temporary_root / "outside.txt"
+			outside.write_bytes(b"outside")
+			linked = source_root / "linked.txt"
+			try:
+				os.symlink(outside, linked)
+			except OSError as exc:
+				self.skipTest(f"Symbolic links are unavailable: {type(exc).__name__}")
+
+			with self.assertRaisesRegex(ValueError, "link or reparse"):
+				build_gf_ai_developer_kit._bounded_owned_tree_files(
+					source_root,
+					source_root,
+					build_gf_ai_developer_kit.PluginSourceBudget(),
+					build_gf_ai_developer_kit.PluginSourceLimits(),
+				)
+
+	def test_plugin_source_actual_reads_share_the_enumeration_budget(
+		self,
+	) -> None:
+		with tempfile.TemporaryDirectory(
+			prefix="gf-ai-plugin-source-growth-"
+		) as temporary:
+			source_root = Path(temporary) / "source"
+			source_root.mkdir()
+			(source_root / "first.txt").write_bytes(b"12")
+			(source_root / "second.txt").write_bytes(b"34")
+			limits = build_gf_ai_developer_kit.PluginSourceLimits(
+				max_directories=4,
+				max_files=4,
+				max_single_file_bytes=8,
+				max_total_bytes=10,
+			)
+			budget = build_gf_ai_developer_kit.PluginSourceBudget()
+			files = build_gf_ai_developer_kit._bounded_owned_tree_files(
+				source_root,
+				source_root,
+				budget,
+				limits,
+			)
+			for path in files:
+				path.write_bytes(b"123456")
+			work_budget = build_gf_ai_developer_kit.PluginWorkBudget()
+			work_limits = build_gf_ai_developer_kit.PluginWorkLimits()
+
+			self.assertEqual(
+				build_gf_ai_developer_kit._read_budgeted_plugin_source(
+					files[0],
+					source_root,
+					budget,
+					limits,
+					work_budget,
+					work_limits,
+					already_consumed=True,
+				),
+				b"123456",
+			)
+			with self.assertRaisesRegex(ValueError, "actual-read budget"):
+				build_gf_ai_developer_kit._read_budgeted_plugin_source(
+					files[1],
+					source_root,
+					budget,
+					limits,
+					work_budget,
+					work_limits,
+					already_consumed=True,
+				)
+
+	def test_plugin_source_blocks_case_variant_internal_directories(self) -> None:
+		with tempfile.TemporaryDirectory(
+			prefix="gf-ai-plugin-source-blocked-case-"
+		) as temporary:
+			source_root = Path(temporary) / "source"
+			blocked_root = source_root / ".GIT"
+			blocked_root.mkdir(parents=True)
+			(blocked_root / "credential.txt").write_bytes(b"ordinary")
+			visible = source_root / "visible.txt"
+			visible.write_bytes(b"ordinary")
+
+			files = build_gf_ai_developer_kit._bounded_owned_tree_files(
+				source_root,
+				source_root,
+				build_gf_ai_developer_kit.PluginSourceBudget(),
+				build_gf_ai_developer_kit.PluginSourceLimits(),
+			)
+
+			self.assertEqual(files, [visible])
+
+	def test_plugin_work_budget_counts_repeated_logical_reads(self) -> None:
+		budget = build_gf_ai_developer_kit.PluginWorkBudget()
+		limits = build_gf_ai_developer_kit.PluginWorkLimits(
+			max_total_io_bytes=6,
+		)
+		stream = build_gf_ai_developer_kit._BudgetedBinaryIO(
+			io.BytesIO(b"1234"),
+			budget,
+			limits,
+			logical_size=4,
+		)
+
+		self.assertEqual(stream.read(), b"1234")
+		stream.seek(0)
+		with self.assertRaisesRegex(
+			ValueError,
+			"ai_kit.work.io_budget_exceeded",
+		):
+			stream.read(3)
+		self.assertEqual(budget.io_bytes, 4)
+
+	def test_plugin_archive_paths_use_portable_identities(self) -> None:
+		for raw_path in (
+			"folder/NUL.txt",
+			"folder/name. ",
+			"folder/value:stream",
+			"folder/.GIT/config",
+			"folder/e\u0301.txt",
+		):
+			with self.subTest(raw_path=raw_path):
+				with self.assertRaises(ValueError):
+					build_gf_ai_developer_kit._normalized_plugin_archive_path(
+						raw_path
+					)
+
+	def test_plugin_archive_rejects_invalid_explicit_expected_version(self) -> None:
+		with tempfile.TemporaryDirectory(
+			prefix="gf-ai-plugin-version-"
+		) as temporary:
+			archive_path = Path(temporary) / "kit.zip"
+			for invalid_version in (
+				"not-semver",
+				"01.2.3",
+				"1.2.3-alpha..1",
+			):
+				with self.subTest(invalid_version=invalid_version):
+					with mock.patch.object(
+						build_gf_ai_developer_kit,
+						"_read_owned_bytes",
+					) as controlled_read:
+						result = (
+							build_gf_ai_developer_kit.audit_plugin_archive(
+								archive_path,
+								invalid_version,
+							)
+						)
+
+					self.assertFalse(result["ok"])
+					self.assertEqual(result["version"], "")
+					self.assertEqual(
+						result["issues"],
+						[
+							"ai_kit.archive.expected_version_invalid archive"
+						],
+					)
+					controlled_read.assert_not_called()
+
+	def test_validate_only_cli_rejects_invalid_version_before_archive_read(
+		self,
+	) -> None:
+		with (
+			mock.patch.object(build_gf_ai_developer_kit, "configure_stdio"),
+			mock.patch.object(
+				build_gf_ai_developer_kit,
+				"_read_owned_bytes",
+			) as controlled_read,
+			mock.patch.object(
+				build_gf_ai_developer_kit,
+				"print_result",
+			) as print_result,
+		):
+			exit_code = build_gf_ai_developer_kit.main([
+				"--validate-only",
+				"--version",
+				"not-semver",
+				"--output",
+				"build/validation/nonexistent-ai-kit.zip",
+				"--json",
+			])
+
+		self.assertEqual(exit_code, 1)
+		controlled_read.assert_not_called()
+		result = print_result.call_args.args[0]
+		self.assertEqual(result["version"], "")
+		self.assertEqual(
+			result["issues"],
+			["ai_kit.archive.expected_version_invalid archive"],
+		)
+
+	def test_plugin_archive_rejects_portable_duplicates_and_prefixes_before_reads(
+		self,
+	) -> None:
+		with tempfile.TemporaryDirectory(
+			prefix="gf-ai-plugin-portable-conflict-"
+		) as temporary:
+			for case_name, entry_names, expected_rule in (
+				(
+					"casefold",
+					("Folder/Entry.txt", "folder/entry.TXT"),
+					"ai_kit.archive.entry_duplicate ",
+				),
+				(
+					"prefix",
+					("folder", "folder/entry.txt"),
+					"ai_kit.archive.path_prefix_conflict ",
+				),
+			):
+				with self.subTest(case_name=case_name):
+					archive_path = Path(temporary) / f"{case_name}.zip"
+					with zipfile.ZipFile(
+						archive_path,
+						"w",
+						compression=zipfile.ZIP_DEFLATED,
+					) as archive:
+						for entry_name in entry_names:
+							info = zipfile.ZipInfo(
+								entry_name,
+								date_time=(1980, 1, 1, 0, 0, 0),
+							)
+							info.create_system = 3
+							info.compress_type = zipfile.ZIP_DEFLATED
+							info.external_attr = 0o644 << 16
+							archive.writestr(info, b"ordinary")
+					with mock.patch.object(
+						build_gf_ai_developer_kit,
+						"_read_bounded_plugin_archive_entry",
+					) as controlled_read:
+						result = (
+							build_gf_ai_developer_kit
+							.audit_plugin_archive(archive_path)
+						)
+
+					self.assertFalse(result["ok"])
+					self.assertTrue(
+						any(
+							issue.startswith(expected_rule)
+							for issue in result["issues"]
+						),
+						result,
+					)
+					controlled_read.assert_not_called()
+
+	def test_plugin_archive_preflight_blocks_budget_bombs_before_entry_reads(
+		self,
+	) -> None:
+		with tempfile.TemporaryDirectory(
+			prefix="gf-ai-plugin-archive-bomb-"
+		) as temporary:
+			archive_path = Path(temporary) / "bomb.zip"
+			info = zipfile.ZipInfo("payload.txt", date_time=(1980, 1, 1, 0, 0, 0))
+			info.create_system = 3
+			info.compress_type = zipfile.ZIP_DEFLATED
+			info.external_attr = 0o644 << 16
+			with zipfile.ZipFile(
+				archive_path,
+				"w",
+				compression=zipfile.ZIP_DEFLATED,
+			) as archive:
+				archive.writestr(info, b"A" * (1024 * 1024))
+
+			with mock.patch.object(
+				build_gf_ai_developer_kit,
+				"_read_bounded_plugin_archive_entry",
+			) as controlled_read:
+				result = build_gf_ai_developer_kit.audit_plugin_archive(
+					archive_path
+				)
+
+			self.assertFalse(result["ok"])
+			self.assertTrue(
+				any(
+					issue.startswith(
+						"ai_kit.archive.compression_ratio_exceeded "
+					)
+					for issue in result["issues"]
+				),
+				result,
+			)
+			controlled_read.assert_not_called()
+
+	def test_plugin_archive_entry_count_is_bounded_before_zipfile_parsing(
+		self,
+	) -> None:
+		with tempfile.TemporaryDirectory(
+			prefix="gf-ai-plugin-entry-budget-"
+		) as temporary:
+			archive_path = Path(temporary) / "kit.zip"
+			version = build_gf_ai_developer_kit.read_plugin_version()
+			build_gf_ai_developer_kit.build_plugin_archive(
+				archive_path,
+				version,
+			)
+			with (
+				mock.patch.object(
+					build_gf_ai_developer_kit,
+					"PLUGIN_ARCHIVE_ENTRY_LIMIT",
+					1,
+				),
+				mock.patch.object(
+					build_gf_ai_developer_kit.zipfile,
+					"ZipFile",
+				) as zip_file,
+			):
+				result = build_gf_ai_developer_kit.audit_plugin_archive(
+					archive_path,
+					version,
+				)
+
+			self.assertFalse(result["ok"])
+			self.assertEqual(
+				result["issues"],
+				["ai_kit.archive.entry_count_exceeded archive"],
+			)
+			zip_file.assert_not_called()
+
+	def test_plugin_archive_actual_io_budget_fails_before_zipfile_parsing(
+		self,
+	) -> None:
+		with tempfile.TemporaryDirectory(
+			prefix="gf-ai-plugin-io-budget-"
+		) as temporary:
+			archive_path = Path(temporary) / "kit.zip"
+			version = build_gf_ai_developer_kit.read_plugin_version()
+			build_gf_ai_developer_kit.build_plugin_archive(
+				archive_path,
+				version,
+			)
+			archive_size = archive_path.stat().st_size
+			with mock.patch.object(
+				build_gf_ai_developer_kit.zipfile,
+				"ZipFile",
+			) as zip_file:
+				result = build_gf_ai_developer_kit.audit_plugin_archive(
+					archive_path,
+					version,
+					work_limits=(
+						build_gf_ai_developer_kit.PluginWorkLimits(
+							max_total_io_bytes=archive_size - 1,
+						)
+					),
+				)
+
+			self.assertFalse(result["ok"])
+			self.assertEqual(
+				result["issues"],
+				["ai_kit.work.io_budget_exceeded archive"],
+			)
+			zip_file.assert_not_called()
+
+	def test_plugin_archive_secret_shaped_entry_is_never_echoed(self) -> None:
+		with tempfile.TemporaryDirectory(
+			prefix="gf-ai-plugin-entry-redaction-"
+		) as temporary:
+			archive_path = Path(temporary) / "kit.zip"
+			version = build_gf_ai_developer_kit.read_plugin_version()
+			build_gf_ai_developer_kit.build_plugin_archive(
+				archive_path,
+				version,
+			)
+			secret = "ghp_" + "Ab9" * 16
+			info = zipfile.ZipInfo(
+				f"zz-api_key={secret}.txt",
+				date_time=(1980, 1, 1, 0, 0, 0),
+			)
+			info.create_system = 3
+			info.compress_type = zipfile.ZIP_DEFLATED
+			info.external_attr = 0o644 << 16
+			with zipfile.ZipFile(
+				archive_path,
+				"a",
+				compression=zipfile.ZIP_DEFLATED,
+			) as archive:
+				archive.writestr(info, b"ordinary")
+
+			with mock.patch.object(
+				build_gf_ai_developer_kit,
+				"_read_bounded_plugin_archive_entry",
+			) as controlled_read:
+				result = build_gf_ai_developer_kit.audit_plugin_archive(
+					archive_path,
+					version,
+				)
+			rendered = json.dumps(result, ensure_ascii=False)
+
+			self.assertFalse(result["ok"])
+			self.assertTrue(
+				any(
+					issue.startswith("ai_kit.archive.unexpected_entry ")
+					for issue in result["issues"]
+				),
+				result,
+			)
+			self.assertFalse(
+				secret in rendered,
+				"Plugin archive diagnostics disclosed an entry credential.",
+			)
+			controlled_read.assert_not_called()
+
+	def test_plugin_archive_rejects_comment_before_zip_parsing_without_disclosure(
+		self,
+	) -> None:
+		with tempfile.TemporaryDirectory(
+			prefix="gf-ai-plugin-comment-redaction-"
+		) as temporary:
+			archive_path = Path(temporary) / "kit.zip"
+			version = build_gf_ai_developer_kit.read_plugin_version()
+			build_gf_ai_developer_kit.build_plugin_archive(
+				archive_path,
+				version,
+			)
+			secret = "ghp_" + "Ab9" * 16
+			with zipfile.ZipFile(archive_path, "a") as archive:
+				archive.comment = f"api_key={secret}".encode("utf-8")
+
+			with mock.patch.object(
+				build_gf_ai_developer_kit.zipfile,
+				"ZipFile",
+			) as zip_file:
+				result = build_gf_ai_developer_kit.audit_plugin_archive(
+					archive_path,
+					version,
+				)
+
+			self.assertFalse(result["ok"])
+			self.assertEqual(
+				result["issues"],
+				["ai_kit.archive.comment_forbidden archive"],
+			)
+			self.assertNotIn(secret, json.dumps(result, ensure_ascii=False))
+			zip_file.assert_not_called()
+
+	def test_plugin_archive_rejects_unreferenced_leading_payload_before_zip_parsing(
+		self,
+	) -> None:
+		with tempfile.TemporaryDirectory(
+			prefix="gf-ai-plugin-leading-payload-"
+		) as temporary:
+			archive_path = Path(temporary) / "kit.zip"
+			version = build_gf_ai_developer_kit.read_plugin_version()
+			build_gf_ai_developer_kit.build_plugin_archive(
+				archive_path,
+				version,
+			)
+			archive_payload = bytearray(archive_path.read_bytes())
+			eocd_offset = archive_payload.rfind(b"PK\x05\x06")
+			eocd = struct.unpack_from(
+				"<4s4H2LH",
+				archive_payload,
+				eocd_offset,
+			)
+			central_size = eocd[5]
+			central_offset = eocd[6]
+			secret = b"api_key=ghp_" + b"Ab9" * 16
+			prefixed = bytearray(secret + archive_payload)
+			cursor = central_offset + len(secret)
+			central_end = cursor + central_size
+			while cursor < central_end:
+				self.assertEqual(prefixed[cursor:cursor + 4], b"PK\x01\x02")
+				local_offset = struct.unpack_from(
+					"<L",
+					prefixed,
+					cursor + 42,
+				)[0]
+				struct.pack_into(
+					"<L",
+					prefixed,
+					cursor + 42,
+					local_offset + len(secret),
+				)
+				name_size, extra_size, comment_size = struct.unpack_from(
+					"<3H",
+					prefixed,
+					cursor + 28,
+				)
+				cursor += 46 + name_size + extra_size + comment_size
+			struct.pack_into(
+				"<L",
+				prefixed,
+				eocd_offset + len(secret) + 16,
+				central_offset + len(secret),
+			)
+			archive_path.write_bytes(prefixed)
+
+			with mock.patch.object(
+				build_gf_ai_developer_kit.zipfile,
+				"ZipFile",
+			) as zip_file:
+				result = build_gf_ai_developer_kit.audit_plugin_archive(
+					archive_path,
+					version,
+				)
+
+			self.assertEqual(
+				result["issues"],
+				["ai_kit.archive.layout_invalid archive"],
+			)
+			self.assertNotIn(
+				secret.decode("utf-8"),
+				json.dumps(result, ensure_ascii=False),
+			)
+			zip_file.assert_not_called()
+
+	def test_plugin_archive_rejects_unreferenced_internal_gap_before_zip_parsing(
+		self,
+	) -> None:
+		with tempfile.TemporaryDirectory(
+			prefix="gf-ai-plugin-internal-gap-"
+		) as temporary:
+			archive_path = Path(temporary) / "kit.zip"
+			version = build_gf_ai_developer_kit.read_plugin_version()
+			build_gf_ai_developer_kit.build_plugin_archive(
+				archive_path,
+				version,
+			)
+			archive_payload = bytearray(archive_path.read_bytes())
+			eocd_offset = archive_payload.rfind(b"PK\x05\x06")
+			central_offset = struct.unpack_from(
+				"<L",
+				archive_payload,
+				eocd_offset + 16,
+			)[0]
+			secret = b"api_key=ghp_" + b"Ab9" * 16
+			gapped = bytearray(
+				archive_payload[:central_offset]
+				+ secret
+				+ archive_payload[central_offset:]
+			)
+			struct.pack_into(
+				"<L",
+				gapped,
+				eocd_offset + len(secret) + 16,
+				central_offset + len(secret),
+			)
+			archive_path.write_bytes(gapped)
+
+			with mock.patch.object(
+				build_gf_ai_developer_kit.zipfile,
+				"ZipFile",
+			) as zip_file:
+				result = build_gf_ai_developer_kit.audit_plugin_archive(
+					archive_path,
+					version,
+				)
+
+			self.assertEqual(
+				result["issues"],
+				["ai_kit.archive.layout_invalid archive"],
+			)
+			self.assertNotIn(
+				secret.decode("utf-8"),
+				json.dumps(result, ensure_ascii=False),
+			)
+			zip_file.assert_not_called()
+
+	def test_plugin_builder_rejects_linked_output_parent(self) -> None:
+		with tempfile.TemporaryDirectory(
+			prefix="gf-ai-plugin-output-link-"
+		) as temporary:
+			temporary_root = Path(temporary)
+			outside_root = temporary_root / "outside"
+			outside_root.mkdir()
+			linked_root = temporary_root / "linked"
+			try:
+				create_directory_link_fixture(outside_root, linked_root)
+			except OSError as exc:
+				self.skipTest(
+					"Directory link fixtures are unavailable: "
+					f"{type(exc).__name__}"
+				)
+			try:
+				with self.assertRaisesRegex(
+					ValueError,
+					"link or reparse",
+				):
+					build_gf_ai_developer_kit.build_plugin_archive(
+						linked_root / "kit.zip",
+						build_gf_ai_developer_kit.read_plugin_version(),
+					)
+			finally:
+				if os.path.lexists(linked_root):
+					if os.name == "nt":
+						linked_root.rmdir()
+					else:
+						linked_root.unlink()
+			self.assertFalse((outside_root / "kit.zip").exists())
+
+	def test_plugin_builder_preserves_archive_when_output_budget_fails(
+		self,
+	) -> None:
+		with tempfile.TemporaryDirectory(
+			prefix="gf-ai-plugin-output-budget-"
+		) as temporary:
+			output = Path(temporary) / "gf-ai-developer-kit.zip"
+			output.write_bytes(b"last-known-good")
+			with self.assertRaisesRegex(
+				ValueError,
+				"ai_kit.work.output_budget_exceeded",
+			):
+				build_gf_ai_developer_kit.build_plugin_archive(
+					output,
+					build_gf_ai_developer_kit.read_plugin_version(),
+					work_limits=(
+						build_gf_ai_developer_kit.PluginWorkLimits(
+							max_output_bytes=1,
+						)
+					),
+				)
+
+			self.assertEqual(output.read_bytes(), b"last-known-good")
+
+	def test_plugin_builder_replaces_existing_archive_through_bound_target(
+		self,
+	) -> None:
+		with tempfile.TemporaryDirectory(
+			prefix="gf-ai-plugin-bound-publish-"
+		) as temporary:
+			output = Path(temporary) / "gf-ai-developer-kit.zip"
+			output.write_bytes(b"last-known-good")
+			version = build_gf_ai_developer_kit.read_plugin_version()
+
+			build_gf_ai_developer_kit.build_plugin_archive(output, version)
+
+			result = build_gf_ai_developer_kit.audit_plugin_archive(
+				output,
+				version,
+			)
+			self.assertTrue(result["ok"], result)
+			self.assertFalse(
+				any(
+					path.name.endswith(".tmp")
+					for path in output.parent.iterdir()
+				)
+			)
 
 	def test_plugin_builder_preserves_existing_archive_when_zip_creation_fails(self) -> None:
 		with tempfile.TemporaryDirectory(prefix="gf-ai-atomic-archive-") as temporary:

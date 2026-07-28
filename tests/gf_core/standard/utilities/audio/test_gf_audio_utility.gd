@@ -1594,11 +1594,15 @@ func test_backend_owned_mix_snapshot_fields_do_not_cancel_local_transition() -> 
 			},
 		},
 	})
-	await get_tree().create_timer(0.08).timeout
+	var transition_completed: bool = await _wait_for_bus_volume_target(
+		bus_index,
+		-20.0
+	)
 
 	assert_true(GFVariantData.get_option_bool(report, "ok"), "backend 全接管的逐字段 fallback 应成功。")
 	assert_almost_eq(backend.volume_db, -12.0, 0.001, "快照增益应由 backend 接管。")
 	assert_true(backend.muted, "快照 mute 应由 backend 接管。")
+	assert_true(transition_completed, "本地 transition 应在有界帧预算内完成。")
 	assert_almost_eq(
 		AudioServer.get_bus_volume_db(bus_index),
 		-20.0,
@@ -1625,10 +1629,14 @@ func test_backend_owned_numeric_mix_snapshot_does_not_cancel_local_transition() 
 			"Master": -12.0,
 		},
 	})
-	await get_tree().create_timer(0.08).timeout
+	var transition_completed: bool = await _wait_for_bus_volume_target(
+		bus_index,
+		-20.0
+	)
 
 	assert_true(GFVariantData.get_option_bool(report, "ok"), "数值简写的 backend fallback 应成功。")
 	assert_almost_eq(backend.volume_db, -12.0, 0.001, "数值简写增益应由 backend 接管。")
+	assert_true(transition_completed, "本地 transition 应在有界帧预算内完成。")
 	assert_almost_eq(
 		AudioServer.get_bus_volume_db(bus_index),
 		-20.0,
@@ -2973,3 +2981,15 @@ func _resource_option(options: Dictionary, key: Variant) -> Resource:
 		var resource: Resource = value
 		return resource
 	return null
+
+
+func _wait_for_bus_volume_target(
+	bus_index: int,
+	expected_db: float,
+	max_frames: int = 240
+) -> bool:
+	for _frame_index: int in range(max_frames):
+		if absf(AudioServer.get_bus_volume_db(bus_index) - expected_db) <= 0.001:
+			return true
+		await get_tree().process_frame
+	return absf(AudioServer.get_bus_volume_db(bus_index) - expected_db) <= 0.001

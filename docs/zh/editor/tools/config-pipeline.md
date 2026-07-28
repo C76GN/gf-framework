@@ -21,10 +21,12 @@
 内置 Pipeline 使用五个彼此独立的阶段：
 
 - `GFConfigPipelineReaderStage` 只处理来源存在性、文件大小预算和原始载荷读取。CSV、JSON、ConfigFile 返回未改写文本，XLSX 返回已经过文件预算检查的路径载荷。
-- `GFConfigPipelineLayoutStage` 只把载荷解码为记录、表头和 `row_locations`。CSV / JSON / ConfigFile 复用 `GFConfigTableImporter`，XLSX 的 ZIP / XML 预算与 sheet 布局解析收敛在该阶段。
+- `GFConfigPipelineLayoutStage` 只把载荷解码为记录、表头和 `row_locations`。CSV / JSON / ConfigFile 复用 `GFConfigTableImporter`；XLSX 在任何 entry 读取前先通过框架共享的有界 ZIP 预检，再把 ZIP / XML 预算与 sheet 布局解析收敛在该阶段。
 - `GFConfigPipelineValidationStage` 负责记录规范化、类型化表头、schema 复制或推导、字段转换和语义校验。只有完整通过的结果才生成 `GFConfigPipelineTableIR`。
 - `GFConfigPipelineTargetStage` 接受 IR 完成 Resource 物化，并将数据库 Resource 转换为 JSON-safe 数据及稳定 JSON 文本；缩进、键排序和变体编码都属于 Target 语义，它不会重新读取来源或推导 schema。
-- `GFConfigPipelineCommitStage` 只负责多产物写入前快照、成功清理和失败逆序回滚，不解释产物内容，也不决定输出路径策略。
+- `GFConfigPipelineCommitStage` 把 ResourceSaver 等专用 writer 接到框架级 `GFArtifactWriteTransaction`，只负责多产物写入前快照、成功清理和失败逆序回滚，不复制事务实现、不解释产物内容，也不决定输出路径策略。
+
+`export_profile()` 的顶层结果保留 Commit Stage 的完整 `transaction_result`，并镜像 `recovery_required` / `recovery_action` / `recovery_transaction`。只要回滚或快照清理尚未终结，导出就不会报告成功；调用方必须按稳定恢复动作修复介质或权限条件，并把 opaque 恢复句柄交给报告要求的 `rollback()` 或 `complete()`，不能重新执行整条导表流水线来覆盖未完成事务。批量导出会强制 database、access script 与 manifest constituent 使用 `scan_filesystem = false`，避免事务尚未终结时产生未纳入回滚的 `.gd.uid`；只有完整 `complete()` 成功后才按顶层 `scan_filesystem` 执行一次编辑器扫描。
 
 `GFConfigPipelineTableIR` 与 `GFConfigPipelineIR` 都带稳定 `FORMAT` / `FORMAT_VERSION`。Table IR 创建时会深拷贝记录、schema、来源映射和元数据，读取接口始终返回可变载荷的副本；数据库 IR 对重复表名 fail closed，并且只有 `seal()` 成功后才能交给 Target，封存后继续注册表会失败。数据库 IR 返回的表数组容器也是副本，元素则是已封装可变载荷的 Table IR。这个所有权和生命周期边界保证自定义 Target、并行预览或后续缓存不会通过共享 `Dictionary` / `Resource` 引用反向污染编译结果。
 
@@ -194,7 +196,7 @@ int!,string,float
 
 CSV 与 XLSX 会复用同一套表格预处理选项：`parse_options.comment_prefixes` 可过滤本地备注行和备注列，`comment_row_prefixes` / `comment_column_prefixes` 可分开控制；`condition_symbols` 配合 `enable_condition_directives` 可保留简单 `#if SYMBOL ...` / `#endif` 块内命中的数据行。这些选项只处理通用表格结构，不表达业务分端规则，复杂表达式或发布矩阵仍应放在项目流水线层。
 
-XLSX 支持定位为通用表格输入适配：默认读取 workbook 中的第一个 sheet，也可以通过 `parse_options.sheet_name` 或 `parse_options.sheet_index` 选择工作表，通过 `parse_options.header_row` 指定表头行。解析结果按表头映射为记录字典，再复用现有 schema 校验和类型转换。解析器会限制 workbook entry 数量、行数、列数和单元格数量，避免把异常或过大的表格文件拖进编辑器或 CI。公式计算、样式日期语义、合并单元格、多表业务拆分、策划提交流程和分端发布策略不属于这一层。
+XLSX 支持定位为通用表格输入适配：默认读取 workbook 中的第一个 sheet，也可以通过 `parse_options.sheet_name` 或 `parse_options.sheet_index` 选择工作表，通过 `parse_options.header_row` 指定表头行。解析结果按表头映射为记录字典，再复用现有 schema 校验和类型转换。解析器会限制 workbook entry 数量、行数、列数和单元格数量，避免把异常或过大的表格文件拖进编辑器或 CI。`max_xlsx_file_bytes` 的负值只关闭项目配置的文件预算；进入共享 ZIP 读取边界后仍会收敛到框架绝对 archive 与累计解压硬上限，不会产生真正无界的读取。公式计算、样式日期语义、合并单元格、多表业务拆分、策划提交流程和分端发布策略不属于这一层。
 
 `GFConfigPipelineProfile` 只表达导表任务 manifest。`GFConfigBuildProfile` 仍负责按 groups / tags 裁剪 schema 或记录，两者可以组合使用，但职责不同。
 

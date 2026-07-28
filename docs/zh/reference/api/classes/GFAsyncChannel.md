@@ -9,7 +9,7 @@
 - 类别：运行时句柄 (`runtime_handle`)
 - 首次版本：`7.0.0`
 
-轻量异步事件通道。 提供多生产者、单消费者的无界队列语义，可同步写入，也可异步等待下一条数据。 它不负责调度任务、流式转换或业务协议，只在生产者和消费者之间传递 Variant 事件。
+轻量异步事件通道。 提供多逻辑生产者、单消费者的有界环形队列语义，可同步写入，也可异步等待下一条数据。 通道只允许在主线程使用；后台线程应先通过 GFMainThreadDispatchQueue 回到主线程。 它不负责调度任务、流式转换或业务协议，只在生产者和消费者之间传递 Variant 事件。
 
 ## 成员概览
 
@@ -23,7 +23,18 @@
 | 常量 | [`STATUS_INVALID`](#member-gfasyncchannel-constants-status_invalid) | `const STATUS_INVALID: StringName = GFAsyncWaitUtility.STATUS_INVALID` |
 | 常量 | [`STATUS_CLOSED`](#member-gfasyncchannel-constants-status_closed) | `const STATUS_CLOSED: StringName = &"closed"` |
 | 常量 | [`STATUS_PENDING`](#member-gfasyncchannel-constants-status_pending) | `const STATUS_PENDING: StringName = &"pending"` |
+| 常量 | [`STATUS_WRITTEN`](#member-gfasyncchannel-constants-status_written) | `const STATUS_WRITTEN: StringName = &"written"` |
+| 常量 | [`STATUS_REJECTED`](#member-gfasyncchannel-constants-status_rejected) | `const STATUS_REJECTED: StringName = &"rejected"` |
+| 常量 | [`STATUS_DROPPED`](#member-gfasyncchannel-constants-status_dropped) | `const STATUS_DROPPED: StringName = &"dropped"` |
+| 常量 | [`STATUS_WRONG_THREAD`](#member-gfasyncchannel-constants-status_wrong_thread) | `const STATUS_WRONG_THREAD: StringName = &"wrong_thread"` |
+| 常量 | [`DEFAULT_MAX_BUFFERED_ITEMS`](#member-gfasyncchannel-constants-default_max_buffered_items) | `const DEFAULT_MAX_BUFFERED_ITEMS: int = 256` |
+| 常量 | [`ABSOLUTE_MAX_BUFFERED_ITEMS`](#member-gfasyncchannel-constants-absolute_max_buffered_items) | `const ABSOLUTE_MAX_BUFFERED_ITEMS: int = 65_536` |
+| 常量 | [`OVERFLOW_REJECT`](#member-gfasyncchannel-constants-overflow_reject) | `const OVERFLOW_REJECT: StringName = &"reject"` |
+| 常量 | [`OVERFLOW_DROP_OLDEST`](#member-gfasyncchannel-constants-overflow_drop_oldest) | `const OVERFLOW_DROP_OLDEST: StringName = &"drop_oldest"` |
+| 常量 | [`OVERFLOW_DROP_NEWEST`](#member-gfasyncchannel-constants-overflow_drop_newest) | `const OVERFLOW_DROP_NEWEST: StringName = &"drop_newest"` |
+| 方法 | [`configure_ingress`](#member-gfasyncchannel-methods-configure_ingress) | `func configure_ingress( max_buffered_items: int, overflow_policy: StringName = OVERFLOW_REJECT ) -> bool:` |
 | 方法 | [`try_write`](#member-gfasyncchannel-methods-try_write) | `func try_write(item: Variant) -> bool:` |
+| 方法 | [`try_write_detailed`](#member-gfasyncchannel-methods-try_write_detailed) | `func try_write_detailed(item: Variant) -> Dictionary:` |
 | 方法 | [`close`](#member-gfasyncchannel-methods-close) | `func close(reason: StringName = STATUS_CLOSED, metadata: Dictionary = {}) -> bool:` |
 | 方法 | [`try_read`](#member-gfasyncchannel-methods-try_read) | `func try_read(default_value: Variant = null) -> Dictionary:` |
 | 方法 | [`read_async`](#member-gfasyncchannel-methods-read_async) | `func read_async(options: Dictionary = {}, default_value: Variant = null) -> Dictionary:` |
@@ -34,6 +45,8 @@
 | 方法 | [`is_open`](#member-gfasyncchannel-methods-is_open) | `func is_open() -> bool:` |
 | 方法 | [`has_items`](#member-gfasyncchannel-methods-has_items) | `func has_items() -> bool:` |
 | 方法 | [`get_count`](#member-gfasyncchannel-methods-get_count) | `func get_count() -> int:` |
+| 方法 | [`get_max_buffered_items`](#member-gfasyncchannel-methods-get_max_buffered_items) | `func get_max_buffered_items() -> int:` |
+| 方法 | [`get_overflow_policy`](#member-gfasyncchannel-methods-get_overflow_policy) | `func get_overflow_policy() -> StringName:` |
 | 方法 | [`get_debug_snapshot`](#member-gfasyncchannel-methods-get_debug_snapshot) | `func get_debug_snapshot() -> Dictionary:` |
 
 ## 信号
@@ -165,7 +178,146 @@ const STATUS_PENDING: StringName = &"pending"
 
 通道当前没有可读数据。
 
+<a id="member-gfasyncchannel-constants-status_written"></a>
+
+### `STATUS_WRITTEN`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+const STATUS_WRITTEN: StringName = &"written"
+```
+
+写入已被通道接受。
+
+<a id="member-gfasyncchannel-constants-status_rejected"></a>
+
+### `STATUS_REJECTED`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+const STATUS_REJECTED: StringName = &"rejected"
+```
+
+写入因容量策略被拒绝。
+
+<a id="member-gfasyncchannel-constants-status_dropped"></a>
+
+### `STATUS_DROPPED`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+const STATUS_DROPPED: StringName = &"dropped"
+```
+
+新写入项因容量策略被丢弃。
+
+<a id="member-gfasyncchannel-constants-status_wrong_thread"></a>
+
+### `STATUS_WRONG_THREAD`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+const STATUS_WRONG_THREAD: StringName = &"wrong_thread"
+```
+
+操作在非主线程被拒绝。
+
+<a id="member-gfasyncchannel-constants-default_max_buffered_items"></a>
+
+### `DEFAULT_MAX_BUFFERED_ITEMS`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+const DEFAULT_MAX_BUFFERED_ITEMS: int = 256
+```
+
+默认最多缓冲的数据数量。
+
+<a id="member-gfasyncchannel-constants-absolute_max_buffered_items"></a>
+
+### `ABSOLUTE_MAX_BUFFERED_ITEMS`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+const ABSOLUTE_MAX_BUFFERED_ITEMS: int = 65_536
+```
+
+最多允许配置的缓冲数据数量。
+
+<a id="member-gfasyncchannel-constants-overflow_reject"></a>
+
+### `OVERFLOW_REJECT`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+const OVERFLOW_REJECT: StringName = &"reject"
+```
+
+容量满时拒绝新写入。
+
+<a id="member-gfasyncchannel-constants-overflow_drop_oldest"></a>
+
+### `OVERFLOW_DROP_OLDEST`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+const OVERFLOW_DROP_OLDEST: StringName = &"drop_oldest"
+```
+
+容量满时丢弃最早缓冲项，再接受新写入。
+
+<a id="member-gfasyncchannel-constants-overflow_drop_newest"></a>
+
+### `OVERFLOW_DROP_NEWEST`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+const OVERFLOW_DROP_NEWEST: StringName = &"drop_newest"
+```
+
+容量满时丢弃新写入项。
+
 ## 方法
+
+<a id="member-gfasyncchannel-methods-configure_ingress"></a>
+
+### `configure_ingress`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func configure_ingress( max_buffered_items: int, overflow_policy: StringName = OVERFLOW_REJECT ) -> bool:
+```
+
+配置有界缓冲和容量满时的处理策略。 该配置不会驱逐现有数据；max_buffered_items 小于当前缓冲数量时配置失败。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `max_buffered_items` | 最大缓冲数量，必须位于 1..ABSOLUTE_MAX_BUFFERED_ITEMS。 |
+| `overflow_policy` | OVERFLOW_REJECT、OVERFLOW_DROP_OLDEST 或 OVERFLOW_DROP_NEWEST。 |
+
+返回：配置被接受时返回 true。
 
 <a id="member-gfasyncchannel-methods-try_write"></a>
 
@@ -186,11 +338,37 @@ func try_write(item: Variant) -> bool:
 |---|---|
 | `item` | 待写入的数据。 |
 
-返回：写入成功时返回 true；关闭后返回 false。
+返回：写入被通道接受时返回 true；关闭、拒绝或丢弃新项时返回 false。
 
 结构：
 
 - `item`: Variant 待写入通道的数据。
+
+<a id="member-gfasyncchannel-methods-try_write_detailed"></a>
+
+### `try_write_detailed`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func try_write_detailed(item: Variant) -> Dictionary:
+```
+
+写入一条数据并返回结构化背压结果。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `item` | 待写入的数据。 |
+
+返回：写入结果。
+
+结构：
+
+- `item`: Variant 待写入通道的数据。
+- `return`: Dictionary，包含 ok、status、accepted、dropped、dropped_item、reason、count、max_buffered_items 和 overflow_policy。
 
 <a id="member-gfasyncchannel-methods-close"></a>
 
@@ -396,6 +574,36 @@ func get_count() -> int:
 
 返回：当前缓冲数量。
 
+<a id="member-gfasyncchannel-methods-get_max_buffered_items"></a>
+
+### `get_max_buffered_items`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func get_max_buffered_items() -> int:
+```
+
+获取最大缓冲数量。
+
+返回：当前最大缓冲数量；非主线程返回 0。
+
+<a id="member-gfasyncchannel-methods-get_overflow_policy"></a>
+
+### `get_overflow_policy`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func get_overflow_policy() -> StringName:
+```
+
+获取容量满时的处理策略。
+
+返回：当前 overflow policy；非主线程返回空 StringName。
+
 <a id="member-gfasyncchannel-methods-get_debug_snapshot"></a>
 
 ### `get_debug_snapshot`
@@ -413,4 +621,4 @@ func get_debug_snapshot() -> Dictionary:
 
 结构：
 
-- `return`: Dictionary，包含 closed、count、written_count、read_count、reason 和 metadata。
+- `return`: Dictionary，包含 ok、status、closed、count、max_buffered_items、overflow_policy、high_watermark、written_count、read_count、rejected_count、dropped_count、reason 和 metadata；非主线程只返回 wrong_thread 终态。

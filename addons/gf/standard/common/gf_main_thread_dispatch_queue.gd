@@ -2,7 +2,8 @@
 ##
 ## 用于让后台线程、资源加载回调或项目侧异步流程把最终应用逻辑排回主线程。
 ## post() 保存无 owner 的强 Callable；post_method() 通过弱 owner 和方法名保存生命周期调用。
-## 队列不创建线程、不校验线程身份，也不解释调用方的业务语义。
+## 入队和取消入口由 Mutex 保护；dispatch()、tick() 与生命周期入口只允许在主线程调用。
+## 队列不创建线程，也不解释调用方的业务语义。
 ## [br]
 ## @api public
 ## [br]
@@ -13,18 +14,88 @@ class_name GFMainThreadDispatchQueue
 extends GFUtility
 
 
+# --- 常量 ---
+
+## 默认最多保留的待派发回调数量。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+const DEFAULT_MAX_PENDING_CALLBACKS: int = 1024
+
+## 最多允许配置的待派发回调数量。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+const ABSOLUTE_MAX_PENDING_CALLBACKS: int = 65_536
+
+## dispatch() 未显式给出数量预算时使用的默认值。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+const DEFAULT_MAX_CALLBACKS_PER_DISPATCH: int = 16
+
+## 单次 dispatch() 允许处理的回调数量绝对上限。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+const ABSOLUTE_MAX_CALLBACKS_PER_DISPATCH: int = 4096
+
+## 派发正常完成。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+const STATUS_COMPLETED: StringName = &"completed"
+
+## 派发入口在非主线程被调用。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+const STATUS_WRONG_THREAD: StringName = &"wrong_thread"
+
+## 当前实例已经处于同步派发调用中。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+const STATUS_BUSY: StringName = &"busy"
+
+
 # --- 公共变量 ---
+
+## 最多保留的待派发回调数量。降低容量不会驱逐现有回调。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+var max_pending_callbacks: int = DEFAULT_MAX_PENDING_CALLBACKS:
+	set(value):
+		max_pending_callbacks = clampi(
+			value,
+			1,
+			ABSOLUTE_MAX_PENDING_CALLBACKS
+		)
 
 ## tick() 每次最多派发多少个回调。
 ## [br]
 ## @api public
 ## [br]
 ## @since 7.0.0
-var max_callbacks_per_tick: int = 16:
+var max_callbacks_per_tick: int = DEFAULT_MAX_CALLBACKS_PER_DISPATCH:
 	set(value):
-		max_callbacks_per_tick = maxi(value, 1)
+		max_callbacks_per_tick = clampi(
+			value,
+			1,
+			ABSOLUTE_MAX_CALLBACKS_PER_DISPATCH
+		)
 
-## tick() 每次最多占用多少秒。小于等于 0 时不启用时间预算。
+## tick() 在回调之间检查的非抢占式软时间预算。小于等于 0 时不启用；
+## 不会中断单个回调，并且非空入口快照至少会尝试派发一个回调。
 ## [br]
 ## @api public
 ## [br]
@@ -38,13 +109,24 @@ var max_seconds_per_tick: float = 0.0:
 
 var _mutex: Mutex = Mutex.new()
 var _queue: Array[Dictionary] = []
+var _dispatch_snapshot: Array[Dictionary] = []
+var _dispatch_front_records: Array[Dictionary] = []
+var _dispatch_back_records: Array[Dictionary] = []
+var _dispatch_snapshot_cursor: int = 0
+var _dispatch_snapshot_pending_count: int = 0
+var _dispatch_snapshot_active: bool = false
+var _pending_count: int = 0
 var _next_handle: int = 1
 var _dispatch_context_marked: bool = false
+var _dispatch_in_progress: bool = false
 var _posted_count: int = 0
 var _dispatched_count: int = 0
 var _cancelled_count: int = 0
 var _failed_count: int = 0
 var _skipped_owner_count: int = 0
+var _high_watermark: int = 0
+var _rejected_count: int = 0
+var _dropped_count: int = 0
 
 
 # --- GF 生命周期方法 ---
@@ -140,28 +222,59 @@ func post_method(owner: Object, method_name: StringName, options: Dictionary = {
 ## [br]
 ## @since 7.0.0
 ## [br]
-## @param max_count: 最大派发数量；小于等于 0 时不限制数量。
+## @param max_count: 最大派发数量；小于等于 0 时使用 max_callbacks_per_tick，并始终受绝对工作预算约束。
 ## [br]
-## @param max_seconds: 最大派发秒数；小于等于 0 时不启用时间预算。
+## @param max_seconds: 在回调之间检查的非抢占式软时间预算；小于等于 0 时不启用。不会中断单个回调，非空入口快照至少尝试一条。
 ## [br]
 ## @return 派发报告。
 ## [br]
-## @schema return: Dictionary，包含 dispatched_count、failed_count、skipped_owner_count、pending_count、budget_exhausted 和 dispatch_context_marked。
+## @schema return: Dictionary，包含 ok、status、reason、dispatched_count、failed_count、skipped_owner_count、pending_count、budget_exhausted 和 dispatch_context_marked。
 func dispatch(max_count: int = 0, max_seconds: float = 0.0) -> Dictionary:
-	var limit: int = max_count if max_count > 0 else 2147483647
+	if not Thread.is_main_thread():
+		return {
+			"ok": false,
+			"status": STATUS_WRONG_THREAD,
+			"reason": STATUS_WRONG_THREAD,
+			"dispatched_count": 0,
+			"failed_count": 0,
+			"skipped_owner_count": 0,
+			"pending_count": get_pending_count(),
+			"budget_exhausted": false,
+			"dispatch_context_marked": _dispatch_context_marked,
+		}
+	if _dispatch_in_progress:
+		return {
+			"ok": false,
+			"status": STATUS_BUSY,
+			"reason": STATUS_BUSY,
+			"dispatched_count": 0,
+			"failed_count": 0,
+			"skipped_owner_count": 0,
+			"pending_count": get_pending_count(),
+			"budget_exhausted": false,
+			"dispatch_context_marked": _dispatch_context_marked,
+		}
+
+	_dispatch_in_progress = true
+	var limit: int = clampi(
+		max_count if max_count > 0 else max_callbacks_per_tick,
+		1,
+		ABSOLUTE_MAX_CALLBACKS_PER_DISPATCH
+	)
 	var seconds_budget: float = maxf(max_seconds, 0.0)
 	var started_usec: int = Time.get_ticks_usec()
 	var dispatched_now: int = 0
 	var failed_now: int = 0
 	var skipped_owner_now: int = 0
 	var budget_exhausted: bool = false
+	_begin_dispatch_snapshot()
 
 	while dispatched_now + failed_now + skipped_owner_now < limit:
 		if _is_dispatch_budget_exhausted(started_usec, seconds_budget, dispatched_now + failed_now + skipped_owner_now):
-			budget_exhausted = true
+			budget_exhausted = _has_dispatch_snapshot_records()
 			break
 
-		var record: Dictionary = _pop_next_record()
+		var record: Dictionary = _pop_next_dispatch_record()
 		if record.is_empty():
 			break
 
@@ -203,7 +316,22 @@ func dispatch(max_count: int = 0, max_seconds: float = 0.0) -> Dictionary:
 			dispatched_now += 1
 			_dispatched_count += 1
 
-	return {
+	var processed_count: int = (
+		dispatched_now
+		+ failed_now
+		+ skipped_owner_now
+	)
+	if (
+		processed_count >= limit
+		and _has_dispatch_snapshot_records()
+	):
+		budget_exhausted = true
+
+	_finish_dispatch_snapshot()
+	var report: Dictionary = {
+		"ok": true,
+		"status": STATUS_COMPLETED,
+		"reason": &"",
 		"dispatched_count": dispatched_now,
 		"failed_count": failed_now,
 		"skipped_owner_count": skipped_owner_now,
@@ -211,6 +339,8 @@ func dispatch(max_count: int = 0, max_seconds: float = 0.0) -> Dictionary:
 		"budget_exhausted": budget_exhausted,
 		"dispatch_context_marked": _dispatch_context_marked,
 	}
+	_dispatch_in_progress = false
+	return report
 
 
 ## 取消一个尚未派发的回调。
@@ -227,14 +357,11 @@ func cancel(handle: int) -> bool:
 		return false
 
 	_mutex.lock()
-	for index: int in range(_queue.size()):
-		if _get_record_handle(_queue[index]) == handle:
-			_queue.remove_at(index)
-			_cancelled_count += 1
-			_mutex.unlock()
-			return true
+	var cancelled: bool = _cancel_handle_locked(handle)
+	if cancelled:
+		_cancelled_count += 1
 	_mutex.unlock()
-	return false
+	return cancelled
 
 
 ## 取消指定 owner 的全部待派发弱方法调用。
@@ -251,18 +378,14 @@ func cancel_owner(owner: Object) -> int:
 		return 0
 
 	var owner_id: int = owner.get_instance_id()
-	var removed_count: int = 0
 	_mutex.lock()
-	for index: int in range(_queue.size() - 1, -1, -1):
-		if _get_record_owner_id(_queue[index]) == owner_id:
-			_queue.remove_at(index)
-			removed_count += 1
+	var removed_count: int = _cancel_owner_locked(owner_id)
 	_cancelled_count += removed_count
 	_mutex.unlock()
 	return removed_count
 
 
-## 清空全部待派发回调和统计。
+## 清空全部待派发回调和统计。句柄序列在实例生命周期内保持单调，避免旧句柄命中新记录。
 ## [br]
 ## @api public
 ## [br]
@@ -270,12 +393,20 @@ func cancel_owner(owner: Object) -> int:
 func clear() -> void:
 	_mutex.lock()
 	_queue.clear()
-	_next_handle = 1
+	_dispatch_snapshot.clear()
+	_dispatch_front_records.clear()
+	_dispatch_back_records.clear()
+	_dispatch_snapshot_cursor = 0
+	_dispatch_snapshot_pending_count = 0
+	_pending_count = 0
 	_posted_count = 0
 	_dispatched_count = 0
 	_cancelled_count = 0
 	_failed_count = 0
 	_skipped_owner_count = 0
+	_high_watermark = 0
+	_rejected_count = 0
+	_dropped_count = 0
 	_mutex.unlock()
 
 
@@ -308,7 +439,7 @@ func has_dispatch_context() -> bool:
 ## @return 队列长度。
 func get_pending_count() -> int:
 	_mutex.lock()
-	var count: int = _queue.size()
+	var count: int = _pending_count
 	_mutex.unlock()
 	return count
 
@@ -332,26 +463,34 @@ func is_empty() -> bool:
 ## [br]
 ## @return 调试快照。
 ## [br]
-## @schema return: Dictionary，包含 pending_count、pending_handles、posted_count、dispatched_count、cancelled_count、failed_count、skipped_owner_count 和 dispatch_context_marked。
+## @schema return: Dictionary，包含 pending_count、max_pending_callbacks、max_callbacks_per_dispatch、pending_handles、posted_count、dispatched_count、cancelled_count、failed_count、skipped_owner_count、high_watermark、rejected_count、dropped_count 和 dispatch_context_marked。
 func get_debug_snapshot() -> Dictionary:
 	_mutex.lock()
-	var handles: PackedInt32Array = PackedInt32Array()
+	var handles: PackedInt64Array = PackedInt64Array()
 	var labels: PackedStringArray = PackedStringArray()
-	for record: Dictionary in _queue:
+	var pending_records: Array[Dictionary] = _collect_pending_records_locked()
+	for record: Dictionary in pending_records:
 		var _handle_appended: bool = handles.append(_get_record_handle(record))
 		var label: String = GFVariantData.get_option_string(record, "label")
 		if not label.is_empty():
 			var _label_appended: bool = labels.append(label)
-	var pending_count: int = _queue.size()
+	var pending_count: int = _pending_count
 	var posted_count: int = _posted_count
 	var dispatched_count: int = _dispatched_count
 	var cancelled_count: int = _cancelled_count
 	var failed_count: int = _failed_count
 	var skipped_owner_count: int = _skipped_owner_count
+	var configured_max_pending: int = max_pending_callbacks
+	var configured_dispatch_budget: int = max_callbacks_per_tick
+	var high_watermark: int = _high_watermark
+	var rejected_count: int = _rejected_count
+	var dropped_count: int = _dropped_count
 	_mutex.unlock()
 
 	return {
 		"pending_count": pending_count,
+		"max_pending_callbacks": configured_max_pending,
+		"max_callbacks_per_dispatch": configured_dispatch_budget,
 		"pending_handles": handles,
 		"pending_labels": labels,
 		"posted_count": posted_count,
@@ -359,6 +498,9 @@ func get_debug_snapshot() -> Dictionary:
 		"cancelled_count": cancelled_count,
 		"failed_count": failed_count,
 		"skipped_owner_count": skipped_owner_count,
+		"high_watermark": high_watermark,
+		"rejected_count": rejected_count,
+		"dropped_count": dropped_count,
 		"dispatch_context_marked": _dispatch_context_marked,
 	}
 
@@ -367,6 +509,10 @@ func get_debug_snapshot() -> Dictionary:
 
 func _enqueue(callback: Callable, options: Dictionary) -> int:
 	_mutex.lock()
+	if _pending_count >= max_pending_callbacks:
+		_rejected_count += 1
+		_mutex.unlock()
+		return 0
 	var handle: int = _next_handle
 	_next_handle += 1
 	var record: Dictionary = {
@@ -377,11 +523,18 @@ func _enqueue(callback: Callable, options: Dictionary) -> int:
 		"metadata": GFVariantData.get_option_dictionary(options, "metadata"),
 		"posted_msec": Time.get_ticks_msec(),
 	}
-	if GFVariantData.get_option_bool(options, "front", false):
+	if _dispatch_snapshot_active:
+		if GFVariantData.get_option_bool(options, "front", false):
+			_dispatch_front_records.append(record)
+		else:
+			_dispatch_back_records.append(record)
+	elif GFVariantData.get_option_bool(options, "front", false):
 		_queue.push_front(record)
 	else:
 		_queue.append(record)
+	_pending_count += 1
 	_posted_count += 1
+	_high_watermark = maxi(_high_watermark, _pending_count)
 	_mutex.unlock()
 	return handle
 
@@ -392,6 +545,10 @@ func _enqueue_method(
 	options: Dictionary
 ) -> int:
 	_mutex.lock()
+	if _pending_count >= max_pending_callbacks:
+		_rejected_count += 1
+		_mutex.unlock()
+		return 0
 	var handle: int = _next_handle
 	_next_handle += 1
 	var record: Dictionary = {
@@ -401,23 +558,217 @@ func _enqueue_method(
 		"label": GFVariantData.get_option_string(options, "label"),
 		"posted_msec": Time.get_ticks_msec(),
 	}
-	if GFVariantData.get_option_bool(options, "front", false):
+	if _dispatch_snapshot_active:
+		if GFVariantData.get_option_bool(options, "front", false):
+			_dispatch_front_records.append(record)
+		else:
+			_dispatch_back_records.append(record)
+	elif GFVariantData.get_option_bool(options, "front", false):
 		_queue.push_front(record)
 	else:
 		_queue.append(record)
+	_pending_count += 1
 	_posted_count += 1
+	_high_watermark = maxi(_high_watermark, _pending_count)
 	_mutex.unlock()
 	return handle
 
 
-func _pop_next_record() -> Dictionary:
+func _begin_dispatch_snapshot() -> void:
 	_mutex.lock()
-	if _queue.is_empty():
-		_mutex.unlock()
-		return {}
-	var record: Dictionary = _queue.pop_front()
+	_dispatch_snapshot = _queue
+	_queue = []
+	_dispatch_front_records.clear()
+	_dispatch_back_records.clear()
+	_dispatch_snapshot_cursor = 0
+	_dispatch_snapshot_pending_count = _dispatch_snapshot.size()
+	_dispatch_snapshot_active = true
 	_mutex.unlock()
-	return record
+
+
+func _pop_next_dispatch_record() -> Dictionary:
+	_mutex.lock()
+	while _dispatch_snapshot_cursor < _dispatch_snapshot.size():
+		var record: Dictionary = _dispatch_snapshot[
+			_dispatch_snapshot_cursor
+		]
+		_dispatch_snapshot[_dispatch_snapshot_cursor] = {}
+		_dispatch_snapshot_cursor += 1
+		if record.is_empty():
+			continue
+		_dispatch_snapshot_pending_count -= 1
+		_pending_count -= 1
+		_mutex.unlock()
+		return record
+	_mutex.unlock()
+	return {}
+
+
+func _has_dispatch_snapshot_records() -> bool:
+	_mutex.lock()
+	var has_records: bool = _dispatch_snapshot_pending_count > 0
+	_mutex.unlock()
+	return has_records
+
+
+func _finish_dispatch_snapshot() -> void:
+	_mutex.lock()
+	var merged_records: Array[Dictionary] = []
+	_append_non_empty_records_reversed(
+		merged_records,
+		_dispatch_front_records
+	)
+	_append_non_empty_records(
+		merged_records,
+		_dispatch_snapshot,
+		_dispatch_snapshot_cursor
+	)
+	_append_non_empty_records(
+		merged_records,
+		_dispatch_back_records,
+		0
+	)
+	_queue = merged_records
+	_dispatch_snapshot.clear()
+	_dispatch_front_records.clear()
+	_dispatch_back_records.clear()
+	_dispatch_snapshot_cursor = 0
+	_dispatch_snapshot_pending_count = 0
+	_dispatch_snapshot_active = false
+	_pending_count = _queue.size()
+	_mutex.unlock()
+
+
+func _cancel_handle_locked(handle: int) -> bool:
+	if not _dispatch_snapshot_active:
+		for index: int in range(_queue.size()):
+			if _get_record_handle(_queue[index]) != handle:
+				continue
+			_queue.remove_at(index)
+			_pending_count -= 1
+			return true
+		return false
+
+	for index: int in range(_dispatch_front_records.size()):
+		if _get_record_handle(_dispatch_front_records[index]) != handle:
+			continue
+		_dispatch_front_records.remove_at(index)
+		_pending_count -= 1
+		return true
+	for index: int in range(
+		_dispatch_snapshot_cursor,
+		_dispatch_snapshot.size()
+	):
+		var snapshot_record: Dictionary = _dispatch_snapshot[index]
+		if (
+			snapshot_record.is_empty()
+			or _get_record_handle(snapshot_record) != handle
+		):
+			continue
+		_dispatch_snapshot[index] = {}
+		_dispatch_snapshot_pending_count -= 1
+		_pending_count -= 1
+		return true
+	for index: int in range(_dispatch_back_records.size()):
+		if _get_record_handle(_dispatch_back_records[index]) != handle:
+			continue
+		_dispatch_back_records.remove_at(index)
+		_pending_count -= 1
+		return true
+	return false
+
+
+func _cancel_owner_locked(owner_id: int) -> int:
+	var removed_count: int = 0
+	if not _dispatch_snapshot_active:
+		for index: int in range(_queue.size() - 1, -1, -1):
+			if _get_record_owner_id(_queue[index]) != owner_id:
+				continue
+			_queue.remove_at(index)
+			removed_count += 1
+			_pending_count -= 1
+		return removed_count
+
+	for index: int in range(
+		_dispatch_front_records.size() - 1,
+		-1,
+		-1
+	):
+		if _get_record_owner_id(_dispatch_front_records[index]) != owner_id:
+			continue
+		_dispatch_front_records.remove_at(index)
+		removed_count += 1
+		_pending_count -= 1
+	for index: int in range(
+		_dispatch_snapshot_cursor,
+		_dispatch_snapshot.size()
+	):
+		var snapshot_record: Dictionary = _dispatch_snapshot[index]
+		if (
+			snapshot_record.is_empty()
+			or _get_record_owner_id(snapshot_record) != owner_id
+		):
+			continue
+		_dispatch_snapshot[index] = {}
+		_dispatch_snapshot_pending_count -= 1
+		removed_count += 1
+		_pending_count -= 1
+	for index: int in range(
+		_dispatch_back_records.size() - 1,
+		-1,
+		-1
+	):
+		if _get_record_owner_id(_dispatch_back_records[index]) != owner_id:
+			continue
+		_dispatch_back_records.remove_at(index)
+		removed_count += 1
+		_pending_count -= 1
+	return removed_count
+
+
+func _collect_pending_records_locked() -> Array[Dictionary]:
+	var pending_records: Array[Dictionary] = []
+	if not _dispatch_snapshot_active:
+		_append_non_empty_records(pending_records, _queue, 0)
+		return pending_records
+	_append_non_empty_records_reversed(
+		pending_records,
+		_dispatch_front_records
+	)
+	_append_non_empty_records(
+		pending_records,
+		_dispatch_snapshot,
+		_dispatch_snapshot_cursor
+	)
+	_append_non_empty_records(
+		pending_records,
+		_dispatch_back_records,
+		0
+	)
+	return pending_records
+
+
+func _append_non_empty_records(
+	target_records: Array[Dictionary],
+	source_records: Array[Dictionary],
+	start_index: int
+) -> void:
+	for index: int in range(start_index, source_records.size()):
+		var record: Dictionary = source_records[index]
+		if record.is_empty():
+			continue
+		target_records.append(record)
+
+
+func _append_non_empty_records_reversed(
+	target_records: Array[Dictionary],
+	source_records: Array[Dictionary]
+) -> void:
+	for index: int in range(source_records.size() - 1, -1, -1):
+		var record: Dictionary = source_records[index]
+		if record.is_empty():
+			continue
+		target_records.append(record)
 
 
 func _is_dispatch_budget_exhausted(started_usec: int, max_seconds: float, processed_count: int) -> bool:

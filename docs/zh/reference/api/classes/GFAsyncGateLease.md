@@ -61,7 +61,7 @@ signal released(lease: GFAsyncGateLease, reason: StringName)
 func release(reason: StringName = &"manual") -> bool:
 ```
 
-释放租约。
+释放租约。 在 owning gate 的 acquire/release 生命周期通知中重入调用时，释放请求会先进入 release_pending，并在最外层通知结束后提交，避免 released 先于 acquired。
 
 参数：
 
@@ -201,4 +201,4 @@ func get_debug_snapshot() -> Dictionary:
 
 结构：
 
-- `return`: Dictionary，包含 lease_id、request_id、key、active、metadata、acquired_msec、released_msec、held_msec 和 release_reason。
+- `return`: Dictionary，包含 lease_id、request_id、key、active、release_pending、metadata、acquired_msec、released_msec、held_msec 和 release_reason。

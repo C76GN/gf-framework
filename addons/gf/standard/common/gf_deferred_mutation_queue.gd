@@ -3,6 +3,7 @@
 ## 用于把运行时或工具流程中收集到的状态变更延迟到显式 playback 点执行。
 ## record() 保存无 owner 的强 Callable；record_method() 通过弱 owner 和方法名
 ## 保存生命周期调用。队列不解释调用方的实体、组件、节点或资源语义。
+## 记录和取消入口由 Mutex 保护；playback() 与生命周期入口只允许在主线程调用。
 ## [br]
 ## @api public
 ## [br]
@@ -22,22 +23,89 @@ extends GFUtility
 ## @since 7.0.0
 const DEFAULT_PHASE: StringName = &"default"
 
+## 默认最多保留的待应用变更数量。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+const DEFAULT_MAX_PENDING_MUTATIONS: int = 4096
+
+## 最多允许配置的待应用变更数量。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+const ABSOLUTE_MAX_PENDING_MUTATIONS: int = 65_536
+
+## playback() 未显式给出数量预算时使用的默认值。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+const DEFAULT_MAX_MUTATIONS_PER_PLAYBACK: int = 256
+
+## 单次 playback() 或 preview() 允许处理的记录数量绝对上限。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+const ABSOLUTE_MAX_MUTATIONS_PER_PLAYBACK: int = 4096
+
+## Playback 正常完成。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+const STATUS_COMPLETED: StringName = &"completed"
+
+## Playback 在非主线程被调用。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+const STATUS_WRONG_THREAD: StringName = &"wrong_thread"
+
+## 当前实例已经处于同步 playback 调用中。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+const STATUS_BUSY: StringName = &"busy"
+
 const _RECORD_KIND_CALLABLE: StringName = &"callable"
 const _RECORD_KIND_WEAK_METHOD: StringName = &"weak_method"
 
 
 # --- 公共变量 ---
 
-## playback() 默认每次最多应用多少条变更；小于等于 0 时不限制数量。
+## 最多保留的待应用变更数量。降低容量不会驱逐现有记录。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+var max_pending_mutations: int = DEFAULT_MAX_PENDING_MUTATIONS:
+	set(value):
+		max_pending_mutations = clampi(
+			value,
+			1,
+			ABSOLUTE_MAX_PENDING_MUTATIONS
+		)
+
+## playback() 默认每次最多应用多少条变更。
 ## [br]
 ## @api public
 ## [br]
 ## @since 7.0.0
-var max_mutations_per_playback: int = 0:
+var max_mutations_per_playback: int = DEFAULT_MAX_MUTATIONS_PER_PLAYBACK:
 	set(value):
-		max_mutations_per_playback = maxi(value, 0)
+		max_mutations_per_playback = clampi(
+			value,
+			1,
+			ABSOLUTE_MAX_MUTATIONS_PER_PLAYBACK
+		)
 
-## playback() 默认最多占用多少秒；小于等于 0 时不启用时间预算。
+## playback() 在变更之间检查的非抢占式软时间预算。小于等于 0 时不启用；
+## 不会中断单条变更，并且非空匹配快照至少会尝试应用一条变更。
 ## [br]
 ## @api public
 ## [br]
@@ -51,13 +119,25 @@ var max_seconds_per_playback: float = 0.0:
 
 var _mutex: Mutex = Mutex.new()
 var _queue: Array[Dictionary] = []
+var _playback_snapshot: Array[Dictionary] = []
+var _playback_new_records: Array[Dictionary] = []
+var _playback_matching_indexes: Array[int] = []
+var _playback_matching_cursor: int = 0
+var _playback_snapshot_matching_count: int = 0
+var _playback_phase_filter: StringName = &""
+var _playback_snapshot_active: bool = false
+var _pending_count: int = 0
 var _next_handle: int = 1
 var _next_order: int = 1
+var _playback_in_progress: bool = false
 var _recorded_count: int = 0
 var _applied_count: int = 0
 var _cancelled_count: int = 0
 var _failed_count: int = 0
 var _skipped_owner_count: int = 0
+var _high_watermark: int = 0
+var _rejected_count: int = 0
+var _dropped_count: int = 0
 
 
 # --- GF 生命周期方法 ---
@@ -152,26 +232,66 @@ func record_method(
 ## [br]
 ## @return 应用报告。
 ## [br]
-## @schema return: Dictionary，包含 applied_count、failed_count、skipped_owner_count、pending_count、budget_exhausted、phase 和可选 records。
+## @schema return: Dictionary，包含 ok、status、reason、applied_count、failed_count、skipped_owner_count、pending_count、budget_exhausted、phase 和可选 records。
 func playback(options: Dictionary = {}) -> Dictionary:
 	var phase_filter: StringName = GFVariantData.get_option_string_name(options, "phase", &"")
-	var max_count: int = GFVariantData.get_option_int(options, "max_count", max_mutations_per_playback)
+	if not Thread.is_main_thread():
+		return {
+			"ok": false,
+			"status": STATUS_WRONG_THREAD,
+			"reason": STATUS_WRONG_THREAD,
+			"applied_count": 0,
+			"failed_count": 0,
+			"skipped_owner_count": 0,
+			"pending_count": get_pending_count(),
+			"budget_exhausted": false,
+			"phase": phase_filter,
+		}
+	if _playback_in_progress:
+		return {
+			"ok": false,
+			"status": STATUS_BUSY,
+			"reason": STATUS_BUSY,
+			"applied_count": 0,
+			"failed_count": 0,
+			"skipped_owner_count": 0,
+			"pending_count": get_pending_count(),
+			"budget_exhausted": false,
+			"phase": phase_filter,
+		}
+
+	_playback_in_progress = true
+	var max_count: int = GFVariantData.get_option_int(
+		options,
+		"max_count",
+		max_mutations_per_playback
+	)
 	var max_seconds: float = GFVariantData.get_option_float(options, "max_seconds", max_seconds_per_playback)
-	var limit: int = max_count if max_count > 0 else 2147483647
+	var limit: int = clampi(
+		max_count if max_count > 0 else max_mutations_per_playback,
+		1,
+		ABSOLUTE_MAX_MUTATIONS_PER_PLAYBACK
+	)
 	var seconds_budget: float = maxf(max_seconds, 0.0)
 	var started_usec: int = Time.get_ticks_usec()
 	var applied_now: int = 0
 	var failed_now: int = 0
 	var skipped_owner_now: int = 0
 	var budget_exhausted: bool = false
+	var include_records: bool = GFVariantData.get_option_bool(
+		options,
+		"include_records",
+		false
+	)
 	var processed_records: Array[Dictionary] = []
+	_begin_playback_snapshot(phase_filter)
 
 	while applied_now + failed_now + skipped_owner_now < limit:
 		if _is_playback_budget_exhausted(started_usec, seconds_budget, applied_now + failed_now + skipped_owner_now):
-			budget_exhausted = true
+			budget_exhausted = _has_playback_snapshot_records()
 			break
 
-		var mutation_record: Dictionary = _pop_next_matching_record(phase_filter)
+		var mutation_record: Dictionary = _pop_next_playback_record()
 		if mutation_record.is_empty():
 			break
 
@@ -180,7 +300,10 @@ func playback(options: Dictionary = {}) -> Dictionary:
 			if invocation == null:
 				failed_now += 1
 				_failed_count += 1
-				processed_records.append(_record_to_snapshot(mutation_record))
+				if include_records:
+					processed_records.append(
+						_record_to_snapshot(mutation_record)
+					)
 				continue
 
 			var invocation_result: Dictionary = invocation.invoke()
@@ -202,14 +325,20 @@ func playback(options: Dictionary = {}) -> Dictionary:
 			else:
 				applied_now += 1
 				_applied_count += 1
-			processed_records.append(_record_to_snapshot(mutation_record))
+			if include_records:
+				processed_records.append(
+					_record_to_snapshot(mutation_record)
+				)
 			continue
 
 		var mutation: Callable = _get_record_mutation(mutation_record)
 		if not mutation.is_valid():
 			failed_now += 1
 			_failed_count += 1
-			processed_records.append(_record_to_snapshot(mutation_record))
+			if include_records:
+				processed_records.append(
+					_record_to_snapshot(mutation_record)
+				)
 			continue
 
 		var result: Variant = mutation.call()
@@ -219,9 +348,25 @@ func playback(options: Dictionary = {}) -> Dictionary:
 		else:
 			applied_now += 1
 			_applied_count += 1
-		processed_records.append(_record_to_snapshot(mutation_record))
+		if include_records:
+			processed_records.append(_record_to_snapshot(mutation_record))
 
+	var processed_count: int = (
+		applied_now
+		+ failed_now
+		+ skipped_owner_now
+	)
+	if (
+		processed_count >= limit
+		and _has_playback_snapshot_records()
+	):
+		budget_exhausted = true
+
+	_finish_playback_snapshot()
 	var report: Dictionary = {
+		"ok": true,
+		"status": STATUS_COMPLETED,
+		"reason": &"",
 		"applied_count": applied_now,
 		"failed_count": failed_now,
 		"skipped_owner_count": skipped_owner_now,
@@ -229,8 +374,9 @@ func playback(options: Dictionary = {}) -> Dictionary:
 		"budget_exhausted": budget_exhausted,
 		"phase": phase_filter,
 	}
-	if GFVariantData.get_option_bool(options, "include_records", false):
+	if include_records:
 		report["records"] = processed_records
+	_playback_in_progress = false
 	return report
 
 
@@ -240,7 +386,7 @@ func playback(options: Dictionary = {}) -> Dictionary:
 ## [br]
 ## @since 7.0.0
 ## [br]
-## @param options: 预览选项，支持 phase 和 limit。
+## @param options: 预览选项，支持 phase 和 limit；省略或非正 limit 使用有界 playback 默认值。
 ## [br]
 ## @schema options: Dictionary，可包含 phase: StringName 和 limit: int。
 ## [br]
@@ -249,22 +395,30 @@ func playback(options: Dictionary = {}) -> Dictionary:
 ## @schema return: Array[Dictionary]，每个元素包含 handle、phase、sort_key、order、owner_id、label、metadata 和 recorded_msec。
 func preview(options: Dictionary = {}) -> Array[Dictionary]:
 	var phase_filter: StringName = GFVariantData.get_option_string_name(options, "phase", &"")
-	var limit: int = GFVariantData.get_option_int(options, "limit", 0)
-	var result: Array[Dictionary] = []
-	var records: Array[Dictionary] = []
+	var requested_limit: int = GFVariantData.get_option_int(
+		options,
+		"limit",
+		max_mutations_per_playback
+	)
+	var limit: int = clampi(
+		requested_limit if requested_limit > 0 else max_mutations_per_playback,
+		1,
+		ABSOLUTE_MAX_MUTATIONS_PER_PLAYBACK
+	)
+	var selected_records: Array[Dictionary] = []
 
 	_mutex.lock()
-	for mutation_record: Dictionary in _queue:
-		records.append(mutation_record.duplicate(true))
-	_mutex.unlock()
-
-	records.sort_custom(Callable(self, "_sort_records_ascending"))
-	for mutation_record: Dictionary in records:
+	var pending_records: Array[Dictionary] = _collect_pending_records_locked()
+	for mutation_record: Dictionary in pending_records:
 		if not _matches_phase(mutation_record, phase_filter):
 			continue
-		result.append(_record_to_snapshot(mutation_record))
-		if limit > 0 and result.size() >= limit:
+		selected_records.append(mutation_record)
+		if selected_records.size() >= limit:
 			break
+	_mutex.unlock()
+	var result: Array[Dictionary] = []
+	for mutation_record: Dictionary in selected_records:
+		result.append(_record_to_snapshot(mutation_record))
 	return result
 
 
@@ -282,14 +436,11 @@ func cancel(handle: int) -> bool:
 		return false
 
 	_mutex.lock()
-	for index: int in range(_queue.size()):
-		if _get_record_handle(_queue[index]) == handle:
-			_queue.remove_at(index)
-			_cancelled_count += 1
-			_mutex.unlock()
-			return true
+	var cancelled: bool = _cancel_handle_locked(handle)
+	if cancelled:
+		_cancelled_count += 1
 	_mutex.unlock()
-	return false
+	return cancelled
 
 
 ## 取消指定 owner 的全部待应用弱方法调用。
@@ -306,18 +457,14 @@ func cancel_owner(owner: Object) -> int:
 		return 0
 
 	var owner_id: int = owner.get_instance_id()
-	var removed_count: int = 0
 	_mutex.lock()
-	for index: int in range(_queue.size() - 1, -1, -1):
-		if _get_record_owner_id(_queue[index]) == owner_id:
-			_queue.remove_at(index)
-			removed_count += 1
+	var removed_count: int = _cancel_owner_locked(owner_id)
 	_cancelled_count += removed_count
 	_mutex.unlock()
 	return removed_count
 
 
-## 清空全部待应用变更和统计。
+## 清空全部待应用变更和统计。句柄与隐式 order 在实例生命周期内保持单调。
 ## [br]
 ## @api public
 ## [br]
@@ -325,13 +472,20 @@ func cancel_owner(owner: Object) -> int:
 func clear() -> void:
 	_mutex.lock()
 	_queue.clear()
-	_next_handle = 1
-	_next_order = 1
+	_playback_snapshot.clear()
+	_playback_new_records.clear()
+	_playback_matching_indexes.clear()
+	_playback_matching_cursor = 0
+	_playback_snapshot_matching_count = 0
+	_pending_count = 0
 	_recorded_count = 0
 	_applied_count = 0
 	_cancelled_count = 0
 	_failed_count = 0
 	_skipped_owner_count = 0
+	_high_watermark = 0
+	_rejected_count = 0
+	_dropped_count = 0
 	_mutex.unlock()
 
 
@@ -344,7 +498,7 @@ func clear() -> void:
 ## @return 队列长度。
 func get_pending_count() -> int:
 	_mutex.lock()
-	var count: int = _queue.size()
+	var count: int = _pending_count
 	_mutex.unlock()
 	return count
 
@@ -368,25 +522,34 @@ func is_empty() -> bool:
 ## [br]
 ## @return 调试快照。
 ## [br]
-## @schema return: Dictionary，包含 pending_count、phase_counts、recorded_count、applied_count、cancelled_count、failed_count 和 skipped_owner_count。
+## @schema return: Dictionary，包含 pending_count、max_pending_mutations、max_mutations_per_playback、phase_counts、recorded_count、applied_count、cancelled_count、failed_count、skipped_owner_count、high_watermark、rejected_count 和 dropped_count。
 func get_debug_snapshot() -> Dictionary:
 	_mutex.lock()
-	var phase_counts: Dictionary = {}
-	var handles: PackedInt32Array = PackedInt32Array()
-	for mutation_record: Dictionary in _queue:
-		var phase_key: String = String(_get_record_phase(mutation_record))
-		phase_counts[phase_key] = GFVariantData.get_option_int(phase_counts, phase_key, 0) + 1
-		var _handle_appended: bool = handles.append(_get_record_handle(mutation_record))
-	var pending_count: int = _queue.size()
+	var pending_records: Array[Dictionary] = _collect_pending_records_locked()
+	var pending_count: int = _pending_count
 	var recorded_count: int = _recorded_count
 	var applied_count: int = _applied_count
 	var cancelled_count: int = _cancelled_count
 	var failed_count: int = _failed_count
 	var skipped_owner_count: int = _skipped_owner_count
+	var configured_max_pending: int = max_pending_mutations
+	var configured_playback_budget: int = max_mutations_per_playback
+	var high_watermark: int = _high_watermark
+	var rejected_count: int = _rejected_count
+	var dropped_count: int = _dropped_count
 	_mutex.unlock()
+
+	var phase_counts: Dictionary = {}
+	var handles: PackedInt64Array = PackedInt64Array()
+	for mutation_record: Dictionary in pending_records:
+		var phase_key: String = String(_get_record_phase(mutation_record))
+		phase_counts[phase_key] = GFVariantData.get_option_int(phase_counts, phase_key, 0) + 1
+		var _handle_appended: bool = handles.append(_get_record_handle(mutation_record))
 
 	return {
 		"pending_count": pending_count,
+		"max_pending_mutations": configured_max_pending,
+		"max_mutations_per_playback": configured_playback_budget,
 		"pending_handles": handles,
 		"phase_counts": _sort_dictionary_by_key(phase_counts),
 		"recorded_count": recorded_count,
@@ -394,6 +557,9 @@ func get_debug_snapshot() -> Dictionary:
 		"cancelled_count": cancelled_count,
 		"failed_count": failed_count,
 		"skipped_owner_count": skipped_owner_count,
+		"high_watermark": high_watermark,
+		"rejected_count": rejected_count,
+		"dropped_count": dropped_count,
 	}
 
 
@@ -424,6 +590,10 @@ func _enqueue_record(
 	persist_metadata: bool
 ) -> int:
 	_mutex.lock()
+	if _pending_count >= max_pending_mutations:
+		_rejected_count += 1
+		_mutex.unlock()
+		return 0
 	var handle: int = _next_handle
 	_next_handle += 1
 	var order: int = GFVariantData.get_option_int(options, "order", _next_order)
@@ -444,35 +614,235 @@ func _enqueue_record(
 	}
 	for execution_key: Variant in execution_record:
 		mutation_record[execution_key] = execution_record[execution_key]
-	_insert_record_sorted(mutation_record)
+	if _playback_snapshot_active:
+		_insert_record_sorted_into(
+			_playback_new_records,
+			mutation_record
+		)
+	else:
+		_insert_record_sorted_into(_queue, mutation_record)
+	_pending_count += 1
 	_recorded_count += 1
+	_high_watermark = maxi(_high_watermark, _pending_count)
 	_mutex.unlock()
 	return handle
 
 
-func _pop_next_matching_record(phase_filter: StringName) -> Dictionary:
+func _begin_playback_snapshot(phase_filter: StringName) -> void:
 	_mutex.lock()
-	for index: int in range(_queue.size()):
-		var mutation_record: Dictionary = _queue[index]
-		if not _matches_phase(mutation_record, phase_filter):
+	_playback_snapshot = _queue
+	_queue = []
+	_playback_new_records.clear()
+	_playback_matching_indexes.clear()
+	_playback_matching_cursor = 0
+	_playback_snapshot_matching_count = 0
+	_playback_phase_filter = phase_filter
+	for index: int in range(_playback_snapshot.size()):
+		if not _matches_phase(
+			_playback_snapshot[index],
+			phase_filter
+		):
 			continue
-		_queue.remove_at(index)
+		_playback_matching_indexes.append(index)
+		_playback_snapshot_matching_count += 1
+	_playback_snapshot_active = true
+	_mutex.unlock()
+
+
+func _pop_next_playback_record() -> Dictionary:
+	_mutex.lock()
+	while (
+		_playback_matching_cursor
+		< _playback_matching_indexes.size()
+	):
+		var snapshot_index: int = _playback_matching_indexes[
+			_playback_matching_cursor
+		]
+		_playback_matching_cursor += 1
+		var mutation_record: Dictionary = _playback_snapshot[
+			snapshot_index
+		]
+		if mutation_record.is_empty():
+			continue
+		_playback_snapshot[snapshot_index] = {}
+		_playback_snapshot_matching_count -= 1
+		_pending_count -= 1
 		_mutex.unlock()
 		return mutation_record
 	_mutex.unlock()
 	return {}
 
 
-func _insert_record_sorted(mutation_record: Dictionary) -> void:
+func _has_playback_snapshot_records() -> bool:
+	_mutex.lock()
+	var has_records: bool = _playback_snapshot_matching_count > 0
+	_mutex.unlock()
+	return has_records
+
+
+func _finish_playback_snapshot() -> void:
+	_mutex.lock()
+	var remaining_snapshot: Array[Dictionary] = []
+	for mutation_record: Dictionary in _playback_snapshot:
+		if mutation_record.is_empty():
+			continue
+		remaining_snapshot.append(mutation_record)
+	_queue = _merge_sorted_records(
+		remaining_snapshot,
+		_playback_new_records
+	)
+	_playback_snapshot.clear()
+	_playback_new_records.clear()
+	_playback_matching_indexes.clear()
+	_playback_matching_cursor = 0
+	_playback_snapshot_matching_count = 0
+	_playback_phase_filter = &""
+	_playback_snapshot_active = false
+	_pending_count = _queue.size()
+	_mutex.unlock()
+
+
+func _cancel_handle_locked(handle: int) -> bool:
+	if not _playback_snapshot_active:
+		for index: int in range(_queue.size()):
+			if _get_record_handle(_queue[index]) != handle:
+				continue
+			_queue.remove_at(index)
+			_pending_count -= 1
+			return true
+		return false
+
+	for index: int in range(_playback_snapshot.size()):
+		var snapshot_record: Dictionary = _playback_snapshot[index]
+		if (
+			snapshot_record.is_empty()
+			or _get_record_handle(snapshot_record) != handle
+		):
+			continue
+		_playback_snapshot[index] = {}
+		if _matches_phase(
+			snapshot_record,
+			_playback_phase_filter
+		):
+			_playback_snapshot_matching_count -= 1
+		_pending_count -= 1
+		return true
+	for index: int in range(_playback_new_records.size()):
+		if _get_record_handle(_playback_new_records[index]) != handle:
+			continue
+		_playback_new_records.remove_at(index)
+		_pending_count -= 1
+		return true
+	return false
+
+
+func _cancel_owner_locked(owner_id: int) -> int:
+	var removed_count: int = 0
+	if not _playback_snapshot_active:
+		for index: int in range(_queue.size() - 1, -1, -1):
+			if _get_record_owner_id(_queue[index]) != owner_id:
+				continue
+			_queue.remove_at(index)
+			removed_count += 1
+			_pending_count -= 1
+		return removed_count
+
+	for index: int in range(_playback_snapshot.size()):
+		var snapshot_record: Dictionary = _playback_snapshot[index]
+		if (
+			snapshot_record.is_empty()
+			or _get_record_owner_id(snapshot_record) != owner_id
+		):
+			continue
+		_playback_snapshot[index] = {}
+		if _matches_phase(
+			snapshot_record,
+			_playback_phase_filter
+		):
+			_playback_snapshot_matching_count -= 1
+		removed_count += 1
+		_pending_count -= 1
+	for index: int in range(
+		_playback_new_records.size() - 1,
+		-1,
+		-1
+	):
+		if _get_record_owner_id(_playback_new_records[index]) != owner_id:
+			continue
+		_playback_new_records.remove_at(index)
+		removed_count += 1
+		_pending_count -= 1
+	return removed_count
+
+
+func _collect_pending_records_locked() -> Array[Dictionary]:
+	var pending_records: Array[Dictionary] = []
+	if not _playback_snapshot_active:
+		for mutation_record: Dictionary in _queue:
+			if mutation_record.is_empty():
+				continue
+			pending_records.append(mutation_record)
+		return pending_records
+
+	var remaining_snapshot: Array[Dictionary] = []
+	for mutation_record: Dictionary in _playback_snapshot:
+		if mutation_record.is_empty():
+			continue
+		remaining_snapshot.append(mutation_record)
+	return _merge_sorted_records(
+		remaining_snapshot,
+		_playback_new_records
+	)
+
+
+func _merge_sorted_records(
+	left_records: Array[Dictionary],
+	right_records: Array[Dictionary]
+) -> Array[Dictionary]:
+	var merged_records: Array[Dictionary] = []
+	var left_index: int = 0
+	var right_index: int = 0
+	while (
+		left_index < left_records.size()
+		and right_index < right_records.size()
+	):
+		if _sort_records_ascending(
+			left_records[left_index],
+			right_records[right_index]
+		):
+			merged_records.append(left_records[left_index])
+			left_index += 1
+		else:
+			merged_records.append(right_records[right_index])
+			right_index += 1
+	while left_index < left_records.size():
+		merged_records.append(left_records[left_index])
+		left_index += 1
+	while right_index < right_records.size():
+		merged_records.append(right_records[right_index])
+		right_index += 1
+	return merged_records
+
+
+func _insert_record_sorted_into(
+	target_records: Array[Dictionary],
+	mutation_record: Dictionary
+) -> void:
 	var low: int = 0
-	var high: int = _queue.size()
+	var high: int = target_records.size()
 	while low < high:
 		var middle: int = floori(float(low + high) / 2.0)
-		if _sort_records_ascending(mutation_record, _queue[middle]):
+		if _sort_records_ascending(
+			mutation_record,
+			target_records[middle]
+		):
 			high = middle
 		else:
 			low = middle + 1
-	var _insert_result: Variant = _queue.insert(low, mutation_record)
+	var _insert_result: Variant = target_records.insert(
+		low,
+		mutation_record
+	)
 
 
 func _matches_phase(mutation_record: Dictionary, phase_filter: StringName) -> bool:

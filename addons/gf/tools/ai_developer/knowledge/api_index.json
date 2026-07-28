@@ -2,8 +2,8 @@
   "schema_version": 1,
   "catalog_version": "1.0.0",
   "framework_version": "10.0.0-dev.0",
-  "source_digest": "d39aae4d093b5f82d9df758dfd9a324b4cec8dd7e626c26ac8dc43888a76fced",
-  "class_count": 760,
+  "source_digest": "57687629ffbc7eec8929c543609ee0255943715d27e75e2957f5abcdf3b786e6",
+  "class_count": 761,
   "package_count": 52,
   "packages": [
     {
@@ -2846,6 +2846,172 @@
         }
       ]
     },
+    "GFArtifactWriteTransaction": {
+      "extends": "RefCounted",
+      "module": "kernel",
+      "package_id": "gf.kernel",
+      "path": "addons/gf/kernel/editor/gf_artifact_write_transaction.gd",
+      "summary": "GFArtifactWriteTransaction: 编辑器与项目工具可复用的多产物文件提交事务。 在显式资源根、文件数量和字节预算内预检文本、字节或临时文件产物， 先把全部内容写入目标同目录的 staging 文件，再逐项替换目标。任一提交",
+      "visibility": "public",
+      "category": "tool_api",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "const",
+          "name": "KIND_TEXT",
+          "signature": "const KIND_TEXT: StringName = &\"text\"",
+          "summary": "文本产物 entry 类型。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "KIND_BYTES",
+          "signature": "const KIND_BYTES: StringName = &\"bytes\"",
+          "summary": "字节产物 entry 类型。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "KIND_FILE",
+          "signature": "const KIND_FILE: StringName = &\"file\"",
+          "summary": "已有临时文件产物 entry 类型。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "DEFAULT_MAX_FILE_COUNT",
+          "signature": "const DEFAULT_MAX_FILE_COUNT: int = 256",
+          "summary": "默认最大产物数量。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "DEFAULT_MAX_FILE_BYTES",
+          "signature": "const DEFAULT_MAX_FILE_BYTES: int = 64 * 1024 * 1024",
+          "summary": "默认单产物最大字节数。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "DEFAULT_MAX_TOTAL_BYTES",
+          "signature": "const DEFAULT_MAX_TOTAL_BYTES: int = 256 * 1024 * 1024",
+          "summary": "默认单批产物最大总字节数。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "DEFAULT_MAX_BACKUP_BYTES",
+          "signature": "const DEFAULT_MAX_BACKUP_BYTES: int = 256 * 1024 * 1024",
+          "summary": "默认事务 snapshots 与单个 restore working copy 的最大并发恢复字节数。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "ABSOLUTE_MAX_FILE_COUNT",
+          "signature": "const ABSOLUTE_MAX_FILE_COUNT: int = 1024",
+          "summary": "单次事务允许的产物数量绝对上限。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "ABSOLUTE_MAX_FILE_BYTES",
+          "signature": "const ABSOLUTE_MAX_FILE_BYTES: int = 64 * 1024 * 1024",
+          "summary": "单个产物允许的字节数绝对上限。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "ABSOLUTE_MAX_TOTAL_BYTES",
+          "signature": "const ABSOLUTE_MAX_TOTAL_BYTES: int = 256 * 1024 * 1024",
+          "summary": "单次事务允许的产物总字节数绝对上限。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "ABSOLUTE_MAX_BACKUP_BYTES",
+          "signature": "const ABSOLUTE_MAX_BACKUP_BYTES: int = 256 * 1024 * 1024",
+          "summary": "单次事务 snapshots 与单个 restore working copy 的最大并发恢复字节数绝对上限。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "ABSOLUTE_MAX_ACTIVE_TRANSACTIONS",
+          "signature": "const ABSOLUTE_MAX_ACTIVE_TRANSACTIONS: int = 256",
+          "summary": "同一进程内允许保持 open 的事务绝对上限。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "RECOVERY_ACTION_ROLLBACK",
+          "signature": "const RECOVERY_ACTION_ROLLBACK: StringName = &\"rollback\"",
+          "summary": "恢复报告要求调用 rollback()。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "RECOVERY_ACTION_COMPLETE",
+          "signature": "const RECOVERY_ACTION_COMPLETE: StringName = &\"complete\"",
+          "summary": "恢复报告要求调用 complete()。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "make_text_entry",
+          "signature": "static func make_text_entry( target_path: String, text: String, options: Dictionary = {} ) -> Dictionary",
+          "summary": "创建文本产物 entry。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "make_bytes_entry",
+          "signature": "static func make_bytes_entry( target_path: String, bytes: PackedByteArray, options: Dictionary = {} ) -> Dictionary",
+          "summary": "创建字节产物 entry。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "make_file_entry",
+          "signature": "static func make_file_entry( target_path: String, source_path: String, options: Dictionary = {} ) -> Dictionary",
+          "summary": "创建已有文件产物 entry。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_preflight_report",
+          "signature": "static func get_preflight_report( entries: Array[Dictionary], options: Dictionary = {} ) -> Dictionary",
+          "summary": "预检一组产物 entry，不创建目录或写入文件。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "commit",
+          "signature": "static func commit( entries: Array[Dictionary], options: Dictionary = {} ) -> Dictionary",
+          "summary": "以运行期补偿事务提交一组产物。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "begin",
+          "signature": "static func begin( paths: PackedStringArray, options: Dictionary = {} ) -> Dictionary",
+          "summary": "捕获一组外部写入目标的事务前状态。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "rollback",
+          "signature": "static func rollback(transaction: Dictionary) -> Dictionary",
+          "summary": "逆序恢复 begin() 捕获的全部目标。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "complete",
+          "signature": "static func complete(transaction: Dictionary) -> Dictionary",
+          "summary": "完成 begin() 捕获的事务并删除回滚快照。",
+          "visibility": "public"
+        }
+      ]
+    },
     "GFAssetAttributionTools": {
       "extends": "RefCounted",
       "module": "extensions/asset_metadata",
@@ -5076,7 +5242,7 @@
       "module": "standard",
       "package_id": "gf.standard.base",
       "path": "addons/gf/standard/common/gf_async_channel.gd",
-      "summary": "GFAsyncChannel: 轻量异步事件通道。 提供多生产者、单消费者的无界队列语义，可同步写入，也可异步等待下一条数据。 它不负责调度任务、流式转换或业务协议，只在生产者和消费者之间传递 Variant 事件。",
+      "summary": "GFAsyncChannel: 轻量异步事件通道。 提供多逻辑生产者、单消费者的有界环形队列语义，可同步写入，也可异步等待下一条数据。 通道只允许在主线程使用；后台线程应先通过 GFMainThreadDispatchQueue 回到主线程。",
       "visibility": "public",
       "category": "runtime_handle",
       "since": "7.0.0",
@@ -5138,10 +5304,87 @@
           "visibility": "public"
         },
         {
+          "kind": "const",
+          "name": "STATUS_WRITTEN",
+          "signature": "const STATUS_WRITTEN: StringName = &\"written\"",
+          "summary": "写入已被通道接受。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "STATUS_REJECTED",
+          "signature": "const STATUS_REJECTED: StringName = &\"rejected\"",
+          "summary": "写入因容量策略被拒绝。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "STATUS_DROPPED",
+          "signature": "const STATUS_DROPPED: StringName = &\"dropped\"",
+          "summary": "新写入项因容量策略被丢弃。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "STATUS_WRONG_THREAD",
+          "signature": "const STATUS_WRONG_THREAD: StringName = &\"wrong_thread\"",
+          "summary": "操作在非主线程被拒绝。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "DEFAULT_MAX_BUFFERED_ITEMS",
+          "signature": "const DEFAULT_MAX_BUFFERED_ITEMS: int = 256",
+          "summary": "默认最多缓冲的数据数量。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "ABSOLUTE_MAX_BUFFERED_ITEMS",
+          "signature": "const ABSOLUTE_MAX_BUFFERED_ITEMS: int = 65_536",
+          "summary": "最多允许配置的缓冲数据数量。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "OVERFLOW_REJECT",
+          "signature": "const OVERFLOW_REJECT: StringName = &\"reject\"",
+          "summary": "容量满时拒绝新写入。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "OVERFLOW_DROP_OLDEST",
+          "signature": "const OVERFLOW_DROP_OLDEST: StringName = &\"drop_oldest\"",
+          "summary": "容量满时丢弃最早缓冲项，再接受新写入。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "OVERFLOW_DROP_NEWEST",
+          "signature": "const OVERFLOW_DROP_NEWEST: StringName = &\"drop_newest\"",
+          "summary": "容量满时丢弃新写入项。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "configure_ingress",
+          "signature": "func configure_ingress( max_buffered_items: int, overflow_policy: StringName = OVERFLOW_REJECT ) -> bool",
+          "summary": "配置有界缓冲和容量满时的处理策略。",
+          "visibility": "public"
+        },
+        {
           "kind": "func",
           "name": "try_write",
           "signature": "func try_write(item: Variant) -> bool",
           "summary": "写入一条数据。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "try_write_detailed",
+          "signature": "func try_write_detailed(item: Variant) -> Dictionary",
+          "summary": "写入一条数据并返回结构化背压结果。",
           "visibility": "public"
         },
         {
@@ -5216,6 +5459,20 @@
         },
         {
           "kind": "func",
+          "name": "get_max_buffered_items",
+          "signature": "func get_max_buffered_items() -> int",
+          "summary": "获取最大缓冲数量。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_overflow_policy",
+          "signature": "func get_overflow_policy() -> StringName",
+          "summary": "获取容量满时的处理策略。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
           "name": "get_debug_snapshot",
           "signature": "func get_debug_snapshot() -> Dictionary",
           "summary": "获取通道调试快照。",
@@ -5228,7 +5485,7 @@
       "module": "kernel",
       "package_id": "gf.kernel",
       "path": "addons/gf/kernel/core/gf_async_completion.gd",
-      "summary": "GFAsyncCompletion: 一次性异步完成源。 用于把回调、Signal、后台任务或项目侧异步流程归一为 succeeded / failed / cancelled 终态。 它只保存结果状态，不调度任务，也不强制规定调用方如何重试或回滚。",
+      "summary": "GFAsyncCompletion: 一次性异步完成源。 用于把回调、Signal 或项目侧异步流程归一为 succeeded / failed / cancelled 终态。 状态访问、终态提交和取消 token 绑定都只允许在主线程执行；后台生产者应先把",
       "visibility": "public",
       "category": "runtime_handle",
       "since": "7.0.0",
@@ -5264,7 +5521,7 @@
         {
           "kind": "enum",
           "name": "Status",
-          "signature": "enum Status {\n\t## 等待完成。\n\tPENDING,\n\t## 已成功完成。\n\tSUCCEEDED,\n\t## 已失败。\n\tFAILED,\n\t## 已取消。\n\tCANCELLED,\n}",
+          "signature": "enum Status {\n\t## 等待完成。\n\tPENDING,\n\t## 已成功完成。\n\tSUCCEEDED,\n\t## 已失败。\n\tFAILED,\n\t## 已取消。\n\tCANCELLED,\n\t## 当前调用线程无权读取状态。\n\tINVALID,\n}",
           "summary": "完成源状态。",
           "visibility": "public"
         },
@@ -5407,6 +5664,20 @@
           "visibility": "public"
         },
         {
+          "kind": "const",
+          "name": "DEFAULT_MAX_COMPLETIONS",
+          "signature": "const DEFAULT_MAX_COMPLETIONS: int = 256",
+          "summary": "组合等待默认接受的最大 completion 数量。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "ABSOLUTE_MAX_COMPLETIONS",
+          "signature": "const ABSOLUTE_MAX_COMPLETIONS: int = 4096",
+          "summary": "组合等待允许的 completion 绝对数量上限。",
+          "visibility": "public"
+        },
+        {
           "kind": "func",
           "name": "retry_async",
           "signature": "static func retry_async(operation: Callable, options: Dictionary = {}) -> Dictionary",
@@ -5431,14 +5702,14 @@
           "kind": "func",
           "name": "wait_all_completions_async",
           "signature": "static func wait_all_completions_async(completions: Dictionary, options: Dictionary = {}) -> Dictionary",
-          "summary": "等待所有完成源进入终态。",
+          "summary": "在主线程等待所有完成源进入终态。",
           "visibility": "public"
         },
         {
           "kind": "func",
           "name": "wait_any_completion_async",
           "signature": "static func wait_any_completion_async(completions: Dictionary, options: Dictionary = {}) -> Dictionary",
-          "summary": "等待任一完成源成功。",
+          "summary": "在主线程等待任一完成源成功。",
           "visibility": "public"
         }
       ]
@@ -5614,9 +5885,23 @@
         },
         {
           "kind": "const",
+          "name": "STATUS_REJECTED",
+          "signature": "const STATUS_REJECTED: StringName = &\"rejected\"",
+          "summary": "请求因等待队列或 key 容量耗尽而被拒绝。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
           "name": "DEFAULT_MAX_CONCURRENCY",
           "signature": "const DEFAULT_MAX_CONCURRENCY: int = 1",
           "summary": "默认每个 key 的并发槽位数。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "ABSOLUTE_MAX_CONCURRENCY",
+          "signature": "const ABSOLUTE_MAX_CONCURRENCY: int = 4096",
+          "summary": "每个 key 最多允许配置的并发槽位数。",
           "visibility": "public"
         },
         {
@@ -5627,17 +5912,157 @@
           "visibility": "public"
         },
         {
+          "kind": "const",
+          "name": "ABSOLUTE_MAX_RECENT_EVENTS",
+          "signature": "const ABSOLUTE_MAX_RECENT_EVENTS: int = 4096",
+          "summary": "最近事件历史的绝对数量上限。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "DEFAULT_MAX_ACTIVE_LEASES",
+          "signature": "const DEFAULT_MAX_ACTIVE_LEASES: int = 4096",
+          "summary": "默认最多同时持有的 lease 总数。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "ABSOLUTE_MAX_ACTIVE_LEASES",
+          "signature": "const ABSOLUTE_MAX_ACTIVE_LEASES: int = 65_536",
+          "summary": "同时持有 lease 的绝对数量上限。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "DEFAULT_MAX_WAITING_REQUESTS",
+          "signature": "const DEFAULT_MAX_WAITING_REQUESTS: int = 1024",
+          "summary": "默认最多保留的等待请求总数。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "ABSOLUTE_MAX_WAITING_REQUESTS",
+          "signature": "const ABSOLUTE_MAX_WAITING_REQUESTS: int = 65_536",
+          "summary": "等待请求总数的绝对上限。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "DEFAULT_MAX_WAITING_PER_KEY",
+          "signature": "const DEFAULT_MAX_WAITING_PER_KEY: int = 64",
+          "summary": "默认每个 key 最多保留的等待请求数。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "ABSOLUTE_MAX_WAITING_PER_KEY",
+          "signature": "const ABSOLUTE_MAX_WAITING_PER_KEY: int = 4096",
+          "summary": "单 key 等待请求数的绝对上限。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "DEFAULT_MAX_TRACKED_KEYS",
+          "signature": "const DEFAULT_MAX_TRACKED_KEYS: int = 256",
+          "summary": "默认最多跟踪的活跃、等待或显式配置 key 数。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "ABSOLUTE_MAX_TRACKED_KEYS",
+          "signature": "const ABSOLUTE_MAX_TRACKED_KEYS: int = 16_384",
+          "summary": "tracked key 数量的绝对上限。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "DEFAULT_MAX_PUMP_WORK_ITEMS",
+          "signature": "const DEFAULT_MAX_PUMP_WORK_ITEMS: int = 256",
+          "summary": "默认每次队列推进最多处理的等待请求数量。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "ABSOLUTE_MAX_PUMP_WORK_ITEMS",
+          "signature": "const ABSOLUTE_MAX_PUMP_WORK_ITEMS: int = 4096",
+          "summary": "单次队列推进工作预算的绝对上限。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "REASON_MAX_WAITING_REQUESTS",
+          "signature": "const REASON_MAX_WAITING_REQUESTS: StringName = &\"max_waiting_requests\"",
+          "summary": "等待请求总容量耗尽原因。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "REASON_MAX_WAITING_PER_KEY",
+          "signature": "const REASON_MAX_WAITING_PER_KEY: StringName = &\"max_waiting_per_key\"",
+          "summary": "单 key 等待容量耗尽原因。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "REASON_MAX_TRACKED_KEYS",
+          "signature": "const REASON_MAX_TRACKED_KEYS: StringName = &\"max_tracked_keys\"",
+          "summary": "key 跟踪容量耗尽原因。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "REASON_CANCEL_TOKEN_CONNECT_FAILED",
+          "signature": "const REASON_CANCEL_TOKEN_CONNECT_FAILED: StringName = &\"cancel_token_connect_failed\"",
+          "summary": "取消令牌订阅建立失败原因。",
+          "visibility": "public"
+        },
+        {
           "kind": "var",
           "name": "default_max_concurrency",
-          "signature": "var default_max_concurrency: int = DEFAULT_MAX_CONCURRENCY",
+          "signature": "var default_max_concurrency: int",
           "summary": "未显式配置 key 时的最大并发槽位数。",
           "visibility": "public"
         },
         {
           "kind": "var",
           "name": "max_recent_events",
-          "signature": "var max_recent_events: int = DEFAULT_MAX_RECENT_EVENTS",
+          "signature": "var max_recent_events: int",
           "summary": "最近事件历史上限。设置为 0 时不保留事件。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "max_active_leases",
+          "signature": "var max_active_leases: int",
+          "summary": "最多同时持有的 lease 总数。降低容量不会撤销现有 lease。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "max_waiting_requests",
+          "signature": "var max_waiting_requests: int",
+          "summary": "最多保留的等待请求总数。降低容量不会驱逐现有请求。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "max_waiting_per_key",
+          "signature": "var max_waiting_per_key: int",
+          "summary": "每个 key 最多保留的等待请求数。降低容量不会驱逐现有请求。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "max_tracked_keys",
+          "signature": "var max_tracked_keys: int",
+          "summary": "最多跟踪的活跃、等待或显式配置 key 数。降低容量不会驱逐现有 key。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "max_pump_work_items",
+          "signature": "var max_pump_work_items: int",
+          "summary": "每次队列推进最多处理的等待请求数量。",
           "visibility": "public"
         },
         {
@@ -16903,7 +17328,7 @@
       "module": "tools",
       "package_id": "gf.tool.config_pipeline",
       "path": "addons/gf/tools/config_pipeline/gf_config_pipeline_commit_stage.gd",
-      "summary": "GFConfigPipelineCommitStage: Config Pipeline 的文件提交事务阶段。 在目标写入前捕获路径状态，并负责成功提交后的快照清理或失败后的逆序回滚。 该阶段不解释产物内容，也不决定输出路径策略。",
+      "summary": "GFConfigPipelineCommitStage: Config Pipeline 的文件提交事务阶段。 将 Config Pipeline 的 ResourceSaver 等专用写入器接到框架级 GFArtifactWriteTransaction。该阶段不复制事务实现、不解释产物内容，",
       "visibility": "public",
       "category": "tool_api",
       "since": "9.0.0",
@@ -16918,14 +17343,14 @@
         {
           "kind": "const",
           "name": "IMPLEMENTATION_VERSION",
-          "signature": "const IMPLEMENTATION_VERSION: int = 1",
+          "signature": "const IMPLEMENTATION_VERSION: int = 3",
           "summary": "Commit 阶段的实现版本；改变事务或回滚语义时递增。",
           "visibility": "public"
         },
         {
           "kind": "func",
           "name": "begin",
-          "signature": "func begin(paths: PackedStringArray) -> Dictionary",
+          "signature": "func begin( paths: PackedStringArray, options: Dictionary = {} ) -> Dictionary",
           "summary": "捕获待写入路径的事务前状态。",
           "visibility": "public"
         },
@@ -17082,7 +17507,7 @@
         {
           "kind": "const",
           "name": "IMPLEMENTATION_VERSION",
-          "signature": "const IMPLEMENTATION_VERSION: int = 1",
+          "signature": "const IMPLEMENTATION_VERSION: int = 2",
           "summary": "Layout 阶段的实现版本；改变布局解析语义时递增。",
           "visibility": "public"
         },
@@ -22815,17 +23240,73 @@
           "visibility": "public"
         },
         {
+          "kind": "const",
+          "name": "DEFAULT_MAX_PENDING_MUTATIONS",
+          "signature": "const DEFAULT_MAX_PENDING_MUTATIONS: int = 4096",
+          "summary": "默认最多保留的待应用变更数量。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "ABSOLUTE_MAX_PENDING_MUTATIONS",
+          "signature": "const ABSOLUTE_MAX_PENDING_MUTATIONS: int = 65_536",
+          "summary": "最多允许配置的待应用变更数量。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "DEFAULT_MAX_MUTATIONS_PER_PLAYBACK",
+          "signature": "const DEFAULT_MAX_MUTATIONS_PER_PLAYBACK: int = 256",
+          "summary": "playback() 未显式给出数量预算时使用的默认值。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "ABSOLUTE_MAX_MUTATIONS_PER_PLAYBACK",
+          "signature": "const ABSOLUTE_MAX_MUTATIONS_PER_PLAYBACK: int = 4096",
+          "summary": "单次 playback() 或 preview() 允许处理的记录数量绝对上限。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "STATUS_COMPLETED",
+          "signature": "const STATUS_COMPLETED: StringName = &\"completed\"",
+          "summary": "Playback 正常完成。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "STATUS_WRONG_THREAD",
+          "signature": "const STATUS_WRONG_THREAD: StringName = &\"wrong_thread\"",
+          "summary": "Playback 在非主线程被调用。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "STATUS_BUSY",
+          "signature": "const STATUS_BUSY: StringName = &\"busy\"",
+          "summary": "当前实例已经处于同步 playback 调用中。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "max_pending_mutations",
+          "signature": "var max_pending_mutations: int = DEFAULT_MAX_PENDING_MUTATIONS",
+          "summary": "最多保留的待应用变更数量。降低容量不会驱逐现有记录。",
+          "visibility": "public"
+        },
+        {
           "kind": "var",
           "name": "max_mutations_per_playback",
-          "signature": "var max_mutations_per_playback: int = 0",
-          "summary": "playback() 默认每次最多应用多少条变更；小于等于 0 时不限制数量。",
+          "signature": "var max_mutations_per_playback: int = DEFAULT_MAX_MUTATIONS_PER_PLAYBACK",
+          "summary": "playback() 默认每次最多应用多少条变更。",
           "visibility": "public"
         },
         {
           "kind": "var",
           "name": "max_seconds_per_playback",
           "signature": "var max_seconds_per_playback: float = 0.0",
-          "summary": "playback() 默认最多占用多少秒；小于等于 0 时不启用时间预算。",
+          "summary": "playback() 在变更之间检查的非抢占式软时间预算。小于等于 0 时不启用；",
           "visibility": "public"
         },
         {
@@ -22888,7 +23369,7 @@
           "kind": "func",
           "name": "clear",
           "signature": "func clear() -> void",
-          "summary": "清空全部待应用变更和统计。",
+          "summary": "清空全部待应用变更和统计。句柄与隐式 order 在实例生命周期内保持单调。",
           "visibility": "public"
         },
         {
@@ -43684,9 +44165,65 @@
       "since": "7.0.0",
       "members": [
         {
+          "kind": "const",
+          "name": "DEFAULT_MAX_PENDING_CALLBACKS",
+          "signature": "const DEFAULT_MAX_PENDING_CALLBACKS: int = 1024",
+          "summary": "默认最多保留的待派发回调数量。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "ABSOLUTE_MAX_PENDING_CALLBACKS",
+          "signature": "const ABSOLUTE_MAX_PENDING_CALLBACKS: int = 65_536",
+          "summary": "最多允许配置的待派发回调数量。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "DEFAULT_MAX_CALLBACKS_PER_DISPATCH",
+          "signature": "const DEFAULT_MAX_CALLBACKS_PER_DISPATCH: int = 16",
+          "summary": "dispatch() 未显式给出数量预算时使用的默认值。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "ABSOLUTE_MAX_CALLBACKS_PER_DISPATCH",
+          "signature": "const ABSOLUTE_MAX_CALLBACKS_PER_DISPATCH: int = 4096",
+          "summary": "单次 dispatch() 允许处理的回调数量绝对上限。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "STATUS_COMPLETED",
+          "signature": "const STATUS_COMPLETED: StringName = &\"completed\"",
+          "summary": "派发正常完成。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "STATUS_WRONG_THREAD",
+          "signature": "const STATUS_WRONG_THREAD: StringName = &\"wrong_thread\"",
+          "summary": "派发入口在非主线程被调用。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "STATUS_BUSY",
+          "signature": "const STATUS_BUSY: StringName = &\"busy\"",
+          "summary": "当前实例已经处于同步派发调用中。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "max_pending_callbacks",
+          "signature": "var max_pending_callbacks: int = DEFAULT_MAX_PENDING_CALLBACKS",
+          "summary": "最多保留的待派发回调数量。降低容量不会驱逐现有回调。",
+          "visibility": "public"
+        },
+        {
           "kind": "var",
           "name": "max_callbacks_per_tick",
-          "signature": "var max_callbacks_per_tick: int = 16",
+          "signature": "var max_callbacks_per_tick: int = DEFAULT_MAX_CALLBACKS_PER_DISPATCH",
           "summary": "tick() 每次最多派发多少个回调。",
           "visibility": "public"
         },
@@ -43694,7 +44231,7 @@
           "kind": "var",
           "name": "max_seconds_per_tick",
           "signature": "var max_seconds_per_tick: float = 0.0",
-          "summary": "tick() 每次最多占用多少秒。小于等于 0 时不启用时间预算。",
+          "summary": "tick() 在回调之间检查的非抢占式软时间预算。小于等于 0 时不启用；",
           "visibility": "public"
         },
         {
@@ -43757,7 +44294,7 @@
           "kind": "func",
           "name": "clear",
           "signature": "func clear() -> void",
-          "summary": "清空全部待派发回调和统计。",
+          "summary": "清空全部待派发回调和统计。句柄序列在实例生命周期内保持单调，避免旧句柄命中新记录。",
           "visibility": "public"
         },
         {
@@ -88482,17 +89019,185 @@
           "visibility": "public"
         },
         {
+          "kind": "const",
+          "name": "DEFAULT_MAX_CLIENTS",
+          "signature": "const DEFAULT_MAX_CLIENTS: int = 32",
+          "summary": "WebSocket 主机默认允许的远端 peer 数量。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "ABSOLUTE_MAX_CLIENTS",
+          "signature": "const ABSOLUTE_MAX_CLIENTS: int = 65_535",
+          "summary": "WebSocket 主机允许的远端 peer 绝对上限。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "DEFAULT_HANDSHAKE_TIMEOUT_MSEC",
+          "signature": "const DEFAULT_HANDSHAKE_TIMEOUT_MSEC: int = 5_000",
+          "summary": "WebSocket 握手默认超时时间（毫秒）。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "ABSOLUTE_MAX_HANDSHAKE_TIMEOUT_MSEC",
+          "signature": "const ABSOLUTE_MAX_HANDSHAKE_TIMEOUT_MSEC: int = 300_000",
+          "summary": "WebSocket 握手超时时间绝对上限（毫秒）。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "DEFAULT_MAX_ACCEPTS_PER_POLL",
+          "signature": "const DEFAULT_MAX_ACCEPTS_PER_POLL: int = 16",
+          "summary": "单次 poll 默认 accept 尝试预算。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "ABSOLUTE_MAX_ACCEPTS_PER_POLL",
+          "signature": "const ABSOLUTE_MAX_ACCEPTS_PER_POLL: int = 4096",
+          "summary": "单次 poll accept 尝试预算绝对上限。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "DEFAULT_MAX_PACKETS_PER_PEER_PER_POLL",
+          "signature": "const DEFAULT_MAX_PACKETS_PER_PEER_PER_POLL: int = 64",
+          "summary": "单个 peer 单次 poll 默认入站包预算。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "ABSOLUTE_MAX_PACKETS_PER_PEER_PER_POLL",
+          "signature": "const ABSOLUTE_MAX_PACKETS_PER_PEER_PER_POLL: int = 4096",
+          "summary": "单个 peer 单次 poll 入站包预算绝对上限。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "DEFAULT_MAX_PACKETS_PER_POLL",
+          "signature": "const DEFAULT_MAX_PACKETS_PER_POLL: int = 512",
+          "summary": "单次 poll 默认全局入站包预算。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "ABSOLUTE_MAX_PACKETS_PER_POLL",
+          "signature": "const ABSOLUTE_MAX_PACKETS_PER_POLL: int = 16_384",
+          "summary": "单次 poll 全局入站包预算绝对上限。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "DEFAULT_MAX_SERVICE_PEERS_PER_POLL",
+          "signature": "const DEFAULT_MAX_SERVICE_PEERS_PER_POLL: int = 64",
+          "summary": "单次 poll 默认服务 peer 数量。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "ABSOLUTE_MAX_SERVICE_PEERS_PER_POLL",
+          "signature": "const ABSOLUTE_MAX_SERVICE_PEERS_PER_POLL: int = 4096",
+          "summary": "单次 poll 服务 peer 数量绝对上限。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "DEFAULT_INBOUND_BUFFER_SIZE",
+          "signature": "const DEFAULT_INBOUND_BUFFER_SIZE: int = 65_536",
+          "summary": "单个 WebSocket peer 默认入站缓冲区字节数。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "ABSOLUTE_MAX_INBOUND_BUFFER_SIZE",
+          "signature": "const ABSOLUTE_MAX_INBOUND_BUFFER_SIZE: int = 4 * 1024 * 1024",
+          "summary": "单个 WebSocket peer 入站缓冲区字节数绝对上限。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "DEFAULT_OUTBOUND_BUFFER_SIZE",
+          "signature": "const DEFAULT_OUTBOUND_BUFFER_SIZE: int = 65_536",
+          "summary": "单个 WebSocket peer 默认出站缓冲区字节数。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "ABSOLUTE_MAX_OUTBOUND_BUFFER_SIZE",
+          "signature": "const ABSOLUTE_MAX_OUTBOUND_BUFFER_SIZE: int = 4 * 1024 * 1024",
+          "summary": "单个 WebSocket peer 出站缓冲区字节数绝对上限。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "DEFAULT_MAX_QUEUED_PACKETS",
+          "signature": "const DEFAULT_MAX_QUEUED_PACKETS: int = 1024",
+          "summary": "单个 WebSocket peer 默认排队包数量。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "ABSOLUTE_MAX_QUEUED_PACKETS",
+          "signature": "const ABSOLUTE_MAX_QUEUED_PACKETS: int = 4096",
+          "summary": "单个 WebSocket peer 排队包数量绝对上限。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "ABSOLUTE_MAX_SUPPORTED_PROTOCOL_COUNT",
+          "signature": "const ABSOLUTE_MAX_SUPPORTED_PROTOCOL_COUNT: int = 32",
+          "summary": "单个 peer 允许声明的 WebSocket 子协议数量绝对上限。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "ABSOLUTE_MAX_SUPPORTED_PROTOCOL_BYTES",
+          "signature": "const ABSOLUTE_MAX_SUPPORTED_PROTOCOL_BYTES: int = 256",
+          "summary": "单个 WebSocket 子协议 UTF-8 字节数绝对上限。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "ABSOLUTE_MAX_SUPPORTED_PROTOCOL_TOTAL_BYTES",
+          "signature": "const ABSOLUTE_MAX_SUPPORTED_PROTOCOL_TOTAL_BYTES: int = 4096",
+          "summary": "单个 peer 全部 WebSocket 子协议 UTF-8 总字节数绝对上限。",
+          "visibility": "public"
+        },
+        {
           "kind": "var",
           "name": "max_accepts_per_poll",
-          "signature": "var max_accepts_per_poll: int = 16",
-          "summary": "每次 poll 最多接受的 TCP 连接数量。小于等于 0 表示不限制。",
+          "signature": "var max_accepts_per_poll: int",
+          "summary": "每次 poll 最多尝试接受的 TCP 连接数量。",
           "visibility": "public"
         },
         {
           "kind": "var",
           "name": "max_packets_per_peer_per_poll",
-          "signature": "var max_packets_per_peer_per_poll: int = 64",
-          "summary": "每个 peer 每次 poll 最多派发的入站包数量。小于等于 0 表示不限制。",
+          "signature": "var max_packets_per_peer_per_poll: int",
+          "summary": "每个 peer 每次 poll 最多派发的入站包数量。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "max_packets_per_poll",
+          "signature": "var max_packets_per_poll: int",
+          "summary": "单次 poll 最多派发的全局入站包数量。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "max_service_peers_per_poll",
+          "signature": "var max_service_peers_per_poll: int",
+          "summary": "单次 poll 最多服务的服务器 peer 数量。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "handshake_timeout_msec",
+          "signature": "var handshake_timeout_msec: int",
+          "summary": "服务器 peer 从 accept 成功到完成 WebSocket 握手的最长时间（毫秒）。",
           "visibility": "public"
         },
         {
@@ -88513,7 +89218,7 @@
           "kind": "func",
           "name": "disconnect_backend",
           "signature": "func disconnect_backend() -> void",
-          "summary": "断开 WebSocket 连接。",
+          "summary": "断开 WebSocket 连接；已完全断开时重复或重入调用为幂等 no-op，",
           "visibility": "public"
         },
         {

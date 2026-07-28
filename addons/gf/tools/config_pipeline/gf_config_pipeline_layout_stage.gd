@@ -26,14 +26,18 @@ const STAGE_ID: String = "gf.config.layout.builtin"
 ## @api public
 ## [br]
 ## @since 9.0.0
-const IMPLEMENTATION_VERSION: int = 1
+const IMPLEMENTATION_VERSION: int = 2
 
 const _DEFAULT_MAX_XLSX_ENTRY_BYTES: int = 8 * 1024 * 1024
 const _DEFAULT_MAX_XLSX_FILE_BYTES: int = 64 * 1024 * 1024
 const _DEFAULT_MAX_XLSX_ENTRY_COUNT: int = 4096
+const _DEFAULT_MAX_XLSX_COMPRESSION_RATIO: int = 100
+const _DEFAULT_MAX_XLSX_PATH_LENGTH: int = 512
+const _DEFAULT_MAX_XLSX_PATH_DEPTH: int = 32
 const _DEFAULT_MAX_XLSX_SHARED_STRINGS: int = 100000
 const _DEFAULT_MAX_XLSX_ROWS: int = 100000
 const _DEFAULT_MAX_XLSX_COLUMNS: int = 512
+const _GF_BOUNDED_ZIP_SUPPORT = preload("res://addons/gf/kernel/package/gf_bounded_zip_support.gd")
 
 
 # --- 公共方法 ---
@@ -165,6 +169,15 @@ func _with_stage_result(
 
 func _parse_xlsx_file(path: String, options: Dictionary) -> Dictionary:
 	var file_limit: int = _get_xlsx_limit(options, "max_xlsx_file_bytes", _DEFAULT_MAX_XLSX_FILE_BYTES)
+	var archive_file_limit: int = _resolve_xlsx_archive_file_limit(
+		file_limit
+	)
+	var total_uncompressed_limit: int = (
+		_resolve_xlsx_total_uncompressed_limit(
+			options,
+			file_limit
+		)
+	)
 	var size_file: FileAccess = FileAccess.open(path, FileAccess.READ)
 	if size_file == null:
 		return _make_xlsx_parse_failure("XLSX open failed: %s" % error_string(FileAccess.get_open_error()), path)
@@ -173,42 +186,174 @@ func _parse_xlsx_file(path: String, options: Dictionary) -> Dictionary:
 	if _is_xlsx_limit_exceeded(file_size, file_limit):
 		return _make_xlsx_parse_failure("XLSX file exceeds max_xlsx_file_bytes.", path)
 
-	var reader: ZIPReader = ZIPReader.new()
-	var open_error: Error = reader.open(path)
-	if open_error != OK:
-		return _make_xlsx_parse_failure("XLSX open failed: %s" % error_string(open_error), path)
-
-	var files: PackedStringArray = reader.get_files()
-	if _is_xlsx_limit_exceeded(files.size(), _get_xlsx_limit(options, "max_xlsx_entry_count", _DEFAULT_MAX_XLSX_ENTRY_COUNT)):
-		_close_zip_reader(reader)
-		return _make_xlsx_parse_failure("XLSX archive exceeds max_xlsx_entry_count.", path)
-	var shared_strings_result: Dictionary = _read_xlsx_shared_strings(reader, files, options)
+	var archive_session: Dictionary = _GF_BOUNDED_ZIP_SUPPORT.open_archive(
+		path,
+		{
+			"max_archive_bytes": archive_file_limit,
+			"max_entry_count": _get_xlsx_limit(
+				options,
+				"max_xlsx_entry_count",
+				_DEFAULT_MAX_XLSX_ENTRY_COUNT
+			),
+			"max_entry_compressed_bytes": _get_xlsx_limit(
+				options,
+				"max_xlsx_entry_bytes",
+				_DEFAULT_MAX_XLSX_ENTRY_BYTES
+			),
+			"max_entry_uncompressed_bytes": _get_xlsx_limit(
+				options,
+				"max_xlsx_entry_bytes",
+				_DEFAULT_MAX_XLSX_ENTRY_BYTES
+			),
+			"max_total_uncompressed_bytes": total_uncompressed_limit,
+			"max_compression_ratio": _get_xlsx_limit(
+				options,
+				"max_xlsx_compression_ratio",
+				_DEFAULT_MAX_XLSX_COMPRESSION_RATIO
+			),
+			"max_path_length": _get_xlsx_limit(
+				options,
+				"max_xlsx_path_length",
+				_DEFAULT_MAX_XLSX_PATH_LENGTH
+			),
+			"max_path_depth": _get_xlsx_limit(
+				options,
+				"max_xlsx_path_depth",
+				_DEFAULT_MAX_XLSX_PATH_DEPTH
+			),
+		}
+	)
+	if not GFVariantData.get_option_bool(archive_session, "ok"):
+		var failed_inspection: Dictionary = GFVariantData.get_option_dictionary(
+			archive_session,
+			"inspection"
+		)
+		return _make_xlsx_parse_failure(
+			_xlsx_archive_inspection_error(failed_inspection),
+			path
+		)
+	var files: PackedStringArray = _GF_BOUNDED_ZIP_SUPPORT.get_files(
+		archive_session
+	)
+	var shared_strings_result: Dictionary = _read_xlsx_shared_strings(
+		archive_session,
+		files,
+		options
+	)
 	if not GFVariantData.get_option_bool(shared_strings_result, "success"):
-		_close_zip_reader(reader)
+		if _close_zip_session(archive_session) != OK:
+			return _make_xlsx_parse_failure(
+				"XLSX bounded ZIP session cleanup failed.",
+				path
+			)
 		return _make_xlsx_parse_failure(GFVariantData.get_option_string(shared_strings_result, "error"), path)
 	var shared_strings: PackedStringArray = _get_packed_string_array_value(GFVariantData.get_option_value(shared_strings_result, "strings"))
-	var workbook_sheets: Array[Dictionary] = _read_xlsx_workbook_sheets(reader, files)
+	var workbook_result: Dictionary = _read_xlsx_workbook_sheets(
+		archive_session,
+		files,
+		options
+	)
+	if not GFVariantData.get_option_bool(workbook_result, "success"):
+		if _close_zip_session(archive_session) != OK:
+			return _make_xlsx_parse_failure(
+				"XLSX bounded ZIP session cleanup failed.",
+				path
+			)
+		return _make_xlsx_parse_failure(
+			GFVariantData.get_option_string(workbook_result, "error"),
+			path
+		)
+	var workbook_sheets: Array[Dictionary] = _get_dictionary_array_value(
+		GFVariantData.get_option_value(workbook_result, "sheets")
+	)
 	var worksheet_path: String = _resolve_xlsx_worksheet_path(files, workbook_sheets, options)
 	if worksheet_path.is_empty():
-		_close_zip_reader(reader)
+		if _close_zip_session(archive_session) != OK:
+			return _make_xlsx_parse_failure(
+				"XLSX bounded ZIP session cleanup failed.",
+				path
+			)
 		return _make_xlsx_parse_failure("XLSX sheet not found.", path)
 
-	var worksheet_bytes: PackedByteArray = _zip_read_bytes(reader, files, worksheet_path)
-	_close_zip_reader(reader)
+	var worksheet_result: Dictionary = _zip_read_bytes(
+		archive_session,
+		files,
+		worksheet_path,
+		_get_xlsx_limit(
+			options,
+			"max_xlsx_entry_bytes",
+			_DEFAULT_MAX_XLSX_ENTRY_BYTES
+		)
+	)
+	var close_error: Error = _close_zip_session(archive_session)
+	if close_error != OK:
+		return _make_xlsx_parse_failure(
+			"XLSX bounded ZIP session cleanup failed.",
+			path
+		)
+	if not GFVariantData.get_option_bool(worksheet_result, "success"):
+		return _make_xlsx_parse_failure(
+			GFVariantData.get_option_string(worksheet_result, "error"),
+			path
+		)
+	var worksheet_bytes: PackedByteArray = _get_packed_byte_array_value(
+		GFVariantData.get_option_value(worksheet_result, "bytes")
+	)
 	if worksheet_bytes.size() == 0:
 		return _make_xlsx_parse_failure("XLSX worksheet is empty: %s" % worksheet_path, path)
-	if _is_xlsx_limit_exceeded(worksheet_bytes.size(), _get_xlsx_limit(options, "max_xlsx_entry_bytes", _DEFAULT_MAX_XLSX_ENTRY_BYTES)):
-		return _make_xlsx_parse_failure("XLSX worksheet exceeds max_xlsx_entry_bytes: %s." % worksheet_path, path)
 	return _parse_xlsx_sheet(worksheet_bytes, shared_strings, options)
 
 
-func _read_xlsx_shared_strings(reader: ZIPReader, files: PackedStringArray, options: Dictionary) -> Dictionary:
+func _resolve_xlsx_archive_file_limit(file_limit: int) -> int:
+	if file_limit != 0:
+		return file_limit
+	return _GF_BOUNDED_ZIP_SUPPORT.get_absolute_max_archive_bytes()
+
+
+func _resolve_xlsx_total_uncompressed_limit(
+	options: Dictionary,
+	file_limit: int
+) -> int:
+	var total_uncompressed_limit: int = _get_xlsx_limit(
+		options,
+		"max_xlsx_total_uncompressed_bytes",
+		file_limit
+	)
+	if total_uncompressed_limit != 0:
+		return total_uncompressed_limit
+	return (
+		_GF_BOUNDED_ZIP_SUPPORT
+		.get_absolute_max_total_uncompressed_bytes()
+	)
+
+
+func _read_xlsx_shared_strings(
+	archive_session: Dictionary,
+	files: PackedStringArray,
+	options: Dictionary
+) -> Dictionary:
 	var result: PackedStringArray = PackedStringArray()
-	var bytes: PackedByteArray = _zip_read_bytes(reader, files, "xl/sharedStrings.xml")
+	var read_result: Dictionary = _zip_read_bytes(
+		archive_session,
+		files,
+		"xl/sharedStrings.xml",
+		_get_xlsx_limit(
+			options,
+			"max_xlsx_entry_bytes",
+			_DEFAULT_MAX_XLSX_ENTRY_BYTES
+		)
+	)
+	if not GFVariantData.get_option_bool(read_result, "success"):
+		return _make_xlsx_shared_strings_result(
+			false,
+			result,
+			GFVariantData.get_option_string(read_result, "error")
+		)
+	var bytes: PackedByteArray = _get_packed_byte_array_value(
+		GFVariantData.get_option_value(read_result, "bytes")
+	)
 	if bytes.size() == 0:
 		return _make_xlsx_shared_strings_result(true, result)
-	if _is_xlsx_limit_exceeded(bytes.size(), _get_xlsx_limit(options, "max_xlsx_entry_bytes", _DEFAULT_MAX_XLSX_ENTRY_BYTES)):
-		return _make_xlsx_shared_strings_result(false, result, "XLSX sharedStrings.xml exceeds max_xlsx_entry_bytes.")
 
 	var parser: XMLParser = XMLParser.new()
 	var open_error: Error = parser.open_buffer(bytes)
@@ -257,19 +402,58 @@ func _make_xlsx_shared_strings_result(
 	}
 
 
-func _read_xlsx_workbook_sheets(reader: ZIPReader, files: PackedStringArray) -> Array[Dictionary]:
-	var workbook_bytes: PackedByteArray = _zip_read_bytes(reader, files, "xl/workbook.xml")
+func _read_xlsx_workbook_sheets(
+	archive_session: Dictionary,
+	files: PackedStringArray,
+	options: Dictionary
+) -> Dictionary:
+	var max_entry_bytes: int = _get_xlsx_limit(
+		options,
+		"max_xlsx_entry_bytes",
+		_DEFAULT_MAX_XLSX_ENTRY_BYTES
+	)
+	var workbook_result: Dictionary = _zip_read_bytes(
+		archive_session,
+		files,
+		"xl/workbook.xml",
+		max_entry_bytes
+	)
+	if not GFVariantData.get_option_bool(workbook_result, "success"):
+		return {
+			"success": false,
+			"sheets": [],
+			"error": GFVariantData.get_option_string(workbook_result, "error"),
+		}
+	var workbook_bytes: PackedByteArray = _get_packed_byte_array_value(
+		GFVariantData.get_option_value(workbook_result, "bytes")
+	)
 	if workbook_bytes.size() == 0:
-		return []
+		return { "success": true, "sheets": [], "error": "" }
 
 	var sheets: Array[Dictionary] = _parse_xlsx_workbook_sheet_entries(workbook_bytes)
-	var relationships: Dictionary = _parse_xlsx_workbook_relationships(_zip_read_bytes(reader, files, "xl/_rels/workbook.xml.rels"))
+	var relationships_result: Dictionary = _zip_read_bytes(
+		archive_session,
+		files,
+		"xl/_rels/workbook.xml.rels",
+		max_entry_bytes
+	)
+	if not GFVariantData.get_option_bool(relationships_result, "success"):
+		return {
+			"success": false,
+			"sheets": [],
+			"error": GFVariantData.get_option_string(relationships_result, "error"),
+		}
+	var relationships: Dictionary = _parse_xlsx_workbook_relationships(
+		_get_packed_byte_array_value(
+			GFVariantData.get_option_value(relationships_result, "bytes")
+		)
+	)
 	for sheet: Dictionary in sheets:
 		var relation_id: String = GFVariantData.get_option_string(sheet, "relation_id")
 		var target: String = GFVariantData.get_option_string(relationships, relation_id)
 		if not target.is_empty():
 			sheet["path"] = _normalize_xlsx_relationship_target("xl/workbook.xml", target)
-	return sheets
+	return { "success": true, "sheets": sheets, "error": "" }
 
 
 func _parse_xlsx_workbook_sheet_entries(bytes: PackedByteArray) -> Array[Dictionary]:
@@ -521,13 +705,41 @@ func _parse_positive_int(text: String, fallback_value: int) -> int:
 
 
 func _zip_read_bytes(
-	reader: ZIPReader,
+	archive_session: Dictionary,
 	files: PackedStringArray,
-	path: String
-) -> PackedByteArray:
+	path: String,
+	max_bytes: int
+) -> Dictionary:
 	if not _zip_has_file(files, path):
-		return PackedByteArray()
-	return reader.read_file(path)
+		return {
+			"success": true,
+			"exists": false,
+			"bytes": PackedByteArray(),
+			"error": "",
+		}
+	var read_result: Dictionary = _GF_BOUNDED_ZIP_SUPPORT.read_entry(
+		archive_session,
+		path,
+		max_bytes
+	)
+	if not GFVariantData.get_option_bool(read_result, "ok"):
+		return {
+			"success": false,
+			"exists": true,
+			"bytes": PackedByteArray(),
+			"error": "XLSX entry read failed: %s (%s)" % [
+				path,
+				GFVariantData.get_option_string(read_result, "error"),
+			],
+		}
+	return {
+		"success": true,
+		"exists": true,
+		"bytes": _get_packed_byte_array_value(
+			GFVariantData.get_option_value(read_result, "bytes")
+		),
+		"error": "",
+	}
 
 
 func _zip_has_file(files: PackedStringArray, path: String) -> bool:
@@ -536,8 +748,10 @@ func _zip_has_file(files: PackedStringArray, path: String) -> bool:
 	return files.has(path)
 
 
-func _close_zip_reader(reader: ZIPReader) -> void:
-	var _close_result: Variant = reader.call("close")
+func _close_zip_session(archive_session: Dictionary) -> Error:
+	return _GF_BOUNDED_ZIP_SUPPORT.close_archive(
+		archive_session
+	)
 
 
 func _normalize_xlsx_relationship_target(base_path: String, target: String) -> String:
@@ -604,11 +818,56 @@ func _is_xlsx_limit_exceeded(value: int, limit: int) -> bool:
 	return limit > 0 and value > limit
 
 
+func _xlsx_archive_inspection_error(inspection: Dictionary) -> String:
+	var codes: PackedStringArray = _get_packed_string_array_value(
+		GFVariantData.get_option_value(inspection, "issue_codes")
+	)
+	if codes.has("archive_size_limit"):
+		return "XLSX file exceeds max_xlsx_file_bytes."
+	if codes.has("entry_count_limit"):
+		return "XLSX archive exceeds max_xlsx_entry_count."
+	if codes.has("entry_size_limit"):
+		return "XLSX archive entry exceeds max_xlsx_entry_bytes."
+	if codes.has("total_size_limit"):
+		return "XLSX archive exceeds max_xlsx_total_uncompressed_bytes."
+	if codes.has("compression_ratio_limit"):
+		return "XLSX archive exceeds max_xlsx_compression_ratio."
+	if codes.has("path_length_limit"):
+		return "XLSX archive entry exceeds max_xlsx_path_length."
+	if codes.has("path_depth_limit"):
+		return "XLSX archive entry exceeds max_xlsx_path_depth."
+	var issues: PackedStringArray = _get_packed_string_array_value(
+		GFVariantData.get_option_value(inspection, "issues")
+	)
+	if not issues.is_empty():
+		return "XLSX archive preflight failed: %s" % issues[0]
+	return "XLSX archive preflight failed."
+
+
+func _get_packed_byte_array_value(value: Variant) -> PackedByteArray:
+	if value is PackedByteArray:
+		var array_value: PackedByteArray = value
+		return array_value
+	return PackedByteArray()
+
+
 func _get_packed_string_array_value(value: Variant) -> PackedStringArray:
 	if value is PackedStringArray:
 		var array_value: PackedStringArray = value
 		return array_value
 	return PackedStringArray()
+
+
+func _get_dictionary_array_value(value: Variant) -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	if not value is Array:
+		return result
+	var array_value: Array = value
+	for item_value: Variant in array_value:
+		if item_value is Dictionary:
+			var item: Dictionary = item_value
+			result.append(item)
+	return result
 
 
 func _make_layout_failure(

@@ -5,6 +5,8 @@ extends GutTest
 
 const GF_PACKAGE_MANAGER_BACKEND = preload("res://addons/gf/kernel/package/gf_package_manager_backend.gd")
 const GF_PACKAGE_TRANSACTION_ENGINE = preload("res://addons/gf/kernel/package/gf_package_transaction_engine.gd")
+const GF_PACKAGE_MANAGER_WORKER_SCRIPT = preload("res://addons/gf/kernel/editor/package/gf_package_manager_worker.gd")
+const GF_BOUNDED_ZIP_SUPPORT_SCRIPT = preload("res://addons/gf/kernel/package/gf_bounded_zip_support.gd")
 const GF_VARIANT_ACCESS = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
 const TEST_ROOT: String = "res://ai_analysis/tmp_package_manager_backend"
 
@@ -352,6 +354,108 @@ func test_native_install_local_archives_writes_files_and_lockfile() -> void:
 	assert_true(GF_VARIANT_ACCESS.get_option_int(save_fixture_metadata, "size_bytes") > 0, "lockfile 应记录安装文件大小。")
 	assert_false(GF_VARIANT_ACCESS.get_option_string(save_fixture_metadata, "sha256").is_empty(), "lockfile 应记录安装文件 sha256。")
 	assert_eq(GF_VARIANT_ACCESS.get_option_string(registry_source, "source"), registry_path, "lockfile 应记录安装使用的 registry 来源。")
+
+
+func test_background_worker_installs_local_archives_and_cleans_bounded_zip_state() -> void:
+	var project_root: String = TEST_ROOT.path_join("worker_install_project")
+	var registry_path: String = TEST_ROOT.path_join("registry/index.json")
+	var registry: Dictionary = _make_fixture_registry()
+	_write_fixture_archives(registry)
+	_write_json(registry_path, registry)
+	var request: Dictionary = {
+		"operation": "install",
+		"registry_value": ProjectSettings.globalize_path(registry_path).replace("\\", "/"),
+		"project_root": ProjectSettings.globalize_path(project_root).replace("\\", "/"),
+		"lockfile_path": ".gf/packages.lock.json",
+		"package_ids": PackedStringArray(["gf.extension.save"]),
+		"reason": "manual",
+		"dry_run": false,
+	}
+	var main_thread_id: int = OS.get_thread_caller_id()
+	var package_thread: Thread = Thread.new()
+	var start_error: Error = package_thread.start(
+		_run_package_manager_worker_request.bind(request)
+	)
+	assert_eq(start_error, OK, "真实 package worker 测试线程应能启动。")
+	if start_error != OK:
+		return
+
+	var worker_value: Variant = package_thread.wait_to_finish()
+	var worker_report: Dictionary = GF_VARIANT_ACCESS.as_dictionary(worker_value)
+	var result: Dictionary = GF_VARIANT_ACCESS.get_option_dictionary(worker_report, "result")
+	var lockfile: Dictionary = _read_json(project_root.path_join(".gf/packages.lock.json"))
+	var installed: Dictionary = GF_VARIANT_ACCESS.get_option_dictionary(lockfile, "installed")
+	var residual_snapshot_paths: PackedStringArray = PackedStringArray()
+	var process_session_root: String = GF_BOUNDED_ZIP_SUPPORT_SCRIPT._process_session_root
+	if not process_session_root.is_empty():
+		var process_session_root_absolute: String = ProjectSettings.globalize_path(
+			process_session_root
+		)
+		var process_session_files: PackedStringArray = PackedStringArray()
+		_collect_files_absolute(process_session_root_absolute, process_session_files)
+		for file_path: String in process_session_files:
+			if file_path.ends_with(".zip"):
+				var _append_snapshot_path: bool = residual_snapshot_paths.append(file_path)
+
+	assert_true(
+		GF_VARIANT_ACCESS.get_option_bool(worker_report, "worker_created"),
+		"后台线程必须实例化真实 package manager worker。"
+	)
+	assert_true(
+		GF_VARIANT_ACCESS.get_option_bool(worker_report, "run_request_available"),
+		"真实 worker 必须暴露 run_request。"
+	)
+	assert_ne(
+		GF_VARIANT_ACCESS.get_option_int(worker_report, "thread_id"),
+		main_thread_id,
+		"真实安装必须在独立 Thread 中执行。"
+	)
+	assert_false(package_thread.is_alive(), "wait_to_finish 后 package worker 线程必须结束。")
+	assert_true(GF_VARIANT_ACCESS.get_option_bool(result, "ok"), "后台 worker 应完成真实本地 archive 安装。")
+	assert_eq(
+		GF_VARIANT_ACCESS.get_option_string(result, "backend"),
+		"godot_native",
+		"后台 worker 必须委托 Godot 原生 package backend。"
+	)
+	assert_eq(
+		GF_VARIANT_ACCESS.get_option_int(result, "installed_file_count"),
+		4,
+		"worker 安装闭包必须消费四个真实本地 package archive。"
+	)
+	assert_true(GF_VARIANT_ACCESS.get_option_bool(result, "lockfile_written"), "worker 安装必须提交 lockfile。")
+	assert_true(
+		_file_exists(project_root.path_join("addons/gf/extensions/save/gf_save_fixture.gd")),
+		"worker 安装必须写入扩展 payload。"
+	)
+	assert_true(installed.has("gf.kernel"), "worker 安装 lockfile 必须包含 kernel 依赖。")
+	assert_true(installed.has("gf.standard.storage"), "worker 安装 lockfile 必须包含 standard 依赖。")
+	assert_true(installed.has("gf.extension.save"), "worker 安装 lockfile 必须包含目标扩展。")
+	assert_true(
+		GF_BOUNDED_ZIP_SUPPORT_SCRIPT._active_sessions.is_empty(),
+		"worker 返回前必须关闭全部 bounded ZIP session。"
+	)
+	assert_eq(
+		GF_BOUNDED_ZIP_SUPPORT_SCRIPT._pending_session_reservations,
+		0,
+		"worker 返回后不能遗留 opening session reservation。"
+	)
+	assert_true(
+		GF_BOUNDED_ZIP_SUPPORT_SCRIPT._owned_snapshots.is_empty(),
+		"worker 返回后不能遗留受管 ZIP snapshot。"
+	)
+	assert_eq(
+		GF_BOUNDED_ZIP_SUPPORT_SCRIPT._reserved_snapshot_bytes,
+		0,
+		"worker 返回后必须释放全部 snapshot 字节预算。"
+	)
+	assert_true(
+		GF_BOUNDED_ZIP_SUPPORT_SCRIPT._pending_snapshot_cleanup.is_empty(),
+		"worker 返回后不能遗留待重试 snapshot 清理。"
+	)
+	assert_true(
+		residual_snapshot_paths.is_empty(),
+		"worker 返回后 process session 根不能残留 snapshot 文件：%s" % [residual_snapshot_paths]
+	)
 
 
 func test_native_install_cleans_hidden_archive_staging_files() -> void:
@@ -2976,6 +3080,28 @@ func test_native_recovery_restores_uninstall_payload_before_lockfile_commit() ->
 
 
 # --- 私有/辅助方法 ---
+
+func _run_package_manager_worker_request(request: Dictionary) -> Dictionary:
+	var report: Dictionary = {
+		"thread_id": OS.get_thread_caller_id(),
+		"worker_created": false,
+		"run_request_available": false,
+		"result": {},
+	}
+	var worker_value: Variant = GF_PACKAGE_MANAGER_WORKER_SCRIPT.new()
+	if not worker_value is RefCounted:
+		return report
+	var worker: RefCounted = worker_value
+	report["worker_created"] = true
+	report["run_request_available"] = worker.has_method(&"run_request")
+	if not worker.has_method(&"run_request"):
+		return report
+	var result_value: Variant = worker.call("run_request", request.duplicate(true))
+	if result_value is Dictionary:
+		var result: Dictionary = result_value
+		report["result"] = result
+	return report
+
 
 func _make_fixture_registry() -> Dictionary:
 	var registry: Dictionary = {

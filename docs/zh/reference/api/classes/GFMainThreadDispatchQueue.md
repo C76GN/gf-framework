@@ -9,13 +9,21 @@
 - 类别：运行时服务 (`runtime_service`)
 - 首次版本：`7.0.0`
 
-主线程回调派发队列。 用于让后台线程、资源加载回调或项目侧异步流程把最终应用逻辑排回主线程。 post() 保存无 owner 的强 Callable；post_method() 通过弱 owner 和方法名保存生命周期调用。 队列不创建线程、不校验线程身份，也不解释调用方的业务语义。
+主线程回调派发队列。 用于让后台线程、资源加载回调或项目侧异步流程把最终应用逻辑排回主线程。 post() 保存无 owner 的强 Callable；post_method() 通过弱 owner 和方法名保存生命周期调用。 入队和取消入口由 Mutex 保护；dispatch()、tick() 与生命周期入口只允许在主线程调用。 队列不创建线程，也不解释调用方的业务语义。
 
 ## 成员概览
 
 | 类型 | 名称 | 签名 |
 |---|---|---|
-| 属性 | [`max_callbacks_per_tick`](#member-gfmainthreaddispatchqueue-properties-max_callbacks_per_tick) | `var max_callbacks_per_tick: int = 16:` |
+| 常量 | [`DEFAULT_MAX_PENDING_CALLBACKS`](#member-gfmainthreaddispatchqueue-constants-default_max_pending_callbacks) | `const DEFAULT_MAX_PENDING_CALLBACKS: int = 1024` |
+| 常量 | [`ABSOLUTE_MAX_PENDING_CALLBACKS`](#member-gfmainthreaddispatchqueue-constants-absolute_max_pending_callbacks) | `const ABSOLUTE_MAX_PENDING_CALLBACKS: int = 65_536` |
+| 常量 | [`DEFAULT_MAX_CALLBACKS_PER_DISPATCH`](#member-gfmainthreaddispatchqueue-constants-default_max_callbacks_per_dispatch) | `const DEFAULT_MAX_CALLBACKS_PER_DISPATCH: int = 16` |
+| 常量 | [`ABSOLUTE_MAX_CALLBACKS_PER_DISPATCH`](#member-gfmainthreaddispatchqueue-constants-absolute_max_callbacks_per_dispatch) | `const ABSOLUTE_MAX_CALLBACKS_PER_DISPATCH: int = 4096` |
+| 常量 | [`STATUS_COMPLETED`](#member-gfmainthreaddispatchqueue-constants-status_completed) | `const STATUS_COMPLETED: StringName = &"completed"` |
+| 常量 | [`STATUS_WRONG_THREAD`](#member-gfmainthreaddispatchqueue-constants-status_wrong_thread) | `const STATUS_WRONG_THREAD: StringName = &"wrong_thread"` |
+| 常量 | [`STATUS_BUSY`](#member-gfmainthreaddispatchqueue-constants-status_busy) | `const STATUS_BUSY: StringName = &"busy"` |
+| 属性 | [`max_pending_callbacks`](#member-gfmainthreaddispatchqueue-properties-max_pending_callbacks) | `var max_pending_callbacks: int = DEFAULT_MAX_PENDING_CALLBACKS:` |
+| 属性 | [`max_callbacks_per_tick`](#member-gfmainthreaddispatchqueue-properties-max_callbacks_per_tick) | `var max_callbacks_per_tick: int = DEFAULT_MAX_CALLBACKS_PER_DISPATCH:` |
 | 属性 | [`max_seconds_per_tick`](#member-gfmainthreaddispatchqueue-properties-max_seconds_per_tick) | `var max_seconds_per_tick: float = 0.0:` |
 | 方法 | [`init`](#member-gfmainthreaddispatchqueue-methods-init) | `func init() -> void:` |
 | 方法 | [`tick`](#member-gfmainthreaddispatchqueue-methods-tick) | `func tick(_delta: float = 0.0) -> void:` |
@@ -32,7 +40,113 @@
 | 方法 | [`is_empty`](#member-gfmainthreaddispatchqueue-methods-is_empty) | `func is_empty() -> bool:` |
 | 方法 | [`get_debug_snapshot`](#member-gfmainthreaddispatchqueue-methods-get_debug_snapshot) | `func get_debug_snapshot() -> Dictionary:` |
 
+## 常量
+
+<a id="member-gfmainthreaddispatchqueue-constants-default_max_pending_callbacks"></a>
+
+### `DEFAULT_MAX_PENDING_CALLBACKS`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+const DEFAULT_MAX_PENDING_CALLBACKS: int = 1024
+```
+
+默认最多保留的待派发回调数量。
+
+<a id="member-gfmainthreaddispatchqueue-constants-absolute_max_pending_callbacks"></a>
+
+### `ABSOLUTE_MAX_PENDING_CALLBACKS`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+const ABSOLUTE_MAX_PENDING_CALLBACKS: int = 65_536
+```
+
+最多允许配置的待派发回调数量。
+
+<a id="member-gfmainthreaddispatchqueue-constants-default_max_callbacks_per_dispatch"></a>
+
+### `DEFAULT_MAX_CALLBACKS_PER_DISPATCH`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+const DEFAULT_MAX_CALLBACKS_PER_DISPATCH: int = 16
+```
+
+dispatch() 未显式给出数量预算时使用的默认值。
+
+<a id="member-gfmainthreaddispatchqueue-constants-absolute_max_callbacks_per_dispatch"></a>
+
+### `ABSOLUTE_MAX_CALLBACKS_PER_DISPATCH`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+const ABSOLUTE_MAX_CALLBACKS_PER_DISPATCH: int = 4096
+```
+
+单次 dispatch() 允许处理的回调数量绝对上限。
+
+<a id="member-gfmainthreaddispatchqueue-constants-status_completed"></a>
+
+### `STATUS_COMPLETED`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+const STATUS_COMPLETED: StringName = &"completed"
+```
+
+派发正常完成。
+
+<a id="member-gfmainthreaddispatchqueue-constants-status_wrong_thread"></a>
+
+### `STATUS_WRONG_THREAD`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+const STATUS_WRONG_THREAD: StringName = &"wrong_thread"
+```
+
+派发入口在非主线程被调用。
+
+<a id="member-gfmainthreaddispatchqueue-constants-status_busy"></a>
+
+### `STATUS_BUSY`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+const STATUS_BUSY: StringName = &"busy"
+```
+
+当前实例已经处于同步派发调用中。
+
 ## 属性
+
+<a id="member-gfmainthreaddispatchqueue-properties-max_pending_callbacks"></a>
+
+### `max_pending_callbacks`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+var max_pending_callbacks: int = DEFAULT_MAX_PENDING_CALLBACKS:
+```
+
+最多保留的待派发回调数量。降低容量不会驱逐现有回调。
 
 <a id="member-gfmainthreaddispatchqueue-properties-max_callbacks_per_tick"></a>
 
@@ -42,7 +156,7 @@
 - 首次版本：`7.0.0`
 
 ```gdscript
-var max_callbacks_per_tick: int = 16:
+var max_callbacks_per_tick: int = DEFAULT_MAX_CALLBACKS_PER_DISPATCH:
 ```
 
 tick() 每次最多派发多少个回调。
@@ -58,7 +172,7 @@ tick() 每次最多派发多少个回调。
 var max_seconds_per_tick: float = 0.0:
 ```
 
-tick() 每次最多占用多少秒。小于等于 0 时不启用时间预算。
+tick() 在回调之间检查的非抢占式软时间预算。小于等于 0 时不启用； 不会中断单个回调，并且非空入口快照至少会尝试派发一个回调。
 
 ## 方法
 
@@ -177,14 +291,14 @@ func dispatch(max_count: int = 0, max_seconds: float = 0.0) -> Dictionary:
 
 | 名称 | 说明 |
 |---|---|
-| `max_count` | 最大派发数量；小于等于 0 时不限制数量。 |
-| `max_seconds` | 最大派发秒数；小于等于 0 时不启用时间预算。 |
+| `max_count` | 最大派发数量；小于等于 0 时使用 max_callbacks_per_tick，并始终受绝对工作预算约束。 |
+| `max_seconds` | 在回调之间检查的非抢占式软时间预算；小于等于 0 时不启用。不会中断单个回调，非空入口快照至少尝试一条。 |
 
 返回：派发报告。
 
 结构：
 
-- `return`: Dictionary，包含 dispatched_count、failed_count、skipped_owner_count、pending_count、budget_exhausted 和 dispatch_context_marked。
+- `return`: Dictionary，包含 ok、status、reason、dispatched_count、failed_count、skipped_owner_count、pending_count、budget_exhausted 和 dispatch_context_marked。
 
 <a id="member-gfmainthreaddispatchqueue-methods-cancel"></a>
 
@@ -239,7 +353,7 @@ func cancel_owner(owner: Object) -> int:
 func clear() -> void:
 ```
 
-清空全部待派发回调和统计。
+清空全部待派发回调和统计。句柄序列在实例生命周期内保持单调，避免旧句柄命中新记录。
 
 <a id="member-gfmainthreaddispatchqueue-methods-mark_dispatch_context"></a>
 
@@ -316,4 +430,4 @@ func get_debug_snapshot() -> Dictionary:
 
 结构：
 
-- `return`: Dictionary，包含 pending_count、pending_handles、posted_count、dispatched_count、cancelled_count、failed_count、skipped_owner_count 和 dispatch_context_marked。
+- `return`: Dictionary，包含 pending_count、max_pending_callbacks、max_callbacks_per_dispatch、pending_handles、posted_count、dispatched_count、cancelled_count、failed_count、skipped_owner_count、high_watermark、rejected_count、dropped_count 和 dispatch_context_marked。

@@ -109,6 +109,113 @@ func test_async_flow_wait_completions_zero_timeout_means_no_timeout() -> void:
 	assert_false(GFVariantData.get_option_bool(result, "timed_out"), "禁用超时时不应报告 timed_out。")
 
 
+func test_async_flow_requires_worker_completion_to_use_main_thread_dispatch_queue() -> void:
+	var completion: GFAsyncCompletion = GFAsyncCompletion.new()
+	var dispatch_queue: GFMainThreadDispatchQueue = GFMainThreadDispatchQueue.new()
+	var worker_state: Dictionary = {}
+	dispatch_queue.init()
+
+	call_deferred(
+		"_route_completion_from_worker",
+		completion,
+		dispatch_queue,
+		worker_state
+	)
+	var result: Dictionary = await GFAsyncFlowTools.wait_all_completions_async({
+		&"worker": completion,
+	}, {
+		"timeout_seconds": 1.0,
+		"tree": get_tree(),
+	})
+
+	assert_false(
+		GFVariantData.get_option_bool(worker_state, "direct_completion"),
+		"worker 直接终结 completion 必须 fail closed。"
+	)
+	assert_gt(
+		GFVariantData.get_option_int(worker_state, "dispatch_handle"),
+		0,
+		"worker 应能把主线程终态提交加入显式调度队列。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string_name(worker_state, "dispatch_status"),
+		GFMainThreadDispatchQueue.STATUS_COMPLETED,
+		"显式主线程派发应成功执行终态提交。"
+	)
+	assert_true(GFVariantData.get_option_bool(result, "ok"), "主线程终态信号应进入有界通道。")
+	assert_eq(
+		GFVariantData.get_option_string(
+			GFVariantData.get_option_dictionary(result, "value"),
+			&"worker"
+		),
+		"worker_ready",
+		"主线程调度不得改变 completion 结果。"
+	)
+	assert_push_error_count(1, "worker 直接终结 completion 应报告一次线程契约错误。")
+
+
+func test_async_flow_rejects_worker_emitted_terminal_signal() -> void:
+	var completion: GFAsyncCompletion = GFAsyncCompletion.new()
+
+	call_deferred("_emit_completion_signal_from_worker", completion)
+	var result: Dictionary = await GFAsyncFlowTools.wait_all_completions_async({
+		&"spoofed_worker": completion,
+	}, {
+		"timeout_seconds": 0.02,
+		"tree": get_tree(),
+	})
+
+	assert_false(GFVariantData.get_option_bool(result, "ok"))
+	assert_true(GFVariantData.get_option_bool(result, "timed_out"))
+	assert_true(completion.is_pending(), "伪造 worker signal 不得改变 completion 状态。")
+	assert_true(
+		GFVariantData.get_option_array(result, "completion_order").is_empty(),
+		"非主线程终态 signal 不得进入 bounded channel。"
+	)
+
+
+func test_async_flow_wait_completions_rejects_oversized_input() -> void:
+	var first: GFAsyncCompletion = GFAsyncCompletion.new()
+	var second: GFAsyncCompletion = GFAsyncCompletion.new()
+
+	var result: Dictionary = await GFAsyncFlowTools.wait_all_completions_async({
+		&"first": first,
+		&"second": second,
+	}, {
+		"max_completions": 1,
+	})
+
+	assert_false(GFVariantData.get_option_bool(result, "ok"), "超出组合等待预算时必须 fail closed。")
+	assert_eq(
+		GFVariantData.get_option_string_name(result, "status"),
+		GFAsyncFlowTools.STATUS_FAILED,
+		"超限输入应返回稳定失败状态。"
+	)
+	assert_eq(GFVariantData.get_option_int(result, "input_count"), 2, "报告应包含实际输入规模。")
+	assert_eq(GFVariantData.get_option_int(result, "max_completions"), 1, "报告应包含生效预算。")
+	assert_true(first.is_pending() and second.is_pending(), "拒绝输入不得连接、完成或取消调用方 completion。")
+
+
+func test_async_flow_rejects_completion_budget_above_absolute_limit() -> void:
+	var completion: GFAsyncCompletion = GFAsyncCompletion.new()
+
+	var result: Dictionary = await GFAsyncFlowTools.wait_all_completions_async({
+		&"only": completion,
+	}, {
+		"max_completions": GFAsyncFlowTools.ABSOLUTE_MAX_COMPLETIONS + 1,
+	})
+
+	assert_false(GFVariantData.get_option_bool(result, "ok"))
+	assert_eq(
+		GFVariantData.get_option_int(result, "absolute_max_completions"),
+		GFAsyncFlowTools.ABSOLUTE_MAX_COMPLETIONS
+	)
+	assert_true(
+		completion.is_pending(),
+		"非法伪有界预算必须在连接 completion 信号前失败。"
+	)
+
+
 func _complete_two_successes(profile: GFAsyncCompletion, inventory: GFAsyncCompletion) -> void:
 	var _profile_completed: bool = profile.succeed("profile_ready")
 	var _inventory_completed: bool = inventory.succeed("inventory_ready")
@@ -116,3 +223,60 @@ func _complete_two_successes(profile: GFAsyncCompletion, inventory: GFAsyncCompl
 
 func _complete_one_success(completion: GFAsyncCompletion) -> void:
 	var _completed: bool = completion.succeed("fast_ready")
+
+
+func _route_completion_from_worker(
+	completion: GFAsyncCompletion,
+	dispatch_queue: GFMainThreadDispatchQueue,
+	worker_state: Dictionary
+) -> void:
+	var worker: Thread = Thread.new()
+	var start_error: Error = worker.start(
+		Callable(self, &"_post_completion_from_worker").bind(
+			completion,
+			dispatch_queue
+		)
+	)
+	assert_eq(start_error, OK, "测试 worker 应能启动。")
+	if start_error == OK:
+		var worker_value: Variant = worker.wait_to_finish()
+		var worker_result: Dictionary = GFVariantData.as_dictionary(worker_value)
+		worker_state["direct_completion"] = GFVariantData.get_option_bool(
+			worker_result,
+			"direct_completion"
+		)
+		worker_state["dispatch_handle"] = GFVariantData.get_option_int(
+			worker_result,
+			"dispatch_handle"
+		)
+		var dispatch_report: Dictionary = dispatch_queue.dispatch(1)
+		worker_state["dispatch_status"] = GFVariantData.get_option_string_name(
+			dispatch_report,
+			"status"
+		)
+
+
+func _post_completion_from_worker(
+	completion: GFAsyncCompletion,
+	dispatch_queue: GFMainThreadDispatchQueue
+) -> Dictionary:
+	var direct_completion: bool = completion.succeed("worker_rejected")
+	var dispatch_handle: int = dispatch_queue.post(
+		Callable(completion, &"succeed").bind("worker_ready"),
+		{ "label": "complete_async_flow" }
+	)
+	return {
+		"direct_completion": direct_completion,
+		"dispatch_handle": dispatch_handle,
+	}
+
+
+func _emit_completion_signal_from_worker(completion: GFAsyncCompletion) -> void:
+	var worker: Thread = Thread.new()
+	var start_error: Error = worker.start(
+		func() -> void:
+			completion.completed.emit(completion)
+	)
+	assert_eq(start_error, OK, "测试 worker 应能启动。")
+	if start_error == OK:
+		var _worker_result: Variant = worker.wait_to_finish()

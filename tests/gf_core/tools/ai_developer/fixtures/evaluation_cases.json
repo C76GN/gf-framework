@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "catalog_version": "1.6.0",
+  "catalog_version": "1.7.0",
   "catalog_api_requirements": [
     {
       "catalog": "capability",
@@ -299,6 +299,11 @@
       "recipe_id": "external-artifact-export",
       "expected_class": "GFContentPackageExportPlan",
       "expected_step_fragment": "project-owned target adapter"
+    },
+    {
+      "recipe_id": "asset-catalog-spatial-placement",
+      "expected_class": "GFEditorCommandSession",
+      "expected_step_fragment": "return success to the canvas only after command commit succeeds"
     },
     {
       "recipe_id": "platform-lobby-adapter",

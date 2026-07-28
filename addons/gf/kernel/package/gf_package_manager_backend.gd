@@ -10,6 +10,7 @@ extends RefCounted
 # --- 常量 ---
 
 const _GF_VARIANT_ACCESS = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
+const _GF_BOUNDED_ZIP_SUPPORT = preload("res://addons/gf/kernel/package/gf_bounded_zip_support.gd")
 const _GF_PACKAGE_CACHE_POLICY = preload("res://addons/gf/kernel/package/gf_package_cache_policy.gd")
 const _GF_PACKAGE_FILESYSTEM_CACHE_STORE = preload("res://addons/gf/kernel/package/gf_package_filesystem_cache_store.gd")
 const _GF_PACKAGE_TRANSACTION_ENGINE = preload("res://addons/gf/kernel/package/gf_package_transaction_engine.gd")
@@ -155,6 +156,13 @@ const MAX_ARCHIVE_ENTRY_PATH_LENGTH: int = 512
 ## [br]
 ## @layer kernel/package
 const MAX_ARCHIVE_ENTRY_PATH_DEPTH: int = 32
+
+## 单个 package archive 中央目录允许的最大字节数。
+## [br]
+## @api framework_internal
+## [br]
+## @layer kernel/package
+const MAX_ARCHIVE_CENTRAL_DIRECTORY_BYTES: int = 16 * 1024 * 1024
 
 ## 文件复制使用的固定块大小。
 ## [br]
@@ -2753,22 +2761,63 @@ static func _stage_package_archives(
 		)
 		if archive_path.is_empty():
 			continue
-		var archive_issues: PackedStringArray = _audit_package_archive(package_id, registry_entry, archive_path)
+		var archive_session: Dictionary = _open_zip_archive_session(
+			archive_path,
+			package_id,
+			_package_archive_expected_identity(registry_entry)
+		)
+		if not _GF_VARIANT_ACCESS.get_option_bool(
+			archive_session,
+			"ok",
+			false
+		):
+			_append_string_array(
+				issues,
+				_GF_VARIANT_ACCESS.get_option_packed_string_array(
+					archive_session,
+					"issues"
+				)
+			)
+			continue
+		var archive_inspection: Dictionary = (
+			_GF_BOUNDED_ZIP_SUPPORT.get_inspection(archive_session)
+		)
+		var archive_issues: PackedStringArray = (
+			_audit_package_archive_metadata(
+				package_id,
+				registry_entry,
+				archive_inspection
+			)
+		)
 		_append_string_array(issues, archive_issues)
 		if not archive_issues.is_empty():
+			var close_invalid_archive: Error = (
+				_GF_BOUNDED_ZIP_SUPPORT.close_archive(archive_session)
+			)
+			_append_zip_session_cleanup_issue(
+				issues,
+				close_invalid_archive,
+				package_id
+			)
 			continue
 
-		var reader: ZIPReader = ZIPReader.new()
-		var open_error: Error = reader.open(archive_path)
-		if open_error != OK:
-			var _append_open: bool = issues.append("%s: invalid zip archive: %s" % [package_id, error_string(open_error)])
-			continue
-		var file_names: PackedStringArray = reader.get_files()
+		var file_names: PackedStringArray = (
+			_GF_BOUNDED_ZIP_SUPPORT.get_files(archive_session)
+		)
 		file_names.sort()
 		var package_staged_file_count: int = 0
 		for file_name: String in file_names:
 			if _append_cancelled_if_requested(options, issues):
-				var _close_cancelled_reader: Variant = reader.close()
+				var close_cancelled_archive: Error = (
+					_GF_BOUNDED_ZIP_SUPPORT.close_archive(
+						archive_session
+					)
+				)
+				_append_zip_session_cleanup_issue(
+					issues,
+					close_cancelled_archive,
+					package_id
+				)
 				return staged_files
 			if file_name.is_empty() or file_name.ends_with("/"):
 				continue
@@ -2798,10 +2847,34 @@ static func _stage_package_archives(
 			if make_error != OK:
 				var _append_make: bool = issues.append("%s: could not create staging directory: %s" % [package_id, error_string(make_error)])
 				continue
-			var bytes: PackedByteArray = reader.read_file(file_name)
-			if bytes.size() > MAX_ARCHIVE_ENTRY_UNCOMPRESSED_BYTES:
-				var _append_large_entry: bool = issues.append("%s: archive entry is too large after decompression: %s" % [package_id, normalized])
-				continue
+			var entry_read: Dictionary = _GF_BOUNDED_ZIP_SUPPORT.read_entry(
+				archive_session,
+				file_name,
+				MAX_ARCHIVE_ENTRY_UNCOMPRESSED_BYTES
+			)
+			if not _GF_VARIANT_ACCESS.get_option_bool(entry_read, "ok", false):
+				var _append_read: bool = issues.append(
+					"%s: archive entry read failed: %s (%s)" % [
+						package_id,
+						normalized,
+						_GF_VARIANT_ACCESS.get_option_string(entry_read, "error"),
+					]
+				)
+				break
+			var bytes_value: Variant = _GF_VARIANT_ACCESS.get_option_value(
+				entry_read,
+				"bytes",
+				PackedByteArray()
+			)
+			if not bytes_value is PackedByteArray:
+				var _append_invalid_bytes: bool = issues.append(
+					"%s: archive entry read returned invalid bytes: %s" % [
+						package_id,
+						normalized,
+					]
+				)
+				break
+			var bytes: PackedByteArray = bytes_value
 			actual_staged_payload_bytes += bytes.size()
 			if actual_staged_payload_bytes > staging_byte_limit:
 				var _append_actual_total_size: bool = issues.append(
@@ -2811,7 +2884,16 @@ static func _stage_package_archives(
 						staging_byte_limit,
 					]
 				)
-				var _close_budget_reader: Variant = reader.close()
+				var close_budget_archive: Error = (
+					_GF_BOUNDED_ZIP_SUPPORT.close_archive(
+						archive_session
+					)
+				)
+				_append_zip_session_cleanup_issue(
+					issues,
+					close_budget_archive,
+					package_id
+				)
 				return staged_files
 			if not _write_binary_file(staged_path, bytes, issues, "%s: staging %s" % [package_id, normalized]):
 				continue
@@ -2823,7 +2905,14 @@ static func _stage_package_archives(
 				"size_bytes": bytes.size(),
 			})
 			package_staged_file_count += 1
-		var _close_reader: Variant = reader.close()
+		var close_error: Error = _GF_BOUNDED_ZIP_SUPPORT.close_archive(
+			archive_session
+		)
+		if close_error != OK:
+			var _append_close: bool = issues.append(
+				"%s: bounded archive session cleanup failed: %s"
+				% [package_id, error_string(close_error)]
+			)
 		if package_staged_file_count == 0:
 			var _append_empty_runtime_payload: bool = issues.append(
 				"%s: runtime archive must contain at least one valid payload file." % package_id
@@ -2833,64 +2922,71 @@ static func _stage_package_archives(
 
 static func _audit_package_archive(package_id: String, registry_entry: Dictionary, archive_path: String) -> PackedStringArray:
 	var issues: PackedStringArray = PackedStringArray()
-	if _path_has_link_component(archive_path):
-		var _append_link: bool = issues.append("%s: archive path crosses a filesystem link: %s" % [package_id, archive_path])
+	var archive_session: Dictionary = _open_zip_archive_session(
+		archive_path,
+		package_id,
+		_package_archive_expected_identity(registry_entry)
+	)
+	if not _GF_VARIANT_ACCESS.get_option_bool(
+		archive_session,
+		"ok",
+		false
+	):
+		_append_string_array(
+			issues,
+			_GF_VARIANT_ACCESS.get_option_packed_string_array(
+				archive_session,
+				"issues"
+			)
+		)
 		return issues
-	if not FileAccess.file_exists(archive_path):
-		var _append_missing: bool = issues.append("%s: archive is missing: %s" % [package_id, archive_path])
-		return issues
+	var metadata: Dictionary = _GF_BOUNDED_ZIP_SUPPORT.get_inspection(
+		archive_session
+	)
+	_append_string_array(
+		issues,
+		_audit_package_archive_metadata(
+			package_id,
+			registry_entry,
+			metadata
+		)
+	)
+	var close_error: Error = _GF_BOUNDED_ZIP_SUPPORT.close_archive(
+		archive_session
+	)
+	if close_error != OK:
+		var _append_close: bool = issues.append(
+			"%s: bounded archive session cleanup failed: %s"
+			% [package_id, error_string(close_error)]
+		)
+	return issues
 
-	var expected_size: int = _GF_VARIANT_ACCESS.get_option_int(registry_entry, "size_bytes", 0)
-	var actual_size: int = _file_size(archive_path)
-	if expected_size > 0 and actual_size != expected_size:
-		var _append_size: bool = issues.append("%s: archive size does not match registry size_bytes." % package_id)
-	var expected_sha: String = _GF_VARIANT_ACCESS.get_option_string(registry_entry, "sha256").strip_edges().to_lower()
-	if not expected_sha.is_empty():
-		var actual_sha: String = FileAccess.get_sha256(archive_path).to_lower()
-		if actual_sha != expected_sha:
-			var _append_sha: bool = issues.append("%s: archive sha256 does not match registry sha256." % package_id)
-	if not issues.is_empty():
-		return issues
 
-	var metadata: Dictionary = _read_zip_archive_metadata(archive_path, package_id)
-	_append_string_array(issues, _GF_VARIANT_ACCESS.get_option_packed_string_array(metadata, "issues"))
-	if not _GF_VARIANT_ACCESS.get_option_bool(metadata, "ok", false):
-		return issues
+static func _audit_package_archive_metadata(
+	package_id: String,
+	registry_entry: Dictionary,
+	metadata: Dictionary
+) -> PackedStringArray:
+	var issues: PackedStringArray = PackedStringArray()
 	var archive_entries: Array = _GF_VARIANT_ACCESS.get_option_array(metadata, "entries")
-	if archive_entries.size() > MAX_ARCHIVE_ENTRY_COUNT:
-		var _append_entry_count: bool = issues.append("%s: archive contains too many file entries: %d > %d" % [package_id, archive_entries.size(), MAX_ARCHIVE_ENTRY_COUNT])
 
-	var seen: Dictionary = {}
 	var package_paths: PackedStringArray = _GF_VARIANT_ACCESS.get_option_packed_string_array(registry_entry, "paths")
-	var total_uncompressed_size: int = 0
 	var payload_entry_count: int = 0
 	for entry_variant: Variant in archive_entries:
 		var metadata_entry: Dictionary = _GF_VARIANT_ACCESS.as_dictionary(entry_variant)
 		var file_name: String = _GF_VARIANT_ACCESS.get_option_string(metadata_entry, "path")
-		if file_name.is_empty() or file_name.ends_with("/"):
+		if (
+			file_name.is_empty()
+			or _GF_VARIANT_ACCESS.get_option_bool(metadata_entry, "is_directory", false)
+		):
 			continue
-		var compressed_size: int = _GF_VARIANT_ACCESS.get_option_int(metadata_entry, "compressed_size", 0)
-		var uncompressed_size: int = _GF_VARIANT_ACCESS.get_option_int(metadata_entry, "uncompressed_size", 0)
-		total_uncompressed_size += uncompressed_size
-		var normalized: String = _normalize_archive_name(file_name)
+		var normalized: String = _GF_VARIANT_ACCESS.get_option_string(
+			metadata_entry,
+			"normalized_path"
+		)
 		if normalized.is_empty():
 			var _append_unsafe: bool = issues.append("%s: unsafe archive entry path: %s" % [package_id, file_name])
 			continue
-		if normalized.length() > MAX_ARCHIVE_ENTRY_PATH_LENGTH:
-			var _append_path_length: bool = issues.append("%s: archive entry path is too long: %s" % [package_id, normalized])
-		if normalized.split("/", false).size() > MAX_ARCHIVE_ENTRY_PATH_DEPTH:
-			var _append_path_depth: bool = issues.append("%s: archive entry path is too deep: %s" % [package_id, normalized])
-		if uncompressed_size > MAX_ARCHIVE_ENTRY_UNCOMPRESSED_BYTES:
-			var _append_entry_size: bool = issues.append("%s: archive entry exceeds decompressed size limit: %s" % [package_id, normalized])
-		if compressed_size <= 0 and uncompressed_size > 0:
-			var _append_zero_compressed: bool = issues.append("%s: archive entry has invalid compressed size: %s" % [package_id, normalized])
-		elif compressed_size > 0 and uncompressed_size > compressed_size * MAX_ARCHIVE_COMPRESSION_RATIO:
-			var _append_ratio: bool = issues.append("%s: archive entry compression ratio exceeds limit: %s" % [package_id, normalized])
-		var path_identity: String = _portable_path_identity(normalized)
-		if seen.has(path_identity):
-			var _append_duplicate: bool = issues.append("%s: duplicate archive entry path: %s" % [package_id, normalized])
-			continue
-		seen[path_identity] = true
 		payload_entry_count += 1
 		if not normalized.begins_with(GF_PACKAGE_ROOT_PREFIX):
 			var _append_outside: bool = issues.append("%s: archive entry is outside addons/gf: %s" % [package_id, normalized])
@@ -2902,8 +2998,6 @@ static func _audit_package_archive(package_id: String, registry_entry: Dictionar
 			var _append_blocked_file: bool = issues.append("%s: archive entry contains blocked generated file: %s" % [package_id, normalized])
 		if _runtime_package_has_external_tool_payload(package_id, registry_entry, normalized):
 			var _append_tool_payload: bool = issues.append("%s: runtime package archive contains external tool payload: %s" % [package_id, normalized])
-	if total_uncompressed_size > MAX_ARCHIVE_TOTAL_UNCOMPRESSED_BYTES:
-		var _append_total_size: bool = issues.append("%s: archive decompressed size exceeds limit: %d > %d" % [package_id, total_uncompressed_size, MAX_ARCHIVE_TOTAL_UNCOMPRESSED_BYTES])
 	if payload_entry_count == 0:
 		var _append_empty_runtime_payload: bool = issues.append(
 			"%s: runtime archive must contain at least one valid payload file." % package_id
@@ -2911,114 +3005,126 @@ static func _audit_package_archive(package_id: String, registry_entry: Dictionar
 	return issues
 
 
-static func _read_zip_archive_metadata(archive_path: String, package_id: String) -> Dictionary:
-	var issues: PackedStringArray = PackedStringArray()
-	var reader: ZIPReader = ZIPReader.new()
-	var open_error: Error = reader.open(archive_path)
-	if open_error != OK:
-		var _append_open: bool = issues.append("%s: invalid zip archive: %s" % [package_id, error_string(open_error)])
-		return { "ok": false, "entries": [], "issues": _packed_to_array(issues) }
-	var _close_reader: Variant = reader.close()
-
-	var file: FileAccess = FileAccess.open(archive_path, FileAccess.READ)
-	if file == null:
-		var _append_file: bool = issues.append("%s: could not read archive metadata: %s" % [package_id, error_string(FileAccess.get_open_error())])
-		return { "ok": false, "entries": [], "issues": _packed_to_array(issues) }
-	var file_size: int = file.get_length()
-	var search_size: int = mini(file_size, 65557)
-	file.seek(file_size - search_size)
-	var search_buffer: PackedByteArray = file.get_buffer(search_size)
-	var eocd_index: int = _find_zip_eocd_index(search_buffer)
-	if eocd_index < 0:
-		file.close()
-		var _append_eocd: bool = issues.append("%s: zip archive is missing central directory." % package_id)
-		return { "ok": false, "entries": [], "issues": _packed_to_array(issues) }
-
-	var entry_count: int = _read_uint16_le(search_buffer, eocd_index + 10)
-	var central_directory_size: int = _read_uint32_le(search_buffer, eocd_index + 12)
-	var central_directory_offset: int = _read_uint32_le(search_buffer, eocd_index + 16)
-	if entry_count == 0xffff or central_directory_size == 0xffffffff or central_directory_offset == 0xffffffff:
-		file.close()
-		var _append_zip64: bool = issues.append("%s: zip64 archives are not supported by the native package installer." % package_id)
-		return { "ok": false, "entries": [], "issues": _packed_to_array(issues) }
-	if central_directory_offset < 0 or central_directory_size < 0 or central_directory_offset + central_directory_size > file_size:
-		file.close()
-		var _append_bounds: bool = issues.append("%s: zip central directory is outside the archive bounds." % package_id)
-		return { "ok": false, "entries": [], "issues": _packed_to_array(issues) }
-	if entry_count > MAX_ARCHIVE_ENTRY_COUNT:
-		file.close()
-		var _append_count: bool = issues.append("%s: archive contains too many file entries: %d > %d" % [package_id, entry_count, MAX_ARCHIVE_ENTRY_COUNT])
-		return { "ok": false, "entries": [], "issues": _packed_to_array(issues) }
-
-	file.seek(central_directory_offset)
-	var central_directory: PackedByteArray = file.get_buffer(central_directory_size)
-	file.close()
-
-	var entries: Array[Dictionary] = []
-	var offset: int = 0
-	while offset + 46 <= central_directory.size():
-		if not _zip_signature_matches(central_directory, offset, 0x50, 0x4b, 0x01, 0x02):
-			var _append_header: bool = issues.append("%s: invalid zip central directory entry." % package_id)
-			break
-		var compressed_size: int = _read_uint32_le(central_directory, offset + 20)
-		var uncompressed_size: int = _read_uint32_le(central_directory, offset + 24)
-		var file_name_length: int = _read_uint16_le(central_directory, offset + 28)
-		var extra_length: int = _read_uint16_le(central_directory, offset + 30)
-		var comment_length: int = _read_uint16_le(central_directory, offset + 32)
-		var file_name_offset: int = offset + 46
-		var next_offset: int = file_name_offset + file_name_length + extra_length + comment_length
-		if next_offset > central_directory.size():
-			var _append_truncated: bool = issues.append("%s: truncated zip central directory entry." % package_id)
-			break
-		if compressed_size == 0xffffffff or uncompressed_size == 0xffffffff:
-			var _append_zip64_entry: bool = issues.append("%s: zip64 archive entries are not supported." % package_id)
-			break
-		var file_name_bytes: PackedByteArray = central_directory.slice(file_name_offset, file_name_offset + file_name_length)
-		entries.append({
-			"path": file_name_bytes.get_string_from_utf8(),
-			"compressed_size": compressed_size,
-			"uncompressed_size": uncompressed_size,
-		})
-		offset = next_offset
-
-	if issues.is_empty() and entries.size() != entry_count:
-		var _append_mismatch: bool = issues.append("%s: zip central directory entry count does not match archive footer." % package_id)
-	return { "ok": issues.is_empty(), "entries": entries, "issues": _packed_to_array(issues) }
+static func _package_archive_expected_identity(
+	registry_entry: Dictionary
+) -> Dictionary:
+	var identity: Dictionary = {}
+	var expected_size: int = _GF_VARIANT_ACCESS.get_option_int(
+		registry_entry,
+		"size_bytes",
+		0
+	)
+	if expected_size > 0:
+		identity["size_bytes"] = expected_size
+	var expected_sha: String = _GF_VARIANT_ACCESS.get_option_string(
+		registry_entry,
+		"sha256"
+	).strip_edges().to_lower()
+	if not expected_sha.is_empty():
+		identity["sha256"] = expected_sha
+	return identity
 
 
-static func _find_zip_eocd_index(bytes: PackedByteArray) -> int:
-	for index: int in range(bytes.size() - 22, -1, -1):
-		if _zip_signature_matches(bytes, index, 0x50, 0x4b, 0x05, 0x06):
-			return index
-	return -1
+static func _zip_archive_limits() -> Dictionary:
+	return {
+		"max_archive_bytes": MAX_ARCHIVE_DOWNLOAD_BYTES,
+		"max_entry_count": MAX_ARCHIVE_ENTRY_COUNT,
+		"max_entry_compressed_bytes": (
+			MAX_ARCHIVE_ENTRY_UNCOMPRESSED_BYTES
+		),
+		"max_entry_uncompressed_bytes": (
+			MAX_ARCHIVE_ENTRY_UNCOMPRESSED_BYTES
+		),
+		"max_total_uncompressed_bytes": (
+			MAX_ARCHIVE_TOTAL_UNCOMPRESSED_BYTES
+		),
+		"max_compression_ratio": MAX_ARCHIVE_COMPRESSION_RATIO,
+		"max_path_length": MAX_ARCHIVE_ENTRY_PATH_LENGTH,
+		"max_path_depth": MAX_ARCHIVE_ENTRY_PATH_DEPTH,
+		"max_central_directory_bytes": (
+			MAX_ARCHIVE_CENTRAL_DIRECTORY_BYTES
+		),
+	}
 
 
-static func _zip_signature_matches(bytes: PackedByteArray, offset: int, first: int, second: int, third: int, fourth: int) -> bool:
-	return (
-		offset >= 0
-		and offset + 3 < bytes.size()
-		and bytes[offset] == first
-		and bytes[offset + 1] == second
-		and bytes[offset + 2] == third
-		and bytes[offset + 3] == fourth
+static func _open_zip_archive_session(
+	archive_path: String,
+	package_id: String,
+	expected_identity: Dictionary = {}
+) -> Dictionary:
+	var session: Dictionary = _GF_BOUNDED_ZIP_SUPPORT.open_archive(
+		archive_path,
+		_zip_archive_limits(),
+		expected_identity
+	)
+	if _GF_VARIANT_ACCESS.get_option_bool(session, "ok", false):
+		return session
+	var contextual: Dictionary = _contextualize_zip_archive_metadata(
+		_GF_VARIANT_ACCESS.get_option_dictionary(
+			session,
+			"inspection"
+		),
+		package_id
+	)
+	var result: Dictionary = session.duplicate(true)
+	result["inspection"] = contextual
+	result["issues"] = _GF_VARIANT_ACCESS.get_option_packed_string_array(
+		contextual,
+		"issues"
+	)
+	return result
+
+
+static func _append_zip_session_cleanup_issue(
+	issues: PackedStringArray,
+	close_error: Error,
+	context: String
+) -> void:
+	if close_error == OK:
+		return
+	var _issue_appended: bool = issues.append(
+		"%s: bounded archive session cleanup failed: %s"
+		% [context, error_string(close_error)]
 	)
 
 
-static func _read_uint16_le(bytes: PackedByteArray, offset: int) -> int:
-	if offset < 0 or offset + 1 >= bytes.size():
-		return 0
-	return bytes[offset] | (bytes[offset + 1] << 8)
-
-
-static func _read_uint32_le(bytes: PackedByteArray, offset: int) -> int:
-	if offset < 0 or offset + 3 >= bytes.size():
-		return 0
-	return (
-		bytes[offset]
-		| (bytes[offset + 1] << 8)
-		| (bytes[offset + 2] << 16)
-		| (bytes[offset + 3] << 24)
+static func _read_zip_archive_metadata(
+	archive_path: String,
+	package_id: String,
+	expected_identity: Dictionary = {}
+) -> Dictionary:
+	var inspection: Dictionary = _GF_BOUNDED_ZIP_SUPPORT.inspect_archive(
+		archive_path,
+		_zip_archive_limits(),
+		expected_identity
 	)
+	return _contextualize_zip_archive_metadata(inspection, package_id)
+
+
+static func _contextualize_zip_archive_metadata(
+	source_inspection: Dictionary,
+	package_id: String
+) -> Dictionary:
+	var inspection: Dictionary = source_inspection.duplicate(true)
+	var source_issues: PackedStringArray = _GF_VARIANT_ACCESS.get_option_packed_string_array(
+		inspection,
+		"issues"
+	)
+	var contextual_issues: PackedStringArray = PackedStringArray()
+	for issue: String in source_issues:
+		var contextual_issue: String = ""
+		if package_id == "offline bundle":
+			if issue.begins_with("unsafe archive entry path:"):
+				contextual_issue = "Offline bundle contains unsafe entry path:%s" % issue.trim_prefix(
+					"unsafe archive entry path:"
+				)
+			else:
+				contextual_issue = "Offline bundle %s" % issue.trim_prefix("archive ")
+		else:
+			contextual_issue = "%s: %s" % [package_id, issue]
+		var _issue_appended: bool = contextual_issues.append(contextual_issue)
+	inspection["issues"] = contextual_issues
+	return inspection
 
 
 static func _registry_file_matches_metadata(path: String, expected_sha: String, expected_size: int, issues: PackedStringArray) -> bool:
@@ -3606,7 +3712,16 @@ static func _prepare_offline_bundle_registry_candidate(
 	var workspace_root: String = _GF_VARIANT_ACCESS.get_option_string(cache_context, "workspace_root")
 	var extract_root: String = workspace_root.path_join("offline_bundles").path_join(bundle_sha).replace("\\", "/")
 	var registry_path: String = extract_root.path_join(_OFFLINE_BUNDLE_REGISTRY_ENTRY).replace("\\", "/")
-	if not _extract_offline_bundle_registry(bundle_path, extract_root, issues, options):
+	if not _extract_offline_bundle_registry(
+		bundle_path,
+		extract_root,
+		issues,
+		options,
+		{
+			"sha256": bundle_sha,
+			"size_bytes": _file_size(bundle_path),
+		}
+	):
 		var failed_result: Dictionary = _make_registry_candidate_result(registry_path, cache_context, false, registry_value)
 		failed_result["offline_bundle"] = bundle_path
 		failed_result["offline_bundle_extracted"] = extract_root
@@ -3623,23 +3738,50 @@ static func _extract_offline_bundle_registry(
 	bundle_path: String,
 	extract_root: String,
 	issues: PackedStringArray,
-	options: Dictionary = {}
+	options: Dictionary = {},
+	expected_identity: Dictionary = {}
 ) -> bool:
 	var starting_issue_count: int = issues.size()
 	if _append_cancelled_if_requested(options, issues):
 		return false
 	if not _clear_offline_bundle_extraction_root(extract_root, issues):
 		return false
-	var validation_issues: PackedStringArray = _validate_offline_bundle_archive(bundle_path)
+	var archive_session: Dictionary = _open_zip_archive_session(
+		bundle_path,
+		"offline bundle",
+		expected_identity
+	)
+	if not _GF_VARIANT_ACCESS.get_option_bool(
+		archive_session,
+		"ok",
+		false
+	):
+		_append_string_array(
+			issues,
+			_GF_VARIANT_ACCESS.get_option_packed_string_array(
+				archive_session,
+				"issues"
+			)
+		)
+		return false
+	var archive_inspection: Dictionary = (
+		_GF_BOUNDED_ZIP_SUPPORT.get_inspection(archive_session)
+	)
+	var validation_issues: PackedStringArray = (
+		_validate_offline_bundle_metadata(archive_inspection)
+	)
 	_append_string_array(issues, validation_issues)
 	if not validation_issues.is_empty():
+		var close_invalid_archive: Error = (
+			_GF_BOUNDED_ZIP_SUPPORT.close_archive(archive_session)
+		)
+		_append_zip_session_cleanup_issue(
+			issues,
+			close_invalid_archive,
+			"offline bundle"
+		)
 		return false
 
-	var reader: ZIPReader = ZIPReader.new()
-	var open_error: Error = reader.open(bundle_path)
-	if open_error != OK:
-		var _append_open: bool = issues.append("Offline bundle is not a valid zip archive: %s (%s)" % [bundle_path, error_string(open_error)])
-		return false
 	var seen: Dictionary = {}
 	var actual_uncompressed_bytes: int = 0
 	var actual_uncompressed_byte_limit: int = MAX_ARCHIVE_TOTAL_UNCOMPRESSED_BYTES
@@ -3650,11 +3792,20 @@ static func _extract_offline_bundle_registry(
 	)
 	if requested_actual_limit > 0:
 		actual_uncompressed_byte_limit = mini(actual_uncompressed_byte_limit, requested_actual_limit)
-	var file_names: PackedStringArray = reader.get_files()
+	var file_names: PackedStringArray = _GF_BOUNDED_ZIP_SUPPORT.get_files(
+		archive_session
+	)
 	file_names.sort()
 	for file_name: String in file_names:
 		if _append_cancelled_if_requested(options, issues):
-			var _close_cancelled_reader: Variant = reader.close()
+			var close_cancelled_archive: Error = (
+				_GF_BOUNDED_ZIP_SUPPORT.close_archive(archive_session)
+			)
+			_append_zip_session_cleanup_issue(
+				issues,
+				close_cancelled_archive,
+				"offline bundle"
+			)
 			var _cleared_cancelled_root: bool = _clear_offline_bundle_extraction_root(
 				extract_root,
 				issues
@@ -3678,10 +3829,30 @@ static func _extract_offline_bundle_registry(
 		if not _is_path_inside(extract_root, target_path):
 			var _append_outside: bool = issues.append("Offline bundle entry target is outside extraction root: %s" % normalized)
 			continue
-		var bytes: PackedByteArray = reader.read_file(file_name)
-		if bytes.size() > MAX_ARCHIVE_ENTRY_UNCOMPRESSED_BYTES:
-			var _append_large_entry: bool = issues.append("Offline bundle entry is too large after decompression: %s" % normalized)
-			continue
+		var entry_read: Dictionary = _GF_BOUNDED_ZIP_SUPPORT.read_entry(
+			archive_session,
+			file_name,
+			MAX_ARCHIVE_ENTRY_UNCOMPRESSED_BYTES
+		)
+		if not _GF_VARIANT_ACCESS.get_option_bool(entry_read, "ok", false):
+			var _append_read: bool = issues.append(
+				"Offline bundle entry read failed: %s (%s)" % [
+					normalized,
+					_GF_VARIANT_ACCESS.get_option_string(entry_read, "error"),
+				]
+			)
+			break
+		var bytes_value: Variant = _GF_VARIANT_ACCESS.get_option_value(
+			entry_read,
+			"bytes",
+			PackedByteArray()
+		)
+		if not bytes_value is PackedByteArray:
+			var _append_invalid_bytes: bool = issues.append(
+				"Offline bundle entry read returned invalid bytes: %s" % normalized
+			)
+			break
+		var bytes: PackedByteArray = bytes_value
 		actual_uncompressed_bytes += bytes.size()
 		if actual_uncompressed_bytes > actual_uncompressed_byte_limit:
 			var _append_actual_total_size: bool = issues.append(
@@ -3690,14 +3861,28 @@ static func _extract_offline_bundle_registry(
 					actual_uncompressed_byte_limit,
 				]
 			)
-			var _close_budget_reader: Variant = reader.close()
+			var close_budget_archive: Error = (
+				_GF_BOUNDED_ZIP_SUPPORT.close_archive(archive_session)
+			)
+			_append_zip_session_cleanup_issue(
+				issues,
+				close_budget_archive,
+				"offline bundle"
+			)
 			var _cleared_budget_root: bool = _clear_offline_bundle_extraction_root(
 				extract_root,
 				issues
 			)
 			return false
 		var _wrote_file: bool = _write_binary_file(target_path, bytes, issues, "extract offline bundle %s" % normalized)
-	var _close_reader: Variant = reader.close()
+	var close_error: Error = _GF_BOUNDED_ZIP_SUPPORT.close_archive(
+		archive_session
+	)
+	if close_error != OK:
+		var _append_close: bool = issues.append(
+			"Offline bundle bounded archive session cleanup failed: %s"
+			% error_string(close_error)
+		)
 	var succeeded: bool = issues.size() == starting_issue_count
 	if not succeeded:
 		var _cleared_failed_root: bool = _clear_offline_bundle_extraction_root(
@@ -3723,51 +3908,30 @@ static func _clear_offline_bundle_extraction_root(
 	return false
 
 
-static func _validate_offline_bundle_archive(bundle_path: String) -> PackedStringArray:
+static func _validate_offline_bundle_metadata(
+	metadata: Dictionary
+) -> PackedStringArray:
 	var issues: PackedStringArray = PackedStringArray()
-	var metadata: Dictionary = _read_zip_archive_metadata(bundle_path, "offline bundle")
-	_append_string_array(issues, _GF_VARIANT_ACCESS.get_option_packed_string_array(metadata, "issues"))
-	if not _GF_VARIANT_ACCESS.get_option_bool(metadata, "ok", false):
-		return issues
-
 	var archive_entries: Array = _GF_VARIANT_ACCESS.get_option_array(metadata, "entries")
-	if archive_entries.size() > MAX_ARCHIVE_ENTRY_COUNT:
-		var _append_entry_count: bool = issues.append("Offline bundle contains too many file entries: %d > %d" % [archive_entries.size(), MAX_ARCHIVE_ENTRY_COUNT])
 
-	var seen: Dictionary = {}
-	var total_uncompressed_size: int = 0
 	for entry_variant: Variant in archive_entries:
 		var metadata_entry: Dictionary = _GF_VARIANT_ACCESS.as_dictionary(entry_variant)
 		var file_name: String = _GF_VARIANT_ACCESS.get_option_string(metadata_entry, "path")
-		if file_name.is_empty() or file_name.ends_with("/"):
+		if (
+			file_name.is_empty()
+			or _GF_VARIANT_ACCESS.get_option_bool(metadata_entry, "is_directory", false)
+		):
 			continue
 
-		var compressed_size: int = _GF_VARIANT_ACCESS.get_option_int(metadata_entry, "compressed_size", 0)
-		var uncompressed_size: int = _GF_VARIANT_ACCESS.get_option_int(metadata_entry, "uncompressed_size", 0)
-		total_uncompressed_size += uncompressed_size
-		var normalized: String = _normalize_archive_name(file_name)
+		var normalized: String = _GF_VARIANT_ACCESS.get_option_string(
+			metadata_entry,
+			"normalized_path"
+		)
 		if normalized.is_empty():
 			var _append_unsafe: bool = issues.append("Offline bundle contains unsafe entry path: %s" % file_name)
 			continue
-		if normalized.length() > MAX_ARCHIVE_ENTRY_PATH_LENGTH:
-			var _append_path_length: bool = issues.append("Offline bundle entry path is too long: %s" % normalized)
-		if normalized.split("/", false).size() > MAX_ARCHIVE_ENTRY_PATH_DEPTH:
-			var _append_path_depth: bool = issues.append("Offline bundle entry path is too deep: %s" % normalized)
-		if uncompressed_size > MAX_ARCHIVE_ENTRY_UNCOMPRESSED_BYTES:
-			var _append_entry_size: bool = issues.append("Offline bundle entry exceeds decompressed size limit: %s" % normalized)
-		if compressed_size <= 0 and uncompressed_size > 0:
-			var _append_zero_compressed: bool = issues.append("Offline bundle entry has invalid compressed size: %s" % normalized)
-		elif compressed_size > 0 and uncompressed_size > compressed_size * MAX_ARCHIVE_COMPRESSION_RATIO:
-			var _append_ratio: bool = issues.append("Offline bundle entry compression ratio exceeds limit: %s" % normalized)
-		var path_identity: String = _portable_path_identity(normalized)
-		if seen.has(path_identity):
-			var _append_duplicate: bool = issues.append("Offline bundle contains duplicate portable entry path: %s" % normalized)
-			continue
-		seen[path_identity] = true
 		if not _offline_bundle_entry_is_allowed(normalized):
 			var _append_blocked: bool = issues.append("Offline bundle contains unsupported entry path: %s" % normalized)
-	if total_uncompressed_size > MAX_ARCHIVE_TOTAL_UNCOMPRESSED_BYTES:
-		var _append_total_size: bool = issues.append("Offline bundle decompressed size exceeds limit: %d > %d" % [total_uncompressed_size, MAX_ARCHIVE_TOTAL_UNCOMPRESSED_BYTES])
 	return issues
 
 

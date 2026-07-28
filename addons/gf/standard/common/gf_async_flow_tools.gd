@@ -36,6 +36,20 @@ const STATUS_FAILED: StringName = &"failed"
 ## @since 6.0.0
 const STATUS_CANCELLED: StringName = &"cancelled"
 
+## 组合等待默认接受的最大 completion 数量。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+const DEFAULT_MAX_COMPLETIONS: int = 256
+
+## 组合等待允许的 completion 绝对数量上限。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+const ABSOLUTE_MAX_COMPLETIONS: int = 4096
+
 
 # --- 公共方法 ---
 
@@ -201,7 +215,7 @@ static func fold_async(items: Array, reducer: Callable, initial_value: Variant, 
 	return _make_report(true, STATUS_SUCCEEDED, accumulator, "", history.size(), history, options)
 
 
-## 等待所有完成源进入终态。
+## 在主线程等待所有完成源进入终态。
 ## [br]
 ## @api public
 ## [br]
@@ -213,16 +227,16 @@ static func fold_async(items: Array, reducer: Callable, initial_value: Variant, 
 ## [br]
 ## @schema completions: Dictionary，key 为调用方定义的稳定标识，value 必须是 GFAsyncCompletion。
 ## [br]
-## @schema options: Dictionary，可包含 timeout_seconds、tree、cancel_token、guard_node、time_utility、respect_time_scale、process_in_physics、fail_fast、cancel_remaining_on_finish 和 metadata。
+## @schema options: Dictionary，可包含 timeout_seconds、tree、cancel_token、guard_node、time_utility、respect_time_scale、process_in_physics、fail_fast、cancel_remaining_on_finish、max_completions 和 metadata。
 ## [br]
-## @return 组合等待报告。
+## @return 组合等待报告；非主线程调用时 fail closed。
 ## [br]
 ## @schema return: Dictionary，包含 ok、status、value、error、metadata、count、completed_count、pending_count、succeeded_count、failed_count、cancelled_count、items、results、completion_order、first_completed_key、first_success_key、cancel_reason、cancel_metadata 和 timed_out。
 static func wait_all_completions_async(completions: Dictionary, options: Dictionary = {}) -> Dictionary:
 	return await _wait_completions_async(completions, false, options)
 
 
-## 等待任一完成源成功。
+## 在主线程等待任一完成源成功。
 ## [br]
 ## @api public
 ## [br]
@@ -234,9 +248,9 @@ static func wait_all_completions_async(completions: Dictionary, options: Diction
 ## [br]
 ## @schema completions: Dictionary，key 为调用方定义的稳定标识，value 必须是 GFAsyncCompletion。
 ## [br]
-## @schema options: Dictionary，可包含 timeout_seconds、tree、cancel_token、guard_node、time_utility、respect_time_scale、process_in_physics、fail_fast、cancel_remaining_on_finish 和 metadata。
+## @schema options: Dictionary，可包含 timeout_seconds、tree、cancel_token、guard_node、time_utility、respect_time_scale、process_in_physics、fail_fast、cancel_remaining_on_finish、max_completions 和 metadata。
 ## [br]
-## @return 组合等待报告。
+## @return 组合等待报告；非主线程调用时 fail closed。
 ## [br]
 ## @schema return: Dictionary，包含 ok、status、value、error、metadata、count、completed_count、pending_count、succeeded_count、failed_count、cancelled_count、items、results、completion_order、first_completed_key、first_success_key、cancel_reason、cancel_metadata 和 timed_out。
 static func wait_any_completion_async(completions: Dictionary, options: Dictionary = {}) -> Dictionary:
@@ -246,6 +260,48 @@ static func wait_any_completion_async(completions: Dictionary, options: Dictiona
 # --- 私有/辅助方法 ---
 
 static func _wait_completions_async(completions: Dictionary, wait_for_any_success: bool, options: Dictionary) -> Dictionary:
+	if not Thread.is_main_thread():
+		return _make_completion_wait_invalid_report(
+			"completion waits require the main thread.",
+			null,
+			options
+		)
+	var max_completions: int = GFVariantData.get_option_int(
+		options,
+		"max_completions",
+		DEFAULT_MAX_COMPLETIONS
+	)
+	if max_completions <= 0:
+		var invalid_limit: Dictionary = _make_completion_wait_invalid_report(
+			"max_completions must be greater than zero.",
+			null,
+			options
+		)
+		invalid_limit["input_count"] = completions.size()
+		invalid_limit["max_completions"] = max_completions
+		return invalid_limit
+	if max_completions > ABSOLUTE_MAX_COMPLETIONS:
+		var excessive_limit: Dictionary = _make_completion_wait_invalid_report(
+			"max_completions exceeds ABSOLUTE_MAX_COMPLETIONS.",
+			null,
+			options
+		)
+		excessive_limit["input_count"] = completions.size()
+		excessive_limit["max_completions"] = max_completions
+		excessive_limit["absolute_max_completions"] = (
+			ABSOLUTE_MAX_COMPLETIONS
+		)
+		return excessive_limit
+	if completions.size() > max_completions:
+		var oversized: Dictionary = _make_completion_wait_invalid_report(
+			"completion input exceeds max_completions.",
+			null,
+			options
+		)
+		oversized["input_count"] = completions.size()
+		oversized["max_completions"] = max_completions
+		return oversized
+
 	var entries: Dictionary = {}
 	for key: Variant in completions.keys():
 		var completion_value: Variant = completions[key]
@@ -260,6 +316,16 @@ static func _wait_completions_async(completions: Dictionary, wait_for_any_succes
 		return _make_completion_wait_report(entries, completion_order, wait_for_any_success, options)
 
 	var channel: GFAsyncChannel = GFAsyncChannel.new()
+	var configured: bool = channel.configure_ingress(
+		entries.size(),
+		GFAsyncChannel.OVERFLOW_REJECT
+	)
+	if not configured:
+		return _make_completion_wait_invalid_report(
+			"completion channel capacity is invalid.",
+			null,
+			options
+		)
 	var callbacks: Dictionary = {}
 	var connect_report: Dictionary = _connect_pending_completions(entries, channel, callbacks)
 	if not GFVariantData.get_option_bool(connect_report, "ok"):
@@ -453,9 +519,12 @@ static func _connect_pending_completions(entries: Dictionary, channel: GFAsyncCh
 static func _make_completion_channel_callback(channel: GFAsyncChannel, key: Variant) -> Callable:
 	var stored_key: Variant = GFVariantData.duplicate_variant(key)
 	return func(_completion: GFAsyncCompletion) -> void:
-		var _write_result: bool = channel.try_write({
+		if not Thread.is_main_thread():
+			return
+		var event: Dictionary = {
 			"key": GFVariantData.duplicate_variant(stored_key),
-		})
+		}
+		var _write_result: bool = channel.try_write(event)
 
 
 static func _disconnect_completion_callbacks(callbacks: Dictionary) -> void:

@@ -1,0 +1,815 @@
+## Reusable GUT conformance harness for ProjectStorageBackend.
+##
+## The concrete test file supplies only a ProjectStorageProviderFactory. A real
+## Adapter must run these same cases against its real Provider boundary and
+## explicit fault driver.
+class_name ProjectStorageBackendConformance
+extends GutTest
+
+
+# --- 常量 ---
+
+const _BACKEND_CAPABILITY_KEYS: PackedStringArray = [
+	"protocol_version",
+	"read",
+	"write",
+	"delete",
+	"list",
+	"sync",
+	"atomic_write",
+	"conditional_write",
+	"cancellation",
+]
+
+
+# --- 私有变量 ---
+
+var _factory: ProjectStorageProviderFactory = null
+var _provider: ProjectStorageProvider = null
+var _fault_driver: ProjectStorageProviderFaultDriver = null
+var _backend: ProjectStorageBackend = null
+
+
+# --- 公共方法 ---
+
+func setup_conformance() -> void:
+	_factory = _create_provider_factory()
+	assert_true(
+		_factory != null,
+		"A real Provider factory is required."
+	)
+	if _factory == null:
+		return
+	_provider = _factory.create_provider()
+	assert_true(
+		_provider != null,
+		"The factory must construct a Provider."
+	)
+	if _provider == null:
+		return
+	_fault_driver = _factory.create_fault_driver(_provider)
+	assert_true(
+		_fault_driver != null,
+		"The factory must construct an explicit fault driver."
+	)
+	_backend = ProjectStorageBackend.new()
+
+
+func teardown_conformance() -> void:
+	if _backend != null:
+		_backend.shutdown()
+	_backend = null
+	_fault_driver = null
+	_provider = null
+	_factory = null
+
+
+func run_rejects_invalid_providers_and_capability_drift() -> void:
+	assert_true(_backend != null, "The Backend fixture must exist.")
+	if _backend == null:
+		return
+	assert_true(
+		_backend.initialize() == ERR_INVALID_PARAMETER,
+		"Initialization without a Provider must fail closed."
+	)
+	assert_true(
+		_backend.initialize({"provider": ProjectStorageProvider.new()})
+		== ERR_INVALID_DATA,
+		"A Provider without the required contract must be rejected."
+	)
+
+	var mismatched_backend: ProjectStorageBackend = (
+		ProjectStorageBackend.new()
+	)
+	assert_true(
+		mismatched_backend.initialize({
+			"provider": MismatchedProtocolProvider.new(),
+		}) == ERR_INVALID_DATA,
+		"A mismatched Provider protocol must be rejected."
+	)
+	mismatched_backend.shutdown()
+
+	var non_atomic_backend: ProjectStorageBackend = (
+		ProjectStorageBackend.new()
+	)
+	assert_true(
+		non_atomic_backend.initialize({
+			"provider": NonAtomicProvider.new(),
+		}) == ERR_INVALID_DATA,
+		"A non-atomic Provider must be rejected."
+	)
+	non_atomic_backend.shutdown()
+
+	_require_fault(
+		ProjectStorageProviderFaultDriver
+		.FAULT_POST_INITIALIZE_CAPABILITY_DRIFT
+	)
+	assert_true(
+		_initialize_backend() == ERR_INVALID_DATA,
+		"Post-initialize capability drift must be rejected."
+	)
+	assert_false(_backend.has_data("slot.json"))
+
+
+func run_reports_closed_capabilities_before_and_after_initialize() -> void:
+	assert_true(_backend != null, "The Backend fixture must exist.")
+	if _backend == null:
+		return
+	var before_capabilities: Dictionary = _backend.get_capabilities()
+	_assert_exact_keys(before_capabilities, _BACKEND_CAPABILITY_KEYS)
+	assert_false(_get_bool(before_capabilities, "read"))
+	assert_false(_get_bool(before_capabilities, "atomic_write"))
+	assert_false(_get_bool(before_capabilities, "sync"))
+	assert_false(_get_bool(before_capabilities, "cancellation"))
+
+	assert_true(
+		_initialize_backend() == OK,
+		"The conforming Provider must initialize."
+	)
+	var capabilities: Dictionary = _backend.get_capabilities()
+	_assert_exact_keys(capabilities, _BACKEND_CAPABILITY_KEYS)
+	assert_true(
+		capabilities["protocol_version"]
+		== ProjectStorageBackend.PROTOCOL_VERSION,
+		"The Backend protocol version must remain stable."
+	)
+	for capability_id: String in [
+		"read",
+		"write",
+		"delete",
+		"list",
+		"atomic_write",
+		"conditional_write",
+	]:
+		assert_true(
+			_get_bool(capabilities, capability_id),
+			"A required Backend capability must be enabled."
+		)
+	assert_false(_get_bool(capabilities, "sync"))
+	assert_false(_get_bool(capabilities, "cancellation"))
+
+
+func run_round_trip_delete_and_deterministic_list() -> void:
+	assert_true(
+		_initialize_backend() == OK,
+		"The conforming Provider must initialize."
+	)
+	assert_true(
+		_backend.save_data(
+			"profiles/second.json",
+			{"score": 2},
+			{"write_options": {"request_id": "write-2"}}
+		) == OK,
+		"The first round-trip fixture must be saved."
+	)
+	assert_true(
+		_backend.save_data("profiles/first.json", {"score": 1}) == OK,
+		"The second round-trip fixture must be saved."
+	)
+	assert_true(_backend.has_data("profiles/first.json"))
+	assert_false(_backend.has_data("profiles/missing.json"))
+
+	var load_result: Dictionary = _backend.load_data(
+		"profiles/first.json"
+	)
+	assert_true(_get_bool(load_result, "ok"))
+	assert_true(
+		load_result["data"] == {"score": 1},
+		"The loaded payload must match the committed fixture."
+	)
+	var metadata: Dictionary = load_result["metadata"]
+	var revision_value: Variant = metadata.get("revision")
+	assert_true(revision_value is String)
+	var revision: String = (
+		revision_value if revision_value is String else ""
+	)
+	assert_false(revision.is_empty())
+
+	var entries: Array[Dictionary] = _backend.list_data()
+	assert_true(
+		entries.size() == 2,
+		"The deterministic list must contain the expected bounded count."
+	)
+	if entries.size() != 2:
+		return
+	assert_true(
+		entries[0]["file_name"] == "profiles/first.json",
+		"The deterministic list must place the lower stable key first."
+	)
+	assert_true(
+		entries[1]["file_name"] == "profiles/second.json",
+		"The deterministic list must place the higher stable key second."
+	)
+	for entry: Dictionary in entries:
+		var entry_metadata: Dictionary = entry["metadata"]
+		assert_true(entry_metadata["revision"] is String)
+
+	assert_true(
+		_backend.delete_data("profiles/first.json") == OK,
+		"The stored fixture must be deletable."
+	)
+	assert_false(_backend.has_data("profiles/first.json"))
+	var missing_result: Dictionary = _backend.load_data(
+		"profiles/first.json"
+	)
+	assert_false(_get_bool(missing_result, "ok"))
+	assert_true(
+		missing_result["error_code"] == int(ERR_FILE_NOT_FOUND),
+		"A missing record must expose the stable not-found code."
+	)
+	assert_true(
+		missing_result["error"] == "Storage provider read failed.",
+		"A missing record must expose only the stable Adapter error."
+	)
+
+
+func run_rejects_unsafe_keys_options_config_and_value_graphs() -> void:
+	assert_true(
+		_initialize_backend({
+			"max_graph_nodes": 16,
+			"max_graph_depth": 4,
+		}) == OK,
+		"The bounded validation fixture must initialize."
+	)
+	for unsafe_key: String in [
+		"../outside.json",
+		"/absolute.json",
+		"drive:C.json",
+		"empty//component.json",
+		"windows\\path.json",
+		"trailing./record.json",
+		"CON",
+		"Con.foo.bar",
+		"aux.json",
+		"COM¹.txt",
+		"lPt².data",
+	]:
+		assert_true(
+			_backend.save_data(unsafe_key, {"value": 1})
+			== ERR_INVALID_PARAMETER,
+			"An unsafe logical key must be rejected."
+		)
+
+	assert_true(
+		_backend.save_data(
+			"valid.json",
+			{"value": 1},
+			{"write_options": {"unknown": true}}
+		) == ERR_INVALID_PARAMETER,
+		"Unknown write options must be rejected."
+	)
+	assert_true(
+		_backend.save_data(
+			"valid.json",
+			{"value": 1},
+			{"write_options": {"expected_revision": 1}}
+		) == ERR_INVALID_PARAMETER,
+		"A non-String revision token must be rejected."
+	)
+	assert_true(
+		_backend.save_data(
+			"valid.json",
+			{"value": 1},
+			{
+				"write_options": {
+					"expected_revision": "rev-a",
+					"create_if_absent": true,
+				},
+			}
+		) == ERR_INVALID_PARAMETER,
+		"Mutually exclusive conditional-write options must be rejected."
+	)
+	assert_true(
+		_backend.save_data(
+			"valid.json",
+			{"value": 1},
+			{"revision": "project-owned"}
+		) == ERR_INVALID_PARAMETER,
+		"Provider-owned revision metadata must be rejected on write."
+	)
+
+	assert_true(
+		_backend.save_data(
+			"object.json",
+			{"value": RefCounted.new()}
+		) == ERR_INVALID_DATA,
+		"Object values must be rejected before the Provider boundary."
+	)
+	assert_true(
+		_backend.save_data(
+			"callable.json",
+			{"value": Callable(self, "_unused_callback")}
+		) == ERR_INVALID_DATA,
+		"Callable values must be rejected before the Provider boundary."
+	)
+	assert_true(
+		_backend.save_data("rid.json", {"value": RID()})
+		== ERR_INVALID_DATA,
+		"RID values must be rejected before the Provider boundary."
+	)
+	assert_true(
+		_backend.save_data("nan.json", {"value": NAN})
+		== ERR_INVALID_DATA,
+		"Non-finite numeric values must be rejected."
+	)
+	assert_true(
+		_backend.save_data("infinity.json", {"value": INF})
+		== ERR_INVALID_DATA,
+		"Infinite numeric values must be rejected."
+	)
+
+	var deep_value: Variant = "leaf"
+	for _index: int in range(8):
+		deep_value = [deep_value]
+	assert_true(
+		_backend.save_data("deep.json", {"value": deep_value})
+		== ERR_OUT_OF_MEMORY,
+		"An excessive public write depth must fail before deep copy."
+	)
+	assert_true(
+		_backend.save_data(
+			"nodes.json",
+			{"values": range(32)}
+		) == ERR_OUT_OF_MEMORY,
+		"An excessive public write graph must fail before deep copy."
+	)
+
+	var cyclic: Dictionary = {}
+	cyclic["self"] = cyclic
+	assert_true(
+		_backend.save_data("cycle.json", cyclic) == ERR_INVALID_DATA,
+		"A cyclic public write graph must fail before deep copy."
+	)
+	var write_attempts_value: Variant = _fault_driver.get_observation(
+		ProjectStorageProviderFaultDriver.OBSERVATION_WRITE_ATTEMPTS
+	)
+	assert_true(
+		write_attempts_value is int and write_attempts_value == 0,
+		"Rejected public writes must not reach the Provider."
+	)
+
+	var invalid_config_backend: ProjectStorageBackend = (
+		ProjectStorageBackend.new()
+	)
+	var config_provider: ProjectStorageProvider = (
+		_factory.create_provider()
+	)
+	assert_true(
+		invalid_config_backend.initialize({
+			"provider": config_provider,
+			"provider_options": {
+				"object": RefCounted.new(),
+			},
+		}) == ERR_INVALID_DATA,
+		"Invalid Provider options must be rejected."
+	)
+	assert_true(
+		invalid_config_backend.initialize({
+			"provider": config_provider,
+			"max_payload_bytes": (
+				ProjectStorageBackend.ABSOLUTE_MAX_PAYLOAD_BYTES + 1
+			),
+		}) == ERR_INVALID_PARAMETER,
+		"An excessive payload budget must be rejected."
+	)
+	assert_true(
+		invalid_config_backend.initialize({
+			"provider": config_provider,
+			"max_payload_bytes": 64.0,
+		}) == ERR_INVALID_PARAMETER,
+		"A non-integer payload budget must be rejected."
+	)
+	invalid_config_backend.shutdown()
+
+
+func run_enforces_write_read_and_list_budgets() -> void:
+	assert_true(
+		_initialize_backend({
+			"max_payload_bytes": 256,
+			"max_list_items": 1,
+			"max_list_bytes": 512,
+			"max_graph_nodes": 128,
+			"max_string_bytes": 128,
+		}) == OK,
+		"The budget fixture must initialize."
+	)
+	assert_true(
+		_backend.save_data(
+			"oversized.json",
+			{"value": "x".repeat(128)}
+		) == ERR_OUT_OF_MEMORY,
+		"An oversized public payload must fail before Provider write."
+	)
+	assert_true(
+		_backend.save_data(
+			"oversized-string.json",
+			{"value": "x".repeat(129)}
+		) == ERR_OUT_OF_MEMORY,
+		"An oversized public String must fail before Provider write."
+	)
+	var initial_write_attempts: Variant = _fault_driver.get_observation(
+		ProjectStorageProviderFaultDriver
+		.OBSERVATION_WRITE_ATTEMPTS
+	)
+	assert_true(
+		initial_write_attempts is int and initial_write_attempts == 0,
+		"Rejected public writes must not reach the Provider."
+	)
+
+	assert_true(
+		_backend.save_data("first.json", {"value": 1}) == OK,
+		"The first bounded fixture must be saved."
+	)
+	assert_true(
+		_backend.save_data("second.json", {"value": 2}) == OK,
+		"The second bounded fixture must be saved."
+	)
+	var first_result: Dictionary = _backend.load_data("first.json")
+	assert_true(_get_bool(first_result, "ok"))
+	var read_limits_value: Variant = _fault_driver.get_observation(
+		ProjectStorageProviderFaultDriver.OBSERVATION_LAST_READ_LIMITS
+	)
+	assert_true(read_limits_value is Dictionary)
+	if read_limits_value is Dictionary:
+		var read_limits: Dictionary = read_limits_value
+		assert_true(
+			read_limits["max_payload_bytes"] == 256,
+			"The Provider must receive the configured read byte budget."
+		)
+		assert_true(
+			read_limits["max_graph_nodes"] == 128,
+			"The Provider must receive the configured read node budget."
+		)
+
+	assert_true(_backend.list_data().is_empty())
+	var list_limits_value: Variant = _fault_driver.get_observation(
+		ProjectStorageProviderFaultDriver.OBSERVATION_LAST_LIST_LIMITS
+	)
+	assert_true(list_limits_value is Dictionary)
+	if list_limits_value is Dictionary:
+		var list_limits: Dictionary = list_limits_value
+		assert_true(
+			list_limits["max_items"] == 1,
+			"The Provider must receive the configured list item budget."
+		)
+		assert_true(
+			list_limits["max_list_bytes"] == 512,
+			"The Provider must receive the configured list byte budget."
+		)
+
+
+func run_atomic_faults_and_opaque_revision_conditions_preserve_state() -> void:
+	assert_true(
+		_initialize_backend() == OK,
+		"The atomic-write fixture must initialize."
+	)
+	assert_true(
+		_backend.save_data("slot.json", {"score": 10}) == OK,
+		"The initial atomic-write fixture must be saved."
+	)
+	var first_revision: String = _read_revision("slot.json")
+	assert_false(first_revision.is_empty())
+
+	assert_true(
+		_backend.save_data(
+			"slot.json",
+			{"score": 20},
+			{"write_options": {"create_if_absent": true}}
+		) == ERR_ALREADY_EXISTS,
+		"Create-if-absent must reject an existing record."
+	)
+	_assert_record("slot.json", 10, first_revision)
+
+	assert_true(
+		_backend.save_data(
+			"slot.json",
+			{"score": 30},
+			{"write_options": {"expected_revision": "stale-token"}}
+		) == ERR_ALREADY_IN_USE,
+		"A stale opaque revision must reject the write."
+	)
+	_assert_record("slot.json", 10, first_revision)
+
+	_require_fault(ProjectStorageProviderFaultDriver.FAULT_ATOMIC_COMMIT)
+	assert_true(
+		_backend.save_data(
+			"slot.json",
+			{"score": 40},
+			{
+				"write_options": {
+					"expected_revision": first_revision,
+				},
+			}
+		) == ERR_CANT_CREATE,
+		"An injected atomic commit fault must reject the write."
+	)
+	_assert_record("slot.json", 10, first_revision)
+
+	assert_true(
+		_backend.save_data(
+			"slot.json",
+			{"score": 50},
+			{
+				"write_options": {
+					"expected_revision": first_revision,
+				},
+			}
+		) == OK,
+		"A valid conditional write must commit."
+	)
+	var second_revision: String = _read_revision("slot.json")
+	assert_true(
+		not second_revision.is_empty()
+		and second_revision != first_revision,
+		"A successful conditional write must rotate the opaque revision."
+	)
+	_assert_record("slot.json", 50, second_revision)
+
+	assert_true(
+		_backend.save_data(
+			"new.json",
+			{"score": 1},
+			{"write_options": {"create_if_absent": true}}
+		) == OK,
+		"Create-if-absent must commit a new record."
+	)
+
+
+func run_normalizes_unknown_errors_and_redacts_malformed_results() -> void:
+	assert_true(
+		_initialize_backend() == OK,
+		"The error-normalization fixture must initialize."
+	)
+	_require_fault(
+		ProjectStorageProviderFaultDriver.FAULT_UNKNOWN_READ_ERROR
+	)
+	var unknown_error_result: Dictionary = _backend.load_data(
+		"unknown.json"
+	)
+	assert_false(_get_bool(unknown_error_result, "ok"))
+	assert_true(
+		unknown_error_result["error_code"] is int
+		and unknown_error_result["error_code"] == int(ERR_CANT_OPEN),
+		"An unknown Provider error must use the stable read fallback."
+	)
+	assert_true(
+		unknown_error_result["error"] is String
+		and unknown_error_result["error"]
+		== "Storage provider read failed.",
+		"An unknown Provider error must expose only stable Adapter text."
+	)
+
+	_require_fault(
+		ProjectStorageProviderFaultDriver.FAULT_FAILED_READ_WITH_OK
+	)
+	var failed_with_ok_result: Dictionary = _backend.load_data(
+		"failed-with-ok.json"
+	)
+	assert_false(_get_bool(failed_with_ok_result, "ok"))
+	assert_true(
+		failed_with_ok_result["error_code"] is int
+		and failed_with_ok_result["error_code"] == int(ERR_INVALID_DATA),
+		"A failed Provider read with OK must be rejected as malformed."
+	)
+	assert_true(
+		failed_with_ok_result["error"] is String
+		and failed_with_ok_result["error"]
+		== "Storage provider returned an invalid result.",
+		"A failed Provider read with OK must expose only stable Adapter text."
+	)
+
+	_require_fault(
+		ProjectStorageProviderFaultDriver.FAULT_MALFORMED_READ_RESULT
+	)
+	var malformed_result: Dictionary = _backend.load_data(
+		"malformed.json"
+	)
+	assert_false(_get_bool(malformed_result, "ok"))
+	assert_true(
+		malformed_result["error_code"] is int
+		and malformed_result["error_code"] == int(ERR_INVALID_DATA),
+		"A malformed Provider result must expose the stable invalid-data code."
+	)
+	var stable_error_value: Variant = malformed_result.get("error")
+	assert_true(
+		stable_error_value is String,
+		"A malformed Provider result must expose stable Adapter text."
+	)
+	var stable_error: String = (
+		stable_error_value if stable_error_value is String else ""
+	)
+	assert_false(
+		stable_error.contains("REDACTION_CANARY_DO_NOT_EMIT"),
+		"Provider redaction canaries must not cross the Adapter boundary."
+	)
+
+
+func run_defensive_copies_and_idempotent_shutdown() -> void:
+	assert_true(
+		_initialize_backend() == OK,
+		"The defensive-copy fixture must initialize."
+	)
+	var source_data: Dictionary = {
+		"nested": {"value": 1},
+	}
+	assert_true(
+		_backend.save_data("copy.json", source_data) == OK,
+		"The defensive-copy fixture must be saved."
+	)
+	var source_nested: Dictionary = source_data["nested"]
+	source_nested["value"] = 99
+
+	var first_load: Dictionary = _backend.load_data("copy.json")
+	var first_data: Dictionary = first_load["data"]
+	var first_nested: Dictionary = first_data["nested"]
+	assert_true(
+		first_nested.get("value") is int
+		and first_nested["value"] == 1,
+		"A loaded defensive copy must preserve the committed fixture."
+	)
+	first_nested["value"] = 50
+	_assert_record(
+		"copy.json",
+		1,
+		_read_revision("copy.json"),
+		"nested"
+	)
+
+	_backend.shutdown()
+	_backend.shutdown()
+	var shutdown_count_value: Variant = _fault_driver.get_observation(
+		ProjectStorageProviderFaultDriver
+		.OBSERVATION_SHUTDOWN_COUNT
+	)
+	assert_true(
+		shutdown_count_value is int and shutdown_count_value == 1,
+		"Repeated shutdown must reach the Provider exactly once."
+	)
+	assert_true(
+		_backend.save_data("after.json", {}) == ERR_UNAVAILABLE,
+		"A shut-down Backend must reject writes."
+	)
+	assert_false(_backend.has_data("copy.json"))
+
+
+# --- 可重写钩子 / 虚方法 ---
+
+func _create_provider_factory() -> ProjectStorageProviderFactory:
+	return null
+
+
+# --- 私有/辅助方法 ---
+
+func _initialize_backend(options: Dictionary = {}) -> Error:
+	assert_true(_backend != null, "The Backend fixture must exist.")
+	assert_true(_provider != null, "The Provider fixture must exist.")
+	assert_true(_factory != null, "The Provider factory fixture must exist.")
+	if _backend == null or _provider == null or _factory == null:
+		return ERR_UNAVAILABLE
+	var config: Dictionary = {
+		"provider": _provider,
+		"provider_options": _factory.get_provider_options(),
+		"key_prefix": _factory.get_key_prefix(),
+	}
+	config.merge(options, true)
+	return _backend.initialize(config)
+
+
+func _require_fault(fault_id: StringName) -> void:
+	assert_true(
+		_fault_driver != null,
+		"The Provider fault driver fixture must exist."
+	)
+	if _fault_driver == null:
+		return
+	assert_true(
+		_fault_driver.supports_fault(fault_id),
+		"The required Provider fault must be available."
+	)
+	assert_true(
+		_fault_driver.arm_fault(fault_id) == OK,
+		"The required Provider fault must arm successfully."
+	)
+
+
+func _read_revision(file_name: String) -> String:
+	var result: Dictionary = _backend.load_data(file_name)
+	assert_true(
+		_get_bool(result, "ok"),
+		"The revision fixture must load successfully."
+	)
+	var metadata_value: Variant = result.get("metadata")
+	assert_true(
+		metadata_value is Dictionary,
+		"A successful read must return bounded metadata."
+	)
+	if not metadata_value is Dictionary:
+		return ""
+	var metadata: Dictionary = metadata_value
+	var revision_value: Variant = metadata.get("revision")
+	assert_true(
+		revision_value is String,
+		"Conditional-write metadata must contain an opaque revision."
+	)
+	return revision_value if revision_value is String else ""
+
+
+func _assert_record(
+	file_name: String,
+	expected_value: int,
+	expected_revision: String,
+	nested_key: String = ""
+) -> void:
+	var result: Dictionary = _backend.load_data(file_name)
+	assert_true(
+		_get_bool(result, "ok"),
+		"The committed record must remain readable."
+	)
+	var data_value: Variant = result.get("data")
+	assert_true(
+		data_value is Dictionary,
+		"A successful read must return a bounded payload."
+	)
+	if not data_value is Dictionary:
+		return
+	var data: Dictionary = data_value
+	if nested_key.is_empty():
+		assert_true(
+			data.get("score") is int
+			and data["score"] == expected_value,
+			"The committed payload must preserve the authoritative value."
+		)
+	else:
+		var nested_value: Variant = data.get(nested_key)
+		assert_true(
+			nested_value is Dictionary,
+			"The committed payload must preserve the nested record."
+		)
+		if nested_value is Dictionary:
+			var nested: Dictionary = nested_value
+			assert_true(
+				nested.get("value") is int
+				and nested["value"] == expected_value,
+				"The nested payload must preserve the authoritative value."
+			)
+	var metadata_value: Variant = result.get("metadata")
+	assert_true(
+		metadata_value is Dictionary,
+		"A successful read must return bounded metadata."
+	)
+	if not metadata_value is Dictionary:
+		return
+	var metadata: Dictionary = metadata_value
+	assert_true(
+		metadata.get("revision") is String
+		and metadata["revision"] == expected_revision,
+		"The committed record must preserve its opaque revision."
+	)
+
+
+func _assert_exact_keys(
+	values: Dictionary,
+	expected_keys: PackedStringArray
+) -> void:
+	assert_true(
+		values.size() == expected_keys.size(),
+		"The closed schema must contain the expected bounded key count."
+	)
+	for expected_key: String in expected_keys:
+		assert_true(
+			values.has(expected_key),
+			"The closed schema must contain every required key."
+		)
+
+
+func _get_bool(values: Dictionary, field_name: String) -> bool:
+	var value: Variant = values.get(field_name)
+	if not value is bool:
+		return false
+	var boolean_value: bool = value
+	return boolean_value
+
+
+func _unused_callback() -> void:
+	pass
+
+
+# --- 内部类 ---
+
+class MismatchedProtocolProvider extends ProjectStorageProvider:
+	func get_protocol_version() -> String:
+		return "2.0.0"
+
+
+class NonAtomicProvider extends ProjectStorageProvider:
+	func get_capabilities() -> Dictionary:
+		return {
+			"read": true,
+			"write": true,
+			"delete": true,
+			"list": true,
+			"atomic_write": false,
+			"conditional_write": true,
+			"cancellation": false,
+			"sync": false,
+		}

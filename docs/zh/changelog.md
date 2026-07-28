@@ -22,7 +22,7 @@
 
 ## [未发布]
 
-**版本概述**：开发线升级为 `10.0.0-dev.0`，补齐通用 2D 编辑器缩略图、运行时 2D Spatial Canvas、有序资产集合、显式 Live Asset Slot、内容包查询与运行时目录挂载、扩展级 Debugger 工具贡献、存储后端故障转移、版本化 Analytics Schema 与专用 Outbox Adapter、结构化 Settings 恢复、多目标属性事务、Shader 接口契约、惰性诊断采集、配方化运行时会话轨迹、UI 路由预加载规划、轨迹预测数学、有界权威快照同步协调和默认关闭的 Runtime Agent Environment，修正 AI Developer Kit 的项目级资源所有权表达，并更新 CI/Release 基础 Actions；业务策略仍保持在各自调用方边界内。
+**版本概述**：开发线升级为 `10.0.0-dev.0`，补齐通用 2D 编辑器缩略图、运行时 2D Spatial Canvas、有序资产集合、显式 Live Asset Slot、内容包查询与运行时目录挂载、扩展级 Debugger 工具贡献、存储后端故障转移、版本化 Analytics Schema 与专用 Outbox Adapter、结构化 Settings 恢复、多目标属性事务、Shader 接口契约、惰性诊断采集、配方化运行时会话轨迹、UI 路由预加载规划、轨迹预测数学、有界权威快照同步协调和默认关闭的 Runtime Agent Environment，并收紧网络接入、异步 ingress、ZIP 读取、多产物提交与发布凭据门禁；业务策略仍保持在各自调用方边界内。
 
 ### 🚀 新增特性 (Added)
 
@@ -56,6 +56,8 @@
 - 新增 `GFStorageAsyncOperation` 与 `GFStorageAsyncResult`，让并发调用方按唯一 request ID 观察单次读写终态；`GFStorageReadResult.FailureKind` 结构化区分非法请求、缺失、IO、损坏、未来格式、迁移失败和不可用。
 - AI Developer 项目契约新增可选 `architecture.owned_resources`，用于精确声明 `project.godot`、`export_presets.cfg` 等不属于业务模块的项目级治理文件。
 - AI Developer 工具协议新增只读迁移计划入口与目标绑定、原子 compare-and-swap 的交互式 CLI `contract-migrate`；非交互工具不暴露迁移写入，只支持经过显式定义的单步契约迁移。
+- 新增 `GFArtifactWriteTransaction`：编辑器和项目工具可以在显式 `allowed_roots`、数量、单文件、总字节与备份预算内预检文本、字节和既有临时文件，先完成整批 staging，再逐文件同目录替换；运行期失败时反向补偿已修改目标并报告任何不完整恢复，但不承诺进程终止或断电下的多文件 crash atomicity，也不解释产物格式、导入或发布业务。
+- AI Developer Kit 新增可执行 `GFStorageBackend` Adapter 验收模板，覆盖精确协议、能力声明、配置关闭、CRUD/list、revision compare-and-swap、原子失败保留旧值、负载预算、错误脱敏与幂等 shutdown；具体 Provider、认证、加密、远端重试和同步策略仍由项目实现。
 
 ### 🔄 机制更改 (Changed)
 
@@ -63,7 +65,13 @@
 - `GFResourceTableEditor.commit_cell_values()` 与 `commit_visible_cell_values()` 从“允许部分成功”收敛为事务式整批提交：所有行、属性和值先解析和预检；规范化后同值的条目成功但不调用 setter、不发变更信号，只有至少一项实际变化后才统一刷新和执行去重自动保存。空变更数组是 `committed` / `OK` 的全零计数成功恒等操作。
 - `GFGridOccupancy` 的 receiver 身份与 `GFSpatialQueryIdentity` 收敛到同一稳定契约，只接受 `Object`、非空 `StringName`、非空 `String` 或 `int`；重复占用或预约已持有的目标格继续返回成功，但公开信号只描述实际状态变化，不再作为逐请求回执。
 - `GFShaderParameterUtility` 默认按捕获的单份接口快照跳过错型参数；`GFShaderParameterProfile` 新增快照校验入口，`GFShaderParameterAction` 在材质复制、初值捕获和 Tween 创建前验证 uniform 存在性与目标值类型。Action Queue 因此显式依赖 `gf.standard.display`。
-- AI Developer Capability / Recipe 知识目录同步升级到 `1.6.0`，补齐可伸缩 UI 集合、渲染反馈编排、命令历史、有界运行时工作、网格路径发现与通用外部产物导出边界；新导出配方只组合缩略图、截图、矩形打包、产物报告和内容包计划，最终格式、认证、幂等、重试与写出仍归项目 Adapter。能力搜索统一标点、连字符和下划线，目录完整性检查新增包、类、Recipe 与类所属包依赖闭包的交叉复核。
+- AI Developer Capability / Recipe 知识目录同步升级到 `1.7.0`，补齐可伸缩 UI 集合、渲染反馈编排、命令历史、有界运行时工作、网格路径发现、通用外部产物导出，以及“Asset Catalog 稳定 ID → Thumbnail → 类型化拖放 → Spatial Canvas placement → EditorCommand commit”的项目组合边界；画布只承载预览和放置意图，项目命令唯一提交权威状态，不新增业务运行时类型。能力搜索统一标点、连字符和下划线，目录完整性检查新增包、类、Recipe 与类所属包依赖闭包的交叉复核。
+- `GFWebSocketNetworkBackend` 的主机接入改为精确正容量：默认最多 32 个含握手中连接，`max_clients` / `max_peers` 只接受 `1..65_535` 的精确 int；每轮冻结并执行 accept、单 peer 包、全局包和服务 peer 四项不可关闭预算，先按公平游标服务现有 peer，再执行最多 16 次 take/accept/reject。入站/出站缓冲、排队包和 WebSocket 子协议也受公开绝对上限、精确类型及协议 token 校验约束；容量拒绝、握手失败、公平游标和预算用量进入调试快照，同步信号中的嵌套 `poll()` 为无副作用 no-op，不能重置当轮预算或重复派发生命周期信号。已经完全断开时，重复或生命周期信号中的重入 `disconnect_backend()` 同样不推进 session generation，也不重复发射断开信号。
+- 框架共享 ingress 原语统一采用有限默认容量、不可关闭的公开绝对上限与显式拒绝语义：`GFAsyncChannel` 默认缓存 256 项并可选择 reject/drop-oldest/drop-newest；`GFAsyncKeyedGate` 同时限制 active lease、总等待、单 key 等待、每 key 并发、tracked key 与单次推进工作量，以有限公平扫描、lease 对象身份校验和可嵌套生命周期通知关闭取消令牌丢失唤醒、同步观察者旧状态及重入抢占窗口；主线程 Dispatch 与 Deferred Mutation 队列分别默认限制 1024/4096 项，单次消费使用一次性入口快照和线性合并，重入提交留到下一轮，句柄在实例生命周期内不复用，时间预算明确为非抢占式软限制；高水位、拒绝和丢弃计数均可观测，不再依赖调用方碰巧保持队列或单次主线程工作有限。
+- `GFAsyncCompletion` 的状态访问、终态提交和取消 token 绑定统一收敛为主线程契约：worker mutator fail closed 且不读取既有状态，worker getter 返回保守 INVALID/空值，意外来自 worker 的 token 回调只排入一次主线程 deferred 并延后读取 metadata；`GFAsyncFlowTools` 不再把非主线程终态信号隐式转发进 bounded channel。
+- Package Manager、offline bundle 与 Config Pipeline 的 XLSX 读取共用有界 ZIP 支持：先把来源复制到按进程隔离且具进程内预留字节硬预算的受控快照根，再在任何 entry 读取前验证 archive、entry 数量、中央目录、单项压缩/解压字节、总声明解压字节、压缩比、ASCII portable 路径、文件/目录前缀冲突、central/local header、data descriptor 与数据区间；只有全量结构及非重叠区间验证通过后才绑定压缩数据 SHA-256，唯一 compressed range 的累计工作不超过 archive 自身字节预算，重复或重叠布局不会触发重复哈希。opaque one-shot session 绑定创建它的单一线程，允许 Package Manager 编辑器 worker 在该线程完成 O(1) 条目读取与清理，同时拒绝跨线程查询、读取或关闭；共享会话登记、快照容量和 cleanup 状态由 Mutex 保护。累计实际读取仍受 session 总预算约束并复核实际长度和 CRC32；Config Pipeline 的负数 XLSX 文件预算会在 ZIP 边界收敛到框架绝对硬上限。cleanup 只处理当前进程以 owner marker 和 size/SHA-256 登记的快照，不自动删除其他进程遗留目录，也不宣称跨进程全局配额；ZIP64、多磁盘、加密、不支持算法、快照漂移和 cleanup 失败均失败关闭。
+- Config Pipeline 与 Raw Resource Artifact 的多文件写入统一委托 `GFArtifactWriteTransaction`；提交前必须给出显式目标根，候选全部预检和 staging 后才替换目标，无变化批次是零写入成功，目标在预检后漂移、目录碰撞或恢复不完整都会返回结构化失败。回滚或清理的运行期失败会保留仅含未完成条目的 active state，并通过统一 `recovery_required` / `recovery_action` / `recovery_transaction` 契约锁定并重试同一终态；Config Pipeline 与 Raw Resource Artifact 会在各自顶层结果中保留恢复动作和 opaque 句柄。Raw Resource Artifact 未显式给出文件名时使用由资源类型生成的有界 ASCII portable leaf；显式 Unicode、保留名或超过 255 UTF-8 bytes 的 leaf 会在写入前失败。
+- 维护流程新增高置信凭据门禁：源码模式只扫描当前仓库 Git tracked 文件，发布模式只扫描 manifest 和其中声明且哈希绑定的发布包；两种模式都采用受限文本/ZIP 读取、固定工作预算和脱敏位置报告，不遍历 untracked 文件、父目录或用户工作区，也不输出命中值、片段或内容哈希。
 - TurnBased 使用指南明确 `GFTurnAction` 只调度一次性行动请求、项目自有 `GFUndoableCommand` 唯一修改或恢复权威状态、`GFActionQueueSystem` 只编排提交后的视觉与音频表现；三者由项目 Coordinator/Installer 按需组合，不新增跨扩展耦合类型，也不把反向 Tween 当作撤销事实源。
 - Architecture assignment、Installer、动态模块注册/替换和 `GFNodeContext` 安装统一采用 generation/scope 驱动的 prepare / commit / rollback 事务；候选未提交前不会通过全局 facade 暴露，旧异步 continuation 和生命周期回调重入不能覆盖最新状态。
 - `GFBindableProperty` 的集合 helper 现在发出独立的修改前/后快照，`mutate()` 统一采用“回调返回完整 replacement”的标量/集合契约；失效且未曾入树的 Node binding 会在下一次发射时剪枝。
@@ -153,6 +161,10 @@
 
 ### 🔧 API 变动说明 (API Changes)
 
+- 新增公开类型 `GFArtifactWriteTransaction`，提供 `make_text_entry()`、`make_bytes_entry()`、`make_file_entry()`、`get_preflight_report()`、`commit()`，以及供既有 writer 纳入同一事务的 `begin()` / `rollback()` / `complete()`；所有目标都必须位于调用方显式提供的非空 `allowed_roots`，均标记为 `@since unreleased`。
+- `GFAsyncChannel` 新增 `configure_ingress()`、`try_write_detailed()`、容量/策略查询和 reject/drop 状态常量；默认 `max_buffered_items = 256`。`GFAsyncKeyedGate` 新增 `max_active_leases`、`max_waiting_requests`、`max_waiting_per_key`、`max_tracked_keys`；`GFMainThreadDispatchQueue` 与 `GFDeferredMutationQueue` 新增 `max_pending_callbacks` / `max_pending_mutations`，满载时返回无效 handle，不静默接收无界工作。所有容量新增公开绝对上限常量；`GFAsyncFlowTools.wait_all_completions_async()` 与 `wait_any_completion_async()` 的 options 新增默认 256、绝对最多 4096 的 `max_completions`。
+- `GFAsyncCompletion.Status` 新增 `INVALID`，作为非主线程 getter 的稳定保守结果；`succeed()`、`fail()`、`cancel()`、`bind_cancel_token()` 和全部状态 getter 现在都具有严格主线程契约。`GFAsyncFlowTools.wait_all_completions_async()` / `wait_any_completion_async()` 同样只允许在主线程组合完成源。
+- `GFWebSocketNetworkBackend.host()` 的 options 新增首选 `max_clients`，既有 `max_peers` 只作为同义输入；两者只接受 `1..ABSOLUTE_MAX_CLIENTS` 的精确 int。新增 `max_accepts_per_poll` 与 `max_packets_per_peer_per_poll` 公共属性和对应默认/绝对上限常量，赋值统一钳制为 `1..4096`，不提供无界兼容值。
 - 新增公开类型 `GFSettingsLoadResult`、`GFSettingsRecoveryPolicy`、`GFEditorPropertyBatchCommand` 和 `GFShaderInterfaceSnapshot`；新增 API 均标记为 `@since unreleased`。
 - `GFSettingsUtility.load_settings(file_name)` 从返回 `Dictionary` 改为 `load_settings(file_name, recovery_policy) -> GFSettingsLoadResult`；`settings_loaded(data)` 被 `settings_load_completed(result)` 取代，新增 `get_last_load_result()`，受保护 `_read_persisted_data()` 的返回类型从 `Dictionary` 改为 `GFStorageReadResult`。本开发线不保留双轨兼容。
 - `GFObjectPropertyTools` 新增 framework-internal 的零写入 prepare 入口，`GFEditorCommand` 新增受保护配置封存入口；`GFResourceTableEditor` 批量提交报告新增事务状态、回滚状态和可选恢复命令。空批次返回 `committed` / `OK` 的全零计数成功报告；规范化后同值的单格或批量条目不再作为 setter、`cell_value_committed`、自动保存或刷新触发器。
@@ -199,6 +211,9 @@
 
 ### 📘 升级指南 (Migration Guide)
 
+- 依赖无界通道、keyed wait、主线程回调、延迟变更或 WebSocket accept/packet drain 的调用方，应依据峰值和服务时间设置有限容量与单轮工作预算，处理 `rejected` / `dropped` 或无效 handle，并从调试快照观测高水位；不要通过循环重试把显式 backpressure 重新变成无界内存增长。跨线程生产者只能把通道写入调度回主线程，通道容量只约束 item 数量，业务 payload 的类型和字节预算仍由调用方协议负责。
+- 后台线程不得直接读写或绑定 `GFAsyncCompletion`；旧代码应把纯结果交给 `GFMainThreadDispatchQueue.post()`，在显式主线程 `dispatch()` 回调内调用 `succeed()` / `fail()` / `cancel()`，再由主线程调用 `GFAsyncFlowTools` 组合等待。非主线程 mutator 现在返回 `false`，getter 返回 `Status.INVALID` 或空值，不保留此前隐式 worker signal 转发兼容路径。
+- 编辑器多文件生成器应把目标根、产物数量、单文件、总字节和备份预算显式交给 `GFArtifactWriteTransaction`，并只在 `ok` 的 committed 结果后刷新导入或权威编辑器状态。目标组件必须采用 ASCII portable 命名；若失败报告给出 `recovery_required`，必须按稳定 `recovery_action` 把 `recovery_transaction` 原样交给同一终态动作，不能从已归一化的错误状态猜测动作，也不能重新开始事务掩盖剩余恢复工作。Config Pipeline 与 Raw Resource Artifact 调用方从各自顶层结果读取同一恢复字段。依赖 Config Pipeline 或 Raw Resource Artifact 直接逐文件写入、允许部分提交、在预检后外部改写目标，或把目录当文件覆盖的流程不再兼容。
 - Settings 调用方应把 `Dictionary` 接收值改为 `GFSettingsLoadResult`，先检查 `is_successful()` / `get_status()`，再通过 Utility 读取当前值；监听器迁移到 `settings_load_completed`，自定义读取子类返回 `GFStorageReadResult`。依赖“文件缺失或损坏自动当作空设置”的项目必须显式配置 `GFSettingsRecoveryPolicy`，并在接受恢复结果后另行决定是否保存。
 - 依赖 `GFResourceTableEditor` 批量接口“有效项先提交、无效项单独报错”的工具应改为一次只提交可共同成功或共同失败的变更；收到 `recovery_required` 时先修复 setter 可写条件并调用返回命令的 `recover()`，不要在属性事务完成前保存资源。依赖等值提交触发 setter、通知、持久化或刷新副作用的工具应改用自己的显式项目流程；`10.0.0` 开发线不保留强制等值提交兼容入口。
 - Shader Profile 中 int/float 混用、错误资源类或未知 uniform 现在默认被跳过并报告 warning；项目应把参数改为 Shader 反射声明的精确 Variant 类型。需要 CI 漂移门禁时保存 `GFShaderInterfaceSnapshot` 基线并检查 `validate_shader()` / `validate_against()` 报告，不要从 shader 源码文本自行推断接口。
@@ -254,6 +269,8 @@
 - `docs/zh/editor/non-destructive-live-preview.md`
 - `docs/zh/standard/input-flow/input-assist/virtual-recording-remap/shared-keyboard-local-multiplayer.md`
 - `addons/gf/kernel/core/gf_weak_method_invocation.gd`
+- `addons/gf/kernel/core/gf_async_completion.gd`
+- `addons/gf/standard/common/gf_async_flow_tools.gd`
 - `addons/gf/standard/common/gf_main_thread_dispatch_queue.gd`
 - `addons/gf/standard/common/gf_deferred_mutation_queue.gd`
 - `docs/zh/standard/utilities/runtime/time-signal-pool/async-primitives.md`

@@ -1,0 +1,80 @@
+## Project-owned Provider boundary used by ProjectStorageBackend.
+##
+## Replace this class with one narrow Adapter over the real SDK. Default
+## methods are deliberately unavailable so an empty Provider cannot pass
+## conformance. Read and list receive hard limits which the Provider must
+## enforce before downloading, decoding, or allocating a result.
+class_name ProjectStorageProvider
+extends RefCounted
+
+
+# --- 常量 ---
+
+const PROTOCOL_VERSION: String = "1.0.0"
+
+
+# --- 公共方法 ---
+
+func initialize(_options: Dictionary = {}) -> Error:
+	return ERR_UNAVAILABLE
+
+
+func shutdown() -> void:
+	pass
+
+
+func get_protocol_version() -> String:
+	return PROTOCOL_VERSION
+
+
+func get_capabilities() -> Dictionary:
+	return {
+		"read": false,
+		"write": false,
+		"delete": false,
+		"list": false,
+		"atomic_write": false,
+		"conditional_write": false,
+		"cancellation": false,
+		"sync": false,
+	}
+
+
+func has_record(_storage_key: String) -> bool:
+	return false
+
+
+func read_record(
+	_storage_key: String,
+	_read_limits: Dictionary
+) -> Dictionary:
+	return {
+		"ok": false,
+		"data": {},
+		"metadata": {},
+		"error_code": int(ERR_UNAVAILABLE),
+	}
+
+
+func write_record_atomic(
+	_storage_key: String,
+	_data: Dictionary,
+	_metadata: Dictionary,
+	_write_options: Dictionary
+) -> Error:
+	return ERR_UNAVAILABLE
+
+
+func delete_record(_storage_key: String) -> Error:
+	return ERR_UNAVAILABLE
+
+
+func list_records(
+	_storage_prefix: String,
+	_list_limits: Dictionary
+) -> Dictionary:
+	return {
+		"ok": false,
+		"records": [],
+		"error_code": int(ERR_UNAVAILABLE),
+	}

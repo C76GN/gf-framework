@@ -136,7 +136,7 @@ var report := artifact.materialize_temp({
 })
 ```
 
-物化默认只允许写入 `user://`。需要写入 `res://` 的编辑器或构建工具必须显式传 `allow_res_path = true`，这样路径副作用不会在普通运行时被隐式打开。
+物化默认只允许写入 `user://`。需要写入 `res://` 的编辑器或构建工具必须显式传 `allow_res_path = true`，这样路径副作用不会在普通运行时被隐式打开。`materialize_temp()` 的 `file_name` 是严格 ASCII portable leaf；空名、`.`、`..`、路径分隔符、控制字符、Windows 保留字符或设备名会在 `path_join` 前以 `invalid_file_name` 失败，不会被静默改写成另一个文件名。写入复用有界产物事务；若报告中的 `recovery_required = true`，调用方必须保留 `recovery_transaction`，并原样交给 `GFArtifactWriteTransaction.rollback()` 或 `complete()` 终结事务，不能把它当作普通 `write_failed` 丢弃。
 
 ## 导入计划
 

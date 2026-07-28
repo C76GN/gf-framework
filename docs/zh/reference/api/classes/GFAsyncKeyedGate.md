@@ -9,7 +9,7 @@
 - 类别：运行时句柄 (`runtime_handle`)
 - 首次版本：`7.0.0`
 
-按 key 仲裁异步并发槽位。 用于把“同一个资源、槽位、存档、玩家或编辑器目标”的异步操作限制在可控并发内。 gate 只负责排队、发放租约、释放后推进队列，以及记录取消/超时诊断； 不创建线程、不执行任务，也不解释 key 的业务含义。
+按 key 仲裁异步并发槽位。 用于把“同一个资源、槽位、存档、玩家或编辑器目标”的异步操作限制在可控并发内。 gate 只负责排队、发放租约、释放后推进队列，以及记录取消/超时诊断； 全局槽位按稳定 key 游标轮转，持续繁忙的 key 不会永久阻塞其它 key； 不创建线程、不执行任务，也不解释 key 的业务含义。全部入口只允许在主线程调用； 跨线程请求应先通过 GFMainThreadDispatchQueue 回到主线程。
 
 ## 成员概览
 
@@ -26,10 +26,32 @@
 | 常量 | [`STATUS_CANCELLED`](#member-gfasynckeyedgate-constants-status_cancelled) | `const STATUS_CANCELLED: StringName = &"cancelled"` |
 | 常量 | [`STATUS_TIMEOUT`](#member-gfasynckeyedgate-constants-status_timeout) | `const STATUS_TIMEOUT: StringName = &"timeout"` |
 | 常量 | [`STATUS_INVALID`](#member-gfasynckeyedgate-constants-status_invalid) | `const STATUS_INVALID: StringName = &"invalid"` |
+| 常量 | [`STATUS_REJECTED`](#member-gfasynckeyedgate-constants-status_rejected) | `const STATUS_REJECTED: StringName = &"rejected"` |
 | 常量 | [`DEFAULT_MAX_CONCURRENCY`](#member-gfasynckeyedgate-constants-default_max_concurrency) | `const DEFAULT_MAX_CONCURRENCY: int = 1` |
+| 常量 | [`ABSOLUTE_MAX_CONCURRENCY`](#member-gfasynckeyedgate-constants-absolute_max_concurrency) | `const ABSOLUTE_MAX_CONCURRENCY: int = 4096` |
 | 常量 | [`DEFAULT_MAX_RECENT_EVENTS`](#member-gfasynckeyedgate-constants-default_max_recent_events) | `const DEFAULT_MAX_RECENT_EVENTS: int = 64` |
-| 属性 | [`default_max_concurrency`](#member-gfasynckeyedgate-properties-default_max_concurrency) | `var default_max_concurrency: int = DEFAULT_MAX_CONCURRENCY:` |
-| 属性 | [`max_recent_events`](#member-gfasynckeyedgate-properties-max_recent_events) | `var max_recent_events: int = DEFAULT_MAX_RECENT_EVENTS:` |
+| 常量 | [`ABSOLUTE_MAX_RECENT_EVENTS`](#member-gfasynckeyedgate-constants-absolute_max_recent_events) | `const ABSOLUTE_MAX_RECENT_EVENTS: int = 4096` |
+| 常量 | [`DEFAULT_MAX_ACTIVE_LEASES`](#member-gfasynckeyedgate-constants-default_max_active_leases) | `const DEFAULT_MAX_ACTIVE_LEASES: int = 4096` |
+| 常量 | [`ABSOLUTE_MAX_ACTIVE_LEASES`](#member-gfasynckeyedgate-constants-absolute_max_active_leases) | `const ABSOLUTE_MAX_ACTIVE_LEASES: int = 65_536` |
+| 常量 | [`DEFAULT_MAX_WAITING_REQUESTS`](#member-gfasynckeyedgate-constants-default_max_waiting_requests) | `const DEFAULT_MAX_WAITING_REQUESTS: int = 1024` |
+| 常量 | [`ABSOLUTE_MAX_WAITING_REQUESTS`](#member-gfasynckeyedgate-constants-absolute_max_waiting_requests) | `const ABSOLUTE_MAX_WAITING_REQUESTS: int = 65_536` |
+| 常量 | [`DEFAULT_MAX_WAITING_PER_KEY`](#member-gfasynckeyedgate-constants-default_max_waiting_per_key) | `const DEFAULT_MAX_WAITING_PER_KEY: int = 64` |
+| 常量 | [`ABSOLUTE_MAX_WAITING_PER_KEY`](#member-gfasynckeyedgate-constants-absolute_max_waiting_per_key) | `const ABSOLUTE_MAX_WAITING_PER_KEY: int = 4096` |
+| 常量 | [`DEFAULT_MAX_TRACKED_KEYS`](#member-gfasynckeyedgate-constants-default_max_tracked_keys) | `const DEFAULT_MAX_TRACKED_KEYS: int = 256` |
+| 常量 | [`ABSOLUTE_MAX_TRACKED_KEYS`](#member-gfasynckeyedgate-constants-absolute_max_tracked_keys) | `const ABSOLUTE_MAX_TRACKED_KEYS: int = 16_384` |
+| 常量 | [`DEFAULT_MAX_PUMP_WORK_ITEMS`](#member-gfasynckeyedgate-constants-default_max_pump_work_items) | `const DEFAULT_MAX_PUMP_WORK_ITEMS: int = 256` |
+| 常量 | [`ABSOLUTE_MAX_PUMP_WORK_ITEMS`](#member-gfasynckeyedgate-constants-absolute_max_pump_work_items) | `const ABSOLUTE_MAX_PUMP_WORK_ITEMS: int = 4096` |
+| 常量 | [`REASON_MAX_WAITING_REQUESTS`](#member-gfasynckeyedgate-constants-reason_max_waiting_requests) | `const REASON_MAX_WAITING_REQUESTS: StringName = &"max_waiting_requests"` |
+| 常量 | [`REASON_MAX_WAITING_PER_KEY`](#member-gfasynckeyedgate-constants-reason_max_waiting_per_key) | `const REASON_MAX_WAITING_PER_KEY: StringName = &"max_waiting_per_key"` |
+| 常量 | [`REASON_MAX_TRACKED_KEYS`](#member-gfasynckeyedgate-constants-reason_max_tracked_keys) | `const REASON_MAX_TRACKED_KEYS: StringName = &"max_tracked_keys"` |
+| 常量 | [`REASON_CANCEL_TOKEN_CONNECT_FAILED`](#member-gfasynckeyedgate-constants-reason_cancel_token_connect_failed) | `const REASON_CANCEL_TOKEN_CONNECT_FAILED: StringName = &"cancel_token_connect_failed"` |
+| 属性 | [`default_max_concurrency`](#member-gfasynckeyedgate-properties-default_max_concurrency) | `var default_max_concurrency: int:` |
+| 属性 | [`max_recent_events`](#member-gfasynckeyedgate-properties-max_recent_events) | `var max_recent_events: int:` |
+| 属性 | [`max_active_leases`](#member-gfasynckeyedgate-properties-max_active_leases) | `var max_active_leases: int:` |
+| 属性 | [`max_waiting_requests`](#member-gfasynckeyedgate-properties-max_waiting_requests) | `var max_waiting_requests: int:` |
+| 属性 | [`max_waiting_per_key`](#member-gfasynckeyedgate-properties-max_waiting_per_key) | `var max_waiting_per_key: int:` |
+| 属性 | [`max_tracked_keys`](#member-gfasynckeyedgate-properties-max_tracked_keys) | `var max_tracked_keys: int:` |
+| 属性 | [`max_pump_work_items`](#member-gfasynckeyedgate-properties-max_pump_work_items) | `var max_pump_work_items: int:` |
 | 方法 | [`request_lease`](#member-gfasynckeyedgate-methods-request_lease) | `func request_lease(key: Variant, options: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`wait_for_lease_async`](#member-gfasynckeyedgate-methods-wait_for_lease_async) | `func wait_for_lease_async(key: Variant, options: Dictionary = {}) -> GFAsyncGateLease:` |
 | 方法 | [`release_lease`](#member-gfasynckeyedgate-methods-release_lease) | `func release_lease(lease: GFAsyncGateLease, reason: StringName = &"manual") -> bool:` |
@@ -246,6 +268,19 @@ const STATUS_INVALID: StringName = &"invalid"
 
 请求无效。
 
+<a id="member-gfasynckeyedgate-constants-status_rejected"></a>
+
+### `STATUS_REJECTED`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+const STATUS_REJECTED: StringName = &"rejected"
+```
+
+请求因等待队列或 key 容量耗尽而被拒绝。
+
 <a id="member-gfasynckeyedgate-constants-default_max_concurrency"></a>
 
 ### `DEFAULT_MAX_CONCURRENCY`
@@ -258,6 +293,19 @@ const DEFAULT_MAX_CONCURRENCY: int = 1
 ```
 
 默认每个 key 的并发槽位数。
+
+<a id="member-gfasynckeyedgate-constants-absolute_max_concurrency"></a>
+
+### `ABSOLUTE_MAX_CONCURRENCY`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+const ABSOLUTE_MAX_CONCURRENCY: int = 4096
+```
+
+每个 key 最多允许配置的并发槽位数。
 
 <a id="member-gfasynckeyedgate-constants-default_max_recent_events"></a>
 
@@ -272,6 +320,201 @@ const DEFAULT_MAX_RECENT_EVENTS: int = 64
 
 默认保留的最近事件数量。
 
+<a id="member-gfasynckeyedgate-constants-absolute_max_recent_events"></a>
+
+### `ABSOLUTE_MAX_RECENT_EVENTS`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+const ABSOLUTE_MAX_RECENT_EVENTS: int = 4096
+```
+
+最近事件历史的绝对数量上限。
+
+<a id="member-gfasynckeyedgate-constants-default_max_active_leases"></a>
+
+### `DEFAULT_MAX_ACTIVE_LEASES`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+const DEFAULT_MAX_ACTIVE_LEASES: int = 4096
+```
+
+默认最多同时持有的 lease 总数。
+
+<a id="member-gfasynckeyedgate-constants-absolute_max_active_leases"></a>
+
+### `ABSOLUTE_MAX_ACTIVE_LEASES`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+const ABSOLUTE_MAX_ACTIVE_LEASES: int = 65_536
+```
+
+同时持有 lease 的绝对数量上限。
+
+<a id="member-gfasynckeyedgate-constants-default_max_waiting_requests"></a>
+
+### `DEFAULT_MAX_WAITING_REQUESTS`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+const DEFAULT_MAX_WAITING_REQUESTS: int = 1024
+```
+
+默认最多保留的等待请求总数。
+
+<a id="member-gfasynckeyedgate-constants-absolute_max_waiting_requests"></a>
+
+### `ABSOLUTE_MAX_WAITING_REQUESTS`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+const ABSOLUTE_MAX_WAITING_REQUESTS: int = 65_536
+```
+
+等待请求总数的绝对上限。
+
+<a id="member-gfasynckeyedgate-constants-default_max_waiting_per_key"></a>
+
+### `DEFAULT_MAX_WAITING_PER_KEY`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+const DEFAULT_MAX_WAITING_PER_KEY: int = 64
+```
+
+默认每个 key 最多保留的等待请求数。
+
+<a id="member-gfasynckeyedgate-constants-absolute_max_waiting_per_key"></a>
+
+### `ABSOLUTE_MAX_WAITING_PER_KEY`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+const ABSOLUTE_MAX_WAITING_PER_KEY: int = 4096
+```
+
+单 key 等待请求数的绝对上限。
+
+<a id="member-gfasynckeyedgate-constants-default_max_tracked_keys"></a>
+
+### `DEFAULT_MAX_TRACKED_KEYS`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+const DEFAULT_MAX_TRACKED_KEYS: int = 256
+```
+
+默认最多跟踪的活跃、等待或显式配置 key 数。
+
+<a id="member-gfasynckeyedgate-constants-absolute_max_tracked_keys"></a>
+
+### `ABSOLUTE_MAX_TRACKED_KEYS`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+const ABSOLUTE_MAX_TRACKED_KEYS: int = 16_384
+```
+
+tracked key 数量的绝对上限。
+
+<a id="member-gfasynckeyedgate-constants-default_max_pump_work_items"></a>
+
+### `DEFAULT_MAX_PUMP_WORK_ITEMS`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+const DEFAULT_MAX_PUMP_WORK_ITEMS: int = 256
+```
+
+默认每次队列推进最多处理的等待请求数量。
+
+<a id="member-gfasynckeyedgate-constants-absolute_max_pump_work_items"></a>
+
+### `ABSOLUTE_MAX_PUMP_WORK_ITEMS`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+const ABSOLUTE_MAX_PUMP_WORK_ITEMS: int = 4096
+```
+
+单次队列推进工作预算的绝对上限。
+
+<a id="member-gfasynckeyedgate-constants-reason_max_waiting_requests"></a>
+
+### `REASON_MAX_WAITING_REQUESTS`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+const REASON_MAX_WAITING_REQUESTS: StringName = &"max_waiting_requests"
+```
+
+等待请求总容量耗尽原因。
+
+<a id="member-gfasynckeyedgate-constants-reason_max_waiting_per_key"></a>
+
+### `REASON_MAX_WAITING_PER_KEY`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+const REASON_MAX_WAITING_PER_KEY: StringName = &"max_waiting_per_key"
+```
+
+单 key 等待容量耗尽原因。
+
+<a id="member-gfasynckeyedgate-constants-reason_max_tracked_keys"></a>
+
+### `REASON_MAX_TRACKED_KEYS`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+const REASON_MAX_TRACKED_KEYS: StringName = &"max_tracked_keys"
+```
+
+key 跟踪容量耗尽原因。
+
+<a id="member-gfasynckeyedgate-constants-reason_cancel_token_connect_failed"></a>
+
+### `REASON_CANCEL_TOKEN_CONNECT_FAILED`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+const REASON_CANCEL_TOKEN_CONNECT_FAILED: StringName = &"cancel_token_connect_failed"
+```
+
+取消令牌订阅建立失败原因。
+
 ## 属性
 
 <a id="member-gfasynckeyedgate-properties-default_max_concurrency"></a>
@@ -282,7 +525,7 @@ const DEFAULT_MAX_RECENT_EVENTS: int = 64
 - 首次版本：`7.0.0`
 
 ```gdscript
-var default_max_concurrency: int = DEFAULT_MAX_CONCURRENCY:
+var default_max_concurrency: int:
 ```
 
 未显式配置 key 时的最大并发槽位数。
@@ -295,10 +538,75 @@ var default_max_concurrency: int = DEFAULT_MAX_CONCURRENCY:
 - 首次版本：`7.0.0`
 
 ```gdscript
-var max_recent_events: int = DEFAULT_MAX_RECENT_EVENTS:
+var max_recent_events: int:
 ```
 
 最近事件历史上限。设置为 0 时不保留事件。
+
+<a id="member-gfasynckeyedgate-properties-max_active_leases"></a>
+
+### `max_active_leases`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+var max_active_leases: int:
+```
+
+最多同时持有的 lease 总数。降低容量不会撤销现有 lease。
+
+<a id="member-gfasynckeyedgate-properties-max_waiting_requests"></a>
+
+### `max_waiting_requests`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+var max_waiting_requests: int:
+```
+
+最多保留的等待请求总数。降低容量不会驱逐现有请求。
+
+<a id="member-gfasynckeyedgate-properties-max_waiting_per_key"></a>
+
+### `max_waiting_per_key`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+var max_waiting_per_key: int:
+```
+
+每个 key 最多保留的等待请求数。降低容量不会驱逐现有请求。
+
+<a id="member-gfasynckeyedgate-properties-max_tracked_keys"></a>
+
+### `max_tracked_keys`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+var max_tracked_keys: int:
+```
+
+最多跟踪的活跃、等待或显式配置 key 数。降低容量不会驱逐现有 key。
+
+<a id="member-gfasynckeyedgate-properties-max_pump_work_items"></a>
+
+### `max_pump_work_items`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+var max_pump_work_items: int:
+```
+
+每次队列推进最多处理的等待请求数量。 取消和超时请求也会消耗该预算，剩余可执行工作会延迟到后续主线程迭代。
 
 ## 方法
 
@@ -368,7 +676,7 @@ func wait_for_lease_async(key: Variant, options: Dictionary = {}) -> GFAsyncGate
 func release_lease(lease: GFAsyncGateLease, reason: StringName = &"manual") -> bool:
 ```
 
-释放一个租约。
+释放一个租约。 acquire/release 生命周期通知中的重入释放会延迟到最外层通知结束；通知期间的新请求 只能排队，随后与既有 waiter 一起由公平泵推进。
 
 参数：
 
@@ -652,4 +960,4 @@ func get_debug_snapshot() -> Dictionary:
 
 结构：
 
-- `return`: Dictionary，包含 queued_count、active_count、key_count、acquired_count、released_count、cancelled_count、timeout_count、keys 和 recent_events。
+- `return`: Dictionary，包含 queued_count、active_count、key_count、max_active_leases、等待、key 与推进预算配置、high_watermark、key_high_watermark、rejected_count、dropped_count、acquired_count、released_count、cancelled_count、timeout_count、keys 和 recent_events。

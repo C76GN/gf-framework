@@ -9,7 +9,7 @@
 - 类别：运行时句柄 (`runtime_handle`)
 - 首次版本：`7.0.0`
 
-一次性异步完成源。 用于把回调、Signal、后台任务或项目侧异步流程归一为 succeeded / failed / cancelled 终态。 它只保存结果状态，不调度任务，也不强制规定调用方如何重试或回滚。
+一次性异步完成源。 用于把回调、Signal 或项目侧异步流程归一为 succeeded / failed / cancelled 终态。 状态访问、终态提交和取消 token 绑定都只允许在主线程执行；后台生产者应先把 纯数据投递到框架主线程调度边界。它只保存结果状态，不调度任务，也不强制规定 调用方如何重试或回滚。
 
 ## 成员概览
 
@@ -149,6 +149,8 @@ enum Status {
 	FAILED,
 	## 已取消。
 	CANCELLED,
+	## 当前调用线程无权读取状态。
+	INVALID,
 }
 ```
 
@@ -176,7 +178,7 @@ func succeed(result: Variant = null, metadata: Dictionary = {}) -> bool:
 | `result` | 成功结果。 |
 | `metadata` | 终态元数据。 |
 
-返回：首次进入终态时返回 true。
+返回：主线程首次进入终态时返回 true；非主线程或已有终态时返回 false。
 
 结构：
 
@@ -203,7 +205,7 @@ func fail(error: String = "", metadata: Dictionary = {}) -> bool:
 | `error` | 失败说明。 |
 | `metadata` | 终态元数据。 |
 
-返回：首次进入终态时返回 true。
+返回：主线程首次进入终态时返回 true；非主线程或已有终态时返回 false。
 
 结构：
 
@@ -230,7 +232,7 @@ func cancel(reason: StringName = &"cancelled", metadata: Dictionary = {}, result
 | `metadata` | 终态元数据。 |
 | `result` | 可选取消结果。 |
 
-返回：首次进入终态时返回 true。
+返回：主线程首次进入终态时返回 true；非主线程或已有终态时返回 false。
 
 结构：
 
@@ -256,7 +258,7 @@ func bind_cancel_token(token: GFCancellationToken) -> bool:
 |---|---|
 | `token` | 取消 token。 |
 
-返回：成功绑定或 token 已经触发取消时返回 true。
+返回：主线程成功绑定或 token 已经触发取消时返回 true；非主线程返回 false。
 
 <a id="member-gfasynccompletion-methods-is_pending"></a>
 
@@ -271,7 +273,7 @@ func is_pending() -> bool:
 
 当前是否仍在等待。
 
-返回：等待中返回 true。
+返回：主线程读取到等待状态时返回 true；非主线程返回 false。
 
 <a id="member-gfasynccompletion-methods-is_completed"></a>
 
@@ -286,7 +288,7 @@ func is_completed() -> bool:
 
 当前是否已经进入任意终态。
 
-返回：已完成、失败或取消时返回 true。
+返回：主线程读取到任意终态时返回 true；非主线程返回 false。
 
 <a id="member-gfasynccompletion-methods-is_successful"></a>
 
@@ -301,7 +303,7 @@ func is_successful() -> bool:
 
 当前是否成功。
 
-返回：成功完成时返回 true。
+返回：主线程读取到成功终态时返回 true；非主线程返回 false。
 
 <a id="member-gfasynccompletion-methods-is_failed"></a>
 
@@ -316,7 +318,7 @@ func is_failed() -> bool:
 
 当前是否失败。
 
-返回：失败时返回 true。
+返回：主线程读取到失败终态时返回 true；非主线程返回 false。
 
 <a id="member-gfasynccompletion-methods-is_cancelled"></a>
 
@@ -331,7 +333,7 @@ func is_cancelled() -> bool:
 
 当前是否取消。
 
-返回：取消时返回 true。
+返回：主线程读取到取消终态时返回 true；非主线程返回 false。
 
 <a id="member-gfasynccompletion-methods-get_status"></a>
 
@@ -346,7 +348,7 @@ func get_status() -> Status:
 
 获取当前状态。
 
-返回：当前状态枚举值。
+返回：主线程返回当前状态；非主线程返回 Status.INVALID。
 
 <a id="member-gfasynccompletion-methods-get_result"></a>
 
@@ -361,7 +363,7 @@ func get_result() -> Variant:
 
 获取成功结果。
 
-返回：成功结果；未成功时为 null。
+返回：主线程返回成功结果；未成功或非主线程时为 null。
 
 结构：
 
@@ -380,7 +382,7 @@ func get_error() -> String:
 
 获取失败说明。
 
-返回：失败说明。
+返回：主线程返回失败说明；非主线程返回空字符串。
 
 <a id="member-gfasynccompletion-methods-get_cancel_reason"></a>
 
@@ -395,7 +397,7 @@ func get_cancel_reason() -> StringName:
 
 获取取消原因。
 
-返回：取消原因。
+返回：主线程返回取消原因；非主线程返回空 StringName。
 
 <a id="member-gfasynccompletion-methods-get_metadata"></a>
 
@@ -410,7 +412,7 @@ func get_metadata() -> Dictionary:
 
 获取终态元数据副本。
 
-返回：元数据副本。
+返回：主线程返回元数据副本；非主线程返回空 Dictionary。
 
 结构：
 
@@ -429,8 +431,8 @@ func get_debug_snapshot() -> Dictionary:
 
 获取完成源状态快照。
 
-返回：状态快照。
+返回：主线程返回完整状态快照；非主线程只返回 Status.INVALID 标记。
 
 结构：
 
-- `return`: Dictionary，包含 status、status_name、completed、successful、failed、cancelled、result、error、cancel_reason、metadata、created_msec、completed_msec 和 duration_msec。
+- `return`: Dictionary，主线程包含 status、status_name、completed、successful、failed、cancelled、result、error、cancel_reason、metadata、created_msec、completed_msec 和 duration_msec；非主线程只包含 status 和 status_name。

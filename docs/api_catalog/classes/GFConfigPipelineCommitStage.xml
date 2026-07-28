@@ -1,8 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFConfigPipelineCommitStage" path="addons/gf/tools/config_pipeline/gf_config_pipeline_commit_stage.gd" module="tools" extends="RefCounted" classDigest="ac5ed5152ef77c9f833bfa6cf4a8c3d4746d72fa7a94a12b296de787c35b3c0a">
+<class name="GFConfigPipelineCommitStage" path="addons/gf/tools/config_pipeline/gf_config_pipeline_commit_stage.gd" module="tools" extends="RefCounted" classDigest="771d363292e1cbb75ef2c09446fbc72182405c8d372436015d6e85ce29146053">
 	<description>GFConfigPipelineCommitStage: Config Pipeline 的文件提交事务阶段。
-在目标写入前捕获路径状态，并负责成功提交后的快照清理或失败后的逆序回滚。
-该阶段不解释产物内容，也不决定输出路径策略。</description>
+将 Config Pipeline 的 ResourceSaver 等专用写入器接到框架级
+GFArtifactWriteTransaction。该阶段不复制事务实现、不解释产物内容，
+也不决定输出路径策略。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">tool_api</tag>
@@ -20,7 +21,7 @@
 			</tags>
 		</member>
 		<member kind="const" name="IMPLEMENTATION_VERSION">
-			<signature>const IMPLEMENTATION_VERSION: int = 1</signature>
+			<signature>const IMPLEMENTATION_VERSION: int = 3</signature>
 			<description>Commit 阶段的实现版本；改变事务或回滚语义时递增。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -31,13 +32,15 @@
 	<properties />
 	<methods>
 		<member kind="method" name="begin">
-			<signature>func begin(paths: PackedStringArray) -&gt; Dictionary:</signature>
+			<signature>func begin( paths: PackedStringArray, options: Dictionary = {} ) -&gt; Dictionary:</signature>
 			<description>捕获待写入路径的事务前状态。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">paths: 本次事务可能创建或覆盖的完整路径集合。</tag>
-				<tag name="return">提交事务。</tag>
-				<tag name="schema">return: Dictionary，包含 success、format、format_version、state、entries、error_kind 和 error。</tag>
+				<tag name="param">options: 框架级事务预算与允许根选项。</tag>
+				<tag name="return">只能原样交给 complete() 或 rollback() 的 GFArtifactWriteTransaction 事务。</tag>
+				<tag name="schema">options: Dictionary，必须包含非空 allowed_roots；可包含 max_file_count、max_backup_bytes 和 metadata。</tag>
+				<tag name="schema">return: Dictionary，符合 gf.artifact_write.transaction@1，包含 ok、format、format_version、state、entries、backup_bytes、issues 和 metadata。</tag>
 				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>
@@ -46,10 +49,10 @@
 			<description>逆序恢复事务前状态；已存在文件恢复快照，事务中新建文件被删除。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="param">transaction: begin() 返回且仍处于 open 状态的事务。</tag>
+				<tag name="param">transaction: begin() 返回且仍处于 open 状态的原始事务字典。</tag>
 				<tag name="return">回滚结果。</tag>
-				<tag name="schema">transaction: Dictionary，符合 gf.config_pipeline.commit_transaction@1。</tag>
-				<tag name="schema">return: Dictionary，包含 success、phase、restored_paths、failed_paths、issues、error_kind 和 error。</tag>
+				<tag name="schema">transaction: Dictionary，符合 gf.artifact_write.transaction@1。</tag>
+				<tag name="schema">return: Dictionary，包含 ok、status、restored_paths、failed_paths、issues、recovery_required、recovery_action 和 recovery_transaction。</tag>
 				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>
@@ -58,10 +61,10 @@
 			<description>完成事务并删除全部回滚快照。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="param">transaction: begin() 返回且仍处于 open 状态的事务。</tag>
+				<tag name="param">transaction: begin() 返回且仍处于 open 状态的原始事务字典。</tag>
 				<tag name="return">提交完成结果。</tag>
-				<tag name="schema">transaction: Dictionary，符合 gf.config_pipeline.commit_transaction@1。</tag>
-				<tag name="schema">return: Dictionary，包含 success、phase、restored_paths、failed_paths、issues、error_kind 和 error。</tag>
+				<tag name="schema">transaction: Dictionary，符合 gf.artifact_write.transaction@1。</tag>
+				<tag name="schema">return: Dictionary，包含 ok、status、restored_paths、failed_paths、issues、recovery_required、recovery_action 和 recovery_transaction。</tag>
 				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>

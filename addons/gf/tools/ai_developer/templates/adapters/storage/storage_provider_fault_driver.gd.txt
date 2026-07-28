@@ -1,0 +1,39 @@
+## Explicit test-only fault injection boundary for Provider conformance.
+##
+## A real Provider factory supplies a driver backed by a sandbox account,
+## emulator, test server, or SDK hook. Production Adapter code must not expose
+## this driver.
+class_name ProjectStorageProviderFaultDriver
+extends RefCounted
+
+
+# --- 常量 ---
+
+const FAULT_ATOMIC_COMMIT: StringName = &"atomic_commit"
+const FAULT_UNKNOWN_READ_ERROR: StringName = &"unknown_read_error"
+const FAULT_FAILED_READ_WITH_OK: StringName = &"failed_read_with_ok"
+const FAULT_MALFORMED_READ_RESULT: StringName = &"malformed_read_result"
+const FAULT_POST_INITIALIZE_CAPABILITY_DRIFT: StringName = (
+	&"post_initialize_capability_drift"
+)
+const OBSERVATION_WRITE_ATTEMPTS: StringName = &"write_attempts"
+const OBSERVATION_LAST_READ_LIMITS: StringName = &"last_read_limits"
+const OBSERVATION_LAST_LIST_LIMITS: StringName = &"last_list_limits"
+const OBSERVATION_SHUTDOWN_COUNT: StringName = &"shutdown_count"
+
+
+# --- 公共方法 ---
+
+func supports_fault(_fault_id: StringName) -> bool:
+	return false
+
+
+func arm_fault(
+	_fault_id: StringName,
+	_options: Dictionary = {}
+) -> Error:
+	return ERR_UNAVAILABLE
+
+
+func get_observation(_observation_id: StringName) -> Variant:
+	return null

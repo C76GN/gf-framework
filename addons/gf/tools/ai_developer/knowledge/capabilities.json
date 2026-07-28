@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "catalog_version": "1.6.0",
+  "catalog_version": "1.7.0",
   "capabilities": [
     {
       "id": "architecture",
@@ -29,7 +29,7 @@
       "keywords": ["asset", "resource", "load", "cache", "preload", "catalog", "content package", "dlc", "artifact export", "thumbnail", "screenshot", "atlas"],
       "packages": ["gf.standard.assets", "gf.extension.content_package"],
       "primary_classes": ["GFAssetUtility", "GFAssetHandle", "GFResourceResolverUtility", "GFAssetCatalogRuntime", "GFAssetCatalogMount", "GFContentPackageQuery", "GFContentPackageAssetCatalogProvider", "GFContentPackageExportPlan"],
-      "recipes": ["owned-resource-load", "content-package", "external-artifact-export"],
+      "recipes": ["owned-resource-load", "content-package", "external-artifact-export", "asset-catalog-spatial-placement"],
       "boundary": "Projects define content taxonomy, materialization, target adapters, and distribution policy; GF provides identity, lifecycle, plans, and diagnostics."
     },
     {
@@ -68,8 +68,8 @@
       "summary": "Abstract actions, contexts, modifiers, triggers, recording, conflict analysis, rebinding, touch, and drag/drop mechanisms.",
       "keywords": ["input", "action", "rebind", "controller", "touch", "drag", "drop", "gesture", "buffer"],
       "packages": ["gf.standard.input"],
-      "primary_classes": ["GFInputMappingUtility", "GFInputContext", "GFInputAction", "GFInputDetector", "GFInputConflictAnalyzer"],
-      "recipes": ["input-context"],
+      "primary_classes": ["GFInputMappingUtility", "GFInputContext", "GFInputAction", "GFInputDetector", "GFInputConflictAnalyzer", "GFDragDropUtility"],
+      "recipes": ["input-context", "asset-catalog-spatial-placement"],
       "boundary": "GF maps intent; projects define action names, UI, accessibility policy, and gameplay meaning."
     },
     {
@@ -225,7 +225,7 @@
       "keywords": ["spatial", "grid", "path", "grid path", "path preview", "grid path preview", "pathfinding", "canvas", "selection", "placement", "physics", "camera", "hitbox", "buoyancy", "2d", "3d"],
       "packages": ["gf.standard.spatial", "gf.standard.spatial.canvas", "gf.extension.physics", "gf.extension.camera", "gf.extension.combat"],
       "primary_classes": ["GFSpatialQueryIndex2D", "GFGridPathMath2D", "GFGraphPathSearchState", "GFSpatialCanvas2D", "GFBuoyancyField3D", "GFCameraOrbitRig3D", "GFHitBox2D"],
-      "recipes": ["spatial-policy"],
+      "recipes": ["spatial-policy", "asset-catalog-spatial-placement"],
       "boundary": "GFSpatialCanvas2D orchestrates view, selection, and placement operation records only; projects own TileMap or scene mutation, business legality, persistence, UGC, collision layers, world semantics, authority, and force application policy."
     },
     {

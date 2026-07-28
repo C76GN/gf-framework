@@ -108,6 +108,17 @@ if session_id > 0:
 
 校验拒绝、历史拒绝、失效回调、非法 `ok` 类型或回调重入都失败关闭，并保留活动预览供项目修正或取消。`cancel_placement()` 只结束 GF 会话并返回稳定报告，不释放项目内容。画布生成的操作记录是通用结构，不替代项目的撤销/重做系统、网络权限、资源消耗或最终模型提交。所有 options 字典只接受文档列出的字段与严格类型；未知或类型错误字段会原子拒绝，不会静默回退。
 
+## Asset Catalog 到编辑器命令的组合配方
+
+项目素材面板或关卡工具可以组合现有能力形成 `GFAssetCatalog` 稳定 ID → `GFThumbnailRenderer` 缩略图 → `GFDragDropUtility` 类型化拖放 → `GFSpatialCanvas2D` placement → `GFEditorCommandSession` 提交的制作流程，不需要新增业务化运行时类：
+
+1. 素材列表只把 `asset_id` 当作持久身份；资源路径、列表下标、已加载 Object 和缩略图节点都不是权威引用。缩略图只为有界可见项或当前选择生成，缓存键同时包含稳定 ID 和当前内容身份，工具关闭时取消任务并释放预览节点。
+2. 拖放使用项目命名空间下的单一 `drag_type`，payload 采用 closed schema，例如 `schema_version`、`asset_id`、`expected_type` 和 `catalog_revision`。落点必须从当前 Catalog 重新解析 ID，并拒绝缺失、过期、超预算或类型伪造的 payload，不能信任拖拽开始时携带的路径或对象。
+3. 校验后的落点坐标通过 `screen_to_world()` 或 `canvas_to_world()` 转换；项目 Adapter 决定 footprint 与 placement type，再调用 `begin_placement()`、`update_placement()` 和 `commit_placement()`。画布只冻结操作记录，占位、权限、资源消耗和场景合法性继续由项目 validator 判断。
+4. history hook 从稳定 `asset_id` 和冻结 placement operation 创建一次性的项目 `GFEditorCommand`。命令在 `execute()` 中重新验证权威状态、在 `revert()` 中对称恢复，并通过 `GFEditorCommandSession.preview_command()` / `commit_command()` 或 Godot UndoRedo 提交。只有命令提交成功后 hook 才返回成功；不要再让 `placement_committed` 的另一个监听器重复修改同一权威状态。
+
+AI Developer Kit 中的 Recipe ID 为 `asset-catalog-spatial-placement`。它描述的是组件边界和验收组合，不规定项目素材分类、场景工厂、节点类型、碰撞规则或保存格式。至少应覆盖 stale ID、拖放类型伪造、坐标换算、非法 footprint、预算耗尽、命令拒绝、撤销/重做、取消和 owner 释放。
+
 ## 预算与诊断
 
 `configure_budgets()` 可降低实例预算，但不能突破类定义的绝对上限。当前预算覆盖：

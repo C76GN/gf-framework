@@ -16,7 +16,7 @@ Config Pipeline 的内置布局解析阶段。 把 Reader 原始载荷解码为�
 | 类型 | 名称 | 签名 |
 |---|---|---|
 | 常量 | [`STAGE_ID`](#member-gfconfigpipelinelayoutstage-constants-stage_id) | `const STAGE_ID: String = "gf.config.layout.builtin"` |
-| 常量 | [`IMPLEMENTATION_VERSION`](#member-gfconfigpipelinelayoutstage-constants-implementation_version) | `const IMPLEMENTATION_VERSION: int = 1` |
+| 常量 | [`IMPLEMENTATION_VERSION`](#member-gfconfigpipelinelayoutstage-constants-implementation_version) | `const IMPLEMENTATION_VERSION: int = 2` |
 | 方法 | [`decode_source`](#member-gfconfigpipelinelayoutstage-methods-decode_source) | `func decode_source( source: GFConfigPipelineTableSource, read_result: Dictionary, options: Dictionary = {} ) -> Dictionary:` |
 | 方法 | [`get_stage_descriptor`](#member-gfconfigpipelinelayoutstage-methods-get_stage_descriptor) | `func get_stage_descriptor() -> Dictionary:` |
 
@@ -43,7 +43,7 @@ Layout 阶段的稳定实现标识。
 - 首次版本：`9.0.0`
 
 ```gdscript
-const IMPLEMENTATION_VERSION: int = 1
+const IMPLEMENTATION_VERSION: int = 2
 ```
 
 Layout 阶段的实现版本；改变布局解析语义时递增。
