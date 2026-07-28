@@ -6,10 +6,10 @@
 
 | 类别 | 类 | 成员 | 方法 |
 |---|---:|---:|---:|
-| [运行时服务](#category-runtime_service) | 187 | 3346 | 2263 |
+| [运行时服务](#category-runtime_service) | 187 | 3364 | 2263 |
 | [协议与扩展点](#category-protocol) | 24 | 337 | 266 |
 | [资源定义](#category-resource_definition) | 119 | 1528 | 788 |
-| [运行时句柄](#category-runtime_handle) | 45 | 757 | 495 |
+| [运行时句柄](#category-runtime_handle) | 45 | 792 | 499 |
 | [值对象](#category-value_object) | 39 | 717 | 453 |
 | [领域模型](#category-domain_model) | 4 | 61 | 42 |
 | [事件契约](#category-event_contract) | 6 | 61 | 23 |

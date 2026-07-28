@@ -9,14 +9,22 @@
 - 类别：运行时服务 (`runtime_service`)
 - 首次版本：`7.0.0`
 
-确定性延迟变更队列。 用于把运行时或工具流程中收集到的状态变更延迟到显式 playback 点执行。 record() 保存无 owner 的强 Callable；record_method() 通过弱 owner 和方法名 保存生命周期调用。队列不解释调用方的实体、组件、节点或资源语义。
+确定性延迟变更队列。 用于把运行时或工具流程中收集到的状态变更延迟到显式 playback 点执行。 record() 保存无 owner 的强 Callable；record_method() 通过弱 owner 和方法名 保存生命周期调用。队列不解释调用方的实体、组件、节点或资源语义。 记录和取消入口由 Mutex 保护；playback() 与生命周期入口只允许在主线程调用。
 
 ## 成员概览
 
 | 类型 | 名称 | 签名 |
 |---|---|---|
 | 常量 | [`DEFAULT_PHASE`](#member-gfdeferredmutationqueue-constants-default_phase) | `const DEFAULT_PHASE: StringName = &"default"` |
-| 属性 | [`max_mutations_per_playback`](#member-gfdeferredmutationqueue-properties-max_mutations_per_playback) | `var max_mutations_per_playback: int = 0:` |
+| 常量 | [`DEFAULT_MAX_PENDING_MUTATIONS`](#member-gfdeferredmutationqueue-constants-default_max_pending_mutations) | `const DEFAULT_MAX_PENDING_MUTATIONS: int = 4096` |
+| 常量 | [`ABSOLUTE_MAX_PENDING_MUTATIONS`](#member-gfdeferredmutationqueue-constants-absolute_max_pending_mutations) | `const ABSOLUTE_MAX_PENDING_MUTATIONS: int = 65_536` |
+| 常量 | [`DEFAULT_MAX_MUTATIONS_PER_PLAYBACK`](#member-gfdeferredmutationqueue-constants-default_max_mutations_per_playback) | `const DEFAULT_MAX_MUTATIONS_PER_PLAYBACK: int = 256` |
+| 常量 | [`ABSOLUTE_MAX_MUTATIONS_PER_PLAYBACK`](#member-gfdeferredmutationqueue-constants-absolute_max_mutations_per_playback) | `const ABSOLUTE_MAX_MUTATIONS_PER_PLAYBACK: int = 4096` |
+| 常量 | [`STATUS_COMPLETED`](#member-gfdeferredmutationqueue-constants-status_completed) | `const STATUS_COMPLETED: StringName = &"completed"` |
+| 常量 | [`STATUS_WRONG_THREAD`](#member-gfdeferredmutationqueue-constants-status_wrong_thread) | `const STATUS_WRONG_THREAD: StringName = &"wrong_thread"` |
+| 常量 | [`STATUS_BUSY`](#member-gfdeferredmutationqueue-constants-status_busy) | `const STATUS_BUSY: StringName = &"busy"` |
+| 属性 | [`max_pending_mutations`](#member-gfdeferredmutationqueue-properties-max_pending_mutations) | `var max_pending_mutations: int = DEFAULT_MAX_PENDING_MUTATIONS:` |
+| 属性 | [`max_mutations_per_playback`](#member-gfdeferredmutationqueue-properties-max_mutations_per_playback) | `var max_mutations_per_playback: int = DEFAULT_MAX_MUTATIONS_PER_PLAYBACK:` |
 | 属性 | [`max_seconds_per_playback`](#member-gfdeferredmutationqueue-properties-max_seconds_per_playback) | `var max_seconds_per_playback: float = 0.0:` |
 | 方法 | [`init`](#member-gfdeferredmutationqueue-methods-init) | `func init() -> void:` |
 | 方法 | [`dispose`](#member-gfdeferredmutationqueue-methods-dispose) | `func dispose() -> void:` |
@@ -46,7 +54,111 @@ const DEFAULT_PHASE: StringName = &"default"
 
 默认变更阶段。
 
+<a id="member-gfdeferredmutationqueue-constants-default_max_pending_mutations"></a>
+
+### `DEFAULT_MAX_PENDING_MUTATIONS`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+const DEFAULT_MAX_PENDING_MUTATIONS: int = 4096
+```
+
+默认最多保留的待应用变更数量。
+
+<a id="member-gfdeferredmutationqueue-constants-absolute_max_pending_mutations"></a>
+
+### `ABSOLUTE_MAX_PENDING_MUTATIONS`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+const ABSOLUTE_MAX_PENDING_MUTATIONS: int = 65_536
+```
+
+最多允许配置的待应用变更数量。
+
+<a id="member-gfdeferredmutationqueue-constants-default_max_mutations_per_playback"></a>
+
+### `DEFAULT_MAX_MUTATIONS_PER_PLAYBACK`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+const DEFAULT_MAX_MUTATIONS_PER_PLAYBACK: int = 256
+```
+
+playback() 未显式给出数量预算时使用的默认值。
+
+<a id="member-gfdeferredmutationqueue-constants-absolute_max_mutations_per_playback"></a>
+
+### `ABSOLUTE_MAX_MUTATIONS_PER_PLAYBACK`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+const ABSOLUTE_MAX_MUTATIONS_PER_PLAYBACK: int = 4096
+```
+
+单次 playback() 或 preview() 允许处理的记录数量绝对上限。
+
+<a id="member-gfdeferredmutationqueue-constants-status_completed"></a>
+
+### `STATUS_COMPLETED`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+const STATUS_COMPLETED: StringName = &"completed"
+```
+
+Playback 正常完成。
+
+<a id="member-gfdeferredmutationqueue-constants-status_wrong_thread"></a>
+
+### `STATUS_WRONG_THREAD`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+const STATUS_WRONG_THREAD: StringName = &"wrong_thread"
+```
+
+Playback 在非主线程被调用。
+
+<a id="member-gfdeferredmutationqueue-constants-status_busy"></a>
+
+### `STATUS_BUSY`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+const STATUS_BUSY: StringName = &"busy"
+```
+
+当前实例已经处于同步 playback 调用中。
+
 ## 属性
+
+<a id="member-gfdeferredmutationqueue-properties-max_pending_mutations"></a>
+
+### `max_pending_mutations`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+var max_pending_mutations: int = DEFAULT_MAX_PENDING_MUTATIONS:
+```
+
+最多保留的待应用变更数量。降低容量不会驱逐现有记录。
 
 <a id="member-gfdeferredmutationqueue-properties-max_mutations_per_playback"></a>
 
@@ -56,10 +168,10 @@ const DEFAULT_PHASE: StringName = &"default"
 - 首次版本：`7.0.0`
 
 ```gdscript
-var max_mutations_per_playback: int = 0:
+var max_mutations_per_playback: int = DEFAULT_MAX_MUTATIONS_PER_PLAYBACK:
 ```
 
-playback() 默认每次最多应用多少条变更；小于等于 0 时不限制数量。
+playback() 默认每次最多应用多少条变更。
 
 <a id="member-gfdeferredmutationqueue-properties-max_seconds_per_playback"></a>
 
@@ -72,7 +184,7 @@ playback() 默认每次最多应用多少条变更；小于等于 0 时不限制
 var max_seconds_per_playback: float = 0.0:
 ```
 
-playback() 默认最多占用多少秒；小于等于 0 时不启用时间预算。
+playback() 在变更之间检查的非抢占式软时间预算。小于等于 0 时不启用； 不会中断单条变更，并且非空匹配快照至少会尝试应用一条变更。
 
 ## 方法
 
@@ -179,7 +291,7 @@ func playback(options: Dictionary = {}) -> Dictionary:
 结构：
 
 - `options`: Dictionary，可包含 phase: StringName、max_count: int、max_seconds: float、include_records: bool。
-- `return`: Dictionary，包含 applied_count、failed_count、skipped_owner_count、pending_count、budget_exhausted、phase 和可选 records。
+- `return`: Dictionary，包含 ok、status、reason、applied_count、failed_count、skipped_owner_count、pending_count、budget_exhausted、phase 和可选 records。
 
 <a id="member-gfdeferredmutationqueue-methods-preview"></a>
 
@@ -198,7 +310,7 @@ func preview(options: Dictionary = {}) -> Array[Dictionary]:
 
 | 名称 | 说明 |
 |---|---|
-| `options` | 预览选项，支持 phase 和 limit。 |
+| `options` | 预览选项，支持 phase 和 limit；省略或非正 limit 使用有界 playback 默认值。 |
 
 返回：待应用变更快照数组。
 
@@ -260,7 +372,7 @@ func cancel_owner(owner: Object) -> int:
 func clear() -> void:
 ```
 
-清空全部待应用变更和统计。
+清空全部待应用变更和统计。句柄与隐式 order 在实例生命周期内保持单调。
 
 <a id="member-gfdeferredmutationqueue-methods-get_pending_count"></a>
 
@@ -309,4 +421,4 @@ func get_debug_snapshot() -> Dictionary:
 
 结构：
 
-- `return`: Dictionary，包含 pending_count、phase_counts、recorded_count、applied_count、cancelled_count、failed_count 和 skipped_owner_count。
+- `return`: Dictionary，包含 pending_count、max_pending_mutations、max_mutations_per_playback、phase_counts、recorded_count、applied_count、cancelled_count、failed_count、skipped_owner_count、high_watermark、rejected_count 和 dropped_count。

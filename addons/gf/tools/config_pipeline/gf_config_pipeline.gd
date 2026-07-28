@@ -345,13 +345,13 @@ func build_profile(profile: GFConfigPipelineProfile, options: Dictionary = {}) -
 ## [br]
 ## @schema profile: GFConfigPipelineProfile resource。
 ## [br]
-## @param options: 本次导出覆盖选项，支持 output_path、build_options、save_options、access_output_path、access_options、access_class_name、access_provider_accessor、changed_only、manifest_path、write_manifest、manifest_options、manifest_metadata 以及 build_database() 的直接选项。
+## @param options: 本次导出覆盖选项，支持 output_path、build_options、save_options、access_output_path、access_options、access_class_name、access_provider_accessor、changed_only、manifest_path、write_manifest、manifest_options、manifest_metadata、scan_filesystem 以及 build_database() 的直接选项。
 ## [br]
-## @schema options: Dictionary，可包含 output_path、build_options、save_options、access_output_path、access_options、access_class_name、access_provider_accessor、database_id、version、metadata、validate_database、validate_schema、parse_options、rebuild_indexes、changed_only、manifest_path、write_manifest、manifest_options、manifest_metadata、max_freshness_file_bytes、max_freshness_total_bytes 和 max_freshness_entries；save_options、access_options 与 manifest_options 可分别包含 allow_unowned_overwrite。
+## @schema options: Dictionary，可包含 output_path、build_options、save_options、access_output_path、access_options、access_class_name、access_provider_accessor、database_id、version、metadata、validate_database、validate_schema、parse_options、rebuild_indexes、changed_only、manifest_path、write_manifest、manifest_options、manifest_metadata、scan_filesystem、max_freshness_file_bytes、max_freshness_total_bytes 和 max_freshness_entries；save_options、access_options 与 manifest_options 可分别包含 allow_unowned_overwrite。批量导出会强制所有 constituent 禁止 scan，并且仅在整批事务成功后按顶层 scan_filesystem 执行一次编辑器扫描。
 ## [br]
 ## @return: 导出结果。
 ## [br]
-## @schema return: Dictionary，包含 success、database、report、table_results、build_result、save_result、access_result、manifest_path、manifest、manifest_result、profile_id、output_path 和 error。
+## @schema return: Dictionary，包含 success、database、report、table_results、build_result、save_result、access_result、manifest_path、manifest、manifest_result、profile_id、output_path、error、transaction_result、recovery_required、recovery_action 和 recovery_transaction；recovery_required 为 true 时调用方必须按 recovery_action 使用 recovery_transaction 完成结果要求的终态动作。
 func export_profile(profile: GFConfigPipelineProfile, options: Dictionary = {}) -> Dictionary:
 	var build_result: Dictionary = build_profile(profile, options)
 	var profile_id: StringName = GFVariantData.get_option_string_name(build_result, "profile_id")
@@ -376,6 +376,14 @@ func export_profile(profile: GFConfigPipelineProfile, options: Dictionary = {}) 
 	var manifest_path: String = _resolve_manifest_path(profile, options, manifest_helper)
 	var should_write_manifest: bool = _should_write_manifest(options, manifest_path)
 	var manifest_options: Dictionary = _make_manifest_options(options)
+	var scan_filesystem: bool = GFVariantData.get_option_bool(
+		options,
+		"scan_filesystem",
+		true
+	)
+	save_options["scan_filesystem"] = false
+	access_options["scan_filesystem"] = false
+	manifest_options["scan_filesystem"] = false
 	if GFVariantData.get_option_bool(options, "dry_run"):
 		save_options["dry_run"] = true
 		access_options["dry_run"] = true
@@ -469,12 +477,19 @@ func export_profile(profile: GFConfigPipelineProfile, options: Dictionary = {}) 
 			manifest
 		)
 
-	var transaction_snapshot: Dictionary = _commit_stage.begin(PackedStringArray([
-		output_path,
-		access_output_path,
-		manifest_path if should_write_manifest else "",
-	]))
-	if not GFVariantData.get_option_bool(transaction_snapshot, "success"):
+	var commit_paths: PackedStringArray = PackedStringArray([output_path])
+	if not access_output_path.is_empty():
+		var _access_path_appended: bool = commit_paths.append(access_output_path)
+	if should_write_manifest:
+		var _manifest_path_appended: bool = commit_paths.append(manifest_path)
+	var transaction_snapshot: Dictionary = _commit_stage.begin(
+		commit_paths,
+		{
+			"allowed_roots": _collect_commit_roots(commit_paths),
+			"metadata": { "artifact_owner": _ARTIFACT_OWNER },
+		}
+	)
+	if not GFVariantData.get_option_bool(transaction_snapshot, "ok"):
 		return _make_profile_export_result(
 			false,
 			build_result,
@@ -482,7 +497,7 @@ func export_profile(profile: GFConfigPipelineProfile, options: Dictionary = {}) 
 			access_result,
 			profile_id,
 			output_path,
-			GFVariantData.get_option_string(transaction_snapshot, "error"),
+			_join_commit_error(transaction_snapshot),
 			manifest_path,
 			manifest_result,
 			manifest
@@ -529,15 +544,18 @@ func export_profile(profile: GFConfigPipelineProfile, options: Dictionary = {}) 
 		export_error = GFVariantData.get_option_string(access_result, "error")
 	if export_error.is_empty() and should_write_manifest and not GFVariantData.get_option_bool(manifest_result, "success"):
 		export_error = GFVariantData.get_option_string(manifest_result, "error")
+	var transaction_result: Dictionary = {}
 	if export_success:
-		var complete_result: Dictionary = _commit_stage.complete(transaction_snapshot)
-		if not GFVariantData.get_option_bool(complete_result, "success"):
+		transaction_result = _commit_stage.complete(transaction_snapshot)
+		if not GFVariantData.get_option_bool(transaction_result, "ok"):
 			export_success = false
-			export_error = _join_commit_error(complete_result)
+			export_error = _join_commit_error(transaction_result)
+		else:
+			_scan_filesystem_if_needed(scan_filesystem)
 	else:
-		var rollback_result: Dictionary = _commit_stage.rollback(transaction_snapshot)
-		if not GFVariantData.get_option_bool(rollback_result, "success"):
-			var rollback_error: String = _join_commit_error(rollback_result)
+		transaction_result = _commit_stage.rollback(transaction_snapshot)
+		if not GFVariantData.get_option_bool(transaction_result, "ok"):
+			var rollback_error: String = _join_commit_error(transaction_result)
 			export_error = "%s 回滚失败：%s" % [export_error, rollback_error]
 	return _make_profile_export_result(
 		export_success,
@@ -549,7 +567,8 @@ func export_profile(profile: GFConfigPipelineProfile, options: Dictionary = {}) 
 		export_error,
 		manifest_path,
 		manifest_result,
-		manifest
+		manifest,
+		transaction_result
 	)
 
 
@@ -877,12 +896,24 @@ func _get_table_ir_from_result(result: Dictionary) -> GFConfigPipelineTableIR:
 
 func _join_commit_error(result: Dictionary) -> String:
 	var message: String = GFVariantData.get_option_string(result, "error")
+	if message.is_empty():
+		message = GFVariantData.get_option_string(result, "status")
 	var issues_value: Variant = GFVariantData.get_option_value(result, "issues")
 	if issues_value is PackedStringArray:
 		var issues: PackedStringArray = issues_value
 		if not issues.is_empty():
 			return "%s %s" % [message, "; ".join(issues)]
 	return message
+
+
+func _collect_commit_roots(paths: PackedStringArray) -> PackedStringArray:
+	var roots: PackedStringArray = PackedStringArray()
+	for path: String in paths:
+		var root_path: String = _normalize_output_path(path).get_base_dir()
+		if root_path.is_empty() or roots.has(root_path):
+			continue
+		var _root_appended: bool = roots.append(root_path)
+	return roots
 
 
 func _make_table_failure(
@@ -952,8 +983,13 @@ func _make_profile_export_result(
 	message: String,
 	manifest_path: String = "",
 	manifest_result: Dictionary = {},
-	manifest: Dictionary = {}
+	manifest: Dictionary = {},
+	transaction_result: Dictionary = {}
 ) -> Dictionary:
+	var recovery_required: bool = GFVariantData.get_option_bool(
+		transaction_result,
+		"recovery_required"
+	)
 	return {
 		"success": success,
 		"database": _get_database_from_result(build_result),
@@ -968,6 +1004,24 @@ func _make_profile_export_result(
 		"profile_id": profile_id,
 		"output_path": output_path,
 		"error": message,
+		"transaction_result": transaction_result.duplicate(true),
+		"recovery_required": recovery_required,
+		"recovery_action": (
+			GFVariantData.get_option_string_name(
+				transaction_result,
+				"recovery_action"
+			)
+			if recovery_required
+			else &""
+		),
+		"recovery_transaction": (
+			GFVariantData.get_option_dictionary(
+				transaction_result,
+				"recovery_transaction"
+			).duplicate(true)
+			if recovery_required
+			else {}
+		),
 	}
 
 
@@ -982,6 +1036,14 @@ func _resolve_manifest_path(
 	if profile == null:
 		return ""
 	return manifest_helper.get_default_manifest_path(profile.resolve_output_path(options))
+
+
+func _scan_filesystem_if_needed(scan_filesystem: bool) -> void:
+	if not scan_filesystem or not Engine.is_editor_hint():
+		return
+	var filesystem: EditorFileSystem = EditorInterface.get_resource_filesystem()
+	if filesystem != null:
+		filesystem.scan()
 
 
 func _should_write_manifest(options: Dictionary, manifest_path: String) -> bool:

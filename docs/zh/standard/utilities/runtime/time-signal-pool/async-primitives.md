@@ -9,17 +9,17 @@
 - `GFCancellationSource` 持有取消权，可由用户操作、上游 token、节点离树或超时触发；它位于 Kernel，可被生命周期、编辑器任务和标准层工具复用。状态变更和连接入口只允许在主线程调用，`cancel_when_node_exits()` 只接受当前已入树节点，`dispose()` 是不可逆终态。
 - `GFCancellationToken` 只读暴露 `is_cancel_requested()`、原因、metadata、取消时间和 `cancel_requested` 信号。
 - `GFTimeoutController` 把可复用超时计划建模为取消 token，可 `start_seconds()`、`stop()` 或 `reset()`。
-- `GFAsyncCompletion` 把任意回调流程收敛到 succeeded、failed 或 cancelled 一次性终态；等待它时使用 `GFAsyncWaitUtility.wait_completion_async()`。
+- `GFAsyncCompletion` 把主线程回调流程收敛到 succeeded、failed 或 cancelled 一次性终态；状态访问、终态提交和取消 token 绑定都属于主线程契约，等待它时使用 `GFAsyncWaitUtility.wait_completion_async()`。
 - `GFAsyncWaitUtility` 以字典结果等待 Godot Signal、帧、延迟、条件或值变化，并支持超时、取消 token、保护节点和 payload 捕获。未提交或显式传入 `null` 时不启用 guard；非空 guard 必须仍然有效且位于场景树内。guard 在等待开始前已经释放、等待期间释放或离树时返回 `status = invalid`、`reason = guard_exited`；帧、延迟、条件和值变化等待只跨帧记录实例 ID，Signal 等待则监听 guard 离树。帧、延迟、条件和值变化等轮询等待的检查顺序保持为场景树、取消 token、guard、超时，已发生的取消会优先保留 token 的 reason 与 metadata。Signal 等待会保留已经完成的目标 Signal；在提交 target/guard invalid、timeout 或其他非 completed 终态前则重新仲裁 token，若 token 已请求取消便返回 `cancelled` 并保留其 reason 与 metadata。未实际取消的 token 不会覆盖 `should_continue_false` 或 `should_continue_invalid` 原因。
-- `GFAsyncChannel` 提供多生产者、单消费者的轻量事件通道，可写入、异步读取、关闭和导出调试快照；`read_async()` 和 `wait_to_read_async()` 会透传等待器的生命周期结果。
+- `GFAsyncChannel` 提供主线程内多逻辑生产者、单消费者的有界事件通道，可写入、异步读取、关闭和导出调试快照；`read_async()` 和 `wait_to_read_async()` 会透传等待器的生命周期结果。
 - `GFAsyncProgress` 统一 0 到 1 的进度值、消息和 metadata，并可按数值变化或时间间隔节流。
 - `GFAsyncProgressAggregator` 把多个带权重的子任务进度聚合成一个总进度，并复用 `GFAsyncProgress` 的节流信号。
-- `GFAsyncFlowTools` 在这些原语之上提供 `retry_async()`、`each_async()`、`fold_async()`、`wait_all_completions_async()` 和 `wait_any_completion_async()`，返回普通结果字典，不引入新的 Promise 类型；需要 HTTP、手动条目或 all-settled 报告时，`GFAsyncBatch.watch_completion()` 可复用 ALL / ANY / EACH 批处理策略。
-- `GFMainThreadDispatchQueue` 把后台线程、资源加载或外部回调的最终应用逻辑排回显式派发点，并提供 owner 失效跳过、取消和派发预算。
-- `GFDeferredMutationQueue` 收集延迟变更，并在显式 `playback()` 点按 phase、sort key 和记录顺序稳定应用。
+- `GFAsyncFlowTools` 在这些原语之上提供 `retry_async()`、`each_async()`、`fold_async()`、`wait_all_completions_async()` 和 `wait_any_completion_async()`，返回普通结果字典，不引入新的 Promise 类型；completion 组合输入有显式规模预算，内部通知通道按输入规模定容。需要 HTTP、手动条目或 all-settled 报告时，`GFAsyncBatch.watch_completion()` 可复用 ALL / ANY / EACH 批处理策略。
+- `GFMainThreadDispatchQueue` 把后台线程、资源加载或外部回调的最终应用逻辑排回显式派发点，并提供有界 ingress、owner 失效跳过、取消和派发预算。
+- `GFDeferredMutationQueue` 有界收集延迟变更，并在主线程的显式 `playback()` 点按 phase、sort key 和记录顺序稳定应用。
 - `GFQuietWindowCoalescer` 按 key 收集连发消息，在静默窗口、最大窗口或数量上限到达时关闭有界批次；消息合并语义由项目回调提供。
 - `GFExecutionRequirement` 把执行前置条件归一成 all / any / none 报告，可用于任务、工具按钮、资源流程或项目自定义系统。
-- `GFAsyncKeyedGate` 按调用方提供的 key 发放 `GFAsyncGateLease`，用于限制同一资源、槽位或编辑器目标的并发数量。
+- `GFAsyncKeyedGate` 按调用方提供的 key 发放 `GFAsyncGateLease`，并分别限制等待总量、单 key 等待量和跟踪 key 基数。
 - `GFRequestHandlerRegistry` 表达单处理器 `invoke()` / `try_invoke()` 契约，避免把查询或命令式请求误建模成多订阅事件。
 - `GFExecutionLaneDiagnostics` 记录执行通道的 queued、active、completed、failed、timeout 和 cancelled 计数，供工具、日志或支持报告消费。
 
@@ -82,7 +82,6 @@ var changed := await GFAsyncWaitUtility.wait_until_value_changed(func() -> int:
 
 ```gdscript
 var channel := GFAsyncChannel.new()
-
 download.finished.connect(func(data: PackedByteArray) -> void:
 	channel.try_write({ "type": &"finished", "data": data })
 )
@@ -95,6 +94,8 @@ var message := await channel.read_async({
 	"guard_node": self,
 })
 ```
+
+通道默认容量有限，容量满时拒绝新写入，配置也不得超过 `ABSOLUTE_MAX_BUFFERED_ITEMS`。内部使用定容环形存储，单项读取和 `DROP_OLDEST` 不会随当前缓冲长度线性搬移，`drain()` 只遍历实际读出的切片。需要只保留最新窗口或明确丢弃新通知时，可以显式选择 `OVERFLOW_DROP_OLDEST` 或 `OVERFLOW_DROP_NEWEST`；`try_write_detailed()` 会区分 `accepted`、`dropped`、`status` 和被丢弃的数据。兼容入口 `try_write()` 只有在新项实际进入缓冲时才返回 `true`。通道本身没有 Mutex，所有入口都属于主线程契约；非主线程读写与配置 getter 会返回 `wrong_thread` 或对应签名的保守失败值，不会访问可变缓冲。后台线程应把纯数据交给 `GFMainThreadDispatchQueue`，再在主线程写入通道。
 
 进度对象适合连接到 UI、日志或诊断面板：
 
@@ -116,10 +117,8 @@ var total_progress := GFAsyncProgressAggregator.new()
 total_progress.progressed.connect(func(value: float, message: String, metadata: Dictionary) -> void:
 	print("%d%% %s" % [roundi(value * 100.0), message])
 )
-
 var bundle_task := total_progress.add_task(&"bundle", 1.0)
 var resources_task := total_progress.add_task(&"resources", 3.0)
-
 total_progress.complete_task(bundle_task, "bundle")
 total_progress.set_task_fraction(resources_task, loaded_count, total_count, "resources")
 ```
@@ -136,11 +135,9 @@ var retry_result := await GFAsyncFlowTools.retry_async(func() -> Dictionary:
 	"delay_seconds": 0.25,
 	"cancel_token": source.get_token(),
 })
-
 var import_result := await GFAsyncFlowTools.each_async(files, func(path: String) -> Dictionary:
 	return import_one_file(path)
 )
-
 var combined := await GFAsyncFlowTools.wait_all_completions_async({
 	&"profile": profile_completion,
 	&"inventory": inventory_completion,
@@ -151,7 +148,9 @@ var combined := await GFAsyncFlowTools.wait_all_completions_async({
 })
 ```
 
-这些 helper 只负责编排调用、等待 `GFAsyncCompletion` 和归一化 `{ "ok": bool, "value": ..., "error": ... }`。`wait_all_completions_async()` 要求全部成功，`wait_any_completion_async()` 要求至少一个成功；两者只观察调用方传入的完成源，不启动任务。具体是否幂等、失败后是否回滚、延迟是否指数退避、错误是否展示给用户，仍由调用方决定。
+这些 helper 只负责编排调用、等待 `GFAsyncCompletion` 和归一化 `{ "ok": bool, "value": ..., "error": ... }`。`wait_all_completions_async()` 要求全部成功，`wait_any_completion_async()` 要求至少一个成功；两者只允许在主线程观察调用方传入的完成源，不启动任务。输入超出 `max_completions`，或调用方把该预算设置到 `ABSOLUTE_MAX_COMPLETIONS` 之外时，会在连接任何 Signal 前 fail closed，调用方的 completion 保持原状；只有主线程发出的真实终态信号会写入容量等于输入规模的有界通道，非主线程信号不会被隐式转发。
+
+`GFAsyncCompletion` 不用 Mutex 包装任意业务 `Variant`，也不提供跨线程状态快照。worker 直接调用 `succeed()`、`fail()`、`cancel()` 或 `bind_cancel_token()` 会返回 `false` 且不读写状态；worker getter 返回 `Status.INVALID`、空值或最小 INVALID 快照，不会复制结果、metadata 或时间字段。后台任务应把纯数据和主线程应用回调交给 `GFMainThreadDispatchQueue`，由显式 `dispatch()` 点在主线程完成 completion。取消 token 信号若意外从 worker 到达，completion 只排入一次 deferred 回调，直到主线程执行时才读取 token metadata 和提交取消终态。具体是否幂等、失败后是否回滚、延迟是否指数退避、错误是否展示给用户，仍由调用方决定。
 
 需要等待多个已经由回调或系统包装成 `GFAsyncCompletion` 的流程，并且还要混合 HTTP 响应、手动条目或 all-settled 明细时，使用 `GFAsyncBatch` 聚合终态：
 
@@ -169,17 +168,15 @@ var report := await GFAsyncWaitUtility.await_signal_payload(batch.settled)
 ```gdscript
 var dispatch_queue := GFMainThreadDispatchQueue.new()
 dispatch_queue.init()
-
 dispatch_queue.post_method(self, &"_apply_loaded_data", {
 	"label": "apply_loaded_data",
 })
-
 dispatch_queue.dispatch(8, 0.002)
 ```
 
 `post_method()` 只保存 owner 的弱引用、初始实例 ID、方法名、label 和 front 选项，不保存 Callable、调用参数或 metadata；owner 已释放时记录会进入 `skipped_owner_count`。`post()` 只接收无 owner 的强 Callable；`post_owned()` 与 `post(options.owner)` 已移除，传入旧 owner 选项会 fail closed。
 
-队列只保证回调在调用 `dispatch()` 的位置执行；它不会自动创建线程，也不会判断回调是否应该重试、回滚或显示 UI。跨线程传入的载荷建议保持为纯数据，节点和资源修改放在派发方法中完成。
+`post()`、`post_method()`、`cancel()` 和 `cancel_owner()` 的队列访问由 Mutex 保护；配置应在把实例分享给后台线程前完成。`dispatch()`、`tick()`、`init()` 和 `dispose()` 是主线程入口，非主线程调用 `dispatch()` 会返回 `status = wrong_thread`，不会消费回调。容量属性会钳制在 `1..ABSOLUTE_MAX_PENDING_CALLBACKS`；容量满时 `post()` / `post_method()` 返回句柄 `0`，既有回调不会被驱逐。省略或传入非正 `max_count` 时，`dispatch()` 使用 `max_callbacks_per_tick`，显式数量也受 `ABSOLUTE_MAX_CALLBACKS_PER_DISPATCH` 约束；每轮会一次性分离入口快照，再从快照顺序消费。回调重入提交的 `front` 留到下一轮并保持位于旧余项之前，普通追加仍位于旧余项之后；取消仍可命中尚未执行的入口记录。该结构只对待处理集合做线性分离与合并，不会为每个旧记录重复扫描大量新 `front` 前缀。同实例同步重入 `dispatch()` 返回 `busy` 而不消费记录。`max_seconds` / `max_seconds_per_tick` 是只在回调之间检查的非抢占式软预算：不会中断单个回调或锁等待，非空入口快照至少会尝试一条。句柄在实例生命周期内单调，`clear()` 后旧句柄不会命中新记录；`get_debug_snapshot()` 会报告 `high_watermark`、`rejected_count` 和始终为零的 `dropped_count`。队列只保证回调在调用 `dispatch()` 的位置执行，不自动创建线程，也不判断回调是否应该重试、回滚或显示 UI；跨线程载荷应保持为纯数据，节点和资源修改放在派发方法中完成。
 
 需要把一批状态变化延后到帧末、系统阶段末或编辑器 apply 阶段时，用 `GFDeferredMutationQueue` 收集变更，再在明确的 playback 点稳定执行：
 
@@ -204,7 +201,7 @@ var cleanup_report := mutations.playback({ "phase": &"cleanup" })
 
 owner 自身的无参变更应使用 `record_method(owner, method_name, options)`。该入口保留 phase、sort key、order 和 label，但不会保存 metadata；owner 释放时记录会安全跳过。`record()` 只接收无 owner 的强 Callable；`record_owned()` 与 `record(options.owner)` 已移除，旧 owner 选项会被拒绝。
 
-队列不理解变更对象是什么，也不替代 UndoRedo、事务或存档系统。它只解决“先收集、后应用、顺序可诊断”的运行时边界。
+记录与取消的队列访问由 Mutex 保护，`playback()` 只允许在主线程调用。容量属性会钳制在 `1..ABSOLUTE_MAX_PENDING_MUTATIONS`；容量满时 `record()` / `record_method()` 返回句柄 `0`，不会驱逐已经接受的权威状态变更。省略或传入非正 `max_count` 时使用 `max_mutations_per_playback`，`playback()` 与 `preview()` 都受 `ABSOLUTE_MAX_MUTATIONS_PER_PLAYBACK` 约束；每轮一次性为入口快照建立 phase 匹配索引，重入记录单独保持确定性排序，轮末再与未消费入口记录做线性合并，因此 phase 过滤不会为每条命中记录重复扫描非匹配前缀。重入记录留到下一轮，同实例同步重入 `playback()` 返回 `busy`，取消仍可命中尚未应用的入口记录，句柄与隐式 order 在实例生命周期内单调。`max_seconds` / `max_seconds_per_playback` 是只在变更之间检查的非抢占式软预算：不会中断单条变更或锁等待，非空匹配快照至少会尝试一条。快照用 `high_watermark`、`rejected_count` 和 `dropped_count` 暴露背压。队列不理解变更对象是什么，也不替代 UndoRedo、事务或存档系统。它只解决“先收集、后应用、顺序可诊断”的运行时边界。
 
 自定义运行时容器需要同样的语义时，可以直接保存 `GFWeakMethodInvocation`，在执行点调用 `invoke(arguments)`，并处理 `invoked`、`owner_released`、`method_missing`、`failed`。原语不保存参数，也不会把业务返回的 `false` 或 `{ "ok": false }` 擅自解释为调用失败；`failed` 覆盖无效定义和参数数量预检，`invoked` 只表示预检通过且 `Object.callv()` 已返回。GDScript 无法捕获 callv 期间的类型错误或被调方法内部错误，消费者仍须按自己的结果契约处理。
 
@@ -243,18 +240,14 @@ var report := requirement.evaluate({
 })
 ```
 
-条件集合只读取传入的 `context`。需要更复杂的判断时可以添加谓词，但谓词应保持无副作用，让“能不能执行”和“执行时改变什么”分开。
-
-报告中的 `failed_count` / `raw_failed_count` 表示原始条件谓词返回 false 的数量；它不是最终失败原因计数。`MODE_NONE` 条件命中 true 时会让 `none_clear=false`，并进入 `none_matched_count` 与 `blocking_count`。UI、日志或工具按钮展示最终阻塞原因时，应优先读取 `blocking_count` 和每条 condition 的 `mode` / `ok`。
+条件集合只读取传入的 `context`。需要更复杂的判断时可以添加谓词，但谓词应保持无副作用，让“能不能执行”和“执行时改变什么”分开。报告中的 `failed_count` / `raw_failed_count` 表示原始条件谓词返回 false 的数量，并不是最终失败原因计数；`MODE_NONE` 条件命中 true 时会让 `none_clear=false`，并进入 `none_matched_count` 与 `blocking_count`。UI、日志或工具按钮展示最终阻塞原因时，应优先读取 `blocking_count` 和每条 condition 的 `mode` / `ok`。
 
 按 key 限制并发时，gate 只发放租约，不执行任务本身：
 
 ```gdscript
 var gate := GFAsyncKeyedGate.new()
-
 var first := gate.request_lease(&"profile-save")
 var first_lease := GFVariantData.get_option_value(first, "lease") as GFAsyncGateLease
-
 var second := gate.request_lease(&"profile-save")
 if GFVariantData.get_option_bool(second, "queued"):
 	print("save request queued")
@@ -262,6 +255,14 @@ if GFVariantData.get_option_bool(second, "queued"):
 # 业务保存完成后释放租约；gate 会推进同 key 的下一个等待请求。
 first_lease.release(&"saved")
 ```
+
+Gate 同时限制全局 active lease、等待总量、单 key 等待量和 tracked key 基数；各容量、每 key 并发与单次推进工作量都钳制到公开绝对上限。全局 active 槽位耗尽时，新请求先进入有界链式 FIFO；释放 lease 后按稳定 key slot 游标轮转，每个 slot（包括空 slot）和被处理的取消、超时请求都消耗 `max_pump_work_items`。continuation 只沿持久游标完成当前轮次，一整轮无进展即停止；当前轮有进展时保持原 request cutoff，新请求只能在旧快照完整结束后的 fresh continuation 中参与，因此持续繁忙、空 slot 或失效请求都不能形成无界同步扫描或主循环 livelock。active request limit 由增量聚合状态读取，不在 pump 热路径扫描全部 lease。
+
+`request_lease()` 不执行全队列过期扫描；调用方应在帧循环或明确边界调用 `expire_waiting_requests()` / `expire_active_leases()`。两种显式过期扫描都使用持久 slot 游标，每次最多检查 `max_pump_work_items` 个 slot，空 slot 也计入预算；批量终态先提交权威摘除，再统一执行一次有界推进。`clear()` 同样先事务式摘除调用开始时已有的等待项和 lease，但不在同步调用内夹带 key 全扫描，通知中新建的请求交给延迟有界推进。
+
+同一个 `GFCancellationToken` 在 Gate 内只建立一份 signal 订阅并维护 request-id 集合；主线程取消会先 O(N) 摘除该 token 的全部等待项，再发 completion 与 Gate signals，不为每个请求重复扫描队列或 pump。worker 回调只投递一个 token 级主线程任务：取消在该任务到达主线程时线性化，而 `_activate_request()` 在权威 lease 提交前再次读取 token 状态，明确决定 acquire 与 cancel 的先后。排队信号同步重入导致请求取消或取得租约时，入口返回已提交终态而不是旧 `queued` 快照。
+
+Gate 同时校验 lease ID 与对象身份；acquire、release、cancel 和 timeout completion/signals 共用可嵌套通知边界，权威状态和诊断事件先提交，通知中的释放延迟到最外层结束。每次释放在通知前冻结 eligible request cutoff，通知中新请求只能排队，不能越过通知前 waiter；若旧 cutoff 下没有 waiter，则由后续 fresh continuation 取得空闲槽位。终态 lease 会断开 owner callback。降低容量不会撤销既有 lease 或驱逐等待项，只会阻止继续接纳或激活，直到状态回落到新上限内。
 
 当一个流程需要“唯一 handler 返回结果”而不是广播事件时，使用请求注册表：
 
@@ -294,6 +295,6 @@ var health := lanes.get_health_snapshot()
 
 ## 使用边界
 
-这些对象是协议、状态句柄和诊断容器，不是完整任务系统。需要按 requirement 仲裁多任务时使用 `GFRuntimeTaskScheduler`；需要批量聚合 HTTP 或手动异步条目时使用 `GFAsyncBatch`；需要真正的后台线程或 ResourceLoader 加载时使用 `GFBackgroundWorkUtility` 或 `GFAssetUtility`。`GFAsyncProgressAggregator` 只合并调用方喂入的进度，不执行子任务，也不做显示值缓动或最小前进速度；表现层平滑应放在 UI 或项目侧。`GFAsyncFlowTools` 适合局部 retry/each/fold 和少量 completion 组合，不替代项目任务队列；`GFMainThreadDispatchQueue` 适合做最终主线程应用点，不替代后台执行器；`GFDeferredMutationQueue` 适合做确定性状态应用点，不替代命令历史或存档事务；`GFQuietWindowCoalescer` 只收集和结批，不保证跨重启投递。需要观察未完成异步句柄时，可在 diagnostics 包中注册并启用 `GFAsyncTrackerUtility`。
+这些对象是协议、状态句柄和诊断容器，不是完整任务系统。需要按 requirement 仲裁多任务时使用 `GFRuntimeTaskScheduler`；需要批量聚合 HTTP 或手动异步条目时使用 `GFAsyncBatch`；需要真正的后台线程或 ResourceLoader 加载时使用 `GFBackgroundWorkUtility` 或 `GFAssetUtility`。`GFAsyncProgressAggregator` 只合并调用方喂入的进度，不执行子任务，也不做显示值缓动或最小前进速度；表现层平滑应放在 UI 或项目侧。`GFAsyncFlowTools` 适合局部 retry/each/fold 和少量 completion 组合，不替代项目任务队列；`GFAsyncChannel` 与 `GFAsyncKeyedGate` 是主线程原语；`GFMainThreadDispatchQueue` 是后台线程进入 GF 主线程状态边界的入口，但不替代后台执行器；`GFDeferredMutationQueue` 适合做确定性主线程状态应用点，不替代命令历史或存档事务；`GFQuietWindowCoalescer` 只收集和结批，不保证跨重启投递。需要观察未完成异步句柄时，可在 diagnostics 包中注册并启用 `GFAsyncTrackerUtility`。
 
 `metadata` 始终由调用方定义。GF 会复制字典边界，但不会解释字段，也不会把取消自动变成重试、回滚或 UI 提示。取消源会在 token、节点和 timeout 注册时深复制 metadata；树外节点、重复 token/节点连接和 self-link 返回 `false`。重复 `cancel_after_seconds()` 会停止旧 timer 并替换 deadline，非有限秒数会被拒绝；`dispose()` 会停止 timer、断开连接但不取消 token，之后所有 mutator 失败。`create_linked()` 遇到无效或重复条目、连接失败时清理部分连接并返回 `null`；若按输入顺序先遇到已取消 token，则立即返回 first-cancel-wins 的终态 source。

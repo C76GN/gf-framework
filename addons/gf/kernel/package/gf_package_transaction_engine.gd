@@ -1508,7 +1508,8 @@ static func _tree_has_link(path: String) -> bool:
 
 static func _string_has_control_character(value: String) -> bool:
 	for index: int in range(value.length()):
-		if value.unicode_at(index) < 32:
+		var codepoint: int = value.unicode_at(index)
+		if codepoint < 32 or codepoint == 127:
 			return true
 	return false
 
@@ -1523,6 +1524,7 @@ static func _portable_path_component_is_valid(
 		or component == ".."
 		or component != component.rstrip(" .")
 		or _string_has_control_character(component)
+		or not _string_is_ascii(component)
 	):
 		return false
 	var invalid_characters: String = "<>:\"/\\|"
@@ -1543,6 +1545,13 @@ static func _portable_path_component_is_valid(
 			(device_prefix == "COM" or device_prefix == "LPT")
 			and ("123456789".contains(device_number) or "¹²³".contains(device_number))
 		):
+			return false
+	return true
+
+
+static func _string_is_ascii(value: String) -> bool:
+	for index: int in range(value.length()):
+		if value.unicode_at(index) > 0x7f:
 			return false
 	return true
 

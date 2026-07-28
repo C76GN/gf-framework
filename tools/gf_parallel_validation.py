@@ -290,7 +290,7 @@ def materialize_workspace(
 		if snapshot.binary_diff:
 			_run_git(
 				staging_workspace,
-				["apply", "--binary", "--whitespace=nowarn"],
+				["apply", "--binary", "--index", "--whitespace=nowarn"],
 				input_bytes=snapshot.binary_diff,
 				deadline=deadline,
 			)

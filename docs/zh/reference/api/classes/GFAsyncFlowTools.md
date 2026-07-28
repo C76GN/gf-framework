@@ -18,6 +18,8 @@
 | 常量 | [`STATUS_SUCCEEDED`](#member-gfasyncflowtools-constants-status_succeeded) | `const STATUS_SUCCEEDED: StringName = &"succeeded"` |
 | 常量 | [`STATUS_FAILED`](#member-gfasyncflowtools-constants-status_failed) | `const STATUS_FAILED: StringName = &"failed"` |
 | 常量 | [`STATUS_CANCELLED`](#member-gfasyncflowtools-constants-status_cancelled) | `const STATUS_CANCELLED: StringName = &"cancelled"` |
+| 常量 | [`DEFAULT_MAX_COMPLETIONS`](#member-gfasyncflowtools-constants-default_max_completions) | `const DEFAULT_MAX_COMPLETIONS: int = 256` |
+| 常量 | [`ABSOLUTE_MAX_COMPLETIONS`](#member-gfasyncflowtools-constants-absolute_max_completions) | `const ABSOLUTE_MAX_COMPLETIONS: int = 4096` |
 | 方法 | [`retry_async`](#member-gfasyncflowtools-methods-retry_async) | `static func retry_async(operation: Callable, options: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`each_async`](#member-gfasyncflowtools-methods-each_async) | `static func each_async(items: Array, operation: Callable, options: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`fold_async`](#member-gfasyncflowtools-methods-fold_async) | `static func fold_async(items: Array, reducer: Callable, initial_value: Variant, options: Dictionary = {}) -> Dictionary:` |
@@ -64,6 +66,32 @@ const STATUS_CANCELLED: StringName = &"cancelled"
 ```
 
 流程被取消。
+
+<a id="member-gfasyncflowtools-constants-default_max_completions"></a>
+
+### `DEFAULT_MAX_COMPLETIONS`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+const DEFAULT_MAX_COMPLETIONS: int = 256
+```
+
+组合等待默认接受的最大 completion 数量。
+
+<a id="member-gfasyncflowtools-constants-absolute_max_completions"></a>
+
+### `ABSOLUTE_MAX_COMPLETIONS`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+const ABSOLUTE_MAX_COMPLETIONS: int = 4096
+```
+
+组合等待允许的 completion 绝对数量上限。
 
 ## 方法
 
@@ -165,7 +193,7 @@ static func fold_async(items: Array, reducer: Callable, initial_value: Variant, 
 static func wait_all_completions_async(completions: Dictionary, options: Dictionary = {}) -> Dictionary:
 ```
 
-等待所有完成源进入终态。
+在主线程等待所有完成源进入终态。
 
 参数：
 
@@ -174,12 +202,12 @@ static func wait_all_completions_async(completions: Dictionary, options: Diction
 | `completions` | key -> GFAsyncCompletion 的字典。 |
 | `options` | 组合等待选项。 |
 
-返回：组合等待报告。
+返回：组合等待报告；非主线程调用时 fail closed。
 
 结构：
 
 - `completions`: Dictionary，key 为调用方定义的稳定标识，value 必须是 GFAsyncCompletion。
-- `options`: Dictionary，可包含 timeout_seconds、tree、cancel_token、guard_node、time_utility、respect_time_scale、process_in_physics、fail_fast、cancel_remaining_on_finish 和 metadata。
+- `options`: Dictionary，可包含 timeout_seconds、tree、cancel_token、guard_node、time_utility、respect_time_scale、process_in_physics、fail_fast、cancel_remaining_on_finish、max_completions 和 metadata。
 - `return`: Dictionary，包含 ok、status、value、error、metadata、count、completed_count、pending_count、succeeded_count、failed_count、cancelled_count、items、results、completion_order、first_completed_key、first_success_key、cancel_reason、cancel_metadata 和 timed_out。
 
 <a id="member-gfasyncflowtools-methods-wait_any_completion_async"></a>
@@ -193,7 +221,7 @@ static func wait_all_completions_async(completions: Dictionary, options: Diction
 static func wait_any_completion_async(completions: Dictionary, options: Dictionary = {}) -> Dictionary:
 ```
 
-等待任一完成源成功。
+在主线程等待任一完成源成功。
 
 参数：
 
@@ -202,10 +230,10 @@ static func wait_any_completion_async(completions: Dictionary, options: Dictiona
 | `completions` | key -> GFAsyncCompletion 的字典。 |
 | `options` | 组合等待选项。 |
 
-返回：组合等待报告。
+返回：组合等待报告；非主线程调用时 fail closed。
 
 结构：
 
 - `completions`: Dictionary，key 为调用方定义的稳定标识，value 必须是 GFAsyncCompletion。
-- `options`: Dictionary，可包含 timeout_seconds、tree、cancel_token、guard_node、time_utility、respect_time_scale、process_in_physics、fail_fast、cancel_remaining_on_finish 和 metadata。
+- `options`: Dictionary，可包含 timeout_seconds、tree、cancel_token、guard_node、time_utility、respect_time_scale、process_in_physics、fail_fast、cancel_remaining_on_finish、max_completions 和 metadata。
 - `return`: Dictionary，包含 ok、status、value、error、metadata、count、completed_count、pending_count、succeeded_count、failed_count、cancelled_count、items、results、completion_order、first_completed_key、first_success_key、cancel_reason、cancel_metadata 和 timed_out。

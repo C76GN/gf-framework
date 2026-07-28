@@ -184,8 +184,8 @@ func materialize_to_path(target_path: String, options: Dictionary = {}) -> Dicti
 
 结构：
 
-- `options`: Dictionary，可包含 allow_user_path、allow_res_path、overwrite 和 create_directories。
-- `return`: Dictionary with ok, path, reason, size_bytes, and metadata.
+- `options`: Dictionary，可包含 allow_user_path、allow_res_path、overwrite、create_directories、max_file_bytes、max_total_bytes、max_backup_bytes 和 scan_filesystem。
+- `return`: Dictionary with ok, path, reason, size_bytes, metadata, recovery_required, recovery_action, and recovery_transaction. recovery_required 为 true 时，调用方必须按 recovery_action 将 recovery_transaction 原样交给 GFArtifactWriteTransaction.rollback() 或 complete()。
 
 <a id="member-gfrawresourceartifact-methods-materialize_temp"></a>
 
@@ -204,14 +204,14 @@ func materialize_temp(options: Dictionary = {}) -> Dictionary:
 
 | 名称 | 说明 |
 |---|---|
-| `options` | 写入选项，可包含 directory_path、file_name、extension、overwrite。 |
+| `options` | 写入选项，可包含 directory_path、file_name、extension、overwrite；file_name 必须是非空 portable leaf，不能是 .、.. 或包含路径分隔符。 |
 
 返回：写入报告。
 
 结构：
 
-- `options`: Dictionary，可包含 directory_path、file_name、extension、overwrite、allow_user_path、allow_res_path。
-- `return`: Dictionary with ok, path, reason, size_bytes, and metadata.
+- `options`: Dictionary，可包含 directory_path、file_name、extension、overwrite、allow_user_path、allow_res_path、max_file_bytes、max_total_bytes、max_backup_bytes 和 scan_filesystem；file_name 必须是 ASCII portable leaf，禁止 .、..、控制字符、路径分隔符、Windows 保留字符和设备名。
+- `return`: Dictionary with ok, path, reason, size_bytes, metadata, recovery_required, recovery_action, and recovery_transaction.
 
 <a id="member-gfrawresourceartifact-methods-to_summary_dictionary"></a>
 

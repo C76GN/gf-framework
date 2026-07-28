@@ -158,6 +158,8 @@ Kit 的 `templates/adapters/platform/` 提供 Platform contract、Lobby Backend�
 
 原生或 GDExtension-backed Adapter 还必须通过独立的原生边界验收：Profile 固定 descriptor、二进制哈希与 `platform + architecture + build_configuration` 矩阵；运行时只做无副作用可用性探测，必需能力缺失、目标歧义或证据不完整时 fail closed。后台回调只能先复制有界纯数据，再经主线程 callback pump 接触 Godot/GF 对象；关闭流程依次停止入口、取消句柄、解绑回调、有界等待自有线程并释放 Provider。依赖来源必须锁定且可离线复现，权限拒绝与敏感字段必须稳定失败并脱敏，编辑器专属产物不能进入运行时导出，所有声明目标都要在实际导出包中复跑加载、取消与关闭验收。
 
+Kit 的 `templates/adapters/storage/` 提供项目侧 `GFStorageBackend`、强类型 Provider 边界和可直接运行的 GUT 合约矩阵。复制模板后必须保持稳定协议版本和真实能力报告，拒绝空 Provider、路径逃逸、未知选项、矛盾的失败结果和超预算载荷，并验证 exists/read/write/delete/list、条件修订及失败时旧记录仍完整可见。Kit 验收会把受控普通文件复制到隔离项目，通过受监督且有界的 Godot import/GUT 进程复核生命周期证据，并把链接穿越、输出截断、日志缺失和脱敏 canary 视为失败。`GFStorageBackend` 是同步协议，模板不会虚报 cancellation 或 sync；异步 SDK 的取消、回调关联、主线程入口与有界关闭应由项目侧异步 facade 承担。云冲突、重试、离线和合并策略仍属于项目，不得写死到通用 Adapter。
+
 ## 反馈状态机
 
 项目开发暴露的问题按以下状态推进：

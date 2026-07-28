@@ -1,0 +1,342 @@
+## Shared bounded plain-value validation for the storage Adapter boundary.
+##
+## The accepted graph is intentionally smaller than Variant: null, bool, int,
+## finite float, String, Array, and Dictionary with String keys. Validation
+## never stringifies or logs the inspected value.
+class_name ProjectStorageValueLimits
+extends RefCounted
+
+
+# --- 常量 ---
+
+const ABSOLUTE_MAX_BYTES: int = 64 * 1024 * 1024
+const ABSOLUTE_MAX_NODES: int = 262_144
+const ABSOLUTE_MAX_DEPTH: int = 32
+const ABSOLUTE_MAX_STRING_BYTES: int = 4 * 1024 * 1024
+const ABSOLUTE_MAX_CONTAINER_ENTRIES: int = 65_536
+const _LIMIT_KEYS: PackedStringArray = [
+	"max_bytes",
+	"max_nodes",
+	"max_depth",
+	"max_string_bytes",
+	"max_container_entries",
+]
+
+
+# --- 公共方法 ---
+
+static func make_limits(
+	max_bytes: int,
+	max_nodes: int,
+	max_depth: int,
+	max_string_bytes: int,
+	max_container_entries: int
+) -> Dictionary:
+	return {
+		"max_bytes": max_bytes,
+		"max_nodes": max_nodes,
+		"max_depth": max_depth,
+		"max_string_bytes": max_string_bytes,
+		"max_container_entries": max_container_entries,
+	}
+
+
+static func validate_plain_value(value: Variant, limits: Dictionary) -> Dictionary:
+	if not _limits_are_valid(limits):
+		return _make_result(false, ERR_INVALID_PARAMETER, 0, 0)
+
+	var state: Dictionary = {
+		"bytes": 0,
+		"nodes": 0,
+	}
+	var ancestors: Array[Variant] = []
+	var validation_error: Error = _inspect_value(
+		value,
+		0,
+		limits,
+		state,
+		ancestors
+	)
+	return _make_result(
+		validation_error == OK,
+		validation_error,
+		_get_int(state, "bytes"),
+		_get_int(state, "nodes")
+	)
+
+
+static func validate_payload(
+	data: Dictionary,
+	metadata: Dictionary,
+	limits: Dictionary
+) -> Dictionary:
+	var payload: Dictionary = {
+		"data": data,
+		"metadata": metadata,
+	}
+	return validate_plain_value(payload, limits)
+
+
+# --- 私有/辅助方法 ---
+
+static func _limits_are_valid(limits: Dictionary) -> bool:
+	if not _has_exact_keys(limits, _LIMIT_KEYS):
+		return false
+	return (
+		_is_bounded_integer(
+			limits.get("max_bytes"),
+			ABSOLUTE_MAX_BYTES
+		)
+		and _is_bounded_integer(
+			limits.get("max_nodes"),
+			ABSOLUTE_MAX_NODES
+		)
+		and _is_bounded_integer(
+			limits.get("max_depth"),
+			ABSOLUTE_MAX_DEPTH
+		)
+		and _is_bounded_integer(
+			limits.get("max_string_bytes"),
+			ABSOLUTE_MAX_STRING_BYTES
+		)
+		and _is_bounded_integer(
+			limits.get("max_container_entries"),
+			ABSOLUTE_MAX_CONTAINER_ENTRIES
+		)
+	)
+
+
+static func _is_bounded_integer(value: Variant, absolute_maximum: int) -> bool:
+	if not value is int:
+		return false
+	var integer_value: int = value
+	return integer_value > 0 and integer_value <= absolute_maximum
+
+
+static func _inspect_value(
+	value: Variant,
+	depth: int,
+	limits: Dictionary,
+	state: Dictionary,
+	ancestors: Array[Variant]
+) -> Error:
+	if depth > _get_int(limits, "max_depth"):
+		return ERR_OUT_OF_MEMORY
+	var node_error: Error = _add_node(
+		state,
+		_get_int(limits, "max_nodes")
+	)
+	if node_error != OK:
+		return node_error
+
+	if value == null:
+		return _add_bytes(state, 4, _get_int(limits, "max_bytes"))
+	if value is bool:
+		return _add_bytes(state, 5, _get_int(limits, "max_bytes"))
+	if value is int:
+		return _add_bytes(state, 32, _get_int(limits, "max_bytes"))
+	if value is float:
+		var float_value: float = value
+		if not is_finite(float_value):
+			return ERR_INVALID_DATA
+		return _add_bytes(state, 64, _get_int(limits, "max_bytes"))
+	if value is String:
+		var text: String = value
+		return _add_string_bytes(text, limits, state)
+	if value is Array:
+		var array_value: Array = value
+		return _inspect_array(array_value, depth, limits, state, ancestors)
+	if value is Dictionary:
+		var dictionary_value: Dictionary = value
+		return _inspect_dictionary(
+			dictionary_value,
+			depth,
+			limits,
+			state,
+			ancestors
+		)
+	return ERR_INVALID_DATA
+
+
+static func _inspect_array(
+	values: Array,
+	depth: int,
+	limits: Dictionary,
+	state: Dictionary,
+	ancestors: Array[Variant]
+) -> Error:
+	if values.size() > _get_int(limits, "max_container_entries"):
+		return ERR_OUT_OF_MEMORY
+	if _contains_same_container(ancestors, values):
+		return ERR_INVALID_DATA
+	var open_error: Error = _add_bytes(
+		state,
+		2,
+		_get_int(limits, "max_bytes")
+	)
+	if open_error != OK:
+		return open_error
+	ancestors.append(values)
+	for item: Variant in values:
+		var separator_error: Error = _add_bytes(
+			state,
+			1,
+			_get_int(limits, "max_bytes")
+		)
+		if separator_error != OK:
+			var _discarded_separator_ancestor: Variant = ancestors.pop_back()
+			return separator_error
+		var item_error: Error = _inspect_value(
+			item,
+			depth + 1,
+			limits,
+			state,
+			ancestors
+		)
+		if item_error != OK:
+			var _discarded_item_ancestor: Variant = ancestors.pop_back()
+			return item_error
+	var _discarded_ancestor: Variant = ancestors.pop_back()
+	return OK
+
+
+static func _inspect_dictionary(
+	values: Dictionary,
+	depth: int,
+	limits: Dictionary,
+	state: Dictionary,
+	ancestors: Array[Variant]
+) -> Error:
+	if values.size() > _get_int(limits, "max_container_entries"):
+		return ERR_OUT_OF_MEMORY
+	if _contains_same_container(ancestors, values):
+		return ERR_INVALID_DATA
+	var open_error: Error = _add_bytes(
+		state,
+		2,
+		_get_int(limits, "max_bytes")
+	)
+	if open_error != OK:
+		return open_error
+	ancestors.append(values)
+	for key_value: Variant in values.keys():
+		if not key_value is String:
+			var _discarded_key_ancestor: Variant = ancestors.pop_back()
+			return ERR_INVALID_DATA
+		var key: String = key_value
+		var separator_error: Error = _add_bytes(
+			state,
+			2,
+			_get_int(limits, "max_bytes")
+		)
+		if separator_error != OK:
+			var _discarded_separator_ancestor: Variant = ancestors.pop_back()
+			return separator_error
+		var key_error: Error = _add_string_bytes(key, limits, state)
+		if key_error != OK:
+			var _discarded_string_ancestor: Variant = ancestors.pop_back()
+			return key_error
+		var value_error: Error = _inspect_value(
+			values.get(key),
+			depth + 1,
+			limits,
+			state,
+			ancestors
+		)
+		if value_error != OK:
+			var _discarded_value_ancestor: Variant = ancestors.pop_back()
+			return value_error
+	var _discarded_ancestor: Variant = ancestors.pop_back()
+	return OK
+
+
+static func _contains_same_container(
+	ancestors: Array[Variant],
+	candidate: Variant
+) -> bool:
+	for ancestor: Variant in ancestors:
+		if is_same(ancestor, candidate):
+			return true
+	return false
+
+
+static func _add_string_bytes(
+	value: String,
+	limits: Dictionary,
+	state: Dictionary
+) -> Error:
+	var maximum_string_bytes: int = _get_int(
+		limits,
+		"max_string_bytes"
+	)
+	if value.length() > maximum_string_bytes:
+		return ERR_OUT_OF_MEMORY
+	var utf8_size: int = value.to_utf8_buffer().size()
+	if utf8_size > maximum_string_bytes:
+		return ERR_OUT_OF_MEMORY
+	if utf8_size * 6 > _get_int(limits, "max_bytes") - 2:
+		return ERR_OUT_OF_MEMORY
+	return _add_bytes(
+		state,
+		utf8_size * 6 + 2,
+		_get_int(limits, "max_bytes")
+	)
+
+
+static func _add_node(state: Dictionary, maximum: int) -> Error:
+	var next_count: int = _get_int(state, "nodes") + 1
+	if next_count > maximum:
+		return ERR_OUT_OF_MEMORY
+	state["nodes"] = next_count
+	return OK
+
+
+static func _add_bytes(
+	state: Dictionary,
+	additional_bytes: int,
+	maximum: int
+) -> Error:
+	if (
+		additional_bytes < 0
+		or _get_int(state, "bytes") > maximum - additional_bytes
+	):
+		return ERR_OUT_OF_MEMORY
+	state["bytes"] = _get_int(state, "bytes") + additional_bytes
+	return OK
+
+
+static func _has_exact_keys(
+	values: Dictionary,
+	expected_keys: PackedStringArray
+) -> bool:
+	if values.size() != expected_keys.size():
+		return false
+	for key_value: Variant in values.keys():
+		if not key_value is String:
+			return false
+		var key: String = key_value
+		if not expected_keys.has(key):
+			return false
+	return true
+
+
+static func _get_int(values: Dictionary, field_name: String) -> int:
+	var value: Variant = values.get(field_name)
+	if not value is int:
+		return 0
+	var integer_value: int = value
+	return integer_value
+
+
+static func _make_result(
+	ok: bool,
+	error_code: Error,
+	size_bytes: int,
+	node_count: int
+) -> Dictionary:
+	return {
+		"ok": ok,
+		"error_code": int(error_code),
+		"size_bytes": size_bytes,
+		"node_count": node_count,
+	}

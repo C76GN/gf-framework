@@ -247,12 +247,25 @@ def audit_release_artifact_manifest(
 	manifest_path: Path,
 	expected_version: str = "",
 	expected_revision: str = "",
+	expected_manifest_sha256: str = "",
 ) -> dict[str, Any]:
 	issues: list[str] = []
 	try:
 		manifest_path = absolute_lexical_path(manifest_path)
-		data = json.loads(manifest_path.read_text(encoding="utf-8"))
-	except (OSError, json.JSONDecodeError) as exc:
+		manifest_bytes = manifest_path.read_bytes()
+		if (
+			expected_manifest_sha256
+			and hashlib.sha256(manifest_bytes).hexdigest() != expected_manifest_sha256
+		):
+			return {
+				"ok": False,
+				"version": expected_version,
+				"manifest": manifest_path.as_posix(),
+				"artifact_count": 0,
+				"issues": ["Release artifact manifest identity changed before audit."],
+			}
+		data = json.loads(manifest_bytes.decode("utf-8", errors="strict"))
+	except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
 		return {
 			"ok": False,
 			"version": expected_version,

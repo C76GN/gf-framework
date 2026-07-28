@@ -78,9 +78,11 @@
       "res://tests/gf_core/kernel/editor/test_gf_editor_command_tools.gd",
       "res://tests/gf_core/kernel/editor/test_gf_editor_property_batch_command.gd",
       "res://tests/gf_core/kernel/editor/test_gf_editor_operation_plan.gd",
+      "res://tests/gf_core/kernel/editor/test_gf_artifact_write_transaction.gd",
       "res://tests/gf_core/kernel/editor/test_gf_generated_artifact_report.gd",
       "res://tests/gf_core/kernel/editor/test_gf_template_generation_manifest.gd",
       "res://tests/gf_core/kernel/extension/test_gf_extension_manifest.gd",
+      "res://tests/gf_core/kernel/package/test_gf_bounded_zip_support.gd",
       "res://tests/gf_core/kernel/package/test_gf_package_manager_backend.gd"
     ],
     "gf.standard.agent_environment": [
@@ -100,6 +102,7 @@
       "res://tests/gf_core/standard/utilities/assets/test_gf_resource_registry_tools.gd",
       "res://tests/gf_core/standard/utilities/assets/test_gf_resource_resolver_utility.gd",
       "res://tests/gf_core/standard/utilities/assets/test_gf_asset_catalog_runtime.gd",
+      "res://tests/gf_core/standard/utilities/assets/test_gf_resource_variant_graph_artifact.gd",
       "res://tests/gf_core/standard/utilities/io/test_gf_remote_cache_utility.gd",
       "res://tests/gf_core/standard/utilities/io/test_gf_async_batch.gd",
       "res://tests/gf_core/standard/utilities/io/test_gf_path_enumeration_tools.gd",

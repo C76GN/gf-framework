@@ -11,6 +11,7 @@
 - `GFEditorActionDefinition`：描述菜单、按钮或快捷键入口，通过 `command_factory` 按上下文创建命令。
 - `GFEditorCommandRegistry`：按稳定动作 ID 收集动作贡献，并为命令面板、工具栏或菜单解析布局。
 - `GFTemplateGenerationManifest`：从字典或 JSON sidecar 读取模板 ID、模板路径、输出路径、变量、要求和产物所有权，并衔接 `GFGeneratedArtifactReport`。
+- `GFArtifactWriteTransaction`：在明确根目录和硬预算内预检、暂存并以运行期补偿事务提交一组文本、字节或已有临时文件产物，也可为必须使用专用 writer 的调用方提供统一回滚快照。
 - `GFEditorOperationPlan`：把预览、dry-run、执行步骤和生成产物报告汇总为统一操作摘要，供 Dock、工具栏或 CI 预检展示。
 - `GFBakeDependencyReport`：记录编辑器烘焙或导入工具的输入、输出、逻辑依赖和失效原因，并汇总 current / stale / missing / failed 状态。
 - `GFScriptPatchUtility`：对 GDScript 头部注解做纯文本补丁，并保持 `@tool`、注解、文档注释、`class_name` 和 `extends` 的顺序。
@@ -144,6 +145,56 @@ var report := GFTemplateGenerationManifest.save_text_from_manifest(manifest, sou
 清单中的 `variables` 与 `requirements` 会进入产物报告 metadata，方便生成器在 dry-run、覆盖检查、批量摘要和漂移审查时复用同一套结构。实际模板渲染、依赖安装和输出目录策略仍由调用方决定。
 
 模板或批处理工具真正写入文件时，应把输出目录作为生成物根传给 `GFGeneratedArtifactReport.save_text(..., { "allowed_roots": [...] })`。这样 dry-run、编辑器按钮和 CI 校验会使用同一套路径边界，避免模板清单里的错误输出路径写到手写模块或工程外部。
+
+## 多产物写入事务
+
+单个文本产物继续使用 `GFGeneratedArtifactReport.save_text()`。当一次编辑器操作必须同时交付多个文本、二进制文件或已生成的临时文件时，使用 `GFArtifactWriteTransaction` 在零写入预检通过后统一 staging 和 commit：
+
+```gdscript
+var entries: Array[Dictionary] = [
+	GFArtifactWriteTransaction.make_text_entry(
+		"res://generated/catalog.json",
+		catalog_json
+	),
+	GFArtifactWriteTransaction.make_bytes_entry(
+		"res://generated/preview.bin",
+		preview_bytes
+	),
+]
+var options := {
+	"allowed_roots": ["res://generated"],
+	"max_file_count": 16,
+	"max_file_bytes": 8 * 1024 * 1024,
+	"max_total_bytes": 32 * 1024 * 1024,
+	"max_backup_bytes": 32 * 1024 * 1024,
+	"dry_run": true,
+}
+var preview := GFArtifactWriteTransaction.get_preflight_report(entries, options)
+if preview.ok:
+	options.dry_run = false
+	var committed := GFArtifactWriteTransaction.commit(entries, options)
+```
+
+`allowed_roots` 是必填的非空边界，不存在隐式的整个 `res://` / `user://` 写权限。预检会拒绝空批次、重复的跨平台路径身份、非 `res://` / `user://` 目标、越出根目录的目标、非 ASCII 或非便携文件名、文件系统 link、禁止覆盖、摘要不匹配和所有预算溢出。ASCII portable 策略避免 NFC/NFD、语言相关 case fold 与宿主文件系统别名让两个逻辑目标落到同一实体。全部变化内容先写到目标同目录的 staging 文件并复核大小与 SHA-256；删除目标前会再次绑定 staging 身份和内容，rename 后还会复核目标边界、长度与 SHA-256。任一替换失败时只逆序恢复本事务已触碰且仍匹配事务记录 post-state 的目标；目标后来漂移时回滚 fail closed 并返回恢复句柄，不会盲删未知内容。内容完全未变化的批次幂等返回成功且不创建 sidecar。报告只暴露路径、计数、状态和内容摘要，调用方 metadata 会通过支持报告脱敏边界收束。
+
+某些产物必须由 `ResourceSaver` 或专用 importer 直接写到最终路径，不能先变成文本或字节 entry。此时先调用 `begin(paths, options)`，成功后执行专用写入，并且恰好调用一次 `complete(transaction)` 或 `rollback(transaction)`：
+
+```gdscript
+var transaction := GFArtifactWriteTransaction.begin(
+	PackedStringArray([resource_path, manifest_path]),
+	{ "allowed_roots": ["res://generated"] }
+)
+if transaction.ok:
+	var save_error := ResourceSaver.save(resource, resource_path)
+	if save_error == OK:
+		GFArtifactWriteTransaction.complete(transaction)
+	else:
+		GFArtifactWriteTransaction.rollback(transaction)
+```
+
+`begin()` 只覆盖显式声明的文件路径，不会自动发现 writer 的旁路输出；调用方必须在写入前给出完整目标集合，并在 `begin()` 到终态之间独占这些目标。脚本生成器产生的 `.gd.uid`、import metadata 或其他 sidecar 也必须显式纳入目标集合，或者像 Config Pipeline 一样禁止 constituent 提前扫描，等整批成功后再统一扫描一次。它在复制前绑定每个既有目标的存在性、长度和 SHA-256，备份读取不会越过声明预算；返回值是不暴露目标或备份路径、由框架内部 registry 持有权威状态的 opaque one-shot handle，调用方只能原样交给 `complete()` 或 `rollback()`。提交过程先完成全量预检与 staging，再逐文件执行同目录替换；运行期失败会尽力补偿并报告不完整恢复。
+
+任何尚未终结的 `rollback()` / `complete()` 失败都会统一返回 `recovery_required = true`、稳定的 `recovery_action` 和 `recovery_transaction`，内部 active state 只保留尚未处理的条目，已恢复目标或已删除快照不会在重试时重复工作。`recovery_action` 只能是 `rollback` 或 `complete`，即使上层把具体失败状态归一化，也必须按该字段把 opaque 句柄交给对应终态动作。回滚会先复核全部 snapshot，并捕获目标的可观察状态；真正删除前再次核对，内部 commit 的目标还必须匹配记录的 post-state。预检失败后可修复环境并按报告重试 `rollback()`；确实要放弃恢复时仍可在终态 I/O 尚未开始前显式调用 `complete()`。一旦 rollback 已修改目标或 complete 已删除快照，事务就锁定对应终态，反向调用分别返回 `rollback_required` 或 `completion_required`，并继续报告同一个恢复动作。错误线程在读取 registry 前失败，不会把未验证的输入字典铸造成恢复句柄，原事务仍需回到主线程终结。未完成终态会占用有界事务槽和剩余备份。GDScript 文件 API 无法固定父目录 handle，所以 `allowed_roots` 必须位于调用方信任、不会被本机其他进程恶意交换 junction 的目录；实现会复核可观察漂移并 fail closed，但不伪称封死恶意本机 TOCTOU。进程终止、断电或文件系统故障下不承诺多文件 crash atomicity。事务也不替代项目审批、产物格式校验、导入等待或远端发布协议。Config Pipeline 的 Commit Stage 复用这一边界，只保留导表流水线的阶段身份。
 
 ## 操作计划报告
 

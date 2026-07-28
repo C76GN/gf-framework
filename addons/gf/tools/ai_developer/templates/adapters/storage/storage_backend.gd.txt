@@ -1,0 +1,882 @@
+## Project-owned GFStorageBackend Adapter skeleton.
+##
+## This Adapter validates portable logical keys, closed protocol schemas,
+## bounded plain-value graphs, error translation, and atomic-write options
+## before delegating to one ProjectStorageProvider.
+class_name ProjectStorageBackend
+extends GFStorageBackend
+
+
+# --- 常量 ---
+
+const PROTOCOL_VERSION: String = ProjectStorageProvider.PROTOCOL_VERSION
+const DEFAULT_MAX_PAYLOAD_BYTES: int = 4 * 1024 * 1024
+const ABSOLUTE_MAX_PAYLOAD_BYTES: int = 64 * 1024 * 1024
+const DEFAULT_MAX_LIST_ITEMS: int = 1024
+const ABSOLUTE_MAX_LIST_ITEMS: int = 8192
+const DEFAULT_MAX_LIST_BYTES: int = 4 * 1024 * 1024
+const ABSOLUTE_MAX_LIST_BYTES: int = 16 * 1024 * 1024
+const DEFAULT_MAX_GRAPH_NODES: int = 65_536
+const DEFAULT_MAX_GRAPH_DEPTH: int = 16
+const DEFAULT_MAX_STRING_BYTES: int = 1024 * 1024
+const DEFAULT_MAX_CONTAINER_ENTRIES: int = 16_384
+const MAX_PROVIDER_OPTIONS_BYTES: int = 64 * 1024
+const MAX_LOGICAL_KEY_LENGTH: int = 512
+const MAX_REVISION_TOKEN_BYTES: int = 128
+const MAX_REQUEST_ID_BYTES: int = 128
+const _CONFIG_KEYS: PackedStringArray = [
+	"provider",
+	"provider_options",
+	"key_prefix",
+	"max_payload_bytes",
+	"max_list_items",
+	"max_list_bytes",
+	"max_graph_nodes",
+	"max_graph_depth",
+	"max_string_bytes",
+	"max_container_entries",
+]
+const _CAPABILITY_KEYS: PackedStringArray = [
+	"read",
+	"write",
+	"delete",
+	"list",
+	"atomic_write",
+	"conditional_write",
+	"cancellation",
+	"sync",
+]
+const _READ_RESULT_KEYS: PackedStringArray = [
+	"ok",
+	"data",
+	"metadata",
+	"error_code",
+]
+const _LIST_RESULT_KEYS: PackedStringArray = [
+	"ok",
+	"records",
+	"error_code",
+]
+const _LIST_RECORD_KEYS: PackedStringArray = [
+	"storage_key",
+	"metadata",
+]
+const _WRITE_OPTION_KEYS: PackedStringArray = [
+	"expected_revision",
+	"create_if_absent",
+	"request_id",
+]
+const _ALLOWED_PROVIDER_ERRORS: PackedInt32Array = [
+	OK,
+	FAILED,
+	ERR_UNAVAILABLE,
+	ERR_UNCONFIGURED,
+	ERR_UNAUTHORIZED,
+	ERR_INVALID_PARAMETER,
+	ERR_INVALID_DATA,
+	ERR_OUT_OF_MEMORY,
+	ERR_CANT_OPEN,
+	ERR_CANT_CREATE,
+	ERR_FILE_CANT_READ,
+	ERR_FILE_CANT_WRITE,
+	ERR_FILE_NOT_FOUND,
+	ERR_FILE_NO_PERMISSION,
+	ERR_FILE_CORRUPT,
+	ERR_TIMEOUT,
+	ERR_BUSY,
+	ERR_ALREADY_EXISTS,
+	ERR_ALREADY_IN_USE,
+]
+const _FORBIDDEN_COMPONENT_CHARACTERS: String = "<>:\"\\|?*"
+const _RESERVED_COMPONENT_STEMS: PackedStringArray = [
+	"aux",
+	"con",
+	"nul",
+	"prn",
+	"com1",
+	"com2",
+	"com3",
+	"com4",
+	"com5",
+	"com6",
+	"com7",
+	"com8",
+	"com9",
+	"lpt1",
+	"lpt2",
+	"lpt3",
+	"lpt4",
+	"lpt5",
+	"lpt6",
+	"lpt7",
+	"lpt8",
+	"lpt9",
+]
+
+
+# --- 私有变量 ---
+
+var _provider: ProjectStorageProvider = null
+var _key_prefix: String = ""
+var _max_payload_bytes: int = DEFAULT_MAX_PAYLOAD_BYTES
+var _max_list_items: int = DEFAULT_MAX_LIST_ITEMS
+var _max_list_bytes: int = DEFAULT_MAX_LIST_BYTES
+var _max_graph_nodes: int = DEFAULT_MAX_GRAPH_NODES
+var _max_graph_depth: int = DEFAULT_MAX_GRAPH_DEPTH
+var _max_string_bytes: int = DEFAULT_MAX_STRING_BYTES
+var _max_container_entries: int = DEFAULT_MAX_CONTAINER_ENTRIES
+var _initialized: bool = false
+var _supports_conditional_write: bool = false
+
+
+# --- 公共方法 ---
+
+func save_data(
+	file_name: String,
+	data: Dictionary,
+	metadata: Dictionary = {}
+) -> Error:
+	if file_name.is_empty():
+		return ERR_INVALID_PARAMETER
+	if not _is_ready():
+		return ERR_UNAVAILABLE
+	if _resolve_storage_key(file_name).is_empty():
+		return ERR_INVALID_PARAMETER
+	var payload_validation: Dictionary = (
+		ProjectStorageValueLimits.validate_payload(
+			data,
+			metadata,
+			_make_payload_limits()
+		)
+	)
+	if not _validation_succeeded(payload_validation):
+		return _validation_error(payload_validation)
+	return _save_data(file_name, data, metadata)
+
+
+# --- 可重写钩子 / 虚方法 ---
+
+func _initialize(config: Dictionary) -> Error:
+	if _initialized or _provider != null:
+		return ERR_ALREADY_IN_USE
+	if not _has_exact_or_optional_keys(config, _CONFIG_KEYS, ["provider"]):
+		return ERR_INVALID_PARAMETER
+
+	var provider_value: Variant = config.get("provider")
+	if not provider_value is ProjectStorageProvider:
+		return ERR_INVALID_PARAMETER
+	var candidate_provider: ProjectStorageProvider = provider_value
+
+	var prefix_value: Variant = config.get("key_prefix", "")
+	if not prefix_value is String:
+		return ERR_INVALID_PARAMETER
+	var requested_prefix: String = prefix_value
+	var normalized_prefix: String = _normalize_prefix(requested_prefix)
+	if not requested_prefix.is_empty() and normalized_prefix.is_empty():
+		return ERR_INVALID_PARAMETER
+
+	var payload_budget: int = _read_bounded_integer(
+		config,
+		"max_payload_bytes",
+		DEFAULT_MAX_PAYLOAD_BYTES,
+		ABSOLUTE_MAX_PAYLOAD_BYTES
+	)
+	var list_item_budget: int = _read_bounded_integer(
+		config,
+		"max_list_items",
+		DEFAULT_MAX_LIST_ITEMS,
+		ABSOLUTE_MAX_LIST_ITEMS
+	)
+	var list_byte_budget: int = _read_bounded_integer(
+		config,
+		"max_list_bytes",
+		DEFAULT_MAX_LIST_BYTES,
+		ABSOLUTE_MAX_LIST_BYTES
+	)
+	var graph_node_budget: int = _read_bounded_integer(
+		config,
+		"max_graph_nodes",
+		DEFAULT_MAX_GRAPH_NODES,
+		ProjectStorageValueLimits.ABSOLUTE_MAX_NODES
+	)
+	var graph_depth_budget: int = _read_bounded_integer(
+		config,
+		"max_graph_depth",
+		DEFAULT_MAX_GRAPH_DEPTH,
+		ProjectStorageValueLimits.ABSOLUTE_MAX_DEPTH
+	)
+	var string_byte_budget: int = _read_bounded_integer(
+		config,
+		"max_string_bytes",
+		DEFAULT_MAX_STRING_BYTES,
+		ProjectStorageValueLimits.ABSOLUTE_MAX_STRING_BYTES
+	)
+	var container_entry_budget: int = _read_bounded_integer(
+		config,
+		"max_container_entries",
+		DEFAULT_MAX_CONTAINER_ENTRIES,
+		ProjectStorageValueLimits.ABSOLUTE_MAX_CONTAINER_ENTRIES
+	)
+	if (
+		payload_budget <= 0
+		or list_item_budget <= 0
+		or list_byte_budget <= 0
+		or graph_node_budget <= 0
+		or graph_depth_budget <= 0
+		or string_byte_budget <= 0
+		or container_entry_budget <= 0
+	):
+		return ERR_INVALID_PARAMETER
+
+	var provider_options_value: Variant = config.get("provider_options", {})
+	if not provider_options_value is Dictionary:
+		return ERR_INVALID_PARAMETER
+	var provider_options: Dictionary = provider_options_value
+	var options_validation: Dictionary = (
+		ProjectStorageValueLimits.validate_plain_value(
+			provider_options,
+			ProjectStorageValueLimits.make_limits(
+				MAX_PROVIDER_OPTIONS_BYTES,
+				4096,
+				8,
+				32 * 1024,
+				1024
+			)
+		)
+	)
+	if not _validation_succeeded(options_validation):
+		return _validation_error(options_validation)
+
+	if candidate_provider.get_protocol_version() != PROTOCOL_VERSION:
+		return ERR_INVALID_DATA
+	var pre_initialize_capabilities: Dictionary = (
+		candidate_provider.get_capabilities()
+	)
+	if not _provider_capabilities_are_valid(pre_initialize_capabilities):
+		return ERR_INVALID_DATA
+
+	var initialize_error: Error = candidate_provider.initialize(
+		provider_options.duplicate(true)
+	)
+	var mapped_initialize_error: Error = _map_provider_error(
+		int(initialize_error),
+		ERR_UNAVAILABLE
+	)
+	if mapped_initialize_error != OK:
+		candidate_provider.shutdown()
+		return mapped_initialize_error
+
+	if candidate_provider.get_protocol_version() != PROTOCOL_VERSION:
+		candidate_provider.shutdown()
+		return ERR_INVALID_DATA
+	var post_initialize_capabilities: Dictionary = (
+		candidate_provider.get_capabilities()
+	)
+	if (
+		not _provider_capabilities_are_valid(post_initialize_capabilities)
+		or post_initialize_capabilities != pre_initialize_capabilities
+	):
+		candidate_provider.shutdown()
+		return ERR_INVALID_DATA
+
+	_provider = candidate_provider
+	_key_prefix = normalized_prefix
+	_max_payload_bytes = payload_budget
+	_max_list_items = list_item_budget
+	_max_list_bytes = list_byte_budget
+	_max_graph_nodes = graph_node_budget
+	_max_graph_depth = graph_depth_budget
+	_max_string_bytes = string_byte_budget
+	_max_container_entries = container_entry_budget
+	_supports_conditional_write = _get_bool(
+		post_initialize_capabilities,
+		"conditional_write"
+	)
+	_initialized = true
+	return OK
+
+
+func _shutdown() -> void:
+	if _provider != null:
+		_provider.shutdown()
+	_provider = null
+	_key_prefix = ""
+	_max_payload_bytes = DEFAULT_MAX_PAYLOAD_BYTES
+	_max_list_items = DEFAULT_MAX_LIST_ITEMS
+	_max_list_bytes = DEFAULT_MAX_LIST_BYTES
+	_max_graph_nodes = DEFAULT_MAX_GRAPH_NODES
+	_max_graph_depth = DEFAULT_MAX_GRAPH_DEPTH
+	_max_string_bytes = DEFAULT_MAX_STRING_BYTES
+	_max_container_entries = DEFAULT_MAX_CONTAINER_ENTRIES
+	_initialized = false
+	_supports_conditional_write = false
+
+
+func _save_data(
+	file_name: String,
+	data: Dictionary,
+	metadata: Dictionary
+) -> Error:
+	if not _is_ready():
+		return ERR_UNAVAILABLE
+	var storage_key: String = _resolve_storage_key(file_name)
+	if storage_key.is_empty():
+		return ERR_INVALID_PARAMETER
+
+	var payload_validation: Dictionary = (
+		ProjectStorageValueLimits.validate_payload(
+			data,
+			metadata,
+			_make_payload_limits()
+		)
+	)
+	if not _validation_succeeded(payload_validation):
+		return _validation_error(payload_validation)
+	if metadata.has("revision"):
+		return ERR_INVALID_PARAMETER
+
+	var write_options_value: Variant = metadata.get("write_options", {})
+	if not write_options_value is Dictionary:
+		return ERR_INVALID_PARAMETER
+	var write_options: Dictionary = write_options_value
+	if not _write_options_are_valid(write_options):
+		return ERR_INVALID_PARAMETER
+	if (
+		(write_options.has("expected_revision")
+			or _get_bool(write_options, "create_if_absent"))
+		and not _supports_conditional_write
+	):
+		return ERR_UNAVAILABLE
+
+	var stored_metadata: Dictionary = metadata.duplicate(true)
+	var _erase_result: bool = stored_metadata.erase("write_options")
+	var provider_error: Error = _provider.write_record_atomic(
+		storage_key,
+		data.duplicate(true),
+		stored_metadata,
+		write_options.duplicate(true)
+	)
+	return _map_provider_error(int(provider_error), ERR_CANT_CREATE)
+
+
+func _load_data(file_name: String) -> Dictionary:
+	if not _is_ready():
+		return _make_read_result(
+			false,
+			{},
+			{},
+			"Storage backend is unavailable.",
+			ERR_UNAVAILABLE
+		)
+	var storage_key: String = _resolve_storage_key(file_name)
+	if storage_key.is_empty():
+		return _make_read_result(
+			false,
+			{},
+			{},
+			"Logical storage key is invalid.",
+			ERR_INVALID_PARAMETER
+		)
+
+	var provider_result: Dictionary = _provider.read_record(
+		storage_key,
+		_make_read_limits()
+	)
+	if not _read_result_schema_is_valid(provider_result):
+		return _make_read_result(
+			false,
+			{},
+			{},
+			"Storage provider returned an invalid result.",
+			ERR_INVALID_DATA
+		)
+	var provider_ok: bool = _get_bool(provider_result, "ok")
+	var provider_data: Dictionary = provider_result["data"]
+	var provider_metadata: Dictionary = provider_result["metadata"]
+	var provider_error_code: int = _get_int(
+		provider_result,
+		"error_code"
+	)
+	if not provider_ok:
+		if (
+			provider_error_code == int(OK)
+			or not provider_data.is_empty()
+			or not provider_metadata.is_empty()
+		):
+			return _make_read_result(
+				false,
+				{},
+				{},
+				"Storage provider returned an invalid result.",
+				ERR_INVALID_DATA
+			)
+		return _make_read_result(
+			false,
+			{},
+			{},
+			"Storage provider read failed.",
+			_map_provider_error(provider_error_code, ERR_CANT_OPEN)
+		)
+	if provider_error_code != int(OK):
+		return _make_read_result(
+			false,
+			{},
+			{},
+			"Storage provider returned an invalid result.",
+			ERR_INVALID_DATA
+		)
+
+	var payload_validation: Dictionary = (
+		ProjectStorageValueLimits.validate_payload(
+			provider_data,
+			provider_metadata,
+			_make_payload_limits()
+		)
+	)
+	if not _validation_succeeded(payload_validation):
+		return _make_read_result(
+			false,
+			{},
+			{},
+			"Storage provider read exceeded the accepted value contract.",
+			_validation_error(payload_validation)
+		)
+	if not _record_metadata_is_valid(provider_metadata):
+		return _make_read_result(
+			false,
+			{},
+			{},
+			"Storage provider returned invalid metadata.",
+			ERR_INVALID_DATA
+		)
+	return _make_read_result(
+		true,
+		provider_data,
+		provider_metadata,
+		"",
+		OK
+	)
+
+
+func _delete_data(file_name: String) -> Error:
+	if not _is_ready():
+		return ERR_UNAVAILABLE
+	var storage_key: String = _resolve_storage_key(file_name)
+	if storage_key.is_empty():
+		return ERR_INVALID_PARAMETER
+	var provider_error: Error = _provider.delete_record(storage_key)
+	return _map_provider_error(int(provider_error), ERR_CANT_OPEN)
+
+
+func _has_data(file_name: String) -> bool:
+	if not _is_ready():
+		return false
+	var storage_key: String = _resolve_storage_key(file_name)
+	if storage_key.is_empty():
+		return false
+	return _provider.has_record(storage_key)
+
+
+func _list_data() -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	if not _is_ready():
+		return result
+
+	var provider_result: Dictionary = _provider.list_records(
+		_key_prefix,
+		_make_list_limits()
+	)
+	if not _list_result_schema_is_valid(provider_result):
+		return result
+	if not _get_bool(provider_result, "ok"):
+		return result
+	if _get_int(provider_result, "error_code") != int(OK):
+		return result
+
+	var records: Array = provider_result["records"]
+	if records.size() > _max_list_items:
+		return result
+	var records_validation: Dictionary = (
+		ProjectStorageValueLimits.validate_plain_value(
+			records,
+			_make_list_value_limits()
+		)
+	)
+	if not _validation_succeeded(records_validation):
+		return result
+
+	var entries_by_name: Dictionary = {}
+	var logical_names: PackedStringArray = PackedStringArray()
+	for record_value: Variant in records:
+		if not record_value is Dictionary:
+			return []
+		var record: Dictionary = record_value
+		if not _has_exact_keys(record, _LIST_RECORD_KEYS):
+			return []
+		var storage_key_value: Variant = record.get("storage_key")
+		var metadata_value: Variant = record.get("metadata")
+		if not storage_key_value is String or not metadata_value is Dictionary:
+			return []
+		var storage_key: String = storage_key_value
+		var metadata: Dictionary = metadata_value
+		var logical_name: String = _logical_name_from_storage_key(storage_key)
+		if (
+			logical_name.is_empty()
+			or entries_by_name.has(logical_name)
+			or not _record_metadata_is_valid(metadata)
+		):
+			return []
+		entries_by_name[logical_name] = {
+			"file_name": logical_name,
+			"metadata": metadata.duplicate(true),
+		}
+		var _append_result: bool = logical_names.append(logical_name)
+	logical_names.sort()
+	for logical_name: String in logical_names:
+		var entry_value: Variant = entries_by_name.get(logical_name)
+		if not entry_value is Dictionary:
+			return []
+		var entry: Dictionary = entry_value
+		result.append(entry)
+	return result
+
+
+func _get_capabilities() -> Dictionary:
+	return {
+		"protocol_version": PROTOCOL_VERSION,
+		"read": _initialized,
+		"write": _initialized,
+		"delete": _initialized,
+		"list": _initialized,
+		"sync": false,
+		"atomic_write": _initialized,
+		"conditional_write": (
+			_initialized and _supports_conditional_write
+		),
+		"cancellation": false,
+	}
+
+
+# --- 私有/辅助方法 ---
+
+func _is_ready() -> bool:
+	return _initialized and _provider != null
+
+
+func _resolve_storage_key(file_name: String) -> String:
+	if not _is_valid_logical_name(file_name):
+		return ""
+	return _key_prefix + file_name
+
+
+func _logical_name_from_storage_key(storage_key: String) -> String:
+	if not storage_key.begins_with(_key_prefix):
+		return ""
+	var logical_name: String = storage_key.substr(_key_prefix.length())
+	return logical_name if _is_valid_logical_name(logical_name) else ""
+
+
+func _normalize_prefix(prefix: String) -> String:
+	if prefix.is_empty():
+		return ""
+	var candidate: String = prefix.trim_suffix("/")
+	if not _is_valid_logical_name(candidate):
+		return ""
+	return candidate + "/"
+
+
+func _is_valid_logical_name(file_name: String) -> bool:
+	if (
+		file_name.is_empty()
+		or file_name.length() > MAX_LOGICAL_KEY_LENGTH
+		or file_name.begins_with("/")
+		or file_name.ends_with("/")
+	):
+		return false
+	for index: int in range(file_name.length()):
+		var code_point: int = file_name.unicode_at(index)
+		if code_point < 32 or code_point == 127:
+			return false
+	for component: String in file_name.split("/", true):
+		if (
+			component.is_empty()
+			or component == "."
+			or component == ".."
+			or component.ends_with(".")
+			or component.ends_with(" ")
+			or _is_reserved_component(component)
+		):
+			return false
+		for index: int in range(component.length()):
+			var character: String = component.substr(index, 1)
+			if _FORBIDDEN_COMPONENT_CHARACTERS.contains(character):
+				return false
+	return true
+
+
+func _is_reserved_component(component: String) -> bool:
+	var first_dot: int = component.find(".")
+	var component_stem: String = (
+		component.substr(0, first_dot) if first_dot >= 0 else component
+	)
+	component_stem = (
+		component_stem
+		.to_lower()
+		.replace("¹", "1")
+		.replace("²", "2")
+		.replace("³", "3")
+	)
+	return _RESERVED_COMPONENT_STEMS.has(component_stem)
+
+
+func _write_options_are_valid(options: Dictionary) -> bool:
+	if not _has_only_keys(options, _WRITE_OPTION_KEYS):
+		return false
+	if options.has("expected_revision"):
+		var revision_value: Variant = options.get("expected_revision")
+		if not revision_value is String:
+			return false
+		var revision: String = revision_value
+		if not _is_valid_opaque_token(
+			revision,
+			MAX_REVISION_TOKEN_BYTES
+		):
+			return false
+	if options.has("create_if_absent"):
+		var create_value: Variant = options.get("create_if_absent")
+		if not create_value is bool:
+			return false
+		var create_if_absent: bool = create_value
+		if create_if_absent and options.has("expected_revision"):
+			return false
+	if options.has("request_id"):
+		var request_id_value: Variant = options.get("request_id")
+		if not request_id_value is String:
+			return false
+		var request_id: String = request_id_value
+		if not _is_valid_opaque_token(
+			request_id,
+			MAX_REQUEST_ID_BYTES
+		):
+			return false
+	return true
+
+
+func _record_metadata_is_valid(metadata: Dictionary) -> bool:
+	if not _supports_conditional_write:
+		return true
+	var revision_value: Variant = metadata.get("revision")
+	if not revision_value is String:
+		return false
+	var revision: String = revision_value
+	return _is_valid_opaque_token(
+		revision,
+		MAX_REVISION_TOKEN_BYTES
+	)
+
+
+func _is_valid_opaque_token(value: String, maximum_bytes: int) -> bool:
+	if value.is_empty() or value.length() > maximum_bytes:
+		return false
+	var byte_count: int = value.to_utf8_buffer().size()
+	if byte_count > maximum_bytes:
+		return false
+	for index: int in range(value.length()):
+		var code_point: int = value.unicode_at(index)
+		if code_point < 32 or code_point == 127:
+			return false
+	return true
+
+
+func _provider_capabilities_are_valid(capabilities: Dictionary) -> bool:
+	if not _has_exact_keys(capabilities, _CAPABILITY_KEYS):
+		return false
+	for capability_id: String in _CAPABILITY_KEYS:
+		if not capabilities.get(capability_id) is bool:
+			return false
+	for required_id: String in [
+		"read",
+		"write",
+		"delete",
+		"list",
+		"atomic_write",
+	]:
+		if not _get_bool(capabilities, required_id):
+			return false
+	return (
+		not _get_bool(capabilities, "cancellation")
+		and not _get_bool(capabilities, "sync")
+	)
+
+
+func _read_result_schema_is_valid(result: Dictionary) -> bool:
+	return (
+		_has_exact_keys(result, _READ_RESULT_KEYS)
+		and result.get("ok") is bool
+		and result.get("data") is Dictionary
+		and result.get("metadata") is Dictionary
+		and typeof(result.get("error_code")) == TYPE_INT
+	)
+
+
+func _list_result_schema_is_valid(result: Dictionary) -> bool:
+	return (
+		_has_exact_keys(result, _LIST_RESULT_KEYS)
+		and result.get("ok") is bool
+		and result.get("records") is Array
+		and typeof(result.get("error_code")) == TYPE_INT
+	)
+
+
+func _read_bounded_integer(
+	values: Dictionary,
+	field_name: String,
+	default_value: int,
+	absolute_maximum: int
+) -> int:
+	var value: Variant = values.get(field_name, default_value)
+	if not value is int:
+		return -1
+	var integer_value: int = value
+	if integer_value <= 0 or integer_value > absolute_maximum:
+		return -1
+	return integer_value
+
+
+func _make_payload_limits() -> Dictionary:
+	return ProjectStorageValueLimits.make_limits(
+		_max_payload_bytes,
+		_max_graph_nodes,
+		_max_graph_depth,
+		_max_string_bytes,
+		_max_container_entries
+	)
+
+
+func _make_read_limits() -> Dictionary:
+	return {
+		"max_payload_bytes": _max_payload_bytes,
+		"max_graph_nodes": _max_graph_nodes,
+		"max_graph_depth": _max_graph_depth,
+		"max_string_bytes": _max_string_bytes,
+		"max_container_entries": _max_container_entries,
+	}
+
+
+func _make_list_limits() -> Dictionary:
+	return {
+		"max_items": _max_list_items,
+		"max_list_bytes": _max_list_bytes,
+		"max_graph_nodes": _max_graph_nodes,
+		"max_graph_depth": _max_graph_depth,
+		"max_string_bytes": _max_string_bytes,
+		"max_container_entries": _max_container_entries,
+	}
+
+
+func _make_list_value_limits() -> Dictionary:
+	return ProjectStorageValueLimits.make_limits(
+		_max_list_bytes,
+		_max_graph_nodes,
+		_max_graph_depth,
+		_max_string_bytes,
+		_max_container_entries
+	)
+
+
+func _map_provider_error(
+	error_value: Variant,
+	fallback: Error
+) -> Error:
+	if not error_value is int:
+		return fallback
+	var numeric_error: int = error_value
+	if not _ALLOWED_PROVIDER_ERRORS.has(numeric_error):
+		return fallback
+	return numeric_error as Error
+
+
+func _validation_succeeded(validation: Dictionary) -> bool:
+	return (
+		validation.get("ok") is bool
+		and _get_bool(validation, "ok")
+		and typeof(validation.get("error_code")) == TYPE_INT
+		and _get_int(validation, "error_code") == int(OK)
+	)
+
+
+func _validation_error(validation: Dictionary) -> Error:
+	if typeof(validation.get("error_code")) != TYPE_INT:
+		return ERR_INVALID_DATA
+	var error_code: int = _get_int(validation, "error_code")
+	if error_code == int(ERR_OUT_OF_MEMORY):
+		return ERR_OUT_OF_MEMORY
+	return ERR_INVALID_DATA
+
+
+func _has_exact_or_optional_keys(
+	values: Dictionary,
+	allowed_keys: PackedStringArray,
+	required_keys: PackedStringArray
+) -> bool:
+	if not _has_only_keys(values, allowed_keys):
+		return false
+	for required_key: String in required_keys:
+		if not values.has(required_key):
+			return false
+	return true
+
+
+func _has_exact_keys(
+	values: Dictionary,
+	expected_keys: PackedStringArray
+) -> bool:
+	return (
+		values.size() == expected_keys.size()
+		and _has_only_keys(values, expected_keys)
+	)
+
+
+func _has_only_keys(
+	values: Dictionary,
+	allowed_keys: PackedStringArray
+) -> bool:
+	for key_value: Variant in values.keys():
+		if not key_value is String:
+			return false
+		var key: String = key_value
+		if not allowed_keys.has(key):
+			return false
+	return true
+
+
+func _get_bool(values: Dictionary, field_name: String) -> bool:
+	var value: Variant = values.get(field_name)
+	if not value is bool:
+		return false
+	var boolean_value: bool = value
+	return boolean_value
+
+
+func _get_int(values: Dictionary, field_name: String) -> int:
+	var value: Variant = values.get(field_name)
+	if not value is int:
+		return 0
+	var integer_value: int = value
+	return integer_value
+
+
+func _make_read_result(
+	ok: bool,
+	data: Dictionary,
+	metadata: Dictionary,
+	error_message: String,
+	error_code: Error
+) -> Dictionary:
+	return {
+		"ok": ok,
+		"data": data.duplicate(true),
+		"metadata": metadata.duplicate(true),
+		"error": error_message,
+		"error_code": int(error_code),
+	}

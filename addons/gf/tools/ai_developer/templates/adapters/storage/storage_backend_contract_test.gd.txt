@@ -1,0 +1,575 @@
+extends ProjectStorageBackendConformance
+
+
+# --- Godot 生命周期方法 ---
+
+func before_each() -> void:
+	setup_conformance()
+
+
+func after_each() -> void:
+	teardown_conformance()
+
+
+# --- 公共方法（测试） ---
+
+func test_rejects_invalid_providers_and_capability_drift() -> void:
+	run_rejects_invalid_providers_and_capability_drift()
+
+
+func test_reports_closed_capabilities_before_and_after_initialize() -> void:
+	run_reports_closed_capabilities_before_and_after_initialize()
+
+
+func test_round_trip_delete_and_deterministic_list() -> void:
+	run_round_trip_delete_and_deterministic_list()
+
+
+func test_rejects_unsafe_keys_options_config_and_value_graphs() -> void:
+	run_rejects_unsafe_keys_options_config_and_value_graphs()
+
+
+func test_enforces_write_read_and_list_budgets() -> void:
+	run_enforces_write_read_and_list_budgets()
+
+
+func test_atomic_faults_and_opaque_revision_conditions_preserve_state() -> void:
+	run_atomic_faults_and_opaque_revision_conditions_preserve_state()
+
+
+func test_normalizes_unknown_errors_and_redacts_malformed_results() -> void:
+	run_normalizes_unknown_errors_and_redacts_malformed_results()
+
+
+func test_defensive_copies_and_idempotent_shutdown() -> void:
+	run_defensive_copies_and_idempotent_shutdown()
+
+
+# --- 可重写钩子 / 虚方法 ---
+
+func _create_provider_factory() -> ProjectStorageProviderFactory:
+	return MemoryStorageProviderFactory.new()
+
+
+# --- 内部类 ---
+
+class MemoryStorageProviderFactory extends ProjectStorageProviderFactory:
+	func create_provider() -> ProjectStorageProvider:
+		return MemoryStorageProvider.new()
+
+
+	func create_fault_driver(
+		provider: ProjectStorageProvider
+	) -> ProjectStorageProviderFaultDriver:
+		if not provider is MemoryStorageProvider:
+			return null
+		var memory_provider: MemoryStorageProvider = provider
+		return MemoryStorageFaultDriver.new(memory_provider)
+
+
+class MemoryStorageProvider extends ProjectStorageProvider:
+	const _READ_LIMIT_KEYS: PackedStringArray = [
+		"max_payload_bytes",
+		"max_graph_nodes",
+		"max_graph_depth",
+		"max_string_bytes",
+		"max_container_entries",
+	]
+	const _LIST_LIMIT_KEYS: PackedStringArray = [
+		"max_items",
+		"max_list_bytes",
+		"max_graph_nodes",
+		"max_graph_depth",
+		"max_string_bytes",
+		"max_container_entries",
+	]
+	const _WRITE_OPTION_KEYS: PackedStringArray = [
+		"expected_revision",
+		"create_if_absent",
+		"request_id",
+	]
+
+	var fail_next_atomic_commit: bool = false
+	var fail_next_unknown_read_error: bool = false
+	var fail_next_failed_read_with_ok: bool = false
+	var fail_next_malformed_read_result: bool = false
+	var drift_capabilities_after_initialize: bool = false
+	var write_attempt_count: int = 0
+	var shutdown_count: int = 0
+	var last_read_limits: Dictionary = {}
+	var last_list_limits: Dictionary = {}
+	var _records: Dictionary = {}
+	var _revision_counter: int = 0
+	var _initialized: bool = false
+
+
+	func initialize(options: Dictionary = {}) -> Error:
+		if _initialized:
+			return ERR_ALREADY_IN_USE
+		var validation: Dictionary = (
+			ProjectStorageValueLimits.validate_plain_value(
+				options,
+				ProjectStorageValueLimits.make_limits(
+					64 * 1024,
+					4096,
+					8,
+					32 * 1024,
+					1024
+				)
+			)
+		)
+		if not _get_bool(validation, "ok"):
+			return _get_error(validation, "error_code", ERR_INVALID_DATA)
+		_initialized = true
+		return OK
+
+
+	func shutdown() -> void:
+		if not _initialized:
+			return
+		_initialized = false
+		shutdown_count += 1
+
+
+	func get_capabilities() -> Dictionary:
+		return {
+			"read": true,
+			"write": true,
+			"delete": true,
+			"list": true,
+			"atomic_write": not (
+				_initialized and drift_capabilities_after_initialize
+			),
+			"conditional_write": true,
+			"cancellation": false,
+			"sync": false,
+		}
+
+
+	func has_record(storage_key: String) -> bool:
+		return _initialized and _records.has(storage_key)
+
+
+	func read_record(
+		storage_key: String,
+		read_limits: Dictionary
+	) -> Dictionary:
+		last_read_limits = read_limits.duplicate(true)
+		if not _initialized:
+			return _read_failure(ERR_UNAVAILABLE)
+		if not _read_limits_are_valid(read_limits):
+			return _read_failure(ERR_INVALID_PARAMETER)
+		if fail_next_unknown_read_error:
+			fail_next_unknown_read_error = false
+			return {
+				"ok": false,
+				"data": {},
+				"metadata": {},
+				"error_code": 777_777,
+			}
+		if fail_next_failed_read_with_ok:
+			fail_next_failed_read_with_ok = false
+			return {
+				"ok": false,
+				"data": {},
+				"metadata": {},
+				"error_code": int(OK),
+			}
+		if fail_next_malformed_read_result:
+			fail_next_malformed_read_result = false
+			return {
+				"ok": false,
+				"data": {},
+				"metadata": {},
+				"error_code": int(ERR_CANT_OPEN),
+				"provider_message": (
+					"REDACTION_CANARY_DO_NOT_EMIT"
+				),
+			}
+
+		var record_value: Variant = _records.get(storage_key)
+		if not record_value is Dictionary:
+			return _read_failure(ERR_FILE_NOT_FOUND)
+		var record: Dictionary = record_value
+		var data_value: Variant = record.get("data")
+		var metadata_value: Variant = record.get("metadata")
+		if not data_value is Dictionary or not metadata_value is Dictionary:
+			return _read_failure(ERR_INVALID_DATA)
+		var data: Dictionary = data_value
+		var metadata: Dictionary = metadata_value
+		var validation: Dictionary = (
+			ProjectStorageValueLimits.validate_payload(
+				data,
+				metadata,
+				_payload_limits_from_read(read_limits)
+			)
+		)
+		if not _get_bool(validation, "ok"):
+			return _read_failure(
+				_get_error(
+					validation,
+					"error_code",
+					ERR_INVALID_DATA
+				)
+			)
+		return {
+			"ok": true,
+			"data": data.duplicate(true),
+			"metadata": metadata.duplicate(true),
+			"error_code": int(OK),
+		}
+
+
+	func write_record_atomic(
+		storage_key: String,
+		data: Dictionary,
+		metadata: Dictionary,
+		write_options: Dictionary
+	) -> Error:
+		write_attempt_count += 1
+		if not _initialized:
+			return ERR_UNAVAILABLE
+		if (
+			not _has_only_keys(write_options, _WRITE_OPTION_KEYS)
+			or metadata.has("revision")
+		):
+			return ERR_INVALID_PARAMETER
+		var validation: Dictionary = (
+			ProjectStorageValueLimits.validate_payload(
+				data,
+				metadata,
+				ProjectStorageValueLimits.make_limits(
+					ProjectStorageBackend
+					.ABSOLUTE_MAX_PAYLOAD_BYTES,
+					ProjectStorageValueLimits
+					.ABSOLUTE_MAX_NODES,
+					ProjectStorageValueLimits
+					.ABSOLUTE_MAX_DEPTH,
+					ProjectStorageValueLimits
+					.ABSOLUTE_MAX_STRING_BYTES,
+					ProjectStorageValueLimits
+					.ABSOLUTE_MAX_CONTAINER_ENTRIES
+				)
+			)
+		)
+		if not _get_bool(validation, "ok"):
+			return _get_error(validation, "error_code", ERR_INVALID_DATA)
+
+		var current_value: Variant = _records.get(storage_key)
+		var record_exists: bool = current_value is Dictionary
+		if _get_bool(write_options, "create_if_absent"):
+			if record_exists:
+				return ERR_ALREADY_EXISTS
+		if write_options.has("expected_revision"):
+			if not record_exists:
+				return ERR_ALREADY_IN_USE
+			var current_record: Dictionary = current_value
+			var current_metadata: Dictionary = current_record["metadata"]
+			if (
+				write_options["expected_revision"]
+				!= current_metadata["revision"]
+			):
+				return ERR_ALREADY_IN_USE
+
+		var next_revision: int = _revision_counter + 1
+		if next_revision <= 0:
+			return ERR_OUT_OF_MEMORY
+		var committed_metadata: Dictionary = metadata.duplicate(true)
+		committed_metadata["revision"] = "rev-%d" % next_revision
+		var staged_record: Dictionary = {
+			"data": data.duplicate(true),
+			"metadata": committed_metadata,
+		}
+		if fail_next_atomic_commit:
+			fail_next_atomic_commit = false
+			return ERR_CANT_CREATE
+		_records[storage_key] = staged_record
+		_revision_counter = next_revision
+		return OK
+
+
+	func delete_record(storage_key: String) -> Error:
+		if not _initialized:
+			return ERR_UNAVAILABLE
+		if not _records.erase(storage_key):
+			return ERR_FILE_NOT_FOUND
+		return OK
+
+
+	func list_records(
+		storage_prefix: String,
+		list_limits: Dictionary
+	) -> Dictionary:
+		last_list_limits = list_limits.duplicate(true)
+		if not _initialized:
+			return _list_failure(ERR_UNAVAILABLE)
+		if not _list_limits_are_valid(list_limits):
+			return _list_failure(ERR_INVALID_PARAMETER)
+
+		var matching_keys: PackedStringArray = PackedStringArray()
+		for storage_key_value: Variant in _records.keys():
+			if not storage_key_value is String:
+				return _list_failure(ERR_INVALID_DATA)
+			var storage_key: String = storage_key_value
+			if storage_key.begins_with(storage_prefix):
+				var _append_result: bool = matching_keys.append(
+					storage_key
+				)
+				if matching_keys.size() > _get_int(
+					list_limits,
+					"max_items"
+				):
+					return _list_failure(ERR_OUT_OF_MEMORY)
+		matching_keys.sort()
+
+		var records: Array = []
+		var consumed_bytes: int = 2
+		for storage_key: String in matching_keys:
+			var record_value: Variant = _records.get(storage_key)
+			if not record_value is Dictionary:
+				return _list_failure(ERR_INVALID_DATA)
+			var record: Dictionary = record_value
+			var metadata_value: Variant = record.get("metadata")
+			if not metadata_value is Dictionary:
+				return _list_failure(ERR_INVALID_DATA)
+			var metadata: Dictionary = metadata_value
+			var item: Dictionary = {
+				"storage_key": storage_key,
+				"metadata": metadata,
+			}
+			var remaining_bytes: int = (
+				_get_int(list_limits, "max_list_bytes")
+				- consumed_bytes
+			)
+			if remaining_bytes <= 0:
+				return _list_failure(ERR_OUT_OF_MEMORY)
+			var item_validation: Dictionary = (
+				ProjectStorageValueLimits.validate_plain_value(
+					item,
+					ProjectStorageValueLimits.make_limits(
+						remaining_bytes,
+						_get_int(list_limits, "max_graph_nodes"),
+						_get_int(list_limits, "max_graph_depth"),
+						_get_int(list_limits, "max_string_bytes"),
+						_get_int(
+							list_limits,
+							"max_container_entries"
+						)
+					)
+				)
+			)
+			if not _get_bool(item_validation, "ok"):
+				return _list_failure(
+					_get_error(
+						item_validation,
+						"error_code",
+						ERR_INVALID_DATA
+					)
+				)
+			consumed_bytes += _get_int(
+				item_validation,
+				"size_bytes"
+			)
+			records.append({
+				"storage_key": storage_key,
+				"metadata": metadata.duplicate(true),
+			})
+		return {
+			"ok": true,
+			"records": records,
+			"error_code": int(OK),
+		}
+
+
+	func _read_limits_are_valid(limits: Dictionary) -> bool:
+		return (
+			_has_exact_keys(limits, _READ_LIMIT_KEYS)
+			and _is_bounded_integer(
+				limits.get("max_payload_bytes"),
+				ProjectStorageBackend
+				.ABSOLUTE_MAX_PAYLOAD_BYTES
+			)
+			and _common_limits_are_valid(limits)
+		)
+
+
+	func _list_limits_are_valid(limits: Dictionary) -> bool:
+		return (
+			_has_exact_keys(limits, _LIST_LIMIT_KEYS)
+			and _is_bounded_integer(
+				limits.get("max_items"),
+				ProjectStorageBackend.ABSOLUTE_MAX_LIST_ITEMS
+			)
+			and _is_bounded_integer(
+				limits.get("max_list_bytes"),
+				ProjectStorageBackend.ABSOLUTE_MAX_LIST_BYTES
+			)
+			and _common_limits_are_valid(limits)
+		)
+
+
+	func _common_limits_are_valid(limits: Dictionary) -> bool:
+		return (
+			_is_bounded_integer(
+				limits.get("max_graph_nodes"),
+				ProjectStorageValueLimits.ABSOLUTE_MAX_NODES
+			)
+			and _is_bounded_integer(
+				limits.get("max_graph_depth"),
+				ProjectStorageValueLimits.ABSOLUTE_MAX_DEPTH
+			)
+			and _is_bounded_integer(
+				limits.get("max_string_bytes"),
+				ProjectStorageValueLimits
+				.ABSOLUTE_MAX_STRING_BYTES
+			)
+			and _is_bounded_integer(
+				limits.get("max_container_entries"),
+				ProjectStorageValueLimits
+				.ABSOLUTE_MAX_CONTAINER_ENTRIES
+			)
+		)
+
+
+	func _payload_limits_from_read(limits: Dictionary) -> Dictionary:
+		return ProjectStorageValueLimits.make_limits(
+			_get_int(limits, "max_payload_bytes"),
+			_get_int(limits, "max_graph_nodes"),
+			_get_int(limits, "max_graph_depth"),
+			_get_int(limits, "max_string_bytes"),
+			_get_int(limits, "max_container_entries")
+		)
+
+
+	func _is_bounded_integer(
+		value: Variant,
+		maximum: int
+	) -> bool:
+		if not value is int:
+			return false
+		var integer_value: int = value
+		return integer_value > 0 and integer_value <= maximum
+
+
+	func _has_exact_keys(
+		values: Dictionary,
+		expected_keys: PackedStringArray
+	) -> bool:
+		return (
+			values.size() == expected_keys.size()
+			and _has_only_keys(values, expected_keys)
+		)
+
+
+	func _has_only_keys(
+		values: Dictionary,
+		allowed_keys: PackedStringArray
+	) -> bool:
+		for key_value: Variant in values.keys():
+			if not key_value is String:
+				return false
+			var key: String = key_value
+			if not allowed_keys.has(key):
+				return false
+		return true
+
+
+	func _get_bool(values: Dictionary, field_name: String) -> bool:
+		var value: Variant = values.get(field_name)
+		if not value is bool:
+			return false
+		var boolean_value: bool = value
+		return boolean_value
+
+
+	func _get_int(values: Dictionary, field_name: String) -> int:
+		var value: Variant = values.get(field_name)
+		if not value is int:
+			return 0
+		var integer_value: int = value
+		return integer_value
+
+
+	func _get_error(
+		values: Dictionary,
+		field_name: String,
+		fallback: Error
+	) -> Error:
+		var value: Variant = values.get(field_name)
+		if not value is int:
+			return fallback
+		var error_code: int = value
+		return error_code as Error
+
+
+	func _read_failure(error_code: Error) -> Dictionary:
+		return {
+			"ok": false,
+			"data": {},
+			"metadata": {},
+			"error_code": int(error_code),
+		}
+
+
+	func _list_failure(error_code: Error) -> Dictionary:
+		return {
+			"ok": false,
+			"records": [],
+			"error_code": int(error_code),
+		}
+
+
+class MemoryStorageFaultDriver extends ProjectStorageProviderFaultDriver:
+	var _provider: MemoryStorageProvider = null
+
+
+	func _init(provider: MemoryStorageProvider) -> void:
+		_provider = provider
+
+
+	func supports_fault(fault_id: StringName) -> bool:
+		return [
+			FAULT_ATOMIC_COMMIT,
+			FAULT_UNKNOWN_READ_ERROR,
+			FAULT_FAILED_READ_WITH_OK,
+			FAULT_MALFORMED_READ_RESULT,
+			FAULT_POST_INITIALIZE_CAPABILITY_DRIFT,
+		].has(fault_id)
+
+
+	func arm_fault(
+		fault_id: StringName,
+		_options: Dictionary = {}
+	) -> Error:
+		if _provider == null:
+			return ERR_UNAVAILABLE
+		match fault_id:
+			FAULT_ATOMIC_COMMIT:
+				_provider.fail_next_atomic_commit = true
+			FAULT_UNKNOWN_READ_ERROR:
+				_provider.fail_next_unknown_read_error = true
+			FAULT_FAILED_READ_WITH_OK:
+				_provider.fail_next_failed_read_with_ok = true
+			FAULT_MALFORMED_READ_RESULT:
+				_provider.fail_next_malformed_read_result = true
+			FAULT_POST_INITIALIZE_CAPABILITY_DRIFT:
+				_provider.drift_capabilities_after_initialize = true
+			_:
+				return ERR_UNAVAILABLE
+		return OK
+
+
+	func get_observation(observation_id: StringName) -> Variant:
+		if _provider == null:
+			return null
+		match observation_id:
+			OBSERVATION_WRITE_ATTEMPTS:
+				return _provider.write_attempt_count
+			OBSERVATION_LAST_READ_LIMITS:
+				return _provider.last_read_limits.duplicate(true)
+			OBSERVATION_LAST_LIST_LIMITS:
+				return _provider.last_list_limits.duplicate(true)
+			OBSERVATION_SHUTDOWN_COUNT:
+				return _provider.shutdown_count
+			_:
+				return null

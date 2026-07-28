@@ -815,6 +815,8 @@ class SupervisedProcessResult:
 	pid: int
 	notes: tuple[str, ...] = ()
 	cancelled: bool = False
+	stdout_truncated: bool = False
+	stderr_truncated: bool = False
 
 
 def run_supervised_process(
@@ -828,8 +830,18 @@ def run_supervised_process(
 	heartbeat_callback: Callable[[float, int], None] | None = None,
 	heartbeat_interval_seconds: float = 15.0,
 	cancellation_event: threading.Event | None = None,
+	max_stdout_characters: int | None = None,
+	max_stderr_characters: int | None = None,
 ) -> SupervisedProcessResult:
 	started = time.perf_counter()
+	for stream_name, capture_limit in (
+		("stdout", max_stdout_characters),
+		("stderr", max_stderr_characters),
+	):
+		if capture_limit is not None and capture_limit < 1:
+			raise ValueError(
+				f"{stream_name} capture limit must be a positive integer."
+			)
 	if cancellation_event is not None and cancellation_event.is_set():
 		return SupervisedProcessResult(
 			return_code=130,
@@ -845,6 +857,8 @@ def run_supervised_process(
 	process: subprocess.Popen[str] | None = None
 	stdout_parts: list[str] = []
 	stderr_parts: list[str] = []
+	stdout_truncated = [False]
+	stderr_truncated = [False]
 	callback_errors: list[str] = []
 	callback_error_lock = threading.Lock()
 	activity_lock = threading.Lock()
@@ -1030,6 +1044,8 @@ def run_supervised_process(
 									callback_error_lock,
 									last_output_at,
 									activity_lock,
+									max_stdout_characters,
+									stdout_truncated,
 								))
 								output_threads.append(start_output_pump(
 									process.stderr,
@@ -1040,6 +1056,8 @@ def run_supervised_process(
 									callback_error_lock,
 									last_output_at,
 									activity_lock,
+									max_stderr_characters,
+									stderr_truncated,
 								))
 								while not owner.wait_for_direct_exit(process, 0.0):
 									now = time.perf_counter()
@@ -1133,6 +1151,10 @@ def run_supervised_process(
 		raise RuntimeError("Process supervision completed without a started process.")
 	if owner.cleanup_failed and not cancelled:
 		timed_out = True
+	if stdout_truncated[0]:
+		notes.append("Captured stdout exceeded its configured character limit.")
+	if stderr_truncated[0]:
+		notes.append("Captured stderr exceeded its configured character limit.")
 	notes.extend(callback_errors)
 	return SupervisedProcessResult(
 		return_code=process.returncode if process.returncode is not None else 124,
@@ -1143,6 +1165,8 @@ def run_supervised_process(
 		pid=process.pid,
 		notes=tuple(notes),
 		cancelled=cancelled,
+		stdout_truncated=stdout_truncated[0],
+		stderr_truncated=stderr_truncated[0],
 	)
 
 
@@ -1155,18 +1179,36 @@ def start_output_pump(
 	callback_error_lock: threading.Lock,
 	last_output_at: list[float],
 	activity_lock: threading.Lock,
+	max_capture_characters: int | None = None,
+	capture_truncated: list[bool] | None = None,
 ) -> threading.Thread:
 	def pump() -> None:
 		if pipe is None:
 			return
 		try:
-			for line in iter(pipe.readline, ""):
-				parts.append(line)
+			read_next = (
+				(lambda: pipe.readline())
+				if max_capture_characters is None
+				else (lambda: pipe.read(4096))
+			)
+			captured_characters = 0
+			for output_chunk in iter(read_next, ""):
+				if max_capture_characters is None:
+					parts.append(output_chunk)
+				else:
+					remaining = max_capture_characters - captured_characters
+					if remaining > 0:
+						captured = output_chunk[:remaining]
+						parts.append(captured)
+						captured_characters += len(captured)
+					if len(output_chunk) > max(remaining, 0):
+						if capture_truncated is not None:
+							capture_truncated[0] = True
 				with activity_lock:
 					last_output_at[0] = time.perf_counter()
 				if callback is not None:
 					try:
-						callback(line)
+						callback(output_chunk)
 					except Exception as exc:  # pragma: no cover - defensive callback boundary
 						with callback_error_lock:
 							callback_errors.append(f"{stream_name} callback failed: {exc}")

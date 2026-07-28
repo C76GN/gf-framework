@@ -1,0 +1,26 @@
+## Factory boundary that binds the reusable conformance harness to a Provider.
+##
+## Replace the sample factory in storage_backend_contract_test.gd with a
+## factory that constructs the real Provider and its explicit fault driver.
+class_name ProjectStorageProviderFactory
+extends RefCounted
+
+
+# --- 公共方法 ---
+
+func create_provider() -> ProjectStorageProvider:
+	return null
+
+
+func create_fault_driver(
+	_provider: ProjectStorageProvider
+) -> ProjectStorageProviderFaultDriver:
+	return null
+
+
+func get_provider_options() -> Dictionary:
+	return {}
+
+
+func get_key_prefix() -> String:
+	return "gf.storage.acceptance"

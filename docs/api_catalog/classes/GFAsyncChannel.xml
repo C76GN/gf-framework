@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFAsyncChannel" path="addons/gf/standard/common/gf_async_channel.gd" module="standard" extends="RefCounted" classDigest="5ccb320f74a42cb22a2c3015a3110517ac73e1297c9149c68d0e11f55219bace">
+<class name="GFAsyncChannel" path="addons/gf/standard/common/gf_async_channel.gd" module="standard" extends="RefCounted" classDigest="3dda31b911e282621daa833d91982ad810586c1b48dd900ff7bcc58ddffdd66d">
 	<description>GFAsyncChannel: 轻量异步事件通道。
-提供多生产者、单消费者的无界队列语义，可同步写入，也可异步等待下一条数据。
+提供多逻辑生产者、单消费者的有界环形队列语义，可同步写入，也可异步等待下一条数据。
+通道只允许在主线程使用；后台线程应先通过 GFMainThreadDispatchQueue 回到主线程。
 它不负责调度任务、流式转换或业务协议，只在生产者和消费者之间传递 Variant 事件。</description>
 	<tags>
 		<tag name="api">public</tag>
@@ -81,18 +82,114 @@
 				<tag name="since">7.0.0</tag>
 			</tags>
 		</member>
+		<member kind="const" name="STATUS_WRITTEN">
+			<signature>const STATUS_WRITTEN: StringName = &amp;"written"</signature>
+			<description>写入已被通道接受。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_REJECTED">
+			<signature>const STATUS_REJECTED: StringName = &amp;"rejected"</signature>
+			<description>写入因容量策略被拒绝。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_DROPPED">
+			<signature>const STATUS_DROPPED: StringName = &amp;"dropped"</signature>
+			<description>新写入项因容量策略被丢弃。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_WRONG_THREAD">
+			<signature>const STATUS_WRONG_THREAD: StringName = &amp;"wrong_thread"</signature>
+			<description>操作在非主线程被拒绝。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="DEFAULT_MAX_BUFFERED_ITEMS">
+			<signature>const DEFAULT_MAX_BUFFERED_ITEMS: int = 256</signature>
+			<description>默认最多缓冲的数据数量。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="ABSOLUTE_MAX_BUFFERED_ITEMS">
+			<signature>const ABSOLUTE_MAX_BUFFERED_ITEMS: int = 65_536</signature>
+			<description>最多允许配置的缓冲数据数量。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="OVERFLOW_REJECT">
+			<signature>const OVERFLOW_REJECT: StringName = &amp;"reject"</signature>
+			<description>容量满时拒绝新写入。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="OVERFLOW_DROP_OLDEST">
+			<signature>const OVERFLOW_DROP_OLDEST: StringName = &amp;"drop_oldest"</signature>
+			<description>容量满时丢弃最早缓冲项，再接受新写入。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="OVERFLOW_DROP_NEWEST">
+			<signature>const OVERFLOW_DROP_NEWEST: StringName = &amp;"drop_newest"</signature>
+			<description>容量满时丢弃新写入项。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
 	</constants>
 	<properties />
 	<methods>
+		<member kind="method" name="configure_ingress">
+			<signature>func configure_ingress( max_buffered_items: int, overflow_policy: StringName = OVERFLOW_REJECT ) -&gt; bool:</signature>
+			<description>配置有界缓冲和容量满时的处理策略。
+该配置不会驱逐现有数据；max_buffered_items 小于当前缓冲数量时配置失败。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">max_buffered_items: 最大缓冲数量，必须位于 1..ABSOLUTE_MAX_BUFFERED_ITEMS。</tag>
+				<tag name="param">overflow_policy: OVERFLOW_REJECT、OVERFLOW_DROP_OLDEST 或 OVERFLOW_DROP_NEWEST。</tag>
+				<tag name="return">配置被接受时返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
 		<member kind="method" name="try_write">
 			<signature>func try_write(item: Variant) -&gt; bool:</signature>
 			<description>写入一条数据。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">item: 待写入的数据。</tag>
-				<tag name="return">写入成功时返回 true；关闭后返回 false。</tag>
+				<tag name="return">写入被通道接受时返回 true；关闭、拒绝或丢弃新项时返回 false。</tag>
 				<tag name="schema">item: Variant 待写入通道的数据。</tag>
 				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="try_write_detailed">
+			<signature>func try_write_detailed(item: Variant) -&gt; Dictionary:</signature>
+			<description>写入一条数据并返回结构化背压结果。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">item: 待写入的数据。</tag>
+				<tag name="return">写入结果。</tag>
+				<tag name="schema">item: Variant 待写入通道的数据。</tag>
+				<tag name="schema">return: Dictionary，包含 ok、status、accepted、dropped、dropped_item、reason、count、max_buffered_items 和 overflow_policy。</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 		<member kind="method" name="close">
@@ -200,13 +297,31 @@
 				<tag name="since">7.0.0</tag>
 			</tags>
 		</member>
+		<member kind="method" name="get_max_buffered_items">
+			<signature>func get_max_buffered_items() -&gt; int:</signature>
+			<description>获取最大缓冲数量。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">当前最大缓冲数量；非主线程返回 0。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_overflow_policy">
+			<signature>func get_overflow_policy() -&gt; StringName:</signature>
+			<description>获取容量满时的处理策略。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">当前 overflow policy；非主线程返回空 StringName。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
 		<member kind="method" name="get_debug_snapshot">
 			<signature>func get_debug_snapshot() -&gt; Dictionary:</signature>
 			<description>获取通道调试快照。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">调试快照。</tag>
-				<tag name="schema">return: Dictionary，包含 closed、count、written_count、read_count、reason 和 metadata。</tag>
+				<tag name="schema">return: Dictionary，包含 ok、status、closed、count、max_buffered_items、overflow_policy、high_watermark、written_count、read_count、rejected_count、dropped_count、reason 和 metadata；非主线程只返回 wrong_thread 终态。</tag>
 				<tag name="since">7.0.0</tag>
 			</tags>
 		</member>

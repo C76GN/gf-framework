@@ -1,8 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
-<apiCatalog schemaVersion="2" name="GF Framework" sourceRoot="addons/gf" sourceDigest="8ef49a204dc98819f388d2800dc040cf1ed3cb44a41bf68c0976164d9cb96514" classCount="784" methodCount="7050">
-	<module id="kernel" label="Kernel" classCount="72" methodCount="736">
+<apiCatalog schemaVersion="2" name="GF Framework" sourceRoot="addons/gf" sourceDigest="6a68e2754cd084c133072a2c809699dcf3c9d64d5178ac91a2b4f07ffbde6f96" classCount="785" methodCount="7062">
+	<module id="kernel" label="Kernel" classCount="73" methodCount="744">
 		<class name="GFAccessGenerator" path="classes/GFAccessGenerator.xml" sourcePath="addons/gf/kernel/editor/gf_access_generator.gd" extends="RefCounted" />
 		<class name="GFArchitecture" path="classes/GFArchitecture.xml" sourcePath="addons/gf/kernel/core/gf_architecture.gd" extends="Object" />
+		<class name="GFArtifactWriteTransaction" path="classes/GFArtifactWriteTransaction.xml" sourcePath="addons/gf/kernel/editor/gf_artifact_write_transaction.gd" extends="RefCounted" />
 		<class name="GFAsyncCompletion" path="classes/GFAsyncCompletion.xml" sourcePath="addons/gf/kernel/core/gf_async_completion.gd" extends="RefCounted" />
 		<class name="GFAsyncScope" path="classes/GFAsyncScope.xml" sourcePath="addons/gf/kernel/core/gf_async_scope.gd" extends="GFCancellationToken" />
 		<class name="GFBakeDependencyReport" path="classes/GFBakeDependencyReport.xml" sourcePath="addons/gf/kernel/editor/gf_bake_dependency_report.gd" extends="RefCounted" />
@@ -74,7 +75,7 @@
 		<class name="GFUtility" path="classes/GFUtility.xml" sourcePath="addons/gf/kernel/base/gf_utility.gd" extends="Object" />
 		<class name="GFWeakMethodInvocation" path="classes/GFWeakMethodInvocation.xml" sourcePath="addons/gf/kernel/core/gf_weak_method_invocation.gd" extends="RefCounted" />
 	</module>
-	<module id="standard" label="Standard" classCount="438" methodCount="4401">
+	<module id="standard" label="Standard" classCount="438" methodCount="4405">
 		<class name="GFActivationTransaction" path="classes/GFActivationTransaction.xml" sourcePath="addons/gf/standard/foundation/policy/gf_activation_transaction.gd" extends="RefCounted" />
 		<class name="GFAnalyticsConfig" path="classes/GFAnalyticsConfig.xml" sourcePath="addons/gf/standard/utilities/analytics/gf_analytics_config.gd" extends="Resource" />
 		<class name="GFAnalyticsEventSchema" path="classes/GFAnalyticsEventSchema.xml" sourcePath="addons/gf/standard/utilities/analytics/gf_analytics_event_schema.gd" extends="Resource" />

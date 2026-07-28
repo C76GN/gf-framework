@@ -13,6 +13,7 @@
 | [值对象](#category-value_object) | 1 | 1 | 0 |
 | [事件契约](#category-event_contract) | 1 | 10 | 10 |
 | [编辑器 API](#category-editor_api) | 26 | 389 | 242 |
+| [工具 API](#category-tool_api) | 1 | 22 | 8 |
 
 ## 类
 
@@ -136,3 +137,11 @@
 | [`GFTemplateGenerationManifest`](classes/GFTemplateGenerationManifest.md#gftemplategenerationmanifest) | `RefCounted` | `addons/gf/kernel/editor/gf_template_generation_manifest.gd` |
 | [`GFThumbnailRenderRequest`](classes/GFThumbnailRenderRequest.md#gfthumbnailrenderrequest) | `RefCounted` | `addons/gf/kernel/editor/gf_thumbnail_render_request.gd` |
 | [`GFThumbnailRenderer`](classes/GFThumbnailRenderer.md#gfthumbnailrenderer) | `Node` | `addons/gf/kernel/editor/gf_thumbnail_renderer.gd` |
+
+<a id="category-tool_api"></a>
+
+### 工具 API
+
+| 类 | 继承 | 源文件 |
+|---|---|---|
+| [`GFArtifactWriteTransaction`](classes/GFArtifactWriteTransaction.md#gfartifactwritetransaction) | `RefCounted` | `addons/gf/kernel/editor/gf_artifact_write_transaction.gd` |

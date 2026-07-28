@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFConfigPipelineLayoutStage" path="addons/gf/tools/config_pipeline/gf_config_pipeline_layout_stage.gd" module="tools" extends="RefCounted" classDigest="f36d4d04e678a2732ead58641049a2263f1c0db4423c37122fba243ba69cac0a">
+<class name="GFConfigPipelineLayoutStage" path="addons/gf/tools/config_pipeline/gf_config_pipeline_layout_stage.gd" module="tools" extends="RefCounted" classDigest="c7beeaa2d875095104e6e85aa7d1d093749d190178aa68402b83a74e38d65860">
 	<description>GFConfigPipelineLayoutStage: Config Pipeline 的内置布局解析阶段。
 把 Reader 原始载荷解码为记录、表头和来源位置，不推导 schema、不转换字段类型。
 内置实现支持 CSV、JSON、ConfigFile 与 XLSX，格式专属细节在此阶段内收敛。</description>
@@ -20,7 +20,7 @@
 			</tags>
 		</member>
 		<member kind="const" name="IMPLEMENTATION_VERSION">
-			<signature>const IMPLEMENTATION_VERSION: int = 1</signature>
+			<signature>const IMPLEMENTATION_VERSION: int = 2</signature>
 			<description>Layout 阶段的实现版本；改变布局解析语义时递增。</description>
 			<tags>
 				<tag name="api">public</tag>

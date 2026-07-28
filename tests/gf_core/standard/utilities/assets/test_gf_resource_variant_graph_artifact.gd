@@ -96,6 +96,133 @@ func test_raw_resource_artifact_rejects_res_path_by_default() -> void:
 	assert_eq(GFVariantData.get_option_string(report, "reason"), "path_not_allowed")
 
 
+func test_raw_resource_artifact_rejects_nonportable_temp_file_names() -> void:
+	var artifact: GFRawResourceArtifact = GFRawResourceArtifact.new()
+	var _configured: GFRawResourceArtifact = artifact.configure(
+		"source/raw.bin",
+		PackedByteArray([1])
+	)
+	for file_name: String in [
+		".",
+		"..",
+		"child/file.bin",
+		"child\\file.bin",
+		"CON.txt",
+	]:
+		var report: Dictionary = artifact.materialize_temp({
+			"directory_path": TEMP_ARTIFACT_DIR,
+			"file_name": file_name,
+			"scan_filesystem": false,
+		})
+		assert_false(
+			GFVariantData.get_option_bool(report, "ok"),
+			"非 portable leaf 必须在 path_join 前拒绝：%s" % file_name
+		)
+		assert_eq(
+			GFVariantData.get_option_string(report, "reason"),
+			"invalid_file_name"
+		)
+		assert_true(
+			GFVariantData.get_option_string(report, "path").is_empty(),
+			"非法 leaf 不得泄露一个已归一化到请求目录外的候选路径。"
+		)
+	assert_false(
+		DirAccess.dir_exists_absolute(
+			ProjectSettings.globalize_path(TEMP_ARTIFACT_DIR)
+		),
+		"非法 file_name 必须在创建目录或文件前失败。"
+	)
+
+
+func test_raw_resource_artifact_uses_bounded_transactional_materialization() -> void:
+	var path: String = TEMP_ARTIFACT_DIR.path_join("bounded/raw.bin")
+	var artifact: GFRawResourceArtifact = GFRawResourceArtifact.new()
+	var _configured: GFRawResourceArtifact = artifact.configure(
+		"source/raw.bin",
+		PackedByteArray([1, 2, 3, 4])
+	)
+
+	var budget_report: Dictionary = artifact.materialize_to_path(path, {
+		"max_file_bytes": 3,
+		"scan_filesystem": false,
+	})
+	var committed_report: Dictionary = artifact.materialize_to_path(path, {
+		"max_file_bytes": 4,
+		"scan_filesystem": false,
+	})
+	artifact.data = PackedByteArray([9, 9, 9, 9])
+	var overwrite_report: Dictionary = artifact.materialize_to_path(path, {
+		"overwrite": false,
+		"scan_filesystem": false,
+	})
+	var file: FileAccess = FileAccess.open(path, FileAccess.READ)
+	var bytes: PackedByteArray = PackedByteArray()
+	if file != null:
+		bytes = file.get_buffer(file.get_length())
+		file.close()
+
+	assert_false(
+		GFVariantData.get_option_bool(budget_report, "ok"),
+		"物化应在写入前执行单文件字节预算。"
+	)
+	assert_true(
+		GFVariantData.get_option_bool(committed_report, "ok"),
+		"预算内字节应通过框架级产物事务提交。"
+	)
+	assert_false(
+		GFVariantData.get_option_bool(overwrite_report, "ok"),
+		"禁止覆盖时不应改写已有产物。"
+	)
+	assert_eq(bytes, PackedByteArray([1, 2, 3, 4]))
+
+
+func test_raw_resource_artifact_preserves_transaction_recovery_handle() -> void:
+	var artifact: RecoveryRawResourceArtifact = RecoveryRawResourceArtifact.new()
+	var _configured: GFRawResourceArtifact = artifact.configure(
+		"source/recovery.bin",
+		PackedByteArray([7])
+	)
+
+	var report: Dictionary = artifact.materialize_to_path(
+		TEMP_ARTIFACT_DIR.path_join("recovery.bin"),
+		{ "scan_filesystem": false }
+	)
+
+	assert_false(GFVariantData.get_option_bool(report, "ok"))
+	assert_eq(
+		GFVariantData.get_option_string(report, "reason"),
+		"write_failed"
+	)
+	assert_true(
+		GFVariantData.get_option_bool(report, "recovery_required"),
+		"事务需要恢复时，artifact 报告不得把恢复状态降级成普通写失败。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string_name(report, "recovery_action"),
+		GFArtifactWriteTransaction.RECOVERY_ACTION_ROLLBACK,
+		"artifact 必须保留被 write_failed 状态遮蔽的稳定恢复动作。"
+	)
+	var returned_recovery_transaction: Dictionary = (
+		GFVariantData.get_option_dictionary(
+			report,
+			"recovery_transaction"
+		)
+	)
+	assert_true(
+		returned_recovery_transaction == artifact.recovery_transaction,
+		"opaque 恢复句柄必须原样透传给调用方。"
+	)
+	returned_recovery_transaction["nonce"] = 99
+	assert_eq(
+		GFVariantData.get_option_int(
+			artifact.recovery_transaction,
+			"nonce"
+		),
+		17,
+		"返回报告必须深复制 opaque 句柄，不能共享可变字典。"
+	)
+
+
 # --- 私有/辅助方法 ---
 
 func _remove_user_path_if_exists(path: String) -> void:
@@ -133,3 +260,26 @@ class GraphResource:
 	@export var child: Resource = null
 	@export var items: Array[Resource] = []
 	@export var map: Dictionary = {}
+
+
+class RecoveryRawResourceArtifact:
+	extends GFRawResourceArtifact
+
+	var recovery_transaction: Dictionary = {
+		"transaction_id": "opaque-test-transaction",
+		"nonce": 17,
+	}
+
+	func _commit_materialization(
+		_entries: Array[Dictionary],
+		_options: Dictionary
+	) -> Dictionary:
+		return {
+			"ok": false,
+			"status": &"recovery_required",
+			"recovery_required": true,
+			"recovery_action": (
+				GFArtifactWriteTransaction.RECOVERY_ACTION_ROLLBACK
+			),
+			"recovery_transaction": recovery_transaction,
+		}

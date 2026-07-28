@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFRawResourceArtifact" path="addons/gf/standard/utilities/assets/gf_raw_resource_artifact.gd" module="standard" extends="Resource" classDigest="5425c3cedf85761cd57d20638f646822aa51605a61e91b2a4549defacd7ce59d">
+<class name="GFRawResourceArtifact" path="addons/gf/standard/utilities/assets/gf_raw_resource_artifact.gd" module="standard" extends="Resource" classDigest="721316462712de406f66f845b3b40f8d3badb0c2656ac4735052a1ddae1f7873">
 	<description>GFRawResourceArtifact: 原始文件数据资源。
 保存一个外部或导入前源文件的相对路径、字节数据和元数据，并可显式物化到 user:// 或授权路径。
 它不绑定任何第三方格式或运行库，只提供通用的原始资源载荷封装。</description>
@@ -97,8 +97,8 @@
 				<tag name="param">target_path: 输出文件路径。</tag>
 				<tag name="param">options: 写入选项。</tag>
 				<tag name="return">写入报告。</tag>
-				<tag name="schema">options: Dictionary，可包含 allow_user_path、allow_res_path、overwrite 和 create_directories。</tag>
-				<tag name="schema">return: Dictionary with ok, path, reason, size_bytes, and metadata.</tag>
+				<tag name="schema">options: Dictionary，可包含 allow_user_path、allow_res_path、overwrite、create_directories、max_file_bytes、max_total_bytes、max_backup_bytes 和 scan_filesystem。</tag>
+				<tag name="schema">return: Dictionary with ok, path, reason, size_bytes, metadata, recovery_required, recovery_action, and recovery_transaction. recovery_required 为 true 时，调用方必须按 recovery_action 将 recovery_transaction 原样交给 GFArtifactWriteTransaction.rollback() 或 complete()。</tag>
 				<tag name="since">6.0.0</tag>
 			</tags>
 		</member>
@@ -107,10 +107,10 @@
 			<description>物化到临时 artifact 目录。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="param">options: 写入选项，可包含 directory_path、file_name、extension、overwrite。</tag>
+				<tag name="param">options: 写入选项，可包含 directory_path、file_name、extension、overwrite；file_name 必须是非空 portable leaf，不能是 .、.. 或包含路径分隔符。</tag>
 				<tag name="return">写入报告。</tag>
-				<tag name="schema">options: Dictionary，可包含 directory_path、file_name、extension、overwrite、allow_user_path、allow_res_path。</tag>
-				<tag name="schema">return: Dictionary with ok, path, reason, size_bytes, and metadata.</tag>
+				<tag name="schema">options: Dictionary，可包含 directory_path、file_name、extension、overwrite、allow_user_path、allow_res_path、max_file_bytes、max_total_bytes、max_backup_bytes 和 scan_filesystem；file_name 必须是 ASCII portable leaf，禁止 .、..、控制字符、路径分隔符、Windows 保留字符和设备名。</tag>
+				<tag name="schema">return: Dictionary with ok, path, reason, size_bytes, metadata, recovery_required, recovery_action, and recovery_transaction.</tag>
 				<tag name="since">6.0.0</tag>
 			</tags>
 		</member>

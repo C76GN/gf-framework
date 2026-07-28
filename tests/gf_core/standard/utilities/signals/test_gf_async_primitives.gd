@@ -289,6 +289,145 @@ func test_async_completion_failure_does_not_report_cancel_reason() -> void:
 	assert_eq(completion.get_cancel_reason(), &"", "失败完成源不应带 cancelled 取消原因。")
 
 
+func test_async_completion_rejects_worker_state_access_and_mutation() -> void:
+	var pending_completion: GFAsyncCompletion = GFAsyncCompletion.new()
+	var completed_completion: GFAsyncCompletion = GFAsyncCompletion.new()
+	var cancel_source: GFCancellationSource = GFCancellationSource.new()
+	assert_true(
+		completed_completion.succeed(
+			{ "private_result": 41 },
+			{ "private_metadata": "main_thread_only" }
+		)
+	)
+
+	var worker: Thread = Thread.new()
+	var start_error: Error = worker.start(
+		Callable(self, &"_call_async_completion_from_worker").bind(
+			pending_completion,
+			completed_completion,
+			cancel_source.get_token()
+		)
+	)
+	assert_eq(start_error, OK, "测试 worker 应能启动。")
+	var worker_value: Variant = worker.wait_to_finish()
+	var results: Dictionary = GFVariantData.as_dictionary(worker_value)
+	var metadata: Dictionary = GFVariantData.get_option_dictionary(results, "metadata")
+	var snapshot: Dictionary = GFVariantData.get_option_dictionary(results, "snapshot")
+
+	assert_false(GFVariantData.get_option_bool(results, "succeed"), "worker 不得成功完成 completion。")
+	assert_false(GFVariantData.get_option_bool(results, "fail"), "worker 不得失败完成 completion。")
+	assert_false(GFVariantData.get_option_bool(results, "cancel"), "worker 不得取消 completion。")
+	assert_false(GFVariantData.get_option_bool(results, "bind_cancel_token"), "worker 不得绑定取消 token。")
+	assert_true(pending_completion.is_pending(), "被拒绝的 worker mutator 不得改变主线程可见状态。")
+	assert_eq(
+		cancel_source.get_token().cancel_requested.get_connections().size(),
+		0,
+		"被拒绝的 worker 绑定不得留下 token 连接。"
+	)
+
+	assert_false(GFVariantData.get_option_bool(results, "pending"), "worker 状态谓词必须返回保守值。")
+	assert_false(GFVariantData.get_option_bool(results, "completed"), "worker 状态谓词不得泄漏终态。")
+	assert_false(GFVariantData.get_option_bool(results, "successful"), "worker 状态谓词不得泄漏成功状态。")
+	assert_false(GFVariantData.get_option_bool(results, "failed"), "worker 状态谓词不得泄漏失败状态。")
+	assert_false(GFVariantData.get_option_bool(results, "cancelled"), "worker 状态谓词不得泄漏取消状态。")
+	assert_eq(
+		GFVariantData.get_option_int(results, "status"),
+		GFAsyncCompletion.Status.INVALID,
+		"worker 状态读取应返回稳定 INVALID。"
+	)
+	var worker_result: Variant = GFVariantData.get_option_value(results, "result")
+	assert_eq(typeof(worker_result), TYPE_NIL, "worker 不得读取成功结果。")
+	assert_eq(GFVariantData.get_option_string(results, "error"), "", "worker 不得读取失败说明。")
+	assert_eq(
+		GFVariantData.get_option_string_name(results, "cancel_reason"),
+		&"",
+		"worker 不得读取取消原因。"
+	)
+	assert_true(metadata.is_empty(), "worker 不得读取终态 metadata。")
+	assert_eq(
+		GFVariantData.get_option_int(snapshot, "status"),
+		GFAsyncCompletion.Status.INVALID,
+		"worker 调试快照应稳定标记 INVALID。"
+	)
+	assert_eq(snapshot.size(), 2, "worker 调试快照不得包含任何完成源可变字段。")
+	assert_true(completed_completion.is_successful(), "保守 worker getter 不得改变主线程状态。")
+	assert_push_error_count(4, "四个非主线程 mutator/binding 入口都应报告契约错误。")
+
+
+func test_async_completion_defers_worker_cancel_token_callback_once() -> void:
+	var token: MetadataTrackingCancellationToken = MetadataTrackingCancellationToken.new()
+	var completion: GFAsyncCompletion = GFAsyncCompletion.new()
+	var signal_state: Dictionary = {
+		"cancelled_count": 0,
+		"completed_count": 0,
+		"signals_on_main_thread": true,
+	}
+	var cancel_connect_error: Error = completion.cancelled.connect(
+		func(_reason: StringName, _metadata: Dictionary) -> void:
+			signal_state["cancelled_count"] = (
+				GFVariantData.get_option_int(signal_state, "cancelled_count")
+				+ 1
+			)
+			signal_state["signals_on_main_thread"] = (
+				GFVariantData.get_option_bool(signal_state, "signals_on_main_thread")
+				and Thread.is_main_thread()
+			)
+	) as Error
+	var completed_connect_error: Error = completion.completed.connect(
+		func(_completed: GFAsyncCompletion) -> void:
+			signal_state["completed_count"] = (
+				GFVariantData.get_option_int(signal_state, "completed_count")
+				+ 1
+			)
+			signal_state["signals_on_main_thread"] = (
+				GFVariantData.get_option_bool(signal_state, "signals_on_main_thread")
+				and Thread.is_main_thread()
+			)
+	) as Error
+	assert_eq(cancel_connect_error, OK, "测试应能监听取消信号。")
+	assert_eq(completed_connect_error, OK, "测试应能监听完成信号。")
+	assert_true(completion.bind_cancel_token(token), "主线程应能绑定取消 token。")
+
+	var worker: Thread = Thread.new()
+	var start_error: Error = worker.start(
+		Callable(self, &"_request_cancel_token_from_worker").bind(token)
+	)
+	assert_eq(start_error, OK, "测试 worker 应能启动。")
+	var worker_value: Variant = worker.wait_to_finish()
+	var token_cancelled_on_worker: bool = false
+	if worker_value is bool:
+		var worker_cancelled: bool = worker_value
+		token_cancelled_on_worker = worker_cancelled
+	assert_true(token_cancelled_on_worker, "worker 应成功触发测试 token。")
+	assert_false(token.metadata_read_on_worker, "worker token 回调不得读取取消 metadata。")
+	assert_true(completion.is_pending(), "worker token 回调只能排队，不得直接推进 completion。")
+	assert_eq(
+		GFVariantData.get_option_int(signal_state, "completed_count"),
+		0,
+		"主线程 deferred 执行前不得发出完成信号。"
+	)
+
+	await get_tree().process_frame
+
+	var metadata: Dictionary = completion.get_metadata()
+	assert_true(completion.is_cancelled(), "deferred 回到主线程后 completion 应进入取消终态。")
+	assert_eq(completion.get_cancel_reason(), &"worker_cancelled")
+	assert_eq(GFVariantData.get_option_string(metadata, "origin"), "tracked")
+	assert_false(token.metadata_read_on_worker, "取消 metadata 只能在主线程读取。")
+	assert_true(
+		GFVariantData.get_option_bool(signal_state, "signals_on_main_thread"),
+		"取消与完成信号都必须在主线程发出。"
+	)
+	assert_eq(GFVariantData.get_option_int(signal_state, "cancelled_count"), 1)
+	assert_eq(GFVariantData.get_option_int(signal_state, "completed_count"), 1)
+	await get_tree().process_frame
+	assert_eq(
+		GFVariantData.get_option_int(signal_state, "completed_count"),
+		1,
+		"单次 worker token 回调不得残留重复 deferred 生命周期事件。"
+	)
+
+
 func test_async_wait_utility_wait_completion_reports_timeout_without_completion() -> void:
 	var completion: GFAsyncCompletion = GFAsyncCompletion.new()
 
@@ -790,6 +929,181 @@ func test_async_channel_reads_written_items_and_closed_state() -> void:
 	assert_false(delayed_channel.try_write("late"), "关闭后不应继续写入。")
 
 
+func test_async_channel_rejects_new_items_at_capacity() -> void:
+	var channel: GFAsyncChannel = GFAsyncChannel.new()
+	assert_false(
+		channel.configure_ingress(
+			GFAsyncChannel.ABSOLUTE_MAX_BUFFERED_ITEMS + 1
+		),
+		"通道不得接受超过绝对上限的伪有界配置。"
+	)
+	assert_true(
+		channel.configure_ingress(2, GFAsyncChannel.OVERFLOW_REJECT),
+		"通道应接受有效的有界 ingress 配置。"
+	)
+
+	assert_true(channel.try_write(1), "容量内第一项应被接受。")
+	assert_true(channel.try_write(2), "容量内第二项应被接受。")
+	var rejected: Dictionary = channel.try_write_detailed(3)
+	var snapshot: Dictionary = channel.get_debug_snapshot()
+
+	assert_false(GFVariantData.get_option_bool(rejected, "accepted"), "默认策略不得接受超额项。")
+	assert_eq(
+		GFVariantData.get_option_string_name(rejected, "status"),
+		GFAsyncChannel.STATUS_REJECTED,
+		"容量拒绝应返回稳定状态。"
+	)
+	assert_eq(channel.drain(), [1, 2], "容量拒绝不得改变原有 FIFO 数据。")
+	assert_eq(GFVariantData.get_option_int(snapshot, "high_watermark"), 2, "快照应记录缓冲高水位。")
+	assert_eq(GFVariantData.get_option_int(snapshot, "rejected_count"), 1, "快照应统计拒绝次数。")
+	assert_eq(GFVariantData.get_option_int(snapshot, "dropped_count"), 0, "拒绝策略不应伪装成丢弃。")
+
+
+func test_async_channel_supports_explicit_drop_policies() -> void:
+	var oldest_channel: GFAsyncChannel = GFAsyncChannel.new()
+	var _oldest_configured: bool = oldest_channel.configure_ingress(
+		2,
+		GFAsyncChannel.OVERFLOW_DROP_OLDEST
+	)
+	var _oldest_first: bool = oldest_channel.try_write("first")
+	var _oldest_second: bool = oldest_channel.try_write("second")
+	var replaced: Dictionary = oldest_channel.try_write_detailed("third")
+
+	assert_true(GFVariantData.get_option_bool(replaced, "accepted"), "drop_oldest 应接受新项。")
+	assert_true(GFVariantData.get_option_bool(replaced, "dropped"), "drop_oldest 应显式报告丢弃。")
+	assert_eq(GFVariantData.get_option_string(replaced, "dropped_item"), "first", "报告应返回被丢弃的最早项。")
+	assert_eq(oldest_channel.drain(), ["second", "third"], "drop_oldest 应保留最新的有界窗口。")
+
+	var newest_channel: GFAsyncChannel = GFAsyncChannel.new()
+	var _newest_configured: bool = newest_channel.configure_ingress(
+		1,
+		GFAsyncChannel.OVERFLOW_DROP_NEWEST
+	)
+	var _newest_first: bool = newest_channel.try_write("kept")
+	var dropped: Dictionary = newest_channel.try_write_detailed("discarded")
+	var newest_snapshot: Dictionary = newest_channel.get_debug_snapshot()
+
+	assert_false(GFVariantData.get_option_bool(dropped, "accepted"), "drop_newest 不应伪装成成功写入。")
+	assert_true(GFVariantData.get_option_bool(dropped, "dropped"), "drop_newest 应显式报告丢弃。")
+	assert_eq(
+		GFVariantData.get_option_string_name(dropped, "status"),
+		GFAsyncChannel.STATUS_DROPPED,
+		"drop_newest 应返回稳定 dropped 状态。"
+	)
+	assert_eq(newest_channel.drain(), ["kept"], "drop_newest 不得改变既有缓冲。")
+	assert_eq(GFVariantData.get_option_int(newest_snapshot, "dropped_count"), 1, "快照应统计丢弃次数。")
+
+
+func test_async_channel_handles_absolute_capacity_with_fifo_ring_storage() -> void:
+	var channel: GFAsyncChannel = GFAsyncChannel.new()
+	assert_true(
+		channel.configure_ingress(
+			GFAsyncChannel.ABSOLUTE_MAX_BUFFERED_ITEMS,
+			GFAsyncChannel.OVERFLOW_DROP_OLDEST
+		)
+	)
+	for value: int in range(GFAsyncChannel.ABSOLUTE_MAX_BUFFERED_ITEMS):
+		var _written: bool = channel.try_write(value)
+	const REPLACEMENT_COUNT: int = 1024
+	for offset: int in range(REPLACEMENT_COUNT):
+		var _replaced: bool = channel.try_write(
+			GFAsyncChannel.ABSOLUTE_MAX_BUFFERED_ITEMS + offset
+		)
+
+	var snapshot: Dictionary = channel.get_debug_snapshot()
+	var drained: Array = channel.drain()
+
+	assert_eq(
+		GFVariantData.get_option_int(snapshot, "count"),
+		GFAsyncChannel.ABSOLUTE_MAX_BUFFERED_ITEMS,
+		"最大容量下 drop_oldest 不得突破逻辑缓冲上限。"
+	)
+	assert_eq(
+		drained.size(),
+		GFAsyncChannel.ABSOLUTE_MAX_BUFFERED_ITEMS
+	)
+	var first_drained_value: int = GFVariantData.to_int(drained.front())
+	var last_drained_value: int = GFVariantData.to_int(drained.back())
+	assert_eq(first_drained_value, REPLACEMENT_COUNT)
+	assert_eq(
+		last_drained_value,
+		GFAsyncChannel.ABSOLUTE_MAX_BUFFERED_ITEMS
+		+ REPLACEMENT_COUNT
+		- 1,
+		"环形存储必须在绕回后保持 FIFO。"
+	)
+	assert_eq(channel.get_count(), 0)
+
+
+func test_async_channel_rejects_worker_thread_access() -> void:
+	var channel: GFAsyncChannel = GFAsyncChannel.new()
+	var worker: Thread = Thread.new()
+	var start_error: Error = worker.start(
+		Callable(self, &"_call_async_channel_from_worker").bind(channel)
+	)
+	assert_eq(start_error, OK, "测试 worker 应能启动。")
+	var worker_value: Variant = worker.wait_to_finish()
+	var results: Dictionary = GFVariantData.as_dictionary(worker_value)
+	var write_result: Dictionary = GFVariantData.get_option_dictionary(
+		results,
+		"write"
+	)
+	var read_result: Dictionary = GFVariantData.get_option_dictionary(
+		results,
+		"read"
+	)
+	var snapshot: Dictionary = GFVariantData.get_option_dictionary(
+		results,
+		"snapshot"
+	)
+
+	assert_false(
+		GFVariantData.get_option_bool(results, "configured"),
+		"worker 不得改变 channel ingress 配置。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string_name(write_result, "status"),
+		GFAsyncChannel.STATUS_WRONG_THREAD,
+		"worker 写入应返回稳定线程错误。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string_name(read_result, "status"),
+		GFAsyncChannel.STATUS_WRONG_THREAD,
+		"worker 读取应返回稳定线程错误。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string_name(snapshot, "status"),
+		GFAsyncChannel.STATUS_WRONG_THREAD,
+		"worker 快照不得读取可变缓冲状态。"
+	)
+	assert_false(
+		GFVariantData.get_option_bool(results, "closed"),
+		"worker 不得关闭 channel。"
+	)
+	assert_eq(GFVariantData.get_option_int(results, "count"), -1)
+	assert_eq(
+		GFVariantData.get_option_int(results, "max_buffered_items"),
+		0,
+		"worker getter 不得读取可变容量配置。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string_name(results, "overflow_policy"),
+		&"",
+		"worker getter 不得读取可变 overflow policy。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(write_result, "max_buffered_items"),
+		0,
+		"worker 写入报告不得旁路 getter 读取可变配置。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string_name(write_result, "overflow_policy"),
+		&""
+	)
+	assert_eq(channel.get_count(), 0, "被拒绝的 worker 操作不得写入数据。")
+	assert_true(channel.is_open(), "被拒绝的 worker 操作不得改变关闭状态。")
+
+
 func test_async_progress_emits_only_meaningful_changes() -> void:
 	var progress: GFAsyncProgress = GFAsyncProgress.new()
 	progress.min_delta = 0.25
@@ -916,6 +1230,50 @@ func _call_cancel_source_mutators_from_worker(
 	return results
 
 
+func _call_async_channel_from_worker(channel: GFAsyncChannel) -> Dictionary:
+	return {
+		"configured": channel.configure_ingress(1),
+		"write": channel.try_write_detailed("worker"),
+		"read": channel.try_read(),
+		"closed": channel.close(),
+		"count": channel.get_count(),
+		"max_buffered_items": channel.get_max_buffered_items(),
+		"overflow_policy": channel.get_overflow_policy(),
+		"snapshot": channel.get_debug_snapshot(),
+	}
+
+
+func _call_async_completion_from_worker(
+	pending_completion: GFAsyncCompletion,
+	completed_completion: GFAsyncCompletion,
+	cancel_token: GFCancellationToken
+) -> Dictionary:
+	return {
+		"succeed": pending_completion.succeed("worker_result"),
+		"fail": pending_completion.fail("worker_error"),
+		"cancel": pending_completion.cancel(&"worker_cancelled"),
+		"bind_cancel_token": pending_completion.bind_cancel_token(cancel_token),
+		"pending": completed_completion.is_pending(),
+		"completed": completed_completion.is_completed(),
+		"successful": completed_completion.is_successful(),
+		"failed": completed_completion.is_failed(),
+		"cancelled": completed_completion.is_cancelled(),
+		"status": completed_completion.get_status(),
+		"result": completed_completion.get_result(),
+		"error": completed_completion.get_error(),
+		"cancel_reason": completed_completion.get_cancel_reason(),
+		"metadata": completed_completion.get_metadata(),
+		"snapshot": completed_completion.get_debug_snapshot(),
+	}
+
+
+func _request_cancel_token_from_worker(token: GFCancellationToken) -> bool:
+	return token.request_cancel_internal(
+		&"worker_cancelled",
+		{ "untrusted_worker_metadata": true }
+	)
+
+
 # --- 内部类 ---
 
 class PayloadEmitter:
@@ -925,3 +1283,14 @@ class PayloadEmitter:
 
 	func emit_payload_ready() -> void:
 		payload_ready.emit(7, "ready")
+
+
+class MetadataTrackingCancellationToken:
+	extends GFCancellationToken
+
+	var metadata_read_on_worker: bool = false
+
+	func get_cancel_metadata() -> Dictionary:
+		if not Thread.is_main_thread():
+			metadata_read_on_worker = true
+		return { "origin": "tracked" }

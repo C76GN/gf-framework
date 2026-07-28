@@ -36,12 +36,16 @@ var _acquired_msec: int = 0
 var _released_msec: int = 0
 var _release_reason: StringName = &""
 var _active: bool = false
+var _release_pending: bool = false
+var _release_signal_emitted: bool = false
 var _release_callback: Callable = Callable()
 
 
 # --- 公共方法 ---
 
 ## 释放租约。
+## 在 owning gate 的 acquire/release 生命周期通知中重入调用时，释放请求会先进入
+## release_pending，并在最外层通知结束后提交，避免 released 先于 acquired。
 ## [br]
 ## @api public
 ## [br]
@@ -51,14 +55,14 @@ var _release_callback: Callable = Callable()
 ## [br]
 ## @return 首次释放成功时返回 true。
 func release(reason: StringName = &"manual") -> bool:
-	if not _active:
+	if not _active or _release_pending:
 		return false
 	var safe_reason: StringName = reason if reason != &"" else &"manual"
 	if _release_callback.is_valid():
 		var callback_result: Variant = _release_callback.call(self, safe_reason)
 		if callback_result is bool:
 			var released_by_owner: bool = callback_result
-			if released_by_owner and _active:
+			if released_by_owner and _active and not _release_pending:
 				var _marked_released: bool = _mark_released_from_gate(safe_reason)
 			return released_by_owner
 		return false
@@ -158,13 +162,14 @@ func get_release_reason() -> StringName:
 ## [br]
 ## @return 租约状态快照。
 ## [br]
-## @schema return: Dictionary，包含 lease_id、request_id、key、active、metadata、acquired_msec、released_msec、held_msec 和 release_reason。
+## @schema return: Dictionary，包含 lease_id、request_id、key、active、release_pending、metadata、acquired_msec、released_msec、held_msec 和 release_reason。
 func get_debug_snapshot() -> Dictionary:
 	return {
 		"lease_id": _lease_id,
 		"request_id": _request_id,
 		"key": GFVariantData.duplicate_variant(_key),
 		"active": _active,
+		"release_pending": _release_pending,
 		"metadata": _metadata.duplicate(true),
 		"acquired_msec": _acquired_msec,
 		"released_msec": _released_msec,
@@ -211,16 +216,38 @@ func configure_from_gate(
 	_released_msec = 0
 	_release_reason = &""
 	_active = true
+	_release_pending = false
+	_release_signal_emitted = false
 	_release_callback = release_callback
 	return self
 
 
+func _mark_release_pending_from_gate() -> bool:
+	if not _active or _release_pending:
+		return false
+	_release_pending = true
+	return true
+
+
 # 由拥有者 gate 标记租约已释放。
-func _mark_released_from_gate(reason: StringName = &"manual") -> bool:
+func _mark_released_from_gate(
+	reason: StringName = &"manual",
+	emit_release_signal: bool = true
+) -> bool:
 	if not _active:
 		return false
 	_active = false
+	_release_pending = false
 	_release_reason = reason if reason != &"" else &"manual"
 	_released_msec = Time.get_ticks_msec()
-	released.emit(self, _release_reason)
+	_release_callback = Callable()
+	if emit_release_signal:
+		_emit_released_from_gate()
 	return true
+
+
+func _emit_released_from_gate() -> void:
+	if _active or _release_signal_emitted:
+		return
+	_release_signal_emitted = true
+	released.emit(self, _release_reason)

@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "catalog_version": "1.6.0",
+  "catalog_version": "1.7.0",
   "recipes": [
     {
       "id": "project-feature",
@@ -286,6 +286,48 @@
         "Test dry-run, cancellation, empty images, budget overflow, unplaced inputs, duplicate archive paths, write failures, integrity mismatch, partial adapter failure, idempotent retry, and credential absence from reports."
       ],
       "avoid": ["A business-specific generator added to GF", "Upload or target authentication inside a renderer or export plan", "Publishing partial or unreported staging output", "Credentials or remote business state copied into generic artifact reports"]
+    },
+    {
+      "id": "asset-catalog-spatial-placement",
+      "title": "Place catalog assets through an editor command",
+      "package_requirements": {"all_of": ["gf.standard.assets", "gf.standard.spatial.canvas"], "any_of": []},
+      "primary_classes": ["GFAssetCatalog", "GFThumbnailRenderer", "GFDragDropUtility", "GFSpatialCanvas2D", "GFEditorCommand", "GFEditorCommandSession"],
+      "required_api_members": [
+        {
+          "class_name": "GFAssetCatalog",
+          "members": ["get_entry", "make_asset_summary"]
+        },
+        {
+          "class_name": "GFThumbnailRenderer",
+          "members": ["submit_render_request", "cancel_render_task"]
+        },
+        {
+          "class_name": "GFDragDropUtility",
+          "members": ["register_control_zone", "start_drag", "drop", "cancel_drag", "dispose"]
+        },
+        {
+          "class_name": "GFSpatialCanvas2D",
+          "members": ["screen_to_world", "set_placement_validator", "set_history_hook", "begin_placement", "update_placement", "commit_placement"]
+        },
+        {
+          "class_name": "GFEditorCommand",
+          "members": ["can_execute", "execute", "revert"]
+        },
+        {
+          "class_name": "GFEditorCommandSession",
+          "members": ["preview_command", "commit_command"]
+        }
+      ],
+      "steps": [
+        "Define a project-owned asset catalog whose asset_id is the only durable palette and placement identity; keep resource paths, imported instances, list indices, and thumbnail nodes out of the authoritative payload.",
+        "Materialize only the bounded visible or selected palette previews through GFThumbnailRenderer, key cosmetic thumbnail caches by asset_id plus a current content identity, and cancel render tasks and release preview nodes with the owning editor tool session.",
+        "Register one explicit project-namespaced drag_type in GFDragDropUtility and start each drag with a closed payload such as schema_version, asset_id, expected_type, and catalog_revision; accept only that type and re-resolve the asset_id from the current catalog on drop.",
+        "Reject missing, stale, oversized, or type-incompatible payloads before loading content, translate the validated drop position into GFSpatialCanvas2D world space, and derive footprint and placement type through a project-owned descriptor rather than trusting drag metadata.",
+        "Use GFSpatialCanvas2D begin_placement, update_placement, and commit_placement only to coordinate the bounded preview and freeze an operation record; keep collision, entitlement, scene ownership, and business legality in the project placement validator.",
+        "Connect the canvas history hook to one project-owned GFEditorCommand that captures the stable asset_id and frozen placement operation, revalidates authority in execute, implements symmetric revert, and is previewed and committed through GFEditorCommandSession or UndoRedo; return success to the canvas only after command commit succeeds.",
+        "Treat the drag session, placement session, command session, thumbnail tasks, and catalog revision as separate lifecycles, and test stale IDs, type spoofing, coordinate conversion, invalid footprints, budget exhaustion, command rejection, undo and redo, cancellation, and owner disposal."
+      ],
+      "avoid": ["Raw resource paths or Object references used as drag authority", "Thumbnail cache state treated as asset identity", "GFSpatialCanvas2D or a drop callback mutating authoritative scene state", "Both the canvas hook and a signal listener committing the same operation", "Project placement categories or scene factories added to GF"]
     },
     {
       "id": "input-context",

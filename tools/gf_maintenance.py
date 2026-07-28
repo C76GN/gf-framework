@@ -49,6 +49,7 @@ import gf_package_cache
 import gf_package_artifact_set
 import gf_parallel_validation
 import gf_maintenance_check_graph
+import gf_credential_gate
 import gf_process_supervisor
 import gf_maintenance_rendering as maintenance_rendering
 import gf_maintenance_static_checks
@@ -907,6 +908,11 @@ CHECK_DEFINITIONS: dict[str, list[str]] = {
 	],
 	"docs": [sys.executable, "tools/check_docs_quality.py", "--strict"],
 	"repository_policy": [sys.executable, "tools/gf_repository_policy.py", "validate", "--json"],
+	"credential_gate": [sys.executable, "tools/gf_credential_gate.py", "--json"],
+	"credential_gate_tests": [
+		sys.executable,
+		"tests/gf_core/tools/test_gf_credential_gate.py",
+	],
 	"public_docs_boundary": [sys.executable, "tools/gf_maintenance.py", "public-docs-boundary"],
 	"public_api_boundary": [sys.executable, "tools/gf_maintenance.py", "public-api-boundary"],
 	"resource_boundary": [sys.executable, "tools/gf_maintenance.py", "resource-boundary", "--fail-on-issues"],
@@ -1107,6 +1113,8 @@ LIGHT_BOUNDARY_CHECKS: list[str] = [
 	"package_focused_gut_mapping",
 	"api_since_touched",
 	"repository_policy",
+	"credential_gate",
+	"credential_gate_tests",
 	"path_hygiene",
 	"dependency_boundary",
 	"diff",
@@ -1167,6 +1175,8 @@ FULL_CHECKS: list[str] = [
 	"mkdocs",
 	"api_since_touched",
 	"repository_policy",
+	"credential_gate",
+	"credential_gate_tests",
 	"path_hygiene",
 	"maintenance_self_test",
 	"dependency_boundary",
@@ -1192,6 +1202,8 @@ RELEASE_CHECKS: list[str] = [
 	"mkdocs",
 	"api_since_touched",
 	"repository_policy",
+	"credential_gate",
+	"credential_gate_tests",
 	"path_hygiene",
 	"maintenance_self_test",
 	"dependency_boundary",
@@ -1220,6 +1232,8 @@ FRAMEWORK_STATIC_CHECKS: list[str] = [
 	"mkdocs",
 	"api_since_touched",
 	"repository_policy",
+	"credential_gate",
+	"credential_gate_tests",
 	"path_hygiene",
 	"maintenance_self_test",
 	"dependency_boundary",
@@ -1241,6 +1255,8 @@ FRAMEWORK_CHECKS: list[str] = [
 	"mkdocs",
 	"api_since_touched",
 	"repository_policy",
+	"credential_gate",
+	"credential_gate_tests",
 	"path_hygiene",
 	"maintenance_self_test",
 	"dependency_boundary",
@@ -1473,6 +1489,13 @@ def check_command(
 	package_artifact_manifest: str = "",
 	package_artifact_manifest_sha256: str = "",
 ) -> list[str]:
+	if name == "release_metadata":
+		return [
+			sys.executable,
+			"tools/gf_maintenance.py",
+			"release-status",
+			"--json",
+		]
 	command = list(CHECK_DEFINITIONS.get(name, ["<in-process>", name]))
 	if name not in PACKAGE_ARTIFACT_CONSUMER_CHECKS:
 		return command
@@ -11300,6 +11323,14 @@ def maintenance_self_test() -> dict[str, Any]:
 			check=True,
 			capture_output=True,
 		)
+		staged_added_path = source_root / "staged-added.txt"
+		staged_added_path.write_text("staged\n", encoding="utf-8")
+		subprocess.run(
+			["git", "add", "staged-added.txt"],
+			cwd=source_root,
+			check=True,
+			capture_output=True,
+		)
 		tracked_path.write_text("dirty\n", encoding="utf-8")
 		(source_root / "untracked.bin").write_bytes(b"\x00gf-parallel-fixture\xff")
 		captured_fixture = gf_parallel_validation.capture_workspace(source_root)
@@ -11348,6 +11379,7 @@ def maintenance_self_test() -> dict[str, Any]:
 			captured_fixture.workspace_fingerprint == workspace_fingerprint(workspace_a)["fingerprint"]
 			and captured_fixture.workspace_fingerprint == workspace_fingerprint(workspace_b)["fingerprint"]
 			and (workspace_a / "tracked.txt").read_text(encoding="utf-8") == "dirty\n"
+			and (workspace_a / "staged-added.txt").read_text(encoding="utf-8") == "staged\n"
 			and (workspace_b / "untracked.bin").read_bytes() == b"\x00gf-parallel-fixture\xff"
 			and [result.name for result in normal_parallel_results] == ["a", "b"]
 			and all(result.ok for result in normal_parallel_results)
@@ -15810,6 +15842,47 @@ def maintenance_self_test() -> dict[str, Any]:
 		"package suite must cover the package build/install/Godot CLI/uninstall smoke checks.",
 	)
 	record_result(
+		"credential_gate_covers_tracked_source_in_light_and_release_flows",
+		"credential_gate" in CHECK_DEFINITIONS
+		and "credential_gate_tests" in CHECK_DEFINITIONS
+		and "credential_gate" in LIGHT_BOUNDARY_CHECKS
+		and "credential_gate_tests" in LIGHT_BOUNDARY_CHECKS
+		and "credential_gate" in FRAMEWORK_STATIC_CHECKS
+		and "credential_gate_tests" in FRAMEWORK_STATIC_CHECKS
+		and "credential_gate" in FRAMEWORK_CHECKS
+		and "credential_gate_tests" in FRAMEWORK_CHECKS
+		and "credential_gate" in FULL_CHECKS
+		and "credential_gate_tests" in FULL_CHECKS
+		and "credential_gate" in RELEASE_CHECKS
+		and "credential_gate_tests" in RELEASE_CHECKS
+		and "credential_gate" not in maintenance_in_process_check_runners(),
+		"Credential scanning and its behavior tests must remain static gates in quick, full, and release flows.",
+	)
+	credential_path_fixture = "ghp_" + ("A" * 40)
+	credential_safe_release_fixture = safe_release_artifact_report({
+		"ok": False,
+		"artifacts": [{"path": credential_path_fixture}],
+		"issues": [credential_path_fixture],
+	})
+	credential_safe_dirty_fixture = safe_git_status_labels([
+		f"?? {credential_path_fixture}.txt",
+	])
+	record_result(
+		"credential_gate_outputs_are_redacted_and_supervised",
+		credential_path_fixture
+		not in json.dumps(
+			{
+				"release": credential_safe_release_fixture,
+				"dirty": credential_safe_dirty_fixture,
+			},
+			ensure_ascii=False,
+		)
+		and "credential_gate" not in maintenance_in_process_check_runners()
+		and "release_metadata" not in maintenance_in_process_check_runners()
+		and "release-status" in check_command("release_metadata"),
+		"Credential and release scans must use supervised subprocesses and redact manifest/status path values.",
+	)
+	record_result(
 		"ci_shards_preserve_full_suite_coverage",
 		set(FRAMEWORK_CHECKS) == set(FRAMEWORK_GUT_CHECKS).union(
 			FRAMEWORK_LSP_CHECKS,
@@ -15959,7 +16032,7 @@ def maintenance_self_test() -> dict[str, Any]:
 		"in_process_checks_enforce_return_time_deadlines",
 		in_process_check_timed_out(10.001, 10.0)
 		and not in_process_check_timed_out(10.0, 10.0),
-		"in-process checks, including release metadata, must fail when they return after their deadline.",
+		"In-process pure checks must fail when they return after their deadline.",
 	)
 	record_result(
 		"static_suite_checks_run_in_process",
@@ -25705,6 +25778,8 @@ def run_checks_with_active_snapshot(
 		)
 		if name == "release_metadata":
 			check_command_value = [*check_command_value, "--artifact-manifest", artifact_manifest]
+			if allow_breaking_api:
+				check_command_value.append("--allow-breaking-api")
 		remaining_seconds = (
 			max(0.0, suite_deadline - time.perf_counter())
 			if suite_deadline is not None
@@ -25782,47 +25857,6 @@ def run_checks_with_active_snapshot(
 			payload["blocked_by"] = blocked_by
 			if progress_callback is not None:
 				progress_callback("finished", name, 0.0)
-			continue
-		if name == "release_metadata":
-			check_started = time.perf_counter()
-			status = release_status(
-				"",
-				allow_breaking_api=allow_breaking_api,
-				artifact_manifest=artifact_manifest,
-			)
-			duration_seconds = time.perf_counter() - check_started
-			timed_out = in_process_check_timed_out(duration_seconds, check_timeout_seconds)
-			status_stdout = json.dumps(status, ensure_ascii=False)
-			payload = {
-				"name": name,
-				"exit_code": 124 if timed_out else (0 if status["ok"] else 1),
-				"timed_out": timed_out,
-				"duration_seconds": round(duration_seconds, 3),
-				"timeout_seconds": check_timeout_seconds,
-				"execution": "in_process",
-				"release_status": status,
-				"notes": (
-					["In-process release metadata check exceeded its deadline and could not be preempted safely."]
-					if timed_out
-					else []
-				),
-			}
-			append_check_result_payload(
-				results,
-				result_exit_codes,
-				result_fingerprints,
-				payload,
-				status_stdout,
-				"",
-				dependencies,
-				dependency_fingerprints,
-				input_fingerprint,
-				timeout_budget.to_dict(),
-			)
-			if progress_callback is not None:
-				progress_callback("finished", name, duration_seconds)
-			if fail_fast and not status["ok"]:
-				break
 			continue
 		if name in in_process_runners:
 			result = run_in_process_check(name, in_process_runners[name], check_timeout_seconds)
@@ -27251,6 +27285,222 @@ def gut_report_all_tests_passed(stdout: str) -> bool:
 	return test_count > 0 and passing_count == test_count
 
 
+def safe_git_status_labels(lines: list[str]) -> list[str]:
+	safe_labels: list[str] = []
+	for index, line in enumerate(lines):
+		status = line[:2] if re.fullmatch(r"[ MADRCU?!]{2}", line[:2]) else "??"
+		raw_path = line[3:] if len(line) > 3 else ""
+		safe_path = gf_credential_gate.safe_path_label(
+			raw_path,
+			f"dirty-entry-{index + 1}",
+		)
+		safe_labels.append(f"{status} {safe_path}")
+	return safe_labels
+
+
+def safe_release_artifact_report(report: dict[str, Any]) -> dict[str, Any]:
+	raw_version = report.get("version")
+	version = (
+		raw_version
+		if isinstance(raw_version, str) and SEMVER_RE.fullmatch(raw_version) is not None
+		else ""
+	)
+	raw_issues = report.get("issues")
+	issue_count = len(raw_issues) if isinstance(raw_issues, list) else 0
+	return {
+		"ok": bool(report.get("ok", False)),
+		"skipped": bool(report.get("skipped", False)),
+		"version": version,
+		"manifest": "manifest" if report.get("manifest") else "",
+		"artifact_count": int(report.get("artifact_count", 0))
+		if isinstance(report.get("artifact_count"), int)
+		else 0,
+		"package_archive_count": int(report.get("package_archive_count", 0))
+		if isinstance(report.get("package_archive_count"), int)
+		else 0,
+		"issue_count": issue_count,
+		"issues": (
+			[f"Release artifact audit reported {issue_count} issue(s)."]
+			if issue_count
+			else []
+		),
+	}
+
+
+def release_source_credential_failure(
+	version: str,
+	plugin_version: str,
+	allow_dirty: bool,
+	allow_breaking_api: bool,
+	source_gate: dict[str, Any],
+) -> dict[str, Any]:
+	safe_version = version if SEMVER_RE.fullmatch(version) is not None else ""
+	safe_plugin_version = (
+		plugin_version if SEMVER_RE.fullmatch(plugin_version) is not None else ""
+	)
+	gate_issues = [
+		"Tracked source credential gate failed: "
+		+ gf_credential_gate.issue_summary(raw_issue)
+		for raw_issue in source_gate.get("issues", [])
+		if isinstance(raw_issue, dict)
+	]
+	return {
+		"ok": False,
+		"version": safe_version,
+		"issues": gate_issues,
+		"allow_dirty": allow_dirty,
+		"allow_breaking_api": allow_breaking_api,
+		"worktree_dirty": False,
+		"dirty_file_count": 0,
+		"dirty_files": [],
+		"unresolved_since_count": 0,
+		"unresolved_since_markers": [],
+		"future_since_count": 0,
+		"future_since_markers": [],
+		"api_baseline_diff": {"base_tag": "", "summary": {}, "issues": [], "diff": {}},
+		"plugin_version": safe_plugin_version,
+		"plugin": {},
+		"asset_library": {},
+		"asset_library_preview_todos": [],
+		"asset_store": {"fields": {}, "tags": []},
+		"extension_count": 0,
+		"extension_mismatches": [],
+		"changelog_versions": [],
+		"package_archive": make_skipped_package_archive(
+			"tracked source credential gate failure"
+		),
+		"source_credential_gate": source_gate,
+		"release_credential_gate": {
+			"ok": False,
+			"skipped": True,
+			"reason": "tracked source credential gate failure",
+			"issues": [],
+		},
+		"release_artifacts": safe_release_artifact_report({
+			"ok": False,
+			"skipped": True,
+			"issues": [],
+		}),
+		"tag_exists": False,
+		"tag_points_at_head": False,
+	}
+
+
+def audit_materialized_release(
+	manifest_path: Path,
+	version: str,
+	current_revision: str,
+	skip_artifact_audit_reason: str = "",
+) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any], int]:
+	with gf_credential_gate.materialized_release_snapshot(manifest_path) as (
+		snapshot,
+		snapshot_failure,
+	):
+		if snapshot is None:
+			release_gate = snapshot_failure or gf_credential_gate.release_snapshot_failure()
+			release_gate["skipped"] = False
+			return (
+				{
+					"ok": False,
+					"skipped": True,
+					"artifact_count": 0,
+					"issues": ["Release artifact audit skipped after snapshot failure."],
+				},
+				make_skipped_package_archive("release snapshot failure"),
+				release_gate,
+				0,
+			)
+
+		release_gate_before, evidence_before = (
+			gf_credential_gate.run_release_gate_with_evidence(snapshot.manifest_path)
+		)
+		if (
+			not release_gate_before.get("ok", False)
+			or evidence_before is None
+			or evidence_before != snapshot.evidence
+		):
+			release_gate_before["skipped"] = False
+			return (
+				{
+					"ok": False,
+					"skipped": True,
+					"artifact_count": 0,
+					"issues": ["Release artifact audit skipped after credential gate failure."],
+				},
+				make_skipped_package_archive("credential gate failure"),
+				release_gate_before,
+				0,
+			)
+		if skip_artifact_audit_reason:
+			release_gate_before["skipped"] = False
+			return (
+				{
+					"ok": False,
+					"skipped": True,
+					"artifact_count": len(snapshot.evidence.artifacts),
+					"issues": [],
+				},
+				make_skipped_package_archive(skip_artifact_audit_reason),
+				release_gate_before,
+				0,
+			)
+
+		release_artifacts = audit_release_artifact_manifest(
+			snapshot.manifest_path,
+			version,
+			current_revision,
+			snapshot.evidence.manifest_sha256,
+		)
+		release_artifacts["skipped"] = False
+		raw_artifact_issues = release_artifacts.get("issues", [])
+		artifact_issue_count = (
+			len(raw_artifact_issues) if isinstance(raw_artifact_issues, list) else 0
+		)
+		package_archive = (
+			audit_prebuilt_package_archive(release_artifacts)
+			if release_artifacts.get("ok", False)
+			else make_skipped_package_archive("invalid release artifact set")
+		)
+		release_gate_after, evidence_after = (
+			gf_credential_gate.run_release_gate_with_evidence(snapshot.manifest_path)
+		)
+		snapshot_matches = (
+			release_gate_after.get("ok", False)
+			and evidence_after is not None
+			and evidence_before == evidence_after
+			and evidence_after == snapshot.evidence
+			and gf_credential_gate.release_audit_matches_evidence(
+				release_artifacts,
+				evidence_after,
+			)
+		)
+		if not snapshot_matches:
+			release_gate = (
+				release_gate_after
+				if not release_gate_after.get("ok", False)
+				else gf_credential_gate.release_snapshot_failure()
+			)
+			release_gate["skipped"] = False
+			return (
+				{
+					"ok": False,
+					"skipped": True,
+					"artifact_count": 0,
+					"issues": ["Release artifact audit discarded after snapshot drift."],
+				},
+				make_skipped_package_archive("release snapshot drift"),
+				release_gate,
+				0,
+			)
+		release_gate_after["skipped"] = False
+		return (
+			release_artifacts,
+			package_archive,
+			release_gate_after,
+			artifact_issue_count,
+		)
+
+
 def release_status(
 	expected_version: str = "",
 	allow_dirty: bool = False,
@@ -27261,10 +27511,26 @@ def release_status(
 	plugin_version = plugin_audit["version"]
 	version = expected_version.strip() or plugin_version
 	issues: list[str] = []
-	dirty_files = git_lines(["status", "--porcelain", "--untracked-files=all"])
-	if dirty_files and not allow_dirty:
+	source_credential_gate = gf_credential_gate.run_tracked_gate(ROOT)
+	for raw_issue in source_credential_gate.get("issues", []):
+		if isinstance(raw_issue, dict):
+			issues.append(
+				"Tracked source credential gate failed: "
+				+ gf_credential_gate.issue_summary(raw_issue)
+			)
+	if not source_credential_gate.get("ok", False):
+		return release_source_credential_failure(
+			version,
+			plugin_version,
+			allow_dirty,
+			allow_breaking_api,
+			source_credential_gate,
+		)
+	raw_dirty_files = git_lines(["status", "--porcelain", "--untracked-files=all"])
+	dirty_files = safe_git_status_labels(raw_dirty_files)
+	if raw_dirty_files and not allow_dirty:
 		issues.append(
-			f"Worktree is dirty ({len(dirty_files)} changed path(s)); commit or stash changes before release, "
+			f"Worktree is dirty ({len(raw_dirty_files)} changed path(s)); commit or stash changes before release, "
 			"or pass --allow-dirty only for local diagnostics."
 		)
 	if SEMVER_RE.match(version) is None:
@@ -27355,24 +27621,42 @@ def release_status(
 		"reason": "prebuilt artifact manifest is required",
 		"issues": ["Release status requires --artifact-manifest from build_gf_release_artifacts.py."],
 	}
+	release_credential_gate: dict[str, Any] = {
+		"ok": False,
+		"skipped": True,
+		"reason": "prebuilt artifact manifest is required",
+		"issues": [],
+	}
+	manifest_path: Path | None = None
+	package_archive = make_skipped_package_archive(
+		"prebuilt artifact manifest is required"
+	)
 	if not artifact_manifest.strip():
 		issues.extend(release_artifacts["issues"])
-	if dirty_files and not allow_dirty:
-		package_archive = make_skipped_package_archive("dirty worktree")
-	elif artifact_manifest.strip():
+	else:
 		manifest_path = Path(artifact_manifest)
 		if not manifest_path.is_absolute():
 			manifest_path = ROOT / manifest_path
-		current_revision = git_text(["rev-parse", "HEAD"])
-		release_artifacts = audit_release_artifact_manifest(manifest_path, version, current_revision)
-		release_artifacts["skipped"] = False
-		issues.extend(
-			"Release artifact set is invalid: " + issue
-			for issue in release_artifacts.get("issues", [])
+		release_artifacts, package_archive, release_credential_gate, artifact_issue_count = (
+			audit_materialized_release(
+				manifest_path,
+				version,
+				git_text(["rev-parse", "HEAD"]),
+				"dirty worktree" if raw_dirty_files and not allow_dirty else "",
+			)
 		)
-		package_archive = audit_prebuilt_package_archive(release_artifacts)
-	else:
-		package_archive = make_skipped_package_archive("prebuilt artifact manifest is required")
+		if not release_credential_gate.get("ok", False):
+			for raw_issue in release_credential_gate.get("issues", []):
+				if isinstance(raw_issue, dict):
+					issues.append(
+						"Release credential gate failed: "
+						+ gf_credential_gate.issue_summary(raw_issue)
+					)
+		if artifact_issue_count:
+			issues.append(
+				"Release artifact set is invalid "
+				f"({artifact_issue_count} issue(s))."
+			)
 	if not package_archive.get("skipped", False):
 		if package_archive["missing_export_ignore_rules"]:
 			issues.append(
@@ -27405,8 +27689,8 @@ def release_status(
 		"issues": issues,
 		"allow_dirty": allow_dirty,
 		"allow_breaking_api": allow_breaking_api,
-		"worktree_dirty": len(dirty_files) > 0,
-		"dirty_file_count": len(dirty_files),
+		"worktree_dirty": len(raw_dirty_files) > 0,
+		"dirty_file_count": len(raw_dirty_files),
 		"dirty_files": dirty_files[:80],
 		"unresolved_since_count": len(unresolved_since_markers),
 		"unresolved_since_markers": unresolved_since_markers[:80],
@@ -27436,7 +27720,9 @@ def release_status(
 		"extension_mismatches": extension_mismatches,
 		"changelog_versions": changelog_versions[:5],
 		"package_archive": package_archive,
-		"release_artifacts": release_artifacts,
+		"source_credential_gate": source_credential_gate,
+		"release_credential_gate": release_credential_gate,
+		"release_artifacts": safe_release_artifact_report(release_artifacts),
 		"tag_exists": tag_exists,
 		"tag_points_at_head": tag_points_at_head,
 	}

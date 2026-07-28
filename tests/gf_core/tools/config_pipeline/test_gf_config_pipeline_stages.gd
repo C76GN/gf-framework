@@ -224,13 +224,16 @@ func test_commit_stage_rolls_back_existing_and_new_artifacts() -> void:
 	)
 	var new_path: String = _track_path("user://gf_config_pipeline_commit_new_%d.txt" % Time.get_ticks_usec())
 	var commit_stage: GFConfigPipelineCommitStage = GFConfigPipelineCommitStage.new()
-	var transaction: Dictionary = commit_stage.begin(PackedStringArray([existing_path, new_path]))
-	assert_true(GFVariantData.get_option_bool(transaction, "success"), "Commit 应成功捕获事务前状态。")
+	var transaction: Dictionary = commit_stage.begin(
+		PackedStringArray([existing_path, new_path]),
+		{ "allowed_roots": PackedStringArray([existing_path.get_base_dir()]) }
+	)
+	assert_true(GFVariantData.get_option_bool(transaction, "ok"), "Commit 应成功捕获事务前状态。")
 	var _existing_rewrite_path: String = _write_text(existing_path, "after")
 	var _new_write_path: String = _write_text(new_path, "new")
 	var rollback_result: Dictionary = commit_stage.rollback(transaction)
 
-	assert_true(GFVariantData.get_option_bool(rollback_result, "success"), "Rollback 应恢复全部路径。")
+	assert_true(GFVariantData.get_option_bool(rollback_result, "ok"), "Rollback 应恢复全部路径。")
 	assert_eq(_read_text(existing_path), "before", "Rollback 应恢复已有文件。")
 	assert_false(FileAccess.file_exists(new_path), "Rollback 应删除事务中新建的文件。")
 

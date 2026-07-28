@@ -24,8 +24,12 @@ const DEFAULT_MATERIALIZE_DIR: String = "user://gf/artifacts"
 
 const _REASON_EMPTY_TARGET_PATH: String = "empty_target_path"
 const _REASON_PATH_NOT_ALLOWED: String = "path_not_allowed"
+const _REASON_INVALID_FILE_NAME: String = "invalid_file_name"
 const _REASON_EMPTY_DATA: String = "empty_data"
 const _REASON_WRITE_FAILED: String = "write_failed"
+const _GF_ARTIFACT_WRITE_TRANSACTION_SCRIPT = preload(
+	"res://addons/gf/kernel/editor/gf_artifact_write_transaction.gd"
+)
 
 
 # --- 导出变量 ---
@@ -129,30 +133,96 @@ func get_size_bytes() -> int:
 ## [br]
 ## @return 写入报告。
 ## [br]
-## @schema options: Dictionary，可包含 allow_user_path、allow_res_path、overwrite 和 create_directories。
+## @schema options: Dictionary，可包含 allow_user_path、allow_res_path、overwrite、create_directories、max_file_bytes、max_total_bytes、max_backup_bytes 和 scan_filesystem。
 ## [br]
-## @schema return: Dictionary with ok, path, reason, size_bytes, and metadata.
+## @schema return: Dictionary with ok, path, reason, size_bytes, metadata, recovery_required, recovery_action, and recovery_transaction. recovery_required 为 true 时，调用方必须按 recovery_action 将 recovery_transaction 原样交给 GFArtifactWriteTransaction.rollback() 或 complete()。
 func materialize_to_path(target_path: String, options: Dictionary = {}) -> Dictionary:
-	var normalized_path: String = target_path.strip_edges().replace("\\", "/")
+	var normalized_path: String = GFPathTools.normalize_resource_path(target_path)
 	if normalized_path.is_empty():
 		return _make_report(false, normalized_path, _REASON_EMPTY_TARGET_PATH)
 	if not has_data():
 		return _make_report(false, normalized_path, _REASON_EMPTY_DATA)
 	if not _path_is_allowed(normalized_path, options):
 		return _make_report(false, normalized_path, _REASON_PATH_NOT_ALLOWED)
-	if FileAccess.file_exists(normalized_path) and not GFVariantData.get_option_bool(options, "overwrite", true):
+	var create_directories: bool = GFVariantData.get_option_bool(
+		options,
+		"create_directories",
+		true
+	)
+	if (
+		not create_directories
+		and not DirAccess.dir_exists_absolute(
+			ProjectSettings.globalize_path(normalized_path.get_base_dir())
+		)
+	):
 		return _make_report(false, normalized_path, _REASON_WRITE_FAILED)
 
-	if GFVariantData.get_option_bool(options, "create_directories", true):
-		var directory_path: String = normalized_path.get_base_dir()
-		var absolute_dir: String = ProjectSettings.globalize_path(directory_path)
-		var _mkdir_result: Error = DirAccess.make_dir_recursive_absolute(absolute_dir)
-
-	var file: FileAccess = FileAccess.open(normalized_path, FileAccess.WRITE)
-	if file == null:
-		return _make_report(false, normalized_path, _REASON_WRITE_FAILED)
-	var _stored: Variant = file.store_buffer(data)
-	file.close()
+	var entry: Dictionary = _GF_ARTIFACT_WRITE_TRANSACTION_SCRIPT.make_bytes_entry(
+		normalized_path,
+		data,
+		{
+			"overwrite": GFVariantData.get_option_bool(options, "overwrite", true),
+			"metadata": {
+				"source_path": source_path,
+				"type_hint": type_hint,
+			},
+		}
+	)
+	var transaction_options: Dictionary = {
+		"allowed_roots": PackedStringArray([
+			normalized_path.get_base_dir(),
+		]),
+		"max_file_count": 1,
+		"max_file_bytes": GFVariantData.get_option_int(
+			options,
+			"max_file_bytes",
+			_GF_ARTIFACT_WRITE_TRANSACTION_SCRIPT.DEFAULT_MAX_FILE_BYTES
+		),
+		"max_total_bytes": GFVariantData.get_option_int(
+			options,
+			"max_total_bytes",
+			_GF_ARTIFACT_WRITE_TRANSACTION_SCRIPT.DEFAULT_MAX_TOTAL_BYTES
+		),
+		"max_backup_bytes": GFVariantData.get_option_int(
+			options,
+			"max_backup_bytes",
+			_GF_ARTIFACT_WRITE_TRANSACTION_SCRIPT.DEFAULT_MAX_BACKUP_BYTES
+		),
+		"scan_filesystem": GFVariantData.get_option_bool(
+			options,
+			"scan_filesystem",
+			true
+		),
+	}
+	var transaction_entries: Array[Dictionary] = [entry]
+	var transaction_report: Dictionary = _commit_materialization(
+		transaction_entries,
+		transaction_options
+	)
+	if not GFVariantData.get_option_bool(transaction_report, "ok"):
+		var recovery_required: bool = GFVariantData.get_option_bool(
+			transaction_report,
+			"recovery_required"
+		)
+		var recovery_action: StringName = &""
+		var recovery_transaction: Dictionary = {}
+		if recovery_required:
+			recovery_action = GFVariantData.get_option_string_name(
+				transaction_report,
+				"recovery_action"
+			)
+			recovery_transaction = GFVariantData.get_option_dictionary(
+				transaction_report,
+				"recovery_transaction"
+			)
+		return _make_report(
+			false,
+			normalized_path,
+			_REASON_WRITE_FAILED,
+			recovery_required,
+			recovery_action,
+			recovery_transaction
+		)
 	return _make_report(true, normalized_path, "")
 
 
@@ -162,17 +232,21 @@ func materialize_to_path(target_path: String, options: Dictionary = {}) -> Dicti
 ## [br]
 ## @since 6.0.0
 ## [br]
-## @param options: 写入选项，可包含 directory_path、file_name、extension、overwrite。
+## @param options: 写入选项，可包含 directory_path、file_name、extension、overwrite；file_name 必须是非空 portable leaf，不能是 .、.. 或包含路径分隔符。
 ## [br]
 ## @return 写入报告。
 ## [br]
-## @schema options: Dictionary，可包含 directory_path、file_name、extension、overwrite、allow_user_path、allow_res_path。
+## @schema options: Dictionary，可包含 directory_path、file_name、extension、overwrite、allow_user_path、allow_res_path、max_file_bytes、max_total_bytes、max_backup_bytes 和 scan_filesystem；file_name 必须是 ASCII portable leaf，禁止 .、..、控制字符、路径分隔符、Windows 保留字符和设备名。
 ## [br]
-## @schema return: Dictionary with ok, path, reason, size_bytes, and metadata.
+## @schema return: Dictionary with ok, path, reason, size_bytes, metadata, recovery_required, recovery_action, and recovery_transaction.
 func materialize_temp(options: Dictionary = {}) -> Dictionary:
 	var directory_path: String = GFVariantData.get_option_string(options, "directory_path", DEFAULT_MATERIALIZE_DIR)
 	var file_name: String = GFVariantData.get_option_string(options, "file_name", _make_default_file_name(options))
-	var target_path: String = directory_path.strip_edges().replace("\\", "/").path_join(_sanitize_file_name(file_name))
+	if not _is_portable_file_name(file_name):
+		return _make_report(false, "", _REASON_INVALID_FILE_NAME)
+	var target_path: String = (
+		directory_path.strip_edges().replace("\\", "/").path_join(file_name)
+	)
 	var materialize_options: Dictionary = options.duplicate(true)
 	materialize_options["allow_user_path"] = GFVariantData.get_option_bool(options, "allow_user_path", true)
 	materialize_options["allow_res_path"] = GFVariantData.get_option_bool(options, "allow_res_path", false)
@@ -207,12 +281,29 @@ func _path_is_allowed(path: String, options: Dictionary) -> bool:
 	return false
 
 
-func _make_report(ok: bool, path: String, reason: String) -> Dictionary:
+func _commit_materialization(
+	entries: Array[Dictionary],
+	options: Dictionary
+) -> Dictionary:
+	return _GF_ARTIFACT_WRITE_TRANSACTION_SCRIPT.commit(entries, options)
+
+
+func _make_report(
+	ok: bool,
+	path: String,
+	reason: String,
+	recovery_required: bool = false,
+	recovery_action: StringName = &"",
+	recovery_transaction: Dictionary = {}
+) -> Dictionary:
 	return {
 		"ok": ok,
 		"path": path,
 		"reason": reason,
 		"size_bytes": get_size_bytes(),
+		"recovery_required": recovery_required,
+		"recovery_action": recovery_action if recovery_required else &"",
+		"recovery_transaction": recovery_transaction.duplicate(true),
 		"metadata": {
 			"source_path": source_path,
 			"type_hint": type_hint,
@@ -237,8 +328,54 @@ func _make_default_file_name(options: Dictionary) -> String:
 	return "%s_%s.%s" % [basename, hash_text, file_extension]
 
 
-func _sanitize_file_name(file_name: String) -> String:
-	var result: String = file_name.strip_edges().replace("\\", "_").replace("/", "_").replace(":", "_")
-	if result.is_empty():
-		return "artifact_%s.bin" % str(var_to_str(data).hash()).replace("-", "n")
-	return result
+func _is_portable_file_name(file_name: String) -> bool:
+	if (
+		file_name.is_empty()
+		or file_name != file_name.strip_edges()
+		or file_name == "."
+		or file_name == ".."
+		or file_name != file_name.rstrip(" .")
+		or not _string_is_ascii(file_name)
+		or _string_has_control_character(file_name)
+	):
+		return false
+	for invalid_character: String in [
+		"<",
+		">",
+		":",
+		"\"",
+		"/",
+		"\\",
+		"|",
+		"?",
+		"*",
+	]:
+		if file_name.contains(invalid_character):
+			return false
+	var device_stem: String = file_name.split(".", true)[0].to_upper()
+	if ["CON", "PRN", "AUX", "NUL"].has(device_stem):
+		return false
+	if device_stem.length() == 4:
+		var device_prefix: String = device_stem.substr(0, 3)
+		var device_number: String = device_stem.substr(3, 1)
+		if (
+			(device_prefix == "COM" or device_prefix == "LPT")
+			and "123456789".contains(device_number)
+		):
+			return false
+	return true
+
+
+func _string_is_ascii(value: String) -> bool:
+	for index: int in range(value.length()):
+		if value.unicode_at(index) > 0x7f:
+			return false
+	return true
+
+
+func _string_has_control_character(value: String) -> bool:
+	for index: int in range(value.length()):
+		var codepoint: int = value.unicode_at(index)
+		if codepoint < 32 or codepoint == 127:
+			return true
+	return false

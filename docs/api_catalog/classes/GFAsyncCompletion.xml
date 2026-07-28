@@ -1,8 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFAsyncCompletion" path="addons/gf/kernel/core/gf_async_completion.gd" module="kernel" extends="RefCounted" classDigest="4bd1c85a494a73b00b45f8ba812241e2e59a653f8d7d9f307edf69fa62e99ea6">
+<class name="GFAsyncCompletion" path="addons/gf/kernel/core/gf_async_completion.gd" module="kernel" extends="RefCounted" classDigest="5d2f0d82e62babf53909d584d0adf0c726161013e9138dfb6c98f440f8a058a2">
 	<description>GFAsyncCompletion: 一次性异步完成源。
-用于把回调、Signal、后台任务或项目侧异步流程归一为 succeeded / failed / cancelled 终态。
-它只保存结果状态，不调度任务，也不强制规定调用方如何重试或回滚。</description>
+用于把回调、Signal 或项目侧异步流程归一为 succeeded / failed / cancelled 终态。
+状态访问、终态提交和取消 token 绑定都只允许在主线程执行；后台生产者应先把
+纯数据投递到框架主线程调度边界。它只保存结果状态，不调度任务，也不强制规定
+调用方如何重试或回滚。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">runtime_handle</tag>
@@ -65,6 +67,8 @@
 	FAILED,
 	## 已取消。
 	CANCELLED,
+	## 当前调用线程无权读取状态。
+	INVALID,
 }</signature>
 			<description>完成源状态。</description>
 			<tags>
@@ -83,7 +87,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">result: 成功结果。</tag>
 				<tag name="param">metadata: 终态元数据。</tag>
-				<tag name="return">首次进入终态时返回 true。</tag>
+				<tag name="return">主线程首次进入终态时返回 true；非主线程或已有终态时返回 false。</tag>
 				<tag name="schema">result: Variant，调用方定义的成功结果。</tag>
 				<tag name="schema">metadata: Dictionary，调用方定义的终态元数据。</tag>
 				<tag name="since">7.0.0</tag>
@@ -96,7 +100,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">error: 失败说明。</tag>
 				<tag name="param">metadata: 终态元数据。</tag>
-				<tag name="return">首次进入终态时返回 true。</tag>
+				<tag name="return">主线程首次进入终态时返回 true；非主线程或已有终态时返回 false。</tag>
 				<tag name="schema">metadata: Dictionary，调用方定义的终态元数据。</tag>
 				<tag name="since">7.0.0</tag>
 			</tags>
@@ -109,7 +113,7 @@
 				<tag name="param">reason: 取消原因。</tag>
 				<tag name="param">metadata: 终态元数据。</tag>
 				<tag name="param">result: 可选取消结果。</tag>
-				<tag name="return">首次进入终态时返回 true。</tag>
+				<tag name="return">主线程首次进入终态时返回 true；非主线程或已有终态时返回 false。</tag>
 				<tag name="schema">metadata: Dictionary，调用方定义的终态元数据。</tag>
 				<tag name="schema">result: Variant，调用方定义的取消结果。</tag>
 				<tag name="since">7.0.0</tag>
@@ -121,7 +125,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">token: 取消 token。</tag>
-				<tag name="return">成功绑定或 token 已经触发取消时返回 true。</tag>
+				<tag name="return">主线程成功绑定或 token 已经触发取消时返回 true；非主线程返回 false。</tag>
 				<tag name="since">7.0.0</tag>
 			</tags>
 		</member>
@@ -130,7 +134,7 @@
 			<description>当前是否仍在等待。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="return">等待中返回 true。</tag>
+				<tag name="return">主线程读取到等待状态时返回 true；非主线程返回 false。</tag>
 				<tag name="since">7.0.0</tag>
 			</tags>
 		</member>
@@ -139,7 +143,7 @@
 			<description>当前是否已经进入任意终态。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="return">已完成、失败或取消时返回 true。</tag>
+				<tag name="return">主线程读取到任意终态时返回 true；非主线程返回 false。</tag>
 				<tag name="since">7.0.0</tag>
 			</tags>
 		</member>
@@ -148,7 +152,7 @@
 			<description>当前是否成功。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="return">成功完成时返回 true。</tag>
+				<tag name="return">主线程读取到成功终态时返回 true；非主线程返回 false。</tag>
 				<tag name="since">7.0.0</tag>
 			</tags>
 		</member>
@@ -157,7 +161,7 @@
 			<description>当前是否失败。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="return">失败时返回 true。</tag>
+				<tag name="return">主线程读取到失败终态时返回 true；非主线程返回 false。</tag>
 				<tag name="since">7.0.0</tag>
 			</tags>
 		</member>
@@ -166,7 +170,7 @@
 			<description>当前是否取消。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="return">取消时返回 true。</tag>
+				<tag name="return">主线程读取到取消终态时返回 true；非主线程返回 false。</tag>
 				<tag name="since">7.0.0</tag>
 			</tags>
 		</member>
@@ -175,7 +179,7 @@
 			<description>获取当前状态。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="return">当前状态枚举值。</tag>
+				<tag name="return">主线程返回当前状态；非主线程返回 Status.INVALID。</tag>
 				<tag name="since">7.0.0</tag>
 			</tags>
 		</member>
@@ -184,7 +188,7 @@
 			<description>获取成功结果。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="return">成功结果；未成功时为 null。</tag>
+				<tag name="return">主线程返回成功结果；未成功或非主线程时为 null。</tag>
 				<tag name="schema">return: Variant，调用方定义的成功结果。</tag>
 				<tag name="since">7.0.0</tag>
 			</tags>
@@ -194,7 +198,7 @@
 			<description>获取失败说明。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="return">失败说明。</tag>
+				<tag name="return">主线程返回失败说明；非主线程返回空字符串。</tag>
 				<tag name="since">7.0.0</tag>
 			</tags>
 		</member>
@@ -203,7 +207,7 @@
 			<description>获取取消原因。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="return">取消原因。</tag>
+				<tag name="return">主线程返回取消原因；非主线程返回空 StringName。</tag>
 				<tag name="since">7.0.0</tag>
 			</tags>
 		</member>
@@ -212,7 +216,7 @@
 			<description>获取终态元数据副本。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="return">元数据副本。</tag>
+				<tag name="return">主线程返回元数据副本；非主线程返回空 Dictionary。</tag>
 				<tag name="schema">return: Dictionary，调用方定义的终态元数据。</tag>
 				<tag name="since">7.0.0</tag>
 			</tags>
@@ -222,8 +226,8 @@
 			<description>获取完成源状态快照。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="return">状态快照。</tag>
-				<tag name="schema">return: Dictionary，包含 status、status_name、completed、successful、failed、cancelled、result、error、cancel_reason、metadata、created_msec、completed_msec 和 duration_msec。</tag>
+				<tag name="return">主线程返回完整状态快照；非主线程只返回 Status.INVALID 标记。</tag>
+				<tag name="schema">return: Dictionary，主线程包含 status、status_name、completed、successful、failed、cancelled、result、error、cancel_reason、metadata、created_msec、completed_msec 和 duration_msec；非主线程只包含 status 和 status_name。</tag>
 				<tag name="since">7.0.0</tag>
 			</tags>
 		</member>

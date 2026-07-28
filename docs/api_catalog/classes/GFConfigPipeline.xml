@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFConfigPipeline" path="addons/gf/tools/config_pipeline/gf_config_pipeline.gd" module="tools" extends="RefCounted" classDigest="e9935bc75ee4704b7998379ef5e941724c74e2cdcb2c435bccacb1e57918a21e">
+<class name="GFConfigPipeline" path="addons/gf/tools/config_pipeline/gf_config_pipeline.gd" module="tools" extends="RefCounted" classDigest="28868a6774e9e090b134d6068dd41b449a961fc0e88a63af515d3e0cb7f9166d">
 	<description>GFConfigPipeline: 配置导表工具的资源构建入口。
 负责把 CSV / JSON / ConfigFile / XLSX 文件来源构建为 GFConfigTableResource 与 GFConfigDatabaseResource。
 该工具只处理通用导入、校验、索引重建和 Resource 保存，不绑定任何项目业务表或发布流程。</description>
@@ -99,11 +99,11 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">profile: 导表 Profile 资源。</tag>
-				<tag name="param">options: 本次导出覆盖选项，支持 output_path、build_options、save_options、access_output_path、access_options、access_class_name、access_provider_accessor、changed_only、manifest_path、write_manifest、manifest_options、manifest_metadata 以及 build_database() 的直接选项。</tag>
+				<tag name="param">options: 本次导出覆盖选项，支持 output_path、build_options、save_options、access_output_path、access_options、access_class_name、access_provider_accessor、changed_only、manifest_path、write_manifest、manifest_options、manifest_metadata、scan_filesystem 以及 build_database() 的直接选项。</tag>
 				<tag name="return">导出结果。</tag>
 				<tag name="schema">profile: GFConfigPipelineProfile resource。</tag>
-				<tag name="schema">options: Dictionary，可包含 output_path、build_options、save_options、access_output_path、access_options、access_class_name、access_provider_accessor、database_id、version、metadata、validate_database、validate_schema、parse_options、rebuild_indexes、changed_only、manifest_path、write_manifest、manifest_options、manifest_metadata、max_freshness_file_bytes、max_freshness_total_bytes 和 max_freshness_entries；save_options、access_options 与 manifest_options 可分别包含 allow_unowned_overwrite。</tag>
-				<tag name="schema">return: Dictionary，包含 success、database、report、table_results、build_result、save_result、access_result、manifest_path、manifest、manifest_result、profile_id、output_path 和 error。</tag>
+				<tag name="schema">options: Dictionary，可包含 output_path、build_options、save_options、access_output_path、access_options、access_class_name、access_provider_accessor、database_id、version、metadata、validate_database、validate_schema、parse_options、rebuild_indexes、changed_only、manifest_path、write_manifest、manifest_options、manifest_metadata、scan_filesystem、max_freshness_file_bytes、max_freshness_total_bytes 和 max_freshness_entries；save_options、access_options 与 manifest_options 可分别包含 allow_unowned_overwrite。批量导出会强制所有 constituent 禁止 scan，并且仅在整批事务成功后按顶层 scan_filesystem 执行一次编辑器扫描。</tag>
+				<tag name="schema">return: Dictionary，包含 success、database、report、table_results、build_result、save_result、access_result、manifest_path、manifest、manifest_result、profile_id、output_path、error、transaction_result、recovery_required、recovery_action 和 recovery_transaction；recovery_required 为 true 时调用方必须按 recovery_action 使用 recovery_transaction 完成结果要求的终态动作。</tag>
 				<tag name="since">5.2.0</tag>
 			</tags>
 		</member>

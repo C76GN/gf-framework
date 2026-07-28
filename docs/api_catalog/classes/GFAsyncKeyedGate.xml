@@ -1,9 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFAsyncKeyedGate" path="addons/gf/standard/common/gf_async_keyed_gate.gd" module="standard" extends="RefCounted" classDigest="4b6fb1d2a37b8cc45a7b1f81485bc2a3afef97ad70645632a1785e1da4fe3c6e">
+<class name="GFAsyncKeyedGate" path="addons/gf/standard/common/gf_async_keyed_gate.gd" module="standard" extends="RefCounted" classDigest="282df4dbc1d98c4702a88a60b7c08a571ad0a4f5c9e982d79ace3cbc32acae21">
 	<description>GFAsyncKeyedGate: 按 key 仲裁异步并发槽位。
 用于把“同一个资源、槽位、存档、玩家或编辑器目标”的异步操作限制在可控并发内。
 gate 只负责排队、发放租约、释放后推进队列，以及记录取消/超时诊断；
-不创建线程、不执行任务，也不解释 key 的业务含义。</description>
+全局槽位按稳定 key 游标轮转，持续繁忙的 key 不会永久阻塞其它 key；
+不创建线程、不执行任务，也不解释 key 的业务含义。全部入口只允许在主线程调用；
+跨线程请求应先通过 GFMainThreadDispatchQueue 回到主线程。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">runtime_handle</tag>
@@ -120,12 +122,28 @@ gate 只负责排队、发放租约、释放后推进队列，以及记录取消
 				<tag name="since">7.0.0</tag>
 			</tags>
 		</member>
+		<member kind="const" name="STATUS_REJECTED">
+			<signature>const STATUS_REJECTED: StringName = &amp;"rejected"</signature>
+			<description>请求因等待队列或 key 容量耗尽而被拒绝。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
 		<member kind="const" name="DEFAULT_MAX_CONCURRENCY">
 			<signature>const DEFAULT_MAX_CONCURRENCY: int = 1</signature>
 			<description>默认每个 key 的并发槽位数。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="ABSOLUTE_MAX_CONCURRENCY">
+			<signature>const ABSOLUTE_MAX_CONCURRENCY: int = 4096</signature>
+			<description>每个 key 最多允许配置的并发槽位数。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 		<member kind="const" name="DEFAULT_MAX_RECENT_EVENTS">
@@ -136,10 +154,130 @@ gate 只负责排队、发放租约、释放后推进队列，以及记录取消
 				<tag name="since">7.0.0</tag>
 			</tags>
 		</member>
+		<member kind="const" name="ABSOLUTE_MAX_RECENT_EVENTS">
+			<signature>const ABSOLUTE_MAX_RECENT_EVENTS: int = 4096</signature>
+			<description>最近事件历史的绝对数量上限。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="DEFAULT_MAX_ACTIVE_LEASES">
+			<signature>const DEFAULT_MAX_ACTIVE_LEASES: int = 4096</signature>
+			<description>默认最多同时持有的 lease 总数。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="ABSOLUTE_MAX_ACTIVE_LEASES">
+			<signature>const ABSOLUTE_MAX_ACTIVE_LEASES: int = 65_536</signature>
+			<description>同时持有 lease 的绝对数量上限。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="DEFAULT_MAX_WAITING_REQUESTS">
+			<signature>const DEFAULT_MAX_WAITING_REQUESTS: int = 1024</signature>
+			<description>默认最多保留的等待请求总数。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="ABSOLUTE_MAX_WAITING_REQUESTS">
+			<signature>const ABSOLUTE_MAX_WAITING_REQUESTS: int = 65_536</signature>
+			<description>等待请求总数的绝对上限。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="DEFAULT_MAX_WAITING_PER_KEY">
+			<signature>const DEFAULT_MAX_WAITING_PER_KEY: int = 64</signature>
+			<description>默认每个 key 最多保留的等待请求数。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="ABSOLUTE_MAX_WAITING_PER_KEY">
+			<signature>const ABSOLUTE_MAX_WAITING_PER_KEY: int = 4096</signature>
+			<description>单 key 等待请求数的绝对上限。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="DEFAULT_MAX_TRACKED_KEYS">
+			<signature>const DEFAULT_MAX_TRACKED_KEYS: int = 256</signature>
+			<description>默认最多跟踪的活跃、等待或显式配置 key 数。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="ABSOLUTE_MAX_TRACKED_KEYS">
+			<signature>const ABSOLUTE_MAX_TRACKED_KEYS: int = 16_384</signature>
+			<description>tracked key 数量的绝对上限。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="DEFAULT_MAX_PUMP_WORK_ITEMS">
+			<signature>const DEFAULT_MAX_PUMP_WORK_ITEMS: int = 256</signature>
+			<description>默认每次队列推进最多处理的等待请求数量。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="ABSOLUTE_MAX_PUMP_WORK_ITEMS">
+			<signature>const ABSOLUTE_MAX_PUMP_WORK_ITEMS: int = 4096</signature>
+			<description>单次队列推进工作预算的绝对上限。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="REASON_MAX_WAITING_REQUESTS">
+			<signature>const REASON_MAX_WAITING_REQUESTS: StringName = &amp;"max_waiting_requests"</signature>
+			<description>等待请求总容量耗尽原因。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="REASON_MAX_WAITING_PER_KEY">
+			<signature>const REASON_MAX_WAITING_PER_KEY: StringName = &amp;"max_waiting_per_key"</signature>
+			<description>单 key 等待容量耗尽原因。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="REASON_MAX_TRACKED_KEYS">
+			<signature>const REASON_MAX_TRACKED_KEYS: StringName = &amp;"max_tracked_keys"</signature>
+			<description>key 跟踪容量耗尽原因。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="REASON_CANCEL_TOKEN_CONNECT_FAILED">
+			<signature>const REASON_CANCEL_TOKEN_CONNECT_FAILED: StringName = &amp;"cancel_token_connect_failed"</signature>
+			<description>取消令牌订阅建立失败原因。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
 	</constants>
 	<properties>
 		<member kind="property" name="default_max_concurrency">
-			<signature>var default_max_concurrency: int = DEFAULT_MAX_CONCURRENCY:</signature>
+			<signature>var default_max_concurrency: int:</signature>
 			<description>未显式配置 key 时的最大并发槽位数。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -147,11 +285,52 @@ gate 只负责排队、发放租约、释放后推进队列，以及记录取消
 			</tags>
 		</member>
 		<member kind="property" name="max_recent_events">
-			<signature>var max_recent_events: int = DEFAULT_MAX_RECENT_EVENTS:</signature>
+			<signature>var max_recent_events: int:</signature>
 			<description>最近事件历史上限。设置为 0 时不保留事件。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="max_active_leases">
+			<signature>var max_active_leases: int:</signature>
+			<description>最多同时持有的 lease 总数。降低容量不会撤销现有 lease。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="max_waiting_requests">
+			<signature>var max_waiting_requests: int:</signature>
+			<description>最多保留的等待请求总数。降低容量不会驱逐现有请求。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="max_waiting_per_key">
+			<signature>var max_waiting_per_key: int:</signature>
+			<description>每个 key 最多保留的等待请求数。降低容量不会驱逐现有请求。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="max_tracked_keys">
+			<signature>var max_tracked_keys: int:</signature>
+			<description>最多跟踪的活跃、等待或显式配置 key 数。降低容量不会驱逐现有 key。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="max_pump_work_items">
+			<signature>var max_pump_work_items: int:</signature>
+			<description>每次队列推进最多处理的等待请求数量。
+取消和超时请求也会消耗该预算，剩余可执行工作会延迟到后续主线程迭代。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 	</properties>
@@ -187,7 +366,9 @@ GFAsyncCompletion。队列推进后 completion 会成功并携带 lease。</desc
 		</member>
 		<member kind="method" name="release_lease">
 			<signature>func release_lease(lease: GFAsyncGateLease, reason: StringName = &amp;"manual") -&gt; bool:</signature>
-			<description>释放一个租约。</description>
+			<description>释放一个租约。
+acquire/release 生命周期通知中的重入释放会延迟到最外层通知结束；通知期间的新请求
+只能排队，随后与既有 waiter 一起由公平泵推进。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">lease: request_lease() 或 wait_for_lease_async() 返回的租约。</tag>
@@ -326,7 +507,7 @@ GFAsyncCompletion。队列推进后 completion 会成功并携带 lease。</desc
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">gate 状态快照。</tag>
-				<tag name="schema">return: Dictionary，包含 queued_count、active_count、key_count、acquired_count、released_count、cancelled_count、timeout_count、keys 和 recent_events。</tag>
+				<tag name="schema">return: Dictionary，包含 queued_count、active_count、key_count、max_active_leases、等待、key 与推进预算配置、high_watermark、key_high_watermark、rejected_count、dropped_count、acquired_count、released_count、cancelled_count、timeout_count、keys 和 recent_events。</tag>
 				<tag name="since">7.0.0</tag>
 			</tags>
 		</member>

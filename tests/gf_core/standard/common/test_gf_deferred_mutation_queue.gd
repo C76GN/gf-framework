@@ -57,6 +57,140 @@ func test_deferred_mutation_queue_cancels_pending_mutation() -> void:
 	assert_eq(GFVariantData.get_option_int(snapshot, "skipped_owner_count"), 0, "快照不应产生 owner 跳过统计。")
 
 
+func test_playback_snapshot_prevents_reentrant_low_sort_key_from_preempting_tail() -> void:
+	var queue: GF_DEFERRED_MUTATION_QUEUE_SCRIPT = GF_DEFERRED_MUTATION_QUEUE_SCRIPT.new()
+	queue.init()
+	var events: Array[String] = []
+	var reentrant_state: Dictionary = {}
+	var _first_handle: int = queue.record(func() -> void:
+		events.append("first")
+		var _reentrant_handle: int = queue.record(func() -> void:
+			events.append("reentrant")
+		, { "sort_key": -100 })
+		reentrant_state["report"] = queue.playback()
+	, { "sort_key": 0 })
+	var _tail_handle: int = queue.record(func() -> void:
+		events.append("tail")
+	, { "sort_key": 10 })
+
+	var first_report: Dictionary = queue.playback()
+
+	assert_eq(
+		events,
+		["first", "tail"],
+		"本轮开始后记录的低 sort_key 变更不得越过已经接受的尾部记录。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(first_report, "applied_count"),
+		2
+	)
+	assert_eq(queue.get_pending_count(), 1)
+	assert_eq(
+		GFVariantData.get_option_string_name(
+			GFVariantData.get_option_dictionary(reentrant_state, "report"),
+			"status"
+		),
+		GF_DEFERRED_MUTATION_QUEUE_SCRIPT.STATUS_BUSY,
+		"同步重入 playback 必须失败关闭，不能绕过外层工作预算。"
+	)
+
+	var _second_report: Dictionary = queue.playback()
+	assert_eq(events, ["first", "tail", "reentrant"])
+
+
+func test_phase_playback_indexes_large_non_matching_prefix_once() -> void:
+	var queue: GF_DEFERRED_MUTATION_QUEUE_SCRIPT = GF_DEFERRED_MUTATION_QUEUE_SCRIPT.new()
+	queue.max_pending_mutations = 1024
+	queue.max_mutations_per_playback = 256
+	queue.init()
+	var prefix_count: int = 512
+	var target_count: int = 256
+	var target_values: Array[int] = []
+	var prefix_mutation: Callable = func() -> void:
+		pass
+	var target_mutation: Callable = func(value: int) -> void:
+		target_values.append(value)
+
+	for prefix_index: int in range(prefix_count):
+		var _prefix_handle: int = queue.record(prefix_mutation, {
+			"phase": &"a_prefix",
+			"sort_key": prefix_index,
+		})
+	for target_index: int in range(target_count):
+		var _target_handle: int = queue.record(
+			target_mutation.bind(target_index),
+			{
+				"phase": &"z_target",
+				"sort_key": target_index,
+			}
+		)
+
+	var report: Dictionary = queue.playback({
+		"phase": &"z_target",
+		"max_count": target_count,
+	})
+
+	assert_eq(
+		GFVariantData.get_option_int(report, "applied_count"),
+		target_count
+	)
+	assert_eq(target_values.size(), target_count)
+	assert_eq(target_values[0], 0)
+	assert_eq(target_values[target_values.size() - 1], target_count - 1)
+	assert_eq(
+		queue.get_pending_count(),
+		prefix_count,
+		"大量非匹配 phase 前缀不得被消费或重复混入目标快照。"
+	)
+	assert_eq(
+		queue.preview({
+			"phase": &"a_prefix",
+			"limit": prefix_count,
+		}).size(),
+		prefix_count
+	)
+	var _cleanup_report: Dictionary = queue.playback({
+		"phase": &"a_prefix",
+		"max_count": prefix_count,
+	})
+	assert_true(queue.is_empty())
+
+
+func test_playback_and_preview_use_bounded_default_and_keep_handles_unique_after_clear() -> void:
+	var queue: GF_DEFERRED_MUTATION_QUEUE_SCRIPT = GF_DEFERRED_MUTATION_QUEUE_SCRIPT.new()
+	queue.max_mutations_per_playback = 2
+	queue.init()
+	var events: Array[int] = []
+	for index: int in range(3):
+		var mutation: Callable = func(value: int) -> void:
+			events.append(value)
+		var _handle: int = queue.record(mutation.bind(index))
+
+	assert_eq(queue.preview().size(), 2, "默认 preview 必须遵守同一有界记录预算。")
+	var report: Dictionary = queue.playback()
+
+	assert_eq(events, [0, 1])
+	assert_eq(queue.get_pending_count(), 1)
+	assert_true(
+		GFVariantData.get_option_bool(report, "budget_exhausted"),
+		"未显式给出 max_count 时必须使用有界默认预算。"
+	)
+
+	var stale_handle: int = queue.record(func() -> void:
+		events.append(99)
+	)
+	queue.clear()
+	var current_handle: int = queue.record(func() -> void:
+		events.append(4)
+	)
+
+	assert_ne(current_handle, stale_handle, "clear 后不得复用旧句柄。")
+	assert_false(queue.cancel(stale_handle), "旧句柄不得命中新记录。")
+	assert_eq(queue.get_pending_count(), 1)
+	var _final_report: Dictionary = queue.playback()
+	assert_eq(events, [0, 1, 4])
+
+
 func test_record_rejects_removed_owner_option() -> void:
 	var queue: GF_DEFERRED_MUTATION_QUEUE_SCRIPT = GF_DEFERRED_MUTATION_QUEUE_SCRIPT.new()
 	queue.init()
@@ -193,6 +327,81 @@ func test_record_method_maps_missing_failed_and_business_false_to_failure() -> v
 		3,
 		"累计调试快照应保留安全方法调用失败数。"
 	)
+
+
+func test_deferred_mutation_queue_rejects_capacity_overflow_without_eviction() -> void:
+	var queue: GF_DEFERRED_MUTATION_QUEUE_SCRIPT = GF_DEFERRED_MUTATION_QUEUE_SCRIPT.new()
+	queue.max_pending_mutations = 2_147_483_647
+	assert_eq(
+		queue.max_pending_mutations,
+		GF_DEFERRED_MUTATION_QUEUE_SCRIPT.ABSOLUTE_MAX_PENDING_MUTATIONS,
+		"延迟变更队列容量必须钳制到绝对上限。"
+	)
+	queue.max_mutations_per_playback = 2_147_483_647
+	assert_eq(
+		queue.max_mutations_per_playback,
+		GF_DEFERRED_MUTATION_QUEUE_SCRIPT.ABSOLUTE_MAX_MUTATIONS_PER_PLAYBACK,
+		"单次 playback 预算必须钳制到绝对上限。"
+	)
+	queue.max_pending_mutations = 2
+	queue.init()
+	var events: Array[String] = []
+
+	var late_handle: int = queue.record(func() -> void:
+		events.append("late")
+	, { "sort_key": 20 })
+	var early_handle: int = queue.record(func() -> void:
+		events.append("early")
+	, { "sort_key": 10 })
+	var rejected_handle: int = queue.record(func() -> void:
+		events.append("rejected")
+	, { "sort_key": 0 })
+	var snapshot: Dictionary = queue.get_debug_snapshot()
+
+	assert_gt(late_handle, 0, "容量内第一条变更应被记录。")
+	assert_gt(early_handle, 0, "容量内第二条变更应被记录。")
+	assert_eq(rejected_handle, 0, "容量满后 record 应返回稳定失败句柄 0。")
+	assert_eq(GFVariantData.get_option_int(snapshot, "pending_count"), 2, "拒绝不得驱逐既有变更。")
+	assert_eq(GFVariantData.get_option_int(snapshot, "high_watermark"), 2, "快照应记录待应用高水位。")
+	assert_eq(GFVariantData.get_option_int(snapshot, "rejected_count"), 1, "快照应统计容量拒绝。")
+	assert_eq(GFVariantData.get_option_int(snapshot, "dropped_count"), 0, "变更队列不得静默丢弃记录。")
+
+	var _report: Dictionary = queue.playback()
+	assert_eq(events, ["early", "late"], "被接受的变更仍应按确定性顺序应用。")
+
+
+func test_deferred_mutation_queue_rejects_worker_thread_playback() -> void:
+	var queue: GF_DEFERRED_MUTATION_QUEUE_SCRIPT = GF_DEFERRED_MUTATION_QUEUE_SCRIPT.new()
+	queue.init()
+	var applied: Array[bool] = []
+	var _handle: int = queue.record(func() -> void:
+		applied.append(true)
+	)
+	var worker: Thread = Thread.new()
+	var start_error: Error = worker.start(
+		Callable(self, &"_playback_from_worker").bind(queue)
+	)
+	assert_eq(start_error, OK, "测试 worker 应能启动。")
+	var worker_value: Variant = worker.wait_to_finish()
+	var report: Dictionary = GFVariantData.as_dictionary(worker_value)
+
+	assert_false(GFVariantData.get_option_bool(report, "ok"), "worker 不得应用延迟变更。")
+	assert_eq(
+		GFVariantData.get_option_string_name(report, "status"),
+		GF_DEFERRED_MUTATION_QUEUE_SCRIPT.STATUS_WRONG_THREAD,
+		"worker playback 应返回稳定线程错误。"
+	)
+	assert_eq(queue.get_pending_count(), 1, "被拒绝的 worker playback 不得消费变更。")
+	assert_true(applied.is_empty(), "被拒绝的 worker playback 不得执行变更。")
+
+	var _main_report: Dictionary = queue.playback()
+	assert_eq(applied, [true], "回到主线程后应能正常应用变更。")
+
+
+# --- 私有/辅助方法 ---
+
+func _playback_from_worker(queue: GFDeferredMutationQueue) -> Dictionary:
+	return queue.playback()
 
 
 # --- 内部类 ---

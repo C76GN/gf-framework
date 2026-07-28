@@ -53,6 +53,212 @@ class FailingHostBackend extends FakeBackend:
 		return ERR_CANT_CREATE
 
 
+class ScriptedAcceptWebSocketBackend extends GFWebSocketNetworkBackend:
+	var pending_accept_attempts: int = 0
+	var stream_accept_result: Error = ERR_CANT_CONNECT
+
+	func configure_for_test(
+		server_capacity: int,
+		pending_attempts: int,
+		accept_result: Error = ERR_CANT_CONNECT
+	) -> void:
+		_server = TCPServer.new()
+		_mode = Mode.SERVER
+		_server_capacity = server_capacity
+		pending_accept_attempts = pending_attempts
+		stream_accept_result = accept_result
+
+	func _is_server_connection_available() -> bool:
+		return pending_accept_attempts > 0
+
+	func _take_server_connection() -> StreamPeerTCP:
+		pending_accept_attempts -= 1
+		return StreamPeerTCP.new()
+
+	func _accept_server_stream(_peer: WebSocketPeer, _stream: StreamPeerTCP) -> Error:
+		return stream_accept_result
+
+
+class ScriptedHandshakeWebSocketBackend extends ScriptedAcceptWebSocketBackend:
+	var now_msec: int = 0
+
+	func _get_ticks_msec() -> int:
+		return now_msec
+
+	func _get_server_peer_ready_state(
+		_peer_id: int,
+		_peer: WebSocketPeer
+	) -> int:
+		return WebSocketPeer.STATE_CONNECTING
+
+
+class FactoryTrackingWebSocketBackend extends GFWebSocketNetworkBackend:
+	var tcp_server_create_count: int = 0
+	var websocket_peer_create_count: int = 0
+
+	func configure_existing_client_for_test(
+		peer: WebSocketPeer,
+		endpoint: String
+	) -> void:
+		_client = peer
+		_mode = Mode.CLIENT
+		_endpoint = endpoint
+
+	func _create_tcp_server() -> TCPServer:
+		tcp_server_create_count += 1
+		return TCPServer.new()
+
+	func _create_websocket_peer() -> WebSocketPeer:
+		websocket_peer_create_count += 1
+		return WebSocketPeer.new()
+
+
+class ScriptedPacketWebSocketBackend extends GFWebSocketNetworkBackend:
+	var pending_packets_by_peer: Dictionary[int, int] = {}
+	var serviced_peer_ids: Array[int] = []
+	var expand_budgets_on_first_service: bool = false
+
+	func configure_for_test(
+		peer_ids: Array[int],
+		packets_per_peer: int
+	) -> void:
+		_mode = Mode.SERVER
+		_server_capacity = peer_ids.size()
+		for peer_id: int in peer_ids:
+			_peers[peer_id] = WebSocketPeer.new()
+			_service_peer_ids.append(peer_id)
+			pending_packets_by_peer[peer_id] = packets_per_peer
+
+	func _service_server_peer(
+		peer_id: int,
+		_peer: WebSocketPeer,
+		packet_limit: int
+	) -> int:
+		if expand_budgets_on_first_service and serviced_peer_ids.is_empty():
+			max_packets_per_peer_per_poll = (
+				ABSOLUTE_MAX_PACKETS_PER_PEER_PER_POLL
+			)
+			max_packets_per_poll = ABSOLUTE_MAX_PACKETS_PER_POLL
+			max_service_peers_per_poll = ABSOLUTE_MAX_SERVICE_PEERS_PER_POLL
+		serviced_peer_ids.append(peer_id)
+		var pending_packets: int = GFVariantData.to_int(
+			pending_packets_by_peer.get(peer_id, 0)
+		)
+		var processed_packets: int = mini(pending_packets, packet_limit)
+		pending_packets_by_peer[peer_id] = pending_packets - processed_packets
+		return processed_packets
+
+	func _server_peer_has_available_packets(
+		peer_id: int,
+		_peer: WebSocketPeer
+	) -> bool:
+		return GFVariantData.to_int(
+			pending_packets_by_peer.get(peer_id, 0)
+		) > 0
+
+
+class ReentrantLifecycleWebSocketBackend extends GFWebSocketNetworkBackend:
+	var client_ready_state: int = WebSocketPeer.STATE_OPEN
+	var server_ready_states: Dictionary[int, int] = {}
+	var packet_queues: Dictionary[int, Array] = {}
+
+	func start_scripted_client(
+		endpoint: String,
+		packets: Array,
+		was_open: bool = false
+	) -> void:
+		_close_all(false)
+		_client = WebSocketPeer.new()
+		_mode = Mode.CLIENT
+		_endpoint = endpoint
+		_client_was_open = was_open
+		client_ready_state = WebSocketPeer.STATE_OPEN
+		server_ready_states.clear()
+		packet_queues.clear()
+		packet_queues[SERVER_PEER_ID] = packets
+		_reset_transport_metrics()
+
+	func start_scripted_server(
+		endpoint: String,
+		peer_id: int = 0,
+		packets: Array = [],
+		mark_open: bool = false
+	) -> void:
+		_close_all(false)
+		_mode = Mode.SERVER
+		_endpoint = endpoint
+		_server_capacity = 8
+		server_ready_states.clear()
+		packet_queues.clear()
+		_reset_transport_metrics()
+		if peer_id <= 0:
+			return
+		var peer: WebSocketPeer = WebSocketPeer.new()
+		_peers[peer_id] = peer
+		_service_peer_ids.append(peer_id)
+		server_ready_states[peer_id] = WebSocketPeer.STATE_OPEN
+		packet_queues[peer_id] = packets
+		if mark_open:
+			_open_peer_ids[peer_id] = true
+
+	func _poll_client_peer(_peer: WebSocketPeer) -> void:
+		pass
+
+	func _get_client_ready_state(_peer: WebSocketPeer) -> int:
+		return client_ready_state
+
+	func _get_server_peer_ready_state(
+		peer_id: int,
+		_peer: WebSocketPeer
+	) -> int:
+		return GFVariantData.to_int(
+			server_ready_states.get(
+				peer_id,
+				WebSocketPeer.STATE_CLOSED
+			)
+		)
+
+	func _get_peer_available_packet_count(
+		peer_id: int,
+		_peer: WebSocketPeer
+	) -> int:
+		var queue_value: Variant = packet_queues.get(peer_id)
+		if queue_value is Array:
+			var queue: Array = queue_value
+			return queue.size()
+		return 0
+
+	func _get_peer_packet(
+		peer_id: int,
+		_peer: WebSocketPeer
+	) -> PackedByteArray:
+		var queue_value: Variant = packet_queues.get(peer_id)
+		if not queue_value is Array:
+			return PackedByteArray()
+		var queue: Array = queue_value
+		if queue.is_empty():
+			return PackedByteArray()
+		var packet_value: Variant = queue.pop_front()
+		return (
+			packet_value
+			if packet_value is PackedByteArray
+			else PackedByteArray()
+		)
+
+	func _server_peer_has_available_packets(
+		peer_id: int,
+		peer: WebSocketPeer
+	) -> bool:
+		return (
+			_is_server_peer_current(
+				_session_generation,
+				peer_id,
+				peer
+			)
+			and _get_peer_available_packet_count(peer_id, peer) > 0
+		)
+
+
 class FakeLobbyBackend extends GFNetworkLobbyBackend:
 	var closed: bool = false
 	var lobbies: Array[GFNetworkLobbyDescriptor] = []
@@ -1698,12 +1904,1141 @@ func test_websocket_backend_rejects_missing_port() -> void:
 	assert_eq(backend.host({}), ERR_INVALID_PARAMETER, "WebSocket 主机必须显式提供端口。")
 
 
+func test_websocket_backend_rejects_non_positive_host_capacity() -> void:
+	var backend: GFWebSocketNetworkBackend = GFWebSocketNetworkBackend.new()
+
+	assert_eq(
+		backend.host({ "port": 1, "max_clients": 0 }),
+		ERR_INVALID_PARAMETER,
+		"WebSocket 主机容量必须使用有限正整数。"
+	)
+	assert_eq(
+		backend.host({ "port": 1, "max_peers": -1 }),
+		ERR_INVALID_PARAMETER,
+		"max_peers 别名也不得关闭主机容量边界。"
+	)
+	assert_eq(
+		backend.host({
+			"port": 1,
+			"max_clients": GFWebSocketNetworkBackend.ABSOLUTE_MAX_CLIENTS + 1,
+		}),
+		ERR_INVALID_PARAMETER,
+		"WebSocket 主机容量不得越过公开绝对上限。"
+	)
+	assert_eq(
+		backend.host({ "port": 1, "max_clients": "32" }),
+		ERR_INVALID_PARAMETER,
+		"容量不得宽松接受字符串或其他非 int 类型。"
+	)
+
+
+func test_websocket_backend_rejects_invalid_handshake_timeout() -> void:
+	var backend: FactoryTrackingWebSocketBackend = FactoryTrackingWebSocketBackend.new()
+	var invalid_values: Array = [
+		0,
+		-1,
+		1.0,
+		"5000",
+		GFWebSocketNetworkBackend.ABSOLUTE_MAX_HANDSHAKE_TIMEOUT_MSEC + 1,
+	]
+
+	for invalid_value: Variant in invalid_values:
+		assert_eq(
+			backend.host({
+				"port": 65_535,
+				"handshake_timeout_msec": invalid_value,
+			}),
+			ERR_INVALID_PARAMETER,
+			"握手超时必须是公开上限内的精确正 int。"
+		)
+	assert_eq(
+		backend.tcp_server_create_count,
+		0,
+		"非法握手超时必须在创建 TCPServer 前失败。"
+	)
+
+
+func test_websocket_backend_poll_budgets_cannot_be_disabled_or_unbounded() -> void:
+	var backend: GFWebSocketNetworkBackend = GFWebSocketNetworkBackend.new()
+
+	backend.max_accepts_per_poll = 0
+	backend.max_packets_per_peer_per_poll = -1
+	backend.max_packets_per_poll = 0
+	backend.max_service_peers_per_poll = -1
+	backend.handshake_timeout_msec = 0
+	assert_eq(backend.max_accepts_per_poll, 1)
+	assert_eq(backend.max_packets_per_peer_per_poll, 1)
+	assert_eq(backend.max_packets_per_poll, 1)
+	assert_eq(backend.max_service_peers_per_poll, 1)
+	assert_eq(backend.handshake_timeout_msec, 1)
+
+	backend.max_accepts_per_poll = GFWebSocketNetworkBackend.ABSOLUTE_MAX_ACCEPTS_PER_POLL + 1
+	backend.max_packets_per_peer_per_poll = (
+		GFWebSocketNetworkBackend.ABSOLUTE_MAX_PACKETS_PER_PEER_PER_POLL
+		+ 1
+	)
+	backend.max_packets_per_poll = (
+		GFWebSocketNetworkBackend.ABSOLUTE_MAX_PACKETS_PER_POLL
+		+ 1
+	)
+	backend.max_service_peers_per_poll = (
+		GFWebSocketNetworkBackend.ABSOLUTE_MAX_SERVICE_PEERS_PER_POLL
+		+ 1
+	)
+	backend.handshake_timeout_msec = (
+		GFWebSocketNetworkBackend.ABSOLUTE_MAX_HANDSHAKE_TIMEOUT_MSEC
+		+ 1
+	)
+	assert_eq(
+		backend.max_accepts_per_poll,
+		GFWebSocketNetworkBackend.ABSOLUTE_MAX_ACCEPTS_PER_POLL
+	)
+	assert_eq(
+		backend.max_packets_per_peer_per_poll,
+		GFWebSocketNetworkBackend.ABSOLUTE_MAX_PACKETS_PER_PEER_PER_POLL
+	)
+	assert_eq(
+		backend.max_packets_per_poll,
+		GFWebSocketNetworkBackend.ABSOLUTE_MAX_PACKETS_PER_POLL
+	)
+	assert_eq(
+		backend.max_service_peers_per_poll,
+		GFWebSocketNetworkBackend.ABSOLUTE_MAX_SERVICE_PEERS_PER_POLL
+	)
+	assert_eq(
+		backend.handshake_timeout_msec,
+		GFWebSocketNetworkBackend.ABSOLUTE_MAX_HANDSHAKE_TIMEOUT_MSEC
+	)
+
+
+func test_websocket_backend_rejects_peer_queue_options_before_reconfiguration() -> void:
+	var option_specs: Array[Dictionary] = [
+		{
+			"name": &"inbound_buffer_size",
+			"absolute_maximum": GFWebSocketNetworkBackend.ABSOLUTE_MAX_INBOUND_BUFFER_SIZE,
+		},
+		{
+			"name": &"outbound_buffer_size",
+			"absolute_maximum": GFWebSocketNetworkBackend.ABSOLUTE_MAX_OUTBOUND_BUFFER_SIZE,
+		},
+		{
+			"name": &"max_queued_packets",
+			"absolute_maximum": GFWebSocketNetworkBackend.ABSOLUTE_MAX_QUEUED_PACKETS,
+		},
+	]
+	for option_spec: Dictionary in option_specs:
+		var option_name: StringName = GFVariantData.to_string_name(option_spec.get("name"))
+		var absolute_maximum: int = GFVariantData.get_option_int(
+			option_spec,
+			"absolute_maximum"
+		)
+		var invalid_values: Array = [
+			0,
+			-1,
+			1.0,
+			true,
+			"64",
+			absolute_maximum + 1,
+		]
+		for invalid_value: Variant in invalid_values:
+			var backend: FactoryTrackingWebSocketBackend = (
+				FactoryTrackingWebSocketBackend.new()
+			)
+			var existing_peer: WebSocketPeer = WebSocketPeer.new()
+			backend.configure_existing_client_for_test(
+				existing_peer,
+				"ws://existing.test/socket"
+			)
+			var options: Dictionary = {}
+			options[option_name] = invalid_value
+
+			var connect_error: Error = backend.connect_to_endpoint(
+				"ws://replacement.test/socket",
+				options
+			)
+			var snapshot: Dictionary = backend.get_debug_snapshot()
+
+			assert_eq(
+				connect_error,
+				ERR_INVALID_PARAMETER,
+				"%s 必须拒绝越界或非精确 int。" % option_name
+			)
+			assert_same(
+				backend._client,
+				existing_peer,
+				"非法 peer 配置不得关闭或替换当前连接。"
+			)
+			assert_eq(
+				backend.websocket_peer_create_count,
+				0,
+				"非法 peer 配置必须在创建 WebSocketPeer 前失败。"
+			)
+			assert_eq(
+				GFVariantData.get_option_int(snapshot, "mode"),
+				GFWebSocketNetworkBackend.Mode.CLIENT
+			)
+			assert_eq(
+				GFVariantData.get_option_int(
+					snapshot,
+					"peer_option_rejection_count"
+				),
+				1
+			)
+			backend.disconnect_backend()
+
+
+func test_websocket_host_rejects_peer_queue_options_before_server_creation() -> void:
+	var backend: FactoryTrackingWebSocketBackend = FactoryTrackingWebSocketBackend.new()
+
+	var host_error: Error = backend.host({
+		"port": 65_535,
+		"inbound_buffer_size": 0,
+	})
+
+	assert_eq(host_error, ERR_INVALID_PARAMETER)
+	assert_eq(
+		backend.tcp_server_create_count,
+		0,
+		"非法 peer 配置必须在创建或监听 TCPServer 前失败。"
+	)
+
+
+func test_websocket_backend_rejects_unbounded_or_invalid_protocol_options() -> void:
+	var too_many_protocols: PackedStringArray = PackedStringArray()
+	for index: int in range(
+		GFWebSocketNetworkBackend.ABSOLUTE_MAX_SUPPORTED_PROTOCOL_COUNT + 1
+	):
+		var _protocol_appended: bool = too_many_protocols.append(
+			"gf.protocol.%d" % index
+		)
+	var excessive_total_protocols: PackedStringArray = PackedStringArray()
+	for index: int in range(32):
+		var _protocol_appended: bool = excessive_total_protocols.append(
+			"%s.%d" % ["p".repeat(128), index]
+		)
+	var invalid_options: Array[Dictionary] = [
+		{ "supported_protocols": too_many_protocols },
+		{
+			"supported_protocols": PackedStringArray([
+				"a".repeat(
+					GFWebSocketNetworkBackend
+					.ABSOLUTE_MAX_SUPPORTED_PROTOCOL_BYTES
+					+ 1
+				),
+			]),
+		},
+		{ "supported_protocols": excessive_total_protocols },
+		{ "supported_protocols": ["valid", 7] },
+		{ "supported_protocols": ["chat protocol"] },
+		{ "supported_protocols": ["duplicate", "duplicate"] },
+		{ "no_delay": 1 },
+	]
+
+	for options: Dictionary in invalid_options:
+		var backend: FactoryTrackingWebSocketBackend = (
+			FactoryTrackingWebSocketBackend.new()
+		)
+		var existing_peer: WebSocketPeer = WebSocketPeer.new()
+		backend.configure_existing_client_for_test(
+			existing_peer,
+			"ws://existing.test/socket"
+		)
+
+		var connect_error: Error = backend.connect_to_endpoint(
+			"ws://replacement.test/socket",
+			options
+		)
+
+		assert_eq(
+			connect_error,
+			ERR_INVALID_PARAMETER,
+			"子协议与 bool 选项必须使用有界、精确、合法的协议值。"
+		)
+		assert_same(
+			backend._client,
+			existing_peer,
+			"非法子协议配置不得关闭当前连接。"
+		)
+		assert_eq(
+			backend.websocket_peer_create_count,
+			0,
+			"非法子协议配置必须在创建 peer 前失败。"
+		)
+		backend.disconnect_backend()
+
+
+func test_websocket_backend_rotates_bounded_server_peer_service_fairly() -> void:
+	var backend: ScriptedPacketWebSocketBackend = ScriptedPacketWebSocketBackend.new()
+	backend.max_service_peers_per_poll = 2
+	backend.configure_for_test([2, 3, 4, 5, 6], 0)
+
+	backend.poll(0.016)
+	backend.poll(0.016)
+	backend.poll(0.016)
+	var snapshot: Dictionary = backend.get_debug_snapshot()
+
+	assert_eq(
+		backend.serviced_peer_ids,
+		[2, 3, 4, 5, 6, 2],
+		"服务预算必须从上轮游标继续，不能长期饿死尾部 peer。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(snapshot, "last_poll_service_peer_count"),
+		2
+	)
+	assert_true(
+		GFVariantData.get_option_bool(
+			snapshot,
+			"last_poll_service_peer_budget_exhausted"
+		)
+	)
+	assert_eq(
+		GFVariantData.get_option_int(
+			snapshot,
+			"service_peer_budget_exhaustion_count"
+		),
+		3
+	)
+
+
+func test_websocket_backend_services_every_peer_once_when_budget_allows() -> void:
+	var backend: ScriptedPacketWebSocketBackend = ScriptedPacketWebSocketBackend.new()
+	backend.max_service_peers_per_poll = 5
+	backend.configure_for_test([2, 3, 4, 5, 6], 0)
+
+	backend.poll(0.016)
+	var snapshot: Dictionary = backend.get_debug_snapshot()
+
+	assert_eq(
+		backend.serviced_peer_ids,
+		[2, 3, 4, 5, 6],
+		"存活 peer 每次 service 后都必须推进游标，单轮不得重复扫描头部 peer。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(snapshot, "last_poll_service_peer_count"),
+		5
+	)
+	assert_false(
+		GFVariantData.get_option_bool(
+			snapshot,
+			"last_poll_service_peer_budget_exhausted"
+		)
+	)
+
+
+func test_websocket_backend_enforces_global_packet_budget_across_peers() -> void:
+	var backend: ScriptedPacketWebSocketBackend = ScriptedPacketWebSocketBackend.new()
+	backend.max_service_peers_per_poll = 3
+	backend.max_packets_per_peer_per_poll = 4
+	backend.max_packets_per_poll = 6
+	backend.configure_for_test([2, 3, 4], 5)
+
+	backend.poll(0.016)
+	var snapshot: Dictionary = backend.get_debug_snapshot()
+
+	assert_eq(backend.serviced_peer_ids, [2, 3])
+	assert_eq(
+		GFVariantData.get_option_int(snapshot, "last_poll_packet_count"),
+		6,
+		"所有 peer 的派发总量必须共享同一个全局预算。"
+	)
+	assert_true(
+		GFVariantData.get_option_bool(
+			snapshot,
+			"last_poll_packet_budget_exhausted"
+		)
+	)
+	assert_eq(
+		GFVariantData.get_option_int(
+			snapshot,
+			"packet_budget_exhaustion_count"
+		),
+		1,
+		"同一 poll 即使多个 peer 仍有积压，也只能记录一次全局预算耗尽。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(
+			snapshot,
+			"peer_packet_budget_exhaustion_count"
+		),
+		1,
+		"先达到单 peer 上限的 peer 应产生独立诊断。"
+	)
+
+
+func test_websocket_backend_rotates_packet_budget_before_tail_starvation() -> void:
+	var backend: ScriptedPacketWebSocketBackend = ScriptedPacketWebSocketBackend.new()
+	backend.max_service_peers_per_poll = 12
+	backend.max_packets_per_peer_per_poll = 4
+	backend.max_packets_per_poll = 4
+	backend.configure_for_test(
+		[2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13],
+		8
+	)
+
+	backend.poll(0.016)
+	backend.poll(0.016)
+	backend.poll(0.016)
+	var snapshot: Dictionary = backend.get_debug_snapshot()
+
+	assert_eq(
+		backend.serviced_peer_ids,
+		[2, 3, 4],
+		"全局包预算用尽后必须从下一 peer 继续，不能零预算扫一圈后回到头部。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(snapshot, "last_poll_packet_count"),
+		4
+	)
+	assert_eq(
+		GFVariantData.get_option_int(
+			snapshot,
+			"packet_budget_exhaustion_count"
+		),
+		3
+	)
+
+
+func test_websocket_backend_freezes_work_budgets_for_each_poll() -> void:
+	var backend: ScriptedPacketWebSocketBackend = ScriptedPacketWebSocketBackend.new()
+	backend.max_service_peers_per_poll = 3
+	backend.max_packets_per_peer_per_poll = 2
+	backend.max_packets_per_poll = 2
+	backend.expand_budgets_on_first_service = true
+	backend.configure_for_test([2, 3, 4], 8)
+
+	backend.poll(0.016)
+	var snapshot: Dictionary = backend.get_debug_snapshot()
+
+	assert_eq(
+		backend.serviced_peer_ids,
+		[2],
+		"回调中扩大公开预算只能影响后续 poll，不能扩大当前工作集。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(snapshot, "last_poll_packet_count"),
+		2
+	)
+	assert_eq(
+		backend.max_packets_per_poll,
+		GFWebSocketNetworkBackend.ABSOLUTE_MAX_PACKETS_PER_POLL,
+		"测试应确认回调确实修改了后续 poll 的配置。"
+	)
+
+
+func test_websocket_nested_poll_callbacks_cannot_reset_work_budgets() -> void:
+	var backend: ReentrantLifecycleWebSocketBackend = (
+		ReentrantLifecycleWebSocketBackend.new()
+	)
+	backend.max_packets_per_peer_per_poll = 1
+	backend.max_packets_per_poll = 1
+	var pending_packets: Array = [
+		PackedByteArray([1]),
+		PackedByteArray([2]),
+	]
+	backend.start_scripted_client(
+		"ws://nested-poll.test/socket",
+		pending_packets
+	)
+	var connected_events: Array[bool] = []
+	var connected_peer_ids: Array[int] = []
+	var received_packets: Array[PackedByteArray] = []
+	var observed_packet_counts: Array[int] = []
+	var connected_callback: Callable = func() -> void:
+		connected_events.append(true)
+		backend.poll(0.016)
+	var peer_connected_callback: Callable = func(
+		peer_id: int
+	) -> void:
+		connected_peer_ids.append(peer_id)
+		backend.poll(0.016)
+	var message_callback: Callable = func(
+		_peer_id: int,
+		packet_bytes: PackedByteArray
+	) -> void:
+		received_packets.append(packet_bytes)
+		observed_packet_counts.append(
+			GFVariantData.get_option_int(
+				backend.get_debug_snapshot(),
+				"last_poll_packet_count"
+			)
+		)
+		backend.poll(0.016)
+	var _connected_result: Variant = backend.connected.connect(
+		connected_callback
+	)
+	var _peer_connected_result: Variant = backend.peer_connected.connect(
+		peer_connected_callback
+	)
+	var _message_result: Variant = backend.message_received.connect(
+		message_callback
+	)
+
+	backend.poll(0.016)
+	var first_snapshot: Dictionary = backend.get_debug_snapshot()
+
+	assert_eq(
+		connected_events.size(),
+		1,
+		"connected 回调内 poll 必须是无副作用 no-op。"
+	)
+	assert_eq(
+		connected_peer_ids,
+		[GFWebSocketNetworkBackend.SERVER_PEER_ID],
+		"peer_connected 回调内 poll 不得重复派发生命周期信号。"
+	)
+	assert_eq(
+		received_packets,
+		[PackedByteArray([1])],
+		"message_received 回调不得通过嵌套 poll 扩大当前收包预算。"
+	)
+	assert_eq(pending_packets.size(), 1, "当轮硬预算后必须保留下一包。")
+	assert_eq(
+		observed_packet_counts,
+		[1],
+		"已交付包必须在 message_received 发出前计入当轮工作量。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(
+			first_snapshot,
+			"last_poll_packet_count"
+		),
+		1,
+		"嵌套 no-op 不得重置或覆盖最外层工作统计。"
+	)
+
+	backend.poll(0.016)
+	var second_snapshot: Dictionary = backend.get_debug_snapshot()
+
+	assert_eq(connected_events.size(), 1)
+	assert_eq(
+		connected_peer_ids,
+		[GFWebSocketNetworkBackend.SERVER_PEER_ID]
+	)
+	assert_eq(
+		received_packets,
+		[PackedByteArray([1]), PackedByteArray([2])],
+		"最外层 poll 返回后，下一轮应继续正常处理。"
+	)
+	assert_true(pending_packets.is_empty())
+	assert_eq(observed_packet_counts, [1, 1])
+	assert_eq(
+		GFVariantData.get_option_int(
+			second_snapshot,
+			"last_poll_packet_count"
+		),
+		1
+	)
+	backend.connected.disconnect(connected_callback)
+	backend.peer_connected.disconnect(peer_connected_callback)
+	backend.message_received.disconnect(message_callback)
+	backend.disconnect_backend()
+
+
+func test_websocket_client_connected_reconnect_stops_old_poll() -> void:
+	var backend: ReentrantLifecycleWebSocketBackend = (
+		ReentrantLifecycleWebSocketBackend.new()
+	)
+	var old_packets: Array = [PackedByteArray([1])]
+	var replacement_packets: Array = [PackedByteArray([9])]
+	backend.start_scripted_client(
+		"ws://old.test/socket",
+		old_packets
+	)
+	var old_generation: int = GFVariantData.get_option_int(
+		backend.get_debug_snapshot(),
+		"session_generation"
+	)
+	var connected_events: Array[bool] = []
+	var connected_peer_ids: Array[int] = []
+	var connected_callback: Callable = func() -> void:
+		connected_events.append(true)
+		if connected_events.size() == 1:
+			backend.start_scripted_client(
+				"ws://replacement.test/socket",
+				replacement_packets
+			)
+	var peer_connected_callback: Callable = func(peer_id: int) -> void:
+		connected_peer_ids.append(peer_id)
+	var _connected_result: Variant = backend.connected.connect(
+		connected_callback
+	)
+	var _peer_connected_result: Variant = backend.peer_connected.connect(
+		peer_connected_callback
+	)
+
+	backend.poll(0.016)
+	var snapshot: Dictionary = backend.get_debug_snapshot()
+
+	assert_eq(connected_events.size(), 1)
+	assert_true(
+		connected_peer_ids.is_empty(),
+		"connected 回调替换会话后，旧 poll 不得继续发 peer_connected。"
+	)
+	assert_eq(old_packets.size(), 1, "旧会话的排队包不得被继续消费。")
+	assert_eq(
+		GFVariantData.get_option_string(snapshot, "endpoint"),
+		"ws://replacement.test/socket"
+	)
+	assert_gt(
+		GFVariantData.get_option_int(snapshot, "session_generation"),
+		old_generation,
+		"重连必须分配单调递增的会话 generation。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(snapshot, "last_poll_service_peer_count"),
+		0,
+		"旧 poll 不得覆盖新会话重置后的工作统计。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(snapshot, "last_poll_packet_count"),
+		0
+	)
+	backend.poll(0.016)
+	var replacement_snapshot: Dictionary = backend.get_debug_snapshot()
+	assert_eq(
+		connected_events.size(),
+		2,
+		"会话替换导致的早退必须释放 poll guard。"
+	)
+	assert_eq(
+		connected_peer_ids,
+		[GFWebSocketNetworkBackend.SERVER_PEER_ID],
+		"后续最外层 poll 应能完成 replacement 会话生命周期。"
+	)
+	assert_true(
+		replacement_packets.is_empty(),
+		"guard 释放后 replacement 会话应能继续收包。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(
+			replacement_snapshot,
+			"last_poll_packet_count"
+		),
+		1
+	)
+	backend.connected.disconnect(connected_callback)
+	backend.peer_connected.disconnect(peer_connected_callback)
+	backend.disconnect_backend()
+
+
+func test_websocket_client_peer_connected_disconnect_stops_old_packets() -> void:
+	var backend: ReentrantLifecycleWebSocketBackend = (
+		ReentrantLifecycleWebSocketBackend.new()
+	)
+	var old_packets: Array = [
+		PackedByteArray([1]),
+		PackedByteArray([2]),
+	]
+	backend.start_scripted_client(
+		"ws://disconnect.test/socket",
+		old_packets
+	)
+	var received_packets: Array[PackedByteArray] = []
+	var disconnected_reasons: PackedStringArray = PackedStringArray()
+	var peer_connected_callback: Callable = func(_peer_id: int) -> void:
+		backend.disconnect_backend()
+	var message_callback: Callable = func(
+		_peer_id: int,
+		packet_bytes: PackedByteArray
+	) -> void:
+		received_packets.append(packet_bytes)
+	var disconnected_callback: Callable = func(reason: String) -> void:
+		var _reason_appended: bool = disconnected_reasons.append(reason)
+	var _peer_connected_result: Variant = backend.peer_connected.connect(
+		peer_connected_callback
+	)
+	var _message_result: Variant = backend.message_received.connect(
+		message_callback
+	)
+	var _disconnected_result: Variant = backend.disconnected.connect(
+		disconnected_callback
+	)
+
+	backend.poll(0.016)
+	var snapshot: Dictionary = backend.get_debug_snapshot()
+
+	assert_true(
+		received_packets.is_empty(),
+		"peer_connected 回调断开后不得消费任何旧会话包。"
+	)
+	assert_eq(old_packets.size(), 2)
+	assert_eq(disconnected_reasons, PackedStringArray(["closed"]))
+	assert_eq(
+		GFVariantData.get_option_int(snapshot, "mode"),
+		GFWebSocketNetworkBackend.Mode.DISCONNECTED
+	)
+	assert_eq(
+		GFVariantData.get_option_int(snapshot, "last_poll_service_peer_count"),
+		0
+	)
+	assert_eq(
+		GFVariantData.get_option_int(snapshot, "last_poll_packet_count"),
+		0
+	)
+	backend.peer_connected.disconnect(peer_connected_callback)
+	backend.message_received.disconnect(message_callback)
+	backend.disconnected.disconnect(disconnected_callback)
+	backend.disconnect_backend()
+
+
+func test_websocket_server_peer_connected_rehost_stops_old_peer_work() -> void:
+	var backend: ReentrantLifecycleWebSocketBackend = (
+		ReentrantLifecycleWebSocketBackend.new()
+	)
+	var old_packets: Array = [PackedByteArray([3])]
+	backend.start_scripted_server(
+		"old-host:19090",
+		2,
+		old_packets
+	)
+	var old_generation: int = GFVariantData.get_option_int(
+		backend.get_debug_snapshot(),
+		"session_generation"
+	)
+	var connected_peer_ids: Array[int] = []
+	var peer_connected_callback: Callable = func(peer_id: int) -> void:
+		connected_peer_ids.append(peer_id)
+		backend.start_scripted_server("replacement-host:19091")
+	var _peer_connected_result: Variant = backend.peer_connected.connect(
+		peer_connected_callback
+	)
+
+	backend.poll(0.016)
+	var snapshot: Dictionary = backend.get_debug_snapshot()
+
+	assert_eq(connected_peer_ids, [2])
+	assert_eq(
+		old_packets.size(),
+		1,
+		"server mark-open 回调 rehost 后不得继续读取旧 peer。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(snapshot, "endpoint"),
+		"replacement-host:19091"
+	)
+	assert_gt(
+		GFVariantData.get_option_int(snapshot, "session_generation"),
+		old_generation
+	)
+	assert_eq(GFVariantData.get_option_int(snapshot, "peer_count"), 0)
+	assert_eq(
+		GFVariantData.get_option_int(snapshot, "last_poll_service_peer_count"),
+		0,
+		"旧 peer service 不得写回新 host 的工作统计。"
+	)
+	backend.peer_connected.disconnect(peer_connected_callback)
+	backend.disconnect_backend()
+
+
+func test_websocket_server_message_rehost_stops_after_current_packet() -> void:
+	var backend: ReentrantLifecycleWebSocketBackend = (
+		ReentrantLifecycleWebSocketBackend.new()
+	)
+	var old_packets: Array = [
+		PackedByteArray([4]),
+		PackedByteArray([5]),
+	]
+	backend.start_scripted_server(
+		"old-host:19100",
+		2,
+		old_packets,
+		true
+	)
+	var received_packets: Array[PackedByteArray] = []
+	var message_callback: Callable = func(
+		_peer_id: int,
+		packet_bytes: PackedByteArray
+	) -> void:
+		received_packets.append(packet_bytes)
+		if received_packets.size() == 1:
+			backend.start_scripted_server(
+				"replacement-host:19101"
+			)
+	var _message_result: Variant = backend.message_received.connect(
+		message_callback
+	)
+
+	backend.poll(0.016)
+	var snapshot: Dictionary = backend.get_debug_snapshot()
+	var metrics: GFNetworkTransportMetrics = backend.get_transport_metrics()
+
+	assert_eq(received_packets, [PackedByteArray([4])])
+	assert_eq(
+		old_packets.size(),
+		1,
+		"message 回调 rehost 后只允许已派发的当前包离开旧队列。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(snapshot, "endpoint"),
+		"replacement-host:19101"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(snapshot, "last_poll_packet_count"),
+		0,
+		"旧包不得写回新 host 的 packet 统计。"
+	)
+	assert_eq(
+		metrics.get_metric(GFNetworkTransportMetrics.PACKETS_RECEIVED),
+		0.0,
+		"新会话 transport metrics 不得包含触发 rehost 的旧包。"
+	)
+	backend.message_received.disconnect(message_callback)
+	backend.disconnect_backend()
+
+
+func test_websocket_client_message_reconnect_stops_after_current_packet() -> void:
+	var backend: ReentrantLifecycleWebSocketBackend = (
+		ReentrantLifecycleWebSocketBackend.new()
+	)
+	var old_packets: Array = [
+		PackedByteArray([6]),
+		PackedByteArray([7]),
+	]
+	var replacement_packets: Array = [PackedByteArray([8])]
+	backend.start_scripted_client(
+		"ws://old-message.test/socket",
+		old_packets,
+		true
+	)
+	var received_packets: Array[PackedByteArray] = []
+	var message_callback: Callable = func(
+		_peer_id: int,
+		packet_bytes: PackedByteArray
+	) -> void:
+		received_packets.append(packet_bytes)
+		if received_packets.size() == 1:
+			backend.start_scripted_client(
+				"ws://replacement-message.test/socket",
+				replacement_packets
+			)
+	var _message_result: Variant = backend.message_received.connect(
+		message_callback
+	)
+
+	backend.poll(0.016)
+	var snapshot: Dictionary = backend.get_debug_snapshot()
+
+	assert_eq(received_packets, [PackedByteArray([6])])
+	assert_eq(old_packets.size(), 1)
+	assert_eq(
+		GFVariantData.get_option_string(snapshot, "endpoint"),
+		"ws://replacement-message.test/socket"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(snapshot, "last_poll_packet_count"),
+		0,
+		"旧 client poll 不得写回 replacement 会话统计。"
+	)
+	backend.message_received.disconnect(message_callback)
+	backend.disconnect_backend()
+
+
+func test_websocket_peer_disconnected_rehost_stops_old_close_signals() -> void:
+	var backend: ReentrantLifecycleWebSocketBackend = (
+		ReentrantLifecycleWebSocketBackend.new()
+	)
+	backend.start_scripted_server(
+		"old-close-host:19110",
+		2,
+		[],
+		true
+	)
+	var disconnected_peer_ids: Array[int] = []
+	var disconnected_reasons: PackedStringArray = PackedStringArray()
+	var peer_disconnected_callback: Callable = func(peer_id: int) -> void:
+		disconnected_peer_ids.append(peer_id)
+		backend.start_scripted_server("replacement-close-host:19111")
+	var disconnected_callback: Callable = func(reason: String) -> void:
+		var _reason_appended: bool = disconnected_reasons.append(reason)
+	var _peer_disconnected_result: Variant = (
+		backend.peer_disconnected.connect(peer_disconnected_callback)
+	)
+	var _disconnected_result: Variant = backend.disconnected.connect(
+		disconnected_callback
+	)
+
+	backend.disconnect_backend()
+	var snapshot: Dictionary = backend.get_debug_snapshot()
+
+	assert_eq(disconnected_peer_ids, [2])
+	assert_true(
+		disconnected_reasons.is_empty(),
+		"peer_disconnected 回调 rehost 后不得再发旧会话 disconnected。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(snapshot, "endpoint"),
+		"replacement-close-host:19111"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(snapshot, "mode"),
+		GFWebSocketNetworkBackend.Mode.SERVER
+	)
+	backend.peer_disconnected.disconnect(peer_disconnected_callback)
+	backend.disconnected.disconnect(disconnected_callback)
+	backend.disconnect_backend()
+
+
+func test_websocket_closed_client_peer_callback_reconnects_atomically() -> void:
+	var backend: ReentrantLifecycleWebSocketBackend = (
+		ReentrantLifecycleWebSocketBackend.new()
+	)
+	backend.start_scripted_client(
+		"ws://old-close.test/socket",
+		[],
+		true
+	)
+	backend.client_ready_state = WebSocketPeer.STATE_CLOSED
+	var disconnected_peer_ids: Array[int] = []
+	var disconnected_reasons: PackedStringArray = PackedStringArray()
+	var peer_disconnected_callback: Callable = func(peer_id: int) -> void:
+		disconnected_peer_ids.append(peer_id)
+		backend.start_scripted_client(
+			"ws://replacement-close.test/socket",
+			[]
+		)
+	var disconnected_callback: Callable = func(reason: String) -> void:
+		var _reason_appended: bool = disconnected_reasons.append(reason)
+	var _peer_disconnected_result: Variant = (
+		backend.peer_disconnected.connect(peer_disconnected_callback)
+	)
+	var _disconnected_result: Variant = backend.disconnected.connect(
+		disconnected_callback
+	)
+
+	backend.poll(0.016)
+	var snapshot: Dictionary = backend.get_debug_snapshot()
+
+	assert_eq(disconnected_peer_ids, [GFWebSocketNetworkBackend.SERVER_PEER_ID])
+	assert_true(
+		disconnected_reasons.is_empty(),
+		"peer_disconnected 回调 reconnect 后不得再发旧会话 disconnected。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(snapshot, "endpoint"),
+		"ws://replacement-close.test/socket"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(snapshot, "mode"),
+		GFWebSocketNetworkBackend.Mode.CLIENT
+	)
+	assert_eq(
+		GFVariantData.get_option_int(snapshot, "last_poll_service_peer_count"),
+		0,
+		"旧关闭路径不得覆盖 replacement 会话重置后的工作统计。"
+	)
+	backend.peer_disconnected.disconnect(peer_disconnected_callback)
+	backend.disconnected.disconnect(disconnected_callback)
+	backend.disconnect_backend()
+
+
 func test_websocket_backend_rejects_non_websocket_endpoint_before_connect() -> void:
 	var backend: GFWebSocketNetworkBackend = GFWebSocketNetworkBackend.new()
 
 	assert_eq(backend.connect_to_endpoint("http://example.test/socket"), ERR_INVALID_PARAMETER)
 	assert_eq(backend.connect_to_endpoint("ws:///missing-host"), ERR_INVALID_PARAMETER)
 	assert_eq(backend.connect_to_endpoint("ws://example.test/socket\nforged"), ERR_INVALID_PARAMETER)
+
+
+func test_websocket_backend_charges_failed_accept_attempts_to_poll_budget() -> void:
+	var backend: ScriptedAcceptWebSocketBackend = ScriptedAcceptWebSocketBackend.new()
+	backend.max_accepts_per_poll = 3
+	backend.configure_for_test(2, 7)
+
+	backend.poll(0.016)
+	var first_snapshot: Dictionary = backend.get_debug_snapshot()
+
+	assert_eq(backend.pending_accept_attempts, 4, "首次 poll 只能尝试三次 accept。")
+	assert_eq(
+		GFVariantData.get_option_int(first_snapshot, "last_poll_accept_attempt_count"),
+		3,
+		"失败的 accept 也必须消耗当帧预算。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(first_snapshot, "accept_attempt_count"),
+		3,
+		"累计统计应记录全部 take_connection 尝试。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(first_snapshot, "accept_failure_count"),
+		3,
+		"握手启动失败应产生明确统计。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(first_snapshot, "accepted_connection_count"),
+		0,
+		"失败尝试不得占用 peer 容量。"
+	)
+
+	backend.poll(0.016)
+	backend.poll(0.016)
+	var final_snapshot: Dictionary = backend.get_debug_snapshot()
+
+	assert_eq(backend.pending_accept_attempts, 0, "后续 poll 应按预算继续处理剩余连接。")
+	assert_eq(
+		GFVariantData.get_option_int(final_snapshot, "last_poll_accept_attempt_count"),
+		1,
+		"最后一帧只应记录实际发生的一次尝试。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(final_snapshot, "accept_attempt_count"),
+		7,
+		"累计尝试数不得只统计成功连接。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(final_snapshot, "accept_failure_count"),
+		7,
+		"所有失败尝试都应进入诊断。"
+	)
+
+	backend.disconnect_backend()
+	var closed_snapshot: Dictionary = backend.get_debug_snapshot()
+	assert_eq(GFVariantData.get_option_int(closed_snapshot, "server_capacity"), 0)
+	assert_eq(GFVariantData.get_option_int(closed_snapshot, "accept_attempt_count"), 0)
+	assert_eq(GFVariantData.get_option_int(closed_snapshot, "accept_failure_count"), 0)
+
+
+func test_websocket_backend_counts_handshakes_against_capacity() -> void:
+	var backend: ScriptedAcceptWebSocketBackend = ScriptedAcceptWebSocketBackend.new()
+	backend.max_accepts_per_poll = 2
+	backend.configure_for_test(1, 2, OK)
+
+	backend.poll(0.016)
+	var full_snapshot: Dictionary = backend.get_debug_snapshot()
+
+	assert_eq(
+		GFVariantData.get_option_int(full_snapshot, "server_capacity_used"),
+		1,
+		"已启动但尚未打开的握手必须占用主机容量。"
+	)
+	assert_eq(GFVariantData.get_option_int(full_snapshot, "open_peer_count"), 0)
+	assert_eq(
+		GFVariantData.get_option_int(full_snapshot, "handshaking_peer_count"),
+		1
+	)
+	assert_eq(
+		GFVariantData.get_option_int(full_snapshot, "accepted_connection_count"),
+		1
+	)
+	assert_eq(
+		GFVariantData.get_option_int(full_snapshot, "capacity_rejection_count"),
+		1,
+		"握手占满容量后，同帧下一连接也必须被拒绝。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(full_snapshot, "last_poll_accept_attempt_count"),
+		2,
+		"成功与容量拒绝都必须消耗 accept 工作预算。"
+	)
+
+	backend.poll(0.016)
+	var released_snapshot: Dictionary = backend.get_debug_snapshot()
+	assert_eq(
+		GFVariantData.get_option_int(released_snapshot, "server_capacity_used"),
+		0,
+		"未完成的失败握手关闭后必须释放容量。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(released_snapshot, "handshake_failure_count"),
+		1,
+		"打开前关闭的 peer 应产生握手失败统计。"
+	)
+	backend.disconnect_backend()
+
+
+func test_websocket_backend_expires_slow_handshakes_within_peer_budget() -> void:
+	var backend: ScriptedHandshakeWebSocketBackend = (
+		ScriptedHandshakeWebSocketBackend.new()
+	)
+	backend.max_accepts_per_poll = 2
+	backend.max_service_peers_per_poll = 1
+	backend.handshake_timeout_msec = 10
+	backend.now_msec = 1_000
+	backend.configure_for_test(2, 2, OK)
+
+	backend.poll(0.016)
+	var accepted_snapshot: Dictionary = backend.get_debug_snapshot()
+	assert_eq(
+		GFVariantData.get_option_int(accepted_snapshot, "server_capacity_used"),
+		2,
+		"两个慢握手应先占满主机容量。"
+	)
+
+	backend.now_msec = 1_010
+	backend.poll(0.016)
+	var first_timeout_snapshot: Dictionary = backend.get_debug_snapshot()
+	assert_eq(
+		GFVariantData.get_option_int(
+			first_timeout_snapshot,
+			"server_capacity_used"
+		),
+		1,
+		"单轮只能在 peer 服务预算内回收一个超时握手。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(
+			first_timeout_snapshot,
+			"handshake_timeout_count"
+		),
+		1
+	)
+	assert_eq(
+		GFVariantData.get_option_int(
+			first_timeout_snapshot,
+			"last_poll_service_peer_count"
+		),
+		1
+	)
+	assert_true(
+		GFVariantData.get_option_bool(
+			first_timeout_snapshot,
+			"last_poll_service_peer_budget_exhausted"
+		),
+		"仍有握手待检查时应报告服务预算耗尽。"
+	)
+
+	backend.poll(0.016)
+	var released_snapshot: Dictionary = backend.get_debug_snapshot()
+	assert_eq(
+		GFVariantData.get_option_int(released_snapshot, "server_capacity_used"),
+		0,
+		"公平服务游标应在下一轮释放剩余超时握手。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(
+			released_snapshot,
+			"handshake_timeout_count"
+		),
+		2
+	)
+	assert_eq(
+		GFVariantData.get_option_int(
+			released_snapshot,
+			"handshake_failure_count"
+		),
+		2,
+		"超时也是握手失败，两个诊断计数应保持包含关系。"
+	)
+
+	backend.pending_accept_attempts = 1
+	backend.poll(0.016)
+	var replacement_snapshot: Dictionary = backend.get_debug_snapshot()
+	assert_eq(
+		GFVariantData.get_option_int(
+			replacement_snapshot,
+			"server_capacity_used"
+		),
+		1,
+		"释放慢握手后 accept 阶段应能重新使用容量。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(
+			replacement_snapshot,
+			"accepted_connection_count"
+		),
+		3
+	)
+	backend.disconnect_backend()
 
 
 func test_enet_close_emits_disconnect_for_each_tracked_peer() -> void:
@@ -1990,12 +3325,20 @@ func test_websocket_backend_round_trips_bytes() -> void:
 		host_error = server.host({
 			"port": port,
 			"bind_address": "127.0.0.1",
+			"inbound_buffer_size": 128 * 1024,
+			"outbound_buffer_size": 128 * 1024,
+			"max_queued_packets": 128,
 		})
 		if host_error == OK:
 			break
 	assert_eq(host_error, OK, "测试应能启动本地 WebSocket 主机。")
 	if host_error != OK:
 		return
+	assert_eq(
+		GFVariantData.get_option_int(server.get_debug_snapshot(), "server_capacity"),
+		GFWebSocketNetworkBackend.DEFAULT_MAX_CLIENTS,
+		"未配置容量时应采用与 ENet 一致的有限默认值。"
+	)
 
 	var server_peer_ids: Array[int] = []
 	var server_messages: Array[PackedByteArray] = []
@@ -2006,7 +3349,14 @@ func test_websocket_backend_round_trips_bytes() -> void:
 		server_messages.append(packet_bytes)
 	)
 
-	var connect_error: Error = client.connect_to_endpoint("ws://127.0.0.1:%d" % port)
+	var connect_error: Error = client.connect_to_endpoint(
+		"ws://127.0.0.1:%d" % port,
+		{
+			"inbound_buffer_size": 128 * 1024,
+			"outbound_buffer_size": 128 * 1024,
+			"max_queued_packets": 128,
+		}
+	)
 	assert_eq(connect_error, OK, "客户端应能开始连接本地 WebSocket 主机。")
 
 	for _step: int in range(120):
@@ -2041,6 +3391,193 @@ func test_websocket_backend_round_trips_bytes() -> void:
 	assert_eq(server_messages[0], bytes, "服务器应收到客户端发送的原始 bytes。")
 	server.disconnect_backend()
 	client.disconnect_backend()
+
+
+func test_websocket_backend_enforces_exact_capacity_and_releases_slots() -> void:
+	var server: GFWebSocketNetworkBackend = GFWebSocketNetworkBackend.new()
+	var first_client: GFWebSocketNetworkBackend = GFWebSocketNetworkBackend.new()
+	var rejected_client: GFWebSocketNetworkBackend = GFWebSocketNetworkBackend.new()
+	var replacement_client: GFWebSocketNetworkBackend = GFWebSocketNetworkBackend.new()
+	var port: int = 0
+	var host_error: Error = ERR_UNAVAILABLE
+	for offset: int in range(20):
+		port = 19500 + offset
+		host_error = server.host({
+			"port": port,
+			"bind_address": "127.0.0.1",
+			"max_peers": 1,
+		})
+		if host_error == OK:
+			break
+	assert_eq(host_error, OK, "测试应能启动受容量约束的本地 WebSocket 主机。")
+	if host_error != OK:
+		return
+
+	var connect_error: Error = first_client.connect_to_endpoint(
+		"ws://127.0.0.1:%d" % port
+	)
+	assert_eq(connect_error, OK, "第一个客户端应能开始连接。")
+	if connect_error != OK:
+		server.disconnect_backend()
+		return
+	for _step: int in range(120):
+		server.poll(0.016)
+		first_client.poll(0.016)
+		if (
+			GFVariantData.get_option_int(
+				server.get_debug_snapshot(),
+				"open_peer_count"
+			)
+			== 1
+		):
+			break
+		await get_tree().process_frame
+
+	var full_snapshot: Dictionary = server.get_debug_snapshot()
+	assert_eq(GFVariantData.get_option_int(full_snapshot, "server_capacity"), 1)
+	assert_eq(GFVariantData.get_option_int(full_snapshot, "server_capacity_used"), 1)
+	assert_eq(GFVariantData.get_option_int(full_snapshot, "open_peer_count"), 1)
+	assert_eq(GFVariantData.get_option_int(full_snapshot, "handshaking_peer_count"), 0)
+
+	connect_error = rejected_client.connect_to_endpoint("ws://127.0.0.1:%d" % port)
+	assert_eq(connect_error, OK, "第二个客户端应能到达主机容量门禁。")
+	if connect_error == OK:
+		for _step: int in range(120):
+			server.poll(0.016)
+			first_client.poll(0.016)
+			rejected_client.poll(0.016)
+			if (
+				GFVariantData.get_option_int(
+					server.get_debug_snapshot(),
+					"capacity_rejection_count"
+				)
+				== 1
+			):
+				break
+			await get_tree().process_frame
+
+	var rejected_snapshot: Dictionary = server.get_debug_snapshot()
+	assert_eq(
+		GFVariantData.get_option_int(rejected_snapshot, "server_capacity_used"),
+		1,
+		"容量拒绝不得改变已占用 peer 数。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(rejected_snapshot, "capacity_rejection_count"),
+		1,
+		"超过精确边界的连接应被明确拒绝一次。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(rejected_snapshot, "accepted_connection_count"),
+		1,
+		"被容量拒绝的连接不得计为接受成功。"
+	)
+
+	first_client.disconnect_backend()
+	for _step: int in range(120):
+		server.poll(0.016)
+		rejected_client.poll(0.016)
+		if (
+			GFVariantData.get_option_int(
+				server.get_debug_snapshot(),
+				"server_capacity_used"
+			)
+			== 0
+		):
+			break
+		await get_tree().process_frame
+	assert_eq(
+		GFVariantData.get_option_int(
+			server.get_debug_snapshot(),
+			"server_capacity_used"
+		),
+		0,
+		"已断开的 peer 必须释放容量槽位。"
+	)
+
+	connect_error = replacement_client.connect_to_endpoint(
+		"ws://127.0.0.1:%d" % port
+	)
+	assert_eq(connect_error, OK, "释放槽位后替代客户端应能开始连接。")
+	if connect_error == OK:
+		for _step: int in range(120):
+			server.poll(0.016)
+			replacement_client.poll(0.016)
+			if (
+				GFVariantData.get_option_int(
+					server.get_debug_snapshot(),
+					"open_peer_count"
+				)
+				== 1
+			):
+				break
+			await get_tree().process_frame
+
+	var replacement_snapshot: Dictionary = server.get_debug_snapshot()
+	assert_eq(GFVariantData.get_option_int(replacement_snapshot, "open_peer_count"), 1)
+	assert_eq(
+		GFVariantData.get_option_int(
+			replacement_snapshot,
+			"accepted_connection_count"
+		),
+		2,
+		"释放的槽位应能被新连接复用。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(
+			replacement_snapshot,
+			"capacity_rejection_count"
+		),
+		1,
+		"槽位复用不得重置本次主机生命周期内的拒绝统计。"
+	)
+
+	rejected_client.disconnect_backend()
+	replacement_client.disconnect_backend()
+	server.disconnect_backend()
+	var closed_snapshot: Dictionary = server.get_debug_snapshot()
+	assert_eq(GFVariantData.get_option_int(closed_snapshot, "server_capacity"), 0)
+	assert_eq(GFVariantData.get_option_int(closed_snapshot, "server_capacity_used"), 0)
+	assert_eq(GFVariantData.get_option_int(closed_snapshot, "accepted_connection_count"), 0)
+	assert_eq(GFVariantData.get_option_int(closed_snapshot, "capacity_rejection_count"), 0)
+
+	var restart_port: int = 0
+	host_error = ERR_UNAVAILABLE
+	for offset: int in range(20):
+		restart_port = 19520 + offset
+		host_error = server.host({
+			"port": restart_port,
+			"bind_address": "127.0.0.1",
+			"max_clients": 2,
+			"max_peers": 1,
+		})
+		if host_error == OK:
+			break
+	assert_eq(host_error, OK, "关闭后的 WebSocket 主机应能重新启动。")
+	if host_error == OK:
+		var restarted_snapshot: Dictionary = server.get_debug_snapshot()
+		assert_eq(
+			GFVariantData.get_option_int(restarted_snapshot, "server_capacity"),
+			2,
+			"max_clients 应优先于 max_peers 别名。"
+		)
+		assert_eq(
+			GFVariantData.get_option_int(
+				restarted_snapshot,
+				"accepted_connection_count"
+			),
+			0,
+			"重启必须从零开始统计连接。"
+		)
+		assert_eq(
+			GFVariantData.get_option_int(
+				restarted_snapshot,
+				"capacity_rejection_count"
+			),
+			0,
+			"重启必须从零开始统计容量拒绝。"
+		)
+	server.disconnect_backend()
 
 
 ## 验证消息校验器会拒绝不合规消息。
