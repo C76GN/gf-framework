@@ -79,6 +79,61 @@ func test_sidecar_helpers_include_hidden_entries_and_bound_cleanup() -> void:
 	assert_false(_is_path_inside_temp_root("", true))
 
 
+func test_sidecar_helpers_refuse_linked_escape_paths_when_supported() -> void:
+	var sentinel_path: String = _temp_root.path_join("sentinel.txt")
+	_write_text(sentinel_path, "sentinel")
+	var absolute_root: String = ProjectSettings.globalize_path(_temp_root)
+	var absolute_project_root: String = ProjectSettings.globalize_path(
+		"res://"
+	)
+	var absolute_link_path: String = absolute_root.path_join(
+		"linked-project"
+	)
+	var root_directory: DirAccess = DirAccess.open(absolute_root)
+	assert_not_null(root_directory, "测试应能打开临时根目录。")
+	if root_directory == null:
+		return
+	var link_error: Error = root_directory.create_link(
+		absolute_project_root,
+		absolute_link_path
+	)
+	if link_error != OK:
+		assert_true(
+			OS.has_feature("windows"),
+			"POSIX 平台必须支持测试用目录链接：%s" % error_string(
+				link_error
+			)
+		)
+		return
+
+	assert_true(_absolute_path_is_link(absolute_link_path))
+	assert_eq(
+		_find_matching_file(absolute_root, "project.godot"),
+		"",
+		"sidecar finder 不得沿链接越过临时根目录。"
+	)
+	assert_eq(_count_matching_files(absolute_root, "project.godot"), 0)
+	assert_false(
+		_is_path_inside_temp_root(
+			absolute_link_path.path_join("project.godot")
+		),
+		"祖先链接后的词法子路径不得通过写入或删除门禁。"
+	)
+	_remove_absolute_path(absolute_link_path)
+	assert_false(
+		_absolute_path_is_link(absolute_link_path),
+		"cleanup 必须移除链接本身。"
+	)
+	assert_false(
+		DirAccess.dir_exists_absolute(absolute_link_path),
+		"cleanup 后链接路径不得仍解析为目录。"
+	)
+	assert_true(
+		FileAccess.file_exists("res://project.godot"),
+		"清理链接只能 unlink 自身，不得触及项目根。"
+	)
+
+
 func test_commit_writes_all_entries_and_returns_json_safe_reports() -> void:
 	var text_path: String = _temp_root.path_join("content/item.txt")
 	var bytes_path: String = _temp_root.path_join("content/item.bin")
@@ -2218,6 +2273,8 @@ func _sha256_text(text: String) -> String:
 
 
 func _find_matching_file(path: String, needle: String) -> String:
+	if not _is_path_inside_temp_root(path, true):
+		return ""
 	var directory: DirAccess = DirAccess.open(path)
 	if directory == null:
 		return ""
@@ -2230,7 +2287,8 @@ func _find_matching_file(path: String, needle: String) -> String:
 	while not entry_name.is_empty():
 		if entry_name != "." and entry_name != "..":
 			var entry_path: String = path.path_join(entry_name)
-			if directory.current_is_dir():
+			var entry_is_link: bool = directory.is_link(entry_name)
+			if directory.current_is_dir() and not entry_is_link:
 				var nested_match: String = _find_matching_file(
 					entry_path,
 					needle
@@ -2238,7 +2296,7 @@ func _find_matching_file(path: String, needle: String) -> String:
 				if not nested_match.is_empty():
 					directory.list_dir_end()
 					return nested_match
-			elif entry_name.contains(needle):
+			elif not entry_is_link and entry_name.contains(needle):
 				directory.list_dir_end()
 				return entry_path
 		entry_name = directory.get_next()
@@ -2247,6 +2305,8 @@ func _find_matching_file(path: String, needle: String) -> String:
 
 
 func _count_matching_files(path: String, needle: String) -> int:
+	if not _is_path_inside_temp_root(path, true):
+		return 0
 	var directory: DirAccess = DirAccess.open(path)
 	if directory == null:
 		return 0
@@ -2260,9 +2320,10 @@ func _count_matching_files(path: String, needle: String) -> int:
 	while not entry_name.is_empty():
 		if entry_name != "." and entry_name != "..":
 			var entry_path: String = path.path_join(entry_name)
-			if directory.current_is_dir():
+			var entry_is_link: bool = directory.is_link(entry_name)
+			if directory.current_is_dir() and not entry_is_link:
 				count += _count_matching_files(entry_path, needle)
-			elif entry_name.contains(needle):
+			elif not entry_is_link and entry_name.contains(needle):
 				count += 1
 		entry_name = directory.get_next()
 	directory.list_dir_end()
@@ -2273,13 +2334,18 @@ func _remove_absolute_path(
 	path: String,
 	allow_temp_root: bool = false
 ) -> void:
-	if not _is_path_inside_temp_root(path, allow_temp_root):
+	if not _is_path_inside_temp_root(path, allow_temp_root, true):
 		fail_test(
 			"拒绝清理当前测试临时根目录以外的路径：%s" % path
 		)
 		return
 	if _absolute_path_is_link(path):
-		var _remove_link_result: Error = DirAccess.remove_absolute(path)
+		var remove_link_result: Error = DirAccess.remove_absolute(path)
+		assert_eq(
+			remove_link_result,
+			OK,
+			"测试清理必须成功 unlink 临时目录内的链接。"
+		)
 		return
 	if FileAccess.file_exists(path):
 		var _remove_file_result: Error = DirAccess.remove_absolute(path)
@@ -2311,7 +2377,8 @@ func _remove_absolute_path(
 
 func _is_path_inside_temp_root(
 	path: String,
-	allow_temp_root: bool = false
+	allow_temp_root: bool = false,
+	allow_leaf_link: bool = false
 ) -> bool:
 	if path.is_empty() or _temp_root.is_empty():
 		return false
@@ -2322,8 +2389,45 @@ func _is_path_inside_temp_root(
 	if normalized_path.is_empty() or normalized_temp_root.is_empty():
 		return false
 	if normalized_path == normalized_temp_root:
-		return allow_temp_root
-	return normalized_path.begins_with(normalized_temp_root + "/")
+		return (
+			allow_temp_root
+			and not _path_has_link_from_temp_root(
+				normalized_path,
+				allow_leaf_link
+			)
+		)
+	if not normalized_path.begins_with(normalized_temp_root + "/"):
+		return false
+	return not _path_has_link_from_temp_root(
+		normalized_path,
+		allow_leaf_link
+	)
+
+
+func _path_has_link_from_temp_root(
+	normalized_path: String,
+	allow_leaf_link: bool
+) -> bool:
+	var normalized_temp_root: String = _normalize_cleanup_path(
+		ProjectSettings.globalize_path(_temp_root)
+	)
+	var current_path: String = normalized_path
+	if allow_leaf_link:
+		if current_path == normalized_temp_root:
+			return false
+		current_path = _normalize_cleanup_path(current_path.get_base_dir())
+	while not current_path.is_empty():
+		if _absolute_path_is_link(current_path):
+			return true
+		if current_path == normalized_temp_root:
+			return false
+		var parent_path: String = _normalize_cleanup_path(
+			current_path.get_base_dir()
+		)
+		if parent_path.is_empty() or parent_path == current_path:
+			return true
+		current_path = parent_path
+	return true
 
 
 func _normalize_cleanup_path(path: String) -> String:
