@@ -75,7 +75,7 @@ func should_record(_execute_result: Variant) -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## 该 hook 运行在非重入历史操作内，不得执行、记录、清空、调整容量或恢复历史。
 ## [br]
@@ -92,7 +92,7 @@ func is_undo_successful(_undo_result: Variant) -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## 该 hook 运行在非重入历史操作内，不得执行、记录、清空、调整容量或恢复历史。
 ## [br]

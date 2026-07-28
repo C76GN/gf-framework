@@ -8,7 +8,7 @@
 ## [br]
 ## @category runtime_handle
 ## [br]
-## @since unreleased
+## @since 10.0.0
 class_name GFAssetSlot
 extends RefCounted
 
@@ -21,7 +21,7 @@ extends RefCounted
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param previous_resource: 替换前的资源；原先为空时为 null。
 ## [br]
@@ -36,7 +36,7 @@ signal resource_replaced(previous_resource: Resource, current_resource: Resource
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param previous_resource: 释放前的资源；原先为空时为 null。
 ## [br]
@@ -72,7 +72,7 @@ var _owner_exit_callable: Callable = Callable()
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param resource_identity: 具有稳定 cache_key 的资源身份。
 ## [br]
@@ -126,7 +126,7 @@ func configure(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## 身份不属于活动资源状态，因此槽位释放后仍可读取。
 ## [br]
@@ -145,7 +145,7 @@ func get_resource_identity() -> GFResourceIdentity:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 当前强引用资源；槽位未配置或已释放时返回 null。
 func get_resource() -> Resource:
@@ -162,7 +162,7 @@ func get_resource() -> Resource:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 显式覆盖值、身份 type_hint 或空字符串。
 func get_type_hint() -> String:
@@ -175,7 +175,7 @@ func get_type_hint() -> String:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 主线程上返回是否已经成功配置；其他线程返回 false。
 func is_configured() -> bool:
@@ -189,7 +189,7 @@ func is_configured() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 当前 generation；新建但未配置的槽位为 0，其他线程返回 -1。
 func get_generation() -> int:
@@ -203,7 +203,7 @@ func get_generation() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 槽位活动且持有资源时返回 true。
 func has_resource() -> bool:
@@ -218,7 +218,7 @@ func has_resource() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 成功配置后已进入终态时返回 true；未配置时返回 false，其他线程返回 true。
 func is_released() -> bool:
@@ -232,7 +232,7 @@ func is_released() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param candidate_resource: 待检查资源。
 ## [br]
@@ -252,7 +252,7 @@ func accepts_resource(candidate_resource: Resource) -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param next_resource: 新资源实例。
 ## [br]
@@ -285,7 +285,7 @@ func replace(next_resource: Resource) -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 本次是否首次提交了释放。
 func release() -> bool:

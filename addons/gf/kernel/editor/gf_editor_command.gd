@@ -267,7 +267,7 @@ func _can_change_configuration(field_name: String) -> bool:
 ## [br]
 ## @api protected
 ## [br]
-## @since unreleased
+## @since 10.0.0
 func _seal_configuration_for_execution() -> void:
 	_configuration_sealed = true
 

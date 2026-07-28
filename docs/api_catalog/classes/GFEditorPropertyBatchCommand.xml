@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFEditorPropertyBatchCommand" path="addons/gf/kernel/editor/gf_editor_property_batch_command.gd" module="kernel" extends="GFEditorCommand" classDigest="b7d4e7a9dba69993f3e7a468e2403c5a954853bf9ee25c3b2261003407dfdbc5">
+<class name="GFEditorPropertyBatchCommand" path="addons/gf/kernel/editor/gf_editor_property_batch_command.gd" module="kernel" extends="GFEditorCommand" classDigest="130907a78c153d0aa6df8a8435b6b1afebab9591c4b26877396af855b5be111e">
 	<description>GFEditorPropertyBatchCommand: 通用多目标属性事务命令。
 对调用方显式提供的 Object 属性先做全量零写入预检，再按稳定顺序提交。
 任一写入或最终状态验证失败时，会按相反顺序恢复本次尝试前的全部目标属性。
@@ -8,7 +8,7 @@
 		<tag name="api">public</tag>
 		<tag name="category">editor_api</tag>
 		<tag name="layer">kernel/editor</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">10.0.0</tag>
 	</tags>
 	<signals />
 	<enums />
@@ -18,7 +18,7 @@
 			<description>尚未验证或执行。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATUS_READY">
@@ -26,7 +26,7 @@
 			<description>全量预检通过。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATUS_COMMITTED">
@@ -34,7 +34,7 @@
 			<description>属性事务已提交。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATUS_REVERTED">
@@ -42,7 +42,7 @@
 			<description>属性事务已撤销。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATUS_RECOVERED">
@@ -50,7 +50,7 @@
 			<description>未完整补偿的事务已恢复到该次操作开始前状态。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATUS_PREFLIGHT_FAILED">
@@ -58,7 +58,7 @@
 			<description>全量预检失败，未开始写入。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATUS_APPLY_FAILED">
@@ -66,7 +66,7 @@
 			<description>提交失败，且已恢复本次尝试前状态。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATUS_REVERT_FAILED">
@@ -74,7 +74,7 @@
 			<description>撤销失败，且已恢复撤销前状态。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATUS_ROLLBACK_FAILED">
@@ -82,7 +82,7 @@
 			<description>补偿写入未完整恢复属性状态。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 	</constants>
@@ -101,7 +101,7 @@ indexed path 语义。可选 metadata 会复制到条目和错误报告。</desc
 				<tag name="return">当前命令。</tag>
 				<tag name="schema">changes: 非空 Array[Dictionary]，每项包含 target: Object、new_value: Variant、property_name: StringName/String 或 property_path: NodePath/String，以及可选 metadata: Dictionary。</tag>
 				<tag name="schema">options: Dictionary，可包含 command_name、metadata 和 duplicate_resources。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="validate">
@@ -111,7 +111,7 @@ indexed path 语义。可选 metadata 会复制到条目和错误报告。</desc
 				<tag name="api">public</tag>
 				<tag name="return">结构化事务报告。</tag>
 				<tag name="schema">return: Dictionary，包含 ok、status、phase、error、requested_count、applied_count、unchanged_count、attempted_count、rollback_count、failed_count、failed_index、rolled_back、recovery_required、entries、issues 和 metadata。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_transaction_report">
@@ -121,7 +121,7 @@ indexed path 语义。可选 metadata 会复制到条目和错误报告。</desc
 				<tag name="api">public</tag>
 				<tag name="return">结构化事务报告副本。</tag>
 				<tag name="schema">return: Dictionary，形状与 validate() 返回值相同。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="recover">
@@ -133,7 +133,7 @@ indexed path 语义。可选 metadata 会复制到条目和错误报告。</desc
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">Godot 错误码。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="can_execute">
@@ -142,7 +142,7 @@ indexed path 语义。可选 metadata 会复制到条目和错误报告。</desc
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">配置完整、目标可写且没有待恢复残余状态时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="can_revert_before_execute">
@@ -151,7 +151,7 @@ indexed path 语义。可选 metadata 会复制到条目和错误报告。</desc
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">存在首次快照且需要恢复时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="_do_it">
@@ -160,7 +160,7 @@ indexed path 语义。可选 metadata 会复制到条目和错误报告。</desc
 			<tags>
 				<tag name="api">protected</tag>
 				<tag name="return">Godot 错误码。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="_undo_it">
@@ -169,7 +169,7 @@ indexed path 语义。可选 metadata 会复制到条目和错误报告。</desc
 			<tags>
 				<tag name="api">protected</tag>
 				<tag name="return">Godot 错误码。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 	</methods>

@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：运行时服务 (`runtime_service`)
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 从显式 UI 路由关系构建资源预加载计划。 该工具只做有界、确定性的可达性遍历，并把页面场景转换为 GFAssetPreloadPlan。 权限、导航守卫、动态业务分支和实际预加载时机仍由项目负责。
 
@@ -29,7 +29,7 @@
 ### `DEFAULT_MAX_DEPTH`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const DEFAULT_MAX_DEPTH: int = 1
@@ -42,7 +42,7 @@ const DEFAULT_MAX_DEPTH: int = 1
 ### `DEFAULT_MAX_ROUTES`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const DEFAULT_MAX_ROUTES: int = 64
@@ -55,7 +55,7 @@ const DEFAULT_MAX_ROUTES: int = 64
 ### `DEFAULT_MAX_EDGES`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const DEFAULT_MAX_EDGES: int = 512
@@ -68,7 +68,7 @@ const DEFAULT_MAX_EDGES: int = 512
 ### `DEFAULT_MAX_CATALOG_ROUTES`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const DEFAULT_MAX_CATALOG_ROUTES: int = 1024
@@ -81,7 +81,7 @@ const DEFAULT_MAX_CATALOG_ROUTES: int = 1024
 ### `DEFAULT_GROUP_ID`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const DEFAULT_GROUP_ID: StringName = &"ui_route_preload"
@@ -96,7 +96,7 @@ const DEFAULT_GROUP_ID: StringName = &"ui_route_preload"
 ### `build_plan`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 static func build_plan( routes: Array[GFUIRoute], source_route_id: StringName, options: Dictionary = {} ) -> Dictionary:

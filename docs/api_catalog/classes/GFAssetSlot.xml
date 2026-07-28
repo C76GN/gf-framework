@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFAssetSlot" path="addons/gf/standard/utilities/assets/gf_asset_slot.gd" module="standard" extends="RefCounted" classDigest="6f8c2fbc488dffa8f6012dac67abe71720e292751a7251ce206ed2e1af0bcf6f">
+<class name="GFAssetSlot" path="addons/gf/standard/utilities/assets/gf_asset_slot.gd" module="standard" extends="RefCounted" classDigest="42bf894aab4c5ea15fca83767bc6d9e5d67ed8789982ddb5e17305c7b8cd093d">
 	<description>GFAssetSlot: 稳定资源身份下的显式可替换资源槽位。
 槽位强持有当前 Resource，并在成功配置、替换或终态释放后推进单调 generation。
 它不监听文件变化、不接管 GFAssetUtility 缓存，也不改变 GFAssetHandle 的快照语义。
@@ -7,7 +7,7 @@
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">runtime_handle</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">10.0.0</tag>
 	</tags>
 	<signals>
 		<member kind="signal" name="resource_replaced">
@@ -19,7 +19,7 @@
 				<tag name="param">previous_resource: 替换前的资源；原先为空时为 null。</tag>
 				<tag name="param">current_resource: 替换后的资源。</tag>
 				<tag name="param">generation: 本次提交后的槽位 generation。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="signal" name="released">
@@ -30,7 +30,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">previous_resource: 释放前的资源；原先为空时为 null。</tag>
 				<tag name="param">generation: 本次提交后的槽位 generation。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 	</signals>
@@ -53,7 +53,7 @@ owner 为 Node 时必须已经位于场景树中，退出场景树会自动释�
 				<tag name="param">owner: 可选生命周期 owner。</tag>
 				<tag name="param">type_hint_override: 可选显式类型提示；为空时使用身份中的 type_hint。</tag>
 				<tag name="return">本次是否成功提交配置。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_resource_identity">
@@ -63,7 +63,7 @@ owner 为 Node 时必须已经位于场景树中，退出场景树会自动释�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">已配置身份的副本；尚未成功配置时返回 null。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_resource">
@@ -73,7 +73,7 @@ owner 为 Node 时必须已经位于场景树中，退出场景树会自动释�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">当前强引用资源；槽位未配置或已释放时返回 null。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_type_hint">
@@ -83,7 +83,7 @@ owner 为 Node 时必须已经位于场景树中，退出场景树会自动释�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">显式覆盖值、身份 type_hint 或空字符串。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="is_configured">
@@ -92,7 +92,7 @@ owner 为 Node 时必须已经位于场景树中，退出场景树会自动释�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">主线程上返回是否已经成功配置；其他线程返回 false。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_generation">
@@ -103,7 +103,7 @@ generation 在成功配置、成功替换和首次释放后推进，且只应在
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">当前 generation；新建但未配置的槽位为 0，其他线程返回 -1。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="has_resource">
@@ -112,7 +112,7 @@ generation 在成功配置、成功替换和首次释放后推进，且只应在
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">槽位活动且持有资源时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="is_released">
@@ -121,7 +121,7 @@ generation 在成功配置、成功替换和首次释放后推进，且只应在
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">成功配置后已进入终态时返回 true；未配置时返回 false，其他线程返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="accepts_resource">
@@ -131,7 +131,7 @@ generation 在成功配置、成功替换和首次释放后推进，且只应在
 				<tag name="api">public</tag>
 				<tag name="param">candidate_resource: 待检查资源。</tag>
 				<tag name="return">槽位活动且资源非空、类型兼容时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="replace">
@@ -143,7 +143,7 @@ generation 在成功配置、成功替换和首次释放后推进，且只应在
 				<tag name="api">public</tag>
 				<tag name="param">next_resource: 新资源实例。</tag>
 				<tag name="return">本次是否提交了替换。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="release">
@@ -154,7 +154,7 @@ generation 在成功配置、成功替换和首次释放后推进，且只应在
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">本次是否首次提交了释放。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 	</methods>

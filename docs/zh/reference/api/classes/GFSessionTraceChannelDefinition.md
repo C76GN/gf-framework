@@ -7,7 +7,7 @@
 - 继承：`Resource`
 - API：`public`
 - 类别：资源定义 (`resource_definition`)
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 Session Trace 配方中的通道定义。 该资源只描述稳定通道 ID、可见性和容量，不持有运行时回调或业务状态。
 
@@ -31,7 +31,7 @@ Session Trace 配方中的通道定义。 该资源只描述稳定通道 ID、�
 ### `channel_id`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var channel_id: StringName = &""
@@ -44,7 +44,7 @@ var channel_id: StringName = &""
 ### `enabled`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var enabled: bool = true
@@ -57,7 +57,7 @@ var enabled: bool = true
 ### `include_in_snapshot`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var include_in_snapshot: bool = true
@@ -70,7 +70,7 @@ var include_in_snapshot: bool = true
 ### `max_events`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var max_events: int = 0
@@ -83,7 +83,7 @@ var max_events: int = 0
 ### `max_event_bytes`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var max_event_bytes: int = 0
@@ -96,7 +96,7 @@ var max_event_bytes: int = 0
 ### `metadata`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var metadata: Dictionary = {}
@@ -115,7 +115,7 @@ var metadata: Dictionary = {}
 ### `configure`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func configure( p_channel_id: StringName, options: Dictionary = {} ) -> GFSessionTraceChannelDefinition:
@@ -141,7 +141,7 @@ func configure( p_channel_id: StringName, options: Dictionary = {} ) -> GFSessio
 ### `validate_definition`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func validate_definition() -> Dictionary:

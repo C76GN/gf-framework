@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFPlatformAdapterConformance" path="addons/gf/standard/platform/gf_platform_adapter_conformance.gd" module="standard" extends="RefCounted" classDigest="c5cd05198084fcc5cfc76a695ba3dd1cde21f9b272b8cfb687b921d49a935150">
+<class name="GFPlatformAdapterConformance" path="addons/gf/standard/platform/gf_platform_adapter_conformance.gd" module="standard" extends="RefCounted" classDigest="68093e340e12fd73909a5fdff38d0f263ae08459acdab07ce43e1e873b525167">
 	<description>GFPlatformAdapterConformance: Platform Adapter 静态一致性审查器。
 在不调用外部 SDK 的前提下检查 Adapter 身份、状态、契约描述符、必需方法、
 运行时能力和桥接覆盖。动态单终态、取消和结果 schema 由 GFPlatformAdapter
@@ -7,7 +7,7 @@
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">protocol</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">10.0.0</tag>
 	</tags>
 	<signals />
 	<enums />
@@ -17,7 +17,7 @@
 			<description>Adapter 为空或身份未配置。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="KIND_ADAPTER_STATE_INVALID">
@@ -25,7 +25,7 @@
 			<description>Adapter 处于不可用终态。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="KIND_CONTRACT_MISSING">
@@ -33,7 +33,7 @@
 			<description>缺少必需契约。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="KIND_DESCRIPTOR_MISSING">
@@ -41,7 +41,7 @@
 			<description>缺少契约描述符。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="KIND_DESCRIPTOR_INVALID">
@@ -49,7 +49,7 @@
 			<description>契约描述符定义无效。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="KIND_CONTRACT_VERSION_MISMATCH">
@@ -57,7 +57,7 @@
 			<description>契约版本与消费方要求不一致。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="KIND_METHOD_MISSING">
@@ -65,7 +65,7 @@
 			<description>契约缺少必需方法。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="KIND_CAPABILITY_MISSING">
@@ -73,7 +73,7 @@
 			<description>运行时上下文缺少必需能力。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 	</constants>
@@ -92,7 +92,7 @@ require_ready（默认 false）。版本采用精确匹配；required_methods �
 				<tag name="param">options: 审查约束。</tag>
 				<tag name="return">强类型校验报告。</tag>
 				<tag name="schema">options: Dictionary platform adapter conformance requirements.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="inspect">
@@ -105,7 +105,7 @@ require_ready（默认 false）。版本采用精确匹配；required_methods �
 				<tag name="return">JSON 安全报告字典。</tag>
 				<tag name="schema">options: Dictionary platform adapter conformance requirements.</tag>
 				<tag name="schema">return: Dictionary validation report with bridge_coverage.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="make_bridge_entries">
@@ -118,7 +118,7 @@ require_ready（默认 false）。版本采用精确匹配；required_methods �
 				<tag name="return">contract_entries 与 adapter_entries。</tag>
 				<tag name="schema">options: Dictionary platform adapter conformance requirements.</tag>
 				<tag name="schema">return: Dictionary bridge contract and adapter entry arrays.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 	</methods>

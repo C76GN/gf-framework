@@ -100,7 +100,7 @@ func render_node3d_texture(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param source: 要渲染的 2D 画布节点，会被复制后放入内部 Viewport。
 ## [br]
@@ -140,7 +140,7 @@ func render_canvas_item(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param source: 要渲染的 2D 画布节点。
 ## [br]

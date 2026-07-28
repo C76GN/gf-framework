@@ -99,7 +99,7 @@ var _ignored_terminal_count: int = 0
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param request: 完整操作请求。
 ## [br]
@@ -169,7 +169,7 @@ func get_debug_snapshot() -> Dictionary:
 ## [br]
 ## @api protected
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param _request: 请求副本。
 ## [br]
@@ -187,7 +187,7 @@ func _dispatch_operation(
 ## [br]
 ## @api protected
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param _handle: 已进入取消或超时终态的句柄。
 ## [br]
@@ -206,7 +206,7 @@ func _cancel_operation(
 ## [br]
 ## @api protected
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param handle: 底层工作已经停止的操作句柄。
 ## [br]
@@ -226,7 +226,7 @@ func _release_operation(handle: GFNetworkLobbyOperationHandle) -> bool:
 ## [br]
 ## @api protected
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param _delta: 未缩放帧间隔。
 func _poll(_delta: float) -> void:
@@ -237,7 +237,7 @@ func _poll(_delta: float) -> void:
 ## [br]
 ## @api protected
 ## [br]
-## @since unreleased
+## @since 10.0.0
 func _close() -> void:
 	pass
 
@@ -246,7 +246,7 @@ func _close() -> void:
 ## [br]
 ## @api protected
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param handle: 待完成句柄。
 ## [br]
@@ -274,7 +274,7 @@ func _succeed_operation(
 ## [br]
 ## @api protected
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param handle: 待完成句柄。
 ## [br]
@@ -393,7 +393,7 @@ func _emit_backend_error(
 ## [br]
 ## @layer extensions/network
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param request: 完整操作请求。
 ## [br]
@@ -459,7 +459,7 @@ func invoke_from_service(
 ## [br]
 ## @layer extensions/network
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param clock: 新时钟。
 ## [br]

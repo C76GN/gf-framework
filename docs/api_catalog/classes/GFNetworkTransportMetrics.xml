@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFNetworkTransportMetrics" path="addons/gf/extensions/network/runtime/gf_network_transport_metrics.gd" module="extensions/network" extends="RefCounted" classDigest="c7b94e17bc477e3c29376bf6dfce53dd8b68ac720942329a150184b9b37492c5">
+<class name="GFNetworkTransportMetrics" path="addons/gf/extensions/network/runtime/gf_network_transport_metrics.gd" module="extensions/network" extends="RefCounted" classDigest="03b60d19175a28071ce7d42992c9ae712c7722e31c894de343e1db5373c69144">
 	<description>GFNetworkTransportMetrics: 网络传输指标快照。
 指标只在显式写入后才视为已知，避免用 0 混淆“真实为零”与“后端不支持”。
 内置指标覆盖流量、包数、连接时长、队列、延迟、抖动和丢包率；Adapter
@@ -7,7 +7,7 @@
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">value_object</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">10.0.0</tag>
 	</tags>
 	<signals />
 	<enums />
@@ -17,7 +17,7 @@
 			<description>已发送字节数。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="BYTES_RECEIVED">
@@ -25,7 +25,7 @@
 			<description>已接收字节数。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="PACKETS_SENT">
@@ -33,7 +33,7 @@
 			<description>已发送包数。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="PACKETS_RECEIVED">
@@ -41,7 +41,7 @@
 			<description>已接收包数。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="CONNECTION_AGE_MSEC">
@@ -49,7 +49,7 @@
 			<description>当前连接时长，单位毫秒。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="ROUND_TRIP_TIME_MSEC">
@@ -57,7 +57,7 @@
 			<description>往返延迟，单位毫秒。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="JITTER_MSEC">
@@ -65,7 +65,7 @@
 			<description>延迟抖动，单位毫秒。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="PACKET_LOSS_RATIO">
@@ -73,7 +73,7 @@
 			<description>丢包率，取值范围为 0 到 1。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="SEND_QUEUE_PACKETS">
@@ -81,7 +81,7 @@
 			<description>发送队列包数。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="RECEIVE_QUEUE_PACKETS">
@@ -89,7 +89,7 @@
 			<description>接收队列包数。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 	</constants>
@@ -99,7 +99,7 @@
 			<description>采样单调时间戳，单位毫秒。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="sample_window_msec">
@@ -107,7 +107,7 @@
 			<description>统计窗口长度，单位毫秒；0 表示累计值或未知窗口。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 	</properties>
@@ -120,7 +120,7 @@
 				<tag name="param">metric_id: 非空稳定指标 ID。</tag>
 				<tag name="param">value: 有限非负值；packet_loss_ratio 额外限制在 0 到 1。</tag>
 				<tag name="return">指标合法并已写入时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="clear_metric">
@@ -130,7 +130,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">metric_id: 指标 ID。</tag>
 				<tag name="return">指标原本存在时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="has_metric">
@@ -140,7 +140,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">metric_id: 指标 ID。</tag>
 				<tag name="return">指标存在时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_metric">
@@ -151,7 +151,7 @@
 				<tag name="param">metric_id: 指标 ID。</tag>
 				<tag name="param">default_value: 指标未知时的返回值。</tag>
 				<tag name="return">指标值或默认值。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_metric_ids">
@@ -160,7 +160,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">已知指标 ID。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="merge_from">
@@ -169,7 +169,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">other: 指标来源。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="to_dict">
@@ -179,7 +179,7 @@
 				<tag name="api">public</tag>
 				<tag name="return">指标快照字典。</tag>
 				<tag name="schema">return: Dictionary with sample_time_msec, sample_window_msec, and metrics.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="apply_dict">
@@ -189,7 +189,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">data: 指标快照字典。</tag>
 				<tag name="schema">data: Dictionary with sample_time_msec, sample_window_msec, and metrics.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="duplicate_metrics">
@@ -198,7 +198,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">新指标快照。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="from_dict">
@@ -209,7 +209,7 @@
 				<tag name="param">data: 指标快照字典。</tag>
 				<tag name="return">新指标快照。</tag>
 				<tag name="schema">data: Dictionary with sample_time_msec, sample_window_msec, and metrics.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 	</methods>

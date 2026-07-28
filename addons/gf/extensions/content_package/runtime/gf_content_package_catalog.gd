@@ -170,7 +170,7 @@ func get_ordered_package_ids() -> PackedStringArray:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param query: 通用内容包查询。
 ## [br]

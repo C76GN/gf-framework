@@ -8,7 +8,7 @@
 ## [br]
 ## @category resource_definition
 ## [br]
-## @since unreleased
+## @since 10.0.0
 class_name GFSessionTraceCheckpoint
 extends Resource
 
@@ -24,28 +24,28 @@ const _MAX_CHECKPOINT_PROVIDERS: int = 256
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 @export var checkpoint_id: StringName = &""
 
 ## 按顺序显式采集的 Provider ID。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 @export var provider_ids: PackedStringArray = PackedStringArray()
 
 ## 允许失败而不让检查点整体失败的 Provider ID，必须是 `provider_ids` 子集。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 @export var optional_provider_ids: PackedStringArray = PackedStringArray()
 
 ## 合并进每次 Provider 事件的检查点元数据。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @schema metadata: Dictionary with project-defined checkpoint metadata.
 @export var metadata: Dictionary = {}
@@ -57,7 +57,7 @@ const _MAX_CHECKPOINT_PROVIDERS: int = 256
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param p_checkpoint_id: 稳定检查点 ID。
 ## [br]
@@ -89,7 +89,7 @@ func configure(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return GFValidationReportDictionary 兼容报告。
 ## [br]
@@ -196,7 +196,7 @@ func validate_checkpoint() -> Dictionary:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param provider_id: Provider ID。
 ## [br]
@@ -209,7 +209,7 @@ func is_provider_optional_for_framework(provider_id: StringName) -> bool:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return JSON-safe 检查点定义。
 ## [br]

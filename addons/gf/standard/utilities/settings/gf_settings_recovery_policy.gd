@@ -7,7 +7,7 @@
 ## [br]
 ## @category resource_definition
 ## [br]
-## @since unreleased
+## @since 10.0.0
 class_name GFSettingsRecoveryPolicy
 extends Resource
 
@@ -18,21 +18,21 @@ extends Resource
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const ACTION_FAIL: StringName = &"fail"
 
 ## 保留当前有效值和暂存值。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const ACTION_USE_CURRENT_STATE: StringName = &"use_current_state"
 
 ## 使用空 replace 语义恢复已注册默认值。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const ACTION_RESET_TO_DEFAULTS: StringName = &"reset_to_defaults"
 
 
@@ -42,14 +42,14 @@ const ACTION_RESET_TO_DEFAULTS: StringName = &"reset_to_defaults"
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 @export var missing_file_action: StringName = ACTION_FAIL
 
 ## 文件损坏或完整性校验失败时的恢复动作。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 @export var corrupt_file_action: StringName = ACTION_FAIL
 
 
@@ -59,7 +59,7 @@ const ACTION_RESET_TO_DEFAULTS: StringName = &"reset_to_defaults"
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 结构化校验报告。
 ## [br]

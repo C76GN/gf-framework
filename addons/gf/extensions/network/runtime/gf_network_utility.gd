@@ -65,7 +65,7 @@ signal peer_disconnected(peer_id: int)
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param metrics: 指标快照副本。
 signal transport_metrics_sampled(metrics: GFNetworkTransportMetrics)
@@ -110,14 +110,14 @@ var connect_timeout_msec: int = 15000
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 var transport_metrics_sample_interval_msec: int = 1000
 
 ## 内存中最多保留的传输指标快照数量；小于等于 0 表示不保留。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 var max_transport_metric_samples: int:
 	get:
 		return _max_transport_metric_samples
@@ -351,7 +351,7 @@ func send_message_on_channel(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 指标快照；未配置 Backend 时返回 null。
 func capture_transport_metrics() -> GFNetworkTransportMetrics:
@@ -373,7 +373,7 @@ func capture_transport_metrics() -> GFNetworkTransportMetrics:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 最旧到最新的指标快照。
 ## [br]
@@ -390,7 +390,7 @@ func get_transport_metric_samples() -> Array[GFNetworkTransportMetrics]:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 func clear_transport_metric_samples() -> void:
 	_transport_metric_samples.clear()
 	_transport_metric_elapsed_msec = 0

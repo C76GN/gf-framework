@@ -7,7 +7,7 @@
 - 继承：`GFUtility`
 - API：`public`
 - 类别：运行时服务 (`runtime_service`)
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 有界的运行时会话轨迹记录器。 项目必须先显式注册通道，才能记录输入、路由、存档、网络或其他语义事件。 轨迹只保存经过技术脱敏和字节预算约束的结构化数据，不扫描场景树、节点属性或业务状态。 长期保存的会话上下文与目录 metadata 始终使用 privacy 安全下限，避免运行期切换 profile 后泄漏旧值。 项目仍需通过字段白名单排除账号、令牌和其他无法由通用编码器识别的业务秘密。
 
@@ -70,7 +70,7 @@
 ### `session_started`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 signal session_started(session_id: StringName, context: Dictionary)
@@ -94,7 +94,7 @@ signal session_started(session_id: StringName, context: Dictionary)
 ### `session_stopped`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 signal session_stopped(summary: Dictionary)
@@ -117,7 +117,7 @@ signal session_stopped(summary: Dictionary)
 ### `event_recorded`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 signal event_recorded(event: Dictionary)
@@ -140,7 +140,7 @@ signal event_recorded(event: Dictionary)
 ### `event_rejected`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 signal event_rejected(channel_id: StringName, event_id: StringName, reason: StringName)
@@ -163,7 +163,7 @@ signal event_rejected(channel_id: StringName, event_id: StringName, reason: Stri
 ### `DEFAULT_MAX_EVENTS`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const DEFAULT_MAX_EVENTS: int = 512
@@ -176,7 +176,7 @@ const DEFAULT_MAX_EVENTS: int = 512
 ### `DEFAULT_MAX_EVENT_BUFFER_BYTES`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const DEFAULT_MAX_EVENT_BUFFER_BYTES: int = 1024 * 1024
@@ -189,7 +189,7 @@ const DEFAULT_MAX_EVENT_BUFFER_BYTES: int = 1024 * 1024
 ### `DEFAULT_MAX_EVENT_BYTES`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const DEFAULT_MAX_EVENT_BYTES: int = 16 * 1024
@@ -202,7 +202,7 @@ const DEFAULT_MAX_EVENT_BYTES: int = 16 * 1024
 ### `DEFAULT_MAX_CHANNELS`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const DEFAULT_MAX_CHANNELS: int = 32
@@ -215,7 +215,7 @@ const DEFAULT_MAX_CHANNELS: int = 32
 ### `DEFAULT_MAX_SNAPSHOT_PROVIDERS`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const DEFAULT_MAX_SNAPSHOT_PROVIDERS: int = 32
@@ -228,7 +228,7 @@ const DEFAULT_MAX_SNAPSHOT_PROVIDERS: int = 32
 ### `DEFAULT_MAX_JOURNAL_EVENTS`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const DEFAULT_MAX_JOURNAL_EVENTS: int = 2048
@@ -241,7 +241,7 @@ const DEFAULT_MAX_JOURNAL_EVENTS: int = 2048
 ### `REJECT_SESSION_INACTIVE`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const REJECT_SESSION_INACTIVE: StringName = &"session_inactive"
@@ -254,7 +254,7 @@ const REJECT_SESSION_INACTIVE: StringName = &"session_inactive"
 ### `REJECT_UNKNOWN_CHANNEL`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const REJECT_UNKNOWN_CHANNEL: StringName = &"unknown_channel"
@@ -267,7 +267,7 @@ const REJECT_UNKNOWN_CHANNEL: StringName = &"unknown_channel"
 ### `REJECT_CHANNEL_DISABLED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const REJECT_CHANNEL_DISABLED: StringName = &"channel_disabled"
@@ -280,7 +280,7 @@ const REJECT_CHANNEL_DISABLED: StringName = &"channel_disabled"
 ### `REJECT_INVALID_EVENT_ID`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const REJECT_INVALID_EVENT_ID: StringName = &"invalid_event_id"
@@ -293,7 +293,7 @@ const REJECT_INVALID_EVENT_ID: StringName = &"invalid_event_id"
 ### `REJECT_EVENT_TOO_LARGE`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const REJECT_EVENT_TOO_LARGE: StringName = &"event_too_large"
@@ -306,7 +306,7 @@ const REJECT_EVENT_TOO_LARGE: StringName = &"event_too_large"
 ### `REJECT_INVALID_PROVIDER`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const REJECT_INVALID_PROVIDER: StringName = &"invalid_provider"
@@ -319,7 +319,7 @@ const REJECT_INVALID_PROVIDER: StringName = &"invalid_provider"
 ### `REJECT_PROVIDER_REENTRANT`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const REJECT_PROVIDER_REENTRANT: StringName = &"provider_reentrant"
@@ -334,7 +334,7 @@ const REJECT_PROVIDER_REENTRANT: StringName = &"provider_reentrant"
 ### `max_events`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var max_events: int = DEFAULT_MAX_EVENTS:
@@ -347,7 +347,7 @@ var max_events: int = DEFAULT_MAX_EVENTS:
 ### `max_event_buffer_bytes`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var max_event_buffer_bytes: int = DEFAULT_MAX_EVENT_BUFFER_BYTES:
@@ -360,7 +360,7 @@ var max_event_buffer_bytes: int = DEFAULT_MAX_EVENT_BUFFER_BYTES:
 ### `max_event_bytes`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var max_event_bytes: int = DEFAULT_MAX_EVENT_BYTES:
@@ -373,7 +373,7 @@ var max_event_bytes: int = DEFAULT_MAX_EVENT_BYTES:
 ### `max_channels`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var max_channels: int = DEFAULT_MAX_CHANNELS:
@@ -386,7 +386,7 @@ var max_channels: int = DEFAULT_MAX_CHANNELS:
 ### `max_snapshot_providers`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var max_snapshot_providers: int = DEFAULT_MAX_SNAPSHOT_PROVIDERS:
@@ -399,7 +399,7 @@ var max_snapshot_providers: int = DEFAULT_MAX_SNAPSHOT_PROVIDERS:
 ### `max_journal_events`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var max_journal_events: int = DEFAULT_MAX_JOURNAL_EVENTS:
@@ -412,7 +412,7 @@ var max_journal_events: int = DEFAULT_MAX_JOURNAL_EVENTS:
 ### `redaction_profile`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var redaction_profile: String = GFReportValueCodec.REDACTION_PROFILE_PRIVACY:
@@ -427,7 +427,7 @@ var redaction_profile: String = GFReportValueCodec.REDACTION_PROFILE_PRIVACY:
 ### `dispose`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func dispose() -> void:
@@ -440,7 +440,7 @@ func dispose() -> void:
 ### `start_session`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func start_session( requested_session_id: StringName = &"", context: Dictionary = {}, options: Dictionary = {} ) -> StringName:
@@ -468,7 +468,7 @@ func start_session( requested_session_id: StringName = &"", context: Dictionary 
 ### `stop_session`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func stop_session(reason: StringName = &"completed") -> Dictionary:
@@ -493,7 +493,7 @@ func stop_session(reason: StringName = &"completed") -> Dictionary:
 ### `clear`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func clear() -> void:
@@ -506,7 +506,7 @@ func clear() -> void:
 ### `apply_recipe`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func apply_recipe( recipe: GFSessionTraceRecipe, options: Dictionary = {} ) -> Dictionary:
@@ -533,7 +533,7 @@ func apply_recipe( recipe: GFSessionTraceRecipe, options: Dictionary = {} ) -> D
 ### `capture_recipe_checkpoint`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func capture_recipe_checkpoint( recipe: GFSessionTraceRecipe, checkpoint_id: StringName, options: Dictionary = {} ) -> Dictionary:
@@ -561,7 +561,7 @@ func capture_recipe_checkpoint( recipe: GFSessionTraceRecipe, checkpoint_id: Str
 ### `build_recipe_snapshot`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func build_recipe_snapshot( recipe: GFSessionTraceRecipe, options: Dictionary = {} ) -> Dictionary:
@@ -588,7 +588,7 @@ func build_recipe_snapshot( recipe: GFSessionTraceRecipe, options: Dictionary = 
 ### `register_channel`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func register_channel(channel_id: StringName, options: Dictionary = {}) -> bool:
@@ -614,7 +614,7 @@ func register_channel(channel_id: StringName, options: Dictionary = {}) -> bool:
 ### `unregister_channel`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func unregister_channel(channel_id: StringName) -> bool:
@@ -635,7 +635,7 @@ func unregister_channel(channel_id: StringName) -> bool:
 ### `has_channel`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func has_channel(channel_id: StringName) -> bool:
@@ -656,7 +656,7 @@ func has_channel(channel_id: StringName) -> bool:
 ### `set_channel_enabled`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func set_channel_enabled(channel_id: StringName, enabled: bool) -> bool:
@@ -678,7 +678,7 @@ func set_channel_enabled(channel_id: StringName, enabled: bool) -> bool:
 ### `get_channel_catalog`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_channel_catalog() -> Dictionary:
@@ -697,7 +697,7 @@ func get_channel_catalog() -> Dictionary:
 ### `record_event`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func record_event( channel_id: StringName, event_id: StringName, payload: Variant = null, options: Dictionary = {} ) -> Dictionary:
@@ -727,7 +727,7 @@ func record_event( channel_id: StringName, event_id: StringName, payload: Varian
 ### `register_snapshot_provider`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func register_snapshot_provider( provider_id: StringName, channel_id: StringName, provider: Callable, options: Dictionary = {} ) -> bool:
@@ -755,7 +755,7 @@ func register_snapshot_provider( provider_id: StringName, channel_id: StringName
 ### `unregister_snapshot_provider`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func unregister_snapshot_provider(provider_id: StringName) -> bool:
@@ -776,7 +776,7 @@ func unregister_snapshot_provider(provider_id: StringName) -> bool:
 ### `capture_snapshot_provider`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func capture_snapshot_provider(provider_id: StringName, options: Dictionary = {}) -> Dictionary:
@@ -803,7 +803,7 @@ func capture_snapshot_provider(provider_id: StringName, options: Dictionary = {}
 ### `get_snapshot_provider_catalog`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_snapshot_provider_catalog() -> Dictionary:
@@ -822,7 +822,7 @@ func get_snapshot_provider_catalog() -> Dictionary:
 ### `configure_journal_sink`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func configure_journal_sink(sink: GFLogSink, options: Dictionary = {}) -> bool:
@@ -848,7 +848,7 @@ func configure_journal_sink(sink: GFLogSink, options: Dictionary = {}) -> bool:
 ### `flush_journal`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func flush_journal() -> void:
@@ -861,7 +861,7 @@ func flush_journal() -> void:
 ### `clear_journal_sink`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func clear_journal_sink(shutdown: bool = false) -> void:
@@ -880,7 +880,7 @@ func clear_journal_sink(shutdown: bool = false) -> void:
 ### `get_events`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_events(limit: int = 0, filters: Dictionary = {}) -> Array[Dictionary]:
@@ -907,7 +907,7 @@ func get_events(limit: int = 0, filters: Dictionary = {}) -> Array[Dictionary]:
 ### `build_snapshot`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func build_snapshot(options: Dictionary = {}) -> Dictionary:
@@ -933,7 +933,7 @@ func build_snapshot(options: Dictionary = {}) -> Dictionary:
 ### `get_debug_snapshot`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_debug_snapshot() -> Dictionary:

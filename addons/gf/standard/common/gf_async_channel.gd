@@ -90,63 +90,63 @@ const STATUS_PENDING: StringName = &"pending"
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const STATUS_WRITTEN: StringName = &"written"
 
 ## 写入因容量策略被拒绝。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const STATUS_REJECTED: StringName = &"rejected"
 
 ## 新写入项因容量策略被丢弃。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const STATUS_DROPPED: StringName = &"dropped"
 
 ## 操作在非主线程被拒绝。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const STATUS_WRONG_THREAD: StringName = &"wrong_thread"
 
 ## 默认最多缓冲的数据数量。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const DEFAULT_MAX_BUFFERED_ITEMS: int = 256
 
 ## 最多允许配置的缓冲数据数量。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const ABSOLUTE_MAX_BUFFERED_ITEMS: int = 65_536
 
 ## 容量满时拒绝新写入。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const OVERFLOW_REJECT: StringName = &"reject"
 
 ## 容量满时丢弃最早缓冲项，再接受新写入。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const OVERFLOW_DROP_OLDEST: StringName = &"drop_oldest"
 
 ## 容量满时丢弃新写入项。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const OVERFLOW_DROP_NEWEST: StringName = &"drop_newest"
 
 
@@ -175,7 +175,7 @@ var _dropped_count: int = 0
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param max_buffered_items: 最大缓冲数量，必须位于 1..ABSOLUTE_MAX_BUFFERED_ITEMS。
 ## [br]
@@ -224,7 +224,7 @@ func try_write(item: Variant) -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param item: 待写入的数据。
 ## [br]
@@ -523,7 +523,7 @@ func get_count() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 当前最大缓冲数量；非主线程返回 0。
 func get_max_buffered_items() -> int:
@@ -536,7 +536,7 @@ func get_max_buffered_items() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 当前 overflow policy；非主线程返回空 StringName。
 func get_overflow_policy() -> StringName:

@@ -7,7 +7,7 @@
 - 继承：`Resource`
 - API：`public`
 - 类别：资源定义 (`resource_definition`)
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 有序资产 ID 集合。 集合只保存稳定 `asset_id`、展示信息和调用方元数据，不持有已加载资源， 也不规定目录、分类、预览或业务用途。调用方可以用 `GFAssetCatalog` 解析条目，并在使用前获得缺失、重复和无效 ID 的完整性报告。
 
@@ -39,7 +39,7 @@
 ### `collection_id`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var collection_id: StringName = &""
@@ -52,7 +52,7 @@ var collection_id: StringName = &""
 ### `title`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var title: String = ""
@@ -65,7 +65,7 @@ var title: String = ""
 ### `description`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var description: String = ""
@@ -78,7 +78,7 @@ var description: String = ""
 ### `asset_ids`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var asset_ids: PackedStringArray = PackedStringArray()
@@ -91,7 +91,7 @@ var asset_ids: PackedStringArray = PackedStringArray()
 ### `metadata`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var metadata: Dictionary = {}
@@ -110,7 +110,7 @@ var metadata: Dictionary = {}
 ### `configure`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func configure( p_collection_id: StringName, p_asset_ids: PackedStringArray = PackedStringArray(), options: Dictionary = {} ) -> GFAssetCollection:
@@ -137,7 +137,7 @@ func configure( p_collection_id: StringName, p_asset_ids: PackedStringArray = Pa
 ### `add_asset_id`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func add_asset_id(asset_id: StringName, index: int = -1) -> bool:
@@ -159,7 +159,7 @@ func add_asset_id(asset_id: StringName, index: int = -1) -> bool:
 ### `remove_asset_id`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func remove_asset_id(asset_id: StringName) -> bool:
@@ -180,7 +180,7 @@ func remove_asset_id(asset_id: StringName) -> bool:
 ### `move_asset_id`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func move_asset_id(asset_id: StringName, target_index: int) -> bool:
@@ -202,7 +202,7 @@ func move_asset_id(asset_id: StringName, target_index: int) -> bool:
 ### `has_asset_id`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func has_asset_id(asset_id: StringName) -> bool:
@@ -223,7 +223,7 @@ func has_asset_id(asset_id: StringName) -> bool:
 ### `resolve_entries`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func resolve_entries(catalog: GFAssetCatalog) -> Array[GFAssetCatalogEntry]:
@@ -244,7 +244,7 @@ func resolve_entries(catalog: GFAssetCatalog) -> Array[GFAssetCatalogEntry]:
 ### `validate_against`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func validate_against(catalog: GFAssetCatalog) -> GFValidationReport:
@@ -265,7 +265,7 @@ func validate_against(catalog: GFAssetCatalog) -> GFValidationReport:
 ### `duplicate_collection`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func duplicate_collection() -> GFAssetCollection:
@@ -280,7 +280,7 @@ func duplicate_collection() -> GFAssetCollection:
 ### `to_dict`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func to_dict() -> Dictionary:
@@ -299,7 +299,7 @@ func to_dict() -> Dictionary:
 ### `apply_dict`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func apply_dict(data: Dictionary) -> void:
@@ -322,7 +322,7 @@ func apply_dict(data: Dictionary) -> void:
 ### `from_dict`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 static func from_dict(data: Dictionary) -> GFAssetCollection:

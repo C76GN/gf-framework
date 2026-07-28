@@ -8,7 +8,7 @@
 ## [br]
 ## @category runtime_service
 ## [br]
-## @since unreleased
+## @since 10.0.0
 class_name GFNetworkSyncCoordinator
 extends RefCounted
 
@@ -19,7 +19,7 @@ extends RefCounted
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param previous_phase: 变化前状态。
 ## [br]
@@ -30,7 +30,7 @@ signal phase_changed(previous_phase: Phase, current_phase: Phase)
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param peer_id: 输入来源 peer。
 ## [br]
@@ -45,7 +45,7 @@ signal input_finalized(peer_id: int, sequence: int, accepted: bool, reason: Stri
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param snapshot: 权威快照副本。
 signal authority_snapshot_created(snapshot: GFNetworkSnapshot)
@@ -54,7 +54,7 @@ signal authority_snapshot_created(snapshot: GFNetworkSnapshot)
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param snapshot: 已应用权威快照副本。
 ## [br]
@@ -73,7 +73,7 @@ signal authoritative_snapshot_applied(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param peer_id: 实际传输 peer。
 ## [br]
@@ -90,7 +90,7 @@ signal synchronization_rejected(peer_id: int, reason: StringName, details: Dicti
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param reason: 稳定重同步原因。
 ## [br]
@@ -106,7 +106,7 @@ signal resync_required(reason: StringName, details: Dictionary)
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 enum Role {
 	## 尚未配置。
 	NONE,
@@ -120,7 +120,7 @@ enum Role {
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 enum Phase {
 	## 尚未配置。
 	IDLE,
@@ -141,28 +141,28 @@ enum Phase {
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const PROTOCOL_VERSION: int = 1
 
 ## Replica 输入消息类型。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const INPUT_MESSAGE_TYPE: StringName = &"gf.sync.input.v1"
 
 ## 权威全量快照消息类型。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const SNAPSHOT_MESSAGE_TYPE: StringName = &"gf.sync.snapshot.v1"
 
 ## 默认同步通道。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const DEFAULT_CHANNEL_ID: StringName = &"gf.sync"
 
 const _TRANSPORT_VALUE_VALIDATOR = preload("res://addons/gf/extensions/network/runtime/gf_network_transport_value_validator.gd")
@@ -253,7 +253,7 @@ var _prediction_history: GFNetworkHistoryBuffer = GFNetworkHistoryBuffer.new(_DE
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param role: 本地角色。
 ## [br]
@@ -327,7 +327,7 @@ func configure(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param new_epoch_id: 新同步 epoch。
 ## [br]
@@ -372,7 +372,7 @@ func reset_stream(new_epoch_id: String, start_tick: int = 0) -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param peer_id: 已由项目 session 验证的 replica peer。
 ## [br]
@@ -409,7 +409,7 @@ func register_replica_peer(peer_id: int) -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param peer_id: Replica peer。
 ## [br]
@@ -446,7 +446,7 @@ func unregister_replica_peer(peer_id: int) -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param payload: 项目输入载荷。
 ## [br]
@@ -519,7 +519,7 @@ func submit_local_input(payload: Dictionary, target_tick: int = -1) -> Dictionar
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param frame: 本地输入帧。
 ## [br]
@@ -555,7 +555,7 @@ func make_input_message(frame: GFNetworkInputFrame) -> GFNetworkMessage:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 推进报告；成功时包含权威快照副本。
 ## [br]
@@ -671,7 +671,7 @@ func advance_authority_tick() -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 预测推进报告。
 ## [br]
@@ -734,7 +734,7 @@ func advance_prediction_tick() -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param snapshot: advance_authority_tick() 生成的快照。
 ## [br]
@@ -806,7 +806,7 @@ func make_snapshot_message(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param actual_peer_id: 底层 transport 报告的实际来源 peer。
 ## [br]
@@ -833,7 +833,7 @@ func handle_message(actual_peer_id: int, message: GFNetworkMessage) -> Dictionar
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 当前角色。
 func get_role() -> Role:
@@ -844,7 +844,7 @@ func get_role() -> Role:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 当前状态。
 func get_phase() -> Phase:
@@ -855,7 +855,7 @@ func get_phase() -> Phase:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return Epoch ID。
 func get_epoch_id() -> String:
@@ -866,7 +866,7 @@ func get_epoch_id() -> String:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 当前 tick。
 func get_current_tick() -> int:
@@ -877,7 +877,7 @@ func get_current_tick() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 有界权威快照历史副本。
 func get_authoritative_history() -> GFNetworkHistoryBuffer:
@@ -888,7 +888,7 @@ func get_authoritative_history() -> GFNetworkHistoryBuffer:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 有界预测快照历史副本。
 func get_prediction_history() -> GFNetworkHistoryBuffer:
@@ -899,7 +899,7 @@ func get_prediction_history() -> GFNetworkHistoryBuffer:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 同步状态、游标和资源计数字典。
 ## [br]

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFAsyncChannel" path="addons/gf/standard/common/gf_async_channel.gd" module="standard" extends="RefCounted" classDigest="3dda31b911e282621daa833d91982ad810586c1b48dd900ff7bcc58ddffdd66d">
+<class name="GFAsyncChannel" path="addons/gf/standard/common/gf_async_channel.gd" module="standard" extends="RefCounted" classDigest="59830652e98ad1d9bb418e11466a815cdfd5646459f6fc847dbec52edaead2cc">
 	<description>GFAsyncChannel: 轻量异步事件通道。
 提供多逻辑生产者、单消费者的有界环形队列语义，可同步写入，也可异步等待下一条数据。
 通道只允许在主线程使用；后台线程应先通过 GFMainThreadDispatchQueue 回到主线程。
@@ -87,7 +87,7 @@
 			<description>写入已被通道接受。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATUS_REJECTED">
@@ -95,7 +95,7 @@
 			<description>写入因容量策略被拒绝。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATUS_DROPPED">
@@ -103,7 +103,7 @@
 			<description>新写入项因容量策略被丢弃。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATUS_WRONG_THREAD">
@@ -111,7 +111,7 @@
 			<description>操作在非主线程被拒绝。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="DEFAULT_MAX_BUFFERED_ITEMS">
@@ -119,7 +119,7 @@
 			<description>默认最多缓冲的数据数量。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="ABSOLUTE_MAX_BUFFERED_ITEMS">
@@ -127,7 +127,7 @@
 			<description>最多允许配置的缓冲数据数量。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="OVERFLOW_REJECT">
@@ -135,7 +135,7 @@
 			<description>容量满时拒绝新写入。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="OVERFLOW_DROP_OLDEST">
@@ -143,7 +143,7 @@
 			<description>容量满时丢弃最早缓冲项，再接受新写入。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="OVERFLOW_DROP_NEWEST">
@@ -151,7 +151,7 @@
 			<description>容量满时丢弃新写入项。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 	</constants>
@@ -166,7 +166,7 @@
 				<tag name="param">max_buffered_items: 最大缓冲数量，必须位于 1..ABSOLUTE_MAX_BUFFERED_ITEMS。</tag>
 				<tag name="param">overflow_policy: OVERFLOW_REJECT、OVERFLOW_DROP_OLDEST 或 OVERFLOW_DROP_NEWEST。</tag>
 				<tag name="return">配置被接受时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="try_write">
@@ -189,7 +189,7 @@
 				<tag name="return">写入结果。</tag>
 				<tag name="schema">item: Variant 待写入通道的数据。</tag>
 				<tag name="schema">return: Dictionary，包含 ok、status、accepted、dropped、dropped_item、reason、count、max_buffered_items 和 overflow_policy。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="close">
@@ -303,7 +303,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">当前最大缓冲数量；非主线程返回 0。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_overflow_policy">
@@ -312,7 +312,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">当前 overflow policy；非主线程返回空 StringName。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_debug_snapshot">

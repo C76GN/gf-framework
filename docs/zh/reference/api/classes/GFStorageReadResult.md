@@ -65,7 +65,7 @@ enum IntegrityStatus {
 ### `FailureKind`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 enum FailureKind {
@@ -183,7 +183,7 @@ var error: String = ""
 ### `failure_kind`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var failure_kind: FailureKind = FailureKind.NONE

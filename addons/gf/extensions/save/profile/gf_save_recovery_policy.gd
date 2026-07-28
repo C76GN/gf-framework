@@ -7,7 +7,7 @@
 ## [br]
 ## @category resource_definition
 ## [br]
-## @since unreleased
+## @since 10.0.0
 class_name GFSaveRecoveryPolicy
 extends Resource
 
@@ -18,14 +18,14 @@ extends Resource
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const ACTION_FAIL: StringName = &"fail"
 
 ## 保留当前内存状态，不写入或替换原文件。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const ACTION_USE_CURRENT_STATE: StringName = &"use_current_state"
 
 
@@ -35,14 +35,14 @@ const ACTION_USE_CURRENT_STATE: StringName = &"use_current_state"
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 @export var missing_file_action: StringName = ACTION_FAIL
 
 ## 文件损坏或完整性校验失败时的恢复动作。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 @export var corrupt_file_action: StringName = ACTION_FAIL
 
 ## 每次临时失败后的有限重试延迟，单位毫秒。
@@ -51,14 +51,14 @@ const ACTION_USE_CURRENT_STATE: StringName = &"use_current_state"
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 @export var retry_delays_msec: PackedInt32Array = PackedInt32Array()
 
 ## 允许重试的 Godot Error 码。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 @export var transient_error_codes: PackedInt32Array = PackedInt32Array([
 	ERR_BUSY,
 	ERR_CANT_OPEN,
@@ -75,7 +75,7 @@ const ACTION_USE_CURRENT_STATE: StringName = &"use_current_state"
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 @export_range(1, 2_147_483_647, 1) var io_timeout_msec: int = 30_000
 
 
@@ -85,7 +85,7 @@ const ACTION_USE_CURRENT_STATE: StringName = &"use_current_state"
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 结构化校验报告。
 ## [br]
@@ -140,7 +140,7 @@ func validate_policy() -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param error_code: 本次失败的 Godot Error 码。
 ## [br]
@@ -159,7 +159,7 @@ func can_retry(error_code: Error, failed_attempt_count: int) -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param failed_attempt_count: 已失败尝试次数，从 1 开始。
 ## [br]

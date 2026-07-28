@@ -71,7 +71,7 @@ signal lifecycle_event(adapter_id: StringName, event: GFPlatformLifecycleEvent)
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param adapter_id: 来源 Adapter ID。
 ## [br]
@@ -82,7 +82,7 @@ signal activation_intent_received(adapter_id: StringName, intent: GFPlatformActi
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param adapter_id: 来源 Adapter ID。
 ## [br]
@@ -236,7 +236,7 @@ func get_clock() -> GFClock:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param max_pending: 最多保留的待消费意图数。
 ## [br]
@@ -549,7 +549,7 @@ func get_context(adapter_id: StringName) -> GFPlatformRuntimeContext:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 按接收顺序排列的意图副本。
 ## [br]
@@ -565,7 +565,7 @@ func get_activation_intents() -> Array[GFPlatformActivationIntent]:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param adapter_id: 来源 Adapter ID。
 ## [br]
@@ -591,7 +591,7 @@ func consume_activation_intent(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param adapter_id: 来源 Adapter ID。
 ## [br]
@@ -609,7 +609,7 @@ func acknowledge_activation_intent(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param clear_dedupe_history: 是否同时清空近期 ID 去重窗口。
 func clear_activation_intents(clear_dedupe_history: bool = false) -> void:

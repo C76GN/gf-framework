@@ -9,7 +9,7 @@
 ## [br]
 ## @category resource_definition
 ## [br]
-## @since unreleased
+## @since 10.0.0
 class_name GFShaderInterfaceSnapshot
 extends Resource
 
@@ -20,7 +20,7 @@ extends Resource
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const CURRENT_SCHEMA_VERSION: int = 1
 
 const _KIND_INTERFACE_MODE_INVALID: StringName = &"shader_interface_mode_invalid"
@@ -68,7 +68,7 @@ const _SIGNATURE_FIELDS: PackedStringArray = [
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param shader: 要捕获的 Shader；为空时返回 null。
 ## [br]
@@ -90,7 +90,7 @@ static func capture(shader: Shader) -> GFShaderInterfaceSnapshot:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param data: 快照字典。
 ## [br]
@@ -117,7 +117,7 @@ static func from_dict(data: Dictionary) -> GFShaderInterfaceSnapshot:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return schema 版本。
 func get_schema_version() -> int:
@@ -128,7 +128,7 @@ func get_schema_version() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return Shader.Mode 对应整数。
 func get_shader_mode() -> int:
@@ -139,7 +139,7 @@ func get_shader_mode() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return uniform 条目数组。
 ## [br]
@@ -152,7 +152,7 @@ func get_uniforms() -> Array[Dictionary]:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return uniform 名数组。
 ## [br]
@@ -174,7 +174,7 @@ func get_uniform_names() -> Array[StringName]:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param parameter_name: uniform 名。
 ## [br]
@@ -187,7 +187,7 @@ func has_uniform(parameter_name: StringName) -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param parameter_name: uniform 名。
 ## [br]
@@ -209,7 +209,7 @@ func get_uniform(parameter_name: StringName) -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param parameter_name: uniform 名。
 ## [br]
@@ -243,7 +243,7 @@ func accepts_parameter_value(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param options: 支持 subject 和 metadata。
 ## [br]
@@ -336,7 +336,7 @@ func validate_definition(options: Dictionary = {}) -> GFValidationReport:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param parameters: uniform 名到参数值的映射。
 ## [br]
@@ -479,7 +479,7 @@ func validate_parameters(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param actual: 实际接口快照。
 ## [br]
@@ -641,7 +641,7 @@ func compare_with(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param shader: 实际 Shader。
 ## [br]
@@ -661,7 +661,7 @@ func validate_shader(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 新快照。
 func duplicate_snapshot() -> GFShaderInterfaceSnapshot:
@@ -677,7 +677,7 @@ func duplicate_snapshot() -> GFShaderInterfaceSnapshot:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 快照字典。
 ## [br]

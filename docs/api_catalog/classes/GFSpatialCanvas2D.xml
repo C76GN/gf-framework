@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSpatialCanvas2D" path="addons/gf/standard/utilities/spatial_canvas/gf_spatial_canvas_2d.gd" module="standard" extends="Control" classDigest="6e35a41502fba4ef5f14bf7aeb6c6d3a9de2e74264f538c50014c8a57d025285">
+<class name="GFSpatialCanvas2D" path="addons/gf/standard/utilities/spatial_canvas/gf_spatial_canvas_2d.gd" module="standard" extends="Control" classDigest="0cbf7f32f886a0cdeb35d935526c10d08b3c9b647f91a5eab446ba9bcf59d8b3">
 	<description>GFSpatialCanvas2D: 有界运行时 2D 空间交互画布。
 统一管理画布视图、世界/画布/格子坐标转换、显式条目查询、稳定选择和项目校验的
 放置会话。项目仍拥有内容节点、占位与权限规则、业务命令、存档和网络同步。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">runtime_service</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">10.0.0</tag>
 	</tags>
 	<signals>
 		<member kind="signal" name="view_changed">
@@ -16,7 +16,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">snapshot: 隔离的视图快照。</tag>
 				<tag name="schema">snapshot: Dictionary，包含 world_center、zoom、visible_world_rect、world_bounds_enabled 和 world_bounds。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="signal" name="selection_changed">
@@ -25,7 +25,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">selected_ids: 稳定条目 ID 的隔离副本。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="signal" name="placement_started">
@@ -35,7 +35,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">snapshot: 放置预览的隔离副本。</tag>
 				<tag name="schema">snapshot: Dictionary，包含 session_id、type_id、footprint、world_position、rotation_radians、world_bounds、snap_to_grid 和 snap_rotation。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="signal" name="placement_preview_changed">
@@ -45,7 +45,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">snapshot: 放置预览的隔离副本。</tag>
 				<tag name="schema">snapshot: Dictionary，结构与 placement_started 相同。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="signal" name="placement_committed">
@@ -55,7 +55,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">report: 成功提交报告的隔离副本。</tag>
 				<tag name="schema">report: Dictionary，包含 ok、reason、session_id 和 operation。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="signal" name="placement_cancelled">
@@ -65,7 +65,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">report: 取消报告的隔离副本。</tag>
 				<tag name="schema">report: Dictionary，包含 ok、reason、session_id 和 preview。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="signal" name="history_operation_requested">
@@ -75,7 +75,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">operation: 通用放置操作记录的隔离副本。</tag>
 				<tag name="schema">operation: Dictionary，包含 schema_version、operation、session_id、type_id、footprint、world_position、rotation_radians 和 world_bounds。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 	</signals>
@@ -94,7 +94,7 @@
 			<description>选择集合更新模式。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 	</enums>
@@ -104,7 +104,7 @@
 			<description>单个画布允许登记的条目绝对上限。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="ABSOLUTE_MAX_SELECTION">
@@ -112,7 +112,7 @@
 			<description>单个画布允许保留的选择绝对上限。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="ABSOLUTE_MAX_QUERY_CANDIDATES">
@@ -120,7 +120,7 @@
 			<description>单次查询允许进入精确命中与结果窗口的候选绝对上限。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="ABSOLUTE_MAX_GRID_LINES">
@@ -128,7 +128,7 @@
 			<description>单次绘制允许生成的网格线绝对上限。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 	</constants>
@@ -141,7 +141,7 @@ GF 只更新该节点的位置与缩放，不扫描、重挂或主动释放项�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">画布拥有的内容根。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="set_view">
@@ -152,7 +152,7 @@ GF 只更新该节点的位置与缩放，不扫描、重挂或主动释放项�
 				<tag name="param">world_center: 目标世界中心。</tag>
 				<tag name="param">zoom: 每个世界单位对应的画布缩放。</tag>
 				<tag name="return">输入有限且缩放有效时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_world_center">
@@ -161,7 +161,7 @@ GF 只更新该节点的位置与缩放，不扫描、重挂或主动释放项�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">当前世界中心。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_zoom">
@@ -170,7 +170,7 @@ GF 只更新该节点的位置与缩放，不扫描、重挂或主动释放项�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">当前缩放。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="set_zoom_limits">
@@ -181,7 +181,7 @@ GF 只更新该节点的位置与缩放，不扫描、重挂或主动释放项�
 				<tag name="param">minimum_zoom: 最小缩放。</tag>
 				<tag name="param">maximum_zoom: 最大缩放。</tag>
 				<tag name="return">范围有限、为正且未突破绝对限制时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="set_world_bounds">
@@ -192,7 +192,7 @@ GF 只更新该节点的位置与缩放，不扫描、重挂或主动释放项�
 				<tag name="param">bounds: 有效世界矩形。</tag>
 				<tag name="param">enabled: 是否启用中心约束。</tag>
 				<tag name="return">边界有限且启用时具有正面积，或显式禁用时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="pan_by_canvas_delta">
@@ -202,7 +202,7 @@ GF 只更新该节点的位置与缩放，不扫描、重挂或主动释放项�
 				<tag name="api">public</tag>
 				<tag name="param">canvas_delta: 指针在画布空间的移动量。</tag>
 				<tag name="return">输入有效时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="zoom_at">
@@ -213,7 +213,7 @@ GF 只更新该节点的位置与缩放，不扫描、重挂或主动释放项�
 				<tag name="param">canvas_position: 缩放焦点。</tag>
 				<tag name="param">factor: 相对缩放因子。</tag>
 				<tag name="return">输入有限且 factor 为正时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="focus_world_rect">
@@ -224,7 +224,7 @@ GF 只更新该节点的位置与缩放，不扫描、重挂或主动释放项�
 				<tag name="param">world_rect: 目标世界矩形。</tag>
 				<tag name="param">canvas_margin: 画布四周保留的像素边距。</tag>
 				<tag name="return">输入和当前画布尺寸有效时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="world_to_canvas">
@@ -234,7 +234,7 @@ GF 只更新该节点的位置与缩放，不扫描、重挂或主动释放项�
 				<tag name="api">public</tag>
 				<tag name="param">world_position: 世界坐标。</tag>
 				<tag name="return">对应画布坐标；非法输入返回 Vector2.ZERO。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="canvas_to_world">
@@ -244,7 +244,7 @@ GF 只更新该节点的位置与缩放，不扫描、重挂或主动释放项�
 				<tag name="api">public</tag>
 				<tag name="param">canvas_position: 画布坐标。</tag>
 				<tag name="return">对应世界坐标；非法输入返回 Vector2.ZERO。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="world_to_screen">
@@ -255,7 +255,7 @@ GF 只更新该节点的位置与缩放，不扫描、重挂或主动释放项�
 				<tag name="api">public</tag>
 				<tag name="param">world_position: 世界坐标。</tag>
 				<tag name="return">对应 Viewport 屏幕坐标；输入或派生结果非法时返回 Vector2.ZERO。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="screen_to_world">
@@ -266,7 +266,7 @@ GF 只更新该节点的位置与缩放，不扫描、重挂或主动释放项�
 				<tag name="api">public</tag>
 				<tag name="param">screen_position: Viewport 屏幕坐标。</tag>
 				<tag name="return">对应世界坐标；输入或画布变换不可逆时返回 Vector2.ZERO。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_visible_world_rect">
@@ -275,7 +275,7 @@ GF 只更新该节点的位置与缩放，不扫描、重挂或主动释放项�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">当前画布对应的世界矩形。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="configure_grid">
@@ -288,7 +288,7 @@ GF 只更新该节点的位置与缩放，不扫描、重挂或主动释放项�
 				<tag name="param">options: 可选旋转步长与可见性。</tag>
 				<tag name="return">配置有效时返回 true。</tag>
 				<tag name="schema">options: Dictionary，可包含 rotation_step_radians: float 和 visible: bool。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_grid_origin">
@@ -297,7 +297,7 @@ GF 只更新该节点的位置与缩放，不扫描、重挂或主动释放项�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">当前网格原点。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_grid_size">
@@ -306,7 +306,7 @@ GF 只更新该节点的位置与缩放，不扫描、重挂或主动释放项�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">当前网格尺寸。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="world_to_cell">
@@ -317,7 +317,7 @@ GF 只更新该节点的位置与缩放，不扫描、重挂或主动释放项�
 				<tag name="api">public</tag>
 				<tag name="param">world_position: 世界坐标。</tag>
 				<tag name="return">格坐标；非法输入返回 Vector2i.ZERO。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="cell_to_world">
@@ -328,7 +328,7 @@ GF 只更新该节点的位置与缩放，不扫描、重挂或主动释放项�
 				<tag name="param">cell: 格坐标。</tag>
 				<tag name="param">use_center: 为 true 时返回格子中心，否则返回格子原点。</tag>
 				<tag name="return">对应世界坐标；派生结果非有限时返回 Vector2.ZERO。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="snap_world_position">
@@ -338,7 +338,7 @@ GF 只更新该节点的位置与缩放，不扫描、重挂或主动释放项�
 				<tag name="api">public</tag>
 				<tag name="param">world_position: 待吸附坐标。</tag>
 				<tag name="return">吸附坐标；非法输入返回 Vector2.ZERO。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="snap_rotation">
@@ -348,7 +348,7 @@ GF 只更新该节点的位置与缩放，不扫描、重挂或主动释放项�
 				<tag name="api">public</tag>
 				<tag name="param">rotation_radians: 弧度角。</tag>
 				<tag name="return">规范化吸附角；未配置步长时只规范化输入，非有限输入返回 0.0。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="configure_budgets">
@@ -360,7 +360,7 @@ GF 只更新该节点的位置与缩放，不扫描、重挂或主动释放项�
 				<tag name="param">options: 预算选项。</tag>
 				<tag name="return">所有提供值都有效且不会低于当前状态占用时返回 true。</tag>
 				<tag name="schema">options: Dictionary，可包含 max_items、max_selection、max_query_candidates 和 max_grid_lines。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="upsert_item">
@@ -374,7 +374,7 @@ GF 只更新该节点的位置与缩放，不扫描、重挂或主动释放项�
 				<tag name="param">options: 通用选择选项。</tag>
 				<tag name="return">插入或更新成功时返回 true。</tag>
 				<tag name="schema">options: Dictionary，可包含 selectable: bool、selection_priority: int 和 exact_hit: Callable(item_id, world_point, bounds) -&gt; bool。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="remove_item">
@@ -384,7 +384,7 @@ GF 只更新该节点的位置与缩放，不扫描、重挂或主动释放项�
 				<tag name="api">public</tag>
 				<tag name="param">item_id: 条目标识。</tag>
 				<tag name="return">找到并移除时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="clear_items">
@@ -392,7 +392,7 @@ GF 只更新该节点的位置与缩放，不扫描、重挂或主动释放项�
 			<description>清空条目和选择。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_item">
@@ -403,7 +403,7 @@ GF 只更新该节点的位置与缩放，不扫描、重挂或主动释放项�
 				<tag name="param">item_id: 条目标识。</tag>
 				<tag name="return">包含 id、bounds、selectable 和 selection_priority 的字典；不存在时为空。</tag>
 				<tag name="schema">return: Dictionary，包含 id、bounds、selectable 和 selection_priority。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="query_items_at">
@@ -415,7 +415,7 @@ GF 只更新该节点的位置与缩放，不扫描、重挂或主动释放项�
 				<tag name="api">public</tag>
 				<tag name="param">world_position: 世界坐标。</tag>
 				<tag name="return">匹配的稳定 ID。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="query_items_in_rect">
@@ -426,7 +426,7 @@ GF 只更新该节点的位置与缩放，不扫描、重挂或主动释放项�
 				<tag name="param">world_rect: 世界查询矩形。</tag>
 				<tag name="param">fully_contained: 为 true 时只保留完全位于矩形内的条目。</tag>
 				<tag name="return">匹配的稳定 ID。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="set_selection">
@@ -438,7 +438,7 @@ GF 只更新该节点的位置与缩放，不扫描、重挂或主动释放项�
 				<tag name="param">item_ids: 候选条目 ID。</tag>
 				<tag name="param">mode: SelectionMode 值。</tag>
 				<tag name="return">更新后的隔离选择副本。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="select_point">
@@ -449,7 +449,7 @@ GF 只更新该节点的位置与缩放，不扫描、重挂或主动释放项�
 				<tag name="param">canvas_position: 本 Control 的画布坐标。</tag>
 				<tag name="param">mode: SelectionMode 值。</tag>
 				<tag name="return">更新后的选择。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="select_rect">
@@ -461,7 +461,7 @@ GF 只更新该节点的位置与缩放，不扫描、重挂或主动释放项�
 				<tag name="param">mode: SelectionMode 值。</tag>
 				<tag name="param">fully_contained: 为 true 时只选择完全位于矩形内的条目。</tag>
 				<tag name="return">更新后的选择。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="clear_selection">
@@ -469,7 +469,7 @@ GF 只更新该节点的位置与缩放，不扫描、重挂或主动释放项�
 			<description>清空选择。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_selection">
@@ -478,7 +478,7 @@ GF 只更新该节点的位置与缩放，不扫描、重挂或主动释放项�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">稳定 ID 列表。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="set_placement_validator">
@@ -489,7 +489,7 @@ GF 只更新该节点的位置与缩放，不扫描、重挂或主动释放项�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">callback: 受信同步校验回调。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="set_history_hook">
@@ -502,7 +502,7 @@ GF 只更新该节点的位置与缩放，不扫描、重挂或主动释放项�
 				<tag name="api">public</tag>
 				<tag name="param">callback: 受信同步历史回调。</tag>
 				<tag name="schema">callback: Callable(operation: Dictionary) -&gt; bool 或 Dictionary{ok: bool, reason?: StringName}。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="begin_placement">
@@ -515,7 +515,7 @@ GF 只更新该节点的位置与缩放，不扫描、重挂或主动释放项�
 				<tag name="param">options: 初始位置、旋转和吸附选项。</tag>
 				<tag name="return">成功时返回正 session ID；非法输入或已有会话时返回 0。</tag>
 				<tag name="schema">options: Dictionary，可包含 initial_world_position: Vector2、initial_rotation_radians: float、snap_to_grid: bool 和 snap_rotation: bool。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="update_placement">
@@ -527,7 +527,7 @@ GF 只更新该节点的位置与缩放，不扫描、重挂或主动释放项�
 				<tag name="param">options: 可选旋转角。</tag>
 				<tag name="return">会话活动且输入有限时返回 true。</tag>
 				<tag name="schema">options: Dictionary，可包含 rotation_radians: float。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="commit_placement">
@@ -539,7 +539,7 @@ GF 只更新该节点的位置与缩放，不扫描、重挂或主动释放项�
 				<tag name="api">public</tag>
 				<tag name="return">稳定提交报告。</tag>
 				<tag name="schema">return: Dictionary，包含 ok、reason、session_id 和 operation。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="cancel_placement">
@@ -550,7 +550,7 @@ GF 只更新该节点的位置与缩放，不扫描、重挂或主动释放项�
 				<tag name="param">reason: 项目取消原因。</tag>
 				<tag name="return">稳定取消报告。</tag>
 				<tag name="schema">return: Dictionary，包含 ok、reason、session_id 和 preview。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="has_active_placement">
@@ -559,7 +559,7 @@ GF 只更新该节点的位置与缩放，不扫描、重挂或主动释放项�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">有活动会话时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_placement_snapshot">
@@ -569,7 +569,7 @@ GF 只更新该节点的位置与缩放，不扫描、重挂或主动释放项�
 				<tag name="api">public</tag>
 				<tag name="return">活动预览；无会话时为空字典。</tag>
 				<tag name="schema">return: Dictionary，包含 session_id、type_id、footprint、world_position、rotation_radians、world_bounds、snap_to_grid 和 snap_rotation。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="handle_input_event">
@@ -581,7 +581,7 @@ GF 只更新该节点的位置与缩放，不扫描、重挂或主动释放项�
 				<tag name="api">public</tag>
 				<tag name="param">event: Godot 输入事件。</tag>
 				<tag name="return">事件被画布消费时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="handle_screen_input_event">
@@ -593,7 +593,7 @@ GF 只更新该节点的位置与缩放，不扫描、重挂或主动释放项�
 				<tag name="api">public</tag>
 				<tag name="param">event: 使用 Viewport 屏幕坐标的 Godot 输入事件。</tag>
 				<tag name="return">事件被画布消费时返回 true；变换不可逆时返回 false。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="set_input_enabled">
@@ -603,7 +603,7 @@ GF 只更新该节点的位置与缩放，不扫描、重挂或主动释放项�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">enabled: 是否启用输入。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_debug_snapshot">
@@ -614,7 +614,7 @@ GF 只更新该节点的位置与缩放，不扫描、重挂或主动释放项�
 				<tag name="api">public</tag>
 				<tag name="return">有界调试状态。</tag>
 				<tag name="schema">return: JSON-compatible Dictionary，包含 view、grid、budgets、item_count、selection_count、placement_active、input_active、last_query_candidate_count、last_query_truncated、last_grid_line_count 和 grid_draw_truncated。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 	</methods>

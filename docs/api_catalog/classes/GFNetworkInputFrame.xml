@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFNetworkInputFrame" path="addons/gf/extensions/network/simulation/gf_network_input_frame.gd" module="extensions/network" extends="RefCounted" classDigest="8f83ea9841aebea97cf942bb0643926caa2451e3a9205b550627336428208f1c">
+<class name="GFNetworkInputFrame" path="addons/gf/extensions/network/simulation/gf_network_input_frame.gd" module="extensions/network" extends="RefCounted" classDigest="6ea6445ca6273ee795f58affd7ac9a8104c2acc2a12cc1876a533779bcb80a40">
 	<description>GFNetworkInputFrame: 网络同步输入帧值对象。
 保存目标 tick、来源 peer、单调序号和项目输入载荷。该类型只负责值语义；
 非可信消息仍必须由 GFNetworkSyncCoordinator 结合实际传输 peer 校验。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">value_object</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">10.0.0</tag>
 	</tags>
 	<signals />
 	<enums />
@@ -17,7 +17,7 @@
 			<description>输入应被模拟的目标 tick。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="peer_id">
@@ -25,7 +25,7 @@
 			<description>输入来源 peer。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="sequence">
@@ -33,7 +33,7 @@
 			<description>来源 peer 内严格单调的输入序号。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="payload">
@@ -42,7 +42,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="schema">payload: Dictionary[StringName|String, Variant]，只允许网络传输安全值。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 	</properties>
@@ -54,7 +54,7 @@
 				<tag name="api">public</tag>
 				<tag name="return">输入帧字典。</tag>
 				<tag name="schema">return: Dictionary { tick: int, peer_id: int, sequence: int, payload: Dictionary }.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="from_dict">
@@ -66,7 +66,7 @@ GFNetworkSyncCoordinator.handle_message()。</description>
 				<tag name="api">public</tag>
 				<tag name="param">data: 输入帧字典。</tag>
 				<tag name="schema">data: Dictionary { tick: int, peer_id: int, sequence: int, payload: Dictionary }.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="duplicate_frame">
@@ -75,7 +75,7 @@ GFNetworkSyncCoordinator.handle_message()。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">独立输入帧副本。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="validate_frame">
@@ -88,7 +88,7 @@ GFNetworkSyncCoordinator.handle_message()。</description>
 				<tag name="return">统一校验报告。</tag>
 				<tag name="schema">options: Dictionary { max_depth?: int, max_nodes?: int, max_payload_bytes?: int }.</tag>
 				<tag name="schema">return: Dictionary { ok: bool, error: String, path: String, payload_bytes: int }.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 	</methods>

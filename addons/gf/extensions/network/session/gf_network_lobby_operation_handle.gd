@@ -7,7 +7,7 @@
 ## [br]
 ## @category runtime_handle
 ## [br]
-## @since unreleased
+## @since 10.0.0
 class_name GFNetworkLobbyOperationHandle
 extends RefCounted
 
@@ -18,7 +18,7 @@ extends RefCounted
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param result: 终态结果副本。
 signal completed(result: GFNetworkLobbyOperationResult)
@@ -27,7 +27,7 @@ signal completed(result: GFNetworkLobbyOperationResult)
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param reason: 取消原因。
 signal cancel_requested(reason: StringName)
@@ -49,7 +49,7 @@ var _initialized: bool = false
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 请求副本。
 func get_request() -> GFNetworkLobbyOperationRequest:
@@ -60,7 +60,7 @@ func get_request() -> GFNetworkLobbyOperationRequest:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 请求 ID。
 func get_request_id() -> StringName:
@@ -71,7 +71,7 @@ func get_request_id() -> StringName:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 等待中返回 true。
 func is_pending() -> bool:
@@ -82,7 +82,7 @@ func is_pending() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 已有终态结果时返回 true。
 func is_completed() -> bool:
@@ -93,7 +93,7 @@ func is_completed() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 终态存在且成功时返回 true。
 func is_successful() -> bool:
@@ -104,7 +104,7 @@ func is_successful() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 终态结果副本；等待中返回 null。
 func get_result() -> GFNetworkLobbyOperationResult:
@@ -117,7 +117,7 @@ func get_result() -> GFNetworkLobbyOperationResult:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param reason: 取消原因。
 ## [br]
@@ -138,7 +138,7 @@ func cancel(reason: StringName = &"cancelled") -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 请求和终态摘要。
 ## [br]

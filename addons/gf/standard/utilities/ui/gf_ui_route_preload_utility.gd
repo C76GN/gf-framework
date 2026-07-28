@@ -7,7 +7,7 @@
 ## [br]
 ## @category runtime_service
 ## [br]
-## @since unreleased
+## @since 10.0.0
 class_name GFUIRoutePreloadUtility
 extends RefCounted
 
@@ -18,35 +18,35 @@ extends RefCounted
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const DEFAULT_MAX_DEPTH: int = 1
 
 ## 默认单次计划最多包含的路由数量。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const DEFAULT_MAX_ROUTES: int = 64
 
 ## 默认单次遍历最多检查的原始相邻关系数量。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const DEFAULT_MAX_EDGES: int = 512
 
 ## 默认单次规划最多检查的输入路由资源数量。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const DEFAULT_MAX_CATALOG_ROUTES: int = 1024
 
 ## 默认资产预加载分组标识。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const DEFAULT_GROUP_ID: StringName = &"ui_route_preload"
 
 
@@ -56,7 +56,7 @@ const DEFAULT_GROUP_ID: StringName = &"ui_route_preload"
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param routes: 可参与分析的路由资源。
 ## [br]

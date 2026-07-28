@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：协议与扩展点 (`protocol`)
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 Platform Adapter 静态一致性审查器。 在不调用外部 SDK 的前提下检查 Adapter 身份、状态、契约描述符、必需方法、 运行时能力和桥接覆盖。动态单终态、取消和结果 schema 由 GFPlatformAdapter 基类保证，并应由 Adapter 自己的契约测试覆盖。
 
@@ -34,7 +34,7 @@ Platform Adapter 静态一致性审查器。 在不调用外部 SDK 的前提下
 ### `KIND_ADAPTER_INVALID`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const KIND_ADAPTER_INVALID: StringName = &"platform_adapter_invalid"
@@ -47,7 +47,7 @@ Adapter 为空或身份未配置。
 ### `KIND_ADAPTER_STATE_INVALID`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const KIND_ADAPTER_STATE_INVALID: StringName = &"platform_adapter_state_invalid"
@@ -60,7 +60,7 @@ Adapter 处于不可用终态。
 ### `KIND_CONTRACT_MISSING`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const KIND_CONTRACT_MISSING: StringName = &"platform_contract_missing"
@@ -73,7 +73,7 @@ const KIND_CONTRACT_MISSING: StringName = &"platform_contract_missing"
 ### `KIND_DESCRIPTOR_MISSING`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const KIND_DESCRIPTOR_MISSING: StringName = &"platform_contract_descriptor_missing"
@@ -86,7 +86,7 @@ const KIND_DESCRIPTOR_MISSING: StringName = &"platform_contract_descriptor_missi
 ### `KIND_DESCRIPTOR_INVALID`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const KIND_DESCRIPTOR_INVALID: StringName = &"platform_contract_descriptor_invalid"
@@ -99,7 +99,7 @@ const KIND_DESCRIPTOR_INVALID: StringName = &"platform_contract_descriptor_inval
 ### `KIND_CONTRACT_VERSION_MISMATCH`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const KIND_CONTRACT_VERSION_MISMATCH: StringName = &"platform_contract_version_mismatch"
@@ -112,7 +112,7 @@ const KIND_CONTRACT_VERSION_MISMATCH: StringName = &"platform_contract_version_m
 ### `KIND_METHOD_MISSING`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const KIND_METHOD_MISSING: StringName = &"platform_contract_method_missing"
@@ -125,7 +125,7 @@ const KIND_METHOD_MISSING: StringName = &"platform_contract_method_missing"
 ### `KIND_CAPABILITY_MISSING`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const KIND_CAPABILITY_MISSING: StringName = &"platform_capability_missing"
@@ -140,7 +140,7 @@ const KIND_CAPABILITY_MISSING: StringName = &"platform_capability_missing"
 ### `validate`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 static func validate( adapter: GFPlatformAdapter, options: Dictionary = {} ) -> GFValidationReport:
@@ -166,7 +166,7 @@ static func validate( adapter: GFPlatformAdapter, options: Dictionary = {} ) -> 
 ### `inspect`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 static func inspect( adapter: GFPlatformAdapter, options: Dictionary = {} ) -> Dictionary:
@@ -193,7 +193,7 @@ static func inspect( adapter: GFPlatformAdapter, options: Dictionary = {} ) -> D
 ### `make_bridge_entries`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 static func make_bridge_entries( adapter: GFPlatformAdapter, options: Dictionary = {} ) -> Dictionary:

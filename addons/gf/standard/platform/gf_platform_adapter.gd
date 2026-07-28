@@ -47,7 +47,7 @@ signal lifecycle_event(event: GFPlatformLifecycleEvent)
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param intent: 已规范化的激活意图副本。
 signal activation_intent(intent: GFPlatformActivationIntent)
@@ -176,7 +176,7 @@ func get_contract_ids() -> PackedStringArray:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 按 contract_id 排序的描述符副本。
 ## [br]
@@ -200,7 +200,7 @@ func get_contract_descriptors() -> Array[GFPlatformContractDescriptor]:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param contract_id: 契约 ID。
 ## [br]
@@ -432,7 +432,7 @@ func _cancel_request(_handle: GFPlatformRequestHandle, _reason: StringName) -> v
 ## [br]
 ## @api protected
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param handle: 已停止底层工作的请求句柄。
 ## [br]
@@ -555,7 +555,7 @@ func _publish_lifecycle_event(event: GFPlatformLifecycleEvent) -> bool:
 ## [br]
 ## @api protected
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param intent: 平台激活意图。
 ## [br]
@@ -662,7 +662,7 @@ func _fail_request(
 ## [br]
 ## @layer standard/platform
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param request: 平台桥接请求。
 ## [br]
@@ -761,7 +761,7 @@ func invoke_from_runtime(
 ## [br]
 ## @layer standard/platform
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param clock: Runtime 使用的时钟。
 ## [br]

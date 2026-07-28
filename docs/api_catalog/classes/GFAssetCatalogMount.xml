@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFAssetCatalogMount" path="addons/gf/standard/utilities/assets/gf_asset_catalog_mount.gd" module="standard" extends="RefCounted" classDigest="d496be73856afdf3c7c7138b379d75f1a57e95fef16642b5638b790063938a5e">
+<class name="GFAssetCatalogMount" path="addons/gf/standard/utilities/assets/gf_asset_catalog_mount.gd" module="standard" extends="RefCounted" classDigest="3c830350f8975847471306265baf6fd4d72d3d084a495dbb3c40fb36fdcd5ea2">
 	<description>GFAssetCatalogMount: 资产目录运行时挂载的生命周期句柄。
 句柄保存提交时的目录快照、owner、mount ID、来源和 revision，
 并提供幂等显式卸载入口。失败请求也返回带稳定状态与报告的非活动句柄。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">runtime_handle</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">10.0.0</tag>
 	</tags>
 	<signals />
 	<enums />
@@ -16,7 +16,7 @@
 			<description>Mount 已提交且仍活动。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATUS_UNMOUNTED">
@@ -24,7 +24,7 @@
 			<description>Mount 已由调用方或 owner scope 释放。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATUS_CONFLICT">
@@ -32,7 +32,7 @@
 			<description>Mount 与已提交资产 ID 冲突。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATUS_BUILD_FAILED">
@@ -40,7 +40,7 @@
 			<description>Provider 未能构建目录。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATUS_DUPLICATE_MOUNT">
@@ -48,7 +48,7 @@
 			<description>同一 owner 已存在相同 mount ID。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATUS_INVALID_REQUEST">
@@ -56,7 +56,7 @@
 			<description>Mount 请求缺少 owner、mount ID 或有效目录。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATUS_DISPOSED">
@@ -64,7 +64,7 @@
 			<description>所属 Runtime 已释放。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 	</constants>
@@ -76,7 +76,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">活动返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_status">
@@ -85,7 +85,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">`STATUS_*` 常量之一。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_owner_id">
@@ -94,7 +94,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">Mount owner ID。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_mount_id">
@@ -103,7 +103,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">Mount ID。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_source_id">
@@ -112,7 +112,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">Provider 来源 ID；直接目录 Mount 默认等于 mount ID。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_priority">
@@ -121,7 +121,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">合并优先级。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_revision">
@@ -130,7 +130,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">非负 revision。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_catalog">
@@ -139,7 +139,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">深拷贝目录。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_report">
@@ -149,7 +149,7 @@
 				<tag name="api">public</tag>
 				<tag name="return">GFValidationReport 兼容字典副本。</tag>
 				<tag name="schema">return: GFValidationReport-compatible Dictionary with status, owner_id, mount_id, source_id, priority, and revision.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="unmount">
@@ -158,7 +158,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">本次调用完成卸载返回 true；已终态返回 false。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="to_dict">
@@ -168,7 +168,7 @@
 				<tag name="api">public</tag>
 				<tag name="return">Mount 摘要。</tag>
 				<tag name="schema">return: Dictionary with active, status, owner_id, mount_id, source_id, priority, revision, token, asset_ids, and report.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 	</methods>

@@ -20,49 +20,49 @@ extends GFUtility
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const DEFAULT_MAX_PENDING_CALLBACKS: int = 1024
 
 ## 最多允许配置的待派发回调数量。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const ABSOLUTE_MAX_PENDING_CALLBACKS: int = 65_536
 
 ## dispatch() 未显式给出数量预算时使用的默认值。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const DEFAULT_MAX_CALLBACKS_PER_DISPATCH: int = 16
 
 ## 单次 dispatch() 允许处理的回调数量绝对上限。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const ABSOLUTE_MAX_CALLBACKS_PER_DISPATCH: int = 4096
 
 ## 派发正常完成。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const STATUS_COMPLETED: StringName = &"completed"
 
 ## 派发入口在非主线程被调用。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const STATUS_WRONG_THREAD: StringName = &"wrong_thread"
 
 ## 当前实例已经处于同步派发调用中。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const STATUS_BUSY: StringName = &"busy"
 
 
@@ -72,7 +72,7 @@ const STATUS_BUSY: StringName = &"busy"
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 var max_pending_callbacks: int = DEFAULT_MAX_PENDING_CALLBACKS:
 	set(value):
 		max_pending_callbacks = clampi(
@@ -193,7 +193,7 @@ func post(callback: Callable, options: Dictionary = {}) -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param owner: 方法调用拥有者。
 ## [br]

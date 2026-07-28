@@ -539,7 +539,7 @@ func replay_queued(max_count: int = 0) -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param envelope: 待检查请求信封。
 ## [br]

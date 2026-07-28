@@ -7,7 +7,7 @@
 ## [br]
 ## @category resource_definition
 ## [br]
-## @since unreleased
+## @since 10.0.0
 class_name GFPlatformContractDescriptor
 extends Resource
 
@@ -18,21 +18,21 @@ extends Resource
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 @export var contract_id: StringName = &""
 
 ## 契约版本。Adapter 应使用双方明确支持的版本，不做隐式降级。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 @export var contract_version: String = "1.0.0"
 
 ## 方法描述符列表。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @schema methods: Array[GFPlatformContractMethodDescriptor] platform contract methods.
 @export var methods: Array[GFPlatformContractMethodDescriptor] = []
@@ -41,7 +41,7 @@ extends Resource
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @schema metadata: Dictionary adapter-authoring metadata.
 @export var metadata: Dictionary = {}
@@ -53,7 +53,7 @@ extends Resource
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param p_contract_id: 契约稳定标识。
 ## [br]
@@ -88,7 +88,7 @@ func configure(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param method_id: 方法稳定标识。
 ## [br]
@@ -105,7 +105,7 @@ func get_method(method_id: StringName) -> GFPlatformContractMethodDescriptor:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 标准校验报告。
 func validate_definition() -> GFValidationReport:
@@ -151,7 +151,7 @@ func validate_definition() -> GFValidationReport:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 新描述符。
 func duplicate_descriptor() -> GFPlatformContractDescriptor:
@@ -167,7 +167,7 @@ func duplicate_descriptor() -> GFPlatformContractDescriptor:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 契约摘要。
 ## [br]

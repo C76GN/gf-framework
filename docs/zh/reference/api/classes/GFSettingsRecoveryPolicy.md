@@ -7,7 +7,7 @@
 - 继承：`Resource`
 - API：`public`
 - 类别：资源定义 (`resource_definition`)
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 设置加载的显式恢复策略。 缺失与损坏设置默认严格失败。项目可以显式选择保留当前内存状态， 或把有效设置重置为已注册默认值；恢复不会创建或覆盖持久化文件。
 
@@ -29,7 +29,7 @@
 ### `ACTION_FAIL`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const ACTION_FAIL: StringName = &"fail"
@@ -42,7 +42,7 @@ const ACTION_FAIL: StringName = &"fail"
 ### `ACTION_USE_CURRENT_STATE`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const ACTION_USE_CURRENT_STATE: StringName = &"use_current_state"
@@ -55,7 +55,7 @@ const ACTION_USE_CURRENT_STATE: StringName = &"use_current_state"
 ### `ACTION_RESET_TO_DEFAULTS`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const ACTION_RESET_TO_DEFAULTS: StringName = &"reset_to_defaults"
@@ -70,7 +70,7 @@ const ACTION_RESET_TO_DEFAULTS: StringName = &"reset_to_defaults"
 ### `missing_file_action`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var missing_file_action: StringName = ACTION_FAIL
@@ -83,7 +83,7 @@ var missing_file_action: StringName = ACTION_FAIL
 ### `corrupt_file_action`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var corrupt_file_action: StringName = ACTION_FAIL
@@ -98,7 +98,7 @@ var corrupt_file_action: StringName = ACTION_FAIL
 ### `validate_policy`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func validate_policy() -> Dictionary:

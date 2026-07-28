@@ -7,7 +7,7 @@
 - 继承：`Resource`
 - API：`public`
 - 类别：资源定义 (`resource_definition`)
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 可复用、可校验的 Session Trace 采集配方。 配方声明全局内存预算、允许的事件通道、显式检查点和快照读取默认值。 通道与检查点定义各自最多包含 256 项，数值预算会在运行时重新校验。 它不持有 Provider Callable、journal sink、上传地址、玩家许可或业务状态。
 
@@ -39,7 +39,7 @@
 ### `recipe_id`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var recipe_id: StringName = &""
@@ -52,7 +52,7 @@ var recipe_id: StringName = &""
 ### `max_events`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var max_events: int = 512
@@ -65,7 +65,7 @@ var max_events: int = 512
 ### `max_event_buffer_bytes`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var max_event_buffer_bytes: int = 1024 * 1024
@@ -78,7 +78,7 @@ var max_event_buffer_bytes: int = 1024 * 1024
 ### `max_event_bytes`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var max_event_bytes: int = 16 * 1024
@@ -91,7 +91,7 @@ var max_event_bytes: int = 16 * 1024
 ### `redaction_profile`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var redaction_profile: String = GFReportValueCodec.REDACTION_PROFILE_PRIVACY
@@ -104,7 +104,7 @@ var redaction_profile: String = GFReportValueCodec.REDACTION_PROFILE_PRIVACY
 ### `channels`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var channels: Array[GFSessionTraceChannelDefinition] = []
@@ -117,7 +117,7 @@ var channels: Array[GFSessionTraceChannelDefinition] = []
 ### `checkpoints`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var checkpoints: Array[GFSessionTraceCheckpoint] = []
@@ -130,7 +130,7 @@ var checkpoints: Array[GFSessionTraceCheckpoint] = []
 ### `snapshot_limit`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var snapshot_limit: int = 0
@@ -143,7 +143,7 @@ var snapshot_limit: int = 0
 ### `include_context`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var include_context: bool = true
@@ -156,7 +156,7 @@ var include_context: bool = true
 ### `include_channel_catalog`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var include_channel_catalog: bool = false
@@ -169,7 +169,7 @@ var include_channel_catalog: bool = false
 ### `include_provider_catalog`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var include_provider_catalog: bool = false
@@ -182,7 +182,7 @@ var include_provider_catalog: bool = false
 ### `metadata`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var metadata: Dictionary = {}
@@ -201,7 +201,7 @@ var metadata: Dictionary = {}
 ### `configure`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func configure( p_recipe_id: StringName, p_channels: Array[GFSessionTraceChannelDefinition], p_checkpoints: Array[GFSessionTraceCheckpoint] = [], options: Dictionary = {} ) -> GFSessionTraceRecipe:
@@ -229,7 +229,7 @@ func configure( p_recipe_id: StringName, p_channels: Array[GFSessionTraceChannel
 ### `validate_recipe`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func validate_recipe() -> Dictionary:
@@ -248,7 +248,7 @@ func validate_recipe() -> Dictionary:
 ### `get_checkpoint`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_checkpoint(checkpoint_id: StringName) -> GFSessionTraceCheckpoint:
@@ -269,7 +269,7 @@ func get_checkpoint(checkpoint_id: StringName) -> GFSessionTraceCheckpoint:
 ### `to_report_dictionary`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func to_report_dictionary() -> Dictionary:

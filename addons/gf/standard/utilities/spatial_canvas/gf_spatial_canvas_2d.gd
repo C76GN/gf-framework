@@ -7,7 +7,7 @@
 ## [br]
 ## @category runtime_service
 ## [br]
-## @since unreleased
+## @since 10.0.0
 class_name GFSpatialCanvas2D
 extends Control
 
@@ -18,7 +18,7 @@ extends Control
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param snapshot: 隔离的视图快照。
 ## [br]
@@ -29,7 +29,7 @@ signal view_changed(snapshot: Dictionary)
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param selected_ids: 稳定条目 ID 的隔离副本。
 signal selection_changed(selected_ids: PackedStringArray)
@@ -38,7 +38,7 @@ signal selection_changed(selected_ids: PackedStringArray)
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param snapshot: 放置预览的隔离副本。
 ## [br]
@@ -49,7 +49,7 @@ signal placement_started(snapshot: Dictionary)
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param snapshot: 放置预览的隔离副本。
 ## [br]
@@ -60,7 +60,7 @@ signal placement_preview_changed(snapshot: Dictionary)
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param report: 成功提交报告的隔离副本。
 ## [br]
@@ -71,7 +71,7 @@ signal placement_committed(report: Dictionary)
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param report: 取消报告的隔离副本。
 ## [br]
@@ -82,7 +82,7 @@ signal placement_cancelled(report: Dictionary)
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param operation: 通用放置操作记录的隔离副本。
 ## [br]
@@ -96,7 +96,7 @@ signal history_operation_requested(operation: Dictionary)
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 enum SelectionMode {
 	## 用候选替换当前选择。
 	REPLACE,
@@ -115,28 +115,28 @@ enum SelectionMode {
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const ABSOLUTE_MAX_ITEMS: int = 65536
 
 ## 单个画布允许保留的选择绝对上限。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const ABSOLUTE_MAX_SELECTION: int = 16384
 
 ## 单次查询允许进入精确命中与结果窗口的候选绝对上限。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const ABSOLUTE_MAX_QUERY_CANDIDATES: int = 16384
 
 ## 单次绘制允许生成的网格线绝对上限。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const ABSOLUTE_MAX_GRID_LINES: int = 2048
 
 const _DEFAULT_MIN_ZOOM: float = 0.05
@@ -259,7 +259,7 @@ func _gui_input(event: InputEvent) -> void:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 画布拥有的内容根。
 func get_content_root() -> Node2D:
@@ -271,7 +271,7 @@ func get_content_root() -> Node2D:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param world_center: 目标世界中心。
 ## [br]
@@ -299,7 +299,7 @@ func set_view(world_center: Vector2, zoom: float) -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 当前世界中心。
 func get_world_center() -> Vector2:
@@ -310,7 +310,7 @@ func get_world_center() -> Vector2:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 当前缩放。
 func get_zoom() -> float:
@@ -321,7 +321,7 @@ func get_zoom() -> float:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param minimum_zoom: 最小缩放。
 ## [br]
@@ -352,7 +352,7 @@ func set_zoom_limits(minimum_zoom: float, maximum_zoom: float) -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param bounds: 有效世界矩形。
 ## [br]
@@ -383,7 +383,7 @@ func set_world_bounds(bounds: Rect2, enabled: bool = true) -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param canvas_delta: 指针在画布空间的移动量。
 ## [br]
@@ -398,7 +398,7 @@ func pan_by_canvas_delta(canvas_delta: Vector2) -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param canvas_position: 缩放焦点。
 ## [br]
@@ -428,7 +428,7 @@ func zoom_at(canvas_position: Vector2, factor: float) -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param world_rect: 目标世界矩形。
 ## [br]
@@ -458,7 +458,7 @@ func focus_world_rect(world_rect: Rect2, canvas_margin: float = 0.0) -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param world_position: 世界坐标。
 ## [br]
@@ -472,7 +472,7 @@ func world_to_canvas(world_position: Vector2) -> Vector2:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param canvas_position: 画布坐标。
 ## [br]
@@ -488,7 +488,7 @@ func canvas_to_world(canvas_position: Vector2) -> Vector2:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param world_position: 世界坐标。
 ## [br]
@@ -510,7 +510,7 @@ func world_to_screen(world_position: Vector2) -> Vector2:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param screen_position: Viewport 屏幕坐标。
 ## [br]
@@ -533,7 +533,7 @@ func screen_to_world(screen_position: Vector2) -> Vector2:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 当前画布对应的世界矩形。
 func get_visible_world_rect() -> Rect2:
@@ -547,7 +547,7 @@ func get_visible_world_rect() -> Rect2:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param origin: 网格原点。
 ## [br]
@@ -596,7 +596,7 @@ func configure_grid(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 当前网格原点。
 func get_grid_origin() -> Vector2:
@@ -607,7 +607,7 @@ func get_grid_origin() -> Vector2:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 当前网格尺寸。
 func get_grid_size() -> Vector2:
@@ -620,7 +620,7 @@ func get_grid_size() -> Vector2:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param world_position: 世界坐标。
 ## [br]
@@ -650,7 +650,7 @@ func world_to_cell(world_position: Vector2) -> Vector2i:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param cell: 格坐标。
 ## [br]
@@ -667,7 +667,7 @@ func cell_to_world(cell: Vector2i, use_center: bool = false) -> Vector2:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param world_position: 待吸附坐标。
 ## [br]
@@ -681,7 +681,7 @@ func snap_world_position(world_position: Vector2) -> Vector2:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param rotation_radians: 弧度角。
 ## [br]
@@ -697,7 +697,7 @@ func snap_rotation(rotation_radians: float) -> float:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param options: 预算选项。
 ## [br]
@@ -763,7 +763,7 @@ func configure_budgets(options: Dictionary) -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param item_id: 稳定条目标识。
 ## [br]
@@ -828,7 +828,7 @@ func upsert_item(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param item_id: 条目标识。
 ## [br]
@@ -852,7 +852,7 @@ func remove_item(item_id: StringName) -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 func clear_items() -> void:
 	if _callback_active:
 		return
@@ -866,7 +866,7 @@ func clear_items() -> void:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param item_id: 条目标识。
 ## [br]
@@ -887,7 +887,7 @@ func get_item(item_id: StringName) -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param world_position: 世界坐标。
 ## [br]
@@ -900,7 +900,7 @@ func query_items_at(world_position: Vector2) -> PackedStringArray:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param world_rect: 世界查询矩形。
 ## [br]
@@ -920,7 +920,7 @@ func query_items_in_rect(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param item_ids: 候选条目 ID。
 ## [br]
@@ -974,7 +974,7 @@ func set_selection(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param canvas_position: 本 Control 的画布坐标。
 ## [br]
@@ -1005,7 +1005,7 @@ func select_point(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param canvas_rect: 画布选择矩形。
 ## [br]
@@ -1046,7 +1046,7 @@ func select_rect(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 func clear_selection() -> void:
 	if _callback_active:
 		return
@@ -1057,7 +1057,7 @@ func clear_selection() -> void:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 稳定 ID 列表。
 func get_selection() -> PackedStringArray:
@@ -1073,7 +1073,7 @@ func get_selection() -> PackedStringArray:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param callback: 受信同步校验回调。
 func set_placement_validator(callback: Callable) -> void:
@@ -1090,7 +1090,7 @@ func set_placement_validator(callback: Callable) -> void:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param callback: 受信同步历史回调。
 ## [br]
@@ -1105,7 +1105,7 @@ func set_history_hook(callback: Callable) -> void:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param type_id: 项目稳定放置类型 ID。
 ## [br]
@@ -1173,7 +1173,7 @@ func begin_placement(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param world_position: 新世界锚点。
 ## [br]
@@ -1220,7 +1220,7 @@ func update_placement(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 稳定提交报告。
 ## [br]
@@ -1278,7 +1278,7 @@ func commit_placement() -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param reason: 项目取消原因。
 ## [br]
@@ -1307,7 +1307,7 @@ func cancel_placement(reason: StringName = &"cancelled") -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 有活动会话时返回 true。
 func has_active_placement() -> bool:
@@ -1318,7 +1318,7 @@ func has_active_placement() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 活动预览；无会话时为空字典。
 ## [br]
@@ -1336,7 +1336,7 @@ func get_placement_snapshot() -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param event: Godot 输入事件。
 ## [br]
@@ -1392,7 +1392,7 @@ func handle_input_event(event: InputEvent) -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param event: 使用 Viewport 屏幕坐标的 Godot 输入事件。
 ## [br]
@@ -1414,7 +1414,7 @@ func handle_screen_input_event(event: InputEvent) -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param enabled: 是否启用输入。
 func set_input_enabled(enabled: bool) -> void:
@@ -1429,7 +1429,7 @@ func set_input_enabled(enabled: bool) -> void:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 有界调试状态。
 ## [br]
@@ -1470,7 +1470,7 @@ func get_debug_snapshot() -> Dictionary:
 
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param target: 接收有界 overlay 绘制调用的内部 Control。
 func draw_overlay(target: Control) -> void:

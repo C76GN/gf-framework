@@ -273,7 +273,7 @@ const STATUS_INVALID: StringName = &"invalid"
 ### `STATUS_REJECTED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const STATUS_REJECTED: StringName = &"rejected"
@@ -299,7 +299,7 @@ const DEFAULT_MAX_CONCURRENCY: int = 1
 ### `ABSOLUTE_MAX_CONCURRENCY`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const ABSOLUTE_MAX_CONCURRENCY: int = 4096
@@ -325,7 +325,7 @@ const DEFAULT_MAX_RECENT_EVENTS: int = 64
 ### `ABSOLUTE_MAX_RECENT_EVENTS`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const ABSOLUTE_MAX_RECENT_EVENTS: int = 4096
@@ -338,7 +338,7 @@ const ABSOLUTE_MAX_RECENT_EVENTS: int = 4096
 ### `DEFAULT_MAX_ACTIVE_LEASES`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const DEFAULT_MAX_ACTIVE_LEASES: int = 4096
@@ -351,7 +351,7 @@ const DEFAULT_MAX_ACTIVE_LEASES: int = 4096
 ### `ABSOLUTE_MAX_ACTIVE_LEASES`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const ABSOLUTE_MAX_ACTIVE_LEASES: int = 65_536
@@ -364,7 +364,7 @@ const ABSOLUTE_MAX_ACTIVE_LEASES: int = 65_536
 ### `DEFAULT_MAX_WAITING_REQUESTS`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const DEFAULT_MAX_WAITING_REQUESTS: int = 1024
@@ -377,7 +377,7 @@ const DEFAULT_MAX_WAITING_REQUESTS: int = 1024
 ### `ABSOLUTE_MAX_WAITING_REQUESTS`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const ABSOLUTE_MAX_WAITING_REQUESTS: int = 65_536
@@ -390,7 +390,7 @@ const ABSOLUTE_MAX_WAITING_REQUESTS: int = 65_536
 ### `DEFAULT_MAX_WAITING_PER_KEY`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const DEFAULT_MAX_WAITING_PER_KEY: int = 64
@@ -403,7 +403,7 @@ const DEFAULT_MAX_WAITING_PER_KEY: int = 64
 ### `ABSOLUTE_MAX_WAITING_PER_KEY`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const ABSOLUTE_MAX_WAITING_PER_KEY: int = 4096
@@ -416,7 +416,7 @@ const ABSOLUTE_MAX_WAITING_PER_KEY: int = 4096
 ### `DEFAULT_MAX_TRACKED_KEYS`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const DEFAULT_MAX_TRACKED_KEYS: int = 256
@@ -429,7 +429,7 @@ const DEFAULT_MAX_TRACKED_KEYS: int = 256
 ### `ABSOLUTE_MAX_TRACKED_KEYS`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const ABSOLUTE_MAX_TRACKED_KEYS: int = 16_384
@@ -442,7 +442,7 @@ tracked key 数量的绝对上限。
 ### `DEFAULT_MAX_PUMP_WORK_ITEMS`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const DEFAULT_MAX_PUMP_WORK_ITEMS: int = 256
@@ -455,7 +455,7 @@ const DEFAULT_MAX_PUMP_WORK_ITEMS: int = 256
 ### `ABSOLUTE_MAX_PUMP_WORK_ITEMS`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const ABSOLUTE_MAX_PUMP_WORK_ITEMS: int = 4096
@@ -468,7 +468,7 @@ const ABSOLUTE_MAX_PUMP_WORK_ITEMS: int = 4096
 ### `REASON_MAX_WAITING_REQUESTS`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const REASON_MAX_WAITING_REQUESTS: StringName = &"max_waiting_requests"
@@ -481,7 +481,7 @@ const REASON_MAX_WAITING_REQUESTS: StringName = &"max_waiting_requests"
 ### `REASON_MAX_WAITING_PER_KEY`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const REASON_MAX_WAITING_PER_KEY: StringName = &"max_waiting_per_key"
@@ -494,7 +494,7 @@ const REASON_MAX_WAITING_PER_KEY: StringName = &"max_waiting_per_key"
 ### `REASON_MAX_TRACKED_KEYS`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const REASON_MAX_TRACKED_KEYS: StringName = &"max_tracked_keys"
@@ -507,7 +507,7 @@ key 跟踪容量耗尽原因。
 ### `REASON_CANCEL_TOKEN_CONNECT_FAILED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const REASON_CANCEL_TOKEN_CONNECT_FAILED: StringName = &"cancel_token_connect_failed"
@@ -548,7 +548,7 @@ var max_recent_events: int:
 ### `max_active_leases`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var max_active_leases: int:
@@ -561,7 +561,7 @@ var max_active_leases: int:
 ### `max_waiting_requests`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var max_waiting_requests: int:
@@ -574,7 +574,7 @@ var max_waiting_requests: int:
 ### `max_waiting_per_key`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var max_waiting_per_key: int:
@@ -587,7 +587,7 @@ var max_waiting_per_key: int:
 ### `max_tracked_keys`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var max_tracked_keys: int:
@@ -600,7 +600,7 @@ var max_tracked_keys: int:
 ### `max_pump_work_items`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var max_pump_work_items: int:

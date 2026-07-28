@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFDiagnosticsUtility" path="addons/gf/standard/utilities/debug/gf_diagnostics_utility.gd" module="standard" extends="GFUtility" classDigest="cf691edba54275f2702b199e4b87fe6fe35769582c7671aa20b5554e2e75a4e3">
+<class name="GFDiagnosticsUtility" path="addons/gf/standard/utilities/debug/gf_diagnostics_utility.gd" module="standard" extends="GFUtility" classDigest="715b334a4a36ae9f969982447916ff96b0c5e5e50e5a4c51c360f3ac7df0bb32">
 	<description>GFDiagnosticsUtility: 运行时诊断聚合工具。
 提供架构生命周期、事件系统、性能、日志和外部贡献诊断的统一快照。
 外部监控和快照贡献采用 owner-bound 发布模型；普通采集只读取已验证缓存。
@@ -226,7 +226,7 @@
 			<description>最多允许注册和单批请求的惰性诊断 Provider 数量。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 	</properties>
@@ -493,7 +493,7 @@
 				<tag name="param">owner: Provider 生命周期所有者；同 ID 只允许同一 owner 更新。</tag>
 				<tag name="param">provider: 类型化同步 Provider。</tag>
 				<tag name="return">注册成功返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="unregister_diagnostic_provider">
@@ -504,7 +504,7 @@
 				<tag name="param">owner: 当前 Provider 所有者。</tag>
 				<tag name="param">provider_id: Provider 稳定 ID。</tag>
 				<tag name="return">owner 匹配且 Provider 未在采集时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="has_diagnostic_provider">
@@ -514,7 +514,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">provider_id: Provider 稳定 ID。</tag>
 				<tag name="return">owner 与 Provider 均存活时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_diagnostic_provider_catalog">
@@ -524,7 +524,7 @@
 				<tag name="api">public</tag>
 				<tag name="return">以 Provider ID 为键的只读目录副本。</tag>
 				<tag name="schema">return: Dictionary[StringName, Dictionary] with provider_class, max_duration_usec, and metadata.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="collect_diagnostic_providers">
@@ -540,7 +540,7 @@
 				<tag name="return">有界的批量采集报告。</tag>
 				<tag name="schema">request: Dictionary with caller-defined ephemeral fields.</tag>
 				<tag name="schema">return: Dictionary with ok, requested_count, unique_request_count, duplicate_count, invalid_count, executed_count, omitted_count, success_count, failure_count, error_code, error_message, duration_usec, and results keyed by provider id.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="publish_tool_snapshot">

@@ -154,7 +154,7 @@ Adapter 生命周期事件转发。
 ### `activation_intent_received`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 signal activation_intent_received(adapter_id: StringName, intent: GFPlatformActivationIntent)
@@ -174,7 +174,7 @@ signal activation_intent_received(adapter_id: StringName, intent: GFPlatformActi
 ### `activation_intent_dropped`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 signal activation_intent_dropped(
@@ -318,7 +318,7 @@ func get_clock() -> GFClock:
 ### `configure_activation_queue`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func configure_activation_queue(max_pending: int, max_seen: int) -> bool:
@@ -582,7 +582,7 @@ func get_context(adapter_id: StringName) -> GFPlatformRuntimeContext:
 ### `get_activation_intents`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_activation_intents() -> Array[GFPlatformActivationIntent]:
@@ -601,7 +601,7 @@ func get_activation_intents() -> Array[GFPlatformActivationIntent]:
 ### `consume_activation_intent`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func consume_activation_intent( adapter_id: StringName, intent_id: StringName ) -> GFPlatformActivationIntent:
@@ -623,7 +623,7 @@ func consume_activation_intent( adapter_id: StringName, intent_id: StringName ) 
 ### `acknowledge_activation_intent`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func acknowledge_activation_intent( adapter_id: StringName, intent_id: StringName ) -> bool:
@@ -645,7 +645,7 @@ func acknowledge_activation_intent( adapter_id: StringName, intent_id: StringNam
 ### `clear_activation_intents`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func clear_activation_intents(clear_dedupe_history: bool = false) -> void:

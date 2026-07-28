@@ -7,7 +7,7 @@
 ## [br]
 ## @category value_object
 ## [br]
-## @since unreleased
+## @since 10.0.0
 class_name GFSettingsLoadResult
 extends RefCounted
 
@@ -18,56 +18,56 @@ extends RefCounted
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const STATUS_LOADED: StringName = &"loaded"
 
 ## 调用方选择的显式恢复动作已完成。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const STATUS_RECOVERED: StringName = &"recovered"
 
 ## 文件名、路径或读取请求无效。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const STATUS_INVALID_REQUEST: StringName = &"invalid_request"
 
 ## 设置文件不存在。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const STATUS_MISSING: StringName = &"missing"
 
 ## 设置文件格式、载荷或完整性损坏。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const STATUS_CORRUPT: StringName = &"corrupt"
 
 ## 设置文件来自当前运行时无法读取的未来 schema。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const STATUS_FUTURE_SCHEMA: StringName = &"future_schema"
 
 ## 设置文件的迁移链缺失或迁移失败。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const STATUS_MIGRATION_FAILED: StringName = &"migration_failed"
 
 ## 底层存储读取失败或不可用。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const STATUS_STORAGE_FAILED: StringName = &"storage_failed"
 
 
@@ -91,7 +91,7 @@ var _storage_result: GFStorageReadResult = null
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 设置已加载或已按显式策略恢复时返回 true。
 func is_successful() -> bool:
@@ -102,7 +102,7 @@ func is_successful() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return `STATUS_*` 常量之一。
 func get_status() -> StringName:
@@ -113,7 +113,7 @@ func get_status() -> StringName:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 解析默认值后的设置文件名。
 func get_file_name() -> String:
@@ -124,7 +124,7 @@ func get_file_name() -> String:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 已应用持久化载荷或默认值恢复时返回 true。
 func was_applied() -> bool:
@@ -135,7 +135,7 @@ func was_applied() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 使用恢复策略完成时返回 true。
 func was_recovered() -> bool:
@@ -146,7 +146,7 @@ func was_recovered() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 未恢复时为空，否则为 `GFSettingsRecoveryPolicy.ACTION_*` 常量之一。
 func get_recovery_action() -> StringName:
@@ -157,7 +157,7 @@ func get_recovery_action() -> StringName:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 成功时为 OK。
 func get_error_code() -> Error:
@@ -168,7 +168,7 @@ func get_error_code() -> Error:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 成功时为空。
 func get_error() -> String:
@@ -179,7 +179,7 @@ func get_error() -> String:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 原始读取证据的隔离副本；读取未启动时为 null。
 func get_storage_result() -> GFStorageReadResult:
@@ -190,7 +190,7 @@ func get_storage_result() -> GFStorageReadResult:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 新结果对象。
 func duplicate_result() -> GFSettingsLoadResult:
@@ -213,7 +213,7 @@ func duplicate_result() -> GFSettingsLoadResult:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 加载终态摘要。
 ## [br]
@@ -240,7 +240,7 @@ func to_dict() -> Dictionary:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param p_ok: 是否成功。
 ## [br]

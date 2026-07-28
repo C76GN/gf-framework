@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：运行时句柄 (`runtime_handle`)
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 资产目录运行时挂载的生命周期句柄。 句柄保存提交时的目录快照、owner、mount ID、来源和 revision， 并提供幂等显式卸载入口。失败请求也返回带稳定状态与报告的非活动句柄。
 
@@ -41,7 +41,7 @@
 ### `STATUS_ACTIVE`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const STATUS_ACTIVE: StringName = &"active"
@@ -54,7 +54,7 @@ Mount 已提交且仍活动。
 ### `STATUS_UNMOUNTED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const STATUS_UNMOUNTED: StringName = &"unmounted"
@@ -67,7 +67,7 @@ Mount 已由调用方或 owner scope 释放。
 ### `STATUS_CONFLICT`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const STATUS_CONFLICT: StringName = &"conflict"
@@ -80,7 +80,7 @@ Mount 与已提交资产 ID 冲突。
 ### `STATUS_BUILD_FAILED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const STATUS_BUILD_FAILED: StringName = &"build_failed"
@@ -93,7 +93,7 @@ Provider 未能构建目录。
 ### `STATUS_DUPLICATE_MOUNT`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const STATUS_DUPLICATE_MOUNT: StringName = &"duplicate_mount"
@@ -106,7 +106,7 @@ const STATUS_DUPLICATE_MOUNT: StringName = &"duplicate_mount"
 ### `STATUS_INVALID_REQUEST`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const STATUS_INVALID_REQUEST: StringName = &"invalid_request"
@@ -119,7 +119,7 @@ Mount 请求缺少 owner、mount ID 或有效目录。
 ### `STATUS_DISPOSED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const STATUS_DISPOSED: StringName = &"disposed"
@@ -134,7 +134,7 @@ const STATUS_DISPOSED: StringName = &"disposed"
 ### `is_active`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func is_active() -> bool:
@@ -149,7 +149,7 @@ func is_active() -> bool:
 ### `get_status`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_status() -> StringName:
@@ -164,7 +164,7 @@ func get_status() -> StringName:
 ### `get_owner_id`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_owner_id() -> StringName:
@@ -179,7 +179,7 @@ func get_owner_id() -> StringName:
 ### `get_mount_id`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_mount_id() -> StringName:
@@ -194,7 +194,7 @@ func get_mount_id() -> StringName:
 ### `get_source_id`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_source_id() -> StringName:
@@ -209,7 +209,7 @@ func get_source_id() -> StringName:
 ### `get_priority`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_priority() -> int:
@@ -224,7 +224,7 @@ func get_priority() -> int:
 ### `get_revision`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_revision() -> int:
@@ -239,7 +239,7 @@ func get_revision() -> int:
 ### `get_catalog`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_catalog() -> GFAssetCatalog:
@@ -254,7 +254,7 @@ func get_catalog() -> GFAssetCatalog:
 ### `get_report`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_report() -> Dictionary:
@@ -273,7 +273,7 @@ func get_report() -> Dictionary:
 ### `unmount`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func unmount() -> bool:
@@ -288,7 +288,7 @@ func unmount() -> bool:
 ### `to_dict`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func to_dict() -> Dictionary:

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFPlatformRuntime" path="addons/gf/standard/platform/gf_platform_runtime.gd" module="standard" extends="GFUtility" classDigest="45d3d089e9b3a6e27f39a9d640595e67bb621d6551e65889284d11508aa78e3e">
+<class name="GFPlatformRuntime" path="addons/gf/standard/platform/gf_platform_runtime.gd" module="standard" extends="GFUtility" classDigest="489d0c8a0c90b36c8d942e81f3d9fb9a855d122234a8a3ee22e4fcf6b76de704">
 	<description>GFPlatformRuntime: 平台 adapter 注册、路由与请求生命周期服务。
 运行时允许多个外部 adapter 共存，但不会在同一契约存在多个候选时按注册顺序
 猜测实现。项目必须通过 `set_contract_route` 显式消除歧义。</description>
@@ -65,7 +65,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">adapter_id: 来源 Adapter ID。</tag>
 				<tag name="param">intent: 激活意图副本。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="signal" name="activation_intent_dropped">
@@ -76,7 +76,7 @@
 				<tag name="param">adapter_id: 来源 Adapter ID。</tag>
 				<tag name="param">intent_id: 被丢弃的 Intent ID。</tag>
 				<tag name="param">reason: duplicate 或 capacity。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="signal" name="request_started">
@@ -159,7 +159,7 @@
 				<tag name="param">max_pending: 最多保留的待消费意图数。</tag>
 				<tag name="param">max_seen: 最多记忆的近期 Intent ID 数；不得小于 max_pending。</tag>
 				<tag name="return">容量有效并已应用时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="register_adapter">
@@ -293,7 +293,7 @@
 				<tag name="api">public</tag>
 				<tag name="return">按接收顺序排列的意图副本。</tag>
 				<tag name="schema">return: Array[GFPlatformActivationIntent] pending activation intents.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="consume_activation_intent">
@@ -304,7 +304,7 @@
 				<tag name="param">adapter_id: 来源 Adapter ID。</tag>
 				<tag name="param">intent_id: 该 Adapter 内的 Intent ID。</tag>
 				<tag name="return">找到时返回意图副本，否则返回 null。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="acknowledge_activation_intent">
@@ -315,7 +315,7 @@
 				<tag name="param">adapter_id: 来源 Adapter ID。</tag>
 				<tag name="param">intent_id: 该 Adapter 内的 Intent ID。</tag>
 				<tag name="return">找到并移除返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="clear_activation_intents">
@@ -324,7 +324,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">clear_dedupe_history: 是否同时清空近期 ID 去重窗口。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="has_capability">

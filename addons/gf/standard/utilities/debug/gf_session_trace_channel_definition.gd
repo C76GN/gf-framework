@@ -6,7 +6,7 @@
 ## [br]
 ## @category resource_definition
 ## [br]
-## @since unreleased
+## @since 10.0.0
 class_name GFSessionTraceChannelDefinition
 extends Resource
 
@@ -24,42 +24,42 @@ const _MAX_CHANNEL_EVENT_BYTES: int = 16_777_216
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 @export var channel_id: StringName = &""
 
 ## 通道应用后是否启用。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 @export var enabled: bool = true
 
 ## 默认快照是否包含该通道事件。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 @export var include_in_snapshot: bool = true
 
 ## 通道最多保留的事件数；0 表示只使用全局限制。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 @export_range(0, 1_000_000, 1) var max_events: int = 0
 
 ## 通道单事件字节预算；0 表示只使用全局限制。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 @export_range(0, 16_777_216, 1) var max_event_bytes: int = 0
 
 ## 使用 privacy 安全下限持久保存的目录元数据。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @schema metadata: Dictionary with project-defined catalog metadata.
 @export var metadata: Dictionary = {}
@@ -71,7 +71,7 @@ const _MAX_CHANNEL_EVENT_BYTES: int = 16_777_216
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param p_channel_id: 稳定通道 ID。
 ## [br]
@@ -107,7 +107,7 @@ func configure(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return GFValidationReportDictionary 兼容报告。
 ## [br]
@@ -161,7 +161,7 @@ func validate_definition() -> Dictionary:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## metadata 保持为隔离的原始副本，由 GFSessionTraceUtility.register_channel()
 ## 在唯一运行时边界统一执行隐私编码，避免已编码 marker 被再次当作用户字典处理。
@@ -183,7 +183,7 @@ func to_channel_options_for_framework() -> Dictionary:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return JSON-safe 通道定义。
 ## [br]

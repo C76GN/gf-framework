@@ -243,7 +243,7 @@ var max_contribution_bytes: int = 262_144:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 var max_diagnostic_providers: int = 32:
 	set(value):
 		max_diagnostic_providers = maxi(value, 0)
@@ -819,7 +819,7 @@ func has_snapshot_section(section_id: StringName) -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param owner: Provider 生命周期所有者；同 ID 只允许同一 owner 更新。
 ## [br]
@@ -866,7 +866,7 @@ func register_diagnostic_provider(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param owner: 当前 Provider 所有者。
 ## [br]
@@ -888,7 +888,7 @@ func unregister_diagnostic_provider(owner: Object, provider_id: StringName) -> b
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param provider_id: Provider 稳定 ID。
 ## [br]
@@ -907,7 +907,7 @@ func has_diagnostic_provider(provider_id: StringName) -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 以 Provider ID 为键的只读目录副本。
 ## [br]
@@ -938,7 +938,7 @@ func get_diagnostic_provider_catalog() -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param provider_ids: 本次允许执行的稳定 Provider ID。
 ## [br]

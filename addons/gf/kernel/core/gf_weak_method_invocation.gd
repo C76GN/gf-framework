@@ -9,7 +9,7 @@
 ## [br]
 ## @category runtime_handle
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @layer kernel/core
 class_name GFWeakMethodInvocation
@@ -22,28 +22,28 @@ extends RefCounted
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const STATUS_INVOKED: StringName = &"invoked"
 
 ## 目标对象已释放。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const STATUS_OWNER_RELEASED: StringName = &"owner_released"
 
 ## 目标对象不再提供记录的方法。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const STATUS_METHOD_MISSING: StringName = &"method_missing"
 
 ## 调用记录或参数未通过显式预检。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const STATUS_FAILED: StringName = &"failed"
 
 
@@ -60,7 +60,7 @@ var _method_name: StringName = &""
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param owner: 调用目标；无效目标会构造一个始终返回 failed 的记录。
 ## [br]
@@ -82,7 +82,7 @@ func _init(owner: Object = null, method_name: StringName = &"") -> void:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param arguments: 传给 Object.callv() 的调用时参数数组。
 ## [br]

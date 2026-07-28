@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFUIRouteResult" path="addons/gf/standard/utilities/ui/gf_ui_route_result.gd" module="standard" extends="RefCounted" classDigest="75707eef1aa3e3d378d9a7383ac5d0a8eb42c65791daf26d6d2aeefa786bab05">
+<class name="GFUIRouteResult" path="addons/gf/standard/utilities/ui/gf_ui_route_result.gd" module="standard" extends="RefCounted" classDigest="53f489f2fd5253c1571d364a84135cccf5ec7c03e6284c13b92296e6f0b0afda">
 	<description>GFUIRouteResult: UI 路由异步打开的不可变终态。
 结果把路由校验、可选预加载、面板提交和生命周期中止统一为稳定状态，
 并保留预加载事务结果，避免项目通过日志或时序猜测失败阶段。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">value_object</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">10.0.0</tag>
 	</tags>
 	<signals />
 	<enums />
@@ -16,7 +16,7 @@
 			<description>面板已进入目标 UI 栈。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATUS_MISSING_ROUTE">
@@ -24,7 +24,7 @@
 			<description>路由不存在。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATUS_INVALID_ROUTE">
@@ -32,7 +32,7 @@
 			<description>路由资源无效。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATUS_MISSING_UI_UTILITY">
@@ -40,7 +40,7 @@
 			<description>Router 无法获取 UI Utility。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATUS_MISSING_UI_LAYER">
@@ -48,7 +48,7 @@
 			<description>路由目标逻辑层未注册。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATUS_ASYNC_CONFLICT">
@@ -56,7 +56,7 @@
 			<description>同一路径、层级和操作已有不同路由请求。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATUS_INVALID_PRELOAD_POLICY">
@@ -64,7 +64,7 @@
 			<description>预加载策略不受支持。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATUS_MISSING_ASSET_UTILITY">
@@ -72,7 +72,7 @@
 			<description>预加载策略需要 Asset Utility，但当前架构未提供。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATUS_PRELOAD_PLAN_FAILED">
@@ -80,7 +80,7 @@
 			<description>无法构建满足策略要求的预加载计划。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATUS_PRELOAD_FAILED">
@@ -88,7 +88,7 @@
 			<description>资产预加载事务失败或回滚。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATUS_PANEL_FAILED">
@@ -96,7 +96,7 @@
 			<description>面板资源加载、实例化或入栈失败。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATUS_CANCELLED">
@@ -104,7 +104,7 @@
 			<description>底层 UI 请求在完成前被取消。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATUS_DISPOSED">
@@ -112,7 +112,7 @@
 			<description>Router 在面板提交前释放，结果确定为未打开。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATUS_OUTCOME_UNKNOWN">
@@ -120,7 +120,7 @@
 			<description>Router 在面板提交后释放，无法再可靠观察底层终态。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 	</constants>
@@ -132,7 +132,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">大于零的请求 ID。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_route_id">
@@ -141,7 +141,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">本次请求的路由 ID。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_operation">
@@ -150,7 +150,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">`GFUIRouteOperation.OPERATION_*` 常量之一。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_status">
@@ -159,7 +159,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">`STATUS_*` 常量之一。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="is_successful">
@@ -168,7 +168,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">面板已进入目标 UI 栈时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_reason">
@@ -177,7 +177,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">失败或尽力预加载降级原因；无原因时为空。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_layer">
@@ -186,7 +186,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">有效路由的目标层；路由解析前失败时为 -1。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_panel">
@@ -195,7 +195,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">成功面板；失败或面板已释放时返回 null。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_preload_policy">
@@ -204,7 +204,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">Router 接受或拒绝的策略标识。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="was_preload_attempted">
@@ -213,7 +213,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">已创建并启动预加载会话时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="was_preload_successful">
@@ -222,7 +222,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">会话进入 committed 终态时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_preload_plan_report">
@@ -232,7 +232,7 @@
 				<tag name="api">public</tag>
 				<tag name="return">不包含 Resource 实例的规划摘要。</tag>
 				<tag name="schema">return: Dictionary with bounded route preload diagnostics and optional asset_plan_description.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_preload_result">
@@ -241,7 +241,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">已完成会话的结果；未启动或尚未完成时返回 null。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_started_at_msec">
@@ -250,7 +250,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">单调时钟毫秒值。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_completed_at_msec">
@@ -259,7 +259,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">单调时钟毫秒值。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_duration_msec">
@@ -268,7 +268,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">非负毫秒数。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_metadata">
@@ -278,7 +278,7 @@
 				<tag name="api">public</tag>
 				<tag name="return">`async_options.metadata` 的隔离副本。</tag>
 				<tag name="schema">return: Dictionary caller-defined route operation metadata.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="duplicate_result">
@@ -287,7 +287,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">新结果对象。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="to_dict">
@@ -297,7 +297,7 @@
 				<tag name="api">public</tag>
 				<tag name="return">请求身份、终态、预加载摘要和持续时间。</tag>
 				<tag name="schema">return: Dictionary with request_id, route_id, operation, status, ok, reason, layer, panel_instance_id, preload_policy, preload_attempted, preload_successful, preload_plan_report, preload_result, started_at_msec, completed_at_msec, duration_msec, and metadata.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 	</methods>

@@ -7,7 +7,7 @@
 - 继承：`Resource`
 - API：`public`
 - 类别：资源定义 (`resource_definition`)
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 可持久化的 Shader uniform 接口快照。 从 Shader 反射结果捕获稳定排序的 uniform 声明，并用同一份数据校验参数集合 或比较接口漂移。快照只保存公开接口字段，不保存 shader 源码、材质当前值、 渲染后端产物或项目视觉语义。直接 new() 的实例保持未配置，必须经 capture() 或 from_dict() 建立后再使用。
 
@@ -39,7 +39,7 @@
 ### `CURRENT_SCHEMA_VERSION`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const CURRENT_SCHEMA_VERSION: int = 1
@@ -54,7 +54,7 @@ const CURRENT_SCHEMA_VERSION: int = 1
 ### `capture`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 static func capture(shader: Shader) -> GFShaderInterfaceSnapshot:
@@ -75,7 +75,7 @@ static func capture(shader: Shader) -> GFShaderInterfaceSnapshot:
 ### `from_dict`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 static func from_dict(data: Dictionary) -> GFShaderInterfaceSnapshot:
@@ -100,7 +100,7 @@ static func from_dict(data: Dictionary) -> GFShaderInterfaceSnapshot:
 ### `get_schema_version`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_schema_version() -> int:
@@ -115,7 +115,7 @@ func get_schema_version() -> int:
 ### `get_shader_mode`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_shader_mode() -> int:
@@ -130,7 +130,7 @@ func get_shader_mode() -> int:
 ### `get_uniforms`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_uniforms() -> Array[Dictionary]:
@@ -149,7 +149,7 @@ func get_uniforms() -> Array[Dictionary]:
 ### `get_uniform_names`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_uniform_names() -> Array[StringName]:
@@ -168,7 +168,7 @@ func get_uniform_names() -> Array[StringName]:
 ### `has_uniform`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func has_uniform(parameter_name: StringName) -> bool:
@@ -189,7 +189,7 @@ func has_uniform(parameter_name: StringName) -> bool:
 ### `get_uniform`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_uniform(parameter_name: StringName) -> Dictionary:
@@ -214,7 +214,7 @@ func get_uniform(parameter_name: StringName) -> Dictionary:
 ### `accepts_parameter_value`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func accepts_parameter_value( parameter_name: StringName, value: Variant, options: Dictionary = {} ) -> bool:
@@ -242,7 +242,7 @@ func accepts_parameter_value( parameter_name: StringName, value: Variant, option
 ### `validate_definition`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func validate_definition(options: Dictionary = {}) -> GFValidationReport:
@@ -267,7 +267,7 @@ func validate_definition(options: Dictionary = {}) -> GFValidationReport:
 ### `validate_parameters`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func validate_parameters( parameters: Dictionary, options: Dictionary = {} ) -> GFValidationReport:
@@ -294,7 +294,7 @@ func validate_parameters( parameters: Dictionary, options: Dictionary = {} ) -> 
 ### `compare_with`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func compare_with( actual: GFShaderInterfaceSnapshot, options: Dictionary = {} ) -> GFValidationReport:
@@ -320,7 +320,7 @@ func compare_with( actual: GFShaderInterfaceSnapshot, options: Dictionary = {} )
 ### `validate_shader`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func validate_shader( shader: Shader, options: Dictionary = {} ) -> GFValidationReport:
@@ -346,7 +346,7 @@ func validate_shader( shader: Shader, options: Dictionary = {} ) -> GFValidation
 ### `duplicate_snapshot`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func duplicate_snapshot() -> GFShaderInterfaceSnapshot:
@@ -361,7 +361,7 @@ func duplicate_snapshot() -> GFShaderInterfaceSnapshot:
 ### `to_dict`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func to_dict() -> Dictionary:

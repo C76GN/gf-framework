@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：事件契约 (`event_contract`)
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 Lobby 操作请求。 将创建、查询、加入、离开和 metadata 更新统一为可关联、可复制的请求值对象。 Provider 专属参数只能放入 provider_options，不能泄漏到项目领域模型。
 
@@ -45,7 +45,7 @@ Lobby 操作请求。 将创建、查询、加入、离开和 metadata 更新统
 ### `OP_CREATE_LOBBY`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const OP_CREATE_LOBBY: StringName = &"create_lobby"
@@ -58,7 +58,7 @@ const OP_CREATE_LOBBY: StringName = &"create_lobby"
 ### `OP_QUERY_LOBBIES`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const OP_QUERY_LOBBIES: StringName = &"query_lobbies"
@@ -71,7 +71,7 @@ const OP_QUERY_LOBBIES: StringName = &"query_lobbies"
 ### `OP_JOIN_LOBBY`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const OP_JOIN_LOBBY: StringName = &"join_lobby"
@@ -84,7 +84,7 @@ const OP_JOIN_LOBBY: StringName = &"join_lobby"
 ### `OP_LEAVE_LOBBY`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const OP_LEAVE_LOBBY: StringName = &"leave_lobby"
@@ -97,7 +97,7 @@ const OP_LEAVE_LOBBY: StringName = &"leave_lobby"
 ### `OP_SET_LOBBY_METADATA`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const OP_SET_LOBBY_METADATA: StringName = &"set_lobby_metadata"
@@ -110,7 +110,7 @@ const OP_SET_LOBBY_METADATA: StringName = &"set_lobby_metadata"
 ### `OP_SET_MEMBER_METADATA`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const OP_SET_MEMBER_METADATA: StringName = &"set_member_metadata"
@@ -125,7 +125,7 @@ const OP_SET_MEMBER_METADATA: StringName = &"set_member_metadata"
 ### `request_id`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var request_id: StringName = &""
@@ -138,7 +138,7 @@ var request_id: StringName = &""
 ### `operation`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var operation: StringName = &""
@@ -151,7 +151,7 @@ var operation: StringName = &""
 ### `lobby_id`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var lobby_id: String = ""
@@ -164,7 +164,7 @@ var lobby_id: String = ""
 ### `peer_id`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var peer_id: int = 0
@@ -177,7 +177,7 @@ var peer_id: int = 0
 ### `query`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var query: GFNetworkLobbyQuery = null
@@ -190,7 +190,7 @@ var query: GFNetworkLobbyQuery = null
 ### `payload`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var payload: Dictionary = {}
@@ -207,7 +207,7 @@ var payload: Dictionary = {}
 ### `provider_options`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var provider_options: Dictionary = {}
@@ -224,7 +224,7 @@ Provider 专属调用选项。
 ### `timeout_msec`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var timeout_msec: int = 0
@@ -237,7 +237,7 @@ var timeout_msec: int = 0
 ### `metadata`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var metadata: Dictionary = {}
@@ -256,7 +256,7 @@ var metadata: Dictionary = {}
 ### `configure`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func configure( p_request_id: StringName, p_operation: StringName, options: Dictionary = {} ) -> GFNetworkLobbyOperationRequest:
@@ -283,7 +283,7 @@ func configure( p_request_id: StringName, p_operation: StringName, options: Dict
 ### `is_valid`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func is_valid() -> bool:
@@ -298,7 +298,7 @@ func is_valid() -> bool:
 ### `to_dict`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func to_dict() -> Dictionary:
@@ -317,7 +317,7 @@ func to_dict() -> Dictionary:
 ### `apply_dict`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func apply_dict(data: Dictionary) -> void:
@@ -340,7 +340,7 @@ func apply_dict(data: Dictionary) -> void:
 ### `duplicate_request`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func duplicate_request() -> GFNetworkLobbyOperationRequest:
@@ -355,7 +355,7 @@ func duplicate_request() -> GFNetworkLobbyOperationRequest:
 ### `get_supported_operations`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 static func get_supported_operations() -> PackedStringArray:
@@ -370,7 +370,7 @@ static func get_supported_operations() -> PackedStringArray:
 ### `from_dict`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 static func from_dict(data: Dictionary) -> GFNetworkLobbyOperationRequest:

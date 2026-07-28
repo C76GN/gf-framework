@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
   "catalog_version": "1.0.0",
-  "framework_version": "10.0.0-dev.0",
-  "source_digest": "57687629ffbc7eec8929c543609ee0255943715d27e75e2957f5abcdf3b786e6",
+  "framework_version": "10.0.0",
+  "source_digest": "6e0614734fcf03abf6e1058e74706983eceaea5d3b33fa68f8298d80f9e13dfd",
   "class_count": 761,
   "package_count": 52,
   "packages": [
@@ -1536,7 +1536,7 @@
       "summary": "GFAnalyticsEventSchema: 版本化 Analytics 事件属性契约。 用不超过 4096 字符且不含 C0/DEL 控制字符的稳定事件名、1..2_147_483_647 范围内的 精确版本和严格 GFDictionarySchema 描述编码前的事件属性。",
       "visibility": "public",
       "category": "resource_definition",
-      "since": "unreleased",
+      "since": "10.0.0",
       "members": [
         {
           "kind": "var",
@@ -1604,7 +1604,7 @@
       "summary": "GFAnalyticsOutboxAdapter: Analytics 批次到通用请求 Outbox 的有界持久交接适配器。 把 GFAnalyticsUtility 的 JSON-safe events 封装为固定、版本化的中立请求信封， 并在确认 GFRequestOutboxUtility 已可靠持久化后才接受整批事件。适配器不接管",
       "visibility": "public",
       "category": "runtime_service",
-      "since": "unreleased",
+      "since": "10.0.0",
       "members": [
         {
           "kind": "const",
@@ -1728,7 +1728,7 @@
       "summary": "GFAnalyticsSchemaRegistry: 精确版本 Analytics 事件 Schema 注册表。 注册表以 event_name 与 schema_version 的组合保存隔离副本， 禁止同版本覆盖，也不提供隐式 latest 回退。公开 getter 再返回副本，",
       "visibility": "public",
       "category": "runtime_service",
-      "since": "unreleased",
+      "since": "10.0.0",
       "members": [
         {
           "kind": "func",
@@ -2854,7 +2854,7 @@
       "summary": "GFArtifactWriteTransaction: 编辑器与项目工具可复用的多产物文件提交事务。 在显式资源根、文件数量和字节预算内预检文本、字节或临时文件产物， 先把全部内容写入目标同目录的 staging 文件，再逐项替换目标。任一提交",
       "visibility": "public",
       "category": "tool_api",
-      "since": "unreleased",
+      "since": "10.0.0",
       "members": [
         {
           "kind": "const",
@@ -3441,7 +3441,7 @@
       "summary": "GFAssetCatalogMount: 资产目录运行时挂载的生命周期句柄。 句柄保存提交时的目录快照、owner、mount ID、来源和 revision， 并提供幂等显式卸载入口。失败请求也返回带稳定状态与报告的非活动句柄。",
       "visibility": "public",
       "category": "runtime_handle",
-      "since": "unreleased",
+      "since": "10.0.0",
       "members": [
         {
           "kind": "const",
@@ -3579,7 +3579,7 @@
       "summary": "GFAssetCatalogRuntime: owner-scoped 资产目录快照挂载与原子合并服务。 Runtime 只接收已经构建的目录快照或 Provider 输出，按稳定优先级合并并以 revision 发布。 任何无效请求、Provider 失败或严格冲突都不会替换上一份已提交目录。",
       "visibility": "public",
       "category": "runtime_service",
-      "since": "unreleased",
+      "since": "10.0.0",
       "members": [
         {
           "kind": "signal",
@@ -3804,7 +3804,7 @@
       "summary": "GFAssetCollection: 有序资产 ID 集合。 集合只保存稳定 `asset_id`、展示信息和调用方元数据，不持有已加载资源， 也不规定目录、分类、预览或业务用途。调用方可以用 `GFAssetCatalog`",
       "visibility": "public",
       "category": "resource_definition",
-      "since": "unreleased",
+      "since": "10.0.0",
       "members": [
         {
           "kind": "var",
@@ -4628,7 +4628,7 @@
       "summary": "GFAssetSlot: 稳定资源身份下的显式可替换资源槽位。 槽位强持有当前 Resource，并在成功配置、替换或终态释放后推进单调 generation。 它不监听文件变化、不接管 GFAssetUtility 缓存，也不改变 GFAssetHandle 的快照语义。",
       "visibility": "public",
       "category": "runtime_handle",
-      "since": "unreleased",
+      "since": "10.0.0",
       "members": [
         {
           "kind": "signal",
@@ -20429,7 +20429,7 @@
       "summary": "GFContentPackageAssetCatalogProvider: 内容包目录到通用资产目录的适配器。 Provider 持有内容包目录快照，通过可选 GFContentPackageQuery 选择 manifest， 再把资源映射转换为 GFAssetCatalogEntry。它不挂载目录、不下载内容，也不解释业务分类。",
       "visibility": "public",
       "category": "protocol",
-      "since": "unreleased",
+      "since": "10.0.0",
       "members": [
         {
           "kind": "func",
@@ -20904,7 +20904,7 @@
       "summary": "GFContentPackageQuery: 内容包目录的确定性通用查询条件。 查询只描述 package、content type、依赖、资源键、安全分类和 metadata 约束， 不解释项目业务语义。所有非空条件采用 AND 语义，列表条件要求 manifest 包含全部值。",
       "visibility": "public",
       "category": "value_object",
-      "since": "unreleased",
+      "since": "10.0.0",
       "members": [
         {
           "kind": "var",
@@ -21028,7 +21028,7 @@
       "summary": "GFContentPackageQueryResult: 内容包查询的不可变结果快照。 结果区分直接命中与依赖闭包，并保留隔离的 manifest 和验证报告， 调用方不需要从空数组推断查询失败或无匹配。",
       "visibility": "public",
       "category": "value_object",
-      "since": "unreleased",
+      "since": "10.0.0",
       "members": [
         {
           "kind": "const",
@@ -23909,7 +23909,7 @@
       "summary": "GFDiagnosticProviderResult: 惰性诊断 Provider 的类型化采集结果。 成功结果携带尚未编码的临时值；失败结果携带稳定错误码和面向维护者的说明。 非法错误码会归一为 `provider_failed`，错误说明最多保留 1024 个字符。",
       "visibility": "public",
       "category": "value_object",
-      "since": "unreleased",
+      "since": "10.0.0",
       "members": [
         {
           "kind": "func",
@@ -23970,7 +23970,7 @@
       "summary": "GFDiagnosticSnapshotProvider: 按请求求值的诊断快照 Provider 协议。 Provider 不会被轮询或随普通快照隐式执行。项目必须显式请求稳定 Provider ID， 输出才会由 `GFDiagnosticsUtility` 在重入保护、结构预算和脱敏边界内采集。",
       "visibility": "public",
       "category": "protocol",
-      "since": "unreleased",
+      "since": "10.0.0",
       "members": [
         {
           "kind": "const",
@@ -27827,7 +27827,7 @@
       "summary": "GFEditorPropertyBatchCommand: 通用多目标属性事务命令。 对调用方显式提供的 Object 属性先做全量零写入预检，再按稳定顺序提交。 任一写入或最终状态验证失败时，会按相反顺序恢复本次尝试前的全部目标属性。",
       "visibility": "public",
       "category": "editor_api",
-      "since": "unreleased",
+      "since": "10.0.0",
       "members": [
         {
           "kind": "const",
@@ -45440,7 +45440,7 @@
       "summary": "GFMultiplayerPeerNetworkBackend: 可接管外部 MultiplayerPeer 的通用网络后端。 平台 Adapter 负责通过 Steam、小游戏或其他 SDK 创建 `MultiplayerPeer`，本类只负责 GF bytes 边界、轮询、连接事件和所有权。它不依赖任何第三方 SDK 类型。",
       "visibility": "public",
       "category": "runtime_handle",
-      "since": "unreleased",
+      "since": "10.0.0",
       "members": [
         {
           "kind": "enum",
@@ -46599,7 +46599,7 @@
       "summary": "GFNetworkInputFrame: 网络同步输入帧值对象。 保存目标 tick、来源 peer、单调序号和项目输入载荷。该类型只负责值语义； 非可信消息仍必须由 GFNetworkSyncCoordinator 结合实际传输 peer 校验。",
       "visibility": "public",
       "category": "value_object",
-      "since": "unreleased",
+      "since": "10.0.0",
       "members": [
         {
           "kind": "var",
@@ -47191,7 +47191,7 @@
       "summary": "GFNetworkLobbyOperationHandle: Lobby 操作运行时句柄。 句柄保证请求只能进入一个终态，并把取消、超时、Backend 失败和 SDK 回调统一为 `GFNetworkLobbyOperationResult`。调用方不能直接完成句柄。",
       "visibility": "public",
       "category": "runtime_handle",
-      "since": "unreleased",
+      "since": "10.0.0",
       "members": [
         {
           "kind": "signal",
@@ -47273,7 +47273,7 @@
       "summary": "GFNetworkLobbyOperationRequest: Lobby 操作请求。 将创建、查询、加入、离开和 metadata 更新统一为可关联、可复制的请求值对象。 Provider 专属参数只能放入 provider_options，不能泄漏到项目领域模型。",
       "visibility": "public",
       "category": "event_contract",
-      "since": "unreleased",
+      "since": "10.0.0",
       "members": [
         {
           "kind": "const",
@@ -47439,7 +47439,7 @@
       "summary": "GFNetworkLobbyOperationResult: Lobby 操作终态结果。 通过 request_id 和 operation 将 SDK 回调关联到唯一请求，并统一承载单个 Lobby、 查询列表、失败状态与耗时。结果是不可回写到 Handle 的深拷贝快照。",
       "visibility": "public",
       "category": "value_object",
-      "since": "unreleased",
+      "since": "10.0.0",
       "members": [
         {
           "kind": "var",
@@ -48796,7 +48796,7 @@
       "summary": "GFNetworkSimulationAdapter: 网络协调器的项目模拟协议。 项目继承该类型并实现同步状态捕获、校验、恢复、输入授权和单 tick 模拟。 所有钩子必须同步完成，不应执行 await、网络发送或协调器重入。",
       "visibility": "public",
       "category": "protocol",
-      "since": "unreleased",
+      "since": "10.0.0",
       "members": [
         {
           "kind": "func",
@@ -49084,7 +49084,7 @@
       "summary": "GFNetworkSyncCoordinator: 有界的权威快照与预测纠偏协调器。 协调器在项目模拟 Adapter 与 GFNetworkMessage 之间编排固定 tick、输入顺序、 全量权威快照、有限历史和事务式预测重放。它不创建 transport、不扫描节点树、",
       "visibility": "public",
       "category": "runtime_service",
-      "since": "unreleased",
+      "since": "10.0.0",
       "members": [
         {
           "kind": "signal",
@@ -49299,7 +49299,7 @@
       "summary": "GFNetworkTransportMetrics: 网络传输指标快照。 指标只在显式写入后才视为已知，避免用 0 混淆“真实为零”与“后端不支持”。 内置指标覆盖流量、包数、连接时长、队列、延迟、抖动和丢包率；Adapter",
       "visibility": "public",
       "category": "value_object",
-      "since": "unreleased",
+      "since": "10.0.0",
       "members": [
         {
           "kind": "const",
@@ -54009,7 +54009,7 @@
       "summary": "GFPlatformActivationIntent: 平台激活入口事件。 统一表达命令行启动、邀请加入、深链、前台恢复或平台入口参数。该值对象只记录 平台事实，不解释奖励、导航、匹配或其他项目策略。",
       "visibility": "public",
       "category": "event_contract",
-      "since": "unreleased",
+      "since": "10.0.0",
       "members": [
         {
           "kind": "var",
@@ -54362,7 +54362,7 @@
       "summary": "GFPlatformAdapterConformance: Platform Adapter 静态一致性审查器。 在不调用外部 SDK 的前提下检查 Adapter 身份、状态、契约描述符、必需方法、 运行时能力和桥接覆盖。动态单终态、取消和结果 schema 由 GFPlatformAdapter",
       "visibility": "public",
       "category": "protocol",
-      "since": "unreleased",
+      "since": "10.0.0",
       "members": [
         {
           "kind": "const",
@@ -54830,7 +54830,7 @@
       "summary": "GFPlatformContractDescriptor: 平台桥接契约描述。 将一个 provider-neutral contract 的版本和方法集合固定为可校验数据。描述符不包含 Steam、微信、主机厂商或项目业务语义。",
       "visibility": "public",
       "category": "resource_definition",
-      "since": "unreleased",
+      "since": "10.0.0",
       "members": [
         {
           "kind": "var",
@@ -54905,7 +54905,7 @@
       "summary": "GFPlatformContractMethodDescriptor: 平台桥接方法契约。 描述单个 provider-neutral 方法的请求/结果 schema、能力前置条件、载荷预算、 并发上限与取消语义。具体 SDK 错误码和项目业务规则不得写入该描述符。",
       "visibility": "public",
       "category": "resource_definition",
-      "since": "unreleased",
+      "since": "10.0.0",
       "members": [
         {
           "kind": "var",
@@ -64200,7 +64200,7 @@
       "summary": "GFRuntimeAgentEnvironment: 传输无关的受限运行时 Agent 调用环境。 受信宿主显式注册严格 endpoint，再为调用方签发仅授权指定 endpoint 的短期 session。 环境负责协议版本、bearer token、TTL、限流、防重放、结构预算、策略检查和无载荷审计；",
       "visibility": "public",
       "category": "runtime_service",
-      "since": "unreleased",
+      "since": "10.0.0",
       "members": [
         {
           "kind": "signal",
@@ -66777,7 +66777,7 @@
       "summary": "GFSaveProfile: 多 section 存档的项目级声明。 Profile 从 provider 列表派生唯一文档 schema，避免项目同时维护重复的 section 版本清单。运行时数据仍由 provider 持有，Profile 不解释业务字段。",
       "visibility": "public",
       "category": "resource_definition",
-      "since": "unreleased",
+      "since": "10.0.0",
       "members": [
         {
           "kind": "const",
@@ -66908,7 +66908,7 @@
       "summary": "GFSaveProfileOperation: Save Profile 异步操作句柄。 句柄由 `GFSaveProfileUtility` 完成一次且只完成一次。调用方可在连接信号前检查 `is_completed()`，避免立即拒绝或同步恢复结果造成竞态。",
       "visibility": "public",
       "category": "runtime_handle",
-      "since": "unreleased",
+      "since": "10.0.0",
       "members": [
         {
           "kind": "signal",
@@ -66997,7 +66997,7 @@
       "summary": "GFSaveProfileResult: Save Profile 操作的不可变终态快照。 结果同时保留 profile generation、底层存储结果、迁移/校验证据和回滚错误， 调用方无需从错误文本反推失败阶段。",
       "visibility": "public",
       "category": "value_object",
-      "since": "unreleased",
+      "since": "10.0.0",
       "members": [
         {
           "kind": "const",
@@ -67310,7 +67310,7 @@
       "summary": "GFSaveProfileUtility: 多 section 存档的异步协调器。 每个 profile 只串行推进一个当前 IO；超时后无法取消的写入会 detached 保留路径所有权。 连续保存通过 generation 合并为最新后续写入；读取在保存屏障后执行，并在主线程完成迁移、校验和 provider 事务化应用。",
       "visibility": "public",
       "category": "runtime_service",
-      "since": "unreleased",
+      "since": "10.0.0",
       "members": [
         {
           "kind": "signal",
@@ -67462,7 +67462,7 @@
       "summary": "GFSaveRecoveryPolicy: Save Profile 的显式恢复与有界重试政策。 缺失和损坏数据默认失败；项目必须显式选择保留当前内存状态。 重试只接受列出的临时错误，并受有限延迟序列约束。",
       "visibility": "public",
       "category": "resource_definition",
-      "since": "unreleased",
+      "since": "10.0.0",
       "members": [
         {
           "kind": "const",
@@ -67544,7 +67544,7 @@
       "summary": "GFSaveRollbackFailure: 单个 section 回滚失败证据。",
       "visibility": "public",
       "category": "value_object",
-      "since": "unreleased",
+      "since": "10.0.0",
       "members": [
         {
           "kind": "func",
@@ -67797,7 +67797,7 @@
       "summary": "GFSaveSectionProvider: Save Profile section 所有权协议。 一个 provider 只拥有一个稳定 section。实现必须能够采集当前状态、应用已校验 section，并在后续 provider 失败时恢复此前采集的 section。",
       "visibility": "public",
       "category": "protocol",
-      "since": "unreleased",
+      "since": "10.0.0",
       "members": [
         {
           "kind": "var",
@@ -70614,7 +70614,7 @@
       "summary": "GFSessionTraceChannelDefinition: Session Trace 配方中的通道定义。 该资源只描述稳定通道 ID、可见性和容量，不持有运行时回调或业务状态。",
       "visibility": "public",
       "category": "resource_definition",
-      "since": "unreleased",
+      "since": "10.0.0",
       "members": [
         {
           "kind": "var",
@@ -70682,7 +70682,7 @@
       "summary": "GFSessionTraceCheckpoint: Session Trace 配方中的显式 Provider 采集点。 检查点只引用已经在运行时注册的 Provider ID，单个列表最多包含 256 项。 默认所有 Provider 都是必需项；`optional_provider_ids` 可把部分失败降级为",
       "visibility": "public",
       "category": "resource_definition",
-      "since": "unreleased",
+      "since": "10.0.0",
       "members": [
         {
           "kind": "var",
@@ -70736,7 +70736,7 @@
       "summary": "GFSessionTraceRecipe: 可复用、可校验的 Session Trace 采集配方。 配方声明全局内存预算、允许的事件通道、显式检查点和快照读取默认值。 通道与检查点定义各自最多包含 256 项，数值预算会在运行时重新校验。",
       "visibility": "public",
       "category": "resource_definition",
-      "since": "unreleased",
+      "since": "10.0.0",
       "members": [
         {
           "kind": "var",
@@ -70860,7 +70860,7 @@
       "summary": "GFSessionTraceUtility: 有界的运行时会话轨迹记录器。 项目必须先显式注册通道，才能记录输入、路由、存档、网络或其他语义事件。 轨迹只保存经过技术脱敏和字节预算约束的结构化数据，不扫描场景树、节点属性或业务状态。",
       "visibility": "public",
       "category": "runtime_service",
-      "since": "unreleased",
+      "since": "10.0.0",
       "members": [
         {
           "kind": "signal",
@@ -71283,7 +71283,7 @@
       "summary": "GFSettingsLoadResult: 设置加载操作的不可变终态快照。 结果将“合法空设置”与缺失、损坏、未来版本和底层存储失败明确区分， 并保留实际应用状态、恢复动作和底层读取证据。",
       "visibility": "public",
       "category": "value_object",
-      "since": "unreleased",
+      "since": "10.0.0",
       "members": [
         {
           "kind": "const",
@@ -71428,7 +71428,7 @@
       "summary": "GFSettingsRecoveryPolicy: 设置加载的显式恢复策略。 缺失与损坏设置默认严格失败。项目可以显式选择保留当前内存状态， 或把有效设置重置为已注册默认值；恢复不会创建或覆盖持久化文件。",
       "visibility": "public",
       "category": "resource_definition",
-      "since": "unreleased",
+      "since": "10.0.0",
       "members": [
         {
           "kind": "const",
@@ -71816,7 +71816,7 @@
       "summary": "GFShaderInterfaceSnapshot: 可持久化的 Shader uniform 接口快照。 从 Shader 反射结果捕获稳定排序的 uniform 声明，并用同一份数据校验参数集合 或比较接口漂移。快照只保存公开接口字段，不保存 shader 源码、材质当前值、",
       "visibility": "public",
       "category": "resource_definition",
-      "since": "unreleased",
+      "since": "10.0.0",
       "members": [
         {
           "kind": "const",
@@ -75237,7 +75237,7 @@
       "summary": "GFSpatialCanvas2D: 有界运行时 2D 空间交互画布。 统一管理画布视图、世界/画布/格子坐标转换、显式条目查询、稳定选择和项目校验的 放置会话。项目仍拥有内容节点、占位与权限规则、业务命令、存档和网络同步。",
       "visibility": "public",
       "category": "runtime_service",
-      "since": "unreleased",
+      "since": "10.0.0",
       "members": [
         {
           "kind": "signal",
@@ -77353,7 +77353,7 @@
       "summary": "GFStorageAsyncOperation: 单次异步存储请求句柄。 句柄由 `GFStorageUtility` 分配唯一请求 ID，并且只接受一个终态。调用方应先 检查 `is_completed()`，再决定是否等待 `completed` 信号。",
       "visibility": "public",
       "category": "runtime_handle",
-      "since": "unreleased",
+      "since": "10.0.0",
       "members": [
         {
           "kind": "signal",
@@ -77428,7 +77428,7 @@
       "summary": "GFStorageAsyncResult: 单次异步存储请求的不可变终态。 结果通过请求 ID 与具体句柄绑定；读取结果保留 `GFStorageReadResult` 的类型化 失败分类，写入结果只暴露稳定 Error 码。",
       "visibility": "public",
       "category": "value_object",
-      "since": "unreleased",
+      "since": "10.0.0",
       "members": [
         {
           "kind": "func",
@@ -77945,7 +77945,7 @@
       "summary": "GFStorageFailoverBackend: 有序存储故障转移后端。 该组合后端按稳定 ID 管理一组调用方持有的 `GFStorageBackend`。读取总是按序 尝试，写入和删除可选择只访问主后端或在失败后访问下一后端。它不会复制、",
       "visibility": "public",
       "category": "runtime_service",
-      "since": "unreleased",
+      "since": "10.0.0",
       "members": [
         {
           "kind": "enum",
@@ -83436,7 +83436,7 @@
       "summary": "GFTrajectoryMath: 通用运动预测、拦截和公式轨迹采样工具。 运动预测和拦截入口是 GF 内部无节点副作用的纯计算，不负责绘制、物理推进、目标选择或业务策略。 公式采样会同步执行项目显式提供的可信 Callable，并在调用前执行硬预算校验；GF 本身不访问节点，",
       "visibility": "public",
       "category": "runtime_service",
-      "since": "unreleased",
+      "since": "10.0.0",
       "members": [
         {
           "kind": "const",
@@ -84639,7 +84639,7 @@
       "summary": "GFUIRouteOperation: 单次异步路由打开的可观察句柄。 句柄由 GFUIRouterUtility 分配请求身份并只接受一个终态。相同 pending 路由 会返回同一句柄，调用方无需自行按路径合并请求。",
       "visibility": "public",
       "category": "runtime_handle",
-      "since": "unreleased",
+      "since": "10.0.0",
       "members": [
         {
           "kind": "signal",
@@ -84742,7 +84742,7 @@
       "summary": "GFUIRoutePreloadUtility: 从显式 UI 路由关系构建资源预加载计划。 该工具只做有界、确定性的可达性遍历，并把页面场景转换为 GFAssetPreloadPlan。 权限、导航守卫、动态业务分支和实际预加载时机仍由项目负责。",
       "visibility": "public",
       "category": "runtime_service",
-      "since": "unreleased",
+      "since": "10.0.0",
       "members": [
         {
           "kind": "const",
@@ -84796,7 +84796,7 @@
       "summary": "GFUIRouteResult: UI 路由异步打开的不可变终态。 结果把路由校验、可选预加载、面板提交和生命周期中止统一为稳定状态， 并保留预加载事务结果，避免项目通过日志或时序猜测失败阶段。",
       "visibility": "public",
       "category": "value_object",
-      "since": "unreleased",
+      "since": "10.0.0",
       "members": [
         {
           "kind": "const",
@@ -88941,7 +88941,7 @@
       "summary": "GFWeakMethodInvocation: 不强持有目标对象的方法调用记录。 记录只保留目标的 WeakRef、创建时实例 ID 与方法名，并在调用时接收参数。 它不会保存 Callable，因此目标为 RefCounted 时不会被绑定回调意外延长生命周期。",
       "visibility": "public",
       "category": "runtime_handle",
-      "since": "unreleased",
+      "since": "10.0.0",
       "members": [
         {
           "kind": "const",

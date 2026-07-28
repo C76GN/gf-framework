@@ -454,7 +454,7 @@ var max_contribution_bytes: int = 262_144:
 ### `max_diagnostic_providers`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var max_diagnostic_providers: int = 32:
@@ -986,7 +986,7 @@ func has_snapshot_section(section_id: StringName) -> bool:
 ### `register_diagnostic_provider`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func register_diagnostic_provider( owner: Object, provider: GFDiagnosticSnapshotProvider ) -> bool:
@@ -1008,7 +1008,7 @@ func register_diagnostic_provider( owner: Object, provider: GFDiagnosticSnapshot
 ### `unregister_diagnostic_provider`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func unregister_diagnostic_provider(owner: Object, provider_id: StringName) -> bool:
@@ -1030,7 +1030,7 @@ func unregister_diagnostic_provider(owner: Object, provider_id: StringName) -> b
 ### `has_diagnostic_provider`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func has_diagnostic_provider(provider_id: StringName) -> bool:
@@ -1051,7 +1051,7 @@ func has_diagnostic_provider(provider_id: StringName) -> bool:
 ### `get_diagnostic_provider_catalog`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_diagnostic_provider_catalog() -> Dictionary:
@@ -1070,7 +1070,7 @@ func get_diagnostic_provider_catalog() -> Dictionary:
 ### `collect_diagnostic_providers`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func collect_diagnostic_providers( provider_ids: PackedStringArray, request: Dictionary = {} ) -> Dictionary:

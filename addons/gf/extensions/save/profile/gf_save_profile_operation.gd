@@ -7,7 +7,7 @@
 ## [br]
 ## @category runtime_handle
 ## [br]
-## @since unreleased
+## @since 10.0.0
 class_name GFSaveProfileOperation
 extends RefCounted
 
@@ -18,7 +18,7 @@ extends RefCounted
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param result: 隔离终态结果。
 signal completed(result: GFSaveProfileResult)
@@ -30,21 +30,21 @@ signal completed(result: GFSaveProfileResult)
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const OPERATION_SAVE: StringName = &"save"
 
 ## 读取操作。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const OPERATION_LOAD: StringName = &"load"
 
 ## flush 操作。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const OPERATION_FLUSH: StringName = &"flush"
 
 
@@ -67,7 +67,7 @@ var _metadata: Dictionary = {}
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return save、load 或 flush。
 func get_operation() -> StringName:
@@ -78,7 +78,7 @@ func get_operation() -> StringName:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return profile ID。
 func get_profile_id() -> StringName:
@@ -89,7 +89,7 @@ func get_profile_id() -> StringName:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 非负 generation。
 func get_requested_generation() -> int:
@@ -100,7 +100,7 @@ func get_requested_generation() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 尚未运行或完成时返回 true。
 func is_pending() -> bool:
@@ -111,7 +111,7 @@ func is_pending() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 已启动但无终态时返回 true。
 func is_running() -> bool:
@@ -122,7 +122,7 @@ func is_running() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 已完成时返回 true。
 func is_completed() -> bool:
@@ -133,7 +133,7 @@ func is_completed() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 已完成结果；等待中返回 null。
 func get_result() -> GFSaveProfileResult:
@@ -146,7 +146,7 @@ func get_result() -> GFSaveProfileResult:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param operation: 操作类型。
 ## [br]
@@ -188,7 +188,7 @@ func configure_for_framework(
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 从 pending 转为 running 时返回 true。
 func start_for_framework() -> bool:
@@ -202,7 +202,7 @@ func start_for_framework() -> bool:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param result: 唯一终态结果。
 ## [br]
@@ -220,7 +220,7 @@ func complete_for_framework(result: GFSaveProfileResult) -> bool:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 首次发出终态信号时返回 true。
 func emit_completed_for_framework() -> bool:
@@ -235,7 +235,7 @@ func emit_completed_for_framework() -> bool:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 单调开始时间。
 func get_started_at_msec_for_framework() -> int:
@@ -246,7 +246,7 @@ func get_started_at_msec_for_framework() -> int:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return Provider 临时上下文副本。
 ## [br]
@@ -259,7 +259,7 @@ func get_context_for_framework() -> Dictionary:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 调用方结果元数据副本。
 ## [br]

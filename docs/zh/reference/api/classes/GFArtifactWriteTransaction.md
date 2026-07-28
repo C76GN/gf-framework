@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：工具 API (`tool_api`)
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 编辑器与项目工具可复用的多产物文件提交事务。 在显式资源根、文件数量和字节预算内预检文本、字节或临时文件产物， 先把全部内容写入目标同目录的 staging 文件，再逐项替换目标。任一提交 失败时逆序恢复已有目标并删除本次新增目标。该类不解释产物格式、生成器 业务、导入策略或远端发布目标，也不把进程中断或系统崩溃下的多文件 持久化误称为 crash-atomic。GDScript 文件 API 无法固定父目录句柄，因此 allowed_roots 必须位于调用方信任且不会被本机其他进程恶意交换 junction 的目录；实现会在 rename、删除和恢复前后复核可观察的路径、内容与 sidecar 身份，并在漂移时 fail closed，而不是盲目破坏未知文件。
 
@@ -45,7 +45,7 @@
 ### `KIND_TEXT`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const KIND_TEXT: StringName = &"text"
@@ -58,7 +58,7 @@ const KIND_TEXT: StringName = &"text"
 ### `KIND_BYTES`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const KIND_BYTES: StringName = &"bytes"
@@ -71,7 +71,7 @@ const KIND_BYTES: StringName = &"bytes"
 ### `KIND_FILE`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const KIND_FILE: StringName = &"file"
@@ -84,7 +84,7 @@ const KIND_FILE: StringName = &"file"
 ### `DEFAULT_MAX_FILE_COUNT`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const DEFAULT_MAX_FILE_COUNT: int = 256
@@ -97,7 +97,7 @@ const DEFAULT_MAX_FILE_COUNT: int = 256
 ### `DEFAULT_MAX_FILE_BYTES`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const DEFAULT_MAX_FILE_BYTES: int = 64 * 1024 * 1024
@@ -110,7 +110,7 @@ const DEFAULT_MAX_FILE_BYTES: int = 64 * 1024 * 1024
 ### `DEFAULT_MAX_TOTAL_BYTES`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const DEFAULT_MAX_TOTAL_BYTES: int = 256 * 1024 * 1024
@@ -123,7 +123,7 @@ const DEFAULT_MAX_TOTAL_BYTES: int = 256 * 1024 * 1024
 ### `DEFAULT_MAX_BACKUP_BYTES`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const DEFAULT_MAX_BACKUP_BYTES: int = 256 * 1024 * 1024
@@ -136,7 +136,7 @@ const DEFAULT_MAX_BACKUP_BYTES: int = 256 * 1024 * 1024
 ### `ABSOLUTE_MAX_FILE_COUNT`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const ABSOLUTE_MAX_FILE_COUNT: int = 1024
@@ -149,7 +149,7 @@ const ABSOLUTE_MAX_FILE_COUNT: int = 1024
 ### `ABSOLUTE_MAX_FILE_BYTES`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const ABSOLUTE_MAX_FILE_BYTES: int = 64 * 1024 * 1024
@@ -162,7 +162,7 @@ const ABSOLUTE_MAX_FILE_BYTES: int = 64 * 1024 * 1024
 ### `ABSOLUTE_MAX_TOTAL_BYTES`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const ABSOLUTE_MAX_TOTAL_BYTES: int = 256 * 1024 * 1024
@@ -175,7 +175,7 @@ const ABSOLUTE_MAX_TOTAL_BYTES: int = 256 * 1024 * 1024
 ### `ABSOLUTE_MAX_BACKUP_BYTES`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const ABSOLUTE_MAX_BACKUP_BYTES: int = 256 * 1024 * 1024
@@ -188,7 +188,7 @@ const ABSOLUTE_MAX_BACKUP_BYTES: int = 256 * 1024 * 1024
 ### `ABSOLUTE_MAX_ACTIVE_TRANSACTIONS`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const ABSOLUTE_MAX_ACTIVE_TRANSACTIONS: int = 256
@@ -201,7 +201,7 @@ const ABSOLUTE_MAX_ACTIVE_TRANSACTIONS: int = 256
 ### `RECOVERY_ACTION_ROLLBACK`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const RECOVERY_ACTION_ROLLBACK: StringName = &"rollback"
@@ -214,7 +214,7 @@ const RECOVERY_ACTION_ROLLBACK: StringName = &"rollback"
 ### `RECOVERY_ACTION_COMPLETE`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const RECOVERY_ACTION_COMPLETE: StringName = &"complete"
@@ -229,7 +229,7 @@ const RECOVERY_ACTION_COMPLETE: StringName = &"complete"
 ### `make_text_entry`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 static func make_text_entry( target_path: String, text: String, options: Dictionary = {} ) -> Dictionary:
@@ -257,7 +257,7 @@ static func make_text_entry( target_path: String, text: String, options: Diction
 ### `make_bytes_entry`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 static func make_bytes_entry( target_path: String, bytes: PackedByteArray, options: Dictionary = {} ) -> Dictionary:
@@ -285,7 +285,7 @@ static func make_bytes_entry( target_path: String, bytes: PackedByteArray, optio
 ### `make_file_entry`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 static func make_file_entry( target_path: String, source_path: String, options: Dictionary = {} ) -> Dictionary:
@@ -313,7 +313,7 @@ static func make_file_entry( target_path: String, source_path: String, options: 
 ### `get_preflight_report`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 static func get_preflight_report( entries: Array[Dictionary], options: Dictionary = {} ) -> Dictionary:
@@ -341,7 +341,7 @@ static func get_preflight_report( entries: Array[Dictionary], options: Dictionar
 ### `commit`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 static func commit( entries: Array[Dictionary], options: Dictionary = {} ) -> Dictionary:
@@ -369,7 +369,7 @@ static func commit( entries: Array[Dictionary], options: Dictionary = {} ) -> Di
 ### `begin`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 static func begin( paths: PackedStringArray, options: Dictionary = {} ) -> Dictionary:
@@ -396,7 +396,7 @@ static func begin( paths: PackedStringArray, options: Dictionary = {} ) -> Dicti
 ### `rollback`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 static func rollback(transaction: Dictionary) -> Dictionary:
@@ -422,7 +422,7 @@ static func rollback(transaction: Dictionary) -> Dictionary:
 ### `complete`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 static func complete(transaction: Dictionary) -> Dictionary:

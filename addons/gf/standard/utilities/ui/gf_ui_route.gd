@@ -55,7 +55,7 @@ extends Resource
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 @export var adjacent_route_ids: PackedStringArray = PackedStringArray()
 
 
@@ -91,7 +91,7 @@ func is_valid_route() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 按资源声明顺序排列的相邻路由标识。
 func get_adjacent_route_ids() -> PackedStringArray:

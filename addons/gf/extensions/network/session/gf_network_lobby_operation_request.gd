@@ -7,7 +7,7 @@
 ## [br]
 ## @category event_contract
 ## [br]
-## @since unreleased
+## @since 10.0.0
 class_name GFNetworkLobbyOperationRequest
 extends RefCounted
 
@@ -18,42 +18,42 @@ extends RefCounted
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const OP_CREATE_LOBBY: StringName = &"create_lobby"
 
 ## 查询 Lobby 操作。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const OP_QUERY_LOBBIES: StringName = &"query_lobbies"
 
 ## 加入 Lobby 操作。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const OP_JOIN_LOBBY: StringName = &"join_lobby"
 
 ## 离开 Lobby 操作。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const OP_LEAVE_LOBBY: StringName = &"leave_lobby"
 
 ## 更新 Lobby metadata 操作。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const OP_SET_LOBBY_METADATA: StringName = &"set_lobby_metadata"
 
 ## 更新成员 metadata 操作。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const OP_SET_MEMBER_METADATA: StringName = &"set_member_metadata"
 
 
@@ -63,42 +63,42 @@ const OP_SET_MEMBER_METADATA: StringName = &"set_member_metadata"
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 var request_id: StringName = &""
 
 ## 操作类型。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 var operation: StringName = &""
 
 ## 目标 Lobby ID。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 var lobby_id: String = ""
 
 ## 目标成员 peer ID。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 var peer_id: int = 0
 
 ## 查询操作的过滤条件。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 var query: GFNetworkLobbyQuery = null
 
 ## 操作载荷，例如 metadata patch。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @schema payload: Dictionary operation payload.
 var payload: Dictionary = {}
@@ -107,7 +107,7 @@ var payload: Dictionary = {}
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @schema provider_options: Dictionary external provider options.
 var provider_options: Dictionary = {}
@@ -116,14 +116,14 @@ var provider_options: Dictionary = {}
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 var timeout_msec: int = 0
 
 ## 调用方元数据。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @schema metadata: Dictionary caller-defined request metadata.
 var metadata: Dictionary = {}
@@ -135,7 +135,7 @@ var metadata: Dictionary = {}
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param p_request_id: 请求 ID。
 ## [br]
@@ -167,7 +167,7 @@ func configure(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 请求可派发时返回 true。
 func is_valid() -> bool:
@@ -188,7 +188,7 @@ func is_valid() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return Lobby 操作请求字典。
 ## [br]
@@ -211,7 +211,7 @@ func to_dict() -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param data: Lobby 操作请求字典。
 ## [br]
@@ -233,7 +233,7 @@ func apply_dict(data: Dictionary) -> void:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 新请求。
 func duplicate_request() -> GFNetworkLobbyOperationRequest:
@@ -244,7 +244,7 @@ func duplicate_request() -> GFNetworkLobbyOperationRequest:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 固定操作 ID 集合。
 static func get_supported_operations() -> PackedStringArray:
@@ -262,7 +262,7 @@ static func get_supported_operations() -> PackedStringArray:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param data: Lobby 操作请求字典。
 ## [br]

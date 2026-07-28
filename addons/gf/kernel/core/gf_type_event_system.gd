@@ -152,7 +152,7 @@ func register_owned(owner: Object, event_type: Script, listener: GFEventListener
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param event_type: 要订阅的脚本类型。
 ## [br]
@@ -307,7 +307,7 @@ func register_assignable_owned(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param base_event_type: 要订阅的基类脚本类型。
 ## [br]
@@ -507,7 +507,7 @@ func register_simple_owned(owner: Object, event_id: StringName, listener: GFEven
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param event_id: StringName 事件标识符。
 ## [br]
@@ -1865,7 +1865,7 @@ class EventListenerTrack:
 	## [br]
 	## @api framework_internal
 	## [br]
-	## @since unreleased
+	## @since 10.0.0
 	## [br]
 	## @param key: 监听轨道键。
 	## [br]
@@ -1920,7 +1920,7 @@ class EventListenerTrack:
 	## [br]
 	## @api framework_internal
 	## [br]
-	## @since unreleased
+	## @since 10.0.0
 	## [br]
 	## @param subscription_id: 要移除的稳定订阅身份。
 	## [br]
@@ -1997,7 +1997,7 @@ class EventListenerTrack:
 	## [br]
 	## @api framework_internal
 	## [br]
-	## @since unreleased
+	## @since 10.0.0
 	## [br]
 	## @param key: 监听轨道键。
 	## [br]

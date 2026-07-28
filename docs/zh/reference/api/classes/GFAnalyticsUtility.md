@@ -153,7 +153,7 @@ var config: GFAnalyticsConfig:
 ### `schema_registry`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var schema_registry: GFAnalyticsSchemaRegistry:
@@ -308,7 +308,7 @@ func track(event_name: StringName, properties: Dictionary = {}) -> void:
 ### `track_versioned`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func track_versioned( event_name: StringName, schema_version: int, properties: Dictionary = {} ) -> Dictionary:

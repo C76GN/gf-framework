@@ -164,7 +164,7 @@ signal peer_disconnected(peer_id: int)
 ### `transport_metrics_sampled`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 signal transport_metrics_sampled(metrics: GFNetworkTransportMetrics)
@@ -247,7 +247,7 @@ var connect_timeout_msec: int = 15000
 ### `transport_metrics_sample_interval_msec`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var transport_metrics_sample_interval_msec: int = 1000
@@ -260,7 +260,7 @@ var transport_metrics_sample_interval_msec: int = 1000
 ### `max_transport_metric_samples`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var max_transport_metric_samples: int:
@@ -531,7 +531,7 @@ func send_message_on_channel( peer_id: int, message: GFNetworkMessage, channel_i
 ### `capture_transport_metrics`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func capture_transport_metrics() -> GFNetworkTransportMetrics:
@@ -546,7 +546,7 @@ func capture_transport_metrics() -> GFNetworkTransportMetrics:
 ### `get_transport_metric_samples`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_transport_metric_samples() -> Array[GFNetworkTransportMetrics]:
@@ -565,7 +565,7 @@ func get_transport_metric_samples() -> Array[GFNetworkTransportMetrics]:
 ### `clear_transport_metric_samples`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func clear_transport_metric_samples() -> void:

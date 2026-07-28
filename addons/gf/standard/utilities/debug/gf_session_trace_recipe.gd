@@ -8,7 +8,7 @@
 ## [br]
 ## @category resource_definition
 ## [br]
-## @since unreleased
+## @since 10.0.0
 class_name GFSessionTraceRecipe
 extends Resource
 
@@ -31,84 +31,84 @@ const _MAX_CHECKPOINT_DEFINITIONS: int = 256
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 @export var recipe_id: StringName = &""
 
 ## 全局内存事件数量上限。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 @export_range(0, 1_000_000, 1) var max_events: int = 512
 
 ## 全局内存事件缓冲字节预算。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 @export_range(0, 1_073_741_824, 1) var max_event_buffer_bytes: int = 1024 * 1024
 
 ## 全局单事件字节预算。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 @export_range(512, 16_777_216, 1) var max_event_bytes: int = 16 * 1024
 
 ## 事件和单次 metadata 使用的脱敏 profile。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 @export_enum("privacy", "public", "support", "debug") var redaction_profile: String = GFReportValueCodec.REDACTION_PROFILE_PRIVACY
 
 ## 配方声明的事件通道。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 @export var channels: Array[GFSessionTraceChannelDefinition] = []
 
 ## 配方声明的显式采集检查点。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 @export var checkpoints: Array[GFSessionTraceCheckpoint] = []
 
 ## 配方快照默认保留的最新事件数；0 表示不限制。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 @export_range(0, 1_000_000, 1) var snapshot_limit: int = 0
 
 ## 配方快照默认是否包含会话上下文。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 @export var include_context: bool = true
 
 ## 配方快照默认是否包含通道目录。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 @export var include_channel_catalog: bool = false
 
 ## 配方快照默认是否包含 Provider 目录。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 @export var include_provider_catalog: bool = false
 
 ## 配方目录元数据；不自动写入会话上下文或事件。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @schema metadata: Dictionary with project-defined recipe catalog metadata.
 @export var metadata: Dictionary = {}
@@ -120,7 +120,7 @@ const _MAX_CHECKPOINT_DEFINITIONS: int = 256
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param p_recipe_id: 稳定配方 ID。
 ## [br]
@@ -180,7 +180,7 @@ func configure(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return GFValidationReportDictionary 兼容报告。
 ## [br]
@@ -262,7 +262,7 @@ func validate_recipe() -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param checkpoint_id: 检查点 ID。
 ## [br]
@@ -279,7 +279,7 @@ func get_checkpoint(checkpoint_id: StringName) -> GFSessionTraceCheckpoint:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 配方描述。
 ## [br]
@@ -339,7 +339,7 @@ func to_report_dictionary() -> Dictionary:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 可传给 `GFSessionTraceUtility.build_snapshot()` 的选项。
 ## [br]
@@ -357,7 +357,7 @@ func get_snapshot_options_for_framework() -> Dictionary:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return SHA-256 十六进制文本。
 func get_fingerprint_for_framework() -> String:

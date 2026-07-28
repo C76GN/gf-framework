@@ -879,7 +879,7 @@ static func get_enabled_installer_paths() -> Array[String]:
 ### `get_enabled_debugger_plugin_paths`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 static func get_enabled_debugger_plugin_paths() -> Array[String]:

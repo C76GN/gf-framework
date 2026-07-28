@@ -59,7 +59,7 @@ const DEFAULT_PHASE: StringName = &"default"
 ### `DEFAULT_MAX_PENDING_MUTATIONS`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const DEFAULT_MAX_PENDING_MUTATIONS: int = 4096
@@ -72,7 +72,7 @@ const DEFAULT_MAX_PENDING_MUTATIONS: int = 4096
 ### `ABSOLUTE_MAX_PENDING_MUTATIONS`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const ABSOLUTE_MAX_PENDING_MUTATIONS: int = 65_536
@@ -85,7 +85,7 @@ const ABSOLUTE_MAX_PENDING_MUTATIONS: int = 65_536
 ### `DEFAULT_MAX_MUTATIONS_PER_PLAYBACK`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const DEFAULT_MAX_MUTATIONS_PER_PLAYBACK: int = 256
@@ -98,7 +98,7 @@ playback() 未显式给出数量预算时使用的默认值。
 ### `ABSOLUTE_MAX_MUTATIONS_PER_PLAYBACK`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const ABSOLUTE_MAX_MUTATIONS_PER_PLAYBACK: int = 4096
@@ -111,7 +111,7 @@ const ABSOLUTE_MAX_MUTATIONS_PER_PLAYBACK: int = 4096
 ### `STATUS_COMPLETED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const STATUS_COMPLETED: StringName = &"completed"
@@ -124,7 +124,7 @@ Playback 正常完成。
 ### `STATUS_WRONG_THREAD`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const STATUS_WRONG_THREAD: StringName = &"wrong_thread"
@@ -137,7 +137,7 @@ Playback 在非主线程被调用。
 ### `STATUS_BUSY`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const STATUS_BUSY: StringName = &"busy"
@@ -152,7 +152,7 @@ const STATUS_BUSY: StringName = &"busy"
 ### `max_pending_mutations`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var max_pending_mutations: int = DEFAULT_MAX_PENDING_MUTATIONS:
@@ -245,7 +245,7 @@ func record(mutation: Callable, options: Dictionary = {}) -> int:
 ### `record_method`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func record_method( owner: Object, method_name: StringName, options: Dictionary = {} ) -> int:

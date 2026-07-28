@@ -7,7 +7,7 @@
 - 继承：`Resource`
 - API：`public`
 - 类别：资源定义 (`resource_definition`)
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 平台桥接方法契约。 描述单个 provider-neutral 方法的请求/结果 schema、能力前置条件、载荷预算、 并发上限与取消语义。具体 SDK 错误码和项目业务规则不得写入该描述符。
 
@@ -39,7 +39,7 @@
 ### `method_id`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var method_id: StringName = &""
@@ -52,7 +52,7 @@ var method_id: StringName = &""
 ### `request_schema`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var request_schema: GFDictionarySchema = null
@@ -65,7 +65,7 @@ var request_schema: GFDictionarySchema = null
 ### `result_schema`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var result_schema: GFDictionarySchema = null
@@ -78,7 +78,7 @@ var result_schema: GFDictionarySchema = null
 ### `required_capability_ids`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var required_capability_ids: PackedStringArray = PackedStringArray()
@@ -91,7 +91,7 @@ var required_capability_ids: PackedStringArray = PackedStringArray()
 ### `max_request_bytes`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var max_request_bytes: int = 0
@@ -104,7 +104,7 @@ var max_request_bytes: int = 0
 ### `max_result_bytes`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var max_result_bytes: int = 0
@@ -117,7 +117,7 @@ var max_result_bytes: int = 0
 ### `max_concurrent_requests`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var max_concurrent_requests: int = 0
@@ -130,7 +130,7 @@ var max_concurrent_requests: int = 0
 ### `supports_cancellation`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var supports_cancellation: bool = true
@@ -143,7 +143,7 @@ var supports_cancellation: bool = true
 ### `sensitive_fields`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var sensitive_fields: PackedStringArray = PackedStringArray()
@@ -156,7 +156,7 @@ var sensitive_fields: PackedStringArray = PackedStringArray()
 ### `metadata`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var metadata: Dictionary = {}
@@ -175,7 +175,7 @@ Adapter 作者定义的非业务元数据。
 ### `configure`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func configure( p_method_id: StringName, options: Dictionary = {} ) -> GFPlatformContractMethodDescriptor:
@@ -201,7 +201,7 @@ func configure( p_method_id: StringName, options: Dictionary = {} ) -> GFPlatfor
 ### `validate_definition`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func validate_definition() -> GFValidationReport:
@@ -216,7 +216,7 @@ func validate_definition() -> GFValidationReport:
 ### `validate_request`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func validate_request( payload: Dictionary, capabilities: GFPlatformCapabilitySet = null ) -> GFValidationReport:
@@ -242,7 +242,7 @@ func validate_request( payload: Dictionary, capabilities: GFPlatformCapabilitySe
 ### `validate_result`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func validate_result(value: Variant) -> GFValidationReport:
@@ -267,7 +267,7 @@ func validate_result(value: Variant) -> GFValidationReport:
 ### `duplicate_descriptor`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func duplicate_descriptor() -> GFPlatformContractMethodDescriptor:
@@ -282,7 +282,7 @@ func duplicate_descriptor() -> GFPlatformContractMethodDescriptor:
 ### `to_dict`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func to_dict() -> Dictionary:

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFMainThreadDispatchQueue" path="addons/gf/standard/common/gf_main_thread_dispatch_queue.gd" module="standard" extends="GFUtility" classDigest="fa0fd67a070bbd128f989f1d78efae34302f7eca9ef459ed8061593ef01b8455">
+<class name="GFMainThreadDispatchQueue" path="addons/gf/standard/common/gf_main_thread_dispatch_queue.gd" module="standard" extends="GFUtility" classDigest="1f7366cce5eea550ade0fdbc8ebd75abeb525b87a5902b409957b79c94897fa9">
 	<description>GFMainThreadDispatchQueue: 主线程回调派发队列。
 用于让后台线程、资源加载回调或项目侧异步流程把最终应用逻辑排回主线程。
 post() 保存无 owner 的强 Callable；post_method() 通过弱 owner 和方法名保存生命周期调用。
@@ -18,7 +18,7 @@ post() 保存无 owner 的强 Callable；post_method() 通过弱 owner 和方法
 			<description>默认最多保留的待派发回调数量。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="ABSOLUTE_MAX_PENDING_CALLBACKS">
@@ -26,7 +26,7 @@ post() 保存无 owner 的强 Callable；post_method() 通过弱 owner 和方法
 			<description>最多允许配置的待派发回调数量。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="DEFAULT_MAX_CALLBACKS_PER_DISPATCH">
@@ -34,7 +34,7 @@ post() 保存无 owner 的强 Callable；post_method() 通过弱 owner 和方法
 			<description>dispatch() 未显式给出数量预算时使用的默认值。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="ABSOLUTE_MAX_CALLBACKS_PER_DISPATCH">
@@ -42,7 +42,7 @@ post() 保存无 owner 的强 Callable；post_method() 通过弱 owner 和方法
 			<description>单次 dispatch() 允许处理的回调数量绝对上限。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATUS_COMPLETED">
@@ -50,7 +50,7 @@ post() 保存无 owner 的强 Callable；post_method() 通过弱 owner 和方法
 			<description>派发正常完成。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATUS_WRONG_THREAD">
@@ -58,7 +58,7 @@ post() 保存无 owner 的强 Callable；post_method() 通过弱 owner 和方法
 			<description>派发入口在非主线程被调用。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATUS_BUSY">
@@ -66,7 +66,7 @@ post() 保存无 owner 的强 Callable；post_method() 通过弱 owner 和方法
 			<description>当前实例已经处于同步派发调用中。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 	</constants>
@@ -76,7 +76,7 @@ post() 保存无 owner 的强 Callable；post_method() 通过弱 owner 和方法
 			<description>最多保留的待派发回调数量。降低容量不会驱逐现有回调。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="max_callbacks_per_tick">
@@ -147,7 +147,7 @@ post() 保存无 owner 的强 Callable；post_method() 通过弱 owner 和方法
 				<tag name="param">options: 队列选项，支持 label 和 front。</tag>
 				<tag name="return">派发句柄；owner 或 method_name 无效时返回 0。</tag>
 				<tag name="schema">options: Dictionary，可包含 label: String、front: bool。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="dispatch">

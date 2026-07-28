@@ -40,14 +40,14 @@ const STATUS_CANCELLED: StringName = &"cancelled"
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const DEFAULT_MAX_COMPLETIONS: int = 256
 
 ## 组合等待允许的 completion 绝对数量上限。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const ABSOLUTE_MAX_COMPLETIONS: int = 4096
 
 

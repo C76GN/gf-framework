@@ -7,7 +7,7 @@
 ## [br]
 ## @category runtime_handle
 ## [br]
-## @since unreleased
+## @since 10.0.0
 class_name GFStorageAsyncOperation
 extends RefCounted
 
@@ -18,7 +18,7 @@ extends RefCounted
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param result: 与当前请求 ID 匹配的隔离结果。
 signal completed(result: GFStorageAsyncResult)
@@ -30,14 +30,14 @@ signal completed(result: GFStorageAsyncResult)
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const OPERATION_SAVE: StringName = &"save"
 
 ## 异步读取请求。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const OPERATION_LOAD: StringName = &"load"
 
 
@@ -55,7 +55,7 @@ var _result: GFStorageAsyncResult = null
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 大于零的请求 ID。
 func get_request_id() -> int:
@@ -66,7 +66,7 @@ func get_request_id() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return `OPERATION_SAVE` 或 `OPERATION_LOAD`。
 func get_operation() -> StringName:
@@ -77,7 +77,7 @@ func get_operation() -> StringName:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 请求实际使用的文件名。
 func get_file_name() -> String:
@@ -88,7 +88,7 @@ func get_file_name() -> String:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 已配置且未完成时返回 true。
 func is_pending() -> bool:
@@ -99,7 +99,7 @@ func is_pending() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 已完成时返回 true。
 func is_completed() -> bool:
@@ -110,7 +110,7 @@ func is_completed() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 已完成结果；等待中返回 null。
 func get_result() -> GFStorageAsyncResult:
@@ -123,7 +123,7 @@ func get_result() -> GFStorageAsyncResult:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param request_id: Utility 内唯一请求 ID。
 ## [br]
@@ -147,7 +147,7 @@ func configure_for_framework(request_id: int, operation: StringName, file_name: 
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param file_name: 规范化文件名。
 ## [br]
@@ -163,7 +163,7 @@ func set_file_name_for_framework(file_name: String) -> bool:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param result: 与当前请求身份一致的结果。
 ## [br]

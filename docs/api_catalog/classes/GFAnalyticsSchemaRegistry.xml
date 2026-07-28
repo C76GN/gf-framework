@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFAnalyticsSchemaRegistry" path="addons/gf/standard/utilities/analytics/gf_analytics_schema_registry.gd" module="standard" extends="Resource" classDigest="fa44eeecef4204705a1d02a25d994c26eed933417df3fb9f845d7fc4c3afad6e">
+<class name="GFAnalyticsSchemaRegistry" path="addons/gf/standard/utilities/analytics/gf_analytics_schema_registry.gd" module="standard" extends="Resource" classDigest="e7330fbfc70838011329934b12a436315ec0e2895019e6a601accd6795795300">
 	<description>GFAnalyticsSchemaRegistry: 精确版本 Analytics 事件 Schema 注册表。
 注册表以 event_name 与 schema_version 的组合保存隔离副本，
 禁止同版本覆盖，也不提供隐式 latest 回退。公开 getter 再返回副本，
@@ -9,7 +9,7 @@
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">runtime_service</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">10.0.0</tag>
 	</tags>
 	<signals />
 	<enums />
@@ -25,7 +25,7 @@
 				<tag name="param">schema: 待注册事件 Schema。</tag>
 				<tag name="return">注册结果。</tag>
 				<tag name="schema">return: Dictionary with ok, reason, event_name, schema_version, registered_count, and validation.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="has_schema">
@@ -36,7 +36,7 @@
 				<tag name="param">event_name: 稳定事件名。</tag>
 				<tag name="param">schema_version: 1..2_147_483_647 范围内的精确版本。</tag>
 				<tag name="return">已注册时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_schema">
@@ -47,7 +47,7 @@
 				<tag name="param">event_name: 稳定事件名。</tag>
 				<tag name="param">schema_version: 1..2_147_483_647 范围内的精确版本。</tag>
 				<tag name="return">已注册 Schema 的副本；不存在时返回 null。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_versions">
@@ -57,7 +57,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">event_name: 稳定事件名。</tag>
 				<tag name="return">升序版本数组。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="validate">
@@ -73,7 +73,7 @@
 				<tag name="return">校验报告。</tag>
 				<tag name="schema">properties: Dictionary analytics event properties before report encoding.</tag>
 				<tag name="schema">options: Dictionary validation context and bounded traversal options.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_debug_snapshot">
@@ -83,7 +83,7 @@
 				<tag name="api">public</tag>
 				<tag name="return">注册表调试信息。</tag>
 				<tag name="schema">return: Dictionary with event_count, schema_count, registered footprint counters, registry limits, and events; each event contains event_name and versions.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 	</methods>

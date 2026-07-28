@@ -9,7 +9,7 @@
 ## [br]
 ## @category runtime_service
 ## [br]
-## @since unreleased
+## @since 10.0.0
 class_name GFStorageFailoverBackend
 extends GFStorageBackend
 
@@ -20,7 +20,7 @@ extends GFStorageBackend
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 enum MutationPolicy {
 	## 只访问第一个配置后端，错误原样返回。
 	PRIMARY_ONLY,
@@ -68,7 +68,7 @@ var _last_operation_report: Dictionary = {}
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param backends: 按优先级从高到低排列的子后端，数量限制为 1 至 32。
 ## [br]
@@ -129,7 +129,7 @@ func configure_backends(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param clock: 系统、测试或模拟时钟。
 ## [br]
@@ -146,7 +146,7 @@ func set_clock(clock: GFClock) -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 已配置子后端数量。
 func get_backend_count() -> int:
@@ -157,7 +157,7 @@ func get_backend_count() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 与子后端顺序一致的稳定 ID。
 func get_backend_ids() -> PackedStringArray:
@@ -170,7 +170,7 @@ func get_backend_ids() -> PackedStringArray:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 报告深拷贝；尚未执行操作时返回空字典。
 ## [br]
@@ -183,7 +183,7 @@ func get_last_operation_report() -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 配置和逐后端健康状态，不包含业务数据。
 ## [br]
@@ -213,7 +213,7 @@ func get_health_snapshot() -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param backend_id: 目标稳定 ID；为空时重置全部后端。
 ## [br]
@@ -236,7 +236,7 @@ func reset_backend_health(backend_id: StringName = &"") -> bool:
 ## [br]
 ## @api protected
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param config: mutation_policy、failure_threshold（0 至 1000）和 cooldown_msec（0 至 86400000）。
 ## [br]
@@ -259,7 +259,7 @@ func _initialize(config: Dictionary) -> Error:
 ## [br]
 ## @api protected
 ## [br]
-## @since unreleased
+## @since 10.0.0
 func _shutdown() -> void:
 	_reset_all_health()
 	_last_operation_report.clear()
@@ -269,7 +269,7 @@ func _shutdown() -> void:
 ## [br]
 ## @api protected
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param file_name: 逻辑文件名。
 ## [br]
@@ -290,7 +290,7 @@ func _save_data(file_name: String, data: Dictionary, metadata: Dictionary) -> Er
 ## [br]
 ## @api protected
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param file_name: 逻辑文件名。
 ## [br]
@@ -337,7 +337,7 @@ func _load_data(file_name: String) -> Dictionary:
 ## [br]
 ## @api protected
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param file_name: 逻辑文件名。
 ## [br]
@@ -350,7 +350,7 @@ func _delete_data(file_name: String) -> Error:
 ## [br]
 ## @api protected
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param file_name: 逻辑文件名。
 ## [br]
@@ -379,7 +379,7 @@ func _has_data(file_name: String) -> bool:
 ## [br]
 ## @api protected
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 首个可用后端的文件摘要。
 ## [br]
@@ -406,7 +406,7 @@ func _list_data() -> Array[Dictionary]:
 ## [br]
 ## @api protected
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return read、write、delete、list 和 sync 能力。
 ## [br]

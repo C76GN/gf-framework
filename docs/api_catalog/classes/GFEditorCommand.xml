@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFEditorCommand" path="addons/gf/kernel/editor/gf_editor_command.gd" module="kernel" extends="RefCounted" classDigest="6f1264fa1cbeb3d7d7c165b7286aaaea3167f7f1ad455190e78c840c2abb451c">
+<class name="GFEditorCommand" path="addons/gf/kernel/editor/gf_editor_command.gd" module="kernel" extends="RefCounted" classDigest="efb7f2ebb8b690615d6b0cd313d41e9219d51a36f7d5800e76214d5584312a60">
 	<description>GFEditorCommand: 可撤销编辑器操作的通用基类。
 用于把编辑器 UI、快捷键或交互工具产生的修改收敛成可执行、可撤销的命令。
 命令只描述操作协议，不绑定具体资源、节点类型或业务含义。</description>
@@ -157,7 +157,7 @@
 应在第一笔实际写入前主动调用，确保失败恢复仍使用不可变配置与首次快照。</description>
 			<tags>
 				<tag name="api">protected</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 	</methods>

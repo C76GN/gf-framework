@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFNetworkLobbyOperationResult" path="addons/gf/extensions/network/session/gf_network_lobby_operation_result.gd" module="extensions/network" extends="RefCounted" classDigest="17f6b5cde803639efe4fa2daae9c37d1d556592b342f3e8cee7e143a0b1f43f5">
+<class name="GFNetworkLobbyOperationResult" path="addons/gf/extensions/network/session/gf_network_lobby_operation_result.gd" module="extensions/network" extends="RefCounted" classDigest="d4f0d7f08b73aa45c0a9edb1bc76cae0f181075e1dc719463b028e8c154b28f3">
 	<description>GFNetworkLobbyOperationResult: Lobby 操作终态结果。
 通过 request_id 和 operation 将 SDK 回调关联到唯一请求，并统一承载单个 Lobby、
 查询列表、失败状态与耗时。结果是不可回写到 Handle 的深拷贝快照。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">value_object</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">10.0.0</tag>
 	</tags>
 	<signals />
 	<enums />
@@ -17,7 +17,7 @@
 			<description>请求 ID。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="operation">
@@ -25,7 +25,7 @@
 			<description>操作类型。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="ok">
@@ -33,7 +33,7 @@
 			<description>操作是否成功。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="status">
@@ -41,7 +41,7 @@
 			<description>稳定终态状态。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="lobby_id">
@@ -49,7 +49,7 @@
 			<description>相关 Lobby ID。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="lobby">
@@ -57,7 +57,7 @@
 			<description>单个 Lobby 快照。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="lobbies">
@@ -66,7 +66,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="schema">lobbies: Array[GFNetworkLobbyDescriptor] queried lobby snapshots.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="error">
@@ -74,7 +74,7 @@
 			<description>失败原因标识。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="message">
@@ -82,7 +82,7 @@
 			<description>人读说明。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="started_at_msec">
@@ -90,7 +90,7 @@
 			<description>开始单调时间戳，单位毫秒；-1 表示未知。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="completed_at_msec">
@@ -98,7 +98,7 @@
 			<description>完成单调时间戳，单位毫秒；-1 表示未知。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="metadata">
@@ -107,7 +107,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="schema">metadata: Dictionary caller-defined result metadata.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 	</properties>
@@ -121,7 +121,7 @@
 				<tag name="param">options: 可包含 status、lobby、lobbies、lobby_id、started_at_msec、completed_at_msec 和 metadata。</tag>
 				<tag name="return">当前结果。</tag>
 				<tag name="schema">options: Dictionary successful lobby result fields.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="configure_failure">
@@ -135,7 +135,7 @@
 				<tag name="param">options: 可包含 status、started_at_msec、completed_at_msec 和 metadata。</tag>
 				<tag name="return">当前结果。</tag>
 				<tag name="schema">options: Dictionary failed lobby result fields.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_duration_msec">
@@ -144,7 +144,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">完成时间减开始时间；缺少时间戳时返回 0。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="is_valid">
@@ -153,7 +153,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">结果身份、时间和操作特定载荷均有效时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="matches_request">
@@ -163,7 +163,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">request: 待匹配请求。</tag>
 				<tag name="return">request_id 和 operation 同时匹配时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="to_dict">
@@ -173,7 +173,7 @@
 				<tag name="api">public</tag>
 				<tag name="return">Lobby 操作结果字典。</tag>
 				<tag name="schema">return: Dictionary lobby operation result.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="apply_dict">
@@ -183,7 +183,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">data: Lobby 操作结果字典。</tag>
 				<tag name="schema">data: Dictionary lobby operation result.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="duplicate_result">
@@ -192,7 +192,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">新结果。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="from_dict">
@@ -203,7 +203,7 @@
 				<tag name="param">data: Lobby 操作结果字典。</tag>
 				<tag name="return">新结果。</tag>
 				<tag name="schema">data: Dictionary lobby operation result.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 	</methods>

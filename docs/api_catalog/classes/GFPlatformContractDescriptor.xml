@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFPlatformContractDescriptor" path="addons/gf/standard/foundation/platform/gf_platform_contract_descriptor.gd" module="standard" extends="Resource" classDigest="19245e0f7544a2af7b78b3f90a32aa5d3e96f790fb881f91a98c696855c61470">
+<class name="GFPlatformContractDescriptor" path="addons/gf/standard/foundation/platform/gf_platform_contract_descriptor.gd" module="standard" extends="Resource" classDigest="c4fb4c8b5e65d9ab8aaff7ecfe826fba29c57657452ecbba371696cc6e091b2c">
 	<description>GFPlatformContractDescriptor: 平台桥接契约描述。
 将一个 provider-neutral contract 的版本和方法集合固定为可校验数据。描述符不包含
 Steam、微信、主机厂商或项目业务语义。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">resource_definition</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">10.0.0</tag>
 	</tags>
 	<signals />
 	<enums />
@@ -17,7 +17,7 @@ Steam、微信、主机厂商或项目业务语义。</description>
 			<description>契约稳定标识。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="contract_version" decorators="@export">
@@ -25,7 +25,7 @@ Steam、微信、主机厂商或项目业务语义。</description>
 			<description>契约版本。Adapter 应使用双方明确支持的版本，不做隐式降级。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="methods" decorators="@export">
@@ -34,7 +34,7 @@ Steam、微信、主机厂商或项目业务语义。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="schema">methods: Array[GFPlatformContractMethodDescriptor] platform contract methods.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="metadata" decorators="@export">
@@ -43,7 +43,7 @@ Steam、微信、主机厂商或项目业务语义。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="schema">metadata: Dictionary adapter-authoring metadata.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 	</properties>
@@ -60,7 +60,7 @@ Steam、微信、主机厂商或项目业务语义。</description>
 				<tag name="return">当前描述符。</tag>
 				<tag name="schema">p_methods: Array[GFPlatformContractMethodDescriptor] platform contract methods.</tag>
 				<tag name="schema">p_metadata: Dictionary adapter-authoring metadata.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_method">
@@ -70,7 +70,7 @@ Steam、微信、主机厂商或项目业务语义。</description>
 				<tag name="api">public</tag>
 				<tag name="param">method_id: 方法稳定标识。</tag>
 				<tag name="return">找到时返回描述符副本，否则返回 null。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="validate_definition">
@@ -79,7 +79,7 @@ Steam、微信、主机厂商或项目业务语义。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">标准校验报告。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="duplicate_descriptor">
@@ -88,7 +88,7 @@ Steam、微信、主机厂商或项目业务语义。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">新描述符。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="to_dict">
@@ -98,7 +98,7 @@ Steam、微信、主机厂商或项目业务语义。</description>
 				<tag name="api">public</tag>
 				<tag name="return">契约摘要。</tag>
 				<tag name="schema">return: Dictionary platform contract descriptor summary.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 	</methods>

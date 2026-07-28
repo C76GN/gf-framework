@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：运行时服务 (`runtime_service`)
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 通用运动预测、拦截和公式轨迹采样工具。 运动预测和拦截入口是 GF 内部无节点副作用的纯计算，不负责绘制、物理推进、目标选择或业务策略。 公式采样会同步执行项目显式提供的可信 Callable，并在调用前执行硬预算校验；GF 本身不访问节点， 但回调的副作用、阻塞与计算成本由调用方负责。
 
@@ -39,7 +39,7 @@
 ### `REASON_NONE`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const REASON_NONE: StringName = &""
@@ -52,7 +52,7 @@ const REASON_NONE: StringName = &""
 ### `REASON_INVALID_ARGUMENT`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const REASON_INVALID_ARGUMENT: StringName = &"invalid_argument"
@@ -65,7 +65,7 @@ const REASON_INVALID_ARGUMENT: StringName = &"invalid_argument"
 ### `REASON_NO_SOLUTION`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const REASON_NO_SOLUTION: StringName = &"no_solution"
@@ -78,7 +78,7 @@ const REASON_NO_SOLUTION: StringName = &"no_solution"
 ### `REASON_BEYOND_HORIZON`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const REASON_BEYOND_HORIZON: StringName = &"beyond_horizon"
@@ -91,7 +91,7 @@ const REASON_BEYOND_HORIZON: StringName = &"beyond_horizon"
 ### `REASON_INVALID_PROVIDER`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const REASON_INVALID_PROVIDER: StringName = &"invalid_provider"
@@ -104,7 +104,7 @@ const REASON_INVALID_PROVIDER: StringName = &"invalid_provider"
 ### `REASON_SAMPLE_LIMIT_EXCEEDED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const REASON_SAMPLE_LIMIT_EXCEEDED: StringName = &"sample_limit_exceeded"
@@ -117,7 +117,7 @@ const REASON_SAMPLE_LIMIT_EXCEEDED: StringName = &"sample_limit_exceeded"
 ### `REASON_PROVIDER_FAILED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const REASON_PROVIDER_FAILED: StringName = &"provider_failed"
@@ -130,7 +130,7 @@ const REASON_PROVIDER_FAILED: StringName = &"provider_failed"
 ### `DEFAULT_EPSILON`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const DEFAULT_EPSILON: float = 0.000001
@@ -143,7 +143,7 @@ const DEFAULT_EPSILON: float = 0.000001
 ### `DEFAULT_MAX_SAMPLE_COUNT`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const DEFAULT_MAX_SAMPLE_COUNT: int = 1024
@@ -156,7 +156,7 @@ const DEFAULT_MAX_SAMPLE_COUNT: int = 1024
 ### `ABSOLUTE_MAX_SAMPLE_COUNT`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const ABSOLUTE_MAX_SAMPLE_COUNT: int = 16_384
@@ -171,7 +171,7 @@ const ABSOLUTE_MAX_SAMPLE_COUNT: int = 16_384
 ### `predict_motion_2d`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 static func predict_motion_2d( initial_position: Vector2, initial_velocity: Vector2, acceleration: Vector2, time_seconds: float ) -> Dictionary:
@@ -199,7 +199,7 @@ static func predict_motion_2d( initial_position: Vector2, initial_velocity: Vect
 ### `predict_motion_3d`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 static func predict_motion_3d( initial_position: Vector3, initial_velocity: Vector3, acceleration: Vector3, time_seconds: float ) -> Dictionary:
@@ -227,7 +227,7 @@ static func predict_motion_3d( initial_position: Vector3, initial_velocity: Vect
 ### `solve_intercept_2d`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 static func solve_intercept_2d( source_position: Vector2, projectile_speed: float, target_position: Vector2, target_velocity: Vector2, max_time_seconds: float = -1.0, epsilon: float = DEFAULT_EPSILON ) -> Dictionary:
@@ -257,7 +257,7 @@ static func solve_intercept_2d( source_position: Vector2, projectile_speed: floa
 ### `solve_intercept_3d`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 static func solve_intercept_3d( source_position: Vector3, projectile_speed: float, target_position: Vector3, target_velocity: Vector3, max_time_seconds: float = -1.0, epsilon: float = DEFAULT_EPSILON ) -> Dictionary:
@@ -287,7 +287,7 @@ static func solve_intercept_3d( source_position: Vector3, projectile_speed: floa
 ### `sample_formula_2d`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 static func sample_formula_2d( position_provider: Callable, start_time_seconds: float, end_time_seconds: float, sample_count: int, max_sample_count: int = DEFAULT_MAX_SAMPLE_COUNT ) -> Dictionary:
@@ -316,7 +316,7 @@ static func sample_formula_2d( position_provider: Callable, start_time_seconds: 
 ### `sample_formula_3d`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 static func sample_formula_3d( position_provider: Callable, start_time_seconds: float, end_time_seconds: float, sample_count: int, max_sample_count: int = DEFAULT_MAX_SAMPLE_COUNT ) -> Dictionary:

@@ -450,7 +450,7 @@ func get_bgm_playback_position() -> float:
 ### `is_bgm_playing`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func is_bgm_playing() -> bool:

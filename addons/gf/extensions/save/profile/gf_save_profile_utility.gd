@@ -7,7 +7,7 @@
 ## [br]
 ## @category runtime_service
 ## [br]
-## @since unreleased
+## @since 10.0.0
 class_name GFSaveProfileUtility
 extends GFUtility
 
@@ -18,7 +18,7 @@ extends GFUtility
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param result: 隔离终态结果。
 signal profile_operation_completed(result: GFSaveProfileResult)
@@ -27,7 +27,7 @@ signal profile_operation_completed(result: GFSaveProfileResult)
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param profile_id: profile ID。
 ## [br]
@@ -43,49 +43,49 @@ signal profile_state_changed(profile_id: StringName, previous_state: StringName,
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const STATE_IDLE: StringName = &"idle"
 
 ## 正在同步采集 section。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const STATE_GATHERING: StringName = &"gathering"
 
 ## 正在等待保存 IO。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const STATE_SAVING: StringName = &"saving"
 
 ## 正在等待读取 IO。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const STATE_LOADING: StringName = &"loading"
 
 ## 正在等待有界重试截止时间。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const STATE_RETRY_WAIT: StringName = &"retry_wait"
 
 ## 正在迁移、校验或事务化应用 section。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const STATE_APPLYING: StringName = &"applying"
 
 ## Utility 已释放。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const STATE_DISPOSED: StringName = &"disposed"
 
 
@@ -121,7 +121,7 @@ func _init() -> void:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 func ready() -> void:
 	if not _storage_explicit:
 		var storage_value: Variant = get_utility(GFStorageUtility)
@@ -139,7 +139,7 @@ func ready() -> void:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param _delta: 未使用；重试只读取注入时钟的单调时间。
 func tick(_delta: float) -> void:
@@ -167,7 +167,7 @@ func tick(_delta: float) -> void:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 func dispose() -> void:
 	if _disposed:
 		return
@@ -184,7 +184,7 @@ func dispose() -> void:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param storage: 底层事务存储工具。
 ## [br]
@@ -206,7 +206,7 @@ func setup(storage: GFStorageUtility, clock: GFClock = null) -> GFSaveProfileUti
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param profile: profile 声明和 section providers。
 ## [br]
@@ -267,7 +267,7 @@ func register_profile(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param profile_id: profile ID。
 ## [br]
@@ -294,7 +294,7 @@ func unregister_profile(profile_id: StringName) -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param profile_id: profile ID。
 ## [br]
@@ -360,7 +360,7 @@ func save_profile(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param profile_id: profile ID。
 ## [br]
@@ -421,7 +421,7 @@ func load_profile(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param profile_id: profile ID。
 ## [br]
@@ -478,7 +478,7 @@ func flush_profile(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param profile_id: profile ID。
 ## [br]
@@ -492,7 +492,7 @@ func get_persisted_generation(profile_id: StringName) -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param profile_id: profile ID。
 ## [br]
@@ -2021,7 +2021,7 @@ func _get_migration_result_value(value: Variant) -> GFSaveMigrationResult:
 ## [br]
 ## @category internal_helper
 ## [br]
-## @since unreleased
+## @since 10.0.0
 class ProfileState extends RefCounted:
 	## 编译后的运行时 Profile ID。
 	## [br]

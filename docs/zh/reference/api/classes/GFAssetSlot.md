@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：运行时句柄 (`runtime_handle`)
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 稳定资源身份下的显式可替换资源槽位。 槽位强持有当前 Resource，并在成功配置、替换或终态释放后推进单调 generation。 它不监听文件变化、不接管 GFAssetUtility 缓存，也不改变 GFAssetHandle 的快照语义。 全部公开操作限定在主线程；其他线程上的调用会失败关闭且不改变槽位状态。
 
@@ -36,7 +36,7 @@
 ### `resource_replaced`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 signal resource_replaced(previous_resource: Resource, current_resource: Resource, generation: int)
@@ -57,7 +57,7 @@ signal resource_replaced(previous_resource: Resource, current_resource: Resource
 ### `released`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 signal released(previous_resource: Resource, generation: int)
@@ -79,7 +79,7 @@ signal released(previous_resource: Resource, generation: int)
 ### `configure`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func configure( resource_identity: GFResourceIdentity, initial_resource: Resource = null, owner: Object = null, type_hint_override: String = "" ) -> bool:
@@ -103,7 +103,7 @@ func configure( resource_identity: GFResourceIdentity, initial_resource: Resourc
 ### `get_resource_identity`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_resource_identity() -> GFResourceIdentity:
@@ -118,7 +118,7 @@ func get_resource_identity() -> GFResourceIdentity:
 ### `get_resource`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_resource() -> Resource:
@@ -133,7 +133,7 @@ func get_resource() -> Resource:
 ### `get_type_hint`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_type_hint() -> String:
@@ -148,7 +148,7 @@ func get_type_hint() -> String:
 ### `is_configured`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func is_configured() -> bool:
@@ -163,7 +163,7 @@ func is_configured() -> bool:
 ### `get_generation`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_generation() -> int:
@@ -178,7 +178,7 @@ func get_generation() -> int:
 ### `has_resource`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func has_resource() -> bool:
@@ -193,7 +193,7 @@ func has_resource() -> bool:
 ### `is_released`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func is_released() -> bool:
@@ -208,7 +208,7 @@ func is_released() -> bool:
 ### `accepts_resource`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func accepts_resource(candidate_resource: Resource) -> bool:
@@ -229,7 +229,7 @@ func accepts_resource(candidate_resource: Resource) -> bool:
 ### `replace`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func replace(next_resource: Resource) -> bool:
@@ -250,7 +250,7 @@ func replace(next_resource: Resource) -> bool:
 ### `release`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func release() -> bool:

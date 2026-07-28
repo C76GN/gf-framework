@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：值对象 (`value_object`)
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 单个 section 回滚失败证据。
 
@@ -27,7 +27,7 @@
 ### `get_section_id`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_section_id() -> StringName:
@@ -42,7 +42,7 @@ func get_section_id() -> StringName:
 ### `get_error_code`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_error_code() -> Error:
@@ -57,7 +57,7 @@ func get_error_code() -> Error:
 ### `duplicate_failure`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func duplicate_failure() -> GFSaveRollbackFailure:
@@ -72,7 +72,7 @@ func duplicate_failure() -> GFSaveRollbackFailure:
 ### `to_dict`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func to_dict() -> Dictionary:

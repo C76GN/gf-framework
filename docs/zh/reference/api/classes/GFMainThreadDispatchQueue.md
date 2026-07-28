@@ -47,7 +47,7 @@
 ### `DEFAULT_MAX_PENDING_CALLBACKS`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const DEFAULT_MAX_PENDING_CALLBACKS: int = 1024
@@ -60,7 +60,7 @@ const DEFAULT_MAX_PENDING_CALLBACKS: int = 1024
 ### `ABSOLUTE_MAX_PENDING_CALLBACKS`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const ABSOLUTE_MAX_PENDING_CALLBACKS: int = 65_536
@@ -73,7 +73,7 @@ const ABSOLUTE_MAX_PENDING_CALLBACKS: int = 65_536
 ### `DEFAULT_MAX_CALLBACKS_PER_DISPATCH`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const DEFAULT_MAX_CALLBACKS_PER_DISPATCH: int = 16
@@ -86,7 +86,7 @@ dispatch() 未显式给出数量预算时使用的默认值。
 ### `ABSOLUTE_MAX_CALLBACKS_PER_DISPATCH`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const ABSOLUTE_MAX_CALLBACKS_PER_DISPATCH: int = 4096
@@ -99,7 +99,7 @@ const ABSOLUTE_MAX_CALLBACKS_PER_DISPATCH: int = 4096
 ### `STATUS_COMPLETED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const STATUS_COMPLETED: StringName = &"completed"
@@ -112,7 +112,7 @@ const STATUS_COMPLETED: StringName = &"completed"
 ### `STATUS_WRONG_THREAD`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const STATUS_WRONG_THREAD: StringName = &"wrong_thread"
@@ -125,7 +125,7 @@ const STATUS_WRONG_THREAD: StringName = &"wrong_thread"
 ### `STATUS_BUSY`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const STATUS_BUSY: StringName = &"busy"
@@ -140,7 +140,7 @@ const STATUS_BUSY: StringName = &"busy"
 ### `max_pending_callbacks`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var max_pending_callbacks: int = DEFAULT_MAX_PENDING_CALLBACKS:
@@ -252,7 +252,7 @@ func post(callback: Callable, options: Dictionary = {}) -> int:
 ### `post_method`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func post_method(owner: Object, method_name: StringName, options: Dictionary = {}) -> int:

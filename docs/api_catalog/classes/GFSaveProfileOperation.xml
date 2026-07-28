@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSaveProfileOperation" path="addons/gf/extensions/save/profile/gf_save_profile_operation.gd" module="extensions/save" extends="RefCounted" classDigest="5d0b561c21a65861dfa4992d0a6da099c2bb8966c2bd34d483e8fc0fe7b2c9d6">
+<class name="GFSaveProfileOperation" path="addons/gf/extensions/save/profile/gf_save_profile_operation.gd" module="extensions/save" extends="RefCounted" classDigest="cbf9bc9dedeb3a2f7040ba24d8c5c368aa077ad9beeb7fa2b18d9fdbf951fcaa">
 	<description>GFSaveProfileOperation: Save Profile 异步操作句柄。
 句柄由 `GFSaveProfileUtility` 完成一次且只完成一次。调用方可在连接信号前检查
 `is_completed()`，避免立即拒绝或同步恢复结果造成竞态。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">runtime_handle</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">10.0.0</tag>
 	</tags>
 	<signals>
 		<member kind="signal" name="completed">
@@ -15,7 +15,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">result: 隔离终态结果。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 	</signals>
@@ -26,7 +26,7 @@
 			<description>保存操作。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="OPERATION_LOAD">
@@ -34,7 +34,7 @@
 			<description>读取操作。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="OPERATION_FLUSH">
@@ -42,7 +42,7 @@
 			<description>flush 操作。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 	</constants>
@@ -54,7 +54,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">save、load 或 flush。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_profile_id">
@@ -63,7 +63,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">profile ID。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_requested_generation">
@@ -72,7 +72,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">非负 generation。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="is_pending">
@@ -81,7 +81,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">尚未运行或完成时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="is_running">
@@ -90,7 +90,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">已启动但无终态时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="is_completed">
@@ -99,7 +99,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">已完成时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_result">
@@ -108,7 +108,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">已完成结果；等待中返回 null。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 	</methods>

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFAudioBackend" path="addons/gf/standard/utilities/audio/gf_audio_backend.gd" module="standard" extends="RefCounted" classDigest="dac9327f90c760521a871d41879ebda58a72022339a9069c4293f8fde9fef735">
+<class name="GFAudioBackend" path="addons/gf/standard/utilities/audio/gf_audio_backend.gd" module="standard" extends="RefCounted" classDigest="c6076b235a396592baddc343fd1ea1aacedbe9da0dfca7f332b61b6956624cd1">
 	<description>GFAudioBackend: GFAudioUtility 的可插拔音频后端协议。
 默认实现不处理任何请求。项目或扩展可继承它，把部分音频事件转交给
 外部中间件、平台接口或自定义混音系统；未声明可处理的请求会回退到 Godot 默认播放器。</description>
@@ -151,7 +151,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">BGM 正在播放或暂停时返回 true；默认 fail closed 返回 false。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="is_bgm_paused">
@@ -382,7 +382,7 @@
 				<tag name="param">_bus_name: 总线名或后端通道名。</tag>
 				<tag name="return">已处理时返回 bool；无法观测该总线时返回 null。</tag>
 				<tag name="schema">return: bool 或 null；null 表示后端不处理该总线的静音查询。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_debug_snapshot">

@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：运行时句柄 (`runtime_handle`)
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 Save Profile 异步操作句柄。 句柄由 `GFSaveProfileUtility` 完成一次且只完成一次。调用方可在连接信号前检查 `is_completed()`，避免立即拒绝或同步恢复结果造成竞态。
 
@@ -34,7 +34,7 @@ Save Profile 异步操作句柄。 句柄由 `GFSaveProfileUtility` 完成一次
 ### `completed`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 signal completed(result: GFSaveProfileResult)
@@ -55,7 +55,7 @@ signal completed(result: GFSaveProfileResult)
 ### `OPERATION_SAVE`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const OPERATION_SAVE: StringName = &"save"
@@ -68,7 +68,7 @@ const OPERATION_SAVE: StringName = &"save"
 ### `OPERATION_LOAD`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const OPERATION_LOAD: StringName = &"load"
@@ -81,7 +81,7 @@ const OPERATION_LOAD: StringName = &"load"
 ### `OPERATION_FLUSH`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const OPERATION_FLUSH: StringName = &"flush"
@@ -96,7 +96,7 @@ flush 操作。
 ### `get_operation`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_operation() -> StringName:
@@ -111,7 +111,7 @@ func get_operation() -> StringName:
 ### `get_profile_id`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_profile_id() -> StringName:
@@ -126,7 +126,7 @@ func get_profile_id() -> StringName:
 ### `get_requested_generation`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_requested_generation() -> int:
@@ -141,7 +141,7 @@ func get_requested_generation() -> int:
 ### `is_pending`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func is_pending() -> bool:
@@ -156,7 +156,7 @@ func is_pending() -> bool:
 ### `is_running`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func is_running() -> bool:
@@ -171,7 +171,7 @@ func is_running() -> bool:
 ### `is_completed`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func is_completed() -> bool:
@@ -186,7 +186,7 @@ func is_completed() -> bool:
 ### `get_result`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_result() -> GFSaveProfileResult:

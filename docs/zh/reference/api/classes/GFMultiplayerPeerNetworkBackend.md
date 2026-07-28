@@ -7,7 +7,7 @@
 - 继承：`GFNetworkBackend`
 - API：`public`
 - 类别：运行时句柄 (`runtime_handle`)
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 可接管外部 MultiplayerPeer 的通用网络后端。 平台 Adapter 负责通过 Steam、小游戏或其他 SDK 创建 `MultiplayerPeer`，本类只负责 GF bytes 边界、轮询、连接事件和所有权。它不依赖任何第三方 SDK 类型。
 
@@ -36,7 +36,7 @@
 ### `Ownership`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 enum Ownership {
@@ -54,7 +54,7 @@ enum Ownership {
 ### `Role`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 enum Role {
@@ -76,7 +76,7 @@ Peer 在当前会话中的角色。
 ### `BROADCAST_PEER_ID`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const BROADCAST_PEER_ID: int = -1
@@ -91,7 +91,7 @@ const BROADCAST_PEER_ID: int = -1
 ### `max_packets_per_poll`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var max_packets_per_poll: int = 64
@@ -106,7 +106,7 @@ var max_packets_per_poll: int = 64
 ### `adopt_peer`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func adopt_peer(peer: MultiplayerPeer, options: Dictionary = {}) -> Error:
@@ -132,7 +132,7 @@ func adopt_peer(peer: MultiplayerPeer, options: Dictionary = {}) -> Error:
 ### `get_peer`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_peer() -> MultiplayerPeer:
@@ -147,7 +147,7 @@ func get_peer() -> MultiplayerPeer:
 ### `take_peer`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func take_peer() -> MultiplayerPeer:
@@ -162,7 +162,7 @@ func take_peer() -> MultiplayerPeer:
 ### `owns_peer`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func owns_peer() -> bool:
@@ -177,7 +177,7 @@ func owns_peer() -> bool:
 ### `get_session_bootstrap`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_session_bootstrap() -> Dictionary:
@@ -196,7 +196,7 @@ func get_session_bootstrap() -> Dictionary:
 ### `disconnect_backend`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func disconnect_backend() -> void:
@@ -209,7 +209,7 @@ func disconnect_backend() -> void:
 ### `send_bytes`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func send_bytes( peer_id: int, bytes: PackedByteArray, options: Dictionary = {} ) -> Error:
@@ -236,7 +236,7 @@ func send_bytes( peer_id: int, bytes: PackedByteArray, options: Dictionary = {} 
 ### `poll`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func poll(_delta: float) -> void:
@@ -255,7 +255,7 @@ func poll(_delta: float) -> void:
 ### `get_debug_snapshot`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_debug_snapshot() -> Dictionary:

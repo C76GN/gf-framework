@@ -2,7 +2,7 @@
 
 状态：Accepted
 
-适用版本：Unreleased
+适用版本：10.0.0
 决策范围：`gf.extension.save`
 
 ## 背景

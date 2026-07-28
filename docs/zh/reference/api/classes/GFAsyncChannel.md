@@ -183,7 +183,7 @@ const STATUS_PENDING: StringName = &"pending"
 ### `STATUS_WRITTEN`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const STATUS_WRITTEN: StringName = &"written"
@@ -196,7 +196,7 @@ const STATUS_WRITTEN: StringName = &"written"
 ### `STATUS_REJECTED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const STATUS_REJECTED: StringName = &"rejected"
@@ -209,7 +209,7 @@ const STATUS_REJECTED: StringName = &"rejected"
 ### `STATUS_DROPPED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const STATUS_DROPPED: StringName = &"dropped"
@@ -222,7 +222,7 @@ const STATUS_DROPPED: StringName = &"dropped"
 ### `STATUS_WRONG_THREAD`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const STATUS_WRONG_THREAD: StringName = &"wrong_thread"
@@ -235,7 +235,7 @@ const STATUS_WRONG_THREAD: StringName = &"wrong_thread"
 ### `DEFAULT_MAX_BUFFERED_ITEMS`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const DEFAULT_MAX_BUFFERED_ITEMS: int = 256
@@ -248,7 +248,7 @@ const DEFAULT_MAX_BUFFERED_ITEMS: int = 256
 ### `ABSOLUTE_MAX_BUFFERED_ITEMS`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const ABSOLUTE_MAX_BUFFERED_ITEMS: int = 65_536
@@ -261,7 +261,7 @@ const ABSOLUTE_MAX_BUFFERED_ITEMS: int = 65_536
 ### `OVERFLOW_REJECT`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const OVERFLOW_REJECT: StringName = &"reject"
@@ -274,7 +274,7 @@ const OVERFLOW_REJECT: StringName = &"reject"
 ### `OVERFLOW_DROP_OLDEST`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const OVERFLOW_DROP_OLDEST: StringName = &"drop_oldest"
@@ -287,7 +287,7 @@ const OVERFLOW_DROP_OLDEST: StringName = &"drop_oldest"
 ### `OVERFLOW_DROP_NEWEST`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const OVERFLOW_DROP_NEWEST: StringName = &"drop_newest"
@@ -302,7 +302,7 @@ const OVERFLOW_DROP_NEWEST: StringName = &"drop_newest"
 ### `configure_ingress`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func configure_ingress( max_buffered_items: int, overflow_policy: StringName = OVERFLOW_REJECT ) -> bool:
@@ -349,7 +349,7 @@ func try_write(item: Variant) -> bool:
 ### `try_write_detailed`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func try_write_detailed(item: Variant) -> Dictionary:
@@ -579,7 +579,7 @@ func get_count() -> int:
 ### `get_max_buffered_items`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_max_buffered_items() -> int:
@@ -594,7 +594,7 @@ func get_max_buffered_items() -> int:
 ### `get_overflow_policy`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_overflow_policy() -> StringName:

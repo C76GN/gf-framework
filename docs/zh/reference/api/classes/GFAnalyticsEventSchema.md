@@ -7,7 +7,7 @@
 - 继承：`Resource`
 - API：`public`
 - 类别：资源定义 (`resource_definition`)
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 版本化 Analytics 事件属性契约。 用不超过 4096 字符且不含 C0/DEL 控制字符的稳定事件名、1..2_147_483_647 范围内的 精确版本和严格 GFDictionarySchema 描述编码前的事件属性。 校验会先执行有界、无复制的集合遍历，再进入通用 Dictionary Schema， 避免不可信属性在深复制前消耗无界资源。
 
@@ -31,7 +31,7 @@
 ### `event_name`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var event_name: StringName = &""
@@ -44,7 +44,7 @@ var event_name: StringName = &""
 ### `schema_version`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var schema_version: int = 1
@@ -57,7 +57,7 @@ var schema_version: int = 1
 ### `properties_schema`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var properties_schema: GFDictionarySchema = null
@@ -72,7 +72,7 @@ var properties_schema: GFDictionarySchema = null
 ### `configure`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func configure( p_event_name: StringName, p_schema_version: int, p_properties_schema: GFDictionarySchema ) -> GFAnalyticsEventSchema:
@@ -95,7 +95,7 @@ func configure( p_event_name: StringName, p_schema_version: int, p_properties_sc
 ### `validate_definition`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func validate_definition(options: Dictionary = {}) -> GFValidationReport:
@@ -120,7 +120,7 @@ func validate_definition(options: Dictionary = {}) -> GFValidationReport:
 ### `validate_properties`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func validate_properties(properties: Dictionary, options: Dictionary = {}) -> GFValidationReport:
@@ -147,7 +147,7 @@ func validate_properties(properties: Dictionary, options: Dictionary = {}) -> GF
 ### `duplicate_schema`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func duplicate_schema() -> GFAnalyticsEventSchema:
@@ -162,7 +162,7 @@ func duplicate_schema() -> GFAnalyticsEventSchema:
 ### `describe`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func describe() -> Dictionary:

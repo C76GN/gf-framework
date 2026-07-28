@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFDeferredMutationQueue" path="addons/gf/standard/common/gf_deferred_mutation_queue.gd" module="standard" extends="GFUtility" classDigest="27627d1cebd4ff462e4caaeee043470476c0df7925506175fcfd21d476e2cdf4">
+<class name="GFDeferredMutationQueue" path="addons/gf/standard/common/gf_deferred_mutation_queue.gd" module="standard" extends="GFUtility" classDigest="b4ecf81f9d10f0b4c6c8ab49c6fc78d373453e18bdcb731d88a964c531e87cc3">
 	<description>GFDeferredMutationQueue: 确定性延迟变更队列。
 用于把运行时或工具流程中收集到的状态变更延迟到显式 playback 点执行。
 record() 保存无 owner 的强 Callable；record_method() 通过弱 owner 和方法名
@@ -26,7 +26,7 @@ record() 保存无 owner 的强 Callable；record_method() 通过弱 owner 和�
 			<description>默认最多保留的待应用变更数量。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="ABSOLUTE_MAX_PENDING_MUTATIONS">
@@ -34,7 +34,7 @@ record() 保存无 owner 的强 Callable；record_method() 通过弱 owner 和�
 			<description>最多允许配置的待应用变更数量。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="DEFAULT_MAX_MUTATIONS_PER_PLAYBACK">
@@ -42,7 +42,7 @@ record() 保存无 owner 的强 Callable；record_method() 通过弱 owner 和�
 			<description>playback() 未显式给出数量预算时使用的默认值。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="ABSOLUTE_MAX_MUTATIONS_PER_PLAYBACK">
@@ -50,7 +50,7 @@ record() 保存无 owner 的强 Callable；record_method() 通过弱 owner 和�
 			<description>单次 playback() 或 preview() 允许处理的记录数量绝对上限。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATUS_COMPLETED">
@@ -58,7 +58,7 @@ record() 保存无 owner 的强 Callable；record_method() 通过弱 owner 和�
 			<description>Playback 正常完成。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATUS_WRONG_THREAD">
@@ -66,7 +66,7 @@ record() 保存无 owner 的强 Callable；record_method() 通过弱 owner 和�
 			<description>Playback 在非主线程被调用。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATUS_BUSY">
@@ -74,7 +74,7 @@ record() 保存无 owner 的强 Callable；record_method() 通过弱 owner 和�
 			<description>当前实例已经处于同步 playback 调用中。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 	</constants>
@@ -84,7 +84,7 @@ record() 保存无 owner 的强 Callable；record_method() 通过弱 owner 和�
 			<description>最多保留的待应用变更数量。降低容量不会驱逐现有记录。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="max_mutations_per_playback">
@@ -147,7 +147,7 @@ record() 保存无 owner 的强 Callable；record_method() 通过弱 owner 和�
 				<tag name="param">options: 记录选项，支持 phase、sort_key、order 和 label。</tag>
 				<tag name="return">变更句柄；参数无效时返回 0。</tag>
 				<tag name="schema">options: Dictionary，可包含 phase: StringName、sort_key: int、order: int 和 label: String；不会保存 metadata。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="playback">

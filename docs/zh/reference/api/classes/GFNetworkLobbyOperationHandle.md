@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：运行时句柄 (`runtime_handle`)
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 Lobby 操作运行时句柄。 句柄保证请求只能进入一个终态，并把取消、超时、Backend 失败和 SDK 回调统一为 `GFNetworkLobbyOperationResult`。调用方不能直接完成句柄。
 
@@ -33,7 +33,7 @@ Lobby 操作运行时句柄。 句柄保证请求只能进入一个终态，并�
 ### `completed`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 signal completed(result: GFNetworkLobbyOperationResult)
@@ -52,7 +52,7 @@ signal completed(result: GFNetworkLobbyOperationResult)
 ### `cancel_requested`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 signal cancel_requested(reason: StringName)
@@ -73,7 +73,7 @@ signal cancel_requested(reason: StringName)
 ### `get_request`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_request() -> GFNetworkLobbyOperationRequest:
@@ -88,7 +88,7 @@ func get_request() -> GFNetworkLobbyOperationRequest:
 ### `get_request_id`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_request_id() -> StringName:
@@ -103,7 +103,7 @@ func get_request_id() -> StringName:
 ### `is_pending`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func is_pending() -> bool:
@@ -118,7 +118,7 @@ func is_pending() -> bool:
 ### `is_completed`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func is_completed() -> bool:
@@ -133,7 +133,7 @@ func is_completed() -> bool:
 ### `is_successful`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func is_successful() -> bool:
@@ -148,7 +148,7 @@ func is_successful() -> bool:
 ### `get_result`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_result() -> GFNetworkLobbyOperationResult:
@@ -163,7 +163,7 @@ func get_result() -> GFNetworkLobbyOperationResult:
 ### `cancel`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func cancel(reason: StringName = &"cancelled") -> bool:
@@ -184,7 +184,7 @@ func cancel(reason: StringName = &"cancelled") -> bool:
 ### `get_debug_snapshot`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_debug_snapshot() -> Dictionary:

@@ -9,7 +9,7 @@
 ## [br]
 ## @category runtime_service
 ## [br]
-## @since unreleased
+## @since 10.0.0
 class_name GFSessionTraceUtility
 extends GFUtility
 
@@ -20,7 +20,7 @@ extends GFUtility
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param session_id: 当前会话标识。
 ## [br]
@@ -33,7 +33,7 @@ signal session_started(session_id: StringName, context: Dictionary)
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param summary: 不含完整事件载荷的停止摘要。
 ## [br]
@@ -44,7 +44,7 @@ signal session_stopped(summary: Dictionary)
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param event: 已脱敏的事件副本。
 ## [br]
@@ -55,7 +55,7 @@ signal event_recorded(event: Dictionary)
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param channel_id: 请求记录的通道标识。
 ## [br]
@@ -71,91 +71,91 @@ signal event_rejected(channel_id: StringName, event_id: StringName, reason: Stri
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const DEFAULT_MAX_EVENTS: int = 512
 
 ## 默认内存事件缓冲总字节预算。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const DEFAULT_MAX_EVENT_BUFFER_BYTES: int = 1024 * 1024
 
 ## 默认单个事件字节预算。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const DEFAULT_MAX_EVENT_BYTES: int = 16 * 1024
 
 ## 默认最多允许注册的通道数量。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const DEFAULT_MAX_CHANNELS: int = 32
 
 ## 默认最多允许注册的同步快照 provider 数量。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const DEFAULT_MAX_SNAPSHOT_PROVIDERS: int = 32
 
 ## 默认单次会话最多写入 journal 的事件数量。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const DEFAULT_MAX_JOURNAL_EVENTS: int = 2048
 
 ## 拒绝原因：当前没有活动会话。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const REJECT_SESSION_INACTIVE: StringName = &"session_inactive"
 
 ## 拒绝原因：通道未显式注册。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const REJECT_UNKNOWN_CHANNEL: StringName = &"unknown_channel"
 
 ## 拒绝原因：通道当前被禁用。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const REJECT_CHANNEL_DISABLED: StringName = &"channel_disabled"
 
 ## 拒绝原因：事件标识为空。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const REJECT_INVALID_EVENT_ID: StringName = &"invalid_event_id"
 
 ## 拒绝原因：单个事件或总轨迹预算无法容纳事件。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const REJECT_EVENT_TOO_LARGE: StringName = &"event_too_large"
 
 ## 拒绝原因：快照 provider 不存在或失效。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const REJECT_INVALID_PROVIDER: StringName = &"invalid_provider"
 
 ## 拒绝原因：快照 provider 发生重入调用。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const REJECT_PROVIDER_REENTRANT: StringName = &"provider_reentrant"
 
 const _EVENT_SCHEMA_VERSION: int = 1
@@ -176,7 +176,7 @@ const _REDACTION_PROFILE_RANKS: Dictionary = {
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 var max_events: int = DEFAULT_MAX_EVENTS:
 	set(value):
 		if maxi(value, 0) == max_events:
@@ -190,7 +190,7 @@ var max_events: int = DEFAULT_MAX_EVENTS:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 var max_event_buffer_bytes: int = DEFAULT_MAX_EVENT_BUFFER_BYTES:
 	set(value):
 		if maxi(value, 0) == max_event_buffer_bytes:
@@ -203,7 +203,7 @@ var max_event_buffer_bytes: int = DEFAULT_MAX_EVENT_BUFFER_BYTES:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 var max_event_bytes: int = DEFAULT_MAX_EVENT_BYTES:
 	set(value):
 		if maxi(value, _MIN_EVENT_BYTES) == max_event_bytes:
@@ -215,7 +215,7 @@ var max_event_bytes: int = DEFAULT_MAX_EVENT_BYTES:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 var max_channels: int = DEFAULT_MAX_CHANNELS:
 	set(value):
 		max_channels = maxi(value, 0)
@@ -224,7 +224,7 @@ var max_channels: int = DEFAULT_MAX_CHANNELS:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 var max_snapshot_providers: int = DEFAULT_MAX_SNAPSHOT_PROVIDERS:
 	set(value):
 		max_snapshot_providers = maxi(value, 0)
@@ -233,7 +233,7 @@ var max_snapshot_providers: int = DEFAULT_MAX_SNAPSHOT_PROVIDERS:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 var max_journal_events: int = DEFAULT_MAX_JOURNAL_EVENTS:
 	set(value):
 		max_journal_events = maxi(value, 0)
@@ -243,7 +243,7 @@ var max_journal_events: int = DEFAULT_MAX_JOURNAL_EVENTS:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 var redaction_profile: String = GFReportValueCodec.REDACTION_PROFILE_PRIVACY:
 	set(value):
 		if value == redaction_profile:
@@ -291,7 +291,7 @@ var _trace_configuration_revision: int = 0
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 func dispose() -> void:
 	if _active:
 		var _stop_summary: Dictionary = stop_session(&"disposed")
@@ -320,7 +320,7 @@ func dispose() -> void:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param requested_session_id: 可选的非敏感本地会话标识；为空时自动生成。该字段不会识别账号、令牌等业务秘密。
 ## [br]
@@ -363,7 +363,7 @@ func start_session(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param reason: 项目定义的停止原因。
 ## [br]
@@ -387,7 +387,7 @@ func stop_session(reason: StringName = &"completed") -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 func clear() -> void:
 	_events.clear()
 	_event_sizes.clear()
@@ -405,7 +405,7 @@ func clear() -> void:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param recipe: 要应用的配方资源。
 ## [br]
@@ -575,7 +575,7 @@ func apply_recipe(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param recipe: 已应用且未变化的配方。
 ## [br]
@@ -661,7 +661,7 @@ func capture_recipe_checkpoint(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param recipe: 已应用且未变化的配方。
 ## [br]
@@ -695,7 +695,7 @@ func build_recipe_snapshot(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param channel_id: 稳定通道标识。
 ## [br]
@@ -735,7 +735,7 @@ func register_channel(channel_id: StringName, options: Dictionary = {}) -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param channel_id: 通道标识。
 ## [br]
@@ -758,7 +758,7 @@ func unregister_channel(channel_id: StringName) -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param channel_id: 通道标识。
 ## [br]
@@ -771,7 +771,7 @@ func has_channel(channel_id: StringName) -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param channel_id: 通道标识。
 ## [br]
@@ -795,7 +795,7 @@ func set_channel_enabled(channel_id: StringName, enabled: bool) -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 以通道 ID 为键的配置副本。
 ## [br]
@@ -820,7 +820,7 @@ func get_channel_catalog() -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param channel_id: 已注册通道标识。
 ## [br]
@@ -851,7 +851,7 @@ func record_event(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param provider_id: provider 稳定标识。
 ## [br]
@@ -898,7 +898,7 @@ func register_snapshot_provider(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param provider_id: provider 标识。
 ## [br]
@@ -911,7 +911,7 @@ func unregister_snapshot_provider(provider_id: StringName) -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param provider_id: provider 标识。
 ## [br]
@@ -971,7 +971,7 @@ func capture_snapshot_provider(provider_id: StringName, options: Dictionary = {}
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 以 provider ID 为键的配置副本。
 ## [br]
@@ -996,7 +996,7 @@ func get_snapshot_provider_catalog() -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param sink: 接收已脱敏事件的 sink；传入 null 表示清除。
 ## [br]
@@ -1041,7 +1041,7 @@ func configure_journal_sink(sink: GFLogSink, options: Dictionary = {}) -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 func flush_journal() -> void:
 	if _journal_sink == null or _journal_callback_active:
 		return
@@ -1055,7 +1055,7 @@ func flush_journal() -> void:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param shutdown: 是否调用 sink.shutdown()。
 func clear_journal_sink(shutdown: bool = false) -> void:
@@ -1077,7 +1077,7 @@ func clear_journal_sink(shutdown: bool = false) -> void:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param limit: 最大返回数量；0 表示不限制。
 ## [br]
@@ -1106,7 +1106,7 @@ func get_events(limit: int = 0, filters: Dictionary = {}) -> Array[Dictionary]:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param options: 快照选项。
 ## [br]
@@ -1135,7 +1135,7 @@ func build_snapshot(options: Dictionary = {}) -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 当前容量、计数、配方和 journal 状态。
 ## [br]

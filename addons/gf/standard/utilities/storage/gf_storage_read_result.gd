@@ -36,7 +36,7 @@ enum IntegrityStatus {
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 enum FailureKind {
 	## 没有失败。
 	NONE,
@@ -109,7 +109,7 @@ var error: String = ""
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 var failure_kind: FailureKind = FailureKind.NONE
 
 ## 物理存储文档 schema 版本。

@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：值对象 (`value_object`)
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 网络同步输入帧值对象。 保存目标 tick、来源 peer、单调序号和项目输入载荷。该类型只负责值语义； 非可信消息仍必须由 GFNetworkSyncCoordinator 结合实际传输 peer 校验。
 
@@ -31,7 +31,7 @@
 ### `tick`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var tick: int = 0
@@ -44,7 +44,7 @@ var tick: int = 0
 ### `peer_id`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var peer_id: int = -1
@@ -57,7 +57,7 @@ var peer_id: int = -1
 ### `sequence`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var sequence: int = 0
@@ -70,7 +70,7 @@ var sequence: int = 0
 ### `payload`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var payload: Dictionary = {}
@@ -89,7 +89,7 @@ var payload: Dictionary = {}
 ### `to_dict`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func to_dict() -> Dictionary:
@@ -108,7 +108,7 @@ func to_dict() -> Dictionary:
 ### `from_dict`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func from_dict(data: Dictionary) -> void:
@@ -131,7 +131,7 @@ func from_dict(data: Dictionary) -> void:
 ### `duplicate_frame`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func duplicate_frame() -> GFNetworkInputFrame:
@@ -146,7 +146,7 @@ func duplicate_frame() -> GFNetworkInputFrame:
 ### `validate_frame`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func validate_frame(options: Dictionary = {}) -> Dictionary:

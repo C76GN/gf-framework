@@ -104,7 +104,7 @@ var metadata: Dictionary = {}
 ### `adjacent_route_ids`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var adjacent_route_ids: PackedStringArray = PackedStringArray()
@@ -148,7 +148,7 @@ func is_valid_route() -> bool:
 ### `get_adjacent_route_ids`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_adjacent_route_ids() -> PackedStringArray:

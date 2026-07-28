@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFContentPackageUtility" path="addons/gf/extensions/content_package/runtime/gf_content_package_utility.gd" module="extensions/content_package" extends="GFUtility" classDigest="93917075f9ac7b16c22f4a049d1ee7ed30345b322eed1c7ab6f1da15e20022af">
+<class name="GFContentPackageUtility" path="addons/gf/extensions/content_package/runtime/gf_content_package_utility.gd" module="extensions/content_package" extends="GFUtility" classDigest="5ad7090c629ae1d3986250d809e8f391fc79abd51b2ee34aab04cfffe316aeb0">
 	<description>GFContentPackageUtility: 内容包发现、目录构建和资源解析注册服务。
 维护显式 source root 列表，加载其中的 `gf_content_package.json`，构建 GFContentPackageCatalog，
 并把内容包资源键映射同步到 GFResourceResolverUtility。它不下载内容、不扫描全项目、不决定包启用策略。</description>
@@ -26,7 +26,7 @@
 			<description>register_source_root() 等便捷入口使用的显式 owner scope。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 	</constants>
@@ -68,7 +68,7 @@
 				<tag name="param">owner_id: 非空 owner ID，用于批量释放来源。</tag>
 				<tag name="param">root_path: `res://` 或 `user://` 根目录。</tag>
 				<tag name="return">owner 首次取得该 root 时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="unregister_source_root_for_owner">
@@ -79,7 +79,7 @@
 				<tag name="param">owner_id: 注册时使用的 owner ID。</tag>
 				<tag name="param">root_path: 已注册 root。</tag>
 				<tag name="return">找到并释放时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="replace_owner_source_roots">
@@ -90,7 +90,7 @@
 				<tag name="param">owner_id: 非空 owner ID。</tag>
 				<tag name="param">root_paths: 新 root 集合；空集合表示释放 owner。</tag>
 				<tag name="return">类型化验证报告；任一 root 无效时不修改现有状态。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="clear_owner_source_roots">
@@ -100,7 +100,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">owner_id: 要释放的 owner ID。</tag>
 				<tag name="return">释放的 owner-root 关系数量。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_owner_source_roots">
@@ -110,7 +110,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">owner_id: owner ID。</tag>
 				<tag name="return">排序后的 root 副本。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_source_root_owner_ids">
@@ -119,7 +119,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">排序后的 owner ID 文本。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_source_roots">

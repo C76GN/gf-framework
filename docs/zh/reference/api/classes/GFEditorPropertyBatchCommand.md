@@ -7,7 +7,7 @@
 - 继承：`GFEditorCommand`
 - API：`public`
 - 类别：编辑器 API (`editor_api`)
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 通用多目标属性事务命令。 对调用方显式提供的 Object 属性先做全量零写入预检，再按稳定顺序提交。 任一写入或最终状态验证失败时，会按相反顺序恢复本次尝试前的全部目标属性。 命令只保证显式属性值边界，不代理 setter 的外部副作用、文件保存或业务事务。
 
@@ -40,7 +40,7 @@
 ### `STATUS_PENDING`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const STATUS_PENDING: StringName = &"pending"
@@ -53,7 +53,7 @@ const STATUS_PENDING: StringName = &"pending"
 ### `STATUS_READY`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const STATUS_READY: StringName = &"ready"
@@ -66,7 +66,7 @@ const STATUS_READY: StringName = &"ready"
 ### `STATUS_COMMITTED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const STATUS_COMMITTED: StringName = &"committed"
@@ -79,7 +79,7 @@ const STATUS_COMMITTED: StringName = &"committed"
 ### `STATUS_REVERTED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const STATUS_REVERTED: StringName = &"reverted"
@@ -92,7 +92,7 @@ const STATUS_REVERTED: StringName = &"reverted"
 ### `STATUS_RECOVERED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const STATUS_RECOVERED: StringName = &"recovered"
@@ -105,7 +105,7 @@ const STATUS_RECOVERED: StringName = &"recovered"
 ### `STATUS_PREFLIGHT_FAILED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const STATUS_PREFLIGHT_FAILED: StringName = &"preflight_failed"
@@ -118,7 +118,7 @@ const STATUS_PREFLIGHT_FAILED: StringName = &"preflight_failed"
 ### `STATUS_APPLY_FAILED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const STATUS_APPLY_FAILED: StringName = &"apply_failed"
@@ -131,7 +131,7 @@ const STATUS_APPLY_FAILED: StringName = &"apply_failed"
 ### `STATUS_REVERT_FAILED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const STATUS_REVERT_FAILED: StringName = &"revert_failed"
@@ -144,7 +144,7 @@ const STATUS_REVERT_FAILED: StringName = &"revert_failed"
 ### `STATUS_ROLLBACK_FAILED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const STATUS_ROLLBACK_FAILED: StringName = &"rollback_failed"
@@ -159,7 +159,7 @@ const STATUS_ROLLBACK_FAILED: StringName = &"rollback_failed"
 ### `configure`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func configure( changes: Array[Dictionary], options: Dictionary = {} ) -> GFEditorPropertyBatchCommand:
@@ -186,7 +186,7 @@ func configure( changes: Array[Dictionary], options: Dictionary = {} ) -> GFEdit
 ### `validate`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func validate() -> Dictionary:
@@ -205,7 +205,7 @@ func validate() -> Dictionary:
 ### `get_transaction_report`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_transaction_report() -> Dictionary:
@@ -224,7 +224,7 @@ func get_transaction_report() -> Dictionary:
 ### `recover`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func recover() -> Error:
@@ -239,7 +239,7 @@ func recover() -> Error:
 ### `can_execute`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func can_execute() -> bool:
@@ -254,7 +254,7 @@ func can_execute() -> bool:
 ### `can_revert_before_execute`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func can_revert_before_execute() -> bool:
@@ -269,7 +269,7 @@ func can_revert_before_execute() -> bool:
 ### `_do_it`
 
 - API：`protected`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func _do_it() -> Error:
@@ -284,7 +284,7 @@ func _do_it() -> Error:
 ### `_undo_it`
 
 - API：`protected`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func _undo_it() -> Error:

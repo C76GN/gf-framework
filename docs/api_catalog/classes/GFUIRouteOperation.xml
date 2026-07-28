@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFUIRouteOperation" path="addons/gf/standard/utilities/ui/gf_ui_route_operation.gd" module="standard" extends="RefCounted" classDigest="639c71f0155e8a13a252cd653200e0453fb0f46700372c089b280c9cbf604e9d">
+<class name="GFUIRouteOperation" path="addons/gf/standard/utilities/ui/gf_ui_route_operation.gd" module="standard" extends="RefCounted" classDigest="5168fc50a089489f8ff5f2ee9c2f44ca4a6ba13201c2362950b8d2795124aa67">
 	<description>GFUIRouteOperation: 单次异步路由打开的可观察句柄。
 句柄由 GFUIRouterUtility 分配请求身份并只接受一个终态。相同 pending 路由
 会返回同一句柄，调用方无需自行按路径合并请求。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">runtime_handle</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">10.0.0</tag>
 	</tags>
 	<signals>
 		<member kind="signal" name="completed">
@@ -15,7 +15,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">result: 与当前请求 ID 匹配的隔离结果。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 	</signals>
@@ -26,7 +26,7 @@
 			<description>压入路由操作。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="OPERATION_REPLACE">
@@ -34,7 +34,7 @@
 			<description>替换路由操作。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 	</constants>
@@ -46,7 +46,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">大于零的请求 ID。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_route_id">
@@ -55,7 +55,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">当前请求路由 ID。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_operation">
@@ -64,7 +64,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">`OPERATION_*` 常量之一。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_preload_policy">
@@ -73,7 +73,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">Router 接受或拒绝的策略标识。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_started_at_msec">
@@ -82,7 +82,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">单调时钟毫秒值。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="is_pending">
@@ -91,7 +91,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">已配置且未完成时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="is_completed">
@@ -100,7 +100,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">已完成时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_preload_session">
@@ -109,7 +109,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">已启动的会话；未启用或尚未启动时返回 null。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_result">
@@ -118,7 +118,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">已完成结果；等待中返回 null。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_debug_snapshot">
@@ -128,7 +128,7 @@
 				<tag name="api">public</tag>
 				<tag name="return">请求身份、pending 状态、预加载会话和终态摘要。</tag>
 				<tag name="schema">return: Dictionary with request_id, route_id, operation, preload_policy, started_at_msec, pending, completed, preload_session_id, and result.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 	</methods>

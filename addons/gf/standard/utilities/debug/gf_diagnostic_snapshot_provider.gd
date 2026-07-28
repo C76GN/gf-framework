@@ -7,7 +7,7 @@
 ## [br]
 ## @category protocol
 ## [br]
-## @since unreleased
+## @since 10.0.0
 class_name GFDiagnosticSnapshotProvider
 extends RefCounted
 
@@ -21,7 +21,7 @@ extends RefCounted
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const DEFAULT_MAX_DURATION_USEC: int = 50_000
 
 
@@ -31,7 +31,7 @@ const DEFAULT_MAX_DURATION_USEC: int = 50_000
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 var provider_id: StringName = &"":
 	set(value):
 		if _definition_locked and value != provider_id:
@@ -43,7 +43,7 @@ var provider_id: StringName = &"":
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 var max_duration_usec: int = DEFAULT_MAX_DURATION_USEC:
 	set(value):
 		if _definition_locked and value != max_duration_usec:
@@ -55,7 +55,7 @@ var max_duration_usec: int = DEFAULT_MAX_DURATION_USEC:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @schema metadata: Dictionary with provider-defined catalog metadata.
 var metadata: Dictionary:
@@ -80,7 +80,7 @@ var _metadata: Dictionary = {}
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param p_provider_id: 稳定 Provider ID。
 ## [br]
@@ -109,7 +109,7 @@ func configure(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return GFValidationReportDictionary 兼容报告。
 ## [br]
@@ -148,7 +148,7 @@ func validate_provider() -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param request: 调用方提供的临时只读上下文。
 ## [br]
@@ -165,7 +165,7 @@ func collect_snapshot(request: Dictionary = {}) -> GFDiagnosticProviderResult:
 ## [br]
 ## @api protected
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param _request: 调用方提供的临时上下文副本。
 ## [br]
@@ -185,7 +185,7 @@ func _collect_snapshot(_request: Dictionary = {}) -> GFDiagnosticProviderResult:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return Provider 合法且已锁定时返回 true。
 func lock_definition_for_framework() -> bool:

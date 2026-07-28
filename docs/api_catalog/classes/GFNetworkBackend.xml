@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFNetworkBackend" path="addons/gf/extensions/network/backends/gf_network_backend.gd" module="extensions/network" extends="RefCounted" classDigest="6bb8452ca8ca32c1d9e65db32c8778a6f6b0b96009ce70025ef2954b42b8966a">
+<class name="GFNetworkBackend" path="addons/gf/extensions/network/backends/gf_network_backend.gd" module="extensions/network" extends="RefCounted" classDigest="4f6b3e83f14f24156b8709ba3b07c04082b7038d75d5e96f49d305ecf52732fe">
 	<description>GFNetworkBackend: 网络后端抽象基类。
 后端负责具体传输协议，框架层只依赖该统一接口与信号。</description>
 	<tags>
@@ -107,7 +107,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">已收到连接终态且尚未断开时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_session_bootstrap">
@@ -119,7 +119,7 @@
 				<tag name="api">public</tag>
 				<tag name="return">可选会话接管字段。</tag>
 				<tag name="schema">return: Dictionary with optional mode, endpoint, local_peer_id, and metadata.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_debug_snapshot">
@@ -139,7 +139,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">当前指标快照；未知指标不会出现在快照中。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="_enrich_transport_metrics">
@@ -148,7 +148,7 @@
 			<tags>
 				<tag name="api">protected</tag>
 				<tag name="param">_metrics: 可追加已知指标的快照。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="_record_transport_packet_sent">
@@ -157,7 +157,7 @@
 			<tags>
 				<tag name="api">protected</tag>
 				<tag name="param">byte_count: 已交给传输层的字节数。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="_reset_transport_metrics">
@@ -165,7 +165,7 @@
 			<description>重置当前连接的累计传输指标。</description>
 			<tags>
 				<tag name="api">protected</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 	</methods>

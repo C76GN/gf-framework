@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFStorageReadResult" path="addons/gf/standard/utilities/storage/gf_storage_read_result.gd" module="standard" extends="RefCounted" classDigest="9dcb8a10235ad3c085f21e566690b51db20f2e75729b45b3b6237168760108b3">
+<class name="GFStorageReadResult" path="addons/gf/standard/utilities/storage/gf_storage_read_result.gd" module="standard" extends="RefCounted" classDigest="eab0e651a1c6ce95c7505f3e573fb9236f077a43d036e9706cb62815ca80651a">
 	<description>GFStorageReadResult: 严格存储读取结果。
 将业务载荷、框架存储元数据、完整性状态和失败原因分离，避免调用方
 把空字典误判为成功，也避免存储层保留字段渗入业务数据。</description>
@@ -50,7 +50,7 @@
 调用方必须依据该分类选择恢复策略，不得从 Error 码或错误文本推断数据语义。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 	</enums>
@@ -111,7 +111,7 @@
 			<description>读取失败的稳定分类；成功时为 `FailureKind.NONE`。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="document_schema_version">

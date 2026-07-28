@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFRuntimeAgentEnvironment" path="addons/gf/standard/utilities/agent/gf_runtime_agent_environment.gd" module="standard" extends="GFUtility" classDigest="e17ae3ce2c4a7c60204d3c588c2bbb41dc2ed651997ecfccf0a3f0e1d07f680c">
+<class name="GFRuntimeAgentEnvironment" path="addons/gf/standard/utilities/agent/gf_runtime_agent_environment.gd" module="standard" extends="GFUtility" classDigest="dc9db8d36673a1a9f83729287b1c4142a38412f445c850ba86546f3d0316fba0">
 	<description>GFRuntimeAgentEnvironment: 传输无关的受限运行时 Agent 调用环境。
 受信宿主显式注册严格 endpoint，再为调用方签发仅授权指定 endpoint 的短期 session。
 环境负责协议版本、bearer token、TTL、限流、防重放、结构预算、策略检查和无载荷审计；
@@ -9,7 +9,7 @@
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">runtime_service</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">10.0.0</tag>
 	</tags>
 	<signals>
 		<member kind="signal" name="audit_event_recorded">
@@ -21,7 +21,7 @@ handler 输出或策略返回数据。</description>
 				<tag name="api">public</tag>
 				<tag name="param">event: 固定字段、无业务载荷的 Runtime Agent 审计事件。</tag>
 				<tag name="schema">event: Dictionary { schema_version: int, protocol_version: int, sequence: int, timestamp_msec: int, action: String, outcome: String, reason: String, session_id: String, endpoint_id: String, request_id_digest: String }.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 	</signals>
@@ -32,7 +32,7 @@ handler 输出或策略返回数据。</description>
 			<description>Runtime Agent 请求协议版本。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="SCHEMA_VERSION">
@@ -40,7 +40,7 @@ handler 输出或策略返回数据。</description>
 			<description>Runtime Agent 结果与审计结构版本。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 	</constants>
@@ -52,7 +52,7 @@ handler 输出或策略返回数据。</description>
 endpoint 注册会保留，便于宿主先完成声明再显式开放环境。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="policy_registry">
@@ -65,7 +65,7 @@ registry、providers 数组及 Provider 字段的原地修改也必须由环境�
 当前公开配置摘要仍会对未通知但持续存在的配置漂移 fail closed。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 	</properties>
@@ -76,7 +76,7 @@ registry、providers 数组及 Provider 字段的原地修改也必须由环境�
 跨拥有线程调用不会改变环境；transport 必须先把控制流编排回拥有线程。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="register_endpoint">
@@ -93,7 +93,7 @@ request_schema 与 response_schema 必须是 closed、无 coercion、无 metadat
 				<tag name="param">handler: 同步受信回调；接收不含 token 的请求 Dictionary，返回 Dictionary。</tag>
 				<tag name="return">版本化注册结果。</tag>
 				<tag name="schema">return: Dictionary { schema_version: int, protocol_version: int, ok: bool, status: String, reason: String, endpoint_id?: String }.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="unregister_endpoint">
@@ -106,7 +106,7 @@ endpoint_grant_stale 失败，避免注销/重注册的 ABA 权限恢复。</des
 				<tag name="param">endpoint_id: endpoint 标识。</tag>
 				<tag name="return">版本化注销结果。</tag>
 				<tag name="schema">return: Dictionary { schema_version: int, protocol_version: int, ok: bool, status: String, reason: String, endpoint_id?: String }.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_endpoint_catalog">
@@ -116,7 +116,7 @@ endpoint_grant_stale 失败，避免注销/重注册的 ABA 权限恢复。</des
 				<tag name="api">public</tag>
 				<tag name="return">版本化安全目录。</tag>
 				<tag name="schema">return: Dictionary { schema_version: int, protocol_version: int, ok: bool, status: String, reason: String, endpoint_count?: int, endpoints?: Array[Dictionary { endpoint_id: String, request_schema: Dictionary { schema_id: String, allow_extra_fields: bool, fields: Array[Dictionary] }, response_schema: Dictionary { schema_id: String, allow_extra_fields: bool, fields: Array[Dictionary] } }] }.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="open_session">
@@ -132,7 +132,7 @@ endpoint_grant_stale 失败，避免注销/重注册的 ABA 权限恢复。</des
 				<tag name="schema">endpoint_ids: PackedStringArray exact endpoint grants.</tag>
 				<tag name="schema">options: Dictionary { ttl_msec?: int, max_requests_per_window?: int, rate_window_msec?: int, max_request_ids?: int }; no other keys are accepted.</tag>
 				<tag name="schema">return: Dictionary { schema_version: int, protocol_version: int, ok: bool, status: String, reason: String, session_id?: String, token?: String, endpoint_ids?: Array[String], issued_at_msec?: int, expires_at_msec?: int }; credential fields exist only on success.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="close_session">
@@ -144,7 +144,7 @@ endpoint_grant_stale 失败，避免注销/重注册的 ABA 权限恢复。</des
 				<tag name="param">bearer_token: open_session() 一次返回的 token。</tag>
 				<tag name="return">版本化关闭结果。</tag>
 				<tag name="schema">return: Dictionary { schema_version: int, protocol_version: int, ok: bool, status: String, reason: String }.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="revoke_session">
@@ -155,7 +155,7 @@ endpoint_grant_stale 失败，避免注销/重注册的 ABA 权限恢复。</des
 				<tag name="api">public</tag>
 				<tag name="param">session_id: 待撤销 session 标识。</tag>
 				<tag name="return">找到并撤销 session 时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="invalidate_policy_context">
@@ -167,7 +167,7 @@ session 签发或请求在回调后的上下文复核中失败。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">本次撤销的 session 数量；跨拥有线程调用返回 0。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="execute_request">
@@ -184,7 +184,7 @@ bearer token 与协议请求分离，不会进入 handler、策略响应、目�
 				<tag name="return">版本化执行结果；仅成功结果包含 response。</tag>
 				<tag name="schema">request: Dictionary { protocol_version: int, session_id: String, endpoint_id: String, request_id: String, payload: Dictionary }; exactly these five keys are accepted.</tag>
 				<tag name="schema">return: Dictionary { schema_version: int, protocol_version: int, ok: bool, status: String, reason: String, response?: Dictionary }; response exists only on success and matches the endpoint response schema.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="prune_expired_sessions">
@@ -193,7 +193,7 @@ bearer token 与协议请求分离，不会进入 handler、策略响应、目�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">本次删除数量。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_audit_events">
@@ -204,7 +204,7 @@ bearer token 与协议请求分离，不会进入 handler、策略响应、目�
 				<tag name="param">limit: 最多返回数量；钳制到 0..256。</tag>
 				<tag name="return">版本化审计结果。</tag>
 				<tag name="schema">return: Dictionary { schema_version: int, protocol_version: int, ok: bool, status: String, reason: String, event_count?: int, retained_event_count?: int, events?: Array[Dictionary { schema_version: int, protocol_version: int, sequence: int, timestamp_msec: int, action: String, outcome: String, reason: String, session_id: String, endpoint_id: String, request_id_digest: String }] }.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="clear_audit_events">
@@ -212,7 +212,7 @@ bearer token 与协议请求分离，不会进入 handler、策略响应、目�
 			<description>清空环境内存审计环形缓冲。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_debug_snapshot">
@@ -222,7 +222,7 @@ bearer token 与协议请求分离，不会进入 handler、策略响应、目�
 				<tag name="api">public</tag>
 				<tag name="return">固定形态调试快照。</tag>
 				<tag name="schema">return: Dictionary { schema_version: int, protocol_version: int, enabled: bool, endpoint_count: int, active_session_count: int, audit_event_count: int, policy_provider_count: int, handler_active: bool, secrets_stored_as_hashes: bool, owner_thread_access: bool }.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="_get_current_time_msec">
@@ -232,7 +232,7 @@ bearer token 与协议请求分离，不会进入 handler、策略响应、目�
 			<tags>
 				<tag name="api">protected</tag>
 				<tag name="return">单调毫秒值。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 	</methods>

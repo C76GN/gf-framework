@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFAssetCatalogRuntime" path="addons/gf/standard/utilities/assets/gf_asset_catalog_runtime.gd" module="standard" extends="GFUtility" classDigest="814e37f3521ad847a984ff84fca9895f3777f7555d7a4e2ccd719f33783c73b2">
+<class name="GFAssetCatalogRuntime" path="addons/gf/standard/utilities/assets/gf_asset_catalog_runtime.gd" module="standard" extends="GFUtility" classDigest="cf853e88a6c90879ce93cdc98a67cd09917a0c20498f3733d9de416bb35d6308">
 	<description>GFAssetCatalogRuntime: owner-scoped 资产目录快照挂载与原子合并服务。
 Runtime 只接收已经构建的目录快照或 Provider 输出，按稳定优先级合并并以 revision 发布。
 任何无效请求、Provider 失败或严格冲突都不会替换上一份已提交目录。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">runtime_service</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">10.0.0</tag>
 	</tags>
 	<signals>
 		<member kind="signal" name="catalog_changed">
@@ -16,7 +16,7 @@ Runtime 只接收已经构建的目录快照或 Provider 输出，按稳定优�
 				<tag name="api">public</tag>
 				<tag name="param">catalog: 已提交目录的隔离快照。</tag>
 				<tag name="param">revision: 新 revision。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 	</signals>
@@ -27,7 +27,7 @@ Runtime 只接收已经构建的目录快照或 Provider 输出，按稳定优�
 			<description>任一重复 asset ID 都拒绝整次事务。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="CONFLICT_KEEP_HIGH_PRIORITY">
@@ -35,7 +35,7 @@ Runtime 只接收已经构建的目录快照或 Provider 输出，按稳定优�
 			<description>重复 asset ID 显式保留高优先级 Mount 的条目。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 	</constants>
@@ -48,7 +48,7 @@ Runtime 只接收已经构建的目录快照或 Provider 输出，按稳定优�
 				<tag name="api">public</tag>
 				<tag name="param">conflict_policy: CONFLICT_REJECT 或 CONFLICT_KEEP_HIGH_PRIORITY。</tag>
 				<tag name="return">当前 Runtime；已有 Mount 或政策无效时保持原配置。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="mount_catalog">
@@ -62,7 +62,7 @@ Runtime 只接收已经构建的目录快照或 Provider 输出，按稳定优�
 				<tag name="param">priority: 合并优先级，数值越大越先处理。</tag>
 				<tag name="param">source_id: 可选来源 ID；为空时使用 mount_id。</tag>
 				<tag name="return">活动 Mount 或带稳定失败状态的非活动 Mount。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="mount_provider">
@@ -76,7 +76,7 @@ Runtime 只接收已经构建的目录快照或 Provider 输出，按稳定优�
 				<tag name="param">options: 传给 Provider 的构建选项。</tag>
 				<tag name="return">活动 Mount 或带构建失败状态的非活动 Mount。</tag>
 				<tag name="schema">options: Dictionary with provider-defined build options.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="replace_mount_catalog">
@@ -87,7 +87,7 @@ Runtime 只接收已经构建的目录快照或 Provider 输出，按稳定优�
 				<tag name="param">mount: 当前 Runtime 返回的活动 Mount。</tag>
 				<tag name="param">catalog: 新目录快照。</tag>
 				<tag name="return">完整候选成功提交返回 true；失败时保留原 Mount、目录和 revision。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="unmount_owner">
@@ -97,7 +97,7 @@ Runtime 只接收已经构建的目录快照或 Provider 输出，按稳定优�
 				<tag name="api">public</tag>
 				<tag name="param">owner_id: 要释放的 owner ID。</tag>
 				<tag name="return">释放的 Mount 数量。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_catalog">
@@ -106,7 +106,7 @@ Runtime 只接收已经构建的目录快照或 Provider 输出，按稳定优�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">深拷贝目录。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_revision">
@@ -115,7 +115,7 @@ Runtime 只接收已经构建的目录快照或 Provider 输出，按稳定优�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">从 0 开始、仅成功提交时递增的 revision。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_mounts">
@@ -124,7 +124,7 @@ Runtime 只接收已经构建的目录快照或 Provider 输出，按稳定优�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">按合并顺序排列的 Mount 句柄。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_last_report">
@@ -134,7 +134,7 @@ Runtime 只接收已经构建的目录快照或 Provider 输出，按稳定优�
 				<tag name="api">public</tag>
 				<tag name="return">GFValidationReport 兼容字典副本。</tag>
 				<tag name="schema">return: GFValidationReport-compatible Dictionary with conflict_policy, revision, mount_count, asset_count, and issues.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_debug_snapshot">
@@ -144,7 +144,7 @@ Runtime 只接收已经构建的目录快照或 Provider 输出，按稳定优�
 				<tag name="api">public</tag>
 				<tag name="return">Runtime、Mount 和目录摘要。</tag>
 				<tag name="schema">return: Dictionary with conflict_policy, disposed, revision, mount_count, mounts, catalog, and last_report.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 	</methods>

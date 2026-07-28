@@ -7,7 +7,7 @@
 - 继承：`Resource`
 - API：`public`
 - 类别：资源定义 (`resource_definition`)
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 平台桥接契约描述。 将一个 provider-neutral contract 的版本和方法集合固定为可校验数据。描述符不包含 Steam、微信、主机厂商或项目业务语义。
 
@@ -32,7 +32,7 @@
 ### `contract_id`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var contract_id: StringName = &""
@@ -45,7 +45,7 @@ var contract_id: StringName = &""
 ### `contract_version`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var contract_version: String = "1.0.0"
@@ -58,7 +58,7 @@ var contract_version: String = "1.0.0"
 ### `methods`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var methods: Array[GFPlatformContractMethodDescriptor] = []
@@ -75,7 +75,7 @@ var methods: Array[GFPlatformContractMethodDescriptor] = []
 ### `metadata`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var metadata: Dictionary = {}
@@ -94,7 +94,7 @@ Adapter 作者定义的非业务元数据。
 ### `configure`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func configure( p_contract_id: StringName, p_contract_version: String, p_methods: Array[GFPlatformContractMethodDescriptor], p_metadata: Dictionary = {} ) -> GFPlatformContractDescriptor:
@@ -123,7 +123,7 @@ func configure( p_contract_id: StringName, p_contract_version: String, p_methods
 ### `get_method`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_method(method_id: StringName) -> GFPlatformContractMethodDescriptor:
@@ -144,7 +144,7 @@ func get_method(method_id: StringName) -> GFPlatformContractMethodDescriptor:
 ### `validate_definition`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func validate_definition() -> GFValidationReport:
@@ -159,7 +159,7 @@ func validate_definition() -> GFValidationReport:
 ### `duplicate_descriptor`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func duplicate_descriptor() -> GFPlatformContractDescriptor:
@@ -174,7 +174,7 @@ func duplicate_descriptor() -> GFPlatformContractDescriptor:
 ### `to_dict`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func to_dict() -> Dictionary:

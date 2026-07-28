@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：值对象 (`value_object`)
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 网络传输指标快照。 指标只在显式写入后才视为已知，避免用 0 混淆“真实为零”与“后端不支持”。 内置指标覆盖流量、包数、连接时长、队列、延迟、抖动和丢包率；Adapter 也可以写入命名稳定的自定义非负指标。
 
@@ -45,7 +45,7 @@
 ### `BYTES_SENT`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const BYTES_SENT: StringName = &"bytes_sent"
@@ -58,7 +58,7 @@ const BYTES_SENT: StringName = &"bytes_sent"
 ### `BYTES_RECEIVED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const BYTES_RECEIVED: StringName = &"bytes_received"
@@ -71,7 +71,7 @@ const BYTES_RECEIVED: StringName = &"bytes_received"
 ### `PACKETS_SENT`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const PACKETS_SENT: StringName = &"packets_sent"
@@ -84,7 +84,7 @@ const PACKETS_SENT: StringName = &"packets_sent"
 ### `PACKETS_RECEIVED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const PACKETS_RECEIVED: StringName = &"packets_received"
@@ -97,7 +97,7 @@ const PACKETS_RECEIVED: StringName = &"packets_received"
 ### `CONNECTION_AGE_MSEC`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const CONNECTION_AGE_MSEC: StringName = &"connection_age_msec"
@@ -110,7 +110,7 @@ const CONNECTION_AGE_MSEC: StringName = &"connection_age_msec"
 ### `ROUND_TRIP_TIME_MSEC`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const ROUND_TRIP_TIME_MSEC: StringName = &"round_trip_time_msec"
@@ -123,7 +123,7 @@ const ROUND_TRIP_TIME_MSEC: StringName = &"round_trip_time_msec"
 ### `JITTER_MSEC`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const JITTER_MSEC: StringName = &"jitter_msec"
@@ -136,7 +136,7 @@ const JITTER_MSEC: StringName = &"jitter_msec"
 ### `PACKET_LOSS_RATIO`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const PACKET_LOSS_RATIO: StringName = &"packet_loss_ratio"
@@ -149,7 +149,7 @@ const PACKET_LOSS_RATIO: StringName = &"packet_loss_ratio"
 ### `SEND_QUEUE_PACKETS`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const SEND_QUEUE_PACKETS: StringName = &"send_queue_packets"
@@ -162,7 +162,7 @@ const SEND_QUEUE_PACKETS: StringName = &"send_queue_packets"
 ### `RECEIVE_QUEUE_PACKETS`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const RECEIVE_QUEUE_PACKETS: StringName = &"receive_queue_packets"
@@ -177,7 +177,7 @@ const RECEIVE_QUEUE_PACKETS: StringName = &"receive_queue_packets"
 ### `sample_time_msec`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var sample_time_msec: int = 0
@@ -190,7 +190,7 @@ var sample_time_msec: int = 0
 ### `sample_window_msec`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var sample_window_msec: int = 0
@@ -205,7 +205,7 @@ var sample_window_msec: int = 0
 ### `set_metric`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func set_metric(metric_id: StringName, value: float) -> bool:
@@ -227,7 +227,7 @@ func set_metric(metric_id: StringName, value: float) -> bool:
 ### `clear_metric`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func clear_metric(metric_id: StringName) -> bool:
@@ -248,7 +248,7 @@ func clear_metric(metric_id: StringName) -> bool:
 ### `has_metric`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func has_metric(metric_id: StringName) -> bool:
@@ -269,7 +269,7 @@ func has_metric(metric_id: StringName) -> bool:
 ### `get_metric`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_metric(metric_id: StringName, default_value: float = 0.0) -> float:
@@ -291,7 +291,7 @@ func get_metric(metric_id: StringName, default_value: float = 0.0) -> float:
 ### `get_metric_ids`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_metric_ids() -> PackedStringArray:
@@ -306,7 +306,7 @@ func get_metric_ids() -> PackedStringArray:
 ### `merge_from`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func merge_from(other: GFNetworkTransportMetrics) -> void:
@@ -325,7 +325,7 @@ func merge_from(other: GFNetworkTransportMetrics) -> void:
 ### `to_dict`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func to_dict() -> Dictionary:
@@ -344,7 +344,7 @@ func to_dict() -> Dictionary:
 ### `apply_dict`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func apply_dict(data: Dictionary) -> void:
@@ -367,7 +367,7 @@ func apply_dict(data: Dictionary) -> void:
 ### `duplicate_metrics`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func duplicate_metrics() -> GFNetworkTransportMetrics:
@@ -382,7 +382,7 @@ func duplicate_metrics() -> GFNetworkTransportMetrics:
 ### `from_dict`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 static func from_dict(data: Dictionary) -> GFNetworkTransportMetrics:

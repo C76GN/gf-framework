@@ -143,7 +143,7 @@ const STATUS_INVALID: StringName = &"invalid"
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const STATUS_REJECTED: StringName = &"rejected"
 
 ## 默认每个 key 的并发槽位数。
@@ -157,7 +157,7 @@ const DEFAULT_MAX_CONCURRENCY: int = 1
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const ABSOLUTE_MAX_CONCURRENCY: int = 4096
 
 ## 默认保留的最近事件数量。
@@ -171,105 +171,105 @@ const DEFAULT_MAX_RECENT_EVENTS: int = 64
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const ABSOLUTE_MAX_RECENT_EVENTS: int = 4096
 
 ## 默认最多同时持有的 lease 总数。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const DEFAULT_MAX_ACTIVE_LEASES: int = 4096
 
 ## 同时持有 lease 的绝对数量上限。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const ABSOLUTE_MAX_ACTIVE_LEASES: int = 65_536
 
 ## 默认最多保留的等待请求总数。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const DEFAULT_MAX_WAITING_REQUESTS: int = 1024
 
 ## 等待请求总数的绝对上限。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const ABSOLUTE_MAX_WAITING_REQUESTS: int = 65_536
 
 ## 默认每个 key 最多保留的等待请求数。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const DEFAULT_MAX_WAITING_PER_KEY: int = 64
 
 ## 单 key 等待请求数的绝对上限。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const ABSOLUTE_MAX_WAITING_PER_KEY: int = 4096
 
 ## 默认最多跟踪的活跃、等待或显式配置 key 数。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const DEFAULT_MAX_TRACKED_KEYS: int = 256
 
 ## tracked key 数量的绝对上限。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const ABSOLUTE_MAX_TRACKED_KEYS: int = 16_384
 
 ## 默认每次队列推进最多处理的等待请求数量。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const DEFAULT_MAX_PUMP_WORK_ITEMS: int = 256
 
 ## 单次队列推进工作预算的绝对上限。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const ABSOLUTE_MAX_PUMP_WORK_ITEMS: int = 4096
 
 ## 等待请求总容量耗尽原因。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const REASON_MAX_WAITING_REQUESTS: StringName = &"max_waiting_requests"
 
 ## 单 key 等待容量耗尽原因。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const REASON_MAX_WAITING_PER_KEY: StringName = &"max_waiting_per_key"
 
 ## key 跟踪容量耗尽原因。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const REASON_MAX_TRACKED_KEYS: StringName = &"max_tracked_keys"
 
 ## 取消令牌订阅建立失败原因。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const REASON_CANCEL_TOKEN_CONNECT_FAILED: StringName = &"cancel_token_connect_failed"
 
 
@@ -319,7 +319,7 @@ var max_recent_events: int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 var max_active_leases: int:
 	set(value):
 		if not Thread.is_main_thread():
@@ -339,7 +339,7 @@ var max_active_leases: int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 var max_waiting_requests: int:
 	set(value):
 		if not Thread.is_main_thread():
@@ -358,7 +358,7 @@ var max_waiting_requests: int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 var max_waiting_per_key: int:
 	set(value):
 		if not Thread.is_main_thread():
@@ -377,7 +377,7 @@ var max_waiting_per_key: int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 var max_tracked_keys: int:
 	set(value):
 		if not Thread.is_main_thread():
@@ -397,7 +397,7 @@ var max_tracked_keys: int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 var max_pump_work_items: int:
 	set(value):
 		if not Thread.is_main_thread():

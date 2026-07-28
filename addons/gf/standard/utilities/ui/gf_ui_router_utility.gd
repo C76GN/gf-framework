@@ -51,7 +51,7 @@ signal route_open_failed(route_id: StringName, reason: String)
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param result: 隔离的类型化终态结果。
 signal route_operation_completed(result: GFUIRouteResult)
@@ -87,21 +87,21 @@ const _INSTANCE_GUARD = preload("res://addons/gf/kernel/core/gf_instance_guard.g
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const PRELOAD_NONE: StringName = &"none"
 
 ## 尽力执行路由预加载；规划或加载失败时仍继续打开面板。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const PRELOAD_BEST_EFFORT: StringName = &"best_effort"
 
 ## 要求路由预加载完整成功；否则不提交面板请求。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const PRELOAD_REQUIRED: StringName = &"required"
 
 
@@ -273,7 +273,7 @@ func get_route_ids() -> PackedStringArray:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param source_route_id: 起始路由标识。
 ## [br]
@@ -359,7 +359,7 @@ func replace_route(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param route_id: 路由标识。
 ## [br]
@@ -399,7 +399,7 @@ func push_route_async(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param route_id: 路由标识。
 ## [br]

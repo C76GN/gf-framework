@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：值对象 (`value_object`)
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 设置加载操作的不可变终态快照。 结果将“合法空设置”与缺失、损坏、未来版本和底层存储失败明确区分， 并保留实际应用状态、恢复动作和底层读取证据。
 
@@ -42,7 +42,7 @@
 ### `STATUS_LOADED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const STATUS_LOADED: StringName = &"loaded"
@@ -55,7 +55,7 @@ const STATUS_LOADED: StringName = &"loaded"
 ### `STATUS_RECOVERED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const STATUS_RECOVERED: StringName = &"recovered"
@@ -68,7 +68,7 @@ const STATUS_RECOVERED: StringName = &"recovered"
 ### `STATUS_INVALID_REQUEST`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const STATUS_INVALID_REQUEST: StringName = &"invalid_request"
@@ -81,7 +81,7 @@ const STATUS_INVALID_REQUEST: StringName = &"invalid_request"
 ### `STATUS_MISSING`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const STATUS_MISSING: StringName = &"missing"
@@ -94,7 +94,7 @@ const STATUS_MISSING: StringName = &"missing"
 ### `STATUS_CORRUPT`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const STATUS_CORRUPT: StringName = &"corrupt"
@@ -107,7 +107,7 @@ const STATUS_CORRUPT: StringName = &"corrupt"
 ### `STATUS_FUTURE_SCHEMA`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const STATUS_FUTURE_SCHEMA: StringName = &"future_schema"
@@ -120,7 +120,7 @@ const STATUS_FUTURE_SCHEMA: StringName = &"future_schema"
 ### `STATUS_MIGRATION_FAILED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const STATUS_MIGRATION_FAILED: StringName = &"migration_failed"
@@ -133,7 +133,7 @@ const STATUS_MIGRATION_FAILED: StringName = &"migration_failed"
 ### `STATUS_STORAGE_FAILED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const STATUS_STORAGE_FAILED: StringName = &"storage_failed"
@@ -148,7 +148,7 @@ const STATUS_STORAGE_FAILED: StringName = &"storage_failed"
 ### `is_successful`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func is_successful() -> bool:
@@ -163,7 +163,7 @@ func is_successful() -> bool:
 ### `get_status`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_status() -> StringName:
@@ -178,7 +178,7 @@ func get_status() -> StringName:
 ### `get_file_name`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_file_name() -> String:
@@ -193,7 +193,7 @@ func get_file_name() -> String:
 ### `was_applied`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func was_applied() -> bool:
@@ -208,7 +208,7 @@ func was_applied() -> bool:
 ### `was_recovered`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func was_recovered() -> bool:
@@ -223,7 +223,7 @@ func was_recovered() -> bool:
 ### `get_recovery_action`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_recovery_action() -> StringName:
@@ -238,7 +238,7 @@ func get_recovery_action() -> StringName:
 ### `get_error_code`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_error_code() -> Error:
@@ -253,7 +253,7 @@ func get_error_code() -> Error:
 ### `get_error`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_error() -> String:
@@ -268,7 +268,7 @@ func get_error() -> String:
 ### `get_storage_result`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_storage_result() -> GFStorageReadResult:
@@ -283,7 +283,7 @@ func get_storage_result() -> GFStorageReadResult:
 ### `duplicate_result`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func duplicate_result() -> GFSettingsLoadResult:
@@ -298,7 +298,7 @@ func duplicate_result() -> GFSettingsLoadResult:
 ### `to_dict`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func to_dict() -> Dictionary:

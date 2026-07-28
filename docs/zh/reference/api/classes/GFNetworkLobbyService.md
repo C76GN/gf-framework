@@ -56,7 +56,7 @@
 ### `operation_started`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 signal operation_started(request: GFNetworkLobbyOperationRequest)
@@ -75,7 +75,7 @@ signal operation_started(request: GFNetworkLobbyOperationRequest)
 ### `operation_completed`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 signal operation_completed(result: GFNetworkLobbyOperationResult)
@@ -170,7 +170,7 @@ signal lobby_left(result: GFNetworkLobbyOperationResult)
 ### `lobby_metadata_set`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 signal lobby_metadata_set(result: GFNetworkLobbyOperationResult)
@@ -189,7 +189,7 @@ Lobby metadata 操作完成后发出。
 ### `member_metadata_set`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 signal member_metadata_set(result: GFNetworkLobbyOperationResult)
@@ -340,7 +340,7 @@ var current_lobby: GFNetworkLobbyDescriptor = null
 ### `default_timeout_msec`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var default_timeout_msec: int = 15000
@@ -355,7 +355,7 @@ var default_timeout_msec: int = 15000
 ### `ready`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func ready() -> void:
@@ -421,7 +421,7 @@ func set_backend(next_backend: GFNetworkLobbyBackend) -> bool:
 ### `set_clock`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func set_clock(clock: GFClock) -> bool:
@@ -442,7 +442,7 @@ func set_clock(clock: GFClock) -> bool:
 ### `get_clock`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_clock() -> GFClock:
@@ -617,7 +617,7 @@ func set_member_metadata( peer_id: int, metadata_patch: Dictionary, lobby_id: St
 ### `invoke_operation`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func invoke_operation( request: GFNetworkLobbyOperationRequest ) -> GFNetworkLobbyOperationHandle:
@@ -638,7 +638,7 @@ func invoke_operation( request: GFNetworkLobbyOperationRequest ) -> GFNetworkLob
 ### `cancel_operation`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func cancel_operation( request_id: StringName, reason: StringName = &"cancelled" ) -> bool:

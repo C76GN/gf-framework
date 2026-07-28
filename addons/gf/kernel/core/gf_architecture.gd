@@ -239,7 +239,7 @@ func is_lifecycle_active() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return dispose() 已完成时返回 true。
 func is_disposed() -> bool:
@@ -250,7 +250,7 @@ func is_disposed() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return dispose() 已开始但尚未完成时返回 true。
 func is_disposing() -> bool:
@@ -624,7 +624,7 @@ func register_event_owned(owner: Object, event_type: Script, listener: GFEventLi
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param event_type: 要订阅的脚本类型。
 ## [br]
@@ -695,7 +695,7 @@ func register_assignable_event_owned(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param base_event_type: 要订阅的基类脚本类型。
 ## [br]
@@ -821,7 +821,7 @@ func register_simple_event_owned(owner: Object, event_id: StringName, listener: 
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param event_id: StringName 事件标识符。
 ## [br]

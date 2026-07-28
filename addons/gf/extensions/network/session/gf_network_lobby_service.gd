@@ -18,7 +18,7 @@ extends GFUtility
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param request: 请求副本。
 signal operation_started(request: GFNetworkLobbyOperationRequest)
@@ -27,7 +27,7 @@ signal operation_started(request: GFNetworkLobbyOperationRequest)
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param result: 终态结果副本。
 signal operation_completed(result: GFNetworkLobbyOperationResult)
@@ -72,7 +72,7 @@ signal lobby_left(result: GFNetworkLobbyOperationResult)
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param result: Metadata 操作终态。
 signal lobby_metadata_set(result: GFNetworkLobbyOperationResult)
@@ -81,7 +81,7 @@ signal lobby_metadata_set(result: GFNetworkLobbyOperationResult)
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param result: Metadata 操作终态。
 signal member_metadata_set(result: GFNetworkLobbyOperationResult)
@@ -168,7 +168,7 @@ var current_lobby: GFNetworkLobbyDescriptor = null
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 var default_timeout_msec: int = 15000
 
 
@@ -199,7 +199,7 @@ func _init(clock: GFClock = null) -> void:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 func ready() -> void:
 	if _clock_explicit:
 		return
@@ -274,7 +274,7 @@ func set_backend(next_backend: GFNetworkLobbyBackend) -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param clock: 新时钟。
 ## [br]
@@ -287,7 +287,7 @@ func set_clock(clock: GFClock) -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 当前时钟。
 func get_clock() -> GFClock:
@@ -456,7 +456,7 @@ func set_member_metadata(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param request: 完整请求。
 ## [br]
@@ -552,7 +552,7 @@ func invoke_operation(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param request_id: 请求 ID。
 ## [br]

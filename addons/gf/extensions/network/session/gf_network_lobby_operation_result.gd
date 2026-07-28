@@ -7,7 +7,7 @@
 ## [br]
 ## @category value_object
 ## [br]
-## @since unreleased
+## @since 10.0.0
 class_name GFNetworkLobbyOperationResult
 extends RefCounted
 
@@ -18,49 +18,49 @@ extends RefCounted
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 var request_id: StringName = &""
 
 ## 操作类型。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 var operation: StringName = &""
 
 ## 操作是否成功。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 var ok: bool = false
 
 ## 稳定终态状态。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 var status: StringName = &""
 
 ## 相关 Lobby ID。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 var lobby_id: String = ""
 
 ## 单个 Lobby 快照。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 var lobby: GFNetworkLobbyDescriptor = null
 
 ## 查询操作返回的 Lobby 快照列表。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @schema lobbies: Array[GFNetworkLobbyDescriptor] queried lobby snapshots.
 var lobbies: Array[GFNetworkLobbyDescriptor] = []
@@ -69,35 +69,35 @@ var lobbies: Array[GFNetworkLobbyDescriptor] = []
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 var error: StringName = &""
 
 ## 人读说明。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 var message: String = ""
 
 ## 开始单调时间戳，单位毫秒；-1 表示未知。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 var started_at_msec: int = -1
 
 ## 完成单调时间戳，单位毫秒；-1 表示未知。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 var completed_at_msec: int = -1
 
 ## 调用方或 Adapter 结果元数据。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @schema metadata: Dictionary caller-defined result metadata.
 var metadata: Dictionary = {}
@@ -114,7 +114,7 @@ var _payload_valid: bool = true
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param request: 对应请求。
 ## [br]
@@ -159,7 +159,7 @@ func configure_success(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param request: 对应请求。
 ## [br]
@@ -202,7 +202,7 @@ func configure_failure(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 完成时间减开始时间；缺少时间戳时返回 0。
 func get_duration_msec() -> int:
@@ -215,7 +215,7 @@ func get_duration_msec() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 结果身份、时间和操作特定载荷均有效时返回 true。
 func is_valid() -> bool:
@@ -274,7 +274,7 @@ func is_valid() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param request: 待匹配请求。
 ## [br]
@@ -291,7 +291,7 @@ func matches_request(request: GFNetworkLobbyOperationRequest) -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return Lobby 操作结果字典。
 ## [br]
@@ -321,7 +321,7 @@ func to_dict() -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param data: Lobby 操作结果字典。
 ## [br]
@@ -353,7 +353,7 @@ func apply_dict(data: Dictionary) -> void:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 新结果。
 func duplicate_result() -> GFNetworkLobbyOperationResult:
@@ -366,7 +366,7 @@ func duplicate_result() -> GFNetworkLobbyOperationResult:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param data: Lobby 操作结果字典。
 ## [br]

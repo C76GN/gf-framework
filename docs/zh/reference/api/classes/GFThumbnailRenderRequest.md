@@ -121,7 +121,7 @@ static func for_node3d_texture( source: Node3D, size: Vector2i = Vector2i(256, 2
 ### `for_canvas_item_image`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 static func for_canvas_item_image( source: CanvasItem, size: Vector2i = Vector2i(256, 256), transparent: bool = true, content_bounds: Rect2 = Rect2(), margin_ratio: float = 0.08 ) -> GFThumbnailRenderRequest:
@@ -146,7 +146,7 @@ static func for_canvas_item_image( source: CanvasItem, size: Vector2i = Vector2i
 ### `for_canvas_item_texture`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 static func for_canvas_item_texture( source: CanvasItem, size: Vector2i = Vector2i(256, 256), transparent: bool = true, content_bounds: Rect2 = Rect2(), margin_ratio: float = 0.08 ) -> GFThumbnailRenderRequest:
@@ -270,7 +270,7 @@ func get_source_node3d() -> Node3D:
 ### `get_source_canvas_item`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_source_canvas_item() -> CanvasItem:
@@ -360,7 +360,7 @@ func should_overwrite_existing() -> bool:
 ### `get_content_bounds`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_content_bounds() -> Rect2:
@@ -375,7 +375,7 @@ func get_content_bounds() -> Rect2:
 ### `has_content_bounds`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func has_content_bounds() -> bool:
@@ -390,7 +390,7 @@ func has_content_bounds() -> bool:
 ### `get_margin_ratio`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_margin_ratio() -> float:
