@@ -8,7 +8,7 @@
 ## [br]
 ## @category protocol
 ## [br]
-## @since unreleased
+## @since 10.0.0
 class_name GFPlatformAdapterConformance
 extends RefCounted
 
@@ -19,56 +19,56 @@ extends RefCounted
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const KIND_ADAPTER_INVALID: StringName = &"platform_adapter_invalid"
 
 ## Adapter 处于不可用终态。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const KIND_ADAPTER_STATE_INVALID: StringName = &"platform_adapter_state_invalid"
 
 ## 缺少必需契约。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const KIND_CONTRACT_MISSING: StringName = &"platform_contract_missing"
 
 ## 缺少契约描述符。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const KIND_DESCRIPTOR_MISSING: StringName = &"platform_contract_descriptor_missing"
 
 ## 契约描述符定义无效。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const KIND_DESCRIPTOR_INVALID: StringName = &"platform_contract_descriptor_invalid"
 
 ## 契约版本与消费方要求不一致。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const KIND_CONTRACT_VERSION_MISMATCH: StringName = &"platform_contract_version_mismatch"
 
 ## 契约缺少必需方法。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const KIND_METHOD_MISSING: StringName = &"platform_contract_method_missing"
 
 ## 运行时上下文缺少必需能力。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const KIND_CAPABILITY_MISSING: StringName = &"platform_capability_missing"
 
 
@@ -83,7 +83,7 @@ const KIND_CAPABILITY_MISSING: StringName = &"platform_capability_missing"
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param adapter: 待审查 Adapter。
 ## [br]
@@ -239,7 +239,7 @@ static func validate(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param adapter: 待审查 Adapter。
 ## [br]
@@ -268,7 +268,7 @@ static func inspect(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param adapter: Platform Adapter。
 ## [br]

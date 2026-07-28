@@ -166,7 +166,7 @@ var backend_id: StringName = &""
 ### `invoke_operation`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func invoke_operation( request: GFNetworkLobbyOperationRequest ) -> GFNetworkLobbyOperationHandle:
@@ -238,7 +238,7 @@ func get_debug_snapshot() -> Dictionary:
 ### `_dispatch_operation`
 
 - API：`protected`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func _dispatch_operation( _request: GFNetworkLobbyOperationRequest, _handle: GFNetworkLobbyOperationHandle ) -> bool:
@@ -260,7 +260,7 @@ func _dispatch_operation( _request: GFNetworkLobbyOperationRequest, _handle: GFN
 ### `_cancel_operation`
 
 - API：`protected`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func _cancel_operation( _handle: GFNetworkLobbyOperationHandle, _reason: StringName ) -> void:
@@ -280,7 +280,7 @@ func _cancel_operation( _handle: GFNetworkLobbyOperationHandle, _reason: StringN
 ### `_release_operation`
 
 - API：`protected`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func _release_operation(handle: GFNetworkLobbyOperationHandle) -> bool:
@@ -301,7 +301,7 @@ func _release_operation(handle: GFNetworkLobbyOperationHandle) -> bool:
 ### `_poll`
 
 - API：`protected`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func _poll(_delta: float) -> void:
@@ -320,7 +320,7 @@ func _poll(_delta: float) -> void:
 ### `_close`
 
 - API：`protected`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func _close() -> void:
@@ -333,7 +333,7 @@ func _close() -> void:
 ### `_succeed_operation`
 
 - API：`protected`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func _succeed_operation( handle: GFNetworkLobbyOperationHandle, options: Dictionary = {} ) -> bool:
@@ -359,7 +359,7 @@ func _succeed_operation( handle: GFNetworkLobbyOperationHandle, options: Diction
 ### `_fail_operation`
 
 - API：`protected`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func _fail_operation( handle: GFNetworkLobbyOperationHandle, error: StringName, message: String = "", metadata: Dictionary = {} ) -> bool:

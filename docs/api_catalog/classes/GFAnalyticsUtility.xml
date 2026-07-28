@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFAnalyticsUtility" path="addons/gf/standard/utilities/analytics/gf_analytics_utility.gd" module="standard" extends="GFUtility" classDigest="ffa764544ce188bd56f4b0c8840ce3f3141b5a038cc89806e1ff921070210aad">
+<class name="GFAnalyticsUtility" path="addons/gf/standard/utilities/analytics/gf_analytics_utility.gd" module="standard" extends="GFUtility" classDigest="d533504b26f97e75d00a5373b4bedd2be1de0733ffa747c22dd039955f3c039e">
 	<description>GFAnalyticsUtility: 通用事件分析与批量上报工具。
 负责事件排队、环境上下文采集、批量 flush 与失败重排。
 endpoint 为空时不会访问网络，可作为本地事件汇聚或测试通道使用。</description>
@@ -68,7 +68,7 @@ endpoint 为空时不会访问网络，可作为本地事件汇聚或测试通�
 不替代最终 JSON-safe 载荷预算或项目侧隐私、同意与业务策略。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="payload_builder">
@@ -161,7 +161,7 @@ flush 按最终信封字节预算从最大前缀向下有界校验时可能多�
 				<tag name="return">结构化记录结果。</tag>
 				<tag name="schema">properties: Dictionary[String, Variant] validated against the exact registered analytics input schema.</tag>
 				<tag name="schema">return: Dictionary with ok, accepted, reason, event_name, schema_version, event_id, and validation.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="flush">

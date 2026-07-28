@@ -770,7 +770,7 @@ static func get_enabled_installer_paths() -> Array[String]:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return EditorDebuggerPlugin 脚本路径列表。
 static func get_enabled_debugger_plugin_paths() -> Array[String]:

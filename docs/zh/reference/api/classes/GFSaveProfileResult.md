@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：值对象 (`value_object`)
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 Save Profile 操作的不可变终态快照。 结果同时保留 profile generation、底层存储结果、迁移/校验证据和回滚错误， 调用方无需从错误文本反推失败阶段。
 
@@ -66,7 +66,7 @@ Save Profile 操作的不可变终态快照。 结果同时保留 profile genera
 ### `STATUS_SAVED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const STATUS_SAVED: StringName = &"saved"
@@ -79,7 +79,7 @@ const STATUS_SAVED: StringName = &"saved"
 ### `STATUS_LOADED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const STATUS_LOADED: StringName = &"loaded"
@@ -92,7 +92,7 @@ const STATUS_LOADED: StringName = &"loaded"
 ### `STATUS_FLUSHED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const STATUS_FLUSHED: StringName = &"flushed"
@@ -105,7 +105,7 @@ flush 目标 generation 已持久化。
 ### `STATUS_RECOVERED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const STATUS_RECOVERED: StringName = &"recovered"
@@ -118,7 +118,7 @@ const STATUS_RECOVERED: StringName = &"recovered"
 ### `STATUS_INVALID_PROFILE`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const STATUS_INVALID_PROFILE: StringName = &"invalid_profile"
@@ -131,7 +131,7 @@ Profile 配置或请求无效。
 ### `STATUS_UNSUPPORTED_OPERATION`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const STATUS_UNSUPPORTED_OPERATION: StringName = &"unsupported_operation"
@@ -144,7 +144,7 @@ const STATUS_UNSUPPORTED_OPERATION: StringName = &"unsupported_operation"
 ### `STATUS_BUSY`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const STATUS_BUSY: StringName = &"busy"
@@ -157,7 +157,7 @@ const STATUS_BUSY: StringName = &"busy"
 ### `STATUS_GATHER_FAILED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const STATUS_GATHER_FAILED: StringName = &"gather_failed"
@@ -170,7 +170,7 @@ section 保存采集失败。
 ### `STATUS_SNAPSHOT_FAILED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const STATUS_SNAPSHOT_FAILED: StringName = &"snapshot_failed"
@@ -183,7 +183,7 @@ section 应用前快照采集失败。
 ### `STATUS_STORAGE_FAILED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const STATUS_STORAGE_FAILED: StringName = &"storage_failed"
@@ -196,7 +196,7 @@ const STATUS_STORAGE_FAILED: StringName = &"storage_failed"
 ### `STATUS_MISSING`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const STATUS_MISSING: StringName = &"missing"
@@ -209,7 +209,7 @@ const STATUS_MISSING: StringName = &"missing"
 ### `STATUS_CORRUPT`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const STATUS_CORRUPT: StringName = &"corrupt"
@@ -222,7 +222,7 @@ const STATUS_CORRUPT: StringName = &"corrupt"
 ### `STATUS_SCHEMA_MISMATCH`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const STATUS_SCHEMA_MISMATCH: StringName = &"schema_mismatch"
@@ -235,7 +235,7 @@ const STATUS_SCHEMA_MISMATCH: StringName = &"schema_mismatch"
 ### `STATUS_FUTURE_SCHEMA`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const STATUS_FUTURE_SCHEMA: StringName = &"future_schema"
@@ -248,7 +248,7 @@ const STATUS_FUTURE_SCHEMA: StringName = &"future_schema"
 ### `STATUS_MIGRATION_FAILED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const STATUS_MIGRATION_FAILED: StringName = &"migration_failed"
@@ -261,7 +261,7 @@ const STATUS_MIGRATION_FAILED: StringName = &"migration_failed"
 ### `STATUS_VALIDATION_FAILED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const STATUS_VALIDATION_FAILED: StringName = &"validation_failed"
@@ -274,7 +274,7 @@ const STATUS_VALIDATION_FAILED: StringName = &"validation_failed"
 ### `STATUS_APPLY_FAILED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const STATUS_APPLY_FAILED: StringName = &"apply_failed"
@@ -287,7 +287,7 @@ section provider 应用失败且回滚成功。
 ### `STATUS_ROLLBACK_FAILED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const STATUS_ROLLBACK_FAILED: StringName = &"rollback_failed"
@@ -300,7 +300,7 @@ section provider 应用失败且至少一个回滚失败。
 ### `STATUS_DISPOSED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const STATUS_DISPOSED: StringName = &"disposed"
@@ -313,7 +313,7 @@ Utility 释放时操作仍未完成。
 ### `STATUS_OUTCOME_UNKNOWN`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const STATUS_OUTCOME_UNKNOWN: StringName = &"outcome_unknown"
@@ -328,7 +328,7 @@ const STATUS_OUTCOME_UNKNOWN: StringName = &"outcome_unknown"
 ### `is_successful`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func is_successful() -> bool:
@@ -343,7 +343,7 @@ func is_successful() -> bool:
 ### `get_status`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_status() -> StringName:
@@ -358,7 +358,7 @@ func get_status() -> StringName:
 ### `get_operation`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_operation() -> StringName:
@@ -373,7 +373,7 @@ func get_operation() -> StringName:
 ### `get_profile_id`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_profile_id() -> StringName:
@@ -388,7 +388,7 @@ func get_profile_id() -> StringName:
 ### `get_requested_generation`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_requested_generation() -> int:
@@ -403,7 +403,7 @@ func get_requested_generation() -> int:
 ### `get_persisted_generation`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_persisted_generation() -> int:
@@ -418,7 +418,7 @@ func get_persisted_generation() -> int:
 ### `get_attempt_count`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_attempt_count() -> int:
@@ -433,7 +433,7 @@ func get_attempt_count() -> int:
 ### `was_coalesced`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func was_coalesced() -> bool:
@@ -448,7 +448,7 @@ func was_coalesced() -> bool:
 ### `was_recovered`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func was_recovered() -> bool:
@@ -463,7 +463,7 @@ func was_recovered() -> bool:
 ### `get_recovery_action`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_recovery_action() -> StringName:
@@ -478,7 +478,7 @@ func get_recovery_action() -> StringName:
 ### `get_failed_section_id`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_failed_section_id() -> StringName:
@@ -493,7 +493,7 @@ func get_failed_section_id() -> StringName:
 ### `get_error_code`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_error_code() -> Error:
@@ -508,7 +508,7 @@ func get_error_code() -> Error:
 ### `get_error`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_error() -> String:
@@ -523,7 +523,7 @@ func get_error() -> String:
 ### `get_document`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_document() -> GFSaveDocument:
@@ -538,7 +538,7 @@ func get_document() -> GFSaveDocument:
 ### `get_storage_result`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_storage_result() -> GFStorageReadResult:
@@ -553,7 +553,7 @@ func get_storage_result() -> GFStorageReadResult:
 ### `get_migration_result`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_migration_result() -> GFSaveMigrationResult:
@@ -568,7 +568,7 @@ func get_migration_result() -> GFSaveMigrationResult:
 ### `get_validation_report`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_validation_report() -> Dictionary:
@@ -587,7 +587,7 @@ func get_validation_report() -> Dictionary:
 ### `get_rollback_errors`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_rollback_errors() -> Array[GFSaveRollbackFailure]:
@@ -602,7 +602,7 @@ func get_rollback_errors() -> Array[GFSaveRollbackFailure]:
 ### `get_duration_msec`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_duration_msec() -> int:
@@ -617,7 +617,7 @@ func get_duration_msec() -> int:
 ### `get_metadata`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_metadata() -> Dictionary:
@@ -636,7 +636,7 @@ func get_metadata() -> Dictionary:
 ### `get_storage_request_ids`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_storage_request_ids() -> PackedInt64Array:
@@ -651,7 +651,7 @@ func get_storage_request_ids() -> PackedInt64Array:
 ### `to_dict`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func to_dict() -> Dictionary:
@@ -670,7 +670,7 @@ func to_dict() -> Dictionary:
 ### `duplicate_result`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func duplicate_result() -> GFSaveProfileResult:

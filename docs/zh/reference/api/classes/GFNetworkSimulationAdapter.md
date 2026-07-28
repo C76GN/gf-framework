@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：协议与扩展点 (`protocol`)
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 网络协调器的项目模拟协议。 项目继承该类型并实现同步状态捕获、校验、恢复、输入授权和单 tick 模拟。 所有钩子必须同步完成，不应执行 await、网络发送或协调器重入。 _validate_state() 与 _validate_input() 还必须是无副作用的纯校验；项目 Adapter 属于 受信代码，协调器无法撤销校验钩子私自修改的项目状态。
 
@@ -29,7 +29,7 @@
 ### `_capture_state`
 
 - API：`protected`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func _capture_state(_tick: int, _context: Dictionary) -> Dictionary:
@@ -56,7 +56,7 @@ func _capture_state(_tick: int, _context: Dictionary) -> Dictionary:
 ### `_validate_state`
 
 - API：`protected`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func _validate_state(_state: Dictionary, _tick: int, _context: Dictionary) -> Dictionary:
@@ -85,7 +85,7 @@ func _validate_state(_state: Dictionary, _tick: int, _context: Dictionary) -> Di
 ### `_restore_state`
 
 - API：`protected`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func _restore_state(_state: Dictionary, _tick: int, _context: Dictionary) -> Dictionary:
@@ -114,7 +114,7 @@ func _restore_state(_state: Dictionary, _tick: int, _context: Dictionary) -> Dic
 ### `_validate_input`
 
 - API：`protected`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func _validate_input( _frame: GFNetworkInputFrame, _actual_peer_id: int, _context: Dictionary ) -> Dictionary:
@@ -142,7 +142,7 @@ func _validate_input( _frame: GFNetworkInputFrame, _actual_peer_id: int, _contex
 ### `_simulate_tick`
 
 - API：`protected`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func _simulate_tick( _tick: int, _inputs: Array[GFNetworkInputFrame], _context: Dictionary ) -> Dictionary:
@@ -171,7 +171,7 @@ func _simulate_tick( _tick: int, _inputs: Array[GFNetworkInputFrame], _context: 
 ### `_states_equal`
 
 - API：`protected`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func _states_equal( predicted_state: Dictionary, authoritative_state: Dictionary, _tick: int, _context: Dictionary ) -> bool:

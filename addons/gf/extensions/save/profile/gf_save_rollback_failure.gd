@@ -4,7 +4,7 @@
 ## [br]
 ## @category value_object
 ## [br]
-## @since unreleased
+## @since 10.0.0
 class_name GFSaveRollbackFailure
 extends RefCounted
 
@@ -21,7 +21,7 @@ var _error_code: Error = FAILED
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return section ID。
 func get_section_id() -> StringName:
@@ -32,7 +32,7 @@ func get_section_id() -> StringName:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 非 OK Error 码。
 func get_error_code() -> Error:
@@ -43,7 +43,7 @@ func get_error_code() -> Error:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 新失败证据对象。
 func duplicate_failure() -> GFSaveRollbackFailure:
@@ -56,7 +56,7 @@ func duplicate_failure() -> GFSaveRollbackFailure:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return section_id 与 error_code 字段。
 ## [br]
@@ -71,7 +71,7 @@ func to_dict() -> Dictionary:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param section_id: 回滚失败 section ID。
 ## [br]

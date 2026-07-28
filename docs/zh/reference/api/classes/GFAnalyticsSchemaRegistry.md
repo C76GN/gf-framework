@@ -7,7 +7,7 @@
 - 继承：`Resource`
 - API：`public`
 - 类别：运行时服务 (`runtime_service`)
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 精确版本 Analytics 事件 Schema 注册表。 注册表以 event_name 与 schema_version 的组合保存隔离副本， 禁止同版本覆盖，也不提供隐式 latest 回退。公开 getter 再返回副本， 避免调用方通过可变 Resource 改写已经注册的契约。单个 Registry 最多保存 1024 个 Schema、同一事件最多 32 个精确版本，并对定义图、辅助值和文本执行 累计硬预算；只接受内置声明式 EventSchema、DictionarySchema、Field 和规则脚本。
 
@@ -29,7 +29,7 @@
 ### `register_schema`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func register_schema(schema: GFAnalyticsEventSchema) -> Dictionary:
@@ -54,7 +54,7 @@ func register_schema(schema: GFAnalyticsEventSchema) -> Dictionary:
 ### `has_schema`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func has_schema(event_name: StringName, schema_version: int) -> bool:
@@ -76,7 +76,7 @@ func has_schema(event_name: StringName, schema_version: int) -> bool:
 ### `get_schema`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_schema( event_name: StringName, schema_version: int ) -> GFAnalyticsEventSchema:
@@ -98,7 +98,7 @@ func get_schema( event_name: StringName, schema_version: int ) -> GFAnalyticsEve
 ### `get_versions`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_versions(event_name: StringName) -> PackedInt32Array:
@@ -119,7 +119,7 @@ func get_versions(event_name: StringName) -> PackedInt32Array:
 ### `validate`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func validate( event_name: StringName, schema_version: int, properties: Dictionary, options: Dictionary = {} ) -> GFValidationReport:
@@ -148,7 +148,7 @@ func validate( event_name: StringName, schema_version: int, properties: Dictiona
 ### `get_debug_snapshot`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_debug_snapshot() -> Dictionary:

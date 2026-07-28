@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFMultiplayerPeerNetworkBackend" path="addons/gf/extensions/network/backends/gf_multiplayer_peer_network_backend.gd" module="extensions/network" extends="GFNetworkBackend" classDigest="f19fcf56cbe7c036d1817ed5354fe88512adb6baab8df64852bc4ef32238259a">
+<class name="GFMultiplayerPeerNetworkBackend" path="addons/gf/extensions/network/backends/gf_multiplayer_peer_network_backend.gd" module="extensions/network" extends="GFNetworkBackend" classDigest="95c39d1f5ae778c59915332e00566e5d9c7042036309fb98284a0e5e430e097c">
 	<description>GFMultiplayerPeerNetworkBackend: 可接管外部 MultiplayerPeer 的通用网络后端。
 平台 Adapter 负责通过 Steam、小游戏或其他 SDK 创建 `MultiplayerPeer`，本类只负责
 GF bytes 边界、轮询、连接事件和所有权。它不依赖任何第三方 SDK 类型。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">runtime_handle</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">10.0.0</tag>
 	</tags>
 	<signals />
 	<enums>
@@ -20,7 +20,7 @@ GF bytes 边界、轮询、连接事件和所有权。它不依赖任何第三�
 			<description>被接管 Peer 的所有权。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="enum" name="Role">
@@ -35,7 +35,7 @@ GF bytes 边界、轮询、连接事件和所有权。它不依赖任何第三�
 			<description>Peer 在当前会话中的角色。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 	</enums>
@@ -45,7 +45,7 @@ GF bytes 边界、轮询、连接事件和所有权。它不依赖任何第三�
 			<description>广播 peer 标识。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 	</constants>
@@ -55,7 +55,7 @@ GF bytes 边界、轮询、连接事件和所有权。它不依赖任何第三�
 			<description>每次 poll 最多派发的入站包数量。小于等于 0 表示不限制。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 	</properties>
@@ -71,7 +71,7 @@ ownership 关闭或仅解除借用。</description>
 				<tag name="param">options: 支持 ownership、role、endpoint、supports_channels 和 supports_transfer_modes。</tag>
 				<tag name="return">Godot 错误码。</tag>
 				<tag name="schema">options: Dictionary adoptable MultiplayerPeer capabilities and ownership.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_peer">
@@ -82,7 +82,7 @@ Backend 独占 Peer 数据面。需要交给 SceneMultiplayer 时先使用 `take
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">当前 Peer；未配置时返回 null。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="take_peer">
@@ -91,7 +91,7 @@ Backend 独占 Peer 数据面。需要交给 SceneMultiplayer 时先使用 `take
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">原 Peer；未配置时返回 null。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="owns_peer">
@@ -100,7 +100,7 @@ Backend 独占 Peer 数据面。需要交给 SceneMultiplayer 时先使用 `take
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">当前 Peer 存在且 ownership 为 OWNED 时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_session_bootstrap">
@@ -110,7 +110,7 @@ Backend 独占 Peer 数据面。需要交给 SceneMultiplayer 时先使用 `take
 				<tag name="api">public</tag>
 				<tag name="return">role 对应的 Session mode、端点和本地 peer ID。</tag>
 				<tag name="schema">return: Dictionary network session bootstrap fields.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="disconnect_backend">
@@ -119,7 +119,7 @@ Backend 独占 Peer 数据面。需要交给 SceneMultiplayer 时先使用 `take
 OWNED Peer 会关闭；BORROWED Peer 只解除信号和引用，由外部 Adapter 继续管理。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="send_bytes">
@@ -132,7 +132,7 @@ OWNED Peer 会关闭；BORROWED Peer 只解除信号和引用，由外部 Adapte
 				<tag name="param">options: 支持 channel、transfer_mode 和 reliable。</tag>
 				<tag name="return">Godot 错误码。</tag>
 				<tag name="schema">options: Dictionary generic MultiplayerPeer send options.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="poll">
@@ -141,7 +141,7 @@ OWNED Peer 会关闭；BORROWED Peer 只解除信号和引用，由外部 Adapte
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">_delta: 本帧时间增量；底层 MultiplayerPeer 自行维护时钟。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_debug_snapshot">
@@ -151,7 +151,7 @@ OWNED Peer 会关闭；BORROWED Peer 只解除信号和引用，由外部 Adapte
 				<tag name="api">public</tag>
 				<tag name="return">已脱敏 Backend 状态。</tag>
 				<tag name="schema">return: Dictionary adoptable MultiplayerPeer backend snapshot.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 	</methods>

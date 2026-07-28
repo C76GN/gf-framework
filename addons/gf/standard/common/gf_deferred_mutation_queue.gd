@@ -27,49 +27,49 @@ const DEFAULT_PHASE: StringName = &"default"
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const DEFAULT_MAX_PENDING_MUTATIONS: int = 4096
 
 ## 最多允许配置的待应用变更数量。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const ABSOLUTE_MAX_PENDING_MUTATIONS: int = 65_536
 
 ## playback() 未显式给出数量预算时使用的默认值。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const DEFAULT_MAX_MUTATIONS_PER_PLAYBACK: int = 256
 
 ## 单次 playback() 或 preview() 允许处理的记录数量绝对上限。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const ABSOLUTE_MAX_MUTATIONS_PER_PLAYBACK: int = 4096
 
 ## Playback 正常完成。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const STATUS_COMPLETED: StringName = &"completed"
 
 ## Playback 在非主线程被调用。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const STATUS_WRONG_THREAD: StringName = &"wrong_thread"
 
 ## 当前实例已经处于同步 playback 调用中。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const STATUS_BUSY: StringName = &"busy"
 
 const _RECORD_KIND_CALLABLE: StringName = &"callable"
@@ -82,7 +82,7 @@ const _RECORD_KIND_WEAK_METHOD: StringName = &"weak_method"
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 var max_pending_mutations: int = DEFAULT_MAX_PENDING_MUTATIONS:
 	set(value):
 		max_pending_mutations = clampi(
@@ -193,7 +193,7 @@ func record(mutation: Callable, options: Dictionary = {}) -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param owner: 变更拥有者。
 ## [br]

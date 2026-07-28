@@ -7,7 +7,7 @@
 - 继承：`GFUtility`
 - API：`public`
 - 类别：运行时服务 (`runtime_service`)
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 多 section 存档的异步协调器。 每个 profile 只串行推进一个当前 IO；超时后无法取消的写入会 detached 保留路径所有权。 连续保存通过 generation 合并为最新后续写入；读取在保存屏障后执行，并在主线程完成迁移、校验和 provider 事务化应用。
 
@@ -43,7 +43,7 @@
 ### `profile_operation_completed`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 signal profile_operation_completed(result: GFSaveProfileResult)
@@ -62,7 +62,7 @@ signal profile_operation_completed(result: GFSaveProfileResult)
 ### `profile_state_changed`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 signal profile_state_changed(profile_id: StringName, previous_state: StringName, current_state: StringName)
@@ -85,7 +85,7 @@ profile 状态机发生变化时发出。
 ### `STATE_IDLE`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const STATE_IDLE: StringName = &"idle"
@@ -98,7 +98,7 @@ Profile 空闲。
 ### `STATE_GATHERING`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const STATE_GATHERING: StringName = &"gathering"
@@ -111,7 +111,7 @@ const STATE_GATHERING: StringName = &"gathering"
 ### `STATE_SAVING`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const STATE_SAVING: StringName = &"saving"
@@ -124,7 +124,7 @@ const STATE_SAVING: StringName = &"saving"
 ### `STATE_LOADING`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const STATE_LOADING: StringName = &"loading"
@@ -137,7 +137,7 @@ const STATE_LOADING: StringName = &"loading"
 ### `STATE_RETRY_WAIT`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const STATE_RETRY_WAIT: StringName = &"retry_wait"
@@ -150,7 +150,7 @@ const STATE_RETRY_WAIT: StringName = &"retry_wait"
 ### `STATE_APPLYING`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const STATE_APPLYING: StringName = &"applying"
@@ -163,7 +163,7 @@ const STATE_APPLYING: StringName = &"applying"
 ### `STATE_DISPOSED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const STATE_DISPOSED: StringName = &"disposed"
@@ -178,7 +178,7 @@ Utility 已释放。
 ### `ready`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func ready() -> void:
@@ -191,7 +191,7 @@ func ready() -> void:
 ### `tick`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func tick(_delta: float) -> void:
@@ -210,7 +210,7 @@ func tick(_delta: float) -> void:
 ### `dispose`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func dispose() -> void:
@@ -223,7 +223,7 @@ func dispose() -> void:
 ### `setup`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func setup(storage: GFStorageUtility, clock: GFClock = null) -> GFSaveProfileUtility:
@@ -245,7 +245,7 @@ func setup(storage: GFStorageUtility, clock: GFClock = null) -> GFSaveProfileUti
 ### `register_profile`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func register_profile( profile: GFSaveProfile, migrations: GFSaveMigrationRegistry = null ) -> Dictionary:
@@ -271,7 +271,7 @@ func register_profile( profile: GFSaveProfile, migrations: GFSaveMigrationRegist
 ### `unregister_profile`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func unregister_profile(profile_id: StringName) -> bool:
@@ -292,7 +292,7 @@ func unregister_profile(profile_id: StringName) -> bool:
 ### `save_profile`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func save_profile( profile_id: StringName, metadata: Dictionary = {}, context: Dictionary = {} ) -> GFSaveProfileOperation:
@@ -320,7 +320,7 @@ func save_profile( profile_id: StringName, metadata: Dictionary = {}, context: D
 ### `load_profile`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func load_profile( profile_id: StringName, context: Dictionary = {}, metadata: Dictionary = {} ) -> GFSaveProfileOperation:
@@ -348,7 +348,7 @@ func load_profile( profile_id: StringName, context: Dictionary = {}, metadata: D
 ### `flush_profile`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func flush_profile( profile_id: StringName, metadata: Dictionary = {} ) -> GFSaveProfileOperation:
@@ -374,7 +374,7 @@ func flush_profile( profile_id: StringName, metadata: Dictionary = {} ) -> GFSav
 ### `get_persisted_generation`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_persisted_generation(profile_id: StringName) -> int:
@@ -395,7 +395,7 @@ func get_persisted_generation(profile_id: StringName) -> int:
 ### `get_profile_state_snapshot`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_profile_state_snapshot(profile_id: StringName) -> Dictionary:

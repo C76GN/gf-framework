@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFWeakMethodInvocation" path="addons/gf/kernel/core/gf_weak_method_invocation.gd" module="kernel" extends="RefCounted" classDigest="3554b40203f1020ffca5699b3543ddde90448ee9c9523a04d240d440e8ed9aa5">
+<class name="GFWeakMethodInvocation" path="addons/gf/kernel/core/gf_weak_method_invocation.gd" module="kernel" extends="RefCounted" classDigest="114274a28f9d4af5d1c0a09b798b3577060377bf627491176ade2241815aa5cf">
 	<description>GFWeakMethodInvocation: 不强持有目标对象的方法调用记录。
 记录只保留目标的 WeakRef、创建时实例 ID 与方法名，并在调用时接收参数。
 它不会保存 Callable，因此目标为 RefCounted 时不会被绑定回调意外延长生命周期。
@@ -9,7 +9,7 @@
 		<tag name="api">public</tag>
 		<tag name="category">runtime_handle</tag>
 		<tag name="layer">kernel/core</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">10.0.0</tag>
 	</tags>
 	<signals />
 	<enums />
@@ -19,7 +19,7 @@
 			<description>方法已被调用并返回。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATUS_OWNER_RELEASED">
@@ -27,7 +27,7 @@
 			<description>目标对象已释放。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATUS_METHOD_MISSING">
@@ -35,7 +35,7 @@
 			<description>目标对象不再提供记录的方法。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATUS_FAILED">
@@ -43,7 +43,7 @@
 			<description>调用记录或参数未通过显式预检。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 	</constants>
@@ -56,7 +56,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">owner: 调用目标；无效目标会构造一个始终返回 failed 的记录。</tag>
 				<tag name="param">method_name: 调用时解析的方法名；空名称会构造一个始终返回 failed 的记录。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="invoke">
@@ -70,7 +70,7 @@
 				<tag name="return">调用状态、返回值与稳定目标身份。</tag>
 				<tag name="schema">arguments: Array of invocation-time arguments; values are never retained by this record.</tag>
 				<tag name="schema">return: Dictionary with status, invoked, value, error_code, initial_owner_instance_id, and method_name.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 	</methods>

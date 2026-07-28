@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：运行时服务 (`runtime_service`)
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 Analytics 批次到通用请求 Outbox 的有界持久交接适配器。 把 GFAnalyticsUtility 的 JSON-safe events 封装为固定、版本化的中立请求信封， 并在确认 GFRequestOutboxUtility 已可靠持久化后才接受整批事件。适配器不接管 Outbox 的 transport_callback 或 replay_filter，也不持久化鉴权 Header；项目应在 实际重放时根据当前会话动态注入鉴权、同意与供应商协议。
 
@@ -39,7 +39,7 @@ Analytics 批次到通用请求 Outbox 的有界持久交接适配器。 把 GFA
 ### `SCHEMA_ID`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const SCHEMA_ID: StringName = &"gf.analytics.outbox"
@@ -52,7 +52,7 @@ const SCHEMA_ID: StringName = &"gf.analytics.outbox"
 ### `PROTOCOL_VERSION`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const PROTOCOL_VERSION: int = 1
@@ -65,7 +65,7 @@ const PROTOCOL_VERSION: int = 1
 ### `DEFAULT_ENDPOINT_URL`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const DEFAULT_ENDPOINT_URL: String = "gf://analytics/events"
@@ -80,7 +80,7 @@ const DEFAULT_ENDPOINT_URL: String = "gf://analytics/events"
 ### `outbox`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var outbox: GFRequestOutboxUtility = null
@@ -93,7 +93,7 @@ var outbox: GFRequestOutboxUtility = null
 ### `endpoint_url`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var endpoint_url: String = DEFAULT_ENDPOINT_URL
@@ -106,7 +106,7 @@ var endpoint_url: String = DEFAULT_ENDPOINT_URL
 ### `max_payload_bytes`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var max_payload_bytes: int = 256 * 1024:
@@ -119,7 +119,7 @@ var max_payload_bytes: int = 256 * 1024:
 ### `max_events_per_request`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var max_events_per_request: int = 500:
@@ -132,7 +132,7 @@ var max_events_per_request: int = 500:
 ### `max_attempts`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var max_attempts: int = 3:
@@ -145,7 +145,7 @@ var max_attempts: int = 3:
 ### `max_depth`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var max_depth: int = 16:
@@ -158,7 +158,7 @@ var max_depth: int = 16:
 ### `max_collection_items`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var max_collection_items: int = 256:
@@ -171,7 +171,7 @@ var max_collection_items: int = 256:
 ### `max_string_length`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var max_string_length: int = 4096:
@@ -184,7 +184,7 @@ var max_string_length: int = 4096:
 ### `max_total_nodes`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var max_total_nodes: int = 8192:
@@ -199,7 +199,7 @@ var max_total_nodes: int = 8192:
 ### `configure`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func configure( p_outbox: GFRequestOutboxUtility, options: Dictionary = {} ) -> GFAnalyticsOutboxAdapter:
@@ -225,7 +225,7 @@ func configure( p_outbox: GFRequestOutboxUtility, options: Dictionary = {} ) -> 
 ### `enqueue_payload`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func enqueue_payload(payload: Dictionary) -> Dictionary:
@@ -251,7 +251,7 @@ func enqueue_payload(payload: Dictionary) -> Dictionary:
 ### `handles_request`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func handles_request(envelope: GFRequestEnvelope) -> bool:
@@ -272,7 +272,7 @@ func handles_request(envelope: GFRequestEnvelope) -> bool:
 ### `get_debug_snapshot`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_debug_snapshot() -> Dictionary:

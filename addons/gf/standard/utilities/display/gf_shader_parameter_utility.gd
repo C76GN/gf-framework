@@ -292,7 +292,7 @@ func resolve_shader_material(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param material: 目标 ShaderMaterial。
 ## [br]
@@ -309,7 +309,7 @@ func capture_shader_interface(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param material: 目标 ShaderMaterial。
 ## [br]
@@ -346,7 +346,7 @@ func validate_profile(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param material: 目标 ShaderMaterial。
 ## [br]

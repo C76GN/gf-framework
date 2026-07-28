@@ -187,7 +187,7 @@ func get_bgm_playback_position() -> float:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return: BGM 正在播放或暂停时返回 true；默认 fail closed 返回 false。
 func is_bgm_playing() -> bool:
@@ -502,7 +502,7 @@ func get_bus_volume(_bus_name: String) -> float:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param _bus_name: 总线名或后端通道名。
 ## [br]

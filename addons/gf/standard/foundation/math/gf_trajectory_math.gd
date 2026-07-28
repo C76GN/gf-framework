@@ -8,7 +8,7 @@
 ## [br]
 ## @category runtime_service
 ## [br]
-## @since unreleased
+## @since 10.0.0
 class_name GFTrajectoryMath
 extends RefCounted
 
@@ -19,70 +19,70 @@ extends RefCounted
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const REASON_NONE: StringName = &""
 
 ## 表示输入参数无效、包含非有限数字，或计算结果无法保持有限。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const REASON_INVALID_ARGUMENT: StringName = &"invalid_argument"
 
 ## 表示拦截方程不存在非负实数解。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const REASON_NO_SOLUTION: StringName = &"no_solution"
 
 ## 表示拦截解超出调用方给定的时间窗口。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const REASON_BEYOND_HORIZON: StringName = &"beyond_horizon"
 
 ## 表示轨迹公式 Callable 无效。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const REASON_INVALID_PROVIDER: StringName = &"invalid_provider"
 
 ## 表示请求采样数量超过本次预算。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const REASON_SAMPLE_LIMIT_EXCEEDED: StringName = &"sample_limit_exceeded"
 
 ## 表示公式返回了错误类型或非有限坐标。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const REASON_PROVIDER_FAILED: StringName = &"provider_failed"
 
 ## 默认浮点容差。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const DEFAULT_EPSILON: float = 0.000001
 
 ## 单次公式采样的默认点数预算。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const DEFAULT_MAX_SAMPLE_COUNT: int = 1024
 
 ## 单次公式采样不可绕过的绝对点数上限。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const ABSOLUTE_MAX_SAMPLE_COUNT: int = 16_384
 
 # Godot 标准构建的 real_t 为 float32；双精度构建使用 float64。
@@ -98,7 +98,7 @@ const _DISCRIMINANT_ROUNDOFF_FACTOR: float = 1.0
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param initial_position: 当前世界或局部位置，由调用方保证坐标空间一致。
 ## [br]
@@ -162,7 +162,7 @@ static func predict_motion_2d(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param initial_position: 当前世界或局部位置，由调用方保证坐标空间一致。
 ## [br]
@@ -231,7 +231,7 @@ static func predict_motion_3d(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param source_position: 发射位置。
 ## [br]
@@ -355,7 +355,7 @@ static func solve_intercept_2d(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param source_position: 发射位置。
 ## [br]
@@ -477,7 +477,7 @@ static func solve_intercept_3d(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param position_provider: 接收一个 float 秒数并返回 Vector2 的同步 Callable。
 ## [br]
@@ -590,7 +590,7 @@ static func sample_formula_2d(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param position_provider: 接收一个 float 秒数并返回 Vector3 的同步 Callable。
 ## [br]

@@ -7,7 +7,7 @@
 ## [br]
 ## @category value_object
 ## [br]
-## @since unreleased
+## @since 10.0.0
 class_name GFContentPackageQueryResult
 extends RefCounted
 
@@ -18,21 +18,21 @@ extends RefCounted
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const STATUS_COMPLETED: StringName = &"completed"
 
 ## 查询对象为空或无效。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const STATUS_INVALID_QUERY: StringName = &"invalid_query"
 
 ## 内容包目录依赖图或 manifest 无效。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const STATUS_INVALID_CATALOG: StringName = &"invalid_catalog"
 
 
@@ -53,7 +53,7 @@ var _report: Dictionary = {}
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 查询成功返回 true；零匹配仍属于成功。
 func is_successful() -> bool:
@@ -64,7 +64,7 @@ func is_successful() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return `STATUS_*` 常量之一。
 func get_status() -> StringName:
@@ -75,7 +75,7 @@ func get_status() -> StringName:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 查询稳定 ID。
 func get_query_id() -> StringName:
@@ -86,7 +86,7 @@ func get_query_id() -> StringName:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return dependency-first 排序的 ID 副本。
 func get_direct_package_ids() -> PackedStringArray:
@@ -97,7 +97,7 @@ func get_direct_package_ids() -> PackedStringArray:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return dependency-first 排序的 ID 副本。
 func get_package_ids() -> PackedStringArray:
@@ -108,7 +108,7 @@ func get_package_ids() -> PackedStringArray:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param package_id: 内容包 ID。
 ## [br]
@@ -122,7 +122,7 @@ func get_manifest(package_id: StringName) -> GFContentPackageManifest:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 与 get_package_ids() 同序的 manifest 数组。
 func get_manifests() -> Array[GFContentPackageManifest]:
@@ -138,7 +138,7 @@ func get_manifests() -> Array[GFContentPackageManifest]:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return GFValidationReportDictionary 兼容字典。
 ## [br]
@@ -151,7 +151,7 @@ func get_report() -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 不包含 Resource 对象的结果字典。
 ## [br]
@@ -177,7 +177,7 @@ func to_dict() -> Dictionary:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param successful: 查询是否成功。
 ## [br]

@@ -8,7 +8,7 @@
 ## [br]
 ## @category resource_definition
 ## [br]
-## @since unreleased
+## @since 10.0.0
 class_name GFAssetCollection
 extends Resource
 
@@ -19,35 +19,35 @@ extends Resource
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 @export var collection_id: StringName = &""
 
 ## 集合展示标题。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 @export var title: String = ""
 
 ## 集合用途说明。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 @export_multiline var description: String = ""
 
 ## 按调用方期望顺序保存的稳定资产 ID。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 @export var asset_ids: PackedStringArray = PackedStringArray()
 
 ## 调用方自定义元数据；框架不解释其中字段。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @schema metadata: Dictionary，包含调用方自定义且可序列化的集合元数据。
 @export var metadata: Dictionary = {}
@@ -59,7 +59,7 @@ extends Resource
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param p_collection_id: 集合稳定 ID。
 ## [br]
@@ -87,7 +87,7 @@ func configure(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param asset_id: 要添加的稳定资产 ID。
 ## [br]
@@ -108,7 +108,7 @@ func add_asset_id(asset_id: StringName, index: int = -1) -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param asset_id: 要移除的稳定资产 ID。
 ## [br]
@@ -125,7 +125,7 @@ func remove_asset_id(asset_id: StringName) -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param asset_id: 要移动的稳定资产 ID。
 ## [br]
@@ -147,7 +147,7 @@ func move_asset_id(asset_id: StringName, target_index: int) -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param asset_id: 要查询的稳定资产 ID。
 ## [br]
@@ -160,7 +160,7 @@ func has_asset_id(asset_id: StringName) -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param catalog: 用于解析稳定资产 ID 的目录。
 ## [br]
@@ -185,7 +185,7 @@ func resolve_entries(catalog: GFAssetCatalog) -> Array[GFAssetCatalogEntry]:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param catalog: 用于解析稳定资产 ID 的目录。
 ## [br]
@@ -261,7 +261,7 @@ func validate_against(catalog: GFAssetCatalog) -> GFValidationReport:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 新集合实例。
 func duplicate_collection() -> GFAssetCollection:
@@ -272,7 +272,7 @@ func duplicate_collection() -> GFAssetCollection:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 集合字段深拷贝。
 ## [br]
@@ -291,7 +291,7 @@ func to_dict() -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param data: GFAssetCollection.to_dict() 输出或兼容字段。
 ## [br]
@@ -308,7 +308,7 @@ func apply_dict(data: Dictionary) -> void:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param data: GFAssetCollection.to_dict() 输出或兼容字段。
 ## [br]

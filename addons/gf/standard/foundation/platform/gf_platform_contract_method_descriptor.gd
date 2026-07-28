@@ -7,7 +7,7 @@
 ## [br]
 ## @category resource_definition
 ## [br]
-## @since unreleased
+## @since 10.0.0
 class_name GFPlatformContractMethodDescriptor
 extends Resource
 
@@ -18,70 +18,70 @@ extends Resource
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 @export var method_id: StringName = &""
 
 ## 可选请求 Dictionary schema。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 @export var request_schema: GFDictionarySchema = null
 
 ## 可选成功结果 Dictionary schema。为空时允许任意结果值。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 @export var result_schema: GFDictionarySchema = null
 
 ## 调用该方法前 adapter 必须声明的全部能力。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 @export var required_capability_ids: PackedStringArray = PackedStringArray()
 
 ## 请求 JSON-compatible 编码后的最大字节数；0 表示不额外限制。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 @export var max_request_bytes: int = 0
 
 ## 成功结果 JSON-compatible 编码后的最大字节数；0 表示不额外限制。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 @export var max_result_bytes: int = 0
 
 ## 同一 adapter 上该方法允许的最大并发请求数；0 表示不额外限制。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 @export var max_concurrent_requests: int = 0
 
 ## 底层 provider 是否支持主动取消。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 @export var supports_cancellation: bool = true
 
 ## 请求或结果中必须在日志、诊断和支持报告中脱敏的字段名。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 @export var sensitive_fields: PackedStringArray = PackedStringArray()
 
 ## Adapter 作者定义的非业务元数据。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @schema metadata: Dictionary adapter-authoring metadata.
 @export var metadata: Dictionary = {}
@@ -93,7 +93,7 @@ extends Resource
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param p_method_id: 方法稳定标识。
 ## [br]
@@ -134,7 +134,7 @@ func configure(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 标准校验报告。
 func validate_definition() -> GFValidationReport:
@@ -158,7 +158,7 @@ func validate_definition() -> GFValidationReport:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param payload: 请求载荷。
 ## [br]
@@ -200,7 +200,7 @@ func validate_request(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param value: Adapter 成功结果值。
 ## [br]
@@ -231,7 +231,7 @@ func validate_result(value: Variant) -> GFValidationReport:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 新描述符。
 func duplicate_descriptor() -> GFPlatformContractMethodDescriptor:
@@ -252,7 +252,7 @@ func duplicate_descriptor() -> GFPlatformContractMethodDescriptor:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 方法契约摘要。
 ## [br]

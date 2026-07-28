@@ -7,7 +7,7 @@
 - 继承：`Resource`
 - API：`public`
 - 类别：资源定义 (`resource_definition`)
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 多 section 存档的项目级声明。 Profile 从 provider 列表派生唯一文档 schema，避免项目同时维护重复的 section 版本清单。运行时数据仍由 provider 持有，Profile 不解释业务字段。
 
@@ -40,7 +40,7 @@
 ### `UNKNOWN_SECTION_REJECT`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const UNKNOWN_SECTION_REJECT: StringName = &"reject"
@@ -53,7 +53,7 @@ const UNKNOWN_SECTION_REJECT: StringName = &"reject"
 ### `UNKNOWN_SECTION_PRESERVE`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const UNKNOWN_SECTION_PRESERVE: StringName = &"preserve"
@@ -66,7 +66,7 @@ const UNKNOWN_SECTION_PRESERVE: StringName = &"preserve"
 ### `UNKNOWN_SECTION_DROP`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const UNKNOWN_SECTION_DROP: StringName = &"drop"
@@ -81,7 +81,7 @@ const UNKNOWN_SECTION_DROP: StringName = &"drop"
 ### `profile_id`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var profile_id: StringName = &""
@@ -94,7 +94,7 @@ var profile_id: StringName = &""
 ### `schema_id`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var schema_id: StringName = &""
@@ -107,7 +107,7 @@ var schema_id: StringName = &""
 ### `file_name`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var file_name: String = ""
@@ -120,7 +120,7 @@ var file_name: String = ""
 ### `schema_version`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var schema_version: int = 1
@@ -133,7 +133,7 @@ var schema_version: int = 1
 ### `providers`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var providers: Array[GFSaveSectionProvider] = []
@@ -146,7 +146,7 @@ var providers: Array[GFSaveSectionProvider] = []
 ### `recovery_policy`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var recovery_policy: GFSaveRecoveryPolicy = GFSaveRecoveryPolicy.new()
@@ -159,7 +159,7 @@ var recovery_policy: GFSaveRecoveryPolicy = GFSaveRecoveryPolicy.new()
 ### `save_enabled`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var save_enabled: bool = true
@@ -172,7 +172,7 @@ Profile 是否接受保存和 flush 请求。
 ### `load_enabled`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var load_enabled: bool = true
@@ -185,7 +185,7 @@ Profile 是否接受读取请求。
 ### `unknown_section_policy`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var unknown_section_policy: StringName = UNKNOWN_SECTION_REJECT
@@ -200,7 +200,7 @@ var unknown_section_policy: StringName = UNKNOWN_SECTION_REJECT
 ### `validate_profile`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func validate_profile() -> Dictionary:
@@ -219,7 +219,7 @@ func validate_profile() -> Dictionary:
 ### `build_schema`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func build_schema() -> GFSaveDocumentSchema:
@@ -234,7 +234,7 @@ func build_schema() -> GFSaveDocumentSchema:
 ### `get_effective_schema_id`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_effective_schema_id() -> StringName:
@@ -249,7 +249,7 @@ func get_effective_schema_id() -> StringName:
 ### `get_provider`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_provider(section_id: StringName) -> GFSaveSectionProvider:
@@ -270,7 +270,7 @@ func get_provider(section_id: StringName) -> GFSaveSectionProvider:
 ### `get_providers`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_providers() -> Array[GFSaveSectionProvider]:

@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：运行时服务 (`runtime_service`)
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 有界的权威快照与预测纠偏协调器。 协调器在项目模拟 Adapter 与 GFNetworkMessage 之间编排固定 tick、输入顺序、 全量权威快照、有限历史和事务式预测重放。它不创建 transport、不扫描节点树、 不推断实体所有权，也不提供密码学认证或加密。
 
@@ -52,7 +52,7 @@
 ### `phase_changed`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 signal phase_changed(previous_phase: Phase, current_phase: Phase)
@@ -72,7 +72,7 @@ signal phase_changed(previous_phase: Phase, current_phase: Phase)
 ### `input_finalized`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 signal input_finalized(peer_id: int, sequence: int, accepted: bool, reason: StringName)
@@ -94,7 +94,7 @@ signal input_finalized(peer_id: int, sequence: int, accepted: bool, reason: Stri
 ### `authority_snapshot_created`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 signal authority_snapshot_created(snapshot: GFNetworkSnapshot)
@@ -113,7 +113,7 @@ signal authority_snapshot_created(snapshot: GFNetworkSnapshot)
 ### `authoritative_snapshot_applied`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 signal authoritative_snapshot_applied(
@@ -134,7 +134,7 @@ Replica 原子应用权威快照后发出。
 ### `synchronization_rejected`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 signal synchronization_rejected(peer_id: int, reason: StringName, details: Dictionary)
@@ -159,7 +159,7 @@ signal synchronization_rejected(peer_id: int, reason: StringName, details: Dicti
 ### `resync_required`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 signal resync_required(reason: StringName, details: Dictionary)
@@ -185,7 +185,7 @@ Replica 需要由项目显式重建同步流时发出。 进入 RESYNC_REQUIRED 
 ### `Role`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 enum Role {
@@ -205,7 +205,7 @@ enum Role {
 ### `Phase`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 enum Phase {
@@ -231,7 +231,7 @@ enum Phase {
 ### `PROTOCOL_VERSION`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const PROTOCOL_VERSION: int = 1
@@ -244,7 +244,7 @@ const PROTOCOL_VERSION: int = 1
 ### `INPUT_MESSAGE_TYPE`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const INPUT_MESSAGE_TYPE: StringName = &"gf.sync.input.v1"
@@ -257,7 +257,7 @@ Replica 输入消息类型。
 ### `SNAPSHOT_MESSAGE_TYPE`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const SNAPSHOT_MESSAGE_TYPE: StringName = &"gf.sync.snapshot.v1"
@@ -270,7 +270,7 @@ const SNAPSHOT_MESSAGE_TYPE: StringName = &"gf.sync.snapshot.v1"
 ### `DEFAULT_CHANNEL_ID`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const DEFAULT_CHANNEL_ID: StringName = &"gf.sync"
@@ -285,7 +285,7 @@ const DEFAULT_CHANNEL_ID: StringName = &"gf.sync"
 ### `configure`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func configure( role: Role, local_peer_id: int, authority_peer_id: int, adapter: GFNetworkSimulationAdapter, options: Dictionary ) -> Dictionary:
@@ -315,7 +315,7 @@ func configure( role: Role, local_peer_id: int, authority_peer_id: int, adapter:
 ### `reset_stream`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func reset_stream(new_epoch_id: String, start_tick: int = 0) -> Dictionary:
@@ -341,7 +341,7 @@ func reset_stream(new_epoch_id: String, start_tick: int = 0) -> Dictionary:
 ### `register_replica_peer`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func register_replica_peer(peer_id: int) -> bool:
@@ -362,7 +362,7 @@ Authority 显式注册可提交输入的 replica peer。 transport 连接、capa
 ### `unregister_replica_peer`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func unregister_replica_peer(peer_id: int) -> bool:
@@ -383,7 +383,7 @@ Authority 注销 replica peer 并清除其尚未模拟的输入。 为阻止旧�
 ### `submit_local_input`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func submit_local_input(payload: Dictionary, target_tick: int = -1) -> Dictionary:
@@ -410,7 +410,7 @@ Replica 创建、校验并保存一帧本地输入，同时返回待发送消息
 ### `make_input_message`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func make_input_message(frame: GFNetworkInputFrame) -> GFNetworkMessage:
@@ -431,7 +431,7 @@ func make_input_message(frame: GFNetworkInputFrame) -> GFNetworkMessage:
 ### `advance_authority_tick`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func advance_authority_tick() -> Dictionary:
@@ -450,7 +450,7 @@ Authority 推进一个连续 tick，原子捕获并提交全量快照。 模拟�
 ### `advance_prediction_tick`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func advance_prediction_tick() -> Dictionary:
@@ -469,7 +469,7 @@ Replica 在当前权威基线上推进一个本地预测 tick。 prediction_enab
 ### `make_snapshot_message`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func make_snapshot_message( snapshot: GFNetworkSnapshot, replica_peer_id: int ) -> GFNetworkMessage:
@@ -491,7 +491,7 @@ Authority 为指定 replica 构建最新的全量快照消息。 只接受最近
 ### `handle_message`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func handle_message(actual_peer_id: int, message: GFNetworkMessage) -> Dictionary:
@@ -517,7 +517,7 @@ func handle_message(actual_peer_id: int, message: GFNetworkMessage) -> Dictionar
 ### `get_role`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_role() -> Role:
@@ -532,7 +532,7 @@ func get_role() -> Role:
 ### `get_phase`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_phase() -> Phase:
@@ -547,7 +547,7 @@ func get_phase() -> Phase:
 ### `get_epoch_id`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_epoch_id() -> String:
@@ -562,7 +562,7 @@ func get_epoch_id() -> String:
 ### `get_current_tick`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_current_tick() -> int:
@@ -577,7 +577,7 @@ func get_current_tick() -> int:
 ### `get_authoritative_history`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_authoritative_history() -> GFNetworkHistoryBuffer:
@@ -592,7 +592,7 @@ func get_authoritative_history() -> GFNetworkHistoryBuffer:
 ### `get_prediction_history`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_prediction_history() -> GFNetworkHistoryBuffer:
@@ -607,7 +607,7 @@ func get_prediction_history() -> GFNetworkHistoryBuffer:
 ### `get_debug_snapshot`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_debug_snapshot() -> Dictionary:

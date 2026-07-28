@@ -126,7 +126,7 @@ func poll(_delta: float) -> void:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 已收到连接终态且尚未断开时返回 true。
 func is_backend_connected() -> bool:
@@ -140,7 +140,7 @@ func is_backend_connected() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 可选会话接管字段。
 ## [br]
@@ -171,7 +171,7 @@ func get_debug_snapshot() -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 当前指标快照；未知指标不会出现在快照中。
 func get_transport_metrics() -> GFNetworkTransportMetrics:
@@ -209,7 +209,7 @@ func get_transport_metrics() -> GFNetworkTransportMetrics:
 ## [br]
 ## @api protected
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param _metrics: 可追加已知指标的快照。
 func _enrich_transport_metrics(_metrics: GFNetworkTransportMetrics) -> void:
@@ -220,7 +220,7 @@ func _enrich_transport_metrics(_metrics: GFNetworkTransportMetrics) -> void:
 ## [br]
 ## @api protected
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param byte_count: 已交给传输层的字节数。
 func _record_transport_packet_sent(byte_count: int) -> void:
@@ -232,7 +232,7 @@ func _record_transport_packet_sent(byte_count: int) -> void:
 ## [br]
 ## @api protected
 ## [br]
-## @since unreleased
+## @since 10.0.0
 func _reset_transport_metrics() -> void:
 	_transport_bytes_sent = 0
 	_transport_bytes_received = 0

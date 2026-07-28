@@ -20,9 +20,9 @@
 
 ---
 
-## [未发布]
+## [10.0.0] - 2026-07-29
 
-**版本概述**：开发线升级为 `10.0.0-dev.0`，补齐通用 2D 编辑器缩略图、运行时 2D Spatial Canvas、有序资产集合、显式 Live Asset Slot、内容包查询与运行时目录挂载、扩展级 Debugger 工具贡献、存储后端故障转移、版本化 Analytics Schema 与专用 Outbox Adapter、结构化 Settings 恢复、多目标属性事务、Shader 接口契约、惰性诊断采集、配方化运行时会话轨迹、UI 路由预加载规划、轨迹预测数学、有界权威快照同步协调和默认关闭的 Runtime Agent Environment，并收紧网络接入、异步 ingress、ZIP 读取、多产物提交与发布凭据门禁；业务策略仍保持在各自调用方边界内。
+**版本概述**：`10.0.0` 是一次有意的主版本契约升级，补齐通用 2D 编辑器缩略图、运行时 2D Spatial Canvas、有序资产集合、显式 Live Asset Slot、内容包查询与运行时目录挂载、扩展级 Debugger 工具贡献、存储后端故障转移、版本化 Analytics Schema 与专用 Outbox Adapter、结构化 Settings 恢复、多目标属性事务、Shader 接口契约、惰性诊断采集、配方化运行时会话轨迹、UI 路由预加载规划、轨迹预测数学、有界权威快照同步协调和默认关闭的 Runtime Agent Environment，并收紧网络接入、异步 ingress、ZIP 读取、多产物提交与发布凭据门禁；业务策略仍保持在各自调用方边界内。
 
 ### 🚀 新增特性 (Added)
 
@@ -117,6 +117,7 @@
 - 修复 `GFGridOccupancy` 在移动占用、移动预约、确认预约或批量释放的同步信号回调中发生重入写入时，外层后续提交可能突破格子容量、丢失预约或留下不一致反向索引的问题；所有内部映射现在先按单次事务完整提交，再发出通知，通知期的方法与配置属性写入均明确失败关闭。`grid_size` / `max_occupants_per_cell` 的实际变更会清空既有记录并保持容量至少为 1；查询改为只读过滤失效对象，清理索引和释放通知由显式 `prune_invalid_receivers()` 或下一次写事务负责。
 - 修复 `GFGridOccupancy` 曾按 `typeof + str(value)` 接受 `Array`、`Dictionary` 等可变 receiver，导致确认预约的同步回调修改内容后键漂移并留下不可达幽灵占用的问题；统一稳定身份键后，可变复合值与其他未声明 Variant 类型在写入前失败关闭，Object 内容变化仍由实例 ID 保持可达。
 - 修复 AI Developer Kit 的原生 Platform Adapter 兼容性 Profile 校验器会因非标量 `native_boundary.mode` 崩溃，并错误接受无关资源探针、Adapter 的 editor/runtime scope 与 `editor_only` 相矛盾、高于目标 Godot 的 descriptor、大小写折叠后重复的产物路径、与依赖记录冲突的来源版本或许可证、非 `.gdextension` descriptor 路径，以及 `script_only` 模式残留的 descriptor/lock 声明；所有不一致现在汇总为可操作校验报告并失败关闭，模板目标同步到 Godot 4.7 与当前 Framework 源码版本。
+- 修复 AI Developer 项目依赖扫描把裸 `res://` 根目录记录为具体 `unowned_references`、随后被 Snapshot Schema 拒绝的问题；扫描根现在作为非依赖证据忽略，普通具体资源引用保持不变。
 - 修复 AI Developer Kit 的共享严格 JSON 解析器在输入嵌套过深时泄漏 `RecursionError` 并可能终止命令行或服务进程的问题；解析递归失败现在统一规范化为稳定的不可读或解析错误。
 - 修复 `GFCommandHistoryUtility` 在命令已进入终态但业务撤销/重做失败时仍推进历史游标的问题；`GFUndoableCommand` 新增默认成功的 `is_undo_successful()` / `is_redo_successful()` hook，同步与异步入口只在 hook 成功后复核来源栈顶身份并原子移动栈。异步 Signal 的零、单、二至 16 参数终态分别规范化为 `null`、单值和 `Array`，处理锁贯穿命令回调、等待、hook 与提交；等待和 hook 内的只读查询仍观察最近一次完整提交，失败不触碰任一栈的身份、顺序或容量，生命周期切代后的旧 continuation 也不会回填新历史。
 - 修复 Interaction Sensor 对类型化 Receiver 派发时绕过项目 `receive_interaction()` 覆写，以及自定义 sender 的 2D/3D 碰撞广播在规范化报告前发出公开信号的问题；公开覆写继续参与派发，返回值和信号报告统一保持 JSON-safe。
@@ -158,20 +159,23 @@
 ### ⚠️ 废弃与移除 (Deprecated/Removed)
 
 - 移除 `GFMainThreadDispatchQueue.post_owned()`、`GFDeferredMutationQueue.record_owned()`，并移除 `post()` / `record()` 的 `options.owner`。旧设计同时保存弱 owner 与完整 Callable，Callable 指向或捕获同一个 `RefCounted` owner 时会破坏弱生命周期语义；动态 options 继续传入 `owner` 会 fail closed，不会静默退化为无条件执行。
+- 移除 Settings 的 `settings_loaded(data)` 信号、Network Lobby 的同步 Dictionary Backend 操作与旧完成信号，并移除 `GFNetworkLobbyJoinResult`；调用方分别迁移到 `settings_load_completed(result)` 和 request handle / `GFNetworkLobbyOperationResult`。
+- 不再接受 extension tool contribution schema v1、AI Developer 项目契约 schema v1 或 Snapshot schema v3；这些版本化契约按下方升级指南迁移，不保留双轨解析。
 
 ### 🔧 API 变动说明 (API Changes)
 
-- 新增公开类型 `GFArtifactWriteTransaction`，提供 `make_text_entry()`、`make_bytes_entry()`、`make_file_entry()`、`get_preflight_report()`、`commit()`，以及供既有 writer 纳入同一事务的 `begin()` / `rollback()` / `complete()`；所有目标都必须位于调用方显式提供的非空 `allowed_roots`，均标记为 `@since unreleased`。
+- 新增公开类型 `GFArtifactWriteTransaction`，提供 `make_text_entry()`、`make_bytes_entry()`、`make_file_entry()`、`get_preflight_report()`、`commit()`，以及供既有 writer 纳入同一事务的 `begin()` / `rollback()` / `complete()`；所有目标都必须位于调用方显式提供的非空 `allowed_roots`，均标记为 `@since 10.0.0`。
 - `GFAsyncChannel` 新增 `configure_ingress()`、`try_write_detailed()`、容量/策略查询和 reject/drop 状态常量；默认 `max_buffered_items = 256`。`GFAsyncKeyedGate` 新增 `max_active_leases`、`max_waiting_requests`、`max_waiting_per_key`、`max_tracked_keys`；`GFMainThreadDispatchQueue` 与 `GFDeferredMutationQueue` 新增 `max_pending_callbacks` / `max_pending_mutations`，满载时返回无效 handle，不静默接收无界工作。所有容量新增公开绝对上限常量；`GFAsyncFlowTools.wait_all_completions_async()` 与 `wait_any_completion_async()` 的 options 新增默认 256、绝对最多 4096 的 `max_completions`。
 - `GFAsyncCompletion.Status` 新增 `INVALID`，作为非主线程 getter 的稳定保守结果；`succeed()`、`fail()`、`cancel()`、`bind_cancel_token()` 和全部状态 getter 现在都具有严格主线程契约。`GFAsyncFlowTools.wait_all_completions_async()` / `wait_any_completion_async()` 同样只允许在主线程组合完成源。
 - `GFWebSocketNetworkBackend.host()` 的 options 新增首选 `max_clients`，既有 `max_peers` 只作为同义输入；两者只接受 `1..ABSOLUTE_MAX_CLIENTS` 的精确 int。新增 `max_accepts_per_poll` 与 `max_packets_per_peer_per_poll` 公共属性和对应默认/绝对上限常量，赋值统一钳制为 `1..4096`，不提供无界兼容值。
-- 新增公开类型 `GFSettingsLoadResult`、`GFSettingsRecoveryPolicy`、`GFEditorPropertyBatchCommand` 和 `GFShaderInterfaceSnapshot`；新增 API 均标记为 `@since unreleased`。
-- `GFSettingsUtility.load_settings(file_name)` 从返回 `Dictionary` 改为 `load_settings(file_name, recovery_policy) -> GFSettingsLoadResult`；`settings_loaded(data)` 被 `settings_load_completed(result)` 取代，新增 `get_last_load_result()`，受保护 `_read_persisted_data()` 的返回类型从 `Dictionary` 改为 `GFStorageReadResult`。本开发线不保留双轨兼容。
+- 新增公开类型 `GFSettingsLoadResult`、`GFSettingsRecoveryPolicy`、`GFEditorPropertyBatchCommand` 和 `GFShaderInterfaceSnapshot`；新增 API 均标记为 `@since 10.0.0`。
+- `GFSettingsUtility.load_settings(file_name)` 从返回 `Dictionary` 改为 `load_settings(file_name, recovery_policy) -> GFSettingsLoadResult`；`settings_loaded(data)` 被 `settings_load_completed(result)` 取代，新增 `get_last_load_result()`，受保护 `_read_persisted_data()` 的返回类型从 `Dictionary` 改为 `GFStorageReadResult`。本版本不保留双轨兼容。
 - `GFObjectPropertyTools` 新增 framework-internal 的零写入 prepare 入口，`GFEditorCommand` 新增受保护配置封存入口；`GFResourceTableEditor` 批量提交报告新增事务状态、回滚状态和可选恢复命令。空批次返回 `committed` / `OK` 的全零计数成功报告；规范化后同值的单格或批量条目不再作为 setter、`cell_value_committed`、自动保存或刷新触发器。
-- `GFGridOccupancy` 的所有 receiver 参数从任意 Variant 收窄为 `Object`、非空 `StringName`、非空 `String` 或 `int` 稳定身份；四个公开信号只在占用或预约状态实际变化时发出。同格成功恒等请求与不稳定身份不保留兼容入口，该破坏性契约由 10.0 开发线承载。
+- `GFConfigPipelineCommitStage.IMPLEMENTATION_VERSION` 从 1 升为 3，`GFConfigPipelineLayoutStage.IMPLEMENTATION_VERSION` 从 1 升为 2；两项都会进入 artifact manifest 的 compiler fingerprint，使 9.x 阶段实现生成的旧产物在 `changed_only` 检查中确定性失效。
+- `GFGridOccupancy` 的所有 receiver 参数从任意 Variant 收窄为 `Object`、非空 `StringName`、非空 `String` 或 `int` 稳定身份；四个公开信号只在占用或预约状态实际变化时发出。同格成功恒等请求与不稳定身份不保留兼容入口，该破坏性契约由 `10.0.0` 正式版本承载。
 - `GFShaderParameterUtility` 新增接口捕获、Profile 校验和参数校验入口；既有 `apply_profile()` / `apply_parameters()` 的默认选项新增严格类型校验和错型 warning。
 - `GFTypeEventSystem` 新增 `subscribe()`、`subscribe_assignable()` 与 `subscribe_simple()`；`GFArchitecture` 新增 `subscribe_event()`、`subscribe_assignable_event()` 与 `subscribe_simple_event()`；`Gf` 新增同名三类快捷订阅入口。上述入口均返回 `GFSubscriptionToken`，接受 `once`，带 owner 的 `GFEventListener` 实际返回 `GFLifetimeSubscription`。`GFSubscriptionToken` 与 `GFLifetimeSubscription` 新增仅供订阅源使用的自动失效内部入口。
-- `GFUndoableCommand` 新增 `is_undo_successful(_undo_result)` 与 `is_redo_successful(_execute_result)`，均标记为 `@since unreleased` 且默认返回 `true`。同步历史入口传入命令的直接返回值；异步历史入口把完成 Signal 的零、单、二至 16 参数 payload 分别规范化为 `null`、单值和 `Array` 后传入，超过 16 个参数时告警并只保留前 16 个。
+- `GFUndoableCommand` 新增 `is_undo_successful(_undo_result)` 与 `is_redo_successful(_execute_result)`，均标记为 `@since 10.0.0` 且默认返回 `true`。同步历史入口传入命令的直接返回值；异步历史入口把完成 Signal 的零、单、二至 16 参数 payload 分别规范化为 `null`、单值和 `Array` 后传入，超过 16 个参数时告警并只保留前 16 个。
 - `Gf.set_architecture()` 改为原子提交候选架构：Installer 和三阶段初始化成功前，`Gf` facade 只暴露既有已提交架构或空状态；pending assignment 被更新赋值、尚无已提交架构时由 `Gf.create_architecture()` 创建的默认架构，或 Gf 退出场景树替代时，会取消其异步作用域并 dispose 未提交候选。函数签名不变，但依赖 Installer 期间 facade 指向候选、或依赖被替代候选仍可复用的代码需要迁移。
 - `GFBindableProperty.mutate()` 的 callback 必须返回完整 replacement；void/in-place-only mutator 不再是有效写法。集合 helper 的 `value_changed` 参数改为独立 before/after 快照。
 - `GFBindableProperty.subscribe()`、`subscribe_token()`、`subscribe_owned()` 与 `subscribe_method()` 的每次调用都会创建独立订阅；相同参数不再复用既有 token。
@@ -182,40 +186,42 @@
 - `GFArchitecture.get_all_models_state()`、`get_all_models_state_async()`、`get_global_snapshot()` 与 `get_global_snapshot_async()` 不再直接返回裸快照，统一返回 `{ ok, snapshot?, error }`；四个 `restore_*` 入口统一返回 `{ ok, phase, rolled_back, error }`。全局快照新增必需 `format_version: 1`，`command_history` 只接受 Dictionary。
 - `GFArchitecture` 新增 `is_disposing()` 与 `is_disposed()`，用于在释放回调、异步等待或作用域路由中辨认正在终结和已经完成释放的不可恢复终态。
 - `GFAudioUtility.set_audio_backend()` 与 `clear_audio_backend()` 从 `void` 改为返回 `bool`；当前后端拒绝停止其 owned BGM/ambient channel，或调用发生在 backend callback 重入边界内时返回 `false`。
-- `GFAudioBackend` 新增返回 `bool/null` 的 `get_bus_mute()`；`GFAudioBackend` 与 `GFAudioUtility` 新增 `is_bgm_playing() -> bool`，均标记为 `@since unreleased`。暂停中的 BGM session 仍返回 `true`，调试快照新增 `bgm_playing`。
-- 新增公开类型 `GFWeakMethodInvocation`，提供 `invoked`、`owner_released`、`method_missing`、`failed` 四种稳定调用状态；`GFMainThreadDispatchQueue` 新增 `post_method()`，`GFDeferredMutationQueue` 新增 `record_method()`，均标记为 `@since unreleased`。两个旧式 `*_owned()` 入口及 `post()` / `record()` 的 `options.owner` 已直接移除。
-- 新增公开类型 `GFPlatformContractDescriptor`、`GFPlatformContractMethodDescriptor`、`GFPlatformActivationIntent`、`GFPlatformAdapterConformance`、`GFNetworkLobbyOperationRequest`、`GFNetworkLobbyOperationHandle`、`GFNetworkLobbyOperationResult`、`GFMultiplayerPeerNetworkBackend` 和 `GFNetworkTransportMetrics`，均标记为 `@since unreleased`。
+- `GFAudioBackend` 新增返回 `bool/null` 的 `get_bus_mute()`；`GFAudioBackend` 与 `GFAudioUtility` 新增 `is_bgm_playing() -> bool`，均标记为 `@since 10.0.0`。暂停中的 BGM session 仍返回 `true`，调试快照新增 `bgm_playing`。
+- 新增公开类型 `GFWeakMethodInvocation`，提供 `invoked`、`owner_released`、`method_missing`、`failed` 四种稳定调用状态；`GFMainThreadDispatchQueue` 新增 `post_method()`，`GFDeferredMutationQueue` 新增 `record_method()`，均标记为 `@since 10.0.0`。两个旧式 `*_owned()` 入口及 `post()` / `record()` 的 `options.owner` 已直接移除。
+- 新增公开类型 `GFPlatformContractDescriptor`、`GFPlatformContractMethodDescriptor`、`GFPlatformActivationIntent`、`GFPlatformAdapterConformance`、`GFNetworkLobbyOperationRequest`、`GFNetworkLobbyOperationHandle`、`GFNetworkLobbyOperationResult`、`GFMultiplayerPeerNetworkBackend` 和 `GFNetworkTransportMetrics`，均标记为 `@since 10.0.0`。
 - `GFPlatformAdapter.configure()` 现在要求 `contract_ids` 与 `contract_descriptors` 一一对应，并新增 `activation_intent`、Contract Descriptor 查询和受保护发布入口；`GFPlatformRuntime` 新增 Activation Intent 接收、丢弃、按 Adapter 作用域消费、确认和容量配置 API。
+- `GFPlatformBridgeResult.started_at_msec`、`completed_at_msec` 及 `configure_success()` / `configure_failure()` 的对应默认参数把未知时间戳哨兵从 `0` 改为 `-1`；`0` 现在可表示调用方明确提供的合法单调时钟起点。
 - `GFNetworkLobbyBackend` 移除旧的同步 accepted `Dictionary` 操作与请求完成信号，改为 `invoke_operation()` 和受保护 `_dispatch_operation()`；Network 扩展版本升至 `5.0.0`。`GFNetworkLobbyService` 的 create/query/join/leave/metadata 入口改为返回 `GFNetworkLobbyOperationHandle`，`set_backend()` 从 `void` 改为 `bool`，`lobby_created`、`lobbies_queried`、`lobby_joined`、`lobby_left` 的参数统一改为 `GFNetworkLobbyOperationResult`，并移除 `GFNetworkLobbyJoinResult`。
 - `GFNetworkBackend` 新增 `get_transport_metrics()` 与受保护指标扩展点；`GFNetworkUtility` 新增传输指标采集信号、采样配置、手动采集和有界历史查询 API。
 - `GFThumbnailRenderRequest.Kind` 末尾新增 `CANVAS_ITEM_IMAGE` 和 `CANVAS_ITEM_TEXTURE`，既有枚举值保持不变。
 - 新增 `GFThumbnailRenderRequest.for_canvas_item_image()`、`for_canvas_item_texture()` 及相应来源、边界和留白读取入口。
 - 新增 `GFThumbnailRenderer.render_canvas_item()` 与 `render_canvas_item_texture()`。
-- 新增公开类型 `GFSpatialCanvas2D`，以及视图、坐标变换、网格、条目查询、选择和放置会话入口；均标记为 `@since unreleased`。它是项目显式挂载内容与提交输入的运行时 `Control`，不是编辑器、项目实体仓库或业务命令执行器。
-- 新增公开类型 `GFAnalyticsEventSchema`、`GFAnalyticsSchemaRegistry` 和 `GFAnalyticsOutboxAdapter`；`GFAnalyticsUtility` 新增永不为空的 `schema_registry` 与 `track_versioned(event_name, schema_version, properties)`，`GFRequestOutboxUtility` 新增 `enqueue_with_report(envelope, require_persistence)` 与 `max_storage_bytes`，`GFSupportReportWorkflow` 新增固定信封分类入口 `handles_request(envelope)`；均标记为 `@since unreleased`。
-- 新增公开类型 `GFAssetCollection` 和 `GFStorageFailoverBackend`；均标记为 `@since unreleased`，不改变既有调用入口默认行为。
-- 新增公开类型 `GFAssetSlot`，提供一次性 `configure()`、`is_configured()`、身份与类型提示查询、`accepts_resource()`、`replace()`、`release()`、单调 generation，以及提交后同步发出的 `resource_replaced` / `released` 信号；全部操作限定主线程并标记为 `@since unreleased`。
+- 新增公开类型 `GFSpatialCanvas2D`，以及视图、坐标变换、网格、条目查询、选择和放置会话入口；均标记为 `@since 10.0.0`。它是项目显式挂载内容与提交输入的运行时 `Control`，不是编辑器、项目实体仓库或业务命令执行器。
+- 新增公开类型 `GFAnalyticsEventSchema`、`GFAnalyticsSchemaRegistry` 和 `GFAnalyticsOutboxAdapter`；`GFAnalyticsUtility` 新增永不为空的 `schema_registry` 与 `track_versioned(event_name, schema_version, properties)`，`GFRequestOutboxUtility` 新增 `enqueue_with_report(envelope, require_persistence)` 与 `max_storage_bytes`，`GFSupportReportWorkflow` 新增固定信封分类入口 `handles_request(envelope)`；均标记为 `@since 10.0.0`。
+- 新增公开类型 `GFAssetCollection` 和 `GFStorageFailoverBackend`；均标记为 `@since 10.0.0`，不改变既有调用入口默认行为。
+- 新增公开类型 `GFAssetSlot`，提供一次性 `configure()`、`is_configured()`、身份与类型提示查询、`accepts_resource()`、`replace()`、`release()`、单调 generation，以及提交后同步发出的 `resource_replaced` / `released` 信号；全部操作限定主线程并标记为 `@since 10.0.0`。
 - `GFExtensionToolContribution.SCHEMA_VERSION` 从 1 升为 2，新增工具专用 `debugger_plugin_paths`；`GFExtensionSettings` 新增 `get_enabled_debugger_plugin_paths()`。运行时 `GFExtensionManifest` 不接受该字段。
 - 新增公开类型 `GFContentPackageQuery`、`GFContentPackageQueryResult`、`GFContentPackageAssetCatalogProvider`、`GFAssetCatalogRuntime` 和 `GFAssetCatalogMount`；`GFContentPackageCatalog` 新增 `query_packages()`，Content Package Utility 新增 owner-scoped root API，Asset Catalog Runtime 支持原子 `replace_mount_catalog()`。
-- 新增公开类型 `GFDiagnosticProviderResult`、`GFDiagnosticSnapshotProvider`、`GFSessionTraceUtility`、`GFSessionTraceRecipe`、`GFSessionTraceChannelDefinition`、`GFSessionTraceCheckpoint` 与 `GFUIRoutePreloadUtility`，以及 `GFDiagnosticsUtility` 的惰性 Provider 注册/采集 API、`GFUIRoute.adjacent_route_ids`、`get_adjacent_route_ids()` 和 `GFUIRouterUtility.build_preload_plan()`；均标记为 `@since unreleased`。
+- 新增公开类型 `GFDiagnosticProviderResult`、`GFDiagnosticSnapshotProvider`、`GFSessionTraceUtility`、`GFSessionTraceRecipe`、`GFSessionTraceChannelDefinition`、`GFSessionTraceCheckpoint` 与 `GFUIRoutePreloadUtility`，以及 `GFDiagnosticsUtility` 的惰性 Provider 注册/采集 API、`GFUIRoute.adjacent_route_ids`、`get_adjacent_route_ids()` 和 `GFUIRouterUtility.build_preload_plan()`；均标记为 `@since 10.0.0`。
 - 新增公开类型 `GFUIRouteOperation`、`GFUIRouteResult`、`GFUIRouterUtility.route_operation_completed` 和 `PRELOAD_*` 常量；`push_route_async()`、`replace_route_async()` 新增 `async_options` 并从 `void` 改为返回句柄。
-- 新增公开类型 `GFTrajectoryMath`，以及运动预测、恒速拦截和有界公式采样入口；均标记为 `@since unreleased`，不改变既有 Steering 行为。
-- 新增公开类型 `GFNetworkInputFrame`、`GFNetworkSimulationAdapter` 与 `GFNetworkSyncCoordinator`，以及显式配置、peer 注册、本地输入、权威/预测 tick、recipient-bound 消息、重同步状态和有界调试快照入口；均标记为 `@since unreleased`。既有 Network transport、snapshot、delta/patch 与 lobby API 不变。
-- 新增公开类型 `GFRuntimeAgentEnvironment`，以及 endpoint 注册/目录、session 签发/撤销、`invalidate_policy_context()`、版本化请求执行、安全审计和调试快照入口；均标记为 `@since unreleased`。该类型绑定创建线程，只保护不可信请求进入受信同步 handler 的协议边界，不是 OS sandbox。
+- 新增公开类型 `GFTrajectoryMath`，以及运动预测、恒速拦截和有界公式采样入口；均标记为 `@since 10.0.0`，不改变既有 Steering 行为。
+- 新增公开类型 `GFNetworkInputFrame`、`GFNetworkSimulationAdapter` 与 `GFNetworkSyncCoordinator`，以及显式配置、peer 注册、本地输入、权威/预测 tick、recipient-bound 消息、重同步状态和有界调试快照入口；均标记为 `@since 10.0.0`。该同步协调器不改变既有 transport、snapshot 与 delta/patch 契约；Lobby API 的独立破坏性升级见上文。
+- 新增公开类型 `GFRuntimeAgentEnvironment`，以及 endpoint 注册/目录、session 签发/撤销、`invalidate_policy_context()`、版本化请求执行、安全审计和调试快照入口；均标记为 `@since 10.0.0`。该类型绑定创建线程，只保护不可信请求进入受信同步 handler 的协议边界，不是 OS sandbox。
 - 新增公开类型 `GFSaveProfile`、`GFSaveSectionProvider`、`GFSaveRecoveryPolicy`、`GFSaveProfileOperation`、`GFSaveProfileResult`、`GFSaveRollbackFailure` 和 `GFSaveProfileUtility`；Save 扩展安装器会自动注册 Profile Utility，既有 Save Graph 和 Slot API 不变。
 - 新增公开类型 `GFStorageAsyncOperation`、`GFStorageAsyncResult`，以及 `GFStorageUtility.save_data_request_async()`、`load_data_request_async()`、`canonicalize_data_file_name()`；`GFStorageReadResult` 新增只追加的 `FailureKind` 与 `failure_kind`。
 - `GFTagExpression.expressions` 的公开存储类型从 `Array[GFTagExpression]` 改为 `Array[Resource]`；元素语义仍严格限定为 `GFTagExpression` 或 null，方法参数和返回值不变。
 - `GFUIRoute.get_route_id()` 以及 Router 的注册、查询、打开信号和异步 pending 身份统一去除 route ID 首尾空白。
 - AI Developer 项目契约从 schema v1 升为 v2，项目快照从 schema v3 升为 v4，AI Developer Kit 工具协议同步升为 4.0.0；旧契约不保留双轨解析，旧 Snapshot 不进入迁移路径。
-- GF 开发身份从 `9.1.0-dev.0` 升为 `10.0.0-dev.0`，用于明确承载项目契约 v2、项目快照 v4 与相关破坏性工具协议变化；本条只切换开发线，不创建正式版本或发布标签。
+- GF 正式版本升级为 `10.0.0`，明确承载项目契约 v2、项目快照 v4 与相关破坏性工具协议变化。
 
 ### 📘 升级指南 (Migration Guide)
 
 - 依赖无界通道、keyed wait、主线程回调、延迟变更或 WebSocket accept/packet drain 的调用方，应依据峰值和服务时间设置有限容量与单轮工作预算，处理 `rejected` / `dropped` 或无效 handle，并从调试快照观测高水位；不要通过循环重试把显式 backpressure 重新变成无界内存增长。跨线程生产者只能把通道写入调度回主线程，通道容量只约束 item 数量，业务 payload 的类型和字节预算仍由调用方协议负责。
 - 后台线程不得直接读写或绑定 `GFAsyncCompletion`；旧代码应把纯结果交给 `GFMainThreadDispatchQueue.post()`，在显式主线程 `dispatch()` 回调内调用 `succeed()` / `fail()` / `cancel()`，再由主线程调用 `GFAsyncFlowTools` 组合等待。非主线程 mutator 现在返回 `false`，getter 返回 `Status.INVALID` 或空值，不保留此前隐式 worker signal 转发兼容路径。
 - 编辑器多文件生成器应把目标根、产物数量、单文件、总字节和备份预算显式交给 `GFArtifactWriteTransaction`，并只在 `ok` 的 committed 结果后刷新导入或权威编辑器状态。目标组件必须采用 ASCII portable 命名；若失败报告给出 `recovery_required`，必须按稳定 `recovery_action` 把 `recovery_transaction` 原样交给同一终态动作，不能从已归一化的错误状态猜测动作，也不能重新开始事务掩盖剩余恢复工作。Config Pipeline 与 Raw Resource Artifact 调用方从各自顶层结果读取同一恢复字段。依赖 Config Pipeline 或 Raw Resource Artifact 直接逐文件写入、允许部分提交、在预检后外部改写目标，或把目录当文件覆盖的流程不再兼容。
+- 升级后应至少正常运行一次使用 artifact manifest 的 Config Pipeline 导出，再发布其生成物。Commit/Layout Stage 的新实现版本会让既有 compiler fingerprint 自动判为 stale，下一次 `changed_only` 导出会重建产物并升级 manifest，无需手工删除旧 manifest；在这次导出完成前，不应把 9.x 生成物视为 `10.0.0` 的最新结果。
 - Settings 调用方应把 `Dictionary` 接收值改为 `GFSettingsLoadResult`，先检查 `is_successful()` / `get_status()`，再通过 Utility 读取当前值；监听器迁移到 `settings_load_completed`，自定义读取子类返回 `GFStorageReadResult`。依赖“文件缺失或损坏自动当作空设置”的项目必须显式配置 `GFSettingsRecoveryPolicy`，并在接受恢复结果后另行决定是否保存。
-- 依赖 `GFResourceTableEditor` 批量接口“有效项先提交、无效项单独报错”的工具应改为一次只提交可共同成功或共同失败的变更；收到 `recovery_required` 时先修复 setter 可写条件并调用返回命令的 `recover()`，不要在属性事务完成前保存资源。依赖等值提交触发 setter、通知、持久化或刷新副作用的工具应改用自己的显式项目流程；`10.0.0` 开发线不保留强制等值提交兼容入口。
+- 依赖 `GFResourceTableEditor` 批量接口“有效项先提交、无效项单独报错”的工具应改为一次只提交可共同成功或共同失败的变更；收到 `recovery_required` 时先修复 setter 可写条件并调用返回命令的 `recover()`，不要在属性事务完成前保存资源。依赖等值提交触发 setter、通知、持久化或刷新副作用的工具应改用自己的显式项目流程；`10.0.0` 不保留强制等值提交兼容入口。
 - Shader Profile 中 int/float 混用、错误资源类或未知 uniform 现在默认被跳过并报告 warning；项目应把参数改为 Shader 反射声明的精确 Variant 类型。需要 CI 漂移门禁时保存 `GFShaderInterfaceSnapshot` 基线并检查 `validate_shader()` / `validate_against()` 报告，不要从 shader 源码文本自行推断接口。
 - `GFGridOccupancy` 的查询不再隐式回收已释放 `Object` 或发出释放信号；依赖该副作用的调用方应在明确的维护边界调用 `prune_invalid_receivers()`，或让下一次占用/预约事务在提交前执行清理。运行期修改 `grid_size` 或 `max_occupants_per_cell` 现在会像重新配置一样清空既有记录；需要保留棋盘状态时，应先导出项目自己的稳定状态，再按新配置显式重建。把 `Array`、`Dictionary`、空 `StringName` / `String` 或其他 Variant 当 receiver 的调用方必须改为分配稳定的非空 `StringName` / `String` / `int` ID，或传入拥有该数据的 `Object`；依赖每次成功 `reserve_cell()` 都收到释放/预约信号的流程应根据返回值自行发送请求确认，状态变化信号不提供兼容性逐请求回执。
 - 既有 `GFUndoableCommand` 若不重入历史写操作则无需迁移：两个历史结果 hook 默认成功，`null` 返回值和无参数完成 Signal 保持原行为。只有撤销或重做可能进入“已完成但业务失败”终态的命令才需要覆盖对应 hook；异步 hook 应按 `null`、单值或最多 16 项的多值 `Array` 读取规范化完成 payload，并返回明确的 `bool`，更多字段应封装成单个 Result 或 `Dictionary`。`execute()`、`undo()`、`should_record()` 和结果 hook 现在统一处于非重入历史操作内；原先从这些回调嵌套执行、记录、清空、修改容量或恢复历史的项目代码，应改为在外层历史 API 完成后由项目队列提交后续操作。
@@ -232,6 +238,7 @@
 - 通过 `post_owned(owner, Callable(owner, method))`、`record_owned(owner, Callable(owner, method))`、`post/record(options.owner)` 或捕获 owner 的 lambda 延迟调用 owner 自身方法时，必须改用零参数 `post_method(owner, method_name)` / `record_method(owner, method_name)`。无 owner 的独立 Callable 继续使用 `post()` / `record()`。需要携带参数的自定义容器应保存 `GFWeakMethodInvocation`，只在实际执行点调用 `invoke(arguments)`；不要把 owner、Callable、Signal 或对象图重新塞进长期 options/metadata 绕过弱生命周期。
 - 旧 Lobby Backend 应把 create/query/join/leave/metadata 覆写合并到 `_dispatch_operation(request, handle)`，在 Provider callback 中调用 `_succeed_operation()` / `_fail_operation()`；项目调用方保存返回 Handle 并读取 `GFNetworkLobbyOperationResult`，不再等待无法按请求关联的旧完成信号。
 - 新 Platform Adapter 应为正式 Contract 提供 Descriptor 并运行 `GFPlatformAdapterConformance.inspect()`；启动、邀请和 Join 回调转换为稳定 ID 的 `GFPlatformActivationIntent`。SDK 已提供 `MultiplayerPeer` 时采用通用 Backend 并明确所有权，不要在 GF 内新增 Provider 命名 Manager。既有原生兼容性 Profile 必须让资源探针精确指向声明的 `.gdextension` descriptor，保证目标 Godot 不低于 descriptor floor、产物路径按跨平台大小写折叠后仍唯一，并让 editor-only Adapter 的全部产物使用 editor scope、其余 Adapter 的全部产物进入 runtime export；每个库的来源版本与许可证必须和 `native_dependencies` 精确一致。切换到 `script_only` 时还必须删除 `descriptor_path`、`dependency_lock_path` 两个键，并将 `artifacts`、`export_targets` 与 `native_dependencies` 设为空数组。
+- `GFPlatformBridgeResult` 消费方应使用 `< 0` 判断未知的开始或完成时间戳，不再使用 `<= 0`；显式的 `0` 是合法单调时钟起点，只有两个时间戳都非负时才能计算持续时间。
 - 读取传输指标前先调用 `has_metric()`；缺少 RTT 等指标表示 Backend 不支持或当前未知，不能把 `get_metric()` 的默认零值解释为观测结果。长时间会话应设置有界采样容量。
 - 既有 3D 缩略图、资产目录、存储后端与同步代码无需迁移。需要 2D 预览、有序资产集合或故障转移时显式采用新入口即可。
 - 既有资源加载、缓存和句柄调用无需迁移；只有需要共享可替换的当前资源时才创建 `GFAssetSlot`。槽位不会自动观察磁盘或替换已经发出的 `GFAssetHandle`，项目应在显式加载和校验候选后调用 `replace()`，并在 owner 结束或不再需要时 `release()`。
@@ -242,19 +249,19 @@
 - 自定义 Support Report 若自行提供 `report_id`，应迁移为 `1..4096` 字符且不含 C0/DEL 的稳定 String/StringName；共享 Outbox 的项目 transport 应使用 `GFSupportReportWorkflow.handles_request()` 路由，自动装配不会覆盖已有 transport，非匹配请求会失败关闭。
 - 运行时资产目录默认拒绝重复 `asset_id`。只有明确设计了覆盖层时，才在首个 Mount 前配置 `CONFLICT_KEEP_HIGH_PRIORITY`；不要依赖 Provider 注册时序决定胜者。
 - 自定义 `_draw()` 或无法可靠推断范围的 2D 节点应传入显式 `content_bounds`；多后端复制与冲突处理继续使用 `GFStorageSyncUtility`，不要把故障转移当作原子双写。
-- 既有 UI 路由无需迁移；只有需要候选页面预热时才声明 `adjacent_route_ids` 并显式执行生成的资产计划。需要发布后问题轨迹时，应由项目定义最小事件 schema、玩家许可和保留策略，再显式采用 `GFSessionTraceUtility`。
+- 既有路由资源和基本跳转语义无需迁移；route ID 规范化与异步入口返回值变化见下文。只有需要候选页面预热时才声明 `adjacent_route_ids` 并显式执行生成的资产计划。需要发布后问题轨迹时，应由项目定义最小事件 schema、玩家许可和保留策略，再显式采用 `GFSessionTraceUtility`。
 - 既有诊断快照无需迁移。只有无法安全长期缓存的状态才实现 `GFDiagnosticSnapshotProvider`，并由故障点或支持报告入口显式请求；需要跨系统固定轨迹预算和检查点时，在首次会话前应用 `GFSessionTraceRecipe`，不要把上传、许可或业务恢复逻辑写进配方。
 - 历史代码通过 `publish_snapshot_section()` 使用 `diagnostic_providers` 分区 ID 时无需迁移：普通快照继续返回该缓存；只有当次显式请求惰性 Provider 时，同名顶层键才由内置批次结果确定性覆盖，后续普通快照仍恢复既有分区。
 - 既有曲线、Steering、发射体和节点移动逻辑无需迁移。只有需要结构化未来状态、拦截时间或公式点集时才显式采用 `GFTrajectoryMath`；绘制、物理推进、速度继承、重力拦截和业务命中规则继续由项目负责。
 - 既有自定义网络同步无需迁移。采用 `GFNetworkSyncCoordinator` 时，先为 `gf.sync` 注册可靠且有限的 raw packet 通道，保留 `GFNetworkUtility.validator`，由受信 session 签发不可复用 epoch 并显式注册 replica；项目 Adapter 必须实现纯校验、状态回滚和基于 actual peer 的控制权判断，并允许协调器在收包与目标 authority tick 各执行一次授权校验。`RESYNC_REQUIRED` 使用全新 epoch 重建状态，`FAULTED` 必须重建 coordinator 与 Adapter。
-- 既有诊断命令、开发者控制台与 AI Developer 工具无需迁移，也不得直接当作 Runtime Agent 权限入口。只有明确需要运行时自动化时才安装 `gf.standard.agent_environment`，在禁用态注册最小 endpoint 与 closed Schema，由项目策略负责业务授权/批准，并由外层传输负责身份认证和凭据保护。
+- 既有诊断命令、开发者控制台与 AI Developer 工具无需因采用 Runtime Agent Environment 而迁移，也不得直接当作其权限入口。只有明确需要运行时自动化时才安装 `gf.standard.agent_environment`，在禁用态注册最小 endpoint 与 closed Schema，由项目策略负责业务授权/批准，并由外层传输负责身份认证和凭据保护。
 - 既有 Save Graph、Slot 和直接 Storage 调用无需迁移。需要跨模块自动保存时，为每个稳定数据边界实现一个可回滚 `GFSaveSectionProvider`，注册 Profile 和完整迁移链；不要把缺失、损坏或未来版本统一重置为空存档。
 - 历史配置若有意使用带首尾空白的 route ID，需迁移为去除空白后的稳定 ID；规范化后重复的 ID 会指向同一注册身份，不应再依赖空白区分页面。
 - 直接读取 `GFTagExpression.expressions` 时，应把元素先用 `is GFTagExpression` 收窄再使用；项目若依赖变量的静态 `Array[GFTagExpression]` 类型，应改为通过 `configure_all()`、`configure_any()`、`configure_none()` 提交强类型输入，或显式构造经过校验的 `Array[Resource]`。
 - 严格 warning 项目必须接收 `push_route_async()` / `replace_route_async()` 的新返回值；需要结果时保存 `GFUIRouteOperation`，只需 fire-and-observe 全局信号时也应赋给带下划线的局部变量。打开前预加载必须显式选择策略，默认仍为 `PRELOAD_NONE`。
 - AI Developer 工具协议 3.x 的 schema v1 契约必须先运行 `contract-migration-plan`，审阅 `pending_review`、`owner: project` 默认值和完整候选，再由用户在交互终端用计划返回的 `plan_sha256` 执行 `contract-migrate` 并输入完整确认短语；随后确认 owner、Recipe 与验收条件并运行 `validate`。
 - Snapshot v4 是有意的破坏性生成协议升级：消费方应先升级到 AI Developer 工具协议 4.x，再重新生成快照；不要迁移 v3、复制字段或把观测结果反写为项目意图。独立 Kit ZIP 版本仍与 GF Framework 版本一致。
-- 从 `9.x` 开发线升级时，应同步更新 GF 插件与扩展清单到 `10.0.0-dev.0`，并重新生成 AI Developer Kit catalog；稳定版发布时间与版本号仍由后续独立发布流程决定。
+- 从 `9.x` 升级时，应同步更新 GF 插件与扩展清单到 `10.0.0`，并重新生成 AI Developer Kit catalog；不要混用 `9.x` 扩展清单、旧 Snapshot 或旧工具协议。
 - 旧契约若把模块、Adapter、profile 或验证路径放在符号链接/junction 后方，应改为项目根内不经过链接的真实相对路径；工具不会为链接别名保留兼容分支。
 - 模块和 Adapter 所有权根若包含尾点/空格、Windows 保留名称、通配字符或大小写变体的 `addons/gf`，应迁移为跨平台规范目录；这些别名不再保留兼容解析。
 
@@ -263,6 +270,7 @@
 - `addons/gf/standard/utilities/settings/`
 - `addons/gf/kernel/editor/gf_editor_property_batch_command.gd`
 - `addons/gf/kernel/editor/gf_resource_table_editor.gd`
+- `addons/gf/kernel/editor/gf_artifact_write_transaction.gd`
 - `addons/gf/standard/utilities/display/gf_shader_interface_snapshot.gd`
 - `addons/gf/standard/utilities/display/gf_shader_parameter_*.gd`
 - `addons/gf/extensions/action_queue/actions/gf_shader_parameter_action.gd`
@@ -270,6 +278,8 @@
 - `docs/zh/standard/input-flow/input-assist/virtual-recording-remap/shared-keyboard-local-multiplayer.md`
 - `addons/gf/kernel/core/gf_weak_method_invocation.gd`
 - `addons/gf/kernel/core/gf_async_completion.gd`
+- `addons/gf/standard/common/gf_async_channel.gd`
+- `addons/gf/standard/common/gf_async_keyed_gate.gd`
 - `addons/gf/standard/common/gf_async_flow_tools.gd`
 - `addons/gf/standard/common/gf_main_thread_dispatch_queue.gd`
 - `addons/gf/standard/common/gf_deferred_mutation_queue.gd`
@@ -288,6 +298,7 @@
 - `packages/standard/gf.standard.spatial.canvas.json`
 - `docs/zh/standard/input-flow/spatial-canvas-2d.md`
 - `addons/gf/standard/foundation/tags/gf_tag_expression.gd`
+- `addons/gf/standard/foundation/math/gf_grid_occupancy.gd`
 - `addons/gf/standard/common/gf_async_wait_support.gd`
 - `tests/gf_core/support/gf_gut_*.gd`
 - `addons/gf/standard/utilities/assets/gf_asset_collection.gd`
@@ -322,6 +333,9 @@
 - `addons/gf/standard/utilities/debug/gf_diagnostic_provider_result.gd`
 - `addons/gf/kernel/package/gf_package_manager_backend.gd`
 - `addons/gf/kernel/package/gf_package_transaction_engine.gd`
+- `addons/gf/kernel/package/gf_bounded_zip_support.gd`
+- `addons/gf/tools/config_pipeline/`
+- `addons/gf/standard/utilities/assets/gf_raw_resource_artifact.gd`
 - `addons/gf/standard/utilities/audio/gf_audio_utility.gd`
 - `addons/gf/standard/utilities/debug/gf_session_trace_recipe.gd`
 - `addons/gf/standard/utilities/debug/gf_session_trace_channel_definition.gd`
@@ -353,5 +367,6 @@
 - `tools/gf_maintenance.py`
 - `tools/gf_parallel_validation.py`
 - `tools/gf_package_artifact_set.py`
+- `tools/gf_credential_gate.py`
 - `tools/gf_process_supervisor.py`
 - `tools/gf_repository_policy.py`

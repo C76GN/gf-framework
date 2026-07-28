@@ -108,7 +108,7 @@ static func for_node3d_texture(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param source: 要渲染的 2D 画布节点。
 ## [br]
@@ -145,7 +145,7 @@ static func for_canvas_item_image(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param source: 要渲染的 2D 画布节点。
 ## [br]
@@ -264,7 +264,7 @@ func get_source_node3d() -> Node3D:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return CanvasItem 来源；非 2D 请求时返回 null。
 func get_source_canvas_item() -> CanvasItem:
@@ -330,7 +330,7 @@ func should_overwrite_existing() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 来源局部坐标中的内容边界；未设置时返回空 Rect2。
 func get_content_bounds() -> Rect2:
@@ -341,7 +341,7 @@ func get_content_bounds() -> Rect2:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 两个边长都为正时返回 true。
 func has_content_bounds() -> bool:
@@ -352,7 +352,7 @@ func has_content_bounds() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 0.0 至 1.0 的留白比例。
 func get_margin_ratio() -> float:

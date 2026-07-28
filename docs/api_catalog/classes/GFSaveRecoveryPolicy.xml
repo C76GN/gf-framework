@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSaveRecoveryPolicy" path="addons/gf/extensions/save/profile/gf_save_recovery_policy.gd" module="extensions/save" extends="Resource" classDigest="5fea205a549a0b0f064984c147fb39cf2519eda3345fd8672e09c8580f9f8b65">
+<class name="GFSaveRecoveryPolicy" path="addons/gf/extensions/save/profile/gf_save_recovery_policy.gd" module="extensions/save" extends="Resource" classDigest="57cfc67a5470363ec2feefe2ba538885728d6eebf9c60225d1d8f26b96e2725f">
 	<description>GFSaveRecoveryPolicy: Save Profile 的显式恢复与有界重试政策。
 缺失和损坏数据默认失败；项目必须显式选择保留当前内存状态。
 重试只接受列出的临时错误，并受有限延迟序列约束。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">resource_definition</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">10.0.0</tag>
 	</tags>
 	<signals />
 	<enums />
@@ -16,7 +16,7 @@
 			<description>不执行自动恢复。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="ACTION_USE_CURRENT_STATE">
@@ -24,7 +24,7 @@
 			<description>保留当前内存状态，不写入或替换原文件。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 	</constants>
@@ -34,7 +34,7 @@
 			<description>文件缺失时的恢复动作。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="corrupt_file_action" decorators="@export">
@@ -42,7 +42,7 @@
 			<description>文件损坏或完整性校验失败时的恢复动作。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="retry_delays_msec" decorators="@export">
@@ -51,7 +51,7 @@
 第一个元素用于首次失败后的重试；数组耗尽后操作进入失败终态。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="transient_error_codes" decorators="@export">
@@ -59,7 +59,7 @@
 			<description>允许重试的 Godot Error 码。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="io_timeout_msec" decorators="@export_range(1, 2_147_483_647, 1)">
@@ -69,7 +69,7 @@
 使用同一不可变文档重试。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 	</properties>
@@ -81,7 +81,7 @@
 				<tag name="api">public</tag>
 				<tag name="return">结构化校验报告。</tag>
 				<tag name="schema">return: GFValidationReportDictionary-compatible report with issues, counts, summary, and next_actions.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="can_retry">
@@ -92,7 +92,7 @@
 				<tag name="param">error_code: 本次失败的 Godot Error 码。</tag>
 				<tag name="param">failed_attempt_count: 已失败尝试次数，从 1 开始。</tag>
 				<tag name="return">错误为临时错误且仍有延迟槽位时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_retry_delay_msec">
@@ -102,7 +102,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">failed_attempt_count: 已失败尝试次数，从 1 开始。</tag>
 				<tag name="return">对应延迟；没有重试槽位时返回 -1。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 	</methods>

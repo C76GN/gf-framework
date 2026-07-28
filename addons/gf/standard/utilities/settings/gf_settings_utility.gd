@@ -33,7 +33,7 @@ signal setting_changed(key: StringName, old_value: Variant, new_value: Variant)
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param result: 隔离的结构化加载结果。
 signal settings_load_completed(result: GFSettingsLoadResult)
@@ -844,7 +844,7 @@ func load_settings(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 最近结果的隔离副本；尚未加载或已释放时为 null。
 func get_last_load_result() -> GFSettingsLoadResult:

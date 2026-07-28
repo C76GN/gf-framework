@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFNetworkSyncCoordinator" path="addons/gf/extensions/network/simulation/gf_network_sync_coordinator.gd" module="extensions/network" extends="RefCounted" classDigest="977fa75c02ef9c07a650f02df50a390cd6c8c8512427cb1744abe39f6518095c">
+<class name="GFNetworkSyncCoordinator" path="addons/gf/extensions/network/simulation/gf_network_sync_coordinator.gd" module="extensions/network" extends="RefCounted" classDigest="5679b45ca00c1ba32a22ef1d7c52fef9be8f65eb07a7f95cc9e50b6182d41b2a">
 	<description>GFNetworkSyncCoordinator: 有界的权威快照与预测纠偏协调器。
 协调器在项目模拟 Adapter 与 GFNetworkMessage 之间编排固定 tick、输入顺序、
 全量权威快照、有限历史和事务式预测重放。它不创建 transport、不扫描节点树、
@@ -7,7 +7,7 @@
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">runtime_service</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">10.0.0</tag>
 	</tags>
 	<signals>
 		<member kind="signal" name="phase_changed">
@@ -17,7 +17,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">previous_phase: 变化前状态。</tag>
 				<tag name="param">current_phase: 变化后状态。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="signal" name="input_finalized">
@@ -29,7 +29,7 @@
 				<tag name="param">sequence: 已裁决输入序号。</tag>
 				<tag name="param">accepted: 输入是否进入模拟。</tag>
 				<tag name="param">reason: 稳定裁决原因；不包含输入载荷。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="signal" name="authority_snapshot_created">
@@ -38,7 +38,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">snapshot: 权威快照副本。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="signal" name="authoritative_snapshot_applied">
@@ -49,7 +49,7 @@
 				<tag name="param">snapshot: 已应用权威快照副本。</tag>
 				<tag name="param">corrected: 同 tick 预测状态是否与权威状态不等价。</tag>
 				<tag name="param">replayed_tick_count: 成功重放的 tick 数。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="signal" name="synchronization_rejected">
@@ -62,7 +62,7 @@ details 只包含协议元数据和稳定原因，不包含 state、input 或原
 				<tag name="param">reason: 稳定拒绝原因。</tag>
 				<tag name="param">details: 无业务载荷的拒绝详情。</tag>
 				<tag name="schema">details: Dictionary，包含 role、phase，并最多包含 tick、sequence、expected_sequence、replayed_tick_count、message_type 和 message_type_known；未知远端类型不会原样回显。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="signal" name="resync_required">
@@ -74,7 +74,7 @@ details 只包含协议元数据和稳定原因，不包含 state、input 或原
 				<tag name="param">reason: 稳定重同步原因。</tag>
 				<tag name="param">details: 无业务载荷的协议详情。</tag>
 				<tag name="schema">details: Dictionary，包含 role、phase，并最多包含 tick、sequence、message_type、message_type_known、expected_sequence 和 replayed_tick_count；不包含业务载荷。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 	</signals>
@@ -91,7 +91,7 @@ details 只包含协议元数据和稳定原因，不包含 state、input 或原
 			<description>协调器角色。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="enum" name="Phase">
@@ -110,7 +110,7 @@ details 只包含协议元数据和稳定原因，不包含 state、input 或原
 			<description>同步流状态。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 	</enums>
@@ -120,7 +120,7 @@ details 只包含协议元数据和稳定原因，不包含 state、input 或原
 			<description>同步消息协议版本。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="INPUT_MESSAGE_TYPE">
@@ -128,7 +128,7 @@ details 只包含协议元数据和稳定原因，不包含 state、input 或原
 			<description>Replica 输入消息类型。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="SNAPSHOT_MESSAGE_TYPE">
@@ -136,7 +136,7 @@ details 只包含协议元数据和稳定原因，不包含 state、input 或原
 			<description>权威全量快照消息类型。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="DEFAULT_CHANNEL_ID">
@@ -144,7 +144,7 @@ details 只包含协议元数据和稳定原因，不包含 state、input 或原
 			<description>默认同步通道。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 	</constants>
@@ -164,7 +164,7 @@ epoch_id 必须由受信 session/authority 提供。它只隔离重连与 peer I
 				<tag name="return">配置报告。</tag>
 				<tag name="schema">options: Dictionary { epoch_id: String, channel_id?: StringName, prediction_enabled?: bool, history_capacity?: int, max_replica_peers?: int, max_pending_inputs?: int, max_pending_input_bytes?: int, max_inputs_per_tick?: int, max_future_ticks?: int, max_replay_ticks?: int, max_sequence_jump?: int, max_value_depth?: int, max_value_nodes?: int, max_payload_bytes?: int }.</tag>
 				<tag name="schema">return: Dictionary { ok: bool, status: StringName, reason: StringName, role?: int, phase?: int }.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="reset_stream">
@@ -180,7 +180,7 @@ FAULTED 实例的 Adapter 状态未知，不能重置，必须连同 Adapter 一
 				<tag name="param">start_tick: 新流起始 tick。</tag>
 				<tag name="return">重置报告。</tag>
 				<tag name="schema">return: Dictionary { ok: bool, status: StringName, reason: StringName, phase?: int }.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="register_replica_peer">
@@ -191,7 +191,7 @@ transport 连接、capability 或 payload 不会自动授予输入权限。</des
 				<tag name="api">public</tag>
 				<tag name="param">peer_id: 已由项目 session 验证的 replica peer。</tag>
 				<tag name="return">注册成功或已存在时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="unregister_replica_peer">
@@ -203,7 +203,7 @@ transport 连接、capability 或 payload 不会自动授予输入权限。</des
 				<tag name="api">public</tag>
 				<tag name="param">peer_id: Replica peer。</tag>
 				<tag name="return">peer 曾存在时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="submit_local_input">
@@ -217,7 +217,7 @@ transport 连接、capability 或 payload 不会自动授予输入权限。</des
 				<tag name="return">提交报告；成功时包含独立 frame 和 message。</tag>
 				<tag name="schema">payload: Dictionary[StringName|String, Variant]，只允许网络传输安全值。</tag>
 				<tag name="schema">return: Dictionary { ok: bool, status: StringName, reason: StringName, frame?: GFNetworkInputFrame, message?: GFNetworkMessage }.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="make_input_message">
@@ -228,7 +228,7 @@ transport 连接、capability 或 payload 不会自动授予输入权限。</des
 				<tag name="api">public</tag>
 				<tag name="param">frame: 本地输入帧。</tag>
 				<tag name="return">可交给 GFNetworkUtility 的消息；无效时返回 null。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="advance_authority_tick">
@@ -239,7 +239,7 @@ transport 连接、capability 或 payload 不会自动授予输入权限。</des
 				<tag name="api">public</tag>
 				<tag name="return">推进报告；成功时包含权威快照副本。</tag>
 				<tag name="schema">return: Dictionary { ok: bool, status: StringName, reason: StringName, tick?: int, input_count?: int, rejected_input_count?: int, snapshot?: GFNetworkSnapshot }.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="advance_prediction_tick">
@@ -250,7 +250,7 @@ prediction_enabled=false 时该入口保持关闭；项目仍可提交输入并�
 				<tag name="api">public</tag>
 				<tag name="return">预测推进报告。</tag>
 				<tag name="schema">return: Dictionary { ok: bool, status: StringName, reason: StringName, tick?: int, input_count?: int }.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="make_snapshot_message">
@@ -263,7 +263,7 @@ ack_input_sequence 是该 replica 在该最新 tick 已连续最终裁决的输�
 				<tag name="param">snapshot: advance_authority_tick() 生成的快照。</tag>
 				<tag name="param">replica_peer_id: 已注册 replica peer。</tag>
 				<tag name="return">可交给 GFNetworkUtility 的消息；无效时返回 null。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="handle_message">
@@ -279,7 +279,7 @@ ack_input_sequence 是该 replica 在该最新 tick 已连续最终裁决的输�
 				<tag name="param">message: 已解码消息。</tag>
 				<tag name="return">处理报告。</tag>
 				<tag name="schema">return: Dictionary { ok: bool, status: StringName, reason: StringName, role?: int, phase?: int, tick?: int, sequence?: int, expected_sequence?: int, message_type?: StringName, message_type_known?: bool, duplicate?: bool, corrected?: bool, replayed_tick_count?: int }.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_role">
@@ -288,7 +288,7 @@ ack_input_sequence 是该 replica 在该最新 tick 已连续最终裁决的输�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">当前角色。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_phase">
@@ -297,7 +297,7 @@ ack_input_sequence 是该 replica 在该最新 tick 已连续最终裁决的输�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">当前状态。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_epoch_id">
@@ -306,7 +306,7 @@ ack_input_sequence 是该 replica 在该最新 tick 已连续最终裁决的输�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">Epoch ID。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_current_tick">
@@ -315,7 +315,7 @@ ack_input_sequence 是该 replica 在该最新 tick 已连续最终裁决的输�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">当前 tick。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_authoritative_history">
@@ -324,7 +324,7 @@ ack_input_sequence 是该 replica 在该最新 tick 已连续最终裁决的输�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">有界权威快照历史副本。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_prediction_history">
@@ -333,7 +333,7 @@ ack_input_sequence 是该 replica 在该最新 tick 已连续最终裁决的输�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">有界预测快照历史副本。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_debug_snapshot">
@@ -343,7 +343,7 @@ ack_input_sequence 是该 replica 在该最新 tick 已连续最终裁决的输�
 				<tag name="api">public</tag>
 				<tag name="return">同步状态、游标和资源计数字典。</tag>
 				<tag name="schema">return: Dictionary，包含 role、phase、epoch_id、peer IDs、tick、序号、历史大小、输入计数和预算；不包含 state 或 input payload。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 	</methods>

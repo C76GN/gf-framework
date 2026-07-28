@@ -7,7 +7,7 @@
 ## [br]
 ## @category runtime_service
 ## [br]
-## @since unreleased
+## @since 10.0.0
 class_name GFAssetCatalogRuntime
 extends GFUtility
 
@@ -18,7 +18,7 @@ extends GFUtility
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param catalog: 已提交目录的隔离快照。
 ## [br]
@@ -32,14 +32,14 @@ signal catalog_changed(catalog: GFAssetCatalog, revision: int)
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const CONFLICT_REJECT: StringName = &"reject"
 
 ## 重复 asset ID 显式保留高优先级 Mount 的条目。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const CONFLICT_KEEP_HIGH_PRIORITY: StringName = &"keep_high_priority"
 
 
@@ -88,7 +88,7 @@ func dispose() -> void:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param conflict_policy: CONFLICT_REJECT 或 CONFLICT_KEEP_HIGH_PRIORITY。
 ## [br]
@@ -105,7 +105,7 @@ func configure(conflict_policy: StringName = CONFLICT_REJECT) -> GFAssetCatalogR
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param owner_id: 非空 owner ID。
 ## [br]
@@ -211,7 +211,7 @@ func mount_catalog(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param owner_id: 非空 owner ID。
 ## [br]
@@ -294,7 +294,7 @@ func mount_provider(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param mount: 当前 Runtime 返回的活动 Mount。
 ## [br]
@@ -325,7 +325,7 @@ func replace_mount_catalog(mount: GFAssetCatalogMount, catalog: GFAssetCatalog) 
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param owner_id: 要释放的 owner ID。
 ## [br]
@@ -362,7 +362,7 @@ func unmount_owner(owner_id: StringName) -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 深拷贝目录。
 func get_catalog() -> GFAssetCatalog:
@@ -373,7 +373,7 @@ func get_catalog() -> GFAssetCatalog:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 从 0 开始、仅成功提交时递增的 revision。
 func get_revision() -> int:
@@ -384,7 +384,7 @@ func get_revision() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 按合并顺序排列的 Mount 句柄。
 func get_mounts() -> Array[GFAssetCatalogMount]:
@@ -402,7 +402,7 @@ func get_mounts() -> Array[GFAssetCatalogMount]:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return GFValidationReport 兼容字典副本。
 ## [br]
@@ -415,7 +415,7 @@ func get_last_report() -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return Runtime、Mount 和目录摘要。
 ## [br]
@@ -441,7 +441,7 @@ func get_debug_snapshot() -> Dictionary:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param token: GFAssetCatalogMount 持有的 Runtime token。
 ## [br]

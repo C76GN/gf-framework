@@ -10,7 +10,7 @@
 ## [br]
 ## @category editor_api
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @layer kernel/editor
 class_name GFEditorPropertyBatchCommand
@@ -23,63 +23,63 @@ extends GFEditorCommand
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const STATUS_PENDING: StringName = &"pending"
 
 ## 全量预检通过。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const STATUS_READY: StringName = &"ready"
 
 ## 属性事务已提交。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const STATUS_COMMITTED: StringName = &"committed"
 
 ## 属性事务已撤销。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const STATUS_REVERTED: StringName = &"reverted"
 
 ## 未完整补偿的事务已恢复到该次操作开始前状态。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const STATUS_RECOVERED: StringName = &"recovered"
 
 ## 全量预检失败，未开始写入。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const STATUS_PREFLIGHT_FAILED: StringName = &"preflight_failed"
 
 ## 提交失败，且已恢复本次尝试前状态。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const STATUS_APPLY_FAILED: StringName = &"apply_failed"
 
 ## 撤销失败，且已恢复撤销前状态。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const STATUS_REVERT_FAILED: StringName = &"revert_failed"
 
 ## 补偿写入未完整恢复属性状态。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const STATUS_ROLLBACK_FAILED: StringName = &"rollback_failed"
 
 const _SELECTOR_DIRECT: StringName = &"direct"
@@ -116,7 +116,7 @@ var _last_transaction_report: Dictionary = {}
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param changes: 非空属性变更数组。
 ## [br]
@@ -159,7 +159,7 @@ func configure(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 结构化事务报告。
 ## [br]
@@ -174,7 +174,7 @@ func validate() -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 结构化事务报告副本。
 ## [br]
@@ -200,7 +200,7 @@ func get_transaction_report() -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return Godot 错误码。
 func recover() -> Error:
@@ -216,7 +216,7 @@ func recover() -> Error:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 配置完整、目标可写且没有待恢复残余状态时返回 true。
 func can_execute() -> bool:
@@ -248,7 +248,7 @@ func can_execute() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 存在首次快照且需要恢复时返回 true。
 func can_revert_before_execute() -> bool:
@@ -261,7 +261,7 @@ func can_revert_before_execute() -> bool:
 ## [br]
 ## @api protected
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return Godot 错误码。
 func _do_it() -> Error:
@@ -277,7 +277,7 @@ func _do_it() -> Error:
 ## [br]
 ## @api protected
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return Godot 错误码。
 func _undo_it() -> Error:

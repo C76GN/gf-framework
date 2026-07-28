@@ -164,7 +164,7 @@ var max_failed_requests: int = 32
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 var max_storage_bytes: int = _DEFAULT_MAX_STORAGE_BYTES
 
 ## 传输回调，签名为 func(envelope: GFRequestEnvelope) -> Dictionary；也可返回会发出结果值的 Signal。
@@ -301,7 +301,7 @@ func enqueue(envelope: GFRequestEnvelope) -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param envelope: 请求描述；内部只保存它的深副本。
 ## [br]

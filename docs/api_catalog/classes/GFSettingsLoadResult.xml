@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSettingsLoadResult" path="addons/gf/standard/utilities/settings/gf_settings_load_result.gd" module="standard" extends="RefCounted" classDigest="8605b593685a155c484764282736cb94a80c0c067fe5ce895fc3a0c416decc33">
+<class name="GFSettingsLoadResult" path="addons/gf/standard/utilities/settings/gf_settings_load_result.gd" module="standard" extends="RefCounted" classDigest="a635b2069d30915973809421ab3065649972288eb4365abbb9649c2fd0122314">
 	<description>GFSettingsLoadResult: 设置加载操作的不可变终态快照。
 结果将“合法空设置”与缺失、损坏、未来版本和底层存储失败明确区分，
 并保留实际应用状态、恢复动作和底层读取证据。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">value_object</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">10.0.0</tag>
 	</tags>
 	<signals />
 	<enums />
@@ -16,7 +16,7 @@
 			<description>持久化设置已成功读取并应用。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATUS_RECOVERED">
@@ -24,7 +24,7 @@
 			<description>调用方选择的显式恢复动作已完成。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATUS_INVALID_REQUEST">
@@ -32,7 +32,7 @@
 			<description>文件名、路径或读取请求无效。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATUS_MISSING">
@@ -40,7 +40,7 @@
 			<description>设置文件不存在。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATUS_CORRUPT">
@@ -48,7 +48,7 @@
 			<description>设置文件格式、载荷或完整性损坏。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATUS_FUTURE_SCHEMA">
@@ -56,7 +56,7 @@
 			<description>设置文件来自当前运行时无法读取的未来 schema。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATUS_MIGRATION_FAILED">
@@ -64,7 +64,7 @@
 			<description>设置文件的迁移链缺失或迁移失败。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATUS_STORAGE_FAILED">
@@ -72,7 +72,7 @@
 			<description>底层存储读取失败或不可用。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 	</constants>
@@ -84,7 +84,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">设置已加载或已按显式策略恢复时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_status">
@@ -93,7 +93,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">`STATUS_*` 常量之一。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_file_name">
@@ -102,7 +102,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">解析默认值后的设置文件名。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="was_applied">
@@ -111,7 +111,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">已应用持久化载荷或默认值恢复时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="was_recovered">
@@ -120,7 +120,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">使用恢复策略完成时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_recovery_action">
@@ -129,7 +129,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">未恢复时为空，否则为 `GFSettingsRecoveryPolicy.ACTION_*` 常量之一。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_error_code">
@@ -138,7 +138,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">成功时为 OK。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_error">
@@ -147,7 +147,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">成功时为空。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_storage_result">
@@ -156,7 +156,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">原始读取证据的隔离副本；读取未启动时为 null。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="duplicate_result">
@@ -165,7 +165,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">新结果对象。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="to_dict">
@@ -175,7 +175,7 @@
 				<tag name="api">public</tag>
 				<tag name="return">加载终态摘要。</tag>
 				<tag name="schema">return: Dictionary with ok, status, file_name, applied, recovered, recovery_action, error_code, error, and payload-free storage_result fields.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 	</methods>

@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSaveProfileUtility" path="addons/gf/extensions/save/profile/gf_save_profile_utility.gd" module="extensions/save" extends="GFUtility" classDigest="87d997949c2d97e533913fb8fd5ea3c96d5385c7e070aebec5a345875189f6a1">
+<class name="GFSaveProfileUtility" path="addons/gf/extensions/save/profile/gf_save_profile_utility.gd" module="extensions/save" extends="GFUtility" classDigest="00549210d3483de3c34ab719ba990f0cdbbf9f163102fa2b2d1824313ab17297">
 	<description>GFSaveProfileUtility: 多 section 存档的异步协调器。
 每个 profile 只串行推进一个当前 IO；超时后无法取消的写入会 detached 保留路径所有权。
 连续保存通过 generation 合并为最新后续写入；读取在保存屏障后执行，并在主线程完成迁移、校验和 provider 事务化应用。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">runtime_service</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">10.0.0</tag>
 	</tags>
 	<signals>
 		<member kind="signal" name="profile_operation_completed">
@@ -15,7 +15,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">result: 隔离终态结果。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="signal" name="profile_state_changed">
@@ -26,7 +26,7 @@
 				<tag name="param">profile_id: profile ID。</tag>
 				<tag name="param">previous_state: 变化前状态。</tag>
 				<tag name="param">current_state: 变化后状态。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 	</signals>
@@ -37,7 +37,7 @@
 			<description>Profile 空闲。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATE_GATHERING">
@@ -45,7 +45,7 @@
 			<description>正在同步采集 section。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATE_SAVING">
@@ -53,7 +53,7 @@
 			<description>正在等待保存 IO。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATE_LOADING">
@@ -61,7 +61,7 @@
 			<description>正在等待读取 IO。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATE_RETRY_WAIT">
@@ -69,7 +69,7 @@
 			<description>正在等待有界重试截止时间。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATE_APPLYING">
@@ -77,7 +77,7 @@
 			<description>正在迁移、校验或事务化应用 section。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATE_DISPOSED">
@@ -85,7 +85,7 @@
 			<description>Utility 已释放。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 	</constants>
@@ -97,7 +97,7 @@
 `setup()` 显式注入的依赖不会被覆盖。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="tick">
@@ -106,7 +106,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">_delta: 未使用；重试只读取注入时钟的单调时间。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="dispose">
@@ -114,7 +114,7 @@
 			<description>终止所有未完成操作并释放底层信号连接。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="setup">
@@ -125,7 +125,7 @@
 				<tag name="param">storage: 底层事务存储工具。</tag>
 				<tag name="param">clock: 可选单调时钟；为空时保留当前时钟。</tag>
 				<tag name="return">当前 Utility；参数无效、已释放或已有注册 profile 时返回 null。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="register_profile">
@@ -137,7 +137,7 @@
 				<tag name="param">migrations: 该 profile 的迁移注册表。</tag>
 				<tag name="return">包含 registered、规范文件名和全部校验问题的结构化报告。</tag>
 				<tag name="schema">return: GFValidationReportDictionary-compatible report with registered, profile_id, schema_id, canonical_file_name, issues, counts, summary, and next_actions.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="unregister_profile">
@@ -147,7 +147,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">profile_id: profile ID。</tag>
 				<tag name="return">profile 存在且没有未完成操作时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="save_profile">
@@ -163,7 +163,7 @@
 				<tag name="return">保存操作句柄；无效请求返回已失败句柄。</tag>
 				<tag name="schema">metadata: Dictionary with caller-defined persisted document metadata.</tag>
 				<tag name="schema">context: Dictionary with caller-defined ephemeral operation data.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="load_profile">
@@ -178,7 +178,7 @@
 				<tag name="return">读取操作句柄；无效请求返回已失败句柄。</tag>
 				<tag name="schema">context: Dictionary with caller-defined ephemeral operation data.</tag>
 				<tag name="schema">metadata: Dictionary with caller-defined result metadata.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="flush_profile">
@@ -190,7 +190,7 @@
 				<tag name="param">metadata: 仅写入终态结果的调用方元数据。</tag>
 				<tag name="return">flush 操作句柄；没有待保存 generation 时立即成功。</tag>
 				<tag name="schema">metadata: Dictionary with caller-defined result metadata.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_persisted_generation">
@@ -200,7 +200,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">profile_id: profile ID。</tag>
 				<tag name="return">未注册或从未保存时返回 0。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_profile_state_snapshot">
@@ -211,7 +211,7 @@
 				<tag name="param">profile_id: profile ID。</tag>
 				<tag name="return">profile 状态摘要；未注册时为空字典。</tag>
 				<tag name="schema">return: Dictionary with profile identity, generation evidence, detached writes, and queue counts.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 	</methods>

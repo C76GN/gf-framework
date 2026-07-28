@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFAsyncKeyedGate" path="addons/gf/standard/common/gf_async_keyed_gate.gd" module="standard" extends="RefCounted" classDigest="282df4dbc1d98c4702a88a60b7c08a571ad0a4f5c9e982d79ace3cbc32acae21">
+<class name="GFAsyncKeyedGate" path="addons/gf/standard/common/gf_async_keyed_gate.gd" module="standard" extends="RefCounted" classDigest="9fe64e0211f7cdb2b1ae4b4052cca7f14bc217ae10f914804deab95a1f0e2e66">
 	<description>GFAsyncKeyedGate: 按 key 仲裁异步并发槽位。
 用于把“同一个资源、槽位、存档、玩家或编辑器目标”的异步操作限制在可控并发内。
 gate 只负责排队、发放租约、释放后推进队列，以及记录取消/超时诊断；
@@ -127,7 +127,7 @@ gate 只负责排队、发放租约、释放后推进队列，以及记录取消
 			<description>请求因等待队列或 key 容量耗尽而被拒绝。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="DEFAULT_MAX_CONCURRENCY">
@@ -143,7 +143,7 @@ gate 只负责排队、发放租约、释放后推进队列，以及记录取消
 			<description>每个 key 最多允许配置的并发槽位数。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="DEFAULT_MAX_RECENT_EVENTS">
@@ -159,7 +159,7 @@ gate 只负责排队、发放租约、释放后推进队列，以及记录取消
 			<description>最近事件历史的绝对数量上限。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="DEFAULT_MAX_ACTIVE_LEASES">
@@ -167,7 +167,7 @@ gate 只负责排队、发放租约、释放后推进队列，以及记录取消
 			<description>默认最多同时持有的 lease 总数。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="ABSOLUTE_MAX_ACTIVE_LEASES">
@@ -175,7 +175,7 @@ gate 只负责排队、发放租约、释放后推进队列，以及记录取消
 			<description>同时持有 lease 的绝对数量上限。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="DEFAULT_MAX_WAITING_REQUESTS">
@@ -183,7 +183,7 @@ gate 只负责排队、发放租约、释放后推进队列，以及记录取消
 			<description>默认最多保留的等待请求总数。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="ABSOLUTE_MAX_WAITING_REQUESTS">
@@ -191,7 +191,7 @@ gate 只负责排队、发放租约、释放后推进队列，以及记录取消
 			<description>等待请求总数的绝对上限。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="DEFAULT_MAX_WAITING_PER_KEY">
@@ -199,7 +199,7 @@ gate 只负责排队、发放租约、释放后推进队列，以及记录取消
 			<description>默认每个 key 最多保留的等待请求数。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="ABSOLUTE_MAX_WAITING_PER_KEY">
@@ -207,7 +207,7 @@ gate 只负责排队、发放租约、释放后推进队列，以及记录取消
 			<description>单 key 等待请求数的绝对上限。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="DEFAULT_MAX_TRACKED_KEYS">
@@ -215,7 +215,7 @@ gate 只负责排队、发放租约、释放后推进队列，以及记录取消
 			<description>默认最多跟踪的活跃、等待或显式配置 key 数。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="ABSOLUTE_MAX_TRACKED_KEYS">
@@ -223,7 +223,7 @@ gate 只负责排队、发放租约、释放后推进队列，以及记录取消
 			<description>tracked key 数量的绝对上限。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="DEFAULT_MAX_PUMP_WORK_ITEMS">
@@ -231,7 +231,7 @@ gate 只负责排队、发放租约、释放后推进队列，以及记录取消
 			<description>默认每次队列推进最多处理的等待请求数量。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="ABSOLUTE_MAX_PUMP_WORK_ITEMS">
@@ -239,7 +239,7 @@ gate 只负责排队、发放租约、释放后推进队列，以及记录取消
 			<description>单次队列推进工作预算的绝对上限。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="REASON_MAX_WAITING_REQUESTS">
@@ -247,7 +247,7 @@ gate 只负责排队、发放租约、释放后推进队列，以及记录取消
 			<description>等待请求总容量耗尽原因。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="REASON_MAX_WAITING_PER_KEY">
@@ -255,7 +255,7 @@ gate 只负责排队、发放租约、释放后推进队列，以及记录取消
 			<description>单 key 等待容量耗尽原因。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="REASON_MAX_TRACKED_KEYS">
@@ -263,7 +263,7 @@ gate 只负责排队、发放租约、释放后推进队列，以及记录取消
 			<description>key 跟踪容量耗尽原因。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="REASON_CANCEL_TOKEN_CONNECT_FAILED">
@@ -271,7 +271,7 @@ gate 只负责排队、发放租约、释放后推进队列，以及记录取消
 			<description>取消令牌订阅建立失败原因。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 	</constants>
@@ -297,7 +297,7 @@ gate 只负责排队、发放租约、释放后推进队列，以及记录取消
 			<description>最多同时持有的 lease 总数。降低容量不会撤销现有 lease。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="max_waiting_requests">
@@ -305,7 +305,7 @@ gate 只负责排队、发放租约、释放后推进队列，以及记录取消
 			<description>最多保留的等待请求总数。降低容量不会驱逐现有请求。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="max_waiting_per_key">
@@ -313,7 +313,7 @@ gate 只负责排队、发放租约、释放后推进队列，以及记录取消
 			<description>每个 key 最多保留的等待请求数。降低容量不会驱逐现有请求。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="max_tracked_keys">
@@ -321,7 +321,7 @@ gate 只负责排队、发放租约、释放后推进队列，以及记录取消
 			<description>最多跟踪的活跃、等待或显式配置 key 数。降低容量不会驱逐现有 key。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="max_pump_work_items">
@@ -330,7 +330,7 @@ gate 只负责排队、发放租约、释放后推进队列，以及记录取消
 取消和超时请求也会消耗该预算，剩余可执行工作会延迟到后续主线程迭代。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 	</properties>

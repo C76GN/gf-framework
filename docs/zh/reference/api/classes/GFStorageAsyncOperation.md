@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：运行时句柄 (`runtime_handle`)
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 单次异步存储请求句柄。 句柄由 `GFStorageUtility` 分配唯一请求 ID，并且只接受一个终态。调用方应先 检查 `is_completed()`，再决定是否等待 `completed` 信号。
 
@@ -32,7 +32,7 @@
 ### `completed`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 signal completed(result: GFStorageAsyncResult)
@@ -53,7 +53,7 @@ signal completed(result: GFStorageAsyncResult)
 ### `OPERATION_SAVE`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const OPERATION_SAVE: StringName = &"save"
@@ -66,7 +66,7 @@ const OPERATION_SAVE: StringName = &"save"
 ### `OPERATION_LOAD`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const OPERATION_LOAD: StringName = &"load"
@@ -81,7 +81,7 @@ const OPERATION_LOAD: StringName = &"load"
 ### `get_request_id`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_request_id() -> int:
@@ -96,7 +96,7 @@ func get_request_id() -> int:
 ### `get_operation`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_operation() -> StringName:
@@ -111,7 +111,7 @@ func get_operation() -> StringName:
 ### `get_file_name`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_file_name() -> String:
@@ -126,7 +126,7 @@ func get_file_name() -> String:
 ### `is_pending`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func is_pending() -> bool:
@@ -141,7 +141,7 @@ func is_pending() -> bool:
 ### `is_completed`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func is_completed() -> bool:
@@ -156,7 +156,7 @@ func is_completed() -> bool:
 ### `get_result`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_result() -> GFStorageAsyncResult:

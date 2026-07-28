@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFDiagnosticProviderResult" path="addons/gf/standard/utilities/debug/gf_diagnostic_provider_result.gd" module="standard" extends="RefCounted" classDigest="734786a015a36bf24d2aaa80c0b4ddc0454c443f533407adde5fa1c113b7f78b">
+<class name="GFDiagnosticProviderResult" path="addons/gf/standard/utilities/debug/gf_diagnostic_provider_result.gd" module="standard" extends="RefCounted" classDigest="265d70b49f3e71a55a4e3bb92b06b70424bb72be168dd78a7d7deab9020cc141">
 	<description>GFDiagnosticProviderResult: 惰性诊断 Provider 的类型化采集结果。
 成功结果携带尚未编码的临时值；失败结果携带稳定错误码和面向维护者的说明。
 非法错误码会归一为 `provider_failed`，错误说明最多保留 1024 个字符。
@@ -7,7 +7,7 @@
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">value_object</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">10.0.0</tag>
 	</tags>
 	<signals />
 	<enums />
@@ -24,7 +24,7 @@
 				<tag name="return">新的成功结果。</tag>
 				<tag name="schema">value: Variant with provider-defined ephemeral diagnostic data.</tag>
 				<tag name="schema">metadata: Dictionary with provider-defined ephemeral metadata.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="failed">
@@ -37,7 +37,7 @@
 				<tag name="param">metadata: 本次失败的附加元数据。</tag>
 				<tag name="return">新的失败结果。</tag>
 				<tag name="schema">metadata: Dictionary with provider-defined ephemeral metadata.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="is_successful">
@@ -46,7 +46,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">成功时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_value">
@@ -56,7 +56,7 @@
 				<tag name="api">public</tag>
 				<tag name="return">Provider 值副本；失败时返回 null。</tag>
 				<tag name="schema">return: Provider-defined Variant copy, or null for a failed result.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_error_code">
@@ -65,7 +65,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">失败错误码；成功时为空。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_error_message">
@@ -74,7 +74,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">失败说明；成功时为空。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_metadata">
@@ -84,7 +84,7 @@
 				<tag name="api">public</tag>
 				<tag name="return">Provider 元数据副本。</tag>
 				<tag name="schema">return: Dictionary with provider-defined ephemeral metadata.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 	</methods>

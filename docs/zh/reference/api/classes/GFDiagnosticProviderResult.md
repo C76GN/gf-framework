@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：值对象 (`value_object`)
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 惰性诊断 Provider 的类型化采集结果。 成功结果携带尚未编码的临时值；失败结果携带稳定错误码和面向维护者的说明。 非法错误码会归一为 `provider_failed`，错误说明最多保留 1024 个字符。 `GFDiagnosticsUtility` 会在把结果纳入快照前执行结构预算、脱敏和 JSON-safe 编码。
 
@@ -30,7 +30,7 @@
 ### `succeeded`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 static func succeeded(value: Variant, metadata: Dictionary = {}) -> GFDiagnosticProviderResult:
@@ -57,7 +57,7 @@ static func succeeded(value: Variant, metadata: Dictionary = {}) -> GFDiagnostic
 ### `failed`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 static func failed( error_code: StringName, error_message: String = "", metadata: Dictionary = {} ) -> GFDiagnosticProviderResult:
@@ -84,7 +84,7 @@ static func failed( error_code: StringName, error_message: String = "", metadata
 ### `is_successful`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func is_successful() -> bool:
@@ -99,7 +99,7 @@ func is_successful() -> bool:
 ### `get_value`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_value() -> Variant:
@@ -118,7 +118,7 @@ func get_value() -> Variant:
 ### `get_error_code`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_error_code() -> StringName:
@@ -133,7 +133,7 @@ func get_error_code() -> StringName:
 ### `get_error_message`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_error_message() -> String:
@@ -148,7 +148,7 @@ func get_error_message() -> String:
 ### `get_metadata`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_metadata() -> Dictionary:

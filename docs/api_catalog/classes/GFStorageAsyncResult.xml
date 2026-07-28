@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFStorageAsyncResult" path="addons/gf/standard/utilities/storage/gf_storage_async_result.gd" module="standard" extends="RefCounted" classDigest="a3fdce0690b8a0a636218ebbbb609e2df9cb5daa79602681fd9d66bce7b0a169">
+<class name="GFStorageAsyncResult" path="addons/gf/standard/utilities/storage/gf_storage_async_result.gd" module="standard" extends="RefCounted" classDigest="379f98e63ae08c9ecd585ba6c97b1ff1b257619a15e6df07c56a9fb514c1abdf">
 	<description>GFStorageAsyncResult: 单次异步存储请求的不可变终态。
 结果通过请求 ID 与具体句柄绑定；读取结果保留 `GFStorageReadResult` 的类型化
 失败分类，写入结果只暴露稳定 Error 码。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">value_object</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">10.0.0</tag>
 	</tags>
 	<signals />
 	<enums />
@@ -19,7 +19,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">大于零的 Utility 内唯一请求 ID。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_operation">
@@ -28,7 +28,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">`GFStorageAsyncOperation.OPERATION_*` 常量之一。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_file_name">
@@ -37,7 +37,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">请求实际使用的存储相对文件名或绝对文件名。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="is_successful">
@@ -46,7 +46,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">写入错误码为 OK，或读取结果成功时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_error_code">
@@ -55,7 +55,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">成功时为 OK。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_read_result">
@@ -64,7 +64,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">load 请求的结果；save 请求返回 null。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="duplicate_result">
@@ -73,7 +73,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">新结果对象。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="to_dict">
@@ -83,7 +83,7 @@
 				<tag name="api">public</tag>
 				<tag name="return">包含请求身份、终态和读取摘要的字典。</tag>
 				<tag name="schema">return: Dictionary with request_id, operation, file_name, ok, error_code, and read_result fields.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 	</methods>

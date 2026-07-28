@@ -90,7 +90,7 @@ var config: GFAnalyticsConfig:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 var schema_registry: GFAnalyticsSchemaRegistry:
 	get:
 		if _schema_registry == null:
@@ -296,7 +296,7 @@ func track(event_name: StringName, properties: Dictionary = {}) -> void:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param event_name: 已注册的事件名。
 ## [br]

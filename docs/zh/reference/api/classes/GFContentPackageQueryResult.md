@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：值对象 (`value_object`)
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 内容包查询的不可变结果快照。 结果区分直接命中与依赖闭包，并保留隔离的 manifest 和验证报告， 调用方不需要从空数组推断查询失败或无匹配。
 
@@ -35,7 +35,7 @@
 ### `STATUS_COMPLETED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const STATUS_COMPLETED: StringName = &"completed"
@@ -48,7 +48,7 @@ const STATUS_COMPLETED: StringName = &"completed"
 ### `STATUS_INVALID_QUERY`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const STATUS_INVALID_QUERY: StringName = &"invalid_query"
@@ -61,7 +61,7 @@ const STATUS_INVALID_QUERY: StringName = &"invalid_query"
 ### `STATUS_INVALID_CATALOG`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const STATUS_INVALID_CATALOG: StringName = &"invalid_catalog"
@@ -76,7 +76,7 @@ const STATUS_INVALID_CATALOG: StringName = &"invalid_catalog"
 ### `is_successful`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func is_successful() -> bool:
@@ -91,7 +91,7 @@ func is_successful() -> bool:
 ### `get_status`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_status() -> StringName:
@@ -106,7 +106,7 @@ func get_status() -> StringName:
 ### `get_query_id`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_query_id() -> StringName:
@@ -121,7 +121,7 @@ func get_query_id() -> StringName:
 ### `get_direct_package_ids`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_direct_package_ids() -> PackedStringArray:
@@ -136,7 +136,7 @@ func get_direct_package_ids() -> PackedStringArray:
 ### `get_package_ids`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_package_ids() -> PackedStringArray:
@@ -151,7 +151,7 @@ func get_package_ids() -> PackedStringArray:
 ### `get_manifest`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_manifest(package_id: StringName) -> GFContentPackageManifest:
@@ -172,7 +172,7 @@ func get_manifest(package_id: StringName) -> GFContentPackageManifest:
 ### `get_manifests`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_manifests() -> Array[GFContentPackageManifest]:
@@ -187,7 +187,7 @@ func get_manifests() -> Array[GFContentPackageManifest]:
 ### `get_report`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_report() -> Dictionary:
@@ -206,7 +206,7 @@ func get_report() -> Dictionary:
 ### `to_dict`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func to_dict() -> Dictionary:

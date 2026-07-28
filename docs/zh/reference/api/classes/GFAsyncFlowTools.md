@@ -72,7 +72,7 @@ const STATUS_CANCELLED: StringName = &"cancelled"
 ### `DEFAULT_MAX_COMPLETIONS`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const DEFAULT_MAX_COMPLETIONS: int = 256
@@ -85,7 +85,7 @@ const DEFAULT_MAX_COMPLETIONS: int = 256
 ### `ABSOLUTE_MAX_COMPLETIONS`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const ABSOLUTE_MAX_COMPLETIONS: int = 4096

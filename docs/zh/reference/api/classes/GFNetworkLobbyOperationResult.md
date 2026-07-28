@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：值对象 (`value_object`)
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 Lobby 操作终态结果。 通过 request_id 和 operation 将 SDK 回调关联到唯一请求，并统一承载单个 Lobby、 查询列表、失败状态与耗时。结果是不可回写到 Handle 的深拷贝快照。
 
@@ -44,7 +44,7 @@ Lobby 操作终态结果。 通过 request_id 和 operation 将 SDK 回调关联
 ### `request_id`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var request_id: StringName = &""
@@ -57,7 +57,7 @@ var request_id: StringName = &""
 ### `operation`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var operation: StringName = &""
@@ -70,7 +70,7 @@ var operation: StringName = &""
 ### `ok`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var ok: bool = false
@@ -83,7 +83,7 @@ var ok: bool = false
 ### `status`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var status: StringName = &""
@@ -96,7 +96,7 @@ var status: StringName = &""
 ### `lobby_id`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var lobby_id: String = ""
@@ -109,7 +109,7 @@ var lobby_id: String = ""
 ### `lobby`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var lobby: GFNetworkLobbyDescriptor = null
@@ -122,7 +122,7 @@ var lobby: GFNetworkLobbyDescriptor = null
 ### `lobbies`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var lobbies: Array[GFNetworkLobbyDescriptor] = []
@@ -139,7 +139,7 @@ var lobbies: Array[GFNetworkLobbyDescriptor] = []
 ### `error`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var error: StringName = &""
@@ -152,7 +152,7 @@ var error: StringName = &""
 ### `message`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var message: String = ""
@@ -165,7 +165,7 @@ var message: String = ""
 ### `started_at_msec`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var started_at_msec: int = -1
@@ -178,7 +178,7 @@ var started_at_msec: int = -1
 ### `completed_at_msec`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var completed_at_msec: int = -1
@@ -191,7 +191,7 @@ var completed_at_msec: int = -1
 ### `metadata`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var metadata: Dictionary = {}
@@ -210,7 +210,7 @@ var metadata: Dictionary = {}
 ### `configure_success`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func configure_success( request: GFNetworkLobbyOperationRequest, options: Dictionary = {} ) -> GFNetworkLobbyOperationResult:
@@ -236,7 +236,7 @@ func configure_success( request: GFNetworkLobbyOperationRequest, options: Dictio
 ### `configure_failure`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func configure_failure( request: GFNetworkLobbyOperationRequest, p_error: StringName, p_message: String = "", options: Dictionary = {} ) -> GFNetworkLobbyOperationResult:
@@ -264,7 +264,7 @@ func configure_failure( request: GFNetworkLobbyOperationRequest, p_error: String
 ### `get_duration_msec`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_duration_msec() -> int:
@@ -279,7 +279,7 @@ func get_duration_msec() -> int:
 ### `is_valid`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func is_valid() -> bool:
@@ -294,7 +294,7 @@ func is_valid() -> bool:
 ### `matches_request`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func matches_request(request: GFNetworkLobbyOperationRequest) -> bool:
@@ -315,7 +315,7 @@ func matches_request(request: GFNetworkLobbyOperationRequest) -> bool:
 ### `to_dict`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func to_dict() -> Dictionary:
@@ -334,7 +334,7 @@ func to_dict() -> Dictionary:
 ### `apply_dict`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func apply_dict(data: Dictionary) -> void:
@@ -357,7 +357,7 @@ func apply_dict(data: Dictionary) -> void:
 ### `duplicate_result`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func duplicate_result() -> GFNetworkLobbyOperationResult:
@@ -372,7 +372,7 @@ func duplicate_result() -> GFNetworkLobbyOperationResult:
 ### `from_dict`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 static func from_dict(data: Dictionary) -> GFNetworkLobbyOperationResult:

@@ -7,7 +7,7 @@
 - 继承：`Resource`
 - API：`public`
 - 类别：事件契约 (`event_contract`)
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 平台激活入口事件。 统一表达命令行启动、邀请加入、深链、前台恢复或平台入口参数。该值对象只记录 平台事实，不解释奖励、导航、匹配或其他项目策略。
 
@@ -37,7 +37,7 @@
 ### `intent_id`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var intent_id: StringName = &""
@@ -50,7 +50,7 @@ var intent_id: StringName = &""
 ### `intent_type`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var intent_type: StringName = &""
@@ -63,7 +63,7 @@ Provider-neutral 意图类型。
 ### `platform_id`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var platform_id: StringName = &""
@@ -76,7 +76,7 @@ var platform_id: StringName = &""
 ### `adapter_id`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var adapter_id: StringName = &""
@@ -89,7 +89,7 @@ var adapter_id: StringName = &""
 ### `source`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var source: StringName = &""
@@ -102,7 +102,7 @@ var source: StringName = &""
 ### `timestamp_msec`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var timestamp_msec: int = 0
@@ -115,7 +115,7 @@ var timestamp_msec: int = 0
 ### `payload`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var payload: Dictionary = {}
@@ -132,7 +132,7 @@ Provider-neutral 入口载荷。
 ### `metadata`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var metadata: Dictionary = {}
@@ -151,7 +151,7 @@ Adapter 定义的非敏感元数据。
 ### `configure`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func configure( p_intent_id: StringName, p_intent_type: StringName, p_payload: Dictionary = {}, options: Dictionary = {} ) -> GFPlatformActivationIntent:
@@ -180,7 +180,7 @@ func configure( p_intent_id: StringName, p_intent_type: StringName, p_payload: D
 ### `is_empty`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func is_empty() -> bool:
@@ -195,7 +195,7 @@ func is_empty() -> bool:
 ### `to_dict`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func to_dict() -> Dictionary:
@@ -214,7 +214,7 @@ func to_dict() -> Dictionary:
 ### `apply_dict`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func apply_dict(data: Dictionary) -> void:
@@ -237,7 +237,7 @@ func apply_dict(data: Dictionary) -> void:
 ### `duplicate_intent`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func duplicate_intent() -> GFPlatformActivationIntent:
@@ -252,7 +252,7 @@ func duplicate_intent() -> GFPlatformActivationIntent:
 ### `from_dict`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 static func from_dict(data: Dictionary) -> GFPlatformActivationIntent:

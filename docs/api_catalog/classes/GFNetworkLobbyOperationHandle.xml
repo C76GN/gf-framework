@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFNetworkLobbyOperationHandle" path="addons/gf/extensions/network/session/gf_network_lobby_operation_handle.gd" module="extensions/network" extends="RefCounted" classDigest="fc770f5ab344b77a80088744242c66692ecde8569ea8939a9ec0b6ef85b0db30">
+<class name="GFNetworkLobbyOperationHandle" path="addons/gf/extensions/network/session/gf_network_lobby_operation_handle.gd" module="extensions/network" extends="RefCounted" classDigest="10d359ec1f6f4a79992a5160c7e6e1bf0d28216d8e5389fa7938f4400d769464">
 	<description>GFNetworkLobbyOperationHandle: Lobby 操作运行时句柄。
 句柄保证请求只能进入一个终态，并把取消、超时、Backend 失败和 SDK 回调统一为
 `GFNetworkLobbyOperationResult`。调用方不能直接完成句柄。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">runtime_handle</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">10.0.0</tag>
 	</tags>
 	<signals>
 		<member kind="signal" name="completed">
@@ -15,7 +15,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">result: 终态结果副本。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="signal" name="cancel_requested">
@@ -24,7 +24,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">reason: 取消原因。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 	</signals>
@@ -38,7 +38,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">请求副本。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_request_id">
@@ -47,7 +47,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">请求 ID。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="is_pending">
@@ -56,7 +56,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">等待中返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="is_completed">
@@ -65,7 +65,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">已有终态结果时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="is_successful">
@@ -74,7 +74,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">终态存在且成功时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_result">
@@ -83,7 +83,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">终态结果副本；等待中返回 null。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="cancel">
@@ -94,7 +94,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">reason: 取消原因。</tag>
 				<tag name="return">首次取消成功返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_debug_snapshot">
@@ -104,7 +104,7 @@
 				<tag name="api">public</tag>
 				<tag name="return">请求和终态摘要。</tag>
 				<tag name="schema">return: Dictionary lobby operation handle snapshot.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 	</methods>

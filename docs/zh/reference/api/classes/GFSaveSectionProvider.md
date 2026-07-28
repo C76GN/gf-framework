@@ -7,7 +7,7 @@
 - 继承：`Resource`
 - API：`public`
 - 类别：协议与扩展点 (`protocol`)
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 Save Profile section 所有权协议。 一个 provider 只拥有一个稳定 section。实现必须能够采集当前状态、应用已校验 section，并在后续 provider 失败时恢复此前采集的 section。
 
@@ -38,7 +38,7 @@ Save Profile section 所有权协议。 一个 provider 只拥有一个稳定 se
 ### `section_id`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var section_id: StringName = &"":
@@ -51,7 +51,7 @@ var section_id: StringName = &"":
 ### `schema_version`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var schema_version: int = 1:
@@ -64,7 +64,7 @@ var schema_version: int = 1:
 ### `save_enabled`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var save_enabled: bool = true:
@@ -77,7 +77,7 @@ var save_enabled: bool = true:
 ### `load_enabled`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var load_enabled: bool = true:
@@ -90,7 +90,7 @@ var load_enabled: bool = true:
 ### `required_on_load`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var required_on_load: bool = true:
@@ -105,7 +105,7 @@ var required_on_load: bool = true:
 ### `validate_provider`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func validate_provider() -> Dictionary:
@@ -124,7 +124,7 @@ func validate_provider() -> Dictionary:
 ### `gather_section`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func gather_section(context: Dictionary = {}) -> GFSaveSection:
@@ -149,7 +149,7 @@ func gather_section(context: Dictionary = {}) -> GFSaveSection:
 ### `capture_section`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func capture_section(context: Dictionary = {}) -> GFSaveSection:
@@ -174,7 +174,7 @@ func capture_section(context: Dictionary = {}) -> GFSaveSection:
 ### `apply_section`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func apply_section(section: GFSaveSection, context: Dictionary = {}) -> Error:
@@ -200,7 +200,7 @@ func apply_section(section: GFSaveSection, context: Dictionary = {}) -> Error:
 ### `rollback_section`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func rollback_section(previous_section: GFSaveSection, context: Dictionary = {}) -> Error:
@@ -226,7 +226,7 @@ func rollback_section(previous_section: GFSaveSection, context: Dictionary = {})
 ### `make_section`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func make_section(payload: Variant, metadata: Dictionary = {}) -> GFSaveSection:
@@ -253,7 +253,7 @@ func make_section(payload: Variant, metadata: Dictionary = {}) -> GFSaveSection:
 ### `_gather_section`
 
 - API：`protected`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func _gather_section(_context: Dictionary = {}) -> GFSaveSection:
@@ -278,7 +278,7 @@ func _gather_section(_context: Dictionary = {}) -> GFSaveSection:
 ### `_capture_section`
 
 - API：`protected`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func _capture_section(context: Dictionary = {}) -> GFSaveSection:
@@ -303,7 +303,7 @@ func _capture_section(context: Dictionary = {}) -> GFSaveSection:
 ### `_apply_section`
 
 - API：`protected`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func _apply_section(_section: GFSaveSection, _context: Dictionary = {}) -> Error:
@@ -329,7 +329,7 @@ func _apply_section(_section: GFSaveSection, _context: Dictionary = {}) -> Error
 ### `_rollback_section`
 
 - API：`protected`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func _rollback_section(previous_section: GFSaveSection, context: Dictionary = {}) -> Error:

@@ -8,7 +8,7 @@
 ## [br]
 ## @category value_object
 ## [br]
-## @since unreleased
+## @since 10.0.0
 class_name GFDiagnosticProviderResult
 extends RefCounted
 
@@ -34,7 +34,7 @@ var _metadata: Dictionary = {}
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param value: Provider 采集的临时值。
 ## [br]
@@ -57,7 +57,7 @@ static func succeeded(value: Variant, metadata: Dictionary = {}) -> GFDiagnostic
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param error_code: 非空、无首尾空白且不超过 128 个字符的稳定错误码；非法值回退为 provider_failed。
 ## [br]
@@ -94,7 +94,7 @@ static func failed(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 成功时返回 true。
 func is_successful() -> bool:
@@ -105,7 +105,7 @@ func is_successful() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return Provider 值副本；失败时返回 null。
 ## [br]
@@ -118,7 +118,7 @@ func get_value() -> Variant:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 失败错误码；成功时为空。
 func get_error_code() -> StringName:
@@ -129,7 +129,7 @@ func get_error_code() -> StringName:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 失败说明；成功时为空。
 func get_error_message() -> String:
@@ -140,7 +140,7 @@ func get_error_message() -> String:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return Provider 元数据副本。
 ## [br]

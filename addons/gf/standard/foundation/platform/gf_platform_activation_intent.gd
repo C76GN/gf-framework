@@ -7,7 +7,7 @@
 ## [br]
 ## @category event_contract
 ## [br]
-## @since unreleased
+## @since 10.0.0
 class_name GFPlatformActivationIntent
 extends Resource
 
@@ -18,49 +18,49 @@ extends Resource
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 @export var intent_id: StringName = &""
 
 ## Provider-neutral 意图类型。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 @export var intent_type: StringName = &""
 
 ## 来源平台 ID。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 @export var platform_id: StringName = &""
 
 ## 来源 Adapter ID。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 @export var adapter_id: StringName = &""
 
 ## 平台入口来源，例如 command_line、invite、deep_link 或 resume。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 @export var source: StringName = &""
 
 ## 单调时间戳，单位毫秒。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 @export var timestamp_msec: int = 0
 
 ## Provider-neutral 入口载荷。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @schema payload: Dictionary platform activation payload.
 @export var payload: Dictionary = {}
@@ -69,7 +69,7 @@ extends Resource
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @schema metadata: Dictionary platform activation metadata.
 @export var metadata: Dictionary = {}
@@ -81,7 +81,7 @@ extends Resource
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param p_intent_id: 幂等 ID。
 ## [br]
@@ -117,7 +117,7 @@ func configure(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 缺少 intent_id 或 intent_type 时返回 true。
 func is_empty() -> bool:
@@ -128,7 +128,7 @@ func is_empty() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 激活意图字典。
 ## [br]
@@ -150,7 +150,7 @@ func to_dict() -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param data: 激活意图字典。
 ## [br]
@@ -170,7 +170,7 @@ func apply_dict(data: Dictionary) -> void:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 新意图。
 func duplicate_intent() -> GFPlatformActivationIntent:
@@ -181,7 +181,7 @@ func duplicate_intent() -> GFPlatformActivationIntent:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param data: 激活意图字典。
 ## [br]

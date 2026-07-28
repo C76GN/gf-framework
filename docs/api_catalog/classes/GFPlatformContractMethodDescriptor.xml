@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFPlatformContractMethodDescriptor" path="addons/gf/standard/foundation/platform/gf_platform_contract_method_descriptor.gd" module="standard" extends="Resource" classDigest="5be26743b6be105f1d789fc27602f464681763b6f3fd3b5686a7d8617a5ca8d0">
+<class name="GFPlatformContractMethodDescriptor" path="addons/gf/standard/foundation/platform/gf_platform_contract_method_descriptor.gd" module="standard" extends="Resource" classDigest="a9282b81bc06df2942f424c5d9a7cd344ac6ac95157253e91e7db582346e83d2">
 	<description>GFPlatformContractMethodDescriptor: 平台桥接方法契约。
 描述单个 provider-neutral 方法的请求/结果 schema、能力前置条件、载荷预算、
 并发上限与取消语义。具体 SDK 错误码和项目业务规则不得写入该描述符。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">resource_definition</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">10.0.0</tag>
 	</tags>
 	<signals />
 	<enums />
@@ -17,7 +17,7 @@
 			<description>方法稳定标识。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="request_schema" decorators="@export">
@@ -25,7 +25,7 @@
 			<description>可选请求 Dictionary schema。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="result_schema" decorators="@export">
@@ -33,7 +33,7 @@
 			<description>可选成功结果 Dictionary schema。为空时允许任意结果值。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="required_capability_ids" decorators="@export">
@@ -41,7 +41,7 @@
 			<description>调用该方法前 adapter 必须声明的全部能力。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="max_request_bytes" decorators="@export">
@@ -49,7 +49,7 @@
 			<description>请求 JSON-compatible 编码后的最大字节数；0 表示不额外限制。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="max_result_bytes" decorators="@export">
@@ -57,7 +57,7 @@
 			<description>成功结果 JSON-compatible 编码后的最大字节数；0 表示不额外限制。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="max_concurrent_requests" decorators="@export">
@@ -65,7 +65,7 @@
 			<description>同一 adapter 上该方法允许的最大并发请求数；0 表示不额外限制。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="supports_cancellation" decorators="@export">
@@ -73,7 +73,7 @@
 			<description>底层 provider 是否支持主动取消。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="sensitive_fields" decorators="@export">
@@ -81,7 +81,7 @@
 			<description>请求或结果中必须在日志、诊断和支持报告中脱敏的字段名。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="metadata" decorators="@export">
@@ -90,7 +90,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="schema">metadata: Dictionary adapter-authoring metadata.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 	</properties>
@@ -104,7 +104,7 @@
 				<tag name="param">options: 可包含 request_schema、result_schema、required_capability_ids、max_request_bytes、max_result_bytes、max_concurrent_requests、supports_cancellation、sensitive_fields 和 metadata。</tag>
 				<tag name="return">当前描述符。</tag>
 				<tag name="schema">options: Dictionary platform contract method options.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="validate_definition">
@@ -113,7 +113,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">标准校验报告。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="validate_request">
@@ -125,7 +125,7 @@
 				<tag name="param">capabilities: Adapter 当前能力集合。</tag>
 				<tag name="return">标准校验报告。</tag>
 				<tag name="schema">payload: Dictionary platform method request payload.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="validate_result">
@@ -136,7 +136,7 @@
 				<tag name="param">value: Adapter 成功结果值。</tag>
 				<tag name="return">标准校验报告。</tag>
 				<tag name="schema">value: Adapter-defined result value.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="duplicate_descriptor">
@@ -145,7 +145,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">新描述符。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="to_dict">
@@ -155,7 +155,7 @@
 				<tag name="api">public</tag>
 				<tag name="return">方法契约摘要。</tag>
 				<tag name="schema">return: Dictionary platform contract method descriptor summary.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 	</methods>

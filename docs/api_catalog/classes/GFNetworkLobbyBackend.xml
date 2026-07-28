@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFNetworkLobbyBackend" path="addons/gf/extensions/network/session/gf_network_lobby_backend.gd" module="extensions/network" extends="RefCounted" classDigest="14ab79db04c80429bc04b0ce5f784496d80287024bc563f42e10cf5ddd893b4c">
+<class name="GFNetworkLobbyBackend" path="addons/gf/extensions/network/session/gf_network_lobby_backend.gd" module="extensions/network" extends="RefCounted" classDigest="05316c41b38ea6e93d35a27c96161d87d89c2918a58e28c349953fb02f99c648">
 	<description>GFNetworkLobbyBackend: 平台中立 Lobby 后端协议。
 后端只负责把 Steam、小游戏、自建匹配服、LAN 或其他 provider 的异步调用
 映射到强类型操作句柄。请求 ID、单终态、取消和迟到回调保护由基类统一拥有。</description>
@@ -83,7 +83,7 @@ provider 前建立取消与完成监听，保证同步回调也不会逃逸生�
 				<tag name="api">public</tag>
 				<tag name="param">request: 完整操作请求。</tag>
 				<tag name="return">一次性操作句柄；输入和派发失败也返回终态句柄。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="poll">
@@ -123,7 +123,7 @@ provider 前建立取消与完成监听，保证同步回调也不会逃逸生�
 				<tag name="param">_request: 请求副本。</tag>
 				<tag name="param">_handle: 由基类拥有的操作句柄。</tag>
 				<tag name="return">请求被 provider 接受时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="_cancel_operation">
@@ -133,7 +133,7 @@ provider 前建立取消与完成监听，保证同步回调也不会逃逸生�
 				<tag name="api">protected</tag>
 				<tag name="param">_handle: 已进入取消或超时终态的句柄。</tag>
 				<tag name="param">_reason: 取消原因。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="_release_operation">
@@ -145,7 +145,7 @@ Handle 本地取消或超时不会提前释放 request_id。Backend 应在 Provi
 				<tag name="api">protected</tag>
 				<tag name="param">handle: 底层工作已经停止的操作句柄。</tag>
 				<tag name="return">当前 Backend 仍持有该租约并已释放时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="_poll">
@@ -154,7 +154,7 @@ Handle 本地取消或超时不会提前释放 request_id。Backend 应在 Provi
 			<tags>
 				<tag name="api">protected</tag>
 				<tag name="param">_delta: 未缩放帧间隔。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="_close">
@@ -162,7 +162,7 @@ Handle 本地取消或超时不会提前释放 request_id。Backend 应在 Provi
 			<description>释放底层 provider 资源。</description>
 			<tags>
 				<tag name="api">protected</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="_succeed_operation">
@@ -174,7 +174,7 @@ Handle 本地取消或超时不会提前释放 request_id。Backend 应在 Provi
 				<tag name="param">options: 可包含 status、lobby、lobbies、lobby_id 和 metadata。</tag>
 				<tag name="return">首次完成成功返回 true；迟到或重复回调返回 false。</tag>
 				<tag name="schema">options: Dictionary successful lobby operation fields.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="_fail_operation">
@@ -188,7 +188,7 @@ Handle 本地取消或超时不会提前释放 request_id。Backend 应在 Provi
 				<tag name="param">metadata: 已脱敏失败元数据。</tag>
 				<tag name="return">首次完成成功返回 true；迟到或重复回调返回 false。</tag>
 				<tag name="schema">metadata: Dictionary backend-defined failure metadata.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="_emit_lobby_updated">

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFPlatformAdapter" path="addons/gf/standard/platform/gf_platform_adapter.gd" module="standard" extends="RefCounted" classDigest="f54522a5cbd9dffd346e16c39b4e65587faa71e0628d206ab4a45aaa9f0a753b">
+<class name="GFPlatformAdapter" path="addons/gf/standard/platform/gf_platform_adapter.gd" module="standard" extends="RefCounted" classDigest="0762c09e7e7dc622e1be8ff7578ba02a369cae89c3f6f2095734771731095bed">
 	<description>GFPlatformAdapter: 外部平台 adapter 协议。
 Steam、微信小游戏、主机平台或自建平台实现应继承该类型，把具体 SDK 回调
 转换为 GF 的上下文、生命周期事件和桥接结果。该基类不依赖任何平台 SDK。</description>
@@ -43,7 +43,7 @@ Steam、微信小游戏、主机平台或自建平台实现应继承该类型，
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">intent: 已规范化的激活意图副本。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 	</signals>
@@ -121,7 +121,7 @@ Steam、微信小游戏、主机平台或自建平台实现应继承该类型，
 				<tag name="api">public</tag>
 				<tag name="return">按 contract_id 排序的描述符副本。</tag>
 				<tag name="schema">return: Array[GFPlatformContractDescriptor] declared platform contracts.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_contract_descriptor">
@@ -131,7 +131,7 @@ Steam、微信小游戏、主机平台或自建平台实现应继承该类型，
 				<tag name="api">public</tag>
 				<tag name="param">contract_id: 契约 ID。</tag>
 				<tag name="return">找到时返回描述符副本，否则返回 null。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="supports_contract">
@@ -277,7 +277,7 @@ SHUTDOWN 为终态；需要重新连接时应创建新 adapter 实例。</descri
 				<tag name="api">protected</tag>
 				<tag name="param">handle: 已停止底层工作的请求句柄。</tag>
 				<tag name="return">当前 Adapter 仍持有该请求租约并已释放时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="_shutdown">
@@ -340,7 +340,7 @@ SHUTDOWN 为终态；需要重新连接时应创建新 adapter 实例。</descri
 				<tag name="api">protected</tag>
 				<tag name="param">intent: 平台激活意图。</tag>
 				<tag name="return">意图有效并已发布时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="_succeed_request">

@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：值对象 (`value_object`)
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 UI 路由异步打开的不可变终态。 结果把路由校验、可选预加载、面板提交和生命周期中止统一为稳定状态， 并保留预加载事务结果，避免项目通过日志或时序猜测失败阶段。
 
@@ -56,7 +56,7 @@ UI 路由异步打开的不可变终态。 结果把路由校验、可选预加�
 ### `STATUS_OPENED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const STATUS_OPENED: StringName = &"opened"
@@ -69,7 +69,7 @@ const STATUS_OPENED: StringName = &"opened"
 ### `STATUS_MISSING_ROUTE`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const STATUS_MISSING_ROUTE: StringName = &"missing_route"
@@ -82,7 +82,7 @@ const STATUS_MISSING_ROUTE: StringName = &"missing_route"
 ### `STATUS_INVALID_ROUTE`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const STATUS_INVALID_ROUTE: StringName = &"invalid_route"
@@ -95,7 +95,7 @@ const STATUS_INVALID_ROUTE: StringName = &"invalid_route"
 ### `STATUS_MISSING_UI_UTILITY`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const STATUS_MISSING_UI_UTILITY: StringName = &"missing_ui_utility"
@@ -108,7 +108,7 @@ Router 无法获取 UI Utility。
 ### `STATUS_MISSING_UI_LAYER`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const STATUS_MISSING_UI_LAYER: StringName = &"missing_ui_layer"
@@ -121,7 +121,7 @@ const STATUS_MISSING_UI_LAYER: StringName = &"missing_ui_layer"
 ### `STATUS_ASYNC_CONFLICT`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const STATUS_ASYNC_CONFLICT: StringName = &"async_conflict"
@@ -134,7 +134,7 @@ const STATUS_ASYNC_CONFLICT: StringName = &"async_conflict"
 ### `STATUS_INVALID_PRELOAD_POLICY`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const STATUS_INVALID_PRELOAD_POLICY: StringName = &"invalid_preload_policy"
@@ -147,7 +147,7 @@ const STATUS_INVALID_PRELOAD_POLICY: StringName = &"invalid_preload_policy"
 ### `STATUS_MISSING_ASSET_UTILITY`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const STATUS_MISSING_ASSET_UTILITY: StringName = &"missing_asset_utility"
@@ -160,7 +160,7 @@ const STATUS_MISSING_ASSET_UTILITY: StringName = &"missing_asset_utility"
 ### `STATUS_PRELOAD_PLAN_FAILED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const STATUS_PRELOAD_PLAN_FAILED: StringName = &"preload_plan_failed"
@@ -173,7 +173,7 @@ const STATUS_PRELOAD_PLAN_FAILED: StringName = &"preload_plan_failed"
 ### `STATUS_PRELOAD_FAILED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const STATUS_PRELOAD_FAILED: StringName = &"preload_failed"
@@ -186,7 +186,7 @@ const STATUS_PRELOAD_FAILED: StringName = &"preload_failed"
 ### `STATUS_PANEL_FAILED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const STATUS_PANEL_FAILED: StringName = &"panel_failed"
@@ -199,7 +199,7 @@ const STATUS_PANEL_FAILED: StringName = &"panel_failed"
 ### `STATUS_CANCELLED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const STATUS_CANCELLED: StringName = &"cancelled"
@@ -212,7 +212,7 @@ const STATUS_CANCELLED: StringName = &"cancelled"
 ### `STATUS_DISPOSED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const STATUS_DISPOSED: StringName = &"disposed"
@@ -225,7 +225,7 @@ Router 在面板提交前释放，结果确定为未打开。
 ### `STATUS_OUTCOME_UNKNOWN`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const STATUS_OUTCOME_UNKNOWN: StringName = &"outcome_unknown"
@@ -240,7 +240,7 @@ Router 在面板提交后释放，无法再可靠观察底层终态。
 ### `get_request_id`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_request_id() -> int:
@@ -255,7 +255,7 @@ func get_request_id() -> int:
 ### `get_route_id`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_route_id() -> StringName:
@@ -270,7 +270,7 @@ func get_route_id() -> StringName:
 ### `get_operation`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_operation() -> StringName:
@@ -285,7 +285,7 @@ func get_operation() -> StringName:
 ### `get_status`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_status() -> StringName:
@@ -300,7 +300,7 @@ func get_status() -> StringName:
 ### `is_successful`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func is_successful() -> bool:
@@ -315,7 +315,7 @@ func is_successful() -> bool:
 ### `get_reason`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_reason() -> StringName:
@@ -330,7 +330,7 @@ func get_reason() -> StringName:
 ### `get_layer`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_layer() -> int:
@@ -345,7 +345,7 @@ func get_layer() -> int:
 ### `get_panel`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_panel() -> Node:
@@ -360,7 +360,7 @@ func get_panel() -> Node:
 ### `get_preload_policy`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_preload_policy() -> StringName:
@@ -375,7 +375,7 @@ func get_preload_policy() -> StringName:
 ### `was_preload_attempted`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func was_preload_attempted() -> bool:
@@ -390,7 +390,7 @@ func was_preload_attempted() -> bool:
 ### `was_preload_successful`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func was_preload_successful() -> bool:
@@ -405,7 +405,7 @@ func was_preload_successful() -> bool:
 ### `get_preload_plan_report`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_preload_plan_report() -> Dictionary:
@@ -424,7 +424,7 @@ func get_preload_plan_report() -> Dictionary:
 ### `get_preload_result`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_preload_result() -> GFAssetLoadSessionResult:
@@ -439,7 +439,7 @@ func get_preload_result() -> GFAssetLoadSessionResult:
 ### `get_started_at_msec`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_started_at_msec() -> int:
@@ -454,7 +454,7 @@ func get_started_at_msec() -> int:
 ### `get_completed_at_msec`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_completed_at_msec() -> int:
@@ -469,7 +469,7 @@ func get_completed_at_msec() -> int:
 ### `get_duration_msec`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_duration_msec() -> int:
@@ -484,7 +484,7 @@ func get_duration_msec() -> int:
 ### `get_metadata`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_metadata() -> Dictionary:
@@ -503,7 +503,7 @@ func get_metadata() -> Dictionary:
 ### `duplicate_result`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func duplicate_result() -> GFUIRouteResult:
@@ -518,7 +518,7 @@ func duplicate_result() -> GFUIRouteResult:
 ### `to_dict`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func to_dict() -> Dictionary:

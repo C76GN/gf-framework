@@ -470,7 +470,7 @@ func replay_queued(max_count: int = 0) -> Dictionary:
 ### `handles_request`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func handles_request(envelope: GFRequestEnvelope) -> bool:

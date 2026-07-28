@@ -279,7 +279,7 @@ static func write_property( object: Object, property_path: NodePath, value: Vari
 ### `write_direct_property`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 static func write_direct_property( object: Object, property_name: StringName, value: Variant, options: Dictionary = {} ) -> Dictionary:

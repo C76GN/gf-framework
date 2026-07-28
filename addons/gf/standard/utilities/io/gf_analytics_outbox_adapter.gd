@@ -9,7 +9,7 @@
 ## [br]
 ## @category runtime_service
 ## [br]
-## @since unreleased
+## @since 10.0.0
 class_name GFAnalyticsOutboxAdapter
 extends RefCounted
 
@@ -20,21 +20,21 @@ extends RefCounted
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const SCHEMA_ID: StringName = &"gf.analytics.outbox"
 
 ## 持久化批次协议版本。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const PROTOCOL_VERSION: int = 1
 
 ## 默认逻辑端点。它不是供应商 URL，也不包含账号或鉴权信息。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const DEFAULT_ENDPOINT_URL: String = "gf://analytics/events"
 
 const _GF_UUID = preload("res://addons/gf/standard/foundation/identity/gf_uuid.gd")
@@ -58,7 +58,7 @@ const _MAX_TOTAL_NODES_HARD_LIMIT: int = 1_000_000
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 var outbox: GFRequestOutboxUtility = null
 
 ## 写入请求信封的非敏感逻辑端点。
@@ -69,14 +69,14 @@ var outbox: GFRequestOutboxUtility = null
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 var endpoint_url: String = DEFAULT_ENDPOINT_URL
 
 ## 单个持久化批次的最终 JSON 字节上限；直接赋值会钳制到 1024..16 MiB。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 var max_payload_bytes: int = 256 * 1024:
 	set(value):
 		max_payload_bytes = clampi(value, _MIN_PAYLOAD_BYTES, _MAX_PAYLOAD_BYTES)
@@ -85,7 +85,7 @@ var max_payload_bytes: int = 256 * 1024:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 var max_events_per_request: int = 500:
 	set(value):
 		max_events_per_request = clampi(value, 1, _MAX_EVENTS_HARD_LIMIT)
@@ -94,7 +94,7 @@ var max_events_per_request: int = 500:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 var max_attempts: int = 3:
 	set(value):
 		max_attempts = clampi(value, 1, _MAX_ATTEMPTS_HARD_LIMIT)
@@ -103,7 +103,7 @@ var max_attempts: int = 3:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 var max_depth: int = 16:
 	set(value):
 		max_depth = clampi(value, 1, _MAX_DEPTH_HARD_LIMIT)
@@ -112,7 +112,7 @@ var max_depth: int = 16:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 var max_collection_items: int = 256:
 	set(value):
 		max_collection_items = clampi(value, 1, _MAX_COLLECTION_ITEMS_HARD_LIMIT)
@@ -121,7 +121,7 @@ var max_collection_items: int = 256:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 var max_string_length: int = 4096:
 	set(value):
 		max_string_length = clampi(value, 1, _MAX_STRING_LENGTH_HARD_LIMIT)
@@ -130,7 +130,7 @@ var max_string_length: int = 4096:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 var max_total_nodes: int = 8192:
 	set(value):
 		max_total_nodes = clampi(value, 1, _MAX_TOTAL_NODES_HARD_LIMIT)
@@ -150,7 +150,7 @@ var _last_reason: StringName = &"not_configured"
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param p_outbox: 项目配置并拥有生命周期的专用 Outbox。
 ## [br]
@@ -232,7 +232,7 @@ func configure(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param payload: GFAnalyticsUtility transport_callback 提供的 JSON-safe payload。
 ## v1 只接受唯一的 events 字段；payload_builder 添加其他顶层字段时会失败关闭，
@@ -474,7 +474,7 @@ func enqueue_payload(payload: Dictionary) -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param envelope: 待路由的请求信封。
 ## [br]
@@ -487,7 +487,7 @@ func handles_request(envelope: GFRequestEnvelope) -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 安全调试快照。
 ## [br]

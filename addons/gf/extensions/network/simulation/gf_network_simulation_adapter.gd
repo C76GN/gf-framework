@@ -9,7 +9,7 @@
 ## [br]
 ## @category protocol
 ## [br]
-## @since unreleased
+## @since 10.0.0
 class_name GFNetworkSimulationAdapter
 extends RefCounted
 
@@ -20,7 +20,7 @@ extends RefCounted
 ## [br]
 ## @api protected
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param _tick: 待捕获状态的模拟 tick。
 ## [br]
@@ -45,7 +45,7 @@ func _capture_state(_tick: int, _context: Dictionary) -> Dictionary:
 ## [br]
 ## @api protected
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param _state: 待应用的完整状态副本。
 ## [br]
@@ -71,7 +71,7 @@ func _validate_state(_state: Dictionary, _tick: int, _context: Dictionary) -> Di
 ## [br]
 ## @api protected
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param _state: 待恢复的状态副本。
 ## [br]
@@ -102,7 +102,7 @@ func _restore_state(_state: Dictionary, _tick: int, _context: Dictionary) -> Dic
 ## [br]
 ## @api protected
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param _frame: 待校验输入帧副本。
 ## [br]
@@ -133,7 +133,7 @@ func _validate_input(
 ## [br]
 ## @api protected
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param _tick: 要执行的连续模拟 tick。
 ## [br]
@@ -166,7 +166,7 @@ func _simulate_tick(
 ## [br]
 ## @api protected
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param predicted_state: 本地预测状态副本。
 ## [br]

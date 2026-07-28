@@ -195,7 +195,7 @@ static func read_property(
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param object: 目标对象。
 ## [br]
@@ -343,7 +343,7 @@ static func write_property(
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param object: 目标对象。
 ## [br]
@@ -421,7 +421,7 @@ static func prepare_direct_property_write(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param object: 目标对象。
 ## [br]

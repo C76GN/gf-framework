@@ -166,7 +166,7 @@ func receive_interaction(context: GFInteractionContext, interaction_id: StringNa
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param context: 交互上下文。
 ## [br]

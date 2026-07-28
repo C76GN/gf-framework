@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFUIRoute" path="addons/gf/standard/utilities/ui/gf_ui_route.gd" module="standard" extends="Resource" classDigest="62ebc9b479323f9ce0528faf588879793aee40be56486b8be15d966ccb59247a">
+<class name="GFUIRoute" path="addons/gf/standard/utilities/ui/gf_ui_route.gd" module="standard" extends="Resource" classDigest="a1bacb323030d44c0fa2a6f9fead11f69d34d4d6392054fdd3b7b8aba406f956">
 	<description>GFUIRoute: UI 路由资源描述。
 只描述路由标识、面板场景、目标层级和默认打开选项，不规定页面业务、
 动画实现或面板通信方式。</description>
@@ -59,7 +59,7 @@
 该关系只用于显式的可达性分析和资源预加载，不等同于权限、守卫或业务跳转规则。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 	</properties>
@@ -87,7 +87,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">按资源声明顺序排列的相邻路由标识。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="build_options">

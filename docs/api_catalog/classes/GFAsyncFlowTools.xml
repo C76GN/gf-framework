@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFAsyncFlowTools" path="addons/gf/standard/common/gf_async_flow_tools.gd" module="standard" extends="RefCounted" classDigest="b60aea44840bb2472e22e9d962015832aad20891630aee689f896e0e5d7e0455">
+<class name="GFAsyncFlowTools" path="addons/gf/standard/common/gf_async_flow_tools.gd" module="standard" extends="RefCounted" classDigest="f61114bf5f914909aa1d0760c53d25162a42bcebe9a073563e1ef852f9300d47">
 	<description>GFAsyncFlowTools: 小型异步流程辅助。
 在现有 GFAsyncCompletion / GFAsyncWaitUtility 之上提供重试、顺序遍历、折叠和 completion 组合。
 它不引入 Promise 类型，不调度后台线程，也不规定业务任务模型；调用方只需要
@@ -41,7 +41,7 @@
 			<description>组合等待默认接受的最大 completion 数量。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="ABSOLUTE_MAX_COMPLETIONS">
@@ -49,7 +49,7 @@
 			<description>组合等待允许的 completion 绝对数量上限。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 	</constants>

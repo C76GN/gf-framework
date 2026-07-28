@@ -7,7 +7,7 @@
 ## [br]
 ## @category value_object
 ## [br]
-## @since unreleased
+## @since 10.0.0
 class_name GFStorageAsyncResult
 extends RefCounted
 
@@ -28,7 +28,7 @@ var _read_result: GFStorageReadResult = null
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 大于零的 Utility 内唯一请求 ID。
 func get_request_id() -> int:
@@ -39,7 +39,7 @@ func get_request_id() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return `GFStorageAsyncOperation.OPERATION_*` 常量之一。
 func get_operation() -> StringName:
@@ -50,7 +50,7 @@ func get_operation() -> StringName:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 请求实际使用的存储相对文件名或绝对文件名。
 func get_file_name() -> String:
@@ -61,7 +61,7 @@ func get_file_name() -> String:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 写入错误码为 OK，或读取结果成功时返回 true。
 func is_successful() -> bool:
@@ -72,7 +72,7 @@ func is_successful() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 成功时为 OK。
 func get_error_code() -> Error:
@@ -83,7 +83,7 @@ func get_error_code() -> Error:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return load 请求的结果；save 请求返回 null。
 func get_read_result() -> GFStorageReadResult:
@@ -94,7 +94,7 @@ func get_read_result() -> GFStorageReadResult:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 新结果对象。
 func duplicate_result() -> GFStorageAsyncResult:
@@ -114,7 +114,7 @@ func duplicate_result() -> GFStorageAsyncResult:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 包含请求身份、终态和读取摘要的字典。
 ## [br]
@@ -136,7 +136,7 @@ func to_dict() -> Dictionary:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param request_id: Utility 内唯一请求 ID。
 ## [br]

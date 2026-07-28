@@ -114,7 +114,7 @@ signal lifecycle_event(event: GFPlatformLifecycleEvent)
 ### `activation_intent`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 signal activation_intent(intent: GFPlatformActivationIntent)
@@ -235,7 +235,7 @@ func get_contract_ids() -> PackedStringArray:
 ### `get_contract_descriptors`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_contract_descriptors() -> Array[GFPlatformContractDescriptor]:
@@ -254,7 +254,7 @@ func get_contract_descriptors() -> Array[GFPlatformContractDescriptor]:
 ### `get_contract_descriptor`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_contract_descriptor(contract_id: StringName) -> GFPlatformContractDescriptor:
@@ -522,7 +522,7 @@ func _cancel_request(_handle: GFPlatformRequestHandle, _reason: StringName) -> v
 ### `_release_request`
 
 - API：`protected`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func _release_request(handle: GFPlatformRequestHandle) -> bool:
@@ -645,7 +645,7 @@ func _publish_lifecycle_event(event: GFPlatformLifecycleEvent) -> bool:
 ### `_publish_activation_intent`
 
 - API：`protected`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func _publish_activation_intent(intent: GFPlatformActivationIntent) -> bool:

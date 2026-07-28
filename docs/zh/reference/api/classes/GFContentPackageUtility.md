@@ -63,7 +63,7 @@ signal catalog_rebuilt(catalog: GFContentPackageCatalog)
 ### `DEFAULT_SOURCE_ROOT_OWNER_ID`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const DEFAULT_SOURCE_ROOT_OWNER_ID: StringName = &"gf.content_package.manual"
@@ -133,7 +133,7 @@ func clear_source_roots() -> void:
 ### `register_source_root_for_owner`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func register_source_root_for_owner(owner_id: StringName, root_path: String) -> bool:
@@ -155,7 +155,7 @@ func register_source_root_for_owner(owner_id: StringName, root_path: String) -> 
 ### `unregister_source_root_for_owner`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func unregister_source_root_for_owner(owner_id: StringName, root_path: String) -> bool:
@@ -177,7 +177,7 @@ func unregister_source_root_for_owner(owner_id: StringName, root_path: String) -
 ### `replace_owner_source_roots`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func replace_owner_source_roots( owner_id: StringName, root_paths: PackedStringArray ) -> GFValidationReport:
@@ -199,7 +199,7 @@ func replace_owner_source_roots( owner_id: StringName, root_paths: PackedStringA
 ### `clear_owner_source_roots`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func clear_owner_source_roots(owner_id: StringName) -> int:
@@ -220,7 +220,7 @@ func clear_owner_source_roots(owner_id: StringName) -> int:
 ### `get_owner_source_roots`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_owner_source_roots(owner_id: StringName) -> PackedStringArray:
@@ -241,7 +241,7 @@ func get_owner_source_roots(owner_id: StringName) -> PackedStringArray:
 ### `get_source_root_owner_ids`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_source_root_owner_ids() -> PackedStringArray:

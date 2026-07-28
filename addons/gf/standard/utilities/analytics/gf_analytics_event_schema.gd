@@ -9,7 +9,7 @@
 ## [br]
 ## @category resource_definition
 ## [br]
-## @since unreleased
+## @since 10.0.0
 class_name GFAnalyticsEventSchema
 extends Resource
 
@@ -54,14 +54,14 @@ const _GF_SCHEMA_FIELD_SCRIPT = preload(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 @export var event_name: StringName = &""
 
 ## 事件属性 Schema 版本；必须位于 1..2_147_483_647。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 @export var schema_version: int = 1
 
 ## 事件属性 Dictionary Schema。
@@ -70,7 +70,7 @@ const _GF_SCHEMA_FIELD_SCRIPT = preload(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 @export var properties_schema: GFDictionarySchema = null
 
 
@@ -85,7 +85,7 @@ var _last_definition_footprint: Dictionary = {}
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param p_event_name: 稳定事件名。
 ## [br]
@@ -109,7 +109,7 @@ func configure(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param options: 可选上下文，支持 subject、path、source_path 和 source。
 ## [br]
@@ -191,7 +191,7 @@ func validate_definition(options: Dictionary = {}) -> GFValidationReport:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param properties: 待校验事件属性。
 ## [br]
@@ -216,7 +216,7 @@ func validate_properties(properties: Dictionary, options: Dictionary = {}) -> GF
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 新事件 Schema。
 func duplicate_schema() -> GFAnalyticsEventSchema:
@@ -232,7 +232,7 @@ func duplicate_schema() -> GFAnalyticsEventSchema:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 事件 Schema 描述。
 ## [br]
@@ -251,7 +251,7 @@ func describe() -> Dictionary:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param properties: 待校验事件属性。
 ## [br]
@@ -290,7 +290,7 @@ func validate_registered_properties_for_framework(
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return Registry 累计容量使用的定义预算副本。
 ## [br]

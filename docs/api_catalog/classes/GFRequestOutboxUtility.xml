@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFRequestOutboxUtility" path="addons/gf/standard/utilities/io/gf_request_outbox_utility.gd" module="standard" extends="GFUtility" classDigest="f4f35b4ebbb8f1482b5e3cc245a11e41b4ae3516d585b7aafcfc355bf6f39186">
+<class name="GFRequestOutboxUtility" path="addons/gf/standard/utilities/io/gf_request_outbox_utility.gd" module="standard" extends="GFUtility" classDigest="bdb5b16915dfcf2d9e4be9e54192d2a2cd2923ee37e5fcd4762fd27f44ca0f91">
 	<description>GFRequestOutboxUtility: 通用离线请求队列。
 负责把项目提交的请求描述持久化、按重试策略重放，并通过 transport_callback
 交给项目自己的网络、SDK 或工具链发送。它不内置任何账号、云服务或业务协议。</description>
@@ -142,7 +142,7 @@
 上限不受 max_storage_bytes 是否关闭影响。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="transport_callback">
@@ -220,7 +220,7 @@ Signal、RID、循环集合、超过固定结构安全预算和其他不支持�
 				<tag name="param">require_persistence: 是否要求本次请求可靠写入 storage_path。</tag>
 				<tag name="return">入队报告。</tag>
 				<tag name="schema">return: Dictionary，包含 ok、status、reason、envelope、persisted 和 persistence_error。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="replay">

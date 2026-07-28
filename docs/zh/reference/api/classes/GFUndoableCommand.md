@@ -105,7 +105,7 @@ func should_record(_execute_result: Variant) -> bool:
 ### `is_undo_successful`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func is_undo_successful(_undo_result: Variant) -> bool:
@@ -130,7 +130,7 @@ func is_undo_successful(_undo_result: Variant) -> bool:
 ### `is_redo_successful`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func is_redo_successful(_execute_result: Variant) -> bool:

@@ -7,7 +7,7 @@
 ## [br]
 ## @category runtime_handle
 ## [br]
-## @since unreleased
+## @since 10.0.0
 class_name GFMultiplayerPeerNetworkBackend
 extends GFNetworkBackend
 
@@ -18,7 +18,7 @@ extends GFNetworkBackend
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 enum Ownership {
 	## Backend 只借用 Peer，释放时不得关闭它。
 	BORROWED,
@@ -30,7 +30,7 @@ enum Ownership {
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 enum Role {
 	## Adapter 未声明角色。
 	UNKNOWN,
@@ -47,7 +47,7 @@ enum Role {
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const BROADCAST_PEER_ID: int = -1
 
 
@@ -57,7 +57,7 @@ const BROADCAST_PEER_ID: int = -1
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 var max_packets_per_poll: int = 64
 
 
@@ -82,7 +82,7 @@ var _connected_peer_ids: Dictionary[int, bool] = {}
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param peer: 外部创建的 MultiplayerPeer。
 ## [br]
@@ -143,7 +143,7 @@ func adopt_peer(peer: MultiplayerPeer, options: Dictionary = {}) -> Error:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 当前 Peer；未配置时返回 null。
 func get_peer() -> MultiplayerPeer:
@@ -154,7 +154,7 @@ func get_peer() -> MultiplayerPeer:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 原 Peer；未配置时返回 null。
 func take_peer() -> MultiplayerPeer:
@@ -165,7 +165,7 @@ func take_peer() -> MultiplayerPeer:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 当前 Peer 存在且 ownership 为 OWNED 时返回 true。
 func owns_peer() -> bool:
@@ -176,7 +176,7 @@ func owns_peer() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return role 对应的 Session mode、端点和本地 peer ID。
 ## [br]
@@ -202,7 +202,7 @@ func get_session_bootstrap() -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 func disconnect_backend() -> void:
 	var _released_peer: MultiplayerPeer = _detach_peer(true, true, "closed")
 
@@ -211,7 +211,7 @@ func disconnect_backend() -> void:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param peer_id: 目标 peer；-1 表示广播。
 ## [br]
@@ -255,7 +255,7 @@ func send_bytes(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param _delta: 本帧时间增量；底层 MultiplayerPeer 自行维护时钟。
 func poll(_delta: float) -> void:
@@ -279,7 +279,7 @@ func poll(_delta: float) -> void:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 已脱敏 Backend 状态。
 ## [br]

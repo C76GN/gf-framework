@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSaveSectionProvider" path="addons/gf/extensions/save/profile/gf_save_section_provider.gd" module="extensions/save" extends="Resource" classDigest="46e49f35046a00f0808221409c261914f27d1ce2c0f39f1e36fd1e4a59175ce9">
+<class name="GFSaveSectionProvider" path="addons/gf/extensions/save/profile/gf_save_section_provider.gd" module="extensions/save" extends="Resource" classDigest="24d8b2c7d3b491dd26a339d482ed3f74f121f17a8570d6627857c01888d76cc9">
 	<description>GFSaveSectionProvider: Save Profile section 所有权协议。
 一个 provider 只拥有一个稳定 section。实现必须能够采集当前状态、应用已校验
 section，并在后续 provider 失败时恢复此前采集的 section。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">protocol</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">10.0.0</tag>
 	</tags>
 	<signals />
 	<enums />
@@ -17,7 +17,7 @@ section，并在后续 provider 失败时恢复此前采集的 section。</descr
 			<description>稳定且在 profile 内唯一的 section ID。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="schema_version" decorators="@export_range(1, 2_147_483_647, 1)">
@@ -25,7 +25,7 @@ section，并在后续 provider 失败时恢复此前采集的 section。</descr
 			<description>当前 section schema 版本。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="save_enabled" decorators="@export">
@@ -33,7 +33,7 @@ section，并在后续 provider 失败时恢复此前采集的 section。</descr
 			<description>是否参与保存采集。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="load_enabled" decorators="@export">
@@ -41,7 +41,7 @@ section，并在后续 provider 失败时恢复此前采集的 section。</descr
 			<description>是否参与读取应用。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="required_on_load" decorators="@export">
@@ -49,7 +49,7 @@ section，并在后续 provider 失败时恢复此前采集的 section。</descr
 			<description>读取时该 section 是否必须存在。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 	</properties>
@@ -61,7 +61,7 @@ section，并在后续 provider 失败时恢复此前采集的 section。</descr
 				<tag name="api">public</tag>
 				<tag name="return">结构化校验报告。</tag>
 				<tag name="schema">return: GFValidationReportDictionary-compatible report with issues, counts, summary, and next_actions.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="gather_section">
@@ -72,7 +72,7 @@ section，并在后续 provider 失败时恢复此前采集的 section。</descr
 				<tag name="param">context: 本次操作的临时上下文。</tag>
 				<tag name="return">合法且身份匹配的 section；失败时返回 null。</tag>
 				<tag name="schema">context: Dictionary with caller-defined ephemeral operation data.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="capture_section">
@@ -84,7 +84,7 @@ section，并在后续 provider 失败时恢复此前采集的 section。</descr
 				<tag name="param">context: 本次操作的临时上下文。</tag>
 				<tag name="return">合法且身份匹配的当前 section；失败时返回 null。</tag>
 				<tag name="schema">context: Dictionary with caller-defined ephemeral operation data.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="apply_section">
@@ -96,7 +96,7 @@ section，并在后续 provider 失败时恢复此前采集的 section。</descr
 				<tag name="param">context: 本次操作的临时上下文。</tag>
 				<tag name="return">Godot Error 结果码。</tag>
 				<tag name="schema">context: Dictionary with caller-defined ephemeral operation data.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="rollback_section">
@@ -108,7 +108,7 @@ section，并在后续 provider 失败时恢复此前采集的 section。</descr
 				<tag name="param">context: 本次操作的临时上下文。</tag>
 				<tag name="return">Godot Error 结果码。</tag>
 				<tag name="schema">context: Dictionary with caller-defined ephemeral operation data.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="make_section">
@@ -121,7 +121,7 @@ section，并在后续 provider 失败时恢复此前采集的 section。</descr
 				<tag name="return">新 section。</tag>
 				<tag name="schema">payload: Variant accepted by GFSavePersistedValueValidator.</tag>
 				<tag name="schema">metadata: Dictionary with provider-defined persisted metadata.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="_gather_section">
@@ -132,7 +132,7 @@ section，并在后续 provider 失败时恢复此前采集的 section。</descr
 				<tag name="param">_context: 本次操作的临时上下文。</tag>
 				<tag name="return">通过 `make_section()` 创建的当前版本 section。</tag>
 				<tag name="schema">_context: Dictionary with caller-defined ephemeral operation data.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="_capture_section">
@@ -143,7 +143,7 @@ section，并在后续 provider 失败时恢复此前采集的 section。</descr
 				<tag name="param">context: 本次操作的临时上下文。</tag>
 				<tag name="return">通过 `make_section()` 创建的当前版本 section。</tag>
 				<tag name="schema">context: Dictionary with caller-defined ephemeral operation data.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="_apply_section">
@@ -155,7 +155,7 @@ section，并在后续 provider 失败时恢复此前采集的 section。</descr
 				<tag name="param">_context: 本次操作的临时上下文。</tag>
 				<tag name="return">Godot Error 结果码。</tag>
 				<tag name="schema">_context: Dictionary with caller-defined ephemeral operation data.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="_rollback_section">
@@ -167,7 +167,7 @@ section，并在后续 provider 失败时恢复此前采集的 section。</descr
 				<tag name="param">context: 本次操作的临时上下文。</tag>
 				<tag name="return">Godot Error 结果码。</tag>
 				<tag name="schema">context: Dictionary with caller-defined ephemeral operation data.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 	</methods>

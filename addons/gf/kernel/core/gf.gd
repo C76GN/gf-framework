@@ -989,7 +989,7 @@ func listen_owned(listener_owner: Object, event_type: Script, listener: GFEventL
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param event_type: 要订阅的事件脚本类型。
 ## [br]
@@ -1058,7 +1058,7 @@ func listen_assignable_owned(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param base_event_type: 要订阅的基类事件脚本类型。
 ## [br]
@@ -1178,7 +1178,7 @@ func listen_simple_owned(listener_owner: Object, event_id: StringName, listener:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param event_id: 简单事件标识符。
 ## [br]

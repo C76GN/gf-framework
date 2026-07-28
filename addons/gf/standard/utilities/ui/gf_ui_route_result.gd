@@ -7,7 +7,7 @@
 ## [br]
 ## @category value_object
 ## [br]
-## @since unreleased
+## @since 10.0.0
 class_name GFUIRouteResult
 extends RefCounted
 
@@ -18,98 +18,98 @@ extends RefCounted
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const STATUS_OPENED: StringName = &"opened"
 
 ## 路由不存在。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const STATUS_MISSING_ROUTE: StringName = &"missing_route"
 
 ## 路由资源无效。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const STATUS_INVALID_ROUTE: StringName = &"invalid_route"
 
 ## Router 无法获取 UI Utility。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const STATUS_MISSING_UI_UTILITY: StringName = &"missing_ui_utility"
 
 ## 路由目标逻辑层未注册。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const STATUS_MISSING_UI_LAYER: StringName = &"missing_ui_layer"
 
 ## 同一路径、层级和操作已有不同路由请求。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const STATUS_ASYNC_CONFLICT: StringName = &"async_conflict"
 
 ## 预加载策略不受支持。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const STATUS_INVALID_PRELOAD_POLICY: StringName = &"invalid_preload_policy"
 
 ## 预加载策略需要 Asset Utility，但当前架构未提供。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const STATUS_MISSING_ASSET_UTILITY: StringName = &"missing_asset_utility"
 
 ## 无法构建满足策略要求的预加载计划。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const STATUS_PRELOAD_PLAN_FAILED: StringName = &"preload_plan_failed"
 
 ## 资产预加载事务失败或回滚。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const STATUS_PRELOAD_FAILED: StringName = &"preload_failed"
 
 ## 面板资源加载、实例化或入栈失败。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const STATUS_PANEL_FAILED: StringName = &"panel_failed"
 
 ## 底层 UI 请求在完成前被取消。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const STATUS_CANCELLED: StringName = &"cancelled"
 
 ## Router 在面板提交前释放，结果确定为未打开。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const STATUS_DISPOSED: StringName = &"disposed"
 
 ## Router 在面板提交后释放，无法再可靠观察底层终态。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const STATUS_OUTCOME_UNKNOWN: StringName = &"outcome_unknown"
 
 
@@ -138,7 +138,7 @@ var _metadata: Dictionary = {}
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 大于零的请求 ID。
 func get_request_id() -> int:
@@ -149,7 +149,7 @@ func get_request_id() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 本次请求的路由 ID。
 func get_route_id() -> StringName:
@@ -160,7 +160,7 @@ func get_route_id() -> StringName:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return `GFUIRouteOperation.OPERATION_*` 常量之一。
 func get_operation() -> StringName:
@@ -171,7 +171,7 @@ func get_operation() -> StringName:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return `STATUS_*` 常量之一。
 func get_status() -> StringName:
@@ -182,7 +182,7 @@ func get_status() -> StringName:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 面板已进入目标 UI 栈时返回 true。
 func is_successful() -> bool:
@@ -193,7 +193,7 @@ func is_successful() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 失败或尽力预加载降级原因；无原因时为空。
 func get_reason() -> StringName:
@@ -204,7 +204,7 @@ func get_reason() -> StringName:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 有效路由的目标层；路由解析前失败时为 -1。
 func get_layer() -> int:
@@ -215,7 +215,7 @@ func get_layer() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 成功面板；失败或面板已释放时返回 null。
 func get_panel() -> Node:
@@ -232,7 +232,7 @@ func get_panel() -> Node:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return Router 接受或拒绝的策略标识。
 func get_preload_policy() -> StringName:
@@ -243,7 +243,7 @@ func get_preload_policy() -> StringName:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 已创建并启动预加载会话时返回 true。
 func was_preload_attempted() -> bool:
@@ -254,7 +254,7 @@ func was_preload_attempted() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 会话进入 committed 终态时返回 true。
 func was_preload_successful() -> bool:
@@ -265,7 +265,7 @@ func was_preload_successful() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 不包含 Resource 实例的规划摘要。
 ## [br]
@@ -278,7 +278,7 @@ func get_preload_plan_report() -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 已完成会话的结果；未启动或尚未完成时返回 null。
 func get_preload_result() -> GFAssetLoadSessionResult:
@@ -289,7 +289,7 @@ func get_preload_result() -> GFAssetLoadSessionResult:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 单调时钟毫秒值。
 func get_started_at_msec() -> int:
@@ -300,7 +300,7 @@ func get_started_at_msec() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 单调时钟毫秒值。
 func get_completed_at_msec() -> int:
@@ -311,7 +311,7 @@ func get_completed_at_msec() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 非负毫秒数。
 func get_duration_msec() -> int:
@@ -322,7 +322,7 @@ func get_duration_msec() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return `async_options.metadata` 的隔离副本。
 ## [br]
@@ -335,7 +335,7 @@ func get_metadata() -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 新结果对象。
 func duplicate_result() -> GFUIRouteResult:
@@ -364,7 +364,7 @@ func duplicate_result() -> GFUIRouteResult:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 请求身份、终态、预加载摘要和持续时间。
 ## [br]
@@ -399,7 +399,7 @@ func to_dict() -> Dictionary:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param request_id: Router 内唯一请求 ID。
 ## [br]

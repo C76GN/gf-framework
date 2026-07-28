@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFThumbnailRenderRequest" path="addons/gf/kernel/editor/gf_thumbnail_render_request.gd" module="kernel" extends="RefCounted" classDigest="4d9ced61a7f94ab5313c936e9e776181cda15b90ed62b88c27906207ed8dfe62">
+<class name="GFThumbnailRenderRequest" path="addons/gf/kernel/editor/gf_thumbnail_render_request.gd" module="kernel" extends="RefCounted" classDigest="d631dd594c614230339fdb202c11b228a604c0a3951af176cda20eecf4119522">
 	<description>GFThumbnailRenderRequest: 缩略图渲染请求描述。
 请求只描述一次缩略图渲染的输入，不持有执行状态；执行状态由 GFThumbnailRenderTask 承载。</description>
 	<tags>
@@ -76,7 +76,7 @@
 				<tag name="param">content_bounds: 来源局部坐标中的显式内容边界；非正尺寸表示自动估算。</tag>
 				<tag name="param">margin_ratio: 内容边界四周的相对留白，钳制到 0.0 至 1.0。</tag>
 				<tag name="return">CanvasItem Image 渲染请求。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="for_canvas_item_texture">
@@ -92,7 +92,7 @@
 				<tag name="param">content_bounds: 来源局部坐标中的显式内容边界；非正尺寸表示自动估算。</tag>
 				<tag name="param">margin_ratio: 内容边界四周的相对留白，钳制到 0.0 至 1.0。</tag>
 				<tag name="return">CanvasItem ImageTexture 渲染请求。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="for_mesh_image">
@@ -155,7 +155,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">CanvasItem 来源；非 2D 请求时返回 null。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_mesh">
@@ -209,7 +209,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">来源局部坐标中的内容边界；未设置时返回空 Rect2。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="has_content_bounds">
@@ -218,7 +218,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">两个边长都为正时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_margin_ratio">
@@ -227,7 +227,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">0.0 至 1.0 的留白比例。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="is_valid">

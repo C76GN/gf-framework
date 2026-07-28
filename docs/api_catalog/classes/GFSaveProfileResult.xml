@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSaveProfileResult" path="addons/gf/extensions/save/profile/gf_save_profile_result.gd" module="extensions/save" extends="RefCounted" classDigest="be2e588dda989fa0031b0bdea7825f775bb73999462099714ae792cda110b967">
+<class name="GFSaveProfileResult" path="addons/gf/extensions/save/profile/gf_save_profile_result.gd" module="extensions/save" extends="RefCounted" classDigest="2951c4a14f2349b19a0ebf1efb4ce9dfcba2ffa821b58083c8b5582034714220">
 	<description>GFSaveProfileResult: Save Profile 操作的不可变终态快照。
 结果同时保留 profile generation、底层存储结果、迁移/校验证据和回滚错误，
 调用方无需从错误文本反推失败阶段。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">value_object</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">10.0.0</tag>
 	</tags>
 	<signals />
 	<enums />
@@ -16,7 +16,7 @@
 			<description>保存 generation 已持久化。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATUS_LOADED">
@@ -24,7 +24,7 @@
 			<description>文档已迁移、校验并应用。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATUS_FLUSHED">
@@ -32,7 +32,7 @@
 			<description>flush 目标 generation 已持久化。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATUS_RECOVERED">
@@ -40,7 +40,7 @@
 			<description>恢复政策保留了当前内存状态。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATUS_INVALID_PROFILE">
@@ -48,7 +48,7 @@
 			<description>Profile 配置或请求无效。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATUS_UNSUPPORTED_OPERATION">
@@ -56,7 +56,7 @@
 			<description>当前 Profile 不支持请求的操作。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATUS_BUSY">
@@ -64,7 +64,7 @@
 			<description>请求与正在执行的加载或 Provider 回调冲突。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATUS_GATHER_FAILED">
@@ -72,7 +72,7 @@
 			<description>section 保存采集失败。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATUS_SNAPSHOT_FAILED">
@@ -80,7 +80,7 @@
 			<description>section 应用前快照采集失败。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATUS_STORAGE_FAILED">
@@ -88,7 +88,7 @@
 			<description>底层存储启动或执行失败。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATUS_MISSING">
@@ -96,7 +96,7 @@
 			<description>存档文件不存在。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATUS_CORRUPT">
@@ -104,7 +104,7 @@
 			<description>存档文档损坏或完整性失败。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATUS_SCHEMA_MISMATCH">
@@ -112,7 +112,7 @@
 			<description>文档 schema ID 与 profile 不匹配。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATUS_FUTURE_SCHEMA">
@@ -120,7 +120,7 @@
 			<description>文档或 section 来自未来 schema。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATUS_MIGRATION_FAILED">
@@ -128,7 +128,7 @@
 			<description>旧版本文档迁移失败或缺少迁移链。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATUS_VALIDATION_FAILED">
@@ -136,7 +136,7 @@
 			<description>当前版本文档校验失败。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATUS_APPLY_FAILED">
@@ -144,7 +144,7 @@
 			<description>section provider 应用失败且回滚成功。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATUS_ROLLBACK_FAILED">
@@ -152,7 +152,7 @@
 			<description>section provider 应用失败且至少一个回滚失败。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATUS_DISPOSED">
@@ -160,7 +160,7 @@
 			<description>Utility 释放时操作仍未完成。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATUS_OUTCOME_UNKNOWN">
@@ -168,7 +168,7 @@
 			<description>写入已提交到底层但无法确认最终磁盘副作用。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 	</constants>
@@ -180,7 +180,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">成功终态返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_status">
@@ -189,7 +189,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">`STATUS_*` 常量之一。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_operation">
@@ -198,7 +198,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">save、load 或 flush。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_profile_id">
@@ -207,7 +207,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">profile ID。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_requested_generation">
@@ -216,7 +216,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">非负 generation。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_persisted_generation">
@@ -225,7 +225,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">非负 generation。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_attempt_count">
@@ -234,7 +234,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">未启动 IO 时为 0。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="was_coalesced">
@@ -243,7 +243,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">被合并时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="was_recovered">
@@ -252,7 +252,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">使用恢复动作时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_recovery_action">
@@ -261,7 +261,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">未恢复时为空。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_failed_section_id">
@@ -270,7 +270,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">非 section 失败时为空。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_error_code">
@@ -279,7 +279,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">成功时为 OK。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_error">
@@ -288,7 +288,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">成功时为空。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_document">
@@ -297,7 +297,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">已采集或加载文档；不可用时为 null。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_storage_result">
@@ -306,7 +306,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">load 操作的原始读取结果；其他操作或读取未启动时为 null。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_migration_result">
@@ -315,7 +315,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">执行迁移时的结果；否则为 null。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_validation_report">
@@ -325,7 +325,7 @@
 				<tag name="api">public</tag>
 				<tag name="return">结构化校验报告。</tag>
 				<tag name="schema">return: GFValidationReportDictionary-compatible report or an empty Dictionary.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_rollback_errors">
@@ -334,7 +334,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">按回滚顺序记录的类型化失败证据。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_duration_msec">
@@ -343,7 +343,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">单调毫秒耗时。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_metadata">
@@ -353,7 +353,7 @@
 				<tag name="api">public</tag>
 				<tag name="return">调用方定义的临时结果元数据。</tag>
 				<tag name="schema">return: Dictionary with caller-defined operation metadata.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_storage_request_ids">
@@ -362,7 +362,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">按发起顺序排列的请求 ID；没有底层 IO 时为空。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="to_dict">
@@ -372,7 +372,7 @@
 				<tag name="api">public</tag>
 				<tag name="return">不包含完整文档载荷的结果摘要。</tag>
 				<tag name="schema">return: Dictionary with ok, status, operation, profile_id, generation, timing, recovery, error, validation, rollback, and metadata fields.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="duplicate_result">
@@ -381,7 +381,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">新结果对象。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 	</methods>

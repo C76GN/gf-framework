@@ -394,7 +394,7 @@ func is_lifecycle_active() -> bool:
 ### `is_disposed`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func is_disposed() -> bool:
@@ -409,7 +409,7 @@ func is_disposed() -> bool:
 ### `is_disposing`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func is_disposing() -> bool:
@@ -787,7 +787,7 @@ func register_event_owned(owner: Object, event_type: Script, listener: GFEventLi
 ### `subscribe_event`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func subscribe_event( event_type: Script, listener: GFEventListener, priority: int = 0, once: bool = false ) -> GFSubscriptionToken:
@@ -854,7 +854,7 @@ func register_assignable_event_owned( owner: Object, base_event_type: Script, li
 ### `subscribe_assignable_event`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func subscribe_assignable_event( base_event_type: Script, listener: GFEventListener, priority: int = 0, once: bool = false ) -> GFSubscriptionToken:
@@ -1001,7 +1001,7 @@ func register_simple_event_owned(owner: Object, event_id: StringName, listener: 
 ### `subscribe_simple_event`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func subscribe_simple_event( event_id: StringName, listener: GFEventListener, once: bool = false ) -> GFSubscriptionToken:

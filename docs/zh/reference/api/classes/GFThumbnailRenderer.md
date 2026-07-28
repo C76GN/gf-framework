@@ -80,7 +80,7 @@ func render_node3d_texture( source: Node3D, size: Vector2i = Vector2i(256, 256),
 ### `render_canvas_item`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func render_canvas_item( source: CanvasItem, size: Vector2i = Vector2i(256, 256), transparent: bool = true, content_bounds: Rect2 = Rect2(), margin_ratio: float = 0.08 ) -> Image:
@@ -105,7 +105,7 @@ func render_canvas_item( source: CanvasItem, size: Vector2i = Vector2i(256, 256)
 ### `render_canvas_item_texture`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func render_canvas_item_texture( source: CanvasItem, size: Vector2i = Vector2i(256, 256), transparent: bool = true, content_bounds: Rect2 = Rect2(), margin_ratio: float = 0.08 ) -> ImageTexture:

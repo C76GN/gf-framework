@@ -7,7 +7,7 @@
 ## [br]
 ## @category value_object
 ## [br]
-## @since unreleased
+## @since 10.0.0
 class_name GFNetworkInputFrame
 extends RefCounted
 
@@ -23,28 +23,28 @@ const _TRANSPORT_VALUE_VALIDATOR = preload("res://addons/gf/extensions/network/r
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 var tick: int = 0
 
 ## 输入来源 peer。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 var peer_id: int = -1
 
 ## 来源 peer 内严格单调的输入序号。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 var sequence: int = 0
 
 ## 项目定义的输入载荷。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @schema payload: Dictionary[StringName|String, Variant]，只允许网络传输安全值。
 var payload: Dictionary = {}
@@ -70,7 +70,7 @@ func _init(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 输入帧字典。
 ## [br]
@@ -91,7 +91,7 @@ func to_dict() -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param data: 输入帧字典。
 ## [br]
@@ -107,7 +107,7 @@ func from_dict(data: Dictionary) -> void:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 独立输入帧副本。
 func duplicate_frame() -> GFNetworkInputFrame:
@@ -120,7 +120,7 @@ func duplicate_frame() -> GFNetworkInputFrame:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param options: 结构预算；支持 max_depth、max_nodes 和 max_payload_bytes。
 ## [br]

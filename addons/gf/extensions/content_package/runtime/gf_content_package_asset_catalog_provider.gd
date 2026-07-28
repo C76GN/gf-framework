@@ -7,7 +7,7 @@
 ## [br]
 ## @category protocol
 ## [br]
-## @since unreleased
+## @since 10.0.0
 class_name GFContentPackageAssetCatalogProvider
 extends GFAssetCatalogSourceProvider
 
@@ -29,7 +29,7 @@ var _query: GFContentPackageQuery = GFContentPackageQuery.new()
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param catalog: 内容包目录；Provider 保存其深拷贝。
 ## [br]
@@ -58,7 +58,7 @@ func configure_catalog(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param options: 可选字段映射，支持 title_fields、description_fields、tag_fields、category_fields 和 preview_path_fields。
 ## [br]
@@ -83,7 +83,7 @@ func build_catalog(options: Dictionary = {}) -> GFAssetCatalog:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 来源、内容包目录和查询摘要。
 ## [br]

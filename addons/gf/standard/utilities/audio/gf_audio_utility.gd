@@ -747,7 +747,7 @@ func get_bgm_playback_position() -> float:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return: 当前 BGM 正在播放、淡变或暂停时返回 true。
 func is_bgm_playing() -> bool:

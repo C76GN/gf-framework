@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSessionTraceCheckpoint" path="addons/gf/standard/utilities/debug/gf_session_trace_checkpoint.gd" module="standard" extends="Resource" classDigest="663317a664648ac0ad3d723dc67760cdab4e37e6d04c416918aa56b14a02c94b">
+<class name="GFSessionTraceCheckpoint" path="addons/gf/standard/utilities/debug/gf_session_trace_checkpoint.gd" module="standard" extends="Resource" classDigest="4f249929716e0f0e3dc39ad0775a712f191ce59177958e95853c1fa19c946ca0">
 	<description>GFSessionTraceCheckpoint: Session Trace 配方中的显式 Provider 采集点。
 检查点只引用已经在运行时注册的 Provider ID，单个列表最多包含 256 项。
 默认所有 Provider 都是必需项；`optional_provider_ids` 可把部分失败降级为
@@ -7,7 +7,7 @@
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">resource_definition</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">10.0.0</tag>
 	</tags>
 	<signals />
 	<enums />
@@ -18,7 +18,7 @@
 			<description>稳定检查点 ID。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="provider_ids" decorators="@export">
@@ -26,7 +26,7 @@
 			<description>按顺序显式采集的 Provider ID。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="optional_provider_ids" decorators="@export">
@@ -34,7 +34,7 @@
 			<description>允许失败而不让检查点整体失败的 Provider ID，必须是 `provider_ids` 子集。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="metadata" decorators="@export">
@@ -43,7 +43,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="schema">metadata: Dictionary with project-defined checkpoint metadata.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 	</properties>
@@ -58,7 +58,7 @@
 				<tag name="param">options: 检查点选项。</tag>
 				<tag name="return">当前检查点。</tag>
 				<tag name="schema">options: Dictionary with optional_provider_ids and metadata.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="validate_checkpoint">
@@ -68,7 +68,7 @@
 				<tag name="api">public</tag>
 				<tag name="return">GFValidationReportDictionary 兼容报告。</tag>
 				<tag name="schema">return: Dictionary with ok, issues, counts, summary, and next_actions.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 	</methods>

@@ -8,7 +8,7 @@
 ## [br]
 ## @category value_object
 ## [br]
-## @since unreleased
+## @since 10.0.0
 class_name GFNetworkTransportMetrics
 extends RefCounted
 
@@ -19,70 +19,70 @@ extends RefCounted
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const BYTES_SENT: StringName = &"bytes_sent"
 
 ## 已接收字节数。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const BYTES_RECEIVED: StringName = &"bytes_received"
 
 ## 已发送包数。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const PACKETS_SENT: StringName = &"packets_sent"
 
 ## 已接收包数。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const PACKETS_RECEIVED: StringName = &"packets_received"
 
 ## 当前连接时长，单位毫秒。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const CONNECTION_AGE_MSEC: StringName = &"connection_age_msec"
 
 ## 往返延迟，单位毫秒。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const ROUND_TRIP_TIME_MSEC: StringName = &"round_trip_time_msec"
 
 ## 延迟抖动，单位毫秒。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const JITTER_MSEC: StringName = &"jitter_msec"
 
 ## 丢包率，取值范围为 0 到 1。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const PACKET_LOSS_RATIO: StringName = &"packet_loss_ratio"
 
 ## 发送队列包数。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const SEND_QUEUE_PACKETS: StringName = &"send_queue_packets"
 
 ## 接收队列包数。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const RECEIVE_QUEUE_PACKETS: StringName = &"receive_queue_packets"
 
 
@@ -92,14 +92,14 @@ const RECEIVE_QUEUE_PACKETS: StringName = &"receive_queue_packets"
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 var sample_time_msec: int = 0
 
 ## 统计窗口长度，单位毫秒；0 表示累计值或未知窗口。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 var sample_window_msec: int = 0
 
 
@@ -114,7 +114,7 @@ var _metrics: Dictionary[StringName, float] = {}
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param metric_id: 非空稳定指标 ID。
 ## [br]
@@ -135,7 +135,7 @@ func set_metric(metric_id: StringName, value: float) -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param metric_id: 指标 ID。
 ## [br]
@@ -148,7 +148,7 @@ func clear_metric(metric_id: StringName) -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param metric_id: 指标 ID。
 ## [br]
@@ -161,7 +161,7 @@ func has_metric(metric_id: StringName) -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param metric_id: 指标 ID。
 ## [br]
@@ -176,7 +176,7 @@ func get_metric(metric_id: StringName, default_value: float = 0.0) -> float:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 已知指标 ID。
 func get_metric_ids() -> PackedStringArray:
@@ -191,7 +191,7 @@ func get_metric_ids() -> PackedStringArray:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param other: 指标来源。
 func merge_from(other: GFNetworkTransportMetrics) -> void:
@@ -206,7 +206,7 @@ func merge_from(other: GFNetworkTransportMetrics) -> void:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 指标快照字典。
 ## [br]
@@ -227,7 +227,7 @@ func to_dict() -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param data: 指标快照字典。
 ## [br]
@@ -258,7 +258,7 @@ func apply_dict(data: Dictionary) -> void:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 新指标快照。
 func duplicate_metrics() -> GFNetworkTransportMetrics:
@@ -269,7 +269,7 @@ func duplicate_metrics() -> GFNetworkTransportMetrics:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param data: 指标快照字典。
 ## [br]

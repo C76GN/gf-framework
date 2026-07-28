@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFPlatformActivationIntent" path="addons/gf/standard/foundation/platform/gf_platform_activation_intent.gd" module="standard" extends="Resource" classDigest="a949406c16db708e50c1c91117c2a1aa485bb6eb2f02582430d176ce6242e645">
+<class name="GFPlatformActivationIntent" path="addons/gf/standard/foundation/platform/gf_platform_activation_intent.gd" module="standard" extends="Resource" classDigest="0a433e6e0f6d61529d068340f3e52748ed70792bcbacaf8085ebb5da85d11696">
 	<description>GFPlatformActivationIntent: 平台激活入口事件。
 统一表达命令行启动、邀请加入、深链、前台恢复或平台入口参数。该值对象只记录
 平台事实，不解释奖励、导航、匹配或其他项目策略。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">event_contract</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">10.0.0</tag>
 	</tags>
 	<signals />
 	<enums />
@@ -17,7 +17,7 @@
 			<description>平台侧或 adapter 生成的幂等 ID。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="intent_type" decorators="@export">
@@ -25,7 +25,7 @@
 			<description>Provider-neutral 意图类型。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="platform_id" decorators="@export">
@@ -33,7 +33,7 @@
 			<description>来源平台 ID。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="adapter_id" decorators="@export">
@@ -41,7 +41,7 @@
 			<description>来源 Adapter ID。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="source" decorators="@export">
@@ -49,7 +49,7 @@
 			<description>平台入口来源，例如 command_line、invite、deep_link 或 resume。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="timestamp_msec" decorators="@export">
@@ -57,7 +57,7 @@
 			<description>单调时间戳，单位毫秒。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="payload" decorators="@export">
@@ -66,7 +66,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="schema">payload: Dictionary platform activation payload.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="metadata" decorators="@export">
@@ -75,7 +75,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="schema">metadata: Dictionary platform activation metadata.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 	</properties>
@@ -92,7 +92,7 @@
 				<tag name="return">当前意图。</tag>
 				<tag name="schema">p_payload: Dictionary platform activation payload.</tag>
 				<tag name="schema">options: Dictionary platform activation options.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="is_empty">
@@ -101,7 +101,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">缺少 intent_id 或 intent_type 时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="to_dict">
@@ -111,7 +111,7 @@
 				<tag name="api">public</tag>
 				<tag name="return">激活意图字典。</tag>
 				<tag name="schema">return: Dictionary platform activation intent.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="apply_dict">
@@ -121,7 +121,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">data: 激活意图字典。</tag>
 				<tag name="schema">data: Dictionary platform activation intent.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="duplicate_intent">
@@ -130,7 +130,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">新意图。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="from_dict">
@@ -141,7 +141,7 @@
 				<tag name="param">data: 激活意图字典。</tag>
 				<tag name="return">新意图。</tag>
 				<tag name="schema">data: Dictionary platform activation intent.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 	</methods>

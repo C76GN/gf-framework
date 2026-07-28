@@ -94,7 +94,7 @@ signal setting_changed(key: StringName, old_value: Variant, new_value: Variant)
 ### `settings_load_completed`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 signal settings_load_completed(result: GFSettingsLoadResult)
@@ -870,7 +870,7 @@ func load_settings( file_name: String = "", recovery_policy: GFSettingsRecoveryP
 ### `get_last_load_result`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_last_load_result() -> GFSettingsLoadResult:

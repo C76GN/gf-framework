@@ -10,7 +10,7 @@
 ## [br]
 ## @category runtime_service
 ## [br]
-## @since unreleased
+## @since 10.0.0
 class_name GFAnalyticsSchemaRegistry
 extends Resource
 
@@ -45,7 +45,7 @@ var _registered_text_bytes: int = 0
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param schema: 待注册事件 Schema。
 ## [br]
@@ -160,7 +160,7 @@ func register_schema(schema: GFAnalyticsEventSchema) -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param event_name: 稳定事件名。
 ## [br]
@@ -177,7 +177,7 @@ func has_schema(event_name: StringName, schema_version: int) -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param event_name: 稳定事件名。
 ## [br]
@@ -198,7 +198,7 @@ func get_schema(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param event_name: 稳定事件名。
 ## [br]
@@ -220,7 +220,7 @@ func get_versions(event_name: StringName) -> PackedInt32Array:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param event_name: 稳定事件名。
 ## [br]
@@ -268,7 +268,7 @@ func validate(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 注册表调试信息。
 ## [br]

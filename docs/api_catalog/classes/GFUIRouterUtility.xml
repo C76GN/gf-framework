@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFUIRouterUtility" path="addons/gf/standard/utilities/ui/gf_ui_router_utility.gd" module="standard" extends="GFUtility" classDigest="48c7d9a934d367acacd135f1933e50943e5443b6d3da1f1dc2f1dcb4699a374b">
+<class name="GFUIRouterUtility" path="addons/gf/standard/utilities/ui/gf_ui_router_utility.gd" module="standard" extends="GFUtility" classDigest="edbd00a005e1f2cb0e2e454d4077c094e4b30d97248b116df7f743d90a847108">
 	<description>GFUIRouterUtility: 基于路由 ID 的 UI 导航工具。
 作为 GFUIUtility 之上的轻量路由层，负责把稳定 route_id 映射到面板场景、
 打开参数、层级和历史记录，不接管具体页面业务或动画表现。</description>
@@ -45,7 +45,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">result: 隔离的类型化终态结果。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="signal" name="route_back_completed">
@@ -78,7 +78,7 @@
 			<description>不执行路由预加载，直接提交异步面板请求。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="PRELOAD_BEST_EFFORT">
@@ -86,7 +86,7 @@
 			<description>尽力执行路由预加载；规划或加载失败时仍继续打开面板。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="PRELOAD_REQUIRED">
@@ -94,7 +94,7 @@
 			<description>要求路由预加载完整成功；否则不提交面板请求。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 	</constants>
@@ -208,7 +208,7 @@
 				<tag name="return">路由预加载结果。</tag>
 				<tag name="schema">options: Dictionary，可包含 max_depth、max_catalog_routes、max_routes、max_edges、include_source、fixed_route_ids、group_id、plan_id、pin_cache、lane_id、max_concurrent_loads、check_exists 和 metadata。</tag>
 				<tag name="schema">return: Dictionary，结构同 GFUIRoutePreloadUtility.build_plan()，其中 asset_plan 为 GFAssetPreloadPlan。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="push_route">
@@ -253,7 +253,7 @@
 				<tag name="schema">params: Dictionary，本次打开路由携带的项目自定义参数。</tag>
 				<tag name="schema">option_overrides: Dictionary，字段同 GFUIUtility 打开面板 options，会覆盖路由 default_options。</tag>
 				<tag name="schema">async_options: Dictionary，可包含 preload_policy、preload_plan_options 和 metadata；preload_policy 使用 PRELOAD_* 常量，自动预加载始终包含当前路由，未指定 max_depth 时只加载当前页面。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="replace_route_async">
@@ -270,7 +270,7 @@
 				<tag name="schema">params: Dictionary，本次打开路由携带的项目自定义参数。</tag>
 				<tag name="schema">option_overrides: Dictionary，字段同 GFUIUtility 打开面板 options，会覆盖路由 default_options。</tag>
 				<tag name="schema">async_options: Dictionary，可包含 preload_policy、preload_plan_options 和 metadata；preload_policy 使用 PRELOAD_* 常量，自动预加载始终包含当前路由，未指定 max_depth 时只加载当前页面。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="back">

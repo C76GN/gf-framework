@@ -146,7 +146,7 @@ func register_owned(owner: Object, event_type: Script, listener: GFEventListener
 ### `subscribe`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func subscribe( event_type: Script, listener: GFEventListener, priority: int = 0, once: bool = false ) -> GFSubscriptionToken:
@@ -254,7 +254,7 @@ func register_assignable_owned( owner: Object, base_event_type: Script, listener
 ### `subscribe_assignable`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func subscribe_assignable( base_event_type: Script, listener: GFEventListener, priority: int = 0, once: bool = false ) -> GFSubscriptionToken:
@@ -378,7 +378,7 @@ func register_simple_owned(owner: Object, event_id: StringName, listener: GFEven
 ### `subscribe_simple`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func subscribe_simple( event_id: StringName, listener: GFEventListener, once: bool = false ) -> GFSubscriptionToken:

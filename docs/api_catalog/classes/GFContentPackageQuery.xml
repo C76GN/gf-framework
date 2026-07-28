@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFContentPackageQuery" path="addons/gf/extensions/content_package/resources/gf_content_package_query.gd" module="extensions/content_package" extends="Resource" classDigest="ac49129fe7d8290d2d4f88f94fcda9993d78aefae17ec1f7ad455544cef86e13">
+<class name="GFContentPackageQuery" path="addons/gf/extensions/content_package/resources/gf_content_package_query.gd" module="extensions/content_package" extends="Resource" classDigest="87129d5baaf7b7a07adc0cb265306f9ebfd81550d834216d1254e3e1fd589961">
 	<description>GFContentPackageQuery: 内容包目录的确定性通用查询条件。
 查询只描述 package、content type、依赖、资源键、安全分类和 metadata 约束，
 不解释项目业务语义。所有非空条件采用 AND 语义，列表条件要求 manifest 包含全部值。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">value_object</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">10.0.0</tag>
 	</tags>
 	<signals />
 	<enums />
@@ -17,7 +17,7 @@
 			<description>查询稳定标识，仅用于诊断和追踪。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="package_ids" decorators="@export">
@@ -25,7 +25,7 @@
 			<description>允许返回的 package ID；为空表示不限制。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="search_text" decorators="@export">
@@ -33,7 +33,7 @@
 			<description>在 package ID、显示名、版本和 content type 中匹配的大小写无关文本。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="required_content_types" decorators="@export">
@@ -41,7 +41,7 @@
 			<description>manifest 必须包含的全部 content type。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="required_dependencies" decorators="@export">
@@ -49,7 +49,7 @@
 			<description>manifest 必须声明的全部直接依赖 ID。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="required_resource_keys" decorators="@export">
@@ -57,7 +57,7 @@
 			<description>manifest 必须声明的全部资源键。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="allowed_safety_kinds" decorators="@export">
@@ -65,7 +65,7 @@
 			<description>允许的安全分类；为空表示不限制。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="required_metadata" decorators="@export">
@@ -74,7 +74,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="schema">required_metadata: Dictionary with exact manifest metadata key/value filters.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="include_dependencies" decorators="@export">
@@ -82,7 +82,7 @@
 			<description>是否把直接命中包的传递依赖加入结果。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="max_results" decorators="@export">
@@ -90,7 +90,7 @@
 			<description>直接命中包的最大数量；小于等于 0 表示不限制。依赖闭包不计入该限制。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="metadata" decorators="@export">
@@ -99,7 +99,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="schema">metadata: Dictionary with caller-defined query metadata.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 	</properties>
@@ -111,7 +111,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">manifest: 要检查的内容包 manifest。</tag>
 				<tag name="return">满足查询条件返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="apply_dict">
@@ -121,7 +121,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">data: 查询字典。</tag>
 				<tag name="schema">data: Dictionary with query_id, package_ids, search_text, required_content_types, required_dependencies, required_resource_keys, allowed_safety_kinds, required_metadata, include_dependencies, max_results, and metadata.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="to_dict">
@@ -131,7 +131,7 @@
 				<tag name="api">public</tag>
 				<tag name="return">查询字典副本。</tag>
 				<tag name="schema">return: Dictionary with query_id, package_ids, search_text, required_content_types, required_dependencies, required_resource_keys, allowed_safety_kinds, required_metadata, include_dependencies, max_results, and metadata.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="duplicate_query">
@@ -140,7 +140,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">新查询。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="from_dict">
@@ -151,7 +151,7 @@
 				<tag name="param">data: 查询字典。</tag>
 				<tag name="return">新查询。</tag>
 				<tag name="schema">data: Dictionary with query_id, package_ids, search_text, required_content_types, required_dependencies, required_resource_keys, allowed_safety_kinds, required_metadata, include_dependencies, max_results, and metadata.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 	</methods>

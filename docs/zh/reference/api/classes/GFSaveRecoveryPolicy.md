@@ -7,7 +7,7 @@
 - 继承：`Resource`
 - API：`public`
 - 类别：资源定义 (`resource_definition`)
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 Save Profile 的显式恢复与有界重试政策。 缺失和损坏数据默认失败；项目必须显式选择保留当前内存状态。 重试只接受列出的临时错误，并受有限延迟序列约束。
 
@@ -33,7 +33,7 @@ Save Profile 的显式恢复与有界重试政策。 缺失和损坏数据默认
 ### `ACTION_FAIL`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const ACTION_FAIL: StringName = &"fail"
@@ -46,7 +46,7 @@ const ACTION_FAIL: StringName = &"fail"
 ### `ACTION_USE_CURRENT_STATE`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const ACTION_USE_CURRENT_STATE: StringName = &"use_current_state"
@@ -61,7 +61,7 @@ const ACTION_USE_CURRENT_STATE: StringName = &"use_current_state"
 ### `missing_file_action`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var missing_file_action: StringName = ACTION_FAIL
@@ -74,7 +74,7 @@ var missing_file_action: StringName = ACTION_FAIL
 ### `corrupt_file_action`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var corrupt_file_action: StringName = ACTION_FAIL
@@ -87,7 +87,7 @@ var corrupt_file_action: StringName = ACTION_FAIL
 ### `retry_delays_msec`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var retry_delays_msec: PackedInt32Array = PackedInt32Array()
@@ -100,7 +100,7 @@ var retry_delays_msec: PackedInt32Array = PackedInt32Array()
 ### `transient_error_codes`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var transient_error_codes: PackedInt32Array = PackedInt32Array([
@@ -113,7 +113,7 @@ var transient_error_codes: PackedInt32Array = PackedInt32Array([
 ### `io_timeout_msec`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var io_timeout_msec: int = 30_000
@@ -128,7 +128,7 @@ var io_timeout_msec: int = 30_000
 ### `validate_policy`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func validate_policy() -> Dictionary:
@@ -147,7 +147,7 @@ func validate_policy() -> Dictionary:
 ### `can_retry`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func can_retry(error_code: Error, failed_attempt_count: int) -> bool:
@@ -169,7 +169,7 @@ func can_retry(error_code: Error, failed_attempt_count: int) -> bool:
 ### `get_retry_delay_msec`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_retry_delay_msec(failed_attempt_count: int) -> int:

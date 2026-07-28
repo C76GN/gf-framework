@@ -45,147 +45,147 @@ const SERVER_PEER_ID: int = 1
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const DEFAULT_MAX_CLIENTS: int = 32
 
 ## WebSocket 主机允许的远端 peer 绝对上限。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const ABSOLUTE_MAX_CLIENTS: int = 65_535
 
 ## WebSocket 握手默认超时时间（毫秒）。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const DEFAULT_HANDSHAKE_TIMEOUT_MSEC: int = 5_000
 
 ## WebSocket 握手超时时间绝对上限（毫秒）。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const ABSOLUTE_MAX_HANDSHAKE_TIMEOUT_MSEC: int = 300_000
 
 ## 单次 poll 默认 accept 尝试预算。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const DEFAULT_MAX_ACCEPTS_PER_POLL: int = 16
 
 ## 单次 poll accept 尝试预算绝对上限。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const ABSOLUTE_MAX_ACCEPTS_PER_POLL: int = 4096
 
 ## 单个 peer 单次 poll 默认入站包预算。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const DEFAULT_MAX_PACKETS_PER_PEER_PER_POLL: int = 64
 
 ## 单个 peer 单次 poll 入站包预算绝对上限。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const ABSOLUTE_MAX_PACKETS_PER_PEER_PER_POLL: int = 4096
 
 ## 单次 poll 默认全局入站包预算。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const DEFAULT_MAX_PACKETS_PER_POLL: int = 512
 
 ## 单次 poll 全局入站包预算绝对上限。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const ABSOLUTE_MAX_PACKETS_PER_POLL: int = 16_384
 
 ## 单次 poll 默认服务 peer 数量。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const DEFAULT_MAX_SERVICE_PEERS_PER_POLL: int = 64
 
 ## 单次 poll 服务 peer 数量绝对上限。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const ABSOLUTE_MAX_SERVICE_PEERS_PER_POLL: int = 4096
 
 ## 单个 WebSocket peer 默认入站缓冲区字节数。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const DEFAULT_INBOUND_BUFFER_SIZE: int = 65_536
 
 ## 单个 WebSocket peer 入站缓冲区字节数绝对上限。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const ABSOLUTE_MAX_INBOUND_BUFFER_SIZE: int = 4 * 1024 * 1024
 
 ## 单个 WebSocket peer 默认出站缓冲区字节数。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const DEFAULT_OUTBOUND_BUFFER_SIZE: int = 65_536
 
 ## 单个 WebSocket peer 出站缓冲区字节数绝对上限。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const ABSOLUTE_MAX_OUTBOUND_BUFFER_SIZE: int = 4 * 1024 * 1024
 
 ## 单个 WebSocket peer 默认排队包数量。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const DEFAULT_MAX_QUEUED_PACKETS: int = 1024
 
 ## 单个 WebSocket peer 排队包数量绝对上限。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const ABSOLUTE_MAX_QUEUED_PACKETS: int = 4096
 
 ## 单个 peer 允许声明的 WebSocket 子协议数量绝对上限。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const ABSOLUTE_MAX_SUPPORTED_PROTOCOL_COUNT: int = 32
 
 ## 单个 WebSocket 子协议 UTF-8 字节数绝对上限。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const ABSOLUTE_MAX_SUPPORTED_PROTOCOL_BYTES: int = 256
 
 ## 单个 peer 全部 WebSocket 子协议 UTF-8 总字节数绝对上限。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const ABSOLUTE_MAX_SUPPORTED_PROTOCOL_TOTAL_BYTES: int = 4096
 
 
@@ -231,7 +231,7 @@ var max_packets_per_peer_per_poll: int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 var max_packets_per_poll: int:
 	get:
 		return _max_packets_per_poll
@@ -249,7 +249,7 @@ var max_packets_per_poll: int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 var max_service_peers_per_poll: int:
 	get:
 		return _max_service_peers_per_poll
@@ -267,7 +267,7 @@ var max_service_peers_per_poll: int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 var handshake_timeout_msec: int:
 	get:
 		return _handshake_timeout_msec

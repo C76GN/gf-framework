@@ -7,7 +7,7 @@
 ## [br]
 ## @category runtime_handle
 ## [br]
-## @since unreleased
+## @since 10.0.0
 class_name GFAssetCatalogMount
 extends RefCounted
 
@@ -18,49 +18,49 @@ extends RefCounted
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const STATUS_ACTIVE: StringName = &"active"
 
 ## Mount 已由调用方或 owner scope 释放。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const STATUS_UNMOUNTED: StringName = &"unmounted"
 
 ## Mount 与已提交资产 ID 冲突。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const STATUS_CONFLICT: StringName = &"conflict"
 
 ## Provider 未能构建目录。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const STATUS_BUILD_FAILED: StringName = &"build_failed"
 
 ## 同一 owner 已存在相同 mount ID。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const STATUS_DUPLICATE_MOUNT: StringName = &"duplicate_mount"
 
 ## Mount 请求缺少 owner、mount ID 或有效目录。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const STATUS_INVALID_REQUEST: StringName = &"invalid_request"
 
 ## 所属 Runtime 已释放。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const STATUS_DISPOSED: StringName = &"disposed"
 
 
@@ -85,7 +85,7 @@ var _report: Dictionary = {}
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 活动返回 true。
 func is_active() -> bool:
@@ -96,7 +96,7 @@ func is_active() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return `STATUS_*` 常量之一。
 func get_status() -> StringName:
@@ -107,7 +107,7 @@ func get_status() -> StringName:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return Mount owner ID。
 func get_owner_id() -> StringName:
@@ -118,7 +118,7 @@ func get_owner_id() -> StringName:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return Mount ID。
 func get_mount_id() -> StringName:
@@ -129,7 +129,7 @@ func get_mount_id() -> StringName:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return Provider 来源 ID；直接目录 Mount 默认等于 mount ID。
 func get_source_id() -> StringName:
@@ -140,7 +140,7 @@ func get_source_id() -> StringName:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 合并优先级。
 func get_priority() -> int:
@@ -151,7 +151,7 @@ func get_priority() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 非负 revision。
 func get_revision() -> int:
@@ -162,7 +162,7 @@ func get_revision() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 深拷贝目录。
 func get_catalog() -> GFAssetCatalog:
@@ -173,7 +173,7 @@ func get_catalog() -> GFAssetCatalog:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return GFValidationReport 兼容字典副本。
 ## [br]
@@ -186,7 +186,7 @@ func get_report() -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 本次调用完成卸载返回 true；已终态返回 false。
 func unmount() -> bool:
@@ -205,7 +205,7 @@ func unmount() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return Mount 摘要。
 ## [br]
@@ -231,7 +231,7 @@ func to_dict() -> Dictionary:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param runtime: 所属 Runtime。
 ## [br]
@@ -289,7 +289,7 @@ func configure_active(
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param status: 失败状态。
 ## [br]
@@ -338,7 +338,7 @@ func configure_failure(
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param status: unmounted 或 disposed。
 ## [br]
@@ -356,7 +356,7 @@ func complete(status: StringName, revision: int) -> void:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param catalog: 新目录快照。
 ## [br]

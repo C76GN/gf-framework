@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：运行时句柄 (`runtime_handle`)
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 单次异步路由打开的可观察句柄。 句柄由 GFUIRouterUtility 分配请求身份并只接受一个终态。相同 pending 路由 会返回同一句柄，调用方无需自行按路径合并请求。
 
@@ -36,7 +36,7 @@
 ### `completed`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 signal completed(result: GFUIRouteResult)
@@ -57,7 +57,7 @@ signal completed(result: GFUIRouteResult)
 ### `OPERATION_PUSH`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const OPERATION_PUSH: StringName = &"push"
@@ -70,7 +70,7 @@ const OPERATION_PUSH: StringName = &"push"
 ### `OPERATION_REPLACE`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const OPERATION_REPLACE: StringName = &"replace"
@@ -85,7 +85,7 @@ const OPERATION_REPLACE: StringName = &"replace"
 ### `get_request_id`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_request_id() -> int:
@@ -100,7 +100,7 @@ func get_request_id() -> int:
 ### `get_route_id`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_route_id() -> StringName:
@@ -115,7 +115,7 @@ func get_route_id() -> StringName:
 ### `get_operation`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_operation() -> StringName:
@@ -130,7 +130,7 @@ func get_operation() -> StringName:
 ### `get_preload_policy`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_preload_policy() -> StringName:
@@ -145,7 +145,7 @@ func get_preload_policy() -> StringName:
 ### `get_started_at_msec`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_started_at_msec() -> int:
@@ -160,7 +160,7 @@ func get_started_at_msec() -> int:
 ### `is_pending`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func is_pending() -> bool:
@@ -175,7 +175,7 @@ func is_pending() -> bool:
 ### `is_completed`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func is_completed() -> bool:
@@ -190,7 +190,7 @@ func is_completed() -> bool:
 ### `get_preload_session`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_preload_session() -> GFAssetLoadSession:
@@ -205,7 +205,7 @@ func get_preload_session() -> GFAssetLoadSession:
 ### `get_result`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_result() -> GFUIRouteResult:
@@ -220,7 +220,7 @@ func get_result() -> GFUIRouteResult:
 ### `get_debug_snapshot`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_debug_snapshot() -> Dictionary:

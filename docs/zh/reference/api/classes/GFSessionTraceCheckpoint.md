@@ -7,7 +7,7 @@
 - 继承：`Resource`
 - API：`public`
 - 类别：资源定义 (`resource_definition`)
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 Session Trace 配方中的显式 Provider 采集点。 检查点只引用已经在运行时注册的 Provider ID，单个列表最多包含 256 项。 默认所有 Provider 都是必需项；`optional_provider_ids` 可把部分失败降级为 可观察但不阻断检查点的结果。
 
@@ -29,7 +29,7 @@ Session Trace 配方中的显式 Provider 采集点。 检查点只引用已经�
 ### `checkpoint_id`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var checkpoint_id: StringName = &""
@@ -42,7 +42,7 @@ var checkpoint_id: StringName = &""
 ### `provider_ids`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var provider_ids: PackedStringArray = PackedStringArray()
@@ -55,7 +55,7 @@ var provider_ids: PackedStringArray = PackedStringArray()
 ### `optional_provider_ids`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var optional_provider_ids: PackedStringArray = PackedStringArray()
@@ -68,7 +68,7 @@ var optional_provider_ids: PackedStringArray = PackedStringArray()
 ### `metadata`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var metadata: Dictionary = {}
@@ -87,7 +87,7 @@ var metadata: Dictionary = {}
 ### `configure`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func configure( p_checkpoint_id: StringName, p_provider_ids: PackedStringArray, options: Dictionary = {} ) -> GFSessionTraceCheckpoint:
@@ -114,7 +114,7 @@ func configure( p_checkpoint_id: StringName, p_provider_ids: PackedStringArray, 
 ### `validate_checkpoint`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func validate_checkpoint() -> Dictionary:

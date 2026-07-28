@@ -117,7 +117,7 @@ signal route_open_failed(route_id: StringName, reason: String)
 ### `route_operation_completed`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 signal route_operation_completed(result: GFUIRouteResult)
@@ -176,7 +176,7 @@ enum Operation {
 ### `PRELOAD_NONE`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const PRELOAD_NONE: StringName = &"none"
@@ -189,7 +189,7 @@ const PRELOAD_NONE: StringName = &"none"
 ### `PRELOAD_BEST_EFFORT`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const PRELOAD_BEST_EFFORT: StringName = &"best_effort"
@@ -202,7 +202,7 @@ const PRELOAD_BEST_EFFORT: StringName = &"best_effort"
 ### `PRELOAD_REQUIRED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const PRELOAD_REQUIRED: StringName = &"required"
@@ -414,7 +414,7 @@ func get_route_ids() -> PackedStringArray:
 ### `build_preload_plan`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func build_preload_plan(source_route_id: StringName, options: Dictionary = {}) -> Dictionary:
@@ -497,7 +497,7 @@ func replace_route( route_id: StringName, params: Dictionary = {}, option_overri
 ### `push_route_async`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func push_route_async( route_id: StringName, params: Dictionary = {}, option_overrides: Dictionary = {}, config_callback: Callable = Callable(), async_options: Dictionary = {} ) -> GFUIRouteOperation:
@@ -528,7 +528,7 @@ func push_route_async( route_id: StringName, params: Dictionary = {}, option_ove
 ### `replace_route_async`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func replace_route_async( route_id: StringName, params: Dictionary = {}, option_overrides: Dictionary = {}, config_callback: Callable = Callable(), async_options: Dictionary = {} ) -> GFUIRouteOperation:

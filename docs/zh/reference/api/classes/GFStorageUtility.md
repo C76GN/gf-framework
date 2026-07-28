@@ -690,7 +690,7 @@ func load_data(file_name: String) -> GFStorageReadResult:
 ### `canonicalize_data_file_name`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func canonicalize_data_file_name(file_name: String) -> String:
@@ -736,7 +736,7 @@ func save_data_async(file_name: String, data: Dictionary) -> Error:
 ### `save_data_request_async`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func save_data_request_async(file_name: String, data: Dictionary) -> GFStorageAsyncOperation:
@@ -782,7 +782,7 @@ func load_data_async(file_name: String) -> Error:
 ### `load_data_request_async`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func load_data_request_async(file_name: String) -> GFStorageAsyncOperation:

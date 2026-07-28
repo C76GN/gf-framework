@@ -7,7 +7,7 @@
 - 继承：`GFAssetCatalogSourceProvider`
 - API：`public`
 - 类别：协议与扩展点 (`protocol`)
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 内容包目录到通用资产目录的适配器。 Provider 持有内容包目录快照，通过可选 GFContentPackageQuery 选择 manifest， 再把资源映射转换为 GFAssetCatalogEntry。它不挂载目录、不下载内容，也不解释业务分类。
 
@@ -26,7 +26,7 @@
 ### `configure_catalog`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func configure_catalog( catalog: GFContentPackageCatalog, p_source_id: StringName = &"content_packages", query: GFContentPackageQuery = null, options: Dictionary = {} ) -> GFContentPackageAssetCatalogProvider:
@@ -54,7 +54,7 @@ func configure_catalog( catalog: GFContentPackageCatalog, p_source_id: StringNam
 ### `build_catalog`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func build_catalog(options: Dictionary = {}) -> GFAssetCatalog:
@@ -79,7 +79,7 @@ func build_catalog(options: Dictionary = {}) -> GFAssetCatalog:
 ### `get_debug_snapshot`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_debug_snapshot() -> Dictionary:

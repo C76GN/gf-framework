@@ -103,7 +103,7 @@ const SERVER_PEER_ID: int = 1
 ### `DEFAULT_MAX_CLIENTS`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const DEFAULT_MAX_CLIENTS: int = 32
@@ -116,7 +116,7 @@ WebSocket 主机默认允许的远端 peer 数量。 握手中和已打开的 pe
 ### `ABSOLUTE_MAX_CLIENTS`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const ABSOLUTE_MAX_CLIENTS: int = 65_535
@@ -129,7 +129,7 @@ WebSocket 主机允许的远端 peer 绝对上限。
 ### `DEFAULT_HANDSHAKE_TIMEOUT_MSEC`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const DEFAULT_HANDSHAKE_TIMEOUT_MSEC: int = 5_000
@@ -142,7 +142,7 @@ WebSocket 握手默认超时时间（毫秒）。
 ### `ABSOLUTE_MAX_HANDSHAKE_TIMEOUT_MSEC`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const ABSOLUTE_MAX_HANDSHAKE_TIMEOUT_MSEC: int = 300_000
@@ -155,7 +155,7 @@ WebSocket 握手超时时间绝对上限（毫秒）。
 ### `DEFAULT_MAX_ACCEPTS_PER_POLL`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const DEFAULT_MAX_ACCEPTS_PER_POLL: int = 16
@@ -168,7 +168,7 @@ const DEFAULT_MAX_ACCEPTS_PER_POLL: int = 16
 ### `ABSOLUTE_MAX_ACCEPTS_PER_POLL`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const ABSOLUTE_MAX_ACCEPTS_PER_POLL: int = 4096
@@ -181,7 +181,7 @@ const ABSOLUTE_MAX_ACCEPTS_PER_POLL: int = 4096
 ### `DEFAULT_MAX_PACKETS_PER_PEER_PER_POLL`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const DEFAULT_MAX_PACKETS_PER_PEER_PER_POLL: int = 64
@@ -194,7 +194,7 @@ const DEFAULT_MAX_PACKETS_PER_PEER_PER_POLL: int = 64
 ### `ABSOLUTE_MAX_PACKETS_PER_PEER_PER_POLL`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const ABSOLUTE_MAX_PACKETS_PER_PEER_PER_POLL: int = 4096
@@ -207,7 +207,7 @@ const ABSOLUTE_MAX_PACKETS_PER_PEER_PER_POLL: int = 4096
 ### `DEFAULT_MAX_PACKETS_PER_POLL`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const DEFAULT_MAX_PACKETS_PER_POLL: int = 512
@@ -220,7 +220,7 @@ const DEFAULT_MAX_PACKETS_PER_POLL: int = 512
 ### `ABSOLUTE_MAX_PACKETS_PER_POLL`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const ABSOLUTE_MAX_PACKETS_PER_POLL: int = 16_384
@@ -233,7 +233,7 @@ const ABSOLUTE_MAX_PACKETS_PER_POLL: int = 16_384
 ### `DEFAULT_MAX_SERVICE_PEERS_PER_POLL`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const DEFAULT_MAX_SERVICE_PEERS_PER_POLL: int = 64
@@ -246,7 +246,7 @@ const DEFAULT_MAX_SERVICE_PEERS_PER_POLL: int = 64
 ### `ABSOLUTE_MAX_SERVICE_PEERS_PER_POLL`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const ABSOLUTE_MAX_SERVICE_PEERS_PER_POLL: int = 4096
@@ -259,7 +259,7 @@ const ABSOLUTE_MAX_SERVICE_PEERS_PER_POLL: int = 4096
 ### `DEFAULT_INBOUND_BUFFER_SIZE`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const DEFAULT_INBOUND_BUFFER_SIZE: int = 65_536
@@ -272,7 +272,7 @@ const DEFAULT_INBOUND_BUFFER_SIZE: int = 65_536
 ### `ABSOLUTE_MAX_INBOUND_BUFFER_SIZE`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const ABSOLUTE_MAX_INBOUND_BUFFER_SIZE: int = 4 * 1024 * 1024
@@ -285,7 +285,7 @@ const ABSOLUTE_MAX_INBOUND_BUFFER_SIZE: int = 4 * 1024 * 1024
 ### `DEFAULT_OUTBOUND_BUFFER_SIZE`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const DEFAULT_OUTBOUND_BUFFER_SIZE: int = 65_536
@@ -298,7 +298,7 @@ const DEFAULT_OUTBOUND_BUFFER_SIZE: int = 65_536
 ### `ABSOLUTE_MAX_OUTBOUND_BUFFER_SIZE`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const ABSOLUTE_MAX_OUTBOUND_BUFFER_SIZE: int = 4 * 1024 * 1024
@@ -311,7 +311,7 @@ const ABSOLUTE_MAX_OUTBOUND_BUFFER_SIZE: int = 4 * 1024 * 1024
 ### `DEFAULT_MAX_QUEUED_PACKETS`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const DEFAULT_MAX_QUEUED_PACKETS: int = 1024
@@ -324,7 +324,7 @@ const DEFAULT_MAX_QUEUED_PACKETS: int = 1024
 ### `ABSOLUTE_MAX_QUEUED_PACKETS`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const ABSOLUTE_MAX_QUEUED_PACKETS: int = 4096
@@ -337,7 +337,7 @@ const ABSOLUTE_MAX_QUEUED_PACKETS: int = 4096
 ### `ABSOLUTE_MAX_SUPPORTED_PROTOCOL_COUNT`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const ABSOLUTE_MAX_SUPPORTED_PROTOCOL_COUNT: int = 32
@@ -350,7 +350,7 @@ const ABSOLUTE_MAX_SUPPORTED_PROTOCOL_COUNT: int = 32
 ### `ABSOLUTE_MAX_SUPPORTED_PROTOCOL_BYTES`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const ABSOLUTE_MAX_SUPPORTED_PROTOCOL_BYTES: int = 256
@@ -363,7 +363,7 @@ const ABSOLUTE_MAX_SUPPORTED_PROTOCOL_BYTES: int = 256
 ### `ABSOLUTE_MAX_SUPPORTED_PROTOCOL_TOTAL_BYTES`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const ABSOLUTE_MAX_SUPPORTED_PROTOCOL_TOTAL_BYTES: int = 4096
@@ -404,7 +404,7 @@ var max_packets_per_peer_per_poll: int:
 ### `max_packets_per_poll`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var max_packets_per_poll: int:
@@ -417,7 +417,7 @@ var max_packets_per_poll: int:
 ### `max_service_peers_per_poll`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var max_service_peers_per_poll: int:
@@ -430,7 +430,7 @@ var max_service_peers_per_poll: int:
 ### `handshake_timeout_msec`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var handshake_timeout_msec: int:

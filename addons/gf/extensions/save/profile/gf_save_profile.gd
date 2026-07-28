@@ -7,7 +7,7 @@
 ## [br]
 ## @category resource_definition
 ## [br]
-## @since unreleased
+## @since 10.0.0
 class_name GFSaveProfile
 extends Resource
 
@@ -18,21 +18,21 @@ extends Resource
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const UNKNOWN_SECTION_REJECT: StringName = &"reject"
 
 ## 读取时接受未知 section，并在后续保存中原样保留。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const UNKNOWN_SECTION_PRESERVE: StringName = &"preserve"
 
 ## 读取时接受未知 section，并在后续保存中显式丢弃。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const UNKNOWN_SECTION_DROP: StringName = &"drop"
 
 
@@ -42,7 +42,7 @@ const UNKNOWN_SECTION_DROP: StringName = &"drop"
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 @export var profile_id: StringName = &""
 
 ## 稳定文档 schema ID；为空时使用 `profile_id`。
@@ -51,49 +51,49 @@ const UNKNOWN_SECTION_DROP: StringName = &"drop"
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 @export var schema_id: StringName = &""
 
 ## `GFStorageUtility` 管理的相对文件名。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 @export var file_name: String = ""
 
 ## 当前文档 schema 版本。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 @export_range(1, 2_147_483_647, 1) var schema_version: int = 1
 
 ## 拥有各 section 的 provider，顺序决定采集与应用顺序。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 @export var providers: Array[GFSaveSectionProvider] = []
 
 ## 缺失、损坏和临时 IO 失败的显式政策。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 @export var recovery_policy: GFSaveRecoveryPolicy = GFSaveRecoveryPolicy.new()
 
 ## Profile 是否接受保存和 flush 请求。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 @export var save_enabled: bool = true
 
 ## Profile 是否接受读取请求。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 @export var load_enabled: bool = true
 
 ## 未声明 section 的处理政策。
@@ -102,7 +102,7 @@ const UNKNOWN_SECTION_DROP: StringName = &"drop"
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 @export var unknown_section_policy: StringName = UNKNOWN_SECTION_REJECT
 
 
@@ -112,7 +112,7 @@ const UNKNOWN_SECTION_DROP: StringName = &"drop"
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 结构化校验报告。
 ## [br]
@@ -194,7 +194,7 @@ func validate_profile() -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 当前文档 schema；profile 无效时仍返回可诊断对象。
 func build_schema() -> GFSaveDocumentSchema:
@@ -221,7 +221,7 @@ func build_schema() -> GFSaveDocumentSchema:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return `schema_id` 非空时返回它，否则返回 `profile_id`。
 func get_effective_schema_id() -> StringName:
@@ -232,7 +232,7 @@ func get_effective_schema_id() -> StringName:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param section_id: 目标 section ID。
 ## [br]
@@ -248,7 +248,7 @@ func get_provider(section_id: StringName) -> GFSaveSectionProvider:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 按声明顺序排列的 provider。
 func get_providers() -> Array[GFSaveSectionProvider]:

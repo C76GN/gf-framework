@@ -7,7 +7,7 @@
 - 继承：`GFUtility`
 - API：`public`
 - 类别：运行时服务 (`runtime_service`)
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 owner-scoped 资产目录快照挂载与原子合并服务。 Runtime 只接收已经构建的目录快照或 Provider 输出，按稳定优先级合并并以 revision 发布。 任何无效请求、Provider 失败或严格冲突都不会替换上一份已提交目录。
 
@@ -36,7 +36,7 @@ owner-scoped 资产目录快照挂载与原子合并服务。 Runtime 只接收�
 ### `catalog_changed`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 signal catalog_changed(catalog: GFAssetCatalog, revision: int)
@@ -58,7 +58,7 @@ signal catalog_changed(catalog: GFAssetCatalog, revision: int)
 ### `CONFLICT_REJECT`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const CONFLICT_REJECT: StringName = &"reject"
@@ -71,7 +71,7 @@ const CONFLICT_REJECT: StringName = &"reject"
 ### `CONFLICT_KEEP_HIGH_PRIORITY`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const CONFLICT_KEEP_HIGH_PRIORITY: StringName = &"keep_high_priority"
@@ -86,7 +86,7 @@ const CONFLICT_KEEP_HIGH_PRIORITY: StringName = &"keep_high_priority"
 ### `configure`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func configure(conflict_policy: StringName = CONFLICT_REJECT) -> GFAssetCatalogRuntime:
@@ -107,7 +107,7 @@ func configure(conflict_policy: StringName = CONFLICT_REJECT) -> GFAssetCatalogR
 ### `mount_catalog`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func mount_catalog( owner_id: StringName, mount_id: StringName, catalog: GFAssetCatalog, priority: int = 0, source_id: StringName = &"" ) -> GFAssetCatalogMount:
@@ -132,7 +132,7 @@ func mount_catalog( owner_id: StringName, mount_id: StringName, catalog: GFAsset
 ### `mount_provider`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func mount_provider( owner_id: StringName, mount_id: StringName, provider: GFAssetCatalogSourceProvider, options: Dictionary = {} ) -> GFAssetCatalogMount:
@@ -160,7 +160,7 @@ func mount_provider( owner_id: StringName, mount_id: StringName, provider: GFAss
 ### `replace_mount_catalog`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func replace_mount_catalog(mount: GFAssetCatalogMount, catalog: GFAssetCatalog) -> bool:
@@ -182,7 +182,7 @@ func replace_mount_catalog(mount: GFAssetCatalogMount, catalog: GFAssetCatalog) 
 ### `unmount_owner`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func unmount_owner(owner_id: StringName) -> int:
@@ -203,7 +203,7 @@ func unmount_owner(owner_id: StringName) -> int:
 ### `get_catalog`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_catalog() -> GFAssetCatalog:
@@ -218,7 +218,7 @@ func get_catalog() -> GFAssetCatalog:
 ### `get_revision`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_revision() -> int:
@@ -233,7 +233,7 @@ func get_revision() -> int:
 ### `get_mounts`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_mounts() -> Array[GFAssetCatalogMount]:
@@ -248,7 +248,7 @@ func get_mounts() -> Array[GFAssetCatalogMount]:
 ### `get_last_report`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_last_report() -> Dictionary:
@@ -267,7 +267,7 @@ func get_last_report() -> Dictionary:
 ### `get_debug_snapshot`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_debug_snapshot() -> Dictionary:

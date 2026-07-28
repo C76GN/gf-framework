@@ -7,7 +7,7 @@
 - 继承：`Resource`
 - API：`public`
 - 类别：值对象 (`value_object`)
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 内容包目录的确定性通用查询条件。 查询只描述 package、content type、依赖、资源键、安全分类和 metadata 约束， 不解释项目业务语义。所有非空条件采用 AND 语义，列表条件要求 manifest 包含全部值。
 
@@ -39,7 +39,7 @@
 ### `query_id`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var query_id: StringName = &""
@@ -52,7 +52,7 @@ var query_id: StringName = &""
 ### `package_ids`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var package_ids: PackedStringArray = PackedStringArray()
@@ -65,7 +65,7 @@ var package_ids: PackedStringArray = PackedStringArray()
 ### `search_text`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var search_text: String = ""
@@ -78,7 +78,7 @@ var search_text: String = ""
 ### `required_content_types`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var required_content_types: PackedStringArray = PackedStringArray()
@@ -91,7 +91,7 @@ manifest 必须包含的全部 content type。
 ### `required_dependencies`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var required_dependencies: PackedStringArray = PackedStringArray()
@@ -104,7 +104,7 @@ manifest 必须声明的全部直接依赖 ID。
 ### `required_resource_keys`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var required_resource_keys: PackedStringArray = PackedStringArray()
@@ -117,7 +117,7 @@ manifest 必须声明的全部资源键。
 ### `allowed_safety_kinds`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var allowed_safety_kinds: PackedStringArray = PackedStringArray()
@@ -130,7 +130,7 @@ var allowed_safety_kinds: PackedStringArray = PackedStringArray()
 ### `required_metadata`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var required_metadata: Dictionary = {}
@@ -147,7 +147,7 @@ manifest metadata 必须精确匹配的键值。
 ### `include_dependencies`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var include_dependencies: bool = false
@@ -160,7 +160,7 @@ var include_dependencies: bool = false
 ### `max_results`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var max_results: int = 0
@@ -173,7 +173,7 @@ var max_results: int = 0
 ### `metadata`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var metadata: Dictionary = {}
@@ -192,7 +192,7 @@ var metadata: Dictionary = {}
 ### `matches`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func matches(manifest: GFContentPackageManifest) -> bool:
@@ -213,7 +213,7 @@ func matches(manifest: GFContentPackageManifest) -> bool:
 ### `apply_dict`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func apply_dict(data: Dictionary) -> void:
@@ -236,7 +236,7 @@ func apply_dict(data: Dictionary) -> void:
 ### `to_dict`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func to_dict() -> Dictionary:
@@ -255,7 +255,7 @@ func to_dict() -> Dictionary:
 ### `duplicate_query`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func duplicate_query() -> GFContentPackageQuery:
@@ -270,7 +270,7 @@ func duplicate_query() -> GFContentPackageQuery:
 ### `from_dict`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 static func from_dict(data: Dictionary) -> GFContentPackageQuery:

@@ -187,7 +187,7 @@ func resolve_shader_material( target: Object, material_property: NodePath = DEFA
 ### `capture_shader_interface`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func capture_shader_interface( material: ShaderMaterial ) -> GFShaderInterfaceSnapshot:
@@ -208,7 +208,7 @@ func capture_shader_interface( material: ShaderMaterial ) -> GFShaderInterfaceSn
 ### `validate_profile`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func validate_profile( material: ShaderMaterial, profile: GFShaderParameterProfile, options: Dictionary = {} ) -> GFValidationReport:
@@ -235,7 +235,7 @@ func validate_profile( material: ShaderMaterial, profile: GFShaderParameterProfi
 ### `validate_parameters`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func validate_parameters( material: ShaderMaterial, parameters: Dictionary, options: Dictionary = {} ) -> GFValidationReport:

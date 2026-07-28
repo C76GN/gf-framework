@@ -7,7 +7,7 @@
 ## [br]
 ## @category protocol
 ## [br]
-## @since unreleased
+## @since 10.0.0
 class_name GFSaveSectionProvider
 extends Resource
 
@@ -18,7 +18,7 @@ extends Resource
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 @export var section_id: StringName = &"":
 	set(value):
 		if _definition_locked and value != section_id:
@@ -30,7 +30,7 @@ extends Resource
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 @export_range(1, 2_147_483_647, 1) var schema_version: int = 1:
 	set(value):
 		if _definition_locked and value != schema_version:
@@ -42,7 +42,7 @@ extends Resource
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 @export var save_enabled: bool = true:
 	set(value):
 		if _definition_locked and value != save_enabled:
@@ -54,7 +54,7 @@ extends Resource
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 @export var load_enabled: bool = true:
 	set(value):
 		if _definition_locked and value != load_enabled:
@@ -66,7 +66,7 @@ extends Resource
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 @export var required_on_load: bool = true:
 	set(value):
 		if _definition_locked and value != required_on_load:
@@ -86,7 +86,7 @@ var _definition_locked: bool = false
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 结构化校验报告。
 ## [br]
@@ -142,7 +142,7 @@ func validate_provider() -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param context: 本次操作的临时上下文。
 ## [br]
@@ -161,7 +161,7 @@ func gather_section(context: Dictionary = {}) -> GFSaveSection:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param context: 本次操作的临时上下文。
 ## [br]
@@ -178,7 +178,7 @@ func capture_section(context: Dictionary = {}) -> GFSaveSection:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param section: 已迁移并校验的当前版本 section。
 ## [br]
@@ -197,7 +197,7 @@ func apply_section(section: GFSaveSection, context: Dictionary = {}) -> Error:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param previous_section: 应用前采集的当前版本 section。
 ## [br]
@@ -216,7 +216,7 @@ func rollback_section(previous_section: GFSaveSection, context: Dictionary = {})
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param payload: 可持久化 section 载荷。
 ## [br]
@@ -237,7 +237,7 @@ func make_section(payload: Variant, metadata: Dictionary = {}) -> GFSaveSection:
 ## [br]
 ## @api protected
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param _context: 本次操作的临时上下文。
 ## [br]
@@ -252,7 +252,7 @@ func _gather_section(_context: Dictionary = {}) -> GFSaveSection:
 ## [br]
 ## @api protected
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param context: 本次操作的临时上下文。
 ## [br]
@@ -267,7 +267,7 @@ func _capture_section(context: Dictionary = {}) -> GFSaveSection:
 ## [br]
 ## @api protected
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param _section: 已校验的 section 副本。
 ## [br]
@@ -284,7 +284,7 @@ func _apply_section(_section: GFSaveSection, _context: Dictionary = {}) -> Error
 ## [br]
 ## @api protected
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param previous_section: 应用前 section 副本。
 ## [br]
@@ -305,7 +305,7 @@ func _rollback_section(previous_section: GFSaveSection, context: Dictionary = {}
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return Provider 合法且已锁定时返回 true。
 func lock_definition_for_framework() -> bool:

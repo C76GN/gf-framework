@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：协议与扩展点 (`protocol`)
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 按请求求值的诊断快照 Provider 协议。 Provider 不会被轮询或随普通快照隐式执行。项目必须显式请求稳定 Provider ID， 输出才会由 `GFDiagnosticsUtility` 在重入保护、结构预算和脱敏边界内采集。
 
@@ -31,7 +31,7 @@
 ### `DEFAULT_MAX_DURATION_USEC`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const DEFAULT_MAX_DURATION_USEC: int = 50_000
@@ -46,7 +46,7 @@ const DEFAULT_MAX_DURATION_USEC: int = 50_000
 ### `provider_id`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var provider_id: StringName = &"":
@@ -59,7 +59,7 @@ Provider 稳定 ID。
 ### `max_duration_usec`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var max_duration_usec: int = DEFAULT_MAX_DURATION_USEC:
@@ -72,7 +72,7 @@ Provider 返回后的最大验收时长，单位微秒；0 表示不做时长拒
 ### `metadata`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var metadata: Dictionary:
@@ -91,7 +91,7 @@ Provider 目录元数据。注册后不可修改，读取时返回副本，输�
 ### `configure`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func configure( p_provider_id: StringName, options: Dictionary = {} ) -> GFDiagnosticSnapshotProvider:
@@ -117,7 +117,7 @@ func configure( p_provider_id: StringName, options: Dictionary = {} ) -> GFDiagn
 ### `validate_provider`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func validate_provider() -> Dictionary:
@@ -136,7 +136,7 @@ func validate_provider() -> Dictionary:
 ### `collect_snapshot`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func collect_snapshot(request: Dictionary = {}) -> GFDiagnosticProviderResult:
@@ -161,7 +161,7 @@ func collect_snapshot(request: Dictionary = {}) -> GFDiagnosticProviderResult:
 ### `_collect_snapshot`
 
 - API：`protected`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func _collect_snapshot(_request: Dictionary = {}) -> GFDiagnosticProviderResult:

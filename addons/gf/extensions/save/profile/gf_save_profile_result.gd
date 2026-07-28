@@ -7,7 +7,7 @@
 ## [br]
 ## @category value_object
 ## [br]
-## @since unreleased
+## @since 10.0.0
 class_name GFSaveProfileResult
 extends RefCounted
 
@@ -18,140 +18,140 @@ extends RefCounted
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const STATUS_SAVED: StringName = &"saved"
 
 ## 文档已迁移、校验并应用。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const STATUS_LOADED: StringName = &"loaded"
 
 ## flush 目标 generation 已持久化。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const STATUS_FLUSHED: StringName = &"flushed"
 
 ## 恢复政策保留了当前内存状态。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const STATUS_RECOVERED: StringName = &"recovered"
 
 ## Profile 配置或请求无效。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const STATUS_INVALID_PROFILE: StringName = &"invalid_profile"
 
 ## 当前 Profile 不支持请求的操作。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const STATUS_UNSUPPORTED_OPERATION: StringName = &"unsupported_operation"
 
 ## 请求与正在执行的加载或 Provider 回调冲突。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const STATUS_BUSY: StringName = &"busy"
 
 ## section 保存采集失败。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const STATUS_GATHER_FAILED: StringName = &"gather_failed"
 
 ## section 应用前快照采集失败。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const STATUS_SNAPSHOT_FAILED: StringName = &"snapshot_failed"
 
 ## 底层存储启动或执行失败。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const STATUS_STORAGE_FAILED: StringName = &"storage_failed"
 
 ## 存档文件不存在。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const STATUS_MISSING: StringName = &"missing"
 
 ## 存档文档损坏或完整性失败。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const STATUS_CORRUPT: StringName = &"corrupt"
 
 ## 文档 schema ID 与 profile 不匹配。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const STATUS_SCHEMA_MISMATCH: StringName = &"schema_mismatch"
 
 ## 文档或 section 来自未来 schema。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const STATUS_FUTURE_SCHEMA: StringName = &"future_schema"
 
 ## 旧版本文档迁移失败或缺少迁移链。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const STATUS_MIGRATION_FAILED: StringName = &"migration_failed"
 
 ## 当前版本文档校验失败。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const STATUS_VALIDATION_FAILED: StringName = &"validation_failed"
 
 ## section provider 应用失败且回滚成功。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const STATUS_APPLY_FAILED: StringName = &"apply_failed"
 
 ## section provider 应用失败且至少一个回滚失败。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const STATUS_ROLLBACK_FAILED: StringName = &"rollback_failed"
 
 ## Utility 释放时操作仍未完成。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const STATUS_DISPOSED: StringName = &"disposed"
 
 ## 写入已提交到底层但无法确认最终磁盘副作用。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const STATUS_OUTCOME_UNKNOWN: StringName = &"outcome_unknown"
 
 
@@ -187,7 +187,7 @@ var _storage_request_ids: PackedInt64Array = PackedInt64Array()
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 成功终态返回 true。
 func is_successful() -> bool:
@@ -198,7 +198,7 @@ func is_successful() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return `STATUS_*` 常量之一。
 func get_status() -> StringName:
@@ -209,7 +209,7 @@ func get_status() -> StringName:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return save、load 或 flush。
 func get_operation() -> StringName:
@@ -220,7 +220,7 @@ func get_operation() -> StringName:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return profile ID。
 func get_profile_id() -> StringName:
@@ -231,7 +231,7 @@ func get_profile_id() -> StringName:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 非负 generation。
 func get_requested_generation() -> int:
@@ -242,7 +242,7 @@ func get_requested_generation() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 非负 generation。
 func get_persisted_generation() -> int:
@@ -253,7 +253,7 @@ func get_persisted_generation() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 未启动 IO 时为 0。
 func get_attempt_count() -> int:
@@ -264,7 +264,7 @@ func get_attempt_count() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 被合并时返回 true。
 func was_coalesced() -> bool:
@@ -275,7 +275,7 @@ func was_coalesced() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 使用恢复动作时返回 true。
 func was_recovered() -> bool:
@@ -286,7 +286,7 @@ func was_recovered() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 未恢复时为空。
 func get_recovery_action() -> StringName:
@@ -297,7 +297,7 @@ func get_recovery_action() -> StringName:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 非 section 失败时为空。
 func get_failed_section_id() -> StringName:
@@ -308,7 +308,7 @@ func get_failed_section_id() -> StringName:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 成功时为 OK。
 func get_error_code() -> Error:
@@ -319,7 +319,7 @@ func get_error_code() -> Error:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 成功时为空。
 func get_error() -> String:
@@ -330,7 +330,7 @@ func get_error() -> String:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 已采集或加载文档；不可用时为 null。
 func get_document() -> GFSaveDocument:
@@ -341,7 +341,7 @@ func get_document() -> GFSaveDocument:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return load 操作的原始读取结果；其他操作或读取未启动时为 null。
 func get_storage_result() -> GFStorageReadResult:
@@ -352,7 +352,7 @@ func get_storage_result() -> GFStorageReadResult:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 执行迁移时的结果；否则为 null。
 func get_migration_result() -> GFSaveMigrationResult:
@@ -363,7 +363,7 @@ func get_migration_result() -> GFSaveMigrationResult:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 结构化校验报告。
 ## [br]
@@ -376,7 +376,7 @@ func get_validation_report() -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 按回滚顺序记录的类型化失败证据。
 func get_rollback_errors() -> Array[GFSaveRollbackFailure]:
@@ -387,7 +387,7 @@ func get_rollback_errors() -> Array[GFSaveRollbackFailure]:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 单调毫秒耗时。
 func get_duration_msec() -> int:
@@ -398,7 +398,7 @@ func get_duration_msec() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 调用方定义的临时结果元数据。
 ## [br]
@@ -411,7 +411,7 @@ func get_metadata() -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 按发起顺序排列的请求 ID；没有底层 IO 时为空。
 func get_storage_request_ids() -> PackedInt64Array:
@@ -422,7 +422,7 @@ func get_storage_request_ids() -> PackedInt64Array:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 不包含完整文档载荷的结果摘要。
 ## [br]
@@ -459,7 +459,7 @@ func to_dict() -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 新结果对象。
 func duplicate_result() -> GFSaveProfileResult:
@@ -497,7 +497,7 @@ func duplicate_result() -> GFSaveProfileResult:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param p_ok: 是否成功。
 ## [br]

@@ -7,7 +7,7 @@
 ## [br]
 ## @category runtime_handle
 ## [br]
-## @since unreleased
+## @since 10.0.0
 class_name GFUIRouteOperation
 extends RefCounted
 
@@ -18,7 +18,7 @@ extends RefCounted
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param result: 与当前请求 ID 匹配的隔离结果。
 signal completed(result: GFUIRouteResult)
@@ -30,14 +30,14 @@ signal completed(result: GFUIRouteResult)
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const OPERATION_PUSH: StringName = &"push"
 
 ## 替换路由操作。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const OPERATION_REPLACE: StringName = &"replace"
 
 
@@ -58,7 +58,7 @@ var _result: GFUIRouteResult = null
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 大于零的请求 ID。
 func get_request_id() -> int:
@@ -69,7 +69,7 @@ func get_request_id() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 当前请求路由 ID。
 func get_route_id() -> StringName:
@@ -80,7 +80,7 @@ func get_route_id() -> StringName:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return `OPERATION_*` 常量之一。
 func get_operation() -> StringName:
@@ -91,7 +91,7 @@ func get_operation() -> StringName:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return Router 接受或拒绝的策略标识。
 func get_preload_policy() -> StringName:
@@ -102,7 +102,7 @@ func get_preload_policy() -> StringName:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 单调时钟毫秒值。
 func get_started_at_msec() -> int:
@@ -113,7 +113,7 @@ func get_started_at_msec() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 已配置且未完成时返回 true。
 func is_pending() -> bool:
@@ -124,7 +124,7 @@ func is_pending() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 已完成时返回 true。
 func is_completed() -> bool:
@@ -135,7 +135,7 @@ func is_completed() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 已启动的会话；未启用或尚未启动时返回 null。
 func get_preload_session() -> GFAssetLoadSession:
@@ -146,7 +146,7 @@ func get_preload_session() -> GFAssetLoadSession:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 已完成结果；等待中返回 null。
 func get_result() -> GFUIRouteResult:
@@ -157,7 +157,7 @@ func get_result() -> GFUIRouteResult:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 请求身份、pending 状态、预加载会话和终态摘要。
 ## [br]
@@ -182,7 +182,7 @@ func get_debug_snapshot() -> Dictionary:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param request_id: Router 内唯一请求 ID。
 ## [br]
@@ -218,7 +218,7 @@ func configure_for_framework(
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param session: 已启动的资产预加载会话。
 ## [br]
@@ -234,7 +234,7 @@ func attach_preload_session_for_framework(session: GFAssetLoadSession) -> bool:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param result: 与当前请求身份一致的结果。
 ## [br]

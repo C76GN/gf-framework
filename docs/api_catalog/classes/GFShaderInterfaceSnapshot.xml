@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFShaderInterfaceSnapshot" path="addons/gf/standard/utilities/display/gf_shader_interface_snapshot.gd" module="standard" extends="Resource" classDigest="30287a8add7b8f6f9b728af56b4fea4956994efa4b18dc385cbc38003a442eb9">
+<class name="GFShaderInterfaceSnapshot" path="addons/gf/standard/utilities/display/gf_shader_interface_snapshot.gd" module="standard" extends="Resource" classDigest="dace11bbd780001807d76a4550f586c58f14dc28facc2038e09a0043695c2342">
 	<description>GFShaderInterfaceSnapshot: 可持久化的 Shader uniform 接口快照。
 从 Shader 反射结果捕获稳定排序的 uniform 声明，并用同一份数据校验参数集合
 或比较接口漂移。快照只保存公开接口字段，不保存 shader 源码、材质当前值、
@@ -8,7 +8,7 @@
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">resource_definition</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">10.0.0</tag>
 	</tags>
 	<signals />
 	<enums />
@@ -18,7 +18,7 @@
 			<description>当前快照字典 schema 版本。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 	</constants>
@@ -32,7 +32,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">shader: 要捕获的 Shader；为空时返回 null。</tag>
 				<tag name="return">新快照，或 null。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="from_dict">
@@ -45,7 +45,7 @@
 				<tag name="param">data: 快照字典。</tag>
 				<tag name="return">新快照。</tag>
 				<tag name="schema">data: Dictionary，包含 schema_version、shader_mode 和 uniforms；uniform 字段为 name、type、class_name、hint、hint_string、usage。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_schema_version">
@@ -54,7 +54,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">schema 版本。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_shader_mode">
@@ -63,7 +63,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">Shader.Mode 对应整数。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_uniforms">
@@ -73,7 +73,7 @@
 				<tag name="api">public</tag>
 				<tag name="return">uniform 条目数组。</tag>
 				<tag name="schema">return: Array[Dictionary]，每项包含 name、type、class_name、hint、hint_string 和 usage。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_uniform_names">
@@ -83,7 +83,7 @@
 				<tag name="api">public</tag>
 				<tag name="return">uniform 名数组。</tag>
 				<tag name="schema">return: Array[StringName]，按名称稳定排序。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="has_uniform">
@@ -93,7 +93,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">parameter_name: uniform 名。</tag>
 				<tag name="return">已声明时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_uniform">
@@ -104,7 +104,7 @@
 				<tag name="param">parameter_name: uniform 名。</tag>
 				<tag name="return">uniform 条目；不存在时返回空字典。</tag>
 				<tag name="schema">return: Dictionary，包含 name、type、class_name、hint、hint_string 和 usage。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="accepts_parameter_value">
@@ -119,7 +119,7 @@
 				<tag name="return">已声明且值兼容时返回 true。</tag>
 				<tag name="schema">value: Variant shader parameter value.</tag>
 				<tag name="schema">options: Dictionary，allow_null_object 控制 TYPE_OBJECT uniform 是否接受 null。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="validate_definition">
@@ -130,7 +130,7 @@
 				<tag name="param">options: 支持 subject 和 metadata。</tag>
 				<tag name="return">标准校验报告。</tag>
 				<tag name="schema">options: Dictionary，subject 覆盖报告主题，metadata 为调用方报告元数据。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="validate_parameters">
@@ -144,7 +144,7 @@ Profile 默认按部分覆盖处理，因此缺失 uniform 默认忽略；未知
 				<tag name="return">标准校验报告。</tag>
 				<tag name="schema">parameters: Dictionary[StringName|String, Variant] shader parameter values.</tag>
 				<tag name="schema">options: Dictionary，severity 可为 ignore、info、warning 或 error；missing 默认 ignore，extra/type mismatch 默认 error；allow_null_object 默认 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="compare_with">
@@ -157,7 +157,7 @@ Profile 默认按部分覆盖处理，因此缺失 uniform 默认忽略；未知
 				<tag name="param">options: 支持 subject、metadata、mode_mismatch_severity、missing_severity、extra_severity、signature_severity 和 usage_severity。</tag>
 				<tag name="return">标准校验报告。</tag>
 				<tag name="schema">options: Dictionary，severity 可为 ignore、info、warning 或 error；mode/missing/signature 默认 error，extra/usage 默认 warning。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="validate_shader">
@@ -169,7 +169,7 @@ Profile 默认按部分覆盖处理，因此缺失 uniform 默认忽略；未知
 				<tag name="param">options: 传给 compare_with() 的报告和 severity 选项。</tag>
 				<tag name="return">标准校验报告。</tag>
 				<tag name="schema">options: Dictionary compare_with() options.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="duplicate_snapshot">
@@ -178,7 +178,7 @@ Profile 默认按部分覆盖处理，因此缺失 uniform 默认忽略；未知
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">新快照。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="to_dict">
@@ -188,7 +188,7 @@ Profile 默认按部分覆盖处理，因此缺失 uniform 默认忽略；未知
 				<tag name="api">public</tag>
 				<tag name="return">快照字典。</tag>
 				<tag name="schema">return: Dictionary，包含 schema_version、shader_mode 和 uniforms。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 	</methods>

@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFUIRoutePreloadUtility" path="addons/gf/standard/utilities/ui/gf_ui_route_preload_utility.gd" module="standard" extends="RefCounted" classDigest="1ed4fce708d670974324d407afcb04d0c265a6d5a3482d609bc63bb1896f5946">
+<class name="GFUIRoutePreloadUtility" path="addons/gf/standard/utilities/ui/gf_ui_route_preload_utility.gd" module="standard" extends="RefCounted" classDigest="c110495c6321a8608570c588d18e8e77b3f0dd8399b2d127a84382ebf9f8fd32">
 	<description>GFUIRoutePreloadUtility: 从显式 UI 路由关系构建资源预加载计划。
 该工具只做有界、确定性的可达性遍历，并把页面场景转换为 GFAssetPreloadPlan。
 权限、导航守卫、动态业务分支和实际预加载时机仍由项目负责。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">runtime_service</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">10.0.0</tag>
 	</tags>
 	<signals />
 	<enums />
@@ -16,7 +16,7 @@
 			<description>默认搜索深度，只包含直接相邻路由。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="DEFAULT_MAX_ROUTES">
@@ -24,7 +24,7 @@
 			<description>默认单次计划最多包含的路由数量。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="DEFAULT_MAX_EDGES">
@@ -32,7 +32,7 @@
 			<description>默认单次遍历最多检查的原始相邻关系数量。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="DEFAULT_MAX_CATALOG_ROUTES">
@@ -40,7 +40,7 @@
 			<description>默认单次规划最多检查的输入路由资源数量。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="DEFAULT_GROUP_ID">
@@ -48,7 +48,7 @@
 			<description>默认资产预加载分组标识。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 	</constants>
@@ -65,7 +65,7 @@
 				<tag name="return">路由预加载结果。</tag>
 				<tag name="schema">options: Dictionary，可包含 max_depth、max_routes、max_edges、max_catalog_routes、include_source、fixed_route_ids、group_id、plan_id、pin_cache、lane_id、max_concurrent_loads、check_exists 和 metadata；fixed_route_ids 优先占用 max_routes 预算，max_catalog_routes 限制输入目录检查数量。</tag>
 				<tag name="schema">return: Dictionary，包含 ok、healthy、reason、source_route_id、max_depth、max_routes、max_edges、max_catalog_routes、catalog_route_count、edge_count、truncated、catalog_budget_exhausted、route_budget_exhausted、edge_budget_exhausted、route_ids、fixed_route_ids、temporary_route_ids、scene_paths、missing_route_ids、routes_without_scene、missing_scene_paths、invalid_scene_type_paths、duplicate_route_ids、asset_plan 和 metadata；asset_plan 为 GFAssetPreloadPlan。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 	</methods>

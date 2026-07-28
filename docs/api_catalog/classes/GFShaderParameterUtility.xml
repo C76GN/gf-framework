@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFShaderParameterUtility" path="addons/gf/standard/utilities/display/gf_shader_parameter_utility.gd" module="standard" extends="GFUtility" classDigest="bdc411b576636bc0c82540c62bb458f25d559aada0bc8f3cf7601d9c373d2124">
+<class name="GFShaderParameterUtility" path="addons/gf/standard/utilities/display/gf_shader_parameter_utility.gd" module="standard" extends="GFUtility" classDigest="22d50ee1b76a531e8896dee3a0938bf215341160539284e71c8090c6ed1a9571">
 	<description>GFShaderParameterUtility: 通用 ShaderMaterial 参数应用工具。
 将 `GFShaderParameterProfile` 或参数字典写入 ShaderMaterial，也可以从持有
 `material` 属性的节点解析材质。它只处理参数存在性校验、共享材质复制和批量写入，
@@ -94,7 +94,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">material: 目标 ShaderMaterial。</tag>
 				<tag name="return">接口快照；材质或 Shader 为空时返回 null。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="validate_profile">
@@ -107,7 +107,7 @@
 				<tag name="param">options: 传给 GFShaderInterfaceSnapshot.validate_parameters() 的选项。</tag>
 				<tag name="return">标准校验报告。</tag>
 				<tag name="schema">options: Dictionary shader parameter validation options.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="validate_parameters">
@@ -121,7 +121,7 @@
 				<tag name="return">标准校验报告。</tag>
 				<tag name="schema">parameters: Dictionary[StringName|String, Variant] shader parameter values.</tag>
 				<tag name="schema">options: Dictionary shader parameter validation options.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_shader_parameter_names">

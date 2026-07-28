@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFStorageFailoverBackend" path="addons/gf/standard/utilities/storage/gf_storage_failover_backend.gd" module="standard" extends="GFStorageBackend" classDigest="61351c24a009aaf5ab6614f8a12b58fd0b93434ea87431467ccd6c7c5afe799e">
+<class name="GFStorageFailoverBackend" path="addons/gf/standard/utilities/storage/gf_storage_failover_backend.gd" module="standard" extends="GFStorageBackend" classDigest="a0e5a60910f4d9b428b81143f0c579cb3479c46d732447ef3c8c79c5f7952c08">
 	<description>GFStorageFailoverBackend: 有序存储故障转移后端。
 该组合后端按稳定 ID 管理一组调用方持有的 `GFStorageBackend`。读取总是按序
 尝试，写入和删除可选择只访问主后端或在失败后访问下一后端。它不会复制、
@@ -8,7 +8,7 @@
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">runtime_service</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">10.0.0</tag>
 	</tags>
 	<signals />
 	<enums>
@@ -22,7 +22,7 @@
 			<description>写入和删除的后端选择策略。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 	</enums>
@@ -42,7 +42,7 @@
 				<tag name="param">options: mutation_policy、failure_threshold（0 至 1000）和 cooldown_msec（0 至 86400000）；非法类型或范围会使配置整体失败。</tag>
 				<tag name="return">配置合法并完成替换时返回 true。</tag>
 				<tag name="schema">options: Dictionary，包含 mutation_policy: MutationPolicy、failure_threshold: int 和 cooldown_msec: int。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="set_clock">
@@ -53,7 +53,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">clock: 系统、测试或模拟时钟。</tag>
 				<tag name="return">非空时钟设置成功返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_backend_count">
@@ -62,7 +62,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">已配置子后端数量。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_backend_ids">
@@ -71,7 +71,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">与子后端顺序一致的稳定 ID。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_last_operation_report">
@@ -82,7 +82,7 @@
 				<tag name="api">public</tag>
 				<tag name="return">报告深拷贝；尚未执行操作时返回空字典。</tag>
 				<tag name="schema">return: Dictionary，包含 schema_version、operation、file_name、ok、selected_backend_id、error_code、error、attempt_count、skipped_count、attempts 和 timestamp_msec；每个 attempt 包含 backend_id、backend_index、capability、status、reason、error_code、error、consecutive_failures 和 cooldown_until_msec。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_health_snapshot">
@@ -92,7 +92,7 @@
 				<tag name="api">public</tag>
 				<tag name="return">配置和逐后端健康状态，不包含业务数据。</tag>
 				<tag name="schema">return: Dictionary，包含 mutation_policy、failure_threshold、cooldown_msec、backend_count 和 backends；每个 backend 包含 backend_id、backend_index、consecutive_failures、cooldown_until_msec 和 cooling_down。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="reset_backend_health">
@@ -102,7 +102,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">backend_id: 目标稳定 ID；为空时重置全部后端。</tag>
 				<tag name="return">至少重置一个已配置后端时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="_initialize">
@@ -113,7 +113,7 @@
 				<tag name="param">config: mutation_policy、failure_threshold（0 至 1000）和 cooldown_msec（0 至 86400000）。</tag>
 				<tag name="return">已配置且选项合法时返回 OK；未配置返回 ERR_UNCONFIGURED，非法选项返回 ERR_INVALID_PARAMETER。</tag>
 				<tag name="schema">config: Dictionary，包含 mutation_policy: MutationPolicy、failure_threshold: int 和 cooldown_msec: int。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="_shutdown">
@@ -121,7 +121,7 @@
 			<description>清空运行期报告和健康状态；不关闭调用方持有的子后端。</description>
 			<tags>
 				<tag name="api">protected</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="_save_data">
@@ -135,7 +135,7 @@
 				<tag name="return">首次成功时返回 OK，否则返回最后一个可观察错误。</tag>
 				<tag name="schema">data: Dictionary，调用方业务数据。</tag>
 				<tag name="schema">metadata: Dictionary，后端特定元数据。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="_load_data">
@@ -146,7 +146,7 @@
 				<tag name="param">file_name: 逻辑文件名。</tag>
 				<tag name="return">首个成功子后端结果或聚合失败结果。</tag>
 				<tag name="schema">return: Dictionary，包含 ok、data、metadata、error 和 error_code。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="_delete_data">
@@ -156,7 +156,7 @@
 				<tag name="api">protected</tag>
 				<tag name="param">file_name: 逻辑文件名。</tag>
 				<tag name="return">首次成功时返回 OK，否则返回最后一个可观察错误。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="_has_data">
@@ -166,7 +166,7 @@
 				<tag name="api">protected</tag>
 				<tag name="param">file_name: 逻辑文件名。</tag>
 				<tag name="return">任一可读后端存在数据时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="_list_data">
@@ -176,7 +176,7 @@
 				<tag name="api">protected</tag>
 				<tag name="return">首个可用后端的文件摘要。</tag>
 				<tag name="schema">return: Array，包含 file_name 和可选 metadata 的 Dictionary 条目。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="_get_capabilities">
@@ -186,7 +186,7 @@
 				<tag name="api">protected</tag>
 				<tag name="return">read、write、delete、list 和 sync 能力。</tag>
 				<tag name="schema">return: Dictionary，包含 read、write、delete、list 和 sync 布尔能力标记。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 	</methods>

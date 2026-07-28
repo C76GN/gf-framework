@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFShaderParameterProfile" path="addons/gf/standard/utilities/display/gf_shader_parameter_profile.gd" module="standard" extends="Resource" classDigest="6c84bb059e32bb181c68cc19c9de19a77fd8cd039afb66e77035ae155d04d1a5">
+<class name="GFShaderParameterProfile" path="addons/gf/standard/utilities/display/gf_shader_parameter_profile.gd" module="standard" extends="Resource" classDigest="6831af842f9c7951b1a2b892af3ae7f18723f67fb2c8fda3ae693efb56f2cddf">
 	<description>GFShaderParameterProfile: 通用 ShaderMaterial 参数集合资源。
 用 Resource 保存一组 shader uniform 参数值，便于项目把视觉 profile、天气表现、
 选中态或后处理参数声明为可合并、可复制、可插值的数据。它不提供具体 shader、
@@ -98,7 +98,7 @@
 				<tag name="param">options: 传给 GFShaderInterfaceSnapshot.validate_parameters() 的选项。</tag>
 				<tag name="return">标准校验报告。</tag>
 				<tag name="schema">options: Dictionary shader parameter validation options.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="merge_from">

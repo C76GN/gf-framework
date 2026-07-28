@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFExtensionSettings" path="addons/gf/kernel/extension/gf_extension_settings.gd" module="kernel" extends="RefCounted" classDigest="b6e0b74fcf32645fa3c26930d58d7c486077a546454d486229d7406bf2004174">
+<class name="GFExtensionSettings" path="addons/gf/kernel/extension/gf_extension_settings.gd" module="kernel" extends="RefCounted" classDigest="507f996110020b8939c4fa09f5200f4ca3e12d483983e0f8b8f4d39a25e14bbd">
 	<description>GFExtensionSettings: GF 扩展启用状态与 ProjectSettings 桥接。
 负责读取启用扩展 ID、解析扩展依赖、收集启用扩展 Installer，以及提供导出排除开关。</description>
 	<tags>
@@ -457,7 +457,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">EditorDebuggerPlugin 脚本路径列表。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_enabled_editor_action_paths">

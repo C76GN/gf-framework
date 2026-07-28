@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFAnalyticsOutboxAdapter" path="addons/gf/standard/utilities/io/gf_analytics_outbox_adapter.gd" module="standard" extends="RefCounted" classDigest="63d5bd3c6dae2f3160f30ffb60170185a97680ad8b19a19428653b55e978603e">
+<class name="GFAnalyticsOutboxAdapter" path="addons/gf/standard/utilities/io/gf_analytics_outbox_adapter.gd" module="standard" extends="RefCounted" classDigest="4d6a4991a42355dcaa31d23c780fc04d3a219cb80e59e0bb399a11a54cc93a8c">
 	<description>GFAnalyticsOutboxAdapter: Analytics 批次到通用请求 Outbox 的有界持久交接适配器。
 把 GFAnalyticsUtility 的 JSON-safe events 封装为固定、版本化的中立请求信封，
 并在确认 GFRequestOutboxUtility 已可靠持久化后才接受整批事件。适配器不接管
@@ -8,7 +8,7 @@ Outbox 的 transport_callback 或 replay_filter，也不持久化鉴权 Header�
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">runtime_service</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">10.0.0</tag>
 	</tags>
 	<signals />
 	<enums />
@@ -18,7 +18,7 @@ Outbox 的 transport_callback 或 replay_filter，也不持久化鉴权 Header�
 			<description>持久化批次协议标识。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="PROTOCOL_VERSION">
@@ -26,7 +26,7 @@ Outbox 的 transport_callback 或 replay_filter，也不持久化鉴权 Header�
 			<description>持久化批次协议版本。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="DEFAULT_ENDPOINT_URL">
@@ -34,7 +34,7 @@ Outbox 的 transport_callback 或 replay_filter，也不持久化鉴权 Header�
 			<description>默认逻辑端点。它不是供应商 URL，也不包含账号或鉴权信息。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 	</constants>
@@ -46,7 +46,7 @@ Outbox 的 transport_callback 或 replay_filter，也不持久化鉴权 Header�
 transport/filter 入口及存储生命周期。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="endpoint_url">
@@ -57,7 +57,7 @@ transport/filter 入口及存储生命周期。</description>
 transport 动态注入。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="max_payload_bytes">
@@ -65,7 +65,7 @@ transport 动态注入。</description>
 			<description>单个持久化批次的最终 JSON 字节上限；直接赋值会钳制到 1024..16 MiB。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="max_events_per_request">
@@ -73,7 +73,7 @@ transport 动态注入。</description>
 			<description>单个持久化批次的事件数量上限；直接赋值会钳制到 1..500。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="max_attempts">
@@ -81,7 +81,7 @@ transport 动态注入。</description>
 			<description>请求重放最大尝试次数；直接赋值和 configure() 都会钳制到 1..64。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="max_depth">
@@ -89,7 +89,7 @@ transport 动态注入。</description>
 			<description>单个事件嵌套深度上限；直接赋值会钳制到 1..32。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="max_collection_items">
@@ -97,7 +97,7 @@ transport 动态注入。</description>
 			<description>单个嵌套集合的元素上限；直接赋值会钳制到 1..4096。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="max_string_length">
@@ -105,7 +105,7 @@ transport 动态注入。</description>
 			<description>单个字符串的字符上限；直接赋值会钳制到 1..65_536。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="max_total_nodes">
@@ -113,7 +113,7 @@ transport 动态注入。</description>
 			<description>整批遍历的节点上限；直接赋值会钳制到 1..1_000_000。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 	</properties>
@@ -129,7 +129,7 @@ replay_filter、storage_path 或生命周期。</description>
 				<tag name="param">options: 可选 endpoint_url、max_payload_bytes、max_events_per_request、max_attempts、max_depth、max_collection_items、max_string_length 和 max_total_nodes。</tag>
 				<tag name="return">当前适配器。</tag>
 				<tag name="schema">options: Dictionary of bounded adapter configuration overrides.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="enqueue_payload">
@@ -149,7 +149,7 @@ v1 只接受唯一的 events 字段；payload_builder 添加其他顶层字段�
 				<tag name="return">整批交接结果。</tag>
 				<tag name="schema">payload: Dictionary with an events Array[Dictionary].</tag>
 				<tag name="schema">return: Dictionary with success, accepted, queued, persisted, reason, request_id, idempotency_key, and persistence_error.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="handles_request">
@@ -160,7 +160,7 @@ v1 只接受唯一的 events 字段；payload_builder 添加其他顶层字段�
 				<tag name="api">public</tag>
 				<tag name="param">envelope: 待路由的请求信封。</tag>
 				<tag name="return">身份、协议、预算和 body/metadata 一致时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_debug_snapshot">
@@ -170,7 +170,7 @@ v1 只接受唯一的 events 字段；payload_builder 添加其他顶层字段�
 				<tag name="api">public</tag>
 				<tag name="return">安全调试快照。</tag>
 				<tag name="schema">return: Dictionary with schema_id, protocol_version, configuration budgets, outbox availability, pending/failed counts, and last_reason.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 	</methods>

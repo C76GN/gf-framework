@@ -13,7 +13,7 @@
 ## [br]
 ## @category tool_api
 ## [br]
-## @since unreleased
+## @since 10.0.0
 class_name GFArtifactWriteTransaction
 extends RefCounted
 
@@ -24,98 +24,98 @@ extends RefCounted
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const KIND_TEXT: StringName = &"text"
 
 ## 字节产物 entry 类型。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const KIND_BYTES: StringName = &"bytes"
 
 ## 已有临时文件产物 entry 类型。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const KIND_FILE: StringName = &"file"
 
 ## 默认最大产物数量。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const DEFAULT_MAX_FILE_COUNT: int = 256
 
 ## 默认单产物最大字节数。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const DEFAULT_MAX_FILE_BYTES: int = 64 * 1024 * 1024
 
 ## 默认单批产物最大总字节数。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const DEFAULT_MAX_TOTAL_BYTES: int = 256 * 1024 * 1024
 
 ## 默认事务 snapshots 与单个 restore working copy 的最大并发恢复字节数。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const DEFAULT_MAX_BACKUP_BYTES: int = 256 * 1024 * 1024
 
 ## 单次事务允许的产物数量绝对上限。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const ABSOLUTE_MAX_FILE_COUNT: int = 1024
 
 ## 单个产物允许的字节数绝对上限。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const ABSOLUTE_MAX_FILE_BYTES: int = 64 * 1024 * 1024
 
 ## 单次事务允许的产物总字节数绝对上限。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const ABSOLUTE_MAX_TOTAL_BYTES: int = 256 * 1024 * 1024
 
 ## 单次事务 snapshots 与单个 restore working copy 的最大并发恢复字节数绝对上限。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const ABSOLUTE_MAX_BACKUP_BYTES: int = 256 * 1024 * 1024
 
 ## 同一进程内允许保持 open 的事务绝对上限。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const ABSOLUTE_MAX_ACTIVE_TRANSACTIONS: int = 256
 
 ## 恢复报告要求调用 rollback()。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const RECOVERY_ACTION_ROLLBACK: StringName = &"rollback"
 
 ## 恢复报告要求调用 complete()。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const RECOVERY_ACTION_COMPLETE: StringName = &"complete"
 
 const _TRANSACTION_FORMAT: String = "gf.artifact_write.transaction"
@@ -147,7 +147,7 @@ static var _test_owned_remove_failures: int = 0
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param target_path: 目标 `res://` 或 `user://` 文件路径。
 ## [br]
@@ -172,7 +172,7 @@ static func make_text_entry(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param target_path: 目标 `res://` 或 `user://` 文件路径。
 ## [br]
@@ -199,7 +199,7 @@ static func make_bytes_entry(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param target_path: 目标 `res://` 或 `user://` 文件路径。
 ## [br]
@@ -224,7 +224,7 @@ static func make_file_entry(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param entries: make_text_entry()、make_bytes_entry() 或 make_file_entry() 创建的 entry。
 ## [br]
@@ -254,7 +254,7 @@ static func get_preflight_report(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param entries: make_text_entry()、make_bytes_entry() 或 make_file_entry() 创建的 entry。
 ## [br]
@@ -457,7 +457,7 @@ static func commit(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param paths: 本次外部事务可能创建或覆盖的完整文件路径。
 ## [br]
@@ -658,7 +658,7 @@ static func begin(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param transaction: begin() 返回且处于 open 状态的原始事务字典；任何改写都会失败。
 ## [br]
@@ -990,7 +990,7 @@ static func rollback(transaction: Dictionary) -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param transaction: begin() 返回且处于 open 状态的原始事务字典；任何改写都会失败。
 ## [br]

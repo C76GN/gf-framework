@@ -23,7 +23,7 @@ func _draw() -> void:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param canvas: 拥有该内部 overlay 的 Control。
 func configure(canvas: Control) -> void:

@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSaveRollbackFailure" path="addons/gf/extensions/save/profile/gf_save_rollback_failure.gd" module="extensions/save" extends="RefCounted" classDigest="c9f02e121810297b1a7aa6c83f24baf974d5e8a7314747821d21e9ede7b9d4e6">
+<class name="GFSaveRollbackFailure" path="addons/gf/extensions/save/profile/gf_save_rollback_failure.gd" module="extensions/save" extends="RefCounted" classDigest="d4b601f5c4f01243694cc7e4438b253d6c80c6615247c3b08eeccc80c76e3053">
 	<description>GFSaveRollbackFailure: 单个 section 回滚失败证据。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">value_object</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">10.0.0</tag>
 	</tags>
 	<signals />
 	<enums />
@@ -17,7 +17,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">section ID。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_error_code">
@@ -26,7 +26,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">非 OK Error 码。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="duplicate_failure">
@@ -35,7 +35,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">新失败证据对象。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="to_dict">
@@ -45,7 +45,7 @@
 				<tag name="api">public</tag>
 				<tag name="return">section_id 与 error_code 字段。</tag>
 				<tag name="schema">return: Dictionary with section_id and error_code fields.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 	</methods>

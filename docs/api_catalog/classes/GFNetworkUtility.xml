@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFNetworkUtility" path="addons/gf/extensions/network/runtime/gf_network_utility.gd" module="extensions/network" extends="GFUtility" classDigest="c120a5b5c2d91536b40068c8923913696b623d47f2eda7290dd0a2254afc310a">
+<class name="GFNetworkUtility" path="addons/gf/extensions/network/runtime/gf_network_utility.gd" module="extensions/network" extends="GFUtility" classDigest="0652e4a13c5caaf48d715df5475df86cc21bf087f3c9dac38da6c834a503dd87">
 	<description>GFNetworkUtility: 可插拔网络后端运行时。
 负责把通用 GFNetworkMessage 编码后交给后端发送，并将后端收到的 bytes 解码为消息信号。</description>
 	<tags>
@@ -65,7 +65,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">metrics: 指标快照副本。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 	</signals>
@@ -114,7 +114,7 @@
 			<description>自动传输指标采样间隔，单位毫秒；小于等于 0 表示禁用自动采样。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="max_transport_metric_samples">
@@ -122,7 +122,7 @@
 			<description>内存中最多保留的传输指标快照数量；小于等于 0 表示不保留。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 	</properties>
@@ -256,7 +256,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">指标快照；未配置 Backend 时返回 null。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_transport_metric_samples">
@@ -266,7 +266,7 @@
 				<tag name="api">public</tag>
 				<tag name="return">最旧到最新的指标快照。</tag>
 				<tag name="schema">return: Array[GFNetworkTransportMetrics] bounded metric samples.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="clear_transport_metric_samples">
@@ -274,7 +274,7 @@
 			<description>清空传输指标历史。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_debug_snapshot">

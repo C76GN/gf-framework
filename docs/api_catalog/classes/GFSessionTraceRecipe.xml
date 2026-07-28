@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSessionTraceRecipe" path="addons/gf/standard/utilities/debug/gf_session_trace_recipe.gd" module="standard" extends="Resource" classDigest="f17c4c50b928a245fb170d8a84ae3702af37384957549f0d9eb22bfd28209cc0">
+<class name="GFSessionTraceRecipe" path="addons/gf/standard/utilities/debug/gf_session_trace_recipe.gd" module="standard" extends="Resource" classDigest="2d9e93beb9f5edb63b42e8d4e88d26c68b1bb63b42330da6233750d0a12a0e1c">
 	<description>GFSessionTraceRecipe: 可复用、可校验的 Session Trace 采集配方。
 配方声明全局内存预算、允许的事件通道、显式检查点和快照读取默认值。
 通道与检查点定义各自最多包含 256 项，数值预算会在运行时重新校验。
@@ -7,7 +7,7 @@
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">resource_definition</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">10.0.0</tag>
 	</tags>
 	<signals />
 	<enums />
@@ -18,7 +18,7 @@
 			<description>稳定配方 ID。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="max_events" decorators="@export_range(0, 1_000_000, 1)">
@@ -26,7 +26,7 @@
 			<description>全局内存事件数量上限。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="max_event_buffer_bytes" decorators="@export_range(0, 1_073_741_824, 1)">
@@ -34,7 +34,7 @@
 			<description>全局内存事件缓冲字节预算。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="max_event_bytes" decorators="@export_range(512, 16_777_216, 1)">
@@ -42,7 +42,7 @@
 			<description>全局单事件字节预算。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="redaction_profile" decorators="@export_enum(&quot;privacy&quot;, &quot;public&quot;, &quot;support&quot;, &quot;debug&quot;)">
@@ -50,7 +50,7 @@
 			<description>事件和单次 metadata 使用的脱敏 profile。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="channels" decorators="@export">
@@ -58,7 +58,7 @@
 			<description>配方声明的事件通道。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="checkpoints" decorators="@export">
@@ -66,7 +66,7 @@
 			<description>配方声明的显式采集检查点。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="snapshot_limit" decorators="@export_range(0, 1_000_000, 1)">
@@ -74,7 +74,7 @@
 			<description>配方快照默认保留的最新事件数；0 表示不限制。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="include_context" decorators="@export">
@@ -82,7 +82,7 @@
 			<description>配方快照默认是否包含会话上下文。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="include_channel_catalog" decorators="@export">
@@ -90,7 +90,7 @@
 			<description>配方快照默认是否包含通道目录。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="include_provider_catalog" decorators="@export">
@@ -98,7 +98,7 @@
 			<description>配方快照默认是否包含 Provider 目录。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="metadata" decorators="@export">
@@ -107,7 +107,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="schema">metadata: Dictionary with project-defined recipe catalog metadata.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 	</properties>
@@ -123,7 +123,7 @@
 				<tag name="param">options: 容量、脱敏与快照默认选项。</tag>
 				<tag name="return">当前配方。</tag>
 				<tag name="schema">options: Dictionary with max_events, max_event_buffer_bytes, max_event_bytes, redaction_profile, snapshot_limit, include_context, include_channel_catalog, include_provider_catalog, and metadata.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="validate_recipe">
@@ -133,7 +133,7 @@
 				<tag name="api">public</tag>
 				<tag name="return">GFValidationReportDictionary 兼容报告。</tag>
 				<tag name="schema">return: Dictionary with ok, issues, counts, summary, and next_actions.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_checkpoint">
@@ -143,7 +143,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">checkpoint_id: 检查点 ID。</tag>
 				<tag name="return">检查点；不存在时返回 null。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="to_report_dictionary">
@@ -153,7 +153,7 @@
 				<tag name="api">public</tag>
 				<tag name="return">配方描述。</tag>
 				<tag name="schema">return: Dictionary with recipe identity, budgets, bounded channels and checkpoints, source counts, definitions_truncated, snapshot_options, and metadata.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 	</methods>

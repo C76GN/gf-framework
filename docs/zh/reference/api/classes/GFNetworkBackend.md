@@ -232,7 +232,7 @@ func poll(_delta: float) -> void:
 ### `is_backend_connected`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func is_backend_connected() -> bool:
@@ -247,7 +247,7 @@ func is_backend_connected() -> bool:
 ### `get_session_bootstrap`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_session_bootstrap() -> Dictionary:
@@ -284,7 +284,7 @@ func get_debug_snapshot() -> Dictionary:
 ### `get_transport_metrics`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_transport_metrics() -> GFNetworkTransportMetrics:
@@ -299,7 +299,7 @@ func get_transport_metrics() -> GFNetworkTransportMetrics:
 ### `_enrich_transport_metrics`
 
 - API：`protected`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func _enrich_transport_metrics(_metrics: GFNetworkTransportMetrics) -> void:
@@ -318,7 +318,7 @@ func _enrich_transport_metrics(_metrics: GFNetworkTransportMetrics) -> void:
 ### `_record_transport_packet_sent`
 
 - API：`protected`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func _record_transport_packet_sent(byte_count: int) -> void:
@@ -337,7 +337,7 @@ func _record_transport_packet_sent(byte_count: int) -> void:
 ### `_reset_transport_metrics`
 
 - API：`protected`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func _reset_transport_metrics() -> void:

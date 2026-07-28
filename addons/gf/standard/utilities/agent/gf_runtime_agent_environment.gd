@@ -10,7 +10,7 @@
 ## [br]
 ## @category runtime_service
 ## [br]
-## @since unreleased
+## @since 10.0.0
 class_name GFRuntimeAgentEnvironment
 extends GFUtility
 
@@ -24,7 +24,7 @@ extends GFUtility
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param event: 固定字段、无业务载荷的 Runtime Agent 审计事件。
 ## [br]
@@ -38,14 +38,14 @@ signal audit_event_recorded(event: Dictionary)
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const PROTOCOL_VERSION: int = 1
 
 ## Runtime Agent 结果与审计结构版本。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const SCHEMA_VERSION: int = 1
 
 const _SESSION_POLICY_KIND: String = "gf.runtime_agent.session"
@@ -107,7 +107,7 @@ const _ALLOWED_SCHEMA_TYPES: Array[int] = [
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 var enabled: bool = false:
 	set(value):
 		if not _is_owner_thread():
@@ -131,7 +131,7 @@ var enabled: bool = false:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 var policy_registry: GFPolicyRegistry = GFPolicyRegistry.new():
 	set(value):
 		if not _is_owner_thread():
@@ -170,7 +170,7 @@ func _init() -> void:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 func dispose() -> void:
 	if not _is_owner_thread():
 		return
@@ -195,7 +195,7 @@ func dispose() -> void:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param endpoint_id: 稳定 endpoint 标识。
 ## [br]
@@ -292,7 +292,7 @@ func register_endpoint(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param endpoint_id: endpoint 标识。
 ## [br]
@@ -336,7 +336,7 @@ func unregister_endpoint(endpoint_id: String) -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 版本化安全目录。
 ## [br]
@@ -374,7 +374,7 @@ func get_endpoint_catalog() -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param endpoint_ids: session 唯一允许调用的 endpoint ID。
 ## [br]
@@ -611,7 +611,7 @@ func open_session(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param session_id: session 标识。
 ## [br]
@@ -656,7 +656,7 @@ func close_session(session_id: String, bearer_token: String) -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param session_id: 待撤销 session 标识。
 ## [br]
@@ -679,7 +679,7 @@ func revoke_session(session_id: String) -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 本次撤销的 session 数量；跨拥有线程调用返回 0。
 func invalidate_policy_context() -> int:
@@ -708,7 +708,7 @@ func invalidate_policy_context() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param request: closed 请求 envelope。
 ## [br]
@@ -1007,7 +1007,7 @@ func execute_request(request: Dictionary, bearer_token: String) -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 本次删除数量。
 func prune_expired_sessions() -> int:
@@ -1020,7 +1020,7 @@ func prune_expired_sessions() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param limit: 最多返回数量；钳制到 0..256。
 ## [br]
@@ -1046,7 +1046,7 @@ func get_audit_events(limit: int = 64) -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 func clear_audit_events() -> void:
 	if not _is_owner_thread():
 		return
@@ -1057,7 +1057,7 @@ func clear_audit_events() -> void:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 固定形态调试快照。
 ## [br]
@@ -1101,7 +1101,7 @@ func get_debug_snapshot() -> Dictionary:
 ## [br]
 ## @api protected
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 单调毫秒值。
 func _get_current_time_msec() -> int:

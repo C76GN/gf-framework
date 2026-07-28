@@ -7,7 +7,7 @@
 - 继承：`Control`
 - API：`public`
 - 类别：运行时服务 (`runtime_service`)
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 有界运行时 2D 空间交互画布。 统一管理画布视图、世界/画布/格子坐标转换、显式条目查询、稳定选择和项目校验的 放置会话。项目仍拥有内容节点、占位与权限规则、业务命令、存档和网络同步。
 
@@ -80,7 +80,7 @@
 ### `view_changed`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 signal view_changed(snapshot: Dictionary)
@@ -103,7 +103,7 @@ signal view_changed(snapshot: Dictionary)
 ### `selection_changed`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 signal selection_changed(selected_ids: PackedStringArray)
@@ -122,7 +122,7 @@ signal selection_changed(selected_ids: PackedStringArray)
 ### `placement_started`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 signal placement_started(snapshot: Dictionary)
@@ -145,7 +145,7 @@ signal placement_started(snapshot: Dictionary)
 ### `placement_preview_changed`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 signal placement_preview_changed(snapshot: Dictionary)
@@ -168,7 +168,7 @@ signal placement_preview_changed(snapshot: Dictionary)
 ### `placement_committed`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 signal placement_committed(report: Dictionary)
@@ -191,7 +191,7 @@ signal placement_committed(report: Dictionary)
 ### `placement_cancelled`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 signal placement_cancelled(report: Dictionary)
@@ -214,7 +214,7 @@ signal placement_cancelled(report: Dictionary)
 ### `history_operation_requested`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 signal history_operation_requested(operation: Dictionary)
@@ -239,7 +239,7 @@ signal history_operation_requested(operation: Dictionary)
 ### `SelectionMode`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 enum SelectionMode {
@@ -263,7 +263,7 @@ enum SelectionMode {
 ### `ABSOLUTE_MAX_ITEMS`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const ABSOLUTE_MAX_ITEMS: int = 65536
@@ -276,7 +276,7 @@ const ABSOLUTE_MAX_ITEMS: int = 65536
 ### `ABSOLUTE_MAX_SELECTION`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const ABSOLUTE_MAX_SELECTION: int = 16384
@@ -289,7 +289,7 @@ const ABSOLUTE_MAX_SELECTION: int = 16384
 ### `ABSOLUTE_MAX_QUERY_CANDIDATES`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const ABSOLUTE_MAX_QUERY_CANDIDATES: int = 16384
@@ -302,7 +302,7 @@ const ABSOLUTE_MAX_QUERY_CANDIDATES: int = 16384
 ### `ABSOLUTE_MAX_GRID_LINES`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const ABSOLUTE_MAX_GRID_LINES: int = 2048
@@ -317,7 +317,7 @@ const ABSOLUTE_MAX_GRID_LINES: int = 2048
 ### `get_content_root`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_content_root() -> Node2D:
@@ -332,7 +332,7 @@ func get_content_root() -> Node2D:
 ### `set_view`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func set_view(world_center: Vector2, zoom: float) -> bool:
@@ -354,7 +354,7 @@ func set_view(world_center: Vector2, zoom: float) -> bool:
 ### `get_world_center`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_world_center() -> Vector2:
@@ -369,7 +369,7 @@ func get_world_center() -> Vector2:
 ### `get_zoom`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_zoom() -> float:
@@ -384,7 +384,7 @@ func get_zoom() -> float:
 ### `set_zoom_limits`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func set_zoom_limits(minimum_zoom: float, maximum_zoom: float) -> bool:
@@ -406,7 +406,7 @@ func set_zoom_limits(minimum_zoom: float, maximum_zoom: float) -> bool:
 ### `set_world_bounds`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func set_world_bounds(bounds: Rect2, enabled: bool = true) -> bool:
@@ -428,7 +428,7 @@ func set_world_bounds(bounds: Rect2, enabled: bool = true) -> bool:
 ### `pan_by_canvas_delta`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func pan_by_canvas_delta(canvas_delta: Vector2) -> bool:
@@ -449,7 +449,7 @@ func pan_by_canvas_delta(canvas_delta: Vector2) -> bool:
 ### `zoom_at`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func zoom_at(canvas_position: Vector2, factor: float) -> bool:
@@ -471,7 +471,7 @@ func zoom_at(canvas_position: Vector2, factor: float) -> bool:
 ### `focus_world_rect`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func focus_world_rect(world_rect: Rect2, canvas_margin: float = 0.0) -> bool:
@@ -493,7 +493,7 @@ func focus_world_rect(world_rect: Rect2, canvas_margin: float = 0.0) -> bool:
 ### `world_to_canvas`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func world_to_canvas(world_position: Vector2) -> Vector2:
@@ -514,7 +514,7 @@ func world_to_canvas(world_position: Vector2) -> Vector2:
 ### `canvas_to_world`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func canvas_to_world(canvas_position: Vector2) -> Vector2:
@@ -535,7 +535,7 @@ func canvas_to_world(canvas_position: Vector2) -> Vector2:
 ### `world_to_screen`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func world_to_screen(world_position: Vector2) -> Vector2:
@@ -556,7 +556,7 @@ func world_to_screen(world_position: Vector2) -> Vector2:
 ### `screen_to_world`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func screen_to_world(screen_position: Vector2) -> Vector2:
@@ -577,7 +577,7 @@ func screen_to_world(screen_position: Vector2) -> Vector2:
 ### `get_visible_world_rect`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_visible_world_rect() -> Rect2:
@@ -592,7 +592,7 @@ func get_visible_world_rect() -> Rect2:
 ### `configure_grid`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func configure_grid( origin: Vector2, cell_size: Vector2, options: Dictionary = {} ) -> bool:
@@ -619,7 +619,7 @@ func configure_grid( origin: Vector2, cell_size: Vector2, options: Dictionary = 
 ### `get_grid_origin`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_grid_origin() -> Vector2:
@@ -634,7 +634,7 @@ func get_grid_origin() -> Vector2:
 ### `get_grid_size`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_grid_size() -> Vector2:
@@ -649,7 +649,7 @@ func get_grid_size() -> Vector2:
 ### `world_to_cell`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func world_to_cell(world_position: Vector2) -> Vector2i:
@@ -670,7 +670,7 @@ func world_to_cell(world_position: Vector2) -> Vector2i:
 ### `cell_to_world`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func cell_to_world(cell: Vector2i, use_center: bool = false) -> Vector2:
@@ -692,7 +692,7 @@ func cell_to_world(cell: Vector2i, use_center: bool = false) -> Vector2:
 ### `snap_world_position`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func snap_world_position(world_position: Vector2) -> Vector2:
@@ -713,7 +713,7 @@ func snap_world_position(world_position: Vector2) -> Vector2:
 ### `snap_rotation`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func snap_rotation(rotation_radians: float) -> float:
@@ -734,7 +734,7 @@ func snap_rotation(rotation_radians: float) -> float:
 ### `configure_budgets`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func configure_budgets(options: Dictionary) -> bool:
@@ -759,7 +759,7 @@ func configure_budgets(options: Dictionary) -> bool:
 ### `upsert_item`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func upsert_item( item_id: StringName, world_bounds: Rect2, options: Dictionary = {} ) -> bool:
@@ -786,7 +786,7 @@ func upsert_item( item_id: StringName, world_bounds: Rect2, options: Dictionary 
 ### `remove_item`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func remove_item(item_id: StringName) -> bool:
@@ -807,7 +807,7 @@ func remove_item(item_id: StringName) -> bool:
 ### `clear_items`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func clear_items() -> void:
@@ -820,7 +820,7 @@ func clear_items() -> void:
 ### `get_item`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_item(item_id: StringName) -> Dictionary:
@@ -845,7 +845,7 @@ func get_item(item_id: StringName) -> Dictionary:
 ### `query_items_at`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func query_items_at(world_position: Vector2) -> PackedStringArray:
@@ -866,7 +866,7 @@ func query_items_at(world_position: Vector2) -> PackedStringArray:
 ### `query_items_in_rect`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func query_items_in_rect( world_rect: Rect2, fully_contained: bool = false ) -> PackedStringArray:
@@ -888,7 +888,7 @@ func query_items_in_rect( world_rect: Rect2, fully_contained: bool = false ) -> 
 ### `set_selection`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func set_selection( item_ids: PackedStringArray, mode: int = SelectionMode.REPLACE ) -> PackedStringArray:
@@ -910,7 +910,7 @@ func set_selection( item_ids: PackedStringArray, mode: int = SelectionMode.REPLA
 ### `select_point`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func select_point( canvas_position: Vector2, mode: int = SelectionMode.REPLACE ) -> PackedStringArray:
@@ -932,7 +932,7 @@ func select_point( canvas_position: Vector2, mode: int = SelectionMode.REPLACE )
 ### `select_rect`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func select_rect( canvas_rect: Rect2, mode: int = SelectionMode.REPLACE, fully_contained: bool = false ) -> PackedStringArray:
@@ -955,7 +955,7 @@ func select_rect( canvas_rect: Rect2, mode: int = SelectionMode.REPLACE, fully_c
 ### `clear_selection`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func clear_selection() -> void:
@@ -968,7 +968,7 @@ func clear_selection() -> void:
 ### `get_selection`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_selection() -> PackedStringArray:
@@ -983,7 +983,7 @@ func get_selection() -> PackedStringArray:
 ### `set_placement_validator`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func set_placement_validator(callback: Callable) -> void:
@@ -1002,7 +1002,7 @@ func set_placement_validator(callback: Callable) -> void:
 ### `set_history_hook`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func set_history_hook(callback: Callable) -> void:
@@ -1025,7 +1025,7 @@ func set_history_hook(callback: Callable) -> void:
 ### `begin_placement`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func begin_placement( type_id: StringName, footprint: Rect2, options: Dictionary = {} ) -> int:
@@ -1052,7 +1052,7 @@ func begin_placement( type_id: StringName, footprint: Rect2, options: Dictionary
 ### `update_placement`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func update_placement( world_position: Vector2, options: Dictionary = {} ) -> bool:
@@ -1078,7 +1078,7 @@ func update_placement( world_position: Vector2, options: Dictionary = {} ) -> bo
 ### `commit_placement`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func commit_placement() -> Dictionary:
@@ -1097,7 +1097,7 @@ func commit_placement() -> Dictionary:
 ### `cancel_placement`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func cancel_placement(reason: StringName = &"cancelled") -> Dictionary:
@@ -1122,7 +1122,7 @@ func cancel_placement(reason: StringName = &"cancelled") -> Dictionary:
 ### `has_active_placement`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func has_active_placement() -> bool:
@@ -1137,7 +1137,7 @@ func has_active_placement() -> bool:
 ### `get_placement_snapshot`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_placement_snapshot() -> Dictionary:
@@ -1156,7 +1156,7 @@ func get_placement_snapshot() -> Dictionary:
 ### `handle_input_event`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func handle_input_event(event: InputEvent) -> bool:
@@ -1177,7 +1177,7 @@ func handle_input_event(event: InputEvent) -> bool:
 ### `handle_screen_input_event`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func handle_screen_input_event(event: InputEvent) -> bool:
@@ -1198,7 +1198,7 @@ func handle_screen_input_event(event: InputEvent) -> bool:
 ### `set_input_enabled`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func set_input_enabled(enabled: bool) -> void:
@@ -1217,7 +1217,7 @@ func set_input_enabled(enabled: bool) -> void:
 ### `get_debug_snapshot`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_debug_snapshot() -> Dictionary:

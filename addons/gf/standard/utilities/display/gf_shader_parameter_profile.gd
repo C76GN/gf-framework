@@ -134,7 +134,7 @@ func get_parameter_names() -> Array[StringName]:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param interface_snapshot: 期望接口快照。
 ## [br]

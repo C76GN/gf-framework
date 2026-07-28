@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFNetworkLobbyService" path="addons/gf/extensions/network/session/gf_network_lobby_service.gd" module="extensions/network" extends="GFUtility" classDigest="b833051a2758ac8c124db596660de4af52a02886b89130e52a3145a0e6a151a2">
+<class name="GFNetworkLobbyService" path="addons/gf/extensions/network/session/gf_network_lobby_service.gd" module="extensions/network" extends="GFUtility" classDigest="1a61b8cb065fa5658671b62d6130c8cd2f0425399180092a73f1d6af58dd1e34">
 	<description>GFNetworkLobbyService: 平台中立 Lobby 操作协调服务。
 Service 统一生成请求 ID、管理单调超时、取消 Backend 替换时的等待操作，并维护
 Lobby 快照。Steam、小游戏、LAN 或自建服务 API 只能存在于外部 Backend Adapter。</description>
@@ -15,7 +15,7 @@ Lobby 快照。Steam、小游戏、LAN 或自建服务 API 只能存在于外部
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">request: 请求副本。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="signal" name="operation_completed">
@@ -24,7 +24,7 @@ Lobby 快照。Steam、小游戏、LAN 或自建服务 API 只能存在于外部
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">result: 终态结果副本。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="signal" name="lobby_created">
@@ -69,7 +69,7 @@ Lobby 快照。Steam、小游戏、LAN 或自建服务 API 只能存在于外部
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">result: Metadata 操作终态。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="signal" name="member_metadata_set">
@@ -78,7 +78,7 @@ Lobby 快照。Steam、小游戏、LAN 或自建服务 API 只能存在于外部
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">result: Metadata 操作终态。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="signal" name="lobby_updated">
@@ -157,7 +157,7 @@ Lobby 快照。Steam、小游戏、LAN 或自建服务 API 只能存在于外部
 			<description>未显式传入 timeout_msec 时的操作超时；0 表示不限制。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 	</properties>
@@ -167,7 +167,7 @@ Lobby 快照。Steam、小游戏、LAN 或自建服务 API 只能存在于外部
 			<description>在架构中自动采用已注册 GFTimeProvider 的底层时钟。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="tick">
@@ -205,7 +205,7 @@ Lobby 快照。Steam、小游戏、LAN 或自建服务 API 只能存在于外部
 				<tag name="api">public</tag>
 				<tag name="param">clock: 新时钟。</tag>
 				<tag name="return">时钟有效且当前没有等待操作时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_clock">
@@ -214,7 +214,7 @@ Lobby 快照。Steam、小游戏、LAN 或自建服务 API 只能存在于外部
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">当前时钟。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="create_lobby">
@@ -300,7 +300,7 @@ Lobby 快照。Steam、小游戏、LAN 或自建服务 API 只能存在于外部
 				<tag name="api">public</tag>
 				<tag name="param">request: 完整请求。</tag>
 				<tag name="return">一次性操作句柄。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="cancel_operation">
@@ -311,7 +311,7 @@ Lobby 快照。Steam、小游戏、LAN 或自建服务 API 只能存在于外部
 				<tag name="param">request_id: 请求 ID。</tag>
 				<tag name="param">reason: 取消原因。</tag>
 				<tag name="return">找到并首次取消返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_lobby">

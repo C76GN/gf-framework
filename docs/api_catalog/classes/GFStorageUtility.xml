@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFStorageUtility" path="addons/gf/standard/utilities/storage/gf_storage_utility.gd" module="standard" extends="GFUtility" classDigest="3def2ab5eaabf9721760151fd686163627df2df4e37be78cec6c423827012897">
+<class name="GFStorageUtility" path="addons/gf/standard/utilities/storage/gf_storage_utility.gd" module="standard" extends="GFUtility" classDigest="7d567f5474ea0a98484c774a6030043e41ff1dfb9e85d808e3d8f56819f2d31a">
 	<description>GFStorageUtility: 基于 `user://` 的轻量存档系统。
 支持槽位存档、元数据分离读取、`Resource` 存取，
 以及可配置 codec、完整性校验、版本迁移和简单混淆，适合通用本地持久化场景。
@@ -354,7 +354,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">file_name: 待校验文件名。</tag>
 				<tag name="return">合法时返回规范化文件名；非法时返回空字符串。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="save_data_async">
@@ -378,7 +378,7 @@
 				<tag name="param">data: 要保存的字典。</tag>
 				<tag name="return">已配置的请求句柄；输入无效或启动失败时句柄立即进入失败终态。</tag>
 				<tag name="schema">data: Dictionary，要序列化并保存的数据载荷。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="load_data_async">
@@ -398,7 +398,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">file_name: 目标文件名。</tag>
 				<tag name="return">已配置的请求句柄；输入无效或启动失败时句柄立即进入失败终态。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="wait_for_async_tasks">

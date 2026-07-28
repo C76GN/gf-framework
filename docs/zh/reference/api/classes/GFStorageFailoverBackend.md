@@ -7,7 +7,7 @@
 - 继承：`GFStorageBackend`
 - API：`public`
 - 类别：运行时服务 (`runtime_service`)
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 有序存储故障转移后端。 该组合后端按稳定 ID 管理一组调用方持有的 `GFStorageBackend`。读取总是按序 尝试，写入和删除可选择只访问主后端或在失败后访问下一后端。它不会复制、 同步或关闭子后端，也不宣称跨后端原子性；需要镜像和冲突处理时应使用 `GFStorageSyncUtility`。每次操作都会保留一个不含业务数据的有界尝试报告。
 
@@ -39,7 +39,7 @@
 ### `MutationPolicy`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 enum MutationPolicy {
@@ -59,7 +59,7 @@ enum MutationPolicy {
 ### `configure_backends`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func configure_backends( backends: Array[GFStorageBackend], backend_ids: PackedStringArray = PackedStringArray(), options: Dictionary = {} ) -> bool:
@@ -86,7 +86,7 @@ func configure_backends( backends: Array[GFStorageBackend], backend_ids: PackedS
 ### `set_clock`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func set_clock(clock: GFClock) -> bool:
@@ -107,7 +107,7 @@ func set_clock(clock: GFClock) -> bool:
 ### `get_backend_count`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_backend_count() -> int:
@@ -122,7 +122,7 @@ func get_backend_count() -> int:
 ### `get_backend_ids`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_backend_ids() -> PackedStringArray:
@@ -137,7 +137,7 @@ func get_backend_ids() -> PackedStringArray:
 ### `get_last_operation_report`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_last_operation_report() -> Dictionary:
@@ -156,7 +156,7 @@ func get_last_operation_report() -> Dictionary:
 ### `get_health_snapshot`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_health_snapshot() -> Dictionary:
@@ -175,7 +175,7 @@ func get_health_snapshot() -> Dictionary:
 ### `reset_backend_health`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func reset_backend_health(backend_id: StringName = &"") -> bool:
@@ -196,7 +196,7 @@ func reset_backend_health(backend_id: StringName = &"") -> bool:
 ### `_initialize`
 
 - API：`protected`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func _initialize(config: Dictionary) -> Error:
@@ -221,7 +221,7 @@ func _initialize(config: Dictionary) -> Error:
 ### `_shutdown`
 
 - API：`protected`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func _shutdown() -> void:
@@ -234,7 +234,7 @@ func _shutdown() -> void:
 ### `_save_data`
 
 - API：`protected`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func _save_data(file_name: String, data: Dictionary, metadata: Dictionary) -> Error:
@@ -262,7 +262,7 @@ func _save_data(file_name: String, data: Dictionary, metadata: Dictionary) -> Er
 ### `_load_data`
 
 - API：`protected`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func _load_data(file_name: String) -> Dictionary:
@@ -287,7 +287,7 @@ func _load_data(file_name: String) -> Dictionary:
 ### `_delete_data`
 
 - API：`protected`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func _delete_data(file_name: String) -> Error:
@@ -308,7 +308,7 @@ func _delete_data(file_name: String) -> Error:
 ### `_has_data`
 
 - API：`protected`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func _has_data(file_name: String) -> bool:
@@ -329,7 +329,7 @@ func _has_data(file_name: String) -> bool:
 ### `_list_data`
 
 - API：`protected`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func _list_data() -> Array[Dictionary]:
@@ -348,7 +348,7 @@ func _list_data() -> Array[Dictionary]:
 ### `_get_capabilities`
 
 - API：`protected`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func _get_capabilities() -> Dictionary:

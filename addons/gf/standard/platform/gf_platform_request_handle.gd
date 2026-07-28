@@ -157,7 +157,7 @@ func get_debug_snapshot() -> Dictionary:
 ## [br]
 ## @layer standard/platform
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param request: 已校验请求。
 ## [br]
@@ -191,7 +191,7 @@ func configure_from_platform_layer(
 ## [br]
 ## @layer standard/platform
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param request: 原请求，可为空。
 ## [br]
@@ -224,7 +224,7 @@ func reject_from_platform_layer(
 ## [br]
 ## @layer standard/platform
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param result: 与当前请求匹配的结果。
 ## [br]
@@ -243,7 +243,7 @@ func resolve_from_platform_layer(result: GFPlatformBridgeResult) -> bool:
 ## [br]
 ## @layer standard/platform
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param value: Adapter 返回值。
 ## [br]
@@ -282,7 +282,7 @@ func succeed_from_platform_layer(
 ## [br]
 ## @layer standard/platform
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param status: 稳定失败状态。
 ## [br]
@@ -309,7 +309,7 @@ func fail_from_platform_layer(
 ## [br]
 ## @layer standard/platform
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 首次超时完成返回 true。
 func timeout_from_platform_layer() -> bool:

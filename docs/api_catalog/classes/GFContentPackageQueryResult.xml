@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFContentPackageQueryResult" path="addons/gf/extensions/content_package/runtime/gf_content_package_query_result.gd" module="extensions/content_package" extends="RefCounted" classDigest="74708156aa21f0a0895eeac4c8b6029f15a2aa1ce182989a7d2c31143bdf7385">
+<class name="GFContentPackageQueryResult" path="addons/gf/extensions/content_package/runtime/gf_content_package_query_result.gd" module="extensions/content_package" extends="RefCounted" classDigest="b0f9a09a5d94ff83537f123920c7e9ac46d961736020faedda07e7fa6025e2d6">
 	<description>GFContentPackageQueryResult: 内容包查询的不可变结果快照。
 结果区分直接命中与依赖闭包，并保留隔离的 manifest 和验证报告，
 调用方不需要从空数组推断查询失败或无匹配。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">value_object</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">10.0.0</tag>
 	</tags>
 	<signals />
 	<enums />
@@ -16,7 +16,7 @@
 			<description>查询成功完成。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATUS_INVALID_QUERY">
@@ -24,7 +24,7 @@
 			<description>查询对象为空或无效。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATUS_INVALID_CATALOG">
@@ -32,7 +32,7 @@
 			<description>内容包目录依赖图或 manifest 无效。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 	</constants>
@@ -44,7 +44,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">查询成功返回 true；零匹配仍属于成功。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_status">
@@ -53,7 +53,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">`STATUS_*` 常量之一。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_query_id">
@@ -62,7 +62,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">查询稳定 ID。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_direct_package_ids">
@@ -71,7 +71,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">dependency-first 排序的 ID 副本。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_package_ids">
@@ -80,7 +80,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">dependency-first 排序的 ID 副本。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_manifest">
@@ -90,7 +90,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">package_id: 内容包 ID。</tag>
 				<tag name="return">manifest 深拷贝；未命中返回 null。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_manifests">
@@ -99,7 +99,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">与 get_package_ids() 同序的 manifest 数组。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_report">
@@ -109,7 +109,7 @@
 				<tag name="api">public</tag>
 				<tag name="return">GFValidationReportDictionary 兼容字典。</tag>
 				<tag name="schema">return: GFValidationReportDictionary-compatible Dictionary with query_id, status, direct_package_ids, and package_ids.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="to_dict">
@@ -119,7 +119,7 @@
 				<tag name="api">public</tag>
 				<tag name="return">不包含 Resource 对象的结果字典。</tag>
 				<tag name="schema">return: Dictionary with successful, status, query_id, direct_package_ids, package_ids, manifests, and report.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 	</methods>

@@ -276,7 +276,7 @@ func _can_change_configuration(field_name: String) -> bool:
 ### `_seal_configuration_for_execution`
 
 - API：`protected`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func _seal_configuration_for_execution() -> void:

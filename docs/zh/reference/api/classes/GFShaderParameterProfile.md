@@ -194,7 +194,7 @@ func get_parameter_names() -> Array[StringName]:
 ### `validate_against`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func validate_against( interface_snapshot: GFShaderInterfaceSnapshot, options: Dictionary = {} ) -> GFValidationReport:

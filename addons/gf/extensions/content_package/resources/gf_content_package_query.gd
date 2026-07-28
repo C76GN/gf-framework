@@ -7,7 +7,7 @@
 ## [br]
 ## @category value_object
 ## [br]
-## @since unreleased
+## @since 10.0.0
 class_name GFContentPackageQuery
 extends Resource
 
@@ -18,56 +18,56 @@ extends Resource
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 @export var query_id: StringName = &""
 
 ## 允许返回的 package ID；为空表示不限制。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 @export var package_ids: PackedStringArray = PackedStringArray()
 
 ## 在 package ID、显示名、版本和 content type 中匹配的大小写无关文本。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 @export var search_text: String = ""
 
 ## manifest 必须包含的全部 content type。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 @export var required_content_types: PackedStringArray = PackedStringArray()
 
 ## manifest 必须声明的全部直接依赖 ID。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 @export var required_dependencies: PackedStringArray = PackedStringArray()
 
 ## manifest 必须声明的全部资源键。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 @export var required_resource_keys: PackedStringArray = PackedStringArray()
 
 ## 允许的安全分类；为空表示不限制。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 @export var allowed_safety_kinds: PackedStringArray = PackedStringArray()
 
 ## manifest metadata 必须精确匹配的键值。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @schema required_metadata: Dictionary with exact manifest metadata key/value filters.
 @export var required_metadata: Dictionary = {}
@@ -76,21 +76,21 @@ extends Resource
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 @export var include_dependencies: bool = false
 
 ## 直接命中包的最大数量；小于等于 0 表示不限制。依赖闭包不计入该限制。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 @export var max_results: int = 0
 
 ## 调用方自定义查询元数据；GF 只负责复制和序列化。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @schema metadata: Dictionary with caller-defined query metadata.
 @export var metadata: Dictionary = {}
@@ -102,7 +102,7 @@ extends Resource
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param manifest: 要检查的内容包 manifest。
 ## [br]
@@ -134,7 +134,7 @@ func matches(manifest: GFContentPackageManifest) -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param data: 查询字典。
 ## [br]
@@ -165,7 +165,7 @@ func apply_dict(data: Dictionary) -> void:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 查询字典副本。
 ## [br]
@@ -190,7 +190,7 @@ func to_dict() -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 新查询。
 func duplicate_query() -> GFContentPackageQuery:
@@ -201,7 +201,7 @@ func duplicate_query() -> GFContentPackageQuery:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param data: 查询字典。
 ## [br]

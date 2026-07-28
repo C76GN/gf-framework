@@ -582,7 +582,7 @@ func load_data(file_name: String) -> GFStorageReadResult:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param file_name: 待校验文件名。
 ## [br]
@@ -614,7 +614,7 @@ func save_data_async(file_name: String, data: Dictionary) -> Error:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param file_name: 目标文件名。
 ## [br]
@@ -649,7 +649,7 @@ func load_data_async(file_name: String) -> Error:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param file_name: 目标文件名。
 ## [br]

@@ -7,7 +7,7 @@
 - 继承：`GFUtility`
 - API：`public`
 - 类别：运行时服务 (`runtime_service`)
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 传输无关的受限运行时 Agent 调用环境。 受信宿主显式注册严格 endpoint，再为调用方签发仅授权指定 endpoint 的短期 session。 环境负责协议版本、bearer token、TTL、限流、防重放、结构预算、策略检查和无载荷审计； 它不提供网络传输、模型客户端、文件或命令执行，也不是进程或脚本沙箱。 实例绑定创建线程；所有公开入口与公开策略对象的原地修改都必须在该线程串行执行， 外层 transport 应先编排回拥有线程。跨线程公开入口会 fail closed 且不写共享审计状态。
 
@@ -42,7 +42,7 @@
 ### `audit_event_recorded`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 signal audit_event_recorded(event: Dictionary)
@@ -67,7 +67,7 @@ signal audit_event_recorded(event: Dictionary)
 ### `PROTOCOL_VERSION`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const PROTOCOL_VERSION: int = 1
@@ -80,7 +80,7 @@ Runtime Agent 请求协议版本。
 ### `SCHEMA_VERSION`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const SCHEMA_VERSION: int = 1
@@ -95,7 +95,7 @@ Runtime Agent 结果与审计结构版本。
 ### `enabled`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var enabled: bool = false:
@@ -108,7 +108,7 @@ var enabled: bool = false:
 ### `policy_registry`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var policy_registry: GFPolicyRegistry = GFPolicyRegistry.new():
@@ -123,7 +123,7 @@ session 签发与请求执行使用的策略注册表。 空注册表表示没�
 ### `dispose`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func dispose() -> void:
@@ -136,7 +136,7 @@ func dispose() -> void:
 ### `register_endpoint`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func register_endpoint( endpoint_id: String, request_schema: GFDictionarySchema, response_schema: GFDictionarySchema, handler: Callable ) -> Dictionary:
@@ -164,7 +164,7 @@ func register_endpoint( endpoint_id: String, request_schema: GFDictionarySchema,
 ### `unregister_endpoint`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func unregister_endpoint(endpoint_id: String) -> Dictionary:
@@ -189,7 +189,7 @@ func unregister_endpoint(endpoint_id: String) -> Dictionary:
 ### `get_endpoint_catalog`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_endpoint_catalog() -> Dictionary:
@@ -208,7 +208,7 @@ func get_endpoint_catalog() -> Dictionary:
 ### `open_session`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func open_session( endpoint_ids: PackedStringArray, options: Dictionary = {} ) -> Dictionary:
@@ -236,7 +236,7 @@ func open_session( endpoint_ids: PackedStringArray, options: Dictionary = {} ) -
 ### `close_session`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func close_session(session_id: String, bearer_token: String) -> Dictionary:
@@ -262,7 +262,7 @@ func close_session(session_id: String, bearer_token: String) -> Dictionary:
 ### `revoke_session`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func revoke_session(session_id: String) -> bool:
@@ -283,7 +283,7 @@ func revoke_session(session_id: String) -> bool:
 ### `invalidate_policy_context`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func invalidate_policy_context() -> int:
@@ -298,7 +298,7 @@ func invalidate_policy_context() -> int:
 ### `execute_request`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func execute_request(request: Dictionary, bearer_token: String) -> Dictionary:
@@ -325,7 +325,7 @@ func execute_request(request: Dictionary, bearer_token: String) -> Dictionary:
 ### `prune_expired_sessions`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func prune_expired_sessions() -> int:
@@ -340,7 +340,7 @@ func prune_expired_sessions() -> int:
 ### `get_audit_events`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_audit_events(limit: int = 64) -> Dictionary:
@@ -365,7 +365,7 @@ func get_audit_events(limit: int = 64) -> Dictionary:
 ### `clear_audit_events`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func clear_audit_events() -> void:
@@ -378,7 +378,7 @@ func clear_audit_events() -> void:
 ### `get_debug_snapshot`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func get_debug_snapshot() -> Dictionary:
@@ -397,7 +397,7 @@ func get_debug_snapshot() -> Dictionary:
 ### `_get_current_time_msec`
 
 - API：`protected`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func _get_current_time_msec() -> int:

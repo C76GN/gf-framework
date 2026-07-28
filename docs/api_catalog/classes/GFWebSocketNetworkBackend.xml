@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFWebSocketNetworkBackend" path="addons/gf/extensions/network/backends/gf_websocket_network_backend.gd" module="extensions/network" extends="GFNetworkBackend" classDigest="20c1277b88a589f47d7998665a9e3e064207d3b12763c0fbe679fe0d6a68cb13">
+<class name="GFWebSocketNetworkBackend" path="addons/gf/extensions/network/backends/gf_websocket_network_backend.gd" module="extensions/network" extends="GFNetworkBackend" classDigest="e635addf81e8e28866aeedb82a7447e79a4ff69344f13d5cad3ca8605c9a909f">
 	<description>GFWebSocketNetworkBackend: 基于 Godot WebSocketPeer 的网络后端。
 只实现 GFNetworkBackend 的 bytes 传输边界，适合浏览器、原生客户端或工具链
 之间复用同一套 GFNetworkMessage 序列化流程。</description>
@@ -46,7 +46,7 @@
 握手中和已打开的 peer 都会占用容量。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="ABSOLUTE_MAX_CLIENTS">
@@ -54,7 +54,7 @@
 			<description>WebSocket 主机允许的远端 peer 绝对上限。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="DEFAULT_HANDSHAKE_TIMEOUT_MSEC">
@@ -62,7 +62,7 @@
 			<description>WebSocket 握手默认超时时间（毫秒）。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="ABSOLUTE_MAX_HANDSHAKE_TIMEOUT_MSEC">
@@ -70,7 +70,7 @@
 			<description>WebSocket 握手超时时间绝对上限（毫秒）。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="DEFAULT_MAX_ACCEPTS_PER_POLL">
@@ -78,7 +78,7 @@
 			<description>单次 poll 默认 accept 尝试预算。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="ABSOLUTE_MAX_ACCEPTS_PER_POLL">
@@ -86,7 +86,7 @@
 			<description>单次 poll accept 尝试预算绝对上限。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="DEFAULT_MAX_PACKETS_PER_PEER_PER_POLL">
@@ -94,7 +94,7 @@
 			<description>单个 peer 单次 poll 默认入站包预算。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="ABSOLUTE_MAX_PACKETS_PER_PEER_PER_POLL">
@@ -102,7 +102,7 @@
 			<description>单个 peer 单次 poll 入站包预算绝对上限。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="DEFAULT_MAX_PACKETS_PER_POLL">
@@ -110,7 +110,7 @@
 			<description>单次 poll 默认全局入站包预算。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="ABSOLUTE_MAX_PACKETS_PER_POLL">
@@ -118,7 +118,7 @@
 			<description>单次 poll 全局入站包预算绝对上限。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="DEFAULT_MAX_SERVICE_PEERS_PER_POLL">
@@ -126,7 +126,7 @@
 			<description>单次 poll 默认服务 peer 数量。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="ABSOLUTE_MAX_SERVICE_PEERS_PER_POLL">
@@ -134,7 +134,7 @@
 			<description>单次 poll 服务 peer 数量绝对上限。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="DEFAULT_INBOUND_BUFFER_SIZE">
@@ -142,7 +142,7 @@
 			<description>单个 WebSocket peer 默认入站缓冲区字节数。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="ABSOLUTE_MAX_INBOUND_BUFFER_SIZE">
@@ -150,7 +150,7 @@
 			<description>单个 WebSocket peer 入站缓冲区字节数绝对上限。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="DEFAULT_OUTBOUND_BUFFER_SIZE">
@@ -158,7 +158,7 @@
 			<description>单个 WebSocket peer 默认出站缓冲区字节数。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="ABSOLUTE_MAX_OUTBOUND_BUFFER_SIZE">
@@ -166,7 +166,7 @@
 			<description>单个 WebSocket peer 出站缓冲区字节数绝对上限。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="DEFAULT_MAX_QUEUED_PACKETS">
@@ -174,7 +174,7 @@
 			<description>单个 WebSocket peer 默认排队包数量。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="ABSOLUTE_MAX_QUEUED_PACKETS">
@@ -182,7 +182,7 @@
 			<description>单个 WebSocket peer 排队包数量绝对上限。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="ABSOLUTE_MAX_SUPPORTED_PROTOCOL_COUNT">
@@ -190,7 +190,7 @@
 			<description>单个 peer 允许声明的 WebSocket 子协议数量绝对上限。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="ABSOLUTE_MAX_SUPPORTED_PROTOCOL_BYTES">
@@ -198,7 +198,7 @@
 			<description>单个 WebSocket 子协议 UTF-8 字节数绝对上限。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="ABSOLUTE_MAX_SUPPORTED_PROTOCOL_TOTAL_BYTES">
@@ -206,7 +206,7 @@
 			<description>单个 peer 全部 WebSocket 子协议 UTF-8 总字节数绝对上限。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 	</constants>
@@ -235,7 +235,7 @@
 赋值会钳制到 1..ABSOLUTE_MAX_PACKETS_PER_POLL，不能关闭全局工作预算。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="max_service_peers_per_poll">
@@ -245,7 +245,7 @@
 会在后续 poll 获得服务机会。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="handshake_timeout_msec">
@@ -255,7 +255,7 @@
 主机容量。每个 poll 仍只在服务 peer 预算内检查超时。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 	</properties>

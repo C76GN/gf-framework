@@ -196,7 +196,7 @@ func get_ordered_package_ids() -> PackedStringArray:
 ### `query_packages`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func query_packages( query: GFContentPackageQuery, options: Dictionary = {} ) -> GFContentPackageQueryResult:

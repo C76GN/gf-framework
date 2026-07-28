@@ -288,7 +288,7 @@ var max_failed_requests: int = 32
 ### `max_storage_bytes`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 var max_storage_bytes: int = _DEFAULT_MAX_STORAGE_BYTES
@@ -402,7 +402,7 @@ func enqueue(envelope: GFRequestEnvelope) -> bool:
 ### `enqueue_with_report`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func enqueue_with_report( envelope: GFRequestEnvelope, require_persistence: bool = false ) -> Dictionary:

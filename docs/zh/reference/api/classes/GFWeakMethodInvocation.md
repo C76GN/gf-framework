@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：运行时句柄 (`runtime_handle`)
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 不强持有目标对象的方法调用记录。 记录只保留目标的 WeakRef、创建时实例 ID 与方法名，并在调用时接收参数。 它不会保存 Callable，因此目标为 RefCounted 时不会被绑定回调意外延长生命周期。 `invoked` 只表示方法通过定义与参数数量预检且 Object.callv() 已返回；GDScript 无法捕获 callv 期间的类型错误或被调方法内部错误，因此这类错误不会转换为 `failed`。
 
@@ -29,7 +29,7 @@
 ### `STATUS_INVOKED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const STATUS_INVOKED: StringName = &"invoked"
@@ -42,7 +42,7 @@ const STATUS_INVOKED: StringName = &"invoked"
 ### `STATUS_OWNER_RELEASED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const STATUS_OWNER_RELEASED: StringName = &"owner_released"
@@ -55,7 +55,7 @@ const STATUS_OWNER_RELEASED: StringName = &"owner_released"
 ### `STATUS_METHOD_MISSING`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const STATUS_METHOD_MISSING: StringName = &"method_missing"
@@ -68,7 +68,7 @@ const STATUS_METHOD_MISSING: StringName = &"method_missing"
 ### `STATUS_FAILED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 const STATUS_FAILED: StringName = &"failed"
@@ -83,7 +83,7 @@ const STATUS_FAILED: StringName = &"failed"
 ### `_init`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func _init(owner: Object = null, method_name: StringName = &"") -> void:
@@ -103,7 +103,7 @@ func _init(owner: Object = null, method_name: StringName = &"") -> void:
 ### `invoke`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`10.0.0`
 
 ```gdscript
 func invoke(arguments: Array = []) -> Dictionary:

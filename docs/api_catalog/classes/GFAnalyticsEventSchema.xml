@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFAnalyticsEventSchema" path="addons/gf/standard/utilities/analytics/gf_analytics_event_schema.gd" module="standard" extends="Resource" classDigest="3abab15c7772531f48a41b4ad1820a59950d4b4a2965e0c3031e922abd2fc8d7">
+<class name="GFAnalyticsEventSchema" path="addons/gf/standard/utilities/analytics/gf_analytics_event_schema.gd" module="standard" extends="Resource" classDigest="dc7f56b4801a9bf2a9643020d5792f072c586b3ee568bbb931cb8795590161ff">
 	<description>GFAnalyticsEventSchema: 版本化 Analytics 事件属性契约。
 用不超过 4096 字符且不含 C0/DEL 控制字符的稳定事件名、1..2_147_483_647 范围内的
 精确版本和严格 GFDictionarySchema 描述编码前的事件属性。
@@ -8,7 +8,7 @@
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">resource_definition</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">10.0.0</tag>
 	</tags>
 	<signals />
 	<enums />
@@ -19,7 +19,7 @@
 			<description>稳定事件名；不得为空、超过 4096 字符或包含 C0/DEL 控制字符。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="schema_version" decorators="@export">
@@ -27,7 +27,7 @@
 			<description>事件属性 Schema 版本；必须位于 1..2_147_483_647。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="properties_schema" decorators="@export">
@@ -36,7 +36,7 @@
 Analytics 契约要求根与所有嵌套 Dictionary 禁止额外字段和类型转换。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 	</properties>
@@ -50,7 +50,7 @@ Analytics 契约要求根与所有嵌套 Dictionary 禁止额外字段和类型�
 				<tag name="param">p_schema_version: 1..2_147_483_647 范围内的 Schema 版本。</tag>
 				<tag name="param">p_properties_schema: 严格事件属性 Dictionary Schema。</tag>
 				<tag name="return">当前事件 Schema。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="validate_definition">
@@ -61,7 +61,7 @@ Analytics 契约要求根与所有嵌套 Dictionary 禁止额外字段和类型�
 				<tag name="param">options: 可选上下文，支持 subject、path、source_path 和 source。</tag>
 				<tag name="return">校验报告。</tag>
 				<tag name="schema">options: Dictionary validation context.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="validate_properties">
@@ -75,7 +75,7 @@ Analytics 契约要求根与所有嵌套 Dictionary 禁止额外字段和类型�
 				<tag name="return">校验报告。</tag>
 				<tag name="schema">properties: Dictionary analytics event properties before report encoding.</tag>
 				<tag name="schema">options: Dictionary validation context and bounded traversal options.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="duplicate_schema">
@@ -86,7 +86,7 @@ Analytics 契约要求根与所有嵌套 Dictionary 禁止额外字段和类型�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">新事件 Schema。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="describe">
@@ -96,7 +96,7 @@ Analytics 契约要求根与所有嵌套 Dictionary 禁止额外字段和类型�
 				<tag name="api">public</tag>
 				<tag name="return">事件 Schema 描述。</tag>
 				<tag name="schema">return: Dictionary with event_name, schema_version, and properties_schema.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 	</methods>

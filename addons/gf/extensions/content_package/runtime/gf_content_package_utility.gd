@@ -29,7 +29,7 @@ signal catalog_rebuilt(catalog: GFContentPackageCatalog)
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 const DEFAULT_SOURCE_ROOT_OWNER_ID: StringName = &"gf.content_package.manual"
 
 const _GF_PATH_TOOLS = preload("res://addons/gf/kernel/core/gf_path_tools.gd")
@@ -100,7 +100,7 @@ func clear_source_roots() -> void:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param owner_id: 非空 owner ID，用于批量释放来源。
 ## [br]
@@ -128,7 +128,7 @@ func register_source_root_for_owner(owner_id: StringName, root_path: String) -> 
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param owner_id: 注册时使用的 owner ID。
 ## [br]
@@ -157,7 +157,7 @@ func unregister_source_root_for_owner(owner_id: StringName, root_path: String) -
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param owner_id: 非空 owner ID。
 ## [br]
@@ -213,7 +213,7 @@ func replace_owner_source_roots(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param owner_id: 要释放的 owner ID。
 ## [br]
@@ -235,7 +235,7 @@ func clear_owner_source_roots(owner_id: StringName) -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @param owner_id: owner ID。
 ## [br]
@@ -248,7 +248,7 @@ func get_owner_source_roots(owner_id: StringName) -> PackedStringArray:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 10.0.0
 ## [br]
 ## @return 排序后的 owner ID 文本。
 func get_source_root_owner_ids() -> PackedStringArray:
