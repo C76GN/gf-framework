@@ -16055,44 +16055,9 @@ def maintenance_self_test() -> dict[str, Any]:
 		and "release-status" in check_command("release_metadata"),
 		"Credential and release scans must use supervised subprocesses and redact manifest/status path values.",
 	)
-	codeql_allowance_contract = {
-		(
-			allowance.path,
-			allowance.query_id,
-			allowance.reason,
-			allowance.container,
-			allowance.sink_pattern,
-		)
-		for allowance in gf_codeql_suppression_policy.ALLOWED_SUPPRESSIONS
-	}
 	record_result(
 		"codeql_suppression_policy_is_a_tracked_static_gate",
-		codeql_allowance_contract == {
-			(
-				"tests/gf_core/tools/test_gf_credential_gate.py",
-				"py/clear-text-storage-sensitive-data",
-				"linked-tracked-source-fixture",
-				"test_tracked_scan_rejects_real_linked_directory_without_disclosure",
-				r'\s*\(outside_root / "settings\.txt"\)\.write_text'
-				r'\(secret \+ "\\n", encoding="utf-8"\)\s*',
-			),
-			(
-				"tests/gf_core/tools/test_gf_credential_gate.py",
-				"py/clear-text-storage-sensitive-data",
-				"linked-release-artifact-fixture",
-				"test_release_scan_rejects_real_linked_directory_without_disclosure",
-				r'\s*\(outside_root / "release\.txt"\)\.write_text'
-				r'\(secret \+ "\\n", encoding="utf-8"\)\s*',
-			),
-			(
-				"tests/gf_core/tools/test_gf_credential_gate.py",
-				"py/clear-text-storage-sensitive-data",
-				"credential-shaped-manifest-fixture",
-				"_write_secret_shaped_path_manifest_fixture",
-				r'\s*manifest_path\.write_text'
-				r'\(json\.dumps\(data\), encoding="utf-8"\)\s*',
-			),
-		}
+		not hasattr(gf_codeql_suppression_policy, "ALLOWED_SUPPRESSIONS")
 		and "codeql_suppression_policy" in CHECK_DEFINITIONS
 		and "codeql_suppression_policy_tests" in CHECK_DEFINITIONS
 		and {
@@ -16111,25 +16076,21 @@ def maintenance_self_test() -> dict[str, Any]:
 		)
 		and "codeql_suppression_policy" in maintenance_in_process_check_runners()
 		and "codeql_suppression_policy_tests" not in maintenance_in_process_check_runners(),
-		"CodeQL suppressions must remain a tracked-source, narrow-policy gate in quick, Full, and release flows.",
+		"CodeQL suppressions must remain forbidden by a tracked-source gate in quick, Full, and release flows.",
 	)
-	codeql_valid_fixture_issues, codeql_valid_fixture_count = (
+	codeql_python_fixture_results = [
 		gf_codeql_suppression_policy.audit_python_source(
-			"tests/gf_core/tools/test_gf_credential_gate.py",
-			"def test_tracked_scan_rejects_real_linked_directory_without_disclosure():\n"
-			"\t# gf-codeql-reason: test-only:linked-tracked-source-fixture\n"
-			"\t# codeql[py/clear-text-storage-sensitive-data]\n"
-			'\t(outside_root / "settings.txt").write_text'
-			'(secret + "\\n", encoding="utf-8")\n',
+			"tests/gf_core/tools/test_fixture.py",
+			source,
 		)
-	)
-	codeql_wildcard_fixture_issues, _codeql_wildcard_fixture_count = (
-		gf_codeql_suppression_policy.audit_python_source(
-			"tests/gf_core/tools/test_gf_credential_gate.py",
-			"# codeql[py/*]\n"
-			"target.write_text('synthetic', encoding='utf-8')\n",
+		for source in (
+			"# codeql[py/clear-text-storage-sensitive-data]\nsink()\n",
+			"# codeql\nsink()\n",
+			"# codeql[py/*]\nsink()\n",
+			"# codeql[py/one,py/two]\nsink()\n",
+			"# lgtm[py/clear-text-storage-sensitive-data]\nsink()\n",
 		)
-	)
+	]
 	codeql_config_fixture_issues = gf_codeql_suppression_policy.audit_codeql_config(
 		".github/codeql/codeql-config.yml",
 		"disable-default-queries: true\n"
@@ -16141,14 +16102,24 @@ def maintenance_self_test() -> dict[str, Any]:
 	)
 	record_result(
 		"codeql_suppression_policy_rejects_broad_escape_hatches",
-		not codeql_valid_fixture_issues
-		and codeql_valid_fixture_count == 1
+		all(
+			issues
+			and suppression_count == 1
+			for issues, suppression_count in codeql_python_fixture_results
+		)
 		and {
-			"codeql_suppression.query_wildcard_forbidden",
-		}.issubset({
+			"codeql_suppression.python_directive_forbidden",
+		} == {
 			str(issue.get("kind", ""))
-			for issue in codeql_wildcard_fixture_issues
-		})
+			for issues, _suppression_count in codeql_python_fixture_results[:-1]
+			for issue in issues
+		}
+		and {
+			"codeql_suppression.legacy_lgtm_directive",
+		} == {
+			str(issue.get("kind", ""))
+			for issue in codeql_python_fixture_results[-1][0]
+		}
 		and {
 			"codeql_suppression.default_queries_disabled",
 			"codeql_suppression.tests_path_ignored",
@@ -16160,7 +16131,7 @@ def maintenance_self_test() -> dict[str, Any]:
 		and gf_credential_gate.SUPPRESSION_RE.fullmatch(
 			"# codeql[py/clear-text-storage-sensitive-data]"
 		) is None,
-		"Only exact reviewed test sinks may suppress CodeQL; GF credential-gate allowances must stay independent.",
+		"All Python CodeQL suppressions and CodeQL configuration escape hatches must fail; credential-gate allowances remain independent.",
 	)
 	record_result(
 		"ci_shards_preserve_full_suite_coverage",

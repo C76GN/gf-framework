@@ -43,13 +43,14 @@
 - 环境音停止拒绝和本地淡出等非终态继续保留活动区间；拒绝信号保留调用通道，而持久诊断把非框架通道收敛为 `custom`，避免项目值进入稳定快照。
 - 后端的 clip/event probe、区间评估与执行分别接收一次性参数副本，Dictionary / Array / Resource 使用有界深快照；集合循环、深度或项目数超限、Resource 无法复制时均在回调前失败关闭，不能通过改写回调参数绕过协商、污染调用方权威对象或污染本地回退。环境音会话同时保留目标增益，部分淡出被失败替换打断时会恢复区间、播放身份与增益，旧流已自然结束时则提交停止终态并释放播放器流引用。
 - 新增 `changelog_policy` 当前状态检查：`X.Y.Z-dev.N` 只允许唯一的规范 `[未发布]` 段，稳定版本只允许唯一的同版本正式段；共享的严格 Markdown 解析会在标题/分类识别时排除 fenced 与缩进代码和独立 HTML 注释，但仍把候选段开头的代码块视为已经渲染的内容，确保版本概述必须真正排在首位。门禁拒绝原始 HTML、混写注释、非法 backtick info string、非 ASCII 标题分隔、伪装历史标题及不可读正文，并由发布说明提取器复用；同时验证文档标题、日志条目结构标准、维护策略、分类结构、扩展版本对齐和稳定 core 的 API SemVer，在 quick、full 和 release 套件中失败关闭。
-- 新增 tracked-only `codeql_suppression_policy`：只允许测试文件中按精确 path、query、reason、函数和 sink 审阅的局部 suppression，拒绝 legacy、通配、多 query，以及 CodeQL 的路径过滤、查询过滤、自定义配置和自定义查询套件；该策略与 GF 凭据门禁的豁免保持完全隔离，并进入 quick、full 与 release。
+- 新增 tracked-only `codeql_suppression_policy`：禁止 Python 源码中的全部内联 suppression，并拒绝 legacy、通配、多 query，以及 CodeQL 的路径过滤、查询过滤、自定义配置和自定义查询套件；该策略与 GF 凭据门禁的豁免保持完全隔离，并进入 quick、full 与 release。
 - API baseline 现在比较公开成员的 `@schema` 契约；已有 free-text schema 的任何文本变化（包括追加、改写、重排或删除）都会 fail-closed 归入 breaking，只有稳定基线此前完全没有 schema、当前首次补充时才归入 compatible，避免 Dictionary 字段迁移绕过 SemVer 主版本门禁。
 - `GFNetworkBackend.get_transport_metrics()` 现在把基础计数与 Adapter 补充阶段隔离；补充 Hook 超过执行预算、未为新增指标消费步骤或突破指标容量时，本次调用失败关闭为基础快照，不把不可控工作带入探针路径。
 
 ### 🐛 Bug 修复 (Fixed)
 
 - 修复 AI Developer 依赖分析只编译 Module roots、导致合法 Module → Adapter 资源引用被误报为未归属的问题；Adapter root 与其中声明的 `class_name` 现在作为目标所有权进入同一有界索引，但 Adapter 仍不作为依赖源或模块循环节点，缺失、不安全、不可读、歧义及预算耗尽继续失败关闭。
+- 修复安全测试把合成夹具命名为真实敏感数据、导致 CodeQL 将边界与脱敏验证误判为明文持久化的问题；无关凭据检测的边界测试改用 opaque canary，需要敏感形状路径的测试在内存中构造 synthetic canary，且不再依赖任何扫描抑制。
 - 修复异步等待生命周期测试把 1ms 墙钟预算与 deferred free 调度顺序绑定的竞态；测试现在先用 timeout pause 建立等待已挂起的握手，再同步释放 continuation owner，稳定验证失效检查必须先于同轮已到期 timeout 仲裁。
 
 ### ⚠️ 废弃与移除 (Deprecated/Removed)

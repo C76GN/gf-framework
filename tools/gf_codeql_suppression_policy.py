@@ -1,73 +1,20 @@
 #!/usr/bin/env python3
-"""Audit narrowly approved CodeQL suppressions in Git-tracked GF sources."""
+"""Reject CodeQL suppressions and configuration escape hatches in tracked sources."""
 
 from __future__ import annotations
 
-import ast
 import io
 import re
 import tokenize
-from dataclasses import dataclass
+import unicodedata
 from pathlib import Path
 from typing import Callable
 
 
 SCHEMA_VERSION = 1
-CODEQL_QUERY_ID_RE = re.compile(
-	r"^[a-z][a-z0-9-]*/[a-z][a-z0-9-]*(?:[a-z0-9.-]*[a-z0-9])?$"
-)
-CODEQL_DIRECTIVE_RE = re.compile(r"^#\s*codeql\[(?P<query_id>[^\]]*)\]\s*$")
-CODEQL_PREFIX_RE = re.compile(r"^#\s*codeql\b", re.IGNORECASE)
-LGTM_PREFIX_RE = re.compile(r"^#\s*lgtm\b", re.IGNORECASE)
-REASON_RE = re.compile(
-	r"^#\s*gf-codeql-reason:\s*test-only:(?P<reason>[a-z0-9][a-z0-9-]{2,63})\s*$"
-)
-REASON_PREFIX_RE = re.compile(r"^#\s*gf-codeql-reason\b", re.IGNORECASE)
-TARGET_QUERY_ID = "py/clear-text-storage-sensitive-data"
-MAX_SUPPRESSIONS = 32
-
-
-@dataclass(frozen=True)
-class SuppressionAllowance:
-	path: str
-	query_id: str
-	reason: str
-	container: str
-	sink_pattern: str
-
-
-ALLOWED_SUPPRESSIONS: tuple[SuppressionAllowance, ...] = (
-	SuppressionAllowance(
-		path="tests/gf_core/tools/test_gf_credential_gate.py",
-		query_id=TARGET_QUERY_ID,
-		reason="linked-tracked-source-fixture",
-		container="test_tracked_scan_rejects_real_linked_directory_without_disclosure",
-		sink_pattern=(
-			r'\s*\(outside_root / "settings\.txt"\)\.write_text'
-			r'\(secret \+ "\\n", encoding="utf-8"\)\s*'
-		),
-	),
-	SuppressionAllowance(
-		path="tests/gf_core/tools/test_gf_credential_gate.py",
-		query_id=TARGET_QUERY_ID,
-		reason="linked-release-artifact-fixture",
-		container="test_release_scan_rejects_real_linked_directory_without_disclosure",
-		sink_pattern=(
-			r'\s*\(outside_root / "release\.txt"\)\.write_text'
-			r'\(secret \+ "\\n", encoding="utf-8"\)\s*'
-		),
-	),
-	SuppressionAllowance(
-		path="tests/gf_core/tools/test_gf_credential_gate.py",
-		query_id=TARGET_QUERY_ID,
-		reason="credential-shaped-manifest-fixture",
-		container="_write_secret_shaped_path_manifest_fixture",
-		sink_pattern=(
-			r'\s*manifest_path\.write_text'
-			r'\(json\.dumps\(data\), encoding="utf-8"\)\s*'
-		),
-	),
-)
+CODEQL_MARKER_RE = re.compile(r"#\s*codeql\b", re.IGNORECASE)
+LGTM_MARKER_RE = re.compile(r"#\s*lgtm\b", re.IGNORECASE)
+TRACKED_PATH_CONTROL_CATEGORIES = frozenset(("Cc", "Cf"))
 
 
 def audit_tracked_sources(
@@ -87,30 +34,16 @@ def audit_tracked_sources(
 		))
 		return _result(tracked_paths, 0, 0, 0, issues)
 
+	inventory_issues, canonical_paths = _audit_tracked_path_inventory(tracked_paths)
+	if inventory_issues:
+		return _result(tracked_paths, 0, 0, 0, inventory_issues)
+
 	python_file_count = 0
 	config_file_count = 0
 	suppression_count = 0
-	for relative_path in sorted(set(tracked_paths)):
-		if (
-			"\\" in relative_path
-			or relative_path.startswith("/")
-			or re.match(r"^[A-Za-z]:", relative_path) is not None
-			or any(part in ("", ".", "..") for part in relative_path.split("/"))
-			or any(
-				ord(character) < 0x20 or ord(character) == 0x7F
-				for character in relative_path
-			)
-		):
-			issues.append(_issue(
-				"codeql_suppression.tracked_path_noncanonical",
-				"git-index",
-				0,
-				"Git tracked-file inventory contains a non-canonical path.",
-			))
-			continue
-		normalized_path = relative_path
+	for normalized_path in canonical_paths:
 		path = root / Path(normalized_path)
-		if normalized_path.endswith(".py"):
+		if normalized_path.lower().endswith(".py"):
 			python_file_count += 1
 			if path.is_symlink() or not path.exists() or not path.is_file():
 				issues.append(_issue(
@@ -133,14 +66,6 @@ def audit_tracked_sources(
 			source_issues, source_suppressions = audit_python_source(normalized_path, source)
 			issues.extend(source_issues)
 			suppression_count += source_suppressions
-			if suppression_count > MAX_SUPPRESSIONS:
-				issues.append(_issue(
-					"codeql_suppression.count_exceeded",
-					normalized_path,
-					0,
-					f"Tracked Python sources exceed the {MAX_SUPPRESSIONS}-suppression policy budget.",
-				))
-				break
 			continue
 		if not _is_possible_codeql_config_path(normalized_path):
 			continue
@@ -176,8 +101,60 @@ def audit_tracked_sources(
 	)
 
 
+def _audit_tracked_path_inventory(
+	tracked_paths: list[str],
+) -> tuple[list[dict[str, object]], list[str]]:
+	issues: list[dict[str, object]] = []
+	canonical_paths: list[str] = []
+	paths_by_portable_identity: dict[str, list[str]] = {}
+	for relative_path in sorted(set(tracked_paths)):
+		if any(
+			unicodedata.category(character) in TRACKED_PATH_CONTROL_CATEGORIES
+			for character in relative_path
+		):
+			issues.append(_issue(
+				"codeql_suppression.tracked_path_control_character",
+				"git-index",
+				0,
+				"Git tracked-file inventory contains a control or format character.",
+			))
+			continue
+		if (
+			"\\" in relative_path
+			or relative_path.startswith("/")
+			or re.match(r"^[A-Za-z]:", relative_path) is not None
+			or any(part in ("", ".", "..") for part in relative_path.split("/"))
+			or unicodedata.normalize("NFC", relative_path) != relative_path
+		):
+			issues.append(_issue(
+				"codeql_suppression.tracked_path_noncanonical",
+				"git-index",
+				0,
+				"Git tracked-file inventory contains a non-canonical path.",
+			))
+			continue
+		canonical_paths.append(relative_path)
+		portable_identity = unicodedata.normalize(
+			"NFC",
+			unicodedata.normalize("NFC", relative_path).casefold(),
+		)
+		paths_by_portable_identity.setdefault(portable_identity, []).append(relative_path)
+
+	if any(
+		len(set(identity_paths)) > 1
+		for identity_paths in paths_by_portable_identity.values()
+	):
+		issues.append(_issue(
+			"codeql_suppression.tracked_path_collision",
+			"git-index",
+			0,
+			"Git tracked-file inventory contains paths with a colliding portable identity.",
+		))
+	return issues, canonical_paths
+
+
 def audit_python_source(path: str, source: str) -> tuple[list[dict[str, object]], int]:
-	"""Audit Python comment tokens so directive-looking text inside strings is ignored."""
+	"""Reject suppression comment tokens while ignoring directive-looking string content."""
 	issues: list[dict[str, object]] = []
 	try:
 		tokens = list(tokenize.generate_tokens(io.StringIO(source).readline))
@@ -190,158 +167,28 @@ def audit_python_source(path: str, source: str) -> tuple[list[dict[str, object]]
 				"Tracked Python source could not be tokenized.",
 			)
 		], 0
-	try:
-		syntax_tree = ast.parse(source)
-	except SyntaxError:
-		return [
-			_issue(
-				"codeql_suppression.python_parse_failed",
-				path,
-				0,
-				"Tracked Python source could not be parsed.",
-			)
-		], 0
 
-	lines = source.splitlines()
-	comments_by_line: dict[int, list[tokenize.TokenInfo]] = {}
-	for token in tokens:
-		if token.type == tokenize.COMMENT:
-			comments_by_line.setdefault(token.start[0], []).append(token)
-
-	directive_lines: set[int] = set()
-	reason_lines: set[int] = set()
-	used_allowances: set[tuple[str, str, str]] = set()
 	suppression_count = 0
-	for line_number in sorted(comments_by_line):
-		for token in comments_by_line[line_number]:
-			comment = token.string.strip()
-			if LGTM_PREFIX_RE.match(comment):
-				issues.append(_issue(
-					"codeql_suppression.legacy_lgtm_directive",
-					path,
-					line_number,
-					"Legacy lgtm suppression directives are forbidden.",
-				))
-				continue
-			if not CODEQL_PREFIX_RE.match(comment):
-				if REASON_PREFIX_RE.match(comment):
-					reason_lines.add(line_number)
-					if REASON_RE.fullmatch(comment) is None:
-						issues.append(_issue(
-							"codeql_suppression.reason_malformed",
-							path,
-							line_number,
-							"CodeQL suppression reasons must use the structured test-only reason format.",
-						))
-				continue
-
-			directive_lines.add(line_number)
+	for token in tokens:
+		if token.type != tokenize.COMMENT:
+			continue
+		comment = token.string.strip()
+		if LGTM_MARKER_RE.search(comment):
 			suppression_count += 1
-			if not _is_standalone_comment(token, lines):
-				issues.append(_issue(
-					"codeql_suppression.directive_not_standalone",
-					path,
-					line_number,
-					"CodeQL suppression directives must be standalone comments.",
-				))
-				continue
-			match = CODEQL_DIRECTIVE_RE.fullmatch(comment)
-			if match is None:
-				issues.append(_issue(
-					"codeql_suppression.directive_malformed",
-					path,
-					line_number,
-					"CodeQL suppressions must name one exact query id.",
-				))
-				continue
-			query_id = match.group("query_id")
-			if "*" in query_id:
-				issues.append(_issue(
-					"codeql_suppression.query_wildcard_forbidden",
-					path,
-					line_number,
-					"Wildcard CodeQL query suppression is forbidden.",
-				))
-				continue
-			if CODEQL_QUERY_ID_RE.fullmatch(query_id) is None:
-				issues.append(_issue(
-					"codeql_suppression.query_id_not_exact",
-					path,
-					line_number,
-					"CodeQL suppressions must name one syntactically exact query id.",
-				))
-				continue
-
-			reason_tokens = comments_by_line.get(line_number - 1, [])
-			reason_token = reason_tokens[0] if len(reason_tokens) == 1 else None
-			reason_match = (
-				REASON_RE.fullmatch(reason_token.string.strip())
-				if reason_token is not None
-				and _is_standalone_comment(reason_token, lines)
-				and reason_token.start[1] == token.start[1]
-				else None
-			)
-			if reason_match is None:
-				issues.append(_issue(
-					"codeql_suppression.reason_required",
-					path,
-					line_number,
-					"An adjacent, equally indented structured test-only reason is required.",
-				))
-				continue
-			reason_lines.add(line_number - 1)
-			reason = reason_match.group("reason")
-			allowance = _find_allowance(path, query_id, reason)
-			if allowance is None:
-				issues.append(_issue(
-					"codeql_suppression.allowance_missing",
-					path,
-					line_number,
-					"Suppression path, query id, and reason are not in the narrow allow policy.",
-				))
-				continue
-			allowance_key = (allowance.path, allowance.query_id, allowance.reason)
-			if allowance_key in used_allowances:
-				issues.append(_issue(
-					"codeql_suppression.allowance_reused",
-					path,
-					line_number,
-					"One suppression allowance may be used at only one sink.",
-				))
-				continue
-			sink_line_number = line_number + 1
-			sink_container = _enclosing_function_name(syntax_tree, sink_line_number)
-			if sink_container != allowance.container:
-				issues.append(_issue(
-					"codeql_suppression.container_mismatch",
-					path,
-					line_number,
-					"Suppression is outside its allowlisted test or fixture helper.",
-				))
-				continue
-			if (
-				sink_line_number > len(lines)
-				or not lines[sink_line_number - 1].strip()
-				or lines[sink_line_number - 1].lstrip().startswith("#")
-				or _leading_whitespace_count(lines[sink_line_number - 1]) != token.start[1]
-				or re.fullmatch(allowance.sink_pattern, lines[sink_line_number - 1]) is None
-			):
-				issues.append(_issue(
-					"codeql_suppression.sink_not_adjacent",
-					path,
-					line_number,
-					"Suppression must immediately precede its allowlisted sink at the same indentation.",
-				))
-				continue
-			used_allowances.add(allowance_key)
-
-	for reason_line in sorted(reason_lines):
-		if reason_line + 1 not in directive_lines:
 			issues.append(_issue(
-				"codeql_suppression.reason_orphaned",
+				"codeql_suppression.legacy_lgtm_directive",
 				path,
-				reason_line,
-				"Structured CodeQL suppression reason is not followed by a suppression directive.",
+				token.start[0],
+				"Legacy lgtm suppression directives are forbidden.",
+			))
+			continue
+		if CODEQL_MARKER_RE.search(comment):
+			suppression_count += 1
+			issues.append(_issue(
+				"codeql_suppression.python_directive_forbidden",
+				path,
+				token.start[0],
+				"Python CodeQL suppression directives are forbidden.",
 			))
 
 	return issues, suppression_count
@@ -505,48 +352,6 @@ def _is_codeql_config(path: str, source: str) -> bool:
 		or lower_path.startswith(".github/codeql/")
 		or "codeql" in effective_source
 	)
-
-
-def _find_allowance(
-	path: str,
-	query_id: str,
-	reason: str,
-) -> SuppressionAllowance | None:
-	for allowance in ALLOWED_SUPPRESSIONS:
-		if (
-			allowance.path == path
-			and allowance.query_id == query_id
-			and allowance.reason == reason
-		):
-			return allowance
-	return None
-
-
-def _enclosing_function_name(syntax_tree: ast.AST, line_number: int) -> str:
-	candidates = [
-		node
-		for node in ast.walk(syntax_tree)
-		if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
-		and node.lineno <= line_number <= (node.end_lineno or node.lineno)
-	]
-	if not candidates:
-		return ""
-	candidates.sort(key=lambda node: (
-		(node.end_lineno or node.lineno) - node.lineno,
-		-node.lineno,
-	))
-	return candidates[0].name
-
-
-def _is_standalone_comment(token: tokenize.TokenInfo, lines: list[str]) -> bool:
-	line_number = token.start[0]
-	if line_number <= 0 or line_number > len(lines):
-		return False
-	return not lines[line_number - 1][:token.start[1]].strip()
-
-
-def _leading_whitespace_count(line: str) -> int:
-	return len(line) - len(line.lstrip(" \t"))
 
 
 def _issue(

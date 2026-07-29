@@ -22,36 +22,14 @@ import gf_maintenance  # noqa: E402
 
 
 class CodeqlSuppressionPolicyTests(unittest.TestCase):
-	def test_allow_policy_accepts_each_reviewed_test_sink(self) -> None:
-		sinks = {
-			"linked-tracked-source-fixture": (
-				'(outside_root / "settings.txt").write_text'
-				'(secret + "\\n", encoding="utf-8")'
-			),
-			"linked-release-artifact-fixture": (
-				'(outside_root / "release.txt").write_text'
-				'(secret + "\\n", encoding="utf-8")'
-			),
-			"credential-shaped-manifest-fixture": (
-				'manifest_path.write_text(json.dumps(data), encoding="utf-8")'
-			),
-		}
-		for allowance in policy.ALLOWED_SUPPRESSIONS:
-			with self.subTest(reason=allowance.reason):
-				source = (
-					f"def {allowance.container}():\n"
-					f"\t# gf-codeql-reason: test-only:{allowance.reason}\n"
-					f"\t# codeql[{allowance.query_id}]\n"
-					f"\t{sinks[allowance.reason]}\n"
-				)
+	def test_clean_python_has_zero_suppressions(self) -> None:
+		issues, suppression_count = policy.audit_python_source(
+			"tools/fixture.py",
+			"value = 1\n",
+		)
 
-				issues, suppression_count = policy.audit_python_source(
-					allowance.path,
-					source,
-				)
-
-				self.assertEqual(issues, [])
-				self.assertEqual(suppression_count, 1)
+		self.assertEqual(issues, [])
+		self.assertEqual(suppression_count, 0)
 
 	def test_untracked_python_is_outside_the_supplied_inventory(self) -> None:
 		with tempfile.TemporaryDirectory() as temp_dir:
@@ -132,11 +110,59 @@ class CodeqlSuppressionPolicyTests(unittest.TestCase):
 			)
 			self.assertEqual(result["issues"][0]["path"], "git-index")
 
+	def test_all_noncanonical_and_control_tracked_paths_fail_before_reads(self) -> None:
+		fixtures = {
+			"absolute": "/safe/path.py",
+			"drive": "C:/safe/path.py",
+			"backslash": r"safe\path.py",
+			"empty_segment": "safe//path.py",
+			"dot_segment": "safe/./path.py",
+			"parent_segment": "safe/../path.py",
+			"non_nfc": "safe/cafe\u0301.py",
+			"newline": "safe/line\nbreak.py",
+			"format_control": "safe/line\u200bbreak.py",
+		}
+		for name, tracked_path in fixtures.items():
+			with self.subTest(name=name):
+				read_paths: list[Path] = []
+				result = policy.audit_tracked_sources(
+					Path("unused"),
+					[tracked_path],
+					lambda path: read_paths.append(path) or "",
+				)
+
+				self.assertFalse(result["ok"])
+				self.assertEqual(read_paths, [])
+				self.assertEqual(result["issues"][0]["path"], "git-index")
+				self.assertIn(
+					str(result["issues"][0]["kind"]),
+					{
+						"codeql_suppression.tracked_path_control_character",
+						"codeql_suppression.tracked_path_noncanonical",
+					},
+				)
+
+	def test_portable_tracked_path_collisions_fail_before_reads(self) -> None:
+		read_paths: list[Path] = []
+		result = policy.audit_tracked_sources(
+			Path("unused"),
+			["safe/path.py", "SAFE/PATH.py"],
+			lambda path: read_paths.append(path) or "",
+		)
+
+		self.assertFalse(result["ok"])
+		self.assertEqual(read_paths, [])
+		self.assertEqual(
+			self._issue_kinds(result["issues"]),
+			{"codeql_suppression.tracked_path_collision"},
+		)
+		self.assertEqual(result["issues"][0]["path"], "git-index")
+
 	def test_directive_looking_strings_are_not_comments(self) -> None:
 		source = (
 			'fixture = """# codeql[*]\n'
 			'# lgtm[py/clear-text-storage-sensitive-data]\n'
-			'# gf-codeql-reason: test-only:not-a-real-comment"""\n'
+			'# codeql[py/one,py/two]"""\n'
 		)
 
 		issues, suppression_count = policy.audit_python_source("tools/fixture.py", source)
@@ -144,138 +170,80 @@ class CodeqlSuppressionPolicyTests(unittest.TestCase):
 		self.assertEqual(issues, [])
 		self.assertEqual(suppression_count, 0)
 
-	def test_bare_legacy_wildcard_and_non_exact_directives_are_rejected(self) -> None:
+	def test_every_python_suppression_form_is_rejected(self) -> None:
 		fixtures = {
+			"exact": "# codeql[py/clear-text-storage-sensitive-data]\nsink()\n",
 			"bare": "# codeql\nsink()\n",
 			"legacy": "# lgtm[py/clear-text-storage-sensitive-data]\nsink()\n",
 			"wildcard": "# codeql[py/*]\nsink()\n",
 			"multiple": "# codeql[py/one,py/two]\nsink()\n",
 			"invalid": "# codeql[not an id]\nsink()\n",
+			"inline": (
+				"value = sink()  # codeql[py/clear-text-storage-sensitive-data]\n"
+			),
+			"nested_marker": "## codeql[py/clear-text-storage-sensitive-data]\nsink()\n",
+			"uppercase": "# CODEQL[py/clear-text-storage-sensitive-data]\nsink()\n",
 		}
 		expected_kinds = {
-			"bare": "codeql_suppression.directive_malformed",
+			"exact": "codeql_suppression.python_directive_forbidden",
+			"bare": "codeql_suppression.python_directive_forbidden",
 			"legacy": "codeql_suppression.legacy_lgtm_directive",
-			"wildcard": "codeql_suppression.query_wildcard_forbidden",
-			"multiple": "codeql_suppression.query_id_not_exact",
-			"invalid": "codeql_suppression.query_id_not_exact",
+			"wildcard": "codeql_suppression.python_directive_forbidden",
+			"multiple": "codeql_suppression.python_directive_forbidden",
+			"invalid": "codeql_suppression.python_directive_forbidden",
+			"inline": "codeql_suppression.python_directive_forbidden",
+			"nested_marker": "codeql_suppression.python_directive_forbidden",
+			"uppercase": "codeql_suppression.python_directive_forbidden",
 		}
 		for name, source in fixtures.items():
 			with self.subTest(name=name):
-				issues, _suppression_count = policy.audit_python_source(
-					"tests/gf_core/tools/test_gf_credential_gate.py",
+				issues, suppression_count = policy.audit_python_source(
+					"tests/gf_core/tools/test_fixture.py",
 					source,
 				)
 				self.assertIn(expected_kinds[name], self._issue_kinds(issues))
+				self.assertEqual(suppression_count, 1)
 
-	def test_allowance_is_path_query_reason_and_sink_scoped(self) -> None:
-		reason = "linked-tracked-source-fixture"
-		valid_lines = (
-			"def test_tracked_scan_rejects_real_linked_directory_without_disclosure():\n"
-			f"\t# gf-codeql-reason: test-only:{reason}\n"
-			f"\t# codeql[{policy.TARGET_QUERY_ID}]\n"
-			'\t(outside_root / "settings.txt").write_text'
-			'(secret + "\\n", encoding="utf-8")\n'
-		)
-		fixtures = {
-			"wrong_path": (
-				"tests/gf_core/tools/test_other.py",
-				valid_lines,
-				"codeql_suppression.allowance_missing",
-			),
-			"wrong_query": (
-				"tests/gf_core/tools/test_gf_credential_gate.py",
-				valid_lines.replace(policy.TARGET_QUERY_ID, "py/sql-injection"),
-				"codeql_suppression.allowance_missing",
-			),
-			"wrong_reason": (
-				"tests/gf_core/tools/test_gf_credential_gate.py",
-				valid_lines.replace(reason, "unreviewed-fixture"),
-				"codeql_suppression.allowance_missing",
-			),
-			"wrong_sink": (
-				"tests/gf_core/tools/test_gf_credential_gate.py",
-				valid_lines.replace('"settings.txt"', '"other.txt"'),
-				"codeql_suppression.sink_not_adjacent",
-			),
-			"blank_before_sink": (
-				"tests/gf_core/tools/test_gf_credential_gate.py",
-				valid_lines.replace(
-					f"# codeql[{policy.TARGET_QUERY_ID}]\n",
-					f"# codeql[{policy.TARGET_QUERY_ID}]\n\n",
-				),
-				"codeql_suppression.sink_not_adjacent",
-			),
-		}
-		for name, (path, source, expected_kind) in fixtures.items():
-			with self.subTest(name=name):
-				issues, _suppression_count = policy.audit_python_source(path, source)
-				self.assertIn(expected_kind, self._issue_kinds(issues))
-
-	def test_reason_must_be_structured_adjacent_and_not_orphaned(self) -> None:
-		path = "tests/gf_core/tools/test_gf_credential_gate.py"
-		fixtures = {
-			"legacy_reason": (
-				"# SECURITY-TEST: synthetic\n"
-				f"# codeql[{policy.TARGET_QUERY_ID}]\n"
-				'target.write_text("synthetic", encoding="utf-8")\n'
-			),
-			"orphaned": (
-				"# gf-codeql-reason: test-only:linked-tracked-source-fixture\n"
-				"value = 1\n"
-			),
-			"inline": (
-				"value = 1  # codeql[py/clear-text-storage-sensitive-data]\n"
-			),
-		}
-		expected_kinds = {
-			"legacy_reason": "codeql_suppression.reason_required",
-			"orphaned": "codeql_suppression.reason_orphaned",
-			"inline": "codeql_suppression.directive_not_standalone",
-		}
-		for name, source in fixtures.items():
-			with self.subTest(name=name):
-				issues, _suppression_count = policy.audit_python_source(path, source)
-				self.assertIn(expected_kinds[name], self._issue_kinds(issues))
-
-	def test_one_allowance_cannot_hide_multiple_sinks(self) -> None:
-		block = (
-			"\t# gf-codeql-reason: test-only:linked-tracked-source-fixture\n"
-			f"\t# codeql[{policy.TARGET_QUERY_ID}]\n"
-			'\t(outside_root / "settings.txt").write_text'
-			'(secret + "\\n", encoding="utf-8")\n'
-		)
-
+	def test_multiple_python_suppressions_are_all_counted_and_rejected(self) -> None:
 		issues, suppression_count = policy.audit_python_source(
-			"tests/gf_core/tools/test_gf_credential_gate.py",
-			"def test_tracked_scan_rejects_real_linked_directory_without_disclosure():\n"
-			+ block
-			+ block,
+			"tests/gf_core/tools/test_fixture.py",
+			"# codeql[py/clear-text-storage-sensitive-data]\n"
+			"sink()\n"
+			"# lgtm[py/clear-text-storage-sensitive-data]\n"
+			"sink()\n",
 		)
 
 		self.assertEqual(suppression_count, 2)
-		self.assertIn(
-			"codeql_suppression.allowance_reused",
+		self.assertEqual(
 			self._issue_kinds(issues),
+			{
+				"codeql_suppression.legacy_lgtm_directive",
+				"codeql_suppression.python_directive_forbidden",
+			},
 		)
 
-	def test_manifest_suppression_cannot_move_to_shared_manifest_writer(self) -> None:
-		source = (
-			"def _write_manifest():\n"
-			"\t# gf-codeql-reason: test-only:credential-shaped-manifest-fixture\n"
-			f"\t# codeql[{policy.TARGET_QUERY_ID}]\n"
-			'\tmanifest_path.write_text(json.dumps(data), encoding="utf-8")\n'
-		)
+	def test_tracked_python_suppression_is_fail_closed(self) -> None:
+		with tempfile.TemporaryDirectory() as temp_dir:
+			root = Path(temp_dir)
+			tracked = root / "tracked.py"
+			tracked.write_text(
+				"# codeql[py/clear-text-storage-sensitive-data]\n"
+				"sink()\n",
+				encoding="utf-8",
+			)
 
-		issues, suppression_count = policy.audit_python_source(
-			"tests/gf_core/tools/test_gf_credential_gate.py",
-			source,
-		)
+			result = policy.audit_tracked_sources(
+				root,
+				["tracked.py"],
+				lambda path: path.read_text(encoding="utf-8"),
+			)
 
-		self.assertEqual(suppression_count, 1)
-		self.assertIn(
-			"codeql_suppression.container_mismatch",
-			self._issue_kinds(issues),
-		)
+			self.assertFalse(result["ok"])
+			self.assertEqual(result["suppression_count"], 1)
+			self.assertEqual(
+				self._issue_kinds(result["issues"]),
+				{"codeql_suppression.python_directive_forbidden"},
+			)
 
 	def test_codeql_config_rejects_broad_test_and_query_exclusions(self) -> None:
 		source = """
@@ -523,7 +491,7 @@ query-filters:
 	def test_codeql_directive_does_not_suppress_gf_credential_gate(self) -> None:
 		self.assertIsNone(
 			credential_gate.SUPPRESSION_RE.fullmatch(
-				f"# codeql[{policy.TARGET_QUERY_ID}]"
+				"# codeql[py/clear-text-storage-sensitive-data]"
 			)
 		)
 

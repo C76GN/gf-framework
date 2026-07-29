@@ -980,13 +980,14 @@ class CredentialGateTests(unittest.TestCase):
 	def test_release_artifact_secret_shaped_path_fails_without_disclosure(self) -> None:
 		with tempfile.TemporaryDirectory() as temp_dir:
 			release_root = Path(temp_dir)
-			secret = self._credential_value()
-			artifact_path = release_root / f"api_key={secret}.txt"
-			artifact_path.write_text("ordinary release content\n", encoding="utf-8")
-			manifest_path = self._write_secret_shaped_path_manifest_fixture(
-				release_root,
-				artifact_path,
+			alphabet = "Ab3$xyZ9!mN7@qR5"
+			path_canary = "".join(
+				alphabet[(index * 7 + 3) % len(alphabet)]
+				for index in range(40)
 			)
+			artifact_path = release_root / f"api_key={path_canary}.txt"
+			artifact_path.write_text("ordinary release content\n", encoding="utf-8")
+			manifest_path = self._write_manifest(release_root, artifact_path)
 			manifest_path.write_text(
 				manifest_path.read_text(encoding="utf-8").replace(
 					"api_key=",
@@ -1008,7 +1009,7 @@ class CredentialGateTests(unittest.TestCase):
 				"Expected the release path to use its fallback label.",
 			)
 			self.assertFalse(
-				secret in rendered,
+				path_canary in rendered,
 				"Release path credential content appeared in the report.",
 			)
 
@@ -1706,10 +1707,11 @@ class CredentialGateTests(unittest.TestCase):
 			shutil.rmtree(tracked_root)
 			outside_root = temporary_root / "outside"
 			outside_root.mkdir()
-			secret = self._known_token()
-			# gf-codeql-reason: test-only:linked-tracked-source-fixture
-			# codeql[py/clear-text-storage-sensitive-data]
-			(outside_root / "settings.txt").write_text(secret + "\n", encoding="utf-8")
+			outside_canary = "linked-tracked-boundary-canary"
+			(outside_root / "settings.txt").write_text(
+				outside_canary + "\n",
+				encoding="utf-8",
+			)
 			try:
 				create_directory_link_fixture(outside_root, tracked_root)
 			except OSError as exc:
@@ -1728,8 +1730,8 @@ class CredentialGateTests(unittest.TestCase):
 				"credential_gate.path_boundary_violation",
 			)
 			self.assertFalse(
-				secret in json.dumps(result, ensure_ascii=False),
-				"Credential gate report disclosed synthetic fixture content.",
+				outside_canary in json.dumps(result, ensure_ascii=False),
+				"Credential gate report disclosed the boundary canary.",
 			)
 
 	def test_release_scan_rejects_real_linked_directory_without_disclosure(self) -> None:
@@ -1755,10 +1757,11 @@ class CredentialGateTests(unittest.TestCase):
 			shutil.rmtree(artifact_root)
 			outside_root = temporary_root / "outside"
 			outside_root.mkdir()
-			secret = self._known_token()
-			# gf-codeql-reason: test-only:linked-release-artifact-fixture
-			# codeql[py/clear-text-storage-sensitive-data]
-			(outside_root / "release.txt").write_text(secret + "\n", encoding="utf-8")
+			outside_canary = "linked-release-boundary-canary"
+			(outside_root / "release.txt").write_text(
+				outside_canary + "\n",
+				encoding="utf-8",
+			)
 			try:
 				create_directory_link_fixture(outside_root, artifact_root)
 			except OSError as exc:
@@ -1777,8 +1780,8 @@ class CredentialGateTests(unittest.TestCase):
 				"credential_gate.path_boundary_violation",
 			)
 			self.assertFalse(
-				secret in json.dumps(result, ensure_ascii=False),
-				"Credential gate report disclosed synthetic fixture content.",
+				outside_canary in json.dumps(result, ensure_ascii=False),
+				"Credential gate report disclosed the boundary canary.",
 			)
 
 	def test_tracked_scan_rejects_open_time_replacement_without_reading_it(self) -> None:
@@ -1931,24 +1934,6 @@ class CredentialGateTests(unittest.TestCase):
 	@classmethod
 	def _known_token(cls) -> str:
 		return "ghp_" + cls._credential_value().replace("$", "A").replace("!", "B").replace("@", "C")
-
-	@staticmethod
-	def _write_secret_shaped_path_manifest_fixture(
-		release_root: Path,
-		artifact_path: Path,
-	) -> Path:
-		manifest_path = release_root / "release-manifest.json"
-		data = {
-			"artifacts": [{
-				"path": artifact_path.name,
-				"size_bytes": artifact_path.stat().st_size,
-				"sha256": hashlib.sha256(artifact_path.read_bytes()).hexdigest(),
-			}],
-		}
-		# gf-codeql-reason: test-only:credential-shaped-manifest-fixture
-		# codeql[py/clear-text-storage-sensitive-data]
-		manifest_path.write_text(json.dumps(data), encoding="utf-8")
-		return manifest_path
 
 	@staticmethod
 	def _write_manifest(
