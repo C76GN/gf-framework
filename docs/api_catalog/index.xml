@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<apiCatalog schemaVersion="2" name="GF Framework" sourceRoot="addons/gf" sourceDigest="c46b7b8276078cf13a70780744502c45b35526bfe73ddaf844f440417164b1bc" classCount="785" methodCount="7062">
+<apiCatalog schemaVersion="2" name="GF Framework" sourceRoot="addons/gf" sourceDigest="1ea62deafe83d7ab6bcdd971f4a10ab07c344bf06cdbf5ffcde9eb38ad6a08f6" classCount="787" methodCount="7073">
 	<module id="kernel" label="Kernel" classCount="73" methodCount="744">
 		<class name="GFAccessGenerator" path="classes/GFAccessGenerator.xml" sourcePath="addons/gf/kernel/editor/gf_access_generator.gd" extends="RefCounted" />
 		<class name="GFArchitecture" path="classes/GFArchitecture.xml" sourcePath="addons/gf/kernel/core/gf_architecture.gd" extends="Object" />
@@ -75,7 +75,7 @@
 		<class name="GFUtility" path="classes/GFUtility.xml" sourcePath="addons/gf/kernel/base/gf_utility.gd" extends="Object" />
 		<class name="GFWeakMethodInvocation" path="classes/GFWeakMethodInvocation.xml" sourcePath="addons/gf/kernel/core/gf_weak_method_invocation.gd" extends="RefCounted" />
 	</module>
-	<module id="standard" label="Standard" classCount="438" methodCount="4405">
+	<module id="standard" label="Standard" classCount="440" methodCount="4416">
 		<class name="GFActivationTransaction" path="classes/GFActivationTransaction.xml" sourcePath="addons/gf/standard/foundation/policy/gf_activation_transaction.gd" extends="RefCounted" />
 		<class name="GFAnalyticsConfig" path="classes/GFAnalyticsConfig.xml" sourcePath="addons/gf/standard/utilities/analytics/gf_analytics_config.gd" extends="Resource" />
 		<class name="GFAnalyticsEventSchema" path="classes/GFAnalyticsEventSchema.xml" sourcePath="addons/gf/standard/utilities/analytics/gf_analytics_event_schema.gd" extends="Resource" />
@@ -119,6 +119,8 @@
 		<class name="GFAudioMetadataTools" path="classes/GFAudioMetadataTools.xml" sourcePath="addons/gf/standard/utilities/audio/gf_audio_metadata_tools.gd" extends="RefCounted" />
 		<class name="GFAudioParameter" path="classes/GFAudioParameter.xml" sourcePath="addons/gf/standard/utilities/audio/gf_audio_parameter.gd" extends="Resource" />
 		<class name="GFAudioPitchAnalysisTools" path="classes/GFAudioPitchAnalysisTools.xml" sourcePath="addons/gf/standard/utilities/audio/gf_audio_pitch_analysis_tools.gd" extends="RefCounted" />
+		<class name="GFAudioPlaybackRegion" path="classes/GFAudioPlaybackRegion.xml" sourcePath="addons/gf/standard/utilities/audio/gf_audio_playback_region.gd" extends="Resource" />
+		<class name="GFAudioPlaybackRegionResult" path="classes/GFAudioPlaybackRegionResult.xml" sourcePath="addons/gf/standard/utilities/audio/gf_audio_playback_region_result.gd" extends="RefCounted" />
 		<class name="GFAudioSpatialSettings" path="classes/GFAudioSpatialSettings.xml" sourcePath="addons/gf/standard/utilities/audio/gf_audio_spatial_settings.gd" extends="Resource" />
 		<class name="GFAudioState" path="classes/GFAudioState.xml" sourcePath="addons/gf/standard/utilities/audio/gf_audio_state.gd" extends="Resource" />
 		<class name="GFAudioSwitch" path="classes/GFAudioSwitch.xml" sourcePath="addons/gf/standard/utilities/audio/gf_audio_switch.gd" extends="Resource" />

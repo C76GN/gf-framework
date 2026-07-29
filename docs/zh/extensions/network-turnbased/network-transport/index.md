@@ -4,7 +4,7 @@
 
 ## 阅读入口
 
-- [后端与 Session](backend-session.md)：`GFNetworkUtility`、`GFNetworkBackend`、host/connect 和 session 状态。
+- [后端与 Session](backend-session.md)：`GFNetworkUtility`、`GFNetworkBackend`、host/connect、session 状态、传输指标和 Headless 健康探针组合。
 - [序列化与消息解码](serialization.md)：`GFNetworkSerializer`、Variant / JSON、typed JSON codec 和拒包详情。
 - [WebSocket 后端](websocket.md)：`GFWebSocketNetworkBackend` 的客户端、服务器和 peer id 约定。
 - [Channel 与限流](channels-rate-limit.md)：`GFNetworkChannel`、逻辑通道匹配和 `GFNetworkRateLimiter`。

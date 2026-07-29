@@ -74,6 +74,45 @@ var blended := calm_profile.blend_with(storm_profile, transition_weight)
 shader_params.apply_profile(weather_material, blended)
 ```
 
+## 周期环境表现组合配方
+
+周期环境表现应把时间来源、项目模型和材质应用分开。`GFTimeProvider` / `GFClock` 只提供明确的时钟域；项目模型负责周期、天气、天文、时区、夏令时和跳变规则，并返回项目定义的类型化样本；表现控制器再把样本映射到 `GFShaderParameterProfile`，通过 `GFShaderInterfaceSnapshot` 验证后交给 `GFShaderParameterBinder`。
+
+下面的 `ProjectEnvironmentSample` 和 `environment_model` 都属于项目代码。GF 调用只负责读取时钟、组合 Profile、校验契约和应用材质：
+
+```gdscript
+func update_environment_appearance() -> bool:
+	var clock: GFClock = time_provider.get_clock()
+	var sample: ProjectEnvironmentSample = environment_model.sample_at(clock)
+	var runtime_profile: GFShaderParameterProfile = (
+		dark_profile.blend_with(light_profile, sample.profile_weight)
+	)
+	var _fog_parameter: GFShaderParameterProfile = runtime_profile.set_parameter(
+		&"weather_fog_amount",
+		sample.fog_amount
+	)
+	var _tint_parameter: GFShaderParameterProfile = runtime_profile.set_parameter(
+		&"atmosphere_tint",
+		sample.atmosphere_tint
+	)
+
+	var contract_report: GFValidationReport = runtime_profile.validate_against(
+		shader_interface_snapshot
+	)
+	if not contract_report.is_ok():
+		push_warning(contract_report.make_summary())
+		return false
+
+	shader_binder.profile = runtime_profile
+	return true
+```
+
+真实世界同步周期使用 Unix 时间；进程内耗时、deadline 和排序使用单调时间；受暂停或时间缩放影响的游戏周期应由项目用 `get_scaled_delta()` 推进自己的逻辑状态。三种时间语义不能混用。测试中可给 `GFTimeProvider` 注入 `GFManualClock`，覆盖周期边界、回绕、暂停、系统校时跳变和大步推进。
+
+持久化的接口快照和稳定 Profile 应在装配或资源验收阶段先校验。运行期采样频率由项目控制器显式限制；`GFShaderParameterBinder.apply_each_process` 不应被当作时间采样器，Binder 也不读取时钟或环境状态。制作期需要交互调整 Profile 时，沿用[非破坏式实时调参预览](../../../../editor/non-destructive-live-preview.md)的临时副本、取消和确认提交边界，不要在运行时配方中直接保存或改写基准 Resource。
+
+这套组合不提供日夜或天气 Manager、太阳位置公式、历法、曲线绘图、存档字段或玩法事件。项目可以替换任何环境模型，只要它把业务结果转换为类型稳定、有界且满足 Shader 接口契约的表现样本。
+
 ## 场景绑定
 
 `GFShaderParameterBinder` 是一个轻量节点组件。把它作为材质节点的子节点时，默认 `target_path` 指向父节点；也可以显式指定其他目标路径。Binder 会在 ready 阶段应用 profile，并可在 profile 通过公开方法发出 `changed` 信号时自动重应用。

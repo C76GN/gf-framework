@@ -2,7 +2,8 @@
 ##
 ## 指标只在显式写入后才视为已知，避免用 0 混淆“真实为零”与“后端不支持”。
 ## 内置指标覆盖流量、包数、连接时长、队列、延迟、抖动和丢包率；Adapter
-## 也可以写入命名稳定的自定义非负指标。
+## 也可以写入命名稳定的自定义非负指标。总指标数、自定义指标数和 ID 长度
+## 均受绝对上限约束，任何超限的新指标都失败关闭。
 ## [br]
 ## @api public
 ## [br]
@@ -14,6 +15,27 @@ extends RefCounted
 
 
 # --- 常量 ---
+
+## 单个指标快照允许的绝对最大指标数量。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+const ABSOLUTE_MAX_METRIC_COUNT: int = 64
+
+## 单个指标快照允许的绝对最大自定义指标数量。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+const ABSOLUTE_MAX_CUSTOM_METRIC_COUNT: int = 48
+
+## 指标 ID 允许的绝对最大字符数。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+const ABSOLUTE_MAX_METRIC_ID_LENGTH: int = 64
 
 ## 已发送字节数。
 ## [br]
@@ -120,13 +142,21 @@ var _metrics: Dictionary[StringName, float] = {}
 ## [br]
 ## @param value: 有限非负值；packet_loss_ratio 额外限制在 0 到 1。
 ## [br]
-## @return 指标合法并已写入时返回 true。
+## @return 指标合法、未突破容量并已写入时返回 true；达到容量后仍可更新既有指标。
 func set_metric(metric_id: StringName, value: float) -> bool:
 	var normalized_id: StringName = _normalize_metric_id(metric_id)
 	if normalized_id == &"" or not is_finite(value) or value < 0.0:
 		return false
 	if normalized_id == PACKET_LOSS_RATIO and value > 1.0:
 		return false
+	if not _metrics.has(normalized_id):
+		if _metrics.size() >= ABSOLUTE_MAX_METRIC_COUNT:
+			return false
+		if (
+			not _is_builtin_metric_id(normalized_id)
+			and _get_custom_metric_count() >= ABSOLUTE_MAX_CUSTOM_METRIC_COUNT
+		):
+			return false
 	_metrics[normalized_id] = value
 	return true
 
@@ -224,6 +254,9 @@ func to_dict() -> Dictionary:
 
 
 ## 从字典应用指标快照。
+##
+## 只读取输入 metrics 的前 `ABSOLUTE_MAX_METRIC_COUNT` 个条目，不复制或遍历
+## 完整容器；无效、未知类型或超限条目失败关闭。
 ## [br]
 ## @api public
 ## [br]
@@ -236,8 +269,17 @@ func apply_dict(data: Dictionary) -> void:
 	sample_time_msec = maxi(GFVariantData.get_option_int(data, "sample_time_msec"), 0)
 	sample_window_msec = maxi(GFVariantData.get_option_int(data, "sample_window_msec"), 0)
 	_metrics.clear()
-	var metric_values: Dictionary = GFVariantData.get_option_dictionary(data, "metrics")
-	for key_value: Variant in metric_values.keys():
+	var metric_values_value: Variant = data.get("metrics", {})
+	if not (metric_values_value is Dictionary):
+		return
+	var metric_values: Dictionary = metric_values_value
+	var processed_entry_count: int = 0
+	for key_value: Variant in metric_values:
+		if processed_entry_count >= ABSOLUTE_MAX_METRIC_COUNT:
+			break
+		processed_entry_count += 1
+		if not (key_value is String or key_value is StringName):
+			continue
 		var value: Variant = metric_values[key_value]
 		if not (value is int or value is float):
 			continue
@@ -285,4 +327,33 @@ static func from_dict(data: Dictionary) -> GFNetworkTransportMetrics:
 # --- 私有/辅助方法 ---
 
 static func _normalize_metric_id(metric_id: StringName) -> StringName:
-	return StringName(String(metric_id).strip_edges())
+	var normalized_text: String = String(metric_id).strip_edges()
+	if (
+		normalized_text.is_empty()
+		or normalized_text.length() > ABSOLUTE_MAX_METRIC_ID_LENGTH
+	):
+		return &""
+	return StringName(normalized_text)
+
+
+static func _is_builtin_metric_id(metric_id: StringName) -> bool:
+	return metric_id in [
+		BYTES_SENT,
+		BYTES_RECEIVED,
+		PACKETS_SENT,
+		PACKETS_RECEIVED,
+		CONNECTION_AGE_MSEC,
+		ROUND_TRIP_TIME_MSEC,
+		JITTER_MSEC,
+		PACKET_LOSS_RATIO,
+		SEND_QUEUE_PACKETS,
+		RECEIVE_QUEUE_PACKETS,
+	]
+
+
+func _get_custom_metric_count() -> int:
+	var custom_metric_count: int = 0
+	for metric_id: StringName in _metrics:
+		if not _is_builtin_metric_id(metric_id):
+			custom_metric_count += 1
+	return custom_metric_count

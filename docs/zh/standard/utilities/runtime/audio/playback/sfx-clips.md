@@ -16,6 +16,8 @@ clip.volume_db = -3.0
 audio.play_sfx_clip(clip)
 ```
 
+需要从片段中间开始或声明循环点时，设置 `GFAudioClip.playback_region`。该类型化契约同样用于 BGM、环境音和 2D/3D 空间 SFX，并在请求开始时冻结为私有快照；支持矩阵与失败语义见[类型化播放区间与循环点](playback-regions.md)。
+
 ## 元数据
 
 `GFAudioClip.metadata` 是留给导入器、编辑器工具或项目层的通用字典。GF 不解释其中的键，也不会把它变成播放策略；需要时可以用 `set_metadata_value()`、`get_metadata_value()` 和 `duplicate_metadata()` 做安全写入和复制。

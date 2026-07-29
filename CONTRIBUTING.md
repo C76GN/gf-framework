@@ -96,6 +96,11 @@ branch.
 - Runtime or editor behavior changes require focused tests.
 - Public API changes require complete API Surface annotations and regenerated
   API reference output.
+- Any change to an existing free-text public `@schema` contract is a breaking
+  API change, including appending, rewriting, reordering, or removing text. The
+  API baseline gate fails closed because it cannot prove those edits compatible
+  and requires the corresponding major development line. Only adding a schema
+  where the stable baseline had none is classified as compatible.
 - User-visible changes require the relevant guide and the `[未发布]` changelog
   section to be updated.
 - Package, extension, persisted-data, protocol, or ProjectSettings changes must
@@ -113,6 +118,20 @@ from presenting itself as the last published release.
 
 - `addons/gf/plugin.cfg` and bundled extension manifest `version` fields must
   match exactly.
+- A development identity permits exactly one canonical `## [未发布]`
+  changelog section and no formal release sections. A stable identity permits
+  exactly one dated section for that version and no unreleased or historical
+  sections; immutable tags and GitHub Releases preserve published history.
+- The Changelog title, structure-standard heading, maintenance-policy heading,
+  and sole candidate heading form one exact top-level sequence. Its numbered
+  structure must match the executable category constants. Every candidate must
+  start with a readable version overview and contain at least one readable,
+  non-empty top-level H3 category in the documented order. Raw HTML, mixed
+  comment/visible lines, non-ASCII heading separators, and decorative-only
+  bodies fail closed.
+- The Changelog gate maps a governed development identity to its stable core
+  for API baseline SemVer enforcement and also verifies every bundled extension
+  manifest against the full framework identity.
 - Package manifest versions remain `unreleased` until the release transaction.
 - New public API uses `@since unreleased` until the final release version is
   selected.
@@ -132,6 +151,7 @@ runner for repository gates:
 
 ```powershell
 python tools\gf_maintenance.py workspace-status --json
+python tools\gf_maintenance.py changelog-policy --json
 python tools\gf_maintenance.py check --suite quick --failed-only
 python tools\gf_maintenance.py check --suite full --json
 ```

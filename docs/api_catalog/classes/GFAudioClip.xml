@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFAudioClip" path="addons/gf/standard/utilities/audio/gf_audio_clip.gd" module="standard" extends="Resource" classDigest="32b11aa1044bd560e490e9304b3c1e94a83daa6524af84838ff194228cd97659">
+<class name="GFAudioClip" path="addons/gf/standard/utilities/audio/gf_audio_clip.gd" module="standard" extends="Resource" classDigest="9909cb22af317f839520a0af60c5f4ac3a37a5d751ba7083d632fbdd20a4fb6a">
 	<description>GFAudioClip: 可资源化的音频播放配置。
 支持直接引用 `AudioStream`，也支持提供资源路径交给 `GFAudioUtility`
 按需加载。</description>
@@ -75,6 +75,16 @@
 				<tag name="api">public</tag>
 				<tag name="schema">spatial_settings: GFAudioSpatialSettings or compatible Resource with apply_to_2d/apply_to_3d methods.</tag>
 				<tag name="since">3.19.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="playback_region" decorators="@export">
+			<signature>var playback_region: GFAudioPlaybackRegion = null</signature>
+			<description>可选类型化播放区间。为空时按音频流原始设置从头播放。
+区间会在每次播放请求开始时复制；本地播放器只接受 Godot 音频流能够原生、
+精确表达的起点和循环点，不用帧轮询模拟有限终点。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 		<member kind="property" name="metadata" decorators="@export">

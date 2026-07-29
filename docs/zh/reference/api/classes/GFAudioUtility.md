@@ -16,6 +16,7 @@
 | 类型 | 名称 | 签名 |
 |---|---|---|
 | 信号 | [`bgm_finished`](#member-gfaudioutility-signals-bgm_finished) | `signal bgm_finished(history_key: String)` |
+| 信号 | [`playback_region_rejected`](#member-gfaudioutility-signals-playback_region_rejected) | `signal playback_region_rejected(channel: StringName, reason: StringName)` |
 | 枚举 | [`SFXOverflowPolicy`](#member-gfaudioutility-enums-sfxoverflowpolicy) | `enum SFXOverflowPolicy` |
 | 常量 | [`BGM_BUS_NAME`](#member-gfaudioutility-constants-bgm_bus_name) | `const BGM_BUS_NAME: String = "BGM"` |
 | 常量 | [`SFX_BUS_NAME`](#member-gfaudioutility-constants-sfx_bus_name) | `const SFX_BUS_NAME: String = "SFX"` |
@@ -90,6 +91,7 @@
 | 方法 | [`set_bus_volume`](#member-gfaudioutility-methods-set_bus_volume) | `func set_bus_volume(bus_name: String, volume_linear: float) -> void:` |
 | 方法 | [`get_bus_volume`](#member-gfaudioutility-methods-get_bus_volume) | `func get_bus_volume(bus_name: String) -> float:` |
 | 方法 | [`get_debug_snapshot`](#member-gfaudioutility-methods-get_debug_snapshot) | `func get_debug_snapshot() -> Dictionary:` |
+| 方法 | [`get_last_playback_region_rejection`](#member-gfaudioutility-methods-get_last_playback_region_rejection) | `func get_last_playback_region_rejection() -> Dictionary:` |
 
 ## 信号
 
@@ -110,6 +112,26 @@ signal bgm_finished(history_key: String)
 | 名称 | 说明 |
 |---|---|
 | `history_key` | 播放请求记录的 BGM key。 |
+
+<a id="member-gfaudioutility-signals-playback_region_rejected"></a>
+
+### `playback_region_rejected`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+signal playback_region_rejected(channel: StringName, reason: StringName)
+```
+
+类型化播放区间因请求非法或当前后端/音频流无法精确执行而被拒绝时发出。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `channel` | 被拒绝请求的通道。 |
+| `reason` | 稳定拒绝原因。 |
 
 ## 枚举
 
@@ -276,18 +298,18 @@ func play_bgm(path: String, crossfade_seconds: float = -1.0) -> void:
 func play_bgm_with_options(path: String, options: Dictionary = {}) -> void:
 ```
 
-使用选项播放 BGM。每次请求创建新会话；异步加载、淡变与 finished 回调只可提交所属会话。
+使用选项播放 BGM。每次请求创建新会话；异步加载、淡变与 finished 回调只可提交所属会话。 loop 与 playback_region 是保留键，必须通过 GFAudioClip.playback_region 表达。
 
 参数：
 
 | 名称 | 说明 |
 |---|---|
 | `path` | 音频资源路径或后端事件路径。 |
-| `options` | 支持 crossfade_seconds、history_key、loop、bus_name、volume_db 和 pitch_scale。 |
+| `options` | 支持 crossfade_seconds、history_key、bus_name、volume_db 和 pitch_scale； |
 
 结构：
 
-- `options`: Dictionary，可包含 crossfade_seconds、history_key、loop、bus_name、volume_db 和 pitch_scale 字段。
+- `options`: Dictionary，可包含 crossfade_seconds、history_key、bus_name、volume_db 和 pitch_scale 字段；不得包含 loop 或 playback_region。
 
 <a id="member-gfaudioutility-methods-play_bgm_clip"></a>
 
@@ -700,13 +722,13 @@ func post_audio_event(event: GFAudioEvent, options: Dictionary = {}) -> GFAudioE
 | 名称 | 说明 |
 |---|---|
 | `event` | 音频事件资源。 |
-| `options` | 请求选项。 |
+| `options` | 请求选项；loop 与 playback_region 是保留键。 |
 
 返回：后端或 SFX 控制句柄；本地 BGM/环境音已发布或请求失败时返回 null。
 
 结构：
 
-- `options`: Dictionary，作为事件请求附加选项，会与 GFAudioEvent.to_request_options() 的结果合并。
+- `options`: Dictionary，作为事件请求附加选项，会与 GFAudioEvent.to_request_options() 的结果合并；不得在 options 或事件 metadata 中包含 loop 或 playback_region。
 
 <a id="member-gfaudioutility-methods-set_audio_parameter"></a>
 
@@ -1536,4 +1558,23 @@ func get_debug_snapshot() -> Dictionary:
 
 结构：
 
-- `return`: Dictionary，包含 backend、backend_snapshot、backend_capabilities、current_bgm_key、current_bgm_loop、bgm_state、bgm_owner、bgm_generation、bgm_playing、bgm_paused、bgm_position、bgm_history、active_sfx_count、active_spatial_sfx_count、max_sfx_players、ambient_channels、ambient_sessions、audio_bank_count、ducked_bus_count 和 active_mix_tween_count 字段。
+- `return`: Dictionary，包含 backend、backend_snapshot、backend_capabilities、current_bgm_key、current_bgm_region、last_playback_region_rejection、bgm_state、bgm_owner、bgm_generation、bgm_playing、bgm_paused、bgm_position、bgm_history、active_sfx_count、active_spatial_sfx_count、max_sfx_players、ambient_channels、ambient_sessions、audio_bank_count、ducked_bus_count 和 active_mix_tween_count 字段。
+
+<a id="member-gfaudioutility-methods-get_last_playback_region_rejection"></a>
+
+### `get_last_playback_region_rejection`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func get_last_playback_region_rejection() -> Dictionary:
+```
+
+获取最近一次播放区间拒绝报告。 报告不包含资源路径、流数据、后端私有元数据或项目自定义通道值； 非框架通道统一记为 custom，拒绝信号仍携带原始调用通道。
+
+返回：最近拒绝报告；尚无拒绝时为空字典。
+
+结构：
+
+- `return`: Dictionary，可包含 channel、status 和 reason 字段。

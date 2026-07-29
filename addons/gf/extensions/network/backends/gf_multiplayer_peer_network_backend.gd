@@ -308,8 +308,13 @@ func get_debug_snapshot() -> Dictionary:
 
 # --- 可重写钩子 / 虚方法 ---
 
-func _enrich_transport_metrics(metrics: GFNetworkTransportMetrics) -> void:
+func _enrich_transport_metrics(
+	metrics: GFNetworkTransportMetrics,
+	budget: GFExecutionBudget
+) -> void:
 	if _peer == null:
+		return
+	if not budget.consume_steps():
 		return
 	var _queue_set: bool = metrics.set_metric(
 		GFNetworkTransportMetrics.RECEIVE_QUEUE_PACKETS,

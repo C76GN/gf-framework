@@ -118,6 +118,7 @@
       "res://tests/gf_core/standard/utilities/scene/test_gf_scene_utility.gd"
     ],
     "gf.standard.audio": [
+      "res://tests/gf_core/standard/utilities/audio/test_gf_audio_playback_region.gd",
       "res://tests/gf_core/standard/utilities/audio/test_gf_audio_pitch_analysis_tools.gd",
       "res://tests/gf_core/standard/utilities/audio/test_gf_audio_metadata_tools.gd",
       "res://tests/gf_core/standard/utilities/audio/test_gf_audio_utility.gd"

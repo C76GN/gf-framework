@@ -9,12 +9,15 @@
 - 类别：值对象 (`value_object`)
 - 首次版本：`10.0.0`
 
-网络传输指标快照。 指标只在显式写入后才视为已知，避免用 0 混淆“真实为零”与“后端不支持”。 内置指标覆盖流量、包数、连接时长、队列、延迟、抖动和丢包率；Adapter 也可以写入命名稳定的自定义非负指标。
+网络传输指标快照。 指标只在显式写入后才视为已知，避免用 0 混淆“真实为零”与“后端不支持”。 内置指标覆盖流量、包数、连接时长、队列、延迟、抖动和丢包率；Adapter 也可以写入命名稳定的自定义非负指标。总指标数、自定义指标数和 ID 长度 均受绝对上限约束，任何超限的新指标都失败关闭。
 
 ## 成员概览
 
 | 类型 | 名称 | 签名 |
 |---|---|---|
+| 常量 | [`ABSOLUTE_MAX_METRIC_COUNT`](#member-gfnetworktransportmetrics-constants-absolute_max_metric_count) | `const ABSOLUTE_MAX_METRIC_COUNT: int = 64` |
+| 常量 | [`ABSOLUTE_MAX_CUSTOM_METRIC_COUNT`](#member-gfnetworktransportmetrics-constants-absolute_max_custom_metric_count) | `const ABSOLUTE_MAX_CUSTOM_METRIC_COUNT: int = 48` |
+| 常量 | [`ABSOLUTE_MAX_METRIC_ID_LENGTH`](#member-gfnetworktransportmetrics-constants-absolute_max_metric_id_length) | `const ABSOLUTE_MAX_METRIC_ID_LENGTH: int = 64` |
 | 常量 | [`BYTES_SENT`](#member-gfnetworktransportmetrics-constants-bytes_sent) | `const BYTES_SENT: StringName = &"bytes_sent"` |
 | 常量 | [`BYTES_RECEIVED`](#member-gfnetworktransportmetrics-constants-bytes_received) | `const BYTES_RECEIVED: StringName = &"bytes_received"` |
 | 常量 | [`PACKETS_SENT`](#member-gfnetworktransportmetrics-constants-packets_sent) | `const PACKETS_SENT: StringName = &"packets_sent"` |
@@ -39,6 +42,45 @@
 | 方法 | [`from_dict`](#member-gfnetworktransportmetrics-methods-from_dict) | `static func from_dict(data: Dictionary) -> GFNetworkTransportMetrics:` |
 
 ## 常量
+
+<a id="member-gfnetworktransportmetrics-constants-absolute_max_metric_count"></a>
+
+### `ABSOLUTE_MAX_METRIC_COUNT`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+const ABSOLUTE_MAX_METRIC_COUNT: int = 64
+```
+
+单个指标快照允许的绝对最大指标数量。
+
+<a id="member-gfnetworktransportmetrics-constants-absolute_max_custom_metric_count"></a>
+
+### `ABSOLUTE_MAX_CUSTOM_METRIC_COUNT`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+const ABSOLUTE_MAX_CUSTOM_METRIC_COUNT: int = 48
+```
+
+单个指标快照允许的绝对最大自定义指标数量。
+
+<a id="member-gfnetworktransportmetrics-constants-absolute_max_metric_id_length"></a>
+
+### `ABSOLUTE_MAX_METRIC_ID_LENGTH`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+const ABSOLUTE_MAX_METRIC_ID_LENGTH: int = 64
+```
+
+指标 ID 允许的绝对最大字符数。
 
 <a id="member-gfnetworktransportmetrics-constants-bytes_sent"></a>
 
@@ -220,7 +262,7 @@ func set_metric(metric_id: StringName, value: float) -> bool:
 | `metric_id` | 非空稳定指标 ID。 |
 | `value` | 有限非负值；packet_loss_ratio 额外限制在 0 到 1。 |
 
-返回：指标合法并已写入时返回 true。
+返回：指标合法、未突破容量并已写入时返回 true；达到容量后仍可更新既有指标。
 
 <a id="member-gfnetworktransportmetrics-methods-clear_metric"></a>
 
@@ -350,7 +392,7 @@ func to_dict() -> Dictionary:
 func apply_dict(data: Dictionary) -> void:
 ```
 
-从字典应用指标快照。
+从字典应用指标快照。 只读取输入 metrics 的前 `ABSOLUTE_MAX_METRIC_COUNT` 个条目，不复制或遍历 完整容器；无效、未知类型或超限条目失败关闭。
 
 参数：
 

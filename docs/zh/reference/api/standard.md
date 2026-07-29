@@ -6,11 +6,11 @@
 
 | 类别 | 类 | 成员 | 方法 |
 |---|---:|---:|---:|
-| [运行时服务](#category-runtime_service) | 187 | 3364 | 2263 |
-| [协议与扩展点](#category-protocol) | 24 | 337 | 266 |
-| [资源定义](#category-resource_definition) | 119 | 1528 | 788 |
+| [运行时服务](#category-runtime_service) | 187 | 3366 | 2264 |
+| [协议与扩展点](#category-protocol) | 24 | 338 | 267 |
+| [资源定义](#category-resource_definition) | 120 | 1538 | 792 |
 | [运行时句柄](#category-runtime_handle) | 45 | 792 | 499 |
-| [值对象](#category-value_object) | 39 | 717 | 453 |
+| [值对象](#category-value_object) | 40 | 732 | 458 |
 | [领域模型](#category-domain_model) | 4 | 61 | 42 |
 | [事件契约](#category-event_contract) | 6 | 61 | 23 |
 | [编辑器 API](#category-editor_api) | 11 | 68 | 46 |
@@ -257,6 +257,7 @@
 | [`GFAssetPreloadPlan`](classes/GFAssetPreloadPlan.md#gfassetpreloadplan) | `Resource` | `addons/gf/standard/utilities/assets/gf_asset_preload_plan.gd` |
 | [`GFAudioBank`](classes/GFAudioBank.md#gfaudiobank) | `Resource` | `addons/gf/standard/utilities/audio/gf_audio_bank.gd` |
 | [`GFAudioClip`](classes/GFAudioClip.md#gfaudioclip) | `Resource` | `addons/gf/standard/utilities/audio/gf_audio_clip.gd` |
+| [`GFAudioPlaybackRegion`](classes/GFAudioPlaybackRegion.md#gfaudioplaybackregion) | `Resource` | `addons/gf/standard/utilities/audio/gf_audio_playback_region.gd` |
 | [`GFAudioSpatialSettings`](classes/GFAudioSpatialSettings.md#gfaudiospatialsettings) | `Resource` | `addons/gf/standard/utilities/audio/gf_audio_spatial_settings.gd` |
 | [`GFBlackboardEntry`](classes/GFBlackboardEntry.md#gfblackboardentry) | `Resource` | `addons/gf/standard/foundation/blackboard/gf_blackboard_entry.gd` |
 | [`GFBlackboardSchema`](classes/GFBlackboardSchema.md#gfblackboardschema) | `Resource` | `addons/gf/standard/foundation/blackboard/gf_blackboard_schema.gd` |
@@ -429,6 +430,7 @@
 |---|---|---|
 | [`GFAssetLoadSessionResult`](classes/GFAssetLoadSessionResult.md#gfassetloadsessionresult) | `RefCounted` | `addons/gf/standard/utilities/assets/gf_asset_load_session_result.gd` |
 | [`GFAudioBackendCapability`](classes/GFAudioBackendCapability.md#gfaudiobackendcapability) | `Resource` | `addons/gf/standard/utilities/audio/gf_audio_backend_capability.gd` |
+| [`GFAudioPlaybackRegionResult`](classes/GFAudioPlaybackRegionResult.md#gfaudioplaybackregionresult) | `RefCounted` | `addons/gf/standard/utilities/audio/gf_audio_playback_region_result.gd` |
 | [`GFBigNumber`](classes/GFBigNumber.md#gfbignumber) | `RefCounted` | `addons/gf/standard/foundation/numeric/gf_big_number.gd` |
 | [`GFBuildInfo`](classes/GFBuildInfo.md#gfbuildinfo) | `Resource` | `addons/gf/standard/utilities/debug/gf_build_info.gd` |
 | [`GFByteCursor`](classes/GFByteCursor.md#gfbytecursor) | `RefCounted` | `addons/gf/standard/foundation/binary/gf_byte_cursor.gd` |

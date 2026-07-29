@@ -50,6 +50,8 @@ import gf_package_artifact_set
 import gf_parallel_validation
 import gf_maintenance_check_graph
 import gf_credential_gate
+import gf_changelog
+import extract_release_notes as gf_release_notes
 import gf_process_supervisor
 import gf_maintenance_rendering as maintenance_rendering
 import gf_maintenance_static_checks
@@ -86,7 +88,7 @@ SINCE_VERSION_RE = re.compile(
 	r"@since\s+(?P<version>(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*))"
 )
 SINCE_TAG_RE = re.compile(r"@since\s+(?P<value>\S+)")
-CHANGELOG_VERSION_RE = re.compile(r"^##\s+\[(?P<version>[^\]]+)\]")
+CHANGELOG_CATEGORY_HEADINGS = gf_changelog.CHANGELOG_CATEGORY_HEADINGS
 MARKDOWN_FIELD_RE = re.compile(r"^-\s+(?P<name>[^:]+):\s+`(?P<value>[^`]+)`\s*$")
 ANSI_ESCAPE_RE = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]")
 SOURCE_IDENTIFIER_RE = re.compile(r"(?<![A-Za-z0-9_])([A-Za-z_]\w*)(?![A-Za-z0-9_])")
@@ -913,6 +915,7 @@ CHECK_DEFINITIONS: dict[str, list[str]] = {
 		"--json",
 	],
 	"docs": [sys.executable, "tools/check_docs_quality.py", "--strict"],
+	"changelog_policy": [sys.executable, "tools/gf_maintenance.py", "changelog-policy", "--json"],
 	"repository_policy": [sys.executable, "tools/gf_repository_policy.py", "validate", "--json"],
 	"credential_gate": [sys.executable, "tools/gf_credential_gate.py", "--json"],
 	"credential_gate_tests": [
@@ -1097,7 +1100,7 @@ def maintenance_check_graph() -> CheckGraph:
 	return CheckGraph([*CHECK_DEFINITIONS.keys(), "release_metadata"], CHECK_DEPENDENCIES)
 
 API_CHECKS: list[str] = ["api", "ai_api", "ai_developer_kit", "public_api_boundary"]
-DOCS_CHECKS: list[str] = ["docs", "public_docs_boundary", "mkdocs"]
+DOCS_CHECKS: list[str] = ["docs", "changelog_policy", "public_docs_boundary", "mkdocs"]
 EXAMPLES_CHECKS: list[str] = [
 	"examples_sync",
 	"examples_scan",
@@ -1159,6 +1162,7 @@ QUICK_CHECKS: list[str] = [
 	"ai_api",
 	"ai_developer_kit_source",
 	"docs",
+	"changelog_policy",
 	"public_docs_boundary",
 	"public_api_boundary",
 	*LIGHT_BOUNDARY_CHECKS,
@@ -1170,6 +1174,7 @@ FULL_CHECKS: list[str] = [
 	"ai_api",
 	"ai_developer_kit",
 	"docs",
+	"changelog_policy",
 	"public_docs_boundary",
 	"public_api_boundary",
 	"resource_boundary",
@@ -1197,6 +1202,7 @@ RELEASE_CHECKS: list[str] = [
 	"ai_api",
 	"ai_developer_kit",
 	"docs",
+	"changelog_policy",
 	"public_docs_boundary",
 	"public_api_boundary",
 	"resource_boundary",
@@ -1229,6 +1235,7 @@ FRAMEWORK_STATIC_CHECKS: list[str] = [
 	"ai_api",
 	"ai_developer_kit",
 	"docs",
+	"changelog_policy",
 	"public_docs_boundary",
 	"public_api_boundary",
 	"resource_boundary",
@@ -1252,6 +1259,7 @@ FRAMEWORK_CHECKS: list[str] = [
 	"ai_api",
 	"ai_developer_kit",
 	"docs",
+	"changelog_policy",
 	"public_docs_boundary",
 	"public_api_boundary",
 	"resource_boundary",
@@ -1693,6 +1701,12 @@ def main() -> int:
 	)
 	dependency_boundary_parser.add_argument("--json", action="store_true", help="Print JSON instead of text.")
 
+	changelog_policy_parser = subparsers.add_parser(
+		"changelog-policy",
+		help="Check that the current changelog matches the framework development or stable version state.",
+	)
+	changelog_policy_parser.add_argument("--json", action="store_true", help="Print JSON instead of text.")
+
 	public_docs_boundary_parser = subparsers.add_parser(
 		"public-docs-boundary",
 		help="Check public docs for internal planning leaks and optional-extension boundary claims.",
@@ -2070,6 +2084,10 @@ def main() -> int:
 		data = dependency_boundary()
 		maintenance_rendering.print_output(data, args.json, maintenance_rendering.render_dependency_boundary_text)
 		return 0 if data["ok"] else 1
+	if args.command == "changelog-policy":
+		data = changelog_policy()
+		maintenance_rendering.print_output(data, args.json, maintenance_rendering.render_changelog_policy_text)
+		return 0 if data["ok"] else 1
 	if args.command == "public-docs-boundary":
 		data = public_docs_boundary()
 		maintenance_rendering.print_output(data, args.json, maintenance_rendering.render_public_docs_boundary_text)
@@ -2376,16 +2394,23 @@ def api_baseline_diff(
 	)
 	diff["breaking_signature_changes"] = classified_signature_changes["breaking"]
 	diff["compatible_signature_changes"] = classified_signature_changes["compatible"]
+	classified_schema_changes = classify_api_schema_changes(
+		diff.get("schema_changes", []),
+	)
+	diff["breaking_schema_changes"] = classified_schema_changes["breaking"]
+	diff["compatible_schema_changes"] = classified_schema_changes["compatible"]
 	breaking_change_count = (
 		len(diff["removed_classes"])
 		+ len(diff["removed_members"])
 		+ len(diff["breaking_signature_changes"])
+		+ len(diff["breaking_schema_changes"])
 		+ len(diff["extends_changes"])
 	)
 	compatible_change_count = (
 		len(diff["added_classes"])
 		+ len(diff["added_members"])
 		+ len(diff["compatible_signature_changes"])
+		+ len(diff["compatible_schema_changes"])
 	)
 	breaking_allowed = api_diff_breaking_allowed(resolved_base_tag, release_version)
 	compatible_allowed = api_diff_compatible_feature_allowed(resolved_base_tag, release_version)
@@ -2431,6 +2456,9 @@ def make_api_baseline_diff_result(
 		"signature_changes": len(diff.get("signature_changes", [])),
 		"breaking_signature_changes": len(diff.get("breaking_signature_changes", [])),
 		"compatible_signature_changes": len(diff.get("compatible_signature_changes", [])),
+		"schema_changes": len(diff.get("schema_changes", [])),
+		"breaking_schema_changes": len(diff.get("breaking_schema_changes", [])),
+		"compatible_schema_changes": len(diff.get("compatible_schema_changes", [])),
 		"extends_changes": len(diff.get("extends_changes", [])),
 		"breaking_change_count": int(extra.get("breaking_change_count", 0)),
 		"compatible_change_count": int(extra.get("compatible_change_count", 0)),
@@ -2469,6 +2497,33 @@ def classify_api_signature_changes(
 		"breaking": breaking,
 		"compatible": compatible,
 	}
+
+
+def classify_api_schema_changes(
+	changes: list[dict[str, Any]],
+) -> dict[str, list[dict[str, Any]]]:
+	breaking: list[dict[str, Any]] = []
+	compatible: list[dict[str, Any]] = []
+	for change in changes:
+		enriched = dict(change)
+		if api_schema_change_is_compatible(change):
+			enriched["compatibility"] = "schema_contract_documented_without_prior_contract"
+			compatible.append(enriched)
+		else:
+			enriched["compatibility"] = "breaking_or_unknown"
+			breaking.append(enriched)
+	return {
+		"breaking": breaking,
+		"compatible": compatible,
+	}
+
+
+def api_schema_change_is_compatible(change: dict[str, Any]) -> bool:
+	"""Treat free-text schema rewrites as breaking unless no prior contract existed."""
+
+	old_schema = [str(item) for item in change.get("old_schema", [])]
+	new_schema = [str(item) for item in change.get("new_schema", [])]
+	return not old_schema and bool(new_schema)
 
 
 def api_signature_compatible_change_reason(
@@ -2730,6 +2785,7 @@ def parse_api_class_snapshot(class_ref: ET.Element, class_root: ET.Element, modu
 				"name": name,
 				"group": group,
 				"signature": normalize_api_signature(member.findtext("signature", "")),
+				"schema": read_api_member_schema_contracts(member),
 			}
 	return {
 		"name": class_ref.get("name", class_root.get("name", "")),
@@ -2744,6 +2800,17 @@ def normalize_api_signature(signature: str) -> str:
 	return " ".join(signature.split())
 
 
+def read_api_member_schema_contracts(member: ET.Element) -> list[str]:
+	tags = member.find("tags")
+	if tags is None:
+		return []
+	return [
+		normalize_api_signature(tag.text or "")
+		for tag in tags.findall("tag")
+		if tag.get("name") == "schema" and normalize_api_signature(tag.text or "")
+	]
+
+
 def compare_api_catalog_snapshots(base: dict[str, Any], current: dict[str, Any]) -> dict[str, Any]:
 	base_classes: dict[str, Any] = base.get("classes", {})
 	current_classes: dict[str, Any] = current.get("classes", {})
@@ -2754,6 +2821,7 @@ def compare_api_catalog_snapshots(base: dict[str, Any], current: dict[str, Any])
 	added_members: list[dict[str, Any]] = []
 	removed_members: list[dict[str, Any]] = []
 	signature_changes: list[dict[str, Any]] = []
+	schema_changes: list[dict[str, Any]] = []
 	extends_changes: list[dict[str, Any]] = []
 
 	for class_name in sorted(set(base_classes) & set(current_classes)):
@@ -2774,21 +2842,31 @@ def compare_api_catalog_snapshots(base: dict[str, Any], current: dict[str, Any])
 		for member_key in sorted(set(base_members) & set(current_members)):
 			base_member = base_members[member_key]
 			current_member = current_members[member_key]
-			if base_member.get("signature", "") == current_member.get("signature", ""):
-				continue
-			signature_changes.append({
-				"class": class_name,
-				"kind": current_member.get("kind", ""),
-				"name": current_member.get("name", ""),
-				"old_signature": base_member.get("signature", ""),
-				"new_signature": current_member.get("signature", ""),
-			})
+			if base_member.get("signature", "") != current_member.get("signature", ""):
+				signature_changes.append({
+					"class": class_name,
+					"kind": current_member.get("kind", ""),
+					"name": current_member.get("name", ""),
+					"old_signature": base_member.get("signature", ""),
+					"new_signature": current_member.get("signature", ""),
+				})
+			old_schema = list(base_member.get("schema", []))
+			new_schema = list(current_member.get("schema", []))
+			if old_schema != new_schema:
+				schema_changes.append({
+					"class": class_name,
+					"kind": current_member.get("kind", ""),
+					"name": current_member.get("name", ""),
+					"old_schema": old_schema,
+					"new_schema": new_schema,
+				})
 	return {
 		"added_classes": added_classes,
 		"removed_classes": removed_classes,
 		"added_members": added_members,
 		"removed_members": removed_members,
 		"signature_changes": signature_changes,
+		"schema_changes": schema_changes,
 		"extends_changes": extends_changes,
 	}
 
@@ -16073,6 +16151,7 @@ def maintenance_self_test() -> dict[str, Any]:
 			"api",
 			"ai_api",
 			"docs",
+			"changelog_policy",
 			"public_docs_boundary",
 			"public_api_boundary",
 			"package_source_boundary",
@@ -16080,6 +16159,23 @@ def maintenance_self_test() -> dict[str, Any]:
 			"maintenance_self_test",
 		}.issubset(maintenance_in_process_check_runners()),
 		"pure static checks should reuse one maintenance process while external Godot and package smokes remain isolated.",
+	)
+	record_result(
+		"changelog_policy_is_a_quick_full_release_gate",
+		"changelog_policy" in CHECK_DEFINITIONS
+		and "changelog_policy" in maintenance_in_process_check_runners()
+		and all(
+			"changelog_policy" in set(CHECK_SUITES[suite_name])
+			for suite_name in (
+				"docs",
+				"quick",
+				"framework-static",
+				"framework",
+				"full",
+				"release",
+			)
+		),
+		"the current changelog state and entry template must fail before commit and release, not only inside release-status.",
 	)
 	record_result(
 		"gdscript_lsp_diagnostics_is_a_full_and_release_hard_gate",
@@ -18465,6 +18561,27 @@ def maintenance_self_test() -> dict[str, Any]:
 		"planning track names must not become source/API reference names.",
 	)
 
+	api_schema_class_snapshot = parse_api_class_snapshot(
+		ET.fromstring(
+			'<class name="GFSchemaFixture" path="classes/GFSchemaFixture.xml" '
+			'sourcePath="addons/gf/fixture/gf_schema_fixture.gd" extends="RefCounted" />'
+		),
+		ET.fromstring(
+			'<class name="GFSchemaFixture" module="fixture">'
+			'<methods><member kind="method" name="snapshot">'
+			'<signature>func snapshot() -&gt; Dictionary:</signature>'
+			'<tags><tag name="schema">return: Dictionary with stable_field.</tag></tags>'
+			'</member></methods></class>'
+		),
+		"fixture",
+	)
+	record_result(
+		"api_baseline_snapshot_reads_schema_tags",
+		api_schema_class_snapshot["members"]["method:snapshot"]["schema"]
+		== ["return: Dictionary with stable_field."],
+		f"API baseline snapshots must preserve structured schema tags: {api_schema_class_snapshot}",
+	)
+
 	api_base_snapshot = {
 		"classes": {
 			"GFStable": make_api_snapshot_class(
@@ -18584,6 +18701,70 @@ def maintenance_self_test() -> dict[str, Any]:
 		and len(classified_api_compatible_diff["compatible"]) == 4,
 		f"parameter widening, appended optional parameters, and enum additions should stay compatible while default changes remain breaking: {classified_api_compatible_diff}",
 	)
+	api_schema_base_snapshot = {
+		"classes": {
+			"GFStable": make_api_snapshot_class(
+				"GFStable",
+				"RefCounted",
+				{
+					"method:changed_schema": make_api_snapshot_member(
+						"method",
+						"changed_schema",
+						"func changed_schema() -> Dictionary:",
+						["return: Dictionary with current_bgm_loop."],
+					),
+					"method:documented_schema": make_api_snapshot_member(
+						"method",
+						"documented_schema",
+						"func documented_schema() -> Dictionary:",
+					),
+				},
+			),
+		},
+	}
+	api_schema_current_snapshot = {
+		"classes": {
+			"GFStable": make_api_snapshot_class(
+				"GFStable",
+				"RefCounted",
+				{
+					"method:changed_schema": make_api_snapshot_member(
+						"method",
+						"changed_schema",
+						"func changed_schema() -> Dictionary:",
+						["return: Dictionary with current_bgm_region."],
+					),
+					"method:documented_schema": make_api_snapshot_member(
+						"method",
+						"documented_schema",
+						"func documented_schema() -> Dictionary:",
+						["return: Dictionary with stable fields."],
+					),
+				},
+			),
+		},
+	}
+	api_schema_diff = compare_api_catalog_snapshots(
+		api_schema_base_snapshot,
+		api_schema_current_snapshot,
+	)
+	classified_api_schema_diff = classify_api_schema_changes(
+		api_schema_diff["schema_changes"],
+	)
+	record_result(
+		"api_baseline_diff_classifies_schema_contract_changes",
+		len(api_schema_diff["schema_changes"]) == 2
+		and len(classified_api_schema_diff["breaking"]) == 1
+		and len(classified_api_schema_diff["compatible"]) == 1
+		and not api_schema_change_is_compatible({
+			"old_schema": ["options: accepts arbitrary keys."],
+			"new_schema": [
+				"options: accepts arbitrary keys.",
+				"options: key loop is forbidden.",
+			],
+		}),
+		f"rewritten or restriction-appended free-text schema contracts must fail closed while newly documented contracts remain compatible: {classified_api_schema_diff}",
+	)
 	record_result(
 		"api_baseline_diff_requires_major_for_breaking_changes",
 		not api_diff_breaking_allowed("4.4.0", "4.5.0")
@@ -18597,11 +18778,41 @@ def maintenance_self_test() -> dict[str, Any]:
 		and api_diff_compatible_feature_allowed("8.0.1", "9.0.0"),
 		"backward-compatible public API additions should require at least a minor version bump.",
 	)
+	record_result(
+		"changelog_policy_derives_governed_release_target",
+		changelog_release_target_version("11.0.0-dev.0") == "11.0.0"
+		and changelog_release_target_version("11.0.0") == "11.0.0"
+		and changelog_release_target_version("11.0.0-rc.1") == ""
+		and changelog_release_target_version("11.0.0-dev.0+ci") == "",
+		"the current Changelog gate must enforce API SemVer against the stable core of only governed framework identities.",
+	)
+	valid_changelog_body = (
+		"\n**版本概述**：Fixture release notes.\n\n"
+		"### 🔄 机制更改 (Changed)\n\n"
+		"- Describe the consumer-visible change.\n"
+	)
+	valid_changelog_preamble = (
+		"# 更新日志 (Changelog)\n\n"
+		"## 📝 日志条目结构标准\n\n"
+		"1. **版本号与日期**：Fixture rule.\n"
+		"2. **版本概述**：Fixture rule.\n"
+		"3. **🚀 新增特性 (Added)**：Fixture rule.\n"
+		"4. **🔄 机制更改 (Changed)**：Fixture rule.\n"
+		"5. **🐛 Bug 修复 (Fixed)**：Fixture rule.\n"
+		"6. **⚠️ 废弃与移除 (Deprecated/Removed)**：Fixture rule.\n"
+		"7. **🔧 API 变动说明 (API Changes)**：Fixture rule.\n"
+		"8. **📘 升级指南 (Migration Guide)**：Fixture rule.\n"
+		"9. **📁 核心受影响文件 (Affected Files)**：Fixture rule.\n\n"
+		"## 维护策略\n\n"
+		"开发态当前页只保留唯一的 `[未发布]`。\n"
+		"`changelog_policy` 属于 quick、full 与 release 门禁。\n\n"
+	)
 	valid_changelog_report = audit_release_changelog(
 		"7.0.0",
 		(
-			"# Changelog\n\n"
-			"## [7.0.0] - 2026-07-14\n\n- Released.\n"
+			valid_changelog_preamble
+			+ "## [7.0.0] - 2026-07-14\n"
+			+ valid_changelog_body
 		),
 	)
 	record_result(
@@ -18609,13 +18820,29 @@ def maintenance_self_test() -> dict[str, Any]:
 		len(valid_changelog_report["issues"]) == 0,
 		f"valid release changelog fixture should pass: {valid_changelog_report}",
 	)
+	valid_stable_changelog_policy_report = audit_current_changelog(
+		"7.0.0",
+		valid_changelog_preamble
+		+ "## [7.0.0] - 2026-07-14\n"
+		+ valid_changelog_body,
+	)
+	record_result(
+		"stable_changelog_policy_accepts_one_matching_formal_section",
+		valid_stable_changelog_policy_report["ok"]
+		and valid_stable_changelog_policy_report["mode"] == "stable"
+		and valid_stable_changelog_policy_report["section_count"] == 1,
+		f"one structured matching formal section should pass for a stable identity: {valid_stable_changelog_policy_report}",
+	)
 	invalid_changelog_report = audit_release_changelog(
 		"7.0.0",
 		(
-			"# Changelog\n\n"
-			"## [未发布]\n\n- Still pending.\n\n"
-			"## [7.0.0] - 2026-07-14\n\n- Released.\n\n"
-			"## [6.2.0] - 2026-06-14\n\n- Previous release left in current page.\n"
+			valid_changelog_preamble
+			+ "## [未发布]\n"
+			+ valid_changelog_body
+			+ "\n## [7.0.0] - 2026-07-14\n"
+			+ valid_changelog_body
+			+ "\n## [6.2.0] - 2026-06-14\n"
+			+ valid_changelog_body
 		),
 	)
 	record_result(
@@ -18627,9 +18854,11 @@ def maintenance_self_test() -> dict[str, Any]:
 	duplicate_changelog_report = audit_release_changelog(
 		"7.0.0",
 		(
-			"# Changelog\n\n"
-			"## [7.0.0] - 2026-07-14\n\n- First.\n\n"
-			"## [7.0.0] - 2026-07-14\n\n- Duplicate.\n"
+			valid_changelog_preamble
+			+ "## [7.0.0] - 2026-07-14\n"
+			+ valid_changelog_body
+			+ "\n## [7.0.0] - 2026-07-14\n"
+			+ valid_changelog_body
 		),
 	)
 	record_result(
@@ -18639,13 +18868,759 @@ def maintenance_self_test() -> dict[str, Any]:
 	)
 	malformed_changelog_report = audit_release_changelog(
 		"7.0.0",
-		"# Changelog\n\n## [7.0.0] - 2026-02-30\n",
+		valid_changelog_preamble + "## [7.0.0] - 2026-02-30\n",
 	)
 	record_result(
 		"release_changelog_rejects_empty_body_and_invalid_date",
 		any("must not be empty" in issue for issue in malformed_changelog_report["issues"])
 		and any("invalid calendar date" in issue for issue in malformed_changelog_report["issues"]),
 		f"empty or invalid target sections must fail release validation: {malformed_changelog_report}",
+	)
+	valid_development_changelog_report = audit_current_changelog(
+		"7.1.0-dev.0",
+		valid_changelog_preamble + "## [未发布]\n" + valid_changelog_body,
+	)
+	record_result(
+		"development_changelog_accepts_one_canonical_unreleased_section",
+		valid_development_changelog_report["ok"]
+		and valid_development_changelog_report["mode"] == "development"
+		and valid_development_changelog_report["section_count"] == 1,
+		f"one structured [未发布] section should pass during development: {valid_development_changelog_report}",
+	)
+	stale_development_changelog_report = audit_current_changelog(
+		"7.1.0-dev.0",
+		(
+			valid_changelog_preamble
+			+ "## [未发布]\n"
+			+ valid_changelog_body
+			+ "\n## [7.0.0] - 2026-07-14\n"
+			+ valid_changelog_body
+		),
+	)
+	record_result(
+		"development_changelog_rejects_stale_formal_history",
+		not stale_development_changelog_report["ok"]
+		and any(
+			"must not retain formal release sections" in issue
+			for issue in stale_development_changelog_report["issues"]
+		),
+		f"published sections must leave the development working tree: {stale_development_changelog_report}",
+	)
+	duplicate_development_changelog_report = audit_current_changelog(
+		"7.1.0-dev.0",
+		(
+			valid_changelog_preamble
+			+ "## [未发布]\n"
+			+ valid_changelog_body
+			+ "\n## [未发布]\n"
+			+ valid_changelog_body
+		),
+	)
+	record_result(
+		"development_changelog_rejects_duplicate_unreleased_sections",
+		not duplicate_development_changelog_report["ok"]
+		and any(
+			"exactly one canonical [未发布]" in issue
+			for issue in duplicate_development_changelog_report["issues"]
+		),
+		f"duplicate development candidates must fail: {duplicate_development_changelog_report}",
+	)
+	noncanonical_development_changelog_report = audit_current_changelog(
+		"7.1.0-dev.0",
+		valid_changelog_preamble + "## [Unreleased]\n" + valid_changelog_body,
+	)
+	record_result(
+		"development_changelog_rejects_noncanonical_release_headings",
+		not noncanonical_development_changelog_report["ok"]
+		and any(
+			"unsupported release headings" in issue
+			for issue in noncanonical_development_changelog_report["issues"]
+		),
+		f"only the canonical Chinese development heading should pass: {noncanonical_development_changelog_report}",
+	)
+	unstructured_development_changelog_report = audit_current_changelog(
+		"7.1.0-dev.0",
+		(
+			valid_changelog_preamble
+			+ "## [未发布]\n\n"
+			"### 📘 升级指南 (Migration Guide)\n\n"
+			"### 🚀 新增特性 (Added)\n\n"
+			"- Added after migration.\n"
+		),
+	)
+	record_result(
+		"changelog_entry_structure_requires_overview_order_and_nonempty_categories",
+		not unstructured_development_changelog_report["ok"]
+		and any("exactly one '**版本概述**" in issue for issue in unstructured_development_changelog_report["issues"])
+		and any("must not be empty" in issue for issue in unstructured_development_changelog_report["issues"])
+		and any("standard category order" in issue for issue in unstructured_development_changelog_report["issues"]),
+		f"the documented entry template must be executable policy: {unstructured_development_changelog_report}",
+	)
+	late_overview_changelog_report = audit_current_changelog(
+		"7.1.0-dev.0",
+		(
+			valid_changelog_preamble
+			+ "## [未发布]\n\n"
+			"### 🚀 新增特性 (Added)\n\n"
+			"**版本概述**：This overview is too late.\n\n"
+			"### 🔄 机制更改 (Changed)\n\n"
+			"- Real changed body.\n"
+		),
+	)
+	record_result(
+		"changelog_entry_structure_rejects_late_overview_as_category_body",
+		not late_overview_changelog_report["ok"]
+		and any(
+			"version overview must be the first visible entry" in issue
+			for issue in late_overview_changelog_report["issues"]
+		)
+		and any(
+			"category '### 🚀 新增特性 (Added)' must not be empty" in issue
+			for issue in late_overview_changelog_report["issues"]
+		),
+		f"a late overview must not satisfy an otherwise empty category: {late_overview_changelog_report}",
+	)
+	rendered_prelude_reports = [
+		audit_current_changelog(
+			"7.1.0-dev.0",
+			(
+				valid_changelog_preamble
+				+ "## [未发布]\n\n"
+				+ prelude
+				+ valid_changelog_body
+			),
+		)
+		for prelude in (
+			"```text\nVisible code before overview.\n```\n",
+			"    Visible indented code before overview.\n",
+		)
+	]
+	comment_before_overview_report = audit_current_changelog(
+		"7.1.0-dev.0",
+		(
+			valid_changelog_preamble
+			+ "## [未发布]\n\n"
+			+ "<!-- Maintenance-only note. -->\n"
+			+ valid_changelog_body
+		),
+	)
+	record_result(
+		"changelog_entry_structure_requires_overview_before_rendered_code",
+		all(not report["ok"] for report in rendered_prelude_reports)
+		and all(
+			any(
+				"version overview must be the first visible entry" in issue
+				for issue in report["issues"]
+			)
+			for report in rendered_prelude_reports
+		)
+		and comment_before_overview_report["ok"],
+		"fenced and indented code render as candidate content and cannot precede the overview; a standalone HTML comment remains non-rendered.",
+	)
+	unsupported_category_changelog_report = audit_current_changelog(
+		"7.1.0-dev.0",
+		(
+			valid_changelog_preamble
+			+ "## [未发布]\n\n"
+			"**版本概述**：Unsupported category fixture.\n\n"
+			"### Custom Changes\n\n"
+			"- Not part of the documented schema.\n"
+		),
+	)
+	record_result(
+		"changelog_entry_structure_rejects_unsupported_categories",
+		not unsupported_category_changelog_report["ok"]
+		and any(
+			"unsupported changelog category" in issue
+			for issue in unsupported_category_changelog_report["issues"]
+		)
+		and any(
+			"at least one standard change category" in issue
+			for issue in unsupported_category_changelog_report["issues"]
+		),
+		f"custom headings must not bypass the documented category schema: {unsupported_category_changelog_report}",
+	)
+	fenced_heading_changelog_report = audit_current_changelog(
+		"7.1.0-dev.0",
+		(
+			valid_changelog_preamble
+			+ "## [未发布]\n"
+			+ valid_changelog_body
+			+ "\n```markdown\n"
+			"## [7.0.0] - 2026-07-14\n"
+			"```\n"
+			"<!--\n"
+			"## [6.0.0] - 2025-01-01\n"
+			"-->\n"
+		),
+	)
+	record_result(
+		"changelog_parser_ignores_fenced_release_headings",
+		fenced_heading_changelog_report["ok"]
+		and fenced_heading_changelog_report["section_count"] == 1,
+		f"release-looking examples inside fenced code must not become current sections: {fenced_heading_changelog_report}",
+	)
+	invalid_backtick_info_changelog_report = audit_current_changelog(
+		"7.1.0-dev.0",
+		(
+			valid_changelog_preamble
+			+ "## [未发布]\n"
+			+ valid_changelog_body
+			+ "\n```bad`info\n"
+			"## [7.0.0] - 2026-07-14\n"
+			+ valid_changelog_body
+			+ "\n```\n"
+		),
+	)
+	record_result(
+		"changelog_parser_rejects_invalid_backtick_info_fence",
+		not invalid_backtick_info_changelog_report["ok"]
+		and invalid_backtick_info_changelog_report["section_count"] == 2
+		and any(
+			"must not retain formal release sections" in issue
+			for issue in invalid_backtick_info_changelog_report["issues"]
+		),
+		"an invalid backtick info string must not hide a visible stale release heading.",
+	)
+	fenced_overview_changelog_report = audit_current_changelog(
+		"7.1.0-dev.0",
+		(
+			valid_changelog_preamble
+			+ "## [未发布]\n\n"
+			"```text\n"
+			"**版本概述**：Hidden in code.\n"
+			"```\n\n"
+			"### 🔄 机制更改 (Changed)\n\n"
+			"- Real category body.\n"
+		),
+	)
+	indented_category_changelog_report = audit_current_changelog(
+		"7.1.0-dev.0",
+		(
+			valid_changelog_preamble
+			+ "## [未发布]\n\n"
+			"**版本概述**：Real overview.\n\n"
+			"    ### 🔄 机制更改 (Changed)\n"
+			"    - Hidden in indented code.\n"
+		),
+	)
+	mixed_indented_category_reports = [
+		audit_current_changelog(
+			"7.1.0-dev.0",
+			(
+				valid_changelog_preamble
+				+ "## [未发布]\n\n"
+				"**版本概述**：Real overview.\n\n"
+				f"{prefix}### 🔄 机制更改 (Changed)\n"
+				f"{prefix}- Hidden in mixed-indented code.\n"
+			),
+		)
+		for prefix in (" \t", "  \t", "   \t")
+	]
+	mixed_indented_overview_changelog_report = audit_current_changelog(
+		"7.1.0-dev.0",
+		(
+			valid_changelog_preamble
+			+ "## [未发布]\n\n"
+			" \t**版本概述**：Hidden in mixed-indented code.\n\n"
+			"### 🔄 机制更改 (Changed)\n\n"
+			"- Real category body.\n"
+		),
+	)
+	comment_only_category_changelog_report = audit_current_changelog(
+		"7.1.0-dev.0",
+		(
+			valid_changelog_preamble
+			+ "## [未发布]\n\n"
+			"**版本概述**：Real overview.\n\n"
+			"### 🔄 机制更改 (Changed)\n\n"
+			"<!-- Hidden category body. -->\n"
+		),
+	)
+	record_result(
+		"changelog_structure_uses_visible_markdown_content",
+		not fenced_overview_changelog_report["ok"]
+		and any(
+			"exactly one '**版本概述**" in issue
+			for issue in fenced_overview_changelog_report["issues"]
+		)
+		and not indented_category_changelog_report["ok"]
+		and any(
+			"at least one standard change category" in issue
+			for issue in indented_category_changelog_report["issues"]
+		)
+		and all(not report["ok"] for report in mixed_indented_category_reports)
+		and all(
+			any(
+				"at least one standard change category" in issue
+				for issue in report["issues"]
+			)
+			for report in mixed_indented_category_reports
+		)
+		and not mixed_indented_overview_changelog_report["ok"]
+		and any(
+			"exactly one '**版本概述**" in issue
+			for issue in mixed_indented_overview_changelog_report["issues"]
+		)
+		and not comment_only_category_changelog_report["ok"]
+		and any(
+			"must not be empty" in issue
+			for issue in comment_only_category_changelog_report["issues"]
+		),
+		"fenced code, indented code, and HTML comments must not satisfy the visible entry contract.",
+	)
+	raw_html_changelog_report = audit_current_changelog(
+		"7.1.0-dev.0",
+		(
+			valid_changelog_preamble
+			+ "## [未发布]\n"
+			+ valid_changelog_body
+			+ "\n<details><summary>hidden</summary></details>\n"
+		),
+	)
+	comment_spliced_heading_report = audit_current_changelog(
+		"7.1.0-dev.0",
+		(
+			valid_changelog_preamble
+			+ "## [未发布]\n"
+			+ valid_changelog_body
+			+ "\n<!-- hidden -->## [7.0.0] - 2026-07-14\n"
+		),
+	)
+	renamed_history_reports = [
+		audit_current_changelog(
+			"7.1.0-dev.0",
+			source,
+		)
+		for source in (
+			(
+				valid_changelog_preamble
+				+ "## 7.0.0\n\n"
+				+ "Old history.\n\n"
+				+ "## [未发布]\n"
+				+ valid_changelog_body
+			),
+			(
+				valid_changelog_preamble
+				+ "## [未发布]\n"
+				+ valid_changelog_body
+				+ "\n## 7.0.0\n\n"
+				+ "Old history.\n"
+			),
+		)
+	]
+	nested_structure_reports = [
+		audit_current_changelog(
+			"7.1.0-dev.0",
+			source,
+		)
+		for source in (
+			(
+				valid_changelog_preamble
+				+ "## [未发布]\n\n"
+				+ "- **版本概述**：Nested overview.\n\n"
+				+ "### 🔄 机制更改 (Changed)\n\n"
+				+ "- Real body.\n"
+			),
+			(
+				valid_changelog_preamble
+				+ "## [未发布]\n\n"
+				+ "**版本概述**：Top-level overview.\n\n"
+				+ "  ### 🔄 机制更改 (Changed)\n\n"
+				+ "- Nested category.\n"
+			),
+		)
+	]
+	nbsp_structure_reports = [
+		audit_current_changelog(
+			"7.1.0-dev.0",
+			source,
+		)
+		for source in (
+			valid_changelog_preamble
+			+ "##\u00a0[未发布]\n"
+			+ valid_changelog_body,
+			(
+				valid_changelog_preamble
+				+ "## [未发布]\n\n"
+				+ "**版本概述**：NBSP category.\n\n"
+				+ "###\u00a0🔄 机制更改 (Changed)\n\n"
+				+ "- Hidden category.\n"
+			),
+		)
+	]
+	empty_visible_content_reports = [
+		audit_current_changelog(
+			"7.1.0-dev.0",
+			(
+				valid_changelog_preamble
+				+ "## [未发布]\n\n"
+				+ "**版本概述**：Visible-content fixture.\n\n"
+				+ "### 🔄 机制更改 (Changed)\n\n"
+				+ body
+				+ "\n"
+			),
+		)
+		for body in ("***", "___", "----", "* * *", "&nbsp;")
+	]
+	render_empty_entry_reports = [
+		audit_current_changelog(
+			"7.1.0-dev.0",
+			source,
+		)
+		for source in (
+			(
+				valid_changelog_preamble
+				+ "## [未发布]\n\n"
+				+ "**版本概述**：[](https://example.com)\n\n"
+				+ "### 🔄 机制更改 (Changed)\n\n"
+				+ "- Real category body.\n"
+			),
+			(
+				valid_changelog_preamble
+				+ "## [未发布]\n\n"
+				+ "**版本概述**：[[]](https://example.com)\n\n"
+				+ "### 🔄 机制更改 (Changed)\n\n"
+				+ "[hidden]: https://example.com\n"
+			),
+		)
+	]
+	document_contract_reports = [
+		audit_current_changelog(
+			"7.1.0-dev.0",
+			source,
+		)
+		for source in (
+			(
+				valid_changelog_preamble.replace(
+					"## 📝 日志条目结构标准\n\n",
+					"",
+				)
+				+ "## [未发布]\n"
+				+ valid_changelog_body
+			),
+			(
+				valid_changelog_preamble.replace(
+					"## 维护策略\n\n",
+					"",
+				)
+				+ "## [未发布]\n"
+				+ valid_changelog_body
+			),
+			(
+				valid_changelog_preamble.replace(
+					"3. **🚀 新增特性 (Added)**：Fixture rule.",
+					"3. **Custom Added**：Fixture rule.",
+				)
+				+ "## [未发布]\n"
+				+ valid_changelog_body
+			),
+			(
+				valid_changelog_preamble.replace(
+					"1. **版本号与日期**：Fixture rule.",
+					"1. **版本号与日期**：",
+				)
+				+ "## [未发布]\n"
+				+ valid_changelog_body
+			),
+			(
+				valid_changelog_preamble.replace(
+					"开发态当前页只保留唯一的 `[未发布]`。\n"
+					"`changelog_policy` 属于 quick、full 与 release 门禁。",
+					"Visible placeholder.\n"
+					"[policy]: https://example.com "
+					"\"开发态当前页只保留唯一的 `[未发布]`；"
+					"`changelog_policy`；quick、full 与 release\"",
+				)
+				+ "## [未发布]\n"
+				+ valid_changelog_body
+			),
+		)
+	]
+	comment_fence_and_hash_reports = [
+		audit_current_changelog(
+			"7.1.0-dev.0",
+			source,
+		)
+		for source in (
+			(
+				valid_changelog_preamble
+				+ "## [未发布]\n"
+				+ valid_changelog_body
+				+ "\n<!-- hidden -->```markdown\n"
+				+ "## [7.0.0] - 2026-07-14\n"
+				+ "```\n"
+			),
+			(
+				valid_changelog_preamble
+				+ "## [未发布]\n"
+				+ valid_changelog_body
+				+ "\n##<!-- hidden --># 🔄 机制更改 (Changed)\n"
+			),
+		)
+	]
+	setext_structure_reports = [
+		audit_current_changelog(
+			"7.1.0-dev.0",
+			source,
+		)
+		for source in (
+			(
+				valid_changelog_preamble.replace(
+					"# 更新日志 (Changelog)",
+					"更新日志 (Changelog)\n====================",
+				)
+				+ "## [未发布]\n"
+				+ valid_changelog_body
+			),
+			(
+				valid_changelog_preamble.replace(
+					"## 维护策略",
+					"维护策略\n--------",
+				)
+				+ "## [未发布]\n"
+				+ valid_changelog_body
+			),
+			(
+				valid_changelog_preamble
+				+ "[未发布]\n--------\n"
+				+ valid_changelog_body
+			),
+		)
+	]
+	container_heading_reports = [
+		audit_current_changelog(
+			"7.1.0-dev.0",
+			valid_changelog_preamble
+			+ "## [未发布]\n"
+			+ valid_changelog_body
+			+ container_suffix,
+		)
+		for container_suffix in (
+			"\n- ### 🚀 新增特性 (Added)\n",
+			"\n> ### 🚀 新增特性 (Added)\n",
+			"\n> ## [7.0.0] - 2026-07-14\n",
+			"\n> Old release\n> -----------\n",
+		)
+	]
+	invisible_reference_report = audit_current_changelog(
+		"7.1.0-dev.0",
+		(
+			valid_changelog_preamble.replace(
+				"开发态当前页只保留唯一的 `[未发布]`。\n"
+				"`changelog_policy` 属于 quick、full 与 release 门禁。",
+				"[hidden-policy]: / \"开发态当前页只保留唯一的 `[未发布]`；"
+				"`changelog_policy`；quick、full 与 release\"",
+			)
+			+ "## [未发布]\n\n"
+			"**版本概述**：[](https://example.invalid/hidden-overview)\n\n"
+			"### 🔄 机制更改 (Changed)\n\n"
+			"[hidden-body]: https://example.invalid/hidden-body\n"
+		),
+	)
+	empty_structure_description_report = audit_current_changelog(
+		"7.1.0-dev.0",
+		valid_changelog_preamble.replace("：Fixture rule.", "：")
+		+ "## [未发布]\n"
+		+ valid_changelog_body,
+	)
+	leading_visible_content_reports = [
+		audit_current_changelog(
+			"7.1.0-dev.0",
+			prefix
+			+ valid_changelog_preamble
+			+ "## [未发布]\n"
+			+ valid_changelog_body,
+		)
+		for prefix in (
+			"Old release history.\n\n",
+			"```text\nOld release history.\n```\n\n",
+			"    Old release history.\n\n",
+		)
+	]
+	record_result(
+		"changelog_policy_rejects_ambiguous_or_hidden_document_structure",
+		not raw_html_changelog_report["ok"]
+		and any("raw HTML" in issue for issue in raw_html_changelog_report["issues"])
+		and not comment_spliced_heading_report["ok"]
+		and any(
+			"mixes an HTML comment with visible content" in issue
+			for issue in comment_spliced_heading_report["issues"]
+		)
+		and all(not report["ok"] for report in renamed_history_reports)
+		and all(not report["ok"] for report in nested_structure_reports)
+		and all(not report["ok"] for report in nbsp_structure_reports)
+		and all(not report["ok"] for report in empty_visible_content_reports)
+		and all(not report["ok"] for report in render_empty_entry_reports)
+		and all(not report["ok"] for report in document_contract_reports)
+		and any(
+			"documented changelog structure entries" in issue
+			for issue in document_contract_reports[2]["issues"]
+		),
+		"raw HTML, comment splicing, renamed history, container indentation, NBSP separators, render-empty links, decorative-only bodies, and policy drift must fail closed.",
+	)
+	record_result(
+		"changelog_policy_rejects_comment_setext_and_container_heading_bypasses",
+		all(not report["ok"] for report in comment_fence_and_hash_reports)
+		and all(
+			any(
+				"mixes an HTML comment with visible content" in issue
+				for issue in report["issues"]
+			)
+			for report in comment_fence_and_hash_reports
+		)
+		and all(not report["ok"] for report in setext_structure_reports)
+		and all(not report["ok"] for report in container_heading_reports)
+		and all(
+			any(
+				"heading inside a list or blockquote container" in issue
+				for issue in report["issues"]
+			)
+			for report in container_heading_reports
+		),
+		"comment/fence or hash splicing, Setext headings, and list/blockquote headings must never create hidden changelog structure.",
+	)
+	record_result(
+		"changelog_policy_requires_reader_visible_policy_and_structure_text",
+		not invisible_reference_report["ok"]
+		and any(
+			"Markdown reference definition" in issue
+			for issue in invisible_reference_report["issues"]
+		)
+		and any(
+			"maintenance policy must retain reader-visible" in issue
+			for issue in invisible_reference_report["issues"]
+		)
+		and not empty_structure_description_report["ok"]
+		and any(
+			"reader-visible, non-empty explanation" in issue
+			for issue in empty_structure_description_report["issues"]
+		),
+		"reference definitions, link destinations, and empty documented rules must not satisfy reader-visible changelog contracts.",
+	)
+	record_result(
+		"changelog_policy_requires_title_as_first_visible_line",
+		all(not report["ok"] for report in leading_visible_content_reports)
+		and all(
+			any(
+				"first visible non-empty line" in issue
+				for issue in report["issues"]
+			)
+			for report in leading_visible_content_reports
+		),
+		"plain prose, fenced code, and indented code must not precede the canonical changelog title.",
+	)
+	with tempfile.TemporaryDirectory(prefix="gf_changelog_release_notes_") as temp_dir:
+		release_notes_path = Path(temp_dir) / "changelog.md"
+		release_notes_path.write_text(
+			(
+				valid_changelog_preamble
+				+ "## [7.0.0] - 2026-07-14\n"
+				+ valid_changelog_body
+				+ "\n```markdown\n"
+				"## [6.0.0] - 2025-01-01\n"
+				"```\n"
+				"- Tail evidence.\n"
+			),
+			encoding="utf-8",
+		)
+		extracted_release_notes = gf_release_notes.extract_release_notes(
+			release_notes_path,
+			"7.0.0",
+		)
+		release_notes_path.write_text(
+			(
+				valid_changelog_preamble
+				+ "## [7.0.0] - 2026-07-14\n"
+				+ valid_changelog_body
+				+ "\n```bad`info\n"
+				"## [6.0.0] - 2025-01-01\n"
+				+ valid_changelog_body
+				+ "\n```\n"
+			),
+			encoding="utf-8",
+		)
+		invalid_info_release_notes_rejected = False
+		try:
+			gf_release_notes.extract_release_notes(
+				release_notes_path,
+				"7.0.0",
+			)
+		except SystemExit:
+			invalid_info_release_notes_rejected = True
+		release_notes_path.write_text(
+			(
+				valid_changelog_preamble
+				+ "## [7.0.0] - 2026-07-14\n"
+				+ valid_changelog_body
+				+ "\n## [7.0.0] - 2026-07-15\n"
+				+ valid_changelog_body
+			),
+			encoding="utf-8",
+		)
+		duplicate_release_notes_rejected = False
+		try:
+			gf_release_notes.extract_release_notes(release_notes_path, "7.0.0")
+		except SystemExit:
+			duplicate_release_notes_rejected = True
+		invalid_release_contract_sources = (
+			(
+				valid_changelog_preamble
+				+ "## [7.0.0] arbitrary suffix\n"
+				+ valid_changelog_body
+			),
+			(
+				valid_changelog_preamble
+				+ "## [7.0.0] - 2026-07-14\n\n"
+				+ "Plain text without the candidate entry contract.\n"
+			),
+			(
+				valid_changelog_preamble.replace(
+					"1. **版本号与日期**：Fixture rule.",
+					"1. **版本号与日期**：",
+				)
+				+ "## [7.0.0] - 2026-07-14\n"
+				+ valid_changelog_body
+			),
+			(
+				valid_changelog_preamble.replace(
+					"开发态当前页只保留唯一的 `[未发布]`。\n"
+					"`changelog_policy` 属于 quick、full 与 release 门禁。",
+					"Visible placeholder.",
+				)
+				+ "## [7.0.0] - 2026-07-14\n"
+				+ valid_changelog_body
+			),
+		)
+		invalid_release_contract_results: list[bool] = []
+		for source in invalid_release_contract_sources:
+			release_notes_path.write_text(source, encoding="utf-8")
+			rejected = False
+			try:
+				gf_release_notes.extract_release_notes(release_notes_path, "7.0.0")
+			except SystemExit:
+				rejected = True
+			invalid_release_contract_results.append(rejected)
+	record_result(
+		"release_notes_share_markdown_aware_changelog_parser",
+		"## [6.0.0] - 2025-01-01" in extracted_release_notes
+		and "- Tail evidence." in extracted_release_notes
+		and invalid_info_release_notes_rejected
+		and duplicate_release_notes_rejected
+		and all(invalid_release_contract_results),
+		"release note extraction must ignore valid fenced headings, reject invalid fences, preserve the exact target body, and enforce the same complete document and candidate contract.",
+	)
+	record_result(
+		"changelog_policy_rejects_ungoverned_prerelease_identities",
+		not audit_current_changelog(
+			"7.1.0-rc.1",
+			valid_changelog_preamble + "## [未发布]\n" + valid_changelog_body,
+		)["ok"]
+		and not audit_current_changelog(
+			"7.1.0-dev.0+ci",
+			valid_changelog_preamble + "## [未发布]\n" + valid_changelog_body,
+		)["ok"],
+		"the source tree must use either stable SemVer or the governed x.y.z-dev.N identity without build metadata.",
 	)
 
 	project_extension_enabled_issues = audit_project_extension_settings_source(
@@ -18738,12 +19713,18 @@ def make_api_snapshot_class(class_name: str, extends: str, members: dict[str, An
 	}
 
 
-def make_api_snapshot_member(kind: str, member_name: str, signature: str) -> dict[str, Any]:
+def make_api_snapshot_member(
+	kind: str,
+	member_name: str,
+	signature: str,
+	schema: list[str] | None = None,
+) -> dict[str, Any]:
 	return {
 		"kind": kind,
 		"name": member_name,
 		"group": "methods",
 		"signature": normalize_api_signature(signature),
+		"schema": [normalize_api_signature(item) for item in (schema or [])],
 	}
 
 
@@ -23994,6 +24975,7 @@ def maintenance_in_process_check_runners() -> dict[str, Callable[[], dict[str, A
 		"api": gf_maintenance_static_checks.api_reference_check,
 		"ai_api": gf_maintenance_static_checks.ai_api_check,
 		"docs": gf_maintenance_static_checks.docs_quality_check,
+		"changelog_policy": changelog_policy,
 		"public_docs_boundary": public_docs_boundary,
 		"public_api_boundary": public_api_boundary,
 		"resource_boundary": lambda: resource_boundary(fail_on_issues=True),
@@ -27741,6 +28723,9 @@ def release_status(
 				"signature_changes": api_diff.get("diff", {}).get("signature_changes", [])[:80],
 				"breaking_signature_changes": api_diff.get("diff", {}).get("breaking_signature_changes", [])[:80],
 				"compatible_signature_changes": api_diff.get("diff", {}).get("compatible_signature_changes", [])[:80],
+				"schema_changes": api_diff.get("diff", {}).get("schema_changes", [])[:80],
+				"breaking_schema_changes": api_diff.get("diff", {}).get("breaking_schema_changes", [])[:80],
+				"compatible_schema_changes": api_diff.get("diff", {}).get("compatible_schema_changes", [])[:80],
 				"extends_changes": api_diff.get("diff", {}).get("extends_changes", [])[:80],
 			},
 		},
@@ -28061,10 +29046,192 @@ def read_changelog_versions() -> list[str]:
 		return []
 	versions = [
 		str(section["version"])
-		for section in parse_changelog_sections(CHANGELOG_PATH.read_text(encoding="utf-8"))
+		for section in gf_changelog.parse_changelog_sections(CHANGELOG_PATH.read_text(encoding="utf-8"))
 		if SEMVER_RE.fullmatch(str(section["version"]))
 	]
 	return sorted(set(versions), key=lambda item: parse_semver(item) or (0, 0, 0), reverse=True)
+
+
+def changelog_policy() -> dict[str, Any]:
+	framework_version = read_plugin_version()
+	report = audit_current_changelog(framework_version)
+	release_target_version = changelog_release_target_version(framework_version)
+	extension_versions = read_extension_versions()
+	extension_mismatches = [
+		item
+		for item in extension_versions
+		if item["version"] != framework_version
+	]
+	api_report = (
+		api_baseline_diff(
+			version=release_target_version,
+			enforce_version=True,
+		)
+		if release_target_version
+		else {
+			"ok": False,
+			"base_tag": "",
+			"summary": {},
+			"issues": ["Framework version does not identify a governed release target."],
+		}
+	)
+	issues = list(report["issues"])
+	if extension_mismatches:
+		issues.append(
+			f"{len(extension_mismatches)} extension manifest version(s) do not match "
+			f"framework version {framework_version}."
+		)
+	issues.extend(
+		f"API baseline diff: {issue}"
+		for issue in api_report.get("issues", [])
+	)
+	report.update({
+		"ok": len(issues) == 0,
+		"issue_count": len(issues),
+		"issues": issues,
+		"release_target_version": release_target_version,
+		"extension_count": len(extension_versions),
+		"extension_mismatches": extension_mismatches,
+		"api_baseline": {
+			"ok": bool(api_report.get("ok", False)),
+			"base_tag": str(api_report.get("base_tag", "")),
+			"summary": dict(api_report.get("summary", {})),
+			"issues": list(api_report.get("issues", [])),
+		},
+	})
+	return report
+
+
+def changelog_release_target_version(framework_version: str) -> str:
+	parsed = gf_semver.parse_semver(framework_version)
+	if parsed is None or parsed.build:
+		return ""
+	is_governed_development = (
+		len(parsed.prerelease) == 2
+		and parsed.prerelease[0] == "dev"
+		and parsed.prerelease[1].isdigit()
+	)
+	if parsed.prerelease and not is_governed_development:
+		return ""
+	return f"{parsed.major}.{parsed.minor}.{parsed.patch}"
+
+
+def audit_current_changelog(
+	framework_version: str,
+	text: str | None = None,
+) -> dict[str, Any]:
+	version = framework_version.strip()
+	if text is None:
+		if not CHANGELOG_PATH.is_file():
+			return {
+				"ok": False,
+				"framework_version": version,
+				"mode": "invalid",
+				"section_count": 0,
+				"sections": [],
+				"issue_count": 1,
+				"issues": ["docs/zh/changelog.md is missing."],
+			}
+		text = CHANGELOG_PATH.read_text(encoding="utf-8")
+
+	if SEMVER_RE.fullmatch(version) is not None:
+		release_report = audit_release_changelog(version, text)
+		issues = list(release_report["issues"])
+		return {
+			"ok": len(issues) == 0,
+			"framework_version": version,
+			"mode": "stable",
+			"section_count": len(release_report["sections"]),
+			"sections": changelog_section_summaries(release_report["sections"]),
+			"issue_count": len(issues),
+			"issues": issues,
+		}
+
+	parsed_version = gf_semver.parse_semver(version)
+	is_governed_development = (
+		parsed_version is not None
+		and not parsed_version.build
+		and len(parsed_version.prerelease) == 2
+		and parsed_version.prerelease[0] == "dev"
+		and parsed_version.prerelease[1].isdigit()
+	)
+	if not is_governed_development:
+		issues = [
+			"addons/gf/plugin.cfg version must be a stable x.y.z release or the governed x.y.z-dev.N development identity."
+		]
+		return {
+			"ok": False,
+			"framework_version": version,
+			"mode": "invalid",
+			"section_count": 0,
+			"sections": [],
+			"issue_count": len(issues),
+			"issues": issues,
+		}
+
+	sections = gf_changelog.parse_changelog_sections(text)
+	issues: list[str] = validate_changelog_document_layout(
+		text,
+		"## [未发布]",
+		"docs/zh/changelog.md",
+	)
+	unreleased_sections = [
+		section
+		for section in sections
+		if str(section["version"]).strip() == "未发布"
+	]
+	if len(unreleased_sections) != 1:
+		issues.append(
+			"docs/zh/changelog.md must contain exactly one canonical [未发布] section during development; "
+			f"found {len(unreleased_sections)}."
+		)
+
+	formal_sections = [
+		section
+		for section in sections
+		if SEMVER_RE.fullmatch(str(section["version"]).strip()) is not None
+	]
+	if formal_sections:
+		issues.append(
+			"docs/zh/changelog.md must not retain formal release sections during development; "
+			"immutable Git tags and GitHub Releases preserve published history."
+		)
+
+	unsupported_sections = [
+		section
+		for section in sections
+		if section not in unreleased_sections and section not in formal_sections
+	]
+	if unsupported_sections:
+		issues.append(
+			"docs/zh/changelog.md contains unsupported release headings: "
+			+ ", ".join(str(section["version"]) for section in unsupported_sections)
+			+ "."
+		)
+
+	for section in unreleased_sections:
+		issues.extend(validate_unreleased_changelog_section(section, "docs/zh/changelog.md"))
+
+	return {
+		"ok": len(issues) == 0,
+		"framework_version": version,
+		"mode": "development",
+		"section_count": len(sections),
+		"sections": changelog_section_summaries(sections),
+		"issue_count": len(issues),
+		"issues": issues,
+	}
+
+
+def changelog_section_summaries(sections: list[dict[str, Any]]) -> list[dict[str, Any]]:
+	return [
+		{
+			"version": str(section["version"]),
+			"line": int(section["line"]),
+			"heading": str(section["heading"]),
+		}
+		for section in sections
+	]
 
 
 def audit_release_changelog(
@@ -28079,7 +29246,7 @@ def audit_release_changelog(
 				"issues": ["docs/zh/changelog.md is missing."],
 			}
 		text = CHANGELOG_PATH.read_text(encoding="utf-8")
-	sections = parse_changelog_sections(text)
+	sections = gf_changelog.parse_changelog_sections(text)
 	issues: list[str] = []
 	target_sections = [section for section in sections if section["version"] == version]
 	if len(target_sections) != 1:
@@ -28118,6 +29285,18 @@ def audit_release_changelog(
 			+ ", ".join(unsupported_current_versions)
 			+ "."
 		)
+	candidate_heading = (
+		str(target_sections[0]["heading"])
+		if target_sections
+		else f"## [{version}] - YYYY-MM-DD"
+	)
+	issues.extend(
+		validate_changelog_document_layout(
+			text,
+			candidate_heading,
+			"docs/zh/changelog.md",
+		)
+	)
 	for section in formal_sections:
 		issues.extend(validate_changelog_section(section, "docs/zh/changelog.md"))
 	return {
@@ -28128,48 +29307,33 @@ def audit_release_changelog(
 
 
 def validate_changelog_section(section: dict[str, Any], path_label: str) -> list[str]:
-	issues: list[str] = []
-	if not str(section["body"]).strip():
-		issues.append(f"{path_label} section [{section['version']}] must not be empty.")
-	heading = str(section["heading"])
-	date_match = re.fullmatch(
-		r"##\s+\[(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\]\s+-\s+(\d{4}-\d{2}-\d{2})",
-		heading,
+	return gf_changelog.validate_formal_section(section, path_label)
+
+
+def validate_unreleased_changelog_section(
+	section: dict[str, Any],
+	path_label: str,
+) -> list[str]:
+	return gf_changelog.validate_unreleased_section(section, path_label)
+
+
+def validate_changelog_entry_structure(
+	section: dict[str, Any],
+	path_label: str,
+) -> list[str]:
+	return gf_changelog.validate_entry_structure(section, path_label)
+
+
+def validate_changelog_document_layout(
+	text: str,
+	candidate_heading: str,
+	path_label: str,
+) -> list[str]:
+	return gf_changelog.validate_document_layout(
+		text,
+		candidate_heading,
+		path_label,
 	)
-	if date_match is None:
-		issues.append(
-			f"{path_label} line {section['line']} formal heading must use '## [x.y.z] - YYYY-MM-DD'."
-		)
-		return issues
-	try:
-		time.strptime(date_match.group(1), "%Y-%m-%d")
-	except ValueError:
-		issues.append(f"{path_label} line {section['line']} contains an invalid calendar date.")
-	return issues
-
-
-def parse_changelog_sections(text: str) -> list[dict[str, Any]]:
-	sections: list[dict[str, Any]] = []
-	current: dict[str, Any] | None = None
-	for line_number, line in enumerate(text.splitlines(), start=1):
-		match = CHANGELOG_VERSION_RE.match(line)
-		if match is not None:
-			if current is not None:
-				current["body"] = "\n".join(current.pop("body_lines"))
-				sections.append(current)
-			current = {
-				"version": match.group("version").strip(),
-				"line": line_number,
-				"heading": line.strip(),
-				"body_lines": [],
-			}
-			continue
-		if current is not None:
-			current["body_lines"].append(line)
-	if current is not None:
-		current["body"] = "\n".join(current.pop("body_lines"))
-		sections.append(current)
-	return sections
 
 
 def strip_quotes(value: str) -> str:

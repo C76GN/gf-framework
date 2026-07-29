@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFAudioBackend" path="addons/gf/standard/utilities/audio/gf_audio_backend.gd" module="standard" extends="RefCounted" classDigest="c6076b235a396592baddc343fd1ea1aacedbe9da0dfca7f332b61b6956624cd1">
+<class name="GFAudioBackend" path="addons/gf/standard/utilities/audio/gf_audio_backend.gd" module="standard" extends="RefCounted" classDigest="560db602fd2f2d20880520f470f4162360119df9be26fb0ca09a01b26809e72b">
 	<description>GFAudioBackend: GFAudioUtility 的可插拔音频后端协议。
 默认实现不处理任何请求。项目或扩展可继承它，把部分音频事件转交给
 外部中间件、平台接口或自定义混音系统；未声明可处理的请求会回退到 Godot 默认播放器。</description>
@@ -77,6 +77,22 @@
 				<tag name="schema">_context: 请求上下文 Dictionary；键和值由 GFAudioUtility 或具体后端约定。</tag>
 			</tags>
 		</member>
+		<member kind="method" name="evaluate_playback_region">
+			<signature>func evaluate_playback_region( _clip: GFAudioClip, _channel: StringName, _region: GFAudioPlaybackRegion, _context: Dictionary = {} ) -&gt; GFAudioPlaybackRegionResult:</signature>
+			<description>评估后端能否精确执行一次类型化播放区间请求。
+该方法必须无副作用；只有返回 `GFAudioPlaybackRegionResult.Status.APPLIED`
+时，`GFAudioUtility` 才会把带区间的播放请求交给后端。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">_clip: 请求使用的会话私有片段快照。</tag>
+				<tag name="param">_channel: 通道标识，如 bgm、sfx、ambient 或 spatial_sfx。</tag>
+				<tag name="param">_region: 会话私有播放区间快照。</tag>
+				<tag name="param">_context: 请求上下文。</tag>
+				<tag name="return">逐请求能力评估；默认显式返回 unsupported。</tag>
+				<tag name="schema">_context: 请求上下文 Dictionary；键和值由 GFAudioUtility 或具体后端约定。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
 		<member kind="method" name="play_bgm_path">
 			<signature>func play_bgm_path(_path: String, _options: Dictionary = {}) -&gt; bool:</signature>
 			<description>播放 BGM 路径。</description>
@@ -85,7 +101,8 @@
 				<tag name="param">_path: 音频资源路径或后端事件路径。</tag>
 				<tag name="param">_options: 请求选项。</tag>
 				<tag name="return">已处理返回 true。</tag>
-				<tag name="schema">_options: 请求选项 Dictionary；常见字段包含 volume_db、pitch_scale、fade_seconds、loop 和 metadata。</tag>
+				<tag name="schema">_options: 请求选项 Dictionary；常见字段包含 volume_db、pitch_scale、fade_seconds 和 metadata。</tag>
+				<tag name="since">3.2.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="play_bgm_clip">
@@ -96,7 +113,8 @@
 				<tag name="param">_clip: 音频片段配置。</tag>
 				<tag name="param">_options: 请求选项。</tag>
 				<tag name="return">已处理返回 true。</tag>
-				<tag name="schema">_options: 请求选项 Dictionary；常见字段包含 volume_db、pitch_scale、fade_seconds、loop 和 metadata。</tag>
+				<tag name="schema">_options: 请求选项 Dictionary；常见字段包含 volume_db、pitch_scale、fade_seconds、playback_region 和 metadata。</tag>
+				<tag name="since">3.2.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="stop_bgm">
@@ -183,7 +201,8 @@
 				<tag name="param">_channel: 环境音通道。</tag>
 				<tag name="param">_options: 请求选项。</tag>
 				<tag name="return">已处理返回 true。</tag>
-				<tag name="schema">_options: 请求选项 Dictionary；常见字段包含 volume_db、pitch_scale、fade_seconds 和 metadata。</tag>
+				<tag name="schema">_options: 请求选项 Dictionary；常见字段包含 volume_db、pitch_scale、fade_seconds、playback_region 和 metadata。</tag>
+				<tag name="since">3.2.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="stop_ambient">
@@ -233,7 +252,8 @@
 				<tag name="param">_clip: 音频片段配置。</tag>
 				<tag name="param">_options: 请求选项。</tag>
 				<tag name="return">控制句柄；未处理返回 null。</tag>
-				<tag name="schema">_options: 请求选项 Dictionary；常见字段包含 volume_db、pitch_scale、owner、channel 和 metadata。</tag>
+				<tag name="schema">_options: 请求选项 Dictionary；常见字段包含 volume_db、pitch_scale、owner、channel、playback_region 和 metadata。</tag>
+				<tag name="since">3.2.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="stop_all_sfx">
@@ -255,7 +275,8 @@
 				<tag name="param">_follow_source: 是否跟随声源。</tag>
 				<tag name="param">_options: 请求选项。</tag>
 				<tag name="return">控制句柄；未处理返回 null。</tag>
-				<tag name="schema">_options: 请求选项 Dictionary；常见字段包含 volume_db、pitch_scale、owner、channel、follow_source、spatial_settings 和 metadata。</tag>
+				<tag name="schema">_options: 请求选项 Dictionary；常见字段包含 volume_db、pitch_scale、owner、channel、follow_source、spatial_settings、playback_region 和 metadata。</tag>
+				<tag name="since">3.2.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="can_handle_event">

@@ -63,6 +63,15 @@ extends Resource
 ## @api public
 @export var supports_async_loading: bool = false
 
+## 是否支持逐请求的类型化播放区间能力协商。
+## 该标记只表示后端实现了协商契约；具体片段、通道和循环模式仍须通过
+## `GFAudioBackend.evaluate_playback_region()` 判断。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+@export var supports_playback_region_contract: bool = false
+
 ## 可选元数据，供项目层或调试面板展示。
 ## [br]
 ## @api public
@@ -102,6 +111,8 @@ func has_capability(capability_id: StringName) -> bool:
 			return supports_listeners
 		&"async_loading":
 			return supports_async_loading
+		&"playback_region_contract":
+			return supports_playback_region_contract
 		_:
 			return false
 
@@ -123,6 +134,7 @@ func duplicate_capability() -> GFAudioBackendCapability:
 	capability.supports_switches = supports_switches
 	capability.supports_listeners = supports_listeners
 	capability.supports_async_loading = supports_async_loading
+	capability.supports_playback_region_contract = supports_playback_region_contract
 	capability.metadata = metadata.duplicate(true)
 	return capability
 
@@ -131,9 +143,11 @@ func duplicate_capability() -> GFAudioBackendCapability:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.2.0
+## [br]
 ## @return: 能力字典。
 ## [br]
-## @schema return: 能力 Dictionary，包含 bgm、sfx、ambient、spatial_sfx、events、parameters、states、switches、listeners、async_loading 和 metadata 字段。
+## @schema return: 能力 Dictionary，包含 bgm、sfx、ambient、spatial_sfx、events、parameters、states、switches、listeners、async_loading、playback_region_contract 和 metadata 字段。
 func to_dictionary() -> Dictionary:
 	return {
 		"bgm": supports_bgm,
@@ -146,5 +160,6 @@ func to_dictionary() -> Dictionary:
 		"switches": supports_switches,
 		"listeners": supports_listeners,
 		"async_loading": supports_async_loading,
+		"playback_region_contract": supports_playback_region_contract,
 		"metadata": metadata.duplicate(true),
 	}

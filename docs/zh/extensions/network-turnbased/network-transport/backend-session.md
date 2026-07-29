@@ -48,9 +48,64 @@ if error == OK:
 
 ## 传输指标
 
-`GFNetworkBackend.get_transport_metrics()` 返回 `GFNetworkTransportMetrics`。基础 Backend 统一统计成功发送和已派发接收的 bytes/packet 数；具体实现可以补充 RTT、jitter、丢包率和队列。指标只有在 `has_metric()` 为 true 时才已知，未支持的 RTT 不会伪装成 `0`。
+`GFNetworkBackend.get_transport_metrics()` 返回 `GFNetworkTransportMetrics`。基础 Backend 统一统计成功发送和已派发接收的 bytes/packet 数；具体实现可以补充 RTT、jitter、丢包率和队列。指标只有在 `has_metric()` 为 true 时才已知，未支持的 RTT 不会伪装成 `0`。单个快照最多包含 64 个指标，其中最多 48 个自定义指标，指标 ID 最多 64 个字符；达到上限后的新指标由 `set_metric()` 失败关闭，既有指标仍可更新。
 
 `GFNetworkUtility` 默认每秒采样一次并最多保存 120 个快照。可以修改 `transport_metrics_sample_interval_msec` 和 `max_transport_metric_samples`，也可以调用 `capture_transport_metrics()` 手动采样。历史始终返回深拷贝，诊断快照只包含当前指标和样本数量，不把整段序列无限写入支持报告。
+
+## Headless 服务健康与探针组合配方
+
+Headless 服务可以把网络会话和当前传输指标作为健康判断的证据，但 GF 不规定 liveness、readiness 或部署平台协议。项目应通过[惰性诊断 Provider](../../../standard/utilities/runtime/debug-observability/runtime-telemetry/build-diagnostics/diagnostics-commands/lazy-providers.md)按请求读取一份同步、只读、有界的白名单快照，再由独立 HTTP、Kubernetes 或监控 Adapter 应用项目策略。
+
+`get_transport_metrics()` 只允许 Backend 通过 `_enrich_transport_metrics(metrics, budget)` 读取已经在内存中的传输状态。Hook 每尝试写入一个可选指标前必须消费一步 `GFExecutionBudget`，并在预算或 `set_metric()` 拒绝时立即停止；模板方法会比较新增指标数与已消费步数，未消费预算的新增指标、超过协作式步数或耗时预算的结果都会回退为基础指标。预算不能抢占已经阻塞的调用，所以网络、磁盘、锁等待、项目业务查询和其他不可中断 I/O 从契约上禁止进入 Hook。Adapter 应在自己的可执行验收中验证这一点，而不能把返回后的耗时检查描述成硬中断能力。
+
+下面的项目 Provider 只公开后端、会话和一个可选队列指标。它捕获当前 backend 和 session 引用，只读取固定数量的类型化字段，并只消费受绝对容量和 Backend 协作预算保护的当前指标；不会调用会遍历 channels、validator 和自定义后端调试数据的完整 `get_debug_snapshot()`，也不会调用会追加采样历史并发出信号的 `capture_transport_metrics()`：
+
+```gdscript
+class HeadlessNetworkHealthProvider extends GFDiagnosticSnapshotProvider:
+	var network: GFNetworkUtility
+
+	func _collect_snapshot(_request: Dictionary = {}) -> GFDiagnosticProviderResult:
+		if network == null:
+			return GFDiagnosticProviderResult.failed(
+				&"network_unavailable",
+				"Network utility is not available."
+			)
+
+		var current_backend: GFNetworkBackend = network.backend
+		var current_session: GFNetworkSession = network.session
+		var evidence: Dictionary = {
+			"backend_configured": current_backend != null,
+			"session_active": current_session != null and current_session.is_active,
+			"has_connection": current_session != null and current_session.has_connection,
+		}
+		if current_backend == null:
+			return GFDiagnosticProviderResult.succeeded(evidence)
+
+		var metrics: GFNetworkTransportMetrics = (
+			current_backend.get_transport_metrics()
+		)
+		var queue_metric: StringName = (
+			GFNetworkTransportMetrics.SEND_QUEUE_PACKETS
+		)
+		if metrics != null and metrics.has_metric(queue_metric):
+			evidence[String(queue_metric)] = metrics.get_metric(queue_metric)
+		return GFDiagnosticProviderResult.succeeded(evidence)
+
+
+var provider := HeadlessNetworkHealthProvider.new()
+provider.network = network
+var _configured_provider: GFDiagnosticSnapshotProvider = provider.configure(
+	&"service.headless_network",
+	{"max_duration_usec": 20_000}
+)
+var registered: bool = diagnostics.register_diagnostic_provider(self, provider)
+if not registered:
+	push_error("Headless network health provider registration failed.")
+```
+
+项目 Adapter 只在处理探针请求时显式采集 `service.headless_network`。示例固定读取三个标量和至多一个受控指标，不触碰 endpoint、metadata、channel 列表或自定义 backend debug snapshot。`GFNetworkTransportMetrics` 中缺失的指标表示后端未提供、被容量拒绝或本次补充预算失败，不能按 `0` 或故障处理。liveness 应只证明进程和最小事件循环仍可响应，不应因为没有 peer、RTT 升高或业务依赖失败而触发重启；readiness 才可以按服务角色检查预期 host 会话、依赖、容量和队列阈值。
+
+GF 不提供探针 HTTP 路径、状态码、端口、TLS、鉴权、缓存、限流、Prometheus 名称或 Kubernetes 重启政策。Adapter 也不应直接返回完整网络快照；即使 GF 已执行技术脱敏，endpoint、自由 metadata、房间、账号和玩家数据仍应从探针白名单中排除。
 
 ## 服务端权威请求
 

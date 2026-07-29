@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFNetworkBackend" path="addons/gf/extensions/network/backends/gf_network_backend.gd" module="extensions/network" extends="RefCounted" classDigest="4f6b3e83f14f24156b8709ba3b07c04082b7038d75d5e96f49d305ecf52732fe">
+<class name="GFNetworkBackend" path="addons/gf/extensions/network/backends/gf_network_backend.gd" module="extensions/network" extends="RefCounted" classDigest="a8ac723bc378c35cc323f659543132279e0d0e3ba9f439062bd1ec1d630b0ebc">
 	<description>GFNetworkBackend: 网络后端抽象基类。
 后端负责具体传输协议，框架层只依赖该统一接口与信号。</description>
 	<tags>
@@ -50,7 +50,16 @@
 		</member>
 	</signals>
 	<enums />
-	<constants />
+	<constants>
+		<member kind="const" name="MAX_TRANSPORT_METRICS_ENRICHMENT_MSEC">
+			<signature>const MAX_TRANSPORT_METRICS_ENRICHMENT_MSEC: int = 10</signature>
+			<description>Backend 补充一次传输指标允许的最大同步耗时，单位毫秒。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</constants>
 	<properties />
 	<methods>
 		<member kind="method" name="host">
@@ -135,7 +144,10 @@
 			<signature>func get_transport_metrics() -&gt; GFNetworkTransportMetrics:</signature>
 			<description>获取当前传输指标快照。
 基类统一统计成功发送和已派发接收的 bytes/packet 数。具体后端可通过
-`_enrich_transport_metrics` 补充 RTT、丢包率或队列等可选指标。</description>
+`_enrich_transport_metrics` 补充 RTT、丢包率或队列等可选指标。该入口是
+同步、无副作用且有硬输出上限的模板方法；Backend 不应重写本方法，也不得
+在补充钩子中执行网络、磁盘或不可中断的业务 I/O。补充钩子超过协作预算时，
+本次调用只返回基础指标。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">当前指标快照；未知指标不会出现在快照中。</tag>
@@ -143,11 +155,16 @@
 			</tags>
 		</member>
 		<member kind="method" name="_enrich_transport_metrics">
-			<signature>func _enrich_transport_metrics(_metrics: GFNetworkTransportMetrics) -&gt; void:</signature>
-			<description>向基础指标快照写入后端特有指标。</description>
+			<signature>func _enrich_transport_metrics( _metrics: GFNetworkTransportMetrics, _budget: GFExecutionBudget ) -&gt; void:</signature>
+			<description>向基础指标快照写入后端特有指标。
+实现必须保持同步、无副作用、有限时间和有限工作量，只读取已经在内存中的
+传输状态；不得发起网络、磁盘、锁等待或项目业务调用。每次尝试写入一个可选
+指标前必须消耗一步预算，并在预算或 `set_metric()` 拒绝时立即停止。预算只能
+协作式终止循环，不能中断阻塞调用，因此不可中断 I/O 从契约上禁止进入此钩子。</description>
 			<tags>
 				<tag name="api">protected</tag>
-				<tag name="param">_metrics: 可追加已知指标的快照。</tag>
+				<tag name="param">_metrics: 可追加已知指标的有界快照。</tag>
+				<tag name="param">_budget: 必须在每次可选指标写入前消费的协作式执行预算。</tag>
 				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>

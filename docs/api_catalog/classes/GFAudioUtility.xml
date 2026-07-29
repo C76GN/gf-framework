@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFAudioUtility" path="addons/gf/standard/utilities/audio/gf_audio_utility.gd" module="standard" extends="GFUtility" classDigest="b99f80ae301ad34f0578cef85752cea44dd0826f28b6104ad792710990168a05">
+<class name="GFAudioUtility" path="addons/gf/standard/utilities/audio/gf_audio_utility.gd" module="standard" extends="GFUtility" classDigest="686d83489c9970ee57466368a24f3ebee1d6d9743e8ce375bd40c752e631b59e">
 	<description>GFAudioUtility: 全局音频管理器。
 管理 BGM 和 SFX 的播放与音量。
 注册 GFObjectPoolUtility 时会复用 AudioStreamPlayer，未注册时使用普通播放器。
@@ -16,6 +16,16 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">history_key: 播放请求记录的 BGM key。</tag>
+			</tags>
+		</member>
+		<member kind="signal" name="playback_region_rejected">
+			<signature>signal playback_region_rejected(channel: StringName, reason: StringName)</signature>
+			<description>类型化播放区间因请求非法或当前后端/音频流无法精确执行而被拒绝时发出。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">channel: 被拒绝请求的通道。</tag>
+				<tag name="param">reason: 稳定拒绝原因。</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 	</signals>
@@ -115,12 +125,13 @@
 		</member>
 		<member kind="method" name="play_bgm_with_options">
 			<signature>func play_bgm_with_options(path: String, options: Dictionary = {}) -&gt; void:</signature>
-			<description>使用选项播放 BGM。每次请求创建新会话；异步加载、淡变与 finished 回调只可提交所属会话。</description>
+			<description>使用选项播放 BGM。每次请求创建新会话；异步加载、淡变与 finished 回调只可提交所属会话。
+loop 与 playback_region 是保留键，必须通过 GFAudioClip.playback_region 表达。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">path: 音频资源路径或后端事件路径。</tag>
-				<tag name="param">options: 支持 crossfade_seconds、history_key、loop、bus_name、volume_db 和 pitch_scale。</tag>
-				<tag name="schema">options: Dictionary，可包含 crossfade_seconds、history_key、loop、bus_name、volume_db 和 pitch_scale 字段。</tag>
+				<tag name="param">options: 支持 crossfade_seconds、history_key、bus_name、volume_db 和 pitch_scale；</tag>
+				<tag name="schema">options: Dictionary，可包含 crossfade_seconds、history_key、bus_name、volume_db 和 pitch_scale 字段；不得包含 loop 或 playback_region。</tag>
 				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
@@ -332,9 +343,9 @@ backend-owned 会话会查询后端，并在稳定 identity 下提交自然结�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">event: 音频事件资源。</tag>
-				<tag name="param">options: 请求选项。</tag>
+				<tag name="param">options: 请求选项；loop 与 playback_region 是保留键。</tag>
 				<tag name="return">后端或 SFX 控制句柄；本地 BGM/环境音已发布或请求失败时返回 null。</tag>
-				<tag name="schema">options: Dictionary，作为事件请求附加选项，会与 GFAudioEvent.to_request_options() 的结果合并。</tag>
+				<tag name="schema">options: Dictionary，作为事件请求附加选项，会与 GFAudioEvent.to_request_options() 的结果合并；不得在 options 或事件 metadata 中包含 loop 或 playback_region。</tag>
 				<tag name="since">3.3.0</tag>
 			</tags>
 		</member>
@@ -742,8 +753,20 @@ backend-owned 会话会查询后端，并在稳定 identity 下提交自然结�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">调试快照。</tag>
-				<tag name="schema">return: Dictionary，包含 backend、backend_snapshot、backend_capabilities、current_bgm_key、current_bgm_loop、bgm_state、bgm_owner、bgm_generation、bgm_playing、bgm_paused、bgm_position、bgm_history、active_sfx_count、active_spatial_sfx_count、max_sfx_players、ambient_channels、ambient_sessions、audio_bank_count、ducked_bus_count 和 active_mix_tween_count 字段。</tag>
+				<tag name="schema">return: Dictionary，包含 backend、backend_snapshot、backend_capabilities、current_bgm_key、current_bgm_region、last_playback_region_rejection、bgm_state、bgm_owner、bgm_generation、bgm_playing、bgm_paused、bgm_position、bgm_history、active_sfx_count、active_spatial_sfx_count、max_sfx_players、ambient_channels、ambient_sessions、audio_bank_count、ducked_bus_count 和 active_mix_tween_count 字段。</tag>
 				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_last_playback_region_rejection">
+			<signature>func get_last_playback_region_rejection() -&gt; Dictionary:</signature>
+			<description>获取最近一次播放区间拒绝报告。
+报告不包含资源路径、流数据、后端私有元数据或项目自定义通道值；
+非框架通道统一记为 custom，拒绝信号仍携带原始调用通道。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">最近拒绝报告；尚无拒绝时为空字典。</tag>
+				<tag name="schema">return: Dictionary，可包含 channel、status 和 reason 字段。</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 	</methods>
