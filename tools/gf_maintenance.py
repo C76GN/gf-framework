@@ -50,6 +50,7 @@ import gf_package_artifact_set
 import gf_parallel_validation
 import gf_maintenance_check_graph
 import gf_credential_gate
+import gf_codeql_suppression_policy
 import gf_changelog
 import extract_release_notes as gf_release_notes
 import gf_process_supervisor
@@ -922,6 +923,16 @@ CHECK_DEFINITIONS: dict[str, list[str]] = {
 		sys.executable,
 		"tests/gf_core/tools/test_gf_credential_gate.py",
 	],
+	"codeql_suppression_policy": [
+		sys.executable,
+		"tools/gf_maintenance.py",
+		"codeql-suppression-policy",
+		"--json",
+	],
+	"codeql_suppression_policy_tests": [
+		sys.executable,
+		"tests/gf_core/tools/test_gf_codeql_suppression_policy.py",
+	],
 	"public_docs_boundary": [sys.executable, "tools/gf_maintenance.py", "public-docs-boundary"],
 	"public_api_boundary": [sys.executable, "tools/gf_maintenance.py", "public-api-boundary"],
 	"resource_boundary": [sys.executable, "tools/gf_maintenance.py", "resource-boundary", "--fail-on-issues"],
@@ -1124,6 +1135,8 @@ LIGHT_BOUNDARY_CHECKS: list[str] = [
 	"repository_policy",
 	"credential_gate",
 	"credential_gate_tests",
+	"codeql_suppression_policy",
+	"codeql_suppression_policy_tests",
 	"path_hygiene",
 	"dependency_boundary",
 	"diff",
@@ -1188,6 +1201,8 @@ FULL_CHECKS: list[str] = [
 	"repository_policy",
 	"credential_gate",
 	"credential_gate_tests",
+	"codeql_suppression_policy",
+	"codeql_suppression_policy_tests",
 	"path_hygiene",
 	"maintenance_self_test",
 	"dependency_boundary",
@@ -1216,6 +1231,8 @@ RELEASE_CHECKS: list[str] = [
 	"repository_policy",
 	"credential_gate",
 	"credential_gate_tests",
+	"codeql_suppression_policy",
+	"codeql_suppression_policy_tests",
 	"path_hygiene",
 	"maintenance_self_test",
 	"dependency_boundary",
@@ -1247,6 +1264,8 @@ FRAMEWORK_STATIC_CHECKS: list[str] = [
 	"repository_policy",
 	"credential_gate",
 	"credential_gate_tests",
+	"codeql_suppression_policy",
+	"codeql_suppression_policy_tests",
 	"path_hygiene",
 	"maintenance_self_test",
 	"dependency_boundary",
@@ -1271,6 +1290,8 @@ FRAMEWORK_CHECKS: list[str] = [
 	"repository_policy",
 	"credential_gate",
 	"credential_gate_tests",
+	"codeql_suppression_policy",
+	"codeql_suppression_policy_tests",
 	"path_hygiene",
 	"maintenance_self_test",
 	"dependency_boundary",
@@ -1689,6 +1710,16 @@ def main() -> int:
 	path_hygiene_parser = subparsers.add_parser("path-hygiene", help="Check tracked and untracked repository paths for cross-platform hazards.")
 	path_hygiene_parser.add_argument("--json", action="store_true", help="Print JSON instead of text.")
 
+	codeql_suppression_policy_parser = subparsers.add_parser(
+		"codeql-suppression-policy",
+		help="Audit exact test-only CodeQL suppressions and CodeQL configuration escape hatches.",
+	)
+	codeql_suppression_policy_parser.add_argument(
+		"--json",
+		action="store_true",
+		help="Print JSON instead of text.",
+	)
+
 	api_since_touched_parser = subparsers.add_parser(
 		"api-since-touched",
 		help="Check changed public/protected API documentation blocks for @since tags.",
@@ -2075,6 +2106,14 @@ def main() -> int:
 	if args.command == "path-hygiene":
 		data = path_hygiene()
 		maintenance_rendering.print_output(data, args.json, maintenance_rendering.render_path_hygiene_text)
+		return 0 if data["ok"] else 1
+	if args.command == "codeql-suppression-policy":
+		data = codeql_suppression_policy()
+		maintenance_rendering.print_output(
+			data,
+			args.json,
+			maintenance_rendering.render_codeql_suppression_policy_text,
+		)
 		return 0 if data["ok"] else 1
 	if args.command == "api-since-touched":
 		data = api_since_touched()
@@ -3173,6 +3212,25 @@ def path_hygiene() -> dict[str, Any]:
 		"issue_count": len(issues),
 		"issues": issues,
 	}
+
+
+def codeql_suppression_policy() -> dict[str, Any]:
+	tracked_paths_result = read_git_paths(
+		["ls-files", "-z", "--cached"],
+		strict_utf8=True,
+	)
+
+	def read_tracked_utf8_text(path: Path) -> str:
+		if _ACTIVE_WORKSPACE_SNAPSHOT is not None:
+			return _ACTIVE_WORKSPACE_SNAPSHOT.read_utf8_text_strict(path)
+		return path.read_text(encoding="utf-8")
+
+	return gf_codeql_suppression_policy.audit_tracked_sources(
+		ROOT,
+		tracked_paths_result["paths"],
+		read_tracked_utf8_text,
+		git_error=tracked_paths_result["error"],
+	)
 
 
 def api_since_touched() -> dict[str, Any]:
@@ -10880,6 +10938,12 @@ def maintenance_self_test() -> dict[str, Any]:
 		cached_read = snapshot.read_utf8_text(snapshot_path)
 		snapshot_path.write_text("second-value", encoding="utf-8")
 		changed_read = snapshot.read_utf8_text(snapshot_path)
+		missing_snapshot_path = Path(temp_dir) / "missing.txt"
+		strict_missing_raised = False
+		try:
+			snapshot.read_utf8_text_strict(missing_snapshot_path)
+		except OSError:
+			strict_missing_raised = True
 		factory_calls = 0
 
 		def snapshot_fixture_factory() -> list[str]:
@@ -10896,6 +10960,12 @@ def maintenance_self_test() -> dict[str, Any]:
 			and changed_read == "second-value"
 			and snapshot.stats()["text_cache_hits"] == 1,
 			f"workspace text cache must be invocation-scoped and stat-aware: {snapshot.stats()}",
+		)
+		record_result(
+			"workspace_snapshot_strict_reads_fail_closed",
+			strict_missing_raised
+			and snapshot.read_utf8_text(missing_snapshot_path) == "",
+			"Security-sensitive static gates must reuse the snapshot cache without swallowing read failures.",
 		)
 		record_result(
 			"workspace_snapshot_memoizes_suite_inventory",
@@ -15984,6 +16054,84 @@ def maintenance_self_test() -> dict[str, Any]:
 		and "release_metadata" not in maintenance_in_process_check_runners()
 		and "release-status" in check_command("release_metadata"),
 		"Credential and release scans must use supervised subprocesses and redact manifest/status path values.",
+	)
+	record_result(
+		"codeql_suppression_policy_is_a_tracked_static_gate",
+		not hasattr(gf_codeql_suppression_policy, "ALLOWED_SUPPRESSIONS")
+		and "codeql_suppression_policy" in CHECK_DEFINITIONS
+		and "codeql_suppression_policy_tests" in CHECK_DEFINITIONS
+		and {
+			"tools/gf_maintenance.py",
+			"codeql-suppression-policy",
+			"--json",
+		}.issubset(CHECK_DEFINITIONS["codeql_suppression_policy"])
+		and "codeql_suppression_policy" in LIGHT_BOUNDARY_CHECKS
+		and "codeql_suppression_policy_tests" in LIGHT_BOUNDARY_CHECKS
+		and all(
+			{
+				"codeql_suppression_policy",
+				"codeql_suppression_policy_tests",
+			}.issubset(CHECK_SUITES[suite_name])
+			for suite_name in ("quick", "framework-static", "framework", "full", "release")
+		)
+		and "codeql_suppression_policy" in maintenance_in_process_check_runners()
+		and "codeql_suppression_policy_tests" not in maintenance_in_process_check_runners(),
+		"CodeQL suppressions must remain forbidden by a tracked-source gate in quick, Full, and release flows.",
+	)
+	codeql_python_fixture_results = [
+		gf_codeql_suppression_policy.audit_python_source(
+			"tests/gf_core/tools/test_fixture.py",
+			source,
+		)
+		for source in (
+			"# codeql[py/clear-text-storage-sensitive-data]\nsink()\n",
+			"# codeql\nsink()\n",
+			"# codeql[py/*]\nsink()\n",
+			"# codeql[py/one,py/two]\nsink()\n",
+			"# lgtm[py/clear-text-storage-sensitive-data]\nsink()\n",
+		)
+	]
+	codeql_config_fixture_issues = gf_codeql_suppression_policy.audit_codeql_config(
+		".github/codeql/codeql-config.yml",
+		"disable-default-queries: true\n"
+		"paths-ignore:\n"
+		"  - tests/**\n"
+		"query-filters:\n"
+		"  - exclude:\n"
+		"      id: py/clear-text-storage-sensitive-data\n",
+	)
+	record_result(
+		"codeql_suppression_policy_rejects_broad_escape_hatches",
+		all(
+			issues
+			and suppression_count == 1
+			for issues, suppression_count in codeql_python_fixture_results
+		)
+		and {
+			"codeql_suppression.python_directive_forbidden",
+		} == {
+			str(issue.get("kind", ""))
+			for issues, _suppression_count in codeql_python_fixture_results[:-1]
+			for issue in issues
+		}
+		and {
+			"codeql_suppression.legacy_lgtm_directive",
+		} == {
+			str(issue.get("kind", ""))
+			for issue in codeql_python_fixture_results[-1][0]
+		}
+		and {
+			"codeql_suppression.default_queries_disabled",
+			"codeql_suppression.tests_path_ignored",
+			"codeql_suppression.security_query_excluded",
+		} == {
+			str(issue.get("kind", ""))
+			for issue in codeql_config_fixture_issues
+		}
+		and gf_credential_gate.SUPPRESSION_RE.fullmatch(
+			"# codeql[py/clear-text-storage-sensitive-data]"
+		) is None,
+		"All Python CodeQL suppressions and CodeQL configuration escape hatches must fail; credential-gate allowances remain independent.",
 	)
 	record_result(
 		"ci_shards_preserve_full_suite_coverage",
@@ -24609,17 +24757,25 @@ def make_boundary_issue(
 	return issue
 
 
-def read_git_paths(command: list[str]) -> dict[str, Any]:
+def read_git_paths(
+	command: list[str],
+	*,
+	strict_utf8: bool = False,
+) -> dict[str, Any]:
 	if _ACTIVE_WORKSPACE_SNAPSHOT is not None:
 		return _ACTIVE_WORKSPACE_SNAPSHOT.memoize(
 			"git_paths",
-			tuple(command),
-			lambda: read_git_paths_uncached(command),
+			(tuple(command), strict_utf8),
+			lambda: read_git_paths_uncached(command, strict_utf8=strict_utf8),
 		)
-	return read_git_paths_uncached(command)
+	return read_git_paths_uncached(command, strict_utf8=strict_utf8)
 
 
-def read_git_paths_uncached(command: list[str]) -> dict[str, Any]:
+def read_git_paths_uncached(
+	command: list[str],
+	*,
+	strict_utf8: bool = False,
+) -> dict[str, Any]:
 	result = subprocess.run(
 		["git", *command],
 		cwd=ROOT,
@@ -24628,10 +24784,32 @@ def read_git_paths_uncached(command: list[str]) -> dict[str, Any]:
 	if result.returncode != 0:
 		message = (result.stderr or result.stdout).decode("utf-8", errors="replace").strip()
 		return {"paths": [], "error": message or "git path scan failed."}
+	try:
+		decoded_stdout = result.stdout.decode(
+			"utf-8",
+			errors="strict" if strict_utf8 else "replace",
+		)
+	except UnicodeDecodeError:
+		return {
+			"paths": [],
+			"error": "Git path inventory is not valid UTF-8.",
+		}
+	raw_paths = [path for path in decoded_stdout.split("\0") if path]
+	if strict_utf8 and any(
+		"\\" in path
+		or path.startswith("/")
+		or re.match(r"^[A-Za-z]:", path) is not None
+		or any(part in ("", ".", "..") for part in path.split("/"))
+		or any(ord(character) < 0x20 or ord(character) == 0x7F for character in path)
+		for path in raw_paths
+	):
+		return {
+			"paths": [],
+			"error": "Git path inventory contains a non-canonical path.",
+		}
 	paths = sorted({
-		path.replace("\\", "/")
-		for path in result.stdout.decode("utf-8", errors="replace").split("\0")
-		if path
+		path if strict_utf8 else path.replace("\\", "/")
+		for path in raw_paths
 	})
 	return {"paths": paths, "error": ""}
 
@@ -24991,6 +25169,7 @@ def maintenance_in_process_check_runners() -> dict[str, Callable[[], dict[str, A
 		"package_focused_gut_mapping": package_focused_gut_mapping,
 		"api_since_touched": api_since_touched,
 		"path_hygiene": path_hygiene,
+		"codeql_suppression_policy": codeql_suppression_policy,
 		"maintenance_self_test": maintenance_self_test,
 		"dependency_boundary": dependency_boundary,
 		"project_settings_drift": project_settings_drift,

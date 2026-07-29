@@ -190,6 +190,25 @@ def render_path_hygiene_text(data: dict[str, Any]) -> str:
 	return "\n".join(lines)
 
 
+def render_codeql_suppression_policy_text(data: dict[str, Any]) -> str:
+	lines = [
+		(
+			f"codeql_suppression_policy: ok={data['ok']} "
+			f"tracked={data['tracked_file_count']} "
+			f"python={data['python_file_count']} "
+			f"configs={data['codeql_config_file_count']} "
+			f"suppressions={data['suppression_count']} "
+			f"issues={data['issue_count']}"
+		),
+	]
+	for issue in data["issues"]:
+		location = f"{issue.get('path', '')}:{issue.get('line', '')}".rstrip(":")
+		lines.append(
+			f"- {issue['kind']}: {location} {issue.get('message', '')}".rstrip()
+		)
+	return "\n".join(lines)
+
+
 def render_api_since_touched_text(data: dict[str, Any]) -> str:
 	lines = [
 		(

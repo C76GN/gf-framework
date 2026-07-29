@@ -980,8 +980,12 @@ class CredentialGateTests(unittest.TestCase):
 	def test_release_artifact_secret_shaped_path_fails_without_disclosure(self) -> None:
 		with tempfile.TemporaryDirectory() as temp_dir:
 			release_root = Path(temp_dir)
-			secret = self._credential_value()
-			artifact_path = release_root / f"api_key={secret}.txt"
+			alphabet = "Ab3$xyZ9!mN7@qR5"
+			path_canary = "".join(
+				alphabet[(index * 7 + 3) % len(alphabet)]
+				for index in range(40)
+			)
+			artifact_path = release_root / f"api_key={path_canary}.txt"
 			artifact_path.write_text("ordinary release content\n", encoding="utf-8")
 			manifest_path = self._write_manifest(release_root, artifact_path)
 			manifest_path.write_text(
@@ -1005,7 +1009,7 @@ class CredentialGateTests(unittest.TestCase):
 				"Expected the release path to use its fallback label.",
 			)
 			self.assertFalse(
-				secret in rendered,
+				path_canary in rendered,
 				"Release path credential content appeared in the report.",
 			)
 
@@ -1703,9 +1707,9 @@ class CredentialGateTests(unittest.TestCase):
 			shutil.rmtree(tracked_root)
 			outside_root = temporary_root / "outside"
 			outside_root.mkdir()
-			secret = self._known_token()
+			outside_canary = "linked-tracked-boundary-canary"
 			(outside_root / "settings.txt").write_text(
-				secret + "\n",
+				outside_canary + "\n",
 				encoding="utf-8",
 			)
 			try:
@@ -1726,8 +1730,8 @@ class CredentialGateTests(unittest.TestCase):
 				"credential_gate.path_boundary_violation",
 			)
 			self.assertFalse(
-				secret in json.dumps(result, ensure_ascii=False),
-				"Credential gate report disclosed synthetic fixture content.",
+				outside_canary in json.dumps(result, ensure_ascii=False),
+				"Credential gate report disclosed the boundary canary.",
 			)
 
 	def test_release_scan_rejects_real_linked_directory_without_disclosure(self) -> None:
@@ -1753,9 +1757,9 @@ class CredentialGateTests(unittest.TestCase):
 			shutil.rmtree(artifact_root)
 			outside_root = temporary_root / "outside"
 			outside_root.mkdir()
-			secret = self._known_token()
+			outside_canary = "linked-release-boundary-canary"
 			(outside_root / "release.txt").write_text(
-				secret + "\n",
+				outside_canary + "\n",
 				encoding="utf-8",
 			)
 			try:
@@ -1776,8 +1780,8 @@ class CredentialGateTests(unittest.TestCase):
 				"credential_gate.path_boundary_violation",
 			)
 			self.assertFalse(
-				secret in json.dumps(result, ensure_ascii=False),
-				"Credential gate report disclosed synthetic fixture content.",
+				outside_canary in json.dumps(result, ensure_ascii=False),
+				"Credential gate report disclosed the boundary canary.",
 			)
 
 	def test_tracked_scan_rejects_open_time_replacement_without_reading_it(self) -> None:
@@ -1826,8 +1830,8 @@ class CredentialGateTests(unittest.TestCase):
 		with tempfile.TemporaryDirectory() as temp_dir:
 			containment_root = Path(temp_dir)
 			candidate = containment_root / "settings.txt"
-			secret = self._known_token()
-			candidate.write_text(secret + "\n", encoding="utf-8")
+			opaque_canary = "parent-identity-drift-canary"
+			candidate.write_text(opaque_canary + "\n", encoding="utf-8")
 			real_snapshot = credential_gate._snapshot_directory_chain
 			snapshot_count = 0
 
@@ -1871,7 +1875,7 @@ class CredentialGateTests(unittest.TestCase):
 				"Controlled read did not report a stable identity-drift rule.",
 			)
 			self.assertFalse(
-				secret in str(raised.exception),
+				opaque_canary in str(raised.exception),
 				"Controlled-read failure disclosed synthetic fixture content.",
 			)
 
