@@ -27,9 +27,12 @@ class WorkspaceSnapshot:
 
 	def read_utf8_text(self, path: Path) -> str:
 		try:
-			file_stat = path.stat()
+			return self.read_utf8_text_strict(path)
 		except OSError:
 			return ""
+
+	def read_utf8_text_strict(self, path: Path) -> str:
+		file_stat = path.stat()
 		identity = (str(path), file_stat.st_mtime_ns, file_stat.st_size)
 		cached = self._text_by_identity.get(identity)
 		if cached is not None:

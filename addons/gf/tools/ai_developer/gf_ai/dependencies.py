@@ -11,6 +11,7 @@ from .paths import (
 	is_reserved_framework_resource_path,
 	normalize_portable_ownership_path,
 	normalize_resource_path,
+	portable_ownership_path_identity,
 	project_path_has_link_component,
 )
 
@@ -34,29 +35,92 @@ class SourceToken:
 	line: int
 
 
-class ModuleOwnershipMatcher:
-	"""Longest-root matcher compiled once from validated contract modules."""
+@dataclass(frozen=True)
+class TargetOwnershipRoot:
+	owner_id: str
+	resource_root: str
+	source_module: bool
 
-	def __init__(self, modules: list[dict[str, Any]]) -> None:
-		roots: list[tuple[str, str]] = []
+
+class TargetOwnershipPlan:
+	"""One fail-closed target ownership plan for project modules and adapters."""
+
+	def __init__(
+		self,
+		modules: list[dict[str, Any]],
+		adapters: list[dict[str, Any]] | None = None,
+	) -> None:
+		roots: list[TargetOwnershipRoot] = []
+		missing_root_count = 0
+		unsafe_path_count = 0
+		module_ids: set[str] = set()
 		for module in modules:
 			module_id = str(module.get("id", ""))
-			for raw_root in module.get("roots", []):
+			if module_id:
+				module_ids.add(module_id)
+			raw_roots = module.get("roots", [])
+			if not isinstance(raw_roots, list) or not raw_roots:
+				missing_root_count += 1
+				continue
+			for raw_root in raw_roots:
 				if not isinstance(raw_root, str):
+					missing_root_count += 1
 					continue
 				root = normalize_portable_ownership_path(raw_root)
-				if root and not is_reserved_framework_resource_path(root):
-					roots.append((root, module_id))
-		self._roots = sorted(roots, key=lambda item: (-len(item[0]), item[0], item[1]))
+				if not module_id or not root or is_reserved_framework_resource_path(root):
+					unsafe_path_count += 1
+					continue
+				roots.append(TargetOwnershipRoot(module_id, root, True))
+		for adapter in adapters or []:
+			adapter_id = str(adapter.get("id", ""))
+			raw_root = adapter.get("project_root")
+			if not isinstance(raw_root, str) or not raw_root:
+				missing_root_count += 1
+				continue
+			root = normalize_portable_ownership_path(raw_root)
+			if not adapter_id or not root or is_reserved_framework_resource_path(root):
+				unsafe_path_count += 1
+				continue
+			roots.append(TargetOwnershipRoot(adapter_id, root, False))
 
-	def owner_of(self, resource_path: str) -> str:
+		for left_index, left in enumerate(roots):
+			left_parts = _portable_root_parts(left.resource_root)
+			for right in roots[left_index + 1:]:
+				right_parts = _portable_root_parts(right.resource_root)
+				shorter = min(len(left_parts), len(right_parts))
+				if shorter > 0 and left_parts[:shorter] == right_parts[:shorter]:
+					unsafe_path_count += 1
+
+		if unsafe_path_count > 0:
+			roots.clear()
+		self._roots = tuple(sorted(
+			roots,
+			key=lambda item: (-len(item.resource_root), item.resource_root, item.owner_id),
+		))
+		self._module_ids = frozenset(module_ids)
+		self.missing_root_count = missing_root_count
+		self.unsafe_path_count = unsafe_path_count
+
+	@property
+	def roots(self) -> tuple[TargetOwnershipRoot, ...]:
+		return self._roots
+
+	@property
+	def module_ids(self) -> frozenset[str]:
+		return self._module_ids
+
+	def ownership_of(self, resource_path: str) -> TargetOwnershipRoot | None:
 		normalized = normalize_resource_path(resource_path)
 		if not normalized:
-			return ""
-		for root, module_id in self._roots:
-			if normalized == root or normalized.startswith(root + "/"):
-				return module_id
-		return ""
+			return None
+		for record in self._roots:
+			if normalized == record.resource_root or normalized.startswith(record.resource_root + "/"):
+				return record
+		return None
+
+	def owner_of(self, resource_path: str) -> str:
+		record = self.ownership_of(resource_path)
+		return record.owner_id if record is not None else ""
 
 
 def analyze_module_dependencies(
@@ -66,23 +130,13 @@ def analyze_module_dependencies(
 	contract_valid: bool,
 ) -> dict[str, Any]:
 	modules = _contract_modules(contract_data)
+	adapters = _contract_adapters(contract_data)
 	if not contract_valid:
 		return _empty_analysis("contract_invalid", modules, complete=False)
 	owned_resource_collection = _collect_owned_resources(project_root, contract_data)
-	if not modules:
-		owned_resources_complete = (
-			owned_resource_collection["missing_count"] == 0
-			and owned_resource_collection["unsafe_count"] == 0
-		)
-		return _empty_analysis(
-			"not_configured" if owned_resources_complete else "incomplete",
-			modules,
-			complete=owned_resources_complete,
-			owned_resource_collection=owned_resource_collection,
-		)
 
-	matcher = ModuleOwnershipMatcher(modules)
-	collection = _collect_module_files(project_root, modules)
+	target_plan = TargetOwnershipPlan(modules, adapters)
+	collection = _collect_target_files(project_root, target_plan)
 	available_owned_resources = set(owned_resource_collection["available_paths"])
 	files: list[Path] = collection.pop("files")
 	class_definitions: dict[str, list[tuple[str, str]]] = {}
@@ -95,9 +149,9 @@ def analyze_module_dependencies(
 			unreadable_paths.add(path)
 			continue
 		resource_path = _resource_path(project_root, path)
-		module_id = matcher.owner_of(resource_path)
+		owner_id = target_plan.owner_of(resource_path)
 		for class_name in _declared_class_names(lex_gdscript(text)):
-			class_definitions.setdefault(class_name, []).append((module_id, resource_path))
+			class_definitions.setdefault(class_name, []).append((owner_id, resource_path))
 
 	all_ambiguous_classes = [
 		{"class_name": class_name, "paths": sorted({path for _, path in definitions})}
@@ -123,9 +177,10 @@ def analyze_module_dependencies(
 			unreadable_paths.add(path)
 			continue
 		source_path = _resource_path(project_root, path)
-		source_module = matcher.owner_of(source_path)
-		if not source_module:
+		source_ownership = target_plan.ownership_of(source_path)
+		if source_ownership is None or not source_ownership.source_module:
 			continue
+		source_module = source_ownership.owner_id
 		if path.suffix.casefold() == ".gd":
 			tokens = lex_gdscript(text)
 			for token in tokens:
@@ -144,7 +199,7 @@ def analyze_module_dependencies(
 				elif token.kind == "string":
 					unowned_increment, owned_increment = _record_path_reference(
 						edges,
-						matcher,
+						target_plan,
 						available_owned_resources,
 						source_module,
 						source_path,
@@ -164,7 +219,7 @@ def analyze_module_dependencies(
 			for token in resource_tokens:
 				unowned_increment, owned_increment = _record_path_reference(
 					edges,
-					matcher,
+					target_plan,
 					available_owned_resources,
 					source_module,
 					source_path,
@@ -177,11 +232,15 @@ def analyze_module_dependencies(
 				owned_resource_reference_count += owned_increment
 
 	edge_records = _edge_records(edges)
-	cycles = _dependency_cycles(edge_records, {str(module.get("id", "")) for module in modules})
+	cycles = _dependency_cycles(edge_records, set(target_plan.module_ids))
 	module_file_counts = []
 	for module in modules:
 		module_id = str(module.get("id", ""))
-		owned_files = [path for path in files if matcher.owner_of(_resource_path(project_root, path)) == module_id]
+		owned_files = [
+			path
+			for path in files
+			if target_plan.owner_of(_resource_path(project_root, path)) == module_id
+		]
 		owned_classes = {
 			class_name
 			for class_name, definitions in class_definitions.items()
@@ -204,7 +263,9 @@ def analyze_module_dependencies(
 		and owned_resource_collection["unsafe_count"] == 0
 		and not all_ambiguous_classes
 	)
-	status = "complete" if complete else ("truncated" if truncated else "incomplete")
+	status = ("complete" if modules else "not_configured") if complete else (
+		"truncated" if truncated else "incomplete"
+	)
 	return {
 		"status": status,
 		"complete": complete,
@@ -356,23 +417,25 @@ def _declared_class_names(tokens: list[SourceToken]) -> set[str]:
 	return result
 
 
-def _collect_module_files(project_root: Path, modules: list[dict[str, Any]]) -> dict[str, Any]:
+def _collect_target_files(project_root: Path, plan: TargetOwnershipPlan) -> dict[str, Any]:
 	files: list[Path] = []
 	seen: set[Path] = set()
 	total_bytes = 0
 	oversized_count = 0
-	missing_root_count = 0
-	unsafe_path_count = 0
+	missing_root_count = plan.missing_root_count
+	unsafe_path_count = plan.unsafe_path_count
 	truncated = False
-	for raw_root in sorted({root for module in modules for root in module.get("roots", []) if isinstance(root, str)}):
-		normalized_root = normalize_portable_ownership_path(raw_root)
-		if normalized_root in ("", "res://"):
-			missing_root_count += 1
-			continue
-		if is_reserved_framework_resource_path(normalized_root):
-			unsafe_path_count += 1
-			continue
-		relative_root = normalized_root.removeprefix("res://")
+	if unsafe_path_count > 0:
+		return {
+			"files": [],
+			"scanned_byte_count": 0,
+			"oversized_file_count": 0,
+			"missing_root_count": missing_root_count,
+			"unsafe_path_count": unsafe_path_count,
+			"truncated": False,
+		}
+	for record in sorted(plan.roots, key=lambda item: (item.resource_root, item.owner_id)):
+		relative_root = record.resource_root.removeprefix("res://")
 		root = project_root / Path(*relative_root.split("/"))
 		if not root.is_dir() or not _safe_path(project_root, root, directory=True):
 			missing_root_count += 1
@@ -390,7 +453,12 @@ def _collect_module_files(project_root: Path, modules: list[dict[str, Any]]) -> 
 			directory_names[:] = safe_directories
 			for file_name in sorted(file_names):
 				path = current_path / file_name
-				if path.suffix.casefold() not in SUPPORTED_EXTENSIONS or path in seen:
+				suffix = path.suffix.casefold()
+				if (
+					suffix not in SUPPORTED_EXTENSIONS
+					or (not record.source_module and suffix != ".gd")
+					or path in seen
+				):
 					continue
 				seen.add(path)
 				if not _safe_path(project_root, path, directory=False):
@@ -457,7 +525,7 @@ def _collect_owned_resources(project_root: Path, contract_data: dict[str, Any]) 
 
 def _record_path_reference(
 	edges: dict[tuple[str, str], dict[str, Any]],
-	matcher: ModuleOwnershipMatcher,
+	matcher: TargetOwnershipPlan,
 	owned_resource_paths: set[str],
 	source_module: str,
 	source_path: str,
@@ -544,7 +612,10 @@ def _edge_records(edges: dict[tuple[str, str], dict[str, Any]]) -> list[dict[str
 def _dependency_cycles(edges: list[dict[str, Any]], module_ids: set[str]) -> list[list[str]]:
 	graph = {module_id: set() for module_id in module_ids}
 	for edge in edges:
-		graph[str(edge["source_module"])].add(str(edge["target_module"]))
+		source_module = str(edge["source_module"])
+		target_module = str(edge["target_module"])
+		if source_module in module_ids and target_module in module_ids:
+			graph[source_module].add(target_module)
 	index = 0
 	indices: dict[str, int] = {}
 	low_links: dict[str, int] = {}
@@ -590,11 +661,25 @@ def _contract_modules(contract_data: dict[str, Any]) -> list[dict[str, Any]]:
 	return [module for module in architecture["modules"] if isinstance(module, dict)]
 
 
+def _contract_adapters(contract_data: dict[str, Any]) -> list[dict[str, Any]]:
+	framework = contract_data.get("framework", {})
+	if not isinstance(framework, dict) or not isinstance(framework.get("adapter_boundaries"), list):
+		return []
+	return [adapter for adapter in framework["adapter_boundaries"] if isinstance(adapter, dict)]
+
+
 def _contract_owned_resources(contract_data: dict[str, Any]) -> list[str]:
 	architecture = contract_data.get("architecture", {})
 	if not isinstance(architecture, dict) or not isinstance(architecture.get("owned_resources"), list):
 		return []
 	return [path for path in architecture["owned_resources"] if isinstance(path, str)]
+
+
+def _portable_root_parts(resource_root: str) -> tuple[str, ...]:
+	identity = portable_ownership_path_identity(resource_root)
+	if not identity:
+		return ()
+	return tuple(identity.removeprefix("res://").split("/"))
 
 
 def _empty_analysis(

@@ -970,6 +970,237 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 		self.assertNotIn("undeclared_module_dependency", {item["code"] for item in report["drift"]["issues"]})
 		self.assertEqual(validate_schema_file(report, SCHEMA_ROOT / "project_snapshot.schema.json"), [])
 
+	def test_module_dependency_analysis_accepts_adapter_targets_without_emitting_adapter_source_edges(
+		self,
+	) -> None:
+		self._set_modules([self._module("core", allowed=["platform_adapter"])])
+		self._set_adapter_boundaries([self._adapter("platform_adapter")])
+		adapter_root = self.project_root / "adapters/platform_adapter"
+		adapter_root.mkdir(parents=True)
+		(adapter_root / "client.gd").write_text(
+			"class_name PlatformAdapterClient\n"
+			"extends RefCounted\n"
+			"var project_type: CoreProjectType\n",
+			encoding="utf-8",
+		)
+		(adapter_root / "settings.tres").write_text(
+			"[gd_resource format=3]\n",
+			encoding="utf-8",
+		)
+		(self.project_root / "features/core/use_adapter.gd").write_text(
+			"class_name CoreProjectType\n"
+			"extends Node\n"
+			"var client: PlatformAdapterClient\n"
+			'const SETTINGS = preload("res://adapters/platform_adapter/settings.tres")\n',
+			encoding="utf-8",
+		)
+
+		report = snapshot.build_snapshot(self.project_root)
+		analysis = report["project"]["module_dependency_analysis"]
+		drift_codes = {item["code"] for item in report["drift"]["issues"]}
+
+		self.assertEqual(analysis["status"], "complete")
+		self.assertEqual(
+			analysis["edges"],
+			[{
+				"source_module": "core",
+				"target_module": "platform_adapter",
+				"reference_count": 2,
+				"kinds": ["class_name", "resource_path"],
+				"evidence_truncated": False,
+				"evidence": [
+					{
+						"source_path": "res://features/core/use_adapter.gd",
+						"target_path": "res://adapters/platform_adapter/client.gd",
+						"kind": "class_name",
+						"symbol": "PlatformAdapterClient",
+						"line": 3,
+					},
+					{
+						"source_path": "res://features/core/use_adapter.gd",
+						"target_path": "res://adapters/platform_adapter/settings.tres",
+						"kind": "resource_path",
+						"symbol": "res://adapters/platform_adapter/settings.tres",
+						"line": 4,
+					},
+				],
+			}],
+		)
+		self.assertEqual(analysis["cycles"], [])
+		self.assertEqual(analysis["unowned_reference_count"], 0)
+		self.assertNotIn("undeclared_module_dependency", drift_codes)
+		self.assertNotIn("unowned_project_resource_reference", drift_codes)
+		self.assertEqual(validate_schema_file(report, SCHEMA_ROOT / "project_snapshot.schema.json"), [])
+
+	def test_module_dependency_analysis_enforces_adapter_dependency_policy(self) -> None:
+		self._set_modules([self._module("core")])
+		self._set_adapter_boundaries([self._adapter("platform_adapter")])
+		adapter_root = self.project_root / "adapters/platform_adapter"
+		adapter_root.mkdir(parents=True)
+		(adapter_root / "client.gd").write_text(
+			"class_name PlatformAdapterClient\nextends RefCounted\n",
+			encoding="utf-8",
+		)
+		(self.project_root / "features/core/use_adapter.gd").write_text(
+			"extends Node\nvar client: PlatformAdapterClient\n",
+			encoding="utf-8",
+		)
+
+		undeclared_report = snapshot.build_snapshot(self.project_root)
+		undeclared_codes = {item["code"] for item in undeclared_report["drift"]["issues"]}
+		undeclared_analysis = undeclared_report["project"]["module_dependency_analysis"]
+
+		self.assertEqual(undeclared_analysis["edges"][0]["target_module"], "platform_adapter")
+		self.assertEqual(undeclared_analysis["unowned_reference_count"], 0)
+		self.assertIn("undeclared_module_dependency", undeclared_codes)
+		self.assertNotIn("unowned_project_resource_reference", undeclared_codes)
+
+		self._set_modules([self._module("core", forbidden=["platform_adapter"])])
+		forbidden_report = snapshot.build_snapshot(self.project_root)
+		forbidden_codes = {item["code"] for item in forbidden_report["drift"]["issues"]}
+
+		self.assertIn("forbidden_module_dependency", forbidden_codes)
+		self.assertNotIn("undeclared_module_dependency", forbidden_codes)
+
+	def test_module_dependency_analysis_keeps_adapter_roots_fail_closed(self) -> None:
+		self._set_modules([self._module("core", allowed=["missing_adapter"])])
+		self._set_adapter_boundaries([self._adapter("missing_adapter")])
+
+		missing_report = snapshot.build_snapshot(self.project_root)
+		missing_analysis = missing_report["project"]["module_dependency_analysis"]
+
+		self.assertEqual(missing_analysis["status"], "incomplete")
+		self.assertFalse(missing_analysis["complete"])
+		self.assertEqual(missing_analysis["missing_root_count"], 1)
+		self.assertIn(
+			"module_dependency_analysis_incomplete",
+			{item["code"] for item in missing_report["drift"]["issues"]},
+		)
+
+		unsafe_contract = {
+			"architecture": {
+				"modules": [self._module("core", allowed=["unsafe_adapter"])],
+				"owned_resources": [],
+			},
+			"framework": {
+				"adapter_boundaries": [{
+					**self._adapter("unsafe_adapter"),
+					"project_root": "res://Addons/GF",
+				}],
+			},
+		}
+		unsafe_analysis = dependencies.analyze_module_dependencies(
+			self.project_root,
+			unsafe_contract,
+			contract_valid=True,
+		)
+
+		self.assertEqual(unsafe_analysis["status"], "incomplete")
+		self.assertFalse(unsafe_analysis["complete"])
+		self.assertEqual(unsafe_analysis["unsafe_path_count"], 1)
+
+		overlap_contract = {
+			"architecture": {
+				"modules": [self._module("core", allowed=["overlap_adapter"])],
+				"owned_resources": [],
+			},
+			"framework": {
+				"adapter_boundaries": [{
+					**self._adapter("overlap_adapter"),
+					"project_root": "res://features/core/adapter",
+				}],
+			},
+		}
+		overlap_analysis = dependencies.analyze_module_dependencies(
+			self.project_root,
+			overlap_contract,
+			contract_valid=True,
+		)
+
+		self.assertEqual(overlap_analysis["status"], "incomplete")
+		self.assertFalse(overlap_analysis["complete"])
+		self.assertEqual(overlap_analysis["unsafe_path_count"], 1)
+		self.assertEqual(overlap_analysis["scanned_file_count"], 0)
+		self.assertEqual(
+			dependencies.TargetOwnershipPlan(
+				overlap_contract["architecture"]["modules"],
+				overlap_contract["framework"]["adapter_boundaries"],
+			).owner_of("res://features/core/adapter/client.gd"),
+			"",
+		)
+
+	def test_module_dependency_analysis_adapter_resources_do_not_consume_scan_budget(
+		self,
+	) -> None:
+		self._set_modules([self._module("core", allowed=["platform_adapter"])])
+		self._set_adapter_boundaries([self._adapter("platform_adapter")])
+		adapter_root = self.project_root / "adapters/platform_adapter"
+		adapter_root.mkdir(parents=True)
+		(adapter_root / "large.tres").write_text("x" * 256, encoding="utf-8")
+		(self.project_root / "features/core/source.gd").write_text(
+			"extends Node\n",
+			encoding="utf-8",
+		)
+
+		with mock.patch.object(dependencies, "MAX_DEPENDENCY_FILE_BYTES", 32):
+			report = snapshot.build_snapshot(self.project_root)
+		analysis = report["project"]["module_dependency_analysis"]
+
+		self.assertEqual(analysis["status"], "complete")
+		self.assertEqual(analysis["scanned_file_count"], 1)
+		self.assertEqual(analysis["oversized_file_count"], 0)
+
+		(adapter_root / "large.gd").write_text("x" * 256, encoding="utf-8")
+		with mock.patch.object(dependencies, "MAX_DEPENDENCY_FILE_BYTES", 32):
+			oversized_report = snapshot.build_snapshot(self.project_root)
+			oversized_analysis = oversized_report["project"]["module_dependency_analysis"]
+
+		self.assertEqual(oversized_analysis["status"], "truncated")
+		self.assertFalse(oversized_analysis["complete"])
+		self.assertTrue(oversized_analysis["truncated"])
+		self.assertEqual(oversized_analysis["oversized_file_count"], 1)
+
+	def test_module_dependency_analysis_preserves_unowned_evidence_with_adapters(self) -> None:
+		self._set_modules([self._module("core", allowed=["platform_adapter"])])
+		self._set_adapter_boundaries([self._adapter("platform_adapter")])
+		(self.project_root / "adapters/platform_adapter").mkdir(parents=True)
+		(self.project_root / "features/core/unowned.gd").write_text(
+			'extends Node\nconst DATA = preload("res://outside/data.tres")\n',
+			encoding="utf-8",
+		)
+
+		report = snapshot.build_snapshot(self.project_root)
+		analysis = report["project"]["module_dependency_analysis"]
+
+		self.assertEqual(analysis["status"], "complete")
+		self.assertEqual(analysis["unowned_reference_count"], 1)
+		self.assertEqual(
+			analysis["unowned_references"],
+			[{
+				"source_path": "res://features/core/unowned.gd",
+				"target_path": "res://outside/data.tres",
+				"line": 2,
+			}],
+		)
+		self.assertIn(
+			"unowned_project_resource_reference",
+			{item["code"] for item in report["drift"]["issues"]},
+		)
+
+		(self.project_root / "features/core/unowned.gd").write_text(
+			"extends Node\n"
+			'const FIRST = preload("res://outside/first.tres")\n'
+			'const SECOND = preload("res://outside/second.tres")\n',
+			encoding="utf-8",
+		)
+		with mock.patch.object(dependencies, "MAX_UNOWNED_REFERENCE_EVIDENCE", 1):
+			bounded_report = snapshot.build_snapshot(self.project_root)
+			bounded_analysis = bounded_report["project"]["module_dependency_analysis"]
+
+		self.assertEqual(bounded_analysis["unowned_reference_count"], 2)
+		self.assertEqual(len(bounded_analysis["unowned_references"]), 1)
+		self.assertTrue(bounded_analysis["unowned_references_truncated"])
+
 	def test_module_dependency_analysis_preserves_literal_resource_path_characters(self) -> None:
 		self._set_modules([
 			self._module("core", allowed=["shared"]),
@@ -1271,7 +1502,7 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 		self.assertEqual(analysis["scanned_file_count"], 0)
 		self.assertEqual(analysis["unsafe_path_count"], 1)
 		self.assertEqual(
-			dependencies.ModuleOwnershipMatcher([unsafe_module]).owner_of("res://Addons/GF/unsafe.gd"),
+			dependencies.TargetOwnershipPlan([unsafe_module]).owner_of("res://Addons/GF/unsafe.gd"),
 			"",
 		)
 
@@ -2378,8 +2609,8 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 		) as temporary:
 			owner_root = Path(temporary)
 			source = owner_root / "source.txt"
-			synthetic_secret = "synthetic-parent-race-value"
-			source.write_text(synthetic_secret, encoding="utf-8")
+			race_sentinel = "synthetic-parent-race-value"
+			source.write_text(race_sentinel, encoding="utf-8")
 			real_snapshot = (
 				build_gf_ai_developer_kit
 				._snapshot_owned_directory_chain
@@ -2419,7 +2650,7 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 					)
 
 			self.assertFalse(
-				synthetic_secret in str(raised.exception),
+				race_sentinel in str(raised.exception),
 				"Owned-read failure disclosed synthetic fixture content.",
 			)
 
@@ -4106,6 +4337,12 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 			for root in module["roots"]:
 				(self.project_root / str(root).removeprefix("res://")).mkdir(parents=True, exist_ok=True)
 
+	def _set_adapter_boundaries(self, adapters: list[dict[str, object]]) -> None:
+		contract_path = self.project_root / ".gf/project_contract.json"
+		contract = json.loads(contract_path.read_text(encoding="utf-8"))
+		contract["framework"]["adapter_boundaries"] = adapters
+		contract_path.write_text(json.dumps(contract, ensure_ascii=False), encoding="utf-8")
+
 	def _set_owned_resources(self, paths: list[str]) -> None:
 		contract_path = self.project_root / ".gf/project_contract.json"
 		contract = json.loads(contract_path.read_text(encoding="utf-8"))
@@ -4126,6 +4363,15 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 			"allowed_dependencies": list(allowed or []),
 			"forbidden_dependencies": list(forbidden or []),
 			"ownership": "project",
+		}
+
+	@staticmethod
+	def _adapter(adapter_id: str) -> dict[str, object]:
+		return {
+			"id": adapter_id,
+			"provider": "test",
+			"project_root": f"res://adapters/{adapter_id}",
+			"responsibility": f"{adapter_id} test adapter",
 		}
 
 	@staticmethod

@@ -107,7 +107,7 @@ python addons/gf/tools/ai_developer/gf_ai_project.py agent-uninstall --project-r
    python addons/gf/tools/ai_developer/gf_ai_project.py snapshot --project-root .
    ```
 
-快照会把 `architecture.modules[].roots` 编译成长根优先的所有权匹配器，再对 `.gd`、`.gdshader`、`.gdshaderinc`、`.tres` 和 `.tscn` 做有界依赖分析。GDScript 使用词法 token 集合识别唯一 `class_name` 引用和字符串资源路径，不把注释或普通字符串中的标识符误判为类引用；资源文本只分析路径证据。报告中的 `module_dependency_analysis` 包含模块文件计数、跨模块边、有限证据、项目级资源命中、未归属引用、重复 class、实际循环和完整性状态。
+快照会把 `architecture.modules[].roots` 与 `framework.adapter_boundaries[].project_root` 编译为同一份长根优先的依赖目标所有权计划。Module 的 `.gd`、`.gdshader`、`.gdshaderinc`、`.tres` 和 `.tscn` 参与有界来源分析；Adapter 只读取 `.gd` 建立唯一 `class_name` 目标索引，根内资源路径则直接由所有权计划判定，不让无关 Adapter 资源占用扫描预算。只有 Module 文件能产生依赖出边，因此模块可以按契约依赖 Adapter，而 Adapter 不会被误当成业务模块或循环节点。GDScript 使用词法 token 集合识别唯一 `class_name` 引用和字符串资源路径，不把注释或普通字符串中的标识符误判为类引用；Module 资源文本只分析路径证据。报告中的 `module_dependency_analysis` 保持现有 Snapshot Schema，`target_module` 可承载同一依赖命名空间中的 Module ID 或 Adapter ID，并包含模块文件计数、跨边界边、有限证据、项目级资源命中、未归属引用、重复 class、Module 间实际循环和完整性状态。
 
 `framework.capability_readiness` 会逐项记录目录候选包、实际安装包、选定 Recipe 的显式 `all_of/any_of` 包表达式、缺失包或未满足的替代组、有限生产源码命中和扫描完整性。源码扫描同时受脚本数、单文件大小和累计 128 MiB 读取预算约束，并记录实际读取字节与截断原因；测试源码命中单独记录，不能证明生产采用。`unavailable` 与 `incomplete` 是可执行漂移；`available_unobserved` 只表示包可用且完整扫描没有命中主要类，不能据此宣称功能未采用；任何截断、超大、不可读或不安全来源都会得到 `evidence_incomplete`，更不能支持否定结论。资源驱动与动态加载也可能没有类引用证据，工具不会用观测反写契约。
 
@@ -128,7 +128,7 @@ python addons/gf/tools/ai_developer/gf_ai_project.py agent-uninstall --project-r
 
 模块 `roots` 与 Adapter `project_root` 也是安全边界，因此同样必须采用跨平台规范路径，并以大小写无关方式避开 `res://addons/gf`。这项限制只作用于契约中的所有权声明；源码里指向合法 Godot 资源（例如文件名含 `[]`）的精确引用仍按普通资源路径解析，不会被误当成通配表达式或静默漏掉依赖边。
 
-分析结果只有在扫描预算未耗尽、模块根可读、已声明项目资源存在且安全、路径安全且 class 身份无歧义时才标记 `complete`。禁止依赖优先于未声明依赖报告；观测到的边、循环或不完整扫描只生成漂移事实，工具不会改写契约中的允许关系。Agent 必须先解决 `forbidden_module_dependency`、`undeclared_module_dependency`、`observed_module_dependency_cycle` 和 `module_dependency_analysis_incomplete`，不能把不完整快照当成“没有依赖”。
+分析结果只有在 Module 来源与 Adapter GDScript 目标共享的文件/字节预算未耗尽、所有声明根存在且安全、已声明项目资源存在且安全、路径安全且 class 身份无歧义时才标记 `complete`。根缺失、非规范或保留路径、链接/重解析穿越、参与扫描的文件不可读或超大、总预算截断、重叠所有权或重复 `class_name` 都会 fail closed；Adapter 不产生出边，也不能绕过其根与 GDScript 目标检查。禁止依赖优先于未声明依赖报告；观测到的边、Module 循环或不完整扫描只生成漂移事实，工具不会改写契约中的允许关系。Agent 必须先解决 `forbidden_module_dependency`、`undeclared_module_dependency`、`observed_module_dependency_cycle` 和 `module_dependency_analysis_incomplete`，不能把不完整快照当成“没有依赖”。
 
 API 索引用于准确定位，不替代行为源码、测试和正式文档。涉及副作用、线程、生命周期、失败恢复或持久化兼容时，仍应打开索引返回的源码路径核对。
 

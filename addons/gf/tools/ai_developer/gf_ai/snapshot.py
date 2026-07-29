@@ -187,7 +187,7 @@ def project_context(
 			"Resolve explicit unknowns that block the requested work.",
 			"Query a GF capability and exact API signatures before implementation.",
 			"Keep project business rules and platform SDK adapters outside addons/gf.",
-			"Implement against declared module ownership and dependency rules.",
+			"Implement against declared module/adapter ownership and module dependency rules.",
 			"Independently review structured verification argv, run only approved checks, and refresh the observed snapshot.",
 			"Draft GF feedback only when evidence survives project/framework boundary triage.",
 		],
@@ -400,7 +400,7 @@ def _module_dependency_drift_issues(
 			"module_dependency_analysis_incomplete",
 			"$.architecture",
 			(
-				"Observed module dependency analysis is incomplete "
+				"Observed module/adapter dependency target analysis is incomplete "
 				f"(status={status}, truncated={bool(analysis.get('truncated'))}, "
 				f"unreadable_files={int(analysis.get('unreadable_file_count', 0))}, "
 				f"missing_roots={int(analysis.get('missing_root_count', 0))}, "
@@ -420,7 +420,7 @@ def _module_dependency_drift_issues(
 			"error",
 			"ambiguous_project_class_name",
 			paths[0] if paths else "$.architecture.modules",
-			f"Project class_name {class_name!r} has multiple owners: {', '.join(paths)}.",
+			f"Project class_name {class_name!r} has multiple module/adapter owners: {', '.join(paths)}.",
 		))
 
 	modules = _module_contract_map(contract_data)
@@ -438,14 +438,16 @@ def _module_dependency_drift_issues(
 				"error",
 				"forbidden_module_dependency",
 				evidence_path,
-				f"Module {source_module!r} depends on forbidden module {target_module!r}.{evidence_text}",
+				f"Module {source_module!r} depends on forbidden module/adapter target "
+				f"{target_module!r}.{evidence_text}",
 			))
 		elif target_module not in allowed:
 			issues.append(_issue(
 				"error",
 				"undeclared_module_dependency",
 				evidence_path,
-				f"Module {source_module!r} depends on undeclared module {target_module!r}.{evidence_text}",
+				f"Module {source_module!r} depends on undeclared module/adapter target "
+				f"{target_module!r}.{evidence_text}",
 			))
 
 	for component in analysis.get("cycles", []):
@@ -471,7 +473,8 @@ def _module_dependency_drift_issues(
 			"warning",
 			"unowned_project_resource_reference",
 			source_path,
-			f"Declared modules reference {unowned_count} project resource path(s) outside module ownership.{detail}",
+			f"Declared modules reference {unowned_count} project resource path(s) outside "
+			f"module/adapter ownership.{detail}",
 		))
 	return issues
 
