@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "catalog_version": "1.7.0",
+  "catalog_version": "1.8.0",
   "capabilities": [
     {
       "id": "architecture",
@@ -95,12 +95,12 @@
     {
       "id": "audio",
       "title": "Audio playback and backend adaptation",
-      "summary": "Audio clips, banks, events, pooled emitters, buses, beat clocks, and optional middleware backends.",
-      "keywords": ["audio", "music", "sfx", "bank", "event", "mixer", "middleware", "beat"],
+      "summary": "Audio clips, typed playback regions and loop points, banks, events, pooled emitters, buses, beat clocks, and optional middleware backends.",
+      "keywords": ["audio", "music", "sfx", "playback region", "loop point", "bank", "event", "mixer", "middleware", "beat"],
       "packages": ["gf.standard.audio"],
-      "primary_classes": ["GFAudioUtility", "GFAudioBackend", "GFAudioEvent", "GFAudioBank", "GFAudioEmitterHandle"],
+      "primary_classes": ["GFAudioUtility", "GFAudioPlaybackRegion", "GFAudioPlaybackRegionResult", "GFAudioBackend", "GFAudioEvent", "GFAudioBank", "GFAudioEmitterHandle"],
       "recipes": ["provider-backend"],
-      "boundary": "Middleware SDK calls belong in a backend adapter; projects own event naming and mix policy."
+      "boundary": "GF accepts only playback regions that the selected stream or backend can express exactly and never simulates bounded ends by polling. Middleware SDK calls belong in a backend adapter; projects own event naming and mix policy."
     },
     {
       "id": "render-feedback",
@@ -109,7 +109,7 @@
       "keywords": ["shader", "shader parameter", "render warmup", "transition", "screen transition", "visual feedback", "haptic", "haptic feedback", "vibration", "shake", "camera shake", "reduced motion"],
       "packages": ["gf.standard.display", "gf.standard.assets", "gf.extension.feedback"],
       "primary_classes": ["GFShaderParameterUtility", "GFRenderWarmupUtility", "GFScreenTransitionUtility", "GFHapticUtility", "GFShakeUtility"],
-      "recipes": ["render-feedback-orchestration"],
+      "recipes": ["render-feedback-orchestration", "periodic-environment-presentation"],
       "boundary": "GF owns reusable parameter application, warmup, transition, haptic, and shake lifecycles; projects own effect meaning, timing, budgets, art direction, accessibility policy, and static fallbacks."
     },
     {
@@ -151,11 +151,11 @@
     {
       "id": "diagnostics",
       "title": "Diagnostics, logs, support, and operations",
-      "summary": "Structured logs, bounded lazy diagnostic providers, operation timelines, session traces, debug surfaces, support reports, and build metadata.",
-      "keywords": ["diagnostics", "lazy", "provider", "session trace", "log", "debug", "support report", "operation", "metrics", "build info", "console"],
+      "summary": "Structured logs, bounded lazy diagnostic providers, headless health evidence, operation timelines, session traces, debug surfaces, support reports, and build metadata.",
+      "keywords": ["diagnostics", "lazy", "provider", "headless", "health probe", "liveness", "readiness", "session trace", "log", "debug", "support report", "operation", "metrics", "build info", "console"],
       "packages": ["gf.standard.diagnostics", "gf.standard.debug"],
       "primary_classes": ["GFDiagnosticsUtility", "GFDiagnosticSnapshotProvider", "GFDiagnosticProviderResult", "GFSessionTraceUtility", "GFSessionTraceRecipe", "GFOperationDiagnosticsUtility", "GFSupportReportUtility"],
-      "recipes": ["diagnostic-contribution", "session-trace", "feedback-candidate"],
+      "recipes": ["diagnostic-contribution", "headless-health-probe", "session-trace", "feedback-candidate"],
       "boundary": "Collect the minimum needed data, bound all histories, and require explicit consent for precise or private diagnostics."
     },
     {
@@ -185,7 +185,7 @@
       "keywords": ["network", "multiplayer", "transport", "rpc", "snapshot", "authority", "prediction", "rollback", "synchronization", "lobby", "steam", "server"],
       "packages": ["gf.extension.network"],
       "primary_classes": ["GFNetworkBackend", "GFMultiplayerPeerNetworkBackend", "GFENetNetworkBackend", "GFNetworkLobbyService", "GFNetworkTransportMetrics", "GFNetworkContract", "GFNetworkUtility", "GFNetworkHistoryBuffer", "GFNetworkSyncCoordinator", "GFNetworkSimulationAdapter", "GFNetworkInputFrame"],
-      "recipes": ["network-backend-adapter", "network-sync-coordinator", "platform-lobby-adapter"],
+      "recipes": ["network-backend-adapter", "network-sync-coordinator", "headless-health-probe", "platform-lobby-adapter"],
       "boundary": "GF can coordinate a bounded full-snapshot authority flow, but the project chooses trusted authority identity, entity control, state and input schemas, business conflict policy, matchmaking, lobby policy, and provider identity."
     },
     {

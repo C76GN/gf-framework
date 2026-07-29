@@ -20,6 +20,7 @@
 | 信号 | [`peer_connected`](#member-gfnetworkbackend-signals-peer_connected) | `signal peer_connected(peer_id: int)` |
 | 信号 | [`peer_disconnected`](#member-gfnetworkbackend-signals-peer_disconnected) | `signal peer_disconnected(peer_id: int)` |
 | 信号 | [`message_received`](#member-gfnetworkbackend-signals-message_received) | `signal message_received(peer_id: int, bytes: PackedByteArray)` |
+| 常量 | [`MAX_TRANSPORT_METRICS_ENRICHMENT_MSEC`](#member-gfnetworkbackend-constants-max_transport_metrics_enrichment_msec) | `const MAX_TRANSPORT_METRICS_ENRICHMENT_MSEC: int = 10` |
 | 方法 | [`host`](#member-gfnetworkbackend-methods-host) | `func host(_options: Dictionary = {}) -> Error:` |
 | 方法 | [`connect_to_endpoint`](#member-gfnetworkbackend-methods-connect_to_endpoint) | `func connect_to_endpoint(_endpoint: String, _options: Dictionary = {}) -> Error:` |
 | 方法 | [`disconnect_backend`](#member-gfnetworkbackend-methods-disconnect_backend) | `func disconnect_backend() -> void:` |
@@ -29,7 +30,7 @@
 | 方法 | [`get_session_bootstrap`](#member-gfnetworkbackend-methods-get_session_bootstrap) | `func get_session_bootstrap() -> Dictionary:` |
 | 方法 | [`get_debug_snapshot`](#member-gfnetworkbackend-methods-get_debug_snapshot) | `func get_debug_snapshot() -> Dictionary:` |
 | 方法 | [`get_transport_metrics`](#member-gfnetworkbackend-methods-get_transport_metrics) | `func get_transport_metrics() -> GFNetworkTransportMetrics:` |
-| 方法 | [`_enrich_transport_metrics`](#member-gfnetworkbackend-methods-_enrich_transport_metrics) | `func _enrich_transport_metrics(_metrics: GFNetworkTransportMetrics) -> void:` |
+| 方法 | [`_enrich_transport_metrics`](#member-gfnetworkbackend-methods-_enrich_transport_metrics) | `func _enrich_transport_metrics( _metrics: GFNetworkTransportMetrics, _budget: GFExecutionBudget ) -> void:` |
 | 方法 | [`_record_transport_packet_sent`](#member-gfnetworkbackend-methods-_record_transport_packet_sent) | `func _record_transport_packet_sent(byte_count: int) -> void:` |
 | 方法 | [`_reset_transport_metrics`](#member-gfnetworkbackend-methods-_reset_transport_metrics) | `func _reset_transport_metrics() -> void:` |
 
@@ -119,6 +120,21 @@ signal message_received(peer_id: int, bytes: PackedByteArray)
 |---|---|
 | `peer_id` | 远端 peer 标识。 |
 | `bytes` | 原始消息 bytes。 |
+
+## 常量
+
+<a id="member-gfnetworkbackend-constants-max_transport_metrics_enrichment_msec"></a>
+
+### `MAX_TRANSPORT_METRICS_ENRICHMENT_MSEC`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+const MAX_TRANSPORT_METRICS_ENRICHMENT_MSEC: int = 10
+```
+
+Backend 补充一次传输指标允许的最大同步耗时，单位毫秒。
 
 ## 方法
 
@@ -290,7 +306,7 @@ func get_debug_snapshot() -> Dictionary:
 func get_transport_metrics() -> GFNetworkTransportMetrics:
 ```
 
-获取当前传输指标快照。 基类统一统计成功发送和已派发接收的 bytes/packet 数。具体后端可通过 `_enrich_transport_metrics` 补充 RTT、丢包率或队列等可选指标。
+获取当前传输指标快照。 基类统一统计成功发送和已派发接收的 bytes/packet 数。具体后端可通过 `_enrich_transport_metrics` 补充 RTT、丢包率或队列等可选指标。该入口是 同步、无副作用且有硬输出上限的模板方法；Backend 不应重写本方法，也不得 在补充钩子中执行网络、磁盘或不可中断的业务 I/O。补充钩子超过协作预算时， 本次调用只返回基础指标。
 
 返回：当前指标快照；未知指标不会出现在快照中。
 
@@ -302,16 +318,17 @@ func get_transport_metrics() -> GFNetworkTransportMetrics:
 - 首次版本：`10.0.0`
 
 ```gdscript
-func _enrich_transport_metrics(_metrics: GFNetworkTransportMetrics) -> void:
+func _enrich_transport_metrics( _metrics: GFNetworkTransportMetrics, _budget: GFExecutionBudget ) -> void:
 ```
 
-向基础指标快照写入后端特有指标。
+向基础指标快照写入后端特有指标。 实现必须保持同步、无副作用、有限时间和有限工作量，只读取已经在内存中的 传输状态；不得发起网络、磁盘、锁等待或项目业务调用。每次尝试写入一个可选 指标前必须消耗一步预算，并在预算或 `set_metric()` 拒绝时立即停止。预算只能 协作式终止循环，不能中断阻塞调用，因此不可中断 I/O 从契约上禁止进入此钩子。
 
 参数：
 
 | 名称 | 说明 |
 |---|---|
-| `_metrics` | 可追加已知指标的快照。 |
+| `_metrics` | 可追加已知指标的有界快照。 |
+| `_budget` | 必须在每次可选指标写入前消费的协作式执行预算。 |
 
 <a id="member-gfnetworkbackend-methods-_record_transport_packet_sent"></a>
 

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFAudioBackendCapability" path="addons/gf/standard/utilities/audio/gf_audio_backend_capability.gd" module="standard" extends="Resource" classDigest="a20e872df8089da58de7d74ce2014cff5266ad99fec26b4c24e6f75082697783">
+<class name="GFAudioBackendCapability" path="addons/gf/standard/utilities/audio/gf_audio_backend_capability.gd" module="standard" extends="Resource" classDigest="7f46984671577beaa361fa1d578cd39322b1f29443e4aacc25b53d0d68597be0">
 	<description>GFAudioBackendCapability: 音频后端能力声明。
 用布尔能力与元数据描述一个后端能处理哪些通用音频请求。</description>
 	<tags>
@@ -81,6 +81,16 @@
 				<tag name="api">public</tag>
 			</tags>
 		</member>
+		<member kind="property" name="supports_playback_region_contract" decorators="@export">
+			<signature>var supports_playback_region_contract: bool = false</signature>
+			<description>是否支持逐请求的类型化播放区间能力协商。
+该标记只表示后端实现了协商契约；具体片段、通道和循环模式仍须通过
+`GFAudioBackend.evaluate_playback_region()` 判断。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
 		<member kind="property" name="metadata" decorators="@export">
 			<signature>var metadata: Dictionary = {}</signature>
 			<description>可选元数据，供项目层或调试面板展示。</description>
@@ -114,7 +124,8 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">能力字典。</tag>
-				<tag name="schema">return: 能力 Dictionary，包含 bgm、sfx、ambient、spatial_sfx、events、parameters、states、switches、listeners、async_loading 和 metadata 字段。</tag>
+				<tag name="schema">return: 能力 Dictionary，包含 bgm、sfx、ambient、spatial_sfx、events、parameters、states、switches、listeners、async_loading、playback_region_contract 和 metadata 字段。</tag>
+				<tag name="since">3.2.0</tag>
 			</tags>
 		</member>
 	</methods>

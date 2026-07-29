@@ -20,6 +20,8 @@ assert(time.get_unix_time_msec() == 1_700_000_000_250)
 
 架构中注册一个 `GFTimeProvider` 后，平台运行时和 SaveGraph 等支持时钟注入的服务会采用同一底层时钟。单个服务显式调用 `set_clock()` 后保留该选择，便于独立测试或模拟。不要通过修改 Unix 时间模拟暂停，也不要让游戏时间缩放影响网络、超时或持久化时间戳。
 
+需要把可控时间映射为周期环境视觉时，见 [Shader 参数 Profile 的周期环境表现组合配方](../settings-ui-scene/shader-parameter-profile.md)。时间服务只提供时钟域，周期、天气、天文与表现映射仍由项目负责。
+
 ## 动态缩放
 
 `GFTimeUtility` 用于实现子弹时间、暂停特定组内的系统、在受击时定帧。

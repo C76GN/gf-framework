@@ -24,6 +24,7 @@
 | 属性 | [`pitch_random_min`](#member-gfaudioclip-properties-pitch_random_min) | `var pitch_random_min: float = 1.0` |
 | 属性 | [`pitch_random_max`](#member-gfaudioclip-properties-pitch_random_max) | `var pitch_random_max: float = 1.0` |
 | 属性 | [`spatial_settings`](#member-gfaudioclip-properties-spatial_settings) | `var spatial_settings: Resource = null` |
+| 属性 | [`playback_region`](#member-gfaudioclip-properties-playback_region) | `var playback_region: GFAudioPlaybackRegion = null` |
 | 属性 | [`metadata`](#member-gfaudioclip-properties-metadata) | `var metadata: Dictionary = {}` |
 | 方法 | [`has_source`](#member-gfaudioclip-methods-has_source) | `func has_source() -> bool:` |
 | 方法 | [`resolve_bus`](#member-gfaudioclip-methods-resolve_bus) | `func resolve_bus(default_bus: String) -> String:` |
@@ -147,6 +148,19 @@ var spatial_settings: Resource = null
 结构：
 
 - `spatial_settings`: GFAudioSpatialSettings or compatible Resource with apply_to_2d/apply_to_3d methods.
+
+<a id="member-gfaudioclip-properties-playback_region"></a>
+
+### `playback_region`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+var playback_region: GFAudioPlaybackRegion = null
+```
+
+可选类型化播放区间。为空时按音频流原始设置从头播放。 区间会在每次播放请求开始时复制；本地播放器只接受 Godot 音频流能够原生、 精确表达的起点和循环点，不用帧轮询模拟有限终点。
 
 <a id="member-gfaudioclip-properties-metadata"></a>
 

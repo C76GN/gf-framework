@@ -11,9 +11,10 @@ import re
 import sys
 from pathlib import Path
 
+import gf_changelog
+
 
 SEMVER_RE = re.compile(r"^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$")
-CHANGELOG_HEADING_RE = re.compile(r"^##\s+\[(?P<version>[^\]]+)\](?P<suffix>.*)$")
 MARKDOWN_FIELD_RE = re.compile(r"^-\s+(?P<name>[^:]+):\s+`(?P<value>[^`]+)`\s*$")
 
 
@@ -152,24 +153,44 @@ def read_fenced_field(path: Path, field_name: str) -> str:
 def extract_release_notes(path: Path, version: str) -> str:
 	if not path.exists():
 		raise SystemExit(f"Changelog not found: {path}")
-	lines = path.read_text(encoding="utf-8").splitlines()
-	start = -1
-	end = len(lines)
-	for index, line in enumerate(lines):
-		match = CHANGELOG_HEADING_RE.match(line)
-		if match is None:
-			continue
-		heading_version = match.group("version").strip()
-		if start >= 0:
-			end = index
-			break
-		if heading_version == version:
-			start = index
-
-	if start < 0:
+	text = path.read_text(encoding="utf-8")
+	syntax_issues = gf_changelog.markdown_syntax_issues(text)
+	if syntax_issues:
+		raise SystemExit(
+			f"Changelog contains unsupported Markdown syntax in {path}:\n"
+			+ "\n".join(syntax_issues)
+		)
+	sections = gf_changelog.parse_changelog_sections(text)
+	matching_sections = [
+		section
+		for section in sections
+		if str(section["version"]) == version
+	]
+	if not matching_sections:
 		raise SystemExit(f"Changelog section for [{version}] was not found in {path}.")
+	if len(matching_sections) != 1:
+		raise SystemExit(
+			f"Changelog must contain exactly one section for [{version}] in {path}; "
+			f"found {len(matching_sections)}."
+		)
+	contract_issues = gf_changelog.validate_document_layout(
+		text,
+		str(matching_sections[0]["heading"]),
+		str(path),
+	)
+	contract_issues.extend(
+		gf_changelog.validate_formal_section(
+			matching_sections[0],
+			str(path),
+		)
+	)
+	if contract_issues:
+		raise SystemExit(
+			f"Changelog release candidate is invalid in {path}:\n"
+			+ "\n".join(contract_issues)
+		)
 
-	section = "\n".join(lines[start + 1:end]).strip()
+	section = str(matching_sections[0]["body"]).strip()
 	if not section:
 		raise SystemExit(f"Changelog section for [{version}] is empty.")
 	return section

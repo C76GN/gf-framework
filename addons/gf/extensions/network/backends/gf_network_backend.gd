@@ -49,6 +49,16 @@ signal peer_disconnected(peer_id: int)
 signal message_received(peer_id: int, bytes: PackedByteArray)
 
 
+# --- 常量 ---
+
+## Backend 补充一次传输指标允许的最大同步耗时，单位毫秒。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+const MAX_TRANSPORT_METRICS_ENRICHMENT_MSEC: int = 10
+
+
 # --- 私有变量 ---
 
 var _transport_bytes_sent: int = 0
@@ -167,7 +177,10 @@ func get_debug_snapshot() -> Dictionary:
 ## 获取当前传输指标快照。
 ##
 ## 基类统一统计成功发送和已派发接收的 bytes/packet 数。具体后端可通过
-## `_enrich_transport_metrics` 补充 RTT、丢包率或队列等可选指标。
+## `_enrich_transport_metrics` 补充 RTT、丢包率或队列等可选指标。该入口是
+## 同步、无副作用且有硬输出上限的模板方法；Backend 不应重写本方法，也不得
+## 在补充钩子中执行网络、磁盘或不可中断的业务 I/O。补充钩子超过协作预算时，
+## 本次调用只返回基础指标。
 ## [br]
 ## @api public
 ## [br]
@@ -199,20 +212,59 @@ func get_transport_metrics() -> GFNetworkTransportMetrics:
 			GFNetworkTransportMetrics.CONNECTION_AGE_MSEC,
 			float(maxi(now_msec - _transport_connected_at_msec, 0))
 		)
-	_enrich_transport_metrics(metrics)
+	var base_metrics: GFNetworkTransportMetrics = metrics.duplicate_metrics()
+	var enrichment_budget: GFExecutionBudget = GFExecutionBudget.new({
+		"max_steps": GFNetworkTransportMetrics.ABSOLUTE_MAX_METRIC_COUNT,
+		"max_elapsed_msec": MAX_TRANSPORT_METRICS_ENRICHMENT_MSEC,
+	})
+	_enrich_transport_metrics(metrics, enrichment_budget)
+	if not enrichment_budget.check():
+		return base_metrics
+	if (
+		metrics.sample_time_msec != base_metrics.sample_time_msec
+		or metrics.sample_window_msec != base_metrics.sample_window_msec
+	):
+		return base_metrics
+	var base_metric_ids: PackedStringArray = base_metrics.get_metric_ids()
+	for base_metric_id_text: String in base_metric_ids:
+		var base_metric_id: StringName = StringName(base_metric_id_text)
+		if (
+			not metrics.has_metric(base_metric_id)
+			or metrics.get_metric(base_metric_id) != base_metrics.get_metric(
+				base_metric_id
+			)
+		):
+			return base_metrics
+	var added_metric_count: int = 0
+	for current_metric_id_text: String in metrics.get_metric_ids():
+		var current_metric_id: StringName = StringName(current_metric_id_text)
+		if not base_metrics.has_metric(current_metric_id):
+			added_metric_count += 1
+	if added_metric_count > enrichment_budget.get_steps():
+		return base_metrics
 	return metrics
 
 
 # --- 可重写钩子 / 虚方法 ---
 
 ## 向基础指标快照写入后端特有指标。
+##
+## 实现必须保持同步、无副作用、有限时间和有限工作量，只读取已经在内存中的
+## 传输状态；不得发起网络、磁盘、锁等待或项目业务调用。每次尝试写入一个可选
+## 指标前必须消耗一步预算，并在预算或 `set_metric()` 拒绝时立即停止。预算只能
+## 协作式终止循环，不能中断阻塞调用，因此不可中断 I/O 从契约上禁止进入此钩子。
 ## [br]
 ## @api protected
 ## [br]
 ## @since 10.0.0
 ## [br]
-## @param _metrics: 可追加已知指标的快照。
-func _enrich_transport_metrics(_metrics: GFNetworkTransportMetrics) -> void:
+## @param _metrics: 可追加已知指标的有界快照。
+## [br]
+## @param _budget: 必须在每次可选指标写入前消费的协作式执行预算。
+func _enrich_transport_metrics(
+	_metrics: GFNetworkTransportMetrics,
+	_budget: GFExecutionBudget
+) -> void:
 	pass
 
 

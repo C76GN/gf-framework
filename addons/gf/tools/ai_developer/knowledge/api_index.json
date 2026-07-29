@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
   "catalog_version": "1.0.0",
-  "framework_version": "10.0.0",
-  "source_digest": "6e0614734fcf03abf6e1058e74706983eceaea5d3b33fa68f8298d80f9e13dfd",
-  "class_count": 761,
+  "framework_version": "11.0.0-dev.0",
+  "source_digest": "7a0dd36d16523f5764c8f7405c05c3966572ffba79719c6688d2fac48a7d1c6f",
+  "class_count": 763,
   "package_count": 52,
   "packages": [
     {
@@ -7059,6 +7059,13 @@
         },
         {
           "kind": "func",
+          "name": "evaluate_playback_region",
+          "signature": "func evaluate_playback_region( _clip: GFAudioClip, _channel: StringName, _region: GFAudioPlaybackRegion, _context: Dictionary = {} ) -> GFAudioPlaybackRegionResult",
+          "summary": "评估后端能否精确执行一次类型化播放区间请求。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
           "name": "play_bgm_path",
           "signature": "func play_bgm_path(_path: String, _options: Dictionary = {}) -> bool",
           "summary": "播放 BGM 路径。",
@@ -7354,6 +7361,13 @@
           "name": "supports_async_loading",
           "signature": "var supports_async_loading: bool = false",
           "summary": "是否支持异步加载或卸载。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "supports_playback_region_contract",
+          "signature": "var supports_playback_region_contract: bool = false",
+          "summary": "是否支持逐请求的类型化播放区间能力协商。",
           "visibility": "public"
         },
         {
@@ -8116,6 +8130,13 @@
         },
         {
           "kind": "var",
+          "name": "playback_region",
+          "signature": "var playback_region: GFAudioPlaybackRegion = null",
+          "summary": "可选类型化播放区间。为空时按音频流原始设置从头播放。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
           "name": "metadata",
           "signature": "var metadata: Dictionary = {}",
           "summary": "可选音频元数据，供导入器、编辑器或项目层扩展使用。",
@@ -8692,6 +8713,191 @@
         }
       ]
     },
+    "GFAudioPlaybackRegion": {
+      "extends": "Resource",
+      "module": "standard",
+      "package_id": "gf.standard.audio",
+      "path": "addons/gf/standard/utilities/audio/gf_audio_playback_region.gd",
+      "summary": "GFAudioPlaybackRegion: 类型化音频播放区间与循环点。 使用秒数描述播放起点、自然或显式终点以及循环模式。流准备始终复制源 `AudioStream`，只在副本上写入 Godot 原生循环属性，并对无法精确表达的组合",
+      "visibility": "public",
+      "category": "resource_definition",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "enum",
+          "name": "LoopMode",
+          "signature": "enum LoopMode {\n\t## 不循环。\n\tDISABLED,\n\t## 从循环起点正向循环到区间终点。\n\tFORWARD,\n\t## 在循环起点与区间终点之间往返循环。\n\tPING_PONG,\n\t## 从区间终点反向循环到循环起点。\n\tBACKWARD,\n}",
+          "summary": "音频循环模式。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "start_seconds",
+          "signature": "var start_seconds: float = 0.0",
+          "summary": "播放起点，单位为秒。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "end_seconds",
+          "signature": "var end_seconds: float = -1.0",
+          "summary": "播放或循环终点，单位为秒；-1 表示音频流自然结尾。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "loop_mode",
+          "signature": "var loop_mode: LoopMode = LoopMode.DISABLED",
+          "summary": "循环模式。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "loop_start_seconds",
+          "signature": "var loop_start_seconds: float = -1.0",
+          "summary": "循环起点，单位为秒；-1 表示使用 start_seconds。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "validate",
+          "signature": "func validate(stream_length_seconds: float = -1.0) -> GFAudioPlaybackRegionResult",
+          "summary": "验证区间结构并解析已知的自然结尾。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "prepare_stream",
+          "signature": "func prepare_stream(stream: AudioStream) -> GFAudioPlaybackRegionResult",
+          "summary": "为当前音频流准备 session 私有副本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "duplicate_region",
+          "signature": "func duplicate_region() -> GFAudioPlaybackRegion",
+          "summary": "创建相同字段的独立区间资源。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "to_dictionary",
+          "signature": "func to_dictionary() -> Dictionary",
+          "summary": "转换为字典。",
+          "visibility": "public"
+        }
+      ]
+    },
+    "GFAudioPlaybackRegionResult": {
+      "extends": "RefCounted",
+      "module": "standard",
+      "package_id": "gf.standard.audio",
+      "path": "addons/gf/standard/utilities/audio/gf_audio_playback_region_result.gd",
+      "summary": "GFAudioPlaybackRegionResult: 音频播放区间验证与流准备结果。 以稳定状态和原因说明区间是否有效、是否被执行者精确接受，以及本地准备路径 成功生成的 session 私有音频流。后端评估返回 APPLIED 时可以不携带本地流；",
+      "visibility": "public",
+      "category": "value_object",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "enum",
+          "name": "Status",
+          "signature": "enum Status {\n\t## 尚未执行验证或准备。\n\tNONE,\n\t## 区间结构已验证，但尚未由执行者应用。\n\tVALID,\n\t## 执行者已精确接受区间；本地准备路径同时提供 session 私有音频流。\n\tAPPLIED,\n\t## 区间字段或音频流输入无效。\n\tINVALID,\n\t## 区间有效，但当前音频流无法精确表达。\n\tUNSUPPORTED,\n}",
+          "summary": "区间处理状态。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "status",
+          "signature": "var status: Status = Status.NONE",
+          "summary": "区间处理状态。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "reason",
+          "signature": "var reason: StringName",
+          "summary": "稳定原因标识。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "message",
+          "signature": "var message: String = \"\"",
+          "summary": "面向开发者的结果说明。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "prepared_stream",
+          "signature": "var prepared_stream: AudioStream = null",
+          "summary": "本地准备出的 session 私有音频流；后端评估结果不需要填写。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "start_seconds",
+          "signature": "var start_seconds: float = 0.0",
+          "summary": "实际播放起点，单位为秒。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "end_seconds",
+          "signature": "var end_seconds: float = -1.0",
+          "summary": "实际播放或循环终点，单位为秒；-1 表示自然结尾。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "loop_start_seconds",
+          "signature": "var loop_start_seconds: float = -1.0",
+          "summary": "实际循环起点，单位为秒；禁用循环时为 -1。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "loop_mode",
+          "signature": "var loop_mode: int = 0",
+          "summary": "实际循环模式，对应 GFAudioPlaybackRegion.LoopMode 枚举值。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_success",
+          "signature": "func is_success() -> bool",
+          "summary": "检查验证或准备是否成功。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_applied",
+          "signature": "func is_applied() -> bool",
+          "summary": "检查执行者是否已经精确接受该播放区间。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "to_dictionary",
+          "signature": "func to_dictionary() -> Dictionary",
+          "summary": "转换为不包含音频载荷的字典快照。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "unsupported",
+          "signature": "static func unsupported( reason_id: StringName, result_message: String ) -> GFAudioPlaybackRegionResult",
+          "summary": "创建显式不支持结果。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "status_to_string",
+          "signature": "static func status_to_string(result_status: Status) -> StringName",
+          "summary": "获取处理状态的稳定字符串。",
+          "visibility": "public"
+        }
+      ]
+    },
     "GFAudioSpatialSettings": {
       "extends": "Resource",
       "module": "standard",
@@ -8939,6 +9145,13 @@
           "name": "bgm_finished",
           "signature": "signal bgm_finished(history_key: String)",
           "summary": "当前 BGM 自然播放结束时发出。",
+          "visibility": "public"
+        },
+        {
+          "kind": "signal",
+          "name": "playback_region_rejected",
+          "signature": "signal playback_region_rejected(channel: StringName, reason: StringName)",
+          "summary": "类型化播放区间因请求非法或当前后端/音频流无法精确执行而被拒绝时发出。",
           "visibility": "public"
         },
         {
@@ -9457,6 +9670,13 @@
           "name": "get_debug_snapshot",
           "signature": "func get_debug_snapshot() -> Dictionary",
           "summary": "获取音频工具调试快照。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_last_playback_region_rejection",
+          "signature": "func get_last_playback_region_rejection() -> Dictionary",
+          "summary": "获取最近一次播放区间拒绝报告。",
           "visibility": "public"
         }
       ]
@@ -45691,6 +45911,13 @@
           "visibility": "public"
         },
         {
+          "kind": "const",
+          "name": "MAX_TRANSPORT_METRICS_ENRICHMENT_MSEC",
+          "signature": "const MAX_TRANSPORT_METRICS_ENRICHMENT_MSEC: int = 10",
+          "summary": "Backend 补充一次传输指标允许的最大同步耗时，单位毫秒。",
+          "visibility": "public"
+        },
+        {
           "kind": "func",
           "name": "host",
           "signature": "func host(_options: Dictionary = {}) -> Error",
@@ -45756,7 +45983,7 @@
         {
           "kind": "func",
           "name": "_enrich_transport_metrics",
-          "signature": "func _enrich_transport_metrics(_metrics: GFNetworkTransportMetrics) -> void",
+          "signature": "func _enrich_transport_metrics( _metrics: GFNetworkTransportMetrics, _budget: GFExecutionBudget ) -> void",
           "summary": "向基础指标快照写入后端特有指标。",
           "visibility": "protected"
         },
@@ -49301,6 +49528,27 @@
       "category": "value_object",
       "since": "10.0.0",
       "members": [
+        {
+          "kind": "const",
+          "name": "ABSOLUTE_MAX_METRIC_COUNT",
+          "signature": "const ABSOLUTE_MAX_METRIC_COUNT: int = 64",
+          "summary": "单个指标快照允许的绝对最大指标数量。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "ABSOLUTE_MAX_CUSTOM_METRIC_COUNT",
+          "signature": "const ABSOLUTE_MAX_CUSTOM_METRIC_COUNT: int = 48",
+          "summary": "单个指标快照允许的绝对最大自定义指标数量。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "ABSOLUTE_MAX_METRIC_ID_LENGTH",
+          "signature": "const ABSOLUTE_MAX_METRIC_ID_LENGTH: int = 64",
+          "summary": "指标 ID 允许的绝对最大字符数。",
+          "visibility": "public"
+        },
         {
           "kind": "const",
           "name": "BYTES_SENT",

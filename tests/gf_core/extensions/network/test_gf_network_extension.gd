@@ -42,6 +42,68 @@ class FakeBackend extends GFNetworkBackend:
 		_transport_connected_at_msec = 0
 
 
+class BoundedMetricsBackend extends FakeBackend:
+	var rejected_metric_count: int = 0
+
+	func _enrich_transport_metrics(
+		metrics: GFNetworkTransportMetrics,
+		budget: GFExecutionBudget
+	) -> void:
+		for index: int in range(
+			GFNetworkTransportMetrics.ABSOLUTE_MAX_CUSTOM_METRIC_COUNT + 1
+		):
+			if not budget.consume_steps():
+				return
+			var metric_set: bool = metrics.set_metric(
+				StringName("custom_%02d" % index),
+				float(index)
+			)
+			if not metric_set:
+				rejected_metric_count += 1
+				return
+
+
+class BudgetViolatingMetricsBackend extends FakeBackend:
+	func _enrich_transport_metrics(
+		metrics: GFNetworkTransportMetrics,
+		budget: GFExecutionBudget
+	) -> void:
+		for index: int in range(
+			GFNetworkTransportMetrics.ABSOLUTE_MAX_METRIC_COUNT + 1
+		):
+			if not budget.consume_steps():
+				return
+			if index == 0:
+				var _metric_set: bool = metrics.set_metric(
+					&"must_be_discarded",
+					1.0
+				)
+
+
+class UnbudgetedMetricsBackend extends FakeBackend:
+	func _enrich_transport_metrics(
+		metrics: GFNetworkTransportMetrics,
+		_budget: GFExecutionBudget
+	) -> void:
+		var _metric_set: bool = metrics.set_metric(&"unbudgeted_metric", 1.0)
+
+
+class ReplacingBaseMetricsBackend extends FakeBackend:
+	func _enrich_transport_metrics(
+		metrics: GFNetworkTransportMetrics,
+		budget: GFExecutionBudget
+	) -> void:
+		if not budget.consume_steps():
+			return
+		var _base_cleared: bool = metrics.clear_metric(
+			GFNetworkTransportMetrics.BYTES_SENT
+		)
+		var _replacement_set: bool = metrics.set_metric(
+			&"replacement_metric",
+			1.0
+		)
+
+
 class EagerConnectedBackend extends FakeBackend:
 	func host(_options: Dictionary = {}) -> Error:
 		connected.emit()
@@ -3341,6 +3403,12 @@ func test_multiplayer_peer_backend_rejects_unsupported_send_features() -> void:
 
 func test_network_transport_metrics_distinguish_unknown_values_and_bound_history() -> void:
 	var metrics: GFNetworkTransportMetrics = GFNetworkTransportMetrics.new()
+	assert_false(metrics.has_metric(&"unknown_metric"))
+	assert_eq(
+		metrics.get_metric(&"unknown_metric", -1.0),
+		-1.0,
+		"未知指标必须保留调用方提供的 unknown 哨兵值。"
+	)
 	var _rtt_set: bool = metrics.set_metric(
 		GFNetworkTransportMetrics.ROUND_TRIP_TIME_MSEC,
 		24.5
@@ -3357,6 +3425,68 @@ func test_network_transport_metrics_distinguish_unknown_values_and_bound_history
 	assert_eq(metrics.get_metric(&" custom_metric "), 7.0)
 	assert_true(metrics.clear_metric(&" custom_metric "), "移除应使用与写入一致的 ID 规范化。")
 	assert_false(metrics.has_metric(&"custom_metric"), "移除后规范化指标不应继续存在。")
+	assert_false(
+		metrics.set_metric(
+			StringName(
+				"x".repeat(
+					GFNetworkTransportMetrics.ABSOLUTE_MAX_METRIC_ID_LENGTH + 1
+				)
+			),
+			1.0
+		),
+		"超长自定义指标 ID 必须失败关闭。"
+	)
+
+	var bounded_metrics: GFNetworkTransportMetrics = GFNetworkTransportMetrics.new()
+	for index: int in range(
+		GFNetworkTransportMetrics.ABSOLUTE_MAX_CUSTOM_METRIC_COUNT
+	):
+		assert_true(
+			bounded_metrics.set_metric(
+				StringName("bounded_%02d" % index),
+				float(index)
+			)
+		)
+	assert_false(
+		bounded_metrics.set_metric(&"custom_overflow", 1.0),
+		"超过自定义指标绝对上限的新 ID 必须失败关闭。"
+	)
+	assert_true(
+		bounded_metrics.set_metric(&"bounded_00", 99.0),
+		"达到上限后仍应允许更新已知指标。"
+	)
+	assert_true(
+		bounded_metrics.set_metric(GFNetworkTransportMetrics.BYTES_SENT, 1.0),
+		"自定义指标不能占用内置指标的保留容量。"
+	)
+	assert_lte(
+		bounded_metrics.get_metric_ids().size(),
+		GFNetworkTransportMetrics.ABSOLUTE_MAX_METRIC_COUNT,
+		"输出指标数量不得突破绝对上限。"
+	)
+
+	var oversized_metric_values: Dictionary = {}
+	for index: int in range(
+		GFNetworkTransportMetrics.ABSOLUTE_MAX_METRIC_COUNT * 16
+	):
+		oversized_metric_values["imported_%02d" % index] = index
+	oversized_metric_values[
+		String(GFNetworkTransportMetrics.BYTES_SENT)
+	] = 999
+	var imported_metrics: GFNetworkTransportMetrics = (
+		GFNetworkTransportMetrics.from_dict({
+			"metrics": oversized_metric_values,
+		})
+	)
+	assert_lte(
+		imported_metrics.get_metric_ids().size(),
+		GFNetworkTransportMetrics.ABSOLUTE_MAX_CUSTOM_METRIC_COUNT,
+		"外部字典不得绕过自定义指标容量。"
+	)
+	assert_false(
+		imported_metrics.has_metric(GFNetworkTransportMetrics.BYTES_SENT),
+		"超过前 64 项读取预算的字段不得被访问或导入。"
+	)
 
 	var backend: FakeBackend = FakeBackend.new()
 	backend.mark_connected_at_zero_for_test()
@@ -3372,6 +3502,60 @@ func test_network_transport_metrics_distinguish_unknown_values_and_bound_history
 	assert_true(
 		backend_metrics.has_metric(GFNetworkTransportMetrics.CONNECTION_AGE_MSEC),
 		"零毫秒连接起点仍应产生连接时长指标。"
+	)
+
+	var bounded_backend: BoundedMetricsBackend = BoundedMetricsBackend.new()
+	var bounded_backend_metrics: GFNetworkTransportMetrics = (
+		bounded_backend.get_transport_metrics()
+	)
+	assert_eq(
+		bounded_backend.rejected_metric_count,
+		1,
+		"Backend hook 必须观察并停止于指标容量拒绝。"
+	)
+	assert_lte(
+		bounded_backend_metrics.get_metric_ids().size(),
+		GFNetworkTransportMetrics.ABSOLUTE_MAX_METRIC_COUNT,
+		"Backend 指标输出必须遵守绝对容量。"
+	)
+
+	var violating_backend: BudgetViolatingMetricsBackend = (
+		BudgetViolatingMetricsBackend.new()
+	)
+	var violating_metrics: GFNetworkTransportMetrics = (
+		violating_backend.get_transport_metrics()
+	)
+	assert_false(
+		violating_metrics.has_metric(&"must_be_discarded"),
+		"补充钩子违反执行预算时必须回退到基础指标。"
+	)
+	assert_true(
+		violating_metrics.has_metric(GFNetworkTransportMetrics.BYTES_SENT),
+		"预算失败不得丢失基础传输指标。"
+	)
+
+	var unbudgeted_backend: UnbudgetedMetricsBackend = UnbudgetedMetricsBackend.new()
+	var unbudgeted_metrics: GFNetworkTransportMetrics = (
+		unbudgeted_backend.get_transport_metrics()
+	)
+	assert_false(
+		unbudgeted_metrics.has_metric(&"unbudgeted_metric"),
+		"未消费预算的新指标必须让本次补充结果失败关闭。"
+	)
+
+	var replacing_backend: ReplacingBaseMetricsBackend = (
+		ReplacingBaseMetricsBackend.new()
+	)
+	var replacing_metrics: GFNetworkTransportMetrics = (
+		replacing_backend.get_transport_metrics()
+	)
+	assert_true(
+		replacing_metrics.has_metric(GFNetworkTransportMetrics.BYTES_SENT),
+		"补充 Hook 不得移除基础传输指标。"
+	)
+	assert_false(
+		replacing_metrics.has_metric(&"replacement_metric"),
+		"移除基础指标再替换为自定义指标必须让整次补充失败关闭。"
 	)
 
 	var utility: GFNetworkUtility = GFNetworkUtility.new()

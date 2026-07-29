@@ -210,19 +210,39 @@ func test_await_signal_state_latches_completion_before_target_exit() -> void:
 func test_await_signal_state_cancels_when_continue_owner_is_released() -> void:
 	var emitter: WideSignalEmitter = WideSignalEmitter.new()
 	var continue_owner: ContinueOwner = ContinueOwner.new()
+	var wait_state: Dictionary = {}
+	var release_state: Dictionary = {
+		"owner_released": false,
+		"pause_count": 0,
+	}
 	add_child_autofree(emitter)
-	continue_owner.call_deferred(&"free")
 
-	var result: Dictionary = await GF_ASYNC_WAIT_SUPPORT.await_signal_state(emitter.payload_ready, {
-		"tree": get_tree(),
-		"timeout_seconds": 0.001,
-		"respect_time_scale": false,
-		"timeout_warning": "[GFAsyncWaitSupportTest] invalid continuation must cancel.",
-		"should_continue": Callable(continue_owner, &"should_continue"),
-	})
+	var wait_callable: Callable = func() -> void:
+		wait_state["result"] = await GF_ASYNC_WAIT_SUPPORT.await_signal_state(emitter.payload_ready, {
+			"tree": get_tree(),
+			"timeout_seconds": 0.001,
+			"respect_time_scale": false,
+			"timeout_warning": "[GFAsyncWaitSupportTest] invalid continuation must cancel.",
+			"should_continue": Callable(continue_owner, &"should_continue"),
+			"should_pause_timeout": func() -> bool:
+				release_state["pause_count"] = (
+					GFVariantData.get_option_int(release_state, "pause_count") + 1
+				)
+				return not GFVariantData.get_option_bool(release_state, "owner_released"),
+		})
+	@warning_ignore("missing_await")
+	wait_callable.call()
+
+	await get_tree().process_frame
+	release_state["owner_released"] = true
+	continue_owner.free()
+	await get_tree().process_frame
+
+	var result: Dictionary = GFVariantData.get_option_dictionary(wait_state, "result")
 
 	assert_eq(GFVariantData.get_option_string_name(result, "status"), GF_ASYNC_WAIT_SUPPORT.STATUS_CANCELLED, "继续检查宿主释放后应取消等待。")
 	assert_eq(GFVariantData.get_option_string_name(result, "reason"), &"should_continue_invalid", "取消结果应区分失效回调与主动返回 false。")
+	assert_gt(GFVariantData.get_option_int(release_state, "pause_count"), 0, "测试必须先挂起 timeout，再同步释放继续检查宿主。")
 	assert_push_warning_count(0, "失效继续检查必须先于 timeout 结束等待，不得迟发 warning。")
 
 

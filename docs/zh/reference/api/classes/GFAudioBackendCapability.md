@@ -25,6 +25,7 @@
 | 属性 | [`supports_switches`](#member-gfaudiobackendcapability-properties-supports_switches) | `var supports_switches: bool = false` |
 | 属性 | [`supports_listeners`](#member-gfaudiobackendcapability-properties-supports_listeners) | `var supports_listeners: bool = false` |
 | 属性 | [`supports_async_loading`](#member-gfaudiobackendcapability-properties-supports_async_loading) | `var supports_async_loading: bool = false` |
+| 属性 | [`supports_playback_region_contract`](#member-gfaudiobackendcapability-properties-supports_playback_region_contract) | `var supports_playback_region_contract: bool = false` |
 | 属性 | [`metadata`](#member-gfaudiobackendcapability-properties-metadata) | `var metadata: Dictionary = {}` |
 | 方法 | [`has_capability`](#member-gfaudiobackendcapability-methods-has_capability) | `func has_capability(capability_id: StringName) -> bool:` |
 | 方法 | [`duplicate_capability`](#member-gfaudiobackendcapability-methods-duplicate_capability) | `func duplicate_capability() -> GFAudioBackendCapability:` |
@@ -152,6 +153,19 @@ var supports_async_loading: bool = false
 
 是否支持异步加载或卸载。
 
+<a id="member-gfaudiobackendcapability-properties-supports_playback_region_contract"></a>
+
+### `supports_playback_region_contract`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+var supports_playback_region_contract: bool = false
+```
+
+是否支持逐请求的类型化播放区间能力协商。 该标记只表示后端实现了协商契约；具体片段、通道和循环模式仍须通过 `GFAudioBackend.evaluate_playback_region()` 判断。
+
 <a id="member-gfaudiobackendcapability-properties-metadata"></a>
 
 ### `metadata`
@@ -209,6 +223,7 @@ func duplicate_capability() -> GFAudioBackendCapability:
 ### `to_dictionary`
 
 - API：`public`
+- 首次版本：`3.2.0`
 
 ```gdscript
 func to_dictionary() -> Dictionary:
@@ -220,4 +235,4 @@ func to_dictionary() -> Dictionary:
 
 结构：
 
-- `return`: 能力 Dictionary，包含 bgm、sfx、ambient、spatial_sfx、events、parameters、states、switches、listeners、async_loading 和 metadata 字段。
+- `return`: 能力 Dictionary，包含 bgm、sfx、ambient、spatial_sfx、events、parameters、states、switches、listeners、async_loading、playback_region_contract 和 metadata 字段。

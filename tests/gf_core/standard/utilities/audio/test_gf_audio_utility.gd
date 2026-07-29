@@ -68,6 +68,8 @@ class MockAudioBackend:
 	var disposed: bool = false
 	var handle_bgm_paths: bool = false
 	var handle_ambient_paths: bool = false
+	var handle_bgm_clips: bool = false
+	var handle_ambient_clips: bool = false
 	var played_bgm_paths: PackedStringArray = PackedStringArray()
 	var played_ambient_paths: PackedStringArray = PackedStringArray()
 	var played_sfx_paths: PackedStringArray = PackedStringArray()
@@ -106,6 +108,34 @@ class MockAudioBackend:
 	var handled_mix_snapshot: Dictionary = {}
 	var handled_mix_transition: float = -1.0
 	var effect_property_requests: Array[Dictionary] = []
+	var playback_region_evaluation_count: int = 0
+	var playback_region_evaluation_status: GFAudioPlaybackRegionResult.Status = (
+		GFAudioPlaybackRegionResult.Status.UNSUPPORTED
+	)
+	var playback_region_returns_untrusted_fields: bool = false
+	var last_evaluated_region: GFAudioPlaybackRegion = null
+	var played_bgm_clip_count: int = 0
+	var last_bgm_clip: GFAudioClip = null
+	var mutate_can_handle_clip_request: bool = false
+	var mutate_can_handle_clip_nested_resources: bool = false
+	var mutate_evaluate_clip_nested_resources: bool = false
+	var mutate_play_bgm_clip_nested_resources: bool = false
+	var mutate_can_handle_event_request: bool = false
+	var mutate_can_handle_event_nested_resources: bool = false
+	var mutate_play_bgm_clip_request: bool = false
+	var mutate_post_event_request: bool = false
+	var mutate_post_event_nested_resources: bool = false
+	var accept_bgm_clip_playback: bool = true
+	var played_ambient_clip_count: int = 0
+	var last_ambient_clip: GFAudioClip = null
+	var last_ambient_options: Dictionary = {}
+	var last_posted_event: GFAudioEvent = null
+	var last_posted_event_options: Dictionary = {}
+	var can_handle_event_count: int = 0
+	var can_handle_event_resource_before: float = -1.0
+	var can_handle_event_option_resource_before: float = -1.0
+	var post_event_resource_before: float = -1.0
+	var post_event_option_resource_before: float = -1.0
 
 	func _init() -> void:
 		capabilities.supports_sfx = true
@@ -127,14 +157,86 @@ class MockAudioBackend:
 			return handle_ambient_paths and path.begins_with("event://")
 		return channel == &"sfx" and path.begins_with("event://")
 
-	func can_handle_clip(_clip: GFAudioClip, channel: StringName, context: Dictionary = {}) -> bool:
+	func can_handle_clip(clip: GFAudioClip, channel: StringName, context: Dictionary = {}) -> bool:
+		if mutate_can_handle_clip_request:
+			clip.playback_region = null
+			clip.stream = AudioStreamGenerator.new()
+			context.clear()
+		if mutate_can_handle_clip_nested_resources:
+			_mutate_clip_nested_resources(clip)
+		if handle_bgm_clips and channel == &"bgm":
+			return true
+		if handle_ambient_clips and channel == &"ambient":
+			return true
 		return handle_spatial_sfx_clips and channel == &"spatial_sfx" and context.has("source")
+
+	func evaluate_playback_region(
+		clip: GFAudioClip,
+		_channel: StringName,
+		region: GFAudioPlaybackRegion,
+		_context: Dictionary = {}
+	) -> GFAudioPlaybackRegionResult:
+		playback_region_evaluation_count += 1
+		if mutate_evaluate_clip_nested_resources:
+			_mutate_clip_nested_resources(clip)
+		last_evaluated_region = region
+		var result: GFAudioPlaybackRegionResult = GFAudioPlaybackRegionResult.new()
+		result.status = playback_region_evaluation_status
+		result.reason = (
+			&"backend_region_applied"
+			if result.status == GFAudioPlaybackRegionResult.Status.APPLIED
+			else &"backend_region_rejected"
+		)
+		result.start_seconds = region.start_seconds
+		result.end_seconds = region.end_seconds
+		result.loop_start_seconds = (
+			region.start_seconds
+			if (
+				region.loop_mode != GFAudioPlaybackRegion.LoopMode.DISABLED
+				and is_equal_approx(region.loop_start_seconds, -1.0)
+			)
+			else region.loop_start_seconds
+		)
+		result.loop_mode = region.loop_mode
+		if playback_region_returns_untrusted_fields:
+			result.start_seconds = NAN
+			result.end_seconds = INF
+			result.loop_start_seconds = -99.0
+			result.loop_mode = 99
+		return result
 
 	func play_bgm_path(path: String, options: Dictionary = {}) -> bool:
 		var _append_result_106: Variant = played_bgm_paths.append(path)
 		last_bgm_options = options.duplicate(true)
 		bgm_playing = true
 		return true
+
+	func play_bgm_clip(clip: GFAudioClip, options: Dictionary = {}) -> bool:
+		played_bgm_clip_count += 1
+		last_bgm_clip = clip
+		last_bgm_options = options.duplicate(true)
+		if mutate_play_bgm_clip_request:
+			clip.playback_region = null
+			clip.stream = AudioStreamGenerator.new()
+			options.clear()
+		if mutate_play_bgm_clip_nested_resources:
+			_mutate_clip_nested_resources(clip)
+		bgm_playing = true
+		return accept_bgm_clip_playback
+
+	func _mutate_clip_nested_resources(clip: GFAudioClip) -> void:
+		if clip.stream is AudioStreamWAV:
+			var wav_stream: AudioStreamWAV = clip.stream
+			wav_stream.mix_rate = 1
+			wav_stream.loop_mode = AudioStreamWAV.LOOP_BACKWARD
+		if clip.spatial_settings is GFAudioSpatialSettings:
+			var spatial_settings: GFAudioSpatialSettings = clip.spatial_settings
+			spatial_settings.max_distance_2d = 1.0
+		var metadata_resource: GFAudioSpatialSettings = _get_nested_settings_resource(
+			clip.metadata
+		)
+		if metadata_resource != null:
+			metadata_resource.max_distance_2d = 1.0
 
 	func stop_bgm(_fade_seconds: float = 0.0) -> bool:
 		stop_bgm_count += 1
@@ -176,6 +278,17 @@ class MockAudioBackend:
 		_options: Dictionary = {}
 	) -> bool:
 		var _append_result_159: Variant = played_ambient_paths.append(path)
+		backend_ambient_playing[channel] = true
+		return true
+
+	func play_ambient_clip(
+		clip: GFAudioClip,
+		channel: StringName = &"default",
+		options: Dictionary = {}
+	) -> bool:
+		played_ambient_clip_count += 1
+		last_ambient_clip = clip
+		last_ambient_options = options.duplicate(true)
 		backend_ambient_playing[channel] = true
 		return true
 
@@ -221,14 +334,69 @@ class MockAudioBackend:
 		stop_all_sfx_fade = fade_seconds
 		return true
 
-	func can_handle_event(event: GFAudioEvent, _options: Dictionary = {}) -> bool:
-		return event.event_id != &""
+	func can_handle_event(event: GFAudioEvent, options: Dictionary = {}) -> bool:
+		can_handle_event_count += 1
+		var can_handle: bool = event.event_id != &""
+		if mutate_can_handle_event_request:
+			event.clip = null
+			event.channel = &"mutated"
+			options.clear()
+		if mutate_can_handle_event_nested_resources:
+			var event_resource: GFAudioSpatialSettings = _get_nested_settings_resource(
+				event.metadata
+			)
+			var option_resource: GFAudioSpatialSettings = _get_nested_settings_resource(
+				options
+			)
+			if event_resource != null:
+				can_handle_event_resource_before = event_resource.max_distance_2d
+				event_resource.max_distance_2d = 1.0
+			if option_resource != null:
+				can_handle_event_option_resource_before = option_resource.max_distance_2d
+				option_resource.max_distance_2d = 2.0
+		return can_handle
 
 	func post_event(event: GFAudioEvent, options: Dictionary = {}) -> GFAudioEmitterHandle:
 		var _append_result_156: Variant = posted_events.append(String(event.event_id))
+		last_posted_event = event
+		last_posted_event_options = options.duplicate(true)
+		if mutate_post_event_request:
+			event.clip = null
+			event.channel = &"mutated"
+			options.clear()
+		if mutate_post_event_nested_resources:
+			var event_resource: GFAudioSpatialSettings = _get_nested_settings_resource(
+				event.metadata
+			)
+			var option_resource: GFAudioSpatialSettings = _get_nested_settings_resource(
+				options
+			)
+			if event_resource != null:
+				post_event_resource_before = event_resource.max_distance_2d
+				event_resource.max_distance_2d = 3.0
+			if option_resource != null:
+				post_event_option_resource_before = option_resource.max_distance_2d
+				option_resource.max_distance_2d = 4.0
 		if not handle_posted_events:
 			return null
 		return GFAudioEmitterHandle.new(null, Callable(), &"event", options)
+
+	func _get_nested_settings_resource(payload: Dictionary) -> GFAudioSpatialSettings:
+		var nested_value: Variant = GFVariantData.get_option_value(payload, "nested")
+		if not (nested_value is Dictionary):
+			return null
+		var nested: Dictionary = nested_value
+		var resources_value: Variant = GFVariantData.get_option_value(nested, "resources")
+		if not (resources_value is Array):
+			return null
+		var resources: Array = resources_value
+		if resources.is_empty():
+			return null
+		var resource_value: Variant = resources[0]
+		if resource_value is GFAudioSpatialSettings:
+			var settings: GFAudioSpatialSettings = resource_value
+			return settings
+		return null
 
 	func set_parameter(parameter: GFAudioParameter) -> bool:
 		parameter_values[parameter.parameter_id] = parameter.value
@@ -608,7 +776,7 @@ func test_backend_bgm_pause_still_counts_as_playing() -> void:
 	assert_eq(_audio._bgm_owner, &"backend")
 
 
-func test_play_bgm_with_options_passes_loop_to_backend_and_debug_snapshot() -> void:
+func test_play_bgm_with_options_rejects_reserved_region_keys_before_backend_dispatch() -> void:
 	var backend: MockAudioBackend = MockAudioBackend.new()
 	backend.handle_bgm_paths = true
 	assert_true(_audio.set_audio_backend(backend), "测试后端应成功绑定。")
@@ -616,18 +784,23 @@ func test_play_bgm_with_options_passes_loop_to_backend_and_debug_snapshot() -> v
 	_audio.play_bgm_with_options("event://music/title", {
 		"crossfade_seconds": 0.25,
 		"history_key": "title",
-		"loop": false,
+		"playback_region": GFAudioPlaybackRegion.new(),
 	})
 	var snapshot: Dictionary = _audio.get_debug_snapshot()
 
-	assert_eq(backend.played_bgm_paths, PackedStringArray(["event://music/title"]), "后端声明可处理时应接管 BGM 路径。")
-	assert_false(GFVariantData.get_option_bool(backend.last_bgm_options, "loop"), "loop 覆盖选项应传给后端。")
-	assert_almost_eq(GFVariantData.get_option_float(backend.last_bgm_options, "crossfade_seconds"), 0.25, 0.001, "crossfade 应规范化后传给后端。")
-	assert_eq(_audio.get_current_bgm_key(), "title", "后端播放也应记录 BGM 历史 key。")
-	assert_false(GFVariantData.get_option_bool(snapshot, "current_bgm_loop"), "调试快照应记录当前 loop 覆盖值。")
-	assert_eq(GFVariantData.get_option_string_name(snapshot, "bgm_owner"), &"backend", "调试快照应公开唯一 BGM owner。")
-	assert_eq(GFVariantData.get_option_string_name(snapshot, "bgm_state"), &"playing", "调试快照应公开 BGM 状态。")
-	assert_gt(GFVariantData.get_option_int(snapshot, "bgm_generation"), 0, "调试快照应公开递增的 BGM generation。")
+	assert_push_warning(
+		"[GFAudioUtility] play_bgm_with_options 不接受 loop 或 playback_region；"
+		+ "请使用 GFAudioClip.playback_region 表达唯一的循环契约。"
+	)
+	assert_true(backend.played_bgm_paths.is_empty(), "保留的区间键必须在后端派发前被拒绝。")
+	assert_true(backend.last_bgm_options.is_empty(), "被拒绝的保留键不得进入后端请求。")
+	assert_eq(_audio.get_current_bgm_key(), "", "被拒绝请求不得提交 BGM 历史 key。")
+	assert_true(
+		GFVariantData.get_option_dictionary(snapshot, "current_bgm_region").is_empty(),
+		"被拒绝请求不得留下播放区间状态。"
+	)
+	assert_eq(GFVariantData.get_option_string_name(snapshot, "bgm_owner"), &"none")
+	assert_eq(GFVariantData.get_option_string_name(snapshot, "bgm_state"), &"stopped")
 
 
 func test_bgm_finished_signal_emits_for_active_player() -> void:
@@ -673,6 +846,245 @@ func test_play_bgm_clip_tracks_history() -> void:
 	assert_eq(history.size(), 1, "BGM 历史应遵守容量上限。")
 	assert_eq(history[0], "res://audio/second.ogg", "历史中应保留最新 BGM key。")
 	assert_eq(_audio.get_current_bgm_key(), "res://audio/second.ogg", "当前 BGM key 应指向最新请求。")
+
+
+func test_typed_playback_region_uses_private_streams_across_local_channels() -> void:
+	var region: GFAudioPlaybackRegion = GFAudioPlaybackRegion.new()
+	region.start_seconds = 0.1
+	region.loop_mode = GFAudioPlaybackRegion.LoopMode.FORWARD
+	region.loop_start_seconds = 0.2
+	var clip: GFAudioClip = _make_test_bgm_clip("shared-region", region)
+	var source_stream: AudioStreamWAV = clip.stream as AudioStreamWAV
+	var source_2d: Node2D = Node2D.new()
+	add_child_autofree(source_2d)
+
+	_audio.play_ambient_clip(clip, &"weather")
+	var sfx_handle: GFAudioEmitterHandle = _audio.play_sfx_clip_handle(clip)
+	var spatial_handle: GFAudioEmitterHandle = _audio.play_sfx_clip_2d_handle(
+		clip,
+		source_2d
+	)
+	var ambient_player: AudioStreamPlayer = _audio._get_ambient_player(&"weather")
+	var sfx_player: AudioStreamPlayer = sfx_handle.get_player() as AudioStreamPlayer
+	var spatial_player: AudioStreamPlayer2D = (
+		spatial_handle.get_player() as AudioStreamPlayer2D
+	)
+	var ambient_stream: AudioStreamWAV = ambient_player.stream as AudioStreamWAV
+	var sfx_stream: AudioStreamWAV = sfx_player.stream as AudioStreamWAV
+	var spatial_stream: AudioStreamWAV = spatial_player.stream as AudioStreamWAV
+	var snapshot: Dictionary = _audio.get_debug_snapshot()
+	var ambient_sessions: Dictionary = GFVariantData.get_option_dictionary(
+		snapshot,
+		"ambient_sessions"
+	)
+	var weather_session: Dictionary = GFVariantData.get_option_dictionary(
+		ambient_sessions,
+		"weather"
+	)
+	var session_region: Dictionary = GFVariantData.get_option_dictionary(
+		weather_session,
+		"playback_region"
+	)
+
+	assert_not_same(ambient_stream, source_stream)
+	assert_not_same(sfx_stream, source_stream)
+	assert_not_same(spatial_stream, source_stream)
+	assert_not_same(ambient_stream, sfx_stream, "每次播放请求必须拥有独立流副本。")
+	assert_not_same(sfx_stream, spatial_stream, "空间与非空间 SFX 不得共享可变循环状态。")
+	assert_eq(ambient_stream.loop_mode, AudioStreamWAV.LOOP_FORWARD)
+	assert_eq(sfx_stream.loop_begin, 200)
+	assert_eq(spatial_stream.loop_end, 1_999)
+	assert_eq(source_stream.loop_mode, AudioStreamWAV.LOOP_DISABLED, "源流不得被区间准备修改。")
+	assert_eq(
+		GFVariantData.get_option_string_name(session_region, "status"),
+		&"applied",
+		"环境音会话快照应保留规范化区间。"
+	)
+
+
+func test_ambient_stop_preserves_region_until_local_fade_reaches_terminal_state() -> void:
+	var region: GFAudioPlaybackRegion = GFAudioPlaybackRegion.new()
+	region.loop_mode = GFAudioPlaybackRegion.LoopMode.FORWARD
+	region.loop_start_seconds = 0.25
+	var clip: GFAudioClip = _make_test_bgm_clip("local-ambient-region", region)
+	clip.volume_db = -6.0
+	_audio.play_ambient_clip(clip, &"weather")
+
+	_audio.stop_ambient(&"weather", 0.25)
+	await get_tree().create_timer(0.08).timeout
+	var player: AudioStreamPlayer = _audio._get_ambient_player(&"weather")
+	assert_lt(player.volume_db, -6.1, "测试应确认停止淡出已经部分修改播放器增益。")
+	var snapshot: Dictionary = _audio.get_debug_snapshot()
+	var sessions: Dictionary = GFVariantData.get_option_dictionary(snapshot, "ambient_sessions")
+	var weather: Dictionary = GFVariantData.get_option_dictionary(sessions, "weather")
+	var stopping_region: Dictionary = GFVariantData.get_option_dictionary(
+		weather,
+		"playback_region"
+	)
+
+	assert_eq(GFVariantData.get_option_string_name(weather, "state"), &"stopping")
+	assert_eq(GFVariantData.get_option_string_name(weather, "owner"), &"local")
+	assert_almost_eq(
+		GFVariantData.get_option_float(weather, "target_volume_db"),
+		-6.0,
+		0.001,
+		"非终态会话必须保留原始目标增益。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(stopping_region, "loop_mode"),
+		GFAudioPlaybackRegion.LoopMode.FORWARD,
+		"非终态淡出必须保留仍在播放的类型化区间。"
+	)
+
+	var replacement_serial: int = _audio._begin_ambient_replacement(&"weather")
+	_audio._apply_ambient_request(
+		replacement_serial,
+		&"weather",
+		null,
+		"Master",
+		0.0,
+		1.0,
+		0.0
+	)
+	snapshot = _audio.get_debug_snapshot()
+	sessions = GFVariantData.get_option_dictionary(snapshot, "ambient_sessions")
+	weather = GFVariantData.get_option_dictionary(sessions, "weather")
+	var restored_region: Dictionary = GFVariantData.get_option_dictionary(
+		weather,
+		"playback_region"
+	)
+	assert_eq(GFVariantData.get_option_string_name(weather, "state"), &"playing")
+	assert_eq(
+		GFVariantData.get_option_int(restored_region, "loop_mode"),
+		GFAudioPlaybackRegion.LoopMode.FORWARD,
+		"淡出被替换请求打断且替换失败时必须恢复原区间诊断。"
+	)
+	assert_almost_eq(player.volume_db, -6.0, 0.001, "替换失败必须恢复淡出前的目标增益。")
+	_audio.stop_ambient(&"weather")
+
+
+func test_rejected_ambient_region_does_not_cancel_active_stop_fade() -> void:
+	var active_region: GFAudioPlaybackRegion = GFAudioPlaybackRegion.new()
+	active_region.loop_mode = GFAudioPlaybackRegion.LoopMode.FORWARD
+	var active_clip: GFAudioClip = _make_test_bgm_clip("ambient-stop-active", active_region)
+	_audio.play_ambient_clip(active_clip, &"weather")
+	_audio.stop_ambient(&"weather", 0.25)
+	await get_tree().create_timer(0.05).timeout
+	var before_session: Dictionary = _audio._get_ambient_session(&"weather")
+	var before_generation: int = GFVariantData.get_option_int(before_session, "generation")
+	var before_tween_value: Variant = GFVariantData.get_option_value(
+		_audio._ambient_tween_refs,
+		&"weather"
+	)
+	var before_tween_ref: WeakRef = null
+	if before_tween_value is WeakRef:
+		before_tween_ref = before_tween_value
+	assert_eq(GFVariantData.get_option_string_name(before_session, "state"), &"stopping")
+	assert_not_null(before_tween_ref)
+
+	var rejected_region: GFAudioPlaybackRegion = GFAudioPlaybackRegion.new()
+	rejected_region.start_seconds = 0.1
+	var rejected_clip: GFAudioClip = GFAudioClip.new()
+	rejected_clip.stream = AudioStreamGenerator.new()
+	rejected_clip.playback_region = rejected_region
+	_audio.play_ambient_clip(rejected_clip, &"weather")
+	var after_session: Dictionary = _audio._get_ambient_session(&"weather")
+
+	assert_eq(
+		GFVariantData.get_option_int(after_session, "generation"),
+		before_generation,
+		"未通过 exact admission 的请求不得替换活动环境音 generation。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string_name(after_session, "state"),
+		&"stopping",
+		"拒绝请求不得把既有停止淡出恢复为 playing。"
+	)
+	var after_tween_value: Variant = GFVariantData.get_option_value(
+		_audio._ambient_tween_refs,
+		&"weather"
+	)
+	var after_tween_ref: WeakRef = null
+	if after_tween_value is WeakRef:
+		after_tween_ref = after_tween_value
+	assert_same(after_tween_ref, before_tween_ref, "拒绝请求不得取消或替换既有环境音 tween。")
+
+	await get_tree().create_timer(0.25).timeout
+	var terminal_session: Dictionary = _audio._get_ambient_session(&"weather")
+	assert_eq(GFVariantData.get_option_string_name(terminal_session, "state"), &"stopped")
+	assert_eq(GFVariantData.get_option_string_name(terminal_session, "owner"), &"none")
+
+
+func test_failed_async_ambient_replacement_releases_ended_local_stream() -> void:
+	var mock_asset: MockAssetUtility = MockAssetUtility.new()
+	var audio: AssetBackedAudioUtility = AssetBackedAudioUtility.new(mock_asset)
+	audio.init()
+	await get_tree().process_frame
+
+	var original_stream: AudioStreamGenerator = AudioStreamGenerator.new()
+	var original_clip: GFAudioClip = GFAudioClip.new()
+	original_clip.stream = original_stream
+	audio.play_ambient_clip(original_clip, &"weather")
+	var weather_player: AudioStreamPlayer = audio._get_ambient_player(&"weather")
+
+	audio.play_ambient("res://audio/missing-weather.ogg", &"weather")
+	var loading_session: Dictionary = audio._get_ambient_session(&"weather")
+	assert_eq(GFVariantData.get_option_string_name(loading_session, "state"), &"loading")
+	assert_eq(GFVariantData.get_option_string_name(loading_session, "owner"), &"local")
+	assert_eq(GFVariantData.get_option_int(loading_session, "playback_session_id"), 0)
+	weather_player.stop()
+	weather_player.finished.emit()
+	assert_same(
+		weather_player.stream,
+		original_stream,
+		"异步替换等待期间，旧流自然结束应进入失败恢复的终态清理路径。"
+	)
+
+	mock_asset.finish("res://audio/missing-weather.ogg", null)
+	var weather_session: Dictionary = audio._get_ambient_session(&"weather")
+	assert_eq(GFVariantData.get_option_string_name(weather_session, "state"), &"stopped")
+	assert_eq(GFVariantData.get_option_string_name(weather_session, "owner"), &"none")
+	assert_null(weather_player.stream, "替换加载失败后不得继续持有已经结束的旧流资源。")
+
+	audio.dispose()
+	await get_tree().process_frame
+
+
+func test_backend_ambient_stop_rejection_preserves_active_region_snapshot() -> void:
+	var backend: MockAudioBackend = MockAudioBackend.new()
+	backend.handle_ambient_clips = true
+	backend.capabilities.supports_playback_region_contract = true
+	backend.playback_region_evaluation_status = GFAudioPlaybackRegionResult.Status.APPLIED
+	backend.allow_stop_ambient = false
+	assert_true(_audio.set_audio_backend(backend), "测试后端应成功绑定。")
+	var region: GFAudioPlaybackRegion = GFAudioPlaybackRegion.new()
+	region.start_seconds = 0.2
+	region.loop_mode = GFAudioPlaybackRegion.LoopMode.FORWARD
+	var clip: GFAudioClip = GFAudioClip.new()
+	clip.stream = AudioStreamGenerator.new()
+	clip.playback_region = region
+	_audio.play_ambient_clip(clip, &"weather")
+
+	_audio.stop_ambient(&"weather", 0.1)
+	var snapshot: Dictionary = _audio.get_debug_snapshot()
+	var sessions: Dictionary = GFVariantData.get_option_dictionary(snapshot, "ambient_sessions")
+	var weather: Dictionary = GFVariantData.get_option_dictionary(sessions, "weather")
+	var active_region: Dictionary = GFVariantData.get_option_dictionary(
+		weather,
+		"playback_region"
+	)
+
+	assert_eq(backend.played_ambient_clip_count, 1)
+	assert_eq(GFVariantData.get_option_string_name(weather, "state"), &"playing")
+	assert_eq(GFVariantData.get_option_string_name(weather, "owner"), &"backend")
+	assert_almost_eq(
+		GFVariantData.get_option_float(active_region, "start_seconds"),
+		0.2,
+		0.001,
+		"后端拒绝停止时仍活动的区间诊断不得被清空。"
+	)
+	backend.allow_stop_ambient = true
+	_audio.stop_ambient(&"weather")
 
 
 func test_play_sfx_and_pool() -> void:
@@ -1005,7 +1417,21 @@ func test_audio_backend_receives_spatial_settings_context() -> void:
 	assert_true(backend.last_spatial_follow_source, "follow_source 应传给后端。")
 	assert_eq(GFVariantData.get_option_string(backend.last_spatial_sfx_options, "space"), "2d", "空间维度应保留在后端选项中。")
 	assert_same(_node_option(backend.last_spatial_sfx_options, "source"), source, "空间上下文应包含声源。")
-	assert_same(_resource_option(backend.last_spatial_sfx_options, "spatial_settings"), settings, "空间设置资源应传给后端。")
+	var backend_settings: Resource = _resource_option(
+		backend.last_spatial_sfx_options,
+		"spatial_settings"
+	)
+	assert_not_same(backend_settings, settings, "后端空间设置必须与调用方资源隔离。")
+	if not backend_settings is GFAudioSpatialSettings:
+		fail_test("后端空间设置快照必须保持 GFAudioSpatialSettings 类型。")
+		return
+	var typed_backend_settings: GFAudioSpatialSettings = backend_settings
+	assert_almost_eq(
+		typed_backend_settings.max_distance_2d,
+		settings.max_distance_2d,
+		0.001,
+		"隔离副本必须保留空间设置内容。"
+	)
 
 
 func test_audio_backend_capabilities_events_and_parameters() -> void:
@@ -1029,6 +1455,659 @@ func test_audio_backend_capabilities_events_and_parameters() -> void:
 	assert_almost_eq(GFVariantData.get_option_float(backend.parameter_values, &"intensity"), 0.75, 0.001, "参数值应传给后端。")
 	assert_true(GFVariantData.get_option_bool(capabilities, "events"), "调试快照应包含后端事件能力。")
 	assert_true(GFVariantData.get_option_bool(capabilities, "parameters"), "调试快照应包含后端参数能力。")
+
+
+func test_audio_event_rejects_reserved_region_keys_before_backend_dispatch() -> void:
+	var backend: MockAudioBackend = MockAudioBackend.new()
+	assert_true(_audio.set_audio_backend(backend), "测试后端应成功绑定。")
+	var event: GFAudioEvent = GFAudioEvent.new()
+	event.event_id = &"reserved_region"
+	event.channel = &"sfx"
+
+	var options_handle: GFAudioEmitterHandle = _audio.post_audio_event(
+		event,
+		{"playback_region": GFAudioPlaybackRegion.new()}
+	)
+	assert_push_warning(
+		"[GFAudioUtility] post_audio_event 不接受 metadata/options 中的 "
+		+ "loop 或 playback_region；请使用 GFAudioClip.playback_region。"
+	)
+	event.metadata["loop"] = true
+	var metadata_handle: GFAudioEmitterHandle = _audio.post_audio_event(event)
+	assert_push_warning(
+		"[GFAudioUtility] post_audio_event 不接受 metadata/options 中的 "
+		+ "loop 或 playback_region；请使用 GFAudioClip.playback_region。"
+	)
+
+	assert_null(options_handle)
+	assert_null(metadata_handle)
+	assert_true(backend.posted_events.is_empty(), "保留键不得绕过类型化区间评估进入事件后端。")
+	assert_eq(backend.playback_region_evaluation_count, 0, "被拒绝请求不得触发后端区间协商。")
+
+
+func test_backend_applies_typed_playback_region_after_per_request_evaluation() -> void:
+	var backend: MockAudioBackend = MockAudioBackend.new()
+	backend.handle_bgm_clips = true
+	backend.capabilities.supports_playback_region_contract = true
+	backend.playback_region_evaluation_status = GFAudioPlaybackRegionResult.Status.APPLIED
+	backend.playback_region_returns_untrusted_fields = true
+	assert_true(_audio.set_audio_backend(backend), "测试后端应成功绑定。")
+	var region: GFAudioPlaybackRegion = GFAudioPlaybackRegion.new()
+	region.start_seconds = 0.25
+	region.loop_mode = GFAudioPlaybackRegion.LoopMode.FORWARD
+	var clip: GFAudioClip = GFAudioClip.new()
+	clip.path = "backend-region"
+	clip.stream = AudioStreamGenerator.new()
+	clip.playback_region = region
+
+	_audio.play_bgm_clip(clip)
+	var snapshot: Dictionary = _audio.get_debug_snapshot()
+	var current_region: Dictionary = GFVariantData.get_option_dictionary(
+		snapshot,
+		"current_bgm_region"
+	)
+	var capabilities: Dictionary = GFVariantData.get_option_dictionary(
+		snapshot,
+		"backend_capabilities"
+	)
+
+	assert_eq(backend.playback_region_evaluation_count, 1, "非 no-op 区间必须逐请求评估。")
+	assert_eq(backend.played_bgm_clip_count, 1, "只有 APPLIED 结果可进入后端播放。")
+	assert_not_same(backend.last_bgm_clip, clip, "后端必须接收会话私有片段快照。")
+	assert_not_same(backend.last_evaluated_region, region, "后端必须评估会话私有区间快照。")
+	assert_almost_eq(backend.last_evaluated_region.start_seconds, 0.25, 0.001)
+	assert_almost_eq(
+		backend.last_evaluated_region.loop_start_seconds,
+		0.25,
+		0.001,
+		"后端评估只能接收验证结果重建的规范区间。"
+	)
+	assert_almost_eq(
+		backend.last_bgm_clip.playback_region.loop_start_seconds,
+		0.25,
+		0.001,
+		"后端执行只能接收规范化后的 clip 快照。"
+	)
+	var backend_option_value: Variant = GFVariantData.get_option_value(
+		backend.last_bgm_options,
+		"playback_region"
+	)
+	var backend_option_region: GFAudioPlaybackRegion = null
+	if backend_option_value is GFAudioPlaybackRegion:
+		backend_option_region = backend_option_value
+	assert_not_null(backend_option_region)
+	assert_almost_eq(
+		backend_option_region.loop_start_seconds,
+		0.25,
+		0.001,
+		"后端执行上下文必须与规范化 clip 使用同一区间语义。"
+	)
+	assert_almost_eq(region.loop_start_seconds, -1.0, 0.001, "调用方资源不得被规范化过程修改。")
+	assert_almost_eq(GFVariantData.get_option_float(current_region, "start_seconds"), 0.25, 0.001)
+	assert_eq(
+		GFVariantData.get_option_int(current_region, "loop_mode"),
+		GFAudioPlaybackRegion.LoopMode.FORWARD,
+		"后端 APPLIED 结果的有效区间字段不能覆盖已验证的请求快照。"
+	)
+	assert_eq(GFVariantData.get_option_string_name(snapshot, "bgm_owner"), &"backend")
+	assert_true(
+		GFVariantData.get_option_bool(capabilities, "playback_region_contract"),
+		"调试快照应公开后端实现了区间协商协议。"
+	)
+
+
+func test_backend_clip_callbacks_cannot_mutate_authoritative_region_or_local_fallback() -> void:
+	var backend: MockAudioBackend = MockAudioBackend.new()
+	backend.handle_bgm_clips = true
+	backend.capabilities.supports_playback_region_contract = true
+	backend.playback_region_evaluation_status = GFAudioPlaybackRegionResult.Status.APPLIED
+	backend.mutate_can_handle_clip_request = true
+	backend.mutate_play_bgm_clip_request = true
+	backend.accept_bgm_clip_playback = false
+	assert_true(_audio.set_audio_backend(backend), "测试后端应成功绑定。")
+	var region: GFAudioPlaybackRegion = GFAudioPlaybackRegion.new()
+	region.start_seconds = 0.1
+	region.loop_mode = GFAudioPlaybackRegion.LoopMode.FORWARD
+	var clip: GFAudioClip = _make_test_bgm_clip("mutating-backend-clip", region)
+	var source_stream: AudioStreamWAV = clip.stream
+
+	_audio.play_bgm_clip(clip)
+	var snapshot: Dictionary = _audio.get_debug_snapshot()
+	var current_region: Dictionary = GFVariantData.get_option_dictionary(
+		snapshot,
+		"current_bgm_region"
+	)
+	var local_stream: AudioStreamWAV = _audio._bgm_player.stream
+
+	assert_eq(backend.playback_region_evaluation_count, 1, "probe 改写副本不得绕过逐请求协商。")
+	assert_eq(backend.played_bgm_clip_count, 1, "APPLIED 后应尝试一次独立的执行副本。")
+	assert_eq(GFVariantData.get_option_string_name(snapshot, "bgm_owner"), &"local")
+	assert_not_same(local_stream, source_stream, "后端执行拒绝后，本地回退仍应使用权威请求的私有流。")
+	assert_eq(local_stream.loop_mode, AudioStreamWAV.LOOP_FORWARD)
+	assert_almost_eq(
+		GFVariantData.get_option_float(current_region, "loop_start_seconds"),
+		0.1,
+		0.001
+	)
+	assert_same(clip.stream, source_stream, "后端不得通过探测或执行参数反向修改调用方 clip。")
+	assert_not_null(clip.playback_region)
+
+
+func test_backend_clip_callbacks_cannot_mutate_nested_stream_or_spatial_settings() -> void:
+	var backend: MockAudioBackend = MockAudioBackend.new()
+	backend.handle_bgm_clips = true
+	backend.capabilities.supports_playback_region_contract = true
+	backend.playback_region_evaluation_status = GFAudioPlaybackRegionResult.Status.APPLIED
+	backend.mutate_can_handle_clip_nested_resources = true
+	backend.mutate_evaluate_clip_nested_resources = true
+	backend.accept_bgm_clip_playback = false
+	assert_true(_audio.set_audio_backend(backend), "测试后端应成功绑定。")
+	var region: GFAudioPlaybackRegion = GFAudioPlaybackRegion.new()
+	region.start_seconds = 0.1
+	region.loop_mode = GFAudioPlaybackRegion.LoopMode.FORWARD
+	var clip: GFAudioClip = _make_test_bgm_clip("nested-mutation-isolation", region)
+	var source_stream: AudioStreamWAV = clip.stream
+	var source_spatial_settings: GFAudioSpatialSettings = GFAudioSpatialSettings.new()
+	source_spatial_settings.max_distance_2d = 640.0
+	clip.spatial_settings = source_spatial_settings
+	var source_metadata_resource: GFAudioSpatialSettings = GFAudioSpatialSettings.new()
+	source_metadata_resource.max_distance_2d = 960.0
+	clip.metadata["nested"] = {
+		"resources": [source_metadata_resource],
+	}
+
+	_audio.play_bgm_clip(clip)
+	var local_stream: AudioStreamWAV = _audio._bgm_player.stream
+	var backend_stream: AudioStreamWAV = backend.last_bgm_clip.stream
+	var backend_spatial_settings_value: Resource = backend.last_bgm_clip.spatial_settings
+	if not backend_spatial_settings_value is GFAudioSpatialSettings:
+		fail_test("后端 BGM 空间设置快照必须保持 GFAudioSpatialSettings 类型。")
+		return
+	var backend_spatial_settings: GFAudioSpatialSettings = backend_spatial_settings_value
+	var backend_metadata_resource: GFAudioSpatialSettings = (
+		backend._get_nested_settings_resource(backend.last_bgm_clip.metadata)
+	)
+
+	assert_eq(source_stream.mix_rate, 1_000, "probe 不得修改调用方持有的 AudioStream。")
+	assert_eq(source_stream.loop_mode, AudioStreamWAV.LOOP_DISABLED)
+	assert_almost_eq(source_spatial_settings.max_distance_2d, 640.0, 0.001)
+	assert_almost_eq(
+		source_metadata_resource.max_distance_2d,
+		960.0,
+		0.001,
+		"probe 与评估回调不得修改 clip metadata 内嵌 Resource。"
+	)
+	assert_eq(backend_stream.mix_rate, 1_000, "执行回调必须收到独立于 probe 的流快照。")
+	assert_eq(backend_stream.loop_mode, AudioStreamWAV.LOOP_DISABLED)
+	assert_almost_eq(
+		backend_spatial_settings.max_distance_2d,
+		640.0,
+		0.001,
+		"执行回调必须收到独立于 probe 的空间设置快照。"
+	)
+	assert_almost_eq(
+		backend_metadata_resource.max_distance_2d,
+		960.0,
+		0.001,
+		"执行回调必须收到独立于 probe 的 metadata Resource 快照。"
+	)
+	assert_eq(local_stream.mix_rate, 1_000, "本地回退不得继承 backend probe 的嵌套资源修改。")
+	assert_eq(local_stream.loop_mode, AudioStreamWAV.LOOP_FORWARD)
+
+	backend.mutate_can_handle_clip_nested_resources = false
+	backend.mutate_evaluate_clip_nested_resources = false
+	backend.mutate_play_bgm_clip_nested_resources = true
+	_audio.play_bgm_clip(clip)
+	var second_local_stream: AudioStreamWAV = _audio._bgm_player.stream
+	var mutated_backend_stream: AudioStreamWAV = backend.last_bgm_clip.stream
+	var mutated_backend_spatial_settings_value: Resource = backend.last_bgm_clip.spatial_settings
+	if not mutated_backend_spatial_settings_value is GFAudioSpatialSettings:
+		fail_test("后端执行快照必须保持 GFAudioSpatialSettings 类型。")
+		return
+	var mutated_backend_spatial_settings: GFAudioSpatialSettings = (
+		mutated_backend_spatial_settings_value
+	)
+	var mutated_backend_metadata_resource: GFAudioSpatialSettings = (
+		backend._get_nested_settings_resource(backend.last_bgm_clip.metadata)
+	)
+
+	assert_eq(source_stream.mix_rate, 1_000, "执行回调不得修改调用方持有的 AudioStream。")
+	assert_eq(source_stream.loop_mode, AudioStreamWAV.LOOP_DISABLED)
+	assert_almost_eq(source_spatial_settings.max_distance_2d, 640.0, 0.001)
+	assert_almost_eq(
+		source_metadata_resource.max_distance_2d,
+		960.0,
+		0.001,
+		"执行回调不得修改 clip metadata 内嵌 Resource。"
+	)
+	assert_eq(mutated_backend_stream.mix_rate, 1, "执行回调应只能修改自己的流快照。")
+	assert_eq(mutated_backend_stream.loop_mode, AudioStreamWAV.LOOP_BACKWARD)
+	assert_almost_eq(
+		mutated_backend_spatial_settings.max_distance_2d,
+		1.0,
+		0.001,
+		"执行回调应只能修改自己的空间设置快照。"
+	)
+	assert_almost_eq(
+		mutated_backend_metadata_resource.max_distance_2d,
+		1.0,
+		0.001,
+		"执行回调应只能修改自己的 metadata Resource 快照。"
+	)
+	assert_eq(second_local_stream.mix_rate, 1_000, "本地回退不得继承 backend 执行回调的修改。")
+	assert_eq(second_local_stream.loop_mode, AudioStreamWAV.LOOP_FORWARD)
+
+
+func test_backend_event_callbacks_cannot_mutate_authoritative_region_or_local_fallback() -> void:
+	var backend: MockAudioBackend = MockAudioBackend.new()
+	backend.capabilities.supports_playback_region_contract = true
+	backend.playback_region_evaluation_status = GFAudioPlaybackRegionResult.Status.APPLIED
+	backend.mutate_can_handle_event_request = true
+	backend.mutate_post_event_request = true
+	backend.handle_posted_events = false
+	assert_true(_audio.set_audio_backend(backend), "测试后端应成功绑定。")
+	var region: GFAudioPlaybackRegion = GFAudioPlaybackRegion.new()
+	region.start_seconds = 0.1
+	region.loop_mode = GFAudioPlaybackRegion.LoopMode.FORWARD
+	var clip: GFAudioClip = _make_test_bgm_clip("mutating-backend-event", region)
+	var event: GFAudioEvent = GFAudioEvent.new()
+	event.event_id = &"mutating_event"
+	event.channel = &"sfx"
+	event.clip = clip
+
+	var handle: GFAudioEmitterHandle = _audio.post_audio_event(event)
+	var player_node: Node = handle.get_player() if handle != null else null
+	var player: AudioStreamPlayer = null
+	if player_node is AudioStreamPlayer:
+		player = player_node
+
+	assert_eq(backend.playback_region_evaluation_count, 1, "event probe 改写副本不得绕过区间协商。")
+	assert_eq(backend.posted_events, PackedStringArray(["mutating_event"]))
+	assert_not_null(handle, "后端返回未处理时应使用未被污染的权威 event 本地回退。")
+	assert_not_null(player)
+	var local_stream: AudioStreamWAV = player.stream
+	assert_eq(local_stream.loop_mode, AudioStreamWAV.LOOP_FORWARD)
+	assert_eq(event.channel, &"sfx")
+	assert_same(event.clip, clip)
+	assert_not_null(event.clip.playback_region)
+
+
+func test_backend_event_callbacks_receive_isolated_nested_resource_options() -> void:
+	var backend: MockAudioBackend = MockAudioBackend.new()
+	backend.mutate_can_handle_event_nested_resources = true
+	backend.mutate_post_event_nested_resources = true
+	backend.handle_posted_events = false
+	assert_true(_audio.set_audio_backend(backend), "测试后端应成功绑定。")
+	var event_resource: GFAudioSpatialSettings = GFAudioSpatialSettings.new()
+	event_resource.max_distance_2d = 640.0
+	var option_resource: GFAudioSpatialSettings = GFAudioSpatialSettings.new()
+	option_resource.max_distance_2d = 720.0
+	var clip: GFAudioClip = GFAudioClip.new()
+	clip.stream = AudioStreamGenerator.new()
+	var event: GFAudioEvent = GFAudioEvent.new()
+	event.event_id = &"nested_resource_options"
+	event.channel = &"sfx"
+	event.clip = clip
+	event.metadata["nested"] = {
+		"resources": [event_resource],
+	}
+
+	var handle: GFAudioEmitterHandle = _audio.post_audio_event(event, {
+		"nested": {
+			"resources": [option_resource],
+		},
+	})
+
+	assert_not_null(handle, "后端未接管时应继续使用未污染的权威事件做本地回退。")
+	assert_almost_eq(event_resource.max_distance_2d, 640.0, 0.001)
+	assert_almost_eq(option_resource.max_distance_2d, 720.0, 0.001)
+	assert_almost_eq(
+		backend.can_handle_event_resource_before,
+		640.0,
+		0.001,
+		"probe event 应看到隔离前的权威 metadata 值。"
+	)
+	assert_almost_eq(
+		backend.can_handle_event_option_resource_before,
+		720.0,
+		0.001,
+		"probe options 应看到隔离前的调用方值。"
+	)
+	assert_almost_eq(
+		backend.post_event_resource_before,
+		640.0,
+		0.001,
+		"执行 event 快照不得继承 probe 对 Resource 的改写。"
+	)
+	assert_almost_eq(
+		backend.post_event_option_resource_before,
+		720.0,
+		0.001,
+		"执行 options 快照不得继承 probe 对 Resource 的改写。"
+	)
+
+
+func test_backend_event_option_cycles_and_depth_fail_closed_before_callback() -> void:
+	var backend: MockAudioBackend = MockAudioBackend.new()
+	assert_true(_audio.set_audio_backend(backend), "测试后端应成功绑定。")
+	var clip: GFAudioClip = GFAudioClip.new()
+	clip.stream = AudioStreamGenerator.new()
+	var event: GFAudioEvent = GFAudioEvent.new()
+	event.event_id = &"unsafe_option_graph"
+	event.channel = &"sfx"
+	event.clip = clip
+	var cyclic_options: Dictionary = {}
+	cyclic_options["self"] = cyclic_options
+
+	var cyclic_handle: GFAudioEmitterHandle = _audio.post_audio_event(
+		event,
+		{"nested": cyclic_options}
+	)
+	var deep_options: Dictionary = {}
+	var deep_cursor: Dictionary = deep_options
+	for index: int in range(32):
+		var child: Dictionary = {
+			"index": index,
+		}
+		deep_cursor["child"] = child
+		deep_cursor = child
+	var deep_handle: GFAudioEmitterHandle = _audio.post_audio_event(
+		event,
+		{"nested": deep_options}
+	)
+	var oversized_items: Array = []
+	for index: int in range(1100):
+		oversized_items.append(index)
+	var oversized_handle: GFAudioEmitterHandle = _audio.post_audio_event(
+		event,
+		{"nested": oversized_items}
+	)
+
+	assert_null(cyclic_handle)
+	assert_null(deep_handle)
+	assert_null(oversized_handle)
+	assert_eq(backend.can_handle_event_count, 0, "不安全 options 图必须在首次后端回调前失败关闭。")
+	assert_true(backend.posted_events.is_empty())
+	assert_eq(_audio._active_sfx_players.size(), 0, "失败关闭不得偷偷进入本地播放回退。")
+
+
+func test_backend_snapshot_cycles_and_depth_fail_closed_without_replacing_bgm() -> void:
+	var backend: MockAudioBackend = MockAudioBackend.new()
+	backend.handle_bgm_clips = true
+	assert_true(_audio.set_audio_backend(backend), "测试后端应成功绑定。")
+	var active_stream: AudioStreamGenerator = AudioStreamGenerator.new()
+	var active_clip: GFAudioClip = GFAudioClip.new()
+	active_clip.path = "active-before-snapshot-rejection"
+	active_clip.stream = active_stream
+	backend.handle_bgm_clips = false
+	_audio.play_bgm_clip(active_clip)
+	backend.handle_bgm_clips = true
+
+	var cyclic_clip: GFAudioClip = GFAudioClip.new()
+	cyclic_clip.path = "cyclic-snapshot"
+	cyclic_clip.stream = AudioStreamGenerator.new()
+	var cyclic_metadata: Dictionary = {}
+	cyclic_metadata["self"] = cyclic_metadata
+	cyclic_clip.metadata = cyclic_metadata
+	_audio.play_bgm_clip(cyclic_clip)
+
+	var deep_clip: GFAudioClip = GFAudioClip.new()
+	deep_clip.path = "deep-snapshot"
+	deep_clip.stream = AudioStreamGenerator.new()
+	var deep_root: Dictionary = {}
+	var deep_cursor: Dictionary = deep_root
+	for index: int in range(32):
+		var child: Dictionary = {
+			"index": index,
+		}
+		deep_cursor["child"] = child
+		deep_cursor = child
+	deep_clip.metadata = deep_root
+	_audio.play_bgm_clip(deep_clip)
+	var snapshot: Dictionary = _audio.get_debug_snapshot()
+
+	assert_eq(backend.played_bgm_clip_count, 0, "循环或过深快照不得进入任何后端回调。")
+	assert_same(_audio._bgm_player.stream, active_stream, "快照拒绝不得替换当前本地 BGM。")
+	assert_true(_audio._bgm_player.playing)
+	assert_eq(_audio.get_current_bgm_key(), "active-before-snapshot-rejection")
+	assert_eq(GFVariantData.get_option_string_name(snapshot, "bgm_owner"), &"local")
+	assert_eq(GFVariantData.get_option_string_name(snapshot, "bgm_state"), &"playing")
+
+
+func test_backend_without_region_contract_falls_back_to_private_local_stream() -> void:
+	var backend: MockAudioBackend = MockAudioBackend.new()
+	backend.handle_bgm_clips = true
+	assert_true(_audio.set_audio_backend(backend), "测试后端应成功绑定。")
+	var region: GFAudioPlaybackRegion = GFAudioPlaybackRegion.new()
+	region.start_seconds = 0.1
+	var clip: GFAudioClip = _make_test_bgm_clip("local-region-fallback", region)
+	var source_stream: AudioStream = clip.stream
+
+	_audio.play_bgm_clip(clip)
+	var snapshot: Dictionary = _audio.get_debug_snapshot()
+	var current_region: Dictionary = GFVariantData.get_option_dictionary(
+		snapshot,
+		"current_bgm_region"
+	)
+
+	assert_eq(backend.playback_region_evaluation_count, 0, "缺少协议能力时不得调用逐请求评估。")
+	assert_eq(backend.played_bgm_clip_count, 0, "未声明区间协议的后端不得接管非 no-op 请求。")
+	assert_eq(GFVariantData.get_option_string_name(snapshot, "bgm_owner"), &"local")
+	assert_not_same(_audio._bgm_player.stream, source_stream, "本地回退必须播放私有流副本。")
+	assert_almost_eq(GFVariantData.get_option_float(current_region, "start_seconds"), 0.1, 0.001)
+
+
+func test_backend_region_evaluation_requires_explicit_applied_status() -> void:
+	var backend: MockAudioBackend = MockAudioBackend.new()
+	backend.handle_bgm_clips = true
+	backend.capabilities.supports_playback_region_contract = true
+	backend.playback_region_evaluation_status = GFAudioPlaybackRegionResult.Status.NONE
+	assert_true(_audio.set_audio_backend(backend), "测试后端应成功绑定。")
+	var region: GFAudioPlaybackRegion = GFAudioPlaybackRegion.new()
+	region.start_seconds = 0.1
+	var clip: GFAudioClip = _make_test_bgm_clip("backend-none-fallback", region)
+
+	_audio.play_bgm_clip(clip)
+	var snapshot: Dictionary = _audio.get_debug_snapshot()
+
+	assert_eq(backend.playback_region_evaluation_count, 1)
+	assert_eq(backend.played_bgm_clip_count, 0, "NONE 不能被误认为后端已接受区间。")
+	assert_eq(
+		GFVariantData.get_option_string_name(snapshot, "bgm_owner"),
+		&"local",
+		"未显式 APPLIED 时应继续尝试精确的本地实现。"
+	)
+
+	_audio.stop_bgm()
+	backend.playback_region_evaluation_status = GFAudioPlaybackRegionResult.Status.VALID
+	_audio.play_bgm_clip(clip)
+	snapshot = _audio.get_debug_snapshot()
+	assert_eq(backend.playback_region_evaluation_count, 2)
+	assert_eq(backend.played_bgm_clip_count, 0, "VALID 只表示结构有效，不能被后端当作已应用。")
+	assert_eq(GFVariantData.get_option_string_name(snapshot, "bgm_owner"), &"local")
+
+
+func test_backend_invalid_region_evaluation_rejects_before_any_playback() -> void:
+	var backend: MockAudioBackend = MockAudioBackend.new()
+	backend.handle_bgm_clips = true
+	backend.capabilities.supports_playback_region_contract = true
+	backend.playback_region_evaluation_status = GFAudioPlaybackRegionResult.Status.INVALID
+	assert_true(_audio.set_audio_backend(backend), "测试后端应成功绑定。")
+	watch_signals(_audio)
+	var region: GFAudioPlaybackRegion = GFAudioPlaybackRegion.new()
+	region.start_seconds = 0.25
+	var clip: GFAudioClip = GFAudioClip.new()
+	clip.stream = AudioStreamGenerator.new()
+	clip.playback_region = region
+
+	_audio.play_bgm_clip(clip)
+	var rejection: Dictionary = _audio.get_last_playback_region_rejection()
+
+	assert_eq(backend.playback_region_evaluation_count, 1)
+	assert_eq(backend.played_bgm_clip_count, 0, "INVALID 评估不得进入后端播放。")
+	assert_null(_audio._bgm_player.stream, "INVALID 评估不得继续本地回退。")
+	assert_eq(
+		GFVariantData.get_option_string_name(rejection, "status"),
+		&"invalid"
+	)
+	assert_eq(
+		GFVariantData.get_option_string_name(rejection, "reason"),
+		&"backend_region_rejected"
+	)
+	assert_signal_emitted_with_parameters(
+		_audio,
+		"playback_region_rejected",
+		[&"bgm", &"backend_region_rejected"]
+	)
+
+
+func test_backend_region_rejection_preserves_active_bgm_and_ambient_sessions() -> void:
+	var backend: MockAudioBackend = MockAudioBackend.new()
+	assert_true(_audio.set_audio_backend(backend), "测试后端应成功绑定。")
+	var active_bgm_stream: AudioStreamGenerator = AudioStreamGenerator.new()
+	var active_bgm_clip: GFAudioClip = GFAudioClip.new()
+	active_bgm_clip.path = "active-bgm"
+	active_bgm_clip.stream = active_bgm_stream
+	var active_ambient_stream: AudioStreamGenerator = AudioStreamGenerator.new()
+	var active_ambient_clip: GFAudioClip = GFAudioClip.new()
+	active_ambient_clip.stream = active_ambient_stream
+	_audio.play_bgm_clip(active_bgm_clip)
+	_audio.play_ambient_clip(active_ambient_clip, &"weather")
+	var ambient_before: Dictionary = _audio._get_ambient_session(&"weather")
+	var ambient_generation_before: int = GFVariantData.get_option_int(
+		ambient_before,
+		"generation"
+	)
+
+	backend.handle_bgm_clips = true
+	backend.handle_ambient_clips = true
+	backend.capabilities.supports_playback_region_contract = true
+	backend.playback_region_evaluation_status = GFAudioPlaybackRegionResult.Status.INVALID
+	var rejected_region: GFAudioPlaybackRegion = GFAudioPlaybackRegion.new()
+	rejected_region.start_seconds = 0.25
+	var rejected_clip: GFAudioClip = GFAudioClip.new()
+	rejected_clip.stream = AudioStreamGenerator.new()
+	rejected_clip.playback_region = rejected_region
+	_audio.play_bgm_clip(rejected_clip)
+	_audio.play_ambient_clip(rejected_clip, &"weather")
+	var snapshot: Dictionary = _audio.get_debug_snapshot()
+	var ambient_sessions: Dictionary = GFVariantData.get_option_dictionary(
+		snapshot,
+		"ambient_sessions"
+	)
+	var weather: Dictionary = GFVariantData.get_option_dictionary(
+		ambient_sessions,
+		"weather"
+	)
+
+	assert_same(_audio._bgm_player.stream, active_bgm_stream)
+	assert_true(_audio._bgm_player.playing)
+	assert_eq(_audio.get_current_bgm_key(), "active-bgm")
+	assert_eq(GFVariantData.get_option_string_name(snapshot, "bgm_owner"), &"local")
+	assert_eq(GFVariantData.get_option_string_name(snapshot, "bgm_state"), &"playing")
+	assert_same(_audio._get_ambient_player(&"weather").stream, active_ambient_stream)
+	assert_eq(
+		GFVariantData.get_option_int(weather, "generation"),
+		ambient_generation_before,
+		"后端逐请求拒绝不得开始环境音 replacement transaction。"
+	)
+	assert_eq(GFVariantData.get_option_string_name(weather, "owner"), &"local")
+	assert_eq(GFVariantData.get_option_string_name(weather, "state"), &"playing")
+	assert_eq(backend.playback_region_evaluation_count, 2)
+	assert_eq(backend.played_bgm_clip_count, 0)
+	assert_eq(backend.played_ambient_clip_count, 0)
+
+
+func test_custom_event_region_rejection_bounds_diagnostic_channel_but_preserves_signal() -> void:
+	watch_signals(_audio)
+	var region: GFAudioPlaybackRegion = GFAudioPlaybackRegion.new()
+	region.start_seconds = NAN
+	var clip: GFAudioClip = GFAudioClip.new()
+	clip.stream = AudioStreamGenerator.new()
+	clip.playback_region = region
+	var event: GFAudioEvent = GFAudioEvent.new()
+	event.event_id = &"custom_invalid_region"
+	event.channel = StringName("project-channel\nprivate")
+	event.clip = clip
+
+	var handle: GFAudioEmitterHandle = _audio.post_audio_event(event)
+	var rejection: Dictionary = _audio.get_last_playback_region_rejection()
+
+	assert_null(handle)
+	assert_eq(
+		GFVariantData.get_option_string_name(rejection, "channel"),
+		&"custom",
+		"稳定诊断不得复制项目自定义通道值。"
+	)
+	assert_signal_emitted_with_parameters(
+		_audio,
+		"playback_region_rejected",
+		[event.channel, &"non_finite_start"]
+	)
+
+
+func test_custom_event_local_prepare_rejection_preserves_original_channel() -> void:
+	watch_signals(_audio)
+	var region: GFAudioPlaybackRegion = GFAudioPlaybackRegion.new()
+	region.start_seconds = 0.1
+	var clip: GFAudioClip = GFAudioClip.new()
+	clip.stream = AudioStreamGenerator.new()
+	clip.playback_region = region
+	var event: GFAudioEvent = GFAudioEvent.new()
+	event.event_id = &"custom_unsupported_region"
+	event.channel = &"project_audio_preview"
+	event.clip = clip
+
+	var handle: GFAudioEmitterHandle = _audio.post_audio_event(event)
+	var rejection: Dictionary = _audio.get_last_playback_region_rejection()
+
+	assert_not_null(handle)
+	assert_true(handle.is_terminal(), "同步 prepare 拒绝后返回的控制句柄必须已经终结。")
+	assert_eq(
+		GFVariantData.get_option_string_name(rejection, "channel"),
+		&"custom",
+		"持久诊断应收敛项目自定义通道。"
+	)
+	assert_signal_emitted_with_parameters(
+		_audio,
+		"playback_region_rejected",
+		[event.channel, &"stream_type_unsupported"]
+	)
+
+
+func test_bgm_region_rejection_signal_cannot_clobber_reentrant_replacement() -> void:
+	var backend: MockAudioBackend = MockAudioBackend.new()
+	backend.handle_bgm_clips = true
+	backend.capabilities.supports_playback_region_contract = true
+	backend.playback_region_evaluation_status = GFAudioPlaybackRegionResult.Status.INVALID
+	assert_true(_audio.set_audio_backend(backend), "测试后端应成功绑定。")
+	var rejected_region: GFAudioPlaybackRegion = GFAudioPlaybackRegion.new()
+	rejected_region.start_seconds = 0.25
+	var rejected_clip: GFAudioClip = GFAudioClip.new()
+	rejected_clip.stream = AudioStreamGenerator.new()
+	rejected_clip.playback_region = rejected_region
+	var replacement_stream: AudioStreamGenerator = AudioStreamGenerator.new()
+	var replacement_clip: GFAudioClip = GFAudioClip.new()
+	replacement_clip.path = "replacement"
+	replacement_clip.stream = replacement_stream
+	var on_rejected: Callable = func(
+		_channel: StringName,
+		_reason: StringName
+	) -> void:
+		backend.handle_bgm_clips = false
+		_audio.play_bgm_clip(replacement_clip)
+	var _connected_1205: Error = _audio.playback_region_rejected.connect(
+		on_rejected,
+		CONNECT_ONE_SHOT
+	) as Error
+
+	_audio.play_bgm_clip(rejected_clip)
+	var snapshot: Dictionary = _audio.get_debug_snapshot()
+
+	assert_same(_audio._bgm_player.stream, replacement_stream)
+	assert_eq(_audio.get_current_bgm_key(), "replacement")
+	assert_eq(GFVariantData.get_option_string_name(snapshot, "bgm_owner"), &"local")
+	assert_eq(GFVariantData.get_option_string_name(snapshot, "bgm_state"), &"playing")
 
 
 func test_backend_null_event_result_falls_back_to_local_dispatch() -> void:
@@ -1756,6 +2835,88 @@ func test_stale_bgm_stop_fade_cannot_stop_replacement_session() -> void:
 	assert_true(_audio._bgm_player.playing, "旧 stop fade 完成时不得停止新 BGM 会话。")
 
 
+func test_rejected_bgm_region_does_not_cancel_active_crossfade() -> void:
+	var first_clip: GFAudioClip = GFAudioClip.new()
+	first_clip.path = "crossfade-first"
+	first_clip.stream = AudioStreamGenerator.new()
+	var incoming_clip: GFAudioClip = GFAudioClip.new()
+	incoming_clip.path = "crossfade-incoming"
+	incoming_clip.stream = AudioStreamGenerator.new()
+	_audio.play_bgm_clip(first_clip, 0.0)
+	_audio.play_bgm_clip(incoming_clip, 0.5)
+	var incoming_session_id: int = _audio._bgm_incoming_session_id
+	var incoming_player: AudioStreamPlayer = _audio._get_bgm_session_player(
+		_audio._get_bgm_session(incoming_session_id)
+	)
+	assert_gt(incoming_session_id, 0)
+	assert_true(incoming_player.playing)
+
+	var rejected_region: GFAudioPlaybackRegion = GFAudioPlaybackRegion.new()
+	rejected_region.start_seconds = 0.1
+	var rejected_clip: GFAudioClip = GFAudioClip.new()
+	rejected_clip.path = "crossfade-rejected"
+	rejected_clip.stream = AudioStreamGenerator.new()
+	rejected_clip.playback_region = rejected_region
+	_audio.play_bgm_clip(rejected_clip, 0.0)
+	var snapshot: Dictionary = _audio.get_debug_snapshot()
+
+	assert_eq(
+		GFVariantData.get_option_string_name(snapshot, "bgm_state"),
+		&"crossfading",
+		"未通过 exact admission 的请求不得终止现有 crossfade。"
+	)
+	assert_eq(_audio._bgm_incoming_session_id, incoming_session_id)
+	assert_same(
+		_audio._get_bgm_session_player(_audio._get_bgm_session(incoming_session_id)),
+		incoming_player
+	)
+	assert_true(incoming_player.playing)
+	assert_eq(
+		_audio.get_current_bgm_key(),
+		"crossfade-incoming",
+		"拒绝请求不得把公开 key 回滚到 outgoing 会话。"
+	)
+
+
+func test_async_bgm_clip_admission_keeps_active_crossfade_until_commit() -> void:
+	var mock_asset: MockAssetUtility = MockAssetUtility.new()
+	var audio: AssetBackedAudioUtility = AssetBackedAudioUtility.new(mock_asset)
+	audio.init()
+	await get_tree().process_frame
+	var first_clip: GFAudioClip = GFAudioClip.new()
+	first_clip.path = "async-crossfade-first"
+	first_clip.stream = AudioStreamGenerator.new()
+	var incoming_clip: GFAudioClip = GFAudioClip.new()
+	incoming_clip.path = "async-crossfade-incoming"
+	incoming_clip.stream = AudioStreamGenerator.new()
+	audio.play_bgm_clip(first_clip, 0.0)
+	audio.play_bgm_clip(incoming_clip, 0.5)
+	var incoming_session_id: int = audio._bgm_incoming_session_id
+
+	var pending_region: GFAudioPlaybackRegion = GFAudioPlaybackRegion.new()
+	pending_region.start_seconds = 0.1
+	var pending_clip: GFAudioClip = GFAudioClip.new()
+	pending_clip.path = "res://audio/pending-unsupported.ogg"
+	pending_clip.playback_region = pending_region
+	audio.play_bgm_clip(pending_clip, 0.0)
+
+	assert_eq(audio._bgm_incoming_session_id, incoming_session_id)
+	assert_eq(audio._bgm_state, &"crossfading")
+	assert_true(mock_asset.pending.has(pending_clip.path))
+
+	mock_asset.finish(pending_clip.path, AudioStreamGenerator.new())
+	assert_eq(
+		audio._bgm_incoming_session_id,
+		incoming_session_id,
+		"异步加载后 exact admission 拒绝仍不得取消活动 incoming session。"
+	)
+	assert_eq(audio._bgm_state, &"crossfading")
+	assert_eq(audio.get_current_bgm_key(), "async-crossfade-incoming")
+
+	audio.dispose()
+	await get_tree().process_frame
+
+
 func test_bgm_crossfade_finished_signal_belongs_to_outgoing_session() -> void:
 	watch_signals(_audio)
 	var first_stream: AudioStreamGenerator = AudioStreamGenerator.new()
@@ -1776,11 +2937,19 @@ func test_bgm_crossfade_finished_signal_belongs_to_outgoing_session() -> void:
 
 
 func test_bgm_crossfade_does_not_commit_finished_incoming_session() -> void:
-	var first_stream: AudioStreamGenerator = AudioStreamGenerator.new()
-	var second_stream: AudioStreamGenerator = AudioStreamGenerator.new()
+	var first_region: GFAudioPlaybackRegion = GFAudioPlaybackRegion.new()
+	first_region.start_seconds = 0.1
+	first_region.loop_mode = GFAudioPlaybackRegion.LoopMode.FORWARD
+	first_region.loop_start_seconds = 0.25
+	var first_clip: GFAudioClip = _make_test_bgm_clip("first", first_region)
+	var second_region: GFAudioPlaybackRegion = GFAudioPlaybackRegion.new()
+	second_region.start_seconds = 0.4
+	second_region.loop_mode = GFAudioPlaybackRegion.LoopMode.FORWARD
+	second_region.loop_start_seconds = 0.5
+	var second_clip: GFAudioClip = _make_test_bgm_clip("second", second_region)
 
-	_audio._play_bgm_stream_with_settings(first_stream, "Master", -3.0, 1.0, 0.0, "first", true)
-	_audio._play_bgm_stream_with_settings(second_stream, "Master", -6.0, 1.0, 0.05, "second", false)
+	_audio.play_bgm_clip(first_clip, 0.0)
+	_audio.play_bgm_clip(second_clip, 0.05)
 	var outgoing_player: AudioStreamPlayer = _audio._bgm_player
 	var incoming_player: AudioStreamPlayer = _audio._bgm_fade_player
 
@@ -1792,28 +2961,31 @@ func test_bgm_crossfade_does_not_commit_finished_incoming_session() -> void:
 	assert_true(outgoing_player.playing, "incoming 失败时应恢复仍有效的 outgoing 会话。")
 	assert_eq(_audio.get_current_bgm_key(), "first", "incoming 失败后当前 key 应回到仍在播放的 outgoing 会话。")
 	var snapshot: Dictionary = _audio.get_debug_snapshot()
-	assert_true(GFVariantData.get_option_bool(snapshot, "current_bgm_loop"), "incoming 失败后 loop 应恢复为 outgoing session 的值。")
+	var current_region: Dictionary = GFVariantData.get_option_dictionary(
+		snapshot,
+		"current_bgm_region"
+	)
+	assert_almost_eq(
+		GFVariantData.get_option_float(current_region, "start_seconds"),
+		0.1,
+		0.001,
+		"incoming 失败后应恢复 outgoing session 的类型化播放起点。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(current_region, "loop_mode"),
+		GFAudioPlaybackRegion.LoopMode.FORWARD,
+		"incoming 失败后应恢复 outgoing session 的循环模式。"
+	)
 
 
-func test_stop_during_crossfade_clears_terminal_key_and_loop() -> void:
-	_audio._play_bgm_stream_with_settings(
-		AudioStreamGenerator.new(),
-		"Master",
-		-3.0,
-		1.0,
-		0.0,
-		"outgoing",
-		true
-	)
-	_audio._play_bgm_stream_with_settings(
-		AudioStreamGenerator.new(),
-		"Master",
-		-6.0,
-		1.0,
-		0.05,
-		"incoming",
-		false
-	)
+func test_stop_during_crossfade_clears_terminal_key_and_playback_region() -> void:
+	var outgoing_region: GFAudioPlaybackRegion = GFAudioPlaybackRegion.new()
+	outgoing_region.loop_mode = GFAudioPlaybackRegion.LoopMode.FORWARD
+	outgoing_region.loop_start_seconds = 0.25
+	var incoming_region: GFAudioPlaybackRegion = GFAudioPlaybackRegion.new()
+	incoming_region.start_seconds = 0.5
+	_audio.play_bgm_clip(_make_test_bgm_clip("outgoing", outgoing_region), 0.0)
+	_audio.play_bgm_clip(_make_test_bgm_clip("incoming", incoming_region), 0.05)
 
 	_audio.stop_bgm(0.05)
 	assert_eq(_audio.get_current_bgm_key(), "", "crossfade 中 stop 应立即清空当前 key。")
@@ -1823,7 +2995,10 @@ func test_stop_during_crossfade_clears_terminal_key_and_loop() -> void:
 	assert_eq(GFVariantData.get_option_string_name(snapshot, "bgm_state"), &"stopped", "淡出完成后应进入 stopped。")
 	assert_eq(GFVariantData.get_option_string_name(snapshot, "bgm_owner"), &"none", "淡出完成后不应残留 owner。")
 	assert_eq(GFVariantData.get_option_string(snapshot, "current_bgm_key"), "", "终态不得恢复 outgoing key。")
-	assert_eq(typeof(GFVariantData.get_option_value(snapshot, "current_bgm_loop")), TYPE_NIL, "终态不得恢复 outgoing loop。")
+	assert_true(
+		GFVariantData.get_option_dictionary(snapshot, "current_bgm_region").is_empty(),
+		"终态不得恢复 outgoing 播放区间。"
+	)
 
 
 func test_bgm_pause_state_preserves_original_gain_and_rejects_illegal_transitions() -> void:
@@ -2981,6 +4156,24 @@ func _resource_option(options: Dictionary, key: Variant) -> Resource:
 		var resource: Resource = value
 		return resource
 	return null
+
+
+func _make_test_bgm_clip(
+	history_key: String,
+	playback_region: GFAudioPlaybackRegion
+) -> GFAudioClip:
+	var sample_bytes: PackedByteArray = PackedByteArray()
+	var _resize_error_3237: Error = sample_bytes.resize(2_000) as Error
+	var stream: AudioStreamWAV = AudioStreamWAV.new()
+	stream.format = AudioStreamWAV.FORMAT_8_BITS
+	stream.mix_rate = 1_000
+	stream.stereo = false
+	stream.data = sample_bytes
+	var clip: GFAudioClip = GFAudioClip.new()
+	clip.path = history_key
+	clip.stream = stream
+	clip.playback_region = playback_region
+	return clip
 
 
 func _wait_for_bus_volume_target(

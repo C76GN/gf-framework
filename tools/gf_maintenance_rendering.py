@@ -228,6 +228,42 @@ def render_dependency_boundary_text(data: dict[str, Any]) -> str:
 	return "\n".join(lines)
 
 
+def render_changelog_policy_text(data: dict[str, Any]) -> str:
+	lines = [
+		(
+			f"changelog_policy: ok={data['ok']} "
+			f"version={data['framework_version']} "
+			f"mode={data['mode']} "
+			f"release_target={data.get('release_target_version', '')} "
+			f"sections={data['section_count']} "
+			f"issues={data['issue_count']}"
+		),
+	]
+	api_baseline = data.get("api_baseline", {})
+	if api_baseline:
+		summary = api_baseline.get("summary", {})
+		lines.append(
+			"- api_baseline: "
+			f"ok={api_baseline.get('ok', False)} "
+			f"base={api_baseline.get('base_tag', '')} "
+			f"breaking={summary.get('breaking_change_count', 0)} "
+			f"compatible={summary.get('compatible_change_count', 0)}"
+		)
+	if data.get("extension_count") is not None:
+		lines.append(
+			"- extensions: "
+			f"count={data.get('extension_count', 0)} "
+			f"mismatches={len(data.get('extension_mismatches', []))}"
+		)
+	for section in data["sections"]:
+		lines.append(
+			f"- section: line={section['line']} version={section['version']} heading={section['heading']}"
+		)
+	for issue in data["issues"]:
+		lines.append(f"- {issue}")
+	return "\n".join(lines)
+
+
 def render_public_docs_boundary_text(data: dict[str, Any]) -> str:
 	lines = [
 		(
@@ -1015,6 +1051,9 @@ def render_release_status_text(data: dict[str, Any]) -> str:
 			f"signature_changes={api_diff_summary.get('signature_changes', 0)} "
 			f"breaking_signatures={api_diff_summary.get('breaking_signature_changes', 0)} "
 			f"compatible_signatures={api_diff_summary.get('compatible_signature_changes', 0)} "
+			f"schema_changes={api_diff_summary.get('schema_changes', 0)} "
+			f"breaking_schemas={api_diff_summary.get('breaking_schema_changes', 0)} "
+			f"compatible_schemas={api_diff_summary.get('compatible_schema_changes', 0)} "
 			f"removed_members={api_diff_summary.get('removed_members', 0)} "
 			f"breaking_allowed={api_diff_summary.get('breaking_allowed', False)} "
 			f"compatible_allowed={api_diff_summary.get('compatible_allowed', False)}"
@@ -1079,6 +1118,9 @@ def render_api_baseline_diff_text(data: dict[str, Any]) -> str:
 			f"signature_changes={summary.get('signature_changes', 0)} "
 			f"breaking_signatures={summary.get('breaking_signature_changes', 0)} "
 			f"compatible_signatures={summary.get('compatible_signature_changes', 0)} "
+			f"schema_changes={summary.get('schema_changes', 0)} "
+			f"breaking_schemas={summary.get('breaking_schema_changes', 0)} "
+			f"compatible_schemas={summary.get('compatible_schema_changes', 0)} "
 			f"extends_changes={summary.get('extends_changes', 0)} "
 			f"breaking={summary.get('breaking_change_count', 0)} "
 			f"compatible={summary.get('compatible_change_count', 0)} "
@@ -1095,6 +1137,8 @@ def render_api_baseline_diff_text(data: dict[str, Any]) -> str:
 		"removed_members",
 		"breaking_signature_changes",
 		"compatible_signature_changes",
+		"breaking_schema_changes",
+		"compatible_schema_changes",
 		"extends_changes",
 	):
 		items = diff.get(group, [])
@@ -1117,6 +1161,14 @@ def format_api_diff_item(group: str, item: dict[str, Any]) -> str:
 		return (
 			f"{item.get('class', '')}.{item.get('name', '')}: "
 			f"{item.get('old_signature', '')} -> {item.get('new_signature', '')}"
+			f"{suffix}"
+		)
+	if group in {"schema_changes", "breaking_schema_changes", "compatible_schema_changes"}:
+		compatibility = item.get("compatibility", "")
+		suffix = f" [{compatibility}]" if compatibility else ""
+		return (
+			f"{item.get('class', '')}.{item.get('name', '')}: "
+			f"{item.get('old_schema', [])} -> {item.get('new_schema', [])}"
 			f"{suffix}"
 		)
 	if group == "extends_changes":

@@ -783,6 +783,42 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 				"any_of": [],
 				"unsatisfied_any_of": [],
 			},
+			{
+				"recipe_id": "periodic-environment-presentation",
+				"available": ["gf.standard.display"],
+				"satisfied": True,
+				"all_of": ["gf.standard.display"],
+				"missing_all_of": [],
+				"any_of": [],
+				"unsatisfied_any_of": [],
+			},
+			{
+				"recipe_id": "periodic-environment-presentation",
+				"available": ["gf.standard.base"],
+				"satisfied": False,
+				"all_of": ["gf.standard.display"],
+				"missing_all_of": ["gf.standard.display"],
+				"any_of": [],
+				"unsatisfied_any_of": [],
+			},
+			{
+				"recipe_id": "headless-health-probe",
+				"available": ["gf.extension.network"],
+				"satisfied": True,
+				"all_of": ["gf.extension.network"],
+				"missing_all_of": [],
+				"any_of": [],
+				"unsatisfied_any_of": [],
+			},
+			{
+				"recipe_id": "headless-health-probe",
+				"available": ["gf.standard.debug"],
+				"satisfied": False,
+				"all_of": ["gf.extension.network"],
+				"missing_all_of": ["gf.extension.network"],
+				"any_of": [],
+				"unsatisfied_any_of": [],
+			},
 		]
 
 		for case in cases:

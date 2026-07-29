@@ -22,6 +22,7 @@ GFAudioUtility 的可插拔音频后端协议。 默认实现不处理任何请�
 | 方法 | [`has_capability`](#member-gfaudiobackend-methods-has_capability) | `func has_capability(capability_id: StringName) -> bool:` |
 | 方法 | [`can_handle_path`](#member-gfaudiobackend-methods-can_handle_path) | `func can_handle_path(_path: String, _channel: StringName, _context: Dictionary = {}) -> bool:` |
 | 方法 | [`can_handle_clip`](#member-gfaudiobackend-methods-can_handle_clip) | `func can_handle_clip(_clip: GFAudioClip, _channel: StringName, _context: Dictionary = {}) -> bool:` |
+| 方法 | [`evaluate_playback_region`](#member-gfaudiobackend-methods-evaluate_playback_region) | `func evaluate_playback_region( _clip: GFAudioClip, _channel: StringName, _region: GFAudioPlaybackRegion, _context: Dictionary = {} ) -> GFAudioPlaybackRegionResult:` |
 | 方法 | [`play_bgm_path`](#member-gfaudiobackend-methods-play_bgm_path) | `func play_bgm_path(_path: String, _options: Dictionary = {}) -> bool:` |
 | 方法 | [`play_bgm_clip`](#member-gfaudiobackend-methods-play_bgm_clip) | `func play_bgm_clip(_clip: GFAudioClip, _options: Dictionary = {}) -> bool:` |
 | 方法 | [`stop_bgm`](#member-gfaudiobackend-methods-stop_bgm) | `func stop_bgm(_fade_seconds: float = 0.0) -> bool:` |
@@ -182,11 +183,40 @@ func can_handle_clip(_clip: GFAudioClip, _channel: StringName, _context: Diction
 
 - `_context`: 请求上下文 Dictionary；键和值由 GFAudioUtility 或具体后端约定。
 
+<a id="member-gfaudiobackend-methods-evaluate_playback_region"></a>
+
+### `evaluate_playback_region`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func evaluate_playback_region( _clip: GFAudioClip, _channel: StringName, _region: GFAudioPlaybackRegion, _context: Dictionary = {} ) -> GFAudioPlaybackRegionResult:
+```
+
+评估后端能否精确执行一次类型化播放区间请求。 该方法必须无副作用；只有返回 `GFAudioPlaybackRegionResult.Status.APPLIED` 时，`GFAudioUtility` 才会把带区间的播放请求交给后端。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `_clip` | 请求使用的会话私有片段快照。 |
+| `_channel` | 通道标识，如 bgm、sfx、ambient 或 spatial_sfx。 |
+| `_region` | 会话私有播放区间快照。 |
+| `_context` | 请求上下文。 |
+
+返回：逐请求能力评估；默认显式返回 unsupported。
+
+结构：
+
+- `_context`: 请求上下文 Dictionary；键和值由 GFAudioUtility 或具体后端约定。
+
 <a id="member-gfaudiobackend-methods-play_bgm_path"></a>
 
 ### `play_bgm_path`
 
 - API：`public`
+- 首次版本：`3.2.0`
 
 ```gdscript
 func play_bgm_path(_path: String, _options: Dictionary = {}) -> bool:
@@ -205,13 +235,14 @@ func play_bgm_path(_path: String, _options: Dictionary = {}) -> bool:
 
 结构：
 
-- `_options`: 请求选项 Dictionary；常见字段包含 volume_db、pitch_scale、fade_seconds、loop 和 metadata。
+- `_options`: 请求选项 Dictionary；常见字段包含 volume_db、pitch_scale、fade_seconds 和 metadata。
 
 <a id="member-gfaudiobackend-methods-play_bgm_clip"></a>
 
 ### `play_bgm_clip`
 
 - API：`public`
+- 首次版本：`3.2.0`
 
 ```gdscript
 func play_bgm_clip(_clip: GFAudioClip, _options: Dictionary = {}) -> bool:
@@ -230,7 +261,7 @@ func play_bgm_clip(_clip: GFAudioClip, _options: Dictionary = {}) -> bool:
 
 结构：
 
-- `_options`: 请求选项 Dictionary；常见字段包含 volume_db、pitch_scale、fade_seconds、loop 和 metadata。
+- `_options`: 请求选项 Dictionary；常见字段包含 volume_db、pitch_scale、fade_seconds、playback_region 和 metadata。
 
 <a id="member-gfaudiobackend-methods-stop_bgm"></a>
 
@@ -387,6 +418,7 @@ func play_ambient_path(_path: String, _channel: StringName = &"default", _option
 ### `play_ambient_clip`
 
 - API：`public`
+- 首次版本：`3.2.0`
 
 ```gdscript
 func play_ambient_clip(_clip: GFAudioClip, _channel: StringName = &"default", _options: Dictionary = {}) -> bool:
@@ -406,7 +438,7 @@ func play_ambient_clip(_clip: GFAudioClip, _channel: StringName = &"default", _o
 
 结构：
 
-- `_options`: 请求选项 Dictionary；常见字段包含 volume_db、pitch_scale、fade_seconds 和 metadata。
+- `_options`: 请求选项 Dictionary；常见字段包含 volume_db、pitch_scale、fade_seconds、playback_region 和 metadata。
 
 <a id="member-gfaudiobackend-methods-stop_ambient"></a>
 
@@ -499,6 +531,7 @@ func play_sfx_path(_path: String, _options: Dictionary = {}) -> GFAudioEmitterHa
 ### `play_sfx_clip`
 
 - API：`public`
+- 首次版本：`3.2.0`
 
 ```gdscript
 func play_sfx_clip(_clip: GFAudioClip, _options: Dictionary = {}) -> GFAudioEmitterHandle:
@@ -517,7 +550,7 @@ func play_sfx_clip(_clip: GFAudioClip, _options: Dictionary = {}) -> GFAudioEmit
 
 结构：
 
-- `_options`: 请求选项 Dictionary；常见字段包含 volume_db、pitch_scale、owner、channel 和 metadata。
+- `_options`: 请求选项 Dictionary；常见字段包含 volume_db、pitch_scale、owner、channel、playback_region 和 metadata。
 
 <a id="member-gfaudiobackend-methods-stop_all_sfx"></a>
 
@@ -544,6 +577,7 @@ func stop_all_sfx(_fade_seconds: float = 0.0) -> bool:
 ### `play_spatial_sfx_clip`
 
 - API：`public`
+- 首次版本：`3.2.0`
 
 ```gdscript
 func play_spatial_sfx_clip( _clip: GFAudioClip, _source: Node, _follow_source: bool = false, _options: Dictionary = {} ) -> GFAudioEmitterHandle:
@@ -564,7 +598,7 @@ func play_spatial_sfx_clip( _clip: GFAudioClip, _source: Node, _follow_source: b
 
 结构：
 
-- `_options`: 请求选项 Dictionary；常见字段包含 volume_db、pitch_scale、owner、channel、follow_source、spatial_settings 和 metadata。
+- `_options`: 请求选项 Dictionary；常见字段包含 volume_db、pitch_scale、owner、channel、follow_source、spatial_settings、playback_region 和 metadata。
 
 <a id="member-gfaudiobackend-methods-can_handle_event"></a>
 

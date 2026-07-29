@@ -63,6 +63,15 @@ extends Resource
 ## @schema spatial_settings: GFAudioSpatialSettings or compatible Resource with apply_to_2d/apply_to_3d methods.
 @export var spatial_settings: Resource = null
 
+## 可选类型化播放区间。为空时按音频流原始设置从头播放。
+## 区间会在每次播放请求开始时复制；本地播放器只接受 Godot 音频流能够原生、
+## 精确表达的起点和循环点，不用帧轮询模拟有限终点。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+@export var playback_region: GFAudioPlaybackRegion = null
+
 ## 可选音频元数据，供导入器、编辑器或项目层扩展使用。
 ## [br]
 ## @api public

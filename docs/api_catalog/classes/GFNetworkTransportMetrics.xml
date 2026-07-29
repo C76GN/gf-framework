@@ -1,9 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFNetworkTransportMetrics" path="addons/gf/extensions/network/runtime/gf_network_transport_metrics.gd" module="extensions/network" extends="RefCounted" classDigest="03b60d19175a28071ce7d42992c9ae712c7722e31c894de343e1db5373c69144">
+<class name="GFNetworkTransportMetrics" path="addons/gf/extensions/network/runtime/gf_network_transport_metrics.gd" module="extensions/network" extends="RefCounted" classDigest="e9f20557fc89ab070a83254139536c7f3544597ee79cd4fe426a5ffc664924d2">
 	<description>GFNetworkTransportMetrics: 网络传输指标快照。
 指标只在显式写入后才视为已知，避免用 0 混淆“真实为零”与“后端不支持”。
 内置指标覆盖流量、包数、连接时长、队列、延迟、抖动和丢包率；Adapter
-也可以写入命名稳定的自定义非负指标。</description>
+也可以写入命名稳定的自定义非负指标。总指标数、自定义指标数和 ID 长度
+均受绝对上限约束，任何超限的新指标都失败关闭。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">value_object</tag>
@@ -12,6 +13,30 @@
 	<signals />
 	<enums />
 	<constants>
+		<member kind="const" name="ABSOLUTE_MAX_METRIC_COUNT">
+			<signature>const ABSOLUTE_MAX_METRIC_COUNT: int = 64</signature>
+			<description>单个指标快照允许的绝对最大指标数量。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="ABSOLUTE_MAX_CUSTOM_METRIC_COUNT">
+			<signature>const ABSOLUTE_MAX_CUSTOM_METRIC_COUNT: int = 48</signature>
+			<description>单个指标快照允许的绝对最大自定义指标数量。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="ABSOLUTE_MAX_METRIC_ID_LENGTH">
+			<signature>const ABSOLUTE_MAX_METRIC_ID_LENGTH: int = 64</signature>
+			<description>指标 ID 允许的绝对最大字符数。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
 		<member kind="const" name="BYTES_SENT">
 			<signature>const BYTES_SENT: StringName = &amp;"bytes_sent"</signature>
 			<description>已发送字节数。</description>
@@ -119,7 +144,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">metric_id: 非空稳定指标 ID。</tag>
 				<tag name="param">value: 有限非负值；packet_loss_ratio 额外限制在 0 到 1。</tag>
-				<tag name="return">指标合法并已写入时返回 true。</tag>
+				<tag name="return">指标合法、未突破容量并已写入时返回 true；达到容量后仍可更新既有指标。</tag>
 				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
@@ -184,7 +209,9 @@
 		</member>
 		<member kind="method" name="apply_dict">
 			<signature>func apply_dict(data: Dictionary) -&gt; void:</signature>
-			<description>从字典应用指标快照。</description>
+			<description>从字典应用指标快照。
+只读取输入 metrics 的前 `ABSOLUTE_MAX_METRIC_COUNT` 个条目，不复制或遍历
+完整容器；无效、未知类型或超限条目失败关闭。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">data: 指标快照字典。</tag>

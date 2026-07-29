@@ -150,7 +150,7 @@ addons/gf/kernel <- addons/gf/standard <- addons/gf/extensions
 - 新增公开 API 但尚未确定下一个发行版本时，`@since` 统一写 `unreleased`；发布定版前必须替换成最终 SemVer。不要写 `x.x.x`、`未发布` 或其他占位。`release-status` 会拒绝未替换的非 SemVer `@since`。
 - 修改或新增 `addons/gf/**/*.gd` 中的 `public` / `protected` API 注释、签名或声明后，运行 `python tools\gf_maintenance.py api-since-touched --json`，确认当前 diff 触及的 API 文档块都有成员级 `@since`。该检查只约束当前改动和未跟踪新增文件，不用于一次性清算未触碰的历史迁移债务。
 - 新增公开 API 或生成 API Reference 后，运行 `python tools\gf_maintenance.py public-api-boundary --json`，确认内部规划路线名没有被固化成公开 `class_name`、Catalog 模块或生成参考入口。
-- 大规模公开 API 变更、返回类型变化、删除或移动公开类后，运行 `python tools\gf_maintenance.py api-baseline-diff --json`。该检查比较当前生成 API Catalog 与上一个 SemVer tag，列出新增类、移除类、成员新增/移除、签名变化和继承变化，并把签名变化区分为 `compatible_signature_changes` 与 `breaking_signature_changes`；只有能证明保留全部既有合法调用的参数放宽、等价类型放宽或新增尾部可选参数才能归入兼容变化，无法证明兼容时必须 fail-closed 归入破坏变化。`release-status` 会复用它，在存在破坏性 API 变化且目标版本不是 major bump 时失败。
+- 大规模公开 API 变更、返回类型变化、删除或移动公开类后，运行 `python tools\gf_maintenance.py api-baseline-diff --json`。该检查比较当前生成 API Catalog 与上一个 SemVer tag，列出新增类、移除类、成员新增/移除、签名、`@schema` 与继承变化，并分别输出 `compatible_*_changes` 与 `breaking_*_changes`；只有能证明保留全部既有合法调用的参数放宽、等价类型放宽或新增尾部可选参数，才能归入兼容签名变化。已有 free-text `@schema` 的任何文本变化，包括追加、改写、重排或删除，都无法由当前基线工具机器证明兼容，必须 fail-closed 归入 `breaking_schema_changes`；只有基线中完全没有 schema、当前首次补充 schema 时，才可归入 `compatible_schema_changes`。`release-status` 会复用它，在存在破坏性 API（包括 `breaking_schema_changes`）且目标版本不是 major bump 时失败。
 - 历史文件未完成规范文档注释迁移时，使用普通注释 `# @api_surface_migration partial` 标记；严格规则全部满足后必须移除该标记。
 - 私有实现细节不要使用 `##`；需要解释实现原因时使用普通 `#`。
 - `tests/gf_core/maintenance/test_api_docs_validation.gd` 的隐含要求：注释参数必须和函数签名双向一致。
@@ -189,7 +189,7 @@ addons/gf/kernel <- addons/gf/standard <- addons/gf/extensions
 
 版本与提交流程：
 
-- 功能开发、修复或文档补充过程中，如果需要记录发布说明，先写入 `docs/zh/changelog.md` 的 `[未发布]` 小节；如果没有 `[未发布]` 小节，就在最新正式版本上方创建。
+- 功能开发、修复或文档补充过程中，如果需要记录发布说明，先写入 `docs/zh/changelog.md` 的 `[未发布]` 小节。进入下一开发版本时，如果当前页仍是上一正式版本段，应在同一次修改中删除该正式段并创建唯一的 `[未发布]`；历史由不可变 tag 与 GitHub Release 保存，不得把旧正式段留在开发态工作树中。
 - 在用户确认本轮修改没有问题之前，不要把 `[未发布]` 改成具体版本号，也不要更新 `addons/gf/plugin.cfg`、`ASSET_LIBRARY.md` 或 `ASSET_STORE.md` 的版本号。
 - 用户确认进入发布或提交阶段后，根据实际变更确定 SemVer 版本号：兼容 bug 修复或小型加固用 patch；向后兼容的新公开 API、设置或功能通常用 minor；破坏兼容只允许在用户明确批准后按 major 处理。
 - 版本号只表达兼容性，不表达提交频率、代码量或风险；不得因为 minor/patch 数字较大、开发时间较长或内部改动很多而机械提升 major。`8.10.0` 是正常版本。风险等级独立决定验证范围：高风险并发、持久化、包事务或生命周期修复即使是 patch，也必须运行相应 full/release gate。
@@ -198,6 +198,7 @@ addons/gf/kernel <- addons/gf/standard <- addons/gf/extensions
 - GF 内置扩展 manifest 的 `version` 表示 GF 发行版本，发布时所有 `addons/gf/extensions/*/gf_extension.json` 必须同步为当前 GF 版本。内置扩展 manifest 的 `extension_version` 表示单个扩展自身版本，只有该扩展的公开 API、配置、行为或兼容性契约发生变化时才按 SemVer 递增；本轮未改变的内置扩展只同步 `version`，不递增 `extension_version`。只要扩展仍作为 GF 根发行物中的稳定 bundled API 分发，扩展自身 major 不能成为根版本绕过兼容责任的手段：其破坏性变化同样要求 GF 根 major，除非该扩展已被明确声明为独立发行或不属于稳定公开契约。
 - GF 内置可选扩展默认关闭，`enabled_by_default` 应显式为 `false`。`kernel` 与 `standard` 是基础能力，不通过内置扩展 manifest 自动启停。扩展 preset 指一组可复用的扩展 ID 组合，例如 “2D 工具”“RPG/存档”“联网”；安装向导指编辑器中的项目初始化/配置流程，用 preset 写入 `gf/extensions/enabled` 并提示相关 Installer、导出过滤和禁用引用审计。preset/向导只能改变项目设置，不能让可选扩展变成 kernel/standard 的硬依赖。
 - `docs/zh/changelog.md` 的每个正式版本只记录相对前一稳定版本的增量。开发期维护 `[未发布]`；发布时将其转成目标版本，并从工作树删除所有旧正式段。发布态当前页必须只保留目标正式版本，不得把累计历史伪装成新版本说明，也不得建立第二套 Markdown 历史归档；已发布历史以不可变 Git tag 和 GitHub Release 为唯一事实源，禁止重写已发布 tag。
+- `changelog_policy` 是 quick、full 与 release 的硬门禁：`X.Y.Z-dev.N` 只允许唯一且标题规范的 `[未发布]`，稳定 `X.Y.Z` 只允许唯一的同版本正式段；顶层标题必须严格保持“文档标题 → 日志条目结构标准 → 维护策略 → 唯一候选段”，编号结构必须与工具内的标准分类常量一致。候选段的非空 `**版本概述**：...` 必须是版本标题后的第一条可见内容，并至少包含一个按标准顺序排列、唯一且有可读正文的顶层 H3 分类。版本段、结构门禁与 Release notes 提取必须共用 `tools/gf_changelog.py` 的 Markdown 可见内容语义；合法 fenced/缩进代码和独立 HTML 注释不参与结构，原始 HTML、注释与可见内容混写、非 ASCII 标题分隔、只有实体或分隔线的正文必须失败关闭。该门禁还必须把开发身份映射到稳定 core 后执行 API baseline SemVer 校验，并要求所有内置扩展 manifest `version` 与完整框架身份一致；修改这些规则时必须同步维护 `maintenance-self-test` fixture。
 - `release-status` 会结构化解析当前页：目标版本必须是唯一、非空且日期有效的正式区块，发布时不得残留 `[未发布]` / `[Unreleased]`、旧版本、重复版本或不受支持的版本标题。任何额外正式段都必须阻断发布，防止上一版本再次滞留当前发布文档。
 - GF 版本 tag 统一使用不带 `v` 的 SemVer 格式，例如 `3.5.0`。推送这类 tag 后，`.github/workflows/release.yml` 会校验 `plugin.cfg`、内置扩展 manifest、`ASSET_LIBRARY.md`、`ASSET_STORE.md` 与 changelog 版本一致，构建文档，并用对应 changelog 段落创建 GitHub Release。
 - CI 下载固定 Godot archive 时必须同时固定并校验官方 archive 的 SHA-256；更新 `.github/actions/setup-godot/action.yml` 的版本时必须在同一改动中更新对应 digest，校验失败时不得解压或执行二进制。
@@ -206,7 +207,7 @@ addons/gf/kernel <- addons/gf/standard <- addons/gf/extensions
 - 仓库根目录 `build/` 只承载生成产物，并由已跟踪的 `build/.gdignore` 隔离出 Godot 资源图；任何清理或发布脚本都不得删除这个边界标记。保存 `gf_maintenance.py` 的机器可读结果时使用全局参数 `--json-output build/<name>.json`，它会隐含 `--json` 并以无 BOM 的 UTF-8 原子写入。Windows PowerShell 5.1 下不得用默认 `>` / `Out-File` 重定向生成 JSON，因为它会写成 UTF-16 并产生 `FF FE` 字节序标记；其他工具必须捕获 stdout 时，也要使用显式 UTF-8 写入并在交付前完成严格 JSON 解析。
 - 发布前使用 `python tools\build_gf_release_artifacts.py --version <version> --output-dir build/release` 一次性生成 Asset Store ZIP、AI Developer Kit 独立 ZIP、release registry、registry source、offline bundle、全部非 preset package ZIP 和 `gf-release-artifacts-<version>.json`。同一次运行中每个 package archive 与 AI Developer Kit 都只能构建一次，online registry 与 offline bundle 必须复用同一批 archive 字节；manifest 必须记录源码 revision、角色、大小和 SHA-256。随后运行 `python tools\gf_maintenance.py release-status --version <version> --artifact-manifest build/release/gf-release-artifacts-<version>.json`，不得在检查或发布阶段重新构建一套“等价”产物。`--allow-dirty` 只能用于本地诊断，不能用于正式发布或 tag 前检查。
 - Tag release workflow 必须上传该不可变 artifact set，发布 job 下载后只用 `build_gf_release_artifacts.py --validate-only` 复核 manifest 和字节，再把完全相同的文件交给 GitHub Release。除 Asset Store ZIP 外，还必须上传 `gf-ai-developer-kit-<version>.zip`、`gf-registry-<version>.json`、`gf-registry-source.json`、`gf-package-offline-bundle-<version>.zip`、release artifact manifest 和全部非 preset package ZIP；任何校验 job 都不得单独调用 `build_asset_store_package.py`、`build_gf_ai_developer_kit.py` 或 `build_gf_package.py` 重建发布文件。
-- 如果 `release-status` 的 API baseline 摘要报告 removed classes、removed members、`breaking_signature_changes` 或 extends changes，应按破坏兼容版本处理；`compatible_signature_changes` 本身不要求 major，但仍需结合新增能力与行为变化判断 minor 或 patch。不得仅凭“源码签名文本发生变化”机械升级主版本，也不得把无法证明兼容的变化降级为 compatible。真实的稳定公开契约破坏必须升 major；`release-status --allow-breaking-api` 只能用于有可复核证据的 baseline 误报或已明确排除于稳定契约的历史面，并必须在 changelog 或发布说明记录证据。该开关不得用来把真实破坏变更作为 minor/patch 发布，也不得绕过兼容新能力的 minor 下限。
+- 如果 `release-status` 的 API baseline 摘要报告 removed classes、removed members、`breaking_signature_changes`、`breaking_schema_changes` 或 extends changes，应按破坏兼容版本处理；`compatible_signature_changes` 本身不要求 major，`compatible_schema_changes` 则只允许表示“基线此前完全没有 schema、当前首次补充 schema”，两者仍需结合新增能力与行为变化判断 minor 或 patch。不得仅凭“源码签名文本发生变化”机械升级主版本，也不得把无法证明兼容的变化降级为 compatible。真实的稳定公开契约破坏必须升 major；`release-status --allow-breaking-api` 只能用于有可复核证据的 baseline 误报或已明确排除于稳定契约的历史面，并必须在 changelog 或发布说明记录证据。该开关不得用来把真实破坏变更作为 minor/patch 发布，也不得绕过兼容新能力的 minor 下限。
 - 除非用户明确要求 AI 直接提交，否则只准备 commit message 和待提交文件清单，让用户手动提交。若用户明确要求 AI 提交，提交前必须再次运行相关测试和文档/API 校验。
 - 提交后不要自动创建 Git tag；只有用户明确要求打 tag 时，才创建对应版本 tag。
 

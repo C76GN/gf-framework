@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "catalog_version": "1.7.0",
+  "catalog_version": "1.8.0",
   "recipes": [
     {
       "id": "project-feature",
@@ -192,6 +192,43 @@
         "Test overlapping effects, cancellation, missing resources or devices, budget exhaustion, scene teardown, and disabled feedback."
       ],
       "avoid": ["Unbounded warmup during interactive frames", "Haptics or shake as mandatory gameplay information", "A transition overlay committing project navigation"]
+    },
+    {
+      "id": "periodic-environment-presentation",
+      "title": "Drive periodic environment presentation",
+      "package_requirements": {"all_of": ["gf.standard.display"], "any_of": []},
+      "primary_classes": ["GFTimeProvider", "GFClock", "GFManualClock", "GFShaderParameterProfile", "GFShaderInterfaceSnapshot", "GFShaderParameterBinder"],
+      "required_api_members": [
+        {
+          "class_name": "GFTimeProvider",
+          "members": ["set_clock", "get_clock", "get_scaled_delta"]
+        },
+        {
+          "class_name": "GFManualClock",
+          "members": ["advance_usec", "advance_msec", "set_unix_time_msec"]
+        },
+        {
+          "class_name": "GFShaderParameterProfile",
+          "members": ["blend_with", "set_parameter", "validate_against"]
+        },
+        {
+          "class_name": "GFShaderParameterBinder",
+          "members": ["apply", "apply_each_process", "profile"]
+        },
+        {
+          "class_name": "GFValidationReport",
+          "members": ["is_ok", "make_summary"]
+        }
+      ],
+      "steps": [
+        "Choose one explicit clock domain: Unix time for real-world synchronization, monotonic time for elapsed ordering, or project-owned scaled state for pausable simulation.",
+        "Keep calendar, weather, astronomy, time-zone, save, and gameplay transition rules in a bounded project environment model that emits a typed presentation sample.",
+        "Map the sample into a duplicated or blended GFShaderParameterProfile without mutating the baseline resource.",
+        "Validate the stable profile and runtime parameters against GFShaderInterfaceSnapshot before binding them to presentation materials.",
+        "Apply through GFShaderParameterBinder at an explicit project-controlled cadence; do not use apply_each_process as the time sampler.",
+        "Inject GFManualClock in tests and cover wraparound, pause, large advances, wall-clock correction, missing uniforms, and scene teardown."
+      ],
+      "avoid": ["A generic day-night or weather manager with project vocabulary", "Mixing Unix, monotonic, and scaled clock semantics", "Persisting preview mutations into baseline resources", "Unbounded per-frame environment sampling"]
     },
     {
       "id": "network-backend-adapter",
@@ -436,6 +473,61 @@
         "Test disabled collection, owner disposal, timeout, reentrancy, oversized values, provider exceptions, and secret redaction."
       ],
       "avoid": ["Unbounded histories", "Precise device, account, scene, or path data collected by default", "Evaluating lazy providers in frame or polling loops"]
+    },
+    {
+      "id": "headless-health-probe",
+      "title": "Expose bounded headless service health evidence",
+      "package_requirements": {"all_of": ["gf.extension.network"], "any_of": []},
+      "primary_classes": ["GFDiagnosticsUtility", "GFDiagnosticSnapshotProvider", "GFDiagnosticProviderResult", "GFNetworkUtility", "GFNetworkBackend", "GFNetworkSession", "GFNetworkTransportMetrics"],
+      "required_api_members": [
+        {
+          "class_name": "GFDiagnosticSnapshotProvider",
+          "members": ["configure", "_collect_snapshot"]
+        },
+        {
+          "class_name": "GFDiagnosticProviderResult",
+          "members": ["succeeded", "failed"]
+        },
+        {
+          "class_name": "GFDiagnosticsUtility",
+          "members": ["register_diagnostic_provider", "collect_diagnostic_providers"]
+        },
+        {
+          "class_name": "GFNetworkUtility",
+          "members": ["backend", "session"]
+        },
+        {
+          "class_name": "GFNetworkSession",
+          "members": ["is_active", "has_connection"]
+        },
+        {
+          "class_name": "GFNetworkBackend",
+          "members": [
+            "MAX_TRANSPORT_METRICS_ENRICHMENT_MSEC",
+            "get_transport_metrics"
+          ]
+        },
+        {
+          "class_name": "GFNetworkTransportMetrics",
+          "members": [
+            "ABSOLUTE_MAX_METRIC_COUNT",
+            "ABSOLUTE_MAX_CUSTOM_METRIC_COUNT",
+            "ABSOLUTE_MAX_METRIC_ID_LENGTH",
+            "SEND_QUEUE_PACKETS",
+            "has_metric",
+            "get_metric"
+          ]
+        }
+      ],
+      "steps": [
+        "Define separate project-owned liveness and readiness policies before selecting evidence; liveness should prove the process can respond, while readiness may inspect role, dependencies, capacity, and known queue metrics.",
+        "Register an owner-bound lazy GFDiagnosticSnapshotProvider that reads only GFNetworkUtility.backend, the bounded GFNetworkSession flags, and explicitly selected values from one captured backend.get_transport_metrics() result; the backend hook must consume its GFExecutionBudget, read only bounded in-memory transport state, and never materialize the complete network debug snapshot.",
+        "Treat absent GFNetworkTransportMetrics values as unknown rather than zero or failure, and never call side-effecting capture methods from a probe.",
+        "Have a separate deployment adapter request the provider only when a probe arrives, then map the typed evidence to HTTP, orchestration, or monitoring semantics.",
+        "Enforce authentication, rate, response-size, cache, and privacy policy at the outer adapter; never expose the complete framework snapshot.",
+        "Test no backend, inactive and active sessions, unknown metrics, saturated known queues, provider failure, owner disposal, concurrent probe attempts, and redaction."
+      ],
+      "avoid": ["Polling lazy providers from frame loops", "Restarting a healthy process because no peer is connected", "Treating missing metrics as zero", "Network, disk, lock waits, or project business I/O inside _enrich_transport_metrics", "Embedding HTTP, Kubernetes, Prometheus, TLS, or authentication policy in GF", "Returning free-form metadata or full diagnostic snapshots"]
     },
     {
       "id": "session-trace",

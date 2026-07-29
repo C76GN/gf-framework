@@ -1,8 +1,8 @@
 {
   "id": "gf.network",
   "display_name": "GF Network",
-  "version": "10.0.0",
-  "extension_version": "5.0.0",
+  "version": "11.0.0-dev.0",
+  "extension_version": "6.0.0",
   "kind": "extension",
   "description": "Pluggable transports, typed lobby operations, snapshots, fixed tick helpers, and bounded authoritative synchronization.",
   "dependencies": ["gf.kernel", "gf.standard"],

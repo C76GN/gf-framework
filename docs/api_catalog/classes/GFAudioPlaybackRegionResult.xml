@@ -1,0 +1,156 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFAudioPlaybackRegionResult" path="addons/gf/standard/utilities/audio/gf_audio_playback_region_result.gd" module="standard" extends="RefCounted" classDigest="e47a32edb55cda71267676ca0087659226f4597adb7565131a8455059012eadd">
+	<description>GFAudioPlaybackRegionResult: 音频播放区间验证与流准备结果。
+以稳定状态和原因说明区间是否有效、是否被执行者精确接受，以及本地准备路径
+成功生成的 session 私有音频流。后端评估返回 APPLIED 时可以不携带本地流；
+结果不会把音频载荷写入字典快照。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">value_object</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals />
+	<enums>
+		<member kind="enum" name="Status">
+			<signature>enum Status {
+	## 尚未执行验证或准备。
+	NONE,
+	## 区间结构已验证，但尚未由执行者应用。
+	VALID,
+	## 执行者已精确接受区间；本地准备路径同时提供 session 私有音频流。
+	APPLIED,
+	## 区间字段或音频流输入无效。
+	INVALID,
+	## 区间有效，但当前音频流无法精确表达。
+	UNSUPPORTED,
+}</signature>
+			<description>区间处理状态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</enums>
+	<constants />
+	<properties>
+		<member kind="property" name="status">
+			<signature>var status: Status = Status.NONE</signature>
+			<description>区间处理状态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="reason">
+			<signature>var reason: StringName:</signature>
+			<description>稳定原因标识。
+只接受不超过 128 个字符的小写 ASCII 标识；非法输入会规范化为
+`invalid_reason`，避免后端自由文本进入信号或诊断快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="message">
+			<signature>var message: String = ""</signature>
+			<description>面向开发者的结果说明。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="prepared_stream">
+			<signature>var prepared_stream: AudioStream = null</signature>
+			<description>本地准备出的 session 私有音频流；后端评估结果不需要填写。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="start_seconds">
+			<signature>var start_seconds: float = 0.0</signature>
+			<description>实际播放起点，单位为秒。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="end_seconds">
+			<signature>var end_seconds: float = -1.0</signature>
+			<description>实际播放或循环终点，单位为秒；-1 表示自然结尾。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="loop_start_seconds">
+			<signature>var loop_start_seconds: float = -1.0</signature>
+			<description>实际循环起点，单位为秒；禁用循环时为 -1。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="loop_mode">
+			<signature>var loop_mode: int = 0</signature>
+			<description>实际循环模式，对应 GFAudioPlaybackRegion.LoopMode 枚举值。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="schema">loop_mode: GFAudioPlaybackRegion.LoopMode enum value stored as int.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</properties>
+	<methods>
+		<member kind="method" name="is_success">
+			<signature>func is_success() -&gt; bool:</signature>
+			<description>检查验证或准备是否成功。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">状态为 VALID 或 APPLIED 时返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_applied">
+			<signature>func is_applied() -&gt; bool:</signature>
+			<description>检查执行者是否已经精确接受该播放区间。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">状态为 APPLIED 时返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="to_dictionary">
+			<signature>func to_dictionary() -&gt; Dictionary:</signature>
+			<description>转换为不包含音频载荷的字典快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">区间处理结果字典。</tag>
+				<tag name="schema">return: Dictionary with status, success, applied, reason, message, has_prepared_stream, start_seconds, end_seconds, loop_start_seconds, and loop_mode fields.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="unsupported">
+			<signature>static func unsupported( reason_id: StringName, result_message: String ) -&gt; GFAudioPlaybackRegionResult:</signature>
+			<description>创建显式不支持结果。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">reason_id: 稳定原因标识。</tag>
+				<tag name="param">result_message: 面向开发者的结果说明。</tag>
+				<tag name="return">UNSUPPORTED 状态结果。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="status_to_string">
+			<signature>static func status_to_string(result_status: Status) -&gt; StringName:</signature>
+			<description>获取处理状态的稳定字符串。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">result_status: 区间处理状态。</tag>
+				<tag name="return">稳定状态字符串。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

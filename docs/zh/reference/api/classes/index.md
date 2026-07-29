@@ -7,7 +7,7 @@
 | 模块 | 类 | 成员 | 页面内索引 |
 |---|---:|---:|---|
 | Kernel | 73 | 1043 | [Kernel](#module-kernel) |
-| Standard | 438 | 6973 | [Standard](#module-standard) |
+| Standard | 440 | 7001 | [Standard](#module-standard) |
 | Action Queue | 16 | 214 | [Action Queue](#module-extensions-action_queue) |
 | Asset Metadata | 4 | 33 | [Asset Metadata](#module-extensions-asset_metadata) |
 | Behavior Tree | 22 | 89 | [Behavior Tree](#module-extensions-behavior_tree) |
@@ -21,7 +21,7 @@
 | Feedback | 8 | 138 | [Feedback](#module-extensions-feedback) |
 | Flow | 7 | 138 | [Flow](#module-extensions-flow) |
 | Interaction | 6 | 82 | [Interaction](#module-extensions-interaction) |
-| Network | 38 | 598 | [Network](#module-extensions-network) |
+| Network | 38 | 602 | [Network](#module-extensions-network) |
 | Physics | 4 | 50 | [Physics](#module-extensions-physics) |
 | Save | 41 | 468 | [Save](#module-extensions-save) |
 | Turn Based | 4 | 49 | [Turn Based](#module-extensions-turn_based) |
@@ -129,7 +129,7 @@
 | [`GFAudioCatalogProvider`](GFAudioCatalogProvider.md#gfaudiocatalogprovider) | 运行时服务 (`runtime_service`) | `RefCounted` | 9 | `addons/gf/standard/utilities/audio/gf_audio_catalog_provider.gd` |
 | [`GFAudioMetadataTools`](GFAudioMetadataTools.md#gfaudiometadatatools) | 运行时服务 (`runtime_service`) | `RefCounted` | 9 | `addons/gf/standard/utilities/audio/gf_audio_metadata_tools.gd` |
 | [`GFAudioPitchAnalysisTools`](GFAudioPitchAnalysisTools.md#gfaudiopitchanalysistools) | 运行时服务 (`runtime_service`) | `RefCounted` | 12 | `addons/gf/standard/utilities/audio/gf_audio_pitch_analysis_tools.gd` |
-| [`GFAudioUtility`](GFAudioUtility.md#gfaudioutility) | 运行时服务 (`runtime_service`) | `GFUtility` | 75 | `addons/gf/standard/utilities/audio/gf_audio_utility.gd` |
+| [`GFAudioUtility`](GFAudioUtility.md#gfaudioutility) | 运行时服务 (`runtime_service`) | `GFUtility` | 77 | `addons/gf/standard/utilities/audio/gf_audio_utility.gd` |
 | [`GFBackgroundWorkUtility`](GFBackgroundWorkUtility.md#gfbackgroundworkutility) | 运行时服务 (`runtime_service`) | `GFUtility` | 30 | `addons/gf/standard/utilities/jobs/gf_background_work_utility.gd` |
 | [`GFBatchedLogSink`](GFBatchedLogSink.md#gfbatchedlogsink) | 运行时服务 (`runtime_service`) | `GFLogSink` | 15 | `addons/gf/standard/utilities/logging/gf_batched_log_sink.gd` |
 | [`GFBridgeContractReport`](GFBridgeContractReport.md#gfbridgecontractreport) | 运行时服务 (`runtime_service`) | `RefCounted` | 26 | `addons/gf/standard/foundation/validation/gf_bridge_contract_report.gd` |
@@ -303,7 +303,7 @@
 | [`GFVoronoi2D`](GFVoronoi2D.md#gfvoronoi2d) | 运行时服务 (`runtime_service`) | `RefCounted` | 4 | `addons/gf/standard/foundation/math/gf_voronoi_2d.gd` |
 | [`GFWaveFunctionCollapse2D`](GFWaveFunctionCollapse2D.md#gfwavefunctioncollapse2d) | 运行时服务 (`runtime_service`) | `RefCounted` | 10 | `addons/gf/standard/foundation/math/gf_wave_function_collapse_2d.gd` |
 | [`GFAssetCatalogSourceProvider`](GFAssetCatalogSourceProvider.md#gfassetcatalogsourceprovider) | 协议与扩展点 (`protocol`) | `RefCounted` | 7 | `addons/gf/standard/utilities/assets/gf_asset_catalog_source_provider.gd` |
-| [`GFAudioBackend`](GFAudioBackend.md#gfaudiobackend) | 协议与扩展点 (`protocol`) | `RefCounted` | 38 | `addons/gf/standard/utilities/audio/gf_audio_backend.gd` |
+| [`GFAudioBackend`](GFAudioBackend.md#gfaudiobackend) | 协议与扩展点 (`protocol`) | `RefCounted` | 39 | `addons/gf/standard/utilities/audio/gf_audio_backend.gd` |
 | [`GFConfigProvider`](GFConfigProvider.md#gfconfigprovider) | 协议与扩展点 (`protocol`) | `GFUtility` | 10 | `addons/gf/standard/utilities/config/gf_config_provider.gd` |
 | [`GFConfigValidationRule`](GFConfigValidationRule.md#gfconfigvalidationrule) | 协议与扩展点 (`protocol`) | `Resource` | 18 | `addons/gf/standard/utilities/config/validation/gf_config_validation_rule.gd` |
 | [`GFDiagnosticSnapshotProvider`](GFDiagnosticSnapshotProvider.md#gfdiagnosticsnapshotprovider) | 协议与扩展点 (`protocol`) | `RefCounted` | 8 | `addons/gf/standard/utilities/debug/gf_diagnostic_snapshot_provider.gd` |
@@ -333,7 +333,8 @@
 | [`GFAssetCollection`](GFAssetCollection.md#gfassetcollection) | 资源定义 (`resource_definition`) | `Resource` | 16 | `addons/gf/standard/utilities/assets/gf_asset_collection.gd` |
 | [`GFAssetPreloadPlan`](GFAssetPreloadPlan.md#gfassetpreloadplan) | 资源定义 (`resource_definition`) | `Resource` | 22 | `addons/gf/standard/utilities/assets/gf_asset_preload_plan.gd` |
 | [`GFAudioBank`](GFAudioBank.md#gfaudiobank) | 资源定义 (`resource_definition`) | `Resource` | 18 | `addons/gf/standard/utilities/audio/gf_audio_bank.gd` |
-| [`GFAudioClip`](GFAudioClip.md#gfaudioclip) | 资源定义 (`resource_definition`) | `Resource` | 17 | `addons/gf/standard/utilities/audio/gf_audio_clip.gd` |
+| [`GFAudioClip`](GFAudioClip.md#gfaudioclip) | 资源定义 (`resource_definition`) | `Resource` | 18 | `addons/gf/standard/utilities/audio/gf_audio_clip.gd` |
+| [`GFAudioPlaybackRegion`](GFAudioPlaybackRegion.md#gfaudioplaybackregion) | 资源定义 (`resource_definition`) | `Resource` | 9 | `addons/gf/standard/utilities/audio/gf_audio_playback_region.gd` |
 | [`GFAudioSpatialSettings`](GFAudioSpatialSettings.md#gfaudiospatialsettings) | 资源定义 (`resource_definition`) | `Resource` | 19 | `addons/gf/standard/utilities/audio/gf_audio_spatial_settings.gd` |
 | [`GFBlackboardEntry`](GFBlackboardEntry.md#gfblackboardentry) | 资源定义 (`resource_definition`) | `Resource` | 14 | `addons/gf/standard/foundation/blackboard/gf_blackboard_entry.gd` |
 | [`GFBlackboardSchema`](GFBlackboardSchema.md#gfblackboardschema) | 资源定义 (`resource_definition`) | `Resource` | 16 | `addons/gf/standard/foundation/blackboard/gf_blackboard_schema.gd` |
@@ -491,7 +492,8 @@
 | [`GFUIRouteOperation`](GFUIRouteOperation.md#gfuirouteoperation) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 13 | `addons/gf/standard/utilities/ui/gf_ui_route_operation.gd` |
 | [`GFVirtualInputSource`](GFVirtualInputSource.md#gfvirtualinputsource) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 14 | `addons/gf/standard/input/sources/gf_virtual_input_source.gd` |
 | [`GFAssetLoadSessionResult`](GFAssetLoadSessionResult.md#gfassetloadsessionresult) | 值对象 (`value_object`) | `RefCounted` | 16 | `addons/gf/standard/utilities/assets/gf_asset_load_session_result.gd` |
-| [`GFAudioBackendCapability`](GFAudioBackendCapability.md#gfaudiobackendcapability) | 值对象 (`value_object`) | `Resource` | 14 | `addons/gf/standard/utilities/audio/gf_audio_backend_capability.gd` |
+| [`GFAudioBackendCapability`](GFAudioBackendCapability.md#gfaudiobackendcapability) | 值对象 (`value_object`) | `Resource` | 15 | `addons/gf/standard/utilities/audio/gf_audio_backend_capability.gd` |
+| [`GFAudioPlaybackRegionResult`](GFAudioPlaybackRegionResult.md#gfaudioplaybackregionresult) | 值对象 (`value_object`) | `RefCounted` | 14 | `addons/gf/standard/utilities/audio/gf_audio_playback_region_result.gd` |
 | [`GFBigNumber`](GFBigNumber.md#gfbignumber) | 值对象 (`value_object`) | `RefCounted` | 23 | `addons/gf/standard/foundation/numeric/gf_big_number.gd` |
 | [`GFBuildInfo`](GFBuildInfo.md#gfbuildinfo) | 值对象 (`value_object`) | `Resource` | 35 | `addons/gf/standard/utilities/debug/gf_build_info.gd` |
 | [`GFByteCursor`](GFByteCursor.md#gfbytecursor) | 值对象 (`value_object`) | `RefCounted` | 47 | `addons/gf/standard/foundation/binary/gf_byte_cursor.gd` |
@@ -825,7 +827,7 @@
 | [`GFNetworkLobbyService`](GFNetworkLobbyService.md#gfnetworklobbyservice) | 运行时服务 (`runtime_service`) | `GFUtility` | 33 | `addons/gf/extensions/network/session/gf_network_lobby_service.gd` |
 | [`GFNetworkSyncCoordinator`](GFNetworkSyncCoordinator.md#gfnetworksynccoordinator) | 运行时服务 (`runtime_service`) | `RefCounted` | 29 | `addons/gf/extensions/network/simulation/gf_network_sync_coordinator.gd` |
 | [`GFNetworkUtility`](GFNetworkUtility.md#gfnetworkutility) | 运行时服务 (`runtime_service`) | `GFUtility` | 32 | `addons/gf/extensions/network/runtime/gf_network_utility.gd` |
-| [`GFNetworkBackend`](GFNetworkBackend.md#gfnetworkbackend) | 协议与扩展点 (`protocol`) | `RefCounted` | 17 | `addons/gf/extensions/network/backends/gf_network_backend.gd` |
+| [`GFNetworkBackend`](GFNetworkBackend.md#gfnetworkbackend) | 协议与扩展点 (`protocol`) | `RefCounted` | 18 | `addons/gf/extensions/network/backends/gf_network_backend.gd` |
 | [`GFNetworkLobbyBackend`](GFNetworkLobbyBackend.md#gfnetworklobbybackend) | 协议与扩展点 (`protocol`) | `RefCounted` | 22 | `addons/gf/extensions/network/session/gf_network_lobby_backend.gd` |
 | [`GFNetworkMessageValidator`](GFNetworkMessageValidator.md#gfnetworkmessagevalidator) | 协议与扩展点 (`protocol`) | `RefCounted` | 23 | `addons/gf/extensions/network/messages/gf_network_message_validator.gd` |
 | [`GFNetworkSerializer`](GFNetworkSerializer.md#gfnetworkserializer) | 协议与扩展点 (`protocol`) | `RefCounted` | 9 | `addons/gf/extensions/network/serialization/gf_network_serializer.gd` |
@@ -854,7 +856,7 @@
 | [`GFNetworkMessage`](GFNetworkMessage.md#gfnetworkmessage) | 值对象 (`value_object`) | `RefCounted` | 8 | `addons/gf/extensions/network/messages/gf_network_message.gd` |
 | [`GFNetworkPeerIdentity`](GFNetworkPeerIdentity.md#gfnetworkpeeridentity) | 值对象 (`value_object`) | `Resource` | 16 | `addons/gf/extensions/network/session/gf_network_peer_identity.gd` |
 | [`GFNetworkSnapshot`](GFNetworkSnapshot.md#gfnetworksnapshot) | 值对象 (`value_object`) | `RefCounted` | 16 | `addons/gf/extensions/network/snapshot/gf_network_snapshot.gd` |
-| [`GFNetworkTransportMetrics`](GFNetworkTransportMetrics.md#gfnetworktransportmetrics) | 值对象 (`value_object`) | `RefCounted` | 22 | `addons/gf/extensions/network/runtime/gf_network_transport_metrics.gd` |
+| [`GFNetworkTransportMetrics`](GFNetworkTransportMetrics.md#gfnetworktransportmetrics) | 值对象 (`value_object`) | `RefCounted` | 25 | `addons/gf/extensions/network/runtime/gf_network_transport_metrics.gd` |
 | [`GFNetworkLobbyInvite`](GFNetworkLobbyInvite.md#gfnetworklobbyinvite) | 事件契约 (`event_contract`) | `Resource` | 11 | `addons/gf/extensions/network/session/gf_network_lobby_invite.gd` |
 | [`GFNetworkLobbyOperationRequest`](GFNetworkLobbyOperationRequest.md#gfnetworklobbyoperationrequest) | 事件契约 (`event_contract`) | `RefCounted` | 22 | `addons/gf/extensions/network/session/gf_network_lobby_operation_request.gd` |
 | [`GFNetworkContractAudit`](GFNetworkContractAudit.md#gfnetworkcontractaudit) | 编辑器 API (`editor_api`) | `RefCounted` | 2 | `addons/gf/extensions/network/editor/gf_network_contract_audit.gd` |

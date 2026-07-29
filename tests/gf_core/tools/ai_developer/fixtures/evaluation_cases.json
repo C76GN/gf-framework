@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "catalog_version": "1.7.0",
+  "catalog_version": "1.8.0",
   "catalog_api_requirements": [
     {
       "catalog": "capability",
@@ -66,6 +66,75 @@
         "get_validation_report",
         "get_artifact_report",
         "get_preflight_report"
+      ]
+    },
+    {
+      "catalog": "recipe",
+      "record_id": "periodic-environment-presentation",
+      "class_name": "GFTimeProvider",
+      "members": [
+        "set_clock",
+        "get_clock",
+        "get_scaled_delta"
+      ]
+    },
+    {
+      "catalog": "recipe",
+      "record_id": "periodic-environment-presentation",
+      "class_name": "GFManualClock",
+      "members": [
+        "advance_usec",
+        "advance_msec",
+        "set_unix_time_msec"
+      ]
+    },
+    {
+      "catalog": "recipe",
+      "record_id": "periodic-environment-presentation",
+      "class_name": "GFValidationReport",
+      "members": [
+        "is_ok",
+        "make_summary"
+      ]
+    },
+    {
+      "catalog": "recipe",
+      "record_id": "headless-health-probe",
+      "class_name": "GFDiagnosticSnapshotProvider",
+      "members": [
+        "configure",
+        "_collect_snapshot"
+      ]
+    },
+    {
+      "catalog": "recipe",
+      "record_id": "headless-health-probe",
+      "class_name": "GFDiagnosticProviderResult",
+      "members": [
+        "succeeded",
+        "failed"
+      ]
+    },
+    {
+      "catalog": "recipe",
+      "record_id": "headless-health-probe",
+      "class_name": "GFNetworkBackend",
+      "members": [
+        "MAX_TRANSPORT_METRICS_ENRICHMENT_MSEC",
+        "get_transport_metrics"
+      ]
+    },
+    {
+      "catalog": "recipe",
+      "record_id": "headless-health-probe",
+      "class_name": "GFNetworkTransportMetrics",
+      "members": [
+        "ABSOLUTE_MAX_METRIC_COUNT",
+        "ABSOLUTE_MAX_CUSTOM_METRIC_COUNT",
+        "ABSOLUTE_MAX_METRIC_ID_LENGTH",
+        "SEND_QUEUE_PACKETS",
+        "has_metric",
+        "get_metric"
       ]
     }
   ],
@@ -284,6 +353,18 @@
     {
       "query": "artifact export atlas",
       "expected_id": "assets-content"
+    },
+    {
+      "query": "typed audio playback region loop point",
+      "expected_id": "audio"
+    },
+    {
+      "query": "periodic environment shader presentation",
+      "expected_id": "render-feedback"
+    },
+    {
+      "query": "headless health liveness readiness probe",
+      "expected_id": "diagnostics"
     }
   ],
   "recipe_cases": [
@@ -338,6 +419,16 @@
     {
       "recipe_id": "spatial-policy",
       "expected_class": "GFGridPathMath2D"
+    },
+    {
+      "recipe_id": "periodic-environment-presentation",
+      "expected_class": "GFShaderParameterBinder",
+      "expected_step_fragment": "Apply through GFShaderParameterBinder at an explicit project-controlled cadence; do not use apply_each_process as the time sampler."
+    },
+    {
+      "recipe_id": "headless-health-probe",
+      "expected_class": "GFDiagnosticSnapshotProvider",
+      "expected_step_fragment": "Treat absent GFNetworkTransportMetrics values as unknown rather than zero or failure, and never call side-effecting capture methods from a probe."
     }
   ],
   "api_queries": [
