@@ -5902,30 +5902,45 @@ func _resolve_bounded_audio_bank_clip(
 	if separator.length() > _AUDIO_BANK_MAX_SEPARATOR_CHARACTERS:
 		return null
 	var current_id: String = String(clip_id)
-	for _fallback_step: int in range(_AUDIO_BANK_MAX_FALLBACK_STEPS + 1):
-		var selected_clip: GFAudioClip = _select_bounded_audio_bank_clip(
+	var selected_clip: GFAudioClip = _select_bounded_audio_bank_clip(
+		bank,
+		clip_id
+	)
+	if selected_clip != null:
+		return _snapshot_audio_clip(
+			selected_clip,
+			selected_clip.playback_region
+		)
+	if separator.is_empty():
+		return null
+
+	var fallback_components: PackedStringArray = current_id.split(
+		separator,
+		false
+	)
+	if (
+		fallback_components.size() <= 1
+		or fallback_components.size() > _AUDIO_BANK_MAX_IDENTIFIER_CHARACTERS
+	):
+		return null
+	var fallback_step_count: int = mini(
+		fallback_components.size() - 1,
+		_AUDIO_BANK_MAX_FALLBACK_STEPS
+	)
+	for _fallback_step: int in range(fallback_step_count):
+		fallback_components.remove_at(fallback_components.size() - 1)
+		var fallback_id: StringName = StringName(
+			separator.join(fallback_components)
+		)
+		selected_clip = _select_bounded_audio_bank_clip(
 			bank,
-			StringName(current_id)
+			fallback_id
 		)
 		if selected_clip != null:
 			return _snapshot_audio_clip(
 				selected_clip,
 				selected_clip.playback_region
 			)
-		if separator.is_empty():
-			break
-		var separator_index: int = current_id.rfind(separator)
-		if separator_index <= 0:
-			break
-		current_id = current_id.left(separator_index)
-		while current_id.ends_with(separator):
-			current_id = current_id.left(
-				current_id.length() - separator.length()
-			)
-			if current_id.is_empty():
-				break
-		if current_id.is_empty():
-			break
 	return null
 
 

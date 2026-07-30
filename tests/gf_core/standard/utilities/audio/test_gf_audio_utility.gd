@@ -1408,6 +1408,72 @@ func test_audio_bank_supports_variants_and_fallback() -> void:
 	assert_eq(bank.get_clip_with_fallback(&"ui+select+primary"), first, "分层 ID 缺失时应逐级回退。")
 
 
+func test_utility_audio_bank_resolution_preserves_multichar_split_fallback() -> void:
+	var clip: GFAudioClip = GFAudioClip.new()
+	clip.stream = AudioStreamGenerator.new()
+	var bank: GFAudioBank = GFAudioBank.new()
+	bank.fallback_separator = "::"
+	bank.set_clip(&"a", clip)
+
+	var bank_resolution: Dictionary = bank.resolve_clip(&"a:::missing")
+	var bank_resolution_clip: GFAudioClip = null
+	var raw_bank_resolution_clip: Variant = GFVariantData.get_option_value(
+		bank_resolution,
+		"clip"
+	)
+	if raw_bank_resolution_clip is GFAudioClip:
+		bank_resolution_clip = raw_bank_resolution_clip
+	var handle: GFAudioEmitterHandle = _audio.play_sfx_from_bank_handle(
+		bank,
+		&"a:::missing"
+	)
+
+	assert_same(
+		bank_resolution_clip,
+		clip,
+		"GFAudioBank 的既有 split fallback 应命中 a。"
+	)
+	assert_not_null(
+		handle,
+		"Utility 的有界 resolver 必须保留 GFAudioBank 的多字符 split fallback 语义。"
+	)
+	if handle != null:
+		assert_true(handle.is_valid(), "命中的 Bank clip 应建立有效播放句柄。")
+		handle.stop()
+
+
+func test_utility_audio_bank_resolution_enforces_fallback_step_boundary() -> void:
+	var clip: GFAudioClip = GFAudioClip.new()
+	clip.stream = AudioStreamGenerator.new()
+	var bank: GFAudioBank = GFAudioBank.new()
+	bank.fallback_separator = "::"
+	bank.set_clip(&"root", clip)
+
+	var within_budget_id: String = "root"
+	for index: int in range(16):
+		within_budget_id += "::level%d" % index
+	var within_budget_handle: GFAudioEmitterHandle = _audio.play_sfx_from_bank_handle(
+		bank,
+		StringName(within_budget_id)
+	)
+	assert_not_null(
+		within_budget_handle,
+		"第 16 次 fallback 仍应允许命中根 ID。"
+	)
+	if within_budget_handle != null:
+		within_budget_handle.stop()
+
+	var over_budget_id: String = within_budget_id + "::overflow"
+	var over_budget_handle: GFAudioEmitterHandle = _audio.play_sfx_from_bank_handle(
+		bank,
+		StringName(over_budget_id)
+	)
+	assert_null(
+		over_budget_handle,
+		"第 17 次 fallback 不得继续解析到根 ID。"
+	)
+
+
 func test_utility_audio_bank_resolution_is_bounded_before_clip_snapshot() -> void:
 	var clip: GFAudioClip = GFAudioClip.new()
 	clip.stream = AudioStreamGenerator.new()

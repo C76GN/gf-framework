@@ -22,3 +22,5 @@ audio.play_sfx_event(&"ui+confirm+primary", &"ui")
 ```
 
 需要编辑器校验、构建前检查或调试 fallback 时，可用 `resolve_clip()` 获取请求 ID、最终命中 ID、是否使用 fallback、尝试过的 ID 和命中的 clip。`validate_bank()` 可检查空 ID、无效候选、缺失音频源和可选资源路径存在性。
+
+多字符 `fallback_separator` 按从左到右的非重叠分隔语义解析，忽略空片段，并逐次移除最后一个片段后重新连接；`GFAudioUtility` 的运行时 Bank 入口保持同一语义，但最多执行 16 次回退。不要依赖“从最右侧字符位置直接截断”的重叠匹配结果。
