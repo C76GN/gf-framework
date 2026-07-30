@@ -587,6 +587,7 @@ func _poll_thread_tasks() -> void:
 		var result_variant: Variant = thread.wait_to_finish()
 		var _removed_active: bool = _active_thread_tasks.erase(work_id)
 		var task: GFBackgroundWorkTask = _get_thread_entry_task(entry)
+		_release_worker_callback_after_join(task)
 		_finish_thread_task(task, result_variant)
 
 
@@ -788,6 +789,7 @@ func _complete_task(task: GFBackgroundWorkTask) -> void:
 	task.status = GFBackgroundWorkTask.Status.COMPLETED
 	task.progress = 1.0
 	task.finished_msec = Time.get_ticks_msec()
+	_release_task_callbacks_at_terminal(task)
 	_finished_tasks.append(task)
 	_trim_finished_tasks()
 	work_completed.emit(task)
@@ -802,6 +804,7 @@ func _fail_task(task: GFBackgroundWorkTask, error_message: String = "", result: 
 	task.error_message = error_message
 	task.result = result
 	task.finished_msec = Time.get_ticks_msec()
+	_release_task_callbacks_at_terminal(task)
 	_finished_tasks.append(task)
 	_trim_finished_tasks()
 	work_failed.emit(task)
@@ -827,6 +830,7 @@ func _cancel_task(task: GFBackgroundWorkTask) -> void:
 	_apply_queue.erase(task)
 	task.status = GFBackgroundWorkTask.Status.CANCELLED
 	task.finished_msec = Time.get_ticks_msec()
+	_release_task_callbacks_at_terminal(task)
 	_finished_tasks.append(task)
 	_trim_finished_tasks()
 	work_cancelled.emit(task)
@@ -842,8 +846,21 @@ func _wait_for_active_thread_tasks() -> void:
 		if thread != null:
 			result_variant = thread.wait_to_finish()
 		var task: GFBackgroundWorkTask = _get_thread_entry_task(entry)
+		_release_worker_callback_after_join(task)
 		_finish_thread_task(task, result_variant)
 	_active_thread_tasks.clear()
+
+
+func _release_worker_callback_after_join(task: GFBackgroundWorkTask) -> void:
+	if task == null:
+		return
+	task.set_internal_callbacks(Callable(), task.get_apply_callback())
+
+
+func _release_task_callbacks_at_terminal(task: GFBackgroundWorkTask) -> void:
+	if task == null:
+		return
+	task.set_internal_callbacks(Callable(), Callable())
 
 
 func _trim_finished_tasks() -> void:

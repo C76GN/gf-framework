@@ -11,9 +11,13 @@ manifest.add_resource_path("res://characters/hero_material.tres", &"material", "
 manifest.add_resource_path("res://ui/battle_icons.png", &"texture", "Texture2D")
 
 var warmup := Gf.get_utility(GFRenderWarmupUtility) as GFRenderWarmupUtility
-warmup.default_entries_per_tick = 2
-warmup.queue_manifest(manifest)
+warmup.default_entries_per_tick = 4
+warmup.queue_manifest(manifest, {
+	"entries_per_tick": 2,
+})
 ```
+
+清单显式提供 `entries_per_tick` 时，该值在入队时归一化并固定，最小为 1；没有显式覆盖时，清单继续读取当前 `default_entries_per_tick`，因此可用全局默认值 `0` 暂停正常帧推进并在恢复正数后继续。正常 `tick()` 每帧只推进 FIFO 队首，最多处理该清单自己的预算；即使队首在本帧完成，也不会把剩余预算转给下一个清单。需要由工具调用方显式支配一份跨清单总预算时，使用 `process_queue(max_entries)`。
 
 ## 从场景收集
 

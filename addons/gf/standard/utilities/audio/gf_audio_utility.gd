@@ -306,8 +306,10 @@ func dispose() -> void:
 	_clear_mix_control_tweens()
 	if is_instance_valid(_bgm_player):
 		_bgm_player.queue_free()
+	_bgm_player = null
 	if is_instance_valid(_bgm_fade_player):
 		_bgm_fade_player.queue_free()
+	_bgm_fade_player = null
 	_root = null
 	_audio_banks.clear()
 	_audio_bank_base_values.clear()
@@ -6823,23 +6825,18 @@ func _stop_all_local_bgm_players() -> void:
 	_cancel_bgm_fade_tween()
 	_cancel_bgm_stop_tween()
 	_cancel_bgm_transport_tween()
-	for player: AudioStreamPlayer in [_bgm_player, _bgm_fade_player]:
-		if not is_instance_valid(player):
-			continue
-		player.stream_paused = false
-		player.stop()
-		player.stream = null
-		if player.has_meta(_BGM_SESSION_META):
-			player.remove_meta(_BGM_SESSION_META)
+	_sanitize_local_bgm_player_references()
+	_stop_local_bgm_player(_bgm_player)
+	_stop_local_bgm_player(_bgm_fade_player)
 	_bgm_sessions.clear()
 	_bgm_current_session_id = 0
 	_bgm_incoming_session_id = 0
 
 
 func _clear_bgm_session_state() -> void:
-	for player: AudioStreamPlayer in [_bgm_player, _bgm_fade_player]:
-		if is_instance_valid(player) and player.has_meta(_BGM_SESSION_META):
-			player.remove_meta(_BGM_SESSION_META)
+	_sanitize_local_bgm_player_references()
+	_clear_local_bgm_player_session_meta(_bgm_player)
+	_clear_local_bgm_player_session_meta(_bgm_fade_player)
 	_bgm_sessions.clear()
 	_bgm_current_session_id = 0
 	_bgm_incoming_session_id = 0
@@ -6848,6 +6845,27 @@ func _clear_bgm_session_state() -> void:
 	_bgm_paused = false
 	_current_bgm_key = ""
 	_current_bgm_region.clear()
+
+
+func _sanitize_local_bgm_player_references() -> void:
+	if not is_instance_valid(_bgm_player):
+		_bgm_player = null
+	if not is_instance_valid(_bgm_fade_player):
+		_bgm_fade_player = null
+
+
+func _stop_local_bgm_player(player: AudioStreamPlayer) -> void:
+	if player == null:
+		return
+	player.stream_paused = false
+	player.stop()
+	player.stream = null
+	_clear_local_bgm_player_session_meta(player)
+
+
+func _clear_local_bgm_player_session_meta(player: AudioStreamPlayer) -> void:
+	if player != null and player.has_meta(_BGM_SESSION_META):
+		player.remove_meta(_BGM_SESSION_META)
 
 
 func _start_bgm_session_stop(

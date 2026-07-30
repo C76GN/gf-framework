@@ -242,27 +242,7 @@ var report := requirement.evaluate({
 
 条件集合只读取传入的 `context`。需要更复杂的判断时可以添加谓词，但谓词应保持无副作用，让“能不能执行”和“执行时改变什么”分开。报告中的 `failed_count` / `raw_failed_count` 表示原始条件谓词返回 false 的数量，并不是最终失败原因计数；`MODE_NONE` 条件命中 true 时会让 `none_clear=false`，并进入 `none_matched_count` 与 `blocking_count`。UI、日志或工具按钮展示最终阻塞原因时，应优先读取 `blocking_count` 和每条 condition 的 `mode` / `ok`。
 
-按 key 限制并发时，gate 只发放租约，不执行任务本身：
-
-```gdscript
-var gate := GFAsyncKeyedGate.new()
-var first := gate.request_lease(&"profile-save")
-var first_lease := GFVariantData.get_option_value(first, "lease") as GFAsyncGateLease
-var second := gate.request_lease(&"profile-save")
-if GFVariantData.get_option_bool(second, "queued"):
-	print("save request queued")
-
-# 业务保存完成后释放租约；gate 会推进同 key 的下一个等待请求。
-first_lease.release(&"saved")
-```
-
-Gate 同时限制全局 active lease、等待总量、单 key 等待量和 tracked key 基数；各容量、每 key 并发与单次推进工作量都钳制到公开绝对上限。全局 active 槽位耗尽时，新请求先进入有界链式 FIFO；释放 lease 后按稳定 key slot 游标轮转，每个 slot（包括空 slot）和被处理的取消、超时请求都消耗 `max_pump_work_items`。continuation 只沿持久游标完成当前轮次，一整轮无进展即停止；当前轮有进展时保持原 request cutoff，新请求只能在旧快照完整结束后的 fresh continuation 中参与，因此持续繁忙、空 slot 或失效请求都不能形成无界同步扫描或主循环 livelock。active request limit 由增量聚合状态读取，不在 pump 热路径扫描全部 lease。
-
-`request_lease()` 不执行全队列过期扫描；调用方应在帧循环或明确边界调用 `expire_waiting_requests()` / `expire_active_leases()`。两种显式过期扫描都使用持久 slot 游标，每次最多检查 `max_pump_work_items` 个 slot，空 slot 也计入预算；批量终态先提交权威摘除，再统一执行一次有界推进。`clear()` 同样先事务式摘除调用开始时已有的等待项和 lease，但不在同步调用内夹带 key 全扫描，通知中新建的请求交给延迟有界推进。
-
-同一个 `GFCancellationToken` 在 Gate 内只建立一份 signal 订阅并维护 request-id 集合；主线程取消会先 O(N) 摘除该 token 的全部等待项，再发 completion 与 Gate signals，不为每个请求重复扫描队列或 pump。worker 回调只投递一个 token 级主线程任务：取消在该任务到达主线程时线性化，而 `_activate_request()` 在权威 lease 提交前再次读取 token 状态，明确决定 acquire 与 cancel 的先后。排队信号同步重入导致请求取消或取得租约时，入口返回已提交终态而不是旧 `queued` 快照。
-
-Gate 同时校验 lease ID 与对象身份；acquire、release、cancel 和 timeout completion/signals 共用可嵌套通知边界，权威状态和诊断事件先提交，通知中的释放延迟到最外层结束。每次释放在通知前冻结 eligible request cutoff，通知中新请求只能排队，不能越过通知前 waiter；若旧 cutoff 下没有 waiter，则由后续 fresh continuation 取得空闲槽位。终态 lease 会断开 owner callback。降低容量不会撤销既有 lease 或驱逐等待项，只会阻止继续接纳或激活，直到状态回落到新上限内。
+按稳定 key 限制并发、选择排队或 fail-fast、处理公平性和租约终态时，参见 [按 Key 的异步租约门禁](keyed-gate.md)。
 
 当一个流程需要“唯一 handler 返回结果”而不是广播事件时，使用请求注册表：
 

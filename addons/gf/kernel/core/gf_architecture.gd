@@ -1616,6 +1616,69 @@ func get_utility(script_cls: Script, require_ready: bool = false) -> Object:
 	return _get_registered_instance_with_parent_lookup("utility", script_cls, require_ready)
 
 
+## 可选查找 System 实例，未找到时不输出严格依赖缺失错误。
+## 非严格模式沿用普通查询的父级回退与 alias 遮蔽规则；严格模式只检查当前架构。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param script_cls: 脚本类。
+## [br]
+## @param require_ready: 为 true 时，仅返回已完成 ready 阶段的实例。
+## [br]
+## @return 系统实例；可选依赖不存在或尚未 ready 时返回 null。
+func find_system(script_cls: Script, require_ready: bool = false) -> Object:
+	return _get_registered_instance_with_parent_lookup(
+		"system",
+		script_cls,
+		require_ready,
+		false
+	)
+
+
+## 可选查找 Model 实例，未找到时不输出严格依赖缺失错误。
+## 非严格模式沿用普通查询的父级回退与 alias 遮蔽规则；严格模式只检查当前架构。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param script_cls: 脚本类。
+## [br]
+## @param require_ready: 为 true 时，仅返回已完成 ready 阶段的实例。
+## [br]
+## @return 模型实例；可选依赖不存在或尚未 ready 时返回 null。
+func find_model(script_cls: Script, require_ready: bool = false) -> Object:
+	return _get_registered_instance_with_parent_lookup(
+		"model",
+		script_cls,
+		require_ready,
+		false
+	)
+
+
+## 可选查找 Utility 实例，未找到时不输出严格依赖缺失错误。
+## 非严格模式沿用普通查询的父级回退与 alias 遮蔽规则；严格模式只检查当前架构。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param script_cls: 脚本类。
+## [br]
+## @param require_ready: 为 true 时，仅返回已完成 ready 阶段的实例。
+## [br]
+## @return 工具实例；可选依赖不存在或尚未 ready 时返回 null。
+func find_utility(script_cls: Script, require_ready: bool = false) -> Object:
+	return _get_registered_instance_with_parent_lookup(
+		"utility",
+		script_cls,
+		require_ready,
+		false
+	)
+
+
 ## 仅从当前架构获取 System，不回退父级架构。
 ## [br]
 ## @api public
@@ -2648,7 +2711,8 @@ func _call_module_release_dependencies(instance: Object) -> void:
 func _get_registered_instance_with_parent_lookup(
 	registry_kind: String,
 	script_cls: Script,
-	require_ready: bool
+	require_ready: bool,
+	report_strict_miss: bool = true
 ) -> Object:
 	var current: GFArchitecture = self
 	var visited: Dictionary = _create_parent_lookup_visited()
@@ -2660,7 +2724,11 @@ func _get_registered_instance_with_parent_lookup(
 		if instance != null:
 			return instance if not require_ready or current._is_module_ready_for_lookup(instance) else null
 		if current.strict_dependency_lookup:
-			current._report_strict_lookup_miss(script_cls, module_registry.label)
+			if report_strict_miss:
+				current._report_strict_lookup_miss(
+					script_cls,
+					module_registry.label
+				)
 			return null
 		if not current._should_fallback_after_local_module_miss(module_registry, script_cls):
 			return null

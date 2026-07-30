@@ -40,6 +40,76 @@ func test_cpu_work_runs_on_thread_and_applies_on_tick() -> void:
 	utility.dispose()
 
 
+func test_paused_task_retains_scoped_ref_counted_callbacks_until_terminal() -> void:
+	var utility: GFBackgroundWorkUtility = GFBackgroundWorkUtility.new()
+	utility.init()
+	utility.pause()
+
+	var submission: ScopedCallbackSubmission = _submit_scoped_callbacks(utility)
+
+	assert_eq(submission.task.status, GFBackgroundWorkTask.Status.QUEUED, "暂停期间任务应保持 queued。")
+	assert_true(_weak_ref_is_alive(submission.worker_weak_ref), "已接受任务应强持有局部 worker target。")
+	assert_true(_weak_ref_is_alive(submission.apply_weak_ref), "已接受任务应强持有局部 apply target。")
+
+	utility.resume()
+	await _pump_until_finished(utility, submission.task)
+
+	assert_eq(submission.task.status, GFBackgroundWorkTask.Status.COMPLETED, "作用域退出后 worker 仍应能完成。")
+	assert_true(_variant_is_true(submission.task.apply_result), "作用域退出后 apply callback 仍应能执行。")
+	assert_false(_weak_ref_is_alive(submission.worker_weak_ref), "线程 join 后应释放 worker target。")
+	assert_false(_weak_ref_is_alive(submission.apply_weak_ref), "任务进入终态后应释放 apply target。")
+	utility.dispose()
+
+
+func test_cancelled_task_releases_scoped_ref_counted_callbacks() -> void:
+	var utility: GFBackgroundWorkUtility = GFBackgroundWorkUtility.new()
+	utility.init()
+	utility.pause()
+	var submission: ScopedCallbackSubmission = _submit_scoped_callbacks(utility)
+
+	assert_true(_weak_ref_is_alive(submission.worker_weak_ref))
+	assert_true(_weak_ref_is_alive(submission.apply_weak_ref))
+	assert_true(utility.cancel_work(submission.task.work_id))
+
+	assert_eq(submission.task.status, GFBackgroundWorkTask.Status.CANCELLED)
+	assert_false(_weak_ref_is_alive(submission.worker_weak_ref))
+	assert_false(_weak_ref_is_alive(submission.apply_weak_ref))
+	utility.dispose()
+
+
+func test_failed_task_releases_scoped_ref_counted_callbacks() -> void:
+	var utility: GFBackgroundWorkUtility = GFBackgroundWorkUtility.new()
+	utility.init()
+	var submission: ScopedCallbackSubmission = _submit_scoped_failure(utility)
+
+	assert_true(_weak_ref_is_alive(submission.worker_weak_ref))
+	assert_true(_weak_ref_is_alive(submission.apply_weak_ref))
+	await _pump_until_finished(utility, submission.task)
+
+	assert_eq(submission.task.status, GFBackgroundWorkTask.Status.FAILED)
+	assert_false(_weak_ref_is_alive(submission.worker_weak_ref))
+	assert_false(_weak_ref_is_alive(submission.apply_weak_ref))
+	utility.dispose()
+
+
+func test_shared_ref_counted_callback_target_survives_worker_release_window() -> void:
+	var utility: GFBackgroundWorkUtility = GFBackgroundWorkUtility.new()
+	utility.init()
+	utility.pause()
+	var submission: ScopedCallbackSubmission = _submit_shared_callback_target(
+		utility
+	)
+
+	assert_true(_weak_ref_is_alive(submission.worker_weak_ref))
+	utility.resume()
+	await _pump_until_finished(utility, submission.task)
+
+	assert_eq(submission.task.status, GFBackgroundWorkTask.Status.COMPLETED)
+	assert_true(_variant_is_true(submission.task.apply_result))
+	assert_false(_weak_ref_is_alive(submission.worker_weak_ref))
+	utility.dispose()
+
+
 func test_failed_worker_marks_task_failed() -> void:
 	var utility: GFBackgroundWorkUtility = GFBackgroundWorkUtility.new()
 	utility.init()
@@ -298,6 +368,18 @@ func _is_null(value: Variant) -> bool:
 	return value == null
 
 
+func _variant_is_true(value: Variant) -> bool:
+	if value is bool:
+		var bool_value: bool = value
+		return bool_value
+	return false
+
+
+func _weak_ref_is_alive(weak_ref_value: WeakRef) -> bool:
+	var target: Variant = weak_ref_value.get_ref()
+	return target is Object
+
+
 func _contains_object(value: Variant) -> bool:
 	if value is Object:
 		return true
@@ -320,6 +402,51 @@ func _make_apply_task(work_id: StringName) -> GFBackgroundWorkTask:
 	task.status = GFBackgroundWorkTask.Status.APPLYING
 	task.set_internal_callbacks(Callable(), Callable(self, "_apply_slow_task"))
 	return task
+
+
+func _submit_scoped_callbacks(utility: GFBackgroundWorkUtility) -> ScopedCallbackSubmission:
+	var worker: ScopedWorker = ScopedWorker.new()
+	var apply_receiver: ScopedApplyReceiver = ScopedApplyReceiver.new()
+	var submission: ScopedCallbackSubmission = ScopedCallbackSubmission.new()
+	submission.worker_weak_ref = weakref(worker)
+	submission.apply_weak_ref = weakref(apply_receiver)
+	submission.task = utility.submit_io_work(
+		Callable(worker, "produce_value"),
+		{ "value": 31 },
+		Callable(apply_receiver, "apply_value")
+	)
+	return submission
+
+
+func _submit_scoped_failure(
+	utility: GFBackgroundWorkUtility
+) -> ScopedCallbackSubmission:
+	var worker: ScopedFailingWorker = ScopedFailingWorker.new()
+	var apply_receiver: ScopedApplyReceiver = ScopedApplyReceiver.new()
+	var submission: ScopedCallbackSubmission = ScopedCallbackSubmission.new()
+	submission.worker_weak_ref = weakref(worker)
+	submission.apply_weak_ref = weakref(apply_receiver)
+	submission.task = utility.submit_io_work(
+		Callable(worker, "fail_value"),
+		{},
+		Callable(apply_receiver, "apply_value")
+	)
+	return submission
+
+
+func _submit_shared_callback_target(
+	utility: GFBackgroundWorkUtility
+) -> ScopedCallbackSubmission:
+	var target: ScopedDualCallbackTarget = ScopedDualCallbackTarget.new()
+	var submission: ScopedCallbackSubmission = ScopedCallbackSubmission.new()
+	submission.worker_weak_ref = weakref(target)
+	submission.apply_weak_ref = submission.worker_weak_ref
+	submission.task = utility.submit_io_work(
+		Callable(target, "produce_value"),
+		{ "value": 31 },
+		Callable(target, "apply_value")
+	)
+	return submission
 
 
 func _pump_until_finished(
@@ -364,6 +491,56 @@ class PureWorker:
 		return {
 			"value": GFVariantData.get_option_int(input, "value"),
 		}
+
+
+class ScopedCallbackSubmission:
+	extends RefCounted
+
+	var task: GFBackgroundWorkTask
+	var worker_weak_ref: WeakRef
+	var apply_weak_ref: WeakRef
+
+
+class ScopedWorker:
+	extends RefCounted
+
+	func produce_value(data: Variant) -> Dictionary:
+		var input: Dictionary = GFVariantData.as_dictionary(data)
+		return {
+			"value": GFVariantData.get_option_int(input, "value"),
+		}
+
+
+class ScopedFailingWorker:
+	extends RefCounted
+
+	func fail_value(_data: Variant) -> Dictionary:
+		return {
+			"ok": false,
+			"error": "scoped_worker_failed",
+		}
+
+
+class ScopedApplyReceiver:
+	extends RefCounted
+
+	func apply_value(task: GFBackgroundWorkTask) -> bool:
+		var result: Dictionary = GFVariantData.as_dictionary(task.result)
+		return GFVariantData.get_option_int(result, "value") == 31
+
+
+class ScopedDualCallbackTarget:
+	extends RefCounted
+
+	func produce_value(data: Variant) -> Dictionary:
+		var input: Dictionary = GFVariantData.as_dictionary(data)
+		return {
+			"value": GFVariantData.get_option_int(input, "value"),
+		}
+
+	func apply_value(task: GFBackgroundWorkTask) -> bool:
+		var result: Dictionary = GFVariantData.as_dictionary(task.result)
+		return GFVariantData.get_option_int(result, "value") == 31
 
 
 class SimulatedResourceBackgroundWorkUtility extends GFBackgroundWorkUtility:

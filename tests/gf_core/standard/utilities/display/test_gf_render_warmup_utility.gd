@@ -78,15 +78,112 @@ func test_render_warmup_queue_respects_entry_budget() -> void:
 	var manifest: GFRenderWarmupManifest = GFRenderWarmupManifest.new()
 	var _add_resource_result_38: Variant = manifest.add_resource(StandardMaterial3D.new(), &"material")
 	var _add_resource_result_39: Variant = manifest.add_resource(StandardMaterial3D.new(), &"material")
+	var tail_manifest: GFRenderWarmupManifest = GFRenderWarmupManifest.new()
+	var _add_tail_resource_result: Variant = tail_manifest.add_resource(StandardMaterial3D.new(), &"material")
 	var utility: GFRenderWarmupUtility = GFRenderWarmupUtility.new()
-	var _queue_manifest_result_41: Variant = utility.queue_manifest(manifest)
+	var _queue_manifest_result_41: Variant = utility.queue_manifest(manifest, { "entries_per_tick": 1 })
+	var _queue_tail_manifest_result: Variant = utility.queue_manifest(tail_manifest, { "entries_per_tick": 1 })
 
 	var first_count: int = utility.process_queue(1)
-	var second_count: int = utility.process_queue(1)
+	var second_count: int = utility.process_queue(2)
 
 	assert_eq(first_count, 1, "第一次只应处理一个条目。")
-	assert_eq(second_count, 1, "第二次处理剩余条目。")
+	assert_eq(second_count, 2, "显式全局预算应可处理队首剩余条目和后续清单。")
 	assert_eq(utility.get_queue_size(), 0, "全部处理后队列应为空。")
+
+
+## 验证正常 tick 只推进 FIFO 队首，并采用该清单自己的条目预算。
+func test_render_warmup_tick_respects_head_manifest_entry_budget() -> void:
+	var head_manifest: GFRenderWarmupManifest = GFRenderWarmupManifest.new()
+	var _add_head_first_result: Variant = head_manifest.add_resource(StandardMaterial3D.new(), &"material")
+	var _add_head_second_result: Variant = head_manifest.add_resource(StandardMaterial3D.new(), &"material")
+	var tail_manifest: GFRenderWarmupManifest = GFRenderWarmupManifest.new()
+	var _add_tail_first_result: Variant = tail_manifest.add_resource(StandardMaterial3D.new(), &"material")
+	var _add_tail_second_result: Variant = tail_manifest.add_resource(StandardMaterial3D.new(), &"material")
+	var utility: GFRenderWarmupUtility = GFRenderWarmupUtility.new()
+	utility.default_entries_per_tick = 4
+	var head_queue_id: int = utility.queue_manifest(head_manifest, { "entries_per_tick": 1 })
+	var tail_queue_id: int = utility.queue_manifest(tail_manifest, { "entries_per_tick": 2 })
+
+	utility.tick(0.0)
+	var first_snapshot: Dictionary = utility.get_debug_snapshot()
+	utility.tick(0.0)
+	var second_snapshot: Dictionary = utility.get_debug_snapshot()
+	utility.tick(0.0)
+	var third_snapshot: Dictionary = utility.get_debug_snapshot()
+
+	assert_gt(head_queue_id, 0, "队首清单应成功入队。")
+	assert_gt(tail_queue_id, head_queue_id, "队尾清单应在队首之后入队。")
+	assert_eq(GFVariantData.get_option_int(first_snapshot, "processed_entry_count"), 1, "首个 tick 应采用队首清单的一条预算。")
+	assert_eq(GFVariantData.get_option_int(first_snapshot, "queue_size"), 2, "首个 tick 后两个清单都应仍在队列中。")
+	assert_eq(GFVariantData.get_option_int(second_snapshot, "processed_entry_count"), 2, "第二个 tick 应只完成队首清单。")
+	assert_eq(GFVariantData.get_option_int(second_snapshot, "queue_size"), 1, "完成队首清单后应保留队尾清单。")
+	assert_eq(GFVariantData.get_option_int(third_snapshot, "processed_entry_count"), 4, "第三个 tick 应采用队尾清单的两条预算。")
+	assert_eq(GFVariantData.get_option_int(third_snapshot, "queue_size"), 0, "第三个 tick 后队列应处理完毕。")
+
+
+func test_render_warmup_tick_does_not_spill_unused_head_budget_into_tail() -> void:
+	var head_manifest: GFRenderWarmupManifest = GFRenderWarmupManifest.new()
+	var _add_head_result: Variant = head_manifest.add_resource(
+		StandardMaterial3D.new(),
+		&"material"
+	)
+	var tail_manifest: GFRenderWarmupManifest = GFRenderWarmupManifest.new()
+	var _add_tail_result: Variant = tail_manifest.add_resource(
+		StandardMaterial3D.new(),
+		&"material"
+	)
+	var utility: GFRenderWarmupUtility = GFRenderWarmupUtility.new()
+	var _head_queue_id: int = utility.queue_manifest(
+		head_manifest,
+		{ "entries_per_tick": 4 }
+	)
+	var _tail_queue_id: int = utility.queue_manifest(
+		tail_manifest,
+		{ "entries_per_tick": 1 }
+	)
+
+	utility.tick(0.0)
+	var first_snapshot: Dictionary = utility.get_debug_snapshot()
+
+	assert_eq(
+		GFVariantData.get_option_int(first_snapshot, "processed_entry_count"),
+		1,
+		"队首提前完成时，其未使用预算不得流入队尾。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(first_snapshot, "queue_size"),
+		1,
+		"同一 tick 应保留尚未开始的队尾清单。"
+	)
+
+	utility.tick(0.0)
+	assert_eq(utility.get_queue_size(), 0, "下一个 tick 才应推进队尾清单。")
+
+
+func test_render_warmup_tick_uses_live_default_without_manifest_override() -> void:
+	var manifest: GFRenderWarmupManifest = GFRenderWarmupManifest.new()
+	var _add_result: Variant = manifest.add_resource(
+		StandardMaterial3D.new(),
+		&"material"
+	)
+	var utility: GFRenderWarmupUtility = GFRenderWarmupUtility.new()
+	utility.default_entries_per_tick = 0
+	var _queue_id: int = utility.queue_manifest(manifest)
+
+	utility.tick(0.0)
+	var paused_snapshot: Dictionary = utility.get_debug_snapshot()
+
+	assert_eq(
+		GFVariantData.get_option_int(paused_snapshot, "processed_entry_count"),
+		0,
+		"未显式覆盖预算的清单应继续服从当前全局默认值。"
+	)
+	assert_eq(GFVariantData.get_option_int(paused_snapshot, "queue_size"), 1)
+
+	utility.default_entries_per_tick = 1
+	utility.tick(0.0)
+	assert_eq(utility.get_queue_size(), 0, "恢复全局默认预算后清单应继续推进。")
 
 
 ## 验证离屏临时渲染节点模式会创建并释放临时节点。

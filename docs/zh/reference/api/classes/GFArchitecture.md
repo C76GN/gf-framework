@@ -112,6 +112,9 @@
 | 方法 | [`get_system`](#member-gfarchitecture-methods-get_system) | `func get_system(script_cls: Script, require_ready: bool = false) -> Object:` |
 | 方法 | [`get_model`](#member-gfarchitecture-methods-get_model) | `func get_model(script_cls: Script, require_ready: bool = false) -> Object:` |
 | 方法 | [`get_utility`](#member-gfarchitecture-methods-get_utility) | `func get_utility(script_cls: Script, require_ready: bool = false) -> Object:` |
+| 方法 | [`find_system`](#member-gfarchitecture-methods-find_system) | `func find_system(script_cls: Script, require_ready: bool = false) -> Object:` |
+| 方法 | [`find_model`](#member-gfarchitecture-methods-find_model) | `func find_model(script_cls: Script, require_ready: bool = false) -> Object:` |
+| 方法 | [`find_utility`](#member-gfarchitecture-methods-find_utility) | `func find_utility(script_cls: Script, require_ready: bool = false) -> Object:` |
 | 方法 | [`get_local_system`](#member-gfarchitecture-methods-get_local_system) | `func get_local_system(script_cls: Script, require_ready: bool = false) -> Object:` |
 | 方法 | [`get_local_model`](#member-gfarchitecture-methods-get_local_model) | `func get_local_model(script_cls: Script, require_ready: bool = false) -> Object:` |
 | 方法 | [`get_local_utility`](#member-gfarchitecture-methods-get_local_utility) | `func get_local_utility(script_cls: Script, require_ready: bool = false) -> Object:` |
@@ -1920,6 +1923,72 @@ func get_utility(script_cls: Script, require_ready: bool = false) -> Object:
 | `require_ready` | 为 true 时，仅返回已完成 ready 阶段的实例。 |
 
 返回：工具实例，如果未找到则返回 null。
+
+<a id="member-gfarchitecture-methods-find_system"></a>
+
+### `find_system`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func find_system(script_cls: Script, require_ready: bool = false) -> Object:
+```
+
+可选查找 System 实例，未找到时不输出严格依赖缺失错误。 非严格模式沿用普通查询的父级回退与 alias 遮蔽规则；严格模式只检查当前架构。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `script_cls` | 脚本类。 |
+| `require_ready` | 为 true 时，仅返回已完成 ready 阶段的实例。 |
+
+返回：系统实例；可选依赖不存在或尚未 ready 时返回 null。
+
+<a id="member-gfarchitecture-methods-find_model"></a>
+
+### `find_model`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func find_model(script_cls: Script, require_ready: bool = false) -> Object:
+```
+
+可选查找 Model 实例，未找到时不输出严格依赖缺失错误。 非严格模式沿用普通查询的父级回退与 alias 遮蔽规则；严格模式只检查当前架构。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `script_cls` | 脚本类。 |
+| `require_ready` | 为 true 时，仅返回已完成 ready 阶段的实例。 |
+
+返回：模型实例；可选依赖不存在或尚未 ready 时返回 null。
+
+<a id="member-gfarchitecture-methods-find_utility"></a>
+
+### `find_utility`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func find_utility(script_cls: Script, require_ready: bool = false) -> Object:
+```
+
+可选查找 Utility 实例，未找到时不输出严格依赖缺失错误。 非严格模式沿用普通查询的父级回退与 alias 遮蔽规则；严格模式只检查当前架构。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `script_cls` | 脚本类。 |
+| `require_ready` | 为 true 时，仅返回已完成 ready 阶段的实例。 |
+
+返回：工具实例；可选依赖不存在或尚未 ready 时返回 null。
 
 <a id="member-gfarchitecture-methods-get_local_system"></a>
 

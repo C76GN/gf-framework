@@ -16,6 +16,46 @@ func test_diagnostics_command_executes() -> void:
 	assert_true(diagnostics.has_command(&"diagnostics.signals"), "Diagnostics 应注册只读信号图快照命令。")
 
 
+func test_diagnostics_optional_console_lookup_is_silent_in_strict_architecture() -> void:
+	var architecture: GFArchitecture = GFArchitecture.new()
+	architecture.strict_dependency_lookup = true
+	var diagnostics: GFDiagnosticsUtility = GFDiagnosticsUtility.new()
+	await architecture.register_utility_instance(diagnostics)
+
+	await architecture.init()
+
+	assert_true(
+		diagnostics.is_ready_in_architecture(),
+		"缺少可选 Console 不应阻止架构初始化。"
+	)
+	assert_push_error_count(
+		0,
+		"Diagnostics 的全部可选工具查询在严格模式下都必须保持静默。"
+	)
+	architecture.dispose()
+	await get_tree().process_frame
+
+
+func test_diagnostics_binds_console_when_optional_dependency_is_present() -> void:
+	var architecture: GFArchitecture = GFArchitecture.new()
+	architecture.strict_dependency_lookup = true
+	var log_utility: GFLogUtility = GFLogUtility.new()
+	var console: GFConsoleUtility = GFConsoleUtility.new()
+	var diagnostics: GFDiagnosticsUtility = GFDiagnosticsUtility.new()
+	await architecture.register_utility_instance(log_utility)
+	await architecture.register_utility_instance(console)
+	await architecture.register_utility_instance(diagnostics)
+
+	await architecture.init()
+
+	assert_true(
+		console.get_command_names().has("diagnostics"),
+		"严格模式下本地 Console 仍应收到 Diagnostics 命令。"
+	)
+	architecture.dispose()
+	await get_tree().process_frame
+
+
 ## 验证场景树快照只采集结构摘要并遵守深度限制。
 func test_diagnostics_collects_read_only_scene_tree_snapshot() -> void:
 	var root: Node = Node.new()

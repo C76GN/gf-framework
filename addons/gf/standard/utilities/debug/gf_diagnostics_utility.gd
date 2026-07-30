@@ -1987,7 +1987,7 @@ func _is_builtin_tool_snapshot_id(tool_id: StringName) -> bool:
 
 
 func _get_build_info_utility() -> GFBuildInfoUtility:
-	var utility: Variant = get_utility(GFBuildInfoUtility)
+	var utility: Variant = _find_optional_utility(GFBuildInfoUtility)
 	if utility is GFBuildInfoUtility:
 		var build_info_utility: GFBuildInfoUtility = utility
 		return build_info_utility
@@ -1995,7 +1995,7 @@ func _get_build_info_utility() -> GFBuildInfoUtility:
 
 
 func _get_log_utility() -> GFLogUtility:
-	var utility: Variant = get_utility(GFLogUtility)
+	var utility: Variant = _find_optional_utility(GFLogUtility)
 	if utility is GFLogUtility:
 		var log_utility: GFLogUtility = utility
 		return log_utility
@@ -2003,11 +2003,18 @@ func _get_log_utility() -> GFLogUtility:
 
 
 func _get_console_utility() -> GFConsoleUtility:
-	var utility: Variant = get_utility(GFConsoleUtility)
+	var utility: Variant = _find_optional_utility(GFConsoleUtility)
 	if utility is GFConsoleUtility:
 		var console_utility: GFConsoleUtility = utility
 		return console_utility
 	return null
+
+
+func _find_optional_utility(utility_type: Script) -> Object:
+	var architecture: GFArchitecture = _get_architecture_or_null()
+	if architecture == null:
+		return null
+	return architecture.find_utility(utility_type)
 
 
 func _get_main_scene_tree() -> SceneTree:
@@ -2744,16 +2751,38 @@ func _monitor_event_system_stats() -> Dictionary:
 
 
 func _monitor_tool_timer_snapshot() -> Dictionary:
-	return _get_instance_debug_snapshot(get_utility(GFTimerUtility))
+	return _get_instance_debug_snapshot(
+		_find_optional_utility(GFTimerUtility)
+	)
 
 
 func _collect_tool_debug_snapshots() -> Dictionary:
 	var result: Dictionary = {}
-	_add_tool_debug_snapshot(result, &"build_info", get_utility(GFBuildInfoUtility))
-	_add_tool_debug_snapshot(result, &"timer", get_utility(GFTimerUtility))
-	_add_tool_debug_snapshot(result, &"object_pool", get_utility(GFObjectPoolUtility))
-	_add_tool_debug_snapshot(result, &"operation_diagnostics", get_utility(GFOperationDiagnosticsUtility))
-	_add_tool_debug_snapshot(result, &"async_tracker", get_utility(GFAsyncTrackerUtility))
+	_add_tool_debug_snapshot(
+		result,
+		&"build_info",
+		_find_optional_utility(GFBuildInfoUtility)
+	)
+	_add_tool_debug_snapshot(
+		result,
+		&"timer",
+		_find_optional_utility(GFTimerUtility)
+	)
+	_add_tool_debug_snapshot(
+		result,
+		&"object_pool",
+		_find_optional_utility(GFObjectPoolUtility)
+	)
+	_add_tool_debug_snapshot(
+		result,
+		&"operation_diagnostics",
+		_find_optional_utility(GFOperationDiagnosticsUtility)
+	)
+	_add_tool_debug_snapshot(
+		result,
+		&"async_tracker",
+		_find_optional_utility(GFAsyncTrackerUtility)
+	)
 	_add_published_tool_snapshots(result)
 	return result
 

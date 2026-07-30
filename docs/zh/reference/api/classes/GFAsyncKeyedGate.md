@@ -27,6 +27,7 @@
 | 常量 | [`STATUS_TIMEOUT`](#member-gfasynckeyedgate-constants-status_timeout) | `const STATUS_TIMEOUT: StringName = &"timeout"` |
 | 常量 | [`STATUS_INVALID`](#member-gfasynckeyedgate-constants-status_invalid) | `const STATUS_INVALID: StringName = &"invalid"` |
 | 常量 | [`STATUS_REJECTED`](#member-gfasynckeyedgate-constants-status_rejected) | `const STATUS_REJECTED: StringName = &"rejected"` |
+| 常量 | [`STATUS_BUSY`](#member-gfasynckeyedgate-constants-status_busy) | `const STATUS_BUSY: StringName = &"busy"` |
 | 常量 | [`DEFAULT_MAX_CONCURRENCY`](#member-gfasynckeyedgate-constants-default_max_concurrency) | `const DEFAULT_MAX_CONCURRENCY: int = 1` |
 | 常量 | [`ABSOLUTE_MAX_CONCURRENCY`](#member-gfasynckeyedgate-constants-absolute_max_concurrency) | `const ABSOLUTE_MAX_CONCURRENCY: int = 4096` |
 | 常量 | [`DEFAULT_MAX_RECENT_EVENTS`](#member-gfasynckeyedgate-constants-default_max_recent_events) | `const DEFAULT_MAX_RECENT_EVENTS: int = 64` |
@@ -53,6 +54,7 @@
 | 属性 | [`max_tracked_keys`](#member-gfasynckeyedgate-properties-max_tracked_keys) | `var max_tracked_keys: int:` |
 | 属性 | [`max_pump_work_items`](#member-gfasynckeyedgate-properties-max_pump_work_items) | `var max_pump_work_items: int:` |
 | 方法 | [`request_lease`](#member-gfasynckeyedgate-methods-request_lease) | `func request_lease(key: Variant, options: Dictionary = {}) -> Dictionary:` |
+| 方法 | [`try_request_lease`](#member-gfasynckeyedgate-methods-try_request_lease) | `func try_request_lease(key: Variant, options: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`wait_for_lease_async`](#member-gfasynckeyedgate-methods-wait_for_lease_async) | `func wait_for_lease_async(key: Variant, options: Dictionary = {}) -> GFAsyncGateLease:` |
 | 方法 | [`release_lease`](#member-gfasynckeyedgate-methods-release_lease) | `func release_lease(lease: GFAsyncGateLease, reason: StringName = &"manual") -> bool:` |
 | 方法 | [`cancel_request`](#member-gfasynckeyedgate-methods-cancel_request) | `func cancel_request(request_id: int, reason: StringName = STATUS_CANCELLED, metadata: Dictionary = {}) -> bool:` |
@@ -280,6 +282,19 @@ const STATUS_REJECTED: StringName = &"rejected"
 ```
 
 请求因等待队列或 key 容量耗尽而被拒绝。
+
+<a id="member-gfasynckeyedgate-constants-status_busy"></a>
+
+### `STATUS_BUSY`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+const STATUS_BUSY: StringName = &"busy"
+```
+
+fail-fast 请求未取得租约；请求未进入等待队列。
 
 <a id="member-gfasynckeyedgate-constants-default_max_concurrency"></a>
 
@@ -638,6 +653,34 @@ func request_lease(key: Variant, options: Dictionary = {}) -> Dictionary:
 - `options`: Dictionary，可包含 metadata: Dictionary、max_concurrency: int、timeout_msec: int、lease_timeout_msec: int、cancel_token: GFCancellationToken。
 - `return`: Dictionary，包含 ok、status、queued、acquired、request_id、key、lease、completion、metadata 和 reason。
 
+<a id="member-gfasynckeyedgate-methods-try_request_lease"></a>
+
+### `try_request_lease`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func try_request_lease(key: Variant, options: Dictionary = {}) -> Dictionary:
+```
+
+尝试立即取得一个 key 的执行租约。 合法且未取消的请求只有在不越过同 key waiter、未完成的公平推进周期或生命周期 通知边界时能够立即提交，才返回 acquired；容量或仲裁暂时不可用时返回 busy。 busy 不分配请求 ID 或 completion，不进入等待队列、不发出请求生命周期信号， 也不改变公平游标。非法调用返回 invalid；cancel_token 在租约提交前胜出时返回 cancelled，且按已接受请求记录取消终态。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `key` | 并发仲裁 key。 |
+| `options` | 即时请求选项，支持 metadata、max_concurrency、lease_timeout_msec 和 cancel_token。 |
+
+返回：即时请求结果字典。
+
+结构：
+
+- `key`: Variant，必须是 GFVariantKeyCodec 接受的稳定 key。
+- `options`: Dictionary，可包含 metadata: Dictionary、max_concurrency: int、lease_timeout_msec: int、cancel_token: GFCancellationToken。
+- `return`: Dictionary，包含 ok、status、queued、acquired、request_id、key、metadata 和 reason，所有分支 queued 均为 false；status 为 acquired 时包含 lease 和已成功完成的 completion，busy 时 request_id 为 0 且不包含 lease 或 completion，cancelled/invalid 不包含 lease 或 completion。
+
 <a id="member-gfasynckeyedgate-methods-wait_for_lease_async"></a>
 
 ### `wait_for_lease_async`
@@ -960,4 +1003,4 @@ func get_debug_snapshot() -> Dictionary:
 
 结构：
 
-- `return`: Dictionary，包含 queued_count、active_count、key_count、max_active_leases、等待、key 与推进预算配置、high_watermark、key_high_watermark、rejected_count、dropped_count、acquired_count、released_count、cancelled_count、timeout_count、keys 和 recent_events。
+- `return`: Dictionary，包含 queued_count、active_count、key_count、max_active_leases、等待、key 与推进预算配置、high_watermark、key_high_watermark、busy_count、rejected_count、dropped_count、acquired_count、released_count、cancelled_count、timeout_count、keys 和 recent_events。

@@ -65,9 +65,12 @@ enum TouchMode {
 
 # --- 公共变量 ---
 
-## 每次 tick 默认处理的最大条目数。
+## 每次 tick 默认处理的最大条目数。未显式覆盖清单预算时，小于等于 0 会暂停正常帧推进；
+## 恢复为正数后从原队列位置继续。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 var default_entries_per_tick: int = 4
 
 ## 默认预热时间预算，单位秒。小于等于 0 表示不限制。
@@ -132,7 +135,17 @@ var _temporary_render_nodes: Array[Node] = []
 ## @param _delta: 本帧时间增量。
 func tick(_delta: float) -> void:
 	release_temporary_render_nodes()
-	var _processed_count: int = process_queue(default_entries_per_tick)
+	if _queue.is_empty():
+		return
+
+	var head_item: Dictionary = GFVariantData.as_dictionary(_queue[0])
+	var head_options: Dictionary = GFVariantData.get_option_dictionary(head_item, "options")
+	var head_entries_per_tick: int = GFVariantData.get_option_int(
+		head_options,
+		"entries_per_tick",
+		default_entries_per_tick
+	)
+	var _processed_count: int = _process_queue_budget(head_entries_per_tick, true)
 
 
 ## 清空预热队列、缓存资源和临时渲染节点。
@@ -156,11 +169,11 @@ func dispose() -> void:
 ## [br]
 ## @param manifest: 预热清单。
 ## [br]
-## @param options: 可选参数，支持 entries_per_tick、max_seconds、touch_mode、keep_cached、cache_group、max_cached_resources、instantiate_packed_scenes、allow_scene_instantiation。
+## @param options: 可选参数。显式 entries_per_tick 会在入队时钳制到最小 1 并固定；未提供时继续读取当前 default_entries_per_tick。其余支持 max_seconds、touch_mode、keep_cached、cache_group、max_cached_resources、instantiate_packed_scenes 和 allow_scene_instantiation。
 ## [br]
 ## @return 队列标识；失败返回 -1。
 ## [br]
-## @schema options: Dictionary，包含 entries_per_tick、max_seconds、touch_mode、keep_cached、cache_group、max_cached_resources、instantiate_packed_scenes、allow_scene_instantiation、temporary_parent 和 temporary_viewport_size。
+## @schema options: Dictionary，可包含 entries_per_tick: int（显式值最小为 1，并在入队时固定）、max_seconds、touch_mode、keep_cached、cache_group、max_cached_resources、instantiate_packed_scenes、allow_scene_instantiation、temporary_parent 和 temporary_viewport_size；缺少 entries_per_tick 时使用实时全局默认值。
 func queue_manifest(manifest: GFRenderWarmupManifest, options: Dictionary = {}) -> int:
 	if manifest == null or manifest.is_empty():
 		return -1
@@ -168,6 +181,16 @@ func queue_manifest(manifest: GFRenderWarmupManifest, options: Dictionary = {}) 
 	var queue_id: int = _next_queue_id
 	_next_queue_id += 1
 	var entry_list: Array[Dictionary] = manifest.get_entries()
+	var normalized_options: Dictionary = options.duplicate(true)
+	if options.has("entries_per_tick"):
+		normalized_options["entries_per_tick"] = maxi(
+			GFVariantData.get_option_int(
+				options,
+				"entries_per_tick",
+				default_entries_per_tick
+			),
+			1
+		)
 	_queue.append({
 		"queue_id": queue_id,
 		"manifest_id": manifest.manifest_id,
@@ -175,7 +198,7 @@ func queue_manifest(manifest: GFRenderWarmupManifest, options: Dictionary = {}) 
 		"index": 0,
 		"processed": 0,
 		"failed": 0,
-		"options": options.duplicate(true),
+		"options": normalized_options,
 		"started_at_unix": Time.get_unix_time_from_system(),
 		"started_at_msec": Time.get_ticks_msec(),
 	})
@@ -243,39 +266,7 @@ func warmup_manifest_now(manifest: GFRenderWarmupManifest, options: Dictionary =
 ## [br]
 ## @return 实际处理条目数。
 func process_queue(max_entries: int = 1) -> int:
-	if max_entries <= 0:
-		return 0
-
-	var processed_now: int = 0
-	while processed_now < max_entries and not _queue.is_empty():
-		var item: Dictionary = GFVariantData.as_dictionary(_queue[0])
-		if _is_queue_item_budget_exhausted(item):
-			_finish_queue_item(item, true)
-			_queue.remove_at(0)
-			continue
-
-		var entries: Array = GFVariantData.get_option_array(item, "entries")
-		var index: int = GFVariantData.get_option_int(item, "index")
-		if index >= entries.size():
-			_finish_queue_item(item, false)
-			_queue.remove_at(0)
-			continue
-
-		var options: Dictionary = GFVariantData.get_option_dictionary(item, "options")
-		var result: Dictionary = _process_entry(GFVariantData.as_dictionary(entries[index]), options)
-		result["entry_index"] = index
-		item["index"] = index + 1
-		item["processed"] = GFVariantData.get_option_int(item, "processed") + 1
-		if not GFVariantData.get_option_bool(result, "ok"):
-			item["failed"] = GFVariantData.get_option_int(item, "failed") + 1
-		processed_now += 1
-		warmup_entry_processed.emit(GFVariantData.get_option_int(item, "queue_id", -1), index, result)
-
-		if GFVariantData.get_option_int(item, "index") >= entries.size():
-			_finish_queue_item(item, false)
-			_queue.remove_at(0)
-
-	return processed_now
+	return _process_queue_budget(max_entries, false)
 
 
 ## 从节点树收集可预热的渲染资源。
@@ -450,6 +441,49 @@ func get_debug_snapshot() -> Dictionary:
 
 
 # --- 私有/辅助方法 ---
+
+func _process_queue_budget(max_entries: int, head_only: bool) -> int:
+	if max_entries <= 0:
+		return 0
+
+	var selected_queue_id: int = -1
+	if head_only and not _queue.is_empty():
+		var selected_item: Dictionary = GFVariantData.as_dictionary(_queue[0])
+		selected_queue_id = GFVariantData.get_option_int(selected_item, "queue_id", -1)
+
+	var processed_now: int = 0
+	while processed_now < max_entries and not _queue.is_empty():
+		var item: Dictionary = GFVariantData.as_dictionary(_queue[0])
+		if head_only and GFVariantData.get_option_int(item, "queue_id", -1) != selected_queue_id:
+			break
+		if _is_queue_item_budget_exhausted(item):
+			_finish_queue_item(item, true)
+			_queue.remove_at(0)
+			continue
+
+		var entries: Array = GFVariantData.get_option_array(item, "entries")
+		var index: int = GFVariantData.get_option_int(item, "index")
+		if index >= entries.size():
+			_finish_queue_item(item, false)
+			_queue.remove_at(0)
+			continue
+
+		var options: Dictionary = GFVariantData.get_option_dictionary(item, "options")
+		var result: Dictionary = _process_entry(GFVariantData.as_dictionary(entries[index]), options)
+		result["entry_index"] = index
+		item["index"] = index + 1
+		item["processed"] = GFVariantData.get_option_int(item, "processed") + 1
+		if not GFVariantData.get_option_bool(result, "ok"):
+			item["failed"] = GFVariantData.get_option_int(item, "failed") + 1
+		processed_now += 1
+		warmup_entry_processed.emit(GFVariantData.get_option_int(item, "queue_id", -1), index, result)
+
+		if GFVariantData.get_option_int(item, "index") >= entries.size():
+			_finish_queue_item(item, false)
+			_queue.remove_at(0)
+
+	return processed_now
+
 
 func _process_entry(entry: Dictionary, options: Dictionary) -> Dictionary:
 	var normalized: Dictionary = GFRenderWarmupManifest.normalize_entry(entry)

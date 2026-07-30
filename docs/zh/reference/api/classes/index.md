@@ -6,8 +6,8 @@
 
 | 模块 | 类 | 成员 | 页面内索引 |
 |---|---:|---:|---|
-| Kernel | 73 | 1043 | [Kernel](#module-kernel) |
-| Standard | 440 | 7001 | [Standard](#module-standard) |
+| Kernel | 73 | 1046 | [Kernel](#module-kernel) |
+| Standard | 440 | 7003 | [Standard](#module-standard) |
 | Action Queue | 16 | 214 | [Action Queue](#module-extensions-action_queue) |
 | Asset Metadata | 4 | 33 | [Asset Metadata](#module-extensions-asset_metadata) |
 | Behavior Tree | 22 | 89 | [Behavior Tree](#module-extensions-behavior_tree) |
@@ -35,7 +35,7 @@
 
 | 类 | 类别 | 继承 | 成员 | 源文件 |
 |---|---|---|---:|---|
-| [`GFArchitecture`](GFArchitecture.md#gfarchitecture) | 运行时服务 (`runtime_service`) | `Object` | 116 | `addons/gf/kernel/core/gf_architecture.gd` |
+| [`GFArchitecture`](GFArchitecture.md#gfarchitecture) | 运行时服务 (`runtime_service`) | `Object` | 119 | `addons/gf/kernel/core/gf_architecture.gd` |
 | [`GFDependencyGraphTools`](GFDependencyGraphTools.md#gfdependencygraphtools) | 运行时服务 (`runtime_service`) | `RefCounted` | 1 | `addons/gf/kernel/core/gf_dependency_graph_tools.gd` |
 | [`GFExtensionCatalog`](GFExtensionCatalog.md#gfextensioncatalog) | 运行时服务 (`runtime_service`) | `RefCounted` | 5 | `addons/gf/kernel/extension/gf_extension_catalog.gd` |
 | [`GFExtensionManifestDiscovery`](GFExtensionManifestDiscovery.md#gfextensionmanifestdiscovery) | 运行时服务 (`runtime_service`) | `RefCounted` | 2 | `addons/gf/kernel/extension/gf_extension_manifest_discovery.gd` |
@@ -453,7 +453,7 @@
 | [`GFAsyncBatch`](GFAsyncBatch.md#gfasyncbatch) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 31 | `addons/gf/standard/utilities/io/gf_async_batch.gd` |
 | [`GFAsyncChannel`](GFAsyncChannel.md#gfasyncchannel) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 33 | `addons/gf/standard/common/gf_async_channel.gd` |
 | [`GFAsyncGateLease`](GFAsyncGateLease.md#gfasyncgatelease) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 10 | `addons/gf/standard/common/gf_async_gate_lease.gd` |
-| [`GFAsyncKeyedGate`](GFAsyncKeyedGate.md#gfasynckeyedgate) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 52 | `addons/gf/standard/common/gf_async_keyed_gate.gd` |
+| [`GFAsyncKeyedGate`](GFAsyncKeyedGate.md#gfasynckeyedgate) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 54 | `addons/gf/standard/common/gf_async_keyed_gate.gd` |
 | [`GFAsyncProgress`](GFAsyncProgress.md#gfasyncprogress) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 13 | `addons/gf/standard/common/gf_async_progress.gd` |
 | [`GFAsyncProgressAggregator`](GFAsyncProgressAggregator.md#gfasyncprogressaggregator) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 21 | `addons/gf/standard/common/gf_async_progress_aggregator.gd` |
 | [`GFAudioBankMounter`](GFAudioBankMounter.md#gfaudiobankmounter) | 运行时句柄 (`runtime_handle`) | `Node` | 12 | `addons/gf/standard/utilities/audio/gf_audio_bank_mounter.gd` |

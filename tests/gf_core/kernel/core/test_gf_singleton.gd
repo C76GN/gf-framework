@@ -1354,6 +1354,48 @@ func test_strict_dependency_lookup_blocks_parent_fallback() -> void:
 	parent_arch.dispose()
 
 
+## 验证可选查询复用父级解析规则，但严格模式缺失时保持静默。
+func test_optional_dependency_lookup_is_silent_and_respects_strict_scope() -> void:
+	var parent_arch: GFArchitecture = GFArchitecture.new()
+	var parent_model: DummyModel = DummyModel.new()
+	var parent_system: DummySystem = DummySystem.new()
+	var parent_utility: DummyUtility = DummyUtility.new()
+	await parent_arch.register_model_instance(parent_model)
+	await parent_arch.register_system_instance(parent_system)
+	await parent_arch.register_utility_instance(parent_utility)
+
+	var child_arch: GFArchitecture = GFArchitecture.new(parent_arch)
+
+	assert_eq(
+		child_arch.find_model(DummyModel),
+		parent_model,
+		"非严格可选查询应沿用普通父级回退。"
+	)
+	assert_eq(
+		child_arch.find_system(DummySystem),
+		parent_system,
+		"非严格可选查询应沿用普通父级回退。"
+	)
+	assert_eq(
+		child_arch.find_utility(DummyUtility),
+		parent_utility,
+		"非严格可选查询应沿用普通父级回退。"
+	)
+
+	child_arch.strict_dependency_lookup = true
+
+	assert_null(child_arch.find_model(DummyModel))
+	assert_null(child_arch.find_system(DummySystem))
+	assert_null(child_arch.find_utility(DummyUtility))
+	assert_push_error_count(
+		0,
+		"严格模式的可选缺失应停止父级回退，但不得报告 required miss。"
+	)
+
+	child_arch.dispose()
+	parent_arch.dispose()
+
+
 ## 验证子架构中的失效 alias 会 hard fail，不回退父架构。
 func test_stale_child_alias_blocks_parent_fallback() -> void:
 	var parent_arch: GFArchitecture = GFArchitecture.new()

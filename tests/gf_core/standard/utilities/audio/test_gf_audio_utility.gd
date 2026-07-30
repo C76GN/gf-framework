@@ -4541,6 +4541,42 @@ func test_architecture_dispose_forces_audio_terminal_state_and_restores_duck_bus
 	)
 
 
+func test_dispose_tolerates_both_root_owned_bgm_players_freed_first() -> void:
+	var bgm_player: AudioStreamPlayer = _audio._bgm_player
+	var bgm_fade_player: AudioStreamPlayer = _audio._bgm_fade_player
+	bgm_player.free()
+	bgm_fade_player.free()
+
+	_audio.dispose()
+
+	assert_null(_audio._bgm_player, "双播放器先于 Utility 释放后应清除主播放器引用。")
+	assert_null(_audio._bgm_fade_player, "双播放器先于 Utility 释放后应清除淡变播放器引用。")
+	assert_eq(_audio._bgm_state, &"stopped", "root-first teardown 后 BGM 状态必须收敛。")
+
+
+func test_dispose_tolerates_one_root_owned_bgm_player_freed_first() -> void:
+	var bgm_player: AudioStreamPlayer = _audio._bgm_player
+	var bgm_fade_player: AudioStreamPlayer = _audio._bgm_fade_player
+	bgm_player.free()
+
+	_audio.dispose()
+
+	assert_null(_audio._bgm_player, "已提前释放的播放器引用应清除。")
+	assert_null(_audio._bgm_fade_player, "仍存活的播放器进入释放流程后也应解除引用。")
+	assert_true(bgm_fade_player.is_queued_for_deletion(), "仍存活的淡变播放器应进入释放流程。")
+
+
+func test_dispose_is_idempotent_after_bgm_players_are_released() -> void:
+	_audio.dispose()
+	await get_tree().process_frame
+
+	_audio.dispose()
+
+	assert_null(_audio._bgm_player, "重复 dispose 不得保留已释放的主播放器引用。")
+	assert_null(_audio._bgm_fade_player, "重复 dispose 不得保留已释放的淡变播放器引用。")
+	assert_eq(_audio._bgm_owner, &"none", "重复 dispose 后 BGM owner 必须保持终态。")
+
+
 func test_bgm_backend_and_local_playback_switch_owner_atomically() -> void:
 	var backend: MockAudioBackend = MockAudioBackend.new()
 	backend.handle_bgm_paths = true

@@ -24,7 +24,7 @@
 
 ## [未发布]
 
-**版本概述**：本轮新增类型化音频播放区间与循环点，补充 Headless 服务探针和周期环境表现的项目组合配方，修复并加固 AI Developer 的项目 Adapter 依赖边界，同时把 Changelog 与安全扫描抑制约束转为可执行维护门禁；框架只提供可验证的通用契约，不内置部署协议、环境业务模型或轮询式音频模拟。
+**版本概述**：本轮新增类型化音频播放区间与循环点，补充 Headless 服务探针和周期环境表现的项目组合配方，修复并加固 AI Developer 的项目 Adapter 依赖边界，同时把 Changelog 与安全扫描抑制约束转为可执行维护门禁，并收紧可选依赖、后台回调所有权、按 key 并发、渲染预热和音频释放契约；框架只提供可验证的通用机制，不内置部署协议、环境业务模型或轮询式音频模拟。
 
 ### 🚀 新增特性 (Added)
 
@@ -34,6 +34,8 @@
 - 新增 Headless 服务健康/探针组合配方：组合惰性诊断 Provider、有界会话字段与类型化传输指标，由项目 Adapter 决定 liveness/readiness、传输协议、鉴权和部署政策；Backend 指标补充使用通用执行预算，并对总指标、自定义指标和 ID 长度设置绝对上限。
 - 新增周期环境表现组合配方：组合可注入时钟、项目环境样本、Shader Profile、接口快照与 Binder；周期、天气、天文、时区和持久化策略继续由项目负责。
 - AI Developer Capability / Recipe 知识目录升级到 `1.8.0`，加入两份组合配方的可搜索边界，并让音频能力目录认识类型化播放区间与循环点。
+- `GFArchitecture` 新增 `find_model()`、`find_system()` 与 `find_utility()` 静默可选查询：非严格模式复用普通父链和 alias 规则，严格模式停止本地但不报告 required miss。
+- `GFAsyncKeyedGate` 新增 `try_request_lease()` 与 `STATUS_BUSY`：无法在当前主线程边界立即提交时，不创建 waiter、请求 ID 或 completion，不发请求生命周期信号，也不改变公平游标。
 
 ### 🔄 机制更改 (Changed)
 
@@ -46,6 +48,8 @@
 - 新增 tracked-only `codeql_suppression_policy`：禁止 Python 源码中的全部内联 suppression，并拒绝 bracketed legacy、通配、多 query，以及 CodeQL 的路径过滤、查询过滤、自定义配置和自定义查询套件；YAML 约束只匹配真实 mapping key，区分规范注释、URL fragment、说明 scalar 与 block scalar，并通过受控 UTF-8 普通文件读取固定完整父目录链和文件身份。该策略与 GF 凭据门禁的豁免保持完全隔离，并进入 quick、full 与 release。
 - API baseline 现在比较公开成员的 `@schema` 契约；已有 free-text schema 的任何文本变化（包括追加、改写、重排或删除）都会 fail-closed 归入 breaking，只有稳定基线此前完全没有 schema、当前首次补充时才归入 compatible，避免 Dictionary 字段迁移绕过 SemVer 主版本门禁。
 - `GFNetworkBackend.get_transport_metrics()` 现在把基础计数与 Adapter 补充阶段隔离；补充 Hook 超过执行预算、未为新增指标消费步骤或突破指标容量时，本次调用失败关闭为基础快照，不把不可控工作带入探针路径。
+- `GFBackgroundWorkUtility` 在接受任务后强持有 `RefCounted` worker/apply callback target，并分别在线程 join 和任务终态释放，避免排队任务依赖调用方局部变量寿命。
+- `GFRenderWarmupUtility` 将清单显式提供的 `entries_per_tick` 在入队时钳制并固定；未覆盖时继续读取当前全局默认值，正常 `tick()` 只消费 FIFO 队首自己的预算，显式 `process_queue()` 继续提供跨清单总预算。
 
 ### 🐛 Bug 修复 (Fixed)
 
@@ -55,6 +59,10 @@
 - 修复 CodeQL 策略把普通 `LGTM`、步骤说明中的 `paths` / `queries` 和 shell block 行尾反斜杠误判为 suppression/config，以及把 URL fragment 的 `#` 错当注释后漏过禁用默认查询的问题；YAML key lexer 现在同时覆盖 block、flow、quoted、Unicode escape、quoted continuation 与多行显式 key，并在原始输入、线性 Unicode 解码后的原始文本及续行拼接后的逻辑行上累计冒号、引号与标签探测预算。续行改为分块后单次连接，编码或跨行构造的 probe 不能在 normalization 阶段恢复二次复杂度。
 - 修复 Utility 的有界 Bank resolver 用最右子串截断多字符 `fallback_separator`、导致结果偏离 `GFAudioBank.resolve_clip()` 的问题；运行时解析现在保留从左到右、非重叠且忽略空片段的既有分隔语义，同时继续限制标识长度、分隔符长度与最多 16 次回退。
 - 修复异步等待生命周期测试把 1ms 墙钟预算与 deferred free 调度顺序绑定的竞态；测试现在先用 timeout pause 建立等待已挂起的握手，再同步释放 continuation owner，稳定验证失效检查必须先于同轮已到期 timeout 仲裁。
+- 修复后台任务只保存 `Callable`、导致短生命周期 `RefCounted` worker 或 apply target 在线程执行前释放的问题；取消、失败和成功路径现在统一清理 callback 所有权。
+- 修复 `GFRenderWarmupUtility.queue_manifest()` 保存但正常帧推进忽略 `entries_per_tick` 的问题，并防止显式零或负清单预算永久停滞。
+- 修复 `GFDiagnosticsUtility` 在 strict architecture 中通过 reporting lookup 探测可选 Console、Log 和工具快照贡献者，导致合法缺失被误报为必需依赖的问题。
+- 修复场景树先释放 root-owned BGM 播放器后，`GFAudioUtility.dispose()` 在有效性检查前构造 typed array 而触发 freed-instance 转换错误的问题；两条 BGM 清理路径与重复 dispose 都收敛到幂等终态。
 
 ### ⚠️ 废弃与移除 (Deprecated/Removed)
 
@@ -67,6 +75,8 @@
 - `GFAudioBackendCapability.supports_playback_region_contract`、`GFAudioBackend.evaluate_playback_region()`、`GFAudioUtility.playback_region_rejected` 与 `GFAudioUtility.get_last_playback_region_rejection()` 为新的公开 API。
 - `GFAudioUtility.get_debug_snapshot()` 用 `current_bgm_region` 和 `last_playback_region_rejection` 描述播放区间状态，不再提供 `current_bgm_loop`。
 - `GFNetworkBackend._enrich_transport_metrics()` 现在接收 `GFExecutionBudget`，属于有意的 protected 签名升级；新增 `MAX_TRANSPORT_METRICS_ENRICHMENT_MSEC`，`GFNetworkTransportMetrics` 新增总指标、自定义指标和 ID 长度绝对上限常量。`gf.network` 的 `extension_version` 因此提升到 `6.0.0`。
+- `GFArchitecture.find_model()`、`find_system()` 和 `find_utility()` 是新的公开可选解析入口。
+- `GFAsyncKeyedGate.try_request_lease()`、`STATUS_BUSY` 与调试快照中的 `busy_count` 是新的公开 fail-fast 并发契约。
 
 ### 📘 升级指南 (Migration Guide)
 
@@ -84,6 +94,12 @@
 - `addons/gf/standard/utilities/audio/gf_audio_backend.gd`
 - `addons/gf/standard/utilities/audio/gf_audio_backend_capability.gd`
 - `addons/gf/standard/utilities/audio/gf_audio_clip.gd`
+- `addons/gf/kernel/core/gf_architecture.gd`
+- `addons/gf/standard/common/gf_async_keyed_gate.gd`
+- `addons/gf/standard/utilities/debug/gf_diagnostics_utility.gd`
+- `addons/gf/standard/utilities/display/gf_render_warmup_utility.gd`
+- `addons/gf/standard/utilities/jobs/gf_background_work_task.gd`
+- `addons/gf/standard/utilities/jobs/gf_background_work_utility.gd`
 - `addons/gf/extensions/network/backends/gf_network_backend.gd`
 - `addons/gf/extensions/network/runtime/gf_network_transport_metrics.gd`
 - `addons/gf/extensions/network/gf_extension.json`

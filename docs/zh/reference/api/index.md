@@ -6,15 +6,15 @@
 
 - 源码根目录：`addons/gf`
 - 公开类：`787`
-- 公开成员：`11517`
-- 公开方法：`7073`
+- 公开成员：`11522`
+- 公开方法：`7077`
 
 ## 模块
 
 | 模块 | 类 | 成员 | 方法 | 页面 |
 |---|---:|---:|---:|---|
-| Kernel | 73 | 1043 | 744 | [kernel.md](kernel.md) |
-| Standard | 440 | 7001 | 4416 | [standard.md](standard.md) |
+| Kernel | 73 | 1046 | 747 | [kernel.md](kernel.md) |
+| Standard | 440 | 7003 | 4417 | [standard.md](standard.md) |
 | Action Queue | 16 | 214 | 136 | [extensions-action-queue.md](extensions-action-queue.md) |
 | Asset Metadata | 4 | 33 | 24 | [extensions-asset-metadata.md](extensions-asset-metadata.md) |
 | Behavior Tree | 22 | 89 | 65 | [extensions-behavior-tree.md](extensions-behavior-tree.md) |

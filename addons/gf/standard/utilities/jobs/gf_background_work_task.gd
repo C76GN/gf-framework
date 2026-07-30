@@ -140,6 +140,8 @@ var finished_msec: int = 0
 
 var _worker_callback: Callable = Callable()
 var _apply_callback: Callable = Callable()
+var _worker_callback_target: RefCounted = null
+var _apply_callback_target: RefCounted = null
 
 
 # --- 公共方法 ---
@@ -234,8 +236,13 @@ static func status_name(value: Status) -> String:
 ## [br]
 ## @param apply_callback: 主线程应用阶段回调。
 func set_internal_callbacks(worker_callback: Callable, apply_callback: Callable) -> void:
+	# Callable 不会替 RefCounted target 持有引用；先捕获新 target，避免替换时出现零引用窗口。
+	var worker_target: RefCounted = _get_ref_counted_callback_target(worker_callback)
+	var apply_target: RefCounted = _get_ref_counted_callback_target(apply_callback)
 	_worker_callback = worker_callback
 	_apply_callback = apply_callback
+	_worker_callback_target = worker_target
+	_apply_callback_target = apply_target
 
 
 ## 获取后台工作回调。
@@ -254,3 +261,15 @@ func get_worker_callback() -> Callable:
 ## @return 主线程应用回调。
 func get_apply_callback() -> Callable:
 	return _apply_callback
+
+
+# --- 私有/辅助方法 ---
+
+func _get_ref_counted_callback_target(callback: Callable) -> RefCounted:
+	if not callback.is_valid():
+		return null
+	var callback_target: Object = callback.get_object()
+	if callback_target is RefCounted:
+		var retained_target: RefCounted = callback_target
+		return retained_target
+	return null

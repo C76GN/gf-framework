@@ -9,7 +9,7 @@
 | [运行时服务](#category-runtime_service) | 187 | 3366 | 2264 |
 | [协议与扩展点](#category-protocol) | 24 | 338 | 267 |
 | [资源定义](#category-resource_definition) | 120 | 1538 | 792 |
-| [运行时句柄](#category-runtime_handle) | 45 | 792 | 499 |
+| [运行时句柄](#category-runtime_handle) | 45 | 794 | 500 |
 | [值对象](#category-value_object) | 40 | 732 | 458 |
 | [领域模型](#category-domain_model) | 4 | 61 | 42 |
 | [事件契约](#category-event_contract) | 6 | 61 | 23 |
