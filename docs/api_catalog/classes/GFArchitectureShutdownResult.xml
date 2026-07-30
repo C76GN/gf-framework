@@ -1,0 +1,289 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFArchitectureShutdownResult" path="addons/gf/kernel/core/gf_architecture_shutdown_result.gd" module="kernel" extends="RefCounted" classDigest="36470ff19b27b02a7c557dfcc9a1318bb22ec4a2f78f38b2d8a421cfda4961ba">
+	<description>GFArchitectureShutdownResult: 架构关闭流程的不可变终态快照。
+结果显式区分正常完成、失败、取消、超时、强制释放和重复释放，并以有界、
+JSON-safe 的模块条目保留关闭证据。所有集合在写入和读取边界都会重新复制，
+调用方不能借由返回值修改已提交终态。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">value_object</tag>
+		<tag name="layer">kernel/core</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals />
+	<enums>
+		<member kind="enum" name="Status">
+			<signature>enum Status {
+	## 所有关闭阶段正常完成。
+	SUCCEEDED,
+	## 至少一个关闭阶段失败。
+	FAILED,
+	## 调用方取消了关闭流程。
+	CANCELLED,
+	## 关闭流程超过了时间预算。
+	TIMED_OUT,
+	## 框架跳过未完成的静默工作并执行了强制释放。
+	FORCED,
+	## 架构在本次请求前已经释放。
+	ALREADY_DISPOSED,
+}</signature>
+			<description>架构关闭终态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</enums>
+	<constants />
+	<properties />
+	<methods>
+		<member kind="method" name="create">
+			<signature>static func create( status: Status, started_at_msec: int, completed_at_msec: int, module_results: Array[Dictionary] = [], unfinished_modules: Array[Dictionary] = [], duplicate_request_count: int = 0, error_code: Error = OK, error: String = "", cancel_reason: String = "" ) -&gt; GFArchitectureShutdownResult:</signature>
+			<description>创建一个规范化的架构关闭结果。
+模块条目最多各保留 256 项，并且只保留 kind、script、instance_id、status、
+reason 和 duration_msec 字段。字符串和非负 duration 会被限制到固定预算；
+instance_id 保留 Godot 返回的有符号 int 身份值。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">status: `Status` 终态。</tag>
+				<tag name="param">started_at_msec: 单调开始时间；负值归零。</tag>
+				<tag name="param">completed_at_msec: 单调完成时间；早于开始时间时收敛到开始时间。</tag>
+				<tag name="param">module_results: 已进入终态的模块关闭结果。</tag>
+				<tag name="param">unfinished_modules: 强制释放时仍未完成的模块快照。</tag>
+				<tag name="param">duplicate_request_count: 复用同一关闭流程的并发重复请求数量。</tag>
+				<tag name="param">error_code: 关闭错误码；成功终态强制归一为 OK。</tag>
+				<tag name="param">error: 稳定失败说明；最多保留 2048 个字符。</tag>
+				<tag name="param">cancel_reason: 取消原因；仅取消终态保留，最多 1024 个字符。</tag>
+				<tag name="return">新的不可变结果。</tag>
+				<tag name="schema">module_results: Array of Dictionaries with kind, script, instance_id, status, reason, and duration_msec.</tag>
+				<tag name="schema">unfinished_modules: Array of Dictionaries with kind, script, instance_id, status, reason, and duration_msec.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="succeeded">
+			<signature>static func succeeded( module_results: Array[Dictionary] = [], started_at_msec: int = 0, completed_at_msec: int = 0, duplicate_request_count: int = 0 ) -&gt; GFArchitectureShutdownResult:</signature>
+			<description>创建正常完成结果。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">module_results: 已完成的模块关闭结果。</tag>
+				<tag name="param">started_at_msec: 单调开始时间。</tag>
+				<tag name="param">completed_at_msec: 单调完成时间。</tag>
+				<tag name="param">duplicate_request_count: 并发重复请求数量。</tag>
+				<tag name="return">新的成功结果。</tag>
+				<tag name="schema">module_results: Array of Dictionaries with kind, script, instance_id, status, reason, and duration_msec.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="failed">
+			<signature>static func failed( error_code: Error, error: String, module_results: Array[Dictionary] = [], unfinished_modules: Array[Dictionary] = [], started_at_msec: int = 0, completed_at_msec: int = 0, duplicate_request_count: int = 0 ) -&gt; GFArchitectureShutdownResult:</signature>
+			<description>创建失败结果。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">error_code: 关闭错误码。</tag>
+				<tag name="param">error: 稳定失败说明。</tag>
+				<tag name="param">module_results: 已完成的模块关闭结果。</tag>
+				<tag name="param">unfinished_modules: 尚未完成的模块快照。</tag>
+				<tag name="param">started_at_msec: 单调开始时间。</tag>
+				<tag name="param">completed_at_msec: 单调完成时间。</tag>
+				<tag name="param">duplicate_request_count: 并发重复请求数量。</tag>
+				<tag name="return">新的失败结果。</tag>
+				<tag name="schema">module_results: Array of Dictionaries with kind, script, instance_id, status, reason, and duration_msec.</tag>
+				<tag name="schema">unfinished_modules: Array of Dictionaries with kind, script, instance_id, status, reason, and duration_msec.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="cancelled">
+			<signature>static func cancelled( reason: String = "cancelled", module_results: Array[Dictionary] = [], unfinished_modules: Array[Dictionary] = [], started_at_msec: int = 0, completed_at_msec: int = 0, duplicate_request_count: int = 0 ) -&gt; GFArchitectureShutdownResult:</signature>
+			<description>创建取消结果。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">reason: 稳定取消原因。</tag>
+				<tag name="param">module_results: 已完成的模块关闭结果。</tag>
+				<tag name="param">unfinished_modules: 尚未完成的模块快照。</tag>
+				<tag name="param">started_at_msec: 单调开始时间。</tag>
+				<tag name="param">completed_at_msec: 单调完成时间。</tag>
+				<tag name="param">duplicate_request_count: 并发重复请求数量。</tag>
+				<tag name="return">新的取消结果。</tag>
+				<tag name="schema">module_results: Array of Dictionaries with kind, script, instance_id, status, reason, and duration_msec.</tag>
+				<tag name="schema">unfinished_modules: Array of Dictionaries with kind, script, instance_id, status, reason, and duration_msec.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="timed_out">
+			<signature>static func timed_out( error: String, module_results: Array[Dictionary] = [], unfinished_modules: Array[Dictionary] = [], started_at_msec: int = 0, completed_at_msec: int = 0, duplicate_request_count: int = 0 ) -&gt; GFArchitectureShutdownResult:</signature>
+			<description>创建超时结果。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">error: 稳定超时说明。</tag>
+				<tag name="param">module_results: 已完成的模块关闭结果。</tag>
+				<tag name="param">unfinished_modules: 超时时尚未完成的模块快照。</tag>
+				<tag name="param">started_at_msec: 单调开始时间。</tag>
+				<tag name="param">completed_at_msec: 单调完成时间。</tag>
+				<tag name="param">duplicate_request_count: 并发重复请求数量。</tag>
+				<tag name="return">新的超时结果。</tag>
+				<tag name="schema">module_results: Array of Dictionaries with kind, script, instance_id, status, reason, and duration_msec.</tag>
+				<tag name="schema">unfinished_modules: Array of Dictionaries with kind, script, instance_id, status, reason, and duration_msec.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="forced">
+			<signature>static func forced( error: String, module_results: Array[Dictionary] = [], unfinished_modules: Array[Dictionary] = [], started_at_msec: int = 0, completed_at_msec: int = 0, duplicate_request_count: int = 0 ) -&gt; GFArchitectureShutdownResult:</signature>
+			<description>创建强制释放结果。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">error: 强制释放原因。</tag>
+				<tag name="param">module_results: 已完成的模块关闭结果。</tag>
+				<tag name="param">unfinished_modules: 被强制跳过的模块快照。</tag>
+				<tag name="param">started_at_msec: 单调开始时间。</tag>
+				<tag name="param">completed_at_msec: 单调完成时间。</tag>
+				<tag name="param">duplicate_request_count: 并发重复请求数量。</tag>
+				<tag name="return">新的强制释放结果。</tag>
+				<tag name="schema">module_results: Array of Dictionaries with kind, script, instance_id, status, reason, and duration_msec.</tag>
+				<tag name="schema">unfinished_modules: Array of Dictionaries with kind, script, instance_id, status, reason, and duration_msec.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="already_disposed">
+			<signature>static func already_disposed( started_at_msec: int = 0, completed_at_msec: int = 0, duplicate_request_count: int = 0 ) -&gt; GFArchitectureShutdownResult:</signature>
+			<description>创建已释放幂等结果。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">started_at_msec: 单调开始时间。</tag>
+				<tag name="param">completed_at_msec: 单调完成时间。</tag>
+				<tag name="param">duplicate_request_count: 并发重复请求数量。</tag>
+				<tag name="return">新的已释放结果。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_successful">
+			<signature>func is_successful() -&gt; bool:</signature>
+			<description>检查关闭是否以正常或幂等成功结束。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">正常完成或此前已释放时返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_status">
+			<signature>func get_status() -&gt; Status:</signature>
+			<description>获取关闭终态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">`Status` 终态。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_status_name">
+			<signature>func get_status_name() -&gt; StringName:</signature>
+			<description>获取关闭终态名称。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">小写稳定状态名称。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_started_at_msec">
+			<signature>func get_started_at_msec() -&gt; int:</signature>
+			<description>获取关闭开始时间。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">非负单调毫秒时间。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_completed_at_msec">
+			<signature>func get_completed_at_msec() -&gt; int:</signature>
+			<description>获取关闭完成时间。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">不早于开始时间的单调毫秒时间。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_duration_msec">
+			<signature>func get_duration_msec() -&gt; int:</signature>
+			<description>获取关闭耗时。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">非负单调毫秒耗时。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_module_results">
+			<signature>func get_module_results() -&gt; Array[Dictionary]:</signature>
+			<description>获取已完成模块结果的隔离副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">最多 256 个规范化模块条目。</tag>
+				<tag name="schema">return: Array of Dictionaries with kind, script, instance_id, status, reason, and duration_msec.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_unfinished_modules">
+			<signature>func get_unfinished_modules() -&gt; Array[Dictionary]:</signature>
+			<description>获取未完成模块快照的隔离副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">最多 256 个规范化模块条目。</tag>
+				<tag name="schema">return: Array of Dictionaries with kind, script, instance_id, status, reason, and duration_msec.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_duplicate_request_count">
+			<signature>func get_duplicate_request_count() -&gt; int:</signature>
+			<description>获取复用同一关闭流程的重复请求数量。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">非负重复请求数量。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_error_code">
+			<signature>func get_error_code() -&gt; Error:</signature>
+			<description>获取关闭错误码。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">成功终态为 OK。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_error">
+			<signature>func get_error() -&gt; String:</signature>
+			<description>获取稳定失败说明。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">最多 2048 个字符的失败说明。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_cancel_reason">
+			<signature>func get_cancel_reason() -&gt; String:</signature>
+			<description>获取取消原因。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">最多 1024 个字符的取消原因；非取消终态为空。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="duplicate_result">
+			<signature>func duplicate_result() -&gt; GFArchitectureShutdownResult:</signature>
+			<description>创建隔离结果副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">新的不可变结果对象。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="to_dict">
+			<signature>func to_dict() -&gt; Dictionary:</signature>
+			<description>转换为可报告字典。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">关闭终态、时间、模块结果和错误证据的隔离快照。</tag>
+				<tag name="schema">return: Dictionary with ok, status, status_name, started_at_msec, completed_at_msec, duration_msec, module_results, unfinished_modules, duplicate_request_count, error_code, error, and cancel_reason.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

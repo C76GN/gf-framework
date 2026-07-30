@@ -75,6 +75,8 @@ func after_each() -> void:
 			"test_async_handle.json",
 			"nested/async_signal_alias.json",
 			"test_wait_async.json",
+			"test_quiesce_async.json",
+			"test_quiesce_rejected.json",
 			"recover_from_backup.json",
 			"recover_from_temp.json",
 			"recover_from_stale_temp.json",
@@ -1106,6 +1108,44 @@ func test_wait_for_async_tasks_drains_queued_tasks() -> void:
 	assert_true(_storage._async_tasks.is_empty(), "等待后不应残留运行中任务。")
 	assert_true(_storage._async_queue.is_empty(), "等待后不应残留排队任务。")
 	assert_eq(GFVariantData.get_option_int(_load_payload("test_wait_async.json"), "value"), 2, "等待应处理完整队列并保留最后一次写入。")
+
+
+func test_quiesce_closes_io_admission_and_drains_accepted_queue() -> void:
+	_storage.max_async_thread_count = 1
+	var first: GFStorageAsyncOperation = _storage.save_data_request_async(
+		"test_quiesce_async.json",
+		{"value": 1}
+	)
+	var second: GFStorageAsyncOperation = _storage.save_data_request_async(
+		"test_quiesce_async.json",
+		{"value": 2}
+	)
+	var completion: GFAsyncCompletion = _storage.begin_quiesce(GFAsyncScope.new())
+
+	assert_false(completion.is_completed(), "同文件队列仍有已接纳工作时不得提前完成 quiesce。")
+	assert_eq(
+		_storage.save_data("test_quiesce_rejected.json", {"value": 3}),
+		ERR_UNAVAILABLE,
+		"quiesce 必须立即关闭同步 I/O 准入。"
+	)
+	var rejected: GFStorageAsyncOperation = _storage.save_data_request_async(
+		"test_quiesce_rejected.json",
+		{"value": 4}
+	)
+	assert_true(rejected.is_completed(), "quiesce 后的新异步请求必须立即进入终态。")
+	assert_eq(rejected.get_result().get_error_code(), ERR_UNAVAILABLE)
+
+	for _frame: int in range(120):
+		_storage.tick(0.0)
+		if completion.is_completed():
+			break
+		await get_tree().process_frame
+
+	assert_true(first.is_completed())
+	assert_true(second.is_completed())
+	assert_true(first.get_result().is_successful())
+	assert_true(second.get_result().is_successful())
+	assert_true(completion.is_successful(), "已接纳队列、线程和锁全部收敛后 quiesce 应成功。")
 
 
 func test_load_data_applies_version_defaults() -> void:

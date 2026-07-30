@@ -1,12 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSystem" path="addons/gf/kernel/base/gf_system.gd" module="kernel" extends="Object" classDigest="6499e2fd9397c38c9292d65889f095e06e8d6691aa74bd38ca9eb79442278a83">
+<class name="GFSystem" path="addons/gf/kernel/base/gf_system.gd" module="kernel" extends="Object" classDigest="02f6650dae2dc182e4c1e836324e60c0446d20510c3f77af1a49035f680e4ac4">
 	<description>GFSystem: 逻辑层抽象基类。
 负责实现核心业务逻辑。
-子类可以实现 'init'、'async_init'、'ready'、'dispose' 来管理其生命周期。
-三阶段初始化约定：
+子类可以实现 'init'、'async_init'、'ready'、'begin_activation'、
+'begin_quiesce'、'dispose' 来管理其生命周期。
+四阶段启动与关闭约定：
 - 'init'       阶段：只允许初始化自身内部变量，禁止跨模块获取依赖。
 - 'async_init' 阶段：可使用 await，用于异步资源加载等操作。
-- 'ready'      阶段：架构内所有模块均已完成 'init'，可安全跨模块获取依赖。</description>
+- 'ready'      阶段：当前模块声明的依赖已按 DAG 完成 ready，可完成同步装配。
+- 'begin_activation' 阶段：显式启动运行期能力，并返回一次性完成源。
+- 'begin_quiesce' 阶段：停止接纳新工作并排空已接纳工作。
+- 'dispose'    阶段：按激活顺序的严格逆序同步释放资源。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">protocol</tag>
@@ -37,10 +41,12 @@
 		</member>
 		<member kind="property" name="lifecycle_priority">
 			<signature>var lifecycle_priority: int = 0</signature>
-			<description>生命周期优先级。数值越大越早执行 init/async_init/ready，dispose 时越晚释放。
-默认 0 表示同优先级下按注册顺序执行；只有存在明确依赖顺序时才建议设置。</description>
+			<description>生命周期优先级。声明依赖 DAG 始终优先；仅在同一 ready frontier 内，数值越大
+越早执行 init/async_init/ready/activation，关闭时越晚 quiesce 与释放。
+默认 0 表示同一 frontier 内按稳定注册顺序执行。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">1.31.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="tick_priority">
@@ -79,6 +85,46 @@
 		</member>
 	</properties>
 	<methods>
+		<member kind="method" name="get_required_models">
+			<signature>func get_required_models() -&gt; Array[Script]:</signature>
+			<description>返回此系统声明依赖的 Model 类型。
+返回值必须保持纯函数语义，并在同一模块拓扑事务内保持稳定。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">此系统激活前必须可解析的 Model 脚本。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_required_systems">
+			<signature>func get_required_systems() -&gt; Array[Script]:</signature>
+			<description>返回此系统声明依赖的 System 类型。
+返回值必须保持纯函数语义，并在同一模块拓扑事务内保持稳定。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">此系统激活前必须可解析的 System 脚本。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_required_utilities">
+			<signature>func get_required_utilities() -&gt; Array[Script]:</signature>
+			<description>返回此系统声明依赖的 Utility 类型。
+返回值必须保持纯函数语义，并在同一模块拓扑事务内保持稳定。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">此系统激活前必须可解析的 Utility 脚本。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_required_factories">
+			<signature>func get_required_factories() -&gt; Array[Script]:</signature>
+			<description>返回此系统声明依赖的 Factory 绑定类型。
+Factory 依赖只校验绑定可用性，不参与模块生命周期 DAG。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">此系统激活前必须可解析的 Factory 脚本。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
 		<member kind="method" name="init">
 			<signature>func init() -&gt; void:</signature>
 			<description>第一阶段初始化。子类可以重写此方法。
@@ -102,9 +148,35 @@ Godot 4 支持在 void 函数内部使用 await，框架的 Gf.init() 会串行�
 		<member kind="method" name="ready">
 			<signature>func ready() -&gt; void:</signature>
 			<description>第三阶段初始化。子类可以重写此方法。
-约束：此时所有模块已完成 'init'，可安全跨模块获取依赖。</description>
+约束：当前模块声明的依赖已按 DAG 完成 ready，可安全获取并缓存这些依赖；
+未声明依赖没有可用性保证。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="begin_activation">
+			<signature>func begin_activation(_scope: GFAsyncScope) -&gt; GFAsyncCompletion:</signature>
+			<description>开始激活系统的运行期能力。
+重写实现应立即返回非空完成源，并在激活成功、失败或取消时只提交一次终态。
+基类返回已经成功的完成源。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">_scope: 当前系统激活阶段的取消作用域。</tag>
+				<tag name="return">当前激活阶段的一次性完成源。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="begin_quiesce">
+			<signature>func begin_quiesce(_scope: GFAsyncScope) -&gt; GFAsyncCompletion:</signature>
+			<description>开始静默系统并排空已经接纳的工作。
+重写实现不得在该阶段接纳新工作，也不得提前释放仍被已接纳工作使用的状态。
+基类返回已经成功的完成源。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">_scope: 当前系统静默阶段的取消作用域。</tag>
+				<tag name="return">当前静默阶段的一次性完成源。</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 		<member kind="method" name="dispose">
@@ -144,10 +216,13 @@ Godot 4 支持在 void 函数内部使用 await，框架的 Gf.init() 会串行�
 		<member kind="method" name="is_lifecycle_active">
 			<signature>func is_lifecycle_active() -&gt; bool:</signature>
 			<description>检查所属架构生命周期是否仍可安全继续异步写回。
-async_init() 或其他 await 之后写入状态前建议检查该值。</description>
+async_init() 或其他 await 之后提交已接纳工作的结果前建议检查该值。
+QUIESCING 期间该值仍可为 true；它不代表允许接纳新工作，新请求还必须通过
+GFArchitecture.is_accepting_runtime_work() 检查。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">所属架构仍处于活动生命周期时返回 true。</tag>
+				<tag name="since">3.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="is_ready_in_architecture">

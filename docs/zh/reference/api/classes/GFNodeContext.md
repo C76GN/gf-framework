@@ -9,7 +9,7 @@
 - 类别：运行时服务 (`runtime_service`)
 - 首次版本：`3.17.0`
 
-场景树上的局部架构上下文。 可选择继承父级架构，或创建带父级回退的 Scoped 架构。 Scoped 架构会在节点退出树时自动 dispose，适合关卡、战斗房间、调试面板等局部模块。
+场景树上的局部架构上下文。 可选择继承父级架构，或创建带父级回退的 Scoped 架构。 Scoped 架构会在节点退出树时使用无法等待的 forced/no-drain dispose fallback， 适合关卡、战斗房间、调试面板等局部模块。可控或数据关键的退出必须先 await owned Architecture 的 shutdown_async()，再移除节点。
 
 ## 成员概览
 
@@ -49,12 +49,13 @@
 ### `context_ready`
 
 - API：`public`
+- 首次版本：`1.9.0`
 
 ```gdscript
 signal context_ready(architecture: GFArchitecture)
 ```
 
-当上下文架构完成初始化后发出。
+当上下文 Architecture 完成 stage4 activation 并提交 READY 后发出。
 
 参数：
 

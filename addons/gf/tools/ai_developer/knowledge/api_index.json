@@ -2,8 +2,8 @@
   "schema_version": 1,
   "catalog_version": "1.0.0",
   "framework_version": "11.0.0-dev.0",
-  "source_digest": "ff54f85352eb56697316340608852f34b28994be98fdf08ec4acb51d15c4a3e4",
-  "class_count": 769,
+  "source_digest": "a74a0759730e2e83f5c5fc10ed6141f194dd6af7f0832fd268ca986aefa4a454",
+  "class_count": 770,
   "package_count": 52,
   "packages": [
     {
@@ -1952,7 +1952,7 @@
       "module": "kernel",
       "package_id": "gf.kernel",
       "path": "addons/gf/kernel/core/gf_architecture.gd",
-      "summary": "GFArchitecture: 管理 Model、System 和 Utility 的注册与生命周期的容器。 生命周期遵循三阶段初始化协议： 阶段一 (init)       ：所有模块执行自身内部变量初始化。",
+      "summary": "GFArchitecture: 管理 Model、System 和 Utility 的注册与生命周期的容器。 生命周期遵循四阶段初始化协议： 阶段一 (init)       ：各模块按声明依赖 DAG 执行自身内部变量初始化。",
       "visibility": "public",
       "category": "runtime_service",
       "since": "3.17.0",
@@ -1973,6 +1973,13 @@
         },
         {
           "kind": "signal",
+          "name": "shutdown_finished",
+          "signature": "signal shutdown_finished(result: GFArchitectureShutdownResult)",
+          "summary": "当异步关闭流程或同步强制释放发布类型化终态时发出。",
+          "visibility": "public"
+        },
+        {
+          "kind": "signal",
           "name": "project_installers_finished",
           "signature": "signal project_installers_finished",
           "summary": "当项目级 Installer 应用完成或被 dispose() 中断后发出。",
@@ -1987,41 +1994,6 @@
         },
         {
           "kind": "const",
-          "name": "HOOK_GET_REQUIRED_DEPENDENCIES",
-          "signature": "const HOOK_GET_REQUIRED_DEPENDENCIES: StringName = &\"get_required_dependencies\"",
-          "summary": "声明式依赖聚合 Hook 名称。",
-          "visibility": "public"
-        },
-        {
-          "kind": "const",
-          "name": "HOOK_GET_REQUIRED_MODELS",
-          "signature": "const HOOK_GET_REQUIRED_MODELS: StringName = &\"get_required_models\"",
-          "summary": "声明式 Model 依赖 Hook 名称。",
-          "visibility": "public"
-        },
-        {
-          "kind": "const",
-          "name": "HOOK_GET_REQUIRED_SYSTEMS",
-          "signature": "const HOOK_GET_REQUIRED_SYSTEMS: StringName = &\"get_required_systems\"",
-          "summary": "声明式 System 依赖 Hook 名称。",
-          "visibility": "public"
-        },
-        {
-          "kind": "const",
-          "name": "HOOK_GET_REQUIRED_UTILITIES",
-          "signature": "const HOOK_GET_REQUIRED_UTILITIES: StringName = &\"get_required_utilities\"",
-          "summary": "声明式 Utility 依赖 Hook 名称。",
-          "visibility": "public"
-        },
-        {
-          "kind": "const",
-          "name": "HOOK_GET_REQUIRED_FACTORIES",
-          "signature": "const HOOK_GET_REQUIRED_FACTORIES: StringName = &\"get_required_factories\"",
-          "summary": "声明式工厂依赖 Hook 名称。",
-          "visibility": "public"
-        },
-        {
-          "kind": "const",
           "name": "DEFAULT_SNAPSHOT_MODELS_PER_FRAME",
           "signature": "const DEFAULT_SNAPSHOT_MODELS_PER_FRAME: int = 8",
           "summary": "分帧快照 API 默认每帧处理的 Model 数量。",
@@ -2031,14 +2003,7 @@
           "kind": "var",
           "name": "module_async_init_timeout_seconds",
           "signature": "var module_async_init_timeout_seconds: float = 0.0",
-          "summary": "单个模块 async_init() 的最长等待时间。小于等于 0 时不启用超时。",
-          "visibility": "public"
-        },
-        {
-          "kind": "var",
-          "name": "module_lifecycle_max_stage_passes",
-          "signature": "var module_lifecycle_max_stage_passes: int = 256",
-          "summary": "单个生命周期阶段最多扫描模块注册表的次数，避免模块在生命周期中无限注册新模块。",
+          "summary": "单个模块 async_init() 的最长等待时间。0 时不启用超时。",
           "visibility": "public"
         },
         {
@@ -2050,9 +2015,16 @@
         },
         {
           "kind": "var",
-          "name": "fail_on_missing_declared_dependencies",
-          "signature": "var fail_on_missing_declared_dependencies: bool = false",
-          "summary": "声明式依赖缺失时是否直接使初始化失败。",
+          "name": "activation_timeout_seconds",
+          "signature": "var activation_timeout_seconds: float = 30.0",
+          "summary": "架构激活阶段的总等待上限（秒）。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "shutdown_timeout_seconds",
+          "signature": "var shutdown_timeout_seconds: float = 10.0",
+          "summary": "架构 quiesce 阶段的总等待上限（秒）。",
           "visibility": "public"
         },
         {
@@ -2073,7 +2045,7 @@
           "kind": "func",
           "name": "is_inited",
           "signature": "func is_inited() -> bool",
-          "summary": "检查架构是否已初始化。",
+          "summary": "检查架构是否已完成四阶段启动并提交 READY。",
           "visibility": "public"
         },
         {
@@ -2087,7 +2059,28 @@
           "kind": "func",
           "name": "is_lifecycle_active",
           "signature": "func is_lifecycle_active() -> bool",
-          "summary": "检查当前架构生命周期是否仍处于可安全继续异步写回的活动状态。",
+          "summary": "检查当前架构生命周期是否仍处于可安全继续已接纳异步写回的活动状态。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_activating",
+          "signature": "func is_activating() -> bool",
+          "summary": "检查架构是否正在执行第四阶段激活。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_quiescing",
+          "signature": "func is_quiescing() -> bool",
+          "summary": "检查架构是否已经关闭新工作、正在等待已接纳工作收敛。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_accepting_runtime_work",
+          "signature": "func is_accepting_runtime_work() -> bool",
+          "summary": "检查架构是否仍接纳新的运行时工作。",
           "visibility": "public"
         },
         {
@@ -2123,6 +2116,20 @@
           "name": "is_module_ready",
           "signature": "func is_module_ready(instance: Object) -> bool",
           "summary": "检查指定模块实例是否已经完成 ready 阶段。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_module_active",
+          "signature": "func is_module_active(instance: Object) -> bool",
+          "summary": "检查模块是否已经完成第四阶段激活。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_last_shutdown_result",
+          "signature": "func get_last_shutdown_result() -> GFArchitectureShutdownResult",
+          "summary": "获取最近一次关闭结果的隔离副本。",
           "visibility": "public"
         },
         {
@@ -2191,15 +2198,22 @@
         {
           "kind": "func",
           "name": "init",
-          "signature": "func init() -> bool",
-          "summary": "初始化架构及所有注册的组件（三阶段）。",
+          "signature": "func init(cancellation_token: GFCancellationToken = null) -> bool",
+          "summary": "初始化架构及所有注册的组件（四阶段）。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "shutdown_async",
+          "signature": "func shutdown_async( cancellation_token: GFCancellationToken = null, timeout_seconds: float = -1.0 ) -> GFArchitectureShutdownResult",
+          "summary": "异步关闭架构。",
           "visibility": "public"
         },
         {
           "kind": "func",
           "name": "dispose",
           "signature": "func dispose() -> void",
-          "summary": "销毁架构及所有注册的组件。",
+          "summary": "强制同步销毁架构及所有注册组件。",
           "visibility": "public"
         },
         {
@@ -2597,21 +2611,21 @@
         {
           "kind": "func",
           "name": "unregister_system",
-          "signature": "func unregister_system(script_cls: Script) -> void",
+          "signature": "func unregister_system(script_cls: Script) -> bool",
           "summary": "注销 System 实例。",
           "visibility": "public"
         },
         {
           "kind": "func",
           "name": "unregister_model",
-          "signature": "func unregister_model(script_cls: Script) -> void",
+          "signature": "func unregister_model(script_cls: Script) -> bool",
           "summary": "注销 Model 实例。",
           "visibility": "public"
         },
         {
           "kind": "func",
           "name": "unregister_utility",
-          "signature": "func unregister_utility(script_cls: Script) -> void",
+          "signature": "func unregister_utility(script_cls: Script) -> bool",
           "summary": "注销 Utility 实例。",
           "visibility": "public"
         },
@@ -2772,7 +2786,7 @@
         {
           "kind": "func",
           "name": "get_dependency_diagnostics",
-          "signature": "func get_dependency_diagnostics(options: Dictionary = {}) -> Dictionary",
+          "signature": "func get_dependency_diagnostics() -> Dictionary",
           "summary": "获取架构中已注册模块的声明式依赖诊断报告。",
           "visibility": "public"
         },
@@ -2789,6 +2803,172 @@
           "signature": "func _on_dispose() -> void",
           "summary": "内部销毁回调，子类可重写。",
           "visibility": "protected"
+        }
+      ]
+    },
+    "GFArchitectureShutdownResult": {
+      "extends": "RefCounted",
+      "module": "kernel",
+      "package_id": "gf.kernel",
+      "path": "addons/gf/kernel/core/gf_architecture_shutdown_result.gd",
+      "summary": "GFArchitectureShutdownResult: 架构关闭流程的不可变终态快照。 结果显式区分正常完成、失败、取消、超时、强制释放和重复释放，并以有界、 JSON-safe 的模块条目保留关闭证据。所有集合在写入和读取边界都会重新复制，",
+      "visibility": "public",
+      "category": "value_object",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "enum",
+          "name": "Status",
+          "signature": "enum Status {\n\t## 所有关闭阶段正常完成。\n\tSUCCEEDED,\n\t## 至少一个关闭阶段失败。\n\tFAILED,\n\t## 调用方取消了关闭流程。\n\tCANCELLED,\n\t## 关闭流程超过了时间预算。\n\tTIMED_OUT,\n\t## 框架跳过未完成的静默工作并执行了强制释放。\n\tFORCED,\n\t## 架构在本次请求前已经释放。\n\tALREADY_DISPOSED,\n}",
+          "summary": "架构关闭终态。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "create",
+          "signature": "static func create( status: Status, started_at_msec: int, completed_at_msec: int, module_results: Array[Dictionary] = [], unfinished_modules: Array[Dictionary] = [], duplicate_request_count: int = 0, error_code: Error = OK, error: String = \"\", cancel_reason: String = \"\" ) -> GFArchitectureShutdownResult",
+          "summary": "创建一个规范化的架构关闭结果。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "succeeded",
+          "signature": "static func succeeded( module_results: Array[Dictionary] = [], started_at_msec: int = 0, completed_at_msec: int = 0, duplicate_request_count: int = 0 ) -> GFArchitectureShutdownResult",
+          "summary": "创建正常完成结果。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "failed",
+          "signature": "static func failed( error_code: Error, error: String, module_results: Array[Dictionary] = [], unfinished_modules: Array[Dictionary] = [], started_at_msec: int = 0, completed_at_msec: int = 0, duplicate_request_count: int = 0 ) -> GFArchitectureShutdownResult",
+          "summary": "创建失败结果。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "cancelled",
+          "signature": "static func cancelled( reason: String = \"cancelled\", module_results: Array[Dictionary] = [], unfinished_modules: Array[Dictionary] = [], started_at_msec: int = 0, completed_at_msec: int = 0, duplicate_request_count: int = 0 ) -> GFArchitectureShutdownResult",
+          "summary": "创建取消结果。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "timed_out",
+          "signature": "static func timed_out( error: String, module_results: Array[Dictionary] = [], unfinished_modules: Array[Dictionary] = [], started_at_msec: int = 0, completed_at_msec: int = 0, duplicate_request_count: int = 0 ) -> GFArchitectureShutdownResult",
+          "summary": "创建超时结果。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "forced",
+          "signature": "static func forced( error: String, module_results: Array[Dictionary] = [], unfinished_modules: Array[Dictionary] = [], started_at_msec: int = 0, completed_at_msec: int = 0, duplicate_request_count: int = 0 ) -> GFArchitectureShutdownResult",
+          "summary": "创建强制释放结果。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "already_disposed",
+          "signature": "static func already_disposed( started_at_msec: int = 0, completed_at_msec: int = 0, duplicate_request_count: int = 0 ) -> GFArchitectureShutdownResult",
+          "summary": "创建已释放幂等结果。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_successful",
+          "signature": "func is_successful() -> bool",
+          "summary": "检查关闭是否以正常或幂等成功结束。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_status",
+          "signature": "func get_status() -> Status",
+          "summary": "获取关闭终态。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_status_name",
+          "signature": "func get_status_name() -> StringName",
+          "summary": "获取关闭终态名称。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_started_at_msec",
+          "signature": "func get_started_at_msec() -> int",
+          "summary": "获取关闭开始时间。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_completed_at_msec",
+          "signature": "func get_completed_at_msec() -> int",
+          "summary": "获取关闭完成时间。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_duration_msec",
+          "signature": "func get_duration_msec() -> int",
+          "summary": "获取关闭耗时。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_module_results",
+          "signature": "func get_module_results() -> Array[Dictionary]",
+          "summary": "获取已完成模块结果的隔离副本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_unfinished_modules",
+          "signature": "func get_unfinished_modules() -> Array[Dictionary]",
+          "summary": "获取未完成模块快照的隔离副本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_duplicate_request_count",
+          "signature": "func get_duplicate_request_count() -> int",
+          "summary": "获取复用同一关闭流程的重复请求数量。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_error_code",
+          "signature": "func get_error_code() -> Error",
+          "summary": "获取关闭错误码。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_error",
+          "signature": "func get_error() -> String",
+          "summary": "获取稳定失败说明。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_cancel_reason",
+          "signature": "func get_cancel_reason() -> String",
+          "summary": "获取取消原因。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "duplicate_result",
+          "signature": "func duplicate_result() -> GFArchitectureShutdownResult",
+          "summary": "创建隔离结果副本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "to_dict",
+          "signature": "func to_dict() -> Dictionary",
+          "summary": "转换为可报告字典。",
+          "visibility": "public"
         }
       ]
     },
@@ -45226,7 +45406,7 @@
       "module": "kernel",
       "package_id": "gf.kernel",
       "path": "addons/gf/kernel/base/gf_model.gd",
-      "summary": "GFModel: 数据层抽象基类。 负责管理应用数据和业务状态。 子类可以实现 'init'、'async_init'、'ready'、'dispose' 来管理其生命周期。",
+      "summary": "GFModel: 数据层抽象基类。 负责管理应用数据和业务状态。 子类可以实现 'init'、'async_init'、'ready'、'begin_activation'、",
       "visibility": "public",
       "category": "protocol",
       "since": "3.17.0",
@@ -45235,7 +45415,35 @@
           "kind": "var",
           "name": "lifecycle_priority",
           "signature": "var lifecycle_priority: int = 0",
-          "summary": "生命周期优先级。数值越大越早执行 init/async_init/ready，dispose 时越晚释放。",
+          "summary": "生命周期优先级。声明依赖 DAG 始终优先；仅在同一 ready frontier 内，数值越大",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_required_models",
+          "signature": "func get_required_models() -> Array[Script]",
+          "summary": "返回此模型声明依赖的 Model 类型。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_required_systems",
+          "signature": "func get_required_systems() -> Array[Script]",
+          "summary": "返回此模型声明依赖的 System 类型。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_required_utilities",
+          "signature": "func get_required_utilities() -> Array[Script]",
+          "summary": "返回此模型声明依赖的 Utility 类型。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_required_factories",
+          "signature": "func get_required_factories() -> Array[Script]",
+          "summary": "返回此模型声明依赖的 Factory 绑定类型。",
           "visibility": "public"
         },
         {
@@ -45257,6 +45465,20 @@
           "name": "ready",
           "signature": "func ready() -> void",
           "summary": "第三阶段初始化。子类可以重写此方法。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "begin_activation",
+          "signature": "func begin_activation(_scope: GFAsyncScope) -> GFAsyncCompletion",
+          "summary": "开始激活模型的运行期能力。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "begin_quiesce",
+          "signature": "func begin_quiesce(_scope: GFAsyncScope) -> GFAsyncCompletion",
+          "summary": "开始静默模型并排空已经接纳的工作。",
           "visibility": "public"
         },
         {
@@ -50438,7 +50660,7 @@
       "module": "kernel",
       "package_id": "gf.kernel",
       "path": "addons/gf/kernel/core/gf_node_context.gd",
-      "summary": "GFNodeContext: 场景树上的局部架构上下文。 可选择继承父级架构，或创建带父级回退的 Scoped 架构。 Scoped 架构会在节点退出树时自动 dispose，适合关卡、战斗房间、调试面板等局部模块。",
+      "summary": "GFNodeContext: 场景树上的局部架构上下文。 可选择继承父级架构，或创建带父级回退的 Scoped 架构。 Scoped 架构会在节点退出树时使用无法等待的 forced/no-drain dispose fallback，",
       "visibility": "public",
       "category": "runtime_service",
       "since": "3.17.0",
@@ -50447,7 +50669,7 @@
           "kind": "signal",
           "name": "context_ready",
           "signature": "signal context_ready(architecture: GFArchitecture)",
-          "summary": "当上下文架构完成初始化后发出。",
+          "summary": "当上下文 Architecture 完成 stage4 activation 并提交 READY 后发出。",
           "visibility": "public"
         },
         {
@@ -68095,6 +68317,27 @@
         },
         {
           "kind": "func",
+          "name": "get_required_utilities",
+          "signature": "func get_required_utilities() -> Array[Script]",
+          "summary": "声明架构模式下必须显式注册的 Storage 依赖。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "begin_activation",
+          "signature": "func begin_activation(_scope: GFAsyncScope) -> GFAsyncCompletion",
+          "summary": "激活 Profile 服务；底层 Storage 未配置时失败，不创建业务 profile。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "begin_quiesce",
+          "signature": "func begin_quiesce(scope: GFAsyncScope) -> GFAsyncCompletion",
+          "summary": "关闭新 profile 工作准入，并等待已接纳 operation、preparation、retry 与 detached 写入收敛。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
           "name": "tick",
           "signature": "func tick(_delta: float) -> void",
           "summary": "推进到期重试。",
@@ -79696,6 +79939,20 @@
         },
         {
           "kind": "func",
+          "name": "begin_activation",
+          "signature": "func begin_activation(_scope: GFAsyncScope) -> GFAsyncCompletion",
+          "summary": "激活 Storage 的同步与异步 I/O 准入。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "begin_quiesce",
+          "signature": "func begin_quiesce(scope: GFAsyncScope) -> GFAsyncCompletion",
+          "summary": "关闭新 I/O 准入，并等待此前接纳的队列、线程和文件锁全部收敛。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
           "name": "save_resource",
           "signature": "func save_resource(file_name: String, resource: Resource) -> Error",
           "summary": "保存一个 `Resource` 文件。",
@@ -80493,7 +80750,7 @@
       "module": "kernel",
       "package_id": "gf.kernel",
       "path": "addons/gf/kernel/base/gf_system.gd",
-      "summary": "GFSystem: 逻辑层抽象基类。 负责实现核心业务逻辑。 子类可以实现 'init'、'async_init'、'ready'、'dispose' 来管理其生命周期。",
+      "summary": "GFSystem: 逻辑层抽象基类。 负责实现核心业务逻辑。 子类可以实现 'init'、'async_init'、'ready'、'begin_activation'、",
       "visibility": "public",
       "category": "protocol",
       "since": "3.17.0",
@@ -80516,7 +80773,7 @@
           "kind": "var",
           "name": "lifecycle_priority",
           "signature": "var lifecycle_priority: int = 0",
-          "summary": "生命周期优先级。数值越大越早执行 init/async_init/ready，dispose 时越晚释放。",
+          "summary": "生命周期优先级。声明依赖 DAG 始终优先；仅在同一 ready frontier 内，数值越大",
           "visibility": "public"
         },
         {
@@ -80549,6 +80806,34 @@
         },
         {
           "kind": "func",
+          "name": "get_required_models",
+          "signature": "func get_required_models() -> Array[Script]",
+          "summary": "返回此系统声明依赖的 Model 类型。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_required_systems",
+          "signature": "func get_required_systems() -> Array[Script]",
+          "summary": "返回此系统声明依赖的 System 类型。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_required_utilities",
+          "signature": "func get_required_utilities() -> Array[Script]",
+          "summary": "返回此系统声明依赖的 Utility 类型。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_required_factories",
+          "signature": "func get_required_factories() -> Array[Script]",
+          "summary": "返回此系统声明依赖的 Factory 绑定类型。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
           "name": "init",
           "signature": "func init() -> void",
           "summary": "第一阶段初始化。子类可以重写此方法。",
@@ -80566,6 +80851,20 @@
           "name": "ready",
           "signature": "func ready() -> void",
           "summary": "第三阶段初始化。子类可以重写此方法。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "begin_activation",
+          "signature": "func begin_activation(_scope: GFAsyncScope) -> GFAsyncCompletion",
+          "summary": "开始激活系统的运行期能力。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "begin_quiesce",
+          "signature": "func begin_quiesce(_scope: GFAsyncScope) -> GFAsyncCompletion",
+          "summary": "开始静默系统并排空已经接纳的工作。",
           "visibility": "public"
         },
         {
@@ -86757,7 +87056,7 @@
       "module": "kernel",
       "package_id": "gf.kernel",
       "path": "addons/gf/kernel/base/gf_utility.gd",
-      "summary": "GFUtility: 工具组件抽象基类。 提供不依赖其他架构组件的独立工具功能。 子类可以实现 'init'、'async_init'、'ready'、 'dispose' 来管理其生命周期。",
+      "summary": "GFUtility: 工具组件抽象基类。 提供可复用的工具能力；需要其它架构组件时必须通过类型化 Hook 显式声明依赖。 子类可以实现 'init'、'async_init'、'ready'、'begin_activation'、",
       "visibility": "public",
       "category": "protocol",
       "since": "3.17.0",
@@ -86780,7 +87079,7 @@
           "kind": "var",
           "name": "lifecycle_priority",
           "signature": "var lifecycle_priority: int = 0",
-          "summary": "生命周期优先级。数值越大越早执行 init/async_init/ready，dispose 时越晚释放。",
+          "summary": "生命周期优先级。声明依赖 DAG 始终优先；仅在同一 ready frontier 内，数值越大",
           "visibility": "public"
         },
         {
@@ -86813,6 +87112,34 @@
         },
         {
           "kind": "func",
+          "name": "get_required_models",
+          "signature": "func get_required_models() -> Array[Script]",
+          "summary": "返回此工具声明依赖的 Model 类型。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_required_systems",
+          "signature": "func get_required_systems() -> Array[Script]",
+          "summary": "返回此工具声明依赖的 System 类型。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_required_utilities",
+          "signature": "func get_required_utilities() -> Array[Script]",
+          "summary": "返回此工具声明依赖的 Utility 类型。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_required_factories",
+          "signature": "func get_required_factories() -> Array[Script]",
+          "summary": "返回此工具声明依赖的 Factory 绑定类型。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
           "name": "init",
           "signature": "func init() -> void",
           "summary": "第一阶段初始化。子类可以重写此方法。",
@@ -86830,6 +87157,20 @@
           "name": "ready",
           "signature": "func ready() -> void",
           "summary": "第三阶段初始化。子类可以重写此方法。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "begin_activation",
+          "signature": "func begin_activation(_scope: GFAsyncScope) -> GFAsyncCompletion",
+          "summary": "开始激活工具的运行期能力。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "begin_quiesce",
+          "signature": "func begin_quiesce(_scope: GFAsyncScope) -> GFAsyncCompletion",
+          "summary": "开始静默工具并排空已经接纳的工作。",
           "visibility": "public"
         },
         {

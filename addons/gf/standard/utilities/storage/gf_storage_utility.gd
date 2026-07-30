@@ -218,6 +218,8 @@ var _async_file_locks: Dictionary = {}
 var _next_async_request_id: int = 1
 var _next_async_transaction_id: int = 1
 var _is_disposing: bool = false
+var _io_admission_open: bool = true
+var _quiesce_completion: GFAsyncCompletion = null
 var _migration_steps: Dictionary = {}
 var _path_policy: _StoragePathPolicy
 var _file_ops: _StorageFileOps
@@ -236,6 +238,8 @@ func _init() -> void:
 ## [br]
 ## @api public
 func init() -> void:
+	if not _io_admission_open:
+		return
 	_ensure_storage_helpers()
 	ignore_pause = true
 	var dir_path: String = _get_save_base_path()
@@ -250,6 +254,7 @@ func init() -> void:
 func dispose() -> void:
 	if _is_disposing:
 		return
+	_io_admission_open = false
 	_is_disposing = true
 	_wait_for_async_tasks()
 	_async_tasks.clear()
@@ -259,6 +264,7 @@ func dispose() -> void:
 	last_load_result = null
 	_release_storage_helpers()
 	_is_disposing = false
+	_try_complete_quiesce()
 
 
 ## 驱动异步存档任务完成检查。
@@ -268,6 +274,55 @@ func dispose() -> void:
 ## @param _delta: 本帧时间增量（秒），默认实现不直接使用。
 func tick(_delta: float = 0.0) -> void:
 	_poll_async_tasks()
+	_try_complete_quiesce()
+
+
+## 激活 Storage 的同步与异步 I/O 准入。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param _scope: 当前 Storage 激活阶段的取消作用域。
+## [br]
+## @return 已成功完成；正在 dispose 时返回失败终态。
+func begin_activation(_scope: GFAsyncScope) -> GFAsyncCompletion:
+	var completion: GFAsyncCompletion = GFAsyncCompletion.new()
+	if _is_disposing:
+		var _failed: bool = completion.fail("Storage utility is disposing.")
+		return completion
+	if _quiesce_completion != null:
+		var _failed_quiesced: bool = completion.fail(
+			"Storage utility cannot reactivate after quiesce."
+		)
+		return completion
+	_quiesce_completion = null
+	_io_admission_open = true
+	init()
+	var _succeeded: bool = completion.succeed()
+	return completion
+
+
+## 关闭新 I/O 准入，并等待此前接纳的队列、线程和文件锁全部收敛。
+##
+## 已接纳任务继续由 lifecycle tick 推进；强制 dispose 仍会使用同步 join fallback。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param scope: 当前 Storage 静默阶段的取消作用域。
+## [br]
+## @return 队列、任务和锁全部终态后成功的一次性完成源。
+func begin_quiesce(scope: GFAsyncScope) -> GFAsyncCompletion:
+	_io_admission_open = false
+	if _quiesce_completion != null:
+		return _quiesce_completion
+	_quiesce_completion = GFAsyncCompletion.new()
+	if scope != null:
+		var _bound: bool = _quiesce_completion.bind_cancel_token(scope)
+	_try_complete_quiesce()
+	return _quiesce_completion
 
 
 # --- 公共方法（Resource 存取） ---
@@ -282,6 +337,8 @@ func tick(_delta: float = 0.0) -> void:
 ## [br]
 ## @return Godot 的 `Error` 结果码。
 func save_resource(file_name: String, resource: Resource) -> Error:
+	if not _io_admission_open:
+		return ERR_UNAVAILABLE
 	if not _validate_public_file_name(file_name, "save_resource"):
 		return ERR_INVALID_PARAMETER
 	if resource == null:
@@ -325,6 +382,8 @@ func save_resource(file_name: String, resource: Resource) -> Error:
 ## [br]
 ## 该方法会调用 Godot `ResourceLoader`，默认关闭。调用方必须先启用 `allow_resource_loads`，并通过类型提示 allowlist、扩展名 allowlist 与存储路径策略收窄加载边界。
 func load_resource(file_name: String, type_hint: String = "") -> Resource:
+	if not _io_admission_open:
+		return null
 	if not _validate_public_file_name(file_name, "load_resource"):
 		return null
 	if not allow_resource_loads:
@@ -369,6 +428,8 @@ func load_resource(file_name: String, type_hint: String = "") -> Resource:
 ## [br]
 ## @return Godot 的 `Error` 结果码。
 func ensure_directory(directory_name: String = "") -> Error:
+	if not _io_admission_open:
+		return ERR_UNAVAILABLE
 	if not _validate_public_directory_name(directory_name, "ensure_directory"):
 		return ERR_INVALID_PARAMETER
 	init()
@@ -417,6 +478,8 @@ func list_files(
 	recursive: bool = false,
 	options: Dictionary = {}
 ) -> PackedStringArray:
+	if not _io_admission_open:
+		return PackedStringArray()
 	if not _validate_public_directory_name(directory_name, "list_files"):
 		return PackedStringArray()
 	init()
@@ -453,6 +516,8 @@ func list_files(
 ## [br]
 ## @return Godot 的 `Error` 结果码；文件不存在时返回 `ERR_FILE_NOT_FOUND`。
 func delete_file(file_name: String) -> Error:
+	if not _io_admission_open:
+		return ERR_UNAVAILABLE
 	if not _validate_public_file_name(file_name, "delete_file"):
 		return ERR_INVALID_PARAMETER
 
@@ -493,6 +558,8 @@ func delete_file(file_name: String) -> Error:
 ## [br]
 ## @return Godot 的 `Error` 结果码。
 func save_data(file_name: String, data: Dictionary) -> Error:
+	if not _io_admission_open:
+		return ERR_UNAVAILABLE
 	if not _validate_public_file_name(file_name, "save_data"):
 		return ERR_INVALID_PARAMETER
 
@@ -521,6 +588,8 @@ func save_data(file_name: String, data: Dictionary) -> Error:
 ## [br]
 ## @schema files: Dictionary，键为存储相对文件名，值为要序列化并保存的 Dictionary 载荷。
 func save_data_group(files: Dictionary) -> Error:
+	if not _io_admission_open:
+		return ERR_UNAVAILABLE
 	if files.is_empty():
 		push_error("[GFStorageUtility] save_data_group 失败：files 为空。")
 		return ERR_INVALID_PARAMETER
@@ -573,6 +642,13 @@ func save_data_group(files: Dictionary) -> Error:
 ## [br]
 ## @return 强类型读取结果；调用方必须先检查 ok，再读取 payload。
 func load_data(file_name: String) -> GFStorageReadResult:
+	if not _io_admission_open:
+		last_load_result = _make_load_failure(
+			"Storage I/O admission is closed.",
+			ERR_UNAVAILABLE,
+			GFStorageReadResult.FailureKind.UNAVAILABLE
+		)
+		return last_load_result.duplicate_result()
 	if not _validate_public_file_name(file_name, "load_data"):
 		last_load_result = _make_load_failure(
 			"Storage file name is invalid.",
@@ -730,6 +806,7 @@ func wait_for_async_tasks() -> void:
 			_erase_dictionary_key(_async_file_locks, _get_task_file_key(task))
 			_complete_finished_async_task(task, result_variant)
 		_start_queued_async_tasks()
+	_try_complete_quiesce()
 
 
 ## 使用已注册步骤迁移存档数据。
@@ -879,7 +956,7 @@ func _enqueue_async_save(
 	operation: GFStorageAsyncOperation,
 	operation_name: String
 ) -> Error:
-	if _is_disposing:
+	if _is_disposing or not _io_admission_open:
 		_complete_async_operation(
 			operation,
 			ERR_UNAVAILABLE,
@@ -930,7 +1007,7 @@ func _enqueue_async_payload_save(
 	operation: GFStorageAsyncOperation,
 	operation_name: String
 ) -> Error:
-	if _is_disposing:
+	if _is_disposing or not _io_admission_open:
 		_complete_async_operation(
 			operation,
 			ERR_UNAVAILABLE,
@@ -1028,9 +1105,9 @@ func _enqueue_async_load(
 	operation: GFStorageAsyncOperation,
 	operation_name: String
 ) -> Error:
-	if _is_disposing:
+	if _is_disposing or not _io_admission_open:
 		var unavailable_result: GFStorageReadResult = _make_load_failure(
-			"Storage utility is disposing.",
+			"Storage utility is not accepting new I/O.",
 			ERR_UNAVAILABLE,
 			GFStorageReadResult.FailureKind.UNAVAILABLE
 		)
@@ -1264,6 +1341,18 @@ func _poll_async_tasks() -> void:
 		_erase_dictionary_key(_async_file_locks, _get_task_file_key(task))
 		_complete_finished_async_task(task, result_variant)
 	_start_queued_async_tasks()
+
+
+func _try_complete_quiesce() -> void:
+	if (
+		_quiesce_completion == null
+		or not _quiesce_completion.is_pending()
+		or not _async_tasks.is_empty()
+		or not _async_queue.is_empty()
+		or not _async_file_locks.is_empty()
+	):
+		return
+	var _succeeded: bool = _quiesce_completion.succeed()
 
 
 func _wait_for_async_tasks() -> void:

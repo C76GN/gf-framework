@@ -307,7 +307,7 @@ func test_dispose_unregisters_simple_event_listener() -> void:
 
 	var arch: GFArchitecture = Gf.get_architecture()
 	var quest_script: Script = _quest.get_script()
-	arch.unregister_utility(quest_script)
+	assert_true(await arch.unregister_utility(quest_script))
 
 	assert_true(_quest.disposed_called, "注销 Utility 时应执行 dispose。")
 	Gf.send_simple_event(&"enemy_died", 1)

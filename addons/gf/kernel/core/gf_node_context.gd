@@ -1,7 +1,9 @@
 ## GFNodeContext: 场景树上的局部架构上下文。
 ##
 ## 可选择继承父级架构，或创建带父级回退的 Scoped 架构。
-## Scoped 架构会在节点退出树时自动 dispose，适合关卡、战斗房间、调试面板等局部模块。
+## Scoped 架构会在节点退出树时使用无法等待的 forced/no-drain dispose fallback，
+## 适合关卡、战斗房间、调试面板等局部模块。可控或数据关键的退出必须先 await
+## owned Architecture 的 shutdown_async()，再移除节点。
 ## [br]
 ## @api public
 ## [br]
@@ -16,9 +18,11 @@ extends Node
 
 # --- 信号 ---
 
-## 当上下文架构完成初始化后发出。
+## 当上下文 Architecture 完成 stage4 activation 并提交 READY 后发出。
 ## [br]
 ## @api public
+## [br]
+## @since 1.9.0
 ## [br]
 ## @param architecture: 当前上下文使用的架构实例。
 signal context_ready(architecture: GFArchitecture)
@@ -891,6 +895,8 @@ func _mark_context_ready(architecture_instance: GFArchitecture) -> void:
 	if _architecture != architecture_instance:
 		return
 	if architecture_instance.has_initialization_failed() or architecture_instance.is_disposed():
+		return
+	if not architecture_instance.is_inited():
 		return
 	if not is_inside_tree():
 		return

@@ -192,6 +192,34 @@ class ScopedManualNoTimeoutContext extends GFNodeContext:
 		context_wait_timeout_seconds = 0.0
 
 
+class TreeExitShutdownProbeUtility extends GFUtility:
+	var quiesce_call_count: int = 0
+	var dispose_call_count: int = 0
+
+	func begin_quiesce(_scope: GFAsyncScope) -> GFAsyncCompletion:
+		quiesce_call_count += 1
+		var completion: GFAsyncCompletion = GFAsyncCompletion.new()
+		var _completed: bool = completion.succeed()
+		return completion
+
+	func dispose() -> void:
+		dispose_call_count += 1
+
+
+class TreeExitShutdownProbeContext extends GFNodeContext:
+	var shutdown_probe: TreeExitShutdownProbeUtility = null
+
+	func _init() -> void:
+		scope_mode = GFNodeContext.ScopeMode.SCOPED
+		context_wait_timeout_seconds = 0.0
+
+	func install(architecture_instance: GFArchitecture, _scope: GFAsyncScope) -> void:
+		shutdown_probe = TreeExitShutdownProbeUtility.new()
+		var _registered: bool = await architecture_instance.register_utility_instance(
+			shutdown_probe
+		)
+
+
 # --- GUT 生命周期方法 ---
 
 func before_each() -> void:
@@ -203,6 +231,73 @@ func after_each() -> void:
 
 
 # --- 测试方法 ---
+
+func test_context_ready_requires_architecture_stage_four_commit() -> void:
+	var context: ScopedManualNoTimeoutContext = ScopedManualNoTimeoutContext.new()
+	watch_signals(context)
+	add_child(context)
+	await get_tree().process_frame
+	var original_architecture: GFArchitecture = context.get_architecture()
+	if original_architecture != null:
+		original_architecture.dispose()
+	var probe_architecture: SchedulingProbeArchitecture = (
+		SchedulingProbeArchitecture.new()
+	)
+	context._architecture = probe_architecture
+	context._owns_architecture = true
+	context._context_state = GFNodeContext._ContextState.INITIALIZING
+	context._capture_parent_architecture(null)
+
+	context._mark_context_ready(probe_architecture)
+
+	assert_false(
+		context.is_context_ready(),
+		"尚未提交 stage4 的架构不得发布 context_ready。"
+	)
+	assert_signal_not_emitted(
+		context,
+		"context_ready",
+		"stage4 前不得发出 context_ready。"
+	)
+
+	probe_architecture.reported_ready = true
+	context._mark_context_ready(probe_architecture)
+
+	assert_true(context.is_context_ready(), "stage4 完成后 Context 应进入 READY。")
+	assert_signal_emitted(
+		context,
+		"context_ready",
+		"stage4 完成后应发出 context_ready。"
+	)
+
+	context.queue_free()
+	await get_tree().process_frame
+
+
+func test_tree_exit_keeps_forced_synchronous_dispose_fallback() -> void:
+	var context: TreeExitShutdownProbeContext = TreeExitShutdownProbeContext.new()
+	add_child(context)
+	var context_architecture: GFArchitecture = await context.wait_until_ready()
+	var shutdown_probe: TreeExitShutdownProbeUtility = context.shutdown_probe
+
+	assert_not_null(context_architecture, "测试 Context 应先完成四阶段初始化。")
+	assert_not_null(shutdown_probe, "测试 Context 应安装 shutdown probe。")
+
+	context.queue_free()
+	await get_tree().process_frame
+
+	assert_true(context_architecture.is_disposed(), "tree exit 必须同步强制释放 owned 架构。")
+	assert_eq(
+		shutdown_probe.quiesce_call_count,
+		0,
+		"SceneTree 退出路径不得启动不可等待的异步 quiesce。"
+	)
+	assert_eq(
+		shutdown_probe.dispose_call_count,
+		1,
+		"tree exit 强制路径必须恰好 dispose 模块一次。"
+	)
+
 
 func test_node_context_dispatches_owned_ticks_only_while_context_is_ready() -> void:
 	var context: ScopedNoTimeoutContext = ScopedNoTimeoutContext.new()

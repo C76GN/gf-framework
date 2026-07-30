@@ -2,6 +2,7 @@
 ##
 ## 持有 tick 缓存记录、模块参与判断、排序和时间策略调用，避免
 ## GFArchitecture 同时承担注册表门面与每帧调度细节。
+## 同一缓存也为生命周期事务提供显式实例集合限定的普通 tick 推进。
 ## [br]
 ## @api framework_internal
 ## [br]
@@ -18,6 +19,9 @@ extends RefCounted
 
 const _GF_ARCHITECTURE_TICK_RECORD_SCRIPT = preload("res://addons/gf/kernel/core/gf_architecture_tick_record.gd")
 const _GF_VARIANT_ACCESS_SCRIPT = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
+const _LIFECYCLE_STAGE_READY: int = 3
+const _LIFECYCLE_STAGE_ACTIVE: int = 4
+const _MAX_LIFECYCLE_TICK_DELTA_SECONDS: float = 0.1
 
 
 # --- 私有变量 ---
@@ -31,6 +35,7 @@ var _tick_utilities: Array[GFArchitectureTickRecord] = []
 var _physics_utilities: Array[GFArchitectureTickRecord] = []
 var _tick_records: Array[GFArchitectureTickRecord] = []
 var _physics_records: Array[GFArchitectureTickRecord] = []
+var _lifecycle_candidate_records: Dictionary = {}
 var _drive_depth: int = 0
 var _tick_caches_dirty: bool = false
 
@@ -98,6 +103,74 @@ func drive_tick(delta: float, time_provider: Object) -> void:
 	var time_paused: bool = _is_time_paused(time_provider)
 	_drive_records(_tick_records, delta, scaled_delta, time_paused)
 	_end_drive()
+
+
+## 在架构生命周期事务内推进显式允许模块的普通 tick。
+## 该入口只复用当前 tick 缓存，不扩张允许集合，也不调用 physics_tick。
+## [br]
+## @api framework_internal
+## [br]
+## @since unreleased
+## [br]
+## @param delta: 调用方基于单调时钟计算的帧间隔；会收束到 0.0 至 0.1 秒。
+## [br]
+## @param allowed_instances: 当前生命周期事务允许推进的本地模块实例集合。
+## [br]
+## @schema allowed_instances: Dictionary keyed by local module Object instances; values are ignored, and only cached GFSystem or GFUtility tick records are eligible.
+func drive_lifecycle_tick(delta: float, allowed_instances: Dictionary) -> void:
+	if not _begin_drive():
+		return
+	if allowed_instances.is_empty():
+		_end_drive()
+		return
+	var lifecycle_delta: float = _normalize_lifecycle_delta(delta)
+	_drive_lifecycle_records(_tick_records, lifecycle_delta, allowed_instances)
+	_drive_lifecycle_candidate_records(lifecycle_delta, allowed_instances)
+	_end_drive()
+
+
+## 临时登记尚未提交到注册表的生命周期候选模块。
+## 候选只会被 drive_lifecycle_tick() 驱动，不会进入普通 tick/physics_tick。
+## [br]
+## @api framework_internal
+## [br]
+## @since unreleased
+## [br]
+## @param instance: 已完成 ready、等待 activation 提交的 System 或 Utility。
+## [br]
+## @return 成功登记或无需重复登记时返回 true。
+func add_lifecycle_candidate(instance: Object) -> bool:
+	if instance == null:
+		return false
+	if _lifecycle_candidate_records.has(instance):
+		return true
+	for record: GFArchitectureTickRecord in _tick_records:
+		if record != null and record.module == instance:
+			return true
+	var candidate_record: GFArchitectureTickRecord = _make_tick_record(
+		instance,
+		&"tick",
+		&"tick_enabled",
+		&"tick_priority",
+		_tick_records.size() + _lifecycle_candidate_records.size()
+	)
+	if candidate_record == null:
+		return true
+	_lifecycle_candidate_records[instance] = candidate_record
+	return true
+
+
+## 移除未提交生命周期候选的临时 tick 记录。
+## [br]
+## @api framework_internal
+## [br]
+## @since unreleased
+## [br]
+## @param instance: 要移除临时 tick 记录的未提交模块实例。
+func remove_lifecycle_candidate(instance: Object) -> void:
+	if instance == null:
+		return
+	var _removed_candidate: bool = _lifecycle_candidate_records.erase(instance)
 
 
 ## 驱动所有参与 physics_tick 的 System 与 Utility。
@@ -190,6 +263,28 @@ func _drive_records(
 	for record: GFArchitectureTickRecord in records:
 		if _is_tick_record_ready_for_tick(record):
 			record.invoke(raw_delta, scaled_delta, time_paused)
+
+
+func _drive_lifecycle_records(
+	records: Array[GFArchitectureTickRecord],
+	delta: float,
+	allowed_instances: Dictionary
+) -> void:
+	for record: GFArchitectureTickRecord in records:
+		if _is_tick_record_ready_for_lifecycle_tick(record, allowed_instances):
+			record.invoke(delta, delta, false)
+
+
+func _drive_lifecycle_candidate_records(
+	delta: float,
+	allowed_instances: Dictionary
+) -> void:
+	for record_value: Variant in _lifecycle_candidate_records.values():
+		if not record_value is GFArchitectureTickRecord:
+			continue
+		var record: GFArchitectureTickRecord = record_value
+		if _is_tick_record_ready_for_lifecycle_tick(record, allowed_instances):
+			record.invoke(delta, delta, false)
 
 
 func _begin_drive() -> bool:
@@ -305,11 +400,38 @@ func _sort_tick_records_for_tick(records: Array[GFArchitectureTickRecord]) -> vo
 func _is_tick_record_ready_for_tick(record: GFArchitectureTickRecord) -> bool:
 	if record == null or not record.is_valid_record():
 		return false
-	return _is_module_ready_for_tick(record.module)
+	return _is_module_active_for_tick(record.module)
 
 
-func _is_module_ready_for_tick(instance: Object) -> bool:
-	return _GF_VARIANT_ACCESS_SCRIPT.get_option_int(_module_lifecycle_stages, instance, 0) >= 3
+func _is_tick_record_ready_for_lifecycle_tick(
+	record: GFArchitectureTickRecord,
+	allowed_instances: Dictionary
+) -> bool:
+	if record == null or not record.is_valid_record():
+		return false
+	if not allowed_instances.has(record.module):
+		return false
+	return _is_module_ready_for_lifecycle_tick(record.module)
+
+
+func _is_module_active_for_tick(instance: Object) -> bool:
+	return (
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_int(_module_lifecycle_stages, instance, 0)
+		>= _LIFECYCLE_STAGE_ACTIVE
+	)
+
+
+func _is_module_ready_for_lifecycle_tick(instance: Object) -> bool:
+	return (
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_int(_module_lifecycle_stages, instance, 0)
+		>= _LIFECYCLE_STAGE_READY
+	)
+
+
+func _normalize_lifecycle_delta(delta: float) -> float:
+	if not is_finite(delta):
+		return 0.0
+	return clampf(delta, 0.0, _MAX_LIFECYCLE_TICK_DELTA_SECONDS)
 
 
 func _make_tick_record(

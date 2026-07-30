@@ -1,6 +1,6 @@
 # Kernel 启动注册与 Installer
 
-这一组文档说明全局架构的启动装配流程。项目可以在 boot 脚本中显式注册模块，也可以通过项目 Installer 和扩展 Installer 统一声明依赖。
+这一组文档说明全局架构的启动装配流程。项目可以在 boot 脚本中显式注册模块，也可以通过项目 Installer 和扩展 Installer 完成固定拓扑装配；模块依赖由 lifecycle Hook 声明并编译为 DAG。
 
 ## 阅读入口
 
@@ -11,4 +11,4 @@
 
 ## 使用边界
 
-Installer 只负责注册模块，不应该直接启动玩法流程。启动流程仍建议放在引导场景或专门的 System 中。
+Installer 只负责注册模块，不应该直接启动玩法流程。必须阻止架构过早开放的异步 bootstrap 放在声明依赖的项目 System `begin_activation()` 中；架构 READY 后的场景与玩法流程仍由引导场景或项目状态机负责。

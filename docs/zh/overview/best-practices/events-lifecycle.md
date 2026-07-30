@@ -14,8 +14,12 @@
 
 ## 生命周期
 
-`init()`、`async_init()` 和 `ready()` 中都应保持防御式依赖读取。模块初始化顺序不应依赖偶然的注册顺序。
+固定模块应由 Installer 在生命周期计划冻结前完成注册。模块用 `get_required_models()`、`get_required_systems()` 和 `get_required_utilities()` 声明真实依赖；架构据此编译 DAG，而不是依赖偶然的注册顺序或在初始化 Hook 中补注册。
 
-需要跨模块检查时，优先使用依赖声明和 `GFArchitecture.get_dependency_diagnostics()`。诊断只报告缺失依赖，不自动注册模块。
+`init()` 只建立本模块同步状态，`async_init()` 准备本模块异步资源，`ready()` 装配已 ready 的依赖，`begin_activation()` 才启动需要阻止架构过早开放的运行时流程。第三阶段完成不代表运行时可用；外部代码应等待 `is_accepting_runtime_work()` 或 `GFNodeContext.context_ready`。
 
-异步初始化不要无限等待外部流程。Installer 或模块需要等待外部资源时，应有项目层超时和失败策略。
+依赖诊断只读，不会自动注册模块；声明缺失、歧义或成环会让初始化 fail closed。真正可选的集成用 `find_*()`，不要把 required 声明写成“有就用”的探测。
+
+异步初始化和 activation 不要无限等待外部流程。Installer、模块准备和 bootstrap 都应使用 `GFAsyncScope`、一次性完成源以及显式 timeout/cancellation；每个异步恢复点重新检查 scope 或 lifecycle generation。
+
+正常退出优先 `await architecture.shutdown_async()`：架构先关闭新工作准入，再按依赖逆序 quiesce 已接纳工作。同步 `dispose()` 只用于 SceneTree 退出等无法等待的 forced fallback，不能替代存档 flush 或后台任务 drain。

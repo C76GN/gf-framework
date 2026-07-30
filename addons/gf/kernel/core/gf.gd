@@ -134,6 +134,7 @@ func _exit_tree() -> void:
 func has_architecture() -> bool:
 	return (
 		_architecture != null
+		and not _architecture.is_quiescing()
 		and not _architecture.is_disposing()
 		and not _architecture.is_disposed()
 	)
@@ -154,7 +155,7 @@ func create_architecture() -> GFArchitecture:
 	if _tree_exit_in_progress:
 		return null
 	if _architecture != null:
-		if _architecture.is_disposing():
+		if _architecture.is_quiescing() or _architecture.is_disposing():
 			return null
 		if not _architecture.is_disposed():
 			return _architecture
@@ -168,7 +169,7 @@ func create_architecture() -> GFArchitecture:
 	):
 		return _get_available_architecture_or_null()
 	if _architecture != null:
-		if _architecture.is_disposing():
+		if _architecture.is_quiescing() or _architecture.is_disposing():
 			return null
 		if _architecture.is_disposed():
 			_commit_architecture_identity(null)
@@ -220,6 +221,8 @@ func get_architecture() -> GFArchitecture:
 ## 若本次赋值被更新赋值、尚无已提交架构时由 create_architecture() 创建的默认架构，
 ## 或 Gf 退出场景树替代，框架会取消本次异步作用域并 dispose 未提交候选；
 ## 调用方不得假定该候选仍可复用。
+## 替换已有架构时会先等待旧架构的 shutdown_async()；只有 typed shutdown 结果成功，
+## 才会发布候选。失败结果会拒绝候选、强制清理候选并清除已经终结的旧 identity。
 ## 同一候选已有 pending 赋值时，并发重复调用会返回 false，且不会取消首个赋值。
 ## [br]
 ## @api public
@@ -249,18 +252,18 @@ func set_architecture(architecture_instance: GFArchitecture) -> bool:
 		assignment_scope,
 		assignment_serial
 	):
-		_reject_inactive_pending_architecture_assignment_if_owned(
+		_reject_pending_architecture_assignment_if_owned(
 			architecture_instance,
 			assignment_scope,
 			assignment_serial
 		)
 		return false
 	if not installers_ready:
-		_finish_pending_architecture_assignment(
+		_reject_pending_architecture_assignment_if_owned(
 			architecture_instance,
 			assignment_scope,
 			assignment_serial,
-			false
+			"[GF] 架构赋值失败：项目 Installer 未完成。"
 		)
 		return false
 	if not architecture_instance.is_inited():
@@ -270,38 +273,56 @@ func set_architecture(architecture_instance: GFArchitecture) -> bool:
 			assignment_scope,
 			assignment_serial
 		):
-			_reject_inactive_pending_architecture_assignment_if_owned(
+			_reject_pending_architecture_assignment_if_owned(
 				architecture_instance,
 				assignment_scope,
 				assignment_serial
 			)
 			return false
 		if not initialized:
-			_finish_pending_architecture_assignment(
+			_reject_pending_architecture_assignment_if_owned(
 				architecture_instance,
 				assignment_scope,
 				assignment_serial,
-				false
+				"[GF] 架构赋值失败：候选架构未完成四阶段初始化。"
 			)
 			return false
-	if architecture_instance.has_initialization_failed():
-		_finish_pending_architecture_assignment(
+	if (
+		architecture_instance.has_initialization_failed()
+		or not architecture_instance.is_inited()
+		or not architecture_instance.is_accepting_runtime_work()
+	):
+		_reject_pending_architecture_assignment_if_owned(
 			architecture_instance,
 			assignment_scope,
 			assignment_serial,
-			false
+			"[GF] 架构赋值失败：候选架构未提交 READY。"
 		)
 		return false
 	if previous_architecture != null and previous_architecture != architecture_instance:
-		previous_architecture.dispose()
+		var shutdown_result: GFArchitectureShutdownResult = (
+			await previous_architecture.shutdown_async()
+		)
 		if not _is_pending_architecture_assignment_current(
 			architecture_instance,
 			assignment_scope,
 			assignment_serial
 		):
-			_reject_inactive_pending_architecture_assignment_if_owned(
+			_reject_pending_architecture_assignment_if_owned(
 				architecture_instance,
 				assignment_scope,
+				assignment_serial
+			)
+			return false
+		if shutdown_result == null or not shutdown_result.is_successful():
+			_reject_pending_architecture_assignment_if_owned(
+				architecture_instance,
+				assignment_scope,
+				assignment_serial,
+				"[GF] 架构赋值失败：旧架构未能正常关闭。"
+			)
+			_clear_terminal_architecture_identity_if_current(
+				previous_architecture,
 				assignment_serial
 			)
 			return false
@@ -319,6 +340,7 @@ func set_architecture(architecture_instance: GFArchitecture) -> bool:
 
 
 ## 初始化当前架构。若尚未创建架构，则自动创建默认 GFArchitecture。
+## 只有 init、async_init、ready 与 activation 四阶段全部提交后才返回成功。
 ## [br]
 ## @api public
 ## [br]
@@ -343,6 +365,7 @@ func init() -> bool:
 	return (
 		initialized
 		and current_arch.is_inited()
+		and current_arch.is_accepting_runtime_work()
 		and not current_arch.has_initialization_failed()
 		and not current_arch.is_disposing()
 		and not current_arch.is_disposed()
@@ -451,7 +474,7 @@ func replace_utility(instance: Object) -> bool:
 ## [br]
 ## @since 5.0.0
 ## [br]
-## @param script_cls: 要注册、查询或创建的脚本类型。
+## @param script_cls: 工厂绑定使用的脚本类型键。
 ## [br]
 ## @param factory: 用于创建实例的工厂绑定。
 ## [br]
@@ -474,7 +497,7 @@ func register_factory(
 ## [br]
 ## @since 5.0.0
 ## [br]
-## @param script_cls: 要注册、查询或创建的脚本类型。
+## @param script_cls: 工厂入口使用的脚本类型键。
 ## [br]
 ## @param instance: 要注册、替换或注入的实例。
 ## [br]
@@ -491,7 +514,7 @@ func register_factory_instance(script_cls: Script, instance: Object) -> bool:
 ## [br]
 ## @since 5.0.0
 ## [br]
-## @param script_cls: 要注册、查询或创建的脚本类型。
+## @param script_cls: 要替换的工厂绑定脚本类型键。
 ## [br]
 ## @param factory: 用于创建实例的工厂绑定。
 ## [br]
@@ -556,12 +579,15 @@ func has_factory(script_cls: Script) -> bool:
 
 
 ## 创建短生命周期对象实例。
+## 只有当前架构已提交 READY 且仍开放运行时准入时才会调用工厂 provider。
 ## [br]
 ## @api public
 ## [br]
+## @since 1.9.0
+## [br]
 ## @param script_cls: 要注册、查询或创建的脚本类型。
 ## [br]
-## @return 创建出的实例；架构不可用或工厂不存在时返回 null。
+## @return 创建出的实例；架构未开放准入或工厂不存在时返回 null。
 func create_instance(script_cls: Script) -> Object:
 	var arch: GFArchitecture = _get_architecture_or_null("create_instance")
 	if arch == null:
@@ -1241,31 +1267,46 @@ func unlisten_owner(listener_owner: Object) -> void:
 ## [br]
 ## @api public
 ## [br]
+## @since 5.0.0
+## [br]
 ## @param script_cls: 要注册、查询或创建的脚本类型。
-func unregister_system(script_cls: Script) -> void:
+## [br]
+## @return 模块完成 quiesce 并从活动拓扑移除时返回 true。
+func unregister_system(script_cls: Script) -> bool:
 	var arch: GFArchitecture = _get_architecture_or_null("unregister_system")
-	if arch != null:
-		arch.unregister_system(script_cls)
+	if arch == null:
+		return false
+	return await arch.unregister_system(script_cls)
 
 ## 注销 Model 实例。
 ## [br]
 ## @api public
 ## [br]
+## @since 5.0.0
+## [br]
 ## @param script_cls: 要注册、查询或创建的脚本类型。
-func unregister_model(script_cls: Script) -> void:
+## [br]
+## @return 模块完成 quiesce 并从活动拓扑移除时返回 true。
+func unregister_model(script_cls: Script) -> bool:
 	var arch: GFArchitecture = _get_architecture_or_null("unregister_model")
-	if arch != null:
-		arch.unregister_model(script_cls)
+	if arch == null:
+		return false
+	return await arch.unregister_model(script_cls)
 
 ## 注销 Utility 实例。
 ## [br]
 ## @api public
 ## [br]
+## @since 5.0.0
+## [br]
 ## @param script_cls: 要注册、查询或创建的脚本类型。
-func unregister_utility(script_cls: Script) -> void:
+## [br]
+## @return 模块完成 quiesce 并从活动拓扑移除时返回 true。
+func unregister_utility(script_cls: Script) -> bool:
 	var arch: GFArchitecture = _get_architecture_or_null("unregister_utility")
-	if arch != null:
-		arch.unregister_utility(script_cls)
+	if arch == null:
+		return false
+	return await arch.unregister_utility(script_cls)
 
 
 # --- 私有/辅助方法 ---
@@ -1352,10 +1393,11 @@ func _finish_pending_architecture_assignment(
 		)
 
 
-func _reject_inactive_pending_architecture_assignment_if_owned(
+func _reject_pending_architecture_assignment_if_owned(
 	architecture_instance: GFArchitecture,
 	assignment_scope: GFAsyncScope,
-	assignment_serial: int
+	assignment_serial: int,
+	reason: String = "[GF] 架构赋值未能提交。"
 ) -> void:
 	if not _owns_pending_architecture_assignment(
 		architecture_instance,
@@ -1363,14 +1405,33 @@ func _reject_inactive_pending_architecture_assignment_if_owned(
 		assignment_serial
 	):
 		return
-	_finish_pending_architecture_assignment(
-		architecture_instance,
-		assignment_scope,
-		assignment_serial,
-		false
-	)
+
+	_pending_architecture_assignment = null
+	_pending_architecture_assignment_scope = null
+	architecture_instance.untrack_framework_async_scope(assignment_scope)
 	if architecture_instance != _architecture:
 		architecture_instance.dispose()
+	if not assignment_scope.is_cancel_requested():
+		var _cancelled_scope: bool = assignment_scope.cancel(reason)
+
+
+func _clear_terminal_architecture_identity_if_current(
+	architecture_instance: GFArchitecture,
+	assignment_serial: int
+) -> void:
+	if (
+		not _is_architecture_assignment_serial_current(assignment_serial)
+		or _architecture != architecture_instance
+	):
+		return
+	if not architecture_instance.is_disposed():
+		architecture_instance.dispose()
+	if (
+		not _is_architecture_assignment_serial_current(assignment_serial)
+		or _architecture != architecture_instance
+	):
+		return
+	_commit_architecture_identity(null)
 
 
 func _is_pending_architecture_assignment_current(

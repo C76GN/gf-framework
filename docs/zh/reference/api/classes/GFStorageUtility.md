@@ -45,6 +45,8 @@
 | 方法 | [`init`](#member-gfstorageutility-methods-init) | `func init() -> void:` |
 | 方法 | [`dispose`](#member-gfstorageutility-methods-dispose) | `func dispose() -> void:` |
 | 方法 | [`tick`](#member-gfstorageutility-methods-tick) | `func tick(_delta: float = 0.0) -> void:` |
+| 方法 | [`begin_activation`](#member-gfstorageutility-methods-begin_activation) | `func begin_activation(_scope: GFAsyncScope) -> GFAsyncCompletion:` |
+| 方法 | [`begin_quiesce`](#member-gfstorageutility-methods-begin_quiesce) | `func begin_quiesce(scope: GFAsyncScope) -> GFAsyncCompletion:` |
 | 方法 | [`save_resource`](#member-gfstorageutility-methods-save_resource) | `func save_resource(file_name: String, resource: Resource) -> Error:` |
 | 方法 | [`load_resource`](#member-gfstorageutility-methods-load_resource) | `func load_resource(file_name: String, type_hint: String = "") -> Resource:` |
 | 方法 | [`ensure_directory`](#member-gfstorageutility-methods-ensure_directory) | `func ensure_directory(directory_name: String = "") -> Error:` |
@@ -482,6 +484,48 @@ func tick(_delta: float = 0.0) -> void:
 | 名称 | 说明 |
 |---|---|
 | `_delta` | 本帧时间增量（秒），默认实现不直接使用。 |
+
+<a id="member-gfstorageutility-methods-begin_activation"></a>
+
+### `begin_activation`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func begin_activation(_scope: GFAsyncScope) -> GFAsyncCompletion:
+```
+
+激活 Storage 的同步与异步 I/O 准入。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `_scope` | 当前 Storage 激活阶段的取消作用域。 |
+
+返回：已成功完成；正在 dispose 时返回失败终态。
+
+<a id="member-gfstorageutility-methods-begin_quiesce"></a>
+
+### `begin_quiesce`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func begin_quiesce(scope: GFAsyncScope) -> GFAsyncCompletion:
+```
+
+关闭新 I/O 准入，并等待此前接纳的队列、线程和文件锁全部收敛。 已接纳任务继续由 lifecycle tick 推进；强制 dispose 仍会使用同步 join fallback。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `scope` | 当前 Storage 静默阶段的取消作用域。 |
+
+返回：队列、任务和锁全部终态后成功的一次性完成源。
 
 <a id="member-gfstorageutility-methods-save_resource"></a>
 

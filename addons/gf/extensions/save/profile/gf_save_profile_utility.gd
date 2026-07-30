@@ -149,6 +149,8 @@ var _pending_schedule_head: ProfileState = null
 var _pending_schedule_tail: ProfileState = null
 var _active_preparation_head: ProfileState = null
 var _active_preparation_tail: ProfileState = null
+var _admission_open: bool = true
+var _quiesce_completion: GFAsyncCompletion = null
 
 
 # --- Godot 生命周期方法 ---
@@ -180,6 +182,74 @@ func ready() -> void:
 		if time_value is GFTimeProvider:
 			var time_provider: GFTimeProvider = time_value
 			_clock = time_provider.get_clock()
+
+
+## 声明架构模式下必须显式注册的 Storage 依赖。
+##
+## `setup()` 仍可用于 standalone 测试与非 Architecture 所有权场景；进入 Architecture
+## 生命周期时不会因此绕过 GFStorageUtility 的显式注册要求。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @return 仅包含 GFStorageUtility 的依赖声明。
+func get_required_utilities() -> Array[Script]:
+	var dependencies: Array[Script] = [GFStorageUtility]
+	return dependencies
+
+
+## 激活 Profile 服务；底层 Storage 未配置时失败，不创建业务 profile。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param _scope: 当前 Profile 服务激活阶段的取消作用域。
+## [br]
+## @return Storage 可用时成功，否则返回失败终态。
+func begin_activation(_scope: GFAsyncScope) -> GFAsyncCompletion:
+	var completion: GFAsyncCompletion = GFAsyncCompletion.new()
+	if _disposed:
+		var _failed_disposed: bool = completion.fail("Save Profile Utility is disposed.")
+		return completion
+	if _quiesce_completion != null:
+		var _failed_quiesced: bool = completion.fail(
+			"Save Profile Utility cannot reactivate after quiesce."
+		)
+		return completion
+	if _storage == null:
+		var _failed_storage: bool = completion.fail(
+			"GFStorageUtility must be configured before activation."
+		)
+		return completion
+	_quiesce_completion = null
+	_admission_open = true
+	var _succeeded: bool = completion.succeed()
+	return completion
+
+
+## 关闭新 profile 工作准入，并等待已接纳 operation、preparation、retry 与 detached 写入收敛。
+##
+## 静默期间不会注册业务 profile，也不会取消已接纳工作；这些工作继续由 lifecycle tick
+## 和底层 Storage 完成回调推进。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param scope: 当前 Profile 服务静默阶段的取消作用域。
+## [br]
+## @return 所有已接纳工作进入终态后成功的一次性完成源。
+func begin_quiesce(scope: GFAsyncScope) -> GFAsyncCompletion:
+	_admission_open = false
+	if _quiesce_completion != null:
+		return _quiesce_completion
+	_quiesce_completion = GFAsyncCompletion.new()
+	if scope != null:
+		var _bound: bool = _quiesce_completion.bind_cancel_token(scope)
+	_try_complete_quiesce()
+	return _quiesce_completion
 
 
 ## 推进到期重试。
@@ -222,11 +292,13 @@ func tick(_delta: float) -> void:
 func dispose() -> void:
 	if _disposed:
 		return
+	_admission_open = false
 	if _processing_depth > 0:
 		_dispose_requested = true
 		return
 	_dispose_now()
 	_drain_completion_events()
+	_try_complete_quiesce()
 
 
 # --- 公共方法 ---
@@ -243,7 +315,13 @@ func dispose() -> void:
 ## [br]
 ## @return 当前 Utility；参数无效、已释放或已有注册 profile 时返回 null。
 func setup(storage: GFStorageUtility, clock: GFClock = null) -> GFSaveProfileUtility:
-	if _disposed or _unsafe_callback_depth > 0 or storage == null or not _states.is_empty():
+	if (
+		not _admission_open
+		or _disposed
+		or _unsafe_callback_depth > 0
+		or storage == null
+		or not _states.is_empty()
+	):
 		return null
 	_storage_explicit = true
 	_set_storage(storage)
@@ -277,6 +355,13 @@ func register_profile(
 		_append_registration_issue(report, &"missing_profile", "Profile is required.", "profile")
 	if _disposed:
 		_append_registration_issue(report, &"utility_disposed", "Save Profile Utility is disposed.", "utility")
+	if not _admission_open and not _disposed:
+		_append_registration_issue(
+			report,
+			&"utility_quiescing",
+			"Save Profile Utility is not accepting new registrations.",
+			"utility"
+		)
 	if _unsafe_callback_depth > 0:
 		_append_registration_issue(report, &"reentrant_registration", "Profile registration is not allowed from a Provider or state callback.", "utility")
 	if _storage == null:
@@ -327,7 +412,8 @@ func register_profile(
 func unregister_profile(profile_id: StringName) -> bool:
 	var state: ProfileState = _get_state(profile_id)
 	if (
-		_dispose_requested
+		not _admission_open
+		or _dispose_requested
 		or _unsafe_callback_depth > 0
 		or state == null
 		or state.mode != STATE_IDLE
@@ -359,6 +445,14 @@ func save_profile(
 	profile_id: StringName,
 	request: GFSaveProfileRequest = null
 ) -> GFSaveProfileOperation:
+	if not _admission_open:
+		return _make_rejected_operation(
+			GFSaveProfileOperation.OPERATION_SAVE,
+			profile_id,
+			GFSaveProfileResult.STATUS_BUSY,
+			ERR_BUSY,
+			"Save Profile Utility is quiescing."
+		)
 	var state: ProfileState = _get_state(profile_id)
 	if state == null or _disposed:
 		return _make_rejected_operation(
@@ -453,6 +547,14 @@ func load_profile(
 	context: Dictionary = {},
 	metadata: Dictionary = {}
 ) -> GFSaveProfileOperation:
+	if not _admission_open:
+		return _make_rejected_operation(
+			GFSaveProfileOperation.OPERATION_LOAD,
+			profile_id,
+			GFSaveProfileResult.STATUS_BUSY,
+			ERR_BUSY,
+			"Save Profile Utility is quiescing."
+		)
 	var state: ProfileState = _get_state(profile_id)
 	if state == null or _disposed:
 		return _make_rejected_operation(
@@ -509,6 +611,14 @@ func flush_profile(
 	profile_id: StringName,
 	metadata: Dictionary = {}
 ) -> GFSaveProfileOperation:
+	if not _admission_open:
+		return _make_rejected_operation(
+			GFSaveProfileOperation.OPERATION_FLUSH,
+			profile_id,
+			GFSaveProfileResult.STATUS_BUSY,
+			ERR_BUSY,
+			"Save Profile Utility is quiescing."
+		)
 	var state: ProfileState = _get_state(profile_id)
 	if state == null or _disposed:
 		return _make_rejected_operation(
@@ -1814,6 +1924,7 @@ func _end_processing() -> void:
 	if _dispose_requested:
 		_dispose_now()
 	_drain_completion_events()
+	_try_complete_quiesce()
 
 
 func _enter_unsafe_callback() -> void:
@@ -1841,6 +1952,7 @@ func _dispose_now() -> void:
 	_active_preparation_head = null
 	_active_preparation_tail = null
 	_disconnect_storage()
+	_try_complete_quiesce()
 
 
 func _drain_completion_events() -> void:
@@ -2460,6 +2572,7 @@ func _finalize_registration_report(
 		"next_actions": {
 			"missing_profile": "Provide one valid GFSaveProfile.",
 			"utility_disposed": "Create a new Save Profile Utility.",
+			"utility_quiescing": "Wait for shutdown or create a new Save Profile Utility.",
 			"reentrant_registration": "Register Profiles outside Provider and state callbacks.",
 			"storage_unconfigured": "Call setup or register GFStorageUtility before registration.",
 			"invalid_storage_path": "Use one path accepted by the active Storage path policy.",
@@ -2562,6 +2675,34 @@ func _get_current_storage_duration(state: ProfileState) -> int:
 			0
 		)
 	return duration_msec
+
+
+func _try_complete_quiesce() -> void:
+	if (
+		_quiesce_completion == null
+		or not _quiesce_completion.is_pending()
+		or _processing_depth > 0
+		or _emitting_completions
+		or not _pending_completion_operations.is_empty()
+		or _pending_schedule_head != null
+		or _active_preparation_head != null
+	):
+		return
+	for state_value: Variant in _states.values():
+		var state: ProfileState = _get_state_value(state_value)
+		if (
+			state != null
+			and (
+				state.mode != STATE_IDLE
+				or _has_pending_operations(state)
+				or state.current_storage_operation != null
+				or not state.detached_write_operations.is_empty()
+				or state.pending_schedule_enqueued
+				or state.active_preparation_enqueued
+			)
+		):
+			return
+	var _succeeded: bool = _quiesce_completion.succeed()
 
 
 func _set_storage(storage: GFStorageUtility) -> void:

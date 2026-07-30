@@ -1,12 +1,16 @@
 ## GFSystem: 逻辑层抽象基类。
 ##
 ## 负责实现核心业务逻辑。
-## 子类可以实现 'init'、'async_init'、'ready'、'dispose' 来管理其生命周期。
+## 子类可以实现 'init'、'async_init'、'ready'、'begin_activation'、
+## 'begin_quiesce'、'dispose' 来管理其生命周期。
 ##
-## 三阶段初始化约定：
+## 四阶段启动与关闭约定：
 ##   - 'init'       阶段：只允许初始化自身内部变量，禁止跨模块获取依赖。
 ##   - 'async_init' 阶段：可使用 await，用于异步资源加载等操作。
-##   - 'ready'      阶段：架构内所有模块均已完成 'init'，可安全跨模块获取依赖。
+##   - 'ready'      阶段：当前模块声明的依赖已按 DAG 完成 ready，可完成同步装配。
+##   - 'begin_activation' 阶段：显式启动运行期能力，并返回一次性完成源。
+##   - 'begin_quiesce' 阶段：停止接纳新工作并排空已接纳工作。
+##   - 'dispose'    阶段：按激活顺序的严格逆序同步释放资源。
 ## [br]
 ## @api public
 ## [br]
@@ -50,10 +54,13 @@ var ignore_time_scale: bool = false:
 		ignore_time_scale = value
 		_request_tick_cache_refresh()
 
-## 生命周期优先级。数值越大越早执行 init/async_init/ready，dispose 时越晚释放。
-## 默认 0 表示同优先级下按注册顺序执行；只有存在明确依赖顺序时才建议设置。
+## 生命周期优先级。声明依赖 DAG 始终优先；仅在同一 ready frontier 内，数值越大
+## 越早执行 init/async_init/ready/activation，关闭时越晚 quiesce 与释放。
+## 默认 0 表示同一 frontier 内按稳定注册顺序执行。
 ## [br]
 ## @api public
+## [br]
+## @since 1.31.0
 var lifecycle_priority: int = 0
 
 ## 每帧 tick 优先级。数值越大越早执行 tick()。
@@ -110,7 +117,55 @@ var physics_tick_enabled: bool = false:
 var _dependency_scope: Dictionary = _DEPENDENCY_SCOPE_SUPPORT._make_scope()
 
 
-# --- Godot 生命周期方法 ---
+# --- GF 生命周期方法 ---
+
+## 返回此系统声明依赖的 Model 类型。
+## 返回值必须保持纯函数语义，并在同一模块拓扑事务内保持稳定。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @return 此系统激活前必须可解析的 Model 脚本。
+func get_required_models() -> Array[Script]:
+	return []
+
+
+## 返回此系统声明依赖的 System 类型。
+## 返回值必须保持纯函数语义，并在同一模块拓扑事务内保持稳定。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @return 此系统激活前必须可解析的 System 脚本。
+func get_required_systems() -> Array[Script]:
+	return []
+
+
+## 返回此系统声明依赖的 Utility 类型。
+## 返回值必须保持纯函数语义，并在同一模块拓扑事务内保持稳定。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @return 此系统激活前必须可解析的 Utility 脚本。
+func get_required_utilities() -> Array[Script]:
+	return []
+
+
+## 返回此系统声明依赖的 Factory 绑定类型。
+## Factory 依赖只校验绑定可用性，不参与模块生命周期 DAG。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @return 此系统激活前必须可解析的 Factory 脚本。
+func get_required_factories() -> Array[Script]:
+	return []
+
 
 ## 第一阶段初始化。子类可以重写此方法。
 ## 约束：只允许初始化自身内部变量，不得跨模块获取依赖。
@@ -135,11 +190,50 @@ func async_init(_scope: GFAsyncScope) -> void:
 
 
 ## 第三阶段初始化。子类可以重写此方法。
-## 约束：此时所有模块已完成 'init'，可安全跨模块获取依赖。
+## 约束：当前模块声明的依赖已按 DAG 完成 ready，可安全获取并缓存这些依赖；
+## 未声明依赖没有可用性保证。
 ## [br]
 ## @api public
+## [br]
+## @since 5.0.0
 func ready() -> void:
 	pass
+
+
+## 开始激活系统的运行期能力。
+##
+## 重写实现应立即返回非空完成源，并在激活成功、失败或取消时只提交一次终态。
+## 基类返回已经成功的完成源。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param _scope: 当前系统激活阶段的取消作用域。
+## [br]
+## @return 当前激活阶段的一次性完成源。
+func begin_activation(_scope: GFAsyncScope) -> GFAsyncCompletion:
+	var completion: GFAsyncCompletion = GFAsyncCompletion.new()
+	var _succeeded: bool = completion.succeed()
+	return completion
+
+
+## 开始静默系统并排空已经接纳的工作。
+##
+## 重写实现不得在该阶段接纳新工作，也不得提前释放仍被已接纳工作使用的状态。
+## 基类返回已经成功的完成源。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param _scope: 当前系统静默阶段的取消作用域。
+## [br]
+## @return 当前静默阶段的一次性完成源。
+func begin_quiesce(_scope: GFAsyncScope) -> GFAsyncCompletion:
+	var completion: GFAsyncCompletion = GFAsyncCompletion.new()
+	var _succeeded: bool = completion.succeed()
+	return completion
 
 
 ## 销毁系统。子类可以重写此方法。
@@ -191,9 +285,13 @@ func inject_dependencies(architecture: GFArchitecture) -> void:
 
 
 ## 检查所属架构生命周期是否仍可安全继续异步写回。
-## async_init() 或其他 await 之后写入状态前建议检查该值。
+## async_init() 或其他 await 之后提交已接纳工作的结果前建议检查该值。
+## QUIESCING 期间该值仍可为 true；它不代表允许接纳新工作，新请求还必须通过
+## GFArchitecture.is_accepting_runtime_work() 检查。
 ## [br]
 ## @api public
+## [br]
+## @since 3.0.0
 ## [br]
 ## @return 所属架构仍处于活动生命周期时返回 true。
 func is_lifecycle_active() -> bool:

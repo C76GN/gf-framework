@@ -1,8 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
-<apiCatalog schemaVersion="2" name="GF Framework" sourceRoot="addons/gf" sourceDigest="9e39789450c4cbf9fc430ce4d263f028aefa8c493e1a23a8db60025c98455864" classCount="793" methodCount="7151">
-	<module id="kernel" label="Kernel" classCount="73" methodCount="747">
+<apiCatalog schemaVersion="2" name="GF Framework" sourceRoot="addons/gf" sourceDigest="86e4d52b3f10357105f4007a41f882fa32fe14ad28c23fb6f2d0665d7a5cf33a" classCount="794" methodCount="7201">
+	<module id="kernel" label="Kernel" classCount="74" methodCount="792">
 		<class name="GFAccessGenerator" path="classes/GFAccessGenerator.xml" sourcePath="addons/gf/kernel/editor/gf_access_generator.gd" extends="RefCounted" />
 		<class name="GFArchitecture" path="classes/GFArchitecture.xml" sourcePath="addons/gf/kernel/core/gf_architecture.gd" extends="Object" />
+		<class name="GFArchitectureShutdownResult" path="classes/GFArchitectureShutdownResult.xml" sourcePath="addons/gf/kernel/core/gf_architecture_shutdown_result.gd" extends="RefCounted" />
 		<class name="GFArtifactWriteTransaction" path="classes/GFArtifactWriteTransaction.xml" sourcePath="addons/gf/kernel/editor/gf_artifact_write_transaction.gd" extends="RefCounted" />
 		<class name="GFAsyncCompletion" path="classes/GFAsyncCompletion.xml" sourcePath="addons/gf/kernel/core/gf_async_completion.gd" extends="RefCounted" />
 		<class name="GFAsyncScope" path="classes/GFAsyncScope.xml" sourcePath="addons/gf/kernel/core/gf_async_scope.gd" extends="GFCancellationToken" />
@@ -75,7 +76,7 @@
 		<class name="GFUtility" path="classes/GFUtility.xml" sourcePath="addons/gf/kernel/base/gf_utility.gd" extends="Object" />
 		<class name="GFWeakMethodInvocation" path="classes/GFWeakMethodInvocation.xml" sourcePath="addons/gf/kernel/core/gf_weak_method_invocation.gd" extends="RefCounted" />
 	</module>
-	<module id="standard" label="Standard" classCount="443" methodCount="4465">
+	<module id="standard" label="Standard" classCount="443" methodCount="4467">
 		<class name="GFActivationTransaction" path="classes/GFActivationTransaction.xml" sourcePath="addons/gf/standard/foundation/policy/gf_activation_transaction.gd" extends="RefCounted" />
 		<class name="GFAnalyticsConfig" path="classes/GFAnalyticsConfig.xml" sourcePath="addons/gf/standard/utilities/analytics/gf_analytics_config.gd" extends="Resource" />
 		<class name="GFAnalyticsEventSchema" path="classes/GFAnalyticsEventSchema.xml" sourcePath="addons/gf/standard/utilities/analytics/gf_analytics_event_schema.gd" extends="Resource" />
@@ -762,7 +763,7 @@
 		<class name="GFGravityField3D" path="classes/GFGravityField3D.xml" sourcePath="addons/gf/extensions/physics/nodes/gf_gravity_field_3d.gd" extends="Node3D" />
 		<class name="GFGravityProbe3D" path="classes/GFGravityProbe3D.xml" sourcePath="addons/gf/extensions/physics/nodes/gf_gravity_probe_3d.gd" extends="Node3D" />
 	</module>
-	<module id="extensions/save" label="Save" classCount="44" methodCount="322">
+	<module id="extensions/save" label="Save" classCount="44" methodCount="325">
 		<class name="GFNodeAnimationPlayerSerializer" path="classes/GFNodeAnimationPlayerSerializer.xml" sourcePath="addons/gf/extensions/save/serializers/gf_node_animation_player_serializer.gd" extends="GFNodeSerializer" />
 		<class name="GFNodeAudioStreamPlayerSerializer" path="classes/GFNodeAudioStreamPlayerSerializer.xml" sourcePath="addons/gf/extensions/save/serializers/gf_node_audio_stream_player_serializer.gd" extends="GFNodeSerializer" />
 		<class name="GFNodeCanvasItemSerializer" path="classes/GFNodeCanvasItemSerializer.xml" sourcePath="addons/gf/extensions/save/serializers/gf_node_canvas_item_serializer.gd" extends="GFNodeSerializer" />

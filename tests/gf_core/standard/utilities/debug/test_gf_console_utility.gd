@@ -506,7 +506,9 @@ func test_dispose_disconnects_log_signal() -> void:
 	var log_callable: Callable = Callable(console, "_on_log_emitted")
 	assert_true(log_util.log_emitted.is_connected(log_callable), "ready 后控制台应连接日志信号。")
 
-	arch.unregister_utility(_script_from_object(console))
+	assert_true(
+		await arch.unregister_utility(_script_from_object(console))
+	)
 	assert_false(log_util.log_emitted.is_connected(log_callable), "dispose 后应断开日志信号，避免悬挂监听。")
 
 

@@ -12,7 +12,7 @@
 ## 下一步
 
 - 想理解容器和分层边界：读 [Kernel 架构容器](../kernel/index.md)。
-- 想理解 Installer、三阶段初始化和局部架构：读 [生命周期、装配与依赖](../kernel/lifecycle/index.md)。
+- 想理解 Installer、依赖 DAG、四阶段激活、异步关闭和局部架构：读 [生命周期、装配与依赖](../kernel/lifecycle/index.md)。
 - 想写事件、命令和查询：读 [消息、事件、命令与查询](../kernel/messaging/index.md)。
 - 想把场景节点、UI 和输入接入 GF：读 [场景桥接、Controller 与数据绑定](../kernel/scene-controller/index.md)。
 - 想查具体类、属性、信号和方法签名：读 [API Reference](../reference/api/index.md)。

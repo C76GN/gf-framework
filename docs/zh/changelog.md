@@ -24,7 +24,7 @@
 
 ## [未发布]
 
-**版本概述**：本轮新增类型化音频播放区间与循环点和共享资源 admission Broker，补充 Headless 服务探针和周期环境表现的项目组合配方，修复并加固 AI Developer 的项目 Adapter 依赖边界，同时把 Changelog 与安全扫描抑制约束转为可执行维护门禁，并收紧 Save Profile 准备、可选依赖、后台回调所有权、按 key 并发、场景邻居稳定帧、渲染预热和音频释放契约；框架只提供可验证的通用机制，不内置部署协议、环境业务模型或轮询式音频模拟。
+**版本概述**：本轮新增类型化音频播放区间与循环点和共享资源 admission Broker，把 Architecture 启动升级为依赖 DAG 驱动的四阶段激活并增加类型化异步关闭，补充 Save Profile bootstrap、Headless 服务探针和周期环境表现的项目组合配方，修复并加固 AI Developer 的项目 Adapter 依赖边界，同时把 Changelog 与安全扫描抑制约束转为可执行维护门禁，并收紧热模块事务、Save Profile 准备、可选依赖、后台回调所有权、按 key 并发、场景邻居稳定帧、渲染预热和音频释放契约；框架只提供可验证的通用机制，不内置项目启动政策、部署协议、环境业务模型或轮询式音频模拟。
 
 ### 🚀 新增特性 (Added)
 
@@ -34,6 +34,9 @@
 - 新增 Headless 服务健康/探针组合配方：组合惰性诊断 Provider、有界会话字段与类型化传输指标，由项目 Adapter 决定 liveness/readiness、传输协议、鉴权和部署政策；Backend 指标补充使用通用执行预算，并对总指标、自定义指标和 ID 长度设置绝对上限。
 - 新增周期环境表现组合配方：组合可注入时钟、项目环境样本、Shader Profile、接口快照与 Binder；周期、天气、天文、时区和持久化策略继续由项目负责。
 - AI Developer Capability / Recipe 知识目录升级到 `1.8.0`，加入两份组合配方的可搜索边界，并让音频能力目录认识类型化播放区间与循环点。
+- `GFModel`、`GFSystem` 与 `GFUtility` 新增 `begin_activation(scope)` / `begin_quiesce(scope)`；`GFArchitecture` 新增 activation/shutdown deadline、激活与 quiescing 状态查询，以及依赖 DAG 驱动的第四阶段 bootstrap。
+- 新增 `GFArchitectureShutdownResult`：类型化区分正常完成、失败、取消、超时、强制释放与幂等重复关闭，并以有界模块条目保存 quiesce 证据；并发 `shutdown_async()` 调用共享同一关闭流程。
+- 新增 Save Profile bootstrap 组合配方：项目 System 声明依赖 `GFSaveProfileUtility`，在 `begin_activation()` 中把 `load_profile()` / `flush_profile()` Operation 桥接到一次性完成源；框架不新增项目存档业务类。
 - `GFArchitecture` 新增 `find_model()`、`find_system()` 与 `find_utility()` 静默可选查询：非严格模式复用普通父链和 alias 规则，严格模式停止本地但不报告 required miss。
 - `GFAsyncKeyedGate` 新增 `try_request_lease()` 与 `STATUS_BUSY`：无法在当前主线程边界立即提交时，不创建 waiter、请求 ID 或 completion，不发请求生命周期信号，也不改变公平游标。
 - 新增 `GFResourceBroker` 与 `GFResourceLease`：为 Asset、Scene 与 BackgroundWork 提供显式共享、无单例的 threaded ResourceLoader admission；不同资源请求使用有界严格 FIFO，同资源身份复用底层请求并保留独立消费者取消，已发起且失去消费者的请求继续 drain 到 Godot 终态。
@@ -55,6 +58,11 @@
 - 新增 tracked-only `codeql_suppression_policy`：禁止 Python 源码中的全部内联 suppression，并拒绝 bracketed legacy、通配、多 query，以及 CodeQL 的路径过滤、查询过滤、自定义配置和自定义查询套件；YAML 约束只匹配真实 mapping key，区分规范注释、URL fragment、说明 scalar 与 block scalar，并通过受控 UTF-8 普通文件读取固定完整父目录链和文件身份。该策略与 GF 凭据门禁的豁免保持完全隔离，并进入 quick、full 与 release。
 - `public_api_boundary` 现在解析 GDScript API 签名，并拒绝 `@api public` / `@api protected` 方法把顶层私有 `*_SCRIPT` 预加载常量暴露为参数或返回类型；framework-internal、private 方法和方法体局部类型保持可用，避免实现细节进入公开契约。
 - API baseline 现在比较公开成员的 `@schema` 契约；已有 free-text schema 的任何文本变化（包括追加、改写、重排或删除）都会 fail-closed 归入 breaking，只有稳定基线此前完全没有 schema、当前首次补充时才归入 compatible，避免 Dictionary 字段迁移绕过 SemVer 主版本门禁。
+- `GFArchitecture.init()` 在模块 Hook 前冻结注册快照并从四类 typed required Hook 编译声明依赖 DAG，按依赖优先顺序执行 `init()`、`async_init()`、`ready()` 和 `begin_activation()`；stage4 全部成功前，命令、查询、事件、普通 tick 与外部运行时准入保持关闭。缺失、stale alias、歧义、非法或循环依赖现在无条件使初始化失败，本地 alias/assignable 解析错误不会回退父级。
+- READY 后的模块注册、替换与注销改为显式拓扑事务：热注册与热替换的新实例只存在于 staged candidate，stage4 成功后才原子发布 registry 与活动计划；注销则先完成目标 quiesce 再提交。事务期间拒绝普通运行时执行，迟到 continuation 和同 Hook 重入不能覆盖更新 topology。Factory 与 alias 拓扑在首次 activation 后冻结。
+- `GFArchitecture.shutdown_async()` 先不可逆关闭新工作准入，再按激活 DAG 严格逆序调用模块 quiesce，并在 deadline、取消或失败后仍执行恰好一次的同步 dispose/release。等待已接纳拓扑事务超时或被取消时，关闭流程按“夺取写权、取消 scope、claim 清理”接管，且不保留长期 tombstone；`unfinished_modules` 同时记录当前 quiesce 失败、取消或超时的模块及其后尚未开始的模块。三个架构生命周期 timeout 属性统一只接受有限 `0..86400`，`0` 禁用 deadline；per-call shutdown timeout 保留 `-1.0` 作为读取属性默认值的唯一负值 sentinel。`dispose()` 明确收敛为 SceneTree 退出等无法等待路径的 forced fallback。
+- `Gf.set_architecture()` 只发布完成 stage4 且接纳运行时工作的 candidate；替换旧全局架构时先等待旧架构 typed shutdown 成功。失败 replacement 会清理未发布 candidate，并以 assignment serial/scope ownership 阻止旧协程晚到写回。
+- `GFNodeContext.context_ready` 只在 owned/inherited Architecture 完成第四阶段后发出；quiescing 架构不可作为可用 Context，节点离树继续使用同步 forced dispose，项目可控关闭应直接等待 owned Architecture 的 `shutdown_async()`。
 - `GFNetworkBackend.get_transport_metrics()` 现在把基础计数与 Adapter 补充阶段隔离；补充 Hook 超过执行预算、未为新增指标消费步骤或突破指标容量时，本次调用失败关闭为基础快照，不把不可控工作带入探针路径。
 - `GFBackgroundWorkUtility` 在接受任务后强持有 `RefCounted` worker/apply callback target，并分别在线程 join 和任务终态释放，避免排队任务依赖调用方局部变量寿命。
 - `GFRenderWarmupUtility` 将清单显式提供的 `entries_per_tick` 在入队时钳制并固定；未覆盖时继续读取当前全局默认值，正常 `tick()` 只消费 FIFO 队首自己的预算，显式 `process_queue()` 继续提供跨清单总预算。
@@ -74,6 +82,8 @@
 - 修复 CodeQL 策略把普通 `LGTM`、步骤说明中的 `paths` / `queries` 和 shell block 行尾反斜杠误判为 suppression/config，以及把 URL fragment 的 `#` 错当注释后漏过禁用默认查询的问题；YAML key lexer 现在同时覆盖 block、flow、quoted、Unicode escape、quoted continuation 与多行显式 key，并在原始输入、线性 Unicode 解码后的原始文本及续行拼接后的逻辑行上累计冒号、引号与标签探测预算。续行改为分块后单次连接，编码或跨行构造的 probe 不能在 normalization 阶段恢复二次复杂度。
 - 修复 Utility 的有界 Bank resolver 用最右子串截断多字符 `fallback_separator`、导致结果偏离 `GFAudioBank.resolve_clip()` 的问题；运行时解析现在保留从左到右、非重叠且忽略空片段的既有分隔语义，同时继续限制标识长度、分隔符长度与最多 16 次回退。
 - 修复异步等待生命周期测试把 1ms 墙钟预算与 deferred free 调度顺序绑定的竞态；测试现在先用 timeout pause 建立等待已挂起的握手，再同步释放 continuation owner，稳定验证失效检查必须先于同轮已到期 timeout 仲裁。
+- 修复仅依赖父级 factory 的活动 child 未保持父链关闭租约，以及 provider/injection 重入关闭架构、嵌套解析失败或待释放对象仍可缓存、交付、重复清理或遗留 child 事件作用域的问题；外部 factory 依赖现在只阻止父链正常关闭而不冻结无关模块拓扑，每次解析固定 owner/requester 的准入与 generation，逐 Hook fail closed，解析栈内拒绝模块拓扑重入，并按缓存释放权与实际注入目标回滚未交付实例。
+- 修复独立 `api-baseline-diff` 无法为受治理的 `X.Y.Z-dev.N` 开发身份选择上一稳定 SemVer 基准、并错误拒绝其目标 major/minor 升级的问题；基准选择、breaking/compatible 判定与 Changelog 门禁现在复用同一稳定 core，未知 prerelease 或 build metadata 继续失败关闭。
 - 修复后台任务只保存 `Callable`、导致短生命周期 `RefCounted` worker 或 apply target 在线程执行前释放的问题；取消、失败和成功路径现在统一清理 callback 所有权。
 - 修复 `GFRenderWarmupUtility.queue_manifest()` 保存但正常帧推进忽略 `entries_per_tick` 的问题，并防止显式零或负清单预算永久停滞。
 - 修复 `GFDiagnosticsUtility` 在 strict architecture 中通过 reporting lookup 探测可选 Console、Log 和工具快照贡献者，导致合法缺失被误报为必需依赖的问题。
@@ -88,6 +98,8 @@
 - 移除 `GFSaveProfileUtility.save_profile(profile_id, metadata, context)` 字典重载；保存调用统一改用一次性 `GFSaveProfileRequest`，不保留隐式复制兼容路径。
 - 移除 `GFSaveProfileResult.STATUS_GATHER_FAILED` / `gather_failed`；Snapshot 创建、协作式推进与 worker payload 预检失败统一使用 `STATUS_PREPARATION_FAILED` / `preparation_failed`，不保留 alias。
 - 移除 `GFSaveSectionProvider.gather_section()`、`_gather_section()`、`GFSaveProfileUtility.STATE_GATHERING` 及读取回滚对保存采集的隐式回退；保存 Provider 必须采用 Snapshot Operation，启用读取的 Provider 必须显式实现 `_capture_section()`。
+- 移除 `GFArchitecture.fail_on_missing_declared_dependencies` 与 `module_lifecycle_max_stage_passes`；声明依赖现在始终是强契约，生命周期计划只编译一个确定性候选 DAG，不保留 warning-only 或初始化期多轮补注册路径。
+- 移除 `GFArchitecture.HOOK_GET_REQUIRED_DEPENDENCIES`、`HOOK_GET_REQUIRED_MODELS`、`HOOK_GET_REQUIRED_SYSTEMS`、`HOOK_GET_REQUIRED_UTILITIES` 与 `HOOK_GET_REQUIRED_FACTORIES`；依赖声明只通过 `GFModel`、`GFSystem`、`GFUtility` 的类型化虚方法表达，不再暴露字符串 Hook 常量。
 
 ### 🔧 API 变动说明 (API Changes)
 
@@ -105,6 +117,11 @@
 - `GFSaveProfileUtility.STATE_PREPARING` 替代 `STATE_GATHERING`，`GFSaveProfileResult.STATUS_PREPARATION_FAILED` 替代 `STATUS_GATHER_FAILED`，并新增 `save_preparation_work_budget_per_tick`、`save_preparation_slice_budget` 与 `save_preparation_time_budget_usec`。
 - `GFSaveProfileResult.get_preparation_duration_msec()`、`get_storage_duration_msec()` 与 `get_preparation_work_units()` 分开暴露阶段诊断；Save 结果的 `get_document()` 固定返回 `null`，只有 load 结果携带文档。
 - `GFStoragePayloadTransfer.take_ownership()`、`release()`、`GFStorageUtility.save_payload_request_async()`、`GFStorageAsyncOperation.reclaim_failed_payload()`、`GFStorageAsyncResult.get_write_failure_kind()` 与 `get_write_validation_report()` 构成新的显式 move / retry 契约。`gf.save` 的 `extension_version` 因此提升到 `6.0.0`。
+- Save 扩展 Installer 现在先确保 `GFStorageUtility` 存在，再装配 Save Graph/Profile；项目 Installer 不再重复拥有 Storage 注册。
+- `GFModel`、`GFSystem`、`GFUtility` 新增 `begin_activation(GFAsyncScope) -> GFAsyncCompletion` 与 `begin_quiesce(GFAsyncScope) -> GFAsyncCompletion`。
+- `GFArchitecture.init(cancellation_token = null)` 保留无参数调用形状并新增显式取消输入；新增 `activation_timeout_seconds`、`shutdown_timeout_seconds`、`is_activating()`、`is_quiescing()`、`is_accepting_runtime_work()`、`is_module_active()`、`shutdown_async()`、`get_last_shutdown_result()` 与 `shutdown_finished`。`module_async_init_timeout_seconds` 与两个新增 timeout 属性统一为有限 `0..86400` 契约，`0` 禁用 deadline；并发 init/shutdown 都由首个调用拥有共享流程策略，后续 init token 只取消自身等待，后续 shutdown 调用只复制同一终态。父级 required module/factory 由 child generation 弱租约保护；模块租约冻结相关父级模块拓扑，任一外部依赖租约都使父级正常关闭以 `ERR_BUSY` 失败。`create_instance()` 现在属于 READY 运行时准入，在 activation、热拓扑事务或 quiesce 期间不会调用 provider。依赖诊断固定复用四类 typed Hook 与真实父级解析语义，不再提供 `include_parent_lookup` / `include_factories` 行为开关。
+- `GFArchitecture.unregister_model()`、`unregister_system()`、`unregister_utility()` 及 classless Autoload facade `Gf.unregister_*()` 均改为必须 `await` 且返回 `bool` 的拓扑事务；旧同步 fire-and-forget 调用不再受支持。
+- 新增公开值对象 `GFArchitectureShutdownResult`；`GFNodeContext.context_ready` 的既有信号形状不变，但成功语义从第三阶段准备完成收紧为第四阶段 activation 已提交。
 
 ### 📘 升级指南 (Migration Guide)
 
@@ -121,6 +138,13 @@
 11. 不再从 Save 的 `GFSaveProfileResult.get_document()` 读取文档；Save 诊断改用 generation、request IDs、准备/Storage 耗时、work units 和校验报告。需要完整文档时只读取 load 结果。
 12. Architecture 项目在 Asset、Scene 或 BackgroundWork Utility 之前注册一个共享 `GFResourceBroker`；独立 Utility 调用 `setup_standalone_resource_broker()`，多个独立消费者则创建同一个 Broker 并分别调用 `set_resource_broker()`。
 13. 将诊断面板中的 `threaded_resource_operations` 读取迁移到 `resource_broker`，并按 active、pending、draining 与 admission 预算字段展示共享状态。
+14. 将过去在 `ready()` 中启动异步运行期工作的模块迁移到 `begin_activation(scope)`，立即返回非空 `GFAsyncCompletion`，并把 callback、Signal 或 Operation 的唯一终态桥接为 succeed/fail/cancel；不要手动 pump Architecture tick。
+15. 为模块补全 `get_required_models()`、`get_required_systems()`、`get_required_utilities()`、`get_required_factories()` 声明并消除本地依赖环；删除聚合依赖 Hook、诊断 include 开关以及对 `fail_on_missing_declared_dependencies` 与 `module_lifecycle_max_stage_passes` 的赋值，把初始化 Hook 中的固定模块注册移回 Installer。修复 stale alias 或用显式 alias 消除本地 assignable 歧义，不能依赖父级结果掩盖错误装配。
+16. 先启动父 Architecture、再初始化 child，并在关闭时反序执行以保证 parent outlive child；父级 required module 只有在父 Architecture 已 READY 且模块 ACTIVE 时才满足。活动 child 的外部模块依赖租约会冻结相关父级模块拓扑，任一外部依赖租约都会使父级正常关闭返回失败；先关闭 child 再重试。不要用同步 `dispose()` 绕过该顺序，除非正在执行无法等待的灾难收敛。正常应用退出、主运行域替换和数据关键的局部 Context 关闭改为 `await architecture.shutdown_async()` 并检查 typed result；只在无法等待的 SceneTree teardown 保留同步 `dispose()`。将三个 lifecycle timeout 属性迁移为有限 `0..86400`，用 `0` 禁用 deadline；per-call shutdown 仅用 `-1.0` 表示读取属性默认值。shutdown deadline 约束 cooperative quiesce 与异步等待，最终同步释放不能强杀 Godot Thread，因此不承诺墙钟硬上限。
+17. READY 后需要改变模块集合时 `await` 对应 register/replace/unregister 事务并检查 `bool`；register/replace 候选在 stage4 成功和原子提交前不可见，失败后不得复用。需要改变 factory 或 alias 拓扑时构建新的 candidate Architecture，不在活动架构上维护兼容分支。
+18. 将 `Gf.unregister_model()`、`Gf.unregister_system()` 与 `Gf.unregister_utility()` 的调用改为 `await` 并检查 `bool`；不要依赖旧的同步注销时序。
+19. 启用 Save 扩展的项目删除项目 Installer 中重复的 `GFStorageUtility` 注册；需要调整参数时取回扩展已安装实例并配置，需要替换实现时显式调用 `replace_utility()`。
+20. 不再在 Installer、`init()`、`ready()` 或 activation 中调用 `create_instance()` 触发工厂副作用；装配期改用 `has_factory()` / `get_required_factories()` 校验，只有 Architecture 提交 READY 且无热拓扑事务后才创建运行时对象。
 
 ### 📁 核心受影响文件 (Affected Files)
 
@@ -131,6 +155,16 @@
 - `addons/gf/standard/utilities/audio/gf_audio_backend_capability.gd`
 - `addons/gf/standard/utilities/audio/gf_audio_clip.gd`
 - `addons/gf/kernel/core/gf_architecture.gd`
+- `addons/gf/kernel/core/gf_binding.gd`
+- `addons/gf/kernel/core/gf_architecture_lifecycle_plan.gd`
+- `addons/gf/kernel/core/gf_architecture_shutdown_result.gd`
+- `addons/gf/kernel/core/gf_kernel_runtime.gd`
+- `addons/gf/kernel/core/gf.gd`
+- `addons/gf/kernel/core/gf_architecture_tick_scheduler.gd`
+- `addons/gf/kernel/core/gf_node_context.gd`
+- `addons/gf/kernel/base/gf_model.gd`
+- `addons/gf/kernel/base/gf_system.gd`
+- `addons/gf/kernel/base/gf_utility.gd`
 - `addons/gf/standard/common/gf_async_keyed_gate.gd`
 - `addons/gf/standard/utilities/debug/gf_diagnostics_utility.gd`
 - `addons/gf/standard/utilities/display/gf_render_warmup_utility.gd`
@@ -146,6 +180,7 @@
 - `addons/gf/standard/utilities/storage/gf_storage_utility.gd`
 - `addons/gf/extensions/save/document/gf_save_section.gd`
 - `addons/gf/extensions/save/profile/gf_save_profile_request.gd`
+- `addons/gf/extensions/save/extension.gd`
 - `addons/gf/extensions/save/profile/gf_save_payload_validation_adapter.gd`
 - `addons/gf/extensions/save/profile/gf_save_profile_operation.gd`
 - `addons/gf/extensions/save/profile/gf_save_section_provider.gd`
@@ -167,6 +202,10 @@
 - `tools/gf_maintenance.py`
 - `docs/zh/editor/tools/ai-developer.md`
 - `docs/zh/extensions/save-graph/save-profile-runtime.md`
+- `docs/zh/kernel/lifecycle/module-lifecycle/init-stages.md`
+- `docs/zh/kernel/lifecycle/module-lifecycle/async-ready.md`
+- `docs/zh/kernel/lifecycle/module-lifecycle/dynamic-registration.md`
+- `docs/zh/kernel/architecture/assembly-diagnostics/dependency-diagnostics.md`
 - `docs/zh/extensions/save-graph/save-profile-adr.md`
 - `docs/zh/extensions/network-turnbased/network-transport/backend-session.md`
 - `docs/zh/standard/utilities/io/storage-snapshot/storage-utility.md`
@@ -175,6 +214,11 @@
 - `docs/zh/standard/utilities/runtime/audio/backend-events.md`
 - `docs/zh/standard/utilities/runtime/settings-ui-scene/shader-parameter-profile.md`
 - `tests/gf_core/extensions/network/test_gf_network_extension.gd`
+- `tests/gf_core/kernel/core/test_gf_architecture_activation_shutdown.gd`
+- `tests/gf_core/kernel/core/test_gf_architecture_lifecycle_transactions.gd`
+- `tests/gf_core/kernel/core/test_gf_architecture_lifecycle_plan.gd`
+- `tests/gf_core/kernel/core/test_gf_assignment_lifecycle.gd`
+- `tests/gf_core/kernel/core/test_gf_node_context_lifecycle.gd`
 - `tests/gf_core/maintenance/test_api_surface_contract_validation.gd`
 - `tests/gf_core/extensions/save/test_gf_save_profile_preparation.gd`
 - `tests/gf_core/extensions/save/test_gf_save_profile_scheduler.gd`

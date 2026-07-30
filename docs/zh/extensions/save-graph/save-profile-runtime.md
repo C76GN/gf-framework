@@ -76,8 +76,14 @@ Snapshot 与读取事务回滚分成两个清晰的一致性边界。
 
 ## 注册 Profile
 
-Save 扩展安装器会注册 `GFSaveProfileUtility`。项目在架构初始化完成后创建并注册
-Profile；同一个 Utility 内的 profile ID 和文件名都必须唯一。
+Save 扩展安装器会先复用架构中已有的 `GFStorageUtility`，或在缺失时注册一个共享
+Storage，再注册 `GFSaveGraphUtility` 与 `GFSaveProfileUtility`。Profile Utility 通过
+类型化依赖声明绑定这份 Storage；安装器路径不需要也不应额外调用 `setup()`。只有
+脱离 Architecture 独立使用 Profile Utility 时，调用方才通过 `setup(storage)` 显式
+交付自有 Storage。项目可以在自己的 Installer 中准备 Profile 定义，再由声明依赖
+该 Utility 的项目 System 在第三阶段 `ready()` 注册；如果 Profile 不参与启动
+bootstrap，也可以在架构 READY 后显式注册。同一个 Utility 内的 profile ID 和
+文件名都必须唯一。
 
 ```gdscript
 var profile := GFSaveProfile.new()
@@ -104,6 +110,85 @@ if not GFVariantData.get_option_bool(registration, "registered"):
 
 `GFSaveMigrationRegistry` 仍是唯一迁移引擎。Profile 不提供字段级兼容回退；文档或
 section 版本落后时必须存在完整迁移链，未来版本始终拒绝读取。
+
+## 与 Architecture Activation 组合
+
+需要在首个运行场景开放前恢复存档或确认既有 generation 已落盘时，由项目
+`GFSystem` 声明 `GFSaveProfileUtility` 为必需依赖，并在
+`begin_activation(scope)` 中把 `load_profile()` 或 `flush_profile()` 的类型化终态
+桥接到 `GFAsyncCompletion`。不要把项目 slot、账号选择或恢复决策写入框架 Utility，
+也不要在 System 中手动轮询 `architecture.tick()`：
+
+```gdscript
+extends GFSystem
+
+const BOOTSTRAP_PROFILE_ID: StringName = &"project.player"
+
+var _save_profiles: GFSaveProfileUtility = null
+var _bootstrap_operation: GFSaveProfileOperation = null
+
+func get_required_utilities() -> Array[Script]:
+	return [GFSaveProfileUtility]
+
+func ready() -> void:
+	var value: Variant = get_utility(GFSaveProfileUtility, true)
+	if value is GFSaveProfileUtility:
+		_save_profiles = value
+	# 在这里注册项目自己的 GFSaveProfile，并检查 registered 报告。
+
+func begin_activation(scope: GFAsyncScope) -> GFAsyncCompletion:
+	var completion: GFAsyncCompletion = GFAsyncCompletion.new()
+	var _bound: bool = completion.bind_cancel_token(scope)
+	if not completion.is_pending():
+		return completion
+	if _save_profiles == null:
+		var _failed: bool = completion.fail("Save Profile dependency is unavailable.")
+		return completion
+
+	# 恢复启动状态时等待 load；若职责是确认已排队 generation 落盘，
+	# 则用 flush_profile(BOOTSTRAP_PROFILE_ID) 并复用同一桥接方法。
+	_bootstrap_operation = _save_profiles.load_profile(BOOTSTRAP_PROFILE_ID)
+	_bridge_bootstrap_operation(_bootstrap_operation, completion)
+	return completion
+
+func _bridge_bootstrap_operation(
+	operation: GFSaveProfileOperation,
+	completion: GFAsyncCompletion
+) -> void:
+	if operation == null:
+		var _failed: bool = completion.fail("Save Profile bootstrap returned no operation.")
+		return
+	if operation.is_completed():
+		_finish_bootstrap(operation.get_result(), completion)
+		return
+	var connected: Error = operation.completed.connect(
+		Callable(self, &"_finish_bootstrap").bind(completion),
+		CONNECT_ONE_SHOT
+	)
+	if connected != OK:
+		var _failed_connect: bool = completion.fail("Bootstrap completion is unavailable.")
+
+func _finish_bootstrap(result: GFSaveProfileResult, completion: GFAsyncCompletion) -> void:
+	_bootstrap_operation = null
+	if not completion.is_pending():
+		return
+	if result != null and result.is_successful():
+		var _succeeded: bool = completion.succeed()
+		return
+	var error_message: String = result.get_error() if result != null else "No result."
+	var _failed: bool = completion.fail(error_message)
+```
+
+依赖 DAG 会先激活 `GFStorageUtility`，再激活 `GFSaveProfileUtility`，最后执行项目
+System 的 activation。等待上述 Operation 时，Architecture 只推进当前 System 的
+本地依赖闭包，因此 Profile 与 Storage 的 tick-driven 状态机会继续运行，但命令、
+事件、普通 tick 和其他外部运行时工作仍保持关闭。Operation 失败、scope 取消或超过
+`activation_timeout_seconds` 时，项目 System 必须让 completion 进入非成功终态；
+Architecture 随即拒绝 READY，并由 lifecycle generation 防止迟到回调写回。
+
+`load_profile()` 适合恢复并应用启动状态；`flush_profile()` 只保证调用时捕获的
+generation 或更新 generation 已经持久化，不能替代读取。是否在 load 后安排一次
+save/flush 取决于项目恢复政策，框架不隐式改写文件。
 
 ## 保存、flush 与读取屏障
 

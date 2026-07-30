@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFStorageUtility" path="addons/gf/standard/utilities/storage/gf_storage_utility.gd" module="standard" extends="GFUtility" classDigest="6064b17e618783d53c51d21bb3ac2c29ca97d8b129db1768ebc84fb2c290c150">
+<class name="GFStorageUtility" path="addons/gf/standard/utilities/storage/gf_storage_utility.gd" module="standard" extends="GFUtility" classDigest="475e5da59b0d380b928eb58e6e0f0987059d5c5091068611d62e252d3ef829ca">
 	<description>GFStorageUtility: 基于 `user://` 的轻量存档系统。
 支持槽位存档、元数据分离读取、`Resource` 存取，
 以及可配置 codec、完整性校验、版本迁移和简单混淆，适合通用本地持久化场景。
@@ -247,6 +247,27 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">_delta: 本帧时间增量（秒），默认实现不直接使用。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="begin_activation">
+			<signature>func begin_activation(_scope: GFAsyncScope) -&gt; GFAsyncCompletion:</signature>
+			<description>激活 Storage 的同步与异步 I/O 准入。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">_scope: 当前 Storage 激活阶段的取消作用域。</tag>
+				<tag name="return">已成功完成；正在 dispose 时返回失败终态。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="begin_quiesce">
+			<signature>func begin_quiesce(scope: GFAsyncScope) -&gt; GFAsyncCompletion:</signature>
+			<description>关闭新 I/O 准入，并等待此前接纳的队列、线程和文件锁全部收敛。
+已接纳任务继续由 lifecycle tick 推进；强制 dispose 仍会使用同步 join fallback。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">scope: 当前 Storage 静默阶段的取消作用域。</tag>
+				<tag name="return">队列、任务和锁全部终态后成功的一次性完成源。</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 		<member kind="method" name="save_resource">
