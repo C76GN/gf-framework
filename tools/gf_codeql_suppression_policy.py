@@ -202,14 +202,17 @@ def audit_codeql_config(path: str, source: str) -> list[dict[str, object]]:
 			"Tracked custom CodeQL query suites are forbidden.",
 		)]
 	if _yaml_lexer_budget_exceeded(source):
-		return [_issue(
-			"codeql_suppression.yaml_lexer_budget_exceeded",
-			path,
-			1,
-			"CodeQL policy YAML exceeds the bounded lexer work budget.",
-		)]
+		return [_yaml_lexer_budget_issue(path)]
+	if _yaml_lexer_budget_exceeded(_decode_yaml_unicode_escapes(source)):
+		return [_yaml_lexer_budget_issue(path)]
 	issues: list[dict[str, object]] = []
-	effective_lines, continuation_lines = _normalize_yaml_policy_lines(source)
+	(
+		effective_lines,
+		continuation_lines,
+		normalized_budget_exceeded,
+	) = _normalize_yaml_policy_lines(source)
+	if normalized_budget_exceeded:
+		return [_yaml_lexer_budget_issue(path)]
 	mapping_keys, complex_key_lines = _yaml_mapping_key_lines(effective_lines)
 	for line_number in continuation_lines:
 		issues.append(_issue(
@@ -272,15 +275,17 @@ def audit_codeql_config(path: str, source: str) -> list[dict[str, object]]:
 
 def _normalize_yaml_policy_lines(
 	source: str,
-) -> tuple[list[tuple[int, str]], list[int]]:
+) -> tuple[list[tuple[int, str]], list[int], bool]:
 	if source.startswith("\ufeff"):
 		source = source[1:]
 	normalized_lines: list[tuple[int, str]] = []
 	continuation_lines: list[int] = []
+	normalized_length = 0
+	normalized_probe_count = 0
 	block_scalar_base_indent = -1
 	block_scalar_content_indent = -1
 	pending_line_number = 0
-	pending_text = ""
+	pending_chunks: list[str] = []
 	pending_quote = ""
 	pending_join_without_space = False
 	pending_quote_start = -1
@@ -304,20 +309,21 @@ def _normalize_yaml_policy_lines(
 			initial_quote=pending_quote,
 		)
 		if pending_line_number > 0:
-			pending_text += (
-				"" if pending_join_without_space else " "
-			) + line.lstrip()
+			pending_chunks.append(
+				("" if pending_join_without_space else " ")
+				+ line.lstrip()
+			)
 		else:
 			pending_line_number = line_number
-			pending_text = line
+			pending_chunks = [line]
 			pending_quote_start = (
-				_unfinished_double_quote_start(pending_text)
+				_unfinished_double_quote_start(line)
 				if line_quote == '"'
 				else -1
 			)
 		if escaped_line_break and line_quote == '"':
 			pending_escape_lines.append(line_number)
-			pending_text = pending_text.rstrip()[:-1]
+			pending_chunks[-1] = pending_chunks[-1][:-1]
 			pending_quote = line_quote
 			pending_join_without_space = True
 			continue
@@ -325,6 +331,7 @@ def _normalize_yaml_policy_lines(
 			pending_quote = line_quote
 			pending_join_without_space = False
 			continue
+		pending_text = "".join(pending_chunks)
 		if (
 			pending_escape_lines
 			and _quoted_scalar_is_mapping_key(
@@ -334,22 +341,34 @@ def _normalize_yaml_policy_lines(
 		):
 			continuation_lines.extend(pending_escape_lines)
 		normalized = _decode_yaml_unicode_escapes(pending_text)
+		normalized_length += len(normalized)
+		normalized_probe_count += _yaml_lexer_probe_count(normalized)
+		if _yaml_lexer_counts_budget_exceeded(
+			normalized_length,
+			normalized_probe_count,
+		):
+			return normalized_lines, continuation_lines, True
 		normalized_lines.append((pending_line_number, normalized))
 		block_scalar = _block_scalar_header(normalized)
 		if block_scalar is not None:
 			block_scalar_base_indent, block_scalar_content_indent = block_scalar
 		pending_line_number = 0
-		pending_text = ""
+		pending_chunks = []
 		pending_quote = ""
 		pending_join_without_space = False
 		pending_quote_start = -1
 		pending_escape_lines = []
 	if pending_line_number > 0:
-		normalized_lines.append((
-			pending_line_number,
-			_decode_yaml_unicode_escapes(pending_text),
-		))
-	return normalized_lines, continuation_lines
+		normalized = _decode_yaml_unicode_escapes("".join(pending_chunks))
+		normalized_length += len(normalized)
+		normalized_probe_count += _yaml_lexer_probe_count(normalized)
+		if _yaml_lexer_counts_budget_exceeded(
+			normalized_length,
+			normalized_probe_count,
+		):
+			return normalized_lines, continuation_lines, True
+		normalized_lines.append((pending_line_number, normalized))
+	return normalized_lines, continuation_lines, False
 
 
 def _yaml_mapping_key_lines(
@@ -471,6 +490,8 @@ def _yaml_flow_collection_is_mapping_key(line: str) -> bool:
 
 
 def _explicit_yaml_mapping_key(line: str) -> tuple[str, bool]:
+	if re.fullmatch(r"\s*(?:-\s+)?\?\s*", line) is not None:
+		return "", True
 	match = re.fullmatch(
 		r"\s*(?:-\s+)?\?\s+(?P<key>.+?)\s*",
 		line,
@@ -823,16 +844,33 @@ def _is_codeql_config(path: str, source: str) -> bool:
 	)
 
 
-def _yaml_lexer_budget_exceeded(source: str) -> bool:
-	probe_count = (
+def _yaml_lexer_probe_count(source: str) -> int:
+	return (
 		source.count('"')
 		+ source.count("'")
 		+ source.count("!<")
-		+ 1
+		+ source.count(":")
 	)
-	if probe_count > MAX_YAML_LEXER_WORK_UNITS:
+
+
+def _yaml_lexer_counts_budget_exceeded(
+	source_length: int,
+	probe_count: int,
+) -> bool:
+	bounded_probe_count = probe_count + 1
+	if bounded_probe_count > MAX_YAML_LEXER_WORK_UNITS:
 		return True
-	return len(source) > MAX_YAML_LEXER_WORK_UNITS // probe_count
+	return (
+		source_length
+		> MAX_YAML_LEXER_WORK_UNITS // bounded_probe_count
+	)
+
+
+def _yaml_lexer_budget_exceeded(source: str) -> bool:
+	return _yaml_lexer_counts_budget_exceeded(
+		len(source),
+		_yaml_lexer_probe_count(source),
+	)
 
 
 def _yaml_source_has_codeql_action_reference(source: str) -> bool:
@@ -854,6 +892,15 @@ def _yaml_source_has_codeql_action_reference(source: str) -> bool:
 		comment_free_source,
 	)
 	return CODEQL_ACTION_REFERENCE in joined_source.casefold()
+
+
+def _yaml_lexer_budget_issue(path: str) -> dict[str, object]:
+	return _issue(
+		"codeql_suppression.yaml_lexer_budget_exceeded",
+		path,
+		1,
+		"CodeQL policy YAML exceeds the bounded lexer work budget.",
+	)
 
 
 def _issue(

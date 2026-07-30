@@ -50,9 +50,10 @@
 ### 🐛 Bug 修复 (Fixed)
 
 - 修复 AI Developer 依赖分析只编译 Module roots、导致合法 Module → Adapter 资源引用被误报为未归属的问题；Adapter root 与其中声明的 `class_name` 现在作为目标所有权进入同一有界索引，但 Adapter 仍不作为依赖源或模块循环节点，缺失、不安全、不可读、歧义及预算耗尽继续失败关闭。
-- 修复依赖所有权计划允许 Module/Adapter ID 占用 `gf`、`godot` 保留 token，以及目录枚举错误被 `os.walk()` 静默跳过的问题；共享命名空间现在统一拒绝保留与重复 ID，任一后代枚举失败都会使分析不完整。Module 与 Adapter 扫描同时按 Godot `.gdignore` 剪除根或后代子树，不能再为引擎不可见脚本建立来源或 `class_name` 目标。
+- 修复依赖所有权计划允许 Module/Adapter ID 占用 `gf`、`godot` 保留 token，以及目录枚举错误被 `os.walk()` 静默跳过的问题；共享命名空间现在统一拒绝保留与重复 ID，任一后代枚举失败都会使分析不完整。Module 与 Adapter 扫描只允许经路径安全校验的普通 `.gdignore` 文件剪除根或后代子树；链接、损坏或不可验证的同名条目不会再静默隐藏源码，而会计入不安全路径并使分析不完整。
 - 修复安全测试把合成夹具命名为真实敏感数据、导致 CodeQL 将边界与脱敏验证误判为明文持久化的问题；无关凭据检测的边界测试改用 opaque canary，需要敏感形状路径的测试在内存中构造 synthetic canary，且不再依赖任何扫描抑制。
-- 修复 CodeQL 策略把普通 `LGTM`、步骤说明中的 `paths` / `queries` 和 shell block 行尾反斜杠误判为 suppression/config，以及把 URL fragment 的 `#` 错当注释后漏过禁用默认查询的问题；YAML key lexer 现在同时覆盖 block、flow、quoted、Unicode escape 与 quoted continuation。
+- 修复 CodeQL 策略把普通 `LGTM`、步骤说明中的 `paths` / `queries` 和 shell block 行尾反斜杠误判为 suppression/config，以及把 URL fragment 的 `#` 错当注释后漏过禁用默认查询的问题；YAML key lexer 现在同时覆盖 block、flow、quoted、Unicode escape、quoted continuation 与多行显式 key，并在原始输入、线性 Unicode 解码后的原始文本及续行拼接后的逻辑行上累计冒号、引号与标签探测预算。续行改为分块后单次连接，编码或跨行构造的 probe 不能在 normalization 阶段恢复二次复杂度。
+- 修复 Utility 的有界 Bank resolver 用最右子串截断多字符 `fallback_separator`、导致结果偏离 `GFAudioBank.resolve_clip()` 的问题；运行时解析现在保留从左到右、非重叠且忽略空片段的既有分隔语义，同时继续限制标识长度、分隔符长度与最多 16 次回退。
 - 修复异步等待生命周期测试把 1ms 墙钟预算与 deferred free 调度顺序绑定的竞态；测试现在先用 timeout pause 建立等待已挂起的握手，再同步释放 continuation owner，稳定验证失效检查必须先于同轮已到期 timeout 仲裁。
 
 ### ⚠️ 废弃与移除 (Deprecated/Removed)

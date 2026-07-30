@@ -1299,6 +1299,63 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 			{item["code"] for item in report["drift"]["issues"]},
 		)
 
+	def test_module_dependency_analysis_rejects_broken_gdignore_marker(self) -> None:
+		module = self._module("core")
+		self._set_modules([module])
+		module_root = self.project_root / "features/core"
+		(module_root / "visible.gd").write_text(
+			"extends Node\n",
+			encoding="utf-8",
+		)
+		marker_target = self.project_root / "gdignore-target"
+		marker_target.mkdir()
+		marker_path = module_root / ".gdignore"
+		create_directory_link_fixture(marker_target, marker_path)
+		marker_target.rmdir()
+		self.assertTrue(os.path.lexists(marker_path))
+		self.assertFalse(marker_path.exists())
+
+		contract = {
+			"architecture": {"modules": [module], "owned_resources": []},
+			"framework": {"adapter_boundaries": []},
+		}
+
+		try:
+			if os.name == "nt":
+				# Windows keeps a broken junction in directory_names; present its
+				# real reparse identity through the POSIX file_names classification.
+				with mock.patch.object(
+					dependencies.os,
+					"walk",
+					return_value=[(
+						os.fspath(module_root),
+						[],
+						[".gdignore", "visible.gd"],
+					)],
+				):
+					analysis = dependencies.analyze_module_dependencies(
+						self.project_root,
+						contract,
+						contract_valid=True,
+					)
+			else:
+				analysis = dependencies.analyze_module_dependencies(
+					self.project_root,
+					contract,
+					contract_valid=True,
+				)
+		finally:
+			if os.path.lexists(marker_path):
+				if os.name == "nt":
+					marker_path.rmdir()
+				else:
+					marker_path.unlink()
+
+		self.assertEqual(analysis["status"], "incomplete")
+		self.assertFalse(analysis["complete"])
+		self.assertEqual(analysis["unsafe_path_count"], 1)
+		self.assertEqual(analysis["scanned_file_count"], 1)
+
 	def test_module_dependency_analysis_honors_adapter_descendant_gdignore(self) -> None:
 		self._set_modules([self._module("core", allowed=["platform_adapter"])])
 		self._set_adapter_boundaries([self._adapter("platform_adapter")])

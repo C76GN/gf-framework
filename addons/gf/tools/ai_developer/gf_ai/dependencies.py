@@ -470,8 +470,11 @@ def _collect_target_files(project_root: Path, plan: TargetOwnershipPlan) -> dict
 		):
 			current_path = Path(current_root)
 			if ".gdignore" in file_names:
-				directory_names[:] = []
-				continue
+				marker_path = current_path / ".gdignore"
+				if _safe_path(project_root, marker_path, directory=False):
+					directory_names[:] = []
+					continue
+				unsafe_path_count += 1
 			safe_directories: list[str] = []
 			for name in sorted(directory_names):
 				if name in _SKIPPED_DIRECTORY_NAMES:

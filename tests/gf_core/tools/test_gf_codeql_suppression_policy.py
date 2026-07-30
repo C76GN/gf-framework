@@ -491,6 +491,22 @@ query-filters:
 					self._issue_kinds(issues),
 				)
 
+	def test_standalone_explicit_mapping_key_fails_closed(self) -> None:
+		source = (
+			"name: CodeQL\n"
+			"?\n"
+			"  queries\n"
+			": security-extended\n"
+		)
+
+		issues = policy.audit_codeql_config(".github/workflows/codeql.yml", source)
+
+		self.assertEqual(
+			self._issue_kinds(issues),
+			{"codeql_suppression.complex_mapping_key_forbidden"},
+		)
+		self.assertEqual(issues[0]["line"], 2)
+
 	def test_flow_collection_mapping_keys_fail_closed(self) -> None:
 		for source in (
 			"flow: {[queries]: value}\n",
@@ -516,6 +532,86 @@ query-filters:
 			policy,
 			"_normalize_yaml_policy_lines",
 			side_effect=AssertionError("lexer normalization must not start"),
+		):
+			issues = policy.audit_codeql_config(
+				".github/workflows/codeql.yml",
+				source,
+			)
+
+		self.assertEqual(
+			self._issue_kinds(issues),
+			{"codeql_suppression.yaml_lexer_budget_exceeded"},
+		)
+
+	def test_yaml_lexer_work_budget_counts_plain_scalar_colon_probes(
+		self,
+	) -> None:
+		source = ("a:" * 3000) + "a\n"
+
+		with mock.patch.object(
+			policy,
+			"_normalize_yaml_policy_lines",
+			side_effect=AssertionError("lexer normalization must not start"),
+		):
+			issues = policy.audit_codeql_config(
+				".github/workflows/codeql.yml",
+				source,
+			)
+
+		self.assertEqual(
+			self._issue_kinds(issues),
+			{"codeql_suppression.yaml_lexer_budget_exceeded"},
+		)
+
+	def test_yaml_lexer_work_budget_checks_decoded_colons_before_normalization(
+		self,
+	) -> None:
+		source = ("a\\u003a" * 3000) + "a\n"
+
+		with mock.patch.object(
+			policy,
+			"_normalize_yaml_policy_lines",
+			side_effect=AssertionError("lexer normalization must not start"),
+		):
+			issues = policy.audit_codeql_config(
+				".github/workflows/codeql.yml",
+				source,
+			)
+
+		self.assertEqual(
+			self._issue_kinds(issues),
+			{"codeql_suppression.yaml_lexer_budget_exceeded"},
+		)
+
+	def test_yaml_lexer_work_budget_checks_decoded_quotes_before_normalization(
+		self,
+	) -> None:
+		source = ("\\u0022" * 8000) + "|\n"
+
+		with mock.patch.object(
+			policy,
+			"_normalize_yaml_policy_lines",
+			side_effect=AssertionError("lexer normalization must not start"),
+		):
+			issues = policy.audit_codeql_config(
+				".github/workflows/codeql.yml",
+				source,
+			)
+
+		self.assertEqual(
+			self._issue_kinds(issues),
+			{"codeql_suppression.yaml_lexer_budget_exceeded"},
+		)
+
+	def test_yaml_lexer_work_budget_checks_spliced_escapes_before_block_header(
+		self,
+	) -> None:
+		source = '"' + ("\\u00\\\n22" * 8000) + '"|\n'
+
+		with mock.patch.object(
+			policy,
+			"_block_scalar_header",
+			side_effect=AssertionError("block scalar scan must not start"),
 		):
 			issues = policy.audit_codeql_config(
 				".github/workflows/codeql.yml",
