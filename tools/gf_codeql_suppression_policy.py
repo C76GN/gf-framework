@@ -8,19 +8,26 @@ import re
 import tokenize
 import unicodedata
 from pathlib import Path
-from typing import Callable
+
+from gf_path_security import PinnedReadError
+from gf_path_security import read_pinned_utf8_regular_file
 
 
 SCHEMA_VERSION = 1
 CODEQL_MARKER_RE = re.compile(r"#\s*codeql\b", re.IGNORECASE)
-LGTM_MARKER_RE = re.compile(r"#\s*lgtm\b", re.IGNORECASE)
+LGTM_MARKER_RE = re.compile(r"#\s*lgtm\s*\[", re.IGNORECASE)
 TRACKED_PATH_CONTROL_CATEGORIES = frozenset(("Cc", "Cf"))
+MAX_TRACKED_SOURCE_BYTES = 16 * 1024 * 1024
+CODEQL_ACTION_REFERENCE = "github/codeql-action/"
+MAX_YAML_LEXER_WORK_UNITS = 8 * 1024 * 1024
+YAML_NODE_PROPERTY_PATTERN = (
+	r"(?:!<[^>\r\n]+>|![^\s,\[\]{}]+|&[^\s,\[\]{}]+)"
+)
 
 
 def audit_tracked_sources(
 	root: Path,
 	tracked_paths: list[str],
-	read_text: Callable[[Path], str],
 	git_error: str = "",
 ) -> dict[str, object]:
 	"""Audit only the explicit tracked-file inventory supplied by the maintenance runner."""
@@ -42,25 +49,20 @@ def audit_tracked_sources(
 	config_file_count = 0
 	suppression_count = 0
 	for normalized_path in canonical_paths:
-		path = root / Path(normalized_path)
 		if normalized_path.lower().endswith(".py"):
 			python_file_count += 1
-			if path.is_symlink() or not path.exists() or not path.is_file():
-				issues.append(_issue(
-					"codeql_suppression.python_source_not_regular",
-					normalized_path,
-					0,
-					"Tracked Python source must be a regular non-linked file.",
-				))
-				continue
 			try:
-				source = read_text(path)
-			except (OSError, UnicodeError):
+				source = read_pinned_utf8_regular_file(
+					root,
+					normalized_path,
+					max_bytes=MAX_TRACKED_SOURCE_BYTES,
+				)
+			except PinnedReadError:
 				issues.append(_issue(
 					"codeql_suppression.python_source_unreadable",
-					normalized_path,
+					"tracked-python-source",
 					0,
-					"Tracked Python source could not be read as UTF-8.",
+					"Tracked Python source failed the pinned UTF-8 read boundary.",
 				))
 				continue
 			source_issues, source_suppressions = audit_python_source(normalized_path, source)
@@ -69,22 +71,18 @@ def audit_tracked_sources(
 			continue
 		if not _is_possible_codeql_config_path(normalized_path):
 			continue
-		if path.is_symlink() or not path.exists() or not path.is_file():
-			issues.append(_issue(
-				"codeql_suppression.config_not_regular",
-				normalized_path,
-				0,
-				"Tracked CodeQL configuration must be a regular non-linked file.",
-			))
-			continue
 		try:
-			source = read_text(path)
-		except (OSError, UnicodeError):
+			source = read_pinned_utf8_regular_file(
+				root,
+				normalized_path,
+				max_bytes=MAX_TRACKED_SOURCE_BYTES,
+			)
+		except PinnedReadError:
 			issues.append(_issue(
 				"codeql_suppression.config_unreadable",
-				normalized_path,
+				"tracked-codeql-config",
 				0,
-				"Tracked CodeQL configuration could not be read as UTF-8.",
+				"Tracked CodeQL configuration failed the pinned UTF-8 read boundary.",
 			))
 			continue
 		if not _is_codeql_config(normalized_path, source):
@@ -195,7 +193,7 @@ def audit_python_source(path: str, source: str) -> tuple[list[dict[str, object]]
 
 
 def audit_codeql_config(path: str, source: str) -> list[dict[str, object]]:
-	"""Conservatively reject broad CodeQL escape hatches without partially parsing YAML."""
+	"""Conservatively reject broad CodeQL escape hatches from YAML mapping keys."""
 	if path.lower().endswith(".qls"):
 		return [_issue(
 			"codeql_suppression.custom_queries_forbidden",
@@ -203,14 +201,29 @@ def audit_codeql_config(path: str, source: str) -> list[dict[str, object]]:
 			1,
 			"Tracked custom CodeQL query suites are forbidden.",
 		)]
+	if _yaml_lexer_budget_exceeded(source):
+		return [_issue(
+			"codeql_suppression.yaml_lexer_budget_exceeded",
+			path,
+			1,
+			"CodeQL policy YAML exceeds the bounded lexer work budget.",
+		)]
 	issues: list[dict[str, object]] = []
 	effective_lines, continuation_lines = _normalize_yaml_policy_lines(source)
+	mapping_keys, complex_key_lines = _yaml_mapping_key_lines(effective_lines)
 	for line_number in continuation_lines:
 		issues.append(_issue(
 			"codeql_suppression.yaml_line_continuation_forbidden",
 			path,
 			line_number,
 			"CodeQL policy YAML must not use escaped line continuations.",
+		))
+	for line_number in complex_key_lines:
+		issues.append(_issue(
+			"codeql_suppression.complex_mapping_key_forbidden",
+			path,
+			line_number,
+			"CodeQL policy YAML must use direct scalar mapping keys.",
 		))
 	for token, kind, message in (
 		(
@@ -244,7 +257,14 @@ def audit_codeql_config(path: str, source: str) -> list[dict[str, object]]:
 			"Custom CodeQL query suites are forbidden.",
 		),
 	):
-		line_number = _first_policy_token_line(effective_lines, token)
+		line_number = next(
+			(
+				key_line
+				for key_line, key in mapping_keys
+				if key.casefold() == token
+			),
+			0,
+		)
 		if line_number > 0:
 			issues.append(_issue(kind, path, line_number, message))
 	return issues
@@ -253,46 +273,114 @@ def audit_codeql_config(path: str, source: str) -> list[dict[str, object]]:
 def _normalize_yaml_policy_lines(
 	source: str,
 ) -> tuple[list[tuple[int, str]], list[int]]:
+	if source.startswith("\ufeff"):
+		source = source[1:]
 	normalized_lines: list[tuple[int, str]] = []
 	continuation_lines: list[int] = []
+	block_scalar_base_indent = -1
+	block_scalar_content_indent = -1
 	pending_line_number = 0
 	pending_text = ""
+	pending_quote = ""
+	pending_join_without_space = False
+	pending_quote_start = -1
+	pending_escape_lines: list[int] = []
 	for line_number, raw_line in enumerate(source.splitlines(), start=1):
-		line = _decode_yaml_unicode_escapes(_strip_yaml_comment(raw_line))
+		if pending_line_number == 0 and block_scalar_base_indent >= 0:
+			if not raw_line.strip():
+				continue
+			line_indent = _yaml_line_indent(raw_line)
+			if block_scalar_content_indent < 0:
+				if line_indent > block_scalar_base_indent:
+					block_scalar_content_indent = line_indent
+					continue
+			elif line_indent >= block_scalar_content_indent:
+				continue
+			block_scalar_base_indent = -1
+			block_scalar_content_indent = -1
+
+		line, line_quote, escaped_line_break = _strip_yaml_comment_and_quote(
+			raw_line,
+			initial_quote=pending_quote,
+		)
 		if pending_line_number > 0:
-			pending_text += line.lstrip()
+			pending_text += (
+				"" if pending_join_without_space else " "
+			) + line.lstrip()
 		else:
 			pending_line_number = line_number
 			pending_text = line
-		if pending_text.rstrip().endswith("\\"):
-			continuation_lines.append(line_number)
+			pending_quote_start = (
+				_unfinished_double_quote_start(pending_text)
+				if line_quote == '"'
+				else -1
+			)
+		if escaped_line_break and line_quote == '"':
+			pending_escape_lines.append(line_number)
 			pending_text = pending_text.rstrip()[:-1]
+			pending_quote = line_quote
+			pending_join_without_space = True
 			continue
-		normalized_lines.append((pending_line_number, pending_text))
+		if line_quote:
+			pending_quote = line_quote
+			pending_join_without_space = False
+			continue
+		if (
+			pending_escape_lines
+			and _quoted_scalar_is_mapping_key(
+				pending_text,
+				pending_quote_start,
+			)
+		):
+			continuation_lines.extend(pending_escape_lines)
+		normalized = _decode_yaml_unicode_escapes(pending_text)
+		normalized_lines.append((pending_line_number, normalized))
+		block_scalar = _block_scalar_header(normalized)
+		if block_scalar is not None:
+			block_scalar_base_indent, block_scalar_content_indent = block_scalar
 		pending_line_number = 0
 		pending_text = ""
+		pending_quote = ""
+		pending_join_without_space = False
+		pending_quote_start = -1
+		pending_escape_lines = []
 	if pending_line_number > 0:
-		normalized_lines.append((pending_line_number, pending_text))
+		normalized_lines.append((
+			pending_line_number,
+			_decode_yaml_unicode_escapes(pending_text),
+		))
 	return normalized_lines, continuation_lines
 
 
-def _first_policy_token_line(
+def _yaml_mapping_key_lines(
 	lines: list[tuple[int, str]],
-	token: str,
-) -> int:
-	token_pattern = re.compile(
-		rf"(?<![A-Za-z0-9_-]){re.escape(token)}(?![A-Za-z0-9_-])",
-		re.IGNORECASE,
-	)
+) -> tuple[list[tuple[int, str]], list[int]]:
+	keys: list[tuple[int, str]] = []
+	complex_key_lines: set[int] = set()
 	for line_number, line in lines:
-		if token_pattern.search(line) is not None:
-			return line_number
-	return 0
+		if (
+			not _yaml_flow_structure_is_balanced(line)
+			or _yaml_flow_collection_is_mapping_key(line)
+		):
+			complex_key_lines.add(line_number)
+		explicit_key, explicit_is_complex = _explicit_yaml_mapping_key(line)
+		if explicit_key:
+			keys.append((line_number, explicit_key))
+		if explicit_is_complex:
+			complex_key_lines.add(line_number)
+		line_keys, line_has_complex_key = _yaml_mapping_keys_on_line(line)
+		for key in line_keys:
+			keys.append((line_number, key))
+		if line_has_complex_key:
+			complex_key_lines.add(line_number)
+	return keys, sorted(complex_key_lines)
 
 
-def _strip_yaml_comment(line: str) -> str:
+def _yaml_flow_structure_is_balanced(line: str) -> bool:
+	flow_stack: list[str] = []
 	quote = ""
 	escaped = False
+	verbatim_tag_end = -1
 	for index, character in enumerate(line):
 		if escaped:
 			escaped = False
@@ -300,15 +388,400 @@ def _strip_yaml_comment(line: str) -> str:
 		if quote == '"' and character == "\\":
 			escaped = True
 			continue
-		if character in ("'", '"'):
-			if not quote:
-				quote = character
-			elif quote == character:
-				quote = ""
+		if quote:
+			if character == quote:
+				if quote == "'" and index + 1 < len(line) and line[index + 1] == "'":
+					escaped = True
+				else:
+					quote = ""
 			continue
-		if character == "#" and not quote:
-			return line[:index].rstrip()
-	return line.rstrip()
+		if index <= verbatim_tag_end:
+			continue
+		if line.startswith("!<", index):
+			closing_index = line.find(">", index + 2)
+			if closing_index >= 0:
+				verbatim_tag_end = closing_index
+				continue
+		if (
+			character in ("'", '"')
+			and _yaml_quote_can_start(line, index)
+		):
+			quote = character
+			continue
+		if character in ("{", "["):
+			flow_stack.append(character)
+			continue
+		if character not in ("}", "]"):
+			continue
+		if not flow_stack:
+			return False
+		expected_opening = "{" if character == "}" else "["
+		if flow_stack.pop() != expected_opening:
+			return False
+	return not flow_stack
+
+
+def _yaml_flow_collection_is_mapping_key(line: str) -> bool:
+	flow_stack: list[str] = []
+	quote = ""
+	escaped = False
+	verbatim_tag_end = -1
+	for index, character in enumerate(line):
+		if escaped:
+			escaped = False
+			continue
+		if quote == '"' and character == "\\":
+			escaped = True
+			continue
+		if quote:
+			if character == quote:
+				if quote == "'" and index + 1 < len(line) and line[index + 1] == "'":
+					escaped = True
+				else:
+					quote = ""
+			continue
+		if index <= verbatim_tag_end:
+			continue
+		if line.startswith("!<", index):
+			closing_index = line.find(">", index + 2)
+			if closing_index >= 0:
+				verbatim_tag_end = closing_index
+				continue
+		if (
+			character in ("'", '"')
+			and _yaml_quote_can_start(line, index)
+		):
+			quote = character
+			continue
+		if character in ("{", "["):
+			flow_stack.append(character)
+			continue
+		if character not in ("}", "]") or not flow_stack:
+			continue
+		expected_opening = "{" if character == "}" else "["
+		if flow_stack[-1] != expected_opening:
+			continue
+		flow_stack.pop()
+		next_index = index + 1
+		while next_index < len(line) and line[next_index].isspace():
+			next_index += 1
+		if next_index < len(line) and line[next_index] == ":":
+			return True
+	return False
+
+
+def _explicit_yaml_mapping_key(line: str) -> tuple[str, bool]:
+	match = re.fullmatch(
+		r"\s*(?:-\s+)?\?\s+(?P<key>.+?)\s*",
+		line,
+	)
+	if match is None:
+		return "", False
+	key = _normalize_yaml_mapping_key(match.group("key"))
+	return key, not bool(key)
+
+
+def _yaml_mapping_keys_on_line(line: str) -> tuple[list[str], bool]:
+	keys: list[str] = []
+	has_complex_key = False
+	flow_stack: list[str] = []
+	candidate_start: int | None = 0
+	quote = ""
+	escaped = False
+	verbatim_tag_end = -1
+	for index, character in enumerate(line):
+		if escaped:
+			escaped = False
+			continue
+		if quote == '"' and character == "\\":
+			escaped = True
+			continue
+		if quote:
+			if character == quote:
+				if quote == "'" and index + 1 < len(line) and line[index + 1] == "'":
+					escaped = True
+				else:
+					quote = ""
+			continue
+		if index <= verbatim_tag_end:
+			continue
+		if line.startswith("!<", index):
+			closing_index = line.find(">", index + 2)
+			if closing_index >= 0:
+				verbatim_tag_end = closing_index
+				continue
+		if (
+			character in ("'", '"')
+			and _yaml_quote_can_start(line, index)
+		):
+			quote = character
+			continue
+		if character == "{":
+			flow_stack.append(character)
+			candidate_start = index + 1
+			continue
+		if character == "[":
+			flow_stack.append(character)
+			candidate_start = None
+			continue
+		if character in ("}", "]"):
+			if flow_stack:
+				flow_stack.pop()
+			candidate_start = None
+			continue
+		if character == ",":
+			candidate_start = (
+				index + 1
+				if flow_stack and flow_stack[-1] == "{"
+				else None
+			)
+			continue
+		if character != ":" or candidate_start is None:
+			continue
+		candidate = line[candidate_start:index]
+		if not _yaml_colon_is_mapping_delimiter(line, index, candidate):
+			continue
+		key = _normalize_yaml_mapping_key(candidate)
+		if key:
+			keys.append(key)
+		elif candidate.strip():
+			has_complex_key = True
+		candidate_start = None
+	return keys, has_complex_key
+
+
+def _normalize_yaml_mapping_key(candidate: str) -> str:
+	key = candidate.strip()
+	sequence_match = re.match(r"^-\s+(?P<key>.*)$", key)
+	if sequence_match is not None:
+		key = sequence_match.group("key").strip()
+	explicit_match = re.match(r"^\?\s+(?P<key>.*)$", key)
+	if explicit_match is not None:
+		key = explicit_match.group("key").strip()
+	if re.fullmatch(r"[A-Za-z0-9_-]+", key):
+		return key
+	if len(key) >= 2 and key[0] == key[-1] == '"':
+		content = key[1:-1]
+		if re.fullmatch(r"(?:\\.|[^\"\\])*", content) is None:
+			return ""
+		return _decode_yaml_unicode_escapes(content)
+	if len(key) >= 2 and key[0] == key[-1] == "'":
+		content = key[1:-1]
+		if re.fullmatch(r"(?:''|[^'])*", content) is None:
+			return ""
+		return content.replace("''", "'")
+	if key and key[0] not in "&*![]{}|>":
+		return key
+	return ""
+
+
+def _yaml_colon_is_mapping_delimiter(
+	line: str,
+	index: int,
+	candidate: str,
+) -> bool:
+	key = candidate.strip()
+	if key.startswith(('"', "'")):
+		return True
+	if index + 1 >= len(line):
+		return True
+	return line[index + 1].isspace() or line[index + 1] in "{[,}]"
+
+
+def _yaml_quote_can_start(line: str, index: int) -> bool:
+	prefix = line[:index]
+	property_suffix = rf"(?:{YAML_NODE_PROPERTY_PATTERN}\s+)*"
+	return (
+		re.search(
+			rf"(?:^|[\[\]{{}},?])\s*{property_suffix}$",
+			prefix,
+		)
+		is not None
+		or re.search(
+			rf":\s+{property_suffix}$",
+			prefix,
+		)
+		is not None
+		or re.search(
+			r"""(?:"(?:\\.|[^"\\])*"|'(?:''|[^'])*'):\s*$""",
+			prefix,
+		)
+		is not None
+		or re.fullmatch(
+			rf"\s*-\s+{property_suffix}",
+			prefix,
+		)
+		is not None
+	)
+
+
+def _strip_yaml_comment_and_quote(
+	line: str,
+	*,
+	initial_quote: str = "",
+) -> tuple[str, str, bool]:
+	quote = initial_quote
+	index = 0
+	while index < len(line):
+		character = line[index]
+		if quote == '"' and character == "\\":
+			if index + 1 >= len(line):
+				return line.rstrip(), quote, True
+			index += 2
+			continue
+		if quote:
+			if character == quote:
+				if quote == "'" and index + 1 < len(line) and line[index + 1] == "'":
+					index += 2
+					continue
+				quote = ""
+			index += 1
+			continue
+		if (
+			character in ("'", '"')
+			and _yaml_quote_can_start(line, index)
+		):
+			quote = character
+			index += 1
+			continue
+		if character == "#" and (
+			index == 0 or line[index - 1].isspace()
+		):
+			return line[:index].rstrip(), "", False
+		index += 1
+	return line.rstrip(), quote, False
+
+
+def _unfinished_double_quote_start(line: str) -> int:
+	quote = ""
+	escaped = False
+	opening_index = -1
+	for index, character in enumerate(line):
+		if escaped:
+			escaped = False
+			continue
+		if quote == '"' and character == "\\":
+			escaped = True
+			continue
+		if quote:
+			if character == quote:
+				quote = ""
+				opening_index = -1
+			continue
+		if (
+			character in ("'", '"')
+			and _yaml_quote_can_start(line, index)
+		):
+			quote = character
+			if quote == '"':
+				opening_index = index
+	return opening_index if quote == '"' else -1
+
+
+def _quoted_scalar_is_mapping_key(line: str, opening_index: int) -> bool:
+	if opening_index < 0 or opening_index >= len(line):
+		return False
+	escaped = False
+	closing_index = -1
+	for index in range(opening_index + 1, len(line)):
+		character = line[index]
+		if escaped:
+			escaped = False
+			continue
+		if character == "\\":
+			escaped = True
+			continue
+		if character == '"':
+			closing_index = index
+			break
+	if closing_index < 0:
+		return False
+	suffix = line[closing_index + 1:]
+	if re.match(r"\s*:", suffix) is not None:
+		return True
+	if suffix.strip():
+		return False
+	return re.search(
+		r"(?:^|[,{])\s*(?:-\s+)?\?\s*"
+		rf"(?:{YAML_NODE_PROPERTY_PATTERN}\s+)*$",
+		line[:opening_index],
+	) is not None
+
+
+def _block_scalar_header(line: str) -> tuple[int, int] | None:
+	match = re.search(
+		r"(?P<marker>[|>])"
+		r"(?P<modifiers>(?:[1-9][+-]?|[+-][1-9]?|[+-]?))\s*$",
+		line,
+	)
+	if match is None or _yaml_index_is_quoted(line, match.start("marker")):
+		return None
+	prefix = line[:match.start("marker")]
+	property_suffix = re.search(
+		rf"(?:{YAML_NODE_PROPERTY_PATTERN}\s+)+$",
+		prefix,
+	)
+	structural_prefix = (
+		prefix[:property_suffix.start()]
+		if property_suffix is not None
+		else prefix
+	)
+	if not (
+		re.search(r":\s*$", structural_prefix) is not None
+		or re.fullmatch(r"\s*-\s*", structural_prefix) is not None
+	):
+		return None
+	base_indent = _yaml_line_indent(line)
+	compact_mapping = re.match(
+		r"^\s*-\s+(?P<key>.+):\s*$",
+		structural_prefix,
+	)
+	if compact_mapping is not None:
+		base_indent = compact_mapping.start("key")
+	indicator = next(
+		(
+			int(character)
+			for character in match.group("modifiers")
+			if character.isdigit()
+		),
+		0,
+	)
+	return base_indent, base_indent + indicator if indicator else -1
+
+
+def _yaml_index_is_quoted(line: str, target_index: int) -> bool:
+	quote = ""
+	escaped = False
+	index = 0
+	while index < target_index:
+		character = line[index]
+		if escaped:
+			escaped = False
+			index += 1
+			continue
+		if quote == '"' and character == "\\":
+			escaped = True
+			index += 1
+			continue
+		if quote:
+			if character == quote:
+				if quote == "'" and index + 1 < target_index and line[index + 1] == "'":
+					index += 2
+					continue
+				quote = ""
+			index += 1
+			continue
+		if (
+			character in ("'", '"')
+			and _yaml_quote_can_start(line, index)
+		):
+			quote = character
+		index += 1
+	return bool(quote)
+
+
+def _yaml_line_indent(line: str) -> int:
+	return len(line) - len(line.lstrip(" "))
 
 
 def _decode_yaml_unicode_escapes(source: str) -> str:
@@ -342,16 +815,45 @@ def _is_codeql_config(path: str, source: str) -> bool:
 	if lower_path.endswith(".qls"):
 		return True
 	file_name = lower_path.rsplit("/", 1)[-1]
-	effective_lines, _continuation_lines = _normalize_yaml_policy_lines(source)
-	effective_source = "\n".join(
-		line
-		for _line_number, line in effective_lines
-	).lower()
 	return (
 		"codeql" in file_name
 		or lower_path.startswith(".github/codeql/")
-		or "codeql" in effective_source
+		or _yaml_lexer_budget_exceeded(source)
+		or _yaml_source_has_codeql_action_reference(source)
 	)
+
+
+def _yaml_lexer_budget_exceeded(source: str) -> bool:
+	probe_count = (
+		source.count('"')
+		+ source.count("'")
+		+ source.count("!<")
+		+ 1
+	)
+	if probe_count > MAX_YAML_LEXER_WORK_UNITS:
+		return True
+	return len(source) > MAX_YAML_LEXER_WORK_UNITS // probe_count
+
+
+def _yaml_source_has_codeql_action_reference(source: str) -> bool:
+	comment_free_lines: list[str] = []
+	pending_quote = ""
+	for raw_line in source.splitlines():
+		line, line_quote, _escaped_line_break = _strip_yaml_comment_and_quote(
+			raw_line,
+			initial_quote=pending_quote,
+		)
+		comment_free_lines.append(line)
+		pending_quote = line_quote
+	comment_free_source = _decode_yaml_unicode_escapes(
+		"\n".join(comment_free_lines)
+	).replace("\\/", "/")
+	joined_source = re.sub(
+		r"\\\n[ \t]*",
+		"",
+		comment_free_source,
+	)
+	return CODEQL_ACTION_REFERENCE in joined_source.casefold()
 
 
 def _issue(

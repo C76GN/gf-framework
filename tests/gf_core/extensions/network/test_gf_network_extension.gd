@@ -3436,6 +3436,31 @@ func test_network_transport_metrics_distinguish_unknown_values_and_bound_history
 		),
 		"超长自定义指标 ID 必须失败关闭。"
 	)
+	var oversized_edge_padded_id: String = (
+		" ".repeat(GFNetworkTransportMetrics.ABSOLUTE_MAX_METRIC_ID_LENGTH + 1)
+		+ "x"
+	)
+	assert_false(
+		metrics.set_metric(StringName(oversized_edge_padded_id), 1.0),
+		"指标 ID 必须在 strip_edges 前先按原始长度失败关闭。"
+	)
+	var padded_import_values: Dictionary = {}
+	padded_import_values[oversized_edge_padded_id] = 7.0
+	padded_import_values["bounded_import"] = 8.0
+	var padded_import: GFNetworkTransportMetrics = (
+		GFNetworkTransportMetrics.from_dict({
+			"metrics": padded_import_values,
+		})
+	)
+	assert_false(
+		padded_import.has_metric(&"x"),
+		"外部字典中的超长 edge padding 不得在规范化后绕过 ID 工作预算。"
+	)
+	assert_eq(
+		padded_import.get_metric(&"bounded_import", -1.0),
+		8.0,
+		"拒绝超长 ID 后仍应处理预算内的后续指标。"
+	)
 
 	var bounded_metrics: GFNetworkTransportMetrics = GFNetworkTransportMetrics.new()
 	for index: int in range(

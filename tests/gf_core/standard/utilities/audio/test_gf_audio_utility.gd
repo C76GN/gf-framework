@@ -26,6 +26,23 @@ class MockAssetUtility:
 		callback.call(resource)
 
 
+class ImmediateAssetUtility:
+	extends GFAssetUtility
+
+	var resource: Resource
+
+	func _init(loaded_resource: Resource) -> void:
+		resource = loaded_resource
+
+	func load_async(
+		_path: String,
+		on_loaded: Callable,
+		_type_hint: String = "",
+		_options: Dictionary = {}
+	) -> void:
+		on_loaded.call(resource)
+
+
 class AssetBackedAudioUtility:
 	extends GFAudioUtility
 
@@ -61,6 +78,112 @@ class FailingSpatialSettings:
 		return false
 
 
+class SnapshotGraphResource:
+	extends Resource
+
+	@export var payload: Variant = null
+	@export var secondary_payload: Variant = null
+
+
+class CopyingSnapshotResource:
+	extends Resource
+
+	var _payload: Array = []
+
+	@export var payload: Array:
+		get:
+			return _payload
+		set(value):
+			_payload = value.duplicate()
+
+
+class CopyingPackedSnapshotResource:
+	extends Resource
+
+	var _payload: PackedByteArray = PackedByteArray()
+
+	@export var payload: PackedByteArray:
+		get:
+			return _payload
+		set(value):
+			_payload = value.duplicate()
+
+
+class CoupledSnapshotResource:
+	extends Resource
+
+	var _second: int = 0
+
+	@export var first: int = 0
+	@export var second: int:
+		get:
+			return _second
+		set(value):
+			_second = value
+			first = -1
+
+
+class ReadOnlySnapshotResource:
+	extends Resource
+
+	var _locked_value: int = 7
+
+	func _get_property_list() -> Array[Dictionary]:
+		return [{
+			"name": &"locked_value",
+			"type": TYPE_INT,
+			"usage": PROPERTY_USAGE_STORAGE | PROPERTY_USAGE_READ_ONLY,
+		}]
+
+	func _get(property_name: StringName) -> Variant:
+		if property_name == &"locked_value":
+			return _locked_value
+		return null
+
+
+class NeverDuplicateSnapshotResource:
+	extends Resource
+
+	func _get_property_list() -> Array[Dictionary]:
+		return [{
+			"name": &"never_duplicate_value",
+			"type": TYPE_INT,
+			"usage": PROPERTY_USAGE_STORAGE | PROPERTY_USAGE_NEVER_DUPLICATE,
+		}]
+
+	func _get(property_name: StringName) -> Variant:
+		if property_name == &"never_duplicate_value":
+			return 7
+		return null
+
+
+class ExpandingStorageSchemaSnapshotResource:
+	extends Resource
+
+	func _get_property_list() -> Array[Dictionary]:
+		if has_meta(&"hide_extra_storage"):
+			return []
+		return [{
+			"name": &"extra_storage",
+			"type": TYPE_INT,
+			"usage": PROPERTY_USAGE_STORAGE,
+		}]
+
+	func _get(property_name: StringName) -> Variant:
+		if property_name == &"extra_storage":
+			return 9
+		return null
+
+	func _set(property_name: StringName, _value: Variant) -> bool:
+		return property_name == &"extra_storage"
+
+
+class MutableDictionaryAudioEffect:
+	extends AudioEffectLowPassFilter
+
+	var payload: Dictionary = {}
+
+
 class MockAudioBackend:
 	extends GFAudioBackend
 
@@ -76,6 +199,10 @@ class MockAudioBackend:
 	var posted_events: PackedStringArray = PackedStringArray()
 	var handle_posted_events: bool = true
 	var parameter_values: Dictionary = {}
+	var parameter_request_count: int = 0
+	var state_request_count: int = 0
+	var switch_request_count: int = 0
+	var last_parameter: GFAudioParameter = null
 	var last_bgm_options: Dictionary = {}
 	var handle_spatial_sfx_clips: bool = false
 	var spatial_sfx_clip_count: int = 0
@@ -107,7 +234,10 @@ class MockAudioBackend:
 	var external_mute_observable: bool = true
 	var handled_mix_snapshot: Dictionary = {}
 	var handled_mix_transition: float = -1.0
+	var mix_snapshot_request_count: int = 0
 	var effect_property_requests: Array[Dictionary] = []
+	var accept_effect_property_requests: bool = true
+	var mutate_effect_property_value: bool = false
 	var playback_region_evaluation_count: int = 0
 	var playback_region_evaluation_status: GFAudioPlaybackRegionResult.Status = (
 		GFAudioPlaybackRegionResult.Status.UNSUPPORTED
@@ -131,6 +261,7 @@ class MockAudioBackend:
 	var last_ambient_options: Dictionary = {}
 	var last_posted_event: GFAudioEvent = null
 	var last_posted_event_options: Dictionary = {}
+	var can_handle_path_count: int = 0
 	var can_handle_event_count: int = 0
 	var can_handle_event_resource_before: float = -1.0
 	var can_handle_event_option_resource_before: float = -1.0
@@ -151,6 +282,7 @@ class MockAudioBackend:
 		super.dispose()
 
 	func can_handle_path(path: String, channel: StringName, _context: Dictionary = {}) -> bool:
+		can_handle_path_count += 1
 		if channel == &"bgm":
 			return handle_bgm_paths and path.begins_with("event://")
 		if channel == &"ambient":
@@ -399,7 +531,17 @@ class MockAudioBackend:
 		return null
 
 	func set_parameter(parameter: GFAudioParameter) -> bool:
+		parameter_request_count += 1
+		last_parameter = parameter
 		parameter_values[parameter.parameter_id] = parameter.value
+		return true
+
+	func set_state(_state: GFAudioState) -> bool:
+		state_request_count += 1
+		return true
+
+	func set_switch(_audio_switch: GFAudioSwitch) -> bool:
+		switch_request_count += 1
 		return true
 
 	func set_bus_volume(bus_name: String, volume_linear: float) -> bool:
@@ -428,17 +570,20 @@ class MockAudioBackend:
 		value: Variant,
 		transition_seconds: float = 0.0
 	) -> bool:
-		if bus_name != "External":
-			return false
+		if mutate_effect_property_value and value is Dictionary:
+			var mutable_value: Dictionary = value
+			mutable_value.clear()
+			mutable_value["backend_mutated"] = true
 		effect_property_requests.append({
 			"effect_ref": effect_ref,
 			"property_name": property_name,
 			"value": value,
 			"transition_seconds": transition_seconds,
 		})
-		return true
+		return accept_effect_property_requests and bus_name == "External"
 
 	func apply_mix_snapshot(snapshot: Dictionary, transition_seconds: float = 0.0) -> bool:
+		mix_snapshot_request_count += 1
 		if not GFVariantData.get_option_bool(snapshot, "backend_only"):
 			return false
 		handled_mix_snapshot = snapshot.duplicate(true)
@@ -801,6 +946,48 @@ func test_play_bgm_with_options_rejects_reserved_region_keys_before_backend_disp
 	)
 	assert_eq(GFVariantData.get_option_string_name(snapshot, "bgm_owner"), &"none")
 	assert_eq(GFVariantData.get_option_string_name(snapshot, "bgm_state"), &"stopped")
+
+
+func test_play_bgm_with_options_rejects_unbounded_graphs_before_backend_dispatch() -> void:
+	var backend: MockAudioBackend = MockAudioBackend.new()
+	backend.handle_bgm_paths = true
+	assert_true(_audio.set_audio_backend(backend), "测试后端应成功绑定。")
+	var cyclic_options: Dictionary = {}
+	cyclic_options["self"] = cyclic_options
+	_audio.play_bgm_with_options(
+		"event://music/cyclic-options",
+		{"nested": cyclic_options}
+	)
+	cyclic_options.clear()
+
+	var deep_options: Dictionary = {}
+	var deep_cursor: Dictionary = deep_options
+	for index: int in range(32):
+		var child: Dictionary = {
+			"index": index,
+		}
+		deep_cursor["child"] = child
+		deep_cursor = child
+	_audio.play_bgm_with_options(
+		"event://music/deep-options",
+		{"nested": deep_options}
+	)
+
+	var oversized_items: Array = []
+	for index: int in range(1100):
+		oversized_items.append(index)
+	_audio.play_bgm_with_options(
+		"event://music/oversized-options",
+		{"nested": oversized_items}
+	)
+
+	assert_eq(
+		backend.can_handle_path_count,
+		0,
+		"不安全 BGM options 图必须在首次后端回调前失败关闭。"
+	)
+	assert_true(backend.played_bgm_paths.is_empty())
+	assert_eq(_audio._bgm_owner, &"none", "失败请求不得提交或替换 BGM owner。")
 
 
 func test_bgm_finished_signal_emits_for_active_player() -> void:
@@ -1221,6 +1408,90 @@ func test_audio_bank_supports_variants_and_fallback() -> void:
 	assert_eq(bank.get_clip_with_fallback(&"ui+select+primary"), first, "分层 ID 缺失时应逐级回退。")
 
 
+func test_utility_audio_bank_resolution_is_bounded_before_clip_snapshot() -> void:
+	var clip: GFAudioClip = GFAudioClip.new()
+	clip.stream = AudioStreamGenerator.new()
+	var bank: GFAudioBank = GFAudioBank.new()
+	bank.set_clip(&"ui+select", clip)
+	var bounded_clip: GFAudioClip = _audio._resolve_bounded_audio_bank_clip(
+		bank,
+		&"ui+select+primary"
+	)
+	assert_not_null(bounded_clip)
+	assert_not_same(bounded_clip, clip, "命中候选必须先转为受控 clip 快照。")
+
+	var oversized_candidates: Array[GFAudioClip] = []
+	for _index: int in range(1025):
+		oversized_candidates.append(clip)
+	bank.clips[&"crowded"] = oversized_candidates
+	assert_null(
+		_audio._resolve_bounded_audio_bank_clip(bank, &"crowded"),
+		"超限候选列表不得被遍历或抽样。"
+	)
+
+	bank.set_clip(&"root", clip)
+	var deep_identifier: String = "root"
+	for index: int in range(18):
+		deep_identifier += "+level%d" % index
+	assert_null(
+		_audio._resolve_bounded_audio_bank_clip(
+			bank,
+			StringName(deep_identifier)
+		),
+		"fallback 层级超过硬上限时不得继续解析到根 ID。"
+	)
+	assert_null(
+		_audio._resolve_bounded_audio_bank_clip(
+			bank,
+			StringName("x".repeat(1025))
+		),
+		"超长 clip ID 必须在分割前失败关闭。"
+	)
+
+	bank.fallback_separator = "separator-too-long"
+	assert_null(
+		_audio._resolve_bounded_audio_bank_clip(
+			bank,
+			&"ui+select+primary"
+		),
+		"超长 fallback separator 必须在解析前失败关闭。"
+	)
+
+	var overflow_first: GFAudioClip = GFAudioClip.new()
+	overflow_first.stream = AudioStreamGenerator.new()
+	overflow_first.weight = 1.0e308
+	var overflow_second: GFAudioClip = GFAudioClip.new()
+	overflow_second.stream = AudioStreamGenerator.new()
+	overflow_second.weight = 1.0e308
+	var overflow_candidates: Array[GFAudioClip] = [
+		overflow_first,
+		overflow_second,
+	]
+	bank.set_clips(&"overflow", overflow_candidates)
+	assert_null(
+		_audio._resolve_bounded_audio_bank_clip(bank, &"overflow"),
+		"候选权重求和溢出时必须在随机抽样前失败关闭。"
+	)
+
+	var zero_weight: GFAudioClip = GFAudioClip.new()
+	zero_weight.stream = AudioStreamGenerator.new()
+	zero_weight.weight = 0.0
+	var positive_weight: GFAudioClip = GFAudioClip.new()
+	positive_weight.stream = AudioStreamGenerator.new()
+	positive_weight.weight = 1.0
+	var zero_weight_candidates: Array[GFAudioClip] = [
+		zero_weight,
+		positive_weight,
+	]
+	bank.set_clips(&"zero_weight", zero_weight_candidates)
+	for _sample_index: int in range(128):
+		assert_same(
+			_audio._select_bounded_audio_bank_clip(bank, &"zero_weight"),
+			positive_weight,
+			"存在正权重候选时不得命中零权重候选。"
+		)
+
+
 func test_audio_bank_resolution_reports_fallback_and_validation() -> void:
 	var clip: GFAudioClip = GFAudioClip.new()
 	clip.stream = AudioStreamGenerator.new()
@@ -1379,6 +1650,149 @@ func test_audio_bank_mounter_unmounts_original_bank_id_after_id_change() -> void
 	mounter.free()
 
 
+func test_audio_bank_retained_mounts_are_globally_bounded_and_atomic() -> void:
+	var base_bank: GFAudioBank = GFAudioBank.new()
+	var mounted_bank: GFAudioBank = GFAudioBank.new()
+	_audio.register_audio_bank(&"scene", base_bank)
+
+	var first_token: int = 0
+	for index: int in range(1024):
+		var token: int = _audio.mount_audio_bank(&"scene", mounted_bank)
+		assert_gt(token, 0, "容量内的临时 Bank 挂载必须成功。")
+		if index == 0:
+			first_token = token
+
+	var token_before_rejection: int = _audio._audio_bank_mount_token
+	var retained_before_rejection: int = _audio._audio_bank_retained_mount_count
+	var stack_size_before_rejection: int = _audio._get_audio_bank_mount_stack(&"scene").size()
+	assert_eq(
+		_audio.mount_audio_bank(&"scene", GFAudioBank.new()),
+		0,
+		"第 1025 个保留挂载必须失败关闭。"
+	)
+	assert_push_error("[GFAudioUtility] mount_audio_bank 失败：挂载保留容量已达上限。")
+	assert_eq(
+		_audio._audio_bank_mount_token,
+		token_before_rejection,
+		"容量拒绝不得消费挂载令牌。"
+	)
+	assert_eq(
+		_audio._audio_bank_retained_mount_count,
+		retained_before_rejection,
+		"容量拒绝不得改变保留挂载计数。"
+	)
+	assert_eq(
+		_audio._get_audio_bank_mount_stack(&"scene").size(),
+		stack_size_before_rejection,
+		"容量拒绝不得改写既有挂载栈。"
+	)
+	assert_same(
+		_audio.get_audio_bank(&"scene"),
+		mounted_bank,
+		"容量拒绝不得替换当前 Bank。"
+	)
+	var retained_base_bank: GFAudioBank = _audio._get_audio_bank_value(
+		GFVariantData.get_option_value(_audio._audio_bank_base_values, &"scene")
+	)
+	assert_same(
+		retained_base_bank,
+		base_bank,
+		"容量拒绝不得改写基础 Bank。"
+	)
+
+	assert_true(_audio.unmount_audio_bank(&"scene", first_token))
+	assert_eq(_audio._audio_bank_retained_mount_count, 1023)
+	assert_gt(
+		_audio.mount_audio_bank(&"scene", mounted_bank),
+		0,
+		"成功卸载后应立即释放一个挂载容量。"
+	)
+	assert_eq(_audio._audio_bank_retained_mount_count, 1024)
+
+	var replacement_bank: GFAudioBank = GFAudioBank.new()
+	_audio.register_audio_bank(&"scene", replacement_bank)
+	assert_eq(
+		_audio._audio_bank_retained_mount_count,
+		0,
+		"显式注册替换必须释放同 ID 的全部保留挂载。"
+	)
+	assert_false(_audio._audio_bank_mount_stacks.has(&"scene"))
+	assert_false(_audio._audio_bank_base_values.has(&"scene"))
+	assert_same(_audio.get_audio_bank(&"scene"), replacement_bank)
+
+	assert_gt(_audio.mount_audio_bank(&"scene", mounted_bank), 0)
+	_audio.clear_audio_banks()
+	assert_eq(_audio._audio_bank_retained_mount_count, 0)
+	assert_true(_audio._audio_bank_mount_stacks.is_empty())
+	assert_true(_audio._audio_bank_base_values.is_empty())
+	assert_true(_audio._audio_banks.is_empty())
+
+
+func test_audio_bank_active_id_capacity_rejects_new_state_atomically() -> void:
+	var bank: GFAudioBank = GFAudioBank.new()
+	for index: int in range(1024):
+		_audio._audio_banks[StringName("bank_%d" % index)] = bank
+	assert_eq(_audio._audio_banks.size(), 1024)
+
+	_audio.register_audio_bank(&"overflow", GFAudioBank.new())
+	assert_push_error("[GFAudioUtility] register_audio_bank 失败：注册表容量已达上限。")
+	assert_false(_audio._audio_banks.has(&"overflow"))
+	assert_true(_audio._audio_bank_mount_stacks.is_empty())
+	assert_true(_audio._audio_bank_base_values.is_empty())
+	assert_eq(_audio._audio_bank_retained_mount_count, 0)
+
+	var token_before_rejection: int = _audio._audio_bank_mount_token
+	assert_eq(
+		_audio.mount_audio_bank(&"overflow", GFAudioBank.new()),
+		0,
+		"第 1025 个活动 Bank ID 不得通过临时挂载进入注册表。"
+	)
+	assert_push_error("[GFAudioUtility] mount_audio_bank 失败：注册表容量已达上限。")
+	assert_false(_audio._audio_banks.has(&"overflow"))
+	assert_true(_audio._audio_bank_mount_stacks.is_empty())
+	assert_true(_audio._audio_bank_base_values.is_empty())
+	assert_eq(_audio._audio_bank_mount_token, token_before_rejection)
+	assert_eq(_audio._audio_bank_retained_mount_count, 0)
+	_audio.clear_audio_banks()
+
+
+func test_audio_bank_mount_state_converges_on_unregister_init_and_dispose() -> void:
+	var base_bank: GFAudioBank = GFAudioBank.new()
+	var mounted_bank: GFAudioBank = GFAudioBank.new()
+	_audio.register_audio_bank(&"scene", base_bank)
+	assert_gt(_audio.mount_audio_bank(&"scene", mounted_bank), 0)
+	_audio.unregister_audio_bank(&"scene")
+	assert_eq(_audio._audio_bank_retained_mount_count, 0)
+	assert_false(_audio._audio_bank_mount_stacks.has(&"scene"))
+	assert_false(_audio._audio_bank_base_values.has(&"scene"))
+	assert_false(_audio._audio_banks.has(&"scene"))
+
+	var lifecycle_audio: GFAudioUtility = GFAudioUtility.new()
+	assert_gt(lifecycle_audio.mount_audio_bank(&"scene", mounted_bank), 0)
+	assert_eq(lifecycle_audio._audio_bank_retained_mount_count, 1)
+	lifecycle_audio.init()
+	assert_eq(
+		lifecycle_audio._audio_bank_retained_mount_count,
+		0,
+		"init 必须清空初始化前残留的保留挂载。"
+	)
+	assert_true(lifecycle_audio._audio_bank_mount_stacks.is_empty())
+	assert_true(lifecycle_audio._audio_bank_base_values.is_empty())
+	assert_true(lifecycle_audio._audio_banks.is_empty())
+
+	assert_gt(lifecycle_audio.mount_audio_bank(&"scene", mounted_bank), 0)
+	lifecycle_audio.dispose()
+	assert_eq(
+		lifecycle_audio._audio_bank_retained_mount_count,
+		0,
+		"dispose 必须收敛非空挂载状态。"
+	)
+	assert_true(lifecycle_audio._audio_bank_mount_stacks.is_empty())
+	assert_true(lifecycle_audio._audio_bank_base_values.is_empty())
+	assert_true(lifecycle_audio._audio_banks.is_empty())
+	await get_tree().process_frame
+
+
 func test_audio_backend_can_handle_selected_requests() -> void:
 	var backend: MockAudioBackend = MockAudioBackend.new()
 	assert_true(_audio.set_audio_backend(backend), "测试后端应成功绑定。")
@@ -1455,6 +1869,68 @@ func test_audio_backend_capabilities_events_and_parameters() -> void:
 	assert_almost_eq(GFVariantData.get_option_float(backend.parameter_values, &"intensity"), 0.75, 0.001, "参数值应传给后端。")
 	assert_true(GFVariantData.get_option_bool(capabilities, "events"), "调试快照应包含后端事件能力。")
 	assert_true(GFVariantData.get_option_bool(capabilities, "parameters"), "调试快照应包含后端参数能力。")
+
+
+func test_parameter_state_and_switch_requests_are_isolated_and_bounded() -> void:
+	var backend: MockAudioBackend = MockAudioBackend.new()
+	assert_true(_audio.set_audio_backend(backend), "测试后端应成功绑定。")
+	var metadata_resource: GFAudioSpatialSettings = GFAudioSpatialSettings.new()
+	metadata_resource.max_distance_2d = 720.0
+	var parameter: GFAudioParameter = GFAudioParameter.new()
+	parameter.parameter_id = &"bounded_parameter"
+	parameter.metadata = {
+		"resource": metadata_resource,
+	}
+	assert_true(_audio.set_audio_parameter(parameter))
+	assert_not_same(backend.last_parameter, parameter, "参数请求必须隔离 Resource 实例。")
+	if backend.last_parameter == null:
+		return
+	var backend_resource_value: Variant = GFVariantData.get_option_value(
+		backend.last_parameter.metadata,
+		"resource"
+	)
+	if not backend_resource_value is GFAudioSpatialSettings:
+		fail_test("参数 metadata Resource 快照必须保持具体类型。")
+		return
+	var backend_resource: GFAudioSpatialSettings = backend_resource_value
+	assert_not_same(backend_resource, metadata_resource)
+	assert_almost_eq(backend_resource.max_distance_2d, 720.0, 0.001)
+
+	var cyclic_metadata: Dictionary = {}
+	cyclic_metadata["self"] = cyclic_metadata
+	var unsafe_parameter: GFAudioParameter = GFAudioParameter.new()
+	unsafe_parameter.parameter_id = &"cyclic_parameter"
+	unsafe_parameter.metadata = cyclic_metadata
+	assert_false(_audio.set_audio_parameter(unsafe_parameter))
+	unsafe_parameter.metadata = {}
+	cyclic_metadata.clear()
+
+	var deep_metadata: Dictionary = {}
+	var deep_cursor: Dictionary = deep_metadata
+	for index: int in range(32):
+		var child: Dictionary = {
+			"index": index,
+		}
+		deep_cursor["child"] = child
+		deep_cursor = child
+	var unsafe_state: GFAudioState = GFAudioState.new()
+	unsafe_state.group_id = &"deep_state"
+	unsafe_state.metadata = deep_metadata
+	assert_false(_audio.set_audio_state(unsafe_state))
+
+	var oversized_items: Array = []
+	for index: int in range(1100):
+		oversized_items.append(index)
+	var unsafe_switch: GFAudioSwitch = GFAudioSwitch.new()
+	unsafe_switch.group_id = &"oversized_switch"
+	unsafe_switch.metadata = {
+		"items": oversized_items,
+	}
+	assert_false(_audio.set_audio_switch(unsafe_switch))
+
+	assert_eq(backend.parameter_request_count, 1)
+	assert_eq(backend.state_request_count, 0)
+	assert_eq(backend.switch_request_count, 0)
 
 
 func test_audio_event_rejects_reserved_region_keys_before_backend_dispatch() -> void:
@@ -1787,7 +2263,7 @@ func test_backend_event_callbacks_receive_isolated_nested_resource_options() -> 
 	)
 
 
-func test_backend_event_option_cycles_and_depth_fail_closed_before_callback() -> void:
+func test_backend_event_metadata_and_option_graphs_fail_closed_before_callback() -> void:
 	var backend: MockAudioBackend = MockAudioBackend.new()
 	assert_true(_audio.set_audio_backend(backend), "测试后端应成功绑定。")
 	var clip: GFAudioClip = GFAudioClip.new()
@@ -1823,12 +2299,455 @@ func test_backend_event_option_cycles_and_depth_fail_closed_before_callback() ->
 		{"nested": oversized_items}
 	)
 
+	var cyclic_metadata: Dictionary = {}
+	cyclic_metadata["self"] = cyclic_metadata
+	event.metadata = {
+		"nested": cyclic_metadata,
+	}
+	var cyclic_metadata_handle: GFAudioEmitterHandle = _audio.post_audio_event(event)
+	event.metadata = {}
+	cyclic_metadata.clear()
+
+	var deep_metadata: Dictionary = {}
+	var deep_metadata_cursor: Dictionary = deep_metadata
+	for index: int in range(32):
+		var metadata_child: Dictionary = {
+			"index": index,
+		}
+		deep_metadata_cursor["child"] = metadata_child
+		deep_metadata_cursor = metadata_child
+	event.metadata = {
+		"nested": deep_metadata,
+	}
+	var deep_metadata_handle: GFAudioEmitterHandle = _audio.post_audio_event(event)
+
+	event.metadata = {
+		"nested": oversized_items,
+	}
+	var oversized_metadata_handle: GFAudioEmitterHandle = _audio.post_audio_event(event)
+	event.metadata = {}
+
 	assert_null(cyclic_handle)
 	assert_null(deep_handle)
 	assert_null(oversized_handle)
-	assert_eq(backend.can_handle_event_count, 0, "不安全 options 图必须在首次后端回调前失败关闭。")
+	assert_null(cyclic_metadata_handle)
+	assert_null(deep_metadata_handle)
+	assert_null(oversized_metadata_handle)
+	assert_eq(
+		backend.can_handle_event_count,
+		0,
+		"不安全 metadata/options 图必须在首次后端回调前失败关闭。"
+	)
 	assert_true(backend.posted_events.is_empty())
 	assert_eq(_audio._active_sfx_players.size(), 0, "失败关闭不得偷偷进入本地播放回退。")
+
+
+func test_backend_resource_graph_snapshot_preserves_isolated_repeated_references() -> void:
+	var shared_resource: SnapshotGraphResource = SnapshotGraphResource.new()
+	shared_resource.payload = "source"
+	var shared_array: Array[SnapshotGraphResource] = [shared_resource]
+	var root_resource: SnapshotGraphResource = SnapshotGraphResource.new()
+	root_resource.payload = {
+		"left": shared_array,
+		"right": shared_array,
+	}
+	root_resource.secondary_payload = shared_resource
+
+	var result: Dictionary = _audio._try_snapshot_audio_options({
+		"resource": root_resource,
+	})
+	assert_true(_audio._backend_request_snapshot_succeeded(result))
+	var options_snapshot: Dictionary = _audio._get_backend_request_snapshot_dictionary(result)
+	var root_value: Variant = GFVariantData.get_option_value(options_snapshot, "resource")
+	if not root_value is SnapshotGraphResource:
+		fail_test("资源图快照必须保持具体 Resource 类型。")
+		return
+	var root_snapshot: SnapshotGraphResource = root_value
+	var payload_value: Variant = root_snapshot.payload
+	if not payload_value is Dictionary:
+		fail_test("资源图快照必须保持 Dictionary 属性。")
+		return
+	var payload_snapshot: Dictionary = payload_value
+	var left_value: Variant = GFVariantData.get_option_value(payload_snapshot, "left")
+	var right_value: Variant = GFVariantData.get_option_value(payload_snapshot, "right")
+	if not left_value is Array or not right_value is Array:
+		fail_test("资源图快照必须保持 Array 属性。")
+		return
+	var left_snapshot: Array = left_value
+	var right_snapshot: Array = right_value
+	var nested_snapshot_value: Variant = left_snapshot[0] if not left_snapshot.is_empty() else null
+	if not nested_snapshot_value is SnapshotGraphResource:
+		fail_test("资源图快照必须保持嵌套 Resource 类型。")
+		return
+	var nested_snapshot: SnapshotGraphResource = nested_snapshot_value
+	var secondary_snapshot_value: Variant = root_snapshot.secondary_payload
+	if not secondary_snapshot_value is SnapshotGraphResource:
+		fail_test("重复 Resource 引用必须保持具体类型。")
+		return
+	var secondary_snapshot: SnapshotGraphResource = secondary_snapshot_value
+
+	assert_not_same(root_snapshot, root_resource)
+	assert_same(left_snapshot, right_snapshot, "重复集合引用必须映射到同一份受控快照。")
+	assert_true(left_snapshot.is_same_typed(shared_array), "类型化集合的元素契约必须保持。")
+	assert_same(
+		nested_snapshot,
+		secondary_snapshot,
+		"重复 Resource 引用必须映射到同一份受控快照。"
+	)
+	assert_not_same(nested_snapshot, shared_resource)
+	nested_snapshot.payload = "backend"
+	assert_eq(
+		GFVariantData.to_text(shared_resource.payload),
+		"source",
+		"后端快照不得反向修改调用方 Resource。"
+	)
+
+
+func test_backend_resource_graph_cycles_depth_and_items_fail_closed() -> void:
+	var cyclic_resource: SnapshotGraphResource = SnapshotGraphResource.new()
+	cyclic_resource.payload = cyclic_resource
+	var cyclic_result: Dictionary = _audio._try_snapshot_audio_options({
+		"resource": cyclic_resource,
+	})
+	cyclic_resource.payload = null
+
+	var deep_root: SnapshotGraphResource = SnapshotGraphResource.new()
+	var deep_cursor: SnapshotGraphResource = deep_root
+	for index: int in range(32):
+		var child: SnapshotGraphResource = SnapshotGraphResource.new()
+		child.secondary_payload = index
+		deep_cursor.payload = child
+		deep_cursor = child
+	var deep_result: Dictionary = _audio._try_snapshot_audio_options({
+		"resource": deep_root,
+	})
+
+	var oversized_resource: SnapshotGraphResource = SnapshotGraphResource.new()
+	var oversized_items: Array = []
+	for index: int in range(1100):
+		oversized_items.append(index)
+	oversized_resource.payload = oversized_items
+	var oversized_result: Dictionary = _audio._try_snapshot_audio_options({
+		"resource": oversized_resource,
+	})
+	var read_only_result: Dictionary = _audio._try_snapshot_audio_options({
+		"resource": ReadOnlySnapshotResource.new(),
+	})
+
+	assert_false(_audio._backend_request_snapshot_succeeded(cyclic_result))
+	assert_false(_audio._backend_request_snapshot_succeeded(deep_result))
+	assert_false(_audio._backend_request_snapshot_succeeded(oversized_result))
+	assert_false(_audio._backend_request_snapshot_succeeded(read_only_result))
+
+
+func test_backend_packed_array_snapshot_is_isolated_memoized_and_bounded() -> void:
+	var packed_values: Array = [
+		PackedByteArray([1]),
+		PackedInt32Array([2]),
+		PackedInt64Array([3]),
+		PackedFloat32Array([4.0]),
+		PackedFloat64Array([5.0]),
+		PackedStringArray(["six"]),
+		PackedVector2Array([Vector2.ONE]),
+		PackedVector3Array([Vector3.ONE]),
+		PackedColorArray([Color.WHITE]),
+		PackedVector4Array([Vector4.ONE]),
+	]
+	for packed_value: Variant in packed_values:
+		var packed_result: Dictionary = _audio._try_snapshot_backend_request_value(
+			packed_value,
+			true
+		)
+		assert_true(
+			_audio._backend_request_snapshot_succeeded(packed_result),
+			"所有 Godot Packed Array 类型都必须通过受控分派。"
+		)
+		var packed_snapshot: Variant = GFVariantData.get_option_value(
+			packed_result,
+			"value"
+		)
+		assert_eq(typeof(packed_snapshot), typeof(packed_value))
+		assert_true(GFVariantData.values_equal(packed_snapshot, packed_value))
+
+	var shared_bytes: PackedByteArray = PackedByteArray([1, 2, 3, 4])
+	var root_resource: SnapshotGraphResource = SnapshotGraphResource.new()
+	root_resource.payload = {
+		"left": shared_bytes,
+		"right": shared_bytes,
+	}
+	root_resource.secondary_payload = shared_bytes
+	var result: Dictionary = _audio._try_snapshot_audio_options({
+		"resource": root_resource,
+	})
+	assert_true(_audio._backend_request_snapshot_succeeded(result))
+	var options_snapshot: Dictionary = _audio._get_backend_request_snapshot_dictionary(result)
+	var root_value: Variant = GFVariantData.get_option_value(options_snapshot, "resource")
+	if not root_value is SnapshotGraphResource:
+		fail_test("Packed Array 所在 Resource 必须保持具体类型。")
+		return
+	var root_snapshot: SnapshotGraphResource = root_value
+	var payload_value: Variant = root_snapshot.payload
+	if not payload_value is Dictionary:
+		fail_test("Packed Array 所在 Dictionary 必须保持类型。")
+		return
+	var payload_snapshot: Dictionary = payload_value
+	var left_value: Variant = GFVariantData.get_option_value(payload_snapshot, "left")
+	var right_value: Variant = GFVariantData.get_option_value(payload_snapshot, "right")
+	var secondary_value: Variant = root_snapshot.secondary_payload
+	if (
+		not left_value is PackedByteArray
+		or not right_value is PackedByteArray
+		or not secondary_value is PackedByteArray
+	):
+		fail_test("PackedByteArray 快照必须保持类型。")
+		return
+	var left_snapshot: PackedByteArray = left_value
+	var right_snapshot: PackedByteArray = right_value
+	var secondary_snapshot: PackedByteArray = secondary_value
+	assert_same(left_snapshot, right_snapshot, "重复 Packed Array 引用必须复用受控副本。")
+	assert_same(left_snapshot, secondary_snapshot, "Resource 属性也必须复用同一受控副本。")
+	left_snapshot[0] = 9
+	assert_eq(shared_bytes[0], 1, "后端修改 Packed Array 快照不得污染调用方。")
+
+	var wav: AudioStreamWAV = AudioStreamWAV.new()
+	wav.data = PackedByteArray([5, 6, 7, 8])
+	var wav_result: Dictionary = _audio._try_snapshot_backend_request_value(wav, true)
+	assert_true(_audio._backend_request_snapshot_succeeded(wav_result))
+	var wav_value: Variant = GFVariantData.get_option_value(wav_result, "value")
+	if not wav_value is AudioStreamWAV:
+		fail_test("AudioStreamWAV 快照必须保持具体类型。")
+		return
+	var wav_snapshot: AudioStreamWAV = wav_value
+	var changed_data: PackedByteArray = wav_snapshot.data
+	changed_data[0] = 42
+	wav_snapshot.data = changed_data
+	assert_eq(wav.data[0], 5, "原生 setter 复制 Packed Array 时仍必须保持隔离。")
+
+	var element_state: Dictionary = _audio._new_backend_request_snapshot_state()
+	element_state["remaining_packed_elements"] = 2
+	var element_result: Dictionary = _audio._snapshot_backend_request_value(
+		PackedByteArray([1, 2, 3]),
+		true,
+		element_state,
+		0
+	)
+	var byte_state: Dictionary = _audio._new_backend_request_snapshot_state()
+	byte_state["remaining_bytes"] = 4
+	var byte_result: Dictionary = _audio._snapshot_backend_request_value(
+		PackedVector2Array([Vector2.ONE]),
+		true,
+		byte_state,
+		0
+	)
+	assert_false(_audio._backend_request_snapshot_succeeded(element_result))
+	assert_false(_audio._backend_request_snapshot_succeeded(byte_result))
+	assert_eq(
+		_audio._get_backend_snapshot_packed_element_bytes(TYPE_PACKED_VECTOR2_ARRAY),
+		16,
+		"Vector2 必须按双精度构建上限保守计入硬字节预算。"
+	)
+	assert_eq(
+		_audio._get_backend_snapshot_packed_element_bytes(TYPE_PACKED_VECTOR3_ARRAY),
+		24,
+		"Vector3 必须按双精度构建上限保守计入硬字节预算。"
+	)
+	assert_eq(
+		_audio._get_backend_snapshot_packed_element_bytes(TYPE_PACKED_VECTOR4_ARRAY),
+		32,
+		"Vector4 必须按双精度构建上限保守计入硬字节预算。"
+	)
+
+	var string_name_state: Dictionary = _audio._new_backend_request_snapshot_state()
+	string_name_state["remaining_bytes"] = 3
+	var string_name_result: Dictionary = _audio._snapshot_backend_request_value(
+		&"x",
+		true,
+		string_name_state,
+		0
+	)
+	assert_false(
+		_audio._backend_request_snapshot_succeeded(string_name_result),
+		"StringName 也必须受保守 UTF-32 值字节预算约束。"
+	)
+
+	var clip_state: Dictionary = _audio._new_backend_request_snapshot_state()
+	clip_state["remaining_bytes"] = 7
+	var bounded_clip: GFAudioClip = GFAudioClip.new()
+	bounded_clip.path = "a"
+	bounded_clip.bus_name = "b"
+	assert_null(
+		_audio._snapshot_audio_clip_with_state(
+			bounded_clip,
+			null,
+			true,
+			clip_state,
+			0
+		),
+		"手工 clip 字段不得绕过值字节预算。"
+	)
+
+	var event_state: Dictionary = _audio._new_backend_request_snapshot_state()
+	event_state["remaining_bytes"] = 7
+	var bounded_event: GFAudioEvent = GFAudioEvent.new()
+	bounded_event.event_id = &"ab"
+	bounded_event.channel = &""
+	bounded_event.ambient_channel = &""
+	assert_null(
+		_audio._snapshot_audio_event_with_state(
+			bounded_event,
+			null,
+			true,
+			event_state,
+			0
+		),
+		"手工 event StringName 字段不得绕过值字节预算。"
+	)
+
+
+func test_backend_resource_setters_cannot_break_snapshot_graph_contract() -> void:
+	var copying_resource: CopyingSnapshotResource = CopyingSnapshotResource.new()
+	copying_resource.payload = [1, 2, 3]
+	var copying_result: Dictionary = _audio._try_snapshot_audio_options({
+		"resource": copying_resource,
+	})
+	var copying_packed_resource: CopyingPackedSnapshotResource = (
+		CopyingPackedSnapshotResource.new()
+	)
+	copying_packed_resource.payload = PackedByteArray([1, 2, 3])
+	var copying_packed_result: Dictionary = _audio._try_snapshot_audio_options({
+		"resource": copying_packed_resource,
+	})
+	var coupled_resource: CoupledSnapshotResource = CoupledSnapshotResource.new()
+	coupled_resource.second = 9
+	coupled_resource.first = 7
+	var coupled_result: Dictionary = _audio._try_snapshot_audio_options({
+		"resource": coupled_resource,
+	})
+	var never_duplicate_resource: NeverDuplicateSnapshotResource = (
+		NeverDuplicateSnapshotResource.new()
+	)
+	var never_duplicate_result: Dictionary = _audio._try_snapshot_audio_options({
+		"resource": never_duplicate_resource,
+	})
+	var expanding_schema_resource: ExpandingStorageSchemaSnapshotResource = (
+		ExpandingStorageSchemaSnapshotResource.new()
+	)
+	expanding_schema_resource.set_meta(&"hide_extra_storage", true)
+	var expanding_schema_result: Dictionary = _audio._try_snapshot_audio_options({
+		"resource": expanding_schema_resource,
+	})
+
+	assert_false(
+		_audio._backend_request_snapshot_succeeded(copying_result),
+		"复制引用属性的 setter 会破坏别名契约，必须失败关闭。"
+	)
+	assert_false(
+		_audio._backend_request_snapshot_succeeded(copying_packed_result),
+		"脚本 Packed Array setter 复制受控副本时也必须失败关闭。"
+	)
+	assert_false(
+		_audio._backend_request_snapshot_succeeded(coupled_result),
+		"后置 setter 改写先前属性时，最终一致性复核必须失败关闭。"
+	)
+	assert_false(
+		_audio._backend_request_snapshot_succeeded(never_duplicate_result),
+		"PROPERTY_USAGE_NEVER_DUPLICATE 属性必须失败关闭。"
+	)
+	assert_false(
+		_audio._backend_request_snapshot_succeeded(expanding_schema_result),
+		"目标实例新增 storage 属性时必须在 getter 暴露前失败关闭。"
+	)
+
+
+func test_backend_clip_and_event_snapshots_preserve_shared_resource_identity() -> void:
+	var region: GFAudioPlaybackRegion = GFAudioPlaybackRegion.new()
+	region.start_seconds = 0.1
+	var clip: GFAudioClip = GFAudioClip.new()
+	clip.stream = AudioStreamGenerator.new()
+	clip.playback_region = region
+	clip.metadata["region"] = region
+	var event: GFAudioEvent = GFAudioEvent.new()
+	event.event_id = &"shared_snapshot_identity"
+	event.clip = clip
+	event.metadata["clip"] = clip
+
+	var normalized_region: GFAudioPlaybackRegion = region.duplicate_region()
+	var authoritative_snapshot: GFAudioEvent = _audio._snapshot_audio_event(
+		event,
+		normalized_region,
+		false
+	)
+	assert_not_null(authoritative_snapshot)
+	if authoritative_snapshot == null or authoritative_snapshot.clip == null:
+		return
+	var authoritative_metadata_clip_value: Variant = GFVariantData.get_option_value(
+		authoritative_snapshot.metadata,
+		"clip"
+	)
+	var authoritative_metadata_region_value: Variant = (
+		GFVariantData.get_option_value(
+			authoritative_snapshot.clip.metadata,
+			"region"
+		)
+	)
+	if (
+		not authoritative_metadata_clip_value is GFAudioClip
+		or not authoritative_metadata_region_value is GFAudioPlaybackRegion
+	):
+		fail_test("权威中间快照必须保持重复 Resource 的具体类型。")
+		return
+	var authoritative_metadata_clip: GFAudioClip = (
+		authoritative_metadata_clip_value
+	)
+	var authoritative_metadata_region: GFAudioPlaybackRegion = (
+		authoritative_metadata_region_value
+	)
+	assert_same(
+		authoritative_metadata_clip,
+		authoritative_snapshot.clip,
+		"权威中间快照也必须保持 event metadata 的 clip 别名。"
+	)
+	assert_same(
+		authoritative_metadata_region,
+		authoritative_snapshot.clip.playback_region,
+		"权威中间快照必须把原区间与规范化区间映射到同一副本。"
+	)
+
+	var snapshot: GFAudioEvent = _audio._snapshot_audio_event(
+		authoritative_snapshot,
+		authoritative_snapshot.clip.playback_region,
+		true
+	)
+
+	assert_not_null(snapshot)
+	if snapshot == null or snapshot.clip == null:
+		return
+	var metadata_clip_value: Variant = GFVariantData.get_option_value(
+		snapshot.metadata,
+		"clip"
+	)
+	var metadata_region_value: Variant = GFVariantData.get_option_value(
+		snapshot.clip.metadata,
+		"region"
+	)
+	if (
+		not metadata_clip_value is GFAudioClip
+		or not metadata_region_value is GFAudioPlaybackRegion
+	):
+		fail_test("重复 Resource 引用必须保持具体类型。")
+		return
+	var metadata_clip: GFAudioClip = metadata_clip_value
+	var metadata_region: GFAudioPlaybackRegion = metadata_region_value
+	assert_same(
+		metadata_clip,
+		snapshot.clip,
+		"event metadata 中的重复 clip 引用必须复用手工快照。"
+	)
+	assert_same(
+		metadata_region,
+		snapshot.clip.playback_region,
+		"clip metadata 中的重复区间引用必须复用受控 Resource 快照。"
+	)
 
 
 func test_backend_snapshot_cycles_and_depth_fail_closed_without_replacing_bgm() -> void:
@@ -2343,6 +3262,128 @@ func test_play_sfx_clip_3d_applies_spatial_settings() -> void:
 		player.queue_free()
 
 
+func test_inline_spatial_region_prepare_rejection_returns_null() -> void:
+	var region: GFAudioPlaybackRegion = GFAudioPlaybackRegion.new()
+	region.start_seconds = 0.1
+	var clip: GFAudioClip = GFAudioClip.new()
+	clip.stream = AudioStreamGenerator.new()
+	clip.playback_region = region
+	var source_2d: Node2D = Node2D.new()
+	var source_3d: Node3D = Node3D.new()
+	add_child_autofree(source_2d)
+	add_child_autofree(source_3d)
+
+	var player_2d: AudioStreamPlayer2D = _audio.play_sfx_clip_2d(clip, source_2d)
+	var player_3d: AudioStreamPlayer3D = _audio.play_sfx_clip_3d(clip, source_3d)
+
+	assert_null(player_2d, "同步 2D 区间准备失败必须遵守 null-on-failure 契约。")
+	assert_null(player_3d, "同步 3D 区间准备失败必须遵守 null-on-failure 契约。")
+	assert_eq(
+		_audio._active_spatial_sfx_players.size(),
+		0,
+		"同步拒绝不得留下已排队释放但仍被视为活动的空间播放器。"
+	)
+
+
+func test_immediate_asset_callback_spatial_region_rejection_returns_null() -> void:
+	var immediate_asset: ImmediateAssetUtility = ImmediateAssetUtility.new(
+		AudioStreamGenerator.new()
+	)
+	var audio: AssetBackedAudioUtility = AssetBackedAudioUtility.new(immediate_asset)
+	audio.init()
+	await get_tree().process_frame
+	var region: GFAudioPlaybackRegion = GFAudioPlaybackRegion.new()
+	region.start_seconds = 0.1
+	var clip: GFAudioClip = GFAudioClip.new()
+	clip.path = "res://audio/immediate-unsupported.ogg"
+	clip.playback_region = region
+	var source_2d: Node2D = Node2D.new()
+	var source_3d: Node3D = Node3D.new()
+	add_child_autofree(source_2d)
+	add_child_autofree(source_3d)
+
+	var player_2d: AudioStreamPlayer2D = audio.play_sfx_clip_2d(clip, source_2d)
+	var handle_3d: GFAudioEmitterHandle = audio.play_sfx_clip_3d_handle(
+		clip,
+		source_3d
+	)
+
+	assert_null(player_2d, "同步 AssetUtility 回调拒绝 2D 区间时必须返回 null。")
+	assert_null(handle_3d, "同步 AssetUtility 回调拒绝 3D 区间时不得创建失效句柄。")
+	assert_eq(audio._active_spatial_sfx_players.size(), 0)
+	assert_eq(audio._retiring_spatial_sfx_players.size(), 0)
+	assert_eq(audio._playback_sessions.size(), 0)
+	audio.dispose()
+	await get_tree().process_frame
+
+
+func test_delayed_asset_callback_spatial_region_rejection_terminates_handle_once() -> void:
+	var mock_asset: MockAssetUtility = MockAssetUtility.new()
+	var audio: AssetBackedAudioUtility = AssetBackedAudioUtility.new(mock_asset)
+	audio.init()
+	await get_tree().process_frame
+	var region: GFAudioPlaybackRegion = GFAudioPlaybackRegion.new()
+	region.start_seconds = 0.1
+	var clip: GFAudioClip = GFAudioClip.new()
+	clip.path = "res://audio/delayed-unsupported.ogg"
+	clip.playback_region = region
+	var source: Node2D = Node2D.new()
+	add_child_autofree(source)
+	var handle: GFAudioEmitterHandle = audio.play_sfx_clip_2d_handle(clip, source)
+	var stopped_count: Array[int] = [0]
+	var _connect_result: Error = handle.stopped.connect(
+		func(_handle: GFAudioEmitterHandle) -> void:
+			stopped_count[0] += 1
+	) as Error
+	var player: Node = handle.get_player()
+
+	assert_true(handle.is_valid())
+	assert_eq(audio._active_spatial_sfx_players.size(), 1)
+	mock_asset.finish(clip.path, AudioStreamGenerator.new())
+
+	assert_false(handle.is_valid(), "异步区间拒绝后句柄必须进入终态。")
+	assert_true(handle.is_terminal(), "异步区间拒绝必须提交唯一终态。")
+	assert_eq(stopped_count[0], 0, "非主动停止的加载拒绝不得伪造 stopped 信号。")
+	assert_eq(audio._active_spatial_sfx_players.size(), 0)
+	assert_eq(audio._retiring_spatial_sfx_players.size(), 0)
+	assert_eq(audio._playback_sessions.size(), 0)
+	assert_true(player.is_queued_for_deletion())
+	audio.dispose()
+	await get_tree().process_frame
+
+
+func test_stopped_spatial_handle_rejects_late_asset_callback() -> void:
+	var mock_asset: MockAssetUtility = MockAssetUtility.new()
+	var audio: AssetBackedAudioUtility = AssetBackedAudioUtility.new(mock_asset)
+	audio.init()
+	await get_tree().process_frame
+	var clip: GFAudioClip = GFAudioClip.new()
+	clip.path = "res://audio/stopped-before-load.ogg"
+	var source: Node2D = Node2D.new()
+	add_child_autofree(source)
+	var handle: GFAudioEmitterHandle = audio.play_sfx_clip_2d_handle(clip, source)
+	var player: AudioStreamPlayer2D = handle.get_player() as AudioStreamPlayer2D
+	var stopped_count: Array[int] = [0]
+	var _connect_result: Error = handle.stopped.connect(
+		func(_handle: GFAudioEmitterHandle) -> void:
+			stopped_count[0] += 1
+	) as Error
+
+	handle.stop()
+	mock_asset.finish(clip.path, AudioStreamGenerator.new())
+
+	assert_true(handle.is_terminal())
+	assert_eq(stopped_count[0], 1, "主动停止只允许发出一次 stopped。")
+	assert_true(player.is_queued_for_deletion())
+	assert_null(player.stream, "迟到回调不得把流重新写入已终结播放器。")
+	assert_false(player.playing, "迟到回调不得启动已终结播放器。")
+	assert_eq(audio._active_spatial_sfx_players.size(), 0)
+	assert_eq(audio._retiring_spatial_sfx_players.size(), 0)
+	assert_eq(audio._playback_sessions.size(), 0)
+	audio.dispose()
+	await get_tree().process_frame
+
+
 func test_stop_all_sfx_releases_normal_and_spatial_players() -> void:
 	var source: Node2D = Node2D.new()
 	add_child_autofree(source)
@@ -2619,6 +3660,139 @@ func test_audio_backend_can_handle_mix_controls() -> void:
 	assert_true(backend.external_muted, "静音状态应传给后端。")
 	assert_eq(backend.effect_property_requests.size(), 1, "效果属性请求应传给后端。")
 	assert_almost_eq(backend.handled_mix_transition, 0.3, 0.001, "快照过渡时间应传给后端。")
+
+
+func test_mix_snapshot_and_effect_values_are_isolated_and_bounded() -> void:
+	var backend: MockAudioBackend = MockAudioBackend.new()
+	assert_true(_audio.set_audio_backend(backend), "测试后端应成功绑定。")
+	var effect_resource: GFAudioSpatialSettings = GFAudioSpatialSettings.new()
+	effect_resource.max_distance_2d = 880.0
+	assert_true(
+		_audio.set_bus_effect_property(
+			"External",
+			0,
+			&"custom_resource",
+			effect_resource
+		)
+	)
+	assert_eq(backend.effect_property_requests.size(), 1)
+	var effect_request: Dictionary = backend.effect_property_requests[0]
+	var backend_effect_value: Variant = GFVariantData.get_option_value(
+		effect_request,
+		"value"
+	)
+	if not backend_effect_value is GFAudioSpatialSettings:
+		fail_test("效果属性 Resource 值必须保持具体类型。")
+		return
+	var backend_effect_resource: GFAudioSpatialSettings = backend_effect_value
+	assert_not_same(backend_effect_resource, effect_resource)
+
+	var cyclic_effect_value: Dictionary = {}
+	cyclic_effect_value["self"] = cyclic_effect_value
+	assert_false(
+		_audio.set_bus_effect_property(
+			"External",
+			0,
+			&"unsafe_value",
+			cyclic_effect_value
+		)
+	)
+	cyclic_effect_value.clear()
+	assert_eq(
+		backend.effect_property_requests.size(),
+		1,
+		"不安全 effect value 不得进入 backend。"
+	)
+
+	var cyclic_snapshot: Dictionary = {}
+	cyclic_snapshot["self"] = cyclic_snapshot
+	var cyclic_report: Dictionary = _audio.apply_mix_snapshot(cyclic_snapshot)
+	cyclic_snapshot.clear()
+
+	var deep_snapshot: Dictionary = {}
+	var deep_cursor: Dictionary = deep_snapshot
+	for index: int in range(32):
+		var child: Dictionary = {
+			"index": index,
+		}
+		deep_cursor["child"] = child
+		deep_cursor = child
+	var deep_report: Dictionary = _audio.apply_mix_snapshot({
+		"nested": deep_snapshot,
+	})
+
+	var oversized_items: Array = []
+	for index: int in range(1100):
+		oversized_items.append(index)
+	var oversized_report: Dictionary = _audio.apply_mix_snapshot({
+		"nested": oversized_items,
+	})
+	var shared_identity_report: Dictionary = _audio.apply_mix_snapshot({
+		"callback": Callable(self, "get_name"),
+	})
+
+	assert_false(GFVariantData.get_option_bool(cyclic_report, "ok"))
+	assert_false(GFVariantData.get_option_bool(deep_report, "ok"))
+	assert_false(GFVariantData.get_option_bool(oversized_report, "ok"))
+	assert_false(GFVariantData.get_option_bool(shared_identity_report, "ok"))
+	assert_eq(
+		backend.mix_snapshot_request_count,
+		0,
+		"不安全 mix snapshot 必须在首次 backend 回调前失败关闭。"
+	)
+
+
+func test_bus_effect_fallback_uses_pristine_value_after_backend_rejection() -> void:
+	var bus_index: int = AudioServer.get_bus_index("Master")
+	var effect_count_before: int = AudioServer.get_bus_effect_count(bus_index)
+	var effect: MutableDictionaryAudioEffect = MutableDictionaryAudioEffect.new()
+	effect.resource_name = "GFMutableDictionaryEffect"
+	AudioServer.add_bus_effect(bus_index, effect)
+
+	var backend: MockAudioBackend = MockAudioBackend.new()
+	backend.accept_effect_property_requests = false
+	backend.mutate_effect_property_value = true
+	assert_true(_audio.set_audio_backend(backend))
+
+	var caller_value: Dictionary = {
+		"nested": {
+			"label": "pristine",
+		},
+	}
+	assert_true(
+		_audio.set_bus_effect_property(
+			"Master",
+			effect_count_before,
+			&"payload",
+			caller_value
+		),
+		"后端拒绝效果属性后应使用隔离的本地回退。"
+	)
+	assert_eq(backend.effect_property_requests.size(), 1)
+	var backend_value: Dictionary = GFVariantData.as_dictionary(
+		GFVariantData.get_option_value(backend.effect_property_requests[0], "value")
+	)
+	assert_true(
+		GFVariantData.get_option_bool(backend_value, "backend_mutated"),
+		"测试后端应已改写自己的请求副本。"
+	)
+	assert_false(effect.payload.has("backend_mutated"))
+	assert_eq(
+		GFVariantData.get_option_string(
+			GFVariantData.get_option_dictionary(effect.payload, "nested"),
+			"label"
+		),
+		"pristine",
+		"本地效果必须收到后端不可见的权威值副本。"
+	)
+	assert_not_same(effect.payload, caller_value)
+	assert_false(caller_value.has("backend_mutated"))
+
+	while AudioServer.get_bus_effect_count(bus_index) > effect_count_before:
+		AudioServer.remove_bus_effect(
+			bus_index,
+			AudioServer.get_bus_effect_count(bus_index) - 1
+		)
 
 
 func test_mix_snapshot_fallback_routes_same_name_bus_fields_to_backend_first() -> void:

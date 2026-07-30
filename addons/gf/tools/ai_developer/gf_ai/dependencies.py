@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from .constants import RESERVED_DEPENDENCY_IDS
 from .paths import (
 	is_reserved_framework_resource_path,
 	normalize_portable_ownership_path,
@@ -54,10 +55,18 @@ class TargetOwnershipPlan:
 		missing_root_count = 0
 		unsafe_path_count = 0
 		module_ids: set[str] = set()
+		component_ids: set[str] = set()
 		for module in modules:
 			module_id = str(module.get("id", ""))
-			if module_id:
-				module_ids.add(module_id)
+			if (
+				not module_id
+				or module_id in RESERVED_DEPENDENCY_IDS
+				or module_id in component_ids
+			):
+				unsafe_path_count += 1
+				continue
+			component_ids.add(module_id)
+			module_ids.add(module_id)
 			raw_roots = module.get("roots", [])
 			if not isinstance(raw_roots, list) or not raw_roots:
 				missing_root_count += 1
@@ -67,18 +76,26 @@ class TargetOwnershipPlan:
 					missing_root_count += 1
 					continue
 				root = normalize_portable_ownership_path(raw_root)
-				if not module_id or not root or is_reserved_framework_resource_path(root):
+				if not root or is_reserved_framework_resource_path(root):
 					unsafe_path_count += 1
 					continue
 				roots.append(TargetOwnershipRoot(module_id, root, True))
 		for adapter in adapters or []:
 			adapter_id = str(adapter.get("id", ""))
+			if (
+				not adapter_id
+				or adapter_id in RESERVED_DEPENDENCY_IDS
+				or adapter_id in component_ids
+			):
+				unsafe_path_count += 1
+				continue
+			component_ids.add(adapter_id)
 			raw_root = adapter.get("project_root")
 			if not isinstance(raw_root, str) or not raw_root:
 				missing_root_count += 1
 				continue
 			root = normalize_portable_ownership_path(raw_root)
-			if not adapter_id or not root or is_reserved_framework_resource_path(root):
+			if not root or is_reserved_framework_resource_path(root):
 				unsafe_path_count += 1
 				continue
 			roots.append(TargetOwnershipRoot(adapter_id, root, False))
@@ -434,14 +451,27 @@ def _collect_target_files(project_root: Path, plan: TargetOwnershipPlan) -> dict
 			"unsafe_path_count": unsafe_path_count,
 			"truncated": False,
 		}
+
+	def record_walk_error(_error: OSError) -> None:
+		nonlocal unsafe_path_count
+		unsafe_path_count += 1
+
 	for record in sorted(plan.roots, key=lambda item: (item.resource_root, item.owner_id)):
 		relative_root = record.resource_root.removeprefix("res://")
 		root = project_root / Path(*relative_root.split("/"))
 		if not root.is_dir() or not _safe_path(project_root, root, directory=True):
 			missing_root_count += 1
 			continue
-		for current_root, directory_names, file_names in os.walk(root, topdown=True, followlinks=False):
+		for current_root, directory_names, file_names in os.walk(
+			root,
+			topdown=True,
+			followlinks=False,
+			onerror=record_walk_error,
+		):
 			current_path = Path(current_root)
+			if ".gdignore" in file_names:
+				directory_names[:] = []
+				continue
 			safe_directories: list[str] = []
 			for name in sorted(directory_names):
 				if name in _SKIPPED_DIRECTORY_NAMES:

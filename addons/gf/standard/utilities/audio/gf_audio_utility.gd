@@ -85,6 +85,14 @@ const _STATE_STOPPING: StringName = &"stopping"
 const _STATE_RETIRING: StringName = &"retiring"
 const _BACKEND_REQUEST_SNAPSHOT_MAX_DEPTH: int = 16
 const _BACKEND_REQUEST_SNAPSHOT_MAX_ITEMS: int = 1024
+const _BACKEND_REQUEST_SNAPSHOT_MAX_BYTES: int = 64 * 1024 * 1024
+const _BACKEND_REQUEST_SNAPSHOT_MAX_PACKED_ELEMENTS: int = 16 * 1024 * 1024
+const _AUDIO_BANK_MAX_REGISTERED_COUNT: int = 1024
+const _AUDIO_BANK_MAX_RETAINED_MOUNT_COUNT: int = 1024
+const _AUDIO_BANK_MAX_CANDIDATE_COUNT: int = 1024
+const _AUDIO_BANK_MAX_IDENTIFIER_CHARACTERS: int = 1024
+const _AUDIO_BANK_MAX_SEPARATOR_CHARACTERS: int = 16
+const _AUDIO_BANK_MAX_FALLBACK_STEPS: int = 16
 
 
 # --- 公共变量 ---
@@ -160,6 +168,7 @@ var _audio_banks: Dictionary = {}
 var _audio_bank_base_values: Dictionary = {}
 var _audio_bank_mount_stacks: Dictionary = {}
 var _audio_bank_mount_token: int = 0
+var _audio_bank_retained_mount_count: int = 0
 var _audio_backend: GFAudioBackend = null
 var _backend_dispatch_depth: int = 0
 var _bus_volume_tween_refs: Dictionary = {}
@@ -219,6 +228,7 @@ func init() -> void:
 	_audio_bank_base_values.clear()
 	_audio_bank_mount_stacks.clear()
 	_audio_bank_mount_token = 0
+	_audio_bank_retained_mount_count = 0
 	_clear_mix_control_tweens()
 	_bus_generation_counter += 1
 	_bus_transaction_generations.clear()
@@ -302,6 +312,7 @@ func dispose() -> void:
 	_audio_banks.clear()
 	_audio_bank_base_values.clear()
 	_audio_bank_mount_stacks.clear()
+	_audio_bank_retained_mount_count = 0
 	_bgm_sessions.clear()
 	_bgm_current_session_id = 0
 	_bgm_incoming_session_id = 0
@@ -343,42 +354,68 @@ func play_bgm(path: String, crossfade_seconds: float = -1.0) -> void:
 func play_bgm_with_options(path: String, options: Dictionary = {}) -> void:
 	if _is_backend_dispatch_in_progress():
 		return
-	if options.has("loop") or options.has("playback_region"):
+	var request_result: Dictionary = _try_snapshot_audio_options({
+		"path": path,
+		"options": options,
+	})
+	if not _backend_request_snapshot_succeeded(request_result):
+		return
+	var request_envelope: Dictionary = _get_backend_request_snapshot_dictionary(
+		request_result
+	)
+	var request_path: String = GFVariantData.get_option_string(
+		request_envelope,
+		"path"
+	)
+	var request_options: Dictionary = GFVariantData.get_option_dictionary(
+		request_envelope,
+		"options"
+	)
+	if request_options.has("loop") or request_options.has("playback_region"):
 		push_warning(
 			"[GFAudioUtility] play_bgm_with_options 不接受 loop 或 playback_region；"
 			+ "请使用 GFAudioClip.playback_region 表达唯一的循环契约。"
 		)
 		return
 	var crossfade_seconds: float = _finite_or_default(
-		GFVariantData.get_option_float(options, "crossfade_seconds", -1.0),
+		GFVariantData.get_option_float(request_options, "crossfade_seconds", -1.0),
 		-1.0
 	)
-	var history_key: String = path
-	if options.has("history_key"):
-		history_key = GFVariantData.to_text(options["history_key"])
+	var history_key: String = request_path
+	if request_options.has("history_key"):
+		history_key = GFVariantData.to_text(request_options["history_key"])
 	var bus_name: String = BGM_BUS_NAME
-	if options.has("bus_name"):
-		bus_name = GFVariantData.to_text(options["bus_name"], BGM_BUS_NAME)
-	var volume_db: float = _finite_or_default(GFVariantData.get_option_float(options, "volume_db", 0.0), 0.0)
-	var pitch_scale: float = _finite_or_default(GFVariantData.get_option_float(options, "pitch_scale", 1.0), 1.0)
-	if path.is_empty():
+	if request_options.has("bus_name"):
+		bus_name = GFVariantData.to_text(
+			request_options["bus_name"],
+			BGM_BUS_NAME
+		)
+	var volume_db: float = _finite_or_default(
+		GFVariantData.get_option_float(request_options, "volume_db", 0.0),
+		0.0
+	)
+	var pitch_scale: float = _finite_or_default(
+		GFVariantData.get_option_float(request_options, "pitch_scale", 1.0),
+		1.0
+	)
+	if request_path.is_empty():
 		stop_bgm(crossfade_seconds)
 		return
 	var request_serial: int = _begin_bgm_replacement()
 
-	var backend_options: Dictionary = options.duplicate(true)
+	var backend_options: Dictionary = request_options
 	backend_options["crossfade_seconds"] = _resolve_bgm_crossfade_seconds(crossfade_seconds)
 	backend_options["history_key"] = history_key
 	backend_options["bus_name"] = bus_name
 	backend_options["volume_db"] = volume_db
 	backend_options["pitch_scale"] = pitch_scale
-	if _try_backend_play_bgm_path(path, backend_options):
+	if _try_backend_play_bgm_path(request_path, backend_options):
 		_commit_backend_bgm_session(request_serial, history_key)
 		return
 		
 	var asset_util: GFAssetUtility = _get_asset_util()
 	if asset_util == null:
-		var stream: AudioStream = _get_audio_stream_value(load(path))
+		var stream: AudioStream = _get_audio_stream_value(load(request_path))
 		_apply_bgm_request_with_settings(
 			request_serial,
 			stream,
@@ -399,7 +436,7 @@ func play_bgm_with_options(path: String, options: Dictionary = {}) -> void:
 				crossfade_seconds,
 				history_key
 			)
-		asset_util.load_async(path, on_loaded)
+		asset_util.load_async(request_path, on_loaded)
 
 
 ## 播放资源化 BGM 配置。后端与本地播放器按请求结果原子交接唯一通道所有权。
@@ -509,7 +546,10 @@ func play_bgm_from_bank(bank: GFAudioBank, clip_id: StringName, crossfade_second
 	if bank == null:
 		return
 
-	play_bgm_clip(bank.get_clip_with_fallback(clip_id, _audio_rng), crossfade_seconds)
+	play_bgm_clip(
+		_resolve_bounded_audio_bank_clip(bank, clip_id),
+		crossfade_seconds
+	)
 
 
 ## 按事件 ID 播放注册音频集合中的 BGM。
@@ -919,11 +959,17 @@ func clear_bgm_history() -> void:
 ## [br]
 ## @param bank: 音频集合。
 func register_audio_bank(bank_id: StringName, bank: GFAudioBank) -> void:
-	if bank_id == &"":
-		push_error("[GFAudioUtility] register_audio_bank 失败：bank_id 为空。")
+	if not _is_audio_bank_identifier_valid(bank_id):
+		push_error("[GFAudioUtility] register_audio_bank 失败：bank_id 非法或超限。")
 		return
-	_erase_dictionary_key(_audio_bank_base_values, bank_id)
-	_erase_dictionary_key(_audio_bank_mount_stacks, bank_id)
+	if (
+		bank != null
+		and not _audio_banks.has(bank_id)
+		and _audio_banks.size() >= _AUDIO_BANK_MAX_REGISTERED_COUNT
+	):
+		push_error("[GFAudioUtility] register_audio_bank 失败：注册表容量已达上限。")
+		return
+	_clear_audio_bank_mount_state(bank_id)
 	if bank == null:
 		_erase_dictionary_key(_audio_banks, bank_id)
 		return
@@ -936,8 +982,9 @@ func register_audio_bank(bank_id: StringName, bank: GFAudioBank) -> void:
 ## [br]
 ## @param bank_id: 音频集合标识。
 func unregister_audio_bank(bank_id: StringName) -> void:
-	_erase_dictionary_key(_audio_bank_base_values, bank_id)
-	_erase_dictionary_key(_audio_bank_mount_stacks, bank_id)
+	if not _is_audio_bank_identifier_valid(bank_id):
+		return
+	_clear_audio_bank_mount_state(bank_id)
 	_erase_dictionary_key(_audio_banks, bank_id)
 
 
@@ -948,6 +995,7 @@ func clear_audio_banks() -> void:
 	_audio_bank_base_values.clear()
 	_audio_bank_mount_stacks.clear()
 	_audio_banks.clear()
+	_audio_bank_retained_mount_count = 0
 
 
 ## 挂载一个临时音频集合，并返回用于卸载的挂载令牌。
@@ -966,11 +1014,20 @@ func mount_audio_bank(
 	bank: GFAudioBank,
 	restore_previous_bank: bool = true
 ) -> int:
-	if bank_id == &"":
-		push_error("[GFAudioUtility] mount_audio_bank 失败：bank_id 为空。")
+	if not _is_audio_bank_identifier_valid(bank_id):
+		push_error("[GFAudioUtility] mount_audio_bank 失败：bank_id 非法或超限。")
 		return 0
 	if bank == null:
 		push_error("[GFAudioUtility] mount_audio_bank 失败：bank 为空。")
+		return 0
+	if (
+		not _audio_banks.has(bank_id)
+		and _audio_banks.size() >= _AUDIO_BANK_MAX_REGISTERED_COUNT
+	):
+		push_error("[GFAudioUtility] mount_audio_bank 失败：注册表容量已达上限。")
+		return 0
+	if _audio_bank_retained_mount_count >= _AUDIO_BANK_MAX_RETAINED_MOUNT_COUNT:
+		push_error("[GFAudioUtility] mount_audio_bank 失败：挂载保留容量已达上限。")
 		return 0
 
 	if not _audio_bank_mount_stacks.has(bank_id):
@@ -987,6 +1044,7 @@ func mount_audio_bank(
 		"bank": bank,
 		"restore_previous_bank": restore_previous_bank,
 	})
+	_audio_bank_retained_mount_count += 1
 	_audio_banks[bank_id] = bank
 	return token
 
@@ -1001,7 +1059,7 @@ func mount_audio_bank(
 ## [br]
 ## @return: 找到并卸载对应挂载时返回 true。
 func unmount_audio_bank(bank_id: StringName, mount_token: int) -> bool:
-	if bank_id == &"" or mount_token <= 0:
+	if not _is_audio_bank_identifier_valid(bank_id) or mount_token <= 0:
 		return false
 	if not _audio_bank_mount_stacks.has(bank_id):
 		return false
@@ -1019,6 +1077,7 @@ func unmount_audio_bank(bank_id: StringName, mount_token: int) -> bool:
 	var removed_entry: Dictionary = GFVariantData.as_dictionary(stack[remove_index])
 	var was_top: bool = remove_index == stack.size() - 1
 	stack.remove_at(remove_index)
+	_audio_bank_retained_mount_count = maxi(_audio_bank_retained_mount_count - 1, 0)
 	if was_top:
 		_restore_audio_bank_after_unmount(bank_id, stack, _get_mount_entry_restore_previous(removed_entry))
 	if stack.is_empty():
@@ -1035,6 +1094,8 @@ func unmount_audio_bank(bank_id: StringName, mount_token: int) -> bool:
 ## [br]
 ## @return: 音频集合；不存在时返回 null。
 func get_audio_bank(bank_id: StringName) -> GFAudioBank:
+	if not _is_audio_bank_identifier_valid(bank_id):
+		return null
 	return _get_audio_bank_by_id(bank_id)
 
 
@@ -1130,17 +1191,37 @@ func post_audio_event(event: GFAudioEvent, options: Dictionary = {}) -> GFAudioE
 		)
 		return null
 	var playback_region: GFAudioPlaybackRegion = null
-	var request_event: GFAudioEvent = event
 	if event.clip != null:
 		playback_region = _snapshot_playback_region(event.clip.playback_region)
 		if not _validate_playback_region_request(playback_region, event.channel):
 			return null
-		request_event = _snapshot_audio_event(event, playback_region)
-		if request_event == null:
-			return null
-	var request_options: Dictionary = request_event.to_request_options(options)
+	var request_event: GFAudioEvent = _snapshot_audio_event(event, playback_region)
+	if request_event == null:
+		return null
+	var extra_options_result: Dictionary = _try_snapshot_audio_options(options)
+	if not _backend_request_snapshot_succeeded(extra_options_result):
+		return null
+	var extra_options: Dictionary = _get_backend_request_snapshot_dictionary(
+		extra_options_result
+	)
+	var merged_options: Dictionary = {}
+	for key: Variant in request_event.metadata.keys():
+		merged_options[key] = request_event.metadata[key]
+	for key: Variant in extra_options.keys():
+		merged_options[key] = extra_options[key]
+	merged_options["event_id"] = request_event.event_id
+	merged_options["channel"] = request_event.channel
+	merged_options["bank_id"] = request_event.bank_id
+	merged_options["path"] = request_event.path
+	merged_options["ambient_channel"] = request_event.ambient_channel
 	if playback_region != null:
-		request_options["playback_region"] = playback_region.duplicate_region()
+		merged_options["playback_region"] = playback_region.duplicate_region()
+	var request_options_result: Dictionary = _try_snapshot_audio_options(merged_options)
+	if not _backend_request_snapshot_succeeded(request_options_result):
+		return null
+	var request_options: Dictionary = _get_backend_request_snapshot_dictionary(
+		request_options_result
+	)
 	var expected_backend: GFAudioBackend = _audio_backend
 	if expected_backend != null:
 		var probe_event: GFAudioEvent = _snapshot_audio_event(
@@ -1224,8 +1305,20 @@ func post_audio_event(event: GFAudioEvent, options: Dictionary = {}) -> GFAudioE
 func set_audio_parameter(parameter: GFAudioParameter) -> bool:
 	if _is_backend_dispatch_in_progress():
 		return false
+	var snapshot_result: Dictionary = _try_snapshot_isolated_backend_request_value(
+		parameter
+	)
+	if not _backend_request_snapshot_succeeded(snapshot_result):
+		return false
+	var snapshot_value: Variant = GFVariantData.get_option_value(
+		snapshot_result,
+		"value"
+	)
+	if not snapshot_value is GFAudioParameter:
+		return false
+	var request_parameter: GFAudioParameter = snapshot_value
 	return _backend_dispatch_returned_true(
-		_dispatch_backend_call(&"set_parameter", [parameter], _audio_backend)
+		_dispatch_backend_call(&"set_parameter", [request_parameter], _audio_backend)
 	)
 
 
@@ -1239,8 +1332,20 @@ func set_audio_parameter(parameter: GFAudioParameter) -> bool:
 func set_audio_state(state: GFAudioState) -> bool:
 	if _is_backend_dispatch_in_progress():
 		return false
+	var snapshot_result: Dictionary = _try_snapshot_isolated_backend_request_value(
+		state
+	)
+	if not _backend_request_snapshot_succeeded(snapshot_result):
+		return false
+	var snapshot_value: Variant = GFVariantData.get_option_value(
+		snapshot_result,
+		"value"
+	)
+	if not snapshot_value is GFAudioState:
+		return false
+	var request_state: GFAudioState = snapshot_value
 	return _backend_dispatch_returned_true(
-		_dispatch_backend_call(&"set_state", [state], _audio_backend)
+		_dispatch_backend_call(&"set_state", [request_state], _audio_backend)
 	)
 
 
@@ -1254,8 +1359,20 @@ func set_audio_state(state: GFAudioState) -> bool:
 func set_audio_switch(audio_switch: GFAudioSwitch) -> bool:
 	if _is_backend_dispatch_in_progress():
 		return false
+	var snapshot_result: Dictionary = _try_snapshot_isolated_backend_request_value(
+		audio_switch
+	)
+	if not _backend_request_snapshot_succeeded(snapshot_result):
+		return false
+	var snapshot_value: Variant = GFVariantData.get_option_value(
+		snapshot_result,
+		"value"
+	)
+	if not snapshot_value is GFAudioSwitch:
+		return false
+	var request_switch: GFAudioSwitch = snapshot_value
 	return _backend_dispatch_returned_true(
-		_dispatch_backend_call(&"set_switch", [audio_switch], _audio_backend)
+		_dispatch_backend_call(&"set_switch", [request_switch], _audio_backend)
 	)
 
 
@@ -1273,28 +1390,61 @@ func set_audio_switch(audio_switch: GFAudioSwitch) -> bool:
 func play_ambient(path: String, channel: StringName = &"default", fade_seconds: float = 0.0) -> void:
 	if _is_backend_dispatch_in_progress():
 		return
-	if path.is_empty():
-		stop_ambient(channel, fade_seconds)
+	var request_result: Dictionary = _try_snapshot_audio_options({
+		"path": path,
+		"channel": channel,
+		"fade_seconds": fade_seconds,
+	})
+	if not _backend_request_snapshot_succeeded(request_result):
+		return
+	var request: Dictionary = _get_backend_request_snapshot_dictionary(request_result)
+	var request_path: String = GFVariantData.get_option_string(request, "path")
+	var request_channel: StringName = GFVariantData.get_option_string_name(
+		request,
+		"channel",
+		&"default"
+	)
+	var request_fade: float = _finite_non_negative_or_zero(
+		GFVariantData.get_option_float(request, "fade_seconds")
+	)
+	if request_path.is_empty():
+		stop_ambient(request_channel, request_fade)
 		return
 
-	var request_serial: int = _begin_ambient_replacement(channel)
-	if _try_backend_play_ambient_path(path, channel, {
-		"fade_seconds": _finite_non_negative_or_zero(fade_seconds),
+	var request_serial: int = _begin_ambient_replacement(request_channel)
+	if _try_backend_play_ambient_path(request_path, request_channel, {
+		"fade_seconds": request_fade,
 		"bus_name": BGM_BUS_NAME,
 		"volume_db": 0.0,
 		"pitch_scale": 1.0,
 	}):
-		_commit_backend_ambient_session(channel, request_serial)
+		_commit_backend_ambient_session(request_channel, request_serial)
 		return
 
 	var asset_util: GFAssetUtility = _get_asset_util()
 	if asset_util == null:
-		var stream: AudioStream = _get_audio_stream_value(load(path))
-		_apply_ambient_request(request_serial, channel, stream, BGM_BUS_NAME, 0.0, 1.0, fade_seconds)
+		var stream: AudioStream = _get_audio_stream_value(load(request_path))
+		_apply_ambient_request(
+			request_serial,
+			request_channel,
+			stream,
+			BGM_BUS_NAME,
+			0.0,
+			1.0,
+			request_fade
+		)
 	else:
 		var on_loaded: Callable = func(res: Resource) -> void:
-			_apply_ambient_request(request_serial, channel, _get_audio_stream_value(res), BGM_BUS_NAME, 0.0, 1.0, fade_seconds)
-		asset_util.load_async(path, on_loaded)
+			_apply_ambient_request(
+				request_serial,
+				request_channel,
+				_get_audio_stream_value(res),
+				BGM_BUS_NAME,
+				0.0,
+				1.0,
+				request_fade
+			)
+		asset_util.load_async(request_path, on_loaded)
 
 
 ## 播放资源化环境音配置。每个通道在本地播放器与后端之间只保留一个 owner。
@@ -1419,7 +1569,11 @@ func play_ambient_from_bank(
 	if bank == null:
 		return
 
-	play_ambient_clip(bank.get_clip_with_fallback(clip_id, _audio_rng), channel, fade_seconds)
+	play_ambient_clip(
+		_resolve_bounded_audio_bank_clip(bank, clip_id),
+		channel,
+		fade_seconds
+	)
 
 
 ## 按事件 ID 播放注册音频集合中的环境音。
@@ -1615,10 +1769,19 @@ func play_sfx(path: String) -> void:
 func play_sfx_handle(path: String) -> GFAudioEmitterHandle:
 	if _is_backend_dispatch_in_progress():
 		return null
-	if path.is_empty():
+	var request_result: Dictionary = _try_snapshot_audio_options({
+		"path": path,
+	})
+	if not _backend_request_snapshot_succeeded(request_result):
+		return null
+	var request_path: String = GFVariantData.get_option_string(
+		_get_backend_request_snapshot_dictionary(request_result),
+		"path"
+	)
+	if request_path.is_empty():
 		return null
 
-	var backend_handle: GFAudioEmitterHandle = _try_backend_play_sfx_path(path, {
+	var backend_handle: GFAudioEmitterHandle = _try_backend_play_sfx_path(request_path, {
 		"bus_name": SFX_BUS_NAME,
 		"volume_db": 0.0,
 		"pitch_scale": 1.0,
@@ -1630,12 +1793,12 @@ func play_sfx_handle(path: String) -> GFAudioEmitterHandle:
 	var request_serial: int = _sfx_lifecycle_serial
 	var asset_util: GFAssetUtility = _get_asset_util()
 	if asset_util == null:
-		var stream: AudioStream = _get_audio_stream_value(load(path))
+		var stream: AudioStream = _get_audio_stream_value(load(request_path))
 		_apply_sfx_request(request_serial, stream, handle)
 	else:
 		var on_loaded: Callable = func(res: Resource) -> void:
 			_apply_sfx_request(request_serial, _get_audio_stream_value(res), handle)
-		asset_util.load_async(path, on_loaded)
+		asset_util.load_async(request_path, on_loaded)
 	return handle
 
 
@@ -1683,7 +1846,9 @@ func play_sfx_from_bank_handle(bank: GFAudioBank, clip_id: StringName) -> GFAudi
 	if bank == null:
 		return null
 
-	return play_sfx_clip_handle(bank.get_clip_with_fallback(clip_id, _audio_rng))
+	return play_sfx_clip_handle(
+		_resolve_bounded_audio_bank_clip(bank, clip_id)
+	)
 
 
 ## 按事件 ID 播放注册音频集合中的 SFX。
@@ -1982,6 +2147,8 @@ func set_bus_volume_db(bus_name: String, volume_db: float, transition_seconds: f
 		return false
 	if not _is_finite_float(volume_db) or not _is_finite_float(transition_seconds):
 		return false
+	if not _is_backend_request_text_within_budget(bus_name):
+		return false
 	var transaction_generation: int = _begin_bus_transaction(bus_name)
 	if _backend_dispatch_returned_true(
 		_dispatch_backend_call(
@@ -2016,6 +2183,8 @@ func set_bus_volume_db(bus_name: String, volume_db: float, transition_seconds: f
 ## [br]
 ## @return: dB 音量；总线不存在时返回 SILENCE_VOLUME_DB。
 func get_bus_volume_db(bus_name: String) -> float:
+	if not _is_backend_request_text_within_budget(bus_name):
+		return SILENCE_VOLUME_DB
 	if _audio_backend != null:
 		var backend_result: Dictionary = _dispatch_backend_call(
 			&"get_bus_volume",
@@ -2045,6 +2214,8 @@ func get_bus_volume_db(bus_name: String) -> float:
 ## @return: 成功应用或已交给后端处理时返回 true。
 func set_bus_mute(bus_name: String, muted: bool) -> bool:
 	if _is_backend_dispatch_in_progress():
+		return false
+	if not _is_backend_request_text_within_budget(bus_name):
 		return false
 	var _transaction_generation: int = _begin_bus_transaction(bus_name)
 	if _backend_dispatch_returned_true(
@@ -2092,55 +2263,114 @@ func set_bus_effect_property(
 		return false
 	if _is_numeric_variant(value) and not _is_finite_numeric_variant(value):
 		return false
+	var local_request_result: Dictionary = _try_snapshot_isolated_backend_request_value({
+		"bus_name": bus_name,
+		"effect_ref": effect_ref,
+		"property_name": property_name,
+		"value": value,
+		"transition_seconds": transition_seconds,
+	})
+	if not _backend_request_snapshot_succeeded(local_request_result):
+		return false
+	var request: Dictionary = _get_backend_request_snapshot_dictionary(local_request_result)
+	var backend_request_result: Dictionary = _try_snapshot_isolated_backend_request_value(
+		request
+	)
+	if not _backend_request_snapshot_succeeded(backend_request_result):
+		return false
+	var backend_request: Dictionary = _get_backend_request_snapshot_dictionary(
+		backend_request_result
+	)
 	if _backend_dispatch_returned_true(
 		_dispatch_backend_call(
 			&"set_bus_effect_property",
-			[bus_name, effect_ref, property_name, value, transition_seconds],
+			[
+				GFVariantData.get_option_string(backend_request, "bus_name"),
+				GFVariantData.get_option_value(backend_request, "effect_ref"),
+				GFVariantData.get_option_string_name(backend_request, "property_name"),
+				GFVariantData.get_option_value(backend_request, "value"),
+				GFVariantData.get_option_float(backend_request, "transition_seconds"),
+			],
 			_audio_backend
 		)
 	):
 		return true
 
-	var bus_index: int = AudioServer.get_bus_index(bus_name)
+	var request_bus_name: String = GFVariantData.get_option_string(
+		request,
+		"bus_name"
+	)
+	var request_effect_ref: Variant = GFVariantData.get_option_value(
+		request,
+		"effect_ref"
+	)
+	var request_property_name: StringName = GFVariantData.get_option_string_name(
+		request,
+		"property_name"
+	)
+	var request_value: Variant = GFVariantData.get_option_value(request, "value")
+	var request_transition: float = GFVariantData.get_option_float(
+		request,
+		"transition_seconds"
+	)
+
+	var bus_index: int = AudioServer.get_bus_index(request_bus_name)
 	if bus_index < 0:
-		push_warning("[GFAudioUtility] 无法找到音轨总线: " + bus_name)
+		push_warning("[GFAudioUtility] 无法找到音轨总线: " + request_bus_name)
 		return false
-	var effect_index: int = _resolve_bus_effect_index(bus_index, effect_ref)
+	var effect_index: int = _resolve_bus_effect_index(bus_index, request_effect_ref)
 	if effect_index < 0:
-		push_warning("[GFAudioUtility] 无法在总线 %s 找到音频效果: %s" % [bus_name, str(effect_ref)])
+		push_warning(
+			"[GFAudioUtility] 无法在总线 %s 找到音频效果: %s"
+			% [request_bus_name, str(request_effect_ref)]
+		)
 		return false
 	var effect: AudioEffect = AudioServer.get_bus_effect(bus_index, effect_index)
-	if effect == null or not _object_has_property(effect, property_name):
-		push_warning("[GFAudioUtility] 音频效果缺少属性: %s.%s" % [str(effect_ref), String(property_name)])
+	if effect == null or not _object_has_property(effect, request_property_name):
+		push_warning(
+			"[GFAudioUtility] 音频效果缺少属性: %s.%s"
+			% [str(request_effect_ref), String(request_property_name)]
+		)
 		return false
 
-	var tween_key: String = "%s:%d:%s" % [bus_name, effect_index, String(property_name)]
+	var tween_key: String = (
+		"%s:%d:%s"
+		% [request_bus_name, effect_index, String(request_property_name)]
+	)
 	_kill_bus_effect_tween(tween_key)
-	if transition_seconds <= 0.0 or not _is_numeric_variant(value):
-		effect.set(String(property_name), value)
+	if request_transition <= 0.0 or not _is_numeric_variant(request_value):
+		effect.set(String(request_property_name), request_value)
 		return true
 
-	var start_value: Variant = _get_object_property(effect, property_name)
+	var start_value: Variant = _get_object_property(effect, request_property_name)
 	if not _is_numeric_variant(start_value):
-		effect.set(String(property_name), value)
+		effect.set(String(request_property_name), request_value)
 		return true
 
 	var tween: Tween = _create_tween_or_null()
 	if tween == null:
-		effect.set(String(property_name), value)
+		effect.set(String(request_property_name), request_value)
 		return true
 
 	_bus_effect_tween_refs[tween_key] = weakref(tween)
 	_add_tween_method(
 		tween,
-		Callable(self, "_apply_bus_effect_tween_value").bind(effect, property_name),
+		Callable(self, "_apply_bus_effect_tween_value").bind(
+			effect,
+			request_property_name
+		),
 		GFVariantData.to_float(start_value),
-		GFVariantData.to_float(value),
-		maxf(transition_seconds, 0.0)
+		GFVariantData.to_float(request_value),
+		maxf(request_transition, 0.0)
 	)
 	_connect_signal_checked(
 		tween.finished,
-		Callable(self, "_finish_bus_effect_tween").bind(tween_key, effect, property_name, value),
+		Callable(self, "_finish_bus_effect_tween").bind(
+			tween_key,
+			effect,
+			request_property_name,
+			request_value
+		),
 		CONNECT_ONE_SHOT
 	)
 	return true
@@ -2158,7 +2388,20 @@ func set_bus_effect_property(
 ## [br]
 ## @schema return: Dictionary，包含 buses 字典；每个总线条目包含 volume_db、volume_linear 和 muted。
 func capture_mix_snapshot(bus_names: PackedStringArray = PackedStringArray()) -> Dictionary:
-	var names: PackedStringArray = bus_names
+	var names_result: Dictionary = _try_snapshot_backend_request_value(
+		bus_names,
+		true
+	)
+	if not _backend_request_snapshot_succeeded(names_result):
+		return {
+			_MIX_SNAPSHOT_BUSES_KEY: {},
+		}
+	var names_value: Variant = GFVariantData.get_option_value(names_result, "value")
+	if not names_value is PackedStringArray:
+		return {
+			_MIX_SNAPSHOT_BUSES_KEY: {},
+		}
+	var names: PackedStringArray = names_value
 	if names.is_empty():
 		names = PackedStringArray()
 		for bus_index: int in range(AudioServer.get_bus_count()):
@@ -2212,11 +2455,43 @@ func apply_mix_snapshot(snapshot: Dictionary, transition_seconds: float = 0.0) -
 		_append_mix_failure(report, "", "backend_reentry", "后端回调期间拒绝重入混音事务。")
 		report["ok"] = false
 		return report
+	var snapshot_result: Dictionary = _try_snapshot_isolated_backend_request_value(
+		snapshot
+	)
+	if not _backend_request_snapshot_succeeded(snapshot_result):
+		_append_mix_failure(
+			report,
+			"",
+			"unsafe_snapshot_graph",
+			"混音快照图无法在硬预算内安全隔离。"
+		)
+		report["ok"] = false
+		return report
+	var request_snapshot: Dictionary = _get_backend_request_snapshot_dictionary(
+		snapshot_result
+	)
 	var expected_backend: GFAudioBackend = _audio_backend
 	if expected_backend != null:
+		var backend_snapshot_result: Dictionary = (
+			_try_snapshot_isolated_backend_request_value(
+			request_snapshot
+			)
+		)
+		if not _backend_request_snapshot_succeeded(backend_snapshot_result):
+			_append_mix_failure(
+				report,
+				"",
+				"unsafe_snapshot_graph",
+				"混音快照无法创建独立 backend 副本。"
+			)
+			report["ok"] = false
+			return report
 		var bulk_result: Dictionary = _dispatch_backend_call(
 			&"apply_mix_snapshot",
-			[snapshot, transition_seconds],
+			[
+				_get_backend_request_snapshot_dictionary(backend_snapshot_result),
+				transition_seconds,
+			],
 			expected_backend
 		)
 		if not _backend_dispatch_completed(bulk_result):
@@ -2237,12 +2512,24 @@ func apply_mix_snapshot(snapshot: Dictionary, transition_seconds: float = 0.0) -
 			}
 
 	_apply_mix_snapshot_buses(
-		GFVariantData.get_option_value(snapshot, _MIX_SNAPSHOT_BUSES_KEY, {}),
+		GFVariantData.get_option_value(
+			request_snapshot,
+			_MIX_SNAPSHOT_BUSES_KEY,
+			{}
+		),
 		transition_seconds,
 		report,
 		expected_backend
 	)
-	_apply_mix_snapshot_effects(GFVariantData.get_option_value(snapshot, _MIX_SNAPSHOT_EFFECTS_KEY, []), transition_seconds, report)
+	_apply_mix_snapshot_effects(
+		GFVariantData.get_option_value(
+			request_snapshot,
+			_MIX_SNAPSHOT_EFFECTS_KEY,
+			[]
+		),
+		transition_seconds,
+		report
+	)
 	report["ok"] = _get_report_array(report, "failed").is_empty()
 	return report
 
@@ -2357,6 +2644,8 @@ func set_bus_volume(bus_name: String, volume_linear: float) -> void:
 		return
 	if not _is_finite_float(volume_linear):
 		return
+	if not _is_backend_request_text_within_budget(bus_name):
+		return
 	var transaction_generation: int = _begin_bus_transaction(bus_name)
 	if _backend_dispatch_returned_true(
 		_dispatch_backend_call(&"set_bus_volume", [bus_name, volume_linear], _audio_backend)
@@ -2390,6 +2679,8 @@ func set_bus_volume(bus_name: String, volume_linear: float) -> void:
 ## [br]
 ## @return: 线性音量 (0.0 到 1.0)
 func get_bus_volume(bus_name: String) -> float:
+	if not _is_backend_request_text_within_budget(bus_name):
+		return 0.0
 	if _audio_backend != null:
 		var backend_result: Dictionary = _dispatch_backend_call(
 			&"get_bus_volume",
@@ -2802,13 +3093,18 @@ func _snapshot_playback_region(
 	return region.duplicate_region() if region != null else null
 
 
-func _duplicate_request_resource(resource: Resource) -> Resource:
-	if resource == null:
-		return null
-	var snapshot: Resource = resource.duplicate(true)
-	if snapshot == null or is_same(snapshot, resource):
-		return null
-	return snapshot
+func _new_backend_request_snapshot_state() -> Dictionary:
+	return {
+		"remaining_items": _BACKEND_REQUEST_SNAPSHOT_MAX_ITEMS,
+		"remaining_bytes": _BACKEND_REQUEST_SNAPSHOT_MAX_BYTES,
+		"remaining_packed_elements": _BACKEND_REQUEST_SNAPSHOT_MAX_PACKED_ELEMENTS,
+		"active_collections": [],
+		"collection_sources": [],
+		"collection_snapshots": [],
+		"active_resources": [],
+		"resource_sources": [],
+		"resource_snapshots": [],
+	}
 
 
 func _snapshot_playback_region_result(
@@ -2831,15 +3127,60 @@ func _snapshot_audio_clip(
 	playback_region: GFAudioPlaybackRegion,
 	isolate_nested_resources: bool = false
 ) -> GFAudioClip:
+	var state: Dictionary = _new_backend_request_snapshot_state()
+	return _snapshot_audio_clip_with_state(
+		clip,
+		playback_region,
+		isolate_nested_resources,
+		state,
+		0
+	)
+
+
+func _snapshot_audio_clip_with_state(
+	clip: GFAudioClip,
+	playback_region: GFAudioPlaybackRegion,
+	isolate_nested_resources: bool,
+	state: Dictionary,
+	depth: int
+) -> GFAudioClip:
 	if clip == null:
 		return null
+	if _backend_snapshot_has_active_resource(state, clip):
+		return null
+	var existing_snapshot: Resource = _get_backend_snapshot_resource(state, clip)
+	if existing_snapshot is GFAudioClip:
+		var existing_clip: GFAudioClip = existing_snapshot
+		return existing_clip
+	if existing_snapshot != null:
+		return null
+	if not _consume_backend_request_snapshot_item(state, depth):
+		return null
+	if (
+		not _reserve_backend_request_snapshot_string_bytes(state, clip.path)
+		or not _reserve_backend_request_snapshot_string_bytes(state, clip.bus_name)
+	):
+		return null
 	var snapshot: GFAudioClip = GFAudioClip.new()
+	_push_backend_snapshot_active_resource(state, clip)
 	snapshot.path = clip.path
 	if clip.stream != null:
 		if isolate_nested_resources:
-			var stream_snapshot: Resource = _duplicate_request_resource(clip.stream)
-			if not (stream_snapshot is AudioStream):
+			var stream_result: Dictionary = _snapshot_backend_request_value(
+				clip.stream,
+				true,
+				state,
+				depth + 1,
+				true
+			)
+			if not _backend_request_snapshot_succeeded(stream_result):
+				_pop_backend_snapshot_active_resource(state)
 				return null
+			var stream_value: Variant = GFVariantData.get_option_value(stream_result, "value")
+			if not stream_value is AudioStream:
+				_pop_backend_snapshot_active_resource(state)
+				return null
+			var stream_snapshot: AudioStream = stream_value
 			snapshot.stream = stream_snapshot
 		else:
 			snapshot.stream = clip.stream
@@ -2851,26 +3192,74 @@ func _snapshot_audio_clip(
 	snapshot.pitch_random_max = clip.pitch_random_max
 	if clip.spatial_settings != null:
 		if isolate_nested_resources:
-			var spatial_settings_snapshot: Resource = _duplicate_request_resource(
-				clip.spatial_settings
+			var spatial_settings_result: Dictionary = _snapshot_backend_request_value(
+				clip.spatial_settings,
+				true,
+				state,
+				depth + 1,
+				true
 			)
-			if spatial_settings_snapshot == null:
+			if not _backend_request_snapshot_succeeded(spatial_settings_result):
+				_pop_backend_snapshot_active_resource(state)
 				return null
+			var spatial_settings_value: Variant = GFVariantData.get_option_value(
+				spatial_settings_result,
+				"value"
+			)
+			if not spatial_settings_value is Resource:
+				_pop_backend_snapshot_active_resource(state)
+				return null
+			var spatial_settings_snapshot: Resource = spatial_settings_value
 			snapshot.spatial_settings = spatial_settings_snapshot
 		else:
 			snapshot.spatial_settings = clip.spatial_settings
-	snapshot.playback_region = _snapshot_playback_region(playback_region)
-	var metadata_result: Dictionary = _try_snapshot_backend_request_value(
+	if playback_region != null:
+		var playback_region_result: Dictionary = _snapshot_backend_request_value(
+			playback_region,
+			true,
+			state,
+			depth + 1,
+			true
+		)
+		if not _backend_request_snapshot_succeeded(playback_region_result):
+			_pop_backend_snapshot_active_resource(state)
+			return null
+		var playback_region_value: Variant = GFVariantData.get_option_value(
+			playback_region_result,
+			"value"
+		)
+		if not playback_region_value is GFAudioPlaybackRegion:
+			_pop_backend_snapshot_active_resource(state)
+			return null
+		var playback_region_snapshot: GFAudioPlaybackRegion = playback_region_value
+		snapshot.playback_region = playback_region_snapshot
+		if (
+			clip.playback_region != null
+			and not _seed_backend_snapshot_resource(
+				state,
+				clip.playback_region,
+				playback_region_snapshot
+			)
+		):
+			_pop_backend_snapshot_active_resource(state)
+			return null
+	var metadata_result: Dictionary = _snapshot_backend_request_value(
 		clip.metadata,
-		isolate_nested_resources
+		isolate_nested_resources,
+		state,
+		depth + 1
 	)
 	if not _backend_request_snapshot_succeeded(metadata_result):
+		_pop_backend_snapshot_active_resource(state)
 		return null
 	var metadata_value: Variant = GFVariantData.get_option_value(metadata_result, "value")
 	if not (metadata_value is Dictionary):
+		_pop_backend_snapshot_active_resource(state)
 		return null
 	var metadata_snapshot: Dictionary = metadata_value
 	snapshot.metadata = metadata_snapshot
+	_pop_backend_snapshot_active_resource(state)
+	_record_backend_snapshot_resource(state, clip, snapshot)
 	return snapshot
 
 
@@ -2879,32 +3268,89 @@ func _snapshot_audio_event(
 	playback_region: GFAudioPlaybackRegion,
 	isolate_nested_resources: bool = false
 ) -> GFAudioEvent:
+	var state: Dictionary = _new_backend_request_snapshot_state()
+	return _snapshot_audio_event_with_state(
+		event,
+		playback_region,
+		isolate_nested_resources,
+		state,
+		0
+	)
+
+
+func _snapshot_audio_event_with_state(
+	event: GFAudioEvent,
+	playback_region: GFAudioPlaybackRegion,
+	isolate_nested_resources: bool,
+	state: Dictionary,
+	depth: int
+) -> GFAudioEvent:
 	if event == null:
 		return null
+	if _backend_snapshot_has_active_resource(state, event):
+		return null
+	var existing_snapshot: Resource = _get_backend_snapshot_resource(state, event)
+	if existing_snapshot is GFAudioEvent:
+		var existing_event: GFAudioEvent = existing_snapshot
+		return existing_event
+	if existing_snapshot != null:
+		return null
+	if not _consume_backend_request_snapshot_item(state, depth):
+		return null
+	if (
+		not _reserve_backend_request_snapshot_string_bytes(
+			state,
+			String(event.event_id)
+		)
+		or not _reserve_backend_request_snapshot_string_bytes(
+			state,
+			String(event.channel)
+		)
+		or not _reserve_backend_request_snapshot_string_bytes(
+			state,
+			String(event.bank_id)
+		)
+		or not _reserve_backend_request_snapshot_string_bytes(state, event.path)
+		or not _reserve_backend_request_snapshot_string_bytes(
+			state,
+			String(event.ambient_channel)
+		)
+	):
+		return null
 	var snapshot: GFAudioEvent = GFAudioEvent.new()
+	_push_backend_snapshot_active_resource(state, event)
 	snapshot.event_id = event.event_id
 	snapshot.channel = event.channel
 	snapshot.bank_id = event.bank_id
 	snapshot.path = event.path
-	snapshot.clip = _snapshot_audio_clip(
+	snapshot.clip = _snapshot_audio_clip_with_state(
 		event.clip,
 		playback_region,
-		isolate_nested_resources
+		isolate_nested_resources,
+		state,
+		depth + 1
 	)
 	if event.clip != null and snapshot.clip == null:
+		_pop_backend_snapshot_active_resource(state)
 		return null
 	snapshot.ambient_channel = event.ambient_channel
-	var metadata_result: Dictionary = _try_snapshot_backend_request_value(
+	var metadata_result: Dictionary = _snapshot_backend_request_value(
 		event.metadata,
-		isolate_nested_resources
+		isolate_nested_resources,
+		state,
+		depth + 1
 	)
 	if not _backend_request_snapshot_succeeded(metadata_result):
+		_pop_backend_snapshot_active_resource(state)
 		return null
 	var metadata_value: Variant = GFVariantData.get_option_value(metadata_result, "value")
 	if not (metadata_value is Dictionary):
+		_pop_backend_snapshot_active_resource(state)
 		return null
 	var metadata_snapshot: Dictionary = metadata_value
 	snapshot.metadata = metadata_snapshot
+	_pop_backend_snapshot_active_resource(state)
+	_record_backend_snapshot_resource(state, event, snapshot)
 	return snapshot
 
 
@@ -2916,40 +3362,43 @@ func _try_snapshot_backend_request_value(
 	value: Variant,
 	duplicate_resources: bool
 ) -> Dictionary:
-	var state: Dictionary = {
-		"remaining_items": _BACKEND_REQUEST_SNAPSHOT_MAX_ITEMS,
-		"active_collections": [],
-		"resource_sources": [],
-		"resource_snapshots": [],
-	}
+	var state: Dictionary = _new_backend_request_snapshot_state()
 	return _snapshot_backend_request_value(value, duplicate_resources, state, 0)
+
+
+func _try_snapshot_isolated_backend_request_value(value: Variant) -> Dictionary:
+	var state: Dictionary = _new_backend_request_snapshot_state()
+	return _snapshot_backend_request_value(value, true, state, 0, true)
 
 
 func _snapshot_backend_request_value(
 	value: Variant,
 	duplicate_resources: bool,
 	state: Dictionary,
-	depth: int
+	depth: int,
+	reject_shared_references: bool = false
 ) -> Dictionary:
-	if depth > _BACKEND_REQUEST_SNAPSHOT_MAX_DEPTH:
+	if not _consume_backend_request_snapshot_item(state, depth):
 		return _failed_backend_request_snapshot()
-	var remaining_items: int = GFVariantData.get_option_int(state, "remaining_items")
-	if remaining_items <= 0:
-		return _failed_backend_request_snapshot()
-	state["remaining_items"] = remaining_items - 1
 
 	if value is Dictionary:
 		if _backend_snapshot_has_active_collection(state, value):
 			return _failed_backend_request_snapshot()
 		var dictionary: Dictionary = value
-		var dictionary_snapshot: Dictionary = {}
+		var existing_dictionary: Variant = _get_backend_snapshot_collection(state, dictionary)
+		if existing_dictionary is Dictionary:
+			return _successful_backend_request_snapshot(existing_dictionary)
+		if not _backend_request_snapshot_has_items(state, dictionary.size() * 2):
+			return _failed_backend_request_snapshot()
+		var dictionary_snapshot: Dictionary = _create_backend_snapshot_dictionary(dictionary)
 		_push_backend_snapshot_active_collection(state, dictionary)
 		for key: Variant in dictionary.keys():
 			var key_result: Dictionary = _snapshot_backend_request_value(
 				key,
 				duplicate_resources,
 				state,
-				depth + 1
+				depth + 1,
+				reject_shared_references
 			)
 			if not _backend_request_snapshot_succeeded(key_result):
 				_pop_backend_snapshot_active_collection(state)
@@ -2958,7 +3407,8 @@ func _snapshot_backend_request_value(
 				dictionary[key],
 				duplicate_resources,
 				state,
-				depth + 1
+				depth + 1,
+				reject_shared_references
 			)
 			if not _backend_request_snapshot_succeeded(item_result):
 				_pop_backend_snapshot_active_collection(state)
@@ -2967,20 +3417,27 @@ func _snapshot_backend_request_value(
 				GFVariantData.get_option_value(item_result, "value")
 			)
 		_pop_backend_snapshot_active_collection(state)
+		_record_backend_snapshot_collection(state, dictionary, dictionary_snapshot)
 		return _successful_backend_request_snapshot(dictionary_snapshot)
 
 	if value is Array:
 		if _backend_snapshot_has_active_collection(state, value):
 			return _failed_backend_request_snapshot()
 		var array: Array = value
-		var array_snapshot: Array = []
+		var existing_array: Variant = _get_backend_snapshot_collection(state, array)
+		if existing_array is Array:
+			return _successful_backend_request_snapshot(existing_array)
+		if not _backend_request_snapshot_has_items(state, array.size()):
+			return _failed_backend_request_snapshot()
+		var array_snapshot: Array = _create_backend_snapshot_array(array)
 		_push_backend_snapshot_active_collection(state, array)
 		for item: Variant in array:
 			var item_result: Dictionary = _snapshot_backend_request_value(
 				item,
 				duplicate_resources,
 				state,
-				depth + 1
+				depth + 1,
+				reject_shared_references
 			)
 			if not _backend_request_snapshot_succeeded(item_result):
 				_pop_backend_snapshot_active_collection(state)
@@ -2990,20 +3447,580 @@ func _snapshot_backend_request_value(
 				GFVariantData.get_option_value(item_result, "value")
 			)
 		_pop_backend_snapshot_active_collection(state)
+		_record_backend_snapshot_collection(state, array, array_snapshot)
 		return _successful_backend_request_snapshot(array_snapshot)
 
-	if duplicate_resources and value is Resource:
+	var value_type: int = typeof(value)
+	if _is_backend_snapshot_packed_array_type(value_type):
+		return _snapshot_backend_request_packed_array(value, value_type, state)
+
+	if value is Resource:
 		var source_resource: Resource = value
-		var existing_snapshot: Resource = _get_backend_snapshot_resource(state, source_resource)
-		if existing_snapshot != null:
-			return _successful_backend_request_snapshot(existing_snapshot)
-		var resource_snapshot: Resource = _duplicate_request_resource(source_resource)
-		if resource_snapshot == null:
+		if _backend_snapshot_has_active_resource(state, source_resource):
 			return _failed_backend_request_snapshot()
-		_record_backend_snapshot_resource(state, source_resource, resource_snapshot)
-		return _successful_backend_request_snapshot(resource_snapshot)
+		var existing_resource: Resource = _get_backend_snapshot_resource(
+			state,
+			source_resource
+		)
+		if existing_resource != null:
+			return _successful_backend_request_snapshot(existing_resource)
+		if duplicate_resources:
+			return _snapshot_backend_request_resource(source_resource, state, depth)
+
+	if reject_shared_references and _backend_snapshot_value_shares_mutable_identity(value):
+		return _failed_backend_request_snapshot()
+	if value_type == TYPE_STRING:
+		var text: String = value
+		if not _reserve_backend_request_snapshot_string_bytes(state, text):
+			return _failed_backend_request_snapshot()
+	elif value_type == TYPE_STRING_NAME:
+		var name: StringName = value
+		var text: String = String(name)
+		if not _reserve_backend_request_snapshot_string_bytes(state, text):
+			return _failed_backend_request_snapshot()
 
 	return _successful_backend_request_snapshot(value)
+
+
+func _consume_backend_request_snapshot_item(state: Dictionary, depth: int) -> bool:
+	if depth > _BACKEND_REQUEST_SNAPSHOT_MAX_DEPTH:
+		return false
+	return _consume_backend_request_snapshot_items(state, 1)
+
+
+func _backend_request_snapshot_has_items(state: Dictionary, count: int) -> bool:
+	if count < 0:
+		return false
+	return GFVariantData.get_option_int(state, "remaining_items") >= count
+
+
+func _consume_backend_request_snapshot_items(state: Dictionary, count: int) -> bool:
+	if not _backend_request_snapshot_has_items(state, count):
+		return false
+	var remaining_items: int = GFVariantData.get_option_int(state, "remaining_items")
+	state["remaining_items"] = remaining_items - count
+	return true
+
+
+func _reserve_backend_request_snapshot_bytes(state: Dictionary, count: int) -> bool:
+	if count < 0:
+		return false
+	var remaining_bytes: int = GFVariantData.get_option_int(state, "remaining_bytes")
+	if count > remaining_bytes:
+		return false
+	state["remaining_bytes"] = remaining_bytes - count
+	return true
+
+
+func _reserve_backend_request_snapshot_string_bytes(
+	state: Dictionary,
+	value: String
+) -> bool:
+	var remaining_bytes: int = GFVariantData.get_option_int(state, "remaining_bytes")
+	var character_count: int = value.length()
+	@warning_ignore("integer_division")
+	var maximum_characters: int = remaining_bytes / 4
+	if character_count > maximum_characters:
+		return false
+	return _reserve_backend_request_snapshot_bytes(state, character_count * 4)
+
+
+func _is_backend_request_text_within_budget(text: String) -> bool:
+	var state: Dictionary = _new_backend_request_snapshot_state()
+	return _reserve_backend_request_snapshot_string_bytes(state, text)
+
+
+func _reserve_backend_request_snapshot_packed_elements(
+	state: Dictionary,
+	count: int
+) -> bool:
+	if count < 0:
+		return false
+	var remaining_elements: int = GFVariantData.get_option_int(
+		state,
+		"remaining_packed_elements"
+	)
+	if count > remaining_elements:
+		return false
+	state["remaining_packed_elements"] = remaining_elements - count
+	return true
+
+
+func _is_backend_snapshot_packed_array_type(value_type: int) -> bool:
+	return (
+		value_type == TYPE_PACKED_BYTE_ARRAY
+		or value_type == TYPE_PACKED_INT32_ARRAY
+		or value_type == TYPE_PACKED_INT64_ARRAY
+		or value_type == TYPE_PACKED_FLOAT32_ARRAY
+		or value_type == TYPE_PACKED_FLOAT64_ARRAY
+		or value_type == TYPE_PACKED_STRING_ARRAY
+		or value_type == TYPE_PACKED_VECTOR2_ARRAY
+		or value_type == TYPE_PACKED_VECTOR3_ARRAY
+		or value_type == TYPE_PACKED_COLOR_ARRAY
+		or value_type == TYPE_PACKED_VECTOR4_ARRAY
+	)
+
+
+func _snapshot_backend_request_packed_array(
+	value: Variant,
+	value_type: int,
+	state: Dictionary
+) -> Dictionary:
+	var existing_snapshot: Variant = _get_backend_snapshot_collection(state, value)
+	if typeof(existing_snapshot) == value_type:
+		return _successful_backend_request_snapshot(existing_snapshot)
+	var element_count: int = _get_backend_snapshot_packed_array_size(value, value_type)
+	if element_count < 0:
+		return _failed_backend_request_snapshot()
+	if not _reserve_backend_request_snapshot_packed_elements(state, element_count):
+		return _failed_backend_request_snapshot()
+	if value_type == TYPE_PACKED_STRING_ARRAY:
+		if not _consume_backend_request_snapshot_items(state, element_count):
+			return _failed_backend_request_snapshot()
+		var packed_strings: PackedStringArray = value
+		for text: String in packed_strings:
+			if not _reserve_backend_request_snapshot_string_bytes(state, text):
+				return _failed_backend_request_snapshot()
+	else:
+		var element_bytes: int = _get_backend_snapshot_packed_element_bytes(value_type)
+		if element_bytes <= 0:
+			return _failed_backend_request_snapshot()
+		var remaining_bytes: int = GFVariantData.get_option_int(state, "remaining_bytes")
+		@warning_ignore("integer_division")
+		var maximum_elements_by_bytes: int = remaining_bytes / element_bytes
+		if element_count > maximum_elements_by_bytes:
+			return _failed_backend_request_snapshot()
+		if not _reserve_backend_request_snapshot_bytes(
+			state,
+			element_count * element_bytes
+		):
+			return _failed_backend_request_snapshot()
+	var snapshot: Variant = _duplicate_backend_snapshot_packed_array(value, value_type)
+	if typeof(snapshot) != value_type:
+		return _failed_backend_request_snapshot()
+	_record_backend_snapshot_collection(state, value, snapshot)
+	return _successful_backend_request_snapshot(snapshot)
+
+
+func _get_backend_snapshot_packed_array_size(value: Variant, value_type: int) -> int:
+	match value_type:
+		TYPE_PACKED_BYTE_ARRAY:
+			var typed_value: PackedByteArray = value
+			return typed_value.size()
+		TYPE_PACKED_INT32_ARRAY:
+			var typed_value: PackedInt32Array = value
+			return typed_value.size()
+		TYPE_PACKED_INT64_ARRAY:
+			var typed_value: PackedInt64Array = value
+			return typed_value.size()
+		TYPE_PACKED_FLOAT32_ARRAY:
+			var typed_value: PackedFloat32Array = value
+			return typed_value.size()
+		TYPE_PACKED_FLOAT64_ARRAY:
+			var typed_value: PackedFloat64Array = value
+			return typed_value.size()
+		TYPE_PACKED_STRING_ARRAY:
+			var typed_value: PackedStringArray = value
+			return typed_value.size()
+		TYPE_PACKED_VECTOR2_ARRAY:
+			var typed_value: PackedVector2Array = value
+			return typed_value.size()
+		TYPE_PACKED_VECTOR3_ARRAY:
+			var typed_value: PackedVector3Array = value
+			return typed_value.size()
+		TYPE_PACKED_COLOR_ARRAY:
+			var typed_value: PackedColorArray = value
+			return typed_value.size()
+		TYPE_PACKED_VECTOR4_ARRAY:
+			var typed_value: PackedVector4Array = value
+			return typed_value.size()
+	return -1
+
+
+func _get_backend_snapshot_packed_element_bytes(value_type: int) -> int:
+	match value_type:
+		TYPE_PACKED_BYTE_ARRAY:
+			return 1
+		TYPE_PACKED_INT32_ARRAY, TYPE_PACKED_FLOAT32_ARRAY:
+			return 4
+		TYPE_PACKED_INT64_ARRAY, TYPE_PACKED_FLOAT64_ARRAY:
+			return 8
+		TYPE_PACKED_VECTOR2_ARRAY:
+			return 16
+		TYPE_PACKED_VECTOR3_ARRAY:
+			return 24
+		TYPE_PACKED_COLOR_ARRAY:
+			return 16
+		TYPE_PACKED_VECTOR4_ARRAY:
+			return 32
+	return 0
+
+
+func _duplicate_backend_snapshot_packed_array(value: Variant, value_type: int) -> Variant:
+	match value_type:
+		TYPE_PACKED_BYTE_ARRAY:
+			var typed_value: PackedByteArray = value
+			return typed_value.duplicate()
+		TYPE_PACKED_INT32_ARRAY:
+			var typed_value: PackedInt32Array = value
+			return typed_value.duplicate()
+		TYPE_PACKED_INT64_ARRAY:
+			var typed_value: PackedInt64Array = value
+			return typed_value.duplicate()
+		TYPE_PACKED_FLOAT32_ARRAY:
+			var typed_value: PackedFloat32Array = value
+			return typed_value.duplicate()
+		TYPE_PACKED_FLOAT64_ARRAY:
+			var typed_value: PackedFloat64Array = value
+			return typed_value.duplicate()
+		TYPE_PACKED_STRING_ARRAY:
+			var typed_value: PackedStringArray = value
+			return typed_value.duplicate()
+		TYPE_PACKED_VECTOR2_ARRAY:
+			var typed_value: PackedVector2Array = value
+			return typed_value.duplicate()
+		TYPE_PACKED_VECTOR3_ARRAY:
+			var typed_value: PackedVector3Array = value
+			return typed_value.duplicate()
+		TYPE_PACKED_COLOR_ARRAY:
+			var typed_value: PackedColorArray = value
+			return typed_value.duplicate()
+		TYPE_PACKED_VECTOR4_ARRAY:
+			var typed_value: PackedVector4Array = value
+			return typed_value.duplicate()
+	return null
+
+
+func _create_backend_snapshot_array(source: Array) -> Array:
+	if not source.is_typed():
+		return []
+	return Array(
+		[],
+		source.get_typed_builtin(),
+		source.get_typed_class_name(),
+		source.get_typed_script()
+	)
+
+
+func _create_backend_snapshot_dictionary(source: Dictionary) -> Dictionary:
+	if not source.is_typed():
+		return {}
+	return Dictionary(
+		{},
+		source.get_typed_key_builtin(),
+		source.get_typed_key_class_name(),
+		source.get_typed_key_script(),
+		source.get_typed_value_builtin(),
+		source.get_typed_value_class_name(),
+		source.get_typed_value_script()
+	)
+
+
+func _snapshot_backend_request_resource(
+	source: Resource,
+	state: Dictionary,
+	depth: int
+) -> Dictionary:
+	if _backend_snapshot_has_active_resource(state, source):
+		return _failed_backend_request_snapshot()
+	var existing_snapshot: Resource = _get_backend_snapshot_resource(state, source)
+	if existing_snapshot != null:
+		return _successful_backend_request_snapshot(existing_snapshot)
+	var snapshot: Resource = _instantiate_backend_snapshot_resource(source)
+	if snapshot == null:
+		return _failed_backend_request_snapshot()
+
+	_push_backend_snapshot_active_resource(state, source)
+	var property_list: Array[Dictionary] = source.get_property_list()
+	if not _consume_backend_request_snapshot_items(state, property_list.size()):
+		_pop_backend_snapshot_active_resource(state)
+		return _failed_backend_request_snapshot()
+	var snapshot_property_list: Array[Dictionary] = snapshot.get_property_list()
+	if not _consume_backend_request_snapshot_items(state, snapshot_property_list.size()):
+		_pop_backend_snapshot_active_resource(state)
+		return _failed_backend_request_snapshot()
+	var native_property_list: Array[Dictionary] = ClassDB.class_get_property_list(
+		StringName(source.get_class()),
+		false
+	)
+	if not _consume_backend_request_snapshot_items(state, native_property_list.size()):
+		_pop_backend_snapshot_active_resource(state)
+		return _failed_backend_request_snapshot()
+	var source_index_result: Dictionary = _index_backend_snapshot_storage_properties(
+		property_list
+	)
+	var snapshot_index_result: Dictionary = _index_backend_snapshot_storage_properties(
+		snapshot_property_list
+	)
+	var native_index_result: Dictionary = _index_backend_snapshot_storage_properties(
+		native_property_list
+	)
+	if (
+		not _backend_request_snapshot_succeeded(source_index_result)
+		or not _backend_request_snapshot_succeeded(snapshot_index_result)
+		or not _backend_request_snapshot_succeeded(native_index_result)
+	):
+		_pop_backend_snapshot_active_resource(state)
+		return _failed_backend_request_snapshot()
+	var source_properties: Dictionary = GFVariantData.get_option_dictionary(
+		source_index_result,
+		"properties"
+	)
+	var source_property_names: Array = GFVariantData.get_option_array(
+		source_index_result,
+		"property_names"
+	)
+	var snapshot_properties: Dictionary = GFVariantData.get_option_dictionary(
+		snapshot_index_result,
+		"properties"
+	)
+	if not _backend_snapshot_property_schemas_match(
+		source_properties,
+		snapshot_properties
+	):
+		_pop_backend_snapshot_active_resource(state)
+		return _failed_backend_request_snapshot()
+	var native_properties: Dictionary = GFVariantData.get_option_dictionary(
+		native_index_result,
+		"properties"
+	)
+	var expected_property_names: Array[StringName] = []
+	var expected_property_values: Array = []
+	var expected_native_packed_copy: Array[bool] = []
+	for property_name_value: Variant in source_property_names:
+		if not property_name_value is StringName:
+			_pop_backend_snapshot_active_resource(state)
+			return _failed_backend_request_snapshot()
+		var property_name: StringName = property_name_value
+		var property_info: Dictionary = GFVariantData.get_option_dictionary(
+			source_properties,
+			property_name
+		)
+		var usage: int = GFVariantData.get_option_int(property_info, "usage")
+		var snapshot_property_info: Dictionary = GFVariantData.get_option_dictionary(
+			snapshot_properties,
+			property_name
+		)
+		var snapshot_usage: int = GFVariantData.get_option_int(
+			snapshot_property_info,
+			"usage"
+		)
+		if (
+			snapshot_property_info.is_empty()
+			or (usage & PROPERTY_USAGE_NEVER_DUPLICATE) != 0
+			or (usage & PROPERTY_USAGE_READ_ONLY) != 0
+			or (snapshot_usage & PROPERTY_USAGE_NEVER_DUPLICATE) != 0
+			or (snapshot_usage & PROPERTY_USAGE_READ_ONLY) != 0
+		):
+			_pop_backend_snapshot_active_resource(state)
+			return _failed_backend_request_snapshot()
+		var source_property_type: int = GFVariantData.get_option_int(
+			property_info,
+			"type",
+			TYPE_NIL
+		)
+		var snapshot_property_type: int = GFVariantData.get_option_int(
+			snapshot_property_info,
+			"type",
+			TYPE_NIL
+		)
+		if snapshot_property_type != source_property_type:
+			_pop_backend_snapshot_active_resource(state)
+			return _failed_backend_request_snapshot()
+		var property_result: Dictionary = _snapshot_backend_request_value(
+			source.get(property_name),
+			true,
+			state,
+			depth + 1,
+			true
+		)
+		if not _backend_request_snapshot_succeeded(property_result):
+			_pop_backend_snapshot_active_resource(state)
+			return _failed_backend_request_snapshot()
+		var property_snapshot: Variant = GFVariantData.get_option_value(
+			property_result,
+			"value"
+		)
+		if not GFObjectPropertyTools.value_matches_property_type(
+			property_snapshot,
+			snapshot_property_type
+		):
+			_pop_backend_snapshot_active_resource(state)
+			return _failed_backend_request_snapshot()
+		snapshot.set(property_name, property_snapshot)
+		expected_property_names.append(property_name)
+		expected_property_values.append(property_snapshot)
+		expected_native_packed_copy.append(native_properties.has(property_name))
+
+	var final_property_list: Array[Dictionary] = snapshot.get_property_list()
+	if not _consume_backend_request_snapshot_items(state, final_property_list.size()):
+		_pop_backend_snapshot_active_resource(state)
+		return _failed_backend_request_snapshot()
+	var final_index_result: Dictionary = _index_backend_snapshot_storage_properties(
+		final_property_list
+	)
+	if not _backend_request_snapshot_succeeded(final_index_result):
+		_pop_backend_snapshot_active_resource(state)
+		return _failed_backend_request_snapshot()
+	var final_properties: Dictionary = GFVariantData.get_option_dictionary(
+		final_index_result,
+		"properties"
+	)
+	if not _backend_snapshot_property_schemas_match(
+		source_properties,
+		final_properties
+	):
+		_pop_backend_snapshot_active_resource(state)
+		return _failed_backend_request_snapshot()
+
+	for index: int in range(expected_property_names.size()):
+		var property_name: StringName = expected_property_names[index]
+		var expected_property: Variant = expected_property_values[index]
+		var source_property_info: Dictionary = GFVariantData.get_option_dictionary(
+			source_properties,
+			property_name
+		)
+		var final_property_info: Dictionary = GFVariantData.get_option_dictionary(
+			final_properties,
+			property_name
+		)
+		var final_usage: int = GFVariantData.get_option_int(
+			final_property_info,
+			"usage"
+		)
+		if (
+			(final_usage & PROPERTY_USAGE_NEVER_DUPLICATE) != 0
+			or (final_usage & PROPERTY_USAGE_READ_ONLY) != 0
+			or GFVariantData.get_option_int(
+				final_property_info,
+				"type",
+				TYPE_NIL
+			)
+			!= GFVariantData.get_option_int(
+				source_property_info,
+				"type",
+				TYPE_NIL
+			)
+		):
+			_pop_backend_snapshot_active_resource(state)
+			return _failed_backend_request_snapshot()
+		var applied_property: Variant = snapshot.get(property_name)
+		if not _backend_snapshot_property_value_matches(
+			applied_property,
+			expected_property,
+			expected_native_packed_copy[index]
+		):
+			_pop_backend_snapshot_active_resource(state)
+			return _failed_backend_request_snapshot()
+
+	_pop_backend_snapshot_active_resource(state)
+	_record_backend_snapshot_resource(state, source, snapshot)
+	return _successful_backend_request_snapshot(snapshot)
+
+
+func _instantiate_backend_snapshot_resource(source: Resource) -> Resource:
+	if source == null or source is Script:
+		return null
+	var native_class: StringName = StringName(source.get_class())
+	if (
+		native_class == &""
+		or not ClassDB.class_exists(native_class)
+		or not ClassDB.can_instantiate(native_class)
+	):
+		return null
+	var instance_value: Variant = ClassDB.instantiate(native_class)
+	if not instance_value is Resource:
+		return null
+	var snapshot: Resource = instance_value
+	var script_value: Variant = source.get_script()
+	if script_value != null:
+		if not script_value is Script:
+			return null
+		var source_script: Script = script_value
+		snapshot.set_script(source_script)
+		if not is_same(snapshot.get_script(), source_script):
+			return null
+	if snapshot.get_class() != source.get_class():
+		return null
+	return snapshot
+
+
+func _index_backend_snapshot_storage_properties(
+	property_list: Array[Dictionary]
+) -> Dictionary:
+	var properties: Dictionary = {}
+	var property_names: Array[StringName] = []
+	for property_info: Dictionary in property_list:
+		var usage: int = GFVariantData.get_option_int(property_info, "usage")
+		if (usage & PROPERTY_USAGE_STORAGE) == 0:
+			continue
+		var property_name: StringName = GFVariantData.get_option_string_name(
+			property_info,
+			"name"
+		)
+		if property_name == &"script":
+			continue
+		if property_name == &"" or properties.has(property_name):
+			return _failed_backend_request_snapshot()
+		properties[property_name] = property_info
+		property_names.append(property_name)
+	return {
+		"ok": true,
+		"value": properties,
+		"properties": properties,
+		"property_names": property_names,
+	}
+
+
+func _backend_snapshot_property_schemas_match(
+	source_properties: Dictionary,
+	target_properties: Dictionary
+) -> bool:
+	if source_properties.size() != target_properties.size():
+		return false
+	for property_name: Variant in source_properties.keys():
+		if not target_properties.has(property_name):
+			return false
+	return true
+
+
+func _backend_snapshot_property_value_matches(
+	applied_value: Variant,
+	expected_value: Variant,
+	allow_native_packed_copy: bool = false
+) -> bool:
+	var expected_type: int = typeof(expected_value)
+	if (
+		allow_native_packed_copy
+		and _is_backend_snapshot_packed_array_type(expected_type)
+	):
+		return GFVariantData.values_equal(applied_value, expected_value)
+	if _backend_snapshot_value_requires_identity(expected_value):
+		return is_same(applied_value, expected_value)
+	return (
+		is_same(applied_value, expected_value)
+		or GFVariantData.values_equal(applied_value, expected_value)
+	)
+
+
+func _backend_snapshot_value_requires_identity(value: Variant) -> bool:
+	var value_type: int = typeof(value)
+	return (
+		value_type == TYPE_DICTIONARY
+		or value_type == TYPE_ARRAY
+		or value_type == TYPE_OBJECT
+		or _is_backend_snapshot_packed_array_type(value_type)
+	)
+
+
+func _backend_snapshot_value_shares_mutable_identity(value: Variant) -> bool:
+	var value_type: int = typeof(value)
+	return (
+		value_type == TYPE_OBJECT
+		or value_type == TYPE_CALLABLE
+		or value_type == TYPE_SIGNAL
+		or value_type == TYPE_RID
+	)
 
 
 func _successful_backend_request_snapshot(value: Variant) -> Dictionary:
@@ -3060,6 +4077,63 @@ func _pop_backend_snapshot_active_collection(state: Dictionary) -> void:
 	var _removed_collection: Variant = active_collections.pop_back()
 
 
+func _get_backend_snapshot_collection(state: Dictionary, source: Variant) -> Variant:
+	var collection_sources: Array = GFVariantData.as_array(
+		GFVariantData.get_option_value(state, "collection_sources")
+	)
+	var collection_snapshots: Array = GFVariantData.as_array(
+		GFVariantData.get_option_value(state, "collection_snapshots")
+	)
+	for index: int in range(collection_sources.size()):
+		if not is_same(collection_sources[index], source):
+			continue
+		if index >= collection_snapshots.size():
+			return null
+		return collection_snapshots[index]
+	return null
+
+
+func _record_backend_snapshot_collection(
+	state: Dictionary,
+	source: Variant,
+	snapshot: Variant
+) -> void:
+	var collection_sources: Array = GFVariantData.as_array(
+		GFVariantData.get_option_value(state, "collection_sources")
+	)
+	var collection_snapshots: Array = GFVariantData.as_array(
+		GFVariantData.get_option_value(state, "collection_snapshots")
+	)
+	_append_array_item(collection_sources, source)
+	_append_array_item(collection_snapshots, snapshot)
+
+
+func _backend_snapshot_has_active_resource(state: Dictionary, source: Resource) -> bool:
+	var active_resources: Array = GFVariantData.as_array(
+		GFVariantData.get_option_value(state, "active_resources")
+	)
+	for active_resource: Variant in active_resources:
+		if is_same(active_resource, source):
+			return true
+	return false
+
+
+func _push_backend_snapshot_active_resource(state: Dictionary, source: Resource) -> void:
+	var active_resources: Array = GFVariantData.as_array(
+		GFVariantData.get_option_value(state, "active_resources")
+	)
+	_append_array_item(active_resources, source)
+
+
+func _pop_backend_snapshot_active_resource(state: Dictionary) -> void:
+	var active_resources: Array = GFVariantData.as_array(
+		GFVariantData.get_option_value(state, "active_resources")
+	)
+	if active_resources.is_empty():
+		return
+	var _removed_resource: Variant = active_resources.pop_back()
+
+
 func _get_backend_snapshot_resource(state: Dictionary, source: Resource) -> Resource:
 	var resource_sources: Array = GFVariantData.as_array(
 		GFVariantData.get_option_value(state, "resource_sources")
@@ -3093,6 +4167,22 @@ func _record_backend_snapshot_resource(
 	)
 	_append_array_item(resource_sources, source)
 	_append_array_item(resource_snapshots, snapshot)
+
+
+func _seed_backend_snapshot_resource(
+	state: Dictionary,
+	source: Resource,
+	snapshot: Resource
+) -> bool:
+	if source == null or snapshot == null:
+		return false
+	if _backend_snapshot_has_active_resource(state, source):
+		return false
+	var existing_snapshot: Resource = _get_backend_snapshot_resource(state, source)
+	if existing_snapshot != null:
+		return is_same(existing_snapshot, snapshot)
+	_record_backend_snapshot_resource(state, source, snapshot)
+	return true
 
 
 func _validate_playback_region_request(
@@ -3306,6 +4396,17 @@ func _playback_region_diagnostic_channel(channel: StringName) -> StringName:
 
 func _get_audio_bank_mount_stack(bank_id: StringName) -> Array:
 	return GFVariantData.as_array(GFVariantData.get_option_value(_audio_bank_mount_stacks, bank_id, []))
+
+
+func _clear_audio_bank_mount_state(bank_id: StringName) -> void:
+	if _audio_bank_mount_stacks.has(bank_id):
+		var stack: Array = _get_audio_bank_mount_stack(bank_id)
+		_audio_bank_retained_mount_count = maxi(
+			_audio_bank_retained_mount_count - stack.size(),
+			0
+		)
+	_erase_dictionary_key(_audio_bank_base_values, bank_id)
+	_erase_dictionary_key(_audio_bank_mount_stacks, bank_id)
 
 
 func _get_mount_entry_token(entry: Dictionary) -> int:
@@ -3792,11 +4893,15 @@ func _apply_mix_snapshot_effects(effect_payload: Variant, transition_seconds: fl
 				var bus_effect_entries: Array = GFVariantData.as_array(bus_effects)
 				for entry: Variant in bus_effect_entries:
 					if entry is Dictionary:
-						var effect_entry: Dictionary = GFVariantData.as_dictionary(entry).duplicate(true)
+						var effect_entry: Dictionary = (
+							GFVariantData.as_dictionary(entry).duplicate(false)
+						)
 						effect_entry["bus"] = str(bus_key)
 						_apply_mix_snapshot_effect_entry(effect_entry, transition_seconds, report)
 			elif bus_effects is Dictionary:
-				var single_entry: Dictionary = GFVariantData.as_dictionary(bus_effects).duplicate(true)
+				var single_entry: Dictionary = (
+					GFVariantData.as_dictionary(bus_effects).duplicate(false)
+				)
 				single_entry["bus"] = str(bus_key)
 				_apply_mix_snapshot_effect_entry(single_entry, transition_seconds, report)
 		return
@@ -4753,24 +5858,132 @@ func _get_node_option(options: Dictionary, key: Variant) -> Node:
 
 
 func _get_registered_clip(event_id: StringName, bank_id: StringName = &"") -> GFAudioClip:
-	if event_id == &"":
+	if not _is_audio_bank_identifier_valid(event_id):
 		return null
 	if bank_id != &"":
+		if not _is_audio_bank_identifier_valid(bank_id):
+			return null
 		var bank: GFAudioBank = get_audio_bank(bank_id)
-		return bank.get_clip_with_fallback(event_id, _audio_rng) if bank != null else null
+		return (
+			_resolve_bounded_audio_bank_clip(bank, event_id)
+			if bank != null
+			else null
+		)
+	if _audio_banks.size() > _AUDIO_BANK_MAX_REGISTERED_COUNT:
+		return null
 
 	var bank_ids: PackedStringArray = PackedStringArray()
 	for key: Variant in _audio_banks.keys():
-		_append_packed_string(bank_ids, GFVariantData.to_text(key))
+		var key_text: String = GFVariantData.to_text(key)
+		if not _is_audio_bank_identifier_text_valid(key_text):
+			return null
+		_append_packed_string(bank_ids, key_text)
 	bank_ids.sort()
 	for key_text: String in bank_ids:
 		var bank: GFAudioBank = _get_audio_bank_by_id(StringName(key_text))
 		if bank == null:
 			continue
-		var clip: GFAudioClip = bank.get_clip_with_fallback(event_id, _audio_rng)
+		var clip: GFAudioClip = _resolve_bounded_audio_bank_clip(
+			bank,
+			event_id
+		)
 		if clip != null:
 			return clip
 	return null
+
+
+func _resolve_bounded_audio_bank_clip(
+	bank: GFAudioBank,
+	clip_id: StringName
+) -> GFAudioClip:
+	if bank == null or not _is_audio_bank_identifier_valid(clip_id):
+		return null
+	var separator: String = bank.fallback_separator
+	if separator.length() > _AUDIO_BANK_MAX_SEPARATOR_CHARACTERS:
+		return null
+	var current_id: String = String(clip_id)
+	for _fallback_step: int in range(_AUDIO_BANK_MAX_FALLBACK_STEPS + 1):
+		var selected_clip: GFAudioClip = _select_bounded_audio_bank_clip(
+			bank,
+			StringName(current_id)
+		)
+		if selected_clip != null:
+			return _snapshot_audio_clip(
+				selected_clip,
+				selected_clip.playback_region
+			)
+		if separator.is_empty():
+			break
+		var separator_index: int = current_id.rfind(separator)
+		if separator_index <= 0:
+			break
+		current_id = current_id.left(separator_index)
+		while current_id.ends_with(separator):
+			current_id = current_id.left(
+				current_id.length() - separator.length()
+			)
+			if current_id.is_empty():
+				break
+		if current_id.is_empty():
+			break
+	return null
+
+
+func _select_bounded_audio_bank_clip(
+	bank: GFAudioBank,
+	clip_id: StringName
+) -> GFAudioClip:
+	var raw_value: Variant = GFVariantData.get_option_value(bank.clips, clip_id)
+	if raw_value is GFAudioClip:
+		var single_clip: GFAudioClip = raw_value
+		return single_clip
+	if not raw_value is Array:
+		return null
+	var raw_candidates: Array = raw_value
+	if raw_candidates.size() > _AUDIO_BANK_MAX_CANDIDATE_COUNT:
+		return null
+	var candidates: Array[GFAudioClip] = []
+	for candidate_value: Variant in raw_candidates:
+		if candidate_value is GFAudioClip:
+			var candidate: GFAudioClip = candidate_value
+			candidates.append(candidate)
+	if candidates.is_empty():
+		return null
+	if _audio_rng == null or candidates.size() == 1:
+		return candidates[0]
+
+	var total_weight: float = 0.0
+	for candidate: GFAudioClip in candidates:
+		var weight: float = candidate.weight
+		if not _is_finite_float(weight) or weight <= 0.0:
+			continue
+		total_weight += weight
+		if not _is_finite_float(total_weight):
+			return null
+	if total_weight <= 0.0:
+		return candidates[0]
+	var cursor: float = _audio_rng.randf_range(0.0, total_weight)
+	var last_positive_candidate: GFAudioClip = null
+	for candidate: GFAudioClip in candidates:
+		var weight: float = candidate.weight
+		if not _is_finite_float(weight) or weight <= 0.0:
+			continue
+		last_positive_candidate = candidate
+		if cursor < weight:
+			return candidate
+		cursor -= weight
+	return last_positive_candidate
+
+
+func _is_audio_bank_identifier_valid(value: StringName) -> bool:
+	return _is_audio_bank_identifier_text_valid(String(value))
+
+
+func _is_audio_bank_identifier_text_valid(value: String) -> bool:
+	return (
+		not value.is_empty()
+		and value.length() <= _AUDIO_BANK_MAX_IDENTIFIER_CHARACTERS
+	)
 
 
 func _play_spatial_sfx_clip(clip: GFAudioClip, source: Node, follow_source: bool = false) -> Node:
@@ -4824,7 +6037,7 @@ func _play_spatial_sfx_clip(clip: GFAudioClip, source: Node, follow_source: bool
 	var pitch_scale: float = _finite_or_default(request_clip.resolve_pitch(_audio_rng), 1.0)
 	var spatial_settings: Resource = _get_clip_spatial_settings(request_clip)
 	if request_clip.stream != null:
-		_apply_spatial_sfx_request(
+		var applied_inline: bool = _apply_spatial_sfx_request(
 			request_serial,
 			player,
 			request_clip.stream,
@@ -4834,12 +6047,12 @@ func _play_spatial_sfx_clip(clip: GFAudioClip, source: Node, follow_source: bool
 			spatial_settings,
 			playback_region
 		)
-		return player
+		return player if applied_inline else null
 
 	var asset_util: GFAssetUtility = _get_asset_util()
 	if asset_util == null:
 		var stream: AudioStream = _get_audio_stream_value(load(request_clip.path))
-		_apply_spatial_sfx_request(
+		var applied_loaded: bool = _apply_spatial_sfx_request(
 			request_serial,
 			player,
 			stream,
@@ -4849,10 +6062,11 @@ func _play_spatial_sfx_clip(clip: GFAudioClip, source: Node, follow_source: bool
 			spatial_settings,
 			playback_region
 		)
+		return player if applied_loaded else null
 	else:
 		var on_loaded: Callable = func(res: Resource) -> void:
 			var loaded_stream: AudioStream = _get_audio_stream_value(res)
-			_apply_spatial_sfx_request(
+			var _applied_async: bool = _apply_spatial_sfx_request(
 				request_serial,
 				player,
 				loaded_stream,
@@ -4863,6 +6077,8 @@ func _play_spatial_sfx_clip(clip: GFAudioClip, source: Node, follow_source: bool
 				playback_region
 			)
 		asset_util.load_async(request_clip.path, on_loaded)
+		if not is_instance_valid(player) or player.is_queued_for_deletion():
+			return null
 	return player
 
 
@@ -4875,13 +6091,24 @@ func _apply_spatial_sfx_request(
 	pitch_scale: float,
 	spatial_settings: Resource = null,
 	playback_region: GFAudioPlaybackRegion = null
-) -> void:
+) -> bool:
 	if request_serial != _sfx_lifecycle_serial:
 		_release_spatial_sfx_player(player, 0.0)
-		return
-	if stream == null or not is_instance_valid(player):
+		return false
+	if (
+		stream == null
+		or not is_instance_valid(player)
+		or player.is_queued_for_deletion()
+	):
 		_release_spatial_sfx_player(player, 0.0)
-		return
+		return false
+	var playback_session_id: int = _get_playback_session_id(player)
+	if (
+		playback_session_id <= 0
+		or not _is_playback_session_current(player, playback_session_id)
+	):
+		_release_spatial_sfx_player(player, 0.0)
+		return false
 	var prepared_stream: AudioStream = stream
 	var start_seconds: float = 0.0
 	if playback_region != null:
@@ -4892,7 +6119,7 @@ func _apply_spatial_sfx_request(
 		)
 		if region_result == null or not region_result.is_success():
 			_release_spatial_sfx_player(player, 0.0)
-			return
+			return false
 		prepared_stream = region_result.prepared_stream
 		start_seconds = region_result.start_seconds
 
@@ -4903,8 +6130,10 @@ func _apply_spatial_sfx_request(
 		player_2d.pitch_scale = _finite_or_default(pitch_scale, 1.0)
 		player_2d.stream = prepared_stream
 		_apply_spatial_settings_2d(player_2d, spatial_settings)
-		var playback_session_id: int = _get_playback_session_id(player_2d)
-		var finished_callback: Callable = _get_spatial_sfx_finished_callback(player_2d, playback_session_id)
+		var finished_callback: Callable = _get_spatial_sfx_finished_callback(
+			player_2d,
+			playback_session_id
+		)
 		if not player_2d.finished.is_connected(finished_callback):
 			_connect_signal_checked(player_2d.finished, finished_callback, CONNECT_ONE_SHOT)
 		player_2d.play(start_seconds)
@@ -4916,14 +6145,18 @@ func _apply_spatial_sfx_request(
 		player_3d.pitch_scale = _finite_or_default(pitch_scale, 1.0)
 		player_3d.stream = prepared_stream
 		_apply_spatial_settings_3d(player_3d, spatial_settings)
-		var playback_session_id: int = _get_playback_session_id(player_3d)
-		var finished_callback: Callable = _get_spatial_sfx_finished_callback(player_3d, playback_session_id)
+		var finished_callback: Callable = _get_spatial_sfx_finished_callback(
+			player_3d,
+			playback_session_id
+		)
 		if not player_3d.finished.is_connected(finished_callback):
 			_connect_signal_checked(player_3d.finished, finished_callback, CONNECT_ONE_SHOT)
 		player_3d.play(start_seconds)
 		_set_playback_session_state(player_3d, playback_session_id, _STATE_PLAYING)
 	else:
 		_release_spatial_sfx_player(player, 0.0)
+		return false
+	return true
 
 
 func _get_clip_spatial_settings(clip: GFAudioClip) -> Resource:
