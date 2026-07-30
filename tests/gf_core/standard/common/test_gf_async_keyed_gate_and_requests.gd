@@ -43,6 +43,12 @@ class PumpProbeGate:
 	func get_scan_remaining_keys() -> int:
 		return _pump_scan_remaining_keys
 
+	func get_pump_key_cursor() -> int:
+		return _pump_key_cursor
+
+	func get_next_request_id() -> int:
+		return _next_request_id
+
 	func get_shared_token_request_count(
 		token: GFCancellationToken
 	) -> int:
@@ -93,6 +99,360 @@ func test_keyed_gate_queues_per_key_and_promotes_on_release() -> void:
 	assert_true(second_lease != null and second_lease.is_active(), "推进后的请求应获得新租约。")
 	assert_eq(GFVariantData.get_option_int(snapshot, "queued_count"), 0, "同 key 队列应清空。")
 	assert_eq(GFVariantData.get_option_int(snapshot, "active_count"), 1, "同 key 应只保留一个活跃租约。")
+
+
+func test_keyed_gate_try_request_is_fail_fast_without_queue_or_fairness_mutation() -> void:
+	var gate: PumpProbeGate = PumpProbeGate.new()
+	gate.max_active_leases = 1
+	var blocker: GFAsyncGateLease = _result_to_lease(
+		gate.request_lease(&"asset")
+	)
+	var waiting: Dictionary = gate.request_lease(&"asset")
+	var waiting_completion: GFAsyncCompletion = _result_to_completion(waiting)
+	var signal_state: Dictionary = { "queued_count": 0 }
+	var connect_error: Error = gate.request_queued.connect(
+		func(
+			_request_id: int,
+			_key: Variant,
+			_metadata: Dictionary
+		) -> void:
+			signal_state["queued_count"] = (
+				GFVariantData.get_option_int(signal_state, "queued_count")
+				+ 1
+			)
+	) as Error
+	assert_eq(connect_error, OK)
+	var before_snapshot: Dictionary = gate.get_debug_snapshot()
+	var before_event_count: int = gate.get_recent_events().size()
+	var before_request_id: int = gate.get_next_request_id()
+	var before_pump_cursor: int = gate.get_pump_key_cursor()
+
+	var same_key_result: Dictionary = gate.try_request_lease(&"asset")
+	var other_key_result: Dictionary = gate.try_request_lease(&"other")
+	var after_snapshot: Dictionary = gate.get_debug_snapshot()
+
+	assert_eq(
+		GFVariantData.get_option_string_name(same_key_result, "status"),
+		GFAsyncKeyedGate.STATUS_BUSY,
+		"同 key 已有活跃租约和 waiter 时应立即返回 busy。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string_name(other_key_result, "status"),
+		GFAsyncKeyedGate.STATUS_BUSY,
+		"全局租约容量耗尽时其它 key 也应立即返回 busy。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(same_key_result, "request_id"),
+		0,
+		"busy 不得分配请求 ID。"
+	)
+	assert_false(same_key_result.has("completion"), "busy 不得分配 completion。")
+	assert_false(same_key_result.has("lease"), "busy 不得分配 lease。")
+	assert_eq(
+		GFVariantData.get_option_int(signal_state, "queued_count"),
+		0,
+		"fail-fast 拒绝不得发出排队信号。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(after_snapshot, "queued_count"),
+		GFVariantData.get_option_int(before_snapshot, "queued_count"),
+		"fail-fast 拒绝不得改变等待队列。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(after_snapshot, "key_count"),
+		GFVariantData.get_option_int(before_snapshot, "key_count"),
+		"全局繁忙时不得为探测 key 建立跟踪状态。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(after_snapshot, "busy_count"),
+		2,
+		"调试快照应累计 fail-fast busy 次数。"
+	)
+	assert_eq(
+		gate.get_recent_events().size(),
+		before_event_count,
+		"busy 不是请求生命周期事件，不应写入事件环。"
+	)
+	assert_eq(gate.get_next_request_id(), before_request_id)
+	assert_eq(gate.get_pump_key_cursor(), before_pump_cursor)
+
+	assert_true(blocker.release(&"done"))
+	assert_true(waiting_completion.is_successful())
+	var promoted_lease: GFAsyncGateLease = _result_to_lease(
+		GFVariantData.as_dictionary(waiting_completion.get_result())
+	)
+	if promoted_lease != null:
+		var _promoted_released: bool = promoted_lease.release(&"done")
+
+
+func test_keyed_gate_try_request_respects_per_key_active_limit() -> void:
+	var gate: PumpProbeGate = PumpProbeGate.new()
+	gate.max_active_leases = 2
+	var blocker: GFAsyncGateLease = _result_to_lease(
+		gate.request_lease(&"asset")
+	)
+	var before_snapshot: Dictionary = gate.get_debug_snapshot()
+	var before_request_id: int = gate.get_next_request_id()
+	var before_event_count: int = gate.get_recent_events().size()
+
+	var result: Dictionary = gate.try_request_lease(&"asset")
+	var after_snapshot: Dictionary = gate.get_debug_snapshot()
+
+	assert_eq(
+		GFVariantData.get_option_int(before_snapshot, "active_count"),
+		1,
+		"测试前提应保留一个未耗尽全局容量的活跃租约。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string_name(result, "status"),
+		GFAsyncKeyedGate.STATUS_BUSY,
+		"全局仍有空位但同 key 达到并发上限时应返回 busy。"
+	)
+	assert_eq(GFVariantData.get_option_int(result, "request_id"), 0)
+	assert_false(result.has("completion"))
+	assert_false(result.has("lease"))
+	assert_eq(
+		GFVariantData.get_option_int(after_snapshot, "queued_count"),
+		GFVariantData.get_option_int(before_snapshot, "queued_count")
+	)
+	assert_eq(gate.get_next_request_id(), before_request_id)
+	assert_eq(gate.get_recent_events().size(), before_event_count)
+
+	var waiting: Dictionary = gate.request_lease(&"asset")
+	var waiting_completion: GFAsyncCompletion = _result_to_completion(waiting)
+	var unrelated_lease: GFAsyncGateLease = _result_to_lease(
+		gate.try_request_lease(&"other")
+	)
+	assert_true(
+		unrelated_lease != null,
+		"仅被自身 key 上限阻塞的 waiter 不得浪费其它 key 可用的全局槽位。"
+	)
+	assert_true(unrelated_lease.release(&"done"))
+	assert_true(blocker.release(&"done"))
+	assert_true(waiting_completion.is_successful())
+	var promoted_lease: GFAsyncGateLease = _result_to_lease(
+		GFVariantData.as_dictionary(waiting_completion.get_result())
+	)
+	if promoted_lease != null:
+		var _promoted_released: bool = promoted_lease.release(&"done")
+
+
+func test_keyed_gate_try_request_respects_tracked_key_capacity_without_request_state() -> void:
+	var gate: PumpProbeGate = PumpProbeGate.new()
+	gate.max_tracked_keys = 1
+	assert_eq(gate.set_key_max_concurrency(&"reserved", 1), 1)
+	var before_snapshot: Dictionary = gate.get_debug_snapshot()
+	var before_request_id: int = gate.get_next_request_id()
+	var before_event_count: int = gate.get_recent_events().size()
+
+	var result: Dictionary = gate.try_request_lease(&"new")
+	var after_snapshot: Dictionary = gate.get_debug_snapshot()
+
+	assert_eq(
+		GFVariantData.get_option_string_name(result, "status"),
+		GFAsyncKeyedGate.STATUS_BUSY,
+		"tracked key 容量耗尽时 fail-fast 请求应返回 busy。"
+	)
+	assert_eq(GFVariantData.get_option_int(result, "request_id"), 0)
+	assert_false(result.has("completion"))
+	assert_false(result.has("lease"))
+	assert_eq(
+		GFVariantData.get_option_int(after_snapshot, "key_count"),
+		GFVariantData.get_option_int(before_snapshot, "key_count"),
+		"容量探测不得创建新 key 状态。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(after_snapshot, "busy_count"),
+		GFVariantData.get_option_int(before_snapshot, "busy_count") + 1
+	)
+	assert_eq(gate.get_next_request_id(), before_request_id)
+	assert_eq(gate.get_recent_events().size(), before_event_count)
+
+
+func test_keyed_gate_try_request_reports_pre_cancelled_token() -> void:
+	var gate: GFAsyncKeyedGate = GFAsyncKeyedGate.new()
+	var source: GFCancellationSource = GFCancellationSource.new()
+	assert_true(source.cancel(&"caller_cancelled", { "scope": "try" }))
+
+	var result: Dictionary = gate.try_request_lease(&"asset", {
+		"cancel_token": source.get_token(),
+	})
+	var snapshot: Dictionary = gate.get_debug_snapshot()
+
+	assert_eq(
+		GFVariantData.get_option_string_name(result, "status"),
+		GFAsyncKeyedGate.STATUS_CANCELLED,
+		"可即时提交但 token 已取消时应返回真实 cancelled 终态。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string_name(result, "reason"),
+		&"caller_cancelled"
+	)
+	assert_gt(
+		GFVariantData.get_option_int(result, "request_id"),
+		0,
+		"cancelled 表示 token 赢得了一个已接受请求的提交竞态。"
+	)
+	assert_false(GFVariantData.get_option_bool(result, "queued"))
+	assert_false(result.has("completion"))
+	assert_false(result.has("lease"))
+	assert_eq(GFVariantData.get_option_int(snapshot, "active_count"), 0)
+	assert_eq(GFVariantData.get_option_int(snapshot, "queued_count"), 0)
+	assert_eq(GFVariantData.get_option_int(snapshot, "cancelled_count"), 1)
+
+
+func test_keyed_gate_try_request_does_not_overtake_cross_key_waiter() -> void:
+	var gate: PumpProbeGate = PumpProbeGate.new()
+	gate.max_active_leases = 2
+	gate.max_pump_work_items = 1
+	var first_lease: GFAsyncGateLease = _result_to_lease(
+		gate.request_lease(&"first")
+	)
+	assert_eq(gate.set_key_max_concurrency(&"second", 2), 2)
+	var second_lease: GFAsyncGateLease = _result_to_lease(
+		gate.request_lease(&"second")
+	)
+	var waiting: Dictionary = gate.request_lease(&"second")
+	var waiting_completion: GFAsyncCompletion = _result_to_completion(waiting)
+
+	assert_true(first_lease.release(&"done"))
+	assert_true(
+		gate.is_deferred_pump_scheduled(),
+		"有界推进先扫描空 slot 后应保留旧 waiter 的 continuation。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(gate.get_debug_snapshot(), "active_count"),
+		1,
+		"释放后应存在一个可被错误窃取的全局空闲槽位。"
+	)
+
+	var result: Dictionary = gate.try_request_lease(&"third")
+
+	assert_eq(
+		GFVariantData.get_option_string_name(result, "status"),
+		GFAsyncKeyedGate.STATUS_BUSY,
+		"fail-fast 请求不得越过其它 key 尚未完成的公平推进周期。"
+	)
+	assert_eq(GFVariantData.get_option_int(result, "request_id"), 0)
+	assert_false(result.has("completion"))
+	assert_false(result.has("lease"))
+
+	assert_true(second_lease.release(&"done"))
+	assert_true(waiting_completion.is_successful())
+	var promoted_lease: GFAsyncGateLease = _result_to_lease(
+		GFVariantData.as_dictionary(waiting_completion.get_result())
+	)
+	if promoted_lease != null:
+		var _promoted_released: bool = promoted_lease.release(&"done")
+	await get_tree().process_frame
+
+
+func test_keyed_gate_try_request_ignores_stale_continuation_after_last_waiter_cancel() -> void:
+	var gate: PumpProbeGate = PumpProbeGate.new()
+	gate.max_active_leases = 2
+	gate.max_pump_work_items = 1
+	var first_lease: GFAsyncGateLease = _result_to_lease(
+		gate.request_lease(&"first")
+	)
+	assert_eq(gate.set_key_max_concurrency(&"second", 2), 2)
+	var second_lease: GFAsyncGateLease = _result_to_lease(
+		gate.request_lease(&"second")
+	)
+	var waiting: Dictionary = gate.request_lease(&"second")
+
+	assert_true(first_lease.release(&"done"))
+	assert_true(gate.is_deferred_pump_scheduled())
+	assert_true(
+		gate.cancel_request(
+			GFVariantData.get_option_int(waiting, "request_id"),
+			&"withdrawn"
+		)
+	)
+	assert_eq(
+		GFVariantData.get_option_int(gate.get_debug_snapshot(), "queued_count"),
+		0,
+		"取消最后一个 waiter 后应立即清空权威等待状态。"
+	)
+
+	var result: Dictionary = gate.try_request_lease(&"third")
+	var third_lease: GFAsyncGateLease = _result_to_lease(result)
+
+	assert_eq(
+		GFVariantData.get_option_string_name(result, "status"),
+		GFAsyncKeyedGate.STATUS_ACQUIRED,
+		"没有真实 waiter 时，旧 deferred 标志不得制造假 busy。"
+	)
+	assert_true(third_lease != null)
+
+	assert_true(second_lease.release(&"done"))
+	assert_true(third_lease.release(&"done"))
+	await get_tree().process_frame
+
+
+func test_keyed_gate_try_request_does_not_commit_inside_lifecycle_notification() -> void:
+	var gate: GFAsyncKeyedGate = GFAsyncKeyedGate.new()
+	gate.max_active_leases = 2
+	var callback_state: Dictionary = {
+		"queued_count": 0,
+		"result": {},
+	}
+	var queued_error: Error = gate.request_queued.connect(
+		func(
+			_request_id: int,
+			_key: Variant,
+			_metadata: Dictionary
+		) -> void:
+			callback_state["queued_count"] = (
+				GFVariantData.get_option_int(callback_state, "queued_count")
+				+ 1
+			)
+	) as Error
+	assert_eq(queued_error, OK)
+	var acquired_error: Error = gate.lease_acquired.connect(
+		func(_lease: GFAsyncGateLease) -> void:
+			callback_state["result"] = gate.try_request_lease(&"callback"),
+		CONNECT_ONE_SHOT
+	) as Error
+	assert_eq(acquired_error, OK)
+
+	var outer_result: Dictionary = gate.try_request_lease(&"outer")
+	var outer_lease: GFAsyncGateLease = _result_to_lease(outer_result)
+	var outer_completion: GFAsyncCompletion = _result_to_completion(outer_result)
+	var after_callback_result: Dictionary = gate.try_request_lease(&"callback")
+	var callback_lease: GFAsyncGateLease = _result_to_lease(
+		after_callback_result
+	)
+	var callback_result: Dictionary = GFVariantData.get_option_dictionary(
+		callback_state,
+		"result"
+	)
+
+	assert_true(outer_lease != null, "空闲 gate 的 fail-fast 请求应立即取得租约。")
+	assert_true(
+		outer_completion != null and outer_completion.is_successful(),
+		"acquired 结果应保留与 request_lease 一致的已完成 completion。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string_name(callback_result, "status"),
+		GFAsyncKeyedGate.STATUS_BUSY,
+		"acquire 通知内不得重入提交另一租约。"
+	)
+	assert_true(
+		callback_lease != null,
+		"最外层通知结束后同一请求应能立即取得剩余槽位。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(callback_state, "queued_count"),
+		0,
+		"两个 fail-fast 请求都不得进入等待队列。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(gate.get_debug_snapshot(), "busy_count"),
+		1
+	)
+
+	var _outer_released: bool = outer_lease.release(&"done")
+	var _callback_released: bool = callback_lease.release(&"done")
 
 
 func test_keyed_gate_rejects_foreign_lease_with_colliding_local_id() -> void:
@@ -1148,6 +1508,10 @@ func test_keyed_gate_rejects_worker_thread_public_access_without_mutation() -> v
 		worker_result,
 		"request"
 	)
+	var try_result: Dictionary = GFVariantData.get_option_dictionary(
+		worker_result,
+		"try_request"
+	)
 	var key_snapshot: Dictionary = GFVariantData.get_option_dictionary(
 		worker_result,
 		"key_snapshot"
@@ -1162,6 +1526,11 @@ func test_keyed_gate_rejects_worker_thread_public_access_without_mutation() -> v
 		GFVariantData.get_option_string_name(request_result, "reason"),
 		&"wrong_thread",
 		"worker 请求应返回稳定线程拒绝原因。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string_name(try_result, "reason"),
+		&"wrong_thread",
+		"worker fail-fast 请求也应返回稳定线程拒绝原因。"
 	)
 	assert_eq(
 		GFVariantData.get_option_string_name(key_snapshot, "reason"),
@@ -1479,6 +1848,7 @@ func _access_keyed_gate_from_worker(
 	gate.max_waiting_per_key = 1
 	gate.max_tracked_keys = 1
 	var request_result: Dictionary = gate.request_lease(&"worker")
+	var try_result: Dictionary = gate.try_request_lease(&"worker")
 	var released: bool = gate.release_lease(lease, &"worker")
 	var cancelled: bool = gate.cancel_request(waiting_request_id, &"worker")
 	var cleared: int = gate.clear(&"worker")
@@ -1500,6 +1870,7 @@ func _access_keyed_gate_from_worker(
 		"per_key_limit": per_key_limit,
 		"tracked_limit": tracked_limit,
 		"request": request_result,
+		"try_request": try_result,
 		"released": released,
 		"cancelled": cancelled,
 		"cleared": cleared,

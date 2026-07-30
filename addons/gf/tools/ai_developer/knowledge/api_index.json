@@ -2,7 +2,7 @@
   "schema_version": 1,
   "catalog_version": "1.0.0",
   "framework_version": "11.0.0-dev.0",
-  "source_digest": "7a0dd36d16523f5764c8f7405c05c3966572ffba79719c6688d2fac48a7d1c6f",
+  "source_digest": "34c315b76753015025c03069fdcfd284028c732645fb2f76d36de5ff84bf4d20",
   "class_count": 763,
   "package_count": 52,
   "packages": [
@@ -2634,6 +2634,27 @@
           "name": "get_utility",
           "signature": "func get_utility(script_cls: Script, require_ready: bool = false) -> Object",
           "summary": "通过脚本类获取 Utility 实例。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "find_system",
+          "signature": "func find_system(script_cls: Script, require_ready: bool = false) -> Object",
+          "summary": "可选查找 System 实例，未找到时不输出严格依赖缺失错误。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "find_model",
+          "signature": "func find_model(script_cls: Script, require_ready: bool = false) -> Object",
+          "summary": "可选查找 Model 实例，未找到时不输出严格依赖缺失错误。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "find_utility",
+          "signature": "func find_utility(script_cls: Script, require_ready: bool = false) -> Object",
+          "summary": "可选查找 Utility 实例，未找到时不输出严格依赖缺失错误。",
           "visibility": "public"
         },
         {
@@ -5892,6 +5913,13 @@
         },
         {
           "kind": "const",
+          "name": "STATUS_BUSY",
+          "signature": "const STATUS_BUSY: StringName = &\"busy\"",
+          "summary": "fail-fast 请求未取得租约；请求未进入等待队列。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
           "name": "DEFAULT_MAX_CONCURRENCY",
           "signature": "const DEFAULT_MAX_CONCURRENCY: int = 1",
           "summary": "默认每个 key 的并发槽位数。",
@@ -6070,6 +6098,13 @@
           "name": "request_lease",
           "signature": "func request_lease(key: Variant, options: Dictionary = {}) -> Dictionary",
           "summary": "请求一个 key 的执行租约。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "try_request_lease",
+          "signature": "func try_request_lease(key: Variant, options: Dictionary = {}) -> Dictionary",
+          "summary": "尝试立即取得一个 key 的执行租约。",
           "visibility": "public"
         },
         {
@@ -60943,7 +60978,7 @@
           "kind": "var",
           "name": "default_entries_per_tick",
           "signature": "var default_entries_per_tick: int = 4",
-          "summary": "每次 tick 默认处理的最大条目数。",
+          "summary": "每次 tick 默认处理的最大条目数。未显式覆盖清单预算时，小于等于 0 会暂停正常帧推进；",
           "visibility": "public"
         },
         {

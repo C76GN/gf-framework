@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFArchitecture" path="addons/gf/kernel/core/gf_architecture.gd" module="kernel" extends="Object" classDigest="4dc51b63c790b58220d7ee60b575d1b7b1ddc9c96373f061cff12a52e209dad6">
+<class name="GFArchitecture" path="addons/gf/kernel/core/gf_architecture.gd" module="kernel" extends="Object" classDigest="f8bf63c3d4680c2455f0346de461df6d8ba12ac3e92f5fb518310faceba6d472">
 	<description>GFArchitecture: 管理 Model、System 和 Utility 的注册与生命周期的容器。
 生命周期遵循三阶段初始化协议：
 阶段一 (init)       ：所有模块执行自身内部变量初始化。
@@ -953,6 +953,42 @@ listener 携带 owner 时返回的句柄会绑定该 owner 生命周期。`once`
 				<tag name="param">script_cls: 脚本类。</tag>
 				<tag name="param">require_ready: 为 true 时，仅返回已完成 ready 阶段的实例。</tag>
 				<tag name="return">工具实例，如果未找到则返回 null。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="find_system">
+			<signature>func find_system(script_cls: Script, require_ready: bool = false) -&gt; Object:</signature>
+			<description>可选查找 System 实例，未找到时不输出严格依赖缺失错误。
+非严格模式沿用普通查询的父级回退与 alias 遮蔽规则；严格模式只检查当前架构。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">script_cls: 脚本类。</tag>
+				<tag name="param">require_ready: 为 true 时，仅返回已完成 ready 阶段的实例。</tag>
+				<tag name="return">系统实例；可选依赖不存在或尚未 ready 时返回 null。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="find_model">
+			<signature>func find_model(script_cls: Script, require_ready: bool = false) -&gt; Object:</signature>
+			<description>可选查找 Model 实例，未找到时不输出严格依赖缺失错误。
+非严格模式沿用普通查询的父级回退与 alias 遮蔽规则；严格模式只检查当前架构。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">script_cls: 脚本类。</tag>
+				<tag name="param">require_ready: 为 true 时，仅返回已完成 ready 阶段的实例。</tag>
+				<tag name="return">模型实例；可选依赖不存在或尚未 ready 时返回 null。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="find_utility">
+			<signature>func find_utility(script_cls: Script, require_ready: bool = false) -&gt; Object:</signature>
+			<description>可选查找 Utility 实例，未找到时不输出严格依赖缺失错误。
+非严格模式沿用普通查询的父级回退与 alias 遮蔽规则；严格模式只检查当前架构。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">script_cls: 脚本类。</tag>
+				<tag name="param">require_ready: 为 true 时，仅返回已完成 ready 阶段的实例。</tag>
+				<tag name="return">工具实例；可选依赖不存在或尚未 ready 时返回 null。</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_local_system">

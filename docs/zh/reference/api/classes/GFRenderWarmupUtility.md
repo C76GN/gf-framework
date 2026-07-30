@@ -136,12 +136,13 @@ enum TouchMode {
 ### `default_entries_per_tick`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var default_entries_per_tick: int = 4
 ```
 
-每次 tick 默认处理的最大条目数。
+每次 tick 默认处理的最大条目数。未显式覆盖清单预算时，小于等于 0 会暂停正常帧推进； 恢复为正数后从原队列位置继续。
 
 <a id="member-gfrenderwarmuputility-properties-default_max_seconds"></a>
 
@@ -269,13 +270,13 @@ func queue_manifest(manifest: GFRenderWarmupManifest, options: Dictionary = {}) 
 | 名称 | 说明 |
 |---|---|
 | `manifest` | 预热清单。 |
-| `options` | 可选参数，支持 entries_per_tick、max_seconds、touch_mode、keep_cached、cache_group、max_cached_resources、instantiate_packed_scenes、allow_scene_instantiation。 |
+| `options` | 可选参数。显式 entries_per_tick 会在入队时钳制到最小 1 并固定；未提供时继续读取当前 default_entries_per_tick。其余支持 max_seconds、touch_mode、keep_cached、cache_group、max_cached_resources、instantiate_packed_scenes 和 allow_scene_instantiation。 |
 
 返回：队列标识；失败返回 -1。
 
 结构：
 
-- `options`: Dictionary，包含 entries_per_tick、max_seconds、touch_mode、keep_cached、cache_group、max_cached_resources、instantiate_packed_scenes、allow_scene_instantiation、temporary_parent 和 temporary_viewport_size。
+- `options`: Dictionary，可包含 entries_per_tick: int（显式值最小为 1，并在入队时固定）、max_seconds、touch_mode、keep_cached、cache_group、max_cached_resources、instantiate_packed_scenes、allow_scene_instantiation、temporary_parent 和 temporary_viewport_size；缺少 entries_per_tick 时使用实时全局默认值。
 
 <a id="member-gfrenderwarmuputility-methods-warmup_manifest_now"></a>
 

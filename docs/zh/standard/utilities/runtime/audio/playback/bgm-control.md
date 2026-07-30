@@ -37,3 +37,5 @@ BGM transport 接口面向暂停菜单、剧情演出、音量淡入淡出和进
 crossfade 完成时会原子提交 incoming 的 key 与规范化播放区间；incoming 提前结束或请求失败时，会恢复 outgoing session 自己的 key、播放区间和目标增益。本地 BGM 自然结束时会按该 session 的 `history_key` 发出 `bgm_finished(history_key)`。第三方后端必须实现 `GFAudioBackend.is_bgm_playing()`；当 Utility 查询到稳定的 backend-owned session 已结束时，也会先提交 `stopped/none`，再按同一 history key 发出且只发出一次 `bgm_finished`。调试快照会执行这次收敛查询。
 
 `play_bgm("", crossfade_seconds)` 可按同一淡出参数停止当前 BGM。交叉淡化期间停止会终结 incoming 与 outgoing，完成后的 key、播放区间、owner 和状态统一回到空闲终态。
+
+场景树关闭时，root 可能先于 Utility 释放本地 BGM 播放器。`dispose()` 会把已经失效或仍存活的两个播放器都收敛为空引用，并保持重复调用幂等；项目不应缓存或直接拥有 Utility 的内部播放器。

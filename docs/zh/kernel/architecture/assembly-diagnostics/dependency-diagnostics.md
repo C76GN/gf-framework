@@ -4,6 +4,21 @@
 
 诊断只读，不会自动注册缺失模块，也不会改变 `get_model()`、`get_system()`、`get_utility()` 和工厂创建的现有语义。
 
+## 必需查询与可选查询
+
+模块真正依赖某项能力时使用 `get_model()`、`get_system()` 或 `get_utility()`。开启 `strict_dependency_lookup` 后，这些入口只接受当前架构中的注册项，并会报告本地缺失；它们适合让错误装配尽早失败。
+
+能力只是可选集成时使用 `find_model()`、`find_system()` 或 `find_utility()`。三者与普通查询共用类型、alias、ready 和父链解析规则，唯一差异是未找到时不报告 required miss：非严格模式仍可回退父架构，严格模式仍停止在当前架构，但静默返回 `null`。
+
+```gdscript
+var console_value: Variant = architecture.find_utility(GFConsoleUtility)
+if console_value is GFConsoleUtility:
+	var console: GFConsoleUtility = console_value
+	# Console 存在时才绑定可选命令。
+```
+
+required/optional 是每个消费点的语义，不能固化到全局类型注册记录。同一个 Utility 可以被某个模块视为必需依赖，同时被另一个诊断或编辑器集成视为可选能力。
+
 ## 依赖声明
 
 模块可按需实现这些 hook：

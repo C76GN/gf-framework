@@ -27,6 +27,8 @@ background.submit_cpu_work(
 
 默认情况下，`submit_cpu_work()` 和 `submit_io_work()` 会拒绝包含 `Object`、`Resource`、`Callable`、`Signal` 或 `RID` 的 payload，只接受标量、数学结构、PackedArray、Array 和 Dictionary 组成的纯 Variant 数据。这个限制是故意的：线程中不直接触碰场景树、Resource 实例或托管对象，才能避免把 Unity JobSystem 中“绕过托管类型检查却丢掉优化价值”的问题搬进 Godot。确实需要迁移旧代码时可以用 `options["allow_object_payloads"] = true` 或全局 `allow_object_payloads` 打开，但推荐做法仍是只传路径、ID、数值和结构化数据。
 
+已接受任务会强持有 `RefCounted` worker target，直到对应线程完成 join；主线程 `apply_callback` 的 `RefCounted` target 则持有到任务进入 completed、failed 或 cancelled 终态。这样局部创建的纯数据处理器不会在排队期间提前释放。框架不会据此延长 `Node` 的场景树生命周期：需要节点拥有任务时，仍应由项目在节点退出时取消任务，并让回调只写入仍有效的权威状态。
+
 ## 调度、取消与诊断
 
 资源加载使用 `submit_resource_load(path, type_hint, apply_callback)`。相同路径、兼容 `type_hint` 的请求会合并到同一个 threaded `ResourceLoader` operation；每个任务持有自己的消费者引用，取消某个任务只释放该引用并阻止 GF 侧应用和完成回调，不会强行中止 Godot 已经发起的加载线程。当最后一个消费者取消后，operation 会进入 drain 状态，迟到的成功或失败结果会被消费并 suppress，避免污染应用队列。CPU/IO 线程任务也是协作式取消：等待中的任务会立刻进入 `cancelled`，运行中的任务会等 worker 返回后再落到取消终态。`get_debug_snapshot()` 会报告等待、运行、资源请求、resource draining、threaded resource operation、应用队列和终态任务 ID，适合和运行时诊断面板或加载界面联动。

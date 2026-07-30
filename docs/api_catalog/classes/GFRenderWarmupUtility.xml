@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFRenderWarmupUtility" path="addons/gf/standard/utilities/display/gf_render_warmup_utility.gd" module="standard" extends="GFUtility" classDigest="1d20f7385b9533fa1ef68e5c31aa37dd3f96e16059797512d62bf507c6cae987">
+<class name="GFRenderWarmupUtility" path="addons/gf/standard/utilities/display/gf_render_warmup_utility.gd" module="standard" extends="GFUtility" classDigest="feaf28cb7fb9af71fa9769b711249b46627af1db4fd9ff37468d493966f2d7a8">
 	<description>GFRenderWarmupUtility: 通用渲染资源预热工具。
 通过清单或节点树收集 Mesh、Material、Texture 等渲染资源，并按帧预算提前加载和触碰 RID。
 它不决定项目何时预热、预热哪些场景或如何展示加载进度。</description>
@@ -59,9 +59,11 @@
 	<properties>
 		<member kind="property" name="default_entries_per_tick">
 			<signature>var default_entries_per_tick: int = 4</signature>
-			<description>每次 tick 默认处理的最大条目数。</description>
+			<description>每次 tick 默认处理的最大条目数。未显式覆盖清单预算时，小于等于 0 会暂停正常帧推进；
+恢复为正数后从原队列位置继续。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="default_max_seconds">
@@ -133,9 +135,9 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">manifest: 预热清单。</tag>
-				<tag name="param">options: 可选参数，支持 entries_per_tick、max_seconds、touch_mode、keep_cached、cache_group、max_cached_resources、instantiate_packed_scenes、allow_scene_instantiation。</tag>
+				<tag name="param">options: 可选参数。显式 entries_per_tick 会在入队时钳制到最小 1 并固定；未提供时继续读取当前 default_entries_per_tick。其余支持 max_seconds、touch_mode、keep_cached、cache_group、max_cached_resources、instantiate_packed_scenes 和 allow_scene_instantiation。</tag>
 				<tag name="return">队列标识；失败返回 -1。</tag>
-				<tag name="schema">options: Dictionary，包含 entries_per_tick、max_seconds、touch_mode、keep_cached、cache_group、max_cached_resources、instantiate_packed_scenes、allow_scene_instantiation、temporary_parent 和 temporary_viewport_size。</tag>
+				<tag name="schema">options: Dictionary，可包含 entries_per_tick: int（显式值最小为 1，并在入队时固定）、max_seconds、touch_mode、keep_cached、cache_group、max_cached_resources、instantiate_packed_scenes、allow_scene_instantiation、temporary_parent 和 temporary_viewport_size；缺少 entries_per_tick 时使用实时全局默认值。</tag>
 				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>

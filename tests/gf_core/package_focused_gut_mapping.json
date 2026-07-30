@@ -259,6 +259,7 @@
       "res://tests/gf_core/standard/utilities/storage/editor/test_gf_storage_editor_package.gd"
     ],
     "gf.standard.display": [
+      "res://tests/gf_core/standard/utilities/display/test_gf_render_warmup_utility.gd",
       "res://tests/gf_core/standard/utilities/display/test_gf_shader_interface_snapshot.gd",
       "res://tests/gf_core/standard/utilities/display/test_gf_shader_parameter_profile.gd",
       "res://tests/gf_core/standard/utilities/display/test_gf_viewport_utility.gd"

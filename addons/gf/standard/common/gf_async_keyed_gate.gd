@@ -146,6 +146,13 @@ const STATUS_INVALID: StringName = &"invalid"
 ## @since 10.0.0
 const STATUS_REJECTED: StringName = &"rejected"
 
+## fail-fast 请求未取得租约；请求未进入等待队列。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+const STATUS_BUSY: StringName = &"busy"
+
 ## 默认每个 key 的并发槽位数。
 ## [br]
 ## @api public
@@ -468,6 +475,7 @@ var _cancelled_count: int = 0
 var _timeout_count: int = 0
 var _acquired_count: int = 0
 var _released_count: int = 0
+var _busy_count: int = 0
 var _high_watermark: int = 0
 var _key_high_watermark: int = 0
 var _rejected_count: int = 0
@@ -638,6 +646,69 @@ func request_lease(key: Variant, options: Dictionary = {}) -> Dictionary:
 	if not terminal_result.is_empty():
 		return terminal_result.duplicate(true)
 	return queued_result
+
+
+## 尝试立即取得一个 key 的执行租约。
+## [br]
+## 合法且未取消的请求只有在不越过同 key waiter、未完成的公平推进周期或生命周期
+## 通知边界时能够立即提交，才返回 acquired；容量或仲裁暂时不可用时返回 busy。
+## busy 不分配请求 ID 或 completion，不进入等待队列、不发出请求生命周期信号，
+## 也不改变公平游标。非法调用返回 invalid；cancel_token 在租约提交前胜出时返回
+## cancelled，且按已接受请求记录取消终态。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param key: 并发仲裁 key。
+## [br]
+## @param options: 即时请求选项，支持 metadata、max_concurrency、lease_timeout_msec 和 cancel_token。
+## [br]
+## @return 即时请求结果字典。
+## [br]
+## @schema key: Variant，必须是 GFVariantKeyCodec 接受的稳定 key。
+## [br]
+## @schema options: Dictionary，可包含 metadata: Dictionary、max_concurrency: int、lease_timeout_msec: int、cancel_token: GFCancellationToken。
+## [br]
+## @schema return: Dictionary，包含 ok、status、queued、acquired、request_id、key、metadata 和 reason，所有分支 queued 均为 false；status 为 acquired 时包含 lease 和已成功完成的 completion，busy 时 request_id 为 0 且不包含 lease 或 completion，cancelled/invalid 不包含 lease 或 completion。
+func try_request_lease(key: Variant, options: Dictionary = {}) -> Dictionary:
+	if not Thread.is_main_thread():
+		return _make_wrong_thread_request_result()
+
+	var key_report: Dictionary = _GF_VARIANT_KEY_CODEC_SCRIPT.try_make_key_token(key)
+	if not GFVariantData.get_option_bool(key_report, "ok"):
+		return _make_invalid_key_result(key, key_report)
+	var key_token: String = GFVariantData.get_option_string(key_report, "key_token")
+	var request_probe: Dictionary = {
+		"max_concurrency": _get_request_max_concurrency(options),
+	}
+	var can_commit_immediately: bool = (
+		not _pump_in_progress
+		and _notification_depth <= 0
+		and _lifecycle_batch_depth <= 0
+		and not _draining_pending_releases
+		and _pending_release_order.is_empty()
+		and (
+			_queued_count <= 0
+			or (
+				not _deferred_pump_scheduled
+				and _pump_scan_remaining_keys <= 0
+				and not _pump_dirty
+				and not _pump_followup_requested
+				and _pending_pump_cutoff <= 0
+			)
+		)
+		and _get_queue_size(key_token) <= 0
+		and (
+			_is_key_tracked(key_token)
+			or _key_data.size() < _max_tracked_keys
+		)
+		and _can_activate_request(key_token, request_probe)
+	)
+	if not can_commit_immediately:
+		_busy_count += 1
+		return _make_busy_request_result(key, options)
+	return request_lease(key, options)
 
 
 ## 等待并返回租约。
@@ -1067,7 +1138,7 @@ func get_recent_events() -> Array[Dictionary]:
 ## [br]
 ## @return gate 状态快照。
 ## [br]
-## @schema return: Dictionary，包含 queued_count、active_count、key_count、max_active_leases、等待、key 与推进预算配置、high_watermark、key_high_watermark、rejected_count、dropped_count、acquired_count、released_count、cancelled_count、timeout_count、keys 和 recent_events。
+## @schema return: Dictionary，包含 queued_count、active_count、key_count、max_active_leases、等待、key 与推进预算配置、high_watermark、key_high_watermark、busy_count、rejected_count、dropped_count、acquired_count、released_count、cancelled_count、timeout_count、keys 和 recent_events。
 func get_debug_snapshot() -> Dictionary:
 	if not Thread.is_main_thread():
 		return _make_wrong_thread_debug_snapshot()
@@ -1086,6 +1157,7 @@ func get_debug_snapshot() -> Dictionary:
 		"key_count": key_snapshots.size(),
 		"high_watermark": _high_watermark,
 		"key_high_watermark": _key_high_watermark,
+		"busy_count": _busy_count,
 		"rejected_count": _rejected_count,
 		"dropped_count": _dropped_count,
 		"acquired_count": _acquired_count,
@@ -1910,6 +1982,7 @@ func _make_wrong_thread_debug_snapshot() -> Dictionary:
 		"key_count": -1,
 		"high_watermark": -1,
 		"key_high_watermark": -1,
+		"busy_count": -1,
 		"rejected_count": -1,
 		"dropped_count": -1,
 		"acquired_count": -1,
@@ -1939,6 +2012,19 @@ func _make_rejected_request_result(
 	result["capacity_scope"] = capacity_scope
 	_record_event(&"request_rejected", request, null, reason)
 	return result
+
+
+func _make_busy_request_result(key: Variant, options: Dictionary) -> Dictionary:
+	return {
+		"ok": false,
+		"status": STATUS_BUSY,
+		"queued": false,
+		"acquired": false,
+		"request_id": 0,
+		"key": GFVariantData.duplicate_variant(key),
+		"metadata": GFVariantData.get_option_dictionary(options, "metadata"),
+		"reason": STATUS_BUSY,
+	}
 
 
 func _bind_request_cancel_token(request: Dictionary) -> bool:
