@@ -8,6 +8,7 @@ var _utility: GFAssetUtility
 func before_each() -> void:
 	_utility = GFAssetUtility.new()
 	_utility.init()
+	var _broker: GFResourceBroker = _utility.setup_standalone_resource_broker()
 
 
 func after_each() -> void:
@@ -128,18 +129,46 @@ func _replace_utility(utility: GFAssetUtility) -> void:
 # --- 内部类 ---
 
 class CompletingAssetUtility extends GFAssetUtility:
+	var _broker: CompletingResourceBroker = CompletingResourceBroker.new()
+	var requested_paths: Array[String]:
+		get:
+			return _broker.requested_paths
+	var requested_type_hints: Array[String]:
+		get:
+			return _broker.requested_type_hints
+	var complete: bool:
+		get:
+			return _broker.complete
+		set(value):
+			_broker.complete = value
+	var loaded_resource: Resource:
+		get:
+			return _broker.loaded_resource
+		set(value):
+			_broker.loaded_resource = value
+
+	func init() -> void:
+		super.init()
+		_broker.init()
+		var _bind_error: Error = set_resource_broker(_broker)
+
+
+class CompletingResourceBroker extends GFResourceBroker:
 	var requested_paths: Array[String] = []
 	var requested_type_hints: Array[String] = []
 	var complete: bool = false
 	var loaded_resource: Resource = Resource.new()
 
-	func _request_threaded(path: String, type_hint: String) -> Error:
+	func _request_threaded_resource(path: String, type_hint: String) -> Error:
 		requested_paths.append(path)
 		requested_type_hints.append(type_hint)
 		return OK
 
-	func _get_threaded_status_with_progress(_path: String, _progress: Array) -> ResourceLoader.ThreadLoadStatus:
-		return ResourceLoader.THREAD_LOAD_LOADED if complete else ResourceLoader.THREAD_LOAD_IN_PROGRESS
-
-	func _take_threaded_resource(_path: String) -> Resource:
-		return loaded_resource
+	func _poll_threaded_resource(_path: String, _previous_progress: float) -> Dictionary:
+		return {
+			"status": &"loaded" if complete else &"in_progress",
+			"progress": 1.0 if complete else 0.0,
+			"resource": loaded_resource if complete else null,
+			"has_resource": complete,
+			"error": "",
+		}

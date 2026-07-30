@@ -18,19 +18,22 @@
 | 信号 | [`profile_operation_completed`](#member-gfsaveprofileutility-signals-profile_operation_completed) | `signal profile_operation_completed(result: GFSaveProfileResult)` |
 | 信号 | [`profile_state_changed`](#member-gfsaveprofileutility-signals-profile_state_changed) | `signal profile_state_changed(profile_id: StringName, previous_state: StringName, current_state: StringName)` |
 | 常量 | [`STATE_IDLE`](#member-gfsaveprofileutility-constants-state_idle) | `const STATE_IDLE: StringName = &"idle"` |
-| 常量 | [`STATE_GATHERING`](#member-gfsaveprofileutility-constants-state_gathering) | `const STATE_GATHERING: StringName = &"gathering"` |
+| 常量 | [`STATE_PREPARING`](#member-gfsaveprofileutility-constants-state_preparing) | `const STATE_PREPARING: StringName = &"preparing"` |
 | 常量 | [`STATE_SAVING`](#member-gfsaveprofileutility-constants-state_saving) | `const STATE_SAVING: StringName = &"saving"` |
 | 常量 | [`STATE_LOADING`](#member-gfsaveprofileutility-constants-state_loading) | `const STATE_LOADING: StringName = &"loading"` |
 | 常量 | [`STATE_RETRY_WAIT`](#member-gfsaveprofileutility-constants-state_retry_wait) | `const STATE_RETRY_WAIT: StringName = &"retry_wait"` |
 | 常量 | [`STATE_APPLYING`](#member-gfsaveprofileutility-constants-state_applying) | `const STATE_APPLYING: StringName = &"applying"` |
 | 常量 | [`STATE_DISPOSED`](#member-gfsaveprofileutility-constants-state_disposed) | `const STATE_DISPOSED: StringName = &"disposed"` |
+| 属性 | [`save_preparation_work_budget_per_tick`](#member-gfsaveprofileutility-properties-save_preparation_work_budget_per_tick) | `var save_preparation_work_budget_per_tick: int = 64:` |
+| 属性 | [`save_preparation_slice_budget`](#member-gfsaveprofileutility-properties-save_preparation_slice_budget) | `var save_preparation_slice_budget: int = 8:` |
+| 属性 | [`save_preparation_time_budget_usec`](#member-gfsaveprofileutility-properties-save_preparation_time_budget_usec) | `var save_preparation_time_budget_usec: int = 2000:` |
 | 方法 | [`ready`](#member-gfsaveprofileutility-methods-ready) | `func ready() -> void:` |
 | 方法 | [`tick`](#member-gfsaveprofileutility-methods-tick) | `func tick(_delta: float) -> void:` |
 | 方法 | [`dispose`](#member-gfsaveprofileutility-methods-dispose) | `func dispose() -> void:` |
 | 方法 | [`setup`](#member-gfsaveprofileutility-methods-setup) | `func setup(storage: GFStorageUtility, clock: GFClock = null) -> GFSaveProfileUtility:` |
 | 方法 | [`register_profile`](#member-gfsaveprofileutility-methods-register_profile) | `func register_profile( profile: GFSaveProfile, migrations: GFSaveMigrationRegistry = null ) -> Dictionary:` |
 | 方法 | [`unregister_profile`](#member-gfsaveprofileutility-methods-unregister_profile) | `func unregister_profile(profile_id: StringName) -> bool:` |
-| 方法 | [`save_profile`](#member-gfsaveprofileutility-methods-save_profile) | `func save_profile( profile_id: StringName, metadata: Dictionary = {}, context: Dictionary = {} ) -> GFSaveProfileOperation:` |
+| 方法 | [`save_profile`](#member-gfsaveprofileutility-methods-save_profile) | `func save_profile( profile_id: StringName, request: GFSaveProfileRequest = null ) -> GFSaveProfileOperation:` |
 | 方法 | [`load_profile`](#member-gfsaveprofileutility-methods-load_profile) | `func load_profile( profile_id: StringName, context: Dictionary = {}, metadata: Dictionary = {} ) -> GFSaveProfileOperation:` |
 | 方法 | [`flush_profile`](#member-gfsaveprofileutility-methods-flush_profile) | `func flush_profile( profile_id: StringName, metadata: Dictionary = {} ) -> GFSaveProfileOperation:` |
 | 方法 | [`get_persisted_generation`](#member-gfsaveprofileutility-methods-get_persisted_generation) | `func get_persisted_generation(profile_id: StringName) -> int:` |
@@ -93,18 +96,18 @@ const STATE_IDLE: StringName = &"idle"
 
 Profile 空闲。
 
-<a id="member-gfsaveprofileutility-constants-state_gathering"></a>
+<a id="member-gfsaveprofileutility-constants-state_preparing"></a>
 
-### `STATE_GATHERING`
+### `STATE_PREPARING`
 
 - API：`public`
-- 首次版本：`10.0.0`
+- 首次版本：`unreleased`
 
 ```gdscript
-const STATE_GATHERING: StringName = &"gathering"
+const STATE_PREPARING: StringName = &"preparing"
 ```
 
-正在同步采集 section。
+正在主线程分片准备 section Snapshot。
 
 <a id="member-gfsaveprofileutility-constants-state_saving"></a>
 
@@ -170,6 +173,47 @@ const STATE_DISPOSED: StringName = &"disposed"
 ```
 
 Utility 已释放。
+
+## 属性
+
+<a id="member-gfsaveprofileutility-properties-save_preparation_work_budget_per_tick"></a>
+
+### `save_preparation_work_budget_per_tick`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+var save_preparation_work_budget_per_tick: int = 64:
+```
+
+每帧全部 Profile 共享的保存准备 work-unit 预算。 该预算是协作式上界；框架无法抢占单次 Provider 回调，因此 Provider 必须保证 每个 work unit 的成本有界。
+
+<a id="member-gfsaveprofileutility-properties-save_preparation_slice_budget"></a>
+
+### `save_preparation_slice_budget`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+var save_preparation_slice_budget: int = 8:
+```
+
+单个 Profile 每次轮转最多获得的准备 work units。
+
+<a id="member-gfsaveprofileutility-properties-save_preparation_time_budget_usec"></a>
+
+### `save_preparation_time_budget_usec`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+var save_preparation_time_budget_usec: int = 2000:
+```
+
+每帧保存准备的软时间预算（微秒）；为 0 时只使用确定性 work-unit 预算。 时间预算只能阻止开始下一个协作式 slice，不能抢占正在运行的 Provider 回调。
 
 ## 方法
 
@@ -295,7 +339,7 @@ func unregister_profile(profile_id: StringName) -> bool:
 - 首次版本：`10.0.0`
 
 ```gdscript
-func save_profile( profile_id: StringName, metadata: Dictionary = {}, context: Dictionary = {} ) -> GFSaveProfileOperation:
+func save_profile( profile_id: StringName, request: GFSaveProfileRequest = null ) -> GFSaveProfileOperation:
 ```
 
 请求异步保存 profile。 在途写入期间的新请求只保留最新 generation；每个句柄在覆盖自身 generation 的写入成功或失败后完成。
@@ -305,15 +349,9 @@ func save_profile( profile_id: StringName, metadata: Dictionary = {}, context: D
 | 名称 | 说明 |
 |---|---|
 | `profile_id` | profile ID。 |
-| `metadata` | 写入文档的持久化元数据。 |
-| `context` | provider 采集使用的临时上下文。 |
+| `request` | 一次性保存请求；null 表示三个元数据字典均为空。 |
 
 返回：保存操作句柄；无效请求返回已失败句柄。
-
-结构：
-
-- `metadata`: Dictionary with caller-defined persisted document metadata.
-- `context`: Dictionary with caller-defined ephemeral operation data.
 
 <a id="member-gfsaveprofileutility-methods-load_profile"></a>
 
@@ -413,4 +451,4 @@ func get_profile_state_snapshot(profile_id: StringName) -> Dictionary:
 
 结构：
 
-- `return`: Dictionary with profile identity, generation evidence, detached writes, and queue counts.
+- `return`: Dictionary with profile_id, schema_id, state, generation, persisted_generation, failed_generation, save_queue_size, load_queue_size, flush_queue_size, current_generation, attempt_count, schedule_enqueued, preparation_enqueued, preparation_phase, preparation_provider_index, preparation_section_id, preparation_work_units, preparation_duration_msec, storage_duration_msec, write_outcome_unknown, unknown_write_generations, detached_write_count, and detached_storage_request_ids.

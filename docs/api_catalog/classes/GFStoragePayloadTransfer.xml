@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFStoragePayloadTransfer" path="addons/gf/standard/utilities/storage/gf_storage_payload_transfer.gd" module="standard" extends="RefCounted" classDigest="e4740563de7098063c953b9fa34d3ed0b84f98f52675008afa7ad13a6e5fb4be">
+	<description>GFStoragePayloadTransfer: 异步 Storage 写入载荷的单所有者传递句柄。
+调用方通过静态 `take_ownership()` 把 Dictionary 的逻辑唯一所有权移交给新句柄。
+移交不会深拷贝；调用成功后，调用方必须永久放弃源 Dictionary 以及它的全部
+嵌套 alias。失败操作只通过 `GFStorageAsyncOperation.reclaim_failed_payload()`
+归还同一 opaque 句柄用于重试，任何阶段都不公开 payload getter。
+首次合法 Storage 请求会把句柄绑定到一个 Storage 实例、规范文件名、冻结的
+target file-family identity 和 codec options。同一绑定可取得多个只读 attempt
+lease，用于 timeout 后仍有旧 attempt 运行时复用同一逻辑快照。最终调用
+`release()`；若仍有活动 attempt，载荷会在最后一个 attempt 结束后才清空。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_handle</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals />
+	<enums>
+		<member kind="enum" name="State">
+			<signature>enum State {
+	## 尚未接收载荷。
+	EMPTY,
+	## 已接收载荷，尚未被 Storage claim。
+	READY,
+	## 已由 Storage claim，可由同一冻结绑定建立 attempt。
+	CLAIMED,
+	## 已请求释放，等待活动 attempt 收敛。
+	RELEASE_PENDING,
+	## 载荷已清空，句柄不可再次使用。
+	RELEASED,
+}</signature>
+			<description>传递句柄的所有权状态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</enums>
+	<constants />
+	<properties />
+	<methods>
+		<member kind="method" name="take_ownership">
+			<signature>static func take_ownership(payload: Dictionary) -&gt; GFStoragePayloadTransfer:</signature>
+			<description>创建句柄并接收 Dictionary 的逻辑唯一所有权。
+此方法不会深拷贝。返回句柄后，调用方必须立即并永久放弃源 Dictionary
+以及所有嵌套 alias；继续读取或修改这些 alias 会破坏跨线程快照不变量。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">payload: 要移交的纯 Variant Dictionary。</tag>
+				<tag name="return">持有 payload 的新 opaque transfer。</tag>
+				<tag name="schema">payload: Dictionary whose source and nested aliases are abandoned after a successful ownership transfer.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_state">
+			<signature>func get_state() -&gt; State:</signature>
+			<description>获取当前所有权状态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">`State` 枚举值。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_claimed">
+			<signature>func is_claimed() -&gt; bool:</signature>
+			<description>检查句柄是否已被 Storage claim。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">CLAIMED 或 RELEASE_PENDING 时返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_released">
+			<signature>func is_released() -&gt; bool:</signature>
+			<description>检查载荷是否已最终释放。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">已清空且不可复用时返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_active_attempt_count">
+			<signature>func get_active_attempt_count() -&gt; int:</signature>
+			<description>获取当前活动 attempt 数量。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">已取得且尚未完成的 attempt lease 数量。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="release">
+			<signature>func release() -&gt; bool:</signature>
+			<description>显式释放载荷所有权。
+若仍有活动 attempt，本方法只进入 RELEASE_PENDING；最后一个 attempt 完成后
+才真正清空载荷。释放请求只能成功一次。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">首次接受释放请求时返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

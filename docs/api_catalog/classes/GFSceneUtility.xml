@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSceneUtility" path="addons/gf/standard/utilities/scene/gf_scene_utility.gd" module="standard" extends="GFUtility" classDigest="df7004041e092282091020fc2db3f82254a3cb668c92b5a3b35102ccb105a0f2">
+<class name="GFSceneUtility" path="addons/gf/standard/utilities/scene/gf_scene_utility.gd" module="standard" extends="GFUtility" classDigest="9b7d9a1e4e0e486f7becd4ba78add1311761ee2f4ed7a1e1d44c627438ad2a41">
 	<description>GFSceneUtility: 场景与流程切换管理器。
 封装原生场景切换，支持带有 `loading scene` 的异步加载、PackedScene
 资源预加载缓存、切换参数、场景历史，并可在切换完成后清理不需要跨场景保留的 `System/Model`。</description>
@@ -183,24 +183,27 @@
 			</tags>
 		</member>
 		<member kind="property" name="scene_preload_map">
-			<signature>var scene_preload_map: GFScenePreloadMap = null</signature>
+			<signature>var scene_preload_map: GFScenePreloadMap:</signature>
 			<description>可选场景预加载图谱；配置后可按当前场景自动预热相邻场景。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">2.6.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="auto_preload_map_neighbors_on_switch">
-			<signature>var auto_preload_map_neighbors_on_switch: bool = true</signature>
+			<signature>var auto_preload_map_neighbors_on_switch: bool:</signature>
 			<description>成功切换场景后是否自动按 scene_preload_map 预加载相邻场景。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">2.6.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="scene_preload_map_radius">
-			<signature>var scene_preload_map_radius: int = -1:</signature>
+			<signature>var scene_preload_map_radius: int:</signature>
 			<description>自动图谱预加载半径；小于 0 时使用 GFScenePreloadMap.default_radius。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">2.6.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="loading_screen_fade_in_method">
@@ -261,6 +264,14 @@
 				<tag name="api">public</tag>
 			</tags>
 		</member>
+		<member kind="method" name="ready">
+			<signature>func ready() -&gt; void:</signature>
+			<description>从所属架构解析显式注册的共享 GFResourceBroker。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
 		<member kind="method" name="tick">
 			<signature>func tick(_delta: float) -&gt; void:</signature>
 			<description>推进运行时逻辑。</description>
@@ -274,6 +285,46 @@
 			<description>取消待处理场景切换并释放预加载请求、背景参数和缓存。</description>
 			<tags>
 				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="method" name="release_dependencies">
+			<signature>func release_dependencies() -&gt; void:</signature>
+			<description>释放共享 Broker 引用和架构依赖作用域。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="set_resource_broker">
+			<signature>func set_resource_broker(broker: GFResourceBroker) -&gt; Error:</signature>
+			<description>注入共享 Resource Broker。
+存在活动场景加载或预载请求时拒绝替换，避免跨 Broker 拆分同一切换生命周期。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">broker: 要共享的 Broker。</tag>
+				<tag name="return">绑定结果。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="setup_standalone_resource_broker">
+			<signature>func setup_standalone_resource_broker( max_active_requests: int = 4, max_pending_requests: int = 256 ) -&gt; GFResourceBroker:</signature>
+			<description>为单个独立 Scene Utility 显式创建私有 Resource Broker。
+需要与 Asset 或 BackgroundWork 协调时，应由项目创建一个共享 Broker 并分别注入。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">max_active_requests: Broker 同时活动的底层请求上限。</tag>
+				<tag name="param">max_pending_requests: Broker 等待 admission 的不同请求上限。</tag>
+				<tag name="return">创建的 Broker；存在活动请求时返回 null。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_resource_broker">
+			<signature>func get_resource_broker() -&gt; GFResourceBroker:</signature>
+			<description>获取当前注入的 Resource Broker。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">已绑定的 Broker；未配置时返回 null。</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 		<member kind="method" name="load_scene_async">
@@ -508,7 +559,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">调试快照字典。</tag>
-				<tag name="schema">return: Dictionary，包含 is_loading、target_path、loading_scene_path、current_scene、loading_progress、transition、preload_cache、scene_preload_map、preloading、background 和 threaded_resource_operations。</tag>
+				<tag name="schema">return: Dictionary，包含 is_loading、target_path、loading_scene_path、current_scene、loading_progress、transition、preload_cache、scene_preload_map、preloading、background 和 resource_broker configured/error/admission。</tag>
 				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
@@ -604,23 +655,6 @@
 			<description>立即清理所有瞬态实例。</description>
 			<tags>
 				<tag name="api">public</tag>
-			</tags>
-		</member>
-		<member kind="method" name="_should_load_active_scene_synchronously">
-			<signature>func _should_load_active_scene_synchronously() -&gt; bool:</signature>
-			<description>判断当前环境是否应使用同步加载作为活动场景加载降级。</description>
-			<tags>
-				<tag name="api">protected</tag>
-				<tag name="return">需要同步降级时返回 true。</tag>
-			</tags>
-		</member>
-		<member kind="method" name="_load_packed_scene_synchronously">
-			<signature>func _load_packed_scene_synchronously(path: String) -&gt; PackedScene:</signature>
-			<description>同步加载 PackedScene 资源。</description>
-			<tags>
-				<tag name="api">protected</tag>
-				<tag name="param">path: 场景资源路径。</tag>
-				<tag name="return">加载到的 PackedScene；失败时返回 null。</tag>
 			</tags>
 		</member>
 		<member kind="method" name="_get_loading_scene_node">

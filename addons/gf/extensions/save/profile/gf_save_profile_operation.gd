@@ -58,7 +58,7 @@ var _running: bool = false
 var _result: GFSaveProfileResult = null
 var _completion_emitted: bool = false
 var _context: Dictionary = {}
-var _metadata: Dictionary = {}
+var _result_metadata: Dictionary = {}
 
 
 # --- 公共方法 ---
@@ -142,7 +142,7 @@ func get_result() -> GFSaveProfileResult:
 
 # --- 框架内部方法 ---
 
-## 由 Save Profile Utility 配置句柄。
+## 由 Save Profile Utility 配置 load 或 flush 句柄。
 ## [br]
 ## @api framework_internal
 ## [br]
@@ -158,11 +158,11 @@ func get_result() -> GFSaveProfileResult:
 ## [br]
 ## @param context: Provider 临时上下文。
 ## [br]
-## @param metadata: 调用方结果元数据。
+## @param result_metadata: 调用方结果元数据。
 ## [br]
 ## @schema context: Dictionary with caller-defined ephemeral operation data.
 ## [br]
-## @schema metadata: Dictionary with caller-defined result metadata.
+## @schema result_metadata: Dictionary with caller-defined result metadata.
 ## [br]
 ## @return 首次配置成功返回 true。
 func configure_for_framework(
@@ -171,16 +171,52 @@ func configure_for_framework(
 	requested_generation: int,
 	started_at_msec: int,
 	context: Dictionary = {},
-	metadata: Dictionary = {}
+	result_metadata: Dictionary = {}
 ) -> bool:
-	if _operation != &"" or operation not in [OPERATION_SAVE, OPERATION_LOAD, OPERATION_FLUSH]:
+	if _operation != &"" or operation not in [OPERATION_LOAD, OPERATION_FLUSH]:
 		return false
 	_operation = operation
 	_profile_id = profile_id
 	_requested_generation = maxi(requested_generation, 0)
 	_started_at_msec = maxi(started_at_msec, 0)
 	_context = context.duplicate(true)
-	_metadata = metadata.duplicate(true)
+	_result_metadata = result_metadata.duplicate(true)
+	return true
+
+
+## 由 Save Profile Utility 以所有权转移方式配置 save 句柄。
+##
+## `result_metadata` 已由 `GFSaveProfileRequest` 一次性 claim；本方法只接管引用，
+## 不遍历或深复制集合。Save 句柄不会持有文档元数据或 Provider context。
+## [br]
+## @api framework_internal
+## [br]
+## @since unreleased
+## [br]
+## @param profile_id: Profile ID。
+## [br]
+## @param requested_generation: 调用时捕获的 generation。
+## [br]
+## @param started_at_msec: 单调开始时间。
+## [br]
+## @param result_metadata: 已移交所有权的调用方结果元数据。
+## [br]
+## @schema result_metadata: Dictionary whose source and nested aliases were abandoned by the request owner.
+## [br]
+## @return 首次配置成功返回 true。
+func configure_save_ownership_for_framework(
+	profile_id: StringName,
+	requested_generation: int,
+	started_at_msec: int,
+	result_metadata: Dictionary
+) -> bool:
+	if _operation != &"":
+		return false
+	_operation = OPERATION_SAVE
+	_profile_id = profile_id
+	_requested_generation = maxi(requested_generation, 0)
+	_started_at_msec = maxi(started_at_msec, 0)
+	_result_metadata = result_metadata
 	return true
 
 
@@ -212,7 +248,8 @@ func complete_for_framework(result: GFSaveProfileResult) -> bool:
 		return false
 	_running = false
 	_result = result.duplicate_result()
-	_context.clear()
+	_context = {}
+	_result_metadata = {}
 	return true
 
 
@@ -265,4 +302,4 @@ func get_context_for_framework() -> Dictionary:
 ## [br]
 ## @schema return: Dictionary with caller-defined result metadata.
 func get_metadata_for_framework() -> Dictionary:
-	return _metadata.duplicate(true)
+	return _result_metadata.duplicate(true)

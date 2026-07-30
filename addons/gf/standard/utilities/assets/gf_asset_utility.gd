@@ -91,9 +91,8 @@ signal asset_load_queued(path: String, lane_id: StringName)
 ## [br]
 ## @since 6.0.0
 const DEFAULT_LOAD_LANE_ID: StringName = &"_default"
-const _THREADED_RESOURCE_LOAD_ADAPTER = preload("res://addons/gf/standard/utilities/assets/gf_threaded_resource_load_adapter.gd")
-const _THREADED_RESOURCE_COORDINATOR_SCRIPT = preload("res://addons/gf/standard/utilities/assets/gf_threaded_resource_coordinator.gd")
-const _THREADED_RESOURCE_OPERATION_SCRIPT = preload("res://addons/gf/standard/utilities/assets/gf_threaded_resource_operation.gd")
+const _RESOURCE_BROKER_SCRIPT = preload("res://addons/gf/standard/utilities/assets/gf_resource_broker.gd")
+const _RESOURCE_LEASE_SCRIPT = preload("res://addons/gf/standard/utilities/assets/gf_resource_lease.gd")
 
 
 # --- 公共变量 ---
@@ -151,7 +150,9 @@ var _group_pin_counts: Dictionary = {}
 var _load_sessions: Dictionary = {}
 var _next_load_session_id: int = 1
 var _cache_diagnostics: GFCacheDiagnostics = GFCacheDiagnostics.new()
-var _threaded_resource_coordinator: _THREADED_RESOURCE_COORDINATOR_SCRIPT = _THREADED_RESOURCE_COORDINATOR_SCRIPT.new()
+var _resource_broker: GFResourceBroker = null
+var _owns_resource_broker: bool = false
+var _disposed: bool = false
 
 
 # --- GF 生命周期方法 ---
@@ -160,11 +161,8 @@ var _threaded_resource_coordinator: _THREADED_RESOURCE_COORDINATOR_SCRIPT = _THR
 ## [br]
 ## @api public
 func init() -> void:
+	_disposed = false
 	ignore_pause = true
-	_threaded_resource_coordinator.configure(
-		Callable(self, "_request_threaded"),
-		Callable(self, "_poll_threaded_resource")
-	)
 	_pending = {}
 	_queued_requests.clear()
 	_queued_by_path.clear()
@@ -187,13 +185,27 @@ func init() -> void:
 	_cache_diagnostics.reset()
 
 
+## 从所属架构解析显式注册的共享 GFResourceBroker。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+func ready() -> void:
+	if _disposed or _resource_broker != null:
+		return
+	var utility: Object = get_utility(_RESOURCE_BROKER_SCRIPT)
+	if utility is GFResourceBroker:
+		var broker: GFResourceBroker = utility
+		var _bind_error: Error = set_resource_broker(broker)
+
+
 ## 释放资源加载工具持有的运行时状态。
 ## [br]
 ## @api public
 func dispose() -> void:
+	_disposed = true
 	_abort_asset_load_sessions(&"asset_utility_disposed")
 	_cancel_pending_requests_for_dispose()
-	_threaded_resource_coordinator.cancel_all(&"disposed")
 	_release_all_handles()
 	_pending.clear()
 	_queued_requests.clear()
@@ -213,9 +225,91 @@ func dispose() -> void:
 	_load_sessions.clear()
 	_next_load_session_id = 1
 	_cache_access_serial = 0
+	if _owns_resource_broker and _resource_broker != null:
+		_resource_broker.dispose()
+
+
+## 释放共享 Broker 引用和架构依赖作用域。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+func release_dependencies() -> void:
+	_resource_broker = null
+	_owns_resource_broker = false
+	super.release_dependencies()
 
 
 # --- 公共方法 ---
+
+## 注入共享 Resource Broker。
+##
+## 架构模式应把同一个 GFResourceBroker 注册为 Utility；独立模式可在 init 前
+## 显式调用本方法。存在活动或排队请求时拒绝替换。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param broker: 要共享的 Broker。
+## [br]
+## @return 绑定结果。
+func set_resource_broker(broker: GFResourceBroker) -> Error:
+	if _disposed:
+		return ERR_UNAVAILABLE
+	if broker == null:
+		return ERR_INVALID_PARAMETER
+	if not _pending.is_empty() or not _queued_requests.is_empty():
+		return ERR_BUSY
+	if _owns_resource_broker and _resource_broker != null and _resource_broker != broker:
+		_resource_broker.dispose()
+	_resource_broker = broker
+	_owns_resource_broker = false
+	return OK
+
+
+## 为独立使用显式创建当前 Utility 私有拥有的 Resource Broker。
+##
+## 多个独立 Utility 需要协调时，应由项目创建一个 GFResourceBroker，并分别调用
+## set_resource_broker()；本入口只适合单个独立 Utility。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param max_active_requests: Broker 同时活动的底层请求上限。
+## [br]
+## @param max_pending_requests: Broker 等待 admission 的不同请求上限。
+## [br]
+## @return 创建的 Broker；存在活动请求时返回 null。
+func setup_standalone_resource_broker(
+	max_active_requests: int = 4,
+	max_pending_requests: int = 256
+) -> GFResourceBroker:
+	if _disposed:
+		return null
+	if not _pending.is_empty() or not _queued_requests.is_empty():
+		return null
+	var broker: GFResourceBroker = _RESOURCE_BROKER_SCRIPT.new()
+	broker.max_active_requests = max_active_requests
+	broker.max_pending_requests = max_pending_requests
+	broker.init()
+	var bind_error: Error = set_resource_broker(broker)
+	if bind_error != OK:
+		return null
+	_owns_resource_broker = true
+	return broker
+
+
+## 获取当前注入的 Resource Broker。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @return 已绑定的 Broker；未配置时返回 null。
+func get_resource_broker() -> GFResourceBroker:
+	return _resource_broker
 
 ## 发起异步资源加载。
 ## [br]
@@ -233,6 +327,10 @@ func dispose() -> void:
 ## [br]
 ## @schema options: Dictionary with optional `serial_lane_id: StringName`, `lane_id: StringName`, and `max_concurrent_loads: int`. A non-empty lane defaults to serial loading when no limit is provided.
 func load_async(path: String, on_loaded: Callable, type_hint: String = "", options: Dictionary = {}) -> void:
+	if _disposed:
+		if on_loaded.is_valid():
+			on_loaded.call(null)
+		return
 	if path.is_empty() or not on_loaded.is_valid():
 		push_error("[GFAssetUtility] 无效的路径或回调。")
 		return
@@ -267,8 +365,20 @@ func load_async(path: String, on_loaded: Callable, type_hint: String = "", optio
 		var callbacks: Array = _get_pending_callbacks(pending_request)
 		if _is_pending_cancelled(pending_request):
 			callbacks.clear()
+			var retry_operation: _RESOURCE_LEASE_SCRIPT = _request_threaded_operation(
+				load_path,
+				pending_type_hint
+			)
+			var retry_error: Error = (
+				retry_operation.get_request_error()
+				if retry_operation != null
+				else ERR_UNCONFIGURED
+			)
+			if retry_error != OK:
+				on_loaded.call(null)
+				return
+			pending_request["operation"] = retry_operation
 			pending_request["cancelled"] = false
-			_retain_threaded_operation(_get_pending_operation(pending_request))
 		if not _callback_entries_have_callable(callbacks, on_loaded):
 			_append_array_value(callbacks, _make_callback_entry(on_loaded, type_hint))
 		return
@@ -929,7 +1039,7 @@ func is_cache_pinned(path: String) -> bool:
 ## [br]
 ## @return 诊断快照字典。
 ## [br]
-## @schema return: Dictionary with max_cache_size, cache_count, cached_paths, cache_keys, pending_count, pending_paths, pending_cache_keys, pending_progress, pinned_count, pinned_paths, pinned_cache_keys, reference_counts, cache_key_reference_counts, resource_identities, group_count, queued_count, queued_paths, lane_active_counts, cache_diagnostics, and threaded_resource_operations diagnostic fields.
+## @schema return: Dictionary with max_cache_size, cache_count, cached_paths, cache_keys, pending_count, pending_paths, pending_cache_keys, pending_progress, pinned_count, pinned_paths, pinned_cache_keys, reference_counts, cache_key_reference_counts, resource_identities, group_count, queued_count, queued_paths, lane_active_counts, cache_diagnostics, and resource_broker configured/error/admission diagnostic fields.
 func get_debug_snapshot() -> Dictionary:
 	var cached_paths: PackedStringArray = PackedStringArray()
 	var cache_keys: PackedStringArray = PackedStringArray()
@@ -984,7 +1094,7 @@ func get_debug_snapshot() -> Dictionary:
 		"queued_paths": _get_queued_paths(),
 		"lane_active_counts": _lane_active_counts.duplicate(),
 		"cache_diagnostics": _cache_diagnostics.get_debug_snapshot(),
-		"threaded_resource_operations": _threaded_resource_coordinator.get_debug_snapshot(),
+		"resource_broker": _get_resource_broker_debug_snapshot(),
 	}
 
 
@@ -1127,38 +1237,66 @@ func _is_pending_cancelled(pending_request: Dictionary) -> bool:
 	return GFVariantData.get_option_bool(pending_request, "cancelled", false)
 
 
-func _get_pending_operation(pending_request: Dictionary) -> _THREADED_RESOURCE_OPERATION_SCRIPT:
+func _get_pending_operation(pending_request: Dictionary) -> _RESOURCE_LEASE_SCRIPT:
 	var value: Variant = GFVariantData.get_option_value(pending_request, "operation")
-	if value is _THREADED_RESOURCE_OPERATION_SCRIPT:
-		var operation: _THREADED_RESOURCE_OPERATION_SCRIPT = value
+	if value is _RESOURCE_LEASE_SCRIPT:
+		var operation: _RESOURCE_LEASE_SCRIPT = value
 		return operation
 	return null
 
 
-func _request_threaded_operation(path: String, type_hint: String) -> _THREADED_RESOURCE_OPERATION_SCRIPT:
-	return _threaded_resource_coordinator.request(path, type_hint)
+func _request_threaded_operation(path: String, type_hint: String) -> _RESOURCE_LEASE_SCRIPT:
+	if _disposed or _resource_broker == null:
+		return null
+	return _resource_broker.request(path, type_hint, { "consumer_id": &"asset" })
 
 
-func _retain_threaded_operation(operation: _THREADED_RESOURCE_OPERATION_SCRIPT) -> void:
-	if operation == null:
-		return
-	var _ref_count: int = _threaded_resource_coordinator.retain_operation(operation)
+func _cancel_threaded_operation(operation: _RESOURCE_LEASE_SCRIPT, reason: StringName) -> void:
+	if operation != null:
+		operation.cancel(reason)
 
 
-func _cancel_threaded_operation(operation: _THREADED_RESOURCE_OPERATION_SCRIPT, reason: StringName) -> void:
-	_threaded_resource_coordinator.cancel_operation(operation, reason, true)
+func _poll_threaded_operation(operation: _RESOURCE_LEASE_SCRIPT) -> Dictionary:
+	if _resource_broker == null:
+		return _make_missing_resource_broker_result()
+	return _resource_broker.poll_lease(operation)
 
 
-func _poll_threaded_operation(operation: _THREADED_RESOURCE_OPERATION_SCRIPT) -> Dictionary:
-	return _threaded_resource_coordinator.poll_operation(operation)
-
-
-func _forget_threaded_operation(operation: _THREADED_RESOURCE_OPERATION_SCRIPT) -> void:
-	_threaded_resource_coordinator.forget_operation(operation)
+func _forget_threaded_operation(operation: _RESOURCE_LEASE_SCRIPT) -> void:
+	if operation != null:
+		operation.release()
 
 
 func _drain_cancelled_threaded_operations() -> void:
-	var _drained_count: int = _threaded_resource_coordinator.drain_cancelled_operations()
+	if _resource_broker != null:
+		_resource_broker.pump()
+
+
+func _make_missing_resource_broker_result() -> Dictionary:
+	return {
+		"status": _RESOURCE_LEASE_SCRIPT.STATUS_FAILED,
+		"progress": 0.0,
+		"resource": null,
+		"has_resource": false,
+		"error": "resource_broker_not_configured",
+		"request_error": ERR_UNCONFIGURED,
+	}
+
+
+func _get_resource_broker_debug_snapshot() -> Dictionary:
+	if _resource_broker == null:
+		return {
+			"configured": false,
+			"error": "resource_broker_not_configured",
+			"request_error": ERR_UNCONFIGURED,
+			"disposed": _disposed,
+		}
+	var snapshot: Dictionary = _resource_broker.get_debug_snapshot()
+	snapshot["configured"] = true
+	snapshot["error"] = ""
+	snapshot["request_error"] = OK
+	snapshot["disposed"] = _disposed
+	return snapshot
 
 
 func _get_group_path_map(group_id: StringName) -> Dictionary:
@@ -1336,13 +1474,16 @@ func _start_or_queue_request(cache_key: String, request: Dictionary) -> void:
 
 
 func _activate_load_request(cache_key: String, request: Dictionary, emit_initial_progress: bool) -> Error:
+	if _disposed:
+		_dispatch_callbacks(_get_pending_callbacks(request), null)
+		return ERR_UNAVAILABLE
 	var lane_id: StringName = _get_pending_lane_id(request)
 	_begin_lane_request(lane_id)
 
 	var path: String = _get_pending_path(request)
 	var type_hint: String = _get_pending_type_hint(request)
-	var operation: _THREADED_RESOURCE_OPERATION_SCRIPT = _request_threaded_operation(path, type_hint)
-	var error: Error = operation.get_request_error() if operation != null else ERR_CANT_CREATE
+	var operation: _RESOURCE_LEASE_SCRIPT = _request_threaded_operation(path, type_hint)
+	var error: Error = operation.get_request_error() if operation != null else ERR_UNCONFIGURED
 	if error != OK:
 		_end_lane_request(lane_id)
 		push_error("[GFAssetUtility] 无法发起异步加载请求：%s (错误码：%d)" % [path, error])
@@ -1487,22 +1628,22 @@ func _poll_pending() -> void:
 		var path: String = _get_pending_path(pending_request)
 		var callbacks: Array = _get_pending_callbacks(pending_request)
 		var cancelled: bool = _is_pending_cancelled(pending_request)
-		var operation: _THREADED_RESOURCE_OPERATION_SCRIPT = _get_pending_operation(pending_request)
+		var operation: _RESOURCE_LEASE_SCRIPT = _get_pending_operation(pending_request)
 		var load_result: Dictionary = _poll_threaded_operation(operation)
 		var status: StringName = GFVariantData.get_option_string_name(
 			load_result,
 			"status",
-			_THREADED_RESOURCE_OPERATION_SCRIPT.STATUS_INVALID
+			_RESOURCE_LEASE_SCRIPT.STATUS_FAILED
 		)
 		if not cancelled:
 			var progress: float = GFVariantData.get_option_float(load_result, "progress", _get_pending_progress(pending_request))
 			_update_pending_progress(path, pending_request, progress)
 
 		match status:
-			_THREADED_RESOURCE_OPERATION_SCRIPT.STATUS_IN_PROGRESS, _THREADED_RESOURCE_OPERATION_SCRIPT.STATUS_DRAINING:
+			_RESOURCE_LEASE_SCRIPT.STATUS_QUEUED, _RESOURCE_LEASE_SCRIPT.STATUS_LOADING:
 				pass
 
-			_THREADED_RESOURCE_OPERATION_SCRIPT.STATUS_COMPLETED:
+			_RESOURCE_LEASE_SCRIPT.STATUS_COMPLETED:
 				var resource: Resource = _get_load_result_resource(load_result)
 				if resource != null and not cancelled:
 					_update_pending_progress(path, pending_request, 1.0)
@@ -1514,7 +1655,7 @@ func _poll_pending() -> void:
 				_forget_threaded_operation(operation)
 				_complete_pending_lane(pending_request)
 
-			_THREADED_RESOURCE_OPERATION_SCRIPT.STATUS_FAILED:
+			_RESOURCE_LEASE_SCRIPT.STATUS_FAILED:
 				_erase_dictionary_key(_pending, cache_key)
 				if not cancelled:
 					push_error("[GFAssetUtility] 异步加载失败：%s" % path)
@@ -1522,15 +1663,7 @@ func _poll_pending() -> void:
 				_forget_threaded_operation(operation)
 				_complete_pending_lane(pending_request)
 
-			_THREADED_RESOURCE_OPERATION_SCRIPT.STATUS_INVALID:
-				_erase_dictionary_key(_pending, cache_key)
-				if not cancelled:
-					push_error("[GFAssetUtility] 无效资源：%s" % path)
-					_dispatch_callbacks(callbacks, null)
-				_forget_threaded_operation(operation)
-				_complete_pending_lane(pending_request)
-
-			_THREADED_RESOURCE_OPERATION_SCRIPT.STATUS_SUPPRESSED:
+			_RESOURCE_LEASE_SCRIPT.STATUS_CANCELLED:
 				_erase_dictionary_key(_pending, cache_key)
 				_forget_threaded_operation(operation)
 				_complete_pending_lane(pending_request)
@@ -1860,65 +1993,6 @@ func _get_oldest_cached_path() -> String:
 			has_oldest = true
 
 	return oldest_path
-
-
-func _request_threaded(path: String, type_hint: String) -> Error:
-	return _THREADED_RESOURCE_LOAD_ADAPTER.request(path, type_hint)
-
-
-func _poll_threaded_resource(path: String, previous_progress: float) -> Dictionary:
-	var progress_result: Array = []
-	var status: ResourceLoader.ThreadLoadStatus = _get_threaded_status_with_progress(path, progress_result)
-	var progress: float = _get_threaded_progress_value(previous_progress, progress_result, status)
-	var resource: Resource = null
-	var result_status: StringName = _THREADED_RESOURCE_LOAD_ADAPTER.STATUS_IN_PROGRESS
-	var error: String = ""
-
-	match status:
-		ResourceLoader.THREAD_LOAD_IN_PROGRESS:
-			result_status = _THREADED_RESOURCE_LOAD_ADAPTER.STATUS_IN_PROGRESS
-
-		ResourceLoader.THREAD_LOAD_LOADED:
-			resource = _take_threaded_resource(path)
-			progress = 1.0
-			result_status = _THREADED_RESOURCE_LOAD_ADAPTER.STATUS_LOADED
-
-		ResourceLoader.THREAD_LOAD_FAILED:
-			result_status = _THREADED_RESOURCE_LOAD_ADAPTER.STATUS_FAILED
-			error = "thread_load_failed"
-
-		ResourceLoader.THREAD_LOAD_INVALID_RESOURCE:
-			result_status = _THREADED_RESOURCE_LOAD_ADAPTER.STATUS_INVALID
-			error = "invalid_resource"
-
-	return {
-		"status": result_status,
-		"thread_status": status,
-		"progress": clampf(progress, 0.0, 1.0),
-		"resource": resource,
-		"has_resource": resource != null,
-		"error": error,
-	}
-
-
-func _get_threaded_status_with_progress(path: String, progress: Array) -> ResourceLoader.ThreadLoadStatus:
-	return _THREADED_RESOURCE_LOAD_ADAPTER.get_status_with_progress(path, progress)
-
-
-func _take_threaded_resource(path: String) -> Resource:
-	return _THREADED_RESOURCE_LOAD_ADAPTER.take_resource(path)
-
-
-func _get_threaded_progress_value(
-	previous_progress: float,
-	progress_result: Array,
-	status: ResourceLoader.ThreadLoadStatus
-) -> float:
-	if status == ResourceLoader.THREAD_LOAD_LOADED:
-		return 1.0
-	if progress_result.size() > 0:
-		return clampf(GFVariantData.to_float(progress_result[0], previous_progress), 0.0, 1.0)
-	return previous_progress
 
 
 func _get_load_result_resource(load_result: Dictionary) -> Resource:

@@ -266,6 +266,7 @@ func test_clear_all_waits_for_active_thread_task() -> void:
 func test_resource_load_uses_threaded_resource_loader_and_applies_on_tick() -> void:
 	var utility: GFBackgroundWorkUtility = GFBackgroundWorkUtility.new()
 	utility.init()
+	var _broker: GFResourceBroker = utility.setup_standalone_resource_broker()
 
 	var task: GFBackgroundWorkTask = utility.submit_resource_load(
 		"res://addons/gf/standard/utilities/jobs/gf_job.gd",
@@ -544,6 +545,28 @@ class ScopedDualCallbackTarget:
 
 
 class SimulatedResourceBackgroundWorkUtility extends GFBackgroundWorkUtility:
+	var _broker: SimulatedResourceBroker = SimulatedResourceBroker.new()
+	var requested_count: int:
+		get:
+			return _broker.requested_count
+	var complete: bool:
+		get:
+			return _broker.complete
+		set(value):
+			_broker.complete = value
+	var loaded_resource: Resource:
+		get:
+			return _broker.loaded_resource
+		set(value):
+			_broker.loaded_resource = value
+
+	func init() -> void:
+		super.init()
+		_broker.init()
+		var _bind_error: Error = set_resource_broker(_broker)
+
+
+class SimulatedResourceBroker extends GFResourceBroker:
 	var requested_count: int = 0
 	var complete: bool = false
 	var loaded_resource: Resource = Resource.new()

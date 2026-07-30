@@ -30,8 +30,13 @@
 | 属性 | [`priority_aging_interval_msec`](#member-gfbackgroundworkutility-properties-priority_aging_interval_msec) | `var priority_aging_interval_msec: int = 1000:` |
 | 属性 | [`priority_aging_step`](#member-gfbackgroundworkutility-properties-priority_aging_step) | `var priority_aging_step: float = 1.0:` |
 | 方法 | [`init`](#member-gfbackgroundworkutility-methods-init) | `func init() -> void:` |
+| 方法 | [`ready`](#member-gfbackgroundworkutility-methods-ready) | `func ready() -> void:` |
 | 方法 | [`tick`](#member-gfbackgroundworkutility-methods-tick) | `func tick(_delta: float = 0.0) -> void:` |
 | 方法 | [`dispose`](#member-gfbackgroundworkutility-methods-dispose) | `func dispose() -> void:` |
+| 方法 | [`release_dependencies`](#member-gfbackgroundworkutility-methods-release_dependencies) | `func release_dependencies() -> void:` |
+| 方法 | [`set_resource_broker`](#member-gfbackgroundworkutility-methods-set_resource_broker) | `func set_resource_broker(broker: GFResourceBroker) -> Error:` |
+| 方法 | [`setup_standalone_resource_broker`](#member-gfbackgroundworkutility-methods-setup_standalone_resource_broker) | `func setup_standalone_resource_broker( max_active_requests: int = 4, max_pending_requests: int = 256 ) -> GFResourceBroker:` |
+| 方法 | [`get_resource_broker`](#member-gfbackgroundworkutility-methods-get_resource_broker) | `func get_resource_broker() -> GFResourceBroker:` |
 | 方法 | [`submit_cpu_work`](#member-gfbackgroundworkutility-methods-submit_cpu_work) | `func submit_cpu_work( worker: Callable, input_data: Variant = null, apply_callback: Callable = Callable(), options: Dictionary = {} ) -> GFBackgroundWorkTask:` |
 | 方法 | [`submit_io_work`](#member-gfbackgroundworkutility-methods-submit_io_work) | `func submit_io_work( worker: Callable, input_data: Variant = null, apply_callback: Callable = Callable(), options: Dictionary = {} ) -> GFBackgroundWorkTask:` |
 | 方法 | [`submit_resource_load`](#member-gfbackgroundworkutility-methods-submit_resource_load) | `func submit_resource_load( path: String, type_hint: String = "", apply_callback: Callable = Callable(), options: Dictionary = {} ) -> GFBackgroundWorkTask:` |
@@ -278,6 +283,19 @@ func init() -> void:
 
 初始化后台工作协调器并启用暂停无关处理。
 
+<a id="member-gfbackgroundworkutility-methods-ready"></a>
+
+### `ready`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func ready() -> void:
+```
+
+从所属架构解析显式注册的共享 GFResourceBroker。
+
 <a id="member-gfbackgroundworkutility-methods-tick"></a>
 
 ### `tick`
@@ -307,6 +325,77 @@ func dispose() -> void:
 ```
 
 取消未完成工作、等待线程结束并清理运行时状态。
+
+<a id="member-gfbackgroundworkutility-methods-release_dependencies"></a>
+
+### `release_dependencies`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func release_dependencies() -> void:
+```
+
+释放共享 Broker 引用和架构依赖作用域。
+
+<a id="member-gfbackgroundworkutility-methods-set_resource_broker"></a>
+
+### `set_resource_broker`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func set_resource_broker(broker: GFResourceBroker) -> Error:
+```
+
+注入共享 Resource Broker。 存在活动资源请求时拒绝替换，以保证每个消费者 Lease 始终由同一 Broker 管理。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `broker` | 要共享的 Broker。 |
+
+返回：绑定结果。
+
+<a id="member-gfbackgroundworkutility-methods-setup_standalone_resource_broker"></a>
+
+### `setup_standalone_resource_broker`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func setup_standalone_resource_broker( max_active_requests: int = 4, max_pending_requests: int = 256 ) -> GFResourceBroker:
+```
+
+为单个独立 BackgroundWork Utility 显式创建私有 Resource Broker。 需要与 Asset 或 Scene 协调时，应由项目创建一个共享 Broker 并分别注入。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `max_active_requests` | Broker 同时活动的底层请求上限。 |
+| `max_pending_requests` | Broker 等待 admission 的不同请求上限。 |
+
+返回：创建的 Broker；存在活动资源请求时返回 null。
+
+<a id="member-gfbackgroundworkutility-methods-get_resource_broker"></a>
+
+### `get_resource_broker`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func get_resource_broker() -> GFResourceBroker:
+```
+
+获取当前注入的 Resource Broker。
+
+返回：已绑定的 Broker；未配置时返回 null。
 
 <a id="member-gfbackgroundworkutility-methods-submit_cpu_work"></a>
 
@@ -544,4 +633,4 @@ func get_debug_snapshot() -> Dictionary:
 
 结构：
 
-- `return`: Dictionary，包含任务计数、queued_ids、queued_priority_entries、优先级老化配置、running_thread_ids、resource_paths、resource_draining_count、threaded_resource_operations、apply_ids、finished_ids、暂停状态和 apply 时间预算。
+- `return`: Dictionary，包含任务计数、queued_ids、queued_priority_entries、优先级老化配置、running_thread_ids、resource_paths、resource_draining_count、resource_broker configured/error/admission、apply_ids、finished_ids、暂停状态和 apply 时间预算。

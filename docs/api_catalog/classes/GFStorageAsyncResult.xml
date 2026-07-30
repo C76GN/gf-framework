@@ -1,15 +1,39 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFStorageAsyncResult" path="addons/gf/standard/utilities/storage/gf_storage_async_result.gd" module="standard" extends="RefCounted" classDigest="379f98e63ae08c9ecd585ba6c97b1ff1b257619a15e6df07c56a9fb514c1abdf">
+<class name="GFStorageAsyncResult" path="addons/gf/standard/utilities/storage/gf_storage_async_result.gd" module="standard" extends="RefCounted" classDigest="28f26129816065b93a4e3cfa6949a31affef4d142a59c4709211d3992911e6a6">
 	<description>GFStorageAsyncResult: 单次异步存储请求的不可变终态。
 结果通过请求 ID 与具体句柄绑定；读取结果保留 `GFStorageReadResult` 的类型化
-失败分类，写入结果只暴露稳定 Error 码。</description>
+失败分类；写入结果额外暴露稳定写入失败分类与隔离的 payload 预检报告。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">value_object</tag>
 		<tag name="since">10.0.0</tag>
 	</tags>
 	<signals />
-	<enums />
+	<enums>
+		<member kind="enum" name="WriteFailureKind">
+			<signature>enum WriteFailureKind {
+	## 写入成功，或当前结果不是写入请求。
+	NONE,
+	## 文件名、transfer 状态或冻结绑定无效。
+	INVALID_REQUEST,
+	## payload 不是 Storage worker 可安全处理的纯 Variant 图。
+	PAYLOAD_INVALID,
+	## worker 编码未能生成有效 bytes。
+	ENCODE_FAILED,
+	## worker 线程未能启动。
+	THREAD_START_FAILED,
+	## Utility dispose 等生命周期边界使任务不可执行。
+	UNAVAILABLE,
+	## 目录、临时文件或事务提交 I/O 失败。
+	IO_FAILED,
+}</signature>
+			<description>异步写入失败的稳定分类。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</enums>
 	<constants />
 	<properties />
 	<methods>
@@ -67,6 +91,25 @@
 				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
+		<member kind="method" name="get_write_failure_kind">
+			<signature>func get_write_failure_kind() -&gt; WriteFailureKind:</signature>
+			<description>获取异步写入失败的稳定分类。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">`WriteFailureKind` 枚举值；成功或 load 请求为 NONE。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_write_validation_report">
+			<signature>func get_write_validation_report() -&gt; Dictionary:</signature>
+			<description>获取 worker payload 预检报告副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">包含 ok、failure_kind、failure_path、path_segments、variant_type、visited_values 和 visited_bytes 的隔离字典；未执行预检时为空。</tag>
+				<tag name="schema">return: Dictionary with ok, failure_kind, failure_path, path_segments, variant_type, variant_type_name, visited_values, and visited_bytes fields; path segments contain only structural indexes, never payload keys, values, or correlatable key digests.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
 		<member kind="method" name="duplicate_result">
 			<signature>func duplicate_result() -&gt; GFStorageAsyncResult:</signature>
 			<description>创建隔离结果副本。</description>
@@ -81,8 +124,8 @@
 			<description>转换为可报告字典。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="return">包含请求身份、终态和读取摘要的字典。</tag>
-				<tag name="schema">return: Dictionary with request_id, operation, file_name, ok, error_code, and read_result fields.</tag>
+				<tag name="return">包含请求身份、终态、读取摘要和写入诊断的字典。</tag>
+				<tag name="schema">return: Dictionary with request_id, operation, file_name, ok, error_code, read_result, write_failure_kind, and write_validation_report fields.</tag>
 				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>

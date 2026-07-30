@@ -57,6 +57,7 @@
 | 方法 | [`canonicalize_data_file_name`](#member-gfstorageutility-methods-canonicalize_data_file_name) | `func canonicalize_data_file_name(file_name: String) -> String:` |
 | 方法 | [`save_data_async`](#member-gfstorageutility-methods-save_data_async) | `func save_data_async(file_name: String, data: Dictionary) -> Error:` |
 | 方法 | [`save_data_request_async`](#member-gfstorageutility-methods-save_data_request_async) | `func save_data_request_async(file_name: String, data: Dictionary) -> GFStorageAsyncOperation:` |
+| 方法 | [`save_payload_request_async`](#member-gfstorageutility-methods-save_payload_request_async) | `func save_payload_request_async( file_name: String, transfer: GFStoragePayloadTransfer ) -> GFStorageAsyncOperation:` |
 | 方法 | [`load_data_async`](#member-gfstorageutility-methods-load_data_async) | `func load_data_async(file_name: String) -> Error:` |
 | 方法 | [`load_data_request_async`](#member-gfstorageutility-methods-load_data_request_async) | `func load_data_request_async(file_name: String) -> GFStorageAsyncOperation:` |
 | 方法 | [`wait_for_async_tasks`](#member-gfstorageutility-methods-wait_for_async_tasks) | `func wait_for_async_tasks() -> void:` |
@@ -756,6 +757,28 @@ func save_data_request_async(file_name: String, data: Dictionary) -> GFStorageAs
 结构：
 
 - `data`: Dictionary，要序列化并保存的数据载荷。
+
+<a id="member-gfstorageutility-methods-save_payload_request_async"></a>
+
+### `save_payload_request_async`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func save_payload_request_async( file_name: String, transfer: GFStoragePayloadTransfer ) -> GFStorageAsyncOperation:
+```
+
+在线程中保存由单所有者 transfer 移交的纯 Variant payload。 路径校验在 claim 前完成；非法路径不会消费 transfer。首次合法请求会冻结当前 Storage 实例、规范文件名与 codec options。同一 transfer 可在旧 attempt 尚未 完成时提交给相同绑定，用于 timeout retry；所有 attempt 只读同一逻辑快照。 调用方完成整个重试 generation 后必须显式调用 transfer.release()。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `file_name` | 目标文件名。 |
+| `transfer` | 已通过 take_ownership() 接收 payload 的 opaque transfer。 |
+
+返回：已配置请求句柄；输入无效或启动失败时句柄立即进入失败终态。
 
 <a id="member-gfstorageutility-methods-load_data_async"></a>
 

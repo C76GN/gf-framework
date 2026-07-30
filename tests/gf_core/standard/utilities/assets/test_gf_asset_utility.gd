@@ -9,6 +9,7 @@ func before_each() -> void:
 	_utility = GFAssetUtility.new()
 	_utility.max_cache_size = 3
 	_utility.init()
+	var _broker: GFResourceBroker = _utility.setup_standalone_resource_broker()
 
 
 func after_each() -> void:
@@ -661,51 +662,123 @@ func _uid_path_for(path: String) -> String:
 # --- 内部类 ---
 
 class FailingAssetUtility extends GFAssetUtility:
+	var _broker: FailingResourceBroker = FailingResourceBroker.new()
+
+	func init() -> void:
+		super.init()
+		_broker.init()
+		var _bind_error: Error = set_resource_broker(_broker)
+
+	func fail_path(path: String) -> void:
+		_broker.fail_path(path)
+
+
+class TrackingAssetUtility extends GFAssetUtility:
+	var _broker: TrackingResourceBroker = TrackingResourceBroker.new()
+	var requested_type_hints: Array[String]:
+		get:
+			return _broker.requested_type_hints
+	var progress: float:
+		get:
+			return _broker.progress
+		set(value):
+			_broker.progress = value
+
+	func init() -> void:
+		super.init()
+		_broker.init()
+		var _bind_error: Error = set_resource_broker(_broker)
+
+
+class CompletingAssetUtility extends GFAssetUtility:
+	var _broker: CompletingResourceBroker = CompletingResourceBroker.new()
+	var requested_count: int:
+		get:
+			return _broker.requested_count
+	var requested_paths: Array[String]:
+		get:
+			return _broker.requested_paths
+	var complete: bool:
+		get:
+			return _broker.complete
+		set(value):
+			_broker.complete = value
+	var progress: float:
+		get:
+			return _broker.progress
+		set(value):
+			_broker.progress = value
+	var loaded_resource: Resource:
+		get:
+			return _broker.loaded_resource
+		set(value):
+			_broker.loaded_resource = value
+
+	func init() -> void:
+		super.init()
+		_broker.init()
+		var _bind_error: Error = set_resource_broker(_broker)
+
+
+class FailingResourceBroker extends ResourceBrokerFixture:
 	var _should_fail_paths: Dictionary = {}
 
 	func fail_path(path: String) -> void:
 		_should_fail_paths[path] = true
 
-	func _request_threaded(_path: String, _type_hint: String) -> Error:
+	func _request_threaded_resource(_path: String, _type_hint: String) -> Error:
 		return OK
 
-	func _get_threaded_status_with_progress(path: String, _progress: Array) -> ResourceLoader.ThreadLoadStatus:
+	func _poll_threaded_resource(path: String, previous_progress: float) -> Dictionary:
 		if _should_fail_paths.has(path):
-			return ResourceLoader.THREAD_LOAD_FAILED
-		return ResourceLoader.THREAD_LOAD_IN_PROGRESS
+			return _make_poll_result(&"failed", previous_progress, null, "thread_load_failed")
+		return _make_poll_result(&"in_progress", previous_progress)
 
 
-class TrackingAssetUtility extends GFAssetUtility:
+class TrackingResourceBroker extends ResourceBrokerFixture:
 	var requested_type_hints: Array[String] = []
 	var progress: float = 0.0
 
-	func _request_threaded(_path: String, type_hint: String) -> Error:
+	func _request_threaded_resource(_path: String, type_hint: String) -> Error:
 		requested_type_hints.append(type_hint)
 		return OK
 
-	func _get_threaded_status_with_progress(_path: String, progress_result: Array) -> ResourceLoader.ThreadLoadStatus:
-		progress_result.append(progress)
-		return ResourceLoader.THREAD_LOAD_IN_PROGRESS
+	func _poll_threaded_resource(_path: String, _previous_progress: float) -> Dictionary:
+		return _make_poll_result(&"in_progress", progress)
 
 
-class CompletingAssetUtility extends GFAssetUtility:
+class CompletingResourceBroker extends ResourceBrokerFixture:
 	var requested_count: int = 0
 	var requested_paths: Array[String] = []
 	var complete: bool = false
 	var progress: float = 0.0
 	var loaded_resource: Resource = Resource.new()
 
-	func _request_threaded(path: String, _type_hint: String) -> Error:
+	func _request_threaded_resource(path: String, _type_hint: String) -> Error:
 		requested_count += 1
 		requested_paths.append(path)
 		return OK
 
-	func _get_threaded_status_with_progress(_path: String, progress_result: Array) -> ResourceLoader.ThreadLoadStatus:
-		progress_result.append(progress)
-		return ResourceLoader.THREAD_LOAD_LOADED if complete else ResourceLoader.THREAD_LOAD_IN_PROGRESS
+	func _poll_threaded_resource(_path: String, _previous_progress: float) -> Dictionary:
+		if complete:
+			return _make_poll_result(&"loaded", 1.0, loaded_resource)
+		return _make_poll_result(&"in_progress", progress)
 
-	func _take_threaded_resource(_path: String) -> Resource:
-		return loaded_resource
+
+class ResourceBrokerFixture extends GFResourceBroker:
+	func _make_poll_result(
+		status: StringName,
+		progress: float,
+		resource: Resource = null,
+		error: String = ""
+	) -> Dictionary:
+		return {
+			"status": status,
+			"progress": progress,
+			"resource": resource,
+			"has_resource": resource != null,
+			"error": error,
+		}
 
 
 class CallbackState:

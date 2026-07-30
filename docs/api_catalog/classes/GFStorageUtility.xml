@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFStorageUtility" path="addons/gf/standard/utilities/storage/gf_storage_utility.gd" module="standard" extends="GFUtility" classDigest="7d567f5474ea0a98484c774a6030043e41ff1dfb9e85d808e3d8f56819f2d31a">
+<class name="GFStorageUtility" path="addons/gf/standard/utilities/storage/gf_storage_utility.gd" module="standard" extends="GFUtility" classDigest="6064b17e618783d53c51d21bb3ac2c29ca97d8b129db1768ebc84fb2c290c150">
 	<description>GFStorageUtility: 基于 `user://` 的轻量存档系统。
 支持槽位存档、元数据分离读取、`Resource` 存取，
 以及可配置 codec、完整性校验、版本迁移和简单混淆，适合通用本地持久化场景。
@@ -379,6 +379,21 @@
 				<tag name="return">已配置的请求句柄；输入无效或启动失败时句柄立即进入失败终态。</tag>
 				<tag name="schema">data: Dictionary，要序列化并保存的数据载荷。</tag>
 				<tag name="since">10.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="save_payload_request_async">
+			<signature>func save_payload_request_async( file_name: String, transfer: GFStoragePayloadTransfer ) -&gt; GFStorageAsyncOperation:</signature>
+			<description>在线程中保存由单所有者 transfer 移交的纯 Variant payload。
+路径校验在 claim 前完成；非法路径不会消费 transfer。首次合法请求会冻结当前
+Storage 实例、规范文件名与 codec options。同一 transfer 可在旧 attempt 尚未
+完成时提交给相同绑定，用于 timeout retry；所有 attempt 只读同一逻辑快照。
+调用方完成整个重试 generation 后必须显式调用 transfer.release()。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">file_name: 目标文件名。</tag>
+				<tag name="param">transfer: 已通过 take_ownership() 接收 payload 的 opaque transfer。</tag>
+				<tag name="return">已配置请求句柄；输入无效或启动失败时句柄立即进入失败终态。</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 		<member kind="method" name="load_data_async">

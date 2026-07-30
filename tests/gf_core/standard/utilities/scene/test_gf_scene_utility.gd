@@ -196,38 +196,30 @@ func test_loading_scene_change_is_deferred_until_safe_tick() -> void:
 	assert_signal_emitted(_scene_util, "loading_scene_shown", "loading scene 切入后应发出显示信号。")
 
 
-func test_headless_style_sync_active_load_uses_safe_scene_change_flow() -> void:
+func test_headless_active_load_still_uses_resource_broker_and_safe_scene_change() -> void:
 	var scene_path: String = "res://addons/gut/gui/NormalGui.tscn"
-	_scene_util.force_sync_active_load = true
-	_scene_util.sync_active_load_scene = _make_empty_scene()
+	_scene_util.use_fake_threaded_resource = true
+	_scene_util.threaded_resource = _make_empty_scene()
 	watch_signals(_scene_util)
 
-	var _load_error: Error = _scene_util.load_scene_async(scene_path)
+	var load_error: Error = _scene_util.load_scene_async(scene_path)
 
-	assert_eq(_scene_util.sync_active_load_paths, PackedStringArray([scene_path]), "同步降级应加载目标场景资源。")
-	assert_true(_is_scene_utility_loading(_scene_util), "同步资源解析后仍应保持 loading 状态直到安全切场。")
-	assert_eq(_scene_util.packed_scene_changes, 0, "同步资源解析不应在调用栈内直接切场。")
+	assert_eq(load_error, OK)
+	assert_eq(
+		_scene_util.threaded_requested_paths,
+		PackedStringArray([scene_path]),
+		"headless 活动场景加载也必须经过共享 Broker。"
+	)
+	assert_true(_is_scene_utility_loading(_scene_util))
+	assert_eq(_scene_util.packed_scene_changes, 0)
 	assert_signal_not_emitted(_scene_util, "scene_load_completed", "安全切场前不应发出完成信号。")
 
+	_scene_util.threaded_complete = true
 	_scene_util.tick(0.0)
 
-	assert_eq(_scene_util.packed_scene_changes, 1, "安全 tick 后应完成目标 PackedScene 切换。")
-	assert_false(_is_scene_utility_loading(_scene_util), "同步降级完成切场后应重置 loading 状态。")
-	assert_signal_emitted(_scene_util, "scene_load_completed", "同步降级成功后应沿用原有完成信号。")
-
-
-func test_headless_style_sync_active_load_failure_resets_loading_state() -> void:
-	var scene_path: String = "res://addons/gut/gui/NormalGui.tscn"
-	_scene_util.force_sync_active_load = true
-	watch_signals(_scene_util)
-
-	var _load_error: Error = _scene_util.load_scene_async(scene_path)
-
-	assert_eq(_scene_util.sync_active_load_paths, PackedStringArray([scene_path]), "同步降级应尝试加载目标场景。")
-	assert_false(_is_scene_utility_loading(_scene_util), "同步加载失败后应重置 loading 状态。")
-	assert_eq(_scene_util.packed_scene_changes, 0, "同步加载失败不应切换目标场景。")
-	assert_signal_emitted(_scene_util, "scene_load_failed", "同步加载失败应沿用加载失败信号。")
-	assert_push_error("[GFSceneUtility] 同步加载场景失败：%s" % scene_path)
+	assert_eq(_scene_util.packed_scene_changes, 1, "Broker 完成后应在安全 tick 切换 PackedScene。")
+	assert_false(_is_scene_utility_loading(_scene_util))
+	assert_signal_emitted(_scene_util, "scene_load_completed")
 
 
 func test_failure_restore_after_loading_scene_is_deferred_until_safe_tick() -> void:
@@ -283,13 +275,20 @@ func test_cancelled_scene_preload_drains_late_completion_without_cache() -> void
 	_scene_util.threaded_complete = true
 	_scene_util.tick(0.0)
 	var snapshot: Dictionary = _scene_util.get_scene_cache_debug_snapshot()
-	var threaded_snapshot: Dictionary = GFVariantData.get_option_dictionary(snapshot, "threaded_resource_operations")
+	var broker_snapshot: Dictionary = GFVariantData.get_option_dictionary(
+		snapshot,
+		"resource_broker"
+	)
 
 	assert_eq(error, OK, "模拟预加载应成功发起。")
 	assert_signal_emitted(_scene_util, "scene_preload_cancelled", "取消预加载应发出取消信号。")
 	assert_false(_scene_util.is_scene_preloading(scene_path), "取消后的预加载不应再对外显示为进行中。")
 	assert_false(_scene_util.is_scene_preloaded(scene_path), "取消后的迟到完成不应写入场景预加载缓存。")
-	assert_eq(GFVariantData.get_option_int(threaded_snapshot, "operation_count"), 0, "drain 后不应残留 threaded operation。")
+	assert_eq(
+		GFVariantData.get_option_int(broker_snapshot, "active_count"),
+		0,
+		"drain 后 Broker 不应残留活动底层请求。"
+	)
 	_scene_util.threaded_resource = null
 
 
@@ -463,18 +462,35 @@ class DummyUtility extends GFUtility:
 
 
 class SampleSceneUtility extends GFSceneUtility:
+	var _broker: SampleSceneResourceBroker = SampleSceneResourceBroker.new()
 	var current_scene_path: String = "res://tests/current_scene.tscn"
 	var sync_scene_changes: Array[String] = []
 	var packed_scene_changes: int = 0
 	var packed_scene_change_error: bool = false
 	var loading_scene_node: Node = null
-	var force_sync_active_load: bool = false
-	var sync_active_load_scene: PackedScene = null
-	var sync_active_load_paths: PackedStringArray = PackedStringArray()
-	var use_fake_threaded_resource: bool = false
-	var threaded_complete: bool = false
-	var threaded_resource: Resource = null
-	var threaded_requested_paths: PackedStringArray = PackedStringArray()
+	var use_fake_threaded_resource: bool:
+		get:
+			return _broker.use_fake_threaded_resource
+		set(value):
+			_broker.use_fake_threaded_resource = value
+	var threaded_complete: bool:
+		get:
+			return _broker.threaded_complete
+		set(value):
+			_broker.threaded_complete = value
+	var threaded_resource: Resource:
+		get:
+			return _broker.threaded_resource
+		set(value):
+			_broker.threaded_resource = value
+	var threaded_requested_paths: PackedStringArray:
+		get:
+			return _broker.threaded_requested_paths
+
+	func init() -> void:
+		super.init()
+		_broker.init()
+		var _bind_error: Error = set_resource_broker(_broker)
 
 	func _get_current_scene_path() -> String:
 		return current_scene_path
@@ -493,18 +509,17 @@ class SampleSceneUtility extends GFSceneUtility:
 	func _get_loading_scene_node() -> Node:
 		return loading_scene_node
 
-	func _should_load_active_scene_synchronously() -> bool:
-		return force_sync_active_load
+class SampleSceneResourceBroker extends GFResourceBroker:
+	var use_fake_threaded_resource: bool = false
+	var threaded_complete: bool = false
+	var threaded_resource: Resource = null
+	var threaded_requested_paths: PackedStringArray = PackedStringArray()
 
-	func _load_packed_scene_synchronously(path: String) -> PackedScene:
-		var _appended: bool = sync_active_load_paths.append(path)
-		return sync_active_load_scene
-
-	func _request_threaded_resource(path: String, _type_hint: String) -> Error:
+	func _request_threaded_resource(path: String, type_hint: String) -> Error:
 		if use_fake_threaded_resource:
 			var _appended: bool = threaded_requested_paths.append(path)
 			return OK
-		return super._request_threaded_resource(path, _type_hint)
+		return super._request_threaded_resource(path, type_hint)
 
 	func _poll_threaded_resource(_path: String, previous_progress: float) -> Dictionary:
 		if not use_fake_threaded_resource:

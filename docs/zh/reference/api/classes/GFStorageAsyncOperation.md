@@ -24,6 +24,8 @@
 | 方法 | [`is_pending`](#member-gfstorageasyncoperation-methods-is_pending) | `func is_pending() -> bool:` |
 | 方法 | [`is_completed`](#member-gfstorageasyncoperation-methods-is_completed) | `func is_completed() -> bool:` |
 | 方法 | [`get_result`](#member-gfstorageasyncoperation-methods-get_result) | `func get_result() -> GFStorageAsyncResult:` |
+| 方法 | [`get_payload_transfer`](#member-gfstorageasyncoperation-methods-get_payload_transfer) | `func get_payload_transfer() -> GFStoragePayloadTransfer:` |
+| 方法 | [`reclaim_failed_payload`](#member-gfstorageasyncoperation-methods-reclaim_failed_payload) | `func reclaim_failed_payload() -> GFStoragePayloadTransfer:` |
 
 ## 信号
 
@@ -165,3 +167,33 @@ func get_result() -> GFStorageAsyncResult:
 获取终态结果副本。
 
 返回：已完成结果；等待中返回 null。
+
+<a id="member-gfstorageasyncoperation-methods-get_payload_transfer"></a>
+
+### `get_payload_transfer`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func get_payload_transfer() -> GFStoragePayloadTransfer:
+```
+
+获取当前请求关联的 opaque payload transfer。 该句柄不公开 payload，可在当前 attempt 仍运行时交给同一 Storage 和规范文件 发起 timeout retry。调用方完成整个重试 generation 后必须显式 `release()`。
+
+返回：等待中的 transfer-backed save 请求返回句柄；终态及普通 save/load 请求返回 null。
+
+<a id="member-gfstorageasyncoperation-methods-reclaim_failed_payload"></a>
+
+### `reclaim_failed_payload`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func reclaim_failed_payload() -> GFStoragePayloadTransfer:
+```
+
+一次性取回失败请求关联的 opaque payload transfer。 仅请求进入失败终态且 attempt lease 已结束后可取回。返回值仍不公开 payload， 但可直接用于同一冻结 Storage、文件名和 codec options 的重试。
+
+返回：首次取回失败 transfer 时返回原句柄；其他情况返回 null。

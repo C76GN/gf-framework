@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFAssetUtility" path="addons/gf/standard/utilities/assets/gf_asset_utility.gd" module="standard" extends="GFUtility" classDigest="8d534e633bea016b327d19eedbb52a8295b34971d87993b5901a7f7176a5ef49">
+<class name="GFAssetUtility" path="addons/gf/standard/utilities/assets/gf_asset_utility.gd" module="standard" extends="GFUtility" classDigest="950adf5a201e12516dbad221a054729c8f37a91c5044a99c4f353ee4cbe5c93e">
 	<description>GFAssetUtility: 异步资源加载管理器，带 LRU 缓存。
 封装 Godot 的 threaded `ResourceLoader` 请求，
 用于避免大资源同步加载阻塞主线程，并在完成后统一分发回调与维护缓存。</description>
@@ -111,11 +111,61 @@
 				<tag name="api">public</tag>
 			</tags>
 		</member>
+		<member kind="method" name="ready">
+			<signature>func ready() -&gt; void:</signature>
+			<description>从所属架构解析显式注册的共享 GFResourceBroker。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
 		<member kind="method" name="dispose">
 			<signature>func dispose() -&gt; void:</signature>
 			<description>释放资源加载工具持有的运行时状态。</description>
 			<tags>
 				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="method" name="release_dependencies">
+			<signature>func release_dependencies() -&gt; void:</signature>
+			<description>释放共享 Broker 引用和架构依赖作用域。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="set_resource_broker">
+			<signature>func set_resource_broker(broker: GFResourceBroker) -&gt; Error:</signature>
+			<description>注入共享 Resource Broker。
+架构模式应把同一个 GFResourceBroker 注册为 Utility；独立模式可在 init 前
+显式调用本方法。存在活动或排队请求时拒绝替换。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">broker: 要共享的 Broker。</tag>
+				<tag name="return">绑定结果。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="setup_standalone_resource_broker">
+			<signature>func setup_standalone_resource_broker( max_active_requests: int = 4, max_pending_requests: int = 256 ) -&gt; GFResourceBroker:</signature>
+			<description>为独立使用显式创建当前 Utility 私有拥有的 Resource Broker。
+多个独立 Utility 需要协调时，应由项目创建一个 GFResourceBroker，并分别调用
+set_resource_broker()；本入口只适合单个独立 Utility。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">max_active_requests: Broker 同时活动的底层请求上限。</tag>
+				<tag name="param">max_pending_requests: Broker 等待 admission 的不同请求上限。</tag>
+				<tag name="return">创建的 Broker；存在活动请求时返回 null。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_resource_broker">
+			<signature>func get_resource_broker() -&gt; GFResourceBroker:</signature>
+			<description>获取当前注入的 Resource Broker。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">已绑定的 Broker；未配置时返回 null。</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 		<member kind="method" name="load_async">
@@ -380,7 +430,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">诊断快照字典。</tag>
-				<tag name="schema">return: Dictionary with max_cache_size, cache_count, cached_paths, cache_keys, pending_count, pending_paths, pending_cache_keys, pending_progress, pinned_count, pinned_paths, pinned_cache_keys, reference_counts, cache_key_reference_counts, resource_identities, group_count, queued_count, queued_paths, lane_active_counts, cache_diagnostics, and threaded_resource_operations diagnostic fields.</tag>
+				<tag name="schema">return: Dictionary with max_cache_size, cache_count, cached_paths, cache_keys, pending_count, pending_paths, pending_cache_keys, pending_progress, pinned_count, pinned_paths, pinned_cache_keys, reference_counts, cache_key_reference_counts, resource_identities, group_count, queued_count, queued_paths, lane_active_counts, cache_diagnostics, and resource_broker configured/error/admission diagnostic fields.</tag>
 				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
