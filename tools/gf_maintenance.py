@@ -52,6 +52,7 @@ import gf_maintenance_check_graph
 import gf_credential_gate
 import gf_codeql_suppression_policy
 import gf_changelog
+import gf_path_security
 import extract_release_notes as gf_release_notes
 import gf_process_supervisor
 import gf_maintenance_rendering as maintenance_rendering
@@ -2797,7 +2798,17 @@ def parse_api_catalog_snapshot(
 			except ET.ParseError as exc:
 				errors.append(f"{label}:{class_path} XML parse failed: {exc}")
 				continue
-			classes[class_name] = parse_api_class_snapshot(class_ref, class_root, module_id)
+			snapshot_root = resolve_api_catalog_class_root(class_name, class_root)
+			if snapshot_root is None:
+				errors.append(
+					f"{label}:{class_path} class {class_name} is missing or ambiguous."
+				)
+				continue
+			classes[class_name] = parse_api_class_snapshot(
+				class_ref,
+				snapshot_root,
+				module_id,
+			)
 	return {
 		"schema_version": index_root.get("schemaVersion", ""),
 		"source_digest": index_root.get("sourceDigest", ""),
@@ -2805,6 +2816,24 @@ def parse_api_catalog_snapshot(
 		"classes": classes,
 		"errors": errors,
 	}
+
+
+def resolve_api_catalog_class_root(
+	class_name: str,
+	class_root: ET.Element,
+) -> ET.Element | None:
+	"""Resolve one index class reference to its exact outer or nested XML node."""
+	if class_name in {
+		class_root.get("name", ""),
+		class_root.get("fullName", ""),
+	}:
+		return class_root
+	matches = [
+		nested_class
+		for nested_class in class_root.findall(".//innerClasses/class")
+		if nested_class.get("fullName", "") == class_name
+	]
+	return matches[0] if len(matches) == 1 else None
 
 
 def parse_api_class_snapshot(class_ref: ET.Element, class_root: ET.Element, module_id: str) -> dict[str, Any]:
@@ -3220,15 +3249,9 @@ def codeql_suppression_policy() -> dict[str, Any]:
 		strict_utf8=True,
 	)
 
-	def read_tracked_utf8_text(path: Path) -> str:
-		if _ACTIVE_WORKSPACE_SNAPSHOT is not None:
-			return _ACTIVE_WORKSPACE_SNAPSHOT.read_utf8_text_strict(path)
-		return path.read_text(encoding="utf-8")
-
 	return gf_codeql_suppression_policy.audit_tracked_sources(
 		ROOT,
 		tracked_paths_result["paths"],
-		read_tracked_utf8_text,
 		git_error=tracked_paths_result["error"],
 	)
 
@@ -16091,6 +16114,12 @@ def maintenance_self_test() -> dict[str, Any]:
 			"# lgtm[py/clear-text-storage-sensitive-data]\nsink()\n",
 		)
 	]
+	codeql_allowed_lgtm_result = (
+		gf_codeql_suppression_policy.audit_python_source(
+			"tests/gf_core/tools/test_fixture.py",
+			"# LGTM after validation\nsink()\n",
+		)
+	)
 	codeql_config_fixture_issues = gf_codeql_suppression_policy.audit_codeql_config(
 		".github/codeql/codeql-config.yml",
 		"disable-default-queries: true\n"
@@ -16099,6 +16128,33 @@ def maintenance_self_test() -> dict[str, Any]:
 		"query-filters:\n"
 		"  - exclude:\n"
 		"      id: py/clear-text-storage-sensitive-data\n",
+	)
+	codeql_safe_yaml_issues = gf_codeql_suppression_policy.audit_codeql_config(
+		".github/workflows/codeql.yml",
+		'name: "CodeQL review prose\n'
+		'  queries: harmless"\n'
+		"steps:\n"
+		"  - run: |2\n"
+		"      query-filters: harmless\n"
+		"some.input: harmless\n"
+		"url: https://example.invalid/#paths-ignore\n",
+	)
+	codeql_structural_yaml_issues = (
+		gf_codeql_suppression_policy.audit_codeql_config(
+			".github/workflows/codeql.yml",
+			"\ufeffname: CodeQL\n"
+			"steps:\n"
+			"  - run: |\n"
+			"      echo queries: harmless\n"
+			"    queries: ./security/custom.qls\n"
+			"with: {paths-ignore:, other: 1}\n"
+			"? *indirect_key\n"
+			": harmless\n",
+		)
+	)
+	codeql_escaped_key_issues = gf_codeql_suppression_policy.audit_codeql_config(
+		".github/workflows/codeql.yml",
+		'name: CodeQL\n? "quer\\\n  ies"\n: ./security/custom.qls\n',
 	)
 	record_result(
 		"codeql_suppression_policy_rejects_broad_escape_hatches",
@@ -16120,6 +16176,7 @@ def maintenance_self_test() -> dict[str, Any]:
 			str(issue.get("kind", ""))
 			for issue in codeql_python_fixture_results[-1][0]
 		}
+		and codeql_allowed_lgtm_result == ([], 0)
 		and {
 			"codeql_suppression.default_queries_disabled",
 			"codeql_suppression.tests_path_ignored",
@@ -16128,6 +16185,23 @@ def maintenance_self_test() -> dict[str, Any]:
 			str(issue.get("kind", ""))
 			for issue in codeql_config_fixture_issues
 		}
+		and not codeql_safe_yaml_issues
+		and {
+			"codeql_suppression.complex_mapping_key_forbidden",
+			"codeql_suppression.custom_queries_forbidden",
+			"codeql_suppression.tests_path_ignored",
+		} == {
+			str(issue.get("kind", ""))
+			for issue in codeql_structural_yaml_issues
+		}
+		and {
+			"codeql_suppression.custom_queries_forbidden",
+			"codeql_suppression.yaml_line_continuation_forbidden",
+		} == {
+			str(issue.get("kind", ""))
+			for issue in codeql_escaped_key_issues
+		}
+		and callable(gf_path_security.read_pinned_utf8_regular_file)
 		and gf_credential_gate.SUPPRESSION_RE.fullmatch(
 			"# codeql[py/clear-text-storage-sensitive-data]"
 		) is None,
@@ -18728,6 +18802,42 @@ def maintenance_self_test() -> dict[str, Any]:
 		api_schema_class_snapshot["members"]["method:snapshot"]["schema"]
 		== ["return: Dictionary with stable_field."],
 		f"API baseline snapshots must preserve structured schema tags: {api_schema_class_snapshot}",
+	)
+	api_inner_catalog_snapshot = parse_api_catalog_snapshot(
+		(
+			'<apiCatalog schemaVersion="1"><module id="fixture">'
+			'<class name="GFOuter" path="classes/GFOuter.xml" />'
+			'<class name="GFOuter.Inner" path="classes/GFOuter.xml" />'
+			"</module></apiCatalog>"
+		),
+		lambda _class_path: (
+			'<class name="GFOuter" module="fixture">'
+			'<methods><member kind="method" name="snapshot">'
+			'<signature>func snapshot() -&gt; Dictionary:</signature>'
+			'<tags><tag name="schema">return: outer schema.</tag></tags>'
+			"</member></methods>"
+			'<innerClasses><class name="Inner" fullName="GFOuter.Inner">'
+			'<methods><member kind="method" name="snapshot">'
+			'<signature>func snapshot() -&gt; Dictionary:</signature>'
+			'<tags><tag name="schema">return: inner schema.</tag></tags>'
+			"</member></methods>"
+			"</class></innerClasses></class>"
+		),
+		"fixture",
+	)
+	record_result(
+		"api_baseline_snapshot_resolves_inner_class_nodes",
+		not api_inner_catalog_snapshot["errors"]
+		and api_inner_catalog_snapshot["classes"]["GFOuter"]["members"][
+			"method:snapshot"
+		]["schema"] == ["return: outer schema."]
+		and api_inner_catalog_snapshot["classes"]["GFOuter.Inner"]["members"][
+			"method:snapshot"
+		]["schema"] == ["return: inner schema."],
+		(
+			"API baseline snapshots must resolve index inner-class references to "
+			f"their matching nested XML node: {api_inner_catalog_snapshot}"
+		),
 	)
 
 	api_base_snapshot = {

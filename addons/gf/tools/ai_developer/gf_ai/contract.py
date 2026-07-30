@@ -8,7 +8,14 @@ from pathlib import Path
 from typing import Any
 
 from . import catalog
-from .constants import CONTRACT_SCHEMA_VERSION, DEFAULT_CONTRACT_PATH, DEFAULT_OFFICIAL_REPOSITORY, SCHEMA_ROOT, TEMPLATE_ROOT
+from .constants import (
+	CONTRACT_SCHEMA_VERSION,
+	DEFAULT_CONTRACT_PATH,
+	DEFAULT_OFFICIAL_REPOSITORY,
+	RESERVED_DEPENDENCY_IDS,
+	SCHEMA_ROOT,
+	TEMPLATE_ROOT,
+)
 from .paths import (
 	atomic_write_json,
 	is_reserved_framework_resource_path,
@@ -203,6 +210,22 @@ def _semantic_issues(data: dict[str, Any], project_root: Path) -> list[dict[str,
 	module_ids = _unique_ids(modules, "$.architecture.modules", issues)
 	adapters = _object_list(framework, "adapter_boundaries")
 	adapter_ids = _unique_ids(adapters, "$.framework.adapter_boundaries", issues)
+	for components, component_path in (
+		(modules, "$.architecture.modules"),
+		(adapters, "$.framework.adapter_boundaries"),
+	):
+		for index, component in enumerate(components):
+			component_id = str(component.get("id", ""))
+			if component_id in RESERVED_DEPENDENCY_IDS:
+				issues.append(_issue(
+					"error",
+					"reserved_dependency_id",
+					f"{component_path}[{index}].id",
+					(
+						"Module and adapter ids share one dependency namespace and cannot "
+						f"claim the reserved dependency target {component_id!r}."
+					),
+				))
 	for component_id in sorted(module_ids.intersection(adapter_ids)):
 		issues.append(_issue(
 			"error",

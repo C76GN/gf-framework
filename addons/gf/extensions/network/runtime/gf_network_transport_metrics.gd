@@ -280,6 +280,15 @@ func apply_dict(data: Dictionary) -> void:
 		processed_entry_count += 1
 		if not (key_value is String or key_value is StringName):
 			continue
+		var raw_metric_id: String = ""
+		if key_value is String:
+			var string_metric_id: String = key_value
+			raw_metric_id = string_metric_id
+		else:
+			var string_name_metric_id: StringName = key_value
+			raw_metric_id = String(string_name_metric_id)
+		if raw_metric_id.length() > ABSOLUTE_MAX_METRIC_ID_LENGTH:
+			continue
 		var value: Variant = metric_values[key_value]
 		if not (value is int or value is float):
 			continue
@@ -291,7 +300,7 @@ func apply_dict(data: Dictionary) -> void:
 			var float_value: float = value
 			numeric_value = float_value
 		var _set: bool = set_metric(
-			StringName(GFVariantData.to_text(key_value)),
+			StringName(raw_metric_id),
 			numeric_value
 		)
 
@@ -327,7 +336,10 @@ static func from_dict(data: Dictionary) -> GFNetworkTransportMetrics:
 # --- 私有/辅助方法 ---
 
 static func _normalize_metric_id(metric_id: StringName) -> StringName:
-	var normalized_text: String = String(metric_id).strip_edges()
+	var raw_text: String = String(metric_id)
+	if raw_text.length() > ABSOLUTE_MAX_METRIC_ID_LENGTH:
+		return &""
+	var normalized_text: String = raw_text.strip_edges()
 	if (
 		normalized_text.is_empty()
 		or normalized_text.length() > ABSOLUTE_MAX_METRIC_ID_LENGTH

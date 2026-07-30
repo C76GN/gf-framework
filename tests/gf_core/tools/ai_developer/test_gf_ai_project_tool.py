@@ -1062,6 +1062,75 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 		self.assertIn("forbidden_module_dependency", forbidden_codes)
 		self.assertNotIn("undeclared_module_dependency", forbidden_codes)
 
+		self._set_modules([self._module("core", allowed=["platform_adapter"])])
+		allowed_report = snapshot.build_snapshot(self.project_root)
+		allowed_codes = {item["code"] for item in allowed_report["drift"]["issues"]}
+
+		self.assertNotIn("forbidden_module_dependency", allowed_codes)
+		self.assertNotIn("undeclared_module_dependency", allowed_codes)
+
+	def test_dependency_namespace_rejects_reserved_module_and_adapter_ids(self) -> None:
+		contract_path = self.project_root / ".gf/project_contract.json"
+		base_contract = json.loads(contract_path.read_text(encoding="utf-8"))
+		for component_kind in ("module", "adapter"):
+			for reserved_id in ("gf", "godot"):
+				with self.subTest(component_kind=component_kind, reserved_id=reserved_id):
+					contract = copy.deepcopy(base_contract)
+					modules = [self._module(reserved_id)] if component_kind == "module" else []
+					adapters = [self._adapter(reserved_id)] if component_kind == "adapter" else []
+					contract["architecture"]["modules"] = modules
+					contract["framework"]["adapter_boundaries"] = adapters
+					contract_path.write_text(
+						json.dumps(contract, ensure_ascii=False),
+						encoding="utf-8",
+					)
+
+					result = load_contract(self.project_root)
+					plan = dependencies.TargetOwnershipPlan(modules, adapters)
+					reserved_issues = [
+						item for item in result["issues"]
+						if item["code"] == "reserved_dependency_id"
+					]
+
+					self.assertFalse(result["ok"])
+					self.assertEqual(
+						[item["path"] for item in reserved_issues],
+						[
+							"$.architecture.modules[0].id"
+							if component_kind == "module"
+							else "$.framework.adapter_boundaries[0].id"
+						],
+					)
+					self.assertEqual(plan.unsafe_path_count, 1)
+					self.assertEqual(plan.roots, ())
+					self.assertEqual(plan.module_ids, frozenset())
+
+	def test_target_ownership_plan_rejects_duplicate_dependency_ids(self) -> None:
+		fixtures = {
+			"duplicate_module": (
+				[self._module("shared"), self._module("shared")],
+				[],
+				frozenset({"shared"}),
+			),
+			"duplicate_adapter": (
+				[],
+				[self._adapter("shared"), self._adapter("shared")],
+				frozenset(),
+			),
+			"module_adapter_collision": (
+				[self._module("shared")],
+				[self._adapter("shared")],
+				frozenset({"shared"}),
+			),
+		}
+		for name, (modules, adapters, expected_module_ids) in fixtures.items():
+			with self.subTest(name=name):
+				plan = dependencies.TargetOwnershipPlan(modules, adapters)
+
+				self.assertEqual(plan.unsafe_path_count, 1)
+				self.assertEqual(plan.roots, ())
+				self.assertEqual(plan.module_ids, expected_module_ids)
+
 	def test_module_dependency_analysis_keeps_adapter_roots_fail_closed(self) -> None:
 		self._set_modules([self._module("core", allowed=["missing_adapter"])])
 		self._set_adapter_boundaries([self._adapter("missing_adapter")])
@@ -1159,6 +1228,165 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 		self.assertFalse(oversized_analysis["complete"])
 		self.assertTrue(oversized_analysis["truncated"])
 		self.assertEqual(oversized_analysis["oversized_file_count"], 1)
+
+	def test_module_dependency_analysis_records_adapter_descendant_walk_errors(self) -> None:
+		module = self._module("core", allowed=["platform_adapter"])
+		adapter = self._adapter("platform_adapter")
+		self._set_modules([module])
+		self._set_adapter_boundaries([adapter])
+		adapter_root = self.project_root / "adapters/platform_adapter"
+		blocked_root = adapter_root / "blocked"
+		blocked_root.mkdir(parents=True)
+		(blocked_root / "client.gd").write_text(
+			"class_name BlockedAdapterClient\nextends RefCounted\n",
+			encoding="utf-8",
+		)
+		(self.project_root / "features/core/use_adapter.gd").write_text(
+			"extends Node\nvar client: BlockedAdapterClient\n",
+			encoding="utf-8",
+		)
+		contract = {
+			"architecture": {"modules": [module], "owned_resources": []},
+			"framework": {"adapter_boundaries": [adapter]},
+		}
+		real_scandir = os.scandir
+
+		def fail_blocked_scandir(path: object) -> os.ScandirIterator:
+			if Path(os.fspath(path)) == blocked_root:
+				raise PermissionError(
+					13,
+					"simulated descendant enumeration failure",
+					os.fspath(path),
+				)
+			return real_scandir(path)
+
+		with mock.patch.object(dependencies.os, "scandir", side_effect=fail_blocked_scandir):
+			analysis = dependencies.analyze_module_dependencies(
+				self.project_root,
+				contract,
+				contract_valid=True,
+			)
+
+		self.assertEqual(analysis["status"], "incomplete")
+		self.assertFalse(analysis["complete"])
+		self.assertEqual(analysis["unsafe_path_count"], 1)
+		self.assertEqual(analysis["scanned_file_count"], 1)
+		self.assertEqual(analysis["edges"], [])
+
+	def test_module_dependency_analysis_honors_adapter_root_gdignore(self) -> None:
+		self._set_modules([self._module("core", allowed=["platform_adapter"])])
+		self._set_adapter_boundaries([self._adapter("platform_adapter")])
+		adapter_root = self.project_root / "adapters/platform_adapter"
+		adapter_root.mkdir(parents=True)
+		(adapter_root / ".gdignore").write_text("", encoding="utf-8")
+		(adapter_root / "client.gd").write_text(
+			"class_name IgnoredAdapterClient\nextends RefCounted\n",
+			encoding="utf-8",
+		)
+		(self.project_root / "features/core/use_adapter.gd").write_text(
+			"extends Node\nvar client: IgnoredAdapterClient\n",
+			encoding="utf-8",
+		)
+
+		report = snapshot.build_snapshot(self.project_root)
+		analysis = report["project"]["module_dependency_analysis"]
+
+		self.assertEqual(analysis["status"], "complete")
+		self.assertEqual(analysis["scanned_file_count"], 1)
+		self.assertEqual(analysis["edges"], [])
+		self.assertNotIn(
+			"undeclared_module_dependency",
+			{item["code"] for item in report["drift"]["issues"]},
+		)
+
+	def test_module_dependency_analysis_honors_adapter_descendant_gdignore(self) -> None:
+		self._set_modules([self._module("core", allowed=["platform_adapter"])])
+		self._set_adapter_boundaries([self._adapter("platform_adapter")])
+		adapter_root = self.project_root / "adapters/platform_adapter"
+		ignored_root = adapter_root / "ignored"
+		ignored_root.mkdir(parents=True)
+		(adapter_root / "visible.gd").write_text(
+			"class_name VisibleAdapterClient\nextends RefCounted\n",
+			encoding="utf-8",
+		)
+		(ignored_root / ".gdignore").write_text("", encoding="utf-8")
+		(ignored_root / "hidden.gd").write_text(
+			"class_name HiddenAdapterClient\nextends RefCounted\n",
+			encoding="utf-8",
+		)
+		(self.project_root / "features/core/use_adapter.gd").write_text(
+			"extends Node\n"
+			"var visible: VisibleAdapterClient\n"
+			"var hidden: HiddenAdapterClient\n",
+			encoding="utf-8",
+		)
+
+		report = snapshot.build_snapshot(self.project_root)
+		analysis = report["project"]["module_dependency_analysis"]
+
+		self.assertEqual(analysis["status"], "complete")
+		self.assertEqual(analysis["scanned_file_count"], 2)
+		self.assertEqual(len(analysis["edges"]), 1)
+		self.assertEqual(analysis["edges"][0]["target_module"], "platform_adapter")
+		self.assertEqual(analysis["edges"][0]["reference_count"], 1)
+		self.assertEqual(
+			analysis["edges"][0]["evidence"][0]["symbol"],
+			"VisibleAdapterClient",
+		)
+
+	def test_module_dependency_analysis_honors_module_descendant_gdignore(self) -> None:
+		self._set_modules([self._module("core", allowed=["platform_adapter"])])
+		self._set_adapter_boundaries([self._adapter("platform_adapter")])
+		adapter_root = self.project_root / "adapters/platform_adapter"
+		adapter_root.mkdir(parents=True)
+		(adapter_root / "client.gd").write_text(
+			"class_name PlatformAdapterClient\nextends RefCounted\n",
+			encoding="utf-8",
+		)
+		module_root = self.project_root / "features/core"
+		ignored_root = module_root / "ignored"
+		ignored_root.mkdir()
+		(ignored_root / ".gdignore").write_text("", encoding="utf-8")
+		(ignored_root / "ignored_source.gd").write_text(
+			"extends Node\nvar client: PlatformAdapterClient\n",
+			encoding="utf-8",
+		)
+		(module_root / "visible_source.gd").write_text(
+			"extends Node\n",
+			encoding="utf-8",
+		)
+
+		report = snapshot.build_snapshot(self.project_root)
+		analysis = report["project"]["module_dependency_analysis"]
+
+		self.assertEqual(analysis["status"], "complete")
+		self.assertEqual(analysis["scanned_file_count"], 2)
+		self.assertEqual(analysis["module_file_counts"][0]["file_count"], 1)
+		self.assertEqual(analysis["edges"], [])
+
+	def test_module_dependency_analysis_honors_module_root_gdignore(self) -> None:
+		self._set_modules([self._module("core", allowed=["platform_adapter"])])
+		self._set_adapter_boundaries([self._adapter("platform_adapter")])
+		adapter_root = self.project_root / "adapters/platform_adapter"
+		adapter_root.mkdir(parents=True)
+		(adapter_root / "client.gd").write_text(
+			"class_name PlatformAdapterClient\nextends RefCounted\n",
+			encoding="utf-8",
+		)
+		module_root = self.project_root / "features/core"
+		(module_root / ".gdignore").write_text("", encoding="utf-8")
+		(module_root / "ignored_source.gd").write_text(
+			"extends Node\nvar client: PlatformAdapterClient\n",
+			encoding="utf-8",
+		)
+
+		report = snapshot.build_snapshot(self.project_root)
+		analysis = report["project"]["module_dependency_analysis"]
+
+		self.assertEqual(analysis["status"], "complete")
+		self.assertEqual(analysis["scanned_file_count"], 1)
+		self.assertEqual(analysis["module_file_counts"][0]["file_count"], 0)
+		self.assertEqual(analysis["edges"], [])
 
 	def test_module_dependency_analysis_preserves_unowned_evidence_with_adapters(self) -> None:
 		self._set_modules([self._module("core", allowed=["platform_adapter"])])
