@@ -245,7 +245,9 @@ func release_dependencies() -> void:
 ## 注入共享 Resource Broker。
 ##
 ## 架构模式应把同一个 GFResourceBroker 注册为 Utility；独立模式可在 init 前
-## 显式调用本方法。存在活动或排队请求时拒绝替换。
+## 显式调用本方法。重复绑定当前 Broker 幂等成功；存在活动或排队请求时拒绝
+## 替换。当前 Broker 由本 Utility 私有拥有时，还必须等待它完成 drain 并进入
+## idle，才能替换为其它 Broker。
 ## [br]
 ## @api public
 ## [br]
@@ -253,15 +255,19 @@ func release_dependencies() -> void:
 ## [br]
 ## @param broker: 要共享的 Broker。
 ## [br]
-## @return 绑定结果。
+## @return 绑定结果；请求尚未收敛或私有 Broker 尚未 idle 时返回 `ERR_BUSY`。
 func set_resource_broker(broker: GFResourceBroker) -> Error:
 	if _disposed:
 		return ERR_UNAVAILABLE
 	if broker == null:
 		return ERR_INVALID_PARAMETER
+	if _resource_broker == broker:
+		return OK
 	if not _pending.is_empty() or not _queued_requests.is_empty():
 		return ERR_BUSY
 	if _owns_resource_broker and _resource_broker != null and _resource_broker != broker:
+		if not _resource_broker.is_idle():
+			return ERR_BUSY
 		_resource_broker.dispose()
 	_resource_broker = broker
 	_owns_resource_broker = false

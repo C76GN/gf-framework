@@ -340,6 +340,11 @@ func test_auto_interest_joining_manual_preload_has_independent_cancellation() ->
 	scene_utility.dispose()
 
 
+func test_auto_neighbor_joins_external_active_preload_without_retroactive_admission() -> void:
+	await _assert_auto_neighbor_joins_external_active_preload("PackedScene")
+	await _assert_auto_neighbor_joins_external_active_preload("")
+
+
 func test_auto_neighbor_generation_wraps_to_positive_value() -> void:
 	var scene_utility: SceneUtilityProbe = SceneUtilityProbe.new()
 	scene_utility.init()
@@ -353,6 +358,70 @@ func test_auto_neighbor_generation_wraps_to_positive_value() -> void:
 		"generation 溢出后应回正，不能进入零或负值保留区间。"
 	)
 	scene_utility.dispose()
+
+
+# --- 私有/辅助方法 ---
+
+func _assert_auto_neighbor_joins_external_active_preload(external_type_hint: String) -> void:
+	var broker: SceneResourceBrokerProbe = SceneResourceBrokerProbe.new()
+	broker.init()
+	var external_lease: GFResourceLease = broker.request(
+		MIN_GUI_SCENE,
+		external_type_hint,
+		{ "consumer_id": &"external_preload" }
+	)
+	assert_eq(external_lease.get_status(), GFResourceLease.STATUS_LOADING)
+	var scene_utility: SceneUtilityProbe = SceneUtilityProbe.new()
+	scene_utility.init()
+	var bind_error: Error = scene_utility.set_probe_broker(broker)
+	assert_eq(bind_error, OK)
+	var preload_map: GFScenePreloadMap = GFScenePreloadMap.new()
+	preload_map.entries = [
+		_make_entry(NORMAL_GUI_SCENE, PackedStringArray([MIN_GUI_SCENE])),
+	]
+	scene_utility.configure_scene_preload_map(preload_map)
+	scene_utility.put_preloaded_scene(NORMAL_GUI_SCENE, _make_empty_scene())
+
+	var load_error: Error = scene_utility.load_scene_async(NORMAL_GUI_SCENE)
+	assert_eq(load_error, OK)
+	scene_utility.tick(0.0)
+	await get_tree().process_frame
+	await get_tree().create_timer(0.0).timeout
+	scene_utility.tick(0.0)
+
+	var auto_lease: GFResourceLease = scene_utility.get_last_lease_for_consumer(
+		&"scene_auto_neighbor"
+	)
+	assert_not_null(auto_lease, "自动相邻兴趣应加入外部消费者的活动请求。")
+	if auto_lease != null:
+		assert_eq(
+			auto_lease.get_request_error(),
+			OK,
+			"同路径已开始加载后，admission/type_hint 约束不得让自动相邻兴趣永久失败。"
+		)
+		assert_eq(auto_lease.get_status(), GFResourceLease.STATUS_LOADING)
+		var lease_snapshot: Dictionary = auto_lease.to_poll_result()
+		assert_false(
+			GFVariantData.get_option_bool(lease_snapshot, "exclusive", true),
+			"已开始的共享请求不能追溯升级为独占。"
+		)
+		assert_false(
+			GFVariantData.get_option_bool(lease_snapshot, "require_idle", true),
+			"已开始的共享请求不能追溯声称从 idle admission。"
+		)
+	assert_eq(
+		scene_utility.get_requested_paths(),
+		PackedStringArray([MIN_GUI_SCENE]),
+		"加入同路径请求不得重复发起底层加载。"
+	)
+
+	scene_utility.complete_path(MIN_GUI_SCENE, _make_empty_scene())
+	scene_utility.tick(0.0)
+	scene_utility.tick(0.0)
+	assert_true(scene_utility.is_scene_preloaded(MIN_GUI_SCENE))
+	external_lease.release()
+	scene_utility.dispose()
+	broker.dispose()
 
 
 func _make_entry(
@@ -428,10 +497,14 @@ class SceneUtilityProbe extends GFSceneUtility:
 	func get_auto_neighbor_generation_for_test() -> int:
 		return _auto_neighbor_generation
 
+	func get_last_lease_for_consumer(consumer_id: StringName) -> GFResourceLease:
+		return _broker.get_last_lease_for_consumer(consumer_id)
+
 
 class SceneResourceBrokerProbe extends GFResourceBroker:
 	var requested_paths: PackedStringArray = PackedStringArray()
 	var last_options: Dictionary = {}
+	var requested_leases: Array[GFResourceLease] = []
 	var _poll_results: Dictionary = {}
 
 	func complete_path(path: String, resource: Resource) -> void:
@@ -445,7 +518,16 @@ class SceneResourceBrokerProbe extends GFResourceBroker:
 
 	func request(path: String, type_hint: String = "", options: Dictionary = {}) -> GFResourceLease:
 		last_options = options.duplicate(true)
-		return super.request(path, type_hint, options)
+		var lease: GFResourceLease = super.request(path, type_hint, options)
+		requested_leases.append(lease)
+		return lease
+
+	func get_last_lease_for_consumer(consumer_id: StringName) -> GFResourceLease:
+		for index: int in range(requested_leases.size() - 1, -1, -1):
+			var lease: GFResourceLease = requested_leases[index]
+			if lease != null and lease.get_consumer_id() == consumer_id:
+				return lease
+		return null
 
 	func _request_threaded_resource(path: String, _type_hint: String) -> Error:
 		var _appended: bool = requested_paths.append(path)

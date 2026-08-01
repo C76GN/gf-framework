@@ -396,7 +396,9 @@ func release_dependencies() -> void:
 
 ## 注入共享 Resource Broker。
 ##
-## 存在活动场景加载或预载请求时拒绝替换，避免跨 Broker 拆分同一切换生命周期。
+## 重复绑定当前 Broker 幂等成功；存在活动场景加载或预载请求时拒绝替换，
+## 避免跨 Broker 拆分同一切换生命周期。当前 Broker 由本 Utility 私有拥有时，
+## 还必须等待它完成 drain 并进入 idle，才能替换为其它 Broker。
 ## [br]
 ## @api public
 ## [br]
@@ -404,15 +406,19 @@ func release_dependencies() -> void:
 ## [br]
 ## @param broker: 要共享的 Broker。
 ## [br]
-## @return 绑定结果。
+## @return 绑定结果；请求尚未收敛或私有 Broker 尚未 idle 时返回 `ERR_BUSY`。
 func set_resource_broker(broker: GFResourceBroker) -> Error:
 	if _disposed:
 		return ERR_UNAVAILABLE
 	if broker == null:
 		return ERR_INVALID_PARAMETER
+	if _resource_broker == broker:
+		return OK
 	if _active_load_operation != null or not _preload_requests.is_empty():
 		return ERR_BUSY
 	if _owns_resource_broker and _resource_broker != null and _resource_broker != broker:
+		if not _resource_broker.is_idle():
+			return ERR_BUSY
 		_resource_broker.dispose()
 	_resource_broker = broker
 	_owns_resource_broker = false
@@ -1806,10 +1812,10 @@ func _preload_scene_with_admission(
 			auto_neighbor_generation
 		)
 
-	var operation: _RESOURCE_LEASE_SCRIPT = _request_threaded_operation(
+	var operation: _RESOURCE_LEASE_SCRIPT = _request_preload_operation_with_admission(
 		scene_path,
-		"PackedScene",
-		admission_options
+		admission_options,
+		auto_neighbor_generation
 	)
 	var error: Error = (
 		operation.get_request_error()
@@ -1841,6 +1847,50 @@ func _preload_scene_with_admission(
 	return OK
 
 
+func _request_preload_operation_with_admission(
+	scene_path: String,
+	admission_options: Dictionary,
+	auto_neighbor_generation: int
+) -> _RESOURCE_LEASE_SCRIPT:
+	var operation: _RESOURCE_LEASE_SCRIPT = _request_threaded_operation(
+		scene_path,
+		"PackedScene",
+		admission_options
+	)
+	var failure_reason: String = operation.get_error_message() if operation != null else ""
+	if (
+		auto_neighbor_generation <= 0
+		or operation == null
+		or not (
+			(
+				operation.get_request_error() == ERR_BUSY
+				and failure_reason == (
+					_RESOURCE_BROKER_SCRIPT.REASON_ACTIVE_ADMISSION_CONSTRAINTS_NOT_SATISFIED
+				)
+			)
+			or (
+				operation.get_request_error() == ERR_ALREADY_IN_USE
+				and failure_reason == (
+					_RESOURCE_BROKER_SCRIPT.REASON_ACTIVE_TYPE_HINT_NOT_SATISFIED
+				)
+			)
+		)
+	):
+		return operation
+
+	# Admission 与 type_hint 只约束新底层请求；结果仍在完成边界校验为 PackedScene。
+	operation.release()
+	var join_options: Dictionary = admission_options.duplicate(true)
+	join_options["exclusive"] = false
+	join_options["require_idle"] = false
+	var join_type_hint: String = (
+		""
+		if failure_reason == _RESOURCE_BROKER_SCRIPT.REASON_ACTIVE_TYPE_HINT_NOT_SATISFIED
+		else "PackedScene"
+	)
+	return _request_threaded_operation(scene_path, join_type_hint, join_options)
+
+
 func _merge_preload_interest(
 	scene_path: String,
 	admission_options: Dictionary,
@@ -1868,10 +1918,10 @@ func _merge_preload_interest(
 	var generation_key: String = str(auto_neighbor_generation)
 	if leases.has(generation_key):
 		return OK
-	var lease: _RESOURCE_LEASE_SCRIPT = _request_threaded_operation(
+	var lease: _RESOURCE_LEASE_SCRIPT = _request_preload_operation_with_admission(
 		scene_path,
-		"PackedScene",
-		admission_options
+		admission_options,
+		auto_neighbor_generation
 	)
 	var error: Error = lease.get_request_error() if lease != null else ERR_UNCONFIGURED
 	if error != OK:

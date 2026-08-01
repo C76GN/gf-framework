@@ -38,7 +38,10 @@ await architecture.init()
 私有 Broker；应创建一个 `GFResourceBroker`，调用 `init()`，再分别通过
 `set_resource_broker()` 注入。独立 Broker 不在 Architecture 的 tick 列表中时，
 调用方必须持续调用 `pump()`；`dispose()` 后已经发起且无法中止的请求仍需
-`pump()` 到 `is_idle()`，才能完成 drain。
+`pump()` 到 `is_idle()`，才能完成 drain。`GFAssetUtility`、`GFSceneUtility` 或
+`GFBackgroundWorkUtility` 自己拥有的私有 Broker 尚未 idle 时，
+`set_resource_broker()` 会返回 `ERR_BUSY` 并保留旧引用，避免替换后失去唯一的
+drain 推进者；重复绑定当前 Broker 则幂等成功。
 
 ## 有界 admission
 
@@ -55,9 +58,11 @@ Broker 默认允许 4 个活动底层请求和 256 个等待请求。配置始�
 - `consumer_id`：只用于诊断的稳定消费者标识。
 
 队首独占或 require-idle 请求不会被后续共享请求绕过。同一路径仍在排队时，
-后来加入的 Lease 可以把该底层请求单调升级为更严格的 admission 约束。请求
-已经活动或 draining 时，只有原始 admission 已满足同等约束才能复用；后来才
-要求 exclusive / require-idle 的 Lease 会失败关闭，不伪造一次“独占启动”。
+后来加入的 live Lease 可以把该底层请求升级为更严格的 admission 约束；Lease
+取消或释放后，类型提示、exclusive 与 require-idle 会从剩余 live Lease 重新计算，
+已经离开的消费者不会继续约束幸存请求。请求已经活动或 draining 时，只有原始
+admission 已满足同等约束才能复用；后来才要求 exclusive / require-idle 的 Lease
+会失败关闭，不伪造一次“独占启动”。
 
 同路径 queued record 最初没有 `type_hint`、后来收到非空兼容提示时，会在
 admission 前收紧底层请求。底层请求已经发起后才提出更强 `type_hint` 无法补做
@@ -93,8 +98,11 @@ Asset 与 Scene Utility 的 `dispose()` 会先关闭新 admission，再取消已
 切场的同一帧立即发起。Scene Utility 会先监听目标 `SceneTree.scene_changed`，
 确认切换到预期资源身份，再等待一个 process frame；渲染环境继续等待
 `RenderingServer.frame_post_draw`，headless 环境等待一个零时长 SceneTree
-timer。随后邻居计划以 `exclusive + require_idle` 进入共享 Broker，避免与仍在
-活动的 Asset warmup 重叠。
+timer。随后尚未活动的新邻居路径以 `exclusive + require_idle` 进入共享 Broker，
+避免与不同路径上仍在活动的 Asset warmup 重叠；若同一路径已由 Asset、Scene 或
+BackgroundWork 发起且仍在 active/draining，并且 type hint 为 `PackedScene` 或未指定，
+自动邻居会持有独立共享 Lease 加入该请求，不追溯伪造独占 admission，也不会把一次
+`ERR_BUSY` 记录成永久预载失败。其它非空 type hint 仍按 Broker 的不兼容规则失败关闭。
 
 新切换、图谱或半径变更、关闭自动预载以及 `dispose()` 都会取消旧 generation。
 手动预载加入同一路径时会提升为持久兴趣；自动预载加入既有手动请求时持有独立

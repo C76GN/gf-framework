@@ -99,6 +99,49 @@ func test_queued_same_path_lease_upgrades_admission_constraints() -> void:
 	later.cancel()
 
 
+func test_cancelled_joiner_stops_constraining_queued_request() -> void:
+	var broker: ResourceBrokerProbe = ResourceBrokerProbe.new()
+	broker.max_active_requests = 2
+	broker.init()
+	var first_blocker: GFResourceLease = broker.request("res://first_blocker.tres")
+	var second_blocker: GFResourceLease = broker.request("res://second_blocker.tres")
+	var surviving: GFResourceLease = broker.request("res://recomputed.tres")
+	var cancelled_joiner: GFResourceLease = broker.request(
+		"res://recomputed.tres",
+		"PackedScene",
+		{ "exclusive": true, "require_idle": true }
+	)
+
+	cancelled_joiner.cancel(&"no_longer_needed")
+	broker.complete_path("res://first_blocker.tres", Resource.new())
+	broker.pump()
+
+	assert_eq(
+		surviving.get_status(),
+		GFResourceLease.STATUS_LOADING,
+		"取消 joiner 后，queued request 应按剩余 Lease 的共享约束 admission。"
+	)
+	assert_eq(
+		broker.requested_type_hints[-1],
+		"",
+		"底层请求不得继续使用已取消 joiner 的 type_hint。"
+	)
+	assert_false(
+		GFVariantData.get_option_bool(broker.get_debug_snapshot(), "active_exclusive"),
+		"已取消 joiner 的 exclusive 不得污染已 admission 的请求。"
+	)
+
+	broker.complete_path("res://second_blocker.tres", Resource.new())
+	broker.complete_path("res://recomputed.tres", Resource.new())
+	broker.pump()
+	broker.pump()
+	assert_true(broker.is_idle())
+	first_blocker.release()
+	second_blocker.release()
+	surviving.release()
+	cancelled_joiner.release()
+
+
 func test_last_consumer_cancel_keeps_active_request_draining() -> void:
 	var broker: ResourceBrokerProbe = ResourceBrokerProbe.new()
 	broker.init()
@@ -187,6 +230,64 @@ func test_standalone_setup_is_explicit_and_owned_by_consumer() -> void:
 	assert_eq(broker.max_active_requests, 2)
 	assert_eq(broker.max_pending_requests, 8)
 	assets.dispose()
+
+
+func test_same_broker_rebind_is_idempotent_while_asset_request_is_active() -> void:
+	var assets: GFAssetUtility = GFAssetUtility.new()
+	assets.init()
+	var broker: ResourceBrokerProbe = ResourceBrokerProbe.new()
+	broker.init()
+	assert_eq(assets.set_resource_broker(broker), OK)
+	assets.load_async(
+		"res://same_broker.tres",
+		func(_resource: Resource) -> void:
+			pass
+	)
+
+	assert_true(assets.is_loading("res://same_broker.tres"))
+	assert_eq(
+		assets.set_resource_broker(broker),
+		OK,
+		"重复绑定当前 Broker 不应被本地活动请求误判为替换。"
+	)
+
+	broker.complete_path("res://same_broker.tres", Resource.new())
+	assets.tick()
+	assets.dispose()
+	broker.dispose()
+
+
+func test_owned_broker_replacement_waits_for_cancelled_request_to_drain() -> void:
+	var assets: GFAssetUtility = GFAssetUtility.new()
+	assets.init()
+	await _assert_owned_broker_replacement_waits_for_drain(
+		&"Asset",
+		Callable(assets, "setup_standalone_resource_broker"),
+		Callable(assets, "set_resource_broker"),
+		Callable(assets, "dispose")
+	)
+
+
+func test_scene_owned_broker_replacement_waits_for_cancelled_request_to_drain() -> void:
+	var scenes: GFSceneUtility = GFSceneUtility.new()
+	scenes.init()
+	await _assert_owned_broker_replacement_waits_for_drain(
+		&"Scene",
+		Callable(scenes, "setup_standalone_resource_broker"),
+		Callable(scenes, "set_resource_broker"),
+		Callable(scenes, "dispose")
+	)
+
+
+func test_background_owned_broker_replacement_waits_for_cancelled_request_to_drain() -> void:
+	var jobs: GFBackgroundWorkUtility = GFBackgroundWorkUtility.new()
+	jobs.init()
+	await _assert_owned_broker_replacement_waits_for_drain(
+		&"BackgroundWork",
+		Callable(jobs, "setup_standalone_resource_broker"),
+		Callable(jobs, "set_resource_broker"),
+		Callable(jobs, "dispose")
+	)
 
 
 func test_missing_broker_is_explicit_in_consumer_diagnostics() -> void:
@@ -473,7 +574,7 @@ func test_active_request_rejects_stronger_admission_constraints() -> void:
 	assert_eq(exclusive.get_request_error(), ERR_BUSY)
 	assert_eq(
 		exclusive.get_error_message(),
-		"active_admission_constraints_not_satisfied"
+		GFResourceBroker.REASON_ACTIVE_ADMISSION_CONSTRAINTS_NOT_SATISFIED
 	)
 	assert_eq(require_idle.get_status(), GFResourceLease.STATUS_FAILED)
 	assert_eq(require_idle.get_request_error(), ERR_BUSY)
@@ -514,11 +615,69 @@ func test_queued_request_tightens_type_hint_but_active_request_rejects_it() -> v
 	assert_eq(late_strong.get_status(), GFResourceLease.STATUS_LOADING)
 	assert_eq(unsatisfied.get_status(), GFResourceLease.STATUS_FAILED)
 	assert_eq(unsatisfied.get_request_error(), ERR_ALREADY_IN_USE)
-	assert_eq(unsatisfied.get_error_message(), "active_type_hint_not_satisfied")
+	assert_eq(
+		unsatisfied.get_error_message(),
+		GFResourceBroker.REASON_ACTIVE_TYPE_HINT_NOT_SATISFIED
+	)
 	blocker.release()
 	loose.release()
 	tightened.release()
 	late_strong.cancel()
+
+
+# --- 私有/辅助方法 ---
+
+func _assert_owned_broker_replacement_waits_for_drain(
+	consumer_name: StringName,
+	setup_broker: Callable,
+	set_broker: Callable,
+	dispose_consumer: Callable
+) -> void:
+	var retiring_variant: Variant = setup_broker.call(1, 8)
+	assert_true(
+		retiring_variant is GFResourceBroker,
+		"%s 的公开 standalone 入口应创建 owned Broker。" % consumer_name
+	)
+	if not retiring_variant is GFResourceBroker:
+		dispose_consumer.call()
+		return
+	var retiring: GFResourceBroker = retiring_variant
+	var retiring_lease: GFResourceLease = retiring.request(
+		NORMAL_GUI_SCENE,
+		"PackedScene",
+		{ "consumer_id": &"external_consumer" }
+	)
+	assert_eq(retiring_lease.get_request_error(), OK)
+	retiring_lease.cancel(&"no_longer_needed")
+
+	assert_eq(
+		GFVariantData.get_option_int(retiring.get_debug_snapshot(), "draining_count"),
+		1,
+		"最后一个 Lease 取消后，owned Broker 仍需推进底层请求到终态。"
+	)
+	assert_eq(
+		GFVariantData.to_int(set_broker.call(retiring), ERR_BUG),
+		OK,
+		"重复绑定同一个 owned Broker 应保持幂等。"
+	)
+	var replacement: ResourceBrokerProbe = ResourceBrokerProbe.new()
+	replacement.init()
+	assert_eq(
+		GFVariantData.to_int(set_broker.call(replacement), ERR_BUG),
+		ERR_BUSY,
+		"owned Broker 尚未 idle 时必须拒绝替换。"
+	)
+
+	for _iteration: int in range(120):
+		retiring.pump()
+		if retiring.is_idle():
+			break
+		await get_tree().process_frame
+	assert_true(retiring.is_idle(), "保留的 owned Broker 应可继续推进到 idle。")
+	retiring_lease.release()
+	assert_eq(GFVariantData.to_int(set_broker.call(replacement), ERR_BUG), OK)
+	dispose_consumer.call()
+	replacement.dispose()
 
 
 # --- 内部类 ---

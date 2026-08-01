@@ -7,7 +7,7 @@
 | 模块 | 类 | 成员 | 页面内索引 |
 |---|---:|---:|---|
 | Kernel | 73 | 1046 | [Kernel](#module-kernel) |
-| Standard | 443 | 7064 | [Standard](#module-standard) |
+| Standard | 443 | 7066 | [Standard](#module-standard) |
 | Action Queue | 16 | 214 | [Action Queue](#module-extensions-action_queue) |
 | Asset Metadata | 4 | 33 | [Asset Metadata](#module-extensions-asset_metadata) |
 | Behavior Tree | 22 | 89 | [Behavior Tree](#module-extensions-behavior_tree) |
@@ -230,7 +230,7 @@
 | [`GFRenderWarmupUtility`](GFRenderWarmupUtility.md#gfrenderwarmuputility) | 运行时服务 (`runtime_service`) | `GFUtility` | 25 | `addons/gf/standard/utilities/display/gf_render_warmup_utility.gd` |
 | [`GFRequestHandlerRegistry`](GFRequestHandlerRegistry.md#gfrequesthandlerregistry) | 运行时服务 (`runtime_service`) | `RefCounted` | 27 | `addons/gf/standard/common/gf_request_handler_registry.gd` |
 | [`GFRequestOutboxUtility`](GFRequestOutboxUtility.md#gfrequestoutboxutility) | 运行时服务 (`runtime_service`) | `GFUtility` | 33 | `addons/gf/standard/utilities/io/gf_request_outbox_utility.gd` |
-| [`GFResourceBroker`](GFResourceBroker.md#gfresourcebroker) | 运行时服务 (`runtime_service`) | `GFUtility` | 17 | `addons/gf/standard/utilities/assets/gf_resource_broker.gd` |
+| [`GFResourceBroker`](GFResourceBroker.md#gfresourcebroker) | 运行时服务 (`runtime_service`) | `GFUtility` | 19 | `addons/gf/standard/utilities/assets/gf_resource_broker.gd` |
 | [`GFResourceConfigProvider`](GFResourceConfigProvider.md#gfresourceconfigprovider) | 运行时服务 (`runtime_service`) | `GFConfigProvider` | 17 | `addons/gf/standard/utilities/config/gf_resource_config_provider.gd` |
 | [`GFResourceFeatureRemapTools`](GFResourceFeatureRemapTools.md#gfresourcefeatureremaptools) | 运行时服务 (`runtime_service`) | `RefCounted` | 3 | `addons/gf/standard/utilities/assets/gf_resource_feature_remap_tools.gd` |
 | [`GFResourceGraphScanner`](GFResourceGraphScanner.md#gfresourcegraphscanner) | 运行时服务 (`runtime_service`) | `RefCounted` | 4 | `addons/gf/standard/utilities/assets/gf_resource_graph_scanner.gd` |

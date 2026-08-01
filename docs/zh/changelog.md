@@ -37,7 +37,7 @@
 - `GFArchitecture` 新增 `find_model()`、`find_system()` 与 `find_utility()` 静默可选查询：非严格模式复用普通父链和 alias 规则，严格模式停止本地但不报告 required miss。
 - `GFAsyncKeyedGate` 新增 `try_request_lease()` 与 `STATUS_BUSY`：无法在当前主线程边界立即提交时，不创建 waiter、请求 ID 或 completion，不发请求生命周期信号，也不改变公平游标。
 - 新增 `GFResourceBroker` 与 `GFResourceLease`：为 Asset、Scene 与 BackgroundWork 提供显式共享、无单例的 threaded ResourceLoader admission；不同资源请求使用有界严格 FIFO，同资源身份复用底层请求并保留独立消费者取消，已发起且失去消费者的请求继续 drain 到 Godot 终态。
-- `GFResourceBroker` 公开默认/绝对活动与等待预算常量；活动请求配置限制为 1..64，等待请求配置限制为 1..4096，队首 exclusive / require-idle 请求和排队中同路径约束升级都不会被后续共享请求绕过。
+- `GFResourceBroker` 公开默认/绝对活动与等待预算常量，以及活动请求无法追溯满足 type hint / admission 时的稳定失败原因常量；活动请求配置限制为 1..64，等待请求配置限制为 1..4096，队首 exclusive / require-idle 请求和排队中同路径约束升级都不会被后续共享请求绕过。
 - Save Profile 新增一次性 opaque `GFSaveProfileRequest`：`take_ownership()` 分别接管 document metadata、Provider context 与 result metadata，不提供 payload getter；合法边界只做 O(1) claim，成功后调用方必须放弃三个输入图的全部嵌套 alias。
 - Save Profile 新增 `GFSaveSectionSnapshot` 与 `GFSaveSectionSnapshotOperation`：Provider 通过 `begin_save_snapshot()` / `_begin_save_snapshot()` 在主线程按 work unit 分片生成不可变 section Snapshot；固定且很小的载荷可用 `make_completed_snapshot()`，大型载荷必须实现有界 Operation。
 - Storage 新增 `GFStoragePayloadTransfer` 与 `save_payload_request_async()`：以 opaque 单所有者句柄逻辑移交纯 Variant 载荷，并允许同一冻结绑定上的 timeout-detached attempt 与有界重试共享只读 Snapshot。
@@ -59,7 +59,7 @@
 - `GFBackgroundWorkUtility` 在接受任务后强持有 `RefCounted` worker/apply callback target，并分别在线程 join 和任务终态释放，避免排队任务依赖调用方局部变量寿命。
 - `GFRenderWarmupUtility` 将清单显式提供的 `entries_per_tick` 在入队时钳制并固定；未覆盖时继续读取当前全局默认值，正常 `tick()` 只消费 FIFO 队首自己的预算，显式 `process_queue()` 继续提供跨清单总预算。
 - `GFAssetUtility`、`GFSceneUtility` 与 `GFBackgroundWorkUtility` 改为从 Architecture 解析或由项目显式注入 `GFResourceBroker`；独立使用必须显式创建 Broker，框架不再为每个消费者隐式创建互不协调的私有加载通道。缺少 Broker 的真实请求统一以 `ERR_UNCONFIGURED` 失败关闭，headless Scene 不再绕过 admission；Asset/Scene dispose 会先关闭 admission，阻止同步通知重入遗留 Lease。
-- Scene 图谱自动邻居预载改为在目标 `scene_changed` 后等待首个稳定 process/render 边界，再以 exclusive + require-idle 进入共享 Broker；新切换、配置变更、关闭和 dispose 会取消旧 generation，批量登记在每个同步可重入边界重验 generation，手动与自动同路径兴趣使用独立 Lease 所有权。
+- Scene 图谱自动邻居预载改为在目标 `scene_changed` 后等待首个稳定 process/render 边界；尚未活动的新路径以 exclusive + require-idle 进入共享 Broker，已由其他消费者活动且 type hint 与 `PackedScene` 相同或未指定的同路径则以独立共享 Lease 加入，不追溯升级 admission。新切换、配置变更、关闭和 dispose 会取消旧 generation，批量登记在每个同步可重入边界重验 generation，手动与自动同路径兴趣使用独立 Lease 所有权。
 - `save_profile(profile_id, request)` 先验证 Profile、能力和生命周期，再 O(1) claim Request、分配 generation 和入队；边界拒绝不会消费 Request，未初始化或已 claim 的 Request 返回 `invalid_request`。Save Operation 只持有 result metadata，最新 document metadata/context 由状态直接接管并在开始准备时通过 assignment 移入当前 generation。`load_profile()` 与 `flush_profile()` 继续只在调用栈内完成校验、屏障捕获和入队。
 - 保存 Provider 从后续 `tick()` 开始按全局预算公平轮转，软时间预算只阻止启动下一个 slice，不伪装成可抢占执行。准备完成后文档逻辑 move 到 `GFStoragePayloadTransfer`；Storage worker 在本次新写入的编码与 temp、marker、final 事务提交前执行有界纯 Variant 图预检和物化，既有事务 recovery 与目录初始化仍是独立前置生命周期。Save 终态不再保留完整文档副本，完整文档只由 load 结果返回。
 - Storage 首次 claim transfer 时冻结 Storage 实例、规范文件名、canonical target file-family identity 和 codec options；每个物理 attempt 取得独立只读 lease，最后一个 lease 结束且 Profile 释放 generation 后才清空载荷，重试不再重新采集 Provider 或复制完整文档。
@@ -67,6 +67,7 @@
 
 ### 🐛 Bug 修复 (Fixed)
 
+- 修复共享资源与存储的取消、替换、恢复和释放边界：Broker 会在 queued Lease 离开后按剩余消费者重算类型与 admission 约束；Asset、Scene 与 BackgroundWork 私有 Broker 在 drain 完成前拒绝替换；Scene 自动邻居可加入外部消费者已活动且 type hint 兼容的同路径请求；BackgroundWork 不会把新任务并入已取消 Lease；Storage 异步单文件入口会按完整多文件事务恢复，并在 dispose 终态回调重入期间持续关闭新 admission。
 - 修复 AI Developer 依赖分析只编译 Module roots、导致合法 Module → Adapter 资源引用被误报为未归属的问题；Adapter root 与其中声明的 `class_name` 现在作为目标所有权进入同一有界索引，但 Adapter 仍不作为依赖源或模块循环节点，缺失、不安全、不可读、歧义及预算耗尽继续失败关闭。
 - 修复依赖所有权计划允许 Module/Adapter ID 占用 `gf`、`godot` 保留 token，以及目录枚举错误被 `os.walk()` 静默跳过的问题；共享命名空间现在统一拒绝保留与重复 ID，任一后代枚举失败都会使分析不完整。Module 与 Adapter 扫描只允许经路径安全校验的普通 `.gdignore` 文件剪除根或后代子树；链接、损坏或不可验证的同名条目不会再静默隐藏源码，而会计入不安全路径并使分析不完整。
 - 修复安全测试把合成夹具命名为真实敏感数据、导致 CodeQL 将边界与脱敏验证误判为明文持久化的问题；无关凭据检测的边界测试改用 opaque canary，需要敏感形状路径的测试在内存中构造 synthetic canary，且不再依赖任何扫描抑制。

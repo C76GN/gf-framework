@@ -19,6 +19,8 @@ framework-level threaded ResourceLoader admission broker。 一个显式共享�
 | 常量 | [`ABSOLUTE_MAX_ACTIVE_REQUESTS`](#member-gfresourcebroker-constants-absolute_max_active_requests) | `const ABSOLUTE_MAX_ACTIVE_REQUESTS: int = 64` |
 | 常量 | [`DEFAULT_MAX_PENDING_REQUESTS`](#member-gfresourcebroker-constants-default_max_pending_requests) | `const DEFAULT_MAX_PENDING_REQUESTS: int = 256` |
 | 常量 | [`ABSOLUTE_MAX_PENDING_REQUESTS`](#member-gfresourcebroker-constants-absolute_max_pending_requests) | `const ABSOLUTE_MAX_PENDING_REQUESTS: int = 4096` |
+| 常量 | [`REASON_ACTIVE_TYPE_HINT_NOT_SATISFIED`](#member-gfresourcebroker-constants-reason_active_type_hint_not_satisfied) | `const REASON_ACTIVE_TYPE_HINT_NOT_SATISFIED: String = "active_type_hint_not_satisfied"` |
+| 常量 | [`REASON_ACTIVE_ADMISSION_CONSTRAINTS_NOT_SATISFIED`](#member-gfresourcebroker-constants-reason_active_admission_constraints_not_satisfied) | `const REASON_ACTIVE_ADMISSION_CONSTRAINTS_NOT_SATISFIED: String = "active_admission_constraints_not_satisfied"` |
 | 属性 | [`max_active_requests`](#member-gfresourcebroker-properties-max_active_requests) | `var max_active_requests: int = DEFAULT_MAX_ACTIVE_REQUESTS:` |
 | 属性 | [`max_pending_requests`](#member-gfresourcebroker-properties-max_pending_requests) | `var max_pending_requests: int = DEFAULT_MAX_PENDING_REQUESTS:` |
 | 方法 | [`init`](#member-gfresourcebroker-methods-init) | `func init() -> void:` |
@@ -86,6 +88,32 @@ const ABSOLUTE_MAX_PENDING_REQUESTS: int = 4096
 ```
 
 等待 admission 的不同资源请求数量绝对上限。
+
+<a id="member-gfresourcebroker-constants-reason_active_type_hint_not_satisfied"></a>
+
+### `REASON_ACTIVE_TYPE_HINT_NOT_SATISFIED`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+const REASON_ACTIVE_TYPE_HINT_NOT_SATISFIED: String = "active_type_hint_not_satisfied"
+```
+
+活动请求无法追溯收紧 type hint 时写入 Lease 的稳定失败原因。
+
+<a id="member-gfresourcebroker-constants-reason_active_admission_constraints_not_satisfied"></a>
+
+### `REASON_ACTIVE_ADMISSION_CONSTRAINTS_NOT_SATISFIED`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+const REASON_ACTIVE_ADMISSION_CONSTRAINTS_NOT_SATISFIED: String = "active_admission_constraints_not_satisfied"
+```
+
+活动请求无法追溯升级 admission 约束时写入 Lease 的稳定失败原因。
 
 ## 属性
 

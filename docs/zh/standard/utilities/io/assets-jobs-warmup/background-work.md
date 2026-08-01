@@ -31,7 +31,7 @@ background.submit_cpu_work(
 
 ## 调度、取消与诊断
 
-资源加载使用 `submit_resource_load(path, type_hint, apply_callback)`。Utility 内相同路径、兼容 `type_hint` 的任务会合并兴趣；共享 Broker 还会让 Asset、Scene 和 BackgroundWork 的相同资源身份复用一个底层 threaded request。取消某个任务只移除该任务兴趣并阻止 GF 侧应用和完成回调；最后一个兴趣离开后才取消当前 Utility 的 Lease，若它也是 Broker 最后一个消费者，已发起请求会进入 drain。CPU/IO 线程任务也是协作式取消：等待中的任务会立刻进入 `cancelled`，运行中的任务会等 worker 返回后再落到取消终态。`get_debug_snapshot()` 会报告等待、运行、资源请求、Broker draining/admission、应用队列和终态任务 ID，适合和运行时诊断面板或加载界面联动。
+资源加载使用 `submit_resource_load(path, type_hint, apply_callback)`。Utility 内相同路径、兼容 `type_hint` 的任务会合并兴趣；共享 Broker 还会让 Asset、Scene 和 BackgroundWork 的相同资源身份复用一个底层 threaded request。取消某个任务只移除该任务兴趣并阻止 GF 侧应用和完成回调；最后一个兴趣离开后才取消当前 Utility 的 Lease，若它也是 Broker 最后一个消费者，已发起请求会进入 drain。若同路径新任务在本地取消记录尚未完成下一次轮询前到达，Utility 会重新取得 live Lease，而不会让新任务继承旧 Lease 的取消终态。CPU/IO 线程任务也是协作式取消：等待中的任务会立刻进入 `cancelled`，运行中的任务会等 worker 返回后再落到取消终态。`get_debug_snapshot()` 会报告等待、运行、资源请求、Broker draining/admission、应用队列和终态任务 ID，适合和运行时诊断面板或加载界面联动。
 
 未注入 Broker 时，`submit_resource_load()` 不会建立私有加载通道，而是立即返回
 `failed` 任务；`task.result` 为结构化字典，其中 `request_error` 是

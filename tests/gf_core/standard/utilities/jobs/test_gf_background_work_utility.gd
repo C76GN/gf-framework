@@ -306,6 +306,42 @@ func test_cancelled_resource_load_drains_late_completion_without_apply() -> void
 	utility.dispose()
 
 
+func test_same_path_submission_reacquires_lease_after_previous_task_cancels() -> void:
+	var utility: SimulatedResourceBackgroundWorkUtility = SimulatedResourceBackgroundWorkUtility.new()
+	utility.init()
+	var first: GFBackgroundWorkTask = utility.submit_resource_load(
+		"res://simulated_resource.tres",
+		"Resource",
+		Callable(),
+		{ "id": &"cancelled_resource" }
+	)
+	assert_true(utility.cancel_work(first.work_id))
+
+	var second: GFBackgroundWorkTask = utility.submit_resource_load(
+		"res://simulated_resource.tres",
+		"Resource",
+		Callable(self, "_apply_resource"),
+		{ "id": &"replacement_resource" }
+	)
+
+	assert_eq(
+		utility.lease_request_count,
+		2,
+		"本地 request 尚未由 tick 清除时，新任务仍必须取得独立的新 Lease。"
+	)
+	assert_eq(second.status, GFBackgroundWorkTask.Status.RUNNING)
+
+	utility.complete = true
+	utility.tick()
+	utility.tick()
+
+	assert_eq(first.status, GFBackgroundWorkTask.Status.CANCELLED)
+	assert_eq(second.status, GFBackgroundWorkTask.Status.COMPLETED)
+	assert_same(_applied_resource, utility.loaded_resource)
+	assert_eq(utility.requested_count, 1, "重新取得 Lease 应继续复用同一个底层请求。")
+	utility.dispose()
+
+
 func test_apply_queue_respects_time_budget_after_first_callback() -> void:
 	var utility: GFBackgroundWorkUtility = GFBackgroundWorkUtility.new()
 	utility.init()
@@ -549,6 +585,9 @@ class SimulatedResourceBackgroundWorkUtility extends GFBackgroundWorkUtility:
 	var requested_count: int:
 		get:
 			return _broker.requested_count
+	var lease_request_count: int:
+		get:
+			return _broker.lease_request_count
 	var complete: bool:
 		get:
 			return _broker.complete
@@ -568,8 +607,13 @@ class SimulatedResourceBackgroundWorkUtility extends GFBackgroundWorkUtility:
 
 class SimulatedResourceBroker extends GFResourceBroker:
 	var requested_count: int = 0
+	var lease_request_count: int = 0
 	var complete: bool = false
 	var loaded_resource: Resource = Resource.new()
+
+	func request(path: String, type_hint: String = "", options: Dictionary = {}) -> GFResourceLease:
+		lease_request_count += 1
+		return super.request(path, type_hint, options)
 
 	func _request_threaded_resource(_path: String, _type_hint: String) -> Error:
 		requested_count += 1

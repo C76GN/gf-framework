@@ -44,6 +44,20 @@ const DEFAULT_MAX_PENDING_REQUESTS: int = 256
 ## @since unreleased
 const ABSOLUTE_MAX_PENDING_REQUESTS: int = 4096
 
+## 活动请求无法追溯收紧 type hint 时写入 Lease 的稳定失败原因。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+const REASON_ACTIVE_TYPE_HINT_NOT_SATISFIED: String = "active_type_hint_not_satisfied"
+
+## 活动请求无法追溯升级 admission 约束时写入 Lease 的稳定失败原因。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+const REASON_ACTIVE_ADMISSION_CONSTRAINTS_NOT_SATISFIED: String = "active_admission_constraints_not_satisfied"
+
 const _THREADED_RESOURCE_LOAD_ADAPTER = preload("res://addons/gf/standard/utilities/assets/gf_threaded_resource_load_adapter.gd")
 const _RESOURCE_LEASE_SCRIPT = preload("res://addons/gf/standard/utilities/assets/gf_resource_lease.gd")
 const _REQUEST_QUEUED: int = 0
@@ -182,7 +196,7 @@ func request(path: String, type_hint: String = "", options: Dictionary = {}) -> 
 			if existing.type_hint.is_empty() and not type_hint.is_empty():
 				lease.broker_mark_failed(
 					ERR_ALREADY_IN_USE,
-					"active_type_hint_not_satisfied"
+					REASON_ACTIVE_TYPE_HINT_NOT_SATISFIED
 				)
 				return lease
 			if (
@@ -195,7 +209,7 @@ func request(path: String, type_hint: String = "", options: Dictionary = {}) -> 
 			):
 				lease.broker_mark_failed(
 					ERR_BUSY,
-					"active_admission_constraints_not_satisfied"
+					REASON_ACTIVE_ADMISSION_CONSTRAINTS_NOT_SATISFIED
 				)
 				return lease
 		existing.leases.append(lease)
@@ -370,11 +384,17 @@ func release_lease(lease: GFResourceLease, reason: StringName = &"released") -> 
 		return
 	lease.broker_mark_cancelled(reason)
 	var record: ResourceRequestRecord = _get_request_record(lease.broker_get_request_key())
-	if record == null or _record_has_live_consumers(record):
+	if record == null:
 		return
 	if record.state == _REQUEST_QUEUED:
+		if _record_has_live_consumers(record):
+			_recompute_queued_record_constraints(record)
+			_admit_pending_requests()
+			return
 		_remove_pending_record(record)
 		_admit_pending_requests()
+		return
+	if _record_has_live_consumers(record):
 		return
 	record.state = _REQUEST_DRAINING
 
@@ -518,6 +538,29 @@ func _record_has_live_consumers(record: ResourceRequestRecord) -> bool:
 		if lease != null and not lease.is_released() and not lease.is_terminal():
 			return true
 	return false
+
+
+func _recompute_queued_record_constraints(record: ResourceRequestRecord) -> void:
+	record.type_hint = ""
+	record.exclusive = false
+	record.require_idle = false
+	for index: int in range(record.leases.size() - 1, -1, -1):
+		var lease: GFResourceLease = record.leases[index]
+		if lease == null or lease.is_released() or lease.is_terminal():
+			record.leases.remove_at(index)
+			continue
+		var lease_type_hint: String = lease.get_type_hint()
+		if record.type_hint.is_empty() and not lease_type_hint.is_empty():
+			record.type_hint = lease_type_hint
+		var lease_snapshot: Dictionary = lease.to_poll_result()
+		record.exclusive = (
+			record.exclusive
+			or GFVariantData.get_option_bool(lease_snapshot, "exclusive")
+		)
+		record.require_idle = (
+			record.require_idle
+			or GFVariantData.get_option_bool(lease_snapshot, "require_idle")
+		)
 
 
 func _type_hints_are_compatible(left: String, right: String) -> bool:

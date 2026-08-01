@@ -88,10 +88,11 @@ Float/Vector/Color 也必须先通过预算才能开始扫描。携带 Object、
 worker。
 
 启动前的既有事务 recovery 与目录初始化属于独立前置生命周期，不受这条“新写入尚未
-提交”的保证覆盖。异步单文件写入与同步事务共用同一个 marker schema；若进程在
-committed marker 已落盘但 cleanup 尚未完成时退出，后续 recovery 会保留新 final，
-而不是把已提交代次误判为回滚。`dispose()` 会先关闭新的异步 admission，再 drain
-活动 attempt 并拒绝终态回调中的重入提交，所有 transfer lease 仍须在终态前收敛。
+提交”的保证覆盖。异步单文件写入与同步事务共用同一个 marker schema；单文件入口
+发现经过交叉校验的多文件 marker 时，会先核对并恢复完整成员集合，再开始该成员的
+异步 I/O。若进程在 committed marker 已落盘但 cleanup 尚未完成时退出，后续 recovery
+会保留新 final，而不是把已提交代次误判为回滚。`dispose()` 会先关闭新的异步 admission，
+再 drain 活动 attempt 并拒绝终态回调中的重入提交，所有 transfer lease 仍须在终态前收敛。
 `GFStorageAsyncResult.get_write_failure_kind()` 区分请求、载荷、编码、线程、生命周期和
 IO 故障；`get_write_validation_report()` 只暴露有界的结构索引、类型和预算计数，不
 返回载荷 key/value，也不返回可离线关联 key 的 digest。调用方应根据这些类型化证据

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFResourceBroker" path="addons/gf/standard/utilities/assets/gf_resource_broker.gd" module="standard" extends="GFUtility" classDigest="26ed8b821115ffcfdfd378ee3b35cfad9fd059c26d4934c8ece0d3cb99d4f0ab">
+<class name="GFResourceBroker" path="addons/gf/standard/utilities/assets/gf_resource_broker.gd" module="standard" extends="GFUtility" classDigest="699b6fbcb6cb30cb3e3af73304997d4e8b1f3d8f62743233a4d33aa80de6b60d">
 	<description>GFResourceBroker: framework-level threaded ResourceLoader admission broker。
 一个显式共享实例可以注入 Asset、Scene 与 BackgroundWork Utility，
 统一执行有界 FIFO admission、同资源身份复用、消费者级取消和底层请求 drain。
@@ -40,6 +40,22 @@ Broker 不使用全局 singleton；架构模式应把它注册为 Utility，独�
 		<member kind="const" name="ABSOLUTE_MAX_PENDING_REQUESTS">
 			<signature>const ABSOLUTE_MAX_PENDING_REQUESTS: int = 4096</signature>
 			<description>等待 admission 的不同资源请求数量绝对上限。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="REASON_ACTIVE_TYPE_HINT_NOT_SATISFIED">
+			<signature>const REASON_ACTIVE_TYPE_HINT_NOT_SATISFIED: String = "active_type_hint_not_satisfied"</signature>
+			<description>活动请求无法追溯收紧 type hint 时写入 Lease 的稳定失败原因。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="REASON_ACTIVE_ADMISSION_CONSTRAINTS_NOT_SATISFIED">
+			<signature>const REASON_ACTIVE_ADMISSION_CONSTRAINTS_NOT_SATISFIED: String = "active_admission_constraints_not_satisfied"</signature>
+			<description>活动请求无法追溯升级 admission 约束时写入 Lease 的稳定失败原因。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="since">unreleased</tag>

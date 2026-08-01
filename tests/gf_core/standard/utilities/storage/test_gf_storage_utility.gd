@@ -359,6 +359,52 @@ func test_dispose_notifies_queued_async_tasks_as_failed() -> void:
 	assert_true(saw_cancelled_queue, "dispose 应对尚未开始的异步任务发出失败通知。")
 
 
+func test_dispose_blocks_reentrant_tick_and_wait_from_starting_queued_tasks() -> void:
+	_storage.encrypt_key = 0
+	_storage.max_async_thread_count = 1
+	var callback_state: Dictionary = { "reentered": false }
+	var _connect_result: Error = _storage.save_completed.connect(
+		func(file_name: String, error: Error) -> void:
+			if (
+				file_name != "queued_async.json"
+				or error != OK
+				or GFVariantData.get_option_bool(callback_state, "reentered")
+			):
+				return
+			callback_state["reentered"] = true
+			_storage.tick(0.0)
+			_storage.wait_for_async_tasks()
+	) as Error
+	var first_operation: GFStorageAsyncOperation = _storage.save_data_request_async(
+		"queued_async.json",
+		{ "value": 1 }
+	)
+	var queued_operation: GFStorageAsyncOperation = _storage.save_data_request_async(
+		"queued_async.json",
+		{ "value": 2 }
+	)
+	assert_eq(_storage._async_queue.size(), 1, "第二次保存应在 dispose 前保持排队。")
+
+	_storage.dispose()
+
+	assert_true(
+		GFVariantData.get_option_bool(callback_state, "reentered"),
+		"运行中任务的同步 completion callback 应覆盖 dispose 重入路径。"
+	)
+	assert_true(first_operation.get_result().is_successful(), "已启动任务应在 dispose 中正常收敛。")
+	assert_false(queued_operation.get_result().is_successful(), "排队任务不得由重入 tick/wait 启动。")
+	assert_eq(
+		queued_operation.get_result().get_write_failure_kind(),
+		GFStorageAsyncResult.WriteFailureKind.UNAVAILABLE,
+		"dispose 期间排队任务应稳定终止为 UNAVAILABLE。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(_load_payload("queued_async.json"), "value"),
+		1,
+		"重入回调不得让排队写入产生磁盘副作用。"
+	)
+
+
 func test_dispose_clears_transient_state_and_releases_helpers() -> void:
 	_storage.encrypt_key = 0
 	_storage.last_load_result = GFStorageReadResult.new().configure_success({ "ok": true })
@@ -542,6 +588,92 @@ func test_transaction_marker_cannot_expand_recovery_beyond_requested_files() -> 
 	)
 
 
+func test_async_group_marker_cannot_expand_to_unapproved_absolute_sibling() -> void:
+	_storage.encrypt_key = 0
+	_storage.allow_absolute_paths = false
+	var victim_file_name: String = "marker_victim.json"
+	var outsider_file_name: String = "marker_outsider.json"
+	var victim_path: String = _storage._get_full_path(victim_file_name)
+	var outsider_path: String = ProjectSettings.globalize_path(
+		_storage._get_full_path(outsider_file_name)
+	).replace("\\", "/")
+	var declared_files: Array[String] = [victim_file_name, outsider_path]
+	assert_eq(_storage.save_data(victim_file_name, { "value": 1 }), OK, "应能预置相对目标。")
+	assert_eq(_storage.save_data(outsider_file_name, { "value": 2 }), OK, "应能预置范围外文件。")
+	assert_eq(
+		DirAccess.rename_absolute(victim_path, victim_path + ".bak"),
+		OK,
+		"应能构造相对目标备份。"
+	)
+	assert_eq(
+		DirAccess.rename_absolute(outsider_path, outsider_path + ".bak"),
+		OK,
+		"应能构造绝对 sibling 备份。"
+	)
+	assert_eq(_storage._write_json(victim_file_name, { "value": 999 }), OK, "应能构造相对目标新代次。")
+	assert_eq(
+		_storage._write_plain_json_absolute(outsider_path, { "value": 888 }),
+		OK,
+		"应能构造绝对 sibling 未提交 final。"
+	)
+	var victim_marker: Dictionary = {
+		"schema_version": 1,
+		"transaction_id": "absolute-sibling",
+		"file_key": victim_file_name,
+		"files": declared_files,
+		"committed": false,
+		"had_final": true,
+	}
+	var outsider_marker: Dictionary = victim_marker.duplicate(true)
+	outsider_marker["file_key"] = outsider_path
+	assert_eq(
+		_storage._write_plain_json(
+			_storage._get_transaction_filename(victim_file_name),
+			victim_marker
+		),
+		OK,
+		"应能构造相对目标 marker。"
+	)
+	assert_eq(
+		_storage._write_plain_json_absolute(outsider_path + ".txn", outsider_marker),
+		OK,
+		"应能构造互相一致的绝对 sibling marker。"
+	)
+
+	_storage.max_async_thread_count = 1
+	var blocker: GFStorageAsyncOperation = _storage.save_data_request_async(
+		"queued_async.json",
+		{ "value": 1 }
+	)
+	var operation: GFStorageAsyncOperation = _storage.load_data_request_async(victim_file_name)
+	assert_eq(_storage._async_queue.size(), 1, "目标读取应先保持排队，以验证冻结的路径授权。")
+	_storage.allow_absolute_paths = true
+	_storage.wait_for_async_tasks()
+
+	assert_true(blocker.get_result().is_successful(), "占位任务应正常完成。")
+	assert_false(operation.get_result().is_successful(), "未授权事务成员应让目标读取 fail closed。")
+	assert_eq(
+		operation.get_result().get_error_code(),
+		ERR_UNAUTHORIZED,
+		"冻结的路径策略应稳定报告未授权。"
+	)
+	assert_true(FileAccess.get_file_as_string(victim_path).contains("999"), "拒绝恢复时目标 final 不得被改写。")
+	assert_true(FileAccess.file_exists(victim_path + ".bak"), "拒绝恢复时目标 backup 不得被消费。")
+	assert_true(FileAccess.file_exists(victim_path + ".txn"), "拒绝恢复时目标 marker 不得被删除。")
+	assert_true(
+		FileAccess.get_file_as_string(outsider_path).contains("888"),
+		"未授权绝对 sibling 的 final 不得被事务恢复改写。"
+	)
+	assert_true(FileAccess.file_exists(outsider_path + ".bak"), "未授权绝对 sibling 的 backup 不得被消费。")
+	assert_true(FileAccess.file_exists(outsider_path + ".txn"), "未授权绝对 sibling 的 marker 不得被删除。")
+	assert_push_error(
+		"[GFStorageUtility] 异步读取失败：%s，原因：Transaction recovery failed，错误码：%s" % [
+			victim_file_name,
+			ERR_UNAUTHORIZED,
+		]
+	)
+
+
 func test_save_data_group_removes_orphaned_files_when_member_write_fails() -> void:
 	var faulty_storage: FaultyStorageUtility = FaultyStorageUtility.new()
 	_replace_storage(faulty_storage)
@@ -594,8 +726,8 @@ func test_data_group_transaction_recovery_rolls_back_partial_commit() -> void:
 	var meta_file_name: String = "group/meta.json"
 	var file_names: Array[String] = [data_file_name, meta_file_name]
 	assert_eq(_storage.save_data_group({
-		data_file_name: {"hp": 10},
-		meta_file_name: {"level": 1},
+		data_file_name: { "hp": 10 },
+		meta_file_name: { "level": 1 },
 	}), OK, "预置旧事务数据应成功。")
 	assert_eq(_storage._write_transaction_markers(file_names, false), OK, "应能构造未完成事务标记。")
 
@@ -629,8 +761,8 @@ func test_single_member_load_recovers_entire_partially_committed_group() -> void
 	var meta_file_name: String = "group/meta.json"
 	var file_names: Array[String] = [data_file_name, meta_file_name]
 	assert_eq(_storage.save_data_group({
-		data_file_name: {"hp": 10},
-		meta_file_name: {"level": 1},
+		data_file_name: { "hp": 10 },
+		meta_file_name: { "level": 1 },
 	}), OK, "预置旧事务数据应成功。")
 	assert_eq(_storage._write_transaction_markers(file_names, false), OK, "应能构造未完成事务标记。")
 
@@ -662,6 +794,121 @@ func test_single_member_load_recovers_entire_partially_committed_group() -> void
 		assert_false(
 			FileAccess.file_exists(_storage._get_full_path(_storage._get_transaction_filename(file_name))),
 			"全组恢复后不应残留事务标记。"
+		)
+
+
+func test_async_single_member_load_recovers_entire_partially_committed_group() -> void:
+	_storage.encrypt_key = 0
+	var data_file_name: String = "group/data.json"
+	var meta_file_name: String = "group/meta.json"
+	var file_names: Array[String] = [data_file_name, meta_file_name]
+	assert_eq(_storage.save_data_group({
+		data_file_name: { "hp": 10 },
+		meta_file_name: { "level": 1 },
+	}), OK, "预置旧事务数据应成功。")
+	assert_eq(_storage._write_transaction_markers(file_names, false), OK, "应能构造未完成事务标记。")
+
+	for file_name: String in file_names:
+		assert_eq(
+			DirAccess.rename_absolute(
+				_storage._get_full_path(file_name),
+				_storage._get_full_path(_storage._get_backup_filename(file_name))
+			),
+			OK,
+			"应能模拟正式文件进入事务备份。"
+		)
+	assert_eq(_storage._write_json(data_file_name, { "hp": 999 }), OK, "应能模拟只提交了新数据文件。")
+	assert_eq(
+		_storage._write_json(_storage._get_temp_filename(meta_file_name), { "level": 9 }),
+		OK,
+		"应能模拟尚未提交的新元数据临时文件。"
+	)
+
+	_storage.max_async_thread_count = 1
+	var blocker: GFStorageAsyncOperation = _storage.save_data_request_async(
+		"queued_async.json",
+		{ "value": 1 }
+	)
+	var operation: GFStorageAsyncOperation = _storage.load_data_request_async(data_file_name)
+	assert_eq(_storage._async_queue.size(), 1, "目标读取应先保持排队，以验证冻结的事务根。")
+	_storage.save_dir_name = "test_saves_after_enqueue"
+	_storage.wait_for_async_tasks()
+	_storage.save_dir_name = "test_saves"
+	var result: GFStorageReadResult = operation.get_result().get_read_result()
+
+	assert_true(blocker.get_result().is_successful(), "占位任务应正常完成。")
+	assert_true(result.ok, "异步读取应在恢复后成功。")
+	assert_eq(
+		GFVariantData.get_option_int(result.payload, "hp"),
+		10,
+		"异步读取任一成员都必须先把整个未提交事务回滚到旧代次。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(_load_payload(meta_file_name), "level"),
+		1,
+		"同组其它成员不得保留未提交代次。"
+	)
+	for file_name: String in file_names:
+		assert_false(
+			FileAccess.file_exists(_storage._get_full_path(_storage._get_transaction_filename(file_name))),
+			"异步 I/O 前完成全组恢复后不应残留事务标记。"
+		)
+
+
+func test_async_group_recovery_preserves_markers_for_retry_after_restore_failure() -> void:
+	_storage.encrypt_key = 0
+	var data_file_name: String = "group/data.json"
+	var meta_file_name: String = "group/meta.json"
+	var file_names: Array[String] = [data_file_name, meta_file_name]
+	assert_eq(_storage.save_data_group({
+		data_file_name: { "hp": 10 },
+		meta_file_name: { "level": 1 },
+	}), OK, "预置旧事务数据应成功。")
+	assert_eq(_storage._write_transaction_markers(file_names, false), OK, "应能构造未完成事务标记。")
+	for file_name: String in file_names:
+		assert_eq(
+			DirAccess.rename_absolute(
+				_storage._get_full_path(file_name),
+				_storage._get_full_path(_storage._get_backup_filename(file_name))
+			),
+			OK,
+			"应能模拟正式文件进入事务备份。"
+		)
+	var blocked_final_path: String = _storage._get_full_path(data_file_name)
+	assert_eq(
+		DirAccess.make_dir_absolute(blocked_final_path),
+		OK,
+		"应能用同名目录稳定阻断 backup 恢复。"
+	)
+
+	var failed_operation: GFStorageAsyncOperation = _storage.load_data_request_async(data_file_name)
+	_storage.wait_for_async_tasks()
+
+	assert_false(failed_operation.get_result().is_successful(), "成员恢复失败时异步读取必须失败。")
+	for file_name: String in file_names:
+		assert_true(
+			FileAccess.file_exists(_storage._get_full_path(_storage._get_transaction_filename(file_name))),
+			"任一成员恢复失败后必须保留全组 marker 供幂等重试。"
+		)
+	assert_push_error("[GFStorageUtility] 回滚事务文件失败：")
+	assert_push_error("[GFStorageUtility] 异步读取失败：")
+	assert_eq(DirAccess.remove_absolute(blocked_final_path), OK, "解除模拟故障应成功。")
+
+	var retry_operation: GFStorageAsyncOperation = _storage.load_data_request_async(data_file_name)
+	_storage.wait_for_async_tasks()
+	var retry_result: GFStorageReadResult = retry_operation.get_result().get_read_result()
+
+	assert_true(retry_result.ok, "解除故障后重试应完成全组恢复。")
+	assert_eq(GFVariantData.get_option_int(retry_result.payload, "hp"), 10, "目标成员应恢复旧代次。")
+	assert_eq(
+		GFVariantData.get_option_int(_load_payload(meta_file_name), "level"),
+		1,
+		"同组其它成员应保持旧代次。"
+	)
+	for file_name: String in file_names:
+		assert_false(
+			FileAccess.file_exists(_storage._get_full_path(_storage._get_transaction_filename(file_name))),
+			"全组重试成功后才应清理事务标记。"
 		)
 
 

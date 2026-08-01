@@ -44,7 +44,7 @@ scene_util.preload_scene_map_for("res://levels/hub.tscn")
 
 `get_scene_preload_map_plan(path, radius, include_fixed)` 只返回计划，适合调试 UI 或测试断言。计划中包含 `source_cache_key`、`fixed_cache_keys`、`temporary_cache_keys`、`cache_keys` 和 `resource_identities`，可用于确认 `uid://` / `res://` 是否收敛到同一资源身份。`preload_scene_map_for()` 会把固定路径以 fixed cache 发起预加载，把相邻路径放入临时 LRU 缓存。`scene_preload_map_radius = -1` 表示使用图谱自身的 `default_radius`。
 
-`auto_preload_map_neighbors_on_switch = true` 时，Scene Utility 会在切换前先监听目标 `scene_changed`，确认目标资源身份后等待首个稳定 process/render 边界，再以 `exclusive + require_idle` 请求共享 `GFResourceBroker`。因此仍在 Broker 中活动或 draining 的 Asset warmup 会先收敛，相邻场景不会在同一切换帧与它重叠发起。headless 环境使用 process frame 加零时长 SceneTree timer 作为无渲染 settle。新切换、图谱/半径变更、关闭自动预载与 Utility dispose 都会取消旧 generation；同路径手动预载拥有独立持久兴趣，不会被旧自动 generation 误杀。
+`auto_preload_map_neighbors_on_switch = true` 时，Scene Utility 会在切换前先监听目标 `scene_changed`，确认目标资源身份后等待首个稳定 process/render 边界。尚未活动的新邻居路径以 `exclusive + require_idle` 请求共享 `GFResourceBroker`，因此不同路径上仍在 Broker 中活动或 draining 的 Asset warmup 会先收敛；同一路径已经由 Asset、Scene 或 BackgroundWork 发起且仍在 active/draining，并且 type hint 为 `PackedScene` 或未指定时，自动邻居改以独立共享 Lease 加入，既不追溯升级 admission，也不会永久记录一次 `ERR_BUSY`；其它非空 type hint 仍按不兼容请求失败关闭。headless 环境使用 process frame 加零时长 SceneTree timer 作为无渲染 settle。新切换、图谱/半径变更、关闭自动预载与 Utility dispose 都会取消旧 generation；同路径手动预载拥有独立持久兴趣，不会被旧自动 generation 误杀。
 
 邻居批次会在每次 Broker 请求和 `scene_preload_started` 等同步可重入通知后重验
 generation。若通知处理器重配或关闭图谱，旧批次会立刻停止，不会继续登记剩余

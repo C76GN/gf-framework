@@ -2,7 +2,7 @@
   "schema_version": 1,
   "catalog_version": "1.0.0",
   "framework_version": "11.0.0-dev.0",
-  "source_digest": "f75f96a1fd8048fb7b93c2c16a093998917a6d94e37b6fbd0b26dafff00ea122",
+  "source_digest": "ff54f85352eb56697316340608852f34b28994be98fdf08ec4acb51d15c4a3e4",
   "class_count": 769,
   "package_count": 52,
   "packages": [
@@ -62286,6 +62286,20 @@
           "name": "ABSOLUTE_MAX_PENDING_REQUESTS",
           "signature": "const ABSOLUTE_MAX_PENDING_REQUESTS: int = 4096",
           "summary": "等待 admission 的不同资源请求数量绝对上限。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "REASON_ACTIVE_TYPE_HINT_NOT_SATISFIED",
+          "signature": "const REASON_ACTIVE_TYPE_HINT_NOT_SATISFIED: String = \"active_type_hint_not_satisfied\"",
+          "summary": "活动请求无法追溯收紧 type hint 时写入 Lease 的稳定失败原因。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "REASON_ACTIVE_ADMISSION_CONSTRAINTS_NOT_SATISFIED",
+          "signature": "const REASON_ACTIVE_ADMISSION_CONSTRAINTS_NOT_SATISFIED: String = \"active_admission_constraints_not_satisfied\"",
+          "summary": "活动请求无法追溯升级 admission 约束时写入 Lease 的稳定失败原因。",
           "visibility": "public"
         },
         {

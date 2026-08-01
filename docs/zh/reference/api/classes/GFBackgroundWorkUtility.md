@@ -350,7 +350,7 @@ func release_dependencies() -> void:
 func set_resource_broker(broker: GFResourceBroker) -> Error:
 ```
 
-注入共享 Resource Broker。 存在活动资源请求时拒绝替换，以保证每个消费者 Lease 始终由同一 Broker 管理。
+注入共享 Resource Broker。 重复绑定当前 Broker 幂等成功；存在活动资源请求时拒绝替换，以保证每个消费者 Lease 始终由同一 Broker 管理。当前 Broker 由本 Utility 私有拥有时，还必须等待 它完成 drain 并进入 idle，才能替换为其它 Broker。
 
 参数：
 
@@ -358,7 +358,7 @@ func set_resource_broker(broker: GFResourceBroker) -> Error:
 |---|---|
 | `broker` | 要共享的 Broker。 |
 
-返回：绑定结果。
+返回：绑定结果；请求尚未收敛或私有 Broker 尚未 idle 时返回 `ERR_BUSY`。
 
 <a id="member-gfbackgroundworkutility-methods-setup_standalone_resource_broker"></a>
 

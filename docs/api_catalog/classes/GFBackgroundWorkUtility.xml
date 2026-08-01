@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFBackgroundWorkUtility" path="addons/gf/standard/utilities/jobs/gf_background_work_utility.gd" module="standard" extends="GFUtility" classDigest="26027a4e23360fbd2eb0e2565991d63dffa0730e4582f69e4664e42d6fe0d35b">
+<class name="GFBackgroundWorkUtility" path="addons/gf/standard/utilities/jobs/gf_background_work_utility.gd" module="standard" extends="GFUtility" classDigest="22a31453b15364dcc10c10e6f54f3a9cf66b9b94c31dd80209d3b6edfd5bd95e">
 	<description>GFBackgroundWorkUtility: 纯数据后台工作协调器。
 统一协调 CPU/IO 线程工作、ResourceLoader 线程加载和主线程应用回调。
 默认只允许纯 Variant 输入数据，避免后台线程直接触碰 Node、Resource 或 Callable。</description>
@@ -166,11 +166,13 @@
 		<member kind="method" name="set_resource_broker">
 			<signature>func set_resource_broker(broker: GFResourceBroker) -&gt; Error:</signature>
 			<description>注入共享 Resource Broker。
-存在活动资源请求时拒绝替换，以保证每个消费者 Lease 始终由同一 Broker 管理。</description>
+重复绑定当前 Broker 幂等成功；存在活动资源请求时拒绝替换，以保证每个消费者
+Lease 始终由同一 Broker 管理。当前 Broker 由本 Utility 私有拥有时，还必须等待
+它完成 drain 并进入 idle，才能替换为其它 Broker。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">broker: 要共享的 Broker。</tag>
-				<tag name="return">绑定结果。</tag>
+				<tag name="return">绑定结果；请求尚未收敛或私有 Broker 尚未 idle 时返回 `ERR_BUSY`。</tag>
 				<tag name="since">unreleased</tag>
 			</tags>
 		</member>

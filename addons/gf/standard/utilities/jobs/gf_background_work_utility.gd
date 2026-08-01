@@ -212,7 +212,9 @@ func release_dependencies() -> void:
 
 ## 注入共享 Resource Broker。
 ##
-## 存在活动资源请求时拒绝替换，以保证每个消费者 Lease 始终由同一 Broker 管理。
+## 重复绑定当前 Broker 幂等成功；存在活动资源请求时拒绝替换，以保证每个消费者
+## Lease 始终由同一 Broker 管理。当前 Broker 由本 Utility 私有拥有时，还必须等待
+## 它完成 drain 并进入 idle，才能替换为其它 Broker。
 ## [br]
 ## @api public
 ## [br]
@@ -220,13 +222,17 @@ func release_dependencies() -> void:
 ## [br]
 ## @param broker: 要共享的 Broker。
 ## [br]
-## @return 绑定结果。
+## @return 绑定结果；请求尚未收敛或私有 Broker 尚未 idle 时返回 `ERR_BUSY`。
 func set_resource_broker(broker: GFResourceBroker) -> Error:
 	if broker == null:
 		return ERR_INVALID_PARAMETER
+	if _resource_broker == broker:
+		return OK
 	if not _resource_requests.is_empty():
 		return ERR_BUSY
 	if _owns_resource_broker and _resource_broker != null and _resource_broker != broker:
+		if not _resource_broker.is_idle():
+			return ERR_BUSY
 		_resource_broker.dispose()
 	_resource_broker = broker
 	_owns_resource_broker = false
@@ -720,6 +726,18 @@ func _start_resource_task(task: GFBackgroundWorkTask) -> void:
 	var path: String = task.resource_path
 	if _resource_requests.has(path):
 		var request: Dictionary = _get_resource_request(path)
+		var existing_operation: _RESOURCE_LEASE_SCRIPT = _get_resource_request_operation(
+			request
+		)
+		# 已取消的 Lease 不会向后来消费者交付结果；先退役本地记录，再重新取得 Lease。
+		if (
+			existing_operation != null
+			and existing_operation.get_status() == _RESOURCE_LEASE_SCRIPT.STATUS_CANCELLED
+		):
+			_retire_cancelled_resource_request(path, request, existing_operation)
+			if not task.is_finished():
+				_start_resource_task(task)
+			return
 		var pending_type_hint: String = GFVariantData.get_option_string(request, "type_hint")
 		if not _type_hints_are_compatible(pending_type_hint, task.resource_type_hint):
 			_fail_task(task, "[GFBackgroundWorkUtility] 相同资源路径已有不同 type_hint 的加载请求：%s。" % path)
@@ -1039,6 +1057,19 @@ func _release_resource_operation_for_task(task: GFBackgroundWorkTask, reason: St
 		return
 	if not _resource_request_has_live_consumers(request):
 		operation.cancel(reason)
+
+
+func _retire_cancelled_resource_request(
+	path: String,
+	request: Dictionary,
+	operation: _RESOURCE_LEASE_SCRIPT
+) -> void:
+	var _removed_request: bool = _resource_requests.erase(path)
+	for task_variant: Variant in _get_resource_request_tasks(request):
+		var request_task: GFBackgroundWorkTask = _as_task(task_variant)
+		if request_task != null and not request_task.is_finished():
+			_cancel_task(request_task)
+	operation.release()
 
 
 func _resource_request_has_live_consumers(request: Dictionary) -> bool:

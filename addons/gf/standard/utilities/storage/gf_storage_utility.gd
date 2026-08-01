@@ -851,6 +851,8 @@ func _make_async_operation(operation_kind: StringName, file_name: String) -> GFS
 func _make_async_target_family(canonical_file_name: String) -> Dictionary:
 	var final_path: String = _get_full_path(canonical_file_name)
 	return {
+		"allow_absolute_paths": allow_absolute_paths,
+		"storage_root_path": _get_save_base_path(),
 		"file_key": final_path,
 		"final_path": final_path,
 		"temp_path": _get_full_path(_get_temp_filename(canonical_file_name)),
@@ -906,6 +908,8 @@ func _enqueue_async_save(
 		"type": &"save",
 		"file_name": file_name,
 		"storage_file_name": canonical_file_name,
+		"allow_absolute_paths": GFVariantData.get_option_bool(target_family, "allow_absolute_paths"),
+		"storage_root_path": GFVariantData.get_option_string(target_family, "storage_root_path"),
 		"file_key": GFVariantData.get_option_string(target_family, "file_key"),
 		"final_path": GFVariantData.get_option_string(target_family, "final_path"),
 		"temp_path": GFVariantData.get_option_string(target_family, "temp_path"),
@@ -1003,6 +1007,8 @@ func _enqueue_async_payload_save(
 		"type": &"save",
 		"file_name": file_name,
 		"storage_file_name": canonical_file_name,
+		"allow_absolute_paths": GFVariantData.get_option_bool(target_family, "allow_absolute_paths"),
+		"storage_root_path": GFVariantData.get_option_string(target_family, "storage_root_path"),
 		"file_key": target_file_key,
 		"final_path": GFVariantData.get_option_string(target_family, "final_path"),
 		"temp_path": GFVariantData.get_option_string(target_family, "temp_path"),
@@ -1057,6 +1063,8 @@ func _enqueue_async_load(
 		"type": &"load",
 		"file_name": file_name,
 		"storage_file_name": canonical_file_name,
+		"allow_absolute_paths": GFVariantData.get_option_bool(target_family, "allow_absolute_paths"),
+		"storage_root_path": GFVariantData.get_option_string(target_family, "storage_root_path"),
 		"file_key": GFVariantData.get_option_string(target_family, "file_key"),
 		"final_path": GFVariantData.get_option_string(target_family, "final_path"),
 		"temp_path": GFVariantData.get_option_string(target_family, "temp_path"),
@@ -1192,6 +1200,14 @@ func _get_task_storage_file_name(task: Dictionary) -> String:
 	return GFVariantData.get_option_string(task, "storage_file_name", _get_task_file_name(task))
 
 
+func _get_task_allow_absolute_paths(task: Dictionary) -> bool:
+	return GFVariantData.get_option_bool(task, "allow_absolute_paths")
+
+
+func _get_task_storage_root_path(task: Dictionary) -> String:
+	return GFVariantData.get_option_string(task, "storage_root_path")
+
+
 func _get_task_file_key(task: Dictionary) -> String:
 	return GFVariantData.get_option_string(task, "file_key")
 
@@ -1265,7 +1281,9 @@ func _wait_for_async_tasks() -> void:
 
 
 func _start_queued_async_tasks() -> void:
-	while _async_tasks.size() < maxi(max_async_thread_count, 1):
+	if _is_disposing:
+		return
+	while not _is_disposing and _async_tasks.size() < maxi(max_async_thread_count, 1):
 		var task_index: int = _find_startable_async_task_index()
 		if task_index < 0:
 			return
@@ -1328,12 +1346,15 @@ func _start_async_task(task: Dictionary) -> void:
 
 func _recover_frozen_async_transaction(task: Dictionary) -> Error:
 	var storage_file_name: String = _get_task_storage_file_name(task)
+	var allow_frozen_absolute_paths: bool = _get_task_allow_absolute_paths(task)
+	var storage_root_path: String = _get_task_storage_root_path(task)
 	var final_path: String = _get_task_final_path(task)
 	var temp_path: String = _get_task_temp_path(task)
 	var backup_path: String = _get_task_backup_path(task)
 	var transaction_path: String = _get_task_transaction_path(task)
 	if (
 		storage_file_name.is_empty()
+		or storage_root_path.is_empty()
 		or final_path.is_empty()
 		or temp_path.is_empty()
 		or backup_path.is_empty()
@@ -1342,13 +1363,26 @@ func _recover_frozen_async_transaction(task: Dictionary) -> Error:
 	):
 		return ERR_INVALID_PARAMETER
 	_ensure_storage_helpers()
-	return _transaction_manager._recover_single_file_family(
+	var frozen_path_policy: _FrozenStoragePathPolicy = _FrozenStoragePathPolicy.new(
+		storage_root_path,
+		allow_frozen_absolute_paths
+	)
+	var frozen_transaction_manager: _StorageTransactionManager = _StorageTransactionManager.new(
+		self,
+		frozen_path_policy,
+		_file_ops
+	)
+	var recovery_error: Error = frozen_transaction_manager._recover_frozen_file_family(
 		storage_file_name,
 		final_path,
 		temp_path,
 		backup_path,
-		transaction_path
+		transaction_path,
+		allow_frozen_absolute_paths
 	)
+	frozen_transaction_manager._dispose()
+	frozen_path_policy._dispose()
+	return recovery_error
 
 
 func _emit_async_start_failed(
@@ -2605,7 +2639,7 @@ func _recover_transaction_files(file_names: Array[String]) -> void:
 
 func _recover_transaction_group(file_names: Array[String]) -> void:
 	_ensure_storage_helpers()
-	_transaction_manager._recover_transaction_group(file_names)
+	var _recovery_error: Error = _transaction_manager._recover_transaction_group(file_names)
 
 
 func _recover_transaction_file(file_name: String) -> void:
@@ -3127,6 +3161,39 @@ class _StoragePathPolicy:
 		return true
 
 
+class _FrozenStoragePathPolicy extends _StoragePathPolicy:
+	var _storage_root_path: String
+	var _allow_absolute_paths: bool
+
+	func _init(storage_root_path: String, allow_absolute_paths: bool) -> void:
+		_storage_root_path = storage_root_path
+		_allow_absolute_paths = allow_absolute_paths
+
+	func _get_save_base_path() -> String:
+		return _storage_root_path
+
+	func _get_full_path(file_name: String) -> String:
+		if file_name.is_absolute_path():
+			if not _allow_absolute_paths:
+				push_error("[GFStorageUtility] 已禁用绝对路径：%s" % file_name)
+				return ""
+			return file_name
+		file_name = _sanitize_storage_relative_path(file_name, "file_name")
+		if file_name.is_empty():
+			return ""
+		if _storage_root_path == "user://":
+			return "user://" + file_name
+		return _storage_root_path + "/" + file_name
+
+	func _canonicalize_file_name(path: String, label: String) -> String:
+		if path.is_absolute_path():
+			if not _allow_absolute_paths:
+				push_error("[GFStorageUtility] 已禁用绝对路径：%s" % path)
+				return ""
+			return path.replace("\\", "/").simplify_path()
+		return _sanitize_storage_relative_path(path, label)
+
+
 class _StorageFileOps:
 	var _owner: Object
 	var _path_policy: _StoragePathPolicy
@@ -3320,13 +3387,43 @@ class _StorageTransactionManager:
 				continue
 
 			var transaction_files: Array[String] = _discover_transaction_marker_files(marker, file_name)
-			_recover_transaction_group(transaction_files)
+			var _recovery_error: Error = _recover_transaction_group(transaction_files)
 			for transaction_file_name: String in transaction_files:
 				recovered_files[transaction_file_name] = true
 
 		for file_name: String in file_names:
 			if not recovered_files.has(file_name):
 				_recover_transaction_file(file_name)
+
+	func _recover_frozen_file_family(
+		file_name: String,
+		final_path: String,
+		temp_path: String,
+		backup_path: String,
+		transaction_path: String,
+		allow_frozen_absolute_paths: bool
+	) -> Error:
+		if (
+			_path_policy._get_full_path(file_name) != final_path
+			or _path_policy._get_full_path(_get_temp_filename(file_name)) != temp_path
+			or _path_policy._get_full_path(_get_backup_filename(file_name)) != backup_path
+			or _path_policy._get_full_path(_get_transaction_filename(file_name)) != transaction_path
+		):
+			return ERR_INVALID_PARAMETER
+
+		var marker: Dictionary = _read_transaction_marker_absolute(transaction_path)
+		if _has_unauthorized_frozen_marker_member(marker, allow_frozen_absolute_paths):
+			return ERR_UNAUTHORIZED
+		var transaction_files: Array[String] = _discover_transaction_marker_files(marker, file_name)
+		if transaction_files.size() > 1:
+			return _recover_transaction_group(transaction_files)
+		return _recover_single_file_family(
+			file_name,
+			final_path,
+			temp_path,
+			backup_path,
+			transaction_path
+		)
 
 	func _recover_single_file_family(
 		file_name: String,
@@ -3383,12 +3480,13 @@ class _StorageTransactionManager:
 		_file_ops._remove_file_if_exists(transaction_path)
 		return OK
 
-	func _recover_transaction_group(file_names: Array[String]) -> void:
+	func _recover_transaction_group(file_names: Array[String]) -> Error:
 		file_names = _unique_file_names(file_names)
 		if file_names.is_empty():
-			return
+			return ERR_INVALID_PARAMETER
 
 		var should_keep_new_files: bool = _is_transaction_group_committed(file_names)
+		var recovery_error: Error = OK
 		if should_keep_new_files:
 			for file_name: String in file_names:
 				var final_path: String = _path_policy._get_full_path(file_name)
@@ -3397,16 +3495,20 @@ class _StorageTransactionManager:
 					var promote_error: Error = _file_ops._move_file(temp_path, final_path)
 					if promote_error != OK:
 						push_error("[GFStorageUtility] 恢复已提交事务文件失败：%s，错误码：%s" % [final_path, promote_error])
+						if recovery_error == OK:
+							recovery_error = promote_error
 						continue
-				_file_ops._remove_file_if_exists(temp_path)
+			if recovery_error != OK:
+				return recovery_error
+			for file_name: String in file_names:
+				_file_ops._remove_file_if_exists(_path_policy._get_full_path(_get_temp_filename(file_name)))
 				_file_ops._remove_file_if_exists(_path_policy._get_full_path(_get_backup_filename(file_name)))
 				_file_ops._remove_file_if_exists(_path_policy._get_full_path(_get_transaction_filename(file_name)))
-			return
+			return OK
 
 		for file_name: String in file_names:
 			var marker: Dictionary = _read_transaction_marker(file_name)
 			var final_path: String = _path_policy._get_full_path(file_name)
-			var temp_path: String = _path_policy._get_full_path(_get_temp_filename(file_name))
 			var backup_path: String = _path_policy._get_full_path(_get_backup_filename(file_name))
 			var had_final: bool = GFVariantData.get_option_bool(marker, "had_final", true)
 
@@ -3415,11 +3517,17 @@ class _StorageTransactionManager:
 				var restore_error: Error = _file_ops._move_file(backup_path, final_path)
 				if restore_error != OK:
 					push_error("[GFStorageUtility] 回滚事务文件失败：%s，错误码：%s" % [final_path, restore_error])
+					if recovery_error == OK:
+						recovery_error = restore_error
 			elif not had_final:
 				_file_ops._remove_file_if_exists(final_path)
 
-			_file_ops._remove_file_if_exists(temp_path)
+		if recovery_error != OK:
+			return recovery_error
+		for file_name: String in file_names:
+			_file_ops._remove_file_if_exists(_path_policy._get_full_path(_get_temp_filename(file_name)))
 			_file_ops._remove_file_if_exists(_path_policy._get_full_path(_get_transaction_filename(file_name)))
+		return OK
 
 	func _recover_transaction_file(file_name: String) -> void:
 		var final_path: String = _path_policy._get_full_path(file_name)
@@ -3685,6 +3793,23 @@ class _StorageTransactionManager:
 			if not file_name.is_empty() and not result.has(file_name):
 				result.append(file_name)
 		return result
+
+	func _has_unauthorized_frozen_marker_member(
+		marker: Dictionary,
+		allow_frozen_absolute_paths: bool
+	) -> bool:
+		if allow_frozen_absolute_paths:
+			return false
+		var raw_files: Variant = GFVariantData.get_option_value(marker, "files", [])
+		if not (raw_files is Array):
+			return false
+		for raw_file: Variant in raw_files:
+			var file_name: String = _canonicalize_marker_file_name(
+				GFVariantData.to_text(raw_file)
+			)
+			if file_name.is_absolute_path():
+				return true
+		return false
 
 	func _canonicalize_marker_file_name(file_name: String) -> String:
 		if file_name.is_empty():

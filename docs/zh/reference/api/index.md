@@ -6,7 +6,7 @@
 
 - 源码根目录：`addons/gf`
 - 公开类：`793`
-- 公开成员：`11622`
+- 公开成员：`11624`
 - 公开方法：`7151`
 
 ## 模块
@@ -14,7 +14,7 @@
 | 模块 | 类 | 成员 | 方法 | 页面 |
 |---|---:|---:|---:|---|
 | Kernel | 73 | 1046 | 747 | [kernel.md](kernel.md) |
-| Standard | 443 | 7064 | 4465 | [standard.md](standard.md) |
+| Standard | 443 | 7066 | 4465 | [standard.md](standard.md) |
 | Action Queue | 16 | 214 | 136 | [extensions-action-queue.md](extensions-action-queue.md) |
 | Asset Metadata | 4 | 33 | 24 | [extensions-asset-metadata.md](extensions-asset-metadata.md) |
 | Behavior Tree | 22 | 89 | 65 | [extensions-behavior-tree.md](extensions-behavior-tree.md) |
