@@ -400,11 +400,21 @@ func test_dispose_blocks_reentrant_tick_and_wait_from_starting_queued_tasks() ->
 		GFStorageAsyncResult.WriteFailureKind.UNAVAILABLE,
 		"dispose 期间排队任务应稳定终止为 UNAVAILABLE。"
 	)
+	var observer: GFStorageUtility = GFStorageUtility.new()
+	observer.save_dir_name = _storage.save_dir_name
+	observer.encrypt_key = _storage.encrypt_key
+	observer.init()
+	var persisted_result: GFStorageReadResult = observer.load_data("queued_async.json")
+	assert_true(
+		persisted_result.ok,
+		"独立 observer 应能读取 dispose 前已落盘的首个异步写入：%s" % persisted_result.error
+	)
 	assert_eq(
-		GFVariantData.get_option_int(_load_payload("queued_async.json"), "value"),
+		GFVariantData.get_option_int(persisted_result.payload, "value"),
 		1,
 		"重入回调不得让排队写入产生磁盘副作用。"
 	)
+	observer.dispose()
 
 
 func test_dispose_clears_transient_state_and_releases_helpers() -> void:

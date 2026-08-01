@@ -235,7 +235,7 @@ const DEFAULT_SNAPSHOT_MODELS_PER_FRAME: int = 8
 ### `module_async_init_timeout_seconds`
 
 - API：`public`
-- 首次版本：`5.0.0`
+- 首次版本：`1.23.0`
 
 ```gdscript
 var module_async_init_timeout_seconds: float = 0.0:
@@ -248,7 +248,7 @@ var module_async_init_timeout_seconds: float = 0.0:
 ### `strict_dependency_lookup`
 
 - API：`public`
-- 首次版本：`5.0.0`
+- 首次版本：`1.23.0`
 
 ```gdscript
 var strict_dependency_lookup: bool = false
@@ -319,7 +319,7 @@ func _init(parent_architecture: GFArchitecture = null) -> void:
 ### `is_inited`
 
 - API：`public`
-- 首次版本：`5.0.0`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func is_inited() -> bool:
@@ -1888,7 +1888,7 @@ func register_utility_instance_as(instance: Object, alias_cls: Script) -> bool:
 ### `unregister_system`
 
 - API：`public`
-- 首次版本：`5.0.0`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func unregister_system(script_cls: Script) -> bool:
@@ -1909,7 +1909,7 @@ func unregister_system(script_cls: Script) -> bool:
 ### `unregister_model`
 
 - API：`public`
-- 首次版本：`5.0.0`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func unregister_model(script_cls: Script) -> bool:
@@ -1930,7 +1930,7 @@ func unregister_model(script_cls: Script) -> bool:
 ### `unregister_utility`
 
 - API：`public`
-- 首次版本：`5.0.0`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func unregister_utility(script_cls: Script) -> bool:

@@ -124,13 +124,13 @@ func _exit_tree() -> void:
 
 # --- 公共方法 ---
 
-## 检查当前是否已有架构实例。
+## 检查当前架构 identity 是否仍可供 facade 使用。
 ## [br]
 ## @api public
 ## [br]
 ## @since 1.5.0
 ## [br]
-## @return 已存在架构时返回 true。
+## @return identity 已存在且未进入 quiesce 或 dispose 阶段时返回 true。
 func has_architecture() -> bool:
 	return (
 		_architecture != null
@@ -143,8 +143,8 @@ func has_architecture() -> bool:
 ## 获取当前架构；若尚未创建，则自动创建一个默认 GFArchitecture。
 ## 若同步取消旧 assignment 的 cleanup 触发更新架构操作，较新的操作拥有提交权，
 ## 本次调用返回其最终提交结果，不会用陈旧默认实例覆盖。Gf 正在退出场景树，
-## 或当前 identity 正在 dispose 时返回 null；已完成 dispose 的 identity 会先被
-## 清除，再创建新的默认架构。
+## 或当前 identity 正在 quiesce/dispose 时返回 null；已完成 dispose 的 identity
+## 会先被清除，再创建新的默认架构。
 ## [br]
 ## @api public
 ## [br]
@@ -206,7 +206,7 @@ func create_binder() -> Variant:
 ## [br]
 ## @since 3.17.0
 ## [br]
-## @return GFArchitecture 实例，如果未注册则返回 null。
+## @return 当前可用的 GFArchitecture；未注册或 identity 正在 quiesce/dispose 时返回 null。
 func get_architecture() -> GFArchitecture:
 	if not has_architecture():
 		push_error("[GF] 架构尚未初始化或正在释放，请先注册可用架构。")
@@ -224,6 +224,8 @@ func get_architecture() -> GFArchitecture:
 ## 替换已有架构时会先等待旧架构的 shutdown_async()；只有 typed shutdown 结果成功，
 ## 才会发布候选。失败结果会拒绝候选、强制清理候选并清除已经终结的旧 identity。
 ## 同一候选已有 pending 赋值时，并发重复调用会返回 false，且不会取消首个赋值。
+## 已进入 QUIESCING、DISPOSING 或 DISPOSED 的候选会在事务开始前被拒绝，也不会
+## 改变当前 pending 赋值。
 ## [br]
 ## @api public
 ## [br]
@@ -238,7 +240,11 @@ func set_architecture(architecture_instance: GFArchitecture) -> bool:
 		return false
 	if _tree_exit_in_progress:
 		return false
-	if architecture_instance.is_disposing() or architecture_instance.is_disposed():
+	if (
+		architecture_instance.is_quiescing()
+		or architecture_instance.is_disposing()
+		or architecture_instance.is_disposed()
+	):
 		return false
 
 	var assignment_scope: GFAsyncScope = _begin_architecture_assignment(architecture_instance)
@@ -1267,7 +1273,7 @@ func unlisten_owner(listener_owner: Object) -> void:
 ## [br]
 ## @api public
 ## [br]
-## @since 5.0.0
+## @since 1.9.0
 ## [br]
 ## @param script_cls: 要注册、查询或创建的脚本类型。
 ## [br]
@@ -1282,7 +1288,7 @@ func unregister_system(script_cls: Script) -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since 5.0.0
+## @since 1.9.0
 ## [br]
 ## @param script_cls: 要注册、查询或创建的脚本类型。
 ## [br]
@@ -1297,7 +1303,7 @@ func unregister_model(script_cls: Script) -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since 5.0.0
+## @since 1.9.0
 ## [br]
 ## @param script_cls: 要注册、查询或创建的脚本类型。
 ## [br]
@@ -1425,7 +1431,7 @@ func _clear_terminal_architecture_identity_if_current(
 	):
 		return
 	if not architecture_instance.is_disposed():
-		architecture_instance.dispose()
+		return
 	if (
 		not _is_architecture_assignment_serial_current(assignment_serial)
 		or _architecture != architecture_instance

@@ -491,6 +491,66 @@ class RuntimeFactoryProduct extends RefCounted:
 
 # --- 测试 ---
 
+func test_lifecycle_timeout_properties_accept_only_finite_closed_range() -> void:
+	var architecture: GFArchitecture = GFArchitecture.new()
+	var property_names: Array[StringName] = [
+		&"module_async_init_timeout_seconds",
+		&"activation_timeout_seconds",
+		&"shutdown_timeout_seconds",
+	]
+	var invalid_values: Array[float] = [NAN, INF, -INF, -0.001, 86_400.001]
+	for property_name: StringName in property_names:
+		architecture.set(property_name, 0.0)
+		assert_eq(_get_lifecycle_timeout_property(architecture, property_name), 0.0, "0 应是合法的无 deadline 边界。")
+		architecture.set(property_name, 86_400.0)
+		assert_eq(_get_lifecycle_timeout_property(architecture, property_name), 86_400.0, "86400 应是合法上界。")
+		for invalid_value: float in invalid_values:
+			architecture.set(property_name, invalid_value)
+			assert_eq(
+				_get_lifecycle_timeout_property(architecture, property_name),
+				86_400.0,
+				"无效 timeout 不得覆盖最近一次合法值：%s" % property_name
+			)
+	assert_push_error_count(15, "三个 timeout 属性应分别拒绝五种非有限或越界输入。")
+	architecture.dispose()
+
+
+func test_shutdown_timeout_override_validates_before_state_change() -> void:
+	var architecture: GFArchitecture = GFArchitecture.new()
+	for invalid_value: float in [NAN, INF, -INF, -2.0, 86_400.001]:
+		var invalid_result: GFArchitectureShutdownResult = (
+			await architecture.shutdown_async(null, invalid_value)
+		)
+		assert_eq(
+			invalid_result.get_status(),
+			GFArchitectureShutdownResult.Status.FAILED,
+			"无效 override 应返回 FAILED typed 结果。"
+		)
+		assert_eq(invalid_result.get_error_code(), ERR_INVALID_PARAMETER)
+		assert_false(architecture.is_disposed(), "参数错误不得改变生命周期状态。")
+
+	assert_true(await architecture.init())
+	var upper_bound_result: GFArchitectureShutdownResult = (
+		await architecture.shutdown_async(null, 86_400.0)
+	)
+	assert_true(upper_bound_result.is_successful(), "86400 override 应被正常接受。")
+	var disposed_result: GFArchitectureShutdownResult = (
+		await architecture.shutdown_async(null, 0.0)
+	)
+	assert_eq(
+		disposed_result.get_status(),
+		GFArchitectureShutdownResult.Status.ALREADY_DISPOSED,
+		"合法 override 下的重复关闭应返回 ALREADY_DISPOSED。"
+	)
+
+	var zero_timeout_architecture: GFArchitecture = GFArchitecture.new()
+	assert_true(await zero_timeout_architecture.init())
+	var zero_timeout_result: GFArchitectureShutdownResult = (
+		await zero_timeout_architecture.shutdown_async(null, 0.0)
+	)
+	assert_true(zero_timeout_result.is_successful(), "0 override 应作为合法无 deadline 值。")
+
+
 func test_activation_waits_for_dependency_tick_before_ready_commit() -> void:
 	var lifecycle_log: Array[String] = []
 	var architecture: GFArchitecture = GFArchitecture.new()
@@ -1621,6 +1681,22 @@ func test_ready_failure_then_dispose_does_not_release_module_twice() -> void:
 	architecture.dispose()
 	assert_true(architecture.is_disposed())
 	assert_eq(utility.dispose_count, 1, "fail_initialization 后 dispose 不得重复释放模块。")
+
+
+func _get_lifecycle_timeout_property(
+	architecture: GFArchitecture,
+	property_name: StringName
+) -> float:
+	match property_name:
+		&"module_async_init_timeout_seconds":
+			return architecture.module_async_init_timeout_seconds
+		&"activation_timeout_seconds":
+			return architecture.activation_timeout_seconds
+		&"shutdown_timeout_seconds":
+			return architecture.shutdown_timeout_seconds
+		_:
+			fail_test("未知的生命周期 timeout 属性：%s" % property_name)
+			return -1.0
 
 
 func _await_init(

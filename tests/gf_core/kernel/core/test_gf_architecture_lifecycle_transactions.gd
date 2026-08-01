@@ -163,7 +163,7 @@ func test_hot_registration_is_invisible_until_activation_commits() -> void:
 func test_pending_hot_replace_closes_acceptance_and_regular_tick_does_not_double_drive() -> void:
 	var architecture: GFArchitecture = GFArchitecture.new()
 	var previous: PendingHotRegistrationUtility = (
-		PendingHotRegistrationUtility.new(false)
+		PendingHotRegistrationUtility.new(false, true)
 	)
 	assert_true(await architecture.register_utility_instance(previous))
 	assert_true(await architecture.init())
@@ -189,6 +189,14 @@ func test_pending_hot_replace_closes_acceptance_and_regular_tick_does_not_double
 		previous,
 		"替换提交前注册表必须继续公开旧实例。"
 	)
+	assert_false(
+		architecture.is_module_ready(replacement),
+		"尚未提交的 staged replacement 不得公开 ready 状态。"
+	)
+	assert_false(
+		replacement.is_ready_in_architecture(),
+		"staged replacement 的模块便捷查询也不得越过原子提交点。"
+	)
 	var previous_tick_count: int = previous.tick_count
 	var replacement_tick_count: int = replacement.tick_count
 	architecture.tick(0.1)
@@ -200,6 +208,29 @@ func test_pending_hot_replace_closes_acceptance_and_regular_tick_does_not_double
 	)
 
 	assert_true(replacement.complete_activation())
+	assert_true(
+		await _wait_for_module_quiesce_start(previous),
+		"candidate activation 后应等待旧模块 quiesce。"
+	)
+	assert_false(GFVariantData.get_option_bool(replace_state, "done"))
+	assert_same(
+		architecture.get_local_utility(PendingHotRegistrationUtility),
+		previous,
+		"旧模块 quiesce 完成前注册表仍必须公开旧实例。"
+	)
+	assert_false(
+		architecture.is_module_ready(replacement),
+		"旧模块 quiesce 期间 staged replacement 仍不得公开 ready。"
+	)
+	assert_false(
+		architecture.is_module_active(replacement),
+		"完成 activation 但尚未提交的 replacement 不得公开 active。"
+	)
+	assert_false(
+		replacement.is_ready_in_architecture(),
+		"staged replacement 在整个事务提交前都必须保持不可见。"
+	)
+	assert_true(previous.complete_quiesce(), "测试门闩应成功完成旧模块 quiesce。")
 	await _wait_for_transaction_state(replace_state)
 
 	assert_true(GFVariantData.get_option_bool(replace_state, "result"))
@@ -209,6 +240,11 @@ func test_pending_hot_replace_closes_acceptance_and_regular_tick_does_not_double
 		replacement,
 		"替换成功后注册表应原子切换到新实例。"
 	)
+	assert_true(architecture.is_module_ready(replacement))
+	assert_true(architecture.is_module_active(replacement))
+	assert_true(replacement.is_ready_in_architecture())
+	assert_false(architecture.is_module_ready(previous))
+	assert_false(architecture.is_module_active(previous))
 	assert_eq(previous.dispose_count, 1)
 	architecture.dispose()
 	assert_eq(replacement.dispose_count, 1)
@@ -962,6 +998,69 @@ func test_parent_external_dependency_lease_blocks_topology_until_child_shutdown(
 	)
 	assert_eq(provider.dispose_count, 1)
 	parent.dispose()
+
+
+func test_child_shutdown_retains_parent_lease_through_cleanup_hooks() -> void:
+	var parent: GFArchitecture = GFArchitecture.new()
+	var provider: StableDependencyProviderUtility = (
+		StableDependencyProviderUtility.new()
+	)
+	assert_true(await parent.register_utility_instance(provider))
+	assert_true(await parent.init())
+	var child: GFArchitecture = GFArchitecture.new(parent)
+	var cleanup_probe: ParentShutdownDuringCleanupUtility = (
+		ParentShutdownDuringCleanupUtility.new(parent)
+	)
+	assert_true(await child.register_utility_instance(cleanup_probe))
+	assert_true(await child.init())
+
+	var child_shutdown: GFArchitectureShutdownResult = await child.shutdown_async()
+	assert_true(child_shutdown.is_successful(), "child 应正常完成关闭。")
+	assert_true(
+		await _wait_for_cleanup_parent_shutdown(cleanup_probe),
+		"child dispose 中发起的父级 shutdown 应有界返回。"
+	)
+	_assert_cleanup_parent_shutdown_was_blocked(cleanup_probe)
+	assert_false(parent.is_disposed(), "child 清理完成前的重入不得终结 parent。")
+	assert_true(parent.is_accepting_runtime_work(), "ERR_BUSY 后 parent 应保持 READY。")
+	assert_eq(provider.dispose_count, 0, "child 清理期间 parent provider 必须保持存活。")
+
+	var parent_shutdown: GFArchitectureShutdownResult = await parent.shutdown_async()
+	assert_true(parent_shutdown.is_successful(), "child 显式释放租约后 parent 应可关闭。")
+	assert_eq(provider.dispose_count, 1, "parent 最终关闭应只释放 provider 一次。")
+
+
+func test_child_init_failure_retains_parent_lease_through_cleanup_hooks() -> void:
+	var parent: GFArchitecture = GFArchitecture.new()
+	var provider: StableDependencyProviderUtility = (
+		StableDependencyProviderUtility.new()
+	)
+	assert_true(await parent.register_utility_instance(provider))
+	assert_true(await parent.init())
+	var child: GFArchitecture = GFArchitecture.new(parent)
+	var cleanup_probe: ParentShutdownDuringCleanupUtility = (
+		ParentShutdownDuringCleanupUtility.new(parent)
+	)
+	assert_true(await child.register_utility_instance(cleanup_probe))
+	assert_true(
+		await child.register_utility_instance(FailingChildActivationUtility.new())
+	)
+
+	assert_false(await child.init(), "测试 child 应在 activation 阶段失败。")
+	assert_true(
+		await _wait_for_cleanup_parent_shutdown(cleanup_probe),
+		"child 失败清理中的父级 shutdown 应有界返回。"
+	)
+	_assert_cleanup_parent_shutdown_was_blocked(cleanup_probe)
+	assert_false(parent.is_disposed(), "child 失败清理不得提前终结 parent。")
+	assert_true(parent.is_accepting_runtime_work(), "child 失败后 parent 仍应保持 READY。")
+	assert_eq(provider.dispose_count, 0, "child 失败清理期间 provider 必须保持存活。")
+	assert_push_error("[GFArchitecture] activation 失败")
+
+	var parent_shutdown: GFArchitectureShutdownResult = await parent.shutdown_async()
+	assert_true(parent_shutdown.is_successful(), "child 失败清理释放租约后 parent 应可关闭。")
+	assert_eq(provider.dispose_count, 1, "parent 最终关闭应只释放 provider 一次。")
+	child.dispose()
 
 
 func test_parent_factory_dependency_lease_blocks_shutdown_without_freezing_module_topology() -> void:
@@ -1959,6 +2058,51 @@ func _wait_for_transaction_state(state: Dictionary) -> void:
 		await get_tree().process_frame
 
 
+func _wait_for_module_quiesce_start(
+	module: PendingHotRegistrationUtility,
+	max_frames: int = 30
+) -> bool:
+	for _frame: int in range(max_frames):
+		if module.quiesce_completion != null:
+			return true
+		await get_tree().process_frame
+	return module.quiesce_completion != null
+
+
+func _wait_for_cleanup_parent_shutdown(
+	probe: ParentShutdownDuringCleanupUtility,
+	max_frames: int = 30
+) -> bool:
+	for _frame: int in range(max_frames):
+		if probe.parent_shutdown_done:
+			return true
+		await get_tree().process_frame
+	return probe.parent_shutdown_done
+
+
+func _assert_cleanup_parent_shutdown_was_blocked(
+	probe: ParentShutdownDuringCleanupUtility
+) -> void:
+	assert_eq(probe.dispose_count, 1, "child cleanup probe 必须且只应 dispose 一次。")
+	assert_eq(probe.release_count, 1, "child cleanup probe 必须且只应 release 一次。")
+	assert_false(
+		probe.parent_disposed_during_release,
+		"parent 必须 outlive child 的 release_dependencies()。"
+	)
+	assert_not_null(probe.parent_shutdown_result, "重入父级 shutdown 应返回 typed 结果。")
+	if probe.parent_shutdown_result != null:
+		assert_eq(
+			probe.parent_shutdown_result.get_status(),
+			GFArchitectureShutdownResult.Status.FAILED,
+			"child 仍持有 lease 时父级 shutdown 必须失败。"
+		)
+		assert_eq(
+			probe.parent_shutdown_result.get_error_code(),
+			ERR_BUSY,
+			"child cleanup 期间父级 shutdown 应以 ERR_BUSY fail closed。"
+		)
+
+
 func _assert_plan_hook_invalidation_stopped(
 	candidate: PlanHookInvalidatingUtility
 ) -> void:
@@ -2000,13 +2144,19 @@ class CancellingAsyncUtility extends GFUtility:
 
 class PendingHotRegistrationUtility extends GFUtility:
 	var block_activation: bool = true
+	var block_quiesce: bool = false
 	var activation_completion: GFAsyncCompletion = null
+	var quiesce_completion: GFAsyncCompletion = null
 	var activation_count: int = 0
 	var tick_count: int = 0
 	var dispose_count: int = 0
 
-	func _init(should_block_activation: bool = true) -> void:
+	func _init(
+		should_block_activation: bool = true,
+		should_block_quiesce: bool = false
+	) -> void:
 		block_activation = should_block_activation
+		block_quiesce = should_block_quiesce
 		tick_enabled = true
 
 	func begin_activation(_scope: GFAsyncScope) -> GFAsyncCompletion:
@@ -2016,6 +2166,12 @@ class PendingHotRegistrationUtility extends GFUtility:
 			var _succeeded: bool = activation_completion.succeed()
 		return activation_completion
 
+	func begin_quiesce(_scope: GFAsyncScope) -> GFAsyncCompletion:
+		quiesce_completion = GFAsyncCompletion.new()
+		if not block_quiesce:
+			var _succeeded: bool = quiesce_completion.succeed()
+		return quiesce_completion
+
 	func tick(_delta: float) -> void:
 		tick_count += 1
 
@@ -2023,6 +2179,12 @@ class PendingHotRegistrationUtility extends GFUtility:
 		return (
 			activation_completion != null
 			and activation_completion.succeed()
+		)
+
+	func complete_quiesce() -> bool:
+		return (
+			quiesce_completion != null
+			and quiesce_completion.succeed()
 		)
 
 	func dispose() -> void:
@@ -2080,6 +2242,42 @@ class StableDependencyProviderUtility extends GFUtility:
 
 	func dispose() -> void:
 		dispose_count += 1
+
+
+class ParentShutdownDuringCleanupUtility extends GFUtility:
+	var parent_architecture: GFArchitecture = null
+	var parent_shutdown_result: GFArchitectureShutdownResult = null
+	var parent_shutdown_done: bool = false
+	var parent_disposed_during_release: bool = false
+	var dispose_count: int = 0
+	var release_count: int = 0
+
+	func _init(parent: GFArchitecture) -> void:
+		parent_architecture = parent
+
+	func get_required_utilities() -> Array[Script]:
+		return [StableDependencyProviderUtility]
+
+	func dispose() -> void:
+		dispose_count += 1
+		@warning_ignore("missing_await")
+		_capture_parent_shutdown()
+
+	func release_dependencies() -> void:
+		release_count += 1
+		parent_disposed_during_release = parent_architecture.is_disposed()
+		super.release_dependencies()
+
+	func _capture_parent_shutdown() -> void:
+		parent_shutdown_result = await parent_architecture.shutdown_async()
+		parent_shutdown_done = true
+
+
+class FailingChildActivationUtility extends GFUtility:
+	func begin_activation(_scope: GFAsyncScope) -> GFAsyncCompletion:
+		var completion: GFAsyncCompletion = GFAsyncCompletion.new()
+		var _failed: bool = completion.fail("[test] child activation failure")
+		return completion
 
 
 class StableDependencyConsumerSystem extends GFSystem:

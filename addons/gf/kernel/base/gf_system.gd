@@ -195,7 +195,7 @@ func async_init(_scope: GFAsyncScope) -> void:
 ## [br]
 ## @api public
 ## [br]
-## @since 5.0.0
+## @since 11.0.0
 func ready() -> void:
 	pass
 

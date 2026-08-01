@@ -285,7 +285,7 @@ func tick(_delta: float = 0.0) -> void:
 ## [br]
 ## @param _scope: 当前 Storage 激活阶段的取消作用域。
 ## [br]
-## @return 已成功完成；正在 dispose 时返回失败终态。
+## @return 成功打开 I/O 准入；正在 dispose 或已经进入过 quiesce 时返回失败终态。
 func begin_activation(_scope: GFAsyncScope) -> GFAsyncCompletion:
 	var completion: GFAsyncCompletion = GFAsyncCompletion.new()
 	if _is_disposing:

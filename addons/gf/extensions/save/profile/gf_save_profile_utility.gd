@@ -207,7 +207,7 @@ func get_required_utilities() -> Array[Script]:
 ## [br]
 ## @param _scope: 当前 Profile 服务激活阶段的取消作用域。
 ## [br]
-## @return Storage 可用时成功，否则返回失败终态。
+## @return Storage 可用且实例未 dispose/quiesce 时成功，否则返回失败终态。
 func begin_activation(_scope: GFAsyncScope) -> GFAsyncCompletion:
 	var completion: GFAsyncCompletion = GFAsyncCompletion.new()
 	if _disposed:
@@ -313,7 +313,7 @@ func dispose() -> void:
 ## [br]
 ## @param clock: 可选单调时钟；为空时保留当前时钟。
 ## [br]
-## @return 当前 Utility；参数无效、已释放或已有注册 profile 时返回 null。
+## @return 当前 Utility；准入关闭、参数无效、已释放、处于不安全回调或已有 profile 时返回 null。
 func setup(storage: GFStorageUtility, clock: GFClock = null) -> GFSaveProfileUtility:
 	if (
 		not _admission_open
@@ -408,7 +408,7 @@ func register_profile(
 ## [br]
 ## @param profile_id: profile ID。
 ## [br]
-## @return profile 存在且没有未完成操作时返回 true。
+## @return 准入开放、回调安全且 profile 空闲并无任何待处理工作时返回 true。
 func unregister_profile(profile_id: StringName) -> bool:
 	var state: ProfileState = _get_state(profile_id)
 	if (

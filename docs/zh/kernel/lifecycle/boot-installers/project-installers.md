@@ -55,6 +55,8 @@ Installer 是固定启动拓扑的最后注册边界。依赖 DAG 开始编译�
 
 同一个候选已经处于 pending 时，再次调用 `set_architecture(candidate)` 会立即返回 `false`，但不会取消、dispose 或抢占原 assignment；原调用仍是唯一有权提交该候选的事务。不同候选的更新 assignment 会使旧事务失效。candidate activation、旧架构 shutdown 以及 identity listener 中的重入都遵守同一 serial/scope ownership 规则；每个 `await` 后都会重新验证，迟到 continuation 不能覆盖更新 assignment。成功提交会先清除 pending、解除 scope 跟踪并调用 `scope.complete()`，再发布全局 identity 通知。
 
+这里的原子性只覆盖 facade identity、registry 可见性与事务所有权，不会自动回滚模块直接写入进程级 singleton、全局回调、网络监听等框架外副作用。`begin_activation()` 创建这类副作用时必须同步登记 cleanup，使失败或被替代的 candidate 可以完整撤销；架构替换还必须容忍 candidate activation 与旧架构 shutdown 完成前的短暂外部重叠。
+
 `QUIESCING`、`DISPOSING` 或 `DISPOSED` Architecture 不能作为新 candidate，也不能重新 `init()`。这些状态下，`Gf.has_architecture()` 返回 false，`Gf.create_architecture()` 与依赖它的注册、替换、binder/factory helper 会分别返回 `null` 或 `false`，不会暴露关闭中的旧实例或创建瞬态默认架构。若项目在 assignment 之外直接关闭当前全局 identity，下一次合法创建会先清除 terminal identity；绝不会复活旧实例。
 
 ## 显式关闭

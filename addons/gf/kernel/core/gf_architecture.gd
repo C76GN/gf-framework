@@ -119,7 +119,7 @@ const _MAX_TOPOLOGY_SERVICE_INTENTS: int = 64
 ## [br]
 ## @api public
 ## [br]
-## @since 5.0.0
+## @since 1.23.0
 var module_async_init_timeout_seconds: float = 0.0:
 	set(value):
 		if (
@@ -137,7 +137,7 @@ var module_async_init_timeout_seconds: float = 0.0:
 ## [br]
 ## @api public
 ## [br]
-## @since 5.0.0
+## @since 1.23.0
 var strict_dependency_lookup: bool = false
 
 ## 架构激活阶段的总等待上限（秒）。
@@ -253,7 +253,7 @@ func _init(parent_architecture: GFArchitecture = null) -> void:
 ## [br]
 ## @api public
 ## [br]
-## @since 5.0.0
+## @since 11.0.0
 ## [br]
 ## @return 四阶段启动全部完成且 activation 已提交时返回 true，否则返回 false。
 func is_inited() -> bool:
@@ -383,11 +383,7 @@ func is_module_ready(instance: Object) -> bool:
 ## [br]
 ## @return 模块属于当前架构且已完成第四阶段激活时返回 true。
 func is_module_active(instance: Object) -> bool:
-	return (
-		instance != null
-		and _runtime.is_lifecycle_active()
-		and _GF_VARIANT_ACCESS_SCRIPT.get_option_int(_module_lifecycle_stages, instance, 0) >= 4
-	)
+	return _is_committed_module_at_lifecycle_stage(instance, 4)
 
 
 ## 获取最近一次关闭结果的隔离副本。
@@ -1964,7 +1960,7 @@ func register_utility_instance_as(instance: Object, alias_cls: Script) -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since 5.0.0
+## @since 11.0.0
 ## [br]
 ## @param script_cls: 系统的脚本类。
 ## [br]
@@ -1983,7 +1979,7 @@ func unregister_system(script_cls: Script) -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since 5.0.0
+## @since 11.0.0
 ## [br]
 ## @param script_cls: 模型的脚本类。
 ## [br]
@@ -1996,7 +1992,7 @@ func unregister_model(script_cls: Script) -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since 5.0.0
+## @since 11.0.0
 ## [br]
 ## @param script_cls: 工具的脚本类。
 ## [br]
@@ -4122,7 +4118,7 @@ func _register_initialized_module(
 		and not _runtime.is_transaction_invalidated(
 			runtime_transaction
 		)
-		and is_module_active(instance)
+		and _has_module_reached_lifecycle_stage(instance, 4)
 		and _validate_topology_service_intents(topology_transaction)
 	)
 	if committed:
@@ -4796,24 +4792,6 @@ func _has_live_child_external_dependency_leases(
 		var consumer_ref: WeakRef = consumer_ref_value
 		var consumer_value: Variant = consumer_ref.get_ref()
 		if not consumer_value is GFArchitecture:
-			stale_lease_ids.append(
-				_GF_VARIANT_ACCESS_SCRIPT.to_int(lease_id, -1)
-			)
-			continue
-		var consumer: GFArchitecture = consumer_value
-		var consumer_lifecycle_serial: int = (
-			_GF_VARIANT_ACCESS_SCRIPT.get_option_int(
-				record,
-				"consumer_lifecycle_serial",
-				-1
-			)
-		)
-		if (
-			consumer_lifecycle_serial < 0
-			or not consumer.is_lifecycle_generation_active(
-				consumer_lifecycle_serial
-			)
-		):
 			stale_lease_ids.append(
 				_GF_VARIANT_ACCESS_SCRIPT.to_int(lease_id, -1)
 			)
@@ -7305,8 +7283,10 @@ func _clear_injected_scope(instance: Object) -> void:
 func _release_module_dependencies(instance: Object) -> void:
 	if instance == null:
 		return
+	_lifecycle_hook_depth += 1
 	_call_module_release_dependencies(instance)
 	_clear_injected_scope(instance)
+	_lifecycle_hook_depth -= 1
 
 
 func _stop_project_installers_after_failure() -> void:
@@ -7459,10 +7439,28 @@ func _get_module_label_for_instance(instance: Object) -> String:
 
 
 func _is_module_ready_for_lookup(instance: Object) -> bool:
+	return _is_committed_module_at_lifecycle_stage(instance, 3)
+
+
+func _is_committed_module_at_lifecycle_stage(
+	instance: Object,
+	target_stage: int
+) -> bool:
+	return (
+		_get_module_registry_for_instance(instance) != null
+		and _has_module_reached_lifecycle_stage(instance, target_stage)
+	)
+
+
+func _has_module_reached_lifecycle_stage(instance: Object, target_stage: int) -> bool:
 	return (
 		instance != null
 		and _runtime.is_lifecycle_active()
-		and _GF_VARIANT_ACCESS_SCRIPT.get_option_int(_module_lifecycle_stages, instance, 0) >= 3
+		and _GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+			_module_lifecycle_stages,
+			instance,
+			0
+		) >= target_stage
 	)
 
 

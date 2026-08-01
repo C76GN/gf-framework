@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<apiCatalog schemaVersion="2" name="GF Framework" sourceRoot="addons/gf" sourceDigest="86e4d52b3f10357105f4007a41f882fa32fe14ad28c23fb6f2d0665d7a5cf33a" classCount="794" methodCount="7201">
+<apiCatalog schemaVersion="2" name="GF Framework" sourceRoot="addons/gf" sourceDigest="55d4090dc63ad9a240ade0c73a8aafd9f194d60f4259e4610c28a6d714102db2" classCount="794" methodCount="7201">
 	<module id="kernel" label="Kernel" classCount="74" methodCount="792">
 		<class name="GFAccessGenerator" path="classes/GFAccessGenerator.xml" sourcePath="addons/gf/kernel/editor/gf_access_generator.gd" extends="RefCounted" />
 		<class name="GFArchitecture" path="classes/GFArchitecture.xml" sourcePath="addons/gf/kernel/core/gf_architecture.gd" extends="Object" />

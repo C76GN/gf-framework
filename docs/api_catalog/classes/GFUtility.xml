@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFUtility" path="addons/gf/kernel/base/gf_utility.gd" module="kernel" extends="Object" classDigest="e34c9b393e90a8449ba7a6651c5f460ded0e661f14181ee3501420d6d17c17ae">
+<class name="GFUtility" path="addons/gf/kernel/base/gf_utility.gd" module="kernel" extends="Object" classDigest="b9fda12508d94957882637de69cf3ef1e2969a435e2f84e49da20c4f93b8ab22">
 	<description>GFUtility: 工具组件抽象基类。
 提供可复用的工具能力；需要其它架构组件时必须通过类型化 Hook 显式声明依赖。
 子类可以实现 'init'、'async_init'、'ready'、'begin_activation'、
@@ -151,7 +151,7 @@ Godot 4 支持在 void 函数内部使用 await，框架的 Gf.init() 会串行�
 未声明依赖没有可用性保证。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">5.0.0</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="begin_activation">

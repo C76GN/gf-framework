@@ -17,6 +17,8 @@ var registered: bool = await architecture.register_system_instance(
 
 事务执行期间普通命令、查询和事件派发被关闭，避免外部运行时观察半提交拓扑。候选 activation 需要 tick-driven 依赖时，框架只临时驱动候选的本地依赖闭包。
 
+原子发布只保证框架管理的 registry 与活动计划不可见，不隔离模块直接写入全局回调、进程级 singleton、网络监听等外部副作用。候选模块必须在 activation scope 中登记对应 cleanup，确保准备失败、事务失效或关闭接管时可以完整撤销；替换模块还应容忍候选 activation 与旧实例 quiesce 之间的短暂外部重叠。
+
 若活动 child 的生命周期计划命中了本架构提供的 required module，child 持有的外部依赖租约会使本架构的模块注册、替换和注销在创建候选前失败。租约只冻结维持已提交 child 计划所需的模块拓扑；仅命中父级 required factory 时不会额外冻结模块拓扑，但仍会阻止父级在 child 之前正常关闭。先关闭相关 child，再重试父级拓扑事务。
 
 ## 替换

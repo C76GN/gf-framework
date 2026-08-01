@@ -130,6 +130,31 @@ class ReentrantUnregisterUtility extends GFUtility:
 				).call(ReentrantUnregisterUtility)
 			)
 
+
+class ReentrantReleaseRegisterUtility extends GFUtility:
+	var injected_architecture: GFArchitecture = null
+	var dispose_count: int = 0
+	var release_count: int = 0
+	var reentrant_register_result: bool = true
+
+	func inject_dependencies(architecture: GFArchitecture) -> void:
+		super.inject_dependencies(architecture)
+		injected_architecture = architecture
+
+	func dispose() -> void:
+		dispose_count += 1
+
+	func release_dependencies() -> void:
+		release_count += 1
+		if injected_architecture != null:
+			var raw_register_result: Variant = Callable(
+				injected_architecture,
+				&"register_utility_instance"
+			).call(self)
+			reentrant_register_result = GFVariantData.to_bool(raw_register_result)
+		super.release_dependencies()
+
+
 class OverrideInjectedLookupUtility extends GFUtility:
 	var injected_architecture: GFArchitecture = null
 
@@ -1302,6 +1327,37 @@ func test_unregister_utility_rejects_dispose_reentrant_unregister_exactly_once()
 	assert_null(arch.get_utility(ReentrantUnregisterUtility), "注销过程应先从注册表摘除实例。")
 	assert_push_error("[GFArchitecture] unregister_utility 失败：生命周期 Hook 内禁止重入修改注册表。")
 	arch.dispose()
+
+
+func test_unregister_utility_rejects_release_reentrant_registration() -> void:
+	var arch: GFArchitecture = GFArchitecture.new()
+	var utility: ReentrantReleaseRegisterUtility = (
+		ReentrantReleaseRegisterUtility.new()
+	)
+	assert_true(await arch.register_utility_instance(utility))
+
+	assert_true(await arch.unregister_utility(ReentrantReleaseRegisterUtility))
+
+	assert_false(
+		utility.reentrant_register_result,
+		"release_dependencies() 不得把已释放实例重新注册到架构。"
+	)
+	assert_null(
+		arch.get_local_utility(ReentrantReleaseRegisterUtility),
+		"注销完成后注册表不得残留已 dispose 且已释放依赖的实例。"
+	)
+	assert_eq(utility.dispose_count, 1, "注销必须且只应调用一次 dispose()。")
+	assert_eq(
+		utility.release_count,
+		1,
+		"注销必须且只应调用一次 release_dependencies()。"
+	)
+	assert_push_error(
+		"[GFArchitecture] register_utility 失败：生命周期 Hook 内禁止重入修改注册表。"
+	)
+	arch.dispose()
+	assert_eq(utility.dispose_count, 1, "架构后续 dispose 不得再次释放已注销实例。")
+	assert_eq(utility.release_count, 1, "架构后续 dispose 不得再次释放已注销依赖。")
 
 
 func test_architecture_dispose_releases_module_dependencies_after_dispose() -> void:

@@ -236,7 +236,7 @@ func async_init(_scope: GFAsyncScope) -> void:
 ### `ready`
 
 - API：`public`
-- 首次版本：`5.0.0`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func ready() -> void:

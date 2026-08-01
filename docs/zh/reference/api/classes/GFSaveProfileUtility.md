@@ -267,7 +267,7 @@ func begin_activation(_scope: GFAsyncScope) -> GFAsyncCompletion:
 |---|---|
 | `_scope` | 当前 Profile 服务激活阶段的取消作用域。 |
 
-返回：Storage 可用时成功，否则返回失败终态。
+返回：Storage 可用且实例未 dispose/quiesce 时成功，否则返回失败终态。
 
 <a id="member-gfsaveprofileutility-methods-begin_quiesce"></a>
 
@@ -342,7 +342,7 @@ func setup(storage: GFStorageUtility, clock: GFClock = null) -> GFSaveProfileUti
 | `storage` | 底层事务存储工具。 |
 | `clock` | 可选单调时钟；为空时保留当前时钟。 |
 
-返回：当前 Utility；参数无效、已释放或已有注册 profile 时返回 null。
+返回：当前 Utility；准入关闭、参数无效、已释放、处于不安全回调或已有 profile 时返回 null。
 
 <a id="member-gfsaveprofileutility-methods-register_profile"></a>
 
@@ -389,7 +389,7 @@ func unregister_profile(profile_id: StringName) -> bool:
 |---|---|
 | `profile_id` | profile ID。 |
 
-返回：profile 存在且没有未完成操作时返回 true。
+返回：准入开放、回调安全且 profile 空闲并无任何待处理工作时返回 true。
 
 <a id="member-gfsaveprofileutility-methods-save_profile"></a>
 
