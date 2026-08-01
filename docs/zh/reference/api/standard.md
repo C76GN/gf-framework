@@ -6,11 +6,11 @@
 
 | 类别 | 类 | 成员 | 方法 |
 |---|---:|---:|---:|
-| [运行时服务](#category-runtime_service) | 187 | 3366 | 2264 |
+| [运行时服务](#category-runtime_service) | 188 | 3399 | 2289 |
 | [协议与扩展点](#category-protocol) | 24 | 338 | 267 |
 | [资源定义](#category-resource_definition) | 120 | 1538 | 792 |
-| [运行时句柄](#category-runtime_handle) | 45 | 794 | 500 |
-| [值对象](#category-value_object) | 40 | 732 | 458 |
+| [运行时句柄](#category-runtime_handle) | 47 | 821 | 521 |
+| [值对象](#category-value_object) | 40 | 735 | 460 |
 | [领域模型](#category-domain_model) | 4 | 61 | 42 |
 | [事件契约](#category-event_contract) | 6 | 61 | 23 |
 | [编辑器 API](#category-editor_api) | 11 | 68 | 46 |
@@ -139,6 +139,7 @@
 | [`GFRenderWarmupUtility`](classes/GFRenderWarmupUtility.md#gfrenderwarmuputility) | `GFUtility` | `addons/gf/standard/utilities/display/gf_render_warmup_utility.gd` |
 | [`GFRequestHandlerRegistry`](classes/GFRequestHandlerRegistry.md#gfrequesthandlerregistry) | `RefCounted` | `addons/gf/standard/common/gf_request_handler_registry.gd` |
 | [`GFRequestOutboxUtility`](classes/GFRequestOutboxUtility.md#gfrequestoutboxutility) | `GFUtility` | `addons/gf/standard/utilities/io/gf_request_outbox_utility.gd` |
+| [`GFResourceBroker`](classes/GFResourceBroker.md#gfresourcebroker) | `GFUtility` | `addons/gf/standard/utilities/assets/gf_resource_broker.gd` |
 | [`GFResourceConfigProvider`](classes/GFResourceConfigProvider.md#gfresourceconfigprovider) | `GFConfigProvider` | `addons/gf/standard/utilities/config/gf_resource_config_provider.gd` |
 | [`GFResourceFeatureRemapTools`](classes/GFResourceFeatureRemapTools.md#gfresourcefeatureremaptools) | `RefCounted` | `addons/gf/standard/utilities/assets/gf_resource_feature_remap_tools.gd` |
 | [`GFResourceGraphScanner`](classes/GFResourceGraphScanner.md#gfresourcegraphscanner) | `RefCounted` | `addons/gf/standard/utilities/assets/gf_resource_graph_scanner.gd` |
@@ -411,11 +412,13 @@
 | [`GFReactiveStateControlBinder`](classes/GFReactiveStateControlBinder.md#gfreactivestatecontrolbinder) | `RefCounted` | `addons/gf/standard/utilities/ui/gf_reactive_state_control_binder.gd` |
 | [`GFReactiveStateStore`](classes/GFReactiveStateStore.md#gfreactivestatestore) | `RefCounted` | `addons/gf/standard/utilities/state/gf_reactive_state_store.gd` |
 | [`GFRepeaterBinder`](classes/GFRepeaterBinder.md#gfrepeaterbinder) | `RefCounted` | `addons/gf/standard/utilities/ui/gf_repeater_binder.gd` |
+| [`GFResourceLease`](classes/GFResourceLease.md#gfresourcelease) | `RefCounted` | `addons/gf/standard/utilities/assets/gf_resource_lease.gd` |
 | [`GFRuntimeTaskGroup`](classes/GFRuntimeTaskGroup.md#gfruntimetaskgroup) | `GFRuntimeTask` | `addons/gf/standard/sequence/gf_runtime_task_group.gd` |
 | [`GFShaderParameterBinder`](classes/GFShaderParameterBinder.md#gfshaderparameterbinder) | `Node` | `addons/gf/standard/utilities/display/gf_shader_parameter_binder.gd` |
 | [`GFSignalBridgeBinding`](classes/GFSignalBridgeBinding.md#gfsignalbridgebinding) | `RefCounted` | `addons/gf/standard/utilities/signals/bridge/gf_signal_bridge_binding.gd` |
 | [`GFSignalConnection`](classes/GFSignalConnection.md#gfsignalconnection) | `RefCounted` | `addons/gf/standard/utilities/signals/gf_signal_connection.gd` |
 | [`GFStorageAsyncOperation`](classes/GFStorageAsyncOperation.md#gfstorageasyncoperation) | `RefCounted` | `addons/gf/standard/utilities/storage/gf_storage_async_operation.gd` |
+| [`GFStoragePayloadTransfer`](classes/GFStoragePayloadTransfer.md#gfstoragepayloadtransfer) | `RefCounted` | `addons/gf/standard/utilities/storage/gf_storage_payload_transfer.gd` |
 | [`GFTextGenerationContext`](classes/GFTextGenerationContext.md#gftextgenerationcontext) | `RefCounted` | `addons/gf/standard/foundation/text/gf_text_generation_context.gd` |
 | [`GFTimeoutController`](classes/GFTimeoutController.md#gftimeoutcontroller) | `RefCounted` | `addons/gf/standard/common/gf_timeout_controller.gd` |
 | [`GFTouchControl2D`](classes/GFTouchControl2D.md#gftouchcontrol2d) | `Node2D` | `addons/gf/standard/input/touch/gf_touch_control_2d.gd` |

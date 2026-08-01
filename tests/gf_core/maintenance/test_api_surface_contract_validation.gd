@@ -393,6 +393,78 @@ func get_token() -> GFCrossFileInternalToken:
 	)
 
 
+func test_public_and_protected_signatures_cannot_expose_private_script_constants() -> void:
+	var source: String = """
+const _RESOURCE_BROKER_SCRIPT = preload("res://addons/gf/standard/utilities/assets/gf_resource_broker.gd")
+
+## 示例类型。
+##
+## @api public
+## @category protocol
+## @since 1.0.0
+class_name GFInvalidPrivateScriptExposure
+extends RefCounted
+
+# --- 公共方法 ---
+
+## 设置资源代理。
+##
+## @api public
+## @param broker: 资源代理。
+func set_broker(broker: _RESOURCE_BROKER_SCRIPT) -> void:
+	pass
+
+# --- 可重写钩子 / 虚方法 ---
+
+## 获取资源代理。
+##
+## @api protected
+## @return: 资源代理。
+func _get_broker() -> _RESOURCE_BROKER_SCRIPT:
+	return null
+"""
+
+	_assert_invalid(source, "set_broker public API exposes internal type _RESOURCE_BROKER_SCRIPT")
+	_assert_invalid(source, "_get_broker public API exposes internal type _RESOURCE_BROKER_SCRIPT")
+
+
+func test_private_script_constant_types_remain_allowed_inside_internal_method_bodies() -> void:
+	var source: String = """
+const _RESOURCE_BROKER_SCRIPT = preload("res://addons/gf/standard/utilities/assets/gf_resource_broker.gd")
+
+## 示例类型。
+##
+## @api public
+## @category runtime_service
+## @since 1.0.0
+class_name GFValidPrivateScriptImplementation
+extends RefCounted
+
+# --- 公共方法 ---
+
+## 创建公开类型的资源代理。
+##
+## @api public
+## @return: 资源代理。
+func make_broker() -> GFResourceBroker:
+	var broker: _RESOURCE_BROKER_SCRIPT = _RESOURCE_BROKER_SCRIPT.new()
+	return broker
+
+# --- 私有/辅助方法 ---
+
+func _make_private_broker(value: _RESOURCE_BROKER_SCRIPT) -> _RESOURCE_BROKER_SCRIPT:
+	var local_broker: _RESOURCE_BROKER_SCRIPT = value
+	return local_broker
+"""
+
+	var issues: Array[String] = _collect_api_surface_issues(source, "<inline>")
+	assert_eq(
+		issues,
+		[],
+		"私有 script constant 可用于实现体和普通内部方法，但不得进入公开签名：\n%s" % _join_lines(issues)
+	)
+
+
 func test_layer_internal_requires_layer_tag() -> void:
 	var source: String = """
 ## 示例类型。
@@ -1424,10 +1496,17 @@ func _collect_type_visibility(declarations: Array[Dictionary]) -> Dictionary:
 	var result: Dictionary = {}
 	for declaration: Dictionary in declarations:
 		var kind: String = GF_VARIANT_ACCESS.get_option_string(declaration, "kind", "")
+		var type_declaration_name: String = GF_VARIANT_ACCESS.get_option_string(declaration, "name", "")
+		if (
+			kind == "const"
+			and type_declaration_name.begins_with("_")
+			and type_declaration_name.ends_with("_SCRIPT")
+		):
+			result[type_declaration_name] = "private"
+			continue
 		if not CLASS_KINDS.has(kind) and kind != "enum":
 			continue
 
-		var type_declaration_name: String = GF_VARIANT_ACCESS.get_option_string(declaration, "name", "")
 		var api: String = GF_VARIANT_ACCESS.get_option_string(declaration, "api", "")
 		if not api.is_empty():
 			result[type_declaration_name] = api

@@ -165,9 +165,8 @@ enum SceneResourceState {
 
 # --- 常量 ---
 
-const _THREADED_RESOURCE_LOAD_ADAPTER = preload("res://addons/gf/standard/utilities/assets/gf_threaded_resource_load_adapter.gd")
-const _THREADED_RESOURCE_COORDINATOR_SCRIPT = preload("res://addons/gf/standard/utilities/assets/gf_threaded_resource_coordinator.gd")
-const _THREADED_RESOURCE_OPERATION_SCRIPT = preload("res://addons/gf/standard/utilities/assets/gf_threaded_resource_operation.gd")
+const _RESOURCE_BROKER_SCRIPT = preload("res://addons/gf/standard/utilities/assets/gf_resource_broker.gd")
+const _RESOURCE_LEASE_SCRIPT = preload("res://addons/gf/standard/utilities/assets/gf_resource_lease.gd")
 const _SCENE_CHANGE_NONE: int = 0
 const _SCENE_CHANGE_LOADING: int = 1
 const _SCENE_CHANGE_TARGET: int = 2
@@ -197,19 +196,44 @@ var cache_loaded_scenes: bool = true
 ## 可选场景预加载图谱；配置后可按当前场景自动预热相邻场景。
 ## [br]
 ## @api public
-var scene_preload_map: GFScenePreloadMap = null
+## [br]
+## @since 2.6.0
+var scene_preload_map: GFScenePreloadMap:
+	get:
+		return _scene_preload_map
+	set(value):
+		if _scene_preload_map == value:
+			return
+		_cancel_auto_neighbor_plan(&"scene_preload_map_changed")
+		_scene_preload_map = value
 
 ## 成功切换场景后是否自动按 scene_preload_map 预加载相邻场景。
 ## [br]
 ## @api public
-var auto_preload_map_neighbors_on_switch: bool = true
+## [br]
+## @since 2.6.0
+var auto_preload_map_neighbors_on_switch: bool:
+	get:
+		return _auto_preload_map_neighbors_on_switch
+	set(value):
+		if _auto_preload_map_neighbors_on_switch == value:
+			return
+		_cancel_auto_neighbor_plan(&"auto_neighbor_policy_changed")
+		_auto_preload_map_neighbors_on_switch = value
 
 ## 自动图谱预加载半径；小于 0 时使用 GFScenePreloadMap.default_radius。
 ## [br]
 ## @api public
-var scene_preload_map_radius: int = -1:
+## [br]
+## @since 2.6.0
+var scene_preload_map_radius: int:
+	get:
+		return _scene_preload_map_radius
 	set(value):
-		scene_preload_map_radius = maxi(value, -1)
+		if _scene_preload_map_radius == maxi(value, -1):
+			return
+		_cancel_auto_neighbor_plan(&"auto_neighbor_radius_changed")
+		_scene_preload_map_radius = maxi(value, -1)
 
 ## loading scene 可选淡入方法名；目标节点存在该方法时会被调用。
 ## [br]
@@ -256,6 +280,9 @@ var max_scene_history: int:
 
 var _max_preloaded_scene_resources: int = 8
 var _max_scene_history: int = 16
+var _scene_preload_map: GFScenePreloadMap = null
+var _auto_preload_map_neighbors_on_switch: bool = true
+var _scene_preload_map_radius: int = -1
 var _target_path: String = ""
 var _is_loading: bool = false
 var _loading_scene_path: String = ""
@@ -286,8 +313,18 @@ var _pending_scene_change_path: String = ""
 var _pending_scene_change_scene: PackedScene = null
 var _pending_scene_change_previous_pause_state: bool = false
 var _pending_previous_history_path: String = ""
-var _active_load_operation: _THREADED_RESOURCE_OPERATION_SCRIPT = null
-var _threaded_resource_coordinator: _THREADED_RESOURCE_COORDINATOR_SCRIPT = _THREADED_RESOURCE_COORDINATOR_SCRIPT.new()
+var _active_load_operation: _RESOURCE_LEASE_SCRIPT = null
+var _resource_broker: GFResourceBroker = null
+var _owns_resource_broker: bool = false
+var _disposed: bool = false
+var _auto_neighbor_generation: int = 0
+var _auto_neighbor_scene_tree: SceneTree = null
+var _auto_neighbor_scene_changed_callback: Callable = Callable()
+var _auto_neighbor_process_frame_scene_tree: SceneTree = null
+var _auto_neighbor_process_frame_callback: Callable = Callable()
+var _auto_neighbor_render_callback: Callable = Callable()
+var _auto_neighbor_settle_timer: SceneTreeTimer = null
+var _auto_neighbor_timer_callback: Callable = Callable()
 
 
 # --- GF 生命周期方法 ---
@@ -296,11 +333,22 @@ var _threaded_resource_coordinator: _THREADED_RESOURCE_COORDINATOR_SCRIPT = _THR
 ## [br]
 ## @api public
 func init() -> void:
+	_disposed = false
 	ignore_pause = true
-	_threaded_resource_coordinator.configure(
-		Callable(self, "_request_threaded_resource"),
-		Callable(self, "_poll_threaded_resource")
-	)
+
+
+## 从所属架构解析显式注册的共享 GFResourceBroker。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+func ready() -> void:
+	if _disposed or _resource_broker != null:
+		return
+	var utility: Object = get_utility(_RESOURCE_BROKER_SCRIPT)
+	if utility is GFResourceBroker:
+		var broker: GFResourceBroker = utility
+		var _bind_error: Error = set_resource_broker(broker)
 
 
 ## 推进运行时逻辑。
@@ -320,17 +368,104 @@ func tick(_delta: float) -> void:
 ## [br]
 ## @api public
 func dispose() -> void:
+	_disposed = true
+	_cancel_auto_neighbor_plan(&"scene_utility_disposed")
 	_cancel_pending_scene_change()
 	_cancel_active_scene_load_for_dispose()
 	_cancel_preload_requests_for_dispose()
-	_threaded_resource_coordinator.cancel_all(&"scene_utility_disposed")
 	_reset_loading_state()
 	_preload_requests.clear()
 	_background_scene_params.clear()
 	clear_preloaded_scenes()
+	if _owns_resource_broker and _resource_broker != null:
+		_resource_broker.dispose()
+
+
+## 释放共享 Broker 引用和架构依赖作用域。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+func release_dependencies() -> void:
+	_resource_broker = null
+	_owns_resource_broker = false
+	super.release_dependencies()
 
 
 # --- 公共方法 ---
+
+## 注入共享 Resource Broker。
+##
+## 重复绑定当前 Broker 幂等成功；存在活动场景加载或预载请求时拒绝替换，
+## 避免跨 Broker 拆分同一切换生命周期。当前 Broker 由本 Utility 私有拥有时，
+## 还必须等待它完成 drain 并进入 idle，才能替换为其它 Broker。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param broker: 要共享的 Broker。
+## [br]
+## @return 绑定结果；请求尚未收敛或私有 Broker 尚未 idle 时返回 `ERR_BUSY`。
+func set_resource_broker(broker: GFResourceBroker) -> Error:
+	if _disposed:
+		return ERR_UNAVAILABLE
+	if broker == null:
+		return ERR_INVALID_PARAMETER
+	if _resource_broker == broker:
+		return OK
+	if _active_load_operation != null or not _preload_requests.is_empty():
+		return ERR_BUSY
+	if _owns_resource_broker and _resource_broker != null and _resource_broker != broker:
+		if not _resource_broker.is_idle():
+			return ERR_BUSY
+		_resource_broker.dispose()
+	_resource_broker = broker
+	_owns_resource_broker = false
+	return OK
+
+
+## 为单个独立 Scene Utility 显式创建私有 Resource Broker。
+##
+## 需要与 Asset 或 BackgroundWork 协调时，应由项目创建一个共享 Broker 并分别注入。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param max_active_requests: Broker 同时活动的底层请求上限。
+## [br]
+## @param max_pending_requests: Broker 等待 admission 的不同请求上限。
+## [br]
+## @return 创建的 Broker；存在活动请求时返回 null。
+func setup_standalone_resource_broker(
+	max_active_requests: int = 4,
+	max_pending_requests: int = 256
+) -> GFResourceBroker:
+	if _disposed:
+		return null
+	if _active_load_operation != null or not _preload_requests.is_empty():
+		return null
+	var broker: GFResourceBroker = _RESOURCE_BROKER_SCRIPT.new()
+	broker.max_active_requests = max_active_requests
+	broker.max_pending_requests = max_pending_requests
+	broker.init()
+	var bind_error: Error = set_resource_broker(broker)
+	if bind_error != OK:
+		return null
+	_owns_resource_broker = true
+	return broker
+
+
+## 获取当前注入的 Resource Broker。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @return 已绑定的 Broker；未配置时返回 null。
+func get_resource_broker() -> GFResourceBroker:
+	return _resource_broker
 
 ## 异步切换场景。
 ## [br]
@@ -355,6 +490,8 @@ func load_scene_async(
 	params: Dictionary = {},
 	minimum_duration_seconds: float = -1.0
 ) -> Error:
+	if _disposed:
+		return ERR_UNAVAILABLE
 	if _is_loading:
 		push_warning("[GFSceneUtility] 当前已有场景正在加载中：%s" % _target_path)
 		return ERR_BUSY
@@ -382,12 +519,12 @@ func load_scene_async(
 		_show_loading_scene_if_needed()
 		return OK
 
-	if _should_load_active_scene_synchronously():
-		_show_loading_scene_if_needed()
-		return _load_active_scene_synchronously(_target_path)
-
 	_active_load_operation = _request_threaded_operation(_target_path, "PackedScene")
-	var error: Error = _active_load_operation.get_request_error() if _active_load_operation != null else ERR_CANT_CREATE
+	var error: Error = (
+		_active_load_operation.get_request_error()
+		if _active_load_operation != null
+		else ERR_UNCONFIGURED
+	)
 	if error != OK:
 		_fail_loading(scene_path, "[GFSceneUtility] 无法发起场景异步加载：%s (错误码：%d)" % [_target_path, error])
 		return error
@@ -436,34 +573,7 @@ func load_scene_with_transition(config: GFSceneTransitionConfig) -> Error:
 ## [br]
 ## @return 发起请求的 Godot Error。
 func preload_scene(path: String, fixed: bool = false) -> Error:
-	var scene_path: String = _normalize_scene_path(path)
-	var validation_error: String = _validate_scene_resource_path(scene_path, "preload_scene")
-	if not validation_error.is_empty():
-		push_error(validation_error)
-		scene_preload_failed.emit(scene_path)
-		return ERR_INVALID_PARAMETER
-
-	if is_scene_preloaded(scene_path):
-		_touch_preloaded_scene(scene_path)
-		return OK
-	if is_scene_preloading(scene_path):
-		return OK
-
-	var operation: _THREADED_RESOURCE_OPERATION_SCRIPT = _request_threaded_operation(scene_path, "PackedScene")
-	var error: Error = operation.get_request_error() if operation != null else ERR_CANT_CREATE
-	if error != OK:
-		push_error("[GFSceneUtility] 无法发起场景预加载：%s (错误码：%d)" % [scene_path, error])
-		scene_preload_failed.emit(scene_path)
-		return error
-
-	_preload_requests[scene_path] = {
-		"progress": 0.0,
-		"cancelled": false,
-		"fixed": fixed,
-		"operation": operation,
-	}
-	scene_preload_started.emit(scene_path)
-	return OK
+	return _preload_scene_with_admission(path, fixed, {}, 0)
 
 
 ## 后台加载一个场景并记录稍后激活时使用的参数。
@@ -572,9 +682,10 @@ func configure_scene_preload_map(
 	radius: int = -1,
 	auto_preload_on_switch: bool = true
 ) -> void:
-	scene_preload_map = preload_map
-	scene_preload_map_radius = radius
-	auto_preload_map_neighbors_on_switch = auto_preload_on_switch
+	_cancel_auto_neighbor_plan(&"scene_preload_map_reconfigured")
+	_scene_preload_map = preload_map
+	_scene_preload_map_radius = maxi(radius, -1)
+	_auto_preload_map_neighbors_on_switch = auto_preload_on_switch
 
 
 ## 获取指定场景的图谱预加载计划。
@@ -616,41 +727,7 @@ func get_scene_preload_map_plan(path: String, radius: int = -1, include_fixed: b
 ## [br]
 ## @schema return: Dictionary，包含 ok、source_path、radius、include_fixed、requested_count、fixed_requested、temporary_requested、results、errors 和 plan。
 func preload_scene_map_for(path: String, radius: int = -1, include_fixed: bool = true) -> Dictionary:
-	if scene_preload_map == null:
-		return _make_missing_scene_preload_map_result(path, radius, include_fixed)
-
-	var scene_path: String = _normalize_scene_path(path)
-	var plan: Dictionary = scene_preload_map.get_preload_plan(scene_path, _resolve_scene_preload_map_radius(radius), include_fixed)
-	var fixed_requested: PackedStringArray = PackedStringArray()
-	var temporary_requested: PackedStringArray = PackedStringArray()
-	var results: Dictionary = {}
-	var errors: Array[Dictionary] = []
-	for fixed_path: String in _get_plan_paths(plan, "fixed_paths"):
-		var fixed_error: Error = preload_scene(fixed_path, true)
-		results[fixed_path] = fixed_error
-		_append_packed_string(fixed_requested, fixed_path)
-		if fixed_error != OK:
-			errors.append(_make_scene_preload_map_error(fixed_path, fixed_error, true))
-
-	for temporary_path: String in _get_plan_paths(plan, "temporary_paths"):
-		var temporary_error: Error = preload_scene(temporary_path, false)
-		results[temporary_path] = temporary_error
-		_append_packed_string(temporary_requested, temporary_path)
-		if temporary_error != OK:
-			errors.append(_make_scene_preload_map_error(temporary_path, temporary_error, false))
-
-	return {
-		"ok": errors.is_empty(),
-		"source_path": GFVariantData.get_option_string(plan, "source_path", scene_path),
-		"radius": GFVariantData.get_option_int(plan, "radius", 0),
-		"include_fixed": include_fixed,
-		"requested_count": fixed_requested.size() + temporary_requested.size(),
-		"fixed_requested": fixed_requested,
-		"temporary_requested": temporary_requested,
-		"results": results,
-		"errors": errors,
-		"plan": plan,
-	}
+	return _preload_scene_map_with_admission(path, radius, include_fixed, {}, 0)
 
 
 ## 按图谱为当前场景发起预加载。
@@ -680,6 +757,10 @@ func cancel_scene_preload(path: String) -> void:
 
 	var request: Dictionary = _get_preload_request(scene_path)
 	request["cancelled"] = true
+	_cancel_secondary_auto_neighbor_leases(
+		request,
+		&"scene_preload_cancelled"
+	)
 	_cancel_threaded_operation(_get_preload_request_operation(request), &"scene_preload_cancelled")
 	scene_preload_cancelled.emit(scene_path)
 
@@ -876,7 +957,7 @@ func get_preloading_scene_paths() -> PackedStringArray:
 ## [br]
 ## @return 调试快照字典。
 ## [br]
-## @schema return: Dictionary，包含 is_loading、target_path、loading_scene_path、current_scene、loading_progress、transition、preload_cache、scene_preload_map、preloading、background 和 threaded_resource_operations。
+## @schema return: Dictionary，包含 is_loading、target_path、loading_scene_path、current_scene、loading_progress、transition、preload_cache、scene_preload_map、preloading、background 和 resource_broker configured/error/admission。
 func get_scene_cache_debug_snapshot() -> Dictionary:
 	var preloading_paths: PackedStringArray = get_preloading_scene_paths()
 	return {
@@ -915,7 +996,7 @@ func get_scene_cache_debug_snapshot() -> Dictionary:
 		"background": {
 			"paths": _get_sorted_string_keys(_background_scene_params),
 		},
-		"threaded_resource_operations": _threaded_resource_coordinator.get_debug_snapshot(),
+		"resource_broker": _get_resource_broker_debug_snapshot(),
 	}
 
 
@@ -1106,26 +1187,6 @@ func cleanup_transients() -> void:
 
 # --- 可重写钩子 / 虚方法 ---
 
-## 判断当前环境是否应使用同步加载作为活动场景加载降级。
-## [br]
-## @api protected
-## [br]
-## @return 需要同步降级时返回 true。
-func _should_load_active_scene_synchronously() -> bool:
-	return DisplayServer.get_name().to_lower() == "headless"
-
-
-## 同步加载 PackedScene 资源。
-## [br]
-## @api protected
-## [br]
-## @param path: 场景资源路径。
-## [br]
-## @return 加载到的 PackedScene；失败时返回 null。
-func _load_packed_scene_synchronously(path: String) -> PackedScene:
-	return _get_packed_scene_value(ResourceLoader.load(_normalize_scene_path(path), "PackedScene"))
-
-
 ## 获取当前 loading scene 节点。
 ## [br]
 ## @api protected
@@ -1245,10 +1306,10 @@ func _get_preload_request(path: String) -> Dictionary:
 	return _get_dictionary_reference(_preload_requests, _normalize_scene_path(path))
 
 
-func _get_preload_request_operation(request: Dictionary) -> _THREADED_RESOURCE_OPERATION_SCRIPT:
+func _get_preload_request_operation(request: Dictionary) -> _RESOURCE_LEASE_SCRIPT:
 	var value: Variant = GFVariantData.get_option_value(request, "operation")
-	if value is _THREADED_RESOURCE_OPERATION_SCRIPT:
-		var operation: _THREADED_RESOURCE_OPERATION_SCRIPT = value
+	if value is _RESOURCE_LEASE_SCRIPT:
+		var operation: _RESOURCE_LEASE_SCRIPT = value
 		return operation
 	return null
 
@@ -1293,32 +1354,65 @@ func _erase_dictionary_key(target: Dictionary, key: Variant) -> void:
 		return
 
 
-func _request_threaded_operation(path: String, type_hint: String) -> _THREADED_RESOURCE_OPERATION_SCRIPT:
-	return _threaded_resource_coordinator.request(path, type_hint)
+func _request_threaded_operation(
+	path: String,
+	type_hint: String,
+	admission_options: Dictionary = {}
+) -> _RESOURCE_LEASE_SCRIPT:
+	if _disposed or _resource_broker == null:
+		return null
+	var options: Dictionary = admission_options.duplicate(true)
+	if not options.has("consumer_id"):
+		options["consumer_id"] = &"scene"
+	return _resource_broker.request(path, type_hint, options)
 
 
-func _request_threaded_resource(path: String, type_hint: String) -> Error:
-	return _THREADED_RESOURCE_LOAD_ADAPTER.request(path, type_hint)
+func _poll_threaded_operation(operation: _RESOURCE_LEASE_SCRIPT) -> Dictionary:
+	if _resource_broker == null:
+		return _make_missing_resource_broker_result()
+	return _resource_broker.poll_lease(operation)
 
 
-func _poll_threaded_operation(operation: _THREADED_RESOURCE_OPERATION_SCRIPT) -> Dictionary:
-	return _threaded_resource_coordinator.poll_operation(operation)
+func _cancel_threaded_operation(operation: _RESOURCE_LEASE_SCRIPT, reason: StringName) -> void:
+	if operation != null:
+		operation.cancel(reason)
 
 
-func _poll_threaded_resource(path: String, previous_progress: float) -> Dictionary:
-	return _THREADED_RESOURCE_LOAD_ADAPTER.poll(path, previous_progress)
-
-
-func _cancel_threaded_operation(operation: _THREADED_RESOURCE_OPERATION_SCRIPT, reason: StringName) -> void:
-	_threaded_resource_coordinator.cancel_operation(operation, reason, true)
-
-
-func _forget_threaded_operation(operation: _THREADED_RESOURCE_OPERATION_SCRIPT) -> void:
-	_threaded_resource_coordinator.forget_operation(operation)
+func _forget_threaded_operation(operation: _RESOURCE_LEASE_SCRIPT) -> void:
+	if operation != null:
+		operation.release()
 
 
 func _drain_cancelled_threaded_operations() -> void:
-	var _drained_count: int = _threaded_resource_coordinator.drain_cancelled_operations()
+	if _resource_broker != null:
+		_resource_broker.pump()
+
+
+func _make_missing_resource_broker_result() -> Dictionary:
+	return {
+		"status": _RESOURCE_LEASE_SCRIPT.STATUS_FAILED,
+		"progress": 0.0,
+		"resource": null,
+		"has_resource": false,
+		"error": "resource_broker_not_configured",
+		"request_error": ERR_UNCONFIGURED,
+	}
+
+
+func _get_resource_broker_debug_snapshot() -> Dictionary:
+	if _resource_broker == null:
+		return {
+			"configured": false,
+			"error": "resource_broker_not_configured",
+			"request_error": ERR_UNCONFIGURED,
+			"disposed": _disposed,
+		}
+	var snapshot: Dictionary = _resource_broker.get_debug_snapshot()
+	snapshot["configured"] = true
+	snapshot["error"] = ""
+	snapshot["request_error"] = OK
+	snapshot["disposed"] = _disposed
+	return snapshot
 
 
 func _call_architecture_method(architecture: Object, method_name: StringName, script_cls: Script) -> void:
@@ -1342,13 +1436,513 @@ func _resolve_scene_preload_map_radius(radius: int) -> int:
 	return scene_preload_map_radius if radius < 0 else radius
 
 
-func _preload_scene_map_after_switch(path: String) -> void:
+func _prepare_scene_map_after_switch(path: String) -> int:
+	_cancel_auto_neighbor_plan(&"new_target_scene")
+	if not auto_preload_map_neighbors_on_switch or scene_preload_map == null:
+		return 0
+
+	var scene_tree: SceneTree = _get_scene_tree_value(Engine.get_main_loop())
+	if scene_tree == null:
+		return 0
+
+	var generation: int = _auto_neighbor_generation
+	var target_path: String = _normalize_scene_path(path)
+	var callback: Callable = Callable(self, "_on_auto_neighbor_scene_changed").bind(
+		generation,
+		target_path
+	)
+	var connect_error: Error = scene_tree.scene_changed.connect(
+		callback,
+		CONNECT_ONE_SHOT as Object.ConnectFlags
+	) as Error
+	if connect_error != OK:
+		return 0
+	_auto_neighbor_scene_tree = scene_tree
+	_auto_neighbor_scene_changed_callback = callback
+	return generation
+
+
+func _on_auto_neighbor_scene_changed(
+	scene_root: Node,
+	generation: int,
+	target_path: String
+) -> void:
+	_disconnect_auto_neighbor_scene_changed()
+	if generation != _auto_neighbor_generation:
+		return
+	if not _scene_root_matches_target(scene_root, target_path):
+		_cancel_auto_neighbor_plan(&"unexpected_scene_changed")
+		return
+	_start_auto_neighbor_settle(generation, target_path)
+
+
+func _start_auto_neighbor_settle(
+	generation: int,
+	target_path: String
+) -> void:
+	var scene_tree: SceneTree = _get_scene_tree_value(Engine.get_main_loop())
+	if scene_tree == null:
+		return
+	var callback: Callable = Callable(
+		self,
+		"_on_auto_neighbor_process_frame"
+	).bind(generation, target_path)
+	var connect_error: Error = scene_tree.process_frame.connect(
+		callback,
+		CONNECT_ONE_SHOT as Object.ConnectFlags
+	) as Error
+	if connect_error != OK:
+		_cancel_auto_neighbor_plan(&"process_frame_settle_connect_failed")
+		return
+	_auto_neighbor_process_frame_scene_tree = scene_tree
+	_auto_neighbor_process_frame_callback = callback
+
+
+func _on_auto_neighbor_process_frame(
+	generation: int,
+	target_path: String
+) -> void:
+	_disconnect_auto_neighbor_process_frame()
+	if generation != _auto_neighbor_generation:
+		return
+
+	if DisplayServer.get_name().to_lower() == "headless":
+		var scene_tree: SceneTree = _get_scene_tree_value(Engine.get_main_loop())
+		if scene_tree == null:
+			return
+		var timer: SceneTreeTimer = scene_tree.create_timer(0.0)
+		var timer_callback: Callable = Callable(
+			self,
+			"_on_auto_neighbor_settle_completed"
+		).bind(generation, target_path)
+		var timer_connect_error: Error = timer.timeout.connect(
+			timer_callback,
+			CONNECT_ONE_SHOT as Object.ConnectFlags
+		) as Error
+		if timer_connect_error != OK:
+			_cancel_auto_neighbor_plan(&"timer_settle_connect_failed")
+			return
+		_auto_neighbor_settle_timer = timer
+		_auto_neighbor_timer_callback = timer_callback
+	else:
+		var render_callback: Callable = Callable(
+			self,
+			"_on_auto_neighbor_settle_completed"
+		).bind(generation, target_path)
+		var render_connect_error: Error = RenderingServer.frame_post_draw.connect(
+			render_callback,
+			CONNECT_ONE_SHOT as Object.ConnectFlags
+		) as Error
+		if render_connect_error != OK:
+			_cancel_auto_neighbor_plan(&"render_settle_connect_failed")
+			return
+		_auto_neighbor_render_callback = render_callback
+
+
+func _on_auto_neighbor_settle_completed(
+	generation: int,
+	target_path: String
+) -> void:
+	_disconnect_auto_neighbor_render_settle()
+	_disconnect_auto_neighbor_timer_settle()
+	if generation != _auto_neighbor_generation:
+		return
 	if not auto_preload_map_neighbors_on_switch or scene_preload_map == null:
 		return
 
-	var result: Dictionary = preload_scene_map_for(path, scene_preload_map_radius, true)
+	var result: Dictionary = _preload_scene_map_with_admission(
+		target_path,
+		scene_preload_map_radius,
+		true,
+		{
+			"exclusive": true,
+			"require_idle": true,
+			"consumer_id": &"scene_auto_neighbor",
+		},
+		generation
+	)
 	if not result.is_empty():
 		return
+
+
+func _cancel_auto_neighbor_plan(reason: StringName) -> void:
+	_disconnect_auto_neighbor_scene_changed()
+	_disconnect_auto_neighbor_process_frame()
+	_disconnect_auto_neighbor_render_settle()
+	_disconnect_auto_neighbor_timer_settle()
+	_auto_neighbor_generation += 1
+	if _auto_neighbor_generation <= 0:
+		_auto_neighbor_generation = 1
+	_cancel_auto_neighbor_requests(reason)
+
+
+func _disconnect_auto_neighbor_scene_changed() -> void:
+	if (
+		_auto_neighbor_scene_tree != null
+		and _auto_neighbor_scene_changed_callback.is_valid()
+		and _auto_neighbor_scene_tree.scene_changed.is_connected(
+			_auto_neighbor_scene_changed_callback
+		)
+	):
+		_auto_neighbor_scene_tree.scene_changed.disconnect(
+			_auto_neighbor_scene_changed_callback
+		)
+	_auto_neighbor_scene_tree = null
+	_auto_neighbor_scene_changed_callback = Callable()
+
+
+func _disconnect_auto_neighbor_process_frame() -> void:
+	if (
+		_auto_neighbor_process_frame_scene_tree != null
+		and _auto_neighbor_process_frame_callback.is_valid()
+		and _auto_neighbor_process_frame_scene_tree.process_frame.is_connected(
+			_auto_neighbor_process_frame_callback
+		)
+	):
+		_auto_neighbor_process_frame_scene_tree.process_frame.disconnect(
+			_auto_neighbor_process_frame_callback
+		)
+	_auto_neighbor_process_frame_scene_tree = null
+	_auto_neighbor_process_frame_callback = Callable()
+
+
+func _disconnect_auto_neighbor_render_settle() -> void:
+	if (
+		_auto_neighbor_render_callback.is_valid()
+		and RenderingServer.frame_post_draw.is_connected(
+			_auto_neighbor_render_callback
+		)
+	):
+		RenderingServer.frame_post_draw.disconnect(
+			_auto_neighbor_render_callback
+		)
+	_auto_neighbor_render_callback = Callable()
+
+
+func _disconnect_auto_neighbor_timer_settle() -> void:
+	if (
+		_auto_neighbor_settle_timer != null
+		and _auto_neighbor_timer_callback.is_valid()
+		and _auto_neighbor_settle_timer.timeout.is_connected(
+			_auto_neighbor_timer_callback
+		)
+	):
+		_auto_neighbor_settle_timer.timeout.disconnect(
+			_auto_neighbor_timer_callback
+		)
+	_auto_neighbor_settle_timer = null
+	_auto_neighbor_timer_callback = Callable()
+
+
+func _cancel_auto_neighbor_requests(reason: StringName) -> void:
+	var paths: Array = _preload_requests.keys()
+	for path: String in paths:
+		if not _preload_requests.has(path):
+			continue
+		var request: Dictionary = _get_preload_request(path)
+		_cancel_secondary_auto_neighbor_leases(request, reason)
+		var generation: int = GFVariantData.get_option_int(
+			request,
+			"auto_neighbor_generation",
+			0
+		)
+		if generation <= 0:
+			continue
+		request["cancelled"] = true
+		_cancel_threaded_operation(
+			_get_preload_request_operation(request),
+			reason
+		)
+		_erase_dictionary_key(_preload_requests, path)
+		scene_preload_cancelled.emit(path)
+
+
+func _cancel_secondary_auto_neighbor_leases(
+	request: Dictionary,
+	reason: StringName
+) -> void:
+	var leases: Dictionary = GFVariantData.get_option_dictionary(
+		request,
+		"secondary_auto_neighbor_leases"
+	)
+	for value: Variant in leases.values():
+		if value is _RESOURCE_LEASE_SCRIPT:
+			var lease: _RESOURCE_LEASE_SCRIPT = value
+			lease.cancel(reason)
+	request["secondary_auto_neighbor_leases"] = {}
+
+
+func _release_secondary_auto_neighbor_leases(request: Dictionary) -> void:
+	var leases: Dictionary = GFVariantData.get_option_dictionary(
+		request,
+		"secondary_auto_neighbor_leases"
+	)
+	for value: Variant in leases.values():
+		if value is _RESOURCE_LEASE_SCRIPT:
+			var lease: _RESOURCE_LEASE_SCRIPT = value
+			lease.release()
+	request["secondary_auto_neighbor_leases"] = {}
+
+
+func _scene_root_matches_target(scene_root: Node, target_path: String) -> bool:
+	if scene_root == null:
+		return false
+	var current_identity: GFResourceIdentity = GFResourceIdentity.from_path(
+		scene_root.scene_file_path,
+		&"",
+		"PackedScene",
+		{ "check_exists": false }
+	)
+	var target_identity: GFResourceIdentity = GFResourceIdentity.from_path(
+		target_path,
+		&"",
+		"PackedScene",
+		{ "check_exists": false }
+	)
+	return (
+		not current_identity.cache_key.is_empty()
+		and current_identity.cache_key == target_identity.cache_key
+	)
+
+
+func _preload_scene_map_with_admission(
+	path: String,
+	radius: int,
+	include_fixed: bool,
+	admission_options: Dictionary,
+	auto_neighbor_generation: int
+) -> Dictionary:
+	if scene_preload_map == null:
+		return _make_missing_scene_preload_map_result(path, radius, include_fixed)
+
+	var scene_path: String = _normalize_scene_path(path)
+	var plan: Dictionary = scene_preload_map.get_preload_plan(
+		scene_path,
+		_resolve_scene_preload_map_radius(radius),
+		include_fixed
+	)
+	var fixed_requested: PackedStringArray = PackedStringArray()
+	var temporary_requested: PackedStringArray = PackedStringArray()
+	var results: Dictionary = {}
+	var errors: Array[Dictionary] = []
+	for fixed_path: String in _get_plan_paths(plan, "fixed_paths"):
+		if not _is_auto_neighbor_generation_current(auto_neighbor_generation):
+			break
+		var fixed_error: Error = _preload_scene_with_admission(
+			fixed_path,
+			true,
+			admission_options,
+			auto_neighbor_generation
+		)
+		results[fixed_path] = fixed_error
+		_append_packed_string(fixed_requested, fixed_path)
+		if fixed_error != OK:
+			errors.append(_make_scene_preload_map_error(fixed_path, fixed_error, true))
+		if not _is_auto_neighbor_generation_current(auto_neighbor_generation):
+			break
+
+	if _is_auto_neighbor_generation_current(auto_neighbor_generation):
+		for temporary_path: String in _get_plan_paths(plan, "temporary_paths"):
+			if not _is_auto_neighbor_generation_current(auto_neighbor_generation):
+				break
+			var temporary_error: Error = _preload_scene_with_admission(
+				temporary_path,
+				false,
+				admission_options,
+				auto_neighbor_generation
+			)
+			results[temporary_path] = temporary_error
+			_append_packed_string(temporary_requested, temporary_path)
+			if temporary_error != OK:
+				errors.append(
+					_make_scene_preload_map_error(
+						temporary_path,
+						temporary_error,
+						false
+					)
+				)
+			if not _is_auto_neighbor_generation_current(auto_neighbor_generation):
+				break
+
+	return {
+		"ok": errors.is_empty(),
+		"source_path": GFVariantData.get_option_string(
+			plan,
+			"source_path",
+			scene_path
+		),
+		"radius": GFVariantData.get_option_int(plan, "radius", 0),
+		"include_fixed": include_fixed,
+		"requested_count": fixed_requested.size() + temporary_requested.size(),
+		"fixed_requested": fixed_requested,
+		"temporary_requested": temporary_requested,
+		"results": results,
+		"errors": errors,
+		"plan": plan,
+	}
+
+
+func _preload_scene_with_admission(
+	path: String,
+	fixed: bool,
+	admission_options: Dictionary,
+	auto_neighbor_generation: int
+) -> Error:
+	if _disposed:
+		return ERR_UNAVAILABLE
+	if not _is_auto_neighbor_generation_current(auto_neighbor_generation):
+		return ERR_BUSY
+	var scene_path: String = _normalize_scene_path(path)
+	var validation_error: String = _validate_scene_resource_path(
+		scene_path,
+		"preload_scene"
+	)
+	if not validation_error.is_empty():
+		push_error(validation_error)
+		scene_preload_failed.emit(scene_path)
+		return ERR_INVALID_PARAMETER
+
+	if is_scene_preloaded(scene_path):
+		_touch_preloaded_scene(scene_path)
+		return OK
+	if is_scene_preloading(scene_path):
+		return _merge_preload_interest(
+			scene_path,
+			admission_options,
+			auto_neighbor_generation
+		)
+
+	var operation: _RESOURCE_LEASE_SCRIPT = _request_preload_operation_with_admission(
+		scene_path,
+		admission_options,
+		auto_neighbor_generation
+	)
+	var error: Error = (
+		operation.get_request_error()
+		if operation != null
+		else ERR_UNCONFIGURED
+	)
+	if error != OK:
+		push_error(
+			"[GFSceneUtility] 无法发起场景预加载：%s (错误码：%d)"
+			% [scene_path, error]
+		)
+		scene_preload_failed.emit(scene_path)
+		return error
+	if not _is_auto_neighbor_generation_current(auto_neighbor_generation):
+		operation.cancel(&"auto_neighbor_generation_superseded")
+		return ERR_BUSY
+
+	_preload_requests[scene_path] = {
+		"progress": 0.0,
+		"cancelled": false,
+		"fixed": fixed,
+		"operation": operation,
+		"auto_neighbor_generation": auto_neighbor_generation,
+		"secondary_auto_neighbor_leases": {},
+	}
+	scene_preload_started.emit(scene_path)
+	if not _is_auto_neighbor_generation_current(auto_neighbor_generation):
+		return ERR_BUSY
+	return OK
+
+
+func _request_preload_operation_with_admission(
+	scene_path: String,
+	admission_options: Dictionary,
+	auto_neighbor_generation: int
+) -> _RESOURCE_LEASE_SCRIPT:
+	var operation: _RESOURCE_LEASE_SCRIPT = _request_threaded_operation(
+		scene_path,
+		"PackedScene",
+		admission_options
+	)
+	var failure_reason: String = operation.get_error_message() if operation != null else ""
+	if (
+		auto_neighbor_generation <= 0
+		or operation == null
+		or not (
+			(
+				operation.get_request_error() == ERR_BUSY
+				and failure_reason == (
+					_RESOURCE_BROKER_SCRIPT.REASON_ACTIVE_ADMISSION_CONSTRAINTS_NOT_SATISFIED
+				)
+			)
+			or (
+				operation.get_request_error() == ERR_ALREADY_IN_USE
+				and failure_reason == (
+					_RESOURCE_BROKER_SCRIPT.REASON_ACTIVE_TYPE_HINT_NOT_SATISFIED
+				)
+			)
+		)
+	):
+		return operation
+
+	# Admission 与 type_hint 只约束新底层请求；结果仍在完成边界校验为 PackedScene。
+	operation.release()
+	var join_options: Dictionary = admission_options.duplicate(true)
+	join_options["exclusive"] = false
+	join_options["require_idle"] = false
+	var join_type_hint: String = (
+		""
+		if failure_reason == _RESOURCE_BROKER_SCRIPT.REASON_ACTIVE_TYPE_HINT_NOT_SATISFIED
+		else "PackedScene"
+	)
+	return _request_threaded_operation(scene_path, join_type_hint, join_options)
+
+
+func _merge_preload_interest(
+	scene_path: String,
+	admission_options: Dictionary,
+	auto_neighbor_generation: int
+) -> Error:
+	if not _is_auto_neighbor_generation_current(auto_neighbor_generation):
+		return ERR_BUSY
+	var request: Dictionary = _get_preload_request(scene_path)
+	if auto_neighbor_generation <= 0:
+		request["auto_neighbor_generation"] = 0
+		return OK
+
+	var primary_generation: int = GFVariantData.get_option_int(
+		request,
+		"auto_neighbor_generation",
+		0
+	)
+	if primary_generation > 0:
+		return OK
+
+	var leases: Dictionary = GFVariantData.get_option_dictionary(
+		request,
+		"secondary_auto_neighbor_leases"
+	)
+	var generation_key: String = str(auto_neighbor_generation)
+	if leases.has(generation_key):
+		return OK
+	var lease: _RESOURCE_LEASE_SCRIPT = _request_preload_operation_with_admission(
+		scene_path,
+		admission_options,
+		auto_neighbor_generation
+	)
+	var error: Error = lease.get_request_error() if lease != null else ERR_UNCONFIGURED
+	if error != OK:
+		return error
+	if not _is_auto_neighbor_generation_current(auto_neighbor_generation):
+		lease.cancel(&"auto_neighbor_generation_superseded")
+		return ERR_BUSY
+	leases[generation_key] = lease
+	request["secondary_auto_neighbor_leases"] = leases
+	return OK
+
+
+func _is_auto_neighbor_generation_current(generation: int) -> bool:
+	if generation <= 0:
+		return not _disposed
+	return (
+		not _disposed
+		and generation == _auto_neighbor_generation
+		and auto_preload_map_neighbors_on_switch
+		and scene_preload_map != null
+	)
 
 
 func _make_missing_scene_preload_map_result(path: String, radius: int, include_fixed: bool) -> Dictionary:
@@ -1390,19 +1984,6 @@ func _make_scene_preload_map_error(path: String, error: Error, fixed: bool) -> D
 	}
 
 
-func _load_active_scene_synchronously(path: String) -> Error:
-	var scene: PackedScene = _load_packed_scene_synchronously(path)
-	if scene == null:
-		_fail_loading(path, "[GFSceneUtility] 同步加载场景失败：%s" % path)
-		return ERR_CANT_OPEN
-
-	_emit_scene_load_progress(path, 1.0)
-	if _active_load_cache_loaded_scene:
-		put_preloaded_scene(path, scene)
-	_schedule_complete_loading(path, scene)
-	return OK
-
-
 func _poll_active_scene_load() -> void:
 	if not _is_loading or _target_path.is_empty():
 		return
@@ -1421,15 +2002,15 @@ func _poll_active_scene_load() -> void:
 	var status: StringName = GFVariantData.get_option_string_name(
 		active_load_result,
 		"status",
-		_THREADED_RESOURCE_OPERATION_SCRIPT.STATUS_INVALID
+		_RESOURCE_LEASE_SCRIPT.STATUS_FAILED
 	)
 
 	match status:
-		_THREADED_RESOURCE_OPERATION_SCRIPT.STATUS_IN_PROGRESS, _THREADED_RESOURCE_OPERATION_SCRIPT.STATUS_DRAINING:
+		_RESOURCE_LEASE_SCRIPT.STATUS_QUEUED, _RESOURCE_LEASE_SCRIPT.STATUS_LOADING:
 			var ratio: float = GFVariantData.get_option_float(active_load_result, "progress", 0.0)
 			_emit_scene_load_progress(_target_path, ratio)
 
-		_THREADED_RESOURCE_OPERATION_SCRIPT.STATUS_COMPLETED:
+		_RESOURCE_LEASE_SCRIPT.STATUS_COMPLETED:
 			var loaded_path: String = _target_path
 			var scene: PackedScene = _get_packed_scene_value(GFVariantData.get_option_value(active_load_result, "resource"))
 			if scene == null:
@@ -1442,11 +2023,11 @@ func _poll_active_scene_load() -> void:
 			_forget_threaded_operation(_active_load_operation)
 			_schedule_complete_loading(loaded_path, scene)
 
-		_THREADED_RESOURCE_OPERATION_SCRIPT.STATUS_FAILED, _THREADED_RESOURCE_OPERATION_SCRIPT.STATUS_INVALID:
+		_RESOURCE_LEASE_SCRIPT.STATUS_FAILED:
 			_forget_threaded_operation(_active_load_operation)
 			_fail_loading(_target_path, "[GFSceneUtility] 场景异步加载失败：%s" % _target_path)
 
-		_THREADED_RESOURCE_OPERATION_SCRIPT.STATUS_SUPPRESSED:
+		_RESOURCE_LEASE_SCRIPT.STATUS_CANCELLED:
 			_forget_threaded_operation(_active_load_operation)
 			_reset_loading_state()
 
@@ -1479,12 +2060,12 @@ func _poll_preload_requests() -> void:
 			continue
 
 		var request: Dictionary = _get_preload_request(path)
-		var operation: _THREADED_RESOURCE_OPERATION_SCRIPT = _get_preload_request_operation(request)
+		var operation: _RESOURCE_LEASE_SCRIPT = _get_preload_request_operation(request)
 		var preload_result: Dictionary = _poll_threaded_operation(operation)
 		var status: StringName = GFVariantData.get_option_string_name(
 			preload_result,
 			"status",
-			_THREADED_RESOURCE_OPERATION_SCRIPT.STATUS_INVALID
+			_RESOURCE_LEASE_SCRIPT.STATUS_FAILED
 		)
 		var ratio: float = GFVariantData.get_option_float(preload_result, "progress", _get_preload_request_progress(request))
 		request["progress"] = ratio
@@ -1493,12 +2074,13 @@ func _poll_preload_requests() -> void:
 			scene_preload_progress.emit(path, ratio)
 
 		match status:
-			_THREADED_RESOURCE_OPERATION_SCRIPT.STATUS_IN_PROGRESS, _THREADED_RESOURCE_OPERATION_SCRIPT.STATUS_DRAINING:
+			_RESOURCE_LEASE_SCRIPT.STATUS_QUEUED, _RESOURCE_LEASE_SCRIPT.STATUS_LOADING:
 				pass
 
-			_THREADED_RESOURCE_OPERATION_SCRIPT.STATUS_COMPLETED:
+			_RESOURCE_LEASE_SCRIPT.STATUS_COMPLETED:
 				var scene: PackedScene = _get_packed_scene_value(GFVariantData.get_option_value(preload_result, "resource"))
 				_erase_dictionary_key(_preload_requests, path)
+				_release_secondary_auto_neighbor_leases(request)
 				if _is_preload_request_cancelled(request):
 					_forget_threaded_operation(operation)
 					continue
@@ -1510,14 +2092,16 @@ func _poll_preload_requests() -> void:
 				_forget_threaded_operation(operation)
 				scene_preload_completed.emit(path, scene)
 
-			_THREADED_RESOURCE_OPERATION_SCRIPT.STATUS_FAILED, _THREADED_RESOURCE_OPERATION_SCRIPT.STATUS_INVALID:
+			_RESOURCE_LEASE_SCRIPT.STATUS_FAILED:
 				_erase_dictionary_key(_preload_requests, path)
+				_release_secondary_auto_neighbor_leases(request)
 				if not _is_preload_request_cancelled(request):
 					scene_preload_failed.emit(path)
 				_forget_threaded_operation(operation)
 
-			_THREADED_RESOURCE_OPERATION_SCRIPT.STATUS_SUPPRESSED:
+			_RESOURCE_LEASE_SCRIPT.STATUS_CANCELLED:
 				_erase_dictionary_key(_preload_requests, path)
+				_release_secondary_auto_neighbor_leases(request)
 				_forget_threaded_operation(operation)
 
 
@@ -1528,6 +2112,7 @@ func _begin_loading_state(
 	params: Dictionary,
 	minimum_duration_seconds: float
 ) -> void:
+	_cancel_auto_neighbor_plan(&"new_scene_switch")
 	_target_path = _normalize_scene_path(path)
 	_loading_scene_path = _normalize_scene_path(loading_scene_path)
 	_is_loading = true
@@ -1680,6 +2265,7 @@ func _apply_target_scene_change(path: String, scene: PackedScene) -> void:
 
 	var previous_path: String = _previous_scene_path
 	_notify_loading_scene_exit_if_needed()
+	var auto_neighbor_generation: int = _prepare_scene_map_after_switch(path)
 	if _do_change_scene(scene):
 		_is_showing_loading_scene = false
 		_consume_pending_previous_history(path)
@@ -1688,10 +2274,11 @@ func _apply_target_scene_change(path: String, scene: PackedScene) -> void:
 		_erase_dictionary_key(_background_scene_params, path)
 		scene_load_completed.emit(path, scene)
 		scene_switch_completed.emit(path, previous_path)
-		_preload_scene_map_after_switch(path)
 		_set_paused(_previous_pause_state)
 		_reset_loading_state()
 	else:
+		if auto_neighbor_generation == _auto_neighbor_generation:
+			_cancel_auto_neighbor_plan(&"target_scene_change_failed")
 		_fail_loading(path, "")
 
 
@@ -1889,6 +2476,10 @@ func _cancel_preload_requests_for_dispose() -> void:
 		if _is_preload_request_cancelled(request):
 			continue
 		request["cancelled"] = true
+		_cancel_secondary_auto_neighbor_leases(
+			request,
+			&"scene_preload_disposed"
+		)
 		_cancel_threaded_operation(_get_preload_request_operation(request), &"scene_preload_disposed")
 		scene_preload_cancelled.emit(path)
 

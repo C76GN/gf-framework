@@ -16,6 +16,15 @@ assets.load_async("res://actors/runtime_actor.tscn", func(res: Resource) -> void
 )
 ```
 
+架构模式必须同时注册一个共享 `GFResourceBroker`；`GFAssetUtility.ready()` 会从
+Architecture 解析它。独立使用时显式调用
+`setup_standalone_resource_broker()`，或把项目创建的 Broker 传给
+`set_resource_broker()`。未配置 Broker 的异步请求会失败关闭，不会隐式创建
+无法与 Scene / BackgroundWork 协调的私有加载通道；`load_async()` 的回调会
+收到 `null`，调试快照中的 `resource_broker.request_error` 为
+`ERR_UNCONFIGURED`。Utility 开始 `dispose()` 后也会先关闭 admission，释放过程
+中的同步回调重入不会再创建 Lease。
+
 它内置 LRU 上限。当缓存过大时，会自动清理长期未被提取引用的资源。`max_cache_size = 0` 会禁用并清空缓存；`pin_cache(path)` 会用引用计数锁定关键资源，重复 pin 需要对应次数 `unpin_cache(path)` 后才会重新参与 LRU 淘汰。
 
 ```gdscript
@@ -29,7 +38,7 @@ assets.pin_cache("res://ui/common_icons.tres")
 
 ## 加载通道与并发上限
 
-默认情况下，`GFAssetUtility` 会立即发起新的 `ResourceLoader.load_threaded_request()`。当项目需要控制同类资源的并发数量时，可以在 `load_async()`、`load_handle_async()` 或 `preload_group_async()` 的 options 中传入 `serial_lane_id` / `lane_id` 和 `max_concurrent_loads`。
+GFAssetUtility 自身的 lane 控制同一资产工作流何时向 Broker 提交请求；Broker 再统一仲裁 Asset、Scene 与 BackgroundWork 的底层 admission。当项目需要控制同类资源的并发数量时，可以在 `load_async()`、`load_handle_async()` 或 `preload_group_async()` 的 options 中传入 `serial_lane_id` / `lane_id` 和 `max_concurrent_loads`。
 
 ```gdscript
 assets.load_async(

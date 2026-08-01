@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFStorageAsyncOperation" path="addons/gf/standard/utilities/storage/gf_storage_async_operation.gd" module="standard" extends="RefCounted" classDigest="9c6a3f1fef5184f10aa340fa92267e4d4a8f7b30f8707f7e6c000c5f44e33960">
+<class name="GFStorageAsyncOperation" path="addons/gf/standard/utilities/storage/gf_storage_async_operation.gd" module="standard" extends="RefCounted" classDigest="ef5af697d5600139f1dadc54792e4abe956dda1224b96f1825b4126873ed93e5">
 	<description>GFStorageAsyncOperation: 单次异步存储请求句柄。
 句柄由 `GFStorageUtility` 分配唯一请求 ID，并且只接受一个终态。调用方应先
 检查 `is_completed()`，再决定是否等待 `completed` 信号。</description>
@@ -92,6 +92,28 @@
 				<tag name="api">public</tag>
 				<tag name="return">已完成结果；等待中返回 null。</tag>
 				<tag name="since">10.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_payload_transfer">
+			<signature>func get_payload_transfer() -&gt; GFStoragePayloadTransfer:</signature>
+			<description>获取当前请求关联的 opaque payload transfer。
+该句柄不公开 payload，可在当前 attempt 仍运行时交给同一 Storage 和规范文件
+发起 timeout retry。调用方完成整个重试 generation 后必须显式 `release()`。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">等待中的 transfer-backed save 请求返回句柄；终态及普通 save/load 请求返回 null。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="reclaim_failed_payload">
+			<signature>func reclaim_failed_payload() -&gt; GFStoragePayloadTransfer:</signature>
+			<description>一次性取回失败请求关联的 opaque payload transfer。
+仅请求进入失败终态且 attempt lease 已结束后可取回。返回值仍不公开 payload，
+但可直接用于同一冻结 Storage、文件名和 codec options 的重试。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">首次取回失败 transfer 时返回原句柄；其他情况返回 null。</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 	</methods>

@@ -1,0 +1,179 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFResourceLease" path="addons/gf/standard/utilities/assets/gf_resource_lease.gd" module="standard" extends="RefCounted" classDigest="537f06a0664f151cda997f3ee331fc3f4f7d0c1ae2f08fc0c3475aa369919ab8">
+	<description>GFResourceLease: 共享资源 Broker 返回的消费者所有权句柄。
+每次请求都会得到独立 Lease；同一路径可以复用同一个底层 threaded load，
+但取消或释放只影响当前消费者。未完成时释放最后一个 Lease 会让 Broker
+继续 drain 已经发起且无法中止的 ResourceLoader 请求。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_handle</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants>
+		<member kind="const" name="STATUS_QUEUED">
+			<signature>const STATUS_QUEUED: StringName = &amp;"queued"</signature>
+			<description>请求正在等待 Broker admission。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_LOADING">
+			<signature>const STATUS_LOADING: StringName = &amp;"loading"</signature>
+			<description>底层 threaded resource request 已经开始。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_COMPLETED">
+			<signature>const STATUS_COMPLETED: StringName = &amp;"completed"</signature>
+			<description>资源已经成功交付给当前消费者。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_FAILED">
+			<signature>const STATUS_FAILED: StringName = &amp;"failed"</signature>
+			<description>资源请求失败。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_CANCELLED">
+			<signature>const STATUS_CANCELLED: StringName = &amp;"cancelled"</signature>
+			<description>当前消费者已经取消请求。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</constants>
+	<properties />
+	<methods>
+		<member kind="method" name="cancel">
+			<signature>func cancel(reason: StringName = &amp;"cancelled") -&gt; void:</signature>
+			<description>取消当前消费者的请求。
+取消不会影响复用同一底层请求的其他 Lease。若当前 Lease 是最后一个消费者，
+Broker 会继续 drain 已经开始的底层请求，但不会交付其结果。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">reason: 用于诊断的稳定取消原因。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="release">
+			<signature>func release() -&gt; void:</signature>
+			<description>释放当前 Lease 持有的消费者引用和已交付资源。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_terminal">
+			<signature>func is_terminal() -&gt; bool:</signature>
+			<description>请求是否已经到达终态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">completed、failed 或 cancelled 时返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_released">
+			<signature>func is_released() -&gt; bool:</signature>
+			<description>Lease 是否已经释放。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">已释放时返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_status">
+			<signature>func get_status() -&gt; StringName:</signature>
+			<description>获取当前状态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">状态常量。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_progress">
+			<signature>func get_progress() -&gt; float:</signature>
+			<description>获取当前加载进度。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">范围为 0.0 到 1.0 的进度值。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_resource">
+			<signature>func get_resource() -&gt; Resource:</signature>
+			<description>获取加载成功的资源。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">成功且尚未释放时返回资源，否则返回 null。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_path">
+			<signature>func get_path() -&gt; String:</signature>
+			<description>获取资源路径。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">Broker 使用的规范化加载路径。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_type_hint">
+			<signature>func get_type_hint() -&gt; String:</signature>
+			<description>获取请求类型提示。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">ResourceLoader 类型提示。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_consumer_id">
+			<signature>func get_consumer_id() -&gt; StringName:</signature>
+			<description>获取消费者标识。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">调用方提供的诊断标识。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_request_error">
+			<signature>func get_request_error() -&gt; Error:</signature>
+			<description>获取请求错误码。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">admission 或底层请求失败的 Godot Error。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_error_message">
+			<signature>func get_error_message() -&gt; String:</signature>
+			<description>获取失败说明。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">失败或取消说明。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="to_poll_result">
+			<signature>func to_poll_result() -&gt; Dictionary:</signature>
+			<description>导出当前消费者视角的结构化状态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">Lease 状态字典。</tag>
+				<tag name="schema">return: Dictionary with status, progress, resource, has_resource, error, request_error, path, type_hint, consumer_id, exclusive, require_idle, cancel_reason, and released.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

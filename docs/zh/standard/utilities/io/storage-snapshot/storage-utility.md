@@ -31,7 +31,72 @@ var decoded := GFSafeResourceCodec.decode(encoded.data, policy)
 
 这种聚合结构应由项目定义，例如 schema 版本、玩家资料、世界状态、设置、统计和自定义预览字段。GF 侧只承诺通用机制：路径安全、事务恢复、codec、checksum、压缩、多文件事务、Resource 存取和 `register_migration()` 版本迁移。模块优先级、业务字段含义、奖励发放、云同步账号隔离、平台加密和冲突策略都应留在项目层或独立插件。
 
-大型载荷推荐拆成两段：先用项目自己的分帧流程生成纯 Dictionary，或调用 `GFArchitecture.get_global_snapshot_async()` 并在 `ok == true` 后取出 `snapshot`，再调用 `save_data_async()` 后台编码和落盘。不要把 Architecture 的 Result 外壳或失败结果当作存档载荷。`GFStorageUtility` 的异步写入线程只处理已经生成的纯数据，不会在线程中遍历场景树、读取 Resource 或调用业务对象。
+大型载荷推荐拆成两段：先用项目自己的分帧流程生成纯 `Dictionary`，或调用
+`GFArchitecture.get_global_snapshot_async()` 并在 `ok == true` 后取出 `snapshot`，
+再交给 Storage 后台预检、物化、编码和落盘。不要把 Architecture 的 Result 外壳或
+失败结果当作存档载荷。`GFStorageUtility` 的 worker 只处理已经生成的纯 Variant 图，
+不会遍历场景树、读取 `Resource` 或调用业务对象。
+
+`save_data_async()` 与 `save_data_request_async()` 是安全的普通入口：它们会在请求入队
+时深复制 `Dictionary`，调用方可以继续使用原值。已经通过分帧流程独占大型载荷，并且
+希望避免再次主线程深复制时，才使用 `GFStoragePayloadTransfer` 与
+`save_payload_request_async()`：
+
+```gdscript
+var payload: Dictionary = await _build_owned_payload_over_multiple_frames()
+var transfer := GFStoragePayloadTransfer.take_ownership(payload)
+# take_ownership() 成功后必须放弃 payload 及其全部嵌套 alias。
+payload = {}
+
+var operation := storage.save_payload_request_async("profile.json", transfer)
+var result: GFStorageAsyncResult
+if operation.is_completed():
+	result = operation.get_result()
+else:
+	result = await operation.completed
+
+if not result.is_successful():
+	var retry_transfer := operation.reclaim_failed_payload()
+	if retry_transfer != null:
+		_schedule_bounded_retry(retry_transfer)
+	else:
+		transfer.release()
+else:
+	transfer.release()
+```
+
+这条入口采用逻辑 move，不做深复制，也没有公开 payload getter。调用成功后，生产者必须
+永久放弃源 `Dictionary` 及全部嵌套 `Array` / `Dictionary` alias；GDScript 不会替框架
+执行语言级 move，继续访问这些 alias 会破坏跨线程只读不变量。
+
+首次合法请求会冻结 Storage 实例、规范文件名、canonical target file-family identity
+和 codec options；Utility 的存储目录或 codec 配置发生变化后，旧 transfer 不会漂移到
+新目标，也不能伪装成同一 retry binding。同一 transfer 可以让超时后仍在运行的
+detached attempt 与有界重试分别取得只读 lease；重试复用同一个逻辑 Snapshot，不重新
+遍历业务对象，也不重新复制完整载荷。失败句柄只允许通过
+`reclaim_failed_payload()` 归还同一个 opaque transfer 一次；整个重试 generation
+结束后，所有者必须调用 `release()`。如果仍有 attempt 活动，载荷会延迟到最后一个
+lease 收敛后再清空。
+
+worker 会在本次新写入的编码以及 temp、marker、final 事务提交副作用前检查图深度、
+值数量、估算原始字节数、支持的 Variant 类型、typed container 约束、集合循环和非有限
+数值，再物化隔离副本。当前硬上限为 128 层、1,000,000 个值与 64 MiB；Dictionary
+使用逐条迭代，不会先物化完整 key snapshot。Packed Array 的每个元素都会计入值预算，
+其固定宽度或字符串内容同时计入字节预算；需逐项检查有限性的 Packed
+Float/Vector/Color 也必须先通过预算才能开始扫描。携带 Object、Resource 或 Script
+类型元数据的空 typed Array/Dictionary 同样会被拒绝，不能借空容器把对象约束带入
+worker。
+
+启动前的既有事务 recovery 与目录初始化属于独立前置生命周期，不受这条“新写入尚未
+提交”的保证覆盖。异步单文件写入与同步事务共用同一个 marker schema；单文件入口
+发现经过交叉校验的多文件 marker 时，会先核对并恢复完整成员集合，再开始该成员的
+异步 I/O。若进程在 committed marker 已落盘但 cleanup 尚未完成时退出，后续 recovery
+会保留新 final，而不是把已提交代次误判为回滚。`dispose()` 会先关闭新的异步 admission，
+再 drain 活动 attempt 并拒绝终态回调中的重入提交，所有 transfer lease 仍须在终态前收敛。
+`GFStorageAsyncResult.get_write_failure_kind()` 区分请求、载荷、编码、线程、生命周期和
+IO 故障；`get_write_validation_report()` 只暴露有界的结构索引、类型和预算计数，不
+返回载荷 key/value，也不返回可离线关联 key 的 digest。调用方应根据这些类型化证据
+决定是否重试，不能把不可持久化载荷当成临时 IO 故障。
 
 ## 基础用法
 

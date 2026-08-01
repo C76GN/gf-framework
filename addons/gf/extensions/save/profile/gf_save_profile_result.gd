@@ -49,6 +49,13 @@ const STATUS_RECOVERED: StringName = &"recovered"
 ## @since 10.0.0
 const STATUS_INVALID_PROFILE: StringName = &"invalid_profile"
 
+## 保存请求句柄无效或已经被接管。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+const STATUS_INVALID_REQUEST: StringName = &"invalid_request"
+
 ## 当前 Profile 不支持请求的操作。
 ## [br]
 ## @api public
@@ -63,12 +70,12 @@ const STATUS_UNSUPPORTED_OPERATION: StringName = &"unsupported_operation"
 ## @since 10.0.0
 const STATUS_BUSY: StringName = &"busy"
 
-## section 保存采集失败。
+## section Snapshot 准备或 worker 载荷预检失败。
 ## [br]
 ## @api public
 ## [br]
-## @since 10.0.0
-const STATUS_GATHER_FAILED: StringName = &"gather_failed"
+## @since unreleased
+const STATUS_PREPARATION_FAILED: StringName = &"preparation_failed"
 
 ## section 应用前快照采集失败。
 ## [br]
@@ -179,6 +186,9 @@ var _validation_report: Dictionary = {}
 var _rollback_errors: Array[GFSaveRollbackFailure] = []
 var _metadata: Dictionary = {}
 var _storage_request_ids: PackedInt64Array = PackedInt64Array()
+var _preparation_duration_msec: int = 0
+var _storage_duration_msec: int = 0
+var _preparation_work_units: int = 0
 
 
 # --- 公共方法 ---
@@ -326,13 +336,16 @@ func get_error() -> String:
 	return _error
 
 
-## 获取最终文档副本。
+## 获取读取流程的最终文档副本。
+##
+## Save 操作使用单所有者 Storage 交接，不再为结果额外复制完整文档，因此只在
+## load 结果中提供文档。
 ## [br]
 ## @api public
 ## [br]
 ## @since 10.0.0
 ## [br]
-## @return 已采集或加载文档；不可用时为 null。
+## @return load 操作已迁移和校验的文档；其他操作返回 null。
 func get_document() -> GFSaveDocument:
 	return _document.duplicate_document() if _document != null else null
 
@@ -394,6 +407,43 @@ func get_duration_msec() -> int:
 	return maxi(_completed_at_msec - _started_at_msec, 0)
 
 
+## 获取保存准备阶段耗时。
+##
+## 该值只覆盖 Provider Snapshot 与交接准备，不包含 Storage IO；非 Save 操作为 0。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @return 单调毫秒耗时。
+func get_preparation_duration_msec() -> int:
+	return _preparation_duration_msec
+
+
+## 获取活跃 Storage attempt 累计耗时。
+##
+## 重试等待时间不计入该值；非 IO 操作为 0。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @return 单调毫秒耗时。
+func get_storage_duration_msec() -> int:
+	return _storage_duration_msec
+
+
+## 获取保存准备累计消费的 work units。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @return 非负 work units。
+func get_preparation_work_units() -> int:
+	return _preparation_work_units
+
+
 ## 获取调用方元数据副本。
 ## [br]
 ## @api public
@@ -439,6 +489,9 @@ func to_dict() -> Dictionary:
 		"started_at_msec": _started_at_msec,
 		"completed_at_msec": _completed_at_msec,
 		"duration_msec": get_duration_msec(),
+		"preparation_duration_msec": _preparation_duration_msec,
+		"storage_duration_msec": _storage_duration_msec,
+		"preparation_work_units": _preparation_work_units,
 		"coalesced": _coalesced,
 		"recovered": _recovered,
 		"recovery_action": _recovery_action,
@@ -486,7 +539,10 @@ func duplicate_result() -> GFSaveProfileResult:
 		_validation_report,
 		_rollback_errors,
 		_metadata,
-		_storage_request_ids
+		_storage_request_ids,
+		_preparation_duration_msec,
+		_storage_duration_msec,
+		_preparation_work_units
 	)
 	return copy
 
@@ -543,6 +599,12 @@ func duplicate_result() -> GFSaveProfileResult:
 ## [br]
 ## @param p_storage_request_ids: 支撑终态的底层请求 ID。
 ## [br]
+## @param p_preparation_duration_msec: Save 准备阶段耗时。
+## [br]
+## @param p_storage_duration_msec: 活跃 Storage attempt 累计耗时。
+## [br]
+## @param p_preparation_work_units: Save 准备累计 work units。
+## [br]
 ## @schema p_validation_report: GFValidationReportDictionary-compatible report or an empty Dictionary.
 ## [br]
 ## @schema p_metadata: Dictionary with caller-defined result metadata.
@@ -568,7 +630,10 @@ func configure_for_framework(
 	p_validation_report: Dictionary = {},
 	p_rollback_errors: Array[GFSaveRollbackFailure] = [],
 	p_metadata: Dictionary = {},
-	p_storage_request_ids: PackedInt64Array = PackedInt64Array()
+	p_storage_request_ids: PackedInt64Array = PackedInt64Array(),
+	p_preparation_duration_msec: int = 0,
+	p_storage_duration_msec: int = 0,
+	p_preparation_work_units: int = 0
 ) -> void:
 	_ok = p_ok
 	_status = p_status
@@ -592,6 +657,9 @@ func configure_for_framework(
 	_rollback_errors = _duplicate_rollback_errors(p_rollback_errors)
 	_metadata = p_metadata.duplicate(true)
 	_storage_request_ids = p_storage_request_ids.duplicate()
+	_preparation_duration_msec = maxi(p_preparation_duration_msec, 0)
+	_storage_duration_msec = maxi(p_storage_duration_msec, 0)
+	_preparation_work_units = maxi(p_preparation_work_units, 0)
 
 
 # --- 私有/辅助方法 ---

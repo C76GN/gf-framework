@@ -266,6 +266,7 @@ func test_clear_all_waits_for_active_thread_task() -> void:
 func test_resource_load_uses_threaded_resource_loader_and_applies_on_tick() -> void:
 	var utility: GFBackgroundWorkUtility = GFBackgroundWorkUtility.new()
 	utility.init()
+	var _broker: GFResourceBroker = utility.setup_standalone_resource_broker()
 
 	var task: GFBackgroundWorkTask = utility.submit_resource_load(
 		"res://addons/gf/standard/utilities/jobs/gf_job.gd",
@@ -302,6 +303,42 @@ func test_cancelled_resource_load_drains_late_completion_without_apply() -> void
 	assert_null(_applied_resource, "取消后的资源任务不应执行主线程 apply。")
 	assert_eq(utility.requested_count, 1, "取消不应重复发起底层请求。")
 	assert_eq(GFVariantData.get_option_int(snapshot, "resource_request_count"), 0, "drain 后不应残留资源请求。")
+	utility.dispose()
+
+
+func test_same_path_submission_reacquires_lease_after_previous_task_cancels() -> void:
+	var utility: SimulatedResourceBackgroundWorkUtility = SimulatedResourceBackgroundWorkUtility.new()
+	utility.init()
+	var first: GFBackgroundWorkTask = utility.submit_resource_load(
+		"res://simulated_resource.tres",
+		"Resource",
+		Callable(),
+		{ "id": &"cancelled_resource" }
+	)
+	assert_true(utility.cancel_work(first.work_id))
+
+	var second: GFBackgroundWorkTask = utility.submit_resource_load(
+		"res://simulated_resource.tres",
+		"Resource",
+		Callable(self, "_apply_resource"),
+		{ "id": &"replacement_resource" }
+	)
+
+	assert_eq(
+		utility.lease_request_count,
+		2,
+		"本地 request 尚未由 tick 清除时，新任务仍必须取得独立的新 Lease。"
+	)
+	assert_eq(second.status, GFBackgroundWorkTask.Status.RUNNING)
+
+	utility.complete = true
+	utility.tick()
+	utility.tick()
+
+	assert_eq(first.status, GFBackgroundWorkTask.Status.CANCELLED)
+	assert_eq(second.status, GFBackgroundWorkTask.Status.COMPLETED)
+	assert_same(_applied_resource, utility.loaded_resource)
+	assert_eq(utility.requested_count, 1, "重新取得 Lease 应继续复用同一个底层请求。")
 	utility.dispose()
 
 
@@ -544,9 +581,39 @@ class ScopedDualCallbackTarget:
 
 
 class SimulatedResourceBackgroundWorkUtility extends GFBackgroundWorkUtility:
+	var _broker: SimulatedResourceBroker = SimulatedResourceBroker.new()
+	var requested_count: int:
+		get:
+			return _broker.requested_count
+	var lease_request_count: int:
+		get:
+			return _broker.lease_request_count
+	var complete: bool:
+		get:
+			return _broker.complete
+		set(value):
+			_broker.complete = value
+	var loaded_resource: Resource:
+		get:
+			return _broker.loaded_resource
+		set(value):
+			_broker.loaded_resource = value
+
+	func init() -> void:
+		super.init()
+		_broker.init()
+		var _bind_error: Error = set_resource_broker(_broker)
+
+
+class SimulatedResourceBroker extends GFResourceBroker:
 	var requested_count: int = 0
+	var lease_request_count: int = 0
 	var complete: bool = false
 	var loaded_resource: Resource = Resource.new()
+
+	func request(path: String, type_hint: String = "", options: Dictionary = {}) -> GFResourceLease:
+		lease_request_count += 1
+		return super.request(path, type_hint, options)
 
 	func _request_threaded_resource(_path: String, _type_hint: String) -> Error:
 		requested_count += 1

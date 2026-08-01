@@ -2,7 +2,7 @@
 
 状态：Accepted
 
-适用版本：10.0.0
+适用版本：11.0.0-dev.0
 决策范围：`gf.extension.save`
 
 ## 背景
@@ -12,6 +12,7 @@ GF 已经具备版本化 `GFSaveDocument`、独立 section、迁移注册表、�
 
 - 多个业务模块如何共同拥有一个存档文档，而不互相读取字段；
 - 连续自动保存如何避免并行写入、丢失较新的状态或无限积压；
+- 保存请求如何只入队，并把大型 Provider 的主线程准备限制在可配置预算内；
 - 异步读取、迁移、校验、应用和回滚如何形成一个可观察终态；
 - 缺失、损坏、未来版本和临时 IO 故障如何被明确区分；
 - 测试如何确定性地注入失败，而不依赖真实磁盘竞争或计时。
@@ -23,9 +24,17 @@ GF 已经具备版本化 `GFSaveDocument`、独立 section、迁移注册表、�
 新增 Save Profile 运行时层，复用既有文档、迁移和存储协议：
 
 - `GFSaveProfile` 声明 profile 身份、文件、文档版本和 section providers。
-- `GFSaveSectionProvider` 是 section 的唯一所有者，只暴露采集、应用和回滚协议。
-- `GFSaveProfileUtility` 串行协调每个 profile 的保存、读取、迁移和应用。
-- `GFSaveProfileOperation` 是异步调用句柄；`GFSaveProfileResult` 是不可变终态快照。
+- `GFSaveProfileRequest` 以一次性 opaque 句柄分别接管 document metadata、Provider
+  context 和 result metadata；保存接纳只做 O(1) claim，不复制调用方对象图。
+- `GFSaveSectionProvider` 是 section 的唯一所有者；保存通过
+  `begin_save_snapshot()` / `_begin_save_snapshot()` 创建
+  `GFSaveSectionSnapshotOperation`，读取事务回滚则单独使用 `_capture_section()`。
+- `GFSaveProfileUtility` 串行协调每个 profile 的保存、读取、迁移和应用，并以全局
+  work-unit 预算、单 profile slice 预算和软时间预算轮转推进保存准备。
+- `GFStoragePayloadTransfer` 接收准备完成的文档所有权；Storage worker 只执行纯
+  Variant 图预检、物化、编码和 IO，不访问 Provider、场景树或业务对象。
+- `GFSaveProfileOperation` 是异步调用句柄；`GFSaveProfileResult` 是不可变终态快照，
+  分开记录准备与 Storage 耗时，完整文档只存在于 load 结果。
 - `GFSaveRecoveryPolicy` 只允许显式、可审计的恢复和有界重试。
 - `GFStorageAsyncOperation` 为每次底层 IO 提供独立 request ID 和类型化终态。
 
@@ -52,6 +61,14 @@ Profile 层不引入第二套文件格式，不解释业务字段，不绑定槽
 17. 超时写入在迟到终态前继续占有规范存储路径；不得注销 profile 或把路径转移给其他 profile。
 18. 同一逻辑保存仍在等待或执行重试时，任一覆盖该 generation 的物理写入成功都立即胜出；其他在途尝试只保留路径所有权，不得再翻转逻辑终态。
 19. 就绪读取和等待保存采用有界轮转：最老就绪读取不会被更新保存饿死，服务一个读取后也必须给等待保存一个轮次。
+20. `save_profile()` 先验证 Profile、能力和生命周期，再一次性 claim `GFSaveProfileRequest`；拒绝的边界不得消费 Request，成功接纳只完成 O(1) 所有权转移、generation 分配和入队。
+21. 保存 Snapshot 只在主线程按全局 work-unit、单 profile slice 和软时间预算推进；软时间预算只能阻止开始下一个 slice，不能抢占已经开始的 Provider 回调。
+22. Snapshot、section payload、metadata 和 Storage transfer 采用逻辑 move；交出所有权后，生产者必须放弃源值及全部嵌套集合 alias。
+23. Storage 首次 claim transfer 时冻结 Storage 实例、规范文件名、canonical target file-family identity 与 codec options；超时 detached attempt 与重试可同时持有同一 Snapshot 的只读 lease，最后一个 lease 结束且所有者释放后才可销毁载荷。
+24. Worker 只能处理已移交的纯 Variant 图；图预算或可持久化性预检失败必须在本次新写入的编码以及 temp、marker、final 事务提交副作用前结束。既有事务 recovery 与目录初始化是独立前置生命周期。
+25. 保存终态不得为了诊断保留完整文档副本；只有读取终态可通过 `get_document()` 返回文档，准备耗时与 Storage attempt 累计耗时必须分开报告；同时活跃的 attempt 分别累计，重叠区间不折叠。
+26. worker 失败报告只允许携带有界结构索引、Variant 类型和预算计数；Save 只能用文档构造时记录的 entry index 映射 section，不得复制 key/value 或可离线关联的 key 摘要。
+26. Save Operation 只持有对应请求的 result metadata；document metadata 与 Provider context 由最新 generation 状态直接接管，开始准备时通过 assignment 移入当前状态，不得深复制。
 
 ## 状态机
 
@@ -59,17 +76,18 @@ Profile 层不引入第二套文件格式，不解释业务字段，不绑定槽
 
 | 状态 | 含义 | 合法后继 |
 | --- | --- | --- |
-| `idle` | 无 IO、无到期重试 | `gathering`、`loading` |
-| `gathering` | 在主线程采集不可变保存快照 | `saving`、`idle` |
-| `saving` | 等待唯一写入请求的类型化终态 | `retry_wait`、`idle`、`gathering` |
+| `idle` | 无 IO、无到期重试 | `preparing`、`loading` |
+| `preparing` | 在主线程按预算推进不可变保存 Snapshot | `saving`、`idle` |
+| `saving` | 等待当前写入请求的类型化终态 | `retry_wait`、`idle`、`preparing` |
 | `loading` | 等待读取终态 | `retry_wait`、`applying`、`idle` |
 | `retry_wait` | 等待单调时钟达到下一次重试时间 | `saving`、`loading`、`idle` |
 | `applying` | 主线程迁移、校验和事务化应用 | `idle` |
 | `disposed` | Utility 已释放，拒绝新任务 | 无 |
 
-`saving -> gathering` 表示当前 generation 完成后采集被合并的最新 generation，正常
-调度不会主动并行启动两个当前写入。物理写入超时后无法证明已经取消，因此 detached
-原请求可与后续重试短暂并存；两者仍由同一 Profile 保有路径，只有重试属于当前 IO。
+`saving -> preparing` 表示当前 generation 完成后，为被合并的最新 generation 创建并
+推进新的 Snapshot。正常调度不会主动并行启动两个当前写入。物理写入超时后无法证明
+已经取消，因此 detached 原请求可与后续重试短暂并存；两者仍由同一 Profile 保有路径，
+只有重试属于当前 IO，并从同一个冻结 transfer 取得独立 lease。
 读取请求在调用时捕获的 generation 屏障收敛后执行，不等待之后请求的更新保存；加载或
 应用过程中不接受保存，以免基于旧内存状态覆盖新读取的数据。`retry_wait -> idle` 表示
 等待期间 detached 写入迟到成功，计划重试随逻辑保存完成而取消。
@@ -79,9 +97,10 @@ Profile 层不引入第二套文件格式，不解释业务字段，不绑定槽
 | 阶段/故障 | 默认结果 | 可恢复行为 | 必须保留的证据 |
 | --- | --- | --- | --- |
 | Profile、provider 或规范路径无效 | `invalid_profile` | 无 | 注册报告、profile/schema id、规范路径 |
+| Request 未初始化、结构无效或已被 claim | `invalid_request` | 创建新的 Request；已 claim 句柄不可复用 | 操作类型、profile id |
 | 当前 Profile 禁止该操作 | `unsupported_operation` | 修改声明后重新注册 | 操作类型、profile id |
 | load/apply/provider 或状态回调期间请求保存或重入 | `busy` | 回调结束后由上层重新请求 | 操作类型、稳定状态快照 |
-| section 采集失败或载荷不可持久化 | `gather_failed` | 后续新 generation 可重试 | section id、错误码 |
+| Snapshot 创建、分片推进或 worker 载荷预检失败 | `preparation_failed` | 后续新 generation 可重试 | section id、错误码、校验报告 |
 | 应用前回滚快照采集失败 | `snapshot_failed` | 修复 provider 后重试 | section id、错误码 |
 | 异步 IO 启动失败 | `storage_failed` | 仅临时错误按有界计划重试 | 尝试次数、错误码 |
 | 写入临时失败 | `storage_failed` | 按策略延迟重试 | generation、尝试次数 |
@@ -110,6 +129,8 @@ Profile 层不引入第二套文件格式，不解释业务字段，不绑定槽
 - 重试延迟是有限的毫秒序列；序列耗尽后必须返回失败，禁止无限循环。
 - 时间判断只使用注入的 `GFClock` 单调时间，测试使用 `GFManualClock`。
 - 每次 IO 都有正数超时；读取超时为确定失败，写入超时为结果未知。
+- 写入重试复用同一个冻结 transfer；每个 attempt 单独 claim lease，终态后释放，逻辑
+  保存不再需要任何 attempt 时由 Profile 最终 `release()`。
 - `strict_integrity` 关闭只改变底层读取许可，不允许 Profile 把已知完整性失败当作有效文档。
 - 未知 section 默认拒绝；`preserve` 会缓存并在下一次保存原样合并，`drop` 才会丢弃。
 
@@ -118,6 +139,17 @@ Profile 层不引入第二套文件格式，不解释业务字段，不绑定槽
 故障注入测试至少覆盖：
 
 - 在途写入期间多次保存只产生一次后续最新 generation 写入；
+- 大型 document metadata、context 与 result metadata 的 Request 在 `save_profile()`
+  返回前不深复制且不调用 Provider；claim 保留根与嵌套 alias 身份并且只能成功一次；
+- 无效 Profile、关闭能力和 busy 拒绝不 claim Request；未初始化或重复提交的 Request
+  返回 `invalid_request`，不分配新的 generation；
+- 全局 work budget、单 profile slice budget 和软时间 budget 都能限制一次 tick 启动
+  的准备工作，轮转不会让单个 profile 独占预算；
+- Provider 的 Snapshot Operation 能跨 tick 完成，错误和取消都只进入一次终态；
+- Snapshot 与 transfer 的源 alias 在移交后不再使用；首次 claim 后 Storage、规范文件名
+  和 codec options 冻结，detached attempt 与重试 lease 都能安全复用同一载荷；
+- worker 对循环、超限或不可持久化 Variant 图在本次新写入的编码与 temp、marker、final
+  事务提交前失败关闭；既有 recovery 与目录初始化不伪装成该保证的一部分；
 - flush 等待调用时可见的最新 generation；
 - 临时失败按单调时钟和有限延迟重试，永久失败不重试；
 - section 应用失败后已应用 section 被逆序回滚；
@@ -132,11 +164,16 @@ Profile 层不引入第二套文件格式，不解释业务字段，不绑定槽
 - 后续 generation 失败不会抹掉较早 generation 的 outcome-unknown，迟到终态前路径不能转移；
 - 未知 section 的 reject、preserve、drop 三种政策均有往返测试；
 - Storage 的未来格式、迁移失败和非严格完整性失败保持类型化分类；
+- Save 结果的 `get_document()` 返回 `null`，load 结果仍返回文档；准备耗时、准备 work
+  units 与 Storage attempt 累计耗时分别可观察；
 - 真实 `GFStorageUtility` 往返测试覆盖异步句柄集成，不只依赖测试替身。
 
 ## 后果
 
 项目获得统一、可测试的异步存档入口，业务模块只实现自己的 section provider。
-代价是 provider 必须定义稳定 section id、版本和可回滚应用语义；注册后这些身份与能力
-被冻结。无法回滚的外部副作用必须留在更高层事务参与者中，不能伪装成普通 section
-应用。写入结果未知时，上层还必须采用重读、版本戳或业务对账策略，而不能盲目重复提交。
+代价是调用方和 provider 都必须遵循显式所有权协议：Request 成功创建后放弃三个输入
+图的全部 alias，provider 定义稳定 section id、版本、可回滚应用语义和协作式 Snapshot
+协议；旧 `_gather_section()` 契约及其隐式回退不再存在。Provider 必须把每个 work unit
+保持在明确上界，并在逻辑 move 后主动放弃全部源 alias。注册后身份与能力被冻结。无法
+回滚的外部副作用必须留在更高层事务参与者中，不能伪装成普通 section 应用。写入结果
+未知时，上层还必须采用重读、版本戳或业务对账策略，而不能盲目重复提交。

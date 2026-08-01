@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSaveSectionProvider" path="addons/gf/extensions/save/profile/gf_save_section_provider.gd" module="extensions/save" extends="Resource" classDigest="24d8b2c7d3b491dd26a339d482ed3f74f121f17a8570d6627857c01888d76cc9">
+<class name="GFSaveSectionProvider" path="addons/gf/extensions/save/profile/gf_save_section_provider.gd" module="extensions/save" extends="Resource" classDigest="a7913050fb2f589a83a62c721bbd0fbaf6359d95b54c7d5b644efbadf3052e4a">
 	<description>GFSaveSectionProvider: Save Profile section 所有权协议。
-一个 provider 只拥有一个稳定 section。实现必须能够采集当前状态、应用已校验
-section，并在后续 provider 失败时恢复此前采集的 section。</description>
+一个 provider 只拥有一个稳定 section。保存通过显式协作式 Snapshot Operation
+分片推进；读取应用与回滚快照保持独立协议。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">protocol</tag>
@@ -64,15 +64,17 @@ section，并在后续 provider 失败时恢复此前采集的 section。</descr
 				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
-		<member kind="method" name="gather_section">
-			<signature>func gather_section(context: Dictionary = {}) -&gt; GFSaveSection:</signature>
-			<description>采集当前状态为隔离 section。</description>
+		<member kind="method" name="begin_save_snapshot">
+			<signature>func begin_save_snapshot( context: Dictionary = {} ) -&gt; GFSaveSectionSnapshotOperation:</signature>
+			<description>开始主线程协作式保存快照。
+begin 回调必须保持有界，只捕获稳定根引用或创建 Operation；大型数据应由
+Operation 的后续 slice 分片构造。返回的 Operation 会绑定当前 Provider 身份。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">context: 本次操作的临时上下文。</tag>
-				<tag name="return">合法且身份匹配的 section；失败时返回 null。</tag>
+				<tag name="return">已绑定 Operation；创建失败时返回 null。</tag>
 				<tag name="schema">context: Dictionary with caller-defined ephemeral operation data.</tag>
-				<tag name="since">10.0.0</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 		<member kind="method" name="capture_section">
@@ -124,25 +126,56 @@ section，并在后续 provider 失败时恢复此前采集的 section。</descr
 				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
-		<member kind="method" name="_gather_section">
-			<signature>func _gather_section(_context: Dictionary = {}) -&gt; GFSaveSection:</signature>
-			<description>采集当前 section。返回 null 表示失败。</description>
+		<member kind="method" name="make_snapshot">
+			<signature>func make_snapshot( payload: Variant, metadata: Dictionary = {} ) -&gt; GFSaveSectionSnapshot:</signature>
+			<description>接管纯数据并创建一次性 Snapshot。
+该方法不深复制数据；成功返回后调用方必须放弃 payload、metadata 及全部嵌套
+alias。大型 Provider 应在 Operation slice 中逐步构造独占数据，再调用本方法。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">payload: 调用方移交的纯 Variant 载荷。</tag>
+				<tag name="param">metadata: 调用方移交的纯 Variant 元数据。</tag>
+				<tag name="return">可用 Snapshot。</tag>
+				<tag name="schema">payload: Variant accepted by the Save persisted-value contract.</tag>
+				<tag name="schema">metadata: Dictionary with provider-defined persisted metadata.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="make_completed_snapshot">
+			<signature>func make_completed_snapshot( payload: Variant, metadata: Dictionary = {} ) -&gt; GFSaveSectionSnapshotOperation:</signature>
+			<description>创建已经完成的小型 Snapshot Operation。
+该便捷方法只适用于已经独占且可在固定成本内移交的数据；不得用它在 begin
+回调中同步构造大型对象图。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">payload: 调用方移交的纯 Variant 载荷。</tag>
+				<tag name="param">metadata: 调用方移交的纯 Variant 元数据。</tag>
+				<tag name="return">已完成 Operation。</tag>
+				<tag name="schema">payload: Variant accepted by the Save persisted-value contract.</tag>
+				<tag name="schema">metadata: Dictionary with provider-defined persisted metadata.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_begin_save_snapshot">
+			<signature>func _begin_save_snapshot( _context: Dictionary = {} ) -&gt; GFSaveSectionSnapshotOperation:</signature>
+			<description>创建协作式保存 Snapshot Operation。返回 null 表示失败。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">_context: 本次操作的临时上下文。</tag>
+				<tag name="return">自定义 Operation，或通过 `make_completed_snapshot()` 创建的小型 Operation。</tag>
+				<tag name="schema">_context: Dictionary with caller-defined ephemeral operation data.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_capture_section">
+			<signature>func _capture_section(_context: Dictionary = {}) -&gt; GFSaveSection:</signature>
+			<description>采集应用前回滚快照。
+保存 Snapshot 与读取回滚属于不同一致性边界，因此不再隐式复用保存实现。</description>
 			<tags>
 				<tag name="api">protected</tag>
 				<tag name="param">_context: 本次操作的临时上下文。</tag>
 				<tag name="return">通过 `make_section()` 创建的当前版本 section。</tag>
 				<tag name="schema">_context: Dictionary with caller-defined ephemeral operation data.</tag>
-				<tag name="since">10.0.0</tag>
-			</tags>
-		</member>
-		<member kind="method" name="_capture_section">
-			<signature>func _capture_section(context: Dictionary = {}) -&gt; GFSaveSection:</signature>
-			<description>采集应用前回滚快照。默认复用 `_gather_section()`。</description>
-			<tags>
-				<tag name="api">protected</tag>
-				<tag name="param">context: 本次操作的临时上下文。</tag>
-				<tag name="return">通过 `make_section()` 创建的当前版本 section。</tag>
-				<tag name="schema">context: Dictionary with caller-defined ephemeral operation data.</tag>
 				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>

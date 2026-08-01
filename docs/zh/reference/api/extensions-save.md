@@ -6,11 +6,11 @@
 
 | 类别 | 类 | 成员 | 方法 |
 |---|---:|---:|---:|
-| [运行时服务](#category-runtime_service) | 6 | 86 | 63 |
-| [协议与扩展点](#category-protocol) | 10 | 112 | 67 |
+| [运行时服务](#category-runtime_service) | 6 | 89 | 63 |
+| [协议与扩展点](#category-protocol) | 10 | 114 | 69 |
 | [资源定义](#category-resource_definition) | 13 | 92 | 58 |
-| [运行时句柄](#category-runtime_handle) | 1 | 11 | 7 |
-| [值对象](#category-value_object) | 9 | 150 | 95 |
+| [运行时句柄](#category-runtime_handle) | 4 | 41 | 28 |
+| [值对象](#category-value_object) | 9 | 154 | 98 |
 | [领域模型](#category-domain_model) | 1 | 6 | 3 |
 | [事件契约](#category-event_contract) | 1 | 11 | 3 |
 
@@ -73,6 +73,9 @@
 | 类 | 继承 | 源文件 |
 |---|---|---|
 | [`GFSaveProfileOperation`](classes/GFSaveProfileOperation.md#gfsaveprofileoperation) | `RefCounted` | `addons/gf/extensions/save/profile/gf_save_profile_operation.gd` |
+| [`GFSaveProfileRequest`](classes/GFSaveProfileRequest.md#gfsaveprofilerequest) | `RefCounted` | `addons/gf/extensions/save/profile/gf_save_profile_request.gd` |
+| [`GFSaveSectionSnapshot`](classes/GFSaveSectionSnapshot.md#gfsavesectionsnapshot) | `RefCounted` | `addons/gf/extensions/save/profile/gf_save_section_snapshot.gd` |
+| [`GFSaveSectionSnapshotOperation`](classes/GFSaveSectionSnapshotOperation.md#gfsavesectionsnapshotoperation) | `RefCounted` | `addons/gf/extensions/save/profile/gf_save_section_snapshot_operation.gd` |
 
 <a id="category-value_object"></a>
 

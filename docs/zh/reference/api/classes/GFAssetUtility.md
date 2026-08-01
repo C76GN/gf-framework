@@ -26,7 +26,12 @@
 | 属性 | [`max_cache_size`](#member-gfassetutility-properties-max_cache_size) | `var max_cache_size: int:` |
 | 属性 | [`default_max_concurrent_loads`](#member-gfassetutility-properties-default_max_concurrent_loads) | `var default_max_concurrent_loads: int = 0` |
 | 方法 | [`init`](#member-gfassetutility-methods-init) | `func init() -> void:` |
+| 方法 | [`ready`](#member-gfassetutility-methods-ready) | `func ready() -> void:` |
 | 方法 | [`dispose`](#member-gfassetutility-methods-dispose) | `func dispose() -> void:` |
+| 方法 | [`release_dependencies`](#member-gfassetutility-methods-release_dependencies) | `func release_dependencies() -> void:` |
+| 方法 | [`set_resource_broker`](#member-gfassetutility-methods-set_resource_broker) | `func set_resource_broker(broker: GFResourceBroker) -> Error:` |
+| 方法 | [`setup_standalone_resource_broker`](#member-gfassetutility-methods-setup_standalone_resource_broker) | `func setup_standalone_resource_broker( max_active_requests: int = 4, max_pending_requests: int = 256 ) -> GFResourceBroker:` |
+| 方法 | [`get_resource_broker`](#member-gfassetutility-methods-get_resource_broker) | `func get_resource_broker() -> GFResourceBroker:` |
 | 方法 | [`load_async`](#member-gfassetutility-methods-load_async) | `func load_async(path: String, on_loaded: Callable, type_hint: String = "", options: Dictionary = {}) -> void:` |
 | 方法 | [`load_handle_async`](#member-gfassetutility-methods-load_handle_async) | `func load_handle_async( path: String, on_loaded: Callable, type_hint: String = "", owner: Object = null, group_id: StringName = &"", options: Dictionary = {} ) -> void:` |
 | 方法 | [`acquire_handle`](#member-gfassetutility-methods-acquire_handle) | `func acquire_handle( path: String, owner: Object = null, group_id: StringName = &"", type_hint: String = "", resource_override: Resource = null ) -> GFAssetHandle:` |
@@ -251,6 +256,19 @@ func init() -> void:
 
 初始化资源加载工具的运行时状态。
 
+<a id="member-gfassetutility-methods-ready"></a>
+
+### `ready`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func ready() -> void:
+```
+
+从所属架构解析显式注册的共享 GFResourceBroker。
+
 <a id="member-gfassetutility-methods-dispose"></a>
 
 ### `dispose`
@@ -262,6 +280,77 @@ func dispose() -> void:
 ```
 
 释放资源加载工具持有的运行时状态。
+
+<a id="member-gfassetutility-methods-release_dependencies"></a>
+
+### `release_dependencies`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func release_dependencies() -> void:
+```
+
+释放共享 Broker 引用和架构依赖作用域。
+
+<a id="member-gfassetutility-methods-set_resource_broker"></a>
+
+### `set_resource_broker`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func set_resource_broker(broker: GFResourceBroker) -> Error:
+```
+
+注入共享 Resource Broker。 架构模式应把同一个 GFResourceBroker 注册为 Utility；独立模式可在 init 前 显式调用本方法。重复绑定当前 Broker 幂等成功；存在活动或排队请求时拒绝 替换。当前 Broker 由本 Utility 私有拥有时，还必须等待它完成 drain 并进入 idle，才能替换为其它 Broker。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `broker` | 要共享的 Broker。 |
+
+返回：绑定结果；请求尚未收敛或私有 Broker 尚未 idle 时返回 `ERR_BUSY`。
+
+<a id="member-gfassetutility-methods-setup_standalone_resource_broker"></a>
+
+### `setup_standalone_resource_broker`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func setup_standalone_resource_broker( max_active_requests: int = 4, max_pending_requests: int = 256 ) -> GFResourceBroker:
+```
+
+为独立使用显式创建当前 Utility 私有拥有的 Resource Broker。 多个独立 Utility 需要协调时，应由项目创建一个 GFResourceBroker，并分别调用 set_resource_broker()；本入口只适合单个独立 Utility。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `max_active_requests` | Broker 同时活动的底层请求上限。 |
+| `max_pending_requests` | Broker 等待 admission 的不同请求上限。 |
+
+返回：创建的 Broker；存在活动请求时返回 null。
+
+<a id="member-gfassetutility-methods-get_resource_broker"></a>
+
+### `get_resource_broker`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func get_resource_broker() -> GFResourceBroker:
+```
+
+获取当前注入的 Resource Broker。
+
+返回：已绑定的 Broker；未配置时返回 null。
 
 <a id="member-gfassetutility-methods-load_async"></a>
 
@@ -808,4 +897,4 @@ func get_debug_snapshot() -> Dictionary:
 
 结构：
 
-- `return`: Dictionary with max_cache_size, cache_count, cached_paths, cache_keys, pending_count, pending_paths, pending_cache_keys, pending_progress, pinned_count, pinned_paths, pinned_cache_keys, reference_counts, cache_key_reference_counts, resource_identities, group_count, queued_count, queued_paths, lane_active_counts, cache_diagnostics, and threaded_resource_operations diagnostic fields.
+- `return`: Dictionary with max_cache_size, cache_count, cached_paths, cache_keys, pending_count, pending_paths, pending_cache_keys, pending_progress, pinned_count, pinned_paths, pinned_cache_keys, reference_counts, cache_key_reference_counts, resource_identities, group_count, queued_count, queued_paths, lane_active_counts, cache_diagnostics, and resource_broker configured/error/admission diagnostic fields.

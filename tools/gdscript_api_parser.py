@@ -101,11 +101,19 @@ def collect_api_classes(source_root: Path, root: Path = ROOT) -> list[ApiClass]:
 def parse_gdscript_file(path: Path, source_root: Path, root: Path = ROOT) -> ApiScript:
 	relative_path = path.relative_to(root).as_posix()
 	source_relative = path.relative_to(source_root)
+	return parse_gdscript_source(
+		path.read_text(encoding="utf-8"),
+		relative_path,
+		module_from_path(source_relative),
+	)
+
+
+def parse_gdscript_source(source: str, relative_path: str, module: str = "root") -> ApiScript:
 	api_script = ApiScript(
 		path=relative_path,
-		module=module_from_path(source_relative),
+		module=module,
 	)
-	lines = path.read_text(encoding="utf-8").splitlines()
+	lines = source.splitlines()
 	docs_buffer: list[str] = []
 	decorators: list[str] = []
 	in_multiline_string = False

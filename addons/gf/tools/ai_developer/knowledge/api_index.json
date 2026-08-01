@@ -2,8 +2,8 @@
   "schema_version": 1,
   "catalog_version": "1.0.0",
   "framework_version": "11.0.0-dev.0",
-  "source_digest": "34c315b76753015025c03069fdcfd284028c732645fb2f76d36de5ff84bf4d20",
-  "class_count": 763,
+  "source_digest": "ff54f85352eb56697316340608852f34b28994be98fdf08ec4acb51d15c4a3e4",
+  "class_count": 769,
   "package_count": 52,
   "packages": [
     {
@@ -4833,9 +4833,44 @@
         },
         {
           "kind": "func",
+          "name": "ready",
+          "signature": "func ready() -> void",
+          "summary": "从所属架构解析显式注册的共享 GFResourceBroker。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
           "name": "dispose",
           "signature": "func dispose() -> void",
           "summary": "释放资源加载工具持有的运行时状态。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "release_dependencies",
+          "signature": "func release_dependencies() -> void",
+          "summary": "释放共享 Broker 引用和架构依赖作用域。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "set_resource_broker",
+          "signature": "func set_resource_broker(broker: GFResourceBroker) -> Error",
+          "summary": "注入共享 Resource Broker。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "setup_standalone_resource_broker",
+          "signature": "func setup_standalone_resource_broker( max_active_requests: int = 4, max_pending_requests: int = 256 ) -> GFResourceBroker",
+          "summary": "为独立使用显式创建当前 Utility 私有拥有的 Resource Broker。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_resource_broker",
+          "signature": "func get_resource_broker() -> GFResourceBroker",
+          "summary": "获取当前注入的 Resource Broker。",
           "visibility": "public"
         },
         {
@@ -9999,6 +10034,13 @@
         },
         {
           "kind": "func",
+          "name": "ready",
+          "signature": "func ready() -> void",
+          "summary": "从所属架构解析显式注册的共享 GFResourceBroker。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
           "name": "tick",
           "signature": "func tick(_delta: float = 0.0) -> void",
           "summary": "推进后台工作完成检查与主线程应用。",
@@ -10009,6 +10051,34 @@
           "name": "dispose",
           "signature": "func dispose() -> void",
           "summary": "取消未完成工作、等待线程结束并清理运行时状态。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "release_dependencies",
+          "signature": "func release_dependencies() -> void",
+          "summary": "释放共享 Broker 引用和架构依赖作用域。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "set_resource_broker",
+          "signature": "func set_resource_broker(broker: GFResourceBroker) -> Error",
+          "summary": "注入共享 Resource Broker。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "setup_standalone_resource_broker",
+          "signature": "func setup_standalone_resource_broker( max_active_requests: int = 4, max_pending_requests: int = 256 ) -> GFResourceBroker",
+          "summary": "为单个独立 BackgroundWork Utility 显式创建私有 Resource Broker。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_resource_broker",
+          "signature": "func get_resource_broker() -> GFResourceBroker",
+          "summary": "获取当前注入的 Resource Broker。",
           "visibility": "public"
         },
         {
@@ -62180,6 +62250,151 @@
         }
       ]
     },
+    "GFResourceBroker": {
+      "extends": "GFUtility",
+      "module": "standard",
+      "package_id": "gf.standard.assets",
+      "path": "addons/gf/standard/utilities/assets/gf_resource_broker.gd",
+      "summary": "GFResourceBroker: framework-level threaded ResourceLoader admission broker。 一个显式共享实例可以注入 Asset、Scene 与 BackgroundWork Utility， 统一执行有界 FIFO admission、同资源身份复用、消费者级取消和底层请求 drain。",
+      "visibility": "public",
+      "category": "runtime_service",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "const",
+          "name": "DEFAULT_MAX_ACTIVE_REQUESTS",
+          "signature": "const DEFAULT_MAX_ACTIVE_REQUESTS: int = 4",
+          "summary": "默认同时允许的底层 threaded resource request 数量。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "ABSOLUTE_MAX_ACTIVE_REQUESTS",
+          "signature": "const ABSOLUTE_MAX_ACTIVE_REQUESTS: int = 64",
+          "summary": "同时活动的底层 threaded resource request 数量绝对上限。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "DEFAULT_MAX_PENDING_REQUESTS",
+          "signature": "const DEFAULT_MAX_PENDING_REQUESTS: int = 256",
+          "summary": "默认最多等待 admission 的不同资源请求数量。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "ABSOLUTE_MAX_PENDING_REQUESTS",
+          "signature": "const ABSOLUTE_MAX_PENDING_REQUESTS: int = 4096",
+          "summary": "等待 admission 的不同资源请求数量绝对上限。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "REASON_ACTIVE_TYPE_HINT_NOT_SATISFIED",
+          "signature": "const REASON_ACTIVE_TYPE_HINT_NOT_SATISFIED: String = \"active_type_hint_not_satisfied\"",
+          "summary": "活动请求无法追溯收紧 type hint 时写入 Lease 的稳定失败原因。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "REASON_ACTIVE_ADMISSION_CONSTRAINTS_NOT_SATISFIED",
+          "signature": "const REASON_ACTIVE_ADMISSION_CONSTRAINTS_NOT_SATISFIED: String = \"active_admission_constraints_not_satisfied\"",
+          "summary": "活动请求无法追溯升级 admission 约束时写入 Lease 的稳定失败原因。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "max_active_requests",
+          "signature": "var max_active_requests: int = DEFAULT_MAX_ACTIVE_REQUESTS",
+          "summary": "同时允许的底层 threaded resource request 数量。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "max_pending_requests",
+          "signature": "var max_pending_requests: int = DEFAULT_MAX_PENDING_REQUESTS",
+          "summary": "最多等待 admission 的不同资源请求数量。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "init",
+          "signature": "func init() -> void",
+          "summary": "初始化 Broker。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "tick",
+          "signature": "func tick(_delta: float = 0.0) -> void",
+          "summary": "推进底层请求轮询与 admission。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "dispose",
+          "signature": "func dispose() -> void",
+          "summary": "取消所有消费者，并让已发起的请求保留为 drain 状态。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "request",
+          "signature": "func request(path: String, type_hint: String = \"\", options: Dictionary = {}) -> GFResourceLease",
+          "summary": "请求一个资源消费者 Lease。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "pump",
+          "signature": "func pump() -> void",
+          "summary": "推进所有活动请求并尝试 admission。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "poll_lease",
+          "signature": "func poll_lease(lease: GFResourceLease) -> Dictionary",
+          "summary": "推进 Broker 并导出指定 Lease 的状态。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "cancel_all",
+          "signature": "func cancel_all(reason: StringName = &\"cancelled\") -> void",
+          "summary": "取消所有尚未完成的消费者 Lease。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_idle",
+          "signature": "func is_idle() -> bool",
+          "summary": "Broker 是否已经没有 queued、active 或 draining 请求。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_debug_snapshot",
+          "signature": "func get_debug_snapshot() -> Dictionary",
+          "summary": "导出有界 admission 与底层请求调试快照。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "_request_threaded_resource",
+          "signature": "func _request_threaded_resource(path: String, type_hint: String) -> Error",
+          "summary": "发起底层 ResourceLoader threaded request。",
+          "visibility": "protected"
+        },
+        {
+          "kind": "func",
+          "name": "_poll_threaded_resource",
+          "signature": "func _poll_threaded_resource(path: String, previous_progress: float) -> Dictionary",
+          "summary": "轮询底层 ResourceLoader threaded request。",
+          "visibility": "protected"
+        }
+      ]
+    },
     "GFResourceConfigProvider": {
       "extends": "GFConfigProvider",
       "module": "standard",
@@ -62532,6 +62747,144 @@
           "name": "from_dictionary",
           "signature": "static func from_dictionary(data: Dictionary) -> GFResourceIdentity",
           "summary": "从字典恢复资源身份快照。",
+          "visibility": "public"
+        }
+      ]
+    },
+    "GFResourceLease": {
+      "extends": "RefCounted",
+      "module": "standard",
+      "package_id": "gf.standard.assets",
+      "path": "addons/gf/standard/utilities/assets/gf_resource_lease.gd",
+      "summary": "GFResourceLease: 共享资源 Broker 返回的消费者所有权句柄。 每次请求都会得到独立 Lease；同一路径可以复用同一个底层 threaded load， 但取消或释放只影响当前消费者。未完成时释放最后一个 Lease 会让 Broker",
+      "visibility": "public",
+      "category": "runtime_handle",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "const",
+          "name": "STATUS_QUEUED",
+          "signature": "const STATUS_QUEUED: StringName = &\"queued\"",
+          "summary": "请求正在等待 Broker admission。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "STATUS_LOADING",
+          "signature": "const STATUS_LOADING: StringName = &\"loading\"",
+          "summary": "底层 threaded resource request 已经开始。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "STATUS_COMPLETED",
+          "signature": "const STATUS_COMPLETED: StringName = &\"completed\"",
+          "summary": "资源已经成功交付给当前消费者。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "STATUS_FAILED",
+          "signature": "const STATUS_FAILED: StringName = &\"failed\"",
+          "summary": "资源请求失败。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "STATUS_CANCELLED",
+          "signature": "const STATUS_CANCELLED: StringName = &\"cancelled\"",
+          "summary": "当前消费者已经取消请求。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "cancel",
+          "signature": "func cancel(reason: StringName = &\"cancelled\") -> void",
+          "summary": "取消当前消费者的请求。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "release",
+          "signature": "func release() -> void",
+          "summary": "释放当前 Lease 持有的消费者引用和已交付资源。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_terminal",
+          "signature": "func is_terminal() -> bool",
+          "summary": "请求是否已经到达终态。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_released",
+          "signature": "func is_released() -> bool",
+          "summary": "Lease 是否已经释放。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_status",
+          "signature": "func get_status() -> StringName",
+          "summary": "获取当前状态。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_progress",
+          "signature": "func get_progress() -> float",
+          "summary": "获取当前加载进度。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_resource",
+          "signature": "func get_resource() -> Resource",
+          "summary": "获取加载成功的资源。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_path",
+          "signature": "func get_path() -> String",
+          "summary": "获取资源路径。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_type_hint",
+          "signature": "func get_type_hint() -> String",
+          "summary": "获取请求类型提示。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_consumer_id",
+          "signature": "func get_consumer_id() -> StringName",
+          "summary": "获取消费者标识。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_request_error",
+          "signature": "func get_request_error() -> Error",
+          "summary": "获取请求错误码。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_error_message",
+          "signature": "func get_error_message() -> String",
+          "summary": "获取失败说明。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "to_poll_result",
+          "signature": "func to_poll_result() -> Dictionary",
+          "summary": "导出当前消费者视角的结构化状态。",
           "visibility": "public"
         }
       ]
@@ -67272,6 +67625,32 @@
         }
       ]
     },
+    "GFSaveProfileRequest": {
+      "extends": "RefCounted",
+      "module": "extensions/save",
+      "package_id": "gf.extension.save",
+      "path": "addons/gf/extensions/save/profile/gf_save_profile_request.gd",
+      "summary": "GFSaveProfileRequest: Save Profile 保存请求的一次性所有权句柄。 `take_ownership()` 不会深复制输入。成功创建后，调用方必须立即且永久放弃 document metadata、Provider context、result metadata 及其全部嵌套集合 alias。",
+      "visibility": "public",
+      "category": "runtime_handle",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "func",
+          "name": "take_ownership",
+          "signature": "static func take_ownership( document_metadata: Dictionary, context: Dictionary, result_metadata: Dictionary ) -> GFSaveProfileRequest",
+          "summary": "创建请求并接收三个 Dictionary 的逻辑唯一所有权。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_claimed",
+          "signature": "func is_claimed() -> bool",
+          "summary": "检查请求是否已经被 Save Profile Utility 接管。",
+          "visibility": "public"
+        }
+      ]
+    },
     "GFSaveProfileResult": {
       "extends": "RefCounted",
       "module": "extensions/save",
@@ -67319,6 +67698,13 @@
         },
         {
           "kind": "const",
+          "name": "STATUS_INVALID_REQUEST",
+          "signature": "const STATUS_INVALID_REQUEST: StringName = &\"invalid_request\"",
+          "summary": "保存请求句柄无效或已经被接管。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
           "name": "STATUS_UNSUPPORTED_OPERATION",
           "signature": "const STATUS_UNSUPPORTED_OPERATION: StringName = &\"unsupported_operation\"",
           "summary": "当前 Profile 不支持请求的操作。",
@@ -67333,9 +67719,9 @@
         },
         {
           "kind": "const",
-          "name": "STATUS_GATHER_FAILED",
-          "signature": "const STATUS_GATHER_FAILED: StringName = &\"gather_failed\"",
-          "summary": "section 保存采集失败。",
+          "name": "STATUS_PREPARATION_FAILED",
+          "signature": "const STATUS_PREPARATION_FAILED: StringName = &\"preparation_failed\"",
+          "summary": "section Snapshot 准备或 worker 载荷预检失败。",
           "visibility": "public"
         },
         {
@@ -67517,7 +67903,7 @@
           "kind": "func",
           "name": "get_document",
           "signature": "func get_document() -> GFSaveDocument",
-          "summary": "获取最终文档副本。",
+          "summary": "获取读取流程的最终文档副本。",
           "visibility": "public"
         },
         {
@@ -67553,6 +67939,27 @@
           "name": "get_duration_msec",
           "signature": "func get_duration_msec() -> int",
           "summary": "获取操作耗时。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_preparation_duration_msec",
+          "signature": "func get_preparation_duration_msec() -> int",
+          "summary": "获取保存准备阶段耗时。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_storage_duration_msec",
+          "signature": "func get_storage_duration_msec() -> int",
+          "summary": "获取活跃 Storage attempt 累计耗时。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_preparation_work_units",
+          "signature": "func get_preparation_work_units() -> int",
+          "summary": "获取保存准备累计消费的 work units。",
           "visibility": "public"
         },
         {
@@ -67618,9 +68025,9 @@
         },
         {
           "kind": "const",
-          "name": "STATE_GATHERING",
-          "signature": "const STATE_GATHERING: StringName = &\"gathering\"",
-          "summary": "正在同步采集 section。",
+          "name": "STATE_PREPARING",
+          "signature": "const STATE_PREPARING: StringName = &\"preparing\"",
+          "summary": "正在主线程分片准备 section Snapshot。",
           "visibility": "public"
         },
         {
@@ -67656,6 +68063,27 @@
           "name": "STATE_DISPOSED",
           "signature": "const STATE_DISPOSED: StringName = &\"disposed\"",
           "summary": "Utility 已释放。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "save_preparation_work_budget_per_tick",
+          "signature": "var save_preparation_work_budget_per_tick: int = 64",
+          "summary": "每帧全部 Profile 共享的保存准备 work-unit 预算。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "save_preparation_slice_budget",
+          "signature": "var save_preparation_slice_budget: int = 8",
+          "summary": "单个 Profile 每次轮转最多获得的准备 work units。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "save_preparation_time_budget_usec",
+          "signature": "var save_preparation_time_budget_usec: int = 2000",
+          "summary": "每帧保存准备的软时间预算（微秒）；为 0 时只使用确定性 work-unit 预算。",
           "visibility": "public"
         },
         {
@@ -67703,7 +68131,7 @@
         {
           "kind": "func",
           "name": "save_profile",
-          "signature": "func save_profile( profile_id: StringName, metadata: Dictionary = {}, context: Dictionary = {} ) -> GFSaveProfileOperation",
+          "signature": "func save_profile( profile_id: StringName, request: GFSaveProfileRequest = null ) -> GFSaveProfileOperation",
           "summary": "请求异步保存 profile。",
           "visibility": "public"
         },
@@ -68077,7 +68505,7 @@
       "module": "extensions/save",
       "package_id": "gf.extension.save",
       "path": "addons/gf/extensions/save/profile/gf_save_section_provider.gd",
-      "summary": "GFSaveSectionProvider: Save Profile section 所有权协议。 一个 provider 只拥有一个稳定 section。实现必须能够采集当前状态、应用已校验 section，并在后续 provider 失败时恢复此前采集的 section。",
+      "summary": "GFSaveSectionProvider: Save Profile section 所有权协议。 一个 provider 只拥有一个稳定 section。保存通过显式协作式 Snapshot Operation 分片推进；读取应用与回滚快照保持独立协议。",
       "visibility": "public",
       "category": "protocol",
       "since": "10.0.0",
@@ -68126,9 +68554,9 @@
         },
         {
           "kind": "func",
-          "name": "gather_section",
-          "signature": "func gather_section(context: Dictionary = {}) -> GFSaveSection",
-          "summary": "采集当前状态为隔离 section。",
+          "name": "begin_save_snapshot",
+          "signature": "func begin_save_snapshot( context: Dictionary = {} ) -> GFSaveSectionSnapshotOperation",
+          "summary": "开始主线程协作式保存快照。",
           "visibility": "public"
         },
         {
@@ -68161,16 +68589,30 @@
         },
         {
           "kind": "func",
-          "name": "_gather_section",
-          "signature": "func _gather_section(_context: Dictionary = {}) -> GFSaveSection",
-          "summary": "采集当前 section。返回 null 表示失败。",
+          "name": "make_snapshot",
+          "signature": "func make_snapshot( payload: Variant, metadata: Dictionary = {} ) -> GFSaveSectionSnapshot",
+          "summary": "接管纯数据并创建一次性 Snapshot。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "make_completed_snapshot",
+          "signature": "func make_completed_snapshot( payload: Variant, metadata: Dictionary = {} ) -> GFSaveSectionSnapshotOperation",
+          "summary": "创建已经完成的小型 Snapshot Operation。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "_begin_save_snapshot",
+          "signature": "func _begin_save_snapshot( _context: Dictionary = {} ) -> GFSaveSectionSnapshotOperation",
+          "summary": "创建协作式保存 Snapshot Operation。返回 null 表示失败。",
           "visibility": "protected"
         },
         {
           "kind": "func",
           "name": "_capture_section",
-          "signature": "func _capture_section(context: Dictionary = {}) -> GFSaveSection",
-          "summary": "采集应用前回滚快照。默认复用 `_gather_section()`。",
+          "signature": "func _capture_section(_context: Dictionary = {}) -> GFSaveSection",
+          "summary": "采集应用前回滚快照。",
           "visibility": "protected"
         },
         {
@@ -68185,6 +68627,226 @@
           "name": "_rollback_section",
           "signature": "func _rollback_section(previous_section: GFSaveSection, context: Dictionary = {}) -> Error",
           "summary": "恢复应用前 section。默认复用 `_apply_section()`。",
+          "visibility": "protected"
+        }
+      ]
+    },
+    "GFSaveSectionSnapshot": {
+      "extends": "RefCounted",
+      "module": "extensions/save",
+      "package_id": "gf.extension.save",
+      "path": "addons/gf/extensions/save/profile/gf_save_section_snapshot.gd",
+      "summary": "GFSaveSectionSnapshot: 单个 Save section 的一次性所有权快照。 Snapshot 只保存纯 Variant 数据，并在框架接管后立即清空自身引用。调用 `take_ownership()` 后，调用方必须放弃原 payload、metadata 及其全部嵌套别名；",
+      "visibility": "public",
+      "category": "runtime_handle",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "const",
+          "name": "STATE_AVAILABLE",
+          "signature": "const STATE_AVAILABLE: StringName = &\"available\"",
+          "summary": "Snapshot 尚未被框架接管。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "STATE_CLAIMED",
+          "signature": "const STATE_CLAIMED: StringName = &\"claimed\"",
+          "summary": "Snapshot 已被框架接管，载荷不再可用。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "STATE_DISCARDED",
+          "signature": "const STATE_DISCARDED: StringName = &\"discarded\"",
+          "summary": "Snapshot 已被取消并释放载荷。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "take_ownership",
+          "signature": "static func take_ownership( section_id: StringName, schema_version: int, payload: Variant, metadata: Dictionary = {} ) -> GFSaveSectionSnapshot",
+          "summary": "接管一个 section 的纯数据所有权。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_section_id",
+          "signature": "func get_section_id() -> StringName",
+          "summary": "获取稳定 section ID。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_schema_version",
+          "signature": "func get_schema_version() -> int",
+          "summary": "获取 section schema 版本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_state",
+          "signature": "func get_state() -> StringName",
+          "summary": "获取当前所有权状态。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_available",
+          "signature": "func is_available() -> bool",
+          "summary": "检查 Snapshot 是否仍可由框架接管。",
+          "visibility": "public"
+        }
+      ]
+    },
+    "GFSaveSectionSnapshotOperation": {
+      "extends": "RefCounted",
+      "module": "extensions/save",
+      "package_id": "gf.extension.save",
+      "path": "addons/gf/extensions/save/profile/gf_save_section_snapshot_operation.gd",
+      "summary": "GFSaveSectionSnapshotOperation: section 主线程协作式快照操作。 Provider 在 `_advance_snapshot()` 中按 work budget 推进一个有界 slice，并通过 `_complete_snapshot()` 或 `_fail_snapshot()` 进入唯一终态。该操作不会创建线程；",
+      "visibility": "public",
+      "category": "runtime_handle",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "const",
+          "name": "STATUS_PENDING",
+          "signature": "const STATUS_PENDING: StringName = &\"pending\"",
+          "summary": "尚未执行 Provider slice。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "STATUS_RUNNING",
+          "signature": "const STATUS_RUNNING: StringName = &\"running\"",
+          "summary": "正在等待后续主线程 slice。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "STATUS_SUCCEEDED",
+          "signature": "const STATUS_SUCCEEDED: StringName = &\"succeeded\"",
+          "summary": "Snapshot 已准备完成且等待框架接管。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "STATUS_FAILED",
+          "signature": "const STATUS_FAILED: StringName = &\"failed\"",
+          "summary": "Provider 准备失败。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "STATUS_CANCELLED",
+          "signature": "const STATUS_CANCELLED: StringName = &\"cancelled\"",
+          "summary": "框架停止了未完成准备。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "STATUS_CLAIMED",
+          "signature": "const STATUS_CLAIMED: StringName = &\"claimed\"",
+          "summary": "成功 Snapshot 已被框架接管。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "completed",
+          "signature": "static func completed(snapshot: GFSaveSectionSnapshot) -> GFSaveSectionSnapshotOperation",
+          "summary": "创建一个已完成的小型 Snapshot 操作。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_status",
+          "signature": "func get_status() -> StringName",
+          "summary": "获取当前稳定状态。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_section_id",
+          "signature": "func get_section_id() -> StringName",
+          "summary": "获取绑定的 section ID。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_schema_version",
+          "signature": "func get_schema_version() -> int",
+          "summary": "获取绑定的 schema 版本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_pending",
+          "signature": "func is_pending() -> bool",
+          "summary": "检查是否仍需主线程推进。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_completed",
+          "signature": "func is_completed() -> bool",
+          "summary": "检查操作是否已经进入终态。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_successful",
+          "signature": "func is_successful() -> bool",
+          "summary": "检查 Provider 是否成功准备 Snapshot。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_error_code",
+          "signature": "func get_error_code() -> Error",
+          "summary": "获取稳定 Error 码。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_error",
+          "signature": "func get_error() -> String",
+          "summary": "获取稳定错误描述。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_consumed_work_units",
+          "signature": "func get_consumed_work_units() -> int",
+          "summary": "获取框架已计入预算的工作量。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "_complete_snapshot",
+          "signature": "func _complete_snapshot(snapshot: GFSaveSectionSnapshot) -> bool",
+          "summary": "以唯一成功 Snapshot 完成操作。",
+          "visibility": "protected"
+        },
+        {
+          "kind": "func",
+          "name": "_fail_snapshot",
+          "signature": "func _fail_snapshot(error_code: Error, error: String) -> bool",
+          "summary": "以稳定错误完成操作。",
+          "visibility": "protected"
+        },
+        {
+          "kind": "func",
+          "name": "_advance_snapshot",
+          "signature": "func _advance_snapshot(_step_budget: int) -> int",
+          "summary": "推进一个有界主线程 slice。",
+          "visibility": "protected"
+        },
+        {
+          "kind": "func",
+          "name": "_cancel_snapshot",
+          "signature": "func _cancel_snapshot() -> void",
+          "summary": "响应框架取消。",
           "visibility": "protected"
         }
       ]
@@ -69606,21 +70268,21 @@
         {
           "kind": "var",
           "name": "scene_preload_map",
-          "signature": "var scene_preload_map: GFScenePreloadMap = null",
+          "signature": "var scene_preload_map: GFScenePreloadMap",
           "summary": "可选场景预加载图谱；配置后可按当前场景自动预热相邻场景。",
           "visibility": "public"
         },
         {
           "kind": "var",
           "name": "auto_preload_map_neighbors_on_switch",
-          "signature": "var auto_preload_map_neighbors_on_switch: bool = true",
+          "signature": "var auto_preload_map_neighbors_on_switch: bool",
           "summary": "成功切换场景后是否自动按 scene_preload_map 预加载相邻场景。",
           "visibility": "public"
         },
         {
           "kind": "var",
           "name": "scene_preload_map_radius",
-          "signature": "var scene_preload_map_radius: int = -1",
+          "signature": "var scene_preload_map_radius: int",
           "summary": "自动图谱预加载半径；小于 0 时使用 GFScenePreloadMap.default_radius。",
           "visibility": "public"
         },
@@ -69682,6 +70344,13 @@
         },
         {
           "kind": "func",
+          "name": "ready",
+          "signature": "func ready() -> void",
+          "summary": "从所属架构解析显式注册的共享 GFResourceBroker。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
           "name": "tick",
           "signature": "func tick(_delta: float) -> void",
           "summary": "推进运行时逻辑。",
@@ -69692,6 +70361,34 @@
           "name": "dispose",
           "signature": "func dispose() -> void",
           "summary": "取消待处理场景切换并释放预加载请求、背景参数和缓存。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "release_dependencies",
+          "signature": "func release_dependencies() -> void",
+          "summary": "释放共享 Broker 引用和架构依赖作用域。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "set_resource_broker",
+          "signature": "func set_resource_broker(broker: GFResourceBroker) -> Error",
+          "summary": "注入共享 Resource Broker。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "setup_standalone_resource_broker",
+          "signature": "func setup_standalone_resource_broker( max_active_requests: int = 4, max_pending_requests: int = 256 ) -> GFResourceBroker",
+          "summary": "为单个独立 Scene Utility 显式创建私有 Resource Broker。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_resource_broker",
+          "signature": "func get_resource_broker() -> GFResourceBroker",
+          "summary": "获取当前注入的 Resource Broker。",
           "visibility": "public"
         },
         {
@@ -69938,20 +70635,6 @@
           "signature": "func cleanup_transients() -> void",
           "summary": "立即清理所有瞬态实例。",
           "visibility": "public"
-        },
-        {
-          "kind": "func",
-          "name": "_should_load_active_scene_synchronously",
-          "signature": "func _should_load_active_scene_synchronously() -> bool",
-          "summary": "判断当前环境是否应使用同步加载作为活动场景加载降级。",
-          "visibility": "protected"
-        },
-        {
-          "kind": "func",
-          "name": "_load_packed_scene_synchronously",
-          "signature": "func _load_packed_scene_synchronously(path: String) -> PackedScene",
-          "summary": "同步加载 PackedScene 资源。",
-          "visibility": "protected"
         },
         {
           "kind": "func",
@@ -77700,6 +78383,20 @@
           "signature": "func get_result() -> GFStorageAsyncResult",
           "summary": "获取终态结果副本。",
           "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_payload_transfer",
+          "signature": "func get_payload_transfer() -> GFStoragePayloadTransfer",
+          "summary": "获取当前请求关联的 opaque payload transfer。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "reclaim_failed_payload",
+          "signature": "func reclaim_failed_payload() -> GFStoragePayloadTransfer",
+          "summary": "一次性取回失败请求关联的 opaque payload transfer。",
+          "visibility": "public"
         }
       ]
     },
@@ -77708,11 +78405,18 @@
       "module": "standard",
       "package_id": "gf.standard.storage",
       "path": "addons/gf/standard/utilities/storage/gf_storage_async_result.gd",
-      "summary": "GFStorageAsyncResult: 单次异步存储请求的不可变终态。 结果通过请求 ID 与具体句柄绑定；读取结果保留 `GFStorageReadResult` 的类型化 失败分类，写入结果只暴露稳定 Error 码。",
+      "summary": "GFStorageAsyncResult: 单次异步存储请求的不可变终态。 结果通过请求 ID 与具体句柄绑定；读取结果保留 `GFStorageReadResult` 的类型化 失败分类；写入结果额外暴露稳定写入失败分类与隔离的 payload 预检报告。",
       "visibility": "public",
       "category": "value_object",
       "since": "10.0.0",
       "members": [
+        {
+          "kind": "enum",
+          "name": "WriteFailureKind",
+          "signature": "enum WriteFailureKind {\n\t## 写入成功，或当前结果不是写入请求。\n\tNONE,\n\t## 文件名、transfer 状态或冻结绑定无效。\n\tINVALID_REQUEST,\n\t## payload 不是 Storage worker 可安全处理的纯 Variant 图。\n\tPAYLOAD_INVALID,\n\t## worker 编码未能生成有效 bytes。\n\tENCODE_FAILED,\n\t## worker 线程未能启动。\n\tTHREAD_START_FAILED,\n\t## Utility dispose 等生命周期边界使任务不可执行。\n\tUNAVAILABLE,\n\t## 目录、临时文件或事务提交 I/O 失败。\n\tIO_FAILED,\n}",
+          "summary": "异步写入失败的稳定分类。",
+          "visibility": "public"
+        },
         {
           "kind": "func",
           "name": "get_request_id",
@@ -77753,6 +78457,20 @@
           "name": "get_read_result",
           "signature": "func get_read_result() -> GFStorageReadResult",
           "summary": "获取读取结果副本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_write_failure_kind",
+          "signature": "func get_write_failure_kind() -> WriteFailureKind",
+          "summary": "获取异步写入失败的稳定分类。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_write_validation_report",
+          "signature": "func get_write_validation_report() -> Dictionary",
+          "summary": "获取 worker payload 预检报告副本。",
           "visibility": "public"
         },
         {
@@ -78341,6 +79059,67 @@
           "signature": "func _get_capabilities() -> Dictionary",
           "summary": "汇总组合后端能力。",
           "visibility": "protected"
+        }
+      ]
+    },
+    "GFStoragePayloadTransfer": {
+      "extends": "RefCounted",
+      "module": "standard",
+      "package_id": "gf.standard.storage",
+      "path": "addons/gf/standard/utilities/storage/gf_storage_payload_transfer.gd",
+      "summary": "GFStoragePayloadTransfer: 异步 Storage 写入载荷的单所有者传递句柄。 调用方通过静态 `take_ownership()` 把 Dictionary 的逻辑唯一所有权移交给新句柄。 移交不会深拷贝；调用成功后，调用方必须永久放弃源 Dictionary 以及它的全部",
+      "visibility": "public",
+      "category": "runtime_handle",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "enum",
+          "name": "State",
+          "signature": "enum State {\n\t## 尚未接收载荷。\n\tEMPTY,\n\t## 已接收载荷，尚未被 Storage claim。\n\tREADY,\n\t## 已由 Storage claim，可由同一冻结绑定建立 attempt。\n\tCLAIMED,\n\t## 已请求释放，等待活动 attempt 收敛。\n\tRELEASE_PENDING,\n\t## 载荷已清空，句柄不可再次使用。\n\tRELEASED,\n}",
+          "summary": "传递句柄的所有权状态。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "take_ownership",
+          "signature": "static func take_ownership(payload: Dictionary) -> GFStoragePayloadTransfer",
+          "summary": "创建句柄并接收 Dictionary 的逻辑唯一所有权。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_state",
+          "signature": "func get_state() -> State",
+          "summary": "获取当前所有权状态。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_claimed",
+          "signature": "func is_claimed() -> bool",
+          "summary": "检查句柄是否已被 Storage claim。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_released",
+          "signature": "func is_released() -> bool",
+          "summary": "检查载荷是否已最终释放。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_active_attempt_count",
+          "signature": "func get_active_attempt_count() -> int",
+          "summary": "获取当前活动 attempt 数量。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "release",
+          "signature": "func release() -> bool",
+          "summary": "显式释放载荷所有权。",
+          "visibility": "public"
         }
       ]
     },
@@ -78997,6 +79776,13 @@
           "name": "save_data_request_async",
           "signature": "func save_data_request_async(file_name: String, data: Dictionary) -> GFStorageAsyncOperation",
           "summary": "在线程中异步保存纯字典数据，并返回请求专属句柄。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "save_payload_request_async",
+          "signature": "func save_payload_request_async( file_name: String, transfer: GFStoragePayloadTransfer ) -> GFStorageAsyncOperation",
+          "summary": "在线程中保存由单所有者 transfer 移交的纯 Variant payload。",
           "visibility": "public"
         },
         {

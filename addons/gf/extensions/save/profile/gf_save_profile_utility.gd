@@ -46,12 +46,12 @@ signal profile_state_changed(profile_id: StringName, previous_state: StringName,
 ## @since 10.0.0
 const STATE_IDLE: StringName = &"idle"
 
-## 正在同步采集 section。
+## 正在主线程分片准备 section Snapshot。
 ## [br]
 ## @api public
 ## [br]
-## @since 10.0.0
-const STATE_GATHERING: StringName = &"gathering"
+## @since unreleased
+const STATE_PREPARING: StringName = &"preparing"
 
 ## 正在等待保存 IO。
 ## [br]
@@ -88,6 +88,49 @@ const STATE_APPLYING: StringName = &"applying"
 ## @since 10.0.0
 const STATE_DISPOSED: StringName = &"disposed"
 
+const _PREPARATION_PHASE_PROVIDER_SCAN: StringName = &"provider_scan"
+const _PREPARATION_PHASE_PROVIDER_BEGIN: StringName = &"provider_begin"
+const _PREPARATION_PHASE_PRESERVED: StringName = &"preserved"
+const _PREPARATION_PHASE_FINALIZE: StringName = &"finalize"
+const _PAYLOAD_VALIDATION_ADAPTER = preload(
+	"res://addons/gf/extensions/save/profile/gf_save_payload_validation_adapter.gd"
+)
+
+
+# --- 公共变量 ---
+
+## 每帧全部 Profile 共享的保存准备 work-unit 预算。
+##
+## 该预算是协作式上界；框架无法抢占单次 Provider 回调，因此 Provider 必须保证
+## 每个 work unit 的成本有界。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+var save_preparation_work_budget_per_tick: int = 64:
+	set(value):
+		save_preparation_work_budget_per_tick = maxi(value, 1)
+
+## 单个 Profile 每次轮转最多获得的准备 work units。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+var save_preparation_slice_budget: int = 8:
+	set(value):
+		save_preparation_slice_budget = maxi(value, 1)
+
+## 每帧保存准备的软时间预算（微秒）；为 0 时只使用确定性 work-unit 预算。
+##
+## 时间预算只能阻止开始下一个协作式 slice，不能抢占正在运行的 Provider 回调。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+var save_preparation_time_budget_usec: int = 2000:
+	set(value):
+		save_preparation_time_budget_usec = maxi(value, 0)
+
 
 # --- 私有变量 ---
 
@@ -102,6 +145,10 @@ var _processing_depth: int = 0
 var _unsafe_callback_depth: int = 0
 var _pending_completion_operations: Array[GFSaveProfileOperation] = []
 var _emitting_completions: bool = false
+var _pending_schedule_head: ProfileState = null
+var _pending_schedule_tail: ProfileState = null
+var _active_preparation_head: ProfileState = null
+var _active_preparation_tail: ProfileState = null
 
 
 # --- Godot 生命周期方法 ---
@@ -160,6 +207,10 @@ func tick(_delta: float) -> void:
 			and now_msec >= state.current_io_deadline_msec
 		):
 			_handle_current_io_timeout(state)
+	if not _disposed and not _dispose_requested:
+		_drain_pending_schedule_queue()
+	if not _disposed and not _dispose_requested:
+		_advance_save_preparations()
 	_end_processing()
 
 
@@ -258,6 +309,7 @@ func register_profile(
 		if provider == null or not provider.lock_definition_for_framework():
 			_append_registration_issue(report, &"provider_lock_failed", "Provider could not be locked for runtime ownership.", "providers")
 			return _finalize_registration_report(report, profile, canonical_file_name, false)
+		state.provider_ids[provider.section_id] = true
 	state.migrations = migrations
 	_states[profile.profile_id] = state
 	return _finalize_registration_report(report, profile, canonical_file_name, true)
@@ -281,6 +333,8 @@ func unregister_profile(profile_id: StringName) -> bool:
 		or state.mode != STATE_IDLE
 		or _has_pending_operations(state)
 		or not state.detached_write_operations.is_empty()
+		or state.pending_schedule_enqueued
+		or state.active_preparation_enqueued
 	):
 		return false
 	var _erased: bool = _states.erase(profile_id)
@@ -298,19 +352,12 @@ func unregister_profile(profile_id: StringName) -> bool:
 ## [br]
 ## @param profile_id: profile ID。
 ## [br]
-## @param metadata: 写入文档的持久化元数据。
-## [br]
-## @param context: provider 采集使用的临时上下文。
-## [br]
-## @schema metadata: Dictionary with caller-defined persisted document metadata.
-## [br]
-## @schema context: Dictionary with caller-defined ephemeral operation data.
+## @param request: 一次性保存请求；null 表示三个元数据字典均为空。
 ## [br]
 ## @return 保存操作句柄；无效请求返回已失败句柄。
 func save_profile(
 	profile_id: StringName,
-	metadata: Dictionary = {},
-	context: Dictionary = {}
+	request: GFSaveProfileRequest = null
 ) -> GFSaveProfileOperation:
 	var state: ProfileState = _get_state(profile_id)
 	if state == null or _disposed:
@@ -337,19 +384,47 @@ func save_profile(
 			ERR_BUSY,
 			"Save is not accepted during load/apply or a Provider callback."
 		)
+	var owned_request: GFSaveProfileRequest = request
+	if owned_request == null:
+		owned_request = GFSaveProfileRequest.take_ownership({}, {}, {})
+	var claim: Dictionary = owned_request.claim_for_framework()
+	if claim.is_empty():
+		return _make_rejected_operation(
+			GFSaveProfileOperation.OPERATION_SAVE,
+			profile_id,
+			GFSaveProfileResult.STATUS_INVALID_REQUEST,
+			ERR_INVALID_PARAMETER,
+			"Save request is invalid or already claimed."
+		)
+	var document_metadata_value: Variant = claim.get("document_metadata")
+	var context_value: Variant = claim.get("context")
+	var result_metadata_value: Variant = claim.get("result_metadata")
+	if (
+		not document_metadata_value is Dictionary
+		or not context_value is Dictionary
+		or not result_metadata_value is Dictionary
+	):
+		return _make_rejected_operation(
+			GFSaveProfileOperation.OPERATION_SAVE,
+			profile_id,
+			GFSaveProfileResult.STATUS_INVALID_REQUEST,
+			ERR_INVALID_DATA,
+			"Save request ownership record is invalid."
+		)
+	var document_metadata: Dictionary = document_metadata_value
+	var context: Dictionary = context_value
+	var result_metadata: Dictionary = result_metadata_value
 	_begin_processing()
 	state.generation += 1
-	state.latest_save_metadata = metadata.duplicate(true)
-	state.latest_save_context = context.duplicate(true)
-	var operation: GFSaveProfileOperation = _make_operation(
-		GFSaveProfileOperation.OPERATION_SAVE,
+	state.latest_save_metadata = document_metadata
+	state.latest_save_context = context
+	var operation: GFSaveProfileOperation = _make_save_operation(
 		profile_id,
 		state.generation,
-		context,
-		metadata
+		result_metadata
 	)
 	state.save_operations.append(operation)
-	_schedule(state)
+	_enqueue_schedule(state)
 	_end_processing()
 	return operation
 
@@ -412,7 +487,7 @@ func load_profile(
 		metadata
 	)
 	state.load_operations.append(operation)
-	_schedule(state)
+	_enqueue_schedule(state)
 	_end_processing()
 	return operation
 
@@ -469,7 +544,8 @@ func flush_profile(
 	)
 	state.flush_operations.append(operation)
 	_complete_ready_flushes(state)
-	_schedule(state)
+	if not operation.is_completed():
+		_enqueue_schedule(state)
 	_end_processing()
 	return operation
 
@@ -498,7 +574,7 @@ func get_persisted_generation(profile_id: StringName) -> int:
 ## [br]
 ## @return profile 状态摘要；未注册时为空字典。
 ## [br]
-## @schema return: Dictionary with profile identity, generation evidence, detached writes, and queue counts.
+## @schema return: Dictionary with profile_id, schema_id, state, generation, persisted_generation, failed_generation, save_queue_size, load_queue_size, flush_queue_size, current_generation, attempt_count, schedule_enqueued, preparation_enqueued, preparation_phase, preparation_provider_index, preparation_section_id, preparation_work_units, preparation_duration_msec, storage_duration_msec, write_outcome_unknown, unknown_write_generations, detached_write_count, and detached_storage_request_ids.
 func get_profile_state_snapshot(profile_id: StringName) -> Dictionary:
 	var state: ProfileState = _get_state(profile_id)
 	if state == null:
@@ -515,6 +591,14 @@ func get_profile_state_snapshot(profile_id: StringName) -> Dictionary:
 		"flush_queue_size": state.flush_operations.size(),
 		"current_generation": state.current_generation,
 		"attempt_count": state.current_attempt_count,
+		"schedule_enqueued": state.pending_schedule_enqueued,
+		"preparation_enqueued": state.active_preparation_enqueued,
+		"preparation_phase": state.current_preparation_phase,
+		"preparation_provider_index": state.current_preparation_provider_index,
+		"preparation_section_id": state.current_preparation_section_id,
+		"preparation_work_units": state.current_preparation_work_units,
+		"preparation_duration_msec": _get_current_preparation_duration(state),
+		"storage_duration_msec": _get_current_storage_duration(state),
 		"write_outcome_unknown": not state.unknown_write_generations.is_empty(),
 		"unknown_write_generations": _get_sorted_generation_keys(state.unknown_write_generations),
 		"detached_write_count": state.detached_write_operations.size(),
@@ -523,6 +607,51 @@ func get_profile_state_snapshot(profile_id: StringName) -> Dictionary:
 
 
 # --- 私有/辅助方法 ---
+
+func _enqueue_schedule(state: ProfileState) -> void:
+	if (
+		_disposed
+		or _dispose_requested
+		or state == null
+		or not _has_pending_operations(state)
+	):
+		return
+	if state.is_scheduling:
+		state.schedule_requested = true
+		return
+	if state.pending_schedule_enqueued:
+		return
+	state.pending_schedule_enqueued = true
+	state.pending_schedule_next = null
+	if _pending_schedule_tail != null:
+		_pending_schedule_tail.pending_schedule_next = state
+	else:
+		_pending_schedule_head = state
+	_pending_schedule_tail = state
+
+
+func _pop_pending_schedule() -> ProfileState:
+	var state: ProfileState = _pending_schedule_head
+	if state == null:
+		return null
+	_pending_schedule_head = state.pending_schedule_next
+	if _pending_schedule_head == null:
+		_pending_schedule_tail = null
+	state.pending_schedule_next = null
+	state.pending_schedule_enqueued = false
+	return state
+
+
+func _drain_pending_schedule_queue() -> void:
+	while _pending_schedule_head != null and not _disposed and not _dispose_requested:
+		var state: ProfileState = _pop_pending_schedule()
+		if (
+			state != null
+			and state.mode == STATE_IDLE
+			and _has_pending_operations(state)
+		):
+			_schedule(state)
+
 
 func _schedule(state: ProfileState) -> void:
 	if _disposed or _dispose_requested or state == null:
@@ -583,35 +712,273 @@ func _schedule(state: ProfileState) -> void:
 	state.is_scheduling = false
 
 
+func _enqueue_active_preparation(state: ProfileState) -> void:
+	if (
+		_disposed
+		or _dispose_requested
+		or state == null
+		or state.mode != STATE_PREPARING
+		or state.active_preparation_enqueued
+	):
+		return
+	state.active_preparation_enqueued = true
+	state.active_preparation_next = null
+	if _active_preparation_tail != null:
+		_active_preparation_tail.active_preparation_next = state
+	else:
+		_active_preparation_head = state
+	_active_preparation_tail = state
+
+
+func _pop_active_preparation() -> ProfileState:
+	var state: ProfileState = _active_preparation_head
+	if state == null:
+		return null
+	_active_preparation_head = state.active_preparation_next
+	if _active_preparation_head == null:
+		_active_preparation_tail = null
+	state.active_preparation_next = null
+	state.active_preparation_enqueued = false
+	return state
+
+
+func _advance_save_preparations() -> void:
+	if _active_preparation_head == null:
+		return
+	var remaining_work_units: int = maxi(save_preparation_work_budget_per_tick, 1)
+	var started_at_usec: int = Time.get_ticks_usec()
+	while remaining_work_units > 0 and _active_preparation_head != null:
+		var state: ProfileState = _pop_active_preparation()
+		if state == null:
+			return
+		if state.mode != STATE_PREPARING:
+			continue
+		var slice_budget: int = mini(
+			maxi(save_preparation_slice_budget, 1),
+			remaining_work_units
+		)
+		var consumed: int = _advance_save_preparation(state, slice_budget)
+		remaining_work_units -= maxi(consumed, 1)
+		if (
+			not _disposed
+			and not _dispose_requested
+			and state.mode == STATE_PREPARING
+		):
+			_enqueue_active_preparation(state)
+		if _disposed or _dispose_requested:
+			return
+		if (
+			save_preparation_time_budget_usec > 0
+			and Time.get_ticks_usec() - started_at_usec >= save_preparation_time_budget_usec
+		):
+			return
+
+
 func _start_save(state: ProfileState) -> void:
 	state.current_kind = GFSaveProfileOperation.OPERATION_SAVE
 	state.current_generation = state.generation
 	state.current_attempt_count = 0
 	state.current_storage_request_ids = PackedInt64Array()
-	state.current_context = state.latest_save_context.duplicate(true)
-	state.current_metadata = state.latest_save_metadata.duplicate(true)
+	state.current_context = state.latest_save_context
+	state.current_metadata = state.latest_save_metadata
+	state.latest_save_context = {}
+	state.latest_save_metadata = {}
+	state.current_preparation_provider_index = 0
+	state.current_preserved_section_index = 0
+	state.current_preparation_phase = _PREPARATION_PHASE_PROVIDER_SCAN
+	state.current_preparation_provider = null
+	state.current_preparation_operation = null
+	state.current_preparation_section_id = &""
+	state.current_preparation_work_units = 0
+	state.current_preparation_started_at_msec = _clock.get_monotonic_msec()
+	state.current_preparation_duration_msec = 0
+	state.current_storage_duration_msec = 0
+	state.current_io_started_at_msec = -1
+	state.current_section_records = {}
+	state.current_section_ids_by_entry_index = []
+	state.current_sections_entry_index = -1
+	state.current_payload_transfer = null
 	_mark_save_operations_running(state, state.current_generation)
-	_set_mode(state, STATE_GATHERING)
-	var gather_result: Dictionary = _gather_document(state)
-	if _dispose_requested:
-		return
-	var document: GFSaveDocument = _get_document_value(
-		GFVariantData.get_option_value(gather_result, "document")
+	_set_mode(state, STATE_PREPARING)
+	_enqueue_active_preparation(state)
+
+
+func _advance_save_preparation(state: ProfileState, work_budget: int) -> int:
+	if state == null or state.mode != STATE_PREPARING or work_budget <= 0:
+		return 0
+	var consumed: int = 0
+	while consumed < work_budget and state.mode == STATE_PREPARING:
+		if state.current_preparation_operation != null:
+			var operation: GFSaveSectionSnapshotOperation = state.current_preparation_operation
+			if operation.is_pending():
+				var operation_budget: int = work_budget - consumed
+				_enter_unsafe_callback()
+				var operation_units: int = operation.advance_for_framework(operation_budget)
+				_exit_unsafe_callback()
+				var charged_units: int = maxi(operation_units, 1)
+				consumed += charged_units
+				state.current_preparation_work_units += charged_units
+				if _dispose_requested:
+					break
+			if operation.is_pending():
+				break
+			if not operation.is_successful():
+				_finish_save_failure(
+					state,
+					operation.get_error_code(),
+					operation.get_error(),
+					GFSaveProfileResult.STATUS_PREPARATION_FAILED,
+					state.current_preparation_section_id
+				)
+				break
+			var snapshot: GFSaveSectionSnapshot = operation.take_snapshot_for_framework()
+			var snapshot_record: Dictionary = (
+				snapshot.claim_for_framework()
+				if snapshot != null
+				else {}
+			)
+			if snapshot_record.is_empty():
+				_finish_save_failure(
+					state,
+					ERR_INVALID_DATA,
+					"Save section Snapshot ownership could not be claimed.",
+					GFSaveProfileResult.STATUS_PREPARATION_FAILED,
+					state.current_preparation_section_id
+				)
+				break
+			_store_current_section_record(
+				state,
+				state.current_preparation_section_id,
+				snapshot_record
+			)
+			state.current_preparation_operation = null
+			state.current_preparation_section_id = &""
+			continue
+
+		match state.current_preparation_phase:
+			_PREPARATION_PHASE_PROVIDER_SCAN:
+				if state.current_preparation_provider_index >= state.providers.size():
+					state.current_preparation_phase = _PREPARATION_PHASE_PRESERVED
+					continue
+				var provider: GFSaveSectionProvider = state.providers[
+					state.current_preparation_provider_index
+				]
+				state.current_preparation_provider_index += 1
+				consumed += 1
+				state.current_preparation_work_units += 1
+				if provider == null or not provider.save_enabled:
+					continue
+				state.current_preparation_provider = provider
+				state.current_preparation_section_id = provider.section_id
+				state.current_preparation_phase = _PREPARATION_PHASE_PROVIDER_BEGIN
+			_PREPARATION_PHASE_PROVIDER_BEGIN:
+				var provider: GFSaveSectionProvider = state.current_preparation_provider
+				if provider == null:
+					_finish_save_failure(
+						state,
+						ERR_BUG,
+						"Save preparation lost its current Provider.",
+						GFSaveProfileResult.STATUS_PREPARATION_FAILED,
+						state.current_preparation_section_id
+					)
+					break
+				consumed += 1
+				state.current_preparation_work_units += 1
+				_enter_unsafe_callback()
+				var preparation: GFSaveSectionSnapshotOperation = (
+					provider.begin_save_snapshot(state.current_context)
+				)
+				_exit_unsafe_callback()
+				state.current_preparation_provider = null
+				state.current_preparation_operation = preparation
+				state.current_preparation_phase = _PREPARATION_PHASE_PROVIDER_SCAN
+				if _dispose_requested:
+					break
+				if preparation == null:
+					_finish_save_failure(
+						state,
+						ERR_INVALID_DATA,
+						"Save section Provider failed to create a Snapshot Operation.",
+						GFSaveProfileResult.STATUS_PREPARATION_FAILED,
+						provider.section_id
+					)
+					break
+			_PREPARATION_PHASE_PRESERVED:
+				if (
+					state.current_preserved_section_index
+					>= state.preserved_unknown_sections.size()
+				):
+					state.current_preparation_phase = _PREPARATION_PHASE_FINALIZE
+					continue
+				var section: GFSaveSection = state.preserved_unknown_sections[
+					state.current_preserved_section_index
+				]
+				state.current_preserved_section_index += 1
+				consumed += 1
+				state.current_preparation_work_units += 1
+				if section == null:
+					continue
+				var section_id: StringName = section.get_section_id()
+				if state.provider_ids.has(section_id):
+					continue
+				var preserved_record: Dictionary = (
+					section.get_transfer_record_for_framework()
+				)
+				if preserved_record.is_empty():
+					_finish_save_failure(
+						state,
+						ERR_INVALID_DATA,
+						"Preserved unknown section could not enter the save transfer.",
+						GFSaveProfileResult.STATUS_PREPARATION_FAILED,
+						section_id
+					)
+					break
+				_store_current_section_record(
+					state,
+					section_id,
+					preserved_record
+				)
+			_PREPARATION_PHASE_FINALIZE:
+				consumed += 1
+				state.current_preparation_work_units += 1
+				_complete_save_preparation(state)
+				break
+			_:
+				_finish_save_failure(
+					state,
+					ERR_BUG,
+					"Save preparation entered an invalid phase.",
+					GFSaveProfileResult.STATUS_PREPARATION_FAILED,
+					state.current_preparation_section_id
+				)
+				break
+	return consumed
+
+
+func _complete_save_preparation(state: ProfileState) -> void:
+	var document_data: Dictionary = {}
+	document_data["format"] = GFSaveDocument.FORMAT_ID
+	document_data["format_version"] = GFSaveDocument.FORMAT_VERSION
+	document_data["schema_id"] = state.schema_id
+	document_data["schema_version"] = state.schema_version
+	state.current_sections_entry_index = document_data.size()
+	document_data["sections"] = state.current_section_records
+	document_data["metadata"] = state.current_metadata
+	state.current_section_records = {}
+	state.current_metadata = {}
+	state.current_context = {}
+	state.current_payload_transfer = GFStoragePayloadTransfer.take_ownership(
+		document_data
 	)
-	if document == null:
-		var failed_section_id: StringName = GFVariantData.get_option_string_name(
-			gather_result,
-			"failed_section_id"
-		)
+	if state.current_payload_transfer == null:
 		_finish_save_failure(
 			state,
-			_get_error_code(gather_result, "error_code", ERR_INVALID_DATA),
-			GFVariantData.get_option_string(gather_result, "error", "Save section gathering failed."),
-			GFSaveProfileResult.STATUS_GATHER_FAILED,
-			failed_section_id
+			ERR_INVALID_DATA,
+			"Save document could not enter the Storage transfer boundary.",
+			GFSaveProfileResult.STATUS_PREPARATION_FAILED
 		)
 		return
-	state.current_document = document
+	_complete_current_preparation_timing(state)
 	_set_mode(state, STATE_SAVING)
 	_start_current_save_io(state)
 
@@ -642,10 +1009,19 @@ func _start_current_save_io(state: ProfileState) -> void:
 			GFSaveProfileResult.STATUS_STORAGE_FAILED
 		)
 		return
+	if state.current_payload_transfer == null:
+		_finish_save_failure(
+			state,
+			ERR_INVALID_DATA,
+			"Storage payload transfer is unavailable.",
+			GFSaveProfileResult.STATUS_STORAGE_FAILED
+		)
+		return
 	state.current_attempt_count += 1
-	var operation: GFStorageAsyncOperation = _storage.save_data_request_async(
+	_begin_current_io_timing(state)
+	var operation: GFStorageAsyncOperation = _storage.save_payload_request_async(
 		state.file_name,
-		state.current_document.to_dict()
+		state.current_payload_transfer
 	)
 	_observe_storage_operation(state, operation)
 
@@ -662,6 +1038,7 @@ func _start_current_load_io(state: ProfileState) -> void:
 		)
 		return
 	state.current_attempt_count += 1
+	_begin_current_io_timing(state)
 	var operation: GFStorageAsyncOperation = _storage.load_data_request_async(state.file_name)
 	_observe_storage_operation(state, operation)
 
@@ -710,18 +1087,46 @@ func _on_storage_operation_completed(
 	):
 		_end_processing()
 		return
+	_complete_current_io_timing(state)
 	_clear_current_storage_operation(state)
 	if result.get_operation() == GFStorageAsyncOperation.OPERATION_SAVE:
 		if not result.is_successful():
-			_handle_save_failure(state, result.get_error_code(), "Storage save failed.")
+			if (
+				result.get_write_failure_kind()
+					== GFStorageAsyncResult.WriteFailureKind.PAYLOAD_INVALID
+			):
+				var adapted_validation: Dictionary = (
+					_PAYLOAD_VALIDATION_ADAPTER.adapt_for_framework(
+						result.get_write_validation_report(),
+						state.current_sections_entry_index,
+						state.current_section_ids_by_entry_index
+					)
+				)
+				_finish_save_failure(
+					state,
+					result.get_error_code(),
+					"Storage worker rejected the prepared Save payload.",
+					GFSaveProfileResult.STATUS_PREPARATION_FAILED,
+					GFVariantData.get_option_string_name(
+						adapted_validation,
+						"failed_section_id"
+					),
+					GFVariantData.get_option_dictionary(
+						adapted_validation,
+						"validation_report"
+					)
+				)
+			else:
+				_handle_save_failure(state, result.get_error_code(), "Storage save failed.")
 		else:
+			_finalize_save_timing_for_terminal(state)
 			state.persisted_generation = maxi(state.persisted_generation, state.current_generation)
 			_clear_generation_evidence_through(state, state.current_generation)
 			_complete_save_operations_success(state)
 			_clear_current(state)
 			_set_mode(state, STATE_IDLE)
 			_complete_ready_flushes(state)
-			_schedule(state)
+			_enqueue_schedule(state)
 	elif result.get_operation() == GFStorageAsyncOperation.OPERATION_LOAD:
 		var read_result: GFStorageReadResult = result.get_read_result()
 		if read_result == null:
@@ -797,41 +1202,6 @@ func _handle_load_failure(state: ProfileState, result: GFStorageReadResult) -> v
 
 
 # 文档与 provider 事务
-
-func _gather_document(state: ProfileState) -> Dictionary:
-	var sections: Array[GFSaveSection] = []
-	for provider: GFSaveSectionProvider in state.providers:
-		if provider == null or not provider.save_enabled:
-			continue
-		_enter_unsafe_callback()
-		var section: GFSaveSection = provider.gather_section(state.current_context)
-		_exit_unsafe_callback()
-		if section == null:
-			return {
-				"error_code": ERR_INVALID_DATA,
-				"error": "Save section provider failed to gather a valid section.",
-				"failed_section_id": provider.section_id,
-			}
-		sections.append(section)
-	if state.unknown_section_policy == GFSaveProfile.UNKNOWN_SECTION_PRESERVE:
-		for preserved: GFSaveSection in state.preserved_unknown_sections:
-			if preserved != null:
-				sections.append(preserved.duplicate_section())
-	var document: GFSaveDocument = GFSaveDocument.new().configure(
-		state.schema_id,
-		state.schema_version,
-		sections,
-		state.current_metadata
-	)
-	var validation: Dictionary = state.schema.validate_document(document, true)
-	if not GFVariantData.get_option_bool(validation, "ok", false):
-		return {
-			"error_code": ERR_INVALID_DATA,
-			"error": _get_first_validation_message(validation, "Gathered save document is invalid."),
-			"validation_report": validation,
-		}
-	return {"document": document}
-
 
 func _process_loaded_document(state: ProfileState, storage_result: GFStorageReadResult) -> void:
 	_set_mode(state, STATE_APPLYING)
@@ -1061,18 +1431,22 @@ func _complete_save_operations_success(state: ProfileState) -> void:
 	_complete_save_operations_success_through(
 		state,
 		state.current_generation,
-		state.current_document,
 		state.current_attempt_count,
-		state.current_storage_request_ids
+		state.current_storage_request_ids,
+		state.current_preparation_duration_msec,
+		state.current_storage_duration_msec,
+		state.current_preparation_work_units
 	)
 
 
 func _complete_save_operations_success_through(
 	state: ProfileState,
 	generation: int,
-	document: GFSaveDocument,
 	attempt_count: int,
-	storage_request_ids: PackedInt64Array
+	storage_request_ids: PackedInt64Array,
+	preparation_duration_msec: int,
+	storage_duration_msec: int,
+	preparation_work_units: int
 ) -> void:
 	var remaining: Array[GFSaveProfileOperation] = []
 	for operation: GFSaveProfileOperation in state.save_operations:
@@ -1085,18 +1459,20 @@ func _complete_save_operations_success_through(
 				OK,
 				"",
 				{
-					"document": document,
 					"attempt_count": attempt_count,
 					"coalesced": operation.get_requested_generation() < generation,
 					"storage_request_ids": storage_request_ids,
+					"preparation_duration_msec": preparation_duration_msec,
+					"storage_duration_msec": storage_duration_msec,
+					"preparation_work_units": preparation_work_units,
 				}
 			)
 		else:
 			remaining.append(operation)
 	state.save_operations = remaining
 	if generation >= state.generation:
-		state.latest_save_context.clear()
-		state.latest_save_metadata.clear()
+		state.latest_save_context = {}
+		state.latest_save_metadata = {}
 
 
 func _finish_save_failure(
@@ -1104,8 +1480,10 @@ func _finish_save_failure(
 	error_code: Error,
 	error: String,
 	status: StringName,
-	failed_section_id: StringName = &""
+	failed_section_id: StringName = &"",
+	validation_report: Dictionary = {}
 ) -> void:
+	_finalize_save_timing_for_terminal(state)
 	_record_generation_failure(
 		state,
 		state.current_generation,
@@ -1131,22 +1509,25 @@ func _finish_save_failure(
 				error_code,
 				error,
 				{
-					"document": state.current_document,
 					"attempt_count": state.current_attempt_count,
 					"failed_section_id": failed_section_id,
 					"storage_request_ids": state.current_storage_request_ids,
+					"preparation_duration_msec": state.current_preparation_duration_msec,
+					"storage_duration_msec": state.current_storage_duration_msec,
+					"preparation_work_units": state.current_preparation_work_units,
+					"validation_report": validation_report,
 				}
 			)
 		else:
 			remaining.append(operation)
 	state.save_operations = remaining
 	if state.current_generation >= state.generation:
-		state.latest_save_context.clear()
-		state.latest_save_metadata.clear()
+		state.latest_save_context = {}
+		state.latest_save_metadata = {}
 	_clear_current(state)
 	_set_mode(state, STATE_IDLE)
 	_complete_ready_flushes(state)
-	_schedule(state)
+	_enqueue_schedule(state)
 
 
 func _finish_load_success(
@@ -1161,7 +1542,7 @@ func _finish_load_success(
 	_complete_operation(state, operation, true, status, OK, "", result_options)
 	_clear_current(state)
 	_set_mode(state, STATE_IDLE)
-	_schedule(state)
+	_enqueue_schedule(state)
 
 
 func _finish_load_failure(
@@ -1178,7 +1559,7 @@ func _finish_load_failure(
 	_complete_operation(state, operation, false, status, error_code, error, result_options)
 	_clear_current(state)
 	_set_mode(state, STATE_IDLE)
-	_schedule(state)
+	_enqueue_schedule(state)
 
 
 func _complete_ready_flushes(state: ProfileState) -> void:
@@ -1252,14 +1633,24 @@ func _complete_operation(
 		GFVariantData.get_option_dictionary(options, "validation_report"),
 		_get_rollback_failure_array(GFVariantData.get_option_value(options, "rollback_errors", [])),
 		operation.get_metadata_for_framework(),
-		_get_request_id_array(GFVariantData.get_option_value(options, "storage_request_ids"))
+		_get_request_id_array(GFVariantData.get_option_value(options, "storage_request_ids")),
+		GFVariantData.get_option_int(options, "preparation_duration_msec"),
+		GFVariantData.get_option_int(options, "storage_duration_msec"),
+		GFVariantData.get_option_int(options, "preparation_work_units")
 	)
 	if operation.complete_for_framework(result):
 		_pending_completion_operations.append(operation)
 
 
 func _complete_all_pending_as_disposed(state: ProfileState) -> void:
+	if state.current_kind == GFSaveProfileOperation.OPERATION_SAVE:
+		_finalize_save_timing_for_terminal(state)
 	for operation: GFSaveProfileOperation in state.save_operations:
+		var covered_by_current: bool = (
+			state.current_kind == GFSaveProfileOperation.OPERATION_SAVE
+			and state.current_generation > 0
+			and operation.get_requested_generation() <= state.current_generation
+		)
 		var unknown_request_ids: PackedInt64Array = _get_disposal_unknown_request_ids(
 			state,
 			operation.get_requested_generation()
@@ -1273,8 +1664,23 @@ func _complete_all_pending_as_disposed(state: ProfileState) -> void:
 			ERR_BUSY if unknown else ERR_UNAVAILABLE,
 			"Storage write outcome is unknown after disposal." if unknown else "Save profile utility was disposed.",
 			{
-				"attempt_count": state.current_attempt_count,
+				"attempt_count": state.current_attempt_count if covered_by_current else 0,
 				"storage_request_ids": unknown_request_ids,
+				"preparation_duration_msec": (
+					state.current_preparation_duration_msec
+					if covered_by_current
+					else 0
+				),
+				"storage_duration_msec": (
+					state.current_storage_duration_msec
+					if covered_by_current
+					else 0
+				),
+				"preparation_work_units": (
+					state.current_preparation_work_units
+					if covered_by_current
+					else 0
+				),
 			}
 		)
 	for operation: GFSaveProfileOperation in state.load_operations:
@@ -1304,16 +1710,35 @@ func _complete_all_pending_as_disposed(state: ProfileState) -> void:
 
 
 func _clear_current(state: ProfileState) -> void:
+	_complete_current_io_timing(state)
 	_clear_current_storage_operation(state)
+	if state.current_preparation_operation != null:
+		var _cancelled: bool = state.current_preparation_operation.cancel_for_framework()
+	state.current_preparation_operation = null
+	state.current_preparation_provider = null
+	state.current_preparation_phase = _PREPARATION_PHASE_PROVIDER_SCAN
+	state.current_preparation_provider_index = 0
+	state.current_preserved_section_index = 0
+	state.current_preparation_section_id = &""
+	state.current_preparation_work_units = 0
+	state.current_preparation_started_at_msec = -1
+	state.current_preparation_duration_msec = 0
+	state.current_storage_duration_msec = 0
+	state.current_section_records = {}
+	state.current_section_ids_by_entry_index = []
+	state.current_sections_entry_index = -1
 	state.current_load_operation = null
 	state.current_kind = &""
 	state.current_generation = 0
 	state.current_attempt_count = 0
-	state.current_document = null
-	state.current_context.clear()
-	state.current_metadata.clear()
+	if state.current_payload_transfer != null:
+		var _released: bool = state.current_payload_transfer.release()
+	state.current_payload_transfer = null
+	state.current_context = {}
+	state.current_metadata = {}
 	state.retry_due_msec = 0
 	state.current_io_deadline_msec = 0
+	state.current_io_started_at_msec = -1
 	state.current_storage_request_ids = PackedInt64Array()
 
 
@@ -1324,7 +1749,7 @@ func _make_operation(
 	profile_id: StringName,
 	generation: int,
 	context: Dictionary,
-	metadata: Dictionary
+	result_metadata: Dictionary
 ) -> GFSaveProfileOperation:
 	var operation: GFSaveProfileOperation = GFSaveProfileOperation.new()
 	var _configured: bool = operation.configure_for_framework(
@@ -1333,7 +1758,22 @@ func _make_operation(
 		generation,
 		_clock.get_monotonic_msec(),
 		context,
-		metadata
+		result_metadata
+	)
+	return operation
+
+
+func _make_save_operation(
+	profile_id: StringName,
+	generation: int,
+	result_metadata: Dictionary
+) -> GFSaveProfileOperation:
+	var operation: GFSaveProfileOperation = GFSaveProfileOperation.new()
+	var _configured: bool = operation.configure_save_ownership_for_framework(
+		profile_id,
+		generation,
+		_clock.get_monotonic_msec(),
+		result_metadata
 	)
 	return operation
 
@@ -1345,12 +1785,16 @@ func _make_rejected_operation(
 	error_code: Error,
 	error: String
 ) -> GFSaveProfileOperation:
-	var operation: GFSaveProfileOperation = _make_operation(
-		operation_kind,
-		profile_id,
-		0,
-		{},
-		{}
+	var operation: GFSaveProfileOperation = (
+		_make_save_operation(profile_id, 0, {})
+		if operation_kind == GFSaveProfileOperation.OPERATION_SAVE
+		else _make_operation(
+			operation_kind,
+			profile_id,
+			0,
+			{},
+			{}
+		)
 	)
 	var _started: bool = operation.start_for_framework()
 	_complete_operation(null, operation, false, status, error_code, error)
@@ -1392,6 +1836,10 @@ func _dispose_now() -> void:
 		_set_mode(state, STATE_DISPOSED)
 		_complete_all_pending_as_disposed(state)
 	_states.clear()
+	_pending_schedule_head = null
+	_pending_schedule_tail = null
+	_active_preparation_head = null
+	_active_preparation_tail = null
 	_disconnect_storage()
 
 
@@ -1426,6 +1874,7 @@ func _observe_storage_operation(
 	operation: GFStorageAsyncOperation
 ) -> void:
 	if operation == null:
+		_complete_current_io_timing(state)
 		if state.current_kind == GFSaveProfileOperation.OPERATION_SAVE:
 			_handle_save_failure(state, ERR_CANT_CREATE, "Storage returned no save operation.")
 		else:
@@ -1443,9 +1892,10 @@ func _observe_storage_operation(
 		return
 	state.current_storage_operation = operation
 	_append_request_id(state.current_storage_request_ids, operation.get_request_id())
-	state.current_io_deadline_msec = (
-		_clock.get_monotonic_msec() + state.recovery_policy.io_timeout_msec
-	)
+	if state.current_kind == GFSaveProfileOperation.OPERATION_SAVE:
+		var operation_transfer: GFStoragePayloadTransfer = operation.get_payload_transfer()
+		if operation_transfer != null:
+			state.current_payload_transfer = operation_transfer
 	var callback: Callable = Callable(self, "_on_storage_operation_completed").bind(
 		state.profile_id,
 		operation.get_request_id()
@@ -1476,6 +1926,9 @@ func _clear_current_storage_operation(state: ProfileState) -> void:
 func _handle_current_io_timeout(state: ProfileState) -> void:
 	var operation_kind: StringName = state.current_kind
 	if operation_kind == GFSaveProfileOperation.OPERATION_SAVE:
+		_account_detached_write_tails(state, state.current_generation)
+	_complete_current_io_timing(state)
+	if operation_kind == GFSaveProfileOperation.OPERATION_SAVE:
 		_detach_current_write(state)
 		_handle_save_failure(state, ERR_TIMEOUT, "Storage save completion timed out.")
 	else:
@@ -1491,6 +1944,90 @@ func _handle_current_io_timeout(state: ProfileState) -> void:
 				GFStorageReadResult.FailureKind.IO_FAILED
 			)
 		)
+
+
+func _begin_current_io_timing(state: ProfileState) -> void:
+	if state == null:
+		return
+	_complete_current_io_timing(state)
+	state.current_io_started_at_msec = _clock.get_monotonic_msec()
+	state.current_io_deadline_msec = (
+		state.current_io_started_at_msec + state.recovery_policy.io_timeout_msec
+	)
+
+
+func _complete_current_io_timing(state: ProfileState) -> void:
+	if state == null or state.current_io_started_at_msec < 0:
+		return
+	state.current_storage_duration_msec += maxi(
+		_clock.get_monotonic_msec() - state.current_io_started_at_msec,
+		0
+	)
+	state.current_io_started_at_msec = -1
+
+
+func _complete_current_preparation_timing(state: ProfileState) -> void:
+	if state == null or state.current_preparation_started_at_msec < 0:
+		return
+	state.current_preparation_duration_msec += maxi(
+		_clock.get_monotonic_msec() - state.current_preparation_started_at_msec,
+		0
+	)
+	state.current_preparation_started_at_msec = -1
+
+
+func _store_current_section_record(
+	state: ProfileState,
+	section_id: StringName,
+	record: Dictionary
+) -> void:
+	if state == null or section_id == &"":
+		return
+	var section_key: String = String(section_id)
+	if not state.current_section_records.has(section_key):
+		state.current_section_ids_by_entry_index.append(section_id)
+	state.current_section_records[section_key] = record
+
+
+func _finalize_save_timing_for_terminal(state: ProfileState) -> void:
+	if state == null:
+		return
+	_complete_current_preparation_timing(state)
+	_complete_current_io_timing(state)
+	_account_detached_write_tails(state, state.current_generation)
+
+
+func _account_detached_write_tails(
+	state: ProfileState,
+	generation: int
+) -> void:
+	if state == null or generation <= 0:
+		return
+	var now_msec: int = _clock.get_monotonic_msec()
+	for request_id_value: Variant in state.detached_write_operations.keys():
+		var request_id: int = GFVariantData.to_int(request_id_value, 0)
+		var record: Dictionary = GFVariantData.as_dictionary(
+			state.detached_write_operations.get(request_id_value)
+		)
+		if (
+			record.is_empty()
+			or GFVariantData.get_option_int(record, "generation") != generation
+		):
+			continue
+		var accounted_at_msec: int = GFVariantData.get_option_int(
+			record,
+			"tail_accounted_at_msec",
+			now_msec
+		)
+		var tail_delta_msec: int = maxi(now_msec - accounted_at_msec, 0)
+		if tail_delta_msec > 0:
+			state.current_storage_duration_msec += tail_delta_msec
+			record["storage_duration_msec"] = (
+				GFVariantData.get_option_int(record, "storage_duration_msec")
+				+ tail_delta_msec
+			)
+		record["tail_accounted_at_msec"] = now_msec
+		state.detached_write_operations[request_id] = record
 
 
 func _mark_save_operations_running(state: ProfileState, generation: int) -> void:
@@ -1530,13 +2067,18 @@ func _detach_current_write(state: ProfileState) -> void:
 		request_id,
 		state.current_generation
 	)
+	var detached_at_msec: int = _clock.get_monotonic_msec()
 	state.detached_write_operations[request_id] = {
 		"operation": operation,
 		"callback": callback,
 		"generation": state.current_generation,
-		"document": state.current_document,
 		"attempt_count": state.current_attempt_count,
+		"preparation_duration_msec": state.current_preparation_duration_msec,
+		"storage_duration_msec": state.current_storage_duration_msec,
+		"preparation_work_units": state.current_preparation_work_units,
 		"storage_request_ids": state.current_storage_request_ids.duplicate(),
+		"detached_at_msec": detached_at_msec,
+		"tail_accounted_at_msec": detached_at_msec,
 	}
 	if operation.is_completed():
 		_on_detached_write_completed(
@@ -1576,6 +2118,28 @@ func _on_detached_write_completed(
 	)
 	if operation != null and callback.is_valid() and operation.completed.is_connected(callback):
 		operation.completed.disconnect(callback)
+	var owns_current_retry: bool = (
+		state.current_kind == GFSaveProfileOperation.OPERATION_SAVE
+		and state.current_generation == generation
+		and state.mode != STATE_IDLE
+	)
+	var record_storage_duration_msec: int = GFVariantData.get_option_int(
+		record,
+		"storage_duration_msec"
+	)
+	if owns_current_retry:
+		_account_detached_write_tails(state, generation)
+		record_storage_duration_msec = state.current_storage_duration_msec
+	else:
+		var now_msec: int = _clock.get_monotonic_msec()
+		record_storage_duration_msec += maxi(
+			now_msec - GFVariantData.get_option_int(
+				record,
+				"tail_accounted_at_msec",
+				now_msec
+			),
+			0
+		)
 	var _erased: bool = state.detached_write_operations.erase(request_id)
 	_remove_unknown_request_id(state, generation, request_id)
 	var successful: bool = (
@@ -1585,22 +2149,32 @@ func _on_detached_write_completed(
 		and result.is_successful()
 	)
 	if successful:
-		var document: GFSaveDocument = _get_document_value(
-			GFVariantData.get_option_value(record, "document")
-		)
 		var attempt_count: int = GFVariantData.get_option_int(record, "attempt_count")
+		var preparation_duration_msec: int = GFVariantData.get_option_int(
+			record,
+			"preparation_duration_msec"
+		)
+		var storage_duration_msec: int = record_storage_duration_msec
+		var preparation_work_units: int = GFVariantData.get_option_int(
+			record,
+			"preparation_work_units"
+		)
 		var request_ids: PackedInt64Array = _get_request_id_array(
 			GFVariantData.get_option_value(record, "storage_request_ids", PackedInt64Array())
 		)
-		var owns_current_retry: bool = (
-			state.current_kind == GFSaveProfileOperation.OPERATION_SAVE
-			and state.current_generation == generation
-			and state.mode != STATE_IDLE
-		)
 		if owns_current_retry:
-			if state.current_document != null:
-				document = state.current_document
+			_complete_current_preparation_timing(state)
+			_complete_current_io_timing(state)
 			attempt_count = maxi(attempt_count, state.current_attempt_count)
+			preparation_duration_msec = maxi(
+				preparation_duration_msec,
+				state.current_preparation_duration_msec
+			)
+			storage_duration_msec = state.current_storage_duration_msec
+			preparation_work_units = maxi(
+				preparation_work_units,
+				state.current_preparation_work_units
+			)
 			for current_request_id: int in state.current_storage_request_ids:
 				_append_request_id(request_ids, current_request_id)
 			if state.current_storage_operation != null:
@@ -1610,9 +2184,11 @@ func _on_detached_write_completed(
 		_complete_save_operations_success_through(
 			state,
 			generation,
-			document,
 			attempt_count,
-			request_ids
+			request_ids,
+			preparation_duration_msec,
+			storage_duration_msec,
+			preparation_work_units
 		)
 		if owns_current_retry:
 			_clear_current(state)
@@ -1630,7 +2206,7 @@ func _on_detached_write_completed(
 				PackedInt64Array([request_id])
 			)
 	_complete_ready_flushes(state)
-	_schedule(state)
+	_enqueue_schedule(state)
 	_end_processing()
 
 
@@ -1943,6 +2519,51 @@ func _get_error_code(source: Dictionary, key: String, fallback: Error) -> Error:
 	return GFVariantData.get_option_int(source, key, int(fallback)) as Error
 
 
+func _get_current_preparation_duration(state: ProfileState) -> int:
+	if state == null:
+		return 0
+	if state.current_preparation_started_at_msec < 0:
+		return state.current_preparation_duration_msec
+	return (
+		state.current_preparation_duration_msec
+		+ maxi(
+			_clock.get_monotonic_msec() - state.current_preparation_started_at_msec,
+			0
+		)
+	)
+
+
+func _get_current_storage_duration(state: ProfileState) -> int:
+	if state == null:
+		return 0
+	var duration_msec: int = state.current_storage_duration_msec
+	var now_msec: int = _clock.get_monotonic_msec()
+	if state.current_io_started_at_msec >= 0:
+		duration_msec += maxi(
+			now_msec - state.current_io_started_at_msec,
+			0
+		)
+	if state.current_generation <= 0:
+		return duration_msec
+	for record_value: Variant in state.detached_write_operations.values():
+		var record: Dictionary = GFVariantData.as_dictionary(record_value)
+		if (
+			record.is_empty()
+			or GFVariantData.get_option_int(record, "generation")
+				!= state.current_generation
+		):
+			continue
+		duration_msec += maxi(
+			now_msec - GFVariantData.get_option_int(
+				record,
+				"tail_accounted_at_msec",
+				now_msec
+			),
+			0
+		)
+	return duration_msec
+
+
 func _set_storage(storage: GFStorageUtility) -> void:
 	if _storage == storage:
 		return
@@ -2053,6 +2674,13 @@ class ProfileState extends RefCounted:
 	## @api framework_internal
 	var providers: Array[GFSaveSectionProvider] = []
 
+	## 编译后的 Provider ID 集合。
+	## [br]
+	## @api framework_internal
+	## [br]
+	## @schema provider_ids: Dictionary keyed by StringName section IDs with boolean membership values.
+	var provider_ids: Dictionary = {}
+
 	## 隔离恢复政策副本。
 	## [br]
 	## @api framework_internal
@@ -2158,10 +2786,82 @@ class ProfileState extends RefCounted:
 	## @api framework_internal
 	var current_attempt_count: int = 0
 
-	## 当前写入重试复用的不可变文档。
+	## 当前保存准备 phase。
 	## [br]
 	## @api framework_internal
-	var current_document: GFSaveDocument = null
+	var current_preparation_phase: StringName = _PREPARATION_PHASE_PROVIDER_SCAN
+
+	## Provider scan 已选择、等待 begin 的 Provider。
+	## [br]
+	## @api framework_internal
+	var current_preparation_provider: GFSaveSectionProvider = null
+
+	## 当前保存准备正在推进的 Provider Operation。
+	## [br]
+	## @api framework_internal
+	var current_preparation_operation: GFSaveSectionSnapshotOperation = null
+
+	## 下一个 Provider 索引。
+	## [br]
+	## @api framework_internal
+	var current_preparation_provider_index: int = 0
+
+	## 下一个透明保留 section 索引。
+	## [br]
+	## @api framework_internal
+	var current_preserved_section_index: int = 0
+
+	## 当前准备中的 section ID。
+	## [br]
+	## @api framework_internal
+	var current_preparation_section_id: StringName = &""
+
+	## 当前 generation 已消费的准备 work units。
+	## [br]
+	## @api framework_internal
+	var current_preparation_work_units: int = 0
+
+	## 当前 generation 的准备开始时间。
+	## [br]
+	## @api framework_internal
+	var current_preparation_started_at_msec: int = -1
+
+	## 当前 generation 的准备耗时。
+	## [br]
+	## @api framework_internal
+	var current_preparation_duration_msec: int = 0
+
+	## 当前 generation 已累计的活跃 Storage IO 耗时。
+	## [br]
+	## @api framework_internal
+	var current_storage_duration_msec: int = 0
+
+	## 当前物理 IO attempt 的开始时间。
+	## [br]
+	## @api framework_internal
+	var current_io_started_at_msec: int = -1
+
+	## 准备阶段按 section ID 归集的唯一记录。
+	## [br]
+	## @api framework_internal
+	## [br]
+	## @schema current_section_records: Dictionary keyed by section ID with owned section records.
+	var current_section_records: Dictionary = {}
+
+	## sections Dictionary 的 entry index 到 section ID 的隔离映射。
+	## [br]
+	## @api framework_internal
+	var current_section_ids_by_entry_index: Array[StringName] = []
+
+	## Save 文档根 Dictionary 中 sections 字段的 entry index。
+	## [br]
+	## @api framework_internal
+	var current_sections_entry_index: int = -1
+
+	## Storage 已接管的当前 generation 不透明 payload lease。
+	## [br]
+	## @api framework_internal
+	var current_payload_transfer: GFStoragePayloadTransfer = null
 
 	## 当前底层请求专属句柄。
 	## [br]
@@ -2201,8 +2901,28 @@ class ProfileState extends RefCounted:
 	## [br]
 	## @api framework_internal
 	## [br]
-	## @schema detached_write_operations: Dictionary keyed by request ID with operation, callback, generation, document, attempt_count, and storage_request_ids.
+	## @schema detached_write_operations: Dictionary keyed by request ID with operation, callback, generation, attempt_count, timing, and storage_request_ids.
 	var detached_write_operations: Dictionary = {}
+
+	## 是否已经进入 O(1) pending schedule 队列。
+	## [br]
+	## @api framework_internal
+	var pending_schedule_enqueued: bool = false
+
+	## pending schedule 侵入式单链后继。
+	## [br]
+	## @api framework_internal
+	var pending_schedule_next: ProfileState = null
+
+	## 是否已经进入 O(1) active preparation 轮转队列。
+	## [br]
+	## @api framework_internal
+	var active_preparation_enqueued: bool = false
+
+	## active preparation 侵入式单链后继。
+	## [br]
+	## @api framework_internal
+	var active_preparation_next: ProfileState = null
 
 	## 是否正在迭代调度当前 profile。
 	## [br]

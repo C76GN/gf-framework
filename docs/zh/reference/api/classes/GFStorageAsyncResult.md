@@ -9,20 +9,53 @@
 - 类别：值对象 (`value_object`)
 - 首次版本：`10.0.0`
 
-单次异步存储请求的不可变终态。 结果通过请求 ID 与具体句柄绑定；读取结果保留 `GFStorageReadResult` 的类型化 失败分类，写入结果只暴露稳定 Error 码。
+单次异步存储请求的不可变终态。 结果通过请求 ID 与具体句柄绑定；读取结果保留 `GFStorageReadResult` 的类型化 失败分类；写入结果额外暴露稳定写入失败分类与隔离的 payload 预检报告。
 
 ## 成员概览
 
 | 类型 | 名称 | 签名 |
 |---|---|---|
+| 枚举 | [`WriteFailureKind`](#member-gfstorageasyncresult-enums-writefailurekind) | `enum WriteFailureKind` |
 | 方法 | [`get_request_id`](#member-gfstorageasyncresult-methods-get_request_id) | `func get_request_id() -> int:` |
 | 方法 | [`get_operation`](#member-gfstorageasyncresult-methods-get_operation) | `func get_operation() -> StringName:` |
 | 方法 | [`get_file_name`](#member-gfstorageasyncresult-methods-get_file_name) | `func get_file_name() -> String:` |
 | 方法 | [`is_successful`](#member-gfstorageasyncresult-methods-is_successful) | `func is_successful() -> bool:` |
 | 方法 | [`get_error_code`](#member-gfstorageasyncresult-methods-get_error_code) | `func get_error_code() -> Error:` |
 | 方法 | [`get_read_result`](#member-gfstorageasyncresult-methods-get_read_result) | `func get_read_result() -> GFStorageReadResult:` |
+| 方法 | [`get_write_failure_kind`](#member-gfstorageasyncresult-methods-get_write_failure_kind) | `func get_write_failure_kind() -> WriteFailureKind:` |
+| 方法 | [`get_write_validation_report`](#member-gfstorageasyncresult-methods-get_write_validation_report) | `func get_write_validation_report() -> Dictionary:` |
 | 方法 | [`duplicate_result`](#member-gfstorageasyncresult-methods-duplicate_result) | `func duplicate_result() -> GFStorageAsyncResult:` |
 | 方法 | [`to_dict`](#member-gfstorageasyncresult-methods-to_dict) | `func to_dict() -> Dictionary:` |
+
+## 枚举
+
+<a id="member-gfstorageasyncresult-enums-writefailurekind"></a>
+
+### `WriteFailureKind`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+enum WriteFailureKind {
+	## 写入成功，或当前结果不是写入请求。
+	NONE,
+	## 文件名、transfer 状态或冻结绑定无效。
+	INVALID_REQUEST,
+	## payload 不是 Storage worker 可安全处理的纯 Variant 图。
+	PAYLOAD_INVALID,
+	## worker 编码未能生成有效 bytes。
+	ENCODE_FAILED,
+	## worker 线程未能启动。
+	THREAD_START_FAILED,
+	## Utility dispose 等生命周期边界使任务不可执行。
+	UNAVAILABLE,
+	## 目录、临时文件或事务提交 I/O 失败。
+	IO_FAILED,
+}
+```
+
+异步写入失败的稳定分类。
 
 ## 方法
 
@@ -116,6 +149,40 @@ func get_read_result() -> GFStorageReadResult:
 
 返回：load 请求的结果；save 请求返回 null。
 
+<a id="member-gfstorageasyncresult-methods-get_write_failure_kind"></a>
+
+### `get_write_failure_kind`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func get_write_failure_kind() -> WriteFailureKind:
+```
+
+获取异步写入失败的稳定分类。
+
+返回：`WriteFailureKind` 枚举值；成功或 load 请求为 NONE。
+
+<a id="member-gfstorageasyncresult-methods-get_write_validation_report"></a>
+
+### `get_write_validation_report`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func get_write_validation_report() -> Dictionary:
+```
+
+获取 worker payload 预检报告副本。
+
+返回：包含 ok、failure_kind、failure_path、path_segments、variant_type、visited_values 和 visited_bytes 的隔离字典；未执行预检时为空。
+
+结构：
+
+- `return`: Dictionary with ok, failure_kind, failure_path, path_segments, variant_type, variant_type_name, visited_values, and visited_bytes fields; path segments contain only structural indexes, never payload keys, values, or correlatable key digests.
+
 <a id="member-gfstorageasyncresult-methods-duplicate_result"></a>
 
 ### `duplicate_result`
@@ -144,8 +211,8 @@ func to_dict() -> Dictionary:
 
 转换为可报告字典。
 
-返回：包含请求身份、终态和读取摘要的字典。
+返回：包含请求身份、终态、读取摘要和写入诊断的字典。
 
 结构：
 
-- `return`: Dictionary with request_id, operation, file_name, ok, error_code, and read_result fields.
+- `return`: Dictionary with request_id, operation, file_name, ok, error_code, read_result, write_failure_kind, and write_validation_report fields.

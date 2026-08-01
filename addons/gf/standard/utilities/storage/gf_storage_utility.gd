@@ -62,6 +62,11 @@ signal load_completed(file_name: String, result: GFStorageReadResult)
 const _TEMP_SUFFIX: String = ".tmp"
 const _BACKUP_SUFFIX: String = ".bak"
 const _TRANSACTION_SUFFIX: String = ".txn"
+const _TRANSACTION_MARKER_SCHEMA_VERSION: int = 1
+const _MAX_TRANSACTION_FILES: int = 64
+const _PAYLOAD_VALIDATION_MAX_DEPTH: int = 128
+const _PAYLOAD_VALIDATION_MAX_VALUES: int = 1_000_000
+const _PAYLOAD_VALIDATION_MAX_BYTES: int = 64 * 1024 * 1024
 
 ## 递归枚举文件时默认允许进入的最大目录深度。
 ## [br]
@@ -211,6 +216,8 @@ var _async_tasks: Array[Dictionary] = []
 var _async_queue: Array[Dictionary] = []
 var _async_file_locks: Dictionary = {}
 var _next_async_request_id: int = 1
+var _next_async_transaction_id: int = 1
+var _is_disposing: bool = false
 var _migration_steps: Dictionary = {}
 var _path_policy: _StoragePathPolicy
 var _file_ops: _StorageFileOps
@@ -241,6 +248,9 @@ func init() -> void:
 ## [br]
 ## @api public
 func dispose() -> void:
+	if _is_disposing:
+		return
+	_is_disposing = true
 	_wait_for_async_tasks()
 	_async_tasks.clear()
 	_async_queue.clear()
@@ -248,6 +258,7 @@ func dispose() -> void:
 	_migration_steps.clear()
 	last_load_result = null
 	_release_storage_helpers()
+	_is_disposing = false
 
 
 ## 驱动异步存档任务完成检查。
@@ -632,6 +643,39 @@ func save_data_request_async(file_name: String, data: Dictionary) -> GFStorageAs
 	return operation
 
 
+## 在线程中保存由单所有者 transfer 移交的纯 Variant payload。
+##
+## 路径校验在 claim 前完成；非法路径不会消费 transfer。首次合法请求会冻结当前
+## Storage 实例、规范文件名与 codec options。同一 transfer 可在旧 attempt 尚未
+## 完成时提交给相同绑定，用于 timeout retry；所有 attempt 只读同一逻辑快照。
+## 调用方完成整个重试 generation 后必须显式调用 transfer.release()。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param file_name: 目标文件名。
+## [br]
+## @param transfer: 已通过 take_ownership() 接收 payload 的 opaque transfer。
+## [br]
+## @return 已配置请求句柄；输入无效或启动失败时句柄立即进入失败终态。
+func save_payload_request_async(
+	file_name: String,
+	transfer: GFStoragePayloadTransfer
+) -> GFStorageAsyncOperation:
+	var operation: GFStorageAsyncOperation = _make_async_operation(
+		GFStorageAsyncOperation.OPERATION_SAVE,
+		file_name
+	)
+	var _error: Error = _enqueue_async_payload_save(
+		file_name,
+		transfer,
+		operation,
+		"save_payload_request_async"
+	)
+	return operation
+
+
 ## 在线程中异步读取纯字典数据。完成后从主线程发出 load_completed。
 ## [br]
 ## @api public
@@ -804,29 +848,175 @@ func _make_async_operation(operation_kind: StringName, file_name: String) -> GFS
 	return operation
 
 
+func _make_async_target_family(canonical_file_name: String) -> Dictionary:
+	var final_path: String = _get_full_path(canonical_file_name)
+	return {
+		"allow_absolute_paths": allow_absolute_paths,
+		"storage_root_path": _get_save_base_path(),
+		"file_key": final_path,
+		"final_path": final_path,
+		"temp_path": _get_full_path(_get_temp_filename(canonical_file_name)),
+		"backup_path": _get_full_path(_get_backup_filename(canonical_file_name)),
+		"transaction_path": _get_full_path(_get_transaction_filename(canonical_file_name)),
+	}
+
+
+func _make_async_transaction_id() -> String:
+	var transaction_id: String = "async:%d:%d:%d" % [
+		get_instance_id(),
+		Time.get_ticks_usec(),
+		_next_async_transaction_id,
+	]
+	_next_async_transaction_id += 1
+	if _next_async_transaction_id <= 0:
+		_next_async_transaction_id = 1
+	return transaction_id
+
+
 func _enqueue_async_save(
 	file_name: String,
 	data: Dictionary,
 	operation: GFStorageAsyncOperation,
 	operation_name: String
 ) -> Error:
+	if _is_disposing:
+		_complete_async_operation(
+			operation,
+			ERR_UNAVAILABLE,
+			null,
+			GFStorageAsyncResult.WriteFailureKind.UNAVAILABLE
+		)
+		save_completed.emit(file_name, ERR_UNAVAILABLE)
+		return ERR_UNAVAILABLE
 	var canonical_file_name: String = ""
 	if _validate_public_file_name(file_name, operation_name):
 		canonical_file_name = _canonicalize_storage_file_name(file_name)
 	if canonical_file_name.is_empty():
-		_complete_async_operation(operation, ERR_INVALID_PARAMETER, null)
+		_complete_async_operation(
+			operation,
+			ERR_INVALID_PARAMETER,
+			null,
+			GFStorageAsyncResult.WriteFailureKind.INVALID_REQUEST
+		)
 		save_completed.emit(file_name, ERR_INVALID_PARAMETER)
 		return ERR_INVALID_PARAMETER
 	if operation != null:
 		var _updated: bool = operation.set_file_name_for_framework(canonical_file_name)
 	init()
+	var target_family: Dictionary = _make_async_target_family(canonical_file_name)
 	_async_queue.append({
 		"type": &"save",
 		"file_name": file_name,
 		"storage_file_name": canonical_file_name,
-		"file_key": _get_async_file_key(canonical_file_name),
+		"allow_absolute_paths": GFVariantData.get_option_bool(target_family, "allow_absolute_paths"),
+		"storage_root_path": GFVariantData.get_option_string(target_family, "storage_root_path"),
+		"file_key": GFVariantData.get_option_string(target_family, "file_key"),
+		"final_path": GFVariantData.get_option_string(target_family, "final_path"),
+		"temp_path": GFVariantData.get_option_string(target_family, "temp_path"),
+		"backup_path": GFVariantData.get_option_string(target_family, "backup_path"),
+		"transaction_path": GFVariantData.get_option_string(target_family, "transaction_path"),
+		"transaction_id": _make_async_transaction_id(),
 		"data": data.duplicate(true),
 		"codec_options": _get_codec_options(),
+		"operation": operation,
+	})
+	_start_queued_async_tasks()
+	return OK
+
+
+func _enqueue_async_payload_save(
+	file_name: String,
+	transfer: GFStoragePayloadTransfer,
+	operation: GFStorageAsyncOperation,
+	operation_name: String
+) -> Error:
+	if _is_disposing:
+		_complete_async_operation(
+			operation,
+			ERR_UNAVAILABLE,
+			null,
+			GFStorageAsyncResult.WriteFailureKind.UNAVAILABLE
+		)
+		save_completed.emit(file_name, ERR_UNAVAILABLE)
+		return ERR_UNAVAILABLE
+	var canonical_file_name: String = ""
+	if _validate_public_file_name(file_name, operation_name):
+		canonical_file_name = _canonicalize_storage_file_name(file_name)
+	if canonical_file_name.is_empty():
+		_complete_async_operation(
+			operation,
+			ERR_INVALID_PARAMETER,
+			null,
+			GFStorageAsyncResult.WriteFailureKind.INVALID_REQUEST
+		)
+		save_completed.emit(file_name, ERR_INVALID_PARAMETER)
+		return ERR_INVALID_PARAMETER
+	var _updated: bool = operation.set_file_name_for_framework(canonical_file_name)
+	if transfer == null:
+		_complete_async_operation(
+			operation,
+			ERR_INVALID_PARAMETER,
+			null,
+			GFStorageAsyncResult.WriteFailureKind.INVALID_REQUEST
+		)
+		save_completed.emit(file_name, ERR_INVALID_PARAMETER)
+		return ERR_INVALID_PARAMETER
+
+	init()
+	var target_family: Dictionary = _make_async_target_family(canonical_file_name)
+	var target_file_key: String = GFVariantData.get_option_string(
+		target_family,
+		"file_key"
+	)
+	var codec_options: Dictionary = _get_codec_options()
+	var attempt: Dictionary = transfer.begin_attempt_for_framework(
+		get_instance_id(),
+		canonical_file_name,
+		target_file_key,
+		codec_options
+	)
+	if not GFVariantData.get_option_bool(attempt, "ok"):
+		_complete_async_operation(
+			operation,
+			ERR_INVALID_PARAMETER,
+			null,
+			GFStorageAsyncResult.WriteFailureKind.INVALID_REQUEST
+		)
+		save_completed.emit(file_name, ERR_INVALID_PARAMETER)
+		return ERR_INVALID_PARAMETER
+
+	var attempt_id: int = GFVariantData.get_option_int(attempt, "attempt_id", 0)
+	var payload_value: Variant = attempt.get("payload")
+	if (
+		attempt_id <= 0
+		or not payload_value is Dictionary
+		or not operation.configure_payload_attempt_for_framework(transfer, attempt_id)
+	):
+		var _finished: bool = transfer.finish_attempt_for_framework(attempt_id)
+		_complete_async_operation(
+			operation,
+			ERR_INVALID_PARAMETER,
+			null,
+			GFStorageAsyncResult.WriteFailureKind.INVALID_REQUEST
+		)
+		save_completed.emit(file_name, ERR_INVALID_PARAMETER)
+		return ERR_INVALID_PARAMETER
+
+	var payload: Dictionary = payload_value
+	_async_queue.append({
+		"type": &"save",
+		"file_name": file_name,
+		"storage_file_name": canonical_file_name,
+		"allow_absolute_paths": GFVariantData.get_option_bool(target_family, "allow_absolute_paths"),
+		"storage_root_path": GFVariantData.get_option_string(target_family, "storage_root_path"),
+		"file_key": target_file_key,
+		"final_path": GFVariantData.get_option_string(target_family, "final_path"),
+		"temp_path": GFVariantData.get_option_string(target_family, "temp_path"),
+		"backup_path": GFVariantData.get_option_string(target_family, "backup_path"),
+		"transaction_path": GFVariantData.get_option_string(target_family, "transaction_path"),
+		"transaction_id": _make_async_transaction_id(),
+		"data": payload,
+		"codec_options": codec_options,
 		"operation": operation,
 	})
 	_start_queued_async_tasks()
@@ -838,6 +1028,20 @@ func _enqueue_async_load(
 	operation: GFStorageAsyncOperation,
 	operation_name: String
 ) -> Error:
+	if _is_disposing:
+		var unavailable_result: GFStorageReadResult = _make_load_failure(
+			"Storage utility is disposing.",
+			ERR_UNAVAILABLE,
+			GFStorageReadResult.FailureKind.UNAVAILABLE
+		)
+		last_load_result = unavailable_result.duplicate_result()
+		_complete_async_operation(
+			operation,
+			unavailable_result.error_code,
+			unavailable_result
+		)
+		load_completed.emit(file_name, unavailable_result.duplicate_result())
+		return ERR_UNAVAILABLE
 	var canonical_file_name: String = ""
 	if _validate_public_file_name(file_name, operation_name):
 		canonical_file_name = _canonicalize_storage_file_name(file_name)
@@ -854,11 +1058,18 @@ func _enqueue_async_load(
 	if operation != null:
 		var _updated: bool = operation.set_file_name_for_framework(canonical_file_name)
 	init()
+	var target_family: Dictionary = _make_async_target_family(canonical_file_name)
 	_async_queue.append({
 		"type": &"load",
 		"file_name": file_name,
 		"storage_file_name": canonical_file_name,
-		"file_key": _get_async_file_key(canonical_file_name),
+		"allow_absolute_paths": GFVariantData.get_option_bool(target_family, "allow_absolute_paths"),
+		"storage_root_path": GFVariantData.get_option_string(target_family, "storage_root_path"),
+		"file_key": GFVariantData.get_option_string(target_family, "file_key"),
+		"final_path": GFVariantData.get_option_string(target_family, "final_path"),
+		"temp_path": GFVariantData.get_option_string(target_family, "temp_path"),
+		"backup_path": GFVariantData.get_option_string(target_family, "backup_path"),
+		"transaction_path": GFVariantData.get_option_string(target_family, "transaction_path"),
 		"codec_options": _get_codec_options(),
 		"operation": operation,
 	})
@@ -869,7 +1080,9 @@ func _enqueue_async_load(
 func _complete_async_operation(
 	operation: GFStorageAsyncOperation,
 	error_code: Error,
-	read_result: GFStorageReadResult
+	read_result: GFStorageReadResult,
+	write_failure_kind: GFStorageAsyncResult.WriteFailureKind = GFStorageAsyncResult.WriteFailureKind.NONE,
+	write_validation_report: Dictionary = {}
 ) -> void:
 	if operation == null or operation.is_completed():
 		return
@@ -883,7 +1096,9 @@ func _complete_async_operation(
 		operation.get_file_name(),
 		ok,
 		error_code,
-		read_result
+		read_result,
+		write_failure_kind,
+		write_validation_report
 	)
 	var _completed: bool = operation.complete_for_framework(result)
 
@@ -985,8 +1200,36 @@ func _get_task_storage_file_name(task: Dictionary) -> String:
 	return GFVariantData.get_option_string(task, "storage_file_name", _get_task_file_name(task))
 
 
+func _get_task_allow_absolute_paths(task: Dictionary) -> bool:
+	return GFVariantData.get_option_bool(task, "allow_absolute_paths")
+
+
+func _get_task_storage_root_path(task: Dictionary) -> String:
+	return GFVariantData.get_option_string(task, "storage_root_path")
+
+
 func _get_task_file_key(task: Dictionary) -> String:
 	return GFVariantData.get_option_string(task, "file_key")
+
+
+func _get_task_final_path(task: Dictionary) -> String:
+	return GFVariantData.get_option_string(task, "final_path")
+
+
+func _get_task_temp_path(task: Dictionary) -> String:
+	return GFVariantData.get_option_string(task, "temp_path")
+
+
+func _get_task_backup_path(task: Dictionary) -> String:
+	return GFVariantData.get_option_string(task, "backup_path")
+
+
+func _get_task_transaction_path(task: Dictionary) -> String:
+	return GFVariantData.get_option_string(task, "transaction_path")
+
+
+func _get_task_transaction_id(task: Dictionary) -> String:
+	return GFVariantData.get_option_string(task, "transaction_id")
 
 
 func _get_task_type(task: Dictionary) -> StringName:
@@ -995,6 +1238,14 @@ func _get_task_type(task: Dictionary) -> StringName:
 
 func _get_task_dictionary(task: Dictionary, key: String) -> Dictionary:
 	return GFVariantData.get_option_dictionary(task, key)
+
+
+func _get_task_dictionary_reference(task: Dictionary, key: String) -> Dictionary:
+	var value: Variant = task.get(key)
+	if value is Dictionary:
+		var dictionary: Dictionary = value
+		return dictionary
+	return {}
 
 
 func _get_result_error(result: Dictionary, default_value: Error = ERR_BUG) -> Error:
@@ -1016,19 +1267,23 @@ func _poll_async_tasks() -> void:
 
 
 func _wait_for_async_tasks() -> void:
-	for task: Dictionary in _async_tasks:
+	var active_tasks: Array[Dictionary] = _async_tasks.duplicate()
+	_async_tasks.clear()
+	for task: Dictionary in active_tasks:
 		var thread: Thread = _get_task_thread(task)
 		if thread != null:
 			var result_variant: Variant = thread.wait_to_finish()
+			_erase_dictionary_key(_async_file_locks, _get_task_file_key(task))
 			_complete_finished_async_task(task, result_variant)
-	_async_tasks.clear()
 	_async_file_locks.clear()
 	_fail_queued_async_tasks("Storage utility disposed before task started.")
 	_async_queue.clear()
 
 
 func _start_queued_async_tasks() -> void:
-	while _async_tasks.size() < maxi(max_async_thread_count, 1):
+	if _is_disposing:
+		return
+	while not _is_disposing and _async_tasks.size() < maxi(max_async_thread_count, 1):
 		var task_index: int = _find_startable_async_task_index()
 		if task_index < 0:
 			return
@@ -1051,23 +1306,32 @@ func _start_async_task(task: Dictionary) -> void:
 	var storage_file_name: String = _get_task_storage_file_name(task)
 	var task_type: StringName = _get_task_type(task)
 	var thread: Thread = Thread.new()
-	_recover_transaction_files([storage_file_name])
+	var recovery_error: Error = _recover_frozen_async_transaction(task)
+	if recovery_error != OK:
+		_emit_async_start_failed(
+			task,
+			recovery_error,
+			GFStorageAsyncResult.WriteFailureKind.IO_FAILED,
+			"Transaction recovery failed"
+		)
+		return
 
 	var error: Error = ERR_INVALID_PARAMETER
 	if task_type == &"save":
 		error = thread.start(Callable(self, "_save_data_thread").bind(
 			storage_file_name,
-			_get_full_path(storage_file_name),
-			_get_full_path(_get_temp_filename(storage_file_name)),
-			_get_full_path(_get_backup_filename(storage_file_name)),
-			_get_full_path(_get_transaction_filename(storage_file_name)),
-			_get_task_dictionary(task, "data"),
+			_get_task_final_path(task),
+			_get_task_temp_path(task),
+			_get_task_backup_path(task),
+			_get_task_transaction_path(task),
+			_get_task_transaction_id(task),
+			_get_task_dictionary_reference(task, "data"),
 			_get_task_dictionary(task, "codec_options")
 		))
 	elif task_type == &"load":
 		error = thread.start(Callable(self, "_load_data_thread").bind(
 			storage_file_name,
-			_get_full_path(storage_file_name),
+			_get_task_final_path(task),
 			_get_task_dictionary(task, "codec_options")
 		))
 
@@ -1080,18 +1344,78 @@ func _start_async_task(task: Dictionary) -> void:
 	_async_tasks.append(task)
 
 
-func _emit_async_start_failed(task: Dictionary, error: Error) -> void:
+func _recover_frozen_async_transaction(task: Dictionary) -> Error:
+	var storage_file_name: String = _get_task_storage_file_name(task)
+	var allow_frozen_absolute_paths: bool = _get_task_allow_absolute_paths(task)
+	var storage_root_path: String = _get_task_storage_root_path(task)
+	var final_path: String = _get_task_final_path(task)
+	var temp_path: String = _get_task_temp_path(task)
+	var backup_path: String = _get_task_backup_path(task)
+	var transaction_path: String = _get_task_transaction_path(task)
+	if (
+		storage_file_name.is_empty()
+		or storage_root_path.is_empty()
+		or final_path.is_empty()
+		or temp_path.is_empty()
+		or backup_path.is_empty()
+		or transaction_path.is_empty()
+		or _get_task_file_key(task) != final_path
+	):
+		return ERR_INVALID_PARAMETER
+	_ensure_storage_helpers()
+	var frozen_path_policy: _FrozenStoragePathPolicy = _FrozenStoragePathPolicy.new(
+		storage_root_path,
+		allow_frozen_absolute_paths
+	)
+	var frozen_transaction_manager: _StorageTransactionManager = _StorageTransactionManager.new(
+		self,
+		frozen_path_policy,
+		_file_ops
+	)
+	var recovery_error: Error = frozen_transaction_manager._recover_frozen_file_family(
+		storage_file_name,
+		final_path,
+		temp_path,
+		backup_path,
+		transaction_path,
+		allow_frozen_absolute_paths
+	)
+	frozen_transaction_manager._dispose()
+	frozen_path_policy._dispose()
+	return recovery_error
+
+
+func _emit_async_start_failed(
+	task: Dictionary,
+	error: Error,
+	write_failure_kind: GFStorageAsyncResult.WriteFailureKind = GFStorageAsyncResult.WriteFailureKind.THREAD_START_FAILED,
+	failure_reason: String = "Thread start failed"
+) -> void:
 	var file_name: String = _get_task_file_name(task)
 	var task_type: StringName = _get_task_type(task)
 	var operation: GFStorageAsyncOperation = _get_task_operation(task)
 	if task_type == &"save":
-		push_error("[GFStorageUtility] 无法启动异步保存线程：%s，错误码：%s" % [file_name, error])
-		_complete_async_operation(operation, error, null)
+		push_error("[GFStorageUtility] 异步保存失败：%s，原因：%s，错误码：%s" % [
+			file_name,
+			failure_reason,
+			error,
+		])
+		_finish_payload_attempt(operation)
+		_complete_async_operation(
+			operation,
+			error,
+			null,
+			write_failure_kind
+		)
 		save_completed.emit(file_name, error)
 	elif task_type == &"load":
-		push_error("[GFStorageUtility] 无法启动异步读取线程：%s，错误码：%s" % [file_name, error])
+		push_error("[GFStorageUtility] 异步读取失败：%s，原因：%s，错误码：%s" % [
+			file_name,
+			failure_reason,
+			error,
+		])
 		var failed_result: GFStorageReadResult = _make_load_failure(
-			"Thread start failed: %s" % error_string(error),
+			"%s: %s" % [failure_reason, error_string(error)],
 			error,
 			GFStorageReadResult.FailureKind.IO_FAILED
 		)
@@ -1107,9 +1431,29 @@ func _complete_finished_async_task(task: Dictionary, result_variant: Variant) ->
 	if task_type == &"save":
 		var save_result: Dictionary = GFVariantData.as_dictionary(result_variant)
 		var error: Error = ERR_BUG
+		var write_failure_kind: GFStorageAsyncResult.WriteFailureKind = GFStorageAsyncResult.WriteFailureKind.IO_FAILED
+		var validation_report: Dictionary = {}
 		if not save_result.is_empty():
 			error = _get_result_error(save_result, ERR_BUG)
-		_complete_async_operation(operation, error, null)
+			write_failure_kind = _to_write_failure_kind(
+				GFVariantData.get_option_int(
+					save_result,
+					"write_failure_kind",
+					GFStorageAsyncResult.WriteFailureKind.IO_FAILED
+				)
+			)
+			validation_report = GFVariantData.get_option_dictionary(
+				save_result,
+				"validation_report"
+			)
+		_finish_payload_attempt(operation)
+		_complete_async_operation(
+			operation,
+			error,
+			null,
+			write_failure_kind,
+			validation_report
+		)
 		save_completed.emit(file_name, error)
 	elif task_type == &"load":
 		_complete_async_load(file_name, result_variant, operation)
@@ -1121,7 +1465,13 @@ func _fail_queued_async_tasks(reason: String) -> void:
 		var task_type: StringName = _get_task_type(task)
 		var operation: GFStorageAsyncOperation = _get_task_operation(task)
 		if task_type == &"save":
-			_complete_async_operation(operation, ERR_UNAVAILABLE, null)
+			_finish_payload_attempt(operation)
+			_complete_async_operation(
+				operation,
+				ERR_UNAVAILABLE,
+				null,
+				GFStorageAsyncResult.WriteFailureKind.UNAVAILABLE
+			)
 			save_completed.emit(file_name, ERR_UNAVAILABLE)
 		elif task_type == &"load":
 			var failed_result: GFStorageReadResult = _make_load_failure(
@@ -1132,6 +1482,18 @@ func _fail_queued_async_tasks(reason: String) -> void:
 			last_load_result = failed_result.duplicate_result()
 			_complete_async_operation(operation, failed_result.error_code, failed_result)
 			load_completed.emit(file_name, failed_result.duplicate_result())
+
+
+func _finish_payload_attempt(operation: GFStorageAsyncOperation) -> void:
+	if operation == null:
+		return
+	var _finished: bool = operation.finish_payload_attempt_for_framework()
+
+
+func _to_write_failure_kind(value: int) -> GFStorageAsyncResult.WriteFailureKind:
+	if GFStorageAsyncResult.WriteFailureKind.values().has(value):
+		return value as GFStorageAsyncResult.WriteFailureKind
+	return GFStorageAsyncResult.WriteFailureKind.IO_FAILED
 
 
 func _complete_async_load(
@@ -1176,35 +1538,123 @@ func _should_emit_load_integrity_failed(result: GFStorageReadResult) -> bool:
 	return true
 
 
+static func _make_transaction_marker(
+	file_names: Array[String],
+	file_key: String,
+	transaction_id: String,
+	committed: bool,
+	had_final: bool
+) -> Dictionary:
+	return {
+		"schema_version": _TRANSACTION_MARKER_SCHEMA_VERSION,
+		"transaction_id": transaction_id,
+		"file_key": file_key,
+		"files": file_names.duplicate(),
+		"committed": committed,
+		"had_final": had_final,
+	}
+
+
+static func _is_valid_single_file_transaction_marker(
+	marker: Dictionary,
+	file_name: String
+) -> bool:
+	if marker.size() != 6:
+		return false
+	var schema_value: Variant = marker.get("schema_version")
+	var transaction_value: Variant = marker.get("transaction_id")
+	var file_key_value: Variant = marker.get("file_key")
+	var files_value: Variant = marker.get("files")
+	var committed_value: Variant = marker.get("committed")
+	var had_final_value: Variant = marker.get("had_final")
+	if (
+		not transaction_value is String
+		or not file_key_value is String
+		or not files_value is Array
+		or not committed_value is bool
+		or not had_final_value is bool
+	):
+		return false
+	var schema_version: int = GFVariantData.to_exact_int(schema_value, -1)
+	var marker_transaction_id: String = transaction_value
+	var marker_file_key: String = file_key_value
+	if (
+		schema_version != _TRANSACTION_MARKER_SCHEMA_VERSION
+		or marker_transaction_id.is_empty()
+		or marker_file_key != file_name
+	):
+		return false
+	var files: Array = files_value
+	if files.size() != 1:
+		return false
+	var only_file_value: Variant = files[0]
+	if not only_file_value is String:
+		return false
+	var only_file_name: String = only_file_value
+	return only_file_name == file_name
+
+
 func _save_data_thread(
 	file_name: String,
 	final_path: String,
 	temp_path: String,
 	backup_path: String,
 	transaction_path: String,
+	transaction_id: String,
 	data: Dictionary,
 	codec_options: Dictionary
 ) -> Dictionary:
+	var validation_report: Dictionary = _validate_thread_payload(data)
+	if not GFVariantData.get_option_bool(validation_report, "ok"):
+		return _make_thread_save_result(
+			ERR_INVALID_DATA,
+			GFStorageAsyncResult.WriteFailureKind.PAYLOAD_INVALID,
+			validation_report
+		)
+
 	var dir_error: Error = _ensure_absolute_parent_directory(final_path)
 	if dir_error != OK:
-		return { "error": dir_error }
+		return _make_thread_save_result(
+			dir_error,
+			GFStorageAsyncResult.WriteFailureKind.IO_FAILED,
+			validation_report
+		)
 
 	var thread_codec: GFStorageCodec = GFStorageCodec.new()
 	var bytes: PackedByteArray = thread_codec.encode(data, codec_options)
+	if bytes.is_empty():
+		return _make_thread_save_result(
+			ERR_INVALID_DATA,
+			GFStorageAsyncResult.WriteFailureKind.ENCODE_FAILED,
+			validation_report
+		)
 	var write_error: Error = _write_buffer_absolute(temp_path, bytes)
 	if write_error != OK:
 		_remove_absolute_file_if_exists(temp_path)
-		return { "error": write_error }
+		return _make_thread_save_result(
+			write_error,
+			GFStorageAsyncResult.WriteFailureKind.IO_FAILED,
+			validation_report
+		)
 
 	var had_final: bool = FileAccess.file_exists(final_path)
-	var marker_error: Error = _write_plain_json_absolute(transaction_path, {
-		"files": [file_name],
-		"committed": false,
-		"had_final": had_final,
-	})
+	var marker_error: Error = _write_plain_json_absolute(
+		transaction_path,
+		_make_transaction_marker(
+			[file_name],
+			file_name,
+			transaction_id,
+			false,
+			had_final
+		)
+	)
 	if marker_error != OK:
 		_remove_absolute_file_if_exists(temp_path)
-		return { "error": marker_error }
+		return _make_thread_save_result(
+			marker_error,
+			GFStorageAsyncResult.WriteFailureKind.IO_FAILED,
+			validation_report
+		)
 
 	var backed_up: bool = false
 	var committed: bool = false
@@ -1213,29 +1663,641 @@ func _save_data_thread(
 		if backup_error != OK:
 			_remove_absolute_file_if_exists(temp_path)
 			_remove_absolute_file_if_exists(transaction_path)
-			return { "error": backup_error }
+			return _make_thread_save_result(
+				backup_error,
+				GFStorageAsyncResult.WriteFailureKind.IO_FAILED,
+				validation_report
+			)
 		backed_up = true
 
 	var commit_error: Error = DirAccess.rename_absolute(temp_path, final_path)
 	if commit_error != OK:
 		_rollback_absolute_transaction(final_path, temp_path, backup_path, backed_up, committed)
 		_remove_absolute_file_if_exists(transaction_path)
-		return { "error": commit_error }
+		return _make_thread_save_result(
+			commit_error,
+			GFStorageAsyncResult.WriteFailureKind.IO_FAILED,
+			validation_report
+		)
 	committed = true
 
-	var complete_marker_error: Error = _write_plain_json_absolute(transaction_path, {
-		"files": [file_name],
-		"committed": true,
-		"had_final": had_final,
-	})
+	var complete_marker_error: Error = _write_plain_json_absolute(
+		transaction_path,
+		_make_transaction_marker(
+			[file_name],
+			file_name,
+			transaction_id,
+			true,
+			had_final
+		)
+	)
 	if complete_marker_error != OK:
 		_rollback_absolute_transaction(final_path, temp_path, backup_path, backed_up, committed)
 		_remove_absolute_file_if_exists(transaction_path)
-		return { "error": complete_marker_error }
+		return _make_thread_save_result(
+			complete_marker_error,
+			GFStorageAsyncResult.WriteFailureKind.IO_FAILED,
+			validation_report
+		)
 
 	_remove_absolute_file_if_exists(backup_path)
 	_remove_absolute_file_if_exists(transaction_path)
-	return { "error": OK }
+	return _make_thread_save_result(
+		OK,
+		GFStorageAsyncResult.WriteFailureKind.NONE,
+		validation_report
+	)
+
+
+func _make_thread_save_result(
+	error_code: Error,
+	write_failure_kind: GFStorageAsyncResult.WriteFailureKind,
+	validation_report: Dictionary
+) -> Dictionary:
+	return {
+		"error": error_code,
+		"write_failure_kind": int(write_failure_kind),
+		"validation_report": validation_report,
+	}
+
+
+func _validate_thread_payload(
+	payload: Dictionary,
+	max_values: int = _PAYLOAD_VALIDATION_MAX_VALUES,
+	max_bytes: int = _PAYLOAD_VALIDATION_MAX_BYTES,
+	max_depth: int = _PAYLOAD_VALIDATION_MAX_DEPTH
+) -> Dictionary:
+	var state: Dictionary = {
+		"visited_values": 0,
+		"visited_bytes": 0,
+		"max_values": maxi(max_values, 1),
+		"max_bytes": maxi(max_bytes, 1),
+		"max_depth": maxi(max_depth, 1),
+		"active_collections": [],
+		"failure_kind": "",
+		"failure_path": "",
+		"failure_path_segments": [],
+		"variant_type": TYPE_NIL,
+		"variant_type_name": "",
+	}
+	_validate_thread_payload_value(payload, "$", [], 0, state)
+	var failure_kind: String = GFVariantData.get_option_string(state, "failure_kind")
+	return {
+		"ok": failure_kind.is_empty(),
+		"failure_kind": failure_kind,
+		"failure_path": GFVariantData.get_option_string(state, "failure_path"),
+		"path_segments": GFVariantData.as_array(
+			state.get("failure_path_segments")
+		).duplicate(true),
+		"variant_type": GFVariantData.get_option_int(state, "variant_type", TYPE_NIL),
+		"variant_type_name": GFVariantData.get_option_string(state, "variant_type_name"),
+		"visited_values": GFVariantData.get_option_int(state, "visited_values"),
+		"visited_bytes": GFVariantData.get_option_int(state, "visited_bytes"),
+	}
+
+
+func _validate_thread_payload_value(
+	value: Variant,
+	path: String,
+	path_segments: Array[Dictionary],
+	depth: int,
+	state: Dictionary
+) -> void:
+	if not GFVariantData.get_option_string(state, "failure_kind").is_empty():
+		return
+	var visited_values: int = GFVariantData.get_option_int(state, "visited_values") + 1
+	state["visited_values"] = visited_values
+	if visited_values > GFVariantData.get_option_int(state, "max_values"):
+		_set_payload_validation_failure(
+			state,
+			&"value_budget_exceeded",
+			path,
+			path_segments,
+			typeof(value)
+		)
+		return
+	if depth > GFVariantData.get_option_int(state, "max_depth"):
+		_set_payload_validation_failure(
+			state,
+			&"depth_limit_exceeded",
+			path,
+			path_segments,
+			typeof(value)
+		)
+		return
+
+	var value_type: Variant.Type = typeof(value) as Variant.Type
+	if not _is_thread_payload_value_type_supported(value_type):
+		_set_payload_validation_failure(
+			state,
+			&"unsupported_variant_type",
+			path,
+			path_segments,
+			value_type
+		)
+		return
+	if not _is_thread_payload_container_type_safe(value, value_type):
+		_set_payload_validation_failure(
+			state,
+			&"unsupported_typed_container",
+			path,
+			path_segments,
+			value_type
+		)
+		return
+	if not _charge_thread_payload_bytes(
+		value,
+		value_type,
+		path,
+		path_segments,
+		state
+	):
+		return
+	var packed_element_count: int = _get_packed_array_element_count(
+		value,
+		value_type
+	)
+	if packed_element_count > 0:
+		visited_values += packed_element_count
+		state["visited_values"] = visited_values
+		if visited_values > GFVariantData.get_option_int(state, "max_values"):
+			_set_payload_validation_failure(
+				state,
+				&"value_budget_exceeded",
+				path,
+				path_segments,
+				value_type
+			)
+			return
+	if not _is_thread_payload_value_finite(value, value_type):
+		_set_payload_validation_failure(
+			state,
+			&"non_finite_number",
+			path,
+			path_segments,
+			value_type
+		)
+		return
+	if value_type != TYPE_ARRAY and value_type != TYPE_DICTIONARY:
+		return
+
+	var active_collections: Array = GFVariantData.as_array(state.get("active_collections"))
+	for collection: Variant in active_collections:
+		if is_same(collection, value):
+			_set_payload_validation_failure(
+				state,
+				&"circular_reference",
+				path,
+				path_segments,
+				value_type
+			)
+			return
+	active_collections.append(value)
+	state["active_collections"] = active_collections
+	if value_type == TYPE_ARRAY:
+		var array: Array = value
+		for index: int in range(array.size()):
+			var item_segments: Array[Dictionary] = path_segments.duplicate()
+			item_segments.append({
+				"kind": "array_index",
+				"index": index,
+			})
+			_validate_thread_payload_value(
+				array[index],
+				"%s[%d]" % [path, index],
+				item_segments,
+				depth + 1,
+				state
+			)
+			if not GFVariantData.get_option_string(state, "failure_kind").is_empty():
+				break
+	else:
+		var dictionary: Dictionary = value
+		var entry_index: int = 0
+		for key: Variant in dictionary:
+			var key_segments: Array[Dictionary] = path_segments.duplicate()
+			key_segments.append({
+				"kind": "dictionary_key",
+				"entry_index": entry_index,
+			})
+			_validate_thread_payload_value(
+				key,
+				"%s{key:%d}" % [path, entry_index],
+				key_segments,
+				depth + 1,
+				state
+			)
+			if not GFVariantData.get_option_string(state, "failure_kind").is_empty():
+				break
+			var value_segments: Array[Dictionary] = path_segments.duplicate()
+			value_segments.append({
+				"kind": "dictionary_value",
+				"entry_index": entry_index,
+			})
+			_validate_thread_payload_value(
+				dictionary[key],
+				"%s{value:%d}" % [path, entry_index],
+				value_segments,
+				depth + 1,
+				state
+			)
+			if not GFVariantData.get_option_string(state, "failure_kind").is_empty():
+				break
+			entry_index += 1
+	var _removed_collection: Variant = active_collections.pop_back()
+	state["active_collections"] = active_collections
+
+
+func _is_thread_payload_value_type_supported(value_type: Variant.Type) -> bool:
+	return value_type in [
+		TYPE_NIL,
+		TYPE_BOOL,
+		TYPE_INT,
+		TYPE_FLOAT,
+		TYPE_STRING,
+		TYPE_VECTOR2,
+		TYPE_VECTOR2I,
+		TYPE_RECT2,
+		TYPE_RECT2I,
+		TYPE_VECTOR3,
+		TYPE_VECTOR3I,
+		TYPE_TRANSFORM2D,
+		TYPE_VECTOR4,
+		TYPE_VECTOR4I,
+		TYPE_PLANE,
+		TYPE_QUATERNION,
+		TYPE_AABB,
+		TYPE_BASIS,
+		TYPE_TRANSFORM3D,
+		TYPE_COLOR,
+		TYPE_STRING_NAME,
+		TYPE_NODE_PATH,
+		TYPE_DICTIONARY,
+		TYPE_ARRAY,
+		TYPE_PACKED_BYTE_ARRAY,
+		TYPE_PACKED_INT32_ARRAY,
+		TYPE_PACKED_INT64_ARRAY,
+		TYPE_PACKED_FLOAT32_ARRAY,
+		TYPE_PACKED_FLOAT64_ARRAY,
+		TYPE_PACKED_STRING_ARRAY,
+		TYPE_PACKED_VECTOR2_ARRAY,
+		TYPE_PACKED_VECTOR3_ARRAY,
+		TYPE_PACKED_COLOR_ARRAY,
+		TYPE_PACKED_VECTOR4_ARRAY,
+	]
+
+
+func _is_thread_payload_container_type_safe(
+	value: Variant,
+	value_type: Variant.Type
+) -> bool:
+	if value_type == TYPE_ARRAY:
+		var array: Array = value
+		if not array.is_typed():
+			return true
+		if array.get_typed_script() != null or not array.get_typed_class_name().is_empty():
+			return false
+		return _is_thread_payload_value_type_supported(
+			array.get_typed_builtin() as Variant.Type
+		)
+	if value_type == TYPE_DICTIONARY:
+		var dictionary: Dictionary = value
+		if not dictionary.is_typed():
+			return true
+		if (
+			dictionary.get_typed_key_script() != null
+			or dictionary.get_typed_value_script() != null
+			or not dictionary.get_typed_key_class_name().is_empty()
+			or not dictionary.get_typed_value_class_name().is_empty()
+		):
+			return false
+		return (
+			_is_thread_payload_value_type_supported(
+				dictionary.get_typed_key_builtin() as Variant.Type
+			)
+			and _is_thread_payload_value_type_supported(
+				dictionary.get_typed_value_builtin() as Variant.Type
+			)
+		)
+	return true
+
+
+func _charge_thread_payload_bytes(
+	value: Variant,
+	value_type: Variant.Type,
+	path: String,
+	path_segments: Array[Dictionary],
+	state: Dictionary
+) -> bool:
+	var max_bytes: int = GFVariantData.get_option_int(state, "max_bytes")
+	var visited_bytes: int = GFVariantData.get_option_int(state, "visited_bytes")
+	var remaining_bytes: int = maxi(max_bytes - visited_bytes, 0)
+	var byte_count: int = _measure_thread_payload_bytes(
+		value,
+		value_type,
+		remaining_bytes
+	)
+	if byte_count > remaining_bytes:
+		state["visited_bytes"] = max_bytes + 1
+		_set_payload_validation_failure(
+			state,
+			&"byte_budget_exceeded",
+			path,
+			path_segments,
+			value_type
+		)
+		return false
+	state["visited_bytes"] = visited_bytes + byte_count
+	return true
+
+
+func _measure_thread_payload_bytes(
+	value: Variant,
+	value_type: Variant.Type,
+	limit: int
+) -> int:
+	match value_type:
+		TYPE_NIL:
+			return 0
+		TYPE_BOOL:
+			return 1
+		TYPE_INT, TYPE_FLOAT:
+			return 8
+		TYPE_STRING:
+			var text: String = value
+			return _measure_utf8_bytes_bounded(text, limit)
+		TYPE_STRING_NAME:
+			var string_name_value: StringName = value
+			return _measure_utf8_bytes_bounded(String(string_name_value), limit)
+		TYPE_NODE_PATH:
+			var node_path_value: NodePath = value
+			return _measure_utf8_bytes_bounded(String(node_path_value), limit)
+		TYPE_VECTOR2, TYPE_VECTOR2I:
+			return 16
+		TYPE_RECT2, TYPE_RECT2I, TYPE_VECTOR4, TYPE_VECTOR4I, TYPE_QUATERNION, TYPE_COLOR:
+			return 32
+		TYPE_VECTOR3, TYPE_VECTOR3I:
+			return 24
+		TYPE_TRANSFORM2D:
+			return 48
+		TYPE_PLANE:
+			return 32
+		TYPE_AABB:
+			return 48
+		TYPE_BASIS:
+			return 72
+		TYPE_TRANSFORM3D:
+			return 96
+		TYPE_ARRAY, TYPE_DICTIONARY:
+			return 16
+		TYPE_PACKED_BYTE_ARRAY:
+			var packed_bytes: PackedByteArray = value
+			return _bounded_byte_product(packed_bytes.size(), 1, limit)
+		TYPE_PACKED_INT32_ARRAY, TYPE_PACKED_FLOAT32_ARRAY:
+			return _bounded_byte_product(
+				_get_packed_array_element_count(value, value_type),
+				4,
+				limit
+			)
+		TYPE_PACKED_INT64_ARRAY, TYPE_PACKED_FLOAT64_ARRAY:
+			return _bounded_byte_product(
+				_get_packed_array_element_count(value, value_type),
+				8,
+				limit
+			)
+		TYPE_PACKED_VECTOR2_ARRAY:
+			return _bounded_byte_product(
+				_get_packed_array_element_count(value, value_type),
+				8,
+				limit
+			)
+		TYPE_PACKED_VECTOR3_ARRAY:
+			return _bounded_byte_product(
+				_get_packed_array_element_count(value, value_type),
+				12,
+				limit
+			)
+		TYPE_PACKED_COLOR_ARRAY, TYPE_PACKED_VECTOR4_ARRAY:
+			return _bounded_byte_product(
+				_get_packed_array_element_count(value, value_type),
+				16,
+				limit
+			)
+		TYPE_PACKED_STRING_ARRAY:
+			var packed_strings: PackedStringArray = value
+			var total_bytes: int = 0
+			for text: String in packed_strings:
+				var text_bytes: int = _measure_utf8_bytes_bounded(
+					text,
+					maxi(limit - total_bytes, 0)
+				)
+				total_bytes += text_bytes
+				if total_bytes > limit:
+					return limit + 1
+			return total_bytes
+	return limit + 1
+
+
+func _bounded_byte_product(element_count: int, element_width: int, limit: int) -> int:
+	if element_count < 0 or element_width <= 0:
+		return limit + 1
+	var maximum_element_count: int = int(float(limit) / float(element_width))
+	if element_count > maximum_element_count:
+		return limit + 1
+	return element_count * element_width
+
+
+func _measure_utf8_bytes_bounded(text: String, limit: int) -> int:
+	var byte_count: int = 0
+	for index: int in range(text.length()):
+		var codepoint: int = text.unicode_at(index)
+		if codepoint <= 0x7f:
+			byte_count += 1
+		elif codepoint <= 0x7ff:
+			byte_count += 2
+		elif codepoint <= 0xffff:
+			byte_count += 3
+		else:
+			byte_count += 4
+		if byte_count > limit:
+			return limit + 1
+	return byte_count
+
+
+func _get_packed_array_element_count(
+	value: Variant,
+	value_type: Variant.Type
+) -> int:
+	match value_type:
+		TYPE_PACKED_BYTE_ARRAY:
+			var packed_bytes: PackedByteArray = value
+			return packed_bytes.size()
+		TYPE_PACKED_INT32_ARRAY:
+			var packed_int_32: PackedInt32Array = value
+			return packed_int_32.size()
+		TYPE_PACKED_INT64_ARRAY:
+			var packed_int_64: PackedInt64Array = value
+			return packed_int_64.size()
+		TYPE_PACKED_FLOAT32_ARRAY:
+			var packed_float_32: PackedFloat32Array = value
+			return packed_float_32.size()
+		TYPE_PACKED_FLOAT64_ARRAY:
+			var packed_float_64: PackedFloat64Array = value
+			return packed_float_64.size()
+		TYPE_PACKED_STRING_ARRAY:
+			var packed_strings: PackedStringArray = value
+			return packed_strings.size()
+		TYPE_PACKED_VECTOR2_ARRAY:
+			var packed_vector_2: PackedVector2Array = value
+			return packed_vector_2.size()
+		TYPE_PACKED_VECTOR3_ARRAY:
+			var packed_vector_3: PackedVector3Array = value
+			return packed_vector_3.size()
+		TYPE_PACKED_COLOR_ARRAY:
+			var packed_colors: PackedColorArray = value
+			return packed_colors.size()
+		TYPE_PACKED_VECTOR4_ARRAY:
+			var packed_vector_4: PackedVector4Array = value
+			return packed_vector_4.size()
+	return 0
+
+
+func _is_thread_payload_value_finite(value: Variant, value_type: Variant.Type) -> bool:
+	match value_type:
+		TYPE_FLOAT:
+			var float_value: float = value
+			return _is_finite_float(float_value)
+		TYPE_VECTOR2:
+			var vector_2: Vector2 = value
+			return _are_finite_floats([vector_2.x, vector_2.y])
+		TYPE_RECT2:
+			var rect_2: Rect2 = value
+			return _are_finite_floats([
+				rect_2.position.x,
+				rect_2.position.y,
+				rect_2.size.x,
+				rect_2.size.y,
+			])
+		TYPE_VECTOR3:
+			var vector_3: Vector3 = value
+			return _are_finite_floats([vector_3.x, vector_3.y, vector_3.z])
+		TYPE_TRANSFORM2D:
+			var transform_2d: Transform2D = value
+			return _are_finite_floats([
+				transform_2d.x.x,
+				transform_2d.x.y,
+				transform_2d.y.x,
+				transform_2d.y.y,
+				transform_2d.origin.x,
+				transform_2d.origin.y,
+			])
+		TYPE_VECTOR4:
+			var vector_4: Vector4 = value
+			return _are_finite_floats([vector_4.x, vector_4.y, vector_4.z, vector_4.w])
+		TYPE_PLANE:
+			var plane: Plane = value
+			return _are_finite_floats([
+				plane.normal.x,
+				plane.normal.y,
+				plane.normal.z,
+				plane.d,
+			])
+		TYPE_QUATERNION:
+			var quaternion: Quaternion = value
+			return _are_finite_floats([
+				quaternion.x,
+				quaternion.y,
+				quaternion.z,
+				quaternion.w,
+			])
+		TYPE_AABB:
+			var bounds: AABB = value
+			return _are_finite_floats([
+				bounds.position.x,
+				bounds.position.y,
+				bounds.position.z,
+				bounds.size.x,
+				bounds.size.y,
+				bounds.size.z,
+			])
+		TYPE_BASIS:
+			var basis: Basis = value
+			return _are_finite_floats([
+				basis.x.x,
+				basis.x.y,
+				basis.x.z,
+				basis.y.x,
+				basis.y.y,
+				basis.y.z,
+				basis.z.x,
+				basis.z.y,
+				basis.z.z,
+			])
+		TYPE_TRANSFORM3D:
+			var transform_3d: Transform3D = value
+			return (
+				_is_thread_payload_value_finite(transform_3d.basis, TYPE_BASIS)
+				and _is_thread_payload_value_finite(transform_3d.origin, TYPE_VECTOR3)
+			)
+		TYPE_COLOR:
+			var color: Color = value
+			return _are_finite_floats([color.r, color.g, color.b, color.a])
+		TYPE_PACKED_FLOAT32_ARRAY:
+			var packed_float_32: PackedFloat32Array = value
+			for item: float in packed_float_32:
+				if not _is_finite_float(item):
+					return false
+		TYPE_PACKED_FLOAT64_ARRAY:
+			var packed_float_64: PackedFloat64Array = value
+			for item: float in packed_float_64:
+				if not _is_finite_float(item):
+					return false
+		TYPE_PACKED_VECTOR2_ARRAY:
+			var packed_vector_2: PackedVector2Array = value
+			for item: Vector2 in packed_vector_2:
+				if not _is_thread_payload_value_finite(item, TYPE_VECTOR2):
+					return false
+		TYPE_PACKED_VECTOR3_ARRAY:
+			var packed_vector_3: PackedVector3Array = value
+			for item: Vector3 in packed_vector_3:
+				if not _is_thread_payload_value_finite(item, TYPE_VECTOR3):
+					return false
+		TYPE_PACKED_COLOR_ARRAY:
+			var packed_color: PackedColorArray = value
+			for item: Color in packed_color:
+				if not _is_thread_payload_value_finite(item, TYPE_COLOR):
+					return false
+		TYPE_PACKED_VECTOR4_ARRAY:
+			var packed_vector_4: PackedVector4Array = value
+			for item: Vector4 in packed_vector_4:
+				if not _is_thread_payload_value_finite(item, TYPE_VECTOR4):
+					return false
+	return true
+
+
+func _are_finite_floats(values: Array[float]) -> bool:
+	for value: float in values:
+		if not _is_finite_float(value):
+			return false
+	return true
+
+
+func _is_finite_float(value: float) -> bool:
+	return not is_nan(value) and not is_inf(value)
+
+
+func _set_payload_validation_failure(
+	state: Dictionary,
+	failure_kind: StringName,
+	path: String,
+	path_segments: Array[Dictionary],
+	value_type: Variant.Type
+) -> void:
+	state["failure_kind"] = String(failure_kind)
+	state["failure_path"] = path
+	state["failure_path_segments"] = path_segments.duplicate(true)
+	state["variant_type"] = int(value_type)
+	state["variant_type_name"] = type_string(value_type)
 
 
 func _load_data_thread(_file_name: String, path: String, codec_options: Dictionary) -> Dictionary:
@@ -1577,7 +2639,7 @@ func _recover_transaction_files(file_names: Array[String]) -> void:
 
 func _recover_transaction_group(file_names: Array[String]) -> void:
 	_ensure_storage_helpers()
-	_transaction_manager._recover_transaction_group(file_names)
+	var _recovery_error: Error = _transaction_manager._recover_transaction_group(file_names)
 
 
 func _recover_transaction_file(file_name: String) -> void:
@@ -2099,6 +3161,39 @@ class _StoragePathPolicy:
 		return true
 
 
+class _FrozenStoragePathPolicy extends _StoragePathPolicy:
+	var _storage_root_path: String
+	var _allow_absolute_paths: bool
+
+	func _init(storage_root_path: String, allow_absolute_paths: bool) -> void:
+		_storage_root_path = storage_root_path
+		_allow_absolute_paths = allow_absolute_paths
+
+	func _get_save_base_path() -> String:
+		return _storage_root_path
+
+	func _get_full_path(file_name: String) -> String:
+		if file_name.is_absolute_path():
+			if not _allow_absolute_paths:
+				push_error("[GFStorageUtility] 已禁用绝对路径：%s" % file_name)
+				return ""
+			return file_name
+		file_name = _sanitize_storage_relative_path(file_name, "file_name")
+		if file_name.is_empty():
+			return ""
+		if _storage_root_path == "user://":
+			return "user://" + file_name
+		return _storage_root_path + "/" + file_name
+
+	func _canonicalize_file_name(path: String, label: String) -> String:
+		if path.is_absolute_path():
+			if not _allow_absolute_paths:
+				push_error("[GFStorageUtility] 已禁用绝对路径：%s" % path)
+				return ""
+			return path.replace("\\", "/").simplify_path()
+		return _sanitize_storage_relative_path(path, label)
+
+
 class _StorageFileOps:
 	var _owner: Object
 	var _path_policy: _StoragePathPolicy
@@ -2251,8 +3346,6 @@ class _StorageTransactionManager:
 	const _TEMP_SUFFIX: String = ".tmp"
 	const _BACKUP_SUFFIX: String = ".bak"
 	const _TRANSACTION_SUFFIX: String = ".txn"
-	const _MARKER_SCHEMA_VERSION: int = 1
-	const _MAX_TRANSACTION_FILES: int = 64
 
 	var _owner: Object
 	var _path_policy: _StoragePathPolicy
@@ -2294,7 +3387,7 @@ class _StorageTransactionManager:
 				continue
 
 			var transaction_files: Array[String] = _discover_transaction_marker_files(marker, file_name)
-			_recover_transaction_group(transaction_files)
+			var _recovery_error: Error = _recover_transaction_group(transaction_files)
 			for transaction_file_name: String in transaction_files:
 				recovered_files[transaction_file_name] = true
 
@@ -2302,12 +3395,98 @@ class _StorageTransactionManager:
 			if not recovered_files.has(file_name):
 				_recover_transaction_file(file_name)
 
-	func _recover_transaction_group(file_names: Array[String]) -> void:
+	func _recover_frozen_file_family(
+		file_name: String,
+		final_path: String,
+		temp_path: String,
+		backup_path: String,
+		transaction_path: String,
+		allow_frozen_absolute_paths: bool
+	) -> Error:
+		if (
+			_path_policy._get_full_path(file_name) != final_path
+			or _path_policy._get_full_path(_get_temp_filename(file_name)) != temp_path
+			or _path_policy._get_full_path(_get_backup_filename(file_name)) != backup_path
+			or _path_policy._get_full_path(_get_transaction_filename(file_name)) != transaction_path
+		):
+			return ERR_INVALID_PARAMETER
+
+		var marker: Dictionary = _read_transaction_marker_absolute(transaction_path)
+		if _has_unauthorized_frozen_marker_member(marker, allow_frozen_absolute_paths):
+			return ERR_UNAUTHORIZED
+		var transaction_files: Array[String] = _discover_transaction_marker_files(marker, file_name)
+		if transaction_files.size() > 1:
+			return _recover_transaction_group(transaction_files)
+		return _recover_single_file_family(
+			file_name,
+			final_path,
+			temp_path,
+			backup_path,
+			transaction_path
+		)
+
+	func _recover_single_file_family(
+		file_name: String,
+		final_path: String,
+		temp_path: String,
+		backup_path: String,
+		transaction_path: String
+	) -> Error:
+		var marker: Dictionary = _read_transaction_marker_absolute(transaction_path)
+		if GFStorageUtility._is_valid_single_file_transaction_marker(marker, file_name):
+			var committed: bool = GFVariantData.get_option_bool(marker, "committed")
+			var had_final: bool = GFVariantData.get_option_bool(marker, "had_final")
+			if committed:
+				if not FileAccess.file_exists(final_path) and FileAccess.file_exists(temp_path):
+					var promote_error: Error = _file_ops._move_file(temp_path, final_path)
+					if promote_error != OK:
+						return promote_error
+				_file_ops._remove_file_if_exists(temp_path)
+				_file_ops._remove_file_if_exists(backup_path)
+				_file_ops._remove_file_if_exists(transaction_path)
+				return OK
+
+			if FileAccess.file_exists(backup_path):
+				_file_ops._remove_file_if_exists(final_path)
+				var restore_error: Error = _file_ops._move_file(backup_path, final_path)
+				if restore_error != OK:
+					return restore_error
+			elif not had_final:
+				_file_ops._remove_file_if_exists(final_path)
+			_file_ops._remove_file_if_exists(temp_path)
+			_file_ops._remove_file_if_exists(transaction_path)
+			return OK
+
+		var has_final: bool = FileAccess.file_exists(final_path)
+		var has_temp: bool = FileAccess.file_exists(temp_path)
+		var has_backup: bool = FileAccess.file_exists(backup_path)
+		if has_backup and (not has_final or has_temp):
+			if has_final:
+				_file_ops._remove_file_if_exists(final_path)
+			var restore_error: Error = _file_ops._move_file(backup_path, final_path)
+			if restore_error != OK:
+				return restore_error
+			_file_ops._remove_file_if_exists(temp_path)
+			_file_ops._remove_file_if_exists(transaction_path)
+			return OK
+		if has_backup and has_final:
+			_file_ops._remove_file_if_exists(backup_path)
+		if has_temp and not has_final and not has_backup:
+			var promote_error: Error = _file_ops._move_file(temp_path, final_path)
+			if promote_error != OK:
+				return promote_error
+		elif has_temp and has_final:
+			_file_ops._remove_file_if_exists(temp_path)
+		_file_ops._remove_file_if_exists(transaction_path)
+		return OK
+
+	func _recover_transaction_group(file_names: Array[String]) -> Error:
 		file_names = _unique_file_names(file_names)
 		if file_names.is_empty():
-			return
+			return ERR_INVALID_PARAMETER
 
 		var should_keep_new_files: bool = _is_transaction_group_committed(file_names)
+		var recovery_error: Error = OK
 		if should_keep_new_files:
 			for file_name: String in file_names:
 				var final_path: String = _path_policy._get_full_path(file_name)
@@ -2316,16 +3495,20 @@ class _StorageTransactionManager:
 					var promote_error: Error = _file_ops._move_file(temp_path, final_path)
 					if promote_error != OK:
 						push_error("[GFStorageUtility] 恢复已提交事务文件失败：%s，错误码：%s" % [final_path, promote_error])
+						if recovery_error == OK:
+							recovery_error = promote_error
 						continue
-				_file_ops._remove_file_if_exists(temp_path)
+			if recovery_error != OK:
+				return recovery_error
+			for file_name: String in file_names:
+				_file_ops._remove_file_if_exists(_path_policy._get_full_path(_get_temp_filename(file_name)))
 				_file_ops._remove_file_if_exists(_path_policy._get_full_path(_get_backup_filename(file_name)))
 				_file_ops._remove_file_if_exists(_path_policy._get_full_path(_get_transaction_filename(file_name)))
-			return
+			return OK
 
 		for file_name: String in file_names:
 			var marker: Dictionary = _read_transaction_marker(file_name)
 			var final_path: String = _path_policy._get_full_path(file_name)
-			var temp_path: String = _path_policy._get_full_path(_get_temp_filename(file_name))
 			var backup_path: String = _path_policy._get_full_path(_get_backup_filename(file_name))
 			var had_final: bool = GFVariantData.get_option_bool(marker, "had_final", true)
 
@@ -2334,11 +3517,17 @@ class _StorageTransactionManager:
 				var restore_error: Error = _file_ops._move_file(backup_path, final_path)
 				if restore_error != OK:
 					push_error("[GFStorageUtility] 回滚事务文件失败：%s，错误码：%s" % [final_path, restore_error])
+					if recovery_error == OK:
+						recovery_error = restore_error
 			elif not had_final:
 				_file_ops._remove_file_if_exists(final_path)
 
-			_file_ops._remove_file_if_exists(temp_path)
+		if recovery_error != OK:
+			return recovery_error
+		for file_name: String in file_names:
+			_file_ops._remove_file_if_exists(_path_policy._get_full_path(_get_temp_filename(file_name)))
 			_file_ops._remove_file_if_exists(_path_policy._get_full_path(_get_transaction_filename(file_name)))
+		return OK
 
 	func _recover_transaction_file(file_name: String) -> void:
 		var final_path: String = _path_policy._get_full_path(file_name)
@@ -2446,7 +3635,7 @@ class _StorageTransactionManager:
 
 	func _write_transaction_markers(file_names: Array[String], committed: bool) -> Error:
 		file_names = _unique_file_names(file_names)
-		if file_names.is_empty() or file_names.size() > _MAX_TRANSACTION_FILES:
+		if file_names.is_empty() or file_names.size() > GFStorageUtility._MAX_TRANSACTION_FILES:
 			return ERR_INVALID_PARAMETER
 		var transaction_id: String = ""
 		if committed:
@@ -2462,14 +3651,13 @@ class _StorageTransactionManager:
 				"had_final",
 				FileAccess.file_exists(_path_policy._get_full_path(file_name))
 			)
-			var marker: Dictionary = {
-				"schema_version": _MARKER_SCHEMA_VERSION,
-				"transaction_id": transaction_id,
-				"file_key": file_name,
-				"files": file_names,
-				"committed": committed,
-				"had_final": had_final,
-			}
+			var marker: Dictionary = GFStorageUtility._make_transaction_marker(
+				file_names,
+				file_name,
+				transaction_id,
+				committed,
+				had_final
+			)
 			var error: Error = _file_ops._write_plain_json(_get_transaction_filename(file_name), marker)
 			if error != OK:
 				return error
@@ -2481,6 +3669,9 @@ class _StorageTransactionManager:
 
 	func _read_transaction_marker(file_name: String) -> Dictionary:
 		var path: String = _path_policy._get_full_path(_get_transaction_filename(file_name))
+		return _read_transaction_marker_absolute(path)
+
+	func _read_transaction_marker_absolute(path: String) -> Dictionary:
 		if not FileAccess.file_exists(path):
 			return {}
 
@@ -2507,7 +3698,11 @@ class _StorageTransactionManager:
 			return []
 		var fallback_result: Array[String] = [fallback_file_name]
 		if (
-			GFVariantData.get_option_int(marker, "schema_version", -1) != _MARKER_SCHEMA_VERSION
+			GFVariantData.get_option_int(
+				marker,
+				"schema_version",
+				-1
+			) != GFStorageUtility._TRANSACTION_MARKER_SCHEMA_VERSION
 			or GFVariantData.get_option_string(marker, "transaction_id").is_empty()
 			or _canonicalize_marker_file_name(GFVariantData.get_option_string(marker, "file_key")) != fallback_file_name
 		):
@@ -2527,7 +3722,7 @@ class _StorageTransactionManager:
 					return fallback_result
 				if not result.has(file_name):
 					result.append(file_name)
-				if result.size() > _MAX_TRANSACTION_FILES:
+				if result.size() > GFStorageUtility._MAX_TRANSACTION_FILES:
 					return fallback_result
 
 		if result.is_empty() or not result.has(fallback_file_name):
@@ -2548,7 +3743,7 @@ class _StorageTransactionManager:
 			if file_name.is_empty() or declared_files.has(file_name):
 				return fallback_result
 			declared_files.append(file_name)
-			if declared_files.size() > _MAX_TRANSACTION_FILES:
+			if declared_files.size() > GFStorageUtility._MAX_TRANSACTION_FILES:
 				return fallback_result
 		if declared_files.is_empty() or not declared_files.has(fallback_file_name):
 			return fallback_result
@@ -2598,6 +3793,23 @@ class _StorageTransactionManager:
 			if not file_name.is_empty() and not result.has(file_name):
 				result.append(file_name)
 		return result
+
+	func _has_unauthorized_frozen_marker_member(
+		marker: Dictionary,
+		allow_frozen_absolute_paths: bool
+	) -> bool:
+		if allow_frozen_absolute_paths:
+			return false
+		var raw_files: Variant = GFVariantData.get_option_value(marker, "files", [])
+		if not (raw_files is Array):
+			return false
+		for raw_file: Variant in raw_files:
+			var file_name: String = _canonicalize_marker_file_name(
+				GFVariantData.to_text(raw_file)
+			)
+			if file_name.is_absolute_path():
+				return true
+		return false
 
 	func _canonicalize_marker_file_name(file_name: String) -> String:
 		if file_name.is_empty():

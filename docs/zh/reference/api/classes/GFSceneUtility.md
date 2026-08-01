@@ -34,9 +34,9 @@
 | 枚举 | [`SceneResourceState`](#member-gfsceneutility-enums-sceneresourcestate) | `enum SceneResourceState` |
 | 属性 | [`max_preloaded_scene_resources`](#member-gfsceneutility-properties-max_preloaded_scene_resources) | `var max_preloaded_scene_resources: int:` |
 | 属性 | [`cache_loaded_scenes`](#member-gfsceneutility-properties-cache_loaded_scenes) | `var cache_loaded_scenes: bool = true` |
-| 属性 | [`scene_preload_map`](#member-gfsceneutility-properties-scene_preload_map) | `var scene_preload_map: GFScenePreloadMap = null` |
-| 属性 | [`auto_preload_map_neighbors_on_switch`](#member-gfsceneutility-properties-auto_preload_map_neighbors_on_switch) | `var auto_preload_map_neighbors_on_switch: bool = true` |
-| 属性 | [`scene_preload_map_radius`](#member-gfsceneutility-properties-scene_preload_map_radius) | `var scene_preload_map_radius: int = -1:` |
+| 属性 | [`scene_preload_map`](#member-gfsceneutility-properties-scene_preload_map) | `var scene_preload_map: GFScenePreloadMap:` |
+| 属性 | [`auto_preload_map_neighbors_on_switch`](#member-gfsceneutility-properties-auto_preload_map_neighbors_on_switch) | `var auto_preload_map_neighbors_on_switch: bool:` |
+| 属性 | [`scene_preload_map_radius`](#member-gfsceneutility-properties-scene_preload_map_radius) | `var scene_preload_map_radius: int:` |
 | 属性 | [`loading_screen_fade_in_method`](#member-gfsceneutility-properties-loading_screen_fade_in_method) | `var loading_screen_fade_in_method: StringName = &"fade_in"` |
 | 属性 | [`loading_screen_fade_out_method`](#member-gfsceneutility-properties-loading_screen_fade_out_method) | `var loading_screen_fade_out_method: StringName = &"fade_out"` |
 | 属性 | [`loading_screen_progress_method`](#member-gfsceneutility-properties-loading_screen_progress_method) | `var loading_screen_progress_method: StringName = &"set_progress"` |
@@ -45,8 +45,13 @@
 | 属性 | [`default_transition_minimum_seconds`](#member-gfsceneutility-properties-default_transition_minimum_seconds) | `var default_transition_minimum_seconds: float = 0.0` |
 | 属性 | [`max_scene_history`](#member-gfsceneutility-properties-max_scene_history) | `var max_scene_history: int:` |
 | 方法 | [`init`](#member-gfsceneutility-methods-init) | `func init() -> void:` |
+| 方法 | [`ready`](#member-gfsceneutility-methods-ready) | `func ready() -> void:` |
 | 方法 | [`tick`](#member-gfsceneutility-methods-tick) | `func tick(_delta: float) -> void:` |
 | 方法 | [`dispose`](#member-gfsceneutility-methods-dispose) | `func dispose() -> void:` |
+| 方法 | [`release_dependencies`](#member-gfsceneutility-methods-release_dependencies) | `func release_dependencies() -> void:` |
+| 方法 | [`set_resource_broker`](#member-gfsceneutility-methods-set_resource_broker) | `func set_resource_broker(broker: GFResourceBroker) -> Error:` |
+| 方法 | [`setup_standalone_resource_broker`](#member-gfsceneutility-methods-setup_standalone_resource_broker) | `func setup_standalone_resource_broker( max_active_requests: int = 4, max_pending_requests: int = 256 ) -> GFResourceBroker:` |
+| 方法 | [`get_resource_broker`](#member-gfsceneutility-methods-get_resource_broker) | `func get_resource_broker() -> GFResourceBroker:` |
 | 方法 | [`load_scene_async`](#member-gfsceneutility-methods-load_scene_async) | `func load_scene_async( path: String, loading_scene_path: String = "", params: Dictionary = {}, minimum_duration_seconds: float = -1.0 ) -> Error:` |
 | 方法 | [`load_scene_with_transition`](#member-gfsceneutility-methods-load_scene_with_transition) | `func load_scene_with_transition(config: GFSceneTransitionConfig) -> Error:` |
 | 方法 | [`preload_scene`](#member-gfsceneutility-methods-preload_scene) | `func preload_scene(path: String, fixed: bool = false) -> Error:` |
@@ -82,8 +87,6 @@
 | 方法 | [`mark_transient`](#member-gfsceneutility-methods-mark_transient) | `func mark_transient(script_cls: Script) -> void:` |
 | 方法 | [`unmark_transient`](#member-gfsceneutility-methods-unmark_transient) | `func unmark_transient(script_cls: Script) -> void:` |
 | 方法 | [`cleanup_transients`](#member-gfsceneutility-methods-cleanup_transients) | `func cleanup_transients() -> void:` |
-| 方法 | [`_should_load_active_scene_synchronously`](#member-gfsceneutility-methods-_should_load_active_scene_synchronously) | `func _should_load_active_scene_synchronously() -> bool:` |
-| 方法 | [`_load_packed_scene_synchronously`](#member-gfsceneutility-methods-_load_packed_scene_synchronously) | `func _load_packed_scene_synchronously(path: String) -> PackedScene:` |
 | 方法 | [`_get_loading_scene_node`](#member-gfsceneutility-methods-_get_loading_scene_node) | `func _get_loading_scene_node() -> Node:` |
 | 方法 | [`_do_change_scene`](#member-gfsceneutility-methods-_do_change_scene) | `func _do_change_scene(scene: PackedScene) -> bool:` |
 | 方法 | [`_do_change_scene_sync`](#member-gfsceneutility-methods-_do_change_scene_sync) | `func _do_change_scene_sync(path: String) -> Error:` |
@@ -443,9 +446,10 @@ var cache_loaded_scenes: bool = true
 ### `scene_preload_map`
 
 - API：`public`
+- 首次版本：`2.6.0`
 
 ```gdscript
-var scene_preload_map: GFScenePreloadMap = null
+var scene_preload_map: GFScenePreloadMap:
 ```
 
 可选场景预加载图谱；配置后可按当前场景自动预热相邻场景。
@@ -455,9 +459,10 @@ var scene_preload_map: GFScenePreloadMap = null
 ### `auto_preload_map_neighbors_on_switch`
 
 - API：`public`
+- 首次版本：`2.6.0`
 
 ```gdscript
-var auto_preload_map_neighbors_on_switch: bool = true
+var auto_preload_map_neighbors_on_switch: bool:
 ```
 
 成功切换场景后是否自动按 scene_preload_map 预加载相邻场景。
@@ -467,9 +472,10 @@ var auto_preload_map_neighbors_on_switch: bool = true
 ### `scene_preload_map_radius`
 
 - API：`public`
+- 首次版本：`2.6.0`
 
 ```gdscript
-var scene_preload_map_radius: int = -1:
+var scene_preload_map_radius: int:
 ```
 
 自动图谱预加载半径；小于 0 时使用 GFScenePreloadMap.default_radius。
@@ -572,6 +578,19 @@ func init() -> void:
 
 初始化场景工具的暂停策略。
 
+<a id="member-gfsceneutility-methods-ready"></a>
+
+### `ready`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func ready() -> void:
+```
+
+从所属架构解析显式注册的共享 GFResourceBroker。
+
 <a id="member-gfsceneutility-methods-tick"></a>
 
 ### `tick`
@@ -601,6 +620,77 @@ func dispose() -> void:
 ```
 
 取消待处理场景切换并释放预加载请求、背景参数和缓存。
+
+<a id="member-gfsceneutility-methods-release_dependencies"></a>
+
+### `release_dependencies`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func release_dependencies() -> void:
+```
+
+释放共享 Broker 引用和架构依赖作用域。
+
+<a id="member-gfsceneutility-methods-set_resource_broker"></a>
+
+### `set_resource_broker`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func set_resource_broker(broker: GFResourceBroker) -> Error:
+```
+
+注入共享 Resource Broker。 重复绑定当前 Broker 幂等成功；存在活动场景加载或预载请求时拒绝替换， 避免跨 Broker 拆分同一切换生命周期。当前 Broker 由本 Utility 私有拥有时， 还必须等待它完成 drain 并进入 idle，才能替换为其它 Broker。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `broker` | 要共享的 Broker。 |
+
+返回：绑定结果；请求尚未收敛或私有 Broker 尚未 idle 时返回 `ERR_BUSY`。
+
+<a id="member-gfsceneutility-methods-setup_standalone_resource_broker"></a>
+
+### `setup_standalone_resource_broker`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func setup_standalone_resource_broker( max_active_requests: int = 4, max_pending_requests: int = 256 ) -> GFResourceBroker:
+```
+
+为单个独立 Scene Utility 显式创建私有 Resource Broker。 需要与 Asset 或 BackgroundWork 协调时，应由项目创建一个共享 Broker 并分别注入。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `max_active_requests` | Broker 同时活动的底层请求上限。 |
+| `max_pending_requests` | Broker 等待 admission 的不同请求上限。 |
+
+返回：创建的 Broker；存在活动请求时返回 null。
+
+<a id="member-gfsceneutility-methods-get_resource_broker"></a>
+
+### `get_resource_broker`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func get_resource_broker() -> GFResourceBroker:
+```
+
+获取当前注入的 Resource Broker。
+
+返回：已绑定的 Broker；未配置时返回 null。
 
 <a id="member-gfsceneutility-methods-load_scene_async"></a>
 
@@ -1103,7 +1193,7 @@ func get_scene_cache_debug_snapshot() -> Dictionary:
 
 结构：
 
-- `return`: Dictionary，包含 is_loading、target_path、loading_scene_path、current_scene、loading_progress、transition、preload_cache、scene_preload_map、preloading、background 和 threaded_resource_operations。
+- `return`: Dictionary，包含 is_loading、target_path、loading_scene_path、current_scene、loading_progress、transition、preload_cache、scene_preload_map、preloading、background 和 resource_broker configured/error/admission。
 
 <a id="member-gfsceneutility-methods-get_scene_resource_state"></a>
 
@@ -1297,40 +1387,6 @@ func cleanup_transients() -> void:
 ```
 
 立即清理所有瞬态实例。
-
-<a id="member-gfsceneutility-methods-_should_load_active_scene_synchronously"></a>
-
-### `_should_load_active_scene_synchronously`
-
-- API：`protected`
-
-```gdscript
-func _should_load_active_scene_synchronously() -> bool:
-```
-
-判断当前环境是否应使用同步加载作为活动场景加载降级。
-
-返回：需要同步降级时返回 true。
-
-<a id="member-gfsceneutility-methods-_load_packed_scene_synchronously"></a>
-
-### `_load_packed_scene_synchronously`
-
-- API：`protected`
-
-```gdscript
-func _load_packed_scene_synchronously(path: String) -> PackedScene:
-```
-
-同步加载 PackedScene 资源。
-
-参数：
-
-| 名称 | 说明 |
-|---|---|
-| `path` | 场景资源路径。 |
-
-返回：加载到的 PackedScene；失败时返回 null。
 
 <a id="member-gfsceneutility-methods-_get_loading_scene_node"></a>
 

@@ -12,6 +12,7 @@ class FaultStorage extends GFStorageUtility:
 	var max_active_io_count: int = 0
 	var save_start_error: Error = OK
 	var load_start_error: Error = OK
+	var driver: GFSaveProfileUtility = null
 	var _next_request_id: int = 1
 	var _pending_save_operations: Array[GFStorageAsyncOperation] = []
 	var _pending_load_operations: Array[GFStorageAsyncOperation] = []
@@ -24,6 +25,49 @@ class FaultStorage extends GFStorageUtility:
 		save_calls.append({
 			"file_name": file_name,
 			"data": data.duplicate(true),
+		})
+		if save_start_error != OK:
+			_complete_operation(operation, save_start_error, null)
+			return operation
+		_pending_save_operations.append(operation)
+		active_io_count += 1
+		max_active_io_count = maxi(max_active_io_count, active_io_count)
+		return operation
+
+	func save_payload_request_async(
+		file_name: String,
+		transfer: GFStoragePayloadTransfer
+	) -> GFStorageAsyncOperation:
+		var operation: GFStorageAsyncOperation = _make_operation(
+			GFStorageAsyncOperation.OPERATION_SAVE,
+			file_name
+		)
+		var attempt: Dictionary = (
+			transfer.begin_attempt_for_framework(
+				get_instance_id(),
+				file_name,
+				_get_async_file_key(file_name),
+				_get_codec_options()
+			)
+			if transfer != null
+			else {}
+		)
+		if not GFVariantData.get_option_bool(attempt, "ok"):
+			_complete_operation(
+				operation,
+				ERR_INVALID_PARAMETER,
+				null,
+				GFStorageAsyncResult.WriteFailureKind.INVALID_REQUEST
+			)
+			return operation
+		var attempt_id: int = GFVariantData.get_option_int(attempt, "attempt_id")
+		var _configured_transfer: bool = operation.configure_payload_attempt_for_framework(
+			transfer,
+			attempt_id
+		)
+		save_calls.append({
+			"file_name": file_name,
+			"data": GFVariantData.get_option_dictionary(attempt, "payload").duplicate(true),
 		})
 		if save_start_error != OK:
 			_complete_operation(operation, save_start_error, null)
@@ -56,18 +100,43 @@ class FaultStorage extends GFStorageUtility:
 		return operation
 
 	func complete_save(error_code: Error) -> void:
+		if _pending_save_operations.is_empty() and driver != null:
+			driver.tick(0.0)
 		if _pending_save_operations.is_empty():
 			return
 		var operation: GFStorageAsyncOperation = _pending_save_operations.pop_front()
 		active_io_count = maxi(active_io_count - 1, 0)
 		_complete_operation(operation, error_code, null)
+		if driver != null:
+			driver.tick(0.0)
+
+	func complete_save_payload_invalid(worker_report: Dictionary) -> void:
+		if _pending_save_operations.is_empty() and driver != null:
+			driver.tick(0.0)
+		if _pending_save_operations.is_empty():
+			return
+		var operation: GFStorageAsyncOperation = _pending_save_operations.pop_front()
+		active_io_count = maxi(active_io_count - 1, 0)
+		_complete_operation(
+			operation,
+			ERR_INVALID_DATA,
+			null,
+			GFStorageAsyncResult.WriteFailureKind.PAYLOAD_INVALID,
+			worker_report
+		)
+		if driver != null:
+			driver.tick(0.0)
 
 	func complete_load(result: GFStorageReadResult) -> void:
+		if _pending_load_operations.is_empty() and driver != null:
+			driver.tick(0.0)
 		if _pending_load_operations.is_empty():
 			return
 		var operation: GFStorageAsyncOperation = _pending_load_operations.pop_front()
 		active_io_count = maxi(active_io_count - 1, 0)
 		_complete_operation(operation, result.error_code, result)
+		if driver != null:
+			driver.tick(0.0)
 
 	func get_pending_save_count() -> int:
 		return _pending_save_operations.size()
@@ -85,8 +154,13 @@ class FaultStorage extends GFStorageUtility:
 	func _complete_operation(
 		operation: GFStorageAsyncOperation,
 		error_code: Error,
-		read_result: GFStorageReadResult
+		read_result: GFStorageReadResult,
+		write_failure_kind: GFStorageAsyncResult.WriteFailureKind = (
+			GFStorageAsyncResult.WriteFailureKind.NONE
+		),
+		write_validation_report: Dictionary = {}
 	) -> void:
+		var _finished_transfer: bool = operation.finish_payload_attempt_for_framework()
 		var result: GFStorageAsyncResult = GFStorageAsyncResult.new()
 		var successful: bool = error_code == OK
 		if operation.get_operation() == GFStorageAsyncOperation.OPERATION_LOAD:
@@ -97,14 +171,16 @@ class FaultStorage extends GFStorageUtility:
 			operation.get_file_name(),
 			successful,
 			error_code,
-			read_result
+			read_result,
+			write_failure_kind,
+			write_validation_report
 		)
 		var _completed: bool = operation.complete_for_framework(result)
 
 
 class MemorySectionProvider extends GFSaveSectionProvider:
 	var value: int = 0
-	var fail_gather: bool = false
+	var fail_preparation: bool = false
 	var fail_capture: bool = false
 	var fail_apply: bool = false
 	var fail_rollback: bool = false
@@ -112,21 +188,28 @@ class MemorySectionProvider extends GFSaveSectionProvider:
 	var rollback_count: int = 0
 	var events: Array[String] = []
 	var shared_events: Array[String] = []
-	var gather_callback: Callable = Callable()
+	var preparation_callback: Callable = Callable()
 
-	func _gather_section(_context: Dictionary = {}) -> GFSaveSection:
-		events.append("gather:%s" % String(section_id))
-		shared_events.append("gather:%s" % String(section_id))
-		if gather_callback.is_valid():
-			var _callback_result: Variant = gather_callback.call()
-		if fail_gather:
-			return null
-		return make_section({"value": value})
+	func _begin_save_snapshot(
+		_context: Dictionary = {}
+	) -> GFSaveSectionSnapshotOperation:
+		events.append("prepare:%s" % String(section_id))
+		shared_events.append("prepare:%s" % String(section_id))
+		if preparation_callback.is_valid():
+			var _callback_result: Variant = preparation_callback.call()
+		if fail_preparation:
+			var failed: GFSaveSectionSnapshotOperation = GFSaveSectionSnapshotOperation.new()
+			var _failed: bool = failed._fail_snapshot(
+				ERR_INVALID_DATA,
+				"Injected snapshot failure."
+			)
+			return failed
+		return make_completed_snapshot({"value": value})
 
-	func _capture_section(context: Dictionary = {}) -> GFSaveSection:
+	func _capture_section(_context: Dictionary = {}) -> GFSaveSection:
 		if fail_capture:
 			return null
-		return _gather_section(context)
+		return make_section({"value": value})
 
 	func _apply_section(section: GFSaveSection, _context: Dictionary = {}) -> Error:
 		events.append("apply:%s" % String(section_id))
@@ -166,6 +249,7 @@ func before_each() -> void:
 	_clock = GFManualClock.new(1_000_000, 1_700_000_000_000)
 	_storage = FaultStorage.new()
 	_utility = GFSaveProfileUtility.new().setup(_storage, _clock)
+	_storage.driver = _utility
 
 
 func after_each() -> void:
@@ -173,6 +257,7 @@ func after_each() -> void:
 		_utility.dispose()
 	_utility = null
 	if _storage != null:
+		_storage.driver = null
 		_storage.dispose()
 	_storage = null
 	_clock = null
@@ -184,6 +269,7 @@ func test_save_requests_coalesce_to_latest_generation_without_parallel_writes() 
 
 	provider.value = 1
 	var first: GFSaveProfileOperation = _utility.save_profile(&"test.save")
+	_utility.tick(0.0)
 	provider.value = 2
 	var second: GFSaveProfileOperation = _utility.save_profile(&"test.save")
 	provider.value = 3
@@ -216,6 +302,7 @@ func test_flush_waits_for_latest_generation_visible_at_call_time() -> void:
 	assert_true(_register(_make_profile(&"test.flush", provider)))
 
 	var _first_save: GFSaveProfileOperation = _utility.save_profile(&"test.flush")
+	_utility.tick(0.0)
 	provider.value = 2
 	var _second_save: GFSaveProfileOperation = _utility.save_profile(&"test.flush")
 	var flush: GFSaveProfileOperation = _utility.flush_profile(&"test.flush")
@@ -251,6 +338,7 @@ func test_ready_load_runs_before_newer_queued_save() -> void:
 	var profile: GFSaveProfile = _make_profile(&"test.load_fairness", provider)
 	assert_true(_register(profile))
 	var first_save: GFSaveProfileOperation = _utility.save_profile(profile.profile_id)
+	_utility.tick(0.0)
 	var load_operation: GFSaveProfileOperation = _utility.load_profile(profile.profile_id)
 	provider.value = 2
 	var second_save: GFSaveProfileOperation = _utility.save_profile(profile.profile_id)
@@ -274,6 +362,7 @@ func test_ready_load_and_pending_save_use_bounded_fair_turns() -> void:
 	var profile: GFSaveProfile = _make_profile(&"test.load_save_fairness", provider)
 	assert_true(_register(profile))
 	var _first_save: GFSaveProfileOperation = _utility.save_profile(profile.profile_id)
+	_utility.tick(0.0)
 	var first_load: GFSaveProfileOperation = _utility.load_profile(profile.profile_id)
 	var second_load: GFSaveProfileOperation = _utility.load_profile(profile.profile_id)
 	provider.value = 2
@@ -350,6 +439,46 @@ func test_transient_write_failure_stops_after_retry_schedule_is_exhausted() -> v
 	assert_false(operation.get_result().is_successful())
 	assert_eq(operation.get_result().get_attempt_count(), 2)
 	assert_eq(_storage.save_calls.size(), 2, "有限计划耗尽后不得继续重试。")
+
+
+func test_worker_validation_failure_maps_structural_position_without_key_leakage() -> void:
+	var provider: MemorySectionProvider = _make_provider(&"state", 4)
+	assert_true(_register(_make_profile(&"test.worker_validation", provider)))
+	var operation: GFSaveProfileOperation = _utility.save_profile(
+		&"test.worker_validation"
+	)
+
+	_storage.complete_save_payload_invalid({
+		"failure_kind": "unsupported_variant_type",
+		"path_segments": [
+			{
+				"kind": "dictionary_value",
+				"entry_index": 4,
+				"raw_key": "PRIVATE_ROOT_KEY",
+				"key_token_sha256": "PRIVATE_ROOT_DIGEST",
+			},
+			{
+				"kind": "dictionary_value",
+				"entry_index": 0,
+				"raw_value": "PRIVATE_SECTION_VALUE",
+				"key_token_sha256": "PRIVATE_SECTION_DIGEST",
+			},
+		],
+		"variant_type": TYPE_OBJECT,
+		"variant_type_name": "PRIVATE_TYPE_NAME",
+		"visited_values": 7,
+	})
+
+	assert_true(operation.is_completed())
+	var result: GFSaveProfileResult = operation.get_result()
+	assert_eq(result.get_status(), GFSaveProfileResult.STATUS_PREPARATION_FAILED)
+	assert_eq(result.get_failed_section_id(), &"state")
+	var report_text: String = JSON.stringify(result.get_validation_report())
+	assert_false(report_text.contains("PRIVATE_ROOT_KEY"))
+	assert_false(report_text.contains("PRIVATE_ROOT_DIGEST"))
+	assert_false(report_text.contains("PRIVATE_SECTION_VALUE"))
+	assert_false(report_text.contains("PRIVATE_SECTION_DIGEST"))
+	assert_false(report_text.contains("PRIVATE_TYPE_NAME"))
 
 
 func test_load_apply_failure_rolls_back_applied_sections_in_reverse_order() -> void:
@@ -462,6 +591,7 @@ func test_storage_request_identity_ignores_other_same_file_completions() -> void
 	var profile: GFSaveProfile = _make_profile(&"test.request_identity", provider)
 	assert_true(_register(profile))
 	var first: GFSaveProfileOperation = _utility.save_profile(profile.profile_id)
+	_utility.tick(0.0)
 	var external: GFStorageAsyncOperation = _storage.save_data_request_async(
 		profile.file_name,
 		{"external": true}
@@ -490,6 +620,7 @@ func test_registered_profile_uses_compiled_identity_after_resource_mutation() ->
 	profile.providers = []
 
 	var operation: GFSaveProfileOperation = _utility.save_profile(&"test.compiled")
+	_utility.tick(0.0)
 	assert_eq(GFVariantData.get_option_string(_storage.save_calls[0], "file_name"), original_file_name)
 	_storage.complete_save(OK)
 	assert_true(operation.get_result().is_successful())
@@ -511,6 +642,7 @@ func test_save_is_explicitly_rejected_while_load_is_active() -> void:
 	var profile: GFSaveProfile = _make_profile(&"test.load_save_conflict", provider)
 	assert_true(_register(profile))
 	var load_operation: GFSaveProfileOperation = _utility.load_profile(profile.profile_id)
+	_utility.tick(0.0)
 	provider.value = 20
 	var rejected_save: GFSaveProfileOperation = _utility.save_profile(profile.profile_id)
 	assert_eq(rejected_save.get_result().get_status(), GFSaveProfileResult.STATUS_BUSY)
@@ -525,6 +657,7 @@ func test_dispose_reports_active_write_as_outcome_unknown_once() -> void:
 	var profile: GFSaveProfile = _make_profile(&"test.dispose_unknown", provider)
 	assert_true(_register(profile))
 	var operation: GFSaveProfileOperation = _utility.save_profile(profile.profile_id)
+	_utility.tick(0.0)
 	provider.value = 8
 	var queued_operation: GFSaveProfileOperation = _utility.save_profile(profile.profile_id)
 	var completions: Array[String] = []
@@ -580,15 +713,16 @@ func test_provider_reentrant_save_is_rejected_without_recursive_io() -> void:
 	var profile: GFSaveProfile = _make_profile(&"test.reentrant", provider)
 	assert_true(_register(profile))
 	var nested_operations: Array[GFSaveProfileOperation] = []
-	provider.gather_callback = func() -> void:
+	provider.preparation_callback = func() -> void:
 		nested_operations.append(_utility.save_profile(profile.profile_id))
 	var outer: GFSaveProfileOperation = _utility.save_profile(profile.profile_id)
+	_utility.tick(0.0)
 	assert_eq(_storage.save_calls.size(), 1)
 	assert_eq(nested_operations.size(), 1)
 	assert_eq(nested_operations[0].get_result().get_status(), GFSaveProfileResult.STATUS_BUSY)
 	_storage.complete_save(OK)
 	assert_true(outer.get_result().is_successful())
-	provider.gather_callback = Callable()
+	provider.preparation_callback = Callable()
 
 
 func test_completion_callback_dispose_leaves_disposed_as_final_state() -> void:
@@ -624,6 +758,7 @@ func test_unknown_section_preserve_round_trips_opaque_data() -> void:
 	_storage.complete_load(_read_success(document))
 	assert_true(load_operation.get_result().is_successful())
 	var save_operation: GFSaveProfileOperation = _utility.save_profile(profile.profile_id)
+	_utility.tick(0.0)
 	var saved: GFSaveDocument = GFSaveDocument.from_dict(
 		GFVariantData.get_option_dictionary(_storage.save_calls[-1], "data")
 	)
@@ -667,6 +802,7 @@ func test_unknown_section_reject_is_default_and_drop_is_explicit() -> void:
 	_storage.complete_load(_read_success(drop_document))
 	assert_true(loaded.get_result().is_successful())
 	var _saved: GFSaveProfileOperation = _utility.save_profile(drop_profile.profile_id)
+	_utility.tick(0.0)
 	var saved_document: GFSaveDocument = GFSaveDocument.from_dict(
 		GFVariantData.get_option_dictionary(_storage.save_calls[-1], "data")
 	)
@@ -696,6 +832,7 @@ func test_start_failures_are_typed_and_do_not_hang() -> void:
 	assert_true(_register(profile))
 	_storage.save_start_error = ERR_CANT_CREATE
 	var save_operation: GFSaveProfileOperation = _utility.save_profile(profile.profile_id)
+	_utility.tick(0.0)
 	assert_eq(save_operation.get_result().get_status(), GFSaveProfileResult.STATUS_STORAGE_FAILED)
 	assert_eq(save_operation.get_result().get_attempt_count(), 1)
 	_storage.save_start_error = OK
@@ -704,6 +841,7 @@ func test_start_failures_are_typed_and_do_not_hang() -> void:
 	assert_true(_register(load_profile))
 	_storage.load_start_error = ERR_CANT_OPEN
 	var load_operation: GFSaveProfileOperation = _utility.load_profile(load_profile.profile_id)
+	_utility.tick(0.0)
 	assert_eq(load_operation.get_result().get_status(), GFSaveProfileResult.STATUS_STORAGE_FAILED)
 	assert_eq(load_operation.get_result().get_attempt_count(), 1)
 
@@ -718,6 +856,7 @@ func test_save_timeout_reports_outcome_unknown_and_ignores_late_completion() -> 
 	)
 	assert_true(_register(profile))
 	var operation: GFSaveProfileOperation = _utility.save_profile(profile.profile_id)
+	_utility.tick(0.0)
 	var _advanced: bool = _clock.advance_msec(10)
 	_utility.tick(0.0)
 	assert_eq(operation.get_result().get_status(), GFSaveProfileResult.STATUS_OUTCOME_UNKNOWN)
@@ -737,6 +876,7 @@ func test_detached_write_success_cancels_pending_retry() -> void:
 	)
 	assert_true(_register(profile))
 	var operation: GFSaveProfileOperation = _utility.save_profile(profile.profile_id)
+	_utility.tick(0.0)
 	var _advanced_timeout: bool = _clock.advance_msec(10)
 	_utility.tick(0.0)
 
@@ -762,6 +902,7 @@ func test_detached_write_success_wins_over_active_retry_failure() -> void:
 	)
 	assert_true(_register(profile))
 	var operation: GFSaveProfileOperation = _utility.save_profile(profile.profile_id)
+	_utility.tick(0.0)
 	var _advanced_timeout: bool = _clock.advance_msec(10)
 	_utility.tick(0.0)
 	var _advanced_retry: bool = _clock.advance_msec(5)
@@ -796,20 +937,24 @@ func test_detached_write_success_wins_over_active_retry_failure() -> void:
 	)
 
 
-func test_generation_scoped_unknown_evidence_survives_a_later_gather_failure() -> void:
+func test_generation_scoped_unknown_evidence_survives_a_later_preparation_failure() -> void:
 	var policy: GFSaveRecoveryPolicy = GFSaveRecoveryPolicy.new()
 	policy.io_timeout_msec = 10
 	var provider: MemorySectionProvider = _make_provider(&"state", 1)
 	var profile: GFSaveProfile = _make_profile(&"test.generation_evidence", provider, policy)
 	assert_true(_register(profile))
 	var first: GFSaveProfileOperation = _utility.save_profile(profile.profile_id)
+	_utility.tick(0.0)
 	var first_flush: GFSaveProfileOperation = _utility.flush_profile(profile.profile_id)
-	provider.fail_gather = true
+	provider.fail_preparation = true
 	var second: GFSaveProfileOperation = _utility.save_profile(profile.profile_id)
 	var _advanced: bool = _clock.advance_msec(10)
 	_utility.tick(0.0)
 	assert_eq(first.get_result().get_status(), GFSaveProfileResult.STATUS_OUTCOME_UNKNOWN)
-	assert_eq(second.get_result().get_status(), GFSaveProfileResult.STATUS_GATHER_FAILED)
+	assert_eq(
+		second.get_result().get_status(),
+		GFSaveProfileResult.STATUS_PREPARATION_FAILED
+	)
 	assert_eq(first_flush.get_result().get_status(), GFSaveProfileResult.STATUS_OUTCOME_UNKNOWN)
 	assert_eq(first_flush.get_result().get_storage_request_ids().size(), 1)
 
@@ -824,6 +969,7 @@ func test_timed_out_write_retains_path_ownership_until_late_terminal() -> void:
 	)
 	assert_true(_register(profile))
 	var operation: GFSaveProfileOperation = _utility.save_profile(profile.profile_id)
+	_utility.tick(0.0)
 	var _advanced: bool = _clock.advance_msec(10)
 	_utility.tick(0.0)
 	assert_eq(operation.get_result().get_status(), GFSaveProfileResult.STATUS_OUTCOME_UNKNOWN)
@@ -859,7 +1005,7 @@ func test_future_storage_failure_takes_priority_over_invalid_integrity() -> void
 	assert_false(operation.get_result().was_recovered())
 
 
-func test_dispose_requested_from_gathering_callback_prevents_storage_start() -> void:
+func test_dispose_requested_from_preparation_callback_prevents_storage_start() -> void:
 	var profile: GFSaveProfile = _make_profile(
 		&"test.dispose_admission_barrier",
 		_make_provider(&"state", 1)
@@ -867,10 +1013,11 @@ func test_dispose_requested_from_gathering_callback_prevents_storage_start() -> 
 	assert_true(_register(profile))
 	var _connected: Error = _utility.profile_state_changed.connect(
 		func(_profile_id: StringName, _previous: StringName, current: StringName) -> void:
-			if current == GFSaveProfileUtility.STATE_GATHERING:
+			if current == GFSaveProfileUtility.STATE_PREPARING:
 				_utility.dispose()
 	) as Error
 	var operation: GFSaveProfileOperation = _utility.save_profile(profile.profile_id)
+	_utility.tick(0.0)
 	assert_true(operation.is_completed())
 	assert_eq(operation.get_result().get_status(), GFSaveProfileResult.STATUS_DISPOSED)
 	assert_eq(_storage.save_calls.size(), 0)
@@ -889,6 +1036,7 @@ func test_completion_callback_can_start_a_new_non_recursive_save() -> void:
 			second_operations.append(_utility.save_profile(profile.profile_id))
 	) as Error
 	_storage.complete_save(OK)
+	_utility.tick(0.0)
 	assert_eq(second_operations.size(), 1)
 	assert_eq(_storage.save_calls.size(), 2)
 	assert_false(second_operations[0].is_completed())
@@ -941,14 +1089,23 @@ func test_disabled_profile_rejects_load_and_flush_without_io() -> void:
 	assert_eq(_storage.save_calls.size(), 0)
 
 
-func test_gather_and_snapshot_failures_keep_distinct_statuses() -> void:
-	var gather_provider: MemorySectionProvider = _make_provider(&"state", 1)
-	gather_provider.fail_gather = true
-	var gather_profile: GFSaveProfile = _make_profile(&"test.gather_failure", gather_provider)
-	assert_true(_register(gather_profile))
-	var gather_operation: GFSaveProfileOperation = _utility.save_profile(gather_profile.profile_id)
-	assert_eq(gather_operation.get_result().get_status(), GFSaveProfileResult.STATUS_GATHER_FAILED)
-	assert_eq(gather_operation.get_result().get_attempt_count(), 0)
+func test_preparation_and_rollback_snapshot_failures_keep_distinct_statuses() -> void:
+	var preparation_provider: MemorySectionProvider = _make_provider(&"state", 1)
+	preparation_provider.fail_preparation = true
+	var preparation_profile: GFSaveProfile = _make_profile(
+		&"test.preparation_failure",
+		preparation_provider
+	)
+	assert_true(_register(preparation_profile))
+	var preparation_operation: GFSaveProfileOperation = _utility.save_profile(
+		preparation_profile.profile_id
+	)
+	_utility.tick(0.0)
+	assert_eq(
+		preparation_operation.get_result().get_status(),
+		GFSaveProfileResult.STATUS_PREPARATION_FAILED
+	)
+	assert_eq(preparation_operation.get_result().get_attempt_count(), 0)
 
 	var snapshot_provider: MemorySectionProvider = _make_provider(&"state", 2)
 	snapshot_provider.fail_capture = true
@@ -1128,10 +1285,10 @@ func test_real_storage_round_trip_completes_through_async_signals() -> void:
 	assert_true(GFVariantData.get_option_bool(real_utility.register_profile(profile), "registered"))
 
 	var save_operation: GFSaveProfileOperation = real_utility.save_profile(profile.profile_id)
-	await _pump_real_storage(real_storage, save_operation)
+	await _pump_real_storage(real_utility, real_storage, save_operation)
 	provider.value = 0
 	var load_operation: GFSaveProfileOperation = real_utility.load_profile(profile.profile_id)
-	await _pump_real_storage(real_storage, load_operation)
+	await _pump_real_storage(real_utility, real_storage, load_operation)
 
 	assert_true(save_operation.get_result().is_successful())
 	assert_true(load_operation.get_result().is_successful())
@@ -1162,10 +1319,10 @@ func test_extension_installer_ready_injects_storage_for_real_round_trip() -> voi
 		"registered"
 	))
 	var save_operation: GFSaveProfileOperation = installed_utility.save_profile(profile.profile_id)
-	await _pump_real_storage(real_storage, save_operation)
+	await _pump_real_storage(installed_utility, real_storage, save_operation)
 	provider.value = 0
 	var load_operation: GFSaveProfileOperation = installed_utility.load_profile(profile.profile_id)
-	await _pump_real_storage(real_storage, load_operation)
+	await _pump_real_storage(installed_utility, real_storage, load_operation)
 	assert_true(save_operation.get_result().is_successful())
 	assert_true(load_operation.get_result().is_successful())
 	assert_eq(provider.value, 73)
@@ -1264,10 +1421,12 @@ func _get_saved_value(save_call: Dictionary) -> int:
 
 
 func _pump_real_storage(
+	utility: GFSaveProfileUtility,
 	storage: GFStorageUtility,
 	operation: GFSaveProfileOperation
 ) -> void:
 	for _index: int in range(120):
+		utility.tick(0.0)
 		storage.tick(0.0)
 		if operation.is_completed():
 			return

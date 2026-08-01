@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFBackgroundWorkUtility" path="addons/gf/standard/utilities/jobs/gf_background_work_utility.gd" module="standard" extends="GFUtility" classDigest="888a8e6afb8619b93be6ffde4e76d1d60a6097d5fdf3a0d64bcb15c8cb06061f">
+<class name="GFBackgroundWorkUtility" path="addons/gf/standard/utilities/jobs/gf_background_work_utility.gd" module="standard" extends="GFUtility" classDigest="22a31453b15364dcc10c10e6f54f3a9cf66b9b94c31dd80209d3b6edfd5bd95e">
 	<description>GFBackgroundWorkUtility: 纯数据后台工作协调器。
 统一协调 CPU/IO 线程工作、ResourceLoader 线程加载和主线程应用回调。
 默认只允许纯 Variant 输入数据，避免后台线程直接触碰 Node、Resource 或 Callable。</description>
@@ -132,6 +132,14 @@
 				<tag name="api">public</tag>
 			</tags>
 		</member>
+		<member kind="method" name="ready">
+			<signature>func ready() -&gt; void:</signature>
+			<description>从所属架构解析显式注册的共享 GFResourceBroker。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
 		<member kind="method" name="tick">
 			<signature>func tick(_delta: float = 0.0) -&gt; void:</signature>
 			<description>推进后台工作完成检查与主线程应用。</description>
@@ -145,6 +153,48 @@
 			<description>取消未完成工作、等待线程结束并清理运行时状态。</description>
 			<tags>
 				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="method" name="release_dependencies">
+			<signature>func release_dependencies() -&gt; void:</signature>
+			<description>释放共享 Broker 引用和架构依赖作用域。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="set_resource_broker">
+			<signature>func set_resource_broker(broker: GFResourceBroker) -&gt; Error:</signature>
+			<description>注入共享 Resource Broker。
+重复绑定当前 Broker 幂等成功；存在活动资源请求时拒绝替换，以保证每个消费者
+Lease 始终由同一 Broker 管理。当前 Broker 由本 Utility 私有拥有时，还必须等待
+它完成 drain 并进入 idle，才能替换为其它 Broker。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">broker: 要共享的 Broker。</tag>
+				<tag name="return">绑定结果；请求尚未收敛或私有 Broker 尚未 idle 时返回 `ERR_BUSY`。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="setup_standalone_resource_broker">
+			<signature>func setup_standalone_resource_broker( max_active_requests: int = 4, max_pending_requests: int = 256 ) -&gt; GFResourceBroker:</signature>
+			<description>为单个独立 BackgroundWork Utility 显式创建私有 Resource Broker。
+需要与 Asset 或 Scene 协调时，应由项目创建一个共享 Broker 并分别注入。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">max_active_requests: Broker 同时活动的底层请求上限。</tag>
+				<tag name="param">max_pending_requests: Broker 等待 admission 的不同请求上限。</tag>
+				<tag name="return">创建的 Broker；存在活动资源请求时返回 null。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_resource_broker">
+			<signature>func get_resource_broker() -&gt; GFResourceBroker:</signature>
+			<description>获取当前注入的 Resource Broker。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">已绑定的 Broker；未配置时返回 null。</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 		<member kind="method" name="submit_cpu_work">
@@ -266,7 +316,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">调试快照字典。</tag>
-				<tag name="schema">return: Dictionary，包含任务计数、queued_ids、queued_priority_entries、优先级老化配置、running_thread_ids、resource_paths、resource_draining_count、threaded_resource_operations、apply_ids、finished_ids、暂停状态和 apply 时间预算。</tag>
+				<tag name="schema">return: Dictionary，包含任务计数、queued_ids、queued_priority_entries、优先级老化配置、running_thread_ids、resource_paths、resource_draining_count、resource_broker configured/error/admission、apply_ids、finished_ids、暂停状态和 apply 时间预算。</tag>
 				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>

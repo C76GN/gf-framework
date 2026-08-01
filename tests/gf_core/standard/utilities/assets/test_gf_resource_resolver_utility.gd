@@ -377,20 +377,44 @@ class ResourceProvider:
 class CompletingAssetUtility:
 	extends GFAssetUtility
 
+	var _broker: CompletingResourceBroker = CompletingResourceBroker.new()
+	var complete: bool:
+		get:
+			return _broker.complete
+		set(value):
+			_broker.complete = value
+	var loaded_resource: Resource:
+		get:
+			return _broker.loaded_resource
+	var requested_paths: Array[String]:
+		get:
+			return _broker.requested_paths
+
+	func init() -> void:
+		super.init()
+		_broker.init()
+		var _bind_error: Error = set_resource_broker(_broker)
+
+
+class CompletingResourceBroker:
+	extends GFResourceBroker
+
 	var complete: bool = false
 	var loaded_resource: Resource = Resource.new()
 	var requested_paths: Array[String] = []
 
-	func _request_threaded(path: String, _type_hint: String) -> Error:
+	func _request_threaded_resource(path: String, _type_hint: String) -> Error:
 		requested_paths.append(path)
 		return OK
 
-	func _get_threaded_status_with_progress(_path: String, progress: Array) -> ResourceLoader.ThreadLoadStatus:
-		if progress.size() == 0:
-			progress.append(1.0 if complete else 0.0)
-		else:
-			progress[0] = 1.0 if complete else 0.0
-		return ResourceLoader.THREAD_LOAD_LOADED if complete else ResourceLoader.THREAD_LOAD_IN_PROGRESS
-
-	func _take_threaded_resource(_path: String) -> Resource:
-		return loaded_resource
+	func _poll_threaded_resource(
+		_path: String,
+		_previous_progress: float
+	) -> Dictionary:
+		return {
+			"status": &"loaded" if complete else &"in_progress",
+			"progress": 1.0 if complete else 0.0,
+			"resource": loaded_resource if complete else null,
+			"has_resource": complete,
+			"error": "",
+		}

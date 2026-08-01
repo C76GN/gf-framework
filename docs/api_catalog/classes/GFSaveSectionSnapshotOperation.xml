@@ -1,0 +1,202 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFSaveSectionSnapshotOperation" path="addons/gf/extensions/save/profile/gf_save_section_snapshot_operation.gd" module="extensions/save" extends="RefCounted" classDigest="84f1eb0fa527c1d48aa0a17472d86bff856b2ec91520f6f20833f4138a16c056">
+	<description>GFSaveSectionSnapshotOperation: section 主线程协作式快照操作。
+Provider 在 `_advance_snapshot()` 中按 work budget 推进一个有界 slice，并通过
+`_complete_snapshot()` 或 `_fail_snapshot()` 进入唯一终态。该操作不会创建线程；
+所有 Provider 回调仍由 GFSaveProfileUtility 在主线程调度。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_handle</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants>
+		<member kind="const" name="STATUS_PENDING">
+			<signature>const STATUS_PENDING: StringName = &amp;"pending"</signature>
+			<description>尚未执行 Provider slice。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_RUNNING">
+			<signature>const STATUS_RUNNING: StringName = &amp;"running"</signature>
+			<description>正在等待后续主线程 slice。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_SUCCEEDED">
+			<signature>const STATUS_SUCCEEDED: StringName = &amp;"succeeded"</signature>
+			<description>Snapshot 已准备完成且等待框架接管。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_FAILED">
+			<signature>const STATUS_FAILED: StringName = &amp;"failed"</signature>
+			<description>Provider 准备失败。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_CANCELLED">
+			<signature>const STATUS_CANCELLED: StringName = &amp;"cancelled"</signature>
+			<description>框架停止了未完成准备。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_CLAIMED">
+			<signature>const STATUS_CLAIMED: StringName = &amp;"claimed"</signature>
+			<description>成功 Snapshot 已被框架接管。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</constants>
+	<properties />
+	<methods>
+		<member kind="method" name="completed">
+			<signature>static func completed(snapshot: GFSaveSectionSnapshot) -&gt; GFSaveSectionSnapshotOperation:</signature>
+			<description>创建一个已完成的小型 Snapshot 操作。
+大型 Provider 不应在 begin 回调中调用该便捷方法构造完整数据，而应返回自定义
+Operation，并在 `_advance_snapshot()` 中按预算分片。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">snapshot: 已封存且尚未接管的 Snapshot。</tag>
+				<tag name="return">已成功操作；Snapshot 无效时返回已失败操作。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_status">
+			<signature>func get_status() -&gt; StringName:</signature>
+			<description>获取当前稳定状态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">`STATUS_*` 常量之一。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_section_id">
+			<signature>func get_section_id() -&gt; StringName:</signature>
+			<description>获取绑定的 section ID。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">配置前为空。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_schema_version">
+			<signature>func get_schema_version() -&gt; int:</signature>
+			<description>获取绑定的 schema 版本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">配置前为 0。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_pending">
+			<signature>func is_pending() -&gt; bool:</signature>
+			<description>检查是否仍需主线程推进。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">pending 或 running 时返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_completed">
+			<signature>func is_completed() -&gt; bool:</signature>
+			<description>检查操作是否已经进入终态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">成功、失败、取消或已接管时返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_successful">
+			<signature>func is_successful() -&gt; bool:</signature>
+			<description>检查 Provider 是否成功准备 Snapshot。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">成功或已接管时返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_error_code">
+			<signature>func get_error_code() -&gt; Error:</signature>
+			<description>获取稳定 Error 码。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">失败或取消时的 Error；其他状态为 OK。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_error">
+			<signature>func get_error() -&gt; String:</signature>
+			<description>获取稳定错误描述。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">失败或取消描述。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_consumed_work_units">
+			<signature>func get_consumed_work_units() -&gt; int:</signature>
+			<description>获取框架已计入预算的工作量。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">非负 work units。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_complete_snapshot">
+			<signature>func _complete_snapshot(snapshot: GFSaveSectionSnapshot) -&gt; bool:</signature>
+			<description>以唯一成功 Snapshot 完成操作。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">snapshot: 已封存且尚未接管的 Snapshot。</tag>
+				<tag name="return">首次成功完成时返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_fail_snapshot">
+			<signature>func _fail_snapshot(error_code: Error, error: String) -&gt; bool:</signature>
+			<description>以稳定错误完成操作。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">error_code: 非 OK 的 Godot Error 码。</tag>
+				<tag name="param">error: 不含业务载荷的错误描述。</tag>
+				<tag name="return">首次失败完成时返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_advance_snapshot">
+			<signature>func _advance_snapshot(_step_budget: int) -&gt; int:</signature>
+			<description>推进一个有界主线程 slice。
+实现必须遵守 step_budget，并返回实际消费的 work units。框架无法抢占单次回调，
+因此每个 unit 的上界由 Provider 契约保证。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">_step_budget: 本次最多可消费的 work units。</tag>
+				<tag name="return">实际消费量；框架至少按 1 计费。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_cancel_snapshot">
+			<signature>func _cancel_snapshot() -&gt; void:</signature>
+			<description>响应框架取消。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

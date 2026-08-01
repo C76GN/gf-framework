@@ -1,0 +1,199 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFResourceBroker" path="addons/gf/standard/utilities/assets/gf_resource_broker.gd" module="standard" extends="GFUtility" classDigest="699b6fbcb6cb30cb3e3af73304997d4e8b1f3d8f62743233a4d33aa80de6b60d">
+	<description>GFResourceBroker: framework-level threaded ResourceLoader admission broker。
+一个显式共享实例可以注入 Asset、Scene 与 BackgroundWork Utility，
+统一执行有界 FIFO admission、同资源身份复用、消费者级取消和底层请求 drain。
+Broker 不使用全局 singleton；架构模式应把它注册为 Utility，独立模式应显式
+创建并传给每个消费者。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_service</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants>
+		<member kind="const" name="DEFAULT_MAX_ACTIVE_REQUESTS">
+			<signature>const DEFAULT_MAX_ACTIVE_REQUESTS: int = 4</signature>
+			<description>默认同时允许的底层 threaded resource request 数量。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="ABSOLUTE_MAX_ACTIVE_REQUESTS">
+			<signature>const ABSOLUTE_MAX_ACTIVE_REQUESTS: int = 64</signature>
+			<description>同时活动的底层 threaded resource request 数量绝对上限。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="DEFAULT_MAX_PENDING_REQUESTS">
+			<signature>const DEFAULT_MAX_PENDING_REQUESTS: int = 256</signature>
+			<description>默认最多等待 admission 的不同资源请求数量。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="ABSOLUTE_MAX_PENDING_REQUESTS">
+			<signature>const ABSOLUTE_MAX_PENDING_REQUESTS: int = 4096</signature>
+			<description>等待 admission 的不同资源请求数量绝对上限。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="REASON_ACTIVE_TYPE_HINT_NOT_SATISFIED">
+			<signature>const REASON_ACTIVE_TYPE_HINT_NOT_SATISFIED: String = "active_type_hint_not_satisfied"</signature>
+			<description>活动请求无法追溯收紧 type hint 时写入 Lease 的稳定失败原因。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="REASON_ACTIVE_ADMISSION_CONSTRAINTS_NOT_SATISFIED">
+			<signature>const REASON_ACTIVE_ADMISSION_CONSTRAINTS_NOT_SATISFIED: String = "active_admission_constraints_not_satisfied"</signature>
+			<description>活动请求无法追溯升级 admission 约束时写入 Lease 的稳定失败原因。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</constants>
+	<properties>
+		<member kind="property" name="max_active_requests">
+			<signature>var max_active_requests: int = DEFAULT_MAX_ACTIVE_REQUESTS:</signature>
+			<description>同时允许的底层 threaded resource request 数量。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="max_pending_requests">
+			<signature>var max_pending_requests: int = DEFAULT_MAX_PENDING_REQUESTS:</signature>
+			<description>最多等待 admission 的不同资源请求数量。
+同一路径复用只增加消费者 Lease，不占用额外 pending 配额。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</properties>
+	<methods>
+		<member kind="method" name="init">
+			<signature>func init() -&gt; void:</signature>
+			<description>初始化 Broker。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="tick">
+			<signature>func tick(_delta: float = 0.0) -&gt; void:</signature>
+			<description>推进底层请求轮询与 admission。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">_delta: 统一 Utility tick 参数。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="dispose">
+			<signature>func dispose() -&gt; void:</signature>
+			<description>取消所有消费者，并让已发起的请求保留为 drain 状态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="request">
+			<signature>func request(path: String, type_hint: String = "", options: Dictionary = {}) -&gt; GFResourceLease:</signature>
+			<description>请求一个资源消费者 Lease。
+admission 使用严格 FIFO：队首独占请求会等待全部活动请求 drain，
+后续共享请求不能绕过它。同资源身份且类型提示兼容的请求复用底层加载。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">path: `res://` 或 `uid://` 资源路径。</tag>
+				<tag name="param">type_hint: 可选 ResourceLoader 类型提示。</tag>
+				<tag name="param">options: admission 与诊断选项。</tag>
+				<tag name="return">独立消费者 Lease；拒绝时返回 failed Lease。</tag>
+				<tag name="schema">options: Dictionary with optional exclusive: bool, require_idle: bool, and consumer_id: StringName.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="pump">
+			<signature>func pump() -&gt; void:</signature>
+			<description>推进所有活动请求并尝试 admission。
+架构注册的 Broker 会由 Utility tick 自动调用；独立使用时由调用方显式调用。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="poll_lease">
+			<signature>func poll_lease(lease: GFResourceLease) -&gt; Dictionary:</signature>
+			<description>推进 Broker 并导出指定 Lease 的状态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">lease: 要观察的消费者 Lease。</tag>
+				<tag name="return">Lease 状态字典。</tag>
+				<tag name="schema">return: Dictionary with status, progress, resource, has_resource, error, request_error, path, type_hint, consumer_id, exclusive, require_idle, cancel_reason, and released.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="cancel_all">
+			<signature>func cancel_all(reason: StringName = &amp;"cancelled") -&gt; void:</signature>
+			<description>取消所有尚未完成的消费者 Lease。
+尚未 admission 的请求会立即移除；已经发起的请求继续 drain 到 ResourceLoader 终态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">reason: 用于诊断的稳定取消原因。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_idle">
+			<signature>func is_idle() -&gt; bool:</signature>
+			<description>Broker 是否已经没有 queued、active 或 draining 请求。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">完全 idle 时返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_debug_snapshot">
+			<signature>func get_debug_snapshot() -&gt; Dictionary:</signature>
+			<description>导出有界 admission 与底层请求调试快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">Broker 状态字典。</tag>
+				<tag name="schema">return: Dictionary with active_count, pending_count, draining_count, active_exclusive, active_paths, pending_paths, draining_paths, max_active_requests, and max_pending_requests.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_request_threaded_resource">
+			<signature>func _request_threaded_resource(path: String, type_hint: String) -&gt; Error:</signature>
+			<description>发起底层 ResourceLoader threaded request。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">path: 规范化资源路径。</tag>
+				<tag name="param">type_hint: ResourceLoader 类型提示。</tag>
+				<tag name="return">Godot Error。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_poll_threaded_resource">
+			<signature>func _poll_threaded_resource(path: String, previous_progress: float) -&gt; Dictionary:</signature>
+			<description>轮询底层 ResourceLoader threaded request。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">path: 规范化资源路径。</tag>
+				<tag name="param">previous_progress: 上次已知进度。</tag>
+				<tag name="return">adapter 状态字典。</tag>
+				<tag name="schema">return: Dictionary with status, progress, resource, has_resource, and error.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

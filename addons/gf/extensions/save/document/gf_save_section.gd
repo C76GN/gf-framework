@@ -184,6 +184,29 @@ func duplicate_section() -> GFSaveSection:
 	)
 
 
+# --- 框架内部方法 ---
+
+## 为受控 Storage 交接创建只读 section 记录。
+##
+## 该方法不复制内部 payload。调用方只能在当前 Save Profile 独占写入期间把记录
+## 交给只读 Storage worker，不得修改或长期保留其中的嵌套引用。
+## [br]
+## @api framework_internal
+## [br]
+## @since unreleased
+## [br]
+## @return 规范 section 记录。
+## [br]
+## @schema return: Dictionary with section_id, schema_version, payload, and metadata.
+func get_transfer_record_for_framework() -> Dictionary:
+	return {
+		"section_id": _section_id,
+		"schema_version": _schema_version,
+		"payload": _payload,
+		"metadata": _metadata,
+	}
+
+
 ## 从持久化字典创建分区。
 ##
 ## 该方法执行严格边界检查，不修补非法字段或忽略未知字段。

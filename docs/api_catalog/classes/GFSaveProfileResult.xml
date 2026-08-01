@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSaveProfileResult" path="addons/gf/extensions/save/profile/gf_save_profile_result.gd" module="extensions/save" extends="RefCounted" classDigest="2951c4a14f2349b19a0ebf1efb4ce9dfcba2ffa821b58083c8b5582034714220">
+<class name="GFSaveProfileResult" path="addons/gf/extensions/save/profile/gf_save_profile_result.gd" module="extensions/save" extends="RefCounted" classDigest="0d260f0ed54273194d3c2d8db0819aea3794809c07d6edaff9fa3d9aaf81a47f">
 	<description>GFSaveProfileResult: Save Profile 操作的不可变终态快照。
 结果同时保留 profile generation、底层存储结果、迁移/校验证据和回滚错误，
 调用方无需从错误文本反推失败阶段。</description>
@@ -51,6 +51,14 @@
 				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
+		<member kind="const" name="STATUS_INVALID_REQUEST">
+			<signature>const STATUS_INVALID_REQUEST: StringName = &amp;"invalid_request"</signature>
+			<description>保存请求句柄无效或已经被接管。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
 		<member kind="const" name="STATUS_UNSUPPORTED_OPERATION">
 			<signature>const STATUS_UNSUPPORTED_OPERATION: StringName = &amp;"unsupported_operation"</signature>
 			<description>当前 Profile 不支持请求的操作。</description>
@@ -67,12 +75,12 @@
 				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
-		<member kind="const" name="STATUS_GATHER_FAILED">
-			<signature>const STATUS_GATHER_FAILED: StringName = &amp;"gather_failed"</signature>
-			<description>section 保存采集失败。</description>
+		<member kind="const" name="STATUS_PREPARATION_FAILED">
+			<signature>const STATUS_PREPARATION_FAILED: StringName = &amp;"preparation_failed"</signature>
+			<description>section Snapshot 准备或 worker 载荷预检失败。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">10.0.0</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATUS_SNAPSHOT_FAILED">
@@ -293,10 +301,12 @@
 		</member>
 		<member kind="method" name="get_document">
 			<signature>func get_document() -&gt; GFSaveDocument:</signature>
-			<description>获取最终文档副本。</description>
+			<description>获取读取流程的最终文档副本。
+Save 操作使用单所有者 Storage 交接，不再为结果额外复制完整文档，因此只在
+load 结果中提供文档。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="return">已采集或加载文档；不可用时为 null。</tag>
+				<tag name="return">load 操作已迁移和校验的文档；其他操作返回 null。</tag>
 				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
@@ -344,6 +354,35 @@
 				<tag name="api">public</tag>
 				<tag name="return">单调毫秒耗时。</tag>
 				<tag name="since">10.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_preparation_duration_msec">
+			<signature>func get_preparation_duration_msec() -&gt; int:</signature>
+			<description>获取保存准备阶段耗时。
+该值只覆盖 Provider Snapshot 与交接准备，不包含 Storage IO；非 Save 操作为 0。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">单调毫秒耗时。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_storage_duration_msec">
+			<signature>func get_storage_duration_msec() -&gt; int:</signature>
+			<description>获取活跃 Storage attempt 累计耗时。
+重试等待时间不计入该值；非 IO 操作为 0。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">单调毫秒耗时。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_preparation_work_units">
+			<signature>func get_preparation_work_units() -&gt; int:</signature>
+			<description>获取保存准备累计消费的 work units。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">非负 work units。</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_metadata">

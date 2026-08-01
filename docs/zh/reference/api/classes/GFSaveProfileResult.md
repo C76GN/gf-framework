@@ -20,9 +20,10 @@ Save Profile 操作的不可变终态快照。 结果同时保留 profile genera
 | 常量 | [`STATUS_FLUSHED`](#member-gfsaveprofileresult-constants-status_flushed) | `const STATUS_FLUSHED: StringName = &"flushed"` |
 | 常量 | [`STATUS_RECOVERED`](#member-gfsaveprofileresult-constants-status_recovered) | `const STATUS_RECOVERED: StringName = &"recovered"` |
 | 常量 | [`STATUS_INVALID_PROFILE`](#member-gfsaveprofileresult-constants-status_invalid_profile) | `const STATUS_INVALID_PROFILE: StringName = &"invalid_profile"` |
+| 常量 | [`STATUS_INVALID_REQUEST`](#member-gfsaveprofileresult-constants-status_invalid_request) | `const STATUS_INVALID_REQUEST: StringName = &"invalid_request"` |
 | 常量 | [`STATUS_UNSUPPORTED_OPERATION`](#member-gfsaveprofileresult-constants-status_unsupported_operation) | `const STATUS_UNSUPPORTED_OPERATION: StringName = &"unsupported_operation"` |
 | 常量 | [`STATUS_BUSY`](#member-gfsaveprofileresult-constants-status_busy) | `const STATUS_BUSY: StringName = &"busy"` |
-| 常量 | [`STATUS_GATHER_FAILED`](#member-gfsaveprofileresult-constants-status_gather_failed) | `const STATUS_GATHER_FAILED: StringName = &"gather_failed"` |
+| 常量 | [`STATUS_PREPARATION_FAILED`](#member-gfsaveprofileresult-constants-status_preparation_failed) | `const STATUS_PREPARATION_FAILED: StringName = &"preparation_failed"` |
 | 常量 | [`STATUS_SNAPSHOT_FAILED`](#member-gfsaveprofileresult-constants-status_snapshot_failed) | `const STATUS_SNAPSHOT_FAILED: StringName = &"snapshot_failed"` |
 | 常量 | [`STATUS_STORAGE_FAILED`](#member-gfsaveprofileresult-constants-status_storage_failed) | `const STATUS_STORAGE_FAILED: StringName = &"storage_failed"` |
 | 常量 | [`STATUS_MISSING`](#member-gfsaveprofileresult-constants-status_missing) | `const STATUS_MISSING: StringName = &"missing"` |
@@ -54,6 +55,9 @@ Save Profile 操作的不可变终态快照。 结果同时保留 profile genera
 | 方法 | [`get_validation_report`](#member-gfsaveprofileresult-methods-get_validation_report) | `func get_validation_report() -> Dictionary:` |
 | 方法 | [`get_rollback_errors`](#member-gfsaveprofileresult-methods-get_rollback_errors) | `func get_rollback_errors() -> Array[GFSaveRollbackFailure]:` |
 | 方法 | [`get_duration_msec`](#member-gfsaveprofileresult-methods-get_duration_msec) | `func get_duration_msec() -> int:` |
+| 方法 | [`get_preparation_duration_msec`](#member-gfsaveprofileresult-methods-get_preparation_duration_msec) | `func get_preparation_duration_msec() -> int:` |
+| 方法 | [`get_storage_duration_msec`](#member-gfsaveprofileresult-methods-get_storage_duration_msec) | `func get_storage_duration_msec() -> int:` |
+| 方法 | [`get_preparation_work_units`](#member-gfsaveprofileresult-methods-get_preparation_work_units) | `func get_preparation_work_units() -> int:` |
 | 方法 | [`get_metadata`](#member-gfsaveprofileresult-methods-get_metadata) | `func get_metadata() -> Dictionary:` |
 | 方法 | [`get_storage_request_ids`](#member-gfsaveprofileresult-methods-get_storage_request_ids) | `func get_storage_request_ids() -> PackedInt64Array:` |
 | 方法 | [`to_dict`](#member-gfsaveprofileresult-methods-to_dict) | `func to_dict() -> Dictionary:` |
@@ -126,6 +130,19 @@ const STATUS_INVALID_PROFILE: StringName = &"invalid_profile"
 
 Profile 配置或请求无效。
 
+<a id="member-gfsaveprofileresult-constants-status_invalid_request"></a>
+
+### `STATUS_INVALID_REQUEST`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+const STATUS_INVALID_REQUEST: StringName = &"invalid_request"
+```
+
+保存请求句柄无效或已经被接管。
+
 <a id="member-gfsaveprofileresult-constants-status_unsupported_operation"></a>
 
 ### `STATUS_UNSUPPORTED_OPERATION`
@@ -152,18 +169,18 @@ const STATUS_BUSY: StringName = &"busy"
 
 请求与正在执行的加载或 Provider 回调冲突。
 
-<a id="member-gfsaveprofileresult-constants-status_gather_failed"></a>
+<a id="member-gfsaveprofileresult-constants-status_preparation_failed"></a>
 
-### `STATUS_GATHER_FAILED`
+### `STATUS_PREPARATION_FAILED`
 
 - API：`public`
-- 首次版本：`10.0.0`
+- 首次版本：`unreleased`
 
 ```gdscript
-const STATUS_GATHER_FAILED: StringName = &"gather_failed"
+const STATUS_PREPARATION_FAILED: StringName = &"preparation_failed"
 ```
 
-section 保存采集失败。
+section Snapshot 准备或 worker 载荷预检失败。
 
 <a id="member-gfsaveprofileresult-constants-status_snapshot_failed"></a>
 
@@ -529,9 +546,9 @@ func get_error() -> String:
 func get_document() -> GFSaveDocument:
 ```
 
-获取最终文档副本。
+获取读取流程的最终文档副本。 Save 操作使用单所有者 Storage 交接，不再为结果额外复制完整文档，因此只在 load 结果中提供文档。
 
-返回：已采集或加载文档；不可用时为 null。
+返回：load 操作已迁移和校验的文档；其他操作返回 null。
 
 <a id="member-gfsaveprofileresult-methods-get_storage_result"></a>
 
@@ -611,6 +628,51 @@ func get_duration_msec() -> int:
 获取操作耗时。
 
 返回：单调毫秒耗时。
+
+<a id="member-gfsaveprofileresult-methods-get_preparation_duration_msec"></a>
+
+### `get_preparation_duration_msec`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func get_preparation_duration_msec() -> int:
+```
+
+获取保存准备阶段耗时。 该值只覆盖 Provider Snapshot 与交接准备，不包含 Storage IO；非 Save 操作为 0。
+
+返回：单调毫秒耗时。
+
+<a id="member-gfsaveprofileresult-methods-get_storage_duration_msec"></a>
+
+### `get_storage_duration_msec`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func get_storage_duration_msec() -> int:
+```
+
+获取活跃 Storage attempt 累计耗时。 重试等待时间不计入该值；非 IO 操作为 0。
+
+返回：单调毫秒耗时。
+
+<a id="member-gfsaveprofileresult-methods-get_preparation_work_units"></a>
+
+### `get_preparation_work_units`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func get_preparation_work_units() -> int:
+```
+
+获取保存准备累计消费的 work units。
+
+返回：非负 work units。
 
 <a id="member-gfsaveprofileresult-methods-get_metadata"></a>
 

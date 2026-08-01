@@ -39,6 +39,8 @@ from gdscript_api_parser import ApiDocs
 from gdscript_api_parser import ApiMember
 from gdscript_api_parser import ApiScript
 from gdscript_api_parser import collect_api_scripts
+from gdscript_api_parser import parse_gdscript_source
+from gdscript_api_parser import visibility_of
 import generated_output_transaction
 from build_gf_release_artifacts import audit_release_artifact_manifest
 from generated_output_transaction import GeneratedOutputTransactionError
@@ -100,6 +102,11 @@ GDSCRIPT_API_DECL_RE = re.compile(
 	r"\s*(?:@\w+(?:\([^)]*\))?\s+)*(class_name\s+\w+|signal\s+\w+|enum\s+\w+|const\s+\w+|var\s+\w+|(?:static\s+)?func\s+\w+)"
 )
 GIT_DIFF_HUNK_RE = re.compile(r"@@ -\d+(?:,\d+)? \+(?P<start>\d+)(?:,(?P<count>\d+))? @@")
+PRIVATE_GDSCRIPT_SCRIPT_CONSTANT_RE = re.compile(
+	r"^const\s+(?P<name>_[A-Za-z_]\w*_SCRIPT)\s*(?::\s*Script)?\s*=\s*"
+	r"(?:preload|load)\(\s*(?P<quote>['\"])[^'\"\r\n]+\.gd(?P=quote)\s*\)",
+	re.MULTILINE,
+)
 RESOURCE_LOAD_LITERAL_RE = re.compile(
 	r"\b(?P<callee>preload|load|ResourceLoader\.(?:load|load_interactive|load_threaded_get|load_threaded_request))"
 	r"\s*\(\s*(?P<quote>['\"])(?P<target>.*?)(?P=quote)"
@@ -3523,6 +3530,8 @@ def public_api_boundary() -> dict[str, Any]:
 		if not source:
 			continue
 		issues.extend(audit_public_api_boundary_text(source, relative_path))
+		if path.suffix.lower() == ".gd":
+			issues.extend(audit_private_script_constant_api_exposure_text(source, relative_path))
 	return {
 		"ok": len(issues) == 0,
 		"root": str(ROOT),
@@ -18783,6 +18792,80 @@ def maintenance_self_test() -> dict[str, Any]:
 		"planning track names must not become source/API reference names.",
 	)
 
+	private_script_signature_source = "\n".join([
+		'const _RESOURCE_BROKER_SCRIPT = preload("res://addons/gf/fixture/gf_resource_broker.gd")',
+		"class_name GFPrivateScriptSignatureFixture",
+		"extends RefCounted",
+		"",
+		"## Configure.",
+		"## @api public",
+		"## @param broker: Broker.",
+		"func configure(broker: _RESOURCE_BROKER_SCRIPT) -> void:",
+		"\tpass",
+		"",
+		"## Resolve.",
+		"## @api protected",
+		"## @return: Broker.",
+		"func _resolve() -> _RESOURCE_BROKER_SCRIPT:",
+		"\treturn null",
+	])
+	private_script_signature_issues = audit_private_script_constant_api_exposure_text(
+		private_script_signature_source,
+		"addons/gf/fixture/gf_private_script_signature_fixture.gd",
+	)
+	record_result(
+		"public_api_boundary_rejects_private_script_constant_parameter_and_return_types",
+		issue_exists(
+			private_script_signature_issues,
+			"private_script_constant_api_exposure",
+			api="public",
+			symbol="_RESOURCE_BROKER_SCRIPT",
+		)
+		and issue_exists(
+			private_script_signature_issues,
+			"private_script_constant_api_exposure",
+			api="protected",
+			symbol="_RESOURCE_BROKER_SCRIPT",
+		)
+		and len(private_script_signature_issues) == 2,
+		f"public/protected signatures must reject private script constant types: {private_script_signature_issues}",
+	)
+
+	private_script_internal_source = "\n".join([
+		'const _RESOURCE_BROKER_SCRIPT = preload("res://addons/gf/fixture/gf_resource_broker.gd")',
+		"class_name GFPrivateScriptInternalFixture",
+		"extends RefCounted",
+		"",
+		"## Create.",
+		"## @api public",
+		"## @return: Broker.",
+		"func create() -> GFResourceBroker:",
+		"\tvar broker: _RESOURCE_BROKER_SCRIPT = _RESOURCE_BROKER_SCRIPT.new()",
+		"\treturn broker",
+		"",
+		"## Internal helper.",
+		"## @api framework_internal",
+		"## @param broker: Broker.",
+		"## @return: Broker.",
+		"func normalize_for_framework(broker: _RESOURCE_BROKER_SCRIPT) -> _RESOURCE_BROKER_SCRIPT:",
+		"\treturn broker",
+		"",
+		"func _private_helper(broker: _RESOURCE_BROKER_SCRIPT) -> _RESOURCE_BROKER_SCRIPT:",
+		"\treturn broker",
+	])
+	private_script_internal_issues = audit_private_script_constant_api_exposure_text(
+		private_script_internal_source,
+		"addons/gf/fixture/gf_private_script_internal_fixture.gd",
+	)
+	record_result(
+		"public_api_boundary_allows_private_script_types_in_internal_and_local_implementation",
+		len(private_script_internal_issues) == 0,
+		(
+			"private script constant types may remain in local implementation and non-public methods: "
+			f"{private_script_internal_issues}"
+		),
+	)
+
 	api_schema_class_snapshot = parse_api_class_snapshot(
 		ET.fromstring(
 			'<class name="GFSchemaFixture" path="classes/GFSchemaFixture.xml" '
@@ -20685,6 +20768,59 @@ def audit_public_api_boundary_text(source: str, path: str) -> list[dict[str, Any
 					symbol=term,
 				))
 	return issues
+
+
+def audit_private_script_constant_api_exposure_text(
+	source: str,
+	path: str,
+) -> list[dict[str, Any]]:
+	private_script_constants = {
+		match.group("name")
+		for match in PRIVATE_GDSCRIPT_SCRIPT_CONSTANT_RE.finditer(source)
+	}
+	if not private_script_constants:
+		return []
+
+	api_script = parse_gdscript_source(source, path)
+	issues: list[dict[str, Any]] = []
+	owners = [api_script, *flatten_api_script_inner_classes(api_script)]
+	for owner in owners:
+		for member in owner.methods:
+			visibility = visibility_of(member.docs)
+			if visibility not in {"public", "protected"}:
+				continue
+			parsed_signature = parse_api_method_signature(member.signature)
+			if not parsed_signature:
+				continue
+			referenced_types = {
+				identifier
+				for type_text in [
+					parsed_signature["return_type"],
+					*(param["type"] for param in parsed_signature["params"]),
+				]
+				for identifier in SOURCE_IDENTIFIER_RE.findall(type_text)
+			}
+			for constant_name in sorted(private_script_constants & referenced_types):
+				issues.append(make_boundary_issue(
+					"private_script_constant_api_exposure",
+					path,
+					"Public/protected method signatures must not expose private script constants.",
+					line=member.line,
+					api=visibility,
+					declaration=member.signature,
+					symbol=constant_name,
+				))
+	return issues
+
+
+def flatten_api_script_inner_classes(api_script: ApiScript) -> list[Any]:
+	result: list[Any] = []
+	pending = list(api_script.inner_classes)
+	while pending:
+		api_class = pending.pop(0)
+		result.append(api_class)
+		pending[0:0] = api_class.inner_classes
+	return result
 
 
 def audit_public_doc_boundary_text(source: str, path: str) -> list[dict[str, Any]]:

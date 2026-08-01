@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSaveProfileUtility" path="addons/gf/extensions/save/profile/gf_save_profile_utility.gd" module="extensions/save" extends="GFUtility" classDigest="00549210d3483de3c34ab719ba990f0cdbbf9f163102fa2b2d1824313ab17297">
+<class name="GFSaveProfileUtility" path="addons/gf/extensions/save/profile/gf_save_profile_utility.gd" module="extensions/save" extends="GFUtility" classDigest="0ef1cfaa8cf84b2d61d94bd43431d0b4c483d3626dc12c1e7a91b6802a1e3ec7">
 	<description>GFSaveProfileUtility: 多 section 存档的异步协调器。
 每个 profile 只串行推进一个当前 IO；超时后无法取消的写入会 detached 保留路径所有权。
 连续保存通过 generation 合并为最新后续写入；读取在保存屏障后执行，并在主线程完成迁移、校验和 provider 事务化应用。</description>
@@ -40,12 +40,12 @@
 				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
-		<member kind="const" name="STATE_GATHERING">
-			<signature>const STATE_GATHERING: StringName = &amp;"gathering"</signature>
-			<description>正在同步采集 section。</description>
+		<member kind="const" name="STATE_PREPARING">
+			<signature>const STATE_PREPARING: StringName = &amp;"preparing"</signature>
+			<description>正在主线程分片准备 section Snapshot。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">10.0.0</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATE_SAVING">
@@ -89,7 +89,35 @@
 			</tags>
 		</member>
 	</constants>
-	<properties />
+	<properties>
+		<member kind="property" name="save_preparation_work_budget_per_tick">
+			<signature>var save_preparation_work_budget_per_tick: int = 64:</signature>
+			<description>每帧全部 Profile 共享的保存准备 work-unit 预算。
+该预算是协作式上界；框架无法抢占单次 Provider 回调，因此 Provider 必须保证
+每个 work unit 的成本有界。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="save_preparation_slice_budget">
+			<signature>var save_preparation_slice_budget: int = 8:</signature>
+			<description>单个 Profile 每次轮转最多获得的准备 work units。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="save_preparation_time_budget_usec">
+			<signature>var save_preparation_time_budget_usec: int = 2000:</signature>
+			<description>每帧保存准备的软时间预算（微秒）；为 0 时只使用确定性 work-unit 预算。
+时间预算只能阻止开始下一个协作式 slice，不能抢占正在运行的 Provider 回调。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</properties>
 	<methods>
 		<member kind="method" name="ready">
 			<signature>func ready() -&gt; void:</signature>
@@ -151,18 +179,15 @@
 			</tags>
 		</member>
 		<member kind="method" name="save_profile">
-			<signature>func save_profile( profile_id: StringName, metadata: Dictionary = {}, context: Dictionary = {} ) -&gt; GFSaveProfileOperation:</signature>
+			<signature>func save_profile( profile_id: StringName, request: GFSaveProfileRequest = null ) -&gt; GFSaveProfileOperation:</signature>
 			<description>请求异步保存 profile。
 在途写入期间的新请求只保留最新 generation；每个句柄在覆盖自身 generation
 的写入成功或失败后完成。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">profile_id: profile ID。</tag>
-				<tag name="param">metadata: 写入文档的持久化元数据。</tag>
-				<tag name="param">context: provider 采集使用的临时上下文。</tag>
+				<tag name="param">request: 一次性保存请求；null 表示三个元数据字典均为空。</tag>
 				<tag name="return">保存操作句柄；无效请求返回已失败句柄。</tag>
-				<tag name="schema">metadata: Dictionary with caller-defined persisted document metadata.</tag>
-				<tag name="schema">context: Dictionary with caller-defined ephemeral operation data.</tag>
 				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
@@ -210,7 +235,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">profile_id: profile ID。</tag>
 				<tag name="return">profile 状态摘要；未注册时为空字典。</tag>
-				<tag name="schema">return: Dictionary with profile identity, generation evidence, detached writes, and queue counts.</tag>
+				<tag name="schema">return: Dictionary with profile_id, schema_id, state, generation, persisted_generation, failed_generation, save_queue_size, load_queue_size, flush_queue_size, current_generation, attempt_count, schedule_enqueued, preparation_enqueued, preparation_phase, preparation_provider_index, preparation_section_id, preparation_work_units, preparation_duration_msec, storage_duration_msec, write_outcome_unknown, unknown_write_generations, detached_write_count, and detached_storage_request_ids.</tag>
 				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>

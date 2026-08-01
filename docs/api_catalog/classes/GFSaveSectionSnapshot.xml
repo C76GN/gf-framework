@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFSaveSectionSnapshot" path="addons/gf/extensions/save/profile/gf_save_section_snapshot.gd" module="extensions/save" extends="RefCounted" classDigest="1aeae2405b7c2df5fe7adeb05d578c9ee61611994d8cd9642b6d8b5ef7259015">
+	<description>GFSaveSectionSnapshot: 单个 Save section 的一次性所有权快照。
+Snapshot 只保存纯 Variant 数据，并在框架接管后立即清空自身引用。调用
+`take_ownership()` 后，调用方必须放弃原 payload、metadata 及其全部嵌套别名；
+GDScript 不提供语言级 move 语义，因此该约束属于显式所有权协议。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_handle</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants>
+		<member kind="const" name="STATE_AVAILABLE">
+			<signature>const STATE_AVAILABLE: StringName = &amp;"available"</signature>
+			<description>Snapshot 尚未被框架接管。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATE_CLAIMED">
+			<signature>const STATE_CLAIMED: StringName = &amp;"claimed"</signature>
+			<description>Snapshot 已被框架接管，载荷不再可用。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATE_DISCARDED">
+			<signature>const STATE_DISCARDED: StringName = &amp;"discarded"</signature>
+			<description>Snapshot 已被取消并释放载荷。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</constants>
+	<properties />
+	<methods>
+		<member kind="method" name="take_ownership">
+			<signature>static func take_ownership( section_id: StringName, schema_version: int, payload: Variant, metadata: Dictionary = {} ) -&gt; GFSaveSectionSnapshot:</signature>
+			<description>接管一个 section 的纯数据所有权。
+该方法不会深复制 payload 或 metadata。成功返回后，调用方不得继续读取、修改
+或向其它线程提交原 Dictionary、Array 及其嵌套别名。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">section_id: 稳定 section ID。</tag>
+				<tag name="param">schema_version: 当前 section schema 版本。</tag>
+				<tag name="param">payload: 调用方移交的纯 Variant 载荷。</tag>
+				<tag name="param">metadata: 调用方移交的纯 Variant 元数据。</tag>
+				<tag name="return">可用 Snapshot；身份无效时返回 null。</tag>
+				<tag name="schema">payload: Variant accepted by the Save persisted-value contract.</tag>
+				<tag name="schema">metadata: Dictionary with provider-defined persisted metadata.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_section_id">
+			<signature>func get_section_id() -&gt; StringName:</signature>
+			<description>获取稳定 section ID。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">section ID。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_schema_version">
+			<signature>func get_schema_version() -&gt; int:</signature>
+			<description>获取 section schema 版本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">正整数 schema 版本。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_state">
+			<signature>func get_state() -&gt; StringName:</signature>
+			<description>获取当前所有权状态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">`STATE_*` 常量之一。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_available">
+			<signature>func is_available() -&gt; bool:</signature>
+			<description>检查 Snapshot 是否仍可由框架接管。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">尚未接管或释放时返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>
