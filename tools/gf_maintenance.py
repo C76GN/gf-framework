@@ -2966,7 +2966,9 @@ def compact_api_member(class_name: str, member: dict[str, Any]) -> dict[str, Any
 
 def api_diff_breaking_allowed(base_tag: str, release_version: str) -> bool:
 	base_version = parse_semver(base_tag)
-	release_parts = parse_semver(release_version)
+	release_parts = parse_semver(
+		api_diff_release_target_version(release_version)
+	)
 	if base_version is None or release_parts is None:
 		return False
 	return release_parts[0] > base_version[0]
@@ -2974,7 +2976,9 @@ def api_diff_breaking_allowed(base_tag: str, release_version: str) -> bool:
 
 def api_diff_compatible_feature_allowed(base_tag: str, release_version: str) -> bool:
 	base_version = parse_semver(base_tag)
-	release_parts = parse_semver(release_version)
+	release_parts = parse_semver(
+		api_diff_release_target_version(release_version)
+	)
 	if base_version is None or release_parts is None:
 		return False
 	return (
@@ -2987,7 +2991,7 @@ def api_diff_compatible_feature_allowed(base_tag: str, release_version: str) -> 
 
 
 def find_latest_semver_tag_before(version: str) -> str:
-	release_parts = parse_semver(version)
+	release_parts = parse_semver(api_diff_release_target_version(version))
 	if release_parts is None:
 		return ""
 	tags = [
@@ -3000,6 +3004,10 @@ def find_latest_semver_tag_before(version: str) -> str:
 		return ""
 	tags.sort(key=lambda item: item[1])
 	return tags[-1][0]
+
+
+def api_diff_release_target_version(version: str) -> str:
+	return governed_release_target_version(version)
 
 
 def api_search(query: str, kind: str = "all", limit: int = 20) -> dict[str, Any]:
@@ -19109,15 +19117,33 @@ def maintenance_self_test() -> dict[str, Any]:
 	record_result(
 		"api_baseline_diff_requires_major_for_breaking_changes",
 		not api_diff_breaking_allowed("4.4.0", "4.5.0")
-		and api_diff_breaking_allowed("4.4.0", "5.0.0"),
+		and api_diff_breaking_allowed("4.4.0", "5.0.0")
+		and api_diff_breaking_allowed("10.0.0", "11.0.0-dev.0")
+		and not api_diff_breaking_allowed("10.0.0", "10.1.0-dev.0"),
 		"breaking API baseline changes should require a major version bump.",
 	)
 	record_result(
 		"api_baseline_diff_requires_minor_for_compatible_features",
 		not api_diff_compatible_feature_allowed("8.0.1", "8.0.2")
 		and api_diff_compatible_feature_allowed("8.0.1", "8.1.0")
-		and api_diff_compatible_feature_allowed("8.0.1", "9.0.0"),
+		and api_diff_compatible_feature_allowed("8.0.1", "9.0.0")
+		and api_diff_compatible_feature_allowed(
+			"10.0.0",
+			"11.0.0-dev.0",
+		)
+		and not api_diff_compatible_feature_allowed(
+			"10.0.0",
+			"10.0.1-dev.0",
+		),
 		"backward-compatible public API additions should require at least a minor version bump.",
+	)
+	record_result(
+		"api_baseline_diff_derives_governed_release_target",
+		api_diff_release_target_version("11.0.0-dev.0") == "11.0.0"
+		and api_diff_release_target_version("11.0.0") == "11.0.0"
+		and api_diff_release_target_version("11.0.0-rc.1") == ""
+		and api_diff_release_target_version("11.0.0-dev.0+ci") == "",
+		"API baseline selection and version enforcement must share the governed release core used by the Changelog gate.",
 	)
 	record_result(
 		"changelog_policy_derives_governed_release_target",
@@ -29528,6 +29554,10 @@ def changelog_policy() -> dict[str, Any]:
 
 
 def changelog_release_target_version(framework_version: str) -> str:
+	return governed_release_target_version(framework_version)
+
+
+def governed_release_target_version(framework_version: str) -> str:
 	parsed = gf_semver.parse_semver(framework_version)
 	if parsed is None or parsed.build:
 		return ""

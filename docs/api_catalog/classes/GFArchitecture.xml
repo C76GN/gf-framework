@@ -1,10 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFArchitecture" path="addons/gf/kernel/core/gf_architecture.gd" module="kernel" extends="Object" classDigest="f8bf63c3d4680c2455f0346de461df6d8ba12ac3e92f5fb518310faceba6d472">
+<class name="GFArchitecture" path="addons/gf/kernel/core/gf_architecture.gd" module="kernel" extends="Object" classDigest="ffe58eee8a9758a10073a0edd610bb27e453ff53cf67b105870c134027253e69">
 	<description>GFArchitecture: 管理 Model、System 和 Utility 的注册与生命周期的容器。
-生命周期遵循三阶段初始化协议：
-阶段一 (init)       ：所有模块执行自身内部变量初始化。
-阶段二 (async_init) ：所有模块串行执行异步初始化（可使用 await）。
-阶段三 (ready)      ：所有模块均已完成 init，可安全进行跨模块依赖获取。</description>
+生命周期遵循四阶段初始化协议：
+阶段一 (init)       ：各模块按声明依赖 DAG 执行自身内部变量初始化。
+阶段二 (async_init) ：按同一 DAG 串行执行异步准备（可使用 await）。
+阶段三 (ready)      ：当前模块的声明依赖已 ready，可完成同步装配。
+阶段四 (activation) ：按依赖顺序完成异步启动，全部成功后才开放运行时准入。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">runtime_service</tag>
@@ -27,6 +28,15 @@
 				<tag name="param">reason: 初始化失败原因。</tag>
 			</tags>
 		</member>
+		<member kind="signal" name="shutdown_finished">
+			<signature>signal shutdown_finished(result: GFArchitectureShutdownResult)</signature>
+			<description>当异步关闭流程或同步强制释放发布类型化终态时发出。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">result: 类型化关闭结果快照。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
 		<member kind="signal" name="project_installers_finished">
 			<signature>signal project_installers_finished</signature>
 			<description>当项目级 Installer 应用完成或被 dispose() 中断后发出。</description>
@@ -45,41 +55,6 @@
 				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
-		<member kind="const" name="HOOK_GET_REQUIRED_DEPENDENCIES">
-			<signature>const HOOK_GET_REQUIRED_DEPENDENCIES: StringName = &amp;"get_required_dependencies"</signature>
-			<description>声明式依赖聚合 Hook 名称。</description>
-			<tags>
-				<tag name="api">public</tag>
-			</tags>
-		</member>
-		<member kind="const" name="HOOK_GET_REQUIRED_MODELS">
-			<signature>const HOOK_GET_REQUIRED_MODELS: StringName = &amp;"get_required_models"</signature>
-			<description>声明式 Model 依赖 Hook 名称。</description>
-			<tags>
-				<tag name="api">public</tag>
-			</tags>
-		</member>
-		<member kind="const" name="HOOK_GET_REQUIRED_SYSTEMS">
-			<signature>const HOOK_GET_REQUIRED_SYSTEMS: StringName = &amp;"get_required_systems"</signature>
-			<description>声明式 System 依赖 Hook 名称。</description>
-			<tags>
-				<tag name="api">public</tag>
-			</tags>
-		</member>
-		<member kind="const" name="HOOK_GET_REQUIRED_UTILITIES">
-			<signature>const HOOK_GET_REQUIRED_UTILITIES: StringName = &amp;"get_required_utilities"</signature>
-			<description>声明式 Utility 依赖 Hook 名称。</description>
-			<tags>
-				<tag name="api">public</tag>
-			</tags>
-		</member>
-		<member kind="const" name="HOOK_GET_REQUIRED_FACTORIES">
-			<signature>const HOOK_GET_REQUIRED_FACTORIES: StringName = &amp;"get_required_factories"</signature>
-			<description>声明式工厂依赖 Hook 名称。</description>
-			<tags>
-				<tag name="api">public</tag>
-			</tags>
-		</member>
 		<member kind="const" name="DEFAULT_SNAPSHOT_MODELS_PER_FRAME">
 			<signature>const DEFAULT_SNAPSHOT_MODELS_PER_FRAME: int = 8</signature>
 			<description>分帧快照 API 默认每帧处理的 Model 数量。</description>
@@ -92,17 +67,11 @@
 	<properties>
 		<member kind="property" name="module_async_init_timeout_seconds">
 			<signature>var module_async_init_timeout_seconds: float = 0.0:</signature>
-			<description>单个模块 async_init() 的最长等待时间。小于等于 0 时不启用超时。
+			<description>单个模块 async_init() 的最长等待时间。0 时不启用超时。
 默认关闭；项目可按自身加载预算显式启用。</description>
 			<tags>
 				<tag name="api">public</tag>
-			</tags>
-		</member>
-		<member kind="property" name="module_lifecycle_max_stage_passes">
-			<signature>var module_lifecycle_max_stage_passes: int = 256:</signature>
-			<description>单个生命周期阶段最多扫描模块注册表的次数，避免模块在生命周期中无限注册新模块。</description>
-			<tags>
-				<tag name="api">public</tag>
+				<tag name="since">1.23.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="strict_dependency_lookup">
@@ -110,16 +79,25 @@
 			<description>严格依赖查询模式。开启后本架构查询不到本地模块时不会回退父级架构。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">1.23.0</tag>
 			</tags>
 		</member>
-		<member kind="property" name="fail_on_missing_declared_dependencies">
-			<signature>var fail_on_missing_declared_dependencies: bool = false</signature>
-			<description>声明式依赖缺失时是否直接使初始化失败。
-模块可通过 get_required_dependencies() 或 get_required_models/systems/utilities/factories() 声明依赖。
-开启后，init() 会在模块生命周期推进前校验依赖图，缺失依赖会中止本次初始化。</description>
+		<member kind="property" name="activation_timeout_seconds">
+			<signature>var activation_timeout_seconds: float = 30.0:</signature>
+			<description>架构激活阶段的总等待上限（秒）。
+0 时不启用 deadline；默认 30 秒。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">5.0.0</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="shutdown_timeout_seconds">
+			<signature>var shutdown_timeout_seconds: float = 10.0:</signature>
+			<description>架构 quiesce 阶段的总等待上限（秒）。
+0 时不启用 deadline；默认 10 秒。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 		<member kind="property" name="last_initialization_error">
@@ -141,10 +119,11 @@
 		</member>
 		<member kind="method" name="is_inited">
 			<signature>func is_inited() -&gt; bool:</signature>
-			<description>检查架构是否已初始化。</description>
+			<description>检查架构是否已完成四阶段启动并提交 READY。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="return">已初始化返回 true，否则返回 false。</tag>
+				<tag name="return">四阶段启动全部完成且 activation 已提交时返回 true，否则返回 false。</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="has_initialization_failed">
@@ -157,10 +136,40 @@
 		</member>
 		<member kind="method" name="is_lifecycle_active">
 			<signature>func is_lifecycle_active() -&gt; bool:</signature>
-			<description>检查当前架构生命周期是否仍处于可安全继续异步写回的活动状态。</description>
+			<description>检查当前架构生命周期是否仍处于可安全继续已接纳异步写回的活动状态。
+QUIESCING 期间该值仍可为 true；它不代表允许接纳新工作，新请求还必须通过
+is_accepting_runtime_work() 检查。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="return">正在初始化或已完成初始化，且未被 dispose() 或失败保护中断时返回 true。</tag>
+				<tag name="return">正在初始化、已完成初始化或正在收敛已接纳工作，且未被 dispose() 或失败保护中断时返回 true。</tag>
+				<tag name="since">1.23.2</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_activating">
+			<signature>func is_activating() -&gt; bool:</signature>
+			<description>检查架构是否正在执行第四阶段激活。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">架构正在执行第四阶段激活时返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_quiescing">
+			<signature>func is_quiescing() -&gt; bool:</signature>
+			<description>检查架构是否已经关闭新工作、正在等待已接纳工作收敛。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">架构正在 quiesce 且尚未进入同步释放阶段时返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_accepting_runtime_work">
+			<signature>func is_accepting_runtime_work() -&gt; bool:</signature>
+			<description>检查架构是否仍接纳新的运行时工作。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">仅在完整激活并处于 READY 时返回 true。</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 		<member kind="method" name="is_disposed">
@@ -208,6 +217,25 @@
 				<tag name="api">public</tag>
 				<tag name="param">instance: 由当前架构注册的模块实例。</tag>
 				<tag name="return">模块完成 ready 阶段时返回 true。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_module_active">
+			<signature>func is_module_active(instance: Object) -&gt; bool:</signature>
+			<description>检查模块是否已经完成第四阶段激活。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">instance: 由当前架构本地注册的模块实例。</tag>
+				<tag name="return">模块属于当前架构且已完成第四阶段激活时返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_last_shutdown_result">
+			<signature>func get_last_shutdown_result() -&gt; GFArchitectureShutdownResult:</signature>
+			<description>获取最近一次关闭结果的隔离副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">尚未关闭时返回 null。</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 		<member kind="method" name="fail_initialization">
@@ -284,22 +312,46 @@ DISPOSING / DISPOSED 是不可恢复终态，迟到调用不会改写其状态�
 			</tags>
 		</member>
 		<member kind="method" name="init">
-			<signature>func init() -&gt; bool:</signature>
-			<description>初始化架构及所有注册的组件（三阶段）。
-阶段一：调用所有模块的 init()，用于初始化自身内部变量。
-阶段二：串行 await 所有模块的 async_init()，用于异步资源加载等操作。
-阶段三：调用所有模块的 ready()，此时跨模块依赖获取是安全的。</description>
+			<signature>func init(cancellation_token: GFCancellationToken = null) -&gt; bool:</signature>
+			<description>初始化架构及所有注册的组件（四阶段）。
+阶段一：按声明依赖 DAG 调用模块的 init()，用于初始化自身内部变量。
+阶段二：按同一 DAG 串行 await 模块的 async_init()，用于异步准备。
+阶段三：调用模块的 ready()；当前模块声明的依赖已 ready，未声明依赖无可用保证。
+阶段四：按声明依赖顺序调用 begin_activation()，全部成功后才提交 READY。
+并发调用复用同一初始化事务；首个调用拥有共享流程的取消策略，后续调用的
+token 只取消自身等待，不会中断共享初始化。架构已经 READY 时幂等成功优先于
+调用方 token 的取消状态。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="param">cancellation_token: 可选的初始化取消令牌。</tag>
 				<tag name="return">初始化完成且架构处于 ready 状态时返回 true。</tag>
 				<tag name="since">5.0.0</tag>
 			</tags>
 		</member>
-		<member kind="method" name="dispose">
-			<signature>func dispose() -&gt; void:</signature>
-			<description>销毁架构及所有注册的组件。</description>
+		<member kind="method" name="shutdown_async">
+			<signature>func shutdown_async( cancellation_token: GFCancellationToken = null, timeout_seconds: float = -1.0 ) -&gt; GFArchitectureShutdownResult:</signature>
+			<description>异步关闭架构。
+若活动子架构仍持有本架构的外部依赖租约，本方法会在改变任何生命周期
+状态前返回失败；否则新工作准入会不可逆关闭，已接纳工作按激活计划逆序
+quiesce，随后每个模块的同步 dispose/release hook 恰好执行一次。并发调用共享
+同一流程；首个调用拥有共享流程的 cancellation token 与 deadline 策略，后续
+调用在参数校验通过后只等待并复制同一终态结果。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="param">cancellation_token: 可选关闭取消令牌。</tag>
+				<tag name="param">timeout_seconds: cooperative quiesce 与异步等待预算；仅 -1 使用 shutdown_timeout_seconds。最终同步释放不承诺墙钟硬上限。</tag>
+				<tag name="return">类型化关闭结果。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="dispose">
+			<signature>func dispose() -&gt; void:</signature>
+			<description>强制同步销毁架构及所有注册组件。
+该方法用于 SceneTree 退出等无法等待的终止路径；正常退出应优先 await
+shutdown_async()，以便已接纳工作先收敛。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="tick">
@@ -902,27 +954,33 @@ listener 携带 owner 时返回的句柄会绑定该 owner 生命周期。`once`
 			</tags>
 		</member>
 		<member kind="method" name="unregister_system">
-			<signature>func unregister_system(script_cls: Script) -&gt; void:</signature>
+			<signature>func unregister_system(script_cls: Script) -&gt; bool:</signature>
 			<description>注销 System 实例。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">script_cls: 系统的脚本类。</tag>
+				<tag name="return">模块完成 quiesce 并从活动拓扑移除时返回 true。</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="unregister_model">
-			<signature>func unregister_model(script_cls: Script) -&gt; void:</signature>
+			<signature>func unregister_model(script_cls: Script) -&gt; bool:</signature>
 			<description>注销 Model 实例。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">script_cls: 模型的脚本类。</tag>
+				<tag name="return">模块完成 quiesce 并从活动拓扑移除时返回 true。</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="unregister_utility">
-			<signature>func unregister_utility(script_cls: Script) -&gt; void:</signature>
+			<signature>func unregister_utility(script_cls: Script) -&gt; bool:</signature>
 			<description>注销 Utility 实例。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">script_cls: 工具的脚本类。</tag>
+				<tag name="return">模块完成 quiesce 并从活动拓扑移除时返回 true。</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_system">
@@ -1023,11 +1081,14 @@ listener 携带 owner 时返回的句柄会绑定该 owner 生命周期。`once`
 		</member>
 		<member kind="method" name="create_instance">
 			<signature>func create_instance(script_cls: Script) -&gt; Object:</signature>
-			<description>通过已注册工厂创建短生命周期对象。</description>
+			<description>通过已注册工厂创建短生命周期对象。
+仅在架构已经提交 READY 且没有热拓扑事务时接纳；其它生命周期状态会在
+调用 provider 前返回 null。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">script_cls: 要创建的脚本类型。</tag>
-				<tag name="return">新对象实例；没有工厂或工厂返回非对象时返回 null。</tag>
+				<tag name="return">新对象实例；运行时未开放、没有工厂或工厂返回非对象时返回 null。</tag>
+				<tag name="since">1.9.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="inject_object">
@@ -1203,14 +1264,12 @@ validate 零写入失败固定为 false。</description>
 			</tags>
 		</member>
 		<member kind="method" name="get_dependency_diagnostics">
-			<signature>func get_dependency_diagnostics(options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<signature>func get_dependency_diagnostics() -&gt; Dictionary:</signature>
 			<description>获取架构中已注册模块的声明式依赖诊断报告。
-模块可选择实现 get_required_dependencies() 或 get_required_models/systems/utilities/factories()。</description>
+模块通过 get_required_models/systems/utilities/factories() 分别声明依赖。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="param">options: 可选参数，支持 include_parent_lookup 与 include_factories。</tag>
 				<tag name="return">统一诊断报告字典。</tag>
-				<tag name="schema">options: Dictionary with optional bool keys include_parent_lookup and include_factories.</tag>
 				<tag name="schema">return: Dictionary dependency diagnostics report with modules, resolved_dependencies, missing_dependencies, parent-chain cycle issue records, issue counts, and next_action.</tag>
 				<tag name="since">7.0.0</tag>
 			</tags>

@@ -1,8 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFNodeContext" path="addons/gf/kernel/core/gf_node_context.gd" module="kernel" extends="Node" classDigest="f9f9fb5055c91a438316256d1e0786afe4df4242e67a0c36238c5efdec2ce926">
+<class name="GFNodeContext" path="addons/gf/kernel/core/gf_node_context.gd" module="kernel" extends="Node" classDigest="63a846aa8095abbb6a0ba3d501a29c1da3f859c5f355ea31a009a6175b2f76f4">
 	<description>GFNodeContext: 场景树上的局部架构上下文。
 可选择继承父级架构，或创建带父级回退的 Scoped 架构。
-Scoped 架构会在节点退出树时自动 dispose，适合关卡、战斗房间、调试面板等局部模块。</description>
+Scoped 架构会在节点退出树时使用无法等待的 forced/no-drain dispose fallback，
+适合关卡、战斗房间、调试面板等局部模块。可控或数据关键的退出必须先 await
+owned Architecture 的 shutdown_async()，再移除节点。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">runtime_service</tag>
@@ -12,10 +14,11 @@ Scoped 架构会在节点退出树时自动 dispose，适合关卡、战斗房�
 	<signals>
 		<member kind="signal" name="context_ready">
 			<signature>signal context_ready(architecture: GFArchitecture)</signature>
-			<description>当上下文架构完成初始化后发出。</description>
+			<description>当上下文 Architecture 完成 stage4 activation 并提交 READY 后发出。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">architecture: 当前上下文使用的架构实例。</tag>
+				<tag name="since">1.9.0</tag>
 			</tags>
 		</member>
 		<member kind="signal" name="context_failed">

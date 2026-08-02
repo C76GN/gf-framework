@@ -297,6 +297,58 @@ func test_save_requests_coalesce_to_latest_generation_without_parallel_writes() 
 	assert_eq(_storage.max_active_io_count, 1, "任意时刻只允许一个底层 IO。")
 
 
+func test_activation_declares_and_requires_storage_without_bootstrapping_profiles() -> void:
+	var dependencies: Array[Script] = _utility.get_required_utilities()
+	assert_eq(dependencies, [GFStorageUtility])
+	var standalone: GFSaveProfileUtility = GFSaveProfileUtility.new()
+	var failed: GFAsyncCompletion = standalone.begin_activation(GFAsyncScope.new())
+	assert_true(failed.is_completed())
+	assert_false(failed.is_successful())
+	assert_true(standalone.get_profile_state_snapshot(&"implicit").is_empty())
+	standalone.dispose()
+
+	var activated: GFAsyncCompletion = _utility.begin_activation(GFAsyncScope.new())
+	assert_true(activated.is_successful(), "standalone setup 注入 Storage 后应允许激活。")
+
+
+func test_quiesce_rejects_new_admission_but_drains_accepted_profile_work() -> void:
+	var provider: MemorySectionProvider = _make_provider(&"state", 17)
+	var profile: GFSaveProfile = _make_profile(&"test.quiesce", provider)
+	assert_true(_register(profile))
+	var accepted: GFSaveProfileOperation = _utility.save_profile(profile.profile_id)
+	_utility.tick(0.0)
+	assert_eq(_storage.get_pending_save_count(), 1)
+
+	var completion: GFAsyncCompletion = _utility.begin_quiesce(GFAsyncScope.new())
+	assert_false(completion.is_completed())
+	var request: GFSaveProfileRequest = GFSaveProfileRequest.take_ownership(
+		{"document": 1},
+		{"context": 2},
+		{"result": 3}
+	)
+	var rejected_save: GFSaveProfileOperation = _utility.save_profile(
+		profile.profile_id,
+		request
+	)
+	var rejected_load: GFSaveProfileOperation = _utility.load_profile(profile.profile_id)
+	var rejected_flush: GFSaveProfileOperation = _utility.flush_profile(profile.profile_id)
+	assert_eq(rejected_save.get_result().get_status(), GFSaveProfileResult.STATUS_BUSY)
+	assert_eq(rejected_load.get_result().get_status(), GFSaveProfileResult.STATUS_BUSY)
+	assert_eq(rejected_flush.get_result().get_status(), GFSaveProfileResult.STATUS_BUSY)
+	assert_false(request.claim_for_framework().is_empty(), "准入拒绝不得消费 save request 所有权。")
+	assert_false(_utility.unregister_profile(profile.profile_id))
+	var registration: Dictionary = _utility.register_profile(
+		_make_profile(&"test.quiesce.new", _make_provider(&"new", 1))
+	)
+	assert_true(_report_contains_issue(registration, &"utility_quiescing"))
+
+	_storage.complete_save(OK)
+
+	assert_true(accepted.is_completed())
+	assert_true(accepted.get_result().is_successful())
+	assert_true(completion.is_successful(), "已接纳 operation 和底层写入收敛后 quiesce 应成功。")
+
+
 func test_flush_waits_for_latest_generation_visible_at_call_time() -> void:
 	var provider: MemorySectionProvider = _make_provider(&"state", 1)
 	assert_true(_register(_make_profile(&"test.flush", provider)))

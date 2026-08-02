@@ -5,7 +5,7 @@
 ## 阅读入口
 
 - [模块边界](module-boundaries.md)：依赖读取、Model、System 和 Controller 的职责边界。
-- [事件与生命周期](events-lifecycle.md)：事件使用条件、监听 owner、三阶段初始化和依赖诊断。
+- [事件与生命周期](events-lifecycle.md)：事件使用条件、监听 owner、四阶段激活、依赖 DAG 和正常关闭。
 - [放置、Godot 边界与测试](placement-godot-testing.md)：新增能力归属、Godot 引擎语义边界和测试优先级。
 
 ## 总原则

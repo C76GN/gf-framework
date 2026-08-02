@@ -5,7 +5,7 @@ Kernel 是 GF 的运行内核，负责全局入口、架构容器、生命周期
 ## 阅读入口
 
 - [架构容器](architecture/index.md)：`Gf`、`GFArchitecture`、层级边界、装配诊断、五层分工、编辑器访问器和内核基础设施。
-- [生命周期、装配与依赖](lifecycle/index.md)：Installer、三阶段初始化、动态注册、局部上下文、工厂、别名和 Controller 初始化。
+- [生命周期、装配与依赖](lifecycle/index.md)：Installer、依赖 DAG、四阶段激活、异步关闭、热模块事务、局部上下文和 Controller 初始化。
 - [消息、事件、命令与查询](messaging/index.md)：事件系统、命令、查询、规则和命令历史。
 - [场景桥接、Controller 与数据绑定](scene-controller/index.md)：`GFController`、System 更新、绑定属性和局部响应式组合。
 

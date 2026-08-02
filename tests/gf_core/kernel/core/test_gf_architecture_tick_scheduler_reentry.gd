@@ -1,4 +1,4 @@
-## 验证架构 tick 调度拒绝重入，并只在最外层迭代结束后刷新缓存。
+## 验证架构 tick 调度的生命周期准入、delta 收束、重入和延迟缓存刷新。
 extends GutTest
 
 
@@ -42,6 +42,23 @@ class FollowerTickSystem extends GFSystem:
 
 
 class CountingTickSystem extends GFSystem:
+	var tick_calls: int = 0
+	var physics_tick_calls: int = 0
+	var tick_deltas: Array[float] = []
+
+	func _init() -> void:
+		tick_enabled = true
+		physics_tick_enabled = true
+
+	func tick(delta: float) -> void:
+		tick_calls += 1
+		tick_deltas.append(delta)
+
+	func physics_tick(_delta: float) -> void:
+		physics_tick_calls += 1
+
+
+class CountingTickUtility extends GFUtility:
 	var tick_calls: int = 0
 	var physics_tick_calls: int = 0
 
@@ -117,8 +134,8 @@ func test_nested_drive_is_rejected_without_flushing_outer_cache() -> void:
 	var follower: FollowerTickSystem = FollowerTickSystem.new(order)
 	systems[ReentrantTickSystem] = reentrant
 	systems[FollowerTickSystem] = follower
-	lifecycle_stages[reentrant] = 3
-	lifecycle_stages[follower] = 3
+	lifecycle_stages[reentrant] = 4
+	lifecycle_stages[follower] = 4
 	var _configured_scheduler: GFArchitectureTickScheduler = scheduler.configure(
 		systems,
 		utilities,
@@ -226,16 +243,164 @@ func test_physics_steps_provider_reentry_is_rejected_before_recursion() -> void:
 	assert_eq(counter.physics_tick_calls, 2, "物理步长回调返回后 drive guard 必须恢复。")
 
 
+func test_regular_drives_require_committed_lifecycle_stage() -> void:
+	var counter: CountingTickSystem = CountingTickSystem.new()
+	var lifecycle_stages: Dictionary = {
+		counter: 3,
+	}
+	var scheduler: GFArchitectureTickScheduler = GFArchitectureTickScheduler.new().configure(
+		{CountingTickSystem: counter},
+		{},
+		lifecycle_stages
+	)
+
+	scheduler.drive_tick(0.25, null)
+	scheduler.drive_physics_tick(0.25, null)
+
+	assert_eq(counter.tick_calls, 0, "仅完成 ready 的模块不得进入普通 tick。")
+	assert_eq(counter.physics_tick_calls, 0, "仅完成 ready 的模块不得进入 physics_tick。")
+
+	lifecycle_stages[counter] = 4
+	scheduler.drive_tick(0.25, null)
+	scheduler.drive_physics_tick(0.25, null)
+
+	assert_eq(counter.tick_calls, 1, "完成 activation 的模块应进入普通 tick。")
+	assert_eq(counter.physics_tick_calls, 1, "完成 activation 的模块应进入 physics_tick。")
+
+
+func test_lifecycle_drive_is_bounded_to_ready_allowed_tick_records() -> void:
+	var allowed_counter: CountingTickSystem = CountingTickSystem.new()
+	var unrelated_counter: CountingTickUtility = CountingTickUtility.new()
+	var lifecycle_stages: Dictionary = {
+		allowed_counter: 3,
+		unrelated_counter: 4,
+	}
+	var scheduler: GFArchitectureTickScheduler = GFArchitectureTickScheduler.new().configure(
+		{CountingTickSystem: allowed_counter},
+		{CountingTickUtility: unrelated_counter},
+		lifecycle_stages
+	)
+
+	scheduler.drive_lifecycle_tick(0.5, {allowed_counter: true})
+
+	assert_eq(allowed_counter.tick_calls, 1, "生命周期驱动应推进显式允许且已 ready 的模块。")
+	assert_almost_eq(
+		allowed_counter.tick_deltas[0],
+		0.1,
+		0.0001,
+		"生命周期 delta 必须限制到 0.1 秒。"
+	)
+	assert_eq(allowed_counter.physics_tick_calls, 0, "生命周期驱动不得调用 physics_tick。")
+	assert_eq(unrelated_counter.tick_calls, 0, "生命周期驱动不得推进集合外模块。")
+	assert_eq(unrelated_counter.physics_tick_calls, 0, "生命周期驱动不得推进集合外物理回调。")
+
+	lifecycle_stages[allowed_counter] = 2
+	scheduler.drive_lifecycle_tick(0.05, {allowed_counter: true})
+	assert_eq(allowed_counter.tick_calls, 1, "尚未 ready 的允许模块也不得被推进。")
+
+	lifecycle_stages.clear()
+	scheduler.drive_lifecycle_tick(0.05, {allowed_counter: true})
+	assert_eq(allowed_counter.tick_calls, 1, "生命周期阶段被清空后缓存记录不得继续推进。")
+
+
+func test_lifecycle_drive_normalizes_non_monotonic_delta() -> void:
+	var counter: CountingTickSystem = CountingTickSystem.new()
+	var scheduler: GFArchitectureTickScheduler = _make_counting_scheduler(counter, 3)
+	var allowed_instances: Dictionary = {
+		counter: true,
+	}
+
+	scheduler.drive_lifecycle_tick(0.05, {})
+	scheduler.drive_lifecycle_tick(-0.25, allowed_instances)
+	scheduler.drive_lifecycle_tick(NAN, allowed_instances)
+	scheduler.drive_lifecycle_tick(INF, allowed_instances)
+	scheduler.drive_lifecycle_tick(0.05, allowed_instances)
+	scheduler.drive_lifecycle_tick(0.5, allowed_instances)
+
+	assert_eq(counter.tick_deltas.size(), 5, "有效记录应在每次生命周期推进中恰好执行一次。")
+	assert_almost_eq(counter.tick_deltas[0], 0.0, 0.0001, "负 delta 应收束为零。")
+	assert_almost_eq(counter.tick_deltas[1], 0.0, 0.0001, "NaN delta 应收束为零。")
+	assert_almost_eq(counter.tick_deltas[2], 0.0, 0.0001, "Infinity delta 应收束为零。")
+	assert_almost_eq(counter.tick_deltas[3], 0.05, 0.0001, "正常 caller delta 应保持。")
+	assert_almost_eq(counter.tick_deltas[4], 0.1, 0.0001, "过大 delta 应限制到 0.1 秒。")
+
+
+func test_lifecycle_drive_reuses_reentry_and_deferred_refresh_guard() -> void:
+	var systems: Dictionary = {}
+	var lifecycle_stages: Dictionary = {}
+	var scheduler: GFArchitectureTickScheduler = GFArchitectureTickScheduler.new()
+	var order: Array[String] = []
+	var reentrant: ReentrantTickSystem = ReentrantTickSystem.new(scheduler, order)
+	var follower: FollowerTickSystem = FollowerTickSystem.new(order)
+	reentrant.tick_priority = -10
+	follower.tick_priority = 10
+	systems[ReentrantTickSystem] = reentrant
+	systems[FollowerTickSystem] = follower
+	lifecycle_stages[reentrant] = 3
+	lifecycle_stages[follower] = 3
+	var _configured_scheduler: GFArchitectureTickScheduler = scheduler.configure(
+		systems,
+		{},
+		lifecycle_stages
+	)
+	var allowed_instances: Dictionary = {
+		reentrant: true,
+		follower: true,
+	}
+
+	scheduler.drive_lifecycle_tick(0.25, allowed_instances)
+
+	assert_eq(
+		order,
+		["follower", "reentrant"],
+		"生命周期驱动应复用 tick 缓存顺序，并拒绝嵌套 drive。"
+	)
+	_assert_reentry_warning()
+
+	order.clear()
+	scheduler.drive_lifecycle_tick(0.25, allowed_instances)
+	assert_eq(
+		order,
+		["follower", "reentrant"],
+		"外层生命周期驱动结束后延迟 refresh 应保留排序。"
+	)
+
+
+func test_uncommitted_lifecycle_candidate_is_never_exposed_to_regular_tick() -> void:
+	var lifecycle_stages: Dictionary = {}
+	var scheduler: GFArchitectureTickScheduler = (
+		GFArchitectureTickScheduler.new().configure(
+			{},
+			{},
+			lifecycle_stages
+		)
+	)
+	var candidate: CountingTickUtility = CountingTickUtility.new()
+	lifecycle_stages[candidate] = 3
+	assert_true(scheduler.add_lifecycle_candidate(candidate))
+
+	scheduler.drive_tick(0.1, null)
+	scheduler.drive_lifecycle_tick(0.1, {candidate: true})
+	scheduler.drive_physics_tick(0.1, null)
+
+	assert_eq(candidate.tick_calls, 1)
+	assert_eq(candidate.physics_tick_calls, 0)
+	scheduler.remove_lifecycle_candidate(candidate)
+	scheduler.drive_lifecycle_tick(0.1, {candidate: true})
+	assert_eq(candidate.tick_calls, 1, "移除候选后不得继续驱动临时记录。")
+
+
 # --- 私有/辅助方法 ---
 
 func _make_counting_scheduler(
-	counter: CountingTickSystem
+	counter: CountingTickSystem,
+	lifecycle_stage: int = 4
 ) -> GFArchitectureTickScheduler:
 	var systems: Dictionary = {
 		CountingTickSystem: counter,
 	}
 	var lifecycle_stages: Dictionary = {
-		counter: 3,
+		counter: lifecycle_stage,
 	}
 	var scheduler: GFArchitectureTickScheduler = GFArchitectureTickScheduler.new()
 	return scheduler.configure(systems, {}, lifecycle_stages)

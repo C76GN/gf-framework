@@ -806,14 +806,30 @@ func test_state_dispose_unregisters_owned_event_listeners() -> void:
 
 func test_state_can_send_command_and_query_through_state_machine_architecture() -> void:
 	var parent_arch: GFArchitecture = GFArchitecture.new()
-	await Gf.set_architecture(parent_arch)
-	await parent_arch.register_utility_instance(DummyUtility.new())
+	assert_true(
+		await Gf.set_architecture(parent_arch),
+		"父 Architecture 必须先完成 activation。"
+	)
+	assert_true(
+		await parent_arch.register_utility_instance(DummyUtility.new()),
+		"父 Architecture 应接受运行时 Utility 注册。"
+	)
 
 	var child_arch: GFArchitecture = GFArchitecture.new(parent_arch)
 	var context: ContextUtility = ContextUtility.new()
 	var local_utility: DummyUtility = DummyUtility.new()
-	await child_arch.register_utility_instance(context)
-	await child_arch.register_utility_instance(local_utility)
+	assert_true(
+		await child_arch.register_utility_instance(context),
+		"Context Utility 应在子 Architecture activation 前注册成功。"
+	)
+	assert_true(
+		await child_arch.register_utility_instance(local_utility),
+		"本地 Utility 应在子 Architecture activation 前注册成功。"
+	)
+	assert_true(
+		await child_arch.init(),
+		"子 Architecture 必须完成 activation 后才能接收 Command 与 Query。"
+	)
 
 	_fsm.dispose()
 	_fsm = GFStateMachine.new(context)

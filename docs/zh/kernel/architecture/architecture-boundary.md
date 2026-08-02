@@ -6,7 +6,9 @@
 
 整个框架的入口是全局 AutoLoad 节点 —— **`Gf`**。它挂载在 Godot 的全局根节点下，负责持有当前 `GFArchitecture`、执行项目级 Installer、代理常用注册/查询接口，并把 `_process` 与 `_physics_process` 转发给架构。
 
-在 `Gf` 背后，真正承载所有业务的对象是 **`GFArchitecture`**。它是一个纯代码容器，负责管理所有 `Model`、`System`、`Utility` 的注册、生命周期调用以及事件总线的派发。主生命周期状态由内部 `GFKernelRuntime` 维护，项目通常只通过 `GFArchitecture.is_inited()`、`init()` 和 `dispose()` 观察或推进状态。`Foundation` 层则作为容器外的纯基础件，被这些运行时模块直接依赖。
+在 `Gf` 背后，真正承载所有业务的对象是 **`GFArchitecture`**。它是一个纯代码容器，负责管理所有 `Model`、`System`、`Utility` 的注册、依赖 DAG、四阶段激活、热模块事务、事件总线和异步关闭。主生命周期状态由内部 `GFKernelRuntime` 维护；项目用 `init()` / `is_accepting_runtime_work()` 观察启动提交，用 `shutdown_async()` 执行可等待的正常关闭，只在 SceneTree 强制退出等无法等待路径使用 `dispose()`。`Foundation` 层则作为容器外的纯基础件，被这些运行时模块直接依赖。
+
+父子 Architecture 是依赖方向，不是隐式生命周期所有权。child 的计划只会为实际命中的父级 required module/factory 建立弱租约：外部模块租约冻结相关父级模块拓扑，所有外部依赖租约都会阻止父级正常关闭，直到 child 初始化失败或先完成关闭。父级 `shutdown_async()` 被阻挡时返回 `ERR_BUSY` 且保持 READY；框架不会级联关闭未知 child。同步 `dispose()` 可以突破租约，只用于进程或 SceneTree 无法等待的强制收敛，不能替代“先 child、后 parent”的正常顺序。
 
 ## 层级依赖边界
 
@@ -22,7 +24,7 @@ addons/gf/kernel   <-  addons/gf/standard   <-  addons/gf/extensions
 
 根插件 `addons/gf/plugin.gd` 是组合入口，可以同时知道 `kernel` 与 `standard`，负责把标准库声明的编辑器增强记录传给 `kernel/editor` 辅助脚本。这个例外不改变内核边界：`addons/gf/kernel/**` 本身仍不能依赖 `addons/gf/standard/**`。
 
-框架内部通过 `GFAutoload` 解析全局 AutoLoad 节点，避免插件首次导入、脚本解析或测试环境里直接引用全局 `Gf` 时出错。`get_architecture_or_null()` 只表示全局架构实例已经存在，不保证它完成 `init()`；需要读取 ready 后模块时，应使用 `get_ready_architecture_or_null()`。项目代码通常继续使用 `Gf.get_model()` 等入口；只有编写框架级工具、编辑器脚本或需要在 AutoLoad 未就绪时安全探测架构，才需要直接使用这些辅助入口。
+框架内部通过 `GFAutoload` 解析全局 AutoLoad 节点，避免插件首次导入、脚本解析或测试环境里直接引用全局 `Gf` 时出错。`get_architecture_or_null()` 只表示全局 identity 仍存在，不保证它完成 activation，也不保证它尚未进入 quiescing；需要消费已开放运行时准入的模块时，应使用 `get_ready_architecture_or_null()`。处于 quiescing、disposing 或 disposed 的架构不能继续执行运行时工作。项目代码通常继续使用 `Gf.get_model()` 等 facade；只有编写框架级工具、编辑器脚本或需要在 AutoLoad 未就绪时安全探测架构，才需要直接使用这些辅助入口。
 
 ```text
 Godot SceneTree

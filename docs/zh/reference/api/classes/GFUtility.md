@@ -9,7 +9,7 @@
 - 类别：协议与扩展点 (`protocol`)
 - 首次版本：`3.17.0`
 
-工具组件抽象基类。 提供不依赖其他架构组件的独立工具功能。 子类可以实现 'init'、'async_init'、'ready'、 'dispose' 来管理其生命周期。 三阶段初始化约定： - 'init'       阶段：只允许初始化自身内部变量，禁止跨模块获取依赖。 - 'async_init' 阶段：可使用 await，用于异步资源加载等操作。 - 'ready'      阶段：架构内所有模块均已完成 'init'，可安全跨模块获取依赖。
+工具组件抽象基类。 提供可复用的工具能力；需要其它架构组件时必须通过类型化 Hook 显式声明依赖。 子类可以实现 'init'、'async_init'、'ready'、'begin_activation'、 'begin_quiesce'、'dispose' 来管理其生命周期。 四阶段启动与关闭约定： - 'init'       阶段：只允许初始化自身内部变量，禁止跨模块获取依赖。 - 'async_init' 阶段：可使用 await，用于异步资源加载等操作。 - 'ready'      阶段：当前模块声明的依赖已按 DAG 完成 ready，可完成同步装配。 - 'begin_activation' 阶段：显式启动运行期能力，并返回一次性完成源。 - 'begin_quiesce' 阶段：停止接纳新工作并排空已接纳工作。 - 'dispose'    阶段：按激活顺序的严格逆序同步释放资源。
 
 ## 成员概览
 
@@ -22,9 +22,15 @@
 | 属性 | [`physics_tick_priority`](#member-gfutility-properties-physics_tick_priority) | `var physics_tick_priority: int = 0:` |
 | 属性 | [`tick_enabled`](#member-gfutility-properties-tick_enabled) | `var tick_enabled: bool = false:` |
 | 属性 | [`physics_tick_enabled`](#member-gfutility-properties-physics_tick_enabled) | `var physics_tick_enabled: bool = false:` |
+| 方法 | [`get_required_models`](#member-gfutility-methods-get_required_models) | `func get_required_models() -> Array[Script]:` |
+| 方法 | [`get_required_systems`](#member-gfutility-methods-get_required_systems) | `func get_required_systems() -> Array[Script]:` |
+| 方法 | [`get_required_utilities`](#member-gfutility-methods-get_required_utilities) | `func get_required_utilities() -> Array[Script]:` |
+| 方法 | [`get_required_factories`](#member-gfutility-methods-get_required_factories) | `func get_required_factories() -> Array[Script]:` |
 | 方法 | [`init`](#member-gfutility-methods-init) | `func init() -> void:` |
 | 方法 | [`async_init`](#member-gfutility-methods-async_init) | `func async_init(_scope: GFAsyncScope) -> void:` |
 | 方法 | [`ready`](#member-gfutility-methods-ready) | `func ready() -> void:` |
+| 方法 | [`begin_activation`](#member-gfutility-methods-begin_activation) | `func begin_activation(_scope: GFAsyncScope) -> GFAsyncCompletion:` |
+| 方法 | [`begin_quiesce`](#member-gfutility-methods-begin_quiesce) | `func begin_quiesce(_scope: GFAsyncScope) -> GFAsyncCompletion:` |
 | 方法 | [`dispose`](#member-gfutility-methods-dispose) | `func dispose() -> void:` |
 | 方法 | [`release_dependencies`](#member-gfutility-methods-release_dependencies) | `func release_dependencies() -> void:` |
 | 方法 | [`is_lifecycle_active`](#member-gfutility-methods-is_lifecycle_active) | `func is_lifecycle_active() -> bool:` |
@@ -74,12 +80,13 @@ var ignore_time_scale: bool = false:
 ### `lifecycle_priority`
 
 - API：`public`
+- 首次版本：`1.31.0`
 
 ```gdscript
 var lifecycle_priority: int = 0
 ```
 
-生命周期优先级。数值越大越早执行 init/async_init/ready，dispose 时越晚释放。 默认 0 表示同优先级下按注册顺序执行；只有存在明确依赖顺序时才建议设置。
+生命周期优先级。声明依赖 DAG 始终优先；仅在同一 ready frontier 内，数值越大 越早执行 init/async_init/ready/activation，关闭时越晚 quiesce 与释放。 默认 0 表示同一 frontier 内按稳定注册顺序执行。
 
 <a id="member-gfutility-properties-tick_priority"></a>
 
@@ -133,6 +140,66 @@ var physics_tick_enabled: bool = false:
 
 ## 方法
 
+<a id="member-gfutility-methods-get_required_models"></a>
+
+### `get_required_models`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func get_required_models() -> Array[Script]:
+```
+
+返回此工具声明依赖的 Model 类型。 返回值必须保持纯函数语义，并在同一模块拓扑事务内保持稳定。
+
+返回：此工具激活前必须可解析的 Model 脚本。
+
+<a id="member-gfutility-methods-get_required_systems"></a>
+
+### `get_required_systems`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func get_required_systems() -> Array[Script]:
+```
+
+返回此工具声明依赖的 System 类型。 返回值必须保持纯函数语义，并在同一模块拓扑事务内保持稳定。
+
+返回：此工具激活前必须可解析的 System 脚本。
+
+<a id="member-gfutility-methods-get_required_utilities"></a>
+
+### `get_required_utilities`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func get_required_utilities() -> Array[Script]:
+```
+
+返回此工具声明依赖的 Utility 类型。 返回值必须保持纯函数语义，并在同一模块拓扑事务内保持稳定。
+
+返回：此工具激活前必须可解析的 Utility 脚本。
+
+<a id="member-gfutility-methods-get_required_factories"></a>
+
+### `get_required_factories`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func get_required_factories() -> Array[Script]:
+```
+
+返回此工具声明依赖的 Factory 绑定类型。 Factory 依赖只校验绑定可用性，不参与模块生命周期 DAG。
+
+返回：此工具激活前必须可解析的 Factory 脚本。
+
 <a id="member-gfutility-methods-init"></a>
 
 ### `init`
@@ -169,12 +236,55 @@ func async_init(_scope: GFAsyncScope) -> void:
 ### `ready`
 
 - API：`public`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func ready() -> void:
 ```
 
-第三阶段初始化。子类可以重写此方法。 约束：此时所有模块已完成 'init'，可安全跨模块获取依赖。
+第三阶段初始化。子类可以重写此方法。 约束：当前模块声明的依赖已按 DAG 完成 ready，可安全获取并缓存这些依赖； 未声明依赖没有可用性保证。
+
+<a id="member-gfutility-methods-begin_activation"></a>
+
+### `begin_activation`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func begin_activation(_scope: GFAsyncScope) -> GFAsyncCompletion:
+```
+
+开始激活工具的运行期能力。 重写实现应立即返回非空完成源，并在激活成功、失败或取消时只提交一次终态。 基类返回已经成功的完成源。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `_scope` | 当前工具激活阶段的取消作用域。 |
+
+返回：当前激活阶段的一次性完成源。
+
+<a id="member-gfutility-methods-begin_quiesce"></a>
+
+### `begin_quiesce`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func begin_quiesce(_scope: GFAsyncScope) -> GFAsyncCompletion:
+```
+
+开始静默工具并排空已经接纳的工作。 重写实现不得在该阶段接纳新工作，也不得提前释放仍被已接纳工作使用的状态。 基类返回已经成功的完成源。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `_scope` | 当前工具静默阶段的取消作用域。 |
+
+返回：当前静默阶段的一次性完成源。
 
 <a id="member-gfutility-methods-dispose"></a>
 
@@ -206,12 +316,13 @@ func release_dependencies() -> void:
 ### `is_lifecycle_active`
 
 - API：`public`
+- 首次版本：`3.0.0`
 
 ```gdscript
 func is_lifecycle_active() -> bool:
 ```
 
-检查所属架构生命周期是否仍可安全继续异步写回。 async_init() 或其他 await 之后写入状态前建议检查该值。
+检查所属架构生命周期是否仍可安全继续异步写回。 async_init() 或其他 await 之后提交已接纳工作的结果前建议检查该值。 QUIESCING 期间该值仍可为 true；它不代表允许接纳新工作，新请求还必须通过 GFArchitecture.is_accepting_runtime_work() 检查。
 
 返回：所属架构仍处于活动生命周期时返回 true。
 

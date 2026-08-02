@@ -5,7 +5,7 @@ Kernel 生命周期文档说明 `GFArchitecture` 如何装配 `GFModel`、`GFSys
 ## 阅读入口
 
 - [启动注册与 Installer](boot-installers/index.md)：boot 脚本、项目 Installer、扩展 Installer、失败状态和超时策略。
-- [模块三阶段生命周期](module-lifecycle/index.md)：`init()`、`async_init()`、`ready()`、动态注册和 ready 查询。
+- [模块四阶段生命周期](module-lifecycle/index.md)：依赖 DAG、`init()`、`async_init()`、`ready()`、activation、quiesce 与热模块事务。
 - [场景级局部上下文](node-contexts.md)：`GFNodeContext`、scoped 架构、继承上下文、局部 tick 和上下文等待。
 - [短生命周期工厂与别名](factories-aliases/index.md)：factory、transient/singleton、alias 注册和抽象类型获取。
 - [Controller 初始化](controllers/index.md)：`GFController` 与 Godot 节点 `_ready()`、宿主节点和局部上下文协作。

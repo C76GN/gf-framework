@@ -55,6 +55,66 @@ class DisposeReentrantSetArchitecture extends GFArchitecture:
 		reentrant_set_result = GFVariantData.to_bool(raw_set_result)
 
 
+class BlockingActivationUtility extends GFUtility:
+	var activation_started: bool = false
+	var activation_completion: GFAsyncCompletion = null
+	var dispose_call_count: int = 0
+
+	func begin_activation(_scope: GFAsyncScope) -> GFAsyncCompletion:
+		activation_started = true
+		activation_completion = GFAsyncCompletion.new()
+		return activation_completion
+
+	func dispose() -> void:
+		dispose_call_count += 1
+
+	func complete_activation() -> void:
+		if activation_completion != null:
+			var _completed: bool = activation_completion.succeed()
+
+
+class BlockingQuiesceUtility extends GFUtility:
+	var quiesce_started: bool = false
+	var quiesce_completion: GFAsyncCompletion = null
+	var dispose_call_count: int = 0
+
+	func begin_quiesce(_scope: GFAsyncScope) -> GFAsyncCompletion:
+		quiesce_started = true
+		quiesce_completion = GFAsyncCompletion.new()
+		return quiesce_completion
+
+	func dispose() -> void:
+		dispose_call_count += 1
+
+	func complete_quiesce() -> void:
+		if quiesce_completion != null:
+			var _completed: bool = quiesce_completion.succeed()
+
+
+class FailingQuiesceUtility extends GFUtility:
+	var dispose_call_count: int = 0
+
+	func begin_quiesce(_scope: GFAsyncScope) -> GFAsyncCompletion:
+		var completion: GFAsyncCompletion = GFAsyncCompletion.new()
+		var _failed: bool = completion.fail("[test] old architecture quiesce failed")
+		return completion
+
+	func dispose() -> void:
+		dispose_call_count += 1
+
+
+class ExternalLeaseProviderUtility extends GFUtility:
+	var dispose_call_count: int = 0
+
+	func dispose() -> void:
+		dispose_call_count += 1
+
+
+class ExternalLeaseConsumerSystem extends GFSystem:
+	func get_required_utilities() -> Array[Script]:
+		return [ExternalLeaseProviderUtility]
+
+
 # --- Godot 生命周期方法 ---
 
 func before_each() -> void:
@@ -70,6 +130,287 @@ func after_each() -> void:
 
 
 # --- 测试用例 ---
+
+func test_candidate_is_not_published_before_stage_four_activation_completes() -> void:
+	var facade: GF_AUTOLOAD_NODE_SCRIPT = GF_AUTOLOAD_NODE_SCRIPT.new()
+	var candidate: GFArchitecture = GFArchitecture.new()
+	var activation_utility: BlockingActivationUtility = BlockingActivationUtility.new()
+	var assignment_state: Dictionary = {
+		"done": false,
+		"result": false,
+	}
+	assert_true(
+		await candidate.register_utility_instance(activation_utility),
+		"测试 activation Utility 应成功注册到 candidate。"
+	)
+
+	GF_ASYNC_CALL_SCRIPT.run_detached(
+		Callable(self, &"_capture_assignment_result"),
+		[facade, candidate, assignment_state]
+	)
+	assert_true(
+		await _wait_for_activation_start(activation_utility),
+		"candidate 应进入第四阶段 activation。"
+	)
+
+	assert_false(facade.has_architecture(), "activation 完成前 candidate 不得发布。")
+	assert_false(
+		GFVariantData.get_option_bool(assignment_state, "done"),
+		"activation 完成前 assignment 不得提前返回。"
+	)
+	assert_true(candidate.is_activating(), "candidate 应保持 ACTIVATING 状态。")
+
+	activation_utility.complete_activation()
+	assert_true(
+		await _wait_for_result(assignment_state),
+		"activation 完成后 assignment 应有界返回。"
+	)
+
+	assert_true(
+		GFVariantData.get_option_bool(assignment_state, "result"),
+		"完整第四阶段成功后 candidate 应提交。"
+	)
+	assert_true(candidate.is_inited(), "已提交 candidate 必须处于 READY。")
+	assert_same(facade.get_architecture(), candidate, "最终 identity 应为已激活 candidate。")
+
+	facade._exit_tree()
+	facade.free()
+
+
+func test_replacement_waits_for_old_architecture_shutdown_before_publish() -> void:
+	var facade: GF_AUTOLOAD_NODE_SCRIPT = GF_AUTOLOAD_NODE_SCRIPT.new()
+	var previous_architecture: GFArchitecture = GFArchitecture.new()
+	var quiesce_utility: BlockingQuiesceUtility = BlockingQuiesceUtility.new()
+	var candidate: GFArchitecture = GFArchitecture.new()
+	var assignment_state: Dictionary = {
+		"done": false,
+		"result": false,
+	}
+	assert_true(
+		await previous_architecture.register_utility_instance(quiesce_utility),
+		"测试 quiesce Utility 应成功注册到旧架构。"
+	)
+	assert_true(
+		await facade.set_architecture(previous_architecture),
+		"旧架构应先完成提交。"
+	)
+
+	GF_ASYNC_CALL_SCRIPT.run_detached(
+		Callable(self, &"_capture_assignment_result"),
+		[facade, candidate, assignment_state]
+	)
+	assert_true(
+		await _wait_for_quiesce_start(quiesce_utility),
+		"replacement 应先进入旧架构 quiesce。"
+	)
+
+	assert_true(candidate.is_inited(), "candidate 应先完成第四阶段再关闭旧架构。")
+	assert_false(
+		facade.has_architecture(),
+		"QUIESCING 旧架构不得继续作为可获取的全局 identity。"
+	)
+	assert_false(
+		GFVariantData.get_option_bool(assignment_state, "done"),
+		"旧架构 shutdown 完成前 replacement 不得发布。"
+	)
+
+	quiesce_utility.complete_quiesce()
+	assert_true(
+		await _wait_for_result(assignment_state),
+		"旧架构完成 quiesce 后 replacement 应有界返回。"
+	)
+
+	assert_true(
+		GFVariantData.get_option_bool(assignment_state, "result"),
+		"成功 shutdown 后 replacement 应提交。"
+	)
+	assert_true(previous_architecture.is_disposed(), "旧架构必须进入 DISPOSED。")
+	assert_eq(quiesce_utility.dispose_call_count, 1, "旧模块必须恰好 dispose 一次。")
+	assert_same(facade.get_architecture(), candidate, "candidate 应成为唯一全局 identity。")
+
+	facade._exit_tree()
+	facade.free()
+
+
+func test_failed_old_shutdown_rejects_and_cleans_unpublished_candidate() -> void:
+	var facade: GF_AUTOLOAD_NODE_SCRIPT = GF_AUTOLOAD_NODE_SCRIPT.new()
+	var previous_architecture: GFArchitecture = GFArchitecture.new()
+	var failing_utility: FailingQuiesceUtility = FailingQuiesceUtility.new()
+	var candidate: GFArchitecture = GFArchitecture.new()
+	assert_true(
+		await previous_architecture.register_utility_instance(failing_utility),
+		"失败 quiesce Utility 应成功注册到旧架构。"
+	)
+	assert_true(
+		await facade.set_architecture(previous_architecture),
+		"旧架构应先完成提交。"
+	)
+	watch_signals(facade)
+
+	var assignment_result: bool = await facade.set_architecture(candidate)
+	await get_tree().process_frame
+
+	assert_false(assignment_result, "typed shutdown 失败必须拒绝 replacement。")
+	assert_true(previous_architecture.is_disposed(), "失败 shutdown 仍必须终结旧架构。")
+	assert_eq(failing_utility.dispose_call_count, 1, "失败 shutdown 也必须恰好 dispose 一次。")
+	assert_true(candidate.is_disposed(), "未发布 candidate 必须被强制清理。")
+	assert_false(facade.has_architecture(), "失败 replacement 后不得持有 terminal 旧 identity。")
+	assert_null(facade._architecture, "失败 replacement 后全局 identity 必须清空。")
+	var shutdown_result: GFArchitectureShutdownResult = (
+		previous_architecture.get_last_shutdown_result()
+	)
+	assert_not_null(shutdown_result, "旧架构必须保留 typed shutdown 结果。")
+	if shutdown_result != null:
+		assert_eq(
+			shutdown_result.get_status(),
+			GFArchitectureShutdownResult.Status.FAILED,
+			"quiesce 失败必须保留 FAILED 终态。"
+		)
+	assert_signal_emitted(
+		facade,
+		"architecture_identity_changed",
+		"terminal 旧 identity 被清理时必须发布身份变化。"
+	)
+
+	facade._exit_tree()
+	facade.free()
+
+
+func test_busy_old_shutdown_preserves_committed_identity_for_retry() -> void:
+	var facade: GF_AUTOLOAD_NODE_SCRIPT = GF_AUTOLOAD_NODE_SCRIPT.new()
+	var previous_architecture: GFArchitecture = GFArchitecture.new()
+	var provider: ExternalLeaseProviderUtility = ExternalLeaseProviderUtility.new()
+	assert_true(
+		await previous_architecture.register_utility_instance(provider),
+		"父架构的外部依赖 provider 应成功注册。"
+	)
+	assert_true(
+		await facade.set_architecture(previous_architecture),
+		"父架构应先完成 facade 提交。"
+	)
+	var child_architecture: GFArchitecture = GFArchitecture.new(previous_architecture)
+	assert_true(
+		await child_architecture.register_system_instance(
+			ExternalLeaseConsumerSystem.new()
+		),
+		"child 的外部依赖 consumer 应成功注册。"
+	)
+	assert_true(await child_architecture.init(), "child 应取得父架构外部依赖租约。")
+	var rejected_candidate: GFArchitecture = GFArchitecture.new()
+	watch_signals(facade)
+
+	var rejected_result: bool = await facade.set_architecture(rejected_candidate)
+
+	assert_false(rejected_result, "活动 child 租约应拒绝 facade replacement。")
+	assert_true(rejected_candidate.is_disposed(), "被拒绝的未发布 candidate 应完成释放。")
+	assert_true(previous_architecture.is_inited(), "ERR_BUSY 不得终结既有父架构。")
+	assert_true(
+		previous_architecture.is_accepting_runtime_work(),
+		"ERR_BUSY 不得关闭既有父架构的工作准入。"
+	)
+	assert_false(previous_architecture.is_disposed(), "ERR_BUSY 不得强制 dispose 父架构。")
+	assert_true(facade.has_architecture(), "可重试失败后 facade 应保留可用 identity。")
+	assert_same(
+		facade.get_architecture(),
+		previous_architecture,
+		"可重试失败不得清除或替换已提交 identity。"
+	)
+	assert_signal_not_emitted(
+		facade,
+		"architecture_identity_changed",
+		"未改变 identity 的 ERR_BUSY replacement 不得发布身份变化。"
+	)
+
+	var child_shutdown: GFArchitectureShutdownResult = (
+		await child_architecture.shutdown_async()
+	)
+	assert_true(child_shutdown.is_successful(), "child 关闭后应释放父架构租约。")
+	var retry_candidate: GFArchitecture = GFArchitecture.new()
+	assert_true(
+		await facade.set_architecture(retry_candidate),
+		"child 释放租约后，使用新 candidate 重试 replacement 应成功。"
+	)
+	assert_true(previous_architecture.is_disposed(), "成功重试应正常终结旧父架构。")
+	assert_eq(provider.dispose_call_count, 1, "父级 provider 必须且只应释放一次。")
+	assert_same(facade.get_architecture(), retry_candidate, "重试 candidate 应成为最终 identity。")
+
+	facade._exit_tree()
+	facade.free()
+
+
+func test_newer_replacement_owns_commit_after_shared_old_shutdown() -> void:
+	var facade: GF_AUTOLOAD_NODE_SCRIPT = GF_AUTOLOAD_NODE_SCRIPT.new()
+	var previous_architecture: GFArchitecture = GFArchitecture.new()
+	var quiesce_utility: BlockingQuiesceUtility = BlockingQuiesceUtility.new()
+	var intermediate_candidate: GFArchitecture = GFArchitecture.new()
+	var latest_candidate: GFArchitecture = GFArchitecture.new()
+	var intermediate_state: Dictionary = {
+		"done": false,
+		"result": true,
+	}
+	var latest_state: Dictionary = {
+		"done": false,
+		"result": false,
+	}
+	assert_true(
+		await previous_architecture.register_utility_instance(quiesce_utility),
+		"测试 quiesce Utility 应成功注册到旧架构。"
+	)
+	assert_true(
+		await facade.set_architecture(previous_architecture),
+		"旧架构应先完成提交。"
+	)
+
+	GF_ASYNC_CALL_SCRIPT.run_detached(
+		Callable(self, &"_capture_assignment_result"),
+		[facade, intermediate_candidate, intermediate_state]
+	)
+	assert_true(
+		await _wait_for_quiesce_start(quiesce_utility),
+		"首个 replacement 应进入旧架构 quiesce。"
+	)
+	GF_ASYNC_CALL_SCRIPT.run_detached(
+		Callable(self, &"_capture_assignment_result"),
+		[facade, latest_candidate, latest_state]
+	)
+	await get_tree().process_frame
+
+	assert_true(
+		intermediate_candidate.is_disposed(),
+		"更新 replacement 必须立即清理失去提交权的 candidate。"
+	)
+	assert_false(
+		GFVariantData.get_option_bool(intermediate_state, "done"),
+		"旧 shutdown 返回前陈旧 continuation 可以等待，但不得拥有提交权。"
+	)
+
+	quiesce_utility.complete_quiesce()
+	assert_true(
+		await _wait_for_result(intermediate_state),
+		"陈旧 replacement 应在共享 shutdown 完成后有界返回。"
+	)
+	assert_true(
+		await _wait_for_result(latest_state),
+		"最新 replacement 应在共享 shutdown 完成后有界返回。"
+	)
+
+	assert_false(
+		GFVariantData.get_option_bool(intermediate_state, "result"),
+		"陈旧 replacement 的迟到写回必须被 serial 门禁拒绝。"
+	)
+	assert_true(
+		GFVariantData.get_option_bool(latest_state, "result"),
+		"最新 replacement 应保留唯一提交权。"
+	)
+	assert_same(
+		facade.get_architecture(),
+		latest_candidate,
+		"共享 shutdown 完成后不得由陈旧 continuation 覆盖最新 identity。"
+	)
+
+	facade._exit_tree()
+	facade.free()
+
 
 ## 验证新赋值会取消尚未提交的 Installer scope，且旧 candidate 不会迟到提交。
 func test_replacement_cancels_pending_assignment_scope() -> void:
@@ -181,6 +522,100 @@ func test_concurrent_same_candidate_assignment_preserves_original_scope() -> voi
 		_project_setting_bool(CLEANUP_SETTING),
 		"首个 assignment 成功完成时不应执行取消 cleanup。"
 	)
+
+	facade._exit_tree()
+	facade.free()
+
+
+func test_quiescing_candidate_cannot_steal_pending_assignment() -> void:
+	var facade: GF_AUTOLOAD_NODE_SCRIPT = GF_AUTOLOAD_NODE_SCRIPT.new()
+	var quiescing_candidate: GFArchitecture = GFArchitecture.new()
+	var quiesce_utility: BlockingQuiesceUtility = BlockingQuiesceUtility.new()
+	assert_true(
+		await quiescing_candidate.register_utility_instance(quiesce_utility),
+		"quiescing candidate 的测试 Utility 应成功注册。"
+	)
+	assert_true(await quiescing_candidate.init(), "测试 candidate 应先进入 READY。")
+	var shutdown_state: Dictionary = {
+		"done": false,
+		"result": null,
+	}
+	GF_ASYNC_CALL_SCRIPT.run_detached(
+		Callable(self, &"_capture_shutdown_result"),
+		[quiescing_candidate, shutdown_state]
+	)
+	assert_true(
+		await _wait_for_quiesce_start(quiesce_utility),
+		"测试 candidate 应进入 QUIESCING。"
+	)
+
+	var pending_candidate: GFArchitecture = GFArchitecture.new()
+	var activation_utility: BlockingActivationUtility = BlockingActivationUtility.new()
+	assert_true(
+		await pending_candidate.register_utility_instance(activation_utility),
+		"合法 pending candidate 的测试 Utility 应成功注册。"
+	)
+	var pending_state: Dictionary = {
+		"done": false,
+		"result": false,
+	}
+	GF_ASYNC_CALL_SCRIPT.run_detached(
+		Callable(self, &"_capture_assignment_result"),
+		[facade, pending_candidate, pending_state]
+	)
+	assert_true(
+		await _wait_for_activation_start(activation_utility),
+		"合法 candidate 应先停在 activation pending。"
+	)
+	var pending_scope: GFAsyncScope = facade._pending_architecture_assignment_scope
+	var pending_serial: int = facade._architecture_assignment_serial
+
+	var rejected_result: bool = await facade.set_architecture(quiescing_candidate)
+
+	assert_false(rejected_result, "QUIESCING candidate 必须在进入赋值事务前被拒绝。")
+	assert_eq(
+		facade._architecture_assignment_serial,
+		pending_serial,
+		"拒绝 QUIESCING candidate 不得推进 assignment serial。"
+	)
+	assert_same(
+		facade._pending_architecture_assignment,
+		pending_candidate,
+		"拒绝 QUIESCING candidate 不得抢占合法 pending 槽。"
+	)
+	assert_same(
+		facade._pending_architecture_assignment_scope,
+		pending_scope,
+		"拒绝 QUIESCING candidate 不得替换合法 pending scope。"
+	)
+	assert_true(pending_scope.is_active(), "合法 pending scope 不得被取消。")
+	assert_false(pending_candidate.is_disposed(), "合法 pending candidate 不得被清理。")
+	assert_true(quiescing_candidate.is_quiescing(), "入口拒绝不得强制终结外部 candidate。")
+
+	activation_utility.complete_activation()
+	assert_true(
+		await _wait_for_result(pending_state),
+		"合法 pending assignment 应在 activation 完成后有界返回。"
+	)
+	assert_true(
+		GFVariantData.get_option_bool(pending_state, "result"),
+		"被非法 candidate 竞争后，原 assignment 仍应成功提交。"
+	)
+	assert_same(facade.get_architecture(), pending_candidate, "合法 candidate 应保留提交权。")
+
+	quiesce_utility.complete_quiesce()
+	assert_true(
+		await _wait_for_result(shutdown_state),
+		"外部 quiescing candidate 应能独立完成 shutdown。"
+	)
+	var raw_shutdown_result: Variant = shutdown_state.get("result")
+	assert_true(
+		raw_shutdown_result is GFArchitectureShutdownResult,
+		"外部 shutdown 应返回 typed 结果。"
+	)
+	if raw_shutdown_result is GFArchitectureShutdownResult:
+		var shutdown_result: GFArchitectureShutdownResult = raw_shutdown_result
+		assert_true(shutdown_result.is_successful(), "入口拒绝不得破坏外部 shutdown。")
 
 	facade._exit_tree()
 	facade.free()
@@ -632,6 +1067,14 @@ func _capture_assignment_result(
 	state["done"] = true
 
 
+func _capture_shutdown_result(
+	architecture: GFArchitecture,
+	state: Dictionary
+) -> void:
+	state["result"] = await architecture.shutdown_async()
+	state["done"] = true
+
+
 func _capture_created_architecture(
 	facade: GF_AUTOLOAD_NODE_SCRIPT,
 	state: Dictionary
@@ -677,6 +1120,28 @@ func _wait_for_result(state: Dictionary, max_frames: int = 30) -> bool:
 			return true
 		await get_tree().process_frame
 	return GFVariantData.to_bool(state.get("done", false))
+
+
+func _wait_for_activation_start(
+	activation_utility: BlockingActivationUtility,
+	max_frames: int = 30
+) -> bool:
+	for _frame_index: int in range(max_frames):
+		if activation_utility.activation_started:
+			return true
+		await get_tree().process_frame
+	return activation_utility.activation_started
+
+
+func _wait_for_quiesce_start(
+	quiesce_utility: BlockingQuiesceUtility,
+	max_frames: int = 30
+) -> bool:
+	for _frame_index: int in range(max_frames):
+		if quiesce_utility.quiesce_started:
+			return true
+		await get_tree().process_frame
+	return quiesce_utility.quiesce_started
 
 
 func _project_setting_bool(setting_name: String) -> bool:

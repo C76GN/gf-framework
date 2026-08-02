@@ -60,6 +60,10 @@ func after_each() -> void:
 func test_tree_reentry_restores_desired_event_bindings() -> void:
 	var architecture: GFArchitecture = GFArchitecture.new()
 	Gf._architecture = architecture
+	assert_true(
+		await architecture.init(),
+		"树重入测试必须先完成 Architecture activation。"
+	)
 	var controller: EventController = EventController.new()
 	add_child(controller)
 	controller.listen(&"tree_reentry")
@@ -115,6 +119,10 @@ func test_global_observer_tracks_resolved_autoload_instance() -> void:
 func test_reparent_migrates_bindings_to_nearest_context_architecture() -> void:
 	var global_architecture: GFArchitecture = GFArchitecture.new()
 	Gf._architecture = global_architecture
+	assert_true(
+		await global_architecture.init(),
+		"全局 Architecture 必须先完成 activation。"
+	)
 	var context: EmptyScopedContext = EmptyScopedContext.new()
 	var controller: EventController = EventController.new()
 	add_child(context)
@@ -124,6 +132,10 @@ func test_reparent_migrates_bindings_to_nearest_context_architecture() -> void:
 
 	controller.reparent(context)
 	var scoped_architecture: GFArchitecture = context.get_architecture()
+	assert_true(
+		await scoped_architecture.init(),
+		"Scoped Architecture 必须完成 activation 后才能接收迁移绑定。"
+	)
 	global_architecture.send_simple_event(&"context_migration", "stale_global")
 	scoped_architecture.send_simple_event(&"context_migration", "scoped")
 
@@ -146,6 +158,10 @@ func test_pool_acquire_retries_until_architecture_becomes_available() -> void:
 	await get_tree().process_frame
 
 	var late_architecture: GFArchitecture = Gf.create_architecture()
+	assert_true(
+		await late_architecture.init(),
+		"迟到 Architecture 必须完成 activation 后才能恢复事件绑定。"
+	)
 	late_architecture.send_simple_event(&"late_pool_architecture", "restored")
 
 	assert_eq(
@@ -162,6 +178,10 @@ func test_live_global_architecture_replacement_migrates_event_bindings() -> void
 	var first_architecture: GFArchitecture = GFArchitecture.new()
 	var replacement_architecture: GFArchitecture = GFArchitecture.new()
 	Gf._architecture = first_architecture
+	assert_true(
+		await first_architecture.init(),
+		"被替换的全局 Architecture 必须先完成 activation。"
+	)
 	var controller: EventController = EventController.new()
 	add_child(controller)
 	controller.listen(&"live_global_replacement")
@@ -186,6 +206,10 @@ func test_same_global_architecture_retry_restores_cleared_event_bindings() -> vo
 	add_child(controller)
 	controller.listen(&"same_identity_retry")
 	var architecture: GFArchitecture = Gf.create_architecture()
+	assert_true(
+		await architecture.init(),
+		"同 identity 重试测试必须先完成首次 activation。"
+	)
 	architecture.send_simple_event(&"same_identity_retry", "before_failure")
 
 	architecture.fail_initialization("[test] same identity initialization failure")
@@ -281,6 +305,10 @@ func test_failed_context_stays_closed_when_shared_architecture_retries() -> void
 
 func test_stale_failure_signal_cannot_clear_replacement_bindings() -> void:
 	var failed_architecture: GFArchitecture = Gf.create_architecture()
+	assert_true(
+		await failed_architecture.init(),
+		"失败重入测试必须先完成初始 Architecture activation。"
+	)
 	var replacement_architecture: GFArchitecture = GFArchitecture.new()
 	var replacement_state: Dictionary = {
 		"result": false,
@@ -332,6 +360,10 @@ func test_stale_failure_signal_cannot_clear_replacement_bindings() -> void:
 func test_binding_revision_rebuilds_type_assignable_and_simple_desired_set() -> void:
 	var architecture: GFArchitecture = GFArchitecture.new()
 	Gf._architecture = architecture
+	assert_true(
+		await architecture.init(),
+		"绑定 revision 测试必须先完成 Architecture activation。"
+	)
 	var controller: EventController = EventController.new()
 	add_child(controller)
 	var counts: Dictionary = {

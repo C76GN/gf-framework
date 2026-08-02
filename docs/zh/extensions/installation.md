@@ -76,6 +76,6 @@ Domain、Combat 这类业务型内置扩展按外置候选治理：随 GF 包分
 
 `Gf` 会先按依赖优先顺序收集启用扩展的 `installer_paths`，再追加 `gf/project/installers` 中的项目级 Installer。这样内置扩展负责装配自己的抽象模块，项目仍然可以在后面继续注册业务模块或覆盖绑定。
 
-GF 内置扩展中，只有需要参与 `GFArchitecture` 生命周期的服务会进入 `extension.gd`。例如 `save` 注册 `GFSaveGraphUtility`，`combat` 注册 `GFSkillTargetingUtility2D` 和 `GFCombatSystem`，`domain` 注册 `GFLevelUtility` 和 `GFQuestUtility`；纯数据模型、Resource、动作对象和节点桥接不会被扩展安装器自动注册，仍由项目或局部上下文按使用场景装配。
+GF 内置扩展中，只有需要参与 `GFArchitecture` 生命周期的服务或扩展正确工作所必需的标准能力会进入 `extension.gd`。例如 `save` 先确保 `GFStorageUtility` 存在，再注册 `GFSaveGraphUtility`；`combat` 注册 `GFSkillTargetingUtility2D` 和 `GFCombatSystem`，`domain` 注册 `GFLevelUtility` 和 `GFQuestUtility`。纯数据模型、Resource、动作对象和节点桥接不会被扩展安装器自动注册，仍由项目或局部上下文按使用场景装配。
 
-项目 Installer 通常只注册项目自己的 `GFModel`、`GFSystem` 和 `GFUtility`。如果某个内置扩展已启用，不需要再手动注册它的扩展级服务；重复注册会被忽略并提示使用 `replace_*()`。确实需要替换默认实现时，应显式调用 `replace_utility()` 或 `replace_system()`，让覆盖意图和所有权边界清楚可见。
+项目 Installer 通常只注册项目自己的 `GFModel`、`GFSystem` 和 `GFUtility`。如果某个内置扩展已启用，不需要再手动注册它的扩展级服务或必需标准能力；重复注册会被忽略并提示使用 `replace_*()`。需要调整 Save 的 Storage 参数时，应在扩展 Installer 完成后取回已安装实例并配置；确实需要替换实现时，显式调用 `replace_utility()` 或 `replace_system()`，让覆盖意图和所有权边界清楚可见。

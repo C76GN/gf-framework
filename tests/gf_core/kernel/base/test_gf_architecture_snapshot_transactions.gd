@@ -259,7 +259,7 @@ func test_async_global_capture_fails_when_frozen_registry_changes_between_frames
 		[architecture, pending_result]
 	)
 
-	architecture.unregister_model(AsyncCaptureModelPeer)
+	assert_true(await architecture.unregister_model(AsyncCaptureModelPeer))
 	assert_true(
 		await _wait_for_result(pending_result),
 		"分帧捕获应在有界帧数内结束。"

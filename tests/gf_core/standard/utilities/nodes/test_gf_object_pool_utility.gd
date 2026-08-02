@@ -160,6 +160,10 @@ func test_acquire_release_calls_node_hooks() -> void:
 
 func test_pooled_controller_events_pause_on_release_and_resume_on_acquire() -> void:
 	var architecture: GFArchitecture = _setup_test_architecture()
+	assert_true(
+		await architecture.init(),
+		"对象池 Controller 事件测试必须先完成 Architecture activation。"
+	)
 	var controller_scene: PackedScene = _make_pooled_controller_scene()
 	var controller: PooledEventController = _acquire_pooled_controller(controller_scene)
 
@@ -179,6 +183,10 @@ func test_pooled_controller_events_pause_on_release_and_resume_on_acquire() -> v
 
 func test_prewarmed_controller_events_stay_paused_until_acquire() -> void:
 	var architecture: GFArchitecture = _setup_test_architecture()
+	assert_true(
+		await architecture.init(),
+		"对象池预热事件测试必须先完成 Architecture activation。"
+	)
 	var controller_scene: PackedScene = _make_pooled_controller_scene()
 
 	_pool.prewarm(controller_scene, _parent, 1)

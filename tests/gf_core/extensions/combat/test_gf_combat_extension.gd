@@ -1121,7 +1121,10 @@ func test_tick_skips_entity_removed_by_earlier_entity_callback() -> void:
 func test_combat_event_dispatching() -> void:
 	# 初始化架构以支持事件总线
 	var arch: GFArchitecture = GFArchitecture.new()
-	await Gf.set_architecture(arch)
+	assert_true(
+		await Gf.set_architecture(arch),
+		"Combat 事件测试必须先完成全局 Architecture activation。"
+	)
 	
 	var system: GFCombatSystem = GFCombatSystem.new()
 	var entity: MockEntity = MockEntity.new()
@@ -1169,11 +1172,21 @@ func test_combat_event_dispatching() -> void:
 
 func test_combat_events_use_injected_scoped_architecture() -> void:
 	var parent_arch: GFArchitecture = GFArchitecture.new()
-	await Gf.set_architecture(parent_arch)
+	assert_true(
+		await Gf.set_architecture(parent_arch),
+		"父 Architecture 必须先完成 activation。"
+	)
 
 	var child_arch: GFArchitecture = GFArchitecture.new(parent_arch)
 	var system: GFCombatSystem = GFCombatSystem.new()
-	await child_arch.register_system_instance(system)
+	assert_true(
+		await child_arch.register_system_instance(system),
+		"Scoped CombatSystem 应在 activation 前注册成功。"
+	)
+	assert_true(
+		await child_arch.init(),
+		"子 Architecture 必须完成 activation 后才能派发 Combat 事件。"
+	)
 
 	var parent_events: Dictionary = { "applied": 0 }
 	var child_events: Dictionary = { "applied": 0 }

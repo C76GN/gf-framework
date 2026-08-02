@@ -15,13 +15,13 @@ input_system.tick_priority = 100
 var battle_system := BattleSystem.new()
 battle_system.tick_priority = 0
 
-Gf.register_system(input_system)
-Gf.register_system(battle_system)
+assert(await Gf.register_system(input_system))
+assert(await Gf.register_system(battle_system))
 ```
 
 未重写 `tick()` / `physics_tick()` 且未显式启用对应标记的 System 不会进入缓存。这能减少空模板调用，同时让诊断快照中的 `has_tick` / `has_physics_tick` 更接近真实热路径。
 
-生命周期也支持同样的显式优先级：`lifecycle_priority` 越大，`init()` / `async_init()` / `ready()` 越早执行，`dispose()` 越晚释放。它只解决框架模块之间的初始化和释放顺序，不应替代项目自己的流程状态机或命令队列。
+生命周期顺序首先由声明依赖 DAG 决定。`lifecycle_priority` 只在多个依赖已经满足的节点之间破平：数值越大，`init()`、`async_init()`、`ready()` 和 `begin_activation()` 越早执行；正常关闭按同一计划严格逆序执行 `begin_quiesce()`，随后同步释放。优先级不能覆盖依赖边，也不应替代项目自己的流程状态机或命令队列。
 
 ## 时间缩放
 

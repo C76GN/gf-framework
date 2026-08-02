@@ -28,6 +28,9 @@
 | 属性 | [`save_preparation_slice_budget`](#member-gfsaveprofileutility-properties-save_preparation_slice_budget) | `var save_preparation_slice_budget: int = 8:` |
 | 属性 | [`save_preparation_time_budget_usec`](#member-gfsaveprofileutility-properties-save_preparation_time_budget_usec) | `var save_preparation_time_budget_usec: int = 2000:` |
 | 方法 | [`ready`](#member-gfsaveprofileutility-methods-ready) | `func ready() -> void:` |
+| 方法 | [`get_required_utilities`](#member-gfsaveprofileutility-methods-get_required_utilities) | `func get_required_utilities() -> Array[Script]:` |
+| 方法 | [`begin_activation`](#member-gfsaveprofileutility-methods-begin_activation) | `func begin_activation(_scope: GFAsyncScope) -> GFAsyncCompletion:` |
+| 方法 | [`begin_quiesce`](#member-gfsaveprofileutility-methods-begin_quiesce) | `func begin_quiesce(scope: GFAsyncScope) -> GFAsyncCompletion:` |
 | 方法 | [`tick`](#member-gfsaveprofileutility-methods-tick) | `func tick(_delta: float) -> void:` |
 | 方法 | [`dispose`](#member-gfsaveprofileutility-methods-dispose) | `func dispose() -> void:` |
 | 方法 | [`setup`](#member-gfsaveprofileutility-methods-setup) | `func setup(storage: GFStorageUtility, clock: GFClock = null) -> GFSaveProfileUtility:` |
@@ -230,6 +233,63 @@ func ready() -> void:
 
 在架构 ready 阶段采用已注册的 Storage 和 Time 服务。 `setup()` 显式注入的依赖不会被覆盖。
 
+<a id="member-gfsaveprofileutility-methods-get_required_utilities"></a>
+
+### `get_required_utilities`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func get_required_utilities() -> Array[Script]:
+```
+
+声明架构模式下必须显式注册的 Storage 依赖。 `setup()` 仍可用于 standalone 测试与非 Architecture 所有权场景；进入 Architecture 生命周期时不会因此绕过 GFStorageUtility 的显式注册要求。
+
+返回：仅包含 GFStorageUtility 的依赖声明。
+
+<a id="member-gfsaveprofileutility-methods-begin_activation"></a>
+
+### `begin_activation`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func begin_activation(_scope: GFAsyncScope) -> GFAsyncCompletion:
+```
+
+激活 Profile 服务；底层 Storage 未配置时失败，不创建业务 profile。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `_scope` | 当前 Profile 服务激活阶段的取消作用域。 |
+
+返回：Storage 可用且实例未 dispose/quiesce 时成功，否则返回失败终态。
+
+<a id="member-gfsaveprofileutility-methods-begin_quiesce"></a>
+
+### `begin_quiesce`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func begin_quiesce(scope: GFAsyncScope) -> GFAsyncCompletion:
+```
+
+关闭新 profile 工作准入，并等待已接纳 operation、preparation、retry 与 detached 写入收敛。 静默期间不会注册业务 profile，也不会取消已接纳工作；这些工作继续由 lifecycle tick 和底层 Storage 完成回调推进。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `scope` | 当前 Profile 服务静默阶段的取消作用域。 |
+
+返回：所有已接纳工作进入终态后成功的一次性完成源。
+
 <a id="member-gfsaveprofileutility-methods-tick"></a>
 
 ### `tick`
@@ -282,7 +342,7 @@ func setup(storage: GFStorageUtility, clock: GFClock = null) -> GFSaveProfileUti
 | `storage` | 底层事务存储工具。 |
 | `clock` | 可选单调时钟；为空时保留当前时钟。 |
 
-返回：当前 Utility；参数无效、已释放或已有注册 profile 时返回 null。
+返回：当前 Utility；准入关闭、参数无效、已释放、处于不安全回调或已有 profile 时返回 null。
 
 <a id="member-gfsaveprofileutility-methods-register_profile"></a>
 
@@ -329,7 +389,7 @@ func unregister_profile(profile_id: StringName) -> bool:
 |---|---|
 | `profile_id` | profile ID。 |
 
-返回：profile 存在且没有未完成操作时返回 true。
+返回：准入开放、回调安全且 profile 空闲并无任何待处理工作时返回 true。
 
 <a id="member-gfsaveprofileutility-methods-save_profile"></a>
 

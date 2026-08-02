@@ -30,4 +30,11 @@ func _ready() -> void:
 
 `Model`、`System` 与 `Utility` 的注册表遵循同一套规则：重复注册会被忽略并提示使用 `replace_*()`；同一实例不能用多个脚本键重复注册；`unregister_*()` 只注销直接注册键，删除 alias 应使用 `unregister_*_alias()`，且不会释放目标实例；注册表变化后继承匹配缓存会失效。
 
-显式 alias 会校验 `target_cls` 必须继承或等于 `alias_cls`。无关类型会被拒绝，避免 `get_utility(AbstractType)` 返回无法强转的实例。若 alias 指向的目标类型尚未注册，查询会报告错误，并且不会在同一架构内退回另一个可赋值实现；非严格子架构仍可继续回退父架构。项目层应保持注册键、alias 和实际实例类型一致。
+显式 alias 会校验 `target_cls` 必须继承或等于 `alias_cls`。无关类型会被拒绝，避免 `get_utility(AbstractType)` 返回无法强转的实例。
+
+本地解析只有在精确键、alias 和可赋值实例都完全未命中时，非严格架构才可以继续查询父架构。以下两种结果都是父级 fallback barrier：
+
+- alias 已存在但目标注册项缺失；该 stale alias 会报告错误，且不会改找本地可赋值实例或父级实例。
+- 本地存在多个可赋值实例；该歧义会返回 `null`，且不会由父级同类型实例掩盖。
+
+普通 `get_*()`、可选 `find_*()` 查询与声明式依赖计划遵循同一屏障语义。项目层应保持注册键、alias 和实际实例类型一致，并用显式 alias 消除合法的多实现歧义。

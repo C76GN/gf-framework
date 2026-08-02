@@ -26,10 +26,14 @@ enum LifecycleState {
 	NEW,
 	## 正在推进模块生命周期。
 	INITIALIZING,
-	## 已完成 ready 阶段。
+	## 模块已完成初始化，正在显式激活运行期能力。
+	ACTIVATING,
+	## 已完成第四阶段 activation，并开放运行时准入。
 	READY,
 	## 初始化失败，注册表应保持失败边界。
 	FAILED,
+	## 已停止接纳新工作，正在排空已接纳工作。
+	QUIESCING,
 	## 正在释放运行时。
 	DISPOSING,
 	## 已释放，进入终态。
@@ -81,10 +85,14 @@ func get_state_name() -> String:
 			return "new"
 		LifecycleState.INITIALIZING:
 			return "initializing"
+		LifecycleState.ACTIVATING:
+			return "activating"
 		LifecycleState.READY:
 			return "ready"
 		LifecycleState.FAILED:
 			return "failed"
+		LifecycleState.QUIESCING:
+			return "quiescing"
 		LifecycleState.DISPOSING:
 			return "disposing"
 		LifecycleState.DISPOSED:
@@ -139,6 +147,17 @@ func is_initializing() -> bool:
 	return _state == LifecycleState.INITIALIZING
 
 
+## 检查架构是否正在激活。
+## [br]
+## @api framework_internal
+## [br]
+## @layer kernel/core
+## [br]
+## @return activating 状态返回 true。
+func is_activating() -> bool:
+	return _state == LifecycleState.ACTIVATING
+
+
 ## 检查架构是否已失败。
 ## [br]
 ## @api framework_internal
@@ -148,6 +167,17 @@ func is_initializing() -> bool:
 ## @return failed 状态返回 true。
 func has_failed() -> bool:
 	return _state == LifecycleState.FAILED
+
+
+## 检查架构是否正在静默并排空已接纳工作。
+## [br]
+## @api framework_internal
+## [br]
+## @layer kernel/core
+## [br]
+## @return quiescing 状态返回 true。
+func is_quiescing() -> bool:
+	return _state == LifecycleState.QUIESCING
 
 
 ## 检查架构是否正在释放。
@@ -178,9 +208,14 @@ func is_disposed() -> bool:
 ## [br]
 ## @layer kernel/core
 ## [br]
-## @return initializing 或 ready 状态返回 true。
+## @return initializing、activating、ready 或 quiescing 状态返回 true。
 func is_lifecycle_active() -> bool:
-	return _state == LifecycleState.INITIALIZING or _state == LifecycleState.READY
+	return _state in [
+		LifecycleState.INITIALIZING,
+		LifecycleState.ACTIVATING,
+		LifecycleState.READY,
+		LifecycleState.QUIESCING,
+	]
 
 
 ## 开始一次初始化流程并推进 generation。
@@ -191,26 +226,44 @@ func is_lifecycle_active() -> bool:
 ## [br]
 ## @return 新初始化流程的 generation；正在或已经 dispose 时返回 -1。
 func begin_initialization() -> int:
-	if _state == LifecycleState.DISPOSING or _state == LifecycleState.DISPOSED:
+	if _state != LifecycleState.NEW:
 		return -1
 	_lifecycle_generation += 1
 	_state = LifecycleState.INITIALIZING
 	return _lifecycle_generation
 
 
-## 完成当前初始化流程。
+## 从初始化阶段进入显式激活阶段。
 ## [br]
 ## @api framework_internal
 ## [br]
 ## @layer kernel/core
 ## [br]
-## @param lifecycle_generation: 初始化流程持有的 generation。
+## @param lifecycle_generation: 当前生命周期流程持有的 generation。
 ## [br]
-## @return generation 仍有效且状态可提交时返回 true。
-func finish_initialization(lifecycle_generation: int) -> bool:
+## @return generation 仍有效且正在初始化时返回 true。
+func begin_activation(lifecycle_generation: int) -> bool:
 	if not is_generation_current(lifecycle_generation):
 		return false
 	if _state != LifecycleState.INITIALIZING:
+		return false
+	_state = LifecycleState.ACTIVATING
+	return true
+
+
+## 完成显式激活并进入 ready 状态。
+## [br]
+## @api framework_internal
+## [br]
+## @layer kernel/core
+## [br]
+## @param lifecycle_generation: 当前生命周期流程持有的 generation。
+## [br]
+## @return generation 仍有效且正在激活时返回 true。
+func finish_activation(lifecycle_generation: int) -> bool:
+	if not is_generation_current(lifecycle_generation):
+		return false
+	if _state != LifecycleState.ACTIVATING:
 		return false
 	_state = LifecycleState.READY
 	return true
@@ -228,6 +281,7 @@ func finish_initialization(lifecycle_generation: int) -> bool:
 func fail_initialization(lifecycle_generation: int) -> bool:
 	if (
 		_state == LifecycleState.FAILED
+		or _state == LifecycleState.QUIESCING
 		or _state == LifecycleState.DISPOSING
 		or _state == LifecycleState.DISPOSED
 	):
@@ -254,7 +308,30 @@ func clear_failure() -> bool:
 	return true
 
 
+## 开始静默流程，不推进 generation，也不使活动事务失效。
+##
+## 已接纳 continuation 可在该状态继续提交；新工作应由架构组合层拒绝。
+## [br]
+## @api framework_internal
+## [br]
+## @layer kernel/core
+## [br]
+## @return 本次调用成功进入 quiescing 状态时返回 true。
+func begin_quiesce() -> bool:
+	if (
+		_state == LifecycleState.QUIESCING
+		or _state == LifecycleState.DISPOSING
+		or _state == LifecycleState.DISPOSED
+	):
+		return false
+	_state = LifecycleState.QUIESCING
+	return true
+
+
 ## 开始释放流程并推进 generation。
+##
+## 正常异步关闭会从 quiescing 进入该状态；同步或强制释放也可以从其他非终态
+## 直接进入该状态。
 ## [br]
 ## @api framework_internal
 ## [br]
@@ -276,6 +353,8 @@ func begin_dispose() -> bool:
 ## [br]
 ## @layer kernel/core
 func finish_dispose() -> void:
+	if _state != LifecycleState.DISPOSING:
+		return
 	_state = LifecycleState.DISPOSED
 	_transactions.clear()
 

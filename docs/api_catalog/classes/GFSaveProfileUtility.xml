@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSaveProfileUtility" path="addons/gf/extensions/save/profile/gf_save_profile_utility.gd" module="extensions/save" extends="GFUtility" classDigest="0ef1cfaa8cf84b2d61d94bd43431d0b4c483d3626dc12c1e7a91b6802a1e3ec7">
+<class name="GFSaveProfileUtility" path="addons/gf/extensions/save/profile/gf_save_profile_utility.gd" module="extensions/save" extends="GFUtility" classDigest="db7703edad6d7c9f4265d26058d1f7aaa703e0bffad1fab404d539e06de4851d">
 	<description>GFSaveProfileUtility: 多 section 存档的异步协调器。
 每个 profile 只串行推进一个当前 IO；超时后无法取消的写入会 detached 保留路径所有权。
 连续保存通过 generation 合并为最新后续写入；读取在保存屏障后执行，并在主线程完成迁移、校验和 provider 事务化应用。</description>
@@ -128,6 +128,39 @@
 				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
+		<member kind="method" name="get_required_utilities">
+			<signature>func get_required_utilities() -&gt; Array[Script]:</signature>
+			<description>声明架构模式下必须显式注册的 Storage 依赖。
+`setup()` 仍可用于 standalone 测试与非 Architecture 所有权场景；进入 Architecture
+生命周期时不会因此绕过 GFStorageUtility 的显式注册要求。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">仅包含 GFStorageUtility 的依赖声明。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="begin_activation">
+			<signature>func begin_activation(_scope: GFAsyncScope) -&gt; GFAsyncCompletion:</signature>
+			<description>激活 Profile 服务；底层 Storage 未配置时失败，不创建业务 profile。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">_scope: 当前 Profile 服务激活阶段的取消作用域。</tag>
+				<tag name="return">Storage 可用且实例未 dispose/quiesce 时成功，否则返回失败终态。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="begin_quiesce">
+			<signature>func begin_quiesce(scope: GFAsyncScope) -&gt; GFAsyncCompletion:</signature>
+			<description>关闭新 profile 工作准入，并等待已接纳 operation、preparation、retry 与 detached 写入收敛。
+静默期间不会注册业务 profile，也不会取消已接纳工作；这些工作继续由 lifecycle tick
+和底层 Storage 完成回调推进。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">scope: 当前 Profile 服务静默阶段的取消作用域。</tag>
+				<tag name="return">所有已接纳工作进入终态后成功的一次性完成源。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
 		<member kind="method" name="tick">
 			<signature>func tick(_delta: float) -&gt; void:</signature>
 			<description>推进到期重试。</description>
@@ -152,7 +185,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">storage: 底层事务存储工具。</tag>
 				<tag name="param">clock: 可选单调时钟；为空时保留当前时钟。</tag>
-				<tag name="return">当前 Utility；参数无效、已释放或已有注册 profile 时返回 null。</tag>
+				<tag name="return">当前 Utility；准入关闭、参数无效、已释放、处于不安全回调或已有 profile 时返回 null。</tag>
 				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
@@ -174,7 +207,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">profile_id: profile ID。</tag>
-				<tag name="return">profile 存在且没有未完成操作时返回 true。</tag>
+				<tag name="return">准入开放、回调安全且 profile 空闲并无任何待处理工作时返回 true。</tag>
 				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>

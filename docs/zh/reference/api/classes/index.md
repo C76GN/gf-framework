@@ -6,8 +6,8 @@
 
 | 模块 | 类 | 成员 | 页面内索引 |
 |---|---:|---:|---|
-| Kernel | 73 | 1046 | [Kernel](#module-kernel) |
-| Standard | 443 | 7066 | [Standard](#module-standard) |
+| Kernel | 74 | 1088 | [Kernel](#module-kernel) |
+| Standard | 443 | 7068 | [Standard](#module-standard) |
 | Action Queue | 16 | 214 | [Action Queue](#module-extensions-action_queue) |
 | Asset Metadata | 4 | 33 | [Asset Metadata](#module-extensions-asset_metadata) |
 | Behavior Tree | 22 | 89 | [Behavior Tree](#module-extensions-behavior_tree) |
@@ -23,7 +23,7 @@
 | Interaction | 6 | 82 | [Interaction](#module-extensions-interaction) |
 | Network | 38 | 602 | [Network](#module-extensions-network) |
 | Physics | 4 | 50 | [Physics](#module-extensions-physics) |
-| Save | 44 | 507 | [Save](#module-extensions-save) |
+| Save | 44 | 510 | [Save](#module-extensions-save) |
 | Turn Based | 4 | 49 | [Turn Based](#module-extensions-turn_based) |
 | Tool Packages | 17 | 135 | [Tool Packages](#module-tools) |
 
@@ -35,7 +35,7 @@
 
 | 类 | 类别 | 继承 | 成员 | 源文件 |
 |---|---|---|---:|---|
-| [`GFArchitecture`](GFArchitecture.md#gfarchitecture) | 运行时服务 (`runtime_service`) | `Object` | 119 | `addons/gf/kernel/core/gf_architecture.gd` |
+| [`GFArchitecture`](GFArchitecture.md#gfarchitecture) | 运行时服务 (`runtime_service`) | `Object` | 121 | `addons/gf/kernel/core/gf_architecture.gd` |
 | [`GFDependencyGraphTools`](GFDependencyGraphTools.md#gfdependencygraphtools) | 运行时服务 (`runtime_service`) | `RefCounted` | 1 | `addons/gf/kernel/core/gf_dependency_graph_tools.gd` |
 | [`GFExtensionCatalog`](GFExtensionCatalog.md#gfextensioncatalog) | 运行时服务 (`runtime_service`) | `RefCounted` | 5 | `addons/gf/kernel/extension/gf_extension_catalog.gd` |
 | [`GFExtensionManifestDiscovery`](GFExtensionManifestDiscovery.md#gfextensionmanifestdiscovery) | 运行时服务 (`runtime_service`) | `RefCounted` | 2 | `addons/gf/kernel/extension/gf_extension_manifest_discovery.gd` |
@@ -59,15 +59,15 @@
 | [`GFController`](GFController.md#gfcontroller) | 协议与扩展点 (`protocol`) | `Node` | 24 | `addons/gf/kernel/base/gf_controller.gd` |
 | [`GFExtensionToolContribution`](GFExtensionToolContribution.md#gfextensiontoolcontribution) | 协议与扩展点 (`protocol`) | `RefCounted` | 4 | `addons/gf/kernel/extension/gf_extension_tool_contribution.gd` |
 | [`GFInstaller`](GFInstaller.md#gfinstaller) | 协议与扩展点 (`protocol`) | `RefCounted` | 2 | `addons/gf/kernel/core/gf_installer.gd` |
-| [`GFModel`](GFModel.md#gfmodel) | 协议与扩展点 (`protocol`) | `Object` | 14 | `addons/gf/kernel/base/gf_model.gd` |
+| [`GFModel`](GFModel.md#gfmodel) | 协议与扩展点 (`protocol`) | `Object` | 20 | `addons/gf/kernel/base/gf_model.gd` |
 | [`GFPayload`](GFPayload.md#gfpayload) | 协议与扩展点 (`protocol`) | `RefCounted` | 4 | `addons/gf/kernel/base/gf_payload.gd` |
 | [`GFQuery`](GFQuery.md#gfquery) | 协议与扩展点 (`protocol`) | `Object` | 5 | `addons/gf/kernel/base/gf_query.gd` |
 | [`GFReactiveEffect`](GFReactiveEffect.md#gfreactiveeffect) | 协议与扩展点 (`protocol`) | `RefCounted` | 9 | `addons/gf/kernel/core/gf_reactive_effect.gd` |
 | [`GFReadOnlyBindableProperty`](GFReadOnlyBindableProperty.md#gfreadonlybindableproperty) | 协议与扩展点 (`protocol`) | `GFBindableProperty` | 10 | `addons/gf/kernel/core/gf_read_only_bindable_property.gd` |
 | [`GFRule`](GFRule.md#gfrule) | 协议与扩展点 (`protocol`) | `Resource` | 2 | `addons/gf/kernel/base/gf_rule.gd` |
-| [`GFSystem`](GFSystem.md#gfsystem) | 协议与扩展点 (`protocol`) | `Object` | 27 | `addons/gf/kernel/base/gf_system.gd` |
+| [`GFSystem`](GFSystem.md#gfsystem) | 协议与扩展点 (`protocol`) | `Object` | 33 | `addons/gf/kernel/base/gf_system.gd` |
 | [`GFTimeProvider`](GFTimeProvider.md#gftimeprovider) | 协议与扩展点 (`protocol`) | `GFUtility` | 10 | `addons/gf/kernel/base/gf_time_provider.gd` |
-| [`GFUtility`](GFUtility.md#gfutility) | 协议与扩展点 (`protocol`) | `Object` | 25 | `addons/gf/kernel/base/gf_utility.gd` |
+| [`GFUtility`](GFUtility.md#gfutility) | 协议与扩展点 (`protocol`) | `Object` | 31 | `addons/gf/kernel/base/gf_utility.gd` |
 | [`GFExtensionManifest`](GFExtensionManifest.md#gfextensionmanifest) | 资源定义 (`resource_definition`) | `RefCounted` | 33 | `addons/gf/kernel/extension/gf_extension_manifest.gd` |
 | [`GFExtensionPreset`](GFExtensionPreset.md#gfextensionpreset) | 资源定义 (`resource_definition`) | `RefCounted` | 12 | `addons/gf/kernel/extension/gf_extension_preset.gd` |
 | [`GFAsyncCompletion`](GFAsyncCompletion.md#gfasynccompletion) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 20 | `addons/gf/kernel/core/gf_async_completion.gd` |
@@ -79,6 +79,7 @@
 | [`GFSubscriptionToken`](GFSubscriptionToken.md#gfsubscriptiontoken) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 4 | `addons/gf/kernel/core/gf_subscription_token.gd` |
 | [`GFThumbnailRenderTask`](GFThumbnailRenderTask.md#gfthumbnailrendertask) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 23 | `addons/gf/kernel/editor/gf_thumbnail_render_task.gd` |
 | [`GFWeakMethodInvocation`](GFWeakMethodInvocation.md#gfweakmethodinvocation) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 6 | `addons/gf/kernel/core/gf_weak_method_invocation.gd` |
+| [`GFArchitectureShutdownResult`](GFArchitectureShutdownResult.md#gfarchitectureshutdownresult) | 值对象 (`value_object`) | `RefCounted` | 22 | `addons/gf/kernel/core/gf_architecture_shutdown_result.gd` |
 | [`GFBindingLifetimes`](GFBindingLifetimes.md#gfbindinglifetimes) | 值对象 (`value_object`) | `RefCounted` | 1 | `addons/gf/kernel/core/gf_binding_lifetimes.gd` |
 | [`GFEventListener`](GFEventListener.md#gfeventlistener) | 事件契约 (`event_contract`) | `RefCounted` | 10 | `addons/gf/kernel/core/gf_event_listener.gd` |
 | [`GFAccessGenerator`](GFAccessGenerator.md#gfaccessgenerator) | 编辑器 API (`editor_api`) | `RefCounted` | 13 | `addons/gf/kernel/editor/gf_access_generator.gd` |
@@ -266,7 +267,7 @@
 | [`GFSteeringMath`](GFSteeringMath.md#gfsteeringmath) | 运行时服务 (`runtime_service`) | `RefCounted` | 16 | `addons/gf/standard/foundation/math/gf_steering_math.gd` |
 | [`GFStorageFailoverBackend`](GFStorageFailoverBackend.md#gfstoragefailoverbackend) | 运行时服务 (`runtime_service`) | `GFStorageBackend` | 16 | `addons/gf/standard/utilities/storage/gf_storage_failover_backend.gd` |
 | [`GFStorageSyncUtility`](GFStorageSyncUtility.md#gfstoragesyncutility) | 运行时服务 (`runtime_service`) | `GFUtility` | 11 | `addons/gf/standard/utilities/storage/gf_storage_sync_utility.gd` |
-| [`GFStorageUtility`](GFStorageUtility.md#gfstorageutility) | 运行时服务 (`runtime_service`) | `GFUtility` | 51 | `addons/gf/standard/utilities/storage/gf_storage_utility.gd` |
+| [`GFStorageUtility`](GFStorageUtility.md#gfstorageutility) | 运行时服务 (`runtime_service`) | `GFUtility` | 53 | `addons/gf/standard/utilities/storage/gf_storage_utility.gd` |
 | [`GFSupportReportUtility`](GFSupportReportUtility.md#gfsupportreportutility) | 运行时服务 (`runtime_service`) | `GFUtility` | 32 | `addons/gf/standard/utilities/debug/gf_support_report_utility.gd` |
 | [`GFSupportReportWorkflow`](GFSupportReportWorkflow.md#gfsupportreportworkflow) | 运行时服务 (`runtime_service`) | `GFUtility` | 23 | `addons/gf/standard/utilities/debug/gf_support_report_workflow.gd` |
 | [`GFSurfaceScatterSampler3D`](GFSurfaceScatterSampler3D.md#gfsurfacescattersampler3d) | 运行时服务 (`runtime_service`) | `RefCounted` | 7 | `addons/gf/standard/foundation/math/gf_surface_scatter_sampler_3d.gd` |
@@ -885,7 +886,7 @@
 | [`GFNodeSerializerRegistry`](GFNodeSerializerRegistry.md#gfnodeserializerregistry) | 运行时服务 (`runtime_service`) | `RefCounted` | 7 | `addons/gf/extensions/save/serializers/gf_node_serializer_registry.gd` |
 | [`GFSaveGraphUtility`](GFSaveGraphUtility.md#gfsavegraphutility) | 运行时服务 (`runtime_service`) | `GFUtility` | 30 | `addons/gf/extensions/save/graph/gf_save_graph_utility.gd` |
 | [`GFSaveMigrationRegistry`](GFSaveMigrationRegistry.md#gfsavemigrationregistry) | 运行时服务 (`runtime_service`) | `RefCounted` | 7 | `addons/gf/extensions/save/document/gf_save_migration_registry.gd` |
-| [`GFSaveProfileUtility`](GFSaveProfileUtility.md#gfsaveprofileutility) | 运行时服务 (`runtime_service`) | `GFUtility` | 23 | `addons/gf/extensions/save/profile/gf_save_profile_utility.gd` |
+| [`GFSaveProfileUtility`](GFSaveProfileUtility.md#gfsaveprofileutility) | 运行时服务 (`runtime_service`) | `GFUtility` | 26 | `addons/gf/extensions/save/profile/gf_save_profile_utility.gd` |
 | [`GFSaveSlotStorageAdapter`](GFSaveSlotStorageAdapter.md#gfsaveslotstorageadapter) | 运行时服务 (`runtime_service`) | `Resource` | 16 | `addons/gf/extensions/save/slots/gf_save_slot_storage_adapter.gd` |
 | [`GFSaveSlotSyncBridge`](GFSaveSlotSyncBridge.md#gfsaveslotsyncbridge) | 运行时服务 (`runtime_service`) | `RefCounted` | 6 | `addons/gf/extensions/save/slots/gf_save_slot_sync_bridge.gd` |
 | [`GFNodeSerializer`](GFNodeSerializer.md#gfnodeserializer) | 协议与扩展点 (`protocol`) | `Resource` | 15 | `addons/gf/extensions/save/serializers/gf_node_serializer.gd` |

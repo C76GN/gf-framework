@@ -9,7 +9,7 @@
 - 类别：运行时服务 (`runtime_service`)
 - 首次版本：`3.17.0`
 
-管理 Model、System 和 Utility 的注册与生命周期的容器。 生命周期遵循三阶段初始化协议： 阶段一 (init)       ：所有模块执行自身内部变量初始化。 阶段二 (async_init) ：所有模块串行执行异步初始化（可使用 await）。 阶段三 (ready)      ：所有模块均已完成 init，可安全进行跨模块依赖获取。
+管理 Model、System 和 Utility 的注册与生命周期的容器。 生命周期遵循四阶段初始化协议： 阶段一 (init)       ：各模块按声明依赖 DAG 执行自身内部变量初始化。 阶段二 (async_init) ：按同一 DAG 串行执行异步准备（可使用 await）。 阶段三 (ready)      ：当前模块的声明依赖已 ready，可完成同步装配。 阶段四 (activation) ：按依赖顺序完成异步启动，全部成功后才开放运行时准入。
 
 ## 成员概览
 
@@ -17,28 +17,29 @@
 |---|---|---|
 | 信号 | [`initialization_finished`](#member-gfarchitecture-signals-initialization_finished) | `signal initialization_finished` |
 | 信号 | [`initialization_failed`](#member-gfarchitecture-signals-initialization_failed) | `signal initialization_failed(reason: String)` |
+| 信号 | [`shutdown_finished`](#member-gfarchitecture-signals-shutdown_finished) | `signal shutdown_finished(result: GFArchitectureShutdownResult)` |
 | 信号 | [`project_installers_finished`](#member-gfarchitecture-signals-project_installers_finished) | `signal project_installers_finished` |
 | 常量 | [`SERVICE_COMMAND_HISTORY_STORE`](#member-gfarchitecture-constants-service_command_history_store) | `const SERVICE_COMMAND_HISTORY_STORE: StringName = &"gf.kernel.command_history_store"` |
-| 常量 | [`HOOK_GET_REQUIRED_DEPENDENCIES`](#member-gfarchitecture-constants-hook_get_required_dependencies) | `const HOOK_GET_REQUIRED_DEPENDENCIES: StringName = &"get_required_dependencies"` |
-| 常量 | [`HOOK_GET_REQUIRED_MODELS`](#member-gfarchitecture-constants-hook_get_required_models) | `const HOOK_GET_REQUIRED_MODELS: StringName = &"get_required_models"` |
-| 常量 | [`HOOK_GET_REQUIRED_SYSTEMS`](#member-gfarchitecture-constants-hook_get_required_systems) | `const HOOK_GET_REQUIRED_SYSTEMS: StringName = &"get_required_systems"` |
-| 常量 | [`HOOK_GET_REQUIRED_UTILITIES`](#member-gfarchitecture-constants-hook_get_required_utilities) | `const HOOK_GET_REQUIRED_UTILITIES: StringName = &"get_required_utilities"` |
-| 常量 | [`HOOK_GET_REQUIRED_FACTORIES`](#member-gfarchitecture-constants-hook_get_required_factories) | `const HOOK_GET_REQUIRED_FACTORIES: StringName = &"get_required_factories"` |
 | 常量 | [`DEFAULT_SNAPSHOT_MODELS_PER_FRAME`](#member-gfarchitecture-constants-default_snapshot_models_per_frame) | `const DEFAULT_SNAPSHOT_MODELS_PER_FRAME: int = 8` |
 | 属性 | [`module_async_init_timeout_seconds`](#member-gfarchitecture-properties-module_async_init_timeout_seconds) | `var module_async_init_timeout_seconds: float = 0.0:` |
-| 属性 | [`module_lifecycle_max_stage_passes`](#member-gfarchitecture-properties-module_lifecycle_max_stage_passes) | `var module_lifecycle_max_stage_passes: int = 256:` |
 | 属性 | [`strict_dependency_lookup`](#member-gfarchitecture-properties-strict_dependency_lookup) | `var strict_dependency_lookup: bool = false` |
-| 属性 | [`fail_on_missing_declared_dependencies`](#member-gfarchitecture-properties-fail_on_missing_declared_dependencies) | `var fail_on_missing_declared_dependencies: bool = false` |
+| 属性 | [`activation_timeout_seconds`](#member-gfarchitecture-properties-activation_timeout_seconds) | `var activation_timeout_seconds: float = 30.0:` |
+| 属性 | [`shutdown_timeout_seconds`](#member-gfarchitecture-properties-shutdown_timeout_seconds) | `var shutdown_timeout_seconds: float = 10.0:` |
 | 属性 | [`last_initialization_error`](#member-gfarchitecture-properties-last_initialization_error) | `var last_initialization_error: String = ""` |
 | 方法 | [`_init`](#member-gfarchitecture-methods-_init) | `func _init(parent_architecture: GFArchitecture = null) -> void:` |
 | 方法 | [`is_inited`](#member-gfarchitecture-methods-is_inited) | `func is_inited() -> bool:` |
 | 方法 | [`has_initialization_failed`](#member-gfarchitecture-methods-has_initialization_failed) | `func has_initialization_failed() -> bool:` |
 | 方法 | [`is_lifecycle_active`](#member-gfarchitecture-methods-is_lifecycle_active) | `func is_lifecycle_active() -> bool:` |
+| 方法 | [`is_activating`](#member-gfarchitecture-methods-is_activating) | `func is_activating() -> bool:` |
+| 方法 | [`is_quiescing`](#member-gfarchitecture-methods-is_quiescing) | `func is_quiescing() -> bool:` |
+| 方法 | [`is_accepting_runtime_work`](#member-gfarchitecture-methods-is_accepting_runtime_work) | `func is_accepting_runtime_work() -> bool:` |
 | 方法 | [`is_disposed`](#member-gfarchitecture-methods-is_disposed) | `func is_disposed() -> bool:` |
 | 方法 | [`is_disposing`](#member-gfarchitecture-methods-is_disposing) | `func is_disposing() -> bool:` |
 | 方法 | [`get_lifecycle_generation`](#member-gfarchitecture-methods-get_lifecycle_generation) | `func get_lifecycle_generation() -> int:` |
 | 方法 | [`is_lifecycle_generation_active`](#member-gfarchitecture-methods-is_lifecycle_generation_active) | `func is_lifecycle_generation_active(lifecycle_generation: int) -> bool:` |
 | 方法 | [`is_module_ready`](#member-gfarchitecture-methods-is_module_ready) | `func is_module_ready(instance: Object) -> bool:` |
+| 方法 | [`is_module_active`](#member-gfarchitecture-methods-is_module_active) | `func is_module_active(instance: Object) -> bool:` |
+| 方法 | [`get_last_shutdown_result`](#member-gfarchitecture-methods-get_last_shutdown_result) | `func get_last_shutdown_result() -> GFArchitectureShutdownResult:` |
 | 方法 | [`fail_initialization`](#member-gfarchitecture-methods-fail_initialization) | `func fail_initialization(reason: String) -> void:` |
 | 方法 | [`get_parent_architecture`](#member-gfarchitecture-methods-get_parent_architecture) | `func get_parent_architecture() -> GFArchitecture:` |
 | 方法 | [`set_parent_architecture`](#member-gfarchitecture-methods-set_parent_architecture) | `func set_parent_architecture(parent_architecture: GFArchitecture) -> void:` |
@@ -48,7 +49,8 @@
 | 方法 | [`mark_project_installers_applied`](#member-gfarchitecture-methods-mark_project_installers_applied) | `func mark_project_installers_applied() -> void:` |
 | 方法 | [`finish_project_installers`](#member-gfarchitecture-methods-finish_project_installers) | `func finish_project_installers() -> void:` |
 | 方法 | [`create_binder`](#member-gfarchitecture-methods-create_binder) | `func create_binder() -> GFBinder:` |
-| 方法 | [`init`](#member-gfarchitecture-methods-init) | `func init() -> bool:` |
+| 方法 | [`init`](#member-gfarchitecture-methods-init) | `func init(cancellation_token: GFCancellationToken = null) -> bool:` |
+| 方法 | [`shutdown_async`](#member-gfarchitecture-methods-shutdown_async) | `func shutdown_async( cancellation_token: GFCancellationToken = null, timeout_seconds: float = -1.0 ) -> GFArchitectureShutdownResult:` |
 | 方法 | [`dispose`](#member-gfarchitecture-methods-dispose) | `func dispose() -> void:` |
 | 方法 | [`tick`](#member-gfarchitecture-methods-tick) | `func tick(delta: float) -> void:` |
 | 方法 | [`physics_tick`](#member-gfarchitecture-methods-physics_tick) | `func physics_tick(delta: float) -> void:` |
@@ -106,9 +108,9 @@
 | 方法 | [`register_system_instance_as`](#member-gfarchitecture-methods-register_system_instance_as) | `func register_system_instance_as(instance: Object, alias_cls: Script) -> bool:` |
 | 方法 | [`register_model_instance_as`](#member-gfarchitecture-methods-register_model_instance_as) | `func register_model_instance_as(instance: Object, alias_cls: Script) -> bool:` |
 | 方法 | [`register_utility_instance_as`](#member-gfarchitecture-methods-register_utility_instance_as) | `func register_utility_instance_as(instance: Object, alias_cls: Script) -> bool:` |
-| 方法 | [`unregister_system`](#member-gfarchitecture-methods-unregister_system) | `func unregister_system(script_cls: Script) -> void:` |
-| 方法 | [`unregister_model`](#member-gfarchitecture-methods-unregister_model) | `func unregister_model(script_cls: Script) -> void:` |
-| 方法 | [`unregister_utility`](#member-gfarchitecture-methods-unregister_utility) | `func unregister_utility(script_cls: Script) -> void:` |
+| 方法 | [`unregister_system`](#member-gfarchitecture-methods-unregister_system) | `func unregister_system(script_cls: Script) -> bool:` |
+| 方法 | [`unregister_model`](#member-gfarchitecture-methods-unregister_model) | `func unregister_model(script_cls: Script) -> bool:` |
+| 方法 | [`unregister_utility`](#member-gfarchitecture-methods-unregister_utility) | `func unregister_utility(script_cls: Script) -> bool:` |
 | 方法 | [`get_system`](#member-gfarchitecture-methods-get_system) | `func get_system(script_cls: Script, require_ready: bool = false) -> Object:` |
 | 方法 | [`get_model`](#member-gfarchitecture-methods-get_model) | `func get_model(script_cls: Script, require_ready: bool = false) -> Object:` |
 | 方法 | [`get_utility`](#member-gfarchitecture-methods-get_utility) | `func get_utility(script_cls: Script, require_ready: bool = false) -> Object:` |
@@ -131,7 +133,7 @@
 | 方法 | [`restore_global_snapshot_async`](#member-gfarchitecture-methods-restore_global_snapshot_async) | `func restore_global_snapshot_async( data: Dictionary, command_builder: Callable = Callable(), options: Dictionary = {} ) -> Dictionary:` |
 | 方法 | [`get_debug_lifecycle_state`](#member-gfarchitecture-methods-get_debug_lifecycle_state) | `func get_debug_lifecycle_state() -> Dictionary:` |
 | 方法 | [`get_binding_diagnostics`](#member-gfarchitecture-methods-get_binding_diagnostics) | `func get_binding_diagnostics(options: Dictionary = {}) -> Dictionary:` |
-| 方法 | [`get_dependency_diagnostics`](#member-gfarchitecture-methods-get_dependency_diagnostics) | `func get_dependency_diagnostics(options: Dictionary = {}) -> Dictionary:` |
+| 方法 | [`get_dependency_diagnostics`](#member-gfarchitecture-methods-get_dependency_diagnostics) | `func get_dependency_diagnostics() -> Dictionary:` |
 | 方法 | [`_on_init`](#member-gfarchitecture-methods-_on_init) | `func _on_init() -> void:` |
 | 方法 | [`_on_dispose`](#member-gfarchitecture-methods-_on_dispose) | `func _on_dispose() -> void:` |
 
@@ -167,6 +169,25 @@ signal initialization_failed(reason: String)
 |---|---|
 | `reason` | 初始化失败原因。 |
 
+<a id="member-gfarchitecture-signals-shutdown_finished"></a>
+
+### `shutdown_finished`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+signal shutdown_finished(result: GFArchitectureShutdownResult)
+```
+
+当异步关闭流程或同步强制释放发布类型化终态时发出。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `result` | 类型化关闭结果快照。 |
+
 <a id="member-gfarchitecture-signals-project_installers_finished"></a>
 
 ### `project_installers_finished`
@@ -194,66 +215,6 @@ const SERVICE_COMMAND_HISTORY_STORE: StringName = &"gf.kernel.command_history_st
 
 命令历史服务 capability key。
 
-<a id="member-gfarchitecture-constants-hook_get_required_dependencies"></a>
-
-### `HOOK_GET_REQUIRED_DEPENDENCIES`
-
-- API：`public`
-
-```gdscript
-const HOOK_GET_REQUIRED_DEPENDENCIES: StringName = &"get_required_dependencies"
-```
-
-声明式依赖聚合 Hook 名称。
-
-<a id="member-gfarchitecture-constants-hook_get_required_models"></a>
-
-### `HOOK_GET_REQUIRED_MODELS`
-
-- API：`public`
-
-```gdscript
-const HOOK_GET_REQUIRED_MODELS: StringName = &"get_required_models"
-```
-
-声明式 Model 依赖 Hook 名称。
-
-<a id="member-gfarchitecture-constants-hook_get_required_systems"></a>
-
-### `HOOK_GET_REQUIRED_SYSTEMS`
-
-- API：`public`
-
-```gdscript
-const HOOK_GET_REQUIRED_SYSTEMS: StringName = &"get_required_systems"
-```
-
-声明式 System 依赖 Hook 名称。
-
-<a id="member-gfarchitecture-constants-hook_get_required_utilities"></a>
-
-### `HOOK_GET_REQUIRED_UTILITIES`
-
-- API：`public`
-
-```gdscript
-const HOOK_GET_REQUIRED_UTILITIES: StringName = &"get_required_utilities"
-```
-
-声明式 Utility 依赖 Hook 名称。
-
-<a id="member-gfarchitecture-constants-hook_get_required_factories"></a>
-
-### `HOOK_GET_REQUIRED_FACTORIES`
-
-- API：`public`
-
-```gdscript
-const HOOK_GET_REQUIRED_FACTORIES: StringName = &"get_required_factories"
-```
-
-声明式工厂依赖 Hook 名称。
-
 <a id="member-gfarchitecture-constants-default_snapshot_models_per_frame"></a>
 
 ### `DEFAULT_SNAPSHOT_MODELS_PER_FRAME`
@@ -274,30 +235,20 @@ const DEFAULT_SNAPSHOT_MODELS_PER_FRAME: int = 8
 ### `module_async_init_timeout_seconds`
 
 - API：`public`
+- 首次版本：`1.23.0`
 
 ```gdscript
 var module_async_init_timeout_seconds: float = 0.0:
 ```
 
-单个模块 async_init() 的最长等待时间。小于等于 0 时不启用超时。 默认关闭；项目可按自身加载预算显式启用。
-
-<a id="member-gfarchitecture-properties-module_lifecycle_max_stage_passes"></a>
-
-### `module_lifecycle_max_stage_passes`
-
-- API：`public`
-
-```gdscript
-var module_lifecycle_max_stage_passes: int = 256:
-```
-
-单个生命周期阶段最多扫描模块注册表的次数，避免模块在生命周期中无限注册新模块。
+单个模块 async_init() 的最长等待时间。0 时不启用超时。 默认关闭；项目可按自身加载预算显式启用。
 
 <a id="member-gfarchitecture-properties-strict_dependency_lookup"></a>
 
 ### `strict_dependency_lookup`
 
 - API：`public`
+- 首次版本：`1.23.0`
 
 ```gdscript
 var strict_dependency_lookup: bool = false
@@ -305,18 +256,31 @@ var strict_dependency_lookup: bool = false
 
 严格依赖查询模式。开启后本架构查询不到本地模块时不会回退父级架构。
 
-<a id="member-gfarchitecture-properties-fail_on_missing_declared_dependencies"></a>
+<a id="member-gfarchitecture-properties-activation_timeout_seconds"></a>
 
-### `fail_on_missing_declared_dependencies`
+### `activation_timeout_seconds`
 
 - API：`public`
-- 首次版本：`5.0.0`
+- 首次版本：`unreleased`
 
 ```gdscript
-var fail_on_missing_declared_dependencies: bool = false
+var activation_timeout_seconds: float = 30.0:
 ```
 
-声明式依赖缺失时是否直接使初始化失败。 模块可通过 get_required_dependencies() 或 get_required_models/systems/utilities/factories() 声明依赖。 开启后，init() 会在模块生命周期推进前校验依赖图，缺失依赖会中止本次初始化。
+架构激活阶段的总等待上限（秒）。 0 时不启用 deadline；默认 30 秒。
+
+<a id="member-gfarchitecture-properties-shutdown_timeout_seconds"></a>
+
+### `shutdown_timeout_seconds`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+var shutdown_timeout_seconds: float = 10.0:
+```
+
+架构 quiesce 阶段的总等待上限（秒）。 0 时不启用 deadline；默认 10 秒。
 
 <a id="member-gfarchitecture-properties-last_initialization_error"></a>
 
@@ -355,14 +319,15 @@ func _init(parent_architecture: GFArchitecture = null) -> void:
 ### `is_inited`
 
 - API：`public`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func is_inited() -> bool:
 ```
 
-检查架构是否已初始化。
+检查架构是否已完成四阶段启动并提交 READY。
 
-返回：已初始化返回 true，否则返回 false。
+返回：四阶段启动全部完成且 activation 已提交时返回 true，否则返回 false。
 
 <a id="member-gfarchitecture-methods-has_initialization_failed"></a>
 
@@ -383,14 +348,60 @@ func has_initialization_failed() -> bool:
 ### `is_lifecycle_active`
 
 - API：`public`
+- 首次版本：`1.23.2`
 
 ```gdscript
 func is_lifecycle_active() -> bool:
 ```
 
-检查当前架构生命周期是否仍处于可安全继续异步写回的活动状态。
+检查当前架构生命周期是否仍处于可安全继续已接纳异步写回的活动状态。 QUIESCING 期间该值仍可为 true；它不代表允许接纳新工作，新请求还必须通过 is_accepting_runtime_work() 检查。
 
-返回：正在初始化或已完成初始化，且未被 dispose() 或失败保护中断时返回 true。
+返回：正在初始化、已完成初始化或正在收敛已接纳工作，且未被 dispose() 或失败保护中断时返回 true。
+
+<a id="member-gfarchitecture-methods-is_activating"></a>
+
+### `is_activating`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func is_activating() -> bool:
+```
+
+检查架构是否正在执行第四阶段激活。
+
+返回：架构正在执行第四阶段激活时返回 true。
+
+<a id="member-gfarchitecture-methods-is_quiescing"></a>
+
+### `is_quiescing`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func is_quiescing() -> bool:
+```
+
+检查架构是否已经关闭新工作、正在等待已接纳工作收敛。
+
+返回：架构正在 quiesce 且尚未进入同步释放阶段时返回 true。
+
+<a id="member-gfarchitecture-methods-is_accepting_runtime_work"></a>
+
+### `is_accepting_runtime_work`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func is_accepting_runtime_work() -> bool:
+```
+
+检查架构是否仍接纳新的运行时工作。
+
+返回：仅在完整激活并处于 READY 时返回 true。
 
 <a id="member-gfarchitecture-methods-is_disposed"></a>
 
@@ -477,6 +488,42 @@ func is_module_ready(instance: Object) -> bool:
 | `instance` | 由当前架构注册的模块实例。 |
 
 返回：模块完成 ready 阶段时返回 true。
+
+<a id="member-gfarchitecture-methods-is_module_active"></a>
+
+### `is_module_active`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func is_module_active(instance: Object) -> bool:
+```
+
+检查模块是否已经完成第四阶段激活。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `instance` | 由当前架构本地注册的模块实例。 |
+
+返回：模块属于当前架构且已完成第四阶段激活时返回 true。
+
+<a id="member-gfarchitecture-methods-get_last_shutdown_result"></a>
+
+### `get_last_shutdown_result`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func get_last_shutdown_result() -> GFArchitectureShutdownResult:
+```
+
+获取最近一次关闭结果的隔离副本。
+
+返回：尚未关闭时返回 null。
 
 <a id="member-gfarchitecture-methods-fail_initialization"></a>
 
@@ -621,24 +668,53 @@ func create_binder() -> GFBinder:
 - 首次版本：`5.0.0`
 
 ```gdscript
-func init() -> bool:
+func init(cancellation_token: GFCancellationToken = null) -> bool:
 ```
 
-初始化架构及所有注册的组件（三阶段）。 阶段一：调用所有模块的 init()，用于初始化自身内部变量。 阶段二：串行 await 所有模块的 async_init()，用于异步资源加载等操作。 阶段三：调用所有模块的 ready()，此时跨模块依赖获取是安全的。
+初始化架构及所有注册的组件（四阶段）。 阶段一：按声明依赖 DAG 调用模块的 init()，用于初始化自身内部变量。 阶段二：按同一 DAG 串行 await 模块的 async_init()，用于异步准备。 阶段三：调用模块的 ready()；当前模块声明的依赖已 ready，未声明依赖无可用保证。 阶段四：按声明依赖顺序调用 begin_activation()，全部成功后才提交 READY。 并发调用复用同一初始化事务；首个调用拥有共享流程的取消策略，后续调用的 token 只取消自身等待，不会中断共享初始化。架构已经 READY 时幂等成功优先于 调用方 token 的取消状态。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `cancellation_token` | 可选的初始化取消令牌。 |
 
 返回：初始化完成且架构处于 ready 状态时返回 true。
+
+<a id="member-gfarchitecture-methods-shutdown_async"></a>
+
+### `shutdown_async`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func shutdown_async( cancellation_token: GFCancellationToken = null, timeout_seconds: float = -1.0 ) -> GFArchitectureShutdownResult:
+```
+
+异步关闭架构。 若活动子架构仍持有本架构的外部依赖租约，本方法会在改变任何生命周期 状态前返回失败；否则新工作准入会不可逆关闭，已接纳工作按激活计划逆序 quiesce，随后每个模块的同步 dispose/release hook 恰好执行一次。并发调用共享 同一流程；首个调用拥有共享流程的 cancellation token 与 deadline 策略，后续 调用在参数校验通过后只等待并复制同一终态结果。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `cancellation_token` | 可选关闭取消令牌。 |
+| `timeout_seconds` | cooperative quiesce 与异步等待预算；仅 -1 使用 shutdown_timeout_seconds。最终同步释放不承诺墙钟硬上限。 |
+
+返回：类型化关闭结果。
 
 <a id="member-gfarchitecture-methods-dispose"></a>
 
 ### `dispose`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func dispose() -> void:
 ```
 
-销毁架构及所有注册的组件。
+强制同步销毁架构及所有注册组件。 该方法用于 SceneTree 退出等无法等待的终止路径；正常退出应优先 await shutdown_async()，以便已接纳工作先收敛。
 
 <a id="member-gfarchitecture-methods-tick"></a>
 
@@ -1812,9 +1888,10 @@ func register_utility_instance_as(instance: Object, alias_cls: Script) -> bool:
 ### `unregister_system`
 
 - API：`public`
+- 首次版本：`11.0.0`
 
 ```gdscript
-func unregister_system(script_cls: Script) -> void:
+func unregister_system(script_cls: Script) -> bool:
 ```
 
 注销 System 实例。
@@ -1825,14 +1902,17 @@ func unregister_system(script_cls: Script) -> void:
 |---|---|
 | `script_cls` | 系统的脚本类。 |
 
+返回：模块完成 quiesce 并从活动拓扑移除时返回 true。
+
 <a id="member-gfarchitecture-methods-unregister_model"></a>
 
 ### `unregister_model`
 
 - API：`public`
+- 首次版本：`11.0.0`
 
 ```gdscript
-func unregister_model(script_cls: Script) -> void:
+func unregister_model(script_cls: Script) -> bool:
 ```
 
 注销 Model 实例。
@@ -1843,14 +1923,17 @@ func unregister_model(script_cls: Script) -> void:
 |---|---|
 | `script_cls` | 模型的脚本类。 |
 
+返回：模块完成 quiesce 并从活动拓扑移除时返回 true。
+
 <a id="member-gfarchitecture-methods-unregister_utility"></a>
 
 ### `unregister_utility`
 
 - API：`public`
+- 首次版本：`11.0.0`
 
 ```gdscript
-func unregister_utility(script_cls: Script) -> void:
+func unregister_utility(script_cls: Script) -> bool:
 ```
 
 注销 Utility 实例。
@@ -1860,6 +1943,8 @@ func unregister_utility(script_cls: Script) -> void:
 | 名称 | 说明 |
 |---|---|
 | `script_cls` | 工具的脚本类。 |
+
+返回：模块完成 quiesce 并从活动拓扑移除时返回 true。
 
 <a id="member-gfarchitecture-methods-get_system"></a>
 
@@ -2058,12 +2143,13 @@ func get_local_utility(script_cls: Script, require_ready: bool = false) -> Objec
 ### `create_instance`
 
 - API：`public`
+- 首次版本：`1.9.0`
 
 ```gdscript
 func create_instance(script_cls: Script) -> Object:
 ```
 
-通过已注册工厂创建短生命周期对象。
+通过已注册工厂创建短生命周期对象。 仅在架构已经提交 READY 且没有热拓扑事务时接纳；其它生命周期状态会在 调用 provider 前返回 null。
 
 参数：
 
@@ -2071,7 +2157,7 @@ func create_instance(script_cls: Script) -> Object:
 |---|---|
 | `script_cls` | 要创建的脚本类型。 |
 
-返回：新对象实例；没有工厂或工厂返回非对象时返回 null。
+返回：新对象实例；运行时未开放、没有工厂或工厂返回非对象时返回 null。
 
 <a id="member-gfarchitecture-methods-inject_object"></a>
 
@@ -2361,22 +2447,15 @@ func get_binding_diagnostics(options: Dictionary = {}) -> Dictionary:
 - 首次版本：`7.0.0`
 
 ```gdscript
-func get_dependency_diagnostics(options: Dictionary = {}) -> Dictionary:
+func get_dependency_diagnostics() -> Dictionary:
 ```
 
-获取架构中已注册模块的声明式依赖诊断报告。 模块可选择实现 get_required_dependencies() 或 get_required_models/systems/utilities/factories()。
-
-参数：
-
-| 名称 | 说明 |
-|---|---|
-| `options` | 可选参数，支持 include_parent_lookup 与 include_factories。 |
+获取架构中已注册模块的声明式依赖诊断报告。 模块通过 get_required_models/systems/utilities/factories() 分别声明依赖。
 
 返回：统一诊断报告字典。
 
 结构：
 
-- `options`: Dictionary with optional bool keys include_parent_lookup and include_factories.
 - `return`: Dictionary dependency diagnostics report with modules, resolved_dependencies, missing_dependencies, parent-chain cycle issue records, issue counts, and next_action.
 
 <a id="member-gfarchitecture-methods-_on_init"></a>
