@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<apiCatalog schemaVersion="2" name="GF Framework" sourceRoot="addons/gf" sourceDigest="64a5352766a4740db7d147a74d23e0d911a664091176fbddf23d8cac74a01cc5" classCount="802" methodCount="7289">
-	<module id="kernel" label="Kernel" classCount="74" methodCount="792">
+<apiCatalog schemaVersion="2" name="GF Framework" sourceRoot="addons/gf" sourceDigest="cab721c60c4bbbd57b0bb2e664fd538696903620585f73a376637c59a2b56124" classCount="804" methodCount="7316">
+	<module id="kernel" label="Kernel" classCount="74" methodCount="793">
 		<class name="GFAccessGenerator" path="classes/GFAccessGenerator.xml" sourcePath="addons/gf/kernel/editor/gf_access_generator.gd" extends="RefCounted" />
 		<class name="GFArchitecture" path="classes/GFArchitecture.xml" sourcePath="addons/gf/kernel/core/gf_architecture.gd" extends="Object" />
 		<class name="GFArchitectureShutdownResult" path="classes/GFArchitectureShutdownResult.xml" sourcePath="addons/gf/kernel/core/gf_architecture_shutdown_result.gd" extends="RefCounted" />
@@ -76,7 +76,7 @@
 		<class name="GFUtility" path="classes/GFUtility.xml" sourcePath="addons/gf/kernel/base/gf_utility.gd" extends="Object" />
 		<class name="GFWeakMethodInvocation" path="classes/GFWeakMethodInvocation.xml" sourcePath="addons/gf/kernel/core/gf_weak_method_invocation.gd" extends="RefCounted" />
 	</module>
-	<module id="standard" label="Standard" classCount="443" methodCount="4467">
+	<module id="standard" label="Standard" classCount="445" methodCount="4493">
 		<class name="GFActivationTransaction" path="classes/GFActivationTransaction.xml" sourcePath="addons/gf/standard/foundation/policy/gf_activation_transaction.gd" extends="RefCounted" />
 		<class name="GFAnalyticsConfig" path="classes/GFAnalyticsConfig.xml" sourcePath="addons/gf/standard/utilities/analytics/gf_analytics_config.gd" extends="Resource" />
 		<class name="GFAnalyticsEventSchema" path="classes/GFAnalyticsEventSchema.xml" sourcePath="addons/gf/standard/utilities/analytics/gf_analytics_event_schema.gd" extends="Resource" />
@@ -488,6 +488,7 @@
 		<class name="GFTrajectoryMath" path="classes/GFTrajectoryMath.xml" sourcePath="addons/gf/standard/foundation/math/gf_trajectory_math.gd" extends="RefCounted" />
 		<class name="GFTransform3DMath" path="classes/GFTransform3DMath.xml" sourcePath="addons/gf/standard/foundation/math/gf_transform_3d_math.gd" extends="RefCounted" />
 		<class name="GFUILayerDefinition" path="classes/GFUILayerDefinition.xml" sourcePath="addons/gf/standard/utilities/ui/gf_ui_layer_definition.gd" extends="Resource" />
+		<class name="GFUIPanelAsyncOperation" path="classes/GFUIPanelAsyncOperation.xml" sourcePath="addons/gf/standard/utilities/ui/gf_ui_panel_async_operation.gd" extends="RefCounted" />
 		<class name="GFUIRoute" path="classes/GFUIRoute.xml" sourcePath="addons/gf/standard/utilities/ui/gf_ui_route.gd" extends="Resource" />
 		<class name="GFUIRouteOperation" path="classes/GFUIRouteOperation.xml" sourcePath="addons/gf/standard/utilities/ui/gf_ui_route_operation.gd" extends="RefCounted" />
 		<class name="GFUIRoutePreloadUtility" path="classes/GFUIRoutePreloadUtility.xml" sourcePath="addons/gf/standard/utilities/ui/gf_ui_route_preload_utility.gd" extends="RefCounted" />
@@ -512,6 +513,7 @@
 		<class name="GFVariantReferenceCodec" path="classes/GFVariantReferenceCodec.xml" sourcePath="addons/gf/standard/foundation/variant/gf_variant_reference_codec.gd" extends="RefCounted" />
 		<class name="GFViewportUtility" path="classes/GFViewportUtility.xml" sourcePath="addons/gf/standard/utilities/display/gf_viewport_utility.gd" extends="GFUtility" />
 		<class name="GFVirtualInputBridge" path="classes/GFVirtualInputBridge.xml" sourcePath="addons/gf/standard/input/common/gf_virtual_input_bridge.gd" extends="RefCounted" />
+		<class name="GFVirtualInputPulseOperation" path="classes/GFVirtualInputPulseOperation.xml" sourcePath="addons/gf/standard/input/sources/gf_virtual_input_pulse_operation.gd" extends="RefCounted" />
 		<class name="GFVirtualInputSource" path="classes/GFVirtualInputSource.xml" sourcePath="addons/gf/standard/input/sources/gf_virtual_input_source.gd" extends="RefCounted" />
 		<class name="GFVirtualListFocusModel" path="classes/GFVirtualListFocusModel.xml" sourcePath="addons/gf/standard/utilities/ui/gf_virtual_list_focus_model.gd" extends="RefCounted" />
 		<class name="GFVirtualListModel" path="classes/GFVirtualListModel.xml" sourcePath="addons/gf/standard/utilities/ui/gf_virtual_list_model.gd" extends="RefCounted" />

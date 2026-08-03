@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFArchitecture" path="addons/gf/kernel/core/gf_architecture.gd" module="kernel" extends="Object" classDigest="ffe58eee8a9758a10073a0edd610bb27e453ff53cf67b105870c134027253e69">
+<class name="GFArchitecture" path="addons/gf/kernel/core/gf_architecture.gd" module="kernel" extends="Object" classDigest="bd4d808e88eda4140998b1849041ba5e9396779f810b6b0fece24e7e185c1030">
 	<description>GFArchitecture: 管理 Model、System 和 Utility 的注册与生命周期的容器。
 生命周期遵循四阶段初始化协议：
 阶段一 (init)       ：各模块按声明依赖 DAG 执行自身内部变量初始化。
@@ -45,7 +45,36 @@
 			</tags>
 		</member>
 	</signals>
-	<enums />
+	<enums>
+		<member kind="enum" name="ModuleKind">
+			<signature>enum ModuleKind {
+	## Model 模块。
+	MODEL,
+	## System 模块。
+	SYSTEM,
+	## Utility 模块。
+	UTILITY,
+}</signature>
+			<description>可由架构访问策略解析的模块类型。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="enum" name="ModuleLookupScope">
+			<signature>enum ModuleLookupScope {
+	## 按当前架构的父级回退与 strict_dependency_lookup 规则解析。
+	INHERITED,
+	## 只解析当前架构，不回退父级。
+	LOCAL,
+}</signature>
+			<description>模块访问的架构作用域。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</enums>
 	<constants>
 		<member kind="const" name="SERVICE_COMMAND_HISTORY_STORE">
 			<signature>const SERVICE_COMMAND_HISTORY_STORE: StringName = &amp;"gf.kernel.command_history_store"</signature>
@@ -981,6 +1010,22 @@ listener 携带 owner 时返回的句柄会绑定该 owner 生命周期。`once`
 				<tag name="param">script_cls: 工具的脚本类。</tag>
 				<tag name="return">模块完成 quiesce 并从活动拓扑移除时返回 true。</tag>
 				<tag name="since">11.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="resolve_module_access">
+			<signature>func resolve_module_access( module_kind: ModuleKind, script_cls: Script, lookup_scope: ModuleLookupScope = ModuleLookupScope.INHERITED, required: bool = true, require_ready: bool = false ) -&gt; Object:</signature>
+			<description>按冻结的作用域、必需性和 ready 策略解析已注册模块。
+该入口供生成访问器与其他声明式依赖边界复用；required 只控制严格依赖缺失诊断，
+不改变 strict_dependency_lookup 对父级回退的限制。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">module_kind: 要解析的 Model、System 或 Utility 类型。</tag>
+				<tag name="param">script_cls: 模块脚本类。</tag>
+				<tag name="param">lookup_scope: 父级可见或仅当前架构的查询作用域。</tag>
+				<tag name="param">required: 为 true 时，严格查询模式下缺失模块会输出 required miss。</tag>
+				<tag name="param">require_ready: 为 true 时，仅返回已完成 ready 阶段的实例。</tag>
+				<tag name="return">符合全部冻结策略的模块实例；未命中时返回 null。</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_system">

@@ -6,11 +6,11 @@
 
 | 类别 | 类 | 成员 | 方法 |
 |---|---:|---:|---:|
-| [运行时服务](#category-runtime_service) | 188 | 3401 | 2291 |
+| [运行时服务](#category-runtime_service) | 188 | 3402 | 2292 |
 | [协议与扩展点](#category-protocol) | 24 | 338 | 267 |
 | [资源定义](#category-resource_definition) | 120 | 1538 | 792 |
-| [运行时句柄](#category-runtime_handle) | 47 | 821 | 521 |
-| [值对象](#category-value_object) | 40 | 735 | 460 |
+| [运行时句柄](#category-runtime_handle) | 49 | 853 | 546 |
+| [值对象](#category-value_object) | 40 | 736 | 460 |
 | [领域模型](#category-domain_model) | 4 | 61 | 42 |
 | [事件契约](#category-event_contract) | 6 | 61 | 23 |
 | [编辑器 API](#category-editor_api) | 11 | 68 | 46 |
@@ -422,7 +422,9 @@
 | [`GFTextGenerationContext`](classes/GFTextGenerationContext.md#gftextgenerationcontext) | `RefCounted` | `addons/gf/standard/foundation/text/gf_text_generation_context.gd` |
 | [`GFTimeoutController`](classes/GFTimeoutController.md#gftimeoutcontroller) | `RefCounted` | `addons/gf/standard/common/gf_timeout_controller.gd` |
 | [`GFTouchControl2D`](classes/GFTouchControl2D.md#gftouchcontrol2d) | `Node2D` | `addons/gf/standard/input/touch/gf_touch_control_2d.gd` |
+| [`GFUIPanelAsyncOperation`](classes/GFUIPanelAsyncOperation.md#gfuipanelasyncoperation) | `RefCounted` | `addons/gf/standard/utilities/ui/gf_ui_panel_async_operation.gd` |
 | [`GFUIRouteOperation`](classes/GFUIRouteOperation.md#gfuirouteoperation) | `RefCounted` | `addons/gf/standard/utilities/ui/gf_ui_route_operation.gd` |
+| [`GFVirtualInputPulseOperation`](classes/GFVirtualInputPulseOperation.md#gfvirtualinputpulseoperation) | `RefCounted` | `addons/gf/standard/input/sources/gf_virtual_input_pulse_operation.gd` |
 | [`GFVirtualInputSource`](classes/GFVirtualInputSource.md#gfvirtualinputsource) | `RefCounted` | `addons/gf/standard/input/sources/gf_virtual_input_source.gd` |
 
 <a id="category-value_object"></a>

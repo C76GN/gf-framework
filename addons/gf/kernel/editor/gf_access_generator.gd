@@ -54,6 +54,28 @@ const DEFAULT_OUTPUT_PATH: String = _GF_PROJECT_ARTIFACT_PATHS_SCRIPT.ACCESS_OUT
 ## [br]
 ## @since 9.0.0
 const DEFAULT_PROJECT_OUTPUT_PATH: String = _GF_PROJECT_ARTIFACT_PATHS_SCRIPT.PROJECT_ACCESS_OUTPUT_PATH
+
+## 访问器按父级回退规则解析模块。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+const ACCESS_SCOPE_INHERITED: StringName = &"inherited"
+
+## 访问器只解析传入架构的本地模块。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+const ACCESS_SCOPE_LOCAL: StringName = &"local"
+
+## 每个生成类型的冻结访问策略 ProjectSettings 键。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+const ACCESS_POLICIES_SETTING: String = "gf/codegen/access_policies"
+const _ACCESS_POLICY_KEYS: Array[String] = ["scope", "required", "require_ready"]
 const _BASE_MODEL_SCRIPT = preload("res://addons/gf/kernel/base/gf_model.gd")
 const _BASE_SYSTEM_SCRIPT = preload("res://addons/gf/kernel/base/gf_system.gd")
 const _BASE_UTILITY_SCRIPT = preload("res://addons/gf/kernel/base/gf_utility.gd")
@@ -72,6 +94,7 @@ const _LAYER_TYPES: Dictionary = {
 }
 const _KNOWN_GF_PROJECT_SETTINGS: Array[String] = [
 	"gf/codegen/access_output_path",
+	"gf/codegen/access_policies",
 	"gf/codegen/project_access_output_path",
 	"gf/extensions/auto_install_enabled_installers",
 	"gf/extensions/enabled",
@@ -118,8 +141,25 @@ func generate(output_path: String = DEFAULT_OUTPUT_PATH, overwrite_existing: boo
 ## [br]
 ## @schema return: Dictionary，包含 success、path、status、error_code、error、written、changed、dry_run、size_bytes 和 metadata。
 func generate_with_report(output_path: String = DEFAULT_OUTPUT_PATH, options: Dictionary = {}) -> Dictionary:
-	var records: Array[Dictionary] = collect_records()
+	var collection: Dictionary = _collect_records_with_validation()
+	if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(collection, "valid"):
+		return _make_access_policy_generation_failure(
+			output_path,
+			_GF_VARIANT_ACCESS_SCRIPT.get_option_string(
+				collection,
+				"error",
+				"访问策略验证失败。"
+			),
+			options
+		)
+	var records: Array[Dictionary] = _get_record_dictionary_array(collection.get("records"))
 	var source: String = build_source(records)
+	if source.is_empty():
+		return _make_access_policy_generation_failure(
+			output_path,
+			"访问器源码准备失败。",
+			options
+		)
 	return save_source_with_report(output_path, source, options)
 
 
@@ -167,34 +207,16 @@ func generate_project_access_with_report(
 ## [br]
 ## @api public
 ## [br]
-## @return 类型记录列表。
+## @since 3.17.0
 ## [br]
-## @schema return: Array of Dictionary type records with class_name, path, script, kind, and access metadata.
+## @return: 类型记录列表；访问策略配置无效时返回空数组且不会返回部分冻结结果。
+## [br]
+## @schema return: Array of Dictionary type records with class_name, path, and kind; Model/System/Utility records additionally contain scope, required, and require_ready.
 func collect_records() -> Array[Dictionary]:
-	var records: Array[Dictionary] = []
-	for global_class: Dictionary in ProjectSettings.get_global_class_list():
-		var class_name_value: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(global_class, "class")
-		var path: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(global_class, "path")
-		if class_name_value.is_empty() or path.is_empty():
-			continue
-
-		var script: Script = _variant_to_script(load(path))
-		if script == null:
-			continue
-
-		var kind: int = _resolve_kind(script)
-		if kind == -1:
-			continue
-
-		records.append({
-			"class_name": class_name_value,
-			"path": path,
-			"kind": kind,
-		})
-
-	_append_access_generator_extension_records(records)
-	_sort_records(records)
-	return records
+	var collection: Dictionary = _collect_records_with_validation()
+	if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(collection, "valid"):
+		return []
+	return _get_record_dictionary_array(collection.get("records"))
 
 
 ## 收集项目层常量记录，包括命名层、InputMap 动作和 GF ProjectSettings。
@@ -216,21 +238,41 @@ func collect_project_records() -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param records: 生成访问器时使用的类型记录列表。
 ## [br]
-## @schema records: Array of Dictionary type records containing class_name, path, and kind.
+## @schema records: Array of Dictionary type records containing class_name, path, and kind; Model/System/Utility records may additionally contain scope, required, and require_ready.
 ## [br]
-## @return GDScript 源码。
+## @return: 完整 GDScript 源码；任一记录或模块访问策略无效时整批失败并返回空字符串。
 func build_source(records: Array) -> String:
+	var preparation: Dictionary = _prepare_records_for_source(records)
+	if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(preparation, "valid"):
+		push_error(
+			"[GFAccessGenerator] %s" % _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
+				preparation,
+				"error",
+				"访问器记录验证失败，整批生成已中止。"
+			)
+		)
+		return ""
+	var prepared_records: Array[Dictionary] = _get_record_dictionary_array(
+		preparation.get("records")
+	)
 	var builder: GFSourceBuilder = GFSourceBuilder.new()
-	var has_capability_records: bool = _records_include_kind(records, TargetKind.CAPABILITY)
+	var has_capability_records: bool = _records_include_kind(
+		prepared_records,
+		TargetKind.CAPABILITY
+	)
 	builder.doc("GFAccess: 自动生成的强类型 GF 访问器。")
 	builder.doc()
 	builder.doc("该文件由 GFAccessGenerator 生成，可以提交到版本库；请不要手动编辑。")
 	builder.line("class_name GFAccess")
 	builder.line("extends RefCounted")
 	if has_capability_records:
-		var capability_utility_script_path: String = _get_capability_utility_script_path(records)
+		var capability_utility_script_path: String = _get_capability_utility_script_path(
+			prepared_records
+		)
 		builder.blank(2)
 		builder.section("常量")
 		builder.line("const _CAPABILITY_UTILITY_SCRIPT_PATH: String = \"%s\"" % capability_utility_script_path)
@@ -248,10 +290,10 @@ func build_source(records: Array) -> String:
 	builder.blank()
 
 	var used_names: Dictionary = {}
-	for record: Dictionary in records:
+	for record: Dictionary in prepared_records:
 		_append_record_function(builder, record, used_names)
 
-	_append_access_generator_extensions(builder, records)
+	_append_access_generator_extensions(builder, prepared_records)
 
 	builder.blank()
 	builder.section("私有/辅助方法")
@@ -412,6 +454,137 @@ func save_source_with_report(output_path: String, source: String, options: Dicti
 
 
 # --- 私有/辅助方法 ---
+
+func _collect_records_with_validation() -> Dictionary:
+	var configured_result: Dictionary = _get_configured_access_policies()
+	if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(configured_result, "valid"):
+		return configured_result
+	var records: Array[Dictionary] = []
+	for global_class: Dictionary in ProjectSettings.get_global_class_list():
+		var class_name_value: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(global_class, "class")
+		var path: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(global_class, "path")
+		if class_name_value.is_empty() or path.is_empty():
+			continue
+
+		var script: Script = _variant_to_script(load(path))
+		if script == null:
+			continue
+
+		var kind: int = _resolve_kind(script)
+		if kind == -1:
+			continue
+
+		records.append({
+			"class_name": class_name_value,
+			"path": path,
+			"kind": kind,
+		})
+
+	_append_access_generator_extension_records(records)
+	var policy_result: Dictionary = _apply_access_policies_with_config(
+		records,
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(configured_result, "policies")
+	)
+	if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(policy_result, "valid"):
+		return policy_result
+	var frozen_records: Array[Dictionary] = _get_record_dictionary_array(
+		policy_result.get("records")
+	)
+	_sort_records(frozen_records)
+	return {
+		"valid": true,
+		"error": "",
+		"records": frozen_records,
+	}
+
+
+func _make_access_policy_generation_failure(
+	output_path: String,
+	message: String,
+	options: Dictionary
+) -> Dictionary:
+	var report_options: Dictionary = {
+		"written": false,
+		"changed": false,
+		"dry_run": _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(options, "dry_run"),
+		"size_bytes": 0,
+		"artifact_owner": _GF_VARIANT_ACCESS_SCRIPT.get_option_value(
+			options,
+			"artifact_owner",
+			_GENERATED_ARTIFACT_REPORT_SCRIPT.OWNER_GENERATED
+		),
+		"generator_id": "GFAccessGenerator",
+		"source_id": _GF_VARIANT_ACCESS_SCRIPT.get_option_string(options, "source_id"),
+		"content_sha256": "",
+		"previous_sha256": "",
+		"encoding": "utf-8",
+		"metadata": _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(
+			options,
+			"metadata"
+		).duplicate(true),
+	}
+	return _GENERATED_ARTIFACT_REPORT_SCRIPT.make_report(
+		output_path,
+		_GENERATED_ARTIFACT_REPORT_SCRIPT.STATUS_FAILED,
+		ERR_INVALID_DATA,
+		message,
+		report_options
+	)
+
+
+func _duplicate_record_dictionaries(records: Array) -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	for record_value: Variant in records:
+		if record_value is Dictionary:
+			var record: Dictionary = record_value
+			result.append(record.duplicate(true))
+	return result
+
+
+func _get_record_dictionary_array(value: Variant) -> Array[Dictionary]:
+	if value is Array:
+		var records: Array = value
+		return _duplicate_record_dictionaries(records)
+	return []
+
+
+func _prepare_records_for_source(records: Array) -> Dictionary:
+	var prepared_records: Array[Dictionary] = []
+	for record_value: Variant in records:
+		if not (record_value is Dictionary):
+			return {
+				"valid": false,
+				"error": "访问器记录必须是 Dictionary，整批生成已中止。",
+				"records": [],
+			}
+		var source_record: Dictionary = record_value
+		var prepared_record: Dictionary = source_record.duplicate(true)
+		var kind: int = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+			prepared_record,
+			"kind",
+			-1
+		)
+		if _is_module_target_kind(kind):
+			var normalized_policy: Dictionary = _normalize_access_policy(prepared_record)
+			if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(normalized_policy, "valid"):
+				return {
+					"valid": false,
+					"error": "access policy 无效，整批生成已中止：%s" % (
+						_GF_VARIANT_ACCESS_SCRIPT.get_option_string(
+							prepared_record,
+							"class_name"
+						)
+					),
+					"records": [],
+				}
+			_write_normalized_access_policy(prepared_record, normalized_policy)
+		prepared_records.append(prepared_record)
+	return {
+		"valid": true,
+		"error": "",
+		"records": prepared_records,
+	}
+
 
 func _collect_layer_records() -> Array[Dictionary]:
 	var records: Array[Dictionary] = []
@@ -581,6 +754,273 @@ func _get_capability_utility_script_path(records: Array) -> String:
 	return ""
 
 
+func _apply_access_policies(records: Array[Dictionary]) -> Dictionary:
+	var configured_result: Dictionary = _get_configured_access_policies()
+	if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(configured_result, "valid"):
+		return configured_result
+	var configured_policies: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(
+		configured_result,
+		"policies"
+	)
+	return _apply_access_policies_with_config(records, configured_policies)
+
+
+func _apply_access_policies_with_config(
+	records: Array[Dictionary],
+	configured_policies: Dictionary
+) -> Dictionary:
+	var frozen_records: Array[Dictionary] = _duplicate_record_dictionaries(records)
+	var configured_validation: Dictionary = _validate_configured_access_policies(
+		frozen_records,
+		configured_policies
+	)
+	if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(configured_validation, "valid"):
+		return configured_validation
+	configured_policies = _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(
+		configured_validation,
+		"policies"
+	)
+
+	for record: Dictionary in frozen_records:
+		var kind: int = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(record, "kind", -1)
+		if not _is_module_target_kind(kind):
+			continue
+		var class_name_value: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
+			record,
+			"class_name"
+		)
+		var normalized_policy: Dictionary = _normalize_access_policy(record)
+		if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(normalized_policy, "valid"):
+			return _fail_access_policy_validation(
+				"access policy 无效：%s" % class_name_value
+			)
+		var script_path: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(record, "path")
+		if configured_policies.has(script_path):
+			var configured_policy: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.as_dictionary(
+				configured_policies.get(script_path)
+			)
+			for policy_key: String in _ACCESS_POLICY_KEYS:
+				if configured_policy.has(policy_key):
+					normalized_policy[policy_key] = configured_policy.get(policy_key)
+
+		normalized_policy = _normalize_access_policy(normalized_policy)
+		if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(normalized_policy, "valid"):
+			return _fail_access_policy_validation(
+				"access policy 无效：%s" % class_name_value
+			)
+		_write_normalized_access_policy(record, normalized_policy)
+	return {
+		"valid": true,
+		"error": "",
+		"records": frozen_records,
+	}
+
+
+func _get_configured_access_policies() -> Dictionary:
+	var value: Variant = ProjectSettings.get_setting(ACCESS_POLICIES_SETTING, {})
+	if not (value is Dictionary):
+		return _fail_access_policy_validation(
+			"gf/codegen/access_policies 必须是 Dictionary。"
+		)
+	var policies: Dictionary = value
+	return {
+		"valid": true,
+		"error": "",
+		"policies": policies.duplicate(true),
+	}
+
+
+func _validate_configured_access_policies(
+	records: Array[Dictionary],
+	configured_policies: Dictionary
+) -> Dictionary:
+	var eligible_paths: Dictionary = {}
+	for record: Dictionary in records:
+		if not _is_module_target_kind(
+			_GF_VARIANT_ACCESS_SCRIPT.get_option_int(record, "kind", -1)
+		):
+			continue
+		var record_path: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(record, "path")
+		if not record_path.is_empty():
+			eligible_paths[record_path] = true
+
+	var normalized_paths: Dictionary = {}
+	var normalized_policies: Dictionary = {}
+	for raw_path: Variant in configured_policies:
+		if not (raw_path is String or raw_path is StringName):
+			return _fail_access_policy_validation(
+				"access policy 路径键必须是 String 或 StringName。"
+			)
+		var script_path: String = _GF_VARIANT_ACCESS_SCRIPT.to_text(raw_path)
+		if (
+			script_path.is_empty()
+			or not script_path.begins_with("res://")
+			or not eligible_paths.has(script_path)
+		):
+			return _fail_access_policy_validation(
+				"access policy 路径未匹配可生成模块：%s" % script_path
+			)
+		if normalized_paths.has(script_path):
+			return _fail_access_policy_validation(
+				"access policy 路径重复：%s" % script_path
+			)
+		normalized_paths[script_path] = true
+		var configured_value: Variant = configured_policies.get(raw_path)
+		if not (configured_value is Dictionary):
+			return _fail_access_policy_validation(
+				"access policy 必须是 Dictionary：%s" % script_path
+			)
+		var configured_policy: Dictionary = configured_value
+		var field_normalization: Dictionary = _normalize_access_policy_fields(
+			configured_policy,
+			false
+		)
+		if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(field_normalization, "valid"):
+			var error_kind: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
+				field_normalization,
+				"error_kind"
+			)
+			if error_kind == "duplicate_field":
+				return _fail_access_policy_validation(
+					"access policy 包含等价重复字段：%s" % script_path
+				)
+			return _fail_access_policy_validation(
+				"access policy 包含未知字段：%s" % script_path
+			)
+		var normalized_configured_policy: Dictionary = (
+			_GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(
+				field_normalization,
+				"policy"
+			)
+		)
+		if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+			_normalize_access_policy(normalized_configured_policy),
+			"valid"
+		):
+			return _fail_access_policy_validation(
+				"access policy 值无效：%s" % script_path
+			)
+		normalized_policies[script_path] = normalized_configured_policy.duplicate(true)
+	return {
+		"valid": true,
+		"error": "",
+		"policies": normalized_policies,
+	}
+
+
+func _fail_access_policy_validation(message: String) -> Dictionary:
+	push_error("[GFAccessGenerator] %s" % message)
+	return {
+		"valid": false,
+		"error": message,
+		"records": [],
+	}
+
+
+func _normalize_access_policy(record: Dictionary) -> Dictionary:
+	if _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(record, "access_policy_valid", true) == false:
+		return { "valid": false }
+	var field_normalization: Dictionary = _normalize_access_policy_fields(record, true)
+	if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(field_normalization, "valid"):
+		return { "valid": false }
+	var policy: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(
+		field_normalization,
+		"policy"
+	)
+
+	var scope: StringName = ACCESS_SCOPE_INHERITED
+	if policy.has("scope"):
+		var raw_scope: Variant = policy.get("scope")
+		if not (raw_scope is String or raw_scope is StringName):
+			return { "valid": false }
+		scope = StringName(_GF_VARIANT_ACCESS_SCRIPT.to_text(raw_scope).strip_edges().to_lower())
+	if scope not in [ACCESS_SCOPE_INHERITED, ACCESS_SCOPE_LOCAL]:
+		return { "valid": false }
+
+	if policy.has("required") and not (policy.get("required") is bool):
+		return { "valid": false }
+	if policy.has("require_ready") and not (policy.get("require_ready") is bool):
+		return { "valid": false }
+	return {
+		"valid": true,
+		"scope": scope,
+		"required": _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(policy, "required", true),
+		"require_ready": _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+			policy,
+			"require_ready",
+			false
+		),
+	}
+
+
+func _normalize_access_policy_fields(
+	source: Dictionary,
+	allow_other_fields: bool
+) -> Dictionary:
+	var normalized_policy: Dictionary = {}
+	for raw_key: Variant in source:
+		if not (raw_key is String or raw_key is StringName):
+			if allow_other_fields:
+				continue
+			return {
+				"valid": false,
+				"error_kind": "unknown_field",
+				"policy": {},
+			}
+		var policy_key: String = _GF_VARIANT_ACCESS_SCRIPT.to_text(raw_key)
+		if not _ACCESS_POLICY_KEYS.has(policy_key):
+			if allow_other_fields:
+				continue
+			return {
+				"valid": false,
+				"error_kind": "unknown_field",
+				"policy": {},
+			}
+		if normalized_policy.has(policy_key):
+			return {
+				"valid": false,
+				"error_kind": "duplicate_field",
+				"policy": {},
+			}
+		normalized_policy[policy_key] = source.get(raw_key)
+	return {
+		"valid": true,
+		"error_kind": "",
+		"policy": normalized_policy,
+	}
+
+
+func _write_normalized_access_policy(record: Dictionary, policy: Dictionary) -> void:
+	var policy_keys_to_erase: Array = []
+	for raw_key: Variant in record:
+		if not (raw_key is String or raw_key is StringName):
+			continue
+		if _ACCESS_POLICY_KEYS.has(_GF_VARIANT_ACCESS_SCRIPT.to_text(raw_key)):
+			policy_keys_to_erase.append(raw_key)
+	for raw_key: Variant in policy_keys_to_erase:
+		var _erased_policy_key: bool = record.erase(raw_key)
+
+	record["access_policy_valid"] = true
+	record["scope"] = _GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(
+		policy,
+		"scope",
+		ACCESS_SCOPE_INHERITED
+	)
+	record["required"] = _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+		policy,
+		"required",
+		true
+	)
+	record["require_ready"] = _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+		policy,
+		"require_ready"
+	)
+
+
+func _is_module_target_kind(kind: int) -> bool:
+	return kind in [TargetKind.MODEL, TargetKind.SYSTEM, TargetKind.UTILITY]
+
+
 func _append_access_generator_extension_records(records: Array[Dictionary]) -> void:
 	for extension_path: String in GFExtensionSettings.get_enabled_access_generator_extension_paths():
 		var extension: Object = _load_access_generator_extension(extension_path)
@@ -675,6 +1115,7 @@ func _append_source_section(builder: GFSourceBuilder, source: String) -> void:
 func _append_record_function(builder: GFSourceBuilder, record: Dictionary, used_names: Dictionary) -> void:
 	var class_name_value: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(record, "class_name")
 	var kind: int = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(record, "kind")
+	var access_policy: Dictionary = _normalize_access_policy(record)
 	var function_name: String = _get_function_name(class_name_value, kind)
 	if used_names.has(function_name):
 		push_warning("[GFAccessGenerator] 函数名重复，已跳过：%s" % function_name)
@@ -686,18 +1127,7 @@ func _append_record_function(builder: GFSourceBuilder, record: Dictionary, used_
 			builder.doc("获取 %s Model。" % class_name_value)
 			builder.line("static func %s(architecture: GFArchitecture = null) -> %s:" % [function_name, class_name_value])
 			builder.indent()
-			builder.line("var resolved_architecture: GFArchitecture = architecture_or_null(architecture)")
-			builder.line("if resolved_architecture == null:")
-			builder.indent()
-			builder.line("return null")
-			builder.dedent()
-			builder.line("var model_value: Variant = resolved_architecture.get_model(%s)" % class_name_value)
-			builder.line("if model_value is %s:" % class_name_value)
-			builder.indent()
-			builder.line("var model: %s = model_value" % class_name_value)
-			builder.line("return model")
-			builder.dedent()
-			builder.line("return null")
+			_append_module_access_body(builder, record, access_policy, "model", "MODEL")
 			builder.dedent()
 			builder.blank(2)
 
@@ -705,18 +1135,7 @@ func _append_record_function(builder: GFSourceBuilder, record: Dictionary, used_
 			builder.doc("获取 %s System。" % class_name_value)
 			builder.line("static func %s(architecture: GFArchitecture = null) -> %s:" % [function_name, class_name_value])
 			builder.indent()
-			builder.line("var resolved_architecture: GFArchitecture = architecture_or_null(architecture)")
-			builder.line("if resolved_architecture == null:")
-			builder.indent()
-			builder.line("return null")
-			builder.dedent()
-			builder.line("var system_value: Variant = resolved_architecture.get_system(%s)" % class_name_value)
-			builder.line("if system_value is %s:" % class_name_value)
-			builder.indent()
-			builder.line("var system: %s = system_value" % class_name_value)
-			builder.line("return system")
-			builder.dedent()
-			builder.line("return null")
+			_append_module_access_body(builder, record, access_policy, "system", "SYSTEM")
 			builder.dedent()
 			builder.blank(2)
 
@@ -724,18 +1143,7 @@ func _append_record_function(builder: GFSourceBuilder, record: Dictionary, used_
 			builder.doc("获取 %s Utility。" % class_name_value)
 			builder.line("static func %s(architecture: GFArchitecture = null) -> %s:" % [function_name, class_name_value])
 			builder.indent()
-			builder.line("var resolved_architecture: GFArchitecture = architecture_or_null(architecture)")
-			builder.line("if resolved_architecture == null:")
-			builder.indent()
-			builder.line("return null")
-			builder.dedent()
-			builder.line("var utility_value: Variant = resolved_architecture.get_utility(%s)" % class_name_value)
-			builder.line("if utility_value is %s:" % class_name_value)
-			builder.indent()
-			builder.line("var utility: %s = utility_value" % class_name_value)
-			builder.line("return utility")
-			builder.dedent()
-			builder.line("return null")
+			_append_module_access_body(builder, record, access_policy, "utility", "UTILITY")
 			builder.dedent()
 			builder.blank(2)
 
@@ -821,6 +1229,48 @@ func _append_record_function(builder: GFSourceBuilder, record: Dictionary, used_
 			builder.line("return callback.call(capability)")
 			builder.dedent()
 			builder.blank(2)
+
+
+func _append_module_access_body(
+	builder: GFSourceBuilder,
+	record: Dictionary,
+	access_policy: Dictionary,
+	value_name: String,
+	module_kind_name: String
+) -> void:
+	var class_name_value: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(record, "class_name")
+	var scope: StringName = _GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(
+		access_policy,
+		"scope",
+		ACCESS_SCOPE_INHERITED
+	)
+	var scope_name: String = "LOCAL" if scope == ACCESS_SCOPE_LOCAL else "INHERITED"
+	var required_text: String = str(
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(access_policy, "required", true)
+	).to_lower()
+	var require_ready_text: String = str(
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(access_policy, "require_ready", false)
+	).to_lower()
+	builder.line("var resolved_architecture: GFArchitecture = architecture_or_null(architecture)")
+	builder.line("if resolved_architecture == null:")
+	builder.indent()
+	builder.line("return null")
+	builder.dedent()
+	builder.line("var %s_value: Variant = resolved_architecture.resolve_module_access(" % value_name)
+	builder.indent()
+	builder.line("GFArchitecture.ModuleKind.%s," % module_kind_name)
+	builder.line("%s," % class_name_value)
+	builder.line("GFArchitecture.ModuleLookupScope.%s," % scope_name)
+	builder.line("%s," % required_text)
+	builder.line(require_ready_text)
+	builder.dedent()
+	builder.line(")")
+	builder.line("if %s_value is %s:" % [value_name, class_name_value])
+	builder.indent()
+	builder.line("var %s: %s = %s_value" % [value_name, class_name_value, value_name])
+	builder.line("return %s" % value_name)
+	builder.dedent()
+	builder.line("return null")
 
 
 func _get_function_name(class_name_value: String, kind: int) -> String:

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFUIUtility" path="addons/gf/standard/utilities/ui/gf_ui_utility.gd" module="standard" extends="GFUtility" classDigest="49a97b5afa17cebe9fa5bf611f4af3d1a8a0205c15ffd7ca338f0f1a565fe160">
+<class name="GFUIUtility" path="addons/gf/standard/utilities/ui/gf_ui_utility.gd" module="standard" extends="GFUtility" classDigest="7e222e5479f92fc1b3a0d7e7bc7831bbd4068976e047b228fd24d833072f62a7">
 	<description>GFUIUtility: 栈式 UI 管理器。
 负责可扩展逻辑层中的入栈、出栈、层内可见性策略与异步加载，
 适合 HUD、并行窗口、弹窗和顶层遮罩等需要分层管理的 UI 场景。
@@ -201,18 +201,20 @@
 			</tags>
 		</member>
 		<member kind="method" name="push_panel_async">
-			<signature>func push_panel_async(path: String, layer: int = Layer.POPUP, config_callback: Callable = Callable()) -&gt; void:</signature>
+			<signature>func push_panel_async( path: String, layer: int = Layer.POPUP, config_callback: Callable = Callable(), completion_callback: Callable = Callable() ) -&gt; GFUIPanelAsyncOperation:</signature>
 			<description>异步压入一个面板场景。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">path: 面板场景路径。</tag>
 				<tag name="param">layer: 目标层级。</tag>
 				<tag name="param">config_callback: 实例化后、入栈前的可选配置回调。</tag>
+				<tag name="param">completion_callback: 可选终态回调，接收当前 GFUIPanelAsyncOperation；同步回退时可能在本方法返回前调用。</tag>
+				<tag name="return">已接受请求的类型化句柄；路径无效时返回 null。</tag>
 				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="push_panel_async_with_options">
-			<signature>func push_panel_async_with_options( path: String, layer: int = Layer.POPUP, options: Dictionary = {}, config_callback: Callable = Callable() ) -&gt; void:</signature>
+			<signature>func push_panel_async_with_options( path: String, layer: int = Layer.POPUP, options: Dictionary = {}, config_callback: Callable = Callable(), completion_callback: Callable = Callable() ) -&gt; GFUIPanelAsyncOperation:</signature>
 			<description>异步压入一个带策略选项的面板场景。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -220,6 +222,8 @@
 				<tag name="param">layer: 目标层级。</tag>
 				<tag name="param">options: 面板策略，支持 mode、modal、hide_under、dismiss_on_cancel、focus_on_open、restore_focus_on_close、metadata。</tag>
 				<tag name="param">config_callback: 实例化后、入栈前的可选配置回调。</tag>
+				<tag name="param">completion_callback: 可选终态回调，接收当前 GFUIPanelAsyncOperation；同步回退时可能在本方法返回前调用。</tag>
+				<tag name="return">已接受请求的类型化句柄；同步回退可能返回已完成句柄，路径无效时返回 null。</tag>
 				<tag name="schema">options: Dictionary，支持 mode、modal、hide_under、dismiss_on_cancel、focus_on_open、restore_focus_on_close 和 metadata。</tag>
 				<tag name="since">3.17.0</tag>
 			</tags>
@@ -277,18 +281,20 @@
 			</tags>
 		</member>
 		<member kind="method" name="replace_layer_async">
-			<signature>func replace_layer_async(path: String, layer: int = Layer.POPUP, config_callback: Callable = Callable()) -&gt; void:</signature>
+			<signature>func replace_layer_async( path: String, layer: int = Layer.POPUP, config_callback: Callable = Callable(), completion_callback: Callable = Callable() ) -&gt; GFUIPanelAsyncOperation:</signature>
 			<description>异步替换指定层级的面板栈。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">path: 面板场景路径。</tag>
 				<tag name="param">layer: 目标层级。</tag>
 				<tag name="param">config_callback: 实例化后、入栈前的可选配置回调。</tag>
+				<tag name="param">completion_callback: 可选终态回调，接收当前 GFUIPanelAsyncOperation；同步回退时可能在本方法返回前调用。</tag>
+				<tag name="return">已接受请求的类型化句柄；路径无效时返回 null。</tag>
 				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="replace_layer_async_with_options">
-			<signature>func replace_layer_async_with_options( path: String, layer: int = Layer.POPUP, options: Dictionary = {}, config_callback: Callable = Callable() ) -&gt; void:</signature>
+			<signature>func replace_layer_async_with_options( path: String, layer: int = Layer.POPUP, options: Dictionary = {}, config_callback: Callable = Callable(), completion_callback: Callable = Callable() ) -&gt; GFUIPanelAsyncOperation:</signature>
 			<description>异步替换指定层级为带策略选项的面板。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -296,6 +302,8 @@
 				<tag name="param">layer: 目标层级。</tag>
 				<tag name="param">options: 面板策略，支持 mode、modal、hide_under、dismiss_on_cancel、focus_on_open、restore_focus_on_close、metadata。</tag>
 				<tag name="param">config_callback: 实例化后、入栈前的可选配置回调。</tag>
+				<tag name="param">completion_callback: 可选终态回调，接收当前 GFUIPanelAsyncOperation；同步回退时可能在本方法返回前调用。</tag>
+				<tag name="return">已接受请求的类型化句柄；同步回退可能返回已完成句柄，路径无效时返回 null。</tag>
 				<tag name="schema">options: Dictionary，支持 mode、modal、hide_under、dismiss_on_cancel、focus_on_open、restore_focus_on_close 和 metadata。</tag>
 				<tag name="since">3.17.0</tag>
 			</tags>
@@ -502,8 +510,9 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">layer: 指定层级；小于 0 时返回所有层级。</tag>
-				<tag name="return">请求快照数组，每项包含 path、layer、operation 和 serial。</tag>
-				<tag name="schema">return: Array，元素为 Dictionary，包含 path、layer、operation 和 serial。</tag>
+				<tag name="return">请求快照数组，每项包含 path、layer、operation、serial 和 operation_handle。</tag>
+				<tag name="schema">return: Array，元素为 Dictionary，包含 path、layer、operation、serial 和 GFUIPanelAsyncOperation operation_handle。</tag>
+				<tag name="since">3.15.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_modal_count">

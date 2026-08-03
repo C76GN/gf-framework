@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFVirtualInputSource" path="addons/gf/standard/input/sources/gf_virtual_input_source.gd" module="standard" extends="RefCounted" classDigest="166a33c220b8085f42c1a2ae7a9cbfdd810294cce0fbc8173e1b9dd9af7d6cff">
+<class name="GFVirtualInputSource" path="addons/gf/standard/input/sources/gf_virtual_input_source.gd" module="standard" extends="RefCounted" classDigest="2779be2b7af218fbed799576de84afe51b4592e81e6de25718df2dae26f6321f">
 	<description>GFVirtualInputSource: 可编程虚拟输入源。
 用于测试、回放、AI 控制或项目自定义输入桥接，向 GFInputMappingUtility
 注入抽象动作值；它不读取 InputMap，也不规定具体设备或玩法语义。</description>
@@ -9,7 +9,21 @@
 		<tag name="since">3.17.0</tag>
 	</tags>
 	<signals />
-	<enums />
+	<enums>
+		<member kind="enum" name="PulseReplacementPolicy">
+			<signature>enum PulseReplacementPolicy {
+	## 原子交接同一动作贡献，不产生中间释放。
+	REPLACE,
+	## 保留旧脉冲，并让新句柄立即进入 REJECTED 终态。
+	REJECT_NEW,
+}</signature>
+			<description>同一 source_id、player_index 与 action_id 已存在脉冲时的处理策略。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</enums>
 	<constants />
 	<properties>
 		<member kind="property" name="source_id">
@@ -29,14 +43,55 @@
 	</properties>
 	<methods>
 		<member kind="method" name="configure">
-			<signature>func configure( input_mapping: GFInputMappingUtility, p_source_id: StringName = &amp;"virtual", p_player_index: int = -1 ) -&gt; GFVirtualInputSource:</signature>
+			<signature>func configure( input_mapping: GFInputMappingUtility, p_source_id: StringName = &amp;"virtual", p_player_index: int = -1, timer_utility: GFTimerUtility = null ) -&gt; GFVirtualInputSource:</signature>
 			<description>配置虚拟输入源。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">input_mapping: 输入映射工具。</tag>
 				<tag name="param">p_source_id: 虚拟输入源标识。</tag>
 				<tag name="param">p_player_index: 玩家索引。</tag>
-				<tag name="return">当前输入源。</tag>
+				<tag name="param">timer_utility: 可选的脉冲定时器注入。</tag>
+				<tag name="return">当前输入源；dispose 后返回同一终态实例且不修改配置。</tag>
+				<tag name="since">3.17.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="set_timer_utility">
+			<signature>func set_timer_utility(timer_utility: GFTimerUtility) -&gt; GFVirtualInputSource:</signature>
+			<description>替换后续脉冲使用的定时器工具。
+已启动操作会继续使用其创建时冻结的定时器，不受本次替换影响。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">timer_utility: 可注入的定时器工具；null 会禁用后续 pulse_action()。</tag>
+				<tag name="return">当前输入源；dispose 后返回同一终态实例且不修改配置。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_timer_utility">
+			<signature>func get_timer_utility() -&gt; GFTimerUtility:</signature>
+			<description>获取后续脉冲使用的定时器工具。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">当前注入且仍存活的 GFTimerUtility。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="pulse_action">
+			<signature>func pulse_action( action_id: StringName, value: Variant = true, duration_seconds: float = 0.1, owner: Variant = null, cancellation_token: GFCancellationToken = null, replacement_policy: PulseReplacementPolicy = PulseReplacementPolicy.REPLACE ) -&gt; GFVirtualInputPulseOperation:</signature>
+			<description>启动一次有界虚拟动作脉冲。
+owner 与 cancellation_token 均可省略；同时提供时采用 OR 语义。返回句柄冻结
+当前 Mapping、source_id、player_index 和 action_id，Source 后续重配不会改写旧操作。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">action_id: 已注册的抽象动作标识。</tag>
+				<tag name="param">value: 脉冲期间的动作值。</tag>
+				<tag name="param">duration_seconds: 非负且有限的脉冲时长；0 会同步释放。</tag>
+				<tag name="param">owner: 可选生命周期 owner；Node 离树或普通 Object 释放后取消。</tag>
+				<tag name="param">cancellation_token: 可选取消 token。</tag>
+				<tag name="param">replacement_policy: 同一稳定输入键已有脉冲时的策略。</tag>
+				<tag name="return">类型化脉冲句柄；输入无效时返回立即 FAILED 的句柄。</tag>
+				<tag name="schema">value: Variant，GFInputMappingUtility 接受的 bool、float、Vector2 或 Vector3 动作值。</tag>
+				<tag name="schema">owner: Variant，null 或仍有效的 Object；无效及已释放对象会在写入前失败。</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 		<member kind="method" name="set_action_value">
@@ -135,6 +190,14 @@
 			<description>清除当前虚拟源的所有动作贡献。</description>
 			<tags>
 				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="method" name="dispose">
+			<signature>func dispose() -&gt; void:</signature>
+			<description>取消全部 Source-owned 脉冲、清除当前 source_id 贡献并释放依赖引用。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_snapshot">

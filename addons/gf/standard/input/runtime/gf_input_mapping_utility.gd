@@ -168,6 +168,10 @@ var _router_attach_serial: int = 0
 var _input_devices: GFInputDeviceUtility = null
 var _clear_transient_input_state_queued: bool = false
 var _transient_input_state_mark_frame: int = -1
+var _virtual_pulse_leases: Dictionary = {}
+var _virtual_pulse_mutation_keys: Dictionary = {}
+var _virtual_pulse_bulk_mutation_depth: int = 0
+var _next_virtual_pulse_lease_id: int = 1
 
 
 # --- GF 生命周期方法 ---
@@ -178,7 +182,7 @@ var _transient_input_state_mark_frame: int = -1
 func init() -> void:
 	ignore_pause = true
 	ignore_time_scale = true
-	_clear_runtime_state()
+	_clear_runtime_state(false, &"mapping_initialized")
 	_ensure_router()
 
 
@@ -199,7 +203,7 @@ func dispose() -> void:
 	_unbind_input_device_utility()
 	_active_contexts.clear()
 	_effective_entries.clear()
-	_clear_runtime_state()
+	_clear_runtime_state(false, &"mapping_disposed")
 	if is_instance_valid(_router):
 		_router.queue_free()
 	_router = null
@@ -212,6 +216,7 @@ func dispose() -> void:
 ## @param delta: 本帧时间增量（秒）。
 func tick(delta: float) -> void:
 	_bind_input_device_utility()
+	_prune_virtual_pulse_leases()
 	_clear_transient_input_state_if_queued()
 	_advance_active_durations(delta)
 	_refresh_triggered_action_states(delta)
@@ -367,14 +372,19 @@ func handle_input_event(event: InputEvent) -> void:
 ## [br]
 ## @param player_index: 玩家索引；小于 0 时只写入全局动作状态。
 ## [br]
-## @return 虚拟输入源。
+## @param timer_utility: 可选的虚拟脉冲定时器注入。
+## [br]
+## @return: 虚拟输入源。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 func create_virtual_source(
 	source_id: StringName = &"virtual",
-	player_index: int = -1
+	player_index: int = -1,
+	timer_utility: GFTimerUtility = null
 ) -> GFVirtualInputSource:
-	return GFVirtualInputSource.new(self, source_id, player_index)
+	return GFVirtualInputSource.new(self, source_id, player_index, timer_utility)
 
 
 ## 写入虚拟动作值。
@@ -387,9 +397,11 @@ func create_virtual_source(
 ## [br]
 ## @param player_index: 玩家索引；小于 0 时只写入全局动作状态。
 ## [br]
-## @return 写入成功返回 true。
+## @return: 写入成功返回 true。
 ## [br]
 ## @api public
+## [br]
+## @since 2.6.0
 ## [br]
 ## @schema value: Variant，要转换为动作运行时向量贡献的 bool、float、Vector2 或 Vector3 值。
 func set_virtual_action_value(
@@ -398,29 +410,45 @@ func set_virtual_action_value(
 	source_id: StringName = &"virtual",
 	player_index: int = -1
 ) -> bool:
-	var action: GFInputAction = _get_registered_action(action_id)
-	if action == null:
-		return false
-
 	var source_key: StringName = source_id if source_id != &"" else &"virtual"
-	var contribution: Vector3 = _coerce_virtual_value_to_vector(value, action.value_type)
 	var binding_key: String = _make_virtual_binding_key(source_key, action_id, player_index)
-	_binding_values[binding_key] = contribution
-	_binding_to_action[binding_key] = action_id
-	if player_index >= 0:
-		_binding_player_indices[binding_key] = player_index
-	else:
-		_erase_dictionary_key(_binding_player_indices, binding_key)
-	_refresh_action_state(action_id, action)
-
-	if player_index >= 0:
-		var player_binding_key: String = _make_player_binding_key(player_index, binding_key)
-		_register_player_binding_metadata(player_binding_key, player_index, binding_key)
-		_player_binding_values[player_binding_key] = contribution
-		_player_binding_to_action[player_binding_key] = action_id
-		_refresh_player_action_state(player_index, action_id, action)
-
-	return true
+	if (
+		_get_registered_action(action_id) == null
+		or _virtual_pulse_bulk_mutation_depth > 0
+		or _virtual_pulse_mutation_keys.has(binding_key)
+	):
+		return false
+	_virtual_pulse_mutation_keys[binding_key] = true
+	var lease_record: Dictionary = _get_virtual_pulse_lease(binding_key)
+	var operation: GFVirtualInputPulseOperation = _get_virtual_pulse_operation(lease_record)
+	var lease_removed: bool = lease_record.is_empty()
+	if not lease_record.is_empty():
+		lease_removed = _remove_virtual_pulse_lease_record(binding_key, lease_record)
+	if not lease_removed:
+		_erase_dictionary_key(_virtual_pulse_mutation_keys, binding_key)
+		return false
+	var written: bool = _set_virtual_action_value_raw(
+		action_id,
+		value,
+		source_key,
+		player_index
+	)
+	var released_after_failure: bool = false
+	if not written and not lease_record.is_empty():
+		var _cleared_failed_override: bool = _clear_virtual_action_raw(
+			action_id,
+			source_key,
+			player_index
+		)
+		released_after_failure = true
+	if operation != null and operation.is_pending():
+		var _finished_overridden_pulse: bool = operation.finish_from_mapping_for_framework(
+			GFVirtualInputPulseOperation.Status.CANCELLED,
+			&"manual_write" if written else &"manual_write_failed",
+			released_after_failure
+		)
+	_erase_dictionary_key(_virtual_pulse_mutation_keys, binding_key)
+	return written
 
 
 ## 清除虚拟动作值。
@@ -439,27 +467,21 @@ func clear_virtual_action(
 	source_id: StringName = &"virtual",
 	player_index: int = -1
 ) -> bool:
-	var action: GFInputAction = _get_registered_action(action_id)
-	if action == null:
-		return false
-
 	var source_key: StringName = source_id if source_id != &"" else &"virtual"
 	var binding_key: String = _make_virtual_binding_key(source_key, action_id, player_index)
-	var changed: bool = _binding_values.has(binding_key)
-	_erase_dictionary_key(_binding_values, binding_key)
-	_erase_dictionary_key(_binding_to_action, binding_key)
-	_erase_dictionary_key(_binding_player_indices, binding_key)
-	_refresh_action_state(action_id, action)
-
-	if player_index >= 0:
-		var player_binding_key: String = _make_player_binding_key(player_index, binding_key)
-		changed = _player_binding_values.has(player_binding_key) or changed
-		_erase_dictionary_key(_player_binding_values, player_binding_key)
-		_erase_dictionary_key(_player_binding_to_action, player_binding_key)
-		_erase_dictionary_key(_player_binding_metadata, player_binding_key)
-		_refresh_player_action_state(player_index, action_id, action)
-
-	return changed
+	if _virtual_pulse_bulk_mutation_depth > 0 or _virtual_pulse_mutation_keys.has(binding_key):
+		return false
+	_virtual_pulse_mutation_keys[binding_key] = true
+	var terminated_pulse: bool = _terminate_virtual_pulse_lease_by_key(
+		binding_key,
+		GFVirtualInputPulseOperation.Status.CANCELLED,
+		&"manual_clear"
+	)
+	var changed: bool = false
+	if not terminated_pulse:
+		changed = _clear_virtual_action_raw(action_id, source_key, player_index)
+	_erase_dictionary_key(_virtual_pulse_mutation_keys, binding_key)
+	return terminated_pulse or changed
 
 
 ## 清除指定虚拟输入源的所有动作贡献。
@@ -469,6 +491,8 @@ func clear_virtual_action(
 ## @param source_id: 虚拟输入源标识。
 func clear_virtual_source(source_id: StringName = &"virtual") -> void:
 	var source_key: StringName = source_id if source_id != &"" else &"virtual"
+	_virtual_pulse_bulk_mutation_depth += 1
+	_terminate_virtual_pulse_leases_for_source(source_key, &"source_cleared")
 	var affected_actions: Dictionary = {}
 	var affected_player_actions: Dictionary = {}
 
@@ -505,6 +529,7 @@ func clear_virtual_source(source_id: StringName = &"virtual") -> void:
 		var action: GFInputAction = _get_registered_action(action_id)
 		if action != null:
 			_refresh_player_action_state(_get_entry_player_index(entry), action_id, action)
+	_virtual_pulse_bulk_mutation_depth = maxi(_virtual_pulse_bulk_mutation_depth - 1, 0)
 
 
 ## 获取虚拟输入源状态快照。
@@ -850,7 +875,7 @@ func get_remappable_items(
 ## [br]
 ## @api public
 func clear_input_state() -> void:
-	_clear_runtime_state(true)
+	_clear_runtime_state(true, &"input_state_cleared")
 
 
 ## 清空指定玩家动作运行时状态。
@@ -860,6 +885,167 @@ func clear_input_state() -> void:
 ## @param player_index: 玩家索引。
 func clear_player_input_state(player_index: int) -> void:
 	_clear_player_runtime_state(player_index, true)
+
+
+# --- 框架内部方法 ---
+
+## 为类型化虚拟输入脉冲取得稳定输入键的权威 lease 并写入脉冲值。
+## [br]
+## @api framework_internal
+## [br]
+## @since unreleased
+## [br]
+## @layer standard/input
+## [br]
+## @param operation: 已冻结身份且仍在等待的脉冲句柄。
+## [br]
+## @param value: 脉冲期间的动作值。
+## [br]
+## @param replacement_policy: GFVirtualInputSource.PulseReplacementPolicy 枚举值。
+## [br]
+## @schema value: Variant，动作接受的 bool、float、Vector2 或 Vector3 值。
+## [br]
+## @return: 当前操作取得 lease 时返回 true；拒绝或失败时返回 false。
+func begin_virtual_pulse_lease_for_framework(
+	operation: GFVirtualInputPulseOperation,
+	value: Variant,
+	replacement_policy: GFVirtualInputSource.PulseReplacementPolicy
+) -> bool:
+	if (
+		operation == null
+		or not operation.is_pending()
+		or not operation.matches_mapping_for_framework(self)
+	):
+		return false
+	var action_id: StringName = operation.get_action_id()
+	var source_id: StringName = operation.get_source_id()
+	var player_index: int = operation.get_player_index()
+	if _get_registered_action(action_id) == null:
+		var _failed_action: bool = operation.finish_without_lease_for_framework(
+			GFVirtualInputPulseOperation.Status.FAILED,
+			&"action_not_registered"
+		)
+		return false
+	var binding_key: String = _make_virtual_binding_key(source_id, action_id, player_index)
+	if _virtual_pulse_bulk_mutation_depth > 0 or _virtual_pulse_mutation_keys.has(binding_key):
+		var _rejected_mutation: bool = operation.finish_without_lease_for_framework(
+			GFVirtualInputPulseOperation.Status.REJECTED,
+			&"input_state_mutation"
+		)
+		return false
+
+	var previous_record: Dictionary = _get_virtual_pulse_lease(binding_key)
+	var previous_operation: GFVirtualInputPulseOperation = _get_virtual_pulse_operation(previous_record)
+	if (
+		previous_operation != null
+		and previous_operation.is_pending()
+		and replacement_policy == GFVirtualInputSource.PulseReplacementPolicy.REJECT_NEW
+	):
+		var _rejected_existing: bool = operation.finish_without_lease_for_framework(
+			GFVirtualInputPulseOperation.Status.REJECTED,
+			&"pulse_already_active"
+		)
+		return false
+
+	_virtual_pulse_mutation_keys[binding_key] = true
+	var previous_removed: bool = previous_record.is_empty()
+	if not previous_record.is_empty():
+		previous_removed = _remove_virtual_pulse_lease_record(binding_key, previous_record)
+	if not previous_removed:
+		_erase_dictionary_key(_virtual_pulse_mutation_keys, binding_key)
+		var _failed_conflict: bool = operation.finish_without_lease_for_framework(
+			GFVirtualInputPulseOperation.Status.FAILED,
+			&"pulse_lease_conflict"
+		)
+		return false
+
+	var lease_record: Dictionary = _make_virtual_pulse_lease_record(operation)
+	_virtual_pulse_leases[binding_key] = lease_record
+	if not operation.mark_lease_acquired_for_framework():
+		var _removed_unclaimed_lease: bool = _erase_virtual_pulse_lease_if_current(
+			binding_key,
+			lease_record
+		)
+		if previous_operation != null and previous_operation.is_pending():
+			_virtual_pulse_leases[binding_key] = previous_record
+		elif not previous_record.is_empty():
+			var _cleared_stale_contribution: bool = _clear_virtual_action_raw(
+				action_id,
+				source_id,
+				player_index
+			)
+		_erase_dictionary_key(_virtual_pulse_mutation_keys, binding_key)
+		return false
+	var written: bool = _set_virtual_action_value_raw(action_id, value, source_id, player_index)
+	if not written:
+		var released_failed_lease: bool = _release_virtual_pulse_lease_record(
+			binding_key,
+			lease_record
+		)
+		var _failed_write: bool = operation.finish_from_mapping_for_framework(
+			GFVirtualInputPulseOperation.Status.FAILED,
+			&"pulse_write_failed",
+			released_failed_lease
+		)
+		if previous_operation != null and previous_operation.is_pending():
+			var _finished_previous_after_failure: bool = previous_operation.finish_from_mapping_for_framework(
+				GFVirtualInputPulseOperation.Status.REPLACED,
+				&"replaced",
+				false
+			)
+		_erase_dictionary_key(_virtual_pulse_mutation_keys, binding_key)
+		return false
+
+	if previous_operation != null and previous_operation.is_pending():
+		var _finished_previous: bool = previous_operation.finish_from_mapping_for_framework(
+			GFVirtualInputPulseOperation.Status.REPLACED,
+			&"replaced",
+			false
+		)
+	var lease_is_current: bool = (
+		operation.is_pending()
+		and _virtual_pulse_lease_matches_operation(binding_key, operation)
+	)
+	_erase_dictionary_key(_virtual_pulse_mutation_keys, binding_key)
+	return lease_is_current
+
+
+## 结束指定操作仍持有的权威 lease，并只释放匹配 generation 的贡献。
+## [br]
+## @api framework_internal
+## [br]
+## @since unreleased
+## [br]
+## @layer standard/input
+## [br]
+## @param operation: 请求进入终态的脉冲句柄。
+## [br]
+## @param status: COMPLETED、CANCELLED、REPLACED 或 FAILED 终态。
+## [br]
+## @param reason: 稳定终态原因。
+## [br]
+## @return: 当前句柄仍持有匹配 lease 且已完成释放时返回 true。
+func finish_virtual_pulse_lease_for_framework(
+	operation: GFVirtualInputPulseOperation,
+	status: GFVirtualInputPulseOperation.Status,
+	reason: StringName
+) -> bool:
+	if operation == null or status in [
+		GFVirtualInputPulseOperation.Status.PENDING,
+		GFVirtualInputPulseOperation.Status.REJECTED,
+	]:
+		return false
+	var binding_key: String = _make_virtual_binding_key(
+		operation.get_source_id(),
+		operation.get_action_id(),
+		operation.get_player_index()
+	)
+	var lease_record: Dictionary = _get_virtual_pulse_lease(binding_key)
+	if not _virtual_pulse_lease_record_matches_operation(lease_record, operation):
+		return false
+	var released: bool = _release_virtual_pulse_lease_record(binding_key, lease_record)
+	var _finished: bool = operation.finish_from_mapping_for_framework(status, reason, released)
+	return true
 
 
 # --- 私有/辅助方法 ---
@@ -872,6 +1058,229 @@ func _erase_dictionary_key(target: Dictionary, key: Variant) -> void:
 
 func _append_array_value(target: Array, value: Variant) -> void:
 	target.append(value)
+
+
+func _set_virtual_action_value_raw(
+	action_id: StringName,
+	value: Variant,
+	source_id: StringName,
+	player_index: int
+) -> bool:
+	var action: GFInputAction = _get_registered_action(action_id)
+	if action == null:
+		return false
+	var contribution: Vector3 = _coerce_virtual_value_to_vector(value, action.value_type)
+	var binding_key: String = _make_virtual_binding_key(source_id, action_id, player_index)
+	_binding_values[binding_key] = contribution
+	_binding_to_action[binding_key] = action_id
+	if player_index >= 0:
+		_binding_player_indices[binding_key] = player_index
+	else:
+		_erase_dictionary_key(_binding_player_indices, binding_key)
+	if player_index >= 0:
+		var player_binding_key: String = _make_player_binding_key(player_index, binding_key)
+		_register_player_binding_metadata(player_binding_key, player_index, binding_key)
+		_player_binding_values[player_binding_key] = contribution
+		_player_binding_to_action[player_binding_key] = action_id
+
+	_refresh_action_state(action_id, action)
+	if player_index >= 0:
+		_refresh_player_action_state(player_index, action_id, action)
+	return true
+
+
+func _clear_virtual_action_raw(
+	action_id: StringName,
+	source_id: StringName,
+	player_index: int
+) -> bool:
+	var binding_key: String = _make_virtual_binding_key(source_id, action_id, player_index)
+	var changed: bool = _binding_values.has(binding_key)
+	_erase_dictionary_key(_binding_values, binding_key)
+	_erase_dictionary_key(_binding_to_action, binding_key)
+	_erase_dictionary_key(_binding_player_indices, binding_key)
+	if player_index >= 0:
+		var player_binding_key: String = _make_player_binding_key(player_index, binding_key)
+		changed = _player_binding_values.has(player_binding_key) or changed
+		_erase_dictionary_key(_player_binding_values, player_binding_key)
+		_erase_dictionary_key(_player_binding_to_action, player_binding_key)
+		_erase_dictionary_key(_player_binding_metadata, player_binding_key)
+
+	var action: GFInputAction = _get_registered_action(action_id)
+	if action != null:
+		_refresh_action_state(action_id, action)
+		if player_index >= 0:
+			_refresh_player_action_state(player_index, action_id, action)
+	return changed
+
+
+func _make_virtual_pulse_lease_record(operation: GFVirtualInputPulseOperation) -> Dictionary:
+	return {
+		"lease_id": _take_next_virtual_pulse_lease_id(),
+		"operation_ref": weakref(operation),
+		"operation_id": operation.get_instance_id(),
+		"generation": operation.get_generation(),
+		"source_id": operation.get_source_id(),
+		"player_index": operation.get_player_index(),
+		"action_id": operation.get_action_id(),
+	}
+
+
+func _get_virtual_pulse_lease(binding_key: String) -> Dictionary:
+	var record_value: Variant = GFVariantData.get_option_value(_virtual_pulse_leases, binding_key)
+	if record_value is Dictionary:
+		var lease_record: Dictionary = record_value
+		return lease_record
+	return {}
+
+
+func _get_virtual_pulse_operation(lease_record: Dictionary) -> GFVirtualInputPulseOperation:
+	var operation_ref_value: Variant = GFVariantData.get_option_value(lease_record, "operation_ref")
+	if not (operation_ref_value is WeakRef):
+		return null
+	var operation_ref: WeakRef = operation_ref_value
+	var operation_value: Variant = operation_ref.get_ref()
+	if not (operation_value is GFVirtualInputPulseOperation):
+		return null
+	var operation: GFVirtualInputPulseOperation = operation_value
+	if (
+		operation.get_instance_id() != GFVariantData.get_option_int(lease_record, "operation_id", 0)
+		or operation.get_generation() != GFVariantData.get_option_int(lease_record, "generation", 0)
+	):
+		return null
+	return operation
+
+
+func _virtual_pulse_lease_matches_operation(
+	binding_key: String,
+	operation: GFVirtualInputPulseOperation
+) -> bool:
+	return _virtual_pulse_lease_record_matches_operation(
+		_get_virtual_pulse_lease(binding_key),
+		operation
+	)
+
+
+func _virtual_pulse_lease_record_matches_operation(
+	lease_record: Dictionary,
+	operation: GFVirtualInputPulseOperation
+) -> bool:
+	return (
+		not lease_record.is_empty()
+		and operation != null
+		and _get_virtual_pulse_operation(lease_record) == operation
+	)
+
+
+func _erase_virtual_pulse_lease_if_current(binding_key: String, lease_record: Dictionary) -> bool:
+	var current_record: Dictionary = _get_virtual_pulse_lease(binding_key)
+	var current_ref: Variant = GFVariantData.get_option_value(current_record, "operation_ref")
+	var expected_ref: Variant = GFVariantData.get_option_value(lease_record, "operation_ref")
+	if (
+		GFVariantData.get_option_int(current_record, "lease_id", 0) <= 0
+		or GFVariantData.get_option_int(current_record, "lease_id", 0)
+		!= GFVariantData.get_option_int(lease_record, "lease_id", 0)
+		or not (current_ref is WeakRef)
+		or not (expected_ref is WeakRef)
+	):
+		return false
+	var current_operation_ref: WeakRef = current_ref
+	var expected_operation_ref: WeakRef = expected_ref
+	if current_operation_ref.get_ref() != expected_operation_ref.get_ref():
+		return false
+	_erase_dictionary_key(_virtual_pulse_leases, binding_key)
+	return true
+
+
+func _take_next_virtual_pulse_lease_id() -> int:
+	var lease_id: int = _next_virtual_pulse_lease_id
+	_next_virtual_pulse_lease_id += 1
+	if _next_virtual_pulse_lease_id <= 0:
+		_next_virtual_pulse_lease_id = 1
+	return lease_id
+
+
+func _remove_virtual_pulse_lease_record(binding_key: String, lease_record: Dictionary) -> bool:
+	return _erase_virtual_pulse_lease_if_current(binding_key, lease_record)
+
+
+func _release_virtual_pulse_lease_record(binding_key: String, lease_record: Dictionary) -> bool:
+	if not _remove_virtual_pulse_lease_record(binding_key, lease_record):
+		return false
+	var action_id: StringName = GFVariantData.get_option_string_name(lease_record, "action_id")
+	var source_id: StringName = GFVariantData.get_option_string_name(lease_record, "source_id")
+	var player_index: int = GFVariantData.get_option_int(lease_record, "player_index", -1)
+	var _released_value: bool = _clear_virtual_action_raw(action_id, source_id, player_index)
+	return true
+
+
+func _terminate_virtual_pulse_lease_by_key(
+	binding_key: String,
+	status: GFVirtualInputPulseOperation.Status,
+	reason: StringName
+) -> bool:
+	var lease_record: Dictionary = _get_virtual_pulse_lease(binding_key)
+	if lease_record.is_empty():
+		return false
+	var operation: GFVirtualInputPulseOperation = _get_virtual_pulse_operation(lease_record)
+	var released: bool = _release_virtual_pulse_lease_record(binding_key, lease_record)
+	if operation != null and operation.is_pending():
+		var _finished: bool = operation.finish_from_mapping_for_framework(status, reason, released)
+	return released
+
+
+func _terminate_virtual_pulse_leases_for_source(source_id: StringName, reason: StringName) -> void:
+	var binding_keys: Array = _virtual_pulse_leases.keys()
+	for binding_key_value: Variant in binding_keys:
+		var binding_key: String = GFVariantData.to_text(binding_key_value)
+		var lease_record: Dictionary = _get_virtual_pulse_lease(binding_key)
+		if GFVariantData.get_option_string_name(lease_record, "source_id") != source_id:
+			continue
+		var _terminated: bool = _terminate_virtual_pulse_lease_by_key(
+			binding_key,
+			GFVirtualInputPulseOperation.Status.CANCELLED,
+			reason
+		)
+
+
+func _terminate_virtual_pulse_leases_for_player(player_index: int, reason: StringName) -> void:
+	var binding_keys: Array = _virtual_pulse_leases.keys()
+	for binding_key_value: Variant in binding_keys:
+		var binding_key: String = GFVariantData.to_text(binding_key_value)
+		var lease_record: Dictionary = _get_virtual_pulse_lease(binding_key)
+		if GFVariantData.get_option_int(lease_record, "player_index", -1) != player_index:
+			continue
+		var _terminated: bool = _terminate_virtual_pulse_lease_by_key(
+			binding_key,
+			GFVirtualInputPulseOperation.Status.CANCELLED,
+			reason
+		)
+
+
+func _terminate_all_virtual_pulse_leases(reason: StringName) -> void:
+	var binding_keys: Array = _virtual_pulse_leases.keys()
+	for binding_key_value: Variant in binding_keys:
+		var binding_key: String = GFVariantData.to_text(binding_key_value)
+		var _terminated: bool = _terminate_virtual_pulse_lease_by_key(
+			binding_key,
+			GFVirtualInputPulseOperation.Status.CANCELLED,
+			reason
+		)
+	_virtual_pulse_leases.clear()
+
+
+func _prune_virtual_pulse_leases() -> void:
+	var binding_keys: Array = _virtual_pulse_leases.keys()
+	for binding_key_value: Variant in binding_keys:
+		var binding_key: String = GFVariantData.to_text(binding_key_value)
+		var lease_record: Dictionary = _get_virtual_pulse_lease(binding_key)
+		if lease_record.is_empty():
+			continue
+		var operation: GFVirtualInputPulseOperation = _get_virtual_pulse_operation(lease_record)
+		if operation == null or operation.is_completed():
+			var _released_stale: bool = _release_virtual_pulse_lease_record(binding_key, lease_record)
+			continue
+		var _still_pending: bool = operation.poll_lifecycle_for_framework()
 
 
 func _get_node_value(value: Variant) -> Node:
@@ -1073,7 +1482,7 @@ func _attach_router_to_root(router_variant: Variant, attach_serial: int) -> void
 
 
 func _rebuild_effective_entries() -> void:
-	_clear_runtime_state(true)
+	_clear_runtime_state(true, &"mapping_rebuilt")
 	_effective_entries.clear()
 	_actions.clear()
 	_action_modifiers.clear()
@@ -1349,7 +1758,12 @@ func _clear_transient_input_state_if_queued() -> void:
 	_transient_input_state_mark_frame = -1
 
 
-func _clear_runtime_state(emit_completed: bool = false) -> void:
+func _clear_runtime_state(
+	emit_completed: bool = false,
+	pulse_reason: StringName = &"input_state_cleared"
+) -> void:
+	_virtual_pulse_bulk_mutation_depth += 1
+	_terminate_all_virtual_pulse_leases(pulse_reason)
 	if emit_completed:
 		for action_id: StringName in _action_active.keys():
 			if _get_action_active(action_id) and _actions.has(action_id):
@@ -1391,9 +1805,12 @@ func _clear_runtime_state(emit_completed: bool = false) -> void:
 	_clear_transient_input_state_queued = false
 	_transient_input_state_mark_frame = -1
 	_reset_all_trigger_states()
+	_virtual_pulse_bulk_mutation_depth = maxi(_virtual_pulse_bulk_mutation_depth - 1, 0)
 
 
 func _clear_player_runtime_state(player_index: int, emit_completed: bool = false) -> void:
+	_virtual_pulse_bulk_mutation_depth += 1
+	_terminate_virtual_pulse_leases_for_player(player_index, &"player_state_cleared")
 	var affected_actions: Dictionary = {}
 	if emit_completed:
 		for player_action_key: String in _player_action_active.keys():
@@ -1439,6 +1856,7 @@ func _clear_player_runtime_state(player_index: int, emit_completed: bool = false
 		var action: GFInputAction = _get_registered_action(action_id)
 		if action != null:
 			_refresh_action_state(action_id, action)
+	_virtual_pulse_bulk_mutation_depth = maxi(_virtual_pulse_bulk_mutation_depth - 1, 0)
 
 
 func _get_effective_event(

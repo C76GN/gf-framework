@@ -8,6 +8,7 @@ GF 编辑器插件启用后会注册几组项目设置及其进程内默认值�
 - `gf/project/fail_on_installer_error`：Installer 配置或执行失败时是否中断初始化。
 - `gf/project/installer_timeout_seconds`：单个 Installer 的最长等待时间。
 - `gf/codegen/access_output_path`：`GFAccess` 生成路径。
+- `gf/codegen/access_policies`：按 `res://` 脚本路径声明 Model、System 和 Utility 访问器的 `scope`、`required` 与 `require_ready` 冻结策略；详见[访问器生成](access-generator.md)。
 - `gf/codegen/project_access_output_path`：`GFProjectAccess` 生成路径。
 - `gf/build/export/*`：标准库 debug 编辑器贡献的构建信息导出设置。
 - `gf/extensions/*`：扩展启用、扩展 Installer 自动装配、禁用扩展导出排除和禁用扩展引用审计策略。

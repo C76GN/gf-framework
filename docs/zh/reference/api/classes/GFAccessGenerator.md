@@ -18,6 +18,9 @@
 | 枚举 | [`TargetKind`](#member-gfaccessgenerator-enums-targetkind) | `enum TargetKind` |
 | 常量 | [`DEFAULT_OUTPUT_PATH`](#member-gfaccessgenerator-constants-default_output_path) | `const DEFAULT_OUTPUT_PATH: String = _GF_PROJECT_ARTIFACT_PATHS_SCRIPT.ACCESS_OUTPUT_PATH` |
 | 常量 | [`DEFAULT_PROJECT_OUTPUT_PATH`](#member-gfaccessgenerator-constants-default_project_output_path) | `const DEFAULT_PROJECT_OUTPUT_PATH: String = _GF_PROJECT_ARTIFACT_PATHS_SCRIPT.PROJECT_ACCESS_OUTPUT_PATH` |
+| 常量 | [`ACCESS_SCOPE_INHERITED`](#member-gfaccessgenerator-constants-access_scope_inherited) | `const ACCESS_SCOPE_INHERITED: StringName = &"inherited"` |
+| 常量 | [`ACCESS_SCOPE_LOCAL`](#member-gfaccessgenerator-constants-access_scope_local) | `const ACCESS_SCOPE_LOCAL: StringName = &"local"` |
+| 常量 | [`ACCESS_POLICIES_SETTING`](#member-gfaccessgenerator-constants-access_policies_setting) | `const ACCESS_POLICIES_SETTING: String = "gf/codegen/access_policies"` |
 | 方法 | [`generate`](#member-gfaccessgenerator-methods-generate) | `func generate(output_path: String = DEFAULT_OUTPUT_PATH, overwrite_existing: bool = true) -> Error:` |
 | 方法 | [`generate_with_report`](#member-gfaccessgenerator-methods-generate_with_report) | `func generate_with_report(output_path: String = DEFAULT_OUTPUT_PATH, options: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`generate_project_access`](#member-gfaccessgenerator-methods-generate_project_access) | `func generate_project_access(output_path: String = DEFAULT_PROJECT_OUTPUT_PATH, overwrite_existing: bool = true) -> Error:` |
@@ -83,6 +86,45 @@ const DEFAULT_PROJECT_OUTPUT_PATH: String = _GF_PROJECT_ARTIFACT_PATHS_SCRIPT.PR
 ```
 
 默认项目常量访问器输出路径。
+
+<a id="member-gfaccessgenerator-constants-access_scope_inherited"></a>
+
+### `ACCESS_SCOPE_INHERITED`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+const ACCESS_SCOPE_INHERITED: StringName = &"inherited"
+```
+
+访问器按父级回退规则解析模块。
+
+<a id="member-gfaccessgenerator-constants-access_scope_local"></a>
+
+### `ACCESS_SCOPE_LOCAL`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+const ACCESS_SCOPE_LOCAL: StringName = &"local"
+```
+
+访问器只解析传入架构的本地模块。
+
+<a id="member-gfaccessgenerator-constants-access_policies_setting"></a>
+
+### `ACCESS_POLICIES_SETTING`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+const ACCESS_POLICIES_SETTING: String = "gf/codegen/access_policies"
+```
+
+每个生成类型的冻结访问策略 ProjectSettings 键。
 
 ## 方法
 
@@ -187,6 +229,7 @@ func generate_project_access_with_report( output_path: String = DEFAULT_PROJECT_
 ### `collect_records`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func collect_records() -> Array[Dictionary]:
@@ -194,11 +237,11 @@ func collect_records() -> Array[Dictionary]:
 
 收集当前项目中可生成访问器的 GF 类型记录。
 
-返回：类型记录列表。
+返回：类型记录列表；访问策略配置无效时返回空数组且不会返回部分冻结结果。
 
 结构：
 
-- `return`: Array of Dictionary type records with class_name, path, script, kind, and access metadata.
+- `return`: Array of Dictionary type records with class_name, path, and kind; Model/System/Utility records additionally contain scope, required, and require_ready.
 
 <a id="member-gfaccessgenerator-methods-collect_project_records"></a>
 
@@ -223,6 +266,7 @@ func collect_project_records() -> Dictionary:
 ### `build_source`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func build_source(records: Array) -> String:
@@ -236,11 +280,11 @@ func build_source(records: Array) -> String:
 |---|---|
 | `records` | 生成访问器时使用的类型记录列表。 |
 
-返回：GDScript 源码。
+返回：完整 GDScript 源码；任一记录或模块访问策略无效时整批失败并返回空字符串。
 
 结构：
 
-- `records`: Array of Dictionary type records containing class_name, path, and kind.
+- `records`: Array of Dictionary type records containing class_name, path, and kind; Model/System/Utility records may additionally contain scope, required, and require_ready.
 
 <a id="member-gfaccessgenerator-methods-build_project_source"></a>
 

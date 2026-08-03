@@ -1436,6 +1436,134 @@ func test_child_architecture_falls_back_to_parent() -> void:
 	parent_arch.dispose()
 
 
+## 验证声明式模块解析器覆盖三种模块类别与 ready 过滤。
+func test_resolve_module_access_dispatches_module_kinds_and_ready_policy() -> void:
+	var arch: GFArchitecture = GFArchitecture.new()
+	var model: DummyModel = DummyModel.new()
+	var system: DummySystem = DummySystem.new()
+	var utility: DummyUtility = DummyUtility.new()
+	await arch.register_model_instance(model)
+	await arch.register_system_instance(system)
+	await arch.register_utility_instance(utility)
+
+	assert_eq(
+		arch.resolve_module_access(GFArchitecture.ModuleKind.MODEL, DummyModel),
+		model,
+		"Model 策略应路由到 Model 注册表。"
+	)
+	assert_eq(
+		arch.resolve_module_access(GFArchitecture.ModuleKind.SYSTEM, DummySystem),
+		system,
+		"System 策略应路由到 System 注册表。"
+	)
+	assert_eq(
+		arch.resolve_module_access(GFArchitecture.ModuleKind.UTILITY, DummyUtility),
+		utility,
+		"Utility 策略应路由到 Utility 注册表。"
+	)
+	assert_null(
+		arch.resolve_module_access(
+			GFArchitecture.ModuleKind.UTILITY,
+			DummyUtility,
+			GFArchitecture.ModuleLookupScope.INHERITED,
+			true,
+			true
+		),
+		"完成 ready 前，require_ready 应拒绝已注册实例。"
+	)
+
+	await arch.init()
+
+	assert_eq(
+		arch.resolve_module_access(
+			GFArchitecture.ModuleKind.UTILITY,
+			DummyUtility,
+			GFArchitecture.ModuleLookupScope.INHERITED,
+			true,
+			true
+		),
+		utility,
+		"完成 ready 后，require_ready 应返回活动实例。"
+	)
+
+	arch.dispose()
+
+
+## 验证 inherited 与 local 策略使用不同的父架构可见性。
+func test_resolve_module_access_distinguishes_inherited_and_local_scope() -> void:
+	var parent_arch: GFArchitecture = GFArchitecture.new()
+	var parent_utility: ParentScopedUtility = ParentScopedUtility.new()
+	await parent_arch.register_utility_instance(parent_utility)
+
+	var child_arch: GFArchitecture = GFArchitecture.new(parent_arch)
+
+	assert_eq(
+		child_arch.resolve_module_access(
+			GFArchitecture.ModuleKind.UTILITY,
+			ParentScopedUtility,
+			GFArchitecture.ModuleLookupScope.INHERITED,
+			true
+		),
+		parent_utility,
+		"inherited 策略应允许非严格子架构回退父架构。"
+	)
+	assert_null(
+		child_arch.resolve_module_access(
+			GFArchitecture.ModuleKind.UTILITY,
+			ParentScopedUtility,
+			GFArchitecture.ModuleLookupScope.LOCAL,
+			false
+		),
+		"local 可选策略不应回退父架构。"
+	)
+	assert_push_error_count(0, "非严格查询与 local 可选未命中都应保持静默。")
+
+	child_arch.dispose()
+	parent_arch.dispose()
+
+
+## 验证 strict 架构中 required 策略报错，optional 策略保持静默。
+func test_resolve_module_access_preserves_required_strict_diagnostics() -> void:
+	var parent_arch: GFArchitecture = GFArchitecture.new()
+	var parent_utility: ParentScopedUtility = ParentScopedUtility.new()
+	await parent_arch.register_utility_instance(parent_utility)
+
+	var child_arch: GFArchitecture = GFArchitecture.new(parent_arch)
+	child_arch.strict_dependency_lookup = true
+
+	assert_null(child_arch.resolve_module_access(
+		GFArchitecture.ModuleKind.UTILITY,
+		ParentScopedUtility,
+		GFArchitecture.ModuleLookupScope.INHERITED,
+		true
+	))
+	assert_null(child_arch.resolve_module_access(
+		GFArchitecture.ModuleKind.UTILITY,
+		ParentScopedUtility,
+		GFArchitecture.ModuleLookupScope.INHERITED,
+		false
+	))
+	assert_null(child_arch.resolve_module_access(
+		GFArchitecture.ModuleKind.UTILITY,
+		ParentScopedUtility,
+		GFArchitecture.ModuleLookupScope.LOCAL,
+		true
+	))
+	assert_null(child_arch.resolve_module_access(
+		GFArchitecture.ModuleKind.UTILITY,
+		ParentScopedUtility,
+		GFArchitecture.ModuleLookupScope.LOCAL,
+		false
+	))
+	assert_push_error_count(
+		2,
+		"strict 模式下仅两次 required miss 应产生诊断。"
+	)
+
+	child_arch.dispose()
+	parent_arch.dispose()
+
+
 ## 验证严格依赖查询模式不会静默回退父架构。
 func test_strict_dependency_lookup_blocks_parent_fallback() -> void:
 	var parent_arch: GFArchitecture = GFArchitecture.new()
@@ -1541,6 +1669,26 @@ func test_child_local_unready_module_shadows_parent_require_ready_lookup() -> vo
 	assert_eq(child_arch.get_utility(ParentScopedUtility), child_utility, "普通查询应返回子架构本地实例。")
 	assert_null(child_arch.get_utility(ParentScopedUtility, true), "本地存在但未 ready 的实例应遮蔽父级同类型 ready 实例。")
 	assert_eq(child_arch.get_local_utility(ParentScopedUtility), child_utility, "本地查询仍应能看到未 ready 的本地实例。")
+	assert_null(
+		child_arch.resolve_module_access(
+			GFArchitecture.ModuleKind.UTILITY,
+			ParentScopedUtility,
+			GFArchitecture.ModuleLookupScope.INHERITED,
+			true,
+			true
+		),
+		"声明式 inherited 查询也不应越过本地未 ready 实例。"
+	)
+	assert_null(
+		child_arch.resolve_module_access(
+			GFArchitecture.ModuleKind.UTILITY,
+			ParentScopedUtility,
+			GFArchitecture.ModuleLookupScope.LOCAL,
+			false,
+			true
+		),
+		"声明式 local 查询应对本地实例应用 ready 过滤。"
+	)
 
 	child_arch.dispose()
 	parent_arch.dispose()

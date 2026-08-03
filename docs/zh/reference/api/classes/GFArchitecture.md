@@ -19,6 +19,8 @@
 | 信号 | [`initialization_failed`](#member-gfarchitecture-signals-initialization_failed) | `signal initialization_failed(reason: String)` |
 | 信号 | [`shutdown_finished`](#member-gfarchitecture-signals-shutdown_finished) | `signal shutdown_finished(result: GFArchitectureShutdownResult)` |
 | 信号 | [`project_installers_finished`](#member-gfarchitecture-signals-project_installers_finished) | `signal project_installers_finished` |
+| 枚举 | [`ModuleKind`](#member-gfarchitecture-enums-modulekind) | `enum ModuleKind` |
+| 枚举 | [`ModuleLookupScope`](#member-gfarchitecture-enums-modulelookupscope) | `enum ModuleLookupScope` |
 | 常量 | [`SERVICE_COMMAND_HISTORY_STORE`](#member-gfarchitecture-constants-service_command_history_store) | `const SERVICE_COMMAND_HISTORY_STORE: StringName = &"gf.kernel.command_history_store"` |
 | 常量 | [`DEFAULT_SNAPSHOT_MODELS_PER_FRAME`](#member-gfarchitecture-constants-default_snapshot_models_per_frame) | `const DEFAULT_SNAPSHOT_MODELS_PER_FRAME: int = 8` |
 | 属性 | [`module_async_init_timeout_seconds`](#member-gfarchitecture-properties-module_async_init_timeout_seconds) | `var module_async_init_timeout_seconds: float = 0.0:` |
@@ -111,6 +113,7 @@
 | 方法 | [`unregister_system`](#member-gfarchitecture-methods-unregister_system) | `func unregister_system(script_cls: Script) -> bool:` |
 | 方法 | [`unregister_model`](#member-gfarchitecture-methods-unregister_model) | `func unregister_model(script_cls: Script) -> bool:` |
 | 方法 | [`unregister_utility`](#member-gfarchitecture-methods-unregister_utility) | `func unregister_utility(script_cls: Script) -> bool:` |
+| 方法 | [`resolve_module_access`](#member-gfarchitecture-methods-resolve_module_access) | `func resolve_module_access( module_kind: ModuleKind, script_cls: Script, lookup_scope: ModuleLookupScope = ModuleLookupScope.INHERITED, required: bool = true, require_ready: bool = false ) -> Object:` |
 | 方法 | [`get_system`](#member-gfarchitecture-methods-get_system) | `func get_system(script_cls: Script, require_ready: bool = false) -> Object:` |
 | 方法 | [`get_model`](#member-gfarchitecture-methods-get_model) | `func get_model(script_cls: Script, require_ready: bool = false) -> Object:` |
 | 方法 | [`get_utility`](#member-gfarchitecture-methods-get_utility) | `func get_utility(script_cls: Script, require_ready: bool = false) -> Object:` |
@@ -199,6 +202,46 @@ signal project_installers_finished
 ```
 
 当项目级 Installer 应用完成或被 dispose() 中断后发出。
+
+## 枚举
+
+<a id="member-gfarchitecture-enums-modulekind"></a>
+
+### `ModuleKind`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+enum ModuleKind {
+	## Model 模块。
+	MODEL,
+	## System 模块。
+	SYSTEM,
+	## Utility 模块。
+	UTILITY,
+}
+```
+
+可由架构访问策略解析的模块类型。
+
+<a id="member-gfarchitecture-enums-modulelookupscope"></a>
+
+### `ModuleLookupScope`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+enum ModuleLookupScope {
+	## 按当前架构的父级回退与 strict_dependency_lookup 规则解析。
+	INHERITED,
+	## 只解析当前架构，不回退父级。
+	LOCAL,
+}
+```
+
+模块访问的架构作用域。
 
 ## 常量
 
@@ -1945,6 +1988,31 @@ func unregister_utility(script_cls: Script) -> bool:
 | `script_cls` | 工具的脚本类。 |
 
 返回：模块完成 quiesce 并从活动拓扑移除时返回 true。
+
+<a id="member-gfarchitecture-methods-resolve_module_access"></a>
+
+### `resolve_module_access`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func resolve_module_access( module_kind: ModuleKind, script_cls: Script, lookup_scope: ModuleLookupScope = ModuleLookupScope.INHERITED, required: bool = true, require_ready: bool = false ) -> Object:
+```
+
+按冻结的作用域、必需性和 ready 策略解析已注册模块。 该入口供生成访问器与其他声明式依赖边界复用；required 只控制严格依赖缺失诊断， 不改变 strict_dependency_lookup 对父级回退的限制。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `module_kind` | 要解析的 Model、System 或 Utility 类型。 |
+| `script_cls` | 模块脚本类。 |
+| `lookup_scope` | 父级可见或仅当前架构的查询作用域。 |
+| `required` | 为 true 时，严格查询模式下缺失模块会输出 required miss。 |
+| `require_ready` | 为 true 时，仅返回已完成 ready 阶段的实例。 |
+
+返回：符合全部冻结策略的模块实例；未命中时返回 null。
 
 <a id="member-gfarchitecture-methods-get_system"></a>
 

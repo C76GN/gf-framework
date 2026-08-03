@@ -24,7 +24,7 @@
 
 ## [未发布]
 
-**版本概述**：本轮新增类型化音频播放区间与循环点和共享资源 admission Broker，把 Architecture 启动升级为依赖 DAG 驱动的四阶段激活并增加类型化异步关闭，为 Save Profile 增加精确 provider domain、活动身份与显式恢复/对账事务，补充 Headless 服务探针和周期环境表现的项目组合配方，修复并加固 AI Developer 的项目 Adapter 依赖边界，同时把 Changelog 与安全扫描抑制约束转为可执行维护门禁，并收紧热模块事务、Save Profile 准备、可选依赖、后台回调所有权、按 key 并发、场景邻居稳定帧、渲染预热和音频释放契约；框架只提供可验证的通用机制，不内置项目启动、存档业务、部署协议、环境模型或轮询式音频模拟。
+**版本概述**：本轮新增类型化音频播放区间与循环点和共享资源 admission Broker，把 Architecture 启动升级为依赖 DAG 驱动的四阶段激活并增加类型化异步关闭，为 Save Profile 增加精确 provider domain、活动身份与显式恢复/对账事务，补充 Headless 服务探针和周期环境表现的项目组合配方，修复并加固 AI Developer 的项目 Adapter 依赖边界，同时把 Changelog 与安全扫描抑制约束转为可执行维护门禁，并收紧热模块事务、Save Profile 准备、可选依赖、后台回调所有权、按 key 并发、场景邻居稳定帧、渲染预热和音频释放契约；此外加入冻结模块访问策略、Route 请求生命周期和类型化虚拟输入 Pulse，使生成访问、异步 UI 与定时输入都具备明确的身份、终态与所有权边界；框架只提供可验证的通用机制，不内置项目启动、存档业务、部署协议、环境模型或轮询式音频模拟。
 
 ### 🚀 新增特性 (Added)
 
@@ -55,6 +55,9 @@
 - 新增 `GFSaveSectionMutation` 与 `GFSaveProfileMutationRequest`：用 move-only 候选 section
   清单替代事务内任意回调，固定 Provider 顺序并在确定失败时逆序恢复。
 - `GFStorageAsyncResult` 新增 `WriteFailureKind` 与隔离的 worker 载荷预检报告，区分非法请求、不可持久化载荷、编码、线程、生命周期和 IO 故障。
+- `GFArchitecture` 新增统一的 `resolve_module_access()`、模块类型与查询作用域枚举；Access Generator 可按精确模块脚本路径冻结 inherited/local、required 与 require-ready 策略，生成结果不再依赖运行时隐式选择。
+- 新增 `GFUIPanelAsyncOperation`：为每次底层异步 push/replace 冻结单调 serial、路径、层级和操作类型，并以弱面板引用暴露唯一终态；`GFUIRouterUtility` 的异步打开选项新增 owner 与 `GFAsyncScope` 生命周期锚点。
+- 新增 `GFVirtualInputPulseOperation` 与 `GFVirtualInputSource.PulseReplacementPolicy`：以类型化句柄表达有界虚拟动作脉冲、OR 生命周期取消、原子替换/拒绝策略、单调 generation 和匹配释放证明。
 
 ### 🔄 机制更改 (Changed)
 
@@ -91,6 +94,9 @@
   不自动回滚、重试、补偿或猜测迟到终态；Reconcile Lease 等待底层 generation 证据
   settled，随后仍须由项目提交 `GFSaveProfileReconcileRequest`，严格重读 lease 指定
   Profile 并完整应用后才解锁。Request 不接受项目布尔结论或可执行恢复策略。
+- Access Generator 在调用扩展或构建源码前事务式验证整批策略，统一 String/StringName 字段键并拒绝等价重复、未知、失配或错误类型配置；失败报告固定为零写入且不会覆盖既有产物。生成的 Model/System/Utility 访问器统一委托 Architecture 共享解析原语。
+- `GFUIUtility.push_panel_async*()` / `replace_layer_async*()` 改为返回精确请求句柄并可预绑定完成回调；Router 只关联返回句柄，不再把无请求身份的全局完成信号当作协议。Route 在 UI 提交前接受 owner/scope 任一终止，提交后则保持结果未知边界，不尝试撤销已提交 UI 工作。
+- 虚拟输入 Pulse 由 Source 持有操作 generation、Mapping 持有稳定输入键的权威 lease；同键替换和手动写入在单次原子边界交接，不发出中间 inactive 状态，清理、重建与 dispose 只释放仍匹配的当前贡献。
 
 ### 🐛 Bug 修复 (Fixed)
 
@@ -114,6 +120,8 @@
   与单次身份提交。
 - 修复 section 修改与保存分离时，已知写入失败、未知提交和生命周期关闭之间没有统一
   所有权的问题；类型化 mutation 现在区分可逆确定失败与必须 fence 的未知结果。
+- 修复异步 UI 的全局完成遥测缺少请求身份，可能被同键重入或旧生命周期迟到回调误关联的问题；Router 现在在发出可重入信号前原子移除旧 pending，并以单调 request ID 与精确底层句柄双重校验终态。
+- 修复旧虚拟输入定时器、同 `source_id` 的不同 Source 实例或手动覆盖可能清除后续输入贡献的问题；lease 同时校验操作对象、generation 与单调 lease ID，迟到回调无法释放新脉冲。Pulse 计时改用 owner-bound timer，并通过内部 handle + owner 精确存活契约识别 `GFTimerUtility` dispose/reinit 后的排程丢失，以 `FAILED / timer_schedule_lost` 补偿释放，避免 handle ABA 误取消或动作粘住。
 
 ### ⚠️ 废弃与移除 (Deprecated/Removed)
 
@@ -155,6 +163,9 @@
 - `GFArchitecture.init(cancellation_token = null)` 保留无参数调用形状并新增显式取消输入；新增 `activation_timeout_seconds`、`shutdown_timeout_seconds`、`is_activating()`、`is_quiescing()`、`is_accepting_runtime_work()`、`is_module_active()`、`shutdown_async()`、`get_last_shutdown_result()` 与 `shutdown_finished`。`module_async_init_timeout_seconds` 与两个新增 timeout 属性统一为有限 `0..86400` 契约，`0` 禁用 deadline；并发 init/shutdown 都由首个调用拥有共享流程策略，后续 init token 只取消自身等待，后续 shutdown 调用只复制同一终态。父级 required module/factory 由 child generation 弱租约保护；模块租约冻结相关父级模块拓扑，任一外部依赖租约都使父级正常关闭以 `ERR_BUSY` 失败。`create_instance()` 现在属于 READY 运行时准入，在 activation、热拓扑事务或 quiesce 期间不会调用 provider。依赖诊断固定复用四类 typed Hook 与真实父级解析语义，不再提供 `include_parent_lookup` / `include_factories` 行为开关。
 - `GFArchitecture.unregister_model()`、`unregister_system()`、`unregister_utility()` 及 classless Autoload facade `Gf.unregister_*()` 均改为必须 `await` 且返回 `bool` 的拓扑事务；旧同步 fire-and-forget 调用不再受支持。
 - 新增公开值对象 `GFArchitectureShutdownResult`；`GFNodeContext.context_ready` 的既有信号形状不变，但成功语义从第三阶段准备完成收紧为第四阶段 activation 已提交。
+- `GFArchitecture.ModuleKind`、`ModuleLookupScope` 与 `resolve_module_access(module_kind, script_cls, lookup_scope, required, require_ready)` 是新的公开共享模块解析 API；`GFAccessGenerator.ACCESS_SCOPE_*`、`ACCESS_POLICIES_SETTING` 和 `gf/codegen/access_policies` 是新的生成期策略契约。
+- `GFUIUtility.push_panel_async()`、`push_panel_async_with_options()`、`replace_layer_async()` 与 `replace_layer_async_with_options()` 现在返回 `GFUIPanelAsyncOperation`，并在末尾接收可选完成回调；`GFUIRouterUtility.push_route_async()` / `replace_route_async()` 的 `async_options` 支持 `owner` 与 `scope`，`GFUIRouteResult` 新增 `STATUS_INVALID_LIFECYCLE`。
+- `GFVirtualInputSource.configure()` 新增可选 `GFTimerUtility`，并新增 `set_timer_utility()`、`get_timer_utility()`、`pulse_action()` 与不可逆 `dispose()`；`GFVirtualInputPulseOperation` 公开冻结身份、状态、取消、调试快照和匹配释放计数。
 
 ### 📘 升级指南 (Migration Guide)
 
@@ -194,6 +205,9 @@
     `reconcile_pending` 且不 claim Request。lease ready 后用同一 lease 与
     `GFSaveProfileReconcileRequest` 重试，等待严格重读和应用成功；不要用直接 load/save
     绕过 fence，也不要把迟到成功当成原 switch 会自动继续目标。
+26. 若项目依赖生成访问器的本地/父级、必需性或 ready 语义，在 `gf/codegen/access_policies` 中按精确 `res://` 模块脚本路径声明策略并重新生成；删除未知、重复或已失配路径，生成器会整批失败关闭而不保留部分源码。
+27. 把依赖全局 `panel_async_load_finished` 识别单次请求的代码迁移到异步 UI 方法返回的 `GFUIPanelAsyncOperation` 或完成回调；全局信号只用于无身份遥测。Route 调用若需要生命周期绑定，在 options 中传有效 owner 和/或未完成的 `GFAsyncScope`。
+28. 需要短时虚拟动作时，为 `GFVirtualInputSource` 注入共享 `GFTimerUtility` 并调用 `pulse_action()`；用返回句柄观察终态，不自行安排延迟 `clear_action()`。同键覆盖语义应显式选择 REPLACE 或 REJECT_NEW，Source 与 Mapping 关闭后不得复用。
 
 ### 📁 核心受影响文件 (Affected Files)
 
@@ -203,6 +217,7 @@
 - `addons/gf/standard/utilities/audio/gf_audio_backend.gd`
 - `addons/gf/standard/utilities/audio/gf_audio_backend_capability.gd`
 - `addons/gf/standard/utilities/audio/gf_audio_clip.gd`
+- `addons/gf/kernel/editor/gf_access_generator.gd`
 - `addons/gf/kernel/core/gf_architecture.gd`
 - `addons/gf/kernel/core/gf_binding.gd`
 - `addons/gf/kernel/core/gf_architecture_lifecycle_plan.gd`
@@ -223,6 +238,14 @@
 - `addons/gf/standard/utilities/assets/gf_resource_lease.gd`
 - `addons/gf/standard/utilities/assets/gf_asset_utility.gd`
 - `addons/gf/standard/utilities/scene/gf_scene_utility.gd`
+- `addons/gf/standard/utilities/time/gf_timer_utility.gd`
+- `addons/gf/standard/utilities/ui/gf_ui_panel_async_operation.gd`
+- `addons/gf/standard/utilities/ui/gf_ui_route_result.gd`
+- `addons/gf/standard/utilities/ui/gf_ui_router_utility.gd`
+- `addons/gf/standard/utilities/ui/gf_ui_utility.gd`
+- `addons/gf/standard/input/sources/gf_virtual_input_pulse_operation.gd`
+- `addons/gf/standard/input/sources/gf_virtual_input_source.gd`
+- `addons/gf/standard/input/runtime/gf_input_mapping_utility.gd`
 - `addons/gf/standard/utilities/storage/gf_storage_payload_transfer.gd`
 - `addons/gf/standard/utilities/storage/gf_storage_async_operation.gd`
 - `addons/gf/standard/utilities/storage/gf_storage_async_result.gd`

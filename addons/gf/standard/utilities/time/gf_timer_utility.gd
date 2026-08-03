@@ -250,6 +250,30 @@ func cancel_owner(owner: Object) -> int:
 	return removed
 
 
+## 检查指定 handle 是否仍属于给定 owner 的待执行或执行中 timer。
+## [br]
+## @api framework_internal
+## [br]
+## @since unreleased
+## [br]
+## @layer standard/utilities
+## [br]
+## @param handle: execute_after_owned() 返回的 timer handle。
+## [br]
+## @param owner: 创建 owner-bound timer 时使用的 owner。
+## [br]
+## @return: handle 与 owner 身份均匹配时返回 true。
+func has_owned_timer_for_framework(handle: int, owner: Object) -> bool:
+	if handle <= 0 or owner == null or not is_instance_valid(owner):
+		return false
+	for timer_data: Dictionary in _pending_timers:
+		if _get_timer_id(timer_data) == handle and _timer_is_owned_by(timer_data, owner):
+			return true
+	if _executing_handles.has(handle):
+		return _timer_is_owned_by(_get_executing_timer(handle), owner)
+	return false
+
+
 ## 获取定时器工具诊断快照。
 ## [br]
 ## @api public
@@ -387,6 +411,15 @@ func _get_timer_owner_ref(timer_data: Dictionary) -> WeakRef:
 
 func _timer_has_owner_ref(timer_data: Dictionary) -> bool:
 	return GFVariantData.get_option_value(timer_data, "owner_ref") != null
+
+
+func _timer_is_owned_by(timer_data: Dictionary, owner: Object) -> bool:
+	if timer_data.is_empty() or owner == null or not is_instance_valid(owner):
+		return false
+	if _get_timer_owner_id(timer_data) != owner.get_instance_id():
+		return false
+	var owner_ref: WeakRef = _get_timer_owner_ref(timer_data)
+	return owner_ref != null and owner_ref.get_ref() == owner
 
 
 func _variant_to_callable(value: Variant) -> Callable:

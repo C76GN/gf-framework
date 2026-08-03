@@ -38,6 +38,10 @@ class ManualAssetUtility extends GFAssetUtility:
 	func get_pending_count(path: String) -> int:
 		return _callback_list(path).size() if _callbacks.has(path) else 0
 
+	func dispose() -> void:
+		_callbacks.clear()
+		super.dispose()
+
 	func _callback_list(path: String) -> Array:
 		var callbacks_value: Variant = _callbacks[path]
 		if callbacks_value is Array:
@@ -269,6 +273,96 @@ func test_async_route_sync_fallback_reaches_terminal_state() -> void:
 	assert_eq(operation.get_result().get_status(), GFUIRouteResult.STATUS_OPENED)
 
 
+func test_legacy_ui_telemetry_reentry_cannot_complete_replacement_route() -> void:
+	_arch = GFArchitecture.new()
+	var asset_util: ManualAssetUtility = ManualAssetUtility.new()
+	await _arch.register_utility_instance(asset_util)
+	await Gf.set_architecture(_arch)
+	var route: GFUIRoute = _make_route(&"inventory", GFUIUtility.Layer.POPUP)
+	route.scene_path = "res://tests/ui_telemetry_reentry_route_panel.tscn"
+	assert_true(_router.register_route(route))
+	_router.set_ui_utility(null)
+	var replacement_operations: Array[GFUIRouteOperation] = []
+	var reentry_state: Dictionary = { "started": false }
+	var telemetry_callback: Callable = func(
+		_path: String,
+		_layer: int,
+		_operation: StringName,
+		_status: int,
+		_panel: Node
+	) -> void:
+		if GFVariantData.get_option_bool(reentry_state, "started"):
+			return
+		reentry_state["started"] = true
+		replacement_operations.append(_router.push_route_async(&"inventory"))
+	var _connected: Error = _ui_utility.panel_async_load_finished.connect(
+		telemetry_callback
+	) as Error
+	_router.set_ui_utility(_ui_utility)
+
+	var first_operation: GFUIRouteOperation = _router.push_route_async(&"inventory")
+	asset_util.resolve(route.scene_path, _make_control_scene())
+	await get_tree().process_frame
+
+	assert_eq(first_operation.get_result().get_status(), GFUIRouteResult.STATUS_OPENED)
+	assert_eq(replacement_operations.size(), 1, "旧请求 telemetry 的重入只应创建一个替代请求。")
+	var replacement_operation: GFUIRouteOperation = replacement_operations[0]
+	assert_true(replacement_operation.is_pending(), "旧请求 telemetry 不得终结同键替代请求。")
+	assert_eq(asset_util.get_pending_count(route.scene_path), 1, "替代请求应保留自己的底层加载。")
+	assert_eq(_router.get_route_history().size(), 1, "替代请求完成前只记录首个路由。")
+
+	asset_util.resolve(route.scene_path, _make_control_scene())
+	await get_tree().process_frame
+	await get_tree().process_frame
+
+	assert_eq(replacement_operation.get_result().get_status(), GFUIRouteResult.STATUS_OPENED)
+	assert_eq(_router.get_route_history().size(), 2, "替代请求应按自己的句柄终态独立记录。")
+	if _ui_utility.panel_async_load_finished.is_connected(telemetry_callback):
+		_ui_utility.panel_async_load_finished.disconnect(telemetry_callback)
+
+
+func test_route_opened_reentry_creates_distinct_same_key_request() -> void:
+	_arch = GFArchitecture.new()
+	var asset_util: ManualAssetUtility = ManualAssetUtility.new()
+	await _arch.register_utility_instance(asset_util)
+	await Gf.set_architecture(_arch)
+	var route: GFUIRoute = _make_route(&"inventory", GFUIUtility.Layer.POPUP)
+	route.scene_path = "res://tests/route_opened_reentry_panel.tscn"
+	assert_true(_router.register_route(route))
+	var replacement_operations: Array[GFUIRouteOperation] = []
+	var reentry_state: Dictionary = { "started": false }
+	var opened_callback: Callable = func(
+		_route_id: StringName,
+		_panel: Node,
+		_operation: GFUIRouterUtility.Operation
+	) -> void:
+		if GFVariantData.get_option_bool(reentry_state, "started"):
+			return
+		reentry_state["started"] = true
+		replacement_operations.append(_router.push_route_async(&"inventory"))
+	var _connected: Error = _router.route_opened.connect(opened_callback) as Error
+
+	var first_operation: GFUIRouteOperation = _router.push_route_async(&"inventory")
+	asset_util.resolve(route.scene_path, _make_control_scene())
+	await get_tree().process_frame
+
+	assert_eq(first_operation.get_result().get_status(), GFUIRouteResult.STATUS_OPENED)
+	assert_eq(replacement_operations.size(), 1)
+	var replacement_operation: GFUIRouteOperation = replacement_operations[0]
+	assert_ne(replacement_operation, first_operation, "route_opened 重入不得合流到正在完成的旧句柄。")
+	assert_true(replacement_operation.is_pending(), "重入创建的新请求必须保留自己的终态。")
+	assert_eq(asset_util.get_pending_count(route.scene_path), 1)
+
+	asset_util.resolve(route.scene_path, _make_control_scene())
+	await get_tree().process_frame
+	await get_tree().process_frame
+
+	assert_eq(replacement_operation.get_result().get_status(), GFUIRouteResult.STATUS_OPENED)
+	assert_eq(_router.get_route_history().size(), 2)
+	if _router.route_opened.is_connected(opened_callback):
+		_router.route_opened.disconnect(opened_callback)
+
+
 func test_conflicting_pending_async_routes_fail_instead_of_silently_overwriting() -> void:
 	_arch = GFArchitecture.new()
 	var asset_util: ManualAssetUtility = ManualAssetUtility.new()
@@ -304,7 +398,10 @@ func test_router_rejects_matching_external_ui_async_request() -> void:
 	var route: GFUIRoute = _make_route(&"inventory", GFUIUtility.Layer.POPUP)
 	route.scene_path = "res://tests/external_pending_route_panel.tscn"
 	assert_true(_router.register_route(route))
-	_ui_utility.push_panel_async(route.scene_path, route.layer)
+	var _external_operation: GFUIPanelAsyncOperation = _ui_utility.push_panel_async(
+		route.scene_path,
+		route.layer
+	)
 	watch_signals(_router)
 
 	var operation: GFUIRouteOperation = _router.push_route_async(&"inventory")
@@ -400,6 +497,387 @@ func test_invalid_async_preload_policy_returns_typed_failure() -> void:
 		[&"inventory", "invalid_preload_policy"]
 	)
 	assert_push_warning("[GFUIRouterUtility] 路由打开失败：inventory (invalid_preload_policy)")
+
+
+func test_async_route_returns_cancelled_for_pre_cancelled_scope() -> void:
+	assert_true(_router.register_route(_make_route(&"inventory", GFUIUtility.Layer.POPUP)))
+	var scope: GFAsyncScope = GFAsyncScope.new()
+	var _cancelled: bool = scope.cancel("navigation_abandoned")
+	watch_signals(_router)
+
+	var operation: GFUIRouteOperation = _router.push_route_async(
+		&"inventory",
+		{},
+		{},
+		Callable(),
+		{ "scope": scope }
+	)
+
+	assert_true(operation.is_completed(), "已取消 scope 应立即返回终态。")
+	assert_eq(operation.get_result().get_status(), GFUIRouteResult.STATUS_CANCELLED)
+	assert_eq(operation.get_result().get_reason(), &"navigation_abandoned")
+	assert_eq(_ui_utility.get_stack_count(GFUIUtility.Layer.POPUP), 0)
+	assert_signal_emit_count(_router, "route_open_requested", 0, "已取消 scope 不应进入路由提交流程。")
+	assert_signal_emit_count(_router, "route_operation_completed", 1, "立即取消也只能产生一个终态。")
+
+
+func test_async_route_rejects_completed_or_invalid_scope() -> void:
+	assert_true(_router.register_route(_make_route(&"inventory", GFUIUtility.Layer.POPUP)))
+	var completed_scope: GFAsyncScope = GFAsyncScope.new()
+	completed_scope.complete()
+
+	var completed_operation: GFUIRouteOperation = _router.push_route_async(
+		&"inventory",
+		{},
+		{},
+		Callable(),
+		{ "scope": completed_scope }
+	)
+	assert_eq(
+		completed_operation.get_result().get_status(),
+		GFUIRouteResult.STATUS_INVALID_LIFECYCLE
+	)
+	assert_eq(completed_operation.get_result().get_reason(), &"scope_completed")
+	assert_push_warning("[GFUIRouterUtility] 路由打开失败：inventory (scope_completed)")
+
+	var invalid_operation: GFUIRouteOperation = _router.push_route_async(
+		&"inventory",
+		{},
+		{},
+		Callable(),
+		{ "scope": RefCounted.new() }
+	)
+	assert_eq(
+		invalid_operation.get_result().get_status(),
+		GFUIRouteResult.STATUS_INVALID_LIFECYCLE
+	)
+	assert_eq(invalid_operation.get_result().get_reason(), &"invalid_scope")
+	assert_push_warning("[GFUIRouterUtility] 路由打开失败：inventory (invalid_scope)")
+
+
+func test_async_route_rejects_node_owner_outside_scene_tree() -> void:
+	assert_true(_router.register_route(_make_route(&"inventory", GFUIUtility.Layer.POPUP)))
+	var owner_node: Node = Node.new()
+
+	var operation: GFUIRouteOperation = _router.push_route_async(
+		&"inventory",
+		{},
+		{},
+		Callable(),
+		{ "owner": owner_node }
+	)
+
+	assert_eq(operation.get_result().get_status(), GFUIRouteResult.STATUS_INVALID_LIFECYCLE)
+	assert_eq(operation.get_result().get_reason(), &"owner_not_in_tree")
+	assert_eq(_ui_utility.get_stack_count(GFUIUtility.Layer.POPUP), 0)
+	assert_push_warning("[GFUIRouterUtility] 路由打开失败：inventory (owner_not_in_tree)")
+	owner_node.free()
+
+
+func test_owner_and_scope_use_or_cancellation_before_panel_submit() -> void:
+	_arch = GFArchitecture.new()
+	var asset_util: ManualAssetUtility = ManualAssetUtility.new()
+	await _arch.register_utility_instance(asset_util)
+	await Gf.set_architecture(_arch)
+	var route: GFUIRoute = _make_route(&"inventory", GFUIUtility.Layer.POPUP)
+	route.scene_path = "res://tests/lifecycle_or_route_panel.tscn"
+	assert_true(_router.register_route(route))
+	var owner_node: Node = Node.new()
+	add_child(owner_node)
+	var scope: GFAsyncScope = GFAsyncScope.new()
+	watch_signals(_router)
+
+	var operation: GFUIRouteOperation = _router.push_route_async(
+		&"inventory",
+		{},
+		{},
+		Callable(),
+		{
+			"owner": owner_node,
+			"scope": scope,
+			"preload_policy": GFUIRouterUtility.PRELOAD_REQUIRED,
+		}
+	)
+	assert_true(operation.is_pending())
+	assert_eq(asset_util.get_pending_count(route.scene_path), 1, "请求应先停留在预加载阶段。")
+
+	var _cancelled: bool = scope.cancel("route_scope_cancelled")
+	assert_eq(operation.get_result().get_status(), GFUIRouteResult.STATUS_CANCELLED)
+	assert_eq(operation.get_result().get_reason(), &"route_scope_cancelled")
+	owner_node.queue_free()
+	await get_tree().process_frame
+	asset_util.resolve(route.scene_path, _make_control_scene())
+	await get_tree().process_frame
+
+	assert_eq(_ui_utility.get_stack_count(GFUIUtility.Layer.POPUP), 0, "取消后的迟到预加载不得再提交面板。")
+	assert_signal_emit_count(_router, "route_operation_completed", 1, "scope 与 owner 后续终止只能共享一个终态。")
+
+
+func test_node_owner_tree_exit_cancels_before_panel_submit() -> void:
+	_arch = GFArchitecture.new()
+	var asset_util: ManualAssetUtility = ManualAssetUtility.new()
+	await _arch.register_utility_instance(asset_util)
+	await Gf.set_architecture(_arch)
+	var route: GFUIRoute = _make_route(&"inventory", GFUIUtility.Layer.POPUP)
+	route.scene_path = "res://tests/node_owner_route_panel.tscn"
+	assert_true(_router.register_route(route))
+	var owner_node: Node = Node.new()
+	add_child(owner_node)
+
+	var operation: GFUIRouteOperation = _router.push_route_async(
+		&"inventory",
+		{},
+		{},
+		Callable(),
+		{
+			"owner": owner_node,
+			"preload_policy": GFUIRouterUtility.PRELOAD_REQUIRED,
+		}
+	)
+	owner_node.queue_free()
+	await get_tree().process_frame
+
+	assert_true(operation.is_completed())
+	assert_eq(operation.get_result().get_status(), GFUIRouteResult.STATUS_CANCELLED)
+	assert_eq(operation.get_result().get_reason(), &"owner_tree_exited")
+	assert_eq(_ui_utility.get_stack_count(GFUIUtility.Layer.POPUP), 0)
+
+
+func test_ref_counted_owner_release_is_pruned_on_tick() -> void:
+	_arch = GFArchitecture.new()
+	var asset_util: ManualAssetUtility = ManualAssetUtility.new()
+	await _arch.register_utility_instance(asset_util)
+	await Gf.set_architecture(_arch)
+	var route: GFUIRoute = _make_route(&"inventory", GFUIUtility.Layer.POPUP)
+	route.scene_path = "res://tests/ref_counted_owner_route_panel.tscn"
+	assert_true(_router.register_route(route))
+	var route_owner: RefCounted = RefCounted.new()
+	var route_owner_ref: WeakRef = weakref(route_owner)
+
+	var operation: GFUIRouteOperation = _router.push_route_async(
+		&"inventory",
+		{},
+		{},
+		Callable(),
+		{
+			"owner": route_owner,
+			"preload_policy": GFUIRouterUtility.PRELOAD_REQUIRED,
+		}
+	)
+	route_owner = null
+	var owner_was_released: bool = route_owner_ref.get_ref() == null
+	assert_true(owner_was_released, "Router 只应弱持有普通 Object owner。")
+	_router.tick(0.0)
+
+	assert_true(operation.is_completed())
+	assert_eq(operation.get_result().get_status(), GFUIRouteResult.STATUS_CANCELLED)
+	assert_eq(operation.get_result().get_reason(), &"owner_released")
+	assert_eq(_ui_utility.get_stack_count(GFUIUtility.Layer.POPUP), 0)
+
+
+func test_duplicate_pending_route_requires_same_lifecycle_identity() -> void:
+	_arch = GFArchitecture.new()
+	var asset_util: ManualAssetUtility = ManualAssetUtility.new()
+	await _arch.register_utility_instance(asset_util)
+	await Gf.set_architecture(_arch)
+	var route: GFUIRoute = _make_route(&"inventory", GFUIUtility.Layer.POPUP)
+	route.scene_path = "res://tests/lifecycle_identity_route_panel.tscn"
+	assert_true(_router.register_route(route))
+	var route_owner: RefCounted = RefCounted.new()
+	var other_owner: RefCounted = RefCounted.new()
+	var scope: GFAsyncScope = GFAsyncScope.new()
+	var async_options: Dictionary = {
+		"owner": route_owner,
+		"scope": scope,
+		"preload_policy": GFUIRouterUtility.PRELOAD_REQUIRED,
+	}
+
+	var first_operation: GFUIRouteOperation = _router.push_route_async(
+		&"inventory",
+		{},
+		{},
+		Callable(),
+		async_options
+	)
+	var duplicate_operation: GFUIRouteOperation = _router.push_route_async(
+		&"inventory",
+		{},
+		{},
+		Callable(),
+		async_options
+	)
+	var conflict_operation: GFUIRouteOperation = _router.push_route_async(
+		&"inventory",
+		{},
+		{},
+		Callable(),
+		{
+			"owner": other_owner,
+			"scope": scope,
+			"preload_policy": GFUIRouterUtility.PRELOAD_REQUIRED,
+		}
+	)
+
+	assert_eq(duplicate_operation, first_operation, "只有生命周期身份相同的请求才能合流。")
+	assert_eq(conflict_operation.get_result().get_status(), GFUIRouteResult.STATUS_ASYNC_CONFLICT)
+	assert_eq(conflict_operation.get_result().get_reason(), &"route_async_conflict")
+	assert_push_warning("[GFUIRouterUtility] 路由打开失败：inventory (route_async_conflict)")
+	var _cancelled: bool = scope.cancel("test_cleanup")
+	assert_eq(first_operation.get_result().get_status(), GFUIRouteResult.STATUS_CANCELLED)
+
+
+func test_lifecycle_cancellation_is_ignored_after_panel_submit() -> void:
+	_arch = GFArchitecture.new()
+	var asset_util: ManualAssetUtility = ManualAssetUtility.new()
+	await _arch.register_utility_instance(asset_util)
+	await Gf.set_architecture(_arch)
+	var route: GFUIRoute = _make_route(&"inventory", GFUIUtility.Layer.POPUP)
+	route.scene_path = "res://tests/submitted_lifecycle_route_panel.tscn"
+	assert_true(_router.register_route(route))
+	var owner_node: Node = Node.new()
+	add_child(owner_node)
+	var scope: GFAsyncScope = GFAsyncScope.new()
+	watch_signals(_router)
+
+	var operation: GFUIRouteOperation = _router.push_route_async(
+		&"inventory",
+		{},
+		{},
+		Callable(),
+		{
+			"owner": owner_node,
+			"scope": scope,
+		}
+	)
+	assert_true(operation.is_pending(), "面板已提交但尚未加载时句柄应保持 pending。")
+	assert_eq(asset_util.get_pending_count(route.scene_path), 1)
+	var _cancelled: bool = scope.cancel("too_late")
+	owner_node.queue_free()
+	await get_tree().process_frame
+	assert_true(operation.is_pending(), "面板提交后的 owner/scope 取消不得改写路由结果。")
+
+	asset_util.resolve(route.scene_path, _make_control_scene())
+	await get_tree().process_frame
+	await get_tree().process_frame
+
+	assert_eq(operation.get_result().get_status(), GFUIRouteResult.STATUS_OPENED)
+	assert_eq(_ui_utility.get_stack_count(GFUIUtility.Layer.POPUP), 1)
+	assert_signal_emit_count(_router, "route_operation_completed", 1, "提交后取消不得制造第二终态。")
+
+
+func test_route_open_requested_reentry_cannot_advance_replacement_request_twice() -> void:
+	_arch = GFArchitecture.new()
+	var asset_util: ManualAssetUtility = ManualAssetUtility.new()
+	await _arch.register_utility_instance(asset_util)
+	await Gf.set_architecture(_arch)
+	var route: GFUIRoute = _make_route(&"inventory", GFUIUtility.Layer.POPUP)
+	route.scene_path = "res://tests/reentrant_route_identity_panel.tscn"
+	assert_true(_router.register_route(route))
+	var first_scope: GFAsyncScope = GFAsyncScope.new()
+	var replacement_operations: Array[GFUIRouteOperation] = []
+	var replacement_state: Dictionary = { "started": false }
+	var callback: Callable
+	callback = func(_route_id: StringName, _operation: GFUIRouterUtility.Operation, _params: Dictionary) -> void:
+		if GFVariantData.get_option_bool(replacement_state, "started"):
+			return
+		replacement_state["started"] = true
+		var _cancelled: bool = first_scope.cancel("route_replaced_during_signal")
+		replacement_operations.append(_router.push_route_async(
+			&"inventory",
+			{},
+			{},
+			Callable(),
+			{ "preload_policy": GFUIRouterUtility.PRELOAD_REQUIRED }
+		))
+	var _connected: Error = _router.route_open_requested.connect(callback) as Error
+
+	var first_operation: GFUIRouteOperation = _router.push_route_async(
+		&"inventory",
+		{},
+		{},
+		Callable(),
+		{
+			"scope": first_scope,
+			"preload_policy": GFUIRouterUtility.PRELOAD_REQUIRED,
+		}
+	)
+
+	assert_eq(first_operation.get_result().get_status(), GFUIRouteResult.STATUS_CANCELLED)
+	assert_eq(replacement_operations.size(), 1, "重入监听器只应创建一个替代请求。")
+	assert_eq(asset_util.get_pending_count(route.scene_path), 1, "旧调用栈不得再次推进替代请求。")
+	var replacement_operation: GFUIRouteOperation = replacement_operations[0]
+	assert_true(replacement_operation.is_pending())
+
+	asset_util.resolve(route.scene_path, _make_control_scene())
+	await get_tree().process_frame
+	assert_true(replacement_operation.is_pending(), "预加载完成后应等待独立的面板加载终态。")
+	assert_eq(asset_util.get_pending_count(route.scene_path), 1, "面板提交只应创建一个后续加载。")
+	asset_util.resolve(route.scene_path, _make_control_scene())
+	await get_tree().process_frame
+	await get_tree().process_frame
+
+	assert_eq(replacement_operation.get_result().get_status(), GFUIRouteResult.STATUS_OPENED)
+	assert_eq(_ui_utility.get_stack_count(GFUIUtility.Layer.POPUP), 1)
+	if _router.route_open_requested.is_connected(callback):
+		_router.route_open_requested.disconnect(callback)
+
+
+func test_reinit_rejects_terminal_reentry_and_keeps_request_ids_monotonic() -> void:
+	_arch = GFArchitecture.new()
+	var asset_util: ManualAssetUtility = ManualAssetUtility.new()
+	await _arch.register_utility_instance(asset_util)
+	await Gf.set_architecture(_arch)
+	var route: GFUIRoute = _make_route(&"inventory", GFUIUtility.Layer.POPUP)
+	route.scene_path = "res://tests/reinit_route_identity_panel.tscn"
+	assert_true(_router.register_route(route))
+	var reentrant_operations: Array[GFUIRouteOperation] = []
+	var reentry_state: Dictionary = { "started": false }
+	var completion_callback: Callable
+	completion_callback = func(result: GFUIRouteResult) -> void:
+		if GFVariantData.get_option_bool(reentry_state, "started") or result.get_route_id() != &"inventory":
+			return
+		reentry_state["started"] = true
+		reentrant_operations.append(_router.push_route_async(&"inventory"))
+	var _connected: Error = _router.route_operation_completed.connect(
+		completion_callback
+	) as Error
+	var first_operation: GFUIRouteOperation = _router.push_route_async(
+		&"inventory",
+		{},
+		{},
+		Callable(),
+		{ "preload_policy": GFUIRouterUtility.PRELOAD_REQUIRED }
+	)
+
+	_router.init()
+
+	assert_eq(first_operation.get_result().get_status(), GFUIRouteResult.STATUS_DISPOSED)
+	assert_eq(reentrant_operations.size(), 1, "重置期间的重入请求必须同步收敛。")
+	var rejected_operation: GFUIRouteOperation = reentrant_operations[0]
+	assert_eq(rejected_operation.get_result().get_status(), GFUIRouteResult.STATUS_DISPOSED)
+	assert_gt(
+		rejected_operation.get_request_id(),
+		first_operation.get_request_id(),
+		"同一 Router 实例重置时 request_id 不得回退。"
+	)
+
+	_router.configure([route], _ui_utility)
+	var next_scope: GFAsyncScope = GFAsyncScope.new()
+	var _next_cancelled: bool = next_scope.cancel("request_id_probe")
+	var next_operation: GFUIRouteOperation = _router.push_route_async(
+		&"inventory",
+		{},
+		{},
+		Callable(),
+		{ "scope": next_scope }
+	)
+	assert_gt(
+		next_operation.get_request_id(),
+		rejected_operation.get_request_id(),
+		"重置后的新请求仍应继续使用单调 request_id。"
+	)
+	if _router.route_operation_completed.is_connected(completion_callback):
+		_router.route_operation_completed.disconnect(completion_callback)
 
 
 func test_required_route_preload_completes_before_panel_open() -> void:
@@ -592,6 +1070,7 @@ func test_router_dispose_rolls_back_preload_before_panel_submit() -> void:
 	var route: GFUIRoute = _make_route(&"inventory", GFUIUtility.Layer.POPUP)
 	route.scene_path = "res://tests/disposed_preloading_route.tscn"
 	assert_true(_router.register_route(route))
+	watch_signals(_router)
 
 	var operation: GFUIRouteOperation = _router.push_route_async(
 		&"inventory",
@@ -610,6 +1089,7 @@ func test_router_dispose_rolls_back_preload_before_panel_submit() -> void:
 	await get_tree().process_frame
 	assert_eq(operation.get_result().get_status(), GFUIRouteResult.STATUS_DISPOSED)
 	assert_eq(_ui_utility.get_stack_count(GFUIUtility.Layer.POPUP), 0)
+	assert_signal_emit_count(_router, "route_operation_completed", 1, "dispose 与迟到预加载只能共享一个终态。")
 
 
 # --- 私有/辅助方法 ---

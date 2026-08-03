@@ -60,7 +60,9 @@ func test_build_source_generates_typed_accessors() -> void:
 	var unsafe_cast_snippet: String = "return resolved_architecture.get_system(BattleSystem) " + "as BattleSystem"
 
 	assert_true(source.contains("static func get_player_model(architecture: GFArchitecture = null) -> PlayerModel:"), "应生成 Model 强类型访问器。")
-	assert_true(source.contains("var system_value: Variant = resolved_architecture.get_system(BattleSystem)"), "应生成 System 查询。")
+	assert_true(source.contains("var system_value: Variant = resolved_architecture.resolve_module_access("), "应通过共享解析入口查询 System。")
+	assert_true(source.contains("GFArchitecture.ModuleKind.SYSTEM,"), "System 访问器应冻结模块类型。")
+	assert_true(source.contains("GFArchitecture.ModuleLookupScope.INHERITED,"), "默认访问器应冻结 inherited 作用域。")
 	assert_true(source.contains("if system_value is BattleSystem:"), "System 查询应先收窄再返回。")
 	assert_false(source.contains(unsafe_cast_snippet), "生成访问器不应传播 unsafe cast。")
 	assert_true(source.contains("static func get_storage_utility(architecture: GFArchitecture = null) -> StorageUtility:"), "应生成 Utility 强类型访问器。")
@@ -71,6 +73,390 @@ func test_build_source_generates_typed_accessors() -> void:
 	assert_true(source.contains("static func if_has_health_capability(receiver: Object, callback: Callable, architecture: GFArchitecture = null) -> Variant:"), "应生成能力条件回调入口。")
 	assert_true(source.contains("_CAPABILITY_UTILITY_SCRIPT_PATH"), "包含能力记录时才应生成能力扩展运行时入口。")
 	assert_true(source.contains("instance.call(\"_gf_set_dependency_scope\", architecture)"), "fallback new() 的对象应先绑定内部依赖作用域。")
+
+
+func test_project_access_policy_is_frozen_into_generated_accessor() -> void:
+	var setting_name: String = GFAccessGenerator.ACCESS_POLICIES_SETTING
+	var had_setting: bool = ProjectSettings.has_setting(setting_name)
+	var previous_value: Variant = ProjectSettings.get_setting(setting_name, null)
+	ProjectSettings.set_setting(setting_name, {
+		"res://addons/gf/standard/utilities/time/gf_time_utility.gd": {
+			"scope": "local",
+			"required": false,
+			"require_ready": true,
+		},
+	})
+
+	var generator: GFAccessGenerator = GFAccessGenerator.new()
+	var records: Array[Dictionary] = [
+		{
+			"class_name": "GFTimeUtility",
+			"path": "res://addons/gf/standard/utilities/time/gf_time_utility.gd",
+			"kind": GFAccessGenerator.TargetKind.UTILITY,
+		},
+	]
+	var policy_result: Dictionary = generator._apply_access_policies(records)
+	var frozen_records: Array = GF_VARIANT_ACCESS.get_option_array(policy_result, "records")
+	var source: String = generator.build_source(frozen_records)
+	var accessor_source: String = _get_generated_function_source(
+		source,
+		"static func get_gf_time_utility("
+	)
+
+	if had_setting:
+		ProjectSettings.set_setting(setting_name, previous_value)
+	else:
+		ProjectSettings.clear(setting_name)
+
+	assert_false(accessor_source.is_empty(), "GFTimeUtility 应有生成访问器。")
+	assert_true(
+		accessor_source.contains("GFArchitecture.ModuleKind.UTILITY,"),
+		"应冻结 Utility 模块类型。"
+	)
+	assert_true(
+		accessor_source.contains("GFArchitecture.ModuleLookupScope.LOCAL,"),
+		"应冻结 local 作用域。"
+	)
+	assert_true(
+		accessor_source.contains("\n\t\tfalse,\n\t\ttrue\n\t)"),
+		"应按顺序冻结 required=false 与 require_ready=true。"
+	)
+	assert_false(
+		accessor_source.contains("ProjectSettings"),
+		"运行时访问器不应重新读取生成期策略。"
+	)
+	assert_true(GF_VARIANT_ACCESS.get_option_bool(policy_result, "valid"), "合法策略应整体冻结成功。")
+	assert_false(records[0].has("scope"), "策略冻结不得修改调用方或扩展持有的原始记录。")
+
+
+func test_frozen_access_policy_source_parses_as_gdscript() -> void:
+	var setting_name: String = GFAccessGenerator.ACCESS_POLICIES_SETTING
+	var script_path: String = "res://addons/gf/standard/utilities/time/gf_time_utility.gd"
+	var had_setting: bool = ProjectSettings.has_setting(setting_name)
+	var previous_value: Variant = ProjectSettings.get_setting(setting_name, null)
+	var local_policies: Dictionary = {}
+	local_policies[StringName(script_path)] = {
+		"scope": "local",
+		"required": false,
+		"require_ready": true,
+	}
+	ProjectSettings.set_setting(setting_name, local_policies)
+	var generator: GFAccessGenerator = GFAccessGenerator.new()
+	var result: Dictionary = generator._apply_access_policies([{
+		"class_name": "GFTimeUtility",
+		"path": script_path,
+		"kind": GFAccessGenerator.TargetKind.UTILITY,
+	}])
+	if had_setting:
+		ProjectSettings.set_setting(setting_name, previous_value)
+	else:
+		ProjectSettings.clear(setting_name)
+	var source: String = generator.build_source(
+		GF_VARIANT_ACCESS.get_option_array(result, "records")
+	)
+	var generated_script: GDScript = GDScript.new()
+	generated_script.source_code = source
+
+	assert_true(GF_VARIANT_ACCESS.get_option_bool(result, "valid"))
+	assert_eq(generated_script.reload(), OK, "冻结策略生成物必须通过真实 GDScript 解析。")
+
+
+func test_string_name_access_policy_fields_are_canonicalized_before_freezing() -> void:
+	var setting_name: String = GFAccessGenerator.ACCESS_POLICIES_SETTING
+	var script_path: String = "res://addons/gf/standard/utilities/time/gf_time_utility.gd"
+	var had_setting: bool = ProjectSettings.has_setting(setting_name)
+	var previous_value: Variant = ProjectSettings.get_setting(setting_name, null)
+	var configured_policy: Dictionary = {}
+	configured_policy[StringName("scope")] = StringName("local")
+	configured_policy[StringName("required")] = false
+	configured_policy[StringName("require_ready")] = true
+	var configured_policies: Dictionary = {}
+	configured_policies[StringName(script_path)] = configured_policy
+	ProjectSettings.set_setting(setting_name, configured_policies)
+
+	var generator: GFAccessGenerator = GFAccessGenerator.new()
+	var records: Array[Dictionary] = [{
+		"class_name": "GFTimeUtility",
+		"path": script_path,
+		"kind": GFAccessGenerator.TargetKind.UTILITY,
+	}]
+	var result: Dictionary = generator._apply_access_policies(records)
+	if had_setting:
+		ProjectSettings.set_setting(setting_name, previous_value)
+	else:
+		ProjectSettings.clear(setting_name)
+
+	var frozen_records: Array = GF_VARIANT_ACCESS.get_option_array(result, "records")
+	var frozen_record: Dictionary = GF_VARIANT_ACCESS.as_dictionary(frozen_records[0])
+	var string_name_policy_key_count: int = 0
+	for raw_key: Variant in frozen_record:
+		if raw_key is StringName:
+			var policy_key_name: StringName = raw_key
+			if ["scope", "required", "require_ready"].has(String(policy_key_name)):
+				string_name_policy_key_count += 1
+
+	assert_true(GF_VARIANT_ACCESS.get_option_bool(result, "valid"))
+	assert_eq(
+		GF_VARIANT_ACCESS.get_option_string_name(frozen_record, "scope"),
+		GFAccessGenerator.ACCESS_SCOPE_LOCAL
+	)
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(frozen_record, "required", true))
+	assert_true(GF_VARIANT_ACCESS.get_option_bool(frozen_record, "require_ready"))
+	assert_eq(string_name_policy_key_count, 0, "冻结记录只应保留 canonical String 策略键。")
+	assert_false(records[0].has("scope"), "字段键规范化不得修改调用方记录。")
+
+
+func test_string_and_string_name_policy_aliases_freeze_one_canonical_value() -> void:
+	var setting_name: String = GFAccessGenerator.ACCESS_POLICIES_SETTING
+	var script_path: String = "res://addons/gf/standard/utilities/time/gf_time_utility.gd"
+	var had_setting: bool = ProjectSettings.has_setting(setting_name)
+	var previous_value: Variant = ProjectSettings.get_setting(setting_name, null)
+	var aliased_policy: Dictionary = {
+		"scope": "local",
+	}
+	aliased_policy[StringName("scope")] = "inherited"
+	ProjectSettings.set_setting(setting_name, {
+		script_path: aliased_policy,
+	})
+
+	var generator: GFAccessGenerator = GFAccessGenerator.new()
+	var result: Dictionary = generator._apply_access_policies([{
+		"class_name": "GFTimeUtility",
+		"path": script_path,
+		"kind": GFAccessGenerator.TargetKind.UTILITY,
+	}])
+	if had_setting:
+		ProjectSettings.set_setting(setting_name, previous_value)
+	else:
+		ProjectSettings.clear(setting_name)
+
+	var frozen_records: Array = GF_VARIANT_ACCESS.get_option_array(result, "records")
+	var frozen_record: Dictionary = GF_VARIANT_ACCESS.as_dictionary(frozen_records[0])
+	assert_eq(aliased_policy.size(), 1, "Godot Dictionary 会在验证前折叠等价字符串键。")
+	assert_true(GF_VARIANT_ACCESS.get_option_bool(result, "valid"))
+	assert_eq(
+		GF_VARIANT_ACCESS.get_option_string_name(frozen_record, "scope"),
+		GFAccessGenerator.ACCESS_SCOPE_INHERITED,
+		"折叠后的最终值应冻结到 canonical String 字段。"
+	)
+
+
+func test_string_name_access_policy_field_with_wrong_type_fails_closed() -> void:
+	var setting_name: String = GFAccessGenerator.ACCESS_POLICIES_SETTING
+	var script_path: String = "res://addons/gf/standard/utilities/time/gf_time_utility.gd"
+	var had_setting: bool = ProjectSettings.has_setting(setting_name)
+	var previous_value: Variant = ProjectSettings.get_setting(setting_name, null)
+	var invalid_policy: Dictionary = {}
+	invalid_policy[StringName("required")] = 1
+	ProjectSettings.set_setting(setting_name, {
+		script_path: invalid_policy,
+	})
+
+	var generator: GFAccessGenerator = GFAccessGenerator.new()
+	var result: Dictionary = generator._apply_access_policies([{
+		"class_name": "GFTimeUtility",
+		"path": script_path,
+		"kind": GFAccessGenerator.TargetKind.UTILITY,
+	}])
+	if had_setting:
+		ProjectSettings.set_setting(setting_name, previous_value)
+	else:
+		ProjectSettings.clear(setting_name)
+
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(result, "valid"))
+	assert_true(GF_VARIANT_ACCESS.get_option_array(result, "records").is_empty())
+	assert_push_error("[GFAccessGenerator] access policy 值无效：%s" % script_path)
+
+
+func test_invalid_access_policy_fails_closed_without_generating_accessor() -> void:
+	var generator: GFAccessGenerator = GFAccessGenerator.new()
+	var source: String = generator.build_source([
+		{
+			"class_name": "ValidPolicyModel",
+			"path": "res://valid_policy_model.gd",
+			"kind": GFAccessGenerator.TargetKind.MODEL,
+		},
+		{
+			"class_name": "InvalidPolicyUtility",
+			"path": "res://invalid_policy_utility.gd",
+			"kind": GFAccessGenerator.TargetKind.UTILITY,
+			"scope": "nearest",
+			"required": false,
+			"require_ready": true,
+		},
+	])
+
+	assert_true(source.is_empty(), "任一 policy 非法时不得生成同批合法记录或扩展源码。")
+	assert_push_error(
+		"[GFAccessGenerator] access policy 无效，整批生成已中止：InvalidPolicyUtility"
+	)
+
+
+func test_unknown_configured_access_policy_field_fails_closed() -> void:
+	var setting_name: String = GFAccessGenerator.ACCESS_POLICIES_SETTING
+	var script_path: String = "res://addons/gf/standard/utilities/time/gf_time_utility.gd"
+	var had_setting: bool = ProjectSettings.has_setting(setting_name)
+	var previous_value: Variant = ProjectSettings.get_setting(setting_name, null)
+	ProjectSettings.set_setting(setting_name, {
+		script_path: {
+			"scope": "local",
+			"requires": false,
+		},
+	})
+
+	var generator: GFAccessGenerator = GFAccessGenerator.new()
+	var records: Array[Dictionary] = [
+		{
+			"class_name": "GFTimeUtility",
+			"path": script_path,
+			"kind": GFAccessGenerator.TargetKind.UTILITY,
+		},
+	]
+	var policy_result: Dictionary = generator._apply_access_policies(records)
+	var frozen_records: Array = GF_VARIANT_ACCESS.get_option_array(policy_result, "records")
+	var source: String = generator.build_source(frozen_records)
+
+	if had_setting:
+		ProjectSettings.set_setting(setting_name, previous_value)
+	else:
+		ProjectSettings.clear(setting_name)
+
+	assert_false(
+		source.contains("static func get_gf_time_utility("),
+		"未知字段不应回退默认策略生成访问器。"
+	)
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(policy_result, "valid"), "未知字段应使整批策略失败。")
+	assert_true(frozen_records.is_empty(), "失败批次不得暴露部分冻结记录。")
+	assert_push_error(
+		"[GFAccessGenerator] access policy 包含未知字段：%s" % script_path
+	)
+
+
+func test_access_policy_freezing_is_transactional_across_reuse() -> void:
+	var setting_name: String = GFAccessGenerator.ACCESS_POLICIES_SETTING
+	var script_path: String = "res://addons/gf/standard/utilities/time/gf_time_utility.gd"
+	var had_setting: bool = ProjectSettings.has_setting(setting_name)
+	var previous_value: Variant = ProjectSettings.get_setting(setting_name, null)
+	var generator: GFAccessGenerator = GFAccessGenerator.new()
+	var records: Array[Dictionary] = [{
+		"class_name": "GFTimeUtility",
+		"path": script_path,
+		"kind": GFAccessGenerator.TargetKind.UTILITY,
+	}]
+	ProjectSettings.set_setting(setting_name, {
+		script_path: {
+			"scope": "local",
+			"required": false,
+			"require_ready": true,
+		},
+	})
+	var local_result: Dictionary = generator._apply_access_policies(records)
+	ProjectSettings.set_setting(setting_name, {})
+	var default_result: Dictionary = generator._apply_access_policies(records)
+	if had_setting:
+		ProjectSettings.set_setting(setting_name, previous_value)
+	else:
+		ProjectSettings.clear(setting_name)
+
+	var local_records: Array = GF_VARIANT_ACCESS.get_option_array(local_result, "records")
+	var default_records: Array = GF_VARIANT_ACCESS.get_option_array(default_result, "records")
+	var local_record: Dictionary = GF_VARIANT_ACCESS.as_dictionary(local_records[0])
+	var default_record: Dictionary = GF_VARIANT_ACCESS.as_dictionary(default_records[0])
+	assert_eq(GF_VARIANT_ACCESS.get_option_string_name(local_record, "scope"), GFAccessGenerator.ACCESS_SCOPE_LOCAL)
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(local_record, "required", true))
+	assert_true(GF_VARIANT_ACCESS.get_option_bool(local_record, "require_ready"))
+	assert_eq(GF_VARIANT_ACCESS.get_option_string_name(default_record, "scope"), GFAccessGenerator.ACCESS_SCOPE_INHERITED)
+	assert_true(GF_VARIANT_ACCESS.get_option_bool(default_record, "required"))
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(default_record, "require_ready"))
+	assert_false(records[0].has("scope"), "重复冻结不得把上次策略残留到原始记录。")
+
+
+func test_stale_access_policy_path_fails_closed() -> void:
+	var setting_name: String = GFAccessGenerator.ACCESS_POLICIES_SETTING
+	var had_setting: bool = ProjectSettings.has_setting(setting_name)
+	var previous_value: Variant = ProjectSettings.get_setting(setting_name, null)
+	var stale_path: String = "res://moved/old_time_utility.gd"
+	ProjectSettings.set_setting(setting_name, {
+		stale_path: { "scope": "local" },
+	})
+	var generator: GFAccessGenerator = GFAccessGenerator.new()
+	var result: Dictionary = generator._apply_access_policies([{
+		"class_name": "GFTimeUtility",
+		"path": "res://addons/gf/standard/utilities/time/gf_time_utility.gd",
+		"kind": GFAccessGenerator.TargetKind.UTILITY,
+	}])
+	if had_setting:
+		ProjectSettings.set_setting(setting_name, previous_value)
+	else:
+		ProjectSettings.clear(setting_name)
+
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(result, "valid"), "移动后遗留路径必须阻断生成。")
+	assert_true(GF_VARIANT_ACCESS.get_option_array(result, "records").is_empty())
+	assert_push_error("[GFAccessGenerator] access policy 路径未匹配可生成模块：%s" % stale_path)
+
+
+func test_invalid_access_policy_root_does_not_overwrite_generated_artifact() -> void:
+	var setting_name: String = GFAccessGenerator.ACCESS_POLICIES_SETTING
+	var had_setting: bool = ProjectSettings.has_setting(setting_name)
+	var previous_value: Variant = ProjectSettings.get_setting(setting_name, null)
+	var path: String = "user://gf_access_generator_invalid_policy_%d.gd" % Time.get_ticks_usec()
+	var file: FileAccess = FileAccess.open(path, FileAccess.WRITE)
+	assert_not_null(file)
+	if file == null:
+		return
+	var _stored: bool = file.store_string("sentinel")
+	file.close()
+	ProjectSettings.set_setting(setting_name, "invalid")
+
+	var generator: GFAccessGenerator = GFAccessGenerator.new()
+	var report: Dictionary = generator.generate_with_report(path, {
+		"written": true,
+		"changed": true,
+		"size_bytes": 1024,
+		"content_sha256": "spoofed-content",
+		"previous_sha256": "spoofed-previous",
+		"dry_run": true,
+		"artifact_owner": GFGeneratedArtifactReport.OWNER_EXTERNAL,
+		"source_id": "access-policy-test",
+		"metadata": {
+			"case": "invalid-policy",
+		},
+	})
+	if had_setting:
+		ProjectSettings.set_setting(setting_name, previous_value)
+	else:
+		ProjectSettings.clear(setting_name)
+	var read_file: FileAccess = FileAccess.open(path, FileAccess.READ)
+	assert_not_null(read_file)
+	var content: String = read_file.get_as_text() if read_file != null else ""
+	if read_file != null:
+		read_file.close()
+	var _removed: Error = DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
+
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(report, "success"))
+	assert_eq(GF_VARIANT_ACCESS.get_option_string_name(report, "status"), GFGeneratedArtifactReport.STATUS_FAILED)
+	assert_eq(GF_VARIANT_ACCESS.get_option_int(report, "error_code"), ERR_INVALID_DATA)
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(report, "written"), "失败报告不得接受伪造写入状态。")
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(report, "changed"), "验证失败尚未形成可比较产物。")
+	assert_eq(GF_VARIANT_ACCESS.get_option_int(report, "size_bytes", -1), 0)
+	assert_eq(GF_VARIANT_ACCESS.get_option_string(report, "content_sha256"), "")
+	assert_eq(GF_VARIANT_ACCESS.get_option_string(report, "previous_sha256"), "")
+	assert_true(GF_VARIANT_ACCESS.get_option_bool(report, "dry_run"))
+	assert_eq(
+		GF_VARIANT_ACCESS.get_option_string_name(report, "artifact_owner"),
+		GFGeneratedArtifactReport.OWNER_EXTERNAL
+	)
+	assert_eq(GF_VARIANT_ACCESS.get_option_string(report, "generator_id"), "GFAccessGenerator")
+	assert_eq(GF_VARIANT_ACCESS.get_option_string(report, "source_id"), "access-policy-test")
+	assert_eq(
+		GF_VARIANT_ACCESS.get_option_string(
+			GF_VARIANT_ACCESS.get_option_dictionary(report, "metadata"),
+			"case"
+		),
+		"invalid-policy"
+	)
+	assert_eq(content, "sentinel", "策略根非法时不得覆盖既有生成物。")
+	assert_push_error("[GFAccessGenerator] gf/codegen/access_policies 必须是 Dictionary。")
 
 
 func test_build_source_omits_capability_helper_without_capability_records() -> void:
@@ -269,12 +655,26 @@ func test_collect_project_records_includes_known_gf_settings_without_plugin_regi
 	var settings: Array = GF_VARIANT_ACCESS.get_option_array(records, "settings")
 
 	assert_true(settings.has("gf/codegen/access_output_path"), "生成器应稳定包含 GF codegen 设置。")
+	assert_true(settings.has("gf/codegen/access_policies"), "生成器应稳定包含访问策略设置。")
 	assert_true(settings.has("gf/project/installers"), "生成器应稳定包含 GF installer 设置。")
 	assert_false(settings.has("gf/build/export/write_metadata"), "kernel 生成器不应硬编码标准库 debug 导出设置。")
 	assert_false(settings.has("gf/build/export/build_metadata"), "kernel 生成器不应硬编码标准库 debug 导出元数据设置。")
 
 
 # --- 私有/辅助方法 ---
+
+func _get_generated_function_source(source: String, signature_prefix: String) -> String:
+	var start_index: int = source.find(signature_prefix)
+	if start_index < 0:
+		return ""
+	var next_function_index: int = source.find(
+		"\nstatic func ",
+		start_index + signature_prefix.length()
+	)
+	if next_function_index < 0:
+		return source.substr(start_index)
+	return source.substr(start_index, next_function_index - start_index)
+
 
 func _new_object(script: Variant) -> Object:
 	if script is Script:

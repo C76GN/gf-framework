@@ -2,8 +2,8 @@
   "schema_version": 1,
   "catalog_version": "1.0.0",
   "framework_version": "11.0.0-dev.0",
-  "source_digest": "9b4189282f86bd884d49d2a120c9d469fe831115d3db565c7f1820b8a50216cf",
-  "class_count": 778,
+  "source_digest": "de285031e86ff6421bf561a34dcc42fa84fa2a2b45644b040a7823faf02875b6",
+  "class_count": 780,
   "package_count": 52,
   "packages": [
     {
@@ -598,6 +598,27 @@
           "name": "DEFAULT_PROJECT_OUTPUT_PATH",
           "signature": "const DEFAULT_PROJECT_OUTPUT_PATH: String = _GF_PROJECT_ARTIFACT_PATHS_SCRIPT.PROJECT_ACCESS_OUTPUT_PATH",
           "summary": "默认项目常量访问器输出路径。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "ACCESS_SCOPE_INHERITED",
+          "signature": "const ACCESS_SCOPE_INHERITED: StringName = &\"inherited\"",
+          "summary": "访问器按父级回退规则解析模块。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "ACCESS_SCOPE_LOCAL",
+          "signature": "const ACCESS_SCOPE_LOCAL: StringName = &\"local\"",
+          "summary": "访问器只解析传入架构的本地模块。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "ACCESS_POLICIES_SETTING",
+          "signature": "const ACCESS_POLICIES_SETTING: String = \"gf/codegen/access_policies\"",
+          "summary": "每个生成类型的冻结访问策略 ProjectSettings 键。",
           "visibility": "public"
         },
         {
@@ -1986,6 +2007,20 @@
           "visibility": "public"
         },
         {
+          "kind": "enum",
+          "name": "ModuleKind",
+          "signature": "enum ModuleKind {\n\t## Model 模块。\n\tMODEL,\n\t## System 模块。\n\tSYSTEM,\n\t## Utility 模块。\n\tUTILITY,\n}",
+          "summary": "可由架构访问策略解析的模块类型。",
+          "visibility": "public"
+        },
+        {
+          "kind": "enum",
+          "name": "ModuleLookupScope",
+          "signature": "enum ModuleLookupScope {\n\t## 按当前架构的父级回退与 strict_dependency_lookup 规则解析。\n\tINHERITED,\n\t## 只解析当前架构，不回退父级。\n\tLOCAL,\n}",
+          "summary": "模块访问的架构作用域。",
+          "visibility": "public"
+        },
+        {
           "kind": "const",
           "name": "SERVICE_COMMAND_HISTORY_STORE",
           "signature": "const SERVICE_COMMAND_HISTORY_STORE: StringName = &\"gf.kernel.command_history_store\"",
@@ -2627,6 +2662,13 @@
           "name": "unregister_utility",
           "signature": "func unregister_utility(script_cls: Script) -> bool",
           "summary": "注销 Utility 实例。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "resolve_module_access",
+          "signature": "func resolve_module_access( module_kind: ModuleKind, script_cls: Script, lookup_scope: ModuleLookupScope = ModuleLookupScope.INHERITED, required: bool = true, require_ready: bool = false ) -> Object",
+          "summary": "按冻结的作用域、必需性和 ready 策略解析已注册模块。",
           "visibility": "public"
         },
         {
@@ -40286,7 +40328,7 @@
         {
           "kind": "func",
           "name": "create_virtual_source",
-          "signature": "func create_virtual_source( source_id: StringName = &\"virtual\", player_index: int = -1 ) -> GFVirtualInputSource",
+          "signature": "func create_virtual_source( source_id: StringName = &\"virtual\", player_index: int = -1, timer_utility: GFTimerUtility = null ) -> GFVirtualInputSource",
           "summary": "创建可编程虚拟输入源。",
           "visibility": "public"
         },
@@ -86993,6 +87035,109 @@
         }
       ]
     },
+    "GFUIPanelAsyncOperation": {
+      "extends": "RefCounted",
+      "module": "standard",
+      "package_id": "gf.standard.ui.navigation",
+      "path": "addons/gf/standard/utilities/ui/gf_ui_panel_async_operation.gd",
+      "summary": "GFUIPanelAsyncOperation: 单次异步 UI 面板请求的可观察句柄。 句柄冻结 UI 分配的请求序号、路径、层级与操作类型，并且只接受一个终态。 成功面板仅以弱引用保存，句柄不会延长面板节点的生命周期。",
+      "visibility": "public",
+      "category": "runtime_handle",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "signal",
+          "name": "completed",
+          "signature": "signal completed(handle: GFUIPanelAsyncOperation)",
+          "summary": "请求进入终态时发出一次。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "STATUS_PENDING",
+          "signature": "const STATUS_PENDING: int = -1",
+          "summary": "请求尚未进入终态时由 get_status() 返回的状态。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "OPERATION_PUSH",
+          "signature": "const OPERATION_PUSH: StringName = &\"push\"",
+          "summary": "压入面板操作。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "OPERATION_REPLACE",
+          "signature": "const OPERATION_REPLACE: StringName = &\"replace\"",
+          "summary": "替换层级操作。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_serial",
+          "signature": "func get_serial() -> int",
+          "summary": "获取 UI 分配的请求序号。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_path",
+          "signature": "func get_path() -> String",
+          "summary": "获取面板场景路径。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_layer",
+          "signature": "func get_layer() -> int",
+          "summary": "获取目标 UI 层级。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_operation",
+          "signature": "func get_operation() -> StringName",
+          "summary": "获取 push 或 replace 操作。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_pending",
+          "signature": "func is_pending() -> bool",
+          "summary": "检查请求是否仍在等待终态。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_completed",
+          "signature": "func is_completed() -> bool",
+          "summary": "检查请求是否已有终态。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_status",
+          "signature": "func get_status() -> int",
+          "summary": "获取请求状态。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_panel",
+          "signature": "func get_panel() -> Node",
+          "summary": "获取成功打开的面板。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_debug_snapshot",
+          "signature": "func get_debug_snapshot() -> Dictionary",
+          "summary": "获取稳定调试快照。",
+          "visibility": "public"
+        }
+      ]
+    },
     "GFUIRoute": {
       "extends": "Resource",
       "module": "standard",
@@ -87293,6 +87438,13 @@
         },
         {
           "kind": "const",
+          "name": "STATUS_INVALID_LIFECYCLE",
+          "signature": "const STATUS_INVALID_LIFECYCLE: StringName = &\"invalid_lifecycle\"",
+          "summary": "请求 owner 或异步作用域不满足生命周期契约。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
           "name": "STATUS_MISSING_ASSET_UTILITY",
           "signature": "const STATUS_MISSING_ASSET_UTILITY: StringName = &\"missing_asset_utility\"",
           "summary": "预加载策略需要 Asset Utility，但当前架构未提供。",
@@ -87323,7 +87475,7 @@
           "kind": "const",
           "name": "STATUS_CANCELLED",
           "signature": "const STATUS_CANCELLED: StringName = &\"cancelled\"",
-          "summary": "底层 UI 请求在完成前被取消。",
+          "summary": "请求在面板提交前因 owner/scope 结束，或在提交后被底层 UI 取消。",
           "visibility": "public"
         },
         {
@@ -87567,6 +87719,13 @@
           "name": "dispose",
           "signature": "func dispose() -> void",
           "summary": "释放路由表、UI 工具引用和历史记录。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "tick",
+          "signature": "func tick(_delta: float) -> void",
+          "summary": "清理普通 Object owner 已释放的提交前路由请求。",
           "visibility": "public"
         },
         {
@@ -87843,14 +88002,14 @@
         {
           "kind": "func",
           "name": "push_panel_async",
-          "signature": "func push_panel_async(path: String, layer: int = Layer.POPUP, config_callback: Callable = Callable()) -> void",
+          "signature": "func push_panel_async( path: String, layer: int = Layer.POPUP, config_callback: Callable = Callable(), completion_callback: Callable = Callable() ) -> GFUIPanelAsyncOperation",
           "summary": "异步压入一个面板场景。",
           "visibility": "public"
         },
         {
           "kind": "func",
           "name": "push_panel_async_with_options",
-          "signature": "func push_panel_async_with_options( path: String, layer: int = Layer.POPUP, options: Dictionary = {}, config_callback: Callable = Callable() ) -> void",
+          "signature": "func push_panel_async_with_options( path: String, layer: int = Layer.POPUP, options: Dictionary = {}, config_callback: Callable = Callable(), completion_callback: Callable = Callable() ) -> GFUIPanelAsyncOperation",
           "summary": "异步压入一个带策略选项的面板场景。",
           "visibility": "public"
         },
@@ -87885,14 +88044,14 @@
         {
           "kind": "func",
           "name": "replace_layer_async",
-          "signature": "func replace_layer_async(path: String, layer: int = Layer.POPUP, config_callback: Callable = Callable()) -> void",
+          "signature": "func replace_layer_async( path: String, layer: int = Layer.POPUP, config_callback: Callable = Callable(), completion_callback: Callable = Callable() ) -> GFUIPanelAsyncOperation",
           "summary": "异步替换指定层级的面板栈。",
           "visibility": "public"
         },
         {
           "kind": "func",
           "name": "replace_layer_async_with_options",
-          "signature": "func replace_layer_async_with_options( path: String, layer: int = Layer.POPUP, options: Dictionary = {}, config_callback: Callable = Callable() ) -> void",
+          "signature": "func replace_layer_async_with_options( path: String, layer: int = Layer.POPUP, options: Dictionary = {}, config_callback: Callable = Callable(), completion_callback: Callable = Callable() ) -> GFUIPanelAsyncOperation",
           "summary": "异步替换指定层级为带策略选项的面板。",
           "visibility": "public"
         },
@@ -90534,6 +90693,116 @@
         }
       ]
     },
+    "GFVirtualInputPulseOperation": {
+      "extends": "RefCounted",
+      "module": "standard",
+      "package_id": "gf.standard.input",
+      "path": "addons/gf/standard/input/sources/gf_virtual_input_pulse_operation.gd",
+      "summary": "GFVirtualInputPulseOperation: 单次虚拟输入脉冲的类型化运行时句柄。 句柄冻结创建时的 Mapping、source_id、player_index 与 action_id，并由 GFInputMappingUtility 的权威 lease 保证旧定时器不会释放后续脉冲。owner 与",
+      "visibility": "public",
+      "category": "runtime_handle",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "signal",
+          "name": "completed",
+          "signature": "signal completed(operation: GFVirtualInputPulseOperation)",
+          "summary": "脉冲首次进入终态时发出一次。",
+          "visibility": "public"
+        },
+        {
+          "kind": "enum",
+          "name": "Status",
+          "signature": "enum Status {\n\t## 等待定时、生命周期或显式终止。\n\tPENDING,\n\t## 到达脉冲时长并完成匹配释放。\n\tCOMPLETED,\n\t## 被调用方、owner、token 或状态清理取消。\n\tCANCELLED,\n\t## 被同一稳定输入键上的新脉冲替换。\n\tREPLACED,\n\t## 因同一稳定输入键已有脉冲而拒绝启动。\n\tREJECTED,\n\t## 输入或运行时依赖无效，未能启动。\n\tFAILED,\n}",
+          "summary": "脉冲操作状态。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "cancel",
+          "signature": "func cancel(reason: StringName = &\"cancelled\") -> bool",
+          "summary": "取消仍在等待的脉冲。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_generation",
+          "signature": "func get_generation() -> int",
+          "summary": "获取 Source 分配的单调 generation。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_source_id",
+          "signature": "func get_source_id() -> StringName",
+          "summary": "获取冻结的虚拟输入源标识。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_player_index",
+          "signature": "func get_player_index() -> int",
+          "summary": "获取冻结的玩家索引。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_action_id",
+          "signature": "func get_action_id() -> StringName",
+          "summary": "获取冻结的动作标识。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_duration_seconds",
+          "signature": "func get_duration_seconds() -> float",
+          "summary": "获取规范化脉冲时长。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_status",
+          "signature": "func get_status() -> Status",
+          "summary": "获取当前状态。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_terminal_reason",
+          "signature": "func get_terminal_reason() -> StringName",
+          "summary": "获取终态原因。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_pending",
+          "signature": "func is_pending() -> bool",
+          "summary": "返回操作是否仍在等待。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_completed",
+          "signature": "func is_completed() -> bool",
+          "summary": "返回操作是否已经进入任意终态。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_release_count",
+          "signature": "func get_release_count() -> int",
+          "summary": "获取该脉冲完成的匹配释放次数。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_debug_snapshot",
+          "signature": "func get_debug_snapshot() -> Dictionary",
+          "summary": "获取稳定调试快照。",
+          "visibility": "public"
+        }
+      ]
+    },
     "GFVirtualInputSource": {
       "extends": "RefCounted",
       "module": "standard",
@@ -90544,6 +90813,13 @@
       "category": "runtime_handle",
       "since": "3.17.0",
       "members": [
+        {
+          "kind": "enum",
+          "name": "PulseReplacementPolicy",
+          "signature": "enum PulseReplacementPolicy {\n\t## 原子交接同一动作贡献，不产生中间释放。\n\tREPLACE,\n\t## 保留旧脉冲，并让新句柄立即进入 REJECTED 终态。\n\tREJECT_NEW,\n}",
+          "summary": "同一 source_id、player_index 与 action_id 已存在脉冲时的处理策略。",
+          "visibility": "public"
+        },
         {
           "kind": "var",
           "name": "source_id",
@@ -90561,8 +90837,29 @@
         {
           "kind": "func",
           "name": "configure",
-          "signature": "func configure( input_mapping: GFInputMappingUtility, p_source_id: StringName = &\"virtual\", p_player_index: int = -1 ) -> GFVirtualInputSource",
+          "signature": "func configure( input_mapping: GFInputMappingUtility, p_source_id: StringName = &\"virtual\", p_player_index: int = -1, timer_utility: GFTimerUtility = null ) -> GFVirtualInputSource",
           "summary": "配置虚拟输入源。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "set_timer_utility",
+          "signature": "func set_timer_utility(timer_utility: GFTimerUtility) -> GFVirtualInputSource",
+          "summary": "替换后续脉冲使用的定时器工具。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_timer_utility",
+          "signature": "func get_timer_utility() -> GFTimerUtility",
+          "summary": "获取后续脉冲使用的定时器工具。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "pulse_action",
+          "signature": "func pulse_action( action_id: StringName, value: Variant = true, duration_seconds: float = 0.1, owner: Variant = null, cancellation_token: GFCancellationToken = null, replacement_policy: PulseReplacementPolicy = PulseReplacementPolicy.REPLACE ) -> GFVirtualInputPulseOperation",
+          "summary": "启动一次有界虚拟动作脉冲。",
           "visibility": "public"
         },
         {
@@ -90633,6 +90930,13 @@
           "name": "clear_all",
           "signature": "func clear_all() -> void",
           "summary": "清除当前虚拟源的所有动作贡献。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "dispose",
+          "signature": "func dispose() -> void",
+          "summary": "取消全部 Source-owned 脉冲、清除当前 source_id 贡献并释放依赖引用。",
           "visibility": "public"
         },
         {

@@ -3,6 +3,7 @@ extends GutTest
 
 
 const _GF_AUTOLOAD_SCRIPT = preload("res://addons/gf/kernel/core/gf_autoload.gd")
+const _PANEL_SCENE_PATH: String = "res://tests/gf_core/fixtures/scene_signal_audit_valid.tscn"
 
 
 var _ui_utility: GFUIUtility
@@ -31,6 +32,23 @@ class ManualAssetUtility extends GFAssetUtility:
 			return
 		var callbacks: Array = callbacks_value
 		for callback: Callable in callbacks:
+			callback.call(resource)
+
+	func resolve_next(path: String, resource: Resource) -> void:
+		if not _callbacks.has(path):
+			return
+		var callbacks_value: Variant = _callbacks[path]
+		if not callbacks_value is Array:
+			return
+		var callbacks: Array = callbacks_value
+		if callbacks.is_empty():
+			var _empty_erase_result: bool = _callbacks.erase(path)
+			return
+		var callback_value: Variant = callbacks.pop_front()
+		if callbacks.is_empty():
+			var _erase_result: bool = _callbacks.erase(path)
+		if callback_value is Callable:
+			var callback: Callable = callback_value
 			callback.call(resource)
 
 
@@ -573,6 +591,46 @@ func test_config_callback_destroying_panel_restores_hidden_panel() -> void:
 	assert_true(panel1.visible, "取消入栈后原本被隐藏的面板应恢复可见。")
 
 
+func test_panel_opened_queue_free_rolls_back_options_and_emits_closed_once() -> void:
+	var under_panel: Control = Control.new()
+	_ui_utility.push_panel_instance(under_panel, GFUIUtility.Layer.POPUP)
+	var panel: Control = Control.new()
+	var panel_id: int = panel.get_instance_id()
+	var closed_panel_ids: Array[int] = []
+	var navigation_tops: Array[Node] = []
+	var _opened_connection: Error = _ui_utility.panel_opened.connect(
+		func(opened_panel: Node, _layer: int) -> void:
+			opened_panel.queue_free(),
+		CONNECT_ONE_SHOT as Object.ConnectFlags
+	) as Error
+	var _closed_connection: Error = _ui_utility.panel_closed.connect(
+		func(closed_panel: Node, _layer: int) -> void:
+			closed_panel_ids.append(closed_panel.get_instance_id())
+	) as Error
+	var _navigation_connection: Error = _ui_utility.navigation_changed.connect(
+		func(_layer: int, top_panel: Node) -> void:
+			navigation_tops.append(top_panel)
+	) as Error
+
+	var added: bool = _ui_utility._add_panel_instance(
+		panel,
+		GFUIUtility.Layer.POPUP,
+		Callable(),
+		{"metadata": {"source": "review_regression"}}
+	)
+
+	assert_false(added, "观察者已排队释放的面板不得提交为成功入栈。")
+	assert_eq(_ui_utility.get_stack_count(GFUIUtility.Layer.POPUP), 1)
+	assert_same(_ui_utility.get_top_panel(GFUIUtility.Layer.POPUP), under_panel)
+	assert_false(_ui_utility.is_panel_open(panel), "已排队释放的面板不得被报告为 open。")
+	assert_false(_ui_utility._panel_options.has(panel_id), "结构回滚必须清理面板策略快照。")
+	assert_eq(closed_panel_ids, [panel_id], "已发出 opened 的面板必须获得唯一配对 closed。")
+	assert_eq(navigation_tops, [under_panel], "回滚后应只报告一次最终有效栈顶。")
+	await get_tree().process_frame
+	assert_eq(closed_panel_ids.size(), 1, "后到 tree_exited 不得重复发出 closed。")
+	assert_eq(navigation_tops.size(), 1, "后到 tree_exited 不得重复发出导航变更。")
+
+
 func test_clear_layer() -> void:
 	var p1: Control = Control.new()
 	var p2: Control = Control.new()
@@ -598,13 +656,35 @@ func test_push_panel_async_ignores_late_callback_after_dispose() -> void:
 	await Gf.set_architecture(_arch)
 
 	var scene: PackedScene = _make_control_scene()
-	_ui_utility.push_panel_async("res://tests/pending_async_panel.tscn", GFUIUtility.Layer.POPUP)
+	var _disposed_handle: GFUIPanelAsyncOperation = _ui_utility.push_panel_async(
+		"res://tests/pending_async_panel.tscn",
+		GFUIUtility.Layer.POPUP
+	)
 	_ui_utility.dispose()
 
 	asset_util.resolve("res://tests/pending_async_panel.tscn", scene)
 	await get_tree().process_frame
 
 	assert_null(_ui_utility.get_top_panel(GFUIUtility.Layer.POPUP), "销毁后的异步回调不应再把面板压入栈。")
+
+
+func test_panel_async_operation_rejects_invalid_terminal_payloads() -> void:
+	var operation: GFUIPanelAsyncOperation = GFUIPanelAsyncOperation.new()
+	assert_true(operation.configure_for_framework(1, "res://tests/panel.tscn", 3, &"push"))
+	assert_false(operation.complete_for_framework(99, null), "未知终态不得完成句柄。")
+	assert_false(
+		operation.complete_for_framework(GFUIUtility.AsyncPanelLoadStatus.OPENED, null),
+		"OPENED 必须携带有效面板。"
+	)
+	assert_true(operation.is_pending(), "非法终态输入不得污染 pending 句柄。")
+
+	var ignored_panel: Node = Node.new()
+	assert_true(
+		operation.complete_for_framework(GFUIUtility.AsyncPanelLoadStatus.FAILED, ignored_panel),
+		"合法失败终态应完成句柄。"
+	)
+	assert_null(operation.get_panel(), "失败与取消终态不得保留面板引用。")
+	ignored_panel.free()
 
 
 func test_push_panel_async_reports_pending_load_lifecycle() -> void:
@@ -629,10 +709,29 @@ func test_push_panel_async_reports_pending_load_lifecycle() -> void:
 		finished.append([load_path, layer, operation, status, panel])
 	)
 
-	_ui_utility.push_panel_async(path, GFUIUtility.Layer.POPUP)
+	var operation_handle: GFUIPanelAsyncOperation = _ui_utility.push_panel_async(
+		path,
+		GFUIUtility.Layer.POPUP
+	)
 
+	assert_not_null(operation_handle, "有效异步请求应返回类型化句柄。")
+	assert_true(operation_handle.is_pending(), "资源返回前句柄应保持 pending。")
+	assert_false(operation_handle.is_completed(), "pending 句柄不应已有终态。")
+	assert_eq(operation_handle.get_serial(), 1, "句柄应冻结 UI 分配的请求序号。")
+	assert_eq(operation_handle.get_path(), path, "句柄应冻结场景路径。")
+	assert_eq(operation_handle.get_layer(), GFUIUtility.Layer.POPUP, "句柄应冻结目标层级。")
+	assert_eq(operation_handle.get_operation(), GFUIPanelAsyncOperation.OPERATION_PUSH)
+	assert_eq(operation_handle.get_status(), GFUIPanelAsyncOperation.STATUS_PENDING)
 	assert_true(_ui_utility.has_pending_async_panel(GFUIUtility.Layer.POPUP, path), "异步加载期间应暴露 pending 状态。")
-	assert_eq(_ui_utility.get_pending_async_panel_requests(GFUIUtility.Layer.POPUP).size(), 1, "pending 快照应包含当前请求。")
+	var pending_requests: Array[Dictionary] = _ui_utility.get_pending_async_panel_requests(
+		GFUIUtility.Layer.POPUP
+	)
+	assert_eq(pending_requests.size(), 1, "pending 快照应包含当前请求。")
+	assert_same(
+		_ui_panel_async_operation(pending_requests[0].get("operation_handle")),
+		operation_handle,
+		"pending 快照应保留同一类型化请求身份。"
+	)
 	assert_eq(started, [[path, GFUIUtility.Layer.POPUP, &"push"]], "异步请求开始时应发出开始信号。")
 
 	asset_util.resolve(path, _make_control_scene())
@@ -643,6 +742,229 @@ func test_push_panel_async_reports_pending_load_lifecycle() -> void:
 	var opened_event: Array = _array_item_as_array(finished, 0)
 	assert_eq(_array_int(opened_event, 3), GFUIUtility.AsyncPanelLoadStatus.OPENED, "成功入栈应报告 OPENED。")
 	assert_not_null(_array_node(opened_event, 4), "成功状态应携带已打开面板。")
+	assert_true(operation_handle.is_completed(), "资源返回后句柄应进入终态。")
+	assert_eq(operation_handle.get_status(), GFUIUtility.AsyncPanelLoadStatus.OPENED)
+	assert_same(operation_handle.get_panel(), _array_node(opened_event, 4))
+
+	_ui_utility.clear_layer(GFUIUtility.Layer.POPUP)
+	await get_tree().process_frame
+	assert_null(operation_handle.get_panel(), "句柄弱引用不应延长已关闭面板的生命周期。")
+
+
+func test_push_panel_async_fails_when_panel_opened_listener_frees_panel() -> void:
+	_arch = GFArchitecture.new()
+	var asset_util: ManualAssetUtility = ManualAssetUtility.new()
+	await _arch.register_utility_instance(asset_util)
+	await Gf.set_architecture(_arch)
+
+	var path: String = "res://tests/freed_during_panel_opened.tscn"
+	var finished: Array = []
+	var completed_handles: Array[GFUIPanelAsyncOperation] = []
+	var navigation_tops: Array = []
+	var _opened_connection: Error = _ui_utility.panel_opened.connect(
+		func(panel: Node, _layer: int) -> void:
+			panel.free(),
+		CONNECT_ONE_SHOT as Object.ConnectFlags
+	) as Error
+	var _finished_connection: Error = _ui_utility.panel_async_load_finished.connect(func(
+		load_path: String,
+		layer: int,
+		operation: StringName,
+		status: int,
+		panel: Node
+	) -> void:
+		finished.append([load_path, layer, operation, status, panel])
+	) as Error
+	var _navigation_connection: Error = _ui_utility.navigation_changed.connect(
+		func(_layer: int, top_panel: Node) -> void:
+			navigation_tops.append(top_panel)
+	) as Error
+
+	var operation_handle: GFUIPanelAsyncOperation = _ui_utility.push_panel_async(
+		path,
+		GFUIUtility.Layer.POPUP,
+		Callable(),
+		func(completed_handle: GFUIPanelAsyncOperation) -> void:
+			completed_handles.append(completed_handle)
+	)
+	asset_util.resolve(path, _make_control_scene())
+
+	assert_true(operation_handle.is_completed(), "监听器释放面板后句柄仍必须进入终态。")
+	assert_eq(
+		operation_handle.get_status(),
+		GFUIUtility.AsyncPanelLoadStatus.FAILED,
+		"已被同步释放的面板不能作为 OPENED 结果。"
+	)
+	assert_null(operation_handle.get_panel(), "失败终态不得保留已释放面板。")
+	assert_eq(completed_handles, [operation_handle], "句柄应且仅应发出一次失败终态。")
+	assert_false(_ui_utility.has_pending_async_panel(GFUIUtility.Layer.POPUP, path))
+	assert_eq(_ui_utility.get_stack_count(GFUIUtility.Layer.POPUP), 0)
+	assert_eq(finished.size(), 1, "异步 telemetry 应收到唯一失败终态。")
+	var failed_event: Array = _array_item_as_array(finished, 0)
+	assert_eq(_array_int(failed_event, 3), GFUIUtility.AsyncPanelLoadStatus.FAILED)
+	assert_true(_array_value(failed_event, 4) == null, "失败 telemetry 不得携带无效面板。")
+	assert_eq(navigation_tops, [null], "同步释放路径应只报告一次最终空栈导航。")
+
+
+func test_push_panel_async_sync_fallback_prebinds_callback_before_telemetry() -> void:
+	var events: Array[StringName] = []
+	var state: Dictionary = {}
+	var _finished_connection: Error = _ui_utility.panel_async_load_finished.connect(func(
+		_path: String,
+		_layer: int,
+		_operation: StringName,
+		_status: int,
+		_panel: Node
+	) -> void:
+		events.append(&"telemetry")
+	) as Error
+
+	var first_handle: GFUIPanelAsyncOperation = _ui_utility.push_panel_async(
+		_PANEL_SCENE_PATH,
+		GFUIUtility.Layer.POPUP,
+		Callable(),
+		func(completed_handle: GFUIPanelAsyncOperation) -> void:
+			events.append(&"first_handle")
+			state["first_callback_handle"] = completed_handle
+			state["second_handle"] = _ui_utility.push_panel_async(
+				_PANEL_SCENE_PATH,
+				GFUIUtility.Layer.POPUP,
+				Callable(),
+				func(_second_completed_handle: GFUIPanelAsyncOperation) -> void:
+					events.append(&"second_handle")
+			)
+	)
+	assert_push_warning("[GFUIUtility] GFAssetUtility 未注册，回退为同步加载。")
+	assert_push_warning("[GFUIUtility] GFAssetUtility 未注册，回退为同步加载。")
+
+	var second_handle: GFUIPanelAsyncOperation = _ui_panel_async_operation(
+		state.get("second_handle")
+	)
+	assert_not_null(first_handle, "同步 fallback 也应返回句柄。")
+	assert_not_null(second_handle, "终态回调应能立即提交同键新请求。")
+	assert_not_same(second_handle, first_handle, "同键重入必须得到独立的新句柄。")
+	assert_same(
+		_ui_panel_async_operation(state.get("first_callback_handle")),
+		first_handle,
+		"预绑定回调应收到即将返回的同一句柄。"
+	)
+	assert_true(first_handle.is_completed())
+	assert_true(second_handle.is_completed())
+	assert_eq(first_handle.get_status(), GFUIUtility.AsyncPanelLoadStatus.OPENED)
+	assert_eq(second_handle.get_status(), GFUIUtility.AsyncPanelLoadStatus.OPENED)
+	assert_ne(first_handle.get_panel(), second_handle.get_panel(), "两个句柄不得串用成功面板。")
+	assert_eq(
+		events,
+		[&"first_handle", &"second_handle", &"telemetry", &"telemetry"],
+		"句柄回调必须先于各自 telemetry，且嵌套请求应保持独立顺序。"
+	)
+	assert_eq(_ui_utility.get_stack_count(GFUIUtility.Layer.POPUP), 2)
+
+
+func test_async_completion_callback_can_reenter_same_key_without_handle_crosstalk() -> void:
+	_arch = GFArchitecture.new()
+	var asset_util: ManualAssetUtility = ManualAssetUtility.new()
+	await _arch.register_utility_instance(asset_util)
+	await Gf.set_architecture(_arch)
+
+	var path: String = "res://tests/reentrant_async_panel.tscn"
+	var first_completions: Array[GFUIPanelAsyncOperation] = []
+	var second_completions: Array[GFUIPanelAsyncOperation] = []
+	var state: Dictionary = {}
+	var first_handle: GFUIPanelAsyncOperation = _ui_utility.push_panel_async(
+		path,
+		GFUIUtility.Layer.POPUP,
+		Callable(),
+		func(completed_handle: GFUIPanelAsyncOperation) -> void:
+			first_completions.append(completed_handle)
+			state["second_handle"] = _ui_utility.push_panel_async(
+				path,
+				GFUIUtility.Layer.POPUP,
+				Callable(),
+				func(second_completed_handle: GFUIPanelAsyncOperation) -> void:
+					second_completions.append(second_completed_handle)
+			)
+	)
+
+	asset_util.resolve(path, _make_control_scene())
+	var second_handle: GFUIPanelAsyncOperation = _ui_panel_async_operation(
+		state.get("second_handle")
+	)
+	assert_not_null(second_handle, "首个终态回调应能提交同键新请求。")
+	assert_not_same(second_handle, first_handle, "新请求不能复用已完成句柄。")
+	assert_true(first_handle.is_completed())
+	assert_true(second_handle.is_pending(), "新请求应独立等待第二次资源结果。")
+	assert_eq(first_completions, [first_handle])
+	assert_true(second_completions.is_empty())
+
+	asset_util.resolve(path, _make_control_scene())
+	await get_tree().process_frame
+
+	assert_true(second_handle.is_completed())
+	assert_eq(second_completions, [second_handle])
+	assert_eq(first_completions.size(), 1, "第二个终态不得回流到首个句柄。")
+	assert_ne(first_handle.get_panel(), second_handle.get_panel(), "两个请求必须保留各自面板弱引用。")
+	assert_eq(_ui_utility.get_stack_count(GFUIUtility.Layer.POPUP), 2)
+
+
+func test_request_serial_survives_dispose_reinit_and_rejects_old_callback_collision() -> void:
+	_arch = GFArchitecture.new()
+	var asset_util: ManualAssetUtility = ManualAssetUtility.new()
+	await _arch.register_utility_instance(asset_util)
+	await Gf.set_architecture(_arch)
+
+	var path: String = "res://tests/reinitialized_async_panel.tscn"
+	var old_handle: GFUIPanelAsyncOperation = _ui_utility.push_panel_async(
+		path,
+		GFUIUtility.Layer.POPUP
+	)
+	_ui_utility.dispose()
+	assert_true(old_handle.is_completed(), "dispose 应立即终止旧请求。")
+	assert_eq(old_handle.get_status(), GFUIUtility.AsyncPanelLoadStatus.CANCELLED)
+
+	_ui_utility.init()
+	var new_handle: GFUIPanelAsyncOperation = _ui_utility.push_panel_async(
+		path,
+		GFUIUtility.Layer.POPUP
+	)
+	assert_true(new_handle.get_serial() > old_handle.get_serial(), "重新初始化不得复用请求序号。")
+
+	asset_util.resolve_next(path, _make_control_scene())
+	assert_true(new_handle.is_pending(), "旧生命周期的迟到回调不得命中新请求身份。")
+	assert_null(_ui_utility.get_top_panel(GFUIUtility.Layer.POPUP))
+
+	asset_util.resolve_next(path, _make_control_scene())
+	await get_tree().process_frame
+
+	assert_true(new_handle.is_completed())
+	assert_eq(new_handle.get_status(), GFUIUtility.AsyncPanelLoadStatus.OPENED)
+	assert_same(new_handle.get_panel(), _ui_utility.get_top_panel(GFUIUtility.Layer.POPUP))
+	assert_eq(old_handle.get_status(), GFUIUtility.AsyncPanelLoadStatus.CANCELLED)
+
+
+func test_replace_layer_async_returns_typed_operation_handle() -> void:
+	_arch = GFArchitecture.new()
+	var asset_util: ManualAssetUtility = ManualAssetUtility.new()
+	await _arch.register_utility_instance(asset_util)
+	await Gf.set_architecture(_arch)
+
+	var path: String = "res://tests/pending_replace_panel.tscn"
+	var operation_handle: GFUIPanelAsyncOperation = _ui_utility.replace_layer_async(
+		path,
+		GFUIUtility.Layer.TOP
+	)
+	assert_not_null(operation_handle)
+	assert_true(operation_handle.is_pending())
+	assert_eq(operation_handle.get_operation(), GFUIPanelAsyncOperation.OPERATION_REPLACE)
+	assert_eq(operation_handle.get_path(), path)
+	assert_eq(operation_handle.get_layer(), GFUIUtility.Layer.TOP)
+
+	asset_util.resolve(path, _make_control_scene())
+	await get_tree().process_frame
+
+	assert_true(operation_handle.is_completed())
+	assert_eq(operation_handle.get_status(), GFUIUtility.AsyncPanelLoadStatus.OPENED)
+	assert_same(operation_handle.get_panel(), _ui_utility.get_top_panel(GFUIUtility.Layer.TOP))
 
 
 func test_pending_async_panel_cancel_clears_state_and_reports_finished() -> void:
@@ -653,6 +975,7 @@ func test_pending_async_panel_cancel_clears_state_and_reports_finished() -> void
 
 	var path: String = "res://tests/pending_async_panel.tscn"
 	var finished: Array = []
+	var completed_handles: Array[GFUIPanelAsyncOperation] = []
 	var _connect_result_545: Variant = _ui_utility.panel_async_load_finished.connect(func(
 		load_path: String,
 		layer: int,
@@ -663,9 +986,20 @@ func test_pending_async_panel_cancel_clears_state_and_reports_finished() -> void
 		finished.append([load_path, layer, operation, status, panel])
 	)
 
-	_ui_utility.push_panel_async(path, GFUIUtility.Layer.POPUP)
+	var operation_handle: GFUIPanelAsyncOperation = _ui_utility.push_panel_async(
+		path,
+		GFUIUtility.Layer.POPUP,
+		Callable(),
+		func(completed_handle: GFUIPanelAsyncOperation) -> void:
+			completed_handles.append(completed_handle)
+	)
 	_ui_utility.clear_layer(GFUIUtility.Layer.POPUP)
 
+	assert_not_null(operation_handle)
+	assert_true(operation_handle.is_completed(), "清层应同步完成对应句柄。")
+	assert_eq(operation_handle.get_status(), GFUIUtility.AsyncPanelLoadStatus.CANCELLED)
+	assert_null(operation_handle.get_panel(), "取消终态不应携带面板。")
+	assert_eq(completed_handles, [operation_handle], "句柄应只发出当前请求的取消终态。")
 	assert_false(_ui_utility.has_pending_async_panel(GFUIUtility.Layer.POPUP, path), "清层应立即清理 pending 状态。")
 	assert_eq(finished.size(), 1, "取消异步请求应发出结束信号。")
 	var cancelled_event: Array = _array_item_as_array(finished, 0)
@@ -676,6 +1010,8 @@ func test_pending_async_panel_cancel_clears_state_and_reports_finished() -> void
 	await get_tree().process_frame
 
 	assert_eq(finished.size(), 1, "迟到资源回调不应重复发出结束信号。")
+	assert_eq(completed_handles.size(), 1, "迟到资源回调不应重复完成句柄。")
+	assert_eq(operation_handle.get_status(), GFUIUtility.AsyncPanelLoadStatus.CANCELLED)
 	assert_null(_ui_utility.get_top_panel(GFUIUtility.Layer.POPUP), "取消后的迟到异步回调不应打开面板。")
 
 
@@ -697,7 +1033,10 @@ func test_push_panel_async_reports_failed_when_resource_is_not_scene() -> void:
 		finished.append([load_path, layer, operation, status, panel])
 	)
 
-	_ui_utility.push_panel_async(path, GFUIUtility.Layer.POPUP)
+	var _failed_handle: GFUIPanelAsyncOperation = _ui_utility.push_panel_async(
+		path,
+		GFUIUtility.Layer.POPUP
+	)
 	asset_util.resolve(path, Resource.new())
 	await get_tree().process_frame
 
@@ -716,7 +1055,10 @@ func test_push_panel_async_ignores_late_callback_after_layer_clear() -> void:
 	await Gf.set_architecture(_arch)
 
 	var scene: PackedScene = _make_control_scene()
-	_ui_utility.push_panel_async("res://tests/pending_async_panel.tscn", GFUIUtility.Layer.POPUP)
+	var _cleared_handle: GFUIPanelAsyncOperation = _ui_utility.push_panel_async(
+		"res://tests/pending_async_panel.tscn",
+		GFUIUtility.Layer.POPUP
+	)
 	_ui_utility.clear_layer(GFUIUtility.Layer.POPUP)
 
 	asset_util.resolve("res://tests/pending_async_panel.tscn", scene)
@@ -732,7 +1074,10 @@ func test_push_panel_async_ignores_late_callback_after_pop_cancel() -> void:
 	await Gf.set_architecture(_arch)
 
 	var scene: PackedScene = _make_control_scene()
-	_ui_utility.push_panel_async("res://tests/pending_async_panel.tscn", GFUIUtility.Layer.POPUP)
+	var _popped_handle: GFUIPanelAsyncOperation = _ui_utility.push_panel_async(
+		"res://tests/pending_async_panel.tscn",
+		GFUIUtility.Layer.POPUP
+	)
 	_ui_utility.pop_panel(GFUIUtility.Layer.POPUP)
 
 	asset_util.resolve("res://tests/pending_async_panel.tscn", scene)
@@ -748,8 +1093,15 @@ func test_duplicate_pending_push_panel_async_is_coalesced() -> void:
 	await Gf.set_architecture(_arch)
 
 	var scene: PackedScene = _make_control_scene()
-	_ui_utility.push_panel_async("res://tests/pending_async_panel.tscn", GFUIUtility.Layer.POPUP)
-	_ui_utility.push_panel_async("res://tests/pending_async_panel.tscn", GFUIUtility.Layer.POPUP)
+	var first_handle: GFUIPanelAsyncOperation = _ui_utility.push_panel_async(
+		"res://tests/pending_async_panel.tscn",
+		GFUIUtility.Layer.POPUP
+	)
+	var second_handle: GFUIPanelAsyncOperation = _ui_utility.push_panel_async(
+		"res://tests/pending_async_panel.tscn",
+		GFUIUtility.Layer.POPUP
+	)
+	assert_same(second_handle, first_handle, "合流请求应共享同一类型化句柄。")
 
 	asset_util.resolve("res://tests/pending_async_panel.tscn", scene)
 	await get_tree().process_frame
@@ -765,8 +1117,14 @@ func test_later_async_push_cancels_older_replace_intent() -> void:
 
 	var replace_path: String = "res://tests/older_replace_panel.tscn"
 	var push_path: String = "res://tests/newer_push_panel.tscn"
-	_ui_utility.replace_layer_async(replace_path, GFUIUtility.Layer.POPUP)
-	_ui_utility.push_panel_async(push_path, GFUIUtility.Layer.POPUP)
+	var _replace_handle: GFUIPanelAsyncOperation = _ui_utility.replace_layer_async(
+		replace_path,
+		GFUIUtility.Layer.POPUP
+	)
+	var _push_handle: GFUIPanelAsyncOperation = _ui_utility.push_panel_async(
+		push_path,
+		GFUIUtility.Layer.POPUP
+	)
 
 	assert_false(
 		_ui_utility.has_pending_async_panel(GFUIUtility.Layer.POPUP, replace_path),
@@ -813,6 +1171,13 @@ func _array_node(values: Array, index: int) -> Node:
 	var value: Variant = _array_value(values, index)
 	if value is Node:
 		return value
+	return null
+
+
+func _ui_panel_async_operation(value: Variant) -> GFUIPanelAsyncOperation:
+	if value is GFUIPanelAsyncOperation:
+		var operation_handle: GFUIPanelAsyncOperation = value
+		return operation_handle
 	return null
 
 

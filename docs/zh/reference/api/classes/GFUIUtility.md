@@ -33,14 +33,14 @@
 | 方法 | [`get_layer_definition`](#member-gfuiutility-methods-get_layer_definition) | `func get_layer_definition(layer: int) -> GFUILayerDefinition:` |
 | 方法 | [`get_layer_ids`](#member-gfuiutility-methods-get_layer_ids) | `func get_layer_ids() -> Array[int]:` |
 | 方法 | [`set_layer_auto_hide_under`](#member-gfuiutility-methods-set_layer_auto_hide_under) | `func set_layer_auto_hide_under(layer: int, auto_hide_under: bool) -> bool:` |
-| 方法 | [`push_panel_async`](#member-gfuiutility-methods-push_panel_async) | `func push_panel_async(path: String, layer: int = Layer.POPUP, config_callback: Callable = Callable()) -> void:` |
-| 方法 | [`push_panel_async_with_options`](#member-gfuiutility-methods-push_panel_async_with_options) | `func push_panel_async_with_options( path: String, layer: int = Layer.POPUP, options: Dictionary = {}, config_callback: Callable = Callable() ) -> void:` |
+| 方法 | [`push_panel_async`](#member-gfuiutility-methods-push_panel_async) | `func push_panel_async( path: String, layer: int = Layer.POPUP, config_callback: Callable = Callable(), completion_callback: Callable = Callable() ) -> GFUIPanelAsyncOperation:` |
+| 方法 | [`push_panel_async_with_options`](#member-gfuiutility-methods-push_panel_async_with_options) | `func push_panel_async_with_options( path: String, layer: int = Layer.POPUP, options: Dictionary = {}, config_callback: Callable = Callable(), completion_callback: Callable = Callable() ) -> GFUIPanelAsyncOperation:` |
 | 方法 | [`push_panel`](#member-gfuiutility-methods-push_panel) | `func push_panel(path: String, layer: int = Layer.POPUP, config_callback: Callable = Callable()) -> Node:` |
 | 方法 | [`push_panel_with_options`](#member-gfuiutility-methods-push_panel_with_options) | `func push_panel_with_options( path: String, layer: int = Layer.POPUP, options: Dictionary = {}, config_callback: Callable = Callable() ) -> Node:` |
 | 方法 | [`replace_layer`](#member-gfuiutility-methods-replace_layer) | `func replace_layer(path: String, layer: int = Layer.POPUP, config_callback: Callable = Callable()) -> Node:` |
 | 方法 | [`replace_layer_with_options`](#member-gfuiutility-methods-replace_layer_with_options) | `func replace_layer_with_options( path: String, layer: int = Layer.POPUP, options: Dictionary = {}, config_callback: Callable = Callable() ) -> Node:` |
-| 方法 | [`replace_layer_async`](#member-gfuiutility-methods-replace_layer_async) | `func replace_layer_async(path: String, layer: int = Layer.POPUP, config_callback: Callable = Callable()) -> void:` |
-| 方法 | [`replace_layer_async_with_options`](#member-gfuiutility-methods-replace_layer_async_with_options) | `func replace_layer_async_with_options( path: String, layer: int = Layer.POPUP, options: Dictionary = {}, config_callback: Callable = Callable() ) -> void:` |
+| 方法 | [`replace_layer_async`](#member-gfuiutility-methods-replace_layer_async) | `func replace_layer_async( path: String, layer: int = Layer.POPUP, config_callback: Callable = Callable(), completion_callback: Callable = Callable() ) -> GFUIPanelAsyncOperation:` |
+| 方法 | [`replace_layer_async_with_options`](#member-gfuiutility-methods-replace_layer_async_with_options) | `func replace_layer_async_with_options( path: String, layer: int = Layer.POPUP, options: Dictionary = {}, config_callback: Callable = Callable(), completion_callback: Callable = Callable() ) -> GFUIPanelAsyncOperation:` |
 | 方法 | [`push_panel_instance`](#member-gfuiutility-methods-push_panel_instance) | `func push_panel_instance( panel_instance: Node, layer: int = Layer.POPUP, config_callback: Callable = Callable() ) -> void:` |
 | 方法 | [`push_panel_instance_with_options`](#member-gfuiutility-methods-push_panel_instance_with_options) | `func push_panel_instance_with_options( panel_instance: Node, layer: int = Layer.POPUP, options: Dictionary = {}, config_callback: Callable = Callable() ) -> void:` |
 | 方法 | [`replace_layer_instance`](#member-gfuiutility-methods-replace_layer_instance) | `func replace_layer_instance( panel_instance: Node, layer: int = Layer.POPUP, config_callback: Callable = Callable() ) -> void:` |
@@ -413,7 +413,7 @@ func set_layer_auto_hide_under(layer: int, auto_hide_under: bool) -> bool:
 - 首次版本：`3.17.0`
 
 ```gdscript
-func push_panel_async(path: String, layer: int = Layer.POPUP, config_callback: Callable = Callable()) -> void:
+func push_panel_async( path: String, layer: int = Layer.POPUP, config_callback: Callable = Callable(), completion_callback: Callable = Callable() ) -> GFUIPanelAsyncOperation:
 ```
 
 异步压入一个面板场景。
@@ -425,6 +425,9 @@ func push_panel_async(path: String, layer: int = Layer.POPUP, config_callback: C
 | `path` | 面板场景路径。 |
 | `layer` | 目标层级。 |
 | `config_callback` | 实例化后、入栈前的可选配置回调。 |
+| `completion_callback` | 可选终态回调，接收当前 GFUIPanelAsyncOperation；同步回退时可能在本方法返回前调用。 |
+
+返回：已接受请求的类型化句柄；路径无效时返回 null。
 
 <a id="member-gfuiutility-methods-push_panel_async_with_options"></a>
 
@@ -434,7 +437,7 @@ func push_panel_async(path: String, layer: int = Layer.POPUP, config_callback: C
 - 首次版本：`3.17.0`
 
 ```gdscript
-func push_panel_async_with_options( path: String, layer: int = Layer.POPUP, options: Dictionary = {}, config_callback: Callable = Callable() ) -> void:
+func push_panel_async_with_options( path: String, layer: int = Layer.POPUP, options: Dictionary = {}, config_callback: Callable = Callable(), completion_callback: Callable = Callable() ) -> GFUIPanelAsyncOperation:
 ```
 
 异步压入一个带策略选项的面板场景。
@@ -447,6 +450,9 @@ func push_panel_async_with_options( path: String, layer: int = Layer.POPUP, opti
 | `layer` | 目标层级。 |
 | `options` | 面板策略，支持 mode、modal、hide_under、dismiss_on_cancel、focus_on_open、restore_focus_on_close、metadata。 |
 | `config_callback` | 实例化后、入栈前的可选配置回调。 |
+| `completion_callback` | 可选终态回调，接收当前 GFUIPanelAsyncOperation；同步回退时可能在本方法返回前调用。 |
+
+返回：已接受请求的类型化句柄；同步回退可能返回已完成句柄，路径无效时返回 null。
 
 结构：
 
@@ -562,7 +568,7 @@ func replace_layer_with_options( path: String, layer: int = Layer.POPUP, options
 - 首次版本：`3.17.0`
 
 ```gdscript
-func replace_layer_async(path: String, layer: int = Layer.POPUP, config_callback: Callable = Callable()) -> void:
+func replace_layer_async( path: String, layer: int = Layer.POPUP, config_callback: Callable = Callable(), completion_callback: Callable = Callable() ) -> GFUIPanelAsyncOperation:
 ```
 
 异步替换指定层级的面板栈。
@@ -574,6 +580,9 @@ func replace_layer_async(path: String, layer: int = Layer.POPUP, config_callback
 | `path` | 面板场景路径。 |
 | `layer` | 目标层级。 |
 | `config_callback` | 实例化后、入栈前的可选配置回调。 |
+| `completion_callback` | 可选终态回调，接收当前 GFUIPanelAsyncOperation；同步回退时可能在本方法返回前调用。 |
+
+返回：已接受请求的类型化句柄；路径无效时返回 null。
 
 <a id="member-gfuiutility-methods-replace_layer_async_with_options"></a>
 
@@ -583,7 +592,7 @@ func replace_layer_async(path: String, layer: int = Layer.POPUP, config_callback
 - 首次版本：`3.17.0`
 
 ```gdscript
-func replace_layer_async_with_options( path: String, layer: int = Layer.POPUP, options: Dictionary = {}, config_callback: Callable = Callable() ) -> void:
+func replace_layer_async_with_options( path: String, layer: int = Layer.POPUP, options: Dictionary = {}, config_callback: Callable = Callable(), completion_callback: Callable = Callable() ) -> GFUIPanelAsyncOperation:
 ```
 
 异步替换指定层级为带策略选项的面板。
@@ -596,6 +605,9 @@ func replace_layer_async_with_options( path: String, layer: int = Layer.POPUP, o
 | `layer` | 目标层级。 |
 | `options` | 面板策略，支持 mode、modal、hide_under、dismiss_on_cancel、focus_on_open、restore_focus_on_close、metadata。 |
 | `config_callback` | 实例化后、入栈前的可选配置回调。 |
+| `completion_callback` | 可选终态回调，接收当前 GFUIPanelAsyncOperation；同步回退时可能在本方法返回前调用。 |
+
+返回：已接受请求的类型化句柄；同步回退可能返回已完成句柄，路径无效时返回 null。
 
 结构：
 
@@ -1008,6 +1020,7 @@ func has_pending_async_panel(layer: int = -1, path: String = "") -> bool:
 ### `get_pending_async_panel_requests`
 
 - API：`public`
+- 首次版本：`3.15.0`
 
 ```gdscript
 func get_pending_async_panel_requests(layer: int = -1) -> Array[Dictionary]:
@@ -1021,11 +1034,11 @@ func get_pending_async_panel_requests(layer: int = -1) -> Array[Dictionary]:
 |---|---|
 | `layer` | 指定层级；小于 0 时返回所有层级。 |
 
-返回：请求快照数组，每项包含 path、layer、operation 和 serial。
+返回：请求快照数组，每项包含 path、layer、operation、serial 和 operation_handle。
 
 结构：
 
-- `return`: Array，元素为 Dictionary，包含 path、layer、operation 和 serial。
+- `return`: Array，元素为 Dictionary，包含 path、layer、operation、serial 和 GFUIPanelAsyncOperation operation_handle。
 
 <a id="member-gfuiutility-methods-get_modal_count"></a>
 

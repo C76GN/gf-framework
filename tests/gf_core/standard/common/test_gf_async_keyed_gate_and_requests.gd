@@ -923,7 +923,9 @@ func test_keyed_gate_bounds_release_pump_work_including_expired_requests() -> vo
 			GFVariantData.get_option_string_name(queued, "status"),
 			GFAsyncKeyedGate.STATUS_QUEUED
 		)
-	await get_tree().create_timer(0.01).timeout
+	var expiration_target_msec: int = Time.get_ticks_msec() + 2
+	while Time.get_ticks_msec() < expiration_target_msec:
+		await get_tree().process_frame
 
 	var _released: bool = blocker.release(&"done")
 	var immediate_snapshot: Dictionary = gate.get_debug_snapshot()

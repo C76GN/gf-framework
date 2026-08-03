@@ -912,6 +912,542 @@ func test_virtual_source_ids_with_delimiters_do_not_clear_each_other() -> void:
 	assert_false(_utility.is_action_active(&"boost"), "释放剩余贡献后动作才应结束。")
 
 
+func test_virtual_input_pulse_completes_with_exactly_one_release() -> void:
+	var bindings: Array[GFInputBinding] = []
+	_utility.enable_context(_make_context(&"gameplay", [
+		_make_mapping(_make_action(&"confirm"), bindings),
+	]))
+	var timer_utility: GFTimerUtility = GFTimerUtility.new()
+	timer_utility.init()
+	var source: GFVirtualInputSource = _utility.create_virtual_source(&"touch", 0, timer_utility)
+
+	var operation: GFVirtualInputPulseOperation = source.pulse_action(&"confirm", true, 0.1)
+
+	assert_true(operation.is_pending(), "有效脉冲应返回 pending 类型化句柄。")
+	assert_true(_utility.is_action_active(&"confirm"), "脉冲启动后应立即写入动作值。")
+	timer_utility.tick(0.1)
+
+	assert_eq(operation.get_status(), GFVirtualInputPulseOperation.Status.COMPLETED, "到时后应进入 COMPLETED。")
+	assert_eq(operation.get_release_count(), 1, "取得 lease 的脉冲必须恰好完成一次匹配释放。")
+	assert_false(_utility.is_action_active(&"confirm"), "匹配释放后动作应结束。")
+	timer_utility.tick(1.0)
+	assert_eq(operation.get_release_count(), 1, "后续 tick 不得重复释放已完成脉冲。")
+	timer_utility.dispose()
+
+
+func test_virtual_input_pulse_zero_duration_completes_synchronously() -> void:
+	var bindings: Array[GFInputBinding] = []
+	_utility.enable_context(_make_context(&"gameplay", [
+		_make_mapping(_make_action(&"confirm"), bindings),
+	]))
+	var timer_utility: GFTimerUtility = GFTimerUtility.new()
+	timer_utility.init()
+	var source: GFVirtualInputSource = _utility.create_virtual_source(&"touch", 0, timer_utility)
+
+	var operation: GFVirtualInputPulseOperation = source.pulse_action(&"confirm", true, 0.0)
+
+	assert_eq(operation.get_status(), GFVirtualInputPulseOperation.Status.COMPLETED, "0 秒脉冲应在返回前同步完成。")
+	assert_eq(operation.get_release_count(), 1, "0 秒脉冲也必须完成一次匹配释放。")
+	assert_false(_utility.is_action_active(&"confirm"), "同步完成后不得遗留动作贡献。")
+	assert_eq(
+		GFVariantData.get_option_int(timer_utility.get_debug_snapshot(), "pending_count"),
+		0,
+		"0 秒脉冲不得遗留排队 timer。"
+	)
+	timer_utility.dispose()
+
+
+func test_virtual_input_pulse_replacement_is_safe_across_duplicate_source_objects() -> void:
+	var bindings: Array[GFInputBinding] = []
+	_utility.enable_context(_make_context(&"gameplay", [
+		_make_mapping(_make_action(&"confirm"), bindings),
+	]))
+	var timer_utility: GFTimerUtility = GFTimerUtility.new()
+	timer_utility.init()
+	var first_source: GFVirtualInputSource = _utility.create_virtual_source(&"shared", 0, timer_utility)
+	var second_source: GFVirtualInputSource = _utility.create_virtual_source(&"shared", 0, timer_utility)
+	var first: GFVirtualInputPulseOperation = first_source.pulse_action(&"confirm", true, 0.1)
+	var completed_actions: Array[StringName] = []
+	var on_action_completed: Callable = func(action_id: StringName, _value: Variant) -> void:
+		completed_actions.append(action_id)
+	var _connected: Error = _utility.action_completed.connect(on_action_completed) as Error
+	timer_utility.tick(0.04)
+
+	var second: GFVirtualInputPulseOperation = second_source.pulse_action(&"confirm", true, 0.2)
+
+	assert_eq(first.get_status(), GFVirtualInputPulseOperation.Status.REPLACED, "同稳定输入键的新脉冲应替换旧 lease。")
+	assert_eq(first.get_release_count(), 0, "原子交接不得把旧 lease 计为实际释放。")
+	assert_true(second.is_pending(), "新脉冲应持有权威 lease。")
+	assert_true(_utility.is_action_active(&"confirm"), "替换完成后新脉冲应保持动作激活。")
+	assert_eq(completed_actions.size(), 0, "同键替换不得暴露中间 inactive 状态。")
+	timer_utility.tick(0.07)
+	assert_true(_utility.is_action_active(&"confirm"), "旧脉冲原到期点不得清除新 generation。")
+	assert_true(second.is_pending(), "旧定时器不得终止新句柄。")
+	timer_utility.tick(0.13)
+	assert_eq(second.get_status(), GFVirtualInputPulseOperation.Status.COMPLETED, "新脉冲应按自己的时长完成。")
+	assert_eq(second.get_release_count(), 1, "新 lease 也应只释放一次。")
+	assert_false(_utility.is_action_active(&"confirm"), "新脉冲完成后动作应结束。")
+	timer_utility.dispose()
+
+
+func test_virtual_input_pulse_reject_new_preserves_current_lease() -> void:
+	var bindings: Array[GFInputBinding] = []
+	_utility.enable_context(_make_context(&"gameplay", [
+		_make_mapping(_make_action(&"confirm"), bindings),
+	]))
+	var timer_utility: GFTimerUtility = GFTimerUtility.new()
+	timer_utility.init()
+	var source: GFVirtualInputSource = _utility.create_virtual_source(&"touch", -1, timer_utility)
+	var current: GFVirtualInputPulseOperation = source.pulse_action(&"confirm", true, 0.2)
+
+	var rejected: GFVirtualInputPulseOperation = source.pulse_action(
+		&"confirm",
+		true,
+		0.1,
+		null,
+		null,
+		GFVirtualInputSource.PulseReplacementPolicy.REJECT_NEW
+	)
+
+	assert_eq(rejected.get_status(), GFVirtualInputPulseOperation.Status.REJECTED, "REJECT_NEW 应让新句柄立即拒绝。")
+	assert_eq(rejected.get_release_count(), 0, "未取得 lease 的拒绝句柄不得执行释放。")
+	assert_true(current.is_pending(), "拒绝新请求不得终止当前 lease。")
+	assert_true(_utility.is_action_active(&"confirm"), "拒绝新请求不得改变当前动作值。")
+	timer_utility.tick(0.2)
+	assert_eq(current.get_status(), GFVirtualInputPulseOperation.Status.COMPLETED, "原脉冲仍应正常完成。")
+	timer_utility.dispose()
+
+
+func test_manual_virtual_write_terminates_pulse_before_overwrite() -> void:
+	var bindings: Array[GFInputBinding] = []
+	_utility.enable_context(_make_context(&"gameplay", [
+		_make_mapping(_make_action(&"confirm"), bindings),
+	]))
+	var timer_utility: GFTimerUtility = GFTimerUtility.new()
+	timer_utility.init()
+	var source: GFVirtualInputSource = _utility.create_virtual_source(&"touch", -1, timer_utility)
+	var operation: GFVirtualInputPulseOperation = source.pulse_action(&"confirm", true, 0.1)
+	var reentrant_operations: Array[GFVirtualInputPulseOperation] = []
+	var completed_actions: Array[StringName] = []
+	var on_action_completed: Callable = func(action_id: StringName, _value: Variant) -> void:
+		completed_actions.append(action_id)
+	var _action_connected: Error = _utility.action_completed.connect(on_action_completed) as Error
+	var on_completed: Callable = func(_completed_operation: GFVirtualInputPulseOperation) -> void:
+		reentrant_operations.append(source.pulse_action(&"confirm", true, 0.1))
+	var _connected: Error = operation.completed.connect(on_completed, CONNECT_ONE_SHOT as Object.ConnectFlags) as Error
+
+	assert_true(source.press(&"confirm"), "手动写入应覆盖当前脉冲。")
+
+	assert_eq(operation.get_status(), GFVirtualInputPulseOperation.Status.CANCELLED, "手动写入前应取消匹配 pulse lease。")
+	assert_eq(operation.get_terminal_reason(), &"manual_write", "终态应暴露稳定覆盖原因。")
+	assert_eq(operation.get_release_count(), 0, "无中间 clear 的手动覆盖不得计为实际释放。")
+	assert_eq(completed_actions.size(), 0, "同键手动覆盖不得暴露中间 inactive 状态。")
+	assert_eq(reentrant_operations.size(), 1, "终态回调应被同步观察。")
+	assert_eq(
+		reentrant_operations[0].get_status(),
+		GFVirtualInputPulseOperation.Status.REJECTED,
+		"权威手动写事务中重入的新脉冲必须 fail closed。"
+	)
+	timer_utility.tick(0.2)
+	assert_true(_utility.is_action_active(&"confirm"), "旧定时器不得清除覆盖后的手动值。")
+	assert_true(source.release(&"confirm"), "手动值仍应由调用方显式释放。")
+	timer_utility.dispose()
+
+
+func test_manual_virtual_clear_terminates_matching_pulse_once() -> void:
+	var bindings: Array[GFInputBinding] = []
+	_utility.enable_context(_make_context(&"gameplay", [
+		_make_mapping(_make_action(&"confirm"), bindings),
+	]))
+	var timer_utility: GFTimerUtility = GFTimerUtility.new()
+	timer_utility.init()
+	var source: GFVirtualInputSource = _utility.create_virtual_source(&"touch", -1, timer_utility)
+	var operation: GFVirtualInputPulseOperation = source.pulse_action(&"confirm", true, 0.1)
+
+	assert_true(source.clear_action(&"confirm"), "手动 clear 应终止当前脉冲并报告状态变化。")
+
+	assert_eq(operation.get_status(), GFVirtualInputPulseOperation.Status.CANCELLED, "手动 clear 应取消匹配 lease。")
+	assert_eq(operation.get_terminal_reason(), &"manual_clear", "clear 终态原因应稳定。")
+	assert_eq(operation.get_release_count(), 1, "手动 clear 应只释放一次。")
+	assert_false(_utility.is_action_active(&"confirm"), "手动 clear 后动作应结束。")
+	timer_utility.tick(0.2)
+	assert_eq(operation.get_release_count(), 1, "旧定时器不得重复 clear。")
+	timer_utility.dispose()
+
+
+func test_virtual_input_pulse_fails_closed_for_invalid_lifecycle_anchors() -> void:
+	var bindings: Array[GFInputBinding] = []
+	_utility.enable_context(_make_context(&"gameplay", [
+		_make_mapping(_make_action(&"confirm"), bindings),
+	]))
+	var timer_utility: GFTimerUtility = GFTimerUtility.new()
+	timer_utility.init()
+	var source: GFVirtualInputSource = _utility.create_virtual_source(&"touch", -1, timer_utility)
+	var released_owner: Object = Object.new()
+	released_owner.free()
+	var released_owner_operation: GFVirtualInputPulseOperation = source.pulse_action(
+		&"confirm",
+		true,
+		1.0,
+		released_owner
+	)
+
+	assert_eq(
+		released_owner_operation.get_status(),
+		GFVirtualInputPulseOperation.Status.FAILED,
+		"已释放 owner 不得被当作未提供 owner。"
+	)
+	assert_eq(
+		released_owner_operation.get_terminal_reason(),
+		&"invalid_owner_lifecycle",
+		"已释放 owner 应提供稳定失败原因。"
+	)
+	assert_eq(released_owner_operation.get_release_count(), 0, "已释放 owner 不得取得 lease。")
+	assert_false(_utility.is_action_active(&"confirm"), "已释放 owner 不得产生输入写入。")
+
+	var tree_outside_owner: Node = Node.new()
+
+	var invalid_owner_operation: GFVirtualInputPulseOperation = source.pulse_action(
+		&"confirm",
+		true,
+		1.0,
+		tree_outside_owner
+	)
+
+	assert_eq(
+		invalid_owner_operation.get_status(),
+		GFVirtualInputPulseOperation.Status.FAILED,
+		"树外 Node 不能形成可靠生命周期锚点，应 fail closed。"
+	)
+	assert_eq(
+		invalid_owner_operation.get_terminal_reason(),
+		&"invalid_owner_lifecycle",
+		"无效 owner 应提供稳定失败原因。"
+	)
+	assert_eq(invalid_owner_operation.get_release_count(), 0, "绑定失败不得写入或释放 lease。")
+	assert_false(_utility.is_action_active(&"confirm"), "生命周期校验失败时不得产生输入写入。")
+	tree_outside_owner.free()
+
+	var completed_scope: GFAsyncScope = GFAsyncScope.new()
+	completed_scope.complete()
+	var completed_scope_operation: GFVirtualInputPulseOperation = source.pulse_action(
+		&"confirm",
+		true,
+		1.0,
+		null,
+		completed_scope
+	)
+
+	assert_eq(
+		completed_scope_operation.get_status(),
+		GFVirtualInputPulseOperation.Status.FAILED,
+		"已完成 GFAsyncScope 不得被重新用作活动取消锚点。"
+	)
+	assert_eq(
+		completed_scope_operation.get_terminal_reason(),
+		&"cancellation_scope_completed",
+		"已完成 scope 应提供可诊断的稳定原因。"
+	)
+	assert_eq(completed_scope_operation.get_release_count(), 0, "scope 绑定失败不得取得 lease。")
+	assert_false(_utility.is_action_active(&"confirm"), "scope 绑定失败时不得写入动作。")
+	timer_utility.dispose()
+
+
+func test_virtual_input_pulse_releases_when_scope_completes_after_lease_acquisition() -> void:
+	var bindings: Array[GFInputBinding] = []
+	_utility.enable_context(_make_context(&"gameplay", [
+		_make_mapping(_make_action(&"confirm"), bindings),
+	]))
+	var timer_utility: GFTimerUtility = GFTimerUtility.new()
+	timer_utility.init()
+	var source: GFVirtualInputSource = _utility.create_virtual_source(&"touch", -1, timer_utility)
+	var scope: GFAsyncScope = GFAsyncScope.new()
+	var operation: GFVirtualInputPulseOperation = source.pulse_action(
+		&"confirm",
+		true,
+		1.0,
+		null,
+		scope
+	)
+
+	assert_true(operation.is_pending(), "活动 scope 应允许 pulse 取得 lease。")
+	assert_true(_utility.is_action_active(&"confirm"), "scope 完成前动作应保持活动。")
+	scope.complete()
+	_utility.tick(0.0)
+
+	assert_eq(
+		operation.get_status(),
+		GFVirtualInputPulseOperation.Status.CANCELLED,
+		"scope 完成后 Mapping tick 应取消 pulse。"
+	)
+	assert_eq(
+		operation.get_terminal_reason(),
+		&"cancellation_scope_completed",
+		"scope 完成应提供稳定终态原因。"
+	)
+	assert_eq(operation.get_release_count(), 1, "scope 完成应执行一次匹配释放。")
+	assert_false(_utility.is_action_active(&"confirm"), "scope 完成后动作不得保持粘滞。")
+	timer_utility.tick(2.0)
+	assert_eq(operation.get_release_count(), 1, "scope 终止后旧 timer 不得重复释放。")
+	timer_utility.dispose()
+
+
+func test_virtual_input_pulse_honors_pre_cancelled_token_before_write() -> void:
+	var bindings: Array[GFInputBinding] = []
+	_utility.enable_context(_make_context(&"gameplay", [
+		_make_mapping(_make_action(&"confirm"), bindings),
+	]))
+	var timer_utility: GFTimerUtility = GFTimerUtility.new()
+	timer_utility.init()
+	var source: GFVirtualInputSource = _utility.create_virtual_source(&"touch", -1, timer_utility)
+	var cancellation_source: GFCancellationSource = GFCancellationSource.new()
+	var _cancelled: bool = cancellation_source.cancel(&"already_closed")
+
+	var operation: GFVirtualInputPulseOperation = source.pulse_action(
+		&"confirm",
+		true,
+		1.0,
+		null,
+		cancellation_source.get_token()
+	)
+
+	assert_eq(operation.get_status(), GFVirtualInputPulseOperation.Status.CANCELLED, "预取消 token 应同步取消句柄。")
+	assert_eq(operation.get_terminal_reason(), &"already_closed", "应保留预取消 token 的首次原因。")
+	assert_eq(operation.get_release_count(), 0, "预取消操作不得取得或释放 lease。")
+	assert_false(_utility.is_action_active(&"confirm"), "预取消 token 不得产生瞬时输入写入。")
+	timer_utility.dispose()
+
+
+func test_virtual_input_pulse_owner_and_token_use_or_cancellation() -> void:
+	var bindings: Array[GFInputBinding] = []
+	_utility.enable_context(_make_context(&"gameplay", [
+		_make_mapping(_make_action(&"confirm"), bindings),
+	]))
+	var timer_utility: GFTimerUtility = GFTimerUtility.new()
+	timer_utility.init()
+	var source: GFVirtualInputSource = _utility.create_virtual_source(&"touch", -1, timer_utility)
+	var owner_node: Node = Node.new()
+	add_child(owner_node)
+	var cancellation_source: GFCancellationSource = GFCancellationSource.new()
+	var operation: GFVirtualInputPulseOperation = source.pulse_action(
+		&"confirm",
+		true,
+		1.0,
+		owner_node,
+		cancellation_source.get_token()
+	)
+
+	var cancel_requested: bool = cancellation_source.cancel(&"view_closed")
+
+	assert_true(cancel_requested, "测试 token 应成功提交首次取消。")
+	assert_eq(operation.get_status(), GFVirtualInputPulseOperation.Status.CANCELLED, "任一锚点取消都应终止脉冲。")
+	assert_eq(operation.get_terminal_reason(), &"view_closed", "应保留 first-terminal token 原因。")
+	assert_eq(operation.get_release_count(), 1, "token 取消应完成一次匹配释放。")
+	owner_node.queue_free()
+	await get_tree().process_frame
+	assert_eq(operation.get_release_count(), 1, "后到 owner 终态不得重复释放。")
+	assert_false(_utility.is_action_active(&"confirm"), "OR 取消后动作应结束。")
+	timer_utility.dispose()
+
+
+func test_virtual_input_pulse_node_owner_tree_exit_releases_matching_lease() -> void:
+	var bindings: Array[GFInputBinding] = []
+	_utility.enable_context(_make_context(&"gameplay", [
+		_make_mapping(_make_action(&"confirm"), bindings),
+	]))
+	var timer_utility: GFTimerUtility = GFTimerUtility.new()
+	timer_utility.init()
+	var source: GFVirtualInputSource = _utility.create_virtual_source(&"touch", -1, timer_utility)
+	var owner_node: Node = Node.new()
+	add_child(owner_node)
+	var operation: GFVirtualInputPulseOperation = source.pulse_action(
+		&"confirm",
+		true,
+		1.0,
+		owner_node
+	)
+
+	owner_node.queue_free()
+	await get_tree().process_frame
+
+	assert_eq(operation.get_status(), GFVirtualInputPulseOperation.Status.CANCELLED, "Node owner 离树应取消脉冲。")
+	assert_eq(operation.get_terminal_reason(), &"owner_released", "Node owner 离树应提供稳定原因。")
+	assert_eq(operation.get_release_count(), 1, "Node owner 离树应完成一次匹配释放。")
+	assert_false(_utility.is_action_active(&"confirm"), "Node owner 离树后动作不得粘住。")
+	timer_utility.tick(2.0)
+	assert_eq(operation.get_release_count(), 1, "owner 终止后旧 timer 不得重复释放。")
+	timer_utility.dispose()
+
+
+func test_virtual_input_pulse_prunes_released_ref_counted_owner_on_mapping_tick() -> void:
+	var bindings: Array[GFInputBinding] = []
+	_utility.enable_context(_make_context(&"gameplay", [
+		_make_mapping(_make_action(&"confirm"), bindings),
+	]))
+	var timer_utility: GFTimerUtility = GFTimerUtility.new()
+	timer_utility.init()
+	var source: GFVirtualInputSource = _utility.create_virtual_source(&"touch", -1, timer_utility)
+	var lifecycle_owner: RefCounted = RefCounted.new()
+	var operation: GFVirtualInputPulseOperation = source.pulse_action(
+		&"confirm",
+		true,
+		1.0,
+		lifecycle_owner
+	)
+	lifecycle_owner = null
+
+	_utility.tick(0.0)
+
+	assert_eq(operation.get_status(), GFVirtualInputPulseOperation.Status.CANCELLED, "Mapping tick 应发现普通 Object owner 已释放。")
+	assert_eq(operation.get_terminal_reason(), &"owner_released", "弱 owner 清理应提供稳定原因。")
+	assert_eq(operation.get_release_count(), 1, "弱 owner 释放应完成一次匹配释放。")
+	assert_false(_utility.is_action_active(&"confirm"), "普通 Object owner 释放后动作不得粘住。")
+	timer_utility.dispose()
+
+
+func test_virtual_input_source_dispose_releases_owned_pulses() -> void:
+	var bindings: Array[GFInputBinding] = []
+	_utility.enable_context(_make_context(&"gameplay", [
+		_make_mapping(_make_action(&"confirm"), bindings),
+	]))
+	var timer_utility: GFTimerUtility = GFTimerUtility.new()
+	timer_utility.init()
+	var source: GFVirtualInputSource = _utility.create_virtual_source(&"touch", -1, timer_utility)
+	var operation: GFVirtualInputPulseOperation = source.pulse_action(&"confirm", true, 1.0)
+
+	source.dispose()
+
+	assert_eq(operation.get_status(), GFVirtualInputPulseOperation.Status.CANCELLED, "Source dispose 应取消其活动脉冲。")
+	assert_eq(operation.get_terminal_reason(), &"source_disposed", "Source dispose 应提供稳定原因。")
+	assert_eq(operation.get_release_count(), 1, "Source dispose 应释放 lease 一次。")
+	assert_false(_utility.is_action_active(&"confirm"), "Source dispose 后动作不得粘住。")
+	timer_utility.tick(2.0)
+	assert_eq(operation.get_release_count(), 1, "dispose 后旧 timer 不得重复释放。")
+	var _reconfigure_result: GFVirtualInputSource = source.configure(
+		_utility,
+		&"revived",
+		-1,
+		timer_utility
+	)
+	assert_false(source.press(&"confirm"), "dispose 应为不可逆终态，configure 不得复活手动写入。")
+	var refused_after_dispose: GFVirtualInputPulseOperation = source.pulse_action(&"confirm")
+	assert_eq(
+		refused_after_dispose.get_status(),
+		GFVirtualInputPulseOperation.Status.FAILED,
+		"dispose 后 pulse 应 fail closed。"
+	)
+	assert_eq(refused_after_dispose.get_terminal_reason(), &"source_disposed", "失败原因应稳定。")
+	timer_utility.dispose()
+
+
+func test_mapping_rebuild_and_dispose_terminate_pulse_leases() -> void:
+	var bindings: Array[GFInputBinding] = []
+	var context: GFInputContext = _make_context(&"gameplay", [
+		_make_mapping(_make_action(&"confirm"), bindings),
+	])
+	_utility.enable_context(context)
+	var timer_utility: GFTimerUtility = GFTimerUtility.new()
+	timer_utility.init()
+	var source: GFVirtualInputSource = _utility.create_virtual_source(&"touch", -1, timer_utility)
+	var rebuilt_operation: GFVirtualInputPulseOperation = source.pulse_action(&"confirm", true, 1.0)
+
+	_utility.set_enabled_contexts([context])
+
+	assert_eq(rebuilt_operation.get_status(), GFVirtualInputPulseOperation.Status.CANCELLED, "Mapping rebuild 应取消旧 lease。")
+	assert_eq(rebuilt_operation.get_terminal_reason(), &"mapping_rebuilt", "重建原因应稳定。")
+	assert_eq(rebuilt_operation.get_release_count(), 1, "重建应先完成一次匹配释放。")
+	var disposed_operation: GFVirtualInputPulseOperation = source.pulse_action(&"confirm", true, 1.0)
+	assert_true(disposed_operation.is_pending(), "重建后的 Source 应能启动新脉冲。")
+
+	_utility.dispose()
+
+	assert_eq(disposed_operation.get_status(), GFVirtualInputPulseOperation.Status.CANCELLED, "Mapping dispose 应取消活动 lease。")
+	assert_eq(disposed_operation.get_terminal_reason(), &"mapping_disposed", "dispose 原因应稳定。")
+	assert_eq(disposed_operation.get_release_count(), 1, "Mapping dispose 应释放一次。")
+	timer_utility.tick(2.0)
+	assert_eq(disposed_operation.get_release_count(), 1, "dispose 后旧 timer 不得重复释放。")
+	_utility = null
+	timer_utility.dispose()
+
+
+func test_virtual_input_pulse_releases_when_timer_schedule_is_rebuilt() -> void:
+	var bindings: Array[GFInputBinding] = []
+	_utility.enable_context(_make_context(&"gameplay", [
+		_make_mapping(_make_action(&"confirm"), bindings),
+	]))
+	var timer_utility: GFTimerUtility = GFTimerUtility.new()
+	timer_utility.init()
+	var source: GFVirtualInputSource = _utility.create_virtual_source(&"touch", -1, timer_utility)
+	var operation: GFVirtualInputPulseOperation = source.pulse_action(&"confirm", true, 1.0)
+	var original_timer_handle: int = GFVariantData.get_option_int(
+		operation.get_debug_snapshot(),
+		"timer_handle"
+	)
+
+	timer_utility.dispose()
+	timer_utility.init()
+	var unrelated_state: Dictionary = {"count": 0}
+	var unrelated_handle: int = timer_utility.execute_after(0.25, func() -> void:
+		unrelated_state["count"] = GFVariantData.get_option_int(unrelated_state, "count") + 1
+	)
+	assert_eq(unrelated_handle, original_timer_handle, "夹具应证明 dispose/init 后 timer handle 已被复用。")
+
+	_utility.tick(0.0)
+
+	assert_eq(operation.get_status(), GFVirtualInputPulseOperation.Status.FAILED, "丢失的 timer 排程应 fail closed。")
+	assert_eq(operation.get_terminal_reason(), &"timer_schedule_lost", "timer 重建应提供稳定失败原因。")
+	assert_eq(operation.get_release_count(), 1, "timer 排程丢失后应补偿释放当前 lease。")
+	assert_false(_utility.is_action_active(&"confirm"), "timer 排程丢失后动作不得粘住。")
+	timer_utility.tick(0.25)
+	assert_eq(
+		GFVariantData.get_option_int(unrelated_state, "count"),
+		1,
+		"旧 pulse 终止不得误取消复用 handle 的无关 timer。"
+	)
+	timer_utility.dispose()
+
+
+func test_mapping_tick_releases_pulse_when_source_and_handle_are_dropped() -> void:
+	var bindings: Array[GFInputBinding] = []
+	_utility.enable_context(_make_context(&"gameplay", [
+		_make_mapping(_make_action(&"confirm"), bindings),
+	]))
+	var timer_utility: GFTimerUtility = GFTimerUtility.new()
+	timer_utility.init()
+	var source: GFVirtualInputSource = _utility.create_virtual_source(&"ephemeral", -1, timer_utility)
+	var operation: GFVirtualInputPulseOperation = source.pulse_action(&"confirm", true, 1.0)
+	var operation_ref: WeakRef = weakref(operation)
+	operation = null
+	source = null
+
+	_utility.tick(0.0)
+
+	assert_false(operation_ref.get_ref() is Object, "Mapping lease 不得强持有已丢弃的 pulse operation。")
+	assert_false(_utility.is_action_active(&"confirm"), "Mapping tick 应补偿释放弱 operation 遗留贡献。")
+	timer_utility.dispose()
+
+
+func test_virtual_input_pulse_freezes_identity_across_source_reconfiguration() -> void:
+	var bindings: Array[GFInputBinding] = []
+	_utility.enable_context(_make_context(&"gameplay", [
+		_make_mapping(_make_action(&"confirm"), bindings),
+	]))
+	var timer_utility: GFTimerUtility = GFTimerUtility.new()
+	timer_utility.init()
+	var source: GFVirtualInputSource = _utility.create_virtual_source(&"before", 0, timer_utility)
+	var operation: GFVirtualInputPulseOperation = source.pulse_action(&"confirm", true, 0.1)
+	source.source_id = &"after"
+	source.player_index = 1
+
+	assert_eq(operation.get_source_id(), &"before", "操作应冻结创建时 source_id。")
+	assert_eq(operation.get_player_index(), 0, "操作应冻结创建时 player_index。")
+	timer_utility.tick(0.1)
+
+	assert_eq(operation.get_status(), GFVirtualInputPulseOperation.Status.COMPLETED, "重配 Source 不应阻断旧操作完成。")
+	assert_false(_utility.is_action_active(&"confirm"), "旧操作应按冻结身份完成匹配释放。")
+	timer_utility.dispose()
+
+
 func test_input_recording_playback_drives_virtual_source() -> void:
 	var bindings: Array[GFInputBinding] = []
 	var context: GFInputContext = _make_context(&"gameplay", [

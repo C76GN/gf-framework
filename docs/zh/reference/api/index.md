@@ -5,16 +5,16 @@
 ## 范围
 
 - 源码根目录：`addons/gf`
-- 公开类：`802`
-- 公开成员：`11811`
-- 公开方法：`7289`
+- 公开类：`804`
+- 公开成员：`11851`
+- 公开方法：`7316`
 
 ## 模块
 
 | 模块 | 类 | 成员 | 方法 | 页面 |
 |---|---:|---:|---:|---|
-| Kernel | 74 | 1088 | 792 | [kernel.md](kernel.md) |
-| Standard | 443 | 7068 | 4467 | [standard.md](standard.md) |
+| Kernel | 74 | 1094 | 793 | [kernel.md](kernel.md) |
+| Standard | 445 | 7102 | 4493 | [standard.md](standard.md) |
 | Action Queue | 16 | 214 | 136 | [extensions-action-queue.md](extensions-action-queue.md) |
 | Asset Metadata | 4 | 33 | 24 | [extensions-asset-metadata.md](extensions-asset-metadata.md) |
 | Behavior Tree | 22 | 89 | 65 | [extensions-behavior-tree.md](extensions-behavior-tree.md) |
