@@ -1,0 +1,159 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFSaveProfileRecoveryLease" path="addons/gf/extensions/save/profile/gf_save_profile_recovery_lease.gd" module="extensions/save" extends="RefCounted" classDigest="d389e2a11ad3ed277cde8cc69819c28f56e512cac0574b406b6fc5d5d6cb117c">
+	<description>GFSaveProfileRecoveryLease: 缺失或损坏 Profile 的一次性恢复授权。
+Lease 由失败的 activate 操作创建，并绑定创建时的事务、Profile、Provider
+domain generation 与 lifecycle epoch。bootstrap/adopt 必须原样提交同一 Lease；
+domain 或 epoch 前进后，旧 Lease 会失效，不能把陈旧恢复决定应用到新状态。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_handle</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants>
+		<member kind="const" name="REASON_MISSING">
+			<signature>const REASON_MISSING: StringName = &amp;"missing"</signature>
+			<description>激活目标没有持久化文档。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="REASON_CORRUPT">
+			<signature>const REASON_CORRUPT: StringName = &amp;"corrupt"</signature>
+			<description>激活目标文档损坏或完整性无效。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATE_AVAILABLE">
+			<signature>const STATE_AVAILABLE: StringName = &amp;"available"</signature>
+			<description>Lease 尚未被恢复操作消费。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATE_CLAIMED">
+			<signature>const STATE_CLAIMED: StringName = &amp;"claimed"</signature>
+			<description>Lease 已被一个恢复操作消费。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATE_STALE">
+			<signature>const STATE_STALE: StringName = &amp;"stale"</signature>
+			<description>Lease 的 domain generation 或 lifecycle epoch 已过期。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</constants>
+	<properties />
+	<methods>
+		<member kind="method" name="get_lease_id">
+			<signature>func get_lease_id() -&gt; int:</signature>
+			<description>获取 Utility 生命周期内唯一的 Lease ID。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">正整数 Lease ID；未配置时为 0。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_transaction_id">
+			<signature>func get_transaction_id() -&gt; int:</signature>
+			<description>获取产生当前 Lease 的事务 ID。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">正整数事务 ID；未配置时为 0。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_profile_id">
+			<signature>func get_profile_id() -&gt; StringName:</signature>
+			<description>获取待恢复 Profile ID。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">Profile ID。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_reason">
+			<signature>func get_reason() -&gt; StringName:</signature>
+			<description>获取恢复原因。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">`REASON_MISSING` 或 `REASON_CORRUPT`。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_domain_id">
+			<signature>func get_domain_id() -&gt; int:</signature>
+			<description>获取运行时 Provider domain ID。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">Utility 生命周期内唯一的正整数 domain ID。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_domain_generation">
+			<signature>func get_domain_generation() -&gt; int:</signature>
+			<description>获取 Lease 创建时的 domain generation。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">正整数 domain generation。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_epoch">
+			<signature>func get_epoch() -&gt; int:</signature>
+			<description>获取 Lease 创建时的 Utility lifecycle epoch。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">正整数 lifecycle epoch。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_state">
+			<signature>func get_state() -&gt; StringName:</signature>
+			<description>获取当前 Lease 状态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">`STATE_*` 常量之一。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_available">
+			<signature>func is_available() -&gt; bool:</signature>
+			<description>检查 Lease 是否仍可由 bootstrap/adopt 消费。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">可用时返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_claimed">
+			<signature>func is_claimed() -&gt; bool:</signature>
+			<description>检查 Lease 是否已经被消费。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">已 claim 时返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_stale">
+			<signature>func is_stale() -&gt; bool:</signature>
+			<description>检查 Lease 是否已经过期。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">已标记 stale 或从未有效配置时返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

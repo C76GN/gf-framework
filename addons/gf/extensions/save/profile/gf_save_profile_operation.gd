@@ -59,6 +59,8 @@ var _result: GFSaveProfileResult = null
 var _completion_emitted: bool = false
 var _context: Dictionary = {}
 var _result_metadata: Dictionary = {}
+var _strict_recovery: bool = false
+var _manager_permit: RefCounted = null
 
 
 # --- 公共方法 ---
@@ -160,6 +162,10 @@ func get_result() -> GFSaveProfileResult:
 ## [br]
 ## @param result_metadata: 调用方结果元数据。
 ## [br]
+## @param strict_recovery: 仅 load 可设为 true；忽略保留当前状态的低层恢复动作。
+## [br]
+## @param manager_permit: 可选受管 load capability；Utility 会在应用 Provider 前复核。
+## [br]
 ## @schema context: Dictionary with caller-defined ephemeral operation data.
 ## [br]
 ## @schema result_metadata: Dictionary with caller-defined result metadata.
@@ -171,9 +177,16 @@ func configure_for_framework(
 	requested_generation: int,
 	started_at_msec: int,
 	context: Dictionary = {},
-	result_metadata: Dictionary = {}
+	result_metadata: Dictionary = {},
+	strict_recovery: bool = false,
+	manager_permit: RefCounted = null
 ) -> bool:
-	if _operation != &"" or operation not in [OPERATION_LOAD, OPERATION_FLUSH]:
+	if (
+		_operation != &""
+		or operation not in [OPERATION_LOAD, OPERATION_FLUSH]
+		or (strict_recovery and operation != OPERATION_LOAD)
+		or (manager_permit != null and operation != OPERATION_LOAD)
+	):
 		return false
 	_operation = operation
 	_profile_id = profile_id
@@ -181,6 +194,8 @@ func configure_for_framework(
 	_started_at_msec = maxi(started_at_msec, 0)
 	_context = context.duplicate(true)
 	_result_metadata = result_metadata.duplicate(true)
+	_strict_recovery = strict_recovery
+	_manager_permit = manager_permit
 	return true
 
 
@@ -250,6 +265,7 @@ func complete_for_framework(result: GFSaveProfileResult) -> bool:
 	_result = result.duplicate_result()
 	_context = {}
 	_result_metadata = {}
+	_manager_permit = null
 	return true
 
 
@@ -303,3 +319,25 @@ func get_context_for_framework() -> Dictionary:
 ## @schema return: Dictionary with caller-defined result metadata.
 func get_metadata_for_framework() -> Dictionary:
 	return _result_metadata.duplicate(true)
+
+
+## 检查读取是否必须忽略保留当前状态的恢复策略。
+## [br]
+## @api framework_internal
+## [br]
+## @since unreleased
+## [br]
+## @return 受管事务要求严格读取时返回 true。
+func requires_strict_recovery_for_framework() -> bool:
+	return _operation == OPERATION_LOAD and _strict_recovery
+
+
+## 获取受管 load 绑定的 opaque capability。
+## [br]
+## @api framework_internal
+## [br]
+## @since unreleased
+## [br]
+## @return 非受管 load 返回 null；调用方只能执行对象身份复核。
+func get_manager_permit_for_framework() -> RefCounted:
+	return _manager_permit if _operation == OPERATION_LOAD else null

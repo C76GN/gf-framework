@@ -1,0 +1,273 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFSaveProfileTransactionCoordinator" path="addons/gf/extensions/save/profile/gf_save_profile_transaction_coordinator.gd" module="extensions/save" extends="GFUtility" classDigest="fd1e298116cf399f8859fe70a29525ecb676aebe37969175c2cd0e7734202843">
+	<description>GFSaveProfileTransactionCoordinator: 活动 Profile 身份与跨 Profile 事务协调器。
+Coordinator 在完全相同且同序的 Provider 实例拓扑上建立独立 domain，委托
+`GFSaveProfileUtility` 完成 generation、Storage IO、重试与 detached settlement。
+它不解释业务 payload，也不拥有项目的身份到路径、云同步或恢复选择。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_service</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals>
+		<member kind="signal" name="active_profile_changed">
+			<signature>signal active_profile_changed(</signature>
+			<description>活动 Profile 身份完成原子提交后发出。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">previous_profile_id: 提交前活动 Profile；首次激活时为空。</tag>
+				<tag name="param">current_profile_id: 提交后活动 Profile。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="signal" name="transaction_completed">
+			<signature>signal transaction_completed(result: GFSaveProfileTransactionResult)</signature>
+			<description>任一事务进入稳定终态时发出。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">result: 不包含持久化 payload 的隔离结果。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</signals>
+	<enums />
+	<constants>
+		<member kind="const" name="DOMAIN_STATE_INACTIVE">
+			<signature>const DOMAIN_STATE_INACTIVE: StringName = &amp;"inactive"</signature>
+			<description>Domain 尚未建立活动身份。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="DOMAIN_STATE_ACTIVE">
+			<signature>const DOMAIN_STATE_ACTIVE: StringName = &amp;"active"</signature>
+			<description>Domain 已建立一个可直接 save/flush 的活动身份。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="DOMAIN_STATE_TRANSACTING">
+			<signature>const DOMAIN_STATE_TRANSACTING: StringName = &amp;"transacting"</signature>
+			<description>Domain 正在执行一个事务。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="DOMAIN_STATE_RECONCILIATION_REQUIRED">
+			<signature>const DOMAIN_STATE_RECONCILIATION_REQUIRED: StringName = &amp;"reconciliation_required"</signature>
+			<description>Domain 被 outcome_unknown 或显式故障围栏占用，必须对账。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="DOMAIN_STATE_DISPOSED">
+			<signature>const DOMAIN_STATE_DISPOSED: StringName = &amp;"disposed"</signature>
+			<description>Coordinator 已释放。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</constants>
+	<properties />
+	<methods>
+		<member kind="method" name="get_required_utilities">
+			<signature>func get_required_utilities() -&gt; Array[Script]:</signature>
+			<description>声明底层 Save Profile Utility 依赖。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">仅包含 `GFSaveProfileUtility`。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="ready">
+			<signature>func ready() -&gt; void:</signature>
+			<description>在架构 ready 阶段采用已注册的 Profile Utility。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="begin_activation">
+			<signature>func begin_activation(_scope: GFAsyncScope) -&gt; GFAsyncCompletion:</signature>
+			<description>开放事务准入；底层 Utility 不可用时失败。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">_scope: 当前激活阶段的取消作用域。</tag>
+				<tag name="return">一次性激活完成源。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="begin_quiesce">
+			<signature>func begin_quiesce(scope: GFAsyncScope) -&gt; GFAsyncCompletion:</signature>
+			<description>关闭新事务准入，并等待已接纳事务与 reconcile fence 收敛。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">scope: 当前静默阶段的取消作用域。</tag>
+				<tag name="return">全部 domain 可安全关闭时完成的一次性完成源。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="tick">
+			<signature>func tick(_delta: float) -&gt; void:</signature>
+			<description>推进已接纳的同步 Provider mutation 阶段。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">_delta: 未使用；底层 IO 由 Profile Utility 推进。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="dispose">
+			<signature>func dispose() -&gt; void:</signature>
+			<description>强制结束未完成事务并释放全部 manager capability。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="release_dependencies">
+			<signature>func release_dependencies() -&gt; void:</signature>
+			<description>释放架构注入依赖。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="setup">
+			<signature>func setup( profile_utility: GFSaveProfileUtility ) -&gt; GFSaveProfileTransactionCoordinator:</signature>
+			<description>显式注入底层 Profile Utility，供 standalone 场景与测试使用。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">profile_utility: 已配置的底层 Profile Utility。</tag>
+				<tag name="return">当前 Coordinator；输入无效或已有受管 Profile 时返回 null。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="register_profile">
+			<signature>func register_profile( profile: GFSaveProfile, migrations: GFSaveMigrationRegistry = null ) -&gt; Dictionary:</signature>
+			<description>注册并声明一个受管 Profile。
+完全相同且同序的 Provider 实例序列共享 domain；任意部分重叠或同实例异序
+会在触碰底层注册前失败。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">profile: Profile 声明。</tag>
+				<tag name="param">migrations: 可选迁移注册表。</tag>
+				<tag name="return">底层注册报告，附加 managed 与 provider_domain_id 字段。</tag>
+				<tag name="schema">return: GFValidationReportDictionary-compatible report with managed and provider_domain_id fields.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="unregister_profile">
+			<signature>func unregister_profile(profile_id: StringName) -&gt; bool:</signature>
+			<description>注销一个无活动身份、事务或 fence 的受管 Profile。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">profile_id: 受管 Profile ID。</tag>
+				<tag name="return">安全注销成功时返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_active_profile_id">
+			<signature>func get_active_profile_id(profile_id: StringName) -&gt; StringName:</signature>
+			<description>获取指定受管 Profile 所在 domain 的活动身份。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">profile_id: 用于定位 Provider domain 的任一受管 Profile ID。</tag>
+				<tag name="return">活动 Profile ID；domain 未激活或 Profile 不存在时为空。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_domain_state_snapshot">
+			<signature>func get_domain_state_snapshot(profile_id: StringName) -&gt; Dictionary:</signature>
+			<description>获取无载荷 domain 调试快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">profile_id: 用于定位 Provider domain 的任一受管 Profile ID。</tag>
+				<tag name="return">domain 状态、活动身份、generation、epoch 与事务/lease ID。</tag>
+				<tag name="schema">return: Payload-free Dictionary with domain_id, state, active_profile_id, profile_ids, domain_generation, transaction_epoch, transaction_id, reconcile_lease_id, quiescing, and disposed fields.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="activate_profile">
+			<signature>func activate_profile( profile_id: StringName, context: Dictionary = {}, metadata: Dictionary = {} ) -&gt; GFSaveProfileTransactionOperation:</signature>
+			<description>严格读取一个已存在存档并建立首次活动身份。
+missing/corrupt 不会应用低层 `ACTION_USE_CURRENT_STATE`；结果分别返回只能用于
+`bootstrap_profile()` 或 `adopt_profile()` 的类型化 Recovery Lease。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">profile_id: 已注册受管 Profile ID。</tag>
+				<tag name="param">context: 迁移与 Provider apply 临时上下文。</tag>
+				<tag name="param">metadata: 仅写入外层事务结果的调用方元数据。</tag>
+				<tag name="return">类型化 activate 操作。</tag>
+				<tag name="schema">context: Dictionary with caller-defined ephemeral operation data.</tag>
+				<tag name="schema">metadata: Dictionary with caller-defined result metadata.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="switch_profile">
+			<signature>func switch_profile( target_profile_id: StringName, context: Dictionary = {}, metadata: Dictionary = {} ) -&gt; GFSaveProfileTransactionOperation:</signature>
+			<description>从当前活动 Profile 原子切换到同一 Provider domain 的目标 Profile。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">target_profile_id: 同一 domain 内的目标 Profile ID。</tag>
+				<tag name="param">context: 目标读取的迁移与 Provider 临时上下文。</tag>
+				<tag name="param">metadata: 仅写入外层事务结果的调用方元数据。</tag>
+				<tag name="return">类型化 switch 操作。</tag>
+				<tag name="schema">context: Dictionary with caller-defined ephemeral operation data.</tag>
+				<tag name="schema">metadata: Dictionary with caller-defined result metadata.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="bootstrap_profile">
+			<signature>func bootstrap_profile( lease: GFSaveProfileRecoveryLease, request: GFSaveProfileRequest = null ) -&gt; GFSaveProfileTransactionOperation:</signature>
+			<description>使用 activate 返回的 missing lease 创建存档并首次激活。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">lease: 尚未过期的 missing Recovery Lease。</tag>
+				<tag name="param">request: 当前 Provider 状态的保存请求；null 表示空元数据。</tag>
+				<tag name="return">类型化 bootstrap 操作；拒绝不会 claim lease 或 request。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="adopt_profile">
+			<signature>func adopt_profile( lease: GFSaveProfileRecoveryLease, request: GFSaveProfileRequest = null ) -&gt; GFSaveProfileTransactionOperation:</signature>
+			<description>使用 activate 返回的 corrupt lease 明确覆盖损坏存档并首次激活。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">lease: 尚未过期的 corrupt Recovery Lease。</tag>
+				<tag name="param">request: 当前 Provider 状态的保存请求；null 表示空元数据。</tag>
+				<tag name="return">类型化 adopt 操作；拒绝不会 claim lease 或 request。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="mutate_and_persist">
+			<signature>func mutate_and_persist( profile_id: StringName, request: GFSaveProfileMutationRequest ) -&gt; GFSaveProfileTransactionOperation:</signature>
+			<description>事务化应用一个或多个完整 section replacement 并持久化活动 Profile。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">profile_id: 当前 domain 的活动 Profile ID。</tag>
+				<tag name="param">request: 一次性候选与元数据请求。</tag>
+				<tag name="return">类型化 mutate-and-persist 操作；边界拒绝不会 claim request。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="reconcile_profile">
+			<signature>func reconcile_profile( lease: GFSaveProfileReconcileLease, request: GFSaveProfileReconcileRequest = null ) -&gt; GFSaveProfileTransactionOperation:</signature>
+			<description>在 late generation 证据收敛后严格重载 lease 指定 Profile 并解除 fence。
+waiting lease 返回 `reconcile_pending`，且不 claim lease/request；调用方可在
+`GFSaveProfileReconcileLease.settled` 后用同一 lease 与新请求重试。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">lease: 当前 Coordinator 持有的 Reconcile Lease。</tag>
+				<tag name="param">request: 一次性 reconcile context 与结果元数据。</tag>
+				<tag name="return">类型化 reconcile 操作。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

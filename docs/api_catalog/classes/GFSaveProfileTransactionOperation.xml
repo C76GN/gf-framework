@@ -1,0 +1,152 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFSaveProfileTransactionOperation" path="addons/gf/extensions/save/profile/gf_save_profile_transaction_operation.gd" module="extensions/save" extends="RefCounted" classDigest="099afddec6e78fd3624ef311c449ab3613ef2b52256467b51fd4ab9e8e332103">
+	<description>GFSaveProfileTransactionOperation: Profile 身份与持久化事务的异步句柄。
+句柄由 Save Profile 事务协调器完成一次且只完成一次。调用方可在连接信号前
+检查 `is_completed()`，避免同步拒绝或立即终态造成竞态。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_handle</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals>
+		<member kind="signal" name="completed">
+			<signature>signal completed(result: GFSaveProfileTransactionResult)</signature>
+			<description>事务进入终态时发出一次。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">result: 不包含 Provider payload 的隔离终态结果。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</signals>
+	<enums />
+	<constants>
+		<member kind="const" name="OPERATION_ACTIVATE">
+			<signature>const OPERATION_ACTIVATE: StringName = &amp;"activate"</signature>
+			<description>激活已存在的 Profile 存档。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="OPERATION_SWITCH">
+			<signature>const OPERATION_SWITCH: StringName = &amp;"switch"</signature>
+			<description>从当前活跃 Profile 事务切换到另一个已存在 Profile。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="OPERATION_BOOTSTRAP">
+			<signature>const OPERATION_BOOTSTRAP: StringName = &amp;"bootstrap"</signature>
+			<description>用当前 Provider 状态显式创建缺失 Profile 并激活。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="OPERATION_ADOPT">
+			<signature>const OPERATION_ADOPT: StringName = &amp;"adopt"</signature>
+			<description>显式采用当前 Provider 状态作为恢复后的活跃 Profile。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="OPERATION_MUTATE_AND_PERSIST">
+			<signature>const OPERATION_MUTATE_AND_PERSIST: StringName = &amp;"mutate_and_persist"</signature>
+			<description>应用完整候选 section 并持久化。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="OPERATION_RECONCILE">
+			<signature>const OPERATION_RECONCILE: StringName = &amp;"reconcile"</signature>
+			<description>对账此前 outcome_unknown 的事务。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</constants>
+	<properties />
+	<methods>
+		<member kind="method" name="get_operation">
+			<signature>func get_operation() -&gt; StringName:</signature>
+			<description>获取事务类型。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">`OPERATION_*` 常量之一。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_transaction_id">
+			<signature>func get_transaction_id() -&gt; int:</signature>
+			<description>获取 Utility 生命周期内唯一的事务 ID。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">正整数事务 ID；尚未配置时为 0。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_source_profile_id">
+			<signature>func get_source_profile_id() -&gt; StringName:</signature>
+			<description>获取事务来源 Profile ID。
+activate、bootstrap 与 adopt 没有来源身份；mutate-and-persist 和 reconcile
+使用当前受管 Profile 作为来源。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">来源 Profile ID；不适用时为空。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_target_profile_id">
+			<signature>func get_target_profile_id() -&gt; StringName:</signature>
+			<description>获取事务目标 Profile ID。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">目标 Profile ID；不适用时为空。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_pending">
+			<signature>func is_pending() -&gt; bool:</signature>
+			<description>检查事务是否等待调度。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">尚未运行或完成时返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_running">
+			<signature>func is_running() -&gt; bool:</signature>
+			<description>检查事务是否正在运行。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">已启动但无终态时返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_completed">
+			<signature>func is_completed() -&gt; bool:</signature>
+			<description>检查事务是否已有终态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">已完成时返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_result">
+			<signature>func get_result() -&gt; GFSaveProfileTransactionResult:</signature>
+			<description>获取终态结果副本。
+结果副本中的 Recovery/Reconcile Lease 保留原始句柄身份，其他集合均隔离复制。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">已完成结果；等待中返回 null。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

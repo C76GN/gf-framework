@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFSaveProfileMutationRequest" path="addons/gf/extensions/save/profile/gf_save_profile_mutation_request.gd" module="extensions/save" extends="RefCounted" classDigest="34e35100a7637fc4b0037ba43a26a638cfcbdc59ec680200a2c44c14cd841f49">
+	<description>GFSaveProfileMutationRequest: mutate-and-persist 的一次性所有权请求。
+请求在创建时原子接管每个 `GFSaveSectionMutation`，随后只允许协调器 claim
+一次。调用方必须放弃传入的 Dictionary、Array 及其全部嵌套 alias；请求
+不公开任何候选 payload getter，也不接受 Callable 或可执行 patch。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_handle</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties />
+	<methods>
+		<member kind="method" name="take_ownership">
+			<signature>static func take_ownership( mutations: Array[GFSaveSectionMutation], document_metadata: Dictionary = {}, context: Dictionary = {}, result_metadata: Dictionary = {} ) -&gt; GFSaveProfileMutationRequest:</signature>
+			<description>创建请求并接管全部候选 section 与元数据。
+Mutation 必须非空、可用且 section ID 唯一。方法会先完成全部预检，再按输入
+顺序 claim，因而校验失败不会部分消费 Mutation。输入顺序只用于所有权收集；
+协调器始终按已注册 Profile 的 Provider 顺序 capture/apply。成功返回后，调用方必须永久
+放弃 mutations 数组、三个 Dictionary 及其全部嵌套 alias。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">mutations: 待接管的完整候选 sections；输入顺序不定义应用顺序。</tag>
+				<tag name="param">document_metadata: 写入候选文档的持久化元数据。</tag>
+				<tag name="param">context: Provider 操作使用的临时纯数据上下文。</tag>
+				<tag name="param">result_metadata: 只写入当前事务结果的调用方纯数据元数据。</tag>
+				<tag name="return">可用请求；输入无效时返回 null，且不消费任何 Mutation。</tag>
+				<tag name="schema">document_metadata: Dictionary accepted by the Save persisted-value contract whose source aliases are abandoned after success.</tag>
+				<tag name="schema">context: Bounded Dictionary without Callable, Signal, RID, Object, or circular references whose source aliases are abandoned after success.</tag>
+				<tag name="schema">result_metadata: Bounded Dictionary without Callable, Signal, RID, Object, or circular references whose source aliases are abandoned after success.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_available">
+			<signature>func is_available() -&gt; bool:</signature>
+			<description>检查请求是否仍可由协调器接管。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">尚未 claim 时返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_claimed">
+			<signature>func is_claimed() -&gt; bool:</signature>
+			<description>检查请求是否已经被协调器接管。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">已成功 claim 时返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_mutation_count">
+			<signature>func get_mutation_count() -&gt; int:</signature>
+			<description>获取候选 section 数量。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">尚未 claim 时返回候选数；claim 后为 0。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_section_ids">
+			<signature>func get_section_ids() -&gt; PackedStringArray:</signature>
+			<description>获取候选 section ID 的隔离快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">按请求收集顺序排列的 section ID；不包含候选载荷。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

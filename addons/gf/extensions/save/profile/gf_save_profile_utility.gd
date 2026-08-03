@@ -36,6 +36,20 @@ signal profile_operation_completed(result: GFSaveProfileResult)
 ## @param current_state: 变化后状态。
 signal profile_state_changed(profile_id: StringName, previous_state: StringName, current_state: StringName)
 
+## 受管事务可重新查询的 generation 证据发生变化时发出。
+##
+## 该信号不携带路径或载荷；观察方必须用 profile ID 与 generation 重新查询，
+## 不能把通知顺序当作持久化终态。
+## [br]
+## @api framework_internal
+## [br]
+## @since unreleased
+## [br]
+## @param profile_id: 证据所属 Profile ID。
+## [br]
+## @param generation: 发生变化的 generation。
+signal profile_generation_evidence_changed(profile_id: StringName, generation: int)
+
 
 # --- 常量 ---
 
@@ -87,6 +101,20 @@ const STATE_APPLYING: StringName = &"applying"
 ## [br]
 ## @since 10.0.0
 const STATE_DISPOSED: StringName = &"disposed"
+
+## 受管 Profile 禁止全部直接操作。
+## [br]
+## @api framework_internal
+## [br]
+## @since unreleased
+const MANAGED_ACCESS_BLOCKED: int = 0
+
+## 受管 Profile 只允许直接 save 与 flush。
+## [br]
+## @api framework_internal
+## [br]
+## @since unreleased
+const MANAGED_ACCESS_SAVE_FLUSH: int = 1
 
 const _PREPARATION_PHASE_PROVIDER_SCAN: StringName = &"provider_scan"
 const _PREPARATION_PHASE_PROVIDER_BEGIN: StringName = &"provider_begin"
@@ -151,6 +179,7 @@ var _active_preparation_head: ProfileState = null
 var _active_preparation_tail: ProfileState = null
 var _admission_open: bool = true
 var _quiesce_completion: GFAsyncCompletion = null
+var _next_management_serial: int = 1
 
 
 # --- Godot 生命周期方法 ---
@@ -243,6 +272,7 @@ func begin_activation(_scope: GFAsyncScope) -> GFAsyncCompletion:
 ## @return 所有已接纳工作进入终态后成功的一次性完成源。
 func begin_quiesce(scope: GFAsyncScope) -> GFAsyncCompletion:
 	_admission_open = false
+	_block_all_managed_access_for_shutdown()
 	if _quiesce_completion != null:
 		return _quiesce_completion
 	_quiesce_completion = GFAsyncCompletion.new()
@@ -268,6 +298,7 @@ func tick(_delta: float) -> void:
 		var state: ProfileState = _get_state_value(state_value)
 		if state == null:
 			continue
+		_reap_expired_managed_permit_if_safe(state)
 		if state.mode == STATE_RETRY_WAIT and now_msec >= state.retry_due_msec:
 			_retry_current_io(state)
 		elif (
@@ -293,6 +324,7 @@ func dispose() -> void:
 	if _disposed:
 		return
 	_admission_open = false
+	_block_all_managed_access_for_shutdown()
 	if _processing_depth > 0:
 		_dispose_requested = true
 		return
@@ -411,20 +443,7 @@ func register_profile(
 ## @return 准入开放、回调安全且 profile 空闲并无任何待处理工作时返回 true。
 func unregister_profile(profile_id: StringName) -> bool:
 	var state: ProfileState = _get_state(profile_id)
-	if (
-		not _admission_open
-		or _dispose_requested
-		or _unsafe_callback_depth > 0
-		or state == null
-		or state.mode != STATE_IDLE
-		or _has_pending_operations(state)
-		or not state.detached_write_operations.is_empty()
-		or state.pending_schedule_enqueued
-		or state.active_preparation_enqueued
-	):
-		return false
-	var _erased: bool = _states.erase(profile_id)
-	return true
+	return _unregister_profile(state, null)
 
 
 ## 请求异步保存 profile。
@@ -445,82 +464,7 @@ func save_profile(
 	profile_id: StringName,
 	request: GFSaveProfileRequest = null
 ) -> GFSaveProfileOperation:
-	if not _admission_open:
-		return _make_rejected_operation(
-			GFSaveProfileOperation.OPERATION_SAVE,
-			profile_id,
-			GFSaveProfileResult.STATUS_BUSY,
-			ERR_BUSY,
-			"Save Profile Utility is quiescing."
-		)
-	var state: ProfileState = _get_state(profile_id)
-	if state == null or _disposed:
-		return _make_rejected_operation(
-			GFSaveProfileOperation.OPERATION_SAVE,
-			profile_id,
-			GFSaveProfileResult.STATUS_INVALID_PROFILE,
-			ERR_DOES_NOT_EXIST,
-			"Save profile is not registered."
-		)
-	if not state.save_enabled:
-		return _make_rejected_operation(
-			GFSaveProfileOperation.OPERATION_SAVE,
-			profile_id,
-			GFSaveProfileResult.STATUS_UNSUPPORTED_OPERATION,
-			ERR_UNAVAILABLE,
-			"Save is disabled for this Profile."
-		)
-	if _unsafe_callback_depth > 0 or _is_load_active(state):
-		return _make_rejected_operation(
-			GFSaveProfileOperation.OPERATION_SAVE,
-			profile_id,
-			GFSaveProfileResult.STATUS_BUSY,
-			ERR_BUSY,
-			"Save is not accepted during load/apply or a Provider callback."
-		)
-	var owned_request: GFSaveProfileRequest = request
-	if owned_request == null:
-		owned_request = GFSaveProfileRequest.take_ownership({}, {}, {})
-	var claim: Dictionary = owned_request.claim_for_framework()
-	if claim.is_empty():
-		return _make_rejected_operation(
-			GFSaveProfileOperation.OPERATION_SAVE,
-			profile_id,
-			GFSaveProfileResult.STATUS_INVALID_REQUEST,
-			ERR_INVALID_PARAMETER,
-			"Save request is invalid or already claimed."
-		)
-	var document_metadata_value: Variant = claim.get("document_metadata")
-	var context_value: Variant = claim.get("context")
-	var result_metadata_value: Variant = claim.get("result_metadata")
-	if (
-		not document_metadata_value is Dictionary
-		or not context_value is Dictionary
-		or not result_metadata_value is Dictionary
-	):
-		return _make_rejected_operation(
-			GFSaveProfileOperation.OPERATION_SAVE,
-			profile_id,
-			GFSaveProfileResult.STATUS_INVALID_REQUEST,
-			ERR_INVALID_DATA,
-			"Save request ownership record is invalid."
-		)
-	var document_metadata: Dictionary = document_metadata_value
-	var context: Dictionary = context_value
-	var result_metadata: Dictionary = result_metadata_value
-	_begin_processing()
-	state.generation += 1
-	state.latest_save_metadata = document_metadata
-	state.latest_save_context = context
-	var operation: GFSaveProfileOperation = _make_save_operation(
-		profile_id,
-		state.generation,
-		result_metadata
-	)
-	state.save_operations.append(operation)
-	_enqueue_schedule(state)
-	_end_processing()
-	return operation
+	return _request_save_profile(profile_id, request, null, [])
 
 
 ## 请求异步读取、迁移、校验并应用 profile。
@@ -547,51 +491,7 @@ func load_profile(
 	context: Dictionary = {},
 	metadata: Dictionary = {}
 ) -> GFSaveProfileOperation:
-	if not _admission_open:
-		return _make_rejected_operation(
-			GFSaveProfileOperation.OPERATION_LOAD,
-			profile_id,
-			GFSaveProfileResult.STATUS_BUSY,
-			ERR_BUSY,
-			"Save Profile Utility is quiescing."
-		)
-	var state: ProfileState = _get_state(profile_id)
-	if state == null or _disposed:
-		return _make_rejected_operation(
-			GFSaveProfileOperation.OPERATION_LOAD,
-			profile_id,
-			GFSaveProfileResult.STATUS_INVALID_PROFILE,
-			ERR_DOES_NOT_EXIST,
-			"Save profile is not registered."
-		)
-	if not state.load_enabled:
-		return _make_rejected_operation(
-			GFSaveProfileOperation.OPERATION_LOAD,
-			profile_id,
-			GFSaveProfileResult.STATUS_UNSUPPORTED_OPERATION,
-			ERR_UNAVAILABLE,
-			"Load is disabled for this Profile."
-		)
-	if _unsafe_callback_depth > 0:
-		return _make_rejected_operation(
-			GFSaveProfileOperation.OPERATION_LOAD,
-			profile_id,
-			GFSaveProfileResult.STATUS_BUSY,
-			ERR_BUSY,
-			"Load is not accepted from a Provider or state callback."
-		)
-	_begin_processing()
-	var operation: GFSaveProfileOperation = _make_operation(
-		GFSaveProfileOperation.OPERATION_LOAD,
-		profile_id,
-		state.generation,
-		context,
-		metadata
-	)
-	state.load_operations.append(operation)
-	_enqueue_schedule(state)
-	_end_processing()
-	return operation
+	return _request_load_profile(profile_id, context, metadata, null, false)
 
 
 ## 等待调用时可见的最新 generation 持久化。
@@ -611,53 +511,7 @@ func flush_profile(
 	profile_id: StringName,
 	metadata: Dictionary = {}
 ) -> GFSaveProfileOperation:
-	if not _admission_open:
-		return _make_rejected_operation(
-			GFSaveProfileOperation.OPERATION_FLUSH,
-			profile_id,
-			GFSaveProfileResult.STATUS_BUSY,
-			ERR_BUSY,
-			"Save Profile Utility is quiescing."
-		)
-	var state: ProfileState = _get_state(profile_id)
-	if state == null or _disposed:
-		return _make_rejected_operation(
-			GFSaveProfileOperation.OPERATION_FLUSH,
-			profile_id,
-			GFSaveProfileResult.STATUS_INVALID_PROFILE,
-			ERR_DOES_NOT_EXIST,
-			"Save profile is not registered."
-		)
-	if not state.save_enabled:
-		return _make_rejected_operation(
-			GFSaveProfileOperation.OPERATION_FLUSH,
-			profile_id,
-			GFSaveProfileResult.STATUS_UNSUPPORTED_OPERATION,
-			ERR_UNAVAILABLE,
-			"Flush is disabled for this Profile."
-		)
-	if _unsafe_callback_depth > 0:
-		return _make_rejected_operation(
-			GFSaveProfileOperation.OPERATION_FLUSH,
-			profile_id,
-			GFSaveProfileResult.STATUS_BUSY,
-			ERR_BUSY,
-			"Flush is not accepted from a Provider or state callback."
-		)
-	_begin_processing()
-	var operation: GFSaveProfileOperation = _make_operation(
-		GFSaveProfileOperation.OPERATION_FLUSH,
-		profile_id,
-		state.generation,
-		{},
-		metadata
-	)
-	state.flush_operations.append(operation)
-	_complete_ready_flushes(state)
-	if not operation.is_completed():
-		_enqueue_schedule(state)
-	_end_processing()
-	return operation
+	return _request_flush_profile(profile_id, metadata, null)
 
 
 ## 获取已成功持久化的 generation。
@@ -716,7 +570,895 @@ func get_profile_state_snapshot(profile_id: StringName) -> Dictionary:
 	}
 
 
+# --- 框架内部方法 ---
+
+## 为事务协调器原子声明一个已注册 Profile 的管理所有权。
+##
+## 返回值是 Utility 创建的 opaque capability；调用方不得公开、复制或伪造它。
+## [br]
+## @api framework_internal
+## [br]
+## @since unreleased
+## [br]
+## @param profile_id: 已注册且空闲的 Profile ID。
+## [br]
+## @param owner: 管理该 Profile 的协调器实例。
+## [br]
+## @return 成功时返回 opaque permit；否则返回 null。
+func claim_profile_management_for_framework(
+	profile_id: StringName,
+	owner: Object
+) -> RefCounted:
+	var state: ProfileState = _get_state(profile_id)
+	_reap_expired_managed_permit_if_safe(state)
+	if (
+		not _admission_open
+		or _disposed
+		or _dispose_requested
+		or _unsafe_callback_depth > 0
+		or owner == null
+		or state == null
+		or state.memory_transaction_active
+		or state.managed_permit != null
+		or state.mode != STATE_IDLE
+		or _has_pending_operations(state)
+		or not state.detached_write_operations.is_empty()
+	):
+		return null
+	var permit: ManagedProfilePermit = ManagedProfilePermit.new()
+	if not permit.configure_for_framework(owner, _next_management_serial):
+		return null
+	_next_management_serial += 1
+	state.managed_permit = permit
+	state.managed_access = MANAGED_ACCESS_BLOCKED
+	return permit
+
+
+## 更新受管 Profile 的直接操作权限。
+## [br]
+## @api framework_internal
+## [br]
+## @since unreleased
+## [br]
+## @param profile_id: 受管 Profile ID。
+## [br]
+## @param permit: claim 时返回的 opaque capability。
+## [br]
+## @param access: `MANAGED_ACCESS_*` 常量之一。
+## [br]
+## @return BLOCKED 在 capability 匹配时立即生效；放宽权限还要求稳定且准入开放。
+func set_profile_managed_access_for_framework(
+	profile_id: StringName,
+	permit: RefCounted,
+	access: int
+) -> bool:
+	var state: ProfileState = _get_state(profile_id)
+	_reap_expired_managed_permit_if_safe(state)
+	if (
+		state == null
+		or not _is_valid_managed_permit(state, permit)
+		or access not in [MANAGED_ACCESS_BLOCKED, MANAGED_ACCESS_SAVE_FLUSH]
+	):
+		return false
+	if access == MANAGED_ACCESS_BLOCKED:
+		state.managed_access = MANAGED_ACCESS_BLOCKED
+		return true
+	if (
+		not _admission_open
+		or _disposed
+		or _dispose_requested
+		or _unsafe_callback_depth > 0
+		or state.memory_transaction_active
+	):
+		return false
+	state.managed_access = access
+	return true
+
+
+## 释放一个空闲 Profile 的管理 capability。
+## [br]
+## @api framework_internal
+## [br]
+## @since unreleased
+## [br]
+## @param profile_id: 受管 Profile ID。
+## [br]
+## @param permit: claim 时返回的 opaque capability。
+## [br]
+## @return Profile 空闲且 capability 匹配时返回 true。
+func release_profile_management_for_framework(
+	profile_id: StringName,
+	permit: RefCounted
+) -> bool:
+	var state: ProfileState = _get_state(profile_id)
+	_reap_expired_managed_permit_if_safe(state)
+	if (
+		not _admission_open
+		or _disposed
+		or _dispose_requested
+		or _unsafe_callback_depth > 0
+		or state == null
+		or state.memory_transaction_active
+		or not _is_valid_managed_permit(state, permit)
+		or state.mode != STATE_IDLE
+		or _has_pending_operations(state)
+		or not state.detached_write_operations.is_empty()
+	):
+		return false
+	state.managed_permit.invalidate_for_framework()
+	state.managed_permit = null
+	state.managed_access = MANAGED_ACCESS_BLOCKED
+	return true
+
+
+## 放弃一个 management capability，并立即关闭该 Profile 的全部受管与直接准入。
+##
+## 已接纳的低层工作不会被取消；Utility 会在 pending、内存事务与物理写入尾部
+## 全部收敛后自动清理失效 capability。该入口只减少权限，可用于 manager 关闭路径。
+## [br]
+## @api framework_internal
+## [br]
+## @since unreleased
+## [br]
+## @param profile_id: 受管 Profile ID。
+## [br]
+## @param permit: claim 时返回的 opaque capability。
+## [br]
+## @return capability 身份匹配且已被失效时返回 true。
+func abandon_profile_management_for_framework(
+	profile_id: StringName,
+	permit: RefCounted
+) -> bool:
+	var state: ProfileState = _get_state(profile_id)
+	if (
+		_disposed
+		or state == null
+		or permit == null
+		or state.managed_permit == null
+		or state.managed_permit != permit
+	):
+		return false
+	state.managed_access = MANAGED_ACCESS_BLOCKED
+	state.managed_permit.invalidate_for_framework()
+	_reap_expired_managed_permit_if_safe(state)
+	return true
+
+
+## 以 manager capability 请求保存。
+## [br]
+## @api framework_internal
+## [br]
+## @since unreleased
+## [br]
+## @param profile_id: 受管 Profile ID。
+## [br]
+## @param request: 一次性保存请求。
+## [br]
+## @param permit: claim 时返回的 opaque capability。
+## [br]
+## @param section_overrides: 当前 generation 必须原样持久化的候选 section。
+## [br]
+## @return 低层保存操作；capability 无效时返回失败句柄且不 claim request。
+func save_profile_for_manager_for_framework(
+	profile_id: StringName,
+	request: GFSaveProfileRequest,
+	permit: RefCounted,
+	section_overrides: Array[GFSaveSection] = []
+) -> GFSaveProfileOperation:
+	return _request_save_profile(profile_id, request, permit, section_overrides)
+
+
+## 以 manager capability 请求严格读取。
+## [br]
+## @api framework_internal
+## [br]
+## @since unreleased
+## [br]
+## @param profile_id: 受管 Profile ID。
+## [br]
+## @param context: Provider 与迁移临时上下文。
+## [br]
+## @param metadata: 低层结果元数据。
+## [br]
+## @param permit: claim 时返回的 opaque capability。
+## [br]
+## @schema context: Dictionary with caller-defined ephemeral operation data.
+## [br]
+## @schema metadata: Dictionary with caller-defined result metadata.
+## [br]
+## @return 忽略 `ACTION_USE_CURRENT_STATE` 的低层读取操作。
+func load_profile_strict_for_manager_for_framework(
+	profile_id: StringName,
+	context: Dictionary,
+	metadata: Dictionary,
+	permit: RefCounted
+) -> GFSaveProfileOperation:
+	return _request_load_profile(profile_id, context, metadata, permit, true)
+
+
+## 以 manager capability 请求 flush。
+## [br]
+## @api framework_internal
+## [br]
+## @since unreleased
+## [br]
+## @param profile_id: 受管 Profile ID。
+## [br]
+## @param metadata: 低层结果元数据。
+## [br]
+## @param permit: claim 时返回的 opaque capability。
+## [br]
+## @schema metadata: Dictionary with caller-defined result metadata.
+## [br]
+## @return 低层 flush 操作。
+func flush_profile_for_manager_for_framework(
+	profile_id: StringName,
+	metadata: Dictionary,
+	permit: RefCounted
+) -> GFSaveProfileOperation:
+	return _request_flush_profile(profile_id, metadata, permit)
+
+
+## 以 manager capability 注销 Profile。
+## [br]
+## @api framework_internal
+## [br]
+## @since unreleased
+## [br]
+## @param profile_id: 受管 Profile ID。
+## [br]
+## @param permit: claim 时返回的 opaque capability。
+## [br]
+## @return 注销成功时返回 true。
+func unregister_profile_for_manager_for_framework(
+	profile_id: StringName,
+	permit: RefCounted
+) -> bool:
+	return _unregister_profile(_get_state(profile_id), permit)
+
+
+## 获取事务协调器所需的无载荷编译描述。
+## [br]
+## @api framework_internal
+## [br]
+## @since unreleased
+## [br]
+## @param profile_id: 已注册 Profile ID。
+## [br]
+## @return 编译身份、能力与 Provider 引用；不存在时为空。
+## [br]
+## @schema return: Internal Dictionary with profile_id, schema_id, schema_version, save_enabled, load_enabled, providers, and generation fields.
+func get_profile_descriptor_for_manager_for_framework(profile_id: StringName) -> Dictionary:
+	var state: ProfileState = _get_state(profile_id)
+	if state == null:
+		return {}
+	return {
+		"profile_id": state.profile_id,
+		"schema_id": state.schema_id,
+		"schema_version": state.schema_version,
+		"save_enabled": state.save_enabled,
+		"load_enabled": state.load_enabled,
+		"providers": state.providers.duplicate(),
+		"generation": state.generation,
+	}
+
+
+## 查询 generation 的竞态安全持久化证据。
+## [br]
+## @api framework_internal
+## [br]
+## @since unreleased
+## [br]
+## @param profile_id: Profile ID。
+## [br]
+## @param generation: 正数目标 generation。
+## [br]
+## @return payload-free evidence；Profile 或 generation 无效时为空。
+## [br]
+## @schema return: Internal Dictionary with state, profile_id, generation, persisted_generation, status, error_code, error, and storage_request_ids fields.
+func get_generation_evidence_for_framework(
+	profile_id: StringName,
+	generation: int
+) -> Dictionary:
+	var state: ProfileState = _get_state(profile_id)
+	if state == null or generation <= 0:
+		return {}
+	var evidence: Dictionary = {
+		"state": &"pending",
+		"profile_id": profile_id,
+		"generation": generation,
+		"persisted_generation": state.persisted_generation,
+		"status": &"",
+		"error_code": int(OK),
+		"error": "",
+		"storage_request_ids": PackedInt64Array(),
+	}
+	var barrier_failure: Dictionary = _get_barrier_failure(state, generation)
+	if not barrier_failure.is_empty():
+		var failure_status: StringName = GFVariantData.get_option_string_name(
+			barrier_failure,
+			"status"
+		)
+		evidence["state"] = (
+			&"outcome_unknown"
+			if failure_status == GFSaveProfileResult.STATUS_OUTCOME_UNKNOWN
+			else &"failed"
+		)
+		evidence["status"] = failure_status
+		evidence["error_code"] = GFVariantData.get_option_int(
+			barrier_failure,
+			"error_code",
+			int(FAILED)
+		)
+		evidence["error"] = GFVariantData.get_option_string(barrier_failure, "error")
+		evidence["storage_request_ids"] = _get_request_id_array(
+			GFVariantData.get_option_value(barrier_failure, "storage_request_ids")
+		)
+		return evidence
+	if generation <= state.persisted_generation:
+		evidence["state"] = &"persisted"
+		return evidence
+	if not _has_pending_save_covering_generation(state, generation):
+		evidence["state"] = &"unresolved"
+	return evidence
+
+
+## 捕获并应用受管 Profile 的完整 section replacement 候选。
+##
+## 本方法只执行内存阶段；调用方必须保留成功结果中的 snapshots，直到持久化
+## 确认或显式逆序回滚。结果不得进入外部日志。
+## [br]
+## @api framework_internal
+## [br]
+## @since unreleased
+## [br]
+## @param profile_id: 受管且空闲的活动 Profile ID。
+## [br]
+## @param candidates: 已完成边界校验的候选 section。
+## [br]
+## @param context: Provider apply/rollback 临时上下文。
+## [br]
+## @param permit: claim 时返回的 opaque capability。
+## [br]
+## @schema context: Dictionary with caller-defined ephemeral operation data.
+## [br]
+## @return 内部 apply 结果；成功结果含 provider_ids 与 snapshots。
+## [br]
+## @schema return: Internal Dictionary with ok, failure_stage, failed_section_id, error_code, error, rollback_errors, provider_ids, and snapshots fields.
+func apply_profile_candidates_for_manager_for_framework(
+	profile_id: StringName,
+	candidates: Array[GFSaveSection],
+	context: Dictionary,
+	permit: RefCounted
+) -> Dictionary:
+	var state: ProfileState = _get_state(profile_id)
+	if (
+		not _admission_open
+		or _disposed
+		or _dispose_requested
+		or not _is_valid_managed_permit(state, permit)
+		or _unsafe_callback_depth > 0
+		or state.memory_transaction_active
+		or state.mode != STATE_IDLE
+		or _has_pending_operations(state)
+		or not state.detached_write_operations.is_empty()
+		or candidates.is_empty()
+	):
+		return _make_candidate_failure(
+			&"admission",
+			&"",
+			ERR_BUSY,
+			"Managed Profile candidates are not admitted in the current state."
+		)
+	state.memory_transaction_active = true
+	_begin_processing()
+	var candidates_by_id: Dictionary = {}
+	for candidate: GFSaveSection in candidates:
+		if candidate == null:
+			return _finish_managed_memory_transaction(state, _make_candidate_failure(
+				&"validation",
+				&"",
+				ERR_INVALID_DATA,
+				"Candidate section is null."
+			))
+		var section_id: StringName = candidate.get_section_id()
+		if section_id == &"" or candidates_by_id.has(section_id):
+			return _finish_managed_memory_transaction(state, _make_candidate_failure(
+				&"validation",
+				section_id,
+				ERR_INVALID_DATA,
+				"Candidate section IDs must be non-empty and unique."
+			))
+		candidates_by_id[section_id] = candidate
+	var ordered_providers: Array[GFSaveSectionProvider] = []
+	var snapshots: Dictionary = {}
+	for provider: GFSaveSectionProvider in state.providers:
+		if provider == null or not candidates_by_id.has(provider.section_id):
+			continue
+		var candidate: GFSaveSection = _get_section_value(
+			GFVariantData.get_option_value(candidates_by_id, provider.section_id)
+		)
+		if (
+			candidate == null
+			or candidate.get_schema_version() != provider.schema_version
+			or not provider.load_enabled
+			or not provider.save_enabled
+			or not GFVariantData.get_option_bool(candidate.validate_section(), "ok", false)
+		):
+			return _finish_managed_memory_transaction(state, _make_candidate_failure(
+				&"validation",
+				provider.section_id,
+				ERR_INVALID_DATA,
+				"Candidate section does not match a mutable persisted Provider."
+			))
+		_enter_unsafe_callback()
+		var snapshot: GFSaveSection = provider.capture_section(context)
+		_exit_unsafe_callback()
+		var permit_remains_valid: bool = _is_valid_managed_permit(state, permit)
+		if (
+			snapshot == null
+			or _dispose_requested
+			or not _admission_open
+			or not permit_remains_valid
+		):
+			var snapshot_error_code: Error = ERR_INVALID_DATA
+			var snapshot_error: String = (
+				"Save section Provider failed to capture a mutation rollback snapshot."
+			)
+			if _dispose_requested:
+				snapshot_error_code = ERR_UNAVAILABLE
+				snapshot_error = "Save Profile Utility was disposed during mutation capture."
+			elif not _admission_open:
+				snapshot_error_code = ERR_BUSY
+				snapshot_error = "Save Profile Utility began quiescing during mutation capture."
+			elif not permit_remains_valid:
+				snapshot_error_code = ERR_UNAUTHORIZED
+				snapshot_error = (
+					"Managed Profile authority was abandoned during mutation capture."
+				)
+			return _finish_managed_memory_transaction(state, _make_candidate_failure(
+				&"snapshot",
+				provider.section_id,
+				snapshot_error_code,
+				snapshot_error
+			))
+		ordered_providers.append(provider)
+		snapshots[provider.section_id] = snapshot
+	if ordered_providers.size() != candidates_by_id.size():
+		return _finish_managed_memory_transaction(state, _make_candidate_failure(
+			&"validation",
+			&"",
+			ERR_DOES_NOT_EXIST,
+			"At least one candidate section is not owned by the Profile."
+		))
+	var attempted: Array[GFSaveSectionProvider] = []
+	for provider: GFSaveSectionProvider in ordered_providers:
+		attempted.append(provider)
+		var candidate: GFSaveSection = _get_section_value(
+			GFVariantData.get_option_value(candidates_by_id, provider.section_id)
+		)
+		_enter_unsafe_callback()
+		var apply_error: Error = provider.apply_section(candidate, context)
+		_exit_unsafe_callback()
+		var permit_remains_valid: bool = _is_valid_managed_permit(state, permit)
+		if (
+			apply_error == OK
+			and not _dispose_requested
+			and _admission_open
+			and permit_remains_valid
+		):
+			continue
+		var rollback_errors: Array[GFSaveRollbackFailure] = _rollback_providers(
+			attempted,
+			snapshots,
+			context
+		)
+		var terminal_apply_error: Error = apply_error
+		var apply_error_message: String = (
+			"Save section Provider failed to apply a mutation candidate."
+		)
+		if _dispose_requested:
+			terminal_apply_error = ERR_UNAVAILABLE
+			apply_error_message = "Save Profile Utility was disposed during mutation apply."
+		elif not _admission_open:
+			terminal_apply_error = ERR_BUSY
+			apply_error_message = "Save Profile Utility began quiescing during mutation apply."
+		elif not permit_remains_valid:
+			terminal_apply_error = ERR_UNAUTHORIZED
+			apply_error_message = "Managed Profile authority was abandoned during mutation apply."
+		var failure: Dictionary = _make_candidate_failure(
+			&"apply",
+			provider.section_id,
+			terminal_apply_error,
+			apply_error_message
+		)
+		failure["rollback_errors"] = rollback_errors
+		return _finish_managed_memory_transaction(state, failure)
+	var provider_ids: PackedStringArray = PackedStringArray()
+	for provider: GFSaveSectionProvider in ordered_providers:
+		var _appended: bool = provider_ids.append(String(provider.section_id))
+	return _finish_managed_memory_transaction(state, {
+		"ok": true,
+		"provider_ids": provider_ids,
+		"snapshots": snapshots,
+		"rollback_errors": [],
+	})
+
+
+## 逆序恢复一次已成功 apply 的受管候选集合。
+## [br]
+## @api framework_internal
+## [br]
+## @since unreleased
+## [br]
+## @param profile_id: 受管 Profile ID。
+## [br]
+## @param provider_ids: apply 时返回的稳定 Provider 顺序。
+## [br]
+## @param snapshots: apply 时返回的内部回滚快照。
+## [br]
+## @param context: Provider rollback 临时上下文。
+## [br]
+## @param permit: claim 时返回的 opaque capability。
+## [br]
+## @schema snapshots: Internal Dictionary keyed by section ID with GFSaveSection values.
+## [br]
+## @schema context: Dictionary with caller-defined ephemeral operation data.
+## [br]
+## @return 按逆序排列的回滚失败证据。
+func rollback_profile_candidates_for_manager_for_framework(
+	profile_id: StringName,
+	provider_ids: PackedStringArray,
+	snapshots: Dictionary,
+	context: Dictionary,
+	permit: RefCounted
+) -> Array[GFSaveRollbackFailure]:
+	var state: ProfileState = _get_state(profile_id)
+	var providers: Array[GFSaveSectionProvider] = []
+	if (
+		not _admission_open
+		or _disposed
+		or _dispose_requested
+		or not _is_valid_managed_permit(state, permit)
+		or _unsafe_callback_depth > 0
+		or state.memory_transaction_active
+		or state.mode != STATE_IDLE
+		or _has_pending_operations(state)
+		or not state.detached_write_operations.is_empty()
+	):
+		return _make_management_rollback_failure(provider_ids)
+	state.memory_transaction_active = true
+	_begin_processing()
+	for provider_id: String in provider_ids:
+		var selected: GFSaveSectionProvider = null
+		for provider: GFSaveSectionProvider in state.providers:
+			if provider != null and provider.section_id == StringName(provider_id):
+				selected = provider
+				break
+		if selected == null:
+			return _finish_managed_memory_rollback(
+				state,
+				_make_management_rollback_failure(provider_ids)
+			)
+		providers.append(selected)
+	return _finish_managed_memory_rollback(
+		state,
+		_rollback_providers(providers, snapshots, context)
+	)
+
+
 # --- 私有/辅助方法 ---
+
+func _unregister_profile(state: ProfileState, managed_permit: RefCounted) -> bool:
+	_reap_expired_managed_permit_if_safe(state)
+	var managed_call: bool = _is_valid_managed_permit(state, managed_permit)
+	if (
+		not _admission_open
+		or _disposed
+		or _dispose_requested
+		or _unsafe_callback_depth > 0
+		or state == null
+		or state.memory_transaction_active
+		or (managed_permit != null and not managed_call)
+		or (managed_permit == null and state.managed_permit != null)
+		or state.mode != STATE_IDLE
+		or _has_pending_operations(state)
+		or not state.detached_write_operations.is_empty()
+		or state.pending_schedule_enqueued
+		or state.active_preparation_enqueued
+	):
+		return false
+	if state.managed_permit != null:
+		state.managed_permit.invalidate_for_framework()
+		state.managed_permit = null
+	var _erased: bool = _states.erase(state.profile_id)
+	return true
+
+
+func _request_save_profile(
+	profile_id: StringName,
+	request: GFSaveProfileRequest,
+	managed_permit: RefCounted,
+	section_overrides: Array[GFSaveSection]
+) -> GFSaveProfileOperation:
+	var state: ProfileState = _get_state(profile_id)
+	_reap_expired_managed_permit_if_safe(state)
+	var managed_call: bool = _is_valid_managed_permit(state, managed_permit)
+	if not _admission_open:
+		return _make_rejected_operation(
+			GFSaveProfileOperation.OPERATION_SAVE,
+			profile_id,
+			GFSaveProfileResult.STATUS_BUSY,
+			ERR_BUSY,
+			"Save Profile Utility is quiescing."
+		)
+	if state == null or _disposed:
+		return _make_rejected_operation(
+			GFSaveProfileOperation.OPERATION_SAVE,
+			profile_id,
+			GFSaveProfileResult.STATUS_INVALID_PROFILE,
+			ERR_DOES_NOT_EXIST,
+			"Save profile is not registered."
+		)
+	if managed_permit != null and not managed_call:
+		return _make_rejected_operation(
+			GFSaveProfileOperation.OPERATION_SAVE,
+			profile_id,
+			GFSaveProfileResult.STATUS_INVALID_REQUEST,
+			ERR_UNAUTHORIZED,
+			"Managed Profile permit is invalid."
+		)
+	if not managed_call and not _is_direct_managed_operation_allowed(
+		state,
+		GFSaveProfileOperation.OPERATION_SAVE
+	):
+		return _make_rejected_operation(
+			GFSaveProfileOperation.OPERATION_SAVE,
+			profile_id,
+			GFSaveProfileResult.STATUS_BUSY,
+			ERR_BUSY,
+			"Managed Profile save is not admitted in the current domain state."
+		)
+	if (
+		state.managed_permit != null
+		and not state.detached_write_operations.is_empty()
+	):
+		return _make_rejected_operation(
+			GFSaveProfileOperation.OPERATION_SAVE,
+			profile_id,
+			GFSaveProfileResult.STATUS_BUSY,
+			ERR_BUSY,
+			"Managed Profile save is blocked until every detached write settles."
+		)
+	if not state.save_enabled:
+		return _make_rejected_operation(
+			GFSaveProfileOperation.OPERATION_SAVE,
+			profile_id,
+			GFSaveProfileResult.STATUS_UNSUPPORTED_OPERATION,
+			ERR_UNAVAILABLE,
+			"Save is disabled for this Profile."
+		)
+	if (
+		_unsafe_callback_depth > 0
+		or state.memory_transaction_active
+		or _is_load_active(state)
+	):
+		return _make_rejected_operation(
+			GFSaveProfileOperation.OPERATION_SAVE,
+			profile_id,
+			GFSaveProfileResult.STATUS_BUSY,
+			ERR_BUSY,
+			"Save is not accepted during load/apply or a Provider callback."
+		)
+	var compiled_overrides: Dictionary = _compile_section_overrides(
+		state,
+		section_overrides
+	)
+	if not section_overrides.is_empty() and compiled_overrides.size() != section_overrides.size():
+		return _make_rejected_operation(
+			GFSaveProfileOperation.OPERATION_SAVE,
+			profile_id,
+			GFSaveProfileResult.STATUS_INVALID_REQUEST,
+			ERR_INVALID_DATA,
+			"Managed save section overrides do not match the Profile definition."
+		)
+	var owned_request: GFSaveProfileRequest = request
+	if owned_request == null:
+		owned_request = GFSaveProfileRequest.take_ownership({}, {}, {})
+	var claim: Dictionary = owned_request.claim_for_framework()
+	if claim.is_empty():
+		return _make_rejected_operation(
+			GFSaveProfileOperation.OPERATION_SAVE,
+			profile_id,
+			GFSaveProfileResult.STATUS_INVALID_REQUEST,
+			ERR_INVALID_PARAMETER,
+			"Save request is invalid or already claimed."
+		)
+	var document_metadata_value: Variant = claim.get("document_metadata")
+	var context_value: Variant = claim.get("context")
+	var result_metadata_value: Variant = claim.get("result_metadata")
+	if (
+		not document_metadata_value is Dictionary
+		or not context_value is Dictionary
+		or not result_metadata_value is Dictionary
+	):
+		return _make_rejected_operation(
+			GFSaveProfileOperation.OPERATION_SAVE,
+			profile_id,
+			GFSaveProfileResult.STATUS_INVALID_REQUEST,
+			ERR_INVALID_DATA,
+			"Save request ownership record is invalid."
+		)
+	var document_metadata: Dictionary = document_metadata_value
+	var context: Dictionary = context_value
+	var result_metadata: Dictionary = result_metadata_value
+	_begin_processing()
+	state.generation += 1
+	state.latest_save_metadata = document_metadata
+	state.latest_save_context = context
+	state.latest_save_section_overrides = compiled_overrides
+	var operation: GFSaveProfileOperation = _make_save_operation(
+		profile_id,
+		state.generation,
+		result_metadata
+	)
+	state.save_operations.append(operation)
+	_enqueue_schedule(state)
+	_end_processing()
+	return operation
+
+
+func _request_load_profile(
+	profile_id: StringName,
+	context: Dictionary,
+	metadata: Dictionary,
+	managed_permit: RefCounted,
+	strict_recovery: bool
+) -> GFSaveProfileOperation:
+	var state: ProfileState = _get_state(profile_id)
+	_reap_expired_managed_permit_if_safe(state)
+	var managed_call: bool = _is_valid_managed_permit(state, managed_permit)
+	if not _admission_open:
+		return _make_rejected_operation(
+			GFSaveProfileOperation.OPERATION_LOAD,
+			profile_id,
+			GFSaveProfileResult.STATUS_BUSY,
+			ERR_BUSY,
+			"Save Profile Utility is quiescing."
+		)
+	if state == null or _disposed:
+		return _make_rejected_operation(
+			GFSaveProfileOperation.OPERATION_LOAD,
+			profile_id,
+			GFSaveProfileResult.STATUS_INVALID_PROFILE,
+			ERR_DOES_NOT_EXIST,
+			"Save profile is not registered."
+		)
+	if managed_permit != null and not managed_call:
+		return _make_rejected_operation(
+			GFSaveProfileOperation.OPERATION_LOAD,
+			profile_id,
+			GFSaveProfileResult.STATUS_INVALID_REQUEST,
+			ERR_UNAUTHORIZED,
+			"Managed Profile permit is invalid."
+		)
+	if not managed_call and not _is_direct_managed_operation_allowed(
+		state,
+		GFSaveProfileOperation.OPERATION_LOAD
+	):
+		return _make_rejected_operation(
+			GFSaveProfileOperation.OPERATION_LOAD,
+			profile_id,
+			GFSaveProfileResult.STATUS_BUSY,
+			ERR_BUSY,
+			"Managed Profile load must use its transaction coordinator."
+		)
+	if not state.load_enabled:
+		return _make_rejected_operation(
+			GFSaveProfileOperation.OPERATION_LOAD,
+			profile_id,
+			GFSaveProfileResult.STATUS_UNSUPPORTED_OPERATION,
+			ERR_UNAVAILABLE,
+			"Load is disabled for this Profile."
+		)
+	if _unsafe_callback_depth > 0 or state.memory_transaction_active:
+		return _make_rejected_operation(
+			GFSaveProfileOperation.OPERATION_LOAD,
+			profile_id,
+			GFSaveProfileResult.STATUS_BUSY,
+			ERR_BUSY,
+			"Load is not accepted from a Provider or state callback."
+		)
+	_begin_processing()
+	var operation: GFSaveProfileOperation = _make_operation(
+		GFSaveProfileOperation.OPERATION_LOAD,
+		profile_id,
+		state.generation,
+		context,
+		metadata,
+		strict_recovery,
+		managed_permit
+	)
+	state.load_operations.append(operation)
+	_enqueue_schedule(state)
+	_end_processing()
+	return operation
+
+
+func _request_flush_profile(
+	profile_id: StringName,
+	metadata: Dictionary,
+	managed_permit: RefCounted
+) -> GFSaveProfileOperation:
+	var state: ProfileState = _get_state(profile_id)
+	_reap_expired_managed_permit_if_safe(state)
+	var managed_call: bool = _is_valid_managed_permit(state, managed_permit)
+	if not _admission_open:
+		return _make_rejected_operation(
+			GFSaveProfileOperation.OPERATION_FLUSH,
+			profile_id,
+			GFSaveProfileResult.STATUS_BUSY,
+			ERR_BUSY,
+			"Save Profile Utility is quiescing."
+		)
+	if state == null or _disposed:
+		return _make_rejected_operation(
+			GFSaveProfileOperation.OPERATION_FLUSH,
+			profile_id,
+			GFSaveProfileResult.STATUS_INVALID_PROFILE,
+			ERR_DOES_NOT_EXIST,
+			"Save profile is not registered."
+		)
+	if managed_permit != null and not managed_call:
+		return _make_rejected_operation(
+			GFSaveProfileOperation.OPERATION_FLUSH,
+			profile_id,
+			GFSaveProfileResult.STATUS_INVALID_REQUEST,
+			ERR_UNAUTHORIZED,
+			"Managed Profile permit is invalid."
+		)
+	if not managed_call and not _is_direct_managed_operation_allowed(
+		state,
+		GFSaveProfileOperation.OPERATION_FLUSH
+	):
+		return _make_rejected_operation(
+			GFSaveProfileOperation.OPERATION_FLUSH,
+			profile_id,
+			GFSaveProfileResult.STATUS_BUSY,
+			ERR_BUSY,
+			"Managed Profile flush is not admitted in the current domain state."
+		)
+	if not state.save_enabled:
+		return _make_rejected_operation(
+			GFSaveProfileOperation.OPERATION_FLUSH,
+			profile_id,
+			GFSaveProfileResult.STATUS_UNSUPPORTED_OPERATION,
+			ERR_UNAVAILABLE,
+			"Flush is disabled for this Profile."
+		)
+	if _unsafe_callback_depth > 0 or state.memory_transaction_active:
+		return _make_rejected_operation(
+			GFSaveProfileOperation.OPERATION_FLUSH,
+			profile_id,
+			GFSaveProfileResult.STATUS_BUSY,
+			ERR_BUSY,
+			"Flush is not accepted from a Provider or state callback."
+		)
+	_begin_processing()
+	var operation: GFSaveProfileOperation = _make_operation(
+		GFSaveProfileOperation.OPERATION_FLUSH,
+		profile_id,
+		state.generation,
+		{},
+		metadata
+	)
+	state.flush_operations.append(operation)
+	_complete_ready_flushes(state)
+	if not operation.is_completed():
+		_enqueue_schedule(state)
+	_end_processing()
+	return operation
+
 
 func _enqueue_schedule(state: ProfileState) -> void:
 	if (
@@ -891,8 +1633,10 @@ func _start_save(state: ProfileState) -> void:
 	state.current_storage_request_ids = PackedInt64Array()
 	state.current_context = state.latest_save_context
 	state.current_metadata = state.latest_save_metadata
+	state.current_section_overrides = state.latest_save_section_overrides
 	state.latest_save_context = {}
 	state.latest_save_metadata = {}
+	state.latest_save_section_overrides = {}
 	state.current_preparation_provider_index = 0
 	state.current_preserved_section_index = 0
 	state.current_preparation_phase = _PREPARATION_PHASE_PROVIDER_SCAN
@@ -977,6 +1721,31 @@ func _advance_save_preparation(state: ProfileState, work_budget: int) -> int:
 				consumed += 1
 				state.current_preparation_work_units += 1
 				if provider == null or not provider.save_enabled:
+					continue
+				var override: GFSaveSection = _get_section_value(
+					GFVariantData.get_option_value(
+						state.current_section_overrides,
+						provider.section_id
+					)
+				)
+				if override != null:
+					var override_record: Dictionary = (
+						override.get_transfer_record_for_framework()
+					)
+					if override_record.is_empty():
+						_finish_save_failure(
+							state,
+							ERR_INVALID_DATA,
+							"Managed section override could not enter the save transfer.",
+							GFSaveProfileResult.STATUS_PREPARATION_FAILED,
+							provider.section_id
+						)
+						break
+					_store_current_section_record(
+						state,
+						provider.section_id,
+						override_record
+					)
 					continue
 				state.current_preparation_provider = provider
 				state.current_preparation_section_id = provider.section_id
@@ -1177,89 +1946,12 @@ func _schedule_retry(state: ProfileState, error_code: Error) -> bool:
 	return true
 
 
-# 存储终态
-
-func _on_storage_operation_completed(
-	result: GFStorageAsyncResult,
-	profile_id: StringName,
-	request_id: int
-) -> void:
-	if _disposed:
-		return
-	_begin_processing()
-	var state: ProfileState = _get_state(profile_id)
-	if (
-		state == null
-		or state.current_storage_operation == null
-		or state.current_storage_operation.get_request_id() != request_id
-		or result == null
-		or result.get_request_id() != request_id
-	):
-		_end_processing()
-		return
-	_complete_current_io_timing(state)
-	_clear_current_storage_operation(state)
-	if result.get_operation() == GFStorageAsyncOperation.OPERATION_SAVE:
-		if not result.is_successful():
-			if (
-				result.get_write_failure_kind()
-					== GFStorageAsyncResult.WriteFailureKind.PAYLOAD_INVALID
-			):
-				var adapted_validation: Dictionary = (
-					_PAYLOAD_VALIDATION_ADAPTER.adapt_for_framework(
-						result.get_write_validation_report(),
-						state.current_sections_entry_index,
-						state.current_section_ids_by_entry_index
-					)
-				)
-				_finish_save_failure(
-					state,
-					result.get_error_code(),
-					"Storage worker rejected the prepared Save payload.",
-					GFSaveProfileResult.STATUS_PREPARATION_FAILED,
-					GFVariantData.get_option_string_name(
-						adapted_validation,
-						"failed_section_id"
-					),
-					GFVariantData.get_option_dictionary(
-						adapted_validation,
-						"validation_report"
-					)
-				)
-			else:
-				_handle_save_failure(state, result.get_error_code(), "Storage save failed.")
-		else:
-			_finalize_save_timing_for_terminal(state)
-			state.persisted_generation = maxi(state.persisted_generation, state.current_generation)
-			_clear_generation_evidence_through(state, state.current_generation)
-			_complete_save_operations_success(state)
-			_clear_current(state)
-			_set_mode(state, STATE_IDLE)
-			_complete_ready_flushes(state)
-			_enqueue_schedule(state)
-	elif result.get_operation() == GFStorageAsyncOperation.OPERATION_LOAD:
-		var read_result: GFStorageReadResult = result.get_read_result()
-		if read_result == null:
-			_handle_load_failure(
-				state,
-				GFStorageReadResult.new().configure_failure(
-					"Storage returned no read result.",
-					FAILED,
-					{},
-					GFStorageReadResult.IntegrityStatus.NOT_CHECKED,
-					0,
-					GFStorageReadResult.FailureKind.IO_FAILED
-				)
-			)
-		elif not read_result.ok or not read_result.is_integrity_accepted():
-			_handle_load_failure(state, read_result)
-		else:
-			_process_loaded_document(state, read_result)
-	_end_processing()
 
 
 func _handle_save_failure(state: ProfileState, error_code: Error, error: String) -> void:
 	if _schedule_retry(state, error_code):
+		if state.unknown_write_generations.has(state.current_generation):
+			_emit_generation_evidence_changed(state, state.current_generation)
 		return
 	_finish_save_failure(
 		state,
@@ -1291,7 +1983,10 @@ func _handle_load_failure(state: ProfileState, result: GFStorageReadResult) -> v
 	):
 		status = GFSaveProfileResult.STATUS_CORRUPT
 		recovery_action = state.recovery_policy.corrupt_file_action
-	if recovery_action == GFSaveRecoveryPolicy.ACTION_USE_CURRENT_STATE:
+	if (
+		recovery_action == GFSaveRecoveryPolicy.ACTION_USE_CURRENT_STATE
+		and not _current_load_requires_strict_recovery(state)
+	):
 		_finish_load_success(
 			state,
 			GFSaveProfileResult.STATUS_RECOVERED,
@@ -1315,6 +2010,14 @@ func _handle_load_failure(state: ProfileState, result: GFStorageReadResult) -> v
 
 func _process_loaded_document(state: ProfileState, storage_result: GFStorageReadResult) -> void:
 	_set_mode(state, STATE_APPLYING)
+	if not _is_current_managed_load_authorized(state):
+		_finish_load_failure(
+			state,
+			GFSaveProfileResult.STATUS_DISPOSED,
+			ERR_UNAVAILABLE,
+			"Managed load capability was revoked before document apply."
+		)
+		return
 	var inspection: Dictionary = GFSaveDocument.inspect_dict(storage_result.payload)
 	if not GFVariantData.get_option_bool(inspection, "ok", false):
 		_handle_corrupt_document(state, storage_result, inspection)
@@ -1404,7 +2107,11 @@ func _process_loaded_document(state: ProfileState, storage_result: GFStorageRead
 		var status: StringName = GFSaveProfileResult.STATUS_APPLY_FAILED
 		if failure_stage == &"snapshot":
 			status = GFSaveProfileResult.STATUS_SNAPSHOT_FAILED
+		elif failure_stage == &"disposed":
+			status = GFSaveProfileResult.STATUS_DISPOSED
 		elif not rollback_errors.is_empty():
+			status = GFSaveProfileResult.STATUS_ROLLBACK_FAILED
+		if not rollback_errors.is_empty():
 			status = GFSaveProfileResult.STATUS_ROLLBACK_FAILED
 		_finish_load_failure(
 			state,
@@ -1447,9 +2154,13 @@ func _apply_document_transactionally(
 	for provider: GFSaveSectionProvider in state.providers:
 		if provider == null or not provider.load_enabled or not document.has_section(provider.section_id):
 			continue
+		if not _is_current_managed_load_authorized(state):
+			return _make_revoked_load_failure(provider.section_id)
 		_enter_unsafe_callback()
 		var snapshot: GFSaveSection = provider.capture_section(context)
 		_exit_unsafe_callback()
+		if not _is_current_managed_load_authorized(state):
+			return _make_revoked_load_failure(provider.section_id)
 		if snapshot == null:
 			return {
 				"ok": false,
@@ -1463,6 +2174,15 @@ func _apply_document_transactionally(
 		snapshots[provider.section_id] = snapshot
 	var attempted: Array[GFSaveSectionProvider] = []
 	for provider: GFSaveSectionProvider in providers:
+		if not _is_current_managed_load_authorized(state):
+			var revoked_rollback_errors: Array[GFSaveRollbackFailure] = (
+				_rollback_providers(attempted, snapshots, context)
+			)
+			var revoked_failure: Dictionary = _make_revoked_load_failure(
+				provider.section_id
+			)
+			revoked_failure["rollback_errors"] = revoked_rollback_errors
+			return revoked_failure
 		attempted.append(provider)
 		_enter_unsafe_callback()
 		var apply_error: Error = provider.apply_section(
@@ -1470,7 +2190,10 @@ func _apply_document_transactionally(
 			context
 		)
 		_exit_unsafe_callback()
-		if apply_error == OK:
+		var authorization_revoked: bool = (
+			not _is_current_managed_load_authorized(state)
+		)
+		if apply_error == OK and not authorization_revoked:
 			continue
 		var rollback_errors: Array[GFSaveRollbackFailure] = _rollback_providers(
 			attempted,
@@ -1479,12 +2202,28 @@ func _apply_document_transactionally(
 		)
 		return {
 			"ok": false,
-			"error_code": apply_error,
-			"error": "Save section provider failed to apply its section.",
+			"error_code": ERR_UNAVAILABLE if authorization_revoked else apply_error,
+			"error": (
+				"Managed load capability was revoked during Provider apply."
+				if authorization_revoked
+				else "Save section provider failed to apply its section."
+			),
 			"failed_section_id": provider.section_id,
 			"rollback_errors": rollback_errors,
+			"failure_stage": &"disposed" if authorization_revoked else &"apply",
 		}
 	return {"ok": true}
+
+
+func _make_revoked_load_failure(section_id: StringName) -> Dictionary:
+	return {
+		"ok": false,
+		"error_code": ERR_UNAVAILABLE,
+		"error": "Managed load capability was revoked before Provider apply.",
+		"failed_section_id": section_id,
+		"rollback_errors": [],
+		"failure_stage": &"disposed",
+	}
 
 
 func _rollback_providers(
@@ -1514,7 +2253,10 @@ func _handle_corrupt_document(
 	validation_report: Dictionary
 ) -> void:
 	var action: StringName = state.recovery_policy.corrupt_file_action
-	if action == GFSaveRecoveryPolicy.ACTION_USE_CURRENT_STATE:
+	if (
+		action == GFSaveRecoveryPolicy.ACTION_USE_CURRENT_STATE
+		and not _current_load_requires_strict_recovery(state)
+	):
 		_finish_load_success(
 			state,
 			GFSaveProfileResult.STATUS_RECOVERED,
@@ -1583,6 +2325,7 @@ func _complete_save_operations_success_through(
 	if generation >= state.generation:
 		state.latest_save_context = {}
 		state.latest_save_metadata = {}
+		state.latest_save_section_overrides = {}
 
 
 func _finish_save_failure(
@@ -1593,24 +2336,25 @@ func _finish_save_failure(
 	failed_section_id: StringName = &"",
 	validation_report: Dictionary = {}
 ) -> void:
+	var failed_generation: int = state.current_generation
 	_finalize_save_timing_for_terminal(state)
 	_record_generation_failure(
 		state,
-		state.current_generation,
+		failed_generation,
 		status,
 		error_code,
 		error,
 		failed_section_id,
 		state.current_storage_request_ids
 	)
-	state.last_failed_generation = maxi(state.last_failed_generation, state.current_generation)
+	state.last_failed_generation = maxi(state.last_failed_generation, failed_generation)
 	state.last_failure_status = status
 	state.last_failure_error_code = error_code
 	state.last_failure_error = error
 	state.last_failure_section_id = failed_section_id
 	var remaining: Array[GFSaveProfileOperation] = []
 	for operation: GFSaveProfileOperation in state.save_operations:
-		if operation.get_requested_generation() <= state.current_generation:
+		if operation.get_requested_generation() <= failed_generation:
 			_complete_operation(
 				state,
 				operation,
@@ -1631,13 +2375,16 @@ func _finish_save_failure(
 		else:
 			remaining.append(operation)
 	state.save_operations = remaining
-	if state.current_generation >= state.generation:
+	if failed_generation >= state.generation:
 		state.latest_save_context = {}
 		state.latest_save_metadata = {}
+		state.latest_save_section_overrides = {}
 	_clear_current(state)
 	_set_mode(state, STATE_IDLE)
 	_complete_ready_flushes(state)
 	_enqueue_schedule(state)
+	_reap_expired_managed_permit_if_safe(state)
+	_emit_generation_evidence_changed(state, failed_generation)
 
 
 func _finish_load_success(
@@ -1653,6 +2400,7 @@ func _finish_load_success(
 	_clear_current(state)
 	_set_mode(state, STATE_IDLE)
 	_enqueue_schedule(state)
+	_reap_expired_managed_permit_if_safe(state)
 
 
 func _finish_load_failure(
@@ -1670,13 +2418,18 @@ func _finish_load_failure(
 	_clear_current(state)
 	_set_mode(state, STATE_IDLE)
 	_enqueue_schedule(state)
+	_reap_expired_managed_permit_if_safe(state)
 
 
 func _complete_ready_flushes(state: ProfileState) -> void:
 	var remaining: Array[GFSaveProfileOperation] = []
 	for operation: GFSaveProfileOperation in state.flush_operations:
 		var target: int = operation.get_requested_generation()
-		if target <= state.persisted_generation:
+		if _has_pending_save_covering_generation(state, target):
+			remaining.append(operation)
+			continue
+		var barrier_failure: Dictionary = _get_barrier_failure(state, target)
+		if target <= state.persisted_generation and barrier_failure.is_empty():
 			var _started: bool = operation.start_for_framework()
 			_complete_operation(
 				state,
@@ -1686,10 +2439,7 @@ func _complete_ready_flushes(state: ProfileState) -> void:
 				OK,
 				""
 			)
-		elif _has_pending_save_covering_generation(state, target):
-			remaining.append(operation)
 		else:
-			var barrier_failure: Dictionary = _get_barrier_failure(state, target)
 			if barrier_failure.is_empty():
 				remaining.append(operation)
 				continue
@@ -1846,6 +2596,7 @@ func _clear_current(state: ProfileState) -> void:
 	state.current_payload_transfer = null
 	state.current_context = {}
 	state.current_metadata = {}
+	state.current_section_overrides = {}
 	state.retry_due_msec = 0
 	state.current_io_deadline_msec = 0
 	state.current_io_started_at_msec = -1
@@ -1859,7 +2610,9 @@ func _make_operation(
 	profile_id: StringName,
 	generation: int,
 	context: Dictionary,
-	result_metadata: Dictionary
+	result_metadata: Dictionary,
+	strict_recovery: bool = false,
+	manager_permit: RefCounted = null
 ) -> GFSaveProfileOperation:
 	var operation: GFSaveProfileOperation = GFSaveProfileOperation.new()
 	var _configured: bool = operation.configure_for_framework(
@@ -1868,7 +2621,9 @@ func _make_operation(
 		generation,
 		_clock.get_monotonic_msec(),
 		context,
-		result_metadata
+		result_metadata,
+		strict_recovery,
+		manager_permit
 	)
 	return operation
 
@@ -1946,6 +2701,9 @@ func _dispose_now() -> void:
 			continue
 		_set_mode(state, STATE_DISPOSED)
 		_complete_all_pending_as_disposed(state)
+		if state.managed_permit != null:
+			state.managed_permit.invalidate_for_framework()
+			state.managed_permit = null
 	_states.clear()
 	_pending_schedule_head = null
 	_pending_schedule_tail = null
@@ -1978,6 +2736,82 @@ func _is_load_active(state: ProfileState) -> bool:
 		state != null
 		and state.current_kind == GFSaveProfileOperation.OPERATION_LOAD
 		and state.mode != STATE_IDLE
+	)
+
+
+func _current_load_requires_strict_recovery(state: ProfileState) -> bool:
+	return (
+		state != null
+		and state.current_load_operation != null
+		and state.current_load_operation.requires_strict_recovery_for_framework()
+	)
+
+
+func _is_current_managed_load_authorized(state: ProfileState) -> bool:
+	if state == null or state.current_load_operation == null:
+		return false
+	var permit: RefCounted = (
+		state.current_load_operation.get_manager_permit_for_framework()
+	)
+	if permit == null:
+		return true
+	return _is_valid_managed_permit(state, permit)
+
+
+func _reap_expired_managed_permit_if_safe(state: ProfileState) -> void:
+	if (
+		state == null
+		or _unsafe_callback_depth > 0
+		or state.managed_permit == null
+		or state.managed_permit.is_active_for_framework()
+	):
+		return
+	state.managed_access = MANAGED_ACCESS_BLOCKED
+	if (
+		state.memory_transaction_active
+		or state.mode != STATE_IDLE
+		or _has_pending_operations(state)
+		or state.current_storage_operation != null
+		or not state.detached_write_operations.is_empty()
+		or state.pending_schedule_enqueued
+		or state.active_preparation_enqueued
+	):
+		return
+	state.managed_permit.invalidate_for_framework()
+	state.managed_permit = null
+
+
+func _block_all_managed_access_for_shutdown() -> void:
+	for state_value: Variant in _states.values():
+		var state: ProfileState = _get_state_value(state_value)
+		if state != null and state.managed_permit != null:
+			state.managed_access = MANAGED_ACCESS_BLOCKED
+
+
+func _is_valid_managed_permit(
+	state: ProfileState,
+	permit_value: RefCounted
+) -> bool:
+	if state == null or state.managed_permit == null or permit_value == null:
+		return false
+	return state.managed_permit == permit_value and state.managed_permit.is_active_for_framework()
+
+
+func _is_direct_managed_operation_allowed(
+	state: ProfileState,
+	operation_kind: StringName
+) -> bool:
+	_reap_expired_managed_permit_if_safe(state)
+	if state == null or state.managed_permit == null:
+		return true
+	if not state.managed_permit.is_active_for_framework():
+		return false
+	return (
+		state.managed_access == MANAGED_ACCESS_SAVE_FLUSH
+		and operation_kind in [
+			GFSaveProfileOperation.OPERATION_SAVE,
+			GFSaveProfileOperation.OPERATION_FLUSH,
+		]
 	)
 
 
@@ -2206,125 +3040,9 @@ func _detach_current_write(state: ProfileState) -> void:
 		) as Error
 
 
-func _on_detached_write_completed(
-	result: GFStorageAsyncResult,
-	profile_id: StringName,
-	request_id: int,
-	generation: int
-) -> void:
-	if _disposed:
-		return
-	_begin_processing()
-	var state: ProfileState = _get_state(profile_id)
-	if state == null or not state.detached_write_operations.has(request_id):
-		_end_processing()
-		return
-	var record: Dictionary = GFVariantData.as_dictionary(
-		state.detached_write_operations.get(request_id, {})
-	)
-	var operation: GFStorageAsyncOperation = _get_storage_operation_value(
-		GFVariantData.get_option_value(record, "operation")
-	)
-	var callback: Callable = _get_callable_value(
-		GFVariantData.get_option_value(record, "callback", Callable())
-	)
-	if operation != null and callback.is_valid() and operation.completed.is_connected(callback):
-		operation.completed.disconnect(callback)
-	var owns_current_retry: bool = (
-		state.current_kind == GFSaveProfileOperation.OPERATION_SAVE
-		and state.current_generation == generation
-		and state.mode != STATE_IDLE
-	)
-	var record_storage_duration_msec: int = GFVariantData.get_option_int(
-		record,
-		"storage_duration_msec"
-	)
-	if owns_current_retry:
-		_account_detached_write_tails(state, generation)
-		record_storage_duration_msec = state.current_storage_duration_msec
-	else:
-		var now_msec: int = _clock.get_monotonic_msec()
-		record_storage_duration_msec += maxi(
-			now_msec - GFVariantData.get_option_int(
-				record,
-				"tail_accounted_at_msec",
-				now_msec
-			),
-			0
-		)
-	var _erased: bool = state.detached_write_operations.erase(request_id)
-	_remove_unknown_request_id(state, generation, request_id)
-	var successful: bool = (
-		result != null
-		and result.get_request_id() == request_id
-		and result.get_operation() == GFStorageAsyncOperation.OPERATION_SAVE
-		and result.is_successful()
-	)
-	if successful:
-		var attempt_count: int = GFVariantData.get_option_int(record, "attempt_count")
-		var preparation_duration_msec: int = GFVariantData.get_option_int(
-			record,
-			"preparation_duration_msec"
-		)
-		var storage_duration_msec: int = record_storage_duration_msec
-		var preparation_work_units: int = GFVariantData.get_option_int(
-			record,
-			"preparation_work_units"
-		)
-		var request_ids: PackedInt64Array = _get_request_id_array(
-			GFVariantData.get_option_value(record, "storage_request_ids", PackedInt64Array())
-		)
-		if owns_current_retry:
-			_complete_current_preparation_timing(state)
-			_complete_current_io_timing(state)
-			attempt_count = maxi(attempt_count, state.current_attempt_count)
-			preparation_duration_msec = maxi(
-				preparation_duration_msec,
-				state.current_preparation_duration_msec
-			)
-			storage_duration_msec = state.current_storage_duration_msec
-			preparation_work_units = maxi(
-				preparation_work_units,
-				state.current_preparation_work_units
-			)
-			for current_request_id: int in state.current_storage_request_ids:
-				_append_request_id(request_ids, current_request_id)
-			if state.current_storage_operation != null:
-				_detach_current_write(state)
-		state.persisted_generation = maxi(state.persisted_generation, generation)
-		_clear_generation_evidence_through(state, generation)
-		_complete_save_operations_success_through(
-			state,
-			generation,
-			attempt_count,
-			request_ids,
-			preparation_duration_msec,
-			storage_duration_msec,
-			preparation_work_units
-		)
-		if owns_current_retry:
-			_clear_current(state)
-			_set_mode(state, STATE_IDLE)
-	elif generation > state.persisted_generation:
-		var error_code: Error = result.get_error_code() if result != null else FAILED
-		if not state.unknown_write_generations.has(generation):
-			_record_generation_failure(
-				state,
-				generation,
-				GFSaveProfileResult.STATUS_STORAGE_FAILED,
-				error_code,
-				"Timed-out Storage write later completed with a failure.",
-				&"",
-				PackedInt64Array([request_id])
-			)
-	_complete_ready_flushes(state)
-	_enqueue_schedule(state)
-	_end_processing()
 
 
 func _get_barrier_failure(state: ProfileState, target_generation: int) -> Dictionary:
-	if target_generation <= state.persisted_generation:
-		return {}
 	var unknown_ids: PackedInt64Array = _get_unknown_request_ids_covering(
 		state,
 		target_generation
@@ -2337,6 +3055,8 @@ func _get_barrier_failure(state: ProfileState, target_generation: int) -> Dictio
 			"failed_section_id": &"",
 			"storage_request_ids": unknown_ids,
 		}
+	if target_generation <= state.persisted_generation:
+		return {}
 	var selected_generation: int = -1
 	var selected_failure: Dictionary = {}
 	for generation_value: Variant in state.generation_failures.keys():
@@ -2384,9 +3104,6 @@ func _clear_generation_evidence_through(state: ProfileState, generation: int) ->
 	for key: Variant in state.generation_failures.keys():
 		if GFVariantData.to_int(key, generation + 1) <= generation:
 			var _erased_failure: bool = state.generation_failures.erase(key)
-	for key: Variant in state.unknown_write_generations.keys():
-		if GFVariantData.to_int(key, generation + 1) <= generation:
-			var _erased_unknown: bool = state.unknown_write_generations.erase(key)
 
 
 func _get_unknown_request_ids_for_generation(
@@ -2518,6 +3235,85 @@ func _get_rollback_failure_array(value: Variant) -> Array[GFSaveRollbackFailure]
 			var failure: GFSaveRollbackFailure = entry
 			result.append(failure.duplicate_failure())
 	return result
+
+
+func _make_candidate_failure(
+	failure_stage: StringName,
+	failed_section_id: StringName,
+	error_code: Error,
+	error: String
+) -> Dictionary:
+	return {
+		"ok": false,
+		"failure_stage": failure_stage,
+		"failed_section_id": failed_section_id,
+		"error_code": int(error_code if error_code != OK else FAILED),
+		"error": error,
+		"rollback_errors": [],
+	}
+
+
+func _finish_managed_memory_transaction(
+	state: ProfileState,
+	result: Dictionary
+) -> Dictionary:
+	if state != null:
+		state.memory_transaction_active = false
+		_reap_expired_managed_permit_if_safe(state)
+	_end_processing()
+	return result
+
+
+func _finish_managed_memory_rollback(
+	state: ProfileState,
+	errors: Array[GFSaveRollbackFailure]
+) -> Array[GFSaveRollbackFailure]:
+	if state != null:
+		state.memory_transaction_active = false
+		_reap_expired_managed_permit_if_safe(state)
+	_end_processing()
+	return errors
+
+
+func _compile_section_overrides(
+	state: ProfileState,
+	sections: Array[GFSaveSection]
+) -> Dictionary:
+	var compiled: Dictionary = {}
+	if state == null:
+		return compiled
+	for section: GFSaveSection in sections:
+		if section == null or compiled.has(section.get_section_id()):
+			return {}
+		var matching_provider: GFSaveSectionProvider = null
+		for provider: GFSaveSectionProvider in state.providers:
+			if provider != null and provider.section_id == section.get_section_id():
+				matching_provider = provider
+				break
+		if (
+			matching_provider == null
+			or not matching_provider.save_enabled
+			or matching_provider.schema_version != section.get_schema_version()
+			or not GFVariantData.get_option_bool(section.validate_section(), "ok", false)
+		):
+			return {}
+		compiled[section.get_section_id()] = section.duplicate_section()
+	return compiled
+
+
+func _make_management_rollback_failure(
+	provider_ids: PackedStringArray
+) -> Array[GFSaveRollbackFailure]:
+	var failures: Array[GFSaveRollbackFailure] = []
+	if provider_ids.is_empty():
+		return failures
+	var failure: GFSaveRollbackFailure = GFSaveRollbackFailure.new()
+	var _configured: bool = failure.configure_for_framework(
+		StringName(provider_ids[provider_ids.size() - 1]),
+		ERR_UNAUTHORIZED
+	)
+	failures.append(failure)
+	return failures
 
 
 func _duplicate_recovery_policy(source: GFSaveRecoveryPolicy) -> GFSaveRecoveryPolicy:
@@ -2690,10 +3486,12 @@ func _try_complete_quiesce() -> void:
 		return
 	for state_value: Variant in _states.values():
 		var state: ProfileState = _get_state_value(state_value)
+		_reap_expired_managed_permit_if_safe(state)
 		if (
 			state != null
 			and (
-				state.mode != STATE_IDLE
+				state.memory_transaction_active
+				or state.mode != STATE_IDLE
 				or _has_pending_operations(state)
 				or state.current_storage_operation != null
 				or not state.detached_write_operations.is_empty()
@@ -2722,6 +3520,14 @@ func _set_mode(state: ProfileState, mode: StringName) -> void:
 	state.mode = mode
 	_enter_unsafe_callback()
 	profile_state_changed.emit(state.profile_id, previous, mode)
+	_exit_unsafe_callback()
+
+
+func _emit_generation_evidence_changed(state: ProfileState, generation: int) -> void:
+	if state == null or generation <= 0 or _disposed:
+		return
+	_enter_unsafe_callback()
+	profile_generation_evidence_changed.emit(state.profile_id, generation)
 	_exit_unsafe_callback()
 
 
@@ -2773,6 +3579,220 @@ func _get_migration_result_value(value: Variant) -> GFSaveMigrationResult:
 		var result: GFSaveMigrationResult = value
 		return result
 	return null
+
+
+# --- 信号处理函数 ---
+
+# 存储终态
+
+func _on_storage_operation_completed(
+	result: GFStorageAsyncResult,
+	profile_id: StringName,
+	request_id: int
+) -> void:
+	if _disposed:
+		return
+	_begin_processing()
+	var state: ProfileState = _get_state(profile_id)
+	if (
+		state == null
+		or state.current_storage_operation == null
+		or state.current_storage_operation.get_request_id() != request_id
+		or result == null
+		or result.get_request_id() != request_id
+	):
+		_end_processing()
+		return
+	_complete_current_io_timing(state)
+	_clear_current_storage_operation(state)
+	if result.get_operation() == GFStorageAsyncOperation.OPERATION_SAVE:
+		if not result.is_successful():
+			if (
+				result.get_write_failure_kind()
+					== GFStorageAsyncResult.WriteFailureKind.PAYLOAD_INVALID
+			):
+				var adapted_validation: Dictionary = (
+					_PAYLOAD_VALIDATION_ADAPTER.adapt_for_framework(
+						result.get_write_validation_report(),
+						state.current_sections_entry_index,
+						state.current_section_ids_by_entry_index
+					)
+				)
+				_finish_save_failure(
+					state,
+					result.get_error_code(),
+					"Storage worker rejected the prepared Save payload.",
+					GFSaveProfileResult.STATUS_PREPARATION_FAILED,
+					GFVariantData.get_option_string_name(
+						adapted_validation,
+						"failed_section_id"
+					),
+					GFVariantData.get_option_dictionary(
+						adapted_validation,
+						"validation_report"
+					)
+				)
+			else:
+				_handle_save_failure(state, result.get_error_code(), "Storage save failed.")
+		else:
+			var completed_generation: int = state.current_generation
+			_finalize_save_timing_for_terminal(state)
+			state.persisted_generation = maxi(
+				state.persisted_generation,
+				completed_generation
+			)
+			_clear_generation_evidence_through(state, completed_generation)
+			_complete_save_operations_success(state)
+			_clear_current(state)
+			_set_mode(state, STATE_IDLE)
+			_complete_ready_flushes(state)
+			_enqueue_schedule(state)
+			_reap_expired_managed_permit_if_safe(state)
+			_emit_generation_evidence_changed(state, completed_generation)
+	elif result.get_operation() == GFStorageAsyncOperation.OPERATION_LOAD:
+		var read_result: GFStorageReadResult = result.get_read_result()
+		if not _is_current_managed_load_authorized(state):
+			_finish_load_failure(
+				state,
+				GFSaveProfileResult.STATUS_DISPOSED,
+				ERR_UNAVAILABLE,
+				"Managed load capability was revoked before Provider apply."
+			)
+		elif read_result == null:
+			_handle_load_failure(
+				state,
+				GFStorageReadResult.new().configure_failure(
+					"Storage returned no read result.",
+					FAILED,
+					{},
+					GFStorageReadResult.IntegrityStatus.NOT_CHECKED,
+					0,
+					GFStorageReadResult.FailureKind.IO_FAILED
+				)
+			)
+		elif not read_result.ok or not read_result.is_integrity_accepted():
+			_handle_load_failure(state, read_result)
+		else:
+			_process_loaded_document(state, read_result)
+	_end_processing()
+
+
+func _on_detached_write_completed(
+	result: GFStorageAsyncResult,
+	profile_id: StringName,
+	request_id: int,
+	generation: int
+) -> void:
+	if _disposed:
+		return
+	_begin_processing()
+	var state: ProfileState = _get_state(profile_id)
+	if state == null or not state.detached_write_operations.has(request_id):
+		_end_processing()
+		return
+	var record: Dictionary = GFVariantData.as_dictionary(
+		state.detached_write_operations.get(request_id, {})
+	)
+	var operation: GFStorageAsyncOperation = _get_storage_operation_value(
+		GFVariantData.get_option_value(record, "operation")
+	)
+	var callback: Callable = _get_callable_value(
+		GFVariantData.get_option_value(record, "callback", Callable())
+	)
+	if operation != null and callback.is_valid() and operation.completed.is_connected(callback):
+		operation.completed.disconnect(callback)
+	var owns_current_retry: bool = (
+		state.current_kind == GFSaveProfileOperation.OPERATION_SAVE
+		and state.current_generation == generation
+		and state.mode != STATE_IDLE
+	)
+	var record_storage_duration_msec: int = GFVariantData.get_option_int(
+		record,
+		"storage_duration_msec"
+	)
+	if owns_current_retry:
+		_account_detached_write_tails(state, generation)
+		record_storage_duration_msec = state.current_storage_duration_msec
+	else:
+		var now_msec: int = _clock.get_monotonic_msec()
+		record_storage_duration_msec += maxi(
+			now_msec - GFVariantData.get_option_int(
+				record,
+				"tail_accounted_at_msec",
+				now_msec
+			),
+			0
+		)
+	var _erased: bool = state.detached_write_operations.erase(request_id)
+	_remove_unknown_request_id(state, generation, request_id)
+	var successful: bool = (
+		result != null
+		and result.get_request_id() == request_id
+		and result.get_operation() == GFStorageAsyncOperation.OPERATION_SAVE
+		and result.is_successful()
+	)
+	if successful:
+		var attempt_count: int = GFVariantData.get_option_int(record, "attempt_count")
+		var preparation_duration_msec: int = GFVariantData.get_option_int(
+			record,
+			"preparation_duration_msec"
+		)
+		var storage_duration_msec: int = record_storage_duration_msec
+		var preparation_work_units: int = GFVariantData.get_option_int(
+			record,
+			"preparation_work_units"
+		)
+		var request_ids: PackedInt64Array = _get_request_id_array(
+			GFVariantData.get_option_value(record, "storage_request_ids", PackedInt64Array())
+		)
+		if owns_current_retry:
+			_complete_current_preparation_timing(state)
+			_complete_current_io_timing(state)
+			attempt_count = maxi(attempt_count, state.current_attempt_count)
+			preparation_duration_msec = maxi(
+				preparation_duration_msec,
+				state.current_preparation_duration_msec
+			)
+			storage_duration_msec = state.current_storage_duration_msec
+			preparation_work_units = maxi(
+				preparation_work_units,
+				state.current_preparation_work_units
+			)
+			for current_request_id: int in state.current_storage_request_ids:
+				_append_request_id(request_ids, current_request_id)
+			if state.current_storage_operation != null:
+				_detach_current_write(state)
+		state.persisted_generation = maxi(state.persisted_generation, generation)
+		_clear_generation_evidence_through(state, generation)
+		_complete_save_operations_success_through(
+			state,
+			generation,
+			attempt_count,
+			request_ids,
+			preparation_duration_msec,
+			storage_duration_msec,
+			preparation_work_units
+		)
+		if owns_current_retry:
+			_clear_current(state)
+			_set_mode(state, STATE_IDLE)
+	elif generation > state.persisted_generation:
+		var error_code: Error = result.get_error_code() if result != null else FAILED
+		if not state.unknown_write_generations.has(generation):
+			_record_generation_failure(
+				state,
+				generation,
+				GFSaveProfileResult.STATUS_STORAGE_FAILED,
+				error_code,
+				"Timed-out Storage write later completed with a failure.",
+				&"",
+				PackedInt64Array([request_id])
+			)
+	_complete_ready_flushes(state)
+	_enqueue_schedule(state)
+	_reap_expired_managed_permit_if_safe(state)
+	_emit_generation_evidence_changed(state, generation)
+	_end_processing()
 
 
 # --- 内部类 ---
@@ -2851,6 +3871,21 @@ class ProfileState extends RefCounted:
 	## [br]
 	## @api framework_internal
 	var migrations: GFSaveMigrationRegistry = null
+
+	## 事务协调器持有的 opaque 管理 capability。
+	## [br]
+	## @api framework_internal
+	var managed_permit: ManagedProfilePermit = null
+
+	## 当前允许的直接受管操作集合。
+	## [br]
+	## @api framework_internal
+	var managed_access: int = MANAGED_ACCESS_BLOCKED
+
+	## 当前是否正在执行同步的受管内存事务。
+	## [br]
+	## @api framework_internal
+	var memory_transaction_active: bool = false
 
 	## 当前状态机状态。
 	## [br]
@@ -3094,6 +4129,13 @@ class ProfileState extends RefCounted:
 	## @schema current_metadata: Dictionary with caller-defined operation metadata.
 	var current_metadata: Dictionary = {}
 
+	## 当前 generation 由受管 mutation 固定的 section 候选。
+	## [br]
+	## @api framework_internal
+	## [br]
+	## @schema current_section_overrides: Internal Dictionary keyed by section ID with GFSaveSection values.
+	var current_section_overrides: Dictionary = {}
+
 	## 最新待保存 generation 的上下文。
 	## [br]
 	## @api framework_internal
@@ -3108,7 +4150,73 @@ class ProfileState extends RefCounted:
 	## @schema latest_save_metadata: Dictionary with caller-defined persisted document metadata.
 	var latest_save_metadata: Dictionary = {}
 
+	## 最新待保存 generation 的受管 section 候选。
+	## [br]
+	## @api framework_internal
+	## [br]
+	## @schema latest_save_section_overrides: Internal Dictionary keyed by section ID with GFSaveSection values.
+	var latest_save_section_overrides: Dictionary = {}
+
 	## 下一次重试的单调毫秒截止时间。
 	## [br]
 	## @api framework_internal
 	var retry_due_msec: int = 0
+
+
+## 受管 Profile 的不可伪造进程内 capability。
+## [br]
+## @api framework_internal
+## [br]
+## @category internal_helper
+## [br]
+## @since unreleased
+class ManagedProfilePermit extends RefCounted:
+	var _owner: WeakRef = null
+	var _serial: int = 0
+	var _active: bool = false
+
+	## 绑定唯一 owner 与正数 serial，首次配置成功后激活 capability。
+	## [br]
+	## @api framework_internal
+	## [br]
+	## @since unreleased
+	## [br]
+	## @param owner: 持有 capability 的事务协调器。
+	## [br]
+	## @param serial: Utility 分配的正数单调身份。
+	## [br]
+	## @return 未配置且参数有效时返回 true。
+	func configure_for_framework(owner: Object, serial: int) -> bool:
+		if _active or owner == null or serial <= 0:
+			return false
+		_owner = weakref(owner)
+		_serial = serial
+		_active = true
+		return true
+
+
+	## 查询 capability 是否仍激活且 owner 仍然存活。
+	## [br]
+	## @api framework_internal
+	## [br]
+	## @since unreleased
+	## [br]
+	## @return capability 可继续用于受管调用时返回 true。
+	func is_active_for_framework() -> bool:
+		return (
+			_active
+			and _serial > 0
+			and _owner != null
+			and _owner.get_ref() != null
+		)
+
+
+	## 不可逆地失效 capability 并清除 owner 与 serial。
+	## [br]
+	## @api framework_internal
+	## [br]
+	## @since unreleased
+	func invalidate_for_framework() -> void:
+		_active = false
+		_owner = null
+		_serial = 0

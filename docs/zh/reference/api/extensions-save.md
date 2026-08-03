@@ -6,11 +6,11 @@
 
 | 类别 | 类 | 成员 | 方法 |
 |---|---:|---:|---:|
-| [运行时服务](#category-runtime_service) | 6 | 92 | 66 |
+| [运行时服务](#category-runtime_service) | 7 | 117 | 84 |
 | [协议与扩展点](#category-protocol) | 10 | 114 | 69 |
 | [资源定义](#category-resource_definition) | 13 | 92 | 58 |
-| [运行时句柄](#category-runtime_handle) | 4 | 41 | 28 |
-| [值对象](#category-value_object) | 9 | 154 | 98 |
+| [运行时句柄](#category-runtime_handle) | 10 | 110 | 76 |
+| [值对象](#category-value_object) | 10 | 200 | 120 |
 | [领域模型](#category-domain_model) | 1 | 6 | 3 |
 | [事件契约](#category-event_contract) | 1 | 11 | 3 |
 
@@ -25,6 +25,7 @@
 | [`GFNodeSerializerRegistry`](classes/GFNodeSerializerRegistry.md#gfnodeserializerregistry) | `RefCounted` | `addons/gf/extensions/save/serializers/gf_node_serializer_registry.gd` |
 | [`GFSaveGraphUtility`](classes/GFSaveGraphUtility.md#gfsavegraphutility) | `GFUtility` | `addons/gf/extensions/save/graph/gf_save_graph_utility.gd` |
 | [`GFSaveMigrationRegistry`](classes/GFSaveMigrationRegistry.md#gfsavemigrationregistry) | `RefCounted` | `addons/gf/extensions/save/document/gf_save_migration_registry.gd` |
+| [`GFSaveProfileTransactionCoordinator`](classes/GFSaveProfileTransactionCoordinator.md#gfsaveprofiletransactioncoordinator) | `GFUtility` | `addons/gf/extensions/save/profile/gf_save_profile_transaction_coordinator.gd` |
 | [`GFSaveProfileUtility`](classes/GFSaveProfileUtility.md#gfsaveprofileutility) | `GFUtility` | `addons/gf/extensions/save/profile/gf_save_profile_utility.gd` |
 | [`GFSaveSlotStorageAdapter`](classes/GFSaveSlotStorageAdapter.md#gfsaveslotstorageadapter) | `Resource` | `addons/gf/extensions/save/slots/gf_save_slot_storage_adapter.gd` |
 | [`GFSaveSlotSyncBridge`](classes/GFSaveSlotSyncBridge.md#gfsaveslotsyncbridge) | `RefCounted` | `addons/gf/extensions/save/slots/gf_save_slot_sync_bridge.gd` |
@@ -72,8 +73,14 @@
 
 | 类 | 继承 | 源文件 |
 |---|---|---|
+| [`GFSaveProfileMutationRequest`](classes/GFSaveProfileMutationRequest.md#gfsaveprofilemutationrequest) | `RefCounted` | `addons/gf/extensions/save/profile/gf_save_profile_mutation_request.gd` |
 | [`GFSaveProfileOperation`](classes/GFSaveProfileOperation.md#gfsaveprofileoperation) | `RefCounted` | `addons/gf/extensions/save/profile/gf_save_profile_operation.gd` |
+| [`GFSaveProfileReconcileLease`](classes/GFSaveProfileReconcileLease.md#gfsaveprofilereconcilelease) | `RefCounted` | `addons/gf/extensions/save/profile/gf_save_profile_reconcile_lease.gd` |
+| [`GFSaveProfileReconcileRequest`](classes/GFSaveProfileReconcileRequest.md#gfsaveprofilereconcilerequest) | `RefCounted` | `addons/gf/extensions/save/profile/gf_save_profile_reconcile_request.gd` |
+| [`GFSaveProfileRecoveryLease`](classes/GFSaveProfileRecoveryLease.md#gfsaveprofilerecoverylease) | `RefCounted` | `addons/gf/extensions/save/profile/gf_save_profile_recovery_lease.gd` |
 | [`GFSaveProfileRequest`](classes/GFSaveProfileRequest.md#gfsaveprofilerequest) | `RefCounted` | `addons/gf/extensions/save/profile/gf_save_profile_request.gd` |
+| [`GFSaveProfileTransactionOperation`](classes/GFSaveProfileTransactionOperation.md#gfsaveprofiletransactionoperation) | `RefCounted` | `addons/gf/extensions/save/profile/gf_save_profile_transaction_operation.gd` |
+| [`GFSaveSectionMutation`](classes/GFSaveSectionMutation.md#gfsavesectionmutation) | `RefCounted` | `addons/gf/extensions/save/profile/gf_save_section_mutation.gd` |
 | [`GFSaveSectionSnapshot`](classes/GFSaveSectionSnapshot.md#gfsavesectionsnapshot) | `RefCounted` | `addons/gf/extensions/save/profile/gf_save_section_snapshot.gd` |
 | [`GFSaveSectionSnapshotOperation`](classes/GFSaveSectionSnapshotOperation.md#gfsavesectionsnapshotoperation) | `RefCounted` | `addons/gf/extensions/save/profile/gf_save_section_snapshot_operation.gd` |
 
@@ -88,6 +95,7 @@
 | [`GFSaveMigrationResult`](classes/GFSaveMigrationResult.md#gfsavemigrationresult) | `RefCounted` | `addons/gf/extensions/save/document/gf_save_migration_result.gd` |
 | [`GFSavePipelineContext`](classes/GFSavePipelineContext.md#gfsavepipelinecontext) | `RefCounted` | `addons/gf/extensions/save/pipeline/gf_save_pipeline_context.gd` |
 | [`GFSaveProfileResult`](classes/GFSaveProfileResult.md#gfsaveprofileresult) | `RefCounted` | `addons/gf/extensions/save/profile/gf_save_profile_result.gd` |
+| [`GFSaveProfileTransactionResult`](classes/GFSaveProfileTransactionResult.md#gfsaveprofiletransactionresult) | `RefCounted` | `addons/gf/extensions/save/profile/gf_save_profile_transaction_result.gd` |
 | [`GFSaveRollbackFailure`](classes/GFSaveRollbackFailure.md#gfsaverollbackfailure) | `RefCounted` | `addons/gf/extensions/save/profile/gf_save_rollback_failure.gd` |
 | [`GFSaveSection`](classes/GFSaveSection.md#gfsavesection) | `RefCounted` | `addons/gf/extensions/save/document/gf_save_section.gd` |
 | [`GFSaveSlotCard`](classes/GFSaveSlotCard.md#gfsaveslotcard) | `Resource` | `addons/gf/extensions/save/slots/gf_save_slot_card.gd` |
