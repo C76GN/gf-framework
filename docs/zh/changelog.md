@@ -122,6 +122,11 @@
   所有权的问题；类型化 mutation 现在区分可逆确定失败与必须 fence 的未知结果。
 - 修复异步 UI 的全局完成遥测缺少请求身份，可能被同键重入或旧生命周期迟到回调误关联的问题；Router 现在在发出可重入信号前原子移除旧 pending，并以单调 request ID 与精确底层句柄双重校验终态。
 - 修复旧虚拟输入定时器、同 `source_id` 的不同 Source 实例或手动覆盖可能清除后续输入贡献的问题；lease 同时校验操作对象、generation 与单调 lease ID，迟到回调无法释放新脉冲。Pulse 计时改用 owner-bound timer，并通过内部 handle + owner 精确存活契约识别 `GFTimerUtility` dispose/reinit 后的排程丢失，以 `FAILED / timer_schedule_lost` 补偿释放，避免 handle ABA 误取消或动作粘住。
+- 修复 Save Profile 的三项事务边界：flush 在调用时捕获的 generation 已持久化后立即
+  进入唯一成功终态，不再等待或继承更晚 generation 的失败；Bootstrap/Adopt 只在底层
+  保存实际 claim Request 后消费 Recovery Lease 并推进 domain epoch，瞬时准入拒绝可用
+  同一 Lease/Request 重试；底层超长错误进入事务 stage evidence 前限制为 2048 字符，
+  missing/corrupt 激活仍可靠返回 `recovery_required` 与可用恢复能力。
 
 ### ⚠️ 废弃与移除 (Deprecated/Removed)
 

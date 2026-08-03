@@ -287,6 +287,183 @@ func test_missing_activate_requires_lease_before_bootstrap_can_activate() -> voi
 	assert_true(retained_activation_result.get_recovery_lease().is_claimed())
 
 
+func test_missing_activate_bounds_stage_error_and_preserves_recovery_lease() -> void:
+	var provider: GFSaveProfileTransactionTestSupport.MemorySectionProvider = (
+		GFSaveProfileTransactionTestSupport.make_provider(&"state", 7)
+	)
+	var providers: Array[GFSaveSectionProvider] = [provider]
+	var profile: GFSaveProfile = GFSaveProfileTransactionTestSupport.make_profile(
+		&"session.long_missing_error",
+		providers
+	)
+	assert_true(_register(profile))
+	var operation: GFSaveProfileTransactionOperation = _coordinator.activate_profile(
+		profile.profile_id
+	)
+	_profile_utility.tick(0.0)
+	var storage_error: String = "missing-profile-prefix:" + "x".repeat(4_096)
+	_storage.complete_next_load(GFSaveProfileTransactionTestSupport.read_failure(
+		ERR_FILE_NOT_FOUND,
+		storage_error,
+		GFStorageReadResult.FailureKind.NOT_FOUND
+	))
+
+	var result: GFSaveProfileTransactionResult = operation.get_result()
+	assert_eq(
+		result.get_status(),
+		GFSaveProfileTransactionResult.STATUS_RECOVERY_REQUIRED,
+		"超长底层错误不得使事务结果契约降级为 disposed。"
+	)
+	var recovery_lease: GFSaveProfileRecoveryLease = result.get_recovery_lease()
+	assert_not_null(recovery_lease)
+	if recovery_lease == null:
+		return
+	assert_true(recovery_lease.is_available(), "有界化证据后仍必须保留显式恢复能力。")
+	var evidence_error: String = GFVariantData.get_option_string(
+		result.get_stage_evidence(),
+		"error"
+	)
+	assert_eq(evidence_error.length(), 2_048)
+	assert_eq(evidence_error, storage_error.left(2_048), "证据截断必须稳定保留错误前缀。")
+
+
+func test_recovery_save_rejection_preserves_lease_request_and_domain_epoch() -> void:
+	var active_provider: GFSaveProfileTransactionTestSupport.MemorySectionProvider = (
+		GFSaveProfileTransactionTestSupport.make_provider(&"active", 11)
+	)
+	var recovery_provider: GFSaveProfileTransactionTestSupport.MemorySectionProvider = (
+		GFSaveProfileTransactionTestSupport.make_provider(&"recovery", 22)
+	)
+	var active_providers: Array[GFSaveSectionProvider] = [active_provider]
+	var recovery_providers: Array[GFSaveSectionProvider] = [recovery_provider]
+	var active_profile: GFSaveProfile = GFSaveProfileTransactionTestSupport.make_profile(
+		&"session.recovery_admission.active",
+		active_providers
+	)
+	var recovery_profile: GFSaveProfile = GFSaveProfileTransactionTestSupport.make_profile(
+		&"session.recovery_admission.target",
+		recovery_providers
+	)
+	assert_true(_register(active_profile))
+	assert_true(_register(recovery_profile))
+	_activate_existing(active_profile, { &"active": { "value": 11 } })
+
+	var activation: GFSaveProfileTransactionOperation = _coordinator.activate_profile(
+		recovery_profile.profile_id
+	)
+	_profile_utility.tick(0.0)
+	_storage.complete_load_for_file(
+		recovery_profile.file_name,
+		GFSaveProfileTransactionTestSupport.read_failure(
+			ERR_FILE_NOT_FOUND,
+			"Injected missing recovery target.",
+			GFStorageReadResult.FailureKind.NOT_FOUND
+		)
+	)
+	var recovery_lease: GFSaveProfileRecoveryLease = (
+		activation.get_result().get_recovery_lease()
+	)
+	assert_not_null(recovery_lease)
+	assert_true(recovery_lease.is_available())
+	var request: GFSaveProfileRequest = GFSaveProfileRequest.take_ownership(
+		{},
+		{},
+		{ "attempt": "retryable" }
+	)
+	var epoch_before_rejection: int = GFVariantData.get_option_int(
+		_coordinator.get_domain_state_snapshot(recovery_profile.profile_id),
+		"transaction_epoch"
+	)
+	var domain_before_rejection: Dictionary = _coordinator.get_domain_state_snapshot(
+		recovery_profile.profile_id
+	)
+	var profile_before_rejection: Dictionary = (
+		_profile_utility.get_profile_state_snapshot(recovery_profile.profile_id)
+	)
+	var rejected_operations: Array[GFSaveProfileTransactionOperation] = []
+	active_provider.save_snapshot_callback = func() -> void:
+		rejected_operations.append(_coordinator.bootstrap_profile(
+			recovery_lease,
+			request
+		))
+	active_provider.value = 12
+	var active_save: GFSaveProfileOperation = _profile_utility.save_profile(
+		active_profile.profile_id
+	)
+
+	_profile_utility.tick(0.0)
+	active_provider.save_snapshot_callback = Callable()
+
+	assert_eq(rejected_operations.size(), 1)
+	if rejected_operations.is_empty():
+		return
+	assert_true(rejected_operations[0].is_completed())
+	assert_eq(
+		rejected_operations[0].get_result().get_status(),
+		GFSaveProfileTransactionResult.STATUS_BUSY
+	)
+	assert_false(request.is_claimed(), "底层准入拒绝不得消费恢复保存 request。")
+	assert_true(recovery_lease.is_available(), "底层准入拒绝不得烧毁 Recovery Lease。")
+	var domain_after_rejection: Dictionary = _coordinator.get_domain_state_snapshot(
+		recovery_profile.profile_id
+	)
+	assert_eq(
+		GFVariantData.get_option_int(
+			domain_after_rejection,
+			"transaction_epoch"
+		),
+		epoch_before_rejection,
+		"未接纳的恢复保存不得推进 domain epoch。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(domain_after_rejection, "domain_generation"),
+		GFVariantData.get_option_int(domain_before_rejection, "domain_generation")
+	)
+	assert_eq(GFVariantData.get_option_int(domain_after_rejection, "transaction_id"), 0)
+	assert_eq(
+		GFVariantData.get_option_string_name(domain_after_rejection, "active_profile_id"),
+		&""
+	)
+	var profile_after_rejection: Dictionary = (
+		_profile_utility.get_profile_state_snapshot(recovery_profile.profile_id)
+	)
+	assert_eq(
+		GFVariantData.get_option_int(profile_after_rejection, "generation"),
+		GFVariantData.get_option_int(profile_before_rejection, "generation"),
+		"未接纳的恢复保存不得分配底层 generation。"
+	)
+	assert_eq(_storage.get_pending_save_count(), 1, "只有回调外层 domain A 可以进入存储。")
+
+	var retry: GFSaveProfileTransactionOperation = _coordinator.bootstrap_profile(
+		recovery_lease,
+		request
+	)
+	_profile_utility.tick(0.0)
+	assert_true(request.is_claimed(), "同一 request 应可在回调退出后重试。")
+	assert_true(recovery_lease.is_claimed(), "同一 Recovery Lease 应在实际准入后提交。")
+	assert_eq(
+		GFVariantData.get_option_int(
+			_coordinator.get_domain_state_snapshot(recovery_profile.profile_id),
+			"transaction_epoch"
+		),
+		epoch_before_rejection + 1
+	)
+	assert_eq(_storage.get_pending_save_count(), 2)
+	_storage.complete_next_save(OK)
+	assert_true(active_save.get_result().is_successful())
+	_storage.complete_next_save(OK)
+	assert_true(retry.get_result().is_successful(), "回调退出后的同 Lease/Request 重试应成功。")
+	assert_eq(
+		_coordinator.get_active_profile_id(recovery_profile.profile_id),
+		recovery_profile.profile_id
+	)
+	assert_eq(
+		rejected_operations[0].get_result().get_status(),
+		GFSaveProfileTransactionResult.STATUS_BUSY,
+		"后续成功不得改写先前准入拒绝终态。"
+	)
+
+
 func test_recovery_result_remains_copyable_after_later_transaction_stales_lease() -> void:
 	var provider: GFSaveProfileTransactionTestSupport.MemorySectionProvider = (
 		GFSaveProfileTransactionTestSupport.make_provider(&"state", 8)

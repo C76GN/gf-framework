@@ -2425,12 +2425,8 @@ func _complete_ready_flushes(state: ProfileState) -> void:
 	var remaining: Array[GFSaveProfileOperation] = []
 	for operation: GFSaveProfileOperation in state.flush_operations:
 		var target: int = operation.get_requested_generation()
-		if _has_pending_save_covering_generation(state, target):
-			remaining.append(operation)
-			continue
-		var barrier_failure: Dictionary = _get_barrier_failure(state, target)
-		if target <= state.persisted_generation and barrier_failure.is_empty():
-			var _started: bool = operation.start_for_framework()
+		if target <= state.persisted_generation:
+			var _started_persisted_flush: bool = operation.start_for_framework()
 			_complete_operation(
 				state,
 				operation,
@@ -2439,23 +2435,27 @@ func _complete_ready_flushes(state: ProfileState) -> void:
 				OK,
 				""
 			)
-		else:
-			if barrier_failure.is_empty():
-				remaining.append(operation)
-				continue
-			var _started: bool = operation.start_for_framework()
-			_complete_operation(
-				state,
-				operation,
-				false,
-				GFVariantData.get_option_string_name(barrier_failure, "status"),
-				_get_error_code(barrier_failure, "error_code", FAILED),
-				"Flush target generation failed: %s" % GFVariantData.get_option_string(
-					barrier_failure,
-					"error"
-				),
-				barrier_failure
-			)
+			continue
+		if _has_pending_save_covering_generation(state, target):
+			remaining.append(operation)
+			continue
+		var barrier_failure: Dictionary = _get_barrier_failure(state, target)
+		if barrier_failure.is_empty():
+			remaining.append(operation)
+			continue
+		var _started_failed_flush: bool = operation.start_for_framework()
+		_complete_operation(
+			state,
+			operation,
+			false,
+			GFVariantData.get_option_string_name(barrier_failure, "status"),
+			_get_error_code(barrier_failure, "error_code", FAILED),
+			"Flush target generation failed: %s" % GFVariantData.get_option_string(
+				barrier_failure,
+				"error"
+			),
+			barrier_failure
+		)
 	state.flush_operations = remaining
 
 

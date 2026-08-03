@@ -368,6 +368,42 @@ func test_flush_waits_for_latest_generation_visible_at_call_time() -> void:
 	assert_eq(flush.get_result().get_persisted_generation(), 2)
 
 
+func test_flush_completes_when_its_captured_generation_persists() -> void:
+	var provider: MemorySectionProvider = _make_provider(&"state", 1)
+	assert_true(_register(_make_profile(&"test.flush_captured", provider)))
+
+	var first_save: GFSaveProfileOperation = _utility.save_profile(&"test.flush_captured")
+	_utility.tick(0.0)
+	var flush: GFSaveProfileOperation = _utility.flush_profile(&"test.flush_captured")
+	var flush_results: Array[GFSaveProfileResult] = []
+	var _connected: Error = flush.completed.connect(
+		func(result: GFSaveProfileResult) -> void:
+			flush_results.append(result)
+	) as Error
+	provider.value = 2
+	var second_save: GFSaveProfileOperation = _utility.save_profile(&"test.flush_captured")
+
+	_storage.complete_save(OK)
+
+	assert_true(first_save.get_result().is_successful())
+	assert_true(flush.is_completed(), "捕获的 generation 已持久化后 flush 必须立即完成。")
+	if not flush.is_completed():
+		return
+	assert_true(flush.get_result().is_successful())
+	assert_eq(flush.get_result().get_status(), GFSaveProfileResult.STATUS_FLUSHED)
+	assert_eq(flush.get_result().get_requested_generation(), 1)
+	assert_eq(flush.get_result().get_persisted_generation(), 1)
+	assert_eq(flush_results.size(), 1, "捕获屏障满足时只允许一次 flush 终态通知。")
+	assert_false(second_save.is_completed(), "调用后产生的 generation 不属于该 flush 屏障。")
+
+	_storage.complete_save(FAILED)
+
+	assert_true(flush.get_result().is_successful(), "后续 generation 失败不得改写既有 flush 终态。")
+	assert_eq(flush.get_result().get_persisted_generation(), 1)
+	assert_eq(flush_results.size(), 1, "后续 generation 终态不得重复完成旧 flush。")
+	assert_false(second_save.get_result().is_successful())
+
+
 func test_load_waits_for_save_barrier_before_starting_storage_read() -> void:
 	var provider: MemorySectionProvider = _make_provider(&"state", 1)
 	var profile: GFSaveProfile = _make_profile(&"test.load_barrier", provider)
