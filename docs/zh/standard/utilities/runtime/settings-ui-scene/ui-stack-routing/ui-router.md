@@ -76,9 +76,35 @@ func _handle_route_result(result: GFUIRouteResult) -> void:
 
 句柄只接受一个终态，`get_result()` 返回隔离副本。Router 也会发出 `route_operation_completed(result)`，适合统一遥测；单次调用优先观察句柄，避免按 route id 猜测并发请求。`GFUIRouteResult.to_dict()` 使用 `GFReportValueCodec` 收束调用方 metadata、非有限浮点和运行时对象，可直接进入 JSON 报告边界；`get_metadata()` 则保留原始类型并返回深副本。
 
-相同 pending 请求只有在规范化 route id、操作、参数、面板选项、回调、预加载策略、预加载计划选项和 metadata 全部一致时才复用同一句柄。不同 Router 请求若占用相同场景路径、逻辑层和操作，会以 `STATUS_ASYNC_CONFLICT` 结束，不会静默覆盖先到请求。若项目绕过 Router，直接在同一 `GFUIUtility` 通道提交了相同 pending 面板请求，Router 也会返回 `ui_async_request_conflict`，避免把未执行路由配置回调的外部面板误记为路由成功。
+Router 在提交前为底层 `GFUIPanelAsyncOperation` 预绑定弱终态回调，并同时校验 Route request ID 与精确 UI 句柄身份；同步 fallback 也不会丢失完成通知。`panel_async_load_finished` 只保留为聚合 telemetry，不承担单次 Route 相关性，因此全局监听器在完成信号中重入并提交同键新请求时，旧请求也不能终结替代请求。
+
+相同 pending 请求只有在规范化 route id、操作、参数、面板选项、回调、预加载策略、预加载计划选项、metadata 以及 owner/scope 实例身份全部一致时才复用同一句柄。不同 Router 请求若占用相同场景路径、逻辑层和操作，会以 `STATUS_ASYNC_CONFLICT` 结束，不会静默覆盖先到请求。若项目绕过 Router，直接在同一 `GFUIUtility` 通道提交了相同 pending 面板请求，Router 也会返回 `ui_async_request_conflict`，避免把未执行路由配置回调的外部面板误记为路由成功。
 
 Router 释放时，尚未提交面板的预加载会回滚并返回 `STATUS_DISPOSED`。面板已经交给当前 `GFUIUtility` 后无法按单个路由请求撤回；此时返回 `STATUS_OUTCOME_UNKNOWN`，明确表示 Router 已失去观察能力，而不是声称面板一定取消或一定打开。调用方不应把 `outcome_unknown` 当作失败后可安全重试的证明。
+
+## 提交前生命周期取消
+
+`async_options` 可以同时提供 `owner: Object` 与 `scope: GFAsyncScope`。两者是 OR 关系：任意一个先结束，尚未提交的路由就以 `STATUS_CANCELLED` 进入唯一终态，回滚 Router 拥有的预加载会话，并忽略迟到的预加载回调。Node owner 必须在调用时已进入场景树，离树会即时取消；普通 Object 只被弱持有，释放后由 Router 的 `tick()` 剪枝。正常注册在 Architecture 中的 Router 会随架构 tick 自动执行该剪枝。
+
+```gdscript
+var route_scope: GFAsyncScope = GFAsyncScope.new()
+var operation: GFUIRouteOperation = router.push_route_async(
+	&"inventory",
+	{},
+	{},
+	Callable(),
+	{
+		"owner": self,
+		"scope": route_scope,
+		"preload_policy": GFUIRouterUtility.PRELOAD_REQUIRED,
+	}
+)
+
+# 页面所属流程终止时，取消尚未提交的路由。
+route_scope.cancel("flow_replaced")
+```
+
+已取消的 scope 会立即返回 `STATUS_CANCELLED`；已完成的 scope、类型错误的 scope 或不在场景树内的 Node owner 会返回 `STATUS_INVALID_LIFECYCLE`。提交边界是 Router 实际调用 `GFUIUtility` 异步打开入口的时刻；跨过边界后 Router 会解除 owner/scope 监听，后续离树或取消不会关闭已提交的面板，也不会改写其最终打开结果。需要关闭已打开面板时，项目应显式使用 UI 栈 API，不要把取消令牌当作隐式关闭指令。
 
 ## 打开前预加载策略
 

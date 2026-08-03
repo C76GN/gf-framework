@@ -117,7 +117,6 @@ var max_history: int = 64
 
 var _routes: Dictionary = {}
 var _ui_utility_ref: WeakRef = null
-var _connected_ui_utility_ref: WeakRef = null
 var _history: Array[Dictionary] = []
 var _pending_async_routes: Dictionary = {}
 var _next_async_request_id: int = 1
@@ -127,16 +126,20 @@ var _disposed: bool = false
 # --- GF 生命周期方法 ---
 
 ## 初始化路由表、UI 工具引用和历史记录。
+## 重复初始化会先以 dispose 语义终结旧 pending 请求；请求 ID 在同一实例内保持单调，
+## 避免旧异步回调或临时预加载组与新生命周期串线。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 func init() -> void:
-	_disconnect_connected_ui_utility()
+	_disposed = true
+	if not _pending_async_routes.is_empty():
+		_finish_pending_routes_for_dispose()
 	_routes.clear()
 	_ui_utility_ref = null
-	_connected_ui_utility_ref = null
 	_history.clear()
 	_pending_async_routes.clear()
-	_next_async_request_id = 1
 	_disposed = false
 
 
@@ -146,12 +149,22 @@ func init() -> void:
 func dispose() -> void:
 	_disposed = true
 	_finish_pending_routes_for_dispose()
-	_disconnect_connected_ui_utility()
 	_routes.clear()
 	_ui_utility_ref = null
-	_connected_ui_utility_ref = null
 	_history.clear()
 	_pending_async_routes.clear()
+
+
+## 清理普通 Object owner 已释放的提交前路由请求。
+## Node owner 和 GFAsyncScope 会通过信号即时取消；普通 Object 依赖本帧弱引用检查。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param _delta: 本帧时间增量；生命周期清理不依赖具体数值。
+func tick(_delta: float) -> void:
+	_prune_pending_route_lifecycles()
 
 
 # --- 公共方法 ---
@@ -184,10 +197,6 @@ func set_ui_utility(ui_utility: GFUIUtility) -> void:
 		push_warning("[GFUIRouterUtility] 存在异步路由请求时不能更换 GFUIUtility。")
 		return
 	_ui_utility_ref = weakref(ui_utility) if ui_utility != null else null
-	if ui_utility != null:
-		_ensure_ui_async_signal_connected(ui_utility)
-	else:
-		_disconnect_connected_ui_utility()
 
 
 ## 注册一个路由。
@@ -375,7 +384,7 @@ func replace_route(
 ## [br]
 ## @schema option_overrides: Dictionary，字段同 GFUIUtility 打开面板 options，会覆盖路由 default_options。
 ## [br]
-## @schema async_options: Dictionary，可包含 preload_policy、preload_plan_options 和 metadata；preload_policy 使用 PRELOAD_* 常量，自动预加载始终包含当前路由，未指定 max_depth 时只加载当前页面。
+## @schema async_options: Dictionary，可包含 preload_policy、preload_plan_options、metadata、owner: Object 和 scope: GFAsyncScope；owner 与 scope 使用 OR 取消语义且只约束面板提交前，preload_policy 使用 PRELOAD_* 常量，自动预加载始终包含当前路由，未指定 max_depth 时只加载当前页面。
 ## [br]
 ## @return 可观察的异步路由句柄；相同 pending 请求返回同一句柄。
 func push_route_async(
@@ -415,7 +424,7 @@ func push_route_async(
 ## [br]
 ## @schema option_overrides: Dictionary，字段同 GFUIUtility 打开面板 options，会覆盖路由 default_options。
 ## [br]
-## @schema async_options: Dictionary，可包含 preload_policy、preload_plan_options 和 metadata；preload_policy 使用 PRELOAD_* 常量，自动预加载始终包含当前路由，未指定 max_depth 时只加载当前页面。
+## @schema async_options: Dictionary，可包含 preload_policy、preload_plan_options、metadata、owner: Object 和 scope: GFAsyncScope；owner 与 scope 使用 OR 取消语义且只约束面板提交前，preload_policy 使用 PRELOAD_* 常量，自动预加载始终包含当前路由，未指定 max_depth 时只加载当前页面。
 ## [br]
 ## @return 可观察的异步路由句柄；相同 pending 请求返回同一句柄。
 func replace_route_async(
@@ -514,7 +523,7 @@ func clear_history() -> void:
 ## [br]
 ## @return 诊断快照。
 ## [br]
-## @schema return: Dictionary，包含 route_count、history_count、pending_async_route_count、pending_async_routes、current_route_id、has_ui_utility 和 disposed。
+## @schema return: Dictionary，包含 route_count、history_count、pending_async_route_count、current_route_id、has_ui_utility、disposed，以及 pending_async_routes；其中每个 pending 条目额外包含 panel_submitted、has_owner、has_scope 与 lifecycle_cancellation_open。
 func get_debug_snapshot() -> Dictionary:
 	_prune_history()
 	return {
@@ -538,6 +547,9 @@ func _open_route(
 	config_callback: Callable
 ) -> Node:
 	var normalized_route_id: StringName = _normalize_route_id(route_id)
+	if _disposed:
+		_fail_route(normalized_route_id, "router_disposed")
+		return null
 	var route: GFUIRoute = _resolve_route_or_fail(normalized_route_id)
 	if route == null:
 		return null
@@ -610,6 +622,34 @@ func _open_route_async(
 			false
 		)
 		return operation_handle
+	var lifecycle: Dictionary = _parse_route_lifecycle_options(async_options)
+	if not GFVariantData.get_option_bool(lifecycle, "valid"):
+		_finish_route_entry(
+			immediate_entry,
+			GFUIRouteResult.STATUS_INVALID_LIFECYCLE,
+			GFVariantData.get_option_string_name(
+				lifecycle,
+				"reason",
+				&"invalid_lifecycle"
+			),
+			null,
+			true
+		)
+		return operation_handle
+	if GFVariantData.get_option_bool(lifecycle, "cancelled"):
+		_finish_route_entry(
+			immediate_entry,
+			GFUIRouteResult.STATUS_CANCELLED,
+			GFVariantData.get_option_string_name(
+				lifecycle,
+				"reason",
+				&"scope_cancelled"
+			),
+			null,
+			false
+		)
+		return operation_handle
+	_apply_route_lifecycle_to_entry(immediate_entry, lifecycle)
 
 	var route: GFUIRoute = get_route(normalized_route_id)
 	if route == null:
@@ -662,6 +702,7 @@ func _open_route_async(
 		)
 		return operation_handle
 
+	_prune_pending_route_lifecycles()
 	var pending_route: Dictionary = _find_pending_async_route(route.scene_path, route.layer, operation)
 	if not pending_route.is_empty():
 		if _pending_route_matches_request(
@@ -672,7 +713,9 @@ func _open_route_async(
 			config_callback,
 			preload_policy,
 			GFVariantData.get_option_dictionary(async_options, "preload_plan_options"),
-			metadata
+			metadata,
+			GFVariantData.get_option_int(lifecycle, "owner_id"),
+			GFVariantData.get_option_int(lifecycle, "scope_id")
 		):
 			var pending_handle: GFUIRouteOperation = _get_route_operation_value(
 				pending_route.get("operation_handle")
@@ -689,8 +732,9 @@ func _open_route_async(
 		return operation_handle
 
 	var pending_key: String = _make_pending_async_route_key(route.scene_path, route.layer, operation)
-	_ensure_ui_async_signal_connected(ui_utility)
-	_pending_async_routes[pending_key] = {
+	var request_id: int = operation_handle.get_request_id()
+	var pending_entry: Dictionary = immediate_entry.duplicate(true)
+	pending_entry.merge({
 		"route_id": normalized_route_id,
 		"route": route,
 		"path": route.scene_path,
@@ -712,15 +756,25 @@ func _open_route_async(
 		"preload_successful": false,
 		"preload_degradation_reason": &"",
 		"owns_preload_group": false,
+		"preload_started": false,
 		"panel_submitted": false,
-	}
+	}, true)
+	_pending_async_routes[pending_key] = pending_entry
+	_bind_pending_route_lifecycle(
+		pending_key,
+		request_id,
+		_get_object_value(lifecycle.get("owner")),
+		_get_async_scope_value(lifecycle.get("scope"))
+	)
+	if not _pending_route_has_request_id(pending_key, request_id):
+		return operation_handle
 	route_open_requested.emit(normalized_route_id, operation, params.duplicate(true))
-	if not _pending_async_routes.has(pending_key):
+	if not _pending_route_has_request_id(pending_key, request_id):
 		return operation_handle
 	if preload_policy == PRELOAD_NONE:
-		_submit_pending_panel_open(pending_key)
+		_submit_pending_panel_open(pending_key, request_id)
 	else:
-		_start_pending_route_preload(pending_key)
+		_start_pending_route_preload(pending_key, request_id)
 	return operation_handle
 
 
@@ -770,6 +824,7 @@ func _make_route_operation_entry(
 		"route_id": operation_handle.get_route_id(),
 		"layer": -1,
 		"operation": operation,
+		"request_id": operation_handle.get_request_id(),
 		"operation_handle": operation_handle,
 		"preload_policy": preload_policy,
 		"preload_plan_report": {},
@@ -779,6 +834,14 @@ func _make_route_operation_entry(
 		"preload_degradation_reason": &"",
 		"owns_preload_group": false,
 		"panel_submitted": false,
+		"ui_operation": null,
+		"ui_completion_callback": Callable(),
+		"owner_ref": null,
+		"owner_id": 0,
+		"owner_lifetime": null,
+		"scope": null,
+		"scope_id": 0,
+		"scope_callback": Callable(),
 		"metadata": metadata.duplicate(true),
 	}
 
@@ -806,7 +869,9 @@ func _pending_route_matches_request(
 	config_callback: Callable,
 	preload_policy: StringName,
 	preload_plan_options: Dictionary,
-	metadata: Dictionary
+	metadata: Dictionary,
+	owner_id: int,
+	scope_id: int
 ) -> bool:
 	return (
 		GFVariantData.get_option_string_name(entry, "route_id", &"") == route_id
@@ -816,18 +881,276 @@ func _pending_route_matches_request(
 		and GFVariantData.get_option_string_name(entry, "preload_policy", PRELOAD_NONE) == preload_policy
 		and GFVariantData.get_option_dictionary(entry, "preload_plan_options") == preload_plan_options
 		and GFVariantData.get_option_dictionary(entry, "metadata") == metadata
+		and GFVariantData.get_option_int(entry, "owner_id") == owner_id
+		and GFVariantData.get_option_int(entry, "scope_id") == scope_id
 	)
 
 
-func _start_pending_route_preload(pending_key: String) -> void:
+func _parse_route_lifecycle_options(async_options: Dictionary) -> Dictionary:
+	var owner: Object = null
+	if async_options.has("owner"):
+		var raw_owner: Variant = async_options.get("owner")
+		if raw_owner != null:
+			if not (raw_owner is Object):
+				return {"valid": false, "reason": &"invalid_owner"}
+			owner = raw_owner
+			if not is_instance_valid(owner):
+				return {"valid": false, "reason": &"invalid_owner"}
+			if owner is Node:
+				var owner_node: Node = owner
+				if not owner_node.is_inside_tree():
+					return {"valid": false, "reason": &"owner_not_in_tree"}
+
+	var scope: GFAsyncScope = null
+	if async_options.has("scope"):
+		var raw_scope: Variant = async_options.get("scope")
+		if raw_scope != null:
+			if not (raw_scope is GFAsyncScope):
+				return {"valid": false, "reason": &"invalid_scope"}
+			scope = raw_scope
+			if scope.is_completed():
+				return {"valid": false, "reason": &"scope_completed"}
+			if scope.is_cancel_requested():
+				return {
+					"valid": true,
+					"cancelled": true,
+					"reason": _get_scope_cancel_reason(scope),
+				}
+
+	return {
+		"valid": true,
+		"cancelled": false,
+		"owner": owner,
+		"owner_id": owner.get_instance_id() if owner != null else 0,
+		"scope": scope,
+		"scope_id": scope.get_instance_id() if scope != null else 0,
+	}
+
+
+func _apply_route_lifecycle_to_entry(entry: Dictionary, lifecycle: Dictionary) -> void:
+	var owner: Object = _get_object_value(lifecycle.get("owner"))
+	var scope: GFAsyncScope = _get_async_scope_value(lifecycle.get("scope"))
+	entry["owner_ref"] = weakref(owner) if owner != null else null
+	entry["owner_id"] = owner.get_instance_id() if owner != null else 0
+	entry["scope"] = scope
+	entry["scope_id"] = scope.get_instance_id() if scope != null else 0
+
+
+func _bind_pending_route_lifecycle(
+	pending_key: String,
+	request_id: int,
+	owner: Object,
+	scope: GFAsyncScope
+) -> void:
+	if not _pending_route_has_request_id(pending_key, request_id):
+		return
 	var entry: Dictionary = GFVariantData.get_option_dictionary(_pending_async_routes, pending_key)
 	if entry.is_empty():
 		return
-	var route_id: StringName = GFVariantData.get_option_string_name(entry, "route_id", &"")
 	var operation_handle: GFUIRouteOperation = _get_route_operation_value(entry.get("operation_handle"))
 	if operation_handle == null:
+		var _missing_handle_finished: bool = _finish_pending_route_before_submit(
+			pending_key,
+			request_id,
+			GFUIRouteResult.STATUS_INVALID_LIFECYCLE,
+			&"missing_route_operation",
+			true
+		)
+		return
+	if owner != null:
+		var owner_invocation: GFWeakMethodInvocation = GFWeakMethodInvocation.new(
+			self,
+			&"_on_pending_route_lifecycle_cancelled"
+		)
+		var owner_reason: StringName = &"owner_tree_exited" if owner is Node else &"owner_released"
+		var owner_callback: Callable = func() -> void:
+			var _invocation_result: Dictionary = owner_invocation.invoke([
+				pending_key,
+				request_id,
+				owner_reason,
+			])
+		var owner_lifetime: GFLifetimeSubscription = GFLifetimeSubscription.new(
+			owner,
+			owner_callback,
+			"ui_route:%d" % request_id
+		)
+		if not owner_lifetime.is_active():
+			var _invalid_owner_finished: bool = _finish_pending_route_before_submit(
+				pending_key,
+				request_id,
+				GFUIRouteResult.STATUS_INVALID_LIFECYCLE,
+				&"owner_binding_failed",
+				true
+			)
+			return
+		entry["owner_lifetime"] = owner_lifetime
+
+	if scope != null:
+		var scope_invocation: GFWeakMethodInvocation = GFWeakMethodInvocation.new(
+			self,
+			&"_on_pending_route_lifecycle_cancelled"
+		)
+		var scope_callback: Callable = func(reason: StringName) -> void:
+			var _invocation_result: Dictionary = scope_invocation.invoke([
+				pending_key,
+				request_id,
+				reason if reason != &"" else &"scope_cancelled",
+			])
+		entry["scope_callback"] = scope_callback
+		var connect_error: Error = scope.cancel_requested.connect(scope_callback) as Error
+		if connect_error != OK:
+			_pending_async_routes[pending_key] = entry
+			var _scope_connect_finished: bool = _finish_pending_route_before_submit(
+				pending_key,
+				request_id,
+				GFUIRouteResult.STATUS_INVALID_LIFECYCLE,
+				&"scope_connect_failed",
+				true
+			)
+			return
+
+	_pending_async_routes[pending_key] = entry
+	if scope != null and scope.is_cancel_requested():
+		_on_pending_route_lifecycle_cancelled(
+			pending_key,
+			request_id,
+			_get_scope_cancel_reason(scope)
+		)
+
+
+func _on_pending_route_lifecycle_cancelled(
+	pending_key: String,
+	request_id: int,
+	reason: StringName
+) -> void:
+	var entry: Dictionary = GFVariantData.get_option_dictionary(_pending_async_routes, pending_key)
+	var operation_handle: GFUIRouteOperation = _get_route_operation_value(entry.get("operation_handle"))
+	if operation_handle == null or operation_handle.get_request_id() != request_id:
+		return
+	if GFVariantData.get_option_bool(entry, "panel_submitted"):
+		return
+	var final_reason: StringName = reason if reason != &"" else &"lifecycle_cancelled"
+	var _cancelled: bool = _finish_pending_route_before_submit(
+		pending_key,
+		request_id,
+		GFUIRouteResult.STATUS_CANCELLED,
+		final_reason,
+		false
+	)
+
+
+func _prune_pending_route_lifecycles() -> void:
+	if _pending_async_routes.is_empty():
+		return
+	var pending_keys: Array = _pending_async_routes.keys()
+	for pending_key_value: Variant in pending_keys:
+		var pending_key: String = GFVariantData.to_text(pending_key_value)
+		var entry: Dictionary = GFVariantData.get_option_dictionary(_pending_async_routes, pending_key)
+		if entry.is_empty() or GFVariantData.get_option_bool(entry, "panel_submitted"):
+			continue
+		var expired_reason: StringName = _get_route_lifecycle_expired_reason(entry)
+		if expired_reason == &"":
+			continue
+		var operation_handle: GFUIRouteOperation = _get_route_operation_value(
+			entry.get("operation_handle")
+		)
+		if operation_handle != null:
+			_on_pending_route_lifecycle_cancelled(
+				pending_key,
+				operation_handle.get_request_id(),
+				expired_reason
+			)
+
+
+func _get_route_lifecycle_expired_reason(entry: Dictionary) -> StringName:
+	var owner_id: int = GFVariantData.get_option_int(entry, "owner_id")
+	if owner_id != 0:
+		var owner_ref: WeakRef = _get_weak_ref_value(entry.get("owner_ref"))
+		var owner: Object = _get_live_object_from_ref(owner_ref)
+		if owner == null or owner.get_instance_id() != owner_id:
+			return &"owner_released"
+		if owner is Node:
+			var owner_node: Node = owner
+			if not owner_node.is_inside_tree():
+				return &"owner_tree_exited"
+
+	var scope: GFAsyncScope = _get_async_scope_value(entry.get("scope"))
+	if scope != null:
+		if scope.is_cancel_requested():
+			return _get_scope_cancel_reason(scope)
+		if scope.is_completed():
+			return &"scope_completed"
+	return &""
+
+
+func _finish_pending_route_before_submit(
+	pending_key: String,
+	request_id: int,
+	status: StringName,
+	reason: StringName,
+	emit_legacy_failure: bool
+) -> bool:
+	if not _pending_route_has_request_id(pending_key, request_id):
+		return false
+	var entry: Dictionary = GFVariantData.get_option_dictionary(_pending_async_routes, pending_key)
+	if entry.is_empty() or GFVariantData.get_option_bool(entry, "panel_submitted"):
+		return false
+	var _erased: bool = _pending_async_routes.erase(pending_key)
+	_disconnect_entry_lifecycle(entry)
+	_disconnect_entry_preload_callback(entry)
+	var session: GFAssetLoadSession = _get_asset_load_session_value(entry.get("preload_session"))
+	if session != null and not session.is_completed():
+		var _rolled_back: bool = session.rollback(reason)
+	_finish_route_entry(entry, status, reason, null, emit_legacy_failure)
+	return true
+
+
+func _get_scope_cancel_reason(scope: GFAsyncScope) -> StringName:
+	if scope == null:
+		return &"scope_cancelled"
+	var reason: StringName = scope.get_cancel_reason()
+	return reason if reason != &"" else &"scope_cancelled"
+
+
+func _cancel_pending_route_if_lifecycle_expired(pending_key: String, request_id: int) -> bool:
+	if not _pending_route_has_request_id(pending_key, request_id):
+		return false
+	var entry: Dictionary = GFVariantData.get_option_dictionary(_pending_async_routes, pending_key)
+	if entry.is_empty() or GFVariantData.get_option_bool(entry, "panel_submitted"):
+		return false
+	var expired_reason: StringName = _get_route_lifecycle_expired_reason(entry)
+	if expired_reason == &"":
+		return false
+	return _finish_pending_route_before_submit(
+		pending_key,
+		request_id,
+		GFUIRouteResult.STATUS_CANCELLED,
+		expired_reason,
+		false
+	)
+
+
+func _pending_route_has_request_id(pending_key: String, request_id: int) -> bool:
+	var entry: Dictionary = GFVariantData.get_option_dictionary(_pending_async_routes, pending_key)
+	return GFVariantData.get_option_int(entry, "request_id") == request_id
+
+
+func _start_pending_route_preload(pending_key: String, request_id: int) -> void:
+	if not _pending_route_has_request_id(pending_key, request_id):
+		return
+	if _cancel_pending_route_if_lifecycle_expired(pending_key, request_id):
+		return
+	var entry: Dictionary = GFVariantData.get_option_dictionary(_pending_async_routes, pending_key)
+	if entry.is_empty() or GFVariantData.get_option_bool(entry, "preload_started"):
+		return
+	entry["preload_started"] = true
+	_pending_async_routes[pending_key] = entry
+	var route_id: StringName = GFVariantData.get_option_string_name(entry, "route_id", &"")
+	var operation_handle: GFUIRouteOperation = _get_route_operation_value(entry.get("operation_handle"))
+	if operation_handle == null or operation_handle.get_request_id() != request_id:
 		_complete_pending_route(
 			pending_key,
+			request_id,
 			GFUIRouteResult.STATUS_PRELOAD_PLAN_FAILED,
 			&"missing_route_operation",
 			null,
@@ -849,8 +1172,14 @@ func _start_pending_route_preload(pending_key: String) -> void:
 	plan_metadata["_gf_route_request_id"] = operation_handle.get_request_id()
 	plan_metadata["_gf_route_id"] = route_id
 	plan_options["metadata"] = plan_metadata
+	_pending_async_routes[pending_key] = entry
 
 	var raw_plan_report: Dictionary = build_preload_plan(route_id, plan_options)
+	if not _pending_route_has_request_id(pending_key, request_id):
+		return
+	if _cancel_pending_route_if_lifecycle_expired(pending_key, request_id):
+		return
+	entry = GFVariantData.get_option_dictionary(_pending_async_routes, pending_key)
 	var asset_plan: GFAssetPreloadPlan = _get_asset_preload_plan_value(raw_plan_report.get("asset_plan"))
 	entry["preload_plan_report"] = _make_json_safe_preload_plan_report(raw_plan_report, asset_plan)
 	_pending_async_routes[pending_key] = entry
@@ -871,6 +1200,7 @@ func _start_pending_route_preload(pending_key: String) -> void:
 			plan_reason = &"preload_plan_empty"
 		_complete_pending_route(
 			pending_key,
+			request_id,
 			GFUIRouteResult.STATUS_PRELOAD_PLAN_FAILED,
 			plan_reason,
 			null,
@@ -878,25 +1208,38 @@ func _start_pending_route_preload(pending_key: String) -> void:
 		)
 		return
 	if not plan_usable:
-		_set_pending_preload_degradation(pending_key, &"preload_plan_failed_continued")
-		_submit_pending_panel_open(pending_key)
+		_set_pending_preload_degradation(
+			pending_key,
+			request_id,
+			&"preload_plan_failed_continued"
+		)
+		_submit_pending_panel_open(pending_key, request_id)
 		return
 	if not plan_healthy:
-		_set_pending_preload_degradation(pending_key, &"preload_plan_degraded_continued")
+		_set_pending_preload_degradation(
+			pending_key,
+			request_id,
+			&"preload_plan_degraded_continued"
+		)
 
 	var asset_utility: GFAssetUtility = _get_asset_utility()
 	if asset_utility == null:
 		if preload_policy == PRELOAD_REQUIRED:
 			_complete_pending_route(
 				pending_key,
+				request_id,
 				GFUIRouteResult.STATUS_MISSING_ASSET_UTILITY,
 				&"missing_asset_utility",
 				null,
 				true
 			)
 		else:
-			_set_pending_preload_degradation(pending_key, &"missing_asset_utility_continued")
-			_submit_pending_panel_open(pending_key)
+			_set_pending_preload_degradation(
+				pending_key,
+				request_id,
+				&"missing_asset_utility_continued"
+			)
+			_submit_pending_panel_open(pending_key, request_id)
 		return
 
 	var session_metadata: Dictionary = GFVariantData.get_option_dictionary(entry, "metadata")
@@ -909,7 +1252,29 @@ func _start_pending_route_preload(pending_key: String) -> void:
 			"metadata": session_metadata,
 		}
 	)
-	var _attached: bool = operation_handle.attach_preload_session_for_framework(session)
+	if not _pending_route_has_request_id(pending_key, request_id):
+		if session != null and not session.is_completed():
+			var _orphaned_session_rolled_back: bool = session.rollback(&"route_request_gone")
+		return
+	if _cancel_pending_route_if_lifecycle_expired(pending_key, request_id):
+		if session != null and not session.is_completed():
+			var _expired_session_rolled_back: bool = session.rollback(&"route_lifecycle_expired")
+		return
+	var attached: bool = operation_handle.attach_preload_session_for_framework(session)
+	if not attached:
+		if session != null and not session.is_completed():
+			var _unattached_session_rolled_back: bool = session.rollback(
+				&"preload_session_attach_failed"
+			)
+		_complete_pending_route(
+			pending_key,
+			request_id,
+			GFUIRouteResult.STATUS_PRELOAD_FAILED,
+			&"preload_session_attach_failed",
+			null,
+			true
+		)
+		return
 	entry = GFVariantData.get_option_dictionary(_pending_async_routes, pending_key)
 	if entry.is_empty():
 		if session != null and not session.is_completed():
@@ -919,12 +1284,15 @@ func _start_pending_route_preload(pending_key: String) -> void:
 	entry["preload_attempted"] = true
 	_pending_async_routes[pending_key] = entry
 	if session == null:
-		_on_pending_route_preload_completed(null, pending_key)
+		_on_pending_route_preload_completed(null, pending_key, request_id)
 		return
 	if session.is_completed():
-		_on_pending_route_preload_completed(session.get_result(), pending_key)
+		_on_pending_route_preload_completed(session.get_result(), pending_key, request_id)
 		return
-	var preload_callback: Callable = _on_pending_route_preload_completed.bind(pending_key)
+	var preload_callback: Callable = _on_pending_route_preload_completed.bind(
+		pending_key,
+		request_id
+	)
 	var connect_error: Error = session.completed.connect(
 		preload_callback,
 		CONNECT_ONE_SHOT as Object.ConnectFlags
@@ -934,25 +1302,36 @@ func _start_pending_route_preload(pending_key: String) -> void:
 		if preload_policy == PRELOAD_REQUIRED:
 			_complete_pending_route(
 				pending_key,
+				request_id,
 				GFUIRouteResult.STATUS_PRELOAD_FAILED,
 				&"preload_completion_signal_failed",
 				null,
 				true
 			)
 		else:
-			_set_pending_preload_degradation(pending_key, &"preload_completion_signal_failed_continued")
-			_submit_pending_panel_open(pending_key)
+			_set_pending_preload_degradation(
+				pending_key,
+				request_id,
+				&"preload_completion_signal_failed_continued"
+			)
+			_submit_pending_panel_open(pending_key, request_id)
 		return
 	entry = GFVariantData.get_option_dictionary(_pending_async_routes, pending_key)
-	if not entry.is_empty():
+	if _pending_route_has_request_id(pending_key, request_id):
+		entry = GFVariantData.get_option_dictionary(_pending_async_routes, pending_key)
 		entry["preload_callback"] = preload_callback
 		_pending_async_routes[pending_key] = entry
 
 
 func _on_pending_route_preload_completed(
 	preload_result: GFAssetLoadSessionResult,
-	pending_key: String
+	pending_key: String,
+	request_id: int
 ) -> void:
+	if not _pending_route_has_request_id(pending_key, request_id):
+		return
+	if _cancel_pending_route_if_lifecycle_expired(pending_key, request_id):
+		return
 	var entry: Dictionary = GFVariantData.get_option_dictionary(_pending_async_routes, pending_key)
 	if entry.is_empty():
 		return
@@ -961,7 +1340,7 @@ func _on_pending_route_preload_completed(
 	entry["preload_successful"] = preload_result != null and preload_result.is_successful()
 	_pending_async_routes[pending_key] = entry
 	if preload_result != null and preload_result.is_successful():
-		_submit_pending_panel_open(pending_key)
+		_submit_pending_panel_open(pending_key, request_id)
 		return
 	var preload_policy: StringName = GFVariantData.get_option_string_name(
 		entry,
@@ -971,17 +1350,28 @@ func _on_pending_route_preload_completed(
 	if preload_policy == PRELOAD_REQUIRED:
 		_complete_pending_route(
 			pending_key,
+			request_id,
 			GFUIRouteResult.STATUS_PRELOAD_FAILED,
 			&"preload_failed",
 			null,
 			true
 		)
 		return
-	_set_pending_preload_degradation(pending_key, &"preload_failed_continued")
-	_submit_pending_panel_open(pending_key)
+	_set_pending_preload_degradation(
+		pending_key,
+		request_id,
+		&"preload_failed_continued"
+	)
+	_submit_pending_panel_open(pending_key, request_id)
 
 
-func _set_pending_preload_degradation(pending_key: String, reason: StringName) -> void:
+func _set_pending_preload_degradation(
+	pending_key: String,
+	request_id: int,
+	reason: StringName
+) -> void:
+	if not _pending_route_has_request_id(pending_key, request_id):
+		return
 	var entry: Dictionary = GFVariantData.get_option_dictionary(_pending_async_routes, pending_key)
 	if entry.is_empty():
 		return
@@ -989,13 +1379,18 @@ func _set_pending_preload_degradation(pending_key: String, reason: StringName) -
 	_pending_async_routes[pending_key] = entry
 
 
-func _submit_pending_panel_open(pending_key: String) -> void:
+func _submit_pending_panel_open(pending_key: String, request_id: int) -> void:
+	if not _pending_route_has_request_id(pending_key, request_id):
+		return
+	if _cancel_pending_route_if_lifecycle_expired(pending_key, request_id):
+		return
 	var entry: Dictionary = GFVariantData.get_option_dictionary(_pending_async_routes, pending_key)
-	if entry.is_empty():
+	if entry.is_empty() or GFVariantData.get_option_bool(entry, "panel_submitted"):
 		return
 	if _disposed:
 		_complete_pending_route(
 			pending_key,
+			request_id,
 			GFUIRouteResult.STATUS_DISPOSED,
 			&"router_disposed_before_panel_submit",
 			null,
@@ -1006,6 +1401,7 @@ func _submit_pending_panel_open(pending_key: String) -> void:
 	if route == null:
 		_complete_pending_route(
 			pending_key,
+			request_id,
 			GFUIRouteResult.STATUS_INVALID_ROUTE,
 			&"route_unavailable_before_panel_submit",
 			null,
@@ -1016,6 +1412,7 @@ func _submit_pending_panel_open(pending_key: String) -> void:
 	if ui_utility == null:
 		_complete_pending_route(
 			pending_key,
+			request_id,
 			GFUIRouteResult.STATUS_MISSING_UI_UTILITY,
 			&"missing_ui_utility",
 			null,
@@ -1026,6 +1423,7 @@ func _submit_pending_panel_open(pending_key: String) -> void:
 	if not ui_utility.has_layer(route_layer):
 		_complete_pending_route(
 			pending_key,
+			request_id,
 			GFUIRouteResult.STATUS_MISSING_UI_LAYER,
 			&"missing_ui_layer",
 			null,
@@ -1036,6 +1434,7 @@ func _submit_pending_panel_open(pending_key: String) -> void:
 	if _ui_has_matching_pending_request(ui_utility, route.scene_path, route_layer, operation):
 		_complete_pending_route(
 			pending_key,
+			request_id,
 			GFUIRouteResult.STATUS_ASYNC_CONFLICT,
 			&"ui_async_request_conflict",
 			null,
@@ -1051,23 +1450,79 @@ func _submit_pending_panel_open(pending_key: String) -> void:
 		params,
 		config_callback
 	)
+	if not _pending_route_has_request_id(pending_key, request_id):
+		return
+	if _cancel_pending_route_if_lifecycle_expired(pending_key, request_id):
+		return
+	entry = GFVariantData.get_option_dictionary(_pending_async_routes, pending_key)
+	if entry.is_empty():
+		return
 	entry["panel_submitted"] = true
 	_pending_async_routes[pending_key] = entry
-	_ensure_ui_async_signal_connected(ui_utility)
+	_disconnect_entry_lifecycle(entry)
+	_pending_async_routes[pending_key] = entry
+	var completion_invocation: GFWeakMethodInvocation = GFWeakMethodInvocation.new(
+		self,
+		&"_on_ui_panel_async_operation_completed"
+	)
+	var completion_callback: Callable = func(
+		completed_ui_operation: GFUIPanelAsyncOperation
+	) -> void:
+		var _invocation_result: Dictionary = completion_invocation.invoke([
+			completed_ui_operation,
+			pending_key,
+			request_id,
+		])
+	var ui_operation: GFUIPanelAsyncOperation = null
 	if operation == Operation.REPLACE:
-		ui_utility.replace_layer_async_with_options(
+		ui_operation = ui_utility.replace_layer_async_with_options(
 			route.scene_path,
 			route_layer,
 			options,
-			wrapped_callback
+			wrapped_callback,
+			completion_callback
 		)
 	else:
-		ui_utility.push_panel_async_with_options(
+		ui_operation = ui_utility.push_panel_async_with_options(
 			route.scene_path,
 			route_layer,
 			options,
-			wrapped_callback
+			wrapped_callback,
+			completion_callback
 		)
+	if not _pending_route_has_request_id(pending_key, request_id):
+		return
+	if ui_operation == null:
+		_complete_pending_route(
+			pending_key,
+			request_id,
+			GFUIRouteResult.STATUS_PANEL_FAILED,
+			&"panel_async_request_rejected",
+			null,
+			true
+		)
+		return
+	entry = GFVariantData.get_option_dictionary(_pending_async_routes, pending_key)
+	if entry.is_empty():
+		return
+	var latched_ui_operation: GFUIPanelAsyncOperation = _get_ui_panel_async_operation_value(
+		entry.get("ui_operation")
+	)
+	if latched_ui_operation != null and latched_ui_operation != ui_operation:
+		_complete_pending_route(
+			pending_key,
+			request_id,
+			GFUIRouteResult.STATUS_PANEL_FAILED,
+			&"panel_async_identity_mismatch",
+			null,
+			true
+		)
+		return
+	entry["ui_operation"] = ui_operation
+	entry["ui_completion_callback"] = completion_callback
+	_pending_async_routes[pending_key] = entry
+	if ui_operation.is_completed():
+		_on_ui_panel_async_operation_completed(ui_operation, pending_key, request_id)
 
 
 func _ui_has_matching_pending_request(
@@ -1088,16 +1543,52 @@ func _ui_has_matching_pending_request(
 
 func _complete_pending_route(
 	pending_key: String,
+	request_id: int,
 	status: StringName,
 	reason: StringName,
 	panel: Node,
 	emit_legacy_failure: bool
 ) -> void:
+	if not _pending_route_has_request_id(pending_key, request_id):
+		return
 	var entry: Dictionary = GFVariantData.get_option_dictionary(_pending_async_routes, pending_key)
 	if entry.is_empty():
 		return
 	var _erased: bool = _pending_async_routes.erase(pending_key)
 	_finish_route_entry(entry, status, reason, panel, emit_legacy_failure)
+
+
+func _complete_pending_route_opened(
+	pending_key: String,
+	request_id: int,
+	route: GFUIRoute,
+	route_operation: Operation,
+	panel: Node
+) -> void:
+	if not _pending_route_has_request_id(pending_key, request_id):
+		return
+	var entry: Dictionary = GFVariantData.get_option_dictionary(
+		_pending_async_routes,
+		pending_key
+	)
+	if entry.is_empty():
+		return
+	var _erased: bool = _pending_async_routes.erase(pending_key)
+	if route_operation == Operation.REPLACE:
+		_remove_history_for_layer(route.layer)
+	_record_route_open(
+		route,
+		panel,
+		GFVariantData.get_option_dictionary(entry, "params"),
+		route_operation
+	)
+	_finish_route_entry(
+		entry,
+		GFUIRouteResult.STATUS_OPENED,
+		&"",
+		panel,
+		false
+	)
 
 
 func _finish_route_entry(
@@ -1107,6 +1598,8 @@ func _finish_route_entry(
 	panel: Node,
 	emit_legacy_failure: bool
 ) -> void:
+	_disconnect_entry_lifecycle(entry)
+	_disconnect_entry_ui_completion_callback(entry)
 	var operation_handle: GFUIRouteOperation = _get_route_operation_value(entry.get("operation_handle"))
 	if operation_handle == null or operation_handle.is_completed():
 		return
@@ -1163,6 +1656,7 @@ func _finish_pending_routes_for_dispose() -> void:
 			pending_entries.append(entry)
 	_pending_async_routes.clear()
 	for entry: Dictionary in pending_entries:
+		_disconnect_entry_lifecycle(entry)
 		_disconnect_entry_preload_callback(entry)
 		var panel_submitted: bool = GFVariantData.get_option_bool(entry, "panel_submitted")
 		var session: GFAssetLoadSession = _get_asset_load_session_value(entry.get("preload_session"))
@@ -1182,6 +1676,38 @@ func _disconnect_entry_preload_callback(entry: Dictionary) -> void:
 	var callback: Callable = _get_callable_value(entry.get("preload_callback"))
 	if session != null and callback.is_valid() and session.completed.is_connected(callback):
 		session.completed.disconnect(callback)
+
+
+func _disconnect_entry_lifecycle(entry: Dictionary) -> void:
+	var owner_lifetime: GFLifetimeSubscription = _get_lifetime_subscription_value(
+		entry.get("owner_lifetime")
+	)
+	if owner_lifetime != null and owner_lifetime.is_active():
+		var _cancelled_subscription: bool = owner_lifetime.cancel()
+	var scope: GFAsyncScope = _get_async_scope_value(entry.get("scope"))
+	var scope_callback: Callable = _get_callable_value(entry.get("scope_callback"))
+	if scope != null and scope_callback.is_valid() and scope.cancel_requested.is_connected(scope_callback):
+		scope.cancel_requested.disconnect(scope_callback)
+	entry["owner_lifetime"] = null
+	entry["scope"] = null
+	entry["scope_callback"] = Callable()
+
+
+func _disconnect_entry_ui_completion_callback(entry: Dictionary) -> void:
+	var ui_operation: GFUIPanelAsyncOperation = _get_ui_panel_async_operation_value(
+		entry.get("ui_operation")
+	)
+	var completion_callback: Callable = _get_callable_value(
+		entry.get("ui_completion_callback")
+	)
+	if (
+		ui_operation != null
+		and completion_callback.is_valid()
+		and ui_operation.completed.is_connected(completion_callback)
+	):
+		ui_operation.completed.disconnect(completion_callback)
+	entry["ui_operation"] = null
+	entry["ui_completion_callback"] = Callable()
 
 
 func _release_owned_preload_group(
@@ -1230,36 +1756,17 @@ func _get_pending_route_snapshots() -> Array[Dictionary]:
 		if operation_handle != null:
 			var snapshot: Dictionary = operation_handle.get_debug_snapshot()
 			snapshot["panel_submitted"] = GFVariantData.get_option_bool(entry, "panel_submitted")
+			snapshot["has_owner"] = GFVariantData.get_option_int(entry, "owner_id") != 0
+			snapshot["has_scope"] = GFVariantData.get_option_int(entry, "scope_id") != 0
+			snapshot["lifecycle_cancellation_open"] = not GFVariantData.get_option_bool(
+				entry,
+				"panel_submitted"
+			)
 			snapshots.append(snapshot)
 	snapshots.sort_custom(func(left: Dictionary, right: Dictionary) -> bool:
 		return GFVariantData.get_option_int(left, "request_id") < GFVariantData.get_option_int(right, "request_id")
 	)
 	return snapshots
-
-
-func _ensure_ui_async_signal_connected(ui_utility: GFUIUtility) -> void:
-	if ui_utility == null:
-		return
-	var connected_ui_utility: GFUIUtility = _get_connected_ui_utility()
-	if connected_ui_utility == ui_utility:
-		return
-	_disconnect_connected_ui_utility()
-	if not ui_utility.panel_async_load_finished.is_connected(_on_ui_panel_async_load_finished):
-		var _connect_error: Error = ui_utility.panel_async_load_finished.connect(_on_ui_panel_async_load_finished) as Error
-	_connected_ui_utility_ref = weakref(ui_utility)
-
-
-func _disconnect_connected_ui_utility() -> void:
-	var ui_utility: GFUIUtility = _get_connected_ui_utility()
-	if ui_utility != null and ui_utility.panel_async_load_finished.is_connected(_on_ui_panel_async_load_finished):
-		ui_utility.panel_async_load_finished.disconnect(_on_ui_panel_async_load_finished)
-	_connected_ui_utility_ref = null
-
-
-func _get_connected_ui_utility() -> GFUIUtility:
-	if _connected_ui_utility_ref == null:
-		return null
-	return _get_ui_utility_value(_connected_ui_utility_ref.get_ref())
 
 
 func _make_pending_async_route_key(path: String, layer: int, operation: Operation) -> String:
@@ -1269,12 +1776,6 @@ func _make_pending_async_route_key(path: String, layer: int, operation: Operatio
 func _find_pending_async_route(path: String, layer: int, operation: Operation) -> Dictionary:
 	var key: String = _make_pending_async_route_key(path, layer, operation)
 	return GFVariantData.get_option_dictionary(_pending_async_routes, key)
-
-
-func _operation_name_to_operation(operation: StringName) -> Operation:
-	if operation == &"replace":
-		return Operation.REPLACE
-	return Operation.PUSH
 
 
 func _operation_to_name(operation: Operation) -> StringName:
@@ -1435,6 +1936,13 @@ func _get_route_operation_value(value: Variant) -> GFUIRouteOperation:
 	return null
 
 
+func _get_ui_panel_async_operation_value(value: Variant) -> GFUIPanelAsyncOperation:
+	if value is GFUIPanelAsyncOperation:
+		var operation_handle: GFUIPanelAsyncOperation = value
+		return operation_handle
+	return null
+
+
 func _get_asset_preload_plan_value(value: Variant) -> GFAssetPreloadPlan:
 	if value is GFAssetPreloadPlan:
 		var asset_plan: GFAssetPreloadPlan = value
@@ -1463,6 +1971,34 @@ func _get_callable_value(value: Variant) -> Callable:
 	return Callable()
 
 
+func _get_object_value(value: Variant) -> Object:
+	if value is Object:
+		var object_value: Object = value
+		if is_instance_valid(object_value):
+			return object_value
+	return null
+
+
+func _get_live_object_from_ref(object_ref: WeakRef) -> Object:
+	if object_ref == null:
+		return null
+	return _get_object_value(object_ref.get_ref())
+
+
+func _get_async_scope_value(value: Variant) -> GFAsyncScope:
+	if value is GFAsyncScope:
+		var scope: GFAsyncScope = value
+		return scope
+	return null
+
+
+func _get_lifetime_subscription_value(value: Variant) -> GFLifetimeSubscription:
+	if value is GFLifetimeSubscription:
+		var subscription: GFLifetimeSubscription = value
+		return subscription
+	return null
+
+
 func _get_weak_ref_value(value: Variant) -> WeakRef:
 	if value is WeakRef:
 		var object_ref: WeakRef = value
@@ -1477,43 +2013,61 @@ func _get_ui_layer(value: Variant, fallback: int = GFUIUtility.DEFAULT_LAYER_ID)
 
 # --- 信号处理函数 ---
 
-func _on_ui_panel_async_load_finished(
-	path: String,
-	layer: int,
-	operation: StringName,
-	status: int,
-	panel: Node
+func _on_ui_panel_async_operation_completed(
+	ui_operation: GFUIPanelAsyncOperation,
+	pending_key: String,
+	request_id: int
 ) -> void:
-	var route_operation: Operation = _operation_name_to_operation(operation)
-	var pending_key: String = _make_pending_async_route_key(path, layer, route_operation)
+	if ui_operation == null or not ui_operation.is_completed():
+		return
+	if not _pending_route_has_request_id(pending_key, request_id):
+		return
 	var route_entry: Dictionary = GFVariantData.get_option_dictionary(
 		_pending_async_routes,
 		pending_key
 	)
 	if route_entry.is_empty() or not GFVariantData.get_option_bool(route_entry, "panel_submitted"):
 		return
-	if status == GFUIUtility.AsyncPanelLoadStatus.OPENED and is_instance_valid(panel):
-		var route: GFUIRoute = _get_route_value(route_entry.get("route"))
-		if route != null:
-			if route_operation == Operation.REPLACE:
-				_remove_history_for_layer(route.layer)
-			_record_route_open(
-				route,
-				panel,
-				GFVariantData.get_option_dictionary(route_entry, "params"),
-				route_operation
-			)
+	var latched_ui_operation: GFUIPanelAsyncOperation = _get_ui_panel_async_operation_value(
+		route_entry.get("ui_operation")
+	)
+	if latched_ui_operation != null and latched_ui_operation != ui_operation:
+		return
+	var route: GFUIRoute = _get_route_value(route_entry.get("route"))
+	var route_operation: Operation = _get_route_operation(route_entry)
+	if (
+		route == null
+		or ui_operation.get_path() != route.scene_path
+		or ui_operation.get_layer() != _get_ui_layer(route.layer)
+		or ui_operation.get_operation() != _operation_to_name(route_operation)
+	):
 		_complete_pending_route(
 			pending_key,
-			GFUIRouteResult.STATUS_OPENED,
-			&"",
-			panel,
-			false
+			request_id,
+			GFUIRouteResult.STATUS_PANEL_FAILED,
+			&"panel_async_identity_mismatch",
+			null,
+			true
+		)
+		return
+	if latched_ui_operation == null:
+		route_entry["ui_operation"] = ui_operation
+		_pending_async_routes[pending_key] = route_entry
+	var status: int = ui_operation.get_status()
+	var panel: Node = ui_operation.get_panel()
+	if status == GFUIUtility.AsyncPanelLoadStatus.OPENED and is_instance_valid(panel):
+		_complete_pending_route_opened(
+			pending_key,
+			request_id,
+			route,
+			route_operation,
+			panel
 		)
 		return
 	if status == GFUIUtility.AsyncPanelLoadStatus.CANCELLED:
 		_complete_pending_route(
 			pending_key,
+			request_id,
 			GFUIRouteResult.STATUS_CANCELLED,
 			&"panel_async_cancelled",
 			null,
@@ -1522,6 +2076,7 @@ func _on_ui_panel_async_load_finished(
 		return
 	_complete_pending_route(
 		pending_key,
+		request_id,
 		GFUIRouteResult.STATUS_PANEL_FAILED,
 		&"panel_async_failed",
 		null,

@@ -38,7 +38,7 @@
 | 方法 | [`is_context_enabled`](#member-gfinputmappingutility-methods-is_context_enabled) | `func is_context_enabled(context: GFInputContext) -> bool:` |
 | 方法 | [`get_enabled_contexts`](#member-gfinputmappingutility-methods-get_enabled_contexts) | `func get_enabled_contexts() -> Array[GFInputContext]:` |
 | 方法 | [`handle_input_event`](#member-gfinputmappingutility-methods-handle_input_event) | `func handle_input_event(event: InputEvent) -> void:` |
-| 方法 | [`create_virtual_source`](#member-gfinputmappingutility-methods-create_virtual_source) | `func create_virtual_source( source_id: StringName = &"virtual", player_index: int = -1 ) -> GFVirtualInputSource:` |
+| 方法 | [`create_virtual_source`](#member-gfinputmappingutility-methods-create_virtual_source) | `func create_virtual_source( source_id: StringName = &"virtual", player_index: int = -1, timer_utility: GFTimerUtility = null ) -> GFVirtualInputSource:` |
 | 方法 | [`set_virtual_action_value`](#member-gfinputmappingutility-methods-set_virtual_action_value) | `func set_virtual_action_value( action_id: StringName, value: Variant, source_id: StringName = &"virtual", player_index: int = -1 ) -> bool:` |
 | 方法 | [`clear_virtual_action`](#member-gfinputmappingutility-methods-clear_virtual_action) | `func clear_virtual_action( action_id: StringName, source_id: StringName = &"virtual", player_index: int = -1 ) -> bool:` |
 | 方法 | [`clear_virtual_source`](#member-gfinputmappingutility-methods-clear_virtual_source) | `func clear_virtual_source(source_id: StringName = &"virtual") -> void:` |
@@ -518,9 +518,10 @@ func handle_input_event(event: InputEvent) -> void:
 ### `create_virtual_source`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func create_virtual_source( source_id: StringName = &"virtual", player_index: int = -1 ) -> GFVirtualInputSource:
+func create_virtual_source( source_id: StringName = &"virtual", player_index: int = -1, timer_utility: GFTimerUtility = null ) -> GFVirtualInputSource:
 ```
 
 创建可编程虚拟输入源。
@@ -531,6 +532,7 @@ func create_virtual_source( source_id: StringName = &"virtual", player_index: in
 |---|---|
 | `source_id` | 虚拟输入源标识。 |
 | `player_index` | 玩家索引；小于 0 时只写入全局动作状态。 |
+| `timer_utility` | 可选的虚拟脉冲定时器注入。 |
 
 返回：虚拟输入源。
 
@@ -539,6 +541,7 @@ func create_virtual_source( source_id: StringName = &"virtual", player_index: in
 ### `set_virtual_action_value`
 
 - API：`public`
+- 首次版本：`2.6.0`
 
 ```gdscript
 func set_virtual_action_value( action_id: StringName, value: Variant, source_id: StringName = &"virtual", player_index: int = -1 ) -> bool:

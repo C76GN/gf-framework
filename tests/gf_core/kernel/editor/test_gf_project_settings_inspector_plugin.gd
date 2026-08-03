@@ -5,6 +5,7 @@ extends GutTest
 
 const _GF_PROJECT_SETTINGS_INSPECTOR_PLUGIN_SCRIPT = preload("res://addons/gf/kernel/editor/gf_project_settings_inspector_plugin.gd")
 const _GF_PROJECT_SETTING_PRESENTATION_CATALOG_SCRIPT = preload("res://addons/gf/kernel/editor/gf_project_setting_presentation_catalog.gd")
+const _GF_PLUGIN_PROJECT_SETTINGS_SCRIPT = preload("res://addons/gf/kernel/editor/gf_plugin_project_settings.gd")
 const _GF_EDITOR_CONTRIBUTION_REGISTRY_SCRIPT = preload("res://addons/gf/kernel/editor/gf_editor_contribution_registry.gd")
 const _GF_EXTENSION_SETTINGS_SCRIPT = preload("res://addons/gf/kernel/extension/gf_extension_settings.gd")
 const _GF_VARIANT_ACCESS_SCRIPT = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
@@ -51,6 +52,27 @@ func test_builtin_setting_presentation_uses_tool_locale_and_english_fallback() -
 		_GF_VARIANT_ACCESS_SCRIPT.get_option_string(fallback, "label"),
 		"Extension Selection Mode",
 		"未提供的工具语言应回退英文。"
+	)
+
+
+func test_access_policy_setting_has_builtin_presentation() -> void:
+	var catalog: Object = _GF_PROJECT_SETTING_PRESENTATION_CATALOG_SCRIPT.new()
+	var presentation: Dictionary = _get_presentation(
+		catalog,
+		_GF_PLUGIN_PROJECT_SETTINGS_SCRIPT.ACCESS_POLICIES_SETTING,
+		"zh_CN"
+	)
+
+	assert_eq(
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_string(presentation, "label"),
+		"框架访问策略",
+		"访问策略 ProjectSetting 应有内核维护的中文名称。"
+	)
+	assert_true(
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_string(presentation, "tooltip").contains(
+			_GF_PLUGIN_PROJECT_SETTINGS_SCRIPT.ACCESS_POLICIES_SETTING
+		),
+		"访问策略悬浮说明应保留稳定设置键。"
 	)
 
 

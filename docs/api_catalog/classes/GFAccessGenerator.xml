@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFAccessGenerator" path="addons/gf/kernel/editor/gf_access_generator.gd" module="kernel" extends="RefCounted" classDigest="23ecb1147121b2d8d04152cddd67f06e28a39cc4068a49c407b2234e8d584422">
+<class name="GFAccessGenerator" path="addons/gf/kernel/editor/gf_access_generator.gd" module="kernel" extends="RefCounted" classDigest="a35307fe93216b31b9c23048ed70f9856e31e2e168d74343140f5810c8c20eb4">
 	<description>GFAccessGenerator: 生成强类型 GF 访问器脚本。
 生成结果用于减少 `Gf.get_model(Type) as Type` 这类重复样板，
 并为 Model / System / Utility / Command / Query 提供稳定的 IDE 补全入口。</description>
@@ -47,6 +47,30 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="ACCESS_SCOPE_INHERITED">
+			<signature>const ACCESS_SCOPE_INHERITED: StringName = &amp;"inherited"</signature>
+			<description>访问器按父级回退规则解析模块。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="ACCESS_SCOPE_LOCAL">
+			<signature>const ACCESS_SCOPE_LOCAL: StringName = &amp;"local"</signature>
+			<description>访问器只解析传入架构的本地模块。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="ACCESS_POLICIES_SETTING">
+			<signature>const ACCESS_POLICIES_SETTING: String = "gf/codegen/access_policies"</signature>
+			<description>每个生成类型的冻结访问策略 ProjectSettings 键。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 	</constants>
@@ -103,8 +127,9 @@
 			<description>收集当前项目中可生成访问器的 GF 类型记录。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="return">类型记录列表。</tag>
-				<tag name="schema">return: Array of Dictionary type records with class_name, path, script, kind, and access metadata.</tag>
+				<tag name="return">类型记录列表；访问策略配置无效时返回空数组且不会返回部分冻结结果。</tag>
+				<tag name="schema">return: Array of Dictionary type records with class_name, path, and kind; Model/System/Utility records additionally contain scope, required, and require_ready.</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="collect_project_records">
@@ -122,8 +147,9 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">records: 生成访问器时使用的类型记录列表。</tag>
-				<tag name="return">GDScript 源码。</tag>
-				<tag name="schema">records: Array of Dictionary type records containing class_name, path, and kind.</tag>
+				<tag name="return">完整 GDScript 源码；任一记录或模块访问策略无效时整批失败并返回空字符串。</tag>
+				<tag name="schema">records: Array of Dictionary type records containing class_name, path, and kind; Model/System/Utility records may additionally contain scope, required, and require_ready.</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="build_project_source">

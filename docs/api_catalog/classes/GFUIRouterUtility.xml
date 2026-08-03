@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFUIRouterUtility" path="addons/gf/standard/utilities/ui/gf_ui_router_utility.gd" module="standard" extends="GFUtility" classDigest="edbd00a005e1f2cb0e2e454d4077c094e4b30d97248b116df7f743d90a847108">
+<class name="GFUIRouterUtility" path="addons/gf/standard/utilities/ui/gf_ui_router_utility.gd" module="standard" extends="GFUtility" classDigest="178725610abee26c28a2d772be793501cc5b322de94b6af46fa58291c76e9880">
 	<description>GFUIRouterUtility: 基于路由 ID 的 UI 导航工具。
 作为 GFUIUtility 之上的轻量路由层，负责把稳定 route_id 映射到面板场景、
 打开参数、层级和历史记录，不接管具体页面业务或动画表现。</description>
@@ -110,9 +110,12 @@
 	<methods>
 		<member kind="method" name="init">
 			<signature>func init() -&gt; void:</signature>
-			<description>初始化路由表、UI 工具引用和历史记录。</description>
+			<description>初始化路由表、UI 工具引用和历史记录。
+重复初始化会先以 dispose 语义终结旧 pending 请求；请求 ID 在同一实例内保持单调，
+避免旧异步回调或临时预加载组与新生命周期串线。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="dispose">
@@ -120,6 +123,16 @@
 			<description>释放路由表、UI 工具引用和历史记录。</description>
 			<tags>
 				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="method" name="tick">
+			<signature>func tick(_delta: float) -&gt; void:</signature>
+			<description>清理普通 Object owner 已释放的提交前路由请求。
+Node owner 和 GFAsyncScope 会通过信号即时取消；普通 Object 依赖本帧弱引用检查。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">_delta: 本帧时间增量；生命周期清理不依赖具体数值。</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 		<member kind="method" name="configure">
@@ -252,7 +265,7 @@
 				<tag name="return">可观察的异步路由句柄；相同 pending 请求返回同一句柄。</tag>
 				<tag name="schema">params: Dictionary，本次打开路由携带的项目自定义参数。</tag>
 				<tag name="schema">option_overrides: Dictionary，字段同 GFUIUtility 打开面板 options，会覆盖路由 default_options。</tag>
-				<tag name="schema">async_options: Dictionary，可包含 preload_policy、preload_plan_options 和 metadata；preload_policy 使用 PRELOAD_* 常量，自动预加载始终包含当前路由，未指定 max_depth 时只加载当前页面。</tag>
+				<tag name="schema">async_options: Dictionary，可包含 preload_policy、preload_plan_options、metadata、owner: Object 和 scope: GFAsyncScope；owner 与 scope 使用 OR 取消语义且只约束面板提交前，preload_policy 使用 PRELOAD_* 常量，自动预加载始终包含当前路由，未指定 max_depth 时只加载当前页面。</tag>
 				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
@@ -269,7 +282,7 @@
 				<tag name="return">可观察的异步路由句柄；相同 pending 请求返回同一句柄。</tag>
 				<tag name="schema">params: Dictionary，本次打开路由携带的项目自定义参数。</tag>
 				<tag name="schema">option_overrides: Dictionary，字段同 GFUIUtility 打开面板 options，会覆盖路由 default_options。</tag>
-				<tag name="schema">async_options: Dictionary，可包含 preload_policy、preload_plan_options 和 metadata；preload_policy 使用 PRELOAD_* 常量，自动预加载始终包含当前路由，未指定 max_depth 时只加载当前页面。</tag>
+				<tag name="schema">async_options: Dictionary，可包含 preload_policy、preload_plan_options、metadata、owner: Object 和 scope: GFAsyncScope；owner 与 scope 使用 OR 取消语义且只约束面板提交前，preload_policy 使用 PRELOAD_* 常量，自动预加载始终包含当前路由，未指定 max_depth 时只加载当前页面。</tag>
 				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
@@ -314,7 +327,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">诊断快照。</tag>
-				<tag name="schema">return: Dictionary，包含 route_count、history_count、pending_async_route_count、pending_async_routes、current_route_id、has_ui_utility 和 disposed。</tag>
+				<tag name="schema">return: Dictionary，包含 route_count、history_count、pending_async_route_count、current_route_id、has_ui_utility、disposed，以及 pending_async_routes；其中每个 pending 条目额外包含 panel_submitted、has_owner、has_scope 与 lifecycle_cancellation_open。</tag>
 				<tag name="since">3.0.0</tag>
 			</tags>
 		</member>

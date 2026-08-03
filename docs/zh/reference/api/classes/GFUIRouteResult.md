@@ -22,6 +22,7 @@ UI 路由异步打开的不可变终态。 结果把路由校验、可选预加�
 | 常量 | [`STATUS_MISSING_UI_LAYER`](#member-gfuirouteresult-constants-status_missing_ui_layer) | `const STATUS_MISSING_UI_LAYER: StringName = &"missing_ui_layer"` |
 | 常量 | [`STATUS_ASYNC_CONFLICT`](#member-gfuirouteresult-constants-status_async_conflict) | `const STATUS_ASYNC_CONFLICT: StringName = &"async_conflict"` |
 | 常量 | [`STATUS_INVALID_PRELOAD_POLICY`](#member-gfuirouteresult-constants-status_invalid_preload_policy) | `const STATUS_INVALID_PRELOAD_POLICY: StringName = &"invalid_preload_policy"` |
+| 常量 | [`STATUS_INVALID_LIFECYCLE`](#member-gfuirouteresult-constants-status_invalid_lifecycle) | `const STATUS_INVALID_LIFECYCLE: StringName = &"invalid_lifecycle"` |
 | 常量 | [`STATUS_MISSING_ASSET_UTILITY`](#member-gfuirouteresult-constants-status_missing_asset_utility) | `const STATUS_MISSING_ASSET_UTILITY: StringName = &"missing_asset_utility"` |
 | 常量 | [`STATUS_PRELOAD_PLAN_FAILED`](#member-gfuirouteresult-constants-status_preload_plan_failed) | `const STATUS_PRELOAD_PLAN_FAILED: StringName = &"preload_plan_failed"` |
 | 常量 | [`STATUS_PRELOAD_FAILED`](#member-gfuirouteresult-constants-status_preload_failed) | `const STATUS_PRELOAD_FAILED: StringName = &"preload_failed"` |
@@ -142,6 +143,19 @@ const STATUS_INVALID_PRELOAD_POLICY: StringName = &"invalid_preload_policy"
 
 预加载策略不受支持。
 
+<a id="member-gfuirouteresult-constants-status_invalid_lifecycle"></a>
+
+### `STATUS_INVALID_LIFECYCLE`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+const STATUS_INVALID_LIFECYCLE: StringName = &"invalid_lifecycle"
+```
+
+请求 owner 或异步作用域不满足生命周期契约。
+
 <a id="member-gfuirouteresult-constants-status_missing_asset_utility"></a>
 
 ### `STATUS_MISSING_ASSET_UTILITY`
@@ -205,7 +219,7 @@ const STATUS_PANEL_FAILED: StringName = &"panel_failed"
 const STATUS_CANCELLED: StringName = &"cancelled"
 ```
 
-底层 UI 请求在完成前被取消。
+请求在面板提交前因 owner/scope 结束，或在提交后被底层 UI 取消。
 
 <a id="member-gfuirouteresult-constants-status_disposed"></a>
 

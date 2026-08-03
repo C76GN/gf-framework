@@ -67,6 +67,22 @@ const ACCESS_OUTPUT_SETTING: String = "gf/codegen/access_output_path"
 ## @layer kernel/editor
 const ACCESS_OUTPUT_DEFAULT: String = _GF_PROJECT_ARTIFACT_PATHS_SCRIPT.ACCESS_OUTPUT_PATH
 
+## GF 访问器类型策略设置。
+## [br]
+## @api framework_internal
+## [br]
+## @layer kernel/editor
+const ACCESS_POLICIES_SETTING: String = "gf/codegen/access_policies"
+
+## GF 访问器类型策略默认值。
+## [br]
+## @api framework_internal
+## [br]
+## @layer kernel/editor
+## [br]
+## @schema ACCESS_POLICIES_DEFAULT: 空 Dictionary；项目按稳定 res:// 模块脚本路径声明访问策略。
+const ACCESS_POLICIES_DEFAULT: Dictionary = {}
+
 ## 项目访问器输出路径设置。
 ## [br]
 ## @api framework_internal
@@ -117,6 +133,10 @@ static func ensure_all(project_setting_records: Array[Dictionary] = []) -> void:
 	var _access_output_ensured: bool = _ensure_default(
 		ACCESS_OUTPUT_SETTING,
 		ACCESS_OUTPUT_DEFAULT
+	)
+	var _access_policies_ensured: bool = _ensure_default(
+		ACCESS_POLICIES_SETTING,
+		ACCESS_POLICIES_DEFAULT
 	)
 	var _project_access_output_ensured: bool = _ensure_default(
 		PROJECT_ACCESS_OUTPUT_SETTING,
@@ -192,6 +212,9 @@ static func _register_property_info() -> void:
 	_GF_PROJECT_SETTINGS_TOOLS.register_property_info(ACCESS_OUTPUT_SETTING, TYPE_STRING, {
 		"hint": PROPERTY_HINT_SAVE_FILE,
 		"hint_string": "*.gd",
+		"basic": true,
+	})
+	_GF_PROJECT_SETTINGS_TOOLS.register_property_info(ACCESS_POLICIES_SETTING, TYPE_DICTIONARY, {
 		"basic": true,
 	})
 	_GF_PROJECT_SETTINGS_TOOLS.register_property_info(PROJECT_ACCESS_OUTPUT_SETTING, TYPE_STRING, {

@@ -15,9 +15,13 @@
 
 | 类型 | 名称 | 签名 |
 |---|---|---|
+| 枚举 | [`PulseReplacementPolicy`](#member-gfvirtualinputsource-enums-pulsereplacementpolicy) | `enum PulseReplacementPolicy` |
 | 属性 | [`source_id`](#member-gfvirtualinputsource-properties-source_id) | `var source_id: StringName = &"virtual"` |
 | 属性 | [`player_index`](#member-gfvirtualinputsource-properties-player_index) | `var player_index: int = -1` |
-| 方法 | [`configure`](#member-gfvirtualinputsource-methods-configure) | `func configure( input_mapping: GFInputMappingUtility, p_source_id: StringName = &"virtual", p_player_index: int = -1 ) -> GFVirtualInputSource:` |
+| 方法 | [`configure`](#member-gfvirtualinputsource-methods-configure) | `func configure( input_mapping: GFInputMappingUtility, p_source_id: StringName = &"virtual", p_player_index: int = -1, timer_utility: GFTimerUtility = null ) -> GFVirtualInputSource:` |
+| 方法 | [`set_timer_utility`](#member-gfvirtualinputsource-methods-set_timer_utility) | `func set_timer_utility(timer_utility: GFTimerUtility) -> GFVirtualInputSource:` |
+| 方法 | [`get_timer_utility`](#member-gfvirtualinputsource-methods-get_timer_utility) | `func get_timer_utility() -> GFTimerUtility:` |
+| 方法 | [`pulse_action`](#member-gfvirtualinputsource-methods-pulse_action) | `func pulse_action( action_id: StringName, value: Variant = true, duration_seconds: float = 0.1, owner: Variant = null, cancellation_token: GFCancellationToken = null, replacement_policy: PulseReplacementPolicy = PulseReplacementPolicy.REPLACE ) -> GFVirtualInputPulseOperation:` |
 | 方法 | [`set_action_value`](#member-gfvirtualinputsource-methods-set_action_value) | `func set_action_value(action_id: StringName, value: Variant) -> bool:` |
 | 方法 | [`set_action_value_for_player`](#member-gfvirtualinputsource-methods-set_action_value_for_player) | `func set_action_value_for_player(action_id: StringName, value: Variant, next_player_index: int) -> bool:` |
 | 方法 | [`press`](#member-gfvirtualinputsource-methods-press) | `func press(action_id: StringName, strength: float = 1.0) -> bool:` |
@@ -28,7 +32,28 @@
 | 方法 | [`clear_action`](#member-gfvirtualinputsource-methods-clear_action) | `func clear_action(action_id: StringName) -> bool:` |
 | 方法 | [`clear_action_for_player`](#member-gfvirtualinputsource-methods-clear_action_for_player) | `func clear_action_for_player(action_id: StringName, next_player_index: int) -> bool:` |
 | 方法 | [`clear_all`](#member-gfvirtualinputsource-methods-clear_all) | `func clear_all() -> void:` |
+| 方法 | [`dispose`](#member-gfvirtualinputsource-methods-dispose) | `func dispose() -> void:` |
 | 方法 | [`get_snapshot`](#member-gfvirtualinputsource-methods-get_snapshot) | `func get_snapshot() -> Dictionary:` |
+
+## 枚举
+
+<a id="member-gfvirtualinputsource-enums-pulsereplacementpolicy"></a>
+
+### `PulseReplacementPolicy`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+enum PulseReplacementPolicy {
+	## 原子交接同一动作贡献，不产生中间释放。
+	REPLACE,
+	## 保留旧脉冲，并让新句柄立即进入 REJECTED 终态。
+	REJECT_NEW,
+}
+```
+
+同一 source_id、player_index 与 action_id 已存在脉冲时的处理策略。
 
 ## 属性
 
@@ -63,9 +88,10 @@ var player_index: int = -1
 ### `configure`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func configure( input_mapping: GFInputMappingUtility, p_source_id: StringName = &"virtual", p_player_index: int = -1 ) -> GFVirtualInputSource:
+func configure( input_mapping: GFInputMappingUtility, p_source_id: StringName = &"virtual", p_player_index: int = -1, timer_utility: GFTimerUtility = null ) -> GFVirtualInputSource:
 ```
 
 配置虚拟输入源。
@@ -77,8 +103,76 @@ func configure( input_mapping: GFInputMappingUtility, p_source_id: StringName = 
 | `input_mapping` | 输入映射工具。 |
 | `p_source_id` | 虚拟输入源标识。 |
 | `p_player_index` | 玩家索引。 |
+| `timer_utility` | 可选的脉冲定时器注入。 |
 
-返回：当前输入源。
+返回：当前输入源；dispose 后返回同一终态实例且不修改配置。
+
+<a id="member-gfvirtualinputsource-methods-set_timer_utility"></a>
+
+### `set_timer_utility`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func set_timer_utility(timer_utility: GFTimerUtility) -> GFVirtualInputSource:
+```
+
+替换后续脉冲使用的定时器工具。 已启动操作会继续使用其创建时冻结的定时器，不受本次替换影响。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `timer_utility` | 可注入的定时器工具；null 会禁用后续 pulse_action()。 |
+
+返回：当前输入源；dispose 后返回同一终态实例且不修改配置。
+
+<a id="member-gfvirtualinputsource-methods-get_timer_utility"></a>
+
+### `get_timer_utility`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func get_timer_utility() -> GFTimerUtility:
+```
+
+获取后续脉冲使用的定时器工具。
+
+返回：当前注入且仍存活的 GFTimerUtility。
+
+<a id="member-gfvirtualinputsource-methods-pulse_action"></a>
+
+### `pulse_action`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func pulse_action( action_id: StringName, value: Variant = true, duration_seconds: float = 0.1, owner: Variant = null, cancellation_token: GFCancellationToken = null, replacement_policy: PulseReplacementPolicy = PulseReplacementPolicy.REPLACE ) -> GFVirtualInputPulseOperation:
+```
+
+启动一次有界虚拟动作脉冲。 owner 与 cancellation_token 均可省略；同时提供时采用 OR 语义。返回句柄冻结 当前 Mapping、source_id、player_index 和 action_id，Source 后续重配不会改写旧操作。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `action_id` | 已注册的抽象动作标识。 |
+| `value` | 脉冲期间的动作值。 |
+| `duration_seconds` | 非负且有限的脉冲时长；0 会同步释放。 |
+| `owner` | 可选生命周期 owner；Node 离树或普通 Object 释放后取消。 |
+| `cancellation_token` | 可选取消 token。 |
+| `replacement_policy` | 同一稳定输入键已有脉冲时的策略。 |
+
+返回：类型化脉冲句柄；输入无效时返回立即 FAILED 的句柄。
+
+结构：
+
+- `value`: Variant，GFInputMappingUtility 接受的 bool、float、Vector2 或 Vector3 动作值。
+- `owner`: Variant，null 或仍有效的 Object；无效及已释放对象会在写入前失败。
 
 <a id="member-gfvirtualinputsource-methods-set_action_value"></a>
 
@@ -287,6 +381,19 @@ func clear_all() -> void:
 ```
 
 清除当前虚拟源的所有动作贡献。
+
+<a id="member-gfvirtualinputsource-methods-dispose"></a>
+
+### `dispose`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func dispose() -> void:
+```
+
+取消全部 Source-owned 脉冲、清除当前 source_id 贡献并释放依赖引用。
 
 <a id="member-gfvirtualinputsource-methods-get_snapshot"></a>
 

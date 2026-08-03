@@ -45,6 +45,35 @@ signal shutdown_finished(result: GFArchitectureShutdownResult)
 signal project_installers_finished
 
 
+# --- 枚举 ---
+
+## 可由架构访问策略解析的模块类型。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+enum ModuleKind {
+	## Model 模块。
+	MODEL,
+	## System 模块。
+	SYSTEM,
+	## Utility 模块。
+	UTILITY,
+}
+
+## 模块访问的架构作用域。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+enum ModuleLookupScope {
+	## 按当前架构的父级回退与 strict_dependency_lookup 规则解析。
+	INHERITED,
+	## 只解析当前架构，不回退父级。
+	LOCAL,
+}
+
+
 # --- 常量 ---
 
 ## 依赖绑定记录脚本。
@@ -2010,6 +2039,60 @@ func unregister_utility(script_cls: Script) -> bool:
 
 # --- 公共方法（获取） ---
 
+## 按冻结的作用域、必需性和 ready 策略解析已注册模块。
+## 该入口供生成访问器与其他声明式依赖边界复用；required 只控制严格依赖缺失诊断，
+## 不改变 strict_dependency_lookup 对父级回退的限制。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param module_kind: 要解析的 Model、System 或 Utility 类型。
+## [br]
+## @param script_cls: 模块脚本类。
+## [br]
+## @param lookup_scope: 父级可见或仅当前架构的查询作用域。
+## [br]
+## @param required: 为 true 时，严格查询模式下缺失模块会输出 required miss。
+## [br]
+## @param require_ready: 为 true 时，仅返回已完成 ready 阶段的实例。
+## [br]
+## @return: 符合全部冻结策略的模块实例；未命中时返回 null。
+func resolve_module_access(
+	module_kind: ModuleKind,
+	script_cls: Script,
+	lookup_scope: ModuleLookupScope = ModuleLookupScope.INHERITED,
+	required: bool = true,
+	require_ready: bool = false
+) -> Object:
+	var module_registry: ModuleRegistry = _get_module_registry_for_access_kind(module_kind)
+	if module_registry == null:
+		push_error("[GFArchitecture] resolve_module_access 失败：module_kind 无效。")
+		return null
+	if script_cls == null:
+		push_error("[GFArchitecture] resolve_module_access 失败：script_cls 为空。")
+		return null
+
+	match lookup_scope:
+		ModuleLookupScope.INHERITED:
+			return _get_registered_instance_with_parent_lookup(
+				module_registry._label_key(),
+				script_cls,
+				require_ready,
+				required
+			)
+		ModuleLookupScope.LOCAL:
+			var instance: Object = _get_local_registered_instance(module_registry, script_cls)
+			if instance == null:
+				if required and strict_dependency_lookup:
+					_report_strict_lookup_miss(script_cls, module_registry.label)
+				return null
+			return instance if not require_ready or _is_module_ready_for_lookup(instance) else null
+		_:
+			push_error("[GFArchitecture] resolve_module_access 失败：lookup_scope 无效。")
+			return null
+
+
 ## 通过脚本类获取 System 实例。
 ## [br]
 ## @api public
@@ -2020,7 +2103,13 @@ func unregister_utility(script_cls: Script) -> bool:
 ## [br]
 ## @return 系统实例，如果未找到则返回 null。
 func get_system(script_cls: Script, require_ready: bool = false) -> Object:
-	return _get_registered_instance_with_parent_lookup("system", script_cls, require_ready)
+	return resolve_module_access(
+		ModuleKind.SYSTEM,
+		script_cls,
+		ModuleLookupScope.INHERITED,
+		true,
+		require_ready
+	)
 
 
 ## 通过脚本类获取 Model 实例。
@@ -2033,7 +2122,13 @@ func get_system(script_cls: Script, require_ready: bool = false) -> Object:
 ## [br]
 ## @return 模型实例，如果未找到则返回 null。
 func get_model(script_cls: Script, require_ready: bool = false) -> Object:
-	return _get_registered_instance_with_parent_lookup("model", script_cls, require_ready)
+	return resolve_module_access(
+		ModuleKind.MODEL,
+		script_cls,
+		ModuleLookupScope.INHERITED,
+		true,
+		require_ready
+	)
 
 
 ## 通过脚本类获取 Utility 实例。
@@ -2046,7 +2141,13 @@ func get_model(script_cls: Script, require_ready: bool = false) -> Object:
 ## [br]
 ## @return 工具实例，如果未找到则返回 null。
 func get_utility(script_cls: Script, require_ready: bool = false) -> Object:
-	return _get_registered_instance_with_parent_lookup("utility", script_cls, require_ready)
+	return resolve_module_access(
+		ModuleKind.UTILITY,
+		script_cls,
+		ModuleLookupScope.INHERITED,
+		true,
+		require_ready
+	)
 
 
 ## 可选查找 System 实例，未找到时不输出严格依赖缺失错误。
@@ -2062,11 +2163,12 @@ func get_utility(script_cls: Script, require_ready: bool = false) -> Object:
 ## [br]
 ## @return 系统实例；可选依赖不存在或尚未 ready 时返回 null。
 func find_system(script_cls: Script, require_ready: bool = false) -> Object:
-	return _get_registered_instance_with_parent_lookup(
-		"system",
+	return resolve_module_access(
+		ModuleKind.SYSTEM,
 		script_cls,
-		require_ready,
-		false
+		ModuleLookupScope.INHERITED,
+		false,
+		require_ready
 	)
 
 
@@ -2083,11 +2185,12 @@ func find_system(script_cls: Script, require_ready: bool = false) -> Object:
 ## [br]
 ## @return 模型实例；可选依赖不存在或尚未 ready 时返回 null。
 func find_model(script_cls: Script, require_ready: bool = false) -> Object:
-	return _get_registered_instance_with_parent_lookup(
-		"model",
+	return resolve_module_access(
+		ModuleKind.MODEL,
 		script_cls,
-		require_ready,
-		false
+		ModuleLookupScope.INHERITED,
+		false,
+		require_ready
 	)
 
 
@@ -2104,11 +2207,12 @@ func find_model(script_cls: Script, require_ready: bool = false) -> Object:
 ## [br]
 ## @return 工具实例；可选依赖不存在或尚未 ready 时返回 null。
 func find_utility(script_cls: Script, require_ready: bool = false) -> Object:
-	return _get_registered_instance_with_parent_lookup(
-		"utility",
+	return resolve_module_access(
+		ModuleKind.UTILITY,
 		script_cls,
-		require_ready,
-		false
+		ModuleLookupScope.INHERITED,
+		false,
+		require_ready
 	)
 
 
@@ -2122,8 +2226,13 @@ func find_utility(script_cls: Script, require_ready: bool = false) -> Object:
 ## [br]
 ## @return 当前架构中的系统实例，如果未找到则返回 null。
 func get_local_system(script_cls: Script, require_ready: bool = false) -> Object:
-	var instance: Object = _get_local_registered_instance(_system_registry, script_cls)
-	return instance if not require_ready or _is_module_ready_for_lookup(instance) else null
+	return resolve_module_access(
+		ModuleKind.SYSTEM,
+		script_cls,
+		ModuleLookupScope.LOCAL,
+		false,
+		require_ready
+	)
 
 
 ## 仅从当前架构获取 Model，不回退父级架构。
@@ -2136,8 +2245,13 @@ func get_local_system(script_cls: Script, require_ready: bool = false) -> Object
 ## [br]
 ## @return 当前架构中的模型实例，如果未找到则返回 null。
 func get_local_model(script_cls: Script, require_ready: bool = false) -> Object:
-	var instance: Object = _get_local_registered_instance(_model_registry, script_cls)
-	return instance if not require_ready or _is_module_ready_for_lookup(instance) else null
+	return resolve_module_access(
+		ModuleKind.MODEL,
+		script_cls,
+		ModuleLookupScope.LOCAL,
+		false,
+		require_ready
+	)
 
 
 ## 仅从当前架构获取 Utility，不回退父级架构。
@@ -2150,8 +2264,13 @@ func get_local_model(script_cls: Script, require_ready: bool = false) -> Object:
 ## [br]
 ## @return 当前架构中的工具实例，如果未找到则返回 null。
 func get_local_utility(script_cls: Script, require_ready: bool = false) -> Object:
-	var instance: Object = _get_local_registered_instance(_utility_registry, script_cls)
-	return instance if not require_ready or _is_module_ready_for_lookup(instance) else null
+	return resolve_module_access(
+		ModuleKind.UTILITY,
+		script_cls,
+		ModuleLookupScope.LOCAL,
+		false,
+		require_ready
+	)
 
 
 ## 通过已注册工厂创建短生命周期对象。
@@ -3105,6 +3224,18 @@ func _get_module_registry_by_kind(registry_kind: String) -> ModuleRegistry:
 		"system", "systems":
 			return _system_registry
 		"utility", "utilities":
+			return _utility_registry
+		_:
+			return null
+
+
+func _get_module_registry_for_access_kind(module_kind: ModuleKind) -> ModuleRegistry:
+	match module_kind:
+		ModuleKind.MODEL:
+			return _model_registry
+		ModuleKind.SYSTEM:
+			return _system_registry
+		ModuleKind.UTILITY:
 			return _utility_registry
 		_:
 			return null

@@ -27,6 +27,7 @@
 | 属性 | [`max_history`](#member-gfuirouterutility-properties-max_history) | `var max_history: int = 64` |
 | 方法 | [`init`](#member-gfuirouterutility-methods-init) | `func init() -> void:` |
 | 方法 | [`dispose`](#member-gfuirouterutility-methods-dispose) | `func dispose() -> void:` |
+| 方法 | [`tick`](#member-gfuirouterutility-methods-tick) | `func tick(_delta: float) -> void:` |
 | 方法 | [`configure`](#member-gfuirouterutility-methods-configure) | `func configure(routes: Array[GFUIRoute] = [], ui_utility: GFUIUtility = null) -> void:` |
 | 方法 | [`set_ui_utility`](#member-gfuirouterutility-methods-set_ui_utility) | `func set_ui_utility(ui_utility: GFUIUtility) -> void:` |
 | 方法 | [`register_route`](#member-gfuirouterutility-methods-register_route) | `func register_route(route: GFUIRoute) -> bool:` |
@@ -231,12 +232,13 @@ var max_history: int = 64
 ### `init`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func init() -> void:
 ```
 
-初始化路由表、UI 工具引用和历史记录。
+初始化路由表、UI 工具引用和历史记录。 重复初始化会先以 dispose 语义终结旧 pending 请求；请求 ID 在同一实例内保持单调， 避免旧异步回调或临时预加载组与新生命周期串线。
 
 <a id="member-gfuirouterutility-methods-dispose"></a>
 
@@ -249,6 +251,25 @@ func dispose() -> void:
 ```
 
 释放路由表、UI 工具引用和历史记录。
+
+<a id="member-gfuirouterutility-methods-tick"></a>
+
+### `tick`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func tick(_delta: float) -> void:
+```
+
+清理普通 Object owner 已释放的提交前路由请求。 Node owner 和 GFAsyncScope 会通过信号即时取消；普通 Object 依赖本帧弱引用检查。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `_delta` | 本帧时间增量；生命周期清理不依赖具体数值。 |
 
 <a id="member-gfuirouterutility-methods-configure"></a>
 
@@ -521,7 +542,7 @@ func push_route_async( route_id: StringName, params: Dictionary = {}, option_ove
 
 - `params`: Dictionary，本次打开路由携带的项目自定义参数。
 - `option_overrides`: Dictionary，字段同 GFUIUtility 打开面板 options，会覆盖路由 default_options。
-- `async_options`: Dictionary，可包含 preload_policy、preload_plan_options 和 metadata；preload_policy 使用 PRELOAD_* 常量，自动预加载始终包含当前路由，未指定 max_depth 时只加载当前页面。
+- `async_options`: Dictionary，可包含 preload_policy、preload_plan_options、metadata、owner: Object 和 scope: GFAsyncScope；owner 与 scope 使用 OR 取消语义且只约束面板提交前，preload_policy 使用 PRELOAD_* 常量，自动预加载始终包含当前路由，未指定 max_depth 时只加载当前页面。
 
 <a id="member-gfuirouterutility-methods-replace_route_async"></a>
 
@@ -552,7 +573,7 @@ func replace_route_async( route_id: StringName, params: Dictionary = {}, option_
 
 - `params`: Dictionary，本次打开路由携带的项目自定义参数。
 - `option_overrides`: Dictionary，字段同 GFUIUtility 打开面板 options，会覆盖路由 default_options。
-- `async_options`: Dictionary，可包含 preload_policy、preload_plan_options 和 metadata；preload_policy 使用 PRELOAD_* 常量，自动预加载始终包含当前路由，未指定 max_depth 时只加载当前页面。
+- `async_options`: Dictionary，可包含 preload_policy、preload_plan_options、metadata、owner: Object 和 scope: GFAsyncScope；owner 与 scope 使用 OR 取消语义且只约束面板提交前，preload_policy 使用 PRELOAD_* 常量，自动预加载始终包含当前路由，未指定 max_depth 时只加载当前页面。
 
 <a id="member-gfuirouterutility-methods-back"></a>
 
@@ -642,4 +663,4 @@ func get_debug_snapshot() -> Dictionary:
 
 结构：
 
-- `return`: Dictionary，包含 route_count、history_count、pending_async_route_count、pending_async_routes、current_route_id、has_ui_utility 和 disposed。
+- `return`: Dictionary，包含 route_count、history_count、pending_async_route_count、current_route_id、has_ui_utility、disposed，以及 pending_async_routes；其中每个 pending 条目额外包含 panel_submitted、has_owner、has_scope 与 lifecycle_cancellation_open。

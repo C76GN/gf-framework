@@ -814,13 +814,20 @@ func test_resource_path_editor_maps_file_hints_to_resource_types() -> void:
 	assert_true(script_filters[0].contains("*.gd"), "Script 过滤器应包含 GDScript 扩展名。")
 
 
-func test_codegen_outputs_use_save_file_semantics() -> void:
+func test_codegen_settings_register_output_and_access_policy_semantics() -> void:
 	GF_PLUGIN_PROJECT_SETTINGS.ensure_all()
 	var access_output_info: Dictionary = _find_project_setting_property_info(
 		GF_PLUGIN_PROJECT_SETTINGS.ACCESS_OUTPUT_SETTING
 	)
+	var access_policies_info: Dictionary = _find_project_setting_property_info(
+		GF_PLUGIN_PROJECT_SETTINGS.ACCESS_POLICIES_SETTING
+	)
 	var project_access_output_info: Dictionary = _find_project_setting_property_info(
 		GF_PLUGIN_PROJECT_SETTINGS.PROJECT_ACCESS_OUTPUT_SETTING
+	)
+	var access_policies_value: Variant = ProjectSettings.get_setting(
+		GF_PLUGIN_PROJECT_SETTINGS.ACCESS_POLICIES_SETTING,
+		null
 	)
 
 	assert_eq(
@@ -833,6 +840,15 @@ func test_codegen_outputs_use_save_file_semantics() -> void:
 		PROPERTY_HINT_SAVE_FILE,
 		"项目访问器输出应使用保存文件语义。"
 	)
+	assert_eq(
+		GF_VARIANT_ACCESS.get_option_int(access_policies_info, "type", TYPE_NIL),
+		TYPE_DICTIONARY,
+		"访问策略应注册为 Dictionary ProjectSetting。"
+	)
+	assert_true(access_policies_value is Dictionary, "访问策略应注册空 Dictionary 默认值。")
+	if access_policies_value is Dictionary:
+		var access_policies: Dictionary = access_policies_value
+		assert_true(access_policies.is_empty(), "默认访问策略不应为项目预置类型规则。")
 
 
 func test_project_installers_use_script_resource_path_array_semantics() -> void:

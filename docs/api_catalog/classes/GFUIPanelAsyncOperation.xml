@@ -1,0 +1,136 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFUIPanelAsyncOperation" path="addons/gf/standard/utilities/ui/gf_ui_panel_async_operation.gd" module="standard" extends="RefCounted" classDigest="e92db01bed357ca0c9021950aa442df3f39088908ecd87117686fed064f642cc">
+	<description>GFUIPanelAsyncOperation: 单次异步 UI 面板请求的可观察句柄。
+句柄冻结 UI 分配的请求序号、路径、层级与操作类型，并且只接受一个终态。
+成功面板仅以弱引用保存，句柄不会延长面板节点的生命周期。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_handle</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals>
+		<member kind="signal" name="completed">
+			<signature>signal completed(handle: GFUIPanelAsyncOperation)</signature>
+			<description>请求进入终态时发出一次。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">handle: 已完成的当前句柄。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</signals>
+	<enums />
+	<constants>
+		<member kind="const" name="STATUS_PENDING">
+			<signature>const STATUS_PENDING: int = -1</signature>
+			<description>请求尚未进入终态时由 get_status() 返回的状态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="OPERATION_PUSH">
+			<signature>const OPERATION_PUSH: StringName = &amp;"push"</signature>
+			<description>压入面板操作。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="OPERATION_REPLACE">
+			<signature>const OPERATION_REPLACE: StringName = &amp;"replace"</signature>
+			<description>替换层级操作。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</constants>
+	<properties />
+	<methods>
+		<member kind="method" name="get_serial">
+			<signature>func get_serial() -&gt; int:</signature>
+			<description>获取 UI 分配的请求序号。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">配置后为大于零的请求序号；未配置时为 0。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_path">
+			<signature>func get_path() -&gt; String:</signature>
+			<description>获取面板场景路径。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">请求创建时冻结的场景路径。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_layer">
+			<signature>func get_layer() -&gt; int:</signature>
+			<description>获取目标 UI 层级。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">请求创建时冻结的逻辑层 ID。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_operation">
+			<signature>func get_operation() -&gt; StringName:</signature>
+			<description>获取 push 或 replace 操作。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">`OPERATION_*` 常量之一。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_pending">
+			<signature>func is_pending() -&gt; bool:</signature>
+			<description>检查请求是否仍在等待终态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">已配置且尚未完成时返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_completed">
+			<signature>func is_completed() -&gt; bool:</signature>
+			<description>检查请求是否已有终态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">已完成时返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_status">
+			<signature>func get_status() -&gt; int:</signature>
+			<description>获取请求状态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">等待中返回 STATUS_PENDING；完成后返回 GFUIUtility.AsyncPanelLoadStatus。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_panel">
+			<signature>func get_panel() -&gt; Node:</signature>
+			<description>获取成功打开的面板。
+句柄只保存弱引用；面板已释放、请求失败或请求取消时返回 null。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">当前仍有效的成功面板；否则返回 null。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_debug_snapshot">
+			<signature>func get_debug_snapshot() -&gt; Dictionary:</signature>
+			<description>获取稳定调试快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">请求身份与终态摘要。</tag>
+				<tag name="schema">return: Dictionary，包含 serial、path、layer、operation、pending、completed、status、has_panel 和 panel_instance_id。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

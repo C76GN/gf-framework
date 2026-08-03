@@ -63,6 +63,13 @@ const STATUS_ASYNC_CONFLICT: StringName = &"async_conflict"
 ## @since 10.0.0
 const STATUS_INVALID_PRELOAD_POLICY: StringName = &"invalid_preload_policy"
 
+## 请求 owner 或异步作用域不满足生命周期契约。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+const STATUS_INVALID_LIFECYCLE: StringName = &"invalid_lifecycle"
+
 ## 预加载策略需要 Asset Utility，但当前架构未提供。
 ## [br]
 ## @api public
@@ -91,7 +98,7 @@ const STATUS_PRELOAD_FAILED: StringName = &"preload_failed"
 ## @since 10.0.0
 const STATUS_PANEL_FAILED: StringName = &"panel_failed"
 
-## 底层 UI 请求在完成前被取消。
+## 请求在面板提交前因 owner/scope 结束，或在提交后被底层 UI 取消。
 ## [br]
 ## @api public
 ## [br]
@@ -488,6 +495,7 @@ static func _is_valid_status(status: StringName) -> bool:
 		STATUS_MISSING_UI_LAYER,
 		STATUS_ASYNC_CONFLICT,
 		STATUS_INVALID_PRELOAD_POLICY,
+		STATUS_INVALID_LIFECYCLE,
 		STATUS_MISSING_ASSET_UTILITY,
 		STATUS_PRELOAD_PLAN_FAILED,
 		STATUS_PRELOAD_FAILED,

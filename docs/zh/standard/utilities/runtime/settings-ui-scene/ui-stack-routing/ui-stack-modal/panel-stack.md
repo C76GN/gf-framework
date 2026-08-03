@@ -57,7 +57,12 @@ if ui == null:
 ## 基本操作
 
 ```gdscript
-ui.push_panel_async("res://ui/settings_panel.tscn", GFUIUtility.Layer.POPUP)
+var settings_operation: GFUIPanelAsyncOperation = ui.push_panel_async(
+	"res://ui/settings_panel.tscn",
+	GFUIUtility.Layer.POPUP
+)
+if settings_operation == null:
+	push_error("设置面板请求未被接受。")
 ui.push_panel("res://ui/inventory_panel.tscn", GFUIUtility.Layer.POPUP)
 
 var inventory_panel := preload("res://ui/inventory_panel.tscn").instantiate()
@@ -67,6 +72,8 @@ ui.pop_panel(GFUIUtility.Layer.POPUP)
 ui.replace_layer("res://ui/main_menu.tscn", GFUIUtility.Layer.POPUP)
 ui.pop_to_panel(inventory_panel, GFUIUtility.Layer.POPUP)
 ```
+
+异步请求的精确终态、同步 fallback 与回调时序见[生命周期与异步加载](async-lifecycle.md)。
 
 ## 并行窗口与遮挡策略
 

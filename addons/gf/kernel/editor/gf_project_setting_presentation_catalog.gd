@@ -334,8 +334,8 @@ func _get_builtin_section_records() -> Array[Dictionary]:
 				"zh_CN": "代码生成",
 			},
 			"editor_descriptions": {
-				"en": "Output locations used by GF code generators.",
-				"zh_CN": "GF 代码生成器使用的输出位置。",
+				"en": "Output locations and generation-time policies used by GF code generators.",
+				"zh_CN": "GF 代码生成器使用的输出位置与生成期策略。",
 			},
 		},
 		{
@@ -396,6 +396,17 @@ func _get_builtin_records() -> Array[Dictionary]:
 			"editor_descriptions": {
 				"en": "Output script path used when generating accessors for GF framework types.",
 				"zh_CN": "生成 GF 框架类型访问器时写入的脚本路径。",
+			},
+		},
+		{
+			"name": _GF_PLUGIN_PROJECT_SETTINGS_SCRIPT.ACCESS_POLICIES_SETTING,
+			"editor_labels": {
+				"en": "Framework Access Policies",
+				"zh_CN": "框架访问策略",
+			},
+			"editor_descriptions": {
+				"en": "Per-script accessor policies keyed by stable resource path; each record freezes scope, required, and require_ready into generated code.",
+				"zh_CN": "按稳定资源路径配置访问器策略；每条记录会把 scope、required 与 require_ready 冻结到生成代码中。",
 			},
 		},
 		{

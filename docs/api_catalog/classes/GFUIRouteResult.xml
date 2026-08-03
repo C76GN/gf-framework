@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFUIRouteResult" path="addons/gf/standard/utilities/ui/gf_ui_route_result.gd" module="standard" extends="RefCounted" classDigest="53f489f2fd5253c1571d364a84135cccf5ec7c03e6284c13b92296e6f0b0afda">
+<class name="GFUIRouteResult" path="addons/gf/standard/utilities/ui/gf_ui_route_result.gd" module="standard" extends="RefCounted" classDigest="cc0e78b2089bd6f13d1c7d135b765cd72b50bb6392e73297191c4a1c1886d60a">
 	<description>GFUIRouteResult: UI 路由异步打开的不可变终态。
 结果把路由校验、可选预加载、面板提交和生命周期中止统一为稳定状态，
 并保留预加载事务结果，避免项目通过日志或时序猜测失败阶段。</description>
@@ -67,6 +67,14 @@
 				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
+		<member kind="const" name="STATUS_INVALID_LIFECYCLE">
+			<signature>const STATUS_INVALID_LIFECYCLE: StringName = &amp;"invalid_lifecycle"</signature>
+			<description>请求 owner 或异步作用域不满足生命周期契约。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
 		<member kind="const" name="STATUS_MISSING_ASSET_UTILITY">
 			<signature>const STATUS_MISSING_ASSET_UTILITY: StringName = &amp;"missing_asset_utility"</signature>
 			<description>预加载策略需要 Asset Utility，但当前架构未提供。</description>
@@ -101,7 +109,7 @@
 		</member>
 		<member kind="const" name="STATUS_CANCELLED">
 			<signature>const STATUS_CANCELLED: StringName = &amp;"cancelled"</signature>
-			<description>底层 UI 请求在完成前被取消。</description>
+			<description>请求在面板提交前因 owner/scope 结束，或在提交后被底层 UI 取消。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="since">10.0.0</tag>
