@@ -374,6 +374,10 @@ func finish_from_mapping_for_framework(
 func poll_lifecycle_for_framework() -> bool:
 	if not is_pending():
 		return false
+	var cancellation_scope_completed: bool = false
+	if _cancel_token is GFAsyncScope:
+		var async_scope: GFAsyncScope = _cancel_token
+		cancellation_scope_completed = async_scope.is_completed()
 	if _owner_lifetime != null and _owner_lifetime.owner_is_released():
 		var _cancelled_for_owner: bool = _request_terminal(Status.CANCELLED, &"owner_released")
 	elif _cancel_token != null and _cancel_token.is_cancel_requested():
@@ -381,6 +385,11 @@ func poll_lifecycle_for_framework() -> bool:
 		var _cancelled_for_token: bool = _request_terminal(
 			Status.CANCELLED,
 			reason if reason != &"" else &"cancellation_requested"
+		)
+	elif cancellation_scope_completed:
+		var _cancelled_for_scope: bool = _request_terminal(
+			Status.CANCELLED,
+			&"cancellation_scope_completed"
 		)
 	elif _lease_acquired and _duration_seconds > 0.0:
 		var timer_utility: GFTimerUtility = _get_timer_utility()

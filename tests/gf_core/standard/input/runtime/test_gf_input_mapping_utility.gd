@@ -1153,6 +1153,45 @@ func test_virtual_input_pulse_fails_closed_for_invalid_lifecycle_anchors() -> vo
 	timer_utility.dispose()
 
 
+func test_virtual_input_pulse_releases_when_scope_completes_after_lease_acquisition() -> void:
+	var bindings: Array[GFInputBinding] = []
+	_utility.enable_context(_make_context(&"gameplay", [
+		_make_mapping(_make_action(&"confirm"), bindings),
+	]))
+	var timer_utility: GFTimerUtility = GFTimerUtility.new()
+	timer_utility.init()
+	var source: GFVirtualInputSource = _utility.create_virtual_source(&"touch", -1, timer_utility)
+	var scope: GFAsyncScope = GFAsyncScope.new()
+	var operation: GFVirtualInputPulseOperation = source.pulse_action(
+		&"confirm",
+		true,
+		1.0,
+		null,
+		scope
+	)
+
+	assert_true(operation.is_pending(), "活动 scope 应允许 pulse 取得 lease。")
+	assert_true(_utility.is_action_active(&"confirm"), "scope 完成前动作应保持活动。")
+	scope.complete()
+	_utility.tick(0.0)
+
+	assert_eq(
+		operation.get_status(),
+		GFVirtualInputPulseOperation.Status.CANCELLED,
+		"scope 完成后 Mapping tick 应取消 pulse。"
+	)
+	assert_eq(
+		operation.get_terminal_reason(),
+		&"cancellation_scope_completed",
+		"scope 完成应提供稳定终态原因。"
+	)
+	assert_eq(operation.get_release_count(), 1, "scope 完成应执行一次匹配释放。")
+	assert_false(_utility.is_action_active(&"confirm"), "scope 完成后动作不得保持粘滞。")
+	timer_utility.tick(2.0)
+	assert_eq(operation.get_release_count(), 1, "scope 终止后旧 timer 不得重复释放。")
+	timer_utility.dispose()
+
+
 func test_virtual_input_pulse_honors_pre_cancelled_token_before_write() -> void:
 	var bindings: Array[GFInputBinding] = []
 	_utility.enable_context(_make_context(&"gameplay", [

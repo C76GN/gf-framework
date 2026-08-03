@@ -591,6 +591,46 @@ func test_config_callback_destroying_panel_restores_hidden_panel() -> void:
 	assert_true(panel1.visible, "取消入栈后原本被隐藏的面板应恢复可见。")
 
 
+func test_panel_opened_queue_free_rolls_back_options_and_emits_closed_once() -> void:
+	var under_panel: Control = Control.new()
+	_ui_utility.push_panel_instance(under_panel, GFUIUtility.Layer.POPUP)
+	var panel: Control = Control.new()
+	var panel_id: int = panel.get_instance_id()
+	var closed_panel_ids: Array[int] = []
+	var navigation_tops: Array[Node] = []
+	var _opened_connection: Error = _ui_utility.panel_opened.connect(
+		func(opened_panel: Node, _layer: int) -> void:
+			opened_panel.queue_free(),
+		CONNECT_ONE_SHOT as Object.ConnectFlags
+	) as Error
+	var _closed_connection: Error = _ui_utility.panel_closed.connect(
+		func(closed_panel: Node, _layer: int) -> void:
+			closed_panel_ids.append(closed_panel.get_instance_id())
+	) as Error
+	var _navigation_connection: Error = _ui_utility.navigation_changed.connect(
+		func(_layer: int, top_panel: Node) -> void:
+			navigation_tops.append(top_panel)
+	) as Error
+
+	var added: bool = _ui_utility._add_panel_instance(
+		panel,
+		GFUIUtility.Layer.POPUP,
+		Callable(),
+		{"metadata": {"source": "review_regression"}}
+	)
+
+	assert_false(added, "观察者已排队释放的面板不得提交为成功入栈。")
+	assert_eq(_ui_utility.get_stack_count(GFUIUtility.Layer.POPUP), 1)
+	assert_same(_ui_utility.get_top_panel(GFUIUtility.Layer.POPUP), under_panel)
+	assert_false(_ui_utility.is_panel_open(panel), "已排队释放的面板不得被报告为 open。")
+	assert_false(_ui_utility._panel_options.has(panel_id), "结构回滚必须清理面板策略快照。")
+	assert_eq(closed_panel_ids, [panel_id], "已发出 opened 的面板必须获得唯一配对 closed。")
+	assert_eq(navigation_tops, [under_panel], "回滚后应只报告一次最终有效栈顶。")
+	await get_tree().process_frame
+	assert_eq(closed_panel_ids.size(), 1, "后到 tree_exited 不得重复发出 closed。")
+	assert_eq(navigation_tops.size(), 1, "后到 tree_exited 不得重复发出导航变更。")
+
+
 func test_clear_layer() -> void:
 	var p1: Control = Control.new()
 	var p2: Control = Control.new()
@@ -709,6 +749,61 @@ func test_push_panel_async_reports_pending_load_lifecycle() -> void:
 	_ui_utility.clear_layer(GFUIUtility.Layer.POPUP)
 	await get_tree().process_frame
 	assert_null(operation_handle.get_panel(), "句柄弱引用不应延长已关闭面板的生命周期。")
+
+
+func test_push_panel_async_fails_when_panel_opened_listener_frees_panel() -> void:
+	_arch = GFArchitecture.new()
+	var asset_util: ManualAssetUtility = ManualAssetUtility.new()
+	await _arch.register_utility_instance(asset_util)
+	await Gf.set_architecture(_arch)
+
+	var path: String = "res://tests/freed_during_panel_opened.tscn"
+	var finished: Array = []
+	var completed_handles: Array[GFUIPanelAsyncOperation] = []
+	var navigation_tops: Array = []
+	var _opened_connection: Error = _ui_utility.panel_opened.connect(
+		func(panel: Node, _layer: int) -> void:
+			panel.free(),
+		CONNECT_ONE_SHOT as Object.ConnectFlags
+	) as Error
+	var _finished_connection: Error = _ui_utility.panel_async_load_finished.connect(func(
+		load_path: String,
+		layer: int,
+		operation: StringName,
+		status: int,
+		panel: Node
+	) -> void:
+		finished.append([load_path, layer, operation, status, panel])
+	) as Error
+	var _navigation_connection: Error = _ui_utility.navigation_changed.connect(
+		func(_layer: int, top_panel: Node) -> void:
+			navigation_tops.append(top_panel)
+	) as Error
+
+	var operation_handle: GFUIPanelAsyncOperation = _ui_utility.push_panel_async(
+		path,
+		GFUIUtility.Layer.POPUP,
+		Callable(),
+		func(completed_handle: GFUIPanelAsyncOperation) -> void:
+			completed_handles.append(completed_handle)
+	)
+	asset_util.resolve(path, _make_control_scene())
+
+	assert_true(operation_handle.is_completed(), "监听器释放面板后句柄仍必须进入终态。")
+	assert_eq(
+		operation_handle.get_status(),
+		GFUIUtility.AsyncPanelLoadStatus.FAILED,
+		"已被同步释放的面板不能作为 OPENED 结果。"
+	)
+	assert_null(operation_handle.get_panel(), "失败终态不得保留已释放面板。")
+	assert_eq(completed_handles, [operation_handle], "句柄应且仅应发出一次失败终态。")
+	assert_false(_ui_utility.has_pending_async_panel(GFUIUtility.Layer.POPUP, path))
+	assert_eq(_ui_utility.get_stack_count(GFUIUtility.Layer.POPUP), 0)
+	assert_eq(finished.size(), 1, "异步 telemetry 应收到唯一失败终态。")
+	var failed_event: Array = _array_item_as_array(finished, 0)
+	assert_eq(_array_int(failed_event, 3), GFUIUtility.AsyncPanelLoadStatus.FAILED)
+	assert_true(_array_value(failed_event, 4) == null, "失败 telemetry 不得携带无效面板。")
+	assert_eq(navigation_tops, [null], "同步释放路径应只报告一次最终空栈导航。")
 
 
 func test_push_panel_async_sync_fallback_prebinds_callback_before_telemetry() -> void:

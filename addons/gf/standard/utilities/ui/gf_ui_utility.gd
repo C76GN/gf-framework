@@ -1302,6 +1302,16 @@ func _finish_async_panel_request(request_key: String, status: int, panel: Node) 
 		return
 
 	var request: Dictionary = _get_pending_async_panel_request(request_key)
+	var terminal_status: int = status
+	var terminal_panel: Node = panel
+	if terminal_status == AsyncPanelLoadStatus.OPENED:
+		var panel_is_open: bool = _get_valid_panel_from_variant(terminal_panel) != null
+		if panel_is_open:
+			var request_layer: int = GFVariantData.get_option_int(request, "layer", -1)
+			panel_is_open = _get_layer_stack(request_layer).has(terminal_panel)
+		if not panel_is_open:
+			terminal_status = AsyncPanelLoadStatus.FAILED
+			terminal_panel = null
 	var operation_handle: GFUIPanelAsyncOperation = _get_ui_panel_async_operation_value(
 		request.get("operation_handle")
 	)
@@ -1317,15 +1327,18 @@ func _finish_async_panel_request(request_key: String, status: int, panel: Node) 
 			GFVariantData.get_option_int(request, "serial", -1)
 		)
 	var _erased: bool = _pending_async_panel_requests.erase(request_key)
-	if operation_handle == null or not operation_handle.complete_for_framework(status, panel):
+	if (
+		operation_handle == null
+		or not operation_handle.complete_for_framework(terminal_status, terminal_panel)
+	):
 		push_error("[GFUIUtility] 异步面板请求句柄无法进入终态。")
 		return
 	panel_async_load_finished.emit(
 		GFVariantData.get_option_string(request, "path", ""),
 		GFVariantData.get_option_int(request, "layer", -1),
 		GFVariantData.get_option_string_name(request, "operation", &""),
-		status,
-		panel
+		terminal_status,
+		terminal_panel
 	)
 
 
@@ -1464,8 +1477,10 @@ func _add_panel_instance(
 	_apply_open_focus_policy(panel, normalized_options)
 	_sync_layer_visibility(layer)
 	panel_opened.emit(panel, layer)
+	if not _get_layer_stack(layer).has(panel):
+		return false
 	_emit_navigation_changed(layer)
-	return true
+	return _get_valid_panel_from_variant(panel) != null and _get_layer_stack(layer).has(panel)
 
 
 func _prune_all_layer_stacks() -> void:
@@ -1485,11 +1500,20 @@ func _get_valid_panel_from_variant(value: Variant) -> Node:
 func _prune_layer_stack(layer: int) -> void:
 	var stack: Array = _get_layer_stack(layer)
 	var removed_any: bool = false
+	var queued_panels: Array[Node] = []
 	for index: int in range(stack.size() - 1, -1, -1):
-		var panel: Node = _get_valid_panel_from_variant(stack[index])
+		var panel: Node = _get_live_node(stack[index])
 		if panel == null:
 			removed_any = true
 			stack.remove_at(index)
+			continue
+		if panel.is_queued_for_deletion():
+			removed_any = true
+			stack.remove_at(index)
+			queued_panels.append(panel)
+	for panel: Node in queued_panels:
+		_handle_panel_closed(panel)
+		panel_closed.emit(panel, layer)
 	if removed_any:
 		_sync_layer_visibility(layer)
 
