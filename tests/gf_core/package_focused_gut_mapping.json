@@ -65,8 +65,10 @@
       "res://tests/gf_core/extensions/save/test_gf_save_payload_validation_adapter.gd",
       "res://tests/gf_core/extensions/save/test_gf_save_document.gd",
       "res://tests/gf_core/extensions/save/test_gf_save_graph_utility.gd",
+      "res://tests/gf_core/extensions/save/test_gf_save_profile_mutation_transactions.gd",
       "res://tests/gf_core/extensions/save/test_gf_save_profile_preparation.gd",
       "res://tests/gf_core/extensions/save/test_gf_save_profile_scheduler.gd",
+      "res://tests/gf_core/extensions/save/test_gf_save_profile_session_transactions.gd",
       "res://tests/gf_core/extensions/save/test_gf_save_profile_utility.gd",
       "res://tests/gf_core/extensions/save/test_gf_save_slot_workflow.gd"
     ],

@@ -6,6 +6,9 @@ extends GFInstaller
 
 const _GF_SAVE_GRAPH_UTILITY_SCRIPT = preload("res://addons/gf/extensions/save/graph/gf_save_graph_utility.gd")
 const _GF_SAVE_PROFILE_UTILITY_SCRIPT = preload("res://addons/gf/extensions/save/profile/gf_save_profile_utility.gd")
+const _GF_SAVE_PROFILE_TRANSACTION_COORDINATOR_SCRIPT = preload(
+	"res://addons/gf/extensions/save/profile/gf_save_profile_transaction_coordinator.gd"
+)
 const _GF_STORAGE_UTILITY_SCRIPT = preload("res://addons/gf/standard/utilities/storage/gf_storage_utility.gd")
 
 
@@ -35,3 +38,17 @@ func install(architecture: GFArchitecture, _scope: GFAsyncScope) -> void:
 		var registered_save_profile: bool = await architecture.register_utility_instance(_GF_SAVE_PROFILE_UTILITY_SCRIPT.new())
 		if not registered_save_profile:
 			push_error("[GFSaveExtension] GFSaveProfileUtility registration failed.")
+	if (
+		architecture.get_local_utility(
+			_GF_SAVE_PROFILE_TRANSACTION_COORDINATOR_SCRIPT
+		) == null
+	):
+		var registered_profile_transactions: bool = (
+			await architecture.register_utility_instance(
+				_GF_SAVE_PROFILE_TRANSACTION_COORDINATOR_SCRIPT.new()
+			)
+		)
+		if not registered_profile_transactions:
+			push_error(
+				"[GFSaveExtension] GFSaveProfileTransactionCoordinator registration failed."
+			)

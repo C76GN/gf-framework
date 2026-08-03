@@ -5,9 +5,9 @@
 ## 范围
 
 - 源码根目录：`addons/gf`
-- 公开类：`794`
-- 公开成员：`11671`
-- 公开方法：`7201`
+- 公开类：`802`
+- 公开成员：`11811`
+- 公开方法：`7289`
 
 ## 模块
 
@@ -30,7 +30,7 @@
 | Interaction | 6 | 82 | 29 | [extensions-interaction.md](extensions-interaction.md) |
 | Network | 38 | 602 | 323 | [extensions-network.md](extensions-network.md) |
 | Physics | 4 | 50 | 23 | [extensions-physics.md](extensions-physics.md) |
-| Save | 44 | 510 | 325 | [extensions-save.md](extensions-save.md) |
+| Save | 52 | 650 | 413 | [extensions-save.md](extensions-save.md) |
 | Turn Based | 4 | 49 | 24 | [extensions-turn-based.md](extensions-turn-based.md) |
 | Tool Packages | 17 | 135 | 86 | [tools.md](tools.md) |
 

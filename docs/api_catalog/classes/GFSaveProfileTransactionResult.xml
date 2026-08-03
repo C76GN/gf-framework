@@ -1,0 +1,414 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFSaveProfileTransactionResult" path="addons/gf/extensions/save/profile/gf_save_profile_transaction_result.gd" module="extensions/save" extends="RefCounted" classDigest="a649282a39a46c716c7a76a66b4613d301d42cc3416c29e677b4eaae0277c64c">
+	<description>GFSaveProfileTransactionResult: Profile 事务的不可变终态快照。
+结果不保留文档、section、Provider snapshot 或候选 payload，只保留有界阶段
+证据、类型化回滚失败、调用方元数据和必要的 Lease。`duplicate_result()` 会
+隔离复制集合，但刻意保留 Recovery/Reconcile Lease 的同一对象身份。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">value_object</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants>
+		<member kind="const" name="STATUS_ACTIVATED">
+			<signature>const STATUS_ACTIVATED: StringName = &amp;"activated"</signature>
+			<description>已存在 Profile 已成功激活。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_SWITCHED">
+			<signature>const STATUS_SWITCHED: StringName = &amp;"switched"</signature>
+			<description>活跃身份已成功切换。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_BOOTSTRAPPED">
+			<signature>const STATUS_BOOTSTRAPPED: StringName = &amp;"bootstrapped"</signature>
+			<description>缺失 Profile 已从当前状态显式创建并激活。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_ADOPTED">
+			<signature>const STATUS_ADOPTED: StringName = &amp;"adopted"</signature>
+			<description>当前状态已被显式采用为恢复后的活跃 Profile。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_MUTATED">
+			<signature>const STATUS_MUTATED: StringName = &amp;"mutated"</signature>
+			<description>候选 sections 已应用并持久化。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_RECONCILED">
+			<signature>const STATUS_RECONCILED: StringName = &amp;"reconciled"</signature>
+			<description>outcome_unknown 已通过显式重新读取完成对账。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_INVALID_PROFILE">
+			<signature>const STATUS_INVALID_PROFILE: StringName = &amp;"invalid_profile"</signature>
+			<description>Profile ID、Provider topology 或事务身份无效。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_INVALID_REQUEST">
+			<signature>const STATUS_INVALID_REQUEST: StringName = &amp;"invalid_request"</signature>
+			<description>一次性请求无效、已被 claim 或含不支持的数据。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_INVALID_LEASE">
+			<signature>const STATUS_INVALID_LEASE: StringName = &amp;"invalid_lease"</signature>
+			<description>Recovery/Reconcile Lease 无效、已消费或绑定已经过期。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_INACTIVE">
+			<signature>const STATUS_INACTIVE: StringName = &amp;"inactive"</signature>
+			<description>请求要求活跃 Profile，但当前 Provider domain 未激活。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_ALREADY_ACTIVE">
+			<signature>const STATUS_ALREADY_ACTIVE: StringName = &amp;"already_active"</signature>
+			<description>activate/bootstrap/adopt 的目标 domain 已有活跃 Profile。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_BUSY">
+			<signature>const STATUS_BUSY: StringName = &amp;"busy"</signature>
+			<description>Provider domain 正在执行互斥事务或发生不安全回调重入。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_UNSUPPORTED_OPERATION">
+			<signature>const STATUS_UNSUPPORTED_OPERATION: StringName = &amp;"unsupported_operation"</signature>
+			<description>Profile 配置不支持请求的读取或写入阶段。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_RECOVERY_REQUIRED">
+			<signature>const STATUS_RECOVERY_REQUIRED: StringName = &amp;"recovery_required"</signature>
+			<description>activate 检测到缺失或损坏文档，必须显式选择 bootstrap 或 adopt。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_SOURCE_FLUSH_FAILED">
+			<signature>const STATUS_SOURCE_FLUSH_FAILED: StringName = &amp;"source_flush_failed"</signature>
+			<description>switch 无法把来源 Profile flush 到调用时 generation barrier。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_TARGET_LOAD_FAILED">
+			<signature>const STATUS_TARGET_LOAD_FAILED: StringName = &amp;"target_load_failed"</signature>
+			<description>switch 已 flush 来源，但无法读取或应用目标 Profile。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_SNAPSHOT_FAILED">
+			<signature>const STATUS_SNAPSHOT_FAILED: StringName = &amp;"snapshot_failed"</signature>
+			<description>Provider 回滚或候选应用前的快照采集失败。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_APPLY_FAILED">
+			<signature>const STATUS_APPLY_FAILED: StringName = &amp;"apply_failed"</signature>
+			<description>至少一个候选 section 应用失败，且内存回滚成功。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_ROLLBACK_FAILED">
+			<signature>const STATUS_ROLLBACK_FAILED: StringName = &amp;"rollback_failed"</signature>
+			<description>恢复来源或候选内存状态时至少一个 Provider 回滚失败。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_PERSIST_FAILED">
+			<signature>const STATUS_PERSIST_FAILED: StringName = &amp;"persist_failed"</signature>
+			<description>候选持久化确定失败，且内存回滚已成功。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_OUTCOME_UNKNOWN">
+			<signature>const STATUS_OUTCOME_UNKNOWN: StringName = &amp;"outcome_unknown"</signature>
+			<description>写请求已进入底层，但其最终物理副作用无法确认。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_RECONCILE_PENDING">
+			<signature>const STATUS_RECONCILE_PENDING: StringName = &amp;"reconcile_pending"</signature>
+			<description>Reconcile Lease 仍在等待 late settlement evidence。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_RECONCILE_FAILED">
+			<signature>const STATUS_RECONCILE_FAILED: StringName = &amp;"reconcile_failed"</signature>
+			<description>显式重新读取或证据校验未能完成对账。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_DISPOSED">
+			<signature>const STATUS_DISPOSED: StringName = &amp;"disposed"</signature>
+			<description>Utility 释放时事务仍未完成。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</constants>
+	<properties />
+	<methods>
+		<member kind="method" name="is_successful">
+			<signature>func is_successful() -&gt; bool:</signature>
+			<description>检查事务是否成功。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">终态属于成功状态时返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_status">
+			<signature>func get_status() -&gt; StringName:</signature>
+			<description>获取稳定终态状态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">`STATUS_*` 常量之一。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_operation">
+			<signature>func get_operation() -&gt; StringName:</signature>
+			<description>获取事务类型。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">`GFSaveProfileTransactionOperation.OPERATION_*` 常量之一。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_transaction_id">
+			<signature>func get_transaction_id() -&gt; int:</signature>
+			<description>获取 Utility 生命周期内唯一的事务 ID。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">正整数事务 ID。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_source_profile_id">
+			<signature>func get_source_profile_id() -&gt; StringName:</signature>
+			<description>获取事务来源 Profile ID。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">来源 Profile ID；不适用时为空。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_target_profile_id">
+			<signature>func get_target_profile_id() -&gt; StringName:</signature>
+			<description>获取事务目标 Profile ID。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">目标 Profile ID；不适用时为空。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_active_profile_before">
+			<signature>func get_active_profile_before() -&gt; StringName:</signature>
+			<description>获取事务开始前的活跃 Profile ID。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">开始前活跃身份；domain 未激活时为空。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_active_profile_after">
+			<signature>func get_active_profile_after() -&gt; StringName:</signature>
+			<description>获取事务终态后的活跃 Profile ID。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">终态活跃身份；未激活或身份未知时为空。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_phase">
+			<signature>func get_phase() -&gt; StringName:</signature>
+			<description>获取失败或成功发生的稳定阶段名。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">协调器定义的 payload-free 阶段名。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_error_code">
+			<signature>func get_error_code() -&gt; Error:</signature>
+			<description>获取 Godot Error 码。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">成功时为 OK。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_error">
+			<signature>func get_error() -&gt; String:</signature>
+			<description>获取稳定错误描述。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">成功时为空；失败说明最多 2048 个字符。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_failed_section_id">
+			<signature>func get_failed_section_id() -&gt; StringName:</signature>
+			<description>获取首个失败 section ID。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">非 section 失败时为空。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_rollback_errors">
+			<signature>func get_rollback_errors() -&gt; Array[GFSaveRollbackFailure]:</signature>
+			<description>获取类型化 Provider 回滚失败证据。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">按回滚顺序排列的隔离副本。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_stage_evidence">
+			<signature>func get_stage_evidence() -&gt; Dictionary:</signature>
+			<description>获取不含文档、section 或 Provider payload 的阶段证据。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">有界 evidence 副本。</tag>
+				<tag name="schema">return: Payload-free bounded Dictionary containing scalar, packed-array, Array, and Dictionary evidence only.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_recovery_lease">
+			<signature>func get_recovery_lease() -&gt; GFSaveProfileRecoveryLease:</signature>
+			<description>获取显式 bootstrap/adopt 所需的同一身份 Recovery Lease。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">recovery_required 结果中的 Lease；其他结果通常为 null。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_reconcile_lease">
+			<signature>func get_reconcile_lease() -&gt; GFSaveProfileReconcileLease:</signature>
+			<description>获取持续围栏 outcome_unknown 的同一身份 Reconcile Lease。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">需要或正在对账时的 Lease；不适用时为 null。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_metadata">
+			<signature>func get_metadata() -&gt; Dictionary:</signature>
+			<description>获取调用方结果元数据副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">调用方在一次性请求中移交的结果元数据。</tag>
+				<tag name="schema">return: Dictionary with caller-defined result metadata.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_started_at_msec">
+			<signature>func get_started_at_msec() -&gt; int:</signature>
+			<description>获取事务开始时间。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">非负单调毫秒时间。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_completed_at_msec">
+			<signature>func get_completed_at_msec() -&gt; int:</signature>
+			<description>获取事务完成时间。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">不早于开始时间的单调毫秒时间。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_duration_msec">
+			<signature>func get_duration_msec() -&gt; int:</signature>
+			<description>获取事务耗时。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">非负单调毫秒耗时。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="duplicate_result">
+			<signature>func duplicate_result() -&gt; GFSaveProfileTransactionResult:</signature>
+			<description>创建隔离结果副本。
+Recovery/Reconcile Lease 不复制，以维持原始恢复授权和持续对账生命周期。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">新结果对象。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="to_dict">
+			<signature>func to_dict() -&gt; Dictionary:</signature>
+			<description>转换为不包含持久化 payload 或 Lease 对象的报告字典。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">事务身份、终态、阶段证据、Lease 摘要、错误与时间信息。</tag>
+				<tag name="schema">return: Payload-free Dictionary with transaction identity, status, active identities, phase, rollback failures, evidence, lease summaries, metadata, errors, and timing.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

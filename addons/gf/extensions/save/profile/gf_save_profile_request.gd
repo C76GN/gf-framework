@@ -72,6 +72,17 @@ func is_claimed() -> bool:
 
 # --- 框架内部方法 ---
 
+## 查询请求是否仍可由框架接管，不暴露任何请求载荷。
+## [br]
+## @api framework_internal
+## [br]
+## @since unreleased
+## [br]
+## @return 请求已经初始化且尚未 claim 时返回 true。
+func is_available_for_framework() -> bool:
+	return _ready and not _claimed
+
+
 ## 一次性移出请求持有的三个 Dictionary。
 ##
 ## 该操作只转移引用，不遍历或深复制集合。失败返回空字典；成功后请求不可复用。
@@ -84,7 +95,7 @@ func is_claimed() -> bool:
 ## [br]
 ## @schema return: Internal Dictionary with document_metadata, context, and result_metadata ownership fields.
 func claim_for_framework() -> Dictionary:
-	if not _ready or _claimed:
+	if not is_available_for_framework():
 		return {}
 	var claim: Dictionary = {
 		"document_metadata": _document_metadata,

@@ -111,84 +111,17 @@ if not GFVariantData.get_option_bool(registration, "registered"):
 `GFSaveMigrationRegistry` 仍是唯一迁移引擎。Profile 不提供字段级兼容回退；文档或
 section 版本落后时必须存在完整迁移链，未来版本始终拒绝读取。
 
-## 与 Architecture Activation 组合
+## 与活动 Profile 事务组合
 
-需要在首个运行场景开放前恢复存档或确认既有 generation 已落盘时，由项目
-`GFSystem` 声明 `GFSaveProfileUtility` 为必需依赖，并在
-`begin_activation(scope)` 中把 `load_profile()` 或 `flush_profile()` 的类型化终态
-桥接到 `GFAsyncCompletion`。不要把项目 slot、账号选择或恢复决策写入框架 Utility，
-也不要在 System 中手动轮询 `architecture.tick()`：
+`load_profile()` 与 `flush_profile()` 是单 Profile 原语，不负责活动槽位、账号身份或
+跨 Profile 切换。需要在 Architecture activation 中严格恢复既有存档，或需要原子切换、
+显式创建/接管、类型化修改和未知写入对账时，使用
+`GFSaveProfileTransactionCoordinator`。完整拓扑、恢复 lease、managed gate 和生命周期
+组合见 [Save Profile 会话与事务](save-profile-transactions.md)。
 
-```gdscript
-extends GFSystem
-
-const BOOTSTRAP_PROFILE_ID: StringName = &"project.player"
-
-var _save_profiles: GFSaveProfileUtility = null
-var _bootstrap_operation: GFSaveProfileOperation = null
-
-func get_required_utilities() -> Array[Script]:
-	return [GFSaveProfileUtility]
-
-func ready() -> void:
-	var value: Variant = get_utility(GFSaveProfileUtility, true)
-	if value is GFSaveProfileUtility:
-		_save_profiles = value
-	# 在这里注册项目自己的 GFSaveProfile，并检查 registered 报告。
-
-func begin_activation(scope: GFAsyncScope) -> GFAsyncCompletion:
-	var completion: GFAsyncCompletion = GFAsyncCompletion.new()
-	var _bound: bool = completion.bind_cancel_token(scope)
-	if not completion.is_pending():
-		return completion
-	if _save_profiles == null:
-		var _failed: bool = completion.fail("Save Profile dependency is unavailable.")
-		return completion
-
-	# 恢复启动状态时等待 load；若职责是确认已排队 generation 落盘，
-	# 则用 flush_profile(BOOTSTRAP_PROFILE_ID) 并复用同一桥接方法。
-	_bootstrap_operation = _save_profiles.load_profile(BOOTSTRAP_PROFILE_ID)
-	_bridge_bootstrap_operation(_bootstrap_operation, completion)
-	return completion
-
-func _bridge_bootstrap_operation(
-	operation: GFSaveProfileOperation,
-	completion: GFAsyncCompletion
-) -> void:
-	if operation == null:
-		var _failed: bool = completion.fail("Save Profile bootstrap returned no operation.")
-		return
-	if operation.is_completed():
-		_finish_bootstrap(operation.get_result(), completion)
-		return
-	var connected: Error = operation.completed.connect(
-		Callable(self, &"_finish_bootstrap").bind(completion),
-		CONNECT_ONE_SHOT
-	)
-	if connected != OK:
-		var _failed_connect: bool = completion.fail("Bootstrap completion is unavailable.")
-
-func _finish_bootstrap(result: GFSaveProfileResult, completion: GFAsyncCompletion) -> void:
-	_bootstrap_operation = null
-	if not completion.is_pending():
-		return
-	if result != null and result.is_successful():
-		var _succeeded: bool = completion.succeed()
-		return
-	var error_message: String = result.get_error() if result != null else "No result."
-	var _failed: bool = completion.fail(error_message)
-```
-
-依赖 DAG 会先激活 `GFStorageUtility`，再激活 `GFSaveProfileUtility`，最后执行项目
-System 的 activation。等待上述 Operation 时，Architecture 只推进当前 System 的
-本地依赖闭包，因此 Profile 与 Storage 的 tick-driven 状态机会继续运行，但命令、
-事件、普通 tick 和其他外部运行时工作仍保持关闭。Operation 失败、scope 取消或超过
-`activation_timeout_seconds` 时，项目 System 必须让 completion 进入非成功终态；
-Architecture 随即拒绝 READY，并由 lifecycle generation 防止迟到回调写回。
-
-`load_profile()` 适合恢复并应用启动状态；`flush_profile()` 只保证调用时捕获的
-generation 或更新 generation 已经持久化，不能替代读取。是否在 load 后安排一次
-save/flush 取决于项目恢复政策，框架不隐式改写文件。
+直接使用原语的非 managed Profile 仍可把 Operation 终态桥接到
+`GFAsyncCompletion`。`load_profile()` 恢复并应用状态；`flush_profile()` 只保证调用时
+捕获的 generation 或更新 generation 已持久化，不能替代读取，也不能发布活动身份。
 
 ## 保存、flush 与读取屏障
 
@@ -272,9 +205,9 @@ Profile 层使用 `GFStorageAsyncOperation` 的 request ID 观察自己的底层
 
 ## 恢复政策
 
-`GFSaveRecoveryPolicy` 默认对缺失和损坏文件返回失败。项目可以显式选择
-`ACTION_USE_CURRENT_STATE`，此时读取成功终态会标记 recovered，但只保留当前内存
-状态，不删除、替换或自动覆盖原文件。
+`GFSaveRecoveryPolicy` 默认对缺失和损坏文件返回失败。直接管理非 managed Profile 的
+项目可以显式选择 `ACTION_USE_CURRENT_STATE`，此时普通读取成功终态会标记 recovered，
+但只保留当前内存状态，不删除、替换或自动覆盖原文件。
 
 ```gdscript
 var policy := GFSaveRecoveryPolicy.new()
@@ -292,6 +225,11 @@ schema ID 不匹配、迁移失败和 provider 应用失败不进入损坏恢复
 迟到的完成回调不会改变已经进入终态的操作句柄；如果同一逻辑保存仍在等待或执行重试，
 任一覆盖其 generation 的物理写入成功会立即完成该句柄并取消尚未启动的重试。已经启动的
 其他写请求继续由 Profile 保有路径直到物理终态，但其后续失败不会翻转已确认的保存成功。
+
+Coordinator 管理的 Profile 不把 `ACTION_USE_CURRENT_STATE` 当成激活授权：严格 activate
+会把 missing/corrupt 分别转换为受约束的 Recovery Lease，项目必须显式调用
+bootstrap/adopt，且只有写确认后才发布活动身份。Switch 的目标缺失或损坏会恢复并保留
+源活动身份，不会隐式创建或覆盖目标存档。
 
 未知 section 默认采用 `GFSaveProfile.UNKNOWN_SECTION_REJECT`，避免旧客户端读取后保存时
 静默删除新客户端数据。只有明确拥有向前兼容要求时才选择 `UNKNOWN_SECTION_PRESERVE`；

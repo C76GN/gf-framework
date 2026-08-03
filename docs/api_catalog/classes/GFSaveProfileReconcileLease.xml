@@ -1,0 +1,218 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFSaveProfileReconcileLease" path="addons/gf/extensions/save/profile/gf_save_profile_reconcile_lease.gd" module="extensions/save" extends="RefCounted" classDigest="38d902cbb53d042a8333bfa914f9f50af9581286bd997cf5b730d0900ba50a36">
+	<description>GFSaveProfileReconcileLease: outcome_unknown 的持续所有权与对账围栏。
+Lease 保留同一对象身份，直到所有相关底层请求 late-settle 并由显式 reconcile
+操作解除 domain 围栏。结果副本不会复制 Lease；因此调用方连接 `settled`、
+轮询状态和提交对账时观察的是同一条生命周期。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_handle</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals>
+		<member kind="signal" name="settled">
+			<signature>signal settled(lease: GFSaveProfileReconcileLease, state: StringName)</signature>
+			<description>Lease 首次离开 waiting 时发出。
+正常 late settlement 进入 ready；Utility 先释放则进入 disposed_unresolved。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">lease: 当前同一身份 Lease。</tag>
+				<tag name="param">state: `STATE_READY` 或 `STATE_DISPOSED_UNRESOLVED`。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</signals>
+	<enums />
+	<constants>
+		<member kind="const" name="STATE_WAITING">
+			<signature>const STATE_WAITING: StringName = &amp;"waiting"</signature>
+			<description>仍在等待至少一个底层请求 late-settle。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATE_READY">
+			<signature>const STATE_READY: StringName = &amp;"ready"</signature>
+			<description>已取得有界 settlement evidence，可以开始显式对账。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATE_RECONCILING">
+			<signature>const STATE_RECONCILING: StringName = &amp;"reconciling"</signature>
+			<description>一个 reconcile 操作已经接管 Lease。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATE_RESOLVED">
+			<signature>const STATE_RESOLVED: StringName = &amp;"resolved"</signature>
+			<description>对账已经完成，Provider domain 围栏可以释放。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATE_DISPOSED_UNRESOLVED">
+			<signature>const STATE_DISPOSED_UNRESOLVED: StringName = &amp;"disposed_unresolved"</signature>
+			<description>Utility 已释放，但不确定副作用尚未完成对账。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</constants>
+	<properties />
+	<methods>
+		<member kind="method" name="get_lease_id">
+			<signature>func get_lease_id() -&gt; int:</signature>
+			<description>获取 Utility 生命周期内唯一的 Lease ID。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">正整数 Lease ID；未配置时为 0。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_transaction_id">
+			<signature>func get_transaction_id() -&gt; int:</signature>
+			<description>获取产生当前 Lease 的事务 ID。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">正整数事务 ID；未配置时为 0。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_operation">
+			<signature>func get_operation() -&gt; StringName:</signature>
+			<description>获取产生 outcome_unknown 的事务类型。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">`GFSaveProfileTransactionOperation.OPERATION_*` 常量之一。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_reconcile_profile_id">
+			<signature>func get_reconcile_profile_id() -&gt; StringName:</signature>
+			<description>获取显式对账应重新读取的 Profile ID。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">非空 Profile ID。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_source_profile_id">
+			<signature>func get_source_profile_id() -&gt; StringName:</signature>
+			<description>获取原事务来源 Profile ID。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">来源 Profile ID；不适用时为空。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_target_profile_id">
+			<signature>func get_target_profile_id() -&gt; StringName:</signature>
+			<description>获取原事务目标 Profile ID。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">目标 Profile ID；不适用时为空。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_domain_id">
+			<signature>func get_domain_id() -&gt; int:</signature>
+			<description>获取运行时 Provider domain ID。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">Utility 生命周期内唯一的正整数 domain ID。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_domain_generation">
+			<signature>func get_domain_generation() -&gt; int:</signature>
+			<description>获取 Lease 创建时的 domain generation。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">正整数 domain generation。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_epoch">
+			<signature>func get_epoch() -&gt; int:</signature>
+			<description>获取 Lease 创建时的 Utility lifecycle epoch。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">正整数 lifecycle epoch。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_storage_request_ids">
+			<signature>func get_storage_request_ids() -&gt; PackedInt64Array:</signature>
+			<description>获取支撑 outcome_unknown 的底层 Storage 请求 ID。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">按发起顺序排列的正整数请求 ID。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_state">
+			<signature>func get_state() -&gt; StringName:</signature>
+			<description>获取当前 Lease 状态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">`STATE_*` 常量之一。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_waiting">
+			<signature>func is_waiting() -&gt; bool:</signature>
+			<description>检查 Lease 是否仍等待 late settlement。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">waiting 时返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_ready">
+			<signature>func is_ready() -&gt; bool:</signature>
+			<description>检查 Lease 是否可由 reconcile 操作接管。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">ready 时返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_terminal">
+			<signature>func is_terminal() -&gt; bool:</signature>
+			<description>检查 Lease 是否已进入不可再对账的终态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">resolved 或 disposed_unresolved 时返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_settlement_evidence">
+			<signature>func get_settlement_evidence() -&gt; Dictionary:</signature>
+			<description>获取不含文档或 Provider payload 的 settlement evidence。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">有界 evidence 副本。</tag>
+				<tag name="schema">return: Payload-free bounded Dictionary containing scalar, packed-array, Array, and Dictionary evidence only.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_resolution_evidence">
+			<signature>func get_resolution_evidence() -&gt; Dictionary:</signature>
+			<description>获取成功对账后提交的最终证据。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">resolved 前为空；resolved 后返回有界 evidence 副本。</tag>
+				<tag name="schema">return: Payload-free bounded Dictionary containing scalar, packed-array, Array, and Dictionary evidence only.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

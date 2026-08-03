@@ -15,6 +15,9 @@ GF 已经具备版本化 `GFSaveDocument`、独立 section、迁移注册表、�
 - 保存请求如何只入队，并把大型 Provider 的主线程准备限制在可配置预算内；
 - 异步读取、迁移、校验、应用和回滚如何形成一个可观察终态；
 - 缺失、损坏、未来版本和临时 IO 故障如何被明确区分；
+- 共享同一组 Provider 的多个 Profile 如何只有一个可证明的活动身份；
+- Profile 切换、显式恢复和 section 修改如何跨多次底层操作保持原子边界；
+- 写入结果未知时如何冻结冲突工作，等待 generation 证据并显式严格重读；
 - 测试如何确定性地注入失败，而不依赖真实磁盘竞争或计时。
 
 这些责任不属于具体游戏业务，也不应由 UI、场景或单个 section 承担。
@@ -37,6 +40,14 @@ GF 已经具备版本化 `GFSaveDocument`、独立 section、迁移注册表、�
   分开记录准备与 Storage 耗时，完整文档只存在于 load 结果。
 - `GFSaveRecoveryPolicy` 只允许显式、可审计的恢复和有界重试。
 - `GFStorageAsyncOperation` 为每次底层 IO 提供独立 request ID 和类型化终态。
+- `GFSaveProfileTransactionCoordinator` 在上述原语之上编译精确 provider domain，管理
+  活动 Profile 身份，并串行推进 activate、switch、bootstrap、adopt、mutation 和 reconcile。
+- `GFSaveProfileTransactionOperation` / `GFSaveProfileTransactionResult` 为跨 Profile 流程
+  提供独立类型化句柄与不可变终态，不扩张普通 `GFSaveProfileResult` 的单 Profile 语义。
+- `GFSaveProfileRecoveryLease` 把已知 missing/corrupt 恢复选择变成一次性显式能力；
+  `GFSaveProfileReconcileLease` 与 `GFSaveProfileReconcileRequest` 负责未知写入的受控重读收敛。
+- `GFSaveSectionMutation` 与一次性 `GFSaveProfileMutationRequest` 提交候选 section，
+  不接受可在事务中执行任意副作用的 Callable。
 
 Profile 层不引入第二套文件格式，不解释业务字段，不绑定槽位 UI、云同步或平台 SDK。
 
@@ -48,7 +59,7 @@ Profile 层不引入第二套文件格式，不解释业务字段，不绑定槽
 4. `flush_profile()` 捕获调用时的目标 generation，不把“已入队”等同于“已持久化”。
 5. 文档在全部迁移和校验成功前不得触碰运行时状态。
 6. 应用前先采集所有可加载 provider 的回滚快照；任一应用失败后按逆序回滚。
-7. 缺失或损坏数据默认失败并保留现状；使用当前状态恢复必须显式配置。
+7. 缺失或损坏数据默认失败并保留现状；非 managed 普通读取使用当前状态必须显式配置。
 8. 未来 schema 永不进入重置或使用当前状态分支，必须升级代码后再读取。
 9. 重试只适用于策略声明的临时错误，并受有限延迟序列约束。
 10. 终态结果必须保留操作类型、generation、失败 section、底层读取结果和恢复信息。
@@ -68,7 +79,18 @@ Profile 层不引入第二套文件格式，不解释业务字段，不绑定槽
 24. Worker 只能处理已移交的纯 Variant 图；图预算或可持久化性预检失败必须在本次新写入的编码以及 temp、marker、final 事务提交副作用前结束。既有事务 recovery 与目录初始化是独立前置生命周期。
 25. 保存终态不得为了诊断保留完整文档副本；只有读取终态可通过 `get_document()` 返回文档，准备耗时与 Storage attempt 累计耗时必须分开报告；同时活跃的 attempt 分别累计，重叠区间不折叠。
 26. worker 失败报告只允许携带有界结构索引、Variant 类型和预算计数；Save 只能用文档构造时记录的 entry index 映射 section，不得复制 key/value 或可离线关联的 key 摘要。
-26. Save Operation 只持有对应请求的 result metadata；document metadata 与 Provider context 由最新 generation 状态直接接管，开始准备时通过 assignment 移入当前状态，不得深复制。
+27. Save Operation 只持有对应请求的 result metadata；document metadata 与 Provider context 由最新 generation 状态直接接管，开始准备时通过 assignment 移入当前状态，不得深复制。
+28. Provider domain 只由完全相同的有序 Provider 对象身份构成；任何部分重叠或顺序不同的拓扑都不得共享活动身份或锁域。
+29. 每个 domain 最多有一个活动 Profile；只有严格加载或显式恢复写入获得确定成功后才可原子发布或切换活动身份。
+30. Coordinator 管理的 Profile 只允许稳定活动身份执行直接 save/flush；直接 load、非活动 Profile 操作和事务/fence 期间的全部直接操作必须失败关闭。
+31. Switch 必须先 flush 调用时源 generation，再采集完整 Provider 快照并严格加载目标；已知失败按逆序恢复且不改变源活动身份。
+32. 首次 activate 的 missing 只能产生 Bootstrap Recovery Lease，corrupt 只能产生 Adopt Recovery Lease；两类一次性能力不得互换、复用或跨 domain generation 使用；switch 目标的同类失败保留源身份并以 target load failure 结束。
+33. Bootstrap 与 Adopt 只有在候选写入确定成功后才激活目标；普通恢复政策不得隐式发布活动身份。
+34. Mutation 必须先固定 Provider 顺序并采集回滚快照，再应用类型化候选并等待保存终态；已知 Storage 失败证明未提交，因此逆序恢复内存且不得自动补偿写入。
+35. 任何无法证明提交与否的写入都必须冻结整个 domain 并返回 Reconcile Lease；不得自动回滚、补偿、重试、激活或接受冲突工作。
+36. Reconcile Lease 在底层 generation 证据 settled 前保持 waiting，pending 调用不 claim Request；ready 后只能严格重读 lease 指定 Profile，完整应用成功才解锁并重建活动身份。
+37. Quiesce 必须先关闭 Coordinator 的新业务准入，再等待已接纳事务、底层 Profile 操作和路径所有权收敛；只允许既有 ready Reconcile Lease 作为 closure continuation 严格重读，不能借此创建其他事务；同步 dispose 不得把未知写入伪装成确定失败或已回滚。
+38. 受管 strict load 必须绑定 manager capability，并在文档应用前及每次 Provider 回调后复核；dispose 撤权后的迟到读取不得提交 Provider 状态，已开始应用时必须逆序恢复并显式报告恢复失败。
 
 ## 状态机
 
@@ -92,6 +114,19 @@ Profile 层不引入第二套文件格式，不解释业务字段，不绑定槽
 应用过程中不接受保存，以免基于旧内存状态覆盖新读取的数据。`retry_wait -> idle` 表示
 等待期间 detached 写入迟到成功，计划重试随逻辑保存完成而取消。
 
+Coordinator 在 primitive 状态机之外为每个 provider domain 维护以下状态：
+
+| Domain 状态 | 含义 | 公开准入 |
+| --- | --- | --- |
+| `inactive` | 尚无活动 Profile | activate；匹配 lease 的 bootstrap/adopt |
+| `active` | 一个 Profile 拥有当前 Provider 状态 | switch、mutation；活动 Profile save/flush |
+| `transacting` | 已接纳事务正在推进 | 拒绝并发 domain 操作与直接原语 |
+| `reconciliation_required` | 写入结果未知并持有 fence | 仅匹配 lease 的 reconcile 与诊断查询 |
+| `disposed` | 强制释放终态 | 无 |
+
+Quiesce 是 Coordinator 的全局准入阶段，不伪装成额外 domain 状态；诊断快照通过
+`quiescing` 字段独立报告它。
+
 ## 失败矩阵
 
 | 阶段/故障 | 默认结果 | 可恢复行为 | 必须保留的证据 |
@@ -107,8 +142,19 @@ Profile 层不引入第二套文件格式，不解释业务字段，不绑定槽
 | 写入永久失败 | `storage_failed` | 无自动恢复 | generation、错误码 |
 | 读取 IO 超时 | `storage_failed` | 可由上层重新读取 | request ID、尝试次数、超时 |
 | 写入超时或写入中释放 | `outcome_unknown` | 先重读/对账，再决定重试 | request ID、generation、超时/释放原因 |
-| 文件不存在 | `missing` | 显式 `use_current_state` | 原始 `GFStorageReadResult` |
-| 文档损坏或完整性失败 | `corrupt` | 显式 `use_current_state`，不立即覆盖原文件 | 原始读取结果、恢复动作 |
+| 非 managed 普通读取文件不存在 | `missing` | 显式 `use_current_state` | 原始 `GFStorageReadResult` |
+| 非 managed 普通读取文档损坏 | `corrupt` | 显式 `use_current_state`，不立即覆盖原文件 | 原始读取结果、恢复动作 |
+| Managed activate 文件不存在 | `recovery_required` | 只签发 Bootstrap Recovery Lease | profile/domain/generation、读取结果 |
+| Managed activate 文档损坏 | `recovery_required` | 只签发 Adopt Recovery Lease | profile/domain/generation、读取结果 |
+| Switch 目标文件缺失或损坏 | `target_load_failed` | 恢复 Provider 并保留源身份 | 目标读取结果、回滚错误 |
+| Managed Profile 直接 load 或非活动 save/flush | `busy` | 改用 Coordinator，或等待活动稳定 | profile/domain/活动身份 |
+| Switch 的源 flush 失败 | `source_flush_failed` | 保留源活动身份 | 源 generation 与底层终态 |
+| Switch 目标已知失败 | `target_load_failed` / 应用失败 | 逆序恢复并保留源身份 | 目标读取结果、回滚错误 |
+| Mutation 已知持久化失败 | `persist_failed` | 逆序恢复；不发补偿写 | generation、底层确定失败 |
+| 事务写入结果未知 | `outcome_unknown` | 冻结 domain，签发 Reconcile Lease | domain generation、request IDs |
+| Lease 无效、过期或重复消费 | `invalid_lease` | 重新取得当前状态证据 | lease kind、domain generation |
+| generation 证据仍为 unknown | `reconcile_pending` | 保持 fence，等待底层证据 settled；不 claim Request | bounded reconcile snapshot |
+| ready lease 的严格重读失败 | `reconcile_failed` | 保持 fence，由项目稍后重新对账 | 读取结果、失败 section、回滚错误 |
 | schema id 不匹配 | `schema_mismatch` | 无 | 实际/目标 schema |
 | 旧版本缺少迁移链 | `migration_failed` | 注册完整迁移链后重试 | 迁移结果 |
 | 迁移步骤失败 | `migration_failed` | 修复步骤后重试 | 迁移结果、步骤 id |
@@ -123,8 +169,10 @@ Profile 层不引入第二套文件格式，不解释业务字段，不绑定槽
 ## 恢复与重试政策
 
 - `missing` 与 `corrupt` 默认动作均为 `fail`。
-- `use_current_state` 只表示保留内存中的当前/default 状态并返回显式 recovered
-  终态；读取操作本身不写盘，也不删除、替换或修补原文件。
+- `use_current_state` 只适用于非 managed 普通读取，表示保留内存中的当前/default 状态并
+  返回显式 recovered 终态；读取本身不写盘，也不删除、替换或修补原文件。
+- Coordinator 的 strict load 忽略 `use_current_state`：missing/corrupt 必须分别经过
+  Bootstrap/Adopt Recovery Lease，写确认后才能发布活动身份。
 - 未来 schema、schema id 不匹配和迁移失败不属于损坏恢复。
 - 重试延迟是有限的毫秒序列；序列耗尽后必须返回失败，禁止无限循环。
 - 时间判断只使用注入的 `GFClock` 单调时间，测试使用 `GFManualClock`。
@@ -167,6 +215,16 @@ Profile 层不引入第二套文件格式，不解释业务字段，不绑定槽
 - Save 结果的 `get_document()` 返回 `null`，load 结果仍返回文档；准备耗时、准备 work
   units 与 Storage attempt 累计耗时分别可观察；
 - 真实 `GFStorageUtility` 往返测试覆盖异步句柄集成，不只依赖测试替身。
+- 精确相同的有序 Provider 身份共享 domain，重排和部分重叠注册失败关闭；不相交 domain
+  可独立推进；
+- activate/switch 只在严格成功后发布活动身份；首次 activate 的 missing/corrupt 分别
+  只能由匹配的 bootstrap/adopt lease 继续，switch 目标失败则保留源身份；
+- 活动 managed Profile 只开放稳定期 save/flush，直接 load、非活动写入和事务期重入均被拒绝；
+- switch 源 flush、目标读取、应用和逆序恢复的每个故障点都保持可证明身份；
+- typed mutation 的无效请求不被消费，已知持久化失败逆序恢复且不产生补偿写；
+- outcome-unknown 冻结整个 domain；waiting reconcile 不 claim Request，底层证据 settled
+  后仍需匹配 lease 严格重读指定 Profile并完整应用，才可解锁并重建活动身份；
+- quiesce 等待已接纳事务和路径所有权，forced dispose 保留未知终态证据。
 
 ## 后果
 
@@ -177,3 +235,8 @@ Profile 层不引入第二套文件格式，不解释业务字段，不绑定槽
 保持在明确上界，并在逻辑 move 后主动放弃全部源 alias。注册后身份与能力被冻结。无法
 回滚的外部副作用必须留在更高层事务参与者中，不能伪装成普通 section 应用。写入结果
 未知时，上层还必须采用重读、版本戳或业务对账策略，而不能盲目重复提交。
+
+Coordinator 进一步把活动身份和跨 Profile 流程变成框架级可测试契约。代价是 managed
+Profile 必须通过精确 Provider 拓扑共享 domain，并遵循一次性 Recovery/Reconcile Lease
+与 Mutation Request；项目仍需拥有账号到 Profile 的映射、恢复确认、损坏备份、云端冲突、
+业务 schema 和对账重试时机，框架不会替这些政策选择默认答案。

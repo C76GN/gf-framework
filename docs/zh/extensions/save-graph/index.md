@@ -9,6 +9,7 @@ GF Save 扩展负责把场景树节点状态组织成可采集、可校验、可
 - [节点序列化器与槽位](serializers-slots.md)：默认节点状态片段、`GFSaveIdentity`、`GFSaveSlotWorkflow`、槽位元数据和卡片 DTO。
 - [Pipeline Trace](pipeline-trace.md)：`GFSavePipelineContext`、流程事件和采集/应用诊断日志。
 - [Save Profile 运行时](save-profile-runtime.md)：多 section 所有权、异步 generation 合并、flush 屏障、迁移和恢复政策。
+- [Save Profile 会话与事务](save-profile-transactions.md)：精确 provider domain、活动身份、严格切换、显式恢复、类型化修改和未知结果对账。
 - [Save Profile 架构决策](save-profile-adr.md)：状态机、不变量、失败矩阵和故障注入策略。
 
 ## 使用边界

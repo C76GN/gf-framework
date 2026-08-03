@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFSaveProfileReconcileRequest" path="addons/gf/extensions/save/profile/gf_save_profile_reconcile_request.gd" module="extensions/save" extends="RefCounted" classDigest="4510be7d5530fdd252137d925988a18b0a5026ed8c1bcece539380e3e32ebb50">
+	<description>GFSaveProfileReconcileRequest: uncertain 写入对账的一次性请求句柄。
+请求只携带调用方纯数据上下文和结果元数据，不携带 Recovery/Reconcile Lease
+身份。Lease 必须作为独立类型化参数提交，避免从 Dictionary 恢复所有权。
+`take_ownership()` 成功后，调用方必须放弃两个 Dictionary 及其嵌套 alias。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_handle</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties />
+	<methods>
+		<member kind="method" name="take_ownership">
+			<signature>static func take_ownership( context: Dictionary = {}, result_metadata: Dictionary = {} ) -&gt; GFSaveProfileReconcileRequest:</signature>
+			<description>创建请求并接管 context 与 result_metadata 的逻辑唯一所有权。
+输入必须是有界纯 Variant 数据，不能包含 Callable、Object、Signal、RID 或
+循环集合。该请求不接受可执行恢复策略或 patch；项目策略应在提交前完成决策。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">context: 对账流程使用的临时纯数据上下文。</tag>
+				<tag name="param">result_metadata: 只写入当前对账结果的调用方纯数据元数据。</tag>
+				<tag name="return">可用请求；输入无效时返回 null。</tag>
+				<tag name="schema">context: Bounded Dictionary without Callable, Signal, RID, Object, or circular references whose source aliases are abandoned after success.</tag>
+				<tag name="schema">result_metadata: Bounded Dictionary without Callable, Signal, RID, Object, or circular references whose source aliases are abandoned after success.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_available">
+			<signature>func is_available() -&gt; bool:</signature>
+			<description>检查请求是否仍可由协调器接管。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">尚未 claim 时返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_claimed">
+			<signature>func is_claimed() -&gt; bool:</signature>
+			<description>检查请求是否已经被协调器接管。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">已成功 claim 时返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFSaveSectionMutation" path="addons/gf/extensions/save/profile/gf_save_section_mutation.gd" module="extensions/save" extends="RefCounted" classDigest="c547da33f3c8a05912405234d882c127f5bcb233ba8aafd788a0ca9f6014efdd">
+	<description>GFSaveSectionMutation: 单个 Save section 的一次性候选替换句柄。
+Mutation 只描述完整候选 section，不接受可执行 Callable 或增量 patch。
+`take_ownership()` 成功后，调用方必须永久放弃 payload、metadata 及其全部
+嵌套集合 alias；框架 claim 后句柄会立即清空载荷。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_handle</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants>
+		<member kind="const" name="STATE_AVAILABLE">
+			<signature>const STATE_AVAILABLE: StringName = &amp;"available"</signature>
+			<description>Mutation 尚未被框架接管。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATE_CLAIMED">
+			<signature>const STATE_CLAIMED: StringName = &amp;"claimed"</signature>
+			<description>Mutation 已被框架接管，候选载荷不再可用。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATE_DISCARDED">
+			<signature>const STATE_DISCARDED: StringName = &amp;"discarded"</signature>
+			<description>Mutation 已被框架丢弃，候选载荷不再可用。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</constants>
+	<properties />
+	<methods>
+		<member kind="method" name="take_ownership">
+			<signature>static func take_ownership( section_id: StringName, schema_version: int, payload: Variant, metadata: Dictionary = {} ) -&gt; GFSaveSectionMutation:</signature>
+			<description>接管一个完整候选 section 的逻辑唯一所有权。
+该方法不会深复制 payload 或 metadata。成功返回后，调用方不得继续读取、
+修改或复用原集合及其嵌套 alias。输入必须满足 Save persisted-value 契约；
+Callable、Object、Signal、RID、循环集合和非有限数会被拒绝。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">section_id: 稳定 section ID。</tag>
+				<tag name="param">schema_version: 候选 section 的正整数 schema 版本。</tag>
+				<tag name="param">payload: 完整候选 section 载荷，不是 patch 或回调。</tag>
+				<tag name="param">metadata: 候选 section 持久化元数据。</tag>
+				<tag name="return">可用 Mutation；身份或候选数据无效时返回 null。</tag>
+				<tag name="schema">payload: Variant accepted by the Save persisted-value contract.</tag>
+				<tag name="schema">metadata: Dictionary accepted by the Save persisted-value contract.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_section_id">
+			<signature>func get_section_id() -&gt; StringName:</signature>
+			<description>获取稳定 section ID。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">section ID。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_schema_version">
+			<signature>func get_schema_version() -&gt; int:</signature>
+			<description>获取候选 section schema 版本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">正整数 schema 版本；无效句柄为 0。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_state">
+			<signature>func get_state() -&gt; StringName:</signature>
+			<description>获取当前所有权状态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">`STATE_*` 常量之一。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_available">
+			<signature>func is_available() -&gt; bool:</signature>
+			<description>检查 Mutation 是否仍可被请求或框架接管。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">尚未 claim 或 discard 时返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

@@ -24,7 +24,7 @@
 
 ## [未发布]
 
-**版本概述**：本轮新增类型化音频播放区间与循环点和共享资源 admission Broker，把 Architecture 启动升级为依赖 DAG 驱动的四阶段激活并增加类型化异步关闭，补充 Save Profile bootstrap、Headless 服务探针和周期环境表现的项目组合配方，修复并加固 AI Developer 的项目 Adapter 依赖边界，同时把 Changelog 与安全扫描抑制约束转为可执行维护门禁，并收紧热模块事务、Save Profile 准备、可选依赖、后台回调所有权、按 key 并发、场景邻居稳定帧、渲染预热和音频释放契约；框架只提供可验证的通用机制，不内置项目启动政策、部署协议、环境业务模型或轮询式音频模拟。
+**版本概述**：本轮新增类型化音频播放区间与循环点和共享资源 admission Broker，把 Architecture 启动升级为依赖 DAG 驱动的四阶段激活并增加类型化异步关闭，为 Save Profile 增加精确 provider domain、活动身份与显式恢复/对账事务，补充 Headless 服务探针和周期环境表现的项目组合配方，修复并加固 AI Developer 的项目 Adapter 依赖边界，同时把 Changelog 与安全扫描抑制约束转为可执行维护门禁，并收紧热模块事务、Save Profile 准备、可选依赖、后台回调所有权、按 key 并发、场景邻居稳定帧、渲染预热和音频释放契约；框架只提供可验证的通用机制，不内置项目启动、存档业务、部署协议、环境模型或轮询式音频模拟。
 
 ### 🚀 新增特性 (Added)
 
@@ -45,6 +45,15 @@
 - Save Profile 新增 `GFSaveSectionSnapshot` 与 `GFSaveSectionSnapshotOperation`：Provider 通过 `begin_save_snapshot()` / `_begin_save_snapshot()` 在主线程按 work unit 分片生成不可变 section Snapshot；固定且很小的载荷可用 `make_completed_snapshot()`，大型载荷必须实现有界 Operation。
 - Storage 新增 `GFStoragePayloadTransfer` 与 `save_payload_request_async()`：以 opaque 单所有者句柄逻辑移交纯 Variant 载荷，并允许同一冻结绑定上的 timeout-detached attempt 与有界重试共享只读 Snapshot。
 - `GFSaveProfileUtility` 新增全局准备 work budget、单 profile slice budget 和软时间 budget；`GFSaveProfileResult` 新增准备耗时、Storage attempt 累计耗时与准备 work units 诊断。
+- 新增 `GFSaveProfileTransactionCoordinator`、`GFSaveProfileTransactionOperation` 与
+  `GFSaveProfileTransactionResult`：在单 Profile 原语之上按精确有序 Provider 身份管理
+  domain、活动 Profile、严格 activate/switch、显式 bootstrap/adopt、类型化 mutation
+  和 reconcile，并以独立不可变终态报告跨 Profile 事务。
+- 新增 `GFSaveProfileRecoveryLease`、`GFSaveProfileReconcileLease` 与
+  `GFSaveProfileReconcileRequest`：missing/corrupt 只能通过匹配的一次性恢复能力继续，
+  写入结果未知时冻结 domain，等待底层证据 settled 后通过显式严格重读收敛。
+- 新增 `GFSaveSectionMutation` 与 `GFSaveProfileMutationRequest`：用 move-only 候选 section
+  清单替代事务内任意回调，固定 Provider 顺序并在确定失败时逆序恢复。
 - `GFStorageAsyncResult` 新增 `WriteFailureKind` 与隔离的 worker 载荷预检报告，区分非法请求、不可持久化载荷、编码、线程、生命周期和 IO 故障。
 
 ### 🔄 机制更改 (Changed)
@@ -72,6 +81,16 @@
 - 保存 Provider 从后续 `tick()` 开始按全局预算公平轮转，软时间预算只阻止启动下一个 slice，不伪装成可抢占执行。准备完成后文档逻辑 move 到 `GFStoragePayloadTransfer`；Storage worker 在本次新写入的编码与 temp、marker、final 事务提交前执行有界纯 Variant 图预检和物化，既有事务 recovery 与目录初始化仍是独立前置生命周期。Save 终态不再保留完整文档副本，完整文档只由 load 结果返回。
 - Storage 首次 claim transfer 时冻结 Storage 实例、规范文件名、canonical target file-family identity 和 codec options；每个物理 attempt 取得独立只读 lease，最后一个 lease 结束且 Profile 释放 generation 后才清空载荷，重试不再重新采集 Provider 或复制完整文档。
 - Storage worker 载荷预检现在同时限制 128 层深度、1,000,000 个值和 64 MiB 估算原始字节，拒绝 Object/Script typed container 元数据；诊断只保留结构索引、类型与预算计数，Save 通过隔离 Adapter 映射 section，不输出 key/value 或 key 派生摘要。
+- Coordinator 管理的 Profile 只在 domain 稳定且该 Profile 活动时开放直接 save/flush；
+  直接 load、非活动 Profile 写入以及事务或 reconcile fence 期间的直接操作均失败关闭。
+  activate/switch 始终采用严格读取，不把 `ACTION_USE_CURRENT_STATE` 隐式提升为活动身份；strict load 绑定 manager capability，撤权后的迟到读取不会在事务终态之后应用 Provider。
+- Switch 先 flush 调用时源 generation，再快照并加载目标，已知失败逆序恢复且保留源活动
+  身份。Bootstrap/Adopt 只消费各自 missing/corrupt Recovery Lease，并在写确认后激活；
+  mutation 的已知 Storage 失败已证明未提交，因此恢复内存但不发起扩大风险的补偿保存。
+- 事务写入返回 `outcome_unknown` 时，Coordinator 保持 Provider 状态与 domain fence，
+  不自动回滚、重试、补偿或猜测迟到终态；Reconcile Lease 等待底层 generation 证据
+  settled，随后仍须由项目提交 `GFSaveProfileReconcileRequest`，严格重读 lease 指定
+  Profile 并完整应用后才解锁。Request 不接受项目布尔结论或可执行恢复策略。
 
 ### 🐛 Bug 修复 (Fixed)
 
@@ -90,6 +109,11 @@
 - 修复场景树先释放 root-owned BGM 播放器后，`GFAudioUtility.dispose()` 在有效性检查前构造 typed array 而触发 freed-instance 转换错误的问题；两条 BGM 清理路径与重复 dispose 都收敛到幂等终态。
 - 修复场景切换完成帧立即启动邻居预载时与活动 Asset warmup 重叠，可能导致 `.tscn` 间歇解析失败的问题；邻居请求现在必须经过目标场景确认、稳定帧和共享 Broker idle 边界。
 - 修复 `save_profile()` 在提交调用栈内同步遍历大型 Provider、可造成超过 100ms 主线程停顿的问题；请求现在先返回句柄，再由生命周期 tick 在显式预算内推进准备。
+- 修复共享 Provider 的 Profile 切换由项目拼接 flush/load 时缺少原子活动身份、目标失败后
+  可能遗留部分应用状态的问题；新 Coordinator 在精确 domain 锁内完成源屏障、逆序恢复
+  与单次身份提交。
+- 修复 section 修改与保存分离时，已知写入失败、未知提交和生命周期关闭之间没有统一
+  所有权的问题；类型化 mutation 现在区分可逆确定失败与必须 fence 的未知结果。
 
 ### ⚠️ 废弃与移除 (Deprecated/Removed)
 
@@ -117,7 +141,16 @@
 - `GFSaveProfileUtility.STATE_PREPARING` 替代 `STATE_GATHERING`，`GFSaveProfileResult.STATUS_PREPARATION_FAILED` 替代 `STATUS_GATHER_FAILED`，并新增 `save_preparation_work_budget_per_tick`、`save_preparation_slice_budget` 与 `save_preparation_time_budget_usec`。
 - `GFSaveProfileResult.get_preparation_duration_msec()`、`get_storage_duration_msec()` 与 `get_preparation_work_units()` 分开暴露阶段诊断；Save 结果的 `get_document()` 固定返回 `null`，只有 load 结果携带文档。
 - `GFStoragePayloadTransfer.take_ownership()`、`release()`、`GFStorageUtility.save_payload_request_async()`、`GFStorageAsyncOperation.reclaim_failed_payload()`、`GFStorageAsyncResult.get_write_failure_kind()` 与 `get_write_validation_report()` 构成新的显式 move / retry 契约。`gf.save` 的 `extension_version` 因此提升到 `6.0.0`。
-- Save 扩展 Installer 现在先确保 `GFStorageUtility` 存在，再装配 Save Graph/Profile；项目 Installer 不再重复拥有 Storage 注册。
+- `GFSaveProfileTransactionCoordinator.register_profile()` / `unregister_profile()`、
+  `activate_profile()`、`switch_profile()`、`bootstrap_profile()`、`adopt_profile()`、
+  `mutate_and_persist()`、`reconcile_profile()`、`get_active_profile_id()` 与
+  `get_domain_state_snapshot()` 是新的活动 Profile 事务 API。
+- `GFSaveProfileTransactionOperation` / `GFSaveProfileTransactionResult`、
+  `GFSaveProfileRecoveryLease`、`GFSaveProfileReconcileLease` /
+  `GFSaveProfileReconcileRequest`、`GFSaveSectionMutation` 与
+  `GFSaveProfileMutationRequest` 是新的公开 operation、result、lease 和 move-only request
+  类型；它们不与普通 `GFSaveProfileOperation` / `GFSaveProfileResult` 混用。`gf.save` 因新增可选活动身份事务层并收紧受管 Profile 准入，`extension_version` 从 `6.0.0` 提升到 `6.1.0`。
+- Save 扩展 Installer 现在先确保 `GFStorageUtility` 存在，再装配 Save Graph、Profile 与 Profile Transaction Coordinator；项目 Installer 不再重复拥有 Storage 注册。
 - `GFModel`、`GFSystem`、`GFUtility` 新增 `begin_activation(GFAsyncScope) -> GFAsyncCompletion` 与 `begin_quiesce(GFAsyncScope) -> GFAsyncCompletion`。
 - `GFArchitecture.init(cancellation_token = null)` 保留无参数调用形状并新增显式取消输入；新增 `activation_timeout_seconds`、`shutdown_timeout_seconds`、`is_activating()`、`is_quiescing()`、`is_accepting_runtime_work()`、`is_module_active()`、`shutdown_async()`、`get_last_shutdown_result()` 与 `shutdown_finished`。`module_async_init_timeout_seconds` 与两个新增 timeout 属性统一为有限 `0..86400` 契约，`0` 禁用 deadline；并发 init/shutdown 都由首个调用拥有共享流程策略，后续 init token 只取消自身等待，后续 shutdown 调用只复制同一终态。父级 required module/factory 由 child generation 弱租约保护；模块租约冻结相关父级模块拓扑，任一外部依赖租约都使父级正常关闭以 `ERR_BUSY` 失败。`create_instance()` 现在属于 READY 运行时准入，在 activation、热拓扑事务或 quiesce 期间不会调用 provider。依赖诊断固定复用四类 typed Hook 与真实父级解析语义，不再提供 `include_parent_lookup` / `include_factories` 行为开关。
 - `GFArchitecture.unregister_model()`、`unregister_system()`、`unregister_utility()` 及 classless Autoload facade `Gf.unregister_*()` 均改为必须 `await` 且返回 `bool` 的拓扑事务；旧同步 fire-and-forget 调用不再受支持。
@@ -145,6 +178,22 @@
 18. 将 `Gf.unregister_model()`、`Gf.unregister_system()` 与 `Gf.unregister_utility()` 的调用改为 `await` 并检查 `bool`；不要依赖旧的同步注销时序。
 19. 启用 Save 扩展的项目删除项目 Installer 中重复的 `GFStorageUtility` 注册；需要调整参数时取回扩展已安装实例并配置，需要替换实现时显式调用 `replace_utility()`。
 20. 不再在 Installer、`init()`、`ready()` 或 activation 中调用 `create_instance()` 触发工厂副作用；装配期改用 `has_factory()` / `get_required_factories()` 校验，只有 Architecture 提交 READY 且无热拓扑事务后才创建运行时对象。
+21. 需要活动槽位或账号身份的项目，把 Profile 注册从 `GFSaveProfileUtility` 迁移到
+    `GFSaveProfileTransactionCoordinator.register_profile()`；只让完全相同且顺序一致的
+    Provider 实例共享一个 domain，消除部分重叠和重排拓扑。
+22. 把 activation 中直接 `load_profile()` 的恢复改为 `activate_profile()`。收到 missing
+    Recovery Lease 后由项目确认再调用 `bootstrap_profile()`；收到 corrupt Lease 后先执行
+    项目备份/确认政策，再调用 `adopt_profile()`。不要用 `ACTION_USE_CURRENT_STATE` 发布身份。
+23. 把项目手写的 flush-source/load-target 切换改为 `switch_profile()`，并以
+    `GFSaveProfileTransactionResult` 判断 source flush、target load、rollback 和活动身份终态。
+24. 需要“修改后必须持久化”的 section 流程改为构造 `GFSaveSectionMutation` 清单，通过
+    `GFSaveProfileMutationRequest` 提交 `mutate_and_persist()`；成功 claim 后放弃请求与候选
+    payload 的全部 alias，不再在写失败后自行追加补偿保存。
+25. 事务返回 `outcome_unknown` 时停止该 domain 的后续工作，并以结果中的
+    `GFSaveProfileReconcileLease` 调用 `reconcile_profile()`；waiting 状态会返回
+    `reconcile_pending` 且不 claim Request。lease ready 后用同一 lease 与
+    `GFSaveProfileReconcileRequest` 重试，等待严格重读和应用成功；不要用直接 load/save
+    绕过 fence，也不要把迟到成功当成原 switch 会自动继续目标。
 
 ### 📁 核心受影响文件 (Affected Files)
 
@@ -188,6 +237,14 @@
 - `addons/gf/extensions/save/profile/gf_save_section_snapshot_operation.gd`
 - `addons/gf/extensions/save/profile/gf_save_profile_utility.gd`
 - `addons/gf/extensions/save/profile/gf_save_profile_result.gd`
+- `addons/gf/extensions/save/profile/gf_save_profile_transaction_coordinator.gd`
+- `addons/gf/extensions/save/profile/gf_save_profile_transaction_operation.gd`
+- `addons/gf/extensions/save/profile/gf_save_profile_transaction_result.gd`
+- `addons/gf/extensions/save/profile/gf_save_profile_recovery_lease.gd`
+- `addons/gf/extensions/save/profile/gf_save_profile_reconcile_lease.gd`
+- `addons/gf/extensions/save/profile/gf_save_profile_reconcile_request.gd`
+- `addons/gf/extensions/save/profile/gf_save_section_mutation.gd`
+- `addons/gf/extensions/save/profile/gf_save_profile_mutation_request.gd`
 - `addons/gf/extensions/save/gf_extension.json`
 - `packages/standard/gf.standard.storage.json`
 - `addons/gf/extensions/network/backends/gf_network_backend.gd`
@@ -207,6 +264,7 @@
 - `docs/zh/kernel/lifecycle/module-lifecycle/dynamic-registration.md`
 - `docs/zh/kernel/architecture/assembly-diagnostics/dependency-diagnostics.md`
 - `docs/zh/extensions/save-graph/save-profile-adr.md`
+- `docs/zh/extensions/save-graph/save-profile-transactions.md`
 - `docs/zh/extensions/network-turnbased/network-transport/backend-session.md`
 - `docs/zh/standard/utilities/io/storage-snapshot/storage-utility.md`
 - `docs/zh/standard/utilities/io/assets-jobs-warmup/resource-broker.md`
