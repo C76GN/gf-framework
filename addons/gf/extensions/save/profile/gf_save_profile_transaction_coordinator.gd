@@ -85,6 +85,7 @@ const _STAGE_MUTATION_QUEUED: StringName = &"mutation_queued"
 const _STAGE_MUTATION_APPLY: StringName = &"mutation_apply"
 const _STAGE_MUTATION_SAVE: StringName = &"mutation_save"
 const _STAGE_RECONCILE_LOAD: StringName = &"reconcile_load"
+const _MAX_PROFILE_RESULT_EVIDENCE_ERROR_LENGTH: int = 2_048
 
 
 # --- 私有变量 ---
@@ -1633,21 +1634,45 @@ func _start_recovery_save(
 			"Recovery save request is uninitialized or was already claimed.",
 			_STAGE_RECOVERY_SAVE
 		)
+	var owned_request: GFSaveProfileRequest = request
+	if owned_request == null:
+		owned_request = GFSaveProfileRequest.take_ownership({}, {}, {})
+	_begin_processing()
+	var profile_operation: GFSaveProfileOperation = (
+		_profile_utility.save_profile_for_manager_for_framework(
+			profile_id,
+			owned_request,
+			profile.permit
+		)
+		if _profile_utility != null
+		else null
+	)
+	var save_admitted: bool = (
+		profile_operation != null
+		and owned_request.is_claimed()
+		and profile_operation.get_requested_generation() > 0
+	)
+	if not save_admitted:
+		var rejected_operation: GFSaveProfileTransactionOperation = (
+			_reject_recovery_save_admission(
+				operation_kind,
+				profile_id,
+				profile_operation
+			)
+		)
+		_end_processing()
+		return rejected_operation
 	var lease_claim: Dictionary = lease.claim_for_framework(
 		profile_id,
 		domain.domain_id,
 		domain.domain_generation,
 		domain.transaction_epoch
 	)
+	# 底层成功准入只会同步 claim request 与入队，不会执行 Provider 或开放回调；
+	# 因此同一调用栈内、同一 recovery record 的 Lease claim 失败属于内部不变量破坏。
 	if lease_claim.is_empty():
-		return _reject_transaction(
-			operation_kind,
-			&"",
-			profile_id,
-			GFSaveProfileTransactionResult.STATUS_INVALID_LEASE,
-			ERR_INVALID_PARAMETER,
-			"Recovery Lease no longer matches the Provider domain.",
-			_STAGE_RECOVERY_SAVE
+		push_error(
+			"[GFSaveProfileTransactionCoordinator] Admitted recovery lease could not commit."
 		)
 	var _record_erased: bool = _recovery_records.erase(lease.get_lease_id())
 	var transaction: TransactionState = _begin_domain_transaction(
@@ -1658,11 +1683,48 @@ func _start_recovery_save(
 		{}
 	)
 	transaction.stage = _STAGE_RECOVERY_SAVE
-	var owned_request: GFSaveProfileRequest = request
-	if owned_request == null:
-		owned_request = GFSaveProfileRequest.take_ownership({}, {}, {})
-	_start_save(domain, transaction, profile_id, owned_request)
+	transaction.write_admitted = true
+	_observe_profile_operation(domain, transaction, profile_operation)
+	_end_processing()
 	return transaction.operation
+
+
+func _reject_recovery_save_admission(
+	operation_kind: StringName,
+	profile_id: StringName,
+	profile_operation: GFSaveProfileOperation
+) -> GFSaveProfileTransactionOperation:
+	var status: StringName = GFSaveProfileTransactionResult.STATUS_INVALID_REQUEST
+	var error_code: Error = ERR_CANT_CREATE
+	var error: String = "GFSaveProfileUtility did not admit the recovery save."
+	var result: GFSaveProfileResult = (
+		profile_operation.get_result()
+		if profile_operation != null and profile_operation.is_completed()
+		else null
+	)
+	if result != null:
+		error_code = result.get_error_code()
+		error = result.get_error()
+		match result.get_status():
+			GFSaveProfileResult.STATUS_BUSY:
+				status = GFSaveProfileTransactionResult.STATUS_BUSY
+			GFSaveProfileResult.STATUS_INVALID_PROFILE:
+				status = GFSaveProfileTransactionResult.STATUS_INVALID_PROFILE
+			GFSaveProfileResult.STATUS_UNSUPPORTED_OPERATION:
+				status = GFSaveProfileTransactionResult.STATUS_UNSUPPORTED_OPERATION
+			GFSaveProfileResult.STATUS_DISPOSED:
+				status = GFSaveProfileTransactionResult.STATUS_DISPOSED
+			_:
+				status = GFSaveProfileTransactionResult.STATUS_INVALID_REQUEST
+	return _reject_transaction(
+		operation_kind,
+		&"",
+		profile_id,
+		status,
+		error_code,
+		error,
+		_STAGE_RECOVERY_SAVE
+	)
 
 
 func _begin_domain_transaction(
@@ -2367,7 +2429,9 @@ func _make_profile_result_evidence(result: GFSaveProfileResult) -> Dictionary:
 		"recovery_action": result.get_recovery_action(),
 		"failed_section_id": result.get_failed_section_id(),
 		"error_code": int(result.get_error_code()),
-		"error": result.get_error(),
+		"error": result.get_error().left(
+			_MAX_PROFILE_RESULT_EVIDENCE_ERROR_LENGTH
+		),
 		"duration_msec": result.get_duration_msec(),
 		"preparation_duration_msec": result.get_preparation_duration_msec(),
 		"storage_duration_msec": result.get_storage_duration_msec(),
