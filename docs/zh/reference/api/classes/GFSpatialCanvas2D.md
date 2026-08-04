@@ -23,6 +23,7 @@
 | 信号 | [`placement_cancelled`](#member-gfspatialcanvas2d-signals-placement_cancelled) | `signal placement_cancelled(report: Dictionary)` |
 | 信号 | [`history_operation_requested`](#member-gfspatialcanvas2d-signals-history_operation_requested) | `signal history_operation_requested(operation: Dictionary)` |
 | 枚举 | [`SelectionMode`](#member-gfspatialcanvas2d-enums-selectionmode) | `enum SelectionMode` |
+| 枚举 | [`InputDisposition`](#member-gfspatialcanvas2d-enums-inputdisposition) | `enum InputDisposition` |
 | 常量 | [`ABSOLUTE_MAX_ITEMS`](#member-gfspatialcanvas2d-constants-absolute_max_items) | `const ABSOLUTE_MAX_ITEMS: int = 65536` |
 | 常量 | [`ABSOLUTE_MAX_SELECTION`](#member-gfspatialcanvas2d-constants-absolute_max_selection) | `const ABSOLUTE_MAX_SELECTION: int = 16384` |
 | 常量 | [`ABSOLUTE_MAX_QUERY_CANDIDATES`](#member-gfspatialcanvas2d-constants-absolute_max_query_candidates) | `const ABSOLUTE_MAX_QUERY_CANDIDATES: int = 16384` |
@@ -55,9 +56,9 @@
 | 方法 | [`get_item`](#member-gfspatialcanvas2d-methods-get_item) | `func get_item(item_id: StringName) -> Dictionary:` |
 | 方法 | [`query_items_at`](#member-gfspatialcanvas2d-methods-query_items_at) | `func query_items_at(world_position: Vector2) -> PackedStringArray:` |
 | 方法 | [`query_items_in_rect`](#member-gfspatialcanvas2d-methods-query_items_in_rect) | `func query_items_in_rect( world_rect: Rect2, fully_contained: bool = false ) -> PackedStringArray:` |
-| 方法 | [`set_selection`](#member-gfspatialcanvas2d-methods-set_selection) | `func set_selection( item_ids: PackedStringArray, mode: int = SelectionMode.REPLACE ) -> PackedStringArray:` |
-| 方法 | [`select_point`](#member-gfspatialcanvas2d-methods-select_point) | `func select_point( canvas_position: Vector2, mode: int = SelectionMode.REPLACE ) -> PackedStringArray:` |
-| 方法 | [`select_rect`](#member-gfspatialcanvas2d-methods-select_rect) | `func select_rect( canvas_rect: Rect2, mode: int = SelectionMode.REPLACE, fully_contained: bool = false ) -> PackedStringArray:` |
+| 方法 | [`set_selection`](#member-gfspatialcanvas2d-methods-set_selection) | `func set_selection( item_ids: PackedStringArray, mode: SelectionMode = SelectionMode.REPLACE ) -> PackedStringArray:` |
+| 方法 | [`select_point`](#member-gfspatialcanvas2d-methods-select_point) | `func select_point( canvas_position: Vector2, mode: SelectionMode = SelectionMode.REPLACE ) -> PackedStringArray:` |
+| 方法 | [`select_rect`](#member-gfspatialcanvas2d-methods-select_rect) | `func select_rect( canvas_rect: Rect2, mode: SelectionMode = SelectionMode.REPLACE, fully_contained: bool = false ) -> PackedStringArray:` |
 | 方法 | [`clear_selection`](#member-gfspatialcanvas2d-methods-clear_selection) | `func clear_selection() -> void:` |
 | 方法 | [`get_selection`](#member-gfspatialcanvas2d-methods-get_selection) | `func get_selection() -> PackedStringArray:` |
 | 方法 | [`set_placement_validator`](#member-gfspatialcanvas2d-methods-set_placement_validator) | `func set_placement_validator(callback: Callable) -> void:` |
@@ -68,8 +69,10 @@
 | 方法 | [`cancel_placement`](#member-gfspatialcanvas2d-methods-cancel_placement) | `func cancel_placement(reason: StringName = &"cancelled") -> Dictionary:` |
 | 方法 | [`has_active_placement`](#member-gfspatialcanvas2d-methods-has_active_placement) | `func has_active_placement() -> bool:` |
 | 方法 | [`get_placement_snapshot`](#member-gfspatialcanvas2d-methods-get_placement_snapshot) | `func get_placement_snapshot() -> Dictionary:` |
-| 方法 | [`handle_input_event`](#member-gfspatialcanvas2d-methods-handle_input_event) | `func handle_input_event(event: InputEvent) -> bool:` |
-| 方法 | [`handle_screen_input_event`](#member-gfspatialcanvas2d-methods-handle_screen_input_event) | `func handle_screen_input_event(event: InputEvent) -> bool:` |
+| 方法 | [`set_input_policy`](#member-gfspatialcanvas2d-methods-set_input_policy) | `func set_input_policy(policy: GFSpatialCanvasInputPolicy) -> bool:` |
+| 方法 | [`get_input_policy`](#member-gfspatialcanvas2d-methods-get_input_policy) | `func get_input_policy() -> GFSpatialCanvasInputPolicy:` |
+| 方法 | [`handle_input_event`](#member-gfspatialcanvas2d-methods-handle_input_event) | `func handle_input_event(event: InputEvent) -> InputDisposition:` |
+| 方法 | [`handle_screen_input_event`](#member-gfspatialcanvas2d-methods-handle_screen_input_event) | `func handle_screen_input_event(event: InputEvent) -> InputDisposition:` |
 | 方法 | [`set_input_enabled`](#member-gfspatialcanvas2d-methods-set_input_enabled) | `func set_input_enabled(enabled: bool) -> void:` |
 | 方法 | [`get_debug_snapshot`](#member-gfspatialcanvas2d-methods-get_debug_snapshot) | `func get_debug_snapshot() -> Dictionary:` |
 
@@ -255,6 +258,26 @@ enum SelectionMode {
 ```
 
 选择集合更新模式。
+
+<a id="member-gfspatialcanvas2d-enums-inputdisposition"></a>
+
+### `InputDisposition`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+enum InputDisposition {
+	## 事件未被画布识别或当前策略要求继续交给其他接收者。
+	IGNORED,
+	## 事件已更新画布，但仍允许 GUI 冒泡。
+	HANDLED,
+	## 事件已更新画布，并应在 GUI 边界停止传播。
+	CONSUMED,
+}
+```
+
+输入处理结果。 手工转发调用只观察该返回值；只有 [constant InputDisposition.CONSUMED] 会让画布自身的 [code]_gui_input()[/code] 调用 [method Control.accept_event]。
 
 ## 常量
 
@@ -891,7 +914,7 @@ func query_items_in_rect( world_rect: Rect2, fully_contained: bool = false ) -> 
 - 首次版本：`10.0.0`
 
 ```gdscript
-func set_selection( item_ids: PackedStringArray, mode: int = SelectionMode.REPLACE ) -> PackedStringArray:
+func set_selection( item_ids: PackedStringArray, mode: SelectionMode = SelectionMode.REPLACE ) -> PackedStringArray:
 ```
 
 按模式更新选择。 只接受已登记且可选的稳定 ID；容量只限制替换或新增，不截断减去候选。
@@ -901,7 +924,7 @@ func set_selection( item_ids: PackedStringArray, mode: int = SelectionMode.REPLA
 | 名称 | 说明 |
 |---|---|
 | `item_ids` | 候选条目 ID。 |
-| `mode` | SelectionMode 值。 |
+| `mode` | [enum SelectionMode] 值。 |
 
 返回：更新后的隔离选择副本。
 
@@ -913,7 +936,7 @@ func set_selection( item_ids: PackedStringArray, mode: int = SelectionMode.REPLA
 - 首次版本：`10.0.0`
 
 ```gdscript
-func select_point( canvas_position: Vector2, mode: int = SelectionMode.REPLACE ) -> PackedStringArray:
+func select_point( canvas_position: Vector2, mode: SelectionMode = SelectionMode.REPLACE ) -> PackedStringArray:
 ```
 
 在画布坐标点选最高优先级条目。
@@ -923,7 +946,7 @@ func select_point( canvas_position: Vector2, mode: int = SelectionMode.REPLACE )
 | 名称 | 说明 |
 |---|---|
 | `canvas_position` | 本 Control 的画布坐标。 |
-| `mode` | SelectionMode 值。 |
+| `mode` | [enum SelectionMode] 值。 |
 
 返回：更新后的选择。
 
@@ -935,7 +958,7 @@ func select_point( canvas_position: Vector2, mode: int = SelectionMode.REPLACE )
 - 首次版本：`10.0.0`
 
 ```gdscript
-func select_rect( canvas_rect: Rect2, mode: int = SelectionMode.REPLACE, fully_contained: bool = false ) -> PackedStringArray:
+func select_rect( canvas_rect: Rect2, mode: SelectionMode = SelectionMode.REPLACE, fully_contained: bool = false ) -> PackedStringArray:
 ```
 
 在画布坐标框选条目。
@@ -945,7 +968,7 @@ func select_rect( canvas_rect: Rect2, mode: int = SelectionMode.REPLACE, fully_c
 | 名称 | 说明 |
 |---|---|
 | `canvas_rect` | 画布选择矩形。 |
-| `mode` | SelectionMode 值。 |
+| `mode` | [enum SelectionMode] 值。 |
 | `fully_contained` | 为 true 时只选择完全位于矩形内的条目。 |
 
 返回：更新后的选择。
@@ -1151,6 +1174,42 @@ func get_placement_snapshot() -> Dictionary:
 
 - `return`: Dictionary，包含 session_id、type_id、footprint、world_position、rotation_radians、world_bounds、snap_to_grid 和 snap_rotation。
 
+<a id="member-gfspatialcanvas2d-methods-set_input_policy"></a>
+
+### `set_input_policy`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func set_input_policy(policy: GFSpatialCanvasInputPolicy) -> bool:
+```
+
+原子替换输入解释策略。 方法先完整校验并深拷贝候选策略；失败时保留当前策略和所有瞬态状态。 成功切换会释放当前指针捕获，但不会清除选择集合或活动放置会话。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `policy` | 候选输入策略。 |
+
+返回：策略有效并完成替换时返回 true。
+
+<a id="member-gfspatialcanvas2d-methods-get_input_policy"></a>
+
+### `get_input_policy`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func get_input_policy() -> GFSpatialCanvasInputPolicy:
+```
+
+获取当前输入策略的隔离副本。
+
+返回：当前策略的深拷贝。
+
 <a id="member-gfspatialcanvas2d-methods-handle_input_event"></a>
 
 ### `handle_input_event`
@@ -1159,10 +1218,10 @@ func get_placement_snapshot() -> Dictionary:
 - 首次版本：`10.0.0`
 
 ```gdscript
-func handle_input_event(event: InputEvent) -> bool:
+func handle_input_event(event: InputEvent) -> InputDisposition:
 ```
 
-处理一个项目转发的输入事件。 中键/单指拖动用于平移，滚轮/捏合用于焦点缩放，左键用于点选、框选或活动放置。 只有实际识别和消费的事件返回 true。
+处理一个项目转发的输入事件。 事件按当前 [GFSpatialCanvasInputPolicy] 解释。方法不会调用 Viewport 的 handled API； 手工路由方应根据 [enum InputDisposition] 决定是否继续传播。 鼠标与原始触摸只允许一个来源持有瞬态捕获；冲突来源及系统手势在物理释放或 显式取消前返回 [constant InputDisposition.IGNORED] 且不修改画布状态。 系统标记为 canceled 的当前捕获事件只释放瞬态状态，不提交选择或放置。
 
 参数：
 
@@ -1170,7 +1229,7 @@ func handle_input_event(event: InputEvent) -> bool:
 |---|---|
 | `event` | Godot 输入事件。 |
 
-返回：事件被画布消费时返回 true。
+返回：[enum InputDisposition] 值。
 
 <a id="member-gfspatialcanvas2d-methods-handle_screen_input_event"></a>
 
@@ -1180,7 +1239,7 @@ func handle_input_event(event: InputEvent) -> bool:
 - 首次版本：`10.0.0`
 
 ```gdscript
-func handle_screen_input_event(event: InputEvent) -> bool:
+func handle_screen_input_event(event: InputEvent) -> InputDisposition:
 ```
 
 处理一个使用 Viewport 屏幕坐标的输入事件。 适合从 `_input()` 或自定义全局路由转发事件；事件会先复制并转换到本 Control 的局部画布坐标。`_gui_input()` 已提供局部事件，应直接使用 handle_input_event()。
@@ -1191,7 +1250,7 @@ func handle_screen_input_event(event: InputEvent) -> bool:
 |---|---|
 | `event` | 使用 Viewport 屏幕坐标的 Godot 输入事件。 |
 
-返回：事件被画布消费时返回 true；变换不可逆时返回 false。
+返回：[enum InputDisposition] 值；变换不可逆时返回 [constant InputDisposition.IGNORED]。
 
 <a id="member-gfspatialcanvas2d-methods-set_input_enabled"></a>
 

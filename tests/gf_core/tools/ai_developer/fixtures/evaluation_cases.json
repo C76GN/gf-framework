@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "catalog_version": "1.8.0",
+  "catalog_version": "1.9.0",
   "catalog_api_requirements": [
     {
       "catalog": "capability",
@@ -136,6 +136,34 @@
         "has_metric",
         "get_metric"
       ]
+    },
+    {
+      "catalog": "capability",
+      "record_id": "ui-scalability",
+      "class_name": "GFVirtualListBinder",
+      "members": [
+        "bind",
+        "sync_now",
+        "invalidate_items"
+      ]
+    },
+    {
+      "catalog": "recipe",
+      "record_id": "scalable-ui-collection",
+      "class_name": "GFTableDataView",
+      "members": [
+        "set_row_predicates",
+        "get_view_revision"
+      ]
+    },
+    {
+      "catalog": "capability",
+      "record_id": "spatial-physics",
+      "class_name": "GFSpatialCanvasInputPolicy",
+      "members": [
+        "validate_policy",
+        "duplicate_policy"
+      ]
     }
   ],
   "feedback_cases": [
@@ -267,6 +295,14 @@
       "expected_id": "ui-scalability"
     },
     {
+      "query": "bounded Control recycler for a virtual list",
+      "expected_id": "ui-scalability"
+    },
+    {
+      "query": "transactional structured table row predicates",
+      "expected_id": "ui-scalability"
+    },
+    {
       "query": "shader parameter controls for visual feedback",
       "expected_id": "render-feedback"
     },
@@ -347,6 +383,10 @@
       "expected_id": "spatial-physics"
     },
     {
+      "query": "canvas wheel parent scroll input policy",
+      "expected_id": "spatial-physics"
+    },
+    {
       "query": "GFObjectPoolUtility",
       "expected_id": "runtime-performance"
     },
@@ -401,7 +441,8 @@
     },
     {
       "recipe_id": "scalable-ui-collection",
-      "expected_class": "GFVirtualListModel"
+      "expected_class": "GFVirtualListBinder",
+      "expected_step_fragment": "committed view changes"
     },
     {
       "recipe_id": "render-feedback-orchestration",
@@ -439,6 +480,18 @@
     {
       "query": "GFSpatialQueryIndex2D",
       "expected_class": "GFSpatialQueryIndex2D"
+    },
+    {
+      "query": "GFVirtualListBinder",
+      "expected_class": "GFVirtualListBinder"
+    },
+    {
+      "query": "GFSpatialCanvasInputPolicy",
+      "expected_class": "GFSpatialCanvasInputPolicy"
+    },
+    {
+      "query": "GFTableRowPredicate",
+      "expected_class": "GFTableRowPredicate"
     }
   ],
   "module_queries": [

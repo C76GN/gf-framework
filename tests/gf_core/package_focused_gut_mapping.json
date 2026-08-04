@@ -280,7 +280,12 @@
       "res://tests/gf_core/standard/utilities/settings/test_gf_settings_utility.gd"
     ],
     "gf.standard.ui": [
-      "res://tests/gf_core/standard/utilities/ui/test_gf_text_fitter.gd"
+      "res://tests/gf_core/standard/utilities/ui/test_gf_table_data_view.gd",
+      "res://tests/gf_core/standard/utilities/ui/test_gf_table_row_predicates.gd",
+      "res://tests/gf_core/standard/utilities/ui/test_gf_text_fitter.gd",
+      "res://tests/gf_core/standard/utilities/ui/test_gf_virtual_list_binder.gd",
+      "res://tests/gf_core/standard/utilities/ui/test_gf_virtual_list_focus_model.gd",
+      "res://tests/gf_core/standard/utilities/ui/test_gf_virtual_list_model.gd"
     ],
     "gf.standard.ui.navigation": [
       "res://tests/gf_core/standard/utilities/ui/test_gf_ui_utility.gd",

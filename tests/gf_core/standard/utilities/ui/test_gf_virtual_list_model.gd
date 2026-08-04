@@ -96,3 +96,36 @@ func test_non_finite_layout_inputs_cannot_poison_offsets() -> void:
 	assert_true(is_finite(model.get_content_extent()), "累计内容尺寸必须保持有限。")
 	var visible_range: Vector2i = model.get_visible_range(INF, NAN)
 	assert_true(visible_range.x >= 0 and visible_range.y <= model.get_item_count(), "异常滚动输入不得产生越界范围。")
+
+
+func test_viewport_range_excludes_overscan_while_visible_range_includes_it() -> void:
+	var model: GFVirtualListModel = GFVirtualListModel.new()
+	model.estimated_item_extent = 50.0
+	model.overscan_items = 2
+	model.set_item_count(10)
+
+	assert_eq(model.get_viewport_range(100.0, 100.0), Vector2i(2, 4), "原始视口范围不应包含 overscan。")
+	assert_eq(model.get_visible_range(100.0, 100.0), Vector2i(0, 6), "可见范围应在原始视口两端加入 overscan。")
+
+
+func test_layout_revision_changes_once_per_effective_public_mutation() -> void:
+	var model: GFVirtualListModel = GFVirtualListModel.new()
+	watch_signals(model)
+
+	assert_eq(model.get_revision(), 0, "新模型 revision 应从 0 开始。")
+	model.set_item_count(3)
+	assert_eq(model.get_revision(), 1, "条目数量变化应推进一次 revision。")
+	assert_signal_emit_count(model, "layout_changed", 1)
+	assert_signal_emitted_with_parameters(model, "layout_changed", [1])
+
+	model.set_item_count(3)
+	model.overscan_items = GFVirtualListModel.DEFAULT_OVERSCAN_ITEMS
+	var invalid_report: Dictionary = model.set_item_extent(0, INF)
+	assert_false(GFVariantData.get_option_bool(invalid_report, "ok"), "无效尺寸应被拒绝。")
+	assert_eq(model.get_revision(), 1, "无变化和无效写入不得推进 revision。")
+	assert_signal_emit_count(model, "layout_changed", 1)
+
+	model.estimated_item_extent = 72.0
+	assert_eq(model.get_revision(), 2, "一次 estimate 更新无论影响多少条目都只推进一次 revision。")
+	assert_signal_emit_count(model, "layout_changed", 2)
+	assert_signal_emitted_with_parameters(model, "layout_changed", [2], 1)

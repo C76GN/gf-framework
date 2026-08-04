@@ -10,7 +10,7 @@
 - [命令序列与撤销历史](command-sequence/index.md)：可撤销命令、命令历史、异步撤销约束和命令序列执行。
 - [输入映射与手感辅助](input-assist/index.md)：输入动作、上下文、设备席位、缓冲、修饰器、触发器、录制回放、改键和触屏控件。
 - [逻辑空间查询](spatial-query.md)：逻辑四叉树和与 GF 内置扩展空间能力的边界。
-- [2D Spatial Canvas](spatial-canvas-2d.md)：运行时世界视图、网格吸附、稳定选择和项目校验的有界放置会话。
+- [2D Spatial Canvas](spatial-canvas-2d.md)：运行时世界视图、可验证输入策略、网格吸附、稳定选择和项目校验的有界放置会话。
 
 ## 使用边界
 

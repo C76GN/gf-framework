@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFTableSelectionModel" path="addons/gf/standard/utilities/ui/gf_table_selection_model.gd" module="standard" extends="RefCounted" classDigest="6da5e9675ade4beff18b7a5cd8559445bbb689956d7005bc9a271d13f1c7f509">
+<class name="GFTableSelectionModel" path="addons/gf/standard/utilities/ui/gf_table_selection_model.gd" module="standard" extends="RefCounted" classDigest="25f437d3dc6130f372369f7a076a2a45bddd39f7968d0c929035b8e491c3e263">
 	<description>GFTableSelectionModel: 稳定行 ID 驱动的表格选择模型。
 只维护选中行 ID、锚点和选择模式，不关心行如何渲染、排序或过滤。
 表格视图排序、过滤或重建可见行时，只要 row_id 稳定，选择状态就能保留。</description>
@@ -109,6 +109,20 @@
 				<tag name="return">状态发生变化时返回 true。</tag>
 				<tag name="schema">row_ids: Array，调用方提供的稳定行 ID。</tag>
 				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="replace_selection_with_anchor">
+			<signature>func replace_selection_with_anchor( row_ids: Array, selection_anchor: Variant ) -&gt; bool:</signature>
+			<description>用一组行 ID 与显式锚点原子替换当前选择。
+选择集合和锚点会在发出 selection_changed 前同时完成更新；锚点不在最终选择中时归一为空。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">row_ids: 稳定行 ID 列表。</tag>
+				<tag name="param">selection_anchor: 最终范围选择锚点；null 表示没有锚点。</tag>
+				<tag name="return">选择集合或锚点发生变化时返回 true。</tag>
+				<tag name="schema">row_ids: Array，调用方提供的稳定行 ID。</tag>
+				<tag name="schema">selection_anchor: Variant，最终选择中的稳定行 ID，或 null。</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 		<member kind="method" name="select_range">

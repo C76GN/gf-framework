@@ -6,11 +6,11 @@
 
 | 类别 | 类 | 成员 | 方法 |
 |---|---:|---:|---:|
-| [运行时服务](#category-runtime_service) | 188 | 3402 | 2292 |
-| [协议与扩展点](#category-protocol) | 24 | 338 | 267 |
-| [资源定义](#category-resource_definition) | 120 | 1538 | 792 |
-| [运行时句柄](#category-runtime_handle) | 49 | 853 | 546 |
-| [值对象](#category-value_object) | 40 | 736 | 460 |
+| [运行时服务](#category-runtime_service) | 188 | 3424 | 2313 |
+| [协议与扩展点](#category-protocol) | 25 | 340 | 269 |
+| [资源定义](#category-resource_definition) | 122 | 1570 | 795 |
+| [运行时句柄](#category-runtime_handle) | 50 | 881 | 560 |
+| [值对象](#category-value_object) | 45 | 795 | 509 |
 | [领域模型](#category-domain_model) | 4 | 61 | 42 |
 | [事件契约](#category-event_contract) | 6 | 61 | 23 |
 | [编辑器 API](#category-editor_api) | 11 | 68 | 46 |
@@ -241,6 +241,7 @@
 | [`GFSequenceStep`](classes/GFSequenceStep.md#gfsequencestep) | `Resource` | `addons/gf/standard/sequence/gf_sequence_step.gd` |
 | [`GFState`](classes/GFState.md#gfstate) | `RefCounted` | `addons/gf/standard/state_machine/pure/gf_state.gd` |
 | [`GFStorageBackend`](classes/GFStorageBackend.md#gfstoragebackend) | `RefCounted` | `addons/gf/standard/utilities/storage/gf_storage_backend.gd` |
+| [`GFTableRowPredicate`](classes/GFTableRowPredicate.md#gftablerowpredicate) | `RefCounted` | `addons/gf/standard/utilities/ui/gf_table_row_predicate.gd` |
 | [`GFUndoableCommand`](classes/GFUndoableCommand.md#gfundoablecommand) | `GFCommand` | `addons/gf/standard/command/gf_undoable_command.gd` |
 | [`GFValidationRule`](classes/GFValidationRule.md#gfvalidationrule) | `Resource` | `addons/gf/standard/foundation/validation/gf_validation_rule.gd` |
 
@@ -350,6 +351,8 @@
 | [`GFShaderParameterProfile`](classes/GFShaderParameterProfile.md#gfshaderparameterprofile) | `Resource` | `addons/gf/standard/utilities/display/gf_shader_parameter_profile.gd` |
 | [`GFSignalBridge`](classes/GFSignalBridge.md#gfsignalbridge) | `Resource` | `addons/gf/standard/utilities/signals/bridge/gf_signal_bridge.gd` |
 | [`GFSignalSourceRef`](classes/GFSignalSourceRef.md#gfsignalsourceref) | `Resource` | `addons/gf/standard/utilities/signals/bridge/gf_signal_source_ref.gd` |
+| [`GFSpatialCanvasInputPolicy`](classes/GFSpatialCanvasInputPolicy.md#gfspatialcanvasinputpolicy) | `Resource` | `addons/gf/standard/utilities/spatial_canvas/gf_spatial_canvas_input_policy.gd` |
+| [`GFSpatialCanvasSelectionModeBinding`](classes/GFSpatialCanvasSelectionModeBinding.md#gfspatialcanvasselectionmodebinding) | `Resource` | `addons/gf/standard/utilities/spatial_canvas/gf_spatial_canvas_selection_mode_binding.gd` |
 | [`GFSteeringBehaviorResource`](classes/GFSteeringBehaviorResource.md#gfsteeringbehaviorresource) | `Resource` | `addons/gf/standard/foundation/math/gf_steering_behavior_resource.gd` |
 | [`GFSteeringBehaviorStack`](classes/GFSteeringBehaviorStack.md#gfsteeringbehaviorstack) | `Resource` | `addons/gf/standard/foundation/math/gf_steering_behavior_stack.gd` |
 | [`GFStorageCodec`](classes/GFStorageCodec.md#gfstoragecodec) | `Resource` | `addons/gf/standard/utilities/storage/gf_storage_codec.gd` |
@@ -426,6 +429,7 @@
 | [`GFUIRouteOperation`](classes/GFUIRouteOperation.md#gfuirouteoperation) | `RefCounted` | `addons/gf/standard/utilities/ui/gf_ui_route_operation.gd` |
 | [`GFVirtualInputPulseOperation`](classes/GFVirtualInputPulseOperation.md#gfvirtualinputpulseoperation) | `RefCounted` | `addons/gf/standard/input/sources/gf_virtual_input_pulse_operation.gd` |
 | [`GFVirtualInputSource`](classes/GFVirtualInputSource.md#gfvirtualinputsource) | `RefCounted` | `addons/gf/standard/input/sources/gf_virtual_input_source.gd` |
+| [`GFVirtualListBinder`](classes/GFVirtualListBinder.md#gfvirtuallistbinder) | `RefCounted` | `addons/gf/standard/utilities/ui/gf_virtual_list_binder.gd` |
 
 <a id="category-value_object"></a>
 
@@ -469,10 +473,15 @@
 | [`GFStorageConflictReport`](classes/GFStorageConflictReport.md#gfstorageconflictreport) | `Resource` | `addons/gf/standard/utilities/storage/gf_storage_conflict_report.gd` |
 | [`GFStorageReadResult`](classes/GFStorageReadResult.md#gfstoragereadresult) | `RefCounted` | `addons/gf/standard/utilities/storage/gf_storage_read_result.gd` |
 | [`GFStorageSectionCache`](classes/GFStorageSectionCache.md#gfstoragesectioncache) | `RefCounted` | `addons/gf/standard/utilities/storage/gf_storage_section_cache.gd` |
+| [`GFTableRowPredicateRegistration`](classes/GFTableRowPredicateRegistration.md#gftablerowpredicateregistration) | `RefCounted` | `addons/gf/standard/utilities/ui/gf_table_row_predicate_registration.gd` |
+| [`GFTableRowPredicateResult`](classes/GFTableRowPredicateResult.md#gftablerowpredicateresult) | `RefCounted` | `addons/gf/standard/utilities/ui/gf_table_row_predicate_result.gd` |
+| [`GFTableRowView`](classes/GFTableRowView.md#gftablerowview) | `RefCounted` | `addons/gf/standard/utilities/ui/gf_table_row_view.gd` |
+| [`GFTableViewRebuildResult`](classes/GFTableViewRebuildResult.md#gftableviewrebuildresult) | `RefCounted` | `addons/gf/standard/utilities/ui/gf_table_view_rebuild_result.gd` |
 | [`GFUIRouteResult`](classes/GFUIRouteResult.md#gfuirouteresult) | `RefCounted` | `addons/gf/standard/utilities/ui/gf_ui_route_result.gd` |
 | [`GFUuid`](classes/GFUuid.md#gfuuid) | `RefCounted` | `addons/gf/standard/foundation/identity/gf_uuid.gd` |
 | [`GFValidationIssue`](classes/GFValidationIssue.md#gfvalidationissue) | `RefCounted` | `addons/gf/standard/foundation/validation/gf_validation_issue.gd` |
 | [`GFValidationReport`](classes/GFValidationReport.md#gfvalidationreport) | `RefCounted` | `addons/gf/standard/foundation/validation/gf_validation_report.gd` |
+| [`GFVirtualListSyncResult`](classes/GFVirtualListSyncResult.md#gfvirtuallistsyncresult) | `RefCounted` | `addons/gf/standard/utilities/ui/gf_virtual_list_sync_result.gd` |
 
 <a id="category-domain_model"></a>
 

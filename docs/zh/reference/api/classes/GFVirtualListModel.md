@@ -15,6 +15,7 @@
 
 | 类型 | 名称 | 签名 |
 |---|---|---|
+| 信号 | [`layout_changed`](#member-gfvirtuallistmodel-signals-layout_changed) | `signal layout_changed(revision: int)` |
 | 常量 | [`DEFAULT_ESTIMATED_ITEM_EXTENT`](#member-gfvirtuallistmodel-constants-default_estimated_item_extent) | `const DEFAULT_ESTIMATED_ITEM_EXTENT: float = 60.0` |
 | 常量 | [`DEFAULT_OVERSCAN_ITEMS`](#member-gfvirtuallistmodel-constants-default_overscan_items) | `const DEFAULT_OVERSCAN_ITEMS: int = 2` |
 | 常量 | [`MIN_ITEM_EXTENT`](#member-gfvirtuallistmodel-constants-min_item_extent) | `const MIN_ITEM_EXTENT: float = 1.0` |
@@ -29,12 +30,35 @@
 | 方法 | [`set_item_extent`](#member-gfvirtuallistmodel-methods-set_item_extent) | `func set_item_extent( item_index: int, extent: float, measured: bool = true, scroll_offset: float = -1.0 ) -> Dictionary:` |
 | 方法 | [`reset_item_extent`](#member-gfvirtuallistmodel-methods-reset_item_extent) | `func reset_item_extent(item_index: int) -> bool:` |
 | 方法 | [`get_item_count`](#member-gfvirtuallistmodel-methods-get_item_count) | `func get_item_count() -> int:` |
+| 方法 | [`get_revision`](#member-gfvirtuallistmodel-methods-get_revision) | `func get_revision() -> int:` |
 | 方法 | [`get_item_extent`](#member-gfvirtuallistmodel-methods-get_item_extent) | `func get_item_extent(item_index: int) -> float:` |
 | 方法 | [`is_item_measured`](#member-gfvirtuallistmodel-methods-is_item_measured) | `func is_item_measured(item_index: int) -> bool:` |
 | 方法 | [`get_item_offset`](#member-gfvirtuallistmodel-methods-get_item_offset) | `func get_item_offset(item_index: int) -> float:` |
 | 方法 | [`get_content_extent`](#member-gfvirtuallistmodel-methods-get_content_extent) | `func get_content_extent(include_trailing_padding: bool = true) -> float:` |
+| 方法 | [`get_viewport_range`](#member-gfvirtuallistmodel-methods-get_viewport_range) | `func get_viewport_range(scroll_offset: float, viewport_extent: float) -> Vector2i:` |
 | 方法 | [`get_visible_range`](#member-gfvirtuallistmodel-methods-get_visible_range) | `func get_visible_range(scroll_offset: float, viewport_extent: float) -> Vector2i:` |
 | 方法 | [`get_visible_items`](#member-gfvirtuallistmodel-methods-get_visible_items) | `func get_visible_items(scroll_offset: float, viewport_extent: float) -> Array[Dictionary]:` |
+
+## 信号
+
+<a id="member-gfvirtuallistmodel-signals-layout_changed"></a>
+
+### `layout_changed`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+signal layout_changed(revision: int)
+```
+
+布局状态实际变化后发出。 一次公开写操作无论影响多少条目都只推进一次 revision；无变化或被拒绝的写入不发出。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `revision` | 变更后的单调递增布局版本号。 |
 
 ## 常量
 
@@ -260,6 +284,21 @@ func get_item_count() -> int:
 
 返回：当前条目数量。
 
+<a id="member-gfvirtuallistmodel-methods-get_revision"></a>
+
+### `get_revision`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func get_revision() -> int:
+```
+
+获取布局状态的当前版本号。
+
+返回：从 0 开始、只在布局实际变化时递增的版本号。
+
 <a id="member-gfvirtuallistmodel-methods-get_item_extent"></a>
 
 ### `get_item_extent`
@@ -340,11 +379,34 @@ func get_content_extent(include_trailing_padding: bool = true) -> float:
 
 返回：内容总尺寸。
 
+<a id="member-gfvirtuallistmodel-methods-get_viewport_range"></a>
+
+### `get_viewport_range`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func get_viewport_range(scroll_offset: float, viewport_extent: float) -> Vector2i:
+```
+
+计算当前滚动窗口直接命中的条目范围，不包含 overscan。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `scroll_offset` | 当前滚动偏移。 |
+| `viewport_extent` | 视口尺寸。 |
+
+返回：Vector2i(start, end)，end 为不包含的结束索引。
+
 <a id="member-gfvirtuallistmodel-methods-get_visible_range"></a>
 
 ### `get_visible_range`
 
 - API：`public`
+- 首次版本：`4.4.0`
 
 ```gdscript
 func get_visible_range(scroll_offset: float, viewport_extent: float) -> Vector2i:

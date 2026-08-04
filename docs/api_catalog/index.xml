@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<apiCatalog schemaVersion="2" name="GF Framework" sourceRoot="addons/gf" sourceDigest="cab721c60c4bbbd57b0bb2e664fd538696903620585f73a376637c59a2b56124" classCount="804" methodCount="7316">
+<apiCatalog schemaVersion="2" name="GF Framework" sourceRoot="addons/gf" sourceDigest="2052010d7f0b391cd32994d97b3f012fe7240124999eaa77b7f83c4800db76ba" classCount="813" methodCount="7405">
 	<module id="kernel" label="Kernel" classCount="74" methodCount="793">
 		<class name="GFAccessGenerator" path="classes/GFAccessGenerator.xml" sourcePath="addons/gf/kernel/editor/gf_access_generator.gd" extends="RefCounted" />
 		<class name="GFArchitecture" path="classes/GFArchitecture.xml" sourcePath="addons/gf/kernel/core/gf_architecture.gd" extends="Object" />
@@ -76,7 +76,7 @@
 		<class name="GFUtility" path="classes/GFUtility.xml" sourcePath="addons/gf/kernel/base/gf_utility.gd" extends="Object" />
 		<class name="GFWeakMethodInvocation" path="classes/GFWeakMethodInvocation.xml" sourcePath="addons/gf/kernel/core/gf_weak_method_invocation.gd" extends="RefCounted" />
 	</module>
-	<module id="standard" label="Standard" classCount="445" methodCount="4493">
+	<module id="standard" label="Standard" classCount="454" methodCount="4582">
 		<class name="GFActivationTransaction" path="classes/GFActivationTransaction.xml" sourcePath="addons/gf/standard/foundation/policy/gf_activation_transaction.gd" extends="RefCounted" />
 		<class name="GFAnalyticsConfig" path="classes/GFAnalyticsConfig.xml" sourcePath="addons/gf/standard/utilities/analytics/gf_analytics_config.gd" extends="Resource" />
 		<class name="GFAnalyticsEventSchema" path="classes/GFAnalyticsEventSchema.xml" sourcePath="addons/gf/standard/utilities/analytics/gf_analytics_event_schema.gd" extends="Resource" />
@@ -430,6 +430,8 @@
 		<class name="GFSourceTextLoader" path="classes/GFSourceTextLoader.xml" sourcePath="addons/gf/standard/utilities/io/gf_source_text_loader.gd" extends="RefCounted" />
 		<class name="GFSourceTextPatchTools" path="classes/GFSourceTextPatchTools.xml" sourcePath="addons/gf/standard/foundation/text/gf_source_text_patch_tools.gd" extends="RefCounted" />
 		<class name="GFSpatialCanvas2D" path="classes/GFSpatialCanvas2D.xml" sourcePath="addons/gf/standard/utilities/spatial_canvas/gf_spatial_canvas_2d.gd" extends="Control" />
+		<class name="GFSpatialCanvasInputPolicy" path="classes/GFSpatialCanvasInputPolicy.xml" sourcePath="addons/gf/standard/utilities/spatial_canvas/gf_spatial_canvas_input_policy.gd" extends="Resource" />
+		<class name="GFSpatialCanvasSelectionModeBinding" path="classes/GFSpatialCanvasSelectionModeBinding.xml" sourcePath="addons/gf/standard/utilities/spatial_canvas/gf_spatial_canvas_selection_mode_binding.gd" extends="Resource" />
 		<class name="GFSpatialHash3D" path="classes/GFSpatialHash3D.xml" sourcePath="addons/gf/standard/foundation/math/gf_spatial_hash_3d.gd" extends="RefCounted" />
 		<class name="GFSpatialQueryIdentity" path="classes/GFSpatialQueryIdentity.xml" sourcePath="addons/gf/standard/foundation/math/gf_spatial_query_identity.gd" extends="RefCounted" />
 		<class name="GFSpatialQueryIndex2D" path="classes/GFSpatialQueryIndex2D.xml" sourcePath="addons/gf/standard/utilities/spatial/gf_spatial_query_index_2d.gd" extends="RefCounted" />
@@ -460,7 +462,12 @@
 		<class name="GFSurfaceUtility" path="classes/GFSurfaceUtility.xml" sourcePath="addons/gf/standard/utilities/display/gf_surface_utility.gd" extends="GFUtility" />
 		<class name="GFTableColumnDefinition" path="classes/GFTableColumnDefinition.xml" sourcePath="addons/gf/standard/utilities/ui/gf_table_column_definition.gd" extends="Resource" />
 		<class name="GFTableDataView" path="classes/GFTableDataView.xml" sourcePath="addons/gf/standard/utilities/ui/gf_table_data_view.gd" extends="RefCounted" />
+		<class name="GFTableRowPredicate" path="classes/GFTableRowPredicate.xml" sourcePath="addons/gf/standard/utilities/ui/gf_table_row_predicate.gd" extends="RefCounted" />
+		<class name="GFTableRowPredicateRegistration" path="classes/GFTableRowPredicateRegistration.xml" sourcePath="addons/gf/standard/utilities/ui/gf_table_row_predicate_registration.gd" extends="RefCounted" />
+		<class name="GFTableRowPredicateResult" path="classes/GFTableRowPredicateResult.xml" sourcePath="addons/gf/standard/utilities/ui/gf_table_row_predicate_result.gd" extends="RefCounted" />
+		<class name="GFTableRowView" path="classes/GFTableRowView.xml" sourcePath="addons/gf/standard/utilities/ui/gf_table_row_view.gd" extends="RefCounted" />
 		<class name="GFTableSelectionModel" path="classes/GFTableSelectionModel.xml" sourcePath="addons/gf/standard/utilities/ui/gf_table_selection_model.gd" extends="RefCounted" />
+		<class name="GFTableViewRebuildResult" path="classes/GFTableViewRebuildResult.xml" sourcePath="addons/gf/standard/utilities/ui/gf_table_view_rebuild_result.gd" extends="RefCounted" />
 		<class name="GFTagCatalog" path="classes/GFTagCatalog.xml" sourcePath="addons/gf/standard/foundation/tags/gf_tag_catalog.gd" extends="Resource" />
 		<class name="GFTagExpression" path="classes/GFTagExpression.xml" sourcePath="addons/gf/standard/foundation/tags/gf_tag_expression.gd" extends="Resource" />
 		<class name="GFTagQuery" path="classes/GFTagQuery.xml" sourcePath="addons/gf/standard/foundation/tags/gf_tag_query.gd" extends="Resource" />
@@ -515,8 +522,10 @@
 		<class name="GFVirtualInputBridge" path="classes/GFVirtualInputBridge.xml" sourcePath="addons/gf/standard/input/common/gf_virtual_input_bridge.gd" extends="RefCounted" />
 		<class name="GFVirtualInputPulseOperation" path="classes/GFVirtualInputPulseOperation.xml" sourcePath="addons/gf/standard/input/sources/gf_virtual_input_pulse_operation.gd" extends="RefCounted" />
 		<class name="GFVirtualInputSource" path="classes/GFVirtualInputSource.xml" sourcePath="addons/gf/standard/input/sources/gf_virtual_input_source.gd" extends="RefCounted" />
+		<class name="GFVirtualListBinder" path="classes/GFVirtualListBinder.xml" sourcePath="addons/gf/standard/utilities/ui/gf_virtual_list_binder.gd" extends="RefCounted" />
 		<class name="GFVirtualListFocusModel" path="classes/GFVirtualListFocusModel.xml" sourcePath="addons/gf/standard/utilities/ui/gf_virtual_list_focus_model.gd" extends="RefCounted" />
 		<class name="GFVirtualListModel" path="classes/GFVirtualListModel.xml" sourcePath="addons/gf/standard/utilities/ui/gf_virtual_list_model.gd" extends="RefCounted" />
+		<class name="GFVirtualListSyncResult" path="classes/GFVirtualListSyncResult.xml" sourcePath="addons/gf/standard/utilities/ui/gf_virtual_list_sync_result.gd" extends="RefCounted" />
 		<class name="GFVoronoi2D" path="classes/GFVoronoi2D.xml" sourcePath="addons/gf/standard/foundation/math/gf_voronoi_2d.gd" extends="RefCounted" />
 		<class name="GFWaitSequenceStep" path="classes/GFWaitSequenceStep.xml" sourcePath="addons/gf/standard/sequence/gf_wait_sequence_step.gd" extends="GFSequenceStep" />
 		<class name="GFWaveFunctionCollapse2D" path="classes/GFWaveFunctionCollapse2D.xml" sourcePath="addons/gf/standard/foundation/math/gf_wave_function_collapse_2d.gd" extends="RefCounted" />

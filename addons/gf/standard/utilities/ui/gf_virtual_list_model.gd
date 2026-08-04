@@ -13,6 +13,20 @@ class_name GFVirtualListModel
 extends RefCounted
 
 
+# --- 信号 ---
+
+## 布局状态实际变化后发出。
+##
+## 一次公开写操作无论影响多少条目都只推进一次 revision；无变化或被拒绝的写入不发出。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param revision: 变更后的单调递增布局版本号。
+signal layout_changed(revision: int)
+
+
 # --- 常量 ---
 
 ## 默认条目估算尺寸。
@@ -56,7 +70,11 @@ var overscan_items: int:
 	get:
 		return _overscan_items
 	set(value):
-		_overscan_items = maxi(value, 0)
+		var _next_overscan_items: int = maxi(value, 0)
+		if _overscan_items == _next_overscan_items:
+			return
+		_overscan_items = _next_overscan_items
+		_notify_layout_changed()
 
 ## 列表末尾额外报告的滚动尺寸。
 ## [br]
@@ -65,8 +83,13 @@ var trailing_padding: float:
 	get:
 		return _trailing_padding
 	set(value):
-		if is_finite(value):
-			_trailing_padding = clampf(value, 0.0, MAX_ITEM_EXTENT)
+		if not is_finite(value):
+			return
+		var _next_trailing_padding: float = clampf(value, 0.0, MAX_ITEM_EXTENT)
+		if is_equal_approx(_trailing_padding, _next_trailing_padding):
+			return
+		_trailing_padding = _next_trailing_padding
+		_notify_layout_changed()
 
 
 # --- 私有变量 ---
@@ -79,6 +102,7 @@ var _measured: PackedByteArray = PackedByteArray()
 var _offsets: PackedFloat64Array = PackedFloat64Array()
 var _offsets_dirty: bool = true
 var _content_extent: float = 0.0
+var _revision: int = 0
 
 
 # --- 公共方法 ---
@@ -87,11 +111,14 @@ var _content_extent: float = 0.0
 ## [br]
 ## @api public
 func clear() -> void:
+	var had_items: bool = not _extents.is_empty()
 	var _extents_resize_result: int = _extents.resize(0)
 	var _measured_resize_result: int = _measured.resize(0)
 	var _offsets_resize_result: int = _offsets.resize(0)
 	_offsets_dirty = false
 	_content_extent = 0.0
+	if had_items:
+		_notify_layout_changed()
 
 
 ## 设置条目数量，并为新增条目填入估算尺寸。
@@ -102,6 +129,8 @@ func clear() -> void:
 func set_item_count(item_count: int) -> void:
 	var next_count: int = maxi(item_count, 0)
 	var previous_count: int = _extents.size()
+	if next_count == previous_count:
+		return
 	var _extents_resize_result: int = _extents.resize(next_count)
 	var _measured_resize_result: int = _measured.resize(next_count)
 	if next_count > previous_count:
@@ -109,6 +138,7 @@ func set_item_count(item_count: int) -> void:
 			_extents[index] = _estimated_item_extent
 			_measured[index] = 0
 	_offsets_dirty = true
+	_notify_layout_changed()
 
 
 ## 追加一个条目。
@@ -132,6 +162,7 @@ func append_item(extent: float = -1.0, measured: bool = false) -> int:
 		measured_flag = 1
 	var _measured_appended: bool = _measured.append(measured_flag)
 	_offsets_dirty = true
+	_notify_layout_changed()
 	return next_index
 
 
@@ -148,6 +179,7 @@ func remove_item(item_index: int) -> bool:
 	_extents.remove_at(item_index)
 	_measured.remove_at(item_index)
 	_offsets_dirty = true
+	_notify_layout_changed()
 	return true
 
 
@@ -216,6 +248,7 @@ func set_item_extent(
 	_measured[item_index] = measured_flag
 	_offsets_dirty = true
 	report["changed"] = true
+	_notify_layout_changed()
 	return report
 
 
@@ -229,9 +262,12 @@ func set_item_extent(
 func reset_item_extent(item_index: int) -> bool:
 	if not _is_valid_index(item_index):
 		return false
+	if is_equal_approx(_extents[item_index], _estimated_item_extent) and _measured[item_index] == 0:
+		return true
 	_extents[item_index] = _estimated_item_extent
 	_measured[item_index] = 0
 	_offsets_dirty = true
+	_notify_layout_changed()
 	return true
 
 
@@ -242,6 +278,17 @@ func reset_item_extent(item_index: int) -> bool:
 ## @return 当前条目数量。
 func get_item_count() -> int:
 	return _extents.size()
+
+
+## 获取布局状态的当前版本号。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @return 从 0 开始、只在布局实际变化时递增的版本号。
+func get_revision() -> int:
+	return _revision
 
 
 ## 获取条目尺寸。
@@ -299,16 +346,18 @@ func get_content_extent(include_trailing_padding: bool = true) -> float:
 	return _content_extent + extra_extent
 
 
-## 计算当前滚动窗口内应被物化的条目范围。
+## 计算当前滚动窗口直接命中的条目范围，不包含 overscan。
 ## [br]
 ## @api public
+## [br]
+## @since unreleased
 ## [br]
 ## @param scroll_offset: 当前滚动偏移。
 ## [br]
 ## @param viewport_extent: 视口尺寸。
 ## [br]
 ## @return Vector2i(start, end)，end 为不包含的结束索引。
-func get_visible_range(scroll_offset: float, viewport_extent: float) -> Vector2i:
+func get_viewport_range(scroll_offset: float, viewport_extent: float) -> Vector2i:
 	if _extents.is_empty():
 		return Vector2i.ZERO
 	_ensure_offsets()
@@ -317,10 +366,30 @@ func get_visible_range(scroll_offset: float, viewport_extent: float) -> Vector2i
 	var scroll_bottom: float = minf(scroll_top + visible_extent, _content_extent)
 	var start_index: int = _search_first_bottom_after(scroll_top)
 	var end_index: int = _search_first_top_at_or_after(scroll_bottom)
-	start_index = maxi(start_index - _overscan_items, 0)
-	end_index = mini(end_index + _overscan_items, _extents.size())
 	if end_index < start_index:
 		end_index = start_index
+	return Vector2i(start_index, end_index)
+
+
+## 计算当前滚动窗口内应被物化的条目范围。
+## [br]
+## @api public
+## [br]
+## @since 4.4.0
+## [br]
+## @param scroll_offset: 当前滚动偏移。
+## [br]
+## @param viewport_extent: 视口尺寸。
+## [br]
+## @return Vector2i(start, end)，end 为不包含的结束索引。
+func get_visible_range(scroll_offset: float, viewport_extent: float) -> Vector2i:
+	var viewport_range: Vector2i = get_viewport_range(scroll_offset, viewport_extent)
+	if viewport_range == Vector2i.ZERO and _extents.is_empty():
+		return viewport_range
+	var start_index: int = viewport_range.x
+	var end_index: int = viewport_range.y
+	start_index = maxi(start_index - _overscan_items, 0)
+	end_index = mini(end_index + _overscan_items, _extents.size())
 	return Vector2i(start_index, end_index)
 
 
@@ -361,6 +430,12 @@ func _set_estimated_item_extent(value: float) -> void:
 		if _measured[item_index] == 0:
 			_extents[item_index] = next_extent
 	_offsets_dirty = true
+	_notify_layout_changed()
+
+
+func _notify_layout_changed() -> void:
+	_revision += 1
+	layout_changed.emit(_revision)
 
 
 func _ensure_offsets() -> void:

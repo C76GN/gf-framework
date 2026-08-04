@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFSpatialCanvasSelectionModeBinding" path="addons/gf/standard/utilities/spatial_canvas/gf_spatial_canvas_selection_mode_binding.gd" module="standard" extends="Resource" classDigest="2ac15e345d0c9308e80d303c98c31af26d423c3664ecf8f23564ab1c864ca3ee">
+	<description>GFSpatialCanvasSelectionModeBinding: 空间画布选择修饰键绑定。
+只描述修饰键掩码到 [code]GFSpatialCanvas2D.SelectionMode[/code] 的映射，
+不读取设备状态，也不拥有输入生命周期。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">resource_definition</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties>
+		<member kind="property" name="modifier_mask" decorators="@export_flags(&quot;Shift:1&quot;, &quot;Ctrl:2&quot;, &quot;Alt:4&quot;, &quot;Meta:8&quot;)">
+			<signature>var modifier_mask: int = 0</signature>
+			<description>需要精确匹配的 [code]GFSpatialCanvasInputPolicy.ModifierMask[/code] 掩码。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="selection_mode" decorators="@export">
+			<signature>var selection_mode: GFSpatialCanvas2D.SelectionMode = (</signature>
+			<description>匹配时使用的 [code]GFSpatialCanvas2D.SelectionMode[/code] 值。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</properties>
+	<methods>
+		<member kind="method" name="duplicate_binding">
+			<signature>func duplicate_binding() -&gt; GFSpatialCanvasSelectionModeBinding:</signature>
+			<description>创建隔离副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">新绑定。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

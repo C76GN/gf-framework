@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFTableRowPredicate" path="addons/gf/standard/utilities/ui/gf_table_row_predicate.gd" module="standard" extends="RefCounted" classDigest="5351313336a5124b365fdffc7cb5734fc4ad13071000ebcabfaa2684f28f873c">
+	<description>GFTableRowPredicate: 表格结构化行过滤协议。
+项目通过子类实现同步、只读、有界且无副作用的行判断。
+GFTableDataView 按注册顺序契约组合多个谓词，并把显式失败视为整次投影失败。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">protocol</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties />
+	<methods>
+		<member kind="method" name="evaluate">
+			<signature>func evaluate(row_view: GFTableRowView) -&gt; GFTableRowPredicateResult:</signature>
+			<description>求值一个隔离行视图。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">row_view: 不暴露源 row 的隔离只读视图。</tag>
+				<tag name="return">类型化包含、排除或失败结果。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_evaluate">
+			<signature>func _evaluate(_row_view: GFTableRowView) -&gt; GFTableRowPredicateResult:</signature>
+			<description>实现一次同步、只读且有界的行判断。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">_row_view: 当前行的隔离只读视图。</tag>
+				<tag name="return">类型化包含、排除或失败结果。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFTableDataView" path="addons/gf/standard/utilities/ui/gf_table_data_view.gd" module="standard" extends="RefCounted" classDigest="76c200643b4da0c9715ad084ba95e8a03e6dbbaef295500feff635f47629950d">
+<class name="GFTableDataView" path="addons/gf/standard/utilities/ui/gf_table_data_view.gd" module="standard" extends="RefCounted" classDigest="fb29dd169a1056d372deefef6b02c6f0c9ce3322ac493d2e3e88ba5a2f9b82d4">
 	<description>GFTableDataView: 通用表格数据视图模型。
 维护行数据、列定义、可见行索引、排序、过滤和单元格提交，
 供运行时 UI、编辑器 Dock、资源表或配置表工具自行选择渲染方式。
@@ -20,12 +20,22 @@
 			</tags>
 		</member>
 		<member kind="signal" name="view_changed">
-			<signature>signal view_changed(visible_count: int)</signature>
-			<description>可见行集合变化后发出。</description>
+			<signature>signal view_changed(view_revision: int, visible_count: int)</signature>
+			<description>可见行集合成功提交后发出。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="param">view_revision: 单调递增的已提交投影 revision。</tag>
 				<tag name="param">visible_count: 当前可见行数量。</tag>
 				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="signal" name="view_rebuild_failed">
+			<signature>signal view_rebuild_failed(result: GFTableViewRebuildResult)</signature>
+			<description>候选投影未提交时发出。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">result: 保留 prior projection 的类型化失败结果。</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 		<member kind="signal" name="filter_changed">
@@ -66,40 +76,87 @@
 		</member>
 	</signals>
 	<enums />
-	<constants />
-	<properties>
-		<member kind="property" name="row_id_column">
-			<signature>var row_id_column: StringName = &amp;"id"</signature>
-			<description>用作稳定行 ID 的字段键。为空时使用源行索引。</description>
+	<constants>
+		<member kind="const" name="MAX_ROW_PREDICATE_COUNT">
+			<signature>const MAX_ROW_PREDICATE_COUNT: int = 64</signature>
+			<description>单个表格允许注册的命名行谓词上限。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">5.2.0</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
-		<member kind="property" name="case_sensitive_filter">
-			<signature>var case_sensitive_filter: bool = false</signature>
-			<description>过滤时是否区分大小写。</description>
-			<tags>
-				<tag name="api">public</tag>
-				<tag name="since">5.2.0</tag>
-			</tags>
-		</member>
-		<member kind="property" name="selection_model">
-			<signature>var selection_model: GFTableSelectionModel = GFTableSelectionModel.new()</signature>
-			<description>该视图使用的选择模型。</description>
-			<tags>
-				<tag name="api">public</tag>
-				<tag name="since">5.2.0</tag>
-			</tags>
-		</member>
-	</properties>
+	</constants>
+	<properties />
 	<methods>
+		<member kind="method" name="set_row_id_column">
+			<signature>func set_row_id_column(column_id: StringName) -&gt; GFTableViewRebuildResult:</signature>
+			<description>事务式设置稳定行 ID 字段键。
+新字段键会先参与完整候选投影；失败时保留旧字段键、投影、选择模型与 revision。
+成功时按同一源行迁移稳定选择和范围锚点。空字段键表示使用源行索引。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">column_id: 新的稳定行 ID 字段键；为空时使用源行索引。</tag>
+				<tag name="return">类型化投影重建结果。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_row_id_column">
+			<signature>func get_row_id_column() -&gt; StringName:</signature>
+			<description>获取稳定行 ID 字段键。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">当前稳定行 ID 字段键；为空时使用源行索引。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="set_filter_case_sensitive">
+			<signature>func set_filter_case_sensitive(case_sensitive: bool) -&gt; GFTableViewRebuildResult:</signature>
+			<description>事务式设置文本过滤是否区分大小写。
+新设置会先参与完整候选投影；失败时保留旧设置、投影、选择模型与 revision。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">case_sensitive: 为 true 时区分大小写。</tag>
+				<tag name="return">类型化投影重建结果。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_filter_case_sensitive">
+			<signature>func is_filter_case_sensitive() -&gt; bool:</signature>
+			<description>查询文本过滤是否区分大小写。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">区分大小写时返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="set_selection_model">
+			<signature>func set_selection_model(model: GFTableSelectionModel) -&gt; GFTableViewRebuildResult:</signature>
+			<description>事务式替换该视图使用的选择模型。
+新模型只会在完整候选投影成功后成为权威选择模型，并在提交态中按当前行 ID 修剪。
+失败时不会修改旧模型、新模型、投影或 revision。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">model: 非空选择模型。</tag>
+				<tag name="return">类型化投影重建结果。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_selection_model">
+			<signature>func get_selection_model() -&gt; GFTableSelectionModel:</signature>
+			<description>获取该视图使用的选择模型。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">当前非空选择模型。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
 		<member kind="method" name="set_columns">
-			<signature>func set_columns(column_definitions: Array[GFTableColumnDefinition]) -&gt; void:</signature>
+			<signature>func set_columns( column_definitions: Array[GFTableColumnDefinition] ) -&gt; GFTableViewRebuildResult:</signature>
 			<description>设置列定义列表。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">column_definitions: 列定义列表；null 项会被忽略。</tag>
+				<tag name="return">类型化投影重建结果；失败时保留原列与 prior projection。</tag>
 				<tag name="schema">column_definitions: Array，包含 GFTableColumnDefinition。</tag>
 				<tag name="since">5.2.0</tag>
 			</tags>
@@ -135,12 +192,13 @@
 			</tags>
 		</member>
 		<member kind="method" name="set_rows">
-			<signature>func set_rows(row_values: Array, duplicate_rows: bool = false) -&gt; void:</signature>
+			<signature>func set_rows( row_values: Array, duplicate_rows: bool = false ) -&gt; GFTableViewRebuildResult:</signature>
 			<description>设置源行数据。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">row_values: 行数据列表。</tag>
 				<tag name="param">duplicate_rows: 是否复制 Dictionary / Array 行数据。</tag>
+				<tag name="return">类型化投影重建结果；失败时保留原 source、projection 与 selection。</tag>
 				<tag name="schema">row_values: Array，调用方保存的行数据。</tag>
 				<tag name="since">5.2.0</tag>
 			</tags>
@@ -277,11 +335,12 @@
 			</tags>
 		</member>
 		<member kind="method" name="set_filter_query">
-			<signature>func set_filter_query(query: String) -&gt; void:</signature>
+			<signature>func set_filter_query(query: String) -&gt; GFTableViewRebuildResult:</signature>
 			<description>设置过滤文本。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">query: 过滤文本；空字符串显示全部行。</tag>
+				<tag name="return">类型化投影重建结果；失败时保留旧 query 与 prior projection。</tag>
 				<tag name="since">5.2.0</tag>
 			</tags>
 		</member>
@@ -292,6 +351,110 @@
 				<tag name="api">public</tag>
 				<tag name="return">过滤文本。</tag>
 				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="set_row_predicates">
+			<signature>func set_row_predicates( registrations: Array[GFTableRowPredicateRegistration] ) -&gt; GFTableViewRebuildResult:</signature>
+			<description>事务式替换全部命名行谓词。
+注册会先完整校验并按 order 升序、predicate_id 字典序排序，再构建一个候选投影。
+GFTableDataView 保存 predicate_id、order、enabled 与 predicate 引用的框架自有
+metadata 快照；调用方后续修改注册对象不会改变已提交 registry。
+任一失败都会保留当前 registry、projection、revision 与 selection。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">registrations: 谓词注册定义；提交时复制 metadata。</tag>
+				<tag name="return">类型化投影重建结果。</tag>
+				<tag name="schema">registrations: Array of GFTableRowPredicateRegistration values.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="register_row_predicate">
+			<signature>func register_row_predicate( registration: GFTableRowPredicateRegistration ) -&gt; GFTableViewRebuildResult:</signature>
+			<description>事务式注册一个命名行谓词。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">registration: 谓词注册定义；提交时复制 metadata。</tag>
+				<tag name="return">类型化投影重建结果。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="unregister_row_predicate">
+			<signature>func unregister_row_predicate(predicate_id: StringName) -&gt; GFTableViewRebuildResult:</signature>
+			<description>事务式移除一个命名行谓词。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">predicate_id: 要移除的稳定谓词 ID。</tag>
+				<tag name="return">类型化投影重建结果。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="set_row_predicate_enabled">
+			<signature>func set_row_predicate_enabled( predicate_id: StringName, enabled: bool ) -&gt; GFTableViewRebuildResult:</signature>
+			<description>事务式设置命名行谓词的启用状态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">predicate_id: 稳定谓词 ID。</tag>
+				<tag name="param">enabled: 是否参与候选投影。</tag>
+				<tag name="return">类型化投影重建结果。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="set_row_predicate_order">
+			<signature>func set_row_predicate_order( predicate_id: StringName, order: int ) -&gt; GFTableViewRebuildResult:</signature>
+			<description>事务式设置命名行谓词的执行顺序。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">predicate_id: 稳定谓词 ID。</tag>
+				<tag name="param">order: 新顺序；数值越小越早执行。</tag>
+				<tag name="return">类型化投影重建结果。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_row_predicate">
+			<signature>func get_row_predicate(predicate_id: StringName) -&gt; GFTableRowPredicateRegistration:</signature>
+			<description>获取一个命名行谓词注册值。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">predicate_id: 稳定谓词 ID。</tag>
+				<tag name="return">独立 metadata 快照；predicate 协议实例保持同一引用，不存在时返回 null。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_row_predicates">
+			<signature>func get_row_predicates() -&gt; Array[GFTableRowPredicateRegistration]:</signature>
+			<description>获取按确定顺序排列的命名行谓词注册值。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">独立 metadata 快照数组；predicate 协议实例保持同一引用。</tag>
+				<tag name="schema">return: Array of GFTableRowPredicateRegistration values.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_row_predicate_ids">
+			<signature>func get_row_predicate_ids() -&gt; Array[StringName]:</signature>
+			<description>获取按确定顺序排列的命名行谓词 ID。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">稳定谓词 ID 数组。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_view_revision">
+			<signature>func get_view_revision() -&gt; int:</signature>
+			<description>获取当前已提交投影 revision。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">单调递增 revision。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_last_view_rebuild_result">
+			<signature>func get_last_view_rebuild_result() -&gt; GFTableViewRebuildResult:</signature>
+			<description>获取最近一次投影事务结果。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">最近结果的隔离副本；尚未执行时返回 revision 0 的成功 no-op。</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 		<member kind="method" name="sort_by_column">
@@ -333,10 +496,11 @@
 			</tags>
 		</member>
 		<member kind="method" name="refresh_view">
-			<signature>func refresh_view() -&gt; void:</signature>
+			<signature>func refresh_view() -&gt; GFTableViewRebuildResult:</signature>
 			<description>重新构建可见行索引。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="return">类型化投影重建结果；失败时保留 prior projection。</tag>
 				<tag name="since">5.2.0</tag>
 			</tags>
 		</member>
@@ -354,7 +518,9 @@
 		</member>
 		<member kind="method" name="commit_cell_value">
 			<signature>func commit_cell_value(row_index: int, column_id: StringName, new_value: Variant) -&gt; bool:</signature>
-			<description>提交源行单元格值。</description>
+			<description>事务式提交源行单元格值。
+写入先发生在隔离候选行上，完整投影成功后才交换权威 source；自定义
+value_setter 与不可隔离的 Object / 脚本 Resource 会在调用任何 setter 前失败关闭。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">row_index: 源行索引。</tag>
@@ -367,7 +533,9 @@
 		</member>
 		<member kind="method" name="commit_visible_cell_value">
 			<signature>func commit_visible_cell_value( visible_row_index: int, column_id: StringName, new_value: Variant ) -&gt; bool:</signature>
-			<description>提交可见行单元格值。</description>
+			<description>事务式提交可见行单元格值。
+写入先发生在隔离候选行上，完整投影成功后才交换权威 source；自定义
+value_setter 与不可隔离的 Object / 脚本 Resource 会在调用任何 setter 前失败关闭。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">visible_row_index: 可见行索引。</tag>
@@ -381,8 +549,8 @@
 		<member kind="method" name="commit_cell_values">
 			<signature>func commit_cell_values(changes: Array[Dictionary]) -&gt; Dictionary:</signature>
 			<description>批量提交源行单元格值。
-该方法会先处理所有变更，再在有实际写入时统一刷新视图并发送单元格提交信号；
-它不是事务，部分失败不会回滚已成功的变更。</description>
+该方法先在隔离候选 rows 上完成全部写入与投影，成功后统一交换并发送信号。
+任一输入、隔离、写入或投影失败都会回滚整批候选变更。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">changes: 单元格变更数组；每项包含 row_index、column_id 与 new_value。</tag>
@@ -396,7 +564,7 @@
 			<signature>func commit_visible_cell_values(changes: Array[Dictionary]) -&gt; Dictionary:</signature>
 			<description>批量提交可见行单元格值。
 可见行索引会在任何写入发生前解析为源行索引，避免排序或过滤重建导致同一批变更漂移。
-该方法不是事务，部分失败不会回滚已成功的变更。</description>
+任一输入、隔离、写入或投影失败都会回滚整批候选变更。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">changes: 单元格变更数组；每项包含 visible_row_index、column_id 与 new_value。</tag>
@@ -440,7 +608,7 @@
 				<tag name="param">options: 描述选项。</tag>
 				<tag name="return">视图摘要。</tag>
 				<tag name="schema">options: Dictionary，可包含 visible_only: bool、include_values: bool、include_columns: bool、include_hidden_columns: bool、include_row_data: bool、copy_values: bool。</tag>
-				<tag name="schema">return: Dictionary，包含 row_count、visible_count、column_count、filter_query、sort_column_id、sort_ascending、visible_only、columns 和 rows。</tag>
+				<tag name="schema">return: Dictionary，包含 view_revision、row_count、visible_count、column_count、predicate_count、filter_query、sort_column_id、sort_ascending、visible_only、columns 和 rows。</tag>
 				<tag name="since">7.0.0</tag>
 			</tags>
 		</member>
@@ -460,7 +628,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">数据视图状态字典。</tag>
-				<tag name="schema">return: Dictionary，包含 row_count、visible_count、column_count、filter_query、sort_column_id 和 sort_ascending。</tag>
+				<tag name="schema">return: Dictionary，包含 view_revision、row_count、visible_count、column_count、predicate_count、enabled_predicate_count、filter_query、sort_column_id、sort_ascending、last_rebuild_ok 和 last_rebuild_error_code。</tag>
 				<tag name="since">5.2.0</tag>
 			</tags>
 		</member>

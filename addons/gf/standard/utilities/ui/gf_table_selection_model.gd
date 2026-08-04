@@ -165,21 +165,31 @@ func select_single(row_id: Variant) -> bool:
 ## [br]
 ## @schema row_ids: Array，调用方提供的稳定行 ID。
 func replace_selection(row_ids: Array) -> bool:
-	var previous_ids: Array = get_selected_ids()
-	_clear_selection_internal()
-	if selection_mode != SelectionMode.NONE:
-		for row_id: Variant in row_ids:
-			if not _is_valid_row_id(row_id):
-				continue
-			_select_row_id_internal(row_id)
-			anchor_row_id = row_id
-			if selection_mode == SelectionMode.SINGLE:
-				break
+	return _replace_selection_internal(row_ids, null, false)
 
-	if _arrays_equal(previous_ids, _selected_ids):
-		return false
-	selection_changed.emit(get_selected_ids())
-	return true
+
+## 用一组行 ID 与显式锚点原子替换当前选择。
+## [br]
+## 选择集合和锚点会在发出 selection_changed 前同时完成更新；锚点不在最终选择中时归一为空。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param row_ids: 稳定行 ID 列表。
+## [br]
+## @param selection_anchor: 最终范围选择锚点；null 表示没有锚点。
+## [br]
+## @schema row_ids: Array，调用方提供的稳定行 ID。
+## [br]
+## @schema selection_anchor: Variant，最终选择中的稳定行 ID，或 null。
+## [br]
+## @return 选择集合或锚点发生变化时返回 true。
+func replace_selection_with_anchor(
+	row_ids: Array,
+	selection_anchor: Variant
+) -> bool:
+	return _replace_selection_internal(row_ids, selection_anchor, true)
 
 
 ## 在有序行 ID 列表中选择范围。
@@ -339,6 +349,34 @@ func get_debug_snapshot() -> Dictionary:
 
 
 # --- 私有/辅助方法 ---
+
+func _replace_selection_internal(
+	row_ids: Array,
+	selection_anchor: Variant,
+	has_explicit_anchor: bool
+) -> bool:
+	var previous_ids: Array = get_selected_ids()
+	var previous_anchor: Variant = anchor_row_id
+	_clear_selection_internal()
+	if selection_mode != SelectionMode.NONE:
+		for row_id: Variant in row_ids:
+			if not _is_valid_row_id(row_id):
+				continue
+			_select_row_id_internal(row_id)
+			if selection_mode == SelectionMode.SINGLE:
+				break
+	if has_explicit_anchor:
+		anchor_row_id = selection_anchor if _selected_lookup.has(selection_anchor) else null
+	elif not _selected_ids.is_empty():
+		anchor_row_id = _selected_ids[_selected_ids.size() - 1]
+
+	if (
+		_arrays_equal(previous_ids, _selected_ids)
+		and GFVariantData.values_equal(previous_anchor, anchor_row_id)
+	):
+		return false
+	selection_changed.emit(get_selected_ids())
+	return true
 
 func _set_selection_mode(value: SelectionMode) -> void:
 	if _selection_mode == value:

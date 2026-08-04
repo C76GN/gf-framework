@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "catalog_version": "1.8.0",
+  "catalog_version": "1.9.0",
   "capabilities": [
     {
       "id": "architecture",
@@ -85,12 +85,18 @@
     {
       "id": "ui-scalability",
       "title": "Scalable and virtualized UI collections",
-      "summary": "Bounded virtual-list windows, stable item identity, focus projection, repeater binding, and large collection presentation.",
-      "keywords": ["virtual list", "virtualized list", "large list", "recycled rows", "recycler", "repeater", "repeater binding", "focus model", "focus projection", "windowed ui", "scroll performance"],
+      "summary": "Bounded virtual-list materialization, stable item identity and focus, transactional table predicates, repeater binding, and large collection presentation.",
+      "keywords": ["virtual list", "virtualized list", "large list", "recycled rows", "recycler", "table predicate", "structured filter", "repeater", "repeater binding", "focus model", "focus projection", "windowed ui", "scroll performance"],
       "packages": ["gf.standard.ui", "gf.standard.ui.state"],
-      "primary_classes": ["GFVirtualListModel", "GFVirtualListFocusModel", "GFRepeaterBinder"],
+      "primary_classes": ["GFVirtualListModel", "GFVirtualListBinder", "GFVirtualListFocusModel", "GFTableDataView", "GFTableRowPredicate", "GFRepeaterBinder"],
+      "required_api_members": [
+        {
+          "class_name": "GFVirtualListBinder",
+          "members": ["bind", "sync_now", "invalidate_items"]
+        }
+      ],
       "recipes": ["scalable-ui-collection"],
-      "boundary": "GF owns bounded visible windows, stable identity and focus projection, and reusable binder lifecycle mechanics; projects own authoritative item identity, sorting, filtering, row visuals, input, accessibility, and product semantics."
+      "boundary": "GF owns bounded visible windows, recycler lifecycle, focus projection, and transactional predicate execution; projects own authoritative data and identity, domain predicate construction, row visuals, input, accessibility, and product semantics."
     },
     {
       "id": "audio",
@@ -221,12 +227,18 @@
     {
       "id": "spatial-physics",
       "title": "Spatial math and physics mechanisms",
-      "summary": "Grid/path math, spatial queries, bounded 2D canvas orchestration, camera mechanisms, hit detection, buoyancy sampling, and physics-independent policies.",
-      "keywords": ["spatial", "grid", "path", "grid path", "path preview", "grid path preview", "pathfinding", "canvas", "selection", "placement", "physics", "camera", "hitbox", "buoyancy", "2d", "3d"],
+      "summary": "Grid/path math, spatial queries, policy-driven bounded 2D canvas orchestration, camera mechanisms, hit detection, buoyancy sampling, and physics-independent policies.",
+      "keywords": ["spatial", "grid", "path", "grid path", "path preview", "grid path preview", "pathfinding", "canvas", "input policy", "gesture arbitration", "parent scroll", "selection", "placement", "physics", "camera", "hitbox", "buoyancy", "2d", "3d"],
       "packages": ["gf.standard.spatial", "gf.standard.spatial.canvas", "gf.extension.physics", "gf.extension.camera", "gf.extension.combat"],
-      "primary_classes": ["GFSpatialQueryIndex2D", "GFGridPathMath2D", "GFGraphPathSearchState", "GFSpatialCanvas2D", "GFBuoyancyField3D", "GFCameraOrbitRig3D", "GFHitBox2D"],
+      "primary_classes": ["GFSpatialQueryIndex2D", "GFGridPathMath2D", "GFGraphPathSearchState", "GFSpatialCanvas2D", "GFSpatialCanvasInputPolicy", "GFBuoyancyField3D", "GFCameraOrbitRig3D", "GFHitBox2D"],
+      "required_api_members": [
+        {
+          "class_name": "GFSpatialCanvasInputPolicy",
+          "members": ["validate_policy", "duplicate_policy"]
+        }
+      ],
       "recipes": ["spatial-policy", "asset-catalog-spatial-placement"],
-      "boundary": "GFSpatialCanvas2D orchestrates view, selection, and placement operation records only; projects own TileMap or scene mutation, business legality, persistence, UGC, collision layers, world semantics, authority, and force application policy."
+      "boundary": "GFSpatialCanvas2D orchestrates view, validated input routing, selection, and placement operation records only; projects own action naming, TileMap or scene mutation, business legality, persistence, UGC, collision layers, world semantics, authority, and force application policy."
     },
     {
       "id": "project-tooling",

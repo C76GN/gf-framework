@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "catalog_version": "1.8.0",
+  "catalog_version": "1.9.0",
   "recipes": [
     {
       "id": "project-feature",
@@ -397,17 +397,23 @@
     {
       "id": "scalable-ui-collection",
       "title": "Present a scalable UI collection",
-      "package_requirements": {"all_of": [], "any_of": [["gf.standard.ui", "gf.standard.ui.state"]]},
-      "primary_classes": ["GFVirtualListModel", "GFVirtualListFocusModel", "GFRepeaterBinder"],
+      "package_requirements": {"all_of": ["gf.standard.ui"], "any_of": []},
+      "primary_classes": ["GFVirtualListModel", "GFVirtualListBinder", "GFVirtualListFocusModel", "GFTableDataView", "GFTableRowPredicate"],
+      "required_api_members": [
+        {
+          "class_name": "GFTableDataView",
+          "members": ["set_row_predicates", "get_view_revision"]
+        }
+      ],
       "steps": [
         "Keep authoritative item identity, sorting, filtering, selection, and accessibility semantics in project state.",
-        "Configure GFVirtualListModel with the item count and measured or estimated extents, then request only the visible range for the current viewport.",
-        "Recycle project-owned row views by stable item identity and feed measured extent changes back into the layout model.",
-        "Use GFVirtualListFocusModel to preserve logical focus independently from the currently materialized row nodes.",
-        "When reactive repeater binding is needed, install gf.standard.ui.state and bind only the currently materialized visible slice to GFRepeaterBinder; never pass the complete large collection, and keep template and teardown ownership explicit.",
-        "Test empty and very large collections, variable extents, reorder and filter changes, focus repair, container disposal, and repeated bind and unbind cycles."
+        "Use GFTableDataView when one canonical dataset needs text filtering, deterministic project-defined row predicates, sorting, and stable-ID selection; react only to committed view changes.",
+        "Configure GFVirtualListModel with the committed visible count and measured or estimated extents, then bind a project-owned ScrollContainer, content root, row factory, and callbacks through GFVirtualListBinder.",
+        "Invalidate binder identities after a committed reorder or filter, let the binder recycle its owned Controls by stable scalar identity while project callbacks only reset visual state, and feed measured extents plus one anchor correction back into the layout model.",
+        "Use GFVirtualListFocusModel to preserve logical focus independently from currently materialized row nodes; keep focus distinct from selection.",
+        "Test empty and very large collections, predicate failure and reentrancy, variable extents, reorder and filter changes, focus repair, owner disposal, and repeated bind and unbind cycles."
       ],
-      "avoid": ["One Control node permanently allocated per large item", "Row node identity used as authoritative item identity", "Sorting or filtering hidden inside the framework binder"]
+      "avoid": ["One Control node permanently allocated per large item", "Row node identity used as authoritative item identity", "Domain predicates or sorting hidden inside the visual binder", "Failed predicate rebuilds replacing the last committed projection"]
     },
     {
       "id": "ui-route-operation",
@@ -606,17 +612,18 @@
       "id": "spatial-policy",
       "title": "Apply spatial or physics mechanisms",
       "package_requirements": {"all_of": [], "any_of": [["gf.standard.spatial", "gf.standard.spatial.canvas", "gf.extension.physics", "gf.extension.camera"]]},
-      "primary_classes": ["GFSpatialQueryIndex2D", "GFGridPathMath2D", "GFSpatialCanvas2D", "GFBuoyancyField3D", "GFCameraOrbitRig3D"],
+      "primary_classes": ["GFSpatialQueryIndex2D", "GFGridPathMath2D", "GFSpatialCanvas2D", "GFSpatialCanvasInputPolicy", "GFBuoyancyField3D", "GFCameraOrbitRig3D"],
       "steps": [
         "Separate pure spatial math or sampling from world ownership and node mutation.",
         "Declare coordinate, units, layer, update cadence, and authority contracts.",
         "Use GFGridPathMath2D for bounded path or flow-field data, while project code owns cell legality, movement cost, authority, and preview rendering.",
-        "Use GFSpatialCanvas2D only to coordinate bounded view transforms, selection, and project-validated placement operation records.",
+        "Use GFSpatialCanvas2D only to coordinate bounded view transforms, selection, and project-validated placement operation records; apply one validated GFSpatialCanvasInputPolicy to choose pointer chords, modifiers, gestures, cancel action, and propagation.",
+        "For a canvas nested in scrolling UI, leave unmatched wheel input to normal GUI propagation and consume only the gestures the policy assigns to the canvas; manual routers must honor the returned input disposition.",
         "Let the project choose candidates, validate placement, mutate TileMap or scene content, persist history or UGC, apply forces, and define collision policy.",
         "Bound queries and incremental work.",
         "Test empty worlds, invalid values, large coordinates, frame-rate variation, and disposal."
       ],
-      "avoid": ["Physics ownership hidden inside a math helper", "Treating GFSpatialCanvas2D as a TileMap editor, business-rule authority, save system, or UGC store", "Unbounded world scans on frame callbacks"]
+      "avoid": ["Physics ownership hidden inside a math helper", "Treating GFSpatialCanvas2D as a TileMap editor, business-rule authority, save system, or UGC store", "Canvas code scanning or commanding parent ScrollContainers", "Unbounded world scans on frame callbacks"]
     }
   ]
 }

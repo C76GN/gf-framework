@@ -1,0 +1,290 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFSpatialCanvasInputPolicy" path="addons/gf/standard/utilities/spatial_canvas/gf_spatial_canvas_input_policy.gd" module="standard" extends="Resource" classDigest="1d2a057342c915fc4736ed4d59719cbbd99eebb17ba37af2eba8b7837e96f145">
+	<description>GFSpatialCanvasInputPolicy: 空间画布输入解释策略。
+以数据方式声明平移、选择、滚轮、触摸和取消输入。策略不持有节点、
+Viewport 或父容器引用；[code]GFSpatialCanvas2D[/code] 只接受完整校验通过的隔离副本。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">resource_definition</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals />
+	<enums>
+		<member kind="enum" name="ModifierMask">
+			<signature>enum ModifierMask {
+	## 不要求修饰键。
+	NONE = 0,
+	## Shift 修饰键。
+	SHIFT = 1,
+	## Ctrl 修饰键。
+	CTRL = 2,
+	## Alt 修饰键。
+	ALT = 4,
+	## Meta 修饰键。
+	META = 8,
+}</signature>
+			<description>输入修饰键位掩码。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="enum" name="WheelAxis">
+			<signature>enum WheelAxis {
+	## 使用向上/向下滚轮事件。
+	VERTICAL,
+	## 使用向左/向右滚轮事件。
+	HORIZONTAL,
+}</signature>
+			<description>滚轮缩放使用的物理轴。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="enum" name="WheelRouting">
+			<signature>enum WheelRouting {
+	## 画布处理目标轴上的所有滚轮事件。
+	CANVAS,
+	## 只有修饰键掩码精确匹配时由画布处理。
+	MODIFIER_GATED,
+	## 画布始终忽略滚轮，让 GUI 祖先继续处理。
+	PARENT_ONLY,
+}</signature>
+			<description>滚轮事件的画布路由策略。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="enum" name="TouchPrimaryBehavior">
+			<signature>enum TouchPrimaryBehavior {
+	## 单指不执行画布行为；若启用任一多指行为，首触点仍会被捕获以等待后续触点。
+	NONE,
+	## 单指拖动平移画布。
+	PAN,
+	## 单指执行点选、框选或放置确认。
+	SELECT,
+}</signature>
+			<description>单指触摸的主行为。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</enums>
+	<constants>
+		<member kind="const" name="ABSOLUTE_MAX_SELECTION_MODIFIER_BINDINGS">
+			<signature>const ABSOLUTE_MAX_SELECTION_MODIFIER_BINDINGS: int = 15</signature>
+			<description>单份策略允许声明的选择修饰键绑定绝对上限。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="ABSOLUTE_MAX_ACTION_EVENTS">
+			<signature>const ABSOLUTE_MAX_ACTION_EVENTS: int = 64</signature>
+			<description>校验单个 InputMap action 时允许扫描的事件绝对上限。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</constants>
+	<properties>
+		<member kind="property" name="pan_mouse_button" decorators="@export">
+			<signature>var pan_mouse_button: MouseButton = MOUSE_BUTTON_MIDDLE</signature>
+			<description>直接触发平移捕获的鼠标按钮；[constant MOUSE_BUTTON_NONE] 表示禁用直接按钮。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="pan_action" decorators="@export">
+			<signature>var pan_action: StringName = &amp;""</signature>
+			<description>通过 InputMap 触发平移捕获的动作；空名称表示禁用动作绑定。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="pan_modifier_mask" decorators="@export_flags(&quot;Shift:1&quot;, &quot;Ctrl:2&quot;, &quot;Alt:4&quot;, &quot;Meta:8&quot;)">
+			<signature>var pan_modifier_mask: int = ModifierMask.NONE</signature>
+			<description>直接平移按钮必须精确匹配的修饰键掩码。
+使用 [member pan_action] 时修饰键由 InputMap action 精确声明，本字段必须为 NONE。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="selection_mouse_button" decorators="@export">
+			<signature>var selection_mouse_button: MouseButton = MOUSE_BUTTON_LEFT</signature>
+			<description>直接触发选择捕获的鼠标按钮；[constant MOUSE_BUTTON_NONE] 表示禁用直接按钮。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="selection_action" decorators="@export">
+			<signature>var selection_action: StringName = &amp;""</signature>
+			<description>通过 InputMap 触发选择捕获的动作；空名称表示禁用动作绑定。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="selection_default_mode" decorators="@export">
+			<signature>var selection_default_mode: GFSpatialCanvas2D.SelectionMode = (</signature>
+			<description>没有选择修饰键绑定精确匹配时使用的 [code]GFSpatialCanvas2D.SelectionMode[/code]。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="selection_modifier_bindings" decorators="@export">
+			<signature>var selection_modifier_bindings: Array[GFSpatialCanvasSelectionModeBinding] = []</signature>
+			<description>修饰键到选择模式的精确匹配表；重复掩码会使策略校验失败。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="drag_threshold" decorators="@export">
+			<signature>var drag_threshold: float = 4.0</signature>
+			<description>区分点选和框选的局部画布像素阈值。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="wheel_axis" decorators="@export">
+			<signature>var wheel_axis: WheelAxis = WheelAxis.VERTICAL</signature>
+			<description>用于画布缩放的滚轮轴。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="wheel_routing" decorators="@export">
+			<signature>var wheel_routing: WheelRouting = WheelRouting.CANVAS</signature>
+			<description>滚轮缩放路由策略。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="wheel_modifier_mask" decorators="@export_flags(&quot;Shift:1&quot;, &quot;Ctrl:2&quot;, &quot;Alt:4&quot;, &quot;Meta:8&quot;)">
+			<signature>var wheel_modifier_mask: int = ModifierMask.NONE</signature>
+			<description>[constant WheelRouting.MODIFIER_GATED] 下必须精确匹配的修饰键掩码。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="wheel_zoom_factor" decorators="@export">
+			<signature>var wheel_zoom_factor: float = 1.1</signature>
+			<description>每个滚轮刻度的缩放倍率，必须为有限且大于 1 的值。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="touch_enabled" decorators="@export">
+			<signature>var touch_enabled: bool = true</signature>
+			<description>是否处理原始 ScreenTouch / ScreenDrag 事件。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="touch_primary_behavior" decorators="@export">
+			<signature>var touch_primary_behavior: TouchPrimaryBehavior = TouchPrimaryBehavior.PAN</signature>
+			<description>单指触摸的主行为。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="touch_multi_pan_enabled" decorators="@export">
+			<signature>var touch_multi_pan_enabled: bool = true</signature>
+			<description>是否允许双指及以上触点驱动平移。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="touch_multi_zoom_enabled" decorators="@export">
+			<signature>var touch_multi_zoom_enabled: bool = true</signature>
+			<description>是否允许双指及以上触点驱动捏合缩放。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="system_pan_gesture_enabled" decorators="@export">
+			<signature>var system_pan_gesture_enabled: bool = true</signature>
+			<description>是否处理 Godot 的系统 PanGesture 事件。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="system_magnify_gesture_enabled" decorators="@export">
+			<signature>var system_magnify_gesture_enabled: bool = true</signature>
+			<description>是否处理 Godot 的系统 MagnifyGesture 事件。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="placement_cancel_action" decorators="@export">
+			<signature>var placement_cancel_action: StringName = &amp;"ui_cancel"</signature>
+			<description>取消活动放置或瞬态选择的非指针 InputMap 动作；空名称表示禁用取消输入。
+动作不得包含鼠标、触摸或位置手势事件，避免取消优先级饿死画布指针行为。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="consume_handled_events" decorators="@export">
+			<signature>var consume_handled_events: bool = true</signature>
+			<description>一般已处理事件是否由 Canvas GUI 边界消费。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="consume_wheel_events" decorators="@export">
+			<signature>var consume_wheel_events: bool = true</signature>
+			<description>已处理滚轮事件是否由 Canvas GUI 边界消费。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</properties>
+	<methods>
+		<member kind="method" name="validate_policy">
+			<signature>func validate_policy() -&gt; Dictionary:</signature>
+			<description>校验完整策略。
+校验失败时调用方必须保留上一份有效策略；报告遵循
+[code]GFValidationReportDictionary[/code] 结构。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">策略校验报告。</tag>
+				<tag name="schema">return: GFValidationReportDictionary-compatible report with issues describing invalid fields.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="duplicate_policy">
+			<signature>func duplicate_policy() -&gt; GFSpatialCanvasInputPolicy:</signature>
+			<description>创建策略及嵌套选择绑定的隔离副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">新策略。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

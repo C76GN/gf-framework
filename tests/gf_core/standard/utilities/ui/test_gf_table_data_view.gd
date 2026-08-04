@@ -4,21 +4,21 @@ extends GutTest
 
 func test_sort_and_filter_preserve_selection_by_row_id() -> void:
 	var view: GFTableDataView = _make_people_view()
-	var _select_result: bool = view.selection_model.set_selected("row-a", true)
+	var _select_result: bool = view.get_selection_model().set_selected("row-a", true)
 
 	assert_true(view.sort_by_column(&"score", false), "可排序列应接受排序设置。")
 	assert_eq(view.get_visible_row_ids(), ["row-b", "row-a", "row-c"], "分数降序应只改变可见顺序。")
-	assert_true(view.selection_model.is_selected("row-a"), "排序后选择应由稳定 row_id 保留。")
+	assert_true(view.get_selection_model().is_selected("row-a"), "排序后选择应由稳定 row_id 保留。")
 
-	view.set_filter_query("ali")
+	var _filter_ali_result: GFTableViewRebuildResult = view.set_filter_query("ali")
 
 	assert_eq(view.get_visible_row_ids(), ["row-a"], "过滤应只保留匹配行。")
-	assert_true(view.selection_model.is_selected("row-a"), "过滤后选择仍应保留。")
+	assert_true(view.get_selection_model().is_selected("row-a"), "过滤后选择仍应保留。")
 
-	view.set_filter_query("")
+	var _clear_filter_result: GFTableViewRebuildResult = view.set_filter_query("")
 
 	assert_eq(view.get_visible_row_ids(), ["row-b", "row-a", "row-c"], "清空过滤后应恢复排序视图。")
-	assert_true(view.selection_model.is_selected("row-a"), "清空过滤后选择仍应保留。")
+	assert_true(view.get_selection_model().is_selected("row-a"), "清空过滤后选择仍应保留。")
 
 
 func test_commit_cell_value_updates_row_and_resorts_view() -> void:
@@ -37,7 +37,7 @@ func test_commit_cell_value_updates_row_and_resorts_view() -> void:
 	assert_eq(first_visible_row_id, "row-c", "提交排序列后视图应重新排序。")
 
 
-func test_commit_cell_values_reports_partial_failures_and_refreshes_once() -> void:
+func test_commit_cell_values_rejects_the_entire_batch_before_publication() -> void:
 	var view: GFTableDataView = _make_people_view()
 	watch_signals(view)
 
@@ -48,14 +48,14 @@ func test_commit_cell_values_reports_partial_failures_and_refreshes_once() -> vo
 		{ "row_index": 2, "column_id": &"name", "new_value": "C" },
 	])
 
-	assert_false(GFVariantData.get_option_bool(report, "ok"), "部分失败时批量报告应标记为失败。")
+	assert_false(GFVariantData.get_option_bool(report, "ok"), "任一校验失败都应中止整个批次。")
 	assert_eq(GFVariantData.get_option_int(report, "requested_count"), 4, "报告应记录请求数量。")
-	assert_eq(GFVariantData.get_option_int(report, "applied_count"), 1, "只应计入实际改值的单元格。")
-	assert_eq(GFVariantData.get_option_int(report, "unchanged_count"), 1, "相同值应计为未变化。")
+	assert_eq(GFVariantData.get_option_int(report, "applied_count"), 0, "失败批次不得提交有效子集。")
+	assert_eq(GFVariantData.get_option_int(report, "unchanged_count"), 0, "失败批次不产生提交报告。")
 	assert_eq(GFVariantData.get_option_int(report, "failed_count"), 2, "无效行和不可编辑列应计为失败。")
-	assert_eq(_get_row_score(view, 0), 12, "有效变更应写回源行。")
-	assert_signal_emit_count(view, "view_changed", 1)
-	assert_signal_emit_count(view, "cell_value_committed", 1)
+	assert_eq(_get_row_score(view, 0), 10, "批次失败时有效候选也不得写回源行。")
+	assert_signal_emit_count(view, "view_changed", 0)
+	assert_signal_emit_count(view, "cell_value_committed", 0)
 
 
 func test_commit_visible_cell_values_resolves_indices_before_refresh() -> void:
@@ -96,14 +96,14 @@ func test_selection_model_range_and_prune_use_stable_ids() -> void:
 
 func test_set_rows_prunes_selection_to_existing_row_ids() -> void:
 	var view: GFTableDataView = _make_people_view()
-	var _select_result: bool = view.selection_model.set_selected("row-c", true)
+	var _select_result: bool = view.get_selection_model().set_selected("row-c", true)
 
-	view.set_rows([
+	var _set_rows_result: GFTableViewRebuildResult = view.set_rows([
 		{ "id": "row-a", "name": "Alice", "score": 10 },
 	])
 
-	assert_false(view.selection_model.is_selected("row-c"), "set_rows 后不存在的 row_id 选择应被修剪。")
-	assert_true(view.selection_model.is_empty(), "只剩不存在选择时 selection 应为空。")
+	assert_false(view.get_selection_model().is_selected("row-c"), "set_rows 后不存在的 row_id 选择应被修剪。")
+	assert_true(view.get_selection_model().is_empty(), "只剩不存在选择时 selection 应为空。")
 
 
 func test_custom_column_formatter_participates_in_filtering() -> void:
@@ -111,7 +111,7 @@ func test_custom_column_formatter_participates_in_filtering() -> void:
 	var score_column: GFTableColumnDefinition = view.get_column(&"score")
 	score_column.value_formatter = Callable(self, &"_format_score")
 
-	view.set_filter_query("score:10")
+	var _filter_score_result: GFTableViewRebuildResult = view.set_filter_query("score:10")
 
 	assert_eq(view.get_visible_row_ids(), ["row-a"], "自定义 formatter 应参与过滤文本。")
 
@@ -120,10 +120,10 @@ func test_describe_view_exports_current_visible_snapshot() -> void:
 	var view: GFTableDataView = _make_people_view()
 	var id_column: GFTableColumnDefinition = view.get_column(&"id")
 	id_column.visible = false
-	var _select_result: bool = view.selection_model.set_selected("row-c", true)
+	var _select_result: bool = view.get_selection_model().set_selected("row-c", true)
 	var _sort_result: bool = view.sort_by_column(&"score", false)
 
-	view.set_filter_query("a")
+	var _filter_a_result: GFTableViewRebuildResult = view.set_filter_query("a")
 
 	var snapshot: Dictionary = view.describe_view()
 	assert_eq(GFVariantData.get_option_int(snapshot, "row_count"), 3, "快照应记录源行数量。")
@@ -151,7 +151,7 @@ func test_describe_view_can_include_source_rows_and_copied_row_data() -> void:
 	var view: GFTableDataView = _make_people_view()
 	var id_column: GFTableColumnDefinition = view.get_column(&"id")
 	id_column.visible = false
-	view.set_filter_query("ali")
+	var _filter_ali_result: GFTableViewRebuildResult = view.set_filter_query("ali")
 
 	var snapshot: Dictionary = view.describe_view({
 		"visible_only": false,
@@ -196,8 +196,8 @@ func _make_people_view() -> GFTableDataView:
 	score_column.editable = true
 	score_column.sort_mode = GFTableColumnDefinition.SortMode.NUMBER
 	var columns: Array[GFTableColumnDefinition] = [id_column, name_column, score_column]
-	view.set_columns(columns)
-	view.set_rows([
+	var _columns_result: GFTableViewRebuildResult = view.set_columns(columns)
+	var _rows_result: GFTableViewRebuildResult = view.set_rows([
 		{ "id": "row-a", "name": "Alice", "score": 10 },
 		{ "id": "row-b", "name": "Bob", "score": 18 },
 		{ "id": "row-c", "name": "Cara", "score": 7 },
