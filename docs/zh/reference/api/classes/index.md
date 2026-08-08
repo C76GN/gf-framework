@@ -7,7 +7,7 @@
 | 模块 | 类 | 成员 | 页面内索引 |
 |---|---:|---:|---|
 | Kernel | 74 | 1094 | [Kernel](#module-kernel) |
-| Standard | 445 | 7102 | [Standard](#module-standard) |
+| Standard | 454 | 7245 | [Standard](#module-standard) |
 | Action Queue | 16 | 214 | [Action Queue](#module-extensions-action_queue) |
 | Asset Metadata | 4 | 33 | [Asset Metadata](#module-extensions-asset_metadata) |
 | Behavior Tree | 22 | 89 | [Behavior Tree](#module-extensions-behavior_tree) |
@@ -258,7 +258,7 @@
 | [`GFSnapshotHistoryUtility`](GFSnapshotHistoryUtility.md#gfsnapshothistoryutility) | 运行时服务 (`runtime_service`) | `GFUtility` | 21 | `addons/gf/standard/utilities/history/gf_snapshot_history_utility.gd` |
 | [`GFSourceTextLoader`](GFSourceTextLoader.md#gfsourcetextloader) | 运行时服务 (`runtime_service`) | `RefCounted` | 20 | `addons/gf/standard/utilities/io/gf_source_text_loader.gd` |
 | [`GFSourceTextPatchTools`](GFSourceTextPatchTools.md#gfsourcetextpatchtools) | 运行时服务 (`runtime_service`) | `RefCounted` | 8 | `addons/gf/standard/foundation/text/gf_source_text_patch_tools.gd` |
-| [`GFSpatialCanvas2D`](GFSpatialCanvas2D.md#gfspatialcanvas2d) | 运行时服务 (`runtime_service`) | `Control` | 57 | `addons/gf/standard/utilities/spatial_canvas/gf_spatial_canvas_2d.gd` |
+| [`GFSpatialCanvas2D`](GFSpatialCanvas2D.md#gfspatialcanvas2d) | 运行时服务 (`runtime_service`) | `Control` | 60 | `addons/gf/standard/utilities/spatial_canvas/gf_spatial_canvas_2d.gd` |
 | [`GFSpatialHash3D`](GFSpatialHash3D.md#gfspatialhash3d) | 运行时服务 (`runtime_service`) | `RefCounted` | 17 | `addons/gf/standard/foundation/math/gf_spatial_hash_3d.gd` |
 | [`GFSpatialQueryIndex2D`](GFSpatialQueryIndex2D.md#gfspatialqueryindex2d) | 运行时服务 (`runtime_service`) | `RefCounted` | 29 | `addons/gf/standard/utilities/spatial/gf_spatial_query_index_2d.gd` |
 | [`GFSpatialQueryIndex3D`](GFSpatialQueryIndex3D.md#gfspatialqueryindex3d) | 运行时服务 (`runtime_service`) | `RefCounted` | 24 | `addons/gf/standard/utilities/spatial/gf_spatial_query_index_3d.gd` |
@@ -272,8 +272,8 @@
 | [`GFSupportReportWorkflow`](GFSupportReportWorkflow.md#gfsupportreportworkflow) | 运行时服务 (`runtime_service`) | `GFUtility` | 23 | `addons/gf/standard/utilities/debug/gf_support_report_workflow.gd` |
 | [`GFSurfaceScatterSampler3D`](GFSurfaceScatterSampler3D.md#gfsurfacescattersampler3d) | 运行时服务 (`runtime_service`) | `RefCounted` | 7 | `addons/gf/standard/foundation/math/gf_surface_scatter_sampler_3d.gd` |
 | [`GFSurfaceUtility`](GFSurfaceUtility.md#gfsurfaceutility) | 运行时服务 (`runtime_service`) | `GFUtility` | 16 | `addons/gf/standard/utilities/display/gf_surface_utility.gd` |
-| [`GFTableDataView`](GFTableDataView.md#gftabledataview) | 运行时服务 (`runtime_service`) | `RefCounted` | 43 | `addons/gf/standard/utilities/ui/gf_table_data_view.gd` |
-| [`GFTableSelectionModel`](GFTableSelectionModel.md#gftableselectionmodel) | 运行时服务 (`runtime_service`) | `RefCounted` | 16 | `addons/gf/standard/utilities/ui/gf_table_selection_model.gd` |
+| [`GFTableDataView`](GFTableDataView.md#gftabledataview) | 运行时服务 (`runtime_service`) | `RefCounted` | 58 | `addons/gf/standard/utilities/ui/gf_table_data_view.gd` |
+| [`GFTableSelectionModel`](GFTableSelectionModel.md#gftableselectionmodel) | 运行时服务 (`runtime_service`) | `RefCounted` | 17 | `addons/gf/standard/utilities/ui/gf_table_selection_model.gd` |
 | [`GFTagSourceAdapter`](GFTagSourceAdapter.md#gftagsourceadapter) | 运行时服务 (`runtime_service`) | `RefCounted` | 9 | `addons/gf/standard/foundation/tags/gf_tag_source_adapter.gd` |
 | [`GFTextAutoFit`](GFTextAutoFit.md#gftextautofit) | 运行时服务 (`runtime_service`) | `Node` | 14 | `addons/gf/standard/utilities/ui/gf_text_auto_fit.gd` |
 | [`GFTextFitter`](GFTextFitter.md#gftextfitter) | 运行时服务 (`runtime_service`) | `RefCounted` | 8 | `addons/gf/standard/utilities/ui/gf_text_fitter.gd` |
@@ -301,7 +301,7 @@
 | [`GFViewportUtility`](GFViewportUtility.md#gfviewportutility) | 运行时服务 (`runtime_service`) | `GFUtility` | 27 | `addons/gf/standard/utilities/display/gf_viewport_utility.gd` |
 | [`GFVirtualInputBridge`](GFVirtualInputBridge.md#gfvirtualinputbridge) | 运行时服务 (`runtime_service`) | `RefCounted` | 7 | `addons/gf/standard/input/common/gf_virtual_input_bridge.gd` |
 | [`GFVirtualListFocusModel`](GFVirtualListFocusModel.md#gfvirtuallistfocusmodel) | 运行时服务 (`runtime_service`) | `RefCounted` | 20 | `addons/gf/standard/utilities/ui/gf_virtual_list_focus_model.gd` |
-| [`GFVirtualListModel`](GFVirtualListModel.md#gfvirtuallistmodel) | 运行时服务 (`runtime_service`) | `RefCounted` | 20 | `addons/gf/standard/utilities/ui/gf_virtual_list_model.gd` |
+| [`GFVirtualListModel`](GFVirtualListModel.md#gfvirtuallistmodel) | 运行时服务 (`runtime_service`) | `RefCounted` | 23 | `addons/gf/standard/utilities/ui/gf_virtual_list_model.gd` |
 | [`GFVoronoi2D`](GFVoronoi2D.md#gfvoronoi2d) | 运行时服务 (`runtime_service`) | `RefCounted` | 4 | `addons/gf/standard/foundation/math/gf_voronoi_2d.gd` |
 | [`GFWaveFunctionCollapse2D`](GFWaveFunctionCollapse2D.md#gfwavefunctioncollapse2d) | 运行时服务 (`runtime_service`) | `RefCounted` | 10 | `addons/gf/standard/foundation/math/gf_wave_function_collapse_2d.gd` |
 | [`GFAssetCatalogSourceProvider`](GFAssetCatalogSourceProvider.md#gfassetcatalogsourceprovider) | 协议与扩展点 (`protocol`) | `RefCounted` | 7 | `addons/gf/standard/utilities/assets/gf_asset_catalog_source_provider.gd` |
@@ -326,6 +326,7 @@
 | [`GFSequenceStep`](GFSequenceStep.md#gfsequencestep) | 协议与扩展点 (`protocol`) | `Resource` | 4 | `addons/gf/standard/sequence/gf_sequence_step.gd` |
 | [`GFState`](GFState.md#gfstate) | 协议与扩展点 (`protocol`) | `RefCounted` | 26 | `addons/gf/standard/state_machine/pure/gf_state.gd` |
 | [`GFStorageBackend`](GFStorageBackend.md#gfstoragebackend) | 协议与扩展点 (`protocol`) | `RefCounted` | 17 | `addons/gf/standard/utilities/storage/gf_storage_backend.gd` |
+| [`GFTableRowPredicate`](GFTableRowPredicate.md#gftablerowpredicate) | 协议与扩展点 (`protocol`) | `RefCounted` | 2 | `addons/gf/standard/utilities/ui/gf_table_row_predicate.gd` |
 | [`GFUndoableCommand`](GFUndoableCommand.md#gfundoablecommand) | 协议与扩展点 (`protocol`) | `GFCommand` | 8 | `addons/gf/standard/command/gf_undoable_command.gd` |
 | [`GFValidationRule`](GFValidationRule.md#gfvalidationrule) | 协议与扩展点 (`protocol`) | `Resource` | 14 | `addons/gf/standard/foundation/validation/gf_validation_rule.gd` |
 | [`GFAnalyticsConfig`](GFAnalyticsConfig.md#gfanalyticsconfig) | 资源定义 (`resource_definition`) | `Resource` | 19 | `addons/gf/standard/utilities/analytics/gf_analytics_config.gd` |
@@ -428,6 +429,8 @@
 | [`GFShaderParameterProfile`](GFShaderParameterProfile.md#gfshaderparameterprofile) | 资源定义 (`resource_definition`) | `Resource` | 15 | `addons/gf/standard/utilities/display/gf_shader_parameter_profile.gd` |
 | [`GFSignalBridge`](GFSignalBridge.md#gfsignalbridge) | 资源定义 (`resource_definition`) | `Resource` | 15 | `addons/gf/standard/utilities/signals/bridge/gf_signal_bridge.gd` |
 | [`GFSignalSourceRef`](GFSignalSourceRef.md#gfsignalsourceref) | 资源定义 (`resource_definition`) | `Resource` | 8 | `addons/gf/standard/utilities/signals/bridge/gf_signal_source_ref.gd` |
+| [`GFSpatialCanvasInputPolicy`](GFSpatialCanvasInputPolicy.md#gfspatialcanvasinputpolicy) | 资源定义 (`resource_definition`) | `Resource` | 29 | `addons/gf/standard/utilities/spatial_canvas/gf_spatial_canvas_input_policy.gd` |
+| [`GFSpatialCanvasSelectionModeBinding`](GFSpatialCanvasSelectionModeBinding.md#gfspatialcanvasselectionmodebinding) | 资源定义 (`resource_definition`) | `Resource` | 3 | `addons/gf/standard/utilities/spatial_canvas/gf_spatial_canvas_selection_mode_binding.gd` |
 | [`GFSteeringBehaviorResource`](GFSteeringBehaviorResource.md#gfsteeringbehaviorresource) | 资源定义 (`resource_definition`) | `Resource` | 20 | `addons/gf/standard/foundation/math/gf_steering_behavior_resource.gd` |
 | [`GFSteeringBehaviorStack`](GFSteeringBehaviorStack.md#gfsteeringbehaviorstack) | 资源定义 (`resource_definition`) | `Resource` | 10 | `addons/gf/standard/foundation/math/gf_steering_behavior_stack.gd` |
 | [`GFStorageCodec`](GFStorageCodec.md#gfstoragecodec) | 资源定义 (`resource_definition`) | `Resource` | 28 | `addons/gf/standard/utilities/storage/gf_storage_codec.gd` |
@@ -497,6 +500,7 @@
 | [`GFUIRouteOperation`](GFUIRouteOperation.md#gfuirouteoperation) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 13 | `addons/gf/standard/utilities/ui/gf_ui_route_operation.gd` |
 | [`GFVirtualInputPulseOperation`](GFVirtualInputPulseOperation.md#gfvirtualinputpulseoperation) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 14 | `addons/gf/standard/input/sources/gf_virtual_input_pulse_operation.gd` |
 | [`GFVirtualInputSource`](GFVirtualInputSource.md#gfvirtualinputsource) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 19 | `addons/gf/standard/input/sources/gf_virtual_input_source.gd` |
+| [`GFVirtualListBinder`](GFVirtualListBinder.md#gfvirtuallistbinder) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 28 | `addons/gf/standard/utilities/ui/gf_virtual_list_binder.gd` |
 | [`GFAssetLoadSessionResult`](GFAssetLoadSessionResult.md#gfassetloadsessionresult) | 值对象 (`value_object`) | `RefCounted` | 16 | `addons/gf/standard/utilities/assets/gf_asset_load_session_result.gd` |
 | [`GFAudioBackendCapability`](GFAudioBackendCapability.md#gfaudiobackendcapability) | 值对象 (`value_object`) | `Resource` | 15 | `addons/gf/standard/utilities/audio/gf_audio_backend_capability.gd` |
 | [`GFAudioPlaybackRegionResult`](GFAudioPlaybackRegionResult.md#gfaudioplaybackregionresult) | 值对象 (`value_object`) | `RefCounted` | 14 | `addons/gf/standard/utilities/audio/gf_audio_playback_region_result.gd` |
@@ -533,10 +537,15 @@
 | [`GFStorageConflictReport`](GFStorageConflictReport.md#gfstorageconflictreport) | 值对象 (`value_object`) | `Resource` | 14 | `addons/gf/standard/utilities/storage/gf_storage_conflict_report.gd` |
 | [`GFStorageReadResult`](GFStorageReadResult.md#gfstoragereadresult) | 值对象 (`value_object`) | `RefCounted` | 20 | `addons/gf/standard/utilities/storage/gf_storage_read_result.gd` |
 | [`GFStorageSectionCache`](GFStorageSectionCache.md#gfstoragesectioncache) | 值对象 (`value_object`) | `RefCounted` | 14 | `addons/gf/standard/utilities/storage/gf_storage_section_cache.gd` |
+| [`GFTableRowPredicateRegistration`](GFTableRowPredicateRegistration.md#gftablerowpredicateregistration) | 值对象 (`value_object`) | `RefCounted` | 6 | `addons/gf/standard/utilities/ui/gf_table_row_predicate_registration.gd` |
+| [`GFTableRowPredicateResult`](GFTableRowPredicateResult.md#gftablerowpredicateresult) | 值对象 (`value_object`) | `RefCounted` | 7 | `addons/gf/standard/utilities/ui/gf_table_row_predicate_result.gd` |
+| [`GFTableRowView`](GFTableRowView.md#gftablerowview) | 值对象 (`value_object`) | `RefCounted` | 5 | `addons/gf/standard/utilities/ui/gf_table_row_view.gd` |
+| [`GFTableViewRebuildResult`](GFTableViewRebuildResult.md#gftableviewrebuildresult) | 值对象 (`value_object`) | `RefCounted` | 12 | `addons/gf/standard/utilities/ui/gf_table_view_rebuild_result.gd` |
 | [`GFUIRouteResult`](GFUIRouteResult.md#gfuirouteresult) | 值对象 (`value_object`) | `RefCounted` | 34 | `addons/gf/standard/utilities/ui/gf_ui_route_result.gd` |
 | [`GFUuid`](GFUuid.md#gfuuid) | 值对象 (`value_object`) | `RefCounted` | 5 | `addons/gf/standard/foundation/identity/gf_uuid.gd` |
 | [`GFValidationIssue`](GFValidationIssue.md#gfvalidationissue) | 值对象 (`value_object`) | `RefCounted` | 32 | `addons/gf/standard/foundation/validation/gf_validation_issue.gd` |
 | [`GFValidationReport`](GFValidationReport.md#gfvalidationreport) | 值对象 (`value_object`) | `RefCounted` | 29 | `addons/gf/standard/foundation/validation/gf_validation_report.gd` |
+| [`GFVirtualListSyncResult`](GFVirtualListSyncResult.md#gfvirtuallistsyncresult) | 值对象 (`value_object`) | `RefCounted` | 29 | `addons/gf/standard/utilities/ui/gf_virtual_list_sync_result.gd` |
 | [`GFDropZone`](GFDropZone.md#gfdropzone) | 领域模型 (`domain_model`) | `RefCounted` | 15 | `addons/gf/standard/input/drag_drop/gf_drop_zone.gd` |
 | [`GFInputDirectionHistory`](GFInputDirectionHistory.md#gfinputdirectionhistory) | 领域模型 (`domain_model`) | `RefCounted` | 9 | `addons/gf/standard/input/history/gf_input_direction_history.gd` |
 | [`GFInputRecording`](GFInputRecording.md#gfinputrecording) | 领域模型 (`domain_model`) | `RefCounted` | 14 | `addons/gf/standard/input/recording/gf_input_recording.gd` |

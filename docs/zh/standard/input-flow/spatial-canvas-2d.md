@@ -41,7 +41,40 @@ if configured:
 	var snapped_rotation := canvas.snap_rotation(candidate_rotation)
 ```
 
-`handle_input_event()` 接受本 `Control` 的局部画布坐标，提供最小运行时交互：中键或触摸拖动平移，滚轮或捏合围绕指针缩放。`_gui_input()` 事件可直接传入；从 `_input()` 或全局路由取得的 Viewport 坐标事件应交给 `handle_screen_input_event()`，由它复制并局部化。只有画布实际消费的事件才返回 `true`，项目不要把画布当作全局输入所有者。
+`GFSpatialCanvasInputPolicy` 以纯数据声明平移、选择、滚轮、原始触摸、系统手势和放置取消输入。默认策略保持中键平移、左键选择、垂直滚轮缩放、单指平移，以及双指平移和捏合缩放；取消只使用 InputMap 的 `ui_cancel`，没有 raw Escape 特判。项目可以替换直接按钮或改用已经存在的 InputMap action：
+
+```gdscript
+var policy := GFSpatialCanvasInputPolicy.new()
+policy.pan_mouse_button = MOUSE_BUTTON_NONE
+policy.pan_action = &"tactical_canvas_pan"
+policy.wheel_routing = GFSpatialCanvasInputPolicy.WheelRouting.MODIFIER_GATED
+policy.wheel_modifier_mask = GFSpatialCanvasInputPolicy.ModifierMask.CTRL
+policy.consume_wheel_events = true
+policy.touch_primary_behavior = GFSpatialCanvasInputPolicy.TouchPrimaryBehavior.NONE
+policy.touch_multi_pan_enabled = false
+policy.touch_multi_zoom_enabled = true
+
+policy.selection_modifier_bindings.clear()
+var add_binding := GFSpatialCanvasSelectionModeBinding.new()
+add_binding.modifier_mask = GFSpatialCanvasInputPolicy.ModifierMask.SHIFT
+add_binding.selection_mode = GFSpatialCanvas2D.SelectionMode.ADD
+policy.selection_modifier_bindings.append(add_binding)
+
+if not canvas.set_input_policy(policy):
+	push_error("Invalid spatial canvas input policy")
+```
+
+`set_input_policy()` 先把候选公开字段及嵌套 `GFSpatialCanvasSelectionModeBinding` 逐字段复制到纯 GF 基类实例，再完整校验和原子替换；它不会调用候选子类可覆写的校验或复制方法。失败时保留上一份策略，`get_input_policy()` 也只返回纯基类隔离副本。直接 pan 按钮精确匹配 `pan_modifier_mask`；pan action 的完整 chord 由 InputMap 精确匹配，此时 `pan_modifier_mask` 必须为零。选择绑定同样按完整修饰键掩码精确匹配，按下时冻结选择模式，捕获后由同一物理按钮释放，期间 modifier 变化不会改写本次操作。direct 与 action、两个 action 之间的物理 chord 重叠会使策略失败；如果 InputMap 在应用策略后被改成冲突映射，运行时也会忽略该冲突事件且不修改状态。选择修饰键绑定最多 15 个，单个 action 校验和运行期匹配最多扫描 64 个事件，超限直接失败关闭。
+
+`placement_cancel_action` 必须是非指针动作：任何鼠标、触摸或位置手势事件都会让策略失败，避免取消优先级抢占 pan、selection 或 wheel。画布在每次匹配取消前都会重新执行同一 64-event 有界检查；如果项目在策略应用后修改 InputMap 使其包含指针事件或超过预算，本次取消匹配失败关闭，原指针事件仍可由正常画布行为解释。
+
+`handle_input_event()` 接受本 `Control` 的局部画布坐标，`handle_screen_input_event()` 则复制 Viewport 屏幕坐标事件并局部化。二者返回 `GFSpatialCanvas2D.InputDisposition`：`IGNORED` 表示未修改状态，`HANDLED` 表示已处理但允许继续传播，`CONSUMED` 表示 GUI 边界应停止传播。手工转发方法不会调用 Viewport handled API，调用方必须显式解释返回值。
+
+画布自身使用 `MOUSE_FILTER_PASS`。`_gui_input()` 只对 `CONSUMED` 调用 `accept_event()`；`consume_handled_events` 控制一般输入，`consume_wheel_events` 单独控制滚轮。`PARENT_ONLY` 的滚轮、`MODIFIER_GATED` 下未精确匹配 modifier 的滚轮都返回 `IGNORED`，因此能自然冒泡给父 `ScrollContainer`；被画布消费的滚轮不会被强制穿透。垂直与水平轴可独立选择，平滑滚轮的有限正 `event.factor` 作为有硬上限的指数参与缩放，非法或过大 factor 被忽略。
+
+一次被接受的鼠标平移/选择 press 或可能形成已启用行为的第一个原始触摸 press 会建立唯一的物理输入捕获所有权。raw touch 持有期间，全部 `InputEventMouse`（包括 wheel）都返回 `IGNORED`；鼠标持有期间，raw touch press/drag/release 都返回 `IGNORED`；两者都会排除系统 `PanGesture` / `MagnifyGesture`。冲突事件不更新视图、选择几何或手势追踪，只有匹配的鼠标 release、最后一个已接管触点的 release 或显式 cancel 才释放所有权。Godot 标记为 `canceled` 的当前鼠标按钮或已跟踪 touch 只释放整份瞬态捕获，绝不把取消位置解释成正常 release，也不会提交 selection 或 placement；不属于当前 owner 的取消事件仍保持 `IGNORED`。系统手势在没有物理捕获时仍可正常工作；placement 会话本身不构成物理输入捕获。
+
+原始触摸可整体关闭，单指主行为可独立设为 `NONE`、pan 或 select，多指 pan 与 pinch zoom 也各自显式开关；系统 `PanGesture` 与 `MagnifyGesture` 继续使用各自开关。单指为 `NONE` 且两个多指行为都关闭时，raw touch 全程 `IGNORED`，不会暗中建立捕获；只要任一多指行为启用，首触点必须先被捕获以确定性等待第二触点，但单指移动仍不修改视图或选择。第二触点进入允许的多指手势时会结束尚未提交的单指选择捕获，但不会取消活动 placement。禁用输入、成功替换策略、Control 失焦、应用失焦或暂停、Canvas 变为不可见以及退出场景树都会释放鼠标和触摸的瞬态捕获，同时保留条目、当前选择和 placement 会话；清理后的迟到 release 不会复活旧 owner。
 
 ## 候选、命中与选择
 

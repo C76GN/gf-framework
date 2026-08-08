@@ -108,6 +108,29 @@ enum SelectionMode {
 	SUBTRACT,
 }
 
+## 输入处理结果。
+##
+## 手工转发调用只观察该返回值；只有 [constant InputDisposition.CONSUMED]
+## 会让画布自身的 [code]_gui_input()[/code] 调用 [method Control.accept_event]。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+enum InputDisposition {
+	## 事件未被画布识别或当前策略要求继续交给其他接收者。
+	IGNORED,
+	## 事件已更新画布，但仍允许 GUI 冒泡。
+	HANDLED,
+	## 事件已更新画布，并应在 GUI 边界停止传播。
+	CONSUMED,
+}
+
+enum _InputCaptureOwner {
+	NONE,
+	MOUSE,
+	RAW_TOUCH,
+}
+
 
 # --- 常量 ---
 
@@ -147,7 +170,7 @@ const _DEFAULT_MAX_ITEMS: int = 16384
 const _DEFAULT_MAX_SELECTION: int = 4096
 const _DEFAULT_MAX_QUERY_CANDIDATES: int = 4096
 const _DEFAULT_MAX_GRID_LINES: int = 512
-const _DEFAULT_DRAG_THRESHOLD: float = 4.0
+const _ABSOLUTE_MAX_WHEEL_EVENT_FACTOR: float = 64.0
 const _PLACEMENT_OPERATION_VERSION: int = 1
 const _GRID_OPTION_KEYS: Array[String] = [
 	"rotation_step_radians",
@@ -216,17 +239,27 @@ var _history_hook: Callable = Callable()
 var _callback_active: bool = false
 
 var _input_enabled: bool = true
+var _input_policy: GFSpatialCanvasInputPolicy = GFSpatialCanvasInputPolicy.new()
+var _mouse_pan_active: bool = false
+var _mouse_pan_button: MouseButton = MOUSE_BUTTON_NONE
+var _mouse_pan_last_position: Vector2 = Vector2.ZERO
 var _selection_drag_active: bool = false
 var _selection_drag_start: Vector2 = Vector2.ZERO
 var _selection_drag_end: Vector2 = Vector2.ZERO
+var _selection_drag_mode: SelectionMode = SelectionMode.REPLACE
+var _selection_capture_button: MouseButton = MOUSE_BUTTON_NONE
+var _touch_selection_index: int = -1
 var _gesture_active: bool = false
-var _drag_threshold: float = _DEFAULT_DRAG_THRESHOLD
+var _input_capture_owner: _InputCaptureOwner = _InputCaptureOwner.NONE
+var _input_capture_device: int = 0
 
 
 # --- Godot 生命周期方法 ---
 
 func _ready() -> void:
 	focus_mode = Control.FOCUS_ALL
+	mouse_filter = Control.MOUSE_FILTER_PASS
+	mouse_force_pass_scroll_events = false
 	_ensure_runtime_nodes()
 	_ensure_gesture_utility()
 	if not focus_exited.is_connected(_on_focus_exited):
@@ -239,15 +272,22 @@ func _exit_tree() -> void:
 
 
 func _notification(what: int) -> void:
-	if what == NOTIFICATION_RESIZED:
-		var resolved_center: Vector2 = _clamp_world_center(_world_center, _zoom)
-		if _is_view_state_finite(resolved_center, _zoom):
-			_world_center = resolved_center
-			_apply_view(is_node_ready())
+	match what:
+		NOTIFICATION_RESIZED:
+			var resolved_center: Vector2 = _clamp_world_center(_world_center, _zoom)
+			if _is_view_state_finite(resolved_center, _zoom):
+				_world_center = resolved_center
+				_apply_view(is_node_ready())
+		NOTIFICATION_APPLICATION_FOCUS_OUT, NOTIFICATION_APPLICATION_PAUSED:
+			_reset_transient_input()
+		CanvasItem.NOTIFICATION_VISIBILITY_CHANGED:
+			if not is_visible_in_tree():
+				_reset_transient_input()
 
 
 func _gui_input(event: InputEvent) -> void:
-	if handle_input_event(event):
+	var disposition: InputDisposition = handle_input_event(event)
+	if disposition == InputDisposition.CONSUMED:
 		accept_event()
 
 
@@ -924,12 +964,12 @@ func query_items_in_rect(
 ## [br]
 ## @param item_ids: 候选条目 ID。
 ## [br]
-## @param mode: SelectionMode 值。
+## @param mode: [enum SelectionMode] 值。
 ## [br]
 ## @return 更新后的隔离选择副本。
 func set_selection(
 	item_ids: PackedStringArray,
-	mode: int = SelectionMode.REPLACE
+	mode: SelectionMode = SelectionMode.REPLACE
 ) -> PackedStringArray:
 	if (
 		_callback_active
@@ -978,12 +1018,12 @@ func set_selection(
 ## [br]
 ## @param canvas_position: 本 Control 的画布坐标。
 ## [br]
-## @param mode: SelectionMode 值。
+## @param mode: [enum SelectionMode] 值。
 ## [br]
 ## @return 更新后的选择。
 func select_point(
 	canvas_position: Vector2,
-	mode: int = SelectionMode.REPLACE
+	mode: SelectionMode = SelectionMode.REPLACE
 ) -> PackedStringArray:
 	if not _is_finite_vector2(canvas_position) or not _is_selection_mode_valid(mode):
 		return get_selection()
@@ -1009,14 +1049,14 @@ func select_point(
 ## [br]
 ## @param canvas_rect: 画布选择矩形。
 ## [br]
-## @param mode: SelectionMode 值。
+## @param mode: [enum SelectionMode] 值。
 ## [br]
 ## @param fully_contained: 为 true 时只选择完全位于矩形内的条目。
 ## [br]
 ## @return 更新后的选择。
 func select_rect(
 	canvas_rect: Rect2,
-	mode: int = SelectionMode.REPLACE,
+	mode: SelectionMode = SelectionMode.REPLACE,
 	fully_contained: bool = false
 ) -> PackedStringArray:
 	if not _is_finite_rect2(canvas_rect) or not _is_selection_mode_valid(mode):
@@ -1329,10 +1369,48 @@ func get_placement_snapshot() -> Dictionary:
 
 # --- 公共方法（输入与诊断） ---
 
+## 原子替换输入解释策略。
+##
+## 方法先完整校验并深拷贝候选策略；失败时保留当前策略和所有瞬态状态。
+## 成功切换会释放当前指针捕获，但不会清除选择集合或活动放置会话。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param policy: 候选输入策略。
+## [br]
+## @return 策略有效并完成替换时返回 true。
+func set_input_policy(policy: GFSpatialCanvasInputPolicy) -> bool:
+	var isolated_policy: GFSpatialCanvasInputPolicy = _isolate_input_policy(policy)
+	if isolated_policy == null:
+		return false
+	var report: Dictionary = isolated_policy.validate_policy()
+	if not GFVariantData.get_option_bool(report, "ok"):
+		return false
+	_reset_transient_input()
+	_input_policy = isolated_policy
+	return true
+
+
+## 获取当前输入策略的隔离副本。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @return 当前策略的深拷贝。
+func get_input_policy() -> GFSpatialCanvasInputPolicy:
+	return _isolate_input_policy(_input_policy)
+
+
 ## 处理一个项目转发的输入事件。
 ##
-## 中键/单指拖动用于平移，滚轮/捏合用于焦点缩放，左键用于点选、框选或活动放置。
-## 只有实际识别和消费的事件返回 true。
+## 事件按当前 [GFSpatialCanvasInputPolicy] 解释。方法不会调用 Viewport 的 handled API；
+## 手工路由方应根据 [enum InputDisposition] 决定是否继续传播。
+## 鼠标与原始触摸只允许一个来源持有瞬态捕获；冲突来源及系统手势在物理释放或
+## 显式取消前返回 [constant InputDisposition.IGNORED] 且不修改画布状态。
+## 系统标记为 canceled 的当前捕获事件只释放瞬态状态，不提交选择或放置。
 ## [br]
 ## @api public
 ## [br]
@@ -1340,49 +1418,55 @@ func get_placement_snapshot() -> Dictionary:
 ## [br]
 ## @param event: Godot 输入事件。
 ## [br]
-## @return 事件被画布消费时返回 true。
-func handle_input_event(event: InputEvent) -> bool:
+## @return [enum InputDisposition] 值。
+func handle_input_event(event: InputEvent) -> InputDisposition:
 	if not _input_enabled or event == null:
-		return false
+		return InputDisposition.IGNORED
 	_ensure_gesture_utility()
 
-	var key_event: InputEventKey = event as InputEventKey
-	if key_event != null and key_event.pressed and key_event.keycode == KEY_ESCAPE:
+	if event.is_canceled():
+		return _handle_canceled_input_event(event)
+
+	if _matches_cancel_action(event):
 		if has_active_placement():
 			var _cancel_report: Dictionary = cancel_placement(&"input_cancelled")
-			return true
-		if _selection_drag_active:
-			_reset_selection_drag()
-			return true
-		return false
+			_reset_transient_input()
+			return _general_disposition()
+		if _has_transient_input_state():
+			_reset_transient_input()
+			return _general_disposition()
+		return InputDisposition.IGNORED
+
+	if _input_capture_conflicts_with_event(event):
+		return InputDisposition.IGNORED
 
 	var mouse_button: InputEventMouseButton = event as InputEventMouseButton
-	if mouse_button != null and mouse_button.button_index == MOUSE_BUTTON_LEFT:
-		return _handle_primary_mouse_button(mouse_button)
-
-	if (
-		_gesture_utility.get_active_pointer_count() > 0
-		and _gesture_utility.handle_input_event(event)
-	):
-		return true
+	if mouse_button != null:
+		if _is_mouse_wheel_button(mouse_button.button_index):
+			return _handle_wheel_input(mouse_button)
+		return _handle_mouse_button_input(mouse_button)
 
 	var mouse_motion: InputEventMouseMotion = event as InputEventMouseMotion
 	if mouse_motion != null:
-		if not _is_finite_vector2(mouse_motion.position):
-			return false
-		if has_active_placement():
-			var world_position_result: Dictionary = _try_canvas_to_world(mouse_motion.position)
-			if not GFVariantData.get_option_bool(world_position_result, "ok"):
-				return false
-			return update_placement(
-				GFVariantData.get_option_vector2(world_position_result, "value")
-			)
-		if _selection_drag_active:
-			_selection_drag_end = mouse_motion.position
-			_request_overlay_redraw()
-			return true
+		return _handle_mouse_motion_input(mouse_motion)
 
-	return _gesture_utility.handle_input_event(event)
+	var screen_touch: InputEventScreenTouch = event as InputEventScreenTouch
+	if screen_touch != null:
+		return _handle_screen_touch_input(screen_touch)
+	var screen_drag: InputEventScreenDrag = event as InputEventScreenDrag
+	if screen_drag != null:
+		return _handle_screen_drag_input(screen_drag)
+
+	if event is InputEventPanGesture:
+		if not _input_policy.system_pan_gesture_enabled:
+			return InputDisposition.IGNORED
+		return _handle_system_gesture_input(event)
+	if event is InputEventMagnifyGesture:
+		if not _input_policy.system_magnify_gesture_enabled:
+			return InputDisposition.IGNORED
+		return _handle_system_gesture_input(event)
+
+	return InputDisposition.IGNORED
 
 
 ## 处理一个使用 Viewport 屏幕坐标的输入事件。
@@ -1396,14 +1480,14 @@ func handle_input_event(event: InputEvent) -> bool:
 ## [br]
 ## @param event: 使用 Viewport 屏幕坐标的 Godot 输入事件。
 ## [br]
-## @return 事件被画布消费时返回 true；变换不可逆时返回 false。
-func handle_screen_input_event(event: InputEvent) -> bool:
+## @return [enum InputDisposition] 值；变换不可逆时返回 [constant InputDisposition.IGNORED]。
+func handle_screen_input_event(event: InputEvent) -> InputDisposition:
 	if event == null or not _input_enabled:
-		return false
+		return InputDisposition.IGNORED
 	var canvas_transform: Transform2D = get_global_transform_with_canvas()
 	var determinant: float = canvas_transform.determinant()
 	if not _is_finite_float(determinant) or is_zero_approx(determinant):
-		return false
+		return InputDisposition.IGNORED
 	var local_event: InputEvent = make_input_local(event)
 	return handle_input_event(local_event)
 
@@ -1458,7 +1542,14 @@ func get_debug_snapshot() -> Dictionary:
 		"item_count": _items.size(),
 		"selection_count": _selected_ids.size(),
 		"placement_active": has_active_placement(),
-		"input_active": _gesture_active or _selection_drag_active,
+		"input_active": (
+			_input_capture_owner != _InputCaptureOwner.NONE
+			or _gesture_active
+			or _mouse_pan_active
+			or _selection_drag_active
+			or _selection_capture_button != MOUSE_BUTTON_NONE
+			or _touch_selection_index >= 0
+		),
 		"last_query_candidate_count": _last_query_candidate_count,
 		"last_query_truncated": _last_query_truncated,
 		"last_grid_line_count": _last_grid_line_count,
@@ -1501,8 +1592,8 @@ func _ensure_gesture_utility() -> void:
 	if _gesture_utility != null:
 		return
 	_gesture_utility = GFPointerGestureUtility.new()
-	_gesture_utility.mouse_button_index = MOUSE_BUTTON_MIDDLE
-	_gesture_utility.track_mouse_wheel = true
+	_gesture_utility.track_mouse = false
+	_gesture_utility.track_mouse_wheel = false
 	_gesture_utility.track_touch = true
 	_gesture_utility.track_gesture_events = true
 	var _gesture_updated_connected: Error = _gesture_utility.gesture_updated.connect(
@@ -1511,6 +1602,58 @@ func _ensure_gesture_utility() -> void:
 	var _gesture_ended_connected: Error = _gesture_utility.gesture_ended.connect(
 		_on_gesture_ended
 	) as Error
+
+
+func _isolate_input_policy(
+	source: GFSpatialCanvasInputPolicy
+) -> GFSpatialCanvasInputPolicy:
+	if source == null:
+		return null
+	var isolated: GFSpatialCanvasInputPolicy = GFSpatialCanvasInputPolicy.new()
+	isolated.pan_mouse_button = source.pan_mouse_button
+	isolated.pan_action = source.pan_action
+	isolated.pan_modifier_mask = source.pan_modifier_mask
+	isolated.selection_mouse_button = source.selection_mouse_button
+	isolated.selection_action = source.selection_action
+	isolated.selection_default_mode = source.selection_default_mode
+	isolated.selection_modifier_bindings.clear()
+	var binding_count: int = mini(
+		source.selection_modifier_bindings.size(),
+		GFSpatialCanvasInputPolicy.ABSOLUTE_MAX_SELECTION_MODIFIER_BINDINGS
+	)
+	for binding_index: int in range(binding_count):
+		var source_binding: GFSpatialCanvasSelectionModeBinding = (
+			source.selection_modifier_bindings[binding_index]
+		)
+		if source_binding == null:
+			isolated.selection_modifier_bindings.append(null)
+			continue
+		var isolated_binding: GFSpatialCanvasSelectionModeBinding = (
+			GFSpatialCanvasSelectionModeBinding.new()
+		)
+		isolated_binding.modifier_mask = source_binding.modifier_mask
+		isolated_binding.selection_mode = source_binding.selection_mode
+		isolated.selection_modifier_bindings.append(isolated_binding)
+	if (
+		source.selection_modifier_bindings.size()
+		> GFSpatialCanvasInputPolicy.ABSOLUTE_MAX_SELECTION_MODIFIER_BINDINGS
+	):
+		isolated.selection_modifier_bindings.append(null)
+	isolated.drag_threshold = source.drag_threshold
+	isolated.wheel_axis = source.wheel_axis
+	isolated.wheel_routing = source.wheel_routing
+	isolated.wheel_modifier_mask = source.wheel_modifier_mask
+	isolated.wheel_zoom_factor = source.wheel_zoom_factor
+	isolated.touch_enabled = source.touch_enabled
+	isolated.touch_primary_behavior = source.touch_primary_behavior
+	isolated.touch_multi_pan_enabled = source.touch_multi_pan_enabled
+	isolated.touch_multi_zoom_enabled = source.touch_multi_zoom_enabled
+	isolated.system_pan_gesture_enabled = source.system_pan_gesture_enabled
+	isolated.system_magnify_gesture_enabled = source.system_magnify_gesture_enabled
+	isolated.placement_cancel_action = source.placement_cancel_action
+	isolated.consume_handled_events = source.consume_handled_events
+	isolated.consume_wheel_events = source.consume_wheel_events
+	return isolated
 
 
 func _apply_view(emit_change: bool) -> void:
@@ -2000,71 +2143,541 @@ func _placement_session_matches(expected_session_id: int) -> bool:
 	)
 
 
-func _handle_primary_mouse_button(event: InputEventMouseButton) -> bool:
+func _handle_mouse_button_input(event: InputEventMouseButton) -> InputDisposition:
+	if not event.pressed:
+		if _mouse_pan_active and event.button_index == _mouse_pan_button:
+			if _is_finite_vector2(event.position):
+				var final_delta: Vector2 = event.position - _mouse_pan_last_position
+				if not final_delta.is_zero_approx():
+					var _panned: bool = pan_by_canvas_delta(final_delta)
+			_reset_mouse_pan_capture()
+			_release_input_capture(_InputCaptureOwner.MOUSE)
+			return _general_disposition()
+		if (
+			_selection_capture_button != MOUSE_BUTTON_NONE
+			and event.button_index == _selection_capture_button
+		):
+			if _is_finite_vector2(event.position):
+				_finish_selection_capture_at(event.position)
+			else:
+				_reset_selection_capture()
+			_release_input_capture(_InputCaptureOwner.MOUSE)
+			return _general_disposition()
+		return InputDisposition.IGNORED
+
 	if not _is_finite_vector2(event.position):
-		return false
-	if event.pressed and is_inside_tree():
-		grab_focus()
-	if has_active_placement():
-		var world_position_result: Dictionary = _try_canvas_to_world(event.position)
-		if not GFVariantData.get_option_bool(world_position_result, "ok"):
-			return false
-		var _updated: bool = update_placement(
-			GFVariantData.get_option_vector2(world_position_result, "value")
+		return InputDisposition.IGNORED
+	if _mouse_pan_active or _selection_capture_button != MOUSE_BUTTON_NONE:
+		return InputDisposition.IGNORED
+
+	var pan_matches: bool = _matches_pan_press(event)
+	var selection_matches: bool = _matches_pointer_press(
+		event,
+		_input_policy.selection_mouse_button,
+		_input_policy.selection_action
+	)
+	if pan_matches and selection_matches:
+		return InputDisposition.IGNORED
+	if pan_matches:
+		if not _acquire_input_capture(_InputCaptureOwner.MOUSE, event.device):
+			return InputDisposition.IGNORED
+		if is_inside_tree():
+			grab_focus()
+		_mouse_pan_active = true
+		_mouse_pan_button = event.button_index
+		_mouse_pan_last_position = event.position
+		return _general_disposition()
+	if selection_matches:
+		if not _acquire_input_capture(_InputCaptureOwner.MOUSE, event.device):
+			return InputDisposition.IGNORED
+		if is_inside_tree():
+			grab_focus()
+		var selection_mode: SelectionMode = _selection_mode_from_modifier_mask(
+			_modifier_mask_from_mouse_event(event)
 		)
-		if not _updated:
-			return false
-		if event.pressed:
-			return true
-		var _report: Dictionary = commit_placement()
-		return true
-	if event.pressed:
-		_selection_drag_active = true
-		_selection_drag_start = event.position
+		if not _start_selection_capture(
+			event.position,
+			selection_mode,
+			event.button_index,
+			-1
+		):
+			_release_input_capture(_InputCaptureOwner.MOUSE)
+			return InputDisposition.IGNORED
+		return _general_disposition()
+	return InputDisposition.IGNORED
+
+
+func _handle_mouse_motion_input(event: InputEventMouseMotion) -> InputDisposition:
+	if not _is_finite_vector2(event.position):
+		return InputDisposition.IGNORED
+	if _mouse_pan_active:
+		var pan_delta: Vector2 = event.position - _mouse_pan_last_position
+		_mouse_pan_last_position = event.position
+		if not pan_delta.is_zero_approx():
+			var _panned: bool = pan_by_canvas_delta(pan_delta)
+		return _general_disposition()
+	if _selection_drag_active and _selection_capture_button != MOUSE_BUTTON_NONE:
 		_selection_drag_end = event.position
 		_request_overlay_redraw()
-		return true
-	if not _selection_drag_active:
-		return false
-	_selection_drag_end = event.position
-	var mode: int = _selection_mode_from_mouse_event(event)
-	var drag_size: float = _selection_drag_start.distance_to(_selection_drag_end)
-	if drag_size <= _drag_threshold:
-		var _selected_point: PackedStringArray = select_point(_selection_drag_end, mode)
+		return _general_disposition()
+	if has_active_placement():
+		if _update_placement_from_canvas_position(event.position):
+			return _general_disposition()
+	return InputDisposition.IGNORED
+
+
+func _handle_wheel_input(event: InputEventMouseButton) -> InputDisposition:
+	if (
+		not event.pressed
+		or not _is_finite_vector2(event.position)
+		or not _is_finite_float(event.factor)
+		or event.factor <= 0.0
+		or event.factor > _ABSOLUTE_MAX_WHEEL_EVENT_FACTOR
+	):
+		return InputDisposition.IGNORED
+	if _input_policy.wheel_routing == GFSpatialCanvasInputPolicy.WheelRouting.PARENT_ONLY:
+		return InputDisposition.IGNORED
+	if not _wheel_button_matches_axis(event.button_index):
+		return InputDisposition.IGNORED
+	if (
+		_input_policy.wheel_routing
+		== GFSpatialCanvasInputPolicy.WheelRouting.MODIFIER_GATED
+		and _modifier_mask_from_mouse_event(event) != _input_policy.wheel_modifier_mask
+	):
+		return InputDisposition.IGNORED
+	var factor: float = pow(_input_policy.wheel_zoom_factor, event.factor)
+	if not _is_finite_float(factor) or factor <= 0.0:
+		return InputDisposition.IGNORED
+	if (
+		event.button_index == MOUSE_BUTTON_WHEEL_DOWN
+		or event.button_index == MOUSE_BUTTON_WHEEL_RIGHT
+	):
+		factor = 1.0 / factor
+	if not zoom_at(event.position, factor):
+		return InputDisposition.IGNORED
+	return _wheel_disposition()
+
+
+func _handle_screen_touch_input(event: InputEventScreenTouch) -> InputDisposition:
+	if not _input_policy.touch_enabled:
+		return InputDisposition.IGNORED
+	if (
+		_input_policy.touch_primary_behavior
+		== GFSpatialCanvasInputPolicy.TouchPrimaryBehavior.NONE
+		and not _has_raw_touch_multi_behavior()
+	):
+		return InputDisposition.IGNORED
+	var tracked: bool = _gesture_tracks_pointer(event.index)
+	if not _is_finite_vector2(event.position):
+		if not event.pressed and tracked:
+			_reset_transient_input()
+			return _general_disposition()
+		return InputDisposition.IGNORED
+
+	if event.pressed:
+		if tracked:
+			return InputDisposition.IGNORED
+		var active_pointer_count: int = _gesture_utility.get_active_pointer_count()
+		var starts_capture: bool = active_pointer_count == 0
+		if starts_capture:
+			if not _acquire_input_capture(_InputCaptureOwner.RAW_TOUCH, event.device):
+				return InputDisposition.IGNORED
+		elif _input_capture_owner != _InputCaptureOwner.RAW_TOUCH:
+			return InputDisposition.IGNORED
+		if active_pointer_count > 0:
+			if not _has_raw_touch_multi_behavior():
+				return InputDisposition.IGNORED
+			if (
+				_input_policy.touch_primary_behavior
+				== GFSpatialCanvasInputPolicy.TouchPrimaryBehavior.SELECT
+			):
+				_reset_selection_capture()
+		elif (
+			_input_policy.touch_primary_behavior
+			== GFSpatialCanvasInputPolicy.TouchPrimaryBehavior.SELECT
+		):
+			if not _start_selection_capture(
+				event.position,
+				_input_policy.selection_default_mode,
+				MOUSE_BUTTON_NONE,
+				event.index
+			):
+				_release_input_capture(_InputCaptureOwner.RAW_TOUCH)
+				return InputDisposition.IGNORED
+		if _gesture_utility.handle_input_event(event):
+			return _general_disposition()
+		if starts_capture:
+			_reset_transient_input()
+		return InputDisposition.IGNORED
+
+	if not tracked:
+		return InputDisposition.IGNORED
+	if _touch_selection_index == event.index:
+		_finish_selection_capture_at(event.position)
+	var handled: bool = _gesture_utility.handle_input_event(event)
+	if handled:
+		return _general_disposition()
+	return InputDisposition.IGNORED
+
+
+func _handle_screen_drag_input(event: InputEventScreenDrag) -> InputDisposition:
+	if (
+		not _input_policy.touch_enabled
+		or _input_capture_owner != _InputCaptureOwner.RAW_TOUCH
+		or not _gesture_tracks_pointer(event.index)
+	):
+		return InputDisposition.IGNORED
+	if not _is_finite_vector2(event.position):
+		_reset_transient_input()
+		return _general_disposition()
+	if _touch_selection_index == event.index:
+		if has_active_placement():
+			var _updated: bool = _update_placement_from_canvas_position(event.position)
+		elif _selection_drag_active:
+			_selection_drag_end = event.position
+			_request_overlay_redraw()
+	var handled: bool = _gesture_utility.handle_input_event(event)
+	if handled:
+		return _general_disposition()
+	return InputDisposition.IGNORED
+
+
+func _handle_system_gesture_input(event: InputEvent) -> InputDisposition:
+	var pan_gesture: InputEventPanGesture = event as InputEventPanGesture
+	if pan_gesture != null:
+		if (
+			not _is_finite_vector2(pan_gesture.position)
+			or not _is_finite_vector2(pan_gesture.delta)
+		):
+			return InputDisposition.IGNORED
+	var magnify_gesture: InputEventMagnifyGesture = event as InputEventMagnifyGesture
+	if magnify_gesture != null:
+		if (
+			not _is_finite_vector2(magnify_gesture.position)
+			or not _is_finite_float(magnify_gesture.factor)
+			or magnify_gesture.factor <= 0.0
+		):
+			return InputDisposition.IGNORED
+	if _gesture_utility.handle_input_event(event):
+		return _general_disposition()
+	return InputDisposition.IGNORED
+
+
+func _start_selection_capture(
+	canvas_position: Vector2,
+	selection_mode: SelectionMode,
+	mouse_button: MouseButton,
+	touch_index: int
+) -> bool:
+	if has_active_placement():
+		if not _update_placement_from_canvas_position(canvas_position):
+			return false
 	else:
-		var drag_rect: Rect2 = Rect2(
-			_selection_drag_start,
-			_selection_drag_end - _selection_drag_start
-		)
-		var _selected_rect: PackedStringArray = select_rect(drag_rect, mode)
-	_reset_selection_drag()
+		_selection_drag_active = true
+		_selection_drag_start = canvas_position
+		_selection_drag_end = canvas_position
+		_selection_drag_mode = selection_mode
+		_request_overlay_redraw()
+	_selection_capture_button = mouse_button
+	_touch_selection_index = touch_index
 	return true
 
 
-func _selection_mode_from_mouse_event(event: InputEventMouseButton) -> int:
-	if event.ctrl_pressed or event.meta_pressed:
-		return SelectionMode.TOGGLE
+func _finish_selection_capture_at(canvas_position: Vector2) -> void:
+	if has_active_placement():
+		if _update_placement_from_canvas_position(canvas_position):
+			var _report: Dictionary = commit_placement()
+		_reset_selection_capture()
+		return
+	if _selection_drag_active:
+		_selection_drag_end = canvas_position
+		var drag_size: float = _selection_drag_start.distance_to(_selection_drag_end)
+		if drag_size <= _input_policy.drag_threshold:
+			var _selected_point: PackedStringArray = select_point(
+				_selection_drag_end,
+				_selection_drag_mode
+			)
+		else:
+			var drag_rect: Rect2 = Rect2(
+				_selection_drag_start,
+				_selection_drag_end - _selection_drag_start
+			)
+			var _selected_rect: PackedStringArray = select_rect(
+				drag_rect,
+				_selection_drag_mode
+			)
+	_reset_selection_capture()
+
+
+func _handle_canceled_input_event(event: InputEvent) -> InputDisposition:
+	var mouse_button: InputEventMouseButton = event as InputEventMouseButton
+	if mouse_button != null:
+		if (
+			_input_capture_owner != _InputCaptureOwner.MOUSE
+			or mouse_button.device != _input_capture_device
+		):
+			return InputDisposition.IGNORED
+		var matches_pan: bool = (
+			_mouse_pan_active
+			and mouse_button.button_index == _mouse_pan_button
+		)
+		var matches_selection: bool = (
+			_selection_capture_button != MOUSE_BUTTON_NONE
+			and mouse_button.button_index == _selection_capture_button
+		)
+		if not matches_pan and not matches_selection:
+			return InputDisposition.IGNORED
+		_reset_transient_input()
+		return _general_disposition()
+
+	var screen_touch: InputEventScreenTouch = event as InputEventScreenTouch
+	if (
+		screen_touch == null
+		or _input_capture_owner != _InputCaptureOwner.RAW_TOUCH
+		or screen_touch.device != _input_capture_device
+		or not _gesture_tracks_pointer(screen_touch.index)
+	):
+		return InputDisposition.IGNORED
+	_reset_transient_input()
+	return _general_disposition()
+
+
+func _update_placement_from_canvas_position(canvas_position: Vector2) -> bool:
+	var world_position_result: Dictionary = _try_canvas_to_world(canvas_position)
+	if not GFVariantData.get_option_bool(world_position_result, "ok"):
+		return false
+	return update_placement(
+		GFVariantData.get_option_vector2(world_position_result, "value")
+	)
+
+
+func _selection_mode_from_modifier_mask(modifier_mask: int) -> SelectionMode:
+	for binding: GFSpatialCanvasSelectionModeBinding in _input_policy.selection_modifier_bindings:
+		if binding != null and binding.modifier_mask == modifier_mask:
+			return binding.selection_mode as SelectionMode
+	return _input_policy.selection_default_mode as SelectionMode
+
+
+func _matches_pointer_press(
+	event: InputEventMouseButton,
+	direct_button: MouseButton,
+	action: StringName
+) -> bool:
+	if direct_button != MOUSE_BUTTON_NONE:
+		return event.button_index == direct_button
+	if action == &"":
+		return false
+	return _runtime_pointer_action_matches(event, action)
+
+
+func _matches_pan_press(event: InputEventMouseButton) -> bool:
+	if _input_policy.pan_mouse_button != MOUSE_BUTTON_NONE:
+		return (
+			event.button_index == _input_policy.pan_mouse_button
+			and _modifier_mask_from_mouse_event(event) == _input_policy.pan_modifier_mask
+		)
+	if _input_policy.pan_action == &"":
+		return false
+	return _runtime_pointer_action_matches(event, _input_policy.pan_action)
+
+
+func _matches_cancel_action(event: InputEvent) -> bool:
+	if _is_pointer_action_event(event):
+		return false
+	if _input_policy.placement_cancel_action == &"":
+		return false
+	if not _runtime_cancel_action_is_safe(_input_policy.placement_cancel_action):
+		return false
+	return event.is_action_pressed(
+		_input_policy.placement_cancel_action,
+		false,
+		true
+	)
+
+
+func _runtime_pointer_action_matches(
+	event: InputEventMouseButton,
+	action: StringName
+) -> bool:
+	if action == &"" or not InputMap.has_action(action):
+		return false
+	var action_events: Array[InputEvent] = InputMap.action_get_events(action)
+	if action_events.size() > GFSpatialCanvasInputPolicy.ABSOLUTE_MAX_ACTION_EVENTS:
+		return false
+	var has_pointer_event: bool = false
+	for action_event: InputEvent in action_events:
+		if not action_event is InputEventMouseButton:
+			continue
+		var mouse_action_event: InputEventMouseButton = action_event
+		if (
+			not _is_mouse_wheel_button(mouse_action_event.button_index)
+			and mouse_action_event.button_index != MOUSE_BUTTON_NONE
+		):
+			has_pointer_event = true
+			break
+	if not has_pointer_event:
+		return false
+	return event.is_action_pressed(action, false, true)
+
+
+func _runtime_cancel_action_is_safe(action: StringName) -> bool:
+	if action == &"" or not InputMap.has_action(action):
+		return false
+	var action_events: Array[InputEvent] = InputMap.action_get_events(action)
+	if action_events.size() > GFSpatialCanvasInputPolicy.ABSOLUTE_MAX_ACTION_EVENTS:
+		return false
+	for action_event: InputEvent in action_events:
+		if _is_pointer_action_event(action_event):
+			return false
+	return true
+
+
+func _is_pointer_action_event(event: InputEvent) -> bool:
+	return (
+		event is InputEventMouse
+		or event is InputEventScreenTouch
+		or event is InputEventScreenDrag
+		or event is InputEventGesture
+	)
+
+
+func _modifier_mask_from_mouse_event(event: InputEventMouseButton) -> int:
+	var result: int = GFSpatialCanvasInputPolicy.ModifierMask.NONE
 	if event.shift_pressed:
-		return SelectionMode.ADD
-	return SelectionMode.REPLACE
+		result |= GFSpatialCanvasInputPolicy.ModifierMask.SHIFT
+	if event.ctrl_pressed:
+		result |= GFSpatialCanvasInputPolicy.ModifierMask.CTRL
+	if event.alt_pressed:
+		result |= GFSpatialCanvasInputPolicy.ModifierMask.ALT
+	if event.meta_pressed:
+		result |= GFSpatialCanvasInputPolicy.ModifierMask.META
+	return result
+
+
+func _is_mouse_wheel_button(button: MouseButton) -> bool:
+	return (
+		button == MOUSE_BUTTON_WHEEL_UP
+		or button == MOUSE_BUTTON_WHEEL_DOWN
+		or button == MOUSE_BUTTON_WHEEL_LEFT
+		or button == MOUSE_BUTTON_WHEEL_RIGHT
+	)
+
+
+func _wheel_button_matches_axis(button: MouseButton) -> bool:
+	if _input_policy.wheel_axis == GFSpatialCanvasInputPolicy.WheelAxis.VERTICAL:
+		return button == MOUSE_BUTTON_WHEEL_UP or button == MOUSE_BUTTON_WHEEL_DOWN
+	return button == MOUSE_BUTTON_WHEEL_LEFT or button == MOUSE_BUTTON_WHEEL_RIGHT
+
+
+func _gesture_tracks_pointer(pointer_index: int) -> bool:
+	var snapshot: Dictionary = _gesture_utility.get_gesture_snapshot()
+	for pointer_value: Variant in GFVariantData.get_option_array(snapshot, "pointer_ids"):
+		if not pointer_value is int:
+			continue
+		var pointer_id: int = pointer_value
+		if pointer_id == pointer_index:
+			return true
+	return false
+
+
+func _has_raw_touch_multi_behavior() -> bool:
+	return (
+		_input_policy.touch_multi_pan_enabled
+		or _input_policy.touch_multi_zoom_enabled
+	)
+
+
+func _acquire_input_capture(capture_owner: _InputCaptureOwner, device: int) -> bool:
+	if capture_owner == _InputCaptureOwner.NONE:
+		return false
+	if _input_capture_owner == _InputCaptureOwner.NONE:
+		_input_capture_owner = capture_owner
+		_input_capture_device = device
+	return _input_capture_owner == capture_owner and _input_capture_device == device
+
+
+func _release_input_capture(capture_owner: _InputCaptureOwner) -> void:
+	if _input_capture_owner == capture_owner:
+		_input_capture_owner = _InputCaptureOwner.NONE
+		_input_capture_device = 0
+
+
+func _input_capture_conflicts_with_event(event: InputEvent) -> bool:
+	if _input_capture_owner == _InputCaptureOwner.MOUSE:
+		return (
+			(event is InputEventMouse and event.device != _input_capture_device)
+			or event is InputEventScreenTouch
+			or event is InputEventScreenDrag
+			or event is InputEventPanGesture
+			or event is InputEventMagnifyGesture
+		)
+	if _input_capture_owner == _InputCaptureOwner.RAW_TOUCH:
+		return (
+			(
+				(event is InputEventScreenTouch or event is InputEventScreenDrag)
+				and event.device != _input_capture_device
+			)
+			or event is InputEventMouse
+			or event is InputEventPanGesture
+			or event is InputEventMagnifyGesture
+		)
+	return false
+
+
+func _has_transient_input_state() -> bool:
+	return (
+		_input_capture_owner != _InputCaptureOwner.NONE
+		or _gesture_active
+		or _mouse_pan_active
+		or _selection_drag_active
+		or _selection_capture_button != MOUSE_BUTTON_NONE
+		or _touch_selection_index >= 0
+	)
+
+
+func _general_disposition() -> InputDisposition:
+	if _input_policy.consume_handled_events:
+		return InputDisposition.CONSUMED
+	return InputDisposition.HANDLED
+
+
+func _wheel_disposition() -> InputDisposition:
+	if _input_policy.consume_wheel_events:
+		return InputDisposition.CONSUMED
+	return InputDisposition.HANDLED
 
 
 func _on_gesture_updated(snapshot: Dictionary, _event: InputEvent) -> void:
-	_gesture_active = (
-		GFVariantData.get_option_bool(snapshot, "active")
-		and GFVariantData.get_option_int(snapshot, "pointer_count") > 0
-	)
+	var active: bool = GFVariantData.get_option_bool(snapshot, "active")
+	var pointer_count: int = GFVariantData.get_option_int(snapshot, "pointer_count")
+	_gesture_active = active and pointer_count > 0
+	var source: StringName = GFVariantData.get_option_string_name(snapshot, "source")
+	var apply_pan: bool = true
+	var apply_zoom: bool = true
+	if String(source).begins_with("touch_"):
+		if not _input_policy.touch_enabled:
+			return
+		if pointer_count >= 2:
+			apply_pan = _input_policy.touch_multi_pan_enabled
+			apply_zoom = _input_policy.touch_multi_zoom_enabled
+		else:
+			apply_pan = (
+				_input_policy.touch_primary_behavior
+				== GFSpatialCanvasInputPolicy.TouchPrimaryBehavior.PAN
+			)
+			apply_zoom = false
 	var pan_delta: Vector2 = GFVariantData.get_option_vector2(snapshot, "pan_delta")
 	var scale_factor: float = GFVariantData.get_option_float(snapshot, "scale", 1.0)
 	var center: Vector2 = GFVariantData.get_option_vector2(snapshot, "center", size * 0.5)
-	if not pan_delta.is_zero_approx():
+	if apply_pan and not pan_delta.is_zero_approx():
 		var _panned: bool = pan_by_canvas_delta(pan_delta)
-	if not is_equal_approx(scale_factor, 1.0):
+	if apply_zoom and not is_equal_approx(scale_factor, 1.0):
 		var _zoomed: bool = zoom_at(center, scale_factor)
 
 
 func _on_gesture_ended(_snapshot: Dictionary) -> void:
 	_gesture_active = false
+	_release_input_capture(_InputCaptureOwner.RAW_TOUCH)
 
 
 func _on_focus_exited() -> void:
@@ -2072,16 +2685,32 @@ func _on_focus_exited() -> void:
 
 
 func _reset_transient_input() -> void:
-	_reset_selection_drag()
+	_input_capture_owner = _InputCaptureOwner.NONE
+	_input_capture_device = 0
+	_reset_mouse_pan_capture()
+	_reset_selection_capture()
 	_gesture_active = false
 	if _gesture_utility != null:
 		_gesture_utility.reset_gesture()
+
+
+func _reset_mouse_pan_capture() -> void:
+	_mouse_pan_active = false
+	_mouse_pan_button = MOUSE_BUTTON_NONE
+	_mouse_pan_last_position = Vector2.ZERO
+
+
+func _reset_selection_capture() -> void:
+	_selection_capture_button = MOUSE_BUTTON_NONE
+	_touch_selection_index = -1
+	_reset_selection_drag()
 
 
 func _reset_selection_drag() -> void:
 	_selection_drag_active = false
 	_selection_drag_start = Vector2.ZERO
 	_selection_drag_end = Vector2.ZERO
+	_selection_drag_mode = SelectionMode.REPLACE
 	_request_overlay_redraw()
 
 
@@ -2184,7 +2813,7 @@ func _rect_encloses_rect(outer: Rect2, inner: Rect2) -> bool:
 	)
 
 
-func _is_selection_mode_valid(mode: int) -> bool:
+func _is_selection_mode_valid(mode: SelectionMode) -> bool:
 	return (
 		mode == SelectionMode.REPLACE
 		or mode == SelectionMode.ADD

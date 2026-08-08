@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFTableRowPredicateResult" path="addons/gf/standard/utilities/ui/gf_table_row_predicate_result.gd" module="standard" extends="RefCounted" classDigest="7f8a3d3690005b66bd76d4a5a595b8689402d9b25814ffe405dedec9c8bc3a85">
+	<description>GFTableRowPredicateResult: 类型化行谓词求值结果。
+成功结果明确表示包含或排除当前行；失败结果携带稳定错误码和有界说明，
+供 GFTableDataView 中止候选投影并保留上一份已提交视图。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">value_object</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties />
+	<methods>
+		<member kind="method" name="included">
+			<signature>static func included() -&gt; GFTableRowPredicateResult:</signature>
+			<description>创建包含当前行的成功结果。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">新的包含结果。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="excluded">
+			<signature>static func excluded() -&gt; GFTableRowPredicateResult:</signature>
+			<description>创建排除当前行的成功结果。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">新的排除结果。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="failed">
+			<signature>static func failed( error_code: StringName, error_message: String = "" ) -&gt; GFTableRowPredicateResult:</signature>
+			<description>创建求值失败结果。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">error_code: 非空、无首尾空白且 UTF-8 编码不超过 128 字节的稳定错误码。</tag>
+				<tag name="param">error_message: 面向维护者的失败说明；最多保留 1024 个 UTF-8 字节。</tag>
+				<tag name="return">新的失败结果。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_successful">
+			<signature>func is_successful() -&gt; bool:</signature>
+			<description>查询求值是否成功。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">成功时返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="should_include">
+			<signature>func should_include() -&gt; bool:</signature>
+			<description>查询成功结果是否包含当前行。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">成功且应包含当前行时返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_error_code">
+			<signature>func get_error_code() -&gt; StringName:</signature>
+			<description>获取稳定错误码。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">失败错误码；成功时为空。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_error_message">
+			<signature>func get_error_message() -&gt; String:</signature>
+			<description>获取有界错误说明。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">失败说明；成功时为空。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

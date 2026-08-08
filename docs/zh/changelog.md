@@ -24,7 +24,7 @@
 
 ## [未发布]
 
-**版本概述**：本轮新增类型化音频播放区间与循环点和共享资源 admission Broker，把 Architecture 启动升级为依赖 DAG 驱动的四阶段激活并增加类型化异步关闭，为 Save Profile 增加精确 provider domain、活动身份与显式恢复/对账事务，补充 Headless 服务探针和周期环境表现的项目组合配方，修复并加固 AI Developer 的项目 Adapter 依赖边界，同时把 Changelog 与安全扫描抑制约束转为可执行维护门禁，并收紧热模块事务、Save Profile 准备、可选依赖、后台回调所有权、按 key 并发、场景邻居稳定帧、渲染预热和音频释放契约；此外加入冻结模块访问策略、Route 请求生命周期和类型化虚拟输入 Pulse，使生成访问、异步 UI 与定时输入都具备明确的身份、终态与所有权边界；框架只提供可验证的通用机制，不内置项目启动、存档业务、部署协议、环境模型或轮询式音频模拟。
+**版本概述**：本轮新增类型化音频播放区间与循环点和共享资源 admission Broker，把 Architecture 启动升级为依赖 DAG 驱动的四阶段激活并增加类型化异步关闭，为 Save Profile 增加精确 provider domain、活动身份与显式恢复/对账事务，补充 Headless 服务探针和周期环境表现的项目组合配方，修复并加固 AI Developer 的项目 Adapter 依赖边界，同时把 Changelog 与安全扫描抑制约束转为可执行维护门禁，并收紧热模块事务、Save Profile 准备、可选依赖、后台回调所有权、按 key 并发、场景邻居稳定帧、渲染预热和音频释放契约；此外加入冻结模块访问策略、Route 请求生命周期、类型化虚拟输入 Pulse，以及有界虚拟列表 Binder、事务式表格谓词和可验证的 Spatial Canvas 输入策略，使生成访问、异步 UI、定时输入和大型交互界面都具备明确的身份、终态、传播与所有权边界；框架只提供可验证的通用机制，不内置项目启动、存档业务、部署协议、领域过滤器、行视觉、环境模型或轮询式音频模拟。
 
 ### 🚀 新增特性 (Added)
 
@@ -33,7 +33,7 @@
 - `GFAudioBackendCapability` 新增播放区间协议发现能力，`GFAudioBackend.evaluate_playback_region()` 提供无副作用的逐片段、逐通道协商；粗粒度能力声明不能替代具体请求评估。
 - 新增 Headless 服务健康/探针组合配方：组合惰性诊断 Provider、有界会话字段与类型化传输指标，由项目 Adapter 决定 liveness/readiness、传输协议、鉴权和部署政策；Backend 指标补充使用通用执行预算，并对总指标、自定义指标和 ID 长度设置绝对上限。
 - 新增周期环境表现组合配方：组合可注入时钟、项目环境样本、Shader Profile、接口快照与 Binder；周期、天气、天文、时区和持久化策略继续由项目负责。
-- AI Developer Capability / Recipe 知识目录升级到 `1.8.0`，加入两份组合配方的可搜索边界，并让音频能力目录认识类型化播放区间与循环点。
+- AI Developer Capability / Recipe 知识目录升级到 `1.9.0`，加入两份环境组合配方，并让目录认识类型化播放区间、虚拟列表 Binder、事务式表格谓词和 Spatial Canvas 输入策略的可搜索组合边界。
 - `GFModel`、`GFSystem` 与 `GFUtility` 新增 `begin_activation(scope)` / `begin_quiesce(scope)`；`GFArchitecture` 新增 activation/shutdown deadline、激活与 quiescing 状态查询，以及依赖 DAG 驱动的第四阶段 bootstrap。
 - 新增 `GFArchitectureShutdownResult`：类型化区分正常完成、失败、取消、超时、强制释放与幂等重复关闭，并以有界模块条目保存 quiesce 证据；并发 `shutdown_async()` 调用共享同一关闭流程。
 - 新增 Save Profile bootstrap 组合配方：项目 System 声明依赖 `GFSaveProfileUtility`，在 `begin_activation()` 中把 `load_profile()` / `flush_profile()` Operation 桥接到一次性完成源；框架不新增项目存档业务类。
@@ -58,6 +58,9 @@
 - `GFArchitecture` 新增统一的 `resolve_module_access()`、模块类型与查询作用域枚举；Access Generator 可按精确模块脚本路径冻结 inherited/local、required 与 require-ready 策略，生成结果不再依赖运行时隐式选择。
 - 新增 `GFUIPanelAsyncOperation`：为每次底层异步 push/replace 冻结单调 serial、路径、层级和操作类型，并以弱面板引用暴露唯一终态；`GFUIRouterUtility` 的异步打开选项新增 owner 与 `GFAsyncScope` 生命周期锚点。
 - 新增 `GFVirtualInputPulseOperation` 与 `GFVirtualInputSource.PulseReplacementPolicy`：以类型化句柄表达有界虚拟动作脉冲、OR 生命周期取消、原子替换/拒绝策略、单调 generation 和匹配释放证明。
+- 新增 `GFVirtualListBinder` 与 `GFVirtualListSyncResult`：把项目持有的 `ScrollContainer`、绝对布局内容根、行工厂和绑定回调组合为 owner-bound 的有界回收句柄，按稳定 identity 物化 visible + overscan 窗口，统一处理测量回写、单次锚点修正、虚拟焦点交接、重入合并和确定性释放；数据、视觉、选择、激活与输入继续由项目负责。
+- 新增 `GFTableRowView`、`GFTableRowPredicate`、`GFTableRowPredicateResult`、`GFTableRowPredicateRegistration` 与 `GFTableViewRebuildResult`：以稳定 ID、启用状态和确定顺序组合项目谓词，并以隔离行视图和类型化结果表达包含、排除或失败。
+- 新增 `GFSpatialCanvasInputPolicy` 与 `GFSpatialCanvasSelectionModeBinding`；`GFSpatialCanvas2D.InputDisposition` 显式区分 ignored、handled 和 consumed，使鼠标 chord、选择修饰键、滚轮父级仲裁、可禁用单指行为、独立多指 pan/zoom、系统手势和取消 action 可以在不继承 Canvas 的前提下原子配置。
 
 ### 🔄 机制更改 (Changed)
 
@@ -97,6 +100,9 @@
 - Access Generator 在调用扩展或构建源码前事务式验证整批策略，统一 String/StringName 字段键并拒绝等价重复、未知、失配或错误类型配置；失败报告固定为零写入且不会覆盖既有产物。生成的 Model/System/Utility 访问器统一委托 Architecture 共享解析原语。
 - `GFUIUtility.push_panel_async*()` / `replace_layer_async*()` 改为返回精确请求句柄并可预绑定完成回调；Router 只关联返回句柄，不再把无请求身份的全局完成信号当作协议。Route 在 UI 提交前接受 owner/scope 任一终止，提交后则保持结果未知边界，不尝试撤销已提交 UI 工作。
 - 虚拟输入 Pulse 由 Source 持有操作 generation、Mapping 持有稳定输入键的权威 lease；同键替换和手动写入在单次原子边界交接，不发出中间 inactive 状态，清理、重建与 dispose 只释放仍匹配的当前贡献。
+- `GFVirtualListModel` 增加单调布局 revision、`layout_changed` 与不含 overscan 的 viewport range；Binder 先保证真实视口，再在硬预算内补充 overscan，按本地 pool 复用 Control，并按测量前整数锚点合并同一轮全部滚动修正。每轮同步在任何项目回调前冻结 data/layout revision、条目数量、范围、目标 geometry、content extent、布局主轴、交叉轴尺寸/填充策略、活动预算与测量请求 revision；布局/轴/填充/预算变化、显式重测与新焦点意图只进入下一轮。callback 内 `invalidate_items()` 会以非成功 `STATUS_DEFERRED` 中止旧 data generation：绑定副作用前保留旧 active，副作用开始后则按 Control 身份去重、对称解绑并清空不可信 materialization，且不推进 committed revision。callback 内收紧 pool 预算也延迟到候选提交或回滚后裁剪，结果报告最终 pool 数量。公开 reveal 只有在模型、视口、主轴、精确 Control 所有权和最终整数偏移全部保持一致时才成功，否则保留意图并请求下一轮。Binder 只恢复自己实际拥有的内容轴，切轴不会覆盖项目对另一轴的修改；owner、滚动容器、内容根或活动 Control 失效都会进入确定性释放，三类生命周期节点任一退出树都会立即 dispose。`GFVirtualListSyncResult.to_dict()` 只输出 JSON 原生 String、Dictionary、Array、数字和布尔值。数据或 identity 变化必须由项目显式失效，不能伪装成布局变化。
+- `GFTableDataView` 的投影管线收敛为“文本过滤 → 启用谓词 AND 短路 → 排序 → 单次候选交换”；注册校验、谓词失败、非法结果和经 `GFTableDataView` API 发起的回调重入都保留上一份 registry、source、projection、revision 与选择。谓词数量先执行 raw admission，超限时不遍历或调用候选；每个谓词接收独占 `GFTableRowView`，框架只经静态入口调用受保护 `_evaluate()`，并直接从继承基类存储归一化结果，候选覆写公开 evaluate/getter 不能参与协议。注册 metadata 同样按 inherited 基类存储隔离为纯 GF 值；查询只返回独立快照，调用方不能绕过 revision 静默修改 ID、顺序、启用态或谓词引用。谓词实例参数变化必须显式 `refresh_view()`。行快照中的 PackedVector 按 double-precision 构建上界计费。单格和批量写入先在可隔离候选行上完成写入与完整投影，再一次提交 source、selection 和 projection；稳定行 ID 变化会同时迁移选择集合与原范围锚点。不可安全复制的行值或带任意 setter 的写入失败关闭，不再留下部分写入，所有外部信号只在一致状态完成后发布。
+- `GFSpatialCanvas2D` 不再把“已处理”和“停止传播”混为布尔值；输入策略先逐字段复制到纯 GF 基类实例再校验，不能由 Resource 子类覆写复制或校验绕过。拖动开始时冻结实际按钮与选择模式，普通滚轮可以留给父级 `ScrollContainer`，手工转发不隐式修改 Viewport handled 状态；取消 action 只允许非指针事件，并在每次匹配前重新执行有界检查，InputMap 运行时漂移会失败关闭而不会抢占平移或选择。鼠标与原始触摸现在由唯一物理输入 owner 串行化：冲突来源（含 wheel）和系统手势在匹配 release 或显式 cancel 前保持 `IGNORED` 且不修改 Canvas 状态，输入禁用、策略替换、Control/应用失焦、应用暂停、Canvas 隐藏和生命周期退出会完整释放 owner 与指针追踪。单指 `NONE` 且全部 raw 多指行为关闭时不会建立隐式捕获；多指 pan 与 pinch zoom 分别门控，同一手势只应用明确启用的视图分量。Godot canceled 鼠标/touch 只释放匹配捕获，不再被当作正常 release 提交选择或放置。
 
 ### 🐛 Bug 修复 (Fixed)
 
@@ -137,6 +143,7 @@
 - 移除 `GFSaveSectionProvider.gather_section()`、`_gather_section()`、`GFSaveProfileUtility.STATE_GATHERING` 及读取回滚对保存采集的隐式回退；保存 Provider 必须采用 Snapshot Operation，启用读取的 Provider 必须显式实现 `_capture_section()`。
 - 移除 `GFArchitecture.fail_on_missing_declared_dependencies` 与 `module_lifecycle_max_stage_passes`；声明依赖现在始终是强契约，生命周期计划只编译一个确定性候选 DAG，不保留 warning-only 或初始化期多轮补注册路径。
 - 移除 `GFArchitecture.HOOK_GET_REQUIRED_DEPENDENCIES`、`HOOK_GET_REQUIRED_MODELS`、`HOOK_GET_REQUIRED_SYSTEMS`、`HOOK_GET_REQUIRED_UTILITIES` 与 `HOOK_GET_REQUIRED_FACTORIES`；依赖声明只通过 `GFModel`、`GFSystem`、`GFUtility` 的类型化虚方法表达，不再暴露字符串 Hook 常量。
+- 移除 `GFSpatialCanvas2D.handle_input_event()` / `handle_screen_input_event()` 的 `bool` 返回契约，以及内置 raw Escape、中键、左键和固定 modifier 判断；调用方改用 `InputDisposition` 与显式 `GFSpatialCanvasInputPolicy`，不保留双轨解释路径。
 
 ### 🔧 API 变动说明 (API Changes)
 
@@ -171,6 +178,9 @@
 - `GFArchitecture.ModuleKind`、`ModuleLookupScope` 与 `resolve_module_access(module_kind, script_cls, lookup_scope, required, require_ready)` 是新的公开共享模块解析 API；`GFAccessGenerator.ACCESS_SCOPE_*`、`ACCESS_POLICIES_SETTING` 和 `gf/codegen/access_policies` 是新的生成期策略契约。
 - `GFUIUtility.push_panel_async()`、`push_panel_async_with_options()`、`replace_layer_async()` 与 `replace_layer_async_with_options()` 现在返回 `GFUIPanelAsyncOperation`，并在末尾接收可选完成回调；`GFUIRouterUtility.push_route_async()` / `replace_route_async()` 的 `async_options` 支持 `owner` 与 `scope`，`GFUIRouteResult` 新增 `STATUS_INVALID_LIFECYCLE`。
 - `GFVirtualInputSource.configure()` 新增可选 `GFTimerUtility`，并新增 `set_timer_utility()`、`get_timer_utility()`、`pulse_action()` 与不可逆 `dispose()`；`GFVirtualInputPulseOperation` 公开冻结身份、状态、取消、调试快照和匹配释放计数。
+- `GFVirtualListModel.layout_changed(revision)`、`get_revision()` 与 `get_viewport_range()` 是新的公开布局观察 API；`GFVirtualListBinder.bind()` / `sync_now()` / `invalidate_items()` / `request_measurement()` / `scroll_to_item()`、生命周期入口和 `GFVirtualListSyncResult` 构成新的可回收 Control 组合契约；`GFVirtualListSyncResult.to_dict()` 的范围编码为 `{start, end_exclusive}`，物化索引编码为 `Array[int]`。
+- `GFTableDataView.view_changed` 从单个 `visible_count` 参数改为 `(view_revision, visible_count)`；`set_columns()`、`set_rows()`、`set_filter_query()` 与 `refresh_view()` 现在返回 `GFTableViewRebuildResult`。移除可绕过事务的 `row_id_column`、`case_sensitive_filter` 与 `selection_model` 公共字段，改为类型化 setter/getter；新增命名谓词注册、启停、排序、查询和 revision/result API。`GFTableSelectionModel` 新增原子替换选择集合与锚点的入口；`commit_cell_value()` 与两种批量提交改为候选行事务，不再允许不可隔离行或任意 `value_setter` 走先写后刷新的部分提交路径。命名谓词不保留 Callable-only 或裸 Dictionary 入口。
+- `GFSpatialCanvas2D.handle_input_event()` 与 `handle_screen_input_event()` 的返回类型从 `bool` 改为命名的 `InputDisposition` 枚举；新增 `set_input_policy()` / `get_input_policy()`、`GFSpatialCanvasInputPolicy` 与 `GFSpatialCanvasSelectionModeBinding`。滚轮轴、滚轮路由、触摸主行为分别使用各自的命名枚举；`TouchPrimaryBehavior.NONE` 显式关闭单指行为，`touch_multi_pan_enabled` 与 `touch_multi_zoom_enabled` 独立控制 raw 多指视图分量。策略默认选择、嵌套 modifier binding、公开选择入口和捕获状态共同使用唯一的 `GFSpatialCanvas2D.SelectionMode` 类型。
 
 ### 📘 升级指南 (Migration Guide)
 
@@ -213,6 +223,9 @@
 26. 若项目依赖生成访问器的本地/父级、必需性或 ready 语义，在 `gf/codegen/access_policies` 中按精确 `res://` 模块脚本路径声明策略并重新生成；删除未知、重复或已失配路径，生成器会整批失败关闭而不保留部分源码。
 27. 把依赖全局 `panel_async_load_finished` 识别单次请求的代码迁移到异步 UI 方法返回的 `GFUIPanelAsyncOperation` 或完成回调；全局信号只用于无身份遥测。Route 调用若需要生命周期绑定，在 options 中传有效 owner 和/或未完成的 `GFAsyncScope`。
 28. 需要短时虚拟动作时，为 `GFVirtualInputSource` 注入共享 `GFTimerUtility` 并调用 `pulse_action()`；用返回句柄观察终态，不自行安排延迟 `clear_action()`。同键覆盖语义应显式选择 REPLACE 或 REJECT_NEW，Source 与 Mapping 关闭后不得复用。
+29. 大型列表把项目 `ScrollContainer` 的直接子内容根、行工厂、bind/unbind、稳定 identity 和 owner 交给 `GFVirtualListBinder`；内容根不能是接管子节点位置的 `Container`。排序、过滤或数据内容提交后显式调用 `invalidate_items()`，只使用稳定且有界的标量 identity；若在 Binder callback 内失效，当前结果会是非成功 `STATUS_DEFERRED`，副作用已开始时 active 可被安全清空，调用方应以结果索引为准等待下一轮重建。需要切换 `layout_axis`、`fill_cross_axis`、`auto_measure` 或 callback 内的预算时，先更新配置并调用 `request_sync()`，当前同步轮仍使用入口快照，下一轮才采用新值。`scroll_to_item()` 返回 `false` 表示操作快照或最终整数偏移未能完整提交，调用方不要把它当作部分成功。Binder 会按每段轴所有权恢复接管前的最小尺寸。owner 退出前让 Binder 自动或显式 `dispose()`，不得重挂载或释放 Binder-owned Control。
+30. 表格结构化过滤改为继承 `GFTableRowPredicate`，返回 `GFTableRowPredicateResult`，再用 `GFTableRowPredicateRegistration.create()` 批量事务注册。将 `row_id_column`、`case_sensitive_filter` 与 `selection_model` 直接赋值迁移到 `set_row_id_column()`、`set_filter_case_sensitive()` 与 `set_selection_model()`，并通过 getter 读取已提交配置。更新所有 `view_changed` 连接以接收 revision 与 visible count；只有 rebuild result 成功且 committed，或收到 `view_changed` 时，才更新 VirtualList count 与 Binder identity，失败时继续展示上一份已提交投影。谓词实例的项目参数改变后显式调用 `refresh_view()`，不要依赖框架观察任意成员写入。经 `GFTableDataView.commit_cell_value()` 或批量入口写入的行必须可安全隔离；把带任意副作用的 `value_setter` 移到项目事务层，提交完成后再用新的 source 行调用 `set_rows()`。
+31. Spatial Canvas 输入转发改为检查 `InputDisposition`：只有 `CONSUMED` 才停止项目路由。创建并校验 `GFSpatialCanvasInputPolicy` 来替代硬编码按键；嵌套滚动界面用 modifier-gated 或 parent-only wheel，让未匹配滚轮继续 GUI 冒泡。需要禁用单指时使用 `TouchPrimaryBehavior.NONE`，并分别决定 raw 多指 pan 与 pinch zoom；若二者也都关闭，首触点不会被 Canvas 捕获。取消行为使用只含非指针事件的项目 InputMap action，不得与鼠标、触摸或位置手势复用；项目运行时修改 InputMap 后，超出事件预算或变成指针映射的取消 action 会失败关闭。
 
 ### 📁 核心受影响文件 (Affected Files)
 
@@ -248,6 +261,18 @@
 - `addons/gf/standard/utilities/ui/gf_ui_route_result.gd`
 - `addons/gf/standard/utilities/ui/gf_ui_router_utility.gd`
 - `addons/gf/standard/utilities/ui/gf_ui_utility.gd`
+- `addons/gf/standard/utilities/ui/gf_virtual_list_model.gd`
+- `addons/gf/standard/utilities/ui/gf_virtual_list_binder.gd`
+- `addons/gf/standard/utilities/ui/gf_virtual_list_sync_result.gd`
+- `addons/gf/standard/utilities/ui/gf_table_data_view.gd`
+- `addons/gf/standard/utilities/ui/gf_table_row_predicate.gd`
+- `addons/gf/standard/utilities/ui/gf_table_row_predicate_registration.gd`
+- `addons/gf/standard/utilities/ui/gf_table_row_predicate_result.gd`
+- `addons/gf/standard/utilities/ui/gf_table_row_view.gd`
+- `addons/gf/standard/utilities/ui/gf_table_view_rebuild_result.gd`
+- `addons/gf/standard/utilities/spatial_canvas/gf_spatial_canvas_2d.gd`
+- `addons/gf/standard/utilities/spatial_canvas/gf_spatial_canvas_input_policy.gd`
+- `addons/gf/standard/utilities/spatial_canvas/gf_spatial_canvas_selection_mode_binding.gd`
 - `addons/gf/standard/input/sources/gf_virtual_input_pulse_operation.gd`
 - `addons/gf/standard/input/sources/gf_virtual_input_source.gd`
 - `addons/gf/standard/input/runtime/gf_input_mapping_utility.gd`
@@ -275,6 +300,8 @@
 - `addons/gf/extensions/save/profile/gf_save_profile_mutation_request.gd`
 - `addons/gf/extensions/save/gf_extension.json`
 - `packages/standard/gf.standard.storage.json`
+- `packages/standard/gf.standard.ui.json`
+- `packages/standard/gf.standard.spatial.canvas.json`
 - `addons/gf/extensions/network/backends/gf_network_backend.gd`
 - `addons/gf/extensions/network/runtime/gf_network_transport_metrics.gd`
 - `addons/gf/extensions/network/gf_extension.json`
@@ -282,6 +309,7 @@
 - `addons/gf/tools/ai_developer/gf_ai/contract.py`
 - `addons/gf/tools/ai_developer/gf_ai/dependencies.py`
 - `addons/gf/tools/ai_developer/gf_ai/snapshot.py`
+- `addons/gf/tools/ai_developer/knowledge/capabilities.json`
 - `addons/gf/tools/ai_developer/knowledge/recipes.json`
 - `tools/gdscript_api_parser.py`
 - `tools/gf_maintenance.py`
@@ -297,6 +325,9 @@
 - `docs/zh/standard/utilities/io/storage-snapshot/storage-utility.md`
 - `docs/zh/standard/utilities/io/assets-jobs-warmup/resource-broker.md`
 - `docs/zh/standard/utilities/runtime/settings-ui-scene/scene-flow/preload-cache-map.md`
+- `docs/zh/standard/utilities/runtime/settings-ui-scene/ui-stack-routing/viewport-text-node-tools/virtual-list-model.md`
+- `docs/zh/standard/utilities/runtime/settings-ui-scene/ui-stack-routing/viewport-text-node-tools/table-data-view.md`
+- `docs/zh/standard/input-flow/spatial-canvas-2d.md`
 - `docs/zh/standard/utilities/runtime/audio/backend-events.md`
 - `docs/zh/standard/utilities/runtime/settings-ui-scene/shader-parameter-profile.md`
 - `tests/gf_core/extensions/network/test_gf_network_extension.gd`
@@ -313,6 +344,9 @@
 - `tests/gf_core/standard/utilities/storage/test_gf_storage_payload_transfer.gd`
 - `tests/gf_core/standard/utilities/assets/test_gf_resource_broker.gd`
 - `tests/gf_core/standard/utilities/scene/test_gf_scene_preload_map.gd`
+- `tests/gf_core/standard/utilities/ui/test_gf_virtual_list_binder.gd`
+- `tests/gf_core/standard/utilities/ui/test_gf_table_row_predicates.gd`
+- `tests/gf_core/standard/utilities/spatial_canvas/test_gf_spatial_canvas_2d.gd`
 - `tests/gf_core/package_focused_gut_mapping.json`
 - `tests/gf_core/standard/utilities/audio/test_gf_audio_utility.gd`
 - `tests/gf_core/tools/ai_developer/test_gf_ai_project_tool.py`

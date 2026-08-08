@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFTableRowView" path="addons/gf/standard/utilities/ui/gf_table_row_view.gd" module="standard" extends="RefCounted" classDigest="d3fb369088a2ad84fe0ab9ed357541342db8945fc8bcc80d24a3306326f0b4a9">
+	<description>GFTableRowView: 表格行谓词使用的隔离只读视图。
+只公开稳定行 ID、源索引和已配置列的复制值，不公开源行容器。
+项目谓词可以读取隐藏列，但不能通过该视图修改权威表格数据。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">value_object</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties />
+	<methods>
+		<member kind="method" name="get_row_id">
+			<signature>func get_row_id() -&gt; Variant:</signature>
+			<description>获取稳定行 ID 副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">稳定行 ID 副本。</tag>
+				<tag name="schema">return: Variant stable row identity copy.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_source_row_index">
+			<signature>func get_source_row_index() -&gt; int:</signature>
+			<description>获取源行索引。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">构建该视图时的源行索引。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="has_value">
+			<signature>func has_value(column_id: StringName) -&gt; bool:</signature>
+			<description>判断是否包含指定列值。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">column_id: 稳定列 ID。</tag>
+				<tag name="return">存在列值时返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_value">
+			<signature>func get_value(column_id: StringName, default_value: Variant = null) -&gt; Variant:</signature>
+			<description>获取指定列的隔离值副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">column_id: 稳定列 ID。</tag>
+				<tag name="param">default_value: 列不存在时返回的默认值。</tag>
+				<tag name="return">列值或默认值的副本。</tag>
+				<tag name="schema">default_value: Variant fallback copied before return.</tag>
+				<tag name="schema">return: Variant isolated column value copy.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_values">
+			<signature>func get_values() -&gt; Dictionary:</signature>
+			<description>获取全部列值副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">以列 ID 为键的隔离值副本。</tag>
+				<tag name="schema">return: Dictionary keyed by StringName column IDs with copied Variant values.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

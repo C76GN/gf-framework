@@ -2,8 +2,8 @@
   "schema_version": 1,
   "catalog_version": "1.0.0",
   "framework_version": "11.0.0-dev.0",
-  "source_digest": "de285031e86ff6421bf561a34dcc42fa84fa2a2b45644b040a7823faf02875b6",
-  "class_count": 780,
+  "source_digest": "95a9d6eaa1332964197ad119a48cb090ab1855446abee23c2cc8d041c4f2a4ae",
+  "class_count": 789,
   "package_count": 52,
   "packages": [
     {
@@ -415,7 +415,7 @@
         "gf.standard.input",
         "gf.standard.spatial"
       ],
-      "description": "Bounded runtime Control for 2D world navigation, grid snapping, stable item selection, and project-validated placement sessions.",
+      "description": "Bounded runtime Control for 2D world navigation, configurable input and parent-scroll arbitration, grid snapping, stable item selection, and project-validated placement sessions.",
       "representative_path": "addons/gf/standard/utilities/spatial_canvas/gf_spatial_canvas_2d.gd"
     },
     {
@@ -488,7 +488,7 @@
         "gf.kernel",
         "gf.standard.base"
       ],
-      "description": "Core UI value adapters, form/list/table helpers, modal value objects, text fitting, and virtual list models.",
+      "description": "Core UI value adapters, form/list/table projection helpers, modal value objects, text fitting, and bounded virtual list binding.",
       "representative_path": "addons/gf/standard/utilities/ui/gf_control_focus_utility.gd"
     },
     {
@@ -77623,6 +77623,13 @@
           "visibility": "public"
         },
         {
+          "kind": "enum",
+          "name": "InputDisposition",
+          "signature": "enum InputDisposition {\n\t## 事件未被画布识别或当前策略要求继续交给其他接收者。\n\tIGNORED,\n\t## 事件已更新画布，但仍允许 GUI 冒泡。\n\tHANDLED,\n\t## 事件已更新画布，并应在 GUI 边界停止传播。\n\tCONSUMED,\n}",
+          "summary": "输入处理结果。",
+          "visibility": "public"
+        },
+        {
           "kind": "const",
           "name": "ABSOLUTE_MAX_ITEMS",
           "signature": "const ABSOLUTE_MAX_ITEMS: int = 65536",
@@ -77849,21 +77856,21 @@
         {
           "kind": "func",
           "name": "set_selection",
-          "signature": "func set_selection( item_ids: PackedStringArray, mode: int = SelectionMode.REPLACE ) -> PackedStringArray",
+          "signature": "func set_selection( item_ids: PackedStringArray, mode: SelectionMode = SelectionMode.REPLACE ) -> PackedStringArray",
           "summary": "按模式更新选择。",
           "visibility": "public"
         },
         {
           "kind": "func",
           "name": "select_point",
-          "signature": "func select_point( canvas_position: Vector2, mode: int = SelectionMode.REPLACE ) -> PackedStringArray",
+          "signature": "func select_point( canvas_position: Vector2, mode: SelectionMode = SelectionMode.REPLACE ) -> PackedStringArray",
           "summary": "在画布坐标点选最高优先级条目。",
           "visibility": "public"
         },
         {
           "kind": "func",
           "name": "select_rect",
-          "signature": "func select_rect( canvas_rect: Rect2, mode: int = SelectionMode.REPLACE, fully_contained: bool = false ) -> PackedStringArray",
+          "signature": "func select_rect( canvas_rect: Rect2, mode: SelectionMode = SelectionMode.REPLACE, fully_contained: bool = false ) -> PackedStringArray",
           "summary": "在画布坐标框选条目。",
           "visibility": "public"
         },
@@ -77939,15 +77946,29 @@
         },
         {
           "kind": "func",
+          "name": "set_input_policy",
+          "signature": "func set_input_policy(policy: GFSpatialCanvasInputPolicy) -> bool",
+          "summary": "原子替换输入解释策略。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_input_policy",
+          "signature": "func get_input_policy() -> GFSpatialCanvasInputPolicy",
+          "summary": "获取当前输入策略的隔离副本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
           "name": "handle_input_event",
-          "signature": "func handle_input_event(event: InputEvent) -> bool",
+          "signature": "func handle_input_event(event: InputEvent) -> InputDisposition",
           "summary": "处理一个项目转发的输入事件。",
           "visibility": "public"
         },
         {
           "kind": "func",
           "name": "handle_screen_input_event",
-          "signature": "func handle_screen_input_event(event: InputEvent) -> bool",
+          "signature": "func handle_screen_input_event(event: InputEvent) -> InputDisposition",
           "summary": "处理一个使用 Viewport 屏幕坐标的输入事件。",
           "visibility": "public"
         },
@@ -77963,6 +77984,254 @@
           "name": "get_debug_snapshot",
           "signature": "func get_debug_snapshot() -> Dictionary",
           "summary": "获取 JSON-safe 调试快照。",
+          "visibility": "public"
+        }
+      ]
+    },
+    "GFSpatialCanvasInputPolicy": {
+      "extends": "Resource",
+      "module": "standard",
+      "package_id": "gf.standard.spatial.canvas",
+      "path": "addons/gf/standard/utilities/spatial_canvas/gf_spatial_canvas_input_policy.gd",
+      "summary": "GFSpatialCanvasInputPolicy: 空间画布输入解释策略。 以数据方式声明平移、选择、滚轮、触摸和取消输入。策略不持有节点、 Viewport 或父容器引用；[code]GFSpatialCanvas2D[/code] 只接受完整校验通过的隔离副本。",
+      "visibility": "public",
+      "category": "resource_definition",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "enum",
+          "name": "ModifierMask",
+          "signature": "enum ModifierMask {\n\t## 不要求修饰键。\n\tNONE = 0,\n\t## Shift 修饰键。\n\tSHIFT = 1,\n\t## Ctrl 修饰键。\n\tCTRL = 2,\n\t## Alt 修饰键。\n\tALT = 4,\n\t## Meta 修饰键。\n\tMETA = 8,\n}",
+          "summary": "输入修饰键位掩码。",
+          "visibility": "public"
+        },
+        {
+          "kind": "enum",
+          "name": "WheelAxis",
+          "signature": "enum WheelAxis {\n\t## 使用向上/向下滚轮事件。\n\tVERTICAL,\n\t## 使用向左/向右滚轮事件。\n\tHORIZONTAL,\n}",
+          "summary": "滚轮缩放使用的物理轴。",
+          "visibility": "public"
+        },
+        {
+          "kind": "enum",
+          "name": "WheelRouting",
+          "signature": "enum WheelRouting {\n\t## 画布处理目标轴上的所有滚轮事件。\n\tCANVAS,\n\t## 只有修饰键掩码精确匹配时由画布处理。\n\tMODIFIER_GATED,\n\t## 画布始终忽略滚轮，让 GUI 祖先继续处理。\n\tPARENT_ONLY,\n}",
+          "summary": "滚轮事件的画布路由策略。",
+          "visibility": "public"
+        },
+        {
+          "kind": "enum",
+          "name": "TouchPrimaryBehavior",
+          "signature": "enum TouchPrimaryBehavior {\n\t## 单指不执行画布行为；若启用任一多指行为，首触点仍会被捕获以等待后续触点。\n\tNONE,\n\t## 单指拖动平移画布。\n\tPAN,\n\t## 单指执行点选、框选或放置确认。\n\tSELECT,\n}",
+          "summary": "单指触摸的主行为。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "ABSOLUTE_MAX_SELECTION_MODIFIER_BINDINGS",
+          "signature": "const ABSOLUTE_MAX_SELECTION_MODIFIER_BINDINGS: int = 15",
+          "summary": "单份策略允许声明的选择修饰键绑定绝对上限。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "ABSOLUTE_MAX_ACTION_EVENTS",
+          "signature": "const ABSOLUTE_MAX_ACTION_EVENTS: int = 64",
+          "summary": "校验单个 InputMap action 时允许扫描的事件绝对上限。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "pan_mouse_button",
+          "signature": "var pan_mouse_button: MouseButton = MOUSE_BUTTON_MIDDLE",
+          "summary": "直接触发平移捕获的鼠标按钮；[constant MOUSE_BUTTON_NONE] 表示禁用直接按钮。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "pan_action",
+          "signature": "var pan_action: StringName = &\"\"",
+          "summary": "通过 InputMap 触发平移捕获的动作；空名称表示禁用动作绑定。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "pan_modifier_mask",
+          "signature": "var pan_modifier_mask: int = ModifierMask.NONE",
+          "summary": "直接平移按钮必须精确匹配的修饰键掩码。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "selection_mouse_button",
+          "signature": "var selection_mouse_button: MouseButton = MOUSE_BUTTON_LEFT",
+          "summary": "直接触发选择捕获的鼠标按钮；[constant MOUSE_BUTTON_NONE] 表示禁用直接按钮。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "selection_action",
+          "signature": "var selection_action: StringName = &\"\"",
+          "summary": "通过 InputMap 触发选择捕获的动作；空名称表示禁用动作绑定。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "selection_default_mode",
+          "signature": "var selection_default_mode: GFSpatialCanvas2D.SelectionMode = (",
+          "summary": "没有选择修饰键绑定精确匹配时使用的 [code]GFSpatialCanvas2D.SelectionMode[/code]。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "selection_modifier_bindings",
+          "signature": "var selection_modifier_bindings: Array[GFSpatialCanvasSelectionModeBinding] = []",
+          "summary": "修饰键到选择模式的精确匹配表；重复掩码会使策略校验失败。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "drag_threshold",
+          "signature": "var drag_threshold: float = 4.0",
+          "summary": "区分点选和框选的局部画布像素阈值。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "wheel_axis",
+          "signature": "var wheel_axis: WheelAxis = WheelAxis.VERTICAL",
+          "summary": "用于画布缩放的滚轮轴。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "wheel_routing",
+          "signature": "var wheel_routing: WheelRouting = WheelRouting.CANVAS",
+          "summary": "滚轮缩放路由策略。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "wheel_modifier_mask",
+          "signature": "var wheel_modifier_mask: int = ModifierMask.NONE",
+          "summary": "[constant WheelRouting.MODIFIER_GATED] 下必须精确匹配的修饰键掩码。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "wheel_zoom_factor",
+          "signature": "var wheel_zoom_factor: float = 1.1",
+          "summary": "每个滚轮刻度的缩放倍率，必须为有限且大于 1 的值。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "touch_enabled",
+          "signature": "var touch_enabled: bool = true",
+          "summary": "是否处理原始 ScreenTouch / ScreenDrag 事件。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "touch_primary_behavior",
+          "signature": "var touch_primary_behavior: TouchPrimaryBehavior = TouchPrimaryBehavior.PAN",
+          "summary": "单指触摸的主行为。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "touch_multi_pan_enabled",
+          "signature": "var touch_multi_pan_enabled: bool = true",
+          "summary": "是否允许双指及以上触点驱动平移。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "touch_multi_zoom_enabled",
+          "signature": "var touch_multi_zoom_enabled: bool = true",
+          "summary": "是否允许双指及以上触点驱动捏合缩放。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "system_pan_gesture_enabled",
+          "signature": "var system_pan_gesture_enabled: bool = true",
+          "summary": "是否处理 Godot 的系统 PanGesture 事件。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "system_magnify_gesture_enabled",
+          "signature": "var system_magnify_gesture_enabled: bool = true",
+          "summary": "是否处理 Godot 的系统 MagnifyGesture 事件。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "placement_cancel_action",
+          "signature": "var placement_cancel_action: StringName = &\"ui_cancel\"",
+          "summary": "取消活动放置或瞬态选择的非指针 InputMap 动作；空名称表示禁用取消输入。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "consume_handled_events",
+          "signature": "var consume_handled_events: bool = true",
+          "summary": "一般已处理事件是否由 Canvas GUI 边界消费。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "consume_wheel_events",
+          "signature": "var consume_wheel_events: bool = true",
+          "summary": "已处理滚轮事件是否由 Canvas GUI 边界消费。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "validate_policy",
+          "signature": "func validate_policy() -> Dictionary",
+          "summary": "校验完整策略。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "duplicate_policy",
+          "signature": "func duplicate_policy() -> GFSpatialCanvasInputPolicy",
+          "summary": "创建策略及嵌套选择绑定的隔离副本。",
+          "visibility": "public"
+        }
+      ]
+    },
+    "GFSpatialCanvasSelectionModeBinding": {
+      "extends": "Resource",
+      "module": "standard",
+      "package_id": "gf.standard.spatial.canvas",
+      "path": "addons/gf/standard/utilities/spatial_canvas/gf_spatial_canvas_selection_mode_binding.gd",
+      "summary": "GFSpatialCanvasSelectionModeBinding: 空间画布选择修饰键绑定。 只描述修饰键掩码到 [code]GFSpatialCanvas2D.SelectionMode[/code] 的映射， 不读取设备状态，也不拥有输入生命周期。",
+      "visibility": "public",
+      "category": "resource_definition",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "var",
+          "name": "modifier_mask",
+          "signature": "var modifier_mask: int = 0",
+          "summary": "需要精确匹配的 [code]GFSpatialCanvasInputPolicy.ModifierMask[/code] 掩码。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "selection_mode",
+          "signature": "var selection_mode: GFSpatialCanvas2D.SelectionMode = (",
+          "summary": "匹配时使用的 [code]GFSpatialCanvas2D.SelectionMode[/code] 值。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "duplicate_binding",
+          "signature": "func duplicate_binding() -> GFSpatialCanvasSelectionModeBinding",
+          "summary": "创建隔离副本。",
           "visibility": "public"
         }
       ]
@@ -82313,8 +82582,15 @@
         {
           "kind": "signal",
           "name": "view_changed",
-          "signature": "signal view_changed(visible_count: int)",
-          "summary": "可见行集合变化后发出。",
+          "signature": "signal view_changed(view_revision: int, visible_count: int)",
+          "summary": "可见行集合成功提交后发出。",
+          "visibility": "public"
+        },
+        {
+          "kind": "signal",
+          "name": "view_rebuild_failed",
+          "signature": "signal view_rebuild_failed(result: GFTableViewRebuildResult)",
+          "summary": "候选投影未提交时发出。",
           "visibility": "public"
         },
         {
@@ -82339,30 +82615,58 @@
           "visibility": "public"
         },
         {
-          "kind": "var",
-          "name": "row_id_column",
-          "signature": "var row_id_column: StringName = &\"id\"",
-          "summary": "用作稳定行 ID 的字段键。为空时使用源行索引。",
+          "kind": "const",
+          "name": "MAX_ROW_PREDICATE_COUNT",
+          "signature": "const MAX_ROW_PREDICATE_COUNT: int = 64",
+          "summary": "单个表格允许注册的命名行谓词上限。",
           "visibility": "public"
         },
         {
-          "kind": "var",
-          "name": "case_sensitive_filter",
-          "signature": "var case_sensitive_filter: bool = false",
-          "summary": "过滤时是否区分大小写。",
+          "kind": "func",
+          "name": "set_row_id_column",
+          "signature": "func set_row_id_column(column_id: StringName) -> GFTableViewRebuildResult",
+          "summary": "事务式设置稳定行 ID 字段键。",
           "visibility": "public"
         },
         {
-          "kind": "var",
-          "name": "selection_model",
-          "signature": "var selection_model: GFTableSelectionModel = GFTableSelectionModel.new()",
-          "summary": "该视图使用的选择模型。",
+          "kind": "func",
+          "name": "get_row_id_column",
+          "signature": "func get_row_id_column() -> StringName",
+          "summary": "获取稳定行 ID 字段键。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "set_filter_case_sensitive",
+          "signature": "func set_filter_case_sensitive(case_sensitive: bool) -> GFTableViewRebuildResult",
+          "summary": "事务式设置文本过滤是否区分大小写。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_filter_case_sensitive",
+          "signature": "func is_filter_case_sensitive() -> bool",
+          "summary": "查询文本过滤是否区分大小写。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "set_selection_model",
+          "signature": "func set_selection_model(model: GFTableSelectionModel) -> GFTableViewRebuildResult",
+          "summary": "事务式替换该视图使用的选择模型。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_selection_model",
+          "signature": "func get_selection_model() -> GFTableSelectionModel",
+          "summary": "获取该视图使用的选择模型。",
           "visibility": "public"
         },
         {
           "kind": "func",
           "name": "set_columns",
-          "signature": "func set_columns(column_definitions: Array[GFTableColumnDefinition]) -> void",
+          "signature": "func set_columns( column_definitions: Array[GFTableColumnDefinition] ) -> GFTableViewRebuildResult",
           "summary": "设置列定义列表。",
           "visibility": "public"
         },
@@ -82390,7 +82694,7 @@
         {
           "kind": "func",
           "name": "set_rows",
-          "signature": "func set_rows(row_values: Array, duplicate_rows: bool = false) -> void",
+          "signature": "func set_rows( row_values: Array, duplicate_rows: bool = false ) -> GFTableViewRebuildResult",
           "summary": "设置源行数据。",
           "visibility": "public"
         },
@@ -82488,7 +82792,7 @@
         {
           "kind": "func",
           "name": "set_filter_query",
-          "signature": "func set_filter_query(query: String) -> void",
+          "signature": "func set_filter_query(query: String) -> GFTableViewRebuildResult",
           "summary": "设置过滤文本。",
           "visibility": "public"
         },
@@ -82497,6 +82801,76 @@
           "name": "get_filter_query",
           "signature": "func get_filter_query() -> String",
           "summary": "获取当前过滤文本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "set_row_predicates",
+          "signature": "func set_row_predicates( registrations: Array[GFTableRowPredicateRegistration] ) -> GFTableViewRebuildResult",
+          "summary": "事务式替换全部命名行谓词。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "register_row_predicate",
+          "signature": "func register_row_predicate( registration: GFTableRowPredicateRegistration ) -> GFTableViewRebuildResult",
+          "summary": "事务式注册一个命名行谓词。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "unregister_row_predicate",
+          "signature": "func unregister_row_predicate(predicate_id: StringName) -> GFTableViewRebuildResult",
+          "summary": "事务式移除一个命名行谓词。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "set_row_predicate_enabled",
+          "signature": "func set_row_predicate_enabled( predicate_id: StringName, enabled: bool ) -> GFTableViewRebuildResult",
+          "summary": "事务式设置命名行谓词的启用状态。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "set_row_predicate_order",
+          "signature": "func set_row_predicate_order( predicate_id: StringName, order: int ) -> GFTableViewRebuildResult",
+          "summary": "事务式设置命名行谓词的执行顺序。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_row_predicate",
+          "signature": "func get_row_predicate(predicate_id: StringName) -> GFTableRowPredicateRegistration",
+          "summary": "获取一个命名行谓词注册值。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_row_predicates",
+          "signature": "func get_row_predicates() -> Array[GFTableRowPredicateRegistration]",
+          "summary": "获取按确定顺序排列的命名行谓词注册值。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_row_predicate_ids",
+          "signature": "func get_row_predicate_ids() -> Array[StringName]",
+          "summary": "获取按确定顺序排列的命名行谓词 ID。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_view_revision",
+          "signature": "func get_view_revision() -> int",
+          "summary": "获取当前已提交投影 revision。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_last_view_rebuild_result",
+          "signature": "func get_last_view_rebuild_result() -> GFTableViewRebuildResult",
+          "summary": "获取最近一次投影事务结果。",
           "visibility": "public"
         },
         {
@@ -82530,7 +82904,7 @@
         {
           "kind": "func",
           "name": "refresh_view",
-          "signature": "func refresh_view() -> void",
+          "signature": "func refresh_view() -> GFTableViewRebuildResult",
           "summary": "重新构建可见行索引。",
           "visibility": "public"
         },
@@ -82545,14 +82919,14 @@
           "kind": "func",
           "name": "commit_cell_value",
           "signature": "func commit_cell_value(row_index: int, column_id: StringName, new_value: Variant) -> bool",
-          "summary": "提交源行单元格值。",
+          "summary": "事务式提交源行单元格值。",
           "visibility": "public"
         },
         {
           "kind": "func",
           "name": "commit_visible_cell_value",
           "signature": "func commit_visible_cell_value( visible_row_index: int, column_id: StringName, new_value: Variant ) -> bool",
-          "summary": "提交可见行单元格值。",
+          "summary": "事务式提交可见行单元格值。",
           "visibility": "public"
         },
         {
@@ -82602,6 +82976,194 @@
           "name": "get_debug_snapshot",
           "signature": "func get_debug_snapshot() -> Dictionary",
           "summary": "获取调试快照。",
+          "visibility": "public"
+        }
+      ]
+    },
+    "GFTableRowPredicate": {
+      "extends": "RefCounted",
+      "module": "standard",
+      "package_id": "gf.standard.ui",
+      "path": "addons/gf/standard/utilities/ui/gf_table_row_predicate.gd",
+      "summary": "GFTableRowPredicate: 表格结构化行过滤协议。 项目通过子类实现同步、只读、有界且无副作用的行判断。 GFTableDataView 按注册顺序契约组合多个谓词，并把显式失败视为整次投影失败。",
+      "visibility": "public",
+      "category": "protocol",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "func",
+          "name": "evaluate",
+          "signature": "func evaluate(row_view: GFTableRowView) -> GFTableRowPredicateResult",
+          "summary": "求值一个隔离行视图。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "_evaluate",
+          "signature": "func _evaluate(_row_view: GFTableRowView) -> GFTableRowPredicateResult",
+          "summary": "实现一次同步、只读且有界的行判断。",
+          "visibility": "protected"
+        }
+      ]
+    },
+    "GFTableRowPredicateRegistration": {
+      "extends": "RefCounted",
+      "module": "standard",
+      "package_id": "gf.standard.ui",
+      "path": "addons/gf/standard/utilities/ui/gf_table_row_predicate_registration.gd",
+      "summary": "GFTableRowPredicateRegistration: 命名行谓词的注册定义值。 把项目谓词与稳定 ID、启用状态和显式顺序组合成一次注册定义。 GFTableDataView 会复制数组并以 order 升序、predicate_id 字典序稳定执行。",
+      "visibility": "public",
+      "category": "value_object",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "func",
+          "name": "create",
+          "signature": "static func create( predicate_id: StringName, predicate: GFTableRowPredicate, order: int = 0, enabled: bool = true ) -> GFTableRowPredicateRegistration",
+          "summary": "创建注册定义值。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_predicate_id",
+          "signature": "func get_predicate_id() -> StringName",
+          "summary": "获取稳定谓词 ID。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_predicate",
+          "signature": "func get_predicate() -> GFTableRowPredicate",
+          "summary": "获取类型化谓词。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_order",
+          "signature": "func get_order() -> int",
+          "summary": "获取显式执行顺序。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_enabled",
+          "signature": "func is_enabled() -> bool",
+          "summary": "查询注册是否启用。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "validate_registration",
+          "signature": "func validate_registration() -> Dictionary",
+          "summary": "校验注册定义。",
+          "visibility": "public"
+        }
+      ]
+    },
+    "GFTableRowPredicateResult": {
+      "extends": "RefCounted",
+      "module": "standard",
+      "package_id": "gf.standard.ui",
+      "path": "addons/gf/standard/utilities/ui/gf_table_row_predicate_result.gd",
+      "summary": "GFTableRowPredicateResult: 类型化行谓词求值结果。 成功结果明确表示包含或排除当前行；失败结果携带稳定错误码和有界说明， 供 GFTableDataView 中止候选投影并保留上一份已提交视图。",
+      "visibility": "public",
+      "category": "value_object",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "func",
+          "name": "included",
+          "signature": "static func included() -> GFTableRowPredicateResult",
+          "summary": "创建包含当前行的成功结果。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "excluded",
+          "signature": "static func excluded() -> GFTableRowPredicateResult",
+          "summary": "创建排除当前行的成功结果。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "failed",
+          "signature": "static func failed( error_code: StringName, error_message: String = \"\" ) -> GFTableRowPredicateResult",
+          "summary": "创建求值失败结果。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_successful",
+          "signature": "func is_successful() -> bool",
+          "summary": "查询求值是否成功。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "should_include",
+          "signature": "func should_include() -> bool",
+          "summary": "查询成功结果是否包含当前行。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_error_code",
+          "signature": "func get_error_code() -> StringName",
+          "summary": "获取稳定错误码。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_error_message",
+          "signature": "func get_error_message() -> String",
+          "summary": "获取有界错误说明。",
+          "visibility": "public"
+        }
+      ]
+    },
+    "GFTableRowView": {
+      "extends": "RefCounted",
+      "module": "standard",
+      "package_id": "gf.standard.ui",
+      "path": "addons/gf/standard/utilities/ui/gf_table_row_view.gd",
+      "summary": "GFTableRowView: 表格行谓词使用的隔离只读视图。 只公开稳定行 ID、源索引和已配置列的复制值，不公开源行容器。 项目谓词可以读取隐藏列，但不能通过该视图修改权威表格数据。",
+      "visibility": "public",
+      "category": "value_object",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "func",
+          "name": "get_row_id",
+          "signature": "func get_row_id() -> Variant",
+          "summary": "获取稳定行 ID 副本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_source_row_index",
+          "signature": "func get_source_row_index() -> int",
+          "summary": "获取源行索引。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "has_value",
+          "signature": "func has_value(column_id: StringName) -> bool",
+          "summary": "判断是否包含指定列值。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_value",
+          "signature": "func get_value(column_id: StringName, default_value: Variant = null) -> Variant",
+          "summary": "获取指定列的隔离值副本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_values",
+          "signature": "func get_values() -> Dictionary",
+          "summary": "获取全部列值副本。",
           "visibility": "public"
         }
       ]
@@ -82681,6 +83243,13 @@
         },
         {
           "kind": "func",
+          "name": "replace_selection_with_anchor",
+          "signature": "func replace_selection_with_anchor( row_ids: Array, selection_anchor: Variant ) -> bool",
+          "summary": "用一组行 ID 与显式锚点原子替换当前选择。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
           "name": "select_range",
           "signature": "func select_range( ordered_row_ids: Array, from_row_id: Variant, to_row_id: Variant, additive: bool = false ) -> bool",
           "summary": "在有序行 ID 列表中选择范围。",
@@ -82726,6 +83295,102 @@
           "name": "get_debug_snapshot",
           "signature": "func get_debug_snapshot() -> Dictionary",
           "summary": "获取调试快照。",
+          "visibility": "public"
+        }
+      ]
+    },
+    "GFTableViewRebuildResult": {
+      "extends": "RefCounted",
+      "module": "standard",
+      "package_id": "gf.standard.ui",
+      "path": "addons/gf/standard/utilities/ui/gf_table_view_rebuild_result.gd",
+      "summary": "GFTableViewRebuildResult: 表格投影事务的类型化结果。 成功结果描述一次提交或 no-op；失败结果描述未提交的阶段、谓词和行身份。 结果不携带源 row，从而可安全交给 UI 诊断层。",
+      "visibility": "public",
+      "category": "value_object",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "func",
+          "name": "is_successful",
+          "signature": "func is_successful() -> bool",
+          "summary": "查询事务是否成功。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "was_committed",
+          "signature": "func was_committed() -> bool",
+          "summary": "查询事务是否提交了新 revision。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_view_revision",
+          "signature": "func get_view_revision() -> int",
+          "summary": "获取结果对应的已提交 revision。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_visible_count",
+          "signature": "func get_visible_count() -> int",
+          "summary": "获取当前已提交可见行数量。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_scanned_row_count",
+          "signature": "func get_scanned_row_count() -> int",
+          "summary": "获取本次候选扫描的源行数量。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_predicate_evaluation_count",
+          "signature": "func get_predicate_evaluation_count() -> int",
+          "summary": "获取本次候选执行的谓词次数。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_error_code",
+          "signature": "func get_error_code() -> StringName",
+          "summary": "获取稳定错误码。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_error_message",
+          "signature": "func get_error_message() -> String",
+          "summary": "获取有界错误说明。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_failed_predicate_id",
+          "signature": "func get_failed_predicate_id() -> StringName",
+          "summary": "获取失败谓词 ID。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_failed_source_row_index",
+          "signature": "func get_failed_source_row_index() -> int",
+          "summary": "获取失败源行索引。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_failed_row_id",
+          "signature": "func get_failed_row_id() -> Variant",
+          "summary": "获取失败行 ID 副本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "duplicate_result",
+          "signature": "func duplicate_result() -> GFTableViewRebuildResult",
+          "summary": "创建结果的隔离副本。",
           "visibility": "public"
         }
       ]
@@ -90948,6 +91613,214 @@
         }
       ]
     },
+    "GFVirtualListBinder": {
+      "extends": "RefCounted",
+      "module": "standard",
+      "package_id": "gf.standard.ui",
+      "path": "addons/gf/standard/utilities/ui/gf_virtual_list_binder.gd",
+      "summary": "GFVirtualListBinder: owner-bound 虚拟列表 Control 物化与回收协调器。 连接项目提供的 `ScrollContainer`、绝对布局 content root、`GFVirtualListModel` 与行回调，只物化真实视口及 overscan 范围。项目继续拥有条目数据、稳定 ID、",
+      "visibility": "public",
+      "category": "runtime_handle",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "signal",
+          "name": "sync_completed",
+          "signature": "signal sync_completed(result: GFVirtualListSyncResult)",
+          "summary": "一轮同步完成后发出。",
+          "visibility": "public"
+        },
+        {
+          "kind": "enum",
+          "name": "LayoutAxis",
+          "signature": "enum LayoutAxis {\n\t## 以 Y 轴和垂直滚动条组织条目。\n\tVERTICAL,\n\t## 以 X 轴和水平滚动条组织条目。\n\tHORIZONTAL,\n}",
+          "summary": "列表滚动和尺寸测量使用的主轴。",
+          "visibility": "public"
+        },
+        {
+          "kind": "enum",
+          "name": "ScrollAlignment",
+          "signature": "enum ScrollAlignment {\n\t## 已可见时不滚动，否则移动到最近边界。\n\tNEAREST,\n\t## 条目起点对齐视口起点。\n\tSTART,\n\t## 条目中心对齐视口中心。\n\tCENTER,\n\t## 条目终点对齐视口终点。\n\tEND,\n}",
+          "summary": "把条目滚入视口时使用的对齐方式。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "DEFAULT_MAX_MATERIALIZED_ITEMS",
+          "signature": "const DEFAULT_MAX_MATERIALIZED_ITEMS: int = 512",
+          "summary": "默认活动 Control 硬上限。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "DEFAULT_MAX_POOLED_ITEMS",
+          "signature": "const DEFAULT_MAX_POOLED_ITEMS: int = 64",
+          "summary": "默认 parentless pool Control 上限。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "ABSOLUTE_MAX_MATERIALIZED_ITEMS",
+          "signature": "const ABSOLUTE_MAX_MATERIALIZED_ITEMS: int = 4096",
+          "summary": "活动物化 Control 的框架级绝对硬上限。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "ABSOLUTE_MAX_POOLED_ITEMS",
+          "signature": "const ABSOLUTE_MAX_POOLED_ITEMS: int = 1024",
+          "summary": "parentless pool 的框架级绝对硬上限。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "ABSOLUTE_MAX_IDENTITY_TOKEN_LENGTH",
+          "signature": "const ABSOLUTE_MAX_IDENTITY_TOKEN_LENGTH: int = 1024",
+          "summary": "稳定 identity token 允许的最大 UTF-8 字节数。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "layout_axis",
+          "signature": "var layout_axis: LayoutAxis = LayoutAxis.VERTICAL",
+          "summary": "布局主轴。只接受 VERTICAL/HORIZONTAL；绑定期间修改后调用 request_sync() 使其生效。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "max_materialized_items",
+          "signature": "var max_materialized_items: int = DEFAULT_MAX_MATERIALIZED_ITEMS",
+          "summary": "活动物化 Control 硬上限；运行时按至少 1 处理。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "max_pooled_items",
+          "signature": "var max_pooled_items: int = DEFAULT_MAX_POOLED_ITEMS",
+          "summary": "parentless pool 最多保留的 Control 数量；小于 0 时按 0 处理。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "auto_measure",
+          "signature": "var auto_measure: bool = true",
+          "summary": "是否在新绑定或数据失效后自动测量活动行；不影响显式 request_measurement()。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "auto_reveal_focus",
+          "signature": "var auto_reveal_focus: bool = true",
+          "summary": "虚拟焦点变化后是否按最近边界自动滚入视口。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "fill_cross_axis",
+          "signature": "var fill_cross_axis: bool = true",
+          "summary": "是否让行 Control 填满 content root 的交叉轴。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "bind",
+          "signature": "func bind( owner: Node, scroll_container: ScrollContainer, content_root: Control, layout_model: GFVirtualListModel, item_factory: Callable, bind_callback: Callable, unbind_callback: Callable, identity_callback: Callable, focus_model: GFVirtualListFocusModel = null, measure_callback: Callable = Callable(), focus_target_callback: Callable = Callable() ) -> bool",
+          "summary": "建立一个 owner-bound 虚拟列表绑定。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "request_sync",
+          "signature": "func request_sync() -> bool",
+          "summary": "请求一次合并到 deferred 队列的同步。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "sync_now",
+          "signature": "func sync_now() -> GFVirtualListSyncResult",
+          "summary": "立即执行一轮同步；callback 内的再次请求会合并为下一轮。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "invalidate_items",
+          "signature": "func invalidate_items() -> bool",
+          "summary": "标记项目条目内容或 identity 已变化，并请求重新绑定当前物化范围。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "request_measurement",
+          "signature": "func request_measurement() -> bool",
+          "summary": "请求下一轮重新测量当前活动行；即使 auto_measure 为 false 也会执行。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "scroll_to_item",
+          "signature": "func scroll_to_item( item_index: int, alignment: ScrollAlignment = ScrollAlignment.NEAREST ) -> bool",
+          "summary": "把指定条目滚入视口。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_materialized_control",
+          "signature": "func get_materialized_control(item_index: int) -> Control",
+          "summary": "获取指定索引当前物化的 Control。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_materialized_control_by_id",
+          "signature": "func get_materialized_control_by_id(item_id: Variant) -> Control",
+          "summary": "按稳定 identity 获取当前物化的 Control。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_last_sync_result",
+          "signature": "func get_last_sync_result() -> GFVirtualListSyncResult",
+          "summary": "获取最近同步结果的隔离副本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_debug_snapshot",
+          "signature": "func get_debug_snapshot() -> Dictionary",
+          "summary": "获取不含项目条目载荷的调试快照。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_bound",
+          "signature": "func is_bound() -> bool",
+          "summary": "检查是否处于有效绑定生命周期。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_disposed",
+          "signature": "func is_disposed() -> bool",
+          "summary": "检查是否进入不可复用终态。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "unbind",
+          "signature": "func unbind() -> void",
+          "summary": "解除当前绑定并释放全部 Binder-owned Control；实例仍可重新 bind。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "dispose",
+          "signature": "func dispose() -> void",
+          "summary": "进入终态并释放行、pool、连接和 callback。",
+          "visibility": "public"
+        }
+      ]
+    },
     "GFVirtualListFocusModel": {
       "extends": "RefCounted",
       "module": "standard",
@@ -91111,6 +91984,13 @@
       "since": "4.4.0",
       "members": [
         {
+          "kind": "signal",
+          "name": "layout_changed",
+          "signature": "signal layout_changed(revision: int)",
+          "summary": "布局状态实际变化后发出。",
+          "visibility": "public"
+        },
+        {
           "kind": "const",
           "name": "DEFAULT_ESTIMATED_ITEM_EXTENT",
           "signature": "const DEFAULT_ESTIMATED_ITEM_EXTENT: float = 60.0",
@@ -91210,6 +92090,13 @@
         },
         {
           "kind": "func",
+          "name": "get_revision",
+          "signature": "func get_revision() -> int",
+          "summary": "获取布局状态的当前版本号。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
           "name": "get_item_extent",
           "signature": "func get_item_extent(item_index: int) -> float",
           "summary": "获取条目尺寸。",
@@ -91238,6 +92125,13 @@
         },
         {
           "kind": "func",
+          "name": "get_viewport_range",
+          "signature": "func get_viewport_range(scroll_offset: float, viewport_extent: float) -> Vector2i",
+          "summary": "计算当前滚动窗口直接命中的条目范围，不包含 overscan。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
           "name": "get_visible_range",
           "signature": "func get_visible_range(scroll_offset: float, viewport_extent: float) -> Vector2i",
           "summary": "计算当前滚动窗口内应被物化的条目范围。",
@@ -91248,6 +92142,221 @@
           "name": "get_visible_items",
           "signature": "func get_visible_items(scroll_offset: float, viewport_extent: float) -> Array[Dictionary]",
           "summary": "获取当前滚动窗口内的条目布局记录。",
+          "visibility": "public"
+        }
+      ]
+    },
+    "GFVirtualListSyncResult": {
+      "extends": "RefCounted",
+      "module": "standard",
+      "package_id": "gf.standard.ui",
+      "path": "addons/gf/standard/utilities/ui/gf_virtual_list_sync_result.gd",
+      "summary": "GFVirtualListSyncResult: 虚拟列表同步的不可变诊断结果。 只保存范围、计数、版本和稳定错误信息，不保存项目条目数据或原始稳定 ID。",
+      "visibility": "public",
+      "category": "value_object",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "const",
+          "name": "STATUS_SYNCED",
+          "signature": "const STATUS_SYNCED: StringName = &\"synced\"",
+          "summary": "目标范围已完整同步。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "STATUS_UNCHANGED",
+          "signature": "const STATUS_UNCHANGED: StringName = &\"unchanged\"",
+          "summary": "当前 materialization 已满足目标且没有结构变化。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "STATUS_DEFERRED",
+          "signature": "const STATUS_DEFERRED: StringName = &\"deferred\"",
+          "summary": "当前轮冻结快照在完成提交前或项目绑定副作用期间失效；Binder 已保留后续同步请求。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "STATUS_TRUNCATED",
+          "signature": "const STATUS_TRUNCATED: StringName = &\"truncated\"",
+          "summary": "目标范围超过显式节点预算，已优先物化真实视口范围。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "STATUS_UNBOUND",
+          "signature": "const STATUS_UNBOUND: StringName = &\"unbound\"",
+          "summary": "Binder 当前没有有效绑定。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "STATUS_DISPOSED",
+          "signature": "const STATUS_DISPOSED: StringName = &\"disposed\"",
+          "summary": "Binder 已进入不可复用的终态。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "STATUS_INVALID_IDENTITY",
+          "signature": "const STATUS_INVALID_IDENTITY: StringName = &\"invalid_identity\"",
+          "summary": "identity callback 返回了不可稳定编码的值。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "STATUS_DUPLICATE_IDENTITY",
+          "signature": "const STATUS_DUPLICATE_IDENTITY: StringName = &\"duplicate_identity\"",
+          "summary": "当前请求范围包含重复稳定 identity。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "STATUS_FACTORY_FAILED",
+          "signature": "const STATUS_FACTORY_FAILED: StringName = &\"factory_failed\"",
+          "summary": "item factory 没有返回可接管的 parentless Control。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "STATUS_BIND_FAILED",
+          "signature": "const STATUS_BIND_FAILED: StringName = &\"bind_failed\"",
+          "summary": "项目 bind callback 拒绝了一个条目。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_successful",
+          "signature": "func is_successful() -> bool",
+          "summary": "检查同步是否提交了内部一致的目标状态。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_status",
+          "signature": "func get_status() -> StringName",
+          "summary": "获取稳定同步状态。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_layout_revision",
+          "signature": "func get_layout_revision() -> int",
+          "summary": "获取本轮计算范围前冻结的布局版本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_data_revision",
+          "signature": "func get_data_revision() -> int",
+          "summary": "获取本轮开始时冻结的 Binder 数据失效版本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_viewport_range",
+          "signature": "func get_viewport_range() -> Vector2i",
+          "summary": "获取未加入 overscan 的真实视口范围。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_requested_range",
+          "signature": "func get_requested_range() -> Vector2i",
+          "summary": "获取加入 overscan、应用预算前的请求范围。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_materialized_indices",
+          "signature": "func get_materialized_indices() -> PackedInt32Array",
+          "summary": "获取实际物化索引副本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_materialized_count",
+          "signature": "func get_materialized_count() -> int",
+          "summary": "获取实际物化数量。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_pooled_count",
+          "signature": "func get_pooled_count() -> int",
+          "summary": "获取当前池内可复用 Control 数量。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_created_count",
+          "signature": "func get_created_count() -> int",
+          "summary": "获取本轮新建 Control 数量。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_reused_count",
+          "signature": "func get_reused_count() -> int",
+          "summary": "获取本轮从旧 active 或 pool 复用数量。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_released_count",
+          "signature": "func get_released_count() -> int",
+          "summary": "获取本轮离开旧绑定的数量。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_measured_count",
+          "signature": "func get_measured_count() -> int",
+          "summary": "获取本轮成功测量的行数量。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_anchor_adjustment",
+          "signature": "func get_anchor_adjustment() -> float",
+          "summary": "获取本轮一次性应用的滚动锚点修正。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "was_truncated",
+          "signature": "func was_truncated() -> bool",
+          "summary": "检查是否因 materialization 上限截断。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_error_index",
+          "signature": "func get_error_index() -> int",
+          "summary": "获取首个失败条目索引。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_error",
+          "signature": "func get_error() -> String",
+          "summary": "获取有界稳定错误说明。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "duplicate_result",
+          "signature": "func duplicate_result() -> GFVirtualListSyncResult",
+          "summary": "创建结果的隔离副本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "to_dict",
+          "signature": "func to_dict() -> Dictionary",
+          "summary": "转换为不含项目数据的诊断字典。",
           "visibility": "public"
         }
       ]

@@ -4,7 +4,7 @@
   "kind": "standard",
   "version": "unreleased",
   "display_name": "GF Standard UI",
-  "description": "Core UI value adapters, form/list/table helpers, modal value objects, text fitting, and virtual list models.",
+  "description": "Core UI value adapters, form/list/table projection helpers, modal value objects, text fitting, and bounded virtual list binding.",
   "dependencies": [
     "gf.kernel",
     "gf.standard.base"
@@ -30,18 +30,32 @@
     "addons/gf/standard/utilities/ui/gf_table_column_definition.gd.uid",
     "addons/gf/standard/utilities/ui/gf_table_data_view.gd",
     "addons/gf/standard/utilities/ui/gf_table_data_view.gd.uid",
+    "addons/gf/standard/utilities/ui/gf_table_row_predicate.gd",
+    "addons/gf/standard/utilities/ui/gf_table_row_predicate.gd.uid",
+    "addons/gf/standard/utilities/ui/gf_table_row_predicate_registration.gd",
+    "addons/gf/standard/utilities/ui/gf_table_row_predicate_registration.gd.uid",
+    "addons/gf/standard/utilities/ui/gf_table_row_predicate_result.gd",
+    "addons/gf/standard/utilities/ui/gf_table_row_predicate_result.gd.uid",
+    "addons/gf/standard/utilities/ui/gf_table_row_view.gd",
+    "addons/gf/standard/utilities/ui/gf_table_row_view.gd.uid",
     "addons/gf/standard/utilities/ui/gf_table_selection_model.gd",
     "addons/gf/standard/utilities/ui/gf_table_selection_model.gd.uid",
+    "addons/gf/standard/utilities/ui/gf_table_view_rebuild_result.gd",
+    "addons/gf/standard/utilities/ui/gf_table_view_rebuild_result.gd.uid",
     "addons/gf/standard/utilities/ui/gf_text_auto_fit.gd",
     "addons/gf/standard/utilities/ui/gf_text_auto_fit.gd.uid",
     "addons/gf/standard/utilities/ui/gf_text_fitter.gd",
     "addons/gf/standard/utilities/ui/gf_text_fitter.gd.uid",
     "addons/gf/standard/utilities/ui/gf_theme_override_property_list.gd",
     "addons/gf/standard/utilities/ui/gf_theme_override_property_list.gd.uid",
+    "addons/gf/standard/utilities/ui/gf_virtual_list_binder.gd",
+    "addons/gf/standard/utilities/ui/gf_virtual_list_binder.gd.uid",
     "addons/gf/standard/utilities/ui/gf_virtual_list_focus_model.gd",
     "addons/gf/standard/utilities/ui/gf_virtual_list_focus_model.gd.uid",
     "addons/gf/standard/utilities/ui/gf_virtual_list_model.gd",
-    "addons/gf/standard/utilities/ui/gf_virtual_list_model.gd.uid"
+    "addons/gf/standard/utilities/ui/gf_virtual_list_model.gd.uid",
+    "addons/gf/standard/utilities/ui/gf_virtual_list_sync_result.gd",
+    "addons/gf/standard/utilities/ui/gf_virtual_list_sync_result.gd.uid"
   ],
   "metadata": {
     "stage": "standard-ui-core-split-v1"

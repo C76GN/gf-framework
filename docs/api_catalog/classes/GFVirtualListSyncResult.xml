@@ -1,0 +1,273 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFVirtualListSyncResult" path="addons/gf/standard/utilities/ui/gf_virtual_list_sync_result.gd" module="standard" extends="RefCounted" classDigest="7d9d7279518d8d1adf0710ba67deb5db7f240bf269cec65fa750a7b9f410b414">
+	<description>GFVirtualListSyncResult: 虚拟列表同步的不可变诊断结果。
+只保存范围、计数、版本和稳定错误信息，不保存项目条目数据或原始稳定 ID。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">value_object</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants>
+		<member kind="const" name="STATUS_SYNCED">
+			<signature>const STATUS_SYNCED: StringName = &amp;"synced"</signature>
+			<description>目标范围已完整同步。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_UNCHANGED">
+			<signature>const STATUS_UNCHANGED: StringName = &amp;"unchanged"</signature>
+			<description>当前 materialization 已满足目标且没有结构变化。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_DEFERRED">
+			<signature>const STATUS_DEFERRED: StringName = &amp;"deferred"</signature>
+			<description>当前轮冻结快照在完成提交前或项目绑定副作用期间失效；Binder 已保留后续同步请求。
+该状态不表示同步成功。若漂移发生在绑定副作用前，Binder 保留最近一次可信
+materialization；若已调用 bind/unbind、测量、布局或焦点副作用，则对称解绑并清空
+不可信 materialization。调用方应以结果中的当前索引为准并等待下一轮结果。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_TRUNCATED">
+			<signature>const STATUS_TRUNCATED: StringName = &amp;"truncated"</signature>
+			<description>目标范围超过显式节点预算，已优先物化真实视口范围。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_UNBOUND">
+			<signature>const STATUS_UNBOUND: StringName = &amp;"unbound"</signature>
+			<description>Binder 当前没有有效绑定。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_DISPOSED">
+			<signature>const STATUS_DISPOSED: StringName = &amp;"disposed"</signature>
+			<description>Binder 已进入不可复用的终态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_INVALID_IDENTITY">
+			<signature>const STATUS_INVALID_IDENTITY: StringName = &amp;"invalid_identity"</signature>
+			<description>identity callback 返回了不可稳定编码的值。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_DUPLICATE_IDENTITY">
+			<signature>const STATUS_DUPLICATE_IDENTITY: StringName = &amp;"duplicate_identity"</signature>
+			<description>当前请求范围包含重复稳定 identity。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_FACTORY_FAILED">
+			<signature>const STATUS_FACTORY_FAILED: StringName = &amp;"factory_failed"</signature>
+			<description>item factory 没有返回可接管的 parentless Control。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_BIND_FAILED">
+			<signature>const STATUS_BIND_FAILED: StringName = &amp;"bind_failed"</signature>
+			<description>项目 bind callback 拒绝了一个条目。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</constants>
+	<properties />
+	<methods>
+		<member kind="method" name="is_successful">
+			<signature>func is_successful() -&gt; bool:</signature>
+			<description>检查同步是否提交了内部一致的目标状态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">完整、无变化或按显式预算截断完成时返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_status">
+			<signature>func get_status() -&gt; StringName:</signature>
+			<description>获取稳定同步状态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">`STATUS_*` 常量之一。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_layout_revision">
+			<signature>func get_layout_revision() -&gt; int:</signature>
+			<description>获取本轮计算范围前冻结的布局版本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">`GFVirtualListModel` revision。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_data_revision">
+			<signature>func get_data_revision() -&gt; int:</signature>
+			<description>获取本轮开始时冻结的 Binder 数据失效版本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">从 0 开始的 data revision。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_viewport_range">
+			<signature>func get_viewport_range() -&gt; Vector2i:</signature>
+			<description>获取未加入 overscan 的真实视口范围。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">Vector2i(start, end)，end 不包含。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_requested_range">
+			<signature>func get_requested_range() -&gt; Vector2i:</signature>
+			<description>获取加入 overscan、应用预算前的请求范围。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">Vector2i(start, end)，end 不包含。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_materialized_indices">
+			<signature>func get_materialized_indices() -&gt; PackedInt32Array:</signature>
+			<description>获取实际物化索引副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">升序物化索引。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_materialized_count">
+			<signature>func get_materialized_count() -&gt; int:</signature>
+			<description>获取实际物化数量。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">当前活动 Control 数量。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_pooled_count">
+			<signature>func get_pooled_count() -&gt; int:</signature>
+			<description>获取当前池内可复用 Control 数量。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">parentless 池节点数量。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_created_count">
+			<signature>func get_created_count() -&gt; int:</signature>
+			<description>获取本轮新建 Control 数量。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">factory 成功创建数量。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_reused_count">
+			<signature>func get_reused_count() -&gt; int:</signature>
+			<description>获取本轮从旧 active 或 pool 复用数量。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">复用数量。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_released_count">
+			<signature>func get_released_count() -&gt; int:</signature>
+			<description>获取本轮离开旧绑定的数量。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">已执行 unbind 的旧绑定数量。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_measured_count">
+			<signature>func get_measured_count() -&gt; int:</signature>
+			<description>获取本轮成功测量的行数量。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">测量数量。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_anchor_adjustment">
+			<signature>func get_anchor_adjustment() -&gt; float:</signature>
+			<description>获取本轮一次性应用的滚动锚点修正。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">主轴滚动调整量。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="was_truncated">
+			<signature>func was_truncated() -&gt; bool:</signature>
+			<description>检查是否因 materialization 上限截断。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">目标范围未完整物化时返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_error_index">
+			<signature>func get_error_index() -&gt; int:</signature>
+			<description>获取首个失败条目索引。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">没有索引错误时为 -1。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_error">
+			<signature>func get_error() -&gt; String:</signature>
+			<description>获取有界稳定错误说明。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">成功时为空。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="duplicate_result">
+			<signature>func duplicate_result() -&gt; GFVirtualListSyncResult:</signature>
+			<description>创建结果的隔离副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">新结果对象。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="to_dict">
+			<signature>func to_dict() -&gt; Dictionary:</signature>
+			<description>转换为不含项目数据的诊断字典。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">JSON-safe 同步摘要；状态使用 String，范围与索引只使用 JSON 原生容器和整数。</tag>
+				<tag name="schema">return: Dictionary with String status; viewport_range and requested_range Dictionaries containing start and end_exclusive ints; materialized_indices Array[int]; revisions and counts in 0..9007199254740991; finite anchor_adjustment; truncated; error_index in -1..9007199254740991; and error.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

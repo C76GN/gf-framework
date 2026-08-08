@@ -1,0 +1,127 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFTableViewRebuildResult" path="addons/gf/standard/utilities/ui/gf_table_view_rebuild_result.gd" module="standard" extends="RefCounted" classDigest="f5d0fc0dc7d8c5be36169746ddd1182426c463ecbfb3e4d408e9da39e9fcf14e">
+	<description>GFTableViewRebuildResult: 表格投影事务的类型化结果。
+成功结果描述一次提交或 no-op；失败结果描述未提交的阶段、谓词和行身份。
+结果不携带源 row，从而可安全交给 UI 诊断层。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">value_object</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties />
+	<methods>
+		<member kind="method" name="is_successful">
+			<signature>func is_successful() -&gt; bool:</signature>
+			<description>查询事务是否成功。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">成功时返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="was_committed">
+			<signature>func was_committed() -&gt; bool:</signature>
+			<description>查询事务是否提交了新 revision。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">提交时返回 true；成功 no-op 返回 false。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_view_revision">
+			<signature>func get_view_revision() -&gt; int:</signature>
+			<description>获取结果对应的已提交 revision。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">当前已提交 revision。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_visible_count">
+			<signature>func get_visible_count() -&gt; int:</signature>
+			<description>获取当前已提交可见行数量。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">可见行数量。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_scanned_row_count">
+			<signature>func get_scanned_row_count() -&gt; int:</signature>
+			<description>获取本次候选扫描的源行数量。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">已扫描行数量。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_predicate_evaluation_count">
+			<signature>func get_predicate_evaluation_count() -&gt; int:</signature>
+			<description>获取本次候选执行的谓词次数。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">谓词求值次数。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_error_code">
+			<signature>func get_error_code() -&gt; StringName:</signature>
+			<description>获取稳定错误码。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">失败错误码；成功时为空。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_error_message">
+			<signature>func get_error_message() -&gt; String:</signature>
+			<description>获取有界错误说明。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">失败说明；成功时为空。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_failed_predicate_id">
+			<signature>func get_failed_predicate_id() -&gt; StringName:</signature>
+			<description>获取失败谓词 ID。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">失败谓词 ID；非谓词失败时为空。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_failed_source_row_index">
+			<signature>func get_failed_source_row_index() -&gt; int:</signature>
+			<description>获取失败源行索引。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">失败行索引；非行失败时为 -1。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_failed_row_id">
+			<signature>func get_failed_row_id() -&gt; Variant:</signature>
+			<description>获取失败行 ID 副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">失败行 ID；非行失败时为 null。</tag>
+				<tag name="schema">return: Variant stable row identity copy, or null.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="duplicate_result">
+			<signature>func duplicate_result() -&gt; GFTableViewRebuildResult:</signature>
+			<description>创建结果的隔离副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">新结果对象；未配置实例返回新的未配置实例。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

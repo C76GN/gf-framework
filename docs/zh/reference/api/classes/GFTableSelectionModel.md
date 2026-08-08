@@ -24,6 +24,7 @@
 | 方法 | [`toggle_selected`](#member-gftableselectionmodel-methods-toggle_selected) | `func toggle_selected(row_id: Variant) -> bool:` |
 | 方法 | [`select_single`](#member-gftableselectionmodel-methods-select_single) | `func select_single(row_id: Variant) -> bool:` |
 | 方法 | [`replace_selection`](#member-gftableselectionmodel-methods-replace_selection) | `func replace_selection(row_ids: Array) -> bool:` |
+| 方法 | [`replace_selection_with_anchor`](#member-gftableselectionmodel-methods-replace_selection_with_anchor) | `func replace_selection_with_anchor( row_ids: Array, selection_anchor: Variant ) -> bool:` |
 | 方法 | [`select_range`](#member-gftableselectionmodel-methods-select_range) | `func select_range( ordered_row_ids: Array, from_row_id: Variant, to_row_id: Variant, additive: bool = false ) -> bool:` |
 | 方法 | [`prune_to_row_ids`](#member-gftableselectionmodel-methods-prune_to_row_ids) | `func prune_to_row_ids(row_ids: Array) -> bool:` |
 | 方法 | [`is_selected`](#member-gftableselectionmodel-methods-is_selected) | `func is_selected(row_id: Variant) -> bool:` |
@@ -226,6 +227,33 @@ func replace_selection(row_ids: Array) -> bool:
 结构：
 
 - `row_ids`: Array，调用方提供的稳定行 ID。
+
+<a id="member-gftableselectionmodel-methods-replace_selection_with_anchor"></a>
+
+### `replace_selection_with_anchor`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func replace_selection_with_anchor( row_ids: Array, selection_anchor: Variant ) -> bool:
+```
+
+用一组行 ID 与显式锚点原子替换当前选择。 选择集合和锚点会在发出 selection_changed 前同时完成更新；锚点不在最终选择中时归一为空。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `row_ids` | 稳定行 ID 列表。 |
+| `selection_anchor` | 最终范围选择锚点；null 表示没有锚点。 |
+
+返回：选择集合或锚点发生变化时返回 true。
+
+结构：
+
+- `row_ids`: Array，调用方提供的稳定行 ID。
+- `selection_anchor`: Variant，最终选择中的稳定行 ID，或 null。
 
 <a id="member-gftableselectionmodel-methods-select_range"></a>
 

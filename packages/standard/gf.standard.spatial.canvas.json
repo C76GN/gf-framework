@@ -4,7 +4,7 @@
   "kind": "standard",
   "version": "unreleased",
   "display_name": "GF Standard 2D Spatial Canvas",
-  "description": "Bounded runtime Control for 2D world navigation, grid snapping, stable item selection, and project-validated placement sessions.",
+  "description": "Bounded runtime Control for 2D world navigation, configurable input and parent-scroll arbitration, grid snapping, stable item selection, and project-validated placement sessions.",
   "dependencies": [
     "gf.kernel",
     "gf.standard.base",

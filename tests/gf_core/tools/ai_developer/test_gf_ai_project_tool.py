@@ -666,7 +666,6 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 		self.assertEqual(readiness["unsatisfied_recipe_any_of_package_groups"], [])
 
 	def test_new_recipe_package_readiness_matches_declared_requirements(self) -> None:
-		scalable_group = [["gf.standard.ui", "gf.standard.ui.state"]]
 		render_group = [["gf.extension.feedback", "gf.standard.assets", "gf.standard.display"]]
 		artifact_packages = [
 			"gf.extension.content_package",
@@ -714,28 +713,28 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 				"recipe_id": "scalable-ui-collection",
 				"available": ["gf.standard.ui"],
 				"satisfied": True,
-				"all_of": [],
+				"all_of": ["gf.standard.ui"],
 				"missing_all_of": [],
-				"any_of": scalable_group,
+				"any_of": [],
 				"unsatisfied_any_of": [],
 			},
 			{
 				"recipe_id": "scalable-ui-collection",
 				"available": ["gf.standard.ui.state"],
 				"satisfied": True,
-				"all_of": [],
+				"all_of": ["gf.standard.ui"],
 				"missing_all_of": [],
-				"any_of": scalable_group,
+				"any_of": [],
 				"unsatisfied_any_of": [],
 			},
 			{
 				"recipe_id": "scalable-ui-collection",
 				"available": ["gf.kernel"],
 				"satisfied": False,
-				"all_of": [],
-				"missing_all_of": [],
-				"any_of": scalable_group,
-				"unsatisfied_any_of": scalable_group,
+				"all_of": ["gf.standard.ui"],
+				"missing_all_of": ["gf.standard.ui"],
+				"any_of": [],
+				"unsatisfied_any_of": [],
 			},
 			*[
 				{
