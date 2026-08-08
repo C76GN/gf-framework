@@ -1076,6 +1076,35 @@ func test_canvas_isolates_policy_without_calling_overridable_candidate_methods()
 	assert_eq(malicious_binding.duplicate_call_count, 0)
 
 
+func test_input_policy_duplicate_isolates_nested_subclass_without_virtual_dispatch() -> void:
+	var policy: GFSpatialCanvasInputPolicy = GFSpatialCanvasInputPolicy.new()
+	policy.selection_modifier_bindings.clear()
+	var malicious_binding: MaliciousSelectionBinding = MaliciousSelectionBinding.new()
+	malicious_binding.modifier_mask = GFSpatialCanvasInputPolicy.ModifierMask.SHIFT
+	malicious_binding.selection_mode = GFSpatialCanvas2D.SelectionMode.ADD
+	policy.selection_modifier_bindings.append(malicious_binding)
+
+	var copied_policy: GFSpatialCanvasInputPolicy = policy.duplicate_policy()
+	var copied_binding: GFSpatialCanvasSelectionModeBinding = (
+		copied_policy.selection_modifier_bindings[0]
+	)
+
+	assert_eq(malicious_binding.duplicate_call_count, 0, "策略复制不得调用嵌套候选 override。")
+	assert_false(copied_binding is MaliciousSelectionBinding, "副本必须收敛到 GF 基类绑定。")
+	assert_false(is_same(copied_binding, malicious_binding), "嵌套绑定不得与源对象共享引用。")
+	assert_eq(copied_binding.modifier_mask, GFSpatialCanvasInputPolicy.ModifierMask.SHIFT)
+	assert_eq(copied_binding.selection_mode, GFSpatialCanvas2D.SelectionMode.ADD)
+
+	malicious_binding.selection_mode = GFSpatialCanvas2D.SelectionMode.SUBTRACT
+	assert_eq(copied_binding.selection_mode, GFSpatialCanvas2D.SelectionMode.ADD)
+	copied_binding.modifier_mask = GFSpatialCanvasInputPolicy.ModifierMask.CTRL
+	assert_eq(
+		malicious_binding.modifier_mask,
+		GFSpatialCanvasInputPolicy.ModifierMask.SHIFT,
+		"源绑定与副本必须双向隔离。"
+	)
+
+
 func test_pan_modifier_is_exact_and_action_owns_its_modifier_chord() -> void:
 	var canvas: GFSpatialCanvas2D = _make_canvas()
 	var direct_policy: GFSpatialCanvasInputPolicy = GFSpatialCanvasInputPolicy.new()
@@ -1936,6 +1965,167 @@ func test_mouse_capture_excludes_raw_touch_until_matching_mouse_release() -> voi
 	assert_false(GFVariantData.get_option_bool(canvas.get_debug_snapshot(), "input_active"))
 
 
+func test_mouse_capture_requires_matching_device_for_motion_release_and_cancel() -> void:
+	var canvas: GFSpatialCanvas2D = _make_canvas()
+	var capture_device: int = 3
+	var foreign_device: int = 4
+	_add_mouse_action_for_device(
+		_PAN_ACTION,
+		MOUSE_BUTTON_MIDDLE,
+		GFSpatialCanvasInputPolicy.ModifierMask.NONE,
+		capture_device
+	)
+	var policy: GFSpatialCanvasInputPolicy = GFSpatialCanvasInputPolicy.new()
+	policy.pan_mouse_button = MOUSE_BUTTON_NONE
+	policy.pan_action = _PAN_ACTION
+	assert_true(canvas.set_input_policy(policy))
+	var start_position: Vector2 = Vector2(200.0, 150.0)
+	assert_eq(
+		canvas.handle_input_event(
+			_mouse_button_for_device(
+				MOUSE_BUTTON_MIDDLE,
+				start_position,
+				true,
+				capture_device
+			)
+		),
+		GFSpatialCanvas2D.InputDisposition.CONSUMED
+	)
+
+	var foreign_motion: InputEventMouseMotion = InputEventMouseMotion.new()
+	foreign_motion.device = foreign_device
+	foreign_motion.position = start_position + Vector2(100.0, 0.0)
+	foreign_motion.button_mask = MOUSE_BUTTON_MASK_MIDDLE
+	assert_eq(
+		canvas.handle_input_event(foreign_motion),
+		GFSpatialCanvas2D.InputDisposition.IGNORED
+	)
+	assert_eq(canvas.get_world_center(), Vector2.ZERO, "其他鼠标设备不得推动当前捕获。")
+
+	var foreign_release: InputEventMouseButton = _mouse_button_for_device(
+		MOUSE_BUTTON_MIDDLE,
+		foreign_motion.position,
+		false,
+		foreign_device
+	)
+	assert_eq(
+		canvas.handle_input_event(foreign_release),
+		GFSpatialCanvas2D.InputDisposition.IGNORED
+	)
+	assert_true(GFVariantData.get_option_bool(canvas.get_debug_snapshot(), "input_active"))
+	var foreign_cancel: InputEventMouseButton = _mouse_button_for_device(
+		MOUSE_BUTTON_MIDDLE,
+		foreign_motion.position,
+		false,
+		foreign_device
+	)
+	foreign_cancel.canceled = true
+	assert_eq(
+		canvas.handle_input_event(foreign_cancel),
+		GFSpatialCanvas2D.InputDisposition.IGNORED
+	)
+	assert_true(GFVariantData.get_option_bool(canvas.get_debug_snapshot(), "input_active"))
+
+	var matching_motion: InputEventMouseMotion = InputEventMouseMotion.new()
+	matching_motion.device = capture_device
+	matching_motion.position = start_position + Vector2(20.0, 0.0)
+	matching_motion.button_mask = MOUSE_BUTTON_MASK_MIDDLE
+	assert_eq(
+		canvas.handle_input_event(matching_motion),
+		GFSpatialCanvas2D.InputDisposition.CONSUMED
+	)
+	assert_eq(canvas.get_world_center(), Vector2(-20.0, 0.0))
+	assert_eq(
+		canvas.handle_input_event(
+			_mouse_button_for_device(
+				MOUSE_BUTTON_MIDDLE,
+				matching_motion.position,
+				false,
+				capture_device
+			)
+		),
+		GFSpatialCanvas2D.InputDisposition.CONSUMED
+	)
+	assert_false(GFVariantData.get_option_bool(canvas.get_debug_snapshot(), "input_active"))
+
+
+func test_raw_touch_capture_requires_matching_device_for_drag_release_and_cancel() -> void:
+	var canvas: GFSpatialCanvas2D = _make_canvas()
+	assert_true(
+		canvas.upsert_item(&"target", Rect2(Vector2(-5.0, -5.0), Vector2(10.0, 10.0)))
+	)
+	var policy: GFSpatialCanvasInputPolicy = GFSpatialCanvasInputPolicy.new()
+	policy.touch_primary_behavior = GFSpatialCanvasInputPolicy.TouchPrimaryBehavior.SELECT
+	assert_true(canvas.set_input_policy(policy))
+	var capture_device: int = 7
+	var foreign_device: int = 8
+	var touch_index: int = 2
+	var target_position: Vector2 = canvas.world_to_canvas(Vector2.ZERO)
+	assert_eq(
+		canvas.handle_input_event(
+			_touch_event_for_device(touch_index, true, target_position, capture_device)
+		),
+		GFSpatialCanvas2D.InputDisposition.CONSUMED
+	)
+
+	assert_eq(
+		canvas.handle_input_event(
+			_touch_drag_event_for_device(
+				touch_index,
+				target_position + Vector2(100.0, 0.0),
+				foreign_device
+			)
+		),
+		GFSpatialCanvas2D.InputDisposition.IGNORED
+	)
+	assert_eq(canvas.get_world_center(), Vector2.ZERO)
+	assert_true(canvas.get_selection().is_empty())
+	var foreign_release: InputEventScreenTouch = _touch_event_for_device(
+		touch_index,
+		false,
+		target_position + Vector2(100.0, 0.0),
+		foreign_device
+	)
+	assert_eq(
+		canvas.handle_input_event(foreign_release),
+		GFSpatialCanvas2D.InputDisposition.IGNORED
+	)
+	assert_true(GFVariantData.get_option_bool(canvas.get_debug_snapshot(), "input_active"))
+	var foreign_cancel: InputEventScreenTouch = _touch_event_for_device(
+		touch_index,
+		false,
+		target_position,
+		foreign_device
+	)
+	foreign_cancel.canceled = true
+	assert_eq(
+		canvas.handle_input_event(foreign_cancel),
+		GFSpatialCanvas2D.InputDisposition.IGNORED
+	)
+	assert_true(GFVariantData.get_option_bool(canvas.get_debug_snapshot(), "input_active"))
+	assert_eq(
+		canvas.handle_input_event(
+			_touch_event_for_device(
+				touch_index + 1,
+				true,
+				target_position,
+				foreign_device
+			)
+		),
+		GFSpatialCanvas2D.InputDisposition.IGNORED,
+		"其他触摸设备不得并入当前多指手势。"
+	)
+
+	assert_eq(
+		canvas.handle_input_event(
+			_touch_event_for_device(touch_index, false, target_position, capture_device)
+		),
+		GFSpatialCanvas2D.InputDisposition.CONSUMED
+	)
+	assert_eq(canvas.get_selection(), PackedStringArray(["target"]))
+	assert_false(GFVariantData.get_option_bool(canvas.get_debug_snapshot(), "input_active"))
+
+
 func test_active_physical_capture_excludes_system_gestures_until_release() -> void:
 	var canvas: GFSpatialCanvas2D = _make_canvas()
 	var focus: Vector2 = Vector2(400.0, 300.0)
@@ -2251,6 +2441,17 @@ func _mouse_button(button_index: MouseButton, position: Vector2, pressed: bool) 
 	return event
 
 
+func _mouse_button_for_device(
+	button_index: MouseButton,
+	position: Vector2,
+	pressed: bool,
+	device: int
+) -> InputEventMouseButton:
+	var event: InputEventMouseButton = _mouse_button(button_index, position, pressed)
+	event.device = device
+	return event
+
+
 func _key_event(keycode: Key) -> InputEventKey:
 	var event: InputEventKey = InputEventKey.new()
 	event.keycode = keycode
@@ -2266,10 +2467,31 @@ func _touch_event(index: int, pressed: bool, position: Vector2) -> InputEventScr
 	return event
 
 
+func _touch_event_for_device(
+	index: int,
+	pressed: bool,
+	position: Vector2,
+	device: int
+) -> InputEventScreenTouch:
+	var event: InputEventScreenTouch = _touch_event(index, pressed, position)
+	event.device = device
+	return event
+
+
 func _touch_drag_event(index: int, position: Vector2) -> InputEventScreenDrag:
 	var event: InputEventScreenDrag = InputEventScreenDrag.new()
 	event.index = index
 	event.position = position
+	return event
+
+
+func _touch_drag_event_for_device(
+	index: int,
+	position: Vector2,
+	device: int
+) -> InputEventScreenDrag:
+	var event: InputEventScreenDrag = _touch_drag_event(index, position)
+	event.device = device
 	return event
 
 
@@ -2282,6 +2504,22 @@ func _add_mouse_action(
 		InputMap.erase_action(action_id)
 	InputMap.add_action(action_id)
 	var input_event: InputEventMouseButton = InputEventMouseButton.new()
+	input_event.button_index = button_index
+	_apply_modifier_mask(input_event, modifier_mask)
+	InputMap.action_add_event(action_id, input_event)
+
+
+func _add_mouse_action_for_device(
+	action_id: StringName,
+	button_index: MouseButton,
+	modifier_mask: int,
+	device: int
+) -> void:
+	if InputMap.has_action(action_id):
+		InputMap.erase_action(action_id)
+	InputMap.add_action(action_id)
+	var input_event: InputEventMouseButton = InputEventMouseButton.new()
+	input_event.device = device
 	input_event.button_index = button_index
 	_apply_modifier_mask(input_event, modifier_mask)
 	InputMap.action_add_event(action_id, input_event)

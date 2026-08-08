@@ -434,6 +434,63 @@ func test_pending_focus_reveal_quantizes_range_before_materialization() -> void:
 	)
 
 
+func test_pending_focus_reveal_recomputes_one_pixel_drift_at_large_offset() -> void:
+	var focus_model: GFVirtualListFocusModel = GFVirtualListFocusModel.new()
+	var fixture: Dictionary = _create_fixture(
+		2,
+		20.0,
+		0,
+		512,
+		focus_model,
+		null,
+		Vector2.ZERO,
+		false,
+		Callable(),
+		false
+	)
+	var binder: GF_VIRTUAL_LIST_BINDER_SCRIPT = _get_fixture_binder(fixture)
+	var scroll_container: ScrollContainer = _get_fixture_scroll(fixture)
+	var model: GFVirtualListModel = _get_fixture_model(fixture)
+	var extent_report: Dictionary = model.set_item_extent(0, 1_000_000_000.0, true)
+	assert_true(GFVariantData.get_option_bool(extent_report, "changed"))
+	model.trailing_padding = 100.0
+	var _initial_result: GF_VIRTUAL_LIST_SYNC_RESULT_SCRIPT = binder.sync_now()
+	await get_tree().process_frame
+	assert_true(focus_model.set_focused_index(1))
+	assert_eq(scroll_container.scroll_vertical, 1_000_000_000)
+	scroll_container.scroll_vertical = 0
+	var callback_count: Array[int] = [0]
+	var _scroll_connected: Error = scroll_container.get_v_scroll_bar().value_changed.connect(
+		func(value: float) -> void:
+			if callback_count[0] == 0:
+				callback_count[0] += 1
+				scroll_container.scroll_vertical = maxi(int(value) - 1, 0),
+		CONNECT_ONE_SHOT
+	) as Error
+
+	var drifted_result: GF_VIRTUAL_LIST_SYNC_RESULT_SCRIPT = binder.sync_now()
+
+	assert_true(drifted_result.is_successful())
+	assert_eq(callback_count[0], 1)
+	assert_eq(scroll_container.scroll_vertical, 999_999_999)
+	assert_eq(
+		drifted_result.get_viewport_range(),
+		Vector2i(0, 2),
+		"当前轮必须按真实整数偏移重算，而不是保留计划范围。"
+	)
+	assert_true(
+		GFVariantData.get_option_bool(binder.get_debug_snapshot(), "pending_sync"),
+		"一像素漂移必须保留下一轮收敛请求。"
+	)
+
+	var converged_result: GF_VIRTUAL_LIST_SYNC_RESULT_SCRIPT = binder.sync_now()
+
+	assert_true(converged_result.is_successful())
+	assert_eq(scroll_container.scroll_vertical, 1_000_000_000)
+	assert_eq(converged_result.get_viewport_range(), Vector2i(1, 2))
+	assert_false(GFVariantData.get_option_bool(binder.get_debug_snapshot(), "pending_sync"))
+
+
 func test_pending_focus_reveal_measurement_anchors_to_planned_scroll() -> void:
 	var focus_model: GFVirtualListFocusModel = GFVirtualListFocusModel.new()
 	var fixture: Dictionary = _create_fixture(
@@ -1413,6 +1470,47 @@ func test_scroll_to_item_returns_false_when_scroll_callback_invalidates_data_gen
 	var converged_result: GF_VIRTUAL_LIST_SYNC_RESULT_SCRIPT = binder.sync_now()
 	assert_true(converged_result.is_successful())
 	assert_eq(converged_result.get_data_revision(), 1)
+
+
+func test_scroll_to_item_rejects_one_pixel_drift_at_large_quantized_offset() -> void:
+	var fixture: Dictionary = _create_fixture(
+		2,
+		20.0,
+		0,
+		512,
+		null,
+		null,
+		Vector2.ZERO,
+		false,
+		Callable(),
+		false
+	)
+	var binder: GF_VIRTUAL_LIST_BINDER_SCRIPT = _get_fixture_binder(fixture)
+	var scroll_container: ScrollContainer = _get_fixture_scroll(fixture)
+	var model: GFVirtualListModel = _get_fixture_model(fixture)
+	var extent_report: Dictionary = model.set_item_extent(0, 1_000_000_000.0, true)
+	assert_true(GFVariantData.get_option_bool(extent_report, "changed"))
+	model.trailing_padding = 100.0
+	var _initial_result: GF_VIRTUAL_LIST_SYNC_RESULT_SCRIPT = binder.sync_now()
+	await get_tree().process_frame
+	var callback_count: Array[int] = [0]
+	var _scroll_connected: Error = scroll_container.get_v_scroll_bar().value_changed.connect(
+		func(value: float) -> void:
+			if callback_count[0] == 0:
+				callback_count[0] += 1
+				scroll_container.scroll_vertical = maxi(int(value) - 1, 0),
+		CONNECT_ONE_SHOT
+	) as Error
+
+	var scrolled: bool = binder.scroll_to_item(
+		1,
+		GF_VIRTUAL_LIST_BINDER_SCRIPT.ScrollAlignment.START
+	)
+
+	assert_false(scrolled, "整数滚动写入漂移一像素时不得报告成功。")
+	assert_eq(callback_count[0], 1)
+	assert_eq(scroll_container.scroll_vertical, 999_999_999)
+	assert_true(GFVariantData.get_option_bool(binder.get_debug_snapshot(), "pending_sync"))
 
 
 func test_scroll_to_item_aborts_when_scroll_callback_changes_snapshot() -> void:

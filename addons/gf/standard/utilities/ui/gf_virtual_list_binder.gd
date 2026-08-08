@@ -694,10 +694,7 @@ func _synchronize(generation: int) -> GFVirtualListSyncResult:
 			)
 	var round_scroll_offset: float = _get_scroll_offset(scroll_container)
 	var round_viewport_extent: float = _get_viewport_extent(scroll_container)
-	var scroll_snapshot_matches: bool = is_equal_approx(
-		round_scroll_offset,
-		planned_scroll_offset
-	)
+	var scroll_snapshot_matches: bool = round_scroll_offset == planned_scroll_offset
 	var viewport_snapshot_matches: bool = is_equal_approx(
 		round_viewport_extent,
 		viewport_extent
@@ -2137,10 +2134,7 @@ func _scroll_to_item_internal(item_index: int, alignment: ScrollAlignment) -> bo
 	)
 	operation_is_current = (
 		operation_is_current
-		and is_equal_approx(
-			_get_scroll_offset_for_axis(scroll_container, operation_axis),
-			next_offset
-		)
+		and _get_scroll_offset_for_axis(scroll_container, operation_axis) == next_offset
 	)
 	if not operation_is_current:
 		_request_sync_after_scroll_drift()

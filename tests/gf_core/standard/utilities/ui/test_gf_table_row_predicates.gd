@@ -488,6 +488,7 @@ func test_framework_evaluation_bypasses_overridden_public_evaluate() -> void:
 	assert_eq(view.get_view_revision(), previous_revision + 1)
 	assert_signal_emit_count(view, "view_changed", 1)
 	assert_signal_emit_count(view, "filter_changed", 0)
+	predicate.view = null
 
 
 func test_framework_normalizes_result_without_calling_overridden_getters() -> void:
@@ -516,6 +517,7 @@ func test_framework_normalizes_result_without_calling_overridden_getters() -> vo
 	assert_eq(view.get_view_revision(), previous_revision + 1)
 	assert_signal_emit_count(view, "view_changed", 1)
 	assert_signal_emit_count(view, "filter_changed", 0)
+	hostile_result.view = null
 
 
 func test_each_predicate_receives_an_independent_row_view_snapshot() -> void:
@@ -1246,13 +1248,21 @@ func test_cell_commit_isolates_mutable_input_report_and_signal_payloads() -> voi
 		view.cell_value_committed.connect(observer.on_cell_value_committed)
 		as Error
 	)
-	var requested_tags: Array = ["new"]
+	var requested_tags: Array[String] = ["new"]
 
 	var report: Dictionary = view.commit_cell_values([
 		{ "row_index": 0, "column_id": &"tags", "new_value": requested_tags },
 	])
 
 	assert_true(GFVariantData.get_option_bool(report, "ok"))
+	var committed_cell_value: Variant = view.get_cell_value(0, &"tags")
+	assert_true(committed_cell_value is Array)
+	if committed_cell_value is Array:
+		var committed_tags: Array = committed_cell_value
+		assert_true(
+			committed_tags.is_same_typed(requested_tags),
+			"权威候选值必须保留 Array[String] 约束。"
+		)
 	requested_tags.append("caller-mutation")
 	var committed_reports_value: Variant = GFVariantData.get_option_value(report, "committed")
 	var committed_reports: Array = []
@@ -1269,6 +1279,10 @@ func test_cell_commit_isolates_mutable_input_report_and_signal_payloads() -> voi
 			)
 			if report_tags_value is Array:
 				var report_tags: Array = report_tags_value
+				assert_true(
+					report_tags.is_same_typed(requested_tags),
+					"提交报告必须保留 typed Array 元数据。"
+				)
 				report_tags.append("report-mutation")
 	assert_eq(
 		GFVariantData.get_option_array(GFVariantData.as_dictionary(view.get_row(0)), "tags"),
@@ -1511,6 +1525,44 @@ func test_row_view_returns_an_isolated_copy_of_builtin_resources() -> void:
 		assert_eq(copied_resource.min_value, -10.0)
 		copied_resource.min_value = -20.0
 		assert_eq(source_resource.min_value, -10.0)
+
+
+func test_row_view_preserves_nested_typed_container_metadata() -> void:
+	var source_numbers: Array[int] = [1, 2]
+	var source_weights: Dictionary[StringName, float] = { &"alpha": 1.5 }
+	var source_values: Dictionary[StringName, Variant] = {
+		&"numbers": source_numbers,
+		&"weights": source_weights,
+	}
+	var row_view: GFTableRowView = GFTableRowView.new()
+
+	assert_true(row_view.configure_for_framework(0, &"typed-row", source_values))
+	var copied_values: Dictionary = row_view.get_values()
+
+	assert_true(copied_values.is_same_typed(source_values), "根 Dictionary 类型约束必须保留。")
+	assert_false(is_same(copied_values, source_values))
+	var copied_numbers_value: Variant = copied_values.get(&"numbers")
+	assert_true(copied_numbers_value is Array)
+	if copied_numbers_value is Array:
+		var copied_numbers: Array = copied_numbers_value
+		assert_true(copied_numbers.is_same_typed(source_numbers))
+		assert_false(is_same(copied_numbers, source_numbers))
+		copied_numbers.append(3)
+		assert_eq(source_numbers, [1, 2])
+	var copied_weights_value: Variant = copied_values.get(&"weights")
+	assert_true(copied_weights_value is Dictionary)
+	if copied_weights_value is Dictionary:
+		var copied_weights: Dictionary = copied_weights_value
+		assert_true(copied_weights.is_same_typed(source_weights))
+		assert_false(is_same(copied_weights, source_weights))
+		copied_weights[&"beta"] = 2.5
+		assert_false(source_weights.has(&"beta"))
+	source_numbers.append(4)
+	var second_numbers_value: Variant = row_view.get_value(&"numbers")
+	assert_true(second_numbers_value is Array)
+	if second_numbers_value is Array:
+		var second_numbers: Array = second_numbers_value
+		assert_eq(second_numbers, [1, 2], "配置后的 RowView 不得与源 typed Array 共享引用。")
 
 
 func test_set_columns_rolls_back_when_candidate_predicate_fails() -> void:

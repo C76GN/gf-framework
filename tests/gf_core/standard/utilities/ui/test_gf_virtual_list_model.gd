@@ -67,6 +67,25 @@ func test_remove_item_and_trailing_padding_keep_content_extent_consistent() -> v
 	assert_eq(model.get_content_extent(), 132.0, "默认内容尺寸应包含 trailing padding。")
 
 
+func test_large_trailing_padding_preserves_one_pixel_updates() -> void:
+	var model: GFVirtualListModel = GFVirtualListModel.new()
+	model.set_item_count(1)
+	model.trailing_padding = 1_000_000_000.0
+	watch_signals(model)
+	var previous_revision: int = model.get_revision()
+
+	model.trailing_padding = 1_000_000_001.0
+
+	assert_eq(model.trailing_padding, 1_000_000_001.0)
+	assert_eq(
+		model.get_content_extent(),
+		model.estimated_item_extent + 1_000_000_001.0,
+		"大数值下的整像素 padding 变化不得被相对容差吞掉。"
+	)
+	assert_eq(model.get_revision(), previous_revision + 1)
+	assert_signal_emit_count(model, "layout_changed", 1)
+
+
 func test_reset_item_extent_returns_item_to_estimate() -> void:
 	var model: GFVirtualListModel = GFVirtualListModel.new()
 	model.estimated_item_extent = 40.0
@@ -77,6 +96,40 @@ func test_reset_item_extent_returns_item_to_estimate() -> void:
 	assert_true(reset, "合法索引应可重置。")
 	assert_eq(model.get_item_extent(0), 40.0, "重置后应回到估算尺寸。")
 	assert_false(model.is_item_measured(0), "重置后条目不应仍标记为实测。")
+
+
+func test_reset_item_extent_restores_large_unmeasured_one_pixel_difference() -> void:
+	var model: GFVirtualListModel = GFVirtualListModel.new()
+	model.estimated_item_extent = 1_000_000_000.0
+	model.set_item_count(1)
+	var report: Dictionary = model.set_item_extent(0, 1_000_000_001.0, false)
+	assert_true(GFVariantData.get_option_bool(report, "changed"))
+	assert_false(model.is_item_measured(0))
+	watch_signals(model)
+	var previous_revision: int = model.get_revision()
+
+	var reset: bool = model.reset_item_extent(0)
+
+	assert_true(reset)
+	assert_eq(model.get_item_extent(0), 1_000_000_000.0)
+	assert_false(model.is_item_measured(0))
+	assert_eq(model.get_revision(), previous_revision + 1)
+	assert_signal_emit_count(model, "layout_changed", 1)
+
+
+func test_large_estimated_extent_preserves_one_pixel_updates() -> void:
+	var model: GFVirtualListModel = GFVirtualListModel.new()
+	model.estimated_item_extent = 1_000_000_000.0
+	model.set_item_count(1)
+	watch_signals(model)
+	var previous_revision: int = model.get_revision()
+
+	model.estimated_item_extent = 1_000_000_001.0
+
+	assert_eq(model.estimated_item_extent, 1_000_000_001.0)
+	assert_eq(model.get_item_extent(0), 1_000_000_001.0)
+	assert_eq(model.get_revision(), previous_revision + 1)
+	assert_signal_emit_count(model, "layout_changed", 1)
 
 
 func test_non_finite_layout_inputs_cannot_poison_offsets() -> void:

@@ -86,7 +86,7 @@ var trailing_padding: float:
 		if not is_finite(value):
 			return
 		var _next_trailing_padding: float = clampf(value, 0.0, MAX_ITEM_EXTENT)
-		if is_equal_approx(_trailing_padding, _next_trailing_padding):
+		if _trailing_padding == _next_trailing_padding:
 			return
 		_trailing_padding = _next_trailing_padding
 		_notify_layout_changed()
@@ -262,7 +262,7 @@ func set_item_extent(
 func reset_item_extent(item_index: int) -> bool:
 	if not _is_valid_index(item_index):
 		return false
-	if is_equal_approx(_extents[item_index], _estimated_item_extent) and _measured[item_index] == 0:
+	if _extents[item_index] == _estimated_item_extent and _measured[item_index] == 0:
 		return true
 	_extents[item_index] = _estimated_item_extent
 	_measured[item_index] = 0
@@ -423,7 +423,7 @@ func _set_estimated_item_extent(value: float) -> void:
 	if not is_finite(value):
 		return
 	var next_extent: float = _normalize_item_extent(value)
-	if is_equal_approx(_estimated_item_extent, next_extent):
+	if _estimated_item_extent == next_extent:
 		return
 	_estimated_item_extent = next_extent
 	for item_index: int in range(_extents.size()):

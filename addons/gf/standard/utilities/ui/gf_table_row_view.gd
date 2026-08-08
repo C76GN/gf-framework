@@ -351,7 +351,7 @@ static func _duplicate_isolated_array(
 		return _make_copy_failure(&"snapshot_collection_budget_exceeded")
 	if not _push_active_reference(state, source_array):
 		return _make_copy_failure(&"circular_snapshot_value")
-	var copied_array: Array = []
+	var copied_array: Array = _create_isolated_array(source_array)
 	for item: Variant in source_array:
 		var item_report: Dictionary = _duplicate_isolated_value(item, state, depth + 1)
 		if not GFVariantData.get_option_bool(item_report, "ok"):
@@ -371,7 +371,7 @@ static func _duplicate_isolated_dictionary(
 		return _make_copy_failure(&"snapshot_collection_budget_exceeded")
 	if not _push_active_reference(state, source_dictionary):
 		return _make_copy_failure(&"circular_snapshot_value")
-	var copied_dictionary: Dictionary = {}
+	var copied_dictionary: Dictionary = _create_isolated_dictionary(source_dictionary)
 	for source_key: Variant in source_dictionary.keys():
 		var key_report: Dictionary = _duplicate_isolated_value(source_key, state, depth + 1)
 		if not GFVariantData.get_option_bool(key_report, "ok"):
@@ -390,6 +390,31 @@ static func _duplicate_isolated_dictionary(
 		)
 	_pop_active_reference(state)
 	return _make_copy_success(copied_dictionary)
+
+
+static func _create_isolated_array(source_array: Array) -> Array:
+	if not source_array.is_typed():
+		return []
+	return Array(
+		[],
+		source_array.get_typed_builtin(),
+		source_array.get_typed_class_name(),
+		source_array.get_typed_script()
+	)
+
+
+static func _create_isolated_dictionary(source_dictionary: Dictionary) -> Dictionary:
+	if not source_dictionary.is_typed():
+		return {}
+	return Dictionary(
+		{},
+		source_dictionary.get_typed_key_builtin(),
+		source_dictionary.get_typed_key_class_name(),
+		source_dictionary.get_typed_key_script(),
+		source_dictionary.get_typed_value_builtin(),
+		source_dictionary.get_typed_value_class_name(),
+		source_dictionary.get_typed_value_script()
+	)
 
 
 static func _duplicate_isolated_resource(

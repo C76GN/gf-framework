@@ -356,7 +356,12 @@ func duplicate_policy() -> GFSpatialCanvasInputPolicy:
 		if binding == null:
 			policy.selection_modifier_bindings.append(null)
 		else:
-			policy.selection_modifier_bindings.append(binding.duplicate_binding())
+			var copied_binding: GFSpatialCanvasSelectionModeBinding = (
+				GFSpatialCanvasSelectionModeBinding.new()
+			)
+			copied_binding.modifier_mask = binding.modifier_mask
+			copied_binding.selection_mode = binding.selection_mode
+			policy.selection_modifier_bindings.append(copied_binding)
 	if selection_modifier_bindings.size() > ABSOLUTE_MAX_SELECTION_MODIFIER_BINDINGS:
 		policy.selection_modifier_bindings.append(null)
 	policy.drag_threshold = drag_threshold

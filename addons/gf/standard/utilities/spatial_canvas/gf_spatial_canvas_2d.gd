@@ -251,6 +251,7 @@ var _selection_capture_button: MouseButton = MOUSE_BUTTON_NONE
 var _touch_selection_index: int = -1
 var _gesture_active: bool = false
 var _input_capture_owner: _InputCaptureOwner = _InputCaptureOwner.NONE
+var _input_capture_device: int = 0
 
 
 # --- Godot 生命周期方法 ---
@@ -2178,7 +2179,7 @@ func _handle_mouse_button_input(event: InputEventMouseButton) -> InputDispositio
 	if pan_matches and selection_matches:
 		return InputDisposition.IGNORED
 	if pan_matches:
-		if not _acquire_input_capture(_InputCaptureOwner.MOUSE):
+		if not _acquire_input_capture(_InputCaptureOwner.MOUSE, event.device):
 			return InputDisposition.IGNORED
 		if is_inside_tree():
 			grab_focus()
@@ -2187,7 +2188,7 @@ func _handle_mouse_button_input(event: InputEventMouseButton) -> InputDispositio
 		_mouse_pan_last_position = event.position
 		return _general_disposition()
 	if selection_matches:
-		if not _acquire_input_capture(_InputCaptureOwner.MOUSE):
+		if not _acquire_input_capture(_InputCaptureOwner.MOUSE, event.device):
 			return InputDisposition.IGNORED
 		if is_inside_tree():
 			grab_focus()
@@ -2279,7 +2280,7 @@ func _handle_screen_touch_input(event: InputEventScreenTouch) -> InputDispositio
 		var active_pointer_count: int = _gesture_utility.get_active_pointer_count()
 		var starts_capture: bool = active_pointer_count == 0
 		if starts_capture:
-			if not _acquire_input_capture(_InputCaptureOwner.RAW_TOUCH):
+			if not _acquire_input_capture(_InputCaptureOwner.RAW_TOUCH, event.device):
 				return InputDisposition.IGNORED
 		elif _input_capture_owner != _InputCaptureOwner.RAW_TOUCH:
 			return InputDisposition.IGNORED
@@ -2411,7 +2412,10 @@ func _finish_selection_capture_at(canvas_position: Vector2) -> void:
 func _handle_canceled_input_event(event: InputEvent) -> InputDisposition:
 	var mouse_button: InputEventMouseButton = event as InputEventMouseButton
 	if mouse_button != null:
-		if _input_capture_owner != _InputCaptureOwner.MOUSE:
+		if (
+			_input_capture_owner != _InputCaptureOwner.MOUSE
+			or mouse_button.device != _input_capture_device
+		):
 			return InputDisposition.IGNORED
 		var matches_pan: bool = (
 			_mouse_pan_active
@@ -2430,6 +2434,7 @@ func _handle_canceled_input_event(event: InputEvent) -> InputDisposition:
 	if (
 		screen_touch == null
 		or _input_capture_owner != _InputCaptureOwner.RAW_TOUCH
+		or screen_touch.device != _input_capture_device
 		or not _gesture_tracks_pointer(screen_touch.index)
 	):
 		return InputDisposition.IGNORED
@@ -2582,30 +2587,37 @@ func _has_raw_touch_multi_behavior() -> bool:
 	)
 
 
-func _acquire_input_capture(capture_owner: _InputCaptureOwner) -> bool:
+func _acquire_input_capture(capture_owner: _InputCaptureOwner, device: int) -> bool:
 	if capture_owner == _InputCaptureOwner.NONE:
 		return false
 	if _input_capture_owner == _InputCaptureOwner.NONE:
 		_input_capture_owner = capture_owner
-	return _input_capture_owner == capture_owner
+		_input_capture_device = device
+	return _input_capture_owner == capture_owner and _input_capture_device == device
 
 
 func _release_input_capture(capture_owner: _InputCaptureOwner) -> void:
 	if _input_capture_owner == capture_owner:
 		_input_capture_owner = _InputCaptureOwner.NONE
+		_input_capture_device = 0
 
 
 func _input_capture_conflicts_with_event(event: InputEvent) -> bool:
 	if _input_capture_owner == _InputCaptureOwner.MOUSE:
 		return (
-			event is InputEventScreenTouch
+			(event is InputEventMouse and event.device != _input_capture_device)
+			or event is InputEventScreenTouch
 			or event is InputEventScreenDrag
 			or event is InputEventPanGesture
 			or event is InputEventMagnifyGesture
 		)
 	if _input_capture_owner == _InputCaptureOwner.RAW_TOUCH:
 		return (
-			event is InputEventMouse
+			(
+				(event is InputEventScreenTouch or event is InputEventScreenDrag)
+				and event.device != _input_capture_device
+			)
+			or event is InputEventMouse
 			or event is InputEventPanGesture
 			or event is InputEventMagnifyGesture
 		)
@@ -2674,6 +2686,7 @@ func _on_focus_exited() -> void:
 
 func _reset_transient_input() -> void:
 	_input_capture_owner = _InputCaptureOwner.NONE
+	_input_capture_device = 0
 	_reset_mouse_pan_capture()
 	_reset_selection_capture()
 	_gesture_active = false
