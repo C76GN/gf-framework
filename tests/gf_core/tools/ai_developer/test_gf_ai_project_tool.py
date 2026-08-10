@@ -1523,6 +1523,33 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 		self.assertEqual(analysis["unowned_references"], [])
 		self.assertEqual(validate_schema_file(report, SCHEMA_ROOT / "project_snapshot.schema.json"), [])
 
+	def test_module_dependency_analysis_ignores_case_equivalent_reserved_framework_paths(
+		self,
+	) -> None:
+		self._set_modules([self._module("core")])
+		(self.project_root / "features/core/framework_paths.gd").write_text(
+			"extends Node\n"
+			"const FRAMEWORK_PATHS := [\n"
+			'\t"res://addons/gf",\n'
+			'\t"res://ADDONS/GF",\n'
+			'\t"res://addons/gf/plugin.cfg",\n'
+			'\t"res://AdDoNs/Gf/plugin.cfg",\n'
+			"]\n",
+			encoding="utf-8",
+		)
+
+		report = snapshot.build_snapshot(self.project_root)
+		analysis = report["project"]["module_dependency_analysis"]
+
+		self.assertEqual(analysis["status"], "complete")
+		self.assertEqual(analysis["unowned_reference_count"], 0)
+		self.assertEqual(analysis["unowned_references"], [])
+		self.assertNotIn(
+			"unowned_project_resource_reference",
+			{item["code"] for item in report["drift"]["issues"]},
+		)
+		self.assertEqual(validate_schema_file(report, SCHEMA_ROOT / "project_snapshot.schema.json"), [])
+
 	def test_module_dependency_analysis_accepts_auditable_owned_resource_references(self) -> None:
 		self._set_modules([self._module("core")])
 		(self.project_root / "export_presets.cfg").write_text("[preset.0]\n", encoding="utf-8")
