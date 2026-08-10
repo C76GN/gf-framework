@@ -6,6 +6,7 @@
 
 - [安装与 AutoLoad](install-autoload.md)：复制 `addons/gf`、启用插件和确认 `Gf` 全局入口。
 - [最小启动与 Installer](minimal-installer.md)：注册 Model / Utility / System，调用 `Gf.init()`，并迁移到项目 Installer。
+- [卸载、清理与恢复](uninstall.md)：先撤销项目引用和插件注册，再移除文件；区分完整插件卸载与 package 卸载。
 
 ## 你会用到什么
 

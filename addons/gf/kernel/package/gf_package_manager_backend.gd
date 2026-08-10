@@ -29,6 +29,47 @@ const GF_PACKAGE_ROOT_PREFIX: String = "addons/" + "gf/"
 ## @layer kernel/package
 const REGISTRY_SCHEMA_VERSION: int = 2
 
+# registry v2 采用闭合字段集合；未知字段不能在原生后端被静默解释成空值。
+const _REGISTRY_PACKAGE_KINDS: Array[String] = ["kernel", "standard", "extension", "tool", "preset"]
+const _REGISTRY_ROOT_REQUIRED_FIELDS: PackedStringArray = [
+	"schema_version",
+	"framework_version",
+	"minimum_framework_version",
+	"maximum_framework_version_exclusive",
+	"packages",
+]
+const _REGISTRY_ROOT_ALLOWED_FIELDS: PackedStringArray = [
+	"schema_version",
+	"framework_version",
+	"minimum_framework_version",
+	"maximum_framework_version_exclusive",
+	"packages",
+	"generated_at",
+]
+const _REGISTRY_PACKAGE_COMMON_REQUIRED_FIELDS: PackedStringArray = [
+	"version",
+	"kind",
+	"minimum_framework_version",
+	"maximum_framework_version_exclusive",
+	"dependencies",
+	"paths",
+]
+const _REGISTRY_PACKAGE_COMMON_OPTIONAL_FIELDS: PackedStringArray = [
+	"display_name",
+	"description",
+]
+const _REGISTRY_PACKAGE_CONCRETE_REQUIRED_FIELDS: PackedStringArray = [
+	"archive",
+	"sha256",
+	"size_bytes",
+]
+const _REGISTRY_PACKAGE_CONCRETE_OPTIONAL_FIELDS: PackedStringArray = [
+	"gf_extension_id",
+]
+const _REGISTRY_PACKAGE_PRESET_REQUIRED_FIELDS: PackedStringArray = [
+	"packages",
+]
+
 ## lockfile schema 版本。
 ## [br]
 ## @api framework_internal
@@ -422,7 +463,8 @@ static func initialize_package_cache(cache_dir: String) -> Dictionary:
 ## @param options: 内部包管理参数。
 ## [br]
 ## @schema options: Dictionary，可包含 cache_mode、cache_dir、channel、cancel_callback；
-## 测试可用 max_offline_bundle_actual_uncompressed_bytes 收紧离线包实际解压累计字节上限。
+## 测试可用 max_offline_bundle_actual_uncompressed_bytes 收紧离线包实际解压累计字节上限，
+## 或用 after_registry_cache_lookup_callback 模拟已校验共享 registry path 的并发替换。
 ## [br]
 ## @return 与 Python status 命令兼容的状态 Dictionary。
 ## [br]
@@ -837,7 +879,10 @@ static func make_uninstall_plan(
 	var blocked: Array[Dictionary] = []
 	var to_remove: PackedStringArray = PackedStringArray()
 	var issues: PackedStringArray = PackedStringArray()
+	var requested_package_ids: PackedStringArray = PackedStringArray()
 	for package_id: String in package_ids:
+		_append_unique(requested_package_ids, package_id)
+	for package_id: String in requested_package_ids:
 		if _append_cancelled_if_requested(options, issues):
 			return _make_plan_result(
 				false,
@@ -858,7 +903,6 @@ static func make_uninstall_plan(
 			continue
 
 		var reasons: PackedStringArray = _GF_VARIANT_ACCESS.get_option_packed_string_array(entry, "reason")
-		var required_by: PackedStringArray = _GF_VARIANT_ACCESS.get_option_packed_string_array(entry, "required_by")
 		var protected_reasons: PackedStringArray = _intersect_strings(reasons, PROTECTED_REASONS)
 		var references: Array[Dictionary] = scan_project_references(project_root, registry_packages, package_id, options)
 		if _append_cancelled_if_requested(options, issues):
@@ -875,9 +919,6 @@ static func make_uninstall_plan(
 				blocked,
 				_make_blocked_uninstall_plan_entries(blocked, original_installed)
 			)
-		if not required_by.is_empty() and not force:
-			blocked.append({ "id": package_id, "reason": "required_by", "required_by": _packed_to_array(required_by) })
-			continue
 		if not protected_reasons.is_empty() and not force:
 			blocked.append({ "id": package_id, "reason": "protected_reason", "protected_reasons": _packed_to_array(protected_reasons) })
 			continue
@@ -885,6 +926,34 @@ static func make_uninstall_plan(
 			blocked.append({ "id": package_id, "reason": "project_references", "references": references.slice(0, 20) })
 			continue
 		_append_unique(to_remove, package_id)
+
+	# required_by 必须按整批请求的投影最终状态判断。集合内部的依赖边不会阻止原子批量卸载；
+	# 如果某个候选因外部 depender 被移出集合，则固定点会继续传播其阻断关系。
+	if not force:
+		var candidate_set: Dictionary = {}
+		for package_id: String in to_remove:
+			candidate_set[package_id] = true
+		var changed: bool = true
+		while changed:
+			changed = false
+			var candidate_snapshot: PackedStringArray = to_remove.duplicate()
+			for package_id: String in candidate_snapshot:
+				var entry: Dictionary = _GF_VARIANT_ACCESS.get_option_dictionary(installed, package_id)
+				var external_required_by: PackedStringArray = PackedStringArray()
+				for depender_id: String in _GF_VARIANT_ACCESS.get_option_packed_string_array(entry, "required_by"):
+					if not candidate_set.has(depender_id):
+						_append_unique(external_required_by, depender_id)
+				if external_required_by.is_empty():
+					continue
+				external_required_by.sort()
+				blocked.append({
+					"id": package_id,
+					"reason": "required_by",
+					"required_by": _packed_to_array(external_required_by),
+				})
+				var _removed_candidate: bool = _remove_string(to_remove, package_id)
+				var _erased_candidate: bool = candidate_set.erase(package_id)
+				changed = true
 
 	if not blocked.is_empty():
 		return _make_plan_result(
@@ -1874,16 +1943,136 @@ static func _valid_unique_string_array(value: Variant) -> bool:
 	return true
 
 
+static func _append_registry_root_schema_issues(data: Dictionary, issues: PackedStringArray) -> void:
+	_append_exact_dictionary_field_issues(
+		data,
+		_REGISTRY_ROOT_REQUIRED_FIELDS,
+		_REGISTRY_ROOT_ALLOWED_FIELDS,
+		"Registry",
+		issues
+	)
+	if not _is_exact_integer(data.get("schema_version")) or _GF_VARIANT_ACCESS.get_option_int(data, "schema_version", -1) != REGISTRY_SCHEMA_VERSION:
+		var _append_schema: bool = issues.append(
+			"Registry schema_version must be the integer %d." % REGISTRY_SCHEMA_VERSION
+		)
+	var framework_version_value: Variant = data.get("framework_version")
+	if not framework_version_value is String or _GF_VARIANT_ACCESS.to_text(framework_version_value).is_empty():
+		var _append_framework: bool = issues.append("Registry framework_version must be a non-empty string.")
+	for field_name: String in ["minimum_framework_version", "maximum_framework_version_exclusive"]:
+		if not data.get(field_name) is String:
+			var _append_compatibility: bool = issues.append("Registry %s must be a string." % field_name)
+	if data.has("generated_at") and not data.get("generated_at") is String:
+		var _append_generated: bool = issues.append("Registry generated_at must be a string when present.")
+	if not data.get("packages") is Dictionary:
+		var _append_packages: bool = issues.append("Registry packages must be an object.")
+
+
+static func _append_registry_package_schema_issues(
+	package_id: String,
+	package_entry: Dictionary,
+	issues: PackedStringArray
+) -> void:
+	var kind_value: Variant = package_entry.get("kind")
+	var kind: String = kind_value if kind_value is String else ""
+	var required_fields: PackedStringArray = _REGISTRY_PACKAGE_COMMON_REQUIRED_FIELDS.duplicate()
+	var allowed_fields: PackedStringArray = _REGISTRY_PACKAGE_COMMON_REQUIRED_FIELDS.duplicate()
+	if kind == "preset":
+		required_fields.append_array(_REGISTRY_PACKAGE_PRESET_REQUIRED_FIELDS)
+		allowed_fields.append_array(_REGISTRY_PACKAGE_PRESET_REQUIRED_FIELDS)
+	else:
+		required_fields.append_array(_REGISTRY_PACKAGE_CONCRETE_REQUIRED_FIELDS)
+		allowed_fields.append_array(_REGISTRY_PACKAGE_CONCRETE_REQUIRED_FIELDS)
+		allowed_fields.append_array(_REGISTRY_PACKAGE_CONCRETE_OPTIONAL_FIELDS)
+	allowed_fields.append_array(_REGISTRY_PACKAGE_COMMON_OPTIONAL_FIELDS)
+	for field_name: String in _UNSUPPORTED_REGISTRY_PACKAGE_SIGNATURE_FIELDS:
+		_append_unique(allowed_fields, field_name)
+	_append_exact_dictionary_field_issues(
+		package_entry,
+		required_fields,
+		allowed_fields,
+		"Registry package %s" % package_id,
+		issues
+	)
+	for field_name: String in ["version", "kind", "minimum_framework_version", "maximum_framework_version_exclusive"]:
+		if not package_entry.get(field_name) is String:
+			var _append_string_field: bool = issues.append(
+				"Registry package %s %s must be a string." % [package_id, field_name]
+			)
+	var version_value: Variant = package_entry.get("version")
+	if not version_value is String or _GF_VARIANT_ACCESS.to_text(version_value).is_empty():
+		var _append_version: bool = issues.append(
+			"Registry package %s version must be a non-empty string." % package_id
+		)
+	if not _REGISTRY_PACKAGE_KINDS.has(kind):
+		var _append_kind: bool = issues.append(
+			"Registry package %s kind is invalid: %s" % [package_id, kind if not kind.is_empty() else "<empty>"]
+		)
+	for field_name: String in _REGISTRY_PACKAGE_COMMON_OPTIONAL_FIELDS:
+		if package_entry.has(field_name) and not package_entry.get(field_name) is String:
+			var _append_optional: bool = issues.append(
+				"Registry package %s %s must be a string when present." % [package_id, field_name]
+			)
+	var dependencies_value: Variant = package_entry.get("dependencies")
+	var dependencies_are_valid: bool = _valid_unique_string_array(dependencies_value)
+	if dependencies_are_valid:
+		for dependency_id: String in _GF_VARIANT_ACCESS.get_option_packed_string_array(package_entry, "dependencies"):
+			if not _package_id_is_valid(dependency_id):
+				dependencies_are_valid = false
+				break
+	if not dependencies_are_valid:
+		var _append_dependencies: bool = issues.append(
+			"Registry package %s dependencies must be an array of unique valid package ids." % package_id
+		)
+	_append_registry_package_path_issues(package_id, package_entry, issues)
+	if kind == "preset":
+		var packages_value: Variant = package_entry.get("packages")
+		var packages_are_valid: bool = _valid_unique_string_array(packages_value)
+		if packages_are_valid:
+			var preset_packages: PackedStringArray = _GF_VARIANT_ACCESS.get_option_packed_string_array(package_entry, "packages")
+			packages_are_valid = not preset_packages.is_empty()
+			for preset_package_id: String in preset_packages:
+				if not _package_id_is_valid(preset_package_id):
+					packages_are_valid = false
+					break
+		if not packages_are_valid:
+			var _append_preset_packages: bool = issues.append(
+				"Registry preset %s packages must be a non-empty array of unique valid package ids." % package_id
+			)
+		if dependencies_value != []:
+			var _append_preset_dependencies: bool = issues.append(
+				"Registry preset %s dependencies must be empty; preset closure belongs in packages." % package_id
+			)
+		if package_entry.get("paths") != []:
+			var _append_preset_paths: bool = issues.append("Registry preset %s paths must be empty." % package_id)
+		return
+	var archive_value: Variant = package_entry.get("archive")
+	if not archive_value is String or _GF_VARIANT_ACCESS.to_text(archive_value).is_empty():
+		var _append_archive: bool = issues.append(
+			"Registry package %s archive must be a non-empty string." % package_id
+		)
+	var sha_value: Variant = package_entry.get("sha256")
+	if not sha_value is String or not _registry_source_sha_is_valid(_GF_VARIANT_ACCESS.to_text(sha_value)):
+		var _append_sha: bool = issues.append("Registry package %s sha256 must be a full SHA-256." % package_id)
+	var size_value: Variant = package_entry.get("size_bytes")
+	if not _is_exact_integer(size_value) or _GF_VARIANT_ACCESS.to_int(size_value, 0) <= 0:
+		var _append_size: bool = issues.append(
+			"Registry package %s size_bytes must be a positive integer." % package_id
+		)
+	if package_entry.has("gf_extension_id"):
+		var extension_id_value: Variant = package_entry.get("gf_extension_id")
+		if not extension_id_value is String or _GF_VARIANT_ACCESS.to_text(extension_id_value).is_empty():
+			var _append_extension: bool = issues.append(
+				"Registry package %s gf_extension_id must be a non-empty string when present." % package_id
+			)
+
+
 static func _load_registry(path: String) -> Dictionary:
 	var issues: PackedStringArray = PackedStringArray()
 	var data: Dictionary = _read_json_dictionary(path, "registry", issues)
 	if data.is_empty() and not issues.is_empty():
 		return { "packages": {}, "framework_version": "", "issues": _packed_to_array(issues) }
-	if _GF_VARIANT_ACCESS.get_option_int(data, "schema_version", -1) != REGISTRY_SCHEMA_VERSION:
-		var _append_schema_issue: bool = issues.append("Registry schema_version must be %d." % REGISTRY_SCHEMA_VERSION)
-	for field_name: String in ["minimum_framework_version", "maximum_framework_version_exclusive"]:
-		if not data.has(field_name):
-			var _append_compatibility_field_issue: bool = issues.append("Registry %s field is required." % field_name)
+	_append_registry_root_schema_issues(data, issues)
+	var root_is_valid: bool = issues.is_empty()
 	var raw_packages: Variant = data.get("packages", {})
 	var packages: Dictionary = {}
 	if raw_packages is Dictionary:
@@ -1892,18 +2081,16 @@ static func _load_registry(path: String) -> Dictionary:
 			if not _package_id_is_valid(package_id):
 				var _append_package_id_issue: bool = issues.append("Registry contains invalid package id: %s" % package_id)
 				continue
-			var package_entry: Dictionary = _GF_VARIANT_ACCESS.get_option_dictionary(raw_package_dictionary, package_id)
-			if not package_entry.is_empty():
-				var issue_count_before_validation: int = issues.size()
-				_append_unsupported_registry_package_signature_issues(package_id, package_entry, issues)
-				_append_registry_package_path_issues(package_id, package_entry, issues)
-				for field_name: String in ["minimum_framework_version", "maximum_framework_version_exclusive"]:
-					if not package_entry.has(field_name):
-						var _append_package_compatibility_field_issue: bool = issues.append("Registry package %s is missing %s." % [package_id, field_name])
-				if issues.size() == issue_count_before_validation:
-					packages[package_id] = package_entry
-	else:
-		var _append_packages_issue: bool = issues.append("Registry packages must be an object.")
+			var package_entry_value: Variant = raw_package_dictionary.get(package_id)
+			if not package_entry_value is Dictionary:
+				var _append_entry: bool = issues.append("Registry package entry must be an object: %s" % package_id)
+				continue
+			var package_entry: Dictionary = package_entry_value
+			var issue_count_before_validation: int = issues.size()
+			_append_unsupported_registry_package_signature_issues(package_id, package_entry, issues)
+			_append_registry_package_schema_issues(package_id, package_entry, issues)
+			if root_is_valid and issues.size() == issue_count_before_validation:
+				packages[package_id] = package_entry
 	return {
 		"packages": packages,
 		"framework_version": _GF_VARIANT_ACCESS.get_option_string(data, "framework_version"),
@@ -3639,8 +3826,10 @@ static func _prepare_registry_candidate(
 		var cache_path: String = _GF_PACKAGE_FILESYSTEM_CACHE_STORE.make_workspace_temp_path(cache_context, "registries", ".json")
 		var raw_path: String = ""
 		var downloaded_path: String = ""
+		var cache_hit: bool = false
 		if not expected_sha.is_empty() and expected_size > 0:
 			raw_path = _GF_PACKAGE_FILESYSTEM_CACHE_STORE.find_artifact(cache_context, expected_sha, expected_size, ".json")
+			cache_hit = not raw_path.is_empty()
 		if raw_path.is_empty():
 			downloaded_path = _GF_PACKAGE_FILESYSTEM_CACHE_STORE.make_workspace_temp_path(cache_context, "registry_downloads", ".json")
 			raw_path = downloaded_path
@@ -3662,7 +3851,34 @@ static func _prepare_registry_candidate(
 					_remove_file_if_exists(downloaded_path)
 					return _make_registry_candidate_result(cache_path, cache_context, true, registry)
 				raw_path = committed_path
+		if not expected_sha.is_empty() and expected_size > 0:
+			if cache_hit:
+				var raw_callback: Variant = options.get("after_registry_cache_lookup_callback")
+				if raw_callback is Callable:
+					var callback: Callable = raw_callback
+					if callback.is_valid():
+						callback.call(raw_path)
+			var snapshot_path: String = _GF_PACKAGE_FILESYSTEM_CACHE_STORE.make_workspace_temp_path(
+				cache_context,
+				"registry_snapshots",
+				".json"
+			)
+			if snapshot_path.is_empty():
+				var _append_snapshot_path: bool = issues.append("Could not allocate a private verified registry snapshot path.")
+				_remove_file_if_exists(downloaded_path)
+				return _make_registry_candidate_result(cache_path, cache_context, true, registry)
+			if not _copy_file(raw_path, snapshot_path, issues, "snapshot verified registry artifact"):
+				_remove_file_if_exists(snapshot_path)
+				_remove_file_if_exists(downloaded_path)
+				return _make_registry_candidate_result(cache_path, cache_context, true, registry)
+			if not _registry_file_matches_metadata(snapshot_path, expected_sha, expected_size, issues):
+				_remove_file_if_exists(snapshot_path)
+				_remove_file_if_exists(downloaded_path)
+				return _make_registry_candidate_result(cache_path, cache_context, true, registry)
+			raw_path = snapshot_path
 		_rewrite_remote_registry(raw_path, cache_path, registry, issues)
+		if not expected_sha.is_empty() and expected_size > 0:
+			_remove_file_if_exists(raw_path)
 		_remove_file_if_exists(downloaded_path)
 		return _make_registry_candidate_result(cache_path, cache_context, true, registry)
 	var registry_path: String = _resolve_path(registry_value, project_root)
@@ -5067,45 +5283,69 @@ static func _resolve_dependency_closure(packages: Dictionary, roots: PackedStrin
 		if not _package_id_is_valid(package_id):
 			var _append_root_issue: bool = issues.append("Invalid package id: %s" % package_id)
 			continue
-		_visit_dependency(package_id, packages, order, issues, visiting, visited)
-	return { "order": order, "issues": _packed_to_array(issues) }
-
-
-static func _visit_dependency(
-	package_id: String,
-	packages: Dictionary,
-	order: PackedStringArray,
-	issues: PackedStringArray,
-	visiting: PackedStringArray,
-	visited: Dictionary
-) -> void:
-	if not _package_id_is_valid(package_id):
-		var _append_invalid_id: bool = issues.append("Invalid package id: %s" % package_id)
-		return
-	if visited.has(package_id):
-		return
-	if visiting.has(package_id):
-		var cycle: PackedStringArray = PackedStringArray()
-		var start_index: int = visiting.find(package_id)
-		for index: int in range(start_index, visiting.size()):
-			var _append_cycle_item: bool = cycle.append(visiting[index])
-		var _append_cycle_root: bool = cycle.append(package_id)
-		var _append_cycle_issue: bool = issues.append("Package dependency cycle: %s" % " -> ".join(cycle))
-		return
-	if not packages.has(package_id):
-		var _append_missing: bool = issues.append("Missing package: %s" % package_id)
-		return
-
-	var _append_visiting: bool = visiting.append(package_id)
-	var package_entry: Dictionary = _GF_VARIANT_ACCESS.get_option_dictionary(packages, package_id)
-	for dependency_id: String in _package_dependency_ids(package_entry):
-		if not _package_id_is_valid(dependency_id):
-			var _append_dependency_issue: bool = issues.append("%s: invalid dependency package id: %s" % [package_id, dependency_id])
+		if visited.has(package_id):
 			continue
-		_visit_dependency(dependency_id, packages, order, issues, visiting, visited)
-	var _removed: bool = _remove_string(visiting, package_id)
-	visited[package_id] = true
-	_append_unique(order, package_id)
+		var stack: Array[Dictionary] = [{
+			"id": package_id,
+			"entered": false,
+			"dependency_index": 0,
+			"dependencies": PackedStringArray(),
+		}]
+		while not stack.is_empty():
+			var frame_index: int = stack.size() - 1
+			var frame: Dictionary = stack[frame_index]
+			var current_package_id: String = _GF_VARIANT_ACCESS.get_option_string(frame, "id")
+			if not _GF_VARIANT_ACCESS.get_option_bool(frame, "entered"):
+				if visited.has(current_package_id):
+					stack.pop_back()
+					continue
+				if not packages.has(current_package_id):
+					var _append_missing: bool = issues.append("Missing package: %s" % current_package_id)
+					stack.pop_back()
+					continue
+				var _append_visiting: bool = visiting.append(current_package_id)
+				var package_entry: Dictionary = _GF_VARIANT_ACCESS.get_option_dictionary(packages, current_package_id)
+				frame["entered"] = true
+				frame["dependencies"] = _package_dependency_ids(package_entry)
+				stack[frame_index] = frame
+				continue
+
+			var dependencies: PackedStringArray = _GF_VARIANT_ACCESS.get_option_packed_string_array(frame, "dependencies")
+			var dependency_index: int = _GF_VARIANT_ACCESS.get_option_int(frame, "dependency_index", 0)
+			if dependency_index < dependencies.size():
+				var dependency_id: String = dependencies[dependency_index]
+				frame["dependency_index"] = dependency_index + 1
+				stack[frame_index] = frame
+				if not _package_id_is_valid(dependency_id):
+					var _append_dependency_issue: bool = issues.append(
+						"%s: invalid dependency package id: %s" % [current_package_id, dependency_id]
+					)
+					continue
+				if visited.has(dependency_id):
+					continue
+				if visiting.has(dependency_id):
+					var cycle: PackedStringArray = PackedStringArray()
+					var start_index: int = visiting.find(dependency_id)
+					for index: int in range(start_index, visiting.size()):
+						var _append_cycle_item: bool = cycle.append(visiting[index])
+					var _append_cycle_root: bool = cycle.append(dependency_id)
+					var _append_cycle_issue: bool = issues.append(
+						"Package dependency cycle: %s" % " -> ".join(cycle)
+					)
+					continue
+				stack.append({
+					"id": dependency_id,
+					"entered": false,
+					"dependency_index": 0,
+					"dependencies": PackedStringArray(),
+				})
+				continue
+
+			stack.pop_back()
+			var _removed_visiting: bool = _remove_string(visiting, current_package_id)
+			visited[current_package_id] = true
+			_append_unique(order, current_package_id)
+	return { "order": order, "issues": _packed_to_array(issues) }
 
 
 static func _recompute_required_by(installed: Dictionary, packages: Dictionary) -> void:

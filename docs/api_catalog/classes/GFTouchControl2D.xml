@@ -1,8 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFTouchControl2D" path="addons/gf/standard/input/touch/gf_touch_control_2d.gd" module="standard" extends="Node2D" classDigest="ecfc15cc199dfa8dc5fd459717915c4bdf9c592417db038317ad81afe0414904">
+<class name="GFTouchControl2D" path="addons/gf/standard/input/touch/gf_touch_control_2d.gd" module="standard" extends="Node2D" classDigest="5c96a9fc2df64e3ea6dbb32623f32e18f550a33db54b77adc675df634d19156f">
 	<description>GFTouchControl2D: 触屏 Node2D 控件共享底座。
-提供触点捕获、隐藏/离树释放、屏幕坐标到画布坐标转换和输入 handled 标记。
-具体按钮、摇杆、滑条或项目自定义触屏控件仍负责自己的形状、输出和业务无关配置。</description>
+提供触点捕获、隐藏/离树/process mode 禁用释放、屏幕坐标到画布坐标转换和输入 handled 标记。
+具体按钮、摇杆、滑条或项目自定义触屏控件仍负责自己的形状、输出和业务无关配置。
+直接调用 set_process_input(false) 不会产生可拦截的 Node 禁用通知；调用方必须先 release()。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">runtime_handle</tag>

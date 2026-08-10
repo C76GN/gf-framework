@@ -1,6 +1,7 @@
 ## GFProjectileCatalog: 发射体场景目录。
 ##
-## 用稳定 ID 管理 PackedScene，供发射器、技能或项目自己的生成流程复用。
+## 用唯一稳定 ID 管理 PackedScene，供发射器、技能或项目自己的生成流程复用。
+## 重复导出 ID 读取时以首个有效条目为准，写入与移除会规范化重复项。
 ## 目录不规定发射体的伤害、阵营、消耗或命中特效。
 ## [br]
 ## @api public
@@ -47,6 +48,7 @@ func set_scene(projectile_id: StringName, scene: PackedScene) -> void:
 		entry.projectile_id = projectile_id
 		entries.append(entry)
 	entry.scene = scene
+	_remove_duplicate_entries(projectile_id, entries.find(entry))
 
 
 ## 获取指定 ID 的发射体场景。
@@ -71,12 +73,13 @@ func get_scene(projectile_id: StringName) -> PackedScene:
 ## [br]
 ## @return 移除成功返回 true。
 func remove_scene(projectile_id: StringName) -> bool:
+	var removed: bool = false
 	for index: int in range(entries.size() - 1, -1, -1):
 		var entry: GFProjectileCatalogEntry = entries[index]
 		if entry != null and entry.projectile_id == projectile_id:
 			entries.remove_at(index)
-			return true
-	return false
+			removed = true
+	return removed
 
 
 ## 检查指定 ID 是否存在有效场景。
@@ -97,9 +100,12 @@ func has_scene(projectile_id: StringName) -> bool:
 ## @return 按字典序排序的 ID 数组。
 func get_projectile_ids() -> PackedStringArray:
 	var ids: PackedStringArray = PackedStringArray()
+	var seen_ids: Dictionary = {}
 	for entry: GFProjectileCatalogEntry in entries:
-		if entry != null and entry.is_valid_entry():
-			var _append_result_102: Variant = ids.append(String(entry.projectile_id))
+		if entry == null or not entry.is_valid_entry() or seen_ids.has(entry.projectile_id):
+			continue
+		seen_ids[entry.projectile_id] = true
+		var _append_result_102: Variant = ids.append(String(entry.projectile_id))
 	ids.sort()
 	return ids
 
@@ -111,11 +117,20 @@ func get_projectile_ids() -> PackedStringArray:
 ## @return 被清理的条目数量。
 func prune_invalid_entries() -> int:
 	var removed_count: int = 0
-	for index: int in range(entries.size() - 1, -1, -1):
+	var seen_ids: Dictionary = {}
+	var index: int = 0
+	while index < entries.size():
 		var entry: GFProjectileCatalogEntry = entries[index]
-		if entry == null or not entry.is_valid_entry():
+		if (
+			entry == null
+			or not entry.is_valid_entry()
+			or seen_ids.has(entry.projectile_id)
+		):
 			entries.remove_at(index)
 			removed_count += 1
+			continue
+		seen_ids[entry.projectile_id] = true
+		index += 1
 	return removed_count
 
 
@@ -128,3 +143,12 @@ func _get_entry(projectile_id: StringName) -> GFProjectileCatalogEntry:
 		if entry != null and entry.projectile_id == projectile_id:
 			return entry
 	return null
+
+
+func _remove_duplicate_entries(projectile_id: StringName, keep_index: int) -> void:
+	for index: int in range(entries.size() - 1, -1, -1):
+		if index == keep_index:
+			continue
+		var entry: GFProjectileCatalogEntry = entries[index]
+		if entry != null and entry.projectile_id == projectile_id:
+			entries.remove_at(index)

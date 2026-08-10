@@ -19,6 +19,7 @@ extends RefCounted
 const _GF_EXTENSION_CATALOG_SCRIPT = preload("res://addons/gf/kernel/extension/gf_extension_catalog.gd")
 const _GF_PATH_TOOLS = preload("res://addons/gf/kernel/core/gf_path_tools.gd")
 const _GF_VARIANT_ACCESS_SCRIPT = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
+const _GF_EXTENSION_JSON_FILE_READER_SCRIPT = preload("res://addons/gf/kernel/extension/gf_extension_json_file_reader.gd")
 
 
 # --- 私有变量 ---
@@ -43,7 +44,7 @@ static var _cache_revision: int = 0
 ## [br]
 ## @param options: 发现选项。
 ## [br]
-## @schema options: Dictionary，支持 force_refresh；为 true 时跳过现有缓存并重新扫描。
+## @schema options: Dictionary，支持 force_refresh、max_json_file_bytes、max_json_total_bytes 和 max_json_depth；预算只能收紧框架硬上限。
 ## [br]
 ## @return manifest 发现快照。
 ## [br]
@@ -53,12 +54,17 @@ static func get_snapshot(
 	options: Dictionary = {}
 ) -> Dictionary:
 	var external_roots: Array[String] = _normalize_extra_root_paths(extra_root_paths)
-	var signature: Dictionary = make_discovery_signature(external_roots)
+	var budget_state: Dictionary = _GF_EXTENSION_JSON_FILE_READER_SCRIPT.make_budget_state(options)
+	var signature: Dictionary = make_discovery_signature(
+		external_roots,
+		options,
+		budget_state
+	)
 	var force_refresh: bool = _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(options, "force_refresh", false)
 	if not force_refresh and _has_snapshot_cache and _snapshot_matches_signature(signature):
 		return _duplicate_snapshot(_snapshot_cache)
 
-	_store_snapshot(_load_snapshot(external_roots, signature))
+	_store_snapshot(_load_snapshot(external_roots, signature, options, budget_state))
 	return _duplicate_snapshot(_snapshot_cache)
 
 
@@ -145,32 +151,68 @@ static func get_cached_manifest_validation_errors() -> Array[Dictionary]:
 ## [br]
 ## @param extra_root_paths: 额外扩展集合根目录列表。
 ## [br]
+## @param options: 可选 JSON 预算。
+## [br]
+## @schema options: Dictionary，支持 max_json_file_bytes、max_json_total_bytes 和 max_json_depth。
+## [br]
+## @param budget_state: 同一次发现操作共享的累计 JSON 预算。
+## [br]
+## @schema budget_state: Dictionary，由 GFExtensionJsonFileReader.make_budget_state() 创建并在签名与解析时原地更新。
+## [br]
 ## @return 发现签名。
 ## [br]
-## @schema return: Dictionary containing roots, manifest_files, and hash.
-static func make_discovery_signature(extra_root_paths: Array[String] = []) -> Dictionary:
+## @schema return: Dictionary containing roots, manifest_files, json_limits, and hash.
+static func make_discovery_signature(
+	extra_root_paths: Array[String] = [],
+	options: Dictionary = {},
+	budget_state: Dictionary = {}
+) -> Dictionary:
+	if budget_state.is_empty():
+		budget_state.merge(
+			_GF_EXTENSION_JSON_FILE_READER_SCRIPT.make_budget_state(options),
+			true
+		)
 	var external_roots: Array[String] = _normalize_extra_root_paths(extra_root_paths)
 	var discovery_roots: Array[String] = _make_discovery_roots(external_roots)
 	var manifest_files: Array[Dictionary] = []
 	for root_path: String in discovery_roots:
 		for manifest_path: String in _GF_EXTENSION_CATALOG_SCRIPT.get_manifest_paths(root_path):
-			manifest_files.append(_make_manifest_file_signature(root_path, manifest_path))
+			var file_signature: Dictionary = _GF_EXTENSION_JSON_FILE_READER_SCRIPT.make_file_signature(
+				manifest_path,
+				options,
+				budget_state
+			)
+			file_signature["root_path"] = _GF_PATH_TOOLS.normalize_root_path(root_path)
+			manifest_files.append(file_signature)
 
+	var json_limits: Dictionary = _GF_EXTENSION_JSON_FILE_READER_SCRIPT.get_limit_policy(options)
 	var signature_payload: Dictionary = {
 		"roots": discovery_roots,
 		"manifest_files": manifest_files,
+		"json_limits": json_limits,
 	}
 	return {
 		"roots": discovery_roots,
 		"manifest_files": manifest_files,
+		"json_limits": json_limits,
 		"hash": JSON.stringify(signature_payload).sha256_text(),
 	}
 
 
 # --- 私有/辅助方法 ---
 
-static func _load_snapshot(external_roots: Array[String], signature: Dictionary) -> Dictionary:
-	var manifests: Array[GFExtensionManifest] = _GF_EXTENSION_CATALOG_SCRIPT.load_all_manifests(external_roots)
+static func _load_snapshot(
+	external_roots: Array[String],
+	signature: Dictionary,
+	options: Dictionary,
+	budget_state: Dictionary
+) -> Dictionary:
+	var catalog_options: Dictionary = options.duplicate(true)
+	catalog_options["json_budget_state"] = budget_state
+	var manifests: Array[GFExtensionManifest] = _GF_EXTENSION_CATALOG_SCRIPT.load_all_manifests(
+		external_roots,
+		catalog_options
+	)
 	var load_errors: Array[Dictionary] = _GF_EXTENSION_CATALOG_SCRIPT.get_last_manifest_load_errors()
 	return _make_snapshot(manifests, load_errors, external_roots, signature, false)
 
@@ -241,31 +283,6 @@ static func _normalize_extra_root_paths(root_paths: Array[String]) -> Array[Stri
 			continue
 		result.append(normalized_path)
 	return result
-
-
-static func _make_manifest_file_signature(root_path: String, manifest_path: String) -> Dictionary:
-	var normalized_path: String = _GF_PATH_TOOLS.normalize_resource_path(manifest_path)
-	var normalized_root: String = _GF_PATH_TOOLS.normalize_root_path(root_path)
-	var source_file: FileAccess = FileAccess.open(normalized_path, FileAccess.READ)
-	if source_file == null:
-		return {
-			"root_path": normalized_root,
-			"source_path": normalized_path,
-			"exists": false,
-			"size_bytes": 0,
-			"content_sha256": "",
-		}
-
-	var source_text: String = source_file.get_as_text()
-	var size_bytes: int = source_file.get_length()
-	source_file.close()
-	return {
-		"root_path": normalized_root,
-		"source_path": normalized_path,
-		"exists": true,
-		"size_bytes": size_bytes,
-		"content_sha256": source_text.sha256_text(),
-	}
 
 
 static func _duplicate_snapshot(snapshot: Dictionary) -> Dictionary:

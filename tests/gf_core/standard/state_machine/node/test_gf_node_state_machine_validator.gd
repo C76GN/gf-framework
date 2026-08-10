@@ -192,6 +192,74 @@ func test_validator_reports_invalid_initial_state_and_resource_slots() -> void:
 	group.free()
 
 
+func test_validator_reports_recursive_condition_group_graph() -> void:
+	var group: GFNodeStateGroup = GFNodeStateGroup.new()
+	var idle: GFNodeState = GFNodeState.new()
+	var condition_group: GFNodeStateConditionGroup = GFNodeStateConditionGroup.new()
+	group.auto_start = false
+	idle.name = "Idle"
+	condition_group.conditions = [condition_group]
+	idle.enter_conditions.append(condition_group)
+	group.add_child(idle)
+
+	var report: GFValidationReport = GFNodeStateMachineValidator.validate_group(group)
+	var counts: Dictionary = report.get_issue_counts_by_kind()
+
+	assert_eq(GFVariantData.get_option_int(counts, "cyclic_condition_group"), 1, "校验器应报告条件组递归环。")
+
+	idle.enter_conditions.clear()
+	condition_group.conditions.clear()
+	group.free()
+
+
+func test_validator_reports_condition_group_depth_but_allows_shared_dag() -> void:
+	var group: GFNodeStateGroup = GFNodeStateGroup.new()
+	var idle: GFNodeState = GFNodeState.new()
+	var groups: Array[GFNodeStateConditionGroup] = []
+	group.auto_start = false
+	idle.name = "Idle"
+	for _index: int in range(65):
+		groups.append(GFNodeStateConditionGroup.new())
+	for index: int in range(groups.size() - 1):
+		groups[index].conditions = [groups[index + 1]]
+	idle.enter_conditions.append(groups[0])
+	group.add_child(idle)
+
+	var depth_report: GFValidationReport = GFNodeStateMachineValidator.validate_group(group)
+	var depth_counts: Dictionary = depth_report.get_issue_counts_by_kind()
+
+	assert_eq(
+		GFVariantData.get_option_int(depth_counts, "condition_group_depth_exceeded"),
+		1,
+		"校验器应报告超过运行时上限的条件组深度。"
+	)
+
+	for condition_group: GFNodeStateConditionGroup in groups:
+		condition_group.conditions.clear()
+	idle.enter_conditions.clear()
+	var shared: GFNodeStateConditionGroup = GFNodeStateConditionGroup.new()
+	var left: GFNodeStateConditionGroup = GFNodeStateConditionGroup.new()
+	var right: GFNodeStateConditionGroup = GFNodeStateConditionGroup.new()
+	var root: GFNodeStateConditionGroup = GFNodeStateConditionGroup.new()
+	left.conditions = [shared]
+	right.conditions = [shared]
+	root.conditions = [left, right]
+	idle.enter_conditions.append(root)
+
+	var dag_report: GFValidationReport = GFNodeStateMachineValidator.validate_group(group)
+	var dag_counts: Dictionary = dag_report.get_issue_counts_by_kind()
+
+	assert_eq(GFVariantData.get_option_int(dag_counts, "cyclic_condition_group"), 0, "共享无环子图不得误报为循环。")
+	assert_eq(GFVariantData.get_option_int(dag_counts, "condition_group_depth_exceeded"), 0, "浅层共享子图不得误报深度。")
+
+	idle.enter_conditions.clear()
+	root.conditions.clear()
+	left.conditions.clear()
+	right.conditions.clear()
+	shared.conditions.clear()
+	group.free()
+
+
 func test_state_machine_dock_scans_scene_root_and_reports_selected_machine() -> void:
 	var root: Node = Node.new()
 	root.name = "Root"

@@ -789,7 +789,7 @@ func _warn_recipe_candidate_limit(scan_state: Dictionary) -> void:
 	push_warning("[GFCapabilityInspector] Recipe 候选已达到最大数量 %d，后续资源已跳过。" % _DEFAULT_MAX_RECIPE_CANDIDATES)
 
 
-func _get_node_capability_base_scripts() -> Array[Script]:
+static func _get_node_capability_base_scripts() -> Array[Script]:
 	var result: Array[Script] = []
 	for path: String in [
 		_GF_NODE_CAPABILITY_SCRIPT_PATH,
@@ -858,7 +858,7 @@ func _is_recipe_entry_valid(entry: Resource) -> bool:
 	return capability_type != null or scene != null
 
 
-func _script_is_node_capability(script: Script) -> bool:
+static func _script_is_node_capability(script: Script) -> bool:
 	if script == null:
 		return false
 	for base_script: Script in _get_node_capability_base_scripts():
@@ -1087,7 +1087,7 @@ static func _is_capability_container(node: Node) -> bool:
 	)
 
 
-func _get_capability_nodes(target: Node) -> Array[Node]:
+static func _get_capability_nodes(target: Node) -> Array[Node]:
 	var result: Array[Node] = []
 	for container: Node in _get_capability_containers(target):
 		for child: Node in container.get_children(true):
@@ -1331,9 +1331,7 @@ func _apply_recipe_to_target(target: Node, recipe: Resource) -> Dictionary:
 			})
 			continue
 
-		var capability_script: Script = _get_script_value(_read_property(entry, "capability_type"))
-		if capability_script == null:
-			capability_script = _get_script_value(node.get_script())
+		var capability_script: Script = _get_script_value(node.get_script())
 		var capability_key: String = _get_script_key(capability_script)
 		if capability_script != null and (
 			_target_has_capability_script(target, capability_script)
@@ -1375,7 +1373,7 @@ func _apply_recipe_to_target(target: Node, recipe: Resource) -> Dictionary:
 	return result
 
 
-func _create_capability_node_from_recipe_entry(
+static func _create_capability_node_from_recipe_entry(
 	entry: Resource,
 	report: GFValidationReport,
 	index: int
@@ -1388,12 +1386,22 @@ func _create_capability_node_from_recipe_entry(
 		if scene_node == null:
 			_report_add_error(report, &"scene_root_not_node", "Recipe scene root must be a Node.", str(index))
 			return null
-		var scene_script: Script = _get_script_value(_read_property(entry, "capability_type"))
-		if scene_script == null:
-			scene_script = _get_script_value(scene_node.get_script())
-		if not _script_is_node_capability(scene_script):
+		var declared_script: Script = _get_script_value(_read_property(entry, "capability_type"))
+		var actual_script: Script = _get_script_value(scene_node.get_script())
+		if declared_script != null and not _script_extends_or_equals(actual_script, declared_script):
+			_report_add_error(
+				report,
+				&"scene_script_type_mismatch",
+				"Recipe scene root script must inherit or equal the declared capability_type.",
+				_get_script_key(actual_script),
+				str(index),
+				{ "declared_type": _get_script_key(declared_script) }
+			)
+			scene_node.free()
+			return null
+		if not _script_is_node_capability(actual_script):
 			_report_add_warning(report, &"not_node_capability", "Recipe scene root is not a GF node capability.", str(index))
-			scene_node.queue_free()
+			scene_node.free()
 			return null
 		return scene_node
 
@@ -1439,8 +1447,8 @@ func _recipe_apply_report_to_dict(
 
 
 func _get_recipe_entry_node_name(entry: Resource, node: Node, index: int) -> String:
-	var capability_type: Script = null
-	if entry != null:
+	var capability_type: Script = _get_script_value(node.get_script()) if node != null else null
+	if capability_type == null and entry != null:
 		capability_type = _get_script_value(_read_property(entry, "capability_type"))
 	if capability_type != null:
 		var global_name: StringName = capability_type.get_global_name()
@@ -1451,7 +1459,7 @@ func _get_recipe_entry_node_name(entry: Resource, node: Node, index: int) -> Str
 	return "Capability%d" % (index + 1)
 
 
-func _build_editor_capability_report(target: Node) -> Dictionary:
+static func _build_editor_capability_report(target: Node) -> Dictionary:
 	var report: GFValidationReport = _make_validation_report("Capability inspector")
 	if not is_instance_valid(target):
 		_report_add_error(report, &"invalid_target", "Target node is invalid.")
@@ -1472,8 +1480,29 @@ func _build_editor_capability_report(target: Node) -> Dictionary:
 
 		var required_types: Array[Script] = collect_required_capability_types(capability, report, script_key)
 		var missing_dependencies: Array[Dictionary] = []
+		var ambiguous_dependencies: Array[Dictionary] = []
 		for required_type: Script in required_types:
-			if _capability_list_has_script(capabilities, required_type):
+			var matching_scripts: Array[Script] = _get_matching_capability_scripts(
+				capabilities,
+				required_type
+			)
+			if matching_scripts.size() == 1:
+				continue
+			if matching_scripts.size() > 1:
+				var ambiguous_entry: Dictionary = {
+					"capability": script_key,
+					"required": _get_script_key(required_type),
+					"matches": _script_array_to_keys(matching_scripts),
+				}
+				ambiguous_dependencies.append(ambiguous_entry)
+				_report_add_error(
+					report,
+					&"ambiguous_required_capability",
+					"Capability requirement matches multiple implementations; use a more specific type.",
+					script_key,
+					_get_script_key(required_type),
+					{ "matches": _script_array_to_keys(matching_scripts) }
+				)
 				continue
 			var missing_entry: Dictionary = {
 				"capability": script_key,
@@ -1494,6 +1523,7 @@ func _build_editor_capability_report(target: Node) -> Dictionary:
 			"active": _read_editor_capability_active(capability),
 			"required": _script_array_to_keys(required_types),
 			"missing_dependencies": missing_dependencies,
+			"ambiguous_dependencies": ambiguous_dependencies,
 		})
 
 	return _report_to_dict(
@@ -1515,26 +1545,35 @@ func _build_editor_capability_report(target: Node) -> Dictionary:
 	)
 
 
-func _target_has_capability_script(target: Node, expected_script: Script) -> bool:
+static func _target_has_capability_script(target: Node, expected_script: Script) -> bool:
 	return _capability_list_has_script(_get_capability_nodes(target), expected_script)
 
 
-func _capability_list_has_script(capabilities: Array[Node], expected_script: Script) -> bool:
+static func _capability_list_has_script(capabilities: Array[Node], expected_script: Script) -> bool:
+	return _get_matching_capability_scripts(capabilities, expected_script).size() == 1
+
+
+static func _get_matching_capability_scripts(
+	capabilities: Array[Node],
+	expected_script: Script
+) -> Array[Script]:
+	var subtype_matches: Array[Script] = []
 	if expected_script == null:
-		return false
+		return subtype_matches
 
 	for capability: Node in capabilities:
 		var script: Script = _get_script_value(capability.get_script())
 		if script == null:
 			continue
 		if script == expected_script:
-			return true
-		if _script_extends_or_equals(script, expected_script):
-			return true
-	return false
+			var exact_matches: Array[Script] = [expected_script]
+			return exact_matches
+		if _script_extends_or_equals(script, expected_script) and not subtype_matches.has(script):
+			subtype_matches.append(script)
+	return subtype_matches
 
 
-func _script_array_to_keys(scripts: Array[Script]) -> PackedStringArray:
+static func _script_array_to_keys(scripts: Array[Script]) -> PackedStringArray:
 	var result: PackedStringArray = PackedStringArray()
 	for script: Script in scripts:
 		_append_packed_string(result, _get_script_key(script))
@@ -1542,7 +1581,7 @@ func _script_array_to_keys(scripts: Array[Script]) -> PackedStringArray:
 	return result
 
 
-func _get_script_key(script: Script) -> String:
+static func _get_script_key(script: Script) -> String:
 	if script == null:
 		return "<null>"
 
@@ -1613,7 +1652,7 @@ func _format_editor_report(report: Dictionary) -> String:
 	return "\n".join(lines)
 
 
-func _get_editor_capability_next_actions() -> Dictionary:
+static func _get_editor_capability_next_actions() -> Dictionary:
 	return {
 		"invalid_target": "Select a valid Node before using the capability inspector.",
 		"invalid_recipe": "Assign a valid GFCapabilityRecipe resource.",
@@ -1623,9 +1662,11 @@ func _get_editor_capability_next_actions() -> Dictionary:
 		"script_not_instantiable": "Use an instantiable capability script or a PackedScene entry.",
 		"script_not_node": "Use node-based capabilities in the editor inspector.",
 		"scene_root_not_node": "Use a scene whose root is a Node.",
+		"scene_script_type_mismatch": "Make the Recipe scene root script inherit or equal the declared capability_type.",
 		"missing_capability_script": "Attach a script to the capability node or remove it.",
 		"duplicate_capability": "Remove duplicate capability nodes unless they intentionally use different registered types.",
 		"missing_required_capability": "Add the required capability or adjust required_capabilities.",
+		"ambiguous_required_capability": "Use a more specific required capability type or keep only one matching implementation.",
 		"invalid_required_capabilities": "Store an Array[Script] in required_capabilities.",
 		"invalid_required_capability_type": "Only Script values should be stored in required_capabilities.",
 	}
@@ -1732,7 +1773,7 @@ func _remove_child_if_parent(parent: Node, child: Node) -> void:
 		parent.remove_child(child)
 
 
-func _read_editor_capability_active(capability: Node) -> bool:
+static func _read_editor_capability_active(capability: Node) -> bool:
 	if "active" in capability:
 		return GFVariantData.to_bool(_read_property(capability, "active", true), true)
 	if capability.has_meta(_META_CAPABILITY_ACTIVE):
@@ -1741,40 +1782,74 @@ func _read_editor_capability_active(capability: Node) -> bool:
 
 
 func _set_editor_capability_active(capability: Node, active: bool) -> void:
+	var _applied: bool = _apply_editor_capability_active_state(
+		capability,
+		active,
+		_MAX_EDITOR_NODE_TREE_NODES
+	)
+
+
+static func _apply_editor_capability_active_state(
+	capability: Node,
+	active: bool,
+	max_tree_nodes: int
+) -> bool:
+	if not is_instance_valid(capability):
+		return false
+	var nodes: Array[Node] = _collect_editor_node_tree_with_limit(
+		capability,
+		false,
+		"set active state",
+		max_tree_nodes
+	)
+	if nodes.is_empty():
+		return false
 	if "active" in capability:
 		capability.set("active", active)
 	capability.set_meta(_META_CAPABILITY_ACTIVE, active)
-	_set_node_tree_active_state(capability, active)
-
-
-func _set_node_tree_active_state(node: Node, active: bool) -> void:
-	for tree_node: Node in _collect_editor_node_tree(node, false, "set active state"):
+	for tree_node: Node in nodes:
 		_set_node_active_state(tree_node, active)
+	return true
 
 
-func _collect_editor_node_tree(
+static func _collect_editor_node_tree(
 	root: Node,
 	include_internal: bool,
 	operation: String
 ) -> Array[Node]:
+	return _collect_editor_node_tree_with_limit(
+		root,
+		include_internal,
+		operation,
+		_MAX_EDITOR_NODE_TREE_NODES
+	)
+
+
+static func _collect_editor_node_tree_with_limit(
+	root: Node,
+	include_internal: bool,
+	operation: String,
+	max_tree_nodes: int
+) -> Array[Node]:
+	var bounded_max_tree_nodes: int = maxi(max_tree_nodes, 1)
 	var nodes: Array[Node] = GFNodeTreeOps.collect_descendants(
 		root,
 		null,
 		true,
 		include_internal,
 		-1,
-		_MAX_EDITOR_NODE_TREE_NODES + 1
+		bounded_max_tree_nodes + 1
 	)
-	if nodes.size() <= _MAX_EDITOR_NODE_TREE_NODES:
+	if nodes.size() <= bounded_max_tree_nodes:
 		return nodes
 	push_error(
 		"[GFCapabilityInspector] %s 失败：节点树超过最大节点数 %d。"
-		% [operation, _MAX_EDITOR_NODE_TREE_NODES]
+		% [operation, bounded_max_tree_nodes]
 	)
 	return []
 
 
-func _set_node_active_state(node: Node, active: bool) -> void:
+static func _set_node_active_state(node: Node, active: bool) -> void:
 	if active:
 		if node.has_meta(_META_ORIGINAL_PROCESS_MODE):
 			var original_process_mode: Node.ProcessMode = _get_process_mode_value(

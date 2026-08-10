@@ -9,7 +9,7 @@
 - 类别：资源定义 (`resource_definition`)
 - 首次版本：`3.17.0`
 
-输入重映射配置。 只保存玩家或项目层覆盖过的输入事件，默认绑定仍来自 GFInputContext。
+输入重映射配置。 只保存玩家或项目层覆盖过的输入事件，默认绑定仍来自 GFInputContext。 通过公开 mutation 方法成功修改配置时会发出 Resource.changed。
 
 ## 成员概览
 

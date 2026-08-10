@@ -682,6 +682,29 @@ func test_network_service_discovery_refresh_extends_existing_service_ttl() -> vo
 	assert_eq(GFVariantData.get_option_int(record, "sequence"), 2, "刷新应更新服务记录字段。")
 
 
+func test_network_service_discovery_custom_record_time_does_not_change_ttl_clock_domain() -> void:
+	var discovery: GFNetworkServiceDiscovery = GFNetworkServiceDiscovery.new()
+	var advertisement: Dictionary = discovery.make_advertisement(
+		&"lobby",
+		"ws://localhost:9988",
+		{},
+		{ "ttl_seconds": 1.0 }
+	)
+
+	var report: Dictionary = discovery.accept_advertisement(
+		advertisement,
+		{ "now_seconds": 1000.0 }
+	)
+	var service_key: String = GFVariantData.get_option_string(report, "service_key")
+	var record: Dictionary = discovery.get_service(service_key)
+	discovery.tick(1.01)
+
+	assert_true(GFVariantData.get_option_bool(report, "ok"), "合法的自定义记录时间应被接受。")
+	assert_eq(GFVariantData.get_option_float(record, "last_seen_seconds"), 1000.0, "now_seconds 应保留为记录时间。")
+	assert_eq(GFVariantData.get_option_float(record, "expires_at_seconds"), 1001.0, "公开记录应保留调用方时间域。")
+	assert_true(discovery.get_services().is_empty(), "TTL 淘汰必须使用 discovery 自己的 elapsed clock，而不是外部 epoch。")
+
+
 func test_network_service_discovery_uses_redacted_stable_service_keys() -> void:
 	var raw_endpoint: String = "wss://user:secret@example.test:443/lobby?token=abc#debug"
 	var key: String = GFNetworkServiceDiscovery.make_service_key(&"lobby", raw_endpoint)
@@ -869,6 +892,57 @@ func test_network_contract_rejects_object_value_type() -> void:
 	assert_false(GFVariantData.get_option_bool(definition_report, "ok"), "网络契约不应允许 Object 类型字段定义。")
 	assert_false(GFVariantData.get_option_bool(value_report, "ok"), "网络契约不应允许 Object 值跨传输边界。")
 	assert_false(_find_report_issue(definition_report, "object_value_type_not_transport_safe").is_empty(), "定义报告应说明 Object 不可传输。")
+
+
+func test_network_contract_definition_rejects_invalid_default_values() -> void:
+	var wrong_type_field: GFNetworkContractField = GFNetworkContractField.new()
+	wrong_type_field.field_name = &"count"
+	wrong_type_field.value_type = GFNetworkContractField.ValueType.INT
+	wrong_type_field.required = false
+	wrong_type_field.default_value = "7"
+	var non_finite_field: GFNetworkContractField = GFNetworkContractField.new()
+	non_finite_field.field_name = &"ratio"
+	non_finite_field.value_type = GFNetworkContractField.ValueType.FLOAT
+	non_finite_field.required = false
+	non_finite_field.default_value = INF
+
+	var wrong_type_report: Dictionary = wrong_type_field.validate_definition()
+	var non_finite_report: Dictionary = non_finite_field.validate_definition()
+
+	assert_false(GFVariantData.get_option_bool(wrong_type_report, "ok"), "默认值必须匹配字段声明类型。")
+	assert_false(
+		_find_report_issue(wrong_type_report, "default_value_type_mismatch").is_empty(),
+		"错类型默认值应有定义期稳定 issue。"
+	)
+	assert_false(GFVariantData.get_option_bool(non_finite_report, "ok"), "非有限默认值不得进入契约定义。")
+	assert_false(
+		_find_report_issue(non_finite_report, "default_value_not_transport_safe").is_empty(),
+		"非有限默认值应在定义期按 transport safety 失败。"
+	)
+
+
+func test_network_contract_nullable_field_preserves_explicit_null_over_default() -> void:
+	var field: GFNetworkContractField = GFNetworkContractField.new()
+	field.field_name = &"note"
+	field.value_type = GFNetworkContractField.ValueType.STRING
+	field.required = false
+	field.allow_null = true
+	field.default_value = "fallback"
+	var message_contract: GFNetworkContractMessage = GFNetworkContractMessage.new()
+	message_contract.message_type = &"nullable_note"
+	message_contract.fields = [field]
+
+	var omitted_payload: Dictionary = message_contract.build_payload()
+	var explicit_null_payload: Dictionary = message_contract.build_payload({ &"note": null })
+	var omitted_note: String = GFVariantData.get_option_string(omitted_payload, &"note")
+
+	assert_eq(
+		omitted_note,
+		"fallback",
+		"省略 nullable 字段时仍应使用声明默认值。"
+	)
+	assert_true(explicit_null_payload.has(&"note"), "显式 null 必须保留字段存在性。")
+	assert_true(explicit_null_payload[&"note"] == null, "allow_null=true 时显式 null 不得被默认值替换。")
 
 
 func test_network_contract_rejects_nested_transport_unsafe_values() -> void:
@@ -1341,6 +1415,73 @@ func test_network_contract_audit_reports_loose_fields_and_unknown_channels() -> 
 	assert_false(_find_report_issue(report, "loose_variant_field").is_empty(), "Variant 字段应有稳定 issue kind。")
 
 
+func test_network_contract_audit_marks_collection_bounds_as_manual_review() -> void:
+	var collection_field: GFNetworkContractField = GFNetworkContractField.new()
+	collection_field.field_name = &"items"
+	collection_field.value_type = GFNetworkContractField.ValueType.ARRAY
+	var message_contract: GFNetworkContractMessage = GFNetworkContractMessage.new()
+	message_contract.message_type = &"inventory"
+	message_contract.fields = [collection_field]
+	var contract: GFNetworkContract = GFNetworkContract.new()
+	contract.contract_id = &"audit_collection"
+	contract.contract_version_major = 1
+	contract.messages = [message_contract]
+	var audit: GFNetworkContractAudit = GFNetworkContractAudit.new()
+
+	var report: Dictionary = audit.audit_contract(contract)
+	var issue: Dictionary = _find_report_issue(report, "collection_bounds_review_required")
+
+	assert_false(issue.is_empty(), "框架未解释项目 metadata 时应诚实标记为人工边界复核。")
+	assert_true(
+		GFVariantData.get_option_string(issue, "message").contains("manual review"),
+		"诊断不得声称存在实际未读取的 bounds schema。"
+	)
+	assert_true(
+		GFVariantData.get_option_string(report, "next_action").contains("enforce"),
+		"next action 应说明边界需要由可执行策略落实。"
+	)
+
+
+func test_network_contract_audit_paths_preserves_resource_provenance_and_definition_phase() -> void:
+	var stamp: int = Time.get_ticks_usec()
+	var first_path: String = "user://gf_network_audit_provenance_first_%d.tres" % stamp
+	var second_path: String = "user://gf_network_audit_provenance_second_%d.tres" % stamp
+	var first_contract: GFNetworkContract = _make_invalid_default_network_contract(&"shared")
+	var second_contract: GFNetworkContract = _make_invalid_default_network_contract(&"shared")
+	assert_eq(ResourceSaver.save(first_contract, first_path), OK)
+	assert_eq(ResourceSaver.save(second_contract, second_path), OK)
+	var audit: GFNetworkContractAudit = GFNetworkContractAudit.new()
+
+	var report: Dictionary = audit.audit_paths(PackedStringArray([first_path, second_path]))
+	var matching_issues: Array[Dictionary] = []
+	for issue_value: Variant in GFVariantData.get_option_array(report, "issues"):
+		var issue: Dictionary = GFVariantData.as_dictionary(issue_value)
+		if GFVariantData.get_option_string(issue, "kind") == "default_value_type_mismatch":
+			matching_issues.append(issue)
+
+	assert_eq(matching_issues.size(), 2, "同 contract_id 的两份资源问题不得互相覆盖。")
+	if matching_issues.size() == 2:
+		assert_eq(GFVariantData.get_option_string_name(matching_issues[0], "phase"), &"definition")
+		assert_eq(GFVariantData.get_option_string_name(matching_issues[0], "aggregation_phase"), &"path_audit")
+		assert_eq(GFVariantData.get_option_string(matching_issues[0], "resource_path"), first_path)
+		assert_eq(GFVariantData.get_option_string(matching_issues[1], "resource_path"), second_path)
+	var _remove_first_error: Error = DirAccess.remove_absolute(ProjectSettings.globalize_path(first_path))
+	var _remove_second_error: Error = DirAccess.remove_absolute(ProjectSettings.globalize_path(second_path))
+
+
+func test_network_contract_audit_rejects_known_channel_budget_before_policy_scan() -> void:
+	var contract: GFNetworkContract = _make_lobby_network_contract()
+	var audit: GFNetworkContractAudit = GFNetworkContractAudit.new()
+
+	var report: Dictionary = audit.audit_contract(contract, {
+		"known_channel_ids": PackedStringArray(["a", "b"]),
+		"max_known_channel_ids": 1,
+	})
+
+	assert_false(GFVariantData.get_option_bool(report, "ok"), "超出 channel 预算时审计必须 fail closed。")
+	assert_false(_find_report_issue(report, "audit_budget_exceeded").is_empty())
+
+
 func test_network_field_serializer_replaces_non_finite_numbers() -> void:
 	var serializer: GFNetworkFieldSerializer = GFNetworkFieldSerializer.new()
 	serializer.value_type = GFNetworkFieldSerializer.ValueType.VECTOR3
@@ -1524,6 +1665,38 @@ func test_network_contract_generator_builds_typed_helpers() -> void:
 	)
 
 
+func test_network_contract_generated_version_preflight_matches_runtime_report() -> void:
+	var contract: GFNetworkContract = _make_lobby_network_contract()
+	contract.contract_version_major = 2
+	contract.contract_version_minor = 9
+	var generator: GFNetworkContractGenerator = GFNetworkContractGenerator.new()
+	var source: String = generator.build_source(contract, {
+		"class_name": "VersionNetworkMessages",
+	}).replace("class_name VersionNetworkMessages\n", "")
+	var runtime_script: GDScript = GDScript.new()
+	runtime_script.source_code = source
+	var compile_error: Error = runtime_script.reload(false)
+	assert_eq(compile_error, OK, "差分测试的生成脚本必须先编译成功。")
+	if compile_error != OK:
+		var _cleanup_errors: Array[int] = GF_TRANSIENT_GDSCRIPT_TEST_SUPPORT.release(runtime_script)
+		return
+	var peer_version: Dictionary = contract.get_contract_version()
+	peer_version["schema_digest"] = "mismatch"
+	var options: Dictionary = { "require_schema_digest": true }
+	var runtime_report: Dictionary = contract.validate_peer_contract_version(peer_version, options)
+	var generated_report_value: Variant = runtime_script.call(
+		&"validate_peer_contract_version",
+		peer_version,
+		options
+	)
+	assert_true(generated_report_value is Dictionary, "生成脚本版本预检应返回报告字典。")
+	if generated_report_value is Dictionary:
+		var generated_report: Dictionary = generated_report_value
+		assert_eq(generated_report, runtime_report, "Resource 与 generated helper 必须共享完全相同的版本校验语义。")
+	var cleanup_errors: Array[int] = GF_TRANSIENT_GDSCRIPT_TEST_SUPPORT.release(runtime_script)
+	assert_true(cleanup_errors.is_empty(), "差分测试生成脚本必须完整释放。")
+
+
 func test_network_contract_generator_omits_optional_null_fields() -> void:
 	var slot_field: GFNetworkContractField = GFNetworkContractField.new()
 	slot_field.field_name = &"slot"
@@ -1551,6 +1724,75 @@ func test_network_contract_generator_omits_optional_null_fields() -> void:
 	assert_true(
 		GFVariantData.get_option_bool(compile_report, "ok"),
 		"可选 null 语义生成源码应能编译：%s" % compile_report
+	)
+
+
+func test_network_contract_generator_allocates_keyword_and_colliding_field_identifiers() -> void:
+	var keyword_field: GFNetworkContractField = GFNetworkContractField.new()
+	keyword_field.field_name = &"class"
+	keyword_field.value_type = GFNetworkContractField.ValueType.INT
+	var first_collision: GFNetworkContractField = GFNetworkContractField.new()
+	first_collision.field_name = &"foo-bar"
+	first_collision.value_type = GFNetworkContractField.ValueType.INT
+	var second_collision: GFNetworkContractField = GFNetworkContractField.new()
+	second_collision.field_name = &"foo_bar"
+	second_collision.value_type = GFNetworkContractField.ValueType.INT
+	var message_contract: GFNetworkContractMessage = GFNetworkContractMessage.new()
+	message_contract.message_type = &"hostile"
+	message_contract.fields = [keyword_field, first_collision, second_collision]
+	var contract: GFNetworkContract = GFNetworkContract.new()
+	contract.contract_id = &"hostile"
+	contract.messages = [message_contract]
+	var generator: GFNetworkContractGenerator = GFNetworkContractGenerator.new()
+
+	var source: String = generator.build_source(contract, { "class_name": "HostileNetworkMessages" })
+	var compile_report: Dictionary = GF_TRANSIENT_GDSCRIPT_TEST_SUPPORT.compile_and_release(
+		source.replace("class_name HostileNetworkMessages\n", "")
+	)
+
+	assert_true(source.contains("field_class: int"), "GDScript 关键字字段必须分配合法参数名。")
+	assert_true(source.contains("get_hostile_foo_bar("), "首次清洗名应保留稳定 getter。")
+	assert_true(source.contains("get_hostile_foo_bar_2("), "清洗碰撞的 getter 必须在同一 scope 唯一分配。")
+	assert_true(
+		GFVariantData.get_option_bool(compile_report, "ok"),
+		"敌意字段名仍必须生成可编译源码：%s" % compile_report
+	)
+
+
+func test_network_contract_generator_preserves_collection_defaults_and_nullable_parameters() -> void:
+	var settings_field: GFNetworkContractField = GFNetworkContractField.new()
+	settings_field.field_name = &"settings"
+	settings_field.value_type = GFNetworkContractField.ValueType.DICTIONARY
+	settings_field.required = false
+	settings_field.default_value = {
+		&"attempts": 3,
+		"tags": ["safe", "deterministic"],
+	}
+	var score_field: GFNetworkContractField = GFNetworkContractField.new()
+	score_field.field_name = &"score"
+	score_field.value_type = GFNetworkContractField.ValueType.INT
+	score_field.required = false
+	score_field.allow_null = true
+	score_field.default_value = 7
+	var message_contract: GFNetworkContractMessage = GFNetworkContractMessage.new()
+	message_contract.message_type = &"defaults"
+	message_contract.fields = [settings_field, score_field]
+	var contract: GFNetworkContract = GFNetworkContract.new()
+	contract.contract_id = &"defaults"
+	contract.messages = [message_contract]
+	var generator: GFNetworkContractGenerator = GFNetworkContractGenerator.new()
+
+	var source: String = generator.build_source(contract, { "class_name": "DefaultNetworkMessages" })
+	var compile_report: Dictionary = GF_TRANSIENT_GDSCRIPT_TEST_SUPPORT.compile_and_release(
+		source.replace("class_name DefaultNetworkMessages\n", "")
+	)
+
+	assert_true(source.contains("&\"attempts\": 3"), "Dictionary 默认值的 StringName key 不得退化或丢失。")
+	assert_true(source.contains("\"tags\": [\"safe\", \"deterministic\"]"), "嵌套 Array 默认值不得退化为空集合。")
+	assert_true(source.contains("score: Variant = 7"), "允许 null 的具体类型参数必须能接收显式 null。")
+	assert_true(
+		GFVariantData.get_option_bool(compile_report, "ok"),
+		"完整默认值字面量必须能被 Godot 编译：%s" % compile_report
 	)
 
 
@@ -4171,6 +4413,32 @@ func test_fixed_tick_clock_rejects_non_finite_configuration_and_state() -> void:
 	assert_eq(clock.current_tick, 7, "合法整数状态仍应恢复。")
 
 
+func test_fixed_tick_clock_rejects_recursive_advance_during_signal_dispatch() -> void:
+	var clock: GFFixedTickClock = GFFixedTickClock.new(10.0)
+	var started_ticks: Array[int] = []
+	var nested_step_results: Array[int] = []
+	var nested_advance_results: Array[int] = []
+	var tick_started_callback: Callable = func(tick: int, _tick_seconds: float) -> void:
+		started_ticks.append(tick)
+		if not nested_step_results.is_empty():
+			return
+		nested_step_results.append(-1)
+		nested_advance_results.append(-1)
+		nested_step_results[0] = clock.step_once()
+		nested_advance_results[0] = clock.advance(1.0)
+	var _connected: Variant = clock.tick_started.connect(tick_started_callback)
+
+	var outer_result: int = clock.step_once()
+
+	assert_eq(started_ticks, [1], "同一时钟的 nested step 必须在发出第二组 tick 信号前拒绝。")
+	assert_eq(nested_step_results, [0], "被拒绝的 nested step 应返回调用时的 current_tick。")
+	assert_eq(nested_advance_results, [0], "被拒绝的 nested advance 应返回零步且不得累积时间。")
+	assert_eq(outer_result, 1, "外层 step 应保持单一事务结果。")
+	assert_eq(clock.current_tick, 1, "拒绝 nested step 后只应推进一个 tick。")
+	assert_eq(clock.accumulator_seconds, 0.0, "被拒绝的 nested advance 不得污染 accumulator。")
+	clock.tick_started.disconnect(tick_started_callback)
+
+
 ## 验证网络快照可以生成并应用浅层差量。
 func test_network_snapshot_delta_round_trips_state() -> void:
 	var start: GFNetworkSnapshot = GFNetworkSnapshot.new(10, { "hp": 10, "mana": 3 }, 2)
@@ -4247,6 +4515,74 @@ func test_network_snapshot_patch_preserves_empty_dictionary_set() -> void:
 	assert_eq(GFVariantData.get_option_array(patch, "set").size(), 1, "新增空字典字段应作为整体 set。")
 	assert_true(applied.state.has("entity"), "应用 patch 后应保留空字典字段。")
 	assert_true(GFVariantData.get_option_dictionary(applied.state, "entity").is_empty(), "空字典字段不应丢失。")
+
+
+func test_network_snapshot_patch_generator_stays_within_consumer_depth_limit() -> void:
+	var start_state: Dictionary = {}
+	var target_state: Dictionary = {}
+	var start_cursor: Dictionary = start_state
+	var target_cursor: Dictionary = target_state
+	for index: int in range(9):
+		var start_child: Dictionary = {}
+		var target_child: Dictionary = {}
+		start_cursor["level_%d" % index] = start_child
+		target_cursor["level_%d" % index] = target_child
+		start_cursor = start_child
+		target_cursor = target_child
+	start_cursor["value"] = 1
+	target_cursor["value"] = 2
+	var start: GFNetworkSnapshot = GFNetworkSnapshot.new(1, start_state, 2)
+	var target: GFNetworkSnapshot = GFNetworkSnapshot.new(2, target_state, 2)
+
+	var patch: Dictionary = start.make_patch_to(target, { "max_depth": 9 })
+	var applied: GFNetworkSnapshot = start.apply_patch(patch)
+
+	assert_true(GFVariantData.get_option_bool(patch, "ok"), "生成器应把请求深度限制在 consumer 可应用范围。")
+	assert_eq(applied.to_dict(), target.to_dict(), "生成器标记成功的深层 patch 必须精确重建 target。")
+
+
+func test_network_snapshot_patch_generator_rejects_operation_budget_overflow() -> void:
+	var target_state: Dictionary = {}
+	for index: int in range(4097):
+		target_state["field_%d" % index] = index
+	var start: GFNetworkSnapshot = GFNetworkSnapshot.new(1, {}, 2)
+	var target: GFNetworkSnapshot = GFNetworkSnapshot.new(2, target_state, 2)
+
+	var patch: Dictionary = start.make_patch_to(target)
+
+	assert_false(GFVariantData.get_option_bool(patch, "ok"), "超出 consumer 操作预算的 patch 不得标记成功。")
+	assert_eq(GFVariantData.get_option_string(patch, "error"), "patch_operation_budget_exceeded")
+
+
+func test_network_snapshot_patch_generator_rejects_consumer_invalid_content() -> void:
+	var start: GFNetworkSnapshot = GFNetworkSnapshot.new(1, {}, 2)
+	var invalid_value_target: GFNetworkSnapshot = GFNetworkSnapshot.new(
+		2,
+		{ "object": RefCounted.new() },
+		2
+	)
+	var invalid_key_target: GFNetworkSnapshot = GFNetworkSnapshot.new(
+		2,
+		{ Vector2(1.0, 2.0): "value" },
+		2
+	)
+	var invalid_metadata_target: GFNetworkSnapshot = GFNetworkSnapshot.new(
+		2,
+		{},
+		2,
+		{ "object": RefCounted.new() }
+	)
+
+	var invalid_value_patch: Dictionary = start.make_patch_to(invalid_value_target)
+	var invalid_key_patch: Dictionary = start.make_patch_to(invalid_key_target)
+	var invalid_metadata_patch: Dictionary = start.make_patch_to(invalid_metadata_target)
+
+	assert_false(GFVariantData.get_option_bool(invalid_value_patch, "ok"), "consumer 拒绝的 set value 不得生成成功 patch。")
+	assert_false(GFVariantData.get_option_bool(invalid_key_patch, "ok"), "consumer 拒绝的 path key 不得生成成功 patch。")
+	assert_false(GFVariantData.get_option_bool(invalid_metadata_patch, "ok"), "consumer 拒绝的 metadata 不得生成成功 patch。")
+	assert_eq(GFVariantData.get_option_string(invalid_value_patch, "error"), "generated_patch_not_applicable")
+	assert_eq(GFVariantData.get_option_string(invalid_key_patch, "error"), "generated_patch_not_applicable")
+	assert_eq(GFVariantData.get_option_string(invalid_metadata_patch, "error"), "generated_patch_not_applicable")
 
 
 func test_network_snapshot_rejects_malformed_or_over_budget_patch_atomically() -> void:
@@ -4388,6 +4724,21 @@ func _make_lobby_network_contract() -> GFNetworkContract:
 	message_contract.fields = [slot_field, ready_field]
 	var contract: GFNetworkContract = GFNetworkContract.new()
 	contract.contract_id = &"lobby"
+	contract.messages = [message_contract]
+	return contract
+
+
+func _make_invalid_default_network_contract(contract_id: StringName) -> GFNetworkContract:
+	var field: GFNetworkContractField = GFNetworkContractField.new()
+	field.field_name = &"count"
+	field.value_type = GFNetworkContractField.ValueType.INT
+	field.required = false
+	field.default_value = "invalid"
+	var message_contract: GFNetworkContractMessage = GFNetworkContractMessage.new()
+	message_contract.message_type = &"update"
+	message_contract.fields = [field]
+	var contract: GFNetworkContract = GFNetworkContract.new()
+	contract.contract_id = contract_id
 	contract.messages = [message_contract]
 	return contract
 

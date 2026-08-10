@@ -29,6 +29,7 @@
 | 方法 | [`matches`](#member-gfcontentpackagequery-methods-matches) | `func matches(manifest: GFContentPackageManifest) -> bool:` |
 | 方法 | [`apply_dict`](#member-gfcontentpackagequery-methods-apply_dict) | `func apply_dict(data: Dictionary) -> void:` |
 | 方法 | [`to_dict`](#member-gfcontentpackagequery-methods-to_dict) | `func to_dict() -> Dictionary:` |
+| 方法 | [`to_report_dictionary`](#member-gfcontentpackagequery-methods-to_report_dictionary) | `func to_report_dictionary(options: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`duplicate_query`](#member-gfcontentpackagequery-methods-duplicate_query) | `func duplicate_query() -> GFContentPackageQuery:` |
 | 方法 | [`from_dict`](#member-gfcontentpackagequery-methods-from_dict) | `static func from_dict(data: Dictionary) -> GFContentPackageQuery:` |
 
@@ -249,6 +250,32 @@ func to_dict() -> Dictionary:
 结构：
 
 - `return`: Dictionary with query_id, package_ids, search_text, required_content_types, required_dependencies, required_resource_keys, allowed_safety_kinds, required_metadata, include_dependencies, max_results, and metadata.
+
+<a id="member-gfcontentpackagequery-methods-to_report_dictionary"></a>
+
+### `to_report_dictionary`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func to_report_dictionary(options: Dictionary = {}) -> Dictionary:
+```
+
+转换为 JSON-safe 报告字典。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `options` | 传给 GFReportValueCodec 的编码选项。 |
+
+返回：查询报告字典。
+
+结构：
+
+- `options`: Dictionary with GFReportValueCodec encoding options.
+- `return`: JSON-safe Dictionary based on the normalized query state.
 
 <a id="member-gfcontentpackagequery-methods-duplicate_query"></a>
 

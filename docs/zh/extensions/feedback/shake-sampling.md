@@ -27,6 +27,16 @@ track.rotation_axis_degrees = Vector3.ZERO
 preset.add_track(track)
 ```
 
+`tracks` 非空时始终选择轨道模式；只有空数组才读取兼容的单波形字段。`disabled`、`null` 或当前进度位于区间外的轨道不参与本次合成，因此“全部禁用”会得到零采样，不会意外回退到 legacy 波形。已经参与的轨道即使采样值恰好为零，仍按其 `blend_mode` 参与，这让显式 `OVERRIDE` 零值与“未参与”保持不同语义。
+
+播放中的 preset 是共享 Resource。若运行时把持续时间改为 0、负数或非有限值，`GFShakeUtility` 会在下一次 `tick()` 终止该实例，不把非法时长解释为无限反馈。
+
+## 场景接收器
+
+`GFShakeReceiver2D` / `GFShakeReceiver3D` 可把 channel 采样叠加到场景节点。配置 `target_path` 后，目标节点暂时删除不会让路径绑定永久失效；同一路径重新创建兼容节点时，receiver 会自动重绑、清除旧目标偏移记录，并按 `capture_on_ready` 为新目标捕获基准。
+
+正常采样使用差量偏移，可保留两帧之间的外部 transform 变化；但已捕获基准的 `reset_to_base()` 会恢复完整快照。多个 transform producer 应通过父子节点或项目合成器分层，不要让多个 receiver 同时拥有同一节点的完整基准恢复权。
+
 ## 查询与报告
 
 `sample_channel()` / `sample_channels()` 返回运行时采样结果，适合直接叠加到相机、节点或项目自定义表现对象。`get_shake_info()` 与 `get_debug_snapshot()` 返回 JSON-safe 报告，metadata 中的 Object / Resource 会被转换为脱敏 marker，可直接交给诊断、日志、CLI 或 `JSON.stringify()`。

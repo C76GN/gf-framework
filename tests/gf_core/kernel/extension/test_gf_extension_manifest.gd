@@ -6,10 +6,19 @@ extends GutTest
 
 const GF_EXTENSION_EXPORT_PLUGIN_BASE = preload("res://addons/gf/kernel/editor/extension/gf_extension_export_plugin.gd")
 const GF_EXTENSION_PRESET_BASE = preload("res://addons/gf/kernel/extension/gf_extension_preset.gd")
+const GF_EXTENSION_PRESET_DISCOVERY_SCRIPT = preload(
+	"res://addons/gf/kernel/extension/gf_extension_preset_discovery.gd"
+)
+const GF_EXTENSION_MANIFEST_DISCOVERY_SCRIPT = preload(
+	"res://addons/gf/kernel/extension/gf_extension_manifest_discovery.gd"
+)
 const GF_EXTENSION_SELECTION_DISCOVERY_SCRIPT = preload(
 	"res://addons/gf/kernel/extension/gf_extension_selection_discovery.gd"
 )
 const GF_EXTENSION_TOOL_CONTRIBUTION_SCRIPT = preload("res://addons/gf/kernel/extension/gf_extension_tool_contribution.gd")
+const GF_EXTENSION_JSON_FILE_READER_SCRIPT = preload(
+	"res://addons/gf/kernel/extension/gf_extension_json_file_reader.gd"
+)
 const GF_VARIANT_ACCESS = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
 const EXTENSION_ROOT: String = "res://addons/gf/extensions"
 const EXTENSION_ALLOWED_DEPENDENCIES: Array[String] = [
@@ -196,6 +205,38 @@ func test_manifest_from_json_file_report_includes_parse_and_validation_errors() 
 	assert_eq(GF_VARIANT_ACCESS.get_option_string(invalid_manifest_data, "display_name"), "Invalid", "公开诊断应保留 JSON-safe manifest_data。")
 	assert_true(public_manifest_value == null, "公开诊断不应返回 Godot 对象。")
 	assert_false(GF_VARIANT_ACCESS.get_option_bool(missing_report, "ok"), "缺失文件应返回读取失败诊断。")
+
+
+func test_manifest_schema_distinguishes_malformed_fields_from_defaults() -> void:
+	var manifest: GFExtensionManifest = GFExtensionManifest.from_dictionary({
+		"id": "author.schema",
+		"display_name": "Schema",
+		"version": "1.0.0",
+		"kind": "extension",
+		"dependencies": "gf.kernel",
+		"tags": ["valid", 42],
+		"editor_dock_order": true,
+		"enabled_by_default": "false",
+	}, "res://addons/author_schema", "")
+	var errors: Array[String] = manifest.get_validation_errors()
+
+	assert_false(manifest.is_valid(), "错误类型不能被静默转换为缺省值或宽松值。")
+	assert_true(
+		errors.has("manifest dependencies must be an array of strings"),
+		"数组字段的标量 shorthand 必须明确失败。"
+	)
+	assert_true(
+		errors.has("manifest tags must contain only strings"),
+		"数组中的非字符串元素必须明确失败。"
+	)
+	assert_true(
+		errors.has("manifest editor_dock_order must be an integer"),
+		"bool 不能被隐式当作排序整数。"
+	)
+	assert_true(
+		errors.has("manifest enabled_by_default must be a boolean"),
+		"字符串不能被隐式当作启用开关。"
+	)
 
 
 func test_manifest_validation_rejects_non_canonical_extension_ids() -> void:
@@ -394,6 +435,33 @@ func test_extension_preset_from_json_file_report_includes_parse_and_validation_e
 	assert_false(GF_VARIANT_ACCESS.get_option_bool(missing_report, "ok"), "缺失文件应返回读取失败诊断。")
 
 
+func test_extension_preset_schema_distinguishes_malformed_fields_from_defaults() -> void:
+	var preset: Object = GF_EXTENSION_PRESET_BASE.from_dictionary({
+		"id": "project.schema",
+		"display_name": "Schema",
+		"description": 42,
+		"extension_ids": "gf.save",
+		"tags": ["valid", false],
+	})
+	var errors: Array[String] = GF_VARIANT_ACCESS.to_string_array(
+		preset.call("get_validation_errors")
+	)
+
+	assert_false(
+		GF_VARIANT_ACCESS.to_bool(preset.call("is_valid")),
+		"preset 错误类型不能静默变成缺省值。"
+	)
+	assert_true(errors.has("preset description must be a string"), "文本字段必须保持字符串类型。")
+	assert_true(
+		errors.has("preset extension_ids must be an array of strings"),
+		"extension_ids 标量 shorthand 必须明确失败。"
+	)
+	assert_true(
+		errors.has("preset tags must contain only strings"),
+		"tags 中的非字符串元素必须明确失败。"
+	)
+
+
 func test_extension_preset_validation_rejects_unsupported_boundary_fields() -> void:
 	var preset: Object = GF_EXTENSION_PRESET_BASE.from_dictionary({
 		"id": "project.rpg",
@@ -498,6 +566,162 @@ func test_catalog_direct_load_normalizes_public_root_path() -> void:
 
 	assert_eq(manifests.size(), 1, "public 入口应规范化 Windows 分隔符形式的 root。")
 	assert_eq(manifests[0].id, "author.normalized", "规范化 root 后应能读取 manifest。")
+
+
+func test_extension_json_reader_enforces_file_total_and_depth_budgets() -> void:
+	var root_path: String = "user://gf_extension_json_budget"
+	var first_path: String = root_path.path_join("first.json")
+	var second_path: String = root_path.path_join("second.json")
+	var deep_path: String = root_path.path_join("deep.json")
+	_remove_path_if_exists(first_path)
+	_remove_path_if_exists(second_path)
+	_remove_path_if_exists(deep_path)
+	_remove_path_if_exists(root_path)
+	var _make_dir_result: Error = DirAccess.make_dir_recursive_absolute(
+		ProjectSettings.globalize_path(root_path)
+	)
+	var first_text: String = JSON.stringify({ "value": "first" })
+	var second_text: String = JSON.stringify({ "value": "second" })
+	var deep_text: String = '{"a":{"b":{"c":true}}}'
+	_write_text_file(first_path, first_text)
+	_write_text_file(second_path, second_text)
+	_write_text_file(deep_path, deep_text)
+
+	var first_bytes: int = first_text.to_utf8_buffer().size()
+	var second_bytes: int = second_text.to_utf8_buffer().size()
+	var file_limit_state: Dictionary = GF_EXTENSION_JSON_FILE_READER_SCRIPT.make_budget_state({
+		"max_json_file_bytes": first_bytes - 1,
+	})
+	var oversized_report: Dictionary = GF_EXTENSION_JSON_FILE_READER_SCRIPT.read_object_report(
+		first_path,
+		{},
+		file_limit_state
+	)
+	var total_state: Dictionary = GF_EXTENSION_JSON_FILE_READER_SCRIPT.make_budget_state({
+		"max_json_total_bytes": first_bytes + second_bytes - 1,
+	})
+	var first_report: Dictionary = GF_EXTENSION_JSON_FILE_READER_SCRIPT.read_object_report(
+		first_path,
+		{},
+		total_state
+	)
+	var second_report: Dictionary = GF_EXTENSION_JSON_FILE_READER_SCRIPT.read_object_report(
+		second_path,
+		{},
+		total_state
+	)
+	var deep_report: Dictionary = GF_EXTENSION_JSON_FILE_READER_SCRIPT.read_object_report(
+		deep_path,
+		{ "max_json_depth": 2 }
+	)
+	var signature_state: Dictionary = GF_EXTENSION_JSON_FILE_READER_SCRIPT.make_budget_state()
+	var signature: Dictionary = GF_EXTENSION_JSON_FILE_READER_SCRIPT.make_file_signature(
+		first_path,
+		{},
+		signature_state
+	)
+	var forged_state: Dictionary = {
+		"max_json_file_bytes": 1 << 40,
+		"max_json_total_bytes": 1 << 40,
+		"max_json_depth": 1 << 20,
+		"consumed_bytes": -1,
+		"budget_exceeded": false,
+	}
+	var forged_state_report: Dictionary = GF_EXTENSION_JSON_FILE_READER_SCRIPT.read_object_report(
+		first_path,
+		{ "max_json_file_bytes": first_bytes - 1 },
+		forged_state
+	)
+
+	_remove_path_if_exists(first_path)
+	_remove_path_if_exists(second_path)
+	_remove_path_if_exists(deep_path)
+	_remove_path_if_exists(root_path)
+
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(oversized_report, "ok"), "单文件超限应在 JSON.parse 前失败。")
+	assert_true(
+		GF_VARIANT_ACCESS.get_option_string_array(oversized_report, "errors").any(
+			func(error: String) -> bool: return error.contains("max_json_file_bytes")
+		),
+		"单文件预算错误应包含稳定 limit key。"
+	)
+	assert_true(GF_VARIANT_ACCESS.get_option_bool(first_report, "ok"), "累计预算内的第一个文件应成功。")
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(second_report, "ok"), "累计预算+1 必须失败关闭。")
+	assert_true(
+		GF_VARIANT_ACCESS.get_option_string_array(second_report, "errors").any(
+			func(error: String) -> bool: return error.contains("max_json_total_bytes")
+		),
+		"累计预算错误应包含稳定 limit key。"
+	)
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(deep_report, "ok"), "超过词法嵌套深度应在 parse 前失败。")
+	assert_true(
+		GF_VARIANT_ACCESS.get_option_string_array(deep_report, "errors").any(
+			func(error: String) -> bool: return error.contains("max_json_depth")
+		),
+		"深度错误应包含稳定 limit key。"
+	)
+	assert_true(GF_VARIANT_ACCESS.get_option_bool(signature, "ok"), "预算内文件应能生成流式签名。")
+	assert_eq(
+		GF_VARIANT_ACCESS.get_option_string(signature, "content_sha256"),
+		first_text.sha256_text(),
+		"流式 SHA-256 必须与内容摘要一致。"
+	)
+	assert_false(
+		GF_VARIANT_ACCESS.get_option_bool(forged_state_report, "ok"),
+		"手工构造的共享状态不得绕过调用方更严格的单文件预算。"
+	)
+	assert_eq(
+		GF_VARIANT_ACCESS.get_option_int(forged_state, "max_json_file_bytes"),
+		first_bytes - 1,
+		"共享状态必须取调用方预算、既有状态与框架硬上限的最小值。"
+	)
+	assert_eq(
+		GF_VARIANT_ACCESS.get_option_int(forged_state, "max_json_total_bytes"),
+		64 * 1024 * 1024,
+		"手工构造的累计预算不得放宽框架硬上限。"
+	)
+	assert_eq(
+		GF_VARIANT_ACCESS.get_option_int(forged_state, "max_json_depth"),
+		64,
+		"手工构造的嵌套预算不得放宽框架硬上限。"
+	)
+	assert_eq(
+		GF_VARIANT_ACCESS.get_option_int(forged_state, "consumed_bytes"),
+		0,
+		"共享预算的负累计值必须规范化为零。"
+	)
+
+
+func test_catalog_rejects_manifest_before_parsing_when_json_budget_is_exceeded() -> void:
+	var root_path: String = "res://tests/gf_core/tmp_catalog_json_budget"
+	var extension_dir: String = root_path.path_join("oversized")
+	var manifest_path: String = extension_dir.path_join(GFExtensionManifest.FILE_NAME)
+	_cleanup_extension_root_fixture(root_path, extension_dir, manifest_path)
+	var _make_dir_result: Error = DirAccess.make_dir_recursive_absolute(
+		ProjectSettings.globalize_path(extension_dir)
+	)
+	_write_text_file(manifest_path, JSON.stringify({
+		"id": "author.oversized",
+		"display_name": "Oversized",
+		"version": "1.0.0",
+		"kind": "extension",
+	}))
+
+	var manifests: Array[GFExtensionManifest] = GFExtensionCatalog.load_manifests_in(
+		root_path,
+		{ "max_json_file_bytes": 32 }
+	)
+	var errors: Array[Dictionary] = GFExtensionCatalog.get_last_manifest_load_errors()
+	_cleanup_extension_root_fixture(root_path, extension_dir, manifest_path)
+
+	assert_true(manifests.is_empty(), "超出 JSON 单文件预算的 manifest 不得进入 catalog。")
+	assert_eq(errors.size(), 1, "catalog 应保留一条结构化读取错误。")
+	assert_true(
+		GF_VARIANT_ACCESS.get_option_string_array(errors[0], "errors").any(
+			func(error: String) -> bool: return error.contains("max_json_file_bytes")
+		),
+		"catalog 错误应暴露命中的 JSON limit。"
+	)
 
 
 func test_extension_settings_loads_external_extension_roots_from_project_settings() -> void:
@@ -709,6 +933,79 @@ func test_extension_settings_refreshes_manifest_cache_when_manifest_file_changes
 	assert_eq(first_manifest.display_name, "Cached", "初始读取应使用第一次写入的 manifest。")
 	assert_not_null(refreshed_manifest, "同一 root 内 manifest 文件变化后应自动刷新快照。")
 	assert_eq(refreshed_manifest.display_name, "Cached Renamed", "刷新后应读取新的 manifest 内容。")
+
+
+func test_extension_selection_cache_identity_covers_validation_and_metadata() -> void:
+	var manifest: GFExtensionManifest = GFExtensionManifest.from_dictionary({
+		"id": "author.semantic_cache",
+		"display_name": "Semantic Cache",
+		"version": "1.0.0",
+		"kind": "extension",
+		"description": "first",
+		"installer_paths": ["res://addons/author_semantic_cache/install.gd"],
+	}, "res://addons/author_semantic_cache", "")
+	var manifests: Array[GFExtensionManifest] = [manifest]
+	var configured_ids: Array[String] = ["author.semantic_cache"]
+	GF_EXTENSION_SELECTION_DISCOVERY_SCRIPT.clear_cache()
+
+	var first_snapshot: Dictionary = GF_EXTENSION_SELECTION_DISCOVERY_SCRIPT.get_snapshot(
+		manifests,
+		configured_ids,
+		{ "force_refresh": true }
+	)
+	var first_revision: int = GF_VARIANT_ACCESS.get_option_int(first_snapshot, "revision")
+	manifest.display_name = ""
+	var invalid_snapshot: Dictionary = GF_EXTENSION_SELECTION_DISCOVERY_SCRIPT.get_snapshot(
+		manifests,
+		configured_ids
+	)
+	var invalid_paths: Dictionary = GF_VARIANT_ACCESS.get_option_dictionary(
+		invalid_snapshot,
+		"paths"
+	)
+	var invalid_graph: Dictionary = GF_VARIANT_ACCESS.get_option_dictionary(
+		invalid_snapshot,
+		"graph_report"
+	)
+
+	manifest.display_name = "Semantic Cache"
+	manifest.description = "second"
+	var metadata_snapshot: Dictionary = GF_EXTENSION_SELECTION_DISCOVERY_SCRIPT.get_snapshot(
+		manifests,
+		configured_ids
+	)
+	var enabled_manifests: Array = GF_VARIANT_ACCESS.get_option_array(
+		metadata_snapshot,
+		"enabled_manifests"
+	)
+	GF_EXTENSION_SELECTION_DISCOVERY_SCRIPT.clear_cache()
+
+	assert_true(GF_VARIANT_ACCESS.get_option_bool(first_snapshot, "ok"), "初始合法快照应有效。")
+	assert_gt(
+		GF_VARIANT_ACCESS.get_option_int(invalid_snapshot, "revision"),
+		first_revision,
+		"只修改 validation 字段也必须使 selection revision 前进。"
+	)
+	assert_false(
+		GF_VARIANT_ACCESS.get_option_bool(invalid_snapshot, "graph_ok", true),
+		"合法到非法的字段变更必须立即重新校验。"
+	)
+	assert_false(
+		GF_VARIANT_ACCESS.get_option_array(invalid_graph, "invalid_manifests").is_empty(),
+		"新 validation error 必须进入 graph 诊断。"
+	)
+	assert_true(
+		GF_VARIANT_ACCESS.get_option_string_array(invalid_paths, "installer_paths").is_empty(),
+		"非法 manifest 必须撤销旧 installer path 授权。"
+	)
+	assert_eq(enabled_manifests.size(), 1, "恢复合法字段后应重新生成启用 manifest。")
+	if enabled_manifests.size() == 1 and enabled_manifests[0] is GFExtensionManifest:
+		var refreshed_manifest: GFExtensionManifest = enabled_manifests[0]
+		assert_eq(
+			refreshed_manifest.description,
+			"second",
+			"只修改返回 metadata 也必须刷新缓存值。"
+		)
 
 
 func test_extension_settings_refreshes_manifest_cache_when_manifest_is_added_in_same_root() -> void:
@@ -1031,6 +1328,50 @@ func test_extension_preset_discovery_refreshes_when_preset_file_changes() -> voi
 	assert_not_null(second_preset, "preset 文件变化后仍应能加载项目 preset。")
 	assert_eq(first_preset.display_name, "Cache A", "第一次读取应返回旧文件内容。")
 	assert_eq(second_preset.display_name, "Cache B", "同一路径 preset 文件变化后应刷新 discovery snapshot。")
+
+
+func test_extension_preset_discovery_shares_signature_and_parse_byte_budget() -> void:
+	var root_path: String = "res://tests/gf_core/tmp_preset_json_budget"
+	var preset_path: String = root_path.path_join("oversized.json")
+	_remove_path_if_exists(preset_path)
+	_remove_path_if_exists(root_path)
+	var _make_dir_result: Error = DirAccess.make_dir_recursive_absolute(
+		ProjectSettings.globalize_path(root_path)
+	)
+	_write_text_file(preset_path, JSON.stringify({
+		"id": "project.oversized",
+		"display_name": "Oversized Preset",
+		"description": "The signature and parser must share one bounded session.",
+		"extension_ids": [],
+		"tags": ["test"],
+	}))
+	GF_EXTENSION_PRESET_DISCOVERY_SCRIPT.clear_cache()
+
+	var snapshot: Dictionary = GF_EXTENSION_PRESET_DISCOVERY_SCRIPT.get_snapshot(
+		[],
+		[preset_path],
+		{
+			"force_refresh": true,
+			"max_json_file_bytes": 64,
+		}
+	)
+	var report: Dictionary = GF_VARIANT_ACCESS.get_option_dictionary(snapshot, "report")
+	var invalid_presets: Array = GF_VARIANT_ACCESS.get_option_array(report, "invalid_presets")
+	GF_EXTENSION_PRESET_DISCOVERY_SCRIPT.clear_cache()
+	_remove_path_if_exists(preset_path)
+	_remove_path_if_exists(root_path)
+
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(snapshot, "ok"), "超限 preset 不得进入有效快照。")
+	assert_eq(invalid_presets.size(), 1, "超限 preset 应形成单个 invalid 记录。")
+	if invalid_presets.size() == 1:
+		var errors: Array[String] = GF_VARIANT_ACCESS.get_option_string_array(
+			GF_VARIANT_ACCESS.as_dictionary(invalid_presets[0]),
+			"errors"
+		)
+		assert_true(
+			errors.any(func(error: String) -> bool: return error.contains("max_json_file_bytes")),
+			"preset invalid 记录应暴露 JSON limit。"
+		)
 
 
 func test_extension_preset_validation_rejects_non_canonical_extension_ids() -> void:
@@ -1683,6 +2024,38 @@ func test_extension_settings_can_query_manifest_and_enabled_state() -> void:
 	assert_null(combat_script, "未启用扩展内脚本不应被统一加载入口加载。")
 
 
+func test_asset_metadata_contributes_exactly_one_gltf_document_extension() -> void:
+	var setting_restore: Dictionary = _set_project_setting(
+		GFExtensionSettings.ENABLED_EXTENSIONS_SETTING,
+		["gf.asset_metadata"]
+	)
+	var selection_mode_restore: Dictionary = _set_project_setting(
+		GFExtensionSettings.EXTENSION_SELECTION_MODE_SETTING,
+		GFExtensionSettings.SELECTION_MODE_EXPLICIT
+	)
+	GFExtensionSettings.clear_manifest_cache()
+
+	var gltf_document_paths: Array[String] = (
+		GFExtensionSettings.get_enabled_gltf_document_extension_paths()
+	)
+
+	_restore_project_setting(
+		GFExtensionSettings.EXTENSION_SELECTION_MODE_SETTING,
+		selection_mode_restore
+	)
+	_restore_project_setting(GFExtensionSettings.ENABLED_EXTENSIONS_SETTING, setting_restore)
+	GFExtensionSettings.clear_manifest_cache()
+
+	assert_eq(
+		gltf_document_paths,
+		[
+			"res://addons/gf/extensions/asset_metadata/editor/"
+			+ "gf_asset_metadata_gltf_document_extension.gd",
+		],
+		"只启用 Asset Metadata 时应贡献恰好一个规范 glTF 文档扩展路径。"
+	)
+
+
 func test_extension_settings_collects_editor_tool_contribution_paths() -> void:
 	var setting_restore: Dictionary = _set_project_setting(
 		GFExtensionSettings.ENABLED_EXTENSIONS_SETTING,
@@ -1907,6 +2280,134 @@ func test_extension_selection_discovery_refreshes_when_tool_contribution_file_ch
 	)
 
 
+func test_invalid_tool_contribution_is_public_partial_status() -> void:
+	var root_path: String = "res://tests/gf_core/tmp_invalid_tool_contribution_status"
+	var extension_dir: String = root_path.path_join("feature")
+	var editor_dir: String = extension_dir.path_join("editor")
+	var contribution_path: String = editor_dir.path_join("gf_tool_contribution.json")
+	_remove_path_if_exists(contribution_path)
+	_remove_path_if_exists(editor_dir)
+	_remove_path_if_exists(extension_dir)
+	_remove_path_if_exists(root_path)
+	var _make_dir_result: Error = DirAccess.make_dir_recursive_absolute(
+		ProjectSettings.globalize_path(editor_dir)
+	)
+	_write_text_file(contribution_path, JSON.stringify({
+		"schema_version": GF_EXTENSION_TOOL_CONTRIBUTION_SCRIPT.SCHEMA_VERSION + 1,
+		"extension_id": "author.partial",
+	}))
+	var manifest: GFExtensionManifest = GFExtensionManifest.from_dictionary({
+		"id": "author.partial",
+		"display_name": "Partial",
+		"version": "1.0.0",
+		"kind": "extension",
+	}, extension_dir, extension_dir.path_join(GFExtensionManifest.FILE_NAME))
+	var manifests: Array[GFExtensionManifest] = [manifest]
+	var enabled_ids: Array[String] = ["author.partial"]
+	GF_EXTENSION_SELECTION_DISCOVERY_SCRIPT.clear_cache()
+
+	var snapshot: Dictionary = GF_EXTENSION_SELECTION_DISCOVERY_SCRIPT.get_snapshot(
+		manifests,
+		enabled_ids,
+		{ "force_refresh": true }
+	)
+	var setting_restore: Dictionary = _set_project_setting(
+		GFExtensionSettings.ENABLED_EXTENSIONS_SETTING,
+		enabled_ids
+	)
+	GFExtensionSettings.set_cached_manifests(manifests)
+	var public_report: Dictionary = GFExtensionSettings.get_extension_selection_report()
+
+	GFExtensionSettings.clear_manifest_cache()
+	_restore_project_setting(GFExtensionSettings.ENABLED_EXTENSIONS_SETTING, setting_restore)
+	_remove_path_if_exists(contribution_path)
+	_remove_path_if_exists(editor_dir)
+	_remove_path_if_exists(extension_dir)
+	_remove_path_if_exists(root_path)
+
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(snapshot, "ok", true), "已存在但无效的贡献不能报告完整成功。")
+	assert_eq(
+		GF_VARIANT_ACCESS.get_option_string_name(snapshot, "status"),
+		GF_EXTENSION_SELECTION_DISCOVERY_SCRIPT.STATUS_PARTIAL,
+		"逐扩展隔离的贡献错误应形成 partial 状态。"
+	)
+	assert_true(GF_VARIANT_ACCESS.get_option_bool(snapshot, "partial"), "partial 布尔投影应与状态一致。")
+	assert_true(
+		GF_VARIANT_ACCESS.get_option_bool(snapshot, "paths_allowed"),
+		"manifest 图有效时，其他已验证扩展路径仍可使用。"
+	)
+	assert_eq(
+		GF_VARIANT_ACCESS.get_option_array(snapshot, "tool_contribution_errors").size(),
+		1,
+		"raw snapshot 应保留 contribution 错误。"
+	)
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(public_report, "ok", true), "公共诊断不得隐藏 contribution 错误。")
+	assert_eq(
+		GF_VARIANT_ACCESS.get_option_string_name(public_report, "status"),
+		GF_EXTENSION_SELECTION_DISCOVERY_SCRIPT.STATUS_PARTIAL,
+		"公共诊断应投影同一 partial 状态。"
+	)
+	assert_eq(
+		GF_VARIANT_ACCESS.get_option_array(public_report, "tool_contribution_errors").size(),
+		1,
+		"公共诊断应暴露可定位的 contribution 错误。"
+	)
+
+
+func test_tool_contribution_discovery_rejects_oversized_json() -> void:
+	var root_path: String = "res://tests/gf_core/tmp_tool_contribution_json_budget"
+	var editor_dir: String = root_path.path_join("editor")
+	var contribution_path: String = editor_dir.path_join("gf_tool_contribution.json")
+	_remove_path_if_exists(contribution_path)
+	_remove_path_if_exists(editor_dir)
+	_remove_path_if_exists(root_path)
+	var _make_dir_result: Error = DirAccess.make_dir_recursive_absolute(
+		ProjectSettings.globalize_path(editor_dir)
+	)
+	_write_text_file(contribution_path, JSON.stringify({
+		"schema_version": GF_EXTENSION_TOOL_CONTRIBUTION_SCRIPT.SCHEMA_VERSION,
+		"extension_id": "author.oversized_tool",
+		"editor_action_paths": [],
+		"debugger_plugin_paths": [],
+	}))
+	var manifest: GFExtensionManifest = GFExtensionManifest.from_dictionary({
+		"id": "author.oversized_tool",
+		"display_name": "Oversized Tool",
+		"version": "1.0.0",
+		"kind": "extension",
+	}, root_path, root_path.path_join(GFExtensionManifest.FILE_NAME))
+	GF_EXTENSION_SELECTION_DISCOVERY_SCRIPT.clear_cache()
+
+	var snapshot: Dictionary = GF_EXTENSION_SELECTION_DISCOVERY_SCRIPT.get_snapshot(
+		[manifest],
+		["author.oversized_tool"],
+		{
+			"force_refresh": true,
+			"max_json_file_bytes": 48,
+		}
+	)
+	var errors: Array = GF_VARIANT_ACCESS.get_option_array(snapshot, "tool_contribution_errors")
+	GF_EXTENSION_SELECTION_DISCOVERY_SCRIPT.clear_cache()
+	_remove_path_if_exists(contribution_path)
+	_remove_path_if_exists(editor_dir)
+	_remove_path_if_exists(root_path)
+
+	assert_eq(
+		GF_VARIANT_ACCESS.get_option_string_name(snapshot, "status"),
+		GF_EXTENSION_SELECTION_DISCOVERY_SCRIPT.STATUS_PARTIAL,
+		"超限 contribution 应作为隔离后的 partial failure。"
+	)
+	assert_eq(errors.size(), 1, "超限 contribution 应形成可定位错误。")
+	if errors.size() == 1:
+		assert_true(
+			GF_VARIANT_ACCESS.get_option_string_array(
+				GF_VARIANT_ACCESS.as_dictionary(errors[0]),
+				"errors"
+			).any(func(error: String) -> bool: return error.contains("max_json_file_bytes")),
+			"contribution 错误应暴露 JSON limit。"
+		)
+
+
 func test_load_enabled_extension_script_rejects_absolute_paths_outside_extension_root() -> void:
 	var restore: Dictionary = _set_project_setting(
 		GFExtensionSettings.ENABLED_EXTENSIONS_SETTING,
@@ -1948,6 +2449,7 @@ func test_extension_selection_report_includes_unknown_enabled_ids() -> void:
 	var report: Dictionary = GFExtensionSettings.get_extension_selection_report()
 	var unknown_enabled_ids: Array = GF_VARIANT_ACCESS.get_option_array(report, "unknown_enabled_ids")
 	var resolved_ids: Array = GF_VARIANT_ACCESS.get_option_array(report, "resolved_ids")
+	var known_action_paths: Array[String] = GFExtensionSettings.get_enabled_editor_action_paths()
 
 	_restore_project_setting(GFExtensionSettings.ENABLED_EXTENSIONS_SETTING, restore)
 
@@ -1955,6 +2457,19 @@ func test_extension_selection_report_includes_unknown_enabled_ids() -> void:
 	assert_false(resolved_ids.has("author.missing"), "未知扩展 ID 不应进入最终启用结果。")
 	assert_eq(GF_VARIANT_ACCESS.get_option_int(report, "enabled_count", -1), resolved_ids.size(), "启用数量应基于最终有效启用结果。")
 	assert_false(GF_VARIANT_ACCESS.get_option_bool(report, "ok", true), "存在未知启用扩展时选择诊断不应通过。")
+	assert_eq(
+		GF_VARIANT_ACCESS.get_option_string_name(report, "status"),
+		GF_EXTENSION_SELECTION_DISCOVERY_SCRIPT.STATUS_PARTIAL,
+		"未知 ID 应成为显式 partial，而不是含义不明的 ok=false。"
+	)
+	assert_true(
+		GF_VARIANT_ACCESS.get_option_bool(report, "paths_allowed"),
+		"未知 ID 无法授权路径，但不应撤销独立验证通过的已知扩展路径。"
+	)
+	assert_true(
+		known_action_paths.has("res://addons/gf/extensions/save/editor/gf_save_editor_actions.gd"),
+		"partial 状态下已知扩展的合法路径应继续可用。"
+	)
 
 
 func test_set_enabled_extension_ids_drops_unknown_ids() -> void:
@@ -2250,13 +2765,14 @@ func test_extension_usage_audit_finds_project_reference() -> void:
 	var _store_string_result_684: Variant = file.store_string('const SaveGraph = preload("res://addons/gf/extensions/save/graph/gf_save_graph_utility.gd")')
 	file.close()
 
-	var references: Array = GFExtensionUsageAudit.find_references_to_root(
+	var report: Dictionary = GFExtensionUsageAudit.find_references_to_root_report(
 		"res://addons/gf/extensions/save",
 		{
 			"scan_roots": [directory],
 			"ignored_roots": [],
 		}
 	)
+	var references: Array = GF_VARIANT_ACCESS.get_option_array(report, "references")
 
 	var _remove_absolute_result_695: Variant = DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
 	var _remove_absolute_result_696: Variant = DirAccess.remove_absolute(ProjectSettings.globalize_path(directory))
@@ -2277,13 +2793,14 @@ func test_extension_usage_audit_finds_windows_style_project_reference() -> void:
 		"const SaveWin = preload(\"res:\\\\addons\\\\gf\\\\extensions\\\\save\\\\graph\\\\gf_save_graph_utility.gd\")"
 	)
 
-	var references: Array = GFExtensionUsageAudit.find_references_to_root(
+	var report: Dictionary = GFExtensionUsageAudit.find_references_to_root_report(
 		"res://addons/gf/extensions/save",
 		{
 			"scan_roots": [directory],
 			"ignored_roots": [],
 		}
 	)
+	var references: Array = GF_VARIANT_ACCESS.get_option_array(report, "references")
 
 	_remove_path_if_exists(path)
 	_remove_path_if_exists(directory)
@@ -2343,7 +2860,7 @@ func test_extension_usage_audit_does_not_ignore_project_test_roots_by_default() 
 	)
 
 
-func test_extension_usage_audit_ignores_ai_analysis_by_default() -> void:
+func test_extension_usage_audit_scans_project_specific_roots_by_default() -> void:
 	var directory: String = "res://ai_analysis/tmp_extension_usage_audit"
 	var path: String = directory.path_join("uses_save_in_ai_analysis.gd")
 	var _make_dir_recursive_absolute_result: Variant = DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(directory))
@@ -2360,7 +2877,7 @@ func test_extension_usage_audit_ignores_ai_analysis_by_default() -> void:
 	_remove_path_if_exists(path)
 	_remove_path_if_exists(directory)
 
-	assert_eq(references.size(), 0, "AI 临时工作区不应被报告为用户项目对禁用扩展的直接引用。")
+	assert_eq(references.size(), 1, "通用审计不应隐式忽略项目自定义目录。")
 
 
 func test_extension_usage_audit_respects_scanned_file_limit() -> void:
@@ -2371,7 +2888,7 @@ func test_extension_usage_audit_respects_scanned_file_limit() -> void:
 	_write_text_file(first_path, 'const SaveA = preload("res://addons/gf/extensions/save/graph/gf_save_graph_utility.gd")')
 	_write_text_file(second_path, 'const SaveB = preload("res://addons/gf/extensions/save/slots/gf_save_slot_metadata.gd")')
 
-	var references: Array = GFExtensionUsageAudit.find_references_to_root(
+	var report: Dictionary = GFExtensionUsageAudit.find_references_to_root_report(
 		"res://addons/gf/extensions/save",
 		{
 			"scan_roots": [directory],
@@ -2380,13 +2897,18 @@ func test_extension_usage_audit_respects_scanned_file_limit() -> void:
 			"max_references_per_extension": 10,
 		}
 	)
+	var references: Array = GF_VARIANT_ACCESS.get_option_array(report, "references")
 
 	var _remove_absolute_result_737: Variant = DirAccess.remove_absolute(ProjectSettings.globalize_path(first_path))
 	var _remove_absolute_result_738: Variant = DirAccess.remove_absolute(ProjectSettings.globalize_path(second_path))
 	var _remove_absolute_result_739: Variant = DirAccess.remove_absolute(ProjectSettings.globalize_path(directory))
 
-	assert_eq(references.size(), 1, "禁用扩展引用审计应遵守 max_scanned_files 上限。")
-	assert_push_warning("[GFExtensionUsageAudit] 已达到 max_scanned_files=1，后续文件已跳过。")
+	assert_true(references.is_empty(), "共享文件预算被 class_name 预扫描耗尽后不得继续项目扫描。")
+	assert_true(GF_VARIANT_ACCESS.get_option_bool(report, "partial_scan"), "共享文件预算耗尽必须标记 partial。")
+	assert_true(GF_VARIANT_ACCESS.get_option_bool(report, "truncated"), "共享文件数量配额耗尽必须标记 truncated。")
+	assert_push_warning(
+		"[GFExtensionUsageAudit] 扩展 class_name 预扫描达到 max_scanned_files=1，后续扫描按 partial_scan 处理。"
+	)
 
 
 func test_extension_usage_audit_warns_when_scan_depth_limit_skips_directory() -> void:
@@ -2400,7 +2922,7 @@ func test_extension_usage_audit_warns_when_scan_depth_limit_skips_directory() ->
 	_write_text_file(deep_path, 'const SaveB = preload("res://addons/gf/extensions/save/slots/gf_save_slot_metadata.gd")')
 
 	var references: Array = GFExtensionUsageAudit.find_references_to_root(
-		"res://addons/gf/extensions/save",
+		"res://addons/author_empty",
 		{
 			"scan_roots": [directory],
 			"ignored_roots": [],
@@ -2546,6 +3068,180 @@ func test_extension_usage_audit_exposes_partial_budget_report() -> void:
 	assert_eq(GF_VARIANT_ACCESS.get_option_int(report, "reference_count"), 0, "未读取文件不应产生阻断引用。")
 	assert_eq(GF_VARIANT_ACCESS.get_option_array(report, "skipped_files").size(), 1, "预算跳过文件应进入审计报告。")
 	assert_push_warning("[GFExtensionUsageAudit] 引用扫描达到 max_file_bytes=16 字节预算，后续结果按 partial_scan 处理：%s。" % path)
+
+
+func test_extension_usage_audit_bounds_class_name_pre_scan_file_bytes() -> void:
+	var extension_root: String = "res://tests/gf_core/tmp_extension_class_file_budget"
+	var extension_path: String = extension_root.path_join("type.gd")
+	var project_root: String = "user://gf_extension_class_file_budget"
+	var project_path: String = project_root.path_join("uses_type.gd")
+	_remove_path_if_exists(extension_path)
+	_remove_path_if_exists(extension_root)
+	_remove_path_if_exists(project_path)
+	_remove_path_if_exists(project_root)
+	var _make_extension_dir: Error = DirAccess.make_dir_recursive_absolute(
+		ProjectSettings.globalize_path(extension_root)
+	)
+	var _make_project_dir: Error = DirAccess.make_dir_recursive_absolute(
+		ProjectSettings.globalize_path(project_root)
+	)
+	var extension_source: String = "class_name AuditBudgetType\nextends RefCounted\n"
+	_write_text_file(extension_path, extension_source)
+	_write_text_file(project_path, "var value: AuditBudgetType")
+	var max_file_bytes: int = extension_source.to_utf8_buffer().size() - 1
+
+	var report: Dictionary = GFExtensionUsageAudit.find_references_to_root_report(
+		extension_root,
+		{
+			"scan_roots": [project_root],
+			"ignored_roots": [],
+			"max_file_bytes": max_file_bytes,
+		}
+	)
+	var class_name_scan: Dictionary = GF_VARIANT_ACCESS.get_option_dictionary(
+		report,
+		"class_name_scan"
+	)
+	var skipped_files: Array = GF_VARIANT_ACCESS.get_option_array(report, "skipped_files")
+	var has_class_name_skip: bool = false
+	for skipped_value: Variant in skipped_files:
+		if not skipped_value is Dictionary:
+			continue
+		var skipped_file: Dictionary = skipped_value
+		if (
+			GF_VARIANT_ACCESS.get_option_string(skipped_file, "path") == extension_path
+			and GF_VARIANT_ACCESS.get_option_string(skipped_file, "phase") == "class_name_pre_scan"
+		):
+			has_class_name_skip = true
+			break
+
+	_remove_path_if_exists(extension_path)
+	_remove_path_if_exists(extension_root)
+	_remove_path_if_exists(project_path)
+	_remove_path_if_exists(project_root)
+
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(report, "ok"), "class_name 预扫描不完整时不能报告安全。")
+	assert_true(GF_VARIANT_ACCESS.get_option_bool(report, "partial_scan"), "预扫描超限必须传播 partial。")
+	assert_true(GF_VARIANT_ACCESS.get_option_bool(report, "budget_exceeded"), "预扫描超限必须传播 budget。")
+	assert_true(
+		GF_VARIANT_ACCESS.get_option_bool(class_name_scan, "partial_scan"),
+		"class_name_scan 子报告必须独立可观察。"
+	)
+	assert_true(has_class_name_skip, "被预算拒绝的扩展脚本必须带 phase 进入 skipped_files。")
+	assert_push_warning(
+		"[GFExtensionUsageAudit] 扩展 class_name 预扫描达到 max_file_bytes=%d 字节预算，结果按 partial_scan 处理：%s。"
+		% [max_file_bytes, extension_path]
+	)
+
+
+func test_extension_usage_audit_propagates_class_name_depth_truncation() -> void:
+	var extension_root: String = "res://tests/gf_core/tmp_extension_class_depth"
+	var shallow_root: String = extension_root.path_join("a")
+	var deep_root: String = shallow_root.path_join("b")
+	var extension_path: String = deep_root.path_join("type.gd")
+	var project_root: String = "user://gf_extension_class_depth"
+	var project_path: String = project_root.path_join("uses_type.gd")
+	_remove_path_if_exists(extension_path)
+	_remove_path_if_exists(deep_root)
+	_remove_path_if_exists(shallow_root)
+	_remove_path_if_exists(extension_root)
+	_remove_path_if_exists(project_path)
+	_remove_path_if_exists(project_root)
+	var _make_extension_dir: Error = DirAccess.make_dir_recursive_absolute(
+		ProjectSettings.globalize_path(deep_root)
+	)
+	var _make_project_dir: Error = DirAccess.make_dir_recursive_absolute(
+		ProjectSettings.globalize_path(project_root)
+	)
+	_write_text_file(extension_path, "class_name AuditDeepType\nextends RefCounted\n")
+	_write_text_file(project_path, "var value: AuditDeepType")
+
+	var report: Dictionary = GFExtensionUsageAudit.find_references_to_root_report(
+		extension_root,
+		{
+			"scan_roots": [project_root],
+			"ignored_roots": [],
+			"max_scan_depth": 1,
+		}
+	)
+	var has_class_name_depth_issue: bool = false
+	for issue_value: Variant in GF_VARIANT_ACCESS.get_option_array(report, "issues"):
+		if not issue_value is Dictionary:
+			continue
+		var issue: Dictionary = issue_value
+		if (
+			GF_VARIANT_ACCESS.get_option_string(issue, "code") == "max_scan_depth"
+			and GF_VARIANT_ACCESS.get_option_string(issue, "phase") == "class_name_pre_scan"
+		):
+			has_class_name_depth_issue = true
+			break
+
+	_remove_path_if_exists(extension_path)
+	_remove_path_if_exists(deep_root)
+	_remove_path_if_exists(shallow_root)
+	_remove_path_if_exists(extension_root)
+	_remove_path_if_exists(project_path)
+	_remove_path_if_exists(project_root)
+
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(report, "ok"), "深度截断时不能报告安全。")
+	assert_true(GF_VARIANT_ACCESS.get_option_bool(report, "partial_scan"), "class-name 深度截断必须传播。")
+	assert_true(has_class_name_depth_issue, "深度截断必须形成结构化 phase issue。")
+	assert_push_warning(
+		"[GFExtensionUsageAudit] 扩展 class_name 预扫描达到 max_scan_depth=1，已跳过更深目录：%s。"
+		% deep_root
+	)
+
+
+func test_extension_usage_audit_shares_total_bytes_across_both_phases() -> void:
+	var extension_root: String = "res://tests/gf_core/tmp_extension_class_total"
+	var extension_path: String = extension_root.path_join("type.gd")
+	var project_root: String = "user://gf_extension_class_total"
+	var project_path: String = project_root.path_join("uses_type.gd")
+	_remove_path_if_exists(extension_path)
+	_remove_path_if_exists(extension_root)
+	_remove_path_if_exists(project_path)
+	_remove_path_if_exists(project_root)
+	var _make_extension_dir: Error = DirAccess.make_dir_recursive_absolute(
+		ProjectSettings.globalize_path(extension_root)
+	)
+	var _make_project_dir: Error = DirAccess.make_dir_recursive_absolute(
+		ProjectSettings.globalize_path(project_root)
+	)
+	var extension_source: String = "class_name AuditTotalType\nextends RefCounted\n"
+	var project_source: String = "var value: AuditTotalType"
+	_write_text_file(extension_path, extension_source)
+	_write_text_file(project_path, project_source)
+	var extension_bytes: int = extension_source.to_utf8_buffer().size()
+	var project_bytes: int = project_source.to_utf8_buffer().size()
+	var max_total_bytes: int = extension_bytes + project_bytes - 1
+	var project_remaining_bytes: int = max_total_bytes - extension_bytes
+
+	var report: Dictionary = GFExtensionUsageAudit.find_references_to_root_report(
+		extension_root,
+		{
+			"scan_roots": [project_root],
+			"ignored_roots": [],
+			"max_total_bytes": max_total_bytes,
+		}
+	)
+
+	_remove_path_if_exists(extension_path)
+	_remove_path_if_exists(extension_root)
+	_remove_path_if_exists(project_path)
+	_remove_path_if_exists(project_root)
+
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(report, "ok"), "组合读取超出总预算时不能报告安全。")
+	assert_true(GF_VARIANT_ACCESS.get_option_bool(report, "partial_scan"), "组合总预算耗尽必须传播 partial。")
+	assert_true(GF_VARIANT_ACCESS.get_option_bool(report, "budget_exceeded"), "组合总预算耗尽必须传播 budget。")
+	assert_lte(
+		GF_VARIANT_ACCESS.get_option_int(report, "scanned_bytes"),
+		max_total_bytes,
+		"两个阶段的实际读取总量不得突破公开总预算。"
+	)
+	assert_push_warning(
+		"[GFExtensionUsageAudit] 引用扫描达到 max_total_bytes=%d 字节预算，后续结果按 partial_scan 处理：%s。"
+		% [project_remaining_bytes, project_path]
+	)
 
 
 func test_extension_usage_audit_finds_resource_text_dependency_reference() -> void:

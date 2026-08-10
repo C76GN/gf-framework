@@ -33,6 +33,11 @@ signal completed(result: GFPlatformBridgeResult)
 signal cancel_requested(reason: StringName)
 
 
+# --- 常量 ---
+
+const _INT64_MAX: int = 9_223_372_036_854_775_807
+
+
 # --- 私有变量 ---
 
 var _request: GFPlatformBridgeRequest = null
@@ -136,9 +141,9 @@ func cancel(reason: StringName = &"cancelled") -> bool:
 ## [br]
 ## @since 9.0.0
 ## [br]
-## @return 包含 request、pending、completed、successful 和 result 的字典。
+## @return: 包含 request、pending、completed、successful 和脱敏 result 的字典；失败只公开 status 与 has_error，不公开原始 error 或 metadata。
 ## [br]
-## @schema return: Dictionary with request, pending, completed, successful, and result fields.
+## @schema return: Dictionary with request, pending, completed, successful, and redacted result fields.
 func get_debug_snapshot() -> Dictionary:
 	return {
 		"request": _make_request_debug_summary(),
@@ -176,13 +181,22 @@ func configure_from_platform_layer(
 	_request = request.duplicate_request()
 	_clock = clock
 	_started_at_msec = started_at_msec if started_at_msec >= 0 else _clock.get_monotonic_msec()
-	_deadline_msec = (
-		_started_at_msec + _request.timeout_msec
-		if _request.timeout_msec > 0
-		else -1
-	)
+	_deadline_msec = _make_deadline_msec(_started_at_msec, _request.timeout_msec)
 	_initialized = true
 	return true
+
+
+## 获取由 Handle 单一计算的请求截止时间。
+## [br]
+## @api layer_internal
+## [br]
+## @layer standard/platform
+## [br]
+## @since 10.0.0
+## [br]
+## @return: 正 timeout 的饱和单调截止时间；无 timeout 时返回 -1。
+func get_deadline_msec_from_platform_layer() -> int:
+	return _deadline_msec
 
 
 ## 由 Platform 层创建输入或路由拒绝终态。
@@ -226,11 +240,11 @@ func reject_from_platform_layer(
 ## [br]
 ## @since 10.0.0
 ## [br]
-## @param result: 与当前请求匹配的结果。
+## @param result: 与当前请求匹配且终态字段、时间戳内部一致的结果。
 ## [br]
-## @return 首次完成成功返回 true。
+## @return: 首次合法完成成功返回 true；非法结果不会消费 pending 终态。
 func resolve_from_platform_layer(result: GFPlatformBridgeResult) -> bool:
-	if not is_pending() or result == null or not _matches_request(result):
+	if not is_pending() or not _is_valid_terminal_result(result):
 		return false
 	_result = result.duplicate_result()
 	completed.emit(_result.duplicate_result())
@@ -369,9 +383,18 @@ func _make_result_debug_summary() -> Dictionary:
 		"method_id": _result.method_id,
 		"ok": _result.ok,
 		"status": _result.status,
-		"error": _result.error,
+		"has_error": not _result.error.is_empty(),
 		"duration_msec": _result.get_duration_msec(),
 	}
+
+
+static func _make_deadline_msec(started_at_msec: int, timeout_msec: int) -> int:
+	if timeout_msec <= 0:
+		return -1
+	var safe_started_at_msec: int = maxi(started_at_msec, 0)
+	if timeout_msec > _INT64_MAX - safe_started_at_msec:
+		return _INT64_MAX
+	return safe_started_at_msec + timeout_msec
 
 
 func _matches_request(result: GFPlatformBridgeResult) -> bool:
@@ -380,3 +403,17 @@ func _matches_request(result: GFPlatformBridgeResult) -> bool:
 		and result.contract_id == _request.contract_id
 		and result.method_id == _request.method_id
 	)
+
+
+func _is_valid_terminal_result(result: GFPlatformBridgeResult) -> bool:
+	if result == null or not _matches_request(result) or result.status == &"":
+		return false
+	if result.started_at_msec != _started_at_msec:
+		return false
+	if result.completed_at_msec < result.started_at_msec:
+		return false
+	if result.completed_at_msec > _clock.get_monotonic_msec():
+		return false
+	if result.ok:
+		return result.error.strip_edges().is_empty()
+	return result.value == null and not result.error.strip_edges().is_empty()

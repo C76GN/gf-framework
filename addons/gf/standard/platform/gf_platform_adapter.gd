@@ -345,13 +345,17 @@ func shutdown() -> void:
 ## [br]
 ## @since 9.0.0
 ## [br]
-## @return Adapter 身份、状态、契约与脱敏上下文摘要。
+## @return: Adapter 身份、状态、契约与脱敏上下文摘要；不会包含契约或方法自由 metadata。
 ## [br]
-## @schema return: Dictionary with adapter identity, state, contracts, and redacted context summary.
+## @schema return: Dictionary with adapter identity, state, metadata-free contract summaries, and redacted context summary.
 func get_debug_snapshot() -> Dictionary:
 	var descriptor_entries: Array[Dictionary] = []
-	for descriptor: GFPlatformContractDescriptor in get_contract_descriptors():
-		descriptor_entries.append(descriptor.to_dict())
+	for contract_id: String in _contract_ids:
+		var descriptor: GFPlatformContractDescriptor = _get_contract_descriptor_internal(
+			StringName(contract_id)
+		)
+		if descriptor != null:
+			descriptor_entries.append(_make_contract_debug_summary(descriptor))
 	return {
 		"adapter_id": _adapter_id,
 		"platform_id": _platform_id,
@@ -601,7 +605,10 @@ func _succeed_request(
 	status: StringName = &"ok",
 	metadata: Dictionary = {}
 ) -> bool:
-	if handle == null or not handle.is_pending():
+	if handle == null:
+		return false
+	if not handle.is_pending():
+		var _late_released: bool = _release_request(handle)
 		return false
 	var request: GFPlatformBridgeRequest = handle.get_request()
 	var method: GFPlatformContractMethodDescriptor = _get_method_descriptor(request)
@@ -674,12 +681,17 @@ func invoke_from_runtime(
 	started_at_msec: int
 ) -> GFPlatformRequestHandle:
 	var handle: GFPlatformRequestHandle = GFPlatformRequestHandle.new()
+	var canonical_request: GFPlatformBridgeRequest = (
+		request.duplicate_request()
+		if request != null
+		else null
+	)
 	if (
-		request == null
-		or not handle.configure_from_platform_layer(request, _clock, started_at_msec)
+		canonical_request == null
+		or not handle.configure_from_platform_layer(canonical_request, _clock, started_at_msec)
 	):
 		var _invalid: bool = handle.reject_from_platform_layer(
-			request,
+			canonical_request,
 			&"invalid_request",
 			"Platform bridge request is incomplete.",
 			_clock
@@ -697,55 +709,69 @@ func invoke_from_runtime(
 			"Platform adapter is not ready."
 		)
 		return handle
-	if not supports_contract(request.contract_id):
+	if not supports_contract(canonical_request.contract_id):
 		var _unsupported: bool = _fail_request(
 			handle,
 			&"unsupported_contract",
 			"Platform adapter does not support the requested contract."
 		)
 		return handle
-	if _active_handles.has(String(request.request_id)):
+	if _active_handles.has(String(canonical_request.request_id)):
 		var _duplicate: bool = _fail_request(
 			handle,
 			&"duplicate_request_id",
 			"Platform request ID is already pending in this adapter."
 		)
 		return handle
-	var method: GFPlatformContractMethodDescriptor = _get_method_descriptor(request)
-	if _get_contract_descriptor_internal(request.contract_id) != null and method == null:
+	var descriptor: GFPlatformContractDescriptor = _get_contract_descriptor_internal(
+		canonical_request.contract_id
+	)
+	if descriptor == null:
+		var _invalid_contract: bool = _fail_request(
+			handle,
+			&"invalid_contract_definition",
+			"Platform adapter is missing the descriptor for a declared contract."
+		)
+		return handle
+	var method: GFPlatformContractMethodDescriptor = descriptor.get_method(
+		canonical_request.method_id
+	)
+	if method == null:
 		var _unknown_method: bool = _fail_request(
 			handle,
 			&"unknown_contract_method",
 			"Platform contract does not declare the requested method."
 		)
 		return handle
-	if method != null:
-		var request_report: GFValidationReport = method.validate_request(
-			request.payload,
-			_context.capabilities
+	var request_report: GFValidationReport = method.validate_request(
+		canonical_request.payload,
+		_context.capabilities
+	)
+	if not request_report.is_ok():
+		var _invalid_contract_request: bool = _fail_request(
+			handle,
+			&"invalid_contract_request",
+			"Platform request does not satisfy its declared contract.",
+			{"validation": request_report.to_dict()}
 		)
-		if not request_report.is_ok():
-			var _invalid_contract_request: bool = _fail_request(
-				handle,
-				&"invalid_contract_request",
-				"Platform request does not satisfy its declared contract.",
-				{"validation": request_report.to_dict()}
-			)
-			return handle
-		var method_key: String = _make_method_key(request.contract_id, request.method_id)
-		if (
-			method.max_concurrent_requests > 0
-			and GFVariantData.get_option_int(_active_method_counts, method_key)
-				>= method.max_concurrent_requests
-		):
-			var _concurrency_rejected: bool = _fail_request(
-				handle,
-				&"contract_concurrency_exceeded",
-				"Platform contract method concurrency limit is reached."
-			)
-			return handle
-	_track_handle(request, handle)
-	var accepted: bool = _dispatch(request.duplicate_request(), handle)
+		return handle
+	var method_key: String = _make_method_key(
+		canonical_request.contract_id,
+		canonical_request.method_id
+	)
+	if (
+		method.max_concurrent_requests > 0
+		and GFVariantData.get_option_int(_active_method_counts, method_key)
+			>= method.max_concurrent_requests
+	):
+		var _concurrency_rejected: bool = _fail_request(
+			handle,
+			&"contract_concurrency_exceeded",
+			"Platform contract method concurrency limit is reached."
+		)
+		return handle
+	_track_handle(canonical_request, handle)
+	var accepted: bool = _dispatch(canonical_request.duplicate_request(), handle)
 	if not accepted and handle.is_pending():
 		var _rejected: bool = _fail_request(
 			handle,
@@ -790,6 +816,38 @@ func _make_context_debug_summary() -> Dictionary:
 		"storage_root_ids": storage_root_ids,
 		"launch_option_count": _context.launch_options.size(),
 		"metadata_count": _context.metadata.size(),
+	}
+
+
+func _make_contract_debug_summary(
+	descriptor: GFPlatformContractDescriptor
+) -> Dictionary:
+	var method_entries: Array[Dictionary] = []
+	for method: GFPlatformContractMethodDescriptor in descriptor.methods:
+		if method == null:
+			continue
+		method_entries.append({
+			"method_id": method.method_id,
+			"request_schema_id": method.request_schema.schema_id if method.request_schema != null else &"",
+			"result_schema_id": method.result_schema.schema_id if method.result_schema != null else &"",
+			"required_capability_ids": method.required_capability_ids.duplicate(),
+			"max_request_bytes": method.max_request_bytes,
+			"max_result_bytes": method.max_result_bytes,
+			"max_concurrent_requests": method.max_concurrent_requests,
+			"supports_cancellation": method.supports_cancellation,
+			"sensitive_fields": method.sensitive_fields.duplicate(),
+		})
+	method_entries.sort_custom(
+		func(left: Dictionary, right: Dictionary) -> bool:
+			return (
+				GFVariantData.get_option_string(left, "method_id")
+				< GFVariantData.get_option_string(right, "method_id")
+			)
+	)
+	return {
+		"contract_id": descriptor.contract_id,
+		"contract_version": descriptor.contract_version,
+		"methods": method_entries,
 	}
 
 func _apply_context(context: GFPlatformRuntimeContext) -> bool:
@@ -864,9 +922,10 @@ func _apply_contract_descriptors(
 func _get_contract_descriptor_internal(
 	contract_id: StringName
 ) -> GFPlatformContractDescriptor:
+	var normalized_contract_id: String = String(contract_id).strip_edges()
 	var value: Variant = GFVariantData.get_option_value(
 		_contract_descriptors,
-		String(contract_id)
+		normalized_contract_id
 	)
 	if value is GFPlatformContractDescriptor:
 		var descriptor: GFPlatformContractDescriptor = value
@@ -899,7 +958,10 @@ func _track_handle(
 
 
 func _get_active_handle(request_id: StringName) -> GFPlatformRequestHandle:
-	var value: Variant = GFVariantData.get_option_value(_active_handles, String(request_id))
+	var value: Variant = GFVariantData.get_option_value(
+		_active_handles,
+		String(request_id).strip_edges()
+	)
 	if value is GFPlatformRequestHandle:
 		var handle: GFPlatformRequestHandle = value
 		return handle
@@ -907,7 +969,14 @@ func _get_active_handle(request_id: StringName) -> GFPlatformRequestHandle:
 
 
 static func _make_method_key(contract_id: StringName, method_id: StringName) -> String:
-	return "%s::%s" % [String(contract_id), String(method_id)]
+	var contract_text: String = String(contract_id)
+	var method_text: String = String(method_id)
+	return "%d:%s%d:%s" % [
+		contract_text.length(),
+		contract_text,
+		method_text.length(),
+		method_text,
+	]
 
 
 static func _normalize_string_set(values: PackedStringArray) -> PackedStringArray:

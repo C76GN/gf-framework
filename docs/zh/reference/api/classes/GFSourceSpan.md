@@ -211,7 +211,7 @@ func apply_dict(data: Dictionary) -> void:
 
 | 名称 | 说明 |
 |---|---|
-| `data` | 输入字典。`source` 会作为 `source_path` 的兼容别名读取。 |
+| `data` | 输入字典。\`source\` 会作为 \`source_path\` 的兼容别名读取。 |
 
 结构：
 
@@ -234,7 +234,7 @@ func to_dict(include_empty_fields: bool = false, include_legacy_source_alias: bo
 | 名称 | 说明 |
 |---|---|
 | `include_empty_fields` | 为 true 时包含空字段。 |
-| `include_legacy_source_alias` | 为 true 时额外写入 `source` 兼容字段。 |
+| `include_legacy_source_alias` | 为 true 时额外写入 \`source\` 兼容字段。 |
 
 返回：字典副本。
 
@@ -358,7 +358,7 @@ func merge_into_dictionary( target: Dictionary, include_empty_fields: bool = fal
 |---|---|
 | `target` | 目标字典。 |
 | `include_empty_fields` | 为 true 时包含空字段。 |
-| `include_legacy_source_alias` | 为 true 时额外写入 `source` 兼容字段。 |
+| `include_legacy_source_alias` | 为 true 时额外写入 \`source\` 兼容字段。 |
 
 返回：目标字典。
 

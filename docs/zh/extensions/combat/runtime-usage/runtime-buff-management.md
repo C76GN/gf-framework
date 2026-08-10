@@ -30,6 +30,8 @@ if buff != null and not buff.modifiers.is_empty():
 
 运行时可通过 `remove_buff(entity, buff_id)` 驱散单个 Buff，通过 `clear_buffs(entity, predicate)` 清理全部或部分 Buff，通过 `remove_skill(entity, skill)` 取消某个技能的系统驱动与冷却信号监听。
 
+`clear_buffs()` 会在调用 predicate 前冻结候选身份；predicate 可以同步移除 Buff、清空列表或注销实体。每次回调返回后系统都会重新验证实体记录并按 Buff 身份定位，已由回调完成的移除不会重复执行或计入本次外层清理数量。
+
 需要给诊断、存档或项目日志记录来源时，可以使用 `remove_buff_with_reason(entity, buff_id, reason)` 或 `clear_buffs_with_reason(entity, predicate, reason)`。Buff 会在 `removal_reason` 中保留最近一次移除原因，默认原因包括 `expired`、`removed`、`cleared`、`entity_unregistered` 和 `disposed`。
 
 运行时状态可用 `get_state_snapshot()` 保存，再用 `restore_state_snapshot(snapshot, owner)` 恢复到新的 Buff 实例。快照只保存通用数据和 effect 状态，不把 owner 对象序列化进数据。

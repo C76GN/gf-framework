@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFManualTimerQueue" path="addons/gf/standard/utilities/time/gf_manual_timer_queue.gd" module="standard" extends="RefCounted" classDigest="d5a77470df2786c55e7d1dfa88e62e38a3d4e15c0240442a8795b9fe8d82e344">
+<class name="GFManualTimerQueue" path="addons/gf/standard/utilities/time/gf_manual_timer_queue.gd" module="standard" extends="RefCounted" classDigest="1fc2b7de53f140a60877a38fd1e0c7ea02f4d07261b27889684c8837adbafedc">
 	<description>GFManualTimerQueue: 手动 tick 驱动的确定性计时队列。
 用整数 tick 调度一次性回调，适合回放、模拟、服务器步进、测试或编辑器批处理。
 队列不读取引擎时间，也不创建 Timer 节点；调用方显式调用 advance_to() 或 advance_by() 推进时间。</description>
@@ -64,7 +64,8 @@
 		</member>
 		<member kind="method" name="advance_to">
 			<signature>func advance_to(target_tick: int, options: Dictionary = {}) -&gt; Dictionary:</signature>
-			<description>推进到指定绝对 tick，并执行所有到期回调。</description>
+			<description>推进到指定绝对 tick，并执行所有到期回调。
+同一队列的 callback 内再次推进会返回 status=advance_in_progress，不执行嵌套 drain。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">target_tick: 目标 tick，不能小于当前 tick。</tag>

@@ -1,6 +1,7 @@
 ## GFInputRemapConfig: 输入重映射配置。
 ##
 ## 只保存玩家或项目层覆盖过的输入事件，默认绑定仍来自 GFInputContext。
+## 通过公开 mutation 方法成功修改配置时会发出 Resource.changed。
 ## [br]
 ## @api public
 ## [br]
@@ -57,6 +58,7 @@ func set_binding(
 
 	var action_map: Dictionary = _ensure_action_map(context_id, action_id)
 	action_map[binding_index] = _duplicate_input_event(input_event) if input_event != null else null
+	emit_changed()
 
 
 ## 显式解绑某个绑定。
@@ -94,6 +96,7 @@ func clear_binding(context_id: StringName, action_id: StringName, binding_index:
 		_erase_dictionary_key(context_map, action_key)
 	if context_map.is_empty():
 		_erase_dictionary_key(remapped_events, context_key)
+	emit_changed()
 
 
 ## 检查是否存在覆盖记录。显式解绑也会返回 true。
@@ -147,6 +150,7 @@ func get_bound_event_or_null(context_id: StringName, action_id: StringName, bind
 ## @schema value: Variant，项目侧自定义数据值。
 func set_custom_data(key: Variant, value: Variant) -> void:
 	custom_data[key] = value
+	emit_changed()
 
 
 ## 获取自定义数据。
@@ -300,6 +304,7 @@ func apply_dict(data: Dictionary, json_compatible: bool = true) -> Dictionary:
 
 	remapped_events = candidate.remapped_events.duplicate(true)
 	custom_data = GFVariantData.as_dictionary(custom_data_value).duplicate(true)
+	emit_changed()
 	return _finish_apply_report(report, true)
 
 

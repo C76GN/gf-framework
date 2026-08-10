@@ -133,7 +133,7 @@ func _connect_source_signal(flags: int) -> bool:
 	_source_id = _source_signal.get_object_id()
 	_signal_name = _source_signal.get_name()
 	if _source_signal.is_connected(_callback):
-		return true
+		return false
 
 	var connect_error: Error = _source_signal.connect(_callback, flags as Object.ConnectFlags) as Error
 	return connect_error == OK

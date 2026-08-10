@@ -275,15 +275,6 @@ func physics_tick(_delta: float) -> void:
 
 # --- 公共方法（获取） ---
 
-## 注入当前模块所属的架构实例。由 GFArchitecture 在注册模块时自动调用。
-## [br]
-## @api framework_internal
-## [br]
-## @param architecture: 当前注册该模块的架构。
-func inject_dependencies(architecture: GFArchitecture) -> void:
-	_gf_set_dependency_scope(architecture)
-
-
 ## 检查所属架构生命周期是否仍可安全继续异步写回。
 ## async_init() 或其他 await 之后提交已接纳工作的结果前建议检查该值。
 ## QUIESCING 期间该值仍可为 true；它不代表允许接纳新工作，新请求还必须通过
@@ -479,6 +470,17 @@ func send_simple_event(event_id: StringName, payload: Variant = null) -> void:
 	var architecture: GFArchitecture = _get_architecture_or_null()
 	if architecture != null:
 		architecture.send_simple_event(event_id, payload)
+
+
+# --- 框架内部方法 ---
+
+## 注入当前模块所属的架构实例。由 GFArchitecture 在注册模块时自动调用。
+## [br]
+## @api framework_internal
+## [br]
+## @param architecture: 当前注册该模块的架构。
+func inject_dependencies(architecture: GFArchitecture) -> void:
+	_gf_set_dependency_scope(architecture)
 
 
 # --- 私有/辅助方法 ---

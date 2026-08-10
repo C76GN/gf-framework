@@ -317,7 +317,11 @@ func _prepare_blend(force_snap: bool) -> void:
 	var camera: Camera3D = get_camera()
 	_blend = _active_rig.blend if _active_rig != null and is_instance_valid(_active_rig) and _active_rig.blend != null else default_blend
 	_blend_elapsed_seconds = 0.0
-	_blend_from_transform = camera.global_transform if camera != null else Transform3D.IDENTITY
+	_blend_from_transform = (
+		_GF_CAMERA_FINITE_MATH.sanitize_transform3d(camera.global_transform, Transform3D.IDENTITY)
+		if camera != null
+		else Transform3D.IDENTITY
+	)
 	_is_blending = (
 		not force_snap
 		and camera != null
@@ -352,8 +356,8 @@ func _interpolate_transform(from_transform: Transform3D, to_transform: Transform
 		return to_transform
 	var safe_weight: float = clampf(_GF_CAMERA_FINITE_MATH.sanitize_float(weight, 1.0), 0.0, 1.0)
 	var origin: Vector3 = from_transform.origin.lerp(to_transform.origin, safe_weight)
-	var from_quaternion: Quaternion = Quaternion(from_transform.basis.orthonormalized())
-	var to_quaternion: Quaternion = Quaternion(to_transform.basis.orthonormalized())
+	var from_quaternion: Quaternion = from_transform.basis.get_rotation_quaternion()
+	var to_quaternion: Quaternion = to_transform.basis.get_rotation_quaternion()
 	var basis: Basis = Basis(from_quaternion.slerp(to_quaternion, safe_weight)).orthonormalized()
 	return _GF_CAMERA_FINITE_MATH.sanitize_transform3d(
 		Transform3D(basis, origin),

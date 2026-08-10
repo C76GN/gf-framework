@@ -50,3 +50,7 @@ GF 内置扩展或外部扩展的编辑器增强由各自 manifest 或独立 too
 - `debugger_plugin_paths`：`EditorDebuggerPlugin`，只允许写入 schema v2 的 `editor/gf_tool_contribution.json`。
 
 核心插件只按启用状态装载这些入口，不在 `kernel` 中硬编码标准库或可选扩展脚本。Debugger 插件会在标准库记录之后追加、按路径去重，并与根插件生命周期一起注册和移除。这样可选扩展被禁用或删除时，核心和标准库仍应可加载；标准库增强存在与否也不会改变 `kernel` 的源码依赖边界。
+
+不存在 `editor/gf_tool_contribution.json` 表示扩展没有独立工具贡献，不产生错误；文件一旦存在，就必须完整通过读取预算、schema、所属扩展 ID、根目录边界、资源存在性与脚本类型校验。失败贡献不会注册其中任何无效路径，启用选择报告会进入 `partial` 并在 `tool_contribution_errors` 中给出来源与原因，其他已验证扩展可继续工作。
+
+目前 runtime manifest 与 tool contribution 对七类编辑器路径仍存在历史重叠，选择层会稳定去重合并。二者的长期权威来源及冲突迁移策略属于尚待决定的协议治理问题；在该决策落地前，不应要求扩展双写相同路径，也不能假设任一来源天然覆盖另一来源。

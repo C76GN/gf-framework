@@ -148,4 +148,4 @@ func get_stage_descriptor() -> Dictionary:
 
 结构：
 
-- `return`: Dictionary，包含 stage_id、implementation_version、input_contract 和 output_contract。
+- `return`: Dictionary，包含 stage_id、implementation_version、implementation_dependencies、input_contract 和 output_contract。

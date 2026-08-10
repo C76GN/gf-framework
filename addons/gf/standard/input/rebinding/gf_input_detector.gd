@@ -1,6 +1,8 @@
 ## GFInputDetector: 检测下一次输入事件的辅助节点。
 ##
 ## 可用于项目自己的改键界面。检测结果只返回 Godot InputEvent，冲突处理由项目层决定。
+## 一轮检测从 begin 到结构化 finish 全程累计 elapsed；signal handler 可同步开始新一轮，
+## 新会话会使尚未返回的旧 begin 调用栈失效，避免已宣布会话被静默覆盖。
 ## [br]
 ## @api public
 ## [br]
@@ -93,9 +95,11 @@ const _ANY_VALUE_TYPE: int = -1
 ## @api public
 @export var countdown_seconds: float = 0.0
 
-## 检测超时时间。小于等于 0 表示不超时。
+## 检测超时时间。小于等于 0 表示不超时；是否启用超时不影响 elapsed 的累计口径。
 ## [br]
 ## @api public
+## [br]
+## @since 11.0.0
 @export var timeout_seconds: float = 0.0
 
 ## 取消检测的输入事件列表。
@@ -127,6 +131,7 @@ var _pending_detected_event: InputEvent = null
 var _pending_finish_reason: GFInputDetectionResult.FinishReason = GFInputDetectionResult.FinishReason.CANCELLED
 var _pending_screen_touches: Dictionary = {}
 var _last_detection_result: GFInputDetectionResult = null
+var _session_generation: int = 0
 
 
 # --- Godot 生命周期方法 ---
@@ -177,9 +182,9 @@ func _process(delta: float) -> void:
 	if _state == DetectionState.IDLE:
 		return
 
-	var safe_delta: float = maxf(delta, 0.0)
-	if timeout_seconds > 0.0:
-		_elapsed += safe_delta
+	var safe_delta: float = delta if is_finite(delta) and delta > 0.0 else 0.0
+	_accumulate_elapsed(safe_delta)
+	if is_finite(timeout_seconds) and timeout_seconds > 0.0:
 		if _elapsed >= timeout_seconds:
 			_finish_detection(null, false, GFInputDetectionResult.FinishReason.TIMEOUT)
 			return
@@ -203,9 +208,12 @@ func _process(delta: float) -> void:
 
 # --- 公共方法 ---
 
-## 开始检测下一次输入。
+## 开始检测下一次输入。已有会话会先以 REPLACED 完成；其完成回调若同步开始
+## 另一会话，则回调创建的最新会话优先，当前调用不会再覆盖它。
 ## [br]
 ## @api public
+## [br]
+## @since 11.0.0
 ## [br]
 ## @param allowed_device_types: 允许的设备类型。空数组表示不限制。
 ## [br]
@@ -354,7 +362,11 @@ func get_last_detection_result() -> GFInputDetectionResult:
 
 func _begin_detection_internal(value_type: int, allowed_device_types: Array[int]) -> void:
 	if _state != DetectionState.IDLE:
+		var replaced_generation: int = _session_generation
 		_finish_detection(null, false, GFInputDetectionResult.FinishReason.REPLACED)
+		if _session_generation != replaced_generation:
+			return
+	_session_generation += 1
 	_allowed_device_types = allowed_device_types.duplicate()
 	_elapsed = 0.0
 	_countdown_remaining = maxf(countdown_seconds, 0.0)
@@ -366,7 +378,7 @@ func _begin_detection_internal(value_type: int, allowed_device_types: Array[int]
 	_state = DetectionState.COUNTDOWN if _countdown_remaining > 0.0 else DetectionState.PRE_CLEAR
 	if _state == DetectionState.PRE_CLEAR:
 		_enter_pre_clear_or_detecting()
-	set_process(_state != DetectionState.DETECTING or timeout_seconds > 0.0)
+	set_process(_state != DetectionState.IDLE)
 	detection_started.emit()
 
 
@@ -423,7 +435,19 @@ func _enter_pre_clear_or_detecting() -> void:
 
 func _start_accepting_input() -> void:
 	_state = DetectionState.DETECTING
-	set_process(timeout_seconds > 0.0)
+	set_process(true)
+
+
+func _accumulate_elapsed(delta: float) -> void:
+	if not is_finite(_elapsed) or _elapsed < 0.0:
+		_elapsed = 0.0
+	if delta <= 0.0:
+		return
+	var next_elapsed: float = _elapsed + delta
+	if is_finite(next_elapsed):
+		_elapsed = next_elapsed
+	elif is_finite(timeout_seconds) and timeout_seconds > 0.0:
+		_elapsed = timeout_seconds
 
 
 func _should_ignore_event(event: InputEvent) -> bool:

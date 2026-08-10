@@ -318,6 +318,8 @@ func test_build_node_tree_report_defaults_to_json_safe_entries() -> void:
 		"Object",
 		"Resource 应由统一报告编码器保留为脱敏 marker。"
 	)
+	var json_text: String = JSON.stringify(report)
+	assert_true(JSON.parse_string(json_text) is Dictionary, "节点树报告应可真实 JSON stringify/parse round-trip。")
 
 	root.free()
 

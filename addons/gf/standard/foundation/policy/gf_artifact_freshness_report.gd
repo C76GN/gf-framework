@@ -125,7 +125,7 @@ func add_artifacts(entries: Array[Dictionary]) -> GFArtifactFreshnessReport:
 ## [br]
 ## @since 7.0.0
 ## [br]
-## @param options: 报告选项，支持 include_sha256、include_modified_time、warnings_as_errors、fallback_action 和 no_action。
+## @param options: 报告选项，支持 include_sha256、include_modified_time、warnings_as_errors、fallback_action 和 no_action。两个 include 选项只控制输出投影；条目声明的 expected_sha256 与 minimum_modified_time 始终参与校验。
 ## [br]
 ## @schema options: Dictionary report options.
 ## [br]
@@ -240,15 +240,32 @@ func _inspect_artifact(
 
 	artifact["exists"] = true
 	artifact["size_bytes"] = size_bytes
-	if GFVariantData.get_option_bool(options, "include_modified_time", true):
+	var include_modified_time: bool = GFVariantData.get_option_bool(options, "include_modified_time", true)
+	var include_sha256: bool = GFVariantData.get_option_bool(options, "include_sha256", true)
+	var minimum_modified_time: int = _first_int(entry, PackedStringArray([
+		"minimum_modified_time",
+		"source_modified_time",
+		"current_source_modified_time",
+	]), -1)
+	var requires_sha256_validation: bool = (
+		entry.has("expected_sha256")
+		or entry.has(&"expected_sha256")
+		or entry.has("sha256")
+		or entry.has(&"sha256")
+	)
+	if include_modified_time or minimum_modified_time >= 0:
 		artifact["modified_time"] = int(FileAccess.get_modified_time(path))
-	if GFVariantData.get_option_bool(options, "include_sha256", true):
+	if include_sha256 or requires_sha256_validation:
 		artifact["sha256"] = FileAccess.get_sha256(path).to_lower()
 
 	_validate_size(entry, entry_index, artifact, report)
-	_validate_sha256(entry, entry_index, artifact, report)
-	_validate_modified_time(entry, entry_index, artifact, report)
+	_validate_sha256(entry, entry_index, artifact, report, include_sha256)
+	_validate_modified_time(entry, entry_index, artifact, report, include_modified_time)
 	_validate_source_digest(entry, entry_index, artifact, report)
+	if not include_modified_time:
+		var _modified_time_erased: bool = artifact.erase("modified_time")
+	if not include_sha256:
+		var _sha256_erased: bool = artifact.erase("sha256")
 	return artifact
 
 
@@ -267,8 +284,19 @@ func _validate_size(entry: Dictionary, entry_index: int, artifact: Dictionary, r
 	})
 
 
-func _validate_sha256(entry: Dictionary, entry_index: int, artifact: Dictionary, report: Dictionary) -> void:
-	var sha_was_provided: bool = entry.has("expected_sha256") or entry.has("sha256")
+func _validate_sha256(
+	entry: Dictionary,
+	entry_index: int,
+	artifact: Dictionary,
+	report: Dictionary,
+	include_actual_value: bool
+) -> void:
+	var sha_was_provided: bool = (
+		entry.has("expected_sha256")
+		or entry.has(&"expected_sha256")
+		or entry.has("sha256")
+		or entry.has(&"sha256")
+	)
 	if not sha_was_provided:
 		return
 	var expected_sha: String = _normalize_sha256(_first_string(entry, PackedStringArray(["expected_sha256", "sha256"])))
@@ -284,14 +312,29 @@ func _validate_sha256(entry: Dictionary, entry_index: int, artifact: Dictionary,
 	if actual_sha == expected_sha:
 		return
 	artifact["stale"] = true
-	_append_issue(report, "error", &"artifact_sha256_mismatch", "artifact sha256 does not match expected metadata", artifact, {
+	var issue_fields: Dictionary = {
 		"entry_index": entry_index,
 		"expected_sha256": expected_sha,
-		"actual_sha256": actual_sha,
-	})
+	}
+	if include_actual_value:
+		issue_fields["actual_sha256"] = actual_sha
+	_append_issue(
+		report,
+		"error",
+		&"artifact_sha256_mismatch",
+		"artifact sha256 does not match expected metadata",
+		artifact,
+		issue_fields
+	)
 
 
-func _validate_modified_time(entry: Dictionary, entry_index: int, artifact: Dictionary, report: Dictionary) -> void:
+func _validate_modified_time(
+	entry: Dictionary,
+	entry_index: int,
+	artifact: Dictionary,
+	report: Dictionary,
+	include_actual_value: bool
+) -> void:
 	var minimum_time: int = _first_int(entry, PackedStringArray([
 		"minimum_modified_time",
 		"source_modified_time",
@@ -303,11 +346,20 @@ func _validate_modified_time(entry: Dictionary, entry_index: int, artifact: Dict
 	if actual_time >= minimum_time:
 		return
 	artifact["stale"] = true
-	_append_issue(report, "warning", &"artifact_older_than_source", "artifact is older than its source metadata", artifact, {
+	var issue_fields: Dictionary = {
 		"entry_index": entry_index,
 		"expected_modified_time": minimum_time,
-		"actual_modified_time": actual_time,
-	})
+	}
+	if include_actual_value:
+		issue_fields["actual_modified_time"] = actual_time
+	_append_issue(
+		report,
+		"warning",
+		&"artifact_older_than_source",
+		"artifact is older than its source metadata",
+		artifact,
+		issue_fields
+	)
 
 
 func _validate_source_digest(entry: Dictionary, entry_index: int, artifact: Dictionary, report: Dictionary) -> void:

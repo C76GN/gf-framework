@@ -145,7 +145,8 @@ func register_packet(packet_id: Variant, entry_metadata: Dictionary = {}, now_ms
 	if _records.has(packet_id):
 		return false
 
-	_prune_for_capacity()
+	if not _prune_for_capacity():
+		return false
 	var timestamp_msec: int = _normalize_time_msec(now_msec)
 	var deadline_msec: int = timestamp_msec + timeout_msec if timeout_msec > 0 else -1
 	_records[packet_id] = {
@@ -567,16 +568,17 @@ func _mark_terminal(
 	return true
 
 
-func _prune_for_capacity() -> void:
+func _prune_for_capacity() -> bool:
 	if max_entries <= 0:
-		return
+		return true
 	while _records.size() >= max_entries and not _order.is_empty():
 		var remove_index: int = _find_first_terminal_order_index()
 		if remove_index < 0:
-			remove_index = 0
+			return false
 		var packet_id: Variant = _order[remove_index]
 		_order.remove_at(remove_index)
 		var _removed: bool = _records.erase(packet_id)
+	return _records.size() < max_entries
 
 
 func _find_first_terminal_order_index() -> int:

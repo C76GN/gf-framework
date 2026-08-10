@@ -200,6 +200,38 @@ func test_pipeline_loads_xlsx_source_with_auto_format() -> void:
 	assert_eq(GFVariantData.get_option_float(first_record, "power"), 2.5, "XLSX 字符串数值应按 schema 转为 float。")
 
 
+func test_pipeline_xlsx_layout_is_bound_to_reader_receipt() -> void:
+	var xlsx_path: String = _write_xlsx(
+		"user://gf_config_pipeline_receipt_%d.xlsx" % Time.get_ticks_usec(),
+		"Items",
+		[
+			PackedStringArray(["id", "name", "power"]),
+			PackedStringArray(["1", "Potion", "2.5"]),
+		]
+	)
+	var source: GFConfigPipelineTableSource = GFConfigPipelineTableSource.new()
+	source.table_name = &"items"
+	source.source_path = xlsx_path
+	source.source_format = GFConfigPipelineTableSource.FORMAT_XLSX
+	var read_result: Dictionary = GFConfigPipelineReaderStage.new().read_source(source)
+	var _replacement_path: String = _write_xlsx(
+		xlsx_path,
+		"Items",
+		[
+			PackedStringArray(["id", "name", "power"]),
+			PackedStringArray(["2", "Elixir", "7.5"]),
+		]
+	)
+	var layout_result: Dictionary = GFConfigPipelineLayoutStage.new().decode_source(
+		source,
+		read_result
+	)
+
+	assert_true(GFVariantData.get_option_bool(read_result, "success"), "Reader 应先取得 XLSX 编译收据。")
+	assert_false(GFVariantData.get_option_bool(layout_result, "success"), "XLSX 在 Reader 与 Layout 之间变化时必须 fail-closed。")
+	assert_true(GFVariantData.get_option_string(layout_result, "error").contains("changed"), "XLSX 身份漂移应返回明确错误。")
+
+
 func test_pipeline_xlsx_unlimited_file_budget_uses_framework_archive_cap() -> void:
 	var layout_stage: GFConfigPipelineLayoutStage = (
 		GFConfigPipelineLayoutStage.new()
@@ -640,6 +672,36 @@ func test_pipeline_profile_exports_access_script() -> void:
 	assert_eq(GFVariantData.get_option_int(compile_report, "compile_error"), OK, "Profile 生成的访问器源码应能编译。")
 	assert_eq(GFVariantData.get_option_array(compile_report, "cleanup_errors"), [], "Profile 动态编译测试必须释放生成脚本的内部类图。")
 	assert_eq(GFVariantData.get_option_string(compile_report, "configuration_error"), "", "Profile 动态编译测试必须使用匿名内建 GDScript 根。")
+
+
+func test_pipeline_access_generation_reports_complete_unicode_emission() -> void:
+	var database: GFConfigDatabaseResource = GFConfigDatabaseResource.new()
+	database.database_id = &"unicode_access"
+	for table_name: StringName in [&"items", &"物品"]:
+		var schema: GFConfigTableSchema = _make_item_schema()
+		schema.table_name = table_name
+		var table: GFConfigTableResource = GFConfigTableResource.new()
+		table.table_name = table_name
+		table.schema = schema
+		table.records = [{ &"id": 1, &"name": "Potion", &"power": 2.5 }]
+		assert_true(database.register_table(table), "测试数据库应注册每张访问器表。")
+	var output_path: String = _track_path(
+		"user://gf_config_pipeline_unicode_access_%d.gd" % Time.get_ticks_usec()
+	)
+	var result: Dictionary = _call_pipeline(&"generate_access", [
+		database,
+		output_path,
+		"UnicodePipelineAccess",
+		"null",
+	])
+	var generated_source: String = _read_text(output_path)
+
+	assert_true(GFVariantData.get_option_bool(result, "success"), "Unicode-only 表名不得让 Pipeline 产生部分访问器。")
+	assert_eq(GFVariantData.get_option_int(result, "input_schema_count"), 2, "Pipeline 应报告输入 schema 数量。")
+	assert_eq(GFVariantData.get_option_int(result, "emitted_schema_count"), 2, "Pipeline 应报告实际发射数量。")
+	assert_eq(GFVariantData.get_option_int(result, "schema_count"), 2, "兼容 schema_count 必须等于实际发射数量。")
+	assert_eq(GFVariantData.get_option_int(result, "skipped_schema_count"), 0, "成功访问器不得静默 skip。")
+	assert_true(generated_source.contains("&\"物品\""), "生成访问器必须保留 Unicode 原始表名。")
 
 
 func test_pipeline_profile_and_source_duplicate_as_independent_resources() -> void:
@@ -1607,6 +1669,71 @@ func test_pipeline_xlsx_rejects_missing_shared_string_index() -> void:
 	assert_true(GFVariantData.get_option_string(result, "error").contains("shared string"), "XLSX 报告应定位 shared string 索引错误。")
 
 
+func test_pipeline_xlsx_rejects_malformed_xml_tails_for_every_semantic_entry() -> void:
+	var rows: Array[PackedStringArray] = [
+		PackedStringArray(["id", "name", "power"]),
+		PackedStringArray(["1", "Potion", "2.5"]),
+	]
+	var malformed_cases: Array[Dictionary] = [
+		{
+			"label": "sharedStrings",
+			"entry": "shared_strings",
+			"xml": "<?xml version=\"1.0\" encoding=\"UTF-8\"?><sst xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\"><si><t>unused</t></si></sst><broken",
+			"expected": "xl/sharedStrings.xml",
+		},
+		{
+			"label": "workbook",
+			"entry": "workbook",
+			"xml": _xlsx_workbook_xml("Items") + "<broken",
+			"expected": "xl/workbook.xml",
+		},
+		{
+			"label": "relationships",
+			"entry": "relationships",
+			"xml": _xlsx_workbook_relationships_xml() + "<broken",
+			"expected": "xl/_rels/workbook.xml.rels",
+		},
+		{
+			"label": "worksheet",
+			"entry": "worksheet",
+			"xml": _xlsx_sheet_xml(rows) + "<broken",
+			"expected": "xl/worksheets/sheet1.xml",
+		},
+	]
+	for malformed_case: Dictionary in malformed_cases:
+		var override_key: String = GFVariantData.get_option_string(
+			malformed_case,
+			"entry"
+		)
+		var overrides: Dictionary = {
+			override_key: GFVariantData.get_option_string(malformed_case, "xml"),
+		}
+		var xlsx_path: String = _write_xlsx_with_xml_overrides(
+			"user://gf_config_pipeline_malformed_%s_%d.xlsx" % [
+				GFVariantData.get_option_string(malformed_case, "label"),
+				Time.get_ticks_usec(),
+			],
+			"Items",
+			rows,
+			overrides
+		)
+		var source: GFConfigPipelineTableSource = GFConfigPipelineTableSource.new()
+		source.table_name = &"items"
+		source.source_path = xlsx_path
+		source.source_format = GFConfigPipelineTableSource.FORMAT_XLSX
+		var result: Dictionary = _call_pipeline(&"build_table", [source])
+		assert_false(
+			GFVariantData.get_option_bool(result, "success"),
+			"%s 合法前缀后的损坏尾部必须 fail-closed。" % GFVariantData.get_option_string(malformed_case, "label")
+		)
+		assert_true(
+			GFVariantData.get_option_string(result, "error").contains(
+				GFVariantData.get_option_string(malformed_case, "expected")
+			),
+			"XLSX parse error 应定位损坏 entry。"
+		)
+
+
 func test_pipeline_command_rejects_next_option_as_missing_value() -> void:
 	var command_result: Dictionary = _call_command(PackedStringArray(["--profile", "--json"]))
 
@@ -1750,6 +1877,55 @@ func _write_xlsx(path: String, sheet_name: String, rows: Array[PackedStringArray
 	var close_result: Error = packer.close()
 	assert_eq(close_result, OK, "测试应能关闭 xlsx zip。")
 	_temporary_paths.append(path)
+	return path
+
+
+func _write_xlsx_with_xml_overrides(
+	path: String,
+	sheet_name: String,
+	rows: Array[PackedStringArray],
+	overrides: Dictionary
+) -> String:
+	var packer: ZIPPacker = ZIPPacker.new()
+	assert_eq(packer.open(path), OK, "测试应能创建自定义 xlsx zip。")
+	_zip_pack_text(packer, "[Content_Types].xml", _xlsx_content_types_xml())
+	_zip_pack_text(packer, "_rels/.rels", _xlsx_root_relationships_xml())
+	_zip_pack_text(
+		packer,
+		"xl/workbook.xml",
+		GFVariantData.get_option_string(
+			overrides,
+			"workbook",
+			_xlsx_workbook_xml(sheet_name)
+		)
+	)
+	_zip_pack_text(
+		packer,
+		"xl/_rels/workbook.xml.rels",
+		GFVariantData.get_option_string(
+			overrides,
+			"relationships",
+			_xlsx_workbook_relationships_xml()
+		)
+	)
+	_zip_pack_text(
+		packer,
+		"xl/worksheets/sheet1.xml",
+		GFVariantData.get_option_string(
+			overrides,
+			"worksheet",
+			_xlsx_sheet_xml(rows)
+		)
+	)
+	if overrides.has("shared_strings"):
+		_zip_pack_text(
+			packer,
+			"xl/sharedStrings.xml",
+			GFVariantData.get_option_string(overrides, "shared_strings")
+		)
+	assert_eq(packer.close(), OK, "测试应能关闭自定义 xlsx zip。")
+	if not _temporary_paths.has(path):
+		_temporary_paths.append(path)
 	return path
 
 

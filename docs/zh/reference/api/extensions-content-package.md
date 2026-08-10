@@ -9,7 +9,7 @@
 | [运行时服务](#category-runtime_service) | 3 | 49 | 41 |
 | [协议与扩展点](#category-protocol) | 1 | 3 | 3 |
 | [资源定义](#category-resource_definition) | 1 | 28 | 12 |
-| [值对象](#category-value_object) | 2 | 28 | 14 |
+| [值对象](#category-value_object) | 2 | 29 | 15 |
 
 ## 类
 

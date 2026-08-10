@@ -92,12 +92,13 @@ var arrival_distance: float = 0.0
 ### `track_target`
 
 - API：`public`
+- 首次版本：`11.0.0`
 
 ```gdscript
 var track_target: bool = true
 ```
 
-是否每帧重新朝向当前目标。关闭后只在首次解析目标时锁定方向。
+是否每帧重新朝向当前目标。关闭后只在首次解析目标时锁定方向； 对象目标随后释放时仍沿缓存方向继续移动，不再执行距离到达夹取。
 
 <a id="member-gfhomingprojectilemotion-properties-stop_when_reached"></a>
 

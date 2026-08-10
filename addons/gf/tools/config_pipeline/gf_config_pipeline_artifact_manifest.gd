@@ -38,7 +38,9 @@ const _DEFAULT_MAX_FRESHNESS_FILE_BYTES: int = 64 * 1024 * 1024
 const _DEFAULT_MAX_FRESHNESS_TOTAL_BYTES: int = 256 * 1024 * 1024
 const _DEFAULT_MAX_FRESHNESS_ENTRIES: int = 4096
 const _DIGEST_CHUNK_BYTES: int = 64 * 1024
-const _COMPILER_CONTRACT_VERSION: int = 2
+const _COMPILER_CONTRACT_VERSION: int = 3
+const _SOURCE_RECEIPT_FORMAT: String = "gf.config_pipeline.source_receipt"
+const _SOURCE_RECEIPT_FORMAT_VERSION: int = 1
 const _PLUGIN_CONFIG_PATH: String = "res://addons/gf/plugin.cfg"
 const _COMPILER_STAGE_DEFINITIONS: Array[Dictionary] = [
 	{
@@ -65,26 +67,55 @@ const _COMPILER_STAGE_DEFINITIONS: Array[Dictionary] = [
 		"id": GFConfigPipelineReaderStage.STAGE_ID,
 		"implementation_version": GFConfigPipelineReaderStage.IMPLEMENTATION_VERSION,
 		"path": "res://addons/gf/tools/config_pipeline/gf_config_pipeline_reader_stage.gd",
+		"implementation_dependencies": [
+			"res://addons/gf/tools/config_pipeline/gf_config_pipeline_table_source.gd",
+			"res://addons/gf/standard/foundation/variant/gf_variant_data.gd",
+		],
 	},
 	{
 		"id": GFConfigPipelineLayoutStage.STAGE_ID,
 		"implementation_version": GFConfigPipelineLayoutStage.IMPLEMENTATION_VERSION,
 		"path": "res://addons/gf/tools/config_pipeline/gf_config_pipeline_layout_stage.gd",
+		"implementation_dependencies": [
+			"res://addons/gf/kernel/package/gf_bounded_zip_support.gd",
+			"res://addons/gf/tools/config_pipeline/gf_config_pipeline_table_source.gd",
+			"res://addons/gf/standard/utilities/config/gf_config_table_importer.gd",
+			"res://addons/gf/standard/foundation/variant/gf_variant_data.gd",
+		],
 	},
 	{
 		"id": GFConfigPipelineValidationStage.STAGE_ID,
 		"implementation_version": GFConfigPipelineValidationStage.IMPLEMENTATION_VERSION,
 		"path": "res://addons/gf/tools/config_pipeline/gf_config_pipeline_validation_stage.gd",
+		"implementation_dependencies": [
+			"res://addons/gf/tools/config_pipeline/gf_config_pipeline_table_ir.gd",
+			"res://addons/gf/tools/config_pipeline/gf_config_pipeline_table_source.gd",
+			"res://addons/gf/standard/utilities/config/gf_config_table_schema.gd",
+			"res://addons/gf/standard/utilities/config/gf_config_table_column.gd",
+			"res://addons/gf/standard/utilities/config/gf_config_validation_report.gd",
+			"res://addons/gf/standard/foundation/variant/gf_variant_data.gd",
+		],
 	},
 	{
 		"id": GFConfigPipelineTargetStage.STAGE_ID,
 		"implementation_version": GFConfigPipelineTargetStage.IMPLEMENTATION_VERSION,
 		"path": "res://addons/gf/tools/config_pipeline/gf_config_pipeline_target_stage.gd",
+		"implementation_dependencies": [
+			"res://addons/gf/tools/config_pipeline/gf_config_pipeline_ir.gd",
+			"res://addons/gf/tools/config_pipeline/gf_config_pipeline_table_ir.gd",
+			"res://addons/gf/standard/utilities/config/gf_config_database_resource.gd",
+			"res://addons/gf/standard/utilities/config/gf_config_table_resource.gd",
+			"res://addons/gf/standard/utilities/config/gf_config_validation_report.gd",
+			"res://addons/gf/standard/foundation/variant/gf_variant_data.gd",
+		],
 	},
 	{
 		"id": GFConfigPipelineCommitStage.STAGE_ID,
 		"implementation_version": GFConfigPipelineCommitStage.IMPLEMENTATION_VERSION,
 		"path": "res://addons/gf/tools/config_pipeline/gf_config_pipeline_commit_stage.gd",
+		"implementation_dependencies": [
+			"res://addons/gf/kernel/editor/gf_artifact_write_transaction.gd",
+		],
 	},
 	{
 		"id": "artifact_manifest",
@@ -192,7 +223,7 @@ var _compiler_stage_descriptors: Array[Dictionary] = []
 ## [br]
 ## @param run_result: 可选 Runner 或 Pipeline 结果；只会提取 JSON 兼容摘要。
 ## [br]
-## @schema run_result: Dictionary，可包含 success、operation、profile_id、output_path、save_result、access_result、report 和 error。
+## @schema run_result: Dictionary，可包含 success、operation、profile_id、output_path、save_result、access_result、report、table_results 和 error；table_results 存在时，每项必须提供绑定实际读取字节的 source_receipt，manifest 不会回退到重新哈希来源路径。
 ## [br]
 ## @return: manifest 字典。
 ## [br]
@@ -208,7 +239,18 @@ func make_manifest(
 
 	var budget_state: Dictionary = _make_digest_budget_state(options)
 	var profile_entries: Array[Dictionary] = _make_profile_resource_entries(profile_path, budget_state)
-	var source_entries: Array[Dictionary] = _make_source_entries(profile, budget_state)
+	var receipt_entries_result: Dictionary = _make_compilation_source_entries(
+		profile,
+		run_result,
+		budget_state
+	)
+	var source_entries: Array[Dictionary] = (
+		_get_dictionary_array_value(
+			GFVariantData.get_option_value(receipt_entries_result, "entries")
+		)
+		if GFVariantData.get_option_bool(receipt_entries_result, "available")
+		else _make_source_entries(profile, budget_state)
+	)
 	var compiler_fingerprint: Dictionary = _make_compiler_fingerprint(profile, options, budget_state)
 	var output_entries: Array[Dictionary] = _make_output_entries(profile, options, budget_state)
 	var profile_summary: Dictionary = {
@@ -492,13 +534,101 @@ func get_default_manifest_path(output_path: String) -> String:
 ## [br]
 ## @param stage_descriptors: 按 Reader、Layout、Validation、Target、Commit 排列的阶段描述。
 ## [br]
-## @schema stage_descriptors: Array[Dictionary]，每项包含 stage_id、implementation_version 和 implementation_path。
+## @schema stage_descriptors: Array[Dictionary]，每项包含 stage_id、implementation_version、implementation_path 和可选 implementation_dependencies。
 func configure_compiler_stages(
 	stage_descriptors: Array[Dictionary]
 ) -> void:
 	_compiler_stage_descriptors.clear()
 	for descriptor: Dictionary in stage_descriptors:
 		_compiler_stage_descriptors.append(descriptor.duplicate(true))
+
+
+## 校验当前来源路径仍与本次编译实际读取的 source receipts 一致。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param profile: 本次编译的导表 Profile。
+## [br]
+## @param run_result: 包含 table_results/source_receipt 的构建或导出结果。
+## [br]
+## @schema run_result: Dictionary，必须包含与 profile.sources 一一对应的 table_results；每项包含 source_receipt。
+## [br]
+## @param options: freshness 哈希预算选项。
+## [br]
+## @schema options: Dictionary，可包含 max_freshness_file_bytes、max_freshness_total_bytes 和 max_freshness_entries。
+## [br]
+## @return: 来源稳定性报告；success 表示校验完成，stable 表示路径当前字节仍等于编译收据。
+## [br]
+## @schema return: Dictionary，包含 success、stable、error_code、error、receipt_entries、current_entries 和 scan_report。
+func make_source_receipt_validation_report(
+	profile: GFConfigPipelineProfile,
+	run_result: Dictionary,
+	options: Dictionary = {}
+) -> Dictionary:
+	if profile == null:
+		return _make_source_receipt_validation_failure(
+			"invalid_profile",
+			"导表 Profile 为空，无法校验编译来源收据。"
+		)
+	var receipt_budget_state: Dictionary = _make_digest_budget_state(options)
+	var receipt_result: Dictionary = _make_compilation_source_entries(
+		profile,
+		run_result,
+		receipt_budget_state
+	)
+	if not GFVariantData.get_option_bool(receipt_result, "available"):
+		return _make_source_receipt_validation_failure(
+			"compilation_receipt_unavailable",
+			"构建结果没有可验证的编译来源收据。"
+		)
+	var receipt_scan_report: Dictionary = _make_digest_scan_report(
+		receipt_budget_state
+	)
+	if not GFVariantData.get_option_bool(receipt_scan_report, "success"):
+		return _make_source_receipt_validation_failure(
+			GFVariantData.get_option_string(
+				receipt_scan_report,
+				"error_code",
+				"invalid_compilation_receipt"
+			),
+			GFVariantData.get_option_string(receipt_scan_report, "error"),
+			receipt_scan_report
+		)
+
+	var current_budget_state: Dictionary = _make_digest_budget_state(options)
+	var current_entries: Array[Dictionary] = _make_source_entries(
+		profile,
+		current_budget_state
+	)
+	var scan_report: Dictionary = _make_digest_scan_report(current_budget_state)
+	if not GFVariantData.get_option_bool(scan_report, "success"):
+		return _make_source_receipt_validation_failure(
+			GFVariantData.get_option_string(
+				scan_report,
+				"error_code",
+				"source_receipt_scan_failed"
+			),
+			GFVariantData.get_option_string(scan_report, "error"),
+			scan_report
+		)
+	var receipt_entries: Array[Dictionary] = _get_dictionary_array_value(
+		GFVariantData.get_option_value(receipt_result, "entries")
+	)
+	var stable: bool = (
+		_normalize_digest_source_entries(receipt_entries)
+		== _normalize_digest_source_entries(current_entries)
+	)
+	return {
+		"success": true,
+		"stable": stable,
+		"error_code": "" if stable else "source_changed_during_export",
+		"error": "" if stable else "配置表来源在编译后、事务完成前发生变化。",
+		"receipt_entries": receipt_entries.duplicate(true),
+		"current_entries": current_entries.duplicate(true),
+		"scan_report": scan_report.duplicate(true),
+	}
 
 
 # --- 私有/辅助方法 ---
@@ -606,6 +736,10 @@ func _make_compiler_fingerprint(
 				"id": GFVariantData.get_option_string(descriptor, "stage_id"),
 				"implementation_version": GFVariantData.get_option_int(descriptor, "implementation_version"),
 				"path": GFVariantData.get_option_string(descriptor, "implementation_path"),
+				"implementation_dependencies": GFVariantData.get_option_packed_string_array(
+					descriptor,
+					"implementation_dependencies"
+				),
 			})
 		else:
 			stage_definitions.append(definition)
@@ -619,7 +753,7 @@ func _make_compiler_fingerprint(
 			break
 		var stage_path: String = GFVariantData.get_option_string(definition, "path")
 		var file_report: Dictionary = _make_file_digest_report(stage_path, budget_state)
-		stage_entries.append({
+		var stage_entry: Dictionary = {
 			"id": GFVariantData.get_option_string(definition, "id"),
 			"implementation_version": GFVariantData.get_option_int(definition, "implementation_version"),
 			"path": stage_path,
@@ -627,8 +761,10 @@ func _make_compiler_fingerprint(
 			"size_bytes": GFVariantData.get_option_int(file_report, "size_bytes"),
 			"sha256": GFVariantData.get_option_string(file_report, "sha256"),
 			"error": GFVariantData.get_option_string(file_report, "error"),
-		})
+			"implementation_dependencies": [],
+		}
 		if not GFVariantData.get_option_bool(budget_state, "success", true):
+			stage_entries.append(stage_entry)
 			break
 		if not GFVariantData.get_option_bool(file_report, "exists") or not GFVariantData.get_option_string(file_report, "error").is_empty():
 			_set_digest_budget_failure(
@@ -636,6 +772,15 @@ func _make_compiler_fingerprint(
 				"freshness_compiler_stage_unavailable",
 				"配置编译阶段实现不可用：%s。" % stage_path
 			)
+			stage_entries.append(stage_entry)
+			break
+		stage_entry["implementation_dependencies"] = _make_compiler_dependency_entries(
+			definition,
+			stage_path,
+			budget_state
+		)
+		stage_entries.append(stage_entry)
+		if not GFVariantData.get_option_bool(budget_state, "success", true):
 			break
 
 	var engine_version_info: Dictionary = Engine.get_version_info()
@@ -650,6 +795,231 @@ func _make_compiler_fingerprint(
 		},
 		"stage_entries": stage_entries,
 	}
+
+
+func _make_compiler_dependency_entries(
+	definition: Dictionary,
+	stage_path: String,
+	budget_state: Dictionary
+) -> Array[Dictionary]:
+	var dependency_paths: PackedStringArray = GFVariantData.get_option_packed_string_array(
+		definition,
+		"implementation_dependencies"
+	)
+	var normalized_paths: PackedStringArray = PackedStringArray()
+	var primary_path: String = _normalize_output_path(stage_path)
+	for raw_path: String in dependency_paths:
+		var dependency_path: String = _normalize_output_path(raw_path)
+		if (
+			dependency_path.is_empty()
+			or not (
+				dependency_path.begins_with("res://")
+				or dependency_path.begins_with("user://")
+			)
+		):
+			_set_digest_budget_failure(
+				budget_state,
+				"freshness_compiler_dependency_invalid",
+				"编译器实现依赖必须使用 res:// 或 user://：%s。" % raw_path
+			)
+			return []
+		if (
+			dependency_path == primary_path
+			or normalized_paths.has(dependency_path)
+		):
+			continue
+		var _path_appended: bool = normalized_paths.append(dependency_path)
+	normalized_paths.sort()
+
+	var entries: Array[Dictionary] = []
+	for dependency_path: String in normalized_paths:
+		if not GFVariantData.get_option_bool(budget_state, "success", true):
+			break
+		if not _reserve_digest_entry(budget_state):
+			break
+		var file_report: Dictionary = _make_file_digest_report(
+			dependency_path,
+			budget_state
+		)
+		entries.append({
+			"path": dependency_path,
+			"exists": GFVariantData.get_option_bool(file_report, "exists"),
+			"size_bytes": GFVariantData.get_option_int(file_report, "size_bytes"),
+			"sha256": GFVariantData.get_option_string(file_report, "sha256"),
+			"error": GFVariantData.get_option_string(file_report, "error"),
+		})
+		if not GFVariantData.get_option_bool(budget_state, "success", true):
+			break
+		if (
+			not GFVariantData.get_option_bool(file_report, "exists")
+			or not GFVariantData.get_option_string(file_report, "error").is_empty()
+		):
+			_set_digest_budget_failure(
+				budget_state,
+				"freshness_compiler_dependency_unavailable",
+				"配置编译阶段实现依赖不可用：%s。" % dependency_path
+			)
+			break
+	return entries
+
+
+func _make_compilation_source_entries(
+	profile: GFConfigPipelineProfile,
+	run_result: Dictionary,
+	budget_state: Dictionary
+) -> Dictionary:
+	if not run_result.has("table_results") and not run_result.has(&"table_results"):
+		return { "available": false, "entries": [] }
+	var entries: Array[Dictionary] = []
+	var table_results: Array = GFVariantData.get_option_array(
+		run_result,
+		"table_results"
+	)
+	if table_results.size() != profile.sources.size():
+		_set_digest_budget_failure(
+			budget_state,
+			"freshness_compilation_receipt_count_mismatch",
+			"编译来源收据数量与 Profile 来源数量不一致：%d != %d。" % [
+				table_results.size(),
+				profile.sources.size(),
+			]
+		)
+		return { "available": true, "entries": entries }
+
+	for source_index: int in range(profile.sources.size()):
+		if not GFVariantData.get_option_bool(budget_state, "success", true):
+			break
+		var source: GFConfigPipelineTableSource = profile.sources[source_index]
+		var table_result: Dictionary = GFVariantData.as_dictionary(
+			table_results[source_index]
+		)
+		var receipt: Dictionary = GFVariantData.get_option_dictionary(
+			table_result,
+			"source_receipt"
+		)
+		var receipt_error: String = _get_compilation_source_receipt_error(
+			source,
+			receipt
+		)
+		if not receipt_error.is_empty():
+			_set_digest_budget_failure(
+				budget_state,
+				"freshness_compilation_receipt_invalid",
+				receipt_error
+			)
+			break
+		if not _reserve_digest_entry(budget_state):
+			break
+		var size_bytes: int = GFVariantData.get_option_int(receipt, "size_bytes")
+		if not _reserve_receipt_bytes(
+			budget_state,
+			GFVariantData.get_option_string(receipt, "source_path"),
+			size_bytes
+		):
+			break
+		entries.append({
+			"valid": true,
+			"table_name": GFVariantData.get_option_string(receipt, "table_name"),
+			"source_path": GFVariantData.get_option_string(receipt, "source_path"),
+			"source_format": GFVariantData.get_option_string(receipt, "source_format"),
+			"exists": true,
+			"size_bytes": size_bytes,
+			"sha256": GFVariantData.get_option_string(receipt, "sha256").to_lower(),
+			"error": "",
+		})
+	return { "available": true, "entries": entries }
+
+
+func _get_compilation_source_receipt_error(
+	source: GFConfigPipelineTableSource,
+	receipt: Dictionary
+) -> String:
+	if source == null:
+		return "Profile 包含空来源，无法绑定编译收据。"
+	if receipt.is_empty():
+		return "编译结果缺少来源收据：%s。" % source.source_path
+	if GFVariantData.get_option_string(receipt, "format") != _SOURCE_RECEIPT_FORMAT:
+		return "编译来源收据格式无效：%s。" % source.source_path
+	if (
+		GFVariantData.get_option_int(receipt, "format_version")
+		!= _SOURCE_RECEIPT_FORMAT_VERSION
+	):
+		return "编译来源收据版本无效：%s。" % source.source_path
+	if (
+		GFVariantData.get_option_string(receipt, "table_name")
+		!= String(source.get_table_key())
+	):
+		return "编译来源收据表名与 Profile 不一致：%s。" % source.source_path
+	if (
+		_normalize_output_path(
+			GFVariantData.get_option_string(receipt, "source_path")
+		)
+		!= _normalize_output_path(source.source_path)
+	):
+		return "编译来源收据路径与 Profile 不一致：%s。" % source.source_path
+	if (
+		GFVariantData.get_option_string(receipt, "source_format")
+		!= String(source.get_resolved_format())
+	):
+		return "编译来源收据格式与 Profile 不一致：%s。" % source.source_path
+	var size_value: Variant = GFVariantData.get_option_value(
+		receipt,
+		"size_bytes",
+		null
+	)
+	if not size_value is int:
+		return "编译来源收据 size_bytes 必须是非负精确整数：%s。" % source.source_path
+	var exact_size_bytes: int = size_value
+	if exact_size_bytes < 0:
+		return "编译来源收据 size_bytes 必须是非负精确整数：%s。" % source.source_path
+	var sha256: String = GFVariantData.get_option_string(receipt, "sha256").to_lower()
+	if not _is_lower_hex(sha256, 64):
+		return "编译来源收据 sha256 无效：%s。" % source.source_path
+	return ""
+
+
+func _reserve_receipt_bytes(
+	budget_state: Dictionary,
+	source_path: String,
+	size_bytes: int
+) -> bool:
+	var max_file_bytes: int = GFVariantData.get_option_int(
+		budget_state,
+		"max_file_bytes"
+	)
+	if size_bytes > max_file_bytes:
+		_set_digest_budget_failure(
+			budget_state,
+			"freshness_file_budget_exceeded",
+			"freshness 单文件预算超限：%s (%d > %d)。" % [
+				source_path,
+				size_bytes,
+				max_file_bytes,
+			]
+		)
+		return false
+	var hashed_bytes: int = GFVariantData.get_option_int(
+		budget_state,
+		"hashed_bytes"
+	)
+	var max_total_bytes: int = GFVariantData.get_option_int(
+		budget_state,
+		"max_total_bytes"
+	)
+	if size_bytes > max_total_bytes - hashed_bytes:
+		_set_digest_budget_failure(
+			budget_state,
+			"freshness_total_budget_exceeded",
+			"freshness 累计字节预算超限：%s (%d + %d > %d)。" % [
+				source_path,
+				hashed_bytes,
+				size_bytes,
+				max_total_bytes,
+			]
+		)
+		return false
+	budget_state["hashed_bytes"] = hashed_bytes + size_bytes
+	return true
 
 
 func _make_source_entries(profile: GFConfigPipelineProfile, budget_state: Dictionary) -> Array[Dictionary]:
@@ -667,11 +1037,12 @@ func _make_source_entries(profile: GFConfigPipelineProfile, budget_state: Dictio
 			})
 			continue
 
-		var file_report: Dictionary = _make_file_digest_report(source.source_path, budget_state)
+		var source_path: String = _normalize_output_path(source.source_path)
+		var file_report: Dictionary = _make_file_digest_report(source_path, budget_state)
 		entries.append({
 			"valid": true,
 			"table_name": String(source.get_table_key()),
-			"source_path": source.source_path,
+			"source_path": source_path,
 			"source_format": String(source.get_resolved_format()),
 			"exists": GFVariantData.get_option_bool(file_report, "exists"),
 			"size_bytes": GFVariantData.get_option_int(file_report, "size_bytes"),
@@ -1076,6 +1447,22 @@ func _make_freshness_result(
 	}
 
 
+func _make_source_receipt_validation_failure(
+	error_code: String,
+	message: String,
+	scan_report: Dictionary = {}
+) -> Dictionary:
+	return {
+		"success": false,
+		"stable": false,
+		"error_code": error_code,
+		"error": message,
+		"receipt_entries": [],
+		"current_entries": [],
+		"scan_report": scan_report.duplicate(true),
+	}
+
+
 func _make_digest_projection(manifest: Dictionary) -> Dictionary:
 	var projection: Dictionary = {
 		"format": GFVariantData.get_option_string(manifest, "format"),
@@ -1159,7 +1546,22 @@ func _normalize_compiler_fingerprint(fingerprint: Dictionary) -> Dictionary:
 	var stage_entries: Array[Dictionary] = []
 	for entry_value: Variant in GFVariantData.get_option_array(fingerprint, "stage_entries"):
 		var entry: Dictionary = GFVariantData.as_dictionary(entry_value)
-		stage_entries.append({
+		var dependency_entries: Array[Dictionary] = []
+		for dependency_value: Variant in GFVariantData.get_option_array(
+			entry,
+			"implementation_dependencies"
+		):
+			var dependency: Dictionary = GFVariantData.as_dictionary(
+				dependency_value
+			)
+			dependency_entries.append({
+				"path": GFVariantData.get_option_string(dependency, "path"),
+				"exists": GFVariantData.get_option_bool(dependency, "exists"),
+				"size_bytes": GFVariantData.get_option_int(dependency, "size_bytes"),
+				"sha256": GFVariantData.get_option_string(dependency, "sha256"),
+				"error": GFVariantData.get_option_string(dependency, "error"),
+			})
+		var normalized_entry: Dictionary = {
 			"id": GFVariantData.get_option_string(entry, "id"),
 			"implementation_version": GFVariantData.get_option_int(entry, "implementation_version"),
 			"path": GFVariantData.get_option_string(entry, "path"),
@@ -1167,7 +1569,13 @@ func _normalize_compiler_fingerprint(fingerprint: Dictionary) -> Dictionary:
 			"size_bytes": GFVariantData.get_option_int(entry, "size_bytes"),
 			"sha256": GFVariantData.get_option_string(entry, "sha256"),
 			"error": GFVariantData.get_option_string(entry, "error"),
-		})
+		}
+		if (
+			entry.has("implementation_dependencies")
+			or entry.has(&"implementation_dependencies")
+		):
+			normalized_entry["implementation_dependencies"] = dependency_entries
+		stage_entries.append(normalized_entry)
 	return {
 		"contract_version": GFVariantData.get_option_int(fingerprint, "contract_version"),
 		"framework_version": GFVariantData.get_option_string(fingerprint, "framework_version"),
@@ -1200,6 +1608,31 @@ func _sha256_bytes(bytes: PackedByteArray) -> String:
 	if update_error != OK:
 		return ""
 	return context.finish().hex_encode()
+
+
+func _get_dictionary_array_value(value: Variant) -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	if not value is Array:
+		return result
+	var values: Array = value
+	for item_value: Variant in values:
+		if item_value is Dictionary:
+			var item: Dictionary = item_value
+			result.append(item)
+	return result
+
+
+func _is_lower_hex(value: String, expected_length: int) -> bool:
+	if value.length() != expected_length:
+		return false
+	for index: int in range(value.length()):
+		var code: int = value.unicode_at(index)
+		if not (
+			(code >= 48 and code <= 57)
+			or (code >= 97 and code <= 102)
+		):
+			return false
+	return true
 
 
 func _make_report_codec_options() -> Dictionary:

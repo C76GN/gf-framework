@@ -63,6 +63,8 @@ func after_each() -> void:
 			"test_missing_checksum_migration.json",
 			"test_plain_json_strict.json",
 			"test_plain_json_migration.json",
+			"test_traversal_limit_preserves_existing.json",
+			"test_traversal_limit_async_preserves_existing.json",
 			"test_json_number_preserve.json",
 			"test_legacy_version.json",
 			"test_migrate_override.json",
@@ -80,6 +82,7 @@ func after_each() -> void:
 			"recover_from_backup.json",
 			"recover_from_temp.json",
 			"recover_from_stale_temp.json",
+			"recover_committed_async.json",
 			"recover_delete.json",
 			"duplicate_transaction.json",
 			"queued_async.json",
@@ -128,6 +131,47 @@ func test_pure_data_methods() -> void:
 	var _save_data_result_152: Variant = _storage.save_data("test_legacy.json", {"old": "data"})
 	var data: Dictionary = _load_payload("test_legacy.json")
 	assert_eq(GFVariantData.get_option_string(data, "old"), "data", "旧版纯数据 API 仍应正常读写。")
+
+
+func test_save_data_preserves_existing_file_when_json_traversal_is_incomplete() -> void:
+	_storage.encrypt_key = 0
+	var file_name: String = "test_traversal_limit_preserves_existing.json"
+	assert_eq(_storage.save_data(file_name, { "version": 1 }), OK, "测试基线存档应写入成功。")
+	var path: String = _storage._get_full_path(file_name)
+	var before_bytes: PackedByteArray = FileAccess.get_file_as_bytes(path)
+
+	var save_error: Error = _storage.save_data(file_name, _make_nested_dictionary(70, 2))
+
+	assert_eq(save_error, ERR_INVALID_DATA, "JSON 遍历不完整时同步保存必须失败关闭。")
+	assert_eq(FileAccess.get_file_as_bytes(path), before_bytes, "失败保存不得覆盖已有最终文件。")
+	assert_eq(GFVariantData.get_option_int(_load_payload(file_name), "version"), 1, "旧存档应保持可读且内容不变。")
+	assert_false(FileAccess.file_exists(_storage._get_full_path(file_name + ".tmp")), "失败事务不得遗留临时文件。")
+
+
+func test_async_save_preserves_existing_file_when_json_traversal_is_incomplete() -> void:
+	_storage.encrypt_key = 0
+	var file_name: String = "test_traversal_limit_async_preserves_existing.json"
+	assert_eq(_storage.save_data(file_name, { "version": 1 }), OK, "测试基线存档应写入成功。")
+	var path: String = _storage._get_full_path(file_name)
+	var before_bytes: PackedByteArray = FileAccess.get_file_as_bytes(path)
+	var operation: GFStorageAsyncOperation = _storage.save_data_request_async(
+		file_name,
+		_make_nested_dictionary(70, 2)
+	)
+
+	await _pump_storage_async_tasks()
+
+	var result: GFStorageAsyncResult = operation.get_result()
+	assert_false(result.is_successful(), "JSON 遍历不完整时异步保存必须失败关闭。")
+	assert_eq(result.get_error_code(), ERR_INVALID_DATA)
+	assert_eq(
+		result.get_write_failure_kind(),
+		GFStorageAsyncResult.WriteFailureKind.ENCODE_FAILED,
+		"异步 worker 应把空编码结果归类为 ENCODE_FAILED。"
+	)
+	assert_eq(FileAccess.get_file_as_bytes(path), before_bytes, "失败异步保存不得覆盖已有最终文件。")
+	assert_eq(GFVariantData.get_option_int(_load_payload(file_name), "version"), 1, "旧存档应保持可读且内容不变。")
+	assert_false(FileAccess.file_exists(_storage._get_full_path(file_name + ".tmp")), "失败异步事务不得遗留临时文件。")
 
 
 func test_pure_data_api_rejects_empty_file_name() -> void:
@@ -621,9 +665,13 @@ func test_dispose_blocks_reentrant_tick_and_wait_from_starting_queued_tasks() ->
 	)
 	assert_true(first_operation.get_result().is_successful(), "已启动任务应在 dispose 中正常收敛。")
 	assert_false(queued_operation.get_result().is_successful(), "排队任务不得由重入 tick/wait 启动。")
+	var queued_result: GFStorageAsyncResult = queued_operation.get_result()
+	var result_script: Script = queued_result.get_script()
+	var result_constants: Dictionary = result_script.get_script_constant_map()
+	var failure_kinds: Dictionary = GFVariantData.get_option_dictionary(result_constants, "WriteFailureKind")
 	assert_eq(
-		queued_operation.get_result().get_write_failure_kind(),
-		GFStorageAsyncResult.WriteFailureKind.UNAVAILABLE,
+		GFVariantData.to_int(queued_result.call("get_write_failure_kind")),
+		GFVariantData.get_option_int(failure_kinds, "UNAVAILABLE", -1),
 		"dispose 期间排队任务应稳定终止为 UNAVAILABLE。"
 	)
 	var observer: GFStorageUtility = GFStorageUtility.new()
@@ -789,6 +837,52 @@ func test_delete_file_cleans_transaction_family_and_prevents_recovery() -> void:
 	assert_false(FileAccess.file_exists(_storage._get_full_path(_storage._get_temp_filename(file_name))), "临时文件应被删除。")
 	assert_false(FileAccess.file_exists(_storage._get_full_path(_storage._get_backup_filename(file_name))), "备份文件应被删除。")
 	assert_false(FileAccess.file_exists(_storage._get_full_path(_storage._get_transaction_filename(file_name))), "事务标记应被删除。")
+
+
+func test_committed_async_marker_preserves_new_generation_after_crash() -> void:
+	_storage.encrypt_key = 0
+	var file_name: String = "recover_committed_async.json"
+	var final_path: String = _storage._get_full_path(file_name)
+	var backup_path: String = _storage._get_full_path(_storage._get_backup_filename(file_name))
+	var marker_file_name: String = _storage._get_transaction_filename(file_name)
+	assert_eq(_storage.save_data(file_name, { "generation": "old" }), OK, "应能预置旧代次。")
+	assert_eq(
+		DirAccess.rename_absolute(final_path, backup_path),
+		OK,
+		"应能模拟异步保存已备份旧代次。"
+	)
+	assert_eq(_storage._write_json(file_name, { "generation": "new" }), OK, "应能模拟新代次已进入正式路径。")
+	var storage_script: Script = _storage.get_script()
+	var transaction_files: Array[String] = [file_name]
+	var committed_marker: Dictionary = GFVariantData.to_dictionary(storage_script.call(
+		"_make_transaction_marker",
+		transaction_files,
+		file_name,
+		"async:crash-window",
+		true,
+		true
+	))
+	assert_eq(
+		_storage._write_plain_json(
+			marker_file_name,
+			committed_marker
+		),
+		OK,
+		"应能模拟异步保存写完 committed marker 后崩溃。"
+	)
+
+	var loaded: Dictionary = _load_payload(file_name)
+
+	assert_eq(
+		GFVariantData.get_option_string(loaded, "generation"),
+		"new",
+		"提交点后的恢复必须保留新代次，不能回滚到 backup。"
+	)
+	assert_false(FileAccess.file_exists(backup_path), "已提交恢复应清理旧代次备份。")
+	assert_false(
+		FileAccess.file_exists(_storage._get_full_path(marker_file_name)),
+		"已提交恢复应清理事务 marker。"
+	)
 
 
 func test_transaction_marker_cannot_expand_recovery_beyond_requested_files() -> void:
@@ -1382,7 +1476,11 @@ func test_quiesce_closes_io_admission_and_drains_accepted_queue() -> void:
 		"test_quiesce_async.json",
 		{"value": 2}
 	)
-	var completion: GFAsyncCompletion = _storage.begin_quiesce(GFAsyncScope.new())
+	var completion_value: Variant = _storage.call("begin_quiesce", GFAsyncScope.new())
+	assert_true(completion_value is GFAsyncCompletion, "quiesce 应返回类型化完成源。")
+	if not completion_value is GFAsyncCompletion:
+		return
+	var completion: GFAsyncCompletion = completion_value
 
 	assert_false(completion.is_completed(), "同文件队列仍有已接纳工作时不得提前完成 quiesce。")
 	assert_eq(
@@ -1686,6 +1784,17 @@ func _load_payload(file_name: String) -> Dictionary:
 	if not result.ok:
 		return {}
 	return result.payload.duplicate(true)
+
+
+func _make_nested_dictionary(depth: int, leaf_value: Variant) -> Dictionary:
+	var root: Dictionary = {}
+	var current: Dictionary = root
+	for index: int in range(depth):
+		var child: Dictionary = {}
+		current["level_%d" % index] = child
+		current = child
+	current["value"] = leaf_value
+	return root
 
 
 func _pump_storage_async_tasks() -> void:

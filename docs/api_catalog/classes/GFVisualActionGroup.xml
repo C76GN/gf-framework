@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFVisualActionGroup" path="addons/gf/extensions/action_queue/actions/gf_visual_action_group.gd" module="extensions/action_queue" extends="GFVisualAction" classDigest="5fc3ed77bfd079901dd19b6c155f955ae1e7feea1467a7c235fd407d8f70abdc">
+<class name="GFVisualActionGroup" path="addons/gf/extensions/action_queue/actions/gf_visual_action_group.gd" module="extensions/action_queue" extends="GFVisualAction" classDigest="d836c2c080f92beca6778e4a62a2410baee02798a278315f183137a41c841897">
 	<description>GFVisualActionGroup: 动作组复合节点 (Composite Pattern)
 继承自 GFVisualAction。允许将一组子动作打包，按并行（全部一起发出并按策略等待）
 或顺序（逐个执行并等待各自完成）两种模式执行。
@@ -29,10 +29,12 @@
 	<properties>
 		<member kind="property" name="actions">
 			<signature>var actions: Array[Object] = []</signature>
-			<description>包含的子动作列表。</description>
+			<description>包含的子动作列表。execute() 会冻结当前列表供本轮使用，运行期修改只影响下一轮；
+并行计划不接受重复的同一动作实例。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="schema">actions: Array，元素为 GFVisualAction 或实现 execute() 协议的动作对象。</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="is_parallel">

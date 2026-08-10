@@ -26,7 +26,7 @@ const STAGE_ID: String = "gf.config.validation.builtin"
 ## @api public
 ## [br]
 ## @since 9.0.0
-const IMPLEMENTATION_VERSION: int = 1
+const IMPLEMENTATION_VERSION: int = 2
 
 
 # --- 公共方法 ---
@@ -41,7 +41,7 @@ const IMPLEMENTATION_VERSION: int = 1
 ## [br]
 ## @param layout_result: Layout 阶段结果。
 ## [br]
-## @schema layout_result: Dictionary，符合 gf.config_pipeline.layout_result@1。
+## @schema layout_result: Dictionary，符合 gf.config_pipeline.layout_result@2。
 ## [br]
 ## @param options: 校验选项。
 ## [br]
@@ -166,13 +166,21 @@ func compile_table(
 ## [br]
 ## @return: 阶段描述。
 ## [br]
-## @schema return: Dictionary，包含 stage_id、implementation_version、input_contract 和 output_contract。
+## @schema return: Dictionary，包含 stage_id、implementation_version、implementation_dependencies、input_contract 和 output_contract。
 func get_stage_descriptor() -> Dictionary:
 	return {
 		"stage_id": STAGE_ID,
 		"implementation_version": IMPLEMENTATION_VERSION,
-		"input_contract": "gf.config_pipeline.layout_result@1",
+		"input_contract": "gf.config_pipeline.layout_result@2",
 		"output_contract": "%s@%d" % [GFConfigPipelineTableIR.FORMAT, GFConfigPipelineTableIR.FORMAT_VERSION],
+		"implementation_dependencies": [
+			"res://addons/gf/tools/config_pipeline/gf_config_pipeline_table_ir.gd",
+			"res://addons/gf/tools/config_pipeline/gf_config_pipeline_table_source.gd",
+			"res://addons/gf/standard/utilities/config/gf_config_table_schema.gd",
+			"res://addons/gf/standard/utilities/config/gf_config_table_column.gd",
+			"res://addons/gf/standard/utilities/config/gf_config_validation_report.gd",
+			"res://addons/gf/standard/foundation/variant/gf_variant_data.gd",
+		],
 	}
 
 

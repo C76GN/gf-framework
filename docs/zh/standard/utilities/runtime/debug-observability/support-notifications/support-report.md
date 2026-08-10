@@ -43,7 +43,11 @@ var markdown_summary := reports.export_report_markdown(report, {
 
 场景快照只记录当前场景名称、路径和节点数量，节点数量统计默认限制深度与节点数；被截断时 `scene.node_count_truncated` 为 `true`。`export_report_json()` 适合自动化传输和持久化；`export_report_markdown()` 适合把同一份报告摘要贴进 Issue、PR、客服工单或测试记录。
 
-`save_report()` 先写同目录临时文件并 flush，再原子替换目标文件；写入中断不会先破坏已有报告。路径附件默认拒绝，只有 `allow_path_attachments = true` 且路径位于 `allowed_attachment_roots` 时才会探测和读取文件，避免权限拒绝前泄露文件是否存在。附件保存同样受 `allowed_output_roots` 和字节上限约束。
+`save_report()` 先写同目录临时文件并 flush，再原子替换目标文件；写入中断不会先破坏已有报告。替换成功后还会清理旧 backup；若这一步失败，目标文件已经提交，但方法返回对应非 `OK` 错误，且不会增加 clean-success 计数。当前 `Error` 返回类型不能同时表达“已提交”和“存在清理债务”，调用方遇到该错误时应先检查目标文件，不要直接把它当成未写入并盲目重试。
+
+路径附件默认拒绝，只有 `allow_path_attachments = true` 且路径位于 `allowed_attachment_roots` 时才会探测和读取文件，避免权限拒绝前泄露文件是否存在。读取路径和附件的可选输出路径都会拒绝 `DirAccess` 能识别的链接组件；本机绝对输出路径不会写回可上传报告，只保留 `<redacted_path>` 与无目录文件名。这里的检查仍不是跨平台、抗并发替换的文件句柄安全边界：敌对本地进程可能利用平台 reparse 类型或检查与打开之间的竞态。需要处理不可信本机对手时，应先把候选数据复制到项目独占的受信暂存区，或使用提供 no-follow/句柄身份校验的原生适配层。
+
+自定义 section provider 是受信、同步 hook，必须准确接受一个 `Dictionary` 参数并直接返回结果。`submit_report()` transport 同样必须同步接受 `(report, options)`；当前实现不能抢占阻塞调用、捕获 GDScript 脚本错误或隔离错误参数个数。任意返回值（包括 `null`）仍是合法 legacy 成功值，只有返回带 `ok = false` 的字典才形成结构化失败。慢 I/O、HTTP 或异步 SDK 应由项目先放入自己的有界队列，再让 hook 只完成同步交接。
 
 ## 工作流与离线重放
 
@@ -72,8 +76,8 @@ if result["status"] == &"queued":
 	print("报告已进入离线队列")
 ```
 
-`request_url` 只是 outbox 中的逻辑端点，默认不表示真实 HTTP 地址。`transport_callback` 的建议签名是 `func(report: Dictionary, options: Dictionary) -> Variant`，项目可在里面调用 HTTP、平台 SDK、本地文件或测试替身。建议为 Support Report 使用独立的 `GFRequestOutboxUtility` 与 `storage_path`：Outbox 只有一个 transport/filter 入口，不同报告、Analytics、购买或云存档请求通常有不同隐私、许可和重放政策。
+`request_url` 只是 outbox 中的逻辑端点，默认不表示真实 HTTP 地址。`transport_callback` 必须是签名为 `func(report: Dictionary, options: Dictionary) -> Variant` 的受信同步交接 hook；项目可在里面调用不会阻塞的内存队列或测试替身，网络、平台 SDK 与文件 I/O 应由队列消费者异步完成。建议为 Support Report 使用独立的 `GFRequestOutboxUtility` 与 `storage_path`：Outbox 只有一个 transport/filter 入口，不同报告、Analytics、购买或云存档请求通常有不同隐私、许可和重放政策。
 
 `setup(..., outbox)` / `set_transport()` 的自动装配只会在 Outbox 尚未设置有效 `transport_callback` 时绑定 workflow 的内部路由，不会覆盖项目已有 transport。切换 Outbox、清空 transport、关闭自动装配或 `dispose()` 时，workflow 只解除仍由自己安装的绑定，不会清除项目后来替换的 transport。共享 Outbox 已有项目 transport 时，项目路由应先调用 `workflow.handles_request(envelope)`，只把匹配 Support Report 固定信封契约的请求交给 workflow；如果自动装配的内部路由收到非匹配请求，它会 fail closed，不调用 Support transport，请求按 Outbox 的重试/失败策略保留，而不会误把其他业务 body 当作报告发送。
 
-`queue_report()` 只接受 `report_id` 为 String/StringName、长度 `1..4096` 且不含 C0 控制字符（U+0000..U+001F）或 DEL（U+007F）的报告；不合法的报告会在修改 Outbox 前失败。只有在 Outbox 完成持久化检查点、且 Outbox 自己的同步通知没有撤销该精确请求后，才返回 `status = "queued"`。随后发出的 `workflow_report_queued` 是耐久成功后的通知，参数都是隔离副本；监听器在通知中清理或重放 Outbox 属于下一项显式操作，不会反转已经完成的回执。失败结果的 `queue_result` 会保留 `reason`、`persisted` 和 `persistence_error`，不会把仅内存状态描述为离线交接成功。`max_attempts` 会钳制到 `1..64`。`replay_queued()` 会把 outbox 中保存的报告重新交给同一个 transport；因此不要把账号 token、用户隐私许可或临时 UI 状态写死在 workflow 中，应该在 transport 或项目会话层动态处理。
+`queue_report()` 只接受 `report_id` 为 String/StringName、长度 `1..4096` 且不含 C0 控制字符（U+0000..U+001F）或 DEL（U+007F）的报告；不合法的报告会在修改 Outbox 前失败。只有在 Outbox 完成持久化检查点、且 Outbox 自己的同步通知没有撤销该精确请求后，才返回 `status = "queued"`。随后发出的 `workflow_report_queued` 是耐久成功后的通知，参数都是隔离副本；监听器在通知中清理或重放 Outbox 属于下一项显式操作，不会反转已经完成的回执。失败结果的 `queue_result` 会保留 `reason`、`persisted` 和 `persistence_error`，不会把仅内存状态描述为离线交接成功。`max_attempts` 会钳制到 `1..64`。`replay_queued()` 会把 outbox 中保存的报告重新交给同一个 transport；若等待期间 workflow 被释放或替换 outbox，旧 continuation 返回 `workflow_lifecycle_changed`，不再递增计数或发完成信号。因此不要把账号 token、用户隐私许可或临时 UI 状态写死在 workflow 中，应该在 transport 或项目会话层动态处理。

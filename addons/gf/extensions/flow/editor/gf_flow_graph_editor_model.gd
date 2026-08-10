@@ -29,6 +29,9 @@ const _GF_VALIDATION_REPORT_DICTIONARY_SCRIPT: Script = preload("res://addons/gf
 var default_node_size: Vector2 = Vector2(220.0, 120.0)
 
 ## 是否把校验失败的连接也写入视图模型。
+##
+## 为 true 时，连接条目保留 source 顺序，并通过 valid 与 invalid_reasons 暴露完整结构校验结果；
+## 为 false 时，只保留通过端点、端口方向、类型/类名、重复和单连接约束的条目。
 ## [br]
 ## @api public
 ## [br]
@@ -478,16 +481,23 @@ func paste_selection_package(
 		source_node_ids[source_node.node_id] = true
 
 	var id_map: Dictionary = {}
-	var reserved_ids: Dictionary = {}
+	var occupied_ids: Dictionary = {}
+	for existing_node: GFFlowNode in graph.nodes:
+		if existing_node != null and existing_node.node_id != &"":
+			occupied_ids[existing_node.node_id] = true
 	var added_node_ids: PackedStringArray = PackedStringArray()
 	for mapping_variant: Variant in source_nodes:
 		var mapping_node: GFFlowNode = _get_flow_node_value(mapping_variant)
 		if mapping_node == null:
 			continue
 		var mapping_source_id: StringName = mapping_node.node_id
-		var mapping_next_id: StringName = _make_unique_node_id(graph, mapping_source_id, reserved_ids, GFVariantData.get_option_bool(options, "keep_original_ids", false))
+		var mapping_next_id: StringName = _make_unique_node_id(
+			mapping_source_id,
+			occupied_ids,
+			GFVariantData.get_option_bool(options, "keep_original_ids", false)
+		)
 		id_map[mapping_source_id] = mapping_next_id
-		reserved_ids[mapping_next_id] = true
+		occupied_ids[mapping_next_id] = true
 
 	for copy_variant: Variant in source_nodes:
 		var copy_source_node: GFFlowNode = _get_flow_node_value(copy_variant)
@@ -753,8 +763,26 @@ func _build_port_index(port_entries: Array[Dictionary]) -> Dictionary:
 
 func _build_connection_entries(graph: Resource, node_lookup: Dictionary) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
+	var connection_keys: Dictionary = {}
+	var input_counts: Dictionary = {}
+	var output_counts: Dictionary = {}
+	var validate_port_compatibility: bool = _get_bool_property(
+		graph,
+		&"validate_port_compatibility",
+		true
+	)
 	for connection: Dictionary in _dictionary_array_property(graph, &"connections"):
 		var entry: Dictionary = _build_connection_entry(connection, node_lookup)
+		var invalid_reasons: PackedStringArray = _get_connection_invalid_reasons_for_view(
+			entry,
+			node_lookup,
+			connection_keys,
+			input_counts,
+			output_counts,
+			validate_port_compatibility
+		)
+		entry["valid"] = invalid_reasons.is_empty()
+		entry["invalid_reasons"] = invalid_reasons
 		if include_invalid_connections or GFVariantData.get_option_bool(entry, "valid", false):
 			result.append(entry)
 	return result
@@ -769,13 +797,6 @@ func _build_connection_entry(connection: Dictionary, node_lookup: Dictionary) ->
 	var to_node: Dictionary = _get_dictionary_ref(node_lookup, to_node_id)
 	var from_port_index: int = _get_port_index(from_node, "output_port_indices", from_port_id)
 	var to_port_index: int = _get_port_index(to_node, "input_port_indices", to_port_id)
-	var valid: bool = not from_node.is_empty() and not to_node.is_empty()
-	if from_port_id != &"" and from_port_index < 0:
-		valid = false
-	if to_port_id != &"" and to_port_index < 0:
-		valid = false
-	if _has_mixed_connection_ports(from_port_id, to_port_id):
-		valid = false
 	return {
 		"from_node_id": from_node_id,
 		"from_port_id": from_port_id,
@@ -785,9 +806,159 @@ func _build_connection_entry(connection: Dictionary, node_lookup: Dictionary) ->
 		"to_port_id": to_port_id,
 		"to_port_index": to_port_index,
 		"to_graph_slot_index": _to_graph_slot_index(to_port_id, to_port_index),
-		"valid": valid,
+		"valid": false,
+		"invalid_reasons": PackedStringArray(),
 		"metadata": GFVariantData.get_option_dictionary(connection, "metadata"),
 	}
+
+
+func _get_connection_invalid_reasons_for_view(
+	entry: Dictionary,
+	node_lookup: Dictionary,
+	connection_keys: Dictionary,
+	input_counts: Dictionary,
+	output_counts: Dictionary,
+	validate_port_compatibility: bool
+) -> PackedStringArray:
+	var reasons: PackedStringArray = PackedStringArray()
+	var from_node_id: StringName = GFVariantData.get_option_string_name(entry, "from_node_id", &"")
+	var from_port_id: StringName = GFVariantData.get_option_string_name(entry, "from_port_id", &"")
+	var to_node_id: StringName = GFVariantData.get_option_string_name(entry, "to_node_id", &"")
+	var to_port_id: StringName = GFVariantData.get_option_string_name(entry, "to_port_id", &"")
+	if from_node_id == &"" or to_node_id == &"":
+		_append_packed_string(reasons, "invalid_connection")
+		return reasons
+	if _has_mixed_connection_ports(from_port_id, to_port_id):
+		_append_packed_string(reasons, "invalid_mixed_connection_ports")
+		return reasons
+
+	var connection_key: String = _get_connection_key(
+		from_node_id,
+		from_port_id,
+		to_node_id,
+		to_port_id
+	)
+	if connection_keys.has(connection_key):
+		_append_packed_string(reasons, "duplicate_connection")
+	connection_keys[connection_key] = true
+
+	var from_node: Dictionary = _get_dictionary_ref(node_lookup, from_node_id)
+	var to_node: Dictionary = _get_dictionary_ref(node_lookup, to_node_id)
+	if from_node.is_empty():
+		_append_packed_string(reasons, "missing_connection_from_node")
+	if to_node.is_empty():
+		_append_packed_string(reasons, "missing_connection_to_node")
+
+	var output_port: Dictionary = _get_view_port_entry(from_node, "output_ports", from_port_id)
+	var input_port: Dictionary = _get_view_port_entry(to_node, "input_ports", to_port_id)
+	if from_port_id != &"" and output_port.is_empty():
+		_append_packed_string(reasons, "missing_connection_output_port")
+	if to_port_id != &"" and input_port.is_empty():
+		_append_packed_string(reasons, "missing_connection_input_port")
+	_count_view_connection_port(
+		output_counts,
+		from_node_id,
+		from_port_id,
+		output_port,
+		false,
+		reasons
+	)
+	_count_view_connection_port(
+		input_counts,
+		to_node_id,
+		to_port_id,
+		input_port,
+		true,
+		reasons
+	)
+	if (
+		validate_port_compatibility
+		and not output_port.is_empty()
+		and not input_port.is_empty()
+		and not _view_ports_are_compatible(output_port, input_port)
+	):
+		_append_packed_string(reasons, "incompatible_connection_ports")
+	return reasons
+
+
+func _get_view_port_entry(
+	node_entry: Dictionary,
+	ports_key: String,
+	port_id: StringName
+) -> Dictionary:
+	if node_entry.is_empty() or port_id == &"":
+		return {}
+	for port_variant: Variant in GFVariantData.get_option_array(node_entry, ports_key):
+		var port_entry: Dictionary = GFVariantData.as_dictionary(port_variant)
+		if GFVariantData.get_option_string_name(port_entry, "port_id", &"") == port_id:
+			return port_entry
+	return {}
+
+
+func _count_view_connection_port(
+	counts: Dictionary,
+	node_id: StringName,
+	port_id: StringName,
+	port: Dictionary,
+	is_input: bool,
+	reasons: PackedStringArray
+) -> void:
+	if port_id == &"" or port.is_empty():
+		return
+	var key: String = _get_node_port_key(node_id, port_id)
+	counts[key] = GFVariantData.get_option_int(counts, key, 0) + 1
+	if (
+		GFVariantData.get_option_int(counts, key, 0) <= 1
+		or GFVariantData.get_option_bool(port, "allow_multiple", false)
+	):
+		return
+	_append_packed_string(
+		reasons,
+		"input_port_allows_single_connection"
+		if is_input
+		else "output_port_allows_single_connection"
+	)
+
+
+func _view_ports_are_compatible(output_port: Dictionary, input_port: Dictionary) -> bool:
+	if (
+		GFVariantData.get_option_int(
+			output_port,
+			"direction",
+			GFFlowPort.Direction.OUTPUT
+		) != GFFlowPort.Direction.OUTPUT
+		or GFVariantData.get_option_int(
+			input_port,
+			"direction",
+			GFFlowPort.Direction.INPUT
+		) != GFFlowPort.Direction.INPUT
+	):
+		return false
+	var output_type: int = GFVariantData.get_option_int(
+		output_port,
+		"value_type",
+		GFFlowPort.ValueType.ANY
+	)
+	var input_type: int = GFVariantData.get_option_int(
+		input_port,
+		"value_type",
+		GFFlowPort.ValueType.ANY
+	)
+	if not _value_types_are_compatible_for_editor(output_type, input_type):
+		return false
+	if output_type != GFFlowPort.ValueType.OBJECT or input_type != GFFlowPort.ValueType.OBJECT:
+		return true
+	var output_class: StringName = GFVariantData.get_option_string_name(
+		output_port,
+		"class_name_hint",
+		&""
+	)
+	var input_class: StringName = GFVariantData.get_option_string_name(
+		input_port,
+		"class_name_hint",
+		&""
+	)
+	return output_class == &"" or input_class == &"" or output_class == input_class
 
 
 func _get_port_index(node_entry: Dictionary, index_key: String, port_id: StringName) -> int:
@@ -965,7 +1136,7 @@ func _count_connection_port_for_editor(
 	if port_id == &"" or port == null:
 		return
 
-	var key: String = "%s:%s" % [String(node_id), String(port_id)]
+	var key: String = _get_node_port_key(node_id, port_id)
 	counts[key] = GFVariantData.get_option_int(counts, key, 0) + 1
 	if GFVariantData.get_option_int(counts, key, 0) <= 1 or _get_bool_property(port, &"allow_multiple"):
 		return
@@ -1301,12 +1472,23 @@ func _get_connection_key(
 	to_node_id: StringName,
 	to_port_id: StringName
 ) -> String:
-	return "%s:%s>%s:%s" % [
+	return _get_identity_key(PackedStringArray([
 		String(from_node_id),
 		String(from_port_id),
 		String(to_node_id),
 		String(to_port_id),
-	]
+	]))
+
+
+func _get_node_port_key(node_id: StringName, port_id: StringName) -> String:
+	return _get_identity_key(PackedStringArray([String(node_id), String(port_id)]))
+
+
+func _get_identity_key(parts: PackedStringArray) -> String:
+	var result: String = ""
+	for part: String in parts:
+		result += "%d:%s" % [part.length(), part]
+	return result
 
 
 func _has_mixed_connection_ports(from_port_id: StringName, to_port_id: StringName) -> bool:
@@ -1359,8 +1541,7 @@ func _dictionary_array_property(object: Object, property_name: StringName) -> Ar
 	var value: Variant = GFObjectPropertyTools.read_property(object, NodePath(String(property_name)))
 	for item: Variant in GFVariantData.as_array(value):
 		var dictionary: Dictionary = GFVariantData.as_dictionary(item)
-		if not dictionary.is_empty():
-			result.append(dictionary.duplicate(true))
+		result.append(dictionary.duplicate(true))
 	return result
 
 
@@ -1443,24 +1624,21 @@ func _connection_is_internal(connection: Dictionary, selected_lookup: Dictionary
 
 
 func _make_unique_node_id(
-	graph: GFFlowGraph,
 	preferred_id: StringName,
-	reserved_ids: Dictionary,
-	keep_original_id: bool
+	occupied_ids: Dictionary,
+	_keep_original_id: bool
 ) -> StringName:
 	var base: String = String(preferred_id)
 	if base.is_empty():
 		base = "node"
 	var base_id: StringName = StringName(base)
-	if keep_original_id and not graph.has_node(base_id) and not reserved_ids.has(base_id):
-		return base_id
-	if not graph.has_node(base_id) and not reserved_ids.has(base_id):
+	if not occupied_ids.has(base_id):
 		return base_id
 
 	var index: int = 2
 	while true:
 		var candidate: StringName = StringName("%s_%d" % [base, index])
-		if not graph.has_node(candidate) and not reserved_ids.has(candidate):
+		if not occupied_ids.has(candidate):
 			return candidate
 		index += 1
 	return StringName(base)

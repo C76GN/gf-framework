@@ -103,6 +103,7 @@ const _MESSAGE_RECEIVER_SUPPORT = preload("res://addons/gf/standard/common/gf_me
 
 ## 自定义校验回调，建议签名为 func(context: GFInteractionContext, report: Dictionary) -> Variant。
 ## 返回 bool 可直接决定是否接受；返回 Dictionary 可覆盖 ok、reason、metadata 等报告字段。
+## 非空回调的 owner 失效时会以 invalid_validator 失败关闭；主动恢复无校验状态必须显式赋值 Callable()。
 ## [br]
 ## @api public
 ## [br]
@@ -135,10 +136,20 @@ func can_receive_interaction(interaction_id: StringName = &"") -> bool:
 		interaction_id
 	)):
 		return false
+	if not validation_callback.is_null() and not validation_callback.is_valid():
+		return false
 	if receiver_path == NodePath(""):
 		return true
 	var receiver: Object = _resolve_receiver()
-	return receiver != null
+	if receiver == null:
+		return false
+	if not receiver.has_method(&"receive_interaction"):
+		return true
+	return GFInteractions.is_method_call_compatible_for_framework(
+		receiver,
+		&"receive_interaction",
+		[GFInteractionContext.new(), interaction_id]
+	)
 
 
 ## 接收一次交互。
@@ -172,7 +183,7 @@ func receive_interaction(context: GFInteractionContext, interaction_id: StringNa
 ## [br]
 ## @param interaction_id: 交互 ID。
 ## [br]
-## @return: 只供 GFInteractionSensor 完成单次报告编码的原始报告。
+## @return: 只供 Interaction 框架最外层发布边界完成单次报告编码的原始报告。
 ## [br]
 ## @schema return: Raw interaction report Dictionary; callers must encode it exactly once before publication.
 func receive_interaction_raw_for_framework(
@@ -225,6 +236,24 @@ func _receive_interaction_for_framework(
 ) -> Dictionary:
 	var receiver: Object = _resolve_receiver()
 	var has_receiver_path: bool = receiver_path != NodePath("")
+	var delegate_method: StringName = (
+		&"receive_interaction_raw_for_framework"
+		if receiver is GFInteractionReceiver
+		else &"receive_interaction"
+	)
+	var effective_validation_callback: Callable = validation_callback
+	if not validation_callback.is_null() and not validation_callback.is_valid():
+		effective_validation_callback = Callable(self, "_reject_invalid_validator")
+	elif (
+		receiver != null
+		and receiver.has_method(delegate_method)
+		and not GFInteractions.is_method_call_compatible_for_framework(
+			receiver,
+			delegate_method,
+			[context, interaction_id]
+		)
+	):
+		effective_validation_callback = Callable(self, "_reject_invalid_delegate")
 	var report: Dictionary = _MESSAGE_RECEIVER_SUPPORT._receive_with_delegate(
 		self,
 		context,
@@ -234,7 +263,7 @@ func _receive_interaction_for_framework(
 		accepted_interaction_ids,
 		rejected_interaction_ids,
 		metadata,
-		validation_callback,
+		effective_validation_callback,
 		Callable(self, "_emit_interaction_validating"),
 		Callable(self, "_emit_interaction_received"),
 		Callable(self, "_emit_interaction_rejected"),
@@ -244,7 +273,7 @@ func _receive_interaction_for_framework(
 		"Interaction id is not accepted.",
 		has_receiver_path,
 		receiver,
-		&"receive_interaction",
+		delegate_method,
 		[context, interaction_id],
 		"Interaction delegate receiver is missing.",
 		"Interaction delegate receiver returned an invalid interaction report.",
@@ -252,6 +281,28 @@ func _receive_interaction_for_framework(
 		normalize_output
 	)
 	return report
+
+
+func _reject_invalid_validator(
+	_context: GFInteractionContext,
+	_report: Dictionary
+) -> Dictionary:
+	return {
+		"ok": false,
+		"reason": "invalid_validator",
+		"message": "Configured interaction validation callback is no longer valid.",
+	}
+
+
+func _reject_invalid_delegate(
+	_context: GFInteractionContext,
+	_report: Dictionary
+) -> Dictionary:
+	return {
+		"ok": false,
+		"reason": "invalid_receiver",
+		"message": "Interaction delegate receiver has an incompatible receive_interaction() signature.",
+	}
 
 
 func _resolve_receiver() -> Object:

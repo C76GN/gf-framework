@@ -28,6 +28,26 @@ func test_set_value_reads_nested_path_and_emits_change() -> void:
 	)
 
 
+func test_failed_path_write_is_atomic() -> void:
+	var store: GFReactiveStateStoreBase = GFReactiveStateStoreBase.new({
+		"profile": {
+			"name": "Ada",
+		},
+	})
+	var before_state: Dictionary = store.get_state()
+	watch_signals(store)
+
+	assert_false(
+		store.set_value([&"profile", &"inventory", &"items", 0], "potion"),
+		"无法创建 Array 索引父级时写入应失败。"
+	)
+
+	assert_eq(store.get_state(), before_state, "失败写入不得遗留已创建的中间 Dictionary。")
+	assert_true(store.get_dirty_changes().is_empty(), "失败写入不得产生 dirty change。")
+	assert_signal_not_emitted(store, "state_changed", "失败写入不得派发 state_changed。")
+	assert_signal_not_emitted(store, "path_changed", "失败写入不得派发 path_changed。")
+
+
 func test_array_path_segments_read_write_erase_and_format() -> void:
 	var store: GFReactiveStateStoreBase = GFReactiveStateStoreBase.new({
 		"items": [
@@ -103,6 +123,53 @@ func test_set_state_emits_root_replacement_when_diff_truncates() -> void:
 	assert_eq(GFVariantData.get_option_string(received_changes[0], "kind"), "state_replaced", "截断 diff 应降级为整树替换变更。")
 	assert_eq(GFVariantData.get_option_string(received_changes[0], "path"), "", "整树替换应使用空路径。")
 	assert_eq(GFVariantData.to_int(store.get_value("items.c")), 30, "状态本身应完成替换。")
+
+
+func test_set_state_emits_root_replacement_when_only_deep_difference_is_incomplete() -> void:
+	var store: GFReactiveStateStoreBase = GFReactiveStateStoreBase.new({
+		"deep": _make_nested_dictionary(70, 1),
+	})
+	var received_changes: Array[Dictionary] = []
+	var _unsubscribe: Callable = store.subscribe("", func(change: Dictionary, _store: GFReactiveStateStoreBase) -> void:
+		received_changes.append(change)
+	, {
+		"mode": GFReactiveStateStoreBase.SUBSCRIBE_ANY,
+	})
+
+	assert_true(store.set_state({
+		"deep": _make_nested_dictionary(70, 2),
+	}), "diff 无法完整核实时不得把深层变化误判为未变化。")
+
+	assert_eq(received_changes.size(), 1, "不完整 diff 应只派发一次根级失效通知。")
+	if received_changes.size() == 1:
+		assert_eq(GFVariantData.get_option_string(received_changes[0], "kind"), "state_replaced")
+		assert_eq(GFVariantData.get_option_string(received_changes[0], "path"), "")
+	assert_eq(GFVariantData.to_int(store.get_value(_make_nested_value_path(70, "deep"))), 2, "状态仍应完整替换。")
+
+
+func test_set_state_discards_partial_paths_when_later_diff_is_incomplete() -> void:
+	var store: GFReactiveStateStoreBase = GFReactiveStateStoreBase.new({
+		"early": 0,
+		"deep": _make_nested_dictionary(70, 1),
+	})
+	var received_changes: Array[Dictionary] = []
+	var _unsubscribe: Callable = store.subscribe("", func(change: Dictionary, _store: GFReactiveStateStoreBase) -> void:
+		received_changes.append(change)
+	, {
+		"mode": GFReactiveStateStoreBase.SUBSCRIBE_ANY,
+	})
+
+	assert_true(store.set_state({
+		"early": 1,
+		"deep": _make_nested_dictionary(70, 2),
+	}), "已发现浅层差异时，后续遍历不完整仍应替换状态。")
+
+	assert_eq(received_changes.size(), 1, "不完整 diff 不得派发可能遗漏深层变化的部分路径集合。")
+	if received_changes.size() == 1:
+		assert_eq(GFVariantData.get_option_string(received_changes[0], "kind"), "state_replaced")
+		assert_eq(GFVariantData.get_option_string(received_changes[0], "path"), "")
+	assert_eq(GFVariantData.to_int(store.get_value("early")), 1)
+	assert_eq(GFVariantData.to_int(store.get_value(_make_nested_value_path(70, "deep"))), 2)
 
 
 func test_batch_coalesces_repeated_path_and_flushes_once() -> void:
@@ -364,6 +431,25 @@ func test_erase_value_reports_removed_change() -> void:
 
 
 # --- 私有/辅助方法 ---
+
+func _make_nested_dictionary(depth: int, leaf_value: Variant) -> Dictionary:
+	var root: Dictionary = {}
+	var current: Dictionary = root
+	for index: int in range(depth):
+		var child: Dictionary = {}
+		current["level_%d" % index] = child
+		current = child
+	current["value"] = leaf_value
+	return root
+
+
+func _make_nested_value_path(depth: int, root_key: StringName) -> Array:
+	var path: Array = [root_key]
+	for index: int in range(depth):
+		path.append(StringName("level_%d" % index))
+	path.append(&"value")
+	return path
+
 
 func _find_signal_change(store: GFReactiveStateStoreBase, signal_name: String, path: String) -> Dictionary:
 	var parameters: Array = get_signal_parameters(store, signal_name)

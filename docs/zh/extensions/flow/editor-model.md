@@ -10,6 +10,8 @@
 
 `GFFlowGraphEditorModel` 进一步把节点、端口索引、GraphEdit slot、连接端口索引、分组和校验结果整理成视图模型，并提供 `auto_layout()` 复用 `GFGraphLayoutUtility` 写入初始节点位置。
 
+连接条目始终按资源中的原始顺序投影。`include_invalid_connections = true` 时，空连接和其他无效连接也会保留，并以 `valid = false` 和 `invalid_reasons` 说明缺失端点、重复连接、节点/端口缺失、端口方向、值类型/类名或单连接约束；设为 `false` 时，只有通过同一整套结构规则的连接进入视图模型。这样编辑器不会因先过滤坏数据而丢失可修复位置，也不会展示运行时会拒绝的伪合法连接。
+
 项目工具还可以用 `build_selection_package()`、`paste_selection_package()` 和 `remove_nodes()` 实现复制、粘贴、删除或批量改图，而不要求使用 GF 内置 UI。
 
 启用 GF 插件后，选中 `GFFlowGraph` 资源时 Inspector 会提供起始节点选择和校验摘要。GF 工作区中的 `GFFlowGraphDock` 可以加载流程图资源，在独立 GF 工作区窗口中以 GraphEdit 查看节点、拖动位置、建立或移除通用连接、查看节点、连接和问题清单，并显式触发通用自动布局。

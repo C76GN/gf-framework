@@ -231,7 +231,7 @@ func get_acceleration_at(world_position: Vector3) -> Vector3:
 |---|---|
 | `world_position` | 世界坐标。 |
 
-返回：加速度向量。
+返回：有限加速度向量；强度无法表示为 Vector3 时返回零向量。
 
 <a id="member-gfgravityfield3d-methods-get_strength_at_distance"></a>
 
@@ -252,7 +252,7 @@ func get_strength_at_distance(distance: float) -> float:
 |---|---|
 | `distance` | 距离。 |
 
-返回：加速度强度。
+返回：有限加速度强度；计算溢出时返回 0。
 
 <a id="member-gfgravityfield3d-methods-get_gravity_priority"></a>
 

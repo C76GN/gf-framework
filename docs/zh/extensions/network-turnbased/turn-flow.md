@@ -13,7 +13,7 @@ class_name ResolvePhase
 extends GFTurnPhase
 
 
-func execute(context: GFTurnContext) -> Variant:
+func _execute(context: GFTurnContext) -> Variant:
 	var flow := Gf.get_system(GFTurnFlowSystem) as GFTurnFlowSystem
 	flow.resolve_actions()
 	return null
@@ -30,9 +30,13 @@ flow.enqueue_action(GFTurnAction.new(actor_a, [target_b], { "value": 10 }, 1, 20
 flow.advance_phase()
 ```
 
-默认排序规则是 `priority` 降序，然后 `sort_value` 降序。需要项目自定义排序时，可向 `resolve_actions(order_resolver)` 传入比较回调。阶段和行动如果返回 Signal，系统会通过 `signal_timeout_seconds` 和当前流程 serial 做安全等待；`stop()` 或超时后不会继续调用旧阶段的 `exit()`，也不会把旧行动标记为 resolved。`resolve_actions()` 在上一批行动仍等待时会拒绝重入，避免同一批行动被重复解析。
+默认排序规则是 `priority` 降序，然后按有限 `sort_value` 降序；NaN 与正负 Infinity 统一排在有限值之后，并按入队顺序保持稳定。自定义 `order_resolver` 必须是无副作用、确定且满足严格弱序的 `func(a, b) -> bool`，并自行定义 non-finite 与平局规则。框架会在比较器使当前 lease 失效时恢复或封存快照，但不会把非传递比较器改造成可重放顺序。
 
-参与者对象可能在流程中被释放。`GFTurnContext.cleanup_invalid_actors()` 可显式移除失效参与者并清空失效的 `current_actor`，`GFTurnFlowSystem` 在推进和解析边界也会同步清理当前上下文。项目仍然应在行动效果层处理目标失效、死亡、离场或替换这类业务语义；TurnBased 只负责不让无效 Object 引用继续驱动通用流程。
+阶段和行动如果返回 Signal，系统会通过 `signal_timeout_seconds` 和当前流程 serial 做安全等待；`stop()` 或超时后不会继续调用旧阶段的 `_exit()`，也不会把旧行动标记为 resolved。`resolve_actions()` 在上一批行动仍等待时会拒绝同类重入，避免同一批行动被重复解析。`stop(true)` 的清理策略与停止通知分离：流程已经 stopped 时仍会幂等清空并封存队列，`stop(false)` 保留的在途行动也可由后续 `stop(true)` 升级为丢弃；重复调用不会重复发送 `flow_stopped`。
+
+当前 `finish(context)` 只按 Context 身份解析活动 phase runtime，不携带运行代际。因此项目在 timer、动画、网络或自定义 Signal 回调中调用它时，必须在 stop/timeout 时对称断开旧回调，并且不能让旧回调跨同一 Context 的 restart 存活；否则旧回调可能完成新 runtime。当前版本也没有跨 `GFTurnFlowSystem` 的 Context owner lease：一个可变 `GFTurnContext` 不得被两个 system 同时推进或解析。generation-scoped completion 与共享/嵌套 Context 所有权仍是待定的后续架构选择。
+
+参与者对象可能在流程中被释放。`GFTurnContext.cleanup_invalid_actors()` 可显式移除失效参与者并清空失效的 `current_actor`，`GFTurnFlowSystem` 在推进和解析边界也会同步清理当前上下文。Context 对 RefCounted participant 采用强所有权，项目必须调用 `remove_actor()` 或释放 Context 才会释放该引用；Node 被 `free()` 后仍可由 cleanup 移除。`get_actor_value()` 只调用参数数量与类型兼容的 `get_turn_value(key, fallback)`，不兼容的同名方法会回退到属性读取；GDScript 无法捕获项目方法内部错误，项目实现仍须保证该回调安全返回。项目也应在行动效果层处理目标失效、死亡、离场或替换这类业务语义；TurnBased 只负责不让无效 Object 引用继续驱动通用流程。
 
 ## 与权威状态和表现队列的组合边界
 

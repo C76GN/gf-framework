@@ -90,7 +90,7 @@ static func resolve_attribution(path: String, entries: Array, options: Dictionar
 static func build_attribution_report( entries: Array, resource_paths: PackedStringArray = PackedStringArray(), options: Dictionary = {} ) -> Dictionary:
 ```
 
-构建资产归因覆盖报告。 传入 resource_paths 时，报告会检查每个资源路径是否能命中归因条目。 缺少 path、重复 path、缺少 license_id 或未覆盖资源路径都会作为错误报告。
+构建资产归因覆盖报告。 传入 resource_paths 时，报告会检查每个资源路径是否能命中归因条目。 缺少 path、重复 path、冲突别名、无效覆盖输入、缺少 license_id 或未覆盖资源路径都会作为错误报告。
 
 参数：
 
@@ -107,7 +107,7 @@ static func build_attribution_report( entries: Array, resource_paths: PackedStri
 - `entries`: Array，每项可为归因 Dictionary、GFAssetMetadataRecord 或 GFAssetMetadataRecord.to_dict() 形状字典。
 - `resource_paths`: PackedStringArray，通常来自资源扫描或导入计划。
 - `options`: Dictionary，可包含 require_license_id、inherit_from_parent 和 attribution_key。
-- `return`: Dictionary，包含 ok、healthy、summary、entries、entry_count、resource_path_count、covered_paths、uncovered_paths、license_ids 等字段。
+- `return`: Dictionary，包含 ok、healthy、summary、entries、entry_count、resource_path_input_count、resource_path_count、valid_resource_path_count、invalid_resource_path_count、duplicate_resource_path_count、covered_paths、uncovered_paths、license_ids 等字段；resource_path_count 与 valid_resource_path_count 都表示规范化后的有效唯一资源路径数。
 
 <a id="member-gfassetattributiontools-methods-format_notice_text"></a>
 

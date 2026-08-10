@@ -9,7 +9,7 @@
 - 类别：值对象 (`value_object`)
 - 首次版本：`7.0.0`
 
-PackedByteArray 读写游标。 提供边界检查、显式字节序和 varuint 编码，适合网络包、存档片段、 二进制配置或工具导入器复用。它只处理字节游标，不规定协议字段或消息语义。
+PackedByteArray 读写游标。 提供边界检查、显式字节序和 varuint 编码，适合网络包、存档片段、 二进制配置或工具导入器复用。它只处理字节游标，不规定协议字段或消息语义。 一次公开操作失败时不会推进位置或发布部分写入；成功操作会把最近错误重置为 OK。 返回 void 的写入方法失败后，调用方必须立即读取 get_last_error()。
 
 ## 成员概览
 
@@ -89,7 +89,7 @@ var little_endian: bool = false
 var max_read_byte_count: int = _DEFAULT_MAX_READ_BYTE_COUNT
 ```
 
-单次读取允许的最大字节数。小于等于 0 表示不限制。
+单次公开读取允许的最大字节数。复合字段包含前缀与 payload；小于等于 0 表示不限制。 该属性不限制游标总长度或整条消息累计读取量。
 
 <a id="member-gfbytecursor-properties-max_write_byte_count"></a>
 
@@ -102,7 +102,7 @@ var max_read_byte_count: int = _DEFAULT_MAX_READ_BYTE_COUNT
 var max_write_byte_count: int = _DEFAULT_MAX_WRITE_BYTE_COUNT
 ```
 
-单次写入允许的最大字节数。小于等于 0 表示不限制。
+单次公开写入允许的最大字节数。复合字段包含前缀与 payload；小于等于 0 表示不限制。 该属性不限制游标总长度或整条消息累计写入量。
 
 ## 方法
 
@@ -694,7 +694,7 @@ func write_u8(value: int) -> void:
 
 | 名称 | 说明 |
 |---|---|
-| `value` | 要写入的值。 |
+| `value` | 要写入的值，范围为 0..255。 |
 
 <a id="member-gfbytecursor-methods-write_i8"></a>
 
@@ -713,7 +713,7 @@ func write_i8(value: int) -> void:
 
 | 名称 | 说明 |
 |---|---|
-| `value` | 要写入的值。 |
+| `value` | 要写入的值，范围为 -128..127。 |
 
 <a id="member-gfbytecursor-methods-write_u16"></a>
 
@@ -732,7 +732,7 @@ func write_u16(value: int) -> void:
 
 | 名称 | 说明 |
 |---|---|
-| `value` | 要写入的值。 |
+| `value` | 要写入的值，范围为 0..65535。 |
 
 <a id="member-gfbytecursor-methods-write_i16"></a>
 
@@ -751,7 +751,7 @@ func write_i16(value: int) -> void:
 
 | 名称 | 说明 |
 |---|---|
-| `value` | 要写入的值。 |
+| `value` | 要写入的值，范围为 -32768..32767。 |
 
 <a id="member-gfbytecursor-methods-write_u32"></a>
 
@@ -770,7 +770,7 @@ func write_u32(value: int) -> void:
 
 | 名称 | 说明 |
 |---|---|
-| `value` | 要写入的值。 |
+| `value` | 要写入的值，范围为 0..4294967295。 |
 
 <a id="member-gfbytecursor-methods-write_i32"></a>
 
@@ -789,7 +789,7 @@ func write_i32(value: int) -> void:
 
 | 名称 | 说明 |
 |---|---|
-| `value` | 要写入的值。 |
+| `value` | 要写入的值，范围为 -2147483648..2147483647。 |
 
 <a id="member-gfbytecursor-methods-write_var_uint"></a>
 
@@ -882,7 +882,7 @@ func write_var_utf8(value: String) -> bool:
 func get_last_error() -> Error:
 ```
 
-获取最近错误码。
+获取最近一次操作的错误码。 任一后续成功操作都会把该值重置为 OK；void 写入方法的调用方必须在下一次操作前读取。
 
 返回：最近错误码。
 

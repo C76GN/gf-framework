@@ -15,6 +15,8 @@
 
 | 类型 | 名称 | 签名 |
 |---|---|---|
+| 常量 | [`DEFAULT_MAX_ID3_BYTES`](#member-gfaudiometadatatools-constants-default_max_id3_bytes) | `const DEFAULT_MAX_ID3_BYTES: int = 1024 * 1024` |
+| 常量 | [`ABSOLUTE_MAX_ID3_BYTES`](#member-gfaudiometadatatools-constants-absolute_max_id3_bytes) | `const ABSOLUTE_MAX_ID3_BYTES: int = 8 * 1024 * 1024` |
 | 方法 | [`normalize_tag_name`](#member-gfaudiometadatatools-methods-normalize_tag_name) | `static func normalize_tag_name(tag_name: String) -> StringName:` |
 | 方法 | [`normalize_metadata`](#member-gfaudiometadatatools-methods-normalize_metadata) | `static func normalize_metadata(metadata: Dictionary, options: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`merge_metadata`](#member-gfaudiometadatatools-methods-merge_metadata) | `static func merge_metadata( base_metadata: Dictionary, overlay_metadata: Dictionary, options: Dictionary = {} ) -> Dictionary:` |
@@ -24,6 +26,34 @@
 | 方法 | [`read_path_metadata`](#member-gfaudiometadatatools-methods-read_path_metadata) | `static func read_path_metadata(path: String, options: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`read_clip_metadata`](#member-gfaudiometadatatools-methods-read_clip_metadata) | `static func read_clip_metadata(clip: GFAudioClip, options: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`apply_clip_metadata`](#member-gfaudiometadatatools-methods-apply_clip_metadata) | `static func apply_clip_metadata(clip: GFAudioClip, options: Dictionary = {}) -> Dictionary:` |
+
+## 常量
+
+<a id="member-gfaudiometadatatools-constants-default_max_id3_bytes"></a>
+
+### `DEFAULT_MAX_ID3_BYTES`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+const DEFAULT_MAX_ID3_BYTES: int = 1024 * 1024
+```
+
+默认单次 ID3 读取与解析的字节上限（含 10-byte header）。
+
+<a id="member-gfaudiometadatatools-constants-absolute_max_id3_bytes"></a>
+
+### `ABSOLUTE_MAX_ID3_BYTES`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+const ABSOLUTE_MAX_ID3_BYTES: int = 8 * 1024 * 1024
+```
+
+框架允许的单次 ID3 读取与解析绝对硬上限（含 10-byte header）。 调用方只能收紧或在此范围内放宽 DEFAULT_MAX_ID3_BYTES，不能越过该上限。
 
 ## 方法
 
@@ -66,7 +96,7 @@ static func normalize_metadata(metadata: Dictionary, options: Dictionary = {}) -
 | 名称 | 说明 |
 |---|---|
 | `metadata` | 原始元数据字典。 |
-| `options` | 可选项，支持 `drop_null_values`。 |
+| `options` | 可选项，支持 \`drop_null_values\`。 |
 
 返回：规范化后的元数据副本。
 
@@ -95,7 +125,7 @@ static func merge_metadata( base_metadata: Dictionary, overlay_metadata: Diction
 |---|---|
 | `base_metadata` | 基础元数据。 |
 | `overlay_metadata` | 覆盖元数据。 |
-| `options` | 可选项，支持 `overwrite` 与 normalize_metadata() 的选项。 |
+| `options` | 可选项，支持 \`overwrite\` 与 normalize_metadata() 的选项。 |
 
 返回：合并后的元数据副本。
 
@@ -124,7 +154,7 @@ static func make_display_summary(metadata: Dictionary, options: Dictionary = {})
 | 名称 | 说明 |
 |---|---|
 | `metadata` | 音频元数据。 |
-| `options` | 可选项，支持 `fallback_title`。 |
+| `options` | 可选项，支持 \`fallback_title\`。 |
 
 返回：展示摘要。
 
@@ -152,7 +182,7 @@ static func extract_stream_metadata(stream: AudioStream, options: Dictionary = {
 | 名称 | 说明 |
 |---|---|
 | `stream` | 要读取的音频流。 |
-| `options` | 可选项，支持 `parse_stream_data`。 |
+| `options` | 可选项，支持 \`parse_stream_data\`。 |
 
 返回：元数据报告。
 
@@ -172,21 +202,21 @@ static func extract_stream_metadata(stream: AudioStream, options: Dictionary = {
 static func parse_id3v2_metadata(bytes: PackedByteArray, options: Dictionary = {}) -> Dictionary:
 ```
 
-解析 ID3v2 字节中的常见音频元数据。
+解析 ID3v2 字节中的常见音频元数据。 后者会被约束在 10 到 ABSOLUTE_MAX_ID3_BYTES 之间。
 
 参数：
 
 | 名称 | 说明 |
 |---|---|
 | `bytes` | 音频文件开头或完整文件字节。 |
-| `options` | 可选项，支持 `fail_on_frame_error`。 |
+| `options` | 可选项，支持 \`fail_on_frame_error\` 与 \`max_id3_bytes\`； |
 
 返回：ID3v2 元数据报告。
 
 结构：
 
 - `options`: Dictionary ID3 parsing options.
-- `return`: Dictionary with `ok: bool`, `recognized: bool`, `metadata: Dictionary`, `issues: Array[Dictionary]`, `issue_count: int`, `id3_version: String`, `tag_size: int`, `frame_count: int`, and `skipped_frame_count: int`.
+- `return`: Dictionary with `ok: bool`, `recognized: bool`, `partial: bool`, `metadata: Dictionary`, `issues: Array[Dictionary]`, `issue_count: int`, `id3_version: String`, `id3_flags: int`, `unsupported_features: Array[String]`, `tag_size: int`, `frame_count: int`, `skipped_frame_count: int`, `requested_max_id3_bytes: int`, `effective_max_id3_bytes: int`, `absolute_max_id3_bytes: int`, `limit_clamped: bool`, `input_bytes: int`, and `processed_id3_bytes: int`.
 
 <a id="member-gfaudiometadatatools-methods-read_path_metadata"></a>
 
@@ -199,21 +229,21 @@ static func parse_id3v2_metadata(bytes: PackedByteArray, options: Dictionary = {
 static func read_path_metadata(path: String, options: Dictionary = {}) -> Dictionary:
 ```
 
-从本地路径读取音频元数据报告。
+从本地路径读取音频元数据报告。 ABSOLUTE_MAX_ID3_BYTES 之间。读取先取固定 header，再按声明长度和有效上限取 body。
 
 参数：
 
 | 名称 | 说明 |
 |---|---|
-| `path` | `res://`、`user://` 或绝对路径。 |
-| `options` | 可选项，支持 `max_id3_bytes`。 |
+| `path` | \`res://\`、\`user://\` 或绝对路径。 |
+| `options` | 可选项，支持 \`max_id3_bytes\`；请求值会被约束在 10 到 |
 
 返回：元数据报告。
 
 结构：
 
 - `options`: Dictionary read options.
-- `return`: Dictionary with `ok: bool`, `recognized: bool`, `metadata: Dictionary`, `issues: Array[Dictionary]`, `issue_count: int`, and `path: String`.
+- `return`: Dictionary with `ok: bool`, `recognized: bool`, `partial: bool`, `metadata: Dictionary`, `issues: Array[Dictionary]`, `issue_count: int`, `path: String`, `file_size_bytes: int`, `read_bytes: int`, `requested_max_id3_bytes: int`, `effective_max_id3_bytes: int`, `absolute_max_id3_bytes: int`, and `limit_clamped: bool`.
 
 <a id="member-gfaudiometadatatools-methods-read_clip_metadata"></a>
 
@@ -233,7 +263,7 @@ static func read_clip_metadata(clip: GFAudioClip, options: Dictionary = {}) -> D
 | 名称 | 说明 |
 |---|---|
 | `clip` | 要读取的音频片段。 |
-| `options` | 可选项，支持 `include_stream`、`include_path` 和 `overwrite_existing`。 |
+| `options` | 可选项，支持 \`include_stream\`、\`include_path\` 和 \`overwrite_existing\`。 |
 
 返回：元数据报告。
 

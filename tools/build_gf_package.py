@@ -31,6 +31,9 @@ BLOCKED_DIR_NAMES = {".git", ".godot", ".import", ".vs", "__pycache__", "node_mo
 BLOCKED_FILE_NAMES = {".DS_Store", "Thumbs.db"}
 BLOCKED_SUFFIXES = {".import", ".pyc", ".pyo", ".tmp", ".log"}
 PACKAGE_SCHEMA_VERSION = 1
+PACKAGE_MANIFEST_MAX_BYTES = 1024 * 1024
+PACKAGE_MANIFEST_MAX_DEPTH = 64
+PACKAGE_MANIFEST_MAX_NODES = 16 * 1024
 REGISTRY_SCHEMA_VERSION = 2
 REGISTRY_SOURCE_SCHEMA_VERSION = 1
 DEFAULT_REGISTRY_SOURCE_CHANNEL = "stable"
@@ -85,6 +88,36 @@ PACKAGE_MANIFEST_FORBIDDEN_FIELDS = {
 	"sha256",
 	"size_bytes",
 } | UNSUPPORTED_REGISTRY_SOURCE_SIGNATURE_FIELDS
+PACKAGE_MANIFEST_FORBIDDEN_METADATA_FIELDS = PACKAGE_MANIFEST_FORBIDDEN_FIELDS | {
+	"after",
+	"before",
+	"bundle",
+	"bundles",
+	"conflicts",
+	"depends_on",
+	"editor_action_paths",
+	"extension_dependencies",
+	"extension_pack",
+	"extension_preset",
+	"external_roots",
+	"files",
+	"integrates_with",
+	"load_after",
+	"load_before",
+	"manifest_overrides",
+	"optional_dependencies",
+	"package",
+	"package_id",
+	"package_name",
+	"packages",
+	"peer_dependencies",
+	"preset",
+	"presets",
+	"recommends",
+	"requires",
+	"soft_dependencies",
+	"suggests",
+}
 
 
 def main() -> int:
@@ -402,23 +435,56 @@ def load_package_manifests() -> dict[str, Any]:
 	records: list[dict[str, Any]] = []
 	issues: list[str] = []
 	for path in sorted(PACKAGE_ROOT.rglob("*.json")):
+		relative_path = path.relative_to(ROOT).as_posix()
 		if gf_path_security.path_has_reparse_component(path):
 			issues.append(f"{relative_display_path(path)}: package manifest crosses a symlink, junction, or reparse point.")
 			continue
 		try:
-			data = json.loads(path.read_text(encoding="utf-8"))
-		except (OSError, UnicodeDecodeError, json.JSONDecodeError) as error:
-			issues.append(f"{path.relative_to(ROOT).as_posix()}: invalid package manifest JSON: {error}")
+			manifest_text = gf_path_security.read_pinned_utf8_regular_file(
+				ROOT,
+				relative_path,
+				max_bytes=PACKAGE_MANIFEST_MAX_BYTES,
+			)
+		except gf_path_security.PinnedReadError as error:
+			if error.rule_id == "path_security.file_too_large":
+				issues.append(
+					f"{relative_path}: package manifest exceeds {PACKAGE_MANIFEST_MAX_BYTES} bytes."
+				)
+			else:
+				issues.append(
+					f"{relative_path}: package manifest is not a stable contained UTF-8 regular file: {error.rule_id}."
+				)
+			continue
+		try:
+			data = json.loads(manifest_text)
+		except RecursionError:
+			issues.append(
+				f"{relative_path}: package manifest nesting exceeds {PACKAGE_MANIFEST_MAX_DEPTH}."
+			)
+			continue
+		except json.JSONDecodeError as error:
+			issues.append(f"{relative_path}: invalid package manifest JSON: {error}")
+			continue
+		structure_issue = package_manifest_structure_issue(data)
+		if structure_issue:
+			issues.append(f"{relative_path}: {structure_issue}.")
 			continue
 		if not isinstance(data, dict):
-			issues.append(f"{path.relative_to(ROOT).as_posix()}: package manifest root must be an object.")
+			issues.append(f"{relative_path}: package manifest root must be an object.")
 			continue
-		relative_path = path.relative_to(ROOT).as_posix()
 		for field_name in sorted(data):
 			if field_name in PACKAGE_MANIFEST_FORBIDDEN_FIELDS:
 				issues.append(f"{relative_path}: forbidden package manifest field: {field_name}.")
 			elif field_name not in PACKAGE_MANIFEST_ALLOWED_FIELDS:
 				issues.append(f"{relative_path}: unsupported package manifest field: {field_name}.")
+		metadata = data.get("metadata")
+		if "metadata" in data and not isinstance(metadata, dict):
+			issues.append(f"{relative_path}: package manifest metadata must be an object.")
+		elif isinstance(metadata, dict):
+			for field_path in forbidden_package_manifest_metadata_field_paths(metadata):
+				issues.append(
+					f"{relative_path}: forbidden package manifest metadata field: {field_path}."
+				)
 		package_id = string_value(data.get("id", ""))
 		issues.extend(
 			portable_manifest_path_list_issues(
@@ -454,6 +520,45 @@ def load_package_manifests() -> dict[str, Any]:
 			issues.append(f"{record['path']}: package id is required.")
 		records.append(record)
 	return {"records": records, "issues": issues}
+
+
+def package_manifest_structure_issue(value: Any) -> str:
+	stack: list[tuple[Any, int]] = [(value, 1)]
+	node_count = 0
+	while stack:
+		current, depth = stack.pop()
+		if depth > PACKAGE_MANIFEST_MAX_DEPTH:
+			return f"package manifest nesting exceeds {PACKAGE_MANIFEST_MAX_DEPTH}"
+		node_count += 1
+		if node_count > PACKAGE_MANIFEST_MAX_NODES:
+			return f"package manifest structure exceeds {PACKAGE_MANIFEST_MAX_NODES} JSON values"
+		if isinstance(current, dict):
+			stack.extend((nested, depth + 1) for nested in reversed(list(current.values())))
+		elif isinstance(current, list):
+			stack.extend((nested, depth + 1) for nested in reversed(current))
+	return ""
+
+
+def forbidden_package_manifest_metadata_field_paths(
+	value: dict[str, Any] | list[Any],
+	prefix: str = "metadata",
+) -> list[str]:
+	result: list[str] = []
+	stack: list[tuple[dict[str, Any] | list[Any], str]] = [(value, prefix)]
+	while stack:
+		current, current_prefix = stack.pop()
+		items = current.items() if isinstance(current, dict) else enumerate(current)
+		for raw_key, nested_value in items:
+			field_path = (
+				f"{current_prefix}.{raw_key}"
+				if isinstance(current, dict)
+				else f"{current_prefix}[{raw_key}]"
+			)
+			if isinstance(current, dict) and str(raw_key) in PACKAGE_MANIFEST_FORBIDDEN_METADATA_FIELDS:
+				result.append(field_path)
+			if isinstance(nested_value, (dict, list)):
+				stack.append((nested_value, field_path))
+	return sorted(result)
 
 
 def resolve_selected_package_ids(

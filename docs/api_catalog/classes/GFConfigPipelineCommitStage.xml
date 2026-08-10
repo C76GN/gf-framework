@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFConfigPipelineCommitStage" path="addons/gf/tools/config_pipeline/gf_config_pipeline_commit_stage.gd" module="tools" extends="RefCounted" classDigest="771d363292e1cbb75ef2c09446fbc72182405c8d372436015d6e85ce29146053">
+<class name="GFConfigPipelineCommitStage" path="addons/gf/tools/config_pipeline/gf_config_pipeline_commit_stage.gd" module="tools" extends="RefCounted" classDigest="0a6e2527283db1052a3c1f821e3ec42e91cfd9dacd8b1154ed09f92bbe6ee8c0">
 	<description>GFConfigPipelineCommitStage: Config Pipeline 的文件提交事务阶段。
 将 Config Pipeline 的 ResourceSaver 等专用写入器接到框架级
 GFArtifactWriteTransaction。该阶段不复制事务实现、不解释产物内容，
@@ -74,7 +74,7 @@ GFArtifactWriteTransaction。该阶段不复制事务实现、不解释产物内
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">阶段描述。</tag>
-				<tag name="schema">return: Dictionary，包含 stage_id、implementation_version、input_contract 和 output_contract。</tag>
+				<tag name="schema">return: Dictionary，包含 stage_id、implementation_version、implementation_dependencies、input_contract 和 output_contract。</tag>
 				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>

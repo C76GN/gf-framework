@@ -31,9 +31,11 @@ enum FileOpenMode {
 
 # --- 导出变量 ---
 
-## 输出文件路径。留空时会根据 GFLogUtility 当前日志文件派生同名 `.jsonl` 文件。
+## 输出文件路径。留空时会根据 GFLogUtility 当前日志文件和 sink 实例派生独占 `.jsonl` 文件。
 ## [br]
 ## @api public
+## [br]
+## @since 11.0.0
 @export var file_path: String = ""
 
 ## 是否在写入前移除 `text` 字段，减少重复存储。
@@ -71,6 +73,8 @@ enum FileOpenMode {
 var _file: FileAccess
 var _effective_file_path: String = ""
 var _last_flush_msec: int = 0
+var _elapsed_since_flush_msec: float = 0.0
+var _has_unflushed_data: bool = false
 var _uses_default_file_path: bool = false
 var _last_error: Error = OK
 var _last_error_message: String = ""
@@ -116,6 +120,8 @@ func init(owner: Object) -> void:
 			_record_error(FileAccess.get_open_error(), "无法创建日志文件：%s" % _effective_file_path, true)
 	else:
 		_last_flush_msec = Time.get_ticks_msec()
+		_elapsed_since_flush_msec = 0.0
+		_has_unflushed_data = false
 		_is_initialized = true
 
 	if _uses_default_file_path:
@@ -142,7 +148,28 @@ func write(entry: Dictionary) -> void:
 		_write_error_count += 1
 		_record_error(_file.get_error(), "无法写入 JSONL 日志：%s" % _effective_file_path, true)
 		return
+	_has_unflushed_data = true
 	_flush_if_needed()
+
+
+## 推进自动 flush 计时；由持有该 sink 的 GFLogUtility 调用。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param delta: 本帧时间增量（秒）；非有限或非正数不会推进状态。
+func tick(delta: float) -> void:
+	if (
+		not is_finite(delta)
+		or delta <= 0.0
+		or flush_interval_msec <= 0
+		or not _has_unflushed_data
+	):
+		return
+	_elapsed_since_flush_msec += delta * 1000.0
+	if _elapsed_since_flush_msec >= float(flush_interval_msec):
+		flush()
 
 
 ## 刷新尚未写出的 JSONL 内容。
@@ -152,6 +179,8 @@ func flush() -> void:
 	if _file != null:
 		_file.flush()
 		_last_flush_msec = Time.get_ticks_msec()
+		_elapsed_since_flush_msec = 0.0
+		_has_unflushed_data = false
 
 
 ## 关闭文件句柄。
@@ -159,7 +188,7 @@ func flush() -> void:
 ## @api public
 func shutdown() -> void:
 	if _file != null:
-		_file.flush()
+		flush()
 		_file.close()
 		_file = null
 	_is_initialized = false
@@ -205,9 +234,9 @@ func _resolve_file_path(owner: Object) -> String:
 	if owner != null and owner.has_method("get_log_file_path"):
 		var owner_path: String = GFVariantData.to_text(owner.call("get_log_file_path"))
 		if not owner_path.is_empty():
-			return owner_path.get_basename() + ".jsonl"
+			return "%s_sink_%d.jsonl" % [owner_path.get_basename(), get_instance_id()]
 
-	return "user://logs/gf_log_%d.jsonl" % Time.get_ticks_msec()
+	return "user://logs/gf_log_%d_sink_%d.jsonl" % [Time.get_ticks_msec(), get_instance_id()]
 
 
 func _normalize_custom_file_path(path: String) -> String:
@@ -273,8 +302,7 @@ func _flush_if_needed() -> void:
 		or flush_interval_msec <= 0
 		or now - _last_flush_msec >= flush_interval_msec
 	):
-		_file.flush()
-		_last_flush_msec = now
+		flush()
 
 
 func _cleanup_old_jsonl_files() -> void:

@@ -246,7 +246,7 @@ func configure( p_resource_key: StringName, p_path: String, p_type_hint: String 
 | 名称 | 说明 |
 |---|---|
 | `p_resource_key` | 稳定资源键；可为空。 |
-| `p_path` | 原始资源路径，支持 `res://`、`uid://` 和 `user://`。 |
+| `p_path` | 原始资源路径，支持 \`res://\`、\`uid://\` 和 \`user://\`。 |
 | `p_type_hint` | 可选 ResourceLoader 类型提示。 |
 | `options` | 可选项，支持 check_exists 和 metadata。 |
 

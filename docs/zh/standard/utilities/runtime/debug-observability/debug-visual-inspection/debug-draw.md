@@ -38,4 +38,6 @@ for item in debug_draw.get_items(&"path"):
 
 `enabled = false` 会让默认读取返回空数组，但不删除已有命令；`get_items(channel, true)` 可用于调试面板查看被禁用频道的数据。
 
-生命周期规则：单条命令传入负数时使用 `default_lifetime_seconds`，默认值为 `0.0`，表示等待下一次 `tick()` 后清理；`default_lifetime_seconds < 0` 表示永久保留。`max_items` 可限制缓冲区规模，超过后会丢弃最旧命令。
+生命周期规则：单条命令传入负数时使用 `default_lifetime_seconds`，默认值为 `0.0`，表示等待下一次 `tick()` 后清理；`default_lifetime_seconds < 0` 表示永久保留。NaN/Infinity 生命周期会被拒绝并返回 `0`，非有限 `tick(delta)` 会被忽略，非有限默认生命周期赋值也不会污染已有配置。
+
+`max_items` 可限制缓冲区规模，超过后会丢弃最旧命令。当前 `max_items <= 0` 表示不限制，只适合受信开发工具；面向不可信输入时必须保持正数上限。

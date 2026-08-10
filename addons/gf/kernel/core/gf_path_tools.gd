@@ -102,8 +102,9 @@ static func make_relative_path(path: String, base_path: String) -> String:
 		return normalized_path
 	if normalized_path == normalized_base:
 		return ""
-	if normalized_path.begins_with(normalized_base + "/"):
-		return normalized_path.substr(normalized_base.length() + 1)
+	var descendant_prefix: String = _descendant_prefix(normalized_base)
+	if normalized_path.begins_with(descendant_prefix):
+		return normalized_path.substr(descendant_prefix.length())
 	return normalized_path
 
 
@@ -132,9 +133,9 @@ static func is_path_under_root(
 		return empty_root_matches
 	if normalized_path.is_empty():
 		return false
-	if allow_equal and normalized_path == normalized_root:
-		return true
-	return normalized_path.begins_with(normalized_root + "/")
+	if normalized_path == normalized_root:
+		return allow_equal
+	return normalized_path.begins_with(_descendant_prefix(normalized_root))
 
 
 ## 判断 path 是否被排除路径集合命中。
@@ -152,6 +153,17 @@ static func is_path_excluded(path: String, excluded_paths: PackedStringArray) ->
 		var normalized_excluded: String = normalize_root_path(excluded_path)
 		if normalized_excluded.is_empty():
 			continue
-		if normalized_path == normalized_excluded or normalized_path.begins_with(normalized_excluded + "/"):
+		if (
+			normalized_path == normalized_excluded
+			or normalized_path.begins_with(_descendant_prefix(normalized_excluded))
+		):
 			return true
 	return false
+
+
+# --- 私有/辅助方法 ---
+
+static func _descendant_prefix(root_path: String) -> String:
+	if root_path.ends_with("://"):
+		return root_path
+	return root_path + "/"

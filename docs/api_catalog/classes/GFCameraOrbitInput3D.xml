@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFCameraOrbitInput3D" path="addons/gf/extensions/camera/nodes/gf_camera_orbit_input_3d.gd" module="extensions/camera" extends="Node" classDigest="1d893402bdd0ce3401ee85606710c75f8aec5ad7151f761c7c2975b67f6b709b">
+<class name="GFCameraOrbitInput3D" path="addons/gf/extensions/camera/nodes/gf_camera_orbit_input_3d.gd" module="extensions/camera" extends="Node" classDigest="4c8cb09bfc77bfa81c17f424952baa63c349349cb34b8b0d1f97eb6721b6e608">
 	<description>GFCameraOrbitInput3D: 通用 3D 环绕相机输入桥接节点。
 将 GFInputMappingUtility 的可配置动作值或鼠标拖拽转换为 GFCameraOrbitRig3D 的角度和距离增量。
 它不创建输入上下文，也不定义项目动作绑定。</description>
@@ -107,10 +107,11 @@
 			</tags>
 		</member>
 		<member kind="property" name="mouse_button" decorators="@export">
-			<signature>var mouse_button: MouseButton = MOUSE_BUTTON_RIGHT</signature>
+			<signature>var mouse_button: MouseButton = MOUSE_BUTTON_RIGHT:</signature>
 			<description>鼠标拖拽环绕使用的按键。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.23.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="mouse_degrees_per_pixel" decorators="@export">

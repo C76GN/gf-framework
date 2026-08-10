@@ -27,6 +27,14 @@ timer_util.execute_after_owned(self, 2.0, func() -> void:
 
 排队成功时会返回大于 `0` 的句柄，可用 `cancel(handle)` 取消，或用 `cancel_owner(owner)` 批量取消同一 owner 的任务。
 
+所有秒数输入都必须是有限浮点数。一次性任务的有限 `delay <= 0` 会同步执行并返回 `0`；重复任务要求 `interval > 0`，有限 `initial_delay < 0` 表示使用 `interval`。`NaN`、`+INF` 和 `-INF` 会在创建任务前被拒绝并返回 `0`，不会留下永久 pending 记录。
+
+同一次 `tick()` 中，到期任务在各自回调真正开始前仍可取消。较早回调调用 `cancel(handle)`、`cancel_owner(owner)`、`init()` 或 `dispose()` 时，尚未进入回调的同批到期任务不会继续执行；生命周期重置也不会让旧任务借助重新使用的句柄进入新队列。
+
 它由架构 tick 传入的逻辑 delta 推进；通常会自然受到 `GFTimeUtility` 的缩放和暂停结果影响，但如果项目手动调用 `timer_util.tick(delta)`，传入什么 delta 就按什么时间推进。
 
 `get_debug_snapshot()` 可查看 pending 数量、句柄和 owner 绑定任务数量；框架 `dispose()` 时会清空尚未触发的任务。
+
+## 手动整数 Tick
+
+测试、回放或服务器模拟需要完全确定的整数时间时，使用 `GFManualTimerQueue`。`advance_to()` / `advance_by()` 是队列唯一的 drain 边界；回调中再次推进同一队列会立即返回 `status = advance_in_progress`，不会绕过外层的 `max_callbacks` 预算。回调调用 `clear()` 时会使本轮旧生命周期失效，外层推进不会再把旧目标 tick 写回已经清空的队列。

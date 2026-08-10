@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFTextSearchScorer" path="addons/gf/standard/foundation/collections/gf_text_search_scorer.gd" module="standard" extends="RefCounted" classDigest="7dffac7ede036c0bc495777e624f607648ea8cfd9e002b002e471255d9e8c5db">
+<class name="GFTextSearchScorer" path="addons/gf/standard/foundation/collections/gf_text_search_scorer.gd" module="standard" extends="RefCounted" classDigest="63cdfebfacb20d5abdb97000bd6f922cbecb626f35a5cdf09f05e3baf585cea2">
 	<description>GFTextSearchScorer: 通用文本检索评分器。
 对标题、关键字、路径、说明等候选字段进行轻量 token 匹配、相似度评分和排序。
 它不读取文件系统、不创建 UI，也不规定候选数据来自资源、命令、设置还是项目内容。</description>
@@ -12,7 +12,13 @@
 	<enums />
 	<constants>
 		<member kind="const" name="DEFAULT_FIELDS">
-			<signature>const DEFAULT_FIELDS: Array[Dictionary] = [</signature>
+			<signature>const DEFAULT_FIELDS: Array[Dictionary] = [
+	{ "key": "title", "weight": 4.0 },
+	{ "key": "name", "weight": 3.0 },
+	{ "key": "keywords", "weight": 2.0 },
+	{ "key": "detail", "weight": 1.0 },
+	{ "key": "path", "weight": 1.0 },
+]</signature>
 			<description>默认候选字段权重。</description>
 			<tags>
 				<tag name="api">public</tag>

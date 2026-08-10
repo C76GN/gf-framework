@@ -140,12 +140,13 @@ Tween 缓动类型。
 ### `marker_id`
 
 - API：`public`
+- 首次版本：`11.0.0`
 
 ```gdscript
 var marker_id: StringName = &""
 ```
 
-可选步骤标记。非空时 GFConfiguredTweenAction 会在步骤结束后发出 marker_reached。
+可选步骤标记。非空时 GFConfiguredTweenAction 会在步骤结束后发出 marker_reached； 标记通知不会改变相邻步骤声明的并行拓扑。
 
 ## 方法
 

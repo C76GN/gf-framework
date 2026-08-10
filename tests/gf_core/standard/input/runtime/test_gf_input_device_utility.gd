@@ -170,6 +170,75 @@ func test_get_assignments_returns_copies() -> void:
 	assert_eq(utility.get_assignment(0).device_id, 9, "外部修改副本不应影响内部映射。")
 
 
+func test_get_assignment_returns_copy() -> void:
+	var utility: GFInputDeviceUtility = GFInputDeviceUtility.new()
+	utility.include_keyboard_mouse = false
+	utility.include_touch = false
+	utility.set_assignment(utility.create_assignment(0, GFInputDeviceAssignment.DeviceType.CUSTOM, 9))
+
+	var assignment: GFInputDeviceAssignment = utility.get_assignment(0)
+	assignment.player_index = 3
+	assignment.device_type = GFInputDeviceAssignment.DeviceType.JOYPAD
+	assignment.device_id = 99
+
+	var stored: GFInputDeviceAssignment = utility.get_assignment(0)
+	assert_not_null(stored, "修改单项 getter 的返回值不得移动内部记录。")
+	if stored == null:
+		return
+	assert_eq(stored.player_index, 0, "内部玩家索引只能由事务 API 修改。")
+	assert_eq(stored.device_type, GFInputDeviceAssignment.DeviceType.CUSTOM, "内部设备类型不得被外部引用污染。")
+	assert_eq(stored.device_id, 9, "内部设备 ID 不得被外部引用污染。")
+	assert_eq(
+		utility.get_player_for_device(GFInputDeviceAssignment.DeviceType.CUSTOM, 9),
+		0,
+		"设备反查必须保持原 assignment。"
+	)
+
+
+func test_max_players_shrink_prunes_assignments_deadzones_and_repairs_active_player() -> void:
+	var utility: GFInputDeviceUtility = GFInputDeviceUtility.new()
+	utility.max_players = 4
+	utility.include_keyboard_mouse = false
+	utility.include_touch = false
+	utility.set_assignment(utility.create_assignment(0, GFInputDeviceAssignment.DeviceType.CUSTOM, 10))
+	utility.set_assignment(utility.create_assignment(3, GFInputDeviceAssignment.DeviceType.JOYPAD, 7))
+	utility.set_player_deadzone(3, 0.4)
+	utility.set_active_player(3)
+	watch_signals(utility)
+
+	utility.max_players = 1
+
+	assert_eq(utility.get_assignments().size(), 1, "缩容后只应保留新范围内的 assignment。")
+	assert_null(utility.get_assignment(3), "缩容必须撤销越界 assignment。")
+	assert_eq(utility.active_player_index, 0, "被裁剪的 active player 必须修复到仍存在的席位。")
+	assert_eq(utility.get_player_deadzone(3, -1.0), -1.0, "越界玩家的 deadzone 覆盖也应清理。")
+	assert_signal_emit_count(utility, "assignments_changed", 1, "一次缩容事务只应发出一次 assignment 集变更。")
+	assert_signal_emit_count(utility, "active_player_changed", 1, "缩容只应产生一次 active player 修复。")
+	var events: Array[Dictionary] = utility.get_assignment_events()
+	var removed: Dictionary = _find_latest_assignment_event(events, &"assignment_removed")
+	assert_eq(GFVariantData.get_option_string_name(removed, "reason"), &"max_players_reduced")
+	assert_eq(
+		GFVariantData.get_option_int(
+			GFVariantData.get_option_dictionary(removed, "previous_assignment"),
+			"player_index",
+			-1
+		),
+		3,
+		"诊断事件必须标明被容量裁剪的玩家。"
+	)
+
+	utility.max_players = 1
+	utility.max_players = 4
+	assert_signal_emit_count(utility, "assignments_changed", 1, "同值设置与扩容都不应伪造 assignment 变更。")
+	assert_null(utility.get_assignment(3), "重新扩容不得复活已裁剪的 assignment。")
+
+	utility.max_players = 0
+	assert_true(utility.get_assignments().is_empty(), "缩到 0 必须撤销最后一个 assignment。")
+	assert_eq(utility.active_player_index, -1, "缩到 0 后 active player 必须进入显式空状态。")
+	assert_signal_emit_count(utility, "assignments_changed", 2, "第二次真实缩容应再发出一次集合变更。")
+	assert_signal_emit_count(utility, "active_player_changed", 2, "第二次真实缩容应再修复一次 active player。")
+
+
 ## 验证未登记手柄输入可自动分配到空玩家席位并更新活跃玩家。
 func test_handle_input_event_auto_assigns_joypad_to_empty_player() -> void:
 	var utility: GFInputDeviceUtility = GFInputDeviceUtility.new()

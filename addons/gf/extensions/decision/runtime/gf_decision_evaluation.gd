@@ -77,7 +77,7 @@ func configure(
 	decision_set_id = p_decision_set_id
 	scores = _copy_scores(p_scores)
 	best_score = _copy_best_score(p_best_score, scores)
-	debug_snapshot = p_debug_snapshot.duplicate(true)
+	debug_snapshot = _copy_dictionary(p_debug_snapshot)
 	return self
 
 
@@ -99,7 +99,7 @@ func to_dictionary() -> Dictionary:
 		"decision_set_id": decision_set_id,
 		"scores": score_dictionaries,
 		"best_score": best_score.to_dictionary() if best_score != null else {},
-		"debug_snapshot": debug_snapshot.duplicate(true),
+		"debug_snapshot": _copy_dictionary(debug_snapshot),
 	}
 
 
@@ -165,6 +165,21 @@ func _copy_score(source_score: GFDecisionScore) -> GFDecisionScore:
 	copied_score.decision_order = source_score.decision_order
 	copied_score.score = source_score.score
 	copied_score.accepted = source_score.accepted
-	copied_score.consideration_scores = source_score.consideration_scores.duplicate(true)
-	copied_score.metadata = source_score.metadata.duplicate(true)
+	copied_score.consideration_scores = _copy_consideration_scores(source_score.consideration_scores)
+	copied_score.metadata = _copy_dictionary(source_score.metadata)
 	return copied_score
+
+
+func _copy_consideration_scores(source: Array[Dictionary]) -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	for detail: Dictionary in source:
+		result.append(_copy_dictionary(detail))
+	return result
+
+
+func _copy_dictionary(source: Dictionary) -> Dictionary:
+	var copied: Variant = GFVariantData.duplicate_variant(source)
+	if copied is Dictionary:
+		var copied_dictionary: Dictionary = copied
+		return copied_dictionary
+	return {}

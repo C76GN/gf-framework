@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFAudioUtility" path="addons/gf/standard/utilities/audio/gf_audio_utility.gd" module="standard" extends="GFUtility" classDigest="686d83489c9970ee57466368a24f3ebee1d6d9743e8ce375bd40c752e631b59e">
+<class name="GFAudioUtility" path="addons/gf/standard/utilities/audio/gf_audio_utility.gd" module="standard" extends="GFUtility" classDigest="f93d4aebb13a21ebffde42e9515ba81b19a8fb3274ad8610d29e8fd24458d257">
 	<description>GFAudioUtility: 全局音频管理器。
 管理 BGM 和 SFX 的播放与音量。
 注册 GFObjectPoolUtility 时会复用 AudioStreamPlayer，未注册时使用普通播放器。
@@ -73,6 +73,15 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="max_idle_ambient_players">
+			<signature>var max_idle_ambient_players: int = 16:</signature>
+			<description>已停止环境音播放器的最大空闲缓存数量；0 表示停止后立即释放。
+活动本地会话和 backend-owned 会话不计入此空闲缓存。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 		<member kind="property" name="sfx_overflow_policy">
@@ -753,7 +762,7 @@ backend-owned 会话会查询后端，并在稳定 identity 下提交自然结�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">调试快照。</tag>
-				<tag name="schema">return: Dictionary，包含 backend、backend_snapshot、backend_capabilities、current_bgm_key、current_bgm_region、last_playback_region_rejection、bgm_state、bgm_owner、bgm_generation、bgm_playing、bgm_paused、bgm_position、bgm_history、active_sfx_count、active_spatial_sfx_count、max_sfx_players、ambient_channels、ambient_sessions、audio_bank_count、ducked_bus_count 和 active_mix_tween_count 字段。</tag>
+				<tag name="schema">return: Dictionary，包含 backend、backend_snapshot、backend_capabilities、current_bgm_key、current_bgm_region、last_playback_region_rejection、bgm_state、bgm_owner、bgm_generation、bgm_playing、bgm_paused、bgm_position、bgm_history、active_sfx_count、active_spatial_sfx_count、max_sfx_players、ambient_channels、ambient_sessions、cached_ambient_player_count、idle_ambient_player_count、max_idle_ambient_players、audio_bank_count、ducked_bus_count 和 active_mix_tween_count 字段。</tag>
 				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>

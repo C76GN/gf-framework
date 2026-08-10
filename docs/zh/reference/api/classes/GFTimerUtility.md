@@ -75,6 +75,7 @@ func tick(delta: float) -> void:
 ### `execute_after`
 
 - API：`public`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func execute_after(delay: float, callback: Callable) -> int:
@@ -86,7 +87,7 @@ func execute_after(delay: float, callback: Callable) -> int:
 
 | 名称 | 说明 |
 |---|---|
-| `delay` | 延迟时长，单位为秒。 |
+| `delay` | 有限延迟时长，单位为秒。 |
 | `callback` | 延迟结束后执行的无参回调函数。 |
 
 返回：已排队定时器的句柄；无效回调或立即执行时返回 `0`。
@@ -96,6 +97,7 @@ func execute_after(delay: float, callback: Callable) -> int:
 ### `execute_after_owned`
 
 - API：`public`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func execute_after_owned(owner: Object, delay: float, callback: Callable) -> int:
@@ -108,7 +110,7 @@ func execute_after_owned(owner: Object, delay: float, callback: Callable) -> int
 | 名称 | 说明 |
 |---|---|
 | `owner` | 定时器拥有者。 |
-| `delay` | 延迟时长，单位为秒。 |
+| `delay` | 有限延迟时长，单位为秒。 |
 | `callback` | 延迟结束后执行的无参回调函数。 |
 
 返回：已排队定时器的句柄；无效输入或立即执行时返回 `0`。
@@ -118,6 +120,7 @@ func execute_after_owned(owner: Object, delay: float, callback: Callable) -> int
 ### `execute_repeating`
 
 - API：`public`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func execute_repeating( interval: float, callback: Callable, repeat_count: int = -1, initial_delay: float = -1.0 ) -> int:
@@ -129,10 +132,10 @@ func execute_repeating( interval: float, callback: Callable, repeat_count: int =
 
 | 名称 | 说明 |
 |---|---|
-| `interval` | 重复间隔，单位为秒。 |
+| `interval` | 有限且大于 0 的重复间隔，单位为秒。 |
 | `callback` | 每次触发时执行的无参回调函数。 |
 | `repeat_count` | 触发次数；小于 0 表示无限重复。 |
-| `initial_delay` | 首次触发延迟；小于 0 时使用 interval。 |
+| `initial_delay` | 有限的首次触发延迟；小于 0 时使用 interval。 |
 
 返回：已排队定时器的句柄；无效输入时返回 `0`。
 
@@ -141,6 +144,7 @@ func execute_repeating( interval: float, callback: Callable, repeat_count: int =
 ### `execute_repeating_owned`
 
 - API：`public`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func execute_repeating_owned( owner: Object, interval: float, callback: Callable, repeat_count: int = -1, initial_delay: float = -1.0 ) -> int:
@@ -153,10 +157,10 @@ func execute_repeating_owned( owner: Object, interval: float, callback: Callable
 | 名称 | 说明 |
 |---|---|
 | `owner` | 定时器拥有者。 |
-| `interval` | 重复间隔，单位为秒。 |
+| `interval` | 有限且大于 0 的重复间隔，单位为秒。 |
 | `callback` | 每次触发时执行的无参回调函数。 |
 | `repeat_count` | 触发次数；小于 0 表示无限重复。 |
-| `initial_delay` | 首次触发延迟；小于 0 时使用 interval。 |
+| `initial_delay` | 有限的首次触发延迟；小于 0 时使用 interval。 |
 
 返回：已排队定时器的句柄；无效输入时返回 `0`。
 
@@ -176,7 +180,7 @@ func cancel(handle: int) -> bool:
 
 | 名称 | 说明 |
 |---|---|
-| `handle` | `execute_after()` 返回的定时器句柄。 |
+| `handle` | \`execute_after()\` 返回的定时器句柄。 |
 
 返回：找到并取消任务时返回 `true`。
 

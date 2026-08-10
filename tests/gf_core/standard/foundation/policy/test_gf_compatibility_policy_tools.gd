@@ -192,6 +192,24 @@ func test_preflight_semver_prerelease_is_below_release() -> void:
 	assert_false(_find_issue(report, "framework_version_below_minimum").is_empty(), "预发布版本不足应报告 below_minimum。")
 
 
+func test_preflight_compares_numeric_prerelease_identifiers_without_int64_overflow() -> void:
+	var ordered_identifiers: PackedStringArray = PackedStringArray([
+		"9223372036854775807",
+		"9223372036854775808",
+		"9223372036854775809",
+		"9999999999999999999",
+		"10000000000000000000",
+		"18446744073709551615",
+		"18446744073709551616",
+	])
+
+	for index: int in range(ordered_identifiers.size() - 1):
+		var lower: String = "1.0.0-%s" % ordered_identifiers[index]
+		var higher: String = "1.0.0-%s" % ordered_identifiers[index + 1]
+		assert_false(_framework_version_is_at_least(lower, higher), "较小 numeric prerelease 不得满足较大 minimum：%s < %s。" % [lower, higher])
+		assert_true(_framework_version_is_at_least(higher, lower), "较大 numeric prerelease 应满足较小 minimum：%s > %s。" % [higher, lower])
+
+
 func test_preflight_rejects_malformed_semver_instead_of_coercing_it() -> void:
 	var profile: GFCompatibilityProfile = GFCompatibilityProfile.new()
 	var _configured: GFCompatibilityProfile = profile.configure(&"runtime", "4.x", "6.0.0")
@@ -238,6 +256,34 @@ func test_artifact_freshness_report_accepts_matching_metadata() -> void:
 
 	assert_true(GFVariantData.get_option_bool(report, "ok"), "artifact 元数据匹配时报告应通过。")
 	assert_eq(GFVariantData.get_option_int(report, "existing_count"), 1, "存在的 artifact 应计入 existing_count。")
+
+
+func test_artifact_freshness_include_options_do_not_skip_expected_validation() -> void:
+	var artifact_path: String = _write_temp_text("freshness_projection", "actual artifact")
+	var builder: GFArtifactFreshnessReport = GFArtifactFreshnessReport.new()
+	var _artifact_entry: Dictionary = builder.add_artifact(&"config_json", artifact_path, {
+		"expected_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+		"minimum_modified_time": 9223372036854775807,
+	})
+
+	var report: Dictionary = builder.get_report({
+		"include_sha256": false,
+		"include_modified_time": false,
+		"warnings_as_errors": true,
+	})
+	var result_artifacts: Array = GFVariantData.get_option_array(report, "artifacts")
+	var artifact: Dictionary = GFVariantData.as_dictionary(result_artifacts[0])
+	var hash_issue: Dictionary = _find_issue(report, "artifact_sha256_mismatch")
+	var time_issue: Dictionary = _find_issue(report, "artifact_older_than_source")
+
+	assert_false(GFVariantData.get_option_bool(report, "ok", true), "展示字段关闭时 expected 完整性条件仍必须执行。")
+	assert_true(GFVariantData.get_option_bool(artifact, "stale"), "hash/time 任一不匹配都应标记 stale。")
+	assert_false(artifact.has("sha256"), "include_sha256=false 应只隐藏输出字段。")
+	assert_false(artifact.has("modified_time"), "include_modified_time=false 应只隐藏输出字段。")
+	assert_false(hash_issue.is_empty(), "错误 expected hash 不得静默跳过。")
+	assert_false(time_issue.is_empty(), "minimum modified time 不得静默跳过。")
+	assert_false(hash_issue.has("actual_sha256"), "include_sha256=false 也不得从 issue 泄露实际 hash。")
+	assert_false(time_issue.has("actual_modified_time"), "include_modified_time=false 也不得从 issue 泄露实际时间。")
 
 
 func test_artifact_freshness_report_rejects_explicit_invalid_sha256() -> void:
@@ -354,6 +400,120 @@ func test_activation_transaction_commit_is_terminal_and_not_reapplied() -> void:
 	assert_false(transaction.add_step(&"late", func() -> void: pass), "committed 终态不应接受新步骤。")
 
 
+func test_activation_transaction_prepare_cannot_reopen_terminal_state() -> void:
+	var counts: Dictionary = { "apply": 0 }
+	var transaction: GFActivationTransaction = GFActivationTransaction.new()
+	var _step_added: bool = transaction.add_step(
+		&"publish",
+		func(_context: Dictionary) -> bool:
+			counts["apply"] = GFVariantData.get_option_int(counts, "apply") + 1
+			return true
+	)
+
+	var _first_report: Dictionary = transaction.commit()
+	var prepare_report: Dictionary = transaction.prepare()
+	var second_report: Dictionary = transaction.commit()
+
+	assert_eq(GFVariantData.get_option_int(counts, "apply"), 1, "terminal prepare 不得让已提交 step 再执行。")
+	assert_eq(transaction.state, GFActivationTransaction.STATE_COMMITTED, "无效 prepare 不得改变 committed 终态。")
+	assert_false(GFVariantData.get_option_bool(prepare_report, "ok", true), "terminal prepare 应结构化拒绝。")
+	assert_eq(GFVariantData.get_option_string(prepare_report, "error"), "transaction_not_reusable", "terminal prepare 应给出稳定错误。")
+	assert_true(GFVariantData.get_option_bool(second_report, "ok"), "无效 prepare 不应污染已提交事务的既有成功报告。")
+
+
+func test_activation_transaction_prepare_rejects_rolled_back_and_failed_states() -> void:
+	var rolled_back: GFActivationTransaction = GFActivationTransaction.new()
+	var _rolled_step_added: bool = rolled_back.add_step(
+		&"publish",
+		func(_context: Dictionary) -> bool:
+			return true,
+		func(_context: Dictionary) -> bool:
+			return true
+	)
+	var _committed_report: Dictionary = rolled_back.commit()
+	var _rolled_back_report: Dictionary = rolled_back.rollback()
+	var rolled_prepare_report: Dictionary = rolled_back.prepare()
+
+	var failed: GFActivationTransaction = GFActivationTransaction.new()
+	var _failed_step_added: bool = failed.add_step(
+		&"validate",
+		func(_context: Dictionary) -> bool:
+			return true,
+		Callable(),
+		{
+			"validate_callback": func(_context: Dictionary) -> bool:
+				return false,
+		}
+	)
+	var _failed_report: Dictionary = failed.prepare()
+	var failed_prepare_report: Dictionary = failed.prepare()
+
+	assert_eq(rolled_back.state, GFActivationTransaction.STATE_ROLLED_BACK, "prepare 不得重新打开 rolled_back 终态。")
+	assert_eq(failed.state, GFActivationTransaction.STATE_FAILED, "prepare 不得重新打开 failed 终态。")
+	assert_eq(
+		GFVariantData.get_option_string(rolled_prepare_report, "error"),
+		"transaction_not_reusable",
+		"rolled_back 终态应结构化拒绝 prepare。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(failed_prepare_report, "error"),
+		"transaction_not_reusable",
+		"failed 终态应结构化拒绝 prepare。"
+	)
+
+
+func test_activation_transaction_rejects_callback_reentrancy_without_duplicate_side_effects() -> void:
+	var transaction: GFActivationTransaction = GFActivationTransaction.new()
+	var counts: Dictionary = {
+		"validate": 0,
+		"apply": 0,
+		"rollback": 0,
+	}
+	var attempted: Dictionary = {
+		"validate": false,
+		"apply": false,
+		"rollback": false,
+	}
+	var nested_reports: Dictionary = {}
+	var _step_added: bool = transaction.add_step(
+		&"publish",
+		func(_context: Dictionary) -> bool:
+			counts["apply"] = GFVariantData.get_option_int(counts, "apply") + 1
+			if not GFVariantData.get_option_bool(attempted, "apply"):
+				attempted["apply"] = true
+				nested_reports["commit"] = transaction.commit()
+			transaction.clear()
+			return true,
+		func(_context: Dictionary) -> bool:
+			counts["rollback"] = GFVariantData.get_option_int(counts, "rollback") + 1
+			if not GFVariantData.get_option_bool(attempted, "rollback"):
+				attempted["rollback"] = true
+				nested_reports["rollback"] = transaction.rollback()
+			return true,
+		{
+			"validate_callback": func(_context: Dictionary) -> bool:
+				counts["validate"] = GFVariantData.get_option_int(counts, "validate") + 1
+				if not GFVariantData.get_option_bool(attempted, "validate"):
+					attempted["validate"] = true
+					nested_reports["prepare"] = transaction.prepare()
+				return true,
+		}
+	)
+
+	var commit_report: Dictionary = transaction.commit()
+	var rollback_report: Dictionary = transaction.rollback()
+
+	assert_true(GFVariantData.get_option_bool(commit_report, "ok"), "被拒绝的嵌套调用不应使合法外层提交失败。")
+	assert_true(GFVariantData.get_option_bool(rollback_report, "ok"), "合法外层 rollback 应完成。")
+	assert_eq(counts, { "validate": 1, "apply": 1, "rollback": 1 }, "每个 phase callback 在一个 transition 中最多执行一次。")
+	for operation: String in ["prepare", "commit", "rollback"]:
+		var nested_report: Dictionary = GFVariantData.get_option_dictionary(nested_reports, operation)
+		assert_false(GFVariantData.get_option_bool(nested_report, "ok", true), "嵌套 %s 必须失败关闭。" % operation)
+		assert_eq(GFVariantData.get_option_string(nested_report, "error"), "transition_in_progress", "嵌套调用应给出统一 transition 错误。")
+	assert_eq(transaction.state, GFActivationTransaction.STATE_ROLLED_BACK, "callback 中的 clear 不得重置 in-flight 事务。")
+	transaction.clear()
+
+
 func test_activation_transaction_freezes_steps_after_prepare() -> void:
 	var transaction: GFActivationTransaction = GFActivationTransaction.new()
 	var _initial_step: bool = transaction.add_step(&"initial", func() -> void: pass)
@@ -409,6 +569,14 @@ func _read_file_size(path: String) -> int:
 	var size_bytes: int = int(file.get_length())
 	file.close()
 	return size_bytes
+
+
+func _framework_version_is_at_least(actual: String, minimum: String) -> bool:
+	var profile: GFCompatibilityProfile = GFCompatibilityProfile.new()
+	profile.framework_version = actual
+	var preflight: GFCompatibilityPreflight = GFCompatibilityPreflight.new().configure("SemVer comparison", profile)
+	var check: Dictionary = preflight.require_framework_version(minimum)
+	return GFVariantData.get_option_bool(check, "ok", false)
 
 
 func _find_issue(report: Dictionary, kind: String) -> Dictionary:

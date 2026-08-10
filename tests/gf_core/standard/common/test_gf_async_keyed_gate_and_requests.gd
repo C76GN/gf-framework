@@ -667,6 +667,52 @@ func test_keyed_gate_cancels_waiting_requests_and_expires_active_leases() -> voi
 	assert_eq(expiring.get_release_reason(), GFAsyncKeyedGate.STATUS_TIMEOUT, "活跃租约超时释放应记录 timeout 原因。")
 
 
+func test_keyed_gate_saturates_extreme_wait_and_lease_deadlines() -> void:
+	var max_msec: int = 9_223_372_036_854_775_807
+	var waiting_gate: GFAsyncKeyedGate = GFAsyncKeyedGate.new()
+	var blocker: GFAsyncGateLease = _result_to_lease(
+		waiting_gate.request_lease(&"extreme_wait")
+	)
+	var waiting_result: Dictionary = waiting_gate.request_lease(
+		&"extreme_wait",
+		{ "timeout_msec": max_msec }
+	)
+	var waiting_completion: GFAsyncCompletion = _result_to_completion(
+		waiting_result
+	)
+
+	assert_eq(
+		waiting_gate.expire_waiting_requests(max_msec),
+		1,
+		"极大正等待超时必须饱和到可比较 deadline，不能回绕成永久等待。"
+	)
+	assert_true(waiting_completion.is_cancelled())
+	assert_eq(
+		waiting_completion.get_cancel_reason(),
+		GFAsyncKeyedGate.STATUS_TIMEOUT
+	)
+	var _blocker_released: bool = blocker.release(&"done")
+
+	var active_gate: GFAsyncKeyedGate = GFAsyncKeyedGate.new()
+	var expiring_lease: GFAsyncGateLease = _result_to_lease(
+		active_gate.request_lease(
+			&"extreme_lease",
+			{ "lease_timeout_msec": max_msec }
+		)
+	)
+
+	assert_eq(
+		active_gate.expire_active_leases(max_msec),
+		1,
+		"极大正租约超时必须饱和到可比较 deadline，不能回绕成永久租约。"
+	)
+	assert_false(expiring_lease.is_active())
+	assert_eq(
+		expiring_lease.get_release_reason(),
+		GFAsyncKeyedGate.STATUS_TIMEOUT
+	)
+
+
 func test_keyed_gate_async_wait_timeout_removes_queued_request() -> void:
 	var gate: GFAsyncKeyedGate = GFAsyncKeyedGate.new()
 	var blocker: GFAsyncGateLease = _result_to_lease(gate.request_lease(&"save"))
@@ -1756,6 +1802,58 @@ func test_request_handler_registry_keeps_single_handler_contract() -> void:
 	var snapshot: Dictionary = registry.get_debug_snapshot()
 	assert_eq(GFVariantData.get_option_int(snapshot, "invoked_count"), 1, "注册表应统计成功调用次数。")
 	assert_eq(GFVariantData.get_option_int(snapshot, "duplicate_count"), 1, "注册表应统计重复注册。")
+
+
+func test_request_handler_registry_does_not_restore_handler_unregistered_during_invoke() -> void:
+	var registry: GFRequestHandlerRegistry = GFRequestHandlerRegistry.new()
+	var unregister_results: Array[Dictionary] = [{}]
+	var handler: Callable = func(_request: Dictionary) -> String:
+		unregister_results[0] = registry.unregister_handler(&"config.once")
+		return "handled"
+	var _registered: Dictionary = registry.register_handler(&"config.once", handler)
+
+	var invoked: Dictionary = registry.invoke(&"config.once")
+
+	assert_true(GFVariantData.get_option_bool(invoked, "ok"), "当前调用应正常完成。")
+	assert_eq(GFVariantData.get_option_string(invoked, "result"), "handled", "当前调用结果不应因注销丢失。")
+	assert_true(GFVariantData.get_option_bool(unregister_results[0], "ok"), "handler 内注销应成功。")
+	assert_false(registry.has_handler(&"config.once"), "外层调用不得把已注销 entry 写回。")
+	assert_eq(
+		GFVariantData.get_option_string_name(registry.try_invoke(&"config.once"), "status"),
+		GFRequestHandlerRegistry.STATUS_MISSING,
+		"后续调用必须观察到注销结果。"
+	)
+
+
+func test_request_handler_registry_does_not_overwrite_replacement_registered_during_invoke() -> void:
+	var registry: GFRequestHandlerRegistry = GFRequestHandlerRegistry.new()
+	var replacement_call_count: Array[int] = [0]
+	var replacement: Callable = func(_request: Dictionary) -> String:
+		replacement_call_count[0] += 1
+		return "replacement"
+	var replace_results: Array[Dictionary] = [{}]
+	var original: Callable = func(_request: Dictionary) -> String:
+		replace_results[0] = registry.register_handler(
+			&"config.resolve",
+			replacement,
+			{ "replace": true }
+		)
+		return "original"
+	var _registered: Dictionary = registry.register_handler(&"config.resolve", original)
+
+	var first_result: Dictionary = registry.invoke(&"config.resolve")
+	var replacement_snapshot: Dictionary = registry.get_handler_snapshot(&"config.resolve")
+	var second_result: Dictionary = registry.invoke(&"config.resolve")
+
+	assert_eq(GFVariantData.get_option_string(first_result, "result"), "original", "当前调用应返回原 handler 结果。")
+	assert_true(GFVariantData.get_option_bool(replace_results[0], "ok"), "handler 内 replace 应成功。")
+	assert_eq(
+		GFVariantData.get_option_int(replacement_snapshot, "invocation_count"),
+		0,
+		"原 handler 的统计不得覆盖新 registration。"
+	)
+	assert_eq(GFVariantData.get_option_string(second_result, "result"), "replacement", "后续调用必须命中新 handler。")
+	assert_eq(replacement_call_count[0], 1, "新 handler 应只处理后续调用。")
 
 
 func test_request_handler_registry_json_compatible_reports_sanitize_runtime_values() -> void:

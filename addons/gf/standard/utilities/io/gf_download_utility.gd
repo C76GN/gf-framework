@@ -72,6 +72,7 @@ signal download_cancelled(task_id: int, result: Dictionary)
 const _APPEND_BUFFER_SIZE_BYTES: int = 64 * 1024
 const _TEMP_FILE_SUFFIX: String = ".download"
 const _SEGMENT_FILE_SUFFIX: String = ".segment"
+const _BACKUP_FILE_SUFFIX: String = ".gf_download_backup"
 
 
 # --- 公共变量 ---
@@ -655,7 +656,10 @@ func _complete_active_download(
 			task.error = ""
 			_finish_task(task, true, false)
 		else:
-			_fail_or_retry_task(task, "Commit failed: %s" % error_string(commit_error), false)
+			var commit_message: String = task.error
+			if commit_message.is_empty():
+				commit_message = "Commit failed: %s" % error_string(commit_error)
+			_fail_or_retry_task(task, commit_message, false)
 	else:
 		_fail_or_retry_task(
 			task,
@@ -962,22 +966,17 @@ func _commit_download_file(task: GFDownloadTask, request_data: Dictionary, respo
 			_remove_absolute_file_if_exists(task.segment_path)
 		elif FileAccess.file_exists(task.segment_path):
 			if FileAccess.file_exists(task.temp_path):
-				_remove_absolute_file_if_exists(task.temp_path)
-			var replace_error: Error = DirAccess.rename_absolute(task.segment_path, task.temp_path)
+				var temp_remove_error: Error = _remove_file_for_commit(task.temp_path)
+				if temp_remove_error != OK:
+					return temp_remove_error
+			var replace_error: Error = _rename_file_for_commit(task.segment_path, task.temp_path)
 			if replace_error != OK:
 				return replace_error
 
 	if not _verify_checksum(task):
 		return ERR_INVALID_DATA
 
-	if FileAccess.file_exists(task.target_path):
-		if not task.overwrite:
-			return ERR_ALREADY_EXISTS
-		var remove_error: Error = DirAccess.remove_absolute(task.target_path)
-		if remove_error != OK:
-			return remove_error
-
-	return DirAccess.rename_absolute(task.temp_path, task.target_path)
+	return _replace_download_target_atomically(task)
 
 
 func _append_file(source_path: String, target_path: String) -> Error:
@@ -992,15 +991,92 @@ func _append_file(source_path: String, target_path: String) -> Error:
 		source.close()
 		return FileAccess.get_open_error()
 
+	var original_target_size: int = int(target.get_length())
 	target.seek_end()
+	var seek_error: Error = target.get_error()
+	if seek_error != OK:
+		source.close()
+		target.close()
+		return seek_error
 	while not source.eof_reached():
 		var chunk: PackedByteArray = source.get_buffer(_APPEND_BUFFER_SIZE_BYTES)
 		if chunk.is_empty():
 			break
-		var _store_buffer_result: Variant = target.store_buffer(chunk)
+		var store_error: Error = _store_append_chunk(target, chunk)
+		if store_error != OK:
+			var rollback_error: Error = target.resize(original_target_size)
+			source.close()
+			target.close()
+			return rollback_error if rollback_error != OK else store_error
+	var source_error: Error = source.get_error()
+	if source_error != OK and source_error != ERR_FILE_EOF:
+		var rollback_error: Error = target.resize(original_target_size)
+		source.close()
+		target.close()
+		return rollback_error if rollback_error != OK else source_error
 	source.close()
 	target.close()
 	return OK
+
+
+func _replace_download_target_atomically(task: GFDownloadTask) -> Error:
+	var backup_path: String = task.target_path + _BACKUP_FILE_SUFFIX
+	if FileAccess.file_exists(backup_path):
+		if FileAccess.file_exists(task.target_path):
+			var stale_backup_error: Error = _remove_file_for_commit(backup_path)
+			if stale_backup_error != OK:
+				task.error = "Commit failed: stale backup could not be removed: %s" % error_string(stale_backup_error)
+				return stale_backup_error
+		else:
+			var recovery_error: Error = _rename_file_for_commit(backup_path, task.target_path)
+			if recovery_error != OK:
+				task.error = "Commit failed: previous target recovery failed: %s" % error_string(recovery_error)
+				return recovery_error
+
+	if not FileAccess.file_exists(task.target_path):
+		return _rename_file_for_commit(task.temp_path, task.target_path)
+	if not task.overwrite:
+		return ERR_ALREADY_EXISTS
+
+	var backup_error: Error = _rename_file_for_commit(task.target_path, backup_path)
+	if backup_error != OK:
+		task.error = "Commit failed: previous target could not be backed up: %s" % error_string(backup_error)
+		return backup_error
+
+	var commit_error: Error = _rename_file_for_commit(task.temp_path, task.target_path)
+	if commit_error == OK:
+		var cleanup_error: Error = _remove_file_for_commit(backup_path)
+		if cleanup_error != OK:
+			push_warning(
+				"[GFDownloadUtility] 下载已提交，但旧目标备份清理失败：%s (%s)"
+				% [backup_path, error_string(cleanup_error)]
+			)
+		return OK
+
+	var rollback_error: Error = _rename_file_for_commit(backup_path, task.target_path)
+	if rollback_error != OK:
+		task.error = (
+			"Commit failed: %s; rollback failed: %s; previous target remains at %s"
+			% [error_string(commit_error), error_string(rollback_error), backup_path]
+		)
+		return rollback_error
+	task.error = "Commit failed: %s; previous target restored." % error_string(commit_error)
+	return commit_error
+
+
+func _rename_file_for_commit(source_path: String, target_path: String) -> Error:
+	return DirAccess.rename_absolute(source_path, target_path)
+
+
+func _remove_file_for_commit(path: String) -> Error:
+	if not FileAccess.file_exists(path):
+		return OK
+	return DirAccess.remove_absolute(path)
+
+
+func _store_append_chunk(target: FileAccess, chunk: PackedByteArray) -> Error:
+	var _store_buffer_result: Variant = target.store_buffer(chunk)
+	return target.get_error()
 
 
 func _verify_checksum(task: GFDownloadTask) -> bool:
@@ -1083,16 +1159,21 @@ func _resolve_manifest_target_path(entry: Dictionary, target_root: String) -> St
 		target_path = _get_url_file_name(GFVariantData.get_option_string(entry, "url"))
 	target_path = target_path.replace("\\", "/").strip_edges()
 	if _is_supported_absolute_target_path(target_path):
-		if _has_parent_path_segment(target_path.trim_prefix("res://").trim_prefix("user://")):
-			return ""
-		return target_path.simplify_path()
+		return ""
 	if not _is_safe_relative_download_path(target_path):
 		return ""
 
-	var root: String = target_root.strip_edges()
-	if root.is_empty():
+	var root_text: String = target_root.replace("\\", "/").strip_edges()
+	if not _is_supported_absolute_target_path(root_text):
 		return ""
-	return root.path_join(target_path).simplify_path()
+	var root_relative_path: String = root_text.trim_prefix("res://").trim_prefix("user://")
+	if _has_parent_path_segment(root_relative_path):
+		return ""
+	var root: String = GFPathTools.normalize_root_path(root_text)
+	var resolved_target: String = root.path_join(target_path).simplify_path()
+	if not GFPathTools.is_path_under_root(resolved_target, root, false):
+		return ""
+	return resolved_target
 
 
 func _is_supported_absolute_target_path(path: String) -> bool:
@@ -1294,9 +1375,7 @@ func _erase_dictionary_key(target: Dictionary, key: Variant) -> void:
 
 
 func _remove_absolute_file_if_exists(path: String) -> void:
-	if not FileAccess.file_exists(path):
-		return
-	var _remove_error: Error = DirAccess.remove_absolute(path)
+	var _remove_error: Error = _remove_file_for_commit(path)
 
 
 func _make_dir_recursive_absolute(path: String) -> void:

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFBuoyancyField3D" path="addons/gf/extensions/physics/nodes/gf_buoyancy_field_3d.gd" module="extensions/physics" extends="Node3D" classDigest="19bd886c0125017624d3c68d7cfc78c28c541482e80490a33feb4aba9f4e2b5a">
+<class name="GFBuoyancyField3D" path="addons/gf/extensions/physics/nodes/gf_buoyancy_field_3d.gd" module="extensions/physics" extends="Node3D" classDigest="67e3ede9556e3b75572eca6d9337af8b7a254d12774bf93155107216d28798eb">
 	<description>GFBuoyancyField3D: 可扩展的 3D 浮力点采样场。
 默认以节点局部 Y 平面作为无限流体表面，把几何采样和浮力数学组合成纯结果字典。
 项目可以重写表面、流速钩子实现有限水体、高度场或移动流体，但刚体施力、探针布局、
@@ -140,7 +140,7 @@ Area 检测、网络同步和玩法规则仍由项目层决定。</description>
 				<tag name="param">displaced_volume: 排水点代表的最大排水体积。</tag>
 				<tag name="param">immersion_radius: 从半浸没到完全浸没所需距离。</tag>
 				<tag name="param">gravity_acceleration: 当前排水点的重力加速度向量。</tag>
-				<tag name="return">采样结果字典。</tag>
+				<tag name="return">采样结果字典；有限分量相加溢出时总 force 失败关闭为零，分量与几何状态仍保留。</tag>
 				<tag name="schema">return: Dictionary，包含 available、active、reason、signed_depth、submersion_ratio、surface_normal、fluid_velocity、buoyancy_force、drag_force 和 force。</tag>
 				<tag name="since">9.0.0</tag>
 			</tags>

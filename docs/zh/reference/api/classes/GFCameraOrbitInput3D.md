@@ -27,7 +27,7 @@
 | 属性 | [`zoom_units_per_second`](#member-gfcameraorbitinput3d-properties-zoom_units_per_second) | `var zoom_units_per_second: float = 8.0` |
 | 属性 | [`invert_y`](#member-gfcameraorbitinput3d-properties-invert_y) | `var invert_y: bool = false` |
 | 属性 | [`mouse_orbit_enabled`](#member-gfcameraorbitinput3d-properties-mouse_orbit_enabled) | `var mouse_orbit_enabled: bool = false:` |
-| 属性 | [`mouse_button`](#member-gfcameraorbitinput3d-properties-mouse_button) | `var mouse_button: MouseButton = MOUSE_BUTTON_RIGHT` |
+| 属性 | [`mouse_button`](#member-gfcameraorbitinput3d-properties-mouse_button) | `var mouse_button: MouseButton = MOUSE_BUTTON_RIGHT:` |
 | 属性 | [`mouse_degrees_per_pixel`](#member-gfcameraorbitinput3d-properties-mouse_degrees_per_pixel) | `var mouse_degrees_per_pixel: float = 0.15` |
 | 属性 | [`mouse_zoom_enabled`](#member-gfcameraorbitinput3d-properties-mouse_zoom_enabled) | `var mouse_zoom_enabled: bool = false` |
 | 属性 | [`mouse_wheel_step`](#member-gfcameraorbitinput3d-properties-mouse_wheel_step) | `var mouse_wheel_step: float = 1.0` |
@@ -202,9 +202,10 @@ var mouse_orbit_enabled: bool = false:
 ### `mouse_button`
 
 - API：`public`
+- 首次版本：`3.23.0`
 
 ```gdscript
-var mouse_button: MouseButton = MOUSE_BUTTON_RIGHT
+var mouse_button: MouseButton = MOUSE_BUTTON_RIGHT:
 ```
 
 鼠标拖拽环绕使用的按键。

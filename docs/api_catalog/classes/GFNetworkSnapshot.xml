@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFNetworkSnapshot" path="addons/gf/extensions/network/snapshot/gf_network_snapshot.gd" module="extensions/network" extends="RefCounted" classDigest="460fe5b444bbca49e96e5f884c896132db97313d3ab286e8469a3e3837ad70c7">
+<class name="GFNetworkSnapshot" path="addons/gf/extensions/network/snapshot/gf_network_snapshot.gd" module="extensions/network" extends="RefCounted" classDigest="20850d2a4d151a8f187fcdb60ba5f9e587395d6a15a67a0de0877d43371f35ea">
 	<description>GFNetworkSnapshot: 通用网络状态快照。
 保存 tick、peer_id、纯字典状态和元数据，可用于同步、回放、插值或项目自定义差量流程。</description>
 	<tags>
@@ -136,8 +136,9 @@
 				<tag name="param">target: 目标快照。</tag>
 				<tag name="param">options: 生成选项。</tag>
 				<tag name="return">patch 字典。</tag>
-				<tag name="schema">options: Dictionary，可选 recursive: bool = true，max_depth: int = 8。</tag>
-				<tag name="schema">return: Dictionary，成功时包含 ok、format、version、from_tick、to_tick、peer_id、set、erase、metadata；失败时包含 ok、error。</tag>
+				<tag name="schema">options: Dictionary，可选 recursive: bool = true，max_depth: int = 8；max_depth 会限制到 0..8。</tag>
+				<tag name="schema">return: Dictionary，成功时包含 ok、format、version、from_tick、to_tick、peer_id、set、erase、metadata；超过 4096 个操作或生成内容不可应用时返回 ok=false、error。</tag>
+				<tag name="since">3.20.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="apply_patch">

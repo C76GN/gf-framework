@@ -2,7 +2,7 @@
 
 ## 资源句柄
 
-当资源会被多个短生命周期对象持有时，可以用 `GFAssetHandle` 表达所有权。句柄会增加路径引用计数并锁定缓存，`release()` 后才允许 LRU 淘汰。
+当资源会被多个短生命周期对象持有时，可以用 `GFAssetHandle` 表达所有权。句柄会增加路径引用计数并锁定缓存，`release()` 后才允许 LRU 淘汰。创建时解析出的 lease path 与 cache key 会被私有冻结；公开 `path` 只用于展示，之后即使被调用方改写，也不能把释放授权转移到另一缓存身份。句柄也只能由创建它的 `GFAssetUtility` 消费。
 
 如果传入 owner，`release_owner(owner)` 或 Node 退出树时会释放该 owner 的引用。
 

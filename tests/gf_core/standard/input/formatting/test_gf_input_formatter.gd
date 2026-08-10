@@ -28,6 +28,11 @@ class CustomFormatterTextProvider extends GFInputTextProvider:
 
 
 class CustomFormatterIconProvider extends GFInputIconProvider:
+	var rich_text: String = "[color=lime]K[/color]"
+
+	func _init(p_rich_text: String = "[color=lime]K[/color]") -> void:
+		rich_text = p_rich_text
+
 	func supports_event(input_event: InputEvent, _options: Dictionary = {}) -> bool:
 		if not (input_event is InputEventKey):
 			return false
@@ -35,7 +40,7 @@ class CustomFormatterIconProvider extends GFInputIconProvider:
 		return key_event.keycode == KEY_K
 
 	func get_event_rich_text(_input_event: InputEvent, _options: Dictionary = {}) -> String:
-		return "[color=lime]K[/color]"
+		return rich_text
 
 
 # --- 测试方法 ---
@@ -185,6 +190,46 @@ func test_formatter_registry_prunes_provider_when_owner_is_freed() -> void:
 
 	assert_eq(pruned_count, 1, "owner 释放后 registry 应裁剪对应 provider。")
 	assert_false(registration.is_active(), "被裁剪的注册句柄应失效。")
+
+
+func test_formatter_registry_reorders_text_providers_after_priority_changes() -> void:
+	var registry: GFInputFormatterRegistry = GFInputFormatterRegistry.new()
+	var first: CustomFormatterTextProvider = CustomFormatterTextProvider.new("First")
+	var second: CustomFormatterTextProvider = CustomFormatterTextProvider.new("Second")
+	first.priority = 20
+	second.priority = 10
+	var _first_registration: GFInputProviderRegistration = registry.register_text_provider(first)
+	var _second_registration: GFInputProviderRegistration = registry.register_text_provider(second)
+	second.priority = 30
+
+	var providers: Array[GFInputTextProvider] = registry.get_text_providers()
+	var text: String = GFInputFormatter.input_event_as_text(
+		_make_key_event(KEY_K),
+		{ "formatter_registry": registry }
+	)
+
+	assert_eq(providers[0], second, "getter 顺序必须反映 provider 当前优先级。")
+	assert_eq(text, "Second", "实际格式化选择必须同步采用当前最高优先级 provider。")
+
+
+func test_formatter_registry_reorders_icon_providers_after_priority_changes() -> void:
+	var registry: GFInputFormatterRegistry = GFInputFormatterRegistry.new()
+	var first: CustomFormatterIconProvider = CustomFormatterIconProvider.new("[color=red]K[/color]")
+	var second: CustomFormatterIconProvider = CustomFormatterIconProvider.new("[color=blue]K[/color]")
+	first.priority = 20
+	second.priority = 10
+	var _first_registration: GFInputProviderRegistration = registry.register_icon_provider(first)
+	var _second_registration: GFInputProviderRegistration = registry.register_icon_provider(second)
+	second.priority = 30
+
+	var providers: Array[GFInputIconProvider] = registry.get_icon_providers()
+	var text: String = GFInputFormatter.input_event_as_rich_text(
+		_make_key_event(KEY_K),
+		{ "formatter_registry": registry }
+	)
+
+	assert_eq(providers[0], second, "图标 getter 顺序必须反映 provider 当前优先级。")
+	assert_eq(text, "[color=blue]K[/color]", "富文本选择必须同步采用当前最高优先级 provider。")
 
 
 func test_default_icon_provider_registration_token_releases_provider() -> void:

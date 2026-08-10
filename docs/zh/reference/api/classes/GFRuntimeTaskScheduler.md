@@ -9,7 +9,7 @@
 - 类别：运行时服务 (`runtime_service`)
 - 首次版本：`6.0.0`
 
-按 requirement 仲裁运行时任务的调度器。 调度器负责维护正在运行的 [GFRuntimeTask]、处理 requirement 冲突、执行可中断任务、 并在 requirement 空闲时恢复默认任务。它只提供通用生命周期与资源占用语义，不绑定输入、 动画、角色控制器或项目业务状态。
+按 requirement 仲裁运行时任务的调度器。 调度器负责维护正在运行的 [GFRuntimeTask]、处理 requirement 冲突、执行可中断任务、 并在 requirement 空闲时恢复默认任务。它只提供通用生命周期与资源占用语义，不绑定输入、 动画、角色控制器或项目业务状态。 每次成功 schedule 都分配新的内部 generation；所有用户回调返回后都会复核该 generation， 因此旧生命周期不能继续推进或结束在回调中重新调度的同一对象。
 
 ## 成员概览
 

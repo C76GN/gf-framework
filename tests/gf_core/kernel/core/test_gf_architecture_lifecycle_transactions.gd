@@ -791,6 +791,45 @@ func test_initialization_failure_resets_applied_project_installers() -> void:
 	architecture.dispose()
 
 
+func test_project_installer_completion_requires_running_transition() -> void:
+	var architecture: GFArchitecture = GFArchitecture.new()
+	watch_signals(architecture)
+
+	architecture.mark_project_installers_applied()
+	architecture.finish_project_installers()
+
+	assert_false(
+		architecture.has_project_installers_applied(),
+		"未 begin 的 mark/finish 不得伪造 Installer 已完成。"
+	)
+	assert_false(architecture.is_project_installers_running())
+	assert_signal_not_emitted(
+		architecture,
+		"project_installers_finished",
+		"非法状态转换不得唤醒等待方。"
+	)
+
+	assert_true(architecture.begin_project_installers(), "合法事务应先进入 running。")
+	architecture.finish_project_installers()
+	assert_true(architecture.has_project_installers_applied())
+	assert_false(architecture.is_project_installers_running())
+	assert_signal_emit_count(
+		architecture,
+		"project_installers_finished",
+		1,
+		"running 到 applied 必须恰好唤醒一次等待方。"
+	)
+
+	architecture.mark_project_installers_applied()
+	assert_signal_emit_count(
+		architecture,
+		"project_installers_finished",
+		1,
+		"终态后的重复 mark 必须保持幂等。"
+	)
+	architecture.dispose()
+
+
 func test_module_ready_is_observable_during_later_ready_callbacks() -> void:
 	var architecture: GFArchitecture = GFArchitecture.new()
 	var first_utility: FirstReadyUtility = FirstReadyUtility.new()

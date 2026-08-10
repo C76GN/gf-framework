@@ -225,12 +225,13 @@ func make_record_key(record: Dictionary, outer_key: Variant = null) -> String:
 ### `merge_record`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func merge_record(base_record: Dictionary, patch_record: Dictionary) -> Dictionary:
 ```
 
-合并两条记录。
+合并两条记录。 MERGE_FIELDS 会递归复制并合并嵌套 Dictionary；当前入口不执行深度或节点预算，只应接收已通过项目容量预检的配置记录。
 
 参数：
 

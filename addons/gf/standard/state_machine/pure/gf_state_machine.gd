@@ -96,6 +96,7 @@ var _current_state: GFState = null
 var _context_ref: WeakRef = null
 var _event_architecture_refs: Array[WeakRef] = []
 var _transition_serial: int = 0
+var _activation_epoch: int = 0
 var _is_exiting_current_state: bool = false
 var _has_queued_exit_transition: bool = false
 var _queued_exit_state_name: StringName = &""
@@ -141,10 +142,12 @@ func add_state(state_name: StringName, state: GFState, parent_state_name: String
 		and _active_path.has(state_name)
 		and not is_replacing_current
 	)
+	_transition_serial += 1
 
 	if is_replacing_active_ancestor:
 		stop()
 	elif is_replacing_current:
+		_activation_epoch += 1
 		old_state.exit()
 
 	if old_state != null and old_state != state:
@@ -178,6 +181,7 @@ func set_state_parent(state_name: StringName, parent_state_name: StringName = &"
 	if normalized_parent != parent_state_name:
 		return false
 
+	_transition_serial += 1
 	if _active_path.has(state_name):
 		stop()
 	_set_parent_state_name(state_name, normalized_parent)
@@ -246,8 +250,11 @@ func update(delta: float, include_ancestors: bool = false) -> void:
 
 
 ## 从当前叶子状态开始向父状态上抛事件，直到某个状态返回 true。
+## 处理器改变激活路径时，本次派发会在当前处理器返回后终止；新激活状态不会接收旧周期事件。
 ## [br]
 ## @api public
+## [br]
+## @since 8.0.0
 ## [br]
 ## @param event_id: 状态事件标识。
 ## [br]
@@ -257,10 +264,24 @@ func update(delta: float, include_ancestors: bool = false) -> void:
 ## [br]
 ## @schema payload: Variant state event payload.
 func dispatch_state_event(event_id: StringName, payload: Variant = null) -> bool:
+	var dispatch_epoch: int = _activation_epoch
+	var candidates: Array[Dictionary] = []
 	for index: int in range(_active_path.size() - 1, -1, -1):
 		var state_name: StringName = _active_path[index]
 		var state: GFState = _get_registered_state(state_name)
-		if state != null and state.handle_state_event(event_id, payload):
+		if state != null:
+			candidates.append({
+				"state_name": state_name,
+				"state": state,
+			})
+
+	for candidate: Dictionary in candidates:
+		var state_name: StringName = GFVariantData.to_string_name(candidate["state_name"])
+		var state: GFState = candidate["state"]
+		var handled: bool = state.handle_state_event(event_id, payload)
+		if dispatch_epoch != _activation_epoch:
+			return false
+		if handled:
 			state_event_handled.emit(event_id, state_name, payload)
 			return true
 	return false
@@ -270,6 +291,9 @@ func dispatch_state_event(event_id: StringName, payload: Variant = null) -> bool
 ## [br]
 ## @api public
 func stop() -> void:
+	_transition_serial += 1
+	if not _active_path.is_empty():
+		_activation_epoch += 1
 	var _exit_finished: bool = _exit_active_path_to(0, false, false)
 	_active_path.clear()
 	_set_current_from_active_path()
@@ -655,14 +679,24 @@ func _transition_to_state(state_name: StringName, msg: Dictionary, emit_changed:
 	if _paths_equal(_active_path, target_path) and common_count > 0:
 		common_count -= 1
 
-	var block_reason: StringName = _get_transition_block_reason(target_path, common_count, msg)
-	if block_reason != &"":
-		transition_blocked.emit(current_state_name, state_name, msg.duplicate(true), block_reason)
-		return
-
 	_transition_serial += 1
 	var current_serial: int = _transition_serial
 	var from_name: StringName = current_state_name
+	var guard_result: Dictionary = _get_transition_guard_result(
+		target_path,
+		common_count,
+		msg,
+		current_serial
+	)
+	if GFVariantData.get_option_bool(guard_result, "stale", false):
+		return
+
+	var block_reason: StringName = GFVariantData.get_option_string_name(guard_result, "block_reason")
+	if block_reason != &"":
+		transition_blocked.emit(from_name, state_name, msg.duplicate(true), block_reason)
+		return
+
+	_activation_epoch += 1
 
 	if not _exit_active_path_to(common_count):
 		return
@@ -720,24 +754,35 @@ func _exit_active_path_to(
 	return false
 
 
-func _get_transition_block_reason(
+func _get_transition_guard_result(
 	target_path: Array[StringName],
 	common_count: int,
-	msg: Dictionary
-) -> StringName:
+	msg: Dictionary,
+	expected_serial: int
+) -> Dictionary:
 	var target_state_name: StringName = target_path[target_path.size() - 1]
 	for index: int in range(_active_path.size() - 1, common_count - 1, -1):
 		var active_state: GFState = _get_registered_state(_active_path[index])
-		if active_state != null and not active_state.can_exit(target_state_name, msg):
-			return &"exit_guard"
+		if active_state == null:
+			continue
+		var can_exit: bool = active_state.can_exit(target_state_name, msg)
+		if expected_serial != _transition_serial:
+			return { "stale": true }
+		if not can_exit:
+			return { "block_reason": &"exit_guard" }
 
 	var previous_state_name: StringName = current_state_name
 	for index: int in range(common_count, target_path.size()):
 		var target_state: GFState = _get_registered_state(target_path[index])
-		if target_state != null and not target_state.can_enter(previous_state_name, msg):
-			return &"enter_guard"
+		if target_state == null:
+			continue
+		var can_enter: bool = target_state.can_enter(previous_state_name, msg)
+		if expected_serial != _transition_serial:
+			return { "stale": true }
+		if not can_enter:
+			return { "block_reason": &"enter_guard" }
 
-	return &""
+	return { "block_reason": &"" }
 
 
 func _normalize_parent_state_name(state_name: StringName, parent_state_name: StringName) -> StringName:

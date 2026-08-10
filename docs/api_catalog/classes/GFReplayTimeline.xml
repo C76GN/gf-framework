@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFReplayTimeline" path="addons/gf/standard/foundation/timeline/gf_replay_timeline.gd" module="standard" extends="RefCounted" classDigest="2ff46fe97c4a254c983c5572850c6d6806988841b5557991c62bc20852fa318d">
+<class name="GFReplayTimeline" path="addons/gf/standard/foundation/timeline/gf_replay_timeline.gd" module="standard" extends="RefCounted" classDigest="bd215830aa4cb427e4fc5a303789b4c3a8a1e2bfd33c564026c51be1dff0711f">
 	<description>GFReplayTimeline: 通用回放时间线。
 按时间保存命令、输入、快照或项目自定义事件的纯数据记录，便于测试、
 诊断、重放和工具链串联。它只负责排序、查询、合并和序列化，不执行事件。</description>
@@ -126,13 +126,15 @@
 		</member>
 		<member kind="method" name="append_timeline">
 			<signature>func append_timeline( timeline: RefCounted, time_offset: float = 0.0, kind_filter: PackedStringArray = PackedStringArray() ) -&gt; int:</signature>
-			<description>合并另一条时间线。</description>
+			<description>合并另一条时间线。
+source 与当前时间线相同时，基于调用开始时的事件快照恰好追加一次。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">timeline: 要合并的时间线。</tag>
 				<tag name="param">time_offset: 合并时追加的时间偏移。</tag>
 				<tag name="param">kind_filter: 可选事件类型过滤；为空时合并全部事件。</tag>
 				<tag name="return">合并的事件数量。</tag>
+				<tag name="since">3.20.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="clear">

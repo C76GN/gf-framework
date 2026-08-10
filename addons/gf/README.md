@@ -1,6 +1,6 @@
 # GF Framework Addon
 
-[Project README](../../README.md) | [简体中文](../../README.zh.md) | [Read the Docs](https://gf-framework.readthedocs.io/)
+[Project README](https://github.com/C76GN/gf-framework/blob/main/README.md) | [简体中文](https://github.com/C76GN/gf-framework/blob/main/README.zh.md) | [Read the Docs](https://gf-framework.readthedocs.io/)
 
 This directory is the distributable Godot addon for GF Framework. Copy `addons/gf` into a Godot 4 project, enable `GF Framework` from `Project > Project Settings > Plugins`, and the plugin will register:
 
@@ -12,7 +12,7 @@ The plugin also opens the standalone `GF Workspace`. New projects start with onl
 
 The official Godot Asset Store/Asset Library package and the main GitHub Release package are the full `gf-framework-<version>.zip` addon package. Minimal `gf-kernel-<version>.zip` release assets are intended for advanced modular bootstrap flows where a project installs additional GF packages through the package manager.
 
-The optional `gf.tool.ai_developer` package provides project intent, version-bound API discovery, managed agent instructions, and approval-gated GF feedback tooling without affecting the Godot runtime or exported game. See the [AI Developer Kit guide](../../docs/zh/editor/tools/ai-developer.md).
+The optional `gf.tool.ai_developer` package provides project intent, version-bound API discovery, managed agent instructions, and approval-gated GF feedback tooling without affecting the Godot runtime or exported game. See the [AI Developer Kit guide](https://github.com/C76GN/gf-framework/blob/main/docs/zh/editor/tools/ai-developer.md).
 
 ## Package Management
 
@@ -42,6 +42,8 @@ Common options are:
 
 When `--registry` is omitted, GF uses the registry source for the installed framework version from `addons/gf/plugin.cfg`. For example, a project on GF `1.0.0` reads the `1.0.0` release registry by default. A registry or package whose `minimum_framework_version` / `maximum_framework_version_exclusive` does not match the target project is rejected before files are downloaded, staged, or overwritten.
 
+Registry v2 is a closed contract. Missing, unknown, or incorrectly typed fields are rejected before planning; concrete packages require a non-empty archive, a full SHA-256, and a positive byte size, while presets keep empty `dependencies` and `paths` and carry no archive fields. A batch uninstall evaluates `required_by` against the projected final request set, so dependencies outside that set still block removal.
+
 The package manager is not a self-updater for the running framework. With the default source, `install gf.kernel` on GF `1.0.0` targets the `1.0.0` registry. To move a project to GF `1.0.1`, replace the framework from the GF `1.0.1` release first, then run `status` and use `update --all-installed` to align installed optional packages with the new registry.
 
 Installed packages are tracked in `.gf/packages.lock.json`. GF does not update existing packages automatically when the framework is manually replaced; run `status`, then `update <package-id>` or `update --all-installed` to apply updates from the currently selected registry. `update` only targets packages already present in the lockfile. Use `install` to add new packages.
@@ -60,7 +62,7 @@ Bundled GF extensions are atomic and disabled by default: they depend only on th
 
 Godot Asset Store / Asset Library 官方页面和 GitHub Release 主下载包使用完整的 `gf-framework-<version>.zip` 插件包。`gf-kernel-<version>.zip` 是高级模块化引导入口，适合项目先安装最小 kernel，再通过包管理器按需安装其他 GF package。
 
-可选 `gf.tool.ai_developer` 包提供项目意图、版本化 API 查询、Agent 规则和审批式 GF 反馈工具，不影响 Godot 运行时或导出游戏。完整说明见 [AI Developer Kit 指南](../../docs/zh/editor/tools/ai-developer.md)。
+可选 `gf.tool.ai_developer` 包提供项目意图、版本化 API 查询、Agent 规则和审批式 GF 反馈工具，不影响 Godot 运行时或导出游戏。完整说明见 [AI Developer Kit 指南](https://github.com/C76GN/gf-framework/blob/main/docs/zh/editor/tools/ai-developer.md)。
 
 ## 包管理快速入口
 
@@ -90,12 +92,14 @@ godot --headless --path . --script res://addons/gf/kernel/package/gf_package_cli
 
 不传 `--registry` 时，GF 会根据当前项目 `addons/gf/plugin.cfg` 中的框架版本选择同版本 release registry source。例如 GF `1.0.0` 项目默认读取 `1.0.0` registry。registry 或 package 的 `minimum_framework_version` / `maximum_framework_version_exclusive` 与目标项目不匹配时，安装会在下载、暂存和覆盖文件前失败。
 
+registry v2 是闭合协议：缺字段、未知字段和错误类型都会在规划前被拒绝；具体 package 必须提供非空 archive、完整 SHA-256 与正整数 size，preset 的 `dependencies` / `paths` 必须为空且不能携带 archive 字段。批量卸载会按请求集合的投影最终态判断 `required_by`，集合外 depender 仍然阻断移除。
+
 包管理器不是正在运行的 GF 框架自更新器。使用默认源时，GF `1.0.0` 项目执行 `install gf.kernel` 仍然会对齐 `1.0.0` registry。要把项目升级到 GF `1.0.1`，应先用 GF `1.0.1` release 替换框架，再运行 `status` 并用 `update --all-installed` 对齐已安装的可选 package。
 
 已安装 package 记录在 `.gf/packages.lock.json`。手动替换或升级 GF 框架不会自动同步更新已安装 package；先运行 `status` 查看状态，再执行 `update <package-id>` 或 `update --all-installed`，即可按当前 registry 更新。`update` 只处理 lockfile 里已经安装的 package；新增 package 仍使用 `install`。
 
-完整项目说明请看仓库根目录的 [`README.md`](../../README.md) 和 [`README.zh.md`](../../README.zh.md)，正式文档请看 [Read the Docs](https://gf-framework.readthedocs.io/)。
+完整项目说明请看 GitHub 上的 [`README.md`](https://github.com/C76GN/gf-framework/blob/main/README.md) 和 [`README.zh.md`](https://github.com/C76GN/gf-framework/blob/main/README.zh.md)，正式文档请看 [Read the Docs](https://gf-framework.readthedocs.io/)。
 
 ## License
 
-Apache License 2.0. See [`../../LICENSE.md`](../../LICENSE.md).
+Apache License 2.0. See [`LICENSE.md`](LICENSE.md).

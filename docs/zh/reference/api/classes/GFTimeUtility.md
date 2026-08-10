@@ -38,36 +38,39 @@
 ### `time_scale`
 
 - API：`public`
+- 首次版本：`11.0.0`
 
 ```gdscript
 var time_scale: float = 1.0:
 ```
 
-全局时间缩放系数。1.0 为正常速度，0.5 为半速，2.0 为双倍速。 不得为负值，设置负值将被钳制为 0.0。
+全局时间缩放系数。1.0 为正常速度，0.5 为半速，2.0 为双倍速。 不得为负值，设置负值将被钳制为 0.0；非有限值会被拒绝并保留上一有效值。
 
 <a id="member-gftimeutility-properties-max_scaled_delta"></a>
 
 ### `max_scaled_delta`
 
 - API：`public`
+- 首次版本：`11.0.0`
 
 ```gdscript
 var max_scaled_delta: float = 0.0:
 ```
 
-单次缩放后 delta 的最大值。小于等于 0 时不限制。 可用于避免极端 time_scale 或掉帧后向普通 tick 传入过大步长。
+单次缩放后 delta 的最大值。小于等于 0 时不限制。 可用于避免极端 time_scale 或掉帧后向普通 tick 传入过大步长。 非有限值会被拒绝并保留上一有效值。
 
 <a id="member-gftimeutility-properties-physics_substep_max_delta"></a>
 
 ### `physics_substep_max_delta`
 
 - API：`public`
+- 首次版本：`11.0.0`
 
 ```gdscript
 var physics_substep_max_delta: float = 0.0:
 ```
 
-physics_tick 子步进的最大缩放步长。小于等于 0 时不启用子步进。
+physics_tick 子步进的最大缩放步长。小于等于 0 时不启用子步进。 非有限值会被拒绝并保留上一有效值。
 
 <a id="member-gftimeutility-properties-max_physics_substeps"></a>
 

@@ -255,6 +255,8 @@ func register_command(
 	var normalized_name: String = cmd_name.strip_edges()
 	if not _can_register_command_name(owner, normalized_name, callback):
 		return GFLifetimeSubscription.new()
+	if not _command_metadata_has_valid_tier(metadata, normalized_name):
+		return GFLifetimeSubscription.new()
 
 	var registration_id: int = _take_registration_id()
 	_register_command_entry(owner, normalized_name, callback, description, metadata, registration_id)
@@ -289,6 +291,11 @@ func register_command_definition(
 	for command_name: String in command_names:
 		if not _can_register_command_name(owner, command_name.strip_edges(), callback):
 			return GFLifetimeSubscription.new()
+	if not _command_metadata_has_valid_tier(
+		definition.metadata,
+		definition.command_name.strip_edges()
+	):
+		return GFLifetimeSubscription.new()
 
 	var registration_id: int = _take_registration_id()
 	for cmd_name: String in command_names:
@@ -742,10 +749,9 @@ func _filter_suggestions_by_prefix(suggestions: PackedStringArray, prefix: Strin
 
 
 func _append_unique_suggestion(target: PackedStringArray, value: String) -> void:
-	var suggestion: String = value.strip_edges()
-	if suggestion.is_empty() or target.has(suggestion):
+	if target.has(value):
 		return
-	_append_packed_string(target, suggestion)
+	_append_packed_string(target, value)
 
 
 func _parse_command_line(raw_input: String) -> PackedStringArray:
@@ -820,6 +826,23 @@ func _get_command_tier(entry: Dictionary) -> CommandTier:
 	return _to_command_tier(GFVariantData.to_int(tier_value, CommandTier.OBSERVE))
 
 
+func _command_metadata_has_valid_tier(metadata: Dictionary, cmd_name: String) -> bool:
+	if not metadata.has("tier") and not metadata.has(&"tier"):
+		return true
+	var tier_value: Variant = GFVariantData.get_option_value(metadata, "tier")
+	if (
+		typeof(tier_value) == TYPE_INT
+		and tier_value >= CommandTier.OBSERVE
+		and tier_value <= CommandTier.DANGER
+	):
+		return true
+	push_warning(
+		"[GFConsoleUtility] 注册命令失败：tier 必须是 0 到 3 的整数：%s。"
+		% cmd_name
+	)
+	return false
+
+
 func _take_registration_id() -> int:
 	var registration_id: int = _next_registration_id
 	_next_registration_id += 1
@@ -844,7 +867,9 @@ func _get_callable_value(value: Variant) -> Callable:
 
 
 func _to_command_tier(value: int) -> CommandTier:
-	match clampi(value, CommandTier.OBSERVE, CommandTier.DANGER):
+	match value:
+		CommandTier.OBSERVE:
+			return CommandTier.OBSERVE
 		CommandTier.INPUT:
 			return CommandTier.INPUT
 		CommandTier.CONTROL:
@@ -852,7 +877,61 @@ func _to_command_tier(value: int) -> CommandTier:
 		CommandTier.DANGER:
 			return CommandTier.DANGER
 		_:
-			return CommandTier.OBSERVE
+			return CommandTier.DANGER
+
+
+static func _encode_command_argument(value: String) -> String:
+	var requires_quotes: bool = value.is_empty()
+	for index: int in range(value.length()):
+		var character: String = value.substr(index, 1)
+		if (
+			character == " "
+			or character == "\t"
+			or character == "\""
+			or character == "'"
+			or character == "\\"
+		):
+			requires_quotes = true
+			break
+	if not requires_quotes:
+		return value
+	return "\"%s\"" % value.replace("\\", "\\\\").replace("\"", "\\\"")
+
+
+static func _find_active_argument_start(text: String) -> int:
+	var in_quotes: bool = false
+	var quote_character: String = ""
+	var escaping: bool = false
+	var token_started: bool = false
+	var token_start: int = text.length()
+	for index: int in range(text.length()):
+		var character: String = text.substr(index, 1)
+		if escaping:
+			escaping = false
+			continue
+		if character == "\\":
+			if not token_started:
+				token_started = true
+				token_start = index
+			escaping = true
+			continue
+		if in_quotes:
+			if character == quote_character:
+				in_quotes = false
+			continue
+		if character == "\"" or character == "'":
+			if not token_started:
+				token_started = true
+				token_start = index
+			in_quotes = true
+			quote_character = character
+		elif character == " " or character == "\t":
+			token_started = false
+			token_start = text.length()
+		elif not token_started:
+			token_started = true
+			token_start = index
+	return token_start
 
 
 func _escape_bbcode_text(value: Variant) -> String:
@@ -1591,12 +1670,11 @@ class _GFConsoleGUI extends CanvasLayer:
 
 
 	func _replace_active_argument(text: String, completion: String) -> String:
-		var separator_index: int = maxi(text.rfind(" "), text.rfind("\t"))
-		if separator_index < 0:
-			return completion + " "
-		if text.ends_with(" ") or text.ends_with("\t"):
-			return text + completion + " "
-		return text.substr(0, separator_index + 1) + completion + " "
+		var argument_start: int = GFConsoleUtility._find_active_argument_start(text)
+		var encoded_completion: String = GFConsoleUtility._encode_command_argument(
+			completion
+		)
+		return text.substr(0, argument_start) + encoded_completion + " "
 
 
 	func _trim_command_history() -> void:

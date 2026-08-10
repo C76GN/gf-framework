@@ -138,7 +138,7 @@ func schedule_at_owned(owner: Object, target_tick: int, callback: Callable, opti
 func advance_to(target_tick: int, options: Dictionary = {}) -> Dictionary:
 ```
 
-推进到指定绝对 tick，并执行所有到期回调。
+推进到指定绝对 tick，并执行所有到期回调。 同一队列的 callback 内再次推进会返回 status=advance_in_progress，不执行嵌套 drain。
 
 参数：
 

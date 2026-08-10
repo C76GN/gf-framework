@@ -19,9 +19,9 @@ var snapshot := scene_util.get_scene_cache_debug_snapshot()
 print(snapshot["preload_cache"]["paths"])
 ```
 
-`get_scene_resource_state()` 可区分未加载、预加载中、已缓存和当前加载。`get_scene_resource_info()` 会额外返回固定缓存、预加载进度和文件大小信息。预加载请求可用 `cancel_scene_preload()` 或 `cancel_all_scene_preloads()` 标记取消；它只取消当前消费者 Lease、完成信号和缓存写入，不保证中止 Godot 已发起的资源线程。同一规范化路径在请求完成清理前重复调用 `cancel_scene_preload()` 是幂等空操作，只有第一次调用会释放 Lease 并发出 `scene_preload_cancelled`。该入口仍按共享路径取消，不区分同一路径上的项目消费者身份。最后一个消费者取消后，底层请求会进入 Broker drain，迟到结果不会重新写入场景缓存。`get_scene_cache_debug_snapshot()` 的 `resource_broker` 可用于观察 active、pending、draining 与独占 admission。已缓存的场景可用 `remove_preloaded_scene()` 或 `clear_preloaded_scenes()` 手动释放；固定缓存可通过 `move_preloaded_scene_to_fixed()` / `move_preloaded_scene_to_temporary()` 在长期保留和 LRU 管理之间切换。
+`get_scene_resource_state()` 可区分未加载、预加载中、已缓存和当前加载。`get_scene_resource_info()` 会额外返回固定缓存、预加载进度和文件大小信息。同一路径重复调用 `preload_scene(path, true)` 会单调升级已有临时缓存或在途请求，完成后保证进入 fixed 缓存，不会被较早的 `fixed = false` 降级。预加载请求可用 `cancel_scene_preload()` 或 `cancel_all_scene_preloads()` 标记取消；它只取消当前消费者 Lease、完成信号和缓存写入，不保证中止 Godot 已发起的资源线程。同一规范化路径在请求完成清理前重复调用 `cancel_scene_preload()` 是幂等空操作，只有第一次调用会释放 Lease 并发出 `scene_preload_cancelled`。该入口仍按共享路径取消，不区分同一路径上的项目消费者身份。最后一个消费者取消后，底层请求会进入 Broker drain，迟到结果不会重新写入场景缓存。`get_scene_cache_debug_snapshot()` 的 `resource_broker` 可用于观察 active、pending、draining 与独占 admission。已缓存的场景可用 `remove_preloaded_scene()` 或 `clear_preloaded_scenes()` 手动释放；固定缓存可通过 `move_preloaded_scene_to_fixed()` / `move_preloaded_scene_to_temporary()` 在长期保留和 LRU 管理之间切换。
 
-场景路径会在缓存、后台加载参数、历史和图谱查询中规范化：去掉首尾空白，统一反斜杠为 `/`，并折叠 `res://` 下的 `.` / `..` 片段。图谱查找、相邻遍历、固定/临时列表去重和重复校验会使用 `GFResourceIdentity.cache_key`，因此 `uid://` 与 canonical `res://` 指向同一资源时不会生成重复计划；对外报告仍保留 canonical 路径，便于项目层阅读和调试。
+场景路径会在缓存、后台加载参数、历史和图谱查询中规范化：去掉首尾空白，统一反斜杠为 `/`，并折叠 `res://` 下的 `.` / `..` 片段；任何试图用 `..` 越过 `res://` 根的输入都会失败关闭，而不是钳制成另一个合法场景。图谱查找、相邻遍历、固定/临时列表去重和重复校验会使用 `GFResourceIdentity.cache_key`，因此 `uid://` 与 canonical `res://` 指向同一资源时不会生成重复计划；对外报告仍保留 canonical 路径，便于项目层阅读和调试。
 
 ## 预加载图谱
 

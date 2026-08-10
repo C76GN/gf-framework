@@ -153,7 +153,7 @@ func configure(p_grid_size: Vector2i, p_max_occupants_per_cell: int = 1) -> void
 ## [br]
 ## @return 在边界内返回 true。
 func is_in_bounds(cell: Vector2i) -> bool:
-	return GFGridMath.is_in_bounds(cell, grid_size)
+	return GFGridCoordinateMath2D.is_in_bounds(cell, grid_size)
 
 
 ## 检查接收者是否可以占用格子。

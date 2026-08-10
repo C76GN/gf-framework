@@ -144,6 +144,7 @@ func clear_icon_providers() -> void:
 ## @return provider 列表副本，按优先级从高到低排序。
 func get_text_providers() -> Array[GFInputTextProvider]:
 	var _pruned_count: int = _prune_entries(_text_entries)
+	_sort_entries(_text_entries)
 	var result: Array[GFInputTextProvider] = []
 	for entry: Dictionary in _text_entries:
 		var provider: GFInputTextProvider = _get_text_provider_from_entry(entry)
@@ -161,6 +162,7 @@ func get_text_providers() -> Array[GFInputTextProvider]:
 ## @return provider 列表副本，按优先级从高到低排序。
 func get_icon_providers() -> Array[GFInputIconProvider]:
 	var _pruned_count: int = _prune_entries(_icon_entries)
+	_sort_entries(_icon_entries)
 	var result: Array[GFInputIconProvider] = []
 	for entry: Dictionary in _icon_entries:
 		var provider: GFInputIconProvider = _get_icon_provider_from_entry(entry)

@@ -76,7 +76,7 @@ var parts := split["parts"]
 
 ## 文本范围补丁
 
-`GFSourceTextPatchTools.apply_text_edits()` 适合代码生成、迁移工具或编辑器命令在写文件前先对单个文本做确定性补丁。它接受 LSP-shaped 的 `range.start.line/character` 与扁平 `start_line/start_character` 两类范围结构，但 `character` 使用 Godot `String` 字符索引，不是 LSP UTF-16 code unit 坐标。工具会先拒绝越界、反向和重叠 edit，再按原始 offset 倒序应用。
+`GFSourceTextPatchTools.apply_text_edits()` 适合代码生成、迁移工具或编辑器命令在写文件前先对单个文本做确定性补丁。它接受 LSP-shaped 的 `range.start.line/character` 与扁平 `start_line/start_character` 两类范围结构，但 `character` 使用 Godot `String` 字符索引，不是 LSP UTF-16 code unit 坐标。工具会先拒绝越界、反向和重叠 edit，再按原始 offset 升序收集未修改片段与 replacement，最后一次性组装结果；任一 edit 非法时仍返回完整原文。
 
 ```gdscript
 var patched := GFSourceTextPatchTools.apply_text_edits(source_text, [
@@ -114,7 +114,7 @@ var loaded := loader.load_text("generated/header")
 - 顶层分隔符扫描只识别引号、括号和分隔符层级，不验证表达式、SQL、函数名或字段存在性。
 - 文本范围补丁只按调用方提供的 Godot 字符坐标修改字符串，不解析 GDScript、不定位符号，也不替项目决定是否覆盖用户文件；如果外部 LSP 返回 UTF-16 character，调用方需要先转换坐标。
 - Object / Resource 不会被默认展开；需要通过 `GFDataProjection.project_object()` 显式列出字段。
-- 缺失值、未闭合 token、输出超限和预算耗尽都会进入 `GFValidationReport`。
+- 缺失值、未闭合 token、输出超限和预算耗尽都会进入 `GFValidationReport`；未闭合 token 的错误恢复文本与正常 token、循环和空态输出服从同一个累计输出上限。
 - 如果需要读取文件片段，使用 IO 侧的 `GFSourceTextLoader` 先做 root 限制和诊断，再把文本交给上下文。
 - 自定义 source loader 只能返回文本内容；网络、权限、签名、解密或缓存失效策略仍由项目侧在回调内自行决定。
 

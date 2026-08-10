@@ -95,13 +95,13 @@ const _GF_VARIANT_ACCESS_SCRIPT = preload("res://addons/gf/kernel/core/gf_varian
 ## [br]
 ## @param message: 错误或跳过说明。
 ## [br]
-## @param options: 报告选项，支持 written、changed、dry_run、size_bytes、metadata、artifact_owner、generator_id、source_id、content_sha256、previous_sha256 和 encoding；metadata 会在返回报告中编码为 JSON-safe Dictionary。
+## @param options: 报告选项，支持 written、changed、dry_run、conflict、size_bytes、metadata、artifact_owner、generator_id、source_id、content_sha256、previous_sha256、expected_previous_sha256 和 encoding；metadata 会在返回报告中编码为 JSON-safe Dictionary。
 ## [br]
-## @schema options: Dictionary，可包含 written、changed、dry_run、size_bytes、metadata、artifact_owner、generator_id、source_id、content_sha256、previous_sha256 和 encoding；metadata 允许任意 Variant，返回时会通过 GFReportValueCodec 收束。
+## @schema options: Dictionary，可包含 written、changed、dry_run、conflict、size_bytes、metadata、artifact_owner、generator_id、source_id、content_sha256、previous_sha256、expected_previous_sha256 和 encoding；metadata 允许任意 Variant，返回时会通过 GFReportValueCodec 收束。
 ## [br]
 ## @return: 生成产物报告。success 只表示产物状态不是 failed；skipped 可保留非 OK error_code 供调用方决定是否阻断。
 ## [br]
-## @schema return: JSON-safe Dictionary，包含 success、path、status、error_code、error、written、changed、dry_run、size_bytes、artifact_owner、generator_id、source_id、content_sha256、previous_sha256、encoding 和 metadata。
+## @schema return: JSON-safe Dictionary，包含 success、path、status、error_code、error、written、changed、dry_run、conflict、size_bytes、artifact_owner、generator_id、source_id、content_sha256、previous_sha256、expected_previous_sha256、encoding 和 metadata。
 static func make_report(
 	output_path: String,
 	status: StringName,
@@ -118,12 +118,17 @@ static func make_report(
 		"written": _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(options, "written", false),
 		"changed": _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(options, "changed", false),
 		"dry_run": _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(options, "dry_run", false),
+		"conflict": _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(options, "conflict", false),
 		"size_bytes": _GF_VARIANT_ACCESS_SCRIPT.get_option_int(options, "size_bytes", 0),
 		"artifact_owner": _read_artifact_owner(options),
 		"generator_id": _GF_VARIANT_ACCESS_SCRIPT.get_option_string(options, "generator_id"),
 		"source_id": _GF_VARIANT_ACCESS_SCRIPT.get_option_string(options, "source_id"),
 		"content_sha256": _GF_VARIANT_ACCESS_SCRIPT.get_option_string(options, "content_sha256"),
 		"previous_sha256": _GF_VARIANT_ACCESS_SCRIPT.get_option_string(options, "previous_sha256"),
+		"expected_previous_sha256": _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
+			options,
+			"expected_previous_sha256"
+		),
 		"encoding": _GF_VARIANT_ACCESS_SCRIPT.get_option_string(options, "encoding", "utf-8"),
 		"metadata": _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(options, "metadata", {}).duplicate(true),
 	}
@@ -235,13 +240,13 @@ static func summarize_reports(
 ## [br]
 ## @param text: 要写入的文本内容。
 ## [br]
-## @param options: 保存选项，支持 overwrite_existing、dry_run、scan_filesystem、label、metadata、artifact_owner、generator_id、source_id 和 allowed_roots。
+## @param options: 保存选项，支持 overwrite_existing、expected_previous_sha256、dry_run、scan_filesystem、label、metadata、artifact_owner、generator_id、source_id 和 allowed_roots。
 ## [br]
-## @schema options: Dictionary，可包含 overwrite_existing、dry_run、scan_filesystem、label、metadata、artifact_owner、generator_id、source_id 和 allowed_roots；allowed_roots 为可选 res:// / user:// 根目录数组。
+## @schema options: Dictionary，可包含 overwrite_existing、expected_previous_sha256、dry_run、scan_filesystem、label、metadata、artifact_owner、generator_id、source_id 和 allowed_roots；expected_previous_sha256 存在时要求保存前目标内容仍匹配该 SHA-256，空字符串表示要求目标不存在；allowed_roots 为可选 res:// / user:// 根目录数组。
 ## [br]
 ## @return: 生成产物保存报告。
 ## [br]
-## @schema return: JSON-safe Dictionary，包含 success、path、status、error_code、error、written、changed、dry_run、size_bytes、artifact_owner、generator_id、source_id、content_sha256、previous_sha256、encoding 和 metadata。
+## @schema return: JSON-safe Dictionary，包含 success、path、status、error_code、error、written、changed、dry_run、conflict、size_bytes、artifact_owner、generator_id、source_id、content_sha256、previous_sha256、expected_previous_sha256、encoding 和 metadata。
 static func save_text(output_path: String, text: String, options: Dictionary = {}) -> Dictionary:
 	var label: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(options, "label", "GFGeneratedArtifactReport")
 	output_path = _GF_PATH_TOOLS.normalize_resource_path(output_path)
@@ -288,6 +293,12 @@ static func save_text(output_path: String, text: String, options: Dictionary = {
 			"metadata": _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(options, "metadata"),
 		})
 	var existing_text: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(existing_read, "text")
+	var previous_sha256: String = _sha256_text(existing_text) if exists else ""
+	var has_expected_previous_sha256: bool = options.has("expected_previous_sha256")
+	var expected_previous_sha256: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
+		options,
+		"expected_previous_sha256"
+	)
 	var status: StringName = _resolve_text_status(exists, existing_text, text)
 	var changed: bool = status != STATUS_UNCHANGED
 	var size_bytes: int = text.to_utf8_buffer().size()
@@ -299,10 +310,25 @@ static func save_text(output_path: String, text: String, options: Dictionary = {
 		"generator_id": _GF_VARIANT_ACCESS_SCRIPT.get_option_string(options, "generator_id", label),
 		"source_id": _GF_VARIANT_ACCESS_SCRIPT.get_option_string(options, "source_id"),
 		"content_sha256": _sha256_text(text),
-		"previous_sha256": _sha256_text(existing_text) if exists else "",
+		"previous_sha256": previous_sha256,
+		"expected_previous_sha256": expected_previous_sha256,
 		"encoding": "utf-8",
 		"metadata": _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(options, "metadata"),
 	}
+
+	if has_expected_previous_sha256 and previous_sha256 != expected_previous_sha256:
+		report_options["conflict"] = true
+		var baseline_message: String = (
+			"目标文件已偏离调用方读取基线，已拒绝写入：%s" % output_path
+		)
+		push_error("[%s] %s" % [label, baseline_message])
+		return make_report(
+			output_path,
+			STATUS_FAILED,
+			ERR_FILE_ALREADY_IN_USE,
+			baseline_message,
+			report_options
+		)
 
 	if exists and changed and not overwrite_existing:
 		var skipped_message: String = "目标文件已存在，已跳过：%s" % output_path
@@ -342,6 +368,36 @@ static func save_text(output_path: String, text: String, options: Dictionary = {
 		var size_message: String = "文本产物临时文件写入大小不匹配：%s" % temp_path
 		push_error("[%s] %s" % [label, size_message])
 		return make_report(output_path, STATUS_FAILED, ERR_FILE_CORRUPT, size_message, report_options)
+	var baseline_check: Dictionary = _check_target_baseline(
+		output_path,
+		exists,
+		previous_sha256
+	)
+	if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(baseline_check, "ok", false):
+		_remove_file_if_exists(temp_path)
+		var baseline_error: Error = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+			baseline_check,
+			"error_code",
+			ERR_FILE_ALREADY_IN_USE
+		) as Error
+		var baseline_message: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
+			baseline_check,
+			"error",
+			"目标文件在保存期间发生变化。"
+		)
+		report_options["conflict"] = _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+			baseline_check,
+			"conflict",
+			true
+		)
+		push_error("[%s] %s" % [label, baseline_message])
+		return make_report(
+			output_path,
+			STATUS_FAILED,
+			baseline_error,
+			baseline_message,
+			report_options
+		)
 	var replace_error: Error = _replace_output_with_temp(output_path, temp_path, exists)
 	if replace_error != OK:
 		var replace_message: String = "无法替换文本产物：%s (%s)" % [output_path, error_string(replace_error)]
@@ -386,12 +442,17 @@ static func _to_artifact_report_boundary(report: Dictionary) -> Dictionary:
 		"written": _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(report, "written", false),
 		"changed": _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(report, "changed", false),
 		"dry_run": _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(report, "dry_run", false),
+		"conflict": _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(report, "conflict", false),
 		"size_bytes": _GF_VARIANT_ACCESS_SCRIPT.get_option_int(report, "size_bytes", 0),
 		"artifact_owner": artifact_owner,
 		"generator_id": _GF_VARIANT_ACCESS_SCRIPT.get_option_string(report, "generator_id"),
 		"source_id": _GF_VARIANT_ACCESS_SCRIPT.get_option_string(report, "source_id"),
 		"content_sha256": _GF_VARIANT_ACCESS_SCRIPT.get_option_string(report, "content_sha256"),
 		"previous_sha256": _GF_VARIANT_ACCESS_SCRIPT.get_option_string(report, "previous_sha256"),
+		"expected_previous_sha256": _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
+			report,
+			"expected_previous_sha256"
+		),
 		"encoding": _GF_VARIANT_ACCESS_SCRIPT.get_option_string(report, "encoding", "utf-8"),
 		"metadata": _to_report_dictionary(_GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(report, "metadata", {})),
 	}
@@ -497,6 +558,61 @@ static func _file_size(path: String) -> int:
 	var size: int = file.get_length()
 	file.close()
 	return size
+
+
+static func _check_target_baseline(
+	output_path: String,
+	expected_exists: bool,
+	expected_sha256: String
+) -> Dictionary:
+	var current_exists: bool = FileAccess.file_exists(output_path)
+	if current_exists != expected_exists:
+		return {
+			"ok": false,
+			"conflict": true,
+			"error_code": ERR_FILE_ALREADY_IN_USE,
+			"error": "目标文件在保存期间发生创建或删除：%s" % output_path,
+		}
+	if not current_exists:
+		return {
+			"ok": true,
+			"conflict": false,
+			"error_code": OK,
+			"error": "",
+		}
+	var current_read: Dictionary = _read_text_if_exists(output_path)
+	if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(current_read, "ok", false):
+		return {
+			"ok": false,
+			"conflict": false,
+			"error_code": _GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+				current_read,
+				"error_code",
+				ERR_CANT_OPEN
+			),
+			"error": _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
+				current_read,
+				"error",
+				"无法重新读取目标文件。"
+			),
+		}
+	var current_text: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
+		current_read,
+		"text"
+	)
+	if _sha256_text(current_text) != expected_sha256:
+		return {
+			"ok": false,
+			"conflict": true,
+			"error_code": ERR_FILE_ALREADY_IN_USE,
+			"error": "目标文件在保存期间发生内容变化：%s" % output_path,
+		}
+	return {
+		"ok": true,
+		"conflict": false,
+		"error_code": OK,
+		"error": "",
+	}
 
 
 static func _ensure_output_directory(output_path: String) -> Error:

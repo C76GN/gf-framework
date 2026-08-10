@@ -52,6 +52,41 @@ func test_observable_array_linearizes_reentrant_change_signals() -> void:
 	resource.items_changed.disconnect(on_items_changed)
 
 
+func test_observable_array_linearizes_reentrant_batch_aggregates_without_stack_growth() -> void:
+	var resource: GFObservableArrayResource = GFObservableArrayResource.new()
+	var state: Dictionary = {
+		"remaining": 100,
+		"callback_count": 0,
+		"callback_depth": 0,
+		"max_callback_depth": 0,
+	}
+	var on_items_changed: Callable = func(_changes: Array[Dictionary], _metadata: Dictionary) -> void:
+		state["callback_count"] = GFVariantData.get_option_int(state, "callback_count") + 1
+		state["callback_depth"] = GFVariantData.get_option_int(state, "callback_depth") + 1
+		state["max_callback_depth"] = maxi(
+			GFVariantData.get_option_int(state, "max_callback_depth"),
+			GFVariantData.get_option_int(state, "callback_depth")
+		)
+		state["remaining"] = GFVariantData.get_option_int(state, "remaining") - 1
+		if GFVariantData.get_option_int(state, "remaining") > 0:
+			resource.begin_batch()
+			var _nested_change: Dictionary = resource.append_item(GFVariantData.get_option_int(state, "remaining"))
+			var _nested_report: Dictionary = resource.end_batch()
+		state["callback_depth"] = GFVariantData.get_option_int(state, "callback_depth") - 1
+	var _items_connected: Error = resource.items_changed.connect(on_items_changed) as Error
+
+	resource.begin_batch()
+	var _seed_change: Dictionary = resource.append_item("seed")
+	var _seed_report: Dictionary = resource.end_batch()
+	var snapshot: Dictionary = resource.get_debug_snapshot()
+
+	assert_eq(GFVariantData.get_option_int(state, "callback_count"), 100, "所有受限嵌套 aggregate 都应按 FIFO 完成。")
+	assert_eq(GFVariantData.get_option_int(state, "max_callback_depth"), 1, "aggregate 重入不得递归增长调用栈。")
+	assert_eq(GFVariantData.get_option_int(snapshot, "batch_depth"), 0, "嵌套 aggregate 后 batch depth 应归零。")
+	assert_eq(GFVariantData.get_option_int(snapshot, "pending_change_count"), 0, "嵌套 aggregate 后不应残留 pending change。")
+	resource.items_changed.disconnect(on_items_changed)
+
+
 func test_observable_dictionary_reports_set_and_erase() -> void:
 	var resource: GFObservableDictionaryResource = GFObservableDictionaryResource.new()
 	watch_signals(resource)
@@ -64,6 +99,27 @@ func test_observable_dictionary_reports_set_and_erase() -> void:
 	assert_eq(GFVariantData.get_option_string_name(erase_change, "operation"), GFObservableDictionaryResource.OPERATION_ERASE, "erase 应报告操作类型。")
 	assert_signal_emit_count(resource, "entry_changed", 2)
 	assert_signal_emit_count(resource, "entries_changed", 2)
+
+
+func test_observable_dictionary_linearizes_reentrant_change_signals() -> void:
+	var resource: GFObservableDictionaryResource = GFObservableDictionaryResource.new()
+	var signal_order: Array[String] = []
+	var on_entry_changed: Callable = func(_operation: StringName, _entry_key: Variant, _old_value: Variant, new_value: Variant, _metadata: Dictionary) -> void:
+		var numeric_value: int = GFVariantData.to_int(new_value)
+		signal_order.append("entry_%d" % numeric_value)
+		if numeric_value == 1:
+			var _nested_change: Dictionary = resource.set_value(&"value", 2)
+	var on_entries_changed: Callable = func(changes: Array[Dictionary], _metadata: Dictionary) -> void:
+		signal_order.append("entries_%d" % GFVariantData.to_int(GFVariantData.get_option_value(changes[0], "new_value")))
+	var _entry_connected: Error = resource.entry_changed.connect(on_entry_changed) as Error
+	var _entries_connected: Error = resource.entries_changed.connect(on_entries_changed) as Error
+
+	var _outer_change: Dictionary = resource.set_value(&"value", 1)
+
+	assert_eq(GFVariantData.to_int(resource.get_value(&"value")), 2, "重入 mutation 仍应立即更新字典。")
+	assert_eq(signal_order, ["entry_1", "entries_1", "entry_2", "entries_2"], "每条字典 mutation 的单项和汇总信号应连续、可重放。")
+	resource.entry_changed.disconnect(on_entry_changed)
+	resource.entries_changed.disconnect(on_entries_changed)
 
 
 func test_observable_dictionary_batches_changes_without_entry_level_replay() -> void:
@@ -81,6 +137,42 @@ func test_observable_dictionary_batches_changes_without_entry_level_replay() -> 
 	assert_eq(GFVariantData.get_option_int(report, "change_count"), 2, "end_batch 应报告字典批量变更数量。")
 	assert_signal_emit_count(resource, "entry_changed", 0, "批量结束不应补发 entry_changed。")
 	assert_signal_emit_count(resource, "entries_changed", 1, "批量结束应只发出一次 aggregate 信号。")
+
+
+func test_observable_dictionary_linearizes_reentrant_batch_aggregates_without_stack_growth() -> void:
+	var resource: GFObservableDictionaryResource = GFObservableDictionaryResource.new()
+	var state: Dictionary = {
+		"remaining": 100,
+		"callback_count": 0,
+		"callback_depth": 0,
+		"max_callback_depth": 0,
+	}
+	var on_entries_changed: Callable = func(_changes: Array[Dictionary], _metadata: Dictionary) -> void:
+		state["callback_count"] = GFVariantData.get_option_int(state, "callback_count") + 1
+		state["callback_depth"] = GFVariantData.get_option_int(state, "callback_depth") + 1
+		state["max_callback_depth"] = maxi(
+			GFVariantData.get_option_int(state, "max_callback_depth"),
+			GFVariantData.get_option_int(state, "callback_depth")
+		)
+		state["remaining"] = GFVariantData.get_option_int(state, "remaining") - 1
+		if GFVariantData.get_option_int(state, "remaining") > 0:
+			resource.begin_batch()
+			var remaining: int = GFVariantData.get_option_int(state, "remaining")
+			var _nested_change: Dictionary = resource.set_value(StringName("key_%d" % remaining), remaining)
+			var _nested_report: Dictionary = resource.end_batch()
+		state["callback_depth"] = GFVariantData.get_option_int(state, "callback_depth") - 1
+	var _entries_connected: Error = resource.entries_changed.connect(on_entries_changed) as Error
+
+	resource.begin_batch()
+	var _seed_change: Dictionary = resource.set_value(&"seed", 100)
+	var _seed_report: Dictionary = resource.end_batch()
+	var snapshot: Dictionary = resource.get_debug_snapshot()
+
+	assert_eq(GFVariantData.get_option_int(state, "callback_count"), 100, "所有字典 aggregate 都应按 FIFO 完成。")
+	assert_eq(GFVariantData.get_option_int(state, "max_callback_depth"), 1, "字典 aggregate 重入不得递归增长调用栈。")
+	assert_eq(GFVariantData.get_option_int(snapshot, "batch_depth"), 0, "嵌套 aggregate 后 batch depth 应归零。")
+	assert_eq(GFVariantData.get_option_int(snapshot, "pending_change_count"), 0, "嵌套 aggregate 后不应残留 pending change。")
+	resource.entries_changed.disconnect(on_entries_changed)
 
 
 func test_observable_dictionary_change_reports_preserve_resource_key_identity() -> void:

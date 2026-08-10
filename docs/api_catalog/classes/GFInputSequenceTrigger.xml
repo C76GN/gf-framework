@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFInputSequenceTrigger" path="addons/gf/standard/input/sequences/gf_input_sequence_trigger.gd" module="standard" extends="GFInputTrigger" classDigest="6ad80dc8bec96d1b6ee1478a43142afa5dd4523dabc35abd82350d03b4b395ea">
+<class name="GFInputSequenceTrigger" path="addons/gf/standard/input/sequences/gf_input_sequence_trigger.gd" module="standard" extends="GFInputTrigger" classDigest="7402531df4d72f98f8d9ad2346273437a931c2762edb3fa71c1013af60998cd1">
 	<description>GFInputSequenceTrigger: 动作序列触发器。
 按顺序观察一组前置动作的 just-started 状态，全部完成后当前输入活跃时触发。</description>
 	<tags>
@@ -35,9 +35,11 @@
 		</member>
 		<member kind="property" name="player_scoped" decorators="@export">
 			<signature>var player_scoped: bool = true</signature>
-			<description>玩家级动作是否只检查同一玩家。</description>
+			<description>玩家级动作是否只检查同一玩家。启用且 player_index 有效时，runtime 必须提供
+完整 player-specific active/started/completed/duration 协议，否则序列不推进。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 	</properties>

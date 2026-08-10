@@ -1,8 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSafeResourceCodec" path="addons/gf/standard/utilities/storage/gf_safe_resource_codec.gd" module="standard" extends="RefCounted" classDigest="59753a6e46065528baaf648794e1da48804de738e26981ea5d8ef019ca5ce07b">
+<class name="GFSafeResourceCodec" path="addons/gf/standard/utilities/storage/gf_safe_resource_codec.gd" module="standard" extends="RefCounted" classDigest="81474623977b71d2f1fd772f54a54650d1ad68e44ebfa32b604742045841f450">
 	<description>GFSafeResourceCodec: 安全资源图编解码工具。
 把 Variant、Array、Dictionary 和 allowlist 内的 Resource/Object 属性图
 编码为纯 Dictionary，并在解码时按策略限制类、脚本、外部资源路径、深度和数量。
+容器解码会在扫描或暂存完整形状前，用直接子节点基数预检剩余 max_items 预算。
 该类不注册 ResourceFormatLoader/Saver，不加载未授权资源，也不执行脚本表达式。</description>
 	<tags>
 		<tag name="api">public</tag>

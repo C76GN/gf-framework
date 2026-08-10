@@ -45,6 +45,7 @@ const DEFAULT_OUTPUT_DIR: String = _GF_PROJECT_ARTIFACT_PATHS_SCRIPT.NETWORK_OUT
 ### `generate`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func generate( contract: GFNetworkContract, output_path: String = "", overwrite_existing: bool = true, options: Dictionary = {} ) -> Error:
@@ -115,20 +116,21 @@ func generate_many( contract_paths: PackedStringArray, output_dir: String = DEFA
 | `contract_paths` | 契约资源路径列表。 |
 | `output_dir` | 输出目录。 |
 | `overwrite_existing` | 为 false 时目标已存在会跳过。 |
-| `options` | 可选项，支持 class_name、dry_run、scan_filesystem 和 metadata。 |
+| `options` | 可选项，支持 class_name、dry_run、scan_filesystem、metadata、allowed_roots 和生成预算。 |
 
 返回：生成报告。
 
 结构：
 
-- `options`: Dictionary，可包含 class_name、dry_run、scan_filesystem 和 metadata。
-- `return`: Dictionary，GFValidationReportDictionary 格式，包含 ok、generated_count、attempted_count、skipped_count、artifact_summary、generated、issues、issue_count 和 next_actions。
+- `options`: Dictionary，可包含 class_name、dry_run、scan_filesystem、metadata、allowed_roots、max_contracts、max_messages_per_contract、max_fields_per_message、max_identifier_length、max_source_bytes 和 max_total_source_bytes；预算必须为正整数并受框架硬上限约束。
+- `return`: Dictionary，GFValidationReportDictionary 格式，包含 ok、generated_count、attempted_count、skipped_count、artifact_summary、generated、issues、issue_count、plan_fingerprint 和 next_actions。
 
 <a id="member-gfnetworkcontractgenerator-methods-build_source"></a>
 
 ### `build_source`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func build_source(contract: GFNetworkContract, options: Dictionary = {}) -> String:
@@ -154,6 +156,7 @@ func build_source(contract: GFNetworkContract, options: Dictionary = {}) -> Stri
 ### `save_source`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func save_source(output_path: String, source: String, overwrite_existing: bool = true) -> Error:

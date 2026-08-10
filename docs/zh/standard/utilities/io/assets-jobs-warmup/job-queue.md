@@ -16,7 +16,7 @@ if active != null:
 	jobs.complete_job(active.job_id, { "count": 120 })
 ```
 
-如果项目希望同步消费一项任务，可以使用 `run_next_job(queue_name, processor)`，回调返回 `false` 或 `{ "ok": false, "error": "..." }` 时会进入失败状态。`pause_queue()` / `resume_queue()` 只影响后续 `start_next_job()`，不会取消已经开始的任务；需要真正中止外部工作时，项目层应在自己的处理器里响应取消状态。`get_debug_snapshot()` 会报告队列数量、等待任务、完成和失败保留数量，适合诊断面板读取。
+如果项目希望同步消费一项任务，可以使用 `run_next_job(queue_name, processor)`，回调返回 `false` 或 `{ "ok": false, "error": "..." }` 时会进入失败状态。`complete_job()`、`fail_job()` 和 `cancel_job()` 都会先从等待队列移除对应对象，因此直接终结尚未启动的任务也不会被再次领取。`pause_queue()` / `resume_queue()` 只影响后续 `start_next_job()`，不会取消已经开始的任务；需要真正中止外部工作时，项目层应在自己的处理器里响应取消状态。完成、失败和取消历史分别受 `max_completed_jobs`、`max_failed_jobs`、`max_cancelled_jobs` 限制；`get_debug_snapshot()` 会报告三类终态保留数量，适合诊断面板读取。
 
 ## Worker 消费
 

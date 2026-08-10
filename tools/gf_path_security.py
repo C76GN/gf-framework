@@ -75,6 +75,24 @@ def read_pinned_utf8_regular_file(
 	max_bytes: int,
 ) -> str:
 	"""Read a contained UTF-8 file while pinning its filesystem root-to-leaf chain."""
+	payload = read_pinned_regular_file(
+		containment_root,
+		relative_path,
+		max_bytes=max_bytes,
+	)
+	try:
+		return payload.decode("utf-8", errors="strict")
+	except UnicodeDecodeError:
+		raise PinnedReadError("path_security.invalid_utf8") from None
+
+
+def read_pinned_regular_file(
+	containment_root: Path,
+	relative_path: str,
+	*,
+	max_bytes: int,
+) -> bytes:
+	"""Read contained regular-file bytes while pinning the root-to-leaf chain."""
 	if type(max_bytes) is not int or max_bytes < 0:
 		raise PinnedReadError("path_security.invalid_budget")
 	try:
@@ -89,10 +107,7 @@ def read_pinned_utf8_regular_file(
 		raise
 	except (OSError, TypeError, ValueError):
 		raise PinnedReadError("path_security.file_unavailable") from None
-	try:
-		return payload.decode("utf-8", errors="strict")
-	except UnicodeDecodeError:
-		raise PinnedReadError("path_security.invalid_utf8") from None
+	return payload
 
 
 def _canonical_relative_path(path: str) -> PurePosixPath:

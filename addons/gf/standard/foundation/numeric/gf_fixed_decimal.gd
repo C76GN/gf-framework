@@ -286,21 +286,21 @@ func rescaled(
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param other: 另一个定点数。
 ## [br]
-## @return 大于返回 1，小于返回 -1，相等返回 0。
+## @return: 大于返回 1，小于返回 -1，相等返回 0；跨小数位比较不会先把 raw 值饱和对齐。
 func compare_to(other: GFFixedDecimal) -> int:
 	if other == null:
 		return 1
 
-	var target_places: int = maxi(decimal_places, other.decimal_places)
-	var self_raw: int = _align_raw_for_compare(target_places)
-	var other_raw: int = other._align_raw_for_compare(target_places)
-
-	if self_raw == other_raw:
-		return 0
-
-	return 1 if self_raw > other_raw else -1
+	return _compare_scaled_raw_values(
+		raw_value,
+		decimal_places,
+		other.raw_value,
+		other.decimal_places
+	)
 
 
 ## 与另一个定点数相加。
@@ -370,13 +370,15 @@ func multiply(
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param other: 另一个定点数。
 ## [br]
 ## @param target_decimal_places: 结果小数位；传 -1 时取两者较大值。
 ## [br]
 ## @param rounding_mode: 除法舍入策略。
 ## [br]
-## @return 相除结果。
+## @return: 相除结果；中间缩放使用可容纳精确值的路径，舍入与钳制只作用于最终 raw。
 func divide(
 	other: GFFixedDecimal,
 	target_decimal_places: int = -1,
@@ -397,12 +399,30 @@ func divide(
 	var numerator: int = raw_value
 	var denominator: int = other.raw_value
 	if shift > MAX_DECIMAL_PLACES:
-		var scaled_raw: int = _divide_with_scaled_float(numerator, denominator, shift, rounding_mode)
+		var scaled_raw: int = _divide_with_decimal_strings(numerator, denominator, shift, rounding_mode)
 		return GFFixedDecimal.new(scaled_raw, result_places)
 	if shift >= 0:
-		numerator = _checked_multiply(numerator, _pow10_int(shift), "divide")
+		var numerator_scale: int = _pow10_int(shift)
+		if not _multiplication_fits(numerator, numerator_scale):
+			var scaled_raw: int = _divide_with_decimal_strings(
+				numerator,
+				denominator,
+				shift,
+				rounding_mode
+			)
+			return GFFixedDecimal.new(scaled_raw, result_places)
+		numerator *= numerator_scale
 	else:
-		denominator = _checked_multiply(denominator, _pow10_int(-shift), "divide")
+		var denominator_scale: int = _pow10_int(-shift)
+		if not _multiplication_fits(denominator, denominator_scale):
+			var scaled_raw: int = _divide_with_decimal_strings(
+				numerator,
+				denominator,
+				shift,
+				rounding_mode
+			)
+			return GFFixedDecimal.new(scaled_raw, result_places)
+		denominator *= denominator_scale
 
 	var divided_raw: int = _divide_with_rounding(numerator, denominator, rounding_mode)
 	return GFFixedDecimal.new(divided_raw, result_places)
@@ -643,6 +663,30 @@ func _align_raw_for_compare(target_decimal_places: int) -> int:
 	return _checked_multiply(raw_value, _pow10_int(target_decimal_places - decimal_places), "compare")
 
 
+static func _compare_scaled_raw_values(
+	left_raw: int,
+	left_places: int,
+	right_raw: int,
+	right_places: int
+) -> int:
+	var left_negative: bool = left_raw < 0
+	var right_negative: bool = right_raw < 0
+	if left_negative != right_negative:
+		return -1 if left_negative else 1
+
+	var target_places: int = maxi(left_places, right_places)
+	var left_digits: String = (
+		str(_abs_int(left_raw))
+		+ _repeat_character("0", target_places - left_places)
+	)
+	var right_digits: String = (
+		str(_abs_int(right_raw))
+		+ _repeat_character("0", target_places - right_places)
+	)
+	var magnitude_compare: int = _compare_decimal_strings(left_digits, right_digits)
+	return -magnitude_compare if left_negative else magnitude_compare
+
+
 static func _rescale_raw(
 	value: int,
 	from_places: int,
@@ -738,7 +782,7 @@ static func _round_scaled_float(value: float, rounding_mode: RoundingMode) -> in
 	return int(fallback_rounded)
 
 
-static func _divide_with_scaled_float(
+static func _divide_with_decimal_strings(
 	numerator: int,
 	denominator: int,
 	shift: int,
@@ -749,8 +793,12 @@ static func _divide_with_scaled_float(
 		return 0
 
 	var negative: bool = (numerator < 0) != (denominator < 0)
-	var numerator_digits: String = str(_abs_int(numerator)) + _repeat_character("0", shift)
+	var numerator_digits: String = str(_abs_int(numerator))
 	var denominator_digits: String = str(_abs_int(denominator))
+	if shift >= 0:
+		numerator_digits += _repeat_character("0", shift)
+	else:
+		denominator_digits += _repeat_character("0", -shift)
 	var division: Dictionary = _divide_decimal_strings(numerator_digits, denominator_digits)
 	var quotient_text: String = GFVariantData.get_option_string(division, "quotient", "0")
 	var remainder_text: String = GFVariantData.get_option_string(division, "remainder", "0")
@@ -1154,13 +1202,17 @@ static func _checked_multiply(left: int, right: int, context: String) -> int:
 	if left == 0 or right == 0:
 		return 0
 
-	var abs_left: int = _abs_int(left)
-	var abs_right: int = _abs_int(right)
 	var negative: bool = (left < 0) != (right < 0)
-	if abs_left > _divide_truncated(_MAX_INT_VALUE, abs_right):
+	if not _multiplication_fits(left, right):
 		push_error("[GFFixedDecimal] %s 结果超出可表示范围，已钳制。" % context)
 		return _get_saturated_int(negative)
 	return left * right
+
+
+static func _multiplication_fits(left: int, right: int) -> bool:
+	if left == 0 or right == 0:
+		return true
+	return _abs_int(left) <= _divide_truncated(_MAX_INT_VALUE, _abs_int(right))
 
 
 static func _divide_truncated(numerator: int, denominator: int) -> int:

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFLogUtility" path="addons/gf/standard/utilities/logging/gf_log_utility.gd" module="standard" extends="GFUtility" classDigest="12c1518adaa3c28f087c2b2374588953db83b14f886df109b936740a9bef8ed7">
+<class name="GFLogUtility" path="addons/gf/standard/utilities/logging/gf_log_utility.gd" module="standard" extends="GFUtility" classDigest="99f32579aebbfd497f02dd1b46deb50f31e18cc0d9d5a3b6dea8a0ec1e52a5f6">
 	<description>GFLogUtility: 集中式日志系统。
 取代原生 print / push_error，提供分级日志（DEBUG → FATAL），
 每条日志同时写入本地按日期命名的日志文件，进入内存环形缓存，
@@ -124,6 +124,15 @@
 			<description>销毁时关闭文件句柄。</description>
 			<tags>
 				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="method" name="tick">
+			<signature>func tick(delta: float) -&gt; void:</signature>
+			<description>推进日志文件和已注册 sink 的空闲时间行为。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">delta: 本帧时间增量（秒）；非有限或非正数不会推进状态。</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 		<member kind="method" name="debug">

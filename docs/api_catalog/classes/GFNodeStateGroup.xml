@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFNodeStateGroup" path="addons/gf/standard/state_machine/node/gf_node_state_group.gd" module="standard" extends="Node" classDigest="0ccd5ef42c13f46c74fa51c4741f939d1c2d7001f85fce121efc83d665e5bd39">
+<class name="GFNodeStateGroup" path="addons/gf/standard/state_machine/node/gf_node_state_group.gd" module="standard" extends="Node" classDigest="15d1632d8e50aa8b005a8ff2719f562b7ffdb36dc3d3603ca52c2cf45abbc873">
 	<description>GFNodeStateGroup: 管理一组互斥激活的节点状态。
 一个状态组内同一时间只有一个 GFNodeState 处于启用状态。</description>
 	<tags>
@@ -256,13 +256,15 @@
 		</member>
 		<member kind="method" name="dispatch_state_event">
 			<signature>func dispatch_state_event(event_id: StringName, payload: Variant = null) -&gt; bool:</signature>
-			<description>从当前状态开始向暂停栈上抛状态事件。</description>
+			<description>从当前状态开始向暂停栈上抛状态事件。
+处理器改变激活集合时，本次派发会在当前处理器返回后终止；新激活或已退出状态不会接收旧周期事件。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">event_id: 状态事件标识。</tag>
 				<tag name="param">payload: 状态事件载荷。</tag>
 				<tag name="return">有状态处理该事件时返回 true。</tag>
 				<tag name="schema">payload: 状态事件载荷；具体结构由 event_id 和项目逻辑约定。</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="is_in_state">

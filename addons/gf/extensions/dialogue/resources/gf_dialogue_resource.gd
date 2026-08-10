@@ -113,7 +113,15 @@ func validate_resource() -> Dictionary:
 		"subject": "Dialogue resource",
 		"issues": [],
 	}
-	if start_line_id != &"" and get_line(start_line_id) == null:
+	var line_index: Dictionary = _build_line_index()
+	if line_index.is_empty():
+		_append_issue(
+			report,
+			&"empty_dialogue",
+			"lines",
+			"Dialogue resource does not contain a runnable line."
+		)
+	if start_line_id != &"" and not line_index.has(start_line_id):
 		_append_issue(
 			report,
 			&"missing_start_line",
@@ -133,6 +141,13 @@ func validate_resource() -> Dictionary:
 		if seen.has(line.line_id):
 			_append_issue(report, &"duplicate_line_id", String(line.line_id), "Dialogue line_id is duplicated.")
 		seen[line.line_id] = true
+		if not _is_valid_line_kind(line.kind):
+			_append_issue(
+				report,
+				&"invalid_line_kind",
+				String(line.line_id),
+				"Dialogue line kind is outside the supported LineKind values."
+			)
 
 		var next_ids: PackedStringArray = PackedStringArray()
 		if line.next_line_id != &"":
@@ -170,7 +185,7 @@ func validate_resource() -> Dictionary:
 			if response.next_line_id != &"":
 				var _append_result_167: Variant = next_ids.append(String(response.next_line_id))
 		for next_id: String in next_ids:
-			if get_line(StringName(next_id)) == null:
+			if not line_index.has(StringName(next_id)):
 				_append_issue(
 					report,
 					&"missing_next_line",
@@ -178,7 +193,7 @@ func validate_resource() -> Dictionary:
 					"Dialogue transition references a missing line."
 				)
 
-	_validate_automatic_cycles(report)
+	_validate_automatic_cycles(report, line_index)
 
 	return _GF_VALIDATION_REPORT_DICTIONARY_SCRIPT.finalize_report(report, "Dialogue resource", {
 		"include_issue_count": true,
@@ -206,6 +221,8 @@ func duplicate_dialogue() -> GFDialogueResource:
 func to_dictionary() -> Dictionary:
 	return _SNAPSHOT_COPY.copy_snapshot_dictionary(create_serialization_source())
 
+
+# --- 框架内部方法 ---
 
 ## 创建对话序列化操作的原始结构。
 ##
@@ -267,10 +284,12 @@ func _append_issue(
 
 func _get_validation_next_actions() -> Dictionary:
 	return {
+		"empty_dialogue": "Add at least one dialogue line with a stable non-empty line_id.",
 		"missing_start_line": "Create the configured start line or clear start_line_id to use the first available line.",
 		"null_line": "Remove empty dialogue line slots or assign a GFDialogueLine resource.",
 		"empty_line_id": "Assign every dialogue line a stable line_id.",
 		"duplicate_line_id": "Make every dialogue line_id unique.",
+		"invalid_line_kind": "Assign one of the supported GFDialogueLine.LineKind values.",
 		"null_response": "Remove empty dialogue response slots or assign a GFDialogueResponse resource.",
 		"empty_response_id": "Assign every response on a line a stable non-empty response_id.",
 		"duplicate_response_id": "Make response_id values unique within each dialogue line.",
@@ -279,40 +298,69 @@ func _get_validation_next_actions() -> Dictionary:
 	}
 
 
-func _validate_automatic_cycles(report: Dictionary) -> void:
-	var reported_cycles: Dictionary = {}
+func _build_line_index() -> Dictionary:
+	var line_index: Dictionary = {}
 	for line: GFDialogueLine in lines:
-		if not _is_automatic_line(line):
+		if line == null or line.line_id == &"" or line_index.has(line.line_id):
 			continue
-		_validate_automatic_chain(line.line_id, reported_cycles, report)
+		line_index[line.line_id] = line
+	return line_index
+
+
+func _validate_automatic_cycles(report: Dictionary, line_index: Dictionary) -> void:
+	var completed_line_ids: Dictionary = {}
+	for line: GFDialogueLine in lines:
+		if not _is_unconditional_automatic_line(line):
+			continue
+		if completed_line_ids.has(line.line_id):
+			continue
+		_validate_automatic_chain(line.line_id, line_index, completed_line_ids, report)
 
 
 func _validate_automatic_chain(
 	start_id: StringName,
-	reported_cycles: Dictionary,
+	line_index: Dictionary,
+	completed_line_ids: Dictionary,
 	report: Dictionary
 ) -> void:
-	var visited: Dictionary = {}
+	var path: Array[StringName] = []
+	var path_positions: Dictionary = {}
 	var current_id: StringName = start_id
 	while current_id != &"":
-		var line: GFDialogueLine = get_line(current_id)
-		if not _is_automatic_line(line):
-			return
-		if line.condition_id != &"" or line.fallback_line_id != &"":
-			return
-		if visited.has(current_id):
-			if reported_cycles.has(current_id):
-				return
-			reported_cycles[current_id] = true
+		if completed_line_ids.has(current_id):
+			break
+		if path_positions.has(current_id):
 			_append_issue(
 				report,
 				&"automatic_cycle",
 				String(current_id),
 				"Dialogue automatic JUMP/MUTATION chain contains a cycle."
 			)
-			return
-		visited[current_id] = true
+			break
+		var line: GFDialogueLine = _get_indexed_line(line_index, current_id)
+		if not _is_unconditional_automatic_line(line):
+			break
+		path_positions[current_id] = path.size()
+		path.append(current_id)
 		current_id = line.get_default_next_line_id()
+	for line_id: StringName in path:
+		completed_line_ids[line_id] = true
+
+
+func _get_indexed_line(line_index: Dictionary, line_id: StringName) -> GFDialogueLine:
+	var value: Variant = line_index.get(line_id)
+	if value is GFDialogueLine:
+		var line: GFDialogueLine = value
+		return line
+	return null
+
+
+func _is_unconditional_automatic_line(line: GFDialogueLine) -> bool:
+	return (
+		_is_automatic_line(line)
+		and line.condition_id == &""
+		and line.fallback_line_id == &""
+	)
 
 
 func _is_automatic_line(line: GFDialogueLine) -> bool:
@@ -323,6 +371,15 @@ func _is_automatic_line(line: GFDialogueLine) -> bool:
 			or line.kind == GFDialogueLine.LineKind.MUTATION
 		)
 	)
+
+
+func _is_valid_line_kind(kind: int) -> bool:
+	return kind in [
+		GFDialogueLine.LineKind.TEXT,
+		GFDialogueLine.LineKind.MUTATION,
+		GFDialogueLine.LineKind.JUMP,
+		GFDialogueLine.LineKind.END,
+	]
 
 
 func _get_dialogue_resource_value(value: Variant) -> GFDialogueResource:

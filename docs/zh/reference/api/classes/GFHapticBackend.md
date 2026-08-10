@@ -9,7 +9,7 @@
 - 类别：协议与扩展点 (`protocol`)
 - 首次版本：`8.0.0`
 
-震动输出后端协议。 项目可实现该协议，把 GFHapticUtility 的采样输出路由到平台 SDK、远程设备、 测试替身或自定义输入系统。该协议只承载输出能力，不定义播放策略。
+震动输出后端协议。 项目可实现该协议，把 GFHapticUtility 的采样输出路由到平台 SDK、远程设备、 测试替身或自定义输入系统。该协议只承载输出能力，不定义播放策略。实现必须成对 支持 start_output() 与 stop_output()；成功 start 的同一实例拥有后续 refresh/stop。
 
 ## 成员概览
 
@@ -43,10 +43,10 @@ func start_output( target_type: int, target_id: int, weak_magnitude: float, stro
 | `target_id` | 玩家索引或设备 ID。 |
 | `weak_magnitude` | 弱马达强度。 |
 | `strong_magnitude` | 强马达强度。 |
-| `duration_seconds` | 输出持续时间。 |
+| `duration_seconds` | 有限正输出持续时间。 |
 | `metadata` | 输出元数据。 |
 
-返回：后端接受输出时返回 true。
+返回：后端接受输出并承担后续 refresh/stop 所有权时返回 true。
 
 结构：
 
@@ -100,10 +100,10 @@ func _start_output( _target_type: int, _target_id: int, _weak_magnitude: float, 
 | `_target_id` | 玩家索引或设备 ID。 |
 | `_weak_magnitude` | 弱马达强度。 |
 | `_strong_magnitude` | 强马达强度。 |
-| `_duration_seconds` | 输出持续时间。 |
+| `_duration_seconds` | 有限正输出持续时间。 |
 | `_metadata` | 输出元数据。 |
 
-返回：后端接受输出时返回 true。
+返回：后端接受输出并承担后续 refresh/stop 所有权时返回 true。
 
 结构：
 

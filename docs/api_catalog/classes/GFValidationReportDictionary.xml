@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFValidationReportDictionary" path="addons/gf/standard/foundation/validation/gf_validation_report_dictionary.gd" module="standard" extends="RefCounted" classDigest="9eb173524f85cd564eefbc73c240a5857773686cec92e84dfe2f96ad69cfceaa">
+<class name="GFValidationReportDictionary" path="addons/gf/standard/foundation/validation/gf_validation_report_dictionary.gd" module="standard" extends="RefCounted" classDigest="beb0999149893fb1c19c874fafc5dda00b08225e508d9d6c1dc5a01dfe876a20">
 	<description>GFValidationReportDictionary: 通用校验报告字典辅助。
 提供字典报告的追加、归一化、统计和严重级别提升工具，便于字典式报告
 接入 `GFValidationIssue` / `GFValidationReport` 使用的标准字段。</description>
@@ -73,7 +73,8 @@
 		</member>
 		<member kind="method" name="merge_report">
 			<signature>static func merge_report(target: Dictionary, source: Dictionary, options: Dictionary = {}) -&gt; Dictionary:</signature>
-			<description>合并另一份字典报告的问题。</description>
+			<description>合并另一份字典报告的问题。target 与 source 相同，或二者共享同一个 issues Array
+时，不重复合并 issues，避免别名输入在遍历期间放大；显式 copy_fields 仍正常复制。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">target: 目标报告字典，会被当前方法修改。</tag>
@@ -84,6 +85,7 @@
 				<tag name="schema">source: Dictionary report payload copied from.</tag>
 				<tag name="schema">options: Dictionary may contain copy_fields as PackedStringArray or Array[String].</tag>
 				<tag name="schema">return: Dictionary merged report payload.</tag>
+				<tag name="since">4.4.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="finalize_report">
@@ -146,8 +148,9 @@
 				<tag name="api">public</tag>
 				<tag name="param">issue: GFValidationIssue 或兼容问题字典。</tag>
 				<tag name="param">fields: 参与指纹计算的字段；为空时使用 severity、kind、path、source_path、key 和 message。</tag>
-				<tag name="return">问题指纹；输入无效时返回空字符串。</tag>
+				<tag name="return">问题指纹；输入无效、包含运行时身份值或超过稳定遍历预算时返回空字符串。</tag>
 				<tag name="schema">issue: Variant accepting GFValidationIssue or Dictionary issue payload.</tag>
+				<tag name="since">3.19.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="filter_issues">

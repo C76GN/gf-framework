@@ -726,6 +726,26 @@ func test_save_settings_rejects_cyclic_values_without_recursing() -> void:
 	assert_push_error("[GFSettingsUtility] 设置数据包含循环引用，已拒绝持久化：cyclic_settings.json。")
 
 
+func test_fallback_store_failure_is_returned_without_success_signal() -> void:
+	var settings: FailingStoreSettingsUtility = FailingStoreSettingsUtility.new()
+	settings.auto_load_on_init = false
+	settings.auto_save_on_change = false
+	settings.init()
+	var file_name: String = _new_fallback_file_name("store_failure")
+	var _register_setting_result: GFSettingDefinition = settings.register_setting(
+		&"audio/master",
+		1.0,
+		GFSettingDefinition.ValueType.FLOAT
+	)
+	watch_signals(settings)
+
+	var save_error: Error = settings.save_settings(file_name)
+
+	assert_eq(save_error, ERR_FILE_CANT_WRITE, "fallback 必须传播 open 后的实际写入失败。")
+	assert_signal_not_emitted(settings, "settings_saved", "payload 未写入时不得发出保存成功信号。")
+	settings.dispose()
+
+
 func test_setting_changed_signal_reports_old_and_new_value() -> void:
 	var _register_setting_result_108: Variant = _settings.register_setting(&"audio/master", 1.0, GFSettingDefinition.ValueType.FLOAT)
 	watch_signals(_settings)
@@ -1122,6 +1142,13 @@ class RecordingSettingsUtility:
 		save_count += 1
 		saved_files.append(file_name)
 		return OK
+
+
+class FailingStoreSettingsUtility:
+	extends GFSettingsUtility
+
+	func _store_string_checked(_file: FileAccess, _value: String) -> Error:
+		return ERR_FILE_CANT_WRITE
 
 
 class LoadedSettingsUtility:

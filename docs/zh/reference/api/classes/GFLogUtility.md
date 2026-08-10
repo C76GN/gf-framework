@@ -28,6 +28,7 @@
 | 属性 | [`trace_id`](#member-gflogutility-properties-trace_id) | `var trace_id: String = ""` |
 | 方法 | [`init`](#member-gflogutility-methods-init) | `func init() -> void:` |
 | 方法 | [`dispose`](#member-gflogutility-methods-dispose) | `func dispose() -> void:` |
+| 方法 | [`tick`](#member-gflogutility-methods-tick) | `func tick(delta: float) -> void:` |
 | 方法 | [`debug`](#member-gflogutility-methods-debug) | `func debug(tag: String, msg: String, context: Dictionary = {}) -> void:` |
 | 方法 | [`debug_lazy`](#member-gflogutility-methods-debug_lazy) | `func debug_lazy(tag: String, message_builder: Callable, context_builder: Callable = Callable()) -> void:` |
 | 方法 | [`info`](#member-gflogutility-methods-info) | `func info(tag: String, msg: String, context: Dictionary = {}) -> void:` |
@@ -266,6 +267,25 @@ func dispose() -> void:
 ```
 
 销毁时关闭文件句柄。
+
+<a id="member-gflogutility-methods-tick"></a>
+
+### `tick`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func tick(delta: float) -> void:
+```
+
+推进日志文件和已注册 sink 的空闲时间行为。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `delta` | 本帧时间增量（秒）；非有限或非正数不会推进状态。 |
 
 <a id="member-gflogutility-methods-debug"></a>
 
@@ -582,7 +602,7 @@ func set_global_context_provider(provider: Callable) -> void:
 
 | 名称 | 说明 |
 |---|---|
-| `provider` | 上下文提供者，签名为 `func() -> Dictionary`。 |
+| `provider` | 上下文提供者，签名为 \`func() -> Dictionary\`。 |
 
 <a id="member-gflogutility-methods-clear_global_context"></a>
 

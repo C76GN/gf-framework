@@ -96,7 +96,7 @@ static func sanitize_vector3(value: Vector3, fallback: Vector3 = Vector3.ZERO) -
 	return value if is_finite_vector3(value) else safe_fallback
 
 
-## 判断 Basis 是否有限且可构成稳定旋转。
+## 判断 Basis 是否为有限、非退化的右手旋转。
 ## [br]
 ## @api layer_internal
 ## [br]
@@ -104,25 +104,14 @@ static func sanitize_vector3(value: Vector3, fallback: Vector3 = Vector3.ZERO) -
 ## [br]
 ## @param value: 待检查 Basis。
 ## [br]
-## @return Basis 有限且非退化时返回 true。
+## @return: Basis 有限、非退化且 determinant 为正时返回 true。
 static func is_valid_basis(value: Basis) -> bool:
-	if (
-		not is_finite_vector3(value.x)
-		or not is_finite_vector3(value.y)
-		or not is_finite_vector3(value.z)
-	):
+	if not _is_finite_non_degenerate_basis(value):
 		return false
-	if (
-		value.x.length_squared() <= _BASIS_EPSILON
-		or value.y.length_squared() <= _BASIS_EPSILON
-		or value.z.length_squared() <= _BASIS_EPSILON
-	):
-		return false
-	var determinant: float = value.determinant()
-	return is_finite(determinant) and absf(determinant) > _BASIS_EPSILON
+	return value.determinant() > _BASIS_EPSILON
 
 
-## 把 Basis 收敛为正交有限旋转。
+## 把 Basis 收敛为不含缩放或反射的有限右手旋转。
 ## [br]
 ## @api layer_internal
 ## [br]
@@ -132,13 +121,10 @@ static func is_valid_basis(value: Basis) -> bool:
 ## [br]
 ## @param fallback: 非法值回退。
 ## [br]
-## @return 有限正交 Basis。
+## @return: determinant 近似 +1 的正交 Basis。
 static func sanitize_basis(value: Basis, fallback: Basis = Basis.IDENTITY) -> Basis:
-	var safe_fallback: Basis = fallback.orthonormalized() if is_valid_basis(fallback) else Basis.IDENTITY
-	if not is_valid_basis(value):
-		return safe_fallback
-	var normalized: Basis = value.orthonormalized()
-	return normalized if is_valid_basis(normalized) else safe_fallback
+	var safe_fallback: Basis = _extract_proper_rotation(fallback, Basis.IDENTITY)
+	return _extract_proper_rotation(value, safe_fallback)
 
 
 ## 判断 Transform3D 是否可安全应用到 Camera3D。
@@ -175,3 +161,29 @@ static func sanitize_transform3d(
 		sanitize_basis(value.basis, safe_fallback_basis),
 		sanitize_vector3(value.origin, safe_fallback_origin)
 	)
+
+
+# --- 私有/辅助方法 ---
+
+static func _is_finite_non_degenerate_basis(value: Basis) -> bool:
+	if (
+		not is_finite_vector3(value.x)
+		or not is_finite_vector3(value.y)
+		or not is_finite_vector3(value.z)
+	):
+		return false
+	if (
+		value.x.length_squared() <= _BASIS_EPSILON
+		or value.y.length_squared() <= _BASIS_EPSILON
+		or value.z.length_squared() <= _BASIS_EPSILON
+	):
+		return false
+	var determinant: float = value.determinant()
+	return is_finite(determinant) and absf(determinant) > _BASIS_EPSILON
+
+
+static func _extract_proper_rotation(value: Basis, fallback: Basis) -> Basis:
+	if not _is_finite_non_degenerate_basis(value):
+		return fallback
+	var rotation: Basis = Basis(value.get_rotation_quaternion()).orthonormalized()
+	return rotation if is_valid_basis(rotation) else fallback

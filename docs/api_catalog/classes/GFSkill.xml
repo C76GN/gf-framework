@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSkill" path="addons/gf/extensions/combat/skills/gf_skill.gd" module="extensions/combat" extends="RefCounted" classDigest="f6d29f20d28f4ab97b8bd015c36929f7d9e3ea2b1e5858e459eb7b733f97e79c">
+<class name="GFSkill" path="addons/gf/extensions/combat/skills/gf_skill.gd" module="extensions/combat" extends="RefCounted" classDigest="3f243ae4a0648c29f6bc6cf1b95b4e049667ccb11c570d9d6e036bbd72be844b">
 	<description>GFSkill: 技能基类。
 负责冷却、施放校验与目标解析入口，
 具体技能逻辑通过子类重写 `_on_execute()` 实现。</description>
@@ -156,7 +156,9 @@
 		</member>
 		<member kind="method" name="execute">
 			<signature>func execute( manual_target: Object = null, cast_center: Variant = null, activation_metadata: Dictionary = {} ) -&gt; bool:</signature>
-			<description>执行技能。</description>
+			<description>执行技能。
+同一实例在任意同步激活回调中再次调用时会以 `activation_in_progress` 拒绝；
+如需连锁施放，请延迟调用或使用另一技能实例。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">manual_target: 可选的手动目标。</tag>
@@ -165,6 +167,7 @@
 				<tag name="return">技能实际执行并进入冷却时返回 `true`。</tag>
 				<tag name="schema">cast_center: Variant，可为 null 或 Vector2；为 null 时从 owner.global_position 推导。</tag>
 				<tag name="schema">activation_metadata: Dictionary，复制到上下文中供项目检查、提交或诊断使用。</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="_custom_can_execute">

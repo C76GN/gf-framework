@@ -31,6 +31,7 @@ var high_priority_first: bool = true:
 var _entries: Array[Dictionary] = []
 var _next_order: int = 0
 var _next_front_order: int = 0
+var _next_insertion_sequence: int = 0
 
 
 # --- Godot 生命周期方法 ---
@@ -111,6 +112,7 @@ func push(value: Variant, priority: float = 0.0, front: bool = false) -> bool:
 ## @param priority: 数值优先级。
 ## [br]
 ## @param order: 相同 priority 下的稳定排序值，数值越小越先弹出。
+## 相同 priority 和 order 的条目按本次队列实例中的入队先后保持稳定。
 ## [br]
 ## @return priority 有限并成功入队时返回 true。
 ## [br]
@@ -276,6 +278,7 @@ func clear() -> void:
 	_entries.clear()
 	_next_order = 0
 	_next_front_order = 0
+	_next_insertion_sequence = 0
 
 
 ## 队列是否为空。
@@ -364,6 +367,7 @@ func duplicate_priority_queue(deep: bool = false) -> RefCounted:
 	priority_queue.set("_entries", _duplicate_entries(deep))
 	priority_queue.set("_next_order", _next_order)
 	priority_queue.set("_next_front_order", _next_front_order)
+	priority_queue.set("_next_insertion_sequence", _next_insertion_sequence)
 	return priority_queue
 
 
@@ -400,7 +404,9 @@ func _push_entry(value: Variant, priority: float, order: int) -> void:
 		"value": value,
 		"priority": priority,
 		"order": order,
+		"insertion_sequence": _next_insertion_sequence,
 	})
+	_next_insertion_sequence += 1
 	_sift_up(_entries.size() - 1)
 
 
@@ -409,6 +415,7 @@ func _reset_order_if_empty() -> void:
 		return
 	_next_order = 0
 	_next_front_order = 0
+	_next_insertion_sequence = 0
 
 
 func _heapify() -> void:
@@ -495,7 +502,14 @@ func _entry_is_before(left: Dictionary, right: Dictionary) -> bool:
 		if high_priority_first:
 			return left_priority > right_priority
 		return left_priority < right_priority
-	return GFVariantData.get_option_int(left, "order") < GFVariantData.get_option_int(right, "order")
+	var left_order: int = GFVariantData.get_option_int(left, "order")
+	var right_order: int = GFVariantData.get_option_int(right, "order")
+	if left_order != right_order:
+		return left_order < right_order
+	return (
+		GFVariantData.get_option_int(left, "insertion_sequence")
+		< GFVariantData.get_option_int(right, "insertion_sequence")
+	)
 
 
 func _swap_entries(left_index: int, right_index: int) -> void:
@@ -512,6 +526,7 @@ func _duplicate_entries(deep: bool) -> Array[Dictionary]:
 			"value": GFVariantData.duplicate_variant(value) if deep else value,
 			"priority": GFVariantData.get_option_float(entry, "priority"),
 			"order": GFVariantData.get_option_int(entry, "order"),
+			"insertion_sequence": GFVariantData.get_option_int(entry, "insertion_sequence"),
 		})
 	return result
 

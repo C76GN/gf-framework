@@ -75,6 +75,27 @@ const _FORBIDDEN_RELATION_FIELDS: Array[String] = [
 	"soft_dependencies",
 	"suggests",
 ]
+const _STRING_FIELDS: Array[String] = [
+	"description",
+	"display_name",
+	"editor_dock_short_label",
+	"extension_version",
+	"id",
+	"kind",
+	"version",
+]
+const _STRING_ARRAY_FIELDS: Array[String] = [
+	"access_generator_extension_paths",
+	"dependencies",
+	"editor_action_paths",
+	"editor_dock_paths",
+	"editor_inspector_paths",
+	"export_plugin_paths",
+	"gltf_document_extension_paths",
+	"import_plugin_paths",
+	"installer_paths",
+	"tags",
+]
 
 
 # --- 公共变量 ---
@@ -190,6 +211,7 @@ var source_path: String = ""
 # --- 私有变量 ---
 
 var _source_field_names: Array[String] = []
+var _source_schema_errors: Array[String] = []
 
 
 # --- 公共方法 ---
@@ -214,6 +236,7 @@ static func from_dictionary(
 ) -> GFExtensionManifest:
 	var manifest: GFExtensionManifest = GFExtensionManifest.new()
 	manifest._source_field_names = _normalize_field_name_list(data.keys())
+	manifest._source_schema_errors = _get_source_schema_errors(data)
 	manifest.id = _normalize_manifest_text(_GF_VARIANT_ACCESS_SCRIPT.get_option_string(data, "id"))
 	manifest.display_name = _normalize_manifest_text(_GF_VARIANT_ACCESS_SCRIPT.get_option_string(
 		data,
@@ -391,6 +414,7 @@ func duplicate_manifest() -> GFExtensionManifest:
 	manifest.enabled_by_default = enabled_by_default
 	manifest.source_path = source_path
 	manifest._source_field_names = _source_field_names.duplicate()
+	manifest._source_schema_errors = _source_schema_errors.duplicate()
 	return manifest
 
 
@@ -409,7 +433,7 @@ func is_valid() -> bool:
 ## [br]
 ## @return 错误消息列表。
 func get_validation_errors() -> Array[String]:
-	var errors: Array[String] = []
+	var errors: Array[String] = _source_schema_errors.duplicate()
 	_append_unsupported_field_errors(errors)
 	var id_error: String = get_extension_id_validation_error(id)
 	if not id_error.is_empty():
@@ -457,6 +481,51 @@ static func _from_json_file_object_report(path: String) -> Dictionary:
 
 static func _normalize_manifest_text(value: String) -> String:
 	return value.strip_edges()
+
+
+static func _get_source_schema_errors(data: Dictionary) -> Array[String]:
+	var errors: Array[String] = []
+	for field_name: String in _STRING_FIELDS:
+		if not _has_dictionary_key(data, field_name):
+			continue
+		var raw_value: Variant = _GF_VARIANT_ACCESS_SCRIPT.get_option_value(data, field_name)
+		if not (raw_value is String or raw_value is StringName):
+			errors.append("manifest %s must be a string" % field_name)
+	for field_name: String in _STRING_ARRAY_FIELDS:
+		if not _has_dictionary_key(data, field_name):
+			continue
+		var raw_value: Variant = _GF_VARIANT_ACCESS_SCRIPT.get_option_value(data, field_name)
+		if not (raw_value is Array or raw_value is PackedStringArray):
+			errors.append("manifest %s must be an array of strings" % field_name)
+			continue
+		if raw_value is Array:
+			var raw_values: Array = raw_value
+			if raw_values.any(func(item: Variant) -> bool:
+				return not (item is String or item is StringName)
+			):
+				errors.append("manifest %s must contain only strings" % field_name)
+	if _has_dictionary_key(data, "editor_dock_order"):
+		var raw_order: Variant = _GF_VARIANT_ACCESS_SCRIPT.get_option_value(data, "editor_dock_order")
+		if not _is_integer_value(raw_order):
+			errors.append("manifest editor_dock_order must be an integer")
+	if _has_dictionary_key(data, "enabled_by_default"):
+		var raw_enabled: Variant = _GF_VARIANT_ACCESS_SCRIPT.get_option_value(data, "enabled_by_default")
+		if not raw_enabled is bool:
+			errors.append("manifest enabled_by_default must be a boolean")
+	return errors
+
+
+static func _has_dictionary_key(data: Dictionary, key: String) -> bool:
+	return data.has(key) or data.has(StringName(key))
+
+
+static func _is_integer_value(value: Variant) -> bool:
+	if value is int:
+		return true
+	if value is float:
+		var numeric_value: float = value
+		return is_finite(numeric_value) and numeric_value == floor(numeric_value)
+	return false
 
 
 static func _normalize_field_name_list(values: Array) -> Array[String]:

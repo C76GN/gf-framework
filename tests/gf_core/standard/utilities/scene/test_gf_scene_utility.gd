@@ -154,6 +154,41 @@ func test_fixed_preloaded_scene_survives_lru_eviction() -> void:
 	assert_true(GFVariantData.get_option_packed_string_array(preload_cache, "fixed_paths").has("res://addons/gut/gui/NormalGui.tscn"), "快照应包含固定缓存路径。")
 
 
+func test_preload_scene_upgrades_cached_temporary_entry_to_fixed() -> void:
+	var scene_path: String = "res://addons/gut/gui/NormalGui.tscn"
+	_scene_util.put_preloaded_scene(scene_path, _make_empty_scene())
+
+	var error: Error = _scene_util.preload_scene(scene_path, true)
+
+	assert_eq(error, OK, "缓存命中时 fixed 请求应成功。")
+	assert_true(_scene_util.is_preloaded_scene_fixed(scene_path), "fixed=true 必须单调升级已有临时缓存。")
+
+
+func test_preload_scene_upgrades_inflight_request_to_fixed() -> void:
+	var scene_path: String = "res://addons/gut/gui/NormalGui.tscn"
+	_scene_util.use_fake_threaded_resource = true
+	_scene_util.threaded_resource = _make_empty_scene()
+
+	var first_error: Error = _scene_util.preload_scene(scene_path, false)
+	var second_error: Error = _scene_util.preload_scene(scene_path, true)
+	_scene_util.threaded_complete = true
+	_scene_util.tick(0.0)
+
+	assert_eq(first_error, OK, "临时预加载应成功发起。")
+	assert_eq(second_error, OK, "在途 fixed 升级应合并到同一请求。")
+	assert_eq(_scene_util.threaded_requested_paths.size(), 1, "合并升级不得重复发起底层加载。")
+	assert_true(_scene_util.is_preloaded_scene_fixed(scene_path), "完成时必须兑现合并后的 fixed=true。")
+	_scene_util.threaded_resource = null
+
+
+func test_scene_path_normalization_rejects_parent_escape_above_res_root() -> void:
+	var error: Error = _scene_util.preload_scene("res://../../addons/gut/gui/NormalGui.tscn")
+
+	assert_eq(error, ERR_INVALID_PARAMETER, "越过 res:// 根的路径应 fail closed。")
+	assert_true(_scene_util.threaded_requested_paths.is_empty(), "根逃逸路径不得发起底层加载。")
+	assert_push_error("[GFSceneUtility] preload_scene 失败：path 为空。")
+
+
 func test_setting_preloaded_scene_limit_to_zero_clears_cache() -> void:
 	_scene_util.put_preloaded_scene("res://addons/gut/gui/NormalGui.tscn", _make_empty_scene())
 

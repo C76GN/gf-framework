@@ -947,13 +947,11 @@ static func _compare_prerelease(left: PackedStringArray, right: PackedStringArra
 		var left_numeric: bool = _is_numeric_identifier(left_part)
 		var right_numeric: bool = _is_numeric_identifier(right_part)
 		if left_numeric and right_numeric:
-			var left_number: int = int(left_part)
-			var right_number: int = int(right_part)
-			if left_number < right_number:
+			if left_part.length() < right_part.length():
 				return -1
-			if left_number > right_number:
+			if left_part.length() > right_part.length():
 				return 1
-			continue
+			return -1 if left_part < right_part else 1
 		if left_numeric != right_numeric:
 			return -1 if left_numeric else 1
 		return -1 if left_part < right_part else 1

@@ -75,7 +75,8 @@ var priority: int:
 		if _can_change_configuration(&"priority"):
 			_priority = value
 
-## 次排序值，值越大越先处理。
+## 次排序值。默认比较器中，有限值越大越先处理；NaN 与正负 Infinity
+## 统一排在有限值之后，并按入队顺序稳定处理。自定义比较器自行定义完整总序。
 ## [br]
 ## @api public
 ## [br]
@@ -227,9 +228,14 @@ func seal_after_queue() -> void:
 
 func _sanitize_targets(source_targets: Array[Object]) -> Array[Object]:
 	var result: Array[Object] = []
+	var seen_target_ids: Dictionary = {}
 	for target: Object in source_targets:
-		if target == null or not is_instance_valid(target) or result.has(target):
+		if target == null or not is_instance_valid(target):
 			continue
+		var target_id: int = target.get_instance_id()
+		if seen_target_ids.has(target_id):
+			continue
+		seen_target_ids[target_id] = true
 		result.append(target)
 	return result
 

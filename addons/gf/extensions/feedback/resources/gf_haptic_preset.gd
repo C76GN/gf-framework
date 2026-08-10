@@ -13,7 +13,7 @@ extends Resource
 
 # --- 导出变量 ---
 
-## 持续时间，单位秒。
+## 持续时间，单位秒。非有限值按 0 处理，因此不能表示无限播放。
 ## [br]
 ## @api public
 ## [br]
@@ -64,9 +64,9 @@ extends Resource
 ## [br]
 ## @since 7.0.0
 ## [br]
-## @return: 持续时间，最小为 0。
+## @return: 有限持续时间，最小为 0。
 func get_duration_seconds() -> float:
-	return maxf(duration_seconds, 0.0)
+	return _finite_nonnegative(duration_seconds)
 
 
 ## 按时间采样震动强度。
@@ -83,8 +83,8 @@ func get_duration_seconds() -> float:
 ## [br]
 ## @schema return: Dictionary，包含 weak_magnitude、strong_magnitude、intensity 与 progress。
 func sample(elapsed_seconds: float, strength: float = 1.0) -> Dictionary:
-	var duration: float = maxf(duration_seconds, 0.0001)
-	var progress: float = clampf(elapsed_seconds / duration, 0.0, 1.0)
+	var duration: float = maxf(get_duration_seconds(), 0.0001)
+	var progress: float = clampf(_finite_float(elapsed_seconds) / duration, 0.0, 1.0)
 	return sample_at_progress(progress, strength)
 
 
@@ -102,10 +102,20 @@ func sample(elapsed_seconds: float, strength: float = 1.0) -> Dictionary:
 ## [br]
 ## @schema return: Dictionary，包含 weak_magnitude、strong_magnitude、intensity 与 progress。
 func sample_at_progress(progress: float, strength: float = 1.0) -> Dictionary:
-	var normalized_progress: float = clampf(progress, 0.0, 1.0)
-	var sample_strength: float = maxf(strength, 0.0) * maxf(intensity, 0.0)
-	var weak_value: float = clampf(weak_magnitude, 0.0, 1.0) * _sample_curve(weak_curve, normalized_progress) * sample_strength
-	var strong_value: float = clampf(strong_magnitude, 0.0, 1.0) * _sample_curve(strong_curve, normalized_progress) * sample_strength
+	var normalized_progress: float = clampf(_finite_float(progress), 0.0, 1.0)
+	var sample_strength: float = _finite_nonnegative(
+		_finite_nonnegative(strength) * _finite_nonnegative(intensity)
+	)
+	var weak_value: float = _finite_nonnegative(
+		clampf(_finite_float(weak_magnitude), 0.0, 1.0)
+		* _sample_curve(weak_curve, normalized_progress)
+		* sample_strength
+	)
+	var strong_value: float = _finite_nonnegative(
+		clampf(_finite_float(strong_magnitude), 0.0, 1.0)
+		* _sample_curve(strong_curve, normalized_progress)
+		* sample_strength
+	)
 	return {
 		"weak_magnitude": clampf(weak_value, 0.0, 1.0),
 		"strong_magnitude": clampf(strong_value, 0.0, 1.0),
@@ -151,10 +161,32 @@ static func combine_samples(samples: Array[Dictionary]) -> Dictionary:
 	var max_intensity: float = 0.0
 	var max_progress: float = 0.0
 	for sample_data: Dictionary in samples:
-		weak_total += GFVariantData.get_option_float(sample_data, "weak_magnitude", 0.0)
-		strong_total += GFVariantData.get_option_float(sample_data, "strong_magnitude", 0.0)
-		max_intensity = maxf(max_intensity, GFVariantData.get_option_float(sample_data, "intensity", 0.0))
-		max_progress = maxf(max_progress, GFVariantData.get_option_float(sample_data, "progress", 0.0))
+		weak_total += clampf(
+			_finite_float(GFVariantData.get_option_float(sample_data, "weak_magnitude", 0.0)),
+			0.0,
+			1.0
+		)
+		strong_total += clampf(
+			_finite_float(GFVariantData.get_option_float(sample_data, "strong_magnitude", 0.0)),
+			0.0,
+			1.0
+		)
+		max_intensity = maxf(
+			max_intensity,
+			clampf(
+				_finite_float(GFVariantData.get_option_float(sample_data, "intensity", 0.0)),
+				0.0,
+				1.0
+			)
+		)
+		max_progress = maxf(
+			max_progress,
+			clampf(
+				_finite_float(GFVariantData.get_option_float(sample_data, "progress", 0.0)),
+				0.0,
+				1.0
+			)
+		)
 	var weak_output: float = clampf(weak_total, 0.0, 1.0)
 	var strong_output: float = clampf(strong_total, 0.0, 1.0)
 	return {
@@ -170,4 +202,12 @@ static func combine_samples(samples: Array[Dictionary]) -> Dictionary:
 func _sample_curve(curve: Curve, progress: float) -> float:
 	if curve == null:
 		return 1.0
-	return clampf(curve.sample_baked(progress), 0.0, 1.0)
+	return clampf(_finite_float(curve.sample_baked(progress)), 0.0, 1.0)
+
+
+static func _finite_nonnegative(value: float, fallback: float = 0.0) -> float:
+	return maxf(_finite_float(value, fallback), 0.0)
+
+
+static func _finite_float(value: float, fallback: float = 0.0) -> float:
+	return value if is_finite(value) else fallback

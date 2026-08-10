@@ -22,13 +22,37 @@ def set_json_output_path(path: Path | None) -> None:
 
 def print_output(data: dict[str, Any], as_json: bool, renderer: Any) -> None:
 	if as_json:
-		payload = json.dumps(data, ensure_ascii=False, indent=2) + "\n"
+		payload = encode_strict_json(data, indent=2, trailing_newline=True)
 		if _JSON_OUTPUT_PATH is not None:
 			write_utf8_json_output(_JSON_OUTPUT_PATH, payload)
 		else:
 			print(payload, end="")
 	else:
 		print(renderer(data))
+
+
+def encode_strict_json(
+	data: Any,
+	*,
+	indent: int | None = None,
+	trailing_newline: bool = False,
+) -> str:
+	"""Encode standards-compliant JSON and reject non-finite numbers."""
+	payload = json.dumps(
+		data,
+		ensure_ascii=False,
+		indent=indent,
+		allow_nan=False,
+	)
+	return payload + ("\n" if trailing_newline else "")
+
+
+def write_json_object_atomic(path: Path, data: Any) -> None:
+	"""Serialize strict JSON before atomically replacing the destination."""
+	write_utf8_json_output(
+		path,
+		encode_strict_json(data, indent=2, trailing_newline=True),
+	)
 
 
 def write_utf8_json_output(path: Path, payload: str) -> None:
@@ -528,27 +552,28 @@ def render_package_closure_audit_text(data: dict[str, Any]) -> str:
 		lines.append(f"package_kinds: {kind_counts}")
 	if severity_counts:
 		lines.append(f"severity: {severity_counts}")
-	large_closures = [
+	visible_closures = [
 		row
 		for row in data.get("closures", [])
 		if (
+			row.get("kind") == "preset"
+			or
 			(
 				row.get("kind") == "extension"
 				and int(row.get("closure_count", 0)) > data.get("extension_total_warning_threshold", 8)
 			)
-			or (
-				row.get("kind") == "preset"
-				and int(row.get("closure_count", 0)) > data.get("preset_total_info_threshold", 12)
-			)
 		)
 	]
-	for row in large_closures[:8]:
+	for row in visible_closures[:8]:
 		lines.append(
 			f"- closure: {row.get('package_id')} "
 			f"kind={row.get('kind')} "
 			f"total={row.get('closure_count')} "
 			f"standard={row.get('standard_count')} "
-			f"extension={row.get('extension_count')}"
+			f"extension={row.get('extension_count')} "
+			f"payload_files={row.get('payload_file_count', 0)} "
+			f"payload_gdscript={row.get('payload_gdscript_count', 0)} "
+			f"payload_bytes={row.get('payload_size_bytes', 0)}"
 		)
 	for fan_in in data.get("standard_fan_in", [])[:8]:
 		lines.append(

@@ -16,7 +16,7 @@ Config Pipeline 的内置目标物化阶段。 只接受版本化 IR，并将其
 | 类型 | 名称 | 签名 |
 |---|---|---|
 | 常量 | [`STAGE_ID`](#member-gfconfigpipelinetargetstage-constants-stage_id) | `const STAGE_ID: String = "gf.config.target.godot_resource"` |
-| 常量 | [`IMPLEMENTATION_VERSION`](#member-gfconfigpipelinetargetstage-constants-implementation_version) | `const IMPLEMENTATION_VERSION: int = 1` |
+| 常量 | [`IMPLEMENTATION_VERSION`](#member-gfconfigpipelinetargetstage-constants-implementation_version) | `const IMPLEMENTATION_VERSION: int = 2` |
 | 方法 | [`materialize_table`](#member-gfconfigpipelinetargetstage-methods-materialize_table) | `func materialize_table( table_ir: GFConfigPipelineTableIR, options: Dictionary = {} ) -> Dictionary:` |
 | 方法 | [`materialize_database`](#member-gfconfigpipelinetargetstage-methods-materialize_database) | `func materialize_database( compilation_ir: GFConfigPipelineIR, options: Dictionary = {} ) -> Dictionary:` |
 | 方法 | [`make_database_export`](#member-gfconfigpipelinetargetstage-methods-make_database_export) | `func make_database_export( database: GFConfigDatabaseResource, options: Dictionary = {} ) -> Dictionary:` |
@@ -46,7 +46,7 @@ Target 阶段的稳定实现标识。
 - 首次版本：`9.0.0`
 
 ```gdscript
-const IMPLEMENTATION_VERSION: int = 1
+const IMPLEMENTATION_VERSION: int = 2
 ```
 
 Target 阶段的实现版本；改变 Resource 或 JSON 物化语义时递增。
@@ -131,7 +131,7 @@ func make_database_export( database: GFConfigDatabaseResource, options: Dictiona
 
 结构：
 
-- `options`: Dictionary，可包含 include_schema、include_indexes 和 max_depth。
+- `options`: Dictionary，可包含 include_schema、include_indexes、max_depth、max_nodes 和 max_output_bytes；调用方值会被框架绝对上限约束。
 - `return`: Dictionary，包含 success、data 和 error。
 
 <a id="member-gfconfigpipelinetargetstage-methods-make_database_json"></a>
@@ -158,7 +158,7 @@ func make_database_json( database: GFConfigDatabaseResource, options: Dictionary
 
 结构：
 
-- `options`: Dictionary，可包含 include_schema、include_indexes、max_depth、indent 和 sort_keys。
+- `options`: Dictionary，可包含 include_schema、include_indexes、max_depth、max_nodes、max_output_bytes、indent 和 sort_keys；调用方值会被框架绝对上限约束。
 - `return`: Dictionary，包含 success、data、text 和 error。
 
 <a id="member-gfconfigpipelinetargetstage-methods-get_stage_descriptor"></a>
@@ -178,4 +178,4 @@ func get_stage_descriptor() -> Dictionary:
 
 结构：
 
-- `return`: Dictionary，包含 stage_id、implementation_version、input_contracts 和 output_contracts。
+- `return`: Dictionary，包含 stage_id、implementation_version、implementation_dependencies、input_contracts 和 output_contracts。

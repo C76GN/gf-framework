@@ -195,12 +195,13 @@ var max_assignment_events: int = DEFAULT_MAX_ASSIGNMENT_EVENTS:
 ### `max_players`
 
 - API：`public`
+- 首次版本：`11.0.0`
 
 ```gdscript
 var max_players: int = 4:
 ```
 
-允许的最大本地玩家数。
+允许的最大本地玩家数。运行时缩小时会撤销越界 assignment、清理对应 deadzone，并修复 active player；重新扩容不会恢复已撤销状态。
 
 <a id="member-gfinputdeviceutility-properties-include_keyboard_mouse"></a>
 
@@ -409,6 +410,7 @@ func remove_assignment(player_index: int, reason: StringName = &"manual") -> voi
 ### `get_assignment`
 
 - API：`public`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_assignment(player_index: int) -> GFInputDeviceAssignment:
@@ -422,7 +424,7 @@ func get_assignment(player_index: int) -> GFInputDeviceAssignment:
 |---|---|
 | `player_index` | 玩家索引。 |
 
-返回：设备映射；不存在时返回 null。
+返回：设备映射副本；不存在时返回 null。
 
 <a id="member-gfinputdeviceutility-methods-get_player_for_device"></a>
 

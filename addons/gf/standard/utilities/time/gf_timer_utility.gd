@@ -21,10 +21,12 @@ const _MAX_CATCH_UP_EXECUTIONS: int = 1024
 
 # 待执行的延时任务列表。每项包含 `id`、`remaining`、`interval`、`repeat_count` 与 `callback` 字段。
 var _pending_timers: Array[Dictionary] = []
+var _ready_timers: Dictionary = {}
 var _next_timer_id: int = 1
 var _executing_handles: Dictionary = {}
 var _executing_timers: Dictionary = {}
 var _cancelled_handles: Dictionary = {}
+var _lifecycle_generation: int = 0
 
 
 # --- GF 生命周期方法 ---
@@ -33,7 +35,9 @@ var _cancelled_handles: Dictionary = {}
 ## [br]
 ## @api public
 func init() -> void:
+	_lifecycle_generation += 1
 	_pending_timers.clear()
+	_ready_timers.clear()
 	_next_timer_id = 1
 	_executing_handles.clear()
 	_executing_timers.clear()
@@ -44,7 +48,9 @@ func init() -> void:
 ## [br]
 ## @api public
 func dispose() -> void:
+	_lifecycle_generation += 1
 	_pending_timers.clear()
+	_ready_timers.clear()
 	_next_timer_id = 1
 	_executing_handles.clear()
 	_executing_timers.clear()
@@ -60,7 +66,8 @@ func tick(delta: float) -> void:
 	if _pending_timers.is_empty() or delta <= 0.0 or is_nan(delta) or is_inf(delta):
 		return
 
-	var ready_timers: Array[Dictionary] = []
+	var lifecycle_generation: int = _lifecycle_generation
+	var ready_handles: Array[int] = []
 
 	for index: int in range(_pending_timers.size() - 1, -1, -1):
 		var timer_data: Dictionary = _pending_timers[index]
@@ -74,12 +81,22 @@ func tick(delta: float) -> void:
 
 		if remaining <= 0.0:
 			timer_data["overshoot"] = -remaining
-			ready_timers.append(timer_data)
+			var handle: int = _get_timer_id(timer_data)
+			_ready_timers[handle] = timer_data
+			ready_handles.append(handle)
 			_pending_timers.remove_at(index)
 
-	ready_timers.reverse()
-	for timer_data: Dictionary in ready_timers:
-		_execute_ready_timer(timer_data)
+	ready_handles.reverse()
+	for handle: int in ready_handles:
+		if lifecycle_generation != _lifecycle_generation:
+			return
+		if not _ready_timers.has(handle):
+			continue
+		var timer_data: Dictionary = _get_ready_timer(handle)
+		var _ready_timer_erased_before_execute: bool = _ready_timers.erase(handle)
+		_execute_ready_timer(timer_data, lifecycle_generation)
+		if lifecycle_generation != _lifecycle_generation:
+			return
 
 
 # --- 公共方法 ---
@@ -89,7 +106,9 @@ func tick(delta: float) -> void:
 ## [br]
 ## @api public
 ## [br]
-## @param delay: 延迟时长，单位为秒。
+## @since 11.0.0
+## [br]
+## @param delay: 有限延迟时长，单位为秒。
 ## [br]
 ## @param callback: 延迟结束后执行的无参回调函数。
 ## [br]
@@ -97,6 +116,9 @@ func tick(delta: float) -> void:
 func execute_after(delay: float, callback: Callable) -> int:
 	if not callback.is_valid():
 		push_error("[GFTimerUtility] execute_after 失败：传入的 callback 无效。")
+		return 0
+	if not _is_finite_time_value(delay):
+		push_error("[GFTimerUtility] execute_after 失败：delay 必须是有限值。")
 		return 0
 
 	if delay <= 0.0:
@@ -110,9 +132,11 @@ func execute_after(delay: float, callback: Callable) -> int:
 ## [br]
 ## @api public
 ## [br]
+## @since 11.0.0
+## [br]
 ## @param owner: 定时器拥有者。
 ## [br]
-## @param delay: 延迟时长，单位为秒。
+## @param delay: 有限延迟时长，单位为秒。
 ## [br]
 ## @param callback: 延迟结束后执行的无参回调函数。
 ## [br]
@@ -123,6 +147,9 @@ func execute_after_owned(owner: Object, delay: float, callback: Callable) -> int
 		return 0
 	if not callback.is_valid():
 		push_error("[GFTimerUtility] execute_after_owned 失败：传入的 callback 无效。")
+		return 0
+	if not _is_finite_time_value(delay):
+		push_error("[GFTimerUtility] execute_after_owned 失败：delay 必须是有限值。")
 		return 0
 
 	if delay <= 0.0:
@@ -136,13 +163,15 @@ func execute_after_owned(owner: Object, delay: float, callback: Callable) -> int
 ## [br]
 ## @api public
 ## [br]
-## @param interval: 重复间隔，单位为秒。
+## @since 11.0.0
+## [br]
+## @param interval: 有限且大于 0 的重复间隔，单位为秒。
 ## [br]
 ## @param callback: 每次触发时执行的无参回调函数。
 ## [br]
 ## @param repeat_count: 触发次数；小于 0 表示无限重复。
 ## [br]
-## @param initial_delay: 首次触发延迟；小于 0 时使用 interval。
+## @param initial_delay: 有限的首次触发延迟；小于 0 时使用 interval。
 ## [br]
 ## @return 已排队定时器的句柄；无效输入时返回 `0`。
 func execute_repeating(
@@ -154,8 +183,14 @@ func execute_repeating(
 	if not callback.is_valid():
 		push_error("[GFTimerUtility] execute_repeating 失败：传入的 callback 无效。")
 		return 0
+	if not _is_finite_time_value(interval):
+		push_error("[GFTimerUtility] execute_repeating 失败：interval 必须是有限值。")
+		return 0
 	if interval <= 0.0:
 		push_error("[GFTimerUtility] execute_repeating 失败：interval 必须大于 0。")
+		return 0
+	if not _is_finite_time_value(initial_delay):
+		push_error("[GFTimerUtility] execute_repeating 失败：initial_delay 必须是有限值。")
 		return 0
 	if repeat_count == 0:
 		return 0
@@ -168,15 +203,17 @@ func execute_repeating(
 ## [br]
 ## @api public
 ## [br]
+## @since 11.0.0
+## [br]
 ## @param owner: 定时器拥有者。
 ## [br]
-## @param interval: 重复间隔，单位为秒。
+## @param interval: 有限且大于 0 的重复间隔，单位为秒。
 ## [br]
 ## @param callback: 每次触发时执行的无参回调函数。
 ## [br]
 ## @param repeat_count: 触发次数；小于 0 表示无限重复。
 ## [br]
-## @param initial_delay: 首次触发延迟；小于 0 时使用 interval。
+## @param initial_delay: 有限的首次触发延迟；小于 0 时使用 interval。
 ## [br]
 ## @return 已排队定时器的句柄；无效输入时返回 `0`。
 func execute_repeating_owned(
@@ -192,8 +229,14 @@ func execute_repeating_owned(
 	if not callback.is_valid():
 		push_error("[GFTimerUtility] execute_repeating_owned 失败：传入的 callback 无效。")
 		return 0
+	if not _is_finite_time_value(interval):
+		push_error("[GFTimerUtility] execute_repeating_owned 失败：interval 必须是有限值。")
+		return 0
 	if interval <= 0.0:
 		push_error("[GFTimerUtility] execute_repeating_owned 失败：interval 必须大于 0。")
+		return 0
+	if not _is_finite_time_value(initial_delay):
+		push_error("[GFTimerUtility] execute_repeating_owned 失败：initial_delay 必须是有限值。")
 		return 0
 	if repeat_count == 0:
 		return 0
@@ -217,6 +260,9 @@ func cancel(handle: int) -> bool:
 		if _get_timer_id(_pending_timers[index]) == handle:
 			_pending_timers.remove_at(index)
 			return true
+	if _ready_timers.has(handle):
+		var _ready_timer_cancelled: bool = _ready_timers.erase(handle)
+		return true
 	if _executing_handles.has(handle):
 		_cancelled_handles[handle] = true
 		return true
@@ -241,8 +287,14 @@ func cancel_owner(owner: Object) -> int:
 		if _get_timer_owner_id(timer_data) == owner_id:
 			_pending_timers.remove_at(index)
 			removed += 1
-	for handle_variant: Variant in _executing_timers.keys():
-		var handle: int = GFVariantData.to_int(handle_variant, 0)
+	for handle_variant: Variant in _ready_timers.keys():
+		var ready_handle: int = GFVariantData.to_int(handle_variant, 0)
+		var ready_timer: Dictionary = _get_ready_timer(ready_handle)
+		if _get_timer_owner_id(ready_timer) == owner_id:
+			var _ready_owner_timer_cancelled: bool = _ready_timers.erase(ready_handle)
+			removed += 1
+	for executing_handle_variant: Variant in _executing_timers.keys():
+		var handle: int = GFVariantData.to_int(executing_handle_variant, 0)
 		var executing_timer: Dictionary = _get_executing_timer(handle)
 		if _get_timer_owner_id(executing_timer) == owner_id and not _cancelled_handles.has(handle):
 			_cancelled_handles[handle] = true
@@ -288,9 +340,15 @@ func get_debug_snapshot() -> Dictionary:
 		var _appended: bool = handles.append(_get_timer_id(timer_data))
 		if _timer_has_owner_ref(timer_data):
 			owner_bound_count += 1
+	for ready_handle_variant: Variant in _ready_timers.keys():
+		var ready_handle: int = GFVariantData.to_int(ready_handle_variant, 0)
+		var ready_timer: Dictionary = _get_ready_timer(ready_handle)
+		var _ready_appended: bool = handles.append(ready_handle)
+		if _timer_has_owner_ref(ready_timer):
+			owner_bound_count += 1
 
 	return {
-		"pending_count": _pending_timers.size(),
+		"pending_count": _pending_timers.size() + _ready_timers.size(),
 		"pending_handles": handles,
 		"owner_bound_count": owner_bound_count,
 		"executing_count": _executing_handles.size(),
@@ -299,6 +357,10 @@ func get_debug_snapshot() -> Dictionary:
 
 
 # --- 私有/辅助方法 ---
+
+func _is_finite_time_value(value: float) -> bool:
+	return not is_nan(value) and not is_inf(value)
+
 
 func _queue_timer(
 	delay: float,
@@ -321,11 +383,13 @@ func _queue_timer(
 	return handle
 
 
-func _execute_ready_timer(timer_data: Dictionary) -> void:
+func _execute_ready_timer(timer_data: Dictionary, lifecycle_generation: int) -> void:
 	var handle: int = _get_timer_id(timer_data)
 	var overshoot: float = maxf(GFVariantData.get_option_float(timer_data, "overshoot", 0.0), 0.0)
 	var catch_up_count: int = 0
 	while true:
+		if lifecycle_generation != _lifecycle_generation:
+			return
 		if _cancelled_handles.has(handle) or _timer_owner_is_released(timer_data):
 			var _removed_cancelled_before: bool = _cancelled_handles.erase(handle)
 			return
@@ -340,6 +404,8 @@ func _execute_ready_timer(timer_data: Dictionary) -> void:
 		var _removed_executing: bool = _executing_handles.erase(handle)
 		var _removed_executing_timer: bool = _executing_timers.erase(handle)
 
+		if lifecycle_generation != _lifecycle_generation:
+			return
 		if _cancelled_handles.has(handle):
 			var _removed_cancelled_after: bool = _cancelled_handles.erase(handle)
 			return
@@ -379,6 +445,14 @@ func _get_timer_id(timer_data: Dictionary) -> int:
 
 func _get_executing_timer(handle: int) -> Dictionary:
 	var timer_value: Variant = GFVariantData.get_option_value(_executing_timers, handle, {})
+	if timer_value is Dictionary:
+		var timer_data: Dictionary = timer_value
+		return timer_data
+	return {}
+
+
+func _get_ready_timer(handle: int) -> Dictionary:
+	var timer_value: Variant = GFVariantData.get_option_value(_ready_timers, handle, {})
 	if timer_value is Dictionary:
 		var timer_data: Dictionary = timer_value
 		return timer_data

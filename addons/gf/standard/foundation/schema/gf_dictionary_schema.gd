@@ -149,7 +149,12 @@ func get_field_names() -> PackedStringArray:
 ## [br]
 ## @api public
 ## [br]
+## @since 4.4.0
+## [br]
 ## @param include_optional: 为 true 时包含非必填字段。
+## [br]
+## 只写入可表达的默认值：default_value 非 null，或字段允许 null。没有可用默认值的
+## non-nullable 字段保持缺失，不会被注入一个随后无法通过 schema 的 null。
 ## [br]
 ## @return 默认数据字典。
 ## [br]
@@ -159,8 +164,9 @@ func build_defaults(include_optional: bool = true) -> Dictionary:
 	for field: GFSchemaField in fields:
 		if field == null or field.get_field_key() == &"":
 			continue
-		if field.required or include_optional:
-			result[field.get_field_key()] = field.coerce_value(field.default_value)
+		if not _should_fill_row_default(field, include_optional):
+			continue
+		result[field.get_field_key()] = field.coerce_value(field.default_value)
 	return result
 
 
@@ -168,11 +174,15 @@ func build_defaults(include_optional: bool = true) -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
+## @since 4.4.0
+## [br]
 ## @param values: 输入字典。
 ## [br]
 ## @param include_optional: 为 true 时补齐非必填字段。
 ## [br]
 ## @param should_coerce: 为 true 时按字段声明转换已有值和默认值。
+## [br]
+## 只为缺失字段写入可表达的默认值；没有可用默认值的 non-nullable 字段保持缺失。
 ## [br]
 ## @return 补齐后的新字典。
 ## [br]
@@ -190,11 +200,12 @@ func apply_defaults(values: Dictionary, include_optional: bool = true, should_co
 			if should_coerce:
 				result[field_key] = field.coerce_value(result[field_key])
 			continue
-		if field.required or include_optional:
-			if should_coerce:
-				result[field_key] = field.coerce_value(field.default_value)
-			else:
-				result[field_key] = GFVariantData.duplicate_variant(field.default_value)
+		if not _should_fill_row_default(field, include_optional):
+			continue
+		if should_coerce:
+			result[field_key] = field.coerce_value(field.default_value)
+		else:
+			result[field_key] = GFVariantData.duplicate_variant(field.default_value)
 	return result
 
 

@@ -36,15 +36,23 @@ GFVariantData.deep_merge_defaults(settings, {
 ```gdscript
 var report := GFVariantData.diff_variant(previous_payload, next_payload, {
 	"max_changes": 256,
+	"max_depth": 64,
+	"max_nodes": 16384,
+	"max_collection_items": 65536,
 })
+
+if not report["complete"]:
+	push_warning("Diff traversal was incomplete: %s" % report["traversal_reason"])
 
 for change in report["changes"]:
 	print(change["kind"], " ", change["path"])
 ```
 
-报告包含 `changed`、`change_count`、`truncated`、`max_changes` 和 `changes`。每条差异包含 `kind`、`path`、`path_segments`、`old_value`、`new_value`、`old_type` 与 `new_type`；`kind` 只可能是 `added`、`removed`、`changed` 或 `type_changed`。默认会复制差异值，避免修改报告污染原始数据；如果只需要轻量观察，可传 `{ "copy_values": false }`。`String` 与 `StringName` 字典键按同名字段匹配，和 options / merge 工具保持一致。
+报告包含 `changed`、`complete`、`change_count`、`truncated`、`max_changes`、`traversal_truncated`、`traversal_reason` 和 `changes`。每条差异包含 `kind`、`path`、`path_segments`、`old_value`、`new_value`、`old_type` 与 `new_type`；`kind` 只可能是 `added`、`removed`、`changed` 或 `type_changed`。默认会复制差异值，避免修改报告污染原始数据；如果只需要轻量观察，可传 `{ "copy_values": false }`。`String` 与 `StringName` 字典键按同名字段匹配，和 options / merge 工具保持一致。
 
 Array / Dictionary 按展开后的数据内容比较，不比较共享引用拓扑。同一引用（包括 NaN、自引用容器和共享循环图）与自身比较恒为 unchanged；遍历独立循环图时，活动引用 pair 的重入只写入有界 `diagnostics`，`kind = cycle_detected`，不会伪造第五种 change。可通过 `max_diagnostics` 控制诊断数量；诊断截断不改变 `changed`。
+
+`max_changes` 只限制输出条数；遍历工作量由 `max_depth`、`max_nodes` 和 `max_collection_items` 分别约束，默认值依次为 64、16384 和 65536，传入小于等于 0 的值表示不限制。命中遍历预算时，报告会设置 `complete = false`、`traversal_truncated = true`，并写入 `kind = traversal_budget_exceeded` 的诊断。此时 `changed = false` 只表示已访问部分没有发现差异，不能解释为两份完整输入相等。
 
 该方法只比较 Variant 数据形状，不读取文件、不实例化脚本、不扫描对象属性，也不理解业务身份。需要对象图序列化、资源导入或领域级变更解释时，应在具体模块先转换成稳定 ID、路径或纯数据字典，再交给 diff 工具处理。
 
@@ -116,6 +124,8 @@ var compact_json := GFVariantJsonCodec.compact_json_text(pretty_json)
 ```
 
 `GFVariantJsonCodec.variant_to_json_compatible()` 会为 `Vector2/3/4`、整数向量、`Color`、`Rect2`、`Transform2D/3D`、`Basis`、`Quaternion`、`AABB`、`Plane`、`NodePath`、`StringName` 和常见 PackedArray 写入专用 `__gf_variant__` 类型标记，再由 `json_compatible_to_variant()` 恢复。`NaN`、`INF` 和 `-INF` 不能由 JSON number 表达，因此会写成 `Float` 类型标记，而不是交给 Godot `JSON.stringify()` 替换成 `null`。
+
+编码与解码共享 `max_depth`、`max_nodes` 和 `max_collection_items` 遍历预算，默认值依次为 64、16384 和 65536，小于等于 0 表示不限制。编码超限时不会返回部分业务树，而是返回顶层 `TraversalLimit` typed marker，其中包含 `reason` 与已消费预算；解码超限时返回 `traversal_limit` 选项的副本，默认是 `"<traversal_limit>"`。因此，任何把“解码结果等于业务值”作为成功条件的调用方，都应为 `traversal_limit` 提供业务域外的专用 sentinel。
 
 如果调用方最终就是要得到 JSON 文本，优先使用 `stringify_json_compatible()`，它会先执行 `variant_to_json_compatible()` 再调用 Godot `JSON.stringify()`，避免把 `NaN`、`Infinity`、`Vector3`、`Color`、PackedArray 等值直接送进 JSON 边界。读取这类文本时用 `parse_json_compatible_text()`，它会在解析成功后自动恢复 GF typed marker；解析失败时返回调用方提供的 fallback。
 

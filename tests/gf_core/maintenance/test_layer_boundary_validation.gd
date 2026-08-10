@@ -378,6 +378,22 @@ func test_2d_toolkit_preset_closure_stays_runtime_only_and_expected_size() -> vo
 	assert_eq(editor_packages, [], "2D toolkit runtime preset 不能拉入 editor-only package。")
 
 
+func test_standard_input_package_closure_stays_runtime_only() -> void:
+	var manifests_by_id: Dictionary = _collect_package_manifests(PACKAGE_ROOT)
+	var closure: Dictionary = _resolve_package_closure("gf.standard.input", manifests_by_id)
+	var actual_ids: Array[String] = _sorted_dictionary_string_keys(closure)
+
+	assert_eq(
+		actual_ids,
+		["gf.kernel", "gf.standard.base", "gf.standard.input"],
+		"Input runtime package 只能安装自身和基础运行时依赖。"
+	)
+	assert_false(
+		actual_ids.has("gf.standard.input.editor"),
+		"Input runtime package 不能反向安装 editor Dock。"
+	)
+
+
 func test_save_preset_closure_stays_minimal_runtime_only() -> void:
 	var manifests_by_id: Dictionary = _collect_package_manifests(PACKAGE_ROOT)
 	var closure: Dictionary = _resolve_package_closure("gf.preset.save", manifests_by_id)

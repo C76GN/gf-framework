@@ -6,9 +6,15 @@
 
 新项目应优先监听 `detection_finished(result)`，通过 `GFInputDetectionResult.reason` 区分 `SUCCESS`、`CANCELLED`、`TIMEOUT` 和 `REPLACED`。旧版 `input_detected(input_event)` 仍保留为兼容投影：成功时传回输入事件，非成功结束时传回 `null`。需要日志、诊断或跨 JSON 边界输出时，可调用 `GFInputDetectionResult.to_dictionary()`，其中输入事件会通过 `GFInputEventIdentity` 转成稳定身份字典。
 
+`elapsed_seconds` 从调用 begin 起一直累计到最终 finish，包含 countdown、clear 和正式等待输入阶段；`timeout_seconds <= 0` 只关闭超时，不会关闭计时。非有限 delta 不会推进会话，`GFInputDetectionResult.create()` 与 `to_dictionary()` 都会把非有限 elapsed 规范为 0，因而 JSON-safe 结果不会依赖 `JSON.stringify()` 把 NaN/Infinity 退化为 `null`。
+
+detector signal 使用同步派发，但允许 handler 调用 begin/cancel。重复 begin 会先让旧会话以 `REPLACED` 完成；如果旧会话的 finish handler 又开始一轮检测，handler 创建的最新会话优先，仍在返回中的旧 begin 调用栈不会再覆盖它。这样每个已发出 `detection_started` 的会话都会获得一次明确 finish。
+
 默认检测只接受适合作为绑定的离散输入，例如按键、鼠标按钮、手柄按钮和手柄轴阈值，不把鼠标移动、触摸拖动或普通指针位移当作可绑定动作。项目确实要记录连续值输入时，应显式配置 value type 过滤，并在 UI 中说明该绑定的运行时语义。
 
 `GFInputFormatter` 提供轻量文本格式化，便于设置界面展示当前绑定。Joypad 默认会通过 `GFInputDeviceTextProvider` 输出抽象方位文本，例如 Button South、Left Stick X，也可通过 options 或注册自定义 `GFInputTextProvider` 替换为平台图标、图标字体或本地化文本。默认静态入口使用 `GFInputFormatterRegistry` 的全局默认实例；设置页、测试或编辑器工具需要临时 provider 时，应优先创建局部 registry，并在调用 options 中传入 `formatter_registry`，避免污染其它场景。
+
+provider 的 `priority` 是实时优先级，不是注册时快照；每次查询或格式化都会在裁剪失效 owner 后按当前值稳定重排，同优先级继续按注册顺序裁决。运行时改变平台专用 provider 的优先级会立即影响文本和图标选择。
 
 ## 图标 Provider
 
@@ -56,4 +62,8 @@ var prompt := GFInputFormatter.action_as_rich_text(&"jump", {
 
 ## 冲突诊断
 
-`GFInputConflictAnalyzer` 可在保存重绑定前检查同一上下文或跨上下文的有效输入冲突，也可以通过 `build_rebind_report()` 一次性获取有效绑定条目和冲突列表。它只读取资源和重映射配置，不接管运行时输入逻辑。`GFInputContextDiagnostics` 在冲突报告之上补充输入上下文结构诊断，例如空上下文标识、空映射、缺失动作、重复 `action_id`、空绑定、无效死区、空修饰器/触发器槽位，以及 `InputEventAction` 是否缺少 ProjectSettings/Input Map action。编辑器中的 `GFInputMappingDock` 渲染 `GF Workspace > Input` 页面，并复用该诊断工具输出标准校验报告字段；页面只读查看资源，不保存项目按键配置，也不规定输入设置界面布局。
+`GFInputConflictAnalyzer` 可在保存重绑定前检查同一上下文或跨上下文的有效输入冲突，也可以通过 `build_rebind_report()` 一次性获取有效绑定条目和冲突列表。它只读取资源和重映射配置，不接管运行时输入逻辑。`GFInputContextDiagnostics` 在冲突报告之上补充输入上下文结构诊断，例如空上下文标识、空映射、缺失动作、重复 `action_id`、空绑定、无效死区、空修饰器/触发器槽位，以及 `InputEventAction` 是否缺少 ProjectSettings/Input Map action；`activation_threshold` 与 binding `deadzone` 的 `NaN` / Infinity 也会作为无效数值报告。
+
+编辑器中的 `GFInputMappingDock` 渲染 `GF Workspace > Input` 页面，并复用该诊断工具输出标准校验报告字段。默认只诊断 `GFInputContext` 的资源绑定；项目编辑器工具需要检查玩家或 profile 的有效重绑定时，可调用 `set_remap_config()` 注入 `GFInputRemapConfig`。预算预扫、正式冲突报告、动作行、绑定行和详情会共同使用该配置；`remap_configured` 说明本次报告是否包含覆盖。通过 `GFInputRemapConfig.set_binding()`、`unbind()`、`clear_binding()`、`set_custom_data()` 或成功的 `apply_dict()` 修改当前配置后，Dock 会观察 `Resource.changed`，并把同帧重复变化合并为一次刷新；显式 `refresh()` 仍同步执行。
+
+路径加载只接受 `res://` / `user://` 下可在实例化前检查主类型的 `.tres`，并在缓存身份比较前折叠斜杠、`.` 与 `..` 别名。加载失败会保留并继续显示上次已提交上下文；复制内容同时包含当前失败和 `last_successful_report`，不会把不可见旧报告冒充为本次成功结果。页面仍然只读，不保存项目按键配置，也不规定输入设置界面布局。

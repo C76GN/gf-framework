@@ -443,7 +443,9 @@ func recalculate_derived(attribute_id: StringName = &"") -> void:
 ## [br]
 ## @api public
 ## [br]
-## @return: 可序列化字典。
+## @since 11.0.0
+## [br]
+## @return: Godot Variant 字典；不保证可直接编码为 JSON。
 ## [br]
 ## @schema return: Dictionary，键为 String 属性 ID，值为包含 base、current、min、max 与 metadata 的属性记录。
 func get_snapshot() -> Dictionary:
@@ -490,7 +492,9 @@ func restore_snapshot(snapshot: Dictionary) -> void:
 ## [br]
 ## @api public
 ## [br]
-## @return: 可序列化字典。
+## @since 11.0.0
+## [br]
+## @return: Godot Variant 字典；不保证可直接编码为 JSON。
 ## [br]
 ## @schema return: Dictionary，键为 String 属性 ID，值为包含 base、current、min、max 与 metadata 的属性记录。
 func to_dict() -> Dictionary:

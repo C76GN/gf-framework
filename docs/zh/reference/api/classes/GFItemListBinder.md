@@ -45,9 +45,9 @@ func bind_items( store: RefCounted, path: Variant, target: Object, options: Dict
 
 | 名称 | 说明 |
 |---|---|
-| `store` | `GFReactiveStateStore` 实例。 |
+| `store` | \`GFReactiveStateStore\` 实例。 |
 | `path` | 状态路径，路径值应为 Array。 |
-| `target` | `ItemList`、`OptionButton` 或 `PopupMenu`。 |
+| `target` | \`ItemList\`、\`OptionButton\` 或 \`PopupMenu\`。 |
 | `options` | 可选映射项。支持 text_key、id_key、metadata_key、icon_key、disabled_key、selectable_key、tooltip_key、selected_key、clear、sync_initial 和 default_items。 |
 
 返回：成功绑定时返回 true。
@@ -75,7 +75,7 @@ func write_target_items(target: Object, items: Array, options: Dictionary = {}) 
 
 | 名称 | 说明 |
 |---|---|
-| `target` | `ItemList`、`OptionButton` 或 `PopupMenu`。 |
+| `target` | \`ItemList\`、\`OptionButton\` 或 \`PopupMenu\`。 |
 | `items` | 条目数组。元素可为 Dictionary 或标量值。 |
 | `options` | 可选映射项，字段同 bind_items()。 |
 
@@ -124,7 +124,7 @@ func unbind_path(store: RefCounted, path: Variant) -> int:
 
 | 名称 | 说明 |
 |---|---|
-| `store` | `GFReactiveStateStore` 实例。 |
+| `store` | \`GFReactiveStateStore\` 实例。 |
 | `path` | 状态路径。 |
 
 返回：解绑数量。
@@ -192,7 +192,7 @@ static func write_items(target: Object, items: Array, options: Dictionary = {}) 
 
 | 名称 | 说明 |
 |---|---|
-| `target` | `ItemList`、`OptionButton` 或 `PopupMenu`。 |
+| `target` | \`ItemList\`、\`OptionButton\` 或 \`PopupMenu\`。 |
 | `items` | 条目数组。元素可为 Dictionary 或标量值。 |
 | `options` | 可选映射项。支持 text_key、id_key、metadata_key、icon_key、disabled_key、selectable_key、tooltip_key、selected_key 和 clear。 |
 
@@ -220,7 +220,7 @@ static func get_item_metadata(target: Object, index: int, fallback: Variant = nu
 
 | 名称 | 说明 |
 |---|---|
-| `target` | `ItemList`、`OptionButton` 或 `PopupMenu`。 |
+| `target` | \`ItemList\`、\`OptionButton\` 或 \`PopupMenu\`。 |
 | `index` | 条目索引。 |
 | `fallback` | 索引无效时返回的值。 |
 
@@ -248,7 +248,7 @@ static func get_selected_metadata(target: Object) -> Array:
 
 | 名称 | 说明 |
 |---|---|
-| `target` | `ItemList` 或 `OptionButton`。 |
+| `target` | \`ItemList\` 或 \`OptionButton\`。 |
 
 返回：选中 metadata 数组。
 

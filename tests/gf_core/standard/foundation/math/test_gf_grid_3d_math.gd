@@ -63,6 +63,27 @@ func test_surface_neighbors_respect_step_limits() -> void:
 	assert_false(neighbors.has(Vector3i(2, 3, 0)), "只应枚举一步水平移动范围内的表面邻居。")
 
 
+func test_surface_neighbors_clamps_vertical_scan_to_grid() -> void:
+	var visited: Array[Vector3i] = []
+	var neighbors: Array[Vector3i] = GFGrid3DMath.get_surface_neighbors(
+		Vector3i(0, 1, 0),
+		Vector3i(2, 3, 1),
+		func(candidate: Vector3i) -> bool:
+			visited.append(candidate)
+			return false,
+		9_223_372_036_854_775_807,
+		9_223_372_036_854_775_807,
+		[Vector3i.RIGHT]
+	)
+
+	assert_true(neighbors.is_empty())
+	assert_eq(
+		visited,
+		[Vector3i(1, 2, 0), Vector3i(1, 1, 0), Vector3i(1, 0, 0)],
+		"巨大 step 配置也只能访问网格内的候选。"
+	)
+
+
 func test_surface_path_can_climb_with_step_constraints() -> void:
 	var walkable: Dictionary = {
 		Vector3i(0, 0, 0): true,

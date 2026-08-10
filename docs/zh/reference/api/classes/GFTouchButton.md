@@ -9,7 +9,7 @@
 - 类别：运行时服务 (`runtime_service`)
 - 首次版本：`3.17.0`
 
-通用触屏虚拟按钮节点。 可直接发送按下/释放信号，也可映射到 Godot InputMap 动作或虚拟手柄按钮事件。
+通用触屏虚拟按钮节点。 可直接发送按下/释放信号，也可映射到 Godot InputMap 动作或虚拟手柄按钮事件。 每次 press 会冻结当时的 action 与虚拟 joypad lane；运行时配置修改从下一次 press 生效。
 
 ## 成员概览
 
@@ -20,7 +20,7 @@
 | 属性 | [`radius`](#member-gftouchbutton-properties-radius) | `var radius: float = 48.0:` |
 | 属性 | [`color`](#member-gftouchbutton-properties-color) | `var color: Color = Color(1.0, 1.0, 1.0, 0.3):` |
 | 属性 | [`pressed_color`](#member-gftouchbutton-properties-pressed_color) | `var pressed_color: Color = Color(1.0, 1.0, 1.0, 0.65):` |
-| 属性 | [`accept_mouse_input`](#member-gftouchbutton-properties-accept_mouse_input) | `var accept_mouse_input: bool = false` |
+| 属性 | [`accept_mouse_input`](#member-gftouchbutton-properties-accept_mouse_input) | `var accept_mouse_input: bool = false:` |
 | 属性 | [`action_name`](#member-gftouchbutton-properties-action_name) | `var action_name: StringName = &""` |
 | 属性 | [`emit_joypad_button`](#member-gftouchbutton-properties-emit_joypad_button) | `var emit_joypad_button: bool = false` |
 | 属性 | [`joypad_device_id`](#member-gftouchbutton-properties-joypad_device_id) | `var joypad_device_id: int = -2` |
@@ -97,12 +97,13 @@ var pressed_color: Color = Color(1.0, 1.0, 1.0, 0.65):
 ### `accept_mouse_input`
 
 - API：`public`
+- 首次版本：`11.0.0`
 
 ```gdscript
-var accept_mouse_input: bool = false
+var accept_mouse_input: bool = false:
 ```
 
-是否允许鼠标左键模拟触屏。默认关闭，避免触屏控件在桌面端隐式接管鼠标输入。
+是否允许鼠标左键模拟触屏。默认关闭，避免触屏控件在桌面端隐式接管鼠标输入。 活动 mouse press 期间关闭该选项会先完成当前 press 的 release。
 
 <a id="member-gftouchbutton-properties-action_name"></a>
 

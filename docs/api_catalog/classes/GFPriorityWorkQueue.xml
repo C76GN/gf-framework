@@ -1,9 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFPriorityWorkQueue" path="addons/gf/standard/foundation/collections/gf_priority_work_queue.gd" module="standard" extends="RefCounted" classDigest="82837d0266f3001f20d1d74ff519a1715c7305b942b862a20d7fe7f0a8dc0b82">
+<class name="GFPriorityWorkQueue" path="addons/gf/standard/foundation/collections/gf_priority_work_queue.gd" module="standard" extends="RefCounted" classDigest="8dd5ce9b193a96a4c1bc7b39f09dbd693ddf007e92ded6ed0a09ffd0077734ec">
 	<description>GFPriorityWorkQueue: 带等待加成的稳定优先级工作队列。
 以基础优先级、入队时间和稳定顺序选择下一个值。等待加成不设上限，
 因此在新任务优先级有限的前提下，旧低优先级任务最终能够获得执行机会。
-队列只负责仲裁顺序，不执行任务，也不解释载荷或业务优先级。</description>
+队列只负责仲裁顺序，不执行任务，也不解释载荷或业务优先级。
+极端有限输入的比较会先做共同尺度归一化，诊断中的 effective_priority
+则饱和到最大有限 float，避免派生 Infinity 污染排序或序列化。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">value_object</tag>

@@ -447,7 +447,7 @@ func _cli_wants_json(raw_args: PackedStringArray) -> bool:
 	return false
 
 
-func _format_human_result(result: Dictionary) -> String:
+static func _format_human_result(result: Dictionary) -> String:
 	var operation: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(result, "operation")
 	if operation == "help":
 		return _GF_VARIANT_ACCESS_SCRIPT.get_option_string(result, "usage")
@@ -508,6 +508,19 @@ func _format_human_result(result: Dictionary) -> String:
 		_append_human_flag_line(lines, "Rolled back", _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(result, "rolled_back", false))
 		_append_human_flag_line(lines, "Recovery required", _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(result, "recovery_required", false))
 
+	if operation == COMMAND_RECOVER:
+		_append_human_warnings(lines, "Warnings", _GF_VARIANT_ACCESS_SCRIPT.get_option_array(result, "warnings"))
+	else:
+		_append_human_transaction_report(
+			lines,
+			"Transaction",
+			_GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(result, "transaction")
+		)
+		_append_human_transaction_report(
+			lines,
+			"Automatic recovery",
+			_GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(result, "transaction_recovery")
+		)
 	_append_human_issues(lines, _GF_VARIANT_ACCESS_SCRIPT.get_option_array(result, "issues"))
 	if not ok and result.has("usage"):
 		_append_human_line(lines, "")
@@ -515,7 +528,7 @@ func _format_human_result(result: Dictionary) -> String:
 	return "\n".join(lines)
 
 
-func _append_human_registry_source(lines: PackedStringArray, result: Dictionary) -> void:
+static func _append_human_registry_source(lines: PackedStringArray, result: Dictionary) -> void:
 	var registry_source: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(result, "registry_source")
 	var registry_path: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(result, "registry")
 	if not registry_source.is_empty() and registry_source != registry_path:
@@ -532,37 +545,64 @@ func _append_human_registry_source(lines: PackedStringArray, result: Dictionary)
 		_append_human_line(lines, "Registry mirror: %s" % mirror_label)
 
 
-func _human_operation_label(operation: String) -> String:
+static func _append_human_transaction_report(
+	lines: PackedStringArray,
+	label: String,
+	report: Dictionary
+) -> void:
+	if report.is_empty():
+		return
+	var outcome: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(report, "outcome", "none")
+	var recovery_required: bool = _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(report, "recovery_required", false)
+	var warnings: Array = _GF_VARIANT_ACCESS_SCRIPT.get_option_array(report, "warnings")
+	if outcome == "none" and not recovery_required and warnings.is_empty():
+		return
+	_append_human_line(lines, "%s outcome: %s" % [label, outcome])
+	_append_human_flag_line(
+		lines,
+		"%s recovered" % label,
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(report, "recovered", false)
+	)
+	_append_human_flag_line(
+		lines,
+		"%s rolled back" % label,
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(report, "rolled_back", false)
+	)
+	_append_human_flag_line(lines, "%s recovery required" % label, recovery_required)
+	_append_human_warnings(lines, "%s warnings" % label, warnings)
+
+
+static func _human_operation_label(operation: String) -> String:
 	if operation.is_empty():
 		return "command"
 	return operation
 
 
-func _append_human_path_line(lines: PackedStringArray, label: String, value: String) -> void:
+static func _append_human_path_line(lines: PackedStringArray, label: String, value: String) -> void:
 	if value.is_empty():
 		return
 	_append_human_line(lines, "%s: %s" % [label, value])
 
 
-func _append_human_package_list(lines: PackedStringArray, label: String, values: Array) -> void:
+static func _append_human_package_list(lines: PackedStringArray, label: String, values: Array) -> void:
 	if values.is_empty():
 		return
 	_append_human_line(lines, "%s: %s" % [label, _join_variant_array(values)])
 
 
-func _append_human_count_line(lines: PackedStringArray, label: String, value: int) -> void:
+static func _append_human_count_line(lines: PackedStringArray, label: String, value: int) -> void:
 	if value <= 0:
 		return
 	_append_human_line(lines, "%s: %d" % [label, value])
 
 
-func _append_human_flag_line(lines: PackedStringArray, label: String, enabled: bool) -> void:
+static func _append_human_flag_line(lines: PackedStringArray, label: String, enabled: bool) -> void:
 	if not enabled:
 		return
 	_append_human_line(lines, "%s: yes" % label)
 
 
-func _append_human_lockfile_verify(lines: PackedStringArray, result: Dictionary) -> void:
+static func _append_human_lockfile_verify(lines: PackedStringArray, result: Dictionary) -> void:
 	var lockfile_verify: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(result, "lockfile_verify")
 	if lockfile_verify.is_empty():
 		return
@@ -572,7 +612,15 @@ func _append_human_lockfile_verify(lines: PackedStringArray, result: Dictionary)
 	)
 
 
-func _append_human_issues(lines: PackedStringArray, issues: Array) -> void:
+static func _append_human_warnings(lines: PackedStringArray, label: String, warnings: Array) -> void:
+	if warnings.is_empty():
+		return
+	_append_human_line(lines, "%s:" % label)
+	for warning: Variant in warnings:
+		_append_human_line(lines, "  - %s" % str(warning))
+
+
+static func _append_human_issues(lines: PackedStringArray, issues: Array) -> void:
 	if issues.is_empty():
 		return
 	_append_human_line(lines, "Issues:")
@@ -580,7 +628,7 @@ func _append_human_issues(lines: PackedStringArray, issues: Array) -> void:
 		_append_human_line(lines, "  - %s" % str(issue))
 
 
-func _blocked_package_ids(blocked: Array) -> Array:
+static func _blocked_package_ids(blocked: Array) -> Array:
 	var result: Array = []
 	for value: Variant in blocked:
 		if not value is Dictionary:
@@ -592,14 +640,14 @@ func _blocked_package_ids(blocked: Array) -> Array:
 	return result
 
 
-func _join_variant_array(values: Array) -> String:
+static func _join_variant_array(values: Array) -> String:
 	var parts: PackedStringArray = PackedStringArray()
 	for value: Variant in values:
 		var _append_value: bool = parts.append(str(value))
 	return ", ".join(parts)
 
 
-func _append_human_line(lines: PackedStringArray, text: String) -> void:
+static func _append_human_line(lines: PackedStringArray, text: String) -> void:
 	var _append_line: bool = lines.append(text)
 
 

@@ -454,7 +454,7 @@ static func has_line_of_sight( from_cell: Vector2i, to_cell: Vector2i, is_blocki
 |---|---|
 | `from_cell` | 起点坐标。 |
 | `to_cell` | 终点坐标。 |
-| `is_blocking` | 阻挡回调，签名为 `func(cell: Vector2i) -> bool`。 |
+| `is_blocking` | 阻挡回调，签名为 \`func(cell: Vector2i) -> bool\`。 |
 | `layout` | offset 坐标布局。 |
 | `include_endpoints` | 是否检查起点与终点是否阻挡。 |
 
@@ -479,9 +479,9 @@ static func find_path_a_star( grid_size: Vector2i, start: Vector2i, goal: Vector
 | `grid_size` | 网格尺寸；任一轴小于 0 时视为无限网格。 |
 | `start` | 起点坐标。 |
 | `goal` | 终点坐标。 |
-| `is_walkable` | 可通行回调，签名为 `func(cell: Vector2i) -> bool`。 |
+| `is_walkable` | 可通行回调，签名为 \`func(cell: Vector2i) -> bool\`。 |
 | `layout` | offset 坐标布局。 |
-| `step_cost` | 可选代价回调，签名为 `func(from: Vector2i, to: Vector2i) -> float`；返回负数表示不可通行。 |
+| `step_cost` | 可选代价回调，签名为 \`func(from: Vector2i, to: Vector2i) -> float\`；返回负数表示不可通行。 |
 
 返回：包含起点与终点的路径；无法到达时返回空数组。
 
@@ -505,9 +505,9 @@ static func begin_path_a_star_search( grid_size: Vector2i, start: Vector2i, goal
 | `grid_size` | 网格尺寸；任一轴小于 0 时视为无限网格。 |
 | `start` | 起点 offset 坐标。 |
 | `goal` | 终点 offset 坐标。 |
-| `is_walkable` | 可通行回调，签名为 `func(cell: Vector2i) -> bool`。 |
+| `is_walkable` | 可通行回调，签名为 \`func(cell: Vector2i) -> bool\`。 |
 | `layout` | offset 坐标布局。 |
-| `step_cost` | 可选代价回调，签名为 `func(from: Vector2i, to: Vector2i) -> float`；返回负数表示不可通行。 |
+| `step_cost` | 可选代价回调，签名为 \`func(from: Vector2i, to: Vector2i) -> float\`；返回负数表示不可通行。 |
 
 返回：`GFGraphMath` 分步路径搜索状态句柄。
 
@@ -533,7 +533,7 @@ static func simplify_path_line_of_sight( path: Array[Vector2i], is_blocking: Cal
 | 名称 | 说明 |
 |---|---|
 | `path` | 包含起点与终点的 offset 路径。 |
-| `is_blocking` | 阻挡回调，签名为 `func(cell: Vector2i) -> bool`。 |
+| `is_blocking` | 阻挡回调，签名为 \`func(cell: Vector2i) -> bool\`。 |
 | `layout` | offset 坐标布局。 |
 | `include_endpoints` | 是否检查每段抽稀直线的端点是否阻挡。 |
 
@@ -561,9 +561,9 @@ static func build_flow_field( grid_size: Vector2i, goals: Array[Vector2i], is_wa
 |---|---|
 | `grid_size` | 网格尺寸；任一轴小于 0 时视为无限网格。 |
 | `goals` | 目标坐标列表。 |
-| `is_walkable` | 可通行回调，签名为 `func(cell: Vector2i) -> bool`。 |
+| `is_walkable` | 可通行回调，签名为 \`func(cell: Vector2i) -> bool\`。 |
 | `layout` | offset 坐标布局。 |
-| `step_cost` | 可选代价回调，签名为 `func(from: Vector2i, to: Vector2i) -> float`；返回负数表示不可通行。 |
+| `step_cost` | 可选代价回调，签名为 \`func(from: Vector2i, to: Vector2i) -> float\`；返回负数表示不可通行。 |
 
 返回：包含 `costs`、`directions` 和 `goals` 的字典；`directions[cell]` 是下一步 offset 方向。
 
@@ -590,9 +590,9 @@ static func find_reachable( grid_size: Vector2i, start: Vector2i, max_cost: floa
 | `grid_size` | 网格尺寸；任一轴小于 0 时视为无限网格。 |
 | `start` | 起点坐标。 |
 | `max_cost` | 最大移动代价。 |
-| `is_walkable` | 可通行回调，签名为 `func(cell: Vector2i) -> bool`。 |
+| `is_walkable` | 可通行回调，签名为 \`func(cell: Vector2i) -> bool\`。 |
 | `layout` | offset 坐标布局。 |
-| `step_cost` | 可选代价回调，签名为 `func(from: Vector2i, to: Vector2i) -> float`；返回负数表示不可通行。 |
+| `step_cost` | 可选代价回调，签名为 \`func(from: Vector2i, to: Vector2i) -> float\`；返回负数表示不可通行。 |
 
 返回：字典，key 为可达坐标，value 为从起点到该坐标的最低代价。
 

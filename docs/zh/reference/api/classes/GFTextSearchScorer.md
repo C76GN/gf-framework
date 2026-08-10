@@ -15,7 +15,7 @@
 
 | 类型 | 名称 | 签名 |
 |---|---|---|
-| 常量 | [`DEFAULT_FIELDS`](#member-gftextsearchscorer-constants-default_fields) | `const DEFAULT_FIELDS: Array[Dictionary] = [` |
+| 常量 | [`DEFAULT_FIELDS`](#member-gftextsearchscorer-constants-default_fields) | `const DEFAULT_FIELDS: Array[Dictionary] = [ 	{ "key": "title", "weight": 4.0 }, 	{ "key": "name", "weight": 3.0 }, 	{ "key": "keywords", "weight": 2.0 }, 	{ "key": "detail", "weight": 1.0 }, 	{ "key": "path", "weight": 1.0 }, ]` |
 | 方法 | [`tokenize`](#member-gftextsearchscorer-methods-tokenize) | `static func tokenize(query: String, options: Dictionary = {}) -> PackedStringArray:` |
 | 方法 | [`score_text`](#member-gftextsearchscorer-methods-score_text) | `static func score_text(query: String, text: String, options: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`score_candidate`](#member-gftextsearchscorer-methods-score_candidate) | `static func score_candidate(query: String, candidate: Dictionary, options: Dictionary = {}) -> Dictionary:` |
@@ -32,6 +32,12 @@
 
 ```gdscript
 const DEFAULT_FIELDS: Array[Dictionary] = [
+	{ "key": "title", "weight": 4.0 },
+	{ "key": "name", "weight": 3.0 },
+	{ "key": "keywords", "weight": 2.0 },
+	{ "key": "detail", "weight": 1.0 },
+	{ "key": "path", "weight": 1.0 },
+]
 ```
 
 默认候选字段权重。

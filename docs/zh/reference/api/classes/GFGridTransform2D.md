@@ -172,7 +172,7 @@ static func transform_local_cell(cell: Vector2i, source_size: Vector2i, transfor
 
 | 名称 | 说明 |
 |---|---|
-| `cell` | 原始局部格坐标，通常位于 `[0, size)`。 |
+| `cell` | 原始局部格坐标，通常位于 \`[0, size)\`。 |
 | `source_size` | 原始矩形尺寸。 |
 | `transform` | Transform 枚举值。 |
 
@@ -262,7 +262,7 @@ static func transform_local_point(point: Vector2, source_size: Vector2, transfor
 
 | 名称 | 说明 |
 |---|---|
-| `point` | 原始局部坐标，通常位于 `[0, size]`。 |
+| `point` | 原始局部坐标，通常位于 \`[0, size]\`。 |
 | `source_size` | 原始矩形尺寸。 |
 | `transform` | Transform 枚举值。 |
 

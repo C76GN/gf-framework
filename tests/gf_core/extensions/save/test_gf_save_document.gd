@@ -137,6 +137,80 @@ func test_save_section_and_schema_dictionary_parsers_fail_closed() -> void:
 	assert_null(GFSaveDocumentSchema.from_dict(unknown_schema_field), "schema 解析不得忽略未知字段。")
 
 
+func test_save_document_rejects_every_noncanonical_raw_section_key() -> void:
+	var canonical: Dictionary = _make_document(1, 1, { "level": 1 }).to_dict()
+	var canonical_sections: Dictionary = GFVariantData.get_option_dictionary(canonical, "sections")
+	var canonical_profile: Dictionary = GFVariantData.get_option_dictionary(
+		canonical_sections,
+		"profile"
+	)
+	var cases: Array[Variant] = ["", " ", " profile ", 42]
+	for raw_key: Variant in cases:
+		var candidate: Dictionary = canonical.duplicate(true)
+		var sections: Dictionary = GFVariantData.get_option_dictionary(candidate, "sections")
+		sections[raw_key] = canonical_profile.duplicate(true)
+		candidate["sections"] = sections
+		_assert_document_dictionary_rejected(
+			candidate,
+			"非规范 section key 必须被逐个拒绝：%s" % [raw_key]
+		)
+
+	var alias_candidate: Dictionary = canonical.duplicate(true)
+	var alias_sections: Dictionary = GFVariantData.get_option_dictionary(
+		alias_candidate,
+		"sections"
+	)
+	var alias_profile: Dictionary = canonical_profile.duplicate(true)
+	alias_profile["section_id"] = " profile "
+	alias_sections[" profile "] = alias_profile
+	alias_candidate["sections"] = alias_sections
+	_assert_document_dictionary_rejected(
+		alias_candidate,
+		"trim 后与规范 key 冲突的 alias 不得被静默丢弃。"
+	)
+
+
+func test_persisted_value_boundaries_validate_before_deep_copy() -> void:
+	var circular_payload: Dictionary = {}
+	circular_payload["self"] = circular_payload
+	var section: GFSaveSection = GFSaveSection.new().configure(
+		&"profile",
+		1,
+		circular_payload
+	)
+	var section_report: Dictionary = section.validate_section()
+	assert_false(
+		GFVariantData.get_option_bool(section_report, "ok"),
+		"循环 payload 应结构化拒绝，且不得先触发引擎递归错误。"
+	)
+
+	var circular_metadata: Dictionary = {}
+	circular_metadata["self"] = circular_metadata
+	var document: GFSaveDocument = GFSaveDocument.new().configure(
+		&"game.save",
+		1,
+		[],
+		circular_metadata
+	)
+	var document_report: Dictionary = document.validate_document()
+	assert_false(
+		GFVariantData.get_option_bool(document_report, "ok"),
+		"循环 metadata 应在复制前被有界校验拒绝。"
+	)
+
+	var deep_payload: Dictionary = {}
+	var cursor: Dictionary = deep_payload
+	for index: int in range(65):
+		var next: Dictionary = { "index": index }
+		cursor["next"] = next
+		cursor = next
+	var deep_section: GFSaveSection = GFSaveSection.new().configure(&"deep", 1, deep_payload)
+	assert_false(
+		GFVariantData.get_option_bool(deep_section.validate_section(), "ok"),
+		"超过持久化深度预算的 payload 应在深复制前失败关闭。"
+	)
+
+
 func test_save_document_schema_distinguishes_migration_from_future_versions() -> void:
 	var schema: GFSaveDocumentSchema = _make_schema(2, { &"profile": 2 })
 	var old_document: GFSaveDocument = _make_document(1, 1, { "level": 1 })
@@ -236,6 +310,24 @@ func test_document_migration_cannot_bypass_section_version_steps() -> void:
 	assert_eq(result.get_failed_step_id(), &"bypass_profile_version")
 	assert_true(result.get_error().contains("must not change"))
 	assert_null(result.get_document())
+
+
+func test_migration_executes_the_preflight_step_snapshot_during_registry_reentry() -> void:
+	var source: GFSaveDocument = _make_document(1, 1, { "level": 3 })
+	var schema: GFSaveDocumentSchema = _make_schema(3, { &"profile": 1 })
+	var registry: GFSaveMigrationRegistry = GFSaveMigrationRegistry.new()
+	assert_true(registry.register_step(ClearRegistryDocumentStep.new()))
+	assert_true(registry.register_step(AdvanceDocumentStep.new()))
+
+	var result: GFSaveMigrationResult = registry.migrate(source, schema, {
+		"registry": registry,
+	})
+
+	assert_true(result.is_successful(), result.get_error())
+	assert_eq(result.get_document().get_schema_version(), 3)
+	assert_eq(result.get_trace().size(), 2, "运行中的 registry 变更不得改变已验收迁移计划。")
+	assert_eq(registry.describe_steps().size(), 0, "测试 hook 应确实清空 live registry。")
+	assert_eq(source.get_schema_version(), 1, "迁移始终只操作来源副本。")
 
 
 # --- 私有/辅助方法 ---
@@ -368,3 +460,35 @@ class BypassSectionVersionDocumentStep extends GFSaveMigrationStep:
 		)
 		var _stored: bool = result.set_section(bypassed)
 		return result
+
+
+class ClearRegistryDocumentStep extends GFSaveMigrationStep:
+	func _init() -> void:
+		step_id = &"document_1_to_2_clear_registry"
+		schema_id = &"game.save"
+		from_version = 1
+		to_version = 2
+
+	func _migrate_document(
+		document: GFSaveDocument,
+		context: Dictionary = {}
+	) -> GFSaveDocument:
+		var registry_value: Variant = context.get("registry")
+		if registry_value is GFSaveMigrationRegistry:
+			var registry: GFSaveMigrationRegistry = registry_value
+			registry.clear()
+		return document.duplicate_document()
+
+
+class AdvanceDocumentStep extends GFSaveMigrationStep:
+	func _init() -> void:
+		step_id = &"document_2_to_3"
+		schema_id = &"game.save"
+		from_version = 2
+		to_version = 3
+
+	func _migrate_document(
+		document: GFSaveDocument,
+		_context: Dictionary = {}
+	) -> GFSaveDocument:
+		return document.duplicate_document()

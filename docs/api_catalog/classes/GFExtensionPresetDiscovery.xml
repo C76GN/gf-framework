@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFExtensionPresetDiscovery" path="addons/gf/kernel/extension/gf_extension_preset_discovery.gd" module="kernel" extends="RefCounted" classDigest="277d8481bc9d59892a07d5a35920ad79337cffce68f0d5086200ea4282de533a">
+<class name="GFExtensionPresetDiscovery" path="addons/gf/kernel/extension/gf_extension_preset_discovery.gd" module="kernel" extends="RefCounted" classDigest="d2f73ef9e8ebd8b393693618543446b4787e4d0fe64f4adf57c22752e2e217ce">
 	<description>GFExtensionPresetDiscovery: GF 扩展 preset 发现快照缓存。
 基于 manifest 集合和项目 preset 路径生成可缓存的 preset snapshot，
 统一内置 preset、项目 preset、重复 ID、无效文件和未知扩展 ID 的报告边界。</description>
@@ -25,7 +25,7 @@
 				<tag name="param">configured_paths: 项目配置中的 preset 路径列表，可包含无效路径以便生成诊断。</tag>
 				<tag name="param">options: 发现选项。</tag>
 				<tag name="return">preset 发现快照。</tag>
-				<tag name="schema">options: Dictionary，支持 force_refresh；为 true 时跳过现有缓存并重新扫描。</tag>
+				<tag name="schema">options: Dictionary，支持 force_refresh、max_json_file_bytes、max_json_total_bytes 和 max_json_depth；预算只能收紧框架硬上限。</tag>
 				<tag name="schema">return: Dictionary，包含 ok、presets、report、configured_paths、signature、signature_hash、revision、preset_count 和 issue_count。</tag>
 				<tag name="since">8.0.0</tag>
 			</tags>

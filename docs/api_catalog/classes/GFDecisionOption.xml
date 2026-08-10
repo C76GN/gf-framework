@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFDecisionOption" path="addons/gf/extensions/decision/resources/gf_decision_option.gd" module="extensions/decision" extends="Resource" classDigest="6edd2784783a7028db5c3ee2413613d93820ea7bcff16ebdd40ae8b6938711db">
+<class name="GFDecisionOption" path="addons/gf/extensions/decision/resources/gf_decision_option.gd" module="extensions/decision" extends="Resource" classDigest="bdcd7a2b505ac38ab75f12a4af2bfa250a69991c926c9b9753ef2f08593e0775">
 	<description>GFDecisionOption: 可评分的候选决策资源。
 候选决策由一组 GFDecisionConsideration 评分，并按聚合策略得到最终效用分数。
 它描述“如何比较候选”，不执行具体业务动作。</description>
@@ -129,11 +129,13 @@
 		</member>
 		<member kind="method" name="score">
 			<signature>func score(context: GFDecisionContext) -&gt; GFDecisionScore:</signature>
-			<description>计算候选决策分数。</description>
+			<description>计算候选决策分数。
+本次调用会冻结考虑项数组成员；评分回调对 live 数组的修改只影响后续调用。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">context: 决策上下文。</tag>
 				<tag name="return">评分结果。</tag>
+				<tag name="since">4.3.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_debug_snapshot">

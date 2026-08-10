@@ -269,6 +269,103 @@ func test_orbit_input_requires_local_mouse_capture_before_motion() -> void:
 	await get_tree().process_frame
 
 
+func test_orbit_input_changing_mouse_button_cancels_existing_capture() -> void:
+	var rig: Node3D = _new_node3d(ORBIT_RIG_SCRIPT_PATH)
+	var input: Node = _new_node(ORBIT_INPUT_SCRIPT_PATH)
+	assert_not_null(rig)
+	assert_not_null(input)
+	if rig == null or input == null:
+		return
+	add_child(rig)
+	rig.add_child(input)
+	_call_set_orbit(rig, 0.0, 0.0, 8.0)
+	input.set(&"update_mode", UPDATE_MODE_MANUAL)
+	input.set(&"mouse_orbit_enabled", true)
+	input.set(&"mouse_degrees_per_pixel", 1.0)
+	await get_tree().process_frame
+
+	_call_unhandled_input(input, _make_mouse_button(MOUSE_BUTTON_RIGHT, true, 21))
+	input.set(&"mouse_button", MOUSE_BUTTON_LEFT)
+	var snapshot: Dictionary = _call_dictionary(input, &"get_debug_snapshot")
+	assert_false(
+		GFVariantData.get_option_bool(snapshot, "mouse_orbit_captured"),
+		"运行时改键必须立即终止由旧按键创建的捕获。"
+	)
+	_call_unhandled_input(input, _make_mouse_button(MOUSE_BUTTON_RIGHT, false, 21))
+	_call_unhandled_input(input, _make_mouse_motion(Vector2(5.0, 0.0), 21))
+	assert_almost_eq(
+		_get_float_property(rig, &"yaw_degrees"),
+		0.0,
+		0.001,
+		"旧按键释放后，裸 motion 不得继续驱动 Rig。"
+	)
+
+	rig.queue_free()
+	await get_tree().process_frame
+
+
+func test_orbit_input_window_focus_out_cancels_mouse_capture() -> void:
+	var rig: Node3D = _new_node3d(ORBIT_RIG_SCRIPT_PATH)
+	var input: Node = _new_node(ORBIT_INPUT_SCRIPT_PATH)
+	assert_not_null(rig)
+	assert_not_null(input)
+	if rig == null or input == null:
+		return
+	add_child(rig)
+	rig.add_child(input)
+	_call_set_orbit(rig, 0.0, 0.0, 8.0)
+	input.set(&"update_mode", UPDATE_MODE_MANUAL)
+	input.set(&"mouse_orbit_enabled", true)
+	input.set(&"mouse_degrees_per_pixel", 1.0)
+	await get_tree().process_frame
+
+	_call_unhandled_input(input, _make_mouse_button(MOUSE_BUTTON_RIGHT, true, 22))
+	input.notification(NOTIFICATION_WM_WINDOW_FOCUS_OUT)
+	_call_unhandled_input(input, _make_mouse_motion(Vector2(5.0, 0.0), 22))
+	assert_almost_eq(
+		_get_float_property(rig, &"yaw_degrees"),
+		0.0,
+		0.001,
+		"窗口失焦后即使 release 丢失，motion 也不得继续驱动 Rig。"
+	)
+	assert_false(GFVariantData.get_option_bool(
+		_call_dictionary(input, &"get_debug_snapshot"),
+		"mouse_orbit_captured"
+	))
+
+	rig.queue_free()
+	await get_tree().process_frame
+
+
+func test_orbit_input_rejects_non_finite_scaled_results() -> void:
+	var rig: Node3D = _new_node3d(ORBIT_RIG_SCRIPT_PATH)
+	var input: Node = _new_node(ORBIT_INPUT_SCRIPT_PATH)
+	assert_not_null(rig)
+	assert_not_null(input)
+	if rig == null or input == null:
+		return
+	add_child(rig)
+	rig.add_child(input)
+	_call_set_orbit(rig, 0.0, 0.0, 8.0)
+	input.set(&"update_mode", UPDATE_MODE_MANUAL)
+	await get_tree().process_frame
+
+	var largest_component: float = _find_largest_finite_vector_component()
+	assert_false(
+		_call_bool(input, &"apply_orbit_vector", [Vector2(largest_component, 0.0), 2.0]),
+		"有限操作数的非有限乘积不得报告为已应用。"
+	)
+	assert_almost_eq(_get_float_property(rig, &"yaw_degrees"), 0.0, 0.001)
+	assert_false(
+		_call_bool(input, &"apply_zoom_value", [1.0e308, 2.0]),
+		"缩放乘积溢出时不得报告成功。"
+	)
+	assert_almost_eq(_get_float_property(rig, &"distance"), 8.0, 0.001)
+
+	rig.queue_free()
+	await get_tree().process_frame
+
+
 func test_orbit_input_mouse_capture_does_not_transfer_between_rigs() -> void:
 	var root: Node3D = Node3D.new()
 	add_child(root)
@@ -406,3 +503,13 @@ func _is_finite_transform(value: Transform3D) -> bool:
 		and is_finite(value.basis.z.y)
 		and is_finite(value.basis.z.z)
 	)
+
+
+func _find_largest_finite_vector_component() -> float:
+	var value: float = 1.0
+	for _iteration: int in range(2048):
+		var candidate: float = value * 2.0
+		if not is_finite(candidate) or not is_finite(Vector2(candidate, 0.0).x):
+			return value
+		value = candidate
+	return value

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFRuntimeAgentEnvironment" path="addons/gf/standard/utilities/agent/gf_runtime_agent_environment.gd" module="standard" extends="GFUtility" classDigest="dc9db8d36673a1a9f83729287b1c4142a38412f445c850ba86546f3d0316fba0">
+<class name="GFRuntimeAgentEnvironment" path="addons/gf/standard/utilities/agent/gf_runtime_agent_environment.gd" module="standard" extends="GFUtility" classDigest="0f7574146533b7b15aa18cacdc3943e5792fecf45a83f8252b375283ca1752e8">
 	<description>GFRuntimeAgentEnvironment: 传输无关的受限运行时 Agent 调用环境。
 受信宿主显式注册严格 endpoint，再为调用方签发仅授权指定 endpoint 的短期 session。
 环境负责协议版本、bearer token、TTL、限流、防重放、结构预算、策略检查和无载荷审计；
@@ -16,7 +16,9 @@
 			<signature>signal audit_event_recorded(event: Dictionary)</signature>
 			<description>追加安全审计事件时触发。
 事件只包含固定协议字段、稳定标识和 request id 摘要，不包含 token、payload、
-handler 输出或策略返回数据。</description>
+handler 输出或策略返回数据。
+重入 listener 产生的事件按 sequence 迭代派发；单次 drain 与待派发队列均有硬上限，
+超限时只丢弃实时通知，不丢弃内存审计记录，listener 可通过 sequence 缺口识别。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">event: 固定字段、无业务载荷的 Runtime Agent 审计事件。</tag>

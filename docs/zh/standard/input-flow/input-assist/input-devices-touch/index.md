@@ -20,8 +20,10 @@
 
 触屏控件默认只处理触摸事件，不会替项目创建 InputMap 动作，也不会发送虚拟手柄事件。`GFTouchButton.accept_mouse_input` 默认关闭；需要在桌面端用鼠标模拟触屏时，项目应按调试构建、平台或自己的输入设置显式开启。
 
-`GFTouchButton` 与 `GFTouchJoystick` 共享 `GFTouchControl2D` 的触点捕获和隐藏/离树释放逻辑：控件隐藏、离开场景树或手动 `release()` 时都会清空捕获并释放已桥接的 action。项目自定义触屏控件也可以继承 `GFTouchControl2D`，复用 `is_touch_active()`、`get_active_touch_index()`、屏幕坐标转换和 handled 标记，再自行定义形状与输出。
+`GFTouchButton` 与 `GFTouchJoystick` 共享 `GFTouchControl2D` 的触点捕获和生命周期释放逻辑：控件隐藏、离开场景树、`process_mode = PROCESS_MODE_DISABLED` 或手动 `release()` 时都会清空捕获并释放已桥接的 action。`-1` 是 inactive sentinel，不能成为有效触点。项目自定义触屏控件也可以继承 `GFTouchControl2D`，复用 `is_touch_active()`、`get_active_touch_index()`、屏幕坐标转换和 handled 标记，再自行定义形状与输出。
 
-需要在自定义触屏控件、虚拟光标或拖放控制器中单独记录 pointer/touch owner 时，可使用 `GFPointerCapture`。它只保存单个活动 pointer id，并提供 `try_capture()`、`matches()`、`release()` 和调试快照，不读取输入事件。
+一次 press/gesture 会冻结开始时的 action、虚拟 joypad device/button/axis 以及摇杆定位模式；活动期间修改 export 只影响下一次手势，当前 release 始终归还原来的输出 lane。关闭 `GFTouchButton.accept_mouse_input` 会先释放已有 mouse press。Godot 原生 `set_process_input(false)` 不等同于禁用 Node 的 process mode，调用它之前必须先显式 `release()`，否则节点收不到后续 release event。
+
+需要在自定义触屏控件、虚拟光标或拖放控制器中单独记录 pointer/touch owner 时，可使用 `GFPointerCapture`。它只保存单个活动 pointer id，并提供 `try_capture()`、`matches()`、`release()` 和调试快照，不读取输入事件；`try_capture(NO_POINTER_ID)` 会失败，inactive 状态也不会匹配 sentinel。
 
 需要从非触屏节点写入 InputMap action 或虚拟手柄事件时，可使用 `GFVirtualInputBridge`。它只负责 owner 级 action refcount 和 joypad event 发送，不创建 action、不分配玩家，也不替代 `GFInputMappingUtility` 的玩家级输入流。

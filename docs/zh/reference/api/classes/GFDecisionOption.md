@@ -250,12 +250,13 @@ func clear_considerations() -> void:
 ### `score`
 
 - API：`public`
+- 首次版本：`4.3.0`
 
 ```gdscript
 func score(context: GFDecisionContext) -> GFDecisionScore:
 ```
 
-计算候选决策分数。
+计算候选决策分数。 本次调用会冻结考虑项数组成员；评分回调对 live 数组的修改只影响后续调用。
 
 参数：
 

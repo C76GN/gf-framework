@@ -53,6 +53,49 @@ func test_build_source_sanitizes_invalid_table_names() -> void:
 	assert_true(source.contains("\treturn null"), "应允许自定义 provider_accessor。")
 
 
+func test_build_source_emits_unicode_only_and_mixed_table_names_completely() -> void:
+	var generator: GFConfigAccessGenerator = GFConfigAccessGenerator.new()
+	var schemas: Array = [
+		ConfigSchemaStub.new(&"物品"),
+		ConfigSchemaStub.new(&"enemy_data"),
+		ConfigSchemaStub.new(&"😀"),
+	]
+	var result: Dictionary = generator.build_source_with_report(
+		schemas,
+		"UnicodeConfigAccess"
+	)
+	var source: String = GFVariantData.get_option_string(result, "source")
+	var item_identifier: String = "TABLE_%s" % "物品".sha256_text().substr(0, 12).to_upper()
+	var emoji_identifier: String = "TABLE_%s" % "😀".sha256_text().substr(0, 12).to_upper()
+
+	assert_true(GFVariantData.get_option_bool(result, "success"), "Unicode-only 表名必须生成稳定 fallback，而不是被静默跳过。")
+	assert_eq(GFVariantData.get_option_int(result, "input_schema_count"), 3, "生成报告应记录全部输入 schema。")
+	assert_eq(GFVariantData.get_option_int(result, "emitted_schema_count"), 3, "每个合法表名都必须发射访问器。")
+	assert_eq(GFVariantData.get_option_int(result, "skipped_schema_count"), 0, "成功生成不得存在 skipped schema。")
+	assert_true(source.contains("const %s: StringName = &\"物品\"" % item_identifier), "中文表名应保留原始 StringName 并使用稳定 hash 标识符。")
+	assert_true(source.contains("const ENEMY_DATA: StringName = &\"enemy_data\""), "混合输入中的 ASCII 表名应保持现有命名。")
+	assert_true(source.contains("const %s: StringName = &\"😀\"" % emoji_identifier), "emoji-only 表名也必须生成稳定访问器。")
+	_assert_generated_source_compiles(source, "UnicodeConfigAccess", "Unicode fallback 生成源码必须可编译。")
+
+
+func test_generate_with_report_fails_closed_when_schema_has_no_table_name() -> void:
+	var generator: GFConfigAccessGenerator = GFConfigAccessGenerator.new()
+	var output_path: String = "user://gf_config_access_generator_invalid_%d.gd" % Time.get_ticks_usec()
+	var report: Dictionary = generator.generate_with_report(
+		[{ "metadata": { "comment": "missing name" } }],
+		output_path,
+		"InvalidConfigAccess",
+		"null",
+		{ "dry_run": true }
+	)
+
+	assert_false(GFVariantData.get_option_bool(report, "success"), "缺少表名的 schema 必须在写文件前 fail-closed。")
+	assert_eq(GFVariantData.get_option_int(report, "input_schema_count"), 1, "失败报告应保留输入计数。")
+	assert_eq(GFVariantData.get_option_int(report, "emitted_schema_count"), 0, "失败报告不得谎报已发射 schema。")
+	assert_eq(GFVariantData.get_option_int(report, "skipped_schema_count"), 1, "失败报告应明确 skipped 数量。")
+	assert_false(FileAccess.file_exists(output_path), "不完整 schema 不得产生访问器文件。")
+
+
 func test_build_source_accepts_dictionary_schemas() -> void:
 	var generator: GFConfigAccessGenerator = GFConfigAccessGenerator.new()
 

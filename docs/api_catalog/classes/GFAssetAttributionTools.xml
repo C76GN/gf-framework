@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFAssetAttributionTools" path="addons/gf/extensions/asset_metadata/runtime/gf_asset_attribution_tools.gd" module="extensions/asset_metadata" extends="RefCounted" classDigest="e6d69a7671ea352a5d125a6fc4fc6551d9921ef7140300eac1d0ef8373561bbb">
+<class name="GFAssetAttributionTools" path="addons/gf/extensions/asset_metadata/runtime/gf_asset_attribution_tools.gd" module="extensions/asset_metadata" extends="RefCounted" classDigest="1622aa8b8bd0f4e3b02b1d73df1abd4842a30fe1ffbffb480fef340593244c81">
 	<description>GFAssetAttributionTools: 资产授权与署名元数据工具。
 提供纯数据归一、路径覆盖检查和通知文本格式化，便于项目导入管线、CI
 或 Credits 页面复用同一套资产归因字段约定。它不内置许可证模板、不下载外部数据，
@@ -48,7 +48,7 @@
 			<signature>static func build_attribution_report( entries: Array, resource_paths: PackedStringArray = PackedStringArray(), options: Dictionary = {} ) -&gt; Dictionary:</signature>
 			<description>构建资产归因覆盖报告。
 传入 resource_paths 时，报告会检查每个资源路径是否能命中归因条目。
-缺少 path、重复 path、缺少 license_id 或未覆盖资源路径都会作为错误报告。</description>
+缺少 path、重复 path、冲突别名、无效覆盖输入、缺少 license_id 或未覆盖资源路径都会作为错误报告。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">entries: 归因条目数组；每项可为 Dictionary 或 GFAssetMetadataRecord。</tag>
@@ -58,7 +58,7 @@
 				<tag name="schema">entries: Array，每项可为归因 Dictionary、GFAssetMetadataRecord 或 GFAssetMetadataRecord.to_dict() 形状字典。</tag>
 				<tag name="schema">resource_paths: PackedStringArray，通常来自资源扫描或导入计划。</tag>
 				<tag name="schema">options: Dictionary，可包含 require_license_id、inherit_from_parent 和 attribution_key。</tag>
-				<tag name="schema">return: Dictionary，包含 ok、healthy、summary、entries、entry_count、resource_path_count、covered_paths、uncovered_paths、license_ids 等字段。</tag>
+				<tag name="schema">return: Dictionary，包含 ok、healthy、summary、entries、entry_count、resource_path_input_count、resource_path_count、valid_resource_path_count、invalid_resource_path_count、duplicate_resource_path_count、covered_paths、uncovered_paths、license_ids 等字段；resource_path_count 与 valid_resource_path_count 都表示规范化后的有效唯一资源路径数。</tag>
 				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>

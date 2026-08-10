@@ -446,6 +446,38 @@ func test_projectile_emission_policy_consumes_and_recovers_charges() -> void:
 	assert_true(GFVariantData.get_option_bool(recovered_report, "ok"), "经过恢复时间后应重新允许发射。")
 
 
+func test_projectile_emission_policy_rejects_stale_overlapping_prepare_report() -> void:
+	var policy: GFProjectileEmissionPolicy = GFProjectileEmissionPolicy.new()
+	policy.max_emission_count = 1
+	var first_prepare: Dictionary = policy.prepare_emission(null, &"arrow", {}, 1, 0)
+	var second_prepare: Dictionary = policy.prepare_emission(null, &"arrow", {}, 1, 0)
+
+	var first_commit: Dictionary = policy.commit_emission(null, first_prepare, 1)
+	var second_commit: Dictionary = policy.commit_emission(null, second_prepare, 1)
+
+	assert_true(GFVariantData.get_option_bool(first_prepare, "ok"))
+	assert_true(GFVariantData.get_option_bool(second_prepare, "ok"), "重叠任务可乐观准备，但只能有一个成功提交。")
+	assert_true(GFVariantData.get_option_bool(first_commit, "committed"))
+	assert_false(GFVariantData.get_option_bool(second_commit, "ok"), "旧状态上准备的第二份报告必须提交失败。")
+	assert_eq(GFVariantData.get_option_string_name(second_commit, "reason"), &"stale_prepare_report")
+	assert_eq(GFVariantData.get_option_int(policy.get_debug_snapshot(0), "emission_count"), 1)
+
+
+func test_projectile_emission_policy_rejects_foreign_or_oversized_commit() -> void:
+	var source_policy: GFProjectileEmissionPolicy = GFProjectileEmissionPolicy.new()
+	source_policy.max_projectiles_per_request = 1
+	var foreign_policy: GFProjectileEmissionPolicy = GFProjectileEmissionPolicy.new()
+	var prepare_report: Dictionary = source_policy.prepare_emission(null, &"arrow", {}, 1, 0)
+
+	var foreign_commit: Dictionary = foreign_policy.commit_emission(null, prepare_report, 1)
+	var oversized_commit: Dictionary = source_policy.commit_emission(null, prepare_report, 2)
+
+	assert_false(GFVariantData.get_option_bool(foreign_commit, "ok"), "准备报告只能由签发它的策略提交。")
+	assert_eq(GFVariantData.get_option_string_name(foreign_commit, "reason"), &"foreign_prepare_report")
+	assert_false(GFVariantData.get_option_bool(oversized_commit, "ok"), "实际数量不得超过准备阶段批准数量。")
+	assert_eq(GFVariantData.get_option_string_name(oversized_commit, "reason"), &"invalid_emitted_count")
+
+
 func test_projectile_emission_policy_rejects_non_finite_configuration() -> void:
 	var policy: GFProjectileEmissionPolicy = GFProjectileEmissionPolicy.new()
 	policy.cooldown_seconds = NAN
@@ -470,6 +502,31 @@ func test_projectile_emitter_2d_resolves_catalog_scene() -> void:
 
 	assert_not_null(projectile, "发射器应能从目录 ID 解析场景。")
 	assert_true(projectile is GFProjectile2D, "目录场景应被实例化为发射体。")
+
+
+func test_projectile_catalog_normalizes_duplicate_exported_ids() -> void:
+	var catalog: GFProjectileCatalog = GFProjectileCatalog.new()
+	var first_scene: PackedScene = _make_projectile_2d_scene()
+	var second_scene: PackedScene = _make_projectile_2d_scene()
+	var replacement_scene: PackedScene = _make_projectile_2d_scene()
+	var first_entry: GFProjectileCatalogEntry = GFProjectileCatalogEntry.new()
+	first_entry.projectile_id = &"arrow"
+	first_entry.scene = first_scene
+	var duplicate_entry: GFProjectileCatalogEntry = GFProjectileCatalogEntry.new()
+	duplicate_entry.projectile_id = &"arrow"
+	duplicate_entry.scene = second_scene
+	catalog.entries = [first_entry, duplicate_entry]
+
+	assert_same(catalog.get_scene(&"arrow"), first_scene, "重复导出 ID 应以首个有效条目为权威值。")
+	assert_eq(catalog.get_projectile_ids(), PackedStringArray(["arrow"]), "ID 枚举不得暴露重复映射。")
+	catalog.set_scene(&"arrow", replacement_scene)
+	assert_same(catalog.get_scene(&"arrow"), replacement_scene)
+	assert_eq(catalog.entries.size(), 1, "设置映射时应清理同 ID 的多余条目。")
+
+	catalog.entries.append(duplicate_entry)
+	assert_true(catalog.remove_scene(&"arrow"))
+	assert_false(catalog.has_scene(&"arrow"), "移除一个 ID 必须移除它的全部重复映射。")
+	assert_true(catalog.entries.is_empty())
 
 
 func test_projectile_emitter_2d_uses_explicit_object_pool() -> void:
@@ -642,6 +699,50 @@ func test_homing_motion_ignores_freed_context_target() -> void:
 
 	assert_eq(projectile.position, Vector2.ZERO, "目标已释放时追踪移动不应把无效对象当作位置读取。")
 
+	projectile.free()
+
+
+func test_locked_homing_motion_keeps_cached_2d_direction_after_target_is_freed() -> void:
+	var projectile: GFProjectile2D = GFProjectile2D.new()
+	projectile.auto_launch_on_ready = false
+	projectile.queue_free_on_finish = false
+	var motion: GFHomingProjectileMotion = GFHomingProjectileMotion.new()
+	motion.speed = 10.0
+	motion.track_target = false
+	projectile.motion = motion
+	var target: Node2D = Node2D.new()
+	target.position = Vector2(10.0, 0.0)
+
+	projectile.launch({ "target": target })
+	target.free()
+	projectile._physics_process(0.5)
+	var context: Dictionary = projectile.get_projectile_context()
+
+	assert_eq(projectile.position, Vector2(5.0, 0.0), "锁定模式应在目标释放后沿缓存的 2D 方向继续移动。")
+	assert_eq(GFVariantData.get_option_vector2(context, "velocity_2d"), Vector2(10.0, 0.0))
+	assert_true(GFVariantData.get_option_bool(context, "target_missing"), "目标丢失仍应保留诊断标记。")
+	projectile.free()
+
+
+func test_locked_homing_motion_keeps_cached_3d_direction_after_target_is_freed() -> void:
+	var projectile: GFProjectile3D = GFProjectile3D.new()
+	projectile.auto_launch_on_ready = false
+	projectile.queue_free_on_finish = false
+	var motion: GFHomingProjectileMotion = GFHomingProjectileMotion.new()
+	motion.speed = 6.0
+	motion.track_target = false
+	projectile.motion = motion
+	var target: Node3D = Node3D.new()
+	target.position = Vector3(0.0, 0.0, -10.0)
+
+	projectile.launch({ "target": target })
+	target.free()
+	projectile._physics_process(0.5)
+	var context: Dictionary = projectile.get_projectile_context()
+
+	assert_eq(projectile.position, Vector3(0.0, 0.0, -3.0), "锁定模式应在目标释放后沿缓存的 3D 方向继续移动。")
+	assert_eq(GFVariantData.get_option_vector3(context, "velocity_3d"), Vector3(0.0, 0.0, -6.0))
+	assert_true(GFVariantData.get_option_bool(context, "target_missing"), "3D 目标丢失仍应保留诊断标记。")
 	projectile.free()
 
 

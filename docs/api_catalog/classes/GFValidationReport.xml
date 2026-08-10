@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFValidationReport" path="addons/gf/standard/foundation/validation/gf_validation_report.gd" module="standard" extends="RefCounted" classDigest="3d5c0e1ee78262ac00ace2158fd89aa4a69dd4f59450434af4732f00607221ed">
+<class name="GFValidationReport" path="addons/gf/standard/foundation/validation/gf_validation_report.gd" module="standard" extends="RefCounted" classDigest="4f9f23cd118ad6539f2a65e2388a62a8b8189abf157af3fe99fd68a5f7fe00ea">
 	<description>GFValidationReport: 通用校验报告数据结构。
 用于聚合 `GFValidationIssue`，提供错误/警告统计、健康状态、摘要、下一步建议
 和字典序列化。报告不绑定具体配置、存档、节点或编辑器业务语义。</description>
@@ -189,13 +189,15 @@
 		</member>
 		<member kind="method" name="merge">
 			<signature>func merge(source: Variant, include_metadata: bool = true) -&gt; RefCounted:</signature>
-			<description>合并另一个报告或报告字典。</description>
+			<description>合并另一个报告或报告字典。与自身合并，或来源与目标共享同一个 issues Array 时，
+issues 合并视为幂等空操作；其他 metadata 仍按来源类型的正常规则处理。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">source: GFValidationReport 或包含 issues 的字典。</tag>
 				<tag name="param">include_metadata: 为 true 时合并源报告 metadata。</tag>
 				<tag name="return">当前报告。</tag>
 				<tag name="schema">source: Variant accepting GFValidationReport or Dictionary report payload.</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="apply_dict">

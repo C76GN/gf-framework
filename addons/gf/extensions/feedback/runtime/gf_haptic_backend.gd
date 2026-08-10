@@ -1,7 +1,8 @@
 ## GFHapticBackend: 震动输出后端协议。
 ##
 ## 项目可实现该协议，把 GFHapticUtility 的采样输出路由到平台 SDK、远程设备、
-## 测试替身或自定义输入系统。该协议只承载输出能力，不定义播放策略。
+## 测试替身或自定义输入系统。该协议只承载输出能力，不定义播放策略。实现必须成对
+## 支持 start_output() 与 stop_output()；成功 start 的同一实例拥有后续 refresh/stop。
 ## [br]
 ## @api public
 ## [br]
@@ -28,13 +29,13 @@ extends RefCounted
 ## [br]
 ## @param strong_magnitude: 强马达强度。
 ## [br]
-## @param duration_seconds: 输出持续时间。
+## @param duration_seconds: 有限正输出持续时间。
 ## [br]
 ## @param metadata: 输出元数据。
 ## [br]
 ## @schema metadata: Dictionary copied from GFHapticUtility output target metadata.
 ## [br]
-## @return: 后端接受输出时返回 true。
+## @return: 后端接受输出并承担后续 refresh/stop 所有权时返回 true。
 func start_output(
 	target_type: int,
 	target_id: int,
@@ -81,13 +82,13 @@ func stop_output(target_type: int, target_id: int, metadata: Dictionary = {}) ->
 ## [br]
 ## @param _strong_magnitude: 强马达强度。
 ## [br]
-## @param _duration_seconds: 输出持续时间。
+## @param _duration_seconds: 有限正输出持续时间。
 ## [br]
 ## @param _metadata: 输出元数据。
 ## [br]
 ## @schema _metadata: Dictionary copied from GFHapticUtility output target metadata.
 ## [br]
-## @return: 后端接受输出时返回 true。
+## @return: 后端接受输出并承担后续 refresh/stop 所有权时返回 true。
 func _start_output(
 	_target_type: int,
 	_target_id: int,

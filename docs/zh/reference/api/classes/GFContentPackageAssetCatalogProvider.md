@@ -68,7 +68,7 @@ func build_catalog(options: Dictionary = {}) -> GFAssetCatalog:
 |---|---|
 | `options` | 可选字段映射，支持 title_fields、description_fields、tag_fields、category_fields 和 preview_path_fields。 |
 
-返回：转换后的资产目录；内容包目录无效时返回 null。
+返回：转换后的资产目录；内容包目录无效、条目无效或 asset ID 碰撞时返回 null。
 
 结构：
 

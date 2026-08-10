@@ -204,14 +204,14 @@ func accept_advertisement(advertisement: Dictionary, options: Dictionary = {}) -
 | 名称 | 说明 |
 |---|---|
 | `advertisement` | 服务广告字典。 |
-| `options` | 可选项，支持 remote_address、remote_port 和 now_seconds。 |
+| `options` | 可选项，支持 remote_address、remote_port 和 now_seconds；now_seconds 只用于记录时间字段，TTL 淘汰始终使用本实例的 elapsed clock。 |
 
 返回：接收报告。
 
 结构：
 
 - `advertisement`: Dictionary produced by make_advertisement() or decode_advertisement().
-- `options`: Dictionary with remote_address: String, remote_port: int, and now_seconds: float.
+- `options`: Dictionary with remote_address: String, remote_port: int, and now_seconds: non-negative finite float used for record timestamps only.
 - `return`: Dictionary with ok, status, service_key, record, error, issues, issue_count, and next_action.
 
 <a id="member-gfnetworkservicediscovery-methods-accept_packet"></a>
@@ -234,7 +234,7 @@ func accept_packet( bytes: PackedByteArray, remote_address: String = "", remote_
 | `bytes` | UTF-8 JSON bytes。 |
 | `remote_address` | 底层传输报告的远端地址。 |
 | `remote_port` | 底层传输报告的远端端口。 |
-| `options` | 可选项，支持 json_codec_options、now_seconds 和广告结构预算。 |
+| `options` | 可选项，支持 json_codec_options、记录时间 now_seconds 和广告结构预算；now_seconds 不改变 TTL clock domain。 |
 
 返回：接收报告。
 

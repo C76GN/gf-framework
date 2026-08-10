@@ -15,7 +15,7 @@ var next := queue.pop()
 
 ## 常用操作
 
-`push()` 写入值和数值优先级；`push_with_order()` 允许调用方显式指定同优先级下的稳定顺序，适合寻路、最小生成树或其它已有 sequence 的算法复用同一队列。`peek()` / `peek_priority()` 查看当前顶部；`pop()` 弹出当前顶部。`remove_value()`、`remove_all()` 和 `set_priority()` 用于取消或调整已排队条目。
+`push()` 写入值和数值优先级；`push_with_order()` 允许调用方显式指定同优先级下的稳定顺序，适合寻路、最小生成树或其它已有 sequence 的算法复用同一队列。同一 `(priority, order)` 被重复使用时，队列以内部入队序作为第三级稳定键，不要求调用方先去重。`peek()` / `peek_priority()` 查看当前顶部；`pop()` 弹出当前顶部。`remove_value()`、`remove_all()` 和 `set_priority()` 用于取消或调整已排队条目。
 
 ```gdscript
 queue.push(task, task.priority)
@@ -45,6 +45,8 @@ var next_task := work_queue.pop()
 例如资源预处理队列里，玩家当前可见资源可以保持较高基础优先级，而早先排入的缓存维护工作会随等待逐步追上，不会因为新资源不断到来而永久饥饿。这个保证成立的前提是调用方持续消费队列，且后来任务的基础优先级存在有限上界；项目若不断写入无限增大的优先级，任何通用队列都无法保证旧任务先执行。
 
 `push_at()`、`pop_at()` 与 `peek_at()` 接受显式单调毫秒时间，适合确定性测试、模拟和恢复同一进程时间域内的调度状态。`to_entry_array()` / `get_debug_snapshot()` 会返回指定时刻的 `priority`、`effective_priority`、`waited_msec` 和稳定 `order`；排序会随时间变化，因此这些结果是诊断快照，不是持久化后的固定执行计划。
+
+base priority、aging step 和等待时间即使各自有限，直接乘加也可能溢出。工作队列在比较两项时使用共同尺度归一化，避免把不同的数学优先级错误折叠成 Infinity tie；诊断输出若超过 float 范围则饱和到最大有限值，保证快照仍可排序和 JSON 编码。
 
 ## 使用边界
 

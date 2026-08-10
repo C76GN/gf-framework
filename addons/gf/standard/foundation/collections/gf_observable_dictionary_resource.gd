@@ -112,6 +112,8 @@ const OPERATION_REPLACE: StringName = &"replace"
 var _batch_depth: int = 0
 var _batch_metadata: Dictionary = {}
 var _pending_changes: Array[Dictionary] = []
+var _change_emission_queue: Array[Dictionary] = []
+var _is_emitting_changes: bool = false
 
 
 # --- 公共方法 ---
@@ -295,8 +297,7 @@ func end_batch(change_metadata: Dictionary = {}) -> Dictionary:
 	_pending_changes.clear()
 	_batch_metadata.clear()
 	if not changes.is_empty():
-		entries_changed.emit(changes, batch_metadata)
-		emit_changed()
+		_enqueue_change_emission(changes, batch_metadata, false)
 	return {
 		"ok": true,
 		"change_count": changes.size(),
@@ -391,15 +392,56 @@ func _record_change(change: Dictionary) -> void:
 	if _batch_depth > 0:
 		_pending_changes.append(copied_change)
 		return
-	entry_changed.emit(
-		GFVariantData.get_option_string_name(copied_change, "operation"),
-		GFVariantData.get_option_value(copied_change, "entry_key"),
-		GFVariantData.get_option_value(copied_change, "old_value"),
-		GFVariantData.get_option_value(copied_change, "new_value"),
-		GFVariantData.get_option_dictionary(copied_change, "metadata")
+	var changes: Array[Dictionary] = [copied_change]
+	_enqueue_change_emission(
+		changes,
+		GFVariantData.get_option_dictionary(copied_change, "metadata"),
+		true
 	)
-	entries_changed.emit([copied_change], GFVariantData.get_option_dictionary(copied_change, "metadata"))
-	emit_changed()
+
+
+func _enqueue_change_emission(
+	changes: Array[Dictionary],
+	change_metadata: Dictionary,
+	emit_entry_detail: bool
+) -> void:
+	_change_emission_queue.append({
+		"changes": _copy_changes(changes),
+		"metadata": change_metadata.duplicate(true),
+		"emit_entry_detail": emit_entry_detail,
+	})
+	_drain_change_emission_queue()
+
+
+func _drain_change_emission_queue() -> void:
+	if _is_emitting_changes:
+		return
+	_is_emitting_changes = true
+	while not _change_emission_queue.is_empty():
+		var emission: Dictionary = _change_emission_queue.pop_front()
+		var changes: Array[Dictionary] = _get_emission_changes(emission)
+		var change_metadata: Dictionary = GFVariantData.get_option_dictionary(emission, "metadata")
+		if GFVariantData.get_option_bool(emission, "emit_entry_detail") and not changes.is_empty():
+			var change: Dictionary = changes[0]
+			entry_changed.emit(
+				GFVariantData.get_option_string_name(change, "operation"),
+				GFVariantData.get_option_value(change, "entry_key"),
+				GFVariantData.get_option_value(change, "old_value"),
+				GFVariantData.get_option_value(change, "new_value"),
+				GFVariantData.get_option_dictionary(change, "metadata")
+			)
+		entries_changed.emit(changes, change_metadata)
+		emit_changed()
+	_is_emitting_changes = false
+
+
+func _get_emission_changes(emission: Dictionary) -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	for change_value: Variant in GFVariantData.get_option_array(emission, "changes"):
+		if change_value is Dictionary:
+			var change: Dictionary = change_value
+			result.append(change)
+	return result
 
 
 func _make_change(

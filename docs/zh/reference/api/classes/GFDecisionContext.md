@@ -9,7 +9,7 @@
 - 类别：领域模型 (`domain_model`)
 - 首次版本：`4.3.0`
 
-通用决策上下文。 组合黑板、主体/目标快照视图和元数据，供决策候选与考虑项读取状态。 赋值时先主动捕获可见值；缺失 key 可由对象的 `get_decision_value()` 按需提供并写入当前上下文缓存。 该类型只用弱引用暴露当前对象，不通过上下文延长对象生命周期。
+通用决策上下文。 组合黑板、主体/目标快照视图和元数据，供决策候选与考虑项读取状态。 赋值时先主动捕获可见值；缺失 key 可由对象的 `get_decision_value()` 按需提供并写入当前上下文缓存。 subject/target 顶层句柄使用弱引用；项目提供的快照值仍可包含 Object/Resource 强引用， 因此返回 self 或包含 self 的对象图会延长其生命周期。需要严格弱所有权时，provider 不得把当前对象放入快照值图。
 
 ## 成员概览
 
@@ -115,7 +115,7 @@ var target: Object:
 var subject_values: Dictionary = {}
 ```
 
-主体决策值快照视图。容器会复制，但其中的 Object/Resource 身份保持共享；缺失 key 可被懒缓存补充。
+主体决策值快照视图。容器会循环安全地复制，但其中的 Object/Resource 身份保持共享；缺失 key 可被懒缓存补充。
 
 结构：
 
@@ -132,7 +132,7 @@ var subject_values: Dictionary = {}
 var target_values: Dictionary = {}
 ```
 
-目标决策值快照视图。容器会复制，但其中的 Object/Resource 身份保持共享；缺失 key 可被懒缓存补充。
+目标决策值快照视图。容器会循环安全地复制，但其中的 Object/Resource 身份保持共享；缺失 key 可被懒缓存补充。
 
 结构：
 
@@ -302,7 +302,7 @@ func get_metadata_value(key: StringName, default_value: Variant = null) -> Varia
 func get_subject_value(key: StringName, fallback: Variant = null) -> Variant:
 ```
 
-从主体快照视图读取决策值；缺失 key 可触发一次受预算约束的 provider 懒读取并缓存。
+从主体快照视图读取决策值；每个缺失 key 最多触发一次受预算约束的 provider 懒读取，miss 也会负缓存并消费预算。
 
 参数：
 
@@ -329,7 +329,7 @@ func get_subject_value(key: StringName, fallback: Variant = null) -> Variant:
 func get_target_value(key: StringName, fallback: Variant = null) -> Variant:
 ```
 
-从目标快照视图读取决策值；缺失 key 可触发一次受预算约束的 provider 懒读取并缓存。
+从目标快照视图读取决策值；每个缺失 key 最多触发一次受预算约束的 provider 懒读取，miss 也会负缓存并消费预算。
 
 参数：
 
@@ -386,7 +386,7 @@ func get_target_or_null() -> Object:
 func duplicate_context() -> GFDecisionContext:
 ```
 
-创建上下文副本。 默认复用 subject 与 target 弱引用；复制黑板、快照容器、捕获诊断和元数据，嵌套 Object/Resource 身份保持共享。
+创建上下文副本。 默认复用 subject 与 target 弱引用；循环安全地复制黑板、快照容器、捕获账本、诊断和元数据，嵌套 Object/Resource 身份保持共享。
 
 返回：新上下文实例。
 

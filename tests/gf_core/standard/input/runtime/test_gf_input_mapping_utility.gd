@@ -38,6 +38,25 @@ class InputConsumeSystem extends GFSystem:
 			consumed_count += 1
 
 
+class GlobalOnlyInputRuntime extends RefCounted:
+	func is_action_active(_action_id: StringName) -> bool:
+		return true
+
+	func was_action_just_started(_action_id: StringName) -> bool:
+		return true
+
+	func was_action_just_completed(_action_id: StringName) -> bool:
+		return true
+
+	func get_last_completed_duration(_action_id: StringName) -> float:
+		return 1.0
+
+
+class PartialPlayerInputRuntime extends GlobalOnlyInputRuntime:
+	func is_action_active_for_player(_player_index: int, _action_id: StringName) -> bool:
+		return true
+
+
 # --- 私有变量 ---
 
 var _utility: GFInputMappingUtility
@@ -183,6 +202,84 @@ func test_higher_priority_context_blocks_lower_priority_same_input() -> void:
 	assert_false(_utility.is_action_active(&"interact"), "低优先级同输入动作应被阻断。")
 
 
+func test_input_dispatch_stops_when_signal_callback_replaces_context_epoch() -> void:
+	var initial_context: GFInputContext = _make_context(&"initial", [
+		_make_mapping(_make_action(&"initial_action"), [
+			_make_key_binding(KEY_E),
+		]),
+	])
+	var replacement_context: GFInputContext = _make_context(&"replacement", [
+		_make_mapping(_make_action(&"replacement_first"), [
+			_make_key_binding(KEY_E),
+		]),
+		_make_mapping(_make_action(&"replacement_second"), [
+			_make_key_binding(KEY_E),
+		]),
+	])
+	var callback_state: Dictionary = { "replaced": false }
+	var _started_connection: int = _utility.action_started.connect(func(action_id: StringName, _value: Variant) -> void:
+		if action_id != &"initial_action" or GFVariantData.get_option_bool(callback_state, "replaced"):
+			return
+		callback_state["replaced"] = true
+		_utility.set_enabled_contexts([replacement_context])
+	)
+
+	_utility.enable_context(initial_context)
+	_utility.handle_input_event(_make_key_event(KEY_E, true))
+
+	assert_true(GFVariantData.get_option_bool(callback_state, "replaced"), "动作回调应替换当前上下文代际。")
+	assert_false(
+		_utility.is_action_active(&"replacement_second"),
+		"当前事件不得继续遍历回调重建后的新 entry 集。"
+	)
+
+
+func test_action_value_callback_clear_does_not_emit_stale_started_signal() -> void:
+	var context: GFInputContext = _make_context(&"gameplay", [
+		_make_mapping(_make_action(&"jump"), [
+			_make_key_binding(KEY_SPACE),
+		]),
+	])
+	var _value_connection: int = _utility.action_value_changed.connect(func(action_id: StringName, _value: Variant) -> void:
+		if action_id == &"jump":
+			_utility.clear_contexts()
+	)
+	watch_signals(_utility)
+
+	_utility.enable_context(context)
+	_utility.handle_input_event(_make_key_event(KEY_SPACE, true))
+
+	assert_false(_utility.is_action_active(&"jump"), "清空回调后旧动作不得重新进入 active。")
+	assert_signal_emit_count(
+		_utility,
+		"action_started",
+		0,
+		"动作值回调切换代际后不得继续发出旧代际 started。"
+	)
+
+
+func test_action_started_callback_can_dispose_without_continuing_dispatch() -> void:
+	var context: GFInputContext = _make_context(&"gameplay", [
+		_make_mapping(_make_action(&"first"), [
+			_make_key_binding(KEY_E),
+		]),
+		_make_mapping(_make_action(&"second"), [
+			_make_key_binding(KEY_E),
+		]),
+	])
+	var _started_connection: int = _utility.action_started.connect(
+		func(action_id: StringName, _value: Variant) -> void:
+			if action_id == &"first":
+				_utility.dispose()
+	)
+
+	_utility.enable_context(context)
+	_utility.handle_input_event(_make_key_event(KEY_E, true))
+
+	assert_false(_utility.is_action_active(&"second"), "dispose 回调后不得继续派发后续 entry。")
+	assert_true(_utility.get_enabled_contexts().is_empty(), "dispose 回调必须留下完整清理后的状态。")
+
+
 ## 验证运行时重绑定覆盖默认输入。
 func test_remap_override_replaces_default_binding() -> void:
 	var context: GFInputContext = _make_context(&"gameplay", [
@@ -262,6 +359,64 @@ func test_mapping_modifier_scales_aggregated_value() -> void:
 	_utility.handle_input_event(_make_joy_motion_event(JOY_AXIS_LEFT_X, 0.8))
 
 	assert_almost_eq(_action_float(&"move_x"), 0.4, 0.001, "映射级修饰器应缩放聚合值。")
+
+
+func test_mapping_modifiers_preserve_declared_order() -> void:
+	var scale: GFInputScaleModifier = GFInputScaleModifier.new()
+	scale.scale_x = 0.5
+	var deadzone: GFInputDeadzoneModifier = GFInputDeadzoneModifier.new()
+	deadzone.lower_threshold = 0.6
+	deadzone.upper_threshold = 1.0
+	deadzone.rescale_after_deadzone = false
+
+	var scale_then_deadzone: GFInputMapping = _make_mapping(
+		_make_action(&"scale_then_deadzone", GFInputAction.ValueType.AXIS_1D),
+		[]
+	)
+	scale_then_deadzone.modifiers = [scale, deadzone]
+	var deadzone_then_scale: GFInputMapping = _make_mapping(
+		_make_action(&"deadzone_then_scale", GFInputAction.ValueType.AXIS_1D),
+		[]
+	)
+	deadzone_then_scale.modifiers = [deadzone, scale]
+	_utility.enable_context(_make_context(&"gameplay", [
+		scale_then_deadzone,
+		deadzone_then_scale,
+	]))
+	var source: GFVirtualInputSource = _utility.create_virtual_source(&"modifier_order")
+
+	assert_true(source.set_axis_1d(&"scale_then_deadzone", 1.0))
+	assert_true(source.set_axis_1d(&"deadzone_then_scale", 1.0))
+
+	assert_eq(_action_float(&"scale_then_deadzone"), 0.0, "scale 后的 0.5 应被后续 0.6 deadzone 过滤。")
+	assert_almost_eq(_action_float(&"deadzone_then_scale"), 0.5, 0.001, "deadzone 后再 scale 应保留声明顺序的 0.5。")
+
+
+func test_runtime_modifier_duplicates_isolate_state_between_mappings() -> void:
+	var shared_cursor: GFInputVirtualCursorModifier = GFInputVirtualCursorModifier.new()
+	shared_cursor.apply_delta_time = false
+	shared_cursor.initial_position = Vector2.ZERO
+	shared_cursor.speed = Vector2(0.25, 0.0)
+	shared_cursor.clamp_to_rect = false
+
+	var first_mapping: GFInputMapping = _make_mapping(
+		_make_action(&"first_cursor", GFInputAction.ValueType.AXIS_2D),
+		[]
+	)
+	first_mapping.modifiers = [shared_cursor]
+	var second_mapping: GFInputMapping = _make_mapping(
+		_make_action(&"second_cursor", GFInputAction.ValueType.AXIS_2D),
+		[]
+	)
+	second_mapping.modifiers = [shared_cursor]
+	_utility.enable_context(_make_context(&"gameplay", [first_mapping, second_mapping]))
+	var source: GFVirtualInputSource = _utility.create_virtual_source(&"modifier_state")
+
+	assert_true(source.set_axis_2d(&"first_cursor", Vector2.RIGHT))
+	assert_true(source.set_axis_2d(&"second_cursor", Vector2.RIGHT))
+
+	assert_eq(_action_vector2(&"first_cursor"), Vector2(0.25, 0.0), "第一份运行时 modifier 应推进自己的位置。")
+	assert_eq(_action_vector2(&"second_cursor"), Vector2(0.25, 0.0), "同一 Resource 配置的第二份运行时副本不得继承第一份位置。")
 
 
 ## 验证同一 action_id 出现在多个上下文时，高优先级动作定义不会被低优先级覆盖。
@@ -377,6 +532,25 @@ func test_pulse_trigger_repeats_while_raw_input_is_active() -> void:
 	assert_true(_utility.is_action_active(&"repeat"), "达到间隔后应触发一次。")
 
 
+func test_pulse_trigger_rejects_nonfinite_delta_and_recovers() -> void:
+	var trigger: GFInputPulseTrigger = GFInputPulseTrigger.new()
+	trigger.interval_seconds = 0.1
+	trigger.trigger_immediately = false
+	var state: Dictionary = {}
+	trigger.reset_trigger_state(state)
+
+	assert_eq(trigger.update(true, true, 0.0, state), GFInputTrigger.TriggerState.ONGOING)
+	assert_eq(trigger.update(true, true, INF, state), GFInputTrigger.TriggerState.ONGOING, "Infinity delta 应被忽略。")
+	assert_true(is_finite(GFVariantData.get_option_float(state, "elapsed")), "Infinity delta 后 elapsed 必须有限。")
+	assert_eq(trigger.update(true, true, NAN, state), GFInputTrigger.TriggerState.ONGOING, "NaN delta 应被忽略。")
+	assert_true(is_finite(GFVariantData.get_option_float(state, "elapsed")), "NaN delta 后 elapsed 必须有限。")
+	assert_eq(trigger.update(true, true, 0.1, state), GFInputTrigger.TriggerState.TRIGGERED, "后续有限 delta 应可正常恢复脉冲。")
+	assert_true(is_finite(GFVariantData.get_option_float(state, "elapsed")), "触发后的 remainder 必须有限。")
+
+	var _released: GFInputTrigger.TriggerState = trigger.update(false, false, 0.0, state)
+	assert_eq(GFVariantData.get_option_float(state, "elapsed"), 0.0, "释放应完整清理受攻击后的时间状态。")
+
+
 ## 验证组合触发器依赖另一个抽象动作，而不是具体按键。
 func test_chord_trigger_requires_another_action_active() -> void:
 	var chord: GFInputChordTrigger = GFInputChordTrigger.new()
@@ -399,6 +573,32 @@ func test_chord_trigger_requires_another_action_active() -> void:
 	_utility.handle_input_event(_make_key_event(KEY_SHIFT, true))
 	_utility.handle_input_event(_make_key_event(KEY_K, true))
 	assert_true(_utility.is_action_active(&"special"), "组合动作活跃后应触发。")
+
+
+func test_player_scoped_chord_fails_closed_without_player_protocol() -> void:
+	var trigger: GFInputChordTrigger = GFInputChordTrigger.new()
+	trigger.required_action_id = &"modifier"
+	trigger.player_scoped = true
+	var state: Dictionary = {}
+	trigger.prepare_runtime(&"special", GlobalOnlyInputRuntime.new(), 1, state)
+
+	var result: GFInputTrigger.TriggerState = trigger.update(true, true, 0.0, state)
+
+	assert_eq(result, GFInputTrigger.TriggerState.INACTIVE, "player-scoped chord 缺玩家查询协议时不得回落到其他玩家的全局状态。")
+
+
+func test_player_scoped_sequence_fails_closed_on_partial_player_protocol() -> void:
+	var trigger: GFInputSequenceTrigger = GFInputSequenceTrigger.new()
+	var action_ids: Array[StringName] = [&"step"]
+	trigger.required_action_ids = action_ids
+	trigger.player_scoped = true
+	var state: Dictionary = {}
+	trigger.reset_trigger_state(state)
+	trigger.prepare_runtime(&"special", PartialPlayerInputRuntime.new(), 1, state)
+
+	var result: GFInputTrigger.TriggerState = trigger.update(true, true, 0.0, state)
+
+	assert_ne(result, GFInputTrigger.TriggerState.TRIGGERED, "player-scoped sequence 缺任一玩家查询方法时不得混用全局时间线。")
 
 
 ## 验证序列触发器支持多分支抽象动作路径。
@@ -551,6 +751,37 @@ func test_touch_binding_can_match_touch_index() -> void:
 
 	assert_true(binding.matches_event(_make_touch_event(1, true)), "启用 index 匹配后应接受同一触点。")
 	assert_false(binding.matches_event(_make_touch_event(2, true)), "启用 index 匹配后应拒绝不同触点。")
+
+
+func test_touch_binding_keeps_contributions_for_distinct_touch_indices() -> void:
+	var action: GFInputAction = _make_action(&"touch_action")
+	var binding: GFInputBinding = GFInputBinding.new()
+	binding.input_event = _make_touch_event(0, true)
+	var entry: Dictionary = {
+		"action": action,
+		"action_id": &"touch_action",
+		"bindings": [{
+			"binding": binding,
+			"key": "touch/action/0",
+		}],
+	}
+
+	var _first_press: Variant = _utility._apply_entry_event(entry, _make_touch_event(0, true), 0)
+	var _second_press: Variant = _utility._apply_entry_event(entry, _make_touch_event(7, true), 0)
+	var _first_release: Variant = _utility._apply_entry_event(entry, _make_touch_event(0, false), 0)
+
+	assert_true(_utility.is_action_active(&"touch_action"), "另一个触点仍按住时，全局动作必须保持活跃。")
+	assert_true(
+		_utility.is_action_active_for_player(0, &"touch_action"),
+		"另一个触点仍按住时，玩家动作必须保持活跃。"
+	)
+
+	var _second_release: Variant = _utility._apply_entry_event(entry, _make_touch_event(7, false), 0)
+	assert_false(_utility.is_action_active(&"touch_action"), "最后一个触点释放后，全局动作才应结束。")
+	assert_false(
+		_utility.is_action_active_for_player(0, &"touch_action"),
+		"最后一个触点释放后，玩家动作才应结束。"
+	)
 
 
 ## 验证可重绑条目会返回上下文、动作和有效事件。
@@ -870,6 +1101,133 @@ func test_virtual_input_source_supports_axis_values_and_clear() -> void:
 
 	assert_eq(_action_vector2(&"move"), Vector2.ZERO, "清理虚拟源后动作值应回到默认值。")
 	assert_false(_utility.is_action_active(&"move"), "清理虚拟源后动作应结束。")
+
+
+func test_virtual_input_source_reconfigure_releases_old_identity_contributions() -> void:
+	var bindings: Array[GFInputBinding] = []
+	_utility.enable_context(_make_context(&"gameplay", [
+		_make_mapping(_make_action(&"jump"), bindings),
+	]))
+	var source: GFVirtualInputSource = _utility.create_virtual_source(&"old_source", 0)
+
+	assert_true(source.press(&"jump"), "旧身份应能写入动作贡献。")
+	var _same_configuration: GFVirtualInputSource = source.configure(_utility, &"old_source", 0)
+	assert_true(_utility.is_action_active(&"jump"), "重复配置同一身份必须保持既有贡献。")
+	var _configured_source: GFVirtualInputSource = source.configure(_utility, &"new_source", 1)
+
+	assert_false(_utility.is_action_active(&"jump"), "重配置必须清理旧身份留下的全局贡献。")
+	assert_false(_utility.is_action_active_for_player(0, &"jump"), "重配置必须清理旧玩家贡献。")
+	assert_true(source.press(&"jump"), "重配置后的新身份应可继续使用。")
+	assert_true(_utility.is_action_active_for_player(1, &"jump"), "新贡献只能进入新玩家身份。")
+	assert_true(source.release(&"jump"), "新身份应能正常释放自己的贡献。")
+
+
+func test_virtual_input_source_public_identity_setters_release_old_contributions() -> void:
+	var bindings: Array[GFInputBinding] = []
+	_utility.enable_context(_make_context(&"gameplay", [
+		_make_mapping(_make_action(&"jump"), bindings),
+	]))
+	var source: GFVirtualInputSource = _utility.create_virtual_source(&"source", 0)
+
+	assert_true(source.press(&"jump"), "初始身份应能写入动作贡献。")
+	source.player_index = 1
+
+	assert_false(_utility.is_action_active(&"jump"), "直接修改 player_index 也必须释放旧身份贡献。")
+	assert_false(_utility.is_action_active_for_player(0, &"jump"), "旧玩家不得保留不可达贡献。")
+
+	assert_true(source.press(&"jump"), "修改 player_index 后应能以新身份写入。")
+	source.source_id = &"renamed"
+
+	assert_false(_utility.is_action_active_for_player(1, &"jump"), "直接修改 source_id 必须释放旧 source 贡献。")
+
+
+func test_virtual_input_source_mapping_change_releases_old_mapping_contributions() -> void:
+	var no_bindings: Array[GFInputBinding] = []
+	_utility.enable_context(_make_context(&"old_mapping", [
+		_make_mapping(_make_action(&"jump"), no_bindings),
+	]))
+	var replacement: GFInputMappingUtility = GFInputMappingUtility.new()
+	replacement.init()
+	replacement.enable_context(_make_context(&"new_mapping", [
+		_make_mapping(_make_action(&"jump"), no_bindings),
+	]))
+	var source: GFVirtualInputSource = _utility.create_virtual_source(&"source", 0)
+
+	assert_true(source.press(&"jump"))
+	var _configured_source: GFVirtualInputSource = source.configure(replacement, &"source", 0)
+
+	assert_false(_utility.is_action_active(&"jump"), "迁移 mapping 必须释放旧 mapping 中的贡献。")
+	assert_true(source.press(&"jump"), "迁移后的 source 应能写入新 mapping。")
+	assert_true(replacement.is_action_active_for_player(0, &"jump"), "新贡献必须只进入新 mapping。")
+	replacement.dispose()
+
+
+func test_virtual_input_source_rejects_nonfinite_values_without_mutation() -> void:
+	var axis_1d: GFInputAction = _make_action(&"axis_1d", GFInputAction.ValueType.AXIS_1D)
+	var axis_2d: GFInputAction = _make_action(&"axis_2d", GFInputAction.ValueType.AXIS_2D)
+	var axis_3d: GFInputAction = _make_action(&"axis_3d", GFInputAction.ValueType.AXIS_3D)
+	var bool_action: GFInputAction = _make_action(&"bool_action")
+	var no_bindings: Array[GFInputBinding] = []
+	_utility.enable_context(_make_context(&"gameplay", [
+		_make_mapping(axis_1d, no_bindings),
+		_make_mapping(axis_2d, no_bindings),
+		_make_mapping(axis_3d, no_bindings),
+		_make_mapping(bool_action, no_bindings),
+	]))
+	var source: GFVirtualInputSource = _utility.create_virtual_source(&"valid")
+	var hostile: GFVirtualInputSource = _utility.create_virtual_source(&"hostile")
+
+	assert_true(source.set_axis_1d(&"axis_1d", 0.25))
+	assert_true(source.set_axis_2d(&"axis_2d", Vector2(0.25, -0.5)))
+	assert_true(source.set_axis_3d(&"axis_3d", Vector3(0.25, -0.5, 0.75)))
+	assert_false(hostile.set_axis_1d(&"axis_1d", NAN), "NaN 标量必须被拒绝。")
+	assert_false(hostile.set_axis_2d(&"axis_2d", Vector2(INF, 0.0)), "无限二维分量必须被拒绝。")
+	assert_false(hostile.set_axis_3d(&"axis_3d", Vector3(0.0, -INF, 0.0)), "无限三维分量必须被拒绝。")
+	assert_false(hostile.set_action_value(&"bool_action", NAN), "布尔动作也不得把非有限数解释为 release。")
+
+	assert_almost_eq(_action_float(&"axis_1d"), 0.25, 0.001, "坏来源不得污染合法一维贡献。")
+	assert_eq(_action_vector2(&"axis_2d"), Vector2(0.25, -0.5), "坏来源不得污染合法二维贡献。")
+	assert_eq(
+		GFVariantData.to_vector3(_utility.get_action_value(&"axis_3d")),
+		Vector3(0.25, -0.5, 0.75),
+		"坏来源不得污染合法三维贡献。"
+	)
+	assert_false(_utility.is_action_active(&"bool_action"), "被拒绝的布尔值不得产生贡献。")
+
+
+func test_virtual_input_source_snapshot_has_stable_player_scoped_schema() -> void:
+	var no_bindings: Array[GFInputBinding] = []
+	_utility.enable_context(_make_context(&"gameplay", [
+		_make_mapping(_make_action(&"player_zero"), no_bindings),
+		_make_mapping(_make_action(&"player_one"), no_bindings),
+	]))
+	var player_zero: GFVirtualInputSource = _utility.create_virtual_source(&"shared", 0)
+	var player_one: GFVirtualInputSource = _utility.create_virtual_source(&"shared", 1)
+	assert_true(player_zero.press(&"player_zero"))
+	assert_true(player_one.press(&"player_one"))
+
+	var live_snapshot: Dictionary = player_zero.get_snapshot()
+	var live_actions: Array = GFVariantData.get_option_array(live_snapshot, "actions")
+
+	assert_eq(live_snapshot.size(), 3, "存活 mapping 快照应返回精确稳定字段集。")
+	assert_true(live_snapshot.has("source_id"))
+	assert_true(live_snapshot.has("player_index"))
+	assert_true(live_snapshot.has("actions"))
+	assert_eq(GFVariantData.get_option_int(live_snapshot, "player_index"), 0)
+	assert_eq(live_actions.size(), 1, "handle 快照只能包含当前玩家身份的贡献。")
+	assert_eq(
+		GFVariantData.get_option_string_name(GFVariantData.as_dictionary(live_actions[0]), "action_id"),
+		&"player_zero"
+	)
+
+	_utility.dispose()
+	_utility = null
+	var released_snapshot: Dictionary = player_zero.get_snapshot()
+	assert_eq(released_snapshot.size(), 3, "mapping 释放后快照字段集不得改变。")
+	assert_true(released_snapshot.has("source_id"))
+	assert_true(released_snapshot.has("player_index"))
+	assert_true(released_snapshot.has("actions"))
+	assert_true(GFVariantData.get_option_array(released_snapshot, "actions").is_empty())
 
 
 func test_clear_player_input_state_removes_player_global_contributions() -> void:
@@ -1470,6 +1828,103 @@ func test_input_recording_playback_drives_virtual_source() -> void:
 	assert_false(playback.is_playing, "非循环回放到末尾后应停止。")
 
 
+func test_input_playback_event_callback_stop_invalidates_due_event_loop() -> void:
+	var context: GFInputContext = _make_context(&"gameplay", [
+		_make_mapping(_make_action(&"jump"), []),
+	])
+	_utility.enable_context(context)
+	var source: GFVirtualInputSource = _utility.create_virtual_source(&"stop_reentrant")
+	var recording: GFInputRecording = GFInputRecording.new()
+	var _press: Dictionary = recording.add_event(&"jump", true, 0.0)
+	var _release: Dictionary = recording.add_event(&"jump", false, 0.0)
+	var playback: GFInputPlayback = GFInputPlayback.new()
+	var callback_state: Dictionary = {
+		"count": 0,
+		"stopped": false,
+	}
+	var event_applied_callback: Callable = func(_event: Dictionary) -> void:
+		callback_state["count"] = GFVariantData.get_option_int(callback_state, "count") + 1
+		if GFVariantData.get_option_bool(callback_state, "stopped"):
+			return
+		callback_state["stopped"] = true
+		playback.stop(true)
+	var _event_connection: int = playback.event_applied.connect(event_applied_callback)
+	assert_true(playback.start(recording, source))
+
+	var applied: int = playback.tick(0.0)
+	var snapshot: Dictionary = playback.get_debug_snapshot()
+
+	assert_eq(applied, 1, "首个事件回调 stop 后，旧 due-event 调用栈不得继续应用同时间事件。")
+	assert_eq(GFVariantData.get_option_int(callback_state, "count"), 1, "stop 后不得再次发出旧会话 event_applied。")
+	assert_eq(GFVariantData.get_option_int(snapshot, "next_event_index"), 1, "事件应先提交索引再通知，停止后不会重复消费首事件。")
+	assert_false(playback.is_playing, "回调 stop 后播放器应保持停止。")
+	assert_false(_utility.is_action_active(&"jump"), "stop(true) 清空 source 后旧调用栈不得重新写入。")
+	playback.event_applied.disconnect(event_applied_callback)
+
+
+func test_input_playback_event_callback_restart_preserves_new_session_state() -> void:
+	var context: GFInputContext = _make_context(&"gameplay", [
+		_make_mapping(_make_action(&"old_action"), []),
+		_make_mapping(_make_action(&"new_action"), []),
+	])
+	_utility.enable_context(context)
+	var source: GFVirtualInputSource = _utility.create_virtual_source(&"restart_reentrant")
+	var old_recording: GFInputRecording = GFInputRecording.new()
+	var _old_first: Dictionary = old_recording.add_event(&"old_action", true, 0.0)
+	var _old_second: Dictionary = old_recording.add_event(&"old_action", false, 0.0)
+	var new_recording: GFInputRecording = GFInputRecording.new()
+	var _new_event: Dictionary = new_recording.add_event(&"new_action", true, 0.0)
+	var playback: GFInputPlayback = GFInputPlayback.new()
+	var callback_state: Dictionary = { "restarted": false }
+	var event_applied_callback: Callable = func(_event: Dictionary) -> void:
+		if GFVariantData.get_option_bool(callback_state, "restarted"):
+			return
+		callback_state["restarted"] = true
+		var _restart_result: bool = playback.start(new_recording, source)
+	var _event_connection: int = playback.event_applied.connect(event_applied_callback)
+	assert_true(playback.start(old_recording, source))
+
+	var old_applied: int = playback.tick(0.0)
+	var restarted_snapshot: Dictionary = playback.get_debug_snapshot()
+
+	assert_eq(old_applied, 1, "restart 后旧 tick 只应计入已经提交的首事件。")
+	assert_eq(playback.recording, new_recording, "回调启动的新录制必须保持为当前会话。")
+	assert_true(playback.is_playing, "旧调用栈不得把新会话误判为自然完成。")
+	assert_eq(GFVariantData.get_option_int(restarted_snapshot, "next_event_index"), 0, "旧调用栈不得推进新会话索引。")
+	assert_false(_utility.is_action_active(&"old_action"), "新 start 清理 source 后旧会话不得重新写入。")
+	assert_false(_utility.is_action_active(&"new_action"), "新会话事件应留给下一次 tick。")
+
+	assert_eq(playback.tick(0.0), 1, "后续 tick 应从新会话索引 0 正常应用事件。")
+	assert_true(_utility.is_action_active(&"new_action"), "新会话事件不得被旧索引跳过。")
+	playback.event_applied.disconnect(event_applied_callback)
+
+
+func test_input_playback_event_callback_null_source_stops_without_old_stack_dereference() -> void:
+	var context: GFInputContext = _make_context(&"gameplay", [
+		_make_mapping(_make_action(&"jump"), []),
+	])
+	_utility.enable_context(context)
+	var source: GFVirtualInputSource = _utility.create_virtual_source(&"null_source_reentrant")
+	var recording: GFInputRecording = GFInputRecording.new()
+	var _press: Dictionary = recording.add_event(&"jump", true, 0.0)
+	var _release: Dictionary = recording.add_event(&"jump", false, 0.0)
+	var playback: GFInputPlayback = GFInputPlayback.new()
+	var callback_state: Dictionary = { "count": 0 }
+	var event_applied_callback: Callable = func(_event: Dictionary) -> void:
+		callback_state["count"] = GFVariantData.get_option_int(callback_state, "count") + 1
+		playback.source = null
+	var _event_connection: int = playback.event_applied.connect(event_applied_callback)
+	assert_true(playback.start(recording, source))
+
+	var applied: int = playback.tick(0.0)
+
+	assert_eq(applied, 1, "换源前已提交的首事件应计入结果。")
+	assert_eq(GFVariantData.get_option_int(callback_state, "count"), 1, "source=null 后不得继续通知旧会话事件。")
+	assert_false(playback.is_playing, "直接替换会话 source 应使当前会话失效。")
+	assert_eq(playback.tick(0.0), 0, "失效会话后续 tick 应安全返回，不得空引用。")
+	playback.event_applied.disconnect(event_applied_callback)
+
+
 func test_input_playback_defers_excess_loop_cycles_without_losing_events() -> void:
 	var bindings: Array[GFInputBinding] = []
 	var context: GFInputContext = _make_context(&"gameplay", [
@@ -1589,6 +2044,35 @@ func test_assignment_removal_clears_player_input_state() -> void:
 
 	assert_false(_utility.is_action_active_for_player(0, &"jump"), "移除玩家设备后应清理该玩家输入状态。")
 	assert_false(_utility.is_action_active(&"jump"), "玩家贡献被清理后全局动作也应结束。")
+	arch.dispose()
+	_utility = null
+	await get_tree().process_frame
+
+
+func test_max_players_shrink_clears_removed_player_input_state() -> void:
+	var arch: GFArchitecture = GFArchitecture.new()
+	var devices: GFInputDeviceUtility = GFInputDeviceUtility.new()
+	devices.include_keyboard_mouse = false
+	devices.include_touch = false
+	devices.max_players = 4
+	await arch.register_utility_instance(devices)
+	await arch.register_utility_instance(_utility)
+	await arch.init()
+	devices.set_assignment(devices.create_assignment(0, GFInputDeviceAssignment.DeviceType.JOYPAD, 1))
+	devices.set_assignment(devices.create_assignment(3, GFInputDeviceAssignment.DeviceType.JOYPAD, 7))
+	_utility.enable_context(_make_context(&"gameplay", [
+		_make_mapping(_make_action(&"jump"), [
+			_make_joy_button_binding(JOY_BUTTON_A),
+		]),
+	]))
+
+	_utility.handle_input_event(_make_joy_button_event(7, JOY_BUTTON_A, true))
+	assert_true(_utility.is_action_active_for_player(3, &"jump"), "缩容前越界席位仍应有可观察状态。")
+
+	devices.max_players = 1
+
+	assert_false(_utility.is_action_active_for_player(3, &"jump"), "缩容撤销 assignment 时必须同步清理玩家状态。")
+	assert_false(_utility.is_action_active(&"jump"), "被撤销玩家的贡献不得残留在全局聚合中。")
 	arch.dispose()
 	_utility = null
 	await get_tree().process_frame

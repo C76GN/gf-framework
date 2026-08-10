@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFProjectileCatalog" path="addons/gf/extensions/combat/projectiles/gf_projectile_catalog.gd" module="extensions/combat" extends="Resource" classDigest="80ebbf25c65b18ec6f2f43a439ec8021206b7b65847109a56cc0c704b38e6067">
+<class name="GFProjectileCatalog" path="addons/gf/extensions/combat/projectiles/gf_projectile_catalog.gd" module="extensions/combat" extends="Resource" classDigest="309230665e6d7cdea0469c267074e17d5b575e969ad6e43efd6495da9b099044">
 	<description>GFProjectileCatalog: 发射体场景目录。
-用稳定 ID 管理 PackedScene，供发射器、技能或项目自己的生成流程复用。
+用唯一稳定 ID 管理 PackedScene，供发射器、技能或项目自己的生成流程复用。
+重复导出 ID 读取时以首个有效条目为准，写入与移除会规范化重复项。
 目录不规定发射体的伤害、阵营、消耗或命中特效。</description>
 	<tags>
 		<tag name="api">public</tag>

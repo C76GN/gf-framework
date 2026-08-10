@@ -183,6 +183,43 @@ func test_newer_remote_metadata_wins_default_strategy() -> void:
 	assert_eq(GFVariantData.get_option_int(local_data, "coins"), 20, "本地应被更新为远端数据。")
 
 
+func test_non_finite_newest_metadata_is_unresolved_without_writeback() -> void:
+	var cases: Array[Array] = [
+		[100.0, NAN],
+		[NAN, 100.0],
+		[100.0, INF],
+		[INF, 100.0],
+		[100.0, -INF],
+		[-INF, 100.0],
+		[NAN, NAN],
+		[INF, INF],
+	]
+	for case_index: int in range(cases.size()):
+		var values: Array = cases[case_index]
+		var sync: GFStorageSyncUtility = GFStorageSyncUtility.new()
+		var local: MemoryStorageBackend = MemoryStorageBackend.new()
+		var remote: MemoryStorageBackend = MemoryStorageBackend.new()
+		var file_name: String = "non_finite_%d.json" % case_index
+		local.set_record(file_name, { "side": "local" }, { "timestamp_unix": values[0] })
+		remote.set_record(file_name, { "side": "remote" }, { "timestamp_unix": values[1] })
+
+		var result: Dictionary = sync.sync_data(file_name, local, remote)
+		var local_data: Dictionary = GFVariantData.get_option_dictionary(local.load_data(file_name), "data")
+		var remote_data: Dictionary = GFVariantData.get_option_dictionary(remote.load_data(file_name), "data")
+
+		assert_false(
+			GFVariantData.get_option_bool(result, "ok"),
+			"非有限 newest 元数据必须保持 unresolved，case=%d。" % case_index
+		)
+		assert_eq(
+			GFVariantData.get_option_int(result, "status"),
+			GFStorageSyncUtility.SyncStatus.CONFLICT,
+			"非有限 newest 元数据必须报告冲突，case=%d。" % case_index
+		)
+		assert_eq(GFVariantData.get_option_string(local_data, "side"), "local", "本地记录不得被改写。")
+		assert_eq(GFVariantData.get_option_string(remote_data, "side"), "remote", "远端记录不得被改写。")
+
+
 func test_custom_revision_keys_accept_string_name_options() -> void:
 	var sync: GFStorageSyncUtility = GFStorageSyncUtility.new()
 	var local: MemoryStorageBackend = MemoryStorageBackend.new()

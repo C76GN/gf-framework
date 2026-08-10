@@ -9,7 +9,7 @@
 - 类别：运行时服务 (`runtime_service`)
 - 首次版本：`3.17.0`
 
-检测下一次输入事件的辅助节点。 可用于项目自己的改键界面。检测结果只返回 Godot InputEvent，冲突处理由项目层决定。
+检测下一次输入事件的辅助节点。 可用于项目自己的改键界面。检测结果只返回 Godot InputEvent，冲突处理由项目层决定。 一轮检测从 begin 到结构化 finish 全程累计 elapsed；signal handler 可同步开始新一轮， 新会话会使尚未返回的旧 begin 调用栈失效，避免已宣布会话被静默覆盖。
 
 ## 成员概览
 
@@ -182,12 +182,13 @@ var countdown_seconds: float = 0.0
 ### `timeout_seconds`
 
 - API：`public`
+- 首次版本：`11.0.0`
 
 ```gdscript
 var timeout_seconds: float = 0.0
 ```
 
-检测超时时间。小于等于 0 表示不超时。
+检测超时时间。小于等于 0 表示不超时；是否启用超时不影响 elapsed 的累计口径。
 
 <a id="member-gfinputdetector-properties-abort_events"></a>
 
@@ -236,12 +237,13 @@ var wait_for_clear_after_detection: bool = false
 ### `begin_detection`
 
 - API：`public`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func begin_detection(allowed_device_types: Array[int] = []) -> void:
 ```
 
-开始检测下一次输入。
+开始检测下一次输入。已有会话会先以 REPLACED 完成；其完成回调若同步开始 另一会话，则回调创建的最新会话优先，当前调用不会再覆盖它。
 
 参数：
 

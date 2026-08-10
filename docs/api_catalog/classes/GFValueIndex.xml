@@ -1,8 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFValueIndex" path="addons/gf/standard/foundation/collections/gf_value_index.gd" module="standard" extends="RefCounted" classDigest="1643ab1229a830ce830c7b8a9a8d8df5902f77f6ff36e1c285d5f6de14f8aa11">
+<class name="GFValueIndex" path="addons/gf/standard/foundation/collections/gf_value_index.gd" module="standard" extends="RefCounted" classDigest="5032f4fe1f78873a7de37011968c2bbb5f106e11d96d85443b3886adcc116e9b">
 	<description>GFValueIndex: 通用值索引。
 为任意 item_id 关联值和字段，并支持按字段快速查询。它只维护索引结构，
-不规定字段含义、业务规则或生命周期。</description>
+不规定字段含义、业务规则或生命周期。
+所有 mutation 都在同步信号前完整提交；信号监听器若重入修改同一索引，
+mutation 会失败关闭，调用方可在信号返回后或 deferred 阶段重试。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">runtime_service</tag>
@@ -122,9 +124,11 @@
 		</member>
 		<member kind="method" name="clear">
 			<signature>func clear() -&gt; void:</signature>
-			<description>清空索引。</description>
+			<description>清空索引。
+同步 mutation 信号派发期间调用时不执行；需要重入清理时应 deferred 调用。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_item_count">

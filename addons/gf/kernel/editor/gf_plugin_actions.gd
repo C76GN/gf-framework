@@ -25,6 +25,9 @@ signal editor_contributions_refresh_requested
 
 const _GF_VARIANT_ACCESS_SCRIPT = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
 const _GF_PLUGIN_ACTION_DEPENDENCIES_SCRIPT = preload("res://addons/gf/kernel/editor/gf_plugin_action_dependencies.gd")
+const _GF_GENERATED_ARTIFACT_REPORT_SCRIPT = preload(
+	"res://addons/gf/kernel/editor/gf_generated_artifact_report.gd"
+)
 
 ## 菜单 ID：生成 System。
 ## [br]
@@ -442,24 +445,57 @@ func _on_file_selected(path: String) -> void:
 
 	var file_name: String = path.get_file().get_basename()
 	var class_name_str: String = file_name.to_pascal_case()
+	if not _is_valid_gdscript_identifier(class_name_str):
+		push_error(
+			"[GF Framework] 文件名无法生成合法 GDScript class_name，已取消生成: %s"
+			% path
+		)
+		return
+	var base_class: String = _get_base_class(_current_template_id)
+	if not _is_valid_gdscript_identifier(base_class):
+		push_error(
+			"[GF Framework] 模板 base_class 不是合法 GDScript 标识符，已取消生成: %s"
+			% _current_template_id
+		)
+		return
 	var template: String = _get_template(_current_template_id)
 	template = template.replace("{ClassName}", class_name_str)
 	template = template.replace("{FileName}", file_name + ".gd")
-	template = template.replace("{BaseClass}", _get_base_class(_current_template_id))
+	template = template.replace("{BaseClass}", base_class)
 
-	var dir_error: Error = DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(path.get_base_dir()))
-	if dir_error != OK:
-		push_error("[GF Framework] 文件目录创建失败: %s" % error_string(dir_error))
+	var report: Dictionary = _GF_GENERATED_ARTIFACT_REPORT_SCRIPT.save_text(
+		path,
+		template,
+		{
+			"overwrite_existing": false,
+			"expected_previous_sha256": "",
+			"allowed_roots": ["res://"],
+			"artifact_owner": _GF_GENERATED_ARTIFACT_REPORT_SCRIPT.OWNER_USER,
+			"generator_id": "GFPluginActions",
+			"source_id": _current_template_id,
+			"label": "GF Framework",
+		}
+	)
+	if (
+		not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(report, "success", false)
+		or not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(report, "written", false)
+	):
+		push_error(
+			"[GF Framework] 文件生成失败: %s (%s)" % [
+				path,
+				_GF_VARIANT_ACCESS_SCRIPT.get_option_string(
+					report,
+					"error",
+					error_string(
+						_GF_GENERATED_ARTIFACT_REPORT_SCRIPT.get_error_code(
+							report
+						)
+					)
+				),
+			]
+		)
 		return
-
-	var file: FileAccess = FileAccess.open(path, FileAccess.WRITE)
-	if file != null:
-		var _stored: bool = file.store_string(template)
-		file.close()
-		EditorInterface.get_resource_filesystem().scan()
-		print("[GF Framework] 成功生成文件: ", path)
-	else:
-		push_error("[GF Framework] 文件生成失败: ", path)
+	print("[GF Framework] 成功生成文件: ", path)
 
 
 func _generate_accessors() -> void:
@@ -876,3 +912,13 @@ func _get_base_class(template_id: String) -> String:
 		if not base_class.is_empty():
 			return base_class
 	return ""
+
+
+static func _is_valid_gdscript_identifier(value: String) -> bool:
+	if not value.is_valid_identifier():
+		return false
+	match value:
+		"and", "as", "assert", "await", "break", "breakpoint", "class", "class_name", "const", "continue", "elif", "else", "enum", "extends", "false", "for", "func", "if", "in", "is", "match", "not", "null", "or", "pass", "preload", "return", "self", "signal", "static", "super", "true", "var", "void", "while", "yield":
+			return false
+		_:
+			return true

@@ -43,6 +43,48 @@ func test_validation_issue_preserves_source_span_fields() -> void:
 	assert_eq(issue.get_location_text(), "res://data/items.csv:6:3", "问题应能生成定位文本。")
 
 
+func test_validation_issue_owns_mutable_key_snapshots() -> void:
+	var constructor_key: Dictionary = { "id": 1 }
+	var configure_key: Array = ["profile", 2]
+	var constructed: GFValidationIssue = GFValidationIssue.new(
+		GFValidationIssue.Severity.ERROR,
+		&"constructor_key",
+		"Constructor key.",
+		constructor_key
+	)
+	var configured: GFValidationIssue = GFValidationIssue.new()
+	var _configured_issue: RefCounted = configured.configure(
+		GFValidationIssue.Severity.WARNING,
+		&"configure_key",
+		"Configure key.",
+		configure_key
+	)
+
+	constructor_key["id"] = 9
+	configure_key[1] = 7
+	var constructed_key: Dictionary = GFVariantData.as_dictionary(constructed.key)
+	var configured_key: Array = GFVariantData.as_array(configured.key)
+
+	assert_eq(GFVariantData.get_option_int(constructed_key, "id"), 1, "constructor 应在入口取得 Dictionary key 快照。")
+	assert_eq(GFVariantData.to_int(configured_key[1]), 2, "configure 应在入口取得 Array key 快照。")
+
+
+func test_validation_rule_result_owns_context_key_snapshot() -> void:
+	var source_key: Dictionary = { "field": "score" }
+	var rule: GFValidationRule = GFValidationRule.new().configure(
+		&"invalid_value",
+		func(_target: Variant, _report: GFValidationReport, _context: Dictionary) -> String:
+			return "Invalid value."
+	)
+	var report: GFValidationReport = rule.validate(0, { "key": source_key })
+
+	source_key["field"] = "mutated"
+	var issue: GFValidationIssue = _issue_from_ref(report.issues[0])
+	var issue_key: Dictionary = GFVariantData.as_dictionary(issue.key)
+
+	assert_eq(GFVariantData.get_option_string(issue_key, "field"), "score", "规则生成 issue 时应拥有 context key 快照。")
+
+
 func test_issue_metadata_does_not_create_source_span() -> void:
 	var issue: GFValidationIssue = _issue_from_ref(GFValidationIssue.from_dict({
 		"severity": "warning",

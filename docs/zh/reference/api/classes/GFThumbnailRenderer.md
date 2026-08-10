@@ -15,6 +15,9 @@
 
 | 类型 | 名称 | 签名 |
 |---|---|---|
+| 常量 | [`MAX_TARGET_DIMENSION`](#member-gfthumbnailrenderer-constants-max_target_dimension) | `const MAX_TARGET_DIMENSION: int = 1024` |
+| 常量 | [`MAX_TARGET_PIXELS`](#member-gfthumbnailrenderer-constants-max_target_pixels) | `const MAX_TARGET_PIXELS: int = 1_048_576` |
+| 常量 | [`MAX_PENDING_TASKS`](#member-gfthumbnailrenderer-constants-max_pending_tasks) | `const MAX_PENDING_TASKS: int = 256` |
 | 方法 | [`render_node3d`](#member-gfthumbnailrenderer-methods-render_node3d) | `func render_node3d(source: Node3D, size: Vector2i = Vector2i(256, 256), transparent: bool = true) -> Image:` |
 | 方法 | [`render_node3d_texture`](#member-gfthumbnailrenderer-methods-render_node3d_texture) | `func render_node3d_texture( source: Node3D, size: Vector2i = Vector2i(256, 256), transparent: bool = true ) -> ImageTexture:` |
 | 方法 | [`render_canvas_item`](#member-gfthumbnailrenderer-methods-render_canvas_item) | `func render_canvas_item( source: CanvasItem, size: Vector2i = Vector2i(256, 256), transparent: bool = true, content_bounds: Rect2 = Rect2(), margin_ratio: float = 0.08 ) -> Image:` |
@@ -28,6 +31,47 @@
 | 方法 | [`apply_mesh_library_preview_plan`](#member-gfthumbnailrenderer-methods-apply_mesh_library_preview_plan) | `func apply_mesh_library_preview_plan(mesh_library: MeshLibrary, plan: Dictionary) -> int:` |
 | 方法 | [`revert_mesh_library_preview_plan`](#member-gfthumbnailrenderer-methods-revert_mesh_library_preview_plan) | `func revert_mesh_library_preview_plan(mesh_library: MeshLibrary, plan: Dictionary) -> int:` |
 | 方法 | [`add_mesh_library_preview_plan_to_undo_manager`](#member-gfthumbnailrenderer-methods-add_mesh_library_preview_plan_to_undo_manager) | `func add_mesh_library_preview_plan_to_undo_manager( mesh_library: MeshLibrary, plan: Dictionary, undo_manager: Object, action_name: String = "Generate MeshLibrary Previews" ) -> Error:` |
+
+## 常量
+
+<a id="member-gfthumbnailrenderer-constants-max_target_dimension"></a>
+
+### `MAX_TARGET_DIMENSION`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+const MAX_TARGET_DIMENSION: int = 1024
+```
+
+单边允许的最大渲染像素数。
+
+<a id="member-gfthumbnailrenderer-constants-max_target_pixels"></a>
+
+### `MAX_TARGET_PIXELS`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+const MAX_TARGET_PIXELS: int = 1_048_576
+```
+
+单个缩略图允许的最大总像素数。
+
+<a id="member-gfthumbnailrenderer-constants-max_pending_tasks"></a>
+
+### `MAX_PENDING_TASKS`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+const MAX_PENDING_TASKS: int = 256
+```
+
+等待执行的最大任务数；超出后新任务立即失败。
 
 ## 方法
 

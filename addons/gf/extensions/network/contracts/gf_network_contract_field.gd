@@ -84,11 +84,13 @@ const _TRANSPORT_VALUE_VALIDATOR = preload("res://addons/gf/extensions/network/r
 ## @api public
 @export var allow_null: bool = false
 
-## 可选默认值。生成器会尽量把可表达的默认值写入生成函数签名。
+## 可选默认值。非 null 值必须精确匹配 value_type 并满足 transport-safe 边界；生成器会完整写入生成函数签名。
 ## [br]
 ## @api public
 ## [br]
-## @schema default_value: Variant，字段默认值；建议使用与 value_type 匹配的可复制值。
+## @since 3.17.0
+## [br]
+## @schema default_value: Variant，字段默认值；非 null 时必须精确匹配 value_type，并且是可复制的 transport-safe 值。
 @export var default_value: Variant = null
 
 ## Object / Resource 字段的类名提示，仅用于工具校验。
@@ -143,16 +145,21 @@ func get_default_value() -> Variant:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param value: 输入值。
 ## [br]
-## @return 归一化后的值。
+## @return: 归一化后的值；allow_null 为 true 时显式 null 原样保留，否则可回落到非空默认值。
 ## [br]
 ## @schema value: Variant，待归一化字段值。
 ## [br]
 ## @schema return: Variant，字段默认值或输入值的安全副本。
 func normalize_value(value: Variant) -> Variant:
-	if value == null and default_value != null:
-		return get_default_value()
+	if value == null:
+		if allow_null:
+			return null
+		if default_value != null:
+			return get_default_value()
 	return _duplicate_value(value)
 
 
@@ -169,6 +176,10 @@ func validate_definition() -> Dictionary:
 		issues.append(_make_issue("error", "empty_field_name", "Network contract field name is empty."))
 	if value_type == ValueType.OBJECT:
 		issues.append(_make_issue("error", "object_value_type_not_transport_safe", "Network contract fields must not use Object values across the transport boundary."))
+	elif default_value != null:
+		var default_issue: Dictionary = _get_default_value_issue()
+		if not default_issue.is_empty():
+			issues.append(default_issue)
 	return _finalize_report(issues)
 
 
@@ -226,6 +237,28 @@ func describe() -> Dictionary:
 
 
 # --- 私有/辅助方法 ---
+
+func _get_default_value_issue() -> Dictionary:
+	var type_issue: Dictionary = _get_value_type_issue(default_value)
+	if value_type == ValueType.FLOAT and typeof(default_value) != TYPE_FLOAT:
+		type_issue = _make_type_issue("float")
+	if not type_issue.is_empty():
+		return _make_issue(
+			"error",
+			"default_value_type_mismatch",
+			"Network contract field default_value must exactly match the declared value_type."
+		)
+	var transport_report: Dictionary = _TRANSPORT_VALUE_VALIDATOR.validate(default_value)
+	if not GFVariantData.get_option_bool(transport_report, "ok"):
+		return _make_issue(
+			"error",
+			"default_value_not_transport_safe",
+			"Network contract field default_value is not transport-safe at %s (%s)." % [
+				GFVariantData.get_option_string(transport_report, "path", "$"),
+				GFVariantData.get_option_string(transport_report, "error", "invalid_value"),
+			]
+		)
+	return {}
 
 func _get_value_type_issue(value: Variant) -> Dictionary:
 	match value_type:
@@ -322,6 +355,8 @@ func _finalize_report(issues: Array[Dictionary]) -> Dictionary:
 func _get_validation_next_actions() -> Dictionary:
 	return {
 		"empty_field_name": "Assign every network contract field a stable field_name.",
+		"default_value_type_mismatch": "Use a default_value whose Variant type exactly matches the declared value_type.",
+		"default_value_not_transport_safe": "Remove nested Object, Callable, Signal, RID, circular containers, non-finite numbers, or over-budget values from default_value.",
 		"null_not_allowed": "Provide a value or allow null for this network contract field.",
 		"type_mismatch": "Send a value matching the declared network contract field type.",
 		"class_name_mismatch": "Send an Object or Resource matching class_name_hint.",

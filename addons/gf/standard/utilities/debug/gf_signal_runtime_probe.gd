@@ -2,6 +2,8 @@
 ##
 ## 以显式 watch 的方式连接节点信号，并把实际发射记录为只读事件快照。
 ## 它不修改被观察节点，不解释业务语义，也不应默认用于生产环境全局采样。
+## Signal source 会持有连接 Callable；调用方结束观察时必须调用 dispose() 或
+## unwatch_all()，以便长寿命 source 不再持有 Probe。
 ## [br]
 ## @api public
 ## [br]
@@ -150,6 +152,20 @@ var max_snapshot_depth: int = DEFAULT_MAX_SNAPSHOT_DEPTH:
 
 var _watched: Dictionary = {}
 var _events: Array[Dictionary] = []
+
+
+# --- GF 生命周期方法 ---
+
+## 断开全部监听并清空事件历史。
+##
+## 该方法幂等；结束观察时应优先调用它，避免长寿命 signal source 继续持有 Probe。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+func dispose() -> void:
+	var _removed_count: int = unwatch_all()
+	clear_events()
 
 
 # --- 公共方法 ---
@@ -382,6 +398,7 @@ func get_json_compatible_debug_snapshot(options: Dictionary = {}) -> Dictionary:
 # --- 私有/辅助方法 ---
 
 func _watch_signal(source: Node, signal_name: StringName, argument_count: int, connect_flags: int) -> Error:
+	_prune_invalid_watches()
 	var key: String = _make_watch_key(source.get_instance_id(), signal_name)
 	if _watched.has(key):
 		return ERR_ALREADY_EXISTS
@@ -880,8 +897,22 @@ func _prune_invalid_watches() -> void:
 	for key: String in _watched.keys().duplicate():
 		var entry: Dictionary = _get_watch_entry(key)
 		var source_ref: WeakRef = _get_dictionary_weak_ref(entry, "source_ref")
-		if _get_live_object_from_ref(source_ref) == null:
-			var _erased: bool = _watched.erase(key)
+		var source: Node = _get_live_node_from_ref(source_ref)
+		var signal_name: StringName = GFVariantData.get_option_string_name(entry, "signal_name")
+		var callback: Callable = _get_dictionary_callable(entry, "callable")
+		if (
+			source != null
+			and signal_name != &""
+			and callback.is_valid()
+			and source.is_connected(signal_name, callback)
+		):
+			continue
+		if not _watched.erase(key):
+			continue
+		signal_watch_stopped.emit(
+			GFVariantData.get_option_string(entry, "source_path"),
+			signal_name
+		)
 
 
 func _get_watch_entry(key: String) -> Dictionary:
@@ -893,14 +924,6 @@ func _get_live_node_from_ref(source_ref: WeakRef) -> Node:
 	if result is Node:
 		var node: Node = result
 		return node
-	return null
-
-
-func _get_live_object_from_ref(source_ref: WeakRef) -> Object:
-	var result: Variant = _INSTANCE_GUARD.call("_get_live_object_from_ref", source_ref)
-	if result is Object:
-		var object: Object = result
-		return object
 	return null
 
 

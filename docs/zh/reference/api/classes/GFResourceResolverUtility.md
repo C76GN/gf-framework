@@ -94,7 +94,7 @@ func register_path( resource_key: StringName, path: String, type_hint: String = 
 | 名称 | 说明 |
 |---|---|
 | `resource_key` | 稳定资源键。 |
-| `path` | Godot 资源路径，通常为 `res://` 或 `uid://`。 |
+| `path` | Godot 资源路径，通常为 \`res://\` 或 \`uid://\`。 |
 | `type_hint` | 可选 ResourceLoader 类型提示。 |
 | `priority` | 覆盖优先级；数值越大越优先。 |
 | `metadata` | 项目自定义元数据，会复制到解析报告。 |
@@ -124,7 +124,7 @@ func register_path_for_owner( resource_key: StringName, owner_id: StringName, pa
 |---|---|
 | `resource_key` | 稳定资源键。 |
 | `owner_id` | 注册拥有者 ID；用于批量注销同一来源贡献的映射。 |
-| `path` | Godot 资源路径，通常为 `res://` 或 `uid://`。 |
+| `path` | Godot 资源路径，通常为 \`res://\` 或 \`uid://\`。 |
 | `type_hint` | 可选 ResourceLoader 类型提示。 |
 | `priority` | 覆盖优先级；数值越大越优先。 |
 | `metadata` | 项目自定义元数据，会复制到解析报告。 |
@@ -342,9 +342,9 @@ func resolve( resource_key: StringName, type_hint_override: String = "", options
 
 | 名称 | 说明 |
 |---|---|
-| `resource_key` | 稳定资源键；启用直接路径回退时也可传 `res://`、`uid://` 或 `user://` 路径。 |
+| `resource_key` | 稳定资源键；启用直接路径回退时也可传 \`res://\`、\`uid://\` 或 \`user://\` 路径。 |
 | `type_hint_override` | 可选 ResourceLoader 类型提示覆盖。 |
-| `options` | 可选参数。`check_exists` 默认为 true；`allow_direct_path` 默认为 false。 |
+| `options` | 可选参数。\`check_exists\` 默认为 true；\`allow_direct_path\` 默认为 false。 |
 
 返回：解析报告。
 
@@ -371,7 +371,7 @@ func resolve_path( resource_key: StringName, type_hint_override: String = "", op
 |---|---|
 | `resource_key` | 稳定资源键。 |
 | `type_hint_override` | 可选 ResourceLoader 类型提示覆盖。 |
-| `options` | 可选参数，见 `resolve()`。 |
+| `options` | 可选参数，见 \`resolve()\`。 |
 
 返回：解析成功且结果包含路径时返回路径，否则返回空字符串。
 
@@ -398,7 +398,7 @@ func load( resource_key: StringName, type_hint_override: String = "", cache_mode
 | `resource_key` | 稳定资源键。 |
 | `type_hint_override` | 可选 ResourceLoader 类型提示覆盖。 |
 | `cache_mode` | ResourceLoader 缓存模式。 |
-| `options` | 可选参数，见 `resolve()`。 |
+| `options` | 可选参数，见 \`resolve()\`。 |
 
 返回：加载到的 Resource；解析或加载失败时返回 null。
 
@@ -426,7 +426,7 @@ func load_async( asset_utility: GFAssetUtility, resource_key: StringName, on_loa
 | `resource_key` | 稳定资源键。 |
 | `on_loaded` | 加载完成回调，签名为 func(resource: Resource)。 |
 | `type_hint_override` | 可选 ResourceLoader 类型提示覆盖。 |
-| `options` | 可选参数，见 `resolve()`。 |
+| `options` | 可选参数，见 \`resolve()\`。 |
 
 结构：
 
@@ -451,7 +451,7 @@ func make_asset_group_entries( resource_keys: PackedStringArray, type_hint_overr
 |---|---|
 | `resource_keys` | 资源键列表。 |
 | `type_hint_override` | 可选 ResourceLoader 类型提示覆盖。 |
-| `options` | 可选参数，见 `resolve()`。 |
+| `options` | 可选参数，见 \`resolve()\`。 |
 
 返回：资源请求列表。
 

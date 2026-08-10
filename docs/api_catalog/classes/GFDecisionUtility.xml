@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFDecisionUtility" path="addons/gf/extensions/decision/runtime/gf_decision_utility.gd" module="extensions/decision" extends="GFUtility" classDigest="c74eb54491bfd87e23719559e36751f3dec8410b3fb4500f972a734ac29792c0">
+<class name="GFDecisionUtility" path="addons/gf/extensions/decision/runtime/gf_decision_utility.gd" module="extensions/decision" extends="GFUtility" classDigest="d340de0f19a629d797a0c31cd2f3297e16183104b09cf47909f05ab20b765d65">
 	<description>GFDecisionUtility: 通用决策集合注册与评分服务。
 在架构中集中管理 GFDecisionSet，并为项目系统提供创建上下文、评分候选和选择最佳候选的入口。
 它不执行候选动作，也不解释具体 AI 业务语义。</description>
@@ -47,12 +47,14 @@
 		</member>
 		<member kind="method" name="register_decision_set">
 			<signature>func register_decision_set(decision_set_id: StringName, decision_set: GFDecisionSet) -&gt; bool:</signature>
-			<description>注册决策集合。</description>
+			<description>注册决策集合。
+registry key 是注册期权威身份；同一 Resource 实例不能同时注册到第二个 key，注册后的 ID 漂移会在 Utility 访问边界恢复。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">decision_set_id: 决策集合标识。</tag>
 				<tag name="param">decision_set: 决策集合资源。</tag>
 				<tag name="return">注册成功返回 true。</tag>
+				<tag name="since">4.3.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="unregister_decision_set">
@@ -71,6 +73,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">decision_set_id: 决策集合标识。</tag>
 				<tag name="return">存在返回 true。</tag>
+				<tag name="since">4.3.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_decision_set">
@@ -80,6 +83,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">decision_set_id: 决策集合标识。</tag>
 				<tag name="return">决策集合；不存在时返回 null。</tag>
+				<tag name="since">4.3.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_decision_set_ids">
@@ -88,6 +92,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">排序后的决策集合标识。</tag>
+				<tag name="since">4.3.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="clear_decision_sets">
@@ -106,6 +111,7 @@
 				<tag name="param">context: 决策上下文。</tag>
 				<tag name="return">按分数降序排列的评分结果。</tag>
 				<tag name="schema">return: Array[GFDecisionScore]，每个候选的评分结果；集合不存在时为空数组。</tag>
+				<tag name="since">4.3.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="evaluate">

@@ -340,12 +340,13 @@ func serialize_full_history() -> Dictionary:
 ### `deserialize_history`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func deserialize_history(data_array: Array, command_builder: Callable) -> void:
 ```
 
-通过构造器从纯数据恢复撤销栈。
+通过构造器从纯数据恢复撤销栈。 构建任意条目失败时保持原撤销栈和重做栈不变。
 
 参数：
 
@@ -363,18 +364,19 @@ func deserialize_history(data_array: Array, command_builder: Callable) -> void:
 ### `deserialize_full_history`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func deserialize_full_history(data: Dictionary, command_builder: Callable) -> void:
 ```
 
-通过构造器从完整历史数据恢复撤销栈与重做栈。
+通过构造器从完整历史数据恢复撤销栈与重做栈。 构建任意条目失败时保持原撤销栈和重做栈不变。
 
 参数：
 
 | 名称 | 说明 |
 |---|---|
-| `data` | 由 `serialize_full_history()` 生成的字典数据。 |
+| `data` | 由 \`serialize_full_history()\` 生成的字典数据。 |
 | `command_builder` | 负责反序列化命令实例的构造器。 |
 
 结构：

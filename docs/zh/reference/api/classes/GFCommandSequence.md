@@ -31,7 +31,7 @@
 | 属性 | [`steps`](#member-gfcommandsequence-properties-steps) | `var steps: Array = []` |
 | 属性 | [`context`](#member-gfcommandsequence-properties-context) | `var context: GFSequenceContext` |
 | 属性 | [`is_running`](#member-gfcommandsequence-properties-is_running) | `var is_running: bool = false` |
-| 属性 | [`signal_timeout_seconds`](#member-gfcommandsequence-properties-signal_timeout_seconds) | `var signal_timeout_seconds: float = 30.0` |
+| 属性 | [`signal_timeout_seconds`](#member-gfcommandsequence-properties-signal_timeout_seconds) | `var signal_timeout_seconds: float = 30.0:` |
 | 属性 | [`signal_timeout_respects_time_scale`](#member-gfcommandsequence-properties-signal_timeout_respects_time_scale) | `var signal_timeout_respects_time_scale: bool = true` |
 | 属性 | [`stop_on_error`](#member-gfcommandsequence-properties-stop_on_error) | `var stop_on_error: bool = false` |
 | 属性 | [`rollback_on_failure`](#member-gfcommandsequence-properties-rollback_on_failure) | `var rollback_on_failure: bool = false` |
@@ -61,12 +61,13 @@ signal sequence_started
 ### `step_started`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 signal step_started(index: int, step: Variant)
 ```
 
-步骤开始执行时发出。
+步骤即将执行时发出。同步监听器可调用 [method cancel]，在 execute() 副作用提交前取消本步骤； 此时尚未开始的步骤不会收到 cancel hook。
 
 参数：
 
@@ -143,6 +144,7 @@ signal sequence_completed
 ### `sequence_failed`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 signal sequence_failed(report: Dictionary)
@@ -158,7 +160,7 @@ signal sequence_failed(report: Dictionary)
 
 结构：
 
-- `report`: Dictionary run report.
+- `report`: Dictionary { cancelled: bool, failed: bool, failed_index: int, error: String, succeeded: int, rolled_back: bool, rollback_failed: bool, rollback_status: StringName, rollback_cancelled: bool, rollback_timeout: bool, rollback_attempted_count: int, rollback_errors: Array[Dictionary], results: Array[Dictionary] }.
 
 <a id="member-gfcommandsequence-signals-sequence_cancelled"></a>
 
@@ -299,12 +301,13 @@ var is_running: bool = false
 ### `signal_timeout_seconds`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-var signal_timeout_seconds: float = 30.0
+var signal_timeout_seconds: float = 30.0:
 ```
 
-等待步骤 Signal 的超时时间（秒）。小于等于 0 时表示不启用超时。
+等待步骤 Signal 的超时时间（秒）。小于等于 0 时表示不启用超时； 非有限赋值会被拒绝并保留上一次有效值。
 
 <a id="member-gfcommandsequence-properties-signal_timeout_respects_time_scale"></a>
 
@@ -347,6 +350,7 @@ stop_on_error 生效后，是否对已完成且实现 undo() 的步骤逆序回�
 ### `last_run_report`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var last_run_report: Dictionary = {}
@@ -356,7 +360,7 @@ var last_run_report: Dictionary = {}
 
 结构：
 
-- `last_run_report`: Dictionary run report from the most recent run().
+- `last_run_report`: Dictionary { cancelled: bool, failed: bool, failed_index: int, error: String, succeeded: int, rolled_back: bool, rollback_failed: bool, rollback_status: StringName, rollback_cancelled: bool, rollback_timeout: bool, rollback_attempted_count: int, rollback_errors: Array[Dictionary], results: Array[Dictionary] } from the most recent run().
 
 ## 方法
 
@@ -399,7 +403,7 @@ func run(p_steps: Array = []) -> void:
 
 | 名称 | 说明 |
 |---|---|
-| `p_steps` | 可选临时步骤列表；为空时使用 `steps`。 |
+| `p_steps` | 可选临时步骤列表；为空时使用 \`steps\`。 |
 
 结构：
 
@@ -422,6 +426,7 @@ func cancel() -> void:
 ### `with_signal_timeout`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func with_signal_timeout(seconds: float, respect_time_scale: bool = true) -> GFCommandSequence:
@@ -433,7 +438,7 @@ func with_signal_timeout(seconds: float, respect_time_scale: bool = true) -> GFC
 
 | 名称 | 说明 |
 |---|---|
-| `seconds` | 超时时间；小于等于 0 时表示不启用超时。 |
+| `seconds` | 超时时间；小于等于 0 时表示不启用超时，非有限值会被拒绝。 |
 | `respect_time_scale` | 是否跟随 GFTimeUtility 的暂停与 time_scale。 |
 
 返回：当前序列。

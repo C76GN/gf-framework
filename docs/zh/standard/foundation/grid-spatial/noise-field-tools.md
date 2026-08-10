@@ -38,7 +38,7 @@ var report := GFNoiseFieldTools.sample_grid_2d(
 )
 ```
 
-`sampler` 只应返回有限 `int` 或 `float`。返回 `NaN`、`Infinity` 或非数字值会让报告失败，避免这类值直接进入普通 JSON 序列化、编辑器日志或生成物。
+`sampler` 只应返回可由 `PackedFloat32Array` 表示的有限 `int` 或 `float`。返回 `NaN`、`Infinity`、非数字值，或写入 float32 后变成非有限值，都会让报告失败且不保留部分样本。成功报告的最小值、最大值与平均值均按实际返回的 float32 样本计算；请求归一化时，归一化失败也会传播到外层报告。
 
 ## 返回结构
 

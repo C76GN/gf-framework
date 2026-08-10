@@ -104,7 +104,14 @@ const _GF_CAMERA_FINITE_MATH := preload("res://addons/gf/extensions/camera/core/
 ## 鼠标拖拽环绕使用的按键。
 ## [br]
 ## @api public
-@export var mouse_button: MouseButton = MOUSE_BUTTON_RIGHT
+## [br]
+## @since 3.23.0
+@export var mouse_button: MouseButton = MOUSE_BUTTON_RIGHT:
+	set(value):
+		if mouse_button == value:
+			return
+		_clear_mouse_orbit_capture()
+		mouse_button = value
 
 ## 鼠标每像素对应的角度。
 ## [br]
@@ -139,6 +146,7 @@ var input_mapping_utility: GFInputMappingUtility = null
 
 var _mouse_orbit_active: bool = false
 var _mouse_orbit_device: int = 0
+var _mouse_orbit_capture_button: MouseButton = MOUSE_BUTTON_NONE
 var _mouse_orbit_rig_ref: WeakRef = null
 var _mouse_orbit_rig_instance_id: int = 0
 var _mouse_orbit_capture_generation: int = 0
@@ -155,7 +163,14 @@ func _unhandled_input(event: InputEvent) -> void:
 	var applied: bool = false
 	if event is InputEventMouseButton:
 		var button_event: InputEventMouseButton = _get_mouse_button_event(event)
-		if mouse_orbit_enabled and button_event.button_index == mouse_button:
+		if (
+			not button_event.pressed
+			and _mouse_orbit_active
+			and button_event.device == _mouse_orbit_device
+			and button_event.button_index == _mouse_orbit_capture_button
+		):
+			applied = _apply_mouse_orbit_button(button_event)
+		elif mouse_orbit_enabled and button_event.button_index == mouse_button:
 			applied = _apply_mouse_orbit_button(button_event)
 		elif mouse_zoom_enabled:
 			applied = _apply_mouse_wheel(button_event)
@@ -170,6 +185,11 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func _exit_tree() -> void:
 	_clear_mouse_orbit_capture()
+
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_WM_WINDOW_FOCUS_OUT:
+		_clear_mouse_orbit_capture()
 
 
 func _process(delta: float) -> void:
@@ -267,7 +287,10 @@ func apply_zoom_value(value: float, scale: float = 1.0) -> bool:
 	):
 		return false
 
-	rig.apply_zoom_delta(value * scale)
+	var scaled_value: float = value * scale
+	if not _GF_CAMERA_FINITE_MATH.is_finite_float(scaled_value) or is_zero_approx(scaled_value):
+		return false
+	rig.apply_zoom_delta(scaled_value)
 	return true
 
 
@@ -335,7 +358,10 @@ func _apply_orbit_vector_to_rig(
 	var pitch_value: float = value.y
 	if invert_y:
 		pitch_value = -pitch_value
-	rig.apply_orbit_delta(Vector2(value.x, pitch_value) * scale)
+	var scaled_delta: Vector2 = Vector2(value.x, pitch_value) * scale
+	if not _GF_CAMERA_FINITE_MATH.is_finite_vector2(scaled_delta) or scaled_delta == Vector2.ZERO:
+		return false
+	rig.apply_orbit_delta(scaled_delta)
 	return true
 
 
@@ -357,6 +383,7 @@ func _apply_mouse_orbit_button(event: InputEventMouseButton) -> bool:
 			return false
 		_mouse_orbit_active = true
 		_mouse_orbit_device = event.device
+		_mouse_orbit_capture_button = event.button_index
 		_mouse_orbit_rig_ref = weakref(rig)
 		_mouse_orbit_rig_instance_id = rig.get_instance_id()
 		_mouse_orbit_capture_generation = _next_mouse_orbit_capture_generation
@@ -364,7 +391,11 @@ func _apply_mouse_orbit_button(event: InputEventMouseButton) -> bool:
 		if _next_mouse_orbit_capture_generation <= 0:
 			_next_mouse_orbit_capture_generation = 1
 		return true
-	if _mouse_orbit_active and event.device == _mouse_orbit_device:
+	if (
+		_mouse_orbit_active
+		and event.device == _mouse_orbit_device
+		and event.button_index == _mouse_orbit_capture_button
+	):
 		_clear_mouse_orbit_capture()
 		return true
 	return false
@@ -373,6 +404,7 @@ func _apply_mouse_orbit_button(event: InputEventMouseButton) -> bool:
 func _clear_mouse_orbit_capture() -> void:
 	_mouse_orbit_active = false
 	_mouse_orbit_device = 0
+	_mouse_orbit_capture_button = MOUSE_BUTTON_NONE
 	_mouse_orbit_rig_ref = null
 	_mouse_orbit_rig_instance_id = 0
 	_mouse_orbit_capture_generation = 0

@@ -39,6 +39,8 @@ tool.set_option_schema(schema)
 tool.set_tool_option(&"radius", 8)
 ```
 
+拾取操作只有在 `begin()` 成功后才归工具所有。`apply()` 返回 `ok = false` 时操作保持 `READY`，调用方可以修正输入后重试；成功后才进入 `APPLIED`。工具 `deactivate()` 会取消并释放当前操作，停用后的 `pick()` / `apply_pick_operation()` 不会再进入项目 mutation hook。
+
 ## 命令会话
 
 `GFEditorCommandSession` 用于把“预览”和“提交”分开。交互式工具可以在鼠标移动、拖拽或参数调整时调用 `preview_command()` 只执行临时效果；用户确认后再调用 `commit_command()` 写入命令历史或 Godot `EditorUndoRedoManager`。取消或回退时调用 `revert_last()`，不需要工具 UI 自己维护一套命令栈。
@@ -58,6 +60,8 @@ else:
 会话只管理通用命令生命周期和历史，不知道命令修改的是节点、资源、TileMap、曲线还是项目自定义数据。具体命令仍由工具或扩展按 `GFEditorCommand` 协议实现。
 
 命令实例代表一次编辑动作。`execute()` 成功后，或命令成功提交到 `EditorUndoRedoManager` 后，实例会冻结配置；工具需要执行下一次编辑时应创建新的命令实例，而不是复用旧实例重新 `configure()`。这样 redo / undo 回调始终使用同一份配置和首次执行前的快照，不会因为后续 UI 状态变化改变历史动作含义。
+
+提交到 Godot 编辑器 UndoRedo 时，修改 Node 或 Resource 的命令必须让 `_get_undo_context()` 返回实际目标；多目标命令还应通过 `_get_undo_targets()` 暴露全部目标。GF 会把 context 交给 `EditorUndoRedoManager.create_action()`，并在创建 action 前拒绝跨多个 history 的批次，避免命令包装对象把场景或资源修改误路由到 global history。普通全局命令可继续返回 `null`。
 
 ## 场景 Metadata 命令
 
@@ -105,6 +109,8 @@ if preview.ok:
 
 `property_name` 表示精确直接属性名，包含 `/` 或 `:` 时不会被当作路径；`property_path` 使用 Godot indexed path 语义。每个 change 必须且只能使用其中一个 selector。同一目标上的重复 selector、直接根属性与其子路径、或彼此包含的路径会在预检阶段失败；同根下互不包含的兄弟子路径可以组合。
 
+同一个 `GFEditorPropertyBatchCommand` 提交到编辑器 UndoRedo 时，全部目标必须属于同一 history。需要同时修改不同场景、场景与外部资源或其他不同 history 时，应拆成由更高层显式协调的多个 action，不能把跨 history 写入伪装成一个原子撤销单元。
+
 首次进入写阶段时，命令会冻结配置并保留不可变 undo 基线。apply 按调用方顺序执行，undo 按相反顺序执行；失败补偿使用相反于当前阶段的顺序。每个阶段结束后还会再次读取全部显式属性，防止后续 setter 间接改坏前面已写入的目标。完整补偿后的失败报告使用 `apply_failed` 或 `revert_failed`，并令 `rolled_back = true`；补偿仍有残余时使用 `rollback_failed` 和 `recovery_required = true`。
 
 待恢复快照始终来自“本次失败操作开始前”的 attempt guard，而不是固定的首次 undo 基线，因此 redo 前的外部状态不会被错误覆盖。调用方修复目标可写条件后可调用 `recover()` 恢复该 guard；未处于 executed 状态的 apply / redo 失败也允许用 `revert()` 触发同一恢复。undo 补偿失败时应先调用 `recover()` 回到完整 executed guard，再重试 `revert()`。
@@ -144,7 +150,9 @@ var report := GFTemplateGenerationManifest.save_text_from_manifest(manifest, sou
 
 清单中的 `variables` 与 `requirements` 会进入产物报告 metadata，方便生成器在 dry-run、覆盖检查、批量摘要和漂移审查时复用同一套结构。实际模板渲染、依赖安装和输出目录策略仍由调用方决定。
 
-模板或批处理工具真正写入文件时，应把输出目录作为生成物根传给 `GFGeneratedArtifactReport.save_text(..., { "allowed_roots": [...] })`。这样 dry-run、编辑器按钮和 CI 校验会使用同一套路径边界，避免模板清单里的错误输出路径写到手写模块或工程外部。
+JSON 文本和 sidecar 在解析前都受 1 MiB UTF-8 字节上限与 64 层嵌套上限约束。编辑器贡献清单还限制 1024 条总记录、单个模板 1 MiB 和单份清单全部模板累计 4 MiB；空白模板会作为 `empty_template` 问题失败关闭，不会无痕消失。贡献清单报告用 `absent`、`valid`、`degraded`、`invalid` 区分可选包确实缺席、完整有效、局部目标缺失和清单本身无效；根插件只对后两类发布稳定的问题种类与计数，不把项目路径或原始字段值复制到诊断。标准库文件型贡献的 `owner_package_id` 必须与目标文件唯一的物理包所有者一致，`package-source-boundary` 会对此失败关闭。清单是数据，不是写权限：模板或批处理工具真正写入文件时，必须由明确授权的调用方另行传入 `allowed_roots` 与覆盖策略，不能仅凭 sidecar 中的 `output_path` 扩张权限。
+
+把输出目录作为生成物根传给 `GFGeneratedArtifactReport.save_text(..., { "allowed_roots": [...] })` 后，dry-run、编辑器按钮和 CI 校验会使用同一套路径边界。修改用户源码时还应传入读取快照的 `expected_previous_sha256`；当前内容不匹配时报告返回 `conflict = true` 和 `ERR_FILE_ALREADY_IN_USE`，保留现有内容。空字符串表示要求目标不存在，适合 create-only 写入。
 
 ## 多产物写入事务
 

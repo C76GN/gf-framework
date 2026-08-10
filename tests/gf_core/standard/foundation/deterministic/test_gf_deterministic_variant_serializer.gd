@@ -303,6 +303,21 @@ func test_resource_budgets_reject_wide_long_and_oversized_output() -> void:
 	assert_push_error("[GFDeterministicVariantSerializer] 规范输出超过 max_output_bytes。")
 
 
+func test_max_output_bytes_applies_only_to_encoded_output_entries() -> void:
+	var canonical_value: Variant = GF_DETERMINISTIC_VARIANT_SERIALIZER.to_canonical_value(
+		"payload",
+		{"max_output_bytes": 1}
+	)
+	var canonical_json: String = GF_DETERMINISTIC_VARIANT_SERIALIZER.to_canonical_json(
+		"payload",
+		{"max_output_bytes": 1}
+	)
+
+	assert_true(canonical_value != null, "canonical value 没有唯一 bytes 表示，不应伪装执行输出字节预算。")
+	assert_eq(canonical_json, "", "产生规范 bytes 的入口必须执行 max_output_bytes。")
+	assert_push_error("[GFDeterministicVariantSerializer] 规范输出超过 max_output_bytes。")
+
+
 func test_objects_and_circular_references_are_rejected() -> void:
 	var object_text: String = GF_DETERMINISTIC_VARIANT_SERIALIZER.to_canonical_json(Resource.new())
 	assert_eq(object_text, "", "Object/Resource 不应被通用 serializer 隐式反射。")

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFResourceRegistryTools" path="addons/gf/standard/utilities/assets/gf_resource_registry_tools.gd" module="standard" extends="RefCounted" classDigest="8999e6bbd0547be60a3dca5b2a242c74b00bb76bd1e9fcc328dd7d81e7d8234c">
+<class name="GFResourceRegistryTools" path="addons/gf/standard/utilities/assets/gf_resource_registry_tools.gd" module="standard" extends="RefCounted" classDigest="7f94fc53bd646cbc9e31d24fdd64788f20bfab2406855e9243272d5316e76404">
 	<description>GFResourceRegistryTools: 通用资源注册表扫描和生成工具。
 面向编辑器工具、构建脚本和项目安装器复用；它只从路径生成
 `GFResourceRegistry` / `GFResourceRegistryEntry`，不解释业务字段。</description>
@@ -27,7 +27,38 @@
 	</enums>
 	<constants>
 		<member kind="const" name="RESOURCE_EXTENSIONS">
-			<signature>const RESOURCE_EXTENSIONS: PackedStringArray = [</signature>
+			<signature>const RESOURCE_EXTENSIONS: PackedStringArray = [
+	"tres",
+	"res",
+	"tscn",
+	"scn",
+	"png",
+	"jpg",
+	"jpeg",
+	"webp",
+	"svg",
+	"bmp",
+	"tga",
+	"exr",
+	"hdr",
+	"ktx",
+	"ctex",
+	"ogg",
+	"wav",
+	"mp3",
+	"opus",
+	"glb",
+	"gltf",
+	"obj",
+	"fbx",
+	"dae",
+	"blend",
+	"material",
+	"shader",
+	"gdshader",
+	"gd",
+	"cs",
+]</signature>
 			<description>默认资源扩展名白名单，不包含点号。</description>
 			<tags>
 				<tag name="api">public</tag>

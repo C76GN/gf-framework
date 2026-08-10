@@ -192,7 +192,7 @@ static func make_import_plan( entries: Array[Dictionary], target_root: String, o
 static func copy_import_plan(plan: Array[Dictionary], options: Dictionary = {}) -> GFValidationReport:
 ```
 
-按导入计划复制音频文件。
+按导入计划复制音频文件。 当前纯 GDScript 实现仅适用于调用方独占的可信单写者目录； 每个 target 对应的 `.gf-copy.tmp` 与 `.gf-copy.backup` 名称属于事务保留命名空间。
 
 参数：
 
@@ -207,6 +207,7 @@ static func copy_import_plan(plan: Array[Dictionary], options: Dictionary = {}) 
 
 - `plan`: Array[Dictionary]，元素包含 source_path、target_path、will_copy 和 reason 字段。
 - `options`: Dictionary，可包含 overwrite: bool、max_copy_files: int 与 max_copy_bytes: int；上限为 0 时表示不限制。
+- `return`: GFValidationReport；metadata 包含 planned_copy_count、planned_copy_bytes、copy_preflight_complete、copied_count、skipped_count、error_count、copied_paths、consumed_copy_bytes 和 committed_copy_bytes；恢复或清理失败通过结构化 issue metadata 暴露 deterministic temp/backup path 与 recovery state。
 
 <a id="member-gfaudiolibrarytools-methods-get_plan_target_paths"></a>
 

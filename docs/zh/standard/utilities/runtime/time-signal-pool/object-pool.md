@@ -57,6 +57,8 @@ func on_gf_pool_acquire() -> void:
 
 `release()` 会校验节点是否确实来自对应池，避免把外部节点或其他 `PackedScene` 的实例混入。
 
+`before_add`、`on_gf_pool_acquire()` 和 `on_gf_pool_release()` 都是允许项目代码重入对象池的同步边界。对象池会先提交过渡所有权，并在回调后复核实例与生命周期 generation；如果回调已经归还、再次借出、重置或释放对象池，外层操作不会重复发布同一节点或覆盖更新后的状态。项目 hook 仍应保持短小，且不能假定回调返回后对象仍由当前调用持有。
+
 继承 `GFController` 的池化节点会在归还或预热时自动暂停由基类 `register_event()` / `register_simple_event()` 记录的事件监听，并在再次 `acquire()` 后恢复；这避免 `_ready()` 只执行一次的控制器复用后丢监听，也避免休眠节点继续接收事件。
 
 默认 `prune_invalid_on_each_operation = true` 会在高频接口前清理已释放节点引用，换取更稳的计数；极端热路径可在项目层确认生命周期后关闭，并在低频点主动调用 `prune_invalid_nodes()`。
@@ -89,5 +91,7 @@ func on_gf_pool_release() -> void:
 func reset_for_pool() -> void:
 	pass
 ```
+
+每个借出中的 `RefCounted` 都有唯一活动所有权；工厂不能返回已经由同一池追踪的实例。acquire/release/reset hook 可以重入池，但过渡 generation 会确保回调中的归还或再次借出获胜，外层操作不会把同一实例同时放入 available 与 active，也不会对同一次借出重复执行归还。
 
 `GFRefCountedPool` 适合短生命周期、可明确重置的上下文、报告、查询结果或临时列表包装；不适合长期所有权复杂、带外部信号连接且无法可靠清理的对象。`max_available` 可限制保留数量，超过容量的归还对象会从池中丢弃，让普通引用计数回收接管。

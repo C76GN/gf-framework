@@ -12,6 +12,11 @@ class_name GFBuffRecipe
 extends Resource
 
 
+# --- 常量 ---
+
+const _GF_COMBAT_FINITE_MATH = preload("res://addons/gf/extensions/combat/core/gf_combat_finite_math.gd")
+
+
 # --- 导出变量 ---
 
 ## 运行时 Buff ID。
@@ -141,12 +146,14 @@ extends Resource
 ## @schema context: Dictionary，可包含 metadata 作为运行时附加元数据。
 func create_buff(owner: Object = null, context: Dictionary = {}) -> GFBuff:
 	var buff: GFBuff = _instantiate_buff()
-	buff.setup(id, duration, owner)
-	buff.stacks = maxi(stacks, 1)
+	var safe_duration: float = duration if _is_duration_valid() else 0.0
+	var safe_tick_interval: float = tick_interval_seconds if _GF_COMBAT_FINITE_MATH.is_finite_float(tick_interval_seconds) else 0.0
+	buff.setup(id, safe_duration, owner)
 	buff.max_stacks = maxi(max_stacks, 1)
+	buff.stacks = clampi(stacks, 1, buff.max_stacks)
 	buff.stack_mode = stack_mode
 	buff.duration_refresh_policy = duration_refresh_policy
-	buff.tick_interval_seconds = tick_interval_seconds
+	buff.tick_interval_seconds = safe_tick_interval
 	buff.max_periodic_ticks_per_update = max_periodic_ticks_per_update
 	buff.remove_on_expire = remove_on_expire
 	buff.tags = tags.duplicate()
@@ -190,6 +197,30 @@ func get_validation_report() -> Dictionary:
 			"max_stacks must be greater than zero",
 			{ "field": &"max_stacks", "actual_value": max_stacks }
 		)
+	if not _is_duration_valid():
+		var _duration_issue: Dictionary = GFValidationReportDictionary.append_issue(
+			report,
+			"error",
+			&"invalid_duration",
+			"duration must be finite and either -1 or non-negative",
+			{ "field": &"duration", "actual_value": duration }
+		)
+	if not _GF_COMBAT_FINITE_MATH.is_finite_float(tick_interval_seconds):
+		var _tick_interval_issue: Dictionary = GFValidationReportDictionary.append_issue(
+			report,
+			"error",
+			&"non_finite_tick_interval",
+			"tick_interval_seconds must be finite",
+			{ "field": &"tick_interval_seconds", "actual_value": tick_interval_seconds }
+		)
+	if stacks < 1 or (max_stacks >= 1 and stacks > max_stacks):
+		var _initial_stacks_issue: Dictionary = GFValidationReportDictionary.append_issue(
+			report,
+			"error",
+			&"invalid_initial_stacks",
+			"stacks must be between 1 and max_stacks",
+			{ "field": &"stacks", "actual_value": stacks, "max_stacks": max_stacks }
+		)
 	if buff_script != null and _instantiate_script_buff(buff_script) == null:
 		var _script_issue: Dictionary = GFValidationReportDictionary.append_issue(
 			report,
@@ -231,6 +262,12 @@ func to_dictionary() -> Dictionary:
 
 
 # --- 私有/辅助方法 ---
+
+func _is_duration_valid() -> bool:
+	return (
+		_GF_COMBAT_FINITE_MATH.is_finite_float(duration)
+		and (duration == -1.0 or duration >= 0.0)
+	)
 
 func _instantiate_buff() -> GFBuff:
 	var scripted: GFBuff = _instantiate_script_buff(buff_script)

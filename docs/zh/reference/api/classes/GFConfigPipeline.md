@@ -70,7 +70,7 @@ func get_stage_descriptors() -> Array[Dictionary]:
 
 结构：
 
-- `return`: Array[Dictionary]，每项包含 stage_id、implementation_version、implementation_path 和阶段契约字段。
+- `return`: Array[Dictionary]，每项包含 stage_id、implementation_version、implementation_path、implementation_dependencies 和阶段契约字段。
 
 <a id="member-gfconfigpipeline-methods-build_table"></a>
 
@@ -97,7 +97,7 @@ func build_table(source: GFConfigPipelineTableSource, options: Dictionary = {}) 
 结构：
 
 - `options`: Dictionary，可包含 parse_options 和 rebuild_indexes。
-- `return`: Dictionary，包含 success、table、ir、report、source_path、format 和 error。
+- `return`: Dictionary，包含 success、table、ir、report、source_path、format、source_receipt 和 error。
 
 <a id="member-gfconfigpipeline-methods-build_table_from_text"></a>
 
@@ -153,7 +153,7 @@ func build_database( sources: Array, options: Dictionary = {} ) -> Dictionary:
 
 - `sources`: Array[GFConfigPipelineTableSource]。
 - `options`: Dictionary，可包含 database_id、version、metadata、validate_database、validate_schema、parse_options 和 rebuild_indexes。
-- `return`: Dictionary，包含 success、database、ir、report、table_results 和 error。
+- `return`: Dictionary，包含 success、database、ir、report、table_results 和 error；每个成功 table_result 都包含绑定实际读取字节的 source_receipt。
 
 <a id="member-gfconfigpipeline-methods-build_profile"></a>
 
@@ -181,7 +181,7 @@ func build_profile(profile: GFConfigPipelineProfile, options: Dictionary = {}) -
 
 - `profile`: GFConfigPipelineProfile resource。
 - `options`: Dictionary，可包含 build_options、database_id、version、metadata、validate_database、validate_schema、parse_options 和 rebuild_indexes。
-- `return`: Dictionary，包含 success、database、report、table_results、profile_id、output_path 和 error。
+- `return`: Dictionary，包含 success、database、report、table_results、profile_id、output_path 和 error；每个成功 table_result 都包含绑定实际读取字节的 source_receipt。
 
 <a id="member-gfconfigpipeline-methods-export_profile"></a>
 
@@ -209,7 +209,7 @@ func export_profile(profile: GFConfigPipelineProfile, options: Dictionary = {}) 
 
 - `profile`: GFConfigPipelineProfile resource。
 - `options`: Dictionary，可包含 output_path、build_options、save_options、access_output_path、access_options、access_class_name、access_provider_accessor、database_id、version、metadata、validate_database、validate_schema、parse_options、rebuild_indexes、changed_only、manifest_path、write_manifest、manifest_options、manifest_metadata、scan_filesystem、max_freshness_file_bytes、max_freshness_total_bytes 和 max_freshness_entries；save_options、access_options 与 manifest_options 可分别包含 allow_unowned_overwrite。批量导出会强制所有 constituent 禁止 scan，并且仅在整批事务成功后按顶层 scan_filesystem 执行一次编辑器扫描。
-- `return`: Dictionary，包含 success、database、report、table_results、build_result、save_result、access_result、manifest_path、manifest、manifest_result、profile_id、output_path、error、transaction_result、recovery_required、recovery_action 和 recovery_transaction；recovery_required 为 true 时调用方必须按 recovery_action 使用 recovery_transaction 完成结果要求的终态动作。
+- `return`: Dictionary，包含 success、database、report、table_results、build_result、save_result、access_result、manifest_path、manifest、manifest_result、source_validation_report、profile_id、output_path、error、transaction_result、recovery_required、recovery_action 和 recovery_transaction；写 manifest 时会在事务完成前复核 source_receipt，来源变化会回滚整批产物；recovery_required 为 true 时调用方必须按 recovery_action 使用 recovery_transaction 完成结果要求的终态动作。
 
 <a id="member-gfconfigpipeline-methods-make_database_export"></a>
 
@@ -229,13 +229,13 @@ func make_database_export(database: GFConfigDatabaseResource, options: Dictionar
 | 名称 | 说明 |
 |---|---|
 | `database` | 要导出的配置数据库资源。 |
-| `options` | 可选导出选项，支持 include_schema、include_indexes 和 max_depth。 |
+| `options` | 可选导出选项，支持 include_schema、include_indexes、max_depth、max_nodes 和 max_output_bytes。 |
 
 返回：JSON 兼容导出字典；数据库为空或存在不支持的 Variant 时返回空字典。
 
 结构：
 
-- `options`: Dictionary，可包含 include_schema、include_indexes 和 max_depth。
+- `options`: Dictionary，可包含 include_schema、include_indexes、max_depth、max_nodes 和 max_output_bytes；调用方值会被框架绝对上限约束。
 - `return`: Dictionary，包含 format、format_version、database_id、version、metadata 和 tables。
 
 <a id="member-gfconfigpipeline-methods-save_database"></a>
@@ -263,7 +263,7 @@ func save_database( database: GFConfigDatabaseResource, output_path: String, opt
 
 结构：
 
-- `options`: Dictionary，可包含 output_format、include_schema、include_indexes、indent、sort_keys、overwrite_existing、allow_unowned_overwrite、dry_run 和 artifact_metadata；allow_unowned_overwrite 仅用于调用方已明确确认现有文件所有权的迁移场景。
+- `options`: Dictionary，可包含 output_format、include_schema、include_indexes、max_depth、max_nodes、max_output_bytes、indent、sort_keys、overwrite_existing、allow_unowned_overwrite、dry_run 和 artifact_metadata；三个 JSON 预算会被框架绝对上限约束，allow_unowned_overwrite 仅用于调用方已明确确认现有文件所有权的迁移场景。
 - `return`: Dictionary，包含 success、path、format、error_code、error、artifact_report、status、written、changed 和 dry_run。
 
 <a id="member-gfconfigpipeline-methods-generate_access"></a>
@@ -294,4 +294,4 @@ func generate_access( database: GFConfigDatabaseResource, output_path: String, a
 结构：
 
 - `options`: Dictionary，可包含 method_name_style、constant_prefix、record_method_pattern、table_method_pattern、include_schema_comments、include_typed_records、typed_record_method_pattern、typed_record_class_suffix、overwrite_existing、allow_unowned_overwrite、dry_run、scan_filesystem 和 metadata；allow_unowned_overwrite 仅用于调用方已明确确认现有文件所有权的迁移场景。
-- `return`: Dictionary，包含 success、skipped、path、class_name、schema_count、error_code、error 和 artifact_report。
+- `return`: Dictionary，包含 success、skipped、path、class_name、schema_count、input_schema_count、emitted_schema_count、skipped_schema_count、issues、error_code、error 和 artifact_report；schema_count 是 emitted_schema_count 的兼容字段。

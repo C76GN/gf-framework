@@ -2,7 +2,7 @@
   "schema_version": 1,
   "catalog_version": "1.0.0",
   "framework_version": "11.0.0-dev.0",
-  "source_digest": "26a8cb0edc078dc6cc5b56f0f76b470e50bcf938dadc99734f917c08204a0d26",
+  "source_digest": "d1332342a5d8b796486e70184811fabade5c17e90c75c20068181d32e86bbd1c",
   "class_count": 789,
   "package_count": 52,
   "packages": [
@@ -350,7 +350,7 @@
         "gf.standard.debug.editor",
         "gf.standard.spatial.editor"
       ],
-      "description": "Optional data-only standard editor contribution manifest and templates read by the root plugin when installed.",
+      "description": "Optional data-only standard editor contribution catalog read by the root plugin; contribution payloads remain owned by their declaring packages.",
       "representative_path": "addons/gf/standard/editor/gf_editor_contributions.json"
     },
     {
@@ -371,7 +371,7 @@
         "gf.standard.base",
         "gf.standard.input"
       ],
-      "description": "Editor-only input mapping docks and input authoring helpers.",
+      "description": "Editor-only, read-only input mapping diagnostics with optional remap inspection.",
       "representative_path": "addons/gf/standard/input/editor/gf_input_mapping_dock.gd"
     },
     {
@@ -457,7 +457,7 @@
         "gf.standard.base",
         "gf.standard.state_machine"
       ],
-      "description": "Editor-only state machine docks, inspectors, and authoring helpers.",
+      "description": "Editor-only state machine docks, inspectors, authoring helpers, and source templates.",
       "representative_path": "addons/gf/standard/state_machine/node/editor/gf_node_state_machine_dock.gd"
     },
     {
@@ -545,7 +545,7 @@
         "gf.extension.dialogue"
       ],
       "description": "Optional authoring tool that compiles strict JSON text into GF dialogue resources.",
-      "representative_path": "addons/gf/tools/dialogue_text/gf_dialogue_text_compiler.gd"
+      "representative_path": "addons/gf/tools/dialogue_text/gf_dialogue_json_source_parser.gd"
     },
     {
       "id": "gf.tool.network.editor",
@@ -983,7 +983,7 @@
           "kind": "var",
           "name": "priority",
           "signature": "var priority: int = 0",
-          "summary": "拦截器优先级，数值越大越早执行。",
+          "summary": "拦截器优先级，数值越大越早执行。运行期修改从下一次拦截阶段快照开始生效；",
           "visibility": "public"
         },
         {
@@ -1537,7 +1537,7 @@
           "kind": "var",
           "name": "headers",
           "signature": "var headers: Dictionary = {}",
-          "summary": "自定义 HTTP Header。",
+          "summary": "自定义 HTTP Header。字段名必须符合 HTTP token grammar，字段值不得包含非法控制字符；",
           "visibility": "public"
         },
         {
@@ -1936,6 +1936,13 @@
           "name": "get_queue_size",
           "signature": "func get_queue_size() -> int",
           "summary": "获取当前队列长度。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_dropped_event_count",
+          "signature": "func get_dropped_event_count() -> int",
+          "summary": "获取因队列或载荷预算而丢弃的累计事件数。",
           "visibility": "public"
         },
         {
@@ -7972,6 +7979,34 @@
           "visibility": "public"
         },
         {
+          "kind": "const",
+          "name": "DEFAULT_MAX_SCANNED_ENTRIES",
+          "signature": "const DEFAULT_MAX_SCANNED_ENTRIES: int = 100000",
+          "summary": "默认单次扫描检查的目录项总数上限。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "ABSOLUTE_MAX_SCAN_DEPTH",
+          "signature": "const ABSOLUTE_MAX_SCAN_DEPTH: int = 64",
+          "summary": "单次扫描递归深度的框架绝对硬上限。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "ABSOLUTE_MAX_AUDIO_PATHS",
+          "signature": "const ABSOLUTE_MAX_AUDIO_PATHS: int = 100000",
+          "summary": "单次扫描收集音频路径数量的框架绝对硬上限。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "ABSOLUTE_MAX_SCANNED_ENTRIES",
+          "signature": "const ABSOLUTE_MAX_SCANNED_ENTRIES: int = 1000000",
+          "summary": "单次扫描检查目录项总数的框架绝对硬上限。",
+          "visibility": "public"
+        },
+        {
           "kind": "func",
           "name": "is_audio_path",
           "signature": "static func is_audio_path(path: String, extensions: PackedStringArray = AUDIO_EXTENSIONS) -> bool",
@@ -8798,6 +8833,20 @@
       "since": "7.0.0",
       "members": [
         {
+          "kind": "const",
+          "name": "DEFAULT_MAX_ID3_BYTES",
+          "signature": "const DEFAULT_MAX_ID3_BYTES: int = 1024 * 1024",
+          "summary": "默认单次 ID3 读取与解析的字节上限（含 10-byte header）。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "ABSOLUTE_MAX_ID3_BYTES",
+          "signature": "const ABSOLUTE_MAX_ID3_BYTES: int = 8 * 1024 * 1024",
+          "summary": "框架允许的单次 ID3 读取与解析绝对硬上限（含 10-byte header）。",
+          "visibility": "public"
+        },
+        {
           "kind": "func",
           "name": "normalize_tag_name",
           "signature": "static func normalize_tag_name(tag_name: String) -> StringName",
@@ -9479,6 +9528,13 @@
           "name": "max_sfx_players",
           "signature": "var max_sfx_players: int = 32",
           "summary": "普通与空间 SFX 共用的并发播放数量上限；小于等于 0 表示不限制。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "max_idle_ambient_players",
+          "signature": "var max_idle_ambient_players: int = 16",
+          "summary": "已停止环境音播放器的最大空闲缓存数量；0 表示停止后立即释放。",
           "visibility": "public"
         },
         {
@@ -10637,6 +10693,13 @@
         },
         {
           "kind": "func",
+          "name": "tick",
+          "signature": "func tick(delta: float) -> void",
+          "summary": "推进自动 flush 计时；由持有该 sink 的 GFLogUtility 调用。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
           "name": "flush",
           "signature": "func flush() -> void",
           "summary": "发送当前队列中的一批日志。",
@@ -10646,7 +10709,7 @@
           "kind": "func",
           "name": "shutdown",
           "signature": "func shutdown() -> void",
-          "summary": "关闭 sink 并尽力 flush。",
+          "summary": "关闭 sink，并在同步发送持续取得进展时排空全部批次。",
           "visibility": "public"
         },
         {
@@ -12804,14 +12867,14 @@
           "kind": "var",
           "name": "max_read_byte_count",
           "signature": "var max_read_byte_count: int = _DEFAULT_MAX_READ_BYTE_COUNT",
-          "summary": "单次读取允许的最大字节数。小于等于 0 表示不限制。",
+          "summary": "单次公开读取允许的最大字节数。复合字段包含前缀与 payload；小于等于 0 表示不限制。",
           "visibility": "public"
         },
         {
           "kind": "var",
           "name": "max_write_byte_count",
           "signature": "var max_write_byte_count: int = _DEFAULT_MAX_WRITE_BYTE_COUNT",
-          "summary": "单次写入允许的最大字节数。小于等于 0 表示不限制。",
+          "summary": "单次公开写入允许的最大字节数。复合字段包含前缀与 payload；小于等于 0 表示不限制。",
           "visibility": "public"
         },
         {
@@ -13105,7 +13168,7 @@
           "kind": "func",
           "name": "get_last_error",
           "signature": "func get_last_error() -> Error",
-          "summary": "获取最近错误码。",
+          "summary": "获取最近一次操作的错误码。",
           "visibility": "public"
         },
         {
@@ -15853,7 +15916,7 @@
           "kind": "var",
           "name": "current_value",
           "signature": "var current_value: float = 0.0",
-          "summary": "应用后数值。",
+          "summary": "该动作提交后的数值快照；不包含观察信号触发的后续嵌套变更。",
           "visibility": "public"
         },
         {
@@ -16242,7 +16305,7 @@
         {
           "kind": "signal",
           "name": "buff_removal_reported",
-          "signature": "signal buff_removal_reported(",
+          "signature": "signal buff_removal_reported( entity: Object, buff_id: StringName, reason: StringName, lifecycle_report: Dictionary )",
           "summary": "Buff 已从系统索引移除并完成 best-effort 清理。",
           "visibility": "public"
         },
@@ -16608,7 +16671,7 @@
           "kind": "signal",
           "name": "step_started",
           "signature": "signal step_started(index: int, step: Variant)",
-          "summary": "步骤开始执行时发出。",
+          "summary": "步骤即将执行时发出。同步监听器可调用 [method cancel]，在 execute() 副作用提交前取消本步骤；",
           "visibility": "public"
         },
         {
@@ -16713,7 +16776,7 @@
           "kind": "var",
           "name": "signal_timeout_seconds",
           "signature": "var signal_timeout_seconds: float = 30.0",
-          "summary": "等待步骤 Signal 的超时时间（秒）。小于等于 0 时表示不启用超时。",
+          "summary": "等待步骤 Signal 的超时时间（秒）。小于等于 0 时表示不启用超时；",
           "visibility": "public"
         },
         {
@@ -17303,6 +17366,13 @@
         },
         {
           "kind": "func",
+          "name": "build_source_with_report",
+          "signature": "func build_source_with_report( schemas: Array, access_class_name: String = DEFAULT_CLASS_NAME, provider_accessor: String = DEFAULT_PROVIDER_ACCESSOR, options: Dictionary = {} ) -> Dictionary",
+          "summary": "根据 schema 列表生成源码与机器可读的完整性报告。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
           "name": "build_source",
           "signature": "func build_source( schemas: Array, access_class_name: String = DEFAULT_CLASS_NAME, provider_accessor: String = DEFAULT_PROVIDER_ACCESSOR, options: Dictionary = {} ) -> String",
           "summary": "根据 schema 列表生成访问器源码。",
@@ -17834,6 +17904,13 @@
           "signature": "func get_default_manifest_path(output_path: String) -> String",
           "summary": "根据输出路径推导默认 manifest 路径。",
           "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "make_source_receipt_validation_report",
+          "signature": "func make_source_receipt_validation_report( profile: GFConfigPipelineProfile, run_result: Dictionary, options: Dictionary = {} ) -> Dictionary",
+          "summary": "校验当前来源路径仍与本次编译实际读取的 source receipts 一致。",
+          "visibility": "public"
         }
       ]
     },
@@ -18054,7 +18131,7 @@
         {
           "kind": "const",
           "name": "IMPLEMENTATION_VERSION",
-          "signature": "const IMPLEMENTATION_VERSION: int = 2",
+          "signature": "const IMPLEMENTATION_VERSION: int = 3",
           "summary": "Layout 阶段的实现版本；改变布局解析语义时递增。",
           "visibility": "public"
         },
@@ -18253,7 +18330,7 @@
         {
           "kind": "const",
           "name": "IMPLEMENTATION_VERSION",
-          "signature": "const IMPLEMENTATION_VERSION: int = 1",
+          "signature": "const IMPLEMENTATION_VERSION: int = 2",
           "summary": "Reader 阶段的实现版本；改变读取语义时递增。",
           "visibility": "public"
         },
@@ -18567,7 +18644,7 @@
         {
           "kind": "const",
           "name": "IMPLEMENTATION_VERSION",
-          "signature": "const IMPLEMENTATION_VERSION: int = 1",
+          "signature": "const IMPLEMENTATION_VERSION: int = 2",
           "summary": "Target 阶段的实现版本；改变 Resource 或 JSON 物化语义时递增。",
           "visibility": "public"
         },
@@ -18628,7 +18705,7 @@
         {
           "kind": "const",
           "name": "IMPLEMENTATION_VERSION",
-          "signature": "const IMPLEMENTATION_VERSION: int = 1",
+          "signature": "const IMPLEMENTATION_VERSION: int = 2",
           "summary": "Validation 阶段的实现版本；改变语义校验或 IR 生成语义时递增。",
           "visibility": "public"
         },
@@ -19445,7 +19522,7 @@
       "module": "standard",
       "package_id": "gf.standard.config",
       "path": "addons/gf/standard/utilities/config/gf_config_table_importer.gd",
-      "summary": "GFConfigTableImporter: 通用导表文本解析与 schema 校验入口。 提供 JSON、CSV、ConfigFile 与二维文本行的轻量解析，适合编辑器工具或 CI 在进入项目 Provider 前做结构检查。",
+      "summary": "GFConfigTableImporter: 通用导表文本解析与 schema 校验入口。 提供 JSON、CSV、ConfigFile 与二维文本行的轻量解析，适合编辑器工具或 CI 在进入项目 Provider 前做结构检查。 直接接收内存文本/行的入口不执行字节、行、列或累计单元格预算；调用方必须只传受信数据，或在调用前完成容量预检。",
       "visibility": "public",
       "category": "runtime_service",
       "since": "3.17.0",
@@ -19914,7 +19991,7 @@
         {
           "kind": "func",
           "name": "values",
-          "signature": "func values(path: String = \"\") -> Array",
+          "signature": "func values(path: String = \"\", duplicate_values: bool = true) -> Array",
           "summary": "返回匹配记录中的字段值。",
           "visibility": "public"
         },
@@ -20431,7 +20508,7 @@
         {
           "kind": "const",
           "name": "CONTEXT_FIELDS",
-          "signature": "const CONTEXT_FIELDS: Array[String] = [",
+          "signature": "const CONTEXT_FIELDS: Array[String] = [\n\t\"row_key\",\n\t\"field\",\n\t\"source\",\n\t\"line\",\n\t\"column\",\n\t\"row_index\",\n\t\"column_index\",\n\t\"rule_id\",\n\t\"value\",\n\t\"expected_value\",\n\t\"actual_value\",\n\t\"supported_values\",\n\t\"supported_values_count\",\n\t\"supported_values_sample\",\n\t\"supported_values_preview_hash\",\n\t\"supported_values_truncated\",\n\t\"supported_formats\",\n\t\"supported_content_types\",\n]",
           "summary": "从校验上下文复制到单条 issue 的字段名。",
           "visibility": "public"
         },
@@ -21553,6 +21630,13 @@
         },
         {
           "kind": "func",
+          "name": "to_report_dictionary",
+          "signature": "func to_report_dictionary(options: Dictionary = {}) -> Dictionary",
+          "summary": "转换为 JSON-safe 报告字典。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
           "name": "duplicate_query",
           "signature": "func duplicate_query() -> GFContentPackageQuery",
           "summary": "创建查询深拷贝。",
@@ -22466,7 +22550,7 @@
           "kind": "var",
           "name": "default_lifetime_seconds",
           "signature": "var default_lifetime_seconds: float = 0.0",
-          "summary": "默认生命周期。小于 0 表示永久保留，0 表示等待下一次 tick 后清理。",
+          "summary": "默认生命周期。小于 0 表示永久保留，0 表示等待下一次 tick 后清理；",
           "visibility": "public"
         },
         {
@@ -23104,7 +23188,14 @@
           "kind": "func",
           "name": "get_debug_snapshot",
           "signature": "func get_debug_snapshot(context: GFDecisionContext) -> Dictionary",
-          "summary": "获取考虑项调试快照。",
+          "summary": "现场评分并获取考虑项调试快照。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_debug_snapshot_from_score",
+          "signature": "func get_debug_snapshot_from_score(score_value: float) -> Dictionary",
+          "summary": "从预计算分数获取考虑项调试快照，不执行自定义评分逻辑。",
           "visibility": "public"
         },
         {
@@ -23172,14 +23263,14 @@
           "kind": "var",
           "name": "subject_values",
           "signature": "var subject_values: Dictionary = {}",
-          "summary": "主体决策值快照视图。容器会复制，但其中的 Object/Resource 身份保持共享；缺失 key 可被懒缓存补充。",
+          "summary": "主体决策值快照视图。容器会循环安全地复制，但其中的 Object/Resource 身份保持共享；缺失 key 可被懒缓存补充。",
           "visibility": "public"
         },
         {
           "kind": "var",
           "name": "target_values",
           "signature": "var target_values: Dictionary = {}",
-          "summary": "目标决策值快照视图。容器会复制，但其中的 Object/Resource 身份保持共享；缺失 key 可被懒缓存补充。",
+          "summary": "目标决策值快照视图。容器会循环安全地复制，但其中的 Object/Resource 身份保持共享；缺失 key 可被懒缓存补充。",
           "visibility": "public"
         },
         {
@@ -23235,14 +23326,14 @@
           "kind": "func",
           "name": "get_subject_value",
           "signature": "func get_subject_value(key: StringName, fallback: Variant = null) -> Variant",
-          "summary": "从主体快照视图读取决策值；缺失 key 可触发一次受预算约束的 provider 懒读取并缓存。",
+          "summary": "从主体快照视图读取决策值；每个缺失 key 最多触发一次受预算约束的 provider 懒读取，miss 也会负缓存并消费预算。",
           "visibility": "public"
         },
         {
           "kind": "func",
           "name": "get_target_value",
           "signature": "func get_target_value(key: StringName, fallback: Variant = null) -> Variant",
-          "summary": "从目标快照视图读取决策值；缺失 key 可触发一次受预算约束的 provider 懒读取并缓存。",
+          "summary": "从目标快照视图读取决策值；每个缺失 key 最多触发一次受预算约束的 provider 懒读取，miss 也会负缓存并消费预算。",
           "visibility": "public"
         },
         {
@@ -25716,7 +25807,7 @@
       "module": "tools",
       "package_id": "gf.tool.dialogue_text",
       "path": "addons/gf/tools/dialogue_text/gf_dialogue_text_compiler.gd",
-      "summary": "GFDialogueTextCompiler: 对话 JSON 文本编译器。 在制作期、编辑器期或 CI 中把严格、可审计的 JSON 文本编译为 GFDialogueResource。 编译器只解释对话资源已有字段，不定义角色、任务、本地化、UI 或项目状态语义。",
+      "summary": "GFDialogueTextCompiler: 对话 JSON 文本编译器。 在制作期、编辑器期或 CI 中把严格、可审计的 JSON 文本编译为 GFDialogueResource。 strict 边界拒绝重复 member、宽松 JSON、非法 Unicode、int64 外整数、非有限、",
       "visibility": "public",
       "category": "tool_api",
       "since": "9.0.0",
@@ -26817,7 +26908,7 @@
           "kind": "signal",
           "name": "drag_started",
           "signature": "signal drag_started(session_id: int, drag_type: StringName)",
-          "summary": "拖拽开始时发出。",
+          "summary": "控制器已提交 session、pointer、source 监听和可选 reparent 后同步发出。",
           "visibility": "public"
         },
         {
@@ -26831,21 +26922,21 @@
           "kind": "signal",
           "name": "drag_dropped",
           "signature": "signal drag_dropped(session_id: int, zone_id: StringName, result: Dictionary)",
-          "summary": "拖拽成功释放到落点时发出。",
+          "summary": "旧会话的 pointer/source/reparent lease 已清理后同步发出。",
           "visibility": "public"
         },
         {
           "kind": "signal",
           "name": "drag_drop_rejected",
           "signature": "signal drag_drop_rejected(session_id: int, reason: StringName)",
-          "summary": "拖拽释放被拒绝时发出。",
+          "summary": "拖拽释放被拒绝时发出；终态拒绝会先清理旧 lease，可重试拒绝仍保留会话。",
           "visibility": "public"
         },
         {
           "kind": "signal",
           "name": "drag_cancelled",
           "signature": "signal drag_cancelled(session_id: int, reason: StringName)",
-          "summary": "拖拽取消时发出。",
+          "summary": "旧会话的 pointer/source/reparent lease 已清理后同步发出。",
           "visibility": "public"
         },
         {
@@ -27011,7 +27102,7 @@
           "kind": "signal",
           "name": "drag_started",
           "signature": "signal drag_started(session_id: int, drag_type: StringName)",
-          "summary": "拖拽开始时发出。",
+          "summary": "会话写入注册表后同步发出。监听器可以取消该会话；此时 start_drag() 返回 -1。",
           "visibility": "public"
         },
         {
@@ -27025,21 +27116,21 @@
           "kind": "signal",
           "name": "drag_dropped",
           "signature": "signal drag_dropped(session_id: int, zone_id: StringName, result: Dictionary)",
-          "summary": "拖拽成功释放到落点时发出。",
+          "summary": "会话提交成功终态并从注册表移除后同步发出。",
           "visibility": "public"
         },
         {
           "kind": "signal",
           "name": "drag_drop_rejected",
           "signature": "signal drag_drop_rejected(session_id: int, reason: StringName)",
-          "summary": "拖拽释放被拒绝时发出。",
+          "summary": "拖拽释放被拒绝时同步发出。callback 拒绝与落点变化会保留会话，",
           "visibility": "public"
         },
         {
           "kind": "signal",
           "name": "drag_cancelled",
           "signature": "signal drag_cancelled(session_id: int)",
-          "summary": "拖拽取消时发出。",
+          "summary": "会话从注册表移除后同步发出。",
           "visibility": "public"
         },
         {
@@ -27102,7 +27193,7 @@
           "kind": "func",
           "name": "clear_zones",
           "signature": "func clear_zones() -> void",
-          "summary": "清空落点。",
+          "summary": "清空调用开始时存在的落点。同步注销回调中新注册的落点会保留。",
           "visibility": "public"
         },
         {
@@ -27172,7 +27263,7 @@
           "kind": "func",
           "name": "clear_sessions",
           "signature": "func clear_sessions() -> void",
-          "summary": "清空拖拽会话。",
+          "summary": "清空调用开始时存在的拖拽会话。同步取消回调中新建的会话会保留。",
           "visibility": "public"
         },
         {
@@ -27849,6 +27940,20 @@
         },
         {
           "kind": "func",
+          "name": "_get_undo_context",
+          "signature": "func _get_undo_context() -> Object",
+          "summary": "返回用于 EditorUndoRedoManager 历史路由的实际变更上下文。",
+          "visibility": "protected"
+        },
+        {
+          "kind": "func",
+          "name": "_get_undo_targets",
+          "signature": "func _get_undo_targets() -> Array[Object]",
+          "summary": "返回命令会修改的全部对象，用于拒绝跨 UndoRedo history 的混合事务。",
+          "visibility": "protected"
+        },
+        {
+          "kind": "func",
           "name": "_can_change_configuration",
           "signature": "func _can_change_configuration(field_name: String) -> bool",
           "summary": "返回指定配置字段当前是否可修改。",
@@ -28490,6 +28595,20 @@
         },
         {
           "kind": "func",
+          "name": "_get_undo_context",
+          "signature": "func _get_undo_context() -> Object",
+          "summary": "返回第一个有效属性目标，作为 EditorUndoRedoManager 的 history 上下文。",
+          "visibility": "protected"
+        },
+        {
+          "kind": "func",
+          "name": "_get_undo_targets",
+          "signature": "func _get_undo_targets() -> Array[Object]",
+          "summary": "返回全部唯一属性目标，供基类拒绝跨 UndoRedo history 的混合事务。",
+          "visibility": "protected"
+        },
+        {
+          "kind": "func",
           "name": "_undo_it",
           "signature": "func _undo_it() -> Error",
           "summary": "撤销属性事务，或恢复首次执行失败留下的残余状态。",
@@ -28568,6 +28687,13 @@
           "name": "_undo_it",
           "signature": "func _undo_it() -> Error",
           "summary": "撤销 metadata 修改。",
+          "visibility": "protected"
+        },
+        {
+          "kind": "func",
+          "name": "_get_undo_context",
+          "signature": "func _get_undo_context() -> Object",
+          "summary": "返回 metadata 实际修改的节点，确保 action 进入对应场景历史。",
           "visibility": "protected"
         }
       ]
@@ -30045,21 +30171,21 @@
         {
           "kind": "func",
           "name": "load_extension_manifests",
-          "signature": "static func load_extension_manifests() -> Array[GFExtensionManifest]",
+          "signature": "static func load_extension_manifests(options: Dictionary = {}) -> Array[GFExtensionManifest]",
           "summary": "读取 GF 内置可选扩展 manifest。",
           "visibility": "public"
         },
         {
           "kind": "func",
           "name": "load_all_manifests",
-          "signature": "static func load_all_manifests(extra_root_paths: Array[String] = []) -> Array[GFExtensionManifest]",
+          "signature": "static func load_all_manifests( extra_root_paths: Array[String] = [], options: Dictionary = {} ) -> Array[GFExtensionManifest]",
           "summary": "读取所有 GF 可选扩展 manifest。",
           "visibility": "public"
         },
         {
           "kind": "func",
           "name": "load_manifests_in",
-          "signature": "static func load_manifests_in(root_path: String) -> Array[GFExtensionManifest]",
+          "signature": "static func load_manifests_in( root_path: String, options: Dictionary = {} ) -> Array[GFExtensionManifest]",
           "summary": "读取指定根目录下一层扩展目录中的 manifest。",
           "visibility": "public"
         },
@@ -30474,6 +30600,27 @@
       "since": "8.0.0",
       "members": [
         {
+          "kind": "const",
+          "name": "STATUS_VALID",
+          "signature": "const STATUS_VALID: StringName = &\"valid\"",
+          "summary": "启用选择完整有效。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "STATUS_PARTIAL",
+          "signature": "const STATUS_PARTIAL: StringName = &\"partial\"",
+          "summary": "启用选择包含可隔离的问题，但已验证的已知扩展路径仍可使用。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "STATUS_INVALID",
+          "signature": "const STATUS_INVALID: StringName = &\"invalid\"",
+          "summary": "Manifest 图无效，任何扩展路径都不得使用。",
+          "visibility": "public"
+        },
+        {
           "kind": "func",
           "name": "get_snapshot",
           "signature": "static func get_snapshot( manifests: Array[GFExtensionManifest] = [], configured_ids: Array[String] = [], options: Dictionary = {} ) -> Dictionary",
@@ -30614,7 +30761,7 @@
         {
           "kind": "const",
           "name": "BUILT_IN_EXTENSION_IDS",
-          "signature": "const BUILT_IN_EXTENSION_IDS: Array[String] = [",
+          "signature": "const BUILT_IN_EXTENSION_IDS: Array[String] = [\n\t\"gf.kernel\",\n\t\"gf.standard\",\n]",
           "summary": "内置依赖 ID。这些不是可启停扩展 manifest，但允许被扩展声明为基础依赖。",
           "visibility": "public"
         },
@@ -30955,14 +31102,14 @@
         {
           "kind": "const",
           "name": "PATH_FIELDS",
-          "signature": "const PATH_FIELDS: Array[String] = [",
+          "signature": "const PATH_FIELDS: Array[String] = [\n\t\"access_generator_extension_paths\",\n\t\"debugger_plugin_paths\",\n\t\"editor_action_paths\",\n\t\"editor_dock_paths\",\n\t\"editor_inspector_paths\",\n\t\"export_plugin_paths\",\n\t\"gltf_document_extension_paths\",\n\t\"import_plugin_paths\",\n]",
           "summary": "所有可声明的工具贡献路径字段。",
           "visibility": "public"
         },
         {
           "kind": "const",
           "name": "ALLOWED_FIELDS",
-          "signature": "const ALLOWED_FIELDS: Array[String] = [",
+          "signature": "const ALLOWED_FIELDS: Array[String] = [\n\t\"schema_version\",\n\t\"extension_id\",\n\t\"access_generator_extension_paths\",\n\t\"debugger_plugin_paths\",\n\t\"editor_action_paths\",\n\t\"editor_dock_paths\",\n\t\"editor_inspector_paths\",\n\t\"export_plugin_paths\",\n\t\"gltf_document_extension_paths\",\n\t\"import_plugin_paths\",\n]",
           "summary": "工具贡献文件允许的全部顶层字段。",
           "visibility": "public"
         },
@@ -31079,14 +31226,14 @@
         {
           "kind": "const",
           "name": "DEFAULT_IGNORED_ROOTS",
-          "signature": "const DEFAULT_IGNORED_ROOTS: Array[String] = [",
+          "signature": "const DEFAULT_IGNORED_ROOTS: Array[String] = [\n\t\"res://.godot\",\n\t\"res://.git\",\n\t\"res://.gf\",\n\t\"res://addons/gf\",\n\t\"res://build\",\n\t\"res://packages\",\n]",
           "summary": "默认忽略的根目录。",
           "visibility": "public"
         },
         {
           "kind": "const",
           "name": "TEXT_FILE_EXTENSIONS",
-          "signature": "const TEXT_FILE_EXTENSIONS: Array[String] = [",
+          "signature": "const TEXT_FILE_EXTENSIONS: Array[String] = [\n\t\"cfg\",\n\t\"csv\",\n\t\"gd\",\n\t\"gdshader\",\n\t\"godot\",\n\t\"import\",\n\t\"json\",\n\t\"shader\",\n\t\"tscn\",\n\t\"tres\",\n]",
           "summary": "作为文本扫描的资源扩展名。",
           "visibility": "public"
         },
@@ -31102,6 +31249,13 @@
           "name": "find_references_to_root",
           "signature": "static func find_references_to_root(root_path: String, options: Dictionary = {}) -> Array[Dictionary]",
           "summary": "查找项目文件中对指定扩展根目录的直接路径引用。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "find_references_to_root_report",
+          "signature": "static func find_references_to_root_report( root_path: String, options: Dictionary = {} ) -> Dictionary",
+          "summary": "查找项目文件中对指定扩展根目录的直接引用，并返回扫描完整性报告。",
           "visibility": "public"
         }
       ]
@@ -32917,8 +33071,8 @@
         {
           "kind": "var",
           "name": "is_running",
-          "signature": "var is_running: bool = false",
-          "summary": "当前是否正在执行。",
+          "signature": "var is_running: bool",
+          "summary": "当前是否正在执行。该状态只读；调用方不能用它控制或结束流程。",
           "visibility": "public"
         },
         {
@@ -32931,7 +33085,7 @@
         {
           "kind": "var",
           "name": "signal_timeout_seconds",
-          "signature": "var signal_timeout_seconds: float = 30.0",
+          "signature": "var signal_timeout_seconds: float = _DEFAULT_SIGNAL_TIMEOUT_SECONDS",
           "summary": "Signal 等待超时时间。小于等于 0 表示不启用超时。",
           "visibility": "public"
         },
@@ -33695,7 +33849,7 @@
         {
           "kind": "enum",
           "name": "CombinationMode",
-          "signature": "enum CombinationMode {\n\t## 汇总所有有效力场的加速度。\n\tSUM,\n\t## 只使用当前点加速度长度最大的力场。\n\tSTRONGEST,\n\t## 只汇总当前点非零加速度中最高优先级的力场。\n\tHIGHEST_PRIORITY,\n}",
+          "signature": "enum CombinationMode {\n\t## 汇总所有有效力场的加速度。\n\tSUM,\n\t## 只使用当前点加速度长度最大的力场；幅值比较不会计算可能溢出的原始平方范数。\n\tSTRONGEST,\n\t## 只汇总当前点非零加速度中最高优先级的力场；priority 使用完整 GDScript int 值域。\n\tHIGHEST_PRIORITY,\n}",
           "summary": "多个力场重叠时的采样组合策略。",
           "visibility": "public"
         },
@@ -34800,7 +34954,7 @@
         {
           "kind": "const",
           "name": "DEFAULT_CARDINAL_OFFSETS",
-          "signature": "const DEFAULT_CARDINAL_OFFSETS: Array[Vector2i] = [",
+          "signature": "const DEFAULT_CARDINAL_OFFSETS: Array[Vector2i] = [\n\tVector2i(0, -1),\n\tVector2i(1, 0),\n\tVector2i(0, 1),\n\tVector2i(-1, 0),\n]",
           "summary": "默认四邻域 offset 顺序：上、右、下、左。",
           "visibility": "public"
         },
@@ -35045,7 +35199,7 @@
       "module": "extensions/feedback",
       "package_id": "gf.extension.feedback",
       "path": "addons/gf/extensions/feedback/runtime/gf_haptic_backend.gd",
-      "summary": "GFHapticBackend: 震动输出后端协议。 项目可实现该协议，把 GFHapticUtility 的采样输出路由到平台 SDK、远程设备、 测试替身或自定义输入系统。该协议只承载输出能力，不定义播放策略。",
+      "summary": "GFHapticBackend: 震动输出后端协议。 项目可实现该协议，把 GFHapticUtility 的采样输出路由到平台 SDK、远程设备、 测试替身或自定义输入系统。该协议只承载输出能力，不定义播放策略。实现必须成对",
       "visibility": "public",
       "category": "protocol",
       "since": "8.0.0",
@@ -35094,7 +35248,7 @@
           "kind": "var",
           "name": "duration_seconds",
           "signature": "var duration_seconds: float = 0.25",
-          "summary": "持续时间，单位秒。",
+          "summary": "持续时间，单位秒。非有限值按 0 处理，因此不能表示无限播放。",
           "visibility": "public"
         },
         {
@@ -35215,6 +35369,20 @@
           "visibility": "public"
         },
         {
+          "kind": "const",
+          "name": "DEFAULT_OUTPUT_REFRESH_SECONDS",
+          "signature": "const DEFAULT_OUTPUT_REFRESH_SECONDS: float = 0.05",
+          "summary": "默认向输入系统刷新合成震动输出的间隔（秒）。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "MIN_OUTPUT_DURATION_SECONDS",
+          "signature": "const MIN_OUTPUT_DURATION_SECONDS: float = 0.001",
+          "summary": "允许提交到底层输出的最短震动时长（秒）。",
+          "visibility": "public"
+        },
+        {
           "kind": "var",
           "name": "default_channel",
           "signature": "var default_channel: StringName = &\"default\"",
@@ -35253,14 +35421,14 @@
           "kind": "var",
           "name": "auto_apply_on_tick",
           "signature": "var auto_apply_on_tick: bool = true",
-          "summary": "tick() 后是否自动把当前采样输出到设备。关闭时，调用方必须在 tick()、stop_haptic()",
+          "summary": "tick() 后是否自动把当前采样输出到设备。该开关只控制 tick()；显式 stop 与 clear",
           "visibility": "public"
         },
         {
           "kind": "var",
           "name": "output_refresh_seconds",
-          "signature": "var output_refresh_seconds: float = 0.05",
-          "summary": "每次输出请求的刷新持续时间，单位秒。",
+          "signature": "var output_refresh_seconds: float = DEFAULT_OUTPUT_REFRESH_SECONDS",
+          "summary": "每次输出请求的刷新持续时间，单位秒。值始终收束为有限正数；非有限值回退到默认值，",
           "visibility": "public"
         },
         {
@@ -35274,21 +35442,21 @@
           "kind": "var",
           "name": "haptic_backend",
           "signature": "var haptic_backend: Object = null",
-          "summary": "可选震动输出后端。有效时优先于 output_handler 和默认 Input 路由。",
+          "summary": "可选震动输出后端。必须同时实现 start_output() 与 stop_output()；有效时优先于",
           "visibility": "public"
         },
         {
           "kind": "var",
           "name": "output_handler",
           "signature": "var output_handler: Callable = Callable()",
-          "summary": "可选输出回调。有效时替代默认 Input/GFInputDeviceUtility 路由。",
+          "summary": "可选输出回调。必须与有效 stop_handler 成对配置；有效时替代默认",
           "visibility": "public"
         },
         {
           "kind": "var",
           "name": "stop_handler",
           "signature": "var stop_handler: Callable = Callable()",
-          "summary": "可选停止回调。有效时替代默认停止路由。",
+          "summary": "可选停止回调。必须与有效 output_handler 成对配置；成功输出后的停止会使用启动时",
           "visibility": "public"
         },
         {
@@ -35309,7 +35477,7 @@
           "kind": "func",
           "name": "dispose",
           "signature": "func dispose() -> void",
-          "summary": "停止全部震动并释放状态。",
+          "summary": "停止全部震动并释放状态。最终停止失败会保留在 get_last_output_report()，但不会在",
           "visibility": "public"
         },
         {
@@ -35429,6 +35597,13 @@
           "name": "get_haptic_info",
           "signature": "func get_haptic_info(haptic_id: int) -> Dictionary",
           "summary": "获取指定震动实例的只读快照。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_last_output_report",
+          "signature": "func get_last_output_report() -> Dictionary",
+          "summary": "获取最近一次包含实际输出、停止或拒绝明细的报告。后续无活动空刷新不会覆盖该报告。",
           "visibility": "public"
         },
         {
@@ -36806,7 +36981,7 @@
           "kind": "var",
           "name": "track_target",
           "signature": "var track_target: bool = true",
-          "summary": "是否每帧重新朝向当前目标。关闭后只在首次解析目标时锁定方向。",
+          "summary": "是否每帧重新朝向当前目标。关闭后只在首次解析目标时锁定方向；",
           "visibility": "public"
         },
         {
@@ -38046,7 +38221,7 @@
           "kind": "var",
           "name": "player_scoped",
           "signature": "var player_scoped: bool = true",
-          "summary": "玩家级动作是否只检查同一玩家。",
+          "summary": "玩家级动作是否只检查同一玩家。启用且 player_index 有效时，runtime 缺少",
           "visibility": "public"
         },
         {
@@ -38281,14 +38456,14 @@
           "kind": "var",
           "name": "lower_threshold",
           "signature": "var lower_threshold: float = 0.2",
-          "summary": "低于该阈值的输入会被视为 0。",
+          "summary": "低于该阈值的输入会被视为 0。与 upper_threshold 相等时形成阶跃：",
           "visibility": "public"
         },
         {
           "kind": "var",
           "name": "upper_threshold",
           "signature": "var upper_threshold: float = 1.0",
-          "summary": "达到该阈值时视为满幅输入。",
+          "summary": "达到该阈值时视为满幅输入；可与 lower_threshold 相等以表达硬阈值。",
           "visibility": "public"
         },
         {
@@ -38349,7 +38524,7 @@
           "kind": "var",
           "name": "elapsed_seconds",
           "signature": "var elapsed_seconds: float = 0.0",
-          "summary": "本轮检测经过的秒数。",
+          "summary": "本轮检测从 begin 到 finish 经过的有限非负秒数。",
           "visibility": "public"
         },
         {
@@ -38391,7 +38566,7 @@
           "kind": "func",
           "name": "to_dictionary",
           "signature": "func to_dictionary() -> Dictionary",
-          "summary": "转换为 JSON 安全字典。",
+          "summary": "转换为 JSON 安全字典。即使 public elapsed_seconds 被外部改成 NaN/Infinity，",
           "visibility": "public"
         },
         {
@@ -38408,7 +38583,7 @@
       "module": "standard",
       "package_id": "gf.standard.input",
       "path": "addons/gf/standard/input/rebinding/gf_input_detector.gd",
-      "summary": "GFInputDetector: 检测下一次输入事件的辅助节点。 可用于项目自己的改键界面。检测结果只返回 Godot InputEvent，冲突处理由项目层决定。",
+      "summary": "GFInputDetector: 检测下一次输入事件的辅助节点。 可用于项目自己的改键界面。检测结果只返回 Godot InputEvent，冲突处理由项目层决定。 一轮检测从 begin 到结构化 finish 全程累计 elapsed；signal handler 可同步开始新一轮，",
       "visibility": "public",
       "category": "runtime_service",
       "since": "3.17.0",
@@ -38473,7 +38648,7 @@
           "kind": "var",
           "name": "timeout_seconds",
           "signature": "var timeout_seconds: float = 0.0",
-          "summary": "检测超时时间。小于等于 0 表示不超时。",
+          "summary": "检测超时时间。小于等于 0 表示不超时；是否启用超时不影响 elapsed 的累计口径。",
           "visibility": "public"
         },
         {
@@ -38501,7 +38676,7 @@
           "kind": "func",
           "name": "begin_detection",
           "signature": "func begin_detection(allowed_device_types: Array[int] = []) -> void",
-          "summary": "开始检测下一次输入。",
+          "summary": "开始检测下一次输入。已有会话会先以 REPLACED 完成；其完成回调若同步开始",
           "visibility": "public"
         },
         {
@@ -38782,7 +38957,7 @@
           "kind": "var",
           "name": "max_players",
           "signature": "var max_players: int = 4",
-          "summary": "允许的最大本地玩家数。",
+          "summary": "允许的最大本地玩家数。运行时缩小时会撤销越界 assignment、清理对应",
           "visibility": "public"
         },
         {
@@ -40119,7 +40294,7 @@
       "module": "standard",
       "package_id": "gf.standard.input.editor",
       "path": "addons/gf/standard/input/editor/gf_input_mapping_dock.gd",
-      "summary": "GFInputMappingDock: GF 输入映射工作区页面。 读取 GFInputContext 资源，展示动作、绑定与重绑定冲突诊断。",
+      "summary": "GFInputMappingDock: GF 输入映射工作区页面。 读取 GFInputContext 资源，展示默认绑定或可选 GFInputRemapConfig 覆盖后的 有效动作、绑定与重绑定冲突诊断。页面只读，不修改 InputMap 或重映射配置。",
       "visibility": "public",
       "category": "editor_api",
       "since": "3.17.0",
@@ -40129,6 +40304,20 @@
           "name": "set_input_context",
           "signature": "func set_input_context(context: GFInputContext) -> void",
           "summary": "载入输入上下文资源。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "set_remap_config",
+          "signature": "func set_remap_config(config: GFInputRemapConfig) -> void",
+          "summary": "设置诊断使用的可选重映射配置。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_remap_config",
+          "signature": "func get_remap_config() -> GFInputRemapConfig",
+          "summary": "获取当前诊断使用的重映射配置。",
           "visibility": "public"
         },
         {
@@ -40358,6 +40547,13 @@
           "name": "get_virtual_source_snapshot",
           "signature": "func get_virtual_source_snapshot(source_id: StringName = &\"virtual\") -> Dictionary",
           "summary": "获取虚拟输入源状态快照。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_virtual_source_snapshot_for_player",
+          "signature": "func get_virtual_source_snapshot_for_player( source_id: StringName = &\"virtual\", player_index: int = -1 ) -> Dictionary",
+          "summary": "获取指定虚拟输入源与玩家身份的状态快照。",
           "visibility": "public"
         },
         {
@@ -40659,7 +40855,7 @@
           "kind": "signal",
           "name": "event_applied",
           "signature": "signal event_applied(event: Dictionary)",
-          "summary": "一个录制事件已被应用。",
+          "summary": "一个录制事件已被应用。事件索引会先提交再同步发出本信号；handler 可以调用",
           "visibility": "public"
         },
         {
@@ -40743,14 +40939,14 @@
           "kind": "func",
           "name": "start",
           "signature": "func start( next_recording: GFInputRecording, next_source: GFVirtualInputSource, restart: bool = true ) -> bool",
-          "summary": "开始回放。",
+          "summary": "开始回放。每次成功调用都会创建新的回放代际；同步回调中启动的新代际不会被",
           "visibility": "public"
         },
         {
           "kind": "func",
           "name": "stop",
           "signature": "func stop(clear_source: bool = false) -> void",
-          "summary": "停止回放。",
+          "summary": "停止回放。调用会先使当前代际失效，再按需清理 source 和发出停止信号。",
           "visibility": "public"
         },
         {
@@ -40764,7 +40960,7 @@
           "kind": "func",
           "name": "tick",
           "signature": "func tick(delta: float) -> int",
-          "summary": "推进回放并应用到期事件。",
+          "summary": "推进回放并应用到期事件。一次调用只向进入 tick 时绑定的 recording/source",
           "visibility": "public"
         },
         {
@@ -40994,7 +41190,7 @@
           "kind": "var",
           "name": "interval_seconds",
           "signature": "var interval_seconds: float = 0.1",
-          "summary": "脉冲间隔秒数。",
+          "summary": "脉冲间隔秒数。非有限赋值会被拒绝并保留最后有效值。",
           "visibility": "public"
         },
         {
@@ -41161,7 +41357,7 @@
       "module": "standard",
       "package_id": "gf.standard.input",
       "path": "addons/gf/standard/input/rebinding/gf_input_remap_config.gd",
-      "summary": "GFInputRemapConfig: 输入重映射配置。 只保存玩家或项目层覆盖过的输入事件，默认绑定仍来自 GFInputContext。",
+      "summary": "GFInputRemapConfig: 输入重映射配置。 只保存玩家或项目层覆盖过的输入事件，默认绑定仍来自 GFInputContext。 通过公开 mutation 方法成功修改配置时会发出 Resource.changed。",
       "visibility": "public",
       "category": "resource_definition",
       "since": "3.17.0",
@@ -41442,7 +41638,7 @@
           "kind": "var",
           "name": "player_scoped",
           "signature": "var player_scoped: bool = true",
-          "summary": "玩家级动作是否只检查同一玩家。",
+          "summary": "玩家级动作是否只检查同一玩家。启用且 player_index 有效时，runtime 必须提供",
           "visibility": "public"
         },
         {
@@ -43273,6 +43469,13 @@
           "visibility": "public"
         },
         {
+          "kind": "var",
+          "name": "max_cancelled_jobs",
+          "signature": "var max_cancelled_jobs: int = 64",
+          "summary": "保留的取消任务数量。",
+          "visibility": "public"
+        },
+        {
           "kind": "func",
           "name": "init",
           "signature": "func init() -> void",
@@ -43573,7 +43776,7 @@
           "kind": "var",
           "name": "file_path",
           "signature": "var file_path: String = \"\"",
-          "summary": "输出文件路径。留空时会根据 GFLogUtility 当前日志文件派生同名 `.jsonl` 文件。",
+          "summary": "输出文件路径。留空时会根据 GFLogUtility 当前日志文件和 sink 实例派生独占 `.jsonl` 文件。",
           "visibility": "public"
         },
         {
@@ -43630,6 +43833,13 @@
           "name": "write",
           "signature": "func write(entry: Dictionary) -> void",
           "summary": "写入一条结构化日志。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "tick",
+          "signature": "func tick(delta: float) -> void",
+          "summary": "推进自动 flush 计时；由持有该 sink 的 GFLogUtility 调用。",
           "visibility": "public"
         },
         {
@@ -44339,6 +44549,13 @@
         },
         {
           "kind": "func",
+          "name": "tick",
+          "signature": "func tick(_delta: float) -> void",
+          "summary": "推进依赖时间的 sink 行为。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
           "name": "flush",
           "signature": "func flush() -> void",
           "summary": "刷新尚未写出的缓冲。",
@@ -44452,6 +44669,13 @@
           "name": "dispose",
           "signature": "func dispose() -> void",
           "summary": "销毁时关闭文件句柄。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "tick",
+          "signature": "func tick(delta: float) -> void",
+          "summary": "推进日志文件和已注册 sink 的空闲时间行为。",
           "visibility": "public"
         },
         {
@@ -46667,7 +46891,7 @@
           "kind": "var",
           "name": "default_value",
           "signature": "var default_value: Variant = null",
-          "summary": "可选默认值。生成器会尽量把可表达的默认值写入生成函数签名。",
+          "summary": "可选默认值。非 null 值必须精确匹配 value_type 并满足 transport-safe 边界；生成器会完整写入生成函数签名。",
           "visibility": "public"
         },
         {
@@ -49706,7 +49930,7 @@
         {
           "kind": "signal",
           "name": "authoritative_snapshot_applied",
-          "signature": "signal authoritative_snapshot_applied(",
+          "signature": "signal authoritative_snapshot_applied( snapshot: GFNetworkSnapshot, corrected: bool, replayed_tick_count: int )",
           "summary": "Replica 原子应用权威快照后发出。",
           "visibility": "public"
         },
@@ -51891,6 +52115,13 @@
         },
         {
           "kind": "func",
+          "name": "evaluate",
+          "signature": "func evaluate( state: GFNodeState, phase: StringName, peer_state: StringName = &\"\", args: Dictionary = {} ) -> bool",
+          "summary": "评估条件组。递归条件图出现循环、超过深度或工作量上限时始终失败，invert 不会反转该失败。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
           "name": "_evaluate",
           "signature": "func _evaluate( state: GFNodeState, phase: StringName, peer_state: StringName = &\"\", args: Dictionary = {} ) -> bool",
           "summary": "条件评估扩展点。",
@@ -53216,7 +53447,7 @@
           "kind": "var",
           "name": "max_candidates",
           "signature": "var max_candidates: int = 0",
-          "summary": "最大候选记录数量；小于等于 0 时不限制。",
+          "summary": "最大候选记录数量；小于等于 0 时不限制。降低上限会立即按注册顺序淘汰最旧记录；",
           "visibility": "public"
         },
         {
@@ -53890,6 +54121,13 @@
         },
         {
           "kind": "const",
+          "name": "DEFAULT_MAX_PHASES_PER_OPERATION",
+          "signature": "const DEFAULT_MAX_PHASES_PER_OPERATION: int = 64",
+          "summary": "单个操作默认保留的阶段数量。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
           "name": "DEFAULT_MAX_STATE_TRACE_ENTRIES",
           "signature": "const DEFAULT_MAX_STATE_TRACE_ENTRIES: int = 64",
           "summary": "单个操作默认保留的状态轨迹数量。",
@@ -54012,6 +54250,13 @@
           "name": "max_incidents",
           "signature": "var max_incidents: int = DEFAULT_MAX_INCIDENTS",
           "summary": "最多保留的异常事件数量。设置为 0 时不保留异常历史。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "max_phases_per_operation",
+          "signature": "var max_phases_per_operation: int = DEFAULT_MAX_PHASES_PER_OPERATION",
+          "summary": "单个操作最多保留的阶段数量。设置为 0 时不保留阶段明细。",
           "visibility": "public"
         },
         {
@@ -55453,7 +55698,7 @@
           "kind": "var",
           "name": "contract_id",
           "signature": "var contract_id: StringName = &\"\"",
-          "summary": "契约稳定标识。",
+          "summary": "契约稳定标识；直接创作的值不得包含首尾空白。",
           "visibility": "public"
         },
         {
@@ -55556,21 +55801,21 @@
           "kind": "var",
           "name": "max_request_bytes",
           "signature": "var max_request_bytes: int = 0",
-          "summary": "请求 JSON-compatible 编码后的最大字节数；0 表示不额外限制。",
+          "summary": "请求 JSON-compatible 编码后的最大字节数；0 表示不额外限制，负值会使定义校验失败。",
           "visibility": "public"
         },
         {
           "kind": "var",
           "name": "max_result_bytes",
           "signature": "var max_result_bytes: int = 0",
-          "summary": "成功结果 JSON-compatible 编码后的最大字节数；0 表示不额外限制。",
+          "summary": "成功结果 JSON-compatible 编码后的最大字节数；0 表示不额外限制，负值会使定义校验失败。",
           "visibility": "public"
         },
         {
           "kind": "var",
           "name": "max_concurrent_requests",
           "signature": "var max_concurrent_requests: int = 0",
-          "summary": "同一 adapter 上该方法允许的最大并发请求数；0 表示不额外限制。",
+          "summary": "同一 adapter 上该方法允许的最大并发请求数；0 表示不额外限制，负值会使定义校验失败。",
           "visibility": "public"
         },
         {
@@ -56023,7 +56268,7 @@
         {
           "kind": "signal",
           "name": "activation_intent_dropped",
-          "signature": "signal activation_intent_dropped(",
+          "signature": "signal activation_intent_dropped( adapter_id: StringName, intent_id: StringName, reason: StringName )",
           "summary": "激活意图因重复或容量限制未保留时发出。",
           "visibility": "public"
         },
@@ -57785,14 +58030,14 @@
         {
           "kind": "const",
           "name": "DEFAULT_IGNORED_ROOTS",
-          "signature": "const DEFAULT_IGNORED_ROOTS: Array[String] = [",
+          "signature": "const DEFAULT_IGNORED_ROOTS: Array[String] = [\n\t\"res://.godot\",\n\t\"res://.git\",\n\t\"res://.gf\",\n\t\"res://addons/gf\",\n\t\"res://build\",\n\t\"res://packages\",\n]",
           "summary": "默认忽略的根目录。",
           "visibility": "public"
         },
         {
           "kind": "const",
           "name": "TEXT_FILE_EXTENSIONS",
-          "signature": "const TEXT_FILE_EXTENSIONS: Array[String] = [",
+          "signature": "const TEXT_FILE_EXTENSIONS: Array[String] = [\n\t\"cfg\",\n\t\"csv\",\n\t\"gd\",\n\t\"gdshader\",\n\t\"godot\",\n\t\"import\",\n\t\"json\",\n\t\"shader\",\n\t\"tscn\",\n\t\"tres\",\n]",
           "summary": "作为文本扫描的资源扩展名。",
           "visibility": "public"
         },
@@ -58110,7 +58355,7 @@
       "module": "extensions/combat",
       "package_id": "gf.extension.combat",
       "path": "addons/gf/extensions/combat/projectiles/gf_projectile_catalog.gd",
-      "summary": "GFProjectileCatalog: 发射体场景目录。 用稳定 ID 管理 PackedScene，供发射器、技能或项目自己的生成流程复用。 目录不规定发射体的伤害、阵营、消耗或命中特效。",
+      "summary": "GFProjectileCatalog: 发射体场景目录。 用唯一稳定 ID 管理 PackedScene，供发射器、技能或项目自己的生成流程复用。 重复导出 ID 读取时以首个有效条目为准，写入与移除会规范化重复项。",
       "visibility": "public",
       "category": "resource_definition",
       "since": "3.17.0",
@@ -62687,7 +62932,7 @@
           "kind": "func",
           "name": "set_table_resources",
           "signature": "func set_table_resources(table_resources: Array[GFConfigTableResource], duplicate_tables: bool = false) -> int",
-          "summary": "批量替换配置表资源并重建内部查询索引。",
+          "summary": "以 best-effort 方式批量替换配置表资源并重建内部查询索引。",
           "visibility": "public"
         },
         {
@@ -64195,7 +64440,7 @@
         {
           "kind": "const",
           "name": "RESOURCE_EXTENSIONS",
-          "signature": "const RESOURCE_EXTENSIONS: PackedStringArray = [",
+          "signature": "const RESOURCE_EXTENSIONS: PackedStringArray = [\n\t\"tres\",\n\t\"res\",\n\t\"tscn\",\n\t\"scn\",\n\t\"png\",\n\t\"jpg\",\n\t\"jpeg\",\n\t\"webp\",\n\t\"svg\",\n\t\"bmp\",\n\t\"tga\",\n\t\"exr\",\n\t\"hdr\",\n\t\"ktx\",\n\t\"ctex\",\n\t\"ogg\",\n\t\"wav\",\n\t\"mp3\",\n\t\"opus\",\n\t\"glb\",\n\t\"gltf\",\n\t\"obj\",\n\t\"fbx\",\n\t\"dae\",\n\t\"blend\",\n\t\"material\",\n\t\"shader\",\n\t\"gdshader\",\n\t\"gd\",\n\t\"cs\",\n]",
           "summary": "默认资源扩展名白名单，不包含点号。",
           "visibility": "public"
         },
@@ -65721,6 +65966,48 @@
           "visibility": "public"
         },
         {
+          "kind": "const",
+          "name": "REJECTION_TASK_GRAPH_CYCLE",
+          "signature": "const REJECTION_TASK_GRAPH_CYCLE: StringName = &\"group_task_graph_cycle\"",
+          "summary": "子任务图包含 self-cycle 或祖先回边时的拒绝原因。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "REJECTION_TASK_GRAPH_REUSED",
+          "signature": "const REJECTION_TASK_GRAPH_REUSED: StringName = &\"group_task_graph_reused\"",
+          "summary": "同一任务实例从子任务图中的多个位置可达时的拒绝原因。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "REJECTION_TASK_GRAPH_LIMIT",
+          "signature": "const REJECTION_TASK_GRAPH_LIMIT: StringName = &\"group_task_graph_limit\"",
+          "summary": "子任务图超过框架有界遍历预算时的拒绝原因。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "REJECTION_INVALID_MODE",
+          "signature": "const REJECTION_INVALID_MODE: StringName = &\"group_invalid_mode\"",
+          "summary": "子任务组模式不属于 [enum Mode] 闭合集合时的拒绝原因。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "MAX_TASK_GRAPH_DEPTH",
+          "signature": "const MAX_TASK_GRAPH_DEPTH: int = 256",
+          "summary": "子任务树允许的最大嵌套深度；根任务组深度为 0。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "MAX_TASK_GRAPH_NODES",
+          "signature": "const MAX_TASK_GRAPH_NODES: int = 4096",
+          "summary": "单个任务组调度树允许的最大任务实例数，包含根任务组。",
+          "visibility": "public"
+        },
+        {
           "kind": "var",
           "name": "cancel_remaining_on_finish",
           "signature": "var cancel_remaining_on_finish: bool = true",
@@ -66112,7 +66399,7 @@
           "kind": "var",
           "name": "setter",
           "signature": "var setter: Callable",
-          "summary": "可选写入回调，签名为 `func(target: Object, property: GFRuntimeTunableProperty, value: Variant) -> void`。",
+          "summary": "可选同步写入回调，签名为",
           "visibility": "public"
         },
         {
@@ -68639,7 +68926,7 @@
         {
           "kind": "signal",
           "name": "active_profile_changed",
-          "signature": "signal active_profile_changed(",
+          "signature": "signal active_profile_changed( previous_profile_id: StringName, current_profile_id: StringName )",
           "summary": "活动 Profile 身份完成原子提交后发出。",
           "visibility": "public"
         },
@@ -69506,7 +69793,7 @@
         {
           "kind": "var",
           "name": "transient_error_codes",
-          "signature": "var transient_error_codes: PackedInt32Array = PackedInt32Array([",
+          "signature": "var transient_error_codes: PackedInt32Array = PackedInt32Array([\n\tERR_BUSY,\n\tERR_CANT_OPEN,\n\tERR_FILE_CANT_OPEN,\n\tERR_FILE_CANT_WRITE,\n\tERR_TIMEOUT,\n\tERR_UNAVAILABLE,\n])",
           "summary": "允许重试的 Godot Error 码。",
           "visibility": "public"
         },
@@ -70545,6 +70832,13 @@
           "name": "get_metadata_file_name",
           "signature": "func get_metadata_file_name(slot_index: int) -> String",
           "summary": "生成槽位元数据文件名。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "build_slot_file_plan",
+          "signature": "func build_slot_file_plan(slot_index: int) -> Dictionary",
+          "summary": "构建并校验一个槽位的文件计划。",
           "visibility": "public"
         },
         {
@@ -72076,7 +72370,7 @@
           "kind": "var",
           "name": "default_value",
           "signature": "var default_value: Variant = null",
-          "summary": "默认值。`GFDictionarySchema.apply_defaults()` 会在缺字段时使用。",
+          "summary": "默认值。`GFDictionarySchema.apply_defaults()` 会在缺字段且该值可表达时使用；",
           "visibility": "public"
         },
         {
@@ -74846,7 +75140,7 @@
           "kind": "var",
           "name": "tracks",
           "signature": "var tracks: Array[GFShakeTrack] = []",
-          "summary": "可组合反馈轨道。为空时使用兼容的单波形字段。",
+          "summary": "可组合反馈轨道。数组非空即选择轨道模式；只有空数组才使用兼容的单波形字段。",
           "visibility": "public"
         },
         {
@@ -74888,7 +75182,7 @@
           "kind": "func",
           "name": "has_tracks",
           "signature": "func has_tracks() -> bool",
-          "summary": "检查是否存在有效轨道。",
+          "summary": "检查是否存在已启用的非空轨道。该查询不决定采样模式；非空 tracks 始终使用轨道模式。",
           "visibility": "public"
         },
         {
@@ -74921,7 +75215,7 @@
           "kind": "var",
           "name": "target_path",
           "signature": "var target_path: NodePath = NodePath(\"\")",
-          "summary": "目标 Node2D 路径；为空时优先使用自身，其次使用父节点。",
+          "summary": "目标 Node2D 路径；为空时优先使用自身，其次使用父节点。路径目标暂时不存在或被",
           "visibility": "public"
         },
         {
@@ -75024,7 +75318,7 @@
           "kind": "var",
           "name": "target_path",
           "signature": "var target_path: NodePath = NodePath(\"\")",
-          "summary": "目标 Node3D 路径；为空时优先使用自身，其次使用父节点。",
+          "summary": "目标 Node3D 路径；为空时优先使用自身，其次使用父节点。路径目标暂时不存在或被",
           "visibility": "public"
         },
         {
@@ -75900,6 +76194,13 @@
           "name": "max_snapshot_depth",
           "signature": "var max_snapshot_depth: int = DEFAULT_MAX_SNAPSHOT_DEPTH",
           "summary": "单次事件参数快照最大递归深度。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "dispose",
+          "signature": "func dispose() -> void",
+          "summary": "断开全部监听并清空事件历史。",
           "visibility": "public"
         },
         {
@@ -78078,7 +78379,7 @@
         {
           "kind": "var",
           "name": "selection_default_mode",
-          "signature": "var selection_default_mode: GFSpatialCanvas2D.SelectionMode = (",
+          "signature": "var selection_default_mode: GFSpatialCanvas2D.SelectionMode = (\n\tGFSpatialCanvas2D.SelectionMode.REPLACE\n)",
           "summary": "没有选择修饰键绑定精确匹配时使用的 [code]GFSpatialCanvas2D.SelectionMode[/code]。",
           "visibility": "public"
         },
@@ -78223,7 +78524,7 @@
         {
           "kind": "var",
           "name": "selection_mode",
-          "signature": "var selection_mode: GFSpatialCanvas2D.SelectionMode = (",
+          "signature": "var selection_mode: GFSpatialCanvas2D.SelectionMode = (\n\tGFSpatialCanvas2D.SelectionMode.REPLACE\n)",
           "summary": "匹配时使用的 [code]GFSpatialCanvas2D.SelectionMode[/code] 值。",
           "visibility": "public"
         },
@@ -81056,7 +81357,7 @@
         {
           "kind": "enum",
           "name": "ConflictStrategy",
-          "signature": "enum ConflictStrategy {\n\t## 按后端元数据中的 revision/timestamp 选择更新的一侧；无法判断时保留冲突。\n\tUSE_NEWEST,\n\t## 冲突时使用 local_backend 的数据。\n\tUSE_LOCAL,\n\t## 冲突时使用 remote_backend 的数据。\n\tUSE_REMOTE,\n\t## 只报告冲突，不自动写回。\n\tMANUAL,\n\t## 调用 options.resolver 或 options.resolution_callback 生成结果。\n\tCUSTOM,\n}",
+          "signature": "enum ConflictStrategy {\n\t## 按后端元数据中的有限 revision/timestamp 选择更新的一侧；缺失或非有限值无法判断时保留冲突。\n\tUSE_NEWEST,\n\t## 冲突时使用 local_backend 的数据。\n\tUSE_LOCAL,\n\t## 冲突时使用 remote_backend 的数据。\n\tUSE_REMOTE,\n\t## 只报告冲突，不自动写回。\n\tMANUAL,\n\t## 调用 options.resolver 或 options.resolution_callback 生成结果。\n\tCUSTOM,\n}",
           "summary": "冲突解决策略。",
           "visibility": "public"
         },
@@ -82603,7 +82904,7 @@
         {
           "kind": "signal",
           "name": "cell_value_committed",
-          "signature": "signal cell_value_committed(",
+          "signature": "signal cell_value_committed( row_index: int, row_id: Variant, column_id: StringName, old_value: Variant, new_value: Variant )",
           "summary": "单元格成功提交后发出。",
           "visibility": "public"
         },
@@ -84010,6 +84311,20 @@
           "visibility": "public"
         },
         {
+          "kind": "const",
+          "name": "MAX_JSON_BYTES",
+          "signature": "const MAX_JSON_BYTES: int = 1_048_576",
+          "summary": "JSON 清单允许的最大 UTF-8 字节数。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "MAX_JSON_DEPTH",
+          "signature": "const MAX_JSON_DEPTH: int = 64",
+          "summary": "JSON 清单允许的最大对象/数组嵌套深度。",
+          "visibility": "public"
+        },
+        {
           "kind": "func",
           "name": "make_manifest",
           "signature": "static func make_manifest( template_id: StringName, template_path: String, output_path: String, options: Dictionary = {} ) -> Dictionary",
@@ -84438,7 +84753,7 @@
         {
           "kind": "const",
           "name": "DEFAULT_FIELDS",
-          "signature": "const DEFAULT_FIELDS: Array[Dictionary] = [",
+          "signature": "const DEFAULT_FIELDS: Array[Dictionary] = [\n\t{ \"key\": \"title\", \"weight\": 4.0 },\n\t{ \"key\": \"name\", \"weight\": 3.0 },\n\t{ \"key\": \"keywords\", \"weight\": 2.0 },\n\t{ \"key\": \"detail\", \"weight\": 1.0 },\n\t{ \"key\": \"path\", \"weight\": 1.0 },\n]",
           "summary": "默认候选字段权重。",
           "visibility": "public"
         },
@@ -85006,6 +85321,27 @@
       "category": "editor_api",
       "since": "3.17.0",
       "members": [
+        {
+          "kind": "const",
+          "name": "MAX_TARGET_DIMENSION",
+          "signature": "const MAX_TARGET_DIMENSION: int = 1024",
+          "summary": "单边允许的最大渲染像素数。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "MAX_TARGET_PIXELS",
+          "signature": "const MAX_TARGET_PIXELS: int = 1_048_576",
+          "summary": "单个缩略图允许的最大总像素数。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "MAX_PENDING_TASKS",
+          "signature": "const MAX_PENDING_TASKS: int = 256",
+          "summary": "等待执行的最大任务数；超出后新任务立即失败。",
+          "visibility": "public"
+        },
         {
           "kind": "func",
           "name": "render_node3d",
@@ -86125,7 +86461,7 @@
       "module": "standard",
       "package_id": "gf.standard.input",
       "path": "addons/gf/standard/input/touch/gf_touch_button.gd",
-      "summary": "GFTouchButton: 通用触屏虚拟按钮节点。 可直接发送按下/释放信号，也可映射到 Godot InputMap 动作或虚拟手柄按钮事件。",
+      "summary": "GFTouchButton: 通用触屏虚拟按钮节点。 可直接发送按下/释放信号，也可映射到 Godot InputMap 动作或虚拟手柄按钮事件。 每次 press 会冻结当时的 action 与虚拟 joypad lane；运行时配置修改从下一次 press 生效。",
       "visibility": "public",
       "category": "runtime_service",
       "since": "3.17.0",
@@ -86221,7 +86557,7 @@
       "module": "standard",
       "package_id": "gf.standard.input",
       "path": "addons/gf/standard/input/touch/gf_touch_control_2d.gd",
-      "summary": "GFTouchControl2D: 触屏 Node2D 控件共享底座。 提供触点捕获、隐藏/离树释放、屏幕坐标到画布坐标转换和输入 handled 标记。 具体按钮、摇杆、滑条或项目自定义触屏控件仍负责自己的形状、输出和业务无关配置。",
+      "summary": "GFTouchControl2D: 触屏 Node2D 控件共享底座。 提供触点捕获、隐藏/离树/process mode 禁用释放、屏幕坐标到画布坐标转换和输入 handled 标记。 具体按钮、摇杆、滑条或项目自定义触屏控件仍负责自己的形状、输出和业务无关配置。",
       "visibility": "public",
       "category": "runtime_handle",
       "since": "8.0.0",
@@ -86254,7 +86590,7 @@
       "module": "standard",
       "package_id": "gf.standard.input",
       "path": "addons/gf/standard/input/touch/gf_touch_joystick.gd",
-      "summary": "GFTouchJoystick: 通用触屏虚拟摇杆节点。 可直接发出摇杆向量信号，也可选择映射到 Godot InputMap 动作。",
+      "summary": "GFTouchJoystick: 通用触屏虚拟摇杆节点。 可直接发出摇杆向量信号，也可选择映射到 Godot InputMap 动作。 每次 gesture 会冻结 begin-time 定位模式、action 与虚拟 joypad lane；",
       "visibility": "public",
       "category": "runtime_service",
       "since": "3.17.0",
@@ -86456,7 +86792,7 @@
         {
           "kind": "enum",
           "name": "CombineMode",
-          "signature": "enum CombineMode {\n\t## 与当前值相加。\n\tADD,\n\n\t## 与当前值相乘。\n\tMULTIPLY,\n\n\t## 直接覆盖当前值。\n\tSET,\n\n\t## 取当前值与特征值中的较大值。\n\tMAX,\n\n\t## 取当前值与特征值中的较小值。\n\tMIN,\n}",
+          "signature": "enum CombineMode {\n\t## 与当前值相加。\n\tADD,\n\t## 与当前值相乘。\n\tMULTIPLY,\n\t## 直接覆盖当前值。\n\tSET,\n\t## 取当前值与特征值中的较大值。\n\tMAX,\n\t## 取当前值与特征值中的较小值。\n\tMIN,\n}",
           "summary": "数值合并方式。",
           "visibility": "public"
         },
@@ -86834,7 +87170,7 @@
           "kind": "var",
           "name": "sort_value",
           "signature": "var sort_value: float",
-          "summary": "次排序值，值越大越先处理。",
+          "summary": "次排序值。默认比较器中，有限值越大越先处理；NaN 与正负 Infinity",
           "visibility": "public"
         },
         {
@@ -87377,7 +87713,7 @@
           "kind": "var",
           "name": "marker_id",
           "signature": "var marker_id: StringName = &\"\"",
-          "summary": "可选步骤标记。非空时 GFConfiguredTweenAction 会在步骤结束后发出 marker_reached。",
+          "summary": "可选步骤标记。非空时 GFConfiguredTweenAction 会在步骤结束后发出 marker_reached；",
           "visibility": "public"
         },
         {
@@ -88887,6 +89223,13 @@
       "since": "3.17.0",
       "members": [
         {
+          "kind": "const",
+          "name": "MAX_SNAPSHOT_BYTES",
+          "signature": "const MAX_SNAPSHOT_BYTES: int = 16 * 1024 * 1024",
+          "summary": "单个命令快照允许的最大保守内存成本估算，单位字节。",
+          "visibility": "public"
+        },
+        {
           "kind": "var",
           "name": "action_name",
           "signature": "var action_name: String = \"\"",
@@ -89835,7 +90178,7 @@
           "kind": "func",
           "name": "merge",
           "signature": "func merge(source: Variant, include_metadata: bool = true) -> RefCounted",
-          "summary": "合并另一个报告或报告字典。",
+          "summary": "合并另一个报告或报告字典。与自身合并，或来源与目标共享同一个 issues Array 时，",
           "visibility": "public"
         },
         {
@@ -89980,7 +90323,7 @@
           "kind": "func",
           "name": "merge_report",
           "signature": "static func merge_report(target: Dictionary, source: Dictionary, options: Dictionary = {}) -> Dictionary",
-          "summary": "合并另一份字典报告的问题。",
+          "summary": "合并另一份字典报告的问题。target 与 source 相同，或二者共享同一个 issues Array",
           "visibility": "public"
         },
         {
@@ -91481,22 +91824,22 @@
         {
           "kind": "var",
           "name": "source_id",
-          "signature": "var source_id: StringName = &\"virtual\"",
-          "summary": "虚拟输入源标识。",
+          "signature": "var source_id: StringName",
+          "summary": "虚拟输入源标识。修改后会先释放该 handle 已写入的旧身份手动贡献；",
           "visibility": "public"
         },
         {
           "kind": "var",
           "name": "player_index",
-          "signature": "var player_index: int = -1",
-          "summary": "玩家索引；小于 0 时只写入全局动作状态。",
+          "signature": "var player_index: int",
+          "summary": "玩家索引；小于 0 时只写入全局动作状态。修改后会先释放旧玩家身份的",
           "visibility": "public"
         },
         {
           "kind": "func",
           "name": "configure",
           "signature": "func configure( input_mapping: GFInputMappingUtility, p_source_id: StringName = &\"virtual\", p_player_index: int = -1, timer_utility: GFTimerUtility = null ) -> GFVirtualInputSource",
-          "summary": "配置虚拟输入源。",
+          "summary": "配置虚拟输入源。身份或 mapping 改变时会先释放该 handle 追踪的旧身份手动贡献；",
           "visibility": "public"
         },
         {
@@ -91587,7 +91930,7 @@
           "kind": "func",
           "name": "clear_all",
           "signature": "func clear_all() -> void",
-          "summary": "清除当前虚拟源的所有动作贡献。",
+          "summary": "清除同一 source_id 的所有玩家动作贡献。",
           "visibility": "public"
         },
         {
@@ -92506,7 +92849,7 @@
           "kind": "var",
           "name": "actions",
           "signature": "var actions: Array[Object] = []",
-          "summary": "包含的子动作列表。",
+          "summary": "包含的子动作列表。execute() 会冻结当前列表供本轮使用，运行期修改只影响下一轮；",
           "visibility": "public"
         },
         {
@@ -92724,7 +93067,7 @@
           "kind": "var",
           "name": "duration",
           "signature": "var duration: float = 0.0",
-          "summary": "等待时长，单位秒。",
+          "summary": "等待时长，单位秒。负值会规范化为 0；非有限赋值会被拒绝并保留上次有效值。",
           "visibility": "public"
         },
         {
@@ -92737,8 +93080,15 @@
         {
           "kind": "func",
           "name": "execute",
-          "signature": "func execute(_context: GFSequenceContext) -> Variant",
+          "signature": "func execute(context: GFSequenceContext) -> Variant",
           "summary": "执行等待步骤。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "cancel",
+          "signature": "func cancel(context: GFSequenceContext) -> void",
+          "summary": "取消当前上下文由该步骤创建的全部未完成计时器。",
           "visibility": "public"
         }
       ]

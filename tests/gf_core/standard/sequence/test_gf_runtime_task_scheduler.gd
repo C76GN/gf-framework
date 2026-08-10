@@ -140,6 +140,38 @@ class DisposeObserverTask extends GFRuntimeTask:
 		)
 
 
+class EndReschedulingTask extends GFRuntimeTask:
+	var scheduler: GFRuntimeTaskScheduler = null
+	var trace: Array[String] = []
+	var initialize_count: int = 0
+	var tick_count: int = 0
+	var finished_check_count: int = 0
+	var end_count: int = 0
+	var reschedule_result: bool = false
+
+	func initialize(p_scheduler: GFRuntimeTaskScheduler) -> void:
+		scheduler = p_scheduler
+		initialize_count += 1
+		trace.append("init_%d" % initialize_count)
+
+	func tick(_delta: float) -> void:
+		tick_count += 1
+		trace.append("tick_%d" % tick_count)
+		if tick_count == 1 and scheduler != null:
+			var _cancelled: bool = scheduler.cancel(self)
+
+	func is_finished() -> bool:
+		finished_check_count += 1
+		trace.append("finished_%d" % initialize_count)
+		return true
+
+	func end(interrupted: bool) -> void:
+		end_count += 1
+		trace.append("end_%s" % str(interrupted))
+		if interrupted and end_count == 1 and scheduler != null:
+			reschedule_result = scheduler.schedule(self)
+
+
 # --- 测试方法 ---
 
 ## 验证调度器会初始化、推进并完成任务。
@@ -356,6 +388,35 @@ func test_scheduler_rejects_group_child_scheduled_independently() -> void:
 	assert_signal_emitted(scheduler, "task_rejected", "重复所有权应发出拒绝信号。")
 
 
+func test_task_group_reserves_and_locks_all_children_before_first_tick() -> void:
+	var scheduler: GFRuntimeTaskScheduler = GFRuntimeTaskScheduler.new()
+	var other_scheduler: GFRuntimeTaskScheduler = GFRuntimeTaskScheduler.new()
+	var order: Array[String] = []
+	var first: RecordingTask = RecordingTask.new(order, "first", [], true, 99)
+	var future: RecordingTask = RecordingTask.new(order, "future", [], true, 99)
+	var late_requirement: RefCounted = RefCounted.new()
+	var group: GFRuntimeTaskGroup = GFRuntimeTaskGroup.new(
+		[first, future],
+		GFRuntimeTaskGroup.Mode.SEQUENCE
+	)
+
+	assert_true(scheduler.schedule(group), "任务组提交时应原子预留整棵子任务树。")
+	assert_true(first.is_scheduled(), "首个子任务应在 first tick 前已由任务组预留。")
+	assert_true(future.is_scheduled(), "未来子任务也应在 first tick 前已由任务组预留。")
+	assert_false(scheduler.schedule(future), "同一调度器不能再次持有未来子任务。")
+	assert_false(other_scheduler.schedule(future), "其他调度器也不能持有已被任务组预留的子任务。")
+	var _mutation_result: GFRuntimeTask = future.add_requirement(late_requirement)
+	assert_push_warning(
+		"[GFRuntimeTask] 调度仲裁中或已调度的任务不能修改 requirements；请取消并重新配置。"
+	)
+	assert_false(future.has_requirement(late_requirement), "预留后的未来子任务 requirement 必须冻结。")
+
+	assert_true(scheduler.cancel(group), "first tick 前应能取消整个任务组。")
+	assert_false(first.is_scheduled(), "取消任务组应释放尚未初始化的首个子任务。")
+	assert_false(future.is_scheduled(), "取消任务组应释放尚未初始化的未来子任务。")
+	assert_true(order.is_empty(), "未初始化的预留子任务不应收到 end 回调。")
+
+
 func test_task_group_rejects_child_already_scheduled_outside_group() -> void:
 	var scheduler: GFRuntimeTaskScheduler = GFRuntimeTaskScheduler.new()
 	var order: Array[String] = []
@@ -482,6 +543,33 @@ func test_scheduler_skips_finished_check_after_self_cancel() -> void:
 	assert_false(task.is_scheduled(), "自取消任务应离开调度器。")
 	assert_eq(task.cancel_count, 1, "自取消任务应以 interrupted=true 结束。")
 	assert_eq(task.finished_checks, 0, "任务在 tick 内自取消后不应再执行 is_finished。")
+
+
+func test_scheduler_does_not_advance_generation_rescheduled_from_end() -> void:
+	var scheduler: GFRuntimeTaskScheduler = GFRuntimeTaskScheduler.new()
+	var task: EndReschedulingTask = EndReschedulingTask.new()
+
+	assert_true(scheduler.schedule(task), "第一代任务应能进入调度器。")
+	var first_generation: int = task.get_schedule_generation()
+	scheduler.tick(0.1)
+
+	assert_true(task.reschedule_result, "第一代 end 回调应能同步提交同一实例的新调度代。")
+	assert_true(task.is_scheduled(), "新调度代应保留在活动集合中。")
+	assert_gt(task.get_schedule_generation(), first_generation, "重新调度必须分配新的 generation。")
+	assert_false(task.has_initialized(), "新调度代不能继承旧代 initialized 状态。")
+	assert_eq(task.finished_check_count, 0, "旧代 tick 返回后不能检查新代 is_finished。")
+	assert_eq(
+		task.trace,
+		["init_1", "tick_1", "end_true"],
+		"旧代后置路径必须在 generation 改变处截断。"
+	)
+
+	scheduler.tick(0.1)
+
+	assert_eq(task.initialize_count, 2, "新代推进前必须重新 initialize 恰好一次。")
+	assert_eq(task.finished_check_count, 1, "新代只能在 initialize 与 tick 后检查完成。")
+	assert_eq(task.end_count, 2, "两个调度代应分别只有一个 terminal end。")
+	assert_false(task.is_scheduled(), "第二代正常完成后应离开调度器。")
 
 
 func test_scheduler_skips_tick_after_initialize_self_cancel() -> void:
@@ -688,6 +776,83 @@ func test_task_group_stops_initialization_when_child_cancels_parent() -> void:
 	assert_false(cancelling_child.has_initialized(), "已被父组结束的子任务不应在 initialize 返回后重新标记 initialized。")
 	assert_true(sibling_order.is_empty(), "父组取消后不应继续初始化后续并行子任务。")
 	cancelling_child.parent_group = null
+
+
+func test_task_group_rejects_cycles_and_reused_descendants_transactionally() -> void:
+	var self_group: GFRuntimeTaskGroup = GFRuntimeTaskGroup.new()
+	assert_false(self_group.set_tasks([self_group]), "任务组必须拒绝直接 self-cycle。")
+	var _self_add_result: GFRuntimeTaskGroup = self_group.add_task(self_group)
+	assert_push_warning("[GFRuntimeTaskGroup] 子任务图必须是有界、无环且无重复实例的树。")
+	assert_true(self_group.get_tasks().is_empty(), "self-cycle 失败后旧配置必须保持不变。")
+
+	var first_group: GFRuntimeTaskGroup = GFRuntimeTaskGroup.new()
+	var second_group: GFRuntimeTaskGroup = GFRuntimeTaskGroup.new()
+	assert_true(first_group.set_tasks([second_group]), "无环单向嵌套应被接受。")
+	assert_false(second_group.set_tasks([first_group]), "任务组必须拒绝祖先回边。")
+	assert_true(second_group.get_tasks().is_empty(), "间接 cycle 失败后 candidate 不得部分提交。")
+
+	var shared_leaf: GFRuntimeTask = GFRuntimeTask.new()
+	var left: GFRuntimeTaskGroup = GFRuntimeTaskGroup.new([shared_leaf])
+	var right: GFRuntimeTaskGroup = GFRuntimeTaskGroup.new([shared_leaf])
+	var root: GFRuntimeTaskGroup = GFRuntimeTaskGroup.new()
+	assert_false(root.set_tasks([left, right]), "同一 descendant 不能从任务树中的两个位置可达。")
+	assert_true(root.get_tasks().is_empty(), "重复 descendant 失败后根配置必须保持不变。")
+
+
+func test_task_group_enforces_bounded_graph_depth_without_recursion() -> void:
+	var nested_task: GFRuntimeTask = GFRuntimeTask.new()
+	for _depth: int in range(GFRuntimeTaskGroup.MAX_TASK_GRAPH_DEPTH):
+		var parent: GFRuntimeTaskGroup = GFRuntimeTaskGroup.new()
+		assert_true(parent.set_tasks([nested_task]), "深度预算以内的无环任务树应被接受。")
+		nested_task = parent
+
+	var overflow_parent: GFRuntimeTaskGroup = GFRuntimeTaskGroup.new()
+	assert_false(
+		overflow_parent.set_tasks([nested_task]),
+		"超过任务图深度预算的 candidate 应在有界遍历内失败关闭。"
+	)
+	assert_true(overflow_parent.get_tasks().is_empty(), "深度超限不得部分提交 candidate。")
+
+	var too_many_children: Array[GFRuntimeTask] = []
+	for _index: int in range(GFRuntimeTaskGroup.MAX_TASK_GRAPH_NODES):
+		too_many_children.append(GFRuntimeTask.new())
+	var wide_root: GFRuntimeTaskGroup = GFRuntimeTaskGroup.new()
+	assert_false(
+		wide_root.set_tasks(too_many_children),
+		"包含根组后超过任务图节点预算的宽图也应失败关闭。"
+	)
+	assert_true(wide_root.get_tasks().is_empty(), "节点数超限不得部分提交 candidate。")
+
+
+func test_task_group_rejects_invalid_dynamic_mode() -> void:
+	var group: GFRuntimeTaskGroup = GFRuntimeTaskGroup.new()
+	var previous_mode: int = group.get_mode()
+	var result: Variant = group.call("set_mode", 99)
+
+	assert_false(GFVariantData.to_bool(result, true), "反射入口传入未知 mode 时必须失败关闭。")
+	assert_push_warning("[GFRuntimeTaskGroup] 无效任务组模式，保留当前模式。")
+	assert_eq(group.get_mode(), previous_mode, "非法 mode 不得改变任务组状态。")
+
+
+func test_callable_runtime_task_rejects_non_bool_finished_result_once_per_generation() -> void:
+	var scheduler: GFRuntimeTaskScheduler = GFRuntimeTaskScheduler.new()
+	var task: GFCallableRuntimeTask = GFCallableRuntimeTask.new(
+		Callable(),
+		Callable(),
+		func(_task: GFCallableRuntimeTask, _scheduler: GFRuntimeTaskScheduler) -> int:
+			return 1
+	)
+	task.finish_after_initialize = false
+
+	assert_true(scheduler.schedule(task), "Callable 任务应能进入调度器。")
+	scheduler.tick(0.1)
+	scheduler.tick(0.1)
+
+	assert_push_warning(
+		"[GFCallableRuntimeTask] finished_callable 必须返回 bool；无效结果按 false 处理。"
+	)
+	assert_true(task.is_scheduled(), "非 bool 完成结果必须按 false 失败关闭。")
+	assert_true(scheduler.cancel(task), "测试结束时应能释放失败关闭的任务。")
 
 
 func test_task_group_configuration_is_controlled_and_transactional() -> void:

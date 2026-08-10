@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFActivationTransaction" path="addons/gf/standard/foundation/policy/gf_activation_transaction.gd" module="standard" extends="RefCounted" classDigest="df50a25925277bcac628de66131bc82288779e443563ecb0029b4ffbea3c8e58">
+<class name="GFActivationTransaction" path="addons/gf/standard/foundation/policy/gf_activation_transaction.gd" module="standard" extends="RefCounted" classDigest="66a806750c94343c3cc58c10d6efcda4dd6e76f2b2e5ff14edab28a47cab52a2">
 	<description>GFActivationTransaction: 非代码动态内容的激活事务。
 将“验证、应用、失败回滚、报告”收敛为通用事务流程。它只调度调用方显式传入的
 Callable，不加载脚本、不执行远端载荷，也不规定内容包、配置或资源注册表的业务语义。</description>
@@ -135,13 +135,15 @@ validate_callback 可通过 options 传入，签名相同。返回 false、非 O
 		</member>
 		<member kind="method" name="prepare">
 			<signature>func prepare(context: Dictionary = {}) -&gt; Dictionary:</signature>
-			<description>验证事务步骤。</description>
+			<description>验证事务步骤。
+已准备的事务会幂等返回既有报告；已提交、已回滚或失败的终态不会被重新打开。
+回调内的嵌套事务操作会以 `transition_in_progress` 失败关闭。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">context: 调用方上下文。</tag>
 				<tag name="return">GFValidationReportDictionary 兼容报告。</tag>
 				<tag name="schema">context: Dictionary caller-defined activation context.</tag>
-				<tag name="schema">return: Dictionary with ok, healthy, transaction_id, state, steps, issues, summary, and next_action.</tag>
+				<tag name="schema">return: Dictionary with ok, healthy, transaction_id, state, transition_state, steps, issues, summary, and next_action.</tag>
 				<tag name="since">7.0.0</tag>
 			</tags>
 		</member>
@@ -153,7 +155,7 @@ validate_callback 可通过 options 传入，签名相同。返回 false、非 O
 				<tag name="param">context: 调用方上下文。</tag>
 				<tag name="return">GFValidationReportDictionary 兼容报告。</tag>
 				<tag name="schema">context: Dictionary caller-defined activation context.</tag>
-				<tag name="schema">return: Dictionary with ok, healthy, transaction_id, state, steps, issues, summary, and next_action.</tag>
+				<tag name="schema">return: Dictionary with ok, healthy, transaction_id, state, transition_state, steps, issues, summary, and next_action.</tag>
 				<tag name="since">7.0.0</tag>
 			</tags>
 		</member>
@@ -165,7 +167,7 @@ validate_callback 可通过 options 传入，签名相同。返回 false、非 O
 				<tag name="param">context: 调用方上下文。</tag>
 				<tag name="return">GFValidationReportDictionary 兼容报告。</tag>
 				<tag name="schema">context: Dictionary caller-defined activation context.</tag>
-				<tag name="schema">return: Dictionary with ok, healthy, transaction_id, state, steps, issues, summary, and next_action.</tag>
+				<tag name="schema">return: Dictionary with ok, healthy, transaction_id, state, transition_state, steps, issues, summary, and next_action.</tag>
 				<tag name="since">7.0.0</tag>
 			</tags>
 		</member>
@@ -177,7 +179,7 @@ validate_callback 可通过 options 传入，签名相同。返回 false、非 O
 				<tag name="param">options: 报告选项，支持 fallback_action、no_action 和 warnings_as_errors。</tag>
 				<tag name="return">GFValidationReportDictionary 兼容报告。</tag>
 				<tag name="schema">options: Dictionary report options.</tag>
-				<tag name="schema">return: Dictionary with ok, healthy, transaction_id, state, steps, issues, summary, and next_action.</tag>
+				<tag name="schema">return: Dictionary with ok, healthy, transaction_id, state, transition_state, steps, issues, summary, and next_action.</tag>
 				<tag name="since">7.0.0</tag>
 			</tags>
 		</member>

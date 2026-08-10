@@ -20,6 +20,7 @@ var _dialog: Window = null
 var _section_tree: Tree = null
 var _presentation_locale: String = ""
 var _next_refresh_msec: int = 0
+var _original_presentations: Dictionary = {}
 
 
 # --- 框架内部方法 ---
@@ -77,6 +78,7 @@ func cleanup() -> void:
 		var process_frame_signal: Signal = _scene_tree.process_frame
 		if process_frame_signal.is_connected(_on_process_frame):
 			process_frame_signal.disconnect(_on_process_frame)
+	_restore_original_presentations()
 	_catalog = null
 	_scene_tree = null
 	_dialog = null
@@ -89,6 +91,7 @@ func cleanup() -> void:
 
 func _refresh_visible_dialog() -> void:
 	if not is_instance_valid(_dialog):
+		_restore_original_presentations()
 		_dialog = _find_project_settings_dialog(EditorInterface.get_base_control())
 		_section_tree = null
 	if _dialog == null or not _dialog.visible:
@@ -149,15 +152,86 @@ func _apply_section_presentations(item: TreeItem) -> void:
 		return
 	var presentation: Dictionary = _get_section_presentation(_get_item_section_path(item))
 	if not presentation.is_empty():
-		item.set_text(0, _GF_VARIANT_ACCESS_SCRIPT.get_option_string(presentation, "label"))
-		item.set_tooltip_text(
-			0,
-			_GF_VARIANT_ACCESS_SCRIPT.get_option_string(presentation, "tooltip")
+		var label: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
+			presentation,
+			"label"
 		)
+		var tooltip: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
+			presentation,
+			"tooltip"
+		)
+		_capture_original_presentation(item)
+		if item.get_text(0) != label:
+			item.set_text(0, label)
+		if item.get_tooltip_text(0) != tooltip:
+			item.set_tooltip_text(0, tooltip)
+		_update_applied_presentation(item, label, tooltip)
 	var child: TreeItem = item.get_first_child()
 	while child != null:
 		_apply_section_presentations(child)
 		child = child.get_next()
+
+
+func _capture_original_presentation(item: TreeItem) -> void:
+	var instance_id: int = item.get_instance_id()
+	if _original_presentations.has(instance_id):
+		return
+	_original_presentations[instance_id] = {
+		"item": weakref(item),
+		"text": item.get_text(0),
+		"tooltip": item.get_tooltip_text(0),
+		"applied_text": "",
+		"applied_tooltip": "",
+	}
+
+
+func _update_applied_presentation(
+	item: TreeItem,
+	label: String,
+	tooltip: String
+) -> void:
+	var instance_id: int = item.get_instance_id()
+	var record_value: Variant = _original_presentations.get(instance_id, {})
+	if not record_value is Dictionary:
+		return
+	var record: Dictionary = record_value
+	record["applied_text"] = label
+	record["applied_tooltip"] = tooltip
+	_original_presentations[instance_id] = record
+
+
+func _restore_original_presentations() -> void:
+	for record_value: Variant in _original_presentations.values():
+		if not record_value is Dictionary:
+			continue
+		var record: Dictionary = record_value
+		var item_reference_value: Variant = record.get("item")
+		if not item_reference_value is WeakRef:
+			continue
+		var item_reference: WeakRef = item_reference_value
+		var item_value: Variant = item_reference.get_ref()
+		if not item_value is TreeItem or not is_instance_valid(item_value):
+			continue
+		var item: TreeItem = item_value
+		var applied_text: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
+			record,
+			"applied_text"
+		)
+		var applied_tooltip: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
+			record,
+			"applied_tooltip"
+		)
+		if item.get_text(0) == applied_text:
+			item.set_text(
+				0,
+				_GF_VARIANT_ACCESS_SCRIPT.get_option_string(record, "text")
+			)
+		if item.get_tooltip_text(0) == applied_tooltip:
+			item.set_tooltip_text(
+				0,
+				_GF_VARIANT_ACCESS_SCRIPT.get_option_string(record, "tooltip")
+			)
+	_original_presentations.clear()
 
 
 func _get_item_section_path(item: TreeItem) -> String:

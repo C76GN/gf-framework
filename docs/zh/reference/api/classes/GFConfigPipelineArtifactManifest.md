@@ -22,6 +22,7 @@
 | 方法 | [`save_manifest`](#member-gfconfigpipelineartifactmanifest-methods-save_manifest) | `func save_manifest(manifest_path: String, manifest: Dictionary, options: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`make_freshness_report`](#member-gfconfigpipelineartifactmanifest-methods-make_freshness_report) | `func make_freshness_report( manifest_path: String, profile_path: String, profile: GFConfigPipelineProfile, options: Dictionary = {} ) -> Dictionary:` |
 | 方法 | [`get_default_manifest_path`](#member-gfconfigpipelineartifactmanifest-methods-get_default_manifest_path) | `func get_default_manifest_path(output_path: String) -> String:` |
+| 方法 | [`make_source_receipt_validation_report`](#member-gfconfigpipelineartifactmanifest-methods-make_source_receipt_validation_report) | `func make_source_receipt_validation_report( profile: GFConfigPipelineProfile, run_result: Dictionary, options: Dictionary = {} ) -> Dictionary:` |
 
 ## 常量
 
@@ -80,7 +81,7 @@ func make_manifest( profile_path: String, profile: GFConfigPipelineProfile, opti
 结构：
 
 - `options`: Dictionary，可包含 output_path、access_output_path、access_class_name、access_provider_accessor、build_options、save_options、access_options、manifest_metadata、max_freshness_file_bytes、max_freshness_total_bytes 和 max_freshness_entries；三个 freshness 预算必须为非负整数，分别限制单文件字节数、累计哈希字节数和扫描条目数。
-- `run_result`: Dictionary，可包含 success、operation、profile_id、output_path、save_result、access_result、report 和 error。
+- `run_result`: Dictionary，可包含 success、operation、profile_id、output_path、save_result、access_result、report、table_results 和 error；table_results 存在时，每项必须提供绑定实际读取字节的 source_receipt，manifest 不会回退到重新哈希来源路径。
 - `return`: Dictionary，包含 format、format_version、artifact_owner、profile_path、profile_id、profile_digest、input_digest、output_digest、options_digest、compiler_digest、compiler_fingerprint、profile_entries、source_entries、output_entries、scan_report、metadata、run_summary 和 manifest_digest。
 
 <a id="member-gfconfigpipelineartifactmanifest-methods-load_manifest"></a>
@@ -186,3 +187,32 @@ func get_default_manifest_path(output_path: String) -> String:
 | `output_path` | 数据库输出路径。 |
 
 返回：默认 manifest 路径；output_path 为空时返回空字符串。
+
+<a id="member-gfconfigpipelineartifactmanifest-methods-make_source_receipt_validation_report"></a>
+
+### `make_source_receipt_validation_report`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func make_source_receipt_validation_report( profile: GFConfigPipelineProfile, run_result: Dictionary, options: Dictionary = {} ) -> Dictionary:
+```
+
+校验当前来源路径仍与本次编译实际读取的 source receipts 一致。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `profile` | 本次编译的导表 Profile。 |
+| `run_result` | 包含 table_results/source_receipt 的构建或导出结果。 |
+| `options` | freshness 哈希预算选项。 |
+
+返回：来源稳定性报告；success 表示校验完成，stable 表示路径当前字节仍等于编译收据。
+
+结构：
+
+- `run_result`: Dictionary，必须包含与 profile.sources 一一对应的 table_results；每项包含 source_receipt。
+- `options`: Dictionary，可包含 max_freshness_file_bytes、max_freshness_total_bytes 和 max_freshness_entries。
+- `return`: Dictionary，包含 success、stable、error_code、error、receipt_entries、current_entries 和 scan_report。

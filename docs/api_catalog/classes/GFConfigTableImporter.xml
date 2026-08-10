@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFConfigTableImporter" path="addons/gf/standard/utilities/config/gf_config_table_importer.gd" module="standard" extends="RefCounted" classDigest="e3cece000d371d3c14a0eff72d2b5aaa9d49225888b62217ee32b20664d499ca">
+<class name="GFConfigTableImporter" path="addons/gf/standard/utilities/config/gf_config_table_importer.gd" module="standard" extends="RefCounted" classDigest="223dd6609798b23af3055eca223fc522dc3fef2eb16126f7bab273dfab0d54eb">
 	<description>GFConfigTableImporter: 通用导表文本解析与 schema 校验入口。
-提供 JSON、CSV、ConfigFile 与二维文本行的轻量解析，适合编辑器工具或 CI 在进入项目 Provider 前做结构检查。</description>
+提供 JSON、CSV、ConfigFile 与二维文本行的轻量解析，适合编辑器工具或 CI 在进入项目 Provider 前做结构检查。
+直接接收内存文本/行的入口不执行字节、行、列或累计单元格预算；调用方必须只传受信数据，或在调用前完成容量预检。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">runtime_service</tag>

@@ -88,6 +88,15 @@ static func sample_grid_2d(grid_size: Vector2i, options: Dictionary = {}) -> Dic
 		for x: int in range(grid_size.x):
 			var cell: Vector2i = Vector2i(x, y)
 			var position: Vector2 = origin + Vector2(float(x) * step.x, float(y) * step.y)
+			if not _is_finite_vector2(position):
+				return _make_grid_result(
+					false,
+					"derived sample position must be finite.",
+					source_name,
+					grid_size,
+					origin,
+					step
+				)
 			var sample_value: float = _sample_source(source, position, cell, metadata)
 			if not _is_finite_float(sample_value):
 				return _make_grid_result(
@@ -100,13 +109,23 @@ static func sample_grid_2d(grid_size: Vector2i, options: Dictionary = {}) -> Dic
 				)
 
 			samples[sample_index] = sample_value
+			var stored_sample_value: float = samples[sample_index]
+			if not _is_finite_float(stored_sample_value):
+				return _make_grid_result(
+					false,
+					"sample must be representable as a finite float32 value.",
+					source_name,
+					grid_size,
+					origin,
+					step
+				)
 			if sample_index == 0:
-				min_value = sample_value
-				max_value = sample_value
+				min_value = stored_sample_value
+				max_value = stored_sample_value
 			else:
-				min_value = minf(min_value, sample_value)
-				max_value = maxf(max_value, sample_value)
-			sum += sample_value
+				min_value = minf(min_value, stored_sample_value)
+				max_value = maxf(max_value, stored_sample_value)
+			sum += stored_sample_value
 			sample_index += 1
 
 	var result: Dictionary = _make_grid_result(true, "", source_name, grid_size, origin, step)
@@ -132,6 +151,15 @@ static func sample_grid_2d(grid_size: Vector2i, options: Dictionary = {}) -> Dic
 				PackedFloat32Array()
 			)
 			result["constant_range"] = GFVariantData.get_option_bool(normalized_report, "constant_range")
+		else:
+			return _make_grid_result(
+				false,
+				"normalization failed: %s" % GFVariantData.get_option_string(normalized_report, "error"),
+				source_name,
+				grid_size,
+				origin,
+				step
+			)
 	return result
 
 
@@ -186,14 +214,38 @@ static func normalize_samples(samples: PackedFloat32Array, options: Dictionary =
 	var _resize_result: int = normalized_samples.resize(samples.size())
 	var span: float = max_value - min_value
 	var constant_range: bool = span <= 0.0
+	var normalization_scale: float = 1.0
+	var scaled_minimum: float = min_value
+	var scaled_span: float = span
+	if not constant_range and not _is_finite_float(span):
+		normalization_scale = maxf(absf(min_value), absf(max_value))
+		if normalization_scale <= 0.0 or not _is_finite_float(normalization_scale):
+			report["error"] = "sample range could not be normalized safely."
+			return report
+		scaled_minimum = min_value / normalization_scale
+		scaled_span = max_value / normalization_scale - scaled_minimum
+		if scaled_span <= 0.0 or not _is_finite_float(scaled_span):
+			report["error"] = "sample range could not be normalized safely."
+			return report
 	var should_clamp: bool = GFVariantData.get_option_bool(options, "clamp", true)
 	for index: int in range(samples.size()):
 		var normalized_value: float = constant_value
 		if not constant_range:
-			normalized_value = (samples[index] - min_value) / span
+			if normalization_scale == 1.0:
+				normalized_value = (samples[index] - min_value) / span
+			else:
+				normalized_value = (
+					samples[index] / normalization_scale - scaled_minimum
+				) / scaled_span
 			if should_clamp:
 				normalized_value = clampf(normalized_value, 0.0, 1.0)
+		if not _is_finite_float(normalized_value):
+			report["error"] = "normalized samples must contain only finite values."
+			return report
 		normalized_samples[index] = normalized_value
+		if not _is_finite_float(normalized_samples[index]):
+			report["error"] = "normalized samples must be representable as finite float32 values."
+			return report
 
 	report["ok"] = true
 	report["min_value"] = min_value

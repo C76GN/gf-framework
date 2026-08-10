@@ -14,7 +14,7 @@
 
 ## 状态事件与快照
 
-`GFNodeStateMachine.dispatch_state_event(event_id, payload, group_name)` 可以指定某个状态组，也可以在 `group_name` 为空时按已注册状态组顺序广播。单个 `GFNodeStateGroup` 会先交给当前状态，再交给暂停栈中的状态。状态脚本重写 `_handle_state_event()` 并返回 `true` 即表示事件已处理。
+`GFNodeStateMachine.dispatch_state_event(event_id, payload, group_name)` 可以指定某个状态组，也可以在 `group_name` 为空时按已注册状态组顺序广播。单个 `GFNodeStateGroup` 会先交给当前状态，再交给暂停栈中的状态。状态脚本重写 `_handle_state_event()` 并返回 `true` 即表示事件已处理。一次组内派发只属于开始时的激活周期；处理器同步 transition、push、pop、stop 或移除活动状态后，旧派发立即终止为未处理，不会继续调用已退出状态，也不会把旧事件投递给新激活状态。
 
 `get_state_snapshot()` 可返回各状态组当前状态、栈、历史、注册状态和黑板副本，适合调试面板或诊断命令消费。状态组和状态机快照都带 `schema_version = 1`；恢复入口只接受明确版本，不把任意调试字典当作恢复输入。需要写入 JSON 时使用 `get_json_compatible_state_snapshot()`：`groups` 与各组 `blackboard` 保持可直接遍历的字符串键 object，叶值由 `GFReportValueCodec` 脱敏；键不安全或发生规范化冲突时失败闭合为保真 marker。
 

@@ -170,7 +170,7 @@ static func from_dict(data: Dictionary) -> GFWeightedEntry:
 
 | 名称 | 说明 |
 |---|---|
-| `data` | 包含 `value`、`weight` 与 `metadata` 的字典。 |
+| `data` | 包含 \`value\`、\`weight\` 与 \`metadata\` 的字典。 |
 
 返回：新条目实例。
 

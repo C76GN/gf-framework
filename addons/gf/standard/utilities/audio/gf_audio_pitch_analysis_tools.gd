@@ -97,7 +97,7 @@ const _NOTE_NAMES: Array[String] = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "
 ## [br]
 ## @return 分析报告。
 ## [br]
-## @schema return: Dictionary with ok, detected, frequency_hz, confidence, rms, lag, note_number, note_name, cents, issues, and issue_count.
+## @schema return: Dictionary with ok, detected, frequency_hz, confidence, rms, lag, note_number, note_name, cents, correlation_operation_budget, minimum_required_correlation_operations, correlation_operations, truncated, issues, and issue_count.
 static func analyze_mono_samples(
 	samples: PackedFloat32Array,
 	sample_rate: float,
@@ -165,7 +165,18 @@ static func analyze_mono_samples(
 		MAX_CORRELATION_OPERATIONS
 	)
 	var normalized_size: int = maxi(normalized.size(), 1)
-	var operation_lag_limit: int = maxi(floori(float(max_operations) / float(normalized_size)), 1)
+	report["correlation_operation_budget"] = max_operations
+	report["minimum_required_correlation_operations"] = normalized_size
+	if max_operations < normalized_size:
+		_add_issue(
+			report,
+			&"insufficient_operation_budget",
+			"max_correlation_operations is smaller than one complete lag."
+		)
+		return _finalize_report(report)
+	var operation_lag_limit: int = floori(
+		float(max_operations) / float(normalized_size)
+	)
 	var lag_count: int = mini(requested_lag_count, mini(max_lag_count, operation_lag_limit))
 	if lag_count < requested_lag_count:
 		report["truncated"] = true

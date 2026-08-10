@@ -66,6 +66,64 @@ func test_negative_scale_clamped_to_zero() -> void:
 	assert_almost_eq(result, 0.0, 0.0001, "钳制后 delta 应为 0.0。")
 
 
+func test_non_finite_time_configuration_preserves_last_valid_values() -> void:
+	_utility.time_scale = 0.5
+	_utility.max_scaled_delta = 0.25
+	_utility.physics_substep_max_delta = 0.125
+
+	_utility.time_scale = INF
+	_utility.time_scale = -INF
+	_utility.time_scale = NAN
+	_utility.max_scaled_delta = INF
+	_utility.max_scaled_delta = NAN
+	_utility.physics_substep_max_delta = -INF
+	_utility.physics_substep_max_delta = NAN
+
+	assert_almost_eq(_utility.time_scale, 0.5, 0.0001, "非法 time_scale 不得覆盖上一有效值。")
+	assert_almost_eq(_utility.max_scaled_delta, 0.25, 0.0001, "非法 delta 上限不得覆盖上一有效值。")
+	assert_almost_eq(
+		_utility.physics_substep_max_delta,
+		0.125,
+		0.0001,
+		"非法 physics 子步上限不得覆盖上一有效值。"
+	)
+	assert_push_error("[GFTimeUtility] 忽略非有限 time_scale；保留上一有效值。")
+	assert_push_error("[GFTimeUtility] 忽略非有限 max_scaled_delta；保留上一有效值。")
+	assert_push_error("[GFTimeUtility] 忽略非有限 physics_substep_max_delta；保留上一有效值。")
+
+
+func test_non_finite_delta_inputs_and_scaled_overflow_return_finite_safe_values() -> void:
+	var scaled_inf: float = _utility.get_scaled_delta(INF)
+	var grouped_nan: float = _utility.get_group_scaled_delta(&"game", NAN)
+	var physics_steps: Array[float] = _utility.get_physics_scaled_delta_steps(-INF)
+	var should_substep: bool = _utility.should_substep_physics(INF)
+
+	assert_eq(scaled_inf, 0.0, "非有限普通 delta 应返回安全零值。")
+	assert_eq(grouped_nan, 0.0, "非有限分组 delta 应返回安全零值。")
+	assert_eq(physics_steps, [0.0], "非有限 physics delta 应返回单个安全零步。")
+	assert_false(should_substep, "非有限 physics delta 不应触发子步。")
+	assert_push_error("[GFTimeUtility] delta 必须为有限数；本次返回安全零值。")
+
+	_utility.init()
+	_utility.time_scale = 2.0
+	var overflow_result: float = _utility.get_scaled_delta(1.0e308)
+	assert_eq(overflow_result, 0.0, "两个有限数的乘积溢出时也不得向系统传播 Infinity。")
+	assert_push_error("[GFTimeUtility] scaled_delta 溢出为非有限数；本次返回安全零值。")
+
+
+func test_finite_extreme_physics_ratio_uses_bounded_substep_count() -> void:
+	_utility.time_scale = 1.0
+	_utility.physics_substep_max_delta = 1.0e-300
+	_utility.max_physics_substeps = 8
+
+	var steps: Array[float] = _utility.get_physics_scaled_delta_steps(1.0e308)
+
+	assert_eq(steps.size(), 8, "有限但极端的步长比值必须直接受 max_physics_substeps 限制。")
+	for step_delta: float in steps:
+		assert_false(is_nan(step_delta), "physics 子步不得为 NaN。")
+		assert_false(is_inf(step_delta), "physics 子步不得为 Infinity。")
+
+
 # --- 测试：暂停 ---
 
 ## 验证暂停时 get_scaled_delta 返回 0.0。

@@ -95,6 +95,48 @@ func test_persist_properties_source_rejects_malformed_serializer_items() -> void
 		assert_string_contains(GFVariantData.to_text(errors[0]), "index 0")
 
 
+func test_persist_properties_source_rejects_cross_origin_serializer_id_conflicts() -> void:
+	var target: Node = Node.new()
+	target.name = "Target"
+	_scope.add_child(target)
+	var source: GFPersistPropertiesSource = GFPersistPropertiesSource.new()
+	source.name = "State"
+	source.source_key = &"state"
+	source.use_registry_serializers = true
+	var local_serializer: GFNodeSerializer = GFNodeSerializer.new()
+	local_serializer.serializer_id = &"project.same"
+	var registry_serializer: GFNodeSerializer = GFNodeSerializer.new()
+	registry_serializer.serializer_id = &"project.same"
+	source.serializers = [local_serializer]
+	target.add_child(source)
+	_utility.serializer_registry.register_serializer(registry_serializer)
+	var pipeline_context: GFSavePipelineContext = _utility.create_pipeline_context(
+		&"gather",
+		_scope
+	)
+
+	var payload: Dictionary = _utility.gather_scope(_scope, {
+		"pipeline_context": pipeline_context,
+	})
+	var apply_result: Dictionary = source._apply_save_data({
+		"serializers": [{
+			"id": &"project.same",
+			"data": {},
+		}],
+	}, {}, _utility.serializer_registry)
+
+	assert_true(payload.is_empty(), "冲突 serializer plan 不得生成可落盘 Source payload。")
+	assert_gt(pipeline_context.errors.size(), 0)
+	assert_true(GFVariantData.to_text(pipeline_context.errors).contains("project.same"))
+	assert_false(GFVariantData.get_option_bool(apply_result, "ok"))
+	assert_true(
+		GFVariantData.to_text(GFVariantData.get_option_array(apply_result, "errors")).contains(
+			"project.same"
+		),
+		"apply 必须在选择 codec 前拒绝同 ID 冲突。"
+	)
+
+
 func test_persist_properties_source_restores_allowed_resource_reference() -> void:
 	var resource_path: String = "user://gf_persist_properties_resource.tres"
 	var resource: Resource = Resource.new()

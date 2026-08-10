@@ -266,6 +266,7 @@ func reset(start_tick: int = 0) -> void:
 ### `advance`
 
 - API：`public`
+- 首次版本：`3.6.0`
 
 ```gdscript
 func advance(delta_seconds: float) -> int:
@@ -279,13 +280,14 @@ func advance(delta_seconds: float) -> int:
 |---|---|
 | `delta_seconds` | 本次累积的真实时间。 |
 
-返回：应执行的固定 tick 数。
+返回：应执行的固定 tick 数；同一时钟正在发布 tick 信号时重入调用返回 0。
 
 <a id="member-gffixedtickclock-methods-step_once"></a>
 
 ### `step_once`
 
 - API：`public`
+- 首次版本：`3.6.0`
 
 ```gdscript
 func step_once() -> int:
@@ -293,7 +295,7 @@ func step_once() -> int:
 
 手动推进一个 tick。
 
-返回：推进后的当前 tick。
+返回：推进后的当前 tick；同一时钟正在发布 tick 信号时重入调用不推进并返回调用时的 current_tick。
 
 <a id="member-gffixedtickclock-methods-get_tick_seconds"></a>
 

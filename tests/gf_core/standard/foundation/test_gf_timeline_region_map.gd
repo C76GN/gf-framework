@@ -77,6 +77,23 @@ func test_timed_text_apply_dictionary_normalizes_invalid_time_ranges() -> void:
 	assert_eq(second_entry.end_time, second_entry.start_time, "恢复条目应修正 end < start。")
 
 
+func test_timed_text_direct_time_assignment_preserves_finite_ordered_interval() -> void:
+	var entry: GFTimedTextEntry = GFTimedTextEntry.new()
+
+	entry.start_time = NAN
+	entry.end_time = INF
+	assert_eq(entry.start_time, 0.0, "直接写入非有限 start 应归零。")
+	assert_eq(entry.end_time, 0.0, "直接写入非有限 end 应归一为当前 start。")
+
+	entry.start_time = 2.0
+	assert_eq(entry.end_time, 2.0, "提高 start 时 end 应同步保持不早于 start。")
+	entry.end_time = 1.0
+	assert_eq(entry.end_time, 2.0, "直接写入 end < start 应钳制到 start。")
+	var serialized: Dictionary = entry.to_dictionary()
+	assert_true(is_finite(GFVariantData.get_option_float(serialized, "start_time")), "序列化 start 必须有限。")
+	assert_true(is_finite(GFVariantData.get_option_float(serialized, "end_time")), "序列化 end 必须有限。")
+
+
 func test_replay_timeline_records_queries_and_serializes_events() -> void:
 	var timeline: GFReplayTimeline = GFReplayTimeline.new()
 	timeline.timeline_id = &"session"
@@ -214,6 +231,22 @@ func test_replay_timeline_appends_filtered_timeline_with_offset() -> void:
 	assert_eq(events.size(), 1, "目标时间线应只包含追加事件。")
 	assert_eq(GFVariantData.get_option_string_name(event, "event_kind"), GFReplayTimeline.EVENT_SNAPSHOT, "追加事件类型应保留。")
 	assert_almost_eq(GFVariantData.get_option_float(event, "time_seconds", 0.0), 1.2, 0.001, "追加事件应应用时间偏移。")
+
+
+func test_replay_timeline_self_append_uses_initial_finite_snapshot_once() -> void:
+	var timeline: GFReplayTimeline = GFReplayTimeline.new()
+	var _first_event: Dictionary = timeline.add_event(1.0, &"first")
+	var _second_event: Dictionary = timeline.add_event(2.0, &"second")
+
+	var appended: int = timeline.append_timeline(timeline)
+	var events: Array[Dictionary] = timeline.get_events()
+
+	assert_eq(appended, 2, "self append 应只追加调用开始时的两个事件。")
+	assert_eq(events.size(), 4, "self append 应恰好使事件数量翻倍。")
+	assert_eq(GFVariantData.get_option_string_name(events[0], "event_kind"), &"first", "原事件应保持稳定排序。")
+	assert_eq(GFVariantData.get_option_string_name(events[1], "event_kind"), &"first", "快照追加事件应按新 sequence 跟随同时间原事件。")
+	assert_eq(GFVariantData.get_option_string_name(events[2], "event_kind"), &"second", "第二组原事件顺序应保留。")
+	assert_eq(GFVariantData.get_option_string_name(events[3], "event_kind"), &"second", "第二组快照事件应只追加一次。")
 
 
 func test_region_map_tracks_dirty_regions() -> void:

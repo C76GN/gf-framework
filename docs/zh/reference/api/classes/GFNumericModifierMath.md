@@ -93,7 +93,7 @@ static func normalize_modifier(raw_modifier: Dictionary) -> Dictionary:
 
 | 名称 | 说明 |
 |---|---|
-| `raw_modifier` | 支持 `id/modifier_id/value/operation/priority/enabled/metadata` 的修饰字典。 |
+| `raw_modifier` | 支持 \`id/modifier_id/value/operation/priority/enabled/metadata\` 的修饰字典。 |
 
 返回：规范化后的修饰字典。
 
@@ -119,9 +119,9 @@ static func calculate(base_value: float, modifiers: Array, options: Dictionary =
 
 | 名称 | 说明 |
 |---|---|
-| `base_value` | 基础数值；非有限值会被 `fallback_value` 或 0 替换并记录 issue。 |
-| `modifiers` | 修饰数组；每项支持 `id/modifier_id/value/operation/priority/enabled/metadata`。 |
-| `options` | 支持 `fallback_value`、`clamp_enabled`、`min_value` / `clamp_min`、`max_value` / `clamp_max`。 |
+| `base_value` | 基础数值；非有限值会被 \`fallback_value\` 或 0 替换并记录 issue。 |
+| `modifiers` | 修饰数组；每项支持 \`id/modifier_id/value/operation/priority/enabled/metadata\`。 |
+| `options` | 支持 \`fallback_value\`、\`clamp_enabled\`、\`min_value\` / \`clamp_min\`、\`max_value\` / \`clamp_max\`。 |
 
 返回：结构化计算报告。
 

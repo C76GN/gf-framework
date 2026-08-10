@@ -121,13 +121,15 @@ var _source_span_metadata: Dictionary = {}
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param p_severity: 严重级别，可传入 Severity、int 或字符串。
 ## [br]
 ## @param p_kind: 问题类别。
 ## [br]
 ## @param p_message: 问题说明。
 ## [br]
-## @param p_key: 可选定位键。
+## @param p_key: 可选定位键；可变集合会在创建时复制为问题自身拥有的快照。
 ## [br]
 ## @param p_path: 可选路径。
 ## [br]
@@ -149,7 +151,7 @@ func _init(
 	severity = normalize_severity(p_severity)
 	kind = p_kind
 	message = p_message
-	key = p_key
+	key = GFVariantData.duplicate_variant(p_key)
 	path = p_path
 	metadata = p_metadata.duplicate(true)
 
@@ -160,13 +162,15 @@ func _init(
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param p_severity: 严重级别，可传入 Severity、int 或字符串。
 ## [br]
 ## @param p_kind: 问题类别。
 ## [br]
 ## @param p_message: 问题说明。
 ## [br]
-## @param p_key: 可选定位键。
+## @param p_key: 可选定位键；可变集合会在配置时复制为问题自身拥有的快照。
 ## [br]
 ## @param p_path: 可选路径。
 ## [br]
@@ -190,7 +194,7 @@ func configure(
 	severity = normalize_severity(p_severity)
 	kind = p_kind
 	message = p_message
-	key = p_key
+	key = GFVariantData.duplicate_variant(p_key)
 	path = p_path
 	metadata = p_metadata.duplicate(true)
 	return self

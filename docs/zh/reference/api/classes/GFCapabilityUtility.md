@@ -323,12 +323,13 @@ func get_capability(receiver: Object, capability_type: Script) -> Object:
 ### `get_capability_types`
 
 - API：`public`
+- 首次版本：`1.10.0`
 
 ```gdscript
 func get_capability_types(receiver: Object) -> Array[Script]:
 ```
 
-获取对象当前拥有的所有能力类型。
+获取对象当前拥有的所有能力类型。 该查询不会为了表示空结果而向未注册 receiver 写入能力元数据。
 
 参数：
 
@@ -378,7 +379,7 @@ func get_receivers_with(capability_type: Script, include_subclasses: bool = true
 func get_receivers_matching_capabilities( required_capability_types: Array[Script] = [], rejected_capability_types: Array[Script] = [], include_subclasses: bool = true, group_name: StringName = &"" ) -> Array[Object]:
 ```
 
-获取同时满足多个能力条件的 receiver。 receiver 必须拥有 required_capability_types 中的所有能力， 且不能拥有 rejected_capability_types 中的任意能力。 required_capability_types 为空时，会从当前已索引 receiver 或指定分组中筛选。
+获取同时满足多个能力条件的 receiver。 receiver 必须拥有 required_capability_types 中的所有能力， 且不能拥有 rejected_capability_types 中的任意能力。 required_capability_types 为空时，会从当前已索引 receiver 或指定分组中筛选。 任一条件列表包含 null 时视为非法查询，整次失败关闭为空结果。
 
 参数：
 
@@ -434,7 +435,7 @@ func get_receivers_matching_query(query: GFCapabilityQuery) -> Array[Object]:
 func receiver_matches_query(receiver: Object, query: GFCapabilityQuery) -> bool:
 ```
 
-判断指定 receiver 是否满足资源化查询条件。
+判断指定 receiver 是否满足资源化查询条件。 query 的 required/rejected 列表包含 null 时失败关闭为 false。
 
 参数：
 
@@ -715,12 +716,13 @@ func add_scene_capability(receiver: Node, scene: PackedScene, as_type: Script = 
 ### `set_capability_active`
 
 - API：`public`
+- 首次版本：`1.11.0`
 
 ```gdscript
 func set_capability_active(receiver: Object, capability_type: Script, active: bool) -> void:
 ```
 
-设置对象上指定能力的启停状态。
+设置对象上指定能力的启停状态。 Node 能力树会在写状态前完成有界预检；超出 max_capability_tree_nodes 时保持原状态， 不调用 active Hook，也不发出 capability_active_changed。
 
 参数：
 

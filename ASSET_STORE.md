@@ -47,7 +47,7 @@ GF does not define your gameplay rules. It does not replace Godot physics, rende
 
 Install the official Store package `gf-framework-10.0.0.zip`. It contains the full `addons/gf` addon folder: kernel, standard library, editor tooling, package manager, and bundled optional extensions. Optional extensions remain disabled until the project explicitly enables them, so the full package is the recommended first-install path.
 
-Copy `addons/gf` into your Godot project, enable `GF Framework` in `Project > Project Settings > Plugins`, then call `await Gf.init()` from your boot scene or use a project installer.
+Copy `addons/gf` into your Godot project and enable `GF Framework` in `Project > Project Settings > Plugins`. From the boot flow, call `Gf.init()` with `await` and stop when it returns `false`. A project installer supplies registrations during that call; it does not replace checking the awaited result.
 
 Advanced modular installs are available from the GitHub Release. Download `gf-kernel-10.0.0.zip` only when you intentionally want a minimal bootstrap and will install additional packages through `GF Package Manager`, the Godot-native package CLI, a release registry, or an offline bundle. The minimal kernel package is not the recommended Store download for first-time users.
 

@@ -173,6 +173,9 @@ func to_dict() -> Dictionary:
 
 
 ## 从字典应用映射表。
+##
+## 条目按输入顺序应用；同一 platform_id 与规范化 platform_locale 重复出现时，
+## 后一条覆盖前一条，与连续调用 `set_mapping()` 的语义一致。
 ## [br]
 ## @api public
 ## [br]
@@ -182,7 +185,18 @@ func to_dict() -> Dictionary:
 ## [br]
 ## @schema data: Dictionary with entries and default_locale.
 func apply_dict(data: Dictionary) -> void:
-	entries = _copy_entries_from_array(GFVariantData.get_option_array(data, "entries"))
+	entries.clear()
+	for entry_value: Variant in GFVariantData.get_option_array(data, "entries"):
+		if not (entry_value is Dictionary):
+			continue
+		var entry: Dictionary = entry_value
+		var _mapping: Dictionary = set_mapping(
+			GFVariantData.get_option_string_name(entry, "platform_id"),
+			GFVariantData.get_option_string(entry, "platform_locale"),
+			GFVariantData.get_option_string(entry, "locale"),
+			GFVariantData.get_option_string(entry, "fallback_locale"),
+			GFVariantData.get_option_string(entry, "display_name")
+		)
 	default_locale = GFVariantData.get_option_string(data, "default_locale").strip_edges()
 
 
@@ -271,24 +285,6 @@ static func _copy_entries(source_entries: Array[Dictionary]) -> Array[Dictionary
 	var result: Array[Dictionary] = []
 	for entry: Dictionary in source_entries:
 		result.append(entry.duplicate(true))
-	return result
-
-
-static func _copy_entries_from_array(source_entries: Array) -> Array[Dictionary]:
-	var result: Array[Dictionary] = []
-	for entry_value: Variant in source_entries:
-		if not (entry_value is Dictionary):
-			continue
-		var entry: Dictionary = entry_value
-		var normalized_entry: Dictionary = make_entry(
-			GFVariantData.get_option_string_name(entry, "platform_id"),
-			GFVariantData.get_option_string(entry, "platform_locale"),
-			GFVariantData.get_option_string(entry, "locale"),
-			GFVariantData.get_option_string(entry, "fallback_locale"),
-			GFVariantData.get_option_string(entry, "display_name")
-		)
-		if not normalized_entry.is_empty():
-			result.append(normalized_entry)
 	return result
 
 

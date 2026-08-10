@@ -45,7 +45,7 @@ static func get_snapshot( manifests: Array[GFExtensionManifest] = [], configured
 
 结构：
 
-- `options`: Dictionary，支持 force_refresh；为 true 时跳过现有缓存并重新扫描。
+- `options`: Dictionary，支持 force_refresh、max_json_file_bytes、max_json_total_bytes 和 max_json_depth；预算只能收紧框架硬上限。
 - `return`: Dictionary，包含 ok、presets、report、configured_paths、signature、signature_hash、revision、preset_count 和 issue_count。
 
 <a id="member-gfextensionpresetdiscovery-methods-clear_cache"></a>

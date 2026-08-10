@@ -35,6 +35,8 @@ var slope: float = heightfield.sample_slope_world(5.0, 5.0)
 
 如果输入来自 Terrain-RGB 高度图，可以先解码成行优先样本报告，也可以直接配置高度场。GF 只处理像素到高度样本的转换；图像加载、瓦片来源、区块生命周期、网格和材质仍由项目层负责。
 
+Terrain-RGB 的 scale/offset 不仅各自必须有限，派生高度还必须能以有限 float32 样本保存。乘加溢出或 float32 窄化失败会返回带 issue 的失败报告，且不会暴露非有限或部分样本；成功报告的高度范围按实际保存值统计。
+
 ```gdscript
 var terrain_image: Image = _load_height_image()
 var report: Dictionary = GFHeightfield3D.samples_from_terrain_rgb_image(
@@ -143,7 +145,7 @@ var custom: Dictionary = GFSurfaceScatterSampler3D.sample(
 
 - `seed`：固定随机源种子，默认 `0`。
 - `max_attempt_multiplier`：区域随机采样的最大尝试倍数，默认 `GFSurfaceScatterSampler3D.DEFAULT_MAX_ATTEMPT_MULTIPLIER`。
-- `max_random_attempts`：区域随机采样的绝对尝试上限。
+- `max_random_attempts`：区域随机采样的正整数绝对尝试上限；缺省或小于等于 0 时使用 `GFSurfaceScatterSampler3D.DEFAULT_MAX_RANDOM_ATTEMPTS`。
 - `max_points`：`sample_points()` 的最大接受数量；小于等于 0 时使用全部候选点。
 - `height_min` / `height_max`：接受的高度范围。
 - `slope_min` / `slope_max`：接受的坡度范围，语义与 `GFHeightfield3D.sample_slope_*()` 一致；0 表示平面，1 表示垂直、倒置或无效表面。

@@ -557,6 +557,12 @@ func _resolve_shader_material(
 	warn_on_invalid_target: bool
 ) -> ShaderMaterial:
 	if target is ShaderMaterial:
+		if duplicate_material:
+			_warn_invalid_target(
+				"直接传入 ShaderMaterial 时无法写回复制结果。",
+				warn_on_invalid_target
+			)
+			return null
 		return _variant_to_shader_material(target)
 	if not is_instance_valid(target):
 		_warn_invalid_target("目标对象无效。", warn_on_invalid_target)
@@ -580,7 +586,7 @@ func _resolve_shader_material(
 	var duplicated_value: Variant = material.duplicate(true)
 	if not (duplicated_value is ShaderMaterial):
 		_warn_invalid_target("材质复制结果不是 ShaderMaterial。", warn_on_invalid_target)
-		return material
+		return null
 
 	var duplicated_material: ShaderMaterial = _variant_to_shader_material(duplicated_value)
 	var write_result: Dictionary = GFObjectPropertyTools.write_property(
@@ -593,7 +599,7 @@ func _resolve_shader_material(
 			"复制材质写回失败：%s。" % GFVariantData.get_option_string(write_result, "error"),
 			warn_on_invalid_target
 		)
-		return material
+		return null
 	return duplicated_material
 
 

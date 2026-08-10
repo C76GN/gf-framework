@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFAsyncTrackerUtility" path="addons/gf/standard/utilities/debug/gf_async_tracker_utility.gd" module="standard" extends="GFUtility" classDigest="30293f559d103089be4978741ed7de6a35d7d19402c44e4984ab5db3ac40ca08">
+<class name="GFAsyncTrackerUtility" path="addons/gf/standard/utilities/debug/gf_async_tracker_utility.gd" module="standard" extends="GFUtility" classDigest="cf33fdbfd13e55183205f6f6597a290ab058d578c613777c67863f4fe8c9aafd">
 	<description>GFAsyncTrackerUtility: 可选异步句柄追踪工具。
 默认关闭。启用后可登记异步完成源、通道、超时控制器或项目自定义句柄，
 并通过弱引用生成活动句柄快照，帮助诊断未完成、未释放或异常停留的异步流程。</description>
@@ -168,7 +168,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">tracking_id: 待刷新的追踪 ID。</tag>
 				<tag name="return">刷新报告。</tag>
-				<tag name="schema">return: Dictionary，包含 ok、tracking_id、refreshed、error、entry_count 和 truncated。</tag>
+				<tag name="schema">return: Dictionary，包含 ok、tracking_id、refreshed、error、entry_count、truncated、stale 和 attempted_msec。</tag>
 				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
@@ -190,7 +190,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">include_invalid: 是否包含弱引用已失效的记录。</tag>
 				<tag name="return">追踪记录数组。</tag>
-				<tag name="schema">return: Array[Dictionary]，每项包含 tracking_id、label、valid、age_msec、metadata 和可选 snapshot / stack_trace。</tag>
+				<tag name="schema">return: Array[Dictionary]，每项包含 tracking_id、label、valid、age_msec、metadata、snapshot_entry_count、snapshot_truncated、snapshot_stale、snapshot_attempted_msec、snapshot_refreshed_msec 和可选 snapshot、snapshot_error、stack_trace。</tag>
 				<tag name="since">7.0.0</tag>
 			</tags>
 		</member>

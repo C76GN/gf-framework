@@ -46,7 +46,7 @@ GFCurve2DMath.set_ellipse_curve(ellipse_curve, Vector2(64, 64), Vector2(32, 32))
 
 `create_smooth_polyline_curve()` / `set_smooth_polyline_curve()` 使用 Catmull-Rom 风格的相对贝塞尔控制柄，让生成的 `Curve2D` 穿过输入折线点。它适合把手绘轨迹、导入轮廓、路径草图或编辑器画刷点列转换为可编辑曲线；`tension = 0.0` 时只写入无控制柄锚点，`closed = true` 时会去掉输入中重复的末尾首点并追加闭合锚点。
 
-`create_meandered_polyline()` 会在相邻锚点之间插入带侧向偏移的中间点，并返回 `anchor_indices`，让调用方知道每个原始锚点落在输出点列的哪个位置。它适合把路线、拖拽轨迹、视觉连线或预览路径做成更自然的折线，但不会解释路径代表的业务含义。`amplitude` 控制偏移距离，`points_per_segment` 控制每段插入点数，默认会把偏移限制到线段长度的一半以避免短线段过冲；需要保持精确中心线、物理路径或导航路径时，应继续使用原始折线。
+`create_meandered_polyline()` 会在相邻锚点之间插入带侧向偏移的中间点，并返回 `anchor_indices`，让调用方知道每个原始锚点落在输出点列的哪个位置。它适合把路线、拖拽轨迹、视觉连线或预览路径做成更自然的折线，但不会解释路径代表的业务含义。`amplitude` 控制偏移距离，`points_per_segment` 控制每段插入点数，默认会把偏移限制到线段长度的一半以避免短线段过冲；派生点数会在乘法和分配前与 `max_points` 比较，超限时不生成部分点列。需要保持精确中心线、物理路径或导航路径时，应继续使用原始折线。
 
 `subdivide_polyline_by_max_segment_length()` 会在过长线段中插入等距点，并返回 `anchor_indices`，让调用方继续追踪每个原始锚点在输出点列中的位置。它适合导入路径预处理、手绘点列稳定化、视觉连线重采样，以及需要先把链条拆成较短段再交给项目侧算法处理的场景。`closed = true` 时会把末点连回首点，并忽略输入中重复的末尾首点；函数不会执行生长模拟、拓扑合并、曲率保持或最少控制点拟合。
 

@@ -31,7 +31,7 @@ GF 扩展启用状态与 ProjectSettings 桥接。 负责读取启用扩展 ID�
 | 常量 | [`EXTENSION_PRESET_PATHS_DEFAULT`](#member-gfextensionsettings-constants-extension_preset_paths_default) | `const EXTENSION_PRESET_PATHS_DEFAULT: Array[String] = []` |
 | 常量 | [`EXPORT_EXCLUDE_DISABLED_DEFAULT`](#member-gfextensionsettings-constants-export_exclude_disabled_default) | `const EXPORT_EXCLUDE_DISABLED_DEFAULT: bool = true` |
 | 常量 | [`EXPORT_FAIL_ON_DISABLED_REFERENCES_DEFAULT`](#member-gfextensionsettings-constants-export_fail_on_disabled_references_default) | `const EXPORT_FAIL_ON_DISABLED_REFERENCES_DEFAULT: bool = true` |
-| 常量 | [`BUILT_IN_EXTENSION_IDS`](#member-gfextensionsettings-constants-built_in_extension_ids) | `const BUILT_IN_EXTENSION_IDS: Array[String] = [` |
+| 常量 | [`BUILT_IN_EXTENSION_IDS`](#member-gfextensionsettings-constants-built_in_extension_ids) | `const BUILT_IN_EXTENSION_IDS: Array[String] = [ 	"gf.kernel", 	"gf.standard", ]` |
 | 方法 | [`ensure_defaults`](#member-gfextensionsettings-methods-ensure_defaults) | `static func ensure_defaults() -> bool:` |
 | 方法 | [`register_property_info`](#member-gfextensionsettings-methods-register_property_info) | `static func register_property_info() -> void:` |
 | 方法 | [`get_default_enabled_extension_ids`](#member-gfextensionsettings-methods-get_default_enabled_extension_ids) | `static func get_default_enabled_extension_ids() -> Array[String]:` |
@@ -289,6 +289,9 @@ const EXPORT_FAIL_ON_DISABLED_REFERENCES_DEFAULT: bool = true
 
 ```gdscript
 const BUILT_IN_EXTENSION_IDS: Array[String] = [
+	"gf.kernel",
+	"gf.standard",
+]
 ```
 
 内置依赖 ID。这些不是可启停扩展 manifest，但允许被扩展声明为基础依赖。
@@ -382,7 +385,7 @@ static func set_extension_selection_mode(selection_mode: String) -> bool:
 
 | 名称 | 说明 |
 |---|---|
-| `selection_mode` | 选择模式，必须是 `default` 或 `explicit`。 |
+| `selection_mode` | 选择模式，必须是 \`default\` 或 \`explicit\`。 |
 
 返回：模式有效并已写入时返回 true。
 
@@ -785,7 +788,7 @@ static func get_extension_resource_path( extension_id: String, relative_path: St
 | 名称 | 说明 |
 |---|---|
 | `extension_id` | 扩展 ID。 |
-| `relative_path` | 相对扩展根目录的资源路径；传入 `res://` 时必须仍位于扩展根目录下。 |
+| `relative_path` | 相对扩展根目录的资源路径；传入 \`res://\` 时必须仍位于扩展根目录下。 |
 
 返回：扩展根目录下的资源路径；扩展不存在或路径越界时返回空字符串。
 
@@ -827,7 +830,7 @@ static func load_enabled_extension_script( extension_id: String, relative_path: 
 | 名称 | 说明 |
 |---|---|
 | `extension_id` | 扩展 ID。 |
-| `relative_path` | 相对扩展根目录的脚本路径；传入 `res://` 时必须仍位于扩展根目录下。 |
+| `relative_path` | 相对扩展根目录的脚本路径；传入 \`res://\` 时必须仍位于扩展根目录下。 |
 | `include_dependencies` | 是否把依赖补齐后的启用结果纳入判断。 |
 
 返回：扩展存在、已启用、依赖图有效且脚本可加载时返回 Script，否则返回 null。
@@ -1052,4 +1055,4 @@ static func get_extension_selection_report() -> Dictionary:
 
 结构：
 
-- `return`: Dictionary containing selection_mode, external_roots, configured_ids, explicit_ids, resolved_ids, unknown_enabled_ids, graph status, and extension counts.
+- `return`: Dictionary containing selection_mode, external_roots, configured_ids, explicit_ids, resolved_ids, unknown_enabled_ids, status, partial, paths_allowed, tool_contribution_errors, graph status, and extension counts.

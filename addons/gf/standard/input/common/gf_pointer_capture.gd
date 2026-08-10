@@ -55,12 +55,13 @@ func is_active() -> bool:
 ## [br]
 ## @return 匹配当前捕获时返回 true。
 func matches(pointer_id: int) -> bool:
-	return active_pointer_id == pointer_id
+	return is_active() and active_pointer_id == pointer_id
 
 
 ## 尝试捕获指针。
 ## [br]
 ## 若当前没有捕获，则记录传入指针；若已经捕获同一指针，也视为成功。
+## `NO_POINTER_ID` 永远会被拒绝。
 ## [br]
 ## @api public
 ## [br]
@@ -70,6 +71,8 @@ func matches(pointer_id: int) -> bool:
 ## [br]
 ## @return 捕获成功或已经捕获同一指针时返回 true。
 func try_capture(pointer_id: int) -> bool:
+	if pointer_id == NO_POINTER_ID:
+		return false
 	if active_pointer_id == NO_POINTER_ID:
 		active_pointer_id = pointer_id
 		return true

@@ -286,12 +286,13 @@ func update(delta: float, include_ancestors: bool = false) -> void:
 ### `dispatch_state_event`
 
 - API：`public`
+- 首次版本：`8.0.0`
 
 ```gdscript
 func dispatch_state_event(event_id: StringName, payload: Variant = null) -> bool:
 ```
 
-从当前叶子状态开始向父状态上抛事件，直到某个状态返回 true。
+从当前叶子状态开始向父状态上抛事件，直到某个状态返回 true。 处理器改变激活路径时，本次派发会在当前处理器返回后终止；新激活状态不会接收旧周期事件。
 
 参数：
 

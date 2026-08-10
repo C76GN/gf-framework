@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFThumbnailRenderRequest" path="addons/gf/kernel/editor/gf_thumbnail_render_request.gd" module="kernel" extends="RefCounted" classDigest="d631dd594c614230339fdb202c11b228a604c0a3951af176cda20eecf4119522">
+<class name="GFThumbnailRenderRequest" path="addons/gf/kernel/editor/gf_thumbnail_render_request.gd" module="kernel" extends="RefCounted" classDigest="e5952057ca1c7355102e160a0e6cb947e12ae48f8ff1e04803cd81e6e5d71987">
 	<description>GFThumbnailRenderRequest: 缩略图渲染请求描述。
 请求只描述一次缩略图渲染的输入，不持有执行状态；执行状态由 GFThumbnailRenderTask 承载。</description>
 	<tags>
@@ -74,7 +74,7 @@
 				<tag name="param">size: 输出尺寸。</tag>
 				<tag name="param">transparent: 是否透明背景。</tag>
 				<tag name="param">content_bounds: 来源局部坐标中的显式内容边界；非正尺寸表示自动估算。</tag>
-				<tag name="param">margin_ratio: 内容边界四周的相对留白，钳制到 0.0 至 1.0。</tag>
+				<tag name="param">margin_ratio: 内容边界四周的有限相对留白，钳制到 0.0 至 1.0；非有限值会使请求无效。</tag>
 				<tag name="return">CanvasItem Image 渲染请求。</tag>
 				<tag name="since">10.0.0</tag>
 			</tags>
@@ -90,7 +90,7 @@
 				<tag name="param">size: 输出尺寸。</tag>
 				<tag name="param">transparent: 是否透明背景。</tag>
 				<tag name="param">content_bounds: 来源局部坐标中的显式内容边界；非正尺寸表示自动估算。</tag>
-				<tag name="param">margin_ratio: 内容边界四周的相对留白，钳制到 0.0 至 1.0。</tag>
+				<tag name="param">margin_ratio: 内容边界四周的有限相对留白，钳制到 0.0 至 1.0；非有限值会使请求无效。</tag>
 				<tag name="return">CanvasItem ImageTexture 渲染请求。</tag>
 				<tag name="since">10.0.0</tag>
 			</tags>

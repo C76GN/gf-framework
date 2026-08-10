@@ -67,7 +67,7 @@ func _get_capability_template() -> String:
 ## [br]
 ## @category protocol
 ## [br]
-## @since 3.17.0
+## 版本来源由项目维护者定义；发布项目 API 时再补充项目自己的版本标记。
 class_name {ClassName}
 extends {BaseClass}
 

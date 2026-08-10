@@ -88,7 +88,7 @@ static func resolve_attribution(path: String, entries: Array, options: Dictionar
 ## 构建资产归因覆盖报告。
 ## [br]
 ## 传入 resource_paths 时，报告会检查每个资源路径是否能命中归因条目。
-## 缺少 path、重复 path、缺少 license_id 或未覆盖资源路径都会作为错误报告。
+## 缺少 path、重复 path、冲突别名、无效覆盖输入、缺少 license_id 或未覆盖资源路径都会作为错误报告。
 ## [br]
 ## @api public
 ## [br]
@@ -108,7 +108,7 @@ static func resolve_attribution(path: String, entries: Array, options: Dictionar
 ## [br]
 ## @return GFValidationReport 兼容字典，并附带 entries、covered_paths、uncovered_paths 和 license_ids。
 ## [br]
-## @schema return: Dictionary，包含 ok、healthy、summary、entries、entry_count、resource_path_count、covered_paths、uncovered_paths、license_ids 等字段。
+## @schema return: Dictionary，包含 ok、healthy、summary、entries、entry_count、resource_path_input_count、resource_path_count、valid_resource_path_count、invalid_resource_path_count、duplicate_resource_path_count、covered_paths、uncovered_paths、license_ids 等字段；resource_path_count 与 valid_resource_path_count 都表示规范化后的有效唯一资源路径数。
 static func build_attribution_report(
 	entries: Array,
 	resource_paths: PackedStringArray = PackedStringArray(),
@@ -120,12 +120,24 @@ static func build_attribution_report(
 	var require_license_id: bool = GFVariantData.get_option_bool(options, "require_license_id", true)
 
 	for index: int in range(entries.size()):
-		var normalized_entry: Dictionary = normalize_attribution(_entry_to_data(entries[index]), options)
+		var entry_data: Dictionary = _entry_to_data(entries[index])
+		var normalized_entry: Dictionary = normalize_attribution(entry_data, options)
 		normalized_entry["index"] = index
 		normalized_entries.append(normalized_entry)
+		_add_attribution_conflict_issues(entry_data, index, options, report)
 		_validate_entry(normalized_entry, index, paths_by_entry_index, require_license_id, report)
 
-	var coverage: Dictionary = _build_coverage(resource_paths, normalized_entries, options, report)
+	var normalized_path_inputs: Dictionary = _normalize_resource_path_inputs(resource_paths, report)
+	var normalized_resource_paths: PackedStringArray = GFVariantData.get_option_packed_string_array(
+		normalized_path_inputs,
+		"paths"
+	)
+	var coverage: Dictionary = _build_coverage(
+		normalized_resource_paths,
+		normalized_entries,
+		options,
+		report
+	)
 	var covered_paths: Array[Dictionary] = GFVariantData.get_option_array(coverage, "covered_paths")
 	var uncovered_paths: PackedStringArray = GFVariantData.get_option_packed_string_array(
 		coverage,
@@ -134,7 +146,17 @@ static func build_attribution_report(
 
 	var raw_report: Dictionary = report.to_dict({
 		"entry_count": normalized_entries.size(),
-		"resource_path_count": _normalize_paths(resource_paths).size(),
+		"resource_path_input_count": resource_paths.size(),
+		"resource_path_count": normalized_resource_paths.size(),
+		"valid_resource_path_count": normalized_resource_paths.size(),
+		"invalid_resource_path_count": GFVariantData.get_option_int(
+			normalized_path_inputs,
+			"invalid_count"
+		),
+		"duplicate_resource_path_count": GFVariantData.get_option_int(
+			normalized_path_inputs,
+			"duplicate_count"
+		),
 		"covered_path_count": covered_paths.size(),
 		"uncovered_path_count": uncovered_paths.size(),
 		"entries": normalized_entries,
@@ -165,7 +187,9 @@ static func build_attribution_report(
 static func format_notice_text(report: Dictionary, options: Dictionary = {}) -> String:
 	var entries: Array[Dictionary] = _get_report_entries(report)
 	var license_ids: PackedStringArray = _collect_license_ids(entries)
-	var title: String = GFVariantData.get_option_string(options, "title", "Third-party attributions")
+	var title: String = _sanitize_single_line_text(
+		GFVariantData.get_option_string(options, "title", "Third-party attributions")
+	)
 	var include_paths: bool = GFVariantData.get_option_bool(options, "include_paths", true)
 	var lines: PackedStringArray = PackedStringArray()
 
@@ -194,7 +218,7 @@ static func _entry_to_data(entry: Variant) -> Dictionary:
 		return record.to_dict()
 	if entry is Dictionary:
 		var entry_data: Dictionary = entry
-		return entry_data.duplicate(true)
+		return GFVariantData.to_dictionary(entry_data)
 	return {}
 
 
@@ -220,9 +244,9 @@ static func _select_attribution_payload(data: Dictionary, options: Dictionary) -
 			payload = metadata
 
 	if payload.is_empty():
-		payload = data.duplicate(true)
+		payload = GFVariantData.to_dictionary(data)
 	else:
-		payload = payload.duplicate(true)
+		payload = GFVariantData.to_dictionary(payload)
 		_copy_missing_field(payload, metadata, "source_path")
 		_copy_missing_field(payload, metadata, "subject_path")
 		_copy_missing_field(payload, metadata, "subject_kind")
@@ -231,6 +255,119 @@ static func _select_attribution_payload(data: Dictionary, options: Dictionary) -
 		_copy_missing_field(payload, data, "subject_kind")
 
 	return payload
+
+
+static func _add_attribution_conflict_issues(
+	data: Dictionary,
+	index: int,
+	options: Dictionary,
+	report: GFValidationReport
+) -> void:
+	_add_attribution_field_conflict(data, index, options, "path", _PATH_FIELDS, true, report)
+	_add_attribution_field_conflict(data, index, options, "license_id", _LICENSE_FIELDS, false, report)
+	_add_attribution_field_conflict(data, index, options, "title", _TITLE_FIELDS, false, report)
+	_add_attribution_field_conflict(data, index, options, "creator", _CREATOR_FIELDS, false, report)
+	_add_attribution_field_conflict(data, index, options, "source_url", _SOURCE_URL_FIELDS, false, report)
+	_add_attribution_field_conflict(data, index, options, "notice", _NOTICE_FIELDS, false, report)
+	_add_attribution_field_conflict(data, index, options, "copyright", _COPYRIGHT_FIELDS, false, report)
+
+
+static func _add_attribution_field_conflict(
+	data: Dictionary,
+	index: int,
+	options: Dictionary,
+	field_name: String,
+	aliases: PackedStringArray,
+	normalize_as_path: bool,
+	report: GFValidationReport
+) -> void:
+	var candidates: Array[Dictionary] = _collect_attribution_field_candidates(
+		data,
+		options,
+		aliases,
+		normalize_as_path
+	)
+	var distinct_values: Dictionary = {}
+	var source_fields: Array[String] = []
+	for candidate: Dictionary in candidates:
+		var normalized_value: String = GFVariantData.get_option_string(candidate, "normalized_value")
+		if normalized_value.is_empty():
+			continue
+		distinct_values[normalized_value] = true
+		source_fields.append(GFVariantData.get_option_string(candidate, "source_field"))
+	if distinct_values.size() <= 1:
+		return
+
+	var _conflict_issue: RefCounted = report.add_error(
+		&"conflicting_attribution_field",
+		"Attribution aliases declare conflicting normalized values.",
+		index,
+		"entries[%d].%s" % [index, field_name],
+		{
+			"index": index,
+			"field_name": field_name,
+			"source_fields": source_fields,
+		}
+	)
+
+
+static func _collect_attribution_field_candidates(
+	data: Dictionary,
+	options: Dictionary,
+	aliases: PackedStringArray,
+	normalize_as_path: bool
+) -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	_append_attribution_field_candidates(result, data, "", aliases, normalize_as_path)
+
+	var metadata: Dictionary = GFVariantData.as_dictionary(
+		GFVariantData.get_option_value(data, "metadata")
+	)
+	if metadata.is_empty():
+		return result
+	_append_attribution_field_candidates(result, metadata, "metadata.", aliases, normalize_as_path)
+
+	var attribution_key: String = GFVariantData.get_option_string(
+		options,
+		"attribution_key",
+		_ATTRIBUTION_KEY
+	)
+	if attribution_key.is_empty():
+		return result
+	var nested_payload: Dictionary = GFVariantData.as_dictionary(
+		GFVariantData.get_option_value(metadata, attribution_key)
+	)
+	if nested_payload.is_empty():
+		return result
+	_append_attribution_field_candidates(
+		result,
+		nested_payload,
+		"metadata.%s." % attribution_key,
+		aliases,
+		normalize_as_path
+	)
+	return result
+
+
+static func _append_attribution_field_candidates(
+	result: Array[Dictionary],
+	payload: Dictionary,
+	prefix: String,
+	aliases: PackedStringArray,
+	normalize_as_path: bool
+) -> void:
+	for alias: String in aliases:
+		if not payload.has(alias) and not payload.has(StringName(alias)):
+			continue
+		var text: String = _field_text(GFVariantData.get_option_value(payload, alias))
+		if normalize_as_path:
+			text = _normalize_path(text)
+		if text.is_empty():
+			continue
+		result.append({
+			"source_field": prefix + alias,
+			"normalized_value": text,
+		})
 
 
 static func _validate_entry(
@@ -279,14 +416,14 @@ static func _validate_entry(
 
 
 static func _build_coverage(
-	resource_paths: PackedStringArray,
+	normalized_resource_paths: PackedStringArray,
 	entries: Array[Dictionary],
 	options: Dictionary,
 	report: GFValidationReport
 ) -> Dictionary:
 	var covered_paths: Array[Dictionary] = []
 	var uncovered_paths: PackedStringArray = PackedStringArray()
-	for resource_path: String in _normalize_paths(resource_paths):
+	for resource_path: String in normalized_resource_paths:
 		var resolution: Dictionary = _resolve_normalized_attribution(resource_path, entries, options)
 		if GFVariantData.get_option_bool(resolution, "found"):
 			covered_paths.append({
@@ -308,6 +445,43 @@ static func _build_coverage(
 	return {
 		"covered_paths": covered_paths,
 		"uncovered_paths": uncovered_paths,
+	}
+
+
+static func _normalize_resource_path_inputs(
+	resource_paths: PackedStringArray,
+	report: GFValidationReport
+) -> Dictionary:
+	var normalized_paths: PackedStringArray = PackedStringArray()
+	var first_index_by_path: Dictionary = {}
+	var invalid_count: int = 0
+	var duplicate_count: int = 0
+
+	for input_index: int in range(resource_paths.size()):
+		var normalized_path: String = _normalize_path(resource_paths[input_index])
+		if normalized_path.is_empty():
+			invalid_count += 1
+			var _invalid_path_issue: RefCounted = report.add_error(
+				&"invalid_resource_path",
+				"Resource path is empty after normalization.",
+				input_index,
+				"resource_paths[%d]" % input_index,
+				{
+					"input_index": input_index,
+					"reason": "empty_after_normalization",
+				}
+			)
+			continue
+		if first_index_by_path.has(normalized_path):
+			duplicate_count += 1
+			continue
+		first_index_by_path[normalized_path] = input_index
+		var _path_appended: bool = normalized_paths.append(normalized_path)
+
+	return {
+		"paths": normalized_paths,
+		"invalid_count": invalid_count,
+		"duplicate_count": duplicate_count,
 	}
 
 
@@ -369,13 +543,6 @@ static func _make_empty_resolution(path: String) -> Dictionary:
 		"inherited_from": "",
 		"entry": {},
 	}
-
-
-static func _normalize_paths(paths: PackedStringArray) -> PackedStringArray:
-	var result: PackedStringArray = PackedStringArray()
-	for path: String in paths:
-		_append_unique_text(result, _normalize_path(path))
-	return result
 
 
 static func _normalize_path(path: String) -> String:
@@ -482,18 +649,20 @@ static func _get_report_entries(report: Dictionary) -> Array[Dictionary]:
 		if not (entry_value is Dictionary):
 			continue
 		var entry: Dictionary = entry_value
-		result.append(entry.duplicate(true))
+		result.append(GFVariantData.to_dictionary(entry))
 	return result
 
 
 static func _get_notice_license_id(entry: Dictionary) -> String:
-	var license_id: String = GFVariantData.get_option_string(entry, "license_id").strip_edges()
+	var license_id: String = _sanitize_single_line_text(
+		GFVariantData.get_option_string(entry, "license_id")
+	)
 	return license_id if not license_id.is_empty() else _UNSPECIFIED_LICENSE_LABEL
 
 
 static func _append_notice_entry(lines: PackedStringArray, entry: Dictionary, include_paths: bool) -> void:
-	var title: String = GFVariantData.get_option_string(entry, "title")
-	var path: String = GFVariantData.get_option_string(entry, "path")
+	var title: String = _sanitize_single_line_text(GFVariantData.get_option_string(entry, "title"))
+	var path: String = _sanitize_single_line_text(GFVariantData.get_option_string(entry, "path"))
 	var label: String = title if not title.is_empty() else path
 	if label.is_empty():
 		label = "Untitled asset"
@@ -504,13 +673,66 @@ static func _append_notice_entry(lines: PackedStringArray, entry: Dictionary, in
 	_append_optional_notice_field(lines, "Creator", GFVariantData.get_option_string(entry, "creator"))
 	_append_optional_notice_field(lines, "Source", GFVariantData.get_option_string(entry, "source_url"))
 	_append_optional_notice_field(lines, "Copyright", GFVariantData.get_option_string(entry, "copyright"))
-	_append_optional_notice_field(lines, "Notice", GFVariantData.get_option_string(entry, "notice"))
+	_append_multiline_notice_field(lines, "Notice", GFVariantData.get_option_string(entry, "notice"))
 
 
 static func _append_optional_notice_field(lines: PackedStringArray, label: String, value: String) -> void:
-	var text: String = value.strip_edges()
+	var text: String = _sanitize_single_line_text(value)
 	if not text.is_empty():
 		_append_line(lines, "  %s: %s" % [label, text])
+
+
+static func _append_multiline_notice_field(
+	lines: PackedStringArray,
+	label: String,
+	value: String
+) -> void:
+	var notice_lines: PackedStringArray = _split_sanitized_notice_lines(value)
+	if notice_lines.is_empty():
+		return
+	_append_line(lines, "  %s: %s" % [label, notice_lines[0]])
+	for line_index: int in range(1, notice_lines.size()):
+		_append_line(lines, "    %s" % notice_lines[line_index])
+
+
+static func _split_sanitized_notice_lines(value: String) -> PackedStringArray:
+	var normalized: String = value.replace("\r\n", "\n").replace("\r", "\n")
+	normalized = normalized.replace(String.chr(0x85), "\n")
+	normalized = normalized.replace(String.chr(0x2028), "\n")
+	normalized = normalized.replace(String.chr(0x2029), "\n").strip_edges()
+	if normalized.is_empty():
+		return PackedStringArray()
+
+	var result: PackedStringArray = PackedStringArray()
+	for raw_line: String in normalized.split("\n", true):
+		var _line_appended: bool = result.append(_sanitize_single_line_text(raw_line))
+	return result
+
+
+static func _sanitize_single_line_text(value: String) -> String:
+	var result: String = ""
+	var separator_pending: bool = false
+	for character_index: int in range(value.length()):
+		var codepoint: int = value.unicode_at(character_index)
+		if _is_text_control_or_line_separator(codepoint):
+			separator_pending = true
+			continue
+		if separator_pending:
+			if not result.is_empty() and not result.ends_with(" "):
+				result += " "
+			separator_pending = false
+		result += String.chr(codepoint)
+	return result.strip_edges()
+
+
+static func _is_text_control_or_line_separator(codepoint: int) -> bool:
+	return (
+		codepoint <= 0x1f
+		or codepoint == 0x7f
+		or codepoint == 0x85
+		or codepoint == 0x2028
+		or codepoint == 0x2029
+	)
 
 
 static func _append_line(lines: PackedStringArray, text: String) -> void:
@@ -527,9 +749,11 @@ static func _append_unique_text(values: PackedStringArray, value: String) -> voi
 static func _report_options() -> Dictionary:
 	return {
 		"next_actions": {
+			"conflicting_attribution_field": "Remove conflicting aliases or make every alias for the field normalize to the same value.",
 			"missing_attribution_path": "Add a path, resource_path, source_path, or asset_path to the attribution entry.",
 			"duplicate_attribution_path": "Keep one attribution entry per normalized path.",
 			"missing_license_id": "Add a project-approved license_id or relax require_license_id explicitly.",
+			"invalid_resource_path": "Provide a non-empty resource path that remains valid after normalization.",
 			"uncovered_resource_path": "Add an exact attribution entry or a parent directory attribution entry.",
 		},
 		"fallback_action": "Review the first asset attribution issue.",

@@ -112,6 +112,11 @@ var max_steps_per_update: int = 8
 var drop_excess_time_on_budget_hit: bool = true
 
 
+# --- 私有变量 ---
+
+var _operation_active: bool = false
+
+
 # --- Godot 生命周期方法 ---
 
 func _init(p_tick_rate: float = 30.0, p_start_tick: int = 0) -> void:
@@ -148,10 +153,14 @@ func reset(start_tick: int = 0) -> void:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.6.0
+## [br]
 ## @param delta_seconds: 本次累积的真实时间。
 ## [br]
-## @return 应执行的固定 tick 数。
+## @return: 应执行的固定 tick 数；同一时钟正在发布 tick 信号时重入调用返回 0。
 func advance(delta_seconds: float) -> int:
+	if _operation_active:
+		return 0
 	if delta_seconds <= 0.0 or is_nan(delta_seconds) or is_inf(delta_seconds):
 		return 0
 
@@ -166,6 +175,7 @@ func advance(delta_seconds: float) -> int:
 		step_count = mini(step_count, max_steps_per_update)
 
 	var previous_tick: int = current_tick
+	_operation_active = true
 	_advance_steps(step_count, tick_seconds)
 	accumulator_seconds -= tick_seconds * step_count
 	if (
@@ -178,6 +188,7 @@ func advance(delta_seconds: float) -> int:
 	ticks_advanced.emit(previous_tick, current_tick, step_count)
 	if available_steps > step_count:
 		tick_budget_exhausted.emit(available_steps, step_count, accumulator_seconds)
+	_operation_active = false
 	return step_count
 
 
@@ -185,11 +196,17 @@ func advance(delta_seconds: float) -> int:
 ## [br]
 ## @api public
 ## [br]
-## @return 推进后的当前 tick。
+## @since 3.6.0
+## [br]
+## @return: 推进后的当前 tick；同一时钟正在发布 tick 信号时重入调用不推进并返回调用时的 current_tick。
 func step_once() -> int:
+	if _operation_active:
+		return current_tick
 	var previous_tick: int = current_tick
+	_operation_active = true
 	_advance_steps(1, get_tick_seconds())
 	ticks_advanced.emit(previous_tick, current_tick, 1)
+	_operation_active = false
 	return current_tick
 
 

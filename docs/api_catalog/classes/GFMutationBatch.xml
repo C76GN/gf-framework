@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFMutationBatch" path="addons/gf/standard/foundation/collections/gf_mutation_batch.gd" module="standard" extends="RefCounted" classDigest="8f1692d0e61fd0ffe37baa69cf5e03869b24e3fcba02d9d8800a87affd14680e">
+<class name="GFMutationBatch" path="addons/gf/standard/foundation/collections/gf_mutation_batch.gd" module="standard" extends="RefCounted" classDigest="006e4c70d567f66739fc9c79874969679c7d04abe88e569e5fcf14fc500e9c7b">
 	<description>GFMutationBatch: 通用变更批次。
 把一组 Callable 作为可提交、可回滚的批次执行。它只管理执行顺序、
 结果归一化和回滚栈，不绑定资源、存档、网络或编辑器事务。</description>
@@ -106,9 +106,11 @@
 		</member>
 		<member kind="method" name="clear">
 			<signature>func clear() -&gt; void:</signature>
-			<description>清空批次。</description>
+			<description>清空批次。
+commit/rollback 及其同步信号派发期间调用时不执行。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_pending_count">
@@ -133,7 +135,8 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">调试信息字典。</tag>
-				<tag name="schema">return: Dictionary with pending_count, committed_count, next_operation_id, and options.</tag>
+				<tag name="schema">return: Dictionary with pending_count, committed_count, next_operation_id, transition_state, and options.</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</methods>

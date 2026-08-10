@@ -15,7 +15,7 @@
 
 | 类型 | 名称 | 签名 |
 |---|---|---|
-| 常量 | [`DEFAULT_CARDINAL_OFFSETS`](#member-gfgridplanemapper3d-constants-default_cardinal_offsets) | `const DEFAULT_CARDINAL_OFFSETS: Array[Vector2i] = [` |
+| 常量 | [`DEFAULT_CARDINAL_OFFSETS`](#member-gfgridplanemapper3d-constants-default_cardinal_offsets) | `const DEFAULT_CARDINAL_OFFSETS: Array[Vector2i] = [ 	Vector2i(0, -1), 	Vector2i(1, 0), 	Vector2i(0, 1), 	Vector2i(-1, 0), ]` |
 | 方法 | [`is_axis_aligned_normal`](#member-gfgridplanemapper3d-methods-is_axis_aligned_normal) | `static func is_axis_aligned_normal(normal: Vector3i) -> bool:` |
 | 方法 | [`normalize_axis_normal`](#member-gfgridplanemapper3d-methods-normalize_axis_normal) | `static func normalize_axis_normal(normal: Vector3i) -> Vector3i:` |
 | 方法 | [`get_plane_basis`](#member-gfgridplanemapper3d-methods-get_plane_basis) | `static func get_plane_basis(normal: Vector3i) -> Dictionary:` |
@@ -35,6 +35,11 @@
 
 ```gdscript
 const DEFAULT_CARDINAL_OFFSETS: Array[Vector2i] = [
+	Vector2i(0, -1),
+	Vector2i(1, 0),
+	Vector2i(0, 1),
+	Vector2i(-1, 0),
+]
 ```
 
 默认四邻域 offset 顺序：上、右、下、左。

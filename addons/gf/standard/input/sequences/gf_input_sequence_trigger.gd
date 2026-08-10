@@ -38,9 +38,12 @@ const _BRANCH_CONFIGURATION_SIGNATURE_KEY: String = "branch_configuration_signat
 	set(value):
 		max_gap_seconds = maxf(value, 0.0)
 
-## 玩家级动作是否只检查同一玩家。
+## 玩家级动作是否只检查同一玩家。启用且 player_index 有效时，runtime 必须提供
+## 完整 player-specific active/started/completed/duration 协议，否则序列不推进。
 ## [br]
 ## @api public
+## [br]
+## @since 11.0.0
 @export var player_scoped: bool = true
 
 
@@ -144,13 +147,16 @@ func _advance_branches(
 	var input_runtime: Object = _get_input_runtime(state)
 	if input_runtime == null:
 		return
+	var player_index: int = _get_runtime_player_index(state)
+	if player_scoped and player_index >= 0 and not _has_complete_player_query_protocol(input_runtime):
+		return
 
 	var branch_states: Array[Dictionary] = _get_branch_states(state, effective_branches.size())
 	for branch_index: int in range(effective_branches.size()):
 		var branch: GFInputSequenceBranch = effective_branches[branch_index]
 		if branch == null:
 			continue
-		_advance_branch(branch_states[branch_index], branch, input_runtime, delta, _get_runtime_player_index(state))
+		_advance_branch(branch_states[branch_index], branch, input_runtime, delta, player_index)
 
 
 func _get_required_action_branches() -> Array[GFInputSequenceBranch]:
@@ -398,7 +404,9 @@ func _has_completed_branch(state: Dictionary) -> bool:
 
 
 func _is_action_active(input_runtime: Object, action_id: StringName, player_index: int) -> bool:
-	if player_scoped and player_index >= 0 and input_runtime.has_method("is_action_active_for_player"):
+	if player_scoped and player_index >= 0:
+		if not input_runtime.has_method("is_action_active_for_player"):
+			return false
 		return GFVariantData.to_bool(input_runtime.call("is_action_active_for_player", player_index, action_id))
 	if input_runtime.has_method("is_action_active"):
 		return GFVariantData.to_bool(input_runtime.call("is_action_active", action_id))
@@ -406,7 +414,9 @@ func _is_action_active(input_runtime: Object, action_id: StringName, player_inde
 
 
 func _was_action_just_started(input_runtime: Object, action_id: StringName, player_index: int) -> bool:
-	if player_scoped and player_index >= 0 and input_runtime.has_method("was_action_just_started_for_player"):
+	if player_scoped and player_index >= 0:
+		if not input_runtime.has_method("was_action_just_started_for_player"):
+			return false
 		return GFVariantData.to_bool(input_runtime.call("was_action_just_started_for_player", player_index, action_id))
 	if input_runtime.has_method("was_action_just_started"):
 		return GFVariantData.to_bool(input_runtime.call("was_action_just_started", action_id))
@@ -414,7 +424,9 @@ func _was_action_just_started(input_runtime: Object, action_id: StringName, play
 
 
 func _was_action_just_completed(input_runtime: Object, action_id: StringName, player_index: int) -> bool:
-	if player_scoped and player_index >= 0 and input_runtime.has_method("was_action_just_completed_for_player"):
+	if player_scoped and player_index >= 0:
+		if not input_runtime.has_method("was_action_just_completed_for_player"):
+			return false
 		return GFVariantData.to_bool(input_runtime.call("was_action_just_completed_for_player", player_index, action_id))
 	if input_runtime.has_method("was_action_just_completed"):
 		return GFVariantData.to_bool(input_runtime.call("was_action_just_completed", action_id))
@@ -422,11 +434,22 @@ func _was_action_just_completed(input_runtime: Object, action_id: StringName, pl
 
 
 func _get_last_completed_duration(input_runtime: Object, action_id: StringName, player_index: int) -> float:
-	if player_scoped and player_index >= 0 and input_runtime.has_method("get_last_completed_duration_for_player"):
+	if player_scoped and player_index >= 0:
+		if not input_runtime.has_method("get_last_completed_duration_for_player"):
+			return 0.0
 		return GFVariantData.to_float(input_runtime.call("get_last_completed_duration_for_player", player_index, action_id))
 	if input_runtime.has_method("get_last_completed_duration"):
 		return GFVariantData.to_float(input_runtime.call("get_last_completed_duration", action_id))
 	return 0.0
+
+
+func _has_complete_player_query_protocol(input_runtime: Object) -> bool:
+	return (
+		input_runtime.has_method("is_action_active_for_player")
+		and input_runtime.has_method("was_action_just_started_for_player")
+		and input_runtime.has_method("was_action_just_completed_for_player")
+		and input_runtime.has_method("get_last_completed_duration_for_player")
+	)
 
 
 func _reset_all_branch_progress(state: Dictionary) -> void:

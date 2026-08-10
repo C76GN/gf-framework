@@ -129,7 +129,7 @@ static func normalize_metadata(value: Variant) -> Dictionary:
 ### `write_object_metadata`
 
 - API：`public`
-- 首次版本：`8.0.0`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func write_object_metadata( target: Object, metadata: Dictionary, options: Dictionary = {} ) -> GFAssetMetadataRecord:
@@ -239,7 +239,7 @@ func validate_object_metadata( target: Object, schema: GFDictionarySchema, optio
 ### `has_object_metadata`
 
 - API：`public`
-- 首次版本：`8.0.0`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func has_object_metadata(target: Object, options: Dictionary = {}) -> bool:
@@ -314,7 +314,7 @@ func clear_object_metadata(target: Object, options: Dictionary = {}) -> void:
 ### `collect_node_tree`
 
 - API：`public`
-- 首次版本：`8.0.0`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func collect_node_tree(root: Node, options: Dictionary = {}) -> Array[GFAssetMetadataRecord]:
@@ -340,7 +340,7 @@ func collect_node_tree(root: Node, options: Dictionary = {}) -> Array[GFAssetMet
 ### `collect_node_tree_dicts`
 
 - API：`public`
-- 首次版本：`8.0.0`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func collect_node_tree_dicts(root: Node, options: Dictionary = {}) -> Array[Dictionary]:
@@ -367,7 +367,7 @@ func collect_node_tree_dicts(root: Node, options: Dictionary = {}) -> Array[Dict
 ### `build_node_tree_report`
 
 - API：`public`
-- 首次版本：`8.0.0`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func build_node_tree_report(root: Node, options: Dictionary = {}) -> Dictionary:

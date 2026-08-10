@@ -560,7 +560,9 @@ func _render_template_text(text: String, options: Dictionary, depth: int, source
 		var token_start: int = start_index + start_token.length()
 		var end_index: int = text.find(end_token, token_start)
 		if end_index < 0:
-			output += replace_tokens(text.substr(cursor), options)
+			var malformed_tail: String = replace_tokens(text.substr(cursor), options)
+			if _can_append_template_fragment(output.length(), malformed_tail, source_span):
+				output += malformed_tail
 			return output
 
 		var token_text: String = text.substr(token_start, end_index - token_start).strip_edges()

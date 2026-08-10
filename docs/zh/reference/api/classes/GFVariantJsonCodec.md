@@ -36,6 +36,7 @@ Godot Variant 的 JSON 兼容编码器。 负责在 JSON.stringify() 可编码�
 ### `variant_to_json_compatible`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 static func variant_to_json_compatible(value: Variant, options: Dictionary = {}) -> Variant:
@@ -48,21 +49,22 @@ static func variant_to_json_compatible(value: Variant, options: Dictionary = {})
 | 名称 | 说明 |
 |---|---|
 | `value` | 待转换的 Variant。 |
-| `options` | 可选项；encode_dictionary_keys 为 true 时会保留非字符串字典键；encode_unsafe_ints 为 false 时不标记超出 JSON 安全范围的整数。 |
+| `options` | 可选项；encode_dictionary_keys 为 true 时会保留非字符串字典键；encode_unsafe_ints 为 false 时不标记超出 JSON 安全范围的整数；max_depth、max_nodes 和 max_collection_items 控制递归工作预算，小于等于 0 表示不限制。 |
 
 返回：JSON 兼容值；Godot 专有类型会带类型标记。
 
 结构：
 
 - `value`: Variant value to encode.
-- `options`: Dictionary with encode_dictionary_keys, encode_unsafe_ints, unsupported, and circular_reference options.
-- `return`: Variant made only from JSON-compatible values and typed marker dictionaries.
+- `options`: Dictionary with encode_dictionary_keys, encode_unsafe_ints, unsupported, circular_reference, max_depth, max_nodes, and max_collection_items options.
+- `return`: Variant made only from JSON-compatible values and typed marker dictionaries; traversal exhaustion returns a top-level TraversalLimit marker.
 
 <a id="member-gfvariantjsoncodec-methods-json_compatible_to_variant"></a>
 
 ### `json_compatible_to_variant`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 static func json_compatible_to_variant(value: Variant, options: Dictionary = {}) -> Variant:
@@ -75,15 +77,15 @@ static func json_compatible_to_variant(value: Variant, options: Dictionary = {})
 | 名称 | 说明 |
 |---|---|
 | `value` | JSON.parse_string() 后的值。 |
-| `options` | 可选项；decode_typed_markers 为 false 时只递归恢复集合。 |
+| `options` | 可选项；decode_typed_markers 为 false 时只递归恢复集合；max_depth、max_nodes 和 max_collection_items 控制递归工作预算，小于等于 0 表示不限制；traversal_limit 指定超限返回值。 |
 
 返回：恢复后的 Variant。
 
 结构：
 
 - `value`: Variant parsed from JSON-compatible data.
-- `options`: Dictionary with decode_typed_markers and key decoding options.
-- `return`: Variant restored from JSON-compatible data.
+- `options`: Dictionary with decode_typed_markers, key decoding, max_depth, max_nodes, max_collection_items, and traversal_limit options.
+- `return`: Variant restored from JSON-compatible data, or the traversal_limit fallback when traversal is incomplete.
 
 <a id="member-gfvariantjsoncodec-methods-stringify_json_compatible"></a>
 
@@ -112,7 +114,7 @@ static func stringify_json_compatible( value: Variant, indent: String = "", sort
 结构：
 
 - `value`: Variant value to encode before JSON.stringify().
-- `options`: Dictionary with encode_dictionary_keys, encode_unsafe_ints, unsupported, and circular_reference options.
+- `options`: Dictionary with encode_dictionary_keys, encode_unsafe_ints, unsupported, circular_reference, max_depth, max_nodes, and max_collection_items options.
 
 <a id="member-gfvariantjsoncodec-methods-parse_json_compatible_text"></a>
 
@@ -140,7 +142,7 @@ static func parse_json_compatible_text( text: String, fallback: Variant = null, 
 结构：
 
 - `fallback`: Variant returned unchanged when JSON parsing fails.
-- `options`: Dictionary with decode_typed_markers and key decoding options.
+- `options`: Dictionary with decode_typed_markers, key decoding, max_depth, max_nodes, max_collection_items, and traversal_limit options.
 - `return`: Variant restored from GF JSON-compatible data, or fallback on parse error.
 
 <a id="member-gfvariantjsoncodec-methods-parse_json_text"></a>

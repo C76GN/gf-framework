@@ -127,7 +127,30 @@ func add_to_undo_manager(undo_manager: Object, execute_immediately: bool = true)
 	if not undo_manager.has_method("commit_action"):
 		return ERR_INVALID_PARAMETER
 
-	undo_manager.call("create_action", command_name)
+	var undo_context: Object = _get_undo_context()
+	if undo_context != null and undo_manager.has_method("get_object_history_id"):
+		var context_history_value: Variant = undo_manager.call(
+			"get_object_history_id",
+			undo_context
+		)
+		if not context_history_value is int:
+			return ERR_INVALID_DATA
+		var context_history_id: int = context_history_value
+		for target: Object in _get_undo_targets():
+			if target == null:
+				continue
+			var target_history_value: Variant = undo_manager.call(
+				"get_object_history_id",
+				target
+			)
+			if not target_history_value is int:
+				return ERR_INVALID_DATA
+			var target_history_id: int = target_history_value
+			if target_history_id != context_history_id:
+				return ERR_INVALID_PARAMETER
+		undo_manager.call("create_action", command_name, 0, undo_context)
+	else:
+		undo_manager.call("create_action", command_name)
 	undo_manager.call("add_do_method", self, "execute")
 	undo_manager.call("add_undo_method", self, "revert")
 	if undo_manager.has_method("add_do_reference"):
@@ -242,6 +265,36 @@ func _do_it() -> Error:
 ## @return Godot 错误码。
 func _undo_it() -> Error:
 	return OK
+
+
+## 返回用于 EditorUndoRedoManager 历史路由的实际变更上下文。
+##
+## 修改 Node 或 Resource 的命令应返回被修改对象，而不是命令自身。没有明确目标、
+## 或使用普通 UndoRedo 兼容对象时可返回 null。
+## [br]
+## @api protected
+## [br]
+## @since unreleased
+## [br]
+## @return: 用于选择 UndoRedo history 的对象。
+func _get_undo_context() -> Object:
+	return null
+
+
+## 返回命令会修改的全部对象，用于拒绝跨 UndoRedo history 的混合事务。
+##
+## 默认只包含 `_get_undo_context()`。多目标命令应返回所有实际目标。
+## [br]
+## @api protected
+## [br]
+## @since unreleased
+## [br]
+## @return: 命令的全部变更目标。
+func _get_undo_targets() -> Array[Object]:
+	var undo_context: Object = _get_undo_context()
+	if undo_context == null:
+		return []
+	return [undo_context]
 
 
 ## 返回指定配置字段当前是否可修改。

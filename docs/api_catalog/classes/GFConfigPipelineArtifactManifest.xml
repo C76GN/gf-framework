@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFConfigPipelineArtifactManifest" path="addons/gf/tools/config_pipeline/gf_config_pipeline_artifact_manifest.gd" module="tools" extends="RefCounted" classDigest="f35fa3309dc9941401d2ef1624a0b1192844bc7603b41acecad2c3529608acbc">
+<class name="GFConfigPipelineArtifactManifest" path="addons/gf/tools/config_pipeline/gf_config_pipeline_artifact_manifest.gd" module="tools" extends="RefCounted" classDigest="d0ff6d1914a30a83c5f49851ad2a7236a97ce07d2b775686676985652cd82a2a">
 	<description>GFConfigPipelineArtifactManifest: 配置导表产物 manifest 辅助。
 为 GFConfigPipelineProfile 生成输入摘要、输出摘要和 freshness 报告，支持 CI、
 编辑器按钮或命令行在导表前判断是否可以跳过未变化的产物。
@@ -43,7 +43,7 @@
 				<tag name="param">run_result: 可选 Runner 或 Pipeline 结果；只会提取 JSON 兼容摘要。</tag>
 				<tag name="return">manifest 字典。</tag>
 				<tag name="schema">options: Dictionary，可包含 output_path、access_output_path、access_class_name、access_provider_accessor、build_options、save_options、access_options、manifest_metadata、max_freshness_file_bytes、max_freshness_total_bytes 和 max_freshness_entries；三个 freshness 预算必须为非负整数，分别限制单文件字节数、累计哈希字节数和扫描条目数。</tag>
-				<tag name="schema">run_result: Dictionary，可包含 success、operation、profile_id、output_path、save_result、access_result、report 和 error。</tag>
+				<tag name="schema">run_result: Dictionary，可包含 success、operation、profile_id、output_path、save_result、access_result、report、table_results 和 error；table_results 存在时，每项必须提供绑定实际读取字节的 source_receipt，manifest 不会回退到重新哈希来源路径。</tag>
 				<tag name="schema">return: Dictionary，包含 format、format_version、artifact_owner、profile_path、profile_id、profile_digest、input_digest、output_digest、options_digest、compiler_digest、compiler_fingerprint、profile_entries、source_entries、output_entries、scan_report、metadata、run_summary 和 manifest_digest。</tag>
 				<tag name="since">8.0.0</tag>
 			</tags>
@@ -97,6 +97,21 @@
 				<tag name="param">output_path: 数据库输出路径。</tag>
 				<tag name="return">默认 manifest 路径；output_path 为空时返回空字符串。</tag>
 				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="make_source_receipt_validation_report">
+			<signature>func make_source_receipt_validation_report( profile: GFConfigPipelineProfile, run_result: Dictionary, options: Dictionary = {} ) -&gt; Dictionary:</signature>
+			<description>校验当前来源路径仍与本次编译实际读取的 source receipts 一致。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">profile: 本次编译的导表 Profile。</tag>
+				<tag name="param">run_result: 包含 table_results/source_receipt 的构建或导出结果。</tag>
+				<tag name="param">options: freshness 哈希预算选项。</tag>
+				<tag name="return">来源稳定性报告；success 表示校验完成，stable 表示路径当前字节仍等于编译收据。</tag>
+				<tag name="schema">run_result: Dictionary，必须包含与 profile.sources 一一对应的 table_results；每项包含 source_receipt。</tag>
+				<tag name="schema">options: Dictionary，可包含 max_freshness_file_bytes、max_freshness_total_bytes 和 max_freshness_entries。</tag>
+				<tag name="schema">return: Dictionary，包含 success、stable、error_code、error、receipt_entries、current_entries 和 scan_report。</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 	</methods>

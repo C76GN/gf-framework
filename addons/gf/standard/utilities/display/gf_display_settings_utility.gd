@@ -338,7 +338,7 @@ func register_audio_bus_volume(bus_name: String, default_linear: float = 1.0) ->
 
 	var _register_setting_result_325: Variant = settings.register_setting(
 		_get_audio_bus_volume_key(bus_name),
-		clampf(default_linear, 0.0, 1.0),
+		_normalize_linear_volume(default_linear, 1.0),
 		GFSettingDefinition.ValueType.FLOAT
 	)
 
@@ -351,6 +351,9 @@ func register_audio_bus_volume(bus_name: String, default_linear: float = 1.0) ->
 ## [br]
 ## @param volume_linear: 线性音量，范围 0 到 1。
 func set_audio_bus_volume(bus_name: String, volume_linear: float) -> void:
+	if not is_finite(volume_linear):
+		push_warning("[GFDisplaySettingsUtility] 已拒绝非有限音频总线音量：%s。" % bus_name)
+		return
 	var clamped_volume: float = clampf(volume_linear, 0.0, 1.0)
 	_set_setting_value(_get_audio_bus_volume_key(bus_name), clamped_volume)
 	apply_audio_bus_volume(bus_name)
@@ -366,7 +369,12 @@ func set_audio_bus_volume(bus_name: String, volume_linear: float) -> void:
 ## [br]
 ## @return 线性音量。
 func get_audio_bus_volume(bus_name: String, fallback: float = 1.0) -> float:
-	return clampf(GFVariantData.to_float(_get_setting_value(_get_audio_bus_volume_key(bus_name), fallback), fallback), 0.0, 1.0)
+	var normalized_fallback: float = _normalize_linear_volume(fallback, 1.0)
+	var value: float = GFVariantData.to_float(
+		_get_setting_value(_get_audio_bus_volume_key(bus_name), normalized_fallback),
+		normalized_fallback
+	)
+	return _normalize_linear_volume(value, normalized_fallback)
 
 
 ## 应用指定音频总线音量。
@@ -410,6 +418,10 @@ func apply_registered_audio_bus_volumes() -> void:
 
 
 # --- 私有/辅助方法 ---
+
+func _normalize_linear_volume(value: float, fallback: float) -> float:
+	var normalized_fallback: float = clampf(fallback, 0.0, 1.0) if is_finite(fallback) else 1.0
+	return clampf(value, 0.0, 1.0) if is_finite(value) else normalized_fallback
 
 func _apply_window_size(allow_window_mode_transition: bool) -> void:
 	var size: Vector2i = get_window_size()

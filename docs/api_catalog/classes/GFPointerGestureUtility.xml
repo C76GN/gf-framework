@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFPointerGestureUtility" path="addons/gf/standard/input/runtime/gf_pointer_gesture_utility.gd" module="standard" extends="GFUtility" classDigest="12347e6bfcd18607139aebc32486dc36b5130dd085e90bbdb3e5f869d0d2a582">
+<class name="GFPointerGestureUtility" path="addons/gf/standard/input/runtime/gf_pointer_gesture_utility.gd" module="standard" extends="GFUtility" classDigest="0582a652489e92be7364fa97e836336cf5f222558da91cc8098a87ea93fe5ac6">
 	<description>GFPointerGestureUtility: 通用指针手势摘要工具。
 把鼠标、触摸和系统手势事件归一为平移、缩放和旋转摘要。
 工具只输出数据，不控制 Camera、Control、Node2D 或项目业务对象。</description>
@@ -16,7 +16,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">snapshot: 手势摘要字典。</tag>
 				<tag name="param">event: 原始输入事件。</tag>
-				<tag name="schema">snapshot: Dictionary with active, source, pointer_count, pointer_ids, center, previous_center, pan_delta, scale, rotation_delta, distance, previous_distance, and primary_pointer_id.</tag>
+				<tag name="schema">snapshot: Dictionary with active, source, pointer_count, pointer_ids, center, previous_center, pan_delta, scale, rotation_delta, distance, previous_distance, and primary_pointer_id. Runtime mouse identity is -2; touch identities keep their event index.</tag>
 				<tag name="since">7.0.0</tag>
 			</tags>
 		</member>
@@ -125,7 +125,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">手势摘要副本。</tag>
-				<tag name="schema">return: Dictionary with active, source, pointer_count, pointer_ids, center, previous_center, pan_delta, scale, rotation_delta, distance, previous_distance, and primary_pointer_id.</tag>
+				<tag name="schema">return: Dictionary with active, source, pointer_count, pointer_ids, center, previous_center, pan_delta, scale, rotation_delta, distance, previous_distance, and primary_pointer_id. Runtime mouse identity is -2; touch identities keep their event index.</tag>
 				<tag name="since">7.0.0</tag>
 			</tags>
 		</member>

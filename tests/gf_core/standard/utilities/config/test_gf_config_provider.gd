@@ -207,6 +207,21 @@ func test_resource_config_provider_rebuild_clears_stale_schemas() -> void:
 	assert_true(provider.has_schema(&"owners"), "替换后的表 schema 应进入 Provider。")
 
 
+func test_resource_config_provider_set_tables_is_documented_best_effort_replacement() -> void:
+	var provider: GFResourceConfigProvider = GFResourceConfigProvider.new()
+	assert_true(provider.register_table(_make_item_table_resource()), "测试应先注册 last-good 旧表。")
+	var valid_owner_table: GFConfigTableResource = _make_owner_table_resource(1)
+	var invalid_table: GFConfigTableResource = GFConfigTableResource.new()
+
+	var registered_count: int = provider.set_table_resources([valid_owner_table, invalid_table])
+
+	assert_eq(registered_count, 1, "返回数量应暴露被接受的新表数量。")
+	assert_false(provider.has_table(&"items"), "best-effort set 会先清掉旧表，不承诺 last-good rollback。")
+	assert_true(provider.has_table(&"owners"), "有效候选应保留在部分新状态中。")
+	assert_eq(provider.get_table_ids(), PackedStringArray(["owners"]), "无效候选不应留下匿名 registry 项。")
+	assert_push_error("[GFResourceConfigProvider] register_table 失败：table_resource 为空或 table_name 为空。")
+
+
 func test_resource_config_provider_rebuild_table_registry_refreshes_mutated_table_keys() -> void:
 	var provider: GFResourceConfigProvider = GFResourceConfigProvider.new()
 	assert_true(provider.register_table(_make_item_table_resource()), "有效表资源应注册成功。")

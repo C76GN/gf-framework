@@ -16,7 +16,7 @@ Config Pipeline 的内置来源读取阶段。 只负责来源存在性、读取
 | 类型 | 名称 | 签名 |
 |---|---|---|
 | 常量 | [`STAGE_ID`](#member-gfconfigpipelinereaderstage-constants-stage_id) | `const STAGE_ID: String = "gf.config.reader.builtin"` |
-| 常量 | [`IMPLEMENTATION_VERSION`](#member-gfconfigpipelinereaderstage-constants-implementation_version) | `const IMPLEMENTATION_VERSION: int = 1` |
+| 常量 | [`IMPLEMENTATION_VERSION`](#member-gfconfigpipelinereaderstage-constants-implementation_version) | `const IMPLEMENTATION_VERSION: int = 2` |
 | 方法 | [`read_source`](#member-gfconfigpipelinereaderstage-methods-read_source) | `func read_source(source: GFConfigPipelineTableSource, options: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`get_stage_descriptor`](#member-gfconfigpipelinereaderstage-methods-get_stage_descriptor) | `func get_stage_descriptor() -> Dictionary:` |
 
@@ -43,7 +43,7 @@ Reader 阶段的稳定实现标识。
 - 首次版本：`9.0.0`
 
 ```gdscript
-const IMPLEMENTATION_VERSION: int = 1
+const IMPLEMENTATION_VERSION: int = 2
 ```
 
 Reader 阶段的实现版本；改变读取语义时递增。
@@ -75,7 +75,7 @@ func read_source(source: GFConfigPipelineTableSource, options: Dictionary = {}) 
 结构：
 
 - `options`: Dictionary，可包含 max_source_file_bytes 和 max_xlsx_file_bytes；负值表示不限制。
-- `return`: Dictionary，包含 success、phase、source_path、format、payload_kind、text、size_bytes、error_code、error_kind、error 和 context。
+- `return`: Dictionary，包含 success、phase、source_path、format、payload_kind、text、size_bytes、source_receipt、error_code、error_kind、error 和 context；source_receipt 绑定本次实际读取的字节数与 SHA-256。
 
 <a id="member-gfconfigpipelinereaderstage-methods-get_stage_descriptor"></a>
 
@@ -94,4 +94,4 @@ func get_stage_descriptor() -> Dictionary:
 
 结构：
 
-- `return`: Dictionary，包含 stage_id、implementation_version、input_contract、output_contract 和 supported_formats。
+- `return`: Dictionary，包含 stage_id、implementation_version、implementation_dependencies、input_contract、output_contract 和 supported_formats。

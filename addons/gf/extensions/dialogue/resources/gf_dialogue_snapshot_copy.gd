@@ -20,7 +20,7 @@ const _UNSUPPORTED_VARIANT_MARKER: String = "<unsupported_variant>"
 const _TRUNCATED_KEY: String = "__gf_snapshot_truncated__"
 
 
-# --- 公共方法 ---
+# --- 框架内部方法 ---
 
 ## 在单次操作共享预算内创建可展示快照。
 ##
@@ -155,10 +155,16 @@ static func _copy_value_impl(value: Variant, depth: int, path: String, state: _C
 			return _record_issue(state, "circular_reference", path, _CIRCULAR_REFERENCE_MARKER, false)
 		state._visited.append(dictionary)
 		var result: Dictionary = {}
-		for key: Variant in dictionary:
+		var dictionary_keys: Array = dictionary.keys()
+		for entry_index: int in range(dictionary_keys.size()):
 			if state._stopped:
 				break
-			var key_path: String = _join_path(path, GFVariantData.to_text(key))
+			var key: Variant = dictionary_keys[entry_index]
+			var key_path: String = "%s{entry=%d,key_type=%d}" % [
+				path,
+				entry_index,
+				typeof(key),
+			]
 			var copied_key: Variant = _copy_value_impl(key, depth + 1, key_path + ".<key>", state)
 			if state._stopped:
 				break
@@ -396,10 +402,6 @@ static func _visited_contains(visited: Array, value: Variant) -> bool:
 		if is_same(item, value):
 			return true
 	return false
-
-
-static func _join_path(path: String, segment: String) -> String:
-	return "%s.%s" % [path, segment]
 
 
 # --- 内部类 ---

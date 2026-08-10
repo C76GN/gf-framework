@@ -701,6 +701,50 @@ func test_diff_variant_keeps_shared_cycle_diagnostics_out_of_change_kinds() -> v
 		)
 
 
+func test_diff_variant_reports_incomplete_traversal_without_inventing_changes() -> void:
+	var before: Dictionary = {
+		"level_1": {
+			"level_2": {
+				"level_3": {
+					"value": 1,
+				},
+			},
+		},
+	}
+	var after: Dictionary = before.duplicate(true)
+
+	var report: Dictionary = GFVariantData.diff_variant(before, after, {
+		"max_depth": 2,
+		"copy_values": false,
+	})
+	var diagnostics: Array = GFVariantData.get_option_array(report, "diagnostics")
+	var diagnostic: Dictionary = _as_dictionary(diagnostics[0] if not diagnostics.is_empty() else {})
+
+	assert_false(GFVariantData.get_option_bool(report, "changed"), "预算耗尽本身不得伪造内容差异。")
+	assert_false(GFVariantData.get_option_bool(report, "complete", true), "未遍历完的报告必须显式标记 complete=false。")
+	assert_true(GFVariantData.get_option_bool(report, "traversal_truncated"), "深度预算耗尽必须与 max_changes 截断分开报告。")
+	assert_eq(GFVariantData.get_option_string(report, "traversal_reason"), "max_depth", "报告应指出耗尽的具体预算。")
+	assert_eq(GFVariantData.get_option_string(diagnostic, "kind"), "traversal_budget_exceeded", "预算问题应进入 traversal diagnostics。")
+	assert_eq(GFVariantData.get_option_string(diagnostic, "reason"), "max_depth", "诊断应包含可机器读取的原因。")
+
+	var node_limited_report: Dictionary = GFVariantData.diff_variant(before, after, {
+		"max_depth": 0,
+		"max_nodes": 2,
+		"copy_values": false,
+	})
+	assert_false(GFVariantData.get_option_bool(node_limited_report, "complete", true), "节点预算耗尽也必须显式标记不完整。")
+	assert_eq(GFVariantData.get_option_string(node_limited_report, "traversal_reason"), "max_nodes", "节点预算应使用独立原因。")
+
+	var item_limited_report: Dictionary = GFVariantData.diff_variant(before, after, {
+		"max_depth": 0,
+		"max_nodes": 0,
+		"max_collection_items": 1,
+		"copy_values": false,
+	})
+	assert_false(GFVariantData.get_option_bool(item_limited_report, "complete", true), "集合预算耗尽也必须显式标记不完整。")
+	assert_eq(GFVariantData.get_option_string(item_limited_report, "traversal_reason"), "max_collection_items", "集合预算应使用独立原因。")
+
+
 func test_json_codec_preserves_business_dictionary_that_matches_reserved_marker_shape() -> void:
 	var source: Dictionary = {
 		GFVariantJsonCodec.JSON_MARKER_KEY: {
@@ -734,6 +778,96 @@ func test_json_codec_decoder_handles_circular_in_memory_dictionary() -> void:
 	assert_true(restored is Dictionary, "循环输入应返回可检查字典而不是递归挂起。")
 	var restored_dictionary: Dictionary = _as_dictionary(restored)
 	assert_eq(_as_string(restored_dictionary["self"]), "cycle", "循环位置应使用调用方指定占位值。")
+
+
+func test_json_codec_decoder_keeps_cycle_state_inside_typed_dictionary_entries() -> void:
+	var marker: Dictionary = {
+		GFVariantJsonCodec.JSON_MARKER_KEY: {
+			GFVariantJsonCodec.JSON_VERSION_KEY: GFVariantJsonCodec.JSON_SCHEMA_VERSION,
+			GFVariantJsonCodec.JSON_CODEC_KEY: GFVariantJsonCodec.JSON_CODEC_ID,
+			GFVariantJsonCodec.JSON_TYPE_KEY: "Dictionary",
+			GFVariantJsonCodec.JSON_VALUE_KEY: [],
+		},
+	}
+	var marker_payload: Dictionary = _as_dictionary(marker[GFVariantJsonCodec.JSON_MARKER_KEY])
+	var entries: Array = _as_array(marker_payload[GFVariantJsonCodec.JSON_VALUE_KEY])
+	entries.append({
+		"key": "self",
+		"value": marker,
+	})
+
+	var restored: Variant = GFVariantJsonCodec.json_compatible_to_variant(marker, {
+		"circular_reference": "cycle",
+	})
+	var restored_dictionary: Dictionary = _as_dictionary(restored)
+
+	assert_true(restored is Dictionary, "typed Dictionary 的循环输入应安全终止。")
+	assert_eq(_as_string(restored_dictionary["self"]), "cycle", "typed entry 递归必须复用外层 visited 状态。")
+
+
+func test_json_codec_enforces_depth_and_collection_budgets() -> void:
+	var deep_value: Dictionary = {
+		"level_1": {
+			"level_2": {
+				"level_3": true,
+			},
+		},
+	}
+
+	var encoded: Variant = GFVariantJsonCodec.variant_to_json_compatible(deep_value, {
+		"max_depth": 2,
+	})
+	var encoded_dictionary: Dictionary = _as_dictionary(encoded)
+	var marker: Dictionary = GFVariantData.get_option_dictionary(
+		encoded_dictionary,
+		GFVariantJsonCodec.JSON_MARKER_KEY
+	)
+	var marker_payload: Dictionary = GFVariantData.get_option_dictionary(
+		marker,
+		GFVariantJsonCodec.JSON_VALUE_KEY
+	)
+	var decoded: Variant = GFVariantJsonCodec.json_compatible_to_variant(deep_value, {
+		"max_depth": 2,
+		"traversal_limit": "limited",
+	})
+	var packed_limited: Variant = GFVariantJsonCodec.variant_to_json_compatible(
+		PackedInt32Array([1, 2, 3]),
+		{
+			"max_collection_items": 2,
+		}
+	)
+	var packed_marker: Dictionary = GFVariantData.get_option_dictionary(
+		_as_dictionary(packed_limited),
+		GFVariantJsonCodec.JSON_MARKER_KEY
+	)
+	var packed_payload: Dictionary = GFVariantData.get_option_dictionary(
+		packed_marker,
+		GFVariantJsonCodec.JSON_VALUE_KEY
+	)
+	var node_limited: Variant = GFVariantJsonCodec.variant_to_json_compatible(
+		{
+			"items": [1, 2],
+		},
+		{
+			"max_nodes": 2,
+		}
+	)
+	var node_marker: Dictionary = GFVariantData.get_option_dictionary(
+		_as_dictionary(node_limited),
+		GFVariantJsonCodec.JSON_MARKER_KEY
+	)
+	var node_payload: Dictionary = GFVariantData.get_option_dictionary(
+		node_marker,
+		GFVariantJsonCodec.JSON_VALUE_KEY
+	)
+
+	assert_eq(GFVariantData.get_option_string(marker, GFVariantJsonCodec.JSON_TYPE_KEY), "TraversalLimit", "编码超限必须返回顶层稳定 marker，而非 partial 数据。")
+	assert_eq(GFVariantData.get_option_string(marker_payload, "reason"), "max_depth", "超限 marker 应记录具体预算。")
+	assert_eq(_as_string(decoded), "limited", "解码超限必须使用调用方指定的顶层 fallback。")
+	assert_eq(GFVariantData.get_option_string(packed_marker, GFVariantJsonCodec.JSON_TYPE_KEY), "TraversalLimit", "PackedArray 也必须受集合预算约束。")
+	assert_eq(GFVariantData.get_option_string(packed_payload, "reason"), "max_collection_items", "PackedArray 超限应报告集合预算。")
+	assert_eq(GFVariantData.get_option_string(node_marker, GFVariantJsonCodec.JSON_TYPE_KEY), "TraversalLimit", "普通集合的叶节点必须受节点预算约束。")
+	assert_eq(GFVariantData.get_option_string(node_payload, "reason"), "max_nodes", "节点超限应报告节点预算。")
 
 
 func test_merge_metadata_is_recursive_and_copies_values() -> void:

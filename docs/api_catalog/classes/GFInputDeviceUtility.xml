@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFInputDeviceUtility" path="addons/gf/standard/input/runtime/gf_input_device_utility.gd" module="standard" extends="GFUtility" classDigest="5d5f15a7f4dd10238064c83de2cfdabb64678c0496f676814553b75c12c63a50">
+<class name="GFInputDeviceUtility" path="addons/gf/standard/input/runtime/gf_input_device_utility.gd" module="standard" extends="GFUtility" classDigest="a42b4429a65ee0188cfae3507403452688bfca1bd5d2ae5bd8ad4acb5c8f6aa8">
 	<description>GFInputDeviceUtility: 本地玩家输入设备分配工具。
 负责维护玩家索引与键鼠、手柄、触控、AI 或自定义设备的映射。
 它不消费输入事件，也不规定动作名。</description>
@@ -78,9 +78,11 @@
 		</member>
 		<member kind="property" name="max_players">
 			<signature>var max_players: int = 4:</signature>
-			<description>允许的最大本地玩家数。</description>
+			<description>允许的最大本地玩家数。运行时缩小时会撤销越界 assignment、清理对应
+deadzone，并修复 active player；重新扩容不会恢复已撤销状态。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="include_keyboard_mouse">
@@ -202,7 +204,8 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">player_index: 玩家索引。</tag>
-				<tag name="return">设备映射；不存在时返回 null。</tag>
+				<tag name="return">设备映射副本；不存在时返回 null。</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_player_for_device">

@@ -20,13 +20,15 @@
 | 信号 | [`haptic_stopped`](#member-gfhapticutility-signals-haptic_stopped) | `signal haptic_stopped(haptic_id: int, channel: StringName, target_type: int, target_id: int)` |
 | 枚举 | [`TargetType`](#member-gfhapticutility-enums-targettype) | `enum TargetType` |
 | 枚举 | [`OverflowPolicy`](#member-gfhapticutility-enums-overflowpolicy) | `enum OverflowPolicy` |
+| 常量 | [`DEFAULT_OUTPUT_REFRESH_SECONDS`](#member-gfhapticutility-constants-default_output_refresh_seconds) | `const DEFAULT_OUTPUT_REFRESH_SECONDS: float = 0.05` |
+| 常量 | [`MIN_OUTPUT_DURATION_SECONDS`](#member-gfhapticutility-constants-min_output_duration_seconds) | `const MIN_OUTPUT_DURATION_SECONDS: float = 0.001` |
 | 属性 | [`default_channel`](#member-gfhapticutility-properties-default_channel) | `var default_channel: StringName = &"default"` |
 | 属性 | [`default_player_index`](#member-gfhapticutility-properties-default_player_index) | `var default_player_index: int = 0` |
 | 属性 | [`master_strength`](#member-gfhapticutility-properties-master_strength) | `var master_strength: float = 1.0:` |
 | 属性 | [`max_active_haptics`](#member-gfhapticutility-properties-max_active_haptics) | `var max_active_haptics: int = 64` |
 | 属性 | [`overflow_policy`](#member-gfhapticutility-properties-overflow_policy) | `var overflow_policy: OverflowPolicy = OverflowPolicy.STOP_OLDEST` |
 | 属性 | [`auto_apply_on_tick`](#member-gfhapticutility-properties-auto_apply_on_tick) | `var auto_apply_on_tick: bool = true` |
-| 属性 | [`output_refresh_seconds`](#member-gfhapticutility-properties-output_refresh_seconds) | `var output_refresh_seconds: float = 0.05:` |
+| 属性 | [`output_refresh_seconds`](#member-gfhapticutility-properties-output_refresh_seconds) | `var output_refresh_seconds: float = DEFAULT_OUTPUT_REFRESH_SECONDS:` |
 | 属性 | [`input_device_utility`](#member-gfhapticutility-properties-input_device_utility) | `var input_device_utility: GFInputDeviceUtility = null` |
 | 属性 | [`haptic_backend`](#member-gfhapticutility-properties-haptic_backend) | `var haptic_backend: Object = null` |
 | 属性 | [`output_handler`](#member-gfhapticutility-properties-output_handler) | `var output_handler: Callable = Callable()` |
@@ -51,6 +53,7 @@
 | 方法 | [`sample_device`](#member-gfhapticutility-methods-sample_device) | `func sample_device(device_id: int, channel: StringName = &"") -> Dictionary:` |
 | 方法 | [`apply_current_outputs`](#member-gfhapticutility-methods-apply_current_outputs) | `func apply_current_outputs(duration_seconds: float = -1.0) -> Dictionary:` |
 | 方法 | [`get_haptic_info`](#member-gfhapticutility-methods-get_haptic_info) | `func get_haptic_info(haptic_id: int) -> Dictionary:` |
+| 方法 | [`get_last_output_report`](#member-gfhapticutility-methods-get_last_output_report) | `func get_last_output_report() -> Dictionary:` |
 | 方法 | [`get_debug_snapshot`](#member-gfhapticutility-methods-get_debug_snapshot) | `func get_debug_snapshot() -> Dictionary:` |
 
 ## 信号
@@ -159,6 +162,34 @@ enum OverflowPolicy {
 
 活跃震动达到上限时的处理方式。
 
+## 常量
+
+<a id="member-gfhapticutility-constants-default_output_refresh_seconds"></a>
+
+### `DEFAULT_OUTPUT_REFRESH_SECONDS`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+const DEFAULT_OUTPUT_REFRESH_SECONDS: float = 0.05
+```
+
+默认向输入系统刷新合成震动输出的间隔（秒）。
+
+<a id="member-gfhapticutility-constants-min_output_duration_seconds"></a>
+
+### `MIN_OUTPUT_DURATION_SECONDS`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+const MIN_OUTPUT_DURATION_SECONDS: float = 0.001
+```
+
+允许提交到底层输出的最短震动时长（秒）。
+
 ## 属性
 
 <a id="member-gfhapticutility-properties-default_channel"></a>
@@ -237,7 +268,7 @@ var overflow_policy: OverflowPolicy = OverflowPolicy.STOP_OLDEST
 var auto_apply_on_tick: bool = true
 ```
 
-tick() 后是否自动把当前采样输出到设备。关闭时，调用方必须在 tick()、stop_haptic() 或 clear() 等状态变化后自行调用 apply_current_outputs()，以刷新输出和停止已结束目标。
+tick() 后是否自动把当前采样输出到设备。该开关只控制 tick()；显式 stop 与 clear 仍会立即撤销已输出目标。关闭时，调用方必须在 tick() 后自行调用 apply_current_outputs()。
 
 <a id="member-gfhapticutility-properties-output_refresh_seconds"></a>
 
@@ -247,10 +278,10 @@ tick() 后是否自动把当前采样输出到设备。关闭时，调用方必�
 - 首次版本：`7.0.0`
 
 ```gdscript
-var output_refresh_seconds: float = 0.05:
+var output_refresh_seconds: float = DEFAULT_OUTPUT_REFRESH_SECONDS:
 ```
 
-每次输出请求的刷新持续时间，单位秒。
+每次输出请求的刷新持续时间，单位秒。值始终收束为有限正数；非有限值回退到默认值， 小于最小输出时长的值按最小值处理，避免平台把 0 解释为无限震动。
 
 <a id="member-gfhapticutility-properties-input_device_utility"></a>
 
@@ -276,7 +307,7 @@ var input_device_utility: GFInputDeviceUtility = null
 var haptic_backend: Object = null
 ```
 
-可选震动输出后端。有效时优先于 output_handler 和默认 Input 路由。
+可选震动输出后端。必须同时实现 start_output() 与 stop_output()；有效时优先于 output_handler 和默认 Input 路由。一次成功输出会持续绑定其启动后端，直至停止。
 
 <a id="member-gfhapticutility-properties-output_handler"></a>
 
@@ -289,7 +320,7 @@ var haptic_backend: Object = null
 var output_handler: Callable = Callable()
 ```
 
-可选输出回调。有效时替代默认 Input/GFInputDeviceUtility 路由。
+可选输出回调。必须与有效 stop_handler 成对配置；有效时替代默认 Input/GFInputDeviceUtility 路由。
 
 结构：
 
@@ -306,7 +337,7 @@ var output_handler: Callable = Callable()
 var stop_handler: Callable = Callable()
 ```
 
-可选停止回调。有效时替代默认停止路由。
+可选停止回调。必须与有效 output_handler 成对配置；成功输出后的停止会使用启动时 捕获的回调，而不是随后替换的公开字段。
 
 结构：
 
@@ -351,7 +382,7 @@ func ready() -> void:
 func dispose() -> void:
 ```
 
-停止全部震动并释放状态。
+停止全部震动并释放状态。最终停止失败会保留在 get_last_output_report()，但不会在 provider 已释放后留下伪可重试目标。
 
 <a id="member-gfhapticutility-methods-tick"></a>
 
@@ -383,7 +414,7 @@ func tick(delta: float) -> void:
 func play_haptic( channel: StringName, preset: GFHapticPreset, player_index: int = -1, strength: float = 1.0, metadata: Dictionary = {} ) -> int:
 ```
 
-播放一个玩家震动预设。
+播放一个玩家震动预设。 apply_current_outputs() 或 get_last_output_report()。
 
 参数：
 
@@ -395,7 +426,7 @@ func play_haptic( channel: StringName, preset: GFHapticPreset, player_index: int
 | `strength` | 播放强度倍率。 |
 | `metadata` | 项目自定义元数据。 |
 
-返回：播放实例 ID；无法播放时返回 -1。
+返回：逻辑排程实例 ID；参数或容量拒绝时返回 -1。物理输出是否被接受请读取
 
 结构：
 
@@ -412,7 +443,7 @@ func play_haptic( channel: StringName, preset: GFHapticPreset, player_index: int
 func play_haptic_for_device( channel: StringName, preset: GFHapticPreset, device_id: int, strength: float = 1.0, metadata: Dictionary = {} ) -> int:
 ```
 
-播放一个设备震动预设。
+播放一个设备震动预设。 apply_current_outputs() 或 get_last_output_report()。
 
 参数：
 
@@ -424,7 +455,7 @@ func play_haptic_for_device( channel: StringName, preset: GFHapticPreset, device
 | `strength` | 播放强度倍率。 |
 | `metadata` | 项目自定义元数据。 |
 
-返回：播放实例 ID；无法播放时返回 -1。
+返回：逻辑排程实例 ID；参数或容量拒绝时返回 -1。物理输出是否被接受请读取
 
 结构：
 
@@ -687,19 +718,19 @@ func sample_device(device_id: int, channel: StringName = &"") -> Dictionary:
 func apply_current_outputs(duration_seconds: float = -1.0) -> Dictionary:
 ```
 
-把当前采样输出到所有活跃目标。
+把当前采样输出到所有活跃目标。 output_refresh_seconds，传给 provider 的值始终为有限正数。
 
 参数：
 
 | 名称 | 说明 |
 |---|---|
-| `duration_seconds` | 输出请求持续时间；小于 0 时使用 output_refresh_seconds。 |
+| `duration_seconds` | 输出请求持续时间；小于等于 0 或非有限值使用 |
 
 返回：输出报告。
 
 结构：
 
-- `return`: JSON-safe Dictionary，包含 applied_count、stopped_count、failed_stop_count、applied、stopped 与 failed_stops。
+- `return`: JSON-safe Dictionary，包含 applied_count、stopped_count、failed_stop_count、rejected_count、applied、stopped、failed_stops 与 rejected。
 
 <a id="member-gfhapticutility-methods-get_haptic_info"></a>
 
@@ -726,6 +757,25 @@ func get_haptic_info(haptic_id: int) -> Dictionary:
 
 - `return`: JSON-safe Dictionary，包含 id、channel、target_type、target_id、elapsed_seconds、duration_seconds、strength 与 metadata；实例不存在时为空。
 
+<a id="member-gfhapticutility-methods-get_last_output_report"></a>
+
+### `get_last_output_report`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func get_last_output_report() -> Dictionary:
+```
+
+获取最近一次包含实际输出、停止或拒绝明细的报告。后续无活动空刷新不会覆盖该报告。
+
+返回：最近输出活动报告；尚无输出活动时返回计数和明细均为空的完整报告。
+
+结构：
+
+- `return`: JSON-safe Dictionary，包含 applied_count、stopped_count、failed_stop_count、rejected_count、applied、stopped、failed_stops 与 rejected。
+
 <a id="member-gfhapticutility-methods-get_debug_snapshot"></a>
 
 ### `get_debug_snapshot`
@@ -743,4 +793,4 @@ func get_debug_snapshot() -> Dictionary:
 
 结构：
 
-- `return`: JSON-safe Dictionary，包含 active_count、max_active_haptics、channels、targets、play_order 与 last_output_targets。
+- `return`: JSON-safe Dictionary，包含 active_count、max_active_haptics、channels、targets、play_order、last_output_targets 与 last_output_report。

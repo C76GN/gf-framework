@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFRuntimeTask" path="addons/gf/standard/sequence/gf_runtime_task.gd" module="standard" extends="RefCounted" classDigest="a667c77f6c9adf43e1826417ee471da97ae2f6cf2978f5596da0215e7c05e9e4">
+<class name="GFRuntimeTask" path="addons/gf/standard/sequence/gf_runtime_task.gd" module="standard" extends="RefCounted" classDigest="9c4cbcc650bd63dd35ffe7cd0c183d11515a4d2da1b59f467649166fed342a99">
 	<description>可被运行时调度器管理的通用任务协议。
 Runtime task 用于描述“占用一组运行时对象并按帧推进”的行为单元，例如角色默认状态、
 临时交互、工具模式或项目自定义流程。任务只声明依赖、生命周期和完成条件，不解释业务含义。</description>
@@ -208,7 +208,7 @@ Runtime task 用于描述“占用一组运行时对象并按帧推进”的行�
 				<tag name="api">public</tag>
 				<tag name="category">diagnostics</tag>
 				<tag name="return">任务诊断快照。</tag>
-				<tag name="schema">return: Dictionary with task_id, interruptible, scheduled, initialized, and requirement_ids.</tag>
+				<tag name="schema">return: Dictionary with task_id, interruptible, scheduled, initialized, schedule_generation, and requirement_ids.</tag>
 				<tag name="since">6.0.0</tag>
 			</tags>
 		</member>

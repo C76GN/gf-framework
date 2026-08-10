@@ -52,10 +52,17 @@ enum PrimitiveType {
 ## @api public
 var enabled: bool = true
 
-## 默认生命周期。小于 0 表示永久保留，0 表示等待下一次 tick 后清理。
+## 默认生命周期。小于 0 表示永久保留，0 表示等待下一次 tick 后清理；
+## NaN/Infinity 赋值会被忽略。
 ## [br]
 ## @api public
-var default_lifetime_seconds: float = 0.0
+## [br]
+## @since 11.0.0
+var default_lifetime_seconds: float = 0.0:
+	set(value):
+		if not _is_finite(value):
+			return
+		default_lifetime_seconds = value
 
 ## 最大命令数量。小于等于 0 表示不限制。
 ## [br]
@@ -94,6 +101,8 @@ func dispose() -> void:
 ## [br]
 ## @param delta: 本帧时间增量（秒）。
 func tick(delta: float) -> void:
+	if not _is_finite(delta):
+		return
 	_expire_items(delta)
 
 
@@ -470,8 +479,17 @@ func draw_text_3d(
 ## @schema item: Dictionary，至少可包含 type、channel、lifetime_seconds 以及项目自定义绘制载荷。
 func push_item(item: Dictionary) -> int:
 	var stored_item: Dictionary = item.duplicate(true)
+	var requested_lifetime: float = GFVariantData.get_option_float(
+		stored_item,
+		"lifetime_seconds",
+		-1.0
+	)
+	if not _is_finite(requested_lifetime):
+		return 0
+	var resolved_lifetime: float = _resolve_lifetime(requested_lifetime)
+	if not _is_finite(resolved_lifetime):
+		return 0
 	var item_id: int = _next_item_id
-	var resolved_lifetime: float = _resolve_lifetime(GFVariantData.get_option_float(stored_item, "lifetime_seconds", -1.0))
 	stored_item["id"] = item_id
 	stored_item["channel"] = GFVariantData.get_option_string_name(stored_item, "channel", &"default")
 	stored_item["created_at_msec"] = Time.get_ticks_msec()
@@ -667,6 +685,10 @@ func _resolve_lifetime(lifetime_seconds: float) -> float:
 	if lifetime_seconds < 0.0:
 		return default_lifetime_seconds
 	return lifetime_seconds
+
+
+func _is_finite(value: float) -> bool:
+	return not is_nan(value) and not is_inf(value)
 
 
 func _expire_items(delta: float) -> void:

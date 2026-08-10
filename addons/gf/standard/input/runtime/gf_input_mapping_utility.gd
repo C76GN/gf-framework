@@ -168,6 +168,7 @@ var _router_attach_serial: int = 0
 var _input_devices: GFInputDeviceUtility = null
 var _clear_transient_input_state_queued: bool = false
 var _transient_input_state_mark_frame: int = -1
+var _dispatch_epoch: int = 0
 var _virtual_pulse_leases: Dictionary = {}
 var _virtual_pulse_mutation_keys: Dictionary = {}
 var _virtual_pulse_bulk_mutation_depth: int = 0
@@ -199,6 +200,7 @@ func ready() -> void:
 ## [br]
 ## @api public
 func dispose() -> void:
+	_dispatch_epoch += 1
 	_router_attach_serial += 1
 	_unbind_input_device_utility()
 	_active_contexts.clear()
@@ -343,12 +345,17 @@ func handle_input_event(event: InputEvent) -> void:
 	var player_index: int = _resolve_player_index(event)
 	if player_index < 0 and _input_event_requires_device_assignment(event):
 		return
+	var dispatch_epoch: int = _dispatch_epoch
 	var event_blocked: bool = false
 	for entry: Dictionary in _effective_entries:
+		if dispatch_epoch != _dispatch_epoch:
+			return
 		if event_blocked:
-			continue
+			break
 
 		var matched: bool = _apply_entry_event(entry, event, player_index)
+		if dispatch_epoch != _dispatch_epoch:
+			return
 		if not matched:
 			continue
 
@@ -362,6 +369,8 @@ func handle_input_event(event: InputEvent) -> void:
 
 		if is_action_active(action_id):
 			action_triggered.emit(action_id, value)
+			if dispatch_epoch != _dispatch_epoch:
+				return
 		if player_index >= 0 and is_action_active_for_player(player_index, action_id):
 			player_action_triggered.emit(player_index, action_id, get_action_value_for_player(player_index, action_id))
 
@@ -397,7 +406,7 @@ func create_virtual_source(
 ## [br]
 ## @param player_index: 玩家索引；小于 0 时只写入全局动作状态。
 ## [br]
-## @return: 写入成功返回 true。
+## @return: 写入成功返回 true；非有限数值会被拒绝并保持旧贡献不变。
 ## [br]
 ## @api public
 ## [br]
@@ -522,13 +531,27 @@ func clear_virtual_source(source_id: StringName = &"virtual") -> void:
 	for action_id: StringName in affected_actions.keys():
 		var action: GFInputAction = _get_registered_action(action_id)
 		if action != null:
+			var dispatch_epoch: int = _dispatch_epoch
 			_refresh_action_state(action_id, action)
+			if dispatch_epoch != _dispatch_epoch:
+				_virtual_pulse_bulk_mutation_depth = maxi(
+					_virtual_pulse_bulk_mutation_depth - 1,
+					0
+				)
+				return
 
 	for entry: Dictionary in affected_player_actions.values():
 		var action_id: StringName = _get_entry_action_id(entry)
 		var action: GFInputAction = _get_registered_action(action_id)
 		if action != null:
+			var dispatch_epoch: int = _dispatch_epoch
 			_refresh_player_action_state(_get_entry_player_index(entry), action_id, action)
+			if dispatch_epoch != _dispatch_epoch:
+				_virtual_pulse_bulk_mutation_depth = maxi(
+					_virtual_pulse_bulk_mutation_depth - 1,
+					0
+				)
+				return
 	_virtual_pulse_bulk_mutation_depth = maxi(_virtual_pulse_bulk_mutation_depth - 1, 0)
 
 
@@ -553,6 +576,42 @@ func get_virtual_source_snapshot(source_id: StringName = &"virtual") -> Dictiona
 
 	return {
 		"source_id": source_key,
+		"actions": actions,
+	}
+
+
+## 获取指定虚拟输入源与玩家身份的状态快照。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param source_id: 虚拟输入源标识。
+## [br]
+## @param player_index: 玩家索引；小于 0 时读取仅全局身份。
+## [br]
+## @return: 玩家作用域快照字典。
+## [br]
+## @schema return: Dictionary，包含 source_id、player_index 和 actions: Array[Dictionary]，action 条目包含 action_id 与 value。
+func get_virtual_source_snapshot_for_player(
+	source_id: StringName = &"virtual",
+	player_index: int = -1
+) -> Dictionary:
+	var source_key: StringName = source_id if source_id != &"" else &"virtual"
+	var actions: Array[Dictionary] = []
+	for key: String in _binding_to_action.keys():
+		if (
+			_is_virtual_binding_key_for_source(key, source_key)
+			and _get_binding_player_index(key) == player_index
+		):
+			_append_array_value(actions, {
+				"action_id": _binding_to_action[key],
+				"value": _get_binding_vector_value(key),
+			})
+
+	return {
+		"source_id": source_key,
+		"player_index": player_index,
 		"actions": actions,
 	}
 
@@ -875,6 +934,7 @@ func get_remappable_items(
 ## [br]
 ## @api public
 func clear_input_state() -> void:
+	_dispatch_epoch += 1
 	_clear_runtime_state(true, &"input_state_cleared")
 
 
@@ -884,6 +944,7 @@ func clear_input_state() -> void:
 ## [br]
 ## @param player_index: 玩家索引。
 func clear_player_input_state(player_index: int) -> void:
+	_dispatch_epoch += 1
 	_clear_player_runtime_state(player_index, true)
 
 
@@ -1069,7 +1130,12 @@ func _set_virtual_action_value_raw(
 	var action: GFInputAction = _get_registered_action(action_id)
 	if action == null:
 		return false
+	if not _is_virtual_value_finite(value):
+		return false
 	var contribution: Vector3 = _coerce_virtual_value_to_vector(value, action.value_type)
+	if not _is_finite_vector3(contribution):
+		return false
+	contribution = _limit_finite_vector_to_unit_length(contribution)
 	var binding_key: String = _make_virtual_binding_key(source_id, action_id, player_index)
 	_binding_values[binding_key] = contribution
 	_binding_to_action[binding_key] = action_id
@@ -1083,7 +1149,10 @@ func _set_virtual_action_value_raw(
 		_player_binding_values[player_binding_key] = contribution
 		_player_binding_to_action[player_binding_key] = action_id
 
+	var dispatch_epoch: int = _dispatch_epoch
 	_refresh_action_state(action_id, action)
+	if dispatch_epoch != _dispatch_epoch:
+		return true
 	if player_index >= 0:
 		_refresh_player_action_state(player_index, action_id, action)
 	return true
@@ -1108,7 +1177,10 @@ func _clear_virtual_action_raw(
 
 	var action: GFInputAction = _get_registered_action(action_id)
 	if action != null:
+		var dispatch_epoch: int = _dispatch_epoch
 		_refresh_action_state(action_id, action)
+		if dispatch_epoch != _dispatch_epoch:
+			return changed
 		if player_index >= 0:
 			_refresh_player_action_state(player_index, action_id, action)
 	return changed
@@ -1482,7 +1554,11 @@ func _attach_router_to_root(router_variant: Variant, attach_serial: int) -> void
 
 
 func _rebuild_effective_entries() -> void:
+	_dispatch_epoch += 1
+	var rebuild_epoch: int = _dispatch_epoch
 	_clear_runtime_state(true, &"mapping_rebuilt")
+	if rebuild_epoch != _dispatch_epoch:
+		return
 	_effective_entries.clear()
 	_actions.clear()
 	_action_modifiers.clear()
@@ -1537,6 +1613,8 @@ func _rebuild_effective_entries() -> void:
 			})
 
 	contexts_changed.emit(get_enabled_contexts())
+	if rebuild_epoch != _dispatch_epoch:
+		return
 	mappings_changed.emit()
 
 
@@ -1587,7 +1665,10 @@ func _apply_entry_event(entry: Dictionary, event: InputEvent, player_index: int)
 		matched = true
 
 	if matched:
+		var dispatch_epoch: int = _dispatch_epoch
 		_refresh_action_state(action_id, action)
+		if dispatch_epoch != _dispatch_epoch:
+			return true
 		if player_index >= 0:
 			_refresh_player_action_state(player_index, action_id, action)
 
@@ -1595,6 +1676,7 @@ func _apply_entry_event(entry: Dictionary, event: InputEvent, player_index: int)
 
 
 func _refresh_action_state(action_id: StringName, action: GFInputAction) -> void:
+	var dispatch_epoch: int = _dispatch_epoch
 	var previous_value: Variant = GFVariantData.get_option_value(
 		_action_values,
 		action_id,
@@ -1611,6 +1693,8 @@ func _refresh_action_state(action_id: StringName, action: GFInputAction) -> void
 
 	if not _values_equal(previous_value, next_value):
 		action_value_changed.emit(action_id, next_value)
+		if dispatch_epoch != _dispatch_epoch:
+			return
 
 	if not previous_active and next_active:
 		_mark_action_just_started(action_id)
@@ -2027,6 +2111,46 @@ func _coerce_virtual_value_to_vector(value: Variant, value_type: GFInputAction.V
 	return Vector3.ZERO
 
 
+func _is_virtual_value_finite(value: Variant) -> bool:
+	if value is float:
+		var float_value: float = value
+		return not is_nan(float_value) and not is_inf(float_value)
+	if value is Vector2:
+		var vector2_value: Vector2 = value
+		return (
+			not is_nan(vector2_value.x)
+			and not is_inf(vector2_value.x)
+			and not is_nan(vector2_value.y)
+			and not is_inf(vector2_value.y)
+		)
+	if value is Vector3:
+		var vector3_value: Vector3 = value
+		return _is_finite_vector3(vector3_value)
+	return true
+
+
+func _is_finite_vector3(value: Vector3) -> bool:
+	return (
+		not is_nan(value.x)
+		and not is_inf(value.x)
+		and not is_nan(value.y)
+		and not is_inf(value.y)
+		and not is_nan(value.z)
+		and not is_inf(value.z)
+	)
+
+
+func _limit_finite_vector_to_unit_length(value: Vector3) -> Vector3:
+	var max_component: float = maxf(absf(value.x), maxf(absf(value.y), absf(value.z)))
+	if max_component <= 1.0:
+		return value.normalized() if value.length_squared() > 1.0 else value
+	var scaled: Vector3 = value / max_component
+	var scaled_length: float = scaled.length()
+	if scaled_length <= 0.0 or is_nan(scaled_length) or is_inf(scaled_length):
+		return Vector3.ZERO
+	return scaled / scaled_length
+
+
 func _advance_active_durations(delta: float) -> void:
 	var safe_delta: float = maxf(delta, 0.0)
 	if safe_delta <= 0.0:
@@ -2053,8 +2177,12 @@ func _should_ignore_event(event: InputEvent) -> bool:
 func _make_event_source_key(event: InputEvent) -> String:
 	if event is InputEventJoypadButton or event is InputEventJoypadMotion:
 		return "joypad:%d" % event.device
-	if event is InputEventScreenTouch or event is InputEventScreenDrag:
-		return "touch:%d" % event.device
+	if event is InputEventScreenTouch:
+		var touch_event: InputEventScreenTouch = event
+		return "touch:%d:%d" % [touch_event.device, touch_event.index]
+	if event is InputEventScreenDrag:
+		var drag_event: InputEventScreenDrag = event
+		return "touch:%d:%d" % [drag_event.device, drag_event.index]
 	return "keyboard_mouse"
 
 
@@ -2063,6 +2191,7 @@ func _refresh_player_action_state(
 	action_id: StringName,
 	action: GFInputAction
 ) -> void:
+	var dispatch_epoch: int = _dispatch_epoch
 	var key: String = _make_player_action_key(player_index, action_id)
 	_register_player_action_metadata(key, player_index, action_id)
 	var previous_value: Variant = _get_player_action_value_or_default(key, action.value_type)
@@ -2077,6 +2206,8 @@ func _refresh_player_action_state(
 
 	if not _values_equal(previous_value, next_value):
 		player_action_value_changed.emit(player_index, action_id, next_value)
+		if dispatch_epoch != _dispatch_epoch:
+			return
 
 	if not previous_active and next_active:
 		_mark_player_action_just_started(player_index, action_id)
@@ -2337,6 +2468,13 @@ func _unbind_input_device_utility() -> void:
 
 func _on_input_assignment_event_recorded(event_record: Dictionary) -> void:
 	var event_type: StringName = GFVariantData.get_option_string_name(event_record, "event_type")
+	if event_type in [
+		&"assignment_removed",
+		&"assignment_set",
+		&"assignments_cleared",
+		&"assignments_refreshed",
+	]:
+		_dispatch_epoch += 1
 	match event_type:
 		&"assignment_removed":
 			_clear_player_state_from_assignment_record(

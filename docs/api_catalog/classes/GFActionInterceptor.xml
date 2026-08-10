@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFActionInterceptor" path="addons/gf/extensions/action_queue/core/gf_action_interceptor.gd" module="extensions/action_queue" extends="RefCounted" classDigest="7ad4ba257953f1069040649589c4348b98be3e67b7d3e94865c5d20a66923361">
+<class name="GFActionInterceptor" path="addons/gf/extensions/action_queue/core/gf_action_interceptor.gd" module="extensions/action_queue" extends="RefCounted" classDigest="0bb2eea71afe65b3c1852ba3ece102177b320a4f3ff3ce956e9135478486e727">
 	<description>GFActionInterceptor: 动作队列的通用拦截器基类。
 拦截器可在表现动作执行前后做横切处理，例如跳过、替换、停止后续队列、
 记录诊断或根据运行时状态调整表现，不绑定任何具体玩法规则。</description>
@@ -14,9 +14,11 @@
 	<properties>
 		<member kind="property" name="priority">
 			<signature>var priority: int = 0</signature>
-			<description>拦截器优先级，数值越大越早执行。</description>
+			<description>拦截器优先级，数值越大越早执行。运行期修改从下一次拦截阶段快照开始生效；
+相同优先级按注册顺序执行。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="enabled">

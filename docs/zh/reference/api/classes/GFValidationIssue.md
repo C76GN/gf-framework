@@ -270,6 +270,7 @@ var extra_fields: Dictionary = {}
 ### `_init`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func _init( p_severity: Variant = Severity.ERROR, p_kind: StringName = &"", p_message: String = "", p_key: Variant = null, p_path: String = "", p_metadata: Dictionary = {} ) -> void:
@@ -284,7 +285,7 @@ func _init( p_severity: Variant = Severity.ERROR, p_kind: StringName = &"", p_me
 | `p_severity` | 严重级别，可传入 Severity、int 或字符串。 |
 | `p_kind` | 问题类别。 |
 | `p_message` | 问题说明。 |
-| `p_key` | 可选定位键。 |
+| `p_key` | 可选定位键；可变集合会在创建时复制为问题自身拥有的快照。 |
 | `p_path` | 可选路径。 |
 | `p_metadata` | 可选元数据。 |
 
@@ -299,6 +300,7 @@ func _init( p_severity: Variant = Severity.ERROR, p_kind: StringName = &"", p_me
 ### `configure`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func configure( p_severity: Variant, p_kind: StringName, p_message: String, p_key: Variant = null, p_path: String = "", p_metadata: Dictionary = {} ) -> RefCounted:
@@ -313,7 +315,7 @@ func configure( p_severity: Variant, p_kind: StringName, p_message: String, p_ke
 | `p_severity` | 严重级别，可传入 Severity、int 或字符串。 |
 | `p_kind` | 问题类别。 |
 | `p_message` | 问题说明。 |
-| `p_key` | 可选定位键。 |
+| `p_key` | 可选定位键；可变集合会在配置时复制为问题自身拥有的快照。 |
 | `p_path` | 可选路径。 |
 | `p_metadata` | 可选元数据。 |
 

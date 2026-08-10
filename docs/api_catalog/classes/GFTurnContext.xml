@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFTurnContext" path="addons/gf/extensions/turn_based/runtime/gf_turn_context.gd" module="extensions/turn_based" extends="RefCounted" classDigest="11b621ca31db82a440f8b3df8a3aaefdc6778a8d1b3954212ab0a640db89cc63">
+<class name="GFTurnContext" path="addons/gf/extensions/turn_based/runtime/gf_turn_context.gd" module="extensions/turn_based" extends="RefCounted" classDigest="4cb383007b54b7f3c9e2af91f26a2e2fed68b42c292ecfda64fb1d00c6da6b45">
 	<description>GFTurnContext: 通用回合流程上下文。
 只记录参与者、行动、轮次和元数据，不假设生命值、阵营、技能等业务概念。</description>
 	<tags>
@@ -42,7 +42,8 @@
 			<description>添加参与者。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="param">actor: 参与者对象。</tag>
+				<tag name="param">actor: 参与者对象。Context 会强持有 RefCounted，直到 remove_actor() 或 Context 自身释放。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="remove_actor">
@@ -50,7 +51,8 @@
 			<description>移除参与者。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="param">actor: 参与者对象。</tag>
+				<tag name="param">actor: 参与者对象；移除会释放 Context 对 RefCounted 的强所有权。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_actors">
@@ -75,7 +77,9 @@
 		<member kind="method" name="get_actor_value">
 			<signature>func get_actor_value(actor: Object, key: StringName, fallback: Variant = null) -&gt; Variant:</signature>
 			<description>从参与者读取排序或判定值。
-优先调用 `get_turn_value(key, fallback)`，其次读取对象属性。</description>
+优先调用参数兼容的 `get_turn_value(key, fallback)`，其次读取对象属性。
+同名方法若不接受两个实参或参数类型不兼容，会被视为不可调用并继续属性读取。
+GDScript 无法捕获方法内部脚本错误；项目实现必须自行保证回调可安全返回。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">actor: 参与者对象。</tag>

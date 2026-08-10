@@ -55,7 +55,7 @@
 signal drag_started(session_id: int, drag_type: StringName)
 ```
 
-拖拽开始时发出。
+控制器已提交 session、pointer、source 监听和可选 reparent 后同步发出。
 
 参数：
 
@@ -97,7 +97,7 @@ signal drag_moved(session_id: int, position: Vector2, delta: Vector2, zone_id: S
 signal drag_dropped(session_id: int, zone_id: StringName, result: Dictionary)
 ```
 
-拖拽成功释放到落点时发出。
+旧会话的 pointer/source/reparent lease 已清理后同步发出。
 
 参数：
 
@@ -122,7 +122,7 @@ signal drag_dropped(session_id: int, zone_id: StringName, result: Dictionary)
 signal drag_drop_rejected(session_id: int, reason: StringName)
 ```
 
-拖拽释放被拒绝时发出。
+拖拽释放被拒绝时发出；终态拒绝会先清理旧 lease，可重试拒绝仍保留会话。
 
 参数：
 
@@ -142,7 +142,7 @@ signal drag_drop_rejected(session_id: int, reason: StringName)
 signal drag_cancelled(session_id: int, reason: StringName)
 ```
 
-拖拽取消时发出。
+旧会话的 pointer/source/reparent lease 已清理后同步发出。
 
 参数：
 
@@ -230,7 +230,7 @@ source 引用失效时是否自动取消当前拖拽。
 func get_utility() -> GFDragDropUtility:
 ```
 
-获取底层拖放数据工具。
+获取底层拖放数据工具。 返回值是可写 live Utility；直接调用其 update/drop/cancel 会绕过控制器的 pointer 校验，但底层终态信号仍会驱动控制器清理。需要强制 pointer authority 时只使用控制器命令入口。
 
 返回：当前控制器持有的拖放工具。
 
@@ -371,7 +371,7 @@ func clear_zones() -> void:
 func start_drag( drag_type: StringName, payload: Variant, position: Vector2, source: Object = null, options: Dictionary = {} ) -> int:
 ```
 
-开始由控制器管理的拖拽。 控制器一次只管理一个活动会话。需要并行拖拽时可创建多个控制器；底层 `GFDragDropUtility` 仍保留多会话能力。
+开始由控制器管理的拖拽。 控制器一次只管理一个活动会话。需要并行拖拽时可创建多个控制器；底层 `GFDragDropUtility` 仍保留多会话能力。 started 只观察完整提交状态；若 started 监听器同步结束本会话，本方法返回 -1。
 
 参数：
 
@@ -383,7 +383,7 @@ func start_drag( drag_type: StringName, payload: Variant, position: Vector2, sou
 | `source` | 可选来源对象。 |
 | `options` | 控制器选项。 |
 
-返回：会话 ID；失败时返回 -1。
+返回：仍保持活动的会话 ID；启动失败或 started 回调已结束会话时返回 -1。
 
 结构：
 

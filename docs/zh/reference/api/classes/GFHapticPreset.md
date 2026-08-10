@@ -40,7 +40,7 @@
 var duration_seconds: float = 0.25
 ```
 
-持续时间，单位秒。
+持续时间，单位秒。非有限值按 0 处理，因此不能表示无限播放。
 
 <a id="member-gfhapticpreset-properties-weak_magnitude"></a>
 
@@ -122,7 +122,7 @@ func get_duration_seconds() -> float:
 
 获取有效持续时间。
 
-返回：持续时间，最小为 0。
+返回：有限持续时间，最小为 0。
 
 <a id="member-gfhapticpreset-methods-sample"></a>
 

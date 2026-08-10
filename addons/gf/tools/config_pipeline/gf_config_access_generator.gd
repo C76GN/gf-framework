@@ -120,7 +120,7 @@ func generate(
 ## [br]
 ## @return: 生成产物报告。
 ## [br]
-## @schema return: Dictionary，包含 success、path、status、error_code、error、written、changed、dry_run、size_bytes 和 metadata。
+## @schema return: Dictionary，包含 success、path、status、error_code、error、written、changed、dry_run、size_bytes、input_schema_count、emitted_schema_count、skipped_schema_count、issues 和 metadata。
 func generate_with_report(
 	schemas: Array,
 	output_path: String = DEFAULT_OUTPUT_PATH,
@@ -128,7 +128,92 @@ func generate_with_report(
 	provider_accessor: String = DEFAULT_PROVIDER_ACCESSOR,
 	options: Dictionary = {}
 ) -> Dictionary:
-	return save_source_with_report(output_path, build_source(schemas, access_class_name, provider_accessor, options), options)
+	var source_result: Dictionary = build_source_with_report(
+		schemas,
+		access_class_name,
+		provider_accessor,
+		options
+	)
+	if not GFVariantData.get_option_bool(source_result, "success"):
+		var failure_report: Dictionary = _GENERATED_ARTIFACT_REPORT_SCRIPT.make_report(
+			output_path,
+			_GENERATED_ARTIFACT_REPORT_SCRIPT.STATUS_FAILED,
+			ERR_INVALID_DATA,
+			GFVariantData.get_option_string(
+				source_result,
+				"error",
+				"访问器 schema 不完整。"
+			),
+			{
+				"dry_run": GFVariantData.get_option_bool(options, "dry_run"),
+				"metadata": GFVariantData.get_option_dictionary(options, "metadata"),
+			}
+		)
+		return _with_generation_counts(failure_report, source_result)
+	var report: Dictionary = save_source_with_report(
+		output_path,
+		GFVariantData.get_option_string(source_result, "source"),
+		options
+	)
+	return _with_generation_counts(report, source_result)
+
+
+## 根据 schema 列表生成源码与机器可读的完整性报告。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param schemas: 带有非空 table_name 或 table_key 的 schema 列表。
+## [br]
+## @schema schemas: Array of Dictionary or Object schemas with table_name/table_key and optional metadata.
+## [br]
+## @param access_class_name: 生成脚本的 class_name。
+## [br]
+## @param provider_accessor: 无显式 provider 参数时用于获取 provider 的表达式。
+## [br]
+## @param options: 访问器命名、注释与 typed record 生成选项。
+## [br]
+## @schema options: Dictionary controlling method_name_style, constant_prefix, record_method_pattern, table_method_pattern, include_schema_comments, include_typed_records, typed_record_method_pattern, and typed_record_class_suffix.
+## [br]
+## @return: 生成结果；success 仅在每个输入 schema 都已发射时为 true。
+## [br]
+## @schema return: Dictionary，包含 success、source、input_schema_count、emitted_schema_count、skipped_schema_count、issues 和 error。
+func build_source_with_report(
+	schemas: Array,
+	access_class_name: String = DEFAULT_CLASS_NAME,
+	provider_accessor: String = DEFAULT_PROVIDER_ACCESSOR,
+	options: Dictionary = {}
+) -> Dictionary:
+	var issues: PackedStringArray = PackedStringArray()
+	var emitted_schema_count: int = 0
+	for schema_index: int in range(schemas.size()):
+		var table_name: String = _get_schema_table_name(schemas[schema_index])
+		if table_name.is_empty():
+			var _issue_appended: bool = issues.append(
+				"Schema %d 缺少非空 table_name/table_key。" % schema_index
+			)
+			continue
+		emitted_schema_count += 1
+	var success: bool = issues.is_empty()
+	return {
+		"success": success,
+		"source": (
+			build_source(
+				schemas,
+				access_class_name,
+				provider_accessor,
+				options
+			)
+			if success
+			else ""
+		),
+		"input_schema_count": schemas.size(),
+		"emitted_schema_count": emitted_schema_count,
+		"skipped_schema_count": schemas.size() - emitted_schema_count,
+		"issues": issues,
+		"error": "" if success else "; ".join(issues),
+	}
 
 
 ## 根据 schema 列表生成访问器源码。
@@ -149,7 +234,9 @@ func generate_with_report(
 ## [br]
 ## @schema options: Dictionary controlling method_name_style, constant_prefix, record_method_pattern, table_method_pattern, include_schema_comments, include_typed_records, typed_record_method_pattern, and typed_record_class_suffix.
 ## [br]
-## @return GDScript 源码。
+## @return: GDScript 源码。非空但无法直接转为 ASCII 标识符的表名会使用稳定
+## SHA-256 后缀；缺少 table_name/table_key 的输入不会出现在该便利方法的结果中。
+## 需要验证完整发射时，使用 build_source_with_report()。
 func build_source(
 	schemas: Array,
 	access_class_name: String = DEFAULT_CLASS_NAME,
@@ -285,8 +372,7 @@ func _collect_schema_records(schemas: Array, options: Dictionary) -> Array[Dicti
 
 		var table_identifier: String = _sanitize_identifier(table_name)
 		if table_identifier.is_empty():
-			push_warning("[GFConfigAccessGenerator] 表名无法生成有效访问器，已跳过：%s" % table_name)
-			continue
+			table_identifier = _make_fallback_table_identifier(table_name)
 
 		var metadata: Dictionary = _get_schema_metadata(schema_variant)
 		raw_records.append({
@@ -326,6 +412,34 @@ func _collect_schema_records(schemas: Array, options: Dictionary) -> Array[Dicti
 			"comment": _GF_VARIANT_ACCESS_SCRIPT.get_option_string(raw_record, "comment"),
 		})
 	return records
+
+
+func _with_generation_counts(
+	report: Dictionary,
+	source_result: Dictionary
+) -> Dictionary:
+	var result: Dictionary = report.duplicate(true)
+	result["input_schema_count"] = GFVariantData.get_option_int(
+		source_result,
+		"input_schema_count"
+	)
+	result["emitted_schema_count"] = GFVariantData.get_option_int(
+		source_result,
+		"emitted_schema_count"
+	)
+	result["skipped_schema_count"] = GFVariantData.get_option_int(
+		source_result,
+		"skipped_schema_count"
+	)
+	result["issues"] = GFVariantData.get_option_packed_string_array(
+		source_result,
+		"issues"
+	)
+	return result
+
+
+func _make_fallback_table_identifier(table_name: String) -> String:
+	return "table_%s" % table_name.sha256_text().substr(0, 12)
 
 
 func _append_table_accessors(

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFConfigAccessGenerator" path="addons/gf/tools/config_pipeline/gf_config_access_generator.gd" module="tools" extends="RefCounted" classDigest="ab9e7827eb1d155671bbc572342d5f5718ee40d9297ee0afcd90d6bc4f76e50c">
+<class name="GFConfigAccessGenerator" path="addons/gf/tools/config_pipeline/gf_config_access_generator.gd" module="tools" extends="RefCounted" classDigest="f718a55c9bd2876272fa20b239c5002bcca1a00825b1d2ad85adbbe89c162cbd">
 	<description>GFConfigAccessGenerator: 生成静态导表访问器脚本。
 默认生成结果只封装 provider 的 `get_record()` / `get_table()` 调用，
 也可按 schema 字段声明生成可选记录包装类；生成器本身不规定项目表结构语义。</description>
@@ -68,20 +68,38 @@
 				<tag name="return">生成产物报告。</tag>
 				<tag name="schema">schemas: Array of Dictionary or Object schemas with table_name/table_key and optional metadata.</tag>
 				<tag name="schema">options: Dictionary，可包含 method_name_style、constant_prefix、record_method_pattern、table_method_pattern、include_schema_comments、include_typed_records、typed_record_method_pattern、typed_record_class_suffix、overwrite_existing、dry_run、scan_filesystem 和 metadata。</tag>
-				<tag name="schema">return: Dictionary，包含 success、path、status、error_code、error、written、changed、dry_run、size_bytes 和 metadata。</tag>
+				<tag name="schema">return: Dictionary，包含 success、path、status、error_code、error、written、changed、dry_run、size_bytes、input_schema_count、emitted_schema_count、skipped_schema_count、issues 和 metadata。</tag>
 				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="build_source_with_report">
+			<signature>func build_source_with_report( schemas: Array, access_class_name: String = DEFAULT_CLASS_NAME, provider_accessor: String = DEFAULT_PROVIDER_ACCESSOR, options: Dictionary = {} ) -&gt; Dictionary:</signature>
+			<description>根据 schema 列表生成源码与机器可读的完整性报告。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">schemas: 带有非空 table_name 或 table_key 的 schema 列表。</tag>
+				<tag name="param">access_class_name: 生成脚本的 class_name。</tag>
+				<tag name="param">provider_accessor: 无显式 provider 参数时用于获取 provider 的表达式。</tag>
+				<tag name="param">options: 访问器命名、注释与 typed record 生成选项。</tag>
+				<tag name="return">生成结果；success 仅在每个输入 schema 都已发射时为 true。</tag>
+				<tag name="schema">schemas: Array of Dictionary or Object schemas with table_name/table_key and optional metadata.</tag>
+				<tag name="schema">options: Dictionary controlling method_name_style, constant_prefix, record_method_pattern, table_method_pattern, include_schema_comments, include_typed_records, typed_record_method_pattern, and typed_record_class_suffix.</tag>
+				<tag name="schema">return: Dictionary，包含 success、source、input_schema_count、emitted_schema_count、skipped_schema_count、issues 和 error。</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 		<member kind="method" name="build_source">
 			<signature>func build_source( schemas: Array, access_class_name: String = DEFAULT_CLASS_NAME, provider_accessor: String = DEFAULT_PROVIDER_ACCESSOR, options: Dictionary = {} ) -&gt; String:</signature>
-			<description>根据 schema 列表生成访问器源码。</description>
+			<description>根据 schema 列表生成访问器源码。
+SHA-256 后缀；缺少 table_name/table_key 的输入不会出现在该便利方法的结果中。
+需要验证完整发射时，使用 build_source_with_report()。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">schemas: 带有 `table_name` 或 `table_key` 属性的 schema 列表。</tag>
 				<tag name="param">access_class_name: 生成脚本的 class_name。</tag>
 				<tag name="param">provider_accessor: 无显式 provider 参数时用于获取 provider 的表达式。</tag>
 				<tag name="param">options: 可选生成选项。</tag>
-				<tag name="return">GDScript 源码。</tag>
+				<tag name="return">GDScript 源码。非空但无法直接转为 ASCII 标识符的表名会使用稳定</tag>
 				<tag name="schema">schemas: Array of Dictionary or Object schemas with table_name/table_key and optional metadata.</tag>
 				<tag name="schema">options: Dictionary controlling method_name_style, constant_prefix, record_method_pattern, table_method_pattern, include_schema_comments, include_typed_records, typed_record_method_pattern, and typed_record_class_suffix.</tag>
 				<tag name="since">3.17.0</tag>

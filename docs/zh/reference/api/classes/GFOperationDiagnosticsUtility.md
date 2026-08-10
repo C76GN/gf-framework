@@ -18,6 +18,7 @@
 | 常量 | [`DEFAULT_MAX_COMPLETED_OPERATIONS`](#member-gfoperationdiagnosticsutility-constants-default_max_completed_operations) | `const DEFAULT_MAX_COMPLETED_OPERATIONS: int = 100` |
 | 常量 | [`DEFAULT_MAX_ACTIVE_OPERATIONS`](#member-gfoperationdiagnosticsutility-constants-default_max_active_operations) | `const DEFAULT_MAX_ACTIVE_OPERATIONS: int = 100` |
 | 常量 | [`DEFAULT_MAX_INCIDENTS`](#member-gfoperationdiagnosticsutility-constants-default_max_incidents) | `const DEFAULT_MAX_INCIDENTS: int = 200` |
+| 常量 | [`DEFAULT_MAX_PHASES_PER_OPERATION`](#member-gfoperationdiagnosticsutility-constants-default_max_phases_per_operation) | `const DEFAULT_MAX_PHASES_PER_OPERATION: int = 64` |
 | 常量 | [`DEFAULT_MAX_STATE_TRACE_ENTRIES`](#member-gfoperationdiagnosticsutility-constants-default_max_state_trace_entries) | `const DEFAULT_MAX_STATE_TRACE_ENTRIES: int = 64` |
 | 常量 | [`DEFAULT_MAX_SAMPLE_STATS`](#member-gfoperationdiagnosticsutility-constants-default_max_sample_stats) | `const DEFAULT_MAX_SAMPLE_STATS: int = 256` |
 | 常量 | [`DEFAULT_MAX_METADATA_KEYS`](#member-gfoperationdiagnosticsutility-constants-default_max_metadata_keys) | `const DEFAULT_MAX_METADATA_KEYS: int = 64` |
@@ -36,6 +37,7 @@
 | 属性 | [`max_completed_operations`](#member-gfoperationdiagnosticsutility-properties-max_completed_operations) | `var max_completed_operations: int = DEFAULT_MAX_COMPLETED_OPERATIONS:` |
 | 属性 | [`max_active_operations`](#member-gfoperationdiagnosticsutility-properties-max_active_operations) | `var max_active_operations: int = DEFAULT_MAX_ACTIVE_OPERATIONS:` |
 | 属性 | [`max_incidents`](#member-gfoperationdiagnosticsutility-properties-max_incidents) | `var max_incidents: int = DEFAULT_MAX_INCIDENTS:` |
+| 属性 | [`max_phases_per_operation`](#member-gfoperationdiagnosticsutility-properties-max_phases_per_operation) | `var max_phases_per_operation: int = DEFAULT_MAX_PHASES_PER_OPERATION:` |
 | 属性 | [`max_state_trace_entries`](#member-gfoperationdiagnosticsutility-properties-max_state_trace_entries) | `var max_state_trace_entries: int = DEFAULT_MAX_STATE_TRACE_ENTRIES:` |
 | 属性 | [`max_sample_stats`](#member-gfoperationdiagnosticsutility-properties-max_sample_stats) | `var max_sample_stats: int = DEFAULT_MAX_SAMPLE_STATS:` |
 | 属性 | [`max_metadata_keys`](#member-gfoperationdiagnosticsutility-properties-max_metadata_keys) | `var max_metadata_keys: int = DEFAULT_MAX_METADATA_KEYS:` |
@@ -108,6 +110,19 @@ const DEFAULT_MAX_INCIDENTS: int = 200
 ```
 
 默认保留的异常事件数量。
+
+<a id="member-gfoperationdiagnosticsutility-constants-default_max_phases_per_operation"></a>
+
+### `DEFAULT_MAX_PHASES_PER_OPERATION`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+const DEFAULT_MAX_PHASES_PER_OPERATION: int = 64
+```
+
+单个操作默认保留的阶段数量。
 
 <a id="member-gfoperationdiagnosticsutility-constants-default_max_state_trace_entries"></a>
 
@@ -344,6 +359,19 @@ var max_incidents: int = DEFAULT_MAX_INCIDENTS:
 ```
 
 最多保留的异常事件数量。设置为 0 时不保留异常历史。
+
+<a id="member-gfoperationdiagnosticsutility-properties-max_phases_per_operation"></a>
+
+### `max_phases_per_operation`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+var max_phases_per_operation: int = DEFAULT_MAX_PHASES_PER_OPERATION:
+```
+
+单个操作最多保留的阶段数量。设置为 0 时不保留阶段明细。 超额阶段会按最旧优先淘汰，并通过 operation.dropped_phase_count 累计报告。
 
 <a id="member-gfoperationdiagnosticsutility-properties-max_state_trace_entries"></a>
 
@@ -588,7 +616,7 @@ func finish_operation(operation_id: StringName, success: bool = true, options: D
 | `success` | 操作是否成功。 |
 | `options` | 可选参数，支持 metadata、anomaly_codes、ended_ticks_usec 和 duration_ms。 |
 
-返回：完整操作记录副本；操作不存在时返回空字典。
+返回：完整操作记录副本；操作不存在时返回空字典；重复结束已保留的终态操作时幂等返回首次终态副本，不合并后到 options。
 
 结构：
 

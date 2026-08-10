@@ -86,6 +86,8 @@ func test_normalize_numeric_text_enforces_separator_grammar_and_budget() -> void
 	var malformed_group: Dictionary = GFDecimalStringFormatterBase.normalize_numeric_text("1,2")
 	var malformed_underscore: Dictionary = GFDecimalStringFormatterBase.normalize_numeric_text("1__2")
 	var over_budget: Dictionary = GFDecimalStringFormatterBase.normalize_numeric_text("12345", 4)
+	var whitespace_bypass: Dictionary = GFDecimalStringFormatterBase.normalize_numeric_text("    1    ", 4)
+	var exact_budget: Dictionary = GFDecimalStringFormatterBase.normalize_numeric_text("1.20", 4)
 
 	assert_true(GFVariantData.get_option_bool(grouped, "ok"), "合法千分位文本应通过。")
 	assert_eq(GFVariantData.get_option_string(grouped, "text"), "+001234.500e-2")
@@ -94,6 +96,8 @@ func test_normalize_numeric_text_enforces_separator_grammar_and_budget() -> void
 	assert_eq(GFVariantData.get_option_string(malformed_group, "error"), "invalid_separator")
 	assert_eq(GFVariantData.get_option_string(malformed_underscore, "error"), "invalid_separator")
 	assert_eq(GFVariantData.get_option_string(over_budget, "error"), "input_too_long")
+	assert_eq(GFVariantData.get_option_string(whitespace_bypass, "error"), "input_too_long", "预算必须约束原始输入，而不是 trim 后文本。")
+	assert_true(GFVariantData.get_option_bool(exact_budget, "ok"), "长度恰好等于预算的合法文本应通过。")
 
 
 ## 验证小数字符串拆分校验只接受纯数字部分。

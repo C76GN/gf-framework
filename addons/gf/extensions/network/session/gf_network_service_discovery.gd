@@ -93,6 +93,7 @@ var default_ttl_seconds: float = 5.0:
 
 var _elapsed_seconds: float = 0.0
 var _services: Dictionary = {}
+var _service_expiry_deadlines: Dictionary = {}
 
 
 # --- 公共方法 ---
@@ -150,13 +151,13 @@ func make_advertisement(
 ## [br]
 ## @param advertisement: 服务广告字典。
 ## [br]
-## @param options: 可选项，支持 remote_address、remote_port 和 now_seconds。
+## @param options: 可选项，支持 remote_address、remote_port 和 now_seconds；now_seconds 只用于记录时间字段，TTL 淘汰始终使用本实例的 elapsed clock。
 ## [br]
 ## @return 接收报告。
 ## [br]
 ## @schema advertisement: Dictionary produced by make_advertisement() or decode_advertisement().
 ## [br]
-## @schema options: Dictionary with remote_address: String, remote_port: int, and now_seconds: float.
+## @schema options: Dictionary with remote_address: String, remote_port: int, and now_seconds: non-negative finite float used for record timestamps only.
 ## [br]
 ## @schema return: Dictionary with ok, status, service_key, record, error, issues, issue_count, and next_action.
 func accept_advertisement(advertisement: Dictionary, options: Dictionary = {}) -> Dictionary:
@@ -192,6 +193,7 @@ func accept_advertisement(advertisement: Dictionary, options: Dictionary = {}) -
 	record["remote_address"] = GFVariantData.get_option_string(options, "remote_address")
 	record["remote_port"] = GFVariantData.get_option_int(options, "remote_port")
 	_services[service_key] = record
+	_service_expiry_deadlines[service_key] = _elapsed_seconds + ttl_seconds
 
 	var report: Dictionary = _make_accept_report("updated" if existed else "found", service_key, record)
 	if existed:
@@ -213,7 +215,7 @@ func accept_advertisement(advertisement: Dictionary, options: Dictionary = {}) -
 ## [br]
 ## @param remote_port: 底层传输报告的远端端口。
 ## [br]
-## @param options: 可选项，支持 json_codec_options、now_seconds 和广告结构预算。
+## @param options: 可选项，支持 json_codec_options、记录时间 now_seconds 和广告结构预算；now_seconds 不改变 TTL clock domain。
 ## [br]
 ## @return 接收报告。
 ## [br]
@@ -634,9 +636,12 @@ func _prune_expired_services() -> void:
 	var expired_keys: PackedStringArray = PackedStringArray()
 	for key: Variant in _services.keys():
 		var service_key: String = GFVariantData.to_text(key)
-		var record: Dictionary = GFVariantData.get_option_dictionary(_services, service_key)
-		var expires_at_seconds: float = GFVariantData.get_option_float(record, "expires_at_seconds", -1.0)
-		if expires_at_seconds >= 0.0 and expires_at_seconds <= _elapsed_seconds:
+		var expiry_deadline: float = GFVariantData.get_option_float(
+			_service_expiry_deadlines,
+			service_key,
+			-1.0
+		)
+		if expiry_deadline >= 0.0 and expiry_deadline <= _elapsed_seconds:
 			var _append_result: bool = expired_keys.append(service_key)
 
 	for service_key: String in expired_keys:
@@ -651,5 +656,6 @@ func _remove_service(service_key: String, reason: String) -> bool:
 	var record: Dictionary = get_service(normalized_key)
 	var erased: bool = _services.erase(normalized_key)
 	if erased:
+		var _deadline_erased: bool = _service_expiry_deadlines.erase(normalized_key)
 		service_lost.emit(normalized_key, record, reason)
 	return erased

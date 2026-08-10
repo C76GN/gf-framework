@@ -46,7 +46,7 @@ static func source_has_tag( source: Variant, tag: StringName, minimum_count: int
 | `source` | 标签源。 |
 | `tag` | 标签名。 |
 | `minimum_count` | 要求的最小层数。 |
-| `include_child_tags` | 为 true 时，`state` 可匹配 `state.burning`。 |
+| `include_child_tags` | 为 true 时，\`state\` 可匹配 \`state.burning\`。 |
 
 返回：满足要求返回 true。
 

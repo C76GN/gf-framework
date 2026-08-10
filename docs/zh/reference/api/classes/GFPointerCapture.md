@@ -103,7 +103,7 @@ func matches(pointer_id: int) -> bool:
 func try_capture(pointer_id: int) -> bool:
 ```
 
-尝试捕获指针。 若当前没有捕获，则记录传入指针；若已经捕获同一指针，也视为成功。
+尝试捕获指针。 若当前没有捕获，则记录传入指针；若已经捕获同一指针，也视为成功。 `NO_POINTER_ID` 永远会被拒绝。
 
 参数：
 

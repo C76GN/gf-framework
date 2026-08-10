@@ -86,6 +86,16 @@ class ActiveNodeCapability extends GFNodeCapability:
 		active_events.append(is_active)
 
 
+class FreesReceiverOnAddedCapability extends GFCapability:
+	func on_gf_capability_added(target: Object) -> void:
+		target.free()
+
+
+class FreesReceiverOnRemovedCapability extends GFCapability:
+	func on_gf_capability_removed(target: Object) -> void:
+		target.free()
+
+
 class ExportDependencyCapability extends GFNodeCapability:
 	pass
 
@@ -221,6 +231,31 @@ class RequiresConcreteCapabilityA extends GFCapability:
 		required_capabilities = [ConcreteCapabilityA]
 
 
+class BaseNodeCapability extends GFNodeCapability:
+	pass
+
+
+class ConcreteNodeCapabilityA extends BaseNodeCapability:
+	pass
+
+
+class ConcreteNodeCapabilityB extends BaseNodeCapability:
+	pass
+
+
+class RequiresBaseNodeCapability extends GFNodeCapability:
+	func _init() -> void:
+		required_capabilities = [BaseNodeCapability]
+
+
+class PruneCountingCapabilityUtility extends GFCapabilityUtility:
+	var full_prune_calls: int = 0
+
+	func _prune_invalid_receivers() -> void:
+		full_prune_calls += 1
+		super._prune_invalid_receivers()
+
+
 # --- 私有变量 ---
 
 var _arch: GFArchitecture
@@ -318,6 +353,30 @@ func test_capability_lifecycle_hooks_observe_committed_boundaries_and_cannot_ree
 	assert_false(capability.present_during_removed, "removed hook 执行前注册记录应已摘除。")
 	assert_false(_utility.has_capability(receiver, ReentrantLifecycleCapability))
 	assert_null(capability.receiver)
+
+
+func test_added_hook_that_frees_receiver_releases_registration_transition() -> void:
+	var receiver: Object = Object.new()
+
+	var registered: Object = _utility.add_capability(receiver, FreesReceiverOnAddedCapability)
+
+	assert_null(registered, "added hook 释放 receiver 后不得返回失效能力。")
+	assert_true(_utility._registration_states.is_empty(), "receiver 失效后仍必须按不可变事务令牌清理注册状态。")
+	assert_push_error("[GFCapabilityUtility] add_capability 失败：added hook 释放了 receiver 或 capability。")
+
+
+func test_removed_hook_that_frees_receiver_releases_registration_transition() -> void:
+	var receiver: Object = Object.new()
+	var capability: FreesReceiverOnRemovedCapability = _utility.add_capability(
+		receiver,
+		FreesReceiverOnRemovedCapability
+	)
+	assert_not_null(capability)
+
+	_utility.remove_capability(receiver, FreesReceiverOnRemovedCapability)
+
+	assert_false(is_instance_valid(receiver), "removed hook 应已释放测试 receiver。")
+	assert_true(_utility._registration_states.is_empty(), "removed hook 释放 receiver 后仍必须清理注册事务状态。")
 
 
 func test_required_capabilities_are_created_first() -> void:
@@ -1036,6 +1095,43 @@ func test_node_capability_active_restore_preserves_runtime_process_mode_change()
 	await get_tree().process_frame
 
 
+func test_capability_active_tree_budget_failure_is_atomic_and_silent() -> void:
+	var receiver: Node = Node.new()
+	add_child(receiver)
+	var capability: ActiveNodeCapability = _utility.add_capability(receiver, ActiveNodeCapability)
+	await get_tree().process_frame
+	var first_child: Node = Node.new()
+	var second_child: Node = Node.new()
+	capability.add_child(first_child)
+	capability.add_child(second_child)
+	_utility.max_capability_tree_nodes = 2
+	var emitted_states: Array[bool] = []
+	var connect_error: Error = _utility.capability_active_changed.connect(
+		func(
+			_receiver: Object,
+			_capability_type: Script,
+			_capability: Object,
+			active: bool
+		) -> void:
+			emitted_states.append(active)
+	) as Error
+	assert_eq(connect_error, OK)
+
+	_utility.set_capability_active(receiver, ActiveNodeCapability, false)
+
+	assert_true(capability.active, "超预算时 active 属性必须保持原值。")
+	assert_true(_utility.is_capability_active(receiver, ActiveNodeCapability), "超预算时状态元数据不得先行提交。")
+	assert_ne(capability.process_mode, Node.PROCESS_MODE_DISABLED, "超预算时根节点处理模式不得改变。")
+	assert_ne(first_child.process_mode, Node.PROCESS_MODE_DISABLED, "超预算时子节点处理模式不得部分改变。")
+	assert_ne(second_child.process_mode, Node.PROCESS_MODE_DISABLED, "超预算时子节点处理模式不得部分改变。")
+	assert_true(capability.active_events.is_empty(), "失败的状态事务不得调用 active hook。")
+	assert_true(emitted_states.is_empty(), "失败的状态事务不得发出成功信号。")
+	assert_push_error("[GFCapabilityUtility] set active state 失败：能力节点树超过")
+
+	receiver.queue_free()
+	await get_tree().process_frame
+
+
 func test_capability_node_tree_budget_rejects_registration_without_partial_record() -> void:
 	var receiver: Node = Node.new()
 	add_child(receiver)
@@ -1081,6 +1177,20 @@ func test_capability_reverse_index_and_groups() -> void:
 	assert_true(target_receivers.has(receiver_a), "分组查询应包含第一个 receiver。")
 	assert_true(target_receivers.has(receiver_b), "分组查询应包含第二个 receiver。")
 	assert_eq(boss_base_receivers, [receiver_b], "分组能力交集查询应只返回匹配 receiver。")
+
+
+func test_group_capability_query_prunes_invalid_receivers_once() -> void:
+	var utility: PruneCountingCapabilityUtility = PruneCountingCapabilityUtility.new()
+	var receiver: RefCounted = RefCounted.new()
+	var _added: Object = utility.add_capability(receiver, HealthCapability)
+	utility.add_receiver_to_group(receiver, &"targets")
+	utility.full_prune_calls = 0
+
+	var receivers: Array[Object] = utility.get_receivers_in_group_with(&"targets", HealthCapability)
+
+	assert_eq(receivers, [receiver])
+	assert_eq(utility.full_prune_calls, 1, "一次分组能力查询只应执行一次全量失效 receiver 清理。")
+	utility.dispose()
 
 
 func test_capability_multi_condition_query_filters_required_rejected_and_group() -> void:
@@ -1173,6 +1283,63 @@ func test_capability_query_resource_filters_receivers_and_matches_single_receive
 	assert_false(query.matches_receiver(_utility, receiver_b), "包含 rejected 能力的 receiver 应返回 false。")
 	assert_eq(duplicated_query.group_name, &"targets", "查询拷贝应保留分组。")
 	assert_eq(GFVariantData.get_option_string(duplicated_query.metadata, "owner"), "test", "查询拷贝应保留 metadata。")
+
+
+func test_capability_query_rejects_null_required_types_without_broadening_results() -> void:
+	var receiver_a: RefCounted = RefCounted.new()
+	var receiver_b: RefCounted = RefCounted.new()
+	var _add_health: Object = _utility.add_capability(receiver_a, HealthCapability)
+	var _add_concrete: Object = _utility.add_capability(receiver_b, ConcreteCapabilityB)
+	var null_only: Array[Script] = [null]
+	var mixed_required: Array[Script] = [HealthCapability, null]
+	var duplicate_required: Array[Script] = [HealthCapability, HealthCapability]
+	var null_rejected: Array[Script] = [null]
+
+	var null_only_result: Array[Object] = _utility.get_receivers_matching_capabilities(null_only)
+	assert_push_error("[GFCapabilityUtility] get_receivers_matching_capabilities 失败：required_capability_types 包含 null。")
+	var mixed_result: Array[Object] = _utility.get_receivers_matching_capabilities(mixed_required)
+	assert_push_error("[GFCapabilityUtility] get_receivers_matching_capabilities 失败：required_capability_types 包含 null。")
+	var duplicate_result: Array[Object] = _utility.get_receivers_matching_capabilities(duplicate_required)
+	var rejected_result: Array[Object] = _utility.get_receivers_matching_capabilities([], null_rejected)
+	assert_push_error("[GFCapabilityUtility] get_receivers_matching_capabilities 失败：rejected_capability_types 包含 null。")
+	var empty_result: Array[Object] = _utility.get_receivers_matching_capabilities()
+
+	assert_true(null_only_result.is_empty(), "[null] 不得退化为空条件并匹配所有 receiver。")
+	assert_true(mixed_result.is_empty(), "[valid, null] 必须整体失败关闭，不得忽略非法项。")
+	assert_eq(duplicate_result, [receiver_a], "重复的有效类型仍应稳定去重。")
+	assert_true(rejected_result.is_empty(), "非法 rejected 列表同样必须失败关闭。")
+	assert_eq(empty_result.size(), 2, "真正的空 required 列表仍表示无必需条件。")
+	assert_true(empty_result.has(receiver_a))
+	assert_true(empty_result.has(receiver_b))
+
+	var query: GFCapabilityQuery = GFCapabilityQuery.new()
+	query.required_capability_types = null_only
+	assert_false(_utility.receiver_matches_query(receiver_a, query), "资源化查询也必须对 null required 失败关闭。")
+	assert_push_error("[GFCapabilityUtility] receiver_matches_query 失败：required_capability_types 包含 null。")
+
+
+func test_read_only_capability_queries_do_not_write_receiver_metadata() -> void:
+	var receiver: Node = Node.new()
+	assert_false(receiver.has_meta(&"_gf_capability_types"))
+
+	var types: Array[Script] = _utility.get_capability_types(receiver)
+	var capability: Object = _utility.get_capability(receiver, HealthCapability)
+	var inspection: Dictionary = _utility.inspect_receiver(receiver)
+
+	assert_true(types.is_empty())
+	assert_null(capability)
+	assert_eq(GFVariantData.get_option_int(inspection, "capability_count"), 0)
+	assert_false(receiver.has_meta(&"_gf_capability_types"), "只读查询不得给未注册 receiver 写入空能力元数据。")
+
+	var packed_scene: PackedScene = PackedScene.new()
+	var pack_error: Error = packed_scene.pack(receiver)
+	assert_eq(pack_error, OK)
+	var restored: Node = _get_node_value(packed_scene.instantiate())
+	assert_not_null(restored)
+	if restored != null:
+		assert_false(restored.has_meta(&"_gf_capability_types"), "只读查询不得通过场景序列化留下隐式状态。")
+		restored.free()
+	receiver.free()
 
 
 func test_prune_invalid_receivers_removes_stale_indices() -> void:
@@ -1454,6 +1621,78 @@ func test_capability_inspector_reads_required_property_without_calling_capabilit
 	capability.free()
 
 
+func test_capability_inspector_reports_ambiguous_required_base_type() -> void:
+	var inspector_script: Script = _load_capability_inspector_plugin()
+	assert_not_null(inspector_script, "应能加载 Capability Inspector 插件。")
+	if inspector_script == null:
+		return
+
+	var target: Node = Node.new()
+	add_child(target)
+	var container: Node = Node.new()
+	container.set_meta(GFCapabilityUtility.META_CAPABILITY_CONTAINER, true)
+	target.add_child(container)
+	container.add_child(ConcreteNodeCapabilityA.new())
+	container.add_child(ConcreteNodeCapabilityB.new())
+	container.add_child(RequiresBaseNodeCapability.new())
+
+	var report: Dictionary = GFVariantData.as_dictionary(
+		inspector_script.call(&"_build_editor_capability_report", target)
+	)
+
+	assert_false(GFVariantData.get_option_bool(report, "ok"), "多个子类满足同一基类依赖时编辑器校验必须失败。")
+	assert_true(_has_issue(report, "ambiguous_required_capability"), "编辑器应显式报告依赖歧义，而不是接受首个子类。")
+	assert_false(_has_issue(report, "missing_required_capability"), "歧义不是缺失，不应混淆两种状态。")
+	remove_child(target)
+	target.free()
+
+
+func test_capability_inspector_rejects_recipe_scene_script_mismatch() -> void:
+	var inspector_script: Script = _load_capability_inspector_plugin()
+	assert_not_null(inspector_script, "应能加载 Capability Inspector 插件。")
+	if inspector_script == null:
+		return
+
+	var entry: GFCapabilityRecipeEntry = GFCapabilityRecipeEntry.new()
+	entry.capability_type = ActiveNodeCapability
+	entry.scene = _make_plain_capability_scene()
+	var report: GFValidationReport = GFValidationReport.new("Recipe scene type")
+	var created: Node = _get_node_value(
+		inspector_script.call(&"_create_capability_node_from_recipe_entry", entry, report, 0)
+	)
+
+	assert_null(created, "场景根脚本不继承声明能力类型时不得加入编辑器计划。")
+	assert_true(_has_issue(report.to_dict(), "scene_script_type_mismatch"), "类型冒充应给出稳定的 scene_script_type_mismatch。")
+	if created != null:
+		created.free()
+
+
+func test_capability_inspector_active_tree_budget_failure_is_atomic() -> void:
+	var inspector_script: Script = _load_capability_inspector_plugin()
+	assert_not_null(inspector_script, "应能加载 Capability Inspector 插件。")
+	if inspector_script == null:
+		return
+
+	var capability: ActiveNodeCapability = ActiveNodeCapability.new()
+	var first_child: Node = Node.new()
+	var second_child: Node = Node.new()
+	capability.add_child(first_child)
+	capability.add_child(second_child)
+
+	var applied: bool = GFVariantData.to_bool(
+		inspector_script.call(&"_apply_editor_capability_active_state", capability, false, 2)
+	)
+
+	assert_false(applied)
+	assert_true(capability.active, "编辑器超预算时 active 属性不得先行写入。")
+	assert_false(capability.has_meta(&"_gf_capability_active"), "编辑器超预算时不得留下新状态元数据。")
+	assert_ne(capability.process_mode, Node.PROCESS_MODE_DISABLED)
+	assert_ne(first_child.process_mode, Node.PROCESS_MODE_DISABLED)
+	assert_ne(second_child.process_mode, Node.PROCESS_MODE_DISABLED)
+	assert_push_error("[GFCapabilityInspector] set active state 失败：节点树超过最大节点数 2。")
+	capability.free()
+
+
 func test_capability_inspector_add_plan_reuses_pending_container_and_names() -> void:
 	var inspector_script: Script = _load_capability_inspector_plugin()
 	assert_not_null(inspector_script, "应能加载 Capability Inspector 插件。")
@@ -1497,6 +1736,14 @@ func _make_counting_capability_scene() -> PackedScene:
 	var _pack_result_987: Variant = scene.pack(node)
 	node.free()
 	CountingCapabilityNode.created_nodes.clear()
+	return scene
+
+
+func _make_plain_capability_scene() -> PackedScene:
+	var node: CapabilityNode = CapabilityNode.new()
+	var scene: PackedScene = PackedScene.new()
+	var _pack_result: Error = scene.pack(node)
+	node.free()
 	return scene
 
 

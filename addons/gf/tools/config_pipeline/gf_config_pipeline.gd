@@ -84,7 +84,7 @@ func configure_stages(
 ## [br]
 ## @return: 按 Reader、Layout、Validation、Target、Commit 排列的阶段描述。
 ## [br]
-## @schema return: Array[Dictionary]，每项包含 stage_id、implementation_version、implementation_path 和阶段契约字段。
+## @schema return: Array[Dictionary]，每项包含 stage_id、implementation_version、implementation_path、implementation_dependencies 和阶段契约字段。
 func get_stage_descriptors() -> Array[Dictionary]:
 	return [
 		_with_stage_implementation_path(_reader_stage.get_stage_descriptor(), _reader_stage),
@@ -108,7 +108,7 @@ func get_stage_descriptors() -> Array[Dictionary]:
 ## [br]
 ## @return: 构建结果。
 ## [br]
-## @schema return: Dictionary，包含 success、table、ir、report、source_path、format 和 error。
+## @schema return: Dictionary，包含 success、table、ir、report、source_path、format、source_receipt 和 error。
 func build_table(source: GFConfigPipelineTableSource, options: Dictionary = {}) -> Dictionary:
 	var compile_result: Dictionary = _compile_table(source, options)
 	return _materialize_table_compile_result(compile_result, options)
@@ -172,7 +172,7 @@ func build_table_from_text(
 ## [br]
 ## @return: 构建结果。
 ## [br]
-## @schema return: Dictionary，包含 success、database、ir、report、table_results 和 error。
+## @schema return: Dictionary，包含 success、database、ir、report、table_results 和 error；每个成功 table_result 都包含绑定实际读取字节的 source_receipt。
 func build_database(
 	sources: Array,
 	options: Dictionary = {}
@@ -319,7 +319,7 @@ func build_database(
 ## [br]
 ## @return: 构建结果。
 ## [br]
-## @schema return: Dictionary，包含 success、database、report、table_results、profile_id、output_path 和 error。
+## @schema return: Dictionary，包含 success、database、report、table_results、profile_id、output_path 和 error；每个成功 table_result 都包含绑定实际读取字节的 source_receipt。
 func build_profile(profile: GFConfigPipelineProfile, options: Dictionary = {}) -> Dictionary:
 	if profile == null:
 		return _make_profile_failure(&"", "invalid_pipeline_profile", "导表 Profile 为空。")
@@ -351,7 +351,7 @@ func build_profile(profile: GFConfigPipelineProfile, options: Dictionary = {}) -
 ## [br]
 ## @return: 导出结果。
 ## [br]
-## @schema return: Dictionary，包含 success、database、report、table_results、build_result、save_result、access_result、manifest_path、manifest、manifest_result、profile_id、output_path、error、transaction_result、recovery_required、recovery_action 和 recovery_transaction；recovery_required 为 true 时调用方必须按 recovery_action 使用 recovery_transaction 完成结果要求的终态动作。
+## @schema return: Dictionary，包含 success、database、report、table_results、build_result、save_result、access_result、manifest_path、manifest、manifest_result、source_validation_report、profile_id、output_path、error、transaction_result、recovery_required、recovery_action 和 recovery_transaction；写 manifest 时会在事务完成前复核 source_receipt，来源变化会回滚整批产物；recovery_required 为 true 时调用方必须按 recovery_action 使用 recovery_transaction 完成结果要求的终态动作。
 func export_profile(profile: GFConfigPipelineProfile, options: Dictionary = {}) -> Dictionary:
 	var build_result: Dictionary = build_profile(profile, options)
 	var profile_id: StringName = GFVariantData.get_option_string_name(build_result, "profile_id")
@@ -545,6 +545,38 @@ func export_profile(profile: GFConfigPipelineProfile, options: Dictionary = {}) 
 		export_error = GFVariantData.get_option_string(access_result, "error")
 	if export_error.is_empty() and should_write_manifest and not GFVariantData.get_option_bool(manifest_result, "success"):
 		export_error = GFVariantData.get_option_string(manifest_result, "error")
+	var source_validation_report: Dictionary = {}
+	if export_success and should_write_manifest:
+		var validation_run_result: Dictionary = _make_profile_export_result(
+			true,
+			build_result,
+			save_result,
+			access_result,
+			profile_id,
+			output_path,
+			"",
+			manifest_path,
+			manifest_result,
+			manifest
+		)
+		source_validation_report = (
+			manifest_helper
+			.make_source_receipt_validation_report(
+				profile,
+				validation_run_result,
+				options
+			)
+		)
+		if (
+			not GFVariantData.get_option_bool(source_validation_report, "success")
+			or not GFVariantData.get_option_bool(source_validation_report, "stable")
+		):
+			export_success = false
+			export_error = GFVariantData.get_option_string(
+				source_validation_report,
+				"error",
+				"配置表来源在导出事务期间发生变化。"
+			)
 	var transaction_result: Dictionary = {}
 	if export_success:
 		transaction_result = _commit_stage.complete(transaction_snapshot)
@@ -569,7 +601,8 @@ func export_profile(profile: GFConfigPipelineProfile, options: Dictionary = {}) 
 		manifest_path,
 		manifest_result,
 		manifest,
-		transaction_result
+		transaction_result,
+		source_validation_report
 	)
 
 
@@ -581,9 +614,9 @@ func export_profile(profile: GFConfigPipelineProfile, options: Dictionary = {}) 
 ## [br]
 ## @param database: 要导出的配置数据库资源。
 ## [br]
-## @param options: 可选导出选项，支持 include_schema、include_indexes 和 max_depth。
+## @param options: 可选导出选项，支持 include_schema、include_indexes、max_depth、max_nodes 和 max_output_bytes。
 ## [br]
-## @schema options: Dictionary，可包含 include_schema、include_indexes 和 max_depth。
+## @schema options: Dictionary，可包含 include_schema、include_indexes、max_depth、max_nodes 和 max_output_bytes；调用方值会被框架绝对上限约束。
 ## [br]
 ## @return: JSON 兼容导出字典；数据库为空或存在不支持的 Variant 时返回空字典。
 ## [br]
@@ -607,7 +640,7 @@ func make_database_export(database: GFConfigDatabaseResource, options: Dictionar
 ## [br]
 ## @param options: 保存选项，支持 output_format、include_schema、include_indexes、indent、sort_keys、overwrite_existing、allow_unowned_overwrite、dry_run 和 artifact_metadata。
 ## [br]
-## @schema options: Dictionary，可包含 output_format、include_schema、include_indexes、indent、sort_keys、overwrite_existing、allow_unowned_overwrite、dry_run 和 artifact_metadata；allow_unowned_overwrite 仅用于调用方已明确确认现有文件所有权的迁移场景。
+## @schema options: Dictionary，可包含 output_format、include_schema、include_indexes、max_depth、max_nodes、max_output_bytes、indent、sort_keys、overwrite_existing、allow_unowned_overwrite、dry_run 和 artifact_metadata；三个 JSON 预算会被框架绝对上限约束，allow_unowned_overwrite 仅用于调用方已明确确认现有文件所有权的迁移场景。
 ## [br]
 ## @return: 保存结果。
 ## [br]
@@ -729,7 +762,7 @@ func save_database(
 ## [br]
 ## @return: 访问器生成结果。
 ## [br]
-## @schema return: Dictionary，包含 success、skipped、path、class_name、schema_count、error_code、error 和 artifact_report。
+## @schema return: Dictionary，包含 success、skipped、path、class_name、schema_count、input_schema_count、emitted_schema_count、skipped_schema_count、issues、error_code、error 和 artifact_report；schema_count 是 emitted_schema_count 的兼容字段。
 func generate_access(
 	database: GFConfigDatabaseResource,
 	output_path: String,
@@ -773,7 +806,19 @@ func generate_access(
 			false,
 			false
 		)
-		return _make_access_result(false, output_path, class_name_value, ERR_INVALID_PARAMETER, accessor_error, false, schemas.size(), accessor_artifact_report)
+		return _make_access_result(
+			false,
+			output_path,
+			class_name_value,
+			ERR_INVALID_PARAMETER,
+			accessor_error,
+			false,
+			0,
+			accessor_artifact_report,
+			schemas.size(),
+			schemas.size(),
+			PackedStringArray([accessor_error])
+		)
 	var overwrite_existing: bool = GFVariantData.get_option_bool(options, "overwrite_existing", true)
 	var ownership_error: String = _validate_existing_artifact_ownership(output_path, &"access", options)
 	if not ownership_error.is_empty():
@@ -787,15 +832,78 @@ func generate_access(
 			false,
 			false
 		)
-		return _make_access_result(false, output_path, class_name_value, ERR_UNAUTHORIZED, ownership_error, false, schemas.size(), ownership_artifact_report)
+		return _make_access_result(
+			false,
+			output_path,
+			class_name_value,
+			ERR_UNAUTHORIZED,
+			ownership_error,
+			false,
+			0,
+			ownership_artifact_report,
+			schemas.size(),
+			schemas.size(),
+			PackedStringArray([ownership_error])
+		)
 	var generation_options: Dictionary = options.duplicate(true)
 	generation_options["overwrite_existing"] = overwrite_existing
 	generation_options["label"] = "GFConfigAccessGenerator"
 	generation_options["generator_id"] = _ARTIFACT_OWNER
 	var generator: GFConfigAccessGenerator = GFConfigAccessGenerator.new()
+	var source_result: Dictionary = generator.build_source_with_report(
+		schemas,
+		class_name_value,
+		accessor,
+		generation_options
+	)
+	var input_schema_count: int = GFVariantData.get_option_int(
+		source_result,
+		"input_schema_count"
+	)
+	var emitted_schema_count: int = GFVariantData.get_option_int(
+		source_result,
+		"emitted_schema_count"
+	)
+	var skipped_schema_count: int = GFVariantData.get_option_int(
+		source_result,
+		"skipped_schema_count"
+	)
+	var generation_issues: PackedStringArray = GFVariantData.get_option_packed_string_array(
+		source_result,
+		"issues"
+	)
+	if not GFVariantData.get_option_bool(source_result, "success"):
+		var source_error: String = GFVariantData.get_option_string(
+			source_result,
+			"error",
+			"访问器生成未覆盖全部 schema。"
+		)
+		var source_artifact_report: Dictionary = _make_resource_artifact_report(
+			output_path,
+			&"gdscript",
+			_GENERATED_ARTIFACT_REPORT_SCRIPT.STATUS_FAILED,
+			ERR_INVALID_DATA,
+			source_error,
+			options,
+			false,
+			false
+		)
+		return _make_access_result(
+			false,
+			output_path,
+			class_name_value,
+			ERR_INVALID_DATA,
+			source_error,
+			false,
+			emitted_schema_count,
+			source_artifact_report,
+			input_schema_count,
+			skipped_schema_count,
+			generation_issues
+		)
 	var generated_source: String = "%s\n%s" % [
 		_ACCESS_ARTIFACT_MARKER,
-		generator.build_source(schemas, class_name_value, accessor, generation_options),
+		GFVariantData.get_option_string(source_result, "source"),
 	]
 	var artifact_report: Dictionary = _GENERATED_ARTIFACT_REPORT_SCRIPT.save_text(output_path, generated_source, generation_options)
 	var generate_error: Error = _GENERATED_ARTIFACT_REPORT_SCRIPT.get_error_code(artifact_report)
@@ -811,10 +919,25 @@ func generate_access(
 			generate_error,
 			"生成配置访问器失败：%s。" % error_string(generate_error),
 			access_skipped,
-			schemas.size(),
-			artifact_report
+			emitted_schema_count,
+			artifact_report,
+			input_schema_count,
+			skipped_schema_count,
+			generation_issues
 		)
-	return _make_access_result(true, output_path, class_name_value, OK, "", false, schemas.size(), artifact_report)
+	return _make_access_result(
+		true,
+		output_path,
+		class_name_value,
+		OK,
+		"",
+		false,
+		emitted_schema_count,
+		artifact_report,
+		input_schema_count,
+		skipped_schema_count,
+		generation_issues
+	)
 
 
 # --- 私有/辅助方法 ---
@@ -843,7 +966,14 @@ func _compile_table_from_reader_result(
 	options: Dictionary
 ) -> Dictionary:
 	var layout_result: Dictionary = _layout_stage.decode_source(source, read_result, options)
-	return _validation_stage.compile_table(source, layout_result, options)
+	var compile_result: Dictionary = _validation_stage.compile_table(source, layout_result, options)
+	var source_receipt: Dictionary = GFVariantData.get_option_dictionary(
+		read_result,
+		"source_receipt"
+	)
+	if not source_receipt.is_empty():
+		compile_result["source_receipt"] = source_receipt.duplicate(true)
+	return compile_result
 
 
 func _materialize_table_compile_result(
@@ -858,6 +988,10 @@ func _materialize_table_compile_result(
 			"report": GFVariantData.get_option_dictionary(compile_result, "report"),
 			"source_path": GFVariantData.get_option_string(compile_result, "source_path"),
 			"format": GFVariantData.get_option_string_name(compile_result, "format", _FORMAT_AUTO),
+			"source_receipt": GFVariantData.get_option_dictionary(
+				compile_result,
+				"source_receipt"
+			).duplicate(true),
 			"error": GFVariantData.get_option_string(compile_result, "error"),
 		}
 
@@ -883,6 +1017,10 @@ func _materialize_table_compile_result(
 	target_result["report"] = GFVariantData.get_option_dictionary(compile_result, "report")
 	target_result["source_path"] = table_ir.get_source_path()
 	target_result["format"] = table_ir.get_source_format()
+	target_result["source_receipt"] = GFVariantData.get_option_dictionary(
+		compile_result,
+		"source_receipt"
+	).duplicate(true)
 	target_result["ir"] = table_ir
 	return target_result
 
@@ -985,7 +1123,8 @@ func _make_profile_export_result(
 	manifest_path: String = "",
 	manifest_result: Dictionary = {},
 	manifest: Dictionary = {},
-	transaction_result: Dictionary = {}
+	transaction_result: Dictionary = {},
+	source_validation_report: Dictionary = {}
 ) -> Dictionary:
 	var recovery_required: bool = GFVariantData.get_option_bool(
 		transaction_result,
@@ -1006,6 +1145,7 @@ func _make_profile_export_result(
 		"output_path": output_path,
 		"error": message,
 		"transaction_result": transaction_result.duplicate(true),
+		"source_validation_report": source_validation_report.duplicate(true),
 		"recovery_required": recovery_required,
 		"recovery_action": (
 			GFVariantData.get_option_string_name(
@@ -1078,14 +1218,26 @@ func _make_access_result(
 	message: String,
 	skipped: bool,
 	schema_count: int,
-	artifact_report: Dictionary = {}
+	artifact_report: Dictionary = {},
+	input_schema_count: int = -1,
+	skipped_schema_count: int = 0,
+	issues: PackedStringArray = PackedStringArray()
 ) -> Dictionary:
+	var resolved_input_schema_count: int = (
+		schema_count
+		if input_schema_count < 0
+		else input_schema_count
+	)
 	return {
 		"success": success,
 		"skipped": skipped,
 		"path": output_path,
 		"class_name": access_class_name,
 		"schema_count": schema_count,
+		"input_schema_count": resolved_input_schema_count,
+		"emitted_schema_count": schema_count,
+		"skipped_schema_count": skipped_schema_count,
+		"issues": issues.duplicate(),
 		"error_code": error_code,
 		"error": message,
 		"artifact_report": artifact_report.duplicate(true),

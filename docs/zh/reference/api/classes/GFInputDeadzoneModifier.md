@@ -28,24 +28,26 @@
 ### `lower_threshold`
 
 - API：`public`
+- 首次版本：`11.0.0`
 
 ```gdscript
 var lower_threshold: float = 0.2:
 ```
 
-低于该阈值的输入会被视为 0。
+低于该阈值的输入会被视为 0。与 upper_threshold 相等时形成阶跃： 低于共同阈值为 0，达到阈值为满幅。
 
 <a id="member-gfinputdeadzonemodifier-properties-upper_threshold"></a>
 
 ### `upper_threshold`
 
 - API：`public`
+- 首次版本：`11.0.0`
 
 ```gdscript
 var upper_threshold: float = 1.0:
 ```
 
-达到该阈值时视为满幅输入。
+达到该阈值时视为满幅输入；可与 lower_threshold 相等以表达硬阈值。
 
 <a id="member-gfinputdeadzonemodifier-properties-rescale_after_deadzone"></a>
 

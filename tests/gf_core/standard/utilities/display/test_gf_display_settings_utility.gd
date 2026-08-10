@@ -150,7 +150,49 @@ func test_missing_audio_bus_does_not_emit_applied_signal() -> void:
 	display.dispose()
 
 
+func test_audio_bus_volume_rejects_non_finite_input_without_backend_call() -> void:
+	var audio: RecordingAudioUtility = RecordingAudioUtility.new()
+	var display: RecordingAudioDisplaySettingsUtility = RecordingAudioDisplaySettingsUtility.new()
+	display.audio_backend = audio
+	display.register_defaults_on_ready = false
+	display.apply_on_ready = false
+	display.init()
+
+	display.set_audio_bus_volume("Master", 0.5)
+	display.set_audio_bus_volume("Master", NAN)
+	display.set_audio_bus_volume("Master", INF)
+
+	assert_eq(audio.volume_write_count, 1, "NaN/Infinity 不得到达音频后端。")
+	assert_true(is_finite(audio.last_volume_db), "音频后端只应接收有限 dB。")
+	assert_almost_eq(display.get_audio_bus_volume("Master"), 0.5, 0.001, "非法输入不得覆盖最后一个有效音量。")
+	assert_push_warning("[GFDisplaySettingsUtility] 已拒绝非有限音频总线音量：Master。")
+	assert_push_warning("[GFDisplaySettingsUtility] 已拒绝非有限音频总线音量：Master。")
+	display.dispose()
+
+
 # --- 测试替身 ---
+
+class RecordingAudioUtility:
+	extends GFAudioUtility
+
+	var volume_write_count: int = 0
+	var last_volume_db: float = 0.0
+
+	func set_bus_volume_db(_bus_name: String, volume_db: float, _transition_seconds: float = 0.0) -> bool:
+		volume_write_count += 1
+		last_volume_db = volume_db
+		return true
+
+
+class RecordingAudioDisplaySettingsUtility:
+	extends GFDisplaySettingsUtility
+
+	var audio_backend: GFAudioUtility = null
+
+	func _get_audio_utility() -> GFAudioUtility:
+		return audio_backend
+
+
 
 class FakeWindowDisplaySettingsUtility:
 	extends GFDisplaySettingsUtility

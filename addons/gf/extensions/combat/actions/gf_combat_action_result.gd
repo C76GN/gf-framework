@@ -39,9 +39,11 @@ var action: GFCombatAction = null
 ## @api public
 var previous_value: float = 0.0
 
-## 应用后数值。
+## 该动作提交后的数值快照；不包含观察信号触发的后续嵌套变更。
 ## [br]
 ## @api public
+## [br]
+## @since 11.0.0
 var current_value: float = 0.0
 
 ## 项目自定义元数据。

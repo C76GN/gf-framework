@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFRuntimeTunableProperty" path="addons/gf/standard/utilities/debug/gf_runtime_tunable_property.gd" module="standard" extends="Resource" classDigest="8136235ac6eca67fc499ef3f1957820b935daa8fa9926ca276750d88f6fd2bfb">
+<class name="GFRuntimeTunableProperty" path="addons/gf/standard/utilities/debug/gf_runtime_tunable_property.gd" module="standard" extends="Resource" classDigest="69960ab538ae9e3355cb3c10a87cb85d9576c063937e64870080e54d1e00f504">
 	<description>GFRuntimeTunableProperty: 运行时可调属性声明。
 用显式 schema 描述一个目标对象上允许被运行时工具读取或写入的属性。
 它不自动扫描业务对象，也不决定具体调参界面。</description>
@@ -148,9 +148,13 @@
 		</member>
 		<member kind="property" name="setter">
 			<signature>var setter: Callable</signature>
-			<description>可选写入回调，签名为 `func(target: Object, property: GFRuntimeTunableProperty, value: Variant) -&gt; void`。</description>
+			<description>可选同步写入回调，签名为
+`func(target: Object, property: GFRuntimeTunableProperty, value: Variant) -&gt; void`。
+返回 true 只表示回调已被调用；当前 void 契约无法证明外部存储已接受该值。
+同一属性的递归 write_value() 会失败关闭。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="validator">
@@ -212,8 +216,9 @@
 				<tag name="api">public</tag>
 				<tag name="param">target: 目标对象。</tag>
 				<tag name="param">value: 请求写入的值。</tag>
-				<tag name="return">写入成功返回 true。</tag>
+				<tag name="return">通过校验且完成属性写入或调用自定义 setter 时返回 true；void setter 的实际提交由项目负责。</tag>
 				<tag name="schema">value: Variant，请求写入的原始值，会按 value_kind 和范围配置归一化。</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="try_normalize_value">

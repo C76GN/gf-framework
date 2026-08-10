@@ -2,6 +2,7 @@
 ##
 ## 按项目结构 profile 检查目录分区、Feature 模块契约、命名、生成物边界和大桶目录增长。
 ## 该工具只实现可选制作期校验，不把任意业务项目结构写入 GF 运行时包。
+## 未知选项、字段、错误类型和非规范相对路径都会失败关闭；扫描预算在流式枚举期间全局生效。
 ## [br]
 ## @api public
 ## [br]
@@ -55,27 +56,34 @@ const _ZONE_ALLOWED_FIELDS: PackedStringArray = [
 	"severity",
 	"metadata",
 ]
-const _RULE_ALLOWED_FIELDS: PackedStringArray = [
+const _RULE_COMMON_ALLOWED_FIELDS: PackedStringArray = [
 	"id",
 	"description",
 	"kind",
-	"paths",
-	"any",
-	"roots",
-	"include",
-	"exclude",
-	"extensions",
-	"pattern",
-	"target",
-	"allowed_files",
-	"feature_id_pattern",
-	"required_subdirs",
-	"allowed_subdirs",
-	"allow_root_files",
-	"max_files",
 	"severity",
 	"metadata",
 ]
+const _RULE_RESERVED_FIELDS: PackedStringArray = ["paths", "any", "extensions"]
+const _VALIDATOR_OPTION_FIELDS: PackedStringArray = [
+	"root_path",
+	"include_hidden",
+	"max_scanned_files",
+	"max_scanned_directories",
+	"max_scan_depth",
+	"allow_missing_root",
+	"allow_absolute_root",
+]
+const _VALIDATOR_BOOL_OPTION_FIELDS: PackedStringArray = [
+	"include_hidden",
+	"allow_missing_root",
+	"allow_absolute_root",
+]
+const _VALIDATOR_INTEGER_OPTION_FIELDS: PackedStringArray = [
+	"max_scanned_files",
+	"max_scanned_directories",
+	"max_scan_depth",
+]
+const _NAMING_TARGETS: PackedStringArray = ["path", "name", "stem"]
 
 
 # --- 公共方法 ---
@@ -115,8 +123,9 @@ func validate_default_profile(options: Dictionary = {}) -> Dictionary:
 func validate_profile_path(profile_path: String, options: Dictionary = {}) -> Dictionary:
 	var load_result: Dictionary = _load_profile(profile_path)
 	if not _get_bool(load_result, "success"):
-		var root_path: String = _normalize_root_path(_get_string(options, "root_path", "res://"))
+		var root_path: String = _report_root_path(options)
 		var report: Dictionary = _make_report("", root_path)
+		_validate_options(options, report)
 		_add_issue(
 			report,
 			"error",
@@ -132,7 +141,8 @@ func validate_profile_path(profile_path: String, options: Dictionary = {}) -> Di
 		var profile: Dictionary = profile_value
 		return validate_profile(profile, options)
 
-	var fallback_report: Dictionary = _make_report("", _normalize_root_path(_get_string(options, "root_path", "res://")))
+	var fallback_report: Dictionary = _make_report("", _report_root_path(options))
+	_validate_options(options, fallback_report)
 	_add_issue(fallback_report, "error", "invalid_profile", profile_path, "项目结构 profile 必须是 Dictionary。")
 	return _finalize_report(fallback_report)
 
@@ -155,8 +165,9 @@ func validate_profile_path(profile_path: String, options: Dictionary = {}) -> Di
 ## [br]
 ## @schema return: Dictionary，包含 success、profile_id、root_path、file_count、directory_count、issues、error_count、warning_count、info_count 和 rule_results。
 func validate_profile(profile: Dictionary, options: Dictionary = {}) -> Dictionary:
-	var root_path: String = _normalize_root_path(_get_string(options, "root_path", "res://"))
+	var root_path: String = _report_root_path(options)
 	var report: Dictionary = _make_report(_get_string(profile, "id"), root_path)
+	_validate_options(options, report)
 	_validate_profile_header(profile, report)
 	_validate_profile_schema(profile, report)
 	_validate_root_path(root_path, options, report)
@@ -227,6 +238,56 @@ func _make_report(profile_id: String, root_path: String) -> Dictionary:
 	}
 
 
+func _report_root_path(options: Dictionary) -> String:
+	if not options.has("root_path"):
+		return "res://"
+	var root_value: Variant = options["root_path"]
+	if not (root_value is String or root_value is StringName):
+		return ""
+	var root_path: String = _string_value(root_value)
+	if root_path.strip_edges().is_empty():
+		return ""
+	return _normalize_root_path(root_path)
+
+
+func _validate_options(options: Dictionary, report: Dictionary) -> void:
+	for key_value: Variant in options.keys():
+		var option_name: String = _string_value(key_value)
+		if not option_name.is_empty() and _VALIDATOR_OPTION_FIELDS.has(option_name):
+			continue
+		_add_issue(
+			report,
+			"error",
+			"unsupported_option",
+			option_name,
+			"项目结构 validator 包含不受支持的选项。",
+			{ "actual": _describe_value(key_value) }
+		)
+	if options.has("root_path"):
+		var root_value: Variant = options["root_path"]
+		if not (root_value is String or root_value is StringName):
+			_add_issue(report, "error", "invalid_option_type", "root_path", "root_path 必须是字符串。", { "actual": _describe_value(root_value) })
+		elif _string_value(root_value).strip_edges().is_empty():
+			_add_issue(report, "error", "invalid_option_value", "root_path", "root_path 不能为空。")
+	for field_name: String in _VALIDATOR_BOOL_OPTION_FIELDS:
+		if options.has(field_name) and not options[field_name] is bool:
+			_add_issue(report, "error", "invalid_option_type", field_name, "%s 必须是 bool。" % field_name, { "actual": _describe_value(options[field_name]) })
+	for field_name: String in _VALIDATOR_INTEGER_OPTION_FIELDS:
+		if not options.has(field_name):
+			continue
+		var value: Variant = options[field_name]
+		if value is int and value > 0:
+			continue
+		_add_issue(
+			report,
+			"error",
+			"invalid_integer_option",
+			field_name,
+			"项目结构扫描选项 %s 必须是正整数。" % field_name,
+			{ "option": field_name, "actual": _describe_value(value) }
+		)
+
+
 func _validate_profile_header(profile: Dictionary, report: Dictionary) -> void:
 	var schema_version: Variant = profile.get("schema_version")
 	if not _is_exact_integer(schema_version):
@@ -253,28 +314,45 @@ func _validate_profile_header(profile: Dictionary, report: Dictionary) -> void:
 
 func _validate_profile_schema(profile: Dictionary, report: Dictionary) -> void:
 	_append_unsupported_fields(profile, _PROFILE_ALLOWED_FIELDS, "unsupported_profile_field", "profile", report)
-	if not profile.get("zones", []) is Array:
+	_validate_optional_string_field(profile, "display_name", "profile", report)
+	_validate_optional_string_field(profile, "description", "profile", report)
+	_validate_optional_dictionary_field(profile, "metadata", "profile", report)
+	if not profile.get("zones") is Array:
 		_add_issue(report, "error", "invalid_profile_field_type", "zones", "项目结构 profile zones 必须是 Array。")
-	if not profile.get("rules", []) is Array:
+	if not profile.get("rules") is Array:
 		_add_issue(report, "error", "invalid_profile_field_type", "rules", "项目结构 profile rules 必须是 Array。")
+
+	var zone_ids: Dictionary = {}
 	var zones: Array = _get_array(profile, "zones")
 	for zone_value: Variant in zones:
 		if not (zone_value is Dictionary):
 			_add_issue(report, "error", "invalid_zone", "", "项目结构 profile zones 条目必须是 Dictionary。")
 			continue
 		var zone: Dictionary = zone_value
-		_append_unsupported_fields(zone, _ZONE_ALLOWED_FIELDS, "unsupported_zone_field", _get_string(zone, "id"), report)
+		var zone_id: String = _get_string(zone, "id")
+		_append_unsupported_fields(zone, _ZONE_ALLOWED_FIELDS, "unsupported_zone_field", zone_id, report)
+		_validate_item_id(zone, "zone", zone_ids, report)
+		_validate_optional_string_field(zone, "description", zone_id, report)
+		_validate_optional_dictionary_field(zone, "metadata", zone_id, report)
+		_validate_optional_bool_field(zone, "required", zone_id, report)
+		_validate_relative_path_list_field(zone, "roots", zone_id, true, false, report)
 		if zone.has("severity"):
-			_validate_profile_severity(_get_string(zone, "severity"), "zones", _get_string(zone, "id"), report)
+			_validate_profile_severity_field(zone, "zones", zone_id, report)
 
+	var rule_ids: Dictionary = {}
 	var rules: Array = _get_array(profile, "rules")
 	for rule_value: Variant in rules:
 		if not (rule_value is Dictionary):
 			_add_issue(report, "error", "invalid_rule", "", "项目结构 profile rules 条目必须是 Dictionary。")
 			continue
 		var rule: Dictionary = rule_value
-		_append_unsupported_fields(rule, _RULE_ALLOWED_FIELDS, "unsupported_rule_field", _get_string(rule, "id"), report)
+		var rule_id: String = _get_string(rule, "id")
 		var kind: String = _get_string(rule, "kind")
+		_append_unsupported_fields(rule, _allowed_rule_fields(kind), "unsupported_rule_field", rule_id, report)
+		_validate_item_id(rule, "rule", rule_ids, report)
+		var _rule_kind_valid: bool = _validate_required_string_field(rule, "kind", rule_id, report)
+		_validate_optional_string_field(rule, "description", rule_id, report)
+		_validate_optional_dictionary_field(rule, "metadata", rule_id, report)
 		if not _SUPPORTED_RULE_KINDS.has(kind):
 			_add_issue(
 				report,
@@ -285,9 +363,252 @@ func _validate_profile_schema(profile: Dictionary, report: Dictionary) -> void:
 				{ "rule_id": _get_string(rule, "id") }
 			)
 		if rule.has("severity"):
-			_validate_profile_severity(_get_string(rule, "severity"), "rules", _get_string(rule, "id"), report)
+			_validate_profile_severity_field(rule, "rules", rule_id, report)
+		_validate_rule_fields(rule, kind, rule_id, report)
+
+
+func _allowed_rule_fields(kind: String) -> PackedStringArray:
+	var result: PackedStringArray = _RULE_COMMON_ALLOWED_FIELDS.duplicate()
+	for field_name: String in _RULE_RESERVED_FIELDS:
+		var _append_reserved_field: bool = result.append(field_name)
+	var kind_fields: PackedStringArray = PackedStringArray()
+	if kind == _RULE_FORBID_ROOT_FILES:
+		kind_fields = PackedStringArray(["allowed_files"])
+	elif kind == _RULE_NAMING_CONVENTION:
+		kind_fields = PackedStringArray(["roots", "exclude", "pattern", "target"])
+	elif kind == _RULE_FEATURE_MODULE_CONTRACT:
+		kind_fields = PackedStringArray([
+			"roots",
+			"feature_id_pattern",
+			"required_subdirs",
+			"allowed_subdirs",
+			"allow_root_files",
+		])
+	elif kind == _RULE_GENERATED_BOUNDARY:
+		kind_fields = PackedStringArray(["include", "roots"])
+	elif kind == _RULE_BUCKET_SIZE:
+		kind_fields = PackedStringArray(["roots", "max_files"])
+	for field_name: String in kind_fields:
+		var _append_kind_field: bool = result.append(field_name)
+	return result
+
+
+func _validate_rule_fields(rule: Dictionary, kind: String, rule_id: String, report: Dictionary) -> void:
+	if kind == _RULE_FORBID_ROOT_FILES:
+		_validate_relative_path_list_field(rule, "allowed_files", rule_id, false, true, report)
+	elif kind == _RULE_NAMING_CONVENTION:
+		_validate_relative_path_list_field(rule, "roots", rule_id, false, true, report)
+		_validate_pattern_list_field(rule, "exclude", rule_id, false, report)
+		_validate_optional_non_empty_string_field(rule, "pattern", rule_id, report)
+		_validate_naming_target(rule, rule_id, report)
+	elif kind == _RULE_FEATURE_MODULE_CONTRACT:
+		_validate_relative_path_list_field(rule, "roots", rule_id, true, false, report)
+		_validate_optional_non_empty_string_field(rule, "feature_id_pattern", rule_id, report)
+		_validate_relative_path_list_field(rule, "required_subdirs", rule_id, false, true, report)
+		_validate_relative_path_list_field(rule, "allowed_subdirs", rule_id, false, true, report)
+		_validate_optional_bool_field(rule, "allow_root_files", rule_id, report)
+	elif kind == _RULE_GENERATED_BOUNDARY:
+		_validate_pattern_list_field(rule, "include", rule_id, true, report)
+		_validate_relative_path_list_field(rule, "roots", rule_id, true, false, report)
+	elif kind == _RULE_BUCKET_SIZE:
+		_validate_relative_path_list_field(rule, "roots", rule_id, true, false, report)
 		if rule.has("max_files"):
-			_validate_positive_integer_field(rule, "max_files", _get_string(rule, "id"), report)
+			_validate_positive_integer_field(rule, "max_files", rule_id, report)
+
+
+func _validate_item_id(data: Dictionary, item_kind: String, seen_ids: Dictionary, report: Dictionary) -> void:
+	var item_id: String = _get_string(data, "id")
+	if not _validate_required_string_field(data, "id", item_kind, report):
+		return
+	if seen_ids.has(item_id):
+		_add_issue(
+			report,
+			"error",
+			"duplicate_profile_id",
+			item_id,
+			"项目结构 profile 包含重复 %s id：%s。" % [item_kind, item_id],
+			{ "item_kind": item_kind }
+		)
+		return
+	seen_ids[item_id] = true
+
+
+func _validate_required_string_field(data: Dictionary, field_name: String, scope: String, report: Dictionary) -> bool:
+	if not data.has(field_name) or not _is_non_empty_string_value(data[field_name]):
+		_add_issue(
+			report,
+			"error",
+			"invalid_string_field",
+			scope,
+			"项目结构 profile %s 必须是非空字符串。" % field_name,
+			{ "field": field_name, "actual": _describe_value(data.get(field_name)) }
+		)
+		return false
+	return true
+
+
+func _validate_optional_string_field(data: Dictionary, field_name: String, scope: String, report: Dictionary) -> void:
+	if not data.has(field_name):
+		return
+	var value: Variant = data[field_name]
+	if value is String or value is StringName:
+		return
+	_add_issue(
+		report,
+		"error",
+		"invalid_string_field",
+		scope,
+		"项目结构 profile %s 必须是字符串。" % field_name,
+		{ "field": field_name, "actual": _describe_value(value) }
+	)
+
+
+func _validate_optional_non_empty_string_field(
+	data: Dictionary,
+	field_name: String,
+	scope: String,
+	report: Dictionary
+) -> void:
+	if not data.has(field_name):
+		return
+	var _field_valid: bool = _validate_required_string_field(data, field_name, scope, report)
+
+
+func _validate_optional_dictionary_field(data: Dictionary, field_name: String, scope: String, report: Dictionary) -> void:
+	if not data.has(field_name) or data[field_name] is Dictionary:
+		return
+	_add_issue(
+		report,
+		"error",
+		"invalid_profile_field_type",
+		scope,
+		"项目结构 profile %s 必须是 Dictionary。" % field_name,
+		{ "field": field_name, "actual": _describe_value(data[field_name]) }
+	)
+
+
+func _validate_optional_bool_field(data: Dictionary, field_name: String, scope: String, report: Dictionary) -> void:
+	if not data.has(field_name) or data[field_name] is bool:
+		return
+	_add_issue(
+		report,
+		"error",
+		"invalid_bool_field",
+		scope,
+		"项目结构 profile %s 必须是 bool。" % field_name,
+		{ "field": field_name, "actual": _describe_value(data[field_name]) }
+	)
+
+
+func _validate_relative_path_list_field(
+	data: Dictionary,
+	field_name: String,
+	scope: String,
+	required: bool,
+	allow_empty: bool,
+	report: Dictionary
+) -> void:
+	if not _validate_string_list_field(data, field_name, scope, required, allow_empty, report):
+		return
+	for path_value: String in _get_string_list(data, field_name):
+		if not _profile_relative_path_is_invalid(path_value):
+			continue
+		_add_issue(
+			report,
+			"error",
+			"invalid_relative_path",
+			path_value,
+			"项目结构 profile %s 包含非法或非规范相对路径。" % field_name,
+			{ "field": field_name, "scope": scope }
+		)
+
+
+func _validate_pattern_list_field(
+	data: Dictionary,
+	field_name: String,
+	scope: String,
+	required: bool,
+	report: Dictionary
+) -> void:
+	if not _validate_string_list_field(data, field_name, scope, required, not required, report):
+		return
+	for pattern: String in _get_string_list(data, field_name):
+		if not _profile_pattern_is_invalid(pattern):
+			continue
+		_add_issue(
+			report,
+			"error",
+			"invalid_relative_path",
+			pattern,
+			"项目结构 profile %s 包含非法或非规范路径模式。" % field_name,
+			{ "field": field_name, "scope": scope }
+		)
+
+
+func _validate_string_list_field(
+	data: Dictionary,
+	field_name: String,
+	scope: String,
+	required: bool,
+	allow_empty: bool,
+	report: Dictionary
+) -> bool:
+	if not data.has(field_name):
+		if required:
+			_add_issue(report, "error", "invalid_string_list_field", scope, "项目结构 profile 缺少 %s 字符串列表。" % field_name, { "field": field_name })
+		return not required
+	var value: Variant = data[field_name]
+	if not (value is Array or value is PackedStringArray):
+		_add_issue(
+			report,
+			"error",
+			"invalid_string_list_field",
+			scope,
+			"项目结构 profile %s 必须是字符串数组。" % field_name,
+			{ "field": field_name, "actual": _describe_value(value) }
+		)
+		return false
+	var values: Array = []
+	if value is Array:
+		values = value
+	else:
+		var packed_values: PackedStringArray = value
+		for packed_value: String in packed_values:
+			values.append(packed_value)
+	if not allow_empty and values.is_empty():
+		_add_issue(report, "error", "invalid_string_list_field", scope, "项目结构 profile %s 不能为空。" % field_name, { "field": field_name })
+		return false
+	var valid: bool = true
+	for item: Variant in values:
+		if _is_non_empty_string_value(item):
+			continue
+		valid = false
+		_add_issue(
+			report,
+			"error",
+			"invalid_string_list_field",
+			scope,
+			"项目结构 profile %s 只能包含非空字符串。" % field_name,
+			{ "field": field_name, "actual": _describe_value(item) }
+		)
+	return valid
+
+
+func _validate_naming_target(rule: Dictionary, rule_id: String, report: Dictionary) -> void:
+	if not rule.has("target"):
+		return
+	var target_value: Variant = rule["target"]
+	var target: String = _string_value(target_value)
+	if _NAMING_TARGETS.has(target):
+		return
+	_add_issue(
+		report,
+		"error",
+		"invalid_naming_target",
+		rule_id,
+		"项目结构 naming_convention target 必须是 path、name 或 stem。",
+		{ "actual": _describe_value(target_value) }
+	)
 
 
 func _append_unsupported_fields(
@@ -298,7 +619,17 @@ func _append_unsupported_fields(
 	report: Dictionary
 ) -> void:
 	for field_value: Variant in data.keys():
-		var field_name: String = str(field_value)
+		var field_name: String = _string_value(field_value)
+		if field_name.is_empty():
+			_add_issue(
+				report,
+				"error",
+				issue_kind,
+				scope,
+				"项目结构 profile 字段名必须是非空字符串。",
+				{ "actual": _describe_value(field_value) }
+			)
+			continue
 		if allowed_fields.has(field_name):
 			continue
 		_add_issue(
@@ -321,11 +652,13 @@ func _validate_positive_integer_field(data: Dictionary, field_name: String, scop
 		"invalid_integer_field",
 		scope,
 		"项目结构 profile %s 必须是正整数。" % field_name,
-		{ "field": field_name, "actual_value": value }
+		{ "field": field_name, "actual": _describe_value(value) }
 	)
 
 
-func _validate_profile_severity(severity: String, scope: String, item_id: String, report: Dictionary) -> void:
+func _validate_profile_severity_field(data: Dictionary, scope: String, item_id: String, report: Dictionary) -> void:
+	var severity_value: Variant = data.get("severity")
+	var severity: String = _string_value(severity_value)
 	if _SUPPORTED_SEVERITIES.has(severity):
 		return
 	_add_issue(
@@ -334,7 +667,7 @@ func _validate_profile_severity(severity: String, scope: String, item_id: String
 		"invalid_severity",
 		item_id,
 		"项目结构 profile %s 使用了非法 severity：%s。" % [scope, severity],
-		{ "severity": severity }
+		{ "actual": _describe_value(severity_value) }
 	)
 
 
@@ -361,19 +694,23 @@ func _scan_project(root_path: String, options: Dictionary, report: Dictionary) -
 		"directories": PackedStringArray(),
 		"file_count": 0,
 		"directory_count": 0,
+		"_scan_aborted": false,
 	}
 	var absolute_root: String = ProjectSettings.globalize_path(root_path)
 	if not DirAccess.dir_exists_absolute(absolute_root):
 		if not _get_bool(options, "allow_missing_root"):
 			_add_issue(report, "error", "root_path_not_found", root_path, "项目根目录不存在。")
+		var _missing_root_scan_state_removed: bool = result.erase("_scan_aborted")
 		return result
 
 	var max_scanned_files: int = _get_positive_integer_option(options, "max_scanned_files", 20000, report)
 	var max_scanned_directories: int = _get_positive_integer_option(options, "max_scanned_directories", 20000, report)
 	var max_scan_depth: int = _get_positive_integer_option(options, "max_scan_depth", 32, report)
 	if _get_int(report, "error_count") > 0:
+		var _invalid_budget_scan_state_removed: bool = result.erase("_scan_aborted")
 		return result
 	_scan_directory(root_path, "", _get_bool(options, "include_hidden"), max_scanned_files, max_scanned_directories, max_scan_depth, 0, result, report)
+	var _scan_state_removed: bool = result.erase("_scan_aborted")
 	return result
 
 
@@ -388,48 +725,79 @@ func _scan_directory(
 	result: Dictionary,
 	report: Dictionary
 ) -> void:
+	if _get_bool(result, "_scan_aborted"):
+		return
 	if depth > max_scan_depth:
-		_add_issue(report, "error", "scan_depth_limit_reached", root_path, "项目结构扫描超过目录深度上限，无法证明项目结构有效。")
+		_abort_scan(result, report, "scan_depth_limit_reached", root_path, "项目结构扫描超过目录深度上限，无法证明项目结构有效。")
 		return
 
 	var current_path: String = root_path if relative_path.is_empty() else root_path.path_join(relative_path)
 	var directory: DirAccess = DirAccess.open(ProjectSettings.globalize_path(current_path))
 	if directory == null:
-		_add_issue(report, "error", "directory_scan_failed", current_path, "目录无法扫描，无法证明项目结构有效。")
+		_abort_scan(result, report, "directory_scan_failed", current_path, "目录无法扫描，无法证明项目结构有效。")
+		return
+	var list_begin_result: Error = directory.list_dir_begin()
+	if list_begin_result != OK:
+		_abort_scan(result, report, "directory_scan_failed", current_path, "目录无法枚举，无法证明项目结构有效。")
 		return
 
-	var files: PackedStringArray = directory.get_files()
-	for file_name: String in files:
-		if not include_hidden and file_name.begins_with("."):
+	var entry_name: String = directory.get_next()
+	while not entry_name.is_empty() and not _get_bool(result, "_scan_aborted"):
+		if entry_name == "." or entry_name == ".." or (not include_hidden and entry_name.begins_with(".")):
+			entry_name = directory.get_next()
 			continue
-		if directory.is_link(file_name):
-			_add_issue(report, "error", "linked_path_not_allowed", current_path.path_join(file_name), "项目结构扫描不允许符号链接文件。")
-			continue
-		if _get_int(result, "file_count") >= max_scanned_files:
-			_add_issue(report, "error", "scan_file_limit_reached", root_path, "项目结构扫描超过文件数量上限，无法证明项目结构有效。")
-			return
-		var file_path: String = _join_relative_path(relative_path, file_name)
-		var file_list: PackedStringArray = _get_packed_string_array(result, "files")
-		var _append_file: bool = file_list.append(file_path)
-		result["files"] = file_list
-		result["file_count"] = _get_int(result, "file_count") + 1
+		var entry_path: String = _join_relative_path(relative_path, entry_name)
+		if directory.is_link(entry_name):
+			_abort_scan(
+				result,
+				report,
+				"linked_path_not_allowed",
+				root_path.path_join(entry_path),
+				"项目结构扫描不允许符号链接或目录联接。"
+			)
+			break
+		if directory.current_is_dir():
+			if _get_int(result, "directory_count") >= max_scanned_directories:
+				_abort_scan(result, report, "scan_directory_limit_reached", root_path, "项目结构扫描超过目录数量上限，无法证明项目结构有效。")
+				break
+			var directory_list: PackedStringArray = _get_packed_string_array(result, "directories")
+			var _append_directory: bool = directory_list.append(entry_path)
+			result["directories"] = directory_list
+			result["directory_count"] = _get_int(result, "directory_count") + 1
+			_scan_directory(
+				root_path,
+				entry_path,
+				include_hidden,
+				max_scanned_files,
+				max_scanned_directories,
+				max_scan_depth,
+				depth + 1,
+				result,
+				report
+			)
+		else:
+			if _get_int(result, "file_count") >= max_scanned_files:
+				_abort_scan(result, report, "scan_file_limit_reached", root_path, "项目结构扫描超过文件数量上限，无法证明项目结构有效。")
+				break
+			var file_list: PackedStringArray = _get_packed_string_array(result, "files")
+			var _append_file: bool = file_list.append(entry_path)
+			result["files"] = file_list
+			result["file_count"] = _get_int(result, "file_count") + 1
+		entry_name = directory.get_next()
+	directory.list_dir_end()
 
-	var directories: PackedStringArray = directory.get_directories()
-	for directory_name: String in directories:
-		if not include_hidden and directory_name.begins_with("."):
-			continue
-		var child_path: String = _join_relative_path(relative_path, directory_name)
-		if directory.is_link(directory_name):
-			_add_issue(report, "error", "linked_path_not_allowed", root_path.path_join(child_path), "项目结构扫描不允许符号链接或目录联接。")
-			continue
-		if _get_int(result, "directory_count") >= max_scanned_directories:
-			_add_issue(report, "error", "scan_directory_limit_reached", root_path, "项目结构扫描超过目录数量上限，无法证明项目结构有效。")
-			return
-		var directory_list: PackedStringArray = _get_packed_string_array(result, "directories")
-		var _append_directory: bool = directory_list.append(child_path)
-		result["directories"] = directory_list
-		result["directory_count"] = _get_int(result, "directory_count") + 1
-		_scan_directory(root_path, child_path, include_hidden, max_scanned_files, max_scanned_directories, max_scan_depth, depth + 1, result, report)
+
+func _abort_scan(
+	result: Dictionary,
+	report: Dictionary,
+	kind: String,
+	path: String,
+	message: String
+) -> void:
+	if _get_bool(result, "_scan_aborted"):
+		return
+	result["_scan_aborted"] = true
+	_add_issue(report, "error", kind, path, message)
 
 
 func _validate_zones(profile: Dictionary, scan: Dictionary, report: Dictionary) -> void:
@@ -506,6 +874,7 @@ func _validate_forbid_root_files(rule: Dictionary, scan: Dictionary, report: Dic
 
 func _validate_naming_convention(rule: Dictionary, scan: Dictionary, report: Dictionary, rule_result: Dictionary) -> void:
 	var pattern: String = _get_string(rule, "pattern", "^[a-z0-9_./-]+$")
+	var target: String = _get_string(rule, "target", "path")
 	var expression: RegEx = _compile_regex(pattern)
 	if expression == null:
 		_add_rule_issue(report, rule_result, "error", "invalid_naming_pattern", "", "路径命名规则正则无法编译。")
@@ -521,7 +890,8 @@ func _validate_naming_convention(rule: Dictionary, scan: Dictionary, report: Dic
 		if _matches_any_pattern(relative_path, exclude):
 			continue
 		rule_result["checked_count"] = _get_int(rule_result, "checked_count") + 1
-		if expression.search(relative_path) == null:
+		var target_value: String = _naming_target_value(relative_path, target)
+		if expression.search(target_value) == null:
 			_add_rule_issue(
 				report,
 				rule_result,
@@ -529,8 +899,16 @@ func _validate_naming_convention(rule: Dictionary, scan: Dictionary, report: Dic
 				"path_naming_mismatch",
 				relative_path,
 				"项目路径不符合命名约定：%s。" % relative_path,
-				{ "pattern": pattern }
+				{ "pattern": pattern, "target": target, "target_value": target_value }
 			)
+
+
+func _naming_target_value(relative_path: String, target: String) -> String:
+	if target == "name":
+		return relative_path.get_file()
+	if target == "stem":
+		return relative_path.get_file().get_basename()
+	return relative_path
 
 
 func _validate_feature_module_contract(rule: Dictionary, scan: Dictionary, report: Dictionary, rule_result: Dictionary) -> void:
@@ -706,7 +1084,7 @@ func _add_issue(
 		"kind": kind,
 		"path": path,
 		"message": message,
-		"context": context.duplicate(true),
+		"context": _sanitize_issue_context(context),
 	})
 	if severity == "error":
 		report["error_count"] = _get_int(report, "error_count") + 1
@@ -714,6 +1092,87 @@ func _add_issue(
 		report["warning_count"] = _get_int(report, "warning_count") + 1
 	else:
 		report["info_count"] = _get_int(report, "info_count") + 1
+
+
+func _sanitize_issue_context(context: Dictionary) -> Dictionary:
+	var result: Dictionary = {}
+	var entry_index: int = 0
+	for key_value: Variant in context.keys():
+		var key: String = _string_value(key_value)
+		if key.is_empty():
+			key = "entry_%d" % entry_index
+		result[key] = _sanitize_report_value(context[key_value], 0)
+		entry_index += 1
+	return result
+
+
+func _sanitize_report_value(value: Variant, depth: int) -> Variant:
+	if depth >= 8:
+		return _describe_value(value)
+	if value == null or value is bool or value is int or value is String:
+		return value
+	if value is StringName:
+		var string_name_value: StringName = value
+		return String(string_name_value)
+	if value is float:
+		var float_value: float = value
+		if is_finite(float_value):
+			return float_value
+		return "NaN" if is_nan(float_value) else ("+Inf" if float_value > 0.0 else "-Inf")
+	if value is PackedStringArray:
+		var packed_value: PackedStringArray = value
+		return packed_value.duplicate()
+	if value is Array:
+		var array_result: Array = []
+		var array_value: Array = value
+		for index: int in mini(array_value.size(), 128):
+			array_result.append(_sanitize_report_value(array_value[index], depth + 1))
+		return array_result
+	if value is Dictionary:
+		var dictionary_result: Dictionary = {}
+		var dictionary_value: Dictionary = value
+		var entry_index: int = 0
+		for key_value: Variant in dictionary_value.keys():
+			if entry_index >= 128:
+				break
+			var key: String = _string_value(key_value)
+			if key.is_empty():
+				key = "entry_%d" % entry_index
+			dictionary_result[key] = _sanitize_report_value(dictionary_value[key_value], depth + 1)
+			entry_index += 1
+		return dictionary_result
+	return _describe_value(value)
+
+
+func _describe_value(value: Variant) -> Dictionary:
+	var value_type: int = typeof(value)
+	var result: Dictionary = {
+		"type": value_type,
+		"type_name": type_string(value_type),
+	}
+	if value == null or value is bool or value is int or value is String:
+		result["value"] = value
+	elif value is StringName:
+		var string_name_value: StringName = value
+		result["value"] = String(string_name_value)
+	elif value is float:
+		var float_value: float = value
+		if is_finite(float_value):
+			result["value"] = float_value
+		elif is_nan(float_value):
+			result["value"] = "NaN"
+		else:
+			result["value"] = "+Inf" if float_value > 0.0 else "-Inf"
+	elif value is Array:
+		var array_value: Array = value
+		result["count"] = array_value.size()
+	elif value is Dictionary:
+		var dictionary_value: Dictionary = value
+		result["count"] = dictionary_value.size()
+	elif value is PackedStringArray:
+		var packed_value: PackedStringArray = value
+		result["count"] = packed_value.size()
+	return result
 
 
 func _finalize_report(report: Dictionary) -> Dictionary:
@@ -892,11 +1351,27 @@ func _get_parent_path(relative_path: String) -> String:
 
 func _normalize_relative_path(path: String) -> String:
 	var normalized_path: String = path.replace("\\", "/").strip_edges()
-	while normalized_path.begins_with("/"):
-		normalized_path = normalized_path.substr(1)
 	while normalized_path.ends_with("/"):
 		normalized_path = normalized_path.substr(0, normalized_path.length() - 1)
 	return normalized_path
+
+
+func _profile_relative_path_is_invalid(path: String) -> bool:
+	if path.is_empty() or path != path.strip_edges() or path.contains("\\") or path.ends_with("/"):
+		return true
+	if path.begins_with("/") or path.contains("://") or path.contains(":"):
+		return true
+	if path.is_absolute_path() or _is_filesystem_absolute_path(path):
+		return true
+	return _path_has_parent_segment(path)
+
+
+func _profile_pattern_is_invalid(pattern: String) -> bool:
+	if pattern.is_empty() or pattern != pattern.strip_edges() or pattern.contains("\\"):
+		return true
+	if pattern.begins_with("/") or pattern.contains("://") or pattern.contains(":"):
+		return true
+	return _path_has_parent_segment(pattern)
 
 
 func _path_has_parent_segment(path: String) -> bool:
@@ -938,6 +1413,20 @@ func _normalize_root_path(path: String) -> String:
 	while normalized_path.ends_with("/") and normalized_path != "res://" and normalized_path != "user://":
 		normalized_path = normalized_path.substr(0, normalized_path.length() - 1)
 	return normalized_path
+
+
+func _string_value(value: Variant) -> String:
+	if value is String:
+		var string_value: String = value
+		return string_value
+	if value is StringName:
+		var string_name_value: StringName = value
+		return String(string_name_value)
+	return ""
+
+
+func _is_non_empty_string_value(value: Variant) -> bool:
+	return not _string_value(value).strip_edges().is_empty()
 
 
 func _get_string(source: Dictionary, key: String, default_value: String = "") -> String:

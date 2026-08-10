@@ -87,7 +87,7 @@
       "label": "生成 NodeState",
       "section": "扩展模板",
       "base_class": "GFNodeState",
-      "template_path": "res://addons/gf/standard/editor/templates/node_state.gdtemplate"
+      "template_path": "res://addons/gf/standard/state_machine/node/editor/templates/node_state.gdtemplate"
     },
     {
       "owner_package_id": "gf.standard.state_machine.editor",
@@ -96,7 +96,7 @@
       "label": "生成 NodeStateMachine",
       "section": "扩展模板",
       "base_class": "GFNodeStateMachine",
-      "template_path": "res://addons/gf/standard/editor/templates/node_state_machine.gdtemplate"
+      "template_path": "res://addons/gf/standard/state_machine/node/editor/templates/node_state_machine.gdtemplate"
     }
   ],
   "project_setting_section_records": [

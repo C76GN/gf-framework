@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFAnalyticsUtility" path="addons/gf/standard/utilities/analytics/gf_analytics_utility.gd" module="standard" extends="GFUtility" classDigest="d533504b26f97e75d00a5373b4bedd2be1de0733ffa747c22dd039955f3c039e">
+<class name="GFAnalyticsUtility" path="addons/gf/standard/utilities/analytics/gf_analytics_utility.gd" module="standard" extends="GFUtility" classDigest="bf03448f41eba0925f7350dfed5c4455d56e21f3c270e45d3a9763b00ef25751">
 	<description>GFAnalyticsUtility: 通用事件分析与批量上报工具。
 负责事件排队、环境上下文采集、批量 flush 与失败重排。
 endpoint 为空时不会访问网络，可作为本地事件汇聚或测试通道使用。</description>
@@ -35,7 +35,7 @@ endpoint 为空时不会访问网络，可作为本地事件汇聚或测试通�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">result: flush 结果。</tag>
-				<tag name="schema">result: Dictionary with `success`; may include `accepted`, `error`, `dry_run`, `dropped`, `retained`, `drop_reason`, or transport-specific fields.</tag>
+				<tag name="schema">result: Dictionary with `success`; may include `accepted`, `error`, `response_code`, `dry_run`, `dropped`, `retained`, `drop_reason`, or transport-specific fields.</tag>
 				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
@@ -45,7 +45,7 @@ endpoint 为空时不会访问网络，可作为本地事件汇聚或测试通�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">result: 失败结果。</tag>
-				<tag name="schema">result: Dictionary with `success: false`; may include `error`, `dropped`, `retained`, `drop_reason`, and payload budget fields.</tag>
+				<tag name="schema">result: Dictionary with `success: false`; may include `error`, `response_code`, `dropped`, `retained`, `drop_reason`, and payload budget fields.</tag>
 				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
@@ -192,6 +192,15 @@ flush_completed 返回 retained=true、dropped=false、drop_reason=planner_budge
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">队列长度。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_dropped_event_count">
+			<signature>func get_dropped_event_count() -&gt; int:</signature>
+			<description>获取因队列或载荷预算而丢弃的累计事件数。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">当前实例初始化以来的累计丢弃数量。</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_session_id">

@@ -68,7 +68,10 @@ logging the value.
 
 All configured budgets have framework-supplied defaults and absolute maxima.
 The Adapter overrides the public `save_data()` entry so value-graph validation
-happens before the base backend can recursively duplicate caller data.
+happens before the base backend can recursively duplicate caller data. The
+public entry and protected hook each validate an independently entered request
+once, then delegate only validated data to the same private commit helper; the
+normal public path does not traverse the graph twice.
 `max_payload_bytes` applies before any Provider write and again before a
 Provider read result is copied. Cycles, excessive depth, excessive node counts,
 and oversized strings therefore fail before deep copy or Provider dispatch.

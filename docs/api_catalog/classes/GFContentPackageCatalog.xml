@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFContentPackageCatalog" path="addons/gf/extensions/content_package/runtime/gf_content_package_catalog.gd" module="extensions/content_package" extends="RefCounted" classDigest="caa732eaa2f944c86a050395380945c9db9dc20c45fd3b87ba7e1fffb64908e7">
+<class name="GFContentPackageCatalog" path="addons/gf/extensions/content_package/runtime/gf_content_package_catalog.gd" module="extensions/content_package" extends="RefCounted" classDigest="cdf8457bec420f76d26b4725d6ccb167a05b38f684abbed777ec531a3779322c">
 	<description>GFContentPackageCatalog: 内容包集合与依赖图诊断。
 管理一组 GFContentPackageManifest，提供包查询、依赖顺序、重复/缺失/循环依赖报告，
 并可把内容包资源键映射注册到 GFResourceResolverUtility。</description>
@@ -26,7 +26,8 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">manifest: 内容包 manifest。</tag>
-				<tag name="return">注册成功返回 true；重复或空 ID 返回 false。</tag>
+				<tag name="return">注册成功返回 true；空 manifest、重复或空 ID 返回 false，并可从 graph report 读取诊断。</tag>
+				<tag name="since">4.4.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="set_manifests">
@@ -36,7 +37,8 @@
 				<tag name="api">public</tag>
 				<tag name="param">manifests: manifest 列表。</tag>
 				<tag name="return">当前目录。</tag>
-				<tag name="schema">manifests: Array[GFContentPackageManifest]，无效项会被忽略或进入诊断。</tag>
+				<tag name="schema">manifests: Array[GFContentPackageManifest]，无效项会被拒绝并进入诊断。</tag>
+				<tag name="since">4.4.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="remove_manifest">
@@ -112,7 +114,7 @@
 				<tag name="param">options: 校验选项，透传给 GFContentPackageManifest。</tag>
 				<tag name="return">GFValidationReportDictionary 兼容报告。</tag>
 				<tag name="schema">options: Dictionary，可包含 check_resource_exists: bool、check_resource_dependencies: bool 和 dependency_options: Dictionary。</tag>
-				<tag name="schema">return: GFValidationReportDictionary.finalize_report() 生成的 Dictionary，并包含 package_count、package_ids、ordered_package_ids 和 duplicate_package_ids。</tag>
+				<tag name="schema">return: GFValidationReportDictionary.finalize_report() 生成的 Dictionary，并包含 package_count、package_ids、ordered_package_ids、duplicate_package_ids、rejected_manifest_count 和 rejected_manifest_inputs。</tag>
 				<tag name="since">4.4.0</tag>
 			</tags>
 		</member>
@@ -135,7 +137,8 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">目录快照。</tag>
-				<tag name="schema">return: Dictionary，包含 package_count、package_ids、ordered_package_ids 和 duplicate_package_ids。</tag>
+				<tag name="schema">return: Dictionary，包含 package_count、package_ids、ordered_package_ids、duplicate_package_ids 和 rejected_manifest_count。</tag>
+				<tag name="since">4.4.0</tag>
 			</tags>
 		</member>
 	</methods>

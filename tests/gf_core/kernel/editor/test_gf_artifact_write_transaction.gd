@@ -9,6 +9,9 @@ const _GF_ARTIFACT_WRITE_TRANSACTION_SCRIPT = preload(
 const _GF_VARIANT_ACCESS_SCRIPT = preload(
 	"res://addons/gf/kernel/core/gf_variant_access.gd"
 )
+const _GF_TEST_DIRECTORY_LINK_FIXTURE_SCRIPT = preload(
+	"res://tests/gf_core/support/gf_test_directory_link_fixture.gd"
+)
 
 
 # --- 私有变量 ---
@@ -79,7 +82,7 @@ func test_sidecar_helpers_include_hidden_entries_and_bound_cleanup() -> void:
 	assert_false(_is_path_inside_temp_root("", true))
 
 
-func test_sidecar_helpers_refuse_linked_escape_paths_when_supported() -> void:
+func test_sidecar_helpers_refuse_linked_escape_paths() -> void:
 	var scan_root_path: String = _temp_root.path_join("scan-root")
 	var linked_target_path: String = _temp_root.path_join("linked-target")
 	var sentinel_path: String = linked_target_path.path_join("sentinel.txt")
@@ -99,21 +102,12 @@ func test_sidecar_helpers_refuse_linked_escape_paths_when_supported() -> void:
 	var absolute_link_path: String = absolute_scan_root.path_join(
 		"linked-target"
 	)
-	var scan_root_directory: DirAccess = DirAccess.open(absolute_scan_root)
-	assert_not_null(scan_root_directory, "测试应能打开独立扫描根目录。")
-	if scan_root_directory == null:
-		return
-	var link_error: Error = scan_root_directory.create_link(
+	var link_error: Error = _GF_TEST_DIRECTORY_LINK_FIXTURE_SCRIPT.create(
 		absolute_linked_target,
 		absolute_link_path
 	)
+	assert_eq(link_error, OK, "受支持平台必须建立 symlink 或 Windows directory junction 夹具。")
 	if link_error != OK:
-		assert_true(
-			OS.has_feature("windows"),
-			"POSIX 平台必须支持测试用目录链接：%s" % error_string(
-				link_error
-			)
-		)
 		return
 
 	var link_is_detected: bool = _absolute_path_is_link(absolute_link_path)

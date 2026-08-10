@@ -19,9 +19,12 @@ extends RefCounted
 ## @api public
 signal sequence_started
 
-## 步骤开始执行时发出。
+## 步骤即将执行时发出。同步监听器可调用 [method cancel]，在 execute() 副作用提交前取消本步骤；
+## 此时尚未开始的步骤不会收到 cancel hook。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @param index: 步骤索引。
 ## [br]
@@ -63,9 +66,11 @@ signal sequence_completed
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param report: 运行报告。
 ## [br]
-## @schema report: Dictionary run report.
+## @schema report: Dictionary { cancelled: bool, failed: bool, failed_index: int, error: String, succeeded: int, rolled_back: bool, rollback_failed: bool, rollback_status: StringName, rollback_cancelled: bool, rollback_timeout: bool, rollback_attempted_count: int, rollback_errors: Array[Dictionary], results: Array[Dictionary] }.
 signal sequence_failed(report: Dictionary)
 
 ## 序列被取消时发出。
@@ -146,10 +151,18 @@ var context: GFSequenceContext
 ## @api public
 var is_running: bool = false
 
-## 等待步骤 Signal 的超时时间（秒）。小于等于 0 时表示不启用超时。
+## 等待步骤 Signal 的超时时间（秒）。小于等于 0 时表示不启用超时；
+## 非有限赋值会被拒绝并保留上一次有效值。
 ## [br]
 ## @api public
-var signal_timeout_seconds: float = 30.0
+## [br]
+## @since 3.17.0
+var signal_timeout_seconds: float = 30.0:
+	set(value):
+		if not is_finite(value):
+			push_warning("[GFCommandSequence] Signal 超时时间必须是有限数值。")
+			return
+		signal_timeout_seconds = maxf(value, 0.0)
 
 ## Signal 超时计时是否跟随 GFTimeUtility 的暂停与 time_scale。
 ## [br]
@@ -170,7 +183,9 @@ var rollback_on_failure: bool = false
 ## [br]
 ## @api public
 ## [br]
-## @schema last_run_report: Dictionary run report from the most recent run().
+## @since 3.17.0
+## [br]
+## @schema last_run_report: Dictionary { cancelled: bool, failed: bool, failed_index: int, error: String, succeeded: int, rolled_back: bool, rollback_failed: bool, rollback_status: StringName, rollback_cancelled: bool, rollback_timeout: bool, rollback_attempted_count: int, rollback_errors: Array[Dictionary], results: Array[Dictionary] } from the most recent run().
 var last_run_report: Dictionary = {}
 
 
@@ -241,8 +256,10 @@ func run(p_steps: Array = []) -> void:
 			break
 
 		var step: Variant = run_steps[index]
-		_current_step = step
 		step_started.emit(index, step)
+		if _cancel_requested:
+			break
+		_current_step = step
 		var result: Variant = _execute_step(step)
 		if _cancel_requested:
 			break
@@ -251,6 +268,7 @@ func run(p_steps: Array = []) -> void:
 			result = await _await_signal_result_safely(result_signal)
 			if _cancel_requested:
 				break
+		_current_step = null
 		var step_error: String = _get_step_error(result)
 		if not step_error.is_empty():
 			failed = true
@@ -262,14 +280,12 @@ func run(p_steps: Array = []) -> void:
 				if rollback_on_failure and _should_compensate_failed_step(step, result):
 					completed_steps.append(step)
 				break
-			_current_step = null
 			continue
 
 		step_completed.emit(index, step)
 		completed_steps.append(step)
 		succeeded_count += 1
 		results.append(_make_step_report(index, true, "", result))
-		_current_step = null
 
 	_current_step = null
 	var rolled_back: bool = false
@@ -326,13 +342,15 @@ func cancel() -> void:
 ## [br]
 ## @api public
 ## [br]
-## @param seconds: 超时时间；小于等于 0 时表示不启用超时。
+## @since 3.17.0
+## [br]
+## @param seconds: 超时时间；小于等于 0 时表示不启用超时，非有限值会被拒绝。
 ## [br]
 ## @param respect_time_scale: 是否跟随 GFTimeUtility 的暂停与 time_scale。
 ## [br]
 ## @return 当前序列。
 func with_signal_timeout(seconds: float, respect_time_scale: bool = true) -> GFCommandSequence:
-	signal_timeout_seconds = maxf(seconds, 0.0)
+	signal_timeout_seconds = seconds
 	signal_timeout_respects_time_scale = respect_time_scale
 	return self
 
@@ -493,6 +511,7 @@ func _rollback_steps(completed_steps: Array) -> Dictionary:
 		if result is Signal:
 			var result_signal: Signal = result
 			result = await _await_signal_result_safely(result_signal)
+		_current_rollback_step = null
 		var wait_status: StringName = _get_last_wait_status() if not _last_wait_result.is_empty() else ROLLBACK_STATUS_COMPLETED
 		if not _last_wait_result.is_empty() and wait_status == GFAsyncWaitUtility.STATUS_CANCELLED:
 			rollback_status = ROLLBACK_STATUS_CANCELLED
@@ -500,7 +519,10 @@ func _rollback_steps(completed_steps: Array) -> Dictionary:
 		elif not _last_wait_result.is_empty() and wait_status == GFAsyncWaitUtility.STATUS_TIMEOUT:
 			rollback_status = ROLLBACK_STATUS_TIMEOUT
 			rollback_timeout = true
-		var step_error: String = _get_step_error(result)
+		var step_error: String = _get_rollback_step_error(step, result)
+		if _cancel_requested and rollback_status == ROLLBACK_STATUS_COMPLETED:
+			rollback_status = ROLLBACK_STATUS_CANCELLED
+			rollback_cancelled = true
 		if not step_error.is_empty():
 			if rollback_status == ROLLBACK_STATUS_COMPLETED:
 				rollback_status = ROLLBACK_STATUS_FAILED
@@ -525,6 +547,21 @@ func _rollback_steps(completed_steps: Array) -> Dictionary:
 		"timeout": rollback_timeout,
 		"attempted_count": attempted_count,
 	}
+
+
+func _get_rollback_step_error(step: Object, result: Variant) -> String:
+	var undo_successful: bool = true
+	var undo_reached_terminal: bool = (
+		_last_wait_result.is_empty()
+		or GFVariantData.get_option_bool(_last_wait_result, "completed")
+	)
+	if undo_reached_terminal and step is GFUndoableCommand:
+		var command: GFUndoableCommand = step
+		undo_successful = command.is_undo_successful(result)
+	var result_error: String = _get_step_error(result)
+	if not result_error.is_empty():
+		return result_error
+	return "" if undo_successful else "undo_failed"
 
 
 func _inject_step(step: Object) -> void:

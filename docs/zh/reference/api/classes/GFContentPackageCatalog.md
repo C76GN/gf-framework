@@ -48,6 +48,7 @@ func clear() -> void:
 ### `add_manifest`
 
 - API：`public`
+- 首次版本：`4.4.0`
 
 ```gdscript
 func add_manifest(manifest: GFContentPackageManifest) -> bool:
@@ -61,13 +62,14 @@ func add_manifest(manifest: GFContentPackageManifest) -> bool:
 |---|---|
 | `manifest` | 内容包 manifest。 |
 
-返回：注册成功返回 true；重复或空 ID 返回 false。
+返回：注册成功返回 true；空 manifest、重复或空 ID 返回 false，并可从 graph report 读取诊断。
 
 <a id="member-gfcontentpackagecatalog-methods-set_manifests"></a>
 
 ### `set_manifests`
 
 - API：`public`
+- 首次版本：`4.4.0`
 
 ```gdscript
 func set_manifests(manifests: Array[GFContentPackageManifest]) -> GFContentPackageCatalog:
@@ -85,7 +87,7 @@ func set_manifests(manifests: Array[GFContentPackageManifest]) -> GFContentPacka
 
 结构：
 
-- `manifests`: Array[GFContentPackageManifest]，无效项会被忽略或进入诊断。
+- `manifests`: Array[GFContentPackageManifest]，无效项会被拒绝并进入诊断。
 
 <a id="member-gfcontentpackagecatalog-methods-remove_manifest"></a>
 
@@ -241,7 +243,7 @@ func get_graph_report(options: Dictionary = {}) -> Dictionary:
 结构：
 
 - `options`: Dictionary，可包含 check_resource_exists: bool、check_resource_dependencies: bool 和 dependency_options: Dictionary。
-- `return`: GFValidationReportDictionary.finalize_report() 生成的 Dictionary，并包含 package_count、package_ids、ordered_package_ids 和 duplicate_package_ids。
+- `return`: GFValidationReportDictionary.finalize_report() 生成的 Dictionary，并包含 package_count、package_ids、ordered_package_ids、duplicate_package_ids、rejected_manifest_count 和 rejected_manifest_inputs。
 
 <a id="member-gfcontentpackagecatalog-methods-register_resources"></a>
 
@@ -261,7 +263,7 @@ func register_resources(resolver: GFResourceResolverUtility, options: Dictionary
 | 名称 | 说明 |
 |---|---|
 | `resolver` | 标准资源解析器。 |
-| `options` | 注册选项。`base_priority` 默认为 0；校验选项透传给 manifest。 |
+| `options` | 注册选项。\`base_priority\` 默认为 0；校验选项透传给 manifest。 |
 
 返回：GFValidationReportDictionary 兼容报告，并包含 registered_count。
 
@@ -275,6 +277,7 @@ func register_resources(resolver: GFResourceResolverUtility, options: Dictionary
 ### `get_debug_snapshot`
 
 - API：`public`
+- 首次版本：`4.4.0`
 
 ```gdscript
 func get_debug_snapshot() -> Dictionary:
@@ -286,4 +289,4 @@ func get_debug_snapshot() -> Dictionary:
 
 结构：
 
-- `return`: Dictionary，包含 package_count、package_ids、ordered_package_ids 和 duplicate_package_ids。
+- `return`: Dictionary，包含 package_count、package_ids、ordered_package_ids、duplicate_package_ids 和 rejected_manifest_count。

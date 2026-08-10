@@ -71,7 +71,7 @@ static func from_dict(data: Dictionary) -> GFDeterministicRandom:
 
 | 名称 | 说明 |
 |---|---|
-| `data` | `to_dict()` 输出的状态字典。 |
+| `data` | \`to_dict()\` 输出的状态字典。 |
 
 返回：新随机源实例。
 
@@ -182,7 +182,7 @@ func next_int_range(min_value: int, max_value: int) -> int:
 | 名称 | 说明 |
 |---|---|
 | `min_value` | 闭区间下界。 |
-| `max_value` | 闭区间上界；小于 `min_value` 时会自动交换。 |
+| `max_value` | 闭区间上界；小于 \`min_value\` 时会自动交换。 |
 
 返回：位于闭区间内的整数；区间跨度超过 u32 时返回下界并报错。
 
@@ -219,7 +219,7 @@ func next_float_range(min_value: float, max_value: float) -> float:
 | 名称 | 说明 |
 |---|---|
 | `min_value` | 范围下界。 |
-| `max_value` | 范围上界；小于 `min_value` 时会自动交换。 |
+| `max_value` | 范围上界；小于 \`min_value\` 时会自动交换。 |
 
 返回：基于固定 u32 输出缩放得到的范围内浮点数。
 
@@ -314,7 +314,7 @@ func apply_dict(data: Dictionary) -> bool:
 
 | 名称 | 说明 |
 |---|---|
-| `data` | `to_dict()` 输出的状态字典。 |
+| `data` | \`to_dict()\` 输出的状态字典。 |
 
 返回：状态有效并已应用时返回 true。
 

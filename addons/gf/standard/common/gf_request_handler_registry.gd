@@ -593,10 +593,22 @@ func _invoke_handler(
 		"handler_metadata": GFVariantData.get_option_dictionary(entry, "metadata"),
 	}
 	var result_value: Variant = handler.call(request)
-	entry["invocation_count"] = GFVariantData.get_option_int(entry, "invocation_count") + 1
-	entry["last_invoked_msec"] = Time.get_ticks_msec()
-	entry["last_invoked_sequence"] = sequence
-	_handlers[request_type] = entry
+	if _handlers.has(request_type):
+		var current_entry: Dictionary = GFVariantData.as_dictionary(_handlers[request_type])
+		var registered_sequence: int = GFVariantData.get_option_int(
+			entry,
+			"registered_sequence"
+		)
+		if GFVariantData.get_option_int(
+			current_entry,
+			"registered_sequence"
+		) == registered_sequence:
+			entry["invocation_count"] = (
+				GFVariantData.get_option_int(entry, "invocation_count") + 1
+			)
+			entry["last_invoked_msec"] = Time.get_ticks_msec()
+			entry["last_invoked_sequence"] = sequence
+			_handlers[request_type] = entry
 	_invoked_count += 1
 
 	var invoke_metadata: Dictionary = {

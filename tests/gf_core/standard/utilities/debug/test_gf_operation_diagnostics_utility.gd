@@ -367,6 +367,153 @@ func test_operation_diagnostics_keeps_bounded_history() -> void:
 	assert_eq(GFVariantData.get_option_string_name(incidents[0], "incident_id"), GFVariantData.get_option_string_name(second_incident, "incident_id"), "事件历史应保留最新事件。")
 
 
+func test_operation_diagnostics_keeps_recently_repeated_incidents() -> void:
+	var diagnostics: GFOperationDiagnosticsUtility = GFOperationDiagnosticsUtility.new()
+	diagnostics.max_incidents = 2
+
+	var _first_a: Dictionary = diagnostics.record_incident(
+		GFOperationDiagnosticsUtility.SEVERITY_ERROR,
+		&"incident.a"
+	)
+	var _first_b: Dictionary = diagnostics.record_incident(
+		GFOperationDiagnosticsUtility.SEVERITY_ERROR,
+		&"incident.b"
+	)
+	var repeated_a: Dictionary = diagnostics.record_incident(
+		GFOperationDiagnosticsUtility.SEVERITY_ERROR,
+		&"incident.a"
+	)
+	var _first_c: Dictionary = diagnostics.record_incident(
+		GFOperationDiagnosticsUtility.SEVERITY_ERROR,
+		&"incident.c"
+	)
+	var incidents: Array[Dictionary] = diagnostics.get_incidents()
+	var retained_codes: PackedStringArray = PackedStringArray()
+	for incident: Dictionary in incidents:
+		var _appended: bool = retained_codes.append(
+			String(GFVariantData.get_option_string_name(incident, "code"))
+		)
+
+	assert_eq(incidents.size(), 2, "incident 历史仍应遵守容量上限。")
+	assert_true(retained_codes.has("incident.a"), "刚刚重复发生的 incident 不应按首次插入位置淘汰。")
+	assert_true(retained_codes.has("incident.c"), "最新的新 incident 应被保留。")
+	assert_false(retained_codes.has("incident.b"), "last_sequence 最旧的 incident 应先被淘汰。")
+	assert_eq(
+		GFVariantData.get_option_int(repeated_a, "occurrence_count"),
+		2,
+		"重复 incident 的聚合计数应保持正确。"
+	)
+
+
+func test_operation_diagnostics_terminal_state_is_idempotent_and_rejects_late_mutation() -> void:
+	var diagnostics: GFOperationDiagnosticsUtility = GFOperationDiagnosticsUtility.new()
+	var operation_id: StringName = diagnostics.begin_operation(&"terminal.guard")
+	var terminal: Dictionary = diagnostics.finish_operation(operation_id, false, {
+		"duration_ms": 12.0,
+		"metadata": {
+			"winner": "first",
+		},
+	})
+	var repeated_finish: Dictionary = diagnostics.finish_operation(operation_id, true, {
+		"duration_ms": 1.0,
+		"metadata": {
+			"winner": "late",
+		},
+	})
+	var late_phase: Dictionary = diagnostics.record_phase(operation_id, &"late", 1.0)
+	var late_state: Dictionary = diagnostics.record_state_snapshot(
+		operation_id,
+		&"late",
+		GFOperationDiagnosticsUtility.STATE_RUNNING
+	)
+	var retained: Dictionary = diagnostics.get_operation(operation_id)
+
+	assert_eq(repeated_finish, terminal, "重复 finish 应幂等返回首次终态，而不是改写历史。")
+	assert_true(late_phase.is_empty(), "终态后的 phase 必须稳定拒绝。")
+	assert_true(late_state.is_empty(), "终态后的 state snapshot 必须稳定拒绝。")
+	assert_eq(retained, terminal, "所有迟到回调之后，保留的终态记录必须字节等价不变。")
+	assert_eq(GFVariantData.get_option_string_name(retained, "state"), &"failed", "首次失败终态不可逆。")
+	assert_eq(
+		GFVariantData.get_option_string(
+			GFVariantData.get_option_dictionary(retained, "metadata"),
+			"winner"
+		),
+		"first",
+		"迟到 finish 不得合并 metadata。"
+	)
+
+
+func test_operation_diagnostics_async_terminal_uses_first_terminal_snapshot() -> void:
+	var diagnostics: GFOperationDiagnosticsUtility = GFOperationDiagnosticsUtility.new()
+	var _pending: Dictionary = diagnostics.record_async_snapshot(&"async.race", {
+		"status": &"pending",
+	}, {
+		"operation_id": &"async_race",
+	})
+	var failed: Dictionary = diagnostics.record_async_snapshot(&"async.race", {
+		"completed": true,
+		"failed": true,
+		"error": "timeout",
+	}, {
+		"operation_id": &"async_race",
+	})
+	var late_success: Dictionary = diagnostics.record_async_snapshot(&"async.race", {
+		"completed": true,
+		"success": true,
+	}, {
+		"operation_id": &"async_race",
+	})
+	var incidents: Array[Dictionary] = diagnostics.get_incidents()
+
+	assert_eq(late_success, failed, "异步竞态中的迟到成功不得覆盖首次失败终态。")
+	assert_eq(GFVariantData.get_option_string_name(late_success, "state"), &"failed", "异步终态必须单调。")
+	assert_eq(incidents.size(), 1, "迟到终态不应额外制造与保留终态矛盾的 incident。")
+	assert_eq(
+		GFVariantData.get_option_string_name(incidents[0], "code"),
+		&"async_failed",
+		"incident 应与首次提交的终态保持一致。"
+	)
+
+
+func test_operation_diagnostics_keeps_bounded_phase_history() -> void:
+	var diagnostics: GFOperationDiagnosticsUtility = GFOperationDiagnosticsUtility.new()
+	diagnostics.max_phases_per_operation = 2
+	var operation_id: StringName = diagnostics.begin_operation(&"phase.guard")
+
+	var _first: Dictionary = diagnostics.record_phase(operation_id, &"first", 1.0)
+	var _second: Dictionary = diagnostics.record_phase(operation_id, &"second", 2.0)
+	var _third: Dictionary = diagnostics.record_phase(operation_id, &"third", 3.0)
+	var retained: Dictionary = diagnostics.get_operation(operation_id)
+	var phases: Array = GFVariantData.get_option_array(retained, "phases")
+
+	assert_eq(phases.size(), 2, "单条 operation 的 phase 历史应遵守独立上限。")
+	assert_eq(
+		GFVariantData.get_option_string_name(GFVariantData.as_dictionary(phases[0]), "phase_id"),
+		&"second",
+		"phase 窗口应保留最近记录。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string_name(GFVariantData.as_dictionary(phases[1]), "phase_id"),
+		&"third",
+		"最新 phase 应位于窗口末尾。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(retained, "dropped_phase_count"),
+		1,
+		"phase 淘汰必须通过累计计数可观察。"
+	)
+
+	diagnostics.max_phases_per_operation = 1
+	retained = diagnostics.get_operation(operation_id)
+	phases = GFVariantData.get_option_array(retained, "phases")
+	assert_eq(phases.size(), 1, "降低 phase 上限时应立即收紧既有记录。")
+	assert_eq(
+		GFVariantData.get_option_int(retained, "dropped_phase_count"),
+		2,
+		"配置收紧造成的淘汰也必须计入 dropped_phase_count。"
+	)
+
+
 func test_operation_diagnostics_zero_completed_history_keeps_only_active_operations() -> void:
 	var diagnostics: GFOperationDiagnosticsUtility = GFOperationDiagnosticsUtility.new()
 	diagnostics.max_completed_operations = 0

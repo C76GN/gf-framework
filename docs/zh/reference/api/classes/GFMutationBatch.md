@@ -236,12 +236,13 @@ func rollback_committed(max_operations: int = -1) -> Dictionary:
 ### `clear`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func clear() -> void:
 ```
 
-清空批次。
+清空批次。 commit/rollback 及其同步信号派发期间调用时不执行。
 
 <a id="member-gfmutationbatch-methods-get_pending_count"></a>
 
@@ -276,6 +277,7 @@ func get_committed_count() -> int:
 ### `get_debug_snapshot`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func get_debug_snapshot() -> Dictionary:
@@ -287,4 +289,4 @@ func get_debug_snapshot() -> Dictionary:
 
 结构：
 
-- `return`: Dictionary with pending_count, committed_count, next_operation_id, and options.
+- `return`: Dictionary with pending_count, committed_count, next_operation_id, transition_state, and options.

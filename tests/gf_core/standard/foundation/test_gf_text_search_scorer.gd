@@ -101,6 +101,44 @@ func test_rank_candidates_can_include_unmatched_reports() -> void:
 	assert_false(GFVariantData.get_option_bool(reports[0], "matched", true), "未命中报告应明确标记 matched=false。")
 
 
+func test_score_candidate_handles_cyclic_and_deep_arrays_without_recursion_failure() -> void:
+	var self_cycle: Array = []
+	self_cycle.append(self_cycle)
+	var left_cycle: Array = []
+	var right_cycle: Array = [left_cycle, "needle"]
+	left_cycle.append(right_cycle)
+	var deep_value: Array = ["needle"]
+	for _depth: int in range(2000):
+		deep_value = [deep_value]
+
+	var self_report: Dictionary = GFTextSearchScorerBase.score_candidate("needle", { "title": self_cycle })
+	var linked_report: Dictionary = GFTextSearchScorerBase.score_candidate("needle", { "title": left_cycle })
+	var deep_report: Dictionary = GFTextSearchScorerBase.score_candidate("needle", { "title": deep_value })
+
+	assert_false(GFVariantData.get_option_bool(self_report, "matched", true), "纯 self-cycle 应有限返回未命中。")
+	assert_true(GFVariantData.get_option_bool(linked_report, "matched"), "跳过循环边后仍应处理同数组中的有限文本。")
+	assert_true(GFVariantData.get_option_bool(deep_report, "matched"), "深无环数组应由迭代遍历处理，不依赖调用栈。")
+	assert_true(is_finite(GFVariantData.get_option_float(self_report, "score")), "循环输入的 score 必须有限。")
+	assert_true(is_finite(GFVariantData.get_option_float(deep_report, "score")), "深输入的 score 必须有限。")
+
+
+func test_score_candidate_rejects_nonfinite_or_overflowing_field_weights() -> void:
+	var candidate: Dictionary = {
+		"title": "needle",
+	}
+	var invalid_weights: Array[float] = [NAN, INF, 1.0e308]
+	for field_weight: float in invalid_weights:
+		var report: Dictionary = GFTextSearchScorerBase.score_candidate("needle", candidate, {
+			"fields": [{
+				"key": "title",
+				"weight": field_weight,
+			}],
+		})
+		assert_false(GFVariantData.get_option_bool(report, "matched", true), "无效或会使派生 score 溢出的权重应失败关闭。")
+		assert_eq(GFVariantData.get_option_float(report, "score", -1.0), 0.0, "被拒绝的权重不得污染总分。")
+		assert_true(is_finite(GFVariantData.get_option_float(report, "score")), "评分报告不得包含非有限 score。")
+
+
 # --- 私有/辅助方法 ---
 
 func _get_matched_tokens(report: Dictionary) -> PackedStringArray:

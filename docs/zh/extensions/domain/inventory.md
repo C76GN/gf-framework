@@ -48,13 +48,15 @@ if slots.can_accept_item_at_slot(0, &"sword"):
 	slots.add_item_to_slot(0, &"sword")
 ```
 
-`add_item()` 会跳过不接收当前物品的空槽，`add_item_to_slot()` 和 `move_between_slots()` 会用 `slot_rejects_item` 拒绝非法目标槽。`validate_inventory()` 会报告 `slot_rejects_item`，`apply_registry_constraints(true)` 会清理违反槽位定义的堆叠。槽位定义只表达接收规则；快捷键、拖拽、装备效果、消耗行为和 UI 表现仍属于项目层。
+`add_item()` 会跳过不接收当前物品的空槽，`add_item_to_slot()` 和 `move_between_slots()` 会用 `slot_rejects_item` 拒绝非法目标槽。`swap_slots()` 和 `sort_slots()` 会先验证完整目标布局，任一目标槽拒绝对应堆叠时原子返回 `false`，不会留下半排序状态。`validate_inventory()` 会报告 `slot_rejects_item`，`apply_registry_constraints(true)` 会清理违反槽位定义的堆叠。槽位定义只表达接收规则；快捷键、拖拽、装备效果、消耗行为和 UI 表现仍属于项目层。
 
 `GFSlotInventoryModel.get_slots_for_item()` 会维护物品到槽位的惰性索引，适合 UI 局部刷新或规则查询；`get_remaining_capacity_for_item()` 会同时考虑已有兼容堆叠、空槽位、`allow_growth` 和注册表中的堆叠数量上限，适合在非部分加入前做容量预判。
 
-`validate_inventory()` 和 `apply_registry_constraints()` 可检查或修复注册表约束，例如未注册物品、单堆叠超量或堆叠数量超限。`GFInventoryOperationResult.partial()` 会把“未完全接受”的结果规范为 `ok = false`，并在调用方误传 `reason = &"ok"` 时改为 `&"partial"` 或 `&"failed"`，避免 UI 和日志遇到“失败但原因是 ok”的冲突状态。
+`validate_inventory()` 和 `apply_registry_constraints()` 可检查或修复注册表约束，例如未注册物品、单堆叠超量或堆叠数量超限。报告的精确顶层字段是 `ok: bool`、`error_count: int`、`warning_count: int` 和 `issues: Array`；每个 issue 包含 `severity`、`kind`、`slot_index`、`item_id` 与 `message`。`GFInventoryOperationResult.partial()` 会把“未完全接受”的结果规范为 `ok = false`，并在调用方误传 `reason = &"ok"` 时改为 `&"partial"` 或 `&"failed"`；`success()` 只接受正数量，非正数量也会规范为失败结果，避免 UI 和日志遇到自相矛盾的状态。
 
-默认实例数据比较仍由 `stack_key_fields` 控制；需要更特殊的合并规则时，可给 `GFInventoryItemDefinition.compatibility_checker` 传入项目层回调，但 GF 不保存该回调到字典数据中。
+默认实例数据的“能否合并”仍由 `stack_key_fields` 控制；“能否把实例数据压缩为空字典”则要求应用默认值后的完整数据精确等价。因此，即使非堆叠键不影响合并，它也会被完整保留并通过库存快照往返。需要更特殊的合并规则时，可给 `GFInventoryItemDefinition.compatibility_checker` 传入项目层回调，但 GF 不保存该回调到字典数据中。
+
+`GFInventoryItemDefinition.item_id` 是注册表中的规范身份。修改已注册资源的 ID 后再次调用 `set_definition()`，注册表会移除同一资源的旧键并写入新键；长期运行中仍应优先把 ID 当作稳定字段，而不是频繁改名。
 
 ## 通知与排序
 
@@ -68,6 +70,6 @@ slots.slot_emptied.connect(func(_slot_index: int, _previous_stack_data: Dictiona
 )
 ```
 
-`slot_state_changed(slot_index, before_stack_data, after_stack_data)` 会携带变化前后的稳定快照；`slot_filled` 只在空槽变为有内容时发出，`slot_emptied` 只在有内容变为空槽时发出。默认 `sort_slots()` 会把非空槽位前移，并按 `item_id` 和原槽位索引保持稳定顺序；项目可以传入一次性比较回调，或在子类中重写 `_should_sort_slot_before()`。
+`slot_state_changed(slot_index, before_stack_data, after_stack_data)` 会携带变化前后的稳定快照；`slot_filled` 只在空槽变为有内容时发出，`slot_emptied` 只在有内容变为空槽时发出。默认 `sort_slots()` 会把非空槽位前移，并按 `item_id` 和原槽位索引保持稳定顺序；项目可以传入一次性比较回调，或在子类中重写 `_should_sort_slot_before()`。排序比较完成后仍会统一验证槽位定义，项目排序规则不能绕过接收约束。
 
 `get_index_debug_snapshot()` 中 `stack_count_by_item` 表示每个物品占用的堆叠数量，`slot_indices_by_item` 才是物品所在的槽位索引列表。

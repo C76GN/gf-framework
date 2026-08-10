@@ -53,7 +53,8 @@ NATIVE_THREAD_PLACEHOLDER = "replace-with-main-or-worker"
 STORAGE_ACCEPTANCE_TIMEOUT_SECONDS = 240.0
 STORAGE_ACCEPTANCE_OUTPUT_CHARACTER_LIMIT = 2 * 1024 * 1024
 STORAGE_ACCEPTANCE_LOG_BYTE_LIMIT = 4 * 1024 * 1024
-STORAGE_ACCEPTANCE_TEMPLATE_BYTE_LIMIT = 2 * 1024 * 1024
+ADAPTER_TEMPLATE_BYTE_LIMIT = 2 * 1024 * 1024
+STORAGE_ACCEPTANCE_TEMPLATE_BYTE_LIMIT = ADAPTER_TEMPLATE_BYTE_LIMIT
 STORAGE_ACCEPTANCE_COPY_FILE_LIMIT = 50_000
 STORAGE_ACCEPTANCE_COPY_BYTE_LIMIT = 1024 * 1024 * 1024
 STORAGE_ACCEPTANCE_COPY_SINGLE_FILE_LIMIT = 128 * 1024 * 1024
@@ -403,6 +404,7 @@ try:
 		normalize_portable_ownership_path,
 		portable_ownership_path_identity,
 		read_json_object as read_strict_json_object,
+		strict_json_loads,
 	)
 	from gf_ai.schema import validate_schema_file
 finally:
@@ -778,12 +780,39 @@ def validate_platform_adapter_templates(
 			"Replace this sentinel with the native Adapter acceptance matrix.",
 		),
 	}
+	try:
+		actual_files = {
+			path.name
+			for path in _list_owned_regular_files(root, root)
+		}
+	except (OSError, ValueError) as exc:
+		return [
+			"Platform adapter template directory violates its owned-file boundary: "
+			f"{type(exc).__name__}."
+		]
+	expected_files = set(required_text) | {"compatibility_profile.json"}
+	for missing_path in sorted(expected_files - actual_files):
+		issues.append(f"Platform adapter template is missing required file: {missing_path}.")
+	unexpected_count = len(actual_files - expected_files)
+	if unexpected_count:
+		issues.append(
+			"Platform adapter template has unexpected files "
+			f"(count={unexpected_count})."
+		)
 	for relative_path, required_fragments in required_text.items():
 		path = root / relative_path
 		try:
-			text = path.read_text(encoding="utf-8")
+			text = _read_owned_text(path, root, ADAPTER_TEMPLATE_BYTE_LIMIT)
 		except (OSError, UnicodeDecodeError) as exc:
-			issues.append(f"Platform adapter template is missing or invalid UTF-8: {relative_path}: {exc}")
+			issues.append(
+				"Platform adapter template is missing or invalid UTF-8: "
+				f"{relative_path}: {type(exc).__name__}"
+			)
+		except ValueError as exc:
+			issues.append(
+				"Platform adapter template violates its owned-file boundary: "
+				f"{relative_path}: {type(exc).__name__}"
+			)
 			continue
 		if not text.strip():
 			issues.append(f"Platform adapter template is empty: {relative_path}.")
@@ -796,9 +825,19 @@ def validate_platform_adapter_templates(
 
 	profile_path = root / "compatibility_profile.json"
 	try:
-		profile = read_strict_json_object(profile_path)
-	except (OSError, ValueError) as exc:
-		issues.append(f"Platform adapter compatibility profile is invalid UTF-8 JSON: {exc}")
+		profile_source = _read_owned_text(
+			profile_path,
+			root,
+			ADAPTER_TEMPLATE_BYTE_LIMIT,
+		)
+		profile = strict_json_loads(profile_source)
+		if not isinstance(profile, dict):
+			raise ValueError("Profile root must be an object.")
+	except (OSError, UnicodeDecodeError, ValueError) as exc:
+		issues.append(
+			"Platform adapter compatibility profile is invalid UTF-8 JSON: "
+			f"{type(exc).__name__}"
+		)
 	else:
 		profile_schema_valid = False
 		try:
@@ -986,6 +1025,7 @@ def validate_storage_backend_templates(
 			"post_initialize_capabilities != pre_initialize_capabilities",
 			"ProjectStorageValueLimits.validate_payload(",
 			"func save_data(",
+			"func _save_validated_data(",
 			"func _resolve_storage_key(",
 			"func _write_options_are_valid(",
 			"create_if_absent",

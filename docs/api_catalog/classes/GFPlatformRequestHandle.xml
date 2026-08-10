@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFPlatformRequestHandle" path="addons/gf/standard/platform/gf_platform_request_handle.gd" module="standard" extends="RefCounted" classDigest="a89ba607ac8d1c9aa49e3a206f3633636b0931e21bbb1f40c7aae6bd6308f757">
+<class name="GFPlatformRequestHandle" path="addons/gf/standard/platform/gf_platform_request_handle.gd" module="standard" extends="RefCounted" classDigest="d57a08d8522086b9a99db16c44dcc32c782b7b5c6ef5c58d9daa54cba0ac709c">
 	<description>GFPlatformRequestHandle: 平台桥接请求运行时句柄。
 句柄保证一次请求只进入一个终态，并把取消、超时和 adapter 返回统一为
 `GFPlatformBridgeResult`。项目代码只读取句柄，不负责完成句柄。</description>
@@ -103,8 +103,8 @@
 			<description>获取稳定调试快照。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="return">包含 request、pending、completed、successful 和 result 的字典。</tag>
-				<tag name="schema">return: Dictionary with request, pending, completed, successful, and result fields.</tag>
+				<tag name="return">包含 request、pending、completed、successful 和脱敏 result 的字典；失败只公开 status 与 has_error，不公开原始 error 或 metadata。</tag>
+				<tag name="schema">return: Dictionary with request, pending, completed, successful, and redacted result fields.</tag>
 				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>

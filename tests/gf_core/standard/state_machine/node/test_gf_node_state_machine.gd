@@ -123,6 +123,27 @@ class GuardedNodeState:
 		return allow_exit
 
 
+class GuardRedirectNodeState:
+	extends TrackingNodeState
+
+	var target_state_name: StringName = &""
+	var redirect_on_enter_guard: bool = false
+	var redirect_on_exit_guard: bool = false
+	var has_redirected: bool = false
+
+	func _can_enter(_previous_state: StringName = &"", args: Dictionary = {}) -> bool:
+		if redirect_on_enter_guard and not has_redirected:
+			has_redirected = true
+			transition_to(target_state_name, args)
+		return true
+
+	func _can_exit(_next_state: StringName = &"", args: Dictionary = {}) -> bool:
+		if redirect_on_exit_guard and not has_redirected:
+			has_redirected = true
+			transition_to(target_state_name, args)
+		return true
+
+
 class EventHandlingNodeState:
 	extends TrackingNodeState
 
@@ -134,6 +155,17 @@ class EventHandlingNodeState:
 			events.append("handle:%s:%s" % [get_state_name(), event_id])
 			return true
 		events.append("miss:%s:%s" % [get_state_name(), event_id])
+		return false
+
+
+class EventRedirectNodeState:
+	extends EventHandlingNodeState
+
+	var target_state_name: StringName = &""
+
+	func _handle_state_event(event_id: StringName, _payload: Variant = null) -> bool:
+		events.append("redirect:%s:%s" % [get_state_name(), event_id])
+		transition_to(target_state_name)
 		return false
 
 
@@ -662,6 +694,58 @@ func test_transition_to_redirect_does_not_reexit_current_state_when_stacked_stat
 	assert_eq(machine.get_stack_depth(), 0, "重定向切换后暂停栈应清空。")
 
 
+func test_enter_redirect_does_not_append_stale_transition_history() -> void:
+	var machine: GFNodeStateMachine = GFNodeStateMachine.new()
+	var idle: TrackingNodeState = TrackingNodeState.new()
+	var redirect: RestoreRedirectNodeState = RestoreRedirectNodeState.new()
+	var run: TrackingNodeState = TrackingNodeState.new()
+	idle.name = "Idle"
+	redirect.name = "Redirect"
+	redirect.target_state_name = &"Run"
+	redirect.redirect_on_enter = true
+	run.name = "Run"
+	machine.initial_state = &"Idle"
+	add_child_autofree(machine)
+	machine.add_child(idle)
+	machine.add_child(redirect)
+	machine.add_child(run)
+	await get_tree().process_frame
+	var group: GFNodeStateGroup = machine.get_state_group(GFNodeStateMachine.INTERNAL_GROUP_NAME)
+	watch_signals(group)
+
+	machine.transition_to(&"Redirect")
+
+	assert_eq(machine.get_current_state(), run, "enter 中的嵌套切换应成为最终状态。")
+	assert_eq(machine.get_state_history(), [&"Idle", &"Run"], "过时外层目标不得追加到历史。")
+	assert_signal_emit_count(group, "current_state_changed", 1, "只应派发嵌套切换的最终状态信号。")
+
+
+func test_push_enter_redirect_does_not_append_stale_history_or_signal() -> void:
+	var machine: GFNodeStateMachine = GFNodeStateMachine.new()
+	var idle: TrackingNodeState = TrackingNodeState.new()
+	var menu: RestoreRedirectNodeState = RestoreRedirectNodeState.new()
+	var run: TrackingNodeState = TrackingNodeState.new()
+	idle.name = "Idle"
+	menu.name = "Menu"
+	menu.target_state_name = &"Run"
+	menu.redirect_on_enter = true
+	run.name = "Run"
+	machine.initial_state = &"Idle"
+	add_child_autofree(machine)
+	machine.add_child(idle)
+	machine.add_child(menu)
+	machine.add_child(run)
+	await get_tree().process_frame
+	var group: GFNodeStateGroup = machine.get_state_group(GFNodeStateMachine.INTERNAL_GROUP_NAME)
+	watch_signals(group)
+
+	machine.push_state(&"Menu")
+
+	assert_eq(machine.get_current_state(), run, "push enter 中的嵌套切换应成为最终状态。")
+	assert_eq(machine.get_state_history(), [&"Idle", &"Run"], "过时 push 目标不得追加到历史。")
+	assert_signal_emit_count(group, "current_state_changed", 1, "过时 push 不得额外派发状态信号。")
+
+
 func test_push_and_pop_state_uses_pause_and_resume() -> void:
 	var machine: GFNodeStateMachine = GFNodeStateMachine.new()
 	var idle: TrackingNodeState = TrackingNodeState.new()
@@ -937,6 +1021,56 @@ func test_state_guard_can_block_transition() -> void:
 	assert_signal_emitted(group, "transition_blocked", "守卫阻止切换时应发出 transition_blocked。")
 
 
+func test_enter_guard_redirect_invalidates_outer_node_transition() -> void:
+	var machine: GFNodeStateMachine = GFNodeStateMachine.new()
+	var idle: TrackingNodeState = TrackingNodeState.new()
+	var redirect: GuardRedirectNodeState = GuardRedirectNodeState.new()
+	var run: TrackingNodeState = TrackingNodeState.new()
+	idle.name = "Idle"
+	redirect.name = "Redirect"
+	redirect.target_state_name = &"Run"
+	redirect.redirect_on_enter_guard = true
+	run.name = "Run"
+	machine.initial_state = &"Idle"
+	add_child_autofree(machine)
+	machine.add_child(idle)
+	machine.add_child(redirect)
+	machine.add_child(run)
+	await get_tree().process_frame
+
+	machine.transition_to(&"Redirect")
+
+	assert_eq(machine.get_current_state(), run, "enter 守卫中的嵌套切换应成为最终状态。")
+	assert_eq(idle.exit_count, 1, "外层过时计划不得重复退出原状态。")
+	assert_eq(redirect.enter_count, 0, "外层过时计划不得进入原目标状态。")
+	assert_eq(run.enter_count, 1, "嵌套目标应只进入一次。")
+
+
+func test_exit_guard_redirect_invalidates_outer_node_transition() -> void:
+	var machine: GFNodeStateMachine = GFNodeStateMachine.new()
+	var idle: GuardRedirectNodeState = GuardRedirectNodeState.new()
+	var attack: TrackingNodeState = TrackingNodeState.new()
+	var run: TrackingNodeState = TrackingNodeState.new()
+	idle.name = "Idle"
+	idle.target_state_name = &"Run"
+	idle.redirect_on_exit_guard = true
+	attack.name = "Attack"
+	run.name = "Run"
+	machine.initial_state = &"Idle"
+	add_child_autofree(machine)
+	machine.add_child(idle)
+	machine.add_child(attack)
+	machine.add_child(run)
+	await get_tree().process_frame
+
+	machine.transition_to(&"Attack")
+
+	assert_eq(machine.get_current_state(), run, "exit 守卫中的嵌套切换应成为最终状态。")
+	assert_eq(idle.exit_count, 1, "外层过时计划不得重复退出原状态。")
+	assert_eq(attack.enter_count, 0, "外层过时计划不得进入原目标状态。")
+	assert_eq(run.enter_count, 1, "嵌套目标应只进入一次。")
+
+
 func test_state_group_blackboard_is_shared_with_states() -> void:
 	var group: GFNodeStateGroup = GFNodeStateGroup.new()
 	var idle: TrackingNodeState = TrackingNodeState.new()
@@ -977,6 +1111,34 @@ func test_state_group_dispatches_event_from_current_to_stack() -> void:
 	assert_eq(menu.events, ["miss:Menu:cancel"], "事件应先交给当前状态。")
 	assert_eq(idle.events, ["handle:Idle:cancel"], "当前状态未处理后应交给暂停栈顶部。")
 	assert_signal_emitted_with_parameters(group, "state_event_handled", [&"cancel", idle, { "source": "input" }])
+
+
+func test_state_group_event_stops_when_handler_changes_activation() -> void:
+	var machine: GFNodeStateMachine = GFNodeStateMachine.new()
+	var idle: EventHandlingNodeState = EventHandlingNodeState.new()
+	var menu: EventRedirectNodeState = EventRedirectNodeState.new()
+	var other: EventHandlingNodeState = EventHandlingNodeState.new()
+	idle.name = "Idle"
+	idle.handled_events.append(&"cancel")
+	menu.name = "Menu"
+	menu.target_state_name = &"Other"
+	other.name = "Other"
+	machine.initial_state = &"Idle"
+	add_child_autofree(machine)
+	machine.add_child(idle)
+	machine.add_child(menu)
+	machine.add_child(other)
+	await get_tree().process_frame
+	machine.push_state(&"Menu")
+	var group: GFNodeStateGroup = machine.get_state_group(GFNodeStateMachine.INTERNAL_GROUP_NAME)
+	watch_signals(group)
+
+	var handled: bool = group.dispatch_state_event(&"cancel")
+
+	assert_false(handled, "激活集合变化后原事件派发应终止并报告未处理。")
+	assert_eq(machine.get_current_state(), other, "事件处理器请求的切换应正常生效。")
+	assert_false(idle.events.has("handle:Idle:cancel"), "已退出的暂停状态不得继续接收原事件。")
+	assert_signal_not_emitted(group, "state_event_handled", "中止的派发不得报告事件已处理。")
 
 
 func test_node_state_machine_dispatches_event_to_named_group_and_reemits() -> void:

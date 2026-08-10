@@ -5,6 +5,29 @@ extends GutTest
 # --- 常量 ---
 
 const GFDerivedAttributeRuleBase = preload("res://addons/gf/extensions/domain/attributes/gf_derived_attribute_rule.gd")
+const GF_DOMAIN_EXTENSION_INSTALLER = preload("res://addons/gf/extensions/domain/extension.gd")
+
+
+# --- 辅助类型 ---
+
+class DomainInstallerProbeArchitecture extends GFArchitecture:
+	var registration_call_count: int = 0
+	var fail_registration_call: int = 0
+	var cancel_scope_on_registration_call: int = 0
+	var install_scope: GFAsyncScope = null
+
+	func register_utility_instance(instance: Object) -> bool:
+		registration_call_count += 1
+		if registration_call_count == fail_registration_call:
+			return false
+		var registered: bool = await super.register_utility_instance(instance)
+		if (
+			registered
+			and registration_call_count == cancel_scope_on_registration_call
+			and install_scope != null
+		):
+			var _cancelled: bool = install_scope.cancel("test_domain_installer_cancelled")
+		return registered
 
 
 # --- 测试方法 ---
@@ -116,6 +139,52 @@ func test_slot_inventory_respects_stack_rules_and_serializes() -> void:
 
 	assert_eq(restored.get_slot_count(), 3, "恢复后槽位数量应一致。")
 	assert_eq(restored.get_item_total(&"item_a"), 10, "恢复后物品总数应一致。")
+
+
+func test_inventory_instance_normalization_preserves_non_stack_fields() -> void:
+	var definition: GFInventoryItemDefinition = GFInventoryItemDefinition.new()
+	definition.item_id = &"item_a"
+	definition.default_instance_data = {"grade": "basic"}
+	definition.stack_key_fields = PackedStringArray(["grade"])
+	var registry: GFInventoryItemRegistry = GFInventoryItemRegistry.new()
+	registry.set_definition(definition)
+	var inventory: GFSlotInventoryModel = GFSlotInventoryModel.new()
+	inventory.registry = registry
+	inventory.set_slot_count(1)
+
+	var result: GFInventoryOperationResult = inventory.add_item(
+		&"item_a",
+		1,
+		{"grade": "basic", "durability": 5}
+	)
+	var stack_data: Dictionary = inventory.get_stack_data(0)
+	var instance_data: Dictionary = GFVariantData.get_option_dictionary(
+		stack_data,
+		"instance_data"
+	)
+	var restored: GFSlotInventoryModel = GFSlotInventoryModel.new()
+	restored.registry = registry
+	restored.from_dict(inventory.to_dict())
+	var restored_instance_data: Dictionary = GFVariantData.get_option_dictionary(
+		restored.get_stack_data(0),
+		"instance_data"
+	)
+
+	assert_true(result.ok, "合法实例数据应能加入库存。")
+	assert_eq(
+		GFVariantData.get_option_int(instance_data, "durability", -1),
+		5,
+		"非堆叠键实例字段不得因堆叠兼容而被丢弃。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(restored_instance_data, "durability", -1),
+		5,
+		"非堆叠键实例字段必须通过库存快照往返保留。"
+	)
+	assert_true(
+		definition.normalize_instance_data({"grade": "basic"}).is_empty(),
+		"与完整默认实例数据等价的输入仍应规范化为空字典。"
+	)
 
 
 func test_slot_inventory_shrink_removes_dropped_slots_from_index_and_signals() -> void:
@@ -261,6 +330,32 @@ func test_inventory_partial_result_normalizes_ok_reason() -> void:
 	assert_eq(invalid.reason, &"invalid_request", "显式失败原因应保留。")
 
 
+func test_inventory_success_result_rejects_non_positive_amounts() -> void:
+	var negative: GFInventoryOperationResult = GFInventoryOperationResult.success(
+		&"item_a",
+		-1,
+		2,
+		3
+	)
+	var zero: GFInventoryOperationResult = GFInventoryOperationResult.success(&"item_a", 0)
+	var positive: GFInventoryOperationResult = GFInventoryOperationResult.success(&"item_a", 1)
+
+	for invalid_result: GFInventoryOperationResult in [negative, zero]:
+		assert_false(invalid_result.ok, "非正数量不得构造矛盾的成功结果。")
+		assert_eq(invalid_result.requested_amount, 0, "无效请求数量应归一化为零。")
+		assert_eq(invalid_result.accepted_amount, 0, "无效接受数量应归一化为零。")
+		assert_eq(invalid_result.remaining_amount, 0, "归一化结果必须保持数量恒等式。")
+		assert_eq(invalid_result.reason, &"failed", "无效成功工厂调用应显式降级为失败。")
+	assert_eq(negative.source_slot, 2, "归一化失败仍应保留源槽位诊断。")
+	assert_eq(negative.target_slot, 3, "归一化失败仍应保留目标槽位诊断。")
+	assert_true(positive.ok, "正数量仍应构造成功结果。")
+	assert_eq(
+		positive.requested_amount,
+		positive.accepted_amount + positive.remaining_amount,
+		"成功结果必须保持 requested=accepted+remaining。"
+	)
+
+
 ## 验证槽位拆分不会绕过最大堆叠数量上限。
 func test_slot_inventory_split_respects_stack_count_limit() -> void:
 	var definition: GFInventoryItemDefinition = GFInventoryItemDefinition.new()
@@ -305,6 +400,26 @@ func test_inventory_registry_removes_string_and_string_name_aliases() -> void:
 	registry.remove_definition(&"potion")
 
 	assert_false(registry.has_definition(&"potion"), "移除定义时应同时清理 String 与 StringName 键。")
+
+
+func test_inventory_registry_rekeys_mutated_definition_without_stale_alias() -> void:
+	var definition: GFInventoryItemDefinition = GFInventoryItemDefinition.new()
+	definition.item_id = &"old_id"
+	var registry: GFInventoryItemRegistry = GFInventoryItemRegistry.new()
+	registry.set_definition(definition)
+
+	definition.item_id = &"new_id"
+	registry.set_definition(definition)
+	var serialized_definitions: Dictionary = GFVariantData.get_option_dictionary(
+		registry.to_dict(),
+		"definitions"
+	)
+
+	assert_false(registry.has_definition(&"old_id"), "重新注册改名定义后旧 ID 不得继续命中。")
+	assert_null(registry.get_definition(&"old_id"), "旧键不得路由到已改名的定义。")
+	assert_same(registry.get_definition(&"new_id"), definition, "新 ID 应返回同一物品定义。")
+	assert_eq(registry.definitions.size(), 1, "同一资源改名后注册表只应保留一个规范键。")
+	assert_eq(serialized_definitions.keys(), ["new_id"], "序列化不得保留旧持久化键。")
 
 
 func test_trait_set_discards_null_entries_before_sorting() -> void:
@@ -405,6 +520,41 @@ func test_slot_inventory_rejects_move_to_disallowed_slot_and_reports_validation(
 	assert_true(_has_domain_issue_kind(GFVariantData.get_option_array(report, "issues"), "slot_rejects_item"), "校验报告应识别被槽位规则拒绝的堆叠。")
 	assert_false(GFVariantData.get_option_bool(repair_report, "ok"), "修复前报告仍应反映原始非法状态。")
 	assert_true(inventory.is_slot_empty(1), "启用 repair 时应清除违反槽位规则的堆叠。")
+
+
+func test_slot_inventory_validation_report_matches_public_schema() -> void:
+	var definition: GFInventoryItemDefinition = GFInventoryItemDefinition.new()
+	definition.item_id = &"item_a"
+	definition.max_stack_amount = 1
+	var registry: GFInventoryItemRegistry = GFInventoryItemRegistry.new()
+	registry.set_definition(definition)
+	var inventory: GFSlotInventoryModel = GFSlotInventoryModel.new()
+	inventory.registry = registry
+	inventory.set_slot_count(1)
+	assert_true(inventory.set_stack(0, GFInventoryStack.new(&"item_a", 2)))
+
+	var report: Dictionary = inventory.validate_inventory()
+	var report_keys: PackedStringArray = _sorted_string_keys(report)
+	var issues: Array = GFVariantData.get_option_array(report, "issues")
+	var first_issue: Dictionary = (
+		GFVariantData.as_dictionary(issues[0]) if not issues.is_empty() else {}
+	)
+
+	assert_eq(
+		report_keys,
+		PackedStringArray(["error_count", "issues", "ok", "warning_count"]),
+		"校验报告键集合必须与公开 schema 精确一致。"
+	)
+	assert_eq(typeof(report["ok"]), TYPE_BOOL, "ok 必须是 bool。")
+	assert_eq(typeof(report["error_count"]), TYPE_INT, "error_count 必须是 int。")
+	assert_eq(typeof(report["warning_count"]), TYPE_INT, "warning_count 必须是 int。")
+	assert_eq(typeof(report["issues"]), TYPE_ARRAY, "issues 必须是 Array。")
+	assert_eq(
+		_sorted_string_keys(first_issue),
+		PackedStringArray(["item_id", "kind", "message", "severity", "slot_index"]),
+		"issue 子项键集合必须与公开 schema 精确一致。"
+	)
+	assert_eq(typeof(first_issue["item_id"]), TYPE_STRING_NAME, "issue.item_id 必须是 StringName。")
 
 
 func test_inventory_slot_definition_dictionary_roundtrip() -> void:
@@ -579,6 +729,97 @@ func test_slot_inventory_sort_slots_uses_custom_resolver() -> void:
 	assert_true(changed, "自定义比较规则应能改变槽位顺序。")
 	assert_eq(GFVariantData.get_option_string(inventory.get_stack_data(0), "item_id"), "a_item", "数量最多的堆叠应排到最前。")
 	assert_eq(GFVariantData.get_option_string(inventory.get_stack_data(1), "item_id"), "b_item", "第二多的堆叠应排在第二位。")
+
+
+func test_slot_inventory_swap_rejects_disallowed_target_layout_atomically() -> void:
+	var registry: GFInventoryItemRegistry = GFInventoryItemRegistry.new()
+	var weapon: GFInventoryItemDefinition = GFInventoryItemDefinition.new()
+	weapon.item_id = &"weapon"
+	weapon.categories = [&"weapon"]
+	registry.set_definition(weapon)
+	var potion: GFInventoryItemDefinition = GFInventoryItemDefinition.new()
+	potion.item_id = &"potion"
+	potion.categories = [&"consumable"]
+	registry.set_definition(potion)
+	var weapon_slot: GFInventorySlotDefinition = GFInventorySlotDefinition.new()
+	weapon_slot.accepted_categories = [&"weapon"]
+	var potion_slot: GFInventorySlotDefinition = GFInventorySlotDefinition.new()
+	potion_slot.accepted_categories = [&"consumable"]
+	var inventory: GFSlotInventoryModel = GFSlotInventoryModel.new()
+	inventory.registry = registry
+	inventory.set_slot_count(2)
+	assert_true(inventory.set_slot_definition(0, weapon_slot))
+	assert_true(inventory.set_slot_definition(1, potion_slot))
+	assert_true(inventory.add_item_to_slot(0, &"weapon", 1).ok)
+	assert_true(inventory.add_item_to_slot(1, &"potion", 1).ok)
+	var before: Dictionary = inventory.to_dict()
+
+	var swapped: bool = inventory.swap_slots(0, 1)
+
+	assert_false(swapped, "交换结果违反目标槽位规则时应拒绝。")
+	assert_eq(inventory.to_dict(), before, "交换失败必须保持整个布局原子不变。")
+
+
+func test_slot_inventory_sort_rejects_disallowed_target_layout_atomically() -> void:
+	var registry: GFInventoryItemRegistry = GFInventoryItemRegistry.new()
+	var weapon: GFInventoryItemDefinition = GFInventoryItemDefinition.new()
+	weapon.item_id = &"z_weapon"
+	weapon.categories = [&"weapon"]
+	registry.set_definition(weapon)
+	var potion: GFInventoryItemDefinition = GFInventoryItemDefinition.new()
+	potion.item_id = &"a_potion"
+	potion.categories = [&"consumable"]
+	registry.set_definition(potion)
+	var weapon_slot: GFInventorySlotDefinition = GFInventorySlotDefinition.new()
+	weapon_slot.accepted_categories = [&"weapon"]
+	var potion_slot: GFInventorySlotDefinition = GFInventorySlotDefinition.new()
+	potion_slot.accepted_categories = [&"consumable"]
+	var inventory: GFSlotInventoryModel = GFSlotInventoryModel.new()
+	inventory.registry = registry
+	inventory.set_slot_count(2)
+	assert_true(inventory.set_slot_definition(0, weapon_slot))
+	assert_true(inventory.set_slot_definition(1, potion_slot))
+	assert_true(inventory.add_item_to_slot(0, &"z_weapon", 1).ok)
+	assert_true(inventory.add_item_to_slot(1, &"a_potion", 1).ok)
+	var before: Dictionary = inventory.to_dict()
+
+	var sorted: bool = inventory.sort_slots()
+
+	assert_false(sorted, "排序结果违反目标槽位规则时应拒绝。")
+	assert_eq(inventory.to_dict(), before, "排序失败必须保持整个布局原子不变。")
+
+
+func test_domain_installer_fails_and_rolls_back_when_second_registration_fails() -> void:
+	var architecture: DomainInstallerProbeArchitecture = DomainInstallerProbeArchitecture.new()
+	architecture.fail_registration_call = 2
+	var scope: GFAsyncScope = GFAsyncScope.new()
+	var installer: GF_DOMAIN_EXTENSION_INSTALLER = GF_DOMAIN_EXTENSION_INSTALLER.new()
+
+	await installer.install(architecture, scope)
+
+	assert_eq(architecture.registration_call_count, 2, "安装器应尝试注册两个 Domain Utility。")
+	assert_true(architecture.has_initialization_failed(), "Utility 注册失败必须传播为架构初始化失败。")
+	assert_null(
+		architecture.get_local_utility(GFLevelUtility),
+		"初始化失败必须回滚本轮已注册的 Level Utility。"
+	)
+	assert_push_error("[GFDomainExtension] GFQuestUtility registration failed.")
+	architecture.dispose()
+
+
+func test_domain_installer_stops_after_scope_cancellation() -> void:
+	var architecture: DomainInstallerProbeArchitecture = DomainInstallerProbeArchitecture.new()
+	var scope: GFAsyncScope = GFAsyncScope.new()
+	architecture.install_scope = scope
+	architecture.cancel_scope_on_registration_call = 1
+	var installer: GF_DOMAIN_EXTENSION_INSTALLER = GF_DOMAIN_EXTENSION_INSTALLER.new()
+
+	await installer.install(architecture, scope)
+
+	assert_eq(architecture.registration_call_count, 1, "scope 取消后不得继续注册 Quest Utility。")
+	assert_not_null(architecture.get_local_utility(GFLevelUtility), "取消前成功的注册由外层初始化事务接管。")
+	assert_null(architecture.get_local_utility(GFQuestUtility), "取消检查必须阻止后续注册。")
+	architecture.dispose()
 
 
 func test_slot_inventory_rejects_mutation_from_sort_resolver() -> void:
@@ -820,3 +1061,11 @@ func _packed_int32_array(value: Variant) -> PackedInt32Array:
 		var values: Array = value
 		return PackedInt32Array(values)
 	return PackedInt32Array()
+
+
+func _sorted_string_keys(dictionary: Dictionary) -> PackedStringArray:
+	var result: PackedStringArray = PackedStringArray()
+	for key: Variant in dictionary.keys():
+		var _appended: bool = result.append(GFVariantData.to_text(key))
+	result.sort()
+	return result

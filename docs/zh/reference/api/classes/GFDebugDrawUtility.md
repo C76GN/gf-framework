@@ -18,7 +18,7 @@
 | 信号 | [`items_changed`](#member-gfdebugdrawutility-signals-items_changed) | `signal items_changed` |
 | 枚举 | [`PrimitiveType`](#member-gfdebugdrawutility-enums-primitivetype) | `enum PrimitiveType` |
 | 属性 | [`enabled`](#member-gfdebugdrawutility-properties-enabled) | `var enabled: bool = true` |
-| 属性 | [`default_lifetime_seconds`](#member-gfdebugdrawutility-properties-default_lifetime_seconds) | `var default_lifetime_seconds: float = 0.0` |
+| 属性 | [`default_lifetime_seconds`](#member-gfdebugdrawutility-properties-default_lifetime_seconds) | `var default_lifetime_seconds: float = 0.0:` |
 | 属性 | [`max_items`](#member-gfdebugdrawutility-properties-max_items) | `var max_items: int = 2048` |
 | 方法 | [`init`](#member-gfdebugdrawutility-methods-init) | `func init() -> void:` |
 | 方法 | [`dispose`](#member-gfdebugdrawutility-methods-dispose) | `func dispose() -> void:` |
@@ -104,12 +104,13 @@ var enabled: bool = true
 ### `default_lifetime_seconds`
 
 - API：`public`
+- 首次版本：`11.0.0`
 
 ```gdscript
-var default_lifetime_seconds: float = 0.0
+var default_lifetime_seconds: float = 0.0:
 ```
 
-默认生命周期。小于 0 表示永久保留，0 表示等待下一次 tick 后清理。
+默认生命周期。小于 0 表示永久保留，0 表示等待下一次 tick 后清理； NaN/Infinity 赋值会被忽略。
 
 <a id="member-gfdebugdrawutility-properties-max_items"></a>
 

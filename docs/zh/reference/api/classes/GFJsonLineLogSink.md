@@ -25,6 +25,7 @@
 | 方法 | [`get_report_redaction_profile`](#member-gfjsonlinelogsink-methods-get_report_redaction_profile) | `func get_report_redaction_profile() -> String:` |
 | 方法 | [`init`](#member-gfjsonlinelogsink-methods-init) | `func init(owner: Object) -> void:` |
 | 方法 | [`write`](#member-gfjsonlinelogsink-methods-write) | `func write(entry: Dictionary) -> void:` |
+| 方法 | [`tick`](#member-gfjsonlinelogsink-methods-tick) | `func tick(delta: float) -> void:` |
 | 方法 | [`flush`](#member-gfjsonlinelogsink-methods-flush) | `func flush() -> void:` |
 | 方法 | [`shutdown`](#member-gfjsonlinelogsink-methods-shutdown) | `func shutdown() -> void:` |
 | 方法 | [`get_file_path`](#member-gfjsonlinelogsink-methods-get_file_path) | `func get_file_path() -> String:` |
@@ -59,12 +60,13 @@ JSONL 文件打开策略。
 ### `file_path`
 
 - API：`public`
+- 首次版本：`11.0.0`
 
 ```gdscript
 var file_path: String = ""
 ```
 
-输出文件路径。留空时会根据 GFLogUtility 当前日志文件派生同名 `.jsonl` 文件。
+输出文件路径。留空时会根据 GFLogUtility 当前日志文件和 sink 实例派生独占 `.jsonl` 文件。
 
 <a id="member-gfjsonlinelogsink-properties-omit_formatted_text"></a>
 
@@ -187,6 +189,25 @@ func write(entry: Dictionary) -> void:
 结构：
 
 - `entry`: Dictionary log entry produced by GFLogUtility.
+
+<a id="member-gfjsonlinelogsink-methods-tick"></a>
+
+### `tick`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func tick(delta: float) -> void:
+```
+
+推进自动 flush 计时；由持有该 sink 的 GFLogUtility 调用。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `delta` | 本帧时间增量（秒）；非有限或非正数不会推进状态。 |
 
 <a id="member-gfjsonlinelogsink-methods-flush"></a>
 

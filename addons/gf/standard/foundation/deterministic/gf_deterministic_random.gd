@@ -277,6 +277,16 @@ func to_dict() -> Dictionary:
 ## [br]
 ## @return 状态有效并已应用时返回 true。
 func apply_dict(data: Dictionary) -> bool:
+	if not (
+		_has_state_field(data, "algorithm")
+		and _has_state_field(data, "version")
+		and _has_state_field(data, "seed")
+		and _has_state_field(data, "state")
+	):
+		push_error("[GFDeterministicRandom] 不支持的状态字典格式。")
+		set_seed(_DEFAULT_SEED)
+		return false
+
 	var algorithm: String = GFVariantData.get_option_string(data, "algorithm", _ALGORITHM)
 	var version: int = GFVariantData.get_option_int(data, "version", _STATE_VERSION)
 	var seed_data: Variant = GFVariantData.get_option_value(data, "seed")
@@ -307,6 +317,10 @@ func apply_dict(data: Dictionary) -> bool:
 static func _normalize_state(value: int) -> int:
 	var result: int = _to_u32(value)
 	return _DEFAULT_SEED if result == 0 else result
+
+
+static func _has_state_field(data: Dictionary, field_name: String) -> bool:
+	return data.has(field_name) or data.has(StringName(field_name))
 
 
 static func _to_u32(value: int) -> int:

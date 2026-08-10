@@ -91,6 +91,75 @@ func test_sample_grid_2d_reports_invalid_inputs() -> void:
 	assert_eq(_get_float_samples(invalid_sample, "samples"), PackedFloat32Array(), "失败报告不应携带部分样本。")
 
 
+func test_sample_grid_2d_rejects_values_not_representable_in_output_storage() -> void:
+	var report: Dictionary = GF_NOISE_FIELD_TOOLS_SCRIPT.sample_grid_2d(
+		Vector2i.ONE,
+		{
+			"include_normalized": false,
+			"sampler": func(_position: Vector2, _cell: Vector2i, _metadata: Dictionary) -> float:
+				return 1.0e100,
+		}
+	)
+
+	assert_false(GFVariantData.get_option_bool(report, "ok"), "PackedFloat32 窄化为非有限值时必须失败。")
+	assert_true(_get_float_samples(report, "samples").is_empty(), "失败报告不得携带非有限样本。")
+
+
+func test_sample_grid_2d_stats_use_stored_precision_and_propagate_normalize_failure() -> void:
+	var quantized_report: Dictionary = GF_NOISE_FIELD_TOOLS_SCRIPT.sample_grid_2d(
+		Vector2i(2, 1),
+		{
+			"include_normalized": false,
+			"sampler": func(_position: Vector2, cell: Vector2i, _metadata: Dictionary) -> float:
+				return 0.1 if cell.x == 0 else 0.2,
+		}
+	)
+	var samples: PackedFloat32Array = _get_float_samples(quantized_report, "samples")
+	var rejected_normalization: Dictionary = GF_NOISE_FIELD_TOOLS_SCRIPT.sample_grid_2d(
+		Vector2i.ONE,
+		{
+			"constant_value": INF,
+			"sampler": func(_position: Vector2, _cell: Vector2i, _metadata: Dictionary) -> float:
+				return 1.0,
+		}
+	)
+
+	assert_true(GFVariantData.get_option_bool(quantized_report, "ok"))
+	assert_eq(GFVariantData.get_option_float(quantized_report, "min_value"), samples[0])
+	assert_eq(GFVariantData.get_option_float(quantized_report, "max_value"), samples[1])
+	assert_eq(
+		GFVariantData.get_option_float(quantized_report, "average"),
+		(float(samples[0]) + float(samples[1])) / 2.0
+	)
+	assert_false(
+		GFVariantData.get_option_bool(rejected_normalization, "ok"),
+		"请求归一化时，子报告失败必须传播到采样报告。"
+	)
+
+
+func test_normalize_samples_handles_large_finite_float32_range() -> void:
+	var report: Dictionary = GF_NOISE_FIELD_TOOLS_SCRIPT.normalize_samples(
+		PackedFloat32Array([-3.0e38, 3.0e38])
+	)
+	var normalized: PackedFloat32Array = _get_float_samples(report, "normalized_samples")
+	var overflow_span_report: Dictionary = GF_NOISE_FIELD_TOOLS_SCRIPT.normalize_samples(
+		PackedFloat32Array([-1.0, 1.0]),
+		{
+			"minimum": -1.0e308,
+			"maximum": 1.0e308,
+		}
+	)
+
+	assert_true(GFVariantData.get_option_bool(report, "ok"), "有限端点的可定义范围应稳定归一化。")
+	assert_eq(normalized, PackedFloat32Array([0.0, 1.0]))
+	assert_true(GFVariantData.get_option_bool(overflow_span_report, "ok"))
+	assert_eq(
+		_get_float_samples(overflow_span_report, "normalized_samples"),
+		PackedFloat32Array([0.5, 0.5]),
+		"有限 minimum/maximum 的差溢出时仍应使用缩放计算。"
+	)
+
+
 func test_sample_grid_2d_rejects_invalid_noise_type() -> void:
 	var report: Dictionary = GF_NOISE_FIELD_TOOLS_SCRIPT.sample_grid_2d(
 		Vector2i(1, 1),

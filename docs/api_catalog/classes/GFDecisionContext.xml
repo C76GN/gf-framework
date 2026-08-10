@@ -1,9 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFDecisionContext" path="addons/gf/extensions/decision/runtime/gf_decision_context.gd" module="extensions/decision" extends="RefCounted" classDigest="20f34d4a611ed4563d0f66f32c451bc94ae70c3166d3a130cbb1e2b74722b11e">
+<class name="GFDecisionContext" path="addons/gf/extensions/decision/runtime/gf_decision_context.gd" module="extensions/decision" extends="RefCounted" classDigest="87b8700eabeef97c2237d976eb84e6a31dacb631e29a7dea5c7250f8f0012fcb">
 	<description>GFDecisionContext: 通用决策上下文。
 组合黑板、主体/目标快照视图和元数据，供决策候选与考虑项读取状态。
 赋值时先主动捕获可见值；缺失 key 可由对象的 `get_decision_value()` 按需提供并写入当前上下文缓存。
-该类型只用弱引用暴露当前对象，不通过上下文延长对象生命周期。</description>
+subject/target 顶层句柄使用弱引用；项目提供的快照值仍可包含 Object/Resource 强引用，
+因此返回 self 或包含 self 的对象图会延长其生命周期。需要严格弱所有权时，provider 不得把当前对象放入快照值图。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">domain_model</tag>
@@ -55,7 +56,7 @@
 		</member>
 		<member kind="property" name="subject_values">
 			<signature>var subject_values: Dictionary = {}</signature>
-			<description>主体决策值快照视图。容器会复制，但其中的 Object/Resource 身份保持共享；缺失 key 可被懒缓存补充。</description>
+			<description>主体决策值快照视图。容器会循环安全地复制，但其中的 Object/Resource 身份保持共享；缺失 key 可被懒缓存补充。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="schema">subject_values: Dictionary[StringName, Variant] eagerly captured at assignment and optionally extended by bounded lazy reads.</tag>
@@ -64,7 +65,7 @@
 		</member>
 		<member kind="property" name="target_values">
 			<signature>var target_values: Dictionary = {}</signature>
-			<description>目标决策值快照视图。容器会复制，但其中的 Object/Resource 身份保持共享；缺失 key 可被懒缓存补充。</description>
+			<description>目标决策值快照视图。容器会循环安全地复制，但其中的 Object/Resource 身份保持共享；缺失 key 可被懒缓存补充。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="schema">target_values: Dictionary[StringName, Variant] eagerly captured at assignment and optionally extended by bounded lazy reads.</tag>
@@ -145,7 +146,7 @@
 		</member>
 		<member kind="method" name="get_subject_value">
 			<signature>func get_subject_value(key: StringName, fallback: Variant = null) -&gt; Variant:</signature>
-			<description>从主体快照视图读取决策值；缺失 key 可触发一次受预算约束的 provider 懒读取并缓存。</description>
+			<description>从主体快照视图读取决策值；每个缺失 key 最多触发一次受预算约束的 provider 懒读取，miss 也会负缓存并消费预算。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">key: 值键或属性名。</tag>
@@ -158,7 +159,7 @@
 		</member>
 		<member kind="method" name="get_target_value">
 			<signature>func get_target_value(key: StringName, fallback: Variant = null) -&gt; Variant:</signature>
-			<description>从目标快照视图读取决策值；缺失 key 可触发一次受预算约束的 provider 懒读取并缓存。</description>
+			<description>从目标快照视图读取决策值；每个缺失 key 最多触发一次受预算约束的 provider 懒读取，miss 也会负缓存并消费预算。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">key: 值键或属性名。</tag>
@@ -190,7 +191,7 @@
 		<member kind="method" name="duplicate_context">
 			<signature>func duplicate_context() -&gt; GFDecisionContext:</signature>
 			<description>创建上下文副本。
-默认复用 subject 与 target 弱引用；复制黑板、快照容器、捕获诊断和元数据，嵌套 Object/Resource 身份保持共享。</description>
+默认复用 subject 与 target 弱引用；循环安全地复制黑板、快照容器、捕获账本、诊断和元数据，嵌套 Object/Resource 身份保持共享。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">新上下文实例。</tag>

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFPlatformLocaleMap" path="addons/gf/standard/foundation/text/gf_platform_locale_map.gd" module="standard" extends="Resource" classDigest="ed0a187b8a23c6d025880503748305f75bd0202728d2084d63341f3107014e09">
+<class name="GFPlatformLocaleMap" path="addons/gf/standard/foundation/text/gf_platform_locale_map.gd" module="standard" extends="Resource" classDigest="5dd641d0db8549960b4b4e4da87cf7df4e0e558eb4e0ec06d31f0ad6c959b595">
 	<description>GFPlatformLocaleMap: 平台语言键到 Godot locale 的映射表。
 该资源用于让 Steam、微信、主机平台或自建启动器等 adapter 把自身语言键转换为
 Godot TranslationServer 使用的 locale。GF 不内置任何具体平台表。</description>
@@ -105,7 +105,9 @@ Godot TranslationServer 使用的 locale。GF 不内置任何具体平台表。<
 		</member>
 		<member kind="method" name="apply_dict">
 			<signature>func apply_dict(data: Dictionary) -&gt; void:</signature>
-			<description>从字典应用映射表。</description>
+			<description>从字典应用映射表。
+条目按输入顺序应用；同一 platform_id 与规范化 platform_locale 重复出现时，
+后一条覆盖前一条，与连续调用 `set_mapping()` 的语义一致。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">data: 映射表字典。</tag>

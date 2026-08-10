@@ -35,6 +35,8 @@ func install_bindings(binder: Variant, _scope: GFAsyncScope) -> void:
 
 然后在 `Project Settings > gf/project/installers` 中加入安装器脚本资源。编辑器可能保存 `res://`，也可能保存稳定 `uid://`；运行时会把可解析 UID 规范化为真实 `res://` 脚本路径。之后 `await Gf.init()` 会按数组顺序逐个执行 Installer：每个 Installer 先执行 `install(architecture, scope)`，再执行 `install_bindings(binder, scope)`。所有 Installer 完成后，架构冻结注册快照、编译依赖 DAG，再依次执行 `init()`、`async_init()`、`ready()`、`begin_activation()` 四阶段。
 
+`begin_project_installers()`、`mark_project_installers_applied()` 与 `finish_project_installers()` 是 `Gf` 启动编排使用的状态边界，项目 Installer 不应直接调用。完成入口只接受已经进入 running 的事务；提前或重复调用不会把架构伪装成已执行 Installer，也不会唤醒等待方。
+
 Installer 路径必须最终解析到 `res://` 下的 `.gd` 脚本。空路径、失效 UID、`user://`、绝对文件系统路径、错误元素类型和非脚本资源都会被视为配置错误；默认会中断初始化，迁移期才应临时关闭 `gf/project/fail_on_installer_error`。
 
 `scope` 是本轮安装的协作取消边界。`GFAsyncScope` 继承自 `GFCancellationToken`，因此可以直接传给只需要读取取消状态的 helper。Installer 等待外部资源、网络、编辑器回调或多帧扫描时，应在每个 `await` 后检查 `scope.is_cancel_requested()`；需要释放临时连接、后台句柄或外部请求时，用 `scope.register_cleanup(callback)` 登记无参清理回调。初始化失败、架构释放、超时或局部上下文退出树时，框架会取消 scope 并按后进先出的顺序执行清理。

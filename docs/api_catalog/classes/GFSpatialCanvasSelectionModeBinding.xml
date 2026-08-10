@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSpatialCanvasSelectionModeBinding" path="addons/gf/standard/utilities/spatial_canvas/gf_spatial_canvas_selection_mode_binding.gd" module="standard" extends="Resource" classDigest="2ac15e345d0c9308e80d303c98c31af26d423c3664ecf8f23564ab1c864ca3ee">
+<class name="GFSpatialCanvasSelectionModeBinding" path="addons/gf/standard/utilities/spatial_canvas/gf_spatial_canvas_selection_mode_binding.gd" module="standard" extends="Resource" classDigest="19e082f392d857075bbd6cf94aaea5724c6f5e2fb7e4063538cdc3e0a3954420">
 	<description>GFSpatialCanvasSelectionModeBinding: 空间画布选择修饰键绑定。
 只描述修饰键掩码到 [code]GFSpatialCanvas2D.SelectionMode[/code] 的映射，
 不读取设备状态，也不拥有输入生命周期。</description>
@@ -21,7 +21,9 @@
 			</tags>
 		</member>
 		<member kind="property" name="selection_mode" decorators="@export">
-			<signature>var selection_mode: GFSpatialCanvas2D.SelectionMode = (</signature>
+			<signature>var selection_mode: GFSpatialCanvas2D.SelectionMode = (
+	GFSpatialCanvas2D.SelectionMode.REPLACE
+)</signature>
 			<description>匹配时使用的 [code]GFSpatialCanvas2D.SelectionMode[/code] 值。</description>
 			<tags>
 				<tag name="api">public</tag>

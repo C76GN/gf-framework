@@ -24,7 +24,7 @@ extends GFUtility
 ## [br]
 ## @param event: 原始输入事件。
 ## [br]
-## @schema snapshot: Dictionary with active, source, pointer_count, pointer_ids, center, previous_center, pan_delta, scale, rotation_delta, distance, previous_distance, and primary_pointer_id.
+## @schema snapshot: Dictionary with active, source, pointer_count, pointer_ids, center, previous_center, pan_delta, scale, rotation_delta, distance, previous_distance, and primary_pointer_id. Runtime mouse identity is -2; touch identities keep their event index.
 signal gesture_updated(snapshot: Dictionary, event: InputEvent)
 
 ## 最后一个活动指针释放或 reset_gesture() 清理活动手势时发出。
@@ -42,7 +42,8 @@ signal gesture_ended(snapshot: Dictionary)
 # --- 常量 ---
 
 const _INPUT_EVENT_TOOLS = preload("res://addons/gf/standard/input/common/gf_input_event_tools.gd")
-const _MOUSE_POINTER_ID: int = 0
+# 鼠标使用独立于非负触点 index 和 -1 inactive sentinel 的内部身份。
+const _MOUSE_POINTER_ID: int = -2
 const _DEFAULT_MINIMUM_PINCH_DISTANCE: float = 0.001
 
 
@@ -178,7 +179,7 @@ func get_active_pointer_count() -> int:
 ## [br]
 ## @return 手势摘要副本。
 ## [br]
-## @schema return: Dictionary with active, source, pointer_count, pointer_ids, center, previous_center, pan_delta, scale, rotation_delta, distance, previous_distance, and primary_pointer_id.
+## @schema return: Dictionary with active, source, pointer_count, pointer_ids, center, previous_center, pan_delta, scale, rotation_delta, distance, previous_distance, and primary_pointer_id. Runtime mouse identity is -2; touch identities keep their event index.
 func get_gesture_snapshot() -> Dictionary:
 	return _last_snapshot.duplicate(true)
 

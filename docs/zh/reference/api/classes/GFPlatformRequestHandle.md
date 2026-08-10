@@ -192,8 +192,8 @@ func get_debug_snapshot() -> Dictionary:
 
 获取稳定调试快照。
 
-返回：包含 request、pending、completed、successful 和 result 的字典。
+返回：包含 request、pending、completed、successful 和脱敏 result 的字典；失败只公开 status 与 has_error，不公开原始 error 或 metadata。
 
 结构：
 
-- `return`: Dictionary with request, pending, completed, successful, and result fields.
+- `return`: Dictionary with request, pending, completed, successful, and redacted result fields.

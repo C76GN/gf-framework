@@ -48,14 +48,25 @@ extends Node
 
 
 func _ready() -> void:
-	Gf.register_model(PlayerModel.new())
-	Gf.register_utility(GFStorageUtility.new())
-	Gf.register_system(BattleSystem.new())
+	if not await Gf.register_model(PlayerModel.new()):
+		push_error("PlayerModel registration failed.")
+		return
+	if not await Gf.register_utility(GFStorageUtility.new()):
+		push_error("GFStorageUtility registration failed.")
+		return
+	if not await Gf.register_system(BattleSystem.new()):
+		push_error("BattleSystem registration failed.")
+		return
 
-	await Gf.init()
+	if not await Gf.init():
+		push_error("GF initialization failed.")
+		return
 
 	var player_model := Gf.get_model(PlayerModel) as PlayerModel
 	var battle_system := Gf.get_system(BattleSystem) as BattleSystem
+	if player_model == null or battle_system == null:
+		push_error("GF module lookup failed.")
+		return
 	battle_system.start_encounter(player_model)
 ```
 
@@ -66,13 +77,32 @@ class_name GameInstaller
 extends GFInstaller
 
 
-func install(architecture: GFArchitecture) -> void:
-	architecture.register_model_instance(PlayerModel.new())
-	architecture.register_utility_instance(GFStorageUtility.new())
-	architecture.register_system_instance(BattleSystem.new())
+func install(architecture: GFArchitecture, scope: GFAsyncScope) -> void:
+	var model_registered: bool = await architecture.register_model_instance(PlayerModel.new())
+	if scope.is_cancel_requested():
+		return
+	if not model_registered:
+		architecture.fail_initialization("PlayerModel registration failed.")
+		return
+
+	var utility_registered: bool = await architecture.register_utility_instance(GFStorageUtility.new())
+	if scope.is_cancel_requested():
+		return
+	if not utility_registered:
+		architecture.fail_initialization("GFStorageUtility registration failed.")
+		return
+
+	var system_registered: bool = await architecture.register_system_instance(BattleSystem.new())
+	if scope.is_cancel_requested():
+		return
+	if not system_registered:
+		architecture.fail_initialization("BattleSystem registration failed.")
+		return
 ```
 
-Add the installer path to `Project Settings > gf/project/installers`, then call `await Gf.init()`.
+Add the installer path to `Project Settings > gf/project/installers`, then call `Gf.init()` with `await` and stop the boot flow if it returns `false`. The installer supplies registrations during initialization; it does not replace the initialization call or its result check.
+
+To remove GF, follow the [safe uninstall and recovery order](docs/zh/overview/quickstart/uninstall.md); disable the plugin before deleting `addons/gf`.
 
 ## Core Concepts
 

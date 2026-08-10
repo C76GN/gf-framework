@@ -18,6 +18,7 @@
 | 方法 | [`get_report_redaction_profile`](#member-gflogsink-methods-get_report_redaction_profile) | `func get_report_redaction_profile() -> String:` |
 | 方法 | [`init`](#member-gflogsink-methods-init) | `func init(_owner: Object) -> void:` |
 | 方法 | [`write`](#member-gflogsink-methods-write) | `func write(_entry: Dictionary) -> void:` |
+| 方法 | [`tick`](#member-gflogsink-methods-tick) | `func tick(_delta: float) -> void:` |
 | 方法 | [`flush`](#member-gflogsink-methods-flush) | `func flush() -> void:` |
 | 方法 | [`shutdown`](#member-gflogsink-methods-shutdown) | `func shutdown() -> void:` |
 
@@ -81,6 +82,25 @@ func write(_entry: Dictionary) -> void:
 结构：
 
 - `_entry`: Dictionary log entry produced by GFLogUtility.
+
+<a id="member-gflogsink-methods-tick"></a>
+
+### `tick`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func tick(_delta: float) -> void:
+```
+
+推进依赖时间的 sink 行为。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `_delta` | 本帧时间增量（秒）。 |
 
 <a id="member-gflogsink-methods-flush"></a>
 

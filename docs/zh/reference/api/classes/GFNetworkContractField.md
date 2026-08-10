@@ -144,16 +144,17 @@ var allow_null: bool = false
 ### `default_value`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var default_value: Variant = null
 ```
 
-可选默认值。生成器会尽量把可表达的默认值写入生成函数签名。
+可选默认值。非 null 值必须精确匹配 value_type 并满足 transport-safe 边界；生成器会完整写入生成函数签名。
 
 结构：
 
-- `default_value`: Variant，字段默认值；建议使用与 value_type 匹配的可复制值。
+- `default_value`: Variant，字段默认值；非 null 时必须精确匹配 value_type，并且是可复制的 transport-safe 值。
 
 <a id="member-gfnetworkcontractfield-properties-class_name_hint"></a>
 
@@ -236,6 +237,7 @@ func get_default_value() -> Variant:
 ### `normalize_value`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func normalize_value(value: Variant) -> Variant:
@@ -249,7 +251,7 @@ func normalize_value(value: Variant) -> Variant:
 |---|---|
 | `value` | 输入值。 |
 
-返回：归一化后的值。
+返回：归一化后的值；allow_null 为 true 时显式 null 原样保留，否则可回落到非空默认值。
 
 结构：
 

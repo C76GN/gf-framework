@@ -217,6 +217,6 @@ static func get_project_physics_layer_names( dimension: int = 2, fallback_to_def
 | 名称 | 说明 |
 |---|---|
 | `dimension` | 物理维度，只支持 2 或 3。 |
-| `fallback_to_default_names` | 未命名层是否返回 `Layer N`。 |
+| `fallback_to_default_names` | 未命名层是否返回 \`Layer N\`。 |
 
 返回：长度为 DEFAULT_LAYER_COUNT 的层名列表；维度无效时返回空列表。

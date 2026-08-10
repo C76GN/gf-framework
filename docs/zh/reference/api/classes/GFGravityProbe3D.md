@@ -42,9 +42,9 @@
 enum CombinationMode {
 	## 汇总所有有效力场的加速度。
 	SUM,
-	## 只使用当前点加速度长度最大的力场。
+	## 只使用当前点加速度长度最大的力场；幅值比较不会计算可能溢出的原始平方范数。
 	STRONGEST,
-	## 只汇总当前点非零加速度中最高优先级的力场。
+	## 只汇总当前点非零加速度中最高优先级的力场；priority 使用完整 GDScript int 值域。
 	HIGHEST_PRIORITY,
 }
 ```
@@ -116,7 +116,7 @@ var fallback_acceleration: Vector3 = Vector3.DOWN * 9.8
 var cache_samples_per_frame: bool = true
 ```
 
-同一帧、同一位置重复 sample() 时是否复用上次结果。
+同一帧、同一位置重复 sample() 时是否复用上次结果。 分组缓存包含精确对象实例身份；内置 GFGravityField3D 还通过 revision 传播参数变化。 任意 duck provider 的私有状态无法被自动观察，同帧改写后应调用 invalidate_cache() 或关闭缓存。
 
 <a id="member-gfgravityprobe3d-properties-last_acceleration"></a>
 
@@ -144,9 +144,9 @@ var last_acceleration: Vector3 = Vector3.ZERO
 func sample() -> Vector3:
 ```
 
-采样场景树分组中的所有力场。
+采样场景树分组中的所有力场。 一次调用冻结入口位置、分组、组合模式和 fallback；field 回调中的修改从下一次采样生效。 同一 Probe 的同步递归采样失败关闭为零向量，不改写外层事务。
 
-返回：按 combination_mode 组合后的加速度。
+返回：按入口 combination_mode 组合后的有限加速度；聚合溢出或同步重入时返回零向量。
 
 <a id="member-gfgravityprobe3d-methods-sample_fields"></a>
 
@@ -159,7 +159,7 @@ func sample() -> Vector3:
 func sample_fields(fields: Array) -> Vector3:
 ```
 
-采样指定力场列表。
+采样指定力场列表。 一次调用冻结入口位置、组合模式和 fallback；同一 Probe 的同步递归采样返回零向量。
 
 参数：
 
@@ -167,7 +167,7 @@ func sample_fields(fields: Array) -> Vector3:
 |---|---|
 | `fields` | 力场对象列表。 |
 
-返回：按 combination_mode 组合后的加速度。
+返回：按入口 combination_mode 组合后的有限加速度；聚合溢出或同步重入时返回零向量。
 
 结构：
 
@@ -184,7 +184,7 @@ func sample_fields(fields: Array) -> Vector3:
 func sample_field_provider(candidate_provider: Object, options: Dictionary = {}) -> Vector3:
 ```
 
-从候选 provider 采样力场。
+从候选 provider 采样力场。 provider 查询与 field 采样共用同一入口查询快照；同一 Probe 的同步递归采样返回零向量。
 
 参数：
 
@@ -193,7 +193,7 @@ func sample_field_provider(candidate_provider: Object, options: Dictionary = {})
 | `candidate_provider` | 暴露 get_candidate_objects(options) 的候选 provider。 |
 | `options` | 候选查询选项；未设置 method_name 时默认筛选 get_acceleration_at。 |
 
-返回：按 combination_mode 组合后的加速度。
+返回：按入口 combination_mode 组合后的有限加速度；聚合溢出或同步重入时返回零向量。
 
 结构：
 

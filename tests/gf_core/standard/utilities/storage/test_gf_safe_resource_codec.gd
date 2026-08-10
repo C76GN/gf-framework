@@ -559,6 +559,45 @@ func test_safe_resource_codec_rejects_missing_or_wrong_collection_shapes() -> vo
 		assert_eq(GFVariantData.get_option_string_name(first_issue, "kind"), &"encoded_shape_invalid", "拒绝原因应指向编码结构非法。")
 
 
+func test_safe_resource_codec_preflights_container_cardinality_before_shape_scan() -> void:
+	var policy: GFSafeResourceCodecPolicy = GFSafeResourceCodec.make_resource_policy()
+	var oversized_payloads: Array[Dictionary] = [
+		{
+			GFSafeResourceCodec.KEY_KIND: &"array",
+			GFSafeResourceCodec.KEY_ITEMS: [{}, "invalid_late_item"],
+		},
+		{
+			GFSafeResourceCodec.KEY_KIND: &"dictionary",
+			GFSafeResourceCodec.KEY_ENTRIES: [
+				{ "key": {}, "value": {} },
+				"invalid_late_entry",
+			],
+		},
+		{
+			GFSafeResourceCodec.KEY_KIND: &"object",
+			GFSafeResourceCodec.KEY_OBJECT_ID: 1,
+			GFSafeResourceCodec.KEY_CLASS: "Resource",
+			GFSafeResourceCodec.KEY_SCRIPT_PATH: "",
+			GFSafeResourceCodec.KEY_PROPERTIES: [
+				{ "name": "resource_name", "value": {} },
+				"invalid_late_property",
+			],
+		},
+	]
+
+	for payload: Dictionary in oversized_payloads:
+		var decoded: Dictionary = GFSafeResourceCodec.decode(payload, policy, { "max_items": 1 })
+		var issues: Array = GFVariantData.get_option_array(decoded, "issues")
+		var first_issue: Dictionary = GFVariantData.as_dictionary(issues[0]) if not issues.is_empty() else {}
+
+		assert_false(GFVariantData.get_option_bool(decoded, "ok"), "容器基数超出剩余预算时必须失败关闭。")
+		assert_eq(
+			GFVariantData.get_option_string_name(first_issue, "kind"),
+			&"max_items_exceeded",
+			"预算必须在遍历或暂存完整容器形状之前命中。"
+		)
+
+
 func test_safe_resource_codec_rejects_coercible_variant_type_metadata() -> void:
 	var direct_data: Dictionary = {
 		GFSafeResourceCodec.KEY_KIND: &"value",

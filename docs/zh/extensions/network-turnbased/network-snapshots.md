@@ -29,7 +29,7 @@ var delta_payload := previous.make_delta_to(latest)
 var patch_payload := previous.make_patch_to(latest)
 ```
 
-`GFFixedTickClock` 除了批量 `ticks_advanced`，也会在每个固定步发出 `tick_started` / `tick_finished`，并在单帧预算不足时发出 `tick_budget_exhausted`。时钟只负责说明本帧该处理哪些 tick；具体输入采样、实体更新、状态广播和视觉插值仍由项目系统决定。
+`GFFixedTickClock` 除了批量 `ticks_advanced`，也会在每个固定步发出 `tick_started` / `tick_finished`，并在单帧预算不足时发出 `tick_budget_exhausted`。同一时钟正在同步发布这些 tick 信号时，重入 `advance()` 会返回 `0`，重入 `step_once()` 会返回调用时的 `current_tick`，两者都不会推进或累积时间，从而避免 listener 递归耗尽调用栈。listener 不应在该窗口直接 `reset()`、`configure()`、`from_dict()` 或写公开状态；需要回滚或重配时先记录意图，在外层调用返回后执行。时钟只负责说明本帧该处理哪些 tick；具体输入采样、实体更新、状态广播和视觉插值仍由项目系统决定。
 
 ## 字段编码
 
@@ -91,6 +91,8 @@ var encoded_patch := schema.encode_patch(patch)
 var decoded_patch := schema.decode_patch(encoded_patch)
 var next_snapshot := previous.apply_patch(decoded_patch)
 ```
+
+`max_depth` 会限制在 `0..8`；请求更深递归时，生成器会在第 8 层把剩余子树作为整体 `set`，因此成功 patch 仍可由同版本 `apply_patch()` 精确应用。单个 patch 最多包含 4096 个 `set + erase` 操作；超过预算，或 path、value、metadata 不属于 applicator 支持的 transport-safe 值域时，`make_patch_to()` 返回 `ok=false` 与稳定 `error`。发送或编码前必须先检查 `ok`，不能把失败报告当作 patch。
 
 ## 使用边界
 

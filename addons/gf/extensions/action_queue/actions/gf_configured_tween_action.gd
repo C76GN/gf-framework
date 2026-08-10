@@ -187,9 +187,22 @@ func _clear_active_tween() -> void:
 func _append_marker_callback(step: GFTweenActionStep, step_index: int) -> void:
 	if step.marker_id == &"" or not is_instance_valid(_active_tween):
 		return
-	var _tween_callback_result_188: Variant = _active_tween.tween_callback(
+	var effective_scale: float = _ACTION_TIME_POLICY.sanitize_non_negative_seconds(config.duration_scale)
+	var effective_duration: float = _ACTION_TIME_POLICY.sanitize_non_negative_seconds(
+		step.duration * effective_scale
+	)
+	var effective_delay: float = _ACTION_TIME_POLICY.sanitize_non_negative_seconds(
+		step.delay * effective_scale
+	)
+	var marker_delay: float = _ACTION_TIME_POLICY.sanitize_non_negative_seconds(
+		effective_duration + effective_delay
+	)
+	var _parallel_result_199: Tween = _active_tween.parallel()
+	var marker_tweener: CallbackTweener = _active_tween.tween_callback(
 		Callable(self, "_on_step_marker_reached").bind(step.marker_id, step_index)
 	)
+	if marker_delay > 0.0:
+		var _set_delay_result_203: CallbackTweener = marker_tweener.set_delay(marker_delay)
 
 
 func _capture_initial_values() -> void:

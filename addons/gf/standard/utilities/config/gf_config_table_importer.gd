@@ -1,6 +1,7 @@
 ## GFConfigTableImporter: 通用导表文本解析与 schema 校验入口。
 ##
 ## 提供 JSON、CSV、ConfigFile 与二维文本行的轻量解析，适合编辑器工具或 CI 在进入项目 Provider 前做结构检查。
+## 直接接收内存文本/行的入口不执行字节、行、列或累计单元格预算；调用方必须只传受信数据，或在调用前完成容量预检。
 ## [br]
 ## @api public
 ## [br]
@@ -130,6 +131,16 @@ static func parse_rows_table(rows: Array[PackedStringArray], options: Dictionary
 		if enable_condition_directives:
 			var directive: Dictionary = _parse_condition_directive(first_cell, condition_prefix)
 			var directive_kind: StringName = GFVariantData.get_option_string_name(directive, "kind")
+			if directive_kind == &"invalid":
+				return _make_tabular_parse_failure(
+					"%s parse failed: %s" % [
+						error_prefix,
+						GFVariantData.get_option_string(directive, "error", "invalid_condition_directive"),
+					],
+					source,
+					row_number,
+					1
+				)
 			if directive_kind == &"if":
 				condition_stack.append({
 					"active": _condition_symbols_match(
@@ -216,6 +227,7 @@ static func parse_csv_table(text: String, options: Dictionary = {}) -> Dictionar
 	var row_options: Dictionary = options.duplicate(true)
 	row_options["source"] = source
 	row_options["error_prefix"] = "CSV"
+	row_options["row_numbers"] = _get_parse_row_numbers(parse_result)
 	return parse_rows_table(rows, row_options)
 
 
@@ -519,6 +531,7 @@ static func _get_parse_row_locations(parsed: Dictionary) -> Variant:
 
 static func _parse_csv_rows(text: String, delimiter: String, trim_cells: bool) -> Dictionary:
 	var rows: Array[PackedStringArray] = []
+	var row_numbers: PackedInt32Array = PackedInt32Array()
 	var row: PackedStringArray = PackedStringArray()
 	var cell: String = ""
 	var in_quotes: bool = false
@@ -528,6 +541,7 @@ static func _parse_csv_rows(text: String, delimiter: String, trim_cells: bool) -
 	var index: int = 0
 	var line: int = 1
 	var column: int = 1
+	var row_start_line: int = 1
 
 	while index < text.length():
 		var ch: String = text.substr(index, 1)
@@ -553,17 +567,20 @@ static func _parse_csv_rows(text: String, delimiter: String, trim_cells: bool) -
 				elif ch == "\n":
 					var _closed_newline_cell_appended: bool = row.append(cell.strip_edges() if trim_cells else cell)
 					rows.append(row)
+					var _closed_row_number_appended: bool = row_numbers.append(row_start_line)
 					row = PackedStringArray()
 					cell = ""
 					quote_closed = false
 					line += 1
 					column = 0
+					row_start_line = line
 				elif ch == "\r" or (trim_cells and (ch == " " or ch == "\t")):
 					pass
 				else:
 					return {
 						"success": false,
 						"rows": rows,
+						"row_numbers": row_numbers,
 						"error": "CSV parse failed: malformed_quote",
 						"error_line": line,
 						"error_column": column,
@@ -573,6 +590,7 @@ static func _parse_csv_rows(text: String, delimiter: String, trim_cells: bool) -
 					return {
 						"success": false,
 						"rows": rows,
+						"row_numbers": row_numbers,
 						"error": "CSV parse failed: malformed_quote",
 						"error_line": line,
 						"error_column": column,
@@ -588,11 +606,13 @@ static func _parse_csv_rows(text: String, delimiter: String, trim_cells: bool) -
 			elif ch == "\n":
 				var _newline_cell_appended: bool = row.append(cell.strip_edges() if trim_cells else cell)
 				rows.append(row)
+				var _row_number_appended: bool = row_numbers.append(row_start_line)
 				row = PackedStringArray()
 				cell = ""
 				quote_closed = false
 				line += 1
 				column = 0
+				row_start_line = line
 			elif ch != "\r":
 				cell += ch
 		index += 1
@@ -602,6 +622,7 @@ static func _parse_csv_rows(text: String, delimiter: String, trim_cells: bool) -
 		return {
 			"success": false,
 			"rows": rows,
+			"row_numbers": row_numbers,
 			"error": "CSV parse failed: unclosed_quote",
 			"error_line": quote_start_line,
 			"error_column": quote_start_column,
@@ -610,9 +631,11 @@ static func _parse_csv_rows(text: String, delimiter: String, trim_cells: bool) -
 	var _final_cell_appended: bool = row.append(cell.strip_edges() if trim_cells else cell)
 	if row.size() > 1 or not _csv_row_is_empty(row):
 		rows.append(row)
+		var _final_row_number_appended: bool = row_numbers.append(row_start_line)
 	return {
 		"success": true,
 		"rows": rows,
+		"row_numbers": row_numbers,
 		"error": "",
 		"error_line": 0,
 		"error_column": 0,
@@ -637,6 +660,17 @@ static func _get_parse_rows(parse_result: Dictionary) -> Array[PackedStringArray
 			var row: PackedStringArray = row_value
 			result.append(row)
 	return result
+
+
+static func _get_parse_row_numbers(parse_result: Dictionary) -> PackedInt32Array:
+	var row_numbers_value: Variant = GFVariantData.get_option_value(
+		parse_result,
+		"row_numbers"
+	)
+	if row_numbers_value is PackedInt32Array:
+		var row_numbers: PackedInt32Array = row_numbers_value
+		return row_numbers
+	return PackedInt32Array()
 
 
 static func _get_tabular_row_numbers(row_count: int, options: Dictionary) -> PackedInt32Array:
@@ -767,18 +801,24 @@ static func _parse_condition_directive(first_cell: String, directive_prefix: Str
 		return { "kind": &"endif" }
 	if payload == "if":
 		return {
-			"kind": &"if",
-			"symbols": PackedStringArray(),
+			"kind": &"invalid",
+			"error": "empty_condition_symbols",
 		}
-	if not payload.begins_with("if "):
+	if not payload.begins_with("if ") and not payload.begins_with("if\t"):
 		return { "kind": &"none" }
 
 	var symbols: PackedStringArray = PackedStringArray()
-	for token: String in payload.substr(3).split(" ", false):
+	var symbol_text: String = payload.substr(2).strip_edges().replace("\t", " ")
+	for token: String in symbol_text.split(" ", false):
 		var symbol: String = token.strip_edges()
 		if symbol.is_empty():
 			continue
 		var _symbol_appended: bool = symbols.append(symbol)
+	if symbols.is_empty():
+		return {
+			"kind": &"invalid",
+			"error": "empty_condition_symbols",
+		}
 	return {
 		"kind": &"if",
 		"symbols": symbols,

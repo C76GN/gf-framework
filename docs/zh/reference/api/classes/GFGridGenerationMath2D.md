@@ -85,7 +85,7 @@ static func generate_rect_maze_backtracker( grid_size: Vector2i, start_cell: Vec
 |---|---|
 | `grid_size` | 网格尺寸。 |
 | `start_cell` | 起始格子。 |
-| `is_cell_enabled` | 可用格回调，签名为 `func(cell: Vector2i) -> bool`；无效时全部格子可用。 |
+| `is_cell_enabled` | 可用格回调，签名为 \`func(cell: Vector2i) -> bool\`；无效时全部格子可用。 |
 | `options` | 生成选项。 |
 
 返回：迷宫拓扑报告。
@@ -113,7 +113,7 @@ static func generate_cellular_automata_map( grid_size: Vector2i, is_initial_aliv
 | 名称 | 说明 |
 |---|---|
 | `grid_size` | 网格尺寸。 |
-| `is_initial_alive` | 可选初始状态回调，签名为 `func(cell: Vector2i) -> bool`；无效时使用 seed 和 alive_chance 随机初始化。 |
+| `is_initial_alive` | 可选初始状态回调，签名为 \`func(cell: Vector2i) -> bool\`；无效时使用 seed 和 alive_chance 随机初始化。 |
 | `options` | 生成选项。 |
 
 返回：细胞自动机报告。

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFLevelUtility" path="addons/gf/extensions/domain/level/gf_level_utility.gd" module="extensions/domain" extends="GFUtility" classDigest="e676513609c2e5ca93fc8d9b8d830c960a646bcf11f5510cf5e7e16088617236">
+<class name="GFLevelUtility" path="addons/gf/extensions/domain/level/gf_level_utility.gd" module="extensions/domain" extends="GFUtility" classDigest="86a0462ae9dda5eca9d773ca3b57c6775f7f33f705ba4ce1d3beae3ce00c69bb">
 	<description>GFLevelUtility: 关卡流程管理工具。
 负责统一关卡数据读取、开始、重开、胜利和失败信号派发。
 默认通过 GFConfigProvider 读取静态关卡表，并可在重开关卡时执行
@@ -189,9 +189,10 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">result: 项目层结果数据。</tag>
-				<tag name="param">unlock_next: 是否解锁目录中的后续关卡。</tag>
+				<tag name="param">unlock_next: 是否额外解锁目录顺序中的相邻后续关卡；不影响条目声明的 unlocks_on_complete。</tag>
 				<tag name="param">emit_win_signal: 是否发出 level_won。</tag>
 				<tag name="schema">result: Dictionary，项目自定义关卡完成结果。</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="lose_current_level">

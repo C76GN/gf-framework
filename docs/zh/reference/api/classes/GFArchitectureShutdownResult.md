@@ -85,7 +85,7 @@ static func create( status: Status, started_at_msec: int, completed_at_msec: int
 
 | 名称 | 说明 |
 |---|---|
-| `status` | `Status` 终态。 |
+| `status` | \`Status\` 终态。 |
 | `started_at_msec` | 单调开始时间；负值归零。 |
 | `completed_at_msec` | 单调完成时间；早于开始时间时收敛到开始时间。 |
 | `module_results` | 已进入终态的模块关闭结果。 |

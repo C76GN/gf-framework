@@ -124,7 +124,6 @@ static func _build_base_state(rows: Array[Dictionary], policy: GFConfigTableMerg
 		"order": [],
 		"records": {},
 		"outer_keys": {},
-		"removed": {},
 	}
 	var order: Array = _get_state_array(state, "order")
 	var records: Dictionary = _get_state_dictionary(state, "records")
@@ -182,7 +181,6 @@ static func _apply_delete(
 		_add_issue(report, "warning", "delete_missing_record", row_key, "删除标记没有命中已有记录。")
 		return
 	var _record_removed: bool = records.erase(key)
-	_get_state_dictionary(state, "removed")[key] = true
 	_increment_report_count(report, "deleted_count")
 
 

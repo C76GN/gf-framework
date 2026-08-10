@@ -24,6 +24,8 @@ func before_each() -> void:
 
 func after_each() -> void:
 	GFAutoload.reset_tree_exit_state()
+	InstantiationLifecycleNode.pool = null
+	InstantiationLifecycleNode.restart_pool = false
 	_pool.dispose()
 	_pool = null
 	if _test_architecture != null:
@@ -69,6 +71,42 @@ func test_acquire_runs_before_add_callback_before_ready() -> void:
 	assert_true(ready_check.prepared_in_ready, "before_add 回调应先于 _ready() 执行。")
 
 
+func test_acquire_discards_candidate_when_instantiation_restarts_pool() -> void:
+	var lifecycle_scene: PackedScene = _make_instantiation_lifecycle_scene()
+	InstantiationLifecycleNode.pool = _pool
+	InstantiationLifecycleNode.restart_pool = true
+
+	var node: Node = _pool.acquire(lifecycle_scene, _parent)
+	InstantiationLifecycleNode.pool = null
+	InstantiationLifecycleNode.restart_pool = false
+
+	assert_null(node, "instantiate 重启对象池后，旧 acquire 不得发布候选。")
+	assert_eq(_parent.get_child_count(), 0, "失效 instantiate 候选不得挂到请求父节点。")
+	assert_eq(_pool.get_active_count(lifecycle_scene), 0, "重启后不得残留旧代次 active 借用。")
+	assert_eq(_pool.get_available_count(lifecycle_scene), 0, "重启后不得提交旧代次 available 候选。")
+
+
+func test_acquire_rejects_parent_queued_for_deletion() -> void:
+	var queued_parent: Node = Node.new()
+	add_child(queued_parent)
+	queued_parent.queue_free()
+
+	var node: Node = _pool.acquire(_scene, queued_parent)
+
+	assert_null(node, "已排队删除的 parent 不得接收新的借用节点。")
+	assert_push_error("[GFObjectPoolUtility] acquire 失败：parent 无效。")
+
+
+func test_before_add_queued_parent_cancels_acquire() -> void:
+	var node: Node = _pool.acquire(_scene, _parent, func(_candidate: Node) -> void:
+		_parent.queue_free()
+	)
+
+	assert_null(node, "before_add 排队删除 parent 后，旧 acquire 不得发布节点。")
+	assert_eq(_pool.get_active_count(_scene), 0, "取消 acquire 后不得保留 active 节点。")
+	assert_eq(_pool.get_available_count(_scene), 1, "取消 acquire 后候选应安全归还对象池。")
+
+
 # --- 测试：release ---
 
 ## 验证 release 后节点的 metadata 被标记为未激活。
@@ -98,6 +136,68 @@ func test_release_disables_visible_node_and_acquire_restores_it() -> void:
 	assert_eq(reused, node, "再次 acquire 应复用同一 Control。")
 	assert_true(reused.visible, "复用后 Control 应恢复可见。")
 	assert_eq(reused.process_mode, Node.PROCESS_MODE_INHERIT, "复用后应恢复原 process_mode。")
+
+
+func test_visible_setter_release_stops_stale_descendant_activation() -> void:
+	var control_scene: PackedScene = _make_visibility_release_scene()
+	var node: VisibilityReleaseControl = _visibility_release_control(
+		_pool.acquire(control_scene, _parent)
+	)
+	var child: Control = _child_control(node, "Child")
+	_pool.release(node, control_scene)
+
+	var cancelled: Node = _pool.acquire(
+		control_scene,
+		_parent,
+		func(candidate: Node) -> void:
+			var root: VisibilityReleaseControl = _visibility_release_control(candidate)
+			root.pool = _pool
+			root.pool_scene = control_scene
+			root.release_on_visibility = true
+	)
+
+	assert_null(cancelled, "visible setter 重入 release 后，旧 acquire 必须失效。")
+	assert_eq(_pool.get_active_count(control_scene), 0, "setter 重入后不得保留 active 节点。")
+	assert_eq(_pool.get_available_count(control_scene), 1, "setter 重入后节点应只归还一次。")
+	assert_false(node.visible, "重入 release 的根节点应保持隐藏。")
+	assert_false(child.visible, "旧激活遍历不得在重入 release 后重新显示子节点。")
+	assert_eq(child.process_mode, Node.PROCESS_MODE_DISABLED, "旧激活遍历不得重新启用子节点。")
+
+
+func test_release_snapshots_runtime_child_before_root_setter_mutates_it() -> void:
+	var control_scene: PackedScene = _make_control_scene()
+	var root: Control = _acquire_control(control_scene)
+	var runtime_child: Control = Control.new()
+	runtime_child.visible = true
+	root.add_child(runtime_child)
+	var _connection_error: Error = root.visibility_changed.connect(func() -> void:
+		if not root.visible:
+			runtime_child.visible = false
+	) as Error
+
+	_pool.release(root, control_scene)
+	var reused: Control = _acquire_control(control_scene)
+
+	assert_eq(reused, root, "快照测试应复用同一根节点。")
+	assert_true(runtime_child.visible, "根 setter 修改子节点前必须先保存整棵树的原始状态。")
+
+
+func test_state_phase_snapshots_sibling_added_by_prepare_getter() -> void:
+	var control_scene: PackedScene = _make_control_scene()
+	var root: Control = _acquire_control(control_scene)
+	var spawner: PrepareSiblingSpawner = PrepareSiblingSpawner.new()
+	spawner.spawn_parent = root
+	root.add_child(spawner)
+
+	_pool.release(root, control_scene)
+	var spawned: Control = spawner.spawned
+	assert_not_null(spawned, "PREPARE getter 应动态添加测试 sibling。")
+	assert_false(spawned.visible, "release 状态阶段应隐藏动态 sibling。")
+
+	var reused: Control = _acquire_control(control_scene)
+
+	assert_eq(reused, root, "动态 sibling 快照测试应复用同一根节点。")
+	assert_true(spawned.visible, "状态阶段首次看到 sibling 时必须补采原始快照。")
 
 
 func test_release_manages_runtime_internal_children() -> void:
@@ -156,6 +256,175 @@ func test_acquire_release_calls_node_hooks() -> void:
 	var reused: HookedNode = _acquire_hooked_node(hooked_scene)
 	assert_eq(reused, node, "hook 测试应复用同一节点。")
 	assert_eq(reused.acquire_count, 2, "复用 acquire 应再次调用 on_gf_pool_acquire。")
+
+
+func test_reused_node_before_add_release_wins_without_double_loan() -> void:
+	var node: Node = _pool.acquire(_scene, _parent)
+	_pool.release(node, _scene)
+
+	var cancelled_acquire: Node = _pool.acquire(
+		_scene,
+		_parent,
+		func(reused_node: Node) -> void:
+			_pool.release(reused_node, _scene)
+	)
+
+	assert_null(cancelled_acquire, "before_add 已归还复用节点时，外层 acquire 不得发布同一借用。")
+	assert_eq(_pool.get_active_count(_scene), 0, "callback 归还后不应保留 active 节点。")
+	assert_eq(_pool.get_available_count(_scene), 1, "callback 归还后节点应恰好进入 available 一次。")
+
+	var next_acquire: Node = _pool.acquire(_scene, _parent)
+	assert_eq(next_acquire, node, "下一次 acquire 可以安全复用已归还节点。")
+	assert_eq(_pool.get_active_count(_scene), 1, "复用节点只能有一个 active borrower。")
+	assert_eq(_pool.get_available_count(_scene), 0, "active 节点不能同时留在 available。")
+
+
+func test_prewarmed_candidate_before_add_init_discards_stale_node() -> void:
+	_pool.prewarm(_scene, _parent, 1)
+	var candidate: Node = _parent.get_child(0)
+
+	var cancelled_acquire: Node = _pool.acquire(
+		_scene,
+		_parent,
+		func(_reused_node: Node) -> void:
+			_pool.init()
+	)
+
+	assert_null(cancelled_acquire, "before_add 重启池后，旧预热候选不得发布。")
+	assert_eq(_parent.get_child_count(), 0, "跨生命周期候选必须从外部 parent 脱离。")
+	assert_true(candidate.is_queued_for_deletion(), "跨生命周期候选必须被废弃。")
+	assert_eq(_pool.get_active_count(_scene), 0, "新生命周期不得追踪旧候选。")
+	assert_eq(_pool.get_available_count(_scene), 0, "旧候选不得进入新生命周期 available。")
+
+
+func test_node_acquire_hook_release_wins_without_double_loan() -> void:
+	var hooked_scene: PackedScene = _make_hooked_scene()
+	var node: HookedNode = _acquire_hooked_node(hooked_scene)
+	_pool.release(node, hooked_scene)
+	node.pool = _pool
+	node.pool_scene = hooked_scene
+	node.release_on_acquire = true
+
+	var cancelled_acquire: Node = _pool.acquire(hooked_scene, _parent)
+
+	assert_null(cancelled_acquire, "acquire hook 已归还节点时，外层 acquire 不得发布同一借用。")
+	assert_eq(_pool.get_active_count(hooked_scene), 0, "hook 归还后不应保留 active 节点。")
+	assert_eq(_pool.get_available_count(hooked_scene), 1, "hook 归还后节点应恰好进入 available 一次。")
+
+	node.release_on_acquire = false
+	var next_acquire: Node = _pool.acquire(hooked_scene, _parent)
+	assert_eq(next_acquire, node, "下一次 acquire 可以安全复用 hook 已归还节点。")
+	assert_eq(_pool.get_active_count(hooked_scene), 1, "复用节点只能有一个 active borrower。")
+	assert_eq(_pool.get_available_count(hooked_scene), 0, "active 节点不能同时留在 available。")
+	node.pool = null
+	node.pool_scene = null
+
+
+func test_acquire_hook_release_stops_stale_descendant_acquire_hook() -> void:
+	var hooked_scene: PackedScene = _make_nested_hooked_scene()
+	var node: HookedNode = _acquire_hooked_node(hooked_scene)
+	var child: HookedNode = _child_hooked_node(node, "Child")
+	_pool.release(node, hooked_scene)
+	node.acquire_count = 0
+	node.release_count = 0
+	child.acquire_count = 0
+	child.release_count = 0
+	node.pool = _pool
+	node.pool_scene = hooked_scene
+	node.release_on_acquire = true
+
+	var cancelled_acquire: Node = _pool.acquire(hooked_scene, _parent)
+
+	assert_null(cancelled_acquire, "根 hook 已归还节点时，旧 acquire 必须失效。")
+	assert_eq(node.acquire_count, 1, "根节点应只执行触发归还的 acquire hook。")
+	assert_eq(node.release_count, 1, "重入 release 应执行根节点 release hook。")
+	assert_eq(child.release_count, 1, "重入 release 应完成子节点 release hook。")
+	assert_eq(child.acquire_count, 0, "旧 acquire 失效后不得继续调用子节点 acquire hook。")
+	node.release_on_acquire = false
+	node.pool = null
+	node.pool_scene = null
+
+
+func test_internal_acquire_hook_queued_parent_stops_public_and_child_hooks() -> void:
+	var hooked_scene: PackedScene = _make_lifecycle_hook_scene()
+	var event_log: Array[StringName] = []
+
+	var cancelled_acquire: Node = _pool.acquire(
+		hooked_scene,
+		_parent,
+		func(candidate: Node) -> void:
+			if not (candidate is LifecycleHookNode):
+				return
+			var root: LifecycleHookNode = candidate
+			var child: LifecycleHookNode = _child_lifecycle_hook_node(root, "Child")
+			root.acquire_event_log = event_log
+			root.acquire_event_label = &"root"
+			root.parent_to_queue_on_internal_acquire = _parent
+			child.acquire_event_log = event_log
+			child.acquire_event_label = &"child"
+	)
+
+	assert_null(cancelled_acquire, "internal acquire hook 排队删除 parent 后旧借用必须失效。")
+	assert_eq(
+		event_log,
+		[&"root_internal_acquire"],
+		"parent 失效后不得继续根 public 或子节点 acquire hook。"
+	)
+	assert_eq(_pool.get_active_count(hooked_scene), 0, "失效 acquire 不得保留 active 节点。")
+	assert_eq(_pool.get_available_count(hooked_scene), 1, "同生命周期候选应安全归还池中。")
+
+
+func test_node_release_hook_reentry_is_rejected_without_duplicate_available_entry() -> void:
+	var hooked_scene: PackedScene = _make_hooked_scene()
+	var node: HookedNode = _acquire_hooked_node(hooked_scene)
+	node.pool = _pool
+	node.pool_scene = hooked_scene
+	node.release_on_release = true
+
+	_pool.release(node, hooked_scene)
+
+	assert_eq(node.release_count, 1, "release hook 的同项重入必须在再次调用 hook 前被拒绝。")
+	assert_eq(_pool.get_active_count(hooked_scene), 0, "release 完成后不应保留 active 节点。")
+	assert_eq(_pool.get_available_count(hooked_scene), 1, "节点只能进入 available 一次。")
+	node.pool = null
+	node.pool_scene = null
+
+
+func test_release_hook_dispose_stops_internal_and_descendant_hooks() -> void:
+	var hooked_scene: PackedScene = _make_lifecycle_hook_scene()
+	var node: LifecycleHookNode = _acquire_lifecycle_hook_node(hooked_scene)
+	var child: LifecycleHookNode = _child_lifecycle_hook_node(node, "Child")
+	var event_log: Array[StringName] = []
+	node.event_log = event_log
+	node.event_label = &"root"
+	node.pool = _pool
+	node.dispose_on_release = true
+	child.event_log = event_log
+	child.event_label = &"child"
+
+	_pool.release(node, hooked_scene)
+
+	assert_eq(
+		event_log,
+		[&"root_public_release"],
+		"dispose 使 release 失效后，不得继续根 internal 或子节点 hook。"
+	)
+	assert_eq(_pool.get_active_count(hooked_scene), 0, "dispose 后不得保留 active 节点。")
+	assert_eq(_pool.get_available_count(hooked_scene), 0, "dispose 后不得提交 available 节点。")
+
+
+func test_release_hook_init_discards_untracked_root() -> void:
+	var hooked_scene: PackedScene = _make_lifecycle_hook_scene()
+	var node: LifecycleHookNode = _acquire_lifecycle_hook_node(hooked_scene)
+	node.pool = _pool
+	node.init_on_release = true
+
+	_pool.release(node, hooked_scene)
+
+	assert_eq(_parent.get_child_count(), 0, "release hook 重启池后必须移除外部 parent 下的旧根节点。")
+	assert_true(node.is_queued_for_deletion(), "release 失效后的跨生命周期根节点必须被废弃。")
+	assert_eq(_pool.get_active_count(hooked_scene), 0, "新生命周期不得追踪旧 active 节点。")
+	assert_eq(_pool.get_available_count(hooked_scene), 0, "旧节点不得进入新生命周期 available。")
 
 
 func test_pooled_controller_events_pause_on_release_and_resume_on_acquire() -> void:
@@ -227,6 +496,30 @@ func test_prewarm_sets_available_count() -> void:
 	_pool.prewarm(_scene, _parent, 5)
 
 	assert_eq(_pool.get_available_count(_scene), 5, "prewarm(5) 后可用节点数应为 5。")
+
+
+func test_prewarm_internal_release_dispose_stops_descendant_hook() -> void:
+	var hooked_scene: PackedScene = _make_lifecycle_hook_scene()
+	var event_log: Array[StringName] = []
+	_pool.prewarm(hooked_scene, _parent, 1, func(candidate: Node) -> void:
+		if not (candidate is LifecycleHookNode):
+			return
+		var node: LifecycleHookNode = candidate
+		var child: LifecycleHookNode = _child_lifecycle_hook_node(node, "Child")
+		node.event_log = event_log
+		node.event_label = &"root"
+		node.pool = _pool
+		node.dispose_on_internal_release = true
+		child.event_log = event_log
+		child.event_label = &"child"
+	)
+
+	assert_eq(
+		event_log,
+		[&"root_internal_release"],
+		"prewarm 的根 internal hook dispose 后不得继续子节点 hook。"
+	)
+	assert_eq(_pool.get_available_count(hooked_scene), 0, "失效 prewarm 不得提交候选。")
 
 
 func test_prewarm_rejects_invalid_scene() -> void:
@@ -644,11 +937,55 @@ func _make_hooked_scene() -> PackedScene:
 	return scene
 
 
+func _make_nested_hooked_scene() -> PackedScene:
+	var root: HookedNode = HookedNode.new()
+	var child: HookedNode = HookedNode.new()
+	child.name = "Child"
+	root.add_child(child)
+	child.owner = root
+	var scene: PackedScene = PackedScene.new()
+	var _pack_error: Error = scene.pack(root)
+	root.free()
+	return scene
+
+
+func _make_lifecycle_hook_scene() -> PackedScene:
+	var root: LifecycleHookNode = LifecycleHookNode.new()
+	var child: LifecycleHookNode = LifecycleHookNode.new()
+	child.name = "Child"
+	root.add_child(child)
+	child.owner = root
+	var scene: PackedScene = PackedScene.new()
+	var _pack_error: Error = scene.pack(root)
+	root.free()
+	return scene
+
+
 func _make_ready_check_scene() -> PackedScene:
 	var node: ReadyCheckNode = ReadyCheckNode.new()
 	var scene: PackedScene = PackedScene.new()
 	var _pack_error: Error = scene.pack(node)
 	node.free()
+	return scene
+
+
+func _make_instantiation_lifecycle_scene() -> PackedScene:
+	var node: InstantiationLifecycleNode = InstantiationLifecycleNode.new()
+	var scene: PackedScene = PackedScene.new()
+	var _pack_error: Error = scene.pack(node)
+	node.free()
+	return scene
+
+
+func _make_visibility_release_scene() -> PackedScene:
+	var root: VisibilityReleaseControl = VisibilityReleaseControl.new()
+	var child: Control = Control.new()
+	child.name = "Child"
+	root.add_child(child)
+	child.owner = root
+	var scene: PackedScene = PackedScene.new()
+	var _pack_error: Error = scene.pack(root)
+	root.free()
 	return scene
 
 
@@ -683,10 +1020,34 @@ func _child_control(root: Node, child_path: NodePath) -> Control:
 	return null
 
 
+func _child_hooked_node(root: Node, child_path: NodePath) -> HookedNode:
+	var node: Node = root.get_node(child_path)
+	if node is HookedNode:
+		var hooked_node: HookedNode = node
+		return hooked_node
+	return null
+
+
+func _child_lifecycle_hook_node(root: Node, child_path: NodePath) -> LifecycleHookNode:
+	var node: Node = root.get_node(child_path)
+	if node is LifecycleHookNode:
+		var hooked_node: LifecycleHookNode = node
+		return hooked_node
+	return null
+
+
 func _acquire_hooked_node(scene: PackedScene) -> HookedNode:
 	var node: Node = _pool.acquire(scene, _parent)
 	if node is HookedNode:
 		var hooked_node: HookedNode = node
+		return hooked_node
+	return null
+
+
+func _acquire_lifecycle_hook_node(scene: PackedScene) -> LifecycleHookNode:
+	var node: Node = _pool.acquire(scene, _parent)
+	if node is LifecycleHookNode:
+		var hooked_node: LifecycleHookNode = node
 		return hooked_node
 	return null
 
@@ -706,6 +1067,13 @@ func _ready_check_node(value: Variant) -> ReadyCheckNode:
 	return null
 
 
+func _visibility_release_control(value: Variant) -> VisibilityReleaseControl:
+	if value is VisibilityReleaseControl:
+		var control: VisibilityReleaseControl = value
+		return control
+	return null
+
+
 func _pool_debug_key(scene: PackedScene) -> String:
 	return "PackedScene:%d" % scene.get_instance_id()
 
@@ -715,12 +1083,97 @@ func _pool_debug_key(scene: PackedScene) -> String:
 class HookedNode extends Node:
 	var acquire_count: int = 0
 	var release_count: int = 0
+	var pool: GFObjectPoolUtility = null
+	var pool_scene: PackedScene = null
+	var release_on_acquire: bool = false
+	var release_on_release: bool = false
+	var release_reentered: bool = false
 
 	func on_gf_pool_acquire() -> void:
 		acquire_count += 1
+		if release_on_acquire and pool != null:
+			pool.release(self, pool_scene)
 
 	func on_gf_pool_release() -> void:
 		release_count += 1
+		if release_on_release and not release_reentered and pool != null:
+			release_reentered = true
+			pool.release(self, pool_scene)
+
+
+class LifecycleHookNode extends Node:
+	var event_log: Array[StringName] = []
+	var event_label: StringName = &""
+	var acquire_event_log: Array[StringName] = []
+	var acquire_event_label: StringName = &""
+	var pool: GFObjectPoolUtility = null
+	var parent_to_queue_on_internal_acquire: Node = null
+	var dispose_on_release: bool = false
+	var dispose_on_internal_release: bool = false
+	var init_on_release: bool = false
+
+	func _gf_on_object_pool_acquire() -> void:
+		acquire_event_log.append(StringName("%s_internal_acquire" % String(acquire_event_label)))
+		if parent_to_queue_on_internal_acquire != null:
+			parent_to_queue_on_internal_acquire.queue_free()
+
+	func on_gf_pool_acquire() -> void:
+		acquire_event_log.append(StringName("%s_public_acquire" % String(acquire_event_label)))
+
+	func on_gf_pool_release() -> void:
+		event_log.append(StringName("%s_public_release" % String(event_label)))
+		if pool != null:
+			if init_on_release:
+				pool.init()
+			elif dispose_on_release:
+				pool.dispose()
+
+	func _gf_on_object_pool_release() -> void:
+		event_log.append(StringName("%s_internal_release" % String(event_label)))
+		if dispose_on_internal_release and pool != null:
+			pool.dispose()
+
+
+class InstantiationLifecycleNode extends Node:
+	static var pool: GFObjectPoolUtility = null
+	static var restart_pool: bool = false
+
+	func _init() -> void:
+		if pool == null:
+			return
+		pool.dispose()
+		if restart_pool:
+			pool.init()
+
+
+class VisibilityReleaseControl extends Control:
+	var pool: GFObjectPoolUtility = null
+	var pool_scene: PackedScene = null
+	var release_on_visibility: bool = false
+	var release_reentered: bool = false
+
+	func _init() -> void:
+		var _connection_error: Error = visibility_changed.connect(_on_visibility_changed) as Error
+
+	func _on_visibility_changed() -> void:
+		if not release_on_visibility or release_reentered or pool == null:
+			return
+		release_reentered = true
+		pool.release(self, pool_scene)
+
+
+class PrepareSiblingSpawner extends Node:
+	var spawn_parent: Node = null
+	var spawned: Control = null
+	var disabled: bool:
+		get:
+			if spawned == null and spawn_parent != null:
+				spawned = Control.new()
+				spawned.visible = true
+				spawn_parent.add_child(spawned)
+			return false
+		set(_value):
+			pass
 
 
 class ReadyCheckNode extends Node:

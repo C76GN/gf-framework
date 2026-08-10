@@ -47,6 +47,58 @@ func test_none_expression_blocks_matching_children() -> void:
 	assert_eq(GFVariantData.get_option_string(report, "reason"), "blocked_child_matched", "失败原因应说明禁止子表达式被命中。")
 
 
+func test_none_expression_fails_closed_for_invalid_children() -> void:
+	var null_expression: GFTagExpression = GFTagExpression.new()
+	null_expression.operator = GFTagExpression.Operator.NONE
+	null_expression.expressions.append(null)
+	var foreign_expression: GFTagExpression = GFTagExpression.new()
+	foreign_expression.operator = GFTagExpression.Operator.NONE
+	foreign_expression.expressions.append(Resource.new())
+	var cyclic_expression: GFTagExpression = GFTagExpression.new()
+	cyclic_expression.operator = GFTagExpression.Operator.NONE
+	cyclic_expression.expressions.append(cyclic_expression)
+
+	for expression: GFTagExpression in [null_expression, foreign_expression, cyclic_expression]:
+		var report: Dictionary = expression.get_match_report([])
+		assert_false(GFVariantData.get_option_bool(report, "ok", true), "NONE 不得把非法子表达式解释为普通未命中。")
+		assert_false(GFVariantData.get_option_bool(report, "valid", true), "报告应区分结构无效与合法未命中。")
+		assert_eq(GFVariantData.get_option_array(report, "invalid_indices"), [0], "报告应保留非法子表达式索引。")
+
+	cyclic_expression.expressions.clear()
+
+
+func test_any_expression_does_not_ignore_invalid_children_after_a_match() -> void:
+	var unconditional_match: GFTagExpression = GFTagExpression.new()
+	var expression: GFTagExpression = GFTagExpression.new()
+	expression.operator = GFTagExpression.Operator.ANY
+	expression.expressions.append(unconditional_match)
+	expression.expressions.append(Resource.new())
+
+	var report: Dictionary = expression.get_match_report([])
+
+	assert_false(GFVariantData.get_option_bool(report, "ok", true), "ANY 存在非法子项时不得因另一项命中而失败开放。")
+	assert_false(GFVariantData.get_option_bool(report, "valid", true), "ANY 应把结构有效性与 matched 分开。")
+	assert_eq(GFVariantData.get_option_array(report, "matched_indices"), [0], "报告仍应保留合法命中证据。")
+	assert_eq(GFVariantData.get_option_array(report, "invalid_indices"), [1], "报告应指出被拒绝的非法子项。")
+
+
+func test_expression_dictionary_distinguishes_missing_and_unknown_operator() -> void:
+	var missing_operator: GFTagExpression = GFTagExpression.from_dictionary({})
+	var unknown_text: GFTagExpression = GFTagExpression.from_dictionary({
+		"operator": "deny_typo",
+	})
+	var unknown_number: GFTagExpression = GFTagExpression.from_dictionary({
+		"operator": 99,
+	})
+
+	assert_true(missing_operator.matches([]), "缺失 operator 应保留既有 QUERY 默认。")
+	for expression: GFTagExpression in [unknown_text, unknown_number]:
+		var report: Dictionary = expression.get_match_report([])
+		assert_false(GFVariantData.get_option_bool(report, "ok", true), "字段存在但 operator 非法时必须失败关闭。")
+		assert_false(GFVariantData.get_option_bool(report, "valid", true), "未知 operator 应标记结构无效。")
+		assert_eq(GFVariantData.get_option_string(report, "reason"), "unknown_operator", "未知 operator 应有稳定原因。")
+
+
 func test_expression_dictionary_roundtrip_preserves_nested_logic() -> void:
 	var enemy: GFTagExpression = GFTagExpression.from_query(_make_query([&"team.enemy"]))
 	var ally: GFTagExpression = GFTagExpression.from_query(_make_query([&"team.ally"]))
@@ -151,9 +203,43 @@ func test_expression_duplicate_preserves_cycle_guard() -> void:
 	var report: Dictionary = copy.get_match_report([&"team.enemy"])
 
 	assert_false(GFVariantData.get_option_bool(report, "ok"), "复制循环表达式不应无限递归或误判通过。")
-	assert_eq(GFVariantData.get_option_string(report, "reason"), "child_failed", "循环子节点失败应汇总为子表达式失败。")
+	assert_false(GFVariantData.get_option_bool(report, "valid", true), "循环子节点应使父表达式结构无效。")
+	assert_eq(GFVariantData.get_option_string(report, "reason"), "invalid_child", "循环子节点应按无效结构汇总。")
 	expression.expressions.clear()
 	copy.expressions.clear()
+
+
+func test_expression_match_report_fails_closed_at_depth_limit() -> void:
+	var root: GFTagExpression = GFTagExpression.new()
+	var current: GFTagExpression = root
+	for _index: int in range(48):
+		current.operator = GFTagExpression.Operator.ALL
+		var child: GFTagExpression = GFTagExpression.new()
+		current.expressions.append(child)
+		current = child
+
+	var report: Dictionary = root.get_match_report([])
+	var cursor: Dictionary = report
+	var found_depth_limit: bool = false
+	for _index: int in range(48):
+		if GFVariantData.get_option_string(cursor, "reason") == "depth_limit_exceeded":
+			found_depth_limit = true
+			break
+		var child_reports_value: Variant = cursor.get("child_reports", [])
+		if not child_reports_value is Array:
+			break
+		var child_reports: Array = child_reports_value
+		if child_reports.is_empty():
+			break
+		var child_report_value: Variant = child_reports[0]
+		if not child_report_value is Dictionary:
+			break
+		cursor = child_report_value
+
+	assert_false(GFVariantData.get_option_bool(report, "ok", true), "过深表达式不得继续递归或匹配通过。")
+	assert_false(GFVariantData.get_option_bool(report, "valid", true), "过深表达式应标记结构无效。")
+	assert_true(found_depth_limit, "嵌套报告应保留 depth_limit_exceeded 根因。")
+	root.expressions.clear()
 
 
 func test_expression_cycle_guard_reports_failure() -> void:

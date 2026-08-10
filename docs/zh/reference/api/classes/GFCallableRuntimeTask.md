@@ -81,7 +81,7 @@ var physics_tick_callable: Callable = Callable()
 var finished_callable: Callable = Callable()
 ```
 
-完成判断回调，签名为 [code]func(task: GFCallableRuntimeTask, scheduler: GFRuntimeTaskScheduler) -> bool[/code]。
+完成判断回调，签名为 [code]func(task: GFCallableRuntimeTask, scheduler: GFRuntimeTaskScheduler) -> bool[/code]。 非 bool 返回值会在每个调度代至多告警一次，并按 false 失败关闭。
 
 <a id="member-gfcallableruntimetask-properties-end_callable"></a>
 

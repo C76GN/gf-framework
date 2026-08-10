@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFJobQueueUtility" path="addons/gf/standard/utilities/jobs/gf_job_queue_utility.gd" module="standard" extends="GFUtility" classDigest="61536adabbf817562cec04650c8f4a3ace1799457c09544e508fd52227c1956f">
+<class name="GFJobQueueUtility" path="addons/gf/standard/utilities/jobs/gf_job_queue_utility.gd" module="standard" extends="GFUtility" classDigest="a1ae30f48f1adbad04784e859787d1f7048368ffb19117900ca4662dcce5aa72">
 	<description>GFJobQueueUtility: 通用任务队列工具。
 提供等待、激活、完成、失败、取消、进度和调试快照能力。
 队列不绑定执行线程或业务语义，具体执行由调用方决定。</description>
@@ -75,6 +75,14 @@
 			<description>保留的失败任务数量。</description>
 			<tags>
 				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="property" name="max_cancelled_jobs">
+			<signature>var max_cancelled_jobs: int = 64</signature>
+			<description>保留的取消任务数量。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 	</properties>
@@ -234,7 +242,8 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">调试快照字典。</tag>
-				<tag name="schema">return: Dictionary，包含 job_count、queue_count、completed_count、failed_count，以及以队列名为键的 queues。</tag>
+				<tag name="schema">return: Dictionary，包含 job_count、queue_count、completed_count、failed_count、cancelled_count，以及以队列名为键的 queues。</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 	</methods>

@@ -46,6 +46,22 @@ func test_section_cache_deep_merges_and_can_include_clean_sections() -> void:
 	assert_false(cache.is_dirty("world"), "mark_clean_after_build 应清理脏状态。")
 
 
+func test_section_cache_composite_scope_ids_use_call_time_value_identity() -> void:
+	var cache: GFStorageSectionCache = GFStorageSectionCache.new()
+	var mutable_scope: Array = ["profile", 1]
+	assert_true(cache.write_section(mutable_scope, &"stats", { "hp": 10 }), "复合值可作为 value key 写入。")
+
+	mutable_scope.append("changed")
+	assert_false(cache.has_section(mutable_scope, &"stats"), "修改后的复合值应表示另一个 scope。")
+	assert_true(cache.has_section(["profile", 1], &"stats"), "原 value key 可由同值重建，不会成为失联记录。")
+	assert_true(cache.evict_scope(["profile", 1]), "同值重建的 scope 应能定向驱逐原记录。")
+	assert_eq(
+		GFVariantData.get_option_int(cache.get_debug_snapshot(), "scope_count"),
+		0,
+		"驱逐原 value key 后不应遗留 scope。"
+	)
+
+
 func test_storage_backend_capability_report_lists_known_data() -> void:
 	var backend: MemoryStorageBackend = MemoryStorageBackend.new()
 	backend.set_record("a.json", { "value": 1 })

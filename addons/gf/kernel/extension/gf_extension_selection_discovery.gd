@@ -16,6 +16,27 @@ extends RefCounted
 
 # --- 常量 ---
 
+## 启用选择完整有效。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+const STATUS_VALID: StringName = &"valid"
+
+## 启用选择包含可隔离的问题，但已验证的已知扩展路径仍可使用。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+const STATUS_PARTIAL: StringName = &"partial"
+
+## Manifest 图无效，任何扩展路径都不得使用。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+const STATUS_INVALID: StringName = &"invalid"
+
 const _TOOL_CONTRIBUTION_FILE_NAME: String = "gf_tool_contribution.json"
 const _MANIFEST_PATH_FIELDS: Array[String] = [
 	"access_generator_extension_paths",
@@ -58,22 +79,34 @@ static var _cache_revision: int = 0
 ## [br]
 ## @param options: 发现选项。
 ## [br]
-## @schema options: Dictionary，支持 force_refresh、builtin_extension_ids 和 manifest_load_errors。
+## @schema options: Dictionary，支持 force_refresh、builtin_extension_ids、manifest_load_errors、max_json_file_bytes、max_json_total_bytes 和 max_json_depth；JSON 预算只能收紧框架硬上限。
 ## [br]
 ## @return 扩展启用选择快照。
 ## [br]
-## @schema return: Dictionary，包含 ok、configured_ids、resolved_ids、unknown_enabled_ids、enabled_manifests、disabled_manifests、graph_report、manifest_paths、contribution_paths、paths、tool_contribution_errors、signature、signature_hash 和 revision。
+## @schema return: Dictionary，包含 ok、status、partial、paths_allowed、configured_ids、resolved_ids、unknown_enabled_ids、enabled_manifests、disabled_manifests、graph_report、manifest_paths、contribution_paths、paths、tool_contribution_errors、signature、signature_hash 和 revision。
 static func get_snapshot(
 	manifests: Array[GFExtensionManifest] = [],
 	configured_ids: Array[String] = [],
 	options: Dictionary = {}
 ) -> Dictionary:
-	var signature: Dictionary = make_discovery_signature(manifests, configured_ids, options)
+	var budget_state: Dictionary = _GF_EXTENSION_JSON_FILE_READER_SCRIPT.make_budget_state(options)
+	var signature: Dictionary = make_discovery_signature(
+		manifests,
+		configured_ids,
+		options,
+		budget_state
+	)
 	var force_refresh: bool = _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(options, "force_refresh", false)
 	if not force_refresh and _has_snapshot_cache and _snapshot_matches_signature(signature):
 		return _duplicate_snapshot(_snapshot_cache)
 
-	_store_snapshot(_make_snapshot(manifests, configured_ids, options, signature))
+	_store_snapshot(_make_snapshot(
+		manifests,
+		configured_ids,
+		options,
+		signature,
+		budget_state
+	))
 	return _duplicate_snapshot(_snapshot_cache)
 
 
@@ -268,26 +301,42 @@ static func make_manifest_graph_report(
 ## [br]
 ## @param options: 签名选项。
 ## [br]
-## @schema options: Dictionary，支持 builtin_extension_ids 和 manifest_load_errors。
+## @schema options: Dictionary，支持 builtin_extension_ids、manifest_load_errors、max_json_file_bytes、max_json_total_bytes 和 max_json_depth。
+## [br]
+## @param budget_state: 同一次发现操作共享的累计 JSON 预算。
+## [br]
+## @schema budget_state: Dictionary，由 GFExtensionJsonFileReader.make_budget_state() 创建并在签名与解析时原地更新。
 ## [br]
 ## @return 发现签名。
 ## [br]
-## @schema return: Dictionary containing manifest_tokens, configured_ids, builtin_extension_ids, tool_contribution_files, manifest_load_errors, and hash.
+## @schema return: Dictionary containing manifest_tokens, configured_ids, builtin_extension_ids, tool_contribution_files, manifest_load_errors, json_limits, and hash.
 static func make_discovery_signature(
 	manifests: Array[GFExtensionManifest] = [],
 	configured_ids: Array[String] = [],
-	options: Dictionary = {}
+	options: Dictionary = {},
+	budget_state: Dictionary = {}
 ) -> Dictionary:
-	var tool_contribution_files: Array[Dictionary] = _make_tool_contribution_file_signatures(manifests)
+	if budget_state.is_empty():
+		budget_state.merge(
+			_GF_EXTENSION_JSON_FILE_READER_SCRIPT.make_budget_state(options),
+			true
+		)
+	var tool_contribution_files: Array[Dictionary] = _make_tool_contribution_file_signatures(
+		manifests,
+		options,
+		budget_state
+	)
 	var manifest_load_errors: Array[Dictionary] = _get_issue_records_from_value(
 		_GF_VARIANT_ACCESS_SCRIPT.get_option_value(options, "manifest_load_errors", [])
 	)
+	var json_limits: Dictionary = _GF_EXTENSION_JSON_FILE_READER_SCRIPT.get_limit_policy(options)
 	var signature_payload: Dictionary = {
 		"manifest_tokens": _make_manifest_tokens(manifests),
 		"configured_ids": _sorted_unique(configured_ids),
 		"builtin_extension_ids": _get_builtin_extension_ids(options),
 		"tool_contribution_files": tool_contribution_files,
 		"manifest_load_errors": manifest_load_errors,
+		"json_limits": json_limits,
 	}
 	return {
 		"manifest_tokens": _make_manifest_tokens(manifests),
@@ -295,6 +344,7 @@ static func make_discovery_signature(
 		"builtin_extension_ids": _get_builtin_extension_ids(options),
 		"tool_contribution_files": tool_contribution_files,
 		"manifest_load_errors": manifest_load_errors,
+		"json_limits": json_limits,
 		"hash": JSON.stringify(signature_payload).sha256_text(),
 	}
 
@@ -305,7 +355,8 @@ static func _make_snapshot(
 	manifests: Array[GFExtensionManifest],
 	configured_ids: Array[String],
 	options: Dictionary,
-	signature: Dictionary
+	signature: Dictionary,
+	budget_state: Dictionary
 ) -> Dictionary:
 	var source_manifests: Array[GFExtensionManifest] = _duplicate_manifest_array(manifests)
 	var builtin_ids: Array[String] = _get_builtin_extension_ids(options)
@@ -337,11 +388,21 @@ static func _make_snapshot(
 	var manifest_paths: Dictionary = _collect_manifest_path_dictionary(enabled_manifests)
 	var contribution_paths: Dictionary = _collect_tool_contribution_path_dictionary(
 		enabled_manifests,
-		tool_contribution_errors
+		tool_contribution_errors,
+		options,
+		budget_state
 	)
 	var paths: Dictionary = _merge_path_dictionaries(manifest_paths, contribution_paths)
+	var status: StringName = STATUS_VALID
+	if not graph_ok:
+		status = STATUS_INVALID
+	elif not unknown_enabled_ids.is_empty() or not tool_contribution_errors.is_empty():
+		status = STATUS_PARTIAL
 	return {
-		"ok": graph_ok and unknown_enabled_ids.is_empty(),
+		"ok": status == STATUS_VALID,
+		"status": status,
+		"partial": status == STATUS_PARTIAL,
+		"paths_allowed": graph_ok,
 		"configured_ids": normalized_configured_ids,
 		"resolved_ids": resolved_ids,
 		"unknown_enabled_ids": unknown_enabled_ids,
@@ -414,7 +475,9 @@ static func _collect_manifest_path_dictionary(manifests: Array[GFExtensionManife
 
 static func _collect_tool_contribution_path_dictionary(
 	manifests: Array[GFExtensionManifest],
-	errors: Array[Dictionary]
+	errors: Array[Dictionary],
+	options: Dictionary,
+	budget_state: Dictionary
 ) -> Dictionary:
 	var result: Dictionary = _make_empty_path_dictionary(_GF_EXTENSION_TOOL_CONTRIBUTION_SCRIPT.PATH_FIELDS)
 	for manifest: GFExtensionManifest in manifests:
@@ -424,7 +487,8 @@ static func _collect_tool_contribution_path_dictionary(
 
 		var json_report: Dictionary = _GF_EXTENSION_JSON_FILE_READER_SCRIPT.read_object_report(
 			contribution_path,
-			_make_tool_contribution_json_reader_options()
+			_make_tool_contribution_json_reader_options(options),
+			budget_state
 		)
 		if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(json_report, "ok", false):
 			errors.append(_make_tool_contribution_error_record(
@@ -578,17 +642,23 @@ static func _make_tool_contribution_error_record(
 	}
 
 
-static func _make_tool_contribution_json_reader_options() -> Dictionary:
-	return {
+static func _make_tool_contribution_json_reader_options(options: Dictionary = {}) -> Dictionary:
+	var reader_options: Dictionary = options.duplicate(true)
+	reader_options.merge({
 		"empty_path_error": "tool contribution path is empty",
 		"open_error_prefix": "could not open tool contribution",
 		"read_error_prefix": "could not read tool contribution",
 		"parse_error_prefix": "could not parse tool contribution",
 		"root_type_error": "tool contribution must be a JSON object",
-	}
+	}, true)
+	return reader_options
 
 
-static func _make_tool_contribution_file_signatures(manifests: Array[GFExtensionManifest]) -> Array[Dictionary]:
+static func _make_tool_contribution_file_signatures(
+	manifests: Array[GFExtensionManifest],
+	options: Dictionary,
+	budget_state: Dictionary
+) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	var paths: Array[String] = []
 	for manifest: GFExtensionManifest in manifests:
@@ -598,30 +668,12 @@ static func _make_tool_contribution_file_signatures(manifests: Array[GFExtension
 		paths.append(contribution_path)
 	paths.sort()
 	for contribution_path: String in paths:
-		result.append(_make_file_signature(contribution_path))
+		result.append(_GF_EXTENSION_JSON_FILE_READER_SCRIPT.make_file_signature(
+			contribution_path,
+			options,
+			budget_state
+		))
 	return result
-
-
-static func _make_file_signature(path: String) -> Dictionary:
-	var normalized_path: String = _GF_PATH_TOOLS.normalize_resource_path(path)
-	var source_file: FileAccess = FileAccess.open(normalized_path, FileAccess.READ)
-	if source_file == null:
-		return {
-			"source_path": normalized_path,
-			"exists": false,
-			"size_bytes": 0,
-			"content_sha256": "",
-		}
-
-	var source_text: String = source_file.get_as_text()
-	var size_bytes: int = source_file.get_length()
-	source_file.close()
-	return {
-		"source_path": normalized_path,
-		"exists": true,
-		"size_bytes": size_bytes,
-		"content_sha256": source_text.sha256_text(),
-	}
 
 
 static func _make_manifest_tokens(manifests: Array[GFExtensionManifest]) -> Array[String]:
@@ -630,18 +682,10 @@ static func _make_manifest_tokens(manifests: Array[GFExtensionManifest]) -> Arra
 		if manifest == null:
 			continue
 		tokens.append(JSON.stringify({
-			"id": manifest.id,
-			"source_path": manifest.source_path,
+			"data": manifest.to_dictionary(),
 			"root_path": manifest.root_path,
-			"dependencies": manifest.dependencies,
-			"installer_paths": manifest.installer_paths,
-			"editor_action_paths": manifest.editor_action_paths,
-			"editor_dock_paths": manifest.editor_dock_paths,
-			"editor_inspector_paths": manifest.editor_inspector_paths,
-			"import_plugin_paths": manifest.import_plugin_paths,
-			"export_plugin_paths": manifest.export_plugin_paths,
-			"gltf_document_extension_paths": manifest.gltf_document_extension_paths,
-			"access_generator_extension_paths": manifest.access_generator_extension_paths,
+			"source_path": manifest.source_path,
+			"validation_errors": manifest.get_validation_errors(),
 		}))
 	tokens.sort()
 	return tokens

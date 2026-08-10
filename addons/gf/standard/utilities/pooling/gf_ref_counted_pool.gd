@@ -78,6 +78,7 @@ var active_count: int:
 
 var _available: Array[RefCounted] = []
 var _active_ids: Dictionary = {}
+var _transition_tokens: Dictionary = {}
 var _created_count: int = 0
 var _max_available: int = 0
 
@@ -122,21 +123,25 @@ func acquire() -> RefCounted:
 	var item: RefCounted = null
 	while not _available.is_empty() and item == null:
 		item = _available.pop_back()
-		if _is_active_item(item):
-			push_error("[GFRefCountedPool] acquire 失败：可用池中存在已借出对象，已丢弃该重复引用。")
+		if _is_active_item(item) or _is_transitioning_item(item):
+			push_error("[GFRefCountedPool] acquire 失败：可用池中存在已借出或转换中的对象，已丢弃该重复引用。")
 			item = null
 
 	if item == null:
 		item = _create_item()
 		if item == null:
 			return null
-		if _is_active_item(item) or _available_has_item(item):
+		if _is_tracked_item(item):
 			push_error("[GFRefCountedPool] acquire 失败：factory 返回了已被当前池追踪的对象，已拒绝重复借出。")
 			return null
 		_created_count += 1
 
-	_active_ids[item.get_instance_id()] = true
+	var item_id: int = item.get_instance_id()
+	var acquire_token: RefCounted = RefCounted.new()
+	_active_ids[item_id] = acquire_token
 	_call_optional_hook(item, HOOK_ON_ACQUIRE)
+	if not _token_matches(_active_ids, item_id, acquire_token):
+		return null
 	return item
 
 
@@ -157,7 +162,12 @@ func release(item: RefCounted) -> bool:
 		return false
 
 	var _erase_result_152: Variant = _active_ids.erase(item_id)
+	var release_token: RefCounted = RefCounted.new()
+	_transition_tokens[item_id] = release_token
 	_prepare_item_for_reuse(item)
+	if not _token_matches(_transition_tokens, item_id, release_token):
+		return true
+	var _transition_erased: bool = _transition_tokens.erase(item_id)
 	if max_available > 0 and _available.size() >= max_available:
 		return true
 
@@ -180,11 +190,19 @@ func prewarm(count: int) -> int:
 		var item: RefCounted = _create_item()
 		if item == null:
 			break
-		if _is_active_item(item) or _available_has_item(item):
+		if _is_tracked_item(item):
 			push_error("[GFRefCountedPool] prewarm 失败：factory 返回了已被当前池追踪的对象，已停止预热。")
 			break
 		_created_count += 1
+		var item_id: int = item.get_instance_id()
+		var prepare_token: RefCounted = RefCounted.new()
+		_transition_tokens[item_id] = prepare_token
 		_prepare_item_for_reuse(item)
+		if not _token_matches(_transition_tokens, item_id, prepare_token):
+			break
+		var _transition_erased: bool = _transition_tokens.erase(item_id)
+		if max_available > 0 and _available.size() >= max_available:
+			break
 		_available.push_back(item)
 		created += 1
 	return created
@@ -205,6 +223,7 @@ func clear_available() -> void:
 func reset_pool() -> void:
 	_available.clear()
 	_active_ids.clear()
+	_transition_tokens.clear()
 
 
 ## 检查对象是否由当前池借出且尚未归还。
@@ -254,6 +273,18 @@ func _is_active_item(item: RefCounted) -> bool:
 	return item != null and _active_ids.has(item.get_instance_id())
 
 
+func _is_transitioning_item(item: RefCounted) -> bool:
+	return item != null and _transition_tokens.has(item.get_instance_id())
+
+
+func _is_tracked_item(item: RefCounted) -> bool:
+	return (
+		_is_active_item(item)
+		or _is_transitioning_item(item)
+		or _available_has_item(item)
+	)
+
+
 func _available_has_item(item: RefCounted) -> bool:
 	if item == null:
 		return false
@@ -261,6 +292,16 @@ func _available_has_item(item: RefCounted) -> bool:
 	for available_item: RefCounted in _available:
 		if available_item != null and available_item.get_instance_id() == item_id:
 			return true
+	return false
+
+
+func _token_matches(records: Dictionary, item_id: int, expected_token: RefCounted) -> bool:
+	if not records.has(item_id):
+		return false
+	var token_value: Variant = records[item_id]
+	if token_value is RefCounted:
+		var current_token: RefCounted = token_value
+		return current_token == expected_token
 	return false
 
 

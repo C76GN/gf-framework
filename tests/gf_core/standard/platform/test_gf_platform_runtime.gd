@@ -28,6 +28,35 @@ func test_runtime_initializes_adapter_and_routes_single_candidate() -> void:
 	runtime.dispose()
 
 
+func test_runtime_canonicalizes_request_and_explicit_adapter_ids() -> void:
+	var runtime: GFPlatformRuntime = GFPlatformRuntime.new()
+	var adapter: PlatformAdapterFixture = _make_adapter(&"canonical_adapter", &"sample", false)
+	assert_true(runtime.register_adapter(adapter))
+	var _initialized: GFAsyncCompletion = runtime.initialize_adapter(&"canonical_adapter")
+	var request: GFPlatformBridgeRequest = GFPlatformBridgeRequest.new()
+	request.request_id = &" canonical_runtime_request "
+	request.contract_id = &" platform.share "
+	request.method_id = &" hold "
+	var handle: GFPlatformRequestHandle = runtime.invoke(request, &" canonical_adapter ")
+
+	assert_true(handle.is_pending(), "显式 Adapter 与请求 ID 的空白变体应在入口统一规范化。")
+	assert_eq(handle.get_request_id(), &"canonical_runtime_request")
+	var duplicate_handle: GFPlatformRequestHandle = runtime.invoke_contract(
+		&"platform.share",
+		&"hold",
+		{},
+		{"request_id": &"canonical_runtime_request"}
+	)
+	assert_eq(duplicate_handle.get_result().status, &"duplicate_request_id")
+	assert_true(
+		runtime.cancel_request(&" canonical_runtime_request "),
+		"按 ID 操作必须使用同一规范身份。"
+	)
+	assert_true(runtime.set_contract_route(&" platform.share ", &" canonical_adapter "))
+	assert_eq(runtime.get_contract_route(&"platform.share"), &"canonical_adapter")
+	runtime.dispose()
+
+
 func test_runtime_requires_explicit_route_for_multiple_candidates() -> void:
 	var runtime: GFPlatformRuntime = GFPlatformRuntime.new()
 	var first: PlatformAdapterFixture = _make_adapter(&"first", &"sample", true)
@@ -69,6 +98,60 @@ func test_pending_request_has_single_cancel_terminal_state() -> void:
 	runtime.dispose()
 
 
+func test_request_handle_rejects_inconsistent_preconstructed_terminal_results() -> void:
+	var request: GFPlatformBridgeRequest = GFPlatformBridgeRequest.new().configure(
+		&"terminal_contract",
+		&"platform.share",
+		&"share"
+	)
+	var clock: GFManualClock = GFManualClock.new(1_000_000, 1_700_000_000_000)
+	var success_with_error: GFPlatformBridgeResult = GFPlatformBridgeResult.new().configure_success(
+		request,
+		null,
+		&"ok",
+		1000,
+		1000
+	)
+	success_with_error.error = "unexpected"
+	var failure_with_value: GFPlatformBridgeResult = GFPlatformBridgeResult.new().configure_failure(
+		request,
+		"failed",
+		&"failed",
+		1000,
+		1000
+	)
+	failure_with_value.value = "unexpected"
+	var invalid_results: Array[GFPlatformBridgeResult] = [
+		GFPlatformBridgeResult.new().configure_success(request, null, &"", 1000, 1000),
+		success_with_error,
+		GFPlatformBridgeResult.new().configure_failure(request, "", &"failed", 1000, 1000),
+		failure_with_value,
+		GFPlatformBridgeResult.new().configure_success(request, null, &"ok", 1000, 999),
+		GFPlatformBridgeResult.new().configure_success(request, null, &"ok", 999, 1000),
+		GFPlatformBridgeResult.new().configure_success(request, null, &"ok", 1000, 1001),
+	]
+
+	for invalid_result: GFPlatformBridgeResult in invalid_results:
+		var handle: GFPlatformRequestHandle = GFPlatformRequestHandle.new()
+		watch_signals(handle)
+		assert_true(
+			handle.configure_from_platform_layer(request, clock, 1000),
+			"每个反例都应先建立同一 pending 请求。"
+		)
+
+		assert_false(
+			handle.resolve_from_platform_layer(invalid_result),
+			"身份匹配但终态字段矛盾的预构造结果必须失败关闭。"
+		)
+		assert_true(handle.is_pending(), "拒绝坏结果不得消费唯一终态。")
+		assert_signal_not_emitted(handle, "completed", "拒绝坏结果不得发出完成信号。")
+		assert_true(
+			handle.succeed_from_platform_layer({"accepted": true}),
+			"拒绝坏结果后仍应允许一次合法终态。"
+		)
+		assert_signal_emit_count(handle, "completed", 1, "合法终态只能发出一次完成信号。")
+
+
 func test_pending_request_times_out_and_notifies_adapter() -> void:
 	var clock: GFManualClock = GFManualClock.new(1000000, 1700000000000)
 	var runtime: GFPlatformRuntime = GFPlatformRuntime.new(clock)
@@ -90,6 +173,28 @@ func test_pending_request_times_out_and_notifies_adapter() -> void:
 	assert_eq(result.status, &"timed_out", "超时应使用稳定状态。")
 	assert_eq(result.get_duration_msec(), 1, "结果耗时应使用同一注入时钟。")
 	assert_eq(adapter.cancel_count, 1, "超时应通知 adapter 停止底层请求。")
+	runtime.dispose()
+
+
+func test_request_deadline_saturates_at_int64_max() -> void:
+	var clock: ExtremeClock = ExtremeClock.new(9_223_372_036_854_775_806)
+	var runtime: GFPlatformRuntime = GFPlatformRuntime.new(clock)
+	var adapter: PlatformAdapterFixture = _make_adapter(&"saturated_deadline", &"sample", false)
+	assert_true(runtime.register_adapter(adapter))
+	var _initialized: GFAsyncCompletion = runtime.initialize_adapter(&"saturated_deadline")
+	var handle: GFPlatformRequestHandle = runtime.invoke_contract(
+		&"platform.share",
+		&"hold",
+		{},
+		{"timeout_msec": 10}
+	)
+
+	runtime.tick(0.0)
+	assert_true(handle.is_pending(), "极大正 timeout 不得回绕成永久等待或立即终态。")
+	clock.now_msec = 9_223_372_036_854_775_807
+	runtime.tick(0.0)
+	assert_eq(handle.get_result().status, &"timed_out", "饱和 deadline 到达时仍应正常超时。")
+	assert_eq(handle.get_result().get_duration_msec(), 1)
 	runtime.dispose()
 
 
@@ -283,6 +388,16 @@ func _make_share_contract() -> GFPlatformContractDescriptor:
 
 
 # --- 内部类 ---
+
+class ExtremeClock extends GFClock:
+	var now_msec: int = 0
+
+	func _init(initial_msec: int) -> void:
+		now_msec = initial_msec
+
+	func get_monotonic_msec() -> int:
+		return now_msec
+
 
 class PlatformAdapterFixture extends GFPlatformAdapter:
 	var complete_immediately: bool = true

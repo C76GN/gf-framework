@@ -1,8 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFByteCursor" path="addons/gf/standard/foundation/binary/gf_byte_cursor.gd" module="standard" extends="RefCounted" classDigest="2fbb449ffc4098424375aa54f7a0290a8bd2f7b43e0056c4d49f994ce4023de2">
+<class name="GFByteCursor" path="addons/gf/standard/foundation/binary/gf_byte_cursor.gd" module="standard" extends="RefCounted" classDigest="17bbf4c1ef0c7b1868e6bdb67adff57ec38c4f844503e88f0d224d1b23c23b79">
 	<description>GFByteCursor: PackedByteArray 读写游标。
 提供边界检查、显式字节序和 varuint 编码，适合网络包、存档片段、
-二进制配置或工具导入器复用。它只处理字节游标，不规定协议字段或消息语义。</description>
+二进制配置或工具导入器复用。它只处理字节游标，不规定协议字段或消息语义。
+一次公开操作失败时不会推进位置或发布部分写入；成功操作会把最近错误重置为 OK。
+返回 void 的写入方法失败后，调用方必须立即读取 get_last_error()。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">value_object</tag>
@@ -22,7 +24,8 @@
 		</member>
 		<member kind="property" name="max_read_byte_count">
 			<signature>var max_read_byte_count: int = _DEFAULT_MAX_READ_BYTE_COUNT</signature>
-			<description>单次读取允许的最大字节数。小于等于 0 表示不限制。</description>
+			<description>单次公开读取允许的最大字节数。复合字段包含前缀与 payload；小于等于 0 表示不限制。
+该属性不限制游标总长度或整条消息累计读取量。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="since">7.0.0</tag>
@@ -30,7 +33,8 @@
 		</member>
 		<member kind="property" name="max_write_byte_count">
 			<signature>var max_write_byte_count: int = _DEFAULT_MAX_WRITE_BYTE_COUNT</signature>
-			<description>单次写入允许的最大字节数。小于等于 0 表示不限制。</description>
+			<description>单次公开写入允许的最大字节数。复合字段包含前缀与 payload；小于等于 0 表示不限制。
+该属性不限制游标总长度或整条消息累计写入量。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="since">8.0.0</tag>
@@ -348,7 +352,7 @@ try_read_bytes() 会保留 PackedByteArray 作为功能返回值；日志、导�
 			<description>写入一个无符号 8 位整数。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="param">value: 要写入的值。</tag>
+				<tag name="param">value: 要写入的值，范围为 0..255。</tag>
 				<tag name="since">7.0.0</tag>
 			</tags>
 		</member>
@@ -357,7 +361,7 @@ try_read_bytes() 会保留 PackedByteArray 作为功能返回值；日志、导�
 			<description>写入一个有符号 8 位整数。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="param">value: 要写入的值。</tag>
+				<tag name="param">value: 要写入的值，范围为 -128..127。</tag>
 				<tag name="since">7.0.0</tag>
 			</tags>
 		</member>
@@ -366,7 +370,7 @@ try_read_bytes() 会保留 PackedByteArray 作为功能返回值；日志、导�
 			<description>写入一个无符号 16 位整数。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="param">value: 要写入的值。</tag>
+				<tag name="param">value: 要写入的值，范围为 0..65535。</tag>
 				<tag name="since">7.0.0</tag>
 			</tags>
 		</member>
@@ -375,7 +379,7 @@ try_read_bytes() 会保留 PackedByteArray 作为功能返回值；日志、导�
 			<description>写入一个有符号 16 位整数。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="param">value: 要写入的值。</tag>
+				<tag name="param">value: 要写入的值，范围为 -32768..32767。</tag>
 				<tag name="since">7.0.0</tag>
 			</tags>
 		</member>
@@ -384,7 +388,7 @@ try_read_bytes() 会保留 PackedByteArray 作为功能返回值；日志、导�
 			<description>写入一个无符号 32 位整数。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="param">value: 要写入的值。</tag>
+				<tag name="param">value: 要写入的值，范围为 0..4294967295。</tag>
 				<tag name="since">7.0.0</tag>
 			</tags>
 		</member>
@@ -393,7 +397,7 @@ try_read_bytes() 会保留 PackedByteArray 作为功能返回值；日志、导�
 			<description>写入一个有符号 32 位整数。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="param">value: 要写入的值。</tag>
+				<tag name="param">value: 要写入的值，范围为 -2147483648..2147483647。</tag>
 				<tag name="since">7.0.0</tag>
 			</tags>
 		</member>
@@ -437,7 +441,8 @@ try_read_bytes() 会保留 PackedByteArray 作为功能返回值；日志、导�
 		</member>
 		<member kind="method" name="get_last_error">
 			<signature>func get_last_error() -&gt; Error:</signature>
-			<description>获取最近错误码。</description>
+			<description>获取最近一次操作的错误码。
+任一后续成功操作都会把该值重置为 OK；void 写入方法的调用方必须在下一次操作前读取。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">最近错误码。</tag>

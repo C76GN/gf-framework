@@ -70,12 +70,13 @@ var max_gap_seconds: float = 0.4:
 ### `player_scoped`
 
 - API：`public`
+- 首次版本：`11.0.0`
 
 ```gdscript
 var player_scoped: bool = true
 ```
 
-玩家级动作是否只检查同一玩家。
+玩家级动作是否只检查同一玩家。启用且 player_index 有效时，runtime 必须提供 完整 player-specific active/started/completed/duration 协议，否则序列不推进。
 
 ## 方法
 

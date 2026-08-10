@@ -2,6 +2,8 @@
 ##
 ## 提供边界检查、显式字节序和 varuint 编码，适合网络包、存档片段、
 ## 二进制配置或工具导入器复用。它只处理字节游标，不规定协议字段或消息语义。
+## 一次公开操作失败时不会推进位置或发布部分写入；成功操作会把最近错误重置为 OK。
+## 返回 void 的写入方法失败后，调用方必须立即读取 get_last_error()。
 ## [br]
 ## @api public
 ## [br]
@@ -29,14 +31,16 @@ const _GF_REPORT_VALUE_CODEC_SCRIPT = preload("res://addons/gf/kernel/core/gf_re
 ## @since 7.0.0
 var little_endian: bool = false
 
-## 单次读取允许的最大字节数。小于等于 0 表示不限制。
+## 单次公开读取允许的最大字节数。复合字段包含前缀与 payload；小于等于 0 表示不限制。
+## 该属性不限制游标总长度或整条消息累计读取量。
 ## [br]
 ## @api public
 ## [br]
 ## @since 7.0.0
 var max_read_byte_count: int = _DEFAULT_MAX_READ_BYTE_COUNT
 
-## 单次写入允许的最大字节数。小于等于 0 表示不限制。
+## 单次公开写入允许的最大字节数。复合字段包含前缀与 payload；小于等于 0 表示不限制。
+## 该属性不限制游标总长度或整条消息累计写入量。
 ## [br]
 ## @api public
 ## [br]
@@ -565,6 +569,16 @@ func try_read_var_utf8() -> Dictionary:
 
 	var raw_length: Variant = length_report.get("value", 0)
 	var byte_count: int = raw_length if raw_length is int else 0
+	if not _within_read_operation_limit(start_position, byte_count):
+		_position = start_position
+		_last_error = ERR_INVALID_PARAMETER
+		return _make_read_report(
+			false,
+			"",
+			ERR_INVALID_PARAMETER,
+			start_position,
+			start_position
+		)
 	var value_report: Dictionary = try_read_utf8(byte_count)
 	if not _read_report_is_ok(value_report):
 		_position = start_position
@@ -586,7 +600,7 @@ func try_read_var_utf8() -> Dictionary:
 ## [br]
 ## @since 7.0.0
 ## [br]
-## @param value: 要写入的值。
+## @param value: 要写入的值，范围为 0..255。
 func write_u8(value: int) -> void:
 	_write_checked_uint(value, 1)
 
@@ -597,7 +611,7 @@ func write_u8(value: int) -> void:
 ## [br]
 ## @since 7.0.0
 ## [br]
-## @param value: 要写入的值。
+## @param value: 要写入的值，范围为 -128..127。
 func write_i8(value: int) -> void:
 	_write_checked_int(value, 1)
 
@@ -608,7 +622,7 @@ func write_i8(value: int) -> void:
 ## [br]
 ## @since 7.0.0
 ## [br]
-## @param value: 要写入的值。
+## @param value: 要写入的值，范围为 0..65535。
 func write_u16(value: int) -> void:
 	_write_checked_uint(value, 2)
 
@@ -619,7 +633,7 @@ func write_u16(value: int) -> void:
 ## [br]
 ## @since 7.0.0
 ## [br]
-## @param value: 要写入的值。
+## @param value: 要写入的值，范围为 -32768..32767。
 func write_i16(value: int) -> void:
 	_write_checked_int(value, 2)
 
@@ -630,7 +644,7 @@ func write_i16(value: int) -> void:
 ## [br]
 ## @since 7.0.0
 ## [br]
-## @param value: 要写入的值。
+## @param value: 要写入的值，范围为 0..4294967295。
 func write_u32(value: int) -> void:
 	_write_checked_uint(value, 4)
 
@@ -641,7 +655,7 @@ func write_u32(value: int) -> void:
 ## [br]
 ## @since 7.0.0
 ## [br]
-## @param value: 要写入的值。
+## @param value: 要写入的值，范围为 -2147483648..2147483647。
 func write_i32(value: int) -> void:
 	_write_checked_int(value, 4)
 
@@ -697,6 +711,9 @@ func write_bytes(value: PackedByteArray) -> void:
 ## [br]
 ## @param value: 要写入的字符串。
 func write_utf8(value: String) -> void:
+	if max_write_byte_count > 0 and value.length() > max_write_byte_count:
+		_last_error = ERR_INVALID_PARAMETER
+		return
 	write_bytes(value.to_utf8_buffer())
 
 
@@ -710,18 +727,30 @@ func write_utf8(value: String) -> void:
 ## [br]
 ## @return 写入成功返回 true。
 func write_var_utf8(value: String) -> bool:
-	var bytes: PackedByteArray = value.to_utf8_buffer()
-	var prefix: PackedByteArray = _encode_var_uint(bytes.size())
-	var combined: PackedByteArray = PackedByteArray(prefix)
-	combined.append_array(bytes)
-	if not _within_write_limit(combined.size()):
+	if max_write_byte_count > 0 and value.length() >= max_write_byte_count:
 		_last_error = ERR_INVALID_PARAMETER
 		return false
-	write_bytes(combined)
-	return _last_error == OK
+	var bytes: PackedByteArray = value.to_utf8_buffer()
+	var prefix: PackedByteArray = _encode_var_uint(bytes.size())
+	var total_byte_count: int = prefix.size() + bytes.size()
+	if not _within_write_limit(total_byte_count):
+		_last_error = ERR_INVALID_PARAMETER
+		return false
+	var next_size: int = _position + total_byte_count
+	if not _ensure_size(next_size):
+		return false
+	for index: int in range(prefix.size()):
+		_bytes[_position + index] = prefix[index]
+	for index: int in range(bytes.size()):
+		_bytes[_position + prefix.size() + index] = bytes[index]
+	_position = next_size
+	_last_error = OK
+	return true
 
 
-## 获取最近错误码。
+## 获取最近一次操作的错误码。
+##
+## 任一后续成功操作都会把该值重置为 OK；void 写入方法的调用方必须在下一次操作前读取。
 ## [br]
 ## @api public
 ## [br]
@@ -862,6 +891,18 @@ func _ensure_size(size_bytes: int) -> bool:
 
 func _within_read_limit(byte_count: int) -> bool:
 	return max_read_byte_count <= 0 or byte_count <= max_read_byte_count
+
+
+func _within_read_operation_limit(start_position: int, additional_byte_count: int) -> bool:
+	if start_position < 0 or _position < start_position or additional_byte_count < 0:
+		return false
+	if max_read_byte_count <= 0:
+		return true
+	var consumed_byte_count: int = _position - start_position
+	return (
+		consumed_byte_count <= max_read_byte_count
+		and additional_byte_count <= max_read_byte_count - consumed_byte_count
+	)
 
 
 func _within_write_limit(byte_count: int) -> bool:

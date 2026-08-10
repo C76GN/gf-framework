@@ -247,6 +247,42 @@ func test_support_report_replaces_existing_file_through_atomic_sidecars() -> voi
 	var _remove_result: Error = DirAccess.remove_absolute(report_path)
 
 
+func test_support_report_surfaces_backup_cleanup_failure_after_replace() -> void:
+	var utility: BackupCleanupFailureSupportReportUtility = (
+		BackupCleanupFailureSupportReportUtility.new()
+	)
+	var report_path: String = (
+		"user://gf_support_report_cleanup_failure_%d.json"
+		% Time.get_ticks_usec()
+	)
+	var existing_file: FileAccess = FileAccess.open(report_path, FileAccess.WRITE)
+	assert_not_null(existing_file, "测试应能创建已有报告文件。")
+	if existing_file != null:
+		var _store_result: Variant = existing_file.store_string("old-sensitive-content")
+		existing_file.close()
+
+	var save_error: Error = utility.save_report({ "report_id": "new-report" }, report_path)
+
+	assert_ne(save_error, OK, "备份清理失败不得被报告为 clean success。")
+	assert_false(utility.blocked_backup_path.is_empty(), "故障夹具应捕获 backup sidecar 路径。")
+	assert_true(
+		FileAccess.file_exists(utility.blocked_backup_path),
+		"故障夹具应证明旧敏感内容仍存在于 backup sidecar。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(utility.get_debug_snapshot(), "reports_saved_count"),
+		0,
+		"含 cleanup debt 的提交不得计入 clean saved count。"
+	)
+
+	for cleanup_path: String in [report_path, utility.blocked_backup_path]:
+		if FileAccess.file_exists(cleanup_path):
+			var cleanup_error: Error = DirAccess.remove_absolute(
+				ProjectSettings.globalize_path(cleanup_path)
+			)
+			assert_eq(cleanup_error, OK, "测试应能清理报告与 backup fixture。")
+
+
 func test_support_report_path_boundary_canonicalizes_parent_segments() -> void:
 	var utility: GFSupportReportUtility = GFSupportReportUtility.new()
 
@@ -258,6 +294,206 @@ func test_support_report_path_boundary_canonicalizes_parent_segments() -> void:
 		utility._is_path_under_allowed_roots("user://allowed/../secret.txt", PackedStringArray(["user://allowed"])),
 		"包含 .. 逃逸允许根的路径不应通过。"
 	)
+
+
+func test_support_report_path_attachment_rejects_link_escape_when_supported() -> void:
+	var token: String = str(Time.get_ticks_usec())
+	var allowed_root: String = "user://gf_support_allowed_%s" % token
+	var outside_root: String = "user://gf_support_outside_%s" % token
+	var secret_path: String = outside_root.path_join("secret.txt")
+	var link_path: String = allowed_root.path_join("linked-outside")
+	var linked_secret_path: String = link_path.path_join("secret.txt")
+	var absolute_allowed_root: String = ProjectSettings.globalize_path(allowed_root)
+	var absolute_outside_root: String = ProjectSettings.globalize_path(outside_root)
+	var absolute_link_path: String = ProjectSettings.globalize_path(link_path)
+	assert_eq(
+		DirAccess.make_dir_recursive_absolute(absolute_allowed_root),
+		OK,
+		"测试应能创建允许根。"
+	)
+	assert_eq(
+		DirAccess.make_dir_recursive_absolute(absolute_outside_root),
+		OK,
+		"测试应能创建根外目录。"
+	)
+	var secret_file: FileAccess = FileAccess.open(secret_path, FileAccess.WRITE)
+	assert_not_null(secret_file, "测试应能创建根外敏感文件。")
+	if secret_file != null:
+		var _store_result: Variant = secret_file.store_string("outside-secret")
+		secret_file.close()
+	var allowed_directory: DirAccess = DirAccess.open(absolute_allowed_root)
+	assert_not_null(allowed_directory, "测试应能打开允许根。")
+	if allowed_directory == null:
+		_cleanup_link_attachment_fixture(
+			absolute_link_path,
+			secret_path,
+			absolute_allowed_root,
+			absolute_outside_root
+		)
+		return
+	var link_error: Error = allowed_directory.create_link(
+		absolute_outside_root,
+		absolute_link_path
+	)
+	if link_error != OK:
+		assert_true(
+			OS.has_feature("windows"),
+			"POSIX 平台必须支持测试用目录链接：%s" % error_string(link_error)
+		)
+		_cleanup_link_attachment_fixture(
+			absolute_link_path,
+			secret_path,
+			absolute_allowed_root,
+			absolute_outside_root
+		)
+		return
+
+	var utility: GFSupportReportUtility = GFSupportReportUtility.new()
+	var attachments: Dictionary = utility.collect_attachments({
+		"linked": {
+			"path": linked_secret_path,
+		},
+	}, {
+		"allow_path_attachments": true,
+		"allowed_attachment_roots": [allowed_root],
+	})
+	var entry: Dictionary = GFVariantData.get_option_dictionary(attachments, &"linked")
+
+	assert_false(GFVariantData.get_option_bool(entry, "ok"), "允许根内的 link 不得读取根外文件。")
+	assert_eq(
+		GFVariantData.get_option_string(entry, "reason"),
+		"attachment_path_not_allowed",
+		"link escape 应与其他权限拒绝使用同一原因，避免泄露目标存在性。"
+	)
+	assert_false(
+		GFVariantData.get_option_string(entry, "data").contains("outside-secret"),
+		"拒绝结果不得包含根外敏感内容。"
+	)
+	_cleanup_link_attachment_fixture(
+		absolute_link_path,
+		secret_path,
+		absolute_allowed_root,
+		absolute_outside_root
+	)
+
+
+func test_support_report_attachment_output_rejects_link_escape_when_supported() -> void:
+	var token: String = str(Time.get_ticks_usec())
+	var allowed_root: String = "user://gf_support_output_allowed_%s" % token
+	var outside_root: String = "user://gf_support_output_outside_%s" % token
+	var link_path: String = allowed_root.path_join("linked-outside")
+	var escaped_path: String = outside_root.path_join("escaped.bin")
+	var linked_output_path: String = link_path.path_join("escaped.bin")
+	var absolute_allowed_root: String = ProjectSettings.globalize_path(allowed_root)
+	var absolute_outside_root: String = ProjectSettings.globalize_path(outside_root)
+	var absolute_link_path: String = ProjectSettings.globalize_path(link_path)
+	assert_eq(
+		DirAccess.make_dir_recursive_absolute(absolute_allowed_root),
+		OK,
+		"测试应能创建输出允许根。"
+	)
+	assert_eq(
+		DirAccess.make_dir_recursive_absolute(absolute_outside_root),
+		OK,
+		"测试应能创建输出根外目录。"
+	)
+	var allowed_directory: DirAccess = DirAccess.open(absolute_allowed_root)
+	assert_not_null(allowed_directory, "测试应能打开输出允许根。")
+	if allowed_directory == null:
+		_cleanup_link_attachment_fixture(
+			absolute_link_path,
+			escaped_path,
+			absolute_allowed_root,
+			absolute_outside_root
+		)
+		return
+	var link_error: Error = allowed_directory.create_link(
+		absolute_outside_root,
+		absolute_link_path
+	)
+	if link_error != OK:
+		assert_true(
+			OS.has_feature("windows"),
+			"POSIX 平台必须支持测试用输出目录链接：%s" % error_string(
+				link_error
+			)
+		)
+		_cleanup_link_attachment_fixture(
+			absolute_link_path,
+			escaped_path,
+			absolute_allowed_root,
+			absolute_outside_root
+		)
+		return
+
+	var utility: GFSupportReportUtility = GFSupportReportUtility.new()
+	var attachments: Dictionary = utility.collect_attachments({
+		"binary": PackedByteArray([1, 2, 3]),
+	}, {
+		"save_path": linked_output_path,
+		"allowed_output_roots": [allowed_root],
+	})
+	var entry: Dictionary = GFVariantData.get_option_dictionary(
+		attachments,
+		&"binary"
+	)
+
+	assert_eq(
+		GFVariantData.get_option_string(entry, "save_error_reason"),
+		"save_path_not_allowed",
+		"输出 link escape 应在写入前按权限边界拒绝。"
+	)
+	assert_false(
+		FileAccess.file_exists(escaped_path),
+		"被拒绝的输出 link 不得在允许根外创建文件。"
+	)
+	_cleanup_link_attachment_fixture(
+		absolute_link_path,
+		escaped_path,
+		absolute_allowed_root,
+		absolute_outside_root
+	)
+
+
+func test_support_report_does_not_echo_absolute_attachment_output_path() -> void:
+	var token: String = str(Time.get_ticks_usec())
+	var output_root: String = "user://gf_support_output_%s" % token
+	var output_path: String = output_root.path_join("attachment.bin")
+	var absolute_output_root: String = ProjectSettings.globalize_path(output_root)
+	var absolute_output_path: String = ProjectSettings.globalize_path(output_path)
+	var utility: GFSupportReportUtility = GFSupportReportUtility.new()
+
+	var attachments: Dictionary = utility.collect_attachments({
+		"binary": PackedByteArray([1, 2, 3]),
+	}, {
+		"save_path": absolute_output_path,
+		"allowed_output_roots": [absolute_output_root],
+	})
+	var entry: Dictionary = GFVariantData.get_option_dictionary(attachments, &"binary")
+
+	assert_true(GFVariantData.get_option_bool(entry, "ok"), "允许根内的附件保存应成功。")
+	assert_true(FileAccess.file_exists(absolute_output_path), "附件应实际写入调用方指定位置。")
+	assert_eq(
+		GFVariantData.get_option_string(entry, "saved_path"),
+		"<redacted_path>",
+		"原始报告不得回显可随 transport 上传的本机 absolute path。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(entry, "saved_filename"),
+		"attachment.bin",
+		"脱敏后仍应保留定位所需的无目录文件名。"
+	)
+	assert_false(
+		JSON.stringify(entry).contains(absolute_output_root),
+		"raw attachment entry 不得包含 absolute output root。"
+	)
+
+	if FileAccess.file_exists(absolute_output_path):
+		var file_remove_error: Error = DirAccess.remove_absolute(absolute_output_path)
+		assert_eq(file_remove_error, OK, "测试应清理已保存附件。")
+	if DirAccess.dir_exists_absolute(absolute_output_root):
+		var directory_remove_error: Error = DirAccess.remove_absolute(absolute_output_root)
+		assert_eq(directory_remove_error, OK, "测试应清理附件输出目录。")
 
 
 ## 验证场景节点数量统计会遵守节点上限。
@@ -311,3 +547,39 @@ func test_support_report_normalizes_transport_result() -> void:
 	assert_false(GFVariantData.get_option_bool(result, "ok"), "transport 返回失败时应保留失败状态。")
 	assert_eq(GFVariantData.get_option_string(result, "error"), "rejected", "transport 错误说明应保留。")
 	assert_eq(GFVariantData.get_option_int(metadata, "status"), 400, "transport 元数据应保留。")
+
+
+func _cleanup_link_attachment_fixture(
+	absolute_link_path: String,
+	secret_path: String,
+	absolute_allowed_root: String,
+	absolute_outside_root: String
+) -> void:
+	if DirAccess.dir_exists_absolute(absolute_link_path):
+		var link_remove_error: Error = DirAccess.remove_absolute(absolute_link_path)
+		assert_eq(link_remove_error, OK, "测试应只移除链接本身。")
+	if FileAccess.file_exists(secret_path):
+		var secret_remove_error: Error = DirAccess.remove_absolute(
+			ProjectSettings.globalize_path(secret_path)
+		)
+		assert_eq(secret_remove_error, OK, "测试应清理根外敏感文件。")
+	for directory_path: String in [absolute_allowed_root, absolute_outside_root]:
+		if DirAccess.dir_exists_absolute(directory_path):
+			var directory_remove_error: Error = DirAccess.remove_absolute(directory_path)
+			assert_eq(directory_remove_error, OK, "测试应清理空 fixture 目录。")
+
+
+class BackupCleanupFailureSupportReportUtility:
+	extends GFSupportReportUtility
+
+	var blocked_backup_path: String = ""
+
+	func _remove_file_if_exists(path: String) -> Error:
+		if path.contains(".gf-support-backup-"):
+			blocked_backup_path = path
+			return ERR_BUSY
+		if path.is_empty() or not FileAccess.file_exists(path):
+			return OK
+		return DirAccess.remove_absolute(
+			ProjectSettings.globalize_path(path)
+		)

@@ -134,6 +134,7 @@ var _request_serial: int = 0
 var _clock: GFClock = null
 var _clock_explicit: bool = false
 var _activation_intents: Array[GFPlatformActivationIntent] = []
+var _pending_activation_ids: Dictionary = {}
 var _seen_activation_ids: Dictionary = {}
 var _seen_activation_order: PackedStringArray = PackedStringArray()
 var _max_activation_intents: int = _DEFAULT_MAX_ACTIVATION_INTENTS
@@ -240,7 +241,7 @@ func get_clock() -> GFClock:
 ## [br]
 ## @param max_pending: 最多保留的待消费意图数。
 ## [br]
-## @param max_seen: 最多记忆的近期 Intent ID 数；不得小于 max_pending。
+## @param max_seen: 最多记忆的近期 Intent ID 数；不得小于 max_pending。待消费身份另行保留，不会因近期历史淘汰而允许重复入队。
 ## [br]
 ## @return 容量有效并已应用时返回 true。
 func configure_activation_queue(max_pending: int, max_seen: int) -> bool:
@@ -365,7 +366,7 @@ func set_contract_route(contract_id: StringName, adapter_id: StringName) -> bool
 	var adapter: GFPlatformAdapter = _get_adapter(adapter_id)
 	if normalized_contract == &"" or adapter == null or not adapter.supports_contract(normalized_contract):
 		return false
-	_contract_routes[String(normalized_contract)] = adapter_id
+	_contract_routes[String(normalized_contract)] = adapter.get_adapter_id()
 	return true
 
 
@@ -379,7 +380,7 @@ func set_contract_route(contract_id: StringName, adapter_id: StringName) -> bool
 ## [br]
 ## @return 找到并清除返回 true。
 func clear_contract_route(contract_id: StringName) -> bool:
-	return _contract_routes.erase(String(contract_id))
+	return _contract_routes.erase(String(contract_id).strip_edges())
 
 
 ## 获取桥接契约当前显式路由。
@@ -392,7 +393,10 @@ func clear_contract_route(contract_id: StringName) -> bool:
 ## [br]
 ## @return Adapter ID；未设置返回空。
 func get_contract_route(contract_id: StringName) -> StringName:
-	return GFVariantData.get_option_string_name(_contract_routes, String(contract_id))
+	return GFVariantData.get_option_string_name(
+		_contract_routes,
+		String(contract_id).strip_edges()
+	)
 
 
 ## 提交完整平台桥接请求。
@@ -404,35 +408,52 @@ func get_contract_route(contract_id: StringName) -> StringName:
 ## [br]
 ## @since 9.0.0
 ## [br]
-## @param request: 完整桥接请求。
+## @param request: 完整桥接请求；三个稳定 ID 会在任何路由、去重或校验前移除首尾空白。
 ## [br]
-## @param adapter_id: 可选显式 Adapter ID。
+## @param adapter_id: 可选显式 Adapter ID；会移除首尾空白。
 ## [br]
 ## @return 一次性请求句柄；所有输入和路由失败也返回终态句柄。
 func invoke(
 	request: GFPlatformBridgeRequest,
 	adapter_id: StringName = &""
 ) -> GFPlatformRequestHandle:
-	if request == null or request.is_empty():
-		return _make_rejected_handle(request, &"invalid_request", "Platform bridge request is incomplete.")
-	var request_key: String = String(request.request_id)
+	var canonical_request: GFPlatformBridgeRequest = (
+		request.duplicate_request()
+		if request != null
+		else null
+	)
+	if canonical_request == null or canonical_request.is_empty():
+		return _make_rejected_handle(
+			canonical_request,
+			&"invalid_request",
+			"Platform bridge request is incomplete."
+		)
+	var normalized_adapter_id: StringName = StringName(String(adapter_id).strip_edges())
+	var request_key: String = String(canonical_request.request_id)
 	if _pending_requests.has(request_key):
-		return _make_rejected_handle(request, &"duplicate_request_id", "Platform request ID is already pending.")
+		return _make_rejected_handle(
+			canonical_request,
+			&"duplicate_request_id",
+			"Platform request ID is already pending."
+		)
 	var started_at_msec: int = _clock.get_monotonic_msec()
 	_pending_requests[request_key] = {
-		"adapter_id": adapter_id,
+		"adapter_id": normalized_adapter_id,
 		"deadline_msec": -1,
 		"handle": null,
 		"reserved": true,
 	}
-	var resolution: Dictionary = _resolve_adapter(request.contract_id, adapter_id)
+	var resolution: Dictionary = _resolve_adapter(
+		canonical_request.contract_id,
+		normalized_adapter_id
+	)
 	var resolved_adapter_id: StringName = GFVariantData.get_option_string_name(resolution, "adapter_id")
-	request_started.emit(resolved_adapter_id, request.duplicate_request())
+	request_started.emit(resolved_adapter_id, canonical_request.duplicate_request())
 	var routing_error: StringName = GFVariantData.get_option_string_name(resolution, "error")
 	if routing_error != &"":
 		var _routing_reservation_erased: bool = _pending_requests.erase(request_key)
 		var rejected: GFPlatformRequestHandle = _make_rejected_handle(
-			request,
+			canonical_request,
 			routing_error,
 			GFVariantData.get_option_string(resolution, "message")
 		)
@@ -442,18 +463,18 @@ func invoke(
 	if adapter == null:
 		var _missing_reservation_erased: bool = _pending_requests.erase(request_key)
 		var missing: GFPlatformRequestHandle = _make_rejected_handle(
-			request,
+			canonical_request,
 			&"adapter_not_found",
 			"Resolved platform adapter is no longer registered."
 		)
 		_emit_completed_handle(resolved_adapter_id, missing)
 		return missing
 	var handle: GFPlatformRequestHandle = adapter.invoke_from_runtime(
-		request,
+		canonical_request,
 		started_at_msec
 	)
 	if handle.is_pending():
-		_track_pending_handle(resolved_adapter_id, request, handle, started_at_msec)
+		_track_pending_handle(resolved_adapter_id, canonical_request, handle)
 	else:
 		var _completed_reservation_erased: bool = _pending_requests.erase(request_key)
 		_emit_completed_handle(resolved_adapter_id, handle)
@@ -512,7 +533,8 @@ func invoke_contract(
 ## [br]
 ## @return 找到等待请求并首次取消返回 true。
 func cancel_request(request_id: StringName, reason: StringName = &"cancelled") -> bool:
-	var handle: GFPlatformRequestHandle = _get_pending_handle(request_id)
+	var normalized_request_id: StringName = StringName(String(request_id).strip_edges())
+	var handle: GFPlatformRequestHandle = _get_pending_handle(normalized_request_id)
 	return handle != null and handle.cancel(reason)
 
 
@@ -583,6 +605,11 @@ func consume_activation_intent(
 		if intent.adapter_id != normalized_adapter_id or intent.intent_id != normalized_id:
 			continue
 		_activation_intents.remove_at(index)
+		var intent_key: String = _make_activation_intent_key(
+			intent.adapter_id,
+			intent.intent_id
+		)
+		var _pending_erased: bool = _pending_activation_ids.erase(intent_key)
 		return intent.duplicate_intent()
 	return null
 
@@ -614,6 +641,7 @@ func acknowledge_activation_intent(
 ## @param clear_dedupe_history: 是否同时清空近期 ID 去重窗口。
 func clear_activation_intents(clear_dedupe_history: bool = false) -> void:
 	_activation_intents.clear()
+	_pending_activation_ids.clear()
 	if clear_dedupe_history:
 		_seen_activation_ids.clear()
 		_seen_activation_order.clear()
@@ -668,9 +696,10 @@ func get_debug_snapshot() -> Dictionary:
 # --- 私有/辅助方法 ---
 
 func _get_adapter(adapter_id: StringName) -> GFPlatformAdapter:
-	if not _adapters.has(String(adapter_id)):
+	var normalized_adapter_id: String = String(adapter_id).strip_edges()
+	if not _adapters.has(normalized_adapter_id):
 		return null
-	var value: Variant = _adapters[String(adapter_id)]
+	var value: Variant = _adapters[normalized_adapter_id]
 	if value is GFPlatformAdapter:
 		var adapter: GFPlatformAdapter = value
 		return adapter
@@ -678,9 +707,10 @@ func _get_adapter(adapter_id: StringName) -> GFPlatformAdapter:
 
 
 func _get_contract_candidates(contract_id: StringName) -> PackedStringArray:
-	if not _contract_candidates.has(String(contract_id)):
+	var normalized_contract_id: String = String(contract_id).strip_edges()
+	if not _contract_candidates.has(normalized_contract_id):
 		return PackedStringArray()
-	var value: Variant = _contract_candidates[String(contract_id)]
+	var value: Variant = _contract_candidates[normalized_contract_id]
 	if value is PackedStringArray:
 		var candidates: PackedStringArray = value
 		return candidates.duplicate()
@@ -737,15 +767,11 @@ func _make_rejected_handle(
 func _track_pending_handle(
 	adapter_id: StringName,
 	request: GFPlatformBridgeRequest,
-	handle: GFPlatformRequestHandle,
-	started_at_msec: int
+	handle: GFPlatformRequestHandle
 ) -> void:
-	var deadline_msec: int = -1
-	if request.timeout_msec > 0:
-		deadline_msec = started_at_msec + request.timeout_msec
 	_pending_requests[String(request.request_id)] = {
 		"adapter_id": adapter_id,
-		"deadline_msec": deadline_msec,
+		"deadline_msec": handle.get_deadline_msec_from_platform_layer(),
 		"handle": handle,
 	}
 	var completed_callback: Callable = _on_request_handle_completed.bind(adapter_id, request.request_id)
@@ -903,7 +929,7 @@ func _on_adapter_activation_intent(
 	if intent == null or intent.is_empty() or intent.adapter_id != adapter_id:
 		return
 	var intent_key: String = _make_activation_intent_key(adapter_id, intent.intent_id)
-	if _seen_activation_ids.has(intent_key):
+	if _pending_activation_ids.has(intent_key) or _seen_activation_ids.has(intent_key):
 		activation_intent_dropped.emit(adapter_id, intent.intent_id, &"duplicate")
 		return
 	_seen_activation_ids[intent_key] = true
@@ -911,14 +937,25 @@ func _on_adapter_activation_intent(
 	_trim_seen_activation_ids()
 	if _activation_intents.size() >= _max_activation_intents:
 		var dropped: GFPlatformActivationIntent = _activation_intents.pop_front()
+		var dropped_key: String = _make_activation_intent_key(
+			dropped.adapter_id,
+			dropped.intent_id
+		)
+		var _pending_erased: bool = _pending_activation_ids.erase(dropped_key)
 		activation_intent_dropped.emit(dropped.adapter_id, dropped.intent_id, &"capacity")
 	_activation_intents.append(intent.duplicate_intent())
+	_pending_activation_ids[intent_key] = true
 	activation_intent_received.emit(adapter_id, intent.duplicate_intent())
 
 
 func _trim_activation_queue() -> void:
 	while _activation_intents.size() > _max_activation_intents:
 		var dropped: GFPlatformActivationIntent = _activation_intents.pop_front()
+		var dropped_key: String = _make_activation_intent_key(
+			dropped.adapter_id,
+			dropped.intent_id
+		)
+		var _pending_erased: bool = _pending_activation_ids.erase(dropped_key)
 		activation_intent_dropped.emit(dropped.adapter_id, dropped.intent_id, &"capacity")
 
 
@@ -933,4 +970,11 @@ static func _make_activation_intent_key(
 	adapter_id: StringName,
 	intent_id: StringName
 ) -> String:
-	return "%s::%s" % [String(adapter_id), String(intent_id)]
+	var adapter_text: String = String(adapter_id)
+	var intent_text: String = String(intent_id)
+	return "%d:%s%d:%s" % [
+		adapter_text.length(),
+		adapter_text,
+		intent_text.length(),
+		intent_text,
+	]

@@ -42,4 +42,6 @@ time_scale_util.set_group_paused(&"CombatSystems", true)
 
 物理逻辑可通过 `physics_substep_max_delta` 和 `max_physics_substeps` 把一次 `physics_tick` 拆成多个子步。
 
+`time_scale`、`max_scaled_delta` 和 `physics_substep_max_delta` 只接受有限值；写入 `NaN` 或无穷时保留上一个有效配置。外部 tick 输入为非有限值，或有限输入与缩放相乘后溢出时，本轮逻辑 delta 归零。极端但仍有限的物理 delta 会把子步数钳制到 `max_physics_substeps`，不会把无限值或超范围整数传播给系统。
+
 全局暂停会让未标记 `ignore_pause` 的系统收到 `0.0`，分组暂停则需要系统或项目代码使用 `get_group_scaled_delta()` 主动读取对应组的 delta。

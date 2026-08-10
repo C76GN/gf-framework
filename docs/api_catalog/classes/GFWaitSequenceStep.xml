@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFWaitSequenceStep" path="addons/gf/standard/sequence/gf_wait_sequence_step.gd" module="standard" extends="GFSequenceStep" classDigest="2bdc23ae66c47e4e3c9cd2130b9650bf3ecab51a2282169cb4f2cf6380f768da">
+<class name="GFWaitSequenceStep" path="addons/gf/standard/sequence/gf_wait_sequence_step.gd" module="standard" extends="GFSequenceStep" classDigest="5ae68f1fde54dc94988df5c84592789a6be23e7a7d1bbb33bd090f1075391096">
 	<description>GFWaitSequenceStep: 通用等待步骤。
 用于在 `GFCommandSequence` 中插入时间间隔。</description>
 	<tags>
@@ -12,10 +12,11 @@
 	<constants />
 	<properties>
 		<member kind="property" name="duration" decorators="@export">
-			<signature>var duration: float = 0.0</signature>
-			<description>等待时长，单位秒。</description>
+			<signature>var duration: float = 0.0:</signature>
+			<description>等待时长，单位秒。负值会规范化为 0；非有限赋值会被拒绝并保留上次有效值。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="respect_engine_time_scale" decorators="@export">
@@ -28,13 +29,24 @@
 	</properties>
 	<methods>
 		<member kind="method" name="execute">
-			<signature>func execute(_context: GFSequenceContext) -&gt; Variant:</signature>
+			<signature>func execute(context: GFSequenceContext) -&gt; Variant:</signature>
 			<description>执行等待步骤。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="param">_context: 序列上下文。</tag>
+				<tag name="param">context: 序列上下文。</tag>
 				<tag name="return">等待用 Signal，时长小于等于 0 时返回 null。</tag>
 				<tag name="schema">return: Variant, null or Signal.</tag>
+				<tag name="since">3.17.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="cancel">
+			<signature>func cancel(context: GFSequenceContext) -&gt; void:</signature>
+			<description>取消当前上下文由该步骤创建的全部未完成计时器。
+计时器会收敛到下一帧终态；序列自己的 Signal 等待会独立停止。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">context: 序列上下文。</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 	</methods>

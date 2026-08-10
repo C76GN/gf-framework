@@ -27,6 +27,26 @@ func test_pick_value_ignores_non_finite_weights() -> void:
 	assert_eq(table.get_total_weight(), 1.0)
 
 
+func test_pick_value_normalizes_only_when_finite_weights_overflow_the_sum() -> void:
+	var regular: GFWeightedTable = GFWeightedTable.new()
+	var scaled: GFWeightedTable = GFWeightedTable.new()
+	var regular_rng: GFDeterministicRandom = GFDeterministicRandom.from_seed(91)
+	var scaled_rng: GFDeterministicRandom = GFDeterministicRandom.from_seed(91)
+	var regular_values: Array[Variant] = []
+	var scaled_values: Array[Variant] = []
+	var _regular_a: GFWeightedEntry = regular.add_entry("a", 1.0)
+	var _regular_b: GFWeightedEntry = regular.add_entry("b", 2.0)
+	var _scaled_a: GFWeightedEntry = scaled.add_entry("a", 8.0e307)
+	var _scaled_b: GFWeightedEntry = scaled.add_entry("b", 1.6e308)
+
+	for _index: int in range(32):
+		regular_values.append(regular.pick_value(regular_rng))
+		scaled_values.append(scaled.pick_value(scaled_rng))
+
+	assert_true(is_inf(scaled.get_total_weight()), "不可表示的真实总权重应显式保留为 INF。")
+	assert_eq(scaled_values, regular_values, "共同缩放不得把有限正权重选择退化为 RNG 未定义行为。")
+
+
 func test_non_finite_weight_serializes_as_safe_zero() -> void:
 	var entry: GFWeightedEntry = GFWeightedEntry.new()
 

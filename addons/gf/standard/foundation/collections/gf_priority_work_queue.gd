@@ -3,6 +3,8 @@
 ## 以基础优先级、入队时间和稳定顺序选择下一个值。等待加成不设上限，
 ## 因此在新任务优先级有限的前提下，旧低优先级任务最终能够获得执行机会。
 ## 队列只负责仲裁顺序，不执行任务，也不解释载荷或业务优先级。
+## 极端有限输入的比较会先做共同尺度归一化，诊断中的 effective_priority
+## 则饱和到最大有限 float，避免派生 Infinity 污染排序或序列化。
 ## [br]
 ## @api public
 ## [br]
@@ -11,6 +13,11 @@
 ## @since 9.0.0
 class_name GFPriorityWorkQueue
 extends RefCounted
+
+
+# --- 常量 ---
+
+const _MAX_FINITE_FLOAT: float = 1.7976931348623157e308
 
 
 # --- 公共变量 ---
@@ -368,8 +375,15 @@ func _find_best_index_in(entries: Array[Dictionary], now_msec: int) -> int:
 
 
 func _entry_is_before(left: Dictionary, right: Dictionary, now_msec: int) -> bool:
-	var left_priority: float = _get_effective_priority(left, now_msec)
-	var right_priority: float = _get_effective_priority(right, now_msec)
+	var scale: float = maxf(
+		maxf(
+			absf(GFVariantData.get_option_float(left, "priority")),
+			absf(GFVariantData.get_option_float(right, "priority"))
+		),
+		aging_step
+	)
+	var left_priority: float = _get_scaled_effective_priority(left, now_msec, scale)
+	var right_priority: float = _get_scaled_effective_priority(right, now_msec, scale)
 	if left_priority != right_priority:
 		return left_priority > right_priority
 	return GFVariantData.get_option_int(left, "order") < GFVariantData.get_option_int(right, "order")
@@ -377,10 +391,33 @@ func _entry_is_before(left: Dictionary, right: Dictionary, now_msec: int) -> boo
 
 func _get_effective_priority(entry: Dictionary, now_msec: int) -> float:
 	var priority: float = GFVariantData.get_option_float(entry, "priority")
+	var scale: float = maxf(absf(priority), aging_step)
+	var scaled_priority: float = _get_scaled_effective_priority(entry, now_msec, scale)
+	var scaled_limit: float = _MAX_FINITE_FLOAT / scale
+	if scaled_priority >= scaled_limit:
+		return _MAX_FINITE_FLOAT
+	if scaled_priority <= -scaled_limit:
+		return -_MAX_FINITE_FLOAT
+	var effective_priority: float = scaled_priority * scale
+	if is_finite(effective_priority):
+		return effective_priority
+	return _MAX_FINITE_FLOAT if scaled_priority >= 0.0 else -_MAX_FINITE_FLOAT
+
+
+func _get_scaled_effective_priority(
+	entry: Dictionary,
+	now_msec: int,
+	scale: float
+) -> float:
+	var priority: float = GFVariantData.get_option_float(entry, "priority")
+	var aging_intervals: int = _get_aging_intervals(entry, now_msec)
+	return priority / scale + float(aging_intervals) * (aging_step / scale)
+
+
+func _get_aging_intervals(entry: Dictionary, now_msec: int) -> int:
 	var enqueued_msec: int = GFVariantData.get_option_int(entry, "enqueued_msec")
 	var waited_msec: int = maxi(now_msec - enqueued_msec, 0)
-	var aging_intervals: int = floori(float(waited_msec) / float(aging_interval_msec))
-	return priority + float(aging_intervals) * aging_step
+	return floori(float(waited_msec) / float(aging_interval_msec))
 
 
 func _duplicate_entries(deep: bool) -> Array[Dictionary]:

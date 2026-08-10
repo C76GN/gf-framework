@@ -207,7 +207,7 @@ func request(path: String, type_hint: String = "", options: Dictionary = {}) -> 
 
 | 名称 | 说明 |
 |---|---|
-| `path` | `res://` 或 `uid://` 资源路径。 |
+| `path` | \`res://\` 或 \`uid://\` 资源路径。 |
 | `type_hint` | 可选 ResourceLoader 类型提示。 |
 | `options` | admission 与诊断选项。 |
 

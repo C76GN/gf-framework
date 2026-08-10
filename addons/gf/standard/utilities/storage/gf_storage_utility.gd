@@ -3439,6 +3439,11 @@ class _StorageFileOps:
 		var path: String = _path_policy._get_full_path(file_name)
 		if path.is_empty():
 			return ERR_INVALID_PARAMETER
+		var codec: GFStorageCodec = _get_codec()
+		var codec_options: Dictionary = _get_codec_options()
+		var bytes: PackedByteArray = codec.encode(data, codec_options)
+		if bytes.is_empty():
+			return ERR_INVALID_DATA
 		var dir_error: Error = _ensure_parent_directory(path)
 		if dir_error != OK:
 			return dir_error
@@ -3447,9 +3452,6 @@ class _StorageFileOps:
 			push_error("[GFStorageUtility] 无法写入文件：%s，错误码：%s" % [path, FileAccess.get_open_error()])
 			return FileAccess.get_open_error()
 
-		var codec: GFStorageCodec = _get_codec()
-		var codec_options: Dictionary = _get_codec_options()
-		var bytes: PackedByteArray = codec.encode(data, codec_options)
 		_store_buffer_checked(file, bytes)
 		var write_error: Error = file.get_error()
 		file.close()

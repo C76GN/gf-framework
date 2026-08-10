@@ -12,6 +12,16 @@ class_name GFAnalyticsConfig
 extends Resource
 
 
+# --- 常量 ---
+
+const _MAX_CUSTOM_HEADER_COUNT: int = 64
+const _MAX_HEADER_CANDIDATE_COUNT: int = 256
+const _MAX_HEADER_NAME_BYTES: int = 256
+const _MAX_HEADER_VALUE_BYTES: int = 8192
+const _MAX_TOTAL_HEADER_BYTES: int = 64 * 1024
+const _HTTP_TOKEN_PUNCTUATION: String = "!#$%&'*+-.^_`|~"
+
+
 # --- 导出变量 ---
 
 ## 是否启用事件收集。
@@ -135,9 +145,12 @@ extends Resource
 ## @since 3.20.0
 @export var compress_payload: bool = false
 
-## 自定义 HTTP Header。
+## 自定义 HTTP Header。字段名必须符合 HTTP token grammar，字段值不得包含非法控制字符；
+## 构建时还会执行字段数量、单字段 UTF-8 字节数和总字节数预算。
 ## [br]
 ## @api public
+## [br]
+## @since 11.0.0
 ## [br]
 ## @schema headers: Dictionary[String, String] mapping header names to header values.
 @export var headers: Dictionary = {}
@@ -151,9 +164,24 @@ extends Resource
 ## [br]
 ## @return Header 字符串数组。
 func build_headers() -> PackedStringArray:
-	var result: PackedStringArray = PackedStringArray(["Content-Type: application/json"])
+	var content_type_header: String = "Content-Type: application/json"
+	var gzip_header: String = "Content-Encoding: gzip"
+	var result: PackedStringArray = PackedStringArray([content_type_header])
+	var accepted_custom_count: int = 0
+	var examined_candidate_count: int = 0
+	var total_header_bytes: int = content_type_header.to_utf8_buffer().size() + 2
+	if compress_payload:
+		total_header_bytes += gzip_header.to_utf8_buffer().size() + 2
+	var seen_header_names: Dictionary = { "content-type": true }
 	for key: Variant in headers:
-		var header_name: String = GFVariantData.to_text(key).strip_edges()
+		if examined_candidate_count >= _MAX_HEADER_CANDIDATE_COUNT:
+			push_warning("[GFAnalyticsConfig] 自定义 HTTP Header 候选超过 256，已停止扫描。")
+			break
+		examined_candidate_count += 1
+		if accepted_custom_count >= _MAX_CUSTOM_HEADER_COUNT:
+			push_warning("[GFAnalyticsConfig] 自定义 HTTP Header 数量超过 64，已忽略剩余字段。")
+			break
+		var header_name: String = GFVariantData.to_text(key)
 		var header_value: String = GFVariantData.to_text(headers[key])
 		if not _is_valid_header(header_name, header_value):
 			push_warning("[GFAnalyticsConfig] 忽略非法 HTTP Header：%s" % _escape_header_for_log(header_name))
@@ -164,23 +192,69 @@ func build_headers() -> PackedStringArray:
 		if compress_payload and _is_same_header_name(header_name, "Content-Encoding"):
 			push_warning("[GFAnalyticsConfig] compress_payload 已启用，忽略自定义 Content-Encoding。")
 			continue
-		var _header_appended: bool = result.append("%s: %s" % [header_name, header_value])
+		var canonical_header_name: String = header_name.to_lower()
+		if seen_header_names.has(canonical_header_name):
+			push_warning("[GFAnalyticsConfig] 忽略重复 HTTP Header：%s" % _escape_header_for_log(header_name))
+			continue
+		var header_line: String = "%s: %s" % [header_name, header_value]
+		var header_line_bytes: int = header_line.to_utf8_buffer().size() + 2
+		if total_header_bytes + header_line_bytes > _MAX_TOTAL_HEADER_BYTES:
+			push_warning("[GFAnalyticsConfig] 自定义 HTTP Header 总字节数超过 65536，已忽略剩余字段。")
+			break
+		var _header_appended: bool = result.append(header_line)
+		seen_header_names[canonical_header_name] = true
+		accepted_custom_count += 1
+		total_header_bytes += header_line_bytes
 	if compress_payload:
-		var _gzip_header_appended: bool = result.append("Content-Encoding: gzip")
+		var _gzip_header_appended: bool = result.append(gzip_header)
 	return result
 
 
 # --- 私有/辅助方法 ---
 
 func _is_valid_header(header_name: String, header_value: String) -> bool:
-	if header_name.is_empty():
+	return _is_valid_header_name(header_name) and _is_valid_header_value(header_value)
+
+
+func _is_valid_header_name(header_name: String) -> bool:
+	if (
+		header_name.is_empty()
+		or header_name.to_utf8_buffer().size() > _MAX_HEADER_NAME_BYTES
+	):
 		return false
-	return (
-		not header_name.contains("\r")
-		and not header_name.contains("\n")
-		and not header_value.contains("\r")
-		and not header_value.contains("\n")
-	)
+	for index: int in range(header_name.length()):
+		if not _is_http_token_codepoint(header_name.unicode_at(index)):
+			return false
+	return true
+
+
+func _is_valid_header_value(header_value: String) -> bool:
+	if header_value.to_utf8_buffer().size() > _MAX_HEADER_VALUE_BYTES:
+		return false
+	if not header_value.is_empty():
+		var first_codepoint: int = header_value.unicode_at(0)
+		var last_codepoint: int = header_value.unicode_at(header_value.length() - 1)
+		if first_codepoint == 0x09 or first_codepoint == 0x20:
+			return false
+		if last_codepoint == 0x09 or last_codepoint == 0x20:
+			return false
+	for index: int in range(header_value.length()):
+		var codepoint: int = header_value.unicode_at(index)
+		if (codepoint < 0x20 and codepoint != 0x09) or codepoint == 0x7f:
+			return false
+	return true
+
+
+func _is_http_token_codepoint(codepoint: int) -> bool:
+	if (
+		(codepoint >= 0x30 and codepoint <= 0x39)
+		or (codepoint >= 0x41 and codepoint <= 0x5a)
+		or (codepoint >= 0x61 and codepoint <= 0x7a)
+	):
+		return true
+	if codepoint < 0x21 or codepoint > 0x7e:
+		return false
+	return _HTTP_TOKEN_PUNCTUATION.contains(String.chr(codepoint))
 
 
 func _is_same_header_name(header_name: String, expected_name: String) -> bool:
@@ -188,4 +262,17 @@ func _is_same_header_name(header_name: String, expected_name: String) -> bool:
 
 
 func _escape_header_for_log(header_name: String) -> String:
-	return header_name.replace("\r", "\\r").replace("\n", "\\n")
+	var escaped: String = ""
+	for index: int in range(header_name.length()):
+		var codepoint: int = header_name.unicode_at(index)
+		match codepoint:
+			0x0d:
+				escaped += "\\r"
+			0x0a:
+				escaped += "\\n"
+			_:
+				if codepoint < 0x20 or codepoint == 0x7f:
+					escaped += "\\u%04x" % codepoint
+				else:
+					escaped += String.chr(codepoint)
+	return escaped

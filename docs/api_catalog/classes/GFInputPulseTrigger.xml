@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFInputPulseTrigger" path="addons/gf/standard/input/triggers/gf_input_pulse_trigger.gd" module="standard" extends="GFInputTrigger" classDigest="0943f9673fdbdd2a74f8dae42fd98909543f23a0edc59640204cb8c31655a36c">
+<class name="GFInputPulseTrigger" path="addons/gf/standard/input/triggers/gf_input_pulse_trigger.gd" module="standard" extends="GFInputTrigger" classDigest="7c8abb0ff4c95255c2bd2d7c08f2af25910b2b9e2d6aee415f5963aa7c50af72">
 	<description>GFInputPulseTrigger: 周期脉冲触发器。
 输入持续活跃时按固定间隔触发一次，可用于连发、菜单重复导航等通用场景。</description>
 	<tags>
@@ -13,9 +13,10 @@
 	<properties>
 		<member kind="property" name="interval_seconds" decorators="@export">
 			<signature>var interval_seconds: float = 0.1:</signature>
-			<description>脉冲间隔秒数。</description>
+			<description>脉冲间隔秒数。非有限赋值会被拒绝并保留最后有效值。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="trigger_immediately" decorators="@export">
@@ -43,11 +44,12 @@
 				<tag name="api">public</tag>
 				<tag name="param">raw_active: 原始输入是否处于激活状态。</tag>
 				<tag name="param">_value: 输入值，默认实现不直接使用。</tag>
-				<tag name="param">delta: 本帧时间增量（秒）。</tag>
+				<tag name="param">delta: 本帧时间增量（秒）；NaN/Infinity 或负数按 0 处理，不污染状态。</tag>
 				<tag name="param">state: 触发器运行时状态字典。</tag>
 				<tag name="return">触发状态。</tag>
 				<tag name="schema">_value: Variant，由当前输入映射产生的动作值。</tag>
 				<tag name="schema">state: Dictionary，由输入运行时持有，包含 was_active: bool 和 elapsed: float。</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 	</methods>

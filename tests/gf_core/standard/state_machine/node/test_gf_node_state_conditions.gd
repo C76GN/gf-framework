@@ -54,6 +54,68 @@ func test_condition_group_combines_child_conditions() -> void:
 	assert_false(group.evaluate(state, &"enter"), "NONE 模式应在任一条件通过时失败。")
 
 
+func test_condition_group_cycle_fails_closed_even_when_inverted() -> void:
+	var state: GFNodeState = GFNodeState.new()
+	autofree(state)
+	var group: GFNodeStateConditionGroup = GFNodeStateConditionGroup.new()
+	group.invert = true
+	group.conditions = [group]
+
+	assert_false(group.evaluate(state, &"enter"), "自引用条件图必须失败，invert 不得把结构错误反转为通过。")
+
+	group.conditions.clear()
+
+
+func test_condition_group_indirect_cycle_fails_closed() -> void:
+	var state: GFNodeState = GFNodeState.new()
+	autofree(state)
+	var first: GFNodeStateConditionGroup = GFNodeStateConditionGroup.new()
+	var second: GFNodeStateConditionGroup = GFNodeStateConditionGroup.new()
+	first.conditions = [second]
+	second.conditions = [first]
+
+	assert_false(first.evaluate(state, &"enter"), "多节点递归条件图必须稳定失败。")
+
+	first.conditions.clear()
+	second.conditions.clear()
+
+
+func test_condition_group_depth_limit_fails_closed() -> void:
+	var state: GFNodeState = GFNodeState.new()
+	autofree(state)
+	var groups: Array[GFNodeStateConditionGroup] = []
+	for _index: int in range(65):
+		groups.append(GFNodeStateConditionGroup.new())
+	for index: int in range(groups.size() - 1):
+		groups[index].conditions = [groups[index + 1]]
+
+	assert_false(groups[0].evaluate(state, &"enter"), "超过 64 层的条件图必须在固定深度内失败。")
+
+	for group: GFNodeStateConditionGroup in groups:
+		group.conditions.clear()
+
+
+func test_condition_group_allows_shared_acyclic_subgraphs() -> void:
+	var state: GFNodeState = GFNodeState.new()
+	autofree(state)
+	var passing: FixedCondition = FixedCondition.new(true)
+	var shared: GFNodeStateConditionGroup = GFNodeStateConditionGroup.new()
+	var left: GFNodeStateConditionGroup = GFNodeStateConditionGroup.new()
+	var right: GFNodeStateConditionGroup = GFNodeStateConditionGroup.new()
+	var root: GFNodeStateConditionGroup = GFNodeStateConditionGroup.new()
+	shared.conditions = [passing]
+	left.conditions = [shared]
+	right.conditions = [shared]
+	root.conditions = [left, right]
+
+	assert_true(root.evaluate(state, &"enter"), "共享无环子图不是递归循环，应允许重复评估。")
+
+	root.conditions.clear()
+	left.conditions.clear()
+	right.conditions.clear()
+	shared.conditions.clear()
+
+
 func test_active_condition_reads_current_and_stacked_states() -> void:
 	var machine: GFNodeStateMachine = GFNodeStateMachine.new()
 	var idle: TrackingNodeState = TrackingNodeState.new()

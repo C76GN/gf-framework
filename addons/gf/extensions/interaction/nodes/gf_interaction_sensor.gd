@@ -176,6 +176,23 @@ func send_to(
 			context,
 			effective_interaction_id
 		)
+	elif (
+		enabled
+		and receiver != null
+		and receiver.has_method(&"receive_interaction")
+		and not GFInteractions.is_method_call_compatible_for_framework(
+			receiver,
+			&"receive_interaction",
+			[context, effective_interaction_id]
+		)
+	):
+		report = _make_raw_report(
+			false,
+			effective_interaction_id,
+			"invalid_receiver",
+			"Receiver exposes an incompatible receive_interaction() signature.",
+			receiver
+		)
 	else:
 		report = _MESSAGE_DISPATCH_SUPPORT._dispatch_to_receiver(
 			enabled,
@@ -282,10 +299,18 @@ func send_to_best_candidate(
 	payload_override: Variant = null,
 	interaction_id_override: StringName = &""
 ) -> Dictionary:
-	var candidates: Array[Object] = _get_candidate_provider_objects(candidate_provider, options)
+	var candidates: Array = _get_candidate_provider_receiver_refs(candidate_provider, options)
 	if candidates.is_empty():
 		return _make_report(false, interaction_id_override if interaction_id_override != &"" else interaction_id, "missing_receiver", "Candidate provider returned no receiver.")
-	return send_to(candidates[0], payload_override, interaction_id_override)
+	var receiver_ref_value: Variant = candidates[0]
+	if not (receiver_ref_value is WeakRef):
+		return _make_report(false, interaction_id_override if interaction_id_override != &"" else interaction_id, "missing_receiver", "Candidate provider returned no receiver.")
+	var receiver_ref: WeakRef = receiver_ref_value
+	var receiver_value: Variant = receiver_ref.get_ref()
+	if receiver_value == null:
+		return _make_report(false, interaction_id_override if interaction_id_override != &"" else interaction_id, "missing_receiver", "Candidate provider returned no receiver.")
+	var receiver: Object = receiver_value
+	return send_to(receiver, payload_override, interaction_id_override)
 
 
 ## 向候选 provider 返回的接收对象广播交互。
@@ -319,12 +344,19 @@ func broadcast_to_candidates(
 	interaction_id_override: StringName = &""
 ) -> Array[Dictionary]:
 	var reports: Array[Dictionary] = []
-	var candidates: Array[Object] = _get_candidate_provider_objects(candidate_provider, options)
+	var candidates: Array = _get_candidate_provider_receiver_refs(candidate_provider, options)
 	var dispatch_host: Object = _resolve_collision_dispatch_host()
 	var accepted_count: int = 0
-	for receiver: Object in candidates:
+	for receiver_ref_value: Variant in candidates:
 		if max_count > 0 and accepted_count >= max_count:
 			break
+		if not (receiver_ref_value is WeakRef):
+			continue
+		var receiver_ref: WeakRef = receiver_ref_value
+		var receiver_value: Variant = receiver_ref.get_ref()
+		if receiver_value == null:
+			continue
+		var receiver: Object = receiver_value
 		var report: Dictionary = _get_report_value(_send_to_with_dispatch_host(
 			dispatch_host,
 			receiver,
@@ -430,22 +462,12 @@ func broadcast_to_area_2d(
 	var candidates: Array = []
 	candidates.append_array(area.get_overlapping_areas())
 	candidates.append_array(area.get_overlapping_bodies())
-	var dispatch_host: Object = _resolve_collision_dispatch_host()
-	var reports: Array[Dictionary] = []
-	reports.assign(_MESSAGE_DISPATCH_SUPPORT._send_to_collision_candidates(
-		dispatch_host,
+	return _broadcast_to_collision_candidates(
 		candidates,
 		max_count,
 		payload_override,
-		interaction_id_override,
-		&"receive_interaction",
-		Callable(self, "_emit_collision_dispatch_result") if dispatch_host != self else Callable(),
-		false
-	))
-	if dispatch_host != self:
-		for index: int in range(reports.size()):
-			reports[index] = _normalize_report(reports[index], null)
-	return reports
+		interaction_id_override
+	)
 
 
 ## 向 Area3D 当前重叠的接收对象批量发送交互。
@@ -478,25 +500,59 @@ func broadcast_to_area_3d(
 	var candidates: Array = []
 	candidates.append_array(area.get_overlapping_areas())
 	candidates.append_array(area.get_overlapping_bodies())
-	var dispatch_host: Object = _resolve_collision_dispatch_host()
-	var reports: Array[Dictionary] = []
-	reports.assign(_MESSAGE_DISPATCH_SUPPORT._send_to_collision_candidates(
-		dispatch_host,
+	return _broadcast_to_collision_candidates(
 		candidates,
 		max_count,
 		payload_override,
-		interaction_id_override,
-		&"receive_interaction",
-		Callable(self, "_emit_collision_dispatch_result") if dispatch_host != self else Callable(),
-		false
-	))
-	if dispatch_host != self:
-		for index: int in range(reports.size()):
-			reports[index] = _normalize_report(reports[index], null)
-	return reports
+		interaction_id_override
+	)
 
 
 # --- 私有/辅助方法 ---
+
+func _broadcast_to_collision_candidates(
+	candidates: Array,
+	max_count: int,
+	payload_override: Variant,
+	interaction_id_override: StringName
+) -> Array[Dictionary]:
+	var reports: Array[Dictionary] = []
+	var receiver_refs: Array[WeakRef] = []
+	var visited_receivers: Dictionary = {}
+	for candidate_value: Variant in candidates:
+		if typeof(candidate_value) != TYPE_OBJECT or not is_instance_valid(candidate_value):
+			continue
+		var candidate: Object = candidate_value
+		var resolved_receiver: Object = _MESSAGE_DISPATCH_SUPPORT._resolve_receiver(
+			candidate,
+			&"receive_interaction"
+		)
+		if resolved_receiver == null or not is_instance_valid(resolved_receiver):
+			continue
+		var receiver_id: int = resolved_receiver.get_instance_id()
+		if visited_receivers.has(receiver_id):
+			continue
+		visited_receivers[receiver_id] = true
+		receiver_refs.append(weakref(resolved_receiver))
+
+	var dispatch_host: Object = _resolve_collision_dispatch_host()
+	for receiver_ref: WeakRef in receiver_refs:
+		if max_count > 0 and reports.size() >= max_count:
+			break
+		var receiver_value: Variant = receiver_ref.get_ref()
+		if receiver_value == null:
+			continue
+		var receiver: Object = receiver_value
+		var report: Dictionary = _send_to_with_dispatch_host(
+			dispatch_host,
+			receiver,
+			payload_override,
+			interaction_id_override
+		)
+		if not report.is_empty():
+			reports.append(report)
+	return reports
+
 
 func _emit_send_result(context: GFInteractionContext, receiver: Object, report: Dictionary) -> void:
 	interaction_sent.emit(context, receiver, report)
@@ -516,26 +572,35 @@ func _emit_collision_dispatch_result(
 	_emit_send_result(build_context(receiver, payload_override), receiver, normalized_report)
 
 
-func _get_candidate_provider_objects(candidate_provider: Object, options: Dictionary) -> Array[Object]:
-	var objects: Array[Object] = []
-	if candidate_provider == null or not candidate_provider.has_method("get_candidate_objects"):
-		return objects
-
+func _get_candidate_provider_receiver_refs(candidate_provider: Object, options: Dictionary) -> Array:
+	var objects: Array = []
 	var query_options: Dictionary = options.duplicate(true)
 	if not query_options.has("method_name"):
 		query_options["method_name"] = &"receive_interaction"
+	if not GFInteractions.is_method_call_compatible_for_framework(
+		candidate_provider,
+		&"get_candidate_objects",
+		[query_options]
+	):
+		return objects
+
 	var value: Variant = candidate_provider.call("get_candidate_objects", query_options)
 	if not (value is Array):
 		return objects
 
+	var visited_receivers: Dictionary = {}
 	for candidate_value: Variant in GFVariantData.as_array(value):
-		if not (candidate_value is Object):
+		if typeof(candidate_value) != TYPE_OBJECT or not is_instance_valid(candidate_value):
 			continue
 		var candidate: Object = candidate_value
 		var receiver: Object = _MESSAGE_DISPATCH_SUPPORT._resolve_receiver(candidate, &"receive_interaction")
-		if receiver == null or objects.has(receiver):
+		if receiver == null or not is_instance_valid(receiver):
 			continue
-		objects.append(receiver)
+		var receiver_id: int = receiver.get_instance_id()
+		if visited_receivers.has(receiver_id):
+			continue
+		visited_receivers[receiver_id] = true
+		objects.append(weakref(receiver))
 	return objects
 
 
@@ -581,14 +646,27 @@ func _resolve_collision_dispatch_host() -> Object:
 
 
 func _send_to_with_dispatch_host(
-	dispatch_host: Object,
+	dispatch_host: Variant,
 	receiver: Object,
 	payload_override: Variant,
 	interaction_id_override: StringName
-) -> Variant:
-	if dispatch_host == null or not dispatch_host.has_method(&"send_to"):
-		return null
-	var report_value: Variant = dispatch_host.call("send_to", receiver, payload_override, interaction_id_override)
+) -> Dictionary:
+	if typeof(dispatch_host) != TYPE_OBJECT or not is_instance_valid(dispatch_host):
+		return send_to(receiver, payload_override, interaction_id_override)
+	var effective_dispatch_host: Object = dispatch_host
+	if not GFInteractions.is_method_call_compatible_for_framework(
+		effective_dispatch_host,
+		&"send_to",
+		[receiver, payload_override, interaction_id_override]
+	):
+		return send_to(receiver, payload_override, interaction_id_override)
+
+	var report_value: Variant = effective_dispatch_host.call(
+		"send_to",
+		receiver,
+		payload_override,
+		interaction_id_override
+	)
 	if not report_value is Dictionary:
 		var invalid_report: Dictionary = _make_raw_report(
 			false,
@@ -597,7 +675,7 @@ func _send_to_with_dispatch_host(
 			"Dispatch host returned a non-Dictionary interaction report.",
 			receiver
 		)
-		if dispatch_host != self:
+		if effective_dispatch_host != self:
 			_emit_collision_dispatch_result(receiver, payload_override, interaction_id_override, invalid_report)
 		return _normalize_report(invalid_report, receiver)
 	var report: Dictionary = GFVariantData.as_dictionary(report_value)
@@ -609,7 +687,7 @@ func _send_to_with_dispatch_host(
 			"Dispatch host returned an empty interaction report.",
 			receiver
 		)
-	if dispatch_host != self:
+	if effective_dispatch_host != self:
 		_emit_collision_dispatch_result(receiver, payload_override, interaction_id_override, report)
 		report = _normalize_report(report, receiver)
 	return report
@@ -620,14 +698,11 @@ func _get_report_value(value: Variant) -> Dictionary:
 
 
 func _can_use_send_to_override(candidate: Object) -> bool:
-	if candidate == null or not candidate.has_method(&"send_to"):
-		return false
-	for method_value: Dictionary in candidate.get_method_list():
-		var method_name: StringName = GFVariantData.to_string_name(GFVariantData.get_option_value(method_value, "name", &""))
-		if method_name != &"send_to":
-			continue
-		return _method_accepts_argument_count(method_value, 3)
-	return false
+	return GFInteractions.is_method_call_compatible_for_framework(
+		candidate,
+		&"send_to",
+		[self, null, &""]
+	)
 
 
 func _normalize_report(report: Dictionary, default_receiver: Object) -> Dictionary:
@@ -640,12 +715,3 @@ func _normalize_report(report: Dictionary, default_receiver: Object) -> Dictiona
 	return _REPORT_SCHEMA_PROJECTION.to_report_dictionary(raw_report, {
 		"path_redaction": "basename",
 	})
-
-
-func _method_accepts_argument_count(method_info: Dictionary, argument_count: int) -> bool:
-	var arguments: Array = GFVariantData.get_option_array(method_info, "args")
-	var default_arguments: Array = GFVariantData.get_option_array(method_info, "default_args")
-	var required_count: int = maxi(arguments.size() - default_arguments.size(), 0)
-	var method_flags: int = GFVariantData.get_option_int(method_info, "flags", 0)
-	var accepts_varargs: bool = (method_flags & METHOD_FLAG_VARARG) != 0
-	return required_count <= argument_count and (argument_count <= arguments.size() or accepts_varargs)

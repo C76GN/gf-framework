@@ -252,7 +252,9 @@ func _apply_result(report: GFValidationReport, value: Variant, context: Dictiona
 func _make_issue(message: String, context: Dictionary) -> GFValidationIssue:
 	var issue: GFValidationIssue = GFValidationIssue.new(severity, _get_issue_kind(), message)
 	issue.subject = _make_subject(context)
-	issue.key = GFVariantData.get_option_value(context, "key", issue.key)
+	issue.key = GFVariantData.duplicate_variant(
+		GFVariantData.get_option_value(context, "key", issue.key)
+	)
 	issue.path = GFVariantData.get_option_string(context, "path", issue.path)
 	issue.source_path = GFVariantData.get_option_string(context, "source_path", issue.source_path)
 	if issue.source_path.is_empty():

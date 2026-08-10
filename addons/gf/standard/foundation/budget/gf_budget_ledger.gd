@@ -136,9 +136,17 @@ func get_available(budget_id: StringName) -> float:
 ## [br]
 ## @return 预算足够时返回 true。
 func can_consume(budget_id: StringName, amount: float) -> bool:
-	if budget_id == &"" or not _is_finite_amount(amount) or amount < 0.0:
+	if (
+		budget_id == &""
+		or not _budgets.has(budget_id)
+		or not _is_finite_amount(amount)
+		or amount < 0.0
+	):
 		return false
-	return get_available(budget_id) >= amount
+	var available: float = get_available(budget_id)
+	if available < amount:
+		return false
+	return amount == 0.0 or available - amount < available
 
 
 ## 尝试消费预算。
@@ -169,12 +177,17 @@ func consume(budget_id: StringName, amount: float, metadata: Dictionary = {}) ->
 	if not _budgets.has(budget_id):
 		budget_rejected.emit(budget_id, amount, "missing_budget")
 		return _make_result(false, budget_id, amount, "missing_budget", metadata)
-	if not can_consume(budget_id, amount):
+	var entry: Dictionary = _get_entry_copy(budget_id)
+	var available: float = _get_entry_available(entry)
+	if available < amount:
 		budget_rejected.emit(budget_id, amount, "insufficient_budget")
 		return _make_result(false, budget_id, amount, "insufficient_budget", metadata)
+	var next_available: float = available - amount
+	if amount > 0.0 and not next_available < available:
+		budget_rejected.emit(budget_id, amount, "precision_loss")
+		return _make_result(false, budget_id, amount, "precision_loss", metadata)
 
-	var entry: Dictionary = _get_entry_copy(budget_id)
-	entry["available"] = _get_entry_available(entry) - amount
+	entry["available"] = next_available
 	_budgets[budget_id] = entry
 	budget_consumed.emit(budget_id, amount)
 	if _budgets.has(budget_id):

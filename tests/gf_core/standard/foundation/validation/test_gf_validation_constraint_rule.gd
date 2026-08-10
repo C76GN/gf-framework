@@ -35,6 +35,36 @@ func test_range_constraint_reports_out_of_bounds_and_describes_rule() -> void:
 	)
 
 
+func test_range_constraint_compares_large_integers_without_float_rounding() -> void:
+	var exact_boundary: int = 9_007_199_254_740_992
+	var adjacent_value: int = exact_boundary + 1
+	var exact_rule: GFValidationConstraintRule = GFValidationConstraintRule.new().configure_range(
+		9_007_199_254_740_992.0,
+		9_007_199_254_740_992.0
+	)
+	var exclusive_rule: GFValidationConstraintRule = GFValidationConstraintRule.new().configure_range(
+		9_007_199_254_740_992.0,
+		9_007_199_254_740_994.0,
+		{ "inclusive_minimum": false }
+	)
+
+	assert_true(exact_rule.validate(exact_boundary).is_ok(), "精确落在大整数边界上的值应通过。")
+	assert_false(exact_rule.validate(adjacent_value).is_ok(), "相邻 int 不得因 float 舍入折叠到同一边界。")
+	assert_true(exclusive_rule.validate(adjacent_value).is_ok(), "exclusive 大整数边界后的相邻值应按精确 int 语义通过。")
+
+
+func test_range_constraint_compares_int64_extremes_against_float_bounds() -> void:
+	var minimum_int: int = -9_223_372_036_854_775_808
+	var maximum_int: int = 9_223_372_036_854_775_807
+	var rule: GFValidationConstraintRule = GFValidationConstraintRule.new().configure_range(
+		-9_223_372_036_854_775_808.0,
+		9_223_372_036_854_775_808.0
+	)
+
+	assert_true(rule.validate(minimum_int).is_ok(), "int64 最小值应能与可精确表示的 float 下界比较。")
+	assert_true(rule.validate(maximum_int).is_ok(), "int64 最大值应小于 exclusive int64 上界对应的 float。")
+
+
 func test_set_constraint_supports_case_insensitive_text() -> void:
 	var rule: GFValidationConstraintRule = GFValidationConstraintRule.new().configure_set(["Idle", "Run"], {
 		"rule_id": &"state_allowed",

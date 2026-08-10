@@ -103,8 +103,8 @@ static func find_path_dijkstra( start: Variant, goal: Variant, get_neighbors: Ca
 |---|---|
 | `start` | 起点节点。 |
 | `goal` | 终点节点。 |
-| `get_neighbors` | 邻居回调，签名为 `func(node: Variant) -> Array`。 |
-| `get_step_cost` | 可选代价回调，签名为 `func(from: Variant, to: Variant) -> float`；返回负数表示不可通行。 |
+| `get_neighbors` | 邻居回调，签名为 \`func(node: Variant) -> Array\`。 |
+| `get_step_cost` | 可选代价回调，签名为 \`func(from: Variant, to: Variant) -> float\`；返回负数表示不可通行。 |
 
 返回：包含起点与终点的路径；无法到达时返回空数组。
 
@@ -132,9 +132,9 @@ static func find_path_a_star( start: Variant, goal: Variant, get_neighbors: Call
 |---|---|
 | `start` | 起点节点。 |
 | `goal` | 终点节点。 |
-| `get_neighbors` | 邻居回调，签名为 `func(node: Variant) -> Array`。 |
-| `get_step_cost` | 可选代价回调，签名为 `func(from: Variant, to: Variant) -> float`；返回负数表示不可通行。 |
-| `heuristic` | 可选启发回调，签名为 `func(node: Variant, goal: Variant) -> float`。 |
+| `get_neighbors` | 邻居回调，签名为 \`func(node: Variant) -> Array\`。 |
+| `get_step_cost` | 可选代价回调，签名为 \`func(from: Variant, to: Variant) -> float\`；返回负数表示不可通行。 |
+| `heuristic` | 可选启发回调，签名为 \`func(node: Variant, goal: Variant) -> float\`。 |
 
 返回：包含起点与终点的路径；无法到达时返回空数组。
 
@@ -163,9 +163,9 @@ static func begin_path_search( start: Variant, goal: Variant, get_neighbors: Cal
 |---|---|
 | `start` | 起点节点。 |
 | `goal` | 终点节点。 |
-| `get_neighbors` | 邻居回调，签名为 `func(node: Variant) -> Array`。 |
-| `get_step_cost` | 可选代价回调，签名为 `func(from: Variant, to: Variant) -> float`；返回负数表示不可通行。 |
-| `heuristic` | 可选启发回调，签名为 `func(node: Variant, goal: Variant) -> float`；为空时退化为 Dijkstra。 |
+| `get_neighbors` | 邻居回调，签名为 \`func(node: Variant) -> Array\`。 |
+| `get_step_cost` | 可选代价回调，签名为 \`func(from: Variant, to: Variant) -> float\`；返回负数表示不可通行。 |
+| `heuristic` | 可选启发回调，签名为 \`func(node: Variant, goal: Variant) -> float\`；为空时退化为 Dijkstra。 |
 
 返回：运行期搜索状态句柄；传给 `advance_path_search()` 后会推进同一个句柄。
 
@@ -192,7 +192,7 @@ static func advance_path_search(search_state: GFGraphPathSearchState, max_iterat
 
 | 名称 | 说明 |
 |---|---|
-| `search_state` | `begin_path_search()` 返回的状态句柄。 |
+| `search_state` | \`begin_path_search()\` 返回的状态句柄。 |
 | `max_iterations` | 本次最多扩展多少个节点。 |
 
 返回：搜索报告，包含 status、finished、found、iterations、frontier_count、expanded_count、path 和 cost。
@@ -219,8 +219,8 @@ static func build_distance_map( start: Variant, get_neighbors: Callable, get_ste
 | 名称 | 说明 |
 |---|---|
 | `start` | 起点节点。 |
-| `get_neighbors` | 邻居回调，签名为 `func(node: Variant) -> Array`。 |
-| `get_step_cost` | 可选代价回调，签名为 `func(from: Variant, to: Variant) -> float`；返回负数表示不可通行。 |
+| `get_neighbors` | 邻居回调，签名为 \`func(node: Variant) -> Array\`。 |
+| `get_step_cost` | 可选代价回调，签名为 \`func(from: Variant, to: Variant) -> float\`；返回负数表示不可通行。 |
 | `max_cost` | 最大累计代价，超过后停止扩展。 |
 
 返回：字典，键为可达节点，值为从起点到该节点的最低代价。
@@ -248,8 +248,8 @@ static func find_reachable( start: Variant, max_cost: float, get_neighbors: Call
 |---|---|
 | `start` | 起点节点。 |
 | `max_cost` | 最大累计代价。 |
-| `get_neighbors` | 邻居回调，签名为 `func(node: Variant) -> Array`。 |
-| `get_step_cost` | 可选代价回调，签名为 `func(from: Variant, to: Variant) -> float`；返回负数表示不可通行。 |
+| `get_neighbors` | 邻居回调，签名为 \`func(node: Variant) -> Array\`。 |
+| `get_step_cost` | 可选代价回调，签名为 \`func(from: Variant, to: Variant) -> float\`；返回负数表示不可通行。 |
 
 返回：字典，键为可达节点，值为从起点到该节点的最低代价。
 
@@ -276,7 +276,7 @@ static func sort_topological(nodes: Array, get_dependencies: Callable) -> Dictio
 | 名称 | 说明 |
 |---|---|
 | `nodes` | 需要排序的节点列表；重复节点会按首次出现去重。 |
-| `get_dependencies` | 依赖回调，签名为 `func(node: Variant) -> Array`。 |
+| `get_dependencies` | 依赖回调，签名为 \`func(node: Variant) -> Array\`。 |
 
 返回：排序报告，包含 ok、reason、order、cycles、cycle_count、node_count、external_dependencies 和 external_dependency_count。
 
@@ -303,7 +303,7 @@ static func find_connected_components(nodes: Array, get_neighbors: Callable) -> 
 | 名称 | 说明 |
 |---|---|
 | `nodes` | 需要分组的节点列表；重复节点会按首次出现去重。 |
-| `get_neighbors` | 邻居回调，签名为 `func(node: Variant) -> Array`。 |
+| `get_neighbors` | 邻居回调，签名为 \`func(node: Variant) -> Array\`。 |
 
 返回：连通分量报告，包含 ok、reason、components、component_indices、isolated_nodes、external_neighbors 等字段。
 
@@ -330,8 +330,8 @@ static func find_minimum_spanning_tree( nodes: Array, get_neighbors: Callable, g
 | 名称 | 说明 |
 |---|---|
 | `nodes` | 需要纳入生成树的节点列表；重复节点会按首次出现去重。 |
-| `get_neighbors` | 邻居回调，签名为 `func(node: Variant) -> Array`。 |
-| `get_edge_weight` | 可选权重回调，签名为 `func(from: Variant, to: Variant) -> float`；为空时每条边权重为 1。 |
+| `get_neighbors` | 邻居回调，签名为 \`func(node: Variant) -> Array\`。 |
+| `get_edge_weight` | 可选权重回调，签名为 \`func(from: Variant, to: Variant) -> float\`；为空时每条边权重为 1。 |
 
 返回：最小生成树报告，包含 selected_edges、total_weight、components、isolated_nodes、external_neighbors 等字段。
 

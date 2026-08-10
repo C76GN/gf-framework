@@ -35,6 +35,13 @@ const DEFAULT_MAX_ACTIVE_OPERATIONS: int = 100
 ## @since 7.0.0
 const DEFAULT_MAX_INCIDENTS: int = 200
 
+## 单个操作默认保留的阶段数量。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+const DEFAULT_MAX_PHASES_PER_OPERATION: int = 64
+
 ## 单个操作默认保留的状态轨迹数量。
 ## [br]
 ## @api public
@@ -175,6 +182,17 @@ var max_incidents: int = DEFAULT_MAX_INCIDENTS:
 	set(value):
 		max_incidents = maxi(value, 0)
 		_trim_incidents()
+
+## 单个操作最多保留的阶段数量。设置为 0 时不保留阶段明细。
+## 超额阶段会按最旧优先淘汰，并通过 operation.dropped_phase_count 累计报告。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+var max_phases_per_operation: int = DEFAULT_MAX_PHASES_PER_OPERATION:
+	set(value):
+		max_phases_per_operation = maxi(value, 0)
+		_trim_operation_phases()
 
 ## 单个操作最多保留的状态轨迹数量。设置为 0 时不保留状态轨迹。
 ## [br]
@@ -342,7 +360,7 @@ func record_phase(
 	if operation_id == &"" or phase_id == &"" or not _duration_is_valid(duration_ms):
 		return {}
 
-	var index: int = _find_operation_index(operation_id)
+	var index: int = _find_active_operation_index(operation_id)
 	if index < 0:
 		return {}
 
@@ -371,7 +389,12 @@ func record_phase(
 	}
 	var phases: Array[Dictionary] = _get_dictionary_array(operation, "phases")
 	phases.append(phase)
+	var dropped_phase_count: int = _trim_phase_history(phases)
 	operation["phases"] = phases
+	operation["dropped_phase_count"] = (
+		GFVariantData.get_option_int(operation, "dropped_phase_count")
+		+ dropped_phase_count
+	)
 	operation["last_sequence"] = sequence
 	_operations[index] = operation
 	return phase.duplicate(true)
@@ -441,7 +464,7 @@ func record_state_snapshot(
 	if operation_id == &"" or state_id == &"":
 		return {}
 
-	var index: int = _find_operation_index(operation_id)
+	var index: int = _find_active_operation_index(operation_id)
 	if index < 0:
 		return {}
 
@@ -507,7 +530,7 @@ func record_state_snapshot(
 ## [br]
 ## @param options: 可选参数，支持 metadata、anomaly_codes、ended_ticks_usec 和 duration_ms。
 ## [br]
-## @return 完整操作记录副本；操作不存在时返回空字典。
+## @return: 完整操作记录副本；操作不存在时返回空字典；重复结束已保留的终态操作时幂等返回首次终态副本，不合并后到 options。
 ## [br]
 ## @schema options: Dictionary，支持 metadata、anomaly_codes、ended_ticks_usec 和 duration_ms。
 ## [br]
@@ -644,6 +667,9 @@ func record_async_snapshot(
 		operation_options["anomaly_codes"] = anomaly_codes
 	var existing_operation_id: StringName = GFVariantData.get_option_string_name(operation_options, "operation_id")
 	if existing_operation_id != &"" and has_operation(existing_operation_id):
+		var existing_operation: Dictionary = get_operation(existing_operation_id)
+		if _operation_is_terminal(existing_operation):
+			return existing_operation
 		var finished_operation: Dictionary = _finish_operation_with_terminal_state(
 			existing_operation_id,
 			success,
@@ -1041,6 +1067,7 @@ func get_debug_snapshot() -> Dictionary:
 		"max_completed_operations": max_completed_operations,
 		"max_active_operations": max_active_operations,
 		"max_incidents": max_incidents,
+		"max_phases_per_operation": max_phases_per_operation,
 		"max_state_trace_entries": max_state_trace_entries,
 		"max_sample_stats": max_sample_stats,
 		"max_metadata_keys": max_metadata_keys,
@@ -1210,6 +1237,7 @@ func _begin_operation_unchecked(operation_type: StringName, options: Dictionary)
 		"started_at_iso": _datetime_from_unix(started_at_unix),
 		"ended_at_iso": "",
 		"phases": [],
+		"dropped_phase_count": 0,
 		"state_trace": [],
 		"current_state_id": &"",
 		"current_state_status": STATE_RUNNING,
@@ -1269,6 +1297,8 @@ func _finish_operation_with_terminal_state(
 		return {}
 
 	var operation: Dictionary = _operations[index]
+	if _operation_is_terminal(operation):
+		return operation.duplicate(true)
 	var ended_ticks_usec: int = GFVariantData.get_option_int(options, "ended_ticks_usec", Time.get_ticks_usec())
 	var started_ticks_usec: int = GFVariantData.get_option_int(operation, "started_ticks_usec", ended_ticks_usec)
 	var duration_ms: float = GFVariantData.get_option_float(
@@ -1304,6 +1334,13 @@ func _find_operation_index(operation_id: StringName) -> int:
 		if GFVariantData.get_option_string_name(_operations[index], "operation_id") == operation_id:
 			return index
 	return -1
+
+
+func _find_active_operation_index(operation_id: StringName) -> int:
+	var index: int = _find_operation_index(operation_id)
+	if index < 0 or _operation_is_terminal(_operations[index]):
+		return -1
+	return index
 
 
 func _find_incident_index(
@@ -1686,7 +1723,24 @@ func _operation_is_terminal(operation: Dictionary) -> bool:
 
 func _trim_incidents() -> void:
 	while _incidents.size() > max_incidents:
-		_incidents.pop_front()
+		var oldest_index: int = _find_oldest_incident_index()
+		if oldest_index < 0:
+			return
+		_incidents.remove_at(oldest_index)
+
+
+func _find_oldest_incident_index() -> int:
+	var oldest_index: int = -1
+	var oldest_sequence: int = 0
+	for index: int in range(_incidents.size()):
+		var sequence: int = GFVariantData.get_option_int(
+			_incidents[index],
+			"last_sequence"
+		)
+		if oldest_index < 0 or sequence < oldest_sequence:
+			oldest_index = index
+			oldest_sequence = sequence
+	return oldest_index
 
 
 func _trim_sample_stats() -> void:
@@ -1724,6 +1778,31 @@ func _trim_operation_state_traces() -> void:
 		_trim_state_trace(state_trace)
 		operation["state_trace"] = state_trace
 		_operations[index] = operation
+
+
+func _trim_operation_phases() -> void:
+	for index: int in range(_operations.size()):
+		var operation: Dictionary = _operations[index]
+		var phases: Array[Dictionary] = _get_dictionary_array(operation, "phases")
+		var dropped_phase_count: int = _trim_phase_history(phases)
+		if dropped_phase_count <= 0:
+			continue
+		operation["phases"] = phases
+		operation["dropped_phase_count"] = (
+			GFVariantData.get_option_int(operation, "dropped_phase_count")
+			+ dropped_phase_count
+		)
+		_operations[index] = operation
+
+
+func _trim_phase_history(phases: Array[Dictionary]) -> int:
+	var original_size: int = phases.size()
+	if max_phases_per_operation <= 0:
+		phases.clear()
+		return original_size
+	while phases.size() > max_phases_per_operation:
+		phases.pop_front()
+	return original_size - phases.size()
 
 
 func _trim_all_metadata() -> void:

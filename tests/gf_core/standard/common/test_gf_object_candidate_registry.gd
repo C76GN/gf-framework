@@ -167,6 +167,33 @@ func test_candidate_registry_batches_prune_and_exposes_revision_in_snapshot() ->
 	assert_signal_emit_count(registry, "candidates_changed", 3, "两次注册和一次批量清理应发出三次通知。")
 
 
+func test_candidate_registry_lowered_capacity_prunes_immediately_and_notifies_once() -> void:
+	var registry: RefCounted = GF_OBJECT_CANDIDATE_REGISTRY_SCRIPT.new()
+	var first: Node = Node.new()
+	var second: Node = Node.new()
+	var third: Node = Node.new()
+	add_child_autofree(first)
+	add_child_autofree(second)
+	add_child_autofree(third)
+	watch_signals(registry)
+
+	assert_true(GFVariantData.to_bool(registry.call("register_candidate", first)))
+	assert_true(GFVariantData.to_bool(registry.call("register_candidate", second)))
+	assert_true(GFVariantData.to_bool(registry.call("register_candidate", third)))
+
+	registry.set("max_candidates", 1)
+	var remaining_objects: Array = GFVariantData.as_array(registry.call("get_candidate_objects"))
+
+	assert_eq(remaining_objects.size(), 1, "容量 setter 返回后，候选记录必须已收敛到新上限。")
+	assert_same(_get_array_object(remaining_objects, 0), third, "容量收敛应沿用既有 oldest-first 淘汰顺序。")
+	assert_eq(GFVariantData.to_int(registry.call("get_revision")), 4, "一次容量收敛只应推进一次 revision。")
+	assert_signal_emit_count(registry, "candidates_changed", 4, "三次注册和一次 setter prune 应各通知一次。")
+
+	registry.set("max_candidates", 1)
+	assert_eq(GFVariantData.to_int(registry.call("get_revision")), 4, "幂等 setter 不得产生候选变更。")
+	assert_signal_emit_count(registry, "candidates_changed", 4, "幂等 setter 不得重复通知。")
+
+
 # --- 私有/辅助方法 ---
 
 func _get_candidate_snapshot_object(candidates: Array, index: int) -> Object:

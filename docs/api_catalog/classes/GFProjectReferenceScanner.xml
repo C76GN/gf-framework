@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFProjectReferenceScanner" path="addons/gf/kernel/core/gf_project_reference_scanner.gd" module="kernel" extends="RefCounted" classDigest="35d1d43546d565c04e1cc3bec0af4d06ced2f77b8b9bf56087599d08d8c243cd">
+<class name="GFProjectReferenceScanner" path="addons/gf/kernel/core/gf_project_reference_scanner.gd" module="kernel" extends="RefCounted" classDigest="b24cbabe45c87dffc25f57f71c0c5c63c390dbfabffe0d67ca6cd3d41265c68d">
 	<description>GFProjectReferenceScanner: 项目资源引用扫描服务。
 面向编辑器、CI 和框架诊断流程扫描项目资源与文本源码，按目标根目录和
 class_name 输出 verified、strong 与 weak 分级引用，并在文件数量、
@@ -118,7 +118,14 @@ class_name 输出 verified、strong 与 weak 分级引用，并在文件数量�
 			</tags>
 		</member>
 		<member kind="const" name="DEFAULT_IGNORED_ROOTS">
-			<signature>const DEFAULT_IGNORED_ROOTS: Array[String] = [</signature>
+			<signature>const DEFAULT_IGNORED_ROOTS: Array[String] = [
+	"res://.godot",
+	"res://.git",
+	"res://.gf",
+	"res://addons/gf",
+	"res://build",
+	"res://packages",
+]</signature>
 			<description>默认忽略的根目录。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -126,7 +133,18 @@ class_name 输出 verified、strong 与 weak 分级引用，并在文件数量�
 			</tags>
 		</member>
 		<member kind="const" name="TEXT_FILE_EXTENSIONS">
-			<signature>const TEXT_FILE_EXTENSIONS: Array[String] = [</signature>
+			<signature>const TEXT_FILE_EXTENSIONS: Array[String] = [
+	"cfg",
+	"csv",
+	"gd",
+	"gdshader",
+	"godot",
+	"import",
+	"json",
+	"shader",
+	"tscn",
+	"tres",
+]</signature>
 			<description>作为文本扫描的资源扩展名。</description>
 			<tags>
 				<tag name="api">public</tag>

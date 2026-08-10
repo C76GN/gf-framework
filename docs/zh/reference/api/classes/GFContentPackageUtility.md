@@ -90,7 +90,7 @@ func register_source_root(root_path: String) -> bool:
 
 | 名称 | 说明 |
 |---|---|
-| `root_path` | `res://` 或 `user://` 下的内容包根目录。该目录自身或其直接子目录可包含 `gf_content_package.json`。 |
+| `root_path` | \`res://\` 或 \`user://\` 下的内容包根目录。该目录自身或其直接子目录可包含 \`gf_content_package.json\`。 |
 
 返回：注册成功返回 true。
 
@@ -146,7 +146,7 @@ func register_source_root_for_owner(owner_id: StringName, root_path: String) -> 
 | 名称 | 说明 |
 |---|---|
 | `owner_id` | 非空 owner ID，用于批量释放来源。 |
-| `root_path` | `res://` 或 `user://` 根目录。 |
+| `root_path` | \`res://\` 或 \`user://\` 根目录。 |
 
 返回：owner 首次取得该 root 时返回 true。
 
@@ -344,7 +344,7 @@ func rebuild_catalog(options: Dictionary = {}) -> Dictionary:
 结构：
 
 - `options`: Dictionary，可包含 check_resource_exists: bool、check_resource_dependencies: bool 和 dependency_options: Dictionary。
-- `return`: GFValidationReportDictionary.finalize_report() 生成的 Dictionary，并包含 package_count、package_ids、ordered_package_ids 和 duplicate_package_ids。
+- `return`: GFValidationReportDictionary.finalize_report() 生成的 Dictionary，并包含 package_count、package_ids、ordered_package_ids、duplicate_package_ids、rejected_manifest_count 和 rejected_manifest_inputs。
 
 <a id="member-gfcontentpackageutility-methods-set_manifests"></a>
 
@@ -370,9 +370,9 @@ func set_manifests( manifests: Array[GFContentPackageManifest], options: Diction
 
 结构：
 
-- `manifests`: Array[GFContentPackageManifest]，无效项会被忽略或进入诊断。
+- `manifests`: Array[GFContentPackageManifest]，无效项会被拒绝并进入诊断。
 - `options`: Dictionary，可包含 check_resource_exists: bool、check_resource_dependencies: bool 和 dependency_options: Dictionary。
-- `return`: GFValidationReportDictionary.finalize_report() 生成的 Dictionary，并包含 package_count、package_ids、ordered_package_ids 和 duplicate_package_ids。
+- `return`: GFValidationReportDictionary.finalize_report() 生成的 Dictionary，并包含 package_count、package_ids、ordered_package_ids、duplicate_package_ids、rejected_manifest_count 和 rejected_manifest_inputs。
 
 <a id="member-gfcontentpackageutility-methods-register_resources"></a>
 
@@ -392,7 +392,7 @@ func register_resources(resolver: GFResourceResolverUtility, options: Dictionary
 | 名称 | 说明 |
 |---|---|
 | `resolver` | 标准资源解析器。 |
-| `options` | 注册选项。`base_priority` 默认为 0；校验选项透传给 manifest。 |
+| `options` | 注册选项。\`base_priority\` 默认为 0；校验选项透传给 manifest。 |
 
 返回：GFValidationReportDictionary 兼容报告，并包含 registered_count。
 

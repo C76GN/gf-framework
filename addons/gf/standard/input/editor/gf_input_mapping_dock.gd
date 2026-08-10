@@ -2,7 +2,8 @@
 
 ## GFInputMappingDock: GF 输入映射工作区页面。
 ##
-## 读取 GFInputContext 资源，展示动作、绑定与重绑定冲突诊断。
+## 读取 GFInputContext 资源，展示默认绑定或可选 GFInputRemapConfig 覆盖后的
+## 有效动作、绑定与重绑定冲突诊断。页面只读，不修改 InputMap 或重映射配置。
 ## [br]
 ## @api public
 ## [br]
@@ -16,6 +17,7 @@ extends Control
 # --- 常量 ---
 
 const _GFEditorWorkspaceUI = preload("res://addons/gf/kernel/editor/gf_editor_workspace_ui.gd")
+const _GFPathTools = preload("res://addons/gf/kernel/core/gf_path_tools.gd")
 const _GF_REPORT_VALUE_CODEC_SCRIPT = preload("res://addons/gf/kernel/core/gf_report_value_codec.gd")
 const _GFInputConflictAnalyzer = preload("res://addons/gf/standard/input/rebinding/gf_input_conflict_analyzer.gd")
 const _GFInputContextDiagnostics = preload("res://addons/gf/standard/input/mapping/gf_input_context_diagnostics.gd")
@@ -33,8 +35,10 @@ const _MAX_DETAIL_JSON_BYTES: int = 128 * 1024
 # --- 私有变量 ---
 
 var _context: GFInputContext = null
+var _remap_config: GFInputRemapConfig = null
 var _committed_context_path: String = ""
 var _last_report: Dictionary = {}
+var _last_load_failure: Dictionary = {}
 var _path_edit: LineEdit = null
 var _include_non_remappable_check: CheckBox = null
 var _summary_label: Label = null
@@ -45,6 +49,9 @@ var _details: TextEdit = null
 var _file_dialog: FileDialog = null
 var _rendered_tree_rows: int = 0
 var _tree_render_truncated: bool = false
+var _source_observation_enabled: bool = true
+var _source_refresh_queued: bool = false
+var _refresh_in_progress: bool = false
 
 
 # --- Godot 生命周期方法 ---
@@ -54,6 +61,21 @@ func _init() -> void:
 	_GFEditorWorkspaceUI.apply_page_root(self)
 	_build_ui()
 	refresh()
+
+
+func _enter_tree() -> void:
+	_source_observation_enabled = true
+	_connect_context_changed()
+	_connect_remap_config_changed()
+	if _context != null:
+		_queue_source_refresh()
+
+
+func _exit_tree() -> void:
+	_source_observation_enabled = false
+	_source_refresh_queued = false
+	_disconnect_context_changed()
+	_disconnect_remap_config_changed()
 
 
 # --- 公共方法 ---
@@ -69,6 +91,29 @@ func set_input_context(context: GFInputContext) -> void:
 	refresh()
 
 
+## 设置诊断使用的可选重映射配置。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param config: 玩家或项目层重映射配置；null 表示只诊断默认绑定。
+func set_remap_config(config: GFInputRemapConfig) -> void:
+	_set_current_remap_config(config)
+	refresh()
+
+
+## 获取当前诊断使用的重映射配置。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @return: 当前重映射配置；未配置时为 null。
+func get_remap_config() -> GFInputRemapConfig:
+	return _remap_config
+
+
 ## 从资源路径载入输入上下文。
 ## [br]
 ## @api public
@@ -77,7 +122,7 @@ func set_input_context(context: GFInputContext) -> void:
 ## [br]
 ## @return Godot 错误码。
 func load_context_path(path: String) -> Error:
-	var normalized_path: String = path.strip_edges()
+	var normalized_path: String = _GFPathTools.normalize_resource_path(path)
 	if normalized_path.is_empty():
 		return _render_load_failure("输入上下文路径为空。", "请填写 GFInputContext 资源路径后再加载。", ERR_INVALID_PARAMETER)
 	if not normalized_path.begins_with("res://") and not normalized_path.begins_with("user://"):
@@ -120,7 +165,7 @@ func load_context_path(path: String) -> Error:
 
 	var reloads_current_context: bool = (
 		_context != null
-		and _context.resource_path == normalized_path
+		and _resource_paths_share_identity(_context.resource_path, normalized_path)
 	)
 	if reloads_current_context:
 		_disconnect_context_changed()
@@ -140,7 +185,12 @@ func load_context_path(path: String) -> Error:
 		)
 
 	_set_current_context(context)
-	_commit_context_path(normalized_path)
+	var committed_path: String = normalized_path
+	if reloads_current_context and _resource_paths_share_identity(_committed_context_path, normalized_path):
+		committed_path = _committed_context_path
+	elif not context.resource_path.is_empty():
+		committed_path = context.resource_path
+	_commit_context_path(committed_path)
 	refresh()
 	return OK
 
@@ -149,6 +199,31 @@ func load_context_path(path: String) -> Error:
 ## [br]
 ## @api public
 func refresh() -> void:
+	_source_refresh_queued = false
+	if _refresh_in_progress:
+		_queue_source_refresh()
+		return
+	_refresh_in_progress = true
+	_last_load_failure = {}
+	_refresh_current_context()
+	_refresh_in_progress = false
+
+## 获取最近一次诊断报告。
+## [br]
+## @api public
+## [br]
+## @since 3.17.0
+## [br]
+## @return 诊断报告副本。
+## [br]
+## @schema return: Dictionary，基于当前 GFInputContext 与可选 GFInputRemapConfig 构建的校验报告，包含摘要、问题计数、冲突、remap_configured 和后续动作。
+func get_last_report() -> Dictionary:
+	return _last_report.duplicate(true)
+
+
+# --- 私有/辅助方法 ---
+
+func _refresh_current_context() -> void:
 	_build_ui()
 	if _context == null:
 		_last_report = {}
@@ -158,19 +233,6 @@ func refresh() -> void:
 	_last_report = _build_report(_context)
 	_render_context()
 
-
-## 获取最近一次诊断报告。
-## [br]
-## @api public
-## [br]
-## @return 诊断报告副本。
-## [br]
-## @schema return: Dictionary，基于当前 GFInputContext 构建的校验报告，包含摘要、问题计数、冲突和后续动作。
-func get_last_report() -> Dictionary:
-	return _last_report.duplicate(true)
-
-
-# --- 私有/辅助方法 ---
 
 func _build_ui() -> void:
 	if _tree != null:
@@ -253,9 +315,10 @@ func _build_report(context: GFInputContext) -> Dictionary:
 		return _make_budget_report(context, budget_issue)
 	var report: Dictionary = _GFInputContextDiagnostics.build_context_report(
 		context,
-		null,
+		_remap_config,
 		include_non_remappable
 	)
+	report["remap_configured"] = _remap_config != null
 	return _bound_report_collections(report)
 
 
@@ -317,7 +380,7 @@ func _get_context_budget_issue(context: GFInputContext, include_non_remappable: 
 	var contexts: Array[GFInputContext] = [context]
 	var binding_items: Array[Dictionary] = _GFInputConflictAnalyzer.collect_binding_items(
 		contexts,
-		null,
+		_remap_config,
 		include_non_remappable
 	)
 	var candidate_count_by_bucket: Dictionary = {}
@@ -366,6 +429,7 @@ func _make_budget_report(context: GFInputContext, issue: Dictionary) -> Dictiona
 		"contexts": [_make_context_details(context)],
 		"context_id": context.get_context_id(),
 		"context_name": context.get_display_name(),
+		"remap_configured": _remap_config != null,
 		"issues": [issue],
 		"resource_summary": "上下文诊断已在安全预算边界停止。",
 	}
@@ -457,7 +521,11 @@ func _render_context() -> void:
 			break
 		mapping_item.set_text(0, "动作")
 		mapping_item.set_text(1, String(mapping.get_action_id()))
-		mapping_item.set_text(2, GFInputFormatter.mapping_as_text(mapping, _context.get_context_id()))
+		mapping_item.set_text(2, GFInputFormatter.mapping_as_text(
+			mapping,
+			_context.get_context_id(),
+			_remap_config
+		))
 		mapping_item.set_text(3, "%s · %s" % [
 			mapping.get_display_name(),
 			_get_value_type_name(mapping.action.value_type) if mapping.action != null else "missing action",
@@ -486,15 +554,29 @@ func _add_binding_items(parent: TreeItem, mapping: GFInputMapping) -> void:
 		var item: TreeItem = _create_bounded_tree_item(parent)
 		if item == null:
 			return
+		var binding_is_remapped: bool = _is_binding_remapped(mapping, binding_index)
+		var effective_event: InputEvent = _get_effective_binding_event(mapping, binding_index)
+		var effective_text: String = (
+			GFInputFormatter.input_event_as_text(effective_event)
+			if binding_is_remapped
+			else GFInputFormatter.binding_as_text(binding)
+		)
 		item.set_text(0, "绑定")
 		item.set_text(1, "%d" % binding_index)
-		item.set_text(2, GFInputFormatter.binding_as_text(binding))
+		item.set_text(2, effective_text)
 		item.set_text(3, "%s · deadzone %.2f · scale %.2f" % [
 			_get_value_target_name(binding.value_target),
 			binding.deadzone,
 			binding.scale,
 		])
-		item.set_metadata(0, _make_binding_details(binding, binding_index))
+		item.set_metadata(0, _make_binding_details(
+			mapping,
+			binding,
+			binding_index,
+			effective_event,
+			effective_text,
+			binding_is_remapped
+		))
 
 
 func _add_issue_item(parent: TreeItem, issue: Dictionary) -> void:
@@ -547,12 +629,26 @@ func _render_empty(status: String, hint: String = "") -> void:
 
 func _render_load_failure(status: String, hint: String, error_code: Error) -> Error:
 	_restore_committed_context_path()
-	_render_empty(status, hint)
+	_last_load_failure = {
+		"status": status,
+		"hint": hint,
+		"error_code": error_code,
+		"committed_context_path": _committed_context_path,
+	}
+	if _context != null and not _last_report.is_empty():
+		_render_context()
+		_details.text = _safe_json(_make_copy_payload())
+		_set_status(
+			"%s\n已保留上次成功载入的上下文与诊断。" % status,
+			_GFEditorWorkspaceUI.ERROR_TEXT_COLOR
+		)
+	else:
+		_render_empty(status, hint)
 	return error_code
 
 
 func _commit_context_path(path: String) -> void:
-	_committed_context_path = path.strip_edges()
+	_committed_context_path = _GFPathTools.normalize_resource_path(path)
 	_restore_committed_context_path()
 
 
@@ -575,6 +671,7 @@ func _make_report_overview() -> Dictionary:
 			"conflict_count": GFVariantData.get_option_int(_last_report, "conflict_count"),
 			"issue_count": GFVariantData.get_option_int(_last_report, "issue_count"),
 			"issues_truncated": GFVariantData.get_option_bool(_last_report, "issues_truncated"),
+			"remap_configured": GFVariantData.get_option_bool(_last_report, "remap_configured"),
 		},
 	}
 
@@ -601,18 +698,66 @@ func _make_mapping_details(mapping: GFInputMapping, mapping_index: int) -> Dicti
 	}
 
 
-func _make_binding_details(binding: GFInputBinding, binding_index: int) -> Dictionary:
-	return {
+func _make_binding_details(
+	mapping: GFInputMapping,
+	binding: GFInputBinding,
+	binding_index: int,
+	effective_event: InputEvent,
+	effective_text: String,
+	remapped: bool
+) -> Dictionary:
+	var details: Dictionary = {
 		"index": binding_index,
-		"text": GFInputFormatter.binding_as_text(binding),
-		"input_event": GFInputFormatter.input_event_as_text(binding.input_event),
+		"text": effective_text,
+		"input_event": GFInputFormatter.input_event_as_text(effective_event),
 		"value_target": _get_value_target_name(binding.value_target),
 		"deadzone": binding.deadzone,
 		"scale": binding.scale,
 		"match_device": binding.match_device,
 		"match_touch_index": binding.match_touch_index,
 		"remappable": binding.remappable,
+		"remapped": remapped,
 		"modifier_count": binding.modifiers.size(),
+	}
+	if remapped:
+		details["source_input_event"] = GFInputFormatter.input_event_as_text(binding.input_event)
+		details["context_id"] = _context.get_context_id() if _context != null else &""
+		details["action_id"] = mapping.get_action_id()
+	return details
+
+
+func _is_binding_remapped(mapping: GFInputMapping, binding_index: int) -> bool:
+	return (
+		_remap_config != null
+		and _context != null
+		and _remap_config.has_binding(
+			_context.get_context_id(),
+			mapping.get_action_id(),
+			binding_index
+		)
+	)
+
+
+func _get_effective_binding_event(mapping: GFInputMapping, binding_index: int) -> InputEvent:
+	var binding: GFInputBinding = mapping.bindings[binding_index]
+	if _is_binding_remapped(mapping, binding_index):
+		return _remap_config.get_bound_event_or_null(
+			_context.get_context_id(),
+			mapping.get_action_id(),
+			binding_index
+		)
+	return binding.input_event
+
+
+func _make_copy_payload() -> Dictionary:
+	if _last_load_failure.is_empty():
+		return _last_report.duplicate(true)
+	return {
+		"kind": "input_mapping_load_failure",
+		"stale": not _last_report.is_empty(),
+		"current_attempt": _last_load_failure.duplicate(true),
+		"committed_context": _make_context_details(_context) if _context != null else {},
+		"last_successful_report": _last_report.duplicate(true),
 	}
 
 
@@ -718,6 +863,22 @@ func _is_supported_resource_extension(path: String) -> bool:
 	return extension == "tres"
 
 
+func _resource_paths_share_identity(left: String, right: String) -> bool:
+	var normalized_left: String = _GFPathTools.normalize_resource_path(left)
+	var normalized_right: String = _GFPathTools.normalize_resource_path(right)
+	if normalized_left.is_empty() or normalized_right.is_empty():
+		return normalized_left == normalized_right
+	var absolute_left: String = _GFPathTools.normalize_path(
+		ProjectSettings.globalize_path(normalized_left)
+	)
+	var absolute_right: String = _GFPathTools.normalize_path(
+		ProjectSettings.globalize_path(normalized_right)
+	)
+	if OS.get_name() == "Windows":
+		return absolute_left.to_lower() == absolute_right.to_lower()
+	return absolute_left == absolute_right
+
+
 func _read_text_resource_declared_type(path: String) -> String:
 	var file: FileAccess = FileAccess.open(path, FileAccess.READ)
 	if file == null:
@@ -778,8 +939,15 @@ func _set_current_context(context: GFInputContext) -> void:
 	_connect_context_changed()
 
 
+func _set_current_remap_config(config: GFInputRemapConfig) -> void:
+	if _remap_config != config:
+		_disconnect_remap_config_changed()
+		_remap_config = config
+	_connect_remap_config_changed()
+
+
 func _connect_context_changed() -> void:
-	if _context == null:
+	if not _source_observation_enabled or _context == null:
 		return
 	var callback: Callable = _on_context_changed
 	if not _context.changed.is_connected(callback):
@@ -794,6 +962,36 @@ func _disconnect_context_changed() -> void:
 		_context.changed.disconnect(callback)
 
 
+func _connect_remap_config_changed() -> void:
+	if not _source_observation_enabled or _remap_config == null:
+		return
+	var callback: Callable = _on_remap_config_changed
+	if not _remap_config.changed.is_connected(callback):
+		var _changed_connected: Error = _remap_config.changed.connect(callback) as Error
+
+
+func _disconnect_remap_config_changed() -> void:
+	if _remap_config == null:
+		return
+	var callback: Callable = _on_remap_config_changed
+	if _remap_config.changed.is_connected(callback):
+		_remap_config.changed.disconnect(callback)
+
+
+func _queue_source_refresh() -> void:
+	if not _source_observation_enabled or _source_refresh_queued:
+		return
+	_source_refresh_queued = true
+	call_deferred("_flush_source_refresh")
+
+
+func _flush_source_refresh() -> void:
+	if not _source_observation_enabled or not _source_refresh_queued:
+		return
+	_source_refresh_queued = false
+	refresh()
+
+
 func _get_input_context_value(value: Variant) -> GFInputContext:
 	if value is GFInputContext:
 		var context: GFInputContext = value
@@ -804,7 +1002,11 @@ func _get_input_context_value(value: Variant) -> GFInputContext:
 # --- 信号处理函数 ---
 
 func _on_context_changed() -> void:
-	refresh()
+	_queue_source_refresh()
+
+
+func _on_remap_config_changed() -> void:
+	_queue_source_refresh()
 
 
 func _on_path_submitted(path: String) -> void:
@@ -840,7 +1042,17 @@ func _on_tree_item_selected() -> void:
 
 
 func _on_copy_pressed() -> void:
-	if _last_report.is_empty():
+	var payload: Dictionary = _make_copy_payload()
+	if payload.is_empty():
 		return
-	DisplayServer.clipboard_set(_safe_json(_last_report))
-	_set_status("已复制输入映射诊断报告。", _GFEditorWorkspaceUI.OK_TEXT_COLOR)
+	DisplayServer.clipboard_set(_safe_json(payload))
+	if _last_load_failure.is_empty():
+		_set_status("已复制输入映射诊断报告。", _GFEditorWorkspaceUI.OK_TEXT_COLOR)
+	else:
+		_set_status(
+			"%s\n已复制加载失败与上次成功诊断。" % GFVariantData.get_option_string(
+				_last_load_failure,
+				"status"
+			),
+			_GFEditorWorkspaceUI.WARNING_TEXT_COLOR
+		)

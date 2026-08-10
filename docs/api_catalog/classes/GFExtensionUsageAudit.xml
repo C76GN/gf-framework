@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFExtensionUsageAudit" path="addons/gf/kernel/extension/gf_extension_usage_audit.gd" module="kernel" extends="RefCounted" classDigest="42c258eea74353872c9c748f694ab04932d398dc7335902eed16d5f46fda506d">
+<class name="GFExtensionUsageAudit" path="addons/gf/kernel/extension/gf_extension_usage_audit.gd" module="kernel" extends="RefCounted" classDigest="1bec8f2612ce91a530191ace5de7dc190626d162c9c89dcbc6b4eafa79762615">
 	<description>GFExtensionUsageAudit: 检查禁用扩展是否仍被项目文件直接引用。</description>
 	<tags>
 		<tag name="api">public</tag>
@@ -115,7 +115,14 @@
 			</tags>
 		</member>
 		<member kind="const" name="DEFAULT_IGNORED_ROOTS">
-			<signature>const DEFAULT_IGNORED_ROOTS: Array[String] = [</signature>
+			<signature>const DEFAULT_IGNORED_ROOTS: Array[String] = [
+	"res://.godot",
+	"res://.git",
+	"res://.gf",
+	"res://addons/gf",
+	"res://build",
+	"res://packages",
+]</signature>
 			<description>默认忽略的根目录。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -123,7 +130,18 @@
 			</tags>
 		</member>
 		<member kind="const" name="TEXT_FILE_EXTENSIONS">
-			<signature>const TEXT_FILE_EXTENSIONS: Array[String] = [</signature>
+			<signature>const TEXT_FILE_EXTENSIONS: Array[String] = [
+	"cfg",
+	"csv",
+	"gd",
+	"gdshader",
+	"godot",
+	"import",
+	"json",
+	"shader",
+	"tscn",
+	"tres",
+]</signature>
 			<description>作为文本扫描的资源扩展名。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -142,7 +160,7 @@
 				<tag name="param">options: 可选参数，支持 scan_roots、ignored_roots、max_references_per_extension、max_weak_references_per_extension、max_scan_depth、max_scanned_files、max_file_bytes、max_total_bytes、include_weak_references 和 use_resource_dependencies。</tag>
 				<tag name="return">引用审计报告。</tag>
 				<tag name="schema">options: Dictionary controlling scan roots, ignored roots, strong and weak reference limits, depth, scanned file count, file byte budget, total byte budget, weak text reporting, and Godot dependency graph usage.</tag>
-				<tag name="schema">return: Dictionary containing ok, partial_scan, budget_exceeded, extension_count, reference_count, weak_reference_count, extensions, weak_extensions, references, weak_references, scanned_file_count, scanned_bytes, skipped_files, and scan_warnings. references only contains strong or verified blocking references.</tag>
+				<tag name="schema">return: Dictionary containing ok, partial_scan, budget_exceeded, extension_count, reference_count, weak_reference_count, extensions, weak_extensions, references, weak_references, candidate_file_count, scanned_file_count, scanned_bytes, skipped_files, scan_warnings, issue_count, issues, and class_name_scan. references only contains strong or verified blocking references.</tag>
 				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
@@ -157,6 +175,19 @@
 				<tag name="schema">options: Dictionary controlling scan roots, ignored roots, strong and weak reference limits, depth, scanned file count, file byte budget, total byte budget, weak text reporting, and Godot dependency graph usage.</tag>
 				<tag name="schema">return: Array of Dictionary file reference records. By default only strong or verified blocking references are returned; include_weak_references appends weak text matches.</tag>
 				<tag name="since">3.17.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="find_references_to_root_report">
+			<signature>static func find_references_to_root_report( root_path: String, options: Dictionary = {} ) -&gt; Dictionary:</signature>
+			<description>查找项目文件中对指定扩展根目录的直接引用，并返回扫描完整性报告。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">root_path: 扩展根目录。</tag>
+				<tag name="param">options: 参数同 find_references_to_root()。</tag>
+				<tag name="return">引用与扫描完整性报告。</tag>
+				<tag name="schema">options: Dictionary controlling scan roots, ignored roots, strong and weak reference limits, shared depth, candidate file count, file byte and total byte budgets, weak text reporting, and Godot dependency graph usage.</tag>
+				<tag name="schema">return: Dictionary containing ok, partial_scan, budget_exceeded, truncated, references, weak_references, candidate_file_count, scanned_file_count, scanned_bytes, skipped_files, scan_warnings, issue_count, issues, and class_name_scan.</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 	</methods>

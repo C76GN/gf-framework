@@ -21,6 +21,6 @@ var q_sys := Gf.get_system(GFActionQueueSystem) as GFActionQueueSystem
 q_sys.add_interceptor(SkipInvalidTargetVisuals.new())
 ```
 
-拦截器按 `priority` 从高到低执行。
+队列在执行前、执行后分别构建拦截器阶段快照，并按当时观察到的 `priority` 从高到低执行；注册后修改优先级会影响下一次阶段快照。相同优先级按注册顺序稳定执行。`set_interceptors()` 会先完成过滤、去重和注入，再统一排序并发布一次最终状态。
 
 它不提供卡牌、Buff、剧情或回合规则；这些规则应留在项目自己的 System、Command 或 Action 子类中。

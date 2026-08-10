@@ -142,7 +142,7 @@ func acquire(scene: PackedScene, parent: Node, before_add: Callable = Callable()
 |---|---|
 | `scene` | 要实例化的 PackedScene 资源。 |
 | `parent` | 借出的节点将加入或移动到此父节点；释放时会移动到内部池根节点。 |
-| `before_add` | 可选入树前回调，签名为 `func(node: Node) -> void`。 |
+| `before_add` | 可选入树前回调，签名为 \`func(node: Node) -> void\`。 |
 
 返回：可直接使用的节点实例。
 
@@ -185,7 +185,7 @@ func prewarm(scene: PackedScene, parent: Node, count: int, before_add: Callable 
 | `scene` | 要预热的 PackedScene 资源。 |
 | `parent` | 预热节点将加入此父节点。 |
 | `count` | 预热的数量。 |
-| `before_add` | 可选入树前回调，签名为 `func(node: Node) -> void`。 |
+| `before_add` | 可选入树前回调，签名为 \`func(node: Node) -> void\`。 |
 
 <a id="member-gfobjectpoolutility-methods-prewarm_async"></a>
 
@@ -208,7 +208,7 @@ func prewarm_async( scene: PackedScene, parent: Node, count: int, batch_size: in
 | `parent` | 预热节点将加入此父节点。 |
 | `count` | 预热的数量。 |
 | `batch_size` | 每帧最多实例化数量；小于等于 0 时退化为同步预热。 |
-| `before_add` | 可选入树前回调，签名为 `func(node: Node) -> void`。 |
+| `before_add` | 可选入树前回调，签名为 \`func(node: Node) -> void\`。 |
 
 <a id="member-gfobjectpoolutility-methods-prewarm_async_budget"></a>
 
@@ -231,7 +231,7 @@ func prewarm_async_budget( scene: PackedScene, parent: Node, count: int, msec_bu
 | `parent` | 预热节点将加入此父节点。 |
 | `count` | 预热的数量。 |
 | `msec_budget_per_frame` | 每帧实例化预算毫秒数；小于等于 0 时退化为同步预热。 |
-| `before_add` | 可选入树前回调，签名为 `func(node: Node) -> void`。 |
+| `before_add` | 可选入树前回调，签名为 \`func(node: Node) -> void\`。 |
 
 <a id="member-gfobjectpoolutility-methods-get_available_count"></a>
 

@@ -43,6 +43,7 @@
 | 方法 | [`clear_virtual_action`](#member-gfinputmappingutility-methods-clear_virtual_action) | `func clear_virtual_action( action_id: StringName, source_id: StringName = &"virtual", player_index: int = -1 ) -> bool:` |
 | 方法 | [`clear_virtual_source`](#member-gfinputmappingutility-methods-clear_virtual_source) | `func clear_virtual_source(source_id: StringName = &"virtual") -> void:` |
 | 方法 | [`get_virtual_source_snapshot`](#member-gfinputmappingutility-methods-get_virtual_source_snapshot) | `func get_virtual_source_snapshot(source_id: StringName = &"virtual") -> Dictionary:` |
+| 方法 | [`get_virtual_source_snapshot_for_player`](#member-gfinputmappingutility-methods-get_virtual_source_snapshot_for_player) | `func get_virtual_source_snapshot_for_player( source_id: StringName = &"virtual", player_index: int = -1 ) -> Dictionary:` |
 | 方法 | [`get_action_value`](#member-gfinputmappingutility-methods-get_action_value) | `func get_action_value(action_id: StringName) -> Variant:` |
 | 方法 | [`get_action_vector`](#member-gfinputmappingutility-methods-get_action_vector) | `func get_action_vector(action_id: StringName) -> Vector2:` |
 | 方法 | [`get_action_vector3`](#member-gfinputmappingutility-methods-get_action_vector3) | `func get_action_vector3(action_id: StringName) -> Vector3:` |
@@ -558,7 +559,7 @@ func set_virtual_action_value( action_id: StringName, value: Variant, source_id:
 | `source_id` | 虚拟输入源标识。 |
 | `player_index` | 玩家索引；小于 0 时只写入全局动作状态。 |
 
-返回：写入成功返回 true。
+返回：写入成功返回 true；非有限数值会被拒绝并保持旧贡献不变。
 
 结构：
 
@@ -627,6 +628,32 @@ func get_virtual_source_snapshot(source_id: StringName = &"virtual") -> Dictiona
 结构：
 
 - `return`: Dictionary，包含 source_id 和 actions: Array[Dictionary]，action 条目包含 action_id 与 value。
+
+<a id="member-gfinputmappingutility-methods-get_virtual_source_snapshot_for_player"></a>
+
+### `get_virtual_source_snapshot_for_player`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func get_virtual_source_snapshot_for_player( source_id: StringName = &"virtual", player_index: int = -1 ) -> Dictionary:
+```
+
+获取指定虚拟输入源与玩家身份的状态快照。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `source_id` | 虚拟输入源标识。 |
+| `player_index` | 玩家索引；小于 0 时读取仅全局身份。 |
+
+返回：玩家作用域快照字典。
+
+结构：
+
+- `return`: Dictionary，包含 source_id、player_index 和 actions: Array[Dictionary]，action 条目包含 action_id 与 value。
 
 <a id="member-gfinputmappingutility-methods-get_action_value"></a>
 

@@ -29,6 +29,8 @@ var visible := GFGridCoordinateMath2D.has_line_of_sight(
 
 `get_range()` 和 `get_ring()` 默认使用四方向移动对应的曼哈顿距离；`include_diagonal` 为 `true` 时改用八方向移动对应的切比雪夫距离。`get_line()` 使用 Bresenham 格子直线，适合离散网格上的普通射线、指示线和简单视线判断。
 
+为 `get_rectangle_cells()`、`get_range()` 或 `get_ring()` 提供有效 `grid_size` 时，循环范围会先收缩到网格交集，巨大半径不会先扫描边界外坐标。省略边界仍会直接物化完整结果，适合调用方已证明范围较小的场景；需要大型流式枚举时，不应把裸数组入口当作跨帧迭代器。
+
 ## Chunk 窗口
 
 Chunk API 只做坐标和集合计算，不加载资源、不发信号、不创建节点。项目层可以把返回的 `added` 映射为加载请求，把 `removed` 映射为卸载请求，或把 `kept` 用作调试和排序。

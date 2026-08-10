@@ -157,9 +157,12 @@ static func append_source_issue(
 	return append_issue(report, severity, kind, message, merged_fields)
 
 
-## 合并另一份字典报告的问题。
+## 合并另一份字典报告的问题。target 与 source 相同，或二者共享同一个 issues Array
+## 时，不重复合并 issues，避免别名输入在遍历期间放大；显式 copy_fields 仍正常复制。
 ## [br]
 ## @api public
+## [br]
+## @since 4.4.0
 ## [br]
 ## @param target: 目标报告字典，会被当前方法修改。
 ## [br]
@@ -177,12 +180,18 @@ static func append_source_issue(
 ## [br]
 ## @schema return: Dictionary merged report payload.
 static func merge_report(target: Dictionary, source: Dictionary, options: Dictionary = {}) -> Dictionary:
+	if is_same(target, source):
+		return target
 	var target_issues: Array = _get_issue_array(target)
-	for issue_variant: Variant in GFVariantData.get_option_array(source, "issues"):
-		var issue: Dictionary = issue_to_dict(issue_variant)
-		if issue.is_empty():
-			continue
-		target_issues.append(issue)
+	var source_issues: Array = GFVariantData.as_array(
+		GFVariantData.get_option_value(source, "issues", [])
+	)
+	if not is_same(target_issues, source_issues):
+		for issue_variant: Variant in source_issues:
+			var issue: Dictionary = issue_to_dict(issue_variant)
+			if issue.is_empty():
+				continue
+			target_issues.append(issue)
 	target["issues"] = target_issues
 
 	for field_name: String in _to_packed_string_array(GFVariantData.get_option_value(options, "copy_fields", PackedStringArray())):
@@ -347,13 +356,15 @@ static func has_error_issues(report: Dictionary, options: Dictionary = {}) -> bo
 ## [br]
 ## @api public
 ## [br]
+## @since 3.19.0
+## [br]
 ## @param issue: GFValidationIssue 或兼容问题字典。
 ## [br]
 ## @schema issue: Variant accepting GFValidationIssue or Dictionary issue payload.
 ## [br]
 ## @param fields: 参与指纹计算的字段；为空时使用 severity、kind、path、source_path、key 和 message。
 ## [br]
-## @return 问题指纹；输入无效时返回空字符串。
+## @return: 问题指纹；输入无效、包含运行时身份值或超过稳定遍历预算时返回空字符串。
 static func make_issue_fingerprint(issue: Variant, fields: PackedStringArray = PackedStringArray()) -> String:
 	var issue_data: Dictionary = issue_to_dict(issue)
 	if issue_data.is_empty():
@@ -364,10 +375,14 @@ static func make_issue_fingerprint(issue: Variant, fields: PackedStringArray = P
 		selected_fields = PackedStringArray(["severity", "kind", "path", "source_path", "key", "message"])
 
 	var parts: PackedStringArray = PackedStringArray()
+	var fingerprint_state: Dictionary = { "node_count": 0 }
 	for field_name: String in selected_fields:
+		var field_value: Variant = GFVariantData.get_option_value(issue_data, field_name)
+		if not _is_stable_fingerprint_value(field_value, [], 0, fingerprint_state):
+			return ""
 		_append_packed_string(parts, "%s=%s" % [
 			field_name,
-			_fingerprint_value(GFVariantData.get_option_value(issue_data, field_name)),
+			_fingerprint_value(field_value),
 		])
 	return "|".join(parts)
 
@@ -657,9 +672,81 @@ static func _glob_to_regex(pattern: String) -> String:
 
 static func _fingerprint_value(value: Variant) -> String:
 	var compatible: Variant = GFVariantJsonCodec.variant_to_json_compatible(value, {
-		"unsupported": "string",
+		"unsupported": "null",
 	})
 	return JSON.stringify(compatible, "", true)
+
+
+static func _is_stable_fingerprint_value(
+	value: Variant,
+	active_containers: Array,
+	depth: int,
+	state: Dictionary
+) -> bool:
+	const MAX_FINGERPRINT_DEPTH: int = 64
+	const MAX_FINGERPRINT_NODES: int = 16_384
+	if depth > MAX_FINGERPRINT_DEPTH:
+		return false
+	var node_count: int = GFVariantData.get_option_int(state, "node_count") + 1
+	if node_count > MAX_FINGERPRINT_NODES:
+		return false
+	state["node_count"] = node_count
+
+	match typeof(value):
+		TYPE_NIL, TYPE_BOOL, TYPE_INT, TYPE_FLOAT, TYPE_STRING, TYPE_STRING_NAME, TYPE_NODE_PATH:
+			return true
+		TYPE_VECTOR2, TYPE_VECTOR2I, TYPE_VECTOR3, TYPE_VECTOR3I, TYPE_VECTOR4, TYPE_VECTOR4I:
+			return true
+		TYPE_RECT2, TYPE_RECT2I, TYPE_COLOR, TYPE_PLANE, TYPE_QUATERNION, TYPE_AABB, TYPE_BASIS:
+			return true
+		TYPE_TRANSFORM2D, TYPE_TRANSFORM3D:
+			return true
+		TYPE_PACKED_BYTE_ARRAY, TYPE_PACKED_INT32_ARRAY, TYPE_PACKED_INT64_ARRAY:
+			return true
+		TYPE_PACKED_FLOAT32_ARRAY, TYPE_PACKED_FLOAT64_ARRAY, TYPE_PACKED_STRING_ARRAY:
+			return true
+		TYPE_PACKED_VECTOR2_ARRAY, TYPE_PACKED_VECTOR3_ARRAY, TYPE_PACKED_COLOR_ARRAY:
+			return true
+		TYPE_PACKED_VECTOR4_ARRAY:
+			return true
+		TYPE_ARRAY:
+			if _fingerprint_active_contains(active_containers, value):
+				return true
+			active_containers.append(value)
+			var array_value: Array = value
+			for item: Variant in array_value:
+				if not _is_stable_fingerprint_value(item, active_containers, depth + 1, state):
+					var _removed_unstable_array: Variant = active_containers.pop_back()
+					return false
+			var _removed_stable_array: Variant = active_containers.pop_back()
+			return true
+		TYPE_DICTIONARY:
+			if _fingerprint_active_contains(active_containers, value):
+				return true
+			active_containers.append(value)
+			var dictionary_value: Dictionary = value
+			for key: Variant in dictionary_value.keys():
+				if not _is_stable_fingerprint_value(key, active_containers, depth + 1, state):
+					var _removed_unstable_dictionary_key: Variant = active_containers.pop_back()
+					return false
+				if not _is_stable_fingerprint_value(
+					dictionary_value[key],
+					active_containers,
+					depth + 1,
+					state
+				):
+					var _removed_unstable_dictionary_value: Variant = active_containers.pop_back()
+					return false
+			var _removed_stable_dictionary: Variant = active_containers.pop_back()
+			return true
+	return false
+
+
+static func _fingerprint_active_contains(active_containers: Array, value: Variant) -> bool:
+	for active_value: Variant in active_containers:
+		if is_same(active_value, value):
+			return true
+	return false
 
 
 static func _get_script_instance(value: Variant, expected_script: Script) -> RefCounted:

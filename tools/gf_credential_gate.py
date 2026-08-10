@@ -556,6 +556,15 @@ class _RegularFileBinding:
 
 
 @dataclass(frozen=True)
+class _ScannablePath:
+	"""Keep validated policy semantics separate from the redacted report label."""
+
+	policy_path: str
+	report_path: str
+	file_kind: str
+
+
+@dataclass(frozen=True)
 class ZipPreflight:
 	"""Bounded EOCD facts that must agree with the parsed central directory."""
 
@@ -1024,7 +1033,7 @@ def scan_tracked_repository(
 		return _result("tracked", collector, stats)
 
 	stats.tracked_file_count = len(tracked_paths)
-	preflight: list[tuple[Path, str, str]] = []
+	preflight: list[tuple[Path, _ScannablePath]] = []
 	for index, relative_path in enumerate(tracked_paths):
 		if not _directory_binding_is_current(root, repository_binding):
 			return _failure_result(
@@ -1036,15 +1045,18 @@ def scan_tracked_repository(
 		if _contains_credential_shape(relative_path):
 			collector.add("credential.sensitive_path_value", report_path)
 		try:
-			file_kind = _file_kind(relative_path)
-			_scan_sensitive_file_name(report_path, collector)
-			candidate = _controlled_relative_path(root, relative_path)
+			path_facts = _scannable_path(
+				relative_path,
+				f"tracked-entry-{index + 1}",
+			)
+			_scan_sensitive_file_name(path_facts, collector)
+			candidate = _controlled_relative_path(root, path_facts.policy_path)
 			size = _regular_file_size(candidate, containment_root=root)
-			if file_kind in {"text", "unknown"} and size > active_limits.max_source_file_bytes:
+			if path_facts.file_kind in {"text", "unknown"} and size > active_limits.max_source_file_bytes:
 				raise GateInputError("credential_gate.source_file_budget_exceeded")
-			if file_kind == "zip" and size > active_limits.max_artifact_bytes:
+			if path_facts.file_kind == "zip" and size > active_limits.max_artifact_bytes:
 				raise GateInputError("credential_gate.archive_file_budget_exceeded")
-			preflight.append((candidate, report_path, file_kind))
+			preflight.append((candidate, path_facts))
 		except GateInputError as error:
 			collector.add(error.rule_id, report_path)
 		if collector.exhausted or active_work_budget.hard_exhausted:
@@ -1059,7 +1071,7 @@ def scan_tracked_repository(
 			)
 		return _result("tracked", collector, stats)
 
-	for candidate, report_path, file_kind in preflight:
+	for candidate, path_facts in preflight:
 		if not _directory_binding_is_current(root, repository_binding):
 			return _failure_result(
 				"tracked",
@@ -1068,14 +1080,13 @@ def scan_tracked_repository(
 			)
 		_scan_path(
 			candidate,
-			report_path,
-			file_kind,
+			path_facts,
 			active_limits,
 			collector,
 			stats,
 			active_work_budget,
 			containment_root=root,
-			allow_suppression=_source_path_allows_suppression(report_path),
+			allow_suppression=_source_path_allows_suppression(path_facts),
 			count_source_bytes=True,
 		)
 		if collector.exhausted or active_work_budget.hard_exhausted:
@@ -1174,7 +1185,7 @@ def scan_release_manifest(
 
 	artifact_root = manifest.parent
 	seen_paths: set[str] = set()
-	preflight: list[tuple[Path, str, str, str]] = []
+	preflight: list[tuple[Path, _ScannablePath, str]] = []
 	artifact_bindings: list[tuple[str, int, str]] = []
 	total_bytes = 0
 	for index, raw_artifact in enumerate(raw_artifacts):
@@ -1190,12 +1201,12 @@ def scan_release_manifest(
 		if _contains_credential_shape(raw_path):
 			collector.add("credential.sensitive_path_value", report_path)
 		try:
-			normalized = _normalize_relative_path(raw_path)
-			identity = normalized.casefold()
+			path_facts = _scannable_path(raw_path, fallback_path)
+			identity = path_facts.policy_path.casefold()
 			if identity in seen_paths:
 				raise GateInputError("credential_gate.release_artifact_duplicate")
 			seen_paths.add(identity)
-			candidate = _controlled_relative_path(artifact_root, normalized)
+			candidate = _controlled_relative_path(artifact_root, path_facts.policy_path)
 			size = _regular_file_size(
 				candidate,
 				containment_root=artifact_root,
@@ -1216,9 +1227,8 @@ def scan_release_manifest(
 			total_bytes += size
 			if total_bytes > active_limits.max_release_bytes:
 				raise GateInputError("credential_gate.release_total_budget_exceeded")
-			file_kind = _file_kind(normalized)
-			preflight.append((candidate, report_path, file_kind, declared_sha256))
-			artifact_bindings.append((normalized, size, declared_sha256))
+			preflight.append((candidate, path_facts, declared_sha256))
+			artifact_bindings.append((path_facts.policy_path, size, declared_sha256))
 		except GateInputError as error:
 			collector.add(error.rule_id, report_path)
 		if collector.exhausted or active_work_budget.hard_exhausted:
@@ -1228,11 +1238,10 @@ def scan_release_manifest(
 	if collector.issues:
 		return _result("release", collector, stats)
 
-	for candidate, report_path, file_kind, declared_sha256 in preflight:
+	for candidate, path_facts, declared_sha256 in preflight:
 		_scan_path(
 			candidate,
-			report_path,
-			file_kind,
+			path_facts,
 			active_limits,
 			collector,
 			stats,
@@ -1589,6 +1598,15 @@ def _file_kind(path: str) -> str:
 	if suffix in BINARY_SUFFIXES:
 		return "binary"
 	return "unknown"
+
+
+def _scannable_path(raw_path: str, fallback: str) -> _ScannablePath:
+	policy_path = _normalize_relative_path(raw_path)
+	return _ScannablePath(
+		policy_path=policy_path,
+		report_path=_safe_report_path(policy_path, fallback),
+		file_kind=_file_kind(policy_path),
+	)
 
 
 def _metadata_is_link_or_reparse(metadata: os.stat_result) -> bool:
@@ -2657,8 +2675,7 @@ def _write_all_stream(handle: BinaryIO, payload: bytes) -> None:
 
 def _scan_path(
 	path: Path,
-	report_path: str,
-	file_kind: str,
+	path_facts: _ScannablePath,
 	limits: GateLimits,
 	collector: IssueCollector,
 	stats: ScanStats,
@@ -2669,7 +2686,9 @@ def _scan_path(
 	count_source_bytes: bool = False,
 	expected_sha256: str = "",
 ) -> None:
-	_scan_sensitive_file_name(report_path, collector)
+	report_path = path_facts.report_path
+	file_kind = path_facts.file_kind
+	_scan_sensitive_file_name(path_facts, collector)
 	if collector.exhausted:
 		return
 	try:
@@ -2832,7 +2851,7 @@ def _scan_zip(
 
 	seen_paths: set[str] = set()
 	total_expanded = 0
-	validated: list[tuple[zipfile.ZipInfo, str, str, int]] = []
+	validated: list[tuple[zipfile.ZipInfo, _ScannablePath, int]] = []
 	local_ranges: list[tuple[int, int]] = []
 	preflight_failed = bool(collector.issues)
 	try:
@@ -2860,12 +2879,18 @@ def _scan_zip(
 				if entry.is_dir() and entry.filename.endswith("/")
 				else entry.filename
 			)
-			normalized = _normalize_relative_path(entry_name)
-			entry_report_name = _safe_report_path(normalized, f"entry-{index + 1}")
+			entry_path_facts = _scannable_path(entry_name, f"entry-{index + 1}")
+			normalized = entry_path_facts.policy_path
+			entry_report_name = entry_path_facts.report_path
 			entry_report_path = _compose_report_path(
 				report_prefix,
 				entry_report_name,
 				entry_fallback,
+			)
+			entry_path_facts = _ScannablePath(
+				policy_path=entry_path_facts.policy_path,
+				report_path=entry_report_path,
+				file_kind=entry_path_facts.file_kind,
 			)
 			if _contains_credential_shape(normalized):
 				preflight_failed = True
@@ -2979,8 +3004,7 @@ def _scan_zip(
 				raise GateInputError("credential_gate.archive_compression_ratio_exceeded")
 			validated.append((
 				entry,
-				entry_report_path,
-				_file_kind(normalized),
+				entry_path_facts,
 				local_data_offset,
 			))
 		except GateInputError as error:
@@ -3018,7 +3042,7 @@ def _scan_zip(
 	if preflight_failed:
 		return
 
-	for entry, entry_report_path, _file_kind_value, data_offset in validated:
+	for entry, entry_path_facts, data_offset in validated:
 		try:
 			_validate_zip_compressed_record(
 				archive_stream,
@@ -3028,7 +3052,7 @@ def _scan_zip(
 				limits,
 			)
 		except GateInputError as error:
-			collector.add(error.rule_id, entry_report_path)
+			collector.add(error.rule_id, entry_path_facts.report_path)
 			return
 
 	for range_index, (range_start, range_end) in enumerate(
@@ -3074,8 +3098,10 @@ def _scan_zip(
 
 	stats.archive_entry_count += len(validated)
 	stats.expanded_bytes += total_expanded
-	for entry, entry_report_path, file_kind, _data_offset in validated:
-		_scan_sensitive_file_name(entry_report_path, collector)
+	for entry, entry_path_facts, _data_offset in validated:
+		entry_report_path = entry_path_facts.report_path
+		file_kind = entry_path_facts.file_kind
+		_scan_sensitive_file_name(entry_path_facts, collector)
 		if collector.exhausted:
 			break
 		try:
@@ -3721,15 +3747,18 @@ def _scan_text(
 			return
 
 
-def _scan_sensitive_file_name(report_path: str, collector: IssueCollector) -> None:
-	lower_path = report_path.lower()
+def _scan_sensitive_file_name(path_facts: _ScannablePath, collector: IssueCollector) -> None:
+	lower_path = path_facts.policy_path.lower()
 	file_name = lower_path.rsplit("/", 1)[-1]
 	if file_name in SENSITIVE_FILE_NAMES or SENSITIVE_FILE_NAME_RE.search(file_name):
-		collector.add("credential.sensitive_file_name", report_path)
+		collector.add("credential.sensitive_file_name", path_facts.report_path)
 
 
-def _source_path_allows_suppression(report_path: str) -> bool:
-	return report_path == "tests" or report_path.startswith("tests/")
+def _source_path_allows_suppression(path_facts: _ScannablePath) -> bool:
+	return (
+		path_facts.policy_path == "tests"
+		or path_facts.policy_path.startswith("tests/")
+	)
 
 
 def _looks_like_credential_value(value: str) -> bool:

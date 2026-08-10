@@ -13,7 +13,7 @@ class_name GFScriptTypeInspector
 extends RefCounted
 
 
-# --- 公共方法 ---
+# --- 框架内部方法 ---
 
 ## 判断 candidate 是否等于或继承 expected。
 ## [br]

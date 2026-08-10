@@ -28,10 +28,11 @@
 | 常量 | [`DEFAULT_MAX_SCANNED_FILES`](#member-gfextensionusageaudit-constants-default_max_scanned_files) | `const DEFAULT_MAX_SCANNED_FILES: int = 10000` |
 | 常量 | [`DEFAULT_MAX_FILE_BYTES`](#member-gfextensionusageaudit-constants-default_max_file_bytes) | `const DEFAULT_MAX_FILE_BYTES: int = 4 * 1024 * 1024` |
 | 常量 | [`DEFAULT_MAX_TOTAL_BYTES`](#member-gfextensionusageaudit-constants-default_max_total_bytes) | `const DEFAULT_MAX_TOTAL_BYTES: int = 64 * 1024 * 1024` |
-| 常量 | [`DEFAULT_IGNORED_ROOTS`](#member-gfextensionusageaudit-constants-default_ignored_roots) | `const DEFAULT_IGNORED_ROOTS: Array[String] = [` |
-| 常量 | [`TEXT_FILE_EXTENSIONS`](#member-gfextensionusageaudit-constants-text_file_extensions) | `const TEXT_FILE_EXTENSIONS: Array[String] = [` |
+| 常量 | [`DEFAULT_IGNORED_ROOTS`](#member-gfextensionusageaudit-constants-default_ignored_roots) | `const DEFAULT_IGNORED_ROOTS: Array[String] = [ 	"res://.godot", 	"res://.git", 	"res://.gf", 	"res://addons/gf", 	"res://build", 	"res://packages", ]` |
+| 常量 | [`TEXT_FILE_EXTENSIONS`](#member-gfextensionusageaudit-constants-text_file_extensions) | `const TEXT_FILE_EXTENSIONS: Array[String] = [ 	"cfg", 	"csv", 	"gd", 	"gdshader", 	"godot", 	"import", 	"json", 	"shader", 	"tscn", 	"tres", ]` |
 | 方法 | [`audit_disabled_extensions`](#member-gfextensionusageaudit-methods-audit_disabled_extensions) | `static func audit_disabled_extensions( manifests: Array[GFExtensionManifest], options: Dictionary = {} ) -> Dictionary:` |
 | 方法 | [`find_references_to_root`](#member-gfextensionusageaudit-methods-find_references_to_root) | `static func find_references_to_root(root_path: String, options: Dictionary = {}) -> Array[Dictionary]:` |
+| 方法 | [`find_references_to_root_report`](#member-gfextensionusageaudit-methods-find_references_to_root_report) | `static func find_references_to_root_report( root_path: String, options: Dictionary = {} ) -> Dictionary:` |
 
 ## 常量
 
@@ -213,6 +214,13 @@ const DEFAULT_MAX_TOTAL_BYTES: int = 64 * 1024 * 1024
 
 ```gdscript
 const DEFAULT_IGNORED_ROOTS: Array[String] = [
+	"res://.godot",
+	"res://.git",
+	"res://.gf",
+	"res://addons/gf",
+	"res://build",
+	"res://packages",
+]
 ```
 
 默认忽略的根目录。
@@ -226,6 +234,17 @@ const DEFAULT_IGNORED_ROOTS: Array[String] = [
 
 ```gdscript
 const TEXT_FILE_EXTENSIONS: Array[String] = [
+	"cfg",
+	"csv",
+	"gd",
+	"gdshader",
+	"godot",
+	"import",
+	"json",
+	"shader",
+	"tscn",
+	"tres",
+]
 ```
 
 作为文本扫描的资源扩展名。
@@ -257,7 +276,7 @@ static func audit_disabled_extensions( manifests: Array[GFExtensionManifest], op
 结构：
 
 - `options`: Dictionary controlling scan roots, ignored roots, strong and weak reference limits, depth, scanned file count, file byte budget, total byte budget, weak text reporting, and Godot dependency graph usage.
-- `return`: Dictionary containing ok, partial_scan, budget_exceeded, extension_count, reference_count, weak_reference_count, extensions, weak_extensions, references, weak_references, scanned_file_count, scanned_bytes, skipped_files, and scan_warnings. references only contains strong or verified blocking references.
+- `return`: Dictionary containing ok, partial_scan, budget_exceeded, extension_count, reference_count, weak_reference_count, extensions, weak_extensions, references, weak_references, candidate_file_count, scanned_file_count, scanned_bytes, skipped_files, scan_warnings, issue_count, issues, and class_name_scan. references only contains strong or verified blocking references.
 
 <a id="member-gfextensionusageaudit-methods-find_references_to_root"></a>
 
@@ -285,3 +304,30 @@ static func find_references_to_root(root_path: String, options: Dictionary = {})
 
 - `options`: Dictionary controlling scan roots, ignored roots, strong and weak reference limits, depth, scanned file count, file byte budget, total byte budget, weak text reporting, and Godot dependency graph usage.
 - `return`: Array of Dictionary file reference records. By default only strong or verified blocking references are returned; include_weak_references appends weak text matches.
+
+<a id="member-gfextensionusageaudit-methods-find_references_to_root_report"></a>
+
+### `find_references_to_root_report`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+static func find_references_to_root_report( root_path: String, options: Dictionary = {} ) -> Dictionary:
+```
+
+查找项目文件中对指定扩展根目录的直接引用，并返回扫描完整性报告。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `root_path` | 扩展根目录。 |
+| `options` | 参数同 find_references_to_root()。 |
+
+返回：引用与扫描完整性报告。
+
+结构：
+
+- `options`: Dictionary controlling scan roots, ignored roots, strong and weak reference limits, shared depth, candidate file count, file byte and total byte budgets, weak text reporting, and Godot dependency graph usage.
+- `return`: Dictionary containing ok, partial_scan, budget_exceeded, truncated, references, weak_references, candidate_file_count, scanned_file_count, scanned_bytes, skipped_files, scan_warnings, issue_count, issues, and class_name_scan.

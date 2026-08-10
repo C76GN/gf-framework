@@ -208,8 +208,11 @@ func start(reset_indices: bool = true) -> void:
 ## [br]
 ## @since 3.17.0
 ## [br]
-## @param should_clear_actions: 是否清空待处理行动。
+## @param should_clear_actions: 是否清空待处理行动。即使流程已经 stopped，true 仍会幂等清理并封存队列；此前的保留策略也会升级为清理。
 func stop(should_clear_actions: bool = true) -> void:
+	if should_clear_actions:
+		_restore_pending_actions_on_cancel = false
+		_clear_actions_internal()
 	if _lifecycle_state == _LifecycleState.STOPPING:
 		return
 	if (
@@ -224,8 +227,6 @@ func stop(should_clear_actions: bool = true) -> void:
 	_active_operation_stop_requested = true
 	_flow_serial += 1
 	_restore_pending_actions_on_cancel = not should_clear_actions
-	if should_clear_actions:
-		_clear_actions_internal()
 	_is_running = false
 	var stopped_context: GFTurnContext = _context
 	_lifecycle_state = _LifecycleState.STOPPED
@@ -364,7 +365,9 @@ func enqueue_action(action: GFTurnAction) -> void:
 ## [br]
 ## @api public
 ## [br]
-## @param order_resolver: 可选排序回调，签名为 func(a, b) -> bool。
+## @since 3.17.0
+## [br]
+## @param order_resolver: 可选排序回调，签名为 func(a, b) -> bool；调用方必须提供无副作用、确定且满足严格弱序的比较器。自定义比较器不继承默认 non-finite 与入队顺序规则。
 func resolve_actions(order_resolver: Callable = Callable()) -> void:
 	if _is_resolving_actions:
 		push_warning("[GFTurnFlowSystem] resolve_actions 失败：行动正在解析中。")
@@ -401,7 +404,7 @@ func resolve_actions(order_resolver: Callable = Callable()) -> void:
 			action_index += 1
 			continue
 		_inject_action(action)
-		_sanitize_action_targets(action)
+		action.replace_runtime_targets(action.targets)
 		active_context.set_current_actor_from_flow(_variant_to_valid_object(action.actor))
 		var result: Variant = action._resolve(active_context)
 		if result is Signal:
@@ -530,19 +533,6 @@ func _action_has_invalid_actor(action: GFTurnAction) -> bool:
 	return not is_instance_valid(actor_value)
 
 
-func _sanitize_action_targets(action: GFTurnAction) -> void:
-	if action == null:
-		return
-	var valid_targets: Array[Object] = []
-	for target_value: Variant in action.targets:
-		var target: Object = _variant_to_valid_object(target_value)
-		if target == null:
-			continue
-		if not valid_targets.has(target):
-			valid_targets.append(target)
-	action.replace_runtime_targets(valid_targets)
-
-
 func _variant_to_valid_object(value: Variant) -> Object:
 	if typeof(value) != TYPE_OBJECT or not is_instance_valid(value):
 		return null
@@ -593,7 +583,8 @@ func _end_phase_advance(
 	if phase != null:
 		phase.end_runtime(active_context, phase_runtime)
 	_is_advancing_phase = false
-	_active_operation_stop_requested = false
+	if not _is_resolving_actions:
+		_active_operation_stop_requested = false
 
 
 func _finish_action_resolution(active_context: GFTurnContext) -> void:
@@ -601,7 +592,8 @@ func _finish_action_resolution(active_context: GFTurnContext) -> void:
 		active_context.set_current_actor_from_flow(null)
 	_is_resolving_actions = false
 	_restore_pending_actions_on_cancel = false
-	_active_operation_stop_requested = false
+	if not _is_advancing_phase:
+		_active_operation_stop_requested = false
 
 
 func _is_context_lease_current(serial: int, active_context: GFTurnContext) -> bool:

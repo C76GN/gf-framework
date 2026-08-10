@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFTimedTextEntry" path="addons/gf/standard/foundation/timeline/gf_timed_text_entry.gd" module="standard" extends="Resource" classDigest="9f449ac9de3cd5dd62700140fe78b94c1a37cb6ba92c5490c663381a0edaf0d1">
+<class name="GFTimedTextEntry" path="addons/gf/standard/foundation/timeline/gf_timed_text_entry.gd" module="standard" extends="Resource" classDigest="c5184538321d1b535e4c7bff50adfb876826c574d8106ef1cb1ce55affe6b330">
 	<description>GFTimedTextEntry: 通用时间段文本条目。
 表示一段开始时间、结束时间和文本，可用于字幕、对白、提示或时间轴注释。</description>
 	<tags>
@@ -12,17 +12,19 @@
 	<constants />
 	<properties>
 		<member kind="property" name="start_time" decorators="@export">
-			<signature>var start_time: float = 0.0</signature>
+			<signature>var start_time: float = 0.0:</signature>
 			<description>开始时间，单位秒。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="end_time" decorators="@export">
-			<signature>var end_time: float = 0.0</signature>
+			<signature>var end_time: float = 0.0:</signature>
 			<description>结束时间，单位秒。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="text" decorators="@export_multiline">

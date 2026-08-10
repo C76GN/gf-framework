@@ -167,8 +167,10 @@ func test_config_provider_get_schema_returns_copy() -> void:
 	var provider: GFConfigProvider = GFConfigProvider.new()
 	var schema: GFConfigTableSchema = _make_item_schema()
 	assert_true(provider.register_schema(schema), "有效 schema 应注册成功。")
+	schema.columns.clear()
 
 	var schema_copy: GFConfigTableSchema = provider.get_schema(&"items")
+	assert_eq(schema_copy.columns.size(), 3, "注册后修改调用方原 schema 不应污染 Provider。")
 	schema_copy.columns.clear()
 
 	var report: Dictionary = provider.validate_record(&"items", { "id": 1, "name": "Potion", "power": 2.0 })
@@ -264,6 +266,24 @@ func test_csv_importer_reports_missing_condition_end() -> void:
 	assert_false(GFVariantData.get_option_bool(parsed, "success"), "未闭合条件块不应静默解析。")
 	assert_true(GFVariantData.get_option_string(parsed, "error").contains("missing_condition_end"), "错误信息应说明条件块未闭合。")
 	assert_eq(GFVariantData.get_option_int(parsed, "error_line"), 2, "错误应指向未闭合条件块起始行。")
+
+
+func test_csv_importer_rejects_condition_if_without_symbols() -> void:
+	var parsed: Dictionary = GFConfigTableImporter.parse_csv_table(
+		"id,name\n#if\n1,Potion\n#endif\n",
+		{
+			"enable_condition_directives": true,
+			"condition_symbols": PackedStringArray(),
+		}
+	)
+
+	assert_false(GFVariantData.get_option_bool(parsed, "success"), "裸 #if 是语法错误，不得作为空条件集合 fail-open。")
+	assert_true(
+		GFVariantData.get_option_string(parsed, "error").contains("empty_condition_symbols"),
+		"错误应稳定区分缺失 condition symbol。"
+	)
+	assert_eq(GFVariantData.get_option_int(parsed, "error_line"), 2, "错误应指向裸 #if 的物理行。")
+	assert_eq(GFVariantData.get_option_int(parsed, "error_column"), 1, "条件指令错误应指向第一列。")
 
 
 func test_csv_importer_reports_duplicate_headers() -> void:
@@ -478,6 +498,93 @@ func test_reference_resolver_reports_missing_target_record() -> void:
 	assert_true(_has_issue_kind(GFVariantData.get_option_array(report, "issues"), "missing_reference"), "错误报告应包含缺失引用。")
 
 
+func test_reference_resolver_cache_identity_distinguishes_table_name_boundaries() -> void:
+	var owner_schema: GFConfigTableSchema = GFConfigTableSchema.new()
+	owner_schema.table_name = &"owners"
+	var namespaced_table_reference: GFConfigTableReference = _make_reference(
+		&"namespaced_table",
+		PackedStringArray(["namespaced_value"]),
+		&"a::b",
+		PackedStringArray(["c"])
+	)
+	var namespaced_field_reference: GFConfigTableReference = _make_reference(
+		&"namespaced_field",
+		PackedStringArray(["field_value"]),
+		&"a",
+		PackedStringArray(["b::c"])
+	)
+	var tables: Dictionary = {
+		&"a::b": [{ &"c": 11 }],
+		&"a": [{ &"b::c": 22 }],
+		&"owners": [{ &"namespaced_value": 11, &"field_value": 22 }],
+	}
+
+	for reverse_order: bool in [false, true]:
+		var references: Array[GFConfigTableReference] = []
+		if reverse_order:
+			references.assign([namespaced_field_reference, namespaced_table_reference])
+		else:
+			references.assign([namespaced_table_reference, namespaced_field_reference])
+		owner_schema.references = references
+		var report: Dictionary = GFConfigReferenceResolver.validate_tables(
+			tables,
+			[owner_schema],
+			{ "validate_schema": false }
+		)
+		assert_true(
+			GFVariantData.get_option_bool(report, "ok"),
+			"表名边界不同的引用缓存 identity 不得因 :: 分隔符碰撞，且结果不应依赖声明顺序。"
+		)
+
+
+func test_reference_resolver_cache_identity_distinguishes_field_boundaries() -> void:
+	var owner_schema: GFConfigTableSchema = GFConfigTableSchema.new()
+	owner_schema.table_name = &"owners"
+	var joined_left_reference: GFConfigTableReference = _make_reference(
+		&"joined_left",
+		PackedStringArray(["left_a", "left_b"]),
+		&"targets",
+		PackedStringArray(["a|b", "c"])
+	)
+	var joined_right_reference: GFConfigTableReference = _make_reference(
+		&"joined_right",
+		PackedStringArray(["right_a", "right_b"]),
+		&"targets",
+		PackedStringArray(["a", "b|c"])
+	)
+	var tables: Dictionary = {
+		&"targets": [{
+			&"a|b": 1,
+			&"c": 2,
+			&"a": 3,
+			&"b|c": 4,
+		}],
+		&"owners": [{
+			&"left_a": 1,
+			&"left_b": 2,
+			&"right_a": 3,
+			&"right_b": 4,
+		}],
+	}
+
+	for reverse_order: bool in [false, true]:
+		var references: Array[GFConfigTableReference] = []
+		if reverse_order:
+			references.assign([joined_right_reference, joined_left_reference])
+		else:
+			references.assign([joined_left_reference, joined_right_reference])
+		owner_schema.references = references
+		var report: Dictionary = GFConfigReferenceResolver.validate_tables(
+			tables,
+			[owner_schema],
+			{ "validate_schema": false }
+		)
+		assert_true(
+			GFVariantData.get_option_bool(report, "ok"),
+			"字段 tuple 边界不同的引用缓存 identity 不得因 | 分隔符碰撞，且结果不应依赖声明顺序。"
+		)
+
+
 func test_column_validation_rules_report_common_data_errors() -> void:
 	var schema: GFConfigTableSchema = GFConfigTableSchema.new()
 	schema.table_name = &"items"
@@ -535,6 +642,44 @@ func test_column_validation_rules_report_common_data_errors() -> void:
 	assert_true(_has_issue_kind(issues, "resource_path_extension_not_allowed"), "应报告资源扩展名不匹配。")
 	assert_true(_has_issue_kind(issues, "localization_key_missing"), "应报告文本 key 缺失。")
 	assert_true(_has_issue_kind(issues, "range_above_maximum"), "应报告范围越界。")
+
+
+func test_size_validation_rule_supports_every_packed_array_type() -> void:
+	var rule: GFConfigSizeValidationRule = GFConfigSizeValidationRule.new()
+	rule.has_minimum_size = true
+	rule.minimum_size = 1
+	rule.has_maximum_size = true
+	rule.maximum_size = 1
+	var one_element_values: Array[Variant] = [
+		PackedByteArray([1]),
+		PackedInt32Array([1]),
+		PackedInt64Array([1]),
+		PackedFloat32Array([1.0]),
+		PackedFloat64Array([1.0]),
+		PackedStringArray(["value"]),
+		PackedVector2Array([Vector2.ZERO]),
+		PackedVector3Array([Vector3.ZERO]),
+		PackedVector4Array([Vector4.ZERO]),
+		PackedColorArray([Color.WHITE]),
+	]
+
+	for value: Variant in one_element_values:
+		var report: Dictionary = rule.validate_value(value)
+		assert_true(
+			GFVariantData.get_option_bool(report, "ok"),
+			"Godot 当前支持的每种 PackedArray 都应以元素数参与统一 size 规则。"
+		)
+
+	var empty_report: Dictionary = rule.validate_value(PackedVector4Array())
+	var oversized_report: Dictionary = rule.validate_value(PackedVector4Array([Vector4.ZERO, Vector4.ONE]))
+	assert_true(
+		_has_issue_kind(GFVariantData.get_option_array(empty_report, "issues"), "size_out_of_range"),
+		"空 PackedVector4Array 应按 size=0 命中下限，而不是 invalid type。"
+	)
+	assert_true(
+		_has_issue_kind(GFVariantData.get_option_array(oversized_report, "issues"), "size_out_of_range"),
+		"双元素 PackedVector4Array 应按 size=2 命中上限。"
+	)
 
 
 func test_regex_validation_rule_recompiles_when_pattern_changes() -> void:
@@ -753,6 +898,42 @@ func test_csv_validation_report_keeps_source_line_and_column() -> void:
 	assert_eq(GFVariantData.get_option_int(first_issue, "column"), 1, "错误应保留 CSV 列号。")
 
 
+func test_csv_validation_keeps_physical_lines_after_multiline_cells() -> void:
+	var schema: GFConfigTableSchema = _make_item_schema()
+	schema.coerce_values = true
+
+	for line_ending: String in ["\n", "\r\n"]:
+		var csv_text: String = line_ending.join([
+			"id,name,power",
+			"1,\"first line",
+			"second line\",1.0",
+			"bad,Potion,2.0",
+			"",
+		])
+		var report: Dictionary = GFConfigTableImporter.validate_csv_table(
+			csv_text,
+			schema,
+			{ "source": "res://configs/multiline_items.csv" }
+		)
+		var issues: Array = GFVariantData.get_option_array(report, "issues")
+		var first_issue: Dictionary = GFVariantData.as_dictionary(issues[0])
+
+		assert_false(
+			GFVariantData.get_option_bool(report, "ok"),
+			"multiline 后的非法记录仍应校验失败。"
+		)
+		assert_eq(
+			GFVariantData.get_option_int(first_issue, "line"),
+			4,
+			"诊断必须使用原 CSV 的物理起始行，而不是逻辑记录索引。"
+		)
+		assert_eq(
+			GFVariantData.get_option_int(first_issue, "column"),
+			1,
+			"multiline 映射不得改变字段源列。"
+		)
+
+
 # --- 私有/辅助方法 ---
 
 func _make_item_schema() -> GFConfigTableSchema:
@@ -786,6 +967,21 @@ func _make_column(field_name: StringName, value_type: GFConfigTableColumn.ValueT
 	column.required = true
 	column.allow_null = false
 	return column
+
+
+func _make_reference(
+	reference_id: StringName,
+	source_fields: PackedStringArray,
+	target_table_name: StringName,
+	target_fields: PackedStringArray
+) -> GFConfigTableReference:
+	var reference: GFConfigTableReference = GFConfigTableReference.new()
+	reference.reference_id = reference_id
+	reference.source_fields = source_fields
+	reference.target_table_name = target_table_name
+	reference.target_fields = target_fields
+	reference.required = true
+	return reference
 
 
 func _has_issue_kind(issues: Array, kind: String) -> bool:

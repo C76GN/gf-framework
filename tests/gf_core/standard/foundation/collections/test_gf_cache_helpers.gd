@@ -109,3 +109,19 @@ func test_cache_diagnostics_ignores_non_positive_invalidation_amounts() -> void:
 	var snapshot: Dictionary = diagnostics.get_debug_snapshot()
 	assert_eq(GFVariantData.get_option_int(snapshot, "invalidation_count"), 0, "非正数量不应伪造缓存失效事件。")
 	assert_true(GFVariantData.get_option_dictionary(snapshot, "invalidation_reasons").is_empty(), "非正数量不应写入原因统计。")
+
+
+func test_cache_diagnostics_saturates_counters_instead_of_wrapping_negative() -> void:
+	var diagnostics: GFCacheDiagnostics = GFCacheDiagnostics.new()
+	diagnostics.record_invalidation(&"bulk", null, 9223372036854775807)
+	diagnostics.record_invalidation(&"bulk")
+
+	var snapshot: Dictionary = diagnostics.get_debug_snapshot()
+	var reasons: Dictionary = GFVariantData.get_option_dictionary(snapshot, "invalidation_reasons")
+
+	assert_eq(GFVariantData.get_option_int(snapshot, "invalidation_count"), 9223372036854775807, "总计数应在 int64 上界饱和。")
+	assert_eq(GFVariantData.get_option_int(reasons, "bulk"), 9223372036854775807, "原因计数应使用同一饱和规则。")
+	assert_true(GFVariantData.get_option_bool(snapshot, "counter_saturated"), "发生表示上界截断时应显式报告。")
+
+	diagnostics.reset()
+	assert_false(GFVariantData.get_option_bool(diagnostics.get_debug_snapshot(), "counter_saturated", true), "reset 应清除饱和诊断。")

@@ -15,8 +15,52 @@ GF 扩展启用选择与贡献路径快照缓存。 基于 manifest 集合、当
 
 | 类型 | 名称 | 签名 |
 |---|---|---|
+| 常量 | [`STATUS_VALID`](#member-gfextensionselectiondiscovery-constants-status_valid) | `const STATUS_VALID: StringName = &"valid"` |
+| 常量 | [`STATUS_PARTIAL`](#member-gfextensionselectiondiscovery-constants-status_partial) | `const STATUS_PARTIAL: StringName = &"partial"` |
+| 常量 | [`STATUS_INVALID`](#member-gfextensionselectiondiscovery-constants-status_invalid) | `const STATUS_INVALID: StringName = &"invalid"` |
 | 方法 | [`get_snapshot`](#member-gfextensionselectiondiscovery-methods-get_snapshot) | `static func get_snapshot( manifests: Array[GFExtensionManifest] = [], configured_ids: Array[String] = [], options: Dictionary = {} ) -> Dictionary:` |
 | 方法 | [`clear_cache`](#member-gfextensionselectiondiscovery-methods-clear_cache) | `static func clear_cache() -> void:` |
+
+## 常量
+
+<a id="member-gfextensionselectiondiscovery-constants-status_valid"></a>
+
+### `STATUS_VALID`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+const STATUS_VALID: StringName = &"valid"
+```
+
+启用选择完整有效。
+
+<a id="member-gfextensionselectiondiscovery-constants-status_partial"></a>
+
+### `STATUS_PARTIAL`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+const STATUS_PARTIAL: StringName = &"partial"
+```
+
+启用选择包含可隔离的问题，但已验证的已知扩展路径仍可使用。
+
+<a id="member-gfextensionselectiondiscovery-constants-status_invalid"></a>
+
+### `STATUS_INVALID`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+const STATUS_INVALID: StringName = &"invalid"
+```
+
+Manifest 图无效，任何扩展路径都不得使用。
 
 ## 方法
 
@@ -45,8 +89,8 @@ static func get_snapshot( manifests: Array[GFExtensionManifest] = [], configured
 
 结构：
 
-- `options`: Dictionary，支持 force_refresh、builtin_extension_ids 和 manifest_load_errors。
-- `return`: Dictionary，包含 ok、configured_ids、resolved_ids、unknown_enabled_ids、enabled_manifests、disabled_manifests、graph_report、manifest_paths、contribution_paths、paths、tool_contribution_errors、signature、signature_hash 和 revision。
+- `options`: Dictionary，支持 force_refresh、builtin_extension_ids、manifest_load_errors、max_json_file_bytes、max_json_total_bytes 和 max_json_depth；JSON 预算只能收紧框架硬上限。
+- `return`: Dictionary，包含 ok、status、partial、paths_allowed、configured_ids、resolved_ids、unknown_enabled_ids、enabled_manifests、disabled_manifests、graph_report、manifest_paths、contribution_paths、paths、tool_contribution_errors、signature、signature_hash 和 revision。
 
 <a id="member-gfextensionselectiondiscovery-methods-clear_cache"></a>
 

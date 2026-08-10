@@ -20,17 +20,17 @@
 
 内置 Pipeline 使用五个彼此独立的阶段：
 
-- `GFConfigPipelineReaderStage` 只处理来源存在性、文件大小预算和原始载荷读取。CSV、JSON、ConfigFile 返回未改写文本，XLSX 返回已经过文件预算检查的路径载荷。
-- `GFConfigPipelineLayoutStage` 只把载荷解码为记录、表头和 `row_locations`。CSV / JSON / ConfigFile 复用 `GFConfigTableImporter`；XLSX 在任何 entry 读取前先通过框架共享的有界 ZIP 预检，再把 ZIP / XML 预算与 sheet 布局解析收敛在该阶段。
+- `GFConfigPipelineReaderStage` 只处理来源存在性、文件大小预算和原始载荷读取。它单次读取实际字节，并返回包含规范路径、精确字节数和 SHA-256 的 `source_receipt`；CSV、JSON、ConfigFile 从同一字节快照解码文本，XLSX 把收据随路径载荷交给下一阶段。
+- `GFConfigPipelineLayoutStage` 只把载荷解码为记录、表头和 `row_locations`。CSV / JSON / ConfigFile 复用 `GFConfigTableImporter`；XLSX 在任何 entry 读取前先通过框架共享的有界 ZIP 预检，并以 Reader 收据复核 archive 身份，再把 ZIP / XML 预算与 sheet 布局解析收敛在该阶段。四个语义 XML entry 只有在正常 EOF、根元素完整闭合且没有截断尾部时才会提交解析结果。
 - `GFConfigPipelineValidationStage` 负责记录规范化、类型化表头、schema 复制或推导、字段转换和语义校验。只有完整通过的结果才生成 `GFConfigPipelineTableIR`。
-- `GFConfigPipelineTargetStage` 接受 IR 完成 Resource 物化，并将数据库 Resource 转换为 JSON-safe 数据及稳定 JSON 文本；缩进、键排序和变体编码都属于 Target 语义，它不会重新读取来源或推导 schema。
+- `GFConfigPipelineTargetStage` 接受 IR 完成 Resource 物化，并将数据库 Resource 转换为 JSON-safe 数据及稳定 JSON 文本；缩进、键排序和变体编码都属于 Target 语义，它不会重新读取来源或推导 schema。JSON 转换始终限制递归深度、节点数和输出字节数，并拒绝 Array/Dictionary 循环；调用方只能在框架绝对上限内收紧或放宽默认预算。
 - `GFConfigPipelineCommitStage` 把 ResourceSaver 等专用 writer 接到框架级 `GFArtifactWriteTransaction`，只负责多产物写入前快照、成功清理和失败逆序回滚，不复制事务实现、不解释产物内容，也不决定输出路径策略。
 
-`export_profile()` 的顶层结果保留 Commit Stage 的完整 `transaction_result`，并镜像 `recovery_required` / `recovery_action` / `recovery_transaction`。只要回滚或快照清理尚未终结，导出就不会报告成功；调用方必须按稳定恢复动作修复介质或权限条件，并把 opaque 恢复句柄交给报告要求的 `rollback()` 或 `complete()`，不能重新执行整条导表流水线来覆盖未完成事务。批量导出会强制 database、access script 与 manifest constituent 使用 `scan_filesystem = false`，避免事务尚未终结时产生未纳入回滚的 `.gd.uid`；只有完整 `complete()` 成功后才按顶层 `scan_filesystem` 执行一次编辑器扫描。
+`export_profile()` 的顶层结果保留 Commit Stage 的完整 `transaction_result`，并镜像 `recovery_required` / `recovery_action` / `recovery_transaction`。只要回滚或快照清理尚未终结，导出就不会报告成功；调用方必须按稳定恢复动作修复介质或权限条件，并把 opaque 恢复句柄交给报告要求的 `rollback()` 或 `complete()`，不能重新执行整条导表流水线来覆盖未完成事务。批量导出会强制 database、access script 与 manifest constituent 使用 `scan_filesystem = false`，避免事务尚未终结时产生未纳入回滚的 `.gd.uid`；只有完整 `complete()` 成功后才按顶层 `scan_filesystem` 执行一次编辑器扫描。写入 manifest 的导出还会在事务完成前重新检查所有来源：任一当前文件与编译 `source_receipt` 不同，`source_validation_report.stable` 就为 `false`，整批 database、access script 与 manifest 会一起回滚。
 
 `GFConfigPipelineTableIR` 与 `GFConfigPipelineIR` 都带稳定 `FORMAT` / `FORMAT_VERSION`。Table IR 创建时会深拷贝记录、schema、来源映射和元数据，读取接口始终返回可变载荷的副本；数据库 IR 对重复表名 fail closed，并且只有 `seal()` 成功后才能交给 Target，封存后继续注册表会失败。数据库 IR 返回的表数组容器也是副本，元素则是已封装可变载荷的 Table IR。这个所有权和生命周期边界保证自定义 Target、并行预览或后续缓存不会通过共享 `Dictionary` / `Resource` 引用反向污染编译结果。
 
-项目或独立工具插件确实需要替换来源或目标时，可以继承对应 Stage，并通过 `configure_stages()` 注入。自定义阶段必须保持内置输入输出契约，只替换稳定机制；远程表服务、业务字段解释、分端裁剪、热更新签名和发布审批仍应留在项目流水线。`get_stage_descriptors()` 会按实际执行顺序返回阶段 ID、实现版本、实现路径和契约，可用于诊断、编译指纹与工具展示。具名脚本会自动提供 `implementation_path`；运行时内部类或动态脚本若没有稳定资源路径，必须在描述器中显式声明可追踪的实现路径，否则产物新鲜度检查应 fail closed。
+项目或独立工具插件确实需要替换来源或目标时，可以继承对应 Stage，并通过 `configure_stages()` 注入。自定义阶段必须保持内置输入输出契约，只替换稳定机制；远程表服务、业务字段解释、分端裁剪、热更新签名和发布审批仍应留在项目流水线。`get_stage_descriptors()` 会按实际执行顺序返回阶段 ID、实现版本、实现路径、`implementation_dependencies` 和契约，可用于诊断、编译指纹与工具展示。具名脚本会自动提供 `implementation_path`；阶段依赖的 schema、列、Importer 或其他辅助实现必须显式列入 `implementation_dependencies`。运行时内部类或动态脚本若没有稳定资源路径，必须在描述器中显式声明可追踪的实现路径，否则产物新鲜度检查应 fail closed。
 
 ## 典型流程
 
@@ -68,15 +68,15 @@ pipeline.save_database(database, "res://generated/config/main_config.json", {
 })
 ```
 
-JSON 导出包含稳定格式标识、数据库 ID、版本、元数据、表名、记录和可选 schema 摘要；默认不写入可由运行时重建的索引缓存，避免把导出文件变成冗余快照。`make_database_export()` 可在不写文件时返回同结构字典，供 CI 检查或项目侧打包器继续处理。
+JSON 导出包含稳定格式标识、数据库 ID、版本、元数据、表名、记录和可选 schema 摘要；默认不写入可由运行时重建的索引缓存，避免把导出文件变成冗余快照。`make_database_export()` 可在不写文件时返回同结构字典，供 CI 检查或项目侧打包器继续处理。`max_depth`、`max_nodes` 与 `max_output_bytes` 分别限制结构深度、转换节点和最终 UTF-8 文本；负数、零或过大的请求都不会关闭框架硬上限。
 
 `save_database()` 和访问器生成结果会返回 `artifact_report`，记录本次产物是 `new`、`changed`、`unchanged`、`skipped` 还是 `failed`，以及 `written`、`changed`、`dry_run` 和错误码。需要在 CI、编辑器预览或提交前审查中只看差异而不落盘时，可以传入 `dry_run: true`；需要防止覆盖已有产物时，可以传入 `overwrite_existing: false`。
 
-数据库输出、访问器输出和 manifest 输出都应使用 `res://`、`user://` 或项目相对路径。导表工具会拒绝绝对文件系统路径、未知 URI scheme，以及默认情况下写入 `res://addons/gf` 框架源码目录的输出；包含 `..` 的父级路径也需要显式 opt-in，避免 Profile 把生成物写到项目边界之外。Profile 里的普通构建选项只会保留导表自身识别的键；Runner 的 `dry_run`、`changed_only`、`manifest_path` 等执行期选项不会混入数据库构建配置。
+批量 `export_profile()` 的 database、access script 与 manifest 输出必须使用 `res://` 或 `user://`，这样共享事务才能从固定授权根建立规范路径计划。独立 save/generate 入口目前仍保留项目相对路径的既有接受行为，但该路径形状不能通过批量事务；在统一路径授权契约确定前，项目应一律使用 `res://` / `user://`。导表工具会拒绝绝对文件系统路径、未知 URI scheme，以及默认情况下写入 `res://addons/gf` 框架源码目录的输出；包含 `..` 的父级路径也需要显式 opt-in，避免 Profile 把生成物写到项目边界之外。Profile 里的普通构建选项只会保留导表自身识别的键；Runner 的 `dry_run`、`changed_only`、`manifest_path` 等执行期选项不会混入数据库构建配置。
 
-需要做增量导表时，可以让 Runner 为导出结果写入 artifact manifest。manifest 会记录 Profile 语义摘要及其 Resource 依赖、来源文件、输出文件、影响产物内容的导表选项、编译器指纹和本次运行摘要。Profile 依赖会递归覆盖外置 schema、列、索引、引用和自定义校验器脚本；编译器指纹则包含编译契约版本、GF/Godot 版本，以及每个实际阶段的稳定 ID、`implementation_version`、实现路径和实现文件摘要。这样只修改 schema、校验器实现或 GF 导表实现时，也不会错误命中旧产物。
+需要做增量导表时，可以让 Runner 为导出结果写入 artifact manifest。manifest 会记录 Profile 语义摘要及其 Resource 依赖、编译时来源收据、输出文件、影响产物内容的导表选项、编译器指纹和本次运行摘要。Profile 依赖会递归覆盖外置 schema、列、索引、引用和自定义校验器脚本；编译器指纹则包含编译契约版本、GF/Godot 版本，以及每个实际阶段的稳定 ID、`implementation_version`、实现路径、实现文件摘要和声明的辅助实现摘要。这样 manifest 的来源摘要与生成数据库使用同一字节事实，且只修改 schema、列、Importer、校验器或 GF 导表实现时也不会错误命中旧产物。
 
-manifest 输出会先经过 JSON-safe 转换，非有限浮点、PackedArray、Object、Resource 或循环结构不会直接进入 `JSON.stringify()`。下一次用同一 Profile 导出时，`changed_only` 会比对 Profile、语义依赖、来源、输出、关键选项和编译器指纹；全部未变化时才返回 `skipped: true`。内置阶段的描述直接源于各 Stage 的 `STAGE_ID` / `IMPLEMENTATION_VERSION`，自定义阶段使用其实际描述器；指纹同时纳入两个 IR 的格式版本并哈希对应实现文件，因此阶段组合、实现或 IR 契约变化不会错误命中旧产物。缺少新增指纹字段但摘要合法的旧 manifest 会被当作 stale 并在下一次成功导出时升级，不需要手工删除；字段不完整、所有权不匹配或摘要被篡改的 manifest 仍会 fail closed。所有依赖和阶段文件都计入既有 freshness 文件大小、累计字节数和条目数预算。
+manifest 输出会先经过 JSON-safe 转换，非有限浮点、PackedArray、Object、Resource 或循环结构不会直接进入 `JSON.stringify()`。下一次用同一 Profile 导出时，`changed_only` 会比对 Profile、语义依赖、来源、输出、关键选项和编译器指纹；全部未变化时才返回 `skipped: true`。当前 freshness 报告里的 `success` 与 `fresh` 同值，均表示“产物新鲜”，不是“评估过程已完成”；Runner 以 `fresh` 和 `scan_report` 作判断。内置阶段的描述直接源于各 Stage 的 `STAGE_ID` / `IMPLEMENTATION_VERSION`，自定义阶段使用其实际描述器；指纹同时纳入两个 IR 的格式版本并哈希对应实现文件与声明依赖，因此阶段组合、实现、辅助实现或 IR 契约变化不会错误命中旧产物。缺少新增指纹字段但摘要合法的旧 manifest 会被当作 stale 并在下一次成功导出时升级，不需要手工删除；字段不完整、所有权不匹配或摘要被篡改的 manifest 仍会 fail closed。所有依赖和阶段文件都计入既有 freshness 文件大小、累计字节数和条目数预算。
 
 ```gdscript
 var runner: GFConfigPipelineRunner = GFConfigPipelineRunner.new()
@@ -101,7 +101,7 @@ profile.sources = [source]
 var export_result: Dictionary = pipeline.export_profile(profile)
 ```
 
-如果希望同一次导表同步生成静态访问器，给 Profile 配置 `access_output_path`。`access_options` 会传给 `GFConfigAccessGenerator`，因此可以选择是否生成 typed record 包装：
+如果希望同一次导表同步生成静态访问器，给 Profile 配置 `access_output_path`。`access_options` 会传给 `GFConfigAccessGenerator`，因此可以选择是否生成 typed record 包装。非空的 Unicode 表名无法直接产生 ASCII 标识符时会使用稳定的 `table_<sha256-prefix>` 内部标识，但访问器仍保留原始表名；生成结果公开 `input_schema_count`、`emitted_schema_count`、`skipped_schema_count` 和 `issues`，只要有输入 schema 缺少表名就会在写文件前失败关闭：
 
 ```gdscript
 profile.access_output_path = "res://generated/config/gf_config_access.gd"
@@ -194,9 +194,11 @@ int!,string,float
 
 当前工具包只沉淀稳定通用机制：来源声明、版本化 IR、分阶段编译、Profile 路径执行、CSV / JSON / ConfigFile / XLSX 解析、schema 校验、跨表引用校验、记录转换、索引重建、`.tres/.res` 保存、JSON 目标和文件提交事务。
 
-CSV 与 XLSX 会复用同一套表格预处理选项：`parse_options.comment_prefixes` 可过滤本地备注行和备注列，`comment_row_prefixes` / `comment_column_prefixes` 可分开控制；`condition_symbols` 配合 `enable_condition_directives` 可保留简单 `#if SYMBOL ...` / `#endif` 块内命中的数据行。这些选项只处理通用表格结构，不表达业务分端规则，复杂表达式或发布矩阵仍应放在项目流水线层。
+CSV 与 XLSX 会复用同一套表格预处理选项：`parse_options.comment_prefixes` 可过滤本地备注行和备注列，`comment_row_prefixes` / `comment_column_prefixes` 可分开控制；`condition_symbols` 配合 `enable_condition_directives` 可保留简单 `#if SYMBOL ...` / `#endif` 块内命中的数据行。`#if` 必须至少声明一个 symbol，裸指令会在对应物理行终止导入。这些选项只处理通用表格结构，不表达业务分端规则，复杂表达式或发布矩阵仍应放在项目流水线层。
 
-XLSX 支持定位为通用表格输入适配：默认读取 workbook 中的第一个 sheet，也可以通过 `parse_options.sheet_name` 或 `parse_options.sheet_index` 选择工作表，通过 `parse_options.header_row` 指定表头行。解析结果按表头映射为记录字典，再复用现有 schema 校验和类型转换。解析器会限制 workbook entry 数量、行数、列数和单元格数量，避免把异常或过大的表格文件拖进编辑器或 CI。`max_xlsx_file_bytes` 的负值只关闭项目配置的文件预算；进入共享 ZIP 读取边界后仍会收敛到框架绝对 archive 与累计解压硬上限，不会产生真正无界的读取。公式计算、样式日期语义、合并单元格、多表业务拆分、策划提交流程和分端发布策略不属于这一层。
+XLSX 支持定位为通用表格输入适配：默认读取 workbook 中的第一个 sheet，也可以通过 `parse_options.sheet_name` 或 `parse_options.sheet_index` 选择工作表，通过 `parse_options.header_row` 指定表头行。解析结果按表头映射为记录字典，再复用现有 schema 校验和类型转换。解析器会限制 workbook entry 数量、行数、列数和单元格数量，避免把异常或过大的表格文件拖进编辑器或 CI；`sharedStrings.xml`、`workbook.xml`、关系表和 worksheet 任一 XML 非正常结束、根不完整或存在截断尾部都会整表失败。`max_xlsx_file_bytes` 的负值只关闭项目配置的文件预算；进入共享 ZIP 读取边界后仍会收敛到框架绝对 archive 与累计解压硬上限，不会产生真正无界的读取。公式计算、样式日期语义、合并单元格、多表业务拆分、策划提交流程和分端发布策略不属于这一层。
+
+CSV / JSON / ConfigFile 的 Reader 默认用 `max_source_file_bytes = 64 MiB` 在读取前限制单文件，但 Layout 复用的直接 importer 尚无行、列、累计单元格或嵌套节点预算；文件预算不能证明解析峰值内存和主线程时间有同样上界。处理不受信来源时，项目应先收紧文件预算并在进入 Pipeline 前做来源级预检；不要通过传负值关闭限制后仍把该路径描述为有界导入。
 
 `GFConfigPipelineProfile` 只表达导表任务 manifest。`GFConfigBuildProfile` 仍负责按 groups / tags 裁剪 schema 或记录，两者可以组合使用，但职责不同。
 

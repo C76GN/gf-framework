@@ -122,7 +122,6 @@ const DEFAULT_IGNORED_ROOTS: Array[String] = [
 	"res://.git",
 	"res://.gf",
 	"res://addons/gf",
-	"res://ai_analysis",
 	"res://build",
 	"res://packages",
 ]
@@ -217,6 +216,16 @@ static func scan_references(targets: Array[Dictionary], options: Dictionary = {}
 		var dependency_paths: PackedStringArray = PackedStringArray()
 		if use_resource_dependencies:
 			dependency_paths = _collect_resource_dependency_paths(path, source, scan_state)
+		var source_lines: PackedStringArray = source.split("\n")
+		var gdscript_code_lines: PackedStringArray = PackedStringArray()
+		var gdscript_identifier_lines: PackedStringArray = PackedStringArray()
+		if path.get_extension().to_lower() == "gd":
+			for source_line: String in source_lines:
+				var code_line: String = _strip_gdscript_line_comment(source_line)
+				var _appended_code_line: bool = gdscript_code_lines.append(code_line)
+				var _appended_identifier_line: bool = gdscript_identifier_lines.append(
+					_replace_quoted_segments(code_line)
+				)
 		for index: int in range(scan_targets.size()):
 			var target: Dictionary = scan_targets[index]
 			var references: Array = references_by_target[index]
@@ -229,7 +238,9 @@ static func scan_references(targets: Array[Dictionary], options: Dictionary = {}
 			)
 			var file_report: Dictionary = _collect_file_references_for_target(
 				path,
-				source,
+				source_lines,
+				gdscript_code_lines,
+				gdscript_identifier_lines,
 				target,
 				max_references - references.size(),
 				max_weak_references - weak_references.size(),
@@ -628,7 +639,9 @@ static func _read_scan_source(path: String, options: Dictionary, scan_state: Dic
 
 static func _collect_file_references_for_target(
 	path: String,
-	source: String,
+	source_lines: PackedStringArray,
+	gdscript_code_lines: PackedStringArray,
+	gdscript_identifier_lines: PackedStringArray,
 	target: Dictionary,
 	remaining_blocking: int,
 	remaining_weak: int,
@@ -659,13 +672,27 @@ static func _collect_file_references_for_target(
 	if extension == "gd":
 		_append_reference_array_unique(
 			blocking_references,
-			_collect_gdscript_file_references(path, source, root_path, target_id, class_names, blocking_probe_limit),
+			_collect_gdscript_file_references(
+				path,
+				gdscript_code_lines,
+				gdscript_identifier_lines,
+				root_path,
+				target_id,
+				class_names,
+				blocking_probe_limit
+			),
 			blocking_probe_limit
 		)
 	elif _is_resource_text_extension(extension):
 		_append_reference_array_unique(
 			blocking_references,
-			_collect_resource_text_file_references(path, source, root_path, target_id, blocking_probe_limit),
+			_collect_resource_text_file_references(
+				path,
+				source_lines,
+				root_path,
+				target_id,
+				blocking_probe_limit
+			),
 			blocking_probe_limit
 		)
 
@@ -680,7 +707,7 @@ static func _collect_file_references_for_target(
 		var weak_probe_limit: int = maxi(remaining_weak + 1, 1)
 		_collect_weak_text_file_references(
 			path,
-			source,
+			gdscript_code_lines if extension == "gd" else source_lines,
 			root_path,
 			target_id,
 			class_names,
@@ -799,7 +826,8 @@ static func _mark_resource_dependencies_unavailable(
 
 static func _collect_gdscript_file_references(
 	path: String,
-	source: String,
+	code_lines: PackedStringArray,
+	identifier_lines: PackedStringArray,
 	root_path: String,
 	target_id: StringName,
 	class_names: Array[String],
@@ -809,9 +837,8 @@ static func _collect_gdscript_file_references(
 	if remaining <= 0:
 		return result
 
-	var lines: PackedStringArray = source.split("\n")
-	for line_index: int in range(lines.size()):
-		var code_line: String = _strip_gdscript_line_comment(String(lines[line_index]))
+	for line_index: int in range(code_lines.size()):
+		var code_line: String = String(code_lines[line_index])
 		if _line_references_root(code_line, root_path) and _line_has_gdscript_path_context(code_line, root_path):
 			_append_reference_unique(result, _make_reference(
 				path,
@@ -828,7 +855,7 @@ static func _collect_gdscript_file_references(
 			if result.size() >= remaining:
 				break
 
-		var identifier_line: String = _replace_quoted_segments(code_line)
+		var identifier_line: String = String(identifier_lines[line_index])
 		for class_name_value: String in class_names:
 			if not _line_references_identifier(identifier_line, class_name_value):
 				continue
@@ -852,7 +879,7 @@ static func _collect_gdscript_file_references(
 
 static func _collect_resource_text_file_references(
 	path: String,
-	source: String,
+	lines: PackedStringArray,
 	root_path: String,
 	target_id: StringName,
 	remaining: int
@@ -861,7 +888,6 @@ static func _collect_resource_text_file_references(
 	if remaining <= 0:
 		return result
 
-	var lines: PackedStringArray = source.split("\n")
 	for line_index: int in range(lines.size()):
 		var line: String = String(lines[line_index])
 		if not _line_references_root(line, root_path):
@@ -887,7 +913,7 @@ static func _collect_resource_text_file_references(
 
 static func _collect_weak_text_file_references(
 	path: String,
-	source: String,
+	lines: PackedStringArray,
 	root_path: String,
 	target_id: StringName,
 	class_names: Array[String],
@@ -898,12 +924,8 @@ static func _collect_weak_text_file_references(
 	if max_count <= 0:
 		return
 
-	var lines: PackedStringArray = source.split("\n")
-	var is_gdscript: bool = path.get_extension().to_lower() == "gd"
 	for line_index: int in range(lines.size()):
 		var line: String = String(lines[line_index])
-		if is_gdscript:
-			line = _strip_gdscript_line_comment(line)
 		if line.is_empty():
 			continue
 

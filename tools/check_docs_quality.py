@@ -4,6 +4,8 @@
 from __future__ import annotations
 
 import argparse
+from dataclasses import dataclass
+import json
 from pathlib import Path
 import re
 import sys
@@ -16,6 +18,7 @@ DEFAULT_MAX_PARAGRAPH_CHARS = 1800
 DEFAULT_MIN_BODY_LINES = 12
 DEFAULT_MIN_STRUCTURED_BODY_LINES = 34
 DEFAULT_FRAGMENT_REPORT_LIMIT = 200
+DEFAULT_ASSET_LIBRARY_DESCRIPTION_CHARS = 1000
 
 
 LIST_ITEM_PATTERN = re.compile(r"^(\s*[-*+]\s+|\s*\d+\.\s+)")
@@ -23,7 +26,8 @@ MARKDOWN_LINK_PATTERN = re.compile(r"!?\[[^\]\n]*\]\(([^)\n]+)\)")
 APPROVED_EXTERNAL_LINK_PATTERN = re.compile(r"^(?:https?://|mailto:)", re.IGNORECASE)
 WINDOWS_DRIVE_PATH_PATTERN = re.compile(r"^[A-Za-z]:[\\/]")
 HEADING_PATTERN = re.compile(r"^(#{1,6})\s+(.+?)\s*#*\s*$")
-FENCE_PATTERN = re.compile(r"^\s*(`{3,}|~{3,})")
+HEADING_ATTRIBUTE_ID_PATTERN = re.compile(r"\s+\{[^}\n]*#(?P<id>[A-Za-z][\w:.-]*)[^}\n]*\}\s*$")
+FENCE_PATTERN = re.compile(r"^ {0,3}(`{3,}|~{3,})(.*)$")
 MERMAID_START_PATTERN = re.compile(
     r"^(graph\s+(?:TB|TD|BT|RL|LR)\b|flowchart\s+(?:TB|TD|BT|RL|LR)\b|"
     r"sequenceDiagram\b|classDiagram\b|stateDiagram(?:-v2)?\b|erDiagram\b|"
@@ -62,6 +66,322 @@ SECTION_API_REFERENCES = {
     "kernel/index.md": ("kernel.md",),
     "standard/index.md": ("standard.md",),
 }
+
+
+@dataclass(frozen=True)
+class MarkdownFenceBlock:
+    marker: str
+    opening_length: int
+    info: str
+    start_line: int
+    content: tuple[str, ...]
+    end_line: int | None
+
+
+@dataclass(frozen=True)
+class MarkdownStructure:
+    visible_lines: tuple[tuple[int, str], ...]
+    fences: tuple[MarkdownFenceBlock, ...]
+    unclosed_fence_line: int | None
+
+
+def scan_markdown_structure(text: str) -> MarkdownStructure:
+    """Parse reader-visible lines with CommonMark-compatible fence boundaries."""
+    visible_lines: list[tuple[int, str]] = []
+    fences: list[MarkdownFenceBlock] = []
+    in_html_comment = False
+    fence_marker = ""
+    fence_length = 0
+    fence_info = ""
+    fence_start = 0
+    fence_content: list[str] = []
+
+    for line_number, raw_line in enumerate(text.splitlines(), start=1):
+        if fence_marker:
+            if is_markdown_fence_close(raw_line, fence_marker, fence_length):
+                fences.append(MarkdownFenceBlock(
+                    marker=fence_marker,
+                    opening_length=fence_length,
+                    info=fence_info,
+                    start_line=fence_start,
+                    content=tuple(fence_content),
+                    end_line=line_number,
+                ))
+                fence_marker = ""
+                fence_length = 0
+                fence_info = ""
+                fence_start = 0
+                fence_content = []
+            else:
+                fence_content.append(raw_line)
+            visible_lines.append((line_number, ""))
+            continue
+
+        visible_line, in_html_comment = strip_html_comments_from_line(
+            raw_line,
+            in_html_comment,
+        )
+        fence_match = FENCE_PATTERN.match(visible_line)
+        if fence_match is not None:
+            marker_run = fence_match.group(1)
+            info = fence_match.group(2).strip()
+            if marker_run[0] == "`" and "`" in info:
+                visible_lines.append((line_number, visible_line))
+                continue
+            fence_marker = marker_run[0]
+            fence_length = len(marker_run)
+            fence_info = info
+            fence_start = line_number
+            fence_content = []
+            visible_lines.append((line_number, ""))
+            continue
+        visible_lines.append((line_number, visible_line))
+
+    unclosed_fence_line = fence_start or None
+    if fence_marker:
+        fences.append(MarkdownFenceBlock(
+            marker=fence_marker,
+            opening_length=fence_length,
+            info=fence_info,
+            start_line=fence_start,
+            content=tuple(fence_content),
+            end_line=None,
+        ))
+    return MarkdownStructure(
+        visible_lines=tuple(visible_lines),
+        fences=tuple(fences),
+        unclosed_fence_line=unclosed_fence_line,
+    )
+
+
+def strip_html_comments_from_line(line: str, in_comment: bool) -> tuple[str, bool]:
+    visible = list(line)
+    index = 0
+    while index < len(line):
+        if in_comment:
+            end = line.find("-->", index)
+            if end == -1:
+                for offset in range(index, len(line)):
+                    visible[offset] = " "
+                return "".join(visible), True
+            for offset in range(index, end + 3):
+                visible[offset] = " "
+            index = end + 3
+            in_comment = False
+            continue
+        start = line.find("<!--", index)
+        if start == -1:
+            break
+        end = line.find("-->", start + 4)
+        if end == -1:
+            for offset in range(start, len(line)):
+                visible[offset] = " "
+            return "".join(visible), True
+        for offset in range(start, end + 3):
+            visible[offset] = " "
+        index = end + 3
+    return "".join(visible), in_comment
+
+
+def is_markdown_fence_close(line: str, marker: str, opening_length: int) -> bool:
+    return re.fullmatch(
+        rf" {{0,3}}{re.escape(marker)}{{{opening_length},}}[ \t]*",
+        line,
+    ) is not None
+
+
+def visible_markdown_headings(text: str) -> list[tuple[int, int, str]]:
+    headings: list[tuple[int, int, str]] = []
+    structure = scan_markdown_structure(text)
+    for line_number, line in structure.visible_lines:
+        match = HEADING_PATTERN.match(line)
+        if match is not None:
+            headings.append((line_number, len(match.group(1)), match.group(2)))
+    return headings
+
+
+def has_visible_heading(text: str, level: int, title: str) -> bool:
+    return any(
+        heading_level == level and heading_title == title
+        for _line_number, heading_level, heading_title in visible_markdown_headings(text)
+    )
+
+
+def visible_markdown_text(text: str) -> str:
+    return "\n".join(
+        line
+        for _line_number, line in scan_markdown_structure(text).visible_lines
+    )
+
+
+def gdscript_fence_contents(text: str) -> list[str]:
+    """Return normalized GDScript fence bodies in reader order."""
+    return [
+        "\n".join(block.content).rstrip()
+        for block in scan_markdown_structure(text).fences
+        if block.info.split(maxsplit=1)[0].lower() == "gdscript"
+    ]
+
+
+def check_readme_quickstart_contracts(
+    english_text: str,
+    chinese_text: str,
+) -> list[str]:
+    """Keep both root quickstarts executable, failure-aware, and identical."""
+    errors: list[str] = []
+    english_blocks = gdscript_fence_contents(english_text)
+    chinese_blocks = gdscript_fence_contents(chinese_text)
+    if english_blocks != chinese_blocks:
+        errors.append("README.md and README.zh.md must use identical GDScript quickstarts")
+    if len(english_blocks) != 2:
+        errors.append("README.md must contain exactly two GDScript quickstart blocks")
+        return errors
+
+    manual_quickstart, installer_quickstart = english_blocks
+    manual_requirements = (
+        "if not await Gf.register_model(",
+        "if not await Gf.register_utility(",
+        "if not await Gf.register_system(",
+        "if not await Gf.init():",
+        "if player_model == null or battle_system == null:",
+    )
+    for fragment in manual_requirements:
+        if fragment not in manual_quickstart:
+            errors.append(f"README quickstart must observe `{fragment}`")
+
+    installer_requirements = (
+        "func install(architecture: GFArchitecture, scope: GFAsyncScope) -> void:",
+        "await architecture.register_model_instance(",
+        "await architecture.register_utility_instance(",
+        "await architecture.register_system_instance(",
+        "if scope.is_cancel_requested():",
+        "architecture.fail_initialization(",
+    )
+    for fragment in installer_requirements:
+        if fragment not in installer_quickstart:
+            errors.append(f"README installer quickstart must contain `{fragment}`")
+    return errors
+
+
+def check_public_entry_contracts(repository_root: Path) -> list[str]:
+    """Validate public entry-point facts that are owned outside docs/zh."""
+    required_paths = {
+        "README.md": repository_root / "README.md",
+        "README.zh.md": repository_root / "README.zh.md",
+        "ASSET_STORE.md": repository_root / "ASSET_STORE.md",
+        "ASSET_LIBRARY.md": repository_root / "ASSET_LIBRARY.md",
+        "extension installation": repository_root / "docs/zh/extensions/installation.md",
+        "installation guide": repository_root / "docs/zh/overview/quickstart/install-autoload.md",
+        "uninstall guide": repository_root / "docs/zh/overview/quickstart/uninstall.md",
+        "FAQ": repository_root / "docs/zh/faq.md",
+        "maintainer guide": repository_root / "docs/maintainers/index.md",
+    }
+    errors: list[str] = []
+    texts: dict[str, str] = {}
+    for label, path in required_paths.items():
+        if not path.is_file():
+            errors.append(f"{label}: required public entry file is missing")
+            continue
+        try:
+            texts[label] = path.read_text(encoding="utf-8")
+        except (OSError, UnicodeError) as error:
+            errors.append(f"{label}: cannot read UTF-8 content: {error}")
+
+    if "README.md" in texts and "README.zh.md" in texts:
+        errors.extend(
+            check_readme_quickstart_contracts(
+                texts["README.md"],
+                texts["README.zh.md"],
+            )
+        )
+        for label in ("README.md", "README.zh.md"):
+            if "docs/zh/overview/quickstart/uninstall.md" not in texts[label]:
+                errors.append(f"{label} must link the complete uninstall journey")
+
+    store_text = texts.get("ASSET_STORE.md", "")
+    if store_text and "does not replace checking the awaited result" not in store_text:
+        errors.append(
+            "ASSET_STORE.md must state that a project installer does not replace "
+            "checking the awaited Gf.init() result"
+        )
+
+    extension_text = texts.get("extension installation", "")
+    extension_requirements = (
+        "扩展选择 preset",
+        "package 安装 preset",
+        "`gf.save`",
+        "`gf.extension.save`",
+        "`gf.preset.save`",
+        "../editor/workspace.md#package-manager",
+    )
+    for fragment in extension_requirements:
+        if extension_text and fragment not in extension_text:
+            errors.append(f"extension installation must distinguish `{fragment}`")
+
+    uninstall_text = texts.get("uninstall guide", "")
+    uninstall_requirements = (
+        "先禁用插件，再删除文件",
+        "只移除由 GF 插件登记的 `Gf` AutoLoad",
+        "不会删除同名但不指向 GF 的 AutoLoad",
+        "`.gf/packages.lock.json`",
+        "package 卸载不是完整插件卸载",
+        "恢复同一版本",
+    )
+    for fragment in uninstall_requirements:
+        if uninstall_text and fragment not in uninstall_text:
+            errors.append(f"uninstall guide must contain `{fragment}`")
+
+    install_text = texts.get("installation guide", "")
+    if install_text and "uninstall.md" not in install_text:
+        errors.append("installation guide must link the complete uninstall journey")
+    if install_text and "../../editor/workspace.md#package-manager" not in install_text:
+        errors.append("installation guide must link the package lifecycle and security contract")
+
+    faq_text = texts.get("FAQ", "")
+    if faq_text and not has_visible_heading(faq_text, 2, "按主题查找"):
+        errors.append("docs/zh/faq.md must expose a task-grouped `## 按主题查找` index")
+    if faq_text and "overview/quickstart/uninstall.md" not in faq_text:
+        errors.append("docs/zh/faq.md must link the complete uninstall journey")
+
+    library_text = texts.get("ASSET_LIBRARY.md", "")
+    if library_text:
+        description_blocks = [
+            "\n".join(block.content).strip()
+            for block in scan_markdown_structure(library_text).fences
+            if block.info.split(maxsplit=1)[0].lower() == "text"
+            and block.content
+            and block.content[0].startswith("GF Framework is")
+        ]
+        if len(description_blocks) != 1:
+            errors.append("ASSET_LIBRARY.md must contain one canonical long description")
+        elif len(description_blocks[0]) > DEFAULT_ASSET_LIBRARY_DESCRIPTION_CHARS:
+            errors.append(
+                "ASSET_LIBRARY.md long description exceeds "
+                f"{DEFAULT_ASSET_LIBRARY_DESCRIPTION_CHARS} characters"
+            )
+
+    maintainer_text = texts.get("maintainer guide", "")
+    manifest_paths = sorted(
+        (repository_root / "addons/gf/extensions").glob("*/gf_extension.json")
+    )
+    enabled_by_default: list[str] = []
+    for manifest_path in manifest_paths:
+        try:
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        except (OSError, UnicodeError, json.JSONDecodeError) as error:
+            errors.append(f"{manifest_path.as_posix()}: cannot verify extension default: {error}")
+            continue
+        if manifest.get("enabled_by_default") is True:
+            enabled_by_default.append(str(manifest.get("id", manifest_path.parent.name)))
+    if manifest_paths and not enabled_by_default:
+        if "GF 内置可选扩展默认关闭" not in maintainer_text:
+            errors.append(
+                "docs/maintainers/index.md must derive the all-disabled extension default "
+                "from manifests"
+            )
+        if "GF 内置扩展默认随 GF 启用" in maintainer_text:
+            errors.append("docs/maintainers/index.md contradicts extension manifest defaults")
+    return errors
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -208,6 +528,19 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="Fail when maintainer-only wording appears in public docs.",
     )
     parser.add_argument(
+        "--report-public-entry-contracts",
+        action="store_true",
+        help=(
+            "Report drift in root README quickstarts, install/uninstall facts, "
+            "extension/package terminology, FAQ navigation, and store metadata."
+        ),
+    )
+    parser.add_argument(
+        "--fail-public-entry-contracts",
+        action="store_true",
+        help="Fail when public entry-point facts contradict executable authorities.",
+    )
+    parser.add_argument(
         "--report-unstructured-body-pages",
         action="store_true",
         help="Report longer non-index pages that have no H2 sections.",
@@ -230,7 +563,7 @@ def should_skip(path: Path, root: Path, include_reference_api: bool) -> bool:
 def is_paragraph_boundary(stripped: str) -> bool:
     if stripped == "":
         return True
-    if stripped.startswith(("#", ">", "|", "<", "```")):
+    if stripped.startswith(("#", ">", "|", "<", "```", "~~~")):
         return True
     return LIST_ITEM_PATTERN.match(stripped) is not None
 
@@ -252,6 +585,7 @@ def check_file(
     relative_path = path.relative_to(root.parent).as_posix()
     text = path.read_text(encoding="utf-8")
     lines = text.splitlines()
+    structure = scan_markdown_structure(text)
     errors: list[str] = []
     file_max_lines = max_lines_for_file(path, root, max_lines, max_changelog_lines)
 
@@ -261,7 +595,6 @@ def check_file(
         )
 
     h1_lines: list[int] = []
-    in_fence = False
     paragraph_lines: list[str] = []
     paragraph_start = 0
 
@@ -278,23 +611,12 @@ def check_file(
         paragraph_lines = []
         paragraph_start = 0
 
-    for line_number, line in enumerate(lines, start=1):
+    for fence in structure.fences:
+        if fence.info == "":
+            errors.append(f"{relative_path}:{fence.start_line}: code fence has no language")
+
+    for line_number, line in structure.visible_lines:
         stripped = line.strip()
-
-        if stripped.startswith("```"):
-            flush_paragraph()
-            if in_fence:
-                in_fence = False
-                continue
-
-            info = stripped[3:].strip()
-            if info == "":
-                errors.append(f"{relative_path}:{line_number}: code fence has no language")
-            in_fence = True
-            continue
-
-        if in_fence:
-            continue
 
         if stripped.startswith("# ") and not stripped.startswith("## "):
             h1_lines.append(line_number)
@@ -309,7 +631,7 @@ def check_file(
 
     flush_paragraph()
 
-    if in_fence:
+    if structure.unclosed_fence_line is not None:
         errors.append(f"{relative_path}: unclosed code fence")
 
     if len(h1_lines) != 1:
@@ -358,7 +680,10 @@ def find_unstructured_body_page(
     if len(lines) < min_structured_body_lines:
         return []
 
-    has_h2 = any(line.startswith("## ") for line in lines)
+    has_h2 = any(
+        level == 2
+        for _line_number, level, _title in visible_markdown_headings(text)
+    )
     if has_h2:
         return []
 
@@ -392,19 +717,8 @@ def check_local_links(path: Path, root: Path) -> list[str]:
     relative_path = path.relative_to(root.parent).as_posix()
     text = path.read_text(encoding="utf-8")
     errors: list[str] = []
-    fence_marker = ""
 
-    for line_number, line in enumerate(text.splitlines(), start=1):
-        fence_match = FENCE_PATTERN.match(line)
-        if fence_match is not None:
-            marker = fence_match.group(1)[0]
-            if not fence_marker:
-                fence_marker = marker
-            elif marker == fence_marker:
-                fence_marker = ""
-            continue
-        if fence_marker:
-            continue
+    for line_number, line in scan_markdown_structure(text).visible_lines:
 
         for match in MARKDOWN_LINK_PATTERN.finditer(line):
             target = unquote(split_link_target(match.group(1)))
@@ -435,20 +749,9 @@ def check_local_link_anchors(path: Path, root: Path) -> list[str]:
     relative_path = path.relative_to(root.parent).as_posix()
     text = path.read_text(encoding="utf-8")
     errors: list[str] = []
-    fence_marker = ""
     anchor_cache: dict[Path, set[str]] = {}
 
-    for line_number, line in enumerate(text.splitlines(), start=1):
-        fence_match = FENCE_PATTERN.match(line)
-        if fence_match is not None:
-            marker = fence_match.group(1)[0]
-            if not fence_marker:
-                fence_marker = marker
-            elif marker == fence_marker:
-                fence_marker = ""
-            continue
-        if fence_marker:
-            continue
+    for line_number, line in scan_markdown_structure(text).visible_lines:
 
         for match in MARKDOWN_LINK_PATTERN.finditer(line):
             target = unquote(split_link_target(match.group(1)))
@@ -502,17 +805,13 @@ def collect_markdown_heading_anchors(path: Path) -> set[str]:
     text = path.read_text(encoding="utf-8")
     anchors: set[str] = set()
     counts: dict[str, int] = {}
-    in_fence = False
-    for line in text.splitlines():
-        if line.strip().startswith("```"):
-            in_fence = not in_fence
-            continue
-        if in_fence:
-            continue
-        match = HEADING_PATTERN.match(line)
-        if match is None:
-            continue
-        base_slug = slugify_heading(match.group(2))
+    for _line_number, _level, title in visible_markdown_headings(text):
+        explicit_id_match = HEADING_ATTRIBUTE_ID_PATTERN.search(title)
+        base_slug = (
+            explicit_id_match.group("id")
+            if explicit_id_match is not None
+            else slugify_heading(title)
+        )
         if not base_slug:
             continue
         count = counts.get(base_slug, 0)
@@ -550,30 +849,15 @@ def mermaid_first_content_line(lines: list[str]) -> str:
 def check_rendering_syntax(path: Path, root: Path) -> tuple[list[str], bool]:
     """Validate syntax that can silently render incorrectly in MkDocs."""
     relative_path = path.relative_to(root.parent).as_posix()
-    lines = path.read_text(encoding="utf-8").splitlines()
+    structure = scan_markdown_structure(path.read_text(encoding="utf-8"))
     errors: list[str] = []
-    in_fence = False
-    fence_info = ""
-    fence_start = 0
-    fence_lines: list[str] = []
     has_mermaid = False
 
-    for line_number, line in enumerate(lines, start=1):
-        stripped = line.strip()
-        if not stripped.startswith("```"):
-            if in_fence:
-                fence_lines.append(line)
+    for fence in structure.fences:
+        if fence.end_line is None:
             continue
-
-        if not in_fence:
-            in_fence = True
-            fence_info = stripped[3:].strip()
-            fence_start = line_number
-            fence_lines = []
-            continue
-
-        language = fence_info.split()[0].lower() if fence_info else ""
-        first_content = mermaid_first_content_line(fence_lines)
+        language = fence.info.split()[0].lower() if fence.info else ""
+        first_content = mermaid_first_content_line(list(fence.content))
         looks_like_mermaid = (
             MERMAID_START_PATTERN.match(first_content) is not None
             if first_content
@@ -583,22 +867,17 @@ def check_rendering_syntax(path: Path, root: Path) -> tuple[list[str], bool]:
         if language == "mermaid":
             has_mermaid = True
             if not first_content:
-                errors.append(f"{relative_path}:{fence_start}: empty Mermaid diagram")
+                errors.append(f"{relative_path}:{fence.start_line}: empty Mermaid diagram")
             elif not looks_like_mermaid:
                 errors.append(
-                    f"{relative_path}:{fence_start}: Mermaid diagram starts with "
+                    f"{relative_path}:{fence.start_line}: Mermaid diagram starts with "
                     f"unsupported syntax: {first_content}"
                 )
         elif looks_like_mermaid:
             errors.append(
-                f"{relative_path}:{fence_start}: Mermaid diagram must use "
-                "```mermaid fence"
+                f"{relative_path}:{fence.start_line}: Mermaid diagram must use "
+                "a mermaid-language fence"
             )
-
-        in_fence = False
-        fence_info = ""
-        fence_start = 0
-        fence_lines = []
 
     return errors, has_mermaid
 
@@ -607,14 +886,9 @@ def check_public_maintenance_leaks(path: Path, root: Path) -> list[str]:
     """Detect explicit maintainer-process wording in public reader docs."""
     relative_path = path.relative_to(root.parent).as_posix()
     errors: list[str] = []
-    in_fence = False
 
-    for line_number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
-        if line.strip().startswith("```"):
-            in_fence = not in_fence
-            continue
-        if in_fence:
-            continue
+    structure = scan_markdown_structure(path.read_text(encoding="utf-8"))
+    for line_number, line in structure.visible_lines:
 
         for pattern in PUBLIC_MAINTENANCE_LEAK_PATTERNS:
             if pattern in line:
@@ -676,9 +950,9 @@ def check_section_entry_templates(root: Path) -> list[str]:
 
             text = path.read_text(encoding="utf-8")
             missing_sections: list[str] = []
-            if "\n## 阅读入口" not in text:
+            if not has_visible_heading(text, 2, "阅读入口"):
                 missing_sections.append("## 阅读入口")
-            if "\n## 使用边界" not in text:
+            if not has_visible_heading(text, 2, "使用边界"):
                 missing_sections.append("## 使用边界")
 
             if missing_sections:
@@ -696,11 +970,12 @@ def check_section_entry_templates(root: Path) -> list[str]:
             continue
 
         text = path.read_text(encoding="utf-8")
+        visible_text = visible_markdown_text(text)
         missing_sections: list[str] = []
         for api_file in api_files:
-            if "\n## API Reference" not in text:
+            if not has_visible_heading(text, 2, "API Reference"):
                 missing_sections.append("## API Reference")
-            if f"reference/api/{api_file}" not in text:
+            if f"reference/api/{api_file}" not in visible_text:
                 missing_sections.append(f"link to {api_file}")
 
         if missing_sections:
@@ -727,20 +1002,21 @@ def check_extension_entry_templates(root: Path) -> list[str]:
             continue
 
         text = path.read_text(encoding="utf-8")
+        visible_text = visible_markdown_text(text)
         missing_sections: list[str] = []
-        if "\n## 使用边界" not in text:
+        if not has_visible_heading(text, 2, "使用边界"):
             missing_sections.append("## 使用边界")
-        if "\n## API Reference" not in text:
+        if not has_visible_heading(text, 2, "API Reference"):
             missing_sections.append("## API Reference")
         for api_file in api_files:
-            if f"reference/api/{api_file}" not in text:
+            if f"reference/api/{api_file}" not in visible_text:
                 missing_sections.append(f"link to {api_file}")
 
         has_child_pages = any(
             child.name != "index.md" and child.suffix == ".md"
             for child in path.parent.rglob("*.md")
         )
-        if has_child_pages and "\n## 阅读入口" not in text:
+        if has_child_pages and not has_visible_heading(text, 2, "阅读入口"):
             missing_sections.append("## 阅读入口")
 
         if missing_sections:
@@ -761,6 +1037,7 @@ def main(argv: list[str] | None = None) -> int:
         args.fail_link_anchors = True
         args.fail_render_syntax = True
         args.fail_public_maintenance_leaks = True
+        args.fail_public_entry_contracts = True
         args.fail_unstructured_body_pages = True
 
     root = args.root
@@ -776,6 +1053,7 @@ def main(argv: list[str] | None = None) -> int:
     local_link_anchor_errors: list[str] = []
     render_syntax_errors: list[str] = []
     public_maintenance_errors: list[str] = []
+    public_entry_contract_errors: list[str] = []
     has_mermaid_diagrams = False
     scanned = 0
     for path in sorted(root.rglob("*.md")):
@@ -817,6 +1095,13 @@ def main(argv: list[str] | None = None) -> int:
             has_mermaid_diagrams = has_mermaid_diagrams or file_has_mermaid
         if args.report_public_maintenance_leaks or args.fail_public_maintenance_leaks:
             public_maintenance_errors.extend(check_public_maintenance_leaks(path, root))
+
+    canonical_docs_root = (Path.cwd() / "docs/zh").resolve()
+    if (
+        args.report_public_entry_contracts
+        or args.fail_public_entry_contracts
+    ) and root.resolve() == canonical_docs_root:
+        public_entry_contract_errors = check_public_entry_contracts(Path.cwd())
 
     if errors:
         for error in errors:
@@ -925,6 +1210,19 @@ def main(argv: list[str] | None = None) -> int:
             print(message, file=sys.stderr)
             return 1
         if args.report_public_maintenance_leaks:
+            print(message)
+
+    if public_entry_contract_errors:
+        for error in public_entry_contract_errors:
+            print(error, file=sys.stderr)
+        message = (
+            "Docs public entry contract check found "
+            f"{len(public_entry_contract_errors)} issue(s)."
+        )
+        if args.fail_public_entry_contracts:
+            print(message, file=sys.stderr)
+            return 1
+        if args.report_public_entry_contracts:
             print(message)
 
     print(f"Docs quality check passed for {scanned} page(s).")

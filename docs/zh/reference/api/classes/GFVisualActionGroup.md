@@ -54,12 +54,13 @@ enum ParallelCompletionPolicy {
 ### `actions`
 
 - API：`public`
+- 首次版本：`11.0.0`
 
 ```gdscript
 var actions: Array[Object] = []
 ```
 
-包含的子动作列表。
+包含的子动作列表。execute() 会冻结当前列表供本轮使用，运行期修改只影响下一轮； 并行计划不接受重复的同一动作实例。
 
 结构：
 

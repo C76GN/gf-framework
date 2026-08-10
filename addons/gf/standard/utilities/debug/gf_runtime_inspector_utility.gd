@@ -64,6 +64,8 @@ var debug_build_writes_only: bool = true
 var _targets: Dictionary = {}
 var _target_order_counter: int = 0
 var _attached_overlay_panel_id: StringName = &""
+var _registry_generation: int = 0
+var _active_writes: Dictionary = {}
 
 
 # --- GF 生命周期方法 ---
@@ -120,6 +122,7 @@ func register_target(
 		_target_order_counter += 1
 
 	_targets[target_id] = entry
+	_registry_generation += 1
 	for property: GFRuntimeTunableProperty in properties:
 		var _registered: bool = register_property(target_id, property)
 	target_registered.emit(target_id)
@@ -138,6 +141,7 @@ func unregister_target(target_id: StringName) -> bool:
 	if not _targets.has(target_id):
 		return false
 	_erase_dictionary_key(_targets, target_id)
+	_registry_generation += 1
 	target_unregistered.emit(target_id)
 	_refresh_attached_overlay_panel()
 	return true
@@ -155,6 +159,7 @@ func has_target(target_id: StringName) -> bool:
 		return true
 	if _targets.has(target_id):
 		_erase_dictionary_key(_targets, target_id)
+		_registry_generation += 1
 	return false
 
 
@@ -184,6 +189,7 @@ func register_property(target_id: StringName, property: GFRuntimeTunableProperty
 	else:
 		properties.append(property)
 	properties_by_id[property.property_id] = property
+	_registry_generation += 1
 	_refresh_attached_overlay_panel()
 	return true
 
@@ -208,6 +214,7 @@ func remove_property(target_id: StringName, property_id: StringName) -> bool:
 	var property: Variant = properties_by_id[property_id]
 	_erase_array_value(_get_array_ref(entry, "properties"), property)
 	_erase_dictionary_key(properties_by_id, property_id)
+	_registry_generation += 1
 	_refresh_attached_overlay_panel()
 	return true
 
@@ -251,29 +258,43 @@ func get_property_value(target_id: StringName, property_id: StringName) -> Varia
 ## [br]
 ## @api public
 ## [br]
+## @since 11.0.0
+## [br]
 ## @param target_id: 目标 ID。
 ## [br]
 ## @param property_id: 属性 ID。
 ## [br]
 ## @param value: 请求写入的值。
 ## [br]
-## @return 写入成功返回 true。
+## @return: 当前注册代际仍有效且写入入口完成时返回 true；回调内重入同一属性或更改目标/属性注册会返回 false，且不发 property_changed。
 ## [br]
 ## @schema value: Variant，请求写入的原始值，会由属性 schema 归一化。
 func set_property_value(target_id: StringName, property_id: StringName, value: Variant) -> bool:
-	if not _writes_are_allowed():
+	if not _writes_are_allowed() or not _begin_write(target_id, property_id):
 		return false
 	var target: Object = _resolve_target(target_id)
 	var property: GFRuntimeTunableProperty = _resolve_property(target_id, property_id)
 	if target == null or property == null:
+		_end_write(target_id, property_id)
 		return false
 
+	var write_generation: int = _registry_generation
 	var old_value: Variant = property.read_value(target)
 	if not property.write_value(target, value):
+		_end_write(target_id, property_id)
+		return false
+	if (
+		write_generation != _registry_generation
+		or not is_instance_valid(target)
+		or _resolve_target(target_id) != target
+		or _resolve_property(target_id, property_id) != property
+	):
+		_end_write(target_id, property_id)
 		return false
 	var new_value: Variant = property.read_value(target)
 	property_changed.emit(target_id, property_id, old_value, new_value)
 	_refresh_attached_overlay_panel()
+	_end_write(target_id, property_id)
 	return true
 
 
@@ -300,6 +321,7 @@ func get_target_snapshot(include_hidden: bool = false) -> Array[Dictionary]:
 func clear_targets() -> void:
 	_targets.clear()
 	_target_order_counter = 0
+	_registry_generation += 1
 	_refresh_attached_overlay_panel()
 
 
@@ -430,6 +452,30 @@ func _prune_invalid_targets() -> void:
 			_append_packed_string(invalid_target_ids, String(target_id))
 	for target_id_text: String in invalid_target_ids:
 		_erase_dictionary_key(_targets, StringName(target_id_text))
+	if not invalid_target_ids.is_empty():
+		_registry_generation += 1
+
+
+func _begin_write(target_id: StringName, property_id: StringName) -> bool:
+	var target_writes: Dictionary = {}
+	if _active_writes.has(target_id):
+		target_writes = GFVariantData.as_dictionary(_active_writes[target_id])
+	if target_writes.has(property_id):
+		return false
+	target_writes[property_id] = true
+	_active_writes[target_id] = target_writes
+	return true
+
+
+func _end_write(target_id: StringName, property_id: StringName) -> void:
+	if not _active_writes.has(target_id):
+		return
+	var target_writes: Dictionary = GFVariantData.as_dictionary(
+		_active_writes[target_id]
+	)
+	_erase_dictionary_key(target_writes, property_id)
+	if target_writes.is_empty():
+		_erase_dictionary_key(_active_writes, target_id)
 
 
 func _sort_entries(left: Dictionary, right: Dictionary) -> bool:

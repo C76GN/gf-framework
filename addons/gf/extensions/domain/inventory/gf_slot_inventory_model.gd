@@ -547,11 +547,13 @@ func remove_item_from_slot(slot_index: int, amount: int = 1) -> GFInventoryOpera
 ## [br]
 ## @api public
 ## [br]
+## @since 11.0.0
+## [br]
 ## @param first_slot: 第一个槽位。
 ## [br]
 ## @param second_slot: 第二个槽位。
 ## [br]
-## @return: 成功返回 true。
+## @return: 成功返回 true；任一目标槽位规则拒绝交换后的物品时原子返回 false。
 func swap_slots(first_slot: int, second_slot: int) -> bool:
 	if not _begin_inventory_mutation("swap_slots"):
 		return false
@@ -561,11 +563,19 @@ func swap_slots(first_slot: int, second_slot: int) -> bool:
 	if first_slot == second_slot:
 		_end_inventory_mutation()
 		return true
+	var first_stack: GFInventoryStack = _get_stack_ref(first_slot)
+	var second_stack: GFInventoryStack = _get_stack_ref(second_slot)
+	if (
+		not _slot_accepts_stack(first_slot, second_stack)
+		or not _slot_accepts_stack(second_slot, first_stack)
+	):
+		_end_inventory_mutation()
+		return false
 	var first_before: Dictionary = _snapshot_slot_data(first_slot)
 	var second_before: Dictionary = _snapshot_slot_data(second_slot)
-	var first_stack: Variant = _slots[first_slot]
+	var first_stack_variant: Variant = _slots[first_slot]
 	_slots[first_slot] = _slots[second_slot]
-	_slots[second_slot] = first_stack
+	_slots[second_slot] = first_stack_variant
 	_record_slot_after_change(first_slot, first_before)
 	_record_slot_after_change(second_slot, second_before)
 	_end_inventory_mutation()
@@ -579,9 +589,11 @@ func swap_slots(first_slot: int, second_slot: int) -> bool:
 ## [br]
 ## @api public
 ## [br]
+## @since 11.0.0
+## [br]
 ## @param order_resolver: 可选比较回调，签名为 `func(left_slot_index, left_stack_data, right_slot_index, right_stack_data) -> bool`。
 ## [br]
-## @return: 槽位顺序发生变化时返回 true。
+## @return: 槽位顺序发生变化时返回 true；规划布局违反目标槽位规则时原子返回 false。
 func sort_slots(order_resolver: Callable = Callable()) -> bool:
 	if not _begin_inventory_mutation("sort_slots"):
 		return false
@@ -597,6 +609,14 @@ func sort_slots(order_resolver: Callable = Callable()) -> bool:
 	entries.sort_custom(func(left: Dictionary, right: Dictionary) -> bool:
 		return _should_sort_entry_before(left, right, order_resolver)
 	)
+
+	for index: int in range(entries.size()):
+		var planned_stack: GFInventoryStack = _get_inventory_stack_value(
+			GFVariantData.get_option_value(entries[index], "stack")
+		)
+		if not _slot_accepts_stack(index, planned_stack):
+			_end_inventory_mutation()
+			return false
 
 	for index: int in range(entries.size()):
 		_slots[index] = entries[index]["stack"]
@@ -857,9 +877,11 @@ func get_index_debug_snapshot() -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
+## @since 11.0.0
+## [br]
 ## @return: 校验报告字典。
 ## [br]
-## @schema return: Dictionary，包含 ok、healthy、summary、next_action、issue_count 与 issues；issues 每项包含 severity、kind、slot_index、item_id 与 message。
+## @schema return: Dictionary，包含 ok: bool、error_count: int、warning_count: int 与 issues: Array；issues 每项包含 severity: String、kind: String、slot_index: int、item_id: StringName 与 message: String。
 func validate_inventory() -> Dictionary:
 	var report: Dictionary = _make_validation_report()
 	var stack_counts: Dictionary = {}
@@ -891,11 +913,13 @@ func validate_inventory() -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
+## @since 11.0.0
+## [br]
 ## @param repair: 为 true 时会移除不合法堆叠并裁剪超过上限的数量。
 ## [br]
 ## @return: 校验报告字典。
 ## [br]
-## @schema return: Dictionary，包含 ok、healthy、summary、next_action、issue_count 与 issues；repair 为 true 时会同步修复可修复堆叠。
+## @schema return: Dictionary，包含 ok: bool、error_count: int、warning_count: int 与 issues: Array；issues 每项包含 severity: String、kind: String、slot_index: int、item_id: StringName 与 message: String；repair 为 true 时会同步修复可修复堆叠。
 func apply_registry_constraints(repair: bool = false) -> Dictionary:
 	var report: Dictionary = validate_inventory()
 	if not repair:
@@ -949,7 +973,9 @@ func get_debug_snapshot() -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @return: 可序列化字典。
+## @since 11.0.0
+## [br]
+## @return: Godot Variant 字典；不保证可直接编码为 JSON。
 ## [br]
 ## @schema return: Dictionary，包含 slot_count、allow_growth 与 slots；slots 每项为 GFInventoryStack.to_dict() 形状或空字典。
 func to_dict() -> Dictionary:
@@ -1183,6 +1209,16 @@ func _slot_accepts_item(slot_index: int, item_id: StringName, instance_data: Dic
 	if registry != null:
 		item_definition = registry.get_definition(item_id)
 	return slot_definition.can_accept(item_id, item_definition, instance_data, slot_index, self)
+
+
+func _slot_accepts_stack(slot_index: int, stack: GFInventoryStack) -> bool:
+	if stack == null or stack.is_empty():
+		return true
+	return _slot_accepts_item(
+		slot_index,
+		stack.item_id,
+		stack.instance_data
+	)
 
 
 func _ordered_slot_indices(start_slot: int) -> PackedInt32Array:

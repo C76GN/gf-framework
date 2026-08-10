@@ -95,7 +95,8 @@ func setup(
 	current_position = position
 	previous_position = position
 	_source_ref = weakref(source) if is_instance_valid(source) else null
-	metadata = new_metadata.duplicate(true)
+	var copied_metadata: Variant = GFVariantData.duplicate_variant(new_metadata)
+	metadata = copied_metadata if copied_metadata is Dictionary else {}
 
 
 ## 更新当前拖拽位置。
@@ -130,6 +131,8 @@ func get_source() -> Object:
 
 
 ## 转换为调试字典。
+## JSON 模式直接经过带循环检测和遍历预算的 GFVariantJsonCodec，不会在 codec
+## 前对 metadata 执行无界原生深复制，也不会在编码异常时回退原始对象。
 ## [br]
 ## @api public
 ## [br]
@@ -150,14 +153,23 @@ func to_dictionary(json_compatible: bool = true) -> Dictionary:
 		"previous_position": previous_position,
 		"delta": get_delta(),
 		"has_source": source != null,
-		"metadata": metadata.duplicate(true),
+		"metadata": metadata,
 	}
 	if json_compatible:
 		var encoded: Variant = GFVariantJsonCodec.variant_to_json_compatible(result)
 		if encoded is Dictionary:
 			var encoded_dictionary: Dictionary = encoded
 			return encoded_dictionary
-	return result
+		return {
+			"ok": false,
+			"reason": "json_encoding_failed",
+			"type": "GFDragSession",
+		}
+	var copied_result: Variant = GFVariantData.duplicate_variant(result)
+	if copied_result is Dictionary:
+		var copied_dictionary: Dictionary = copied_result
+		return copied_dictionary
+	return {}
 
 
 # --- 私有/辅助方法 ---

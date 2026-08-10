@@ -34,7 +34,9 @@ operation_diagnostics.finish_operation(operation_id, true, {
 })
 ```
 
-如果调用方已经有耗时结果，可直接使用 `record_completed_operation()`。异常事件使用 `record_incident()`，相同 `severity`、`category`、`code`、`component`、`phase` 和 `message` 的事件会合并，递增 `occurrence_count` 并刷新 `last_seen_*`。
+如果调用方已经有耗时结果，可直接使用 `record_completed_operation()`。操作只允许从 active 单调进入首次终态：重复 `finish_operation()` 会幂等返回已保留的首次终态，后到的 phase、state 或 async terminal 不会改写结果、耗时和 metadata。需要修订诊断时应创建新 operation，而不是复用已经结束的 ID。
+
+异常事件使用 `record_incident()`，相同 `severity`、`category`、`code`、`component`、`phase` 和 `message` 的事件会合并，递增 `occurrence_count` 并刷新 `last_seen_*`。容量收紧时按 `last_sequence` 淘汰最久未再次发生的事件，因此刚刚重复的活跃故障不会因首次插入较早而被误删。
 
 ## 命名采样统计
 
@@ -87,11 +89,13 @@ var tracking_id := tracker.track_handle(
 )
 
 # 在项目自己的受控诊断刷新点更新缓存；普通快照采集不会调用 provider。
-tracker.refresh_snapshot(tracking_id)
+var refresh_report := tracker.refresh_snapshot(tracking_id)
 
 # 流程结束后移除追踪。
 tracker.untrack_id(tracking_id)
 ```
+
+成功刷新会更新 `snapshot_refreshed_msec` 并清除 `snapshot_stale` / `snapshot_error`。后续 provider 不可用、句柄失效或发生重入时，tracker 保留 last-good snapshot，但写入最近的 `snapshot_attempted_msec`、稳定 `snapshot_error`，并把已有 last-good 标记为 `snapshot_stale=true`；失败不会伪造新的成功刷新时间。批量刷新也会把已经登记但后来不可用的 provider 计入 `failed_count` 和逐项 `reports`。
 
 ## 常用 API
 
@@ -110,8 +114,8 @@ tracker.untrack_id(tracking_id)
 
 ## 注意事项
 
-活动操作与终态历史使用独立容量：`max_active_operations` 限制仍在 pending/running 的记录，达到上限时 `begin_operation()` 拒绝新操作；`max_completed_operations` 只裁剪成功、失败或取消后的历史，不会为了腾出历史空间隐式删除仍在运行的操作。`max_incidents`、`max_state_trace_entries` 与 `max_sample_stats` 分别限制其他时间线数据。
+活动操作与终态历史使用独立容量：`max_active_operations` 限制仍在 pending/running 的记录，达到上限时 `begin_operation()` 拒绝新操作；`max_completed_operations` 只裁剪成功、失败或取消后的历史，不会为了腾出历史空间隐式删除仍在运行的操作。`max_phases_per_operation` 限制单条 operation 保留的最近 phase 数，淘汰量累计在 `dropped_phase_count`；`max_incidents`、`max_state_trace_entries` 与 `max_sample_stats` 分别限制其他时间线数据。
 
-耗时和采样入口只接受有限数值。`max_metadata_keys` 限制单份 metadata 的唯一业务键数，超额键会被丢弃并计入 `__gf_dropped_key_count`，避免长期采样通过不断制造新键绕过历史容量。`slow_operation_threshold_ms` 只影响健康快照中的慢操作和慢采样统计，不会自动把慢记录写成错误事件。
+耗时和采样入口只接受有限数值。`max_metadata_keys` 限制单份 metadata 的唯一业务键数，超额键会被丢弃并计入 `__gf_dropped_key_count`，避免长期采样通过不断制造新键绕过历史容量。当前 raw metadata 仍未承诺嵌套节点或总字节硬上限；不要把资源图、巨大集合或递归业务快照写入该字段，跨信任边界时必须使用 JSON-safe 导出并配置 codec 预算。`slow_operation_threshold_ms` 只影响健康快照中的慢操作和慢采样统计，不会自动把慢记录写成错误事件。
 
 记录中的 `metadata` 是项目自定义字典，GF 不解释其中字段。面向玩家、线上调试或远程工具暴露这些数据前，应在项目层做权限、脱敏和字段白名单。异步追踪同样应保持默认关闭，只在明确需要诊断活动句柄时启用。

@@ -140,7 +140,8 @@ func apply() -> Dictionary:
 			"reason": &"not_ready",
 		}
 	var result: Dictionary = _on_apply(_context, _result.duplicate(true))
-	_state = State.APPLIED
+	if _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(result, "ok", false):
+		_state = State.APPLIED
 	return result
 
 

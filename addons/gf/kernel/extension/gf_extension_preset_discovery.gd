@@ -46,7 +46,7 @@ static var _cache_revision: int = 0
 ## [br]
 ## @param options: 发现选项。
 ## [br]
-## @schema options: Dictionary，支持 force_refresh；为 true 时跳过现有缓存并重新扫描。
+## @schema options: Dictionary，支持 force_refresh、max_json_file_bytes、max_json_total_bytes 和 max_json_depth；预算只能收紧框架硬上限。
 ## [br]
 ## @return preset 发现快照。
 ## [br]
@@ -56,12 +56,24 @@ static func get_snapshot(
 	configured_paths: Array[String] = [],
 	options: Dictionary = {}
 ) -> Dictionary:
-	var signature: Dictionary = make_discovery_signature(manifests, configured_paths)
+	var budget_state: Dictionary = _GF_EXTENSION_JSON_FILE_READER_SCRIPT.make_budget_state(options)
+	var signature: Dictionary = make_discovery_signature(
+		manifests,
+		configured_paths,
+		options,
+		budget_state
+	)
 	var force_refresh: bool = _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(options, "force_refresh", false)
 	if not force_refresh and _has_snapshot_cache and _snapshot_matches_signature(signature):
 		return _duplicate_snapshot(_snapshot_cache)
 
-	_store_snapshot(_make_snapshot(manifests, configured_paths, signature))
+	_store_snapshot(_make_snapshot(
+		manifests,
+		configured_paths,
+		signature,
+		options,
+		budget_state
+	))
 	return _duplicate_snapshot(_snapshot_cache)
 
 
@@ -87,27 +99,49 @@ static func clear_cache() -> void:
 ## [br]
 ## @param configured_paths: 项目配置中的 preset 路径列表。
 ## [br]
+## @param options: 可选 JSON 预算。
+## [br]
+## @schema options: Dictionary，支持 max_json_file_bytes、max_json_total_bytes 和 max_json_depth。
+## [br]
+## @param budget_state: 同一次发现操作共享的累计 JSON 预算。
+## [br]
+## @schema budget_state: Dictionary，由 GFExtensionJsonFileReader.make_budget_state() 创建并在签名与解析时原地更新。
+## [br]
 ## @return 发现签名。
 ## [br]
-## @schema return: Dictionary containing manifest_tokens, configured_paths, preset_files, and hash.
+## @schema return: Dictionary containing manifest_tokens, configured_paths, preset_files, json_limits, and hash.
 static func make_discovery_signature(
 	manifests: Array[GFExtensionManifest] = [],
-	configured_paths: Array[String] = []
+	configured_paths: Array[String] = [],
+	options: Dictionary = {},
+	budget_state: Dictionary = {}
 ) -> Dictionary:
+	if budget_state.is_empty():
+		budget_state.merge(
+			_GF_EXTENSION_JSON_FILE_READER_SCRIPT.make_budget_state(options),
+			true
+		)
 	var signature_paths: Array[String] = _normalize_extension_preset_paths(configured_paths)
 	var preset_files: Array[Dictionary] = []
 	for preset_path: String in signature_paths:
-		preset_files.append(_make_file_signature(preset_path))
+		preset_files.append(_GF_EXTENSION_JSON_FILE_READER_SCRIPT.make_file_signature(
+			preset_path,
+			options,
+			budget_state
+		))
 
+	var json_limits: Dictionary = _GF_EXTENSION_JSON_FILE_READER_SCRIPT.get_limit_policy(options)
 	var signature_payload: Dictionary = {
 		"manifest_tokens": _make_manifest_tokens(manifests),
 		"configured_paths": configured_paths.duplicate(),
 		"preset_files": preset_files,
+		"json_limits": json_limits,
 	}
 	return {
 		"manifest_tokens": _make_manifest_tokens(manifests),
 		"configured_paths": configured_paths.duplicate(),
 		"preset_files": preset_files,
+		"json_limits": json_limits,
 		"hash": JSON.stringify(signature_payload).sha256_text(),
 	}
 
@@ -117,7 +151,9 @@ static func make_discovery_signature(
 static func _make_snapshot(
 	manifests: Array[GFExtensionManifest],
 	configured_paths: Array[String],
-	signature: Dictionary
+	signature: Dictionary,
+	options: Dictionary,
+	budget_state: Dictionary
 ) -> Dictionary:
 	var source_manifests: Array[GFExtensionManifest] = _duplicate_manifest_array(manifests)
 	var presets: Array[GFExtensionPreset] = _get_builtin_extension_presets(source_manifests)
@@ -146,7 +182,8 @@ static func _make_snapshot(
 		seen_paths[normalized_path] = true
 		var json_report: Dictionary = _GF_EXTENSION_JSON_FILE_READER_SCRIPT.read_object_report(
 			normalized_path,
-			_make_preset_json_reader_options()
+			_make_preset_json_reader_options(options),
+			budget_state
 		)
 		var report_errors: Array[String] = _GF_VARIANT_ACCESS_SCRIPT.get_option_string_array(json_report, "errors")
 		var preset_data: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(json_report, "data")
@@ -414,14 +451,16 @@ static func _extension_preset_path_is_supported(path: String) -> bool:
 	return path.begins_with("res://") and path.get_extension().to_lower() == "json"
 
 
-static func _make_preset_json_reader_options() -> Dictionary:
-	return {
+static func _make_preset_json_reader_options(options: Dictionary = {}) -> Dictionary:
+	var reader_options: Dictionary = options.duplicate(true)
+	reader_options.merge({
 		"empty_path_error": "preset path is empty",
 		"open_error_prefix": "could not open preset",
 		"read_error_prefix": "could not read preset",
 		"parse_error_prefix": "could not parse preset JSON",
 		"root_type_error": "preset JSON root must be an object",
-	}
+	}, true)
+	return reader_options
 
 
 static func _make_manifest_tokens(manifests: Array[GFExtensionManifest]) -> Array[String]:
@@ -436,28 +475,6 @@ static func _make_manifest_tokens(manifests: Array[GFExtensionManifest]) -> Arra
 		])
 	tokens.sort()
 	return tokens
-
-
-static func _make_file_signature(path: String) -> Dictionary:
-	var normalized_path: String = _GF_PATH_TOOLS.normalize_resource_path(path)
-	var source_file: FileAccess = FileAccess.open(normalized_path, FileAccess.READ)
-	if source_file == null:
-		return {
-			"source_path": normalized_path,
-			"exists": false,
-			"size_bytes": 0,
-			"content_sha256": "",
-		}
-
-	var source_text: String = source_file.get_as_text()
-	var size_bytes: int = source_file.get_length()
-	source_file.close()
-	return {
-		"source_path": normalized_path,
-		"exists": true,
-		"size_bytes": size_bytes,
-		"content_sha256": source_text.sha256_text(),
-	}
 
 
 static func _sorted_unique(values: Array[String]) -> Array[String]:

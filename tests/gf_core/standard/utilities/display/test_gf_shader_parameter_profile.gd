@@ -2,6 +2,29 @@
 extends GutTest
 
 
+# --- 辅助类型 ---
+
+class RejectingShaderMaterialTarget extends RefCounted:
+	var material_value: ShaderMaterial = null
+
+	func _get_property_list() -> Array[Dictionary]:
+		return [{
+			"name": "material",
+			"type": TYPE_OBJECT,
+			"hint": PROPERTY_HINT_RESOURCE_TYPE,
+			"hint_string": "ShaderMaterial",
+			"usage": PROPERTY_USAGE_DEFAULT | PROPERTY_USAGE_STORAGE,
+		}]
+
+	func _get(property: StringName) -> Variant:
+		if property == &"material":
+			return material_value
+		return null
+
+	func _set(_property: StringName, _value: Variant) -> bool:
+		return false
+
+
 func test_profile_normalizes_keys_and_deep_copies_values() -> void:
 	var profile: GFShaderParameterProfile = GFShaderParameterProfile.new()
 	var nested_value: Dictionary = { "curve": [1, 2, 3] }
@@ -186,6 +209,39 @@ func test_utility_duplicates_target_material_when_requested() -> void:
 	assert_almost_eq(GFVariantData.to_float(duplicated_material.get_shader_parameter(&"storm_pressure")), 0.9, 0.001)
 
 
+func test_utility_duplicate_mode_fails_closed_when_material_writeback_is_rejected() -> void:
+	var utility: GFShaderParameterUtility = GFShaderParameterUtility.new()
+	var original_material: ShaderMaterial = _make_test_shader_material()
+	var target: RejectingShaderMaterialTarget = RejectingShaderMaterialTarget.new()
+	target.material_value = original_material
+
+	var applied_count: int = utility.apply_parameters(target, {
+		&"storm_pressure": 0.9,
+	}, {
+		"duplicate_material": true,
+		"warn_on_invalid_target": false,
+	})
+
+	assert_eq(applied_count, 0, "复制材质无法写回时必须停止参数写入。")
+	assert_eq(target.material_value, original_material, "拒绝 setter 后目标仍应指向原共享材质。")
+	assert_almost_eq(GFVariantData.to_float(original_material.get_shader_parameter(&"storm_pressure")), 0.0, 0.001, "copy-on-write 建立失败不得修改原共享材质。")
+
+
+func test_utility_duplicate_mode_fails_closed_for_direct_material_target() -> void:
+	var utility: GFShaderParameterUtility = GFShaderParameterUtility.new()
+	var original_material: ShaderMaterial = _make_test_shader_material()
+
+	var applied_count: int = utility.apply_parameters(original_material, {
+		&"storm_pressure": 0.9,
+	}, {
+		"duplicate_material": true,
+		"warn_on_invalid_target": false,
+	})
+
+	assert_eq(applied_count, 0, "直接材质没有可写回 owner，复制模式必须失败关闭。")
+	assert_almost_eq(GFVariantData.to_float(original_material.get_shader_parameter(&"storm_pressure")), 0.0, 0.001, "无法发布副本时不得修改直接传入的原材质。")
+
+
 func test_utility_reports_shader_uniform_names() -> void:
 	var utility: GFShaderParameterUtility = GFShaderParameterUtility.new()
 	var material: ShaderMaterial = _make_test_shader_material()
@@ -310,6 +366,33 @@ func test_binder_reapplies_when_profile_changes() -> void:
 
 	var material: ShaderMaterial = _variant_to_shader_material(rect.material)
 	assert_almost_eq(GFVariantData.to_float(material.get_shader_parameter(&"storm_pressure")), 0.55, 0.001)
+
+
+func test_binder_duplicate_mode_reuses_owned_material_until_target_changes() -> void:
+	var rect: ColorRect = ColorRect.new()
+	var original_material: ShaderMaterial = _make_test_shader_material()
+	rect.material = original_material
+	var profile: GFShaderParameterProfile = GFShaderParameterProfile.new()
+	var _set_storm_result: GFShaderParameterProfile = profile.set_parameter(&"storm_pressure", 0.4)
+	var binder: GFShaderParameterBinder = GFShaderParameterBinder.new()
+	binder.apply_on_ready = false
+	binder.auto_apply_on_profile_changed = false
+	binder.duplicate_material_on_apply = true
+	binder.profile = profile
+	rect.add_child(binder)
+	add_child_autofree(rect)
+
+	assert_eq(binder.apply(), 1)
+	var first_owned_material: Material = rect.material
+	assert_ne(first_owned_material, original_material, "首次应用应建立材质隔离。")
+	assert_eq(binder.apply(), 1)
+	assert_eq(rect.material, first_owned_material, "后续应用不应每次重新复制已经隔离的材质。")
+
+	var external_material: ShaderMaterial = _make_test_shader_material()
+	rect.material = external_material
+	assert_eq(binder.apply(), 1)
+	assert_ne(rect.material, external_material, "目标材质被外部替换后应重新建立隔离。")
+	assert_ne(rect.material, first_owned_material, "外部替换必须使旧隔离缓存失效。")
 
 
 func _make_test_shader_material() -> ShaderMaterial:

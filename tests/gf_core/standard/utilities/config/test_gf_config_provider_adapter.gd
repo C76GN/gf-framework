@@ -111,6 +111,70 @@ func test_config_provider_adapter_fails_closed_for_freed_object_source() -> void
 	assert_eq(GFVariantData.get_option_string(report, "status"), "failed")
 
 
+func test_config_provider_adapter_evicts_freed_cached_object() -> void:
+	var provider: GF_CONFIG_PROVIDER_ADAPTER_SCRIPT = GF_CONFIG_PROVIDER_ADAPTER_SCRIPT.new()
+	var object_table: DisposableGeneratedTable = DisposableGeneratedTable.new()
+	assert_true(provider.register_table_source(&"generated", object_table), "有效对象源应可注册。")
+	var first_report: Dictionary = provider.preload_table(&"generated")
+	assert_true(GFVariantData.get_option_bool(first_report, "ok"), "首次加载对象源应成功。")
+	object_table.free()
+
+	var second_report: Dictionary = provider.preload_table(&"generated")
+
+	assert_false(GFVariantData.get_option_bool(second_report, "ok"), "缓存对象被释放后不得继续报告加载成功。")
+	assert_eq(GFVariantData.get_option_string(second_report, "status"), "failed")
+	assert_false(GFVariantData.get_option_bool(second_report, "cached"), "失效对象必须从缓存中移除。")
+
+
+func test_config_provider_adapter_rejects_self_recursive_loader() -> void:
+	var provider: GF_CONFIG_PROVIDER_ADAPTER_SCRIPT = GF_CONFIG_PROVIDER_ADAPTER_SCRIPT.new()
+	var load_count: Array[int] = [0]
+	var loader: Callable = func(table_name: StringName, _metadata: Dictionary) -> Array[Dictionary]:
+		load_count[0] += 1
+		if load_count[0] < 3:
+			var _nested_report: Dictionary = provider.preload_table(table_name)
+		return [{ "id": 1 }]
+	assert_true(provider.register_table_source(&"items", loader), "测试应能注册递归 loader。")
+
+	var report: Dictionary = provider.preload_table(&"items")
+
+	assert_false(GFVariantData.get_option_bool(report, "ok"), "同表递归加载必须 fail-closed。")
+	assert_eq(GFVariantData.get_option_string(report, "status"), "failed")
+	assert_string_contains(GFVariantData.get_option_string(report, "error"), "items -> items", "报告应给出闭环路径。")
+	assert_eq(load_count[0], 1, "检测到活动加载后不应再次调用同一 loader。")
+	provider.clear_table_sources()
+
+
+func test_config_provider_adapter_rejects_cross_table_loader_cycle() -> void:
+	var provider: GF_CONFIG_PROVIDER_ADAPTER_SCRIPT = GF_CONFIG_PROVIDER_ADAPTER_SCRIPT.new()
+	var load_count: Dictionary = {
+		&"a": 0,
+		&"b": 0,
+	}
+	var loader_a: Callable = func(_table_name: StringName, _metadata: Dictionary) -> Array[Dictionary]:
+		load_count[&"a"] = GFVariantData.get_option_int(load_count, &"a") + 1
+		if GFVariantData.get_option_int(load_count, &"a") < 3:
+			var _nested_report: Dictionary = provider.preload_table(&"b")
+		return [{ "id": &"a" }]
+	var loader_b: Callable = func(_table_name: StringName, _metadata: Dictionary) -> Array[Dictionary]:
+		load_count[&"b"] = GFVariantData.get_option_int(load_count, &"b") + 1
+		if GFVariantData.get_option_int(load_count, &"b") < 3:
+			var _nested_report: Dictionary = provider.preload_table(&"a")
+		return [{ "id": &"b" }]
+	assert_true(provider.register_table_source(&"a", loader_a), "测试应能注册 A loader。")
+	assert_true(provider.register_table_source(&"b", loader_b), "测试应能注册 B loader。")
+
+	var report_a: Dictionary = provider.preload_table(&"a")
+	var report_b: Dictionary = provider.get_load_report(&"b")
+
+	assert_false(GFVariantData.get_option_bool(report_a, "ok"), "跨表循环中的起始表必须加载失败。")
+	assert_false(GFVariantData.get_option_bool(report_b, "ok"), "跨表循环中的依赖表必须加载失败。")
+	assert_string_contains(GFVariantData.get_option_string(report_a, "error"), "a -> b -> a", "报告应给出完整闭环路径。")
+	assert_eq(GFVariantData.get_option_int(load_count, &"a"), 1, "A loader 应只进入一次。")
+	assert_eq(GFVariantData.get_option_int(load_count, &"b"), 1, "B loader 应只进入一次。")
+	provider.clear_table_sources()
+
+
 func test_config_provider_adapter_clear_removes_standalone_schemas() -> void:
 	var provider: GF_CONFIG_PROVIDER_ADAPTER_SCRIPT = GF_CONFIG_PROVIDER_ADAPTER_SCRIPT.new()
 	assert_true(provider.register_schema(_make_schema(&"standalone")), "独立 schema 应可注册。")

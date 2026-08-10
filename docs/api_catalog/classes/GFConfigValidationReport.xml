@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFConfigValidationReport" path="addons/gf/standard/utilities/config/gf_config_validation_report.gd" module="standard" extends="RefCounted" classDigest="c9772081b5f8e55a5588d8291bb09df96f52ce9449220b883c51b08601c356df">
+<class name="GFConfigValidationReport" path="addons/gf/standard/utilities/config/gf_config_validation_report.gd" module="standard" extends="RefCounted" classDigest="7dd17e8535e0aa8c6ec9526e5f83738be652ee89746622dbf4fb6fff7bfc6eeb">
 	<description>GFConfigValidationReport: 配置表校验报告构建工具。
 统一创建、合并和补全配置表校验报告，保证 schema、导入器、引用解析和补丁合并使用相同问题结构。</description>
 	<tags>
@@ -11,7 +11,26 @@
 	<enums />
 	<constants>
 		<member kind="const" name="CONTEXT_FIELDS">
-			<signature>const CONTEXT_FIELDS: Array[String] = [</signature>
+			<signature>const CONTEXT_FIELDS: Array[String] = [
+	"row_key",
+	"field",
+	"source",
+	"line",
+	"column",
+	"row_index",
+	"column_index",
+	"rule_id",
+	"value",
+	"expected_value",
+	"actual_value",
+	"supported_values",
+	"supported_values_count",
+	"supported_values_sample",
+	"supported_values_preview_hash",
+	"supported_values_truncated",
+	"supported_formats",
+	"supported_content_types",
+]</signature>
 			<description>从校验上下文复制到单条 issue 的字段名。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -59,8 +78,9 @@
 				<tag name="param">message: 问题描述。</tag>
 				<tag name="param">context: 可选上下文。</tag>
 				<tag name="schema">report: GFConfigValidationReport 兼容 Dictionary，会被当前方法修改。</tag>
-				<tag name="schema">row_key: Variant，复制到 issue 中的行标识。</tag>
+				<tag name="schema">row_key: Variant，经报告 codec 规范化为 JSON-safe 值后复制到 issue 中的行标识。</tag>
 				<tag name="schema">context: Dictionary，可包含 row_key、field、source、line、column、row_index、column_index、rule_id、value、expected_value、actual_value、supported_values、supported_formats 和 supported_content_types 字段。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="merge_report">

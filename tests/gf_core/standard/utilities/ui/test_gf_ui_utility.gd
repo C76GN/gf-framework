@@ -515,6 +515,71 @@ func test_modal_restores_focus_captured_before_panel_ready() -> void:
 	outside.queue_free()
 
 
+func test_pop_modal_restores_focus_after_revealing_hidden_panel() -> void:
+	var base_panel: Control = Control.new()
+	var base_button: Button = Button.new()
+	base_button.focus_mode = Control.FOCUS_ALL
+	base_panel.add_child(base_button)
+	var modal_panel: Control = Control.new()
+	var modal_button: Button = Button.new()
+	modal_button.focus_mode = Control.FOCUS_ALL
+	modal_panel.add_child(modal_button)
+
+	_ui_utility.push_panel_instance_with_options(base_panel, GFUIUtility.Layer.POPUP, {
+		"hide_under": false,
+	})
+	base_button.grab_focus()
+	await get_tree().process_frame
+	assert_eq(get_viewport().gui_get_focus_owner(), base_button, "测试前置条件：基础按钮应获得焦点。")
+
+	_ui_utility.push_panel_instance_with_options(modal_panel, GFUIUtility.Layer.POPUP, {
+		"modal": true,
+		"hide_under": true,
+		"focus_on_open": true,
+		"restore_focus_on_close": true,
+	})
+	assert_false(base_panel.visible, "modal 打开后基础面板应被隐藏。")
+	assert_eq(get_viewport().gui_get_focus_owner(), modal_button, "modal 打开后焦点应进入 modal。")
+
+	_ui_utility.pop_panel(GFUIUtility.Layer.POPUP)
+	await get_tree().process_frame
+
+	assert_true(base_panel.visible, "modal 关闭后基础面板应恢复可见。")
+	assert_eq(get_viewport().gui_get_focus_owner(), base_button, "焦点恢复必须发生在基础面板重新可见之后。")
+
+
+func test_external_modal_exit_restores_focus_after_revealing_hidden_panel() -> void:
+	var base_panel: Control = Control.new()
+	var base_button: Button = Button.new()
+	base_button.focus_mode = Control.FOCUS_ALL
+	base_panel.add_child(base_button)
+	var modal_panel: Control = Control.new()
+	var modal_button: Button = Button.new()
+	modal_button.focus_mode = Control.FOCUS_ALL
+	modal_panel.add_child(modal_button)
+
+	_ui_utility.push_panel_instance_with_options(base_panel, GFUIUtility.Layer.POPUP, {
+		"hide_under": false,
+	})
+	base_button.grab_focus()
+	await get_tree().process_frame
+	_ui_utility.push_panel_instance_with_options(modal_panel, GFUIUtility.Layer.POPUP, {
+		"modal": true,
+		"hide_under": true,
+		"focus_on_open": true,
+		"restore_focus_on_close": true,
+	})
+	assert_false(base_panel.visible, "modal 打开后基础面板应被隐藏。")
+	assert_eq(get_viewport().gui_get_focus_owner(), modal_button, "modal 打开后焦点应进入 modal。")
+
+	modal_panel.queue_free()
+	await get_tree().process_frame
+	await get_tree().process_frame
+
+	assert_true(base_panel.visible, "外部释放 modal 后基础面板应恢复可见。")
+	assert_eq(get_viewport().gui_get_focus_owner(), base_button, "外部 tree exit 后也应恢复基础面板焦点。")
+
+
 func test_replace_layer_instance_clears_old_stack() -> void:
 	var panel1: Control = Control.new()
 	var panel2: Control = Control.new()

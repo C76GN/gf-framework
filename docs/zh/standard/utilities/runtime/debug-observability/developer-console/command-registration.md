@@ -43,3 +43,5 @@ console.execute_command("scene.node Player")
 ```
 
 参数解析支持引号和反斜杠转义。例如 `give_item "red potion" 3` 会把 `"red potion"` 作为一个参数。
+
+命令风险等级通过 metadata 的 `tier` 声明，只接受 `GFConsoleUtility.CommandTier.OBSERVE` 到 `DANGER` 的四个精确整数值。字段缺失时默认 `OBSERVE`；字段存在但为负数、越界值、字符串或 `null` 时，整个注册失败并返回 inactive subscription，未知风险不会降级为观察级。

@@ -463,7 +463,7 @@ func replay_queued(max_count: int = 0) -> Dictionary:
 
 结构：
 
-- `return`: Dictionary，GFRequestOutboxUtility.replay() 返回结构；缺少 outbox 时包含 ok=false 和 reason。
+- `return`: Dictionary，GFRequestOutboxUtility.replay() 返回结构；缺少 outbox 时包含 ok=false 和 reason；生命周期切换时包含 workflow_stale=true、workflow_commit_applied=false 和 reason=workflow_lifecycle_changed。
 
 <a id="member-gfsupportreportworkflow-methods-handles_request"></a>
 

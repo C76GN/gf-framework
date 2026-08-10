@@ -18,6 +18,16 @@ class CandidateProvider extends RefCounted:
 		return candidates
 
 
+class MutatingCandidateProvider extends RefCounted:
+	var candidates: Array = []
+	var probe: GFGravityProbe3D = null
+
+	func get_candidate_objects(_options: Dictionary) -> Array:
+		probe.global_position = Vector3(10.0, 0.0, 0.0)
+		probe.combination_mode = GFGravityProbe3D.CombinationMode.STRONGEST
+		return candidates
+
+
 class CountingField extends Node3D:
 	var call_count: int = 0
 	var acceleration_value: Vector3 = Vector3.DOWN
@@ -59,6 +69,34 @@ class OptionalArgumentField extends Node3D:
 		return Vector3.RIGHT * p_scale
 
 
+class ReentrantField extends Node3D:
+	var probe: GFGravityProbe3D = null
+	var call_count: int = 0
+	var nested_result: Vector3 = Vector3.INF
+
+	func get_acceleration_at(_world_position: Vector3) -> Vector3:
+		call_count += 1
+		if call_count == 1:
+			nested_result = probe.sample()
+		return Vector3.RIGHT
+
+
+class QueryMutatingField extends Node3D:
+	var probe: GFGravityProbe3D = null
+	var acceleration_value: Vector3 = Vector3.ZERO
+	var mutate_on_first_call: bool = false
+	var call_count: int = 0
+	var sampled_positions: Array[Vector3] = []
+
+	func get_acceleration_at(world_position: Vector3) -> Vector3:
+		call_count += 1
+		sampled_positions.append(world_position)
+		if mutate_on_first_call and call_count == 1:
+			probe.global_position = Vector3(10.0, 0.0, 0.0)
+			probe.combination_mode = GFGravityProbe3D.CombinationMode.STRONGEST
+		return acceleration_value
+
+
 # --- 测试方法 ---
 
 func test_point_gravity_field_returns_acceleration_toward_origin() -> void:
@@ -85,6 +123,40 @@ func test_gravity_field_linear_falloff_respects_radius() -> void:
 	assert_almost_eq(field.get_strength_at_distance(-5.0), 10.0, 0.001, "负距离应按零距离处理。")
 
 
+func test_gravity_field_inverse_square_avoids_intermediate_overflow() -> void:
+	var field: GFGravityField3D = GFGravityField3D.new()
+	add_child_autofree(field)
+	field.acceleration = 1.0e200
+	field.min_distance = 1.0e100
+	field.falloff_mode = GFGravityField3D.FalloffMode.INVERSE_SQUARE
+	field.direction_mode = GFGravityField3D.DirectionMode.CONSTANT_DIRECTION
+	field.constant_direction = Vector3.RIGHT
+
+	var near_strength: float = field.get_strength_at_distance(field.min_distance)
+	var far_strength: float = field.get_strength_at_distance(field.min_distance * 2.0)
+	var unrepresentable_vector: Vector3 = field.get_acceleration_at(field.global_position)
+
+	assert_true(not is_nan(near_strength) and not is_inf(near_strength), "平方反比近端结果必须有限。")
+	assert_true(is_equal_approx(near_strength, field.acceleration), "distance == min_distance 时强度应恒等于 acceleration。")
+	assert_true(is_equal_approx(far_strength, field.acceleration * 0.25), "两倍最小距离处应保留平方反比比例。")
+	assert_eq(unrepresentable_vector, Vector3.ZERO, "标量强度无法表示为 Vector3 时公开加速度应失败关闭。")
+
+
+func test_gravity_field_curve_fails_closed_on_non_finite_strength() -> void:
+	var curve: Curve = Curve.new()
+	curve.max_value = 2.0
+	var _start_index: int = curve.add_point(Vector2(0.0, 2.0))
+	var _end_index: int = curve.add_point(Vector2(1.0, 2.0))
+	var field: GFGravityField3D = GFGravityField3D.new()
+	add_child_autofree(field)
+	field.acceleration = 1.0e308
+	field.radius = 1.0
+	field.falloff_mode = GFGravityField3D.FalloffMode.CURVE
+	field.falloff_curve = curve
+
+	assert_eq(field.get_strength_at_distance(0.0), 0.0, "Curve 与 acceleration 的乘积溢出时强度应失败关闭。")
+
+
 func test_gravity_field_exposes_sampling_priority() -> void:
 	var field: GFGravityField3D = GFGravityField3D.new()
 	add_child_autofree(field)
@@ -108,6 +180,32 @@ func test_gravity_probe_sums_group_fields() -> void:
 
 	assert_almost_eq(acceleration.y, -4.0, 0.001, "采样器应汇总分组中的力场。")
 	assert_eq(probe.get_up_direction(), Vector3.UP, "向上方向应与加速度方向相反。")
+
+
+func test_gravity_probe_excludes_fields_from_another_world_3d() -> void:
+	var viewport_a: SubViewport = SubViewport.new()
+	var viewport_b: SubViewport = SubViewport.new()
+	viewport_a.world_3d = World3D.new()
+	viewport_b.world_3d = World3D.new()
+	add_child_autofree(viewport_a)
+	add_child_autofree(viewport_b)
+	var local_field: CountingField = CountingField.new()
+	var foreign_field: CountingField = CountingField.new()
+	var probe: GFGravityProbe3D = GFGravityProbe3D.new()
+	viewport_a.add_child(local_field)
+	viewport_a.add_child(probe)
+	viewport_b.add_child(foreign_field)
+	local_field.acceleration_value = Vector3.RIGHT
+	foreign_field.acceleration_value = Vector3.UP * 10.0
+	local_field.add_to_group(probe.field_group)
+	foreign_field.add_to_group(probe.field_group)
+	probe.use_fallback_when_empty = false
+
+	var acceleration: Vector3 = probe.sample()
+
+	assert_eq(acceleration, Vector3.RIGHT, "Probe 只能组合自己 World3D 中的 Node3D field。")
+	assert_eq(local_field.call_count, 1, "同世界 field 应参与采样。")
+	assert_eq(foreign_field.call_count, 0, "跨 World3D field 不得被调用。")
 
 
 func test_gravity_probe_direction_resamples_after_movement() -> void:
@@ -175,6 +273,87 @@ func test_gravity_probe_highest_priority_mode_combines_active_top_priority_field
 
 	assert_almost_eq(acceleration.x, 2.0, 0.001, "最高优先级模式应汇总最高优先级的有效力场。")
 	assert_almost_eq(acceleration.y, 3.0, 0.001, "同优先级有效力场应被组合。")
+
+
+func test_gravity_probe_highest_priority_supports_full_int64_range() -> void:
+	var lower_field: CountingField = CountingField.new()
+	var higher_field: CountingField = CountingField.new()
+	var probe: GFGravityProbe3D = GFGravityProbe3D.new()
+	add_child_autofree(lower_field)
+	add_child_autofree(higher_field)
+	add_child_autofree(probe)
+	lower_field.acceleration_value = Vector3.DOWN
+	lower_field.priority_value = -2147483650
+	higher_field.acceleration_value = Vector3.RIGHT
+	higher_field.priority_value = -2147483649
+	probe.combination_mode = GFGravityProbe3D.CombinationMode.HIGHEST_PRIORITY
+	probe.use_fallback_when_empty = false
+
+	var acceleration: Vector3 = probe.sample_fields([lower_field, higher_field])
+
+	assert_eq(acceleration, Vector3.RIGHT, "最高优先级选择不得用 32 位哨兵侵占合法 int64 值域。")
+
+
+func test_gravity_probe_reductions_fail_closed_on_finite_sum_overflow() -> void:
+	var field_a: CountingField = CountingField.new()
+	var field_b: CountingField = CountingField.new()
+	var probe: GFGravityProbe3D = GFGravityProbe3D.new()
+	add_child_autofree(field_a)
+	add_child_autofree(field_b)
+	add_child_autofree(probe)
+	field_a.acceleration_value = Vector3.RIGHT * 2.0e38
+	field_b.acceleration_value = Vector3.RIGHT * 2.0e38
+	field_a.priority_value = 7
+	field_b.priority_value = 7
+	probe.use_fallback_when_empty = false
+
+	probe.combination_mode = GFGravityProbe3D.CombinationMode.SUM
+	var sum_result: Vector3 = probe.sample_fields([field_a, field_b])
+	probe.combination_mode = GFGravityProbe3D.CombinationMode.HIGHEST_PRIORITY
+	var priority_result: Vector3 = probe.sample_fields([field_a, field_b])
+
+	assert_eq(sum_result, Vector3.ZERO, "SUM 的有限分量相加溢出时应失败关闭。")
+	assert_eq(priority_result, Vector3.ZERO, "HIGHEST_PRIORITY 的有限分量相加溢出时应失败关闭。")
+
+
+func test_gravity_probe_strongest_uses_overflow_safe_magnitude_comparison() -> void:
+	var weaker_field: CountingField = CountingField.new()
+	var stronger_field: CountingField = CountingField.new()
+	var probe: GFGravityProbe3D = GFGravityProbe3D.new()
+	weaker_field.name = &"AWeaker"
+	stronger_field.name = &"BStronger"
+	add_child_autofree(weaker_field)
+	add_child_autofree(stronger_field)
+	add_child_autofree(probe)
+	weaker_field.acceleration_value = Vector3.RIGHT * 2.0e38
+	stronger_field.acceleration_value = Vector3.UP * 3.0e38
+	probe.combination_mode = GFGravityProbe3D.CombinationMode.STRONGEST
+	probe.use_fallback_when_empty = false
+
+	var acceleration: Vector3 = probe.sample_fields([weaker_field, stronger_field])
+
+	assert_eq(acceleration, stronger_field.acceleration_value, "两个平方范数都溢出时仍应选择真实幅值更大的 field。")
+
+
+func test_gravity_probe_strongest_tie_uses_stable_order_key() -> void:
+	var field_a: CountingField = CountingField.new()
+	var field_b: CountingField = CountingField.new()
+	var probe: GFGravityProbe3D = GFGravityProbe3D.new()
+	field_a.name = &"AField"
+	field_b.name = &"BField"
+	add_child_autofree(field_a)
+	add_child_autofree(field_b)
+	add_child_autofree(probe)
+	field_a.acceleration_value = Vector3.RIGHT * 2.0
+	field_b.acceleration_value = Vector3.UP * 2.0
+	probe.combination_mode = GFGravityProbe3D.CombinationMode.STRONGEST
+	probe.use_fallback_when_empty = false
+
+	var reversed_input: Vector3 = probe.sample_fields([field_b, field_a])
+	var forward_input: Vector3 = probe.sample_fields([field_a, field_b])
+
+	assert_eq(reversed_input, field_a.acceleration_value, "等长 field 应按稳定结构键而非输入顺序裁决。")
+	assert_eq(forward_input, field_a.acceleration_value, "稳定平局裁决不应随输入排列变化。")
 
 
 func test_gravity_probe_cache_accounts_for_combination_mode() -> void:
@@ -273,6 +452,30 @@ func test_gravity_probe_cache_accounts_for_same_frame_group_membership() -> void
 	assert_almost_eq(field_sample.y, -6.0, 0.001, "同帧新增力场应使缓存失效并参与采样。")
 
 
+func test_gravity_probe_cache_accounts_for_same_path_instance_replacement() -> void:
+	var first_field: CountingField = CountingField.new()
+	var probe: GFGravityProbe3D = GFGravityProbe3D.new()
+	first_field.name = &"Field"
+	add_child(first_field)
+	add_child_autofree(probe)
+	first_field.add_to_group(probe.field_group)
+	first_field.acceleration_value = Vector3.DOWN
+	probe.use_fallback_when_empty = false
+
+	var first: Vector3 = probe.sample()
+	first_field.free()
+	var replacement_field: CountingField = CountingField.new()
+	replacement_field.name = &"Field"
+	add_child_autofree(replacement_field)
+	replacement_field.add_to_group(probe.field_group)
+	replacement_field.acceleration_value = Vector3.RIGHT
+	var replacement: Vector3 = probe.sample()
+
+	assert_eq(first, Vector3.DOWN, "首次采样应来自原实例。")
+	assert_eq(replacement, Vector3.RIGHT, "同帧同路径替换必须按新实例重新采样。")
+	assert_eq(replacement_field.call_count, 1, "新实例不得命中旧实例的缓存结果。")
+
+
 func test_gravity_probe_cache_ignores_non_field_group_members() -> void:
 	var field: CountingField = CountingField.new()
 	var probe: GFGravityProbe3D = GFGravityProbe3D.new()
@@ -334,6 +537,30 @@ func test_gravity_probe_provider_preserves_nested_option_identity() -> void:
 	assert_false(options.has("method_name"), "框架补默认查询条件时不得修改调用方 options。")
 
 
+func test_gravity_probe_provider_query_uses_entry_probe_snapshot() -> void:
+	var field_a: QueryMutatingField = QueryMutatingField.new()
+	var field_b: QueryMutatingField = QueryMutatingField.new()
+	var probe: GFGravityProbe3D = GFGravityProbe3D.new()
+	var provider: MutatingCandidateProvider = MutatingCandidateProvider.new()
+	add_child_autofree(field_a)
+	add_child_autofree(field_b)
+	add_child_autofree(probe)
+	field_a.probe = probe
+	field_a.acceleration_value = Vector3.RIGHT
+	field_b.probe = probe
+	field_b.acceleration_value = Vector3.UP * 2.0
+	provider.probe = probe
+	provider.candidates = [field_a, field_b]
+	probe.use_fallback_when_empty = false
+	probe.combination_mode = GFGravityProbe3D.CombinationMode.SUM
+
+	var acceleration: Vector3 = probe.sample_field_provider(provider)
+
+	assert_eq(acceleration, Vector3.RIGHT + Vector3.UP * 2.0, "provider 回调修改 Probe 不得改变当前 reduction。")
+	assert_eq(field_a.sampled_positions, [Vector3.ZERO], "provider 后的 field 仍应收到入口位置。")
+	assert_eq(field_b.sampled_positions, [Vector3.ZERO], "同一 provider 事务必须使用一个位置快照。")
+
+
 func test_gravity_probe_samples_a_snapshot_when_callback_mutates_candidate_array() -> void:
 	var field: AppendingField = AppendingField.new()
 	var appended_field: CountingField = CountingField.new()
@@ -350,6 +577,66 @@ func test_gravity_probe_samples_a_snapshot_when_callback_mutates_candidate_array
 	var acceleration: Vector3 = probe.sample_fields(fields)
 
 	assert_eq(acceleration, Vector3.RIGHT, "回调新增候选只能从下一次采样开始生效。")
+
+
+func test_gravity_probe_rejects_recursive_sampling_during_field_callback() -> void:
+	var field: ReentrantField = ReentrantField.new()
+	var probe: GFGravityProbe3D = GFGravityProbe3D.new()
+	add_child_autofree(field)
+	add_child_autofree(probe)
+	field.probe = probe
+	field.add_to_group(probe.field_group)
+	probe.use_fallback_when_empty = false
+
+	var acceleration: Vector3 = probe.sample()
+
+	assert_eq(acceleration, Vector3.RIGHT, "外层采样应完成。")
+	assert_eq(field.call_count, 1, "同一个 probe 的递归采样必须在再次调用 field 前失败关闭。")
+	assert_eq(field.nested_result, Vector3.ZERO, "被拒绝的递归采样应返回稳定零向量。")
+
+
+func test_gravity_probe_uses_one_query_snapshot_per_sampling_transaction() -> void:
+	var mutating_field: QueryMutatingField = QueryMutatingField.new()
+	var passive_field: QueryMutatingField = QueryMutatingField.new()
+	var probe: GFGravityProbe3D = GFGravityProbe3D.new()
+	add_child_autofree(mutating_field)
+	add_child_autofree(passive_field)
+	add_child_autofree(probe)
+	mutating_field.probe = probe
+	mutating_field.acceleration_value = Vector3.RIGHT
+	mutating_field.mutate_on_first_call = true
+	passive_field.probe = probe
+	passive_field.acceleration_value = Vector3.UP * 2.0
+	probe.use_fallback_when_empty = false
+	probe.combination_mode = GFGravityProbe3D.CombinationMode.SUM
+
+	var first: Vector3 = probe.sample_fields([mutating_field, passive_field])
+	var second: Vector3 = probe.sample_fields([mutating_field, passive_field])
+
+	assert_eq(first, Vector3.RIGHT + Vector3.UP * 2.0, "回调修改 mode 不得改变正在执行的 reduction。")
+	assert_eq(second, Vector3.UP * 2.0, "回调修改应从下一次采样开始生效。")
+	assert_eq(mutating_field.sampled_positions, [Vector3.ZERO, Vector3(10.0, 0.0, 0.0)], "每次事务都应冻结自己的入口位置。")
+	assert_eq(passive_field.sampled_positions, [Vector3.ZERO, Vector3(10.0, 0.0, 0.0)], "同一事务的所有 field 必须收到同一位置。")
+
+
+func test_gravity_probe_cache_uses_entry_state_when_callback_mutates_probe() -> void:
+	var field: QueryMutatingField = QueryMutatingField.new()
+	var probe: GFGravityProbe3D = GFGravityProbe3D.new()
+	add_child_autofree(field)
+	add_child_autofree(probe)
+	field.probe = probe
+	field.acceleration_value = Vector3.RIGHT
+	field.mutate_on_first_call = true
+	field.add_to_group(probe.field_group)
+	probe.use_fallback_when_empty = false
+
+	var first: Vector3 = probe.sample()
+	var second: Vector3 = probe.sample()
+
+	assert_eq(first, Vector3.RIGHT)
+	assert_eq(second, Vector3.RIGHT)
+	assert_eq(field.call_count, 2, "回调修改后的 probe 状态不得被错误标记为已缓存。")
+	assert_eq(field.sampled_positions, [Vector3.ZERO, Vector3(10.0, 0.0, 0.0)], "新状态应在下一次采样中重新计算。")
 
 
 func test_gravity_probe_validates_required_and_default_method_arity() -> void:

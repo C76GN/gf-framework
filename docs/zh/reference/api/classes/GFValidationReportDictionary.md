@@ -149,12 +149,13 @@ static func append_source_issue( report: Dictionary, severity: Variant, kind: St
 ### `merge_report`
 
 - API：`public`
+- 首次版本：`4.4.0`
 
 ```gdscript
 static func merge_report(target: Dictionary, source: Dictionary, options: Dictionary = {}) -> Dictionary:
 ```
 
-合并另一份字典报告的问题。
+合并另一份字典报告的问题。target 与 source 相同，或二者共享同一个 issues Array 时，不重复合并 issues，避免别名输入在遍历期间放大；显式 copy_fields 仍正常复制。
 
 参数：
 
@@ -284,6 +285,7 @@ static func has_error_issues(report: Dictionary, options: Dictionary = {}) -> bo
 ### `make_issue_fingerprint`
 
 - API：`public`
+- 首次版本：`3.19.0`
 
 ```gdscript
 static func make_issue_fingerprint(issue: Variant, fields: PackedStringArray = PackedStringArray()) -> String:
@@ -298,7 +300,7 @@ static func make_issue_fingerprint(issue: Variant, fields: PackedStringArray = P
 | `issue` | GFValidationIssue 或兼容问题字典。 |
 | `fields` | 参与指纹计算的字段；为空时使用 severity、kind、path、source_path、key 和 message。 |
 
-返回：问题指纹；输入无效时返回空字符串。
+返回：问题指纹；输入无效、包含运行时身份值或超过稳定遍历预算时返回空字符串。
 
 结构：
 

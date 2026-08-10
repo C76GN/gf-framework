@@ -20,6 +20,8 @@ print(GFNumberFormatter.format_scientific(coins, 2)) # 1.23e7
 
 默认紧凑后缀可通过 `get_default_compact_suffixes()` 读取；返回值是副本，修改它不会改变框架默认格式化行为。项目需要短单位、本地化单位或更长后缀表时，把自定义 `PackedStringArray` 传给 `format_compact()` 的 `suffixes` 参数，不要依赖全局可变状态。
 
+`format_full()` 接受普通十进制字符串时仍会应用 `decimal_places`、`trim_zeroes` 和 `use_truncation`。这一分支直接按十进制字符舍入或截断，不会先转成 `float`，所以超过 IEEE-754 精确整数范围的文本也不会因显示格式化丢位。数值文本的输入长度预算约束原始字符串，边缘空白也计入上限。
+
 ## `GFDecimalStringFormatter`
 
 `GFDecimalStringFormatter` 是小数字符串格式化与校验辅助，主要用于框架内部的 `GFNumberFormatter`、`GFBigNumber` 和 `GFFixedDecimal` 共享同一套舍入、截断、尾零裁剪和纯数字校验规则。

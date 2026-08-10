@@ -50,6 +50,20 @@ class ManualAssetUtility extends GFAssetUtility:
 		return []
 
 
+class RejectingReplaceUIUtility extends GFUIUtility:
+	var reject_replace: bool = false
+
+	func replace_layer_with_options(
+		path: String,
+		layer: int = Layer.POPUP,
+		options: Dictionary = {},
+		config_callback: Callable = Callable()
+	) -> Node:
+		if reject_replace:
+			return null
+		return super.replace_layer_with_options(path, layer, options, config_callback)
+
+
 # --- Godot 生命周期方法 ---
 
 func before_each() -> void:
@@ -112,6 +126,28 @@ func test_route_open_signals_use_canonical_route_id() -> void:
 		"route_opened",
 		[&"settings", panel, GFUIRouterUtility.Operation.PUSH]
 	)
+
+
+func test_sync_route_uses_request_snapshot_after_signal_mutates_registered_route() -> void:
+	var route: GFUIRoute = _make_route(&"settings", GFUIUtility.Layer.POPUP)
+	route.metadata = { "theme": "original" }
+	assert_true(_router.register_route(route))
+	var _request_connected: Error = _router.route_open_requested.connect(
+		func(_route_id: StringName, _operation: int, _params: Dictionary) -> void:
+			route.route_id = &"mutated"
+			route.scene_path = "res://tests/mutated_sync_route_panel.tscn"
+			route.layer = GFUIUtility.Layer.TOP
+			route.metadata = { "theme": "mutated" }
+	) as Error
+
+	var panel: Node = _router.push_route(&"settings")
+	var history: Array[Dictionary] = _router.get_route_history()
+	var history_entry: Dictionary = history[0] if not history.is_empty() else {}
+
+	assert_not_null(panel, "同步请求必须使用发出信号前冻结的场景路径。")
+	assert_eq(panel.get_parent(), _ui_utility.get_layer_root(GFUIUtility.Layer.POPUP), "同步请求必须使用入口 layer 快照。")
+	assert_eq(GFVariantData.get_option_string_name(history_entry, "route_id"), &"settings", "同步历史必须使用入口 route id 快照。")
+	assert_eq(GFVariantData.get_option_string(GFVariantData.get_option_dictionary(history_entry, "metadata"), "theme"), "original", "同步历史必须使用入口 metadata 快照。")
 
 
 func test_route_supports_registered_custom_layer_id() -> void:
@@ -217,6 +253,32 @@ func test_replace_route_clears_same_layer_history() -> void:
 	assert_eq(history.size(), 1, "替换层级后同层历史应只保留新路由。")
 	assert_eq(GFVariantData.get_option_string_name(history_entry, "route_id"), &"second", "替换后历史应指向新路由。")
 	assert_eq(_ui_utility.get_stack_count(GFUIUtility.Layer.POPUP), 1, "替换层级后 UI 栈应只保留一个面板。")
+
+
+func test_sync_replace_failure_preserves_existing_route_history() -> void:
+	_ui_utility.dispose()
+	var rejecting_utility: RejectingReplaceUIUtility = RejectingReplaceUIUtility.new()
+	_ui_utility = rejecting_utility
+	_ui_utility.init()
+	_router.set_ui_utility(_ui_utility)
+	var _register_first_result: bool = _router.register_route(
+		_make_route(&"first", GFUIUtility.Layer.POPUP)
+	)
+	var second_route: GFUIRoute = _make_route(&"second", GFUIUtility.Layer.POPUP)
+	var _register_second_result: bool = _router.register_route(second_route)
+	var first_panel: Node = _router.push_route(&"first")
+	var history_before: Array[Dictionary] = _router.get_route_history()
+	rejecting_utility.reject_replace = true
+	watch_signals(_router)
+
+	var replacement: Node = _router.replace_route(&"second")
+
+	assert_null(replacement, "同步 replace 加载失败应返回 null。")
+	assert_eq(_router.get_route_history(), history_before, "同步 replace 失败不得提前删除旧历史。")
+	assert_eq(_router.get_current_route_id(), &"first", "同步 replace 失败后当前路由应保持不变。")
+	assert_eq(_ui_utility.get_top_panel(GFUIUtility.Layer.POPUP), first_panel, "同步 replace 失败后旧面板应保持栈顶。")
+	assert_signal_emitted_with_parameters(_router, "route_open_failed", [&"second", "panel_open_failed"])
+	assert_push_warning("[GFUIRouterUtility] 路由打开失败：second (panel_open_failed)")
 
 
 func test_missing_route_emits_failure() -> void:
@@ -443,6 +505,44 @@ func test_async_replace_failure_preserves_existing_route_history() -> void:
 	assert_signal_emitted(_router, "route_open_failed", "异步 replace 失败应发出路由失败信号。")
 	assert_eq(operation.get_result().get_status(), GFUIRouteResult.STATUS_PANEL_FAILED)
 	assert_push_error("[GFUIUtility] 无法实例化面板场景：res://tests/missing_async_replace_panel.tscn")
+
+
+func test_async_route_uses_request_snapshot_after_signal_mutates_registered_route() -> void:
+	_arch = GFArchitecture.new()
+	var asset_util: ManualAssetUtility = ManualAssetUtility.new()
+	await _arch.register_utility_instance(asset_util)
+	await Gf.set_architecture(_arch)
+	var route: GFUIRoute = _make_route(&"inventory", GFUIUtility.Layer.POPUP)
+	var requested_path: String = "res://tests/request_snapshot_panel.tscn"
+	var mutated_path: String = "res://tests/mutated_route_panel.tscn"
+	route.scene_path = requested_path
+	route.metadata = { "theme": "original" }
+	assert_true(_router.register_route(route))
+	var _request_connected: Error = _router.route_open_requested.connect(
+		func(_route_id: StringName, _operation: int, _params: Dictionary) -> void:
+			route.route_id = &"mutated"
+			route.scene_path = mutated_path
+			route.layer = GFUIUtility.Layer.TOP
+			route.metadata = { "theme": "mutated" }
+	) as Error
+
+	var operation: GFUIRouteOperation = _router.push_route_async(&"inventory", { "slot": 3 })
+
+	assert_eq(asset_util.get_pending_count(requested_path), 1, "面板加载必须使用入口时冻结的场景路径。")
+	assert_eq(asset_util.get_pending_count(mutated_path), 0, "信号回调修改 live Route 不得改变已创建请求。")
+	asset_util.resolve(requested_path, _make_control_scene())
+	await get_tree().process_frame
+	await get_tree().process_frame
+
+	var snapshot: Dictionary = _router.get_debug_snapshot()
+	var history: Array[Dictionary] = _router.get_route_history()
+	var history_entry: Dictionary = history[0] if not history.is_empty() else {}
+	assert_true(operation.is_completed(), "Route 被外部修改后，请求句柄仍必须恰好到达终态。")
+	assert_eq(operation.get_result().get_status(), GFUIRouteResult.STATUS_OPENED)
+	assert_eq(GFVariantData.get_option_int(snapshot, "pending_async_route_count", -1), 0, "请求完成后不得遗留孤儿 pending entry。")
+	assert_eq(GFVariantData.get_option_string_name(history_entry, "route_id"), &"inventory", "历史必须记录入口 route_id 快照。")
+	assert_eq(GFVariantData.get_option_int(history_entry, "layer", -1), GFUIUtility.Layer.POPUP, "历史必须记录入口 layer 快照。")
+	assert_eq(GFVariantData.get_option_string(GFVariantData.get_option_dictionary(history_entry, "metadata"), "theme"), "original", "历史必须记录入口 metadata 快照。")
 
 
 func test_async_missing_route_returns_completed_typed_failure() -> void:

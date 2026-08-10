@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFObjectCandidateRegistry" path="addons/gf/standard/common/gf_object_candidate_registry.gd" module="standard" extends="RefCounted" classDigest="de33107bf46c5a279187aa1b793c36ee06e055915c5cf23e99c6c48b04c8858e">
+<class name="GFObjectCandidateRegistry" path="addons/gf/standard/common/gf_object_candidate_registry.gd" module="standard" extends="RefCounted" classDigest="fd22fd3c4ef7092dc7fee06354c069bd631086fdf9f6a4365bcfb405bd41ca3a">
 	<description>GFObjectCandidateRegistry: 通用 Object 候选注册表。
 使用弱引用记录候选对象，并提供按 group、method、priority 和注册顺序筛选排序的
 候选快照。变更通知只报告记录已变化，不解释最佳候选等业务语义，适合交互、命中、
@@ -25,7 +25,8 @@
 	<properties>
 		<member kind="property" name="max_candidates">
 			<signature>var max_candidates: int = 0:</signature>
-			<description>最大候选记录数量；小于等于 0 时不限制。</description>
+			<description>最大候选记录数量；小于等于 0 时不限制。降低上限会立即按注册顺序淘汰最旧记录；
+一次容量收敛只推进一次 revision 并发出一次 candidates_changed。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="since">8.0.0</tag>

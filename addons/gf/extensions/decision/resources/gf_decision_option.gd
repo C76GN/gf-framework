@@ -148,7 +148,11 @@ func clear_considerations() -> void:
 ## [br]
 ## @api public
 ## [br]
+## @since 4.3.0
+## [br]
 ## @param context: 决策上下文。
+## [br]
+## 本次调用会冻结考虑项数组成员；评分回调对 live 数组的修改只影响后续调用。
 ## [br]
 ## @return: 评分结果。
 func score(context: GFDecisionContext) -> GFDecisionScore:
@@ -210,13 +214,11 @@ func get_validation_report() -> Dictionary:
 		if consideration == null:
 			_append_validation_issue(report, &"missing_consideration", "consideration is null", "considerations[%d]" % index)
 			continue
-		if consideration.consideration_id == &"":
-			_append_validation_issue(report, &"missing_consideration_id", "consideration_id is required", "considerations[%d].consideration_id" % index)
-		elif seen_ids.has(consideration.consideration_id):
+		if consideration.consideration_id != &"" and seen_ids.has(consideration.consideration_id):
 			_append_validation_issue(report, &"duplicate_consideration_id", "consideration_id is duplicated", "considerations[%d].consideration_id" % index)
-		else:
+		elif consideration.consideration_id != &"":
 			seen_ids[consideration.consideration_id] = true
-		_append_consideration_configuration_issues(report, consideration, index)
+		_append_consideration_validation_issues(report, consideration, index)
 
 	return GFValidationReportDictionary.finalize_report(report, "Decision option", {
 		"fallback_action": "Review the first decision option issue.",
@@ -229,7 +231,8 @@ func get_validation_report() -> Dictionary:
 func _score_considerations(context: GFDecisionContext) -> Array[Dictionary]:
 	var details: Array[Dictionary] = []
 	var seen_considerations: Dictionary = {}
-	for consideration: GFDecisionConsideration in considerations:
+	var consideration_snapshot: Array[GFDecisionConsideration] = considerations.duplicate()
+	for consideration: GFDecisionConsideration in consideration_snapshot:
 		if consideration == null or not consideration.enabled:
 			continue
 		if consideration.consideration_id == &"" or seen_considerations.has(consideration.consideration_id):
@@ -334,22 +337,30 @@ func _normalized_score(value: float) -> float:
 	return _GF_DECISION_NUMERIC_POLICY.normalize_score(value)
 
 
-func _append_consideration_configuration_issues(
+func _append_consideration_validation_issues(
 	report: Dictionary,
 	consideration: GFDecisionConsideration,
 	index: int
 ) -> void:
 	var base_path: String = "considerations[%d]" % index
-	if not _GF_DECISION_NUMERIC_POLICY.is_valid_weight(consideration.weight):
-		_append_validation_issue(report, &"invalid_consideration_weight", "weight must be finite and non-negative", "%s.weight" % base_path)
-	if not is_finite(consideration.default_input):
-		_append_validation_issue(report, &"invalid_default_input", "default_input must be finite", "%s.default_input" % base_path)
-	if not is_finite(consideration.input_min) or not is_finite(consideration.input_max):
-		_append_validation_issue(report, &"invalid_input_range", "input range must be finite", "%s.input_range" % base_path)
-	if not _GF_DECISION_NUMERIC_POLICY.is_valid_score(consideration.missing_score):
-		_append_validation_issue(report, &"invalid_missing_score", "missing_score must be finite and within 0 to 1", "%s.missing_score" % base_path)
-	if consideration.input_source < GFDecisionConsideration.InputSource.BLACKBOARD or consideration.input_source > GFDecisionConsideration.InputSource.TARGET:
-		_append_validation_issue(report, &"invalid_input_source", "input_source is not supported", "%s.input_source" % base_path)
+	var consideration_report: Dictionary = consideration.get_validation_report()
+	for issue_value: Variant in GFVariantData.get_option_array(consideration_report, "issues"):
+		var issue: Dictionary = GFValidationReportDictionary.issue_to_dict(issue_value)
+		var child_path: String = GFVariantData.get_option_string(issue, "path")
+		var projected_path: String = base_path
+		if not child_path.is_empty():
+			projected_path = "%s.%s" % [base_path, child_path]
+		var _issue: Dictionary = GFValidationReportDictionary.append_issue(
+			report,
+			GFVariantData.get_option_string(issue, "severity", "error"),
+			GFVariantData.get_option_string_name(issue, "kind", &"invalid_consideration"),
+			GFVariantData.get_option_string(issue, "message", "consideration is invalid"),
+			{
+				"key": decision_id,
+				"row_index": index,
+				"path": projected_path,
+			}
+		)
 
 
 func _append_validation_issue(

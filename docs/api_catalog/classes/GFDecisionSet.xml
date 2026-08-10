@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFDecisionSet" path="addons/gf/extensions/decision/resources/gf_decision_set.gd" module="extensions/decision" extends="Resource" classDigest="b35f82f765a339afed3738196d2e826c664ccfcd70d1fedaf6c2615cfd0d66b2">
+<class name="GFDecisionSet" path="addons/gf/extensions/decision/resources/gf_decision_set.gd" module="extensions/decision" extends="Resource" classDigest="3cf8f701d6539caf760e7c12c5e9aa4444ca515ab0cd7e135711fa967c1b26a3">
 	<description>GFDecisionSet: 候选决策集合。
 负责对多个 GFDecisionOption 统一评分、排序并选择分数最高的候选。
 集合只返回评分结果，不直接执行业务动作。</description>
@@ -96,12 +96,14 @@
 		</member>
 		<member kind="method" name="score_all">
 			<signature>func score_all(context: GFDecisionContext) -&gt; Array[GFDecisionScore]:</signature>
-			<description>计算所有候选决策分数。</description>
+			<description>计算所有候选决策分数。
+本次调用会冻结候选数组成员与 include-disabled 开关；评分回调对 live 数组的修改只影响后续调用。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">context: 决策上下文。</tag>
 				<tag name="return">按分数降序排列的评分结果。</tag>
 				<tag name="schema">return: Array[GFDecisionScore]，每个候选的评分结果。</tag>
+				<tag name="since">4.3.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="select_best">
@@ -118,9 +120,9 @@
 			<description>从已计算评分中选择分数最高的候选决策。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="param">scores: 已计算的候选评分。</tag>
+				<tag name="param">scores: 已计算的候选评分；可为任意顺序，非法或非有限评分会被忽略。</tag>
 				<tag name="return">最佳评分结果；没有可选候选时返回 rejected score。</tag>
-				<tag name="schema">scores: Array[GFDecisionScore]，通常来自 score_all() 或 GFDecisionEvaluation.scores。</tag>
+				<tag name="schema">scores: Array[GFDecisionScore]，通常来自 score_all() 或 GFDecisionEvaluation.scores；不要求预排序。</tag>
 				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>

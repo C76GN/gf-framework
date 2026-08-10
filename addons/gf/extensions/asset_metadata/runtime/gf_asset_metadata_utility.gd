@@ -76,7 +76,7 @@ static func normalize_metadata(value: Variant) -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since 8.0.0
+## @since 3.17.0
 ## [br]
 ## @param target: 目标 Object。
 ## [br]
@@ -222,7 +222,7 @@ func validate_object_metadata(
 ## [br]
 ## @api public
 ## [br]
-## @since 8.0.0
+## @since 3.17.0
 ## [br]
 ## @param target: 目标 Object。
 ## [br]
@@ -254,9 +254,13 @@ func get_object_metadata_state(target: Object, options: Dictionary = {}) -> Stri
 	for metadata_key: StringName in _get_metadata_keys(options):
 		if not target.has_meta(metadata_key):
 			continue
-		var metadata: Dictionary = normalize_metadata(target.get_meta(metadata_key))
-		if metadata.is_empty():
+		var metadata_value: Variant = target.get_meta(metadata_key)
+		if metadata_value == null:
 			return METADATA_STATE_EMPTY
+		if metadata_value is Dictionary:
+			var metadata: Dictionary = metadata_value
+			if metadata.is_empty():
+				return METADATA_STATE_EMPTY
 		return METADATA_STATE_VALID
 	return METADATA_STATE_ABSENT
 
@@ -285,7 +289,7 @@ func clear_object_metadata(target: Object, options: Dictionary = {}) -> void:
 ## [br]
 ## @api public
 ## [br]
-## @since 8.0.0
+## @since 3.17.0
 ## [br]
 ## @param root: 节点树根节点。
 ## [br]
@@ -303,7 +307,7 @@ func collect_node_tree(root: Node, options: Dictionary = {}) -> Array[GFAssetMet
 ## [br]
 ## @api public
 ## [br]
-## @since 8.0.0
+## @since 3.17.0
 ## [br]
 ## @param root: 节点树根节点。
 ## [br]
@@ -329,7 +333,7 @@ func collect_node_tree_dicts(root: Node, options: Dictionary = {}) -> Array[Dict
 ## [br]
 ## @api public
 ## [br]
-## @since 8.0.0
+## @since 3.17.0
 ## [br]
 ## @param root: 节点树根节点。
 ## [br]

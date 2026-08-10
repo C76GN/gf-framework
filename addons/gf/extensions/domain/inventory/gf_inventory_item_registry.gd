@@ -61,6 +61,9 @@ var _default_max_stack_count: int = 0
 func set_definition(definition: GFInventoryItemDefinition) -> void:
 	if definition == null or definition.item_id == &"":
 		return
+	for existing_key: Variant in definitions.keys():
+		if _get_item_definition_value(definitions[existing_key]) == definition:
+			var _stale_key_erased: bool = definitions.erase(existing_key)
 	var _old_string_key_erased: bool = definitions.erase(String(definition.item_id))
 	definitions[definition.item_id] = definition
 
@@ -90,7 +93,7 @@ func clear() -> void:
 ## [br]
 ## @return: 存在返回 true。
 func has_definition(item_id: StringName) -> bool:
-	return definitions.has(item_id) or definitions.has(String(item_id))
+	return get_definition(item_id) != null
 
 
 ## 获取物品定义。
@@ -102,9 +105,14 @@ func has_definition(item_id: StringName) -> bool:
 ## @return: 物品定义；不存在时返回 null。
 func get_definition(item_id: StringName) -> GFInventoryItemDefinition:
 	var definition: GFInventoryItemDefinition = _get_item_definition_value(GFVariantData.get_option_value(definitions, item_id))
-	if definition != null:
+	if definition != null and definition.item_id == item_id:
 		return definition
-	return _get_item_definition_value(GFVariantData.get_option_value(definitions, String(item_id)))
+	definition = _get_item_definition_value(
+		GFVariantData.get_option_value(definitions, String(item_id))
+	)
+	if definition != null and definition.item_id == item_id:
+		return definition
+	return null
 
 
 ## 检查物品是否可被库存接受。
@@ -198,15 +206,17 @@ func are_instance_data_compatible(
 ## [br]
 ## @api public
 ## [br]
-## @return: 可序列化字典。
+## @since 11.0.0
+## [br]
+## @return: Godot Variant 字典；不保证可直接编码为 JSON。
 ## [br]
 ## @schema return: Dictionary，包含 definitions、default_max_stack_amount、default_max_stack_count 与 allow_unregistered_items。
 func to_dict() -> Dictionary:
 	var definition_data: Dictionary = {}
 	for item_id_variant: Variant in definitions.keys():
 		var definition: GFInventoryItemDefinition = _get_item_definition_value(definitions[item_id_variant])
-		if definition != null:
-			definition_data[GFVariantData.to_text(item_id_variant)] = definition.to_dict()
+		if definition != null and definition.item_id != &"":
+			definition_data[String(definition.item_id)] = definition.to_dict()
 	return {
 		"definitions": definition_data,
 		"default_max_stack_amount": default_max_stack_amount,

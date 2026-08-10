@@ -72,9 +72,12 @@ const _ACTION_TIME_POLICY = preload("res://addons/gf/extensions/action_queue/cor
 ## @api public
 @export var ease_type: Tween.EaseType = Tween.EASE_OUT
 
-## 可选步骤标记。非空时 GFConfiguredTweenAction 会在步骤结束后发出 marker_reached。
+## 可选步骤标记。非空时 GFConfiguredTweenAction 会在步骤结束后发出 marker_reached；
+## 标记通知不会改变相邻步骤声明的并行拓扑。
 ## [br]
 ## @api public
+## [br]
+## @since 11.0.0
 @export var marker_id: StringName = &""
 
 
@@ -192,6 +195,11 @@ func get_validation_error(target: Object) -> String:
 		return "Property not found: %s" % root_property
 	if as_relative and not _can_resolve_relative_value(target):
 		return "Relative value type mismatch for property: %s" % String(property_name)
+	if not as_relative and not _are_tween_values_compatible(
+		target.get_indexed(property_name),
+		target_value
+	):
+		return "Tween value type mismatch for property: %s" % String(property_name)
 	return ""
 
 
@@ -240,6 +248,15 @@ func _can_resolve_relative_value(target: Object) -> bool:
 		current_value is Color
 		and target_value is Color
 	)
+
+
+func _are_tween_values_compatible(current_value: Variant, next_value: Variant) -> bool:
+	if (
+		(current_value is float or current_value is int)
+		and (next_value is float or next_value is int)
+	):
+		return true
+	return typeof(current_value) == typeof(next_value)
 
 
 func _get_root_property_name() -> String:

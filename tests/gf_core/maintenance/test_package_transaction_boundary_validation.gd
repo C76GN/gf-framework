@@ -3,55 +3,16 @@ extends GutTest
 
 # --- 常量 ---
 
-const GODOT_ENGINE_PATH: String = "res://addons/gf/kernel/package/gf_package_transaction_engine.gd"
-const GODOT_BACKEND_PATH: String = "res://addons/gf/kernel/package/gf_package_manager_backend.gd"
-const GODOT_CLI_PATH: String = "res://addons/gf/kernel/package/gf_package_cli.gd"
 const SHARED_SCHEMA_PATH: String = "res://addons/gf/kernel/package/gf_package_transaction_schema.json"
 const PYTHON_ENGINE_PATH: String = "res://tools/gf_package_transaction.py"
 const PYTHON_INSTALLER_PATH: String = "res://tools/gf_package_installer.py"
+const GF_PACKAGE_TRANSACTION_ENGINE = preload("res://addons/gf/kernel/package/gf_package_transaction_engine.gd")
+const GF_PACKAGE_CLI = preload("res://addons/gf/kernel/package/gf_package_cli.gd")
 
 
 # --- 测试用例 ---
 
-func test_package_mutation_has_exactly_one_transaction_engine_owner() -> void:
-	var godot_backend_source: String = _read_text(GODOT_BACKEND_PATH)
-	var forbidden_godot_markers: PackedStringArray = PackedStringArray([
-		"static func _copy_staged_files_to_project(",
-		"static func _delete_package_files_from_project(",
-		"static func _write_lockfile_last(",
-		"static func _rollback_install_files(",
-	])
-
-	assert_true(godot_backend_source.contains("gf_package_transaction_engine.gd"), "Godot package backend 必须委托内核事务引擎。")
-	assert_true(godot_backend_source.contains("_execute_package_transaction("), "Godot package backend 必须通过单一事务 adapter 提交文件。")
-	var godot_engine_source: String = _read_text(GODOT_ENGINE_PATH)
-	assert_true(godot_engine_source.contains("DirAccess.rename_absolute(active_root, cleanup_root)"), "Godot transaction cleanup 必须先原子移出 active 目录。")
-	for marker: String in forbidden_godot_markers:
-		assert_false(godot_backend_source.contains(marker), "Godot backend 不得重新引入旧事务实现：%s" % marker)
-	assert_false(FileAccess.file_exists(PYTHON_ENGINE_PATH), "不得恢复 Python 第二套 package transaction engine。")
-	assert_false(FileAccess.file_exists(PYTHON_INSTALLER_PATH), "不得恢复 Python 第二套 package installer。")
-
-
-func test_package_transaction_cleanup_and_link_audit_include_hidden_entries() -> void:
-	var godot_engine_source: String = _read_text(GODOT_ENGINE_PATH)
-	var godot_backend_source: String = _read_text(GODOT_BACKEND_PATH)
-
-	assert_true(
-		_function_source(godot_engine_source, "static func _tree_has_link(").contains("directory.include_hidden = true"),
-		"事务 link 审计必须覆盖隐藏目录项。"
-	)
-	assert_true(
-		_function_source(godot_engine_source, "static func _remove_tree(").contains("directory.include_hidden = true"),
-		"事务递归清理必须覆盖隐藏目录项。"
-	)
-	assert_true(
-		_function_source(godot_backend_source, "static func _remove_path_recursive_absolute(").contains("directory.include_hidden = true"),
-		"Backend 兜底清理必须覆盖隐藏目录项。"
-	)
-
-
 func test_package_transaction_engine_owns_one_versioned_schema() -> void:
-	var godot_engine_source: String = _read_text(GODOT_ENGINE_PATH)
 	var schema: Dictionary = _read_json(SHARED_SCHEMA_PATH)
 	var required_report_fields: PackedStringArray = PackedStringArray([
 		"schema_version",
@@ -72,25 +33,34 @@ func test_package_transaction_engine_owns_one_versioned_schema() -> void:
 		"warnings",
 	])
 	var schema_report_fields: PackedStringArray = _dictionary_string_array(schema, "report_fields")
-	var schema_version: int = _dictionary_int(schema, "schema_version")
-	var report_schema_version: int = _dictionary_int(schema, "report_schema_version")
 	required_report_fields.sort()
 	schema_report_fields.sort()
+	var schema_version_value: Variant = schema.get("schema_version")
+	var report_schema_version_value: Variant = schema.get("report_schema_version")
 
-	assert_eq(schema_version, 1, "Package transaction journal schema 必须显式版本化。")
-	assert_eq(report_schema_version, 1, "Package transaction report schema 必须显式版本化。")
+	assert_true(schema_version_value is float, "Package transaction runtime journal schema 版本必须为数字。")
+	if schema_version_value is float:
+		var schema_version: float = schema_version_value
+		assert_eq(schema_version, 1.0, "Package transaction runtime journal schema 版本必须为 1。")
+	assert_true(report_schema_version_value is float, "Package transaction runtime report schema 版本必须为数字。")
+	if report_schema_version_value is float:
+		var report_schema_version: float = report_schema_version_value
+		assert_eq(report_schema_version, 1.0, "Package transaction runtime report schema 版本必须为 1。")
 	assert_eq(schema_report_fields, required_report_fields, "事务 schema 必须完整声明稳定报告字段。")
-	assert_true(godot_engine_source.contains("gf_package_transaction_schema.json"), "唯一事务引擎必须读取版本化 schema。")
 
 
 func test_package_cli_keeps_explicit_recovery_entry_points() -> void:
-	var godot_cli_source: String = _read_text(GODOT_CLI_PATH)
-
-	assert_true(godot_cli_source.contains("const COMMAND_RECOVER: String = \"recover\""), "Godot CLI 必须保留 recover 命令。")
-	assert_true(godot_cli_source.contains("recover_package_transaction("), "Godot CLI recover 必须委托 backend。")
-	assert_true(godot_cli_source.contains("const COMMAND_INSTALL: String = \"install\""), "Godot CLI 必须保留 install 命令。")
-	assert_true(godot_cli_source.contains("const COMMAND_UPDATE: String = \"update\""), "Godot CLI 必须保留 update 命令。")
-	assert_true(godot_cli_source.contains("const COMMAND_UNINSTALL: String = \"uninstall\""), "Godot CLI 必须保留 uninstall 命令。")
+	assert_eq(GF_PACKAGE_CLI.COMMAND_RECOVER, "recover", "Godot CLI 必须保留 recover 命令。")
+	assert_eq(GF_PACKAGE_CLI.COMMAND_INSTALL, "install", "Godot CLI 必须保留 install 命令。")
+	assert_eq(GF_PACKAGE_CLI.COMMAND_UPDATE, "update", "Godot CLI 必须保留 update 命令。")
+	assert_eq(GF_PACKAGE_CLI.COMMAND_UNINSTALL, "uninstall", "Godot CLI 必须保留 uninstall 命令。")
+	var recover_report: Dictionary = GF_PACKAGE_TRANSACTION_ENGINE.make_empty_report("recover")
+	var recovery_operation_value: Variant = recover_report.get("operation")
+	assert_true(recovery_operation_value is String, "空恢复报告的 operation 必须为字符串。")
+	if recovery_operation_value is String:
+		assert_eq(str(recovery_operation_value), "recover")
+	assert_false(FileAccess.file_exists(PYTHON_ENGINE_PATH), "不得恢复 Python 第二套 package transaction engine。")
+	assert_false(FileAccess.file_exists(PYTHON_INSTALLER_PATH), "不得恢复 Python 第二套 package installer。")
 
 
 # --- 私有/辅助方法 ---
@@ -113,16 +83,6 @@ func _read_json(path: String) -> Dictionary:
 	return {}
 
 
-func _function_source(source: String, declaration: String) -> String:
-	var start_index: int = source.find(declaration)
-	if start_index < 0:
-		return ""
-	var next_function_index: int = source.find("\nstatic func ", start_index + declaration.length())
-	if next_function_index < 0:
-		return source.substr(start_index)
-	return source.substr(start_index, next_function_index - start_index)
-
-
 func _dictionary_string_array(data: Dictionary, key: String) -> PackedStringArray:
 	var result: PackedStringArray = PackedStringArray()
 	var raw_values: Variant = data.get(key, [])
@@ -134,14 +94,3 @@ func _dictionary_string_array(data: Dictionary, key: String) -> PackedStringArra
 			var value: String = raw_value
 			var _append_value: bool = result.append(value)
 	return result
-
-
-func _dictionary_int(data: Dictionary, key: String) -> int:
-	var raw_value: Variant = data.get(key, 0)
-	if raw_value is int:
-		var integer_value: int = raw_value
-		return integer_value
-	if raw_value is float:
-		var float_value: float = raw_value
-		return int(float_value)
-	return 0

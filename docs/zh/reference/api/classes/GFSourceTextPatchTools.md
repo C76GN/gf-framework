@@ -179,7 +179,7 @@ static func validate_text_edits(source_text: String, edits: Array, options: Dict
 static func apply_text_edits(source_text: String, edits: Array, options: Dictionary = {}) -> Dictionary:
 ```
 
-应用文本 edit 集合。 edit 会先按原始文本范围校验并按 offset 倒序应用，因此调用方不需要预先排序。 范围字段可使用 LSP-shaped 字典，但 character 始终是 Godot String 字符索引。 如果存在越界、重叠或结构错误，返回 ok=false，text 保持为原始文本。
+应用文本 edit 集合。 edit 会先按原始文本范围校验，再按原始 offset 升序单次组装结果，因此调用方不需要预先排序。 范围字段可使用 LSP-shaped 字典，但 character 始终是 Godot String 字符索引。 如果存在越界、重叠或结构错误，返回 ok=false，text 保持为原始文本。
 
 参数：
 

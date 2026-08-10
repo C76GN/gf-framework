@@ -17,6 +17,8 @@ Domain 属于业务型扩展外置候选：当前随 GF 包分发以便统一测
 
 - Domain 不规定物品 ID、属性含义、装备规则、任务条件、奖励发放或 UI 绑定。
 - 存档格式、网络同步、服务器校验和经济系统应由项目层组合。
+- Domain 的 `to_dict()` / `get_snapshot()` 返回 Godot Variant 数据图，不等于 JSON-safe 数据；`Vector*`、`Color`、PackedArray、Resource、自定义 metadata 等内容必须在项目的持久化或网络信任边界按目标编码器显式验证和转换。
+- 当前 Domain 裸字典快照不携带 `schema_version`。需要跨 GF 版本保存时，项目必须在外层增加自己的版本 envelope、迁移器和失败报告；不要把“当前版本可往返”理解为永久存档格式承诺。
 - 需要战斗结算、Buff、技能或命中结果时，使用 [Combat](../combat/index.md) 或项目战斗系统。
 - 需要标签表达式、校验报告或通用数据契约时，优先使用 [Standard Foundation 数据流程与校验](../../standard/foundation/data-validation/index.md)。
 

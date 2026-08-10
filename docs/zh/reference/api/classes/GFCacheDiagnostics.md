@@ -205,4 +205,4 @@ func get_debug_snapshot() -> Dictionary:
 
 结构：
 
-- `return`: Dictionary with cache_id, hit_count, miss_count, write_count, eviction_count, invalidation_count, hit_ratio, invalidation_reasons, and last_event.
+- `return`: Dictionary with cache_id, hit_count, miss_count, write_count, eviction_count, invalidation_count, hit_ratio, counter_saturated, invalidation_reasons, and last_event.

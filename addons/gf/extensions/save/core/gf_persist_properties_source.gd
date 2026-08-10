@@ -131,7 +131,12 @@ func _gather_configured_serializers(
 	serializer_registry: GFNodeSerializerRegistry
 ) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
-	for serializer: GFNodeSerializer in _get_configured_serializers(target, serializer_registry):
+	var plan: Dictionary = _build_configured_serializer_plan(target, serializer_registry)
+	if not GFVariantData.get_option_bool(plan, "ok", false):
+		_add_serializer_plan_error(context, GFVariantData.get_option_string(plan, "error"))
+		return result
+	for serializer_variant: Variant in GFVariantData.get_option_array(plan, "serializers"):
+		var serializer: GFNodeSerializer = _get_node_serializer_value(serializer_variant)
 		if serializer == null or not serializer.supports_node(target):
 			continue
 		var serializer_data: Dictionary = serializer.gather(target, context)
@@ -150,7 +155,18 @@ func _apply_configured_serializers(
 	context: Dictionary,
 	serializer_registry: GFNodeSerializerRegistry
 ) -> Dictionary:
-	var by_id: Dictionary = _index_configured_serializers(target, serializer_registry)
+	var plan: Dictionary = _build_configured_serializer_plan(target, serializer_registry)
+	if not GFVariantData.get_option_bool(plan, "ok", false):
+		return {
+			"ok": false,
+			"applied": 0,
+			"errors": [GFVariantData.get_option_string(plan, "error")],
+		}
+	var by_id: Dictionary = {}
+	for serializer_variant: Variant in GFVariantData.get_option_array(plan, "serializers"):
+		var configured_serializer: GFNodeSerializer = _get_node_serializer_value(serializer_variant)
+		if configured_serializer != null:
+			by_id[configured_serializer.get_serializer_id()] = configured_serializer
 	var errors: Array[String] = []
 	var applied: int = 0
 
@@ -189,38 +205,62 @@ func _apply_configured_serializers(
 	}
 
 
-func _index_configured_serializers(
+func _build_configured_serializer_plan(
 	target: Node,
 	serializer_registry: GFNodeSerializerRegistry
 ) -> Dictionary:
-	var result: Dictionary = {}
-	for serializer: GFNodeSerializer in _get_configured_serializers(target, serializer_registry):
-		if serializer != null:
-			result[serializer.get_serializer_id()] = serializer
-	return result
-
-
-func _get_configured_serializers(
-	target: Node,
-	serializer_registry: GFNodeSerializerRegistry
-) -> Array[GFNodeSerializer]:
-	var result: Array[GFNodeSerializer] = []
+	var configured: Array[GFNodeSerializer] = []
+	var origins: Array[StringName] = []
 	_prepare_property_serializer()
 	if not properties.is_empty():
-		result.append(_property_serializer)
+		configured.append(_property_serializer)
+		origins.append(&"properties")
 
 	for serializer: GFNodeSerializer in serializers:
 		if serializer == null:
 			continue
-		if serializer.get_serializer_id() == _property_serializer.get_serializer_id():
-			continue
-		result.append(serializer)
+		configured.append(serializer)
+		origins.append(&"local")
 
 	if use_registry_serializers and serializer_registry != null:
 		for serializer: GFNodeSerializer in serializer_registry.get_serializers_for_node(target):
 			if serializer != null:
-				result.append(serializer)
-	return result
+				configured.append(serializer)
+				origins.append(&"registry")
+
+	var seen_origins: Dictionary = {}
+	for index: int in range(configured.size()):
+		var serializer: GFNodeSerializer = configured[index]
+		var serializer_id: StringName = serializer.get_serializer_id()
+		if serializer_id == &"":
+			return {
+				"ok": false,
+				"error": "Configured serializer ID must be non-empty (%s)." % String(origins[index]),
+				"serializers": [],
+			}
+		if seen_origins.has(serializer_id):
+			return {
+				"ok": false,
+				"error": "Configured serializer ID conflict: %s (%s and %s)." % [
+					String(serializer_id),
+					GFVariantData.to_text(seen_origins[serializer_id]),
+					String(origins[index]),
+				],
+				"serializers": [],
+			}
+		seen_origins[serializer_id] = origins[index]
+	return {
+		"ok": true,
+		"error": "",
+		"serializers": configured,
+	}
+
+
+func _add_serializer_plan_error(context: Dictionary, message: String) -> void:
+	var pipeline_value: Variant = GFVariantData.get_option_value(context, "pipeline_context")
+	if pipeline_value is GFSavePipelineContext:
+		var pipeline_context: GFSavePipelineContext = pipeline_value
+		pipeline_context.add_error(message, { "kind": "serializer_id_conflict" })
 
 
 func _prepare_property_serializer() -> void:

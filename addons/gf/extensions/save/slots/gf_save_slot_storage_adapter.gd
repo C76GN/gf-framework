@@ -138,6 +138,56 @@ func get_metadata_file_name(slot_index: int) -> String:
 	return _format_slot_file_name(metadata_file_template, slot_index)
 
 
+## 构建并校验一个槽位的文件计划。
+##
+## 该方法不要求先配置 Storage，可供同步桥在访问任一后端前完成模板预检。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param slot_index: 槽位索引；必须大于等于 0。
+## [br]
+## @return: 文件计划。
+## [br]
+## @schema return: Dictionary，包含 ok、error、data_file_name、metadata_file_name、data_target、metadata_target。
+func build_slot_file_plan(slot_index: int) -> Dictionary:
+	var result: Dictionary = {
+		"ok": false,
+		"error": "",
+		"data_file_name": "",
+		"metadata_file_name": "",
+		"data_target": "",
+		"metadata_target": "",
+	}
+	if slot_index < 0:
+		result["error"] = "slot_index 必须大于等于 0，当前为 %d。" % slot_index
+		return result
+	if not data_file_template.contains("{index}"):
+		result["error"] = "data_file_template 必须包含 {index}。"
+		return result
+	if not metadata_file_template.contains("{index}"):
+		result["error"] = "metadata_file_template 必须包含 {index}。"
+		return result
+
+	var data_file_name: String = _format_slot_file_name(data_file_template, slot_index)
+	var metadata_file_name: String = _format_slot_file_name(metadata_file_template, slot_index)
+	var data_target: String = _get_canonical_relative_target(data_file_name)
+	var metadata_target: String = _get_canonical_relative_target(metadata_file_name)
+	result["data_file_name"] = data_file_name
+	result["metadata_file_name"] = metadata_file_name
+	result["data_target"] = data_target
+	result["metadata_target"] = metadata_target
+	if data_target.is_empty() or metadata_target.is_empty():
+		result["error"] = "文件模板无法解析到有效存储目标。"
+		return result
+	if data_target.to_lower() == metadata_target.to_lower():
+		result["error"] = "数据与元数据模板解析到同一存储目标：%s。" % data_target
+		return result
+	result["ok"] = true
+	return result
+
+
 ## 保存版本化槽位文档和元数据。
 ## [br]
 ## @api public
@@ -218,6 +268,12 @@ func load_slot(
 			read_result.error,
 			read_result
 		)
+	if not read_result.is_integrity_accepted():
+		return _make_document_read_failure(
+			ERR_FILE_CORRUPT,
+			"Save document integrity was not accepted.",
+			read_result
+		)
 	var inspection: Dictionary = GFSaveDocument.inspect_dict(read_result.payload)
 	if not GFVariantData.get_option_bool(inspection, "ok", false):
 		return _make_document_read_failure(
@@ -280,7 +336,11 @@ func load_slot_metadata(slot_index: int) -> Dictionary:
 	if not _can_access_slot(slot_index, "load_slot_metadata"):
 		return {}
 	var read_result: GFStorageReadResult = _storage.load_data(get_metadata_file_name(slot_index))
-	return read_result.payload.duplicate(true) if read_result.ok else {}
+	return (
+		read_result.payload.duplicate(true)
+		if read_result.ok and read_result.is_integrity_accepted()
+		else {}
+	)
 
 
 ## 检查槽位是否同时具备数据和元数据文件。
@@ -350,7 +410,7 @@ func list_slots() -> Array[Dictionary]:
 	for slot_index: int in slot_indices:
 		var metadata_file_name: String = get_metadata_file_name(slot_index)
 		var metadata_result: GFStorageReadResult = _storage.load_data(metadata_file_name)
-		if not metadata_result.ok:
+		if not metadata_result.ok or not metadata_result.is_integrity_accepted():
 			continue
 		var metadata: Dictionary = metadata_result.payload.duplicate(true)
 		result.append({
@@ -377,23 +437,16 @@ func _can_access_slot(slot_index: int, operation: String) -> bool:
 
 
 func _validate_file_templates(slot_index: int, operation: String) -> bool:
-	if not data_file_template.contains("{index}"):
-		push_error("[GFSaveSlotStorageAdapter] %s 失败：data_file_template 必须包含 {index}。" % operation)
-		return false
-	if not metadata_file_template.contains("{index}"):
-		push_error("[GFSaveSlotStorageAdapter] %s 失败：metadata_file_template 必须包含 {index}。" % operation)
-		return false
-	var data_file_name: String = _format_slot_file_name(data_file_template, slot_index)
-	var metadata_file_name: String = _format_slot_file_name(metadata_file_template, slot_index)
-	var data_target: String = _get_canonical_storage_target(data_file_name)
-	var metadata_target: String = _get_canonical_storage_target(metadata_file_name)
-	if data_target.is_empty() or metadata_target.is_empty():
-		push_error("[GFSaveSlotStorageAdapter] %s 失败：文件模板无法解析到有效存储目标。" % operation)
-		return false
-	if data_target.to_lower() == metadata_target.to_lower():
-		push_error("[GFSaveSlotStorageAdapter] %s 失败：数据与元数据模板解析到同一存储目标：%s。" % [operation, data_target])
-		return false
-	return true
+	var plan: Dictionary = build_slot_file_plan(slot_index)
+	if GFVariantData.get_option_bool(plan, "ok", false):
+		return true
+	push_error(
+		"[GFSaveSlotStorageAdapter] %s 失败：%s" % [
+			operation,
+			GFVariantData.get_option_string(plan, "error", "文件模板无效。"),
+		]
+	)
+	return false
 
 
 func _validate_persisted_value(value: Variant, label: String, operation: String) -> bool:
@@ -520,8 +573,14 @@ func _get_full_storage_path(file_name: String) -> String:
 	return directory_path.path_join(file_name.get_file())
 
 
-func _get_canonical_storage_target(file_name: String) -> String:
-	var full_path: String = _get_full_storage_path(file_name.replace("\\", "/"))
-	if full_path.is_empty():
+func _get_canonical_relative_target(file_name: String) -> String:
+	var normalized: String = file_name.replace("\\", "/").simplify_path()
+	if (
+		normalized.is_empty()
+		or normalized == "."
+		or normalized == ".."
+		or normalized.begins_with("../")
+		or normalized.is_absolute_path()
+	):
 		return ""
-	return ProjectSettings.globalize_path(full_path).replace("\\", "/").simplify_path()
+	return normalized

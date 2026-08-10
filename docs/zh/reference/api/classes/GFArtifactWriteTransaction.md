@@ -241,7 +241,7 @@ static func make_text_entry( target_path: String, text: String, options: Diction
 
 | 名称 | 说明 |
 |---|---|
-| `target_path` | 目标 `res://` 或 `user://` 文件路径。 |
+| `target_path` | 目标 \`res://\` 或 \`user://\` 文件路径。 |
 | `text` | UTF-8 文本内容。 |
 | `options` | 单 entry 选项。 |
 
@@ -269,7 +269,7 @@ static func make_bytes_entry( target_path: String, bytes: PackedByteArray, optio
 
 | 名称 | 说明 |
 |---|---|
-| `target_path` | 目标 `res://` 或 `user://` 文件路径。 |
+| `target_path` | 目标 \`res://\` 或 \`user://\` 文件路径。 |
 | `bytes` | 产物字节；entry 持有隔离副本。 |
 | `options` | 单 entry 选项。 |
 
@@ -297,7 +297,7 @@ static func make_file_entry( target_path: String, source_path: String, options: 
 
 | 名称 | 说明 |
 |---|---|
-| `target_path` | 目标 `res://` 或 `user://` 文件路径。 |
+| `target_path` | 目标 \`res://\` 或 \`user://\` 文件路径。 |
 | `source_path` | 已生成文件路径。 |
 | `options` | 单 entry 选项。 |
 

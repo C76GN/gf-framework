@@ -9,7 +9,7 @@
 - 类别：运行时服务 (`runtime_service`)
 - 首次版本：`3.17.0`
 
-通用值索引。 为任意 item_id 关联值和字段，并支持按字段快速查询。它只维护索引结构， 不规定字段含义、业务规则或生命周期。
+通用值索引。 为任意 item_id 关联值和字段，并支持按字段快速查询。它只维护索引结构， 不规定字段含义、业务规则或生命周期。 所有 mutation 都在同步信号前完整提交；信号监听器若重入修改同一索引， mutation 会失败关闭，调用方可在信号返回后或 deferred 阶段重试。
 
 ## 成员概览
 
@@ -269,12 +269,13 @@ func query_many(criteria: Dictionary, match_all: bool = true) -> PackedStringArr
 ### `clear`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func clear() -> void:
 ```
 
-清空索引。
+清空索引。 同步 mutation 信号派发期间调用时不执行；需要重入清理时应 deferred 调用。
 
 <a id="member-gfvalueindex-methods-get_item_count"></a>
 

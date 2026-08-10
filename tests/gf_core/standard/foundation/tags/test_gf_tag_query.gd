@@ -115,6 +115,17 @@ func test_tag_source_adapter_normalizes_sources_to_counts_and_sets() -> void:
 	assert_eq(tag_set.get_tag_count(&"rank.elite"), 1, "数组来源应保留普通标签。")
 
 
+func test_tag_source_adapter_preserves_mixed_array_and_empty_tag_semantics() -> void:
+	var source: Array = [&"state.ready", "state.ready", 1, "1", ""]
+
+	var counts: Dictionary = GFTagSourceAdapter.get_tag_counts(source)
+
+	assert_eq(GFVariantData.get_option_int(counts, &"state.ready"), 2, "StringName 与 String 应规范化为同一标签。")
+	assert_eq(GFVariantData.get_option_int(counts, &"1"), 2, "混合数组中的原始值应保留既有文本转换语义。")
+	assert_eq(GFVariantData.get_option_int(counts, &""), 1, "空标签也必须保留既有计数语义。")
+	assert_eq(counts.size(), 3, "单遍计数不得引入额外标签。")
+
+
 func test_tag_source_adapter_merges_multiple_sources() -> void:
 	var component: SampleTagSource = SampleTagSource.new()
 	component.add_tag(&"state.burning", 2)

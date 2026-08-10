@@ -38,7 +38,7 @@ func run(arguments: PackedStringArray = PackedStringArray(), base_options: Dicti
 
 | 名称 | 说明 |
 |---|---|
-| `arguments` | Godot `--` 之后的用户参数。 |
+| `arguments` | Godot \`--\` 之后的用户参数。 |
 | `base_options` | 调用方直接注入的默认选项，命令行参数会覆盖同名字段。 |
 
 返回：命令报告。

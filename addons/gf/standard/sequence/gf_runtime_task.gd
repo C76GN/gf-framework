@@ -42,6 +42,7 @@ var _requirements: Array[Object] = []
 var _scheduled: bool = false
 var _initialized: bool = false
 var _schedule_resolution_locked: bool = false
+var _schedule_generation: int = 0
 
 
 # --- Godot 生命周期方法 ---
@@ -157,11 +158,7 @@ func clear_requirements() -> void:
 ## [br]
 ## @return 仍然有效的占用对象副本。
 func get_requirements() -> Array[Object]:
-	var result: Array[Object] = []
-	for requirement: Object in _requirements:
-		if requirement != null and is_instance_valid(requirement):
-			result.append(requirement)
-	return result
+	return get_requirement_snapshot()
 
 
 ## 判断任务是否占用指定对象。
@@ -331,7 +328,7 @@ func end(_interrupted: bool) -> void:
 ## [br]
 ## @return 任务诊断快照。
 ## [br]
-## @schema return: Dictionary with task_id, interruptible, scheduled, initialized, and requirement_ids.
+## @schema return: Dictionary with task_id, interruptible, scheduled, initialized, schedule_generation, and requirement_ids.
 func get_debug_snapshot() -> Dictionary:
 	var requirement_ids: Array[int] = []
 	for requirement: Object in get_requirements():
@@ -341,6 +338,7 @@ func get_debug_snapshot() -> Dictionary:
 		"interruptible": interruptible,
 		"scheduled": _scheduled,
 		"initialized": _initialized,
+		"schedule_generation": _schedule_generation,
 		"requirement_ids": requirement_ids,
 	}
 
@@ -362,6 +360,68 @@ func get_debug_snapshot() -> Dictionary:
 ## @return 调度拒绝原因；为空表示可调度。
 func get_schedule_rejection_reason() -> StringName:
 	return &""
+
+
+## 返回当前已经解析并保存的 requirement 副本，不触发复合任务重建。
+## [br]
+## @api framework_internal
+## [br]
+## @category query
+## [br]
+## @since 11.0.0
+## [br]
+## @return: 仍然有效的已解析占用对象副本。
+func get_requirement_snapshot() -> Array[Object]:
+	var result: Array[Object] = []
+	for requirement: Object in _requirements:
+		if requirement != null and is_instance_valid(requirement):
+			result.append(requirement)
+	return result
+
+
+## 返回本次调度必须一起预留的任务实例。
+##
+## [br]
+## 普通任务只返回自身；复合任务覆盖此方法，返回有界、无重复的完整任务树。
+## [br]
+## @api framework_internal
+## [br]
+## @category lifecycle
+## [br]
+## @since 11.0.0
+## [br]
+## @return: 调度提交时必须原子冻结的任务实例列表。
+func get_schedule_members() -> Array[GFRuntimeTask]:
+	var members: Array[GFRuntimeTask] = [self]
+	return members
+
+
+## 返回当前调度代。每次进入新的 scheduled 生命周期时单调递增。
+## [br]
+## @api framework_internal
+## [br]
+## @category lifecycle
+## [br]
+## @since 11.0.0
+## [br]
+## @return: 当前调度代；从未调度时为 0。
+func get_schedule_generation() -> int:
+	return _schedule_generation
+
+
+## 判断给定调度代是否仍是当前活动生命周期。
+## [br]
+## @api framework_internal
+## [br]
+## @category lifecycle
+## [br]
+## @since 11.0.0
+## [br]
+## @param generation: 用户回调前捕获的调度代。
+## [br]
+## @return: 任务仍处于同一 scheduled 生命周期时返回 true。
+func is_schedule_generation_current(generation: int) -> bool:
+	return _scheduled and _schedule_generation == generation
 
 
 ## 冻结调度仲裁期间的任务配置。
@@ -411,6 +471,7 @@ func is_configuration_locked() -> bool:
 ## [br]
 ## @since 6.0.0
 func mark_scheduled() -> void:
+	_schedule_generation += 1
 	_scheduled = true
 	_initialized = false
 	_schedule_resolution_locked = false

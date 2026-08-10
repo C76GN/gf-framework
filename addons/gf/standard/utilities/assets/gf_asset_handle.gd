@@ -40,6 +40,8 @@ var resource: Resource = null
 var _utility_ref: WeakRef = null
 var _released: bool = false
 var _owner_id: int = 0
+var _lease_path: String = ""
+var _lease_cache_key: String = ""
 
 
 # --- 公共方法 ---
@@ -114,13 +116,16 @@ func release() -> bool:
 ## @param p_group_id: 可选资源分组。
 ## [br]
 ## @param p_owner_id: 拥有者实例 ID；未绑定 owner 时为 0。
+## [br]
+## @param p_cache_key: 创建时解析出的不可变缓存身份。
 func setup_from_utility(
 	utility: GFAssetUtility,
 	p_path: String,
 	p_resource: Resource,
 	p_type_hint: String = "",
 	p_group_id: StringName = &"",
-	p_owner_id: int = 0
+	p_owner_id: int = 0,
+	p_cache_key: String = ""
 ) -> void:
 	_utility_ref = weakref(utility) if utility != null else null
 	path = p_path
@@ -128,7 +133,44 @@ func setup_from_utility(
 	type_hint = p_type_hint
 	group_id = p_group_id
 	_owner_id = p_owner_id
+	_lease_path = p_path
+	_lease_cache_key = p_cache_key
 	_released = false
+
+
+## 获取创建句柄时捕获的不可变资源路径。
+## [br]
+## @api framework_internal
+## [br]
+## @since 11.0.0
+## [br]
+## @return: 创建句柄时捕获的资源路径。
+func get_lease_path() -> String:
+	return _lease_path
+
+
+## 获取创建句柄时捕获的不可变缓存身份。
+## [br]
+## @api framework_internal
+## [br]
+## @since 11.0.0
+## [br]
+## @return: 创建句柄时捕获的缓存身份。
+func get_lease_cache_key() -> String:
+	return _lease_cache_key
+
+
+## 检查指定 Utility 是否为句柄创建方。
+## [br]
+## @api framework_internal
+## [br]
+## @since 11.0.0
+## [br]
+## @param utility: 待核对的资源管理 Utility。
+## [br]
+## @return: 指定 Utility 仍存活且与句柄创建方相同时返回 true。
+func is_managed_by(utility: GFAssetUtility) -> bool:
+	return utility != null and _get_utility() == utility
 
 
 ## 在管理工具已经更新引用计数后，清理本地资源引用。

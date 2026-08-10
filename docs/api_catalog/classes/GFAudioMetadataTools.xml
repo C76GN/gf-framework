@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFAudioMetadataTools" path="addons/gf/standard/utilities/audio/gf_audio_metadata_tools.gd" module="standard" extends="RefCounted" classDigest="ac8771de565ccf3f2c27cd9a71f5623f99aaac1a7dcefa2a0b3e988b968f2e00">
+<class name="GFAudioMetadataTools" path="addons/gf/standard/utilities/audio/gf_audio_metadata_tools.gd" module="standard" extends="RefCounted" classDigest="b8fefbd6acb9eef48fe1c5d06d9c4925016eeefdecd6bdee5e1a67b3f96e730a">
 	<description>GFAudioMetadataTools: 通用音频元数据提取与规范化工具。
 负责把 `AudioStream` 属性、`GFAudioClip.metadata` 和常见 ID3v2 文本帧
 规范化为纯 Dictionary 报告。该类不接管导入器、不解码封面图片、不定义项目音频命名或播放策略。</description>
@@ -10,7 +10,25 @@
 	</tags>
 	<signals />
 	<enums />
-	<constants />
+	<constants>
+		<member kind="const" name="DEFAULT_MAX_ID3_BYTES">
+			<signature>const DEFAULT_MAX_ID3_BYTES: int = 1024 * 1024</signature>
+			<description>默认单次 ID3 读取与解析的字节上限（含 10-byte header）。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="ABSOLUTE_MAX_ID3_BYTES">
+			<signature>const ABSOLUTE_MAX_ID3_BYTES: int = 8 * 1024 * 1024</signature>
+			<description>框架允许的单次 ID3 读取与解析绝对硬上限（含 10-byte header）。
+调用方只能收紧或在此范围内放宽 DEFAULT_MAX_ID3_BYTES，不能越过该上限。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</constants>
 	<properties />
 	<methods>
 		<member kind="method" name="normalize_tag_name">
@@ -82,27 +100,29 @@
 		</member>
 		<member kind="method" name="parse_id3v2_metadata">
 			<signature>static func parse_id3v2_metadata(bytes: PackedByteArray, options: Dictionary = {}) -&gt; Dictionary:</signature>
-			<description>解析 ID3v2 字节中的常见音频元数据。</description>
+			<description>解析 ID3v2 字节中的常见音频元数据。
+后者会被约束在 10 到 ABSOLUTE_MAX_ID3_BYTES 之间。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">bytes: 音频文件开头或完整文件字节。</tag>
-				<tag name="param">options: 可选项，支持 `fail_on_frame_error`。</tag>
+				<tag name="param">options: 可选项，支持 `fail_on_frame_error` 与 `max_id3_bytes`；</tag>
 				<tag name="return">ID3v2 元数据报告。</tag>
 				<tag name="schema">options: Dictionary ID3 parsing options.</tag>
-				<tag name="schema">return: Dictionary with `ok: bool`, `recognized: bool`, `metadata: Dictionary`, `issues: Array[Dictionary]`, `issue_count: int`, `id3_version: String`, `tag_size: int`, `frame_count: int`, and `skipped_frame_count: int`.</tag>
+				<tag name="schema">return: Dictionary with `ok: bool`, `recognized: bool`, `partial: bool`, `metadata: Dictionary`, `issues: Array[Dictionary]`, `issue_count: int`, `id3_version: String`, `id3_flags: int`, `unsupported_features: Array[String]`, `tag_size: int`, `frame_count: int`, `skipped_frame_count: int`, `requested_max_id3_bytes: int`, `effective_max_id3_bytes: int`, `absolute_max_id3_bytes: int`, `limit_clamped: bool`, `input_bytes: int`, and `processed_id3_bytes: int`.</tag>
 				<tag name="since">7.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="read_path_metadata">
 			<signature>static func read_path_metadata(path: String, options: Dictionary = {}) -&gt; Dictionary:</signature>
-			<description>从本地路径读取音频元数据报告。</description>
+			<description>从本地路径读取音频元数据报告。
+ABSOLUTE_MAX_ID3_BYTES 之间。读取先取固定 header，再按声明长度和有效上限取 body。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">path: `res://`、`user://` 或绝对路径。</tag>
-				<tag name="param">options: 可选项，支持 `max_id3_bytes`。</tag>
+				<tag name="param">options: 可选项，支持 `max_id3_bytes`；请求值会被约束在 10 到</tag>
 				<tag name="return">元数据报告。</tag>
 				<tag name="schema">options: Dictionary read options.</tag>
-				<tag name="schema">return: Dictionary with `ok: bool`, `recognized: bool`, `metadata: Dictionary`, `issues: Array[Dictionary]`, `issue_count: int`, and `path: String`.</tag>
+				<tag name="schema">return: Dictionary with `ok: bool`, `recognized: bool`, `partial: bool`, `metadata: Dictionary`, `issues: Array[Dictionary]`, `issue_count: int`, `path: String`, `file_size_bytes: int`, `read_bytes: int`, `requested_max_id3_bytes: int`, `effective_max_id3_bytes: int`, `absolute_max_id3_bytes: int`, and `limit_clamped: bool`.</tag>
 				<tag name="since">7.0.0</tag>
 			</tags>
 		</member>

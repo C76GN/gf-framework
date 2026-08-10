@@ -28,8 +28,8 @@
 | 常量 | [`DEFAULT_MAX_SCANNED_FILES`](#member-gfprojectreferencescanner-constants-default_max_scanned_files) | `const DEFAULT_MAX_SCANNED_FILES: int = 10000` |
 | 常量 | [`DEFAULT_MAX_FILE_BYTES`](#member-gfprojectreferencescanner-constants-default_max_file_bytes) | `const DEFAULT_MAX_FILE_BYTES: int = 4 * 1024 * 1024` |
 | 常量 | [`DEFAULT_MAX_TOTAL_BYTES`](#member-gfprojectreferencescanner-constants-default_max_total_bytes) | `const DEFAULT_MAX_TOTAL_BYTES: int = 64 * 1024 * 1024` |
-| 常量 | [`DEFAULT_IGNORED_ROOTS`](#member-gfprojectreferencescanner-constants-default_ignored_roots) | `const DEFAULT_IGNORED_ROOTS: Array[String] = [` |
-| 常量 | [`TEXT_FILE_EXTENSIONS`](#member-gfprojectreferencescanner-constants-text_file_extensions) | `const TEXT_FILE_EXTENSIONS: Array[String] = [` |
+| 常量 | [`DEFAULT_IGNORED_ROOTS`](#member-gfprojectreferencescanner-constants-default_ignored_roots) | `const DEFAULT_IGNORED_ROOTS: Array[String] = [ 	"res://.godot", 	"res://.git", 	"res://.gf", 	"res://addons/gf", 	"res://build", 	"res://packages", ]` |
+| 常量 | [`TEXT_FILE_EXTENSIONS`](#member-gfprojectreferencescanner-constants-text_file_extensions) | `const TEXT_FILE_EXTENSIONS: Array[String] = [ 	"cfg", 	"csv", 	"gd", 	"gdshader", 	"godot", 	"import", 	"json", 	"shader", 	"tscn", 	"tres", ]` |
 | 方法 | [`scan_references`](#member-gfprojectreferencescanner-methods-scan_references) | `static func scan_references(targets: Array[Dictionary], options: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`scan_root_references`](#member-gfprojectreferencescanner-methods-scan_root_references) | `static func scan_root_references( root_path: String, class_names: Array[String] = [], options: Dictionary = {} ) -> Dictionary:` |
 
@@ -213,6 +213,13 @@ const DEFAULT_MAX_TOTAL_BYTES: int = 64 * 1024 * 1024
 
 ```gdscript
 const DEFAULT_IGNORED_ROOTS: Array[String] = [
+	"res://.godot",
+	"res://.git",
+	"res://.gf",
+	"res://addons/gf",
+	"res://build",
+	"res://packages",
+]
 ```
 
 默认忽略的根目录。
@@ -226,6 +233,17 @@ const DEFAULT_IGNORED_ROOTS: Array[String] = [
 
 ```gdscript
 const TEXT_FILE_EXTENSIONS: Array[String] = [
+	"cfg",
+	"csv",
+	"gd",
+	"gdshader",
+	"godot",
+	"import",
+	"json",
+	"shader",
+	"tscn",
+	"tres",
+]
 ```
 
 作为文本扫描的资源扩展名。

@@ -1,9 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFProjectLayoutScaffolder" path="addons/gf/tools/project_layout/gf_project_layout_scaffolder.gd" module="tools" extends="RefCounted" classDigest="b6394df97fa71c22328a6418c6f9a9bf636085af2acb68949db58fab2718566c">
+<class name="GFProjectLayoutScaffolder" path="addons/gf/tools/project_layout/gf_project_layout_scaffolder.gd" module="tools" extends="RefCounted" classDigest="3ed944fccf9a034e6be403bece479f1366bea25fb8ba7025723b130283ff7c33">
 	<description>GFProjectLayoutScaffolder: Profile 驱动的项目目录脚手架工具。
 按项目结构 profile 创建必需目录和可选 Feature 模块目录，并返回可审查报告。
 该工具只实现目录创建机制，不要求所有项目采用同一业务结构，也不把参考项目约定
-写入 GF 运行时包。</description>
+写入 GF 运行时包。
+所有选项和 profile 字段都会在写入前严格校验，dry-run 与 apply 共用目录可创建性预检。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">tool_api</tag>

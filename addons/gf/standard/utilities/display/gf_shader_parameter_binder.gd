@@ -95,6 +95,9 @@ signal profile_applied(applied_count: int)
 # --- 私有变量 ---
 
 var _shader_parameters: GFShaderParameterUtility = GFShaderParameterUtility.new()
+var _owned_material_target_id: int = 0
+var _owned_material_property: NodePath = NodePath("")
+var _owned_material_id: int = 0
 
 
 # --- Godot 生命周期方法 ---
@@ -129,11 +132,14 @@ func apply() -> int:
 	if target == null:
 		return 0
 
+	var material_before: ShaderMaterial = _get_target_shader_material(target)
+	var duplicate_material: bool = _should_duplicate_target_material(target, material_before)
 	var applied_count: int = _shader_parameters.apply_profile(
 		target,
 		profile,
-		_build_apply_options()
+		_build_apply_options(duplicate_material)
 	)
+	_update_owned_material_identity(target, material_before, duplicate_material)
 	profile_applied.emit(applied_count)
 	return applied_count
 
@@ -157,15 +163,68 @@ func resolve_target() -> Object:
 
 # --- 私有/辅助方法 ---
 
-func _build_apply_options() -> Dictionary:
+func _build_apply_options(duplicate_material: bool) -> Dictionary:
 	return {
 		"material_property": material_property,
-		"duplicate_material": duplicate_material_on_apply,
+		"duplicate_material": duplicate_material,
 		"require_declared_parameters": require_declared_parameters,
 		"warn_on_invalid_target": warn_on_invalid_target,
 		"warn_on_missing_parameters": warn_on_missing_parameters,
 		"copy_values": copy_values,
 	}
+
+
+func _should_duplicate_target_material(target: Object, material: ShaderMaterial) -> bool:
+	if not duplicate_material_on_apply:
+		_clear_owned_material_identity()
+		return false
+	if target is ShaderMaterial or material == null:
+		_clear_owned_material_identity()
+		return true
+	return not (
+		_owned_material_target_id == target.get_instance_id()
+		and _owned_material_property == material_property
+		and _owned_material_id == material.get_instance_id()
+	)
+
+
+func _update_owned_material_identity(
+	target: Object,
+	material_before: ShaderMaterial,
+	duplicate_material: bool
+) -> void:
+	if not duplicate_material_on_apply or target is ShaderMaterial:
+		_clear_owned_material_identity()
+		return
+	var material_after: ShaderMaterial = _get_target_shader_material(target)
+	if duplicate_material:
+		if material_before == null or material_after == null or material_after == material_before:
+			_clear_owned_material_identity()
+			return
+	elif material_after == null or material_after.get_instance_id() != _owned_material_id:
+		_clear_owned_material_identity()
+		return
+	_owned_material_target_id = target.get_instance_id()
+	_owned_material_property = material_property
+	_owned_material_id = material_after.get_instance_id()
+
+
+func _get_target_shader_material(target: Object) -> ShaderMaterial:
+	if not is_instance_valid(target) or target is ShaderMaterial or material_property.is_empty():
+		return null
+	if not GFObjectPropertyTools.has_property_path(target, material_property):
+		return null
+	var material_value: Variant = target.get_indexed(material_property)
+	if material_value is ShaderMaterial:
+		var material: ShaderMaterial = material_value
+		return material
+	return null
+
+
+func _clear_owned_material_identity() -> void:
+	_owned_material_target_id = 0
+	_owned_material_property = NodePath("")
+	_owned_material_id = 0
 
 
 func _connect_profile_changed() -> void:

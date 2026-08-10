@@ -11,8 +11,6 @@ from typing import Any
 
 
 CHANGELOG_TITLE = "# 更新日志 (Changelog)"
-CHANGELOG_STRUCTURE_HEADING = "## 📝 日志条目结构标准"
-CHANGELOG_MAINTENANCE_HEADING = "## 维护策略"
 CHANGELOG_CATEGORY_RE = re.compile(r"^### (?P<category>.+)$")
 CHANGELOG_OVERVIEW_RE = re.compile(r"^\*\*版本概述\*\*：(?P<body>.*)$")
 CHANGELOG_CATEGORY_HEADINGS: tuple[str, ...] = (
@@ -22,15 +20,10 @@ CHANGELOG_CATEGORY_HEADINGS: tuple[str, ...] = (
 	"⚠️ 废弃与移除 (Deprecated/Removed)",
 	"🔧 API 变动说明 (API Changes)",
 	"📘 升级指南 (Migration Guide)",
-	"📁 核心受影响文件 (Affected Files)",
 )
-CHANGELOG_STRUCTURE_LABELS: tuple[str, ...] = (
-	"版本号与日期",
-	"版本概述",
-	*CHANGELOG_CATEGORY_HEADINGS,
-)
-CHANGELOG_STRUCTURE_ENTRY_RE = re.compile(
-	r"^(?P<number>[1-9][0-9]*)\. \*\*(?P<label>[^*]+)\*\*：(?P<body>.*)$"
+INTERNAL_PATH_ONLY_LIST_ITEM_RE = re.compile(
+	r"^- `(?:\.github|addons/gf|ai_analysis|docs/maintainers|packages|tests|tools)"
+	r"(?:/[^`]+)?/?`[。.]?$"
 )
 FORMAL_HEADING_RE = re.compile(
 	r"^## \[(?P<version>(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*))\] "
@@ -323,8 +316,6 @@ def strict_document_heading_issues(
 	]
 	expected = [
 		CHANGELOG_TITLE,
-		CHANGELOG_STRUCTURE_HEADING,
-		CHANGELOG_MAINTENANCE_HEADING,
 		candidate_heading,
 	]
 	if actual != expected:
@@ -551,7 +542,7 @@ def validate_document_layout(
 	candidate_heading: str,
 	path_label: str,
 ) -> list[str]:
-	"""Validate the exact document headings and their executable policy body."""
+	"""Validate a reader-only changelog document and its exact top-level shape."""
 
 	issues = [
 		f"{path_label} {issue}"
@@ -562,66 +553,6 @@ def validate_document_layout(
 		for issue in strict_document_heading_issues(text, candidate_heading)
 	)
 
-	visible_lines = visible_markdown_lines(text)
-	structure_line = next(
-		(line for line in visible_lines if line.raw == CHANGELOG_STRUCTURE_HEADING),
-		None,
-	)
-	maintenance_line = next(
-		(line for line in visible_lines if line.raw == CHANGELOG_MAINTENANCE_HEADING),
-		None,
-	)
-	candidate_line = next(
-		(line for line in visible_lines if line.raw == candidate_heading),
-		None,
-	)
-	if structure_line is None or maintenance_line is None or candidate_line is None:
-		return issues
-
-	structure_entries: list[tuple[int, str]] = []
-	for line in visible_lines:
-		if not structure_line.offset < line.offset < maintenance_line.offset:
-			continue
-		match = CHANGELOG_STRUCTURE_ENTRY_RE.fullmatch(line.visible)
-		if match is None:
-			continue
-		structure_entries.append((
-			int(match.group("number")),
-			match.group("label"),
-		))
-		if not has_readable_text(match.group("body")):
-			issues.append(
-				f"{path_label} line {line.line_number} documented changelog structure "
-				"entries must include a reader-visible, non-empty explanation."
-			)
-	expected_entries = [
-		(index + 1, label)
-		for index, label in enumerate(CHANGELOG_STRUCTURE_LABELS)
-	]
-	if structure_entries != expected_entries:
-		issues.append(
-			f"{path_label} documented changelog structure entries must match the "
-			f"executable category order; expected {expected_entries}, found {structure_entries}."
-		)
-
-	maintenance_lines = [
-		markdown_plain_text(line.visible)
-		for line in visible_lines
-		if maintenance_line.offset < line.offset < candidate_line.offset
-		and line.visible.strip()
-		and not is_thematic_break(line.visible)
-	]
-	maintenance_text = "\n".join(maintenance_lines)
-	for required_fragment in (
-		"开发态当前页只保留唯一的 [未发布]",
-		"changelog_policy",
-		"quick、full 与 release",
-	):
-		if required_fragment not in maintenance_text:
-			issues.append(
-				f"{path_label} maintenance policy must retain reader-visible "
-				f"executable rule fragment {required_fragment!r}."
-			)
 	return issues
 
 
@@ -678,6 +609,13 @@ def validate_entry_structure(
 	body_lines = body_text.splitlines()
 	issues: list[str] = []
 	visible_lines = visible_markdown_lines(body_text)
+	for line in visible_lines:
+		if INTERNAL_PATH_ONLY_LIST_ITEM_RE.fullmatch(line.visible.strip()):
+			issues.append(
+				f"{path_label} line {int(section['line']) + line.line_number} "
+				"must describe a consumer-visible change instead of listing only an "
+				"internal repository path."
+			)
 	overview_lines = [
 		line
 		for line in visible_lines

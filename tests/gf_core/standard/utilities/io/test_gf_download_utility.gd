@@ -406,6 +406,87 @@ func test_enqueue_manifest_rejects_unsafe_relative_targets() -> void:
 	assert_eq(_read_text(target), "ok", "安全条目仍应正常写入。")
 
 
+func test_enqueue_manifest_rejects_absolute_targets_and_escaping_roots() -> void:
+	var root_name: String = "gf_download_manifest_root_%d" % Time.get_ticks_usec()
+	var safe_target: String = _track_path("user://%s/safe.txt" % root_name)
+	var absolute_target: String = _track_path("user://gf_download_manifest_absolute_%d.txt" % Time.get_ticks_usec())
+	_utility.responses.append({ "success": true, "response_code": 200, "content": "ok" })
+
+	var ids: PackedInt32Array = _utility.enqueue_manifest([
+		{
+			"url": "https://example.test/absolute.txt",
+			"target_path": absolute_target,
+		},
+		{
+			"url": "https://example.test/safe.txt",
+			"target_path": "safe.txt",
+		},
+	], "user://%s" % root_name)
+	var escaped_root_ids: PackedInt32Array = _utility.enqueue_manifest([
+		{
+			"url": "https://example.test/root-escape.txt",
+			"target_path": "escaped.txt",
+		},
+	], "user://%s/.." % root_name)
+	await get_tree().process_frame
+
+	assert_eq(ids.size(), 1, "清单条目必须使用 target_root 下的相对目标。")
+	assert_true(escaped_root_ids.is_empty(), "包含 parent traversal 的 target_root 应整体拒绝条目。")
+	assert_eq(_utility.request_log.size(), 1, "只有受 target_root 约束的条目应发起请求。")
+	assert_eq(_read_text(safe_target), "ok", "安全相对目标仍应写入声明根。")
+	assert_false(FileAccess.file_exists(absolute_target), "清单不得以绝对 target_path 绕过 target_root。")
+
+
+func test_overwrite_commit_failure_restores_previous_target() -> void:
+	var target: String = _track_path("user://gf_download_commit_rollback_%d.txt" % Time.get_ticks_usec())
+	var temp: String = _track_path(target + ".download")
+	var backup: String = _track_path(target + ".gf_download_backup")
+	_write_text(target, "old")
+	_utility.fail_target_commit_once = true
+	_utility.responses.append({ "success": true, "response_code": 200, "content": "new" })
+	var results: Array[Dictionary] = []
+
+	var _task_id: int = _utility.enqueue_download(
+		"https://example.test/file",
+		target,
+		func(callback_result: Dictionary) -> void:
+			results.append(callback_result),
+		{ "overwrite": true }
+	)
+	await get_tree().process_frame
+	var result: Dictionary = _first_result(results)
+
+	assert_false(GFVariantData.get_option_bool(result, "success", true), "最终 rename 失败时任务应失败。")
+	assert_eq(_read_text(target), "old", "替换失败必须恢复调用前的目标内容。")
+	assert_eq(_read_text(temp), "new", "失败的候选文件应保留以便诊断或重试。")
+	assert_false(FileAccess.file_exists(backup), "成功回滚后不应残留备份文件。")
+
+
+func test_resume_append_write_failure_preserves_previous_temp_content() -> void:
+	var target: String = _track_path("user://gf_download_append_failure_%d.txt" % Time.get_ticks_usec())
+	var temp: String = _track_path(target + ".download")
+	var segment: String = _track_path(temp + ".segment")
+	_write_text(temp, "old")
+	_utility.fail_append_store_once = true
+	_utility.responses.append({ "success": true, "response_code": 206, "content": "new" })
+	var results: Array[Dictionary] = []
+
+	var _task_id: int = _utility.enqueue_download(
+		"https://example.test/file",
+		target,
+		func(callback_result: Dictionary) -> void:
+			results.append(callback_result),
+		{ "resume": true }
+	)
+	await get_tree().process_frame
+	var result: Dictionary = _first_result(results)
+
+	assert_false(GFVariantData.get_option_bool(result, "success", true), "追加写失败必须传播到任务结果。")
+	assert_eq(_read_text(temp), "old", "追加失败必须回滚到原临时文件长度。")
+	assert_true(FileAccess.file_exists(segment), "失败分段应保留以便诊断或重试。")
+	assert_false(FileAccess.file_exists(target), "追加未完整完成时不得提交最终目标。")
+
+
 func test_enqueue_download_rejects_unsafe_direct_paths() -> void:
 	var safe_target: String = _track_path("user://gf_download_direct_safe_%d.txt" % Time.get_ticks_usec())
 	var unrelated_temp: String = _track_path("user://gf_download_unrelated_%d.tmp" % Time.get_ticks_usec())
@@ -479,6 +560,8 @@ class FakeDownloadUtility:
 	var responses: Array[Dictionary] = []
 	var request_log: Array[Dictionary] = []
 	var auto_complete: bool = true
+	var fail_target_commit_once: bool = false
+	var fail_append_store_once: bool = false
 
 	func _start_http_request(request_data: Dictionary) -> Error:
 		request_log.append(request_data.duplicate(true))
@@ -508,3 +591,15 @@ class FakeDownloadUtility:
 			GFVariantData.get_option_bool(response, "retryable")
 		)
 		return OK
+
+	func _rename_file_for_commit(source_path: String, target_path: String) -> Error:
+		if fail_target_commit_once and source_path.ends_with(".download"):
+			fail_target_commit_once = false
+			return ERR_CANT_CREATE
+		return super._rename_file_for_commit(source_path, target_path)
+
+	func _store_append_chunk(target: FileAccess, chunk: PackedByteArray) -> Error:
+		if fail_append_store_once:
+			fail_append_store_once = false
+			return ERR_FILE_CANT_WRITE
+		return super._store_append_chunk(target, chunk)

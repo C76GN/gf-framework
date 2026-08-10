@@ -406,6 +406,7 @@ func clear_modifiers() -> void:
 ### `apply_action`
 
 - API：`public`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func apply_action(action: GFCombatAction) -> GFCombatActionResult:
@@ -419,4 +420,4 @@ func apply_action(action: GFCombatAction) -> GFCombatActionResult:
 |---|---|
 | `action` | 原始动作。 |
 
-返回：应用结果。
+返回：应用结果；前后值只描述本动作提交，不包含观察信号触发的后续嵌套修改。

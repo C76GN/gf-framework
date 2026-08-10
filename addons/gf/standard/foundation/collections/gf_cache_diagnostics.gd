@@ -16,6 +16,7 @@ extends RefCounted
 
 const _GF_REPORT_VALUE_CODEC_SCRIPT = preload("res://addons/gf/kernel/core/gf_report_value_codec.gd")
 const _GF_VARIANT_KEY_CODEC_SCRIPT = preload("res://addons/gf/standard/foundation/variant/gf_variant_key_codec.gd")
+const _MAX_COUNTER_VALUE: int = 9223372036854775807
 
 
 # --- 公共变量 ---
@@ -37,6 +38,7 @@ var _eviction_count: int = 0
 var _invalidation_count: int = 0
 var _invalidation_reasons: Dictionary = {}
 var _last_event: Dictionary = {}
+var _counter_saturated: bool = false
 
 
 # --- 公共方法 ---
@@ -51,7 +53,7 @@ var _last_event: Dictionary = {}
 ## [br]
 ## @schema key: 任意缓存键；诊断快照会以字符串形式记录。
 func record_hit(key: Variant = null) -> void:
-	_hit_count += 1
+	_hit_count = _add_counter(_hit_count, 1)
 	_last_event = _make_event(&"hit", key)
 
 
@@ -65,7 +67,7 @@ func record_hit(key: Variant = null) -> void:
 ## [br]
 ## @schema key: 任意缓存键；诊断快照会以字符串形式记录。
 func record_miss(key: Variant = null) -> void:
-	_miss_count += 1
+	_miss_count = _add_counter(_miss_count, 1)
 	_last_event = _make_event(&"miss", key)
 
 
@@ -79,7 +81,7 @@ func record_miss(key: Variant = null) -> void:
 ## [br]
 ## @schema key: 任意缓存键；诊断快照会以字符串形式记录。
 func record_write(key: Variant = null) -> void:
-	_write_count += 1
+	_write_count = _add_counter(_write_count, 1)
 	_last_event = _make_event(&"write", key)
 
 
@@ -95,8 +97,8 @@ func record_write(key: Variant = null) -> void:
 ## [br]
 ## @schema key: 任意缓存键；诊断快照会以字符串形式记录。
 func record_eviction(reason: StringName = &"evicted", key: Variant = null) -> void:
-	_eviction_count += 1
-	_invalidation_count += 1
+	_eviction_count = _add_counter(_eviction_count, 1)
+	_invalidation_count = _add_counter(_invalidation_count, 1)
 	_record_invalidation_reason(reason)
 	_last_event = _make_event(reason, key)
 
@@ -118,7 +120,7 @@ func record_invalidation(reason: StringName = &"invalidated", key: Variant = nul
 	if amount <= 0:
 		return
 	var count: int = amount
-	_invalidation_count += count
+	_invalidation_count = _add_counter(_invalidation_count, count)
 	_record_invalidation_reason(reason, count)
 	_last_event = _make_event(reason, key, count)
 
@@ -136,6 +138,7 @@ func reset() -> void:
 	_invalidation_count = 0
 	_invalidation_reasons.clear()
 	_last_event.clear()
+	_counter_saturated = false
 
 
 ## 获取命中率。
@@ -146,10 +149,9 @@ func reset() -> void:
 ## [br]
 ## @return 命中率；没有读请求时返回 0.0。
 func get_hit_ratio() -> float:
-	var reads: int = _hit_count + _miss_count
-	if reads <= 0:
+	if _hit_count <= 0 and _miss_count <= 0:
 		return 0.0
-	return float(_hit_count) / float(reads)
+	return float(_hit_count) / (float(_hit_count) + float(_miss_count))
 
 
 ## 获取诊断快照。
@@ -160,7 +162,7 @@ func get_hit_ratio() -> float:
 ## [br]
 ## @return 诊断快照。
 ## [br]
-## @schema return: Dictionary with cache_id, hit_count, miss_count, write_count, eviction_count, invalidation_count, hit_ratio, invalidation_reasons, and last_event.
+## @schema return: Dictionary with cache_id, hit_count, miss_count, write_count, eviction_count, invalidation_count, hit_ratio, counter_saturated, invalidation_reasons, and last_event.
 func get_debug_snapshot() -> Dictionary:
 	return {
 		"cache_id": cache_id,
@@ -170,6 +172,7 @@ func get_debug_snapshot() -> Dictionary:
 		"eviction_count": _eviction_count,
 		"invalidation_count": _invalidation_count,
 		"hit_ratio": get_hit_ratio(),
+		"counter_saturated": _counter_saturated,
 		"invalidation_reasons": _invalidation_reasons.duplicate(true),
 		"last_event": _last_event.duplicate(true),
 	}
@@ -181,7 +184,19 @@ func _record_invalidation_reason(reason: StringName, amount: int = 1) -> void:
 	if amount <= 0:
 		return
 	var reason_key: String = String(reason) if reason != &"" else "invalidated"
-	_invalidation_reasons[reason_key] = GFVariantData.get_option_int(_invalidation_reasons, reason_key, 0) + amount
+	_invalidation_reasons[reason_key] = _add_counter(
+		GFVariantData.get_option_int(_invalidation_reasons, reason_key, 0),
+		amount
+	)
+
+
+func _add_counter(current: int, amount: int) -> int:
+	if amount <= 0:
+		return current
+	if current > _MAX_COUNTER_VALUE - amount:
+		_counter_saturated = true
+		return _MAX_COUNTER_VALUE
+	return current + amount
 
 
 func _make_event(event_type: StringName, key: Variant, amount: int = 1) -> Dictionary:

@@ -33,6 +33,16 @@ class ExcessRequiredContextCommand extends RefCounted:
 		return "executed"
 
 
+class WrongTypedContextCommand extends RefCounted:
+	var context_method_called: bool = false
+
+	func set_interaction_context(_context: int) -> void:
+		context_method_called = true
+
+	func execute() -> String:
+		return "executed"
+
+
 class SpyArchitecture extends GFArchitecture:
 	var sent_command: Object = null
 
@@ -122,6 +132,16 @@ func test_interaction_flow_rejects_context_method_with_excess_required_arguments
 
 	assert_eq(GFVariantData.to_text(result), "executed")
 	assert_false(command.context_method_called, "GF 不应以不足参数调用不兼容的 set_interaction_context()。")
+
+
+func test_interaction_flow_rejects_context_method_with_incompatible_argument_type() -> void:
+	var flow: GFInteractionFlow = GFInteractionFlow.new(GFInteractionContext.new())
+	var command: WrongTypedContextCommand = WrongTypedContextCommand.new()
+
+	var result: Variant = flow.execute(command)
+
+	assert_eq(GFVariantData.to_text(result), "executed")
+	assert_false(command.context_method_called, "GF 不得把 GFInteractionContext 传给要求 int 的 setter。")
 
 
 func test_interaction_flow_send_event_null_is_no_op() -> void:

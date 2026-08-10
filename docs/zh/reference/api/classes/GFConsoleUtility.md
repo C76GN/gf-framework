@@ -274,7 +274,7 @@ func register_command( owner: Object, cmd_name: String, callback: Callable, desc
 |---|---|
 | `owner` | 命令生命周期 owner。 |
 | `cmd_name` | 指令名称。 |
-| `callback` | 指令回调，签名为 `func(args: PackedStringArray) -> void`。 |
+| `callback` | 指令回调，签名为 \`func(args: PackedStringArray) -> void\`。 |
 | `description` | 指令说明文本。 |
 | `metadata` | 项目自定义元数据。 |
 
@@ -303,7 +303,7 @@ func register_command_definition( owner: Object, definition: GFConsoleCommandDef
 |---|---|
 | `owner` | 命令生命周期 owner。 |
 | `definition` | 命令资源定义。 |
-| `callback` | 指令回调，签名为 `func(args: PackedStringArray) -> void`。 |
+| `callback` | 指令回调，签名为 \`func(args: PackedStringArray) -> void\`。 |
 
 返回：owner-bound 注册句柄；注册失败时返回 inactive token。
 

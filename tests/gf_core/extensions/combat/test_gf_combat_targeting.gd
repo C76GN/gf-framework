@@ -28,6 +28,17 @@ class DummyEntity:
 		_attributes[p_name] = GFModifiedAttribute.new(p_val)
 
 
+class CountingPositionEntity:
+	var position_reads: int = 0
+	var _position: Vector2 = Vector2.ZERO
+	var global_position: Vector2:
+		get:
+			position_reads += 1
+			return _position
+		set(value):
+			_position = value
+
+
 class SampleSkill extends GFSkill:
 	var last_targets: Array[Object] = []
 	var candidates: Array = []
@@ -90,6 +101,27 @@ func test_targeting_distance_sorting() -> void:
 	targets = utility.find_targets(Vector2.ZERO, rule, candidates)
 	assert_eq(targets[0], e3)
 	assert_eq(targets[2], e2)
+
+
+func test_targeting_decorates_candidate_position_once_before_sorting() -> void:
+	var utility: _GF_SKILL_TARGETING_UTILITY_2D_SCRIPT = _targeting_utility()
+	var rule: _GF_SKILL_TARGETING_RULE_2D_SCRIPT = _GF_SKILL_TARGETING_RULE_2D_SCRIPT.new()
+	rule.shape = _GF_SKILL_TARGETING_RULE_2D_SCRIPT.Shape.CIRCLE
+	rule.radius = 1000.0
+	rule.max_count = 10
+	rule.sort_rule = _GF_SKILL_TARGETING_RULE_2D_SCRIPT.SortRule.DISTANCE_CLOSEST
+	var candidates: Array[Object] = []
+	for index: int in range(8):
+		var entity: CountingPositionEntity = CountingPositionEntity.new()
+		entity.global_position = Vector2(float(8 - index), 0.0)
+		candidates.append(entity)
+
+	var targets: Array[Object] = utility.find_targets(Vector2.ZERO, rule, candidates)
+
+	assert_eq(targets.size(), 8)
+	for candidate: Object in candidates:
+		var counting_entity: CountingPositionEntity = candidate
+		assert_eq(counting_entity.position_reads, 1, "筛选和排序应复用同一份位置快照。")
 
 
 func test_targeting_attribute_sorting() -> void:

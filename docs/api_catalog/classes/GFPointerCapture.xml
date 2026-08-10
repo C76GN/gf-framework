@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFPointerCapture" path="addons/gf/standard/input/common/gf_pointer_capture.gd" module="standard" extends="RefCounted" classDigest="9574cbd904d00b15cb53a2d873c52cd51008b1a21062b64f021ca5e08d198e21">
+<class name="GFPointerCapture" path="addons/gf/standard/input/common/gf_pointer_capture.gd" module="standard" extends="RefCounted" classDigest="c1eb41eff6ae3ecbad9f0165fb3db27c13ad0284b908998ee41def1d56ed98f4">
 	<description>GFPointerCapture: 单指针捕获状态句柄。
 用于触屏控件、虚拟光标或拖放控制器记录当前由哪个 pointer/touch id
 拥有交互。它只保存捕获身份，不读取输入事件，也不规定 UI 行为。</description>
@@ -53,7 +53,8 @@
 		<member kind="method" name="try_capture">
 			<signature>func try_capture(pointer_id: int) -&gt; bool:</signature>
 			<description>尝试捕获指针。
-若当前没有捕获，则记录传入指针；若已经捕获同一指针，也视为成功。</description>
+若当前没有捕获，则记录传入指针；若已经捕获同一指针，也视为成功。
+`NO_POINTER_ID` 永远会被拒绝。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">pointer_id: 要捕获的指针 ID。</tag>

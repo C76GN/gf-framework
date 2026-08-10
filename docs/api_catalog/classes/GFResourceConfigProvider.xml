@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFResourceConfigProvider" path="addons/gf/standard/utilities/config/gf_resource_config_provider.gd" module="standard" extends="GFConfigProvider" classDigest="794f6f966c2f79d6fe2d2aa06b47b3dac8ceb6c85cbc03805226b28e580931ec">
+<class name="GFResourceConfigProvider" path="addons/gf/standard/utilities/config/gf_resource_config_provider.gd" module="standard" extends="GFConfigProvider" classDigest="80b35654312cbef5fd84b793f05d10d189d1eaa32ccebea3878365650a2e2b9a">
 	<description>GFResourceConfigProvider: 读取 GFConfigTableResource 的运行时配置 Provider。
 用于把导表工具生成的 `.tres` / `.res` 表资源接入 `GFConfigProvider` 查询协议。
 它只处理通用表资源注册、表查询和记录查询，不绑定业务字段、构建 profile 或热更新策略。</description>
@@ -36,12 +36,15 @@
 		</member>
 		<member kind="method" name="set_table_resources">
 			<signature>func set_table_resources(table_resources: Array[GFConfigTableResource], duplicate_tables: bool = false) -&gt; int:</signature>
-			<description>批量替换配置表资源并重建内部查询索引。</description>
+			<description>以 best-effort 方式批量替换配置表资源并重建内部查询索引。
+调用时会先清空旧表，再逐项注册候选；无效候选会被跳过并通过返回数量反映，
+不会回滚已经接受的新表，也不保留旧表。需要 last-good 原子切换时，应在调用前
+完整校验候选，或由项目层使用独立 Provider/Snapshot 完成 staging 与 swap。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">table_resources: 要设置的配置表资源列表。</tag>
 				<tag name="param">duplicate_tables: 为 true 时保存表资源副本。</tag>
-				<tag name="return">成功注册的表数量。</tag>
+				<tag name="return">成功注册的表数量；小于输入数量表示已留下部分新状态。</tag>
 				<tag name="schema">table_resources: Array[GFConfigTableResource]，每个元素是一张配置表资源。</tag>
 				<tag name="since">5.2.0</tag>
 			</tags>

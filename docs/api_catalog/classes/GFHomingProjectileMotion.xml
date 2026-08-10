@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFHomingProjectileMotion" path="addons/gf/extensions/combat/projectiles/gf_homing_projectile_motion.gd" module="extensions/combat" extends="GFProjectileMotion" classDigest="4ca99cfb7301f402c0e55c3f49ab0719365fe8dec9ed432e1dbfb4b904e72616">
+<class name="GFHomingProjectileMotion" path="addons/gf/extensions/combat/projectiles/gf_homing_projectile_motion.gd" module="extensions/combat" extends="GFProjectileMotion" classDigest="e7b3fc75ac5b913ea0e50ea0d74b7aaeb7d2631e0620433fa7398d239de4e340">
 	<description>GFHomingProjectileMotion: 2D/3D 通用追踪发射体移动策略。
 目标可通过 launch() 上下文中的 target、target_position、target_position_2d
 或 target_position_3d 传入，也可以用 target_path 从发射体节点相对查找。</description>
@@ -49,9 +49,11 @@
 		</member>
 		<member kind="property" name="track_target" decorators="@export">
 			<signature>var track_target: bool = true</signature>
-			<description>是否每帧重新朝向当前目标。关闭后只在首次解析目标时锁定方向。</description>
+			<description>是否每帧重新朝向当前目标。关闭后只在首次解析目标时锁定方向；
+对象目标随后释放时仍沿缓存方向继续移动，不再执行距离到达夹取。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="stop_when_reached" decorators="@export">

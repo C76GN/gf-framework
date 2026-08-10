@@ -12,6 +12,8 @@ viewport_util.set_viewport_camera(0, $Camera2D)
 
 默认情况下，`viewport_size` 会保持 SubViewport 的渲染尺寸，`viewport_resolution_scale` 会按比例缩放该尺寸；需要让 SubViewport 跟随容器大小时，可在 options 中传入 `"stretch": true`。`clear_split_screen()` 会立即把旧 `GridContainer` 和已挂载相机从当前树上移除，再按参数决定是否释放相机，便于同一帧重建布局或切换分屏配置。
 
+`viewport_resolution_scale` 只接受有限值，`NaN` / `Inf` 不会覆盖最后一个有效缩放。Control 到窗口矩形换算以及安全区换算也会在 `roundi()` 或 Control theme 写入前验证全部浮点输入；任一矩形、偏移、Viewport 尺寸或边距不是有限值时返回 `ok = false`，`apply_safe_area_margins()` 返回 `false` 且不会部分覆盖现有边距。
+
 同一个工具还提供少量不绑定输入来源的坐标辅助。`screen_to_world_ray_3d(camera, screen_position, length)` 可从 Camera3D 和 Viewport 坐标生成射线，`raycast_from_screen_3d()` 在此基础上执行物理射线检测，`world_to_screen_3d()` 做 3D 投影；无效 Camera3D 会返回 `Vector2.ZERO`，需要失败原因时使用 `world_to_screen_3d_report()`。2D 侧可用 `world_to_screen_2d(canvas_item, world_position)` 与 `screen_to_world_2d(canvas_item, screen_position)` 在 CanvasItem 世界坐标和屏幕坐标之间转换。
 
 这些方法不读取鼠标、不选择玩家、不决定命中对象含义，只提供稳定几何转换。

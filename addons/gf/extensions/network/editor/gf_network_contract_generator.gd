@@ -26,6 +26,61 @@ const _GF_PROJECT_ARTIFACT_PATHS_SCRIPT = preload("res://addons/gf/kernel/core/g
 const DEFAULT_OUTPUT_DIR: String = _GF_PROJECT_ARTIFACT_PATHS_SCRIPT.NETWORK_OUTPUT_ROOT
 const _GF_VALIDATION_REPORT_DICTIONARY = preload("res://addons/gf/standard/foundation/validation/gf_validation_report_dictionary.gd")
 const _GENERATED_ARTIFACT_REPORT_SCRIPT = preload("res://addons/gf/kernel/editor/gf_generated_artifact_report.gd")
+const _GF_PATH_TOOLS_SCRIPT = preload("res://addons/gf/kernel/core/gf_path_tools.gd")
+const _NETWORK_TRANSPORT_VALUE_VALIDATOR_SCRIPT = preload("res://addons/gf/extensions/network/runtime/gf_network_transport_value_validator.gd")
+const _GDSCRIPT_RESERVED_IDENTIFIERS: Dictionary = {
+	"and": true,
+	"as": true,
+	"assert": true,
+	"await": true,
+	"break": true,
+	"breakpoint": true,
+	"class": true,
+	"class_name": true,
+	"const": true,
+	"continue": true,
+	"elif": true,
+	"else": true,
+	"enum": true,
+	"extends": true,
+	"false": true,
+	"for": true,
+	"func": true,
+	"if": true,
+	"in": true,
+	"is": true,
+	"match": true,
+	"namespace": true,
+	"not": true,
+	"null": true,
+	"or": true,
+	"pass": true,
+	"preload": true,
+	"return": true,
+	"self": true,
+	"signal": true,
+	"static": true,
+	"super": true,
+	"trait": true,
+	"true": true,
+	"var": true,
+	"void": true,
+	"when": true,
+	"while": true,
+}
+const _DEFAULT_MAX_CONTRACTS: int = 256
+const _ABSOLUTE_MAX_CONTRACTS: int = 4096
+const _DEFAULT_MAX_MESSAGES_PER_CONTRACT: int = 256
+const _ABSOLUTE_MAX_MESSAGES_PER_CONTRACT: int = 2048
+const _DEFAULT_MAX_FIELDS_PER_MESSAGE: int = 512
+const _ABSOLUTE_MAX_FIELDS_PER_MESSAGE: int = 4096
+const _DEFAULT_MAX_IDENTIFIER_LENGTH: int = 256
+const _ABSOLUTE_MAX_IDENTIFIER_LENGTH: int = 1024
+const _DEFAULT_MAX_SOURCE_BYTES: int = 4 * 1024 * 1024
+const _ABSOLUTE_MAX_SOURCE_BYTES: int = 64 * 1024 * 1024
+const _DEFAULT_MAX_TOTAL_SOURCE_BYTES: int = 32 * 1024 * 1024
+const _ABSOLUTE_MAX_TOTAL_SOURCE_BYTES: int = 256 * 1024 * 1024
+const _MAX_CONTRACT_PATH_LENGTH: int = 4096
 
 
 # --- 公共方法 ---
@@ -33,6 +88,8 @@ const _GENERATED_ARTIFACT_REPORT_SCRIPT = preload("res://addons/gf/kernel/editor
 ## 生成单个契约访问器脚本。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @param contract: 网络契约资源。
 ## [br]
@@ -115,57 +172,63 @@ func generate_with_report(
 ## [br]
 ## @param overwrite_existing: 为 false 时目标已存在会跳过。
 ## [br]
-## @param options: 可选项，支持 class_name、dry_run、scan_filesystem 和 metadata。
+## @param options: 可选项，支持 class_name、dry_run、scan_filesystem、metadata、allowed_roots 和生成预算。
 ## [br]
 ## @return 生成报告。
 ## [br]
-## @schema options: Dictionary，可包含 class_name、dry_run、scan_filesystem 和 metadata。
+## @schema options: Dictionary，可包含 class_name、dry_run、scan_filesystem、metadata、allowed_roots、max_contracts、max_messages_per_contract、max_fields_per_message、max_identifier_length、max_source_bytes 和 max_total_source_bytes；预算必须为正整数并受框架硬上限约束。
 ## [br]
-## @schema return: Dictionary，GFValidationReportDictionary 格式，包含 ok、generated_count、attempted_count、skipped_count、artifact_summary、generated、issues、issue_count 和 next_actions。
+## @schema return: Dictionary，GFValidationReportDictionary 格式，包含 ok、generated_count、attempted_count、skipped_count、artifact_summary、generated、issues、issue_count、plan_fingerprint 和 next_actions。
 func generate_many(
 	contract_paths: PackedStringArray,
 	output_dir: String = DEFAULT_OUTPUT_DIR,
 	overwrite_existing: bool = true,
 	options: Dictionary = {}
 ) -> Dictionary:
+	var plan_result: Dictionary = _build_many_plan(contract_paths, output_dir, options)
 	var generated: Array[Dictionary] = []
 	var artifact_reports: Array[Dictionary] = []
-	var issues: Array[Dictionary] = []
-	var save_options: Dictionary = _merge_generation_save_options(options, overwrite_existing)
-	for contract_path: String in contract_paths:
-		var contract: GFNetworkContract = _variant_to_contract(load(contract_path))
-		if contract == null:
-			issues.append({
-				"severity": "error",
-				"kind": "invalid_contract_resource",
-				"path": contract_path,
-				"message": "Contract resource is not a GFNetworkContract resource.",
+	var issues: Array[Dictionary] = _get_record_array(plan_result, "issues")
+	var plan: Array = _get_record_array(plan_result, "entries")
+	var normalized_output_dir: String = GFVariantData.get_option_string(plan_result, "output_dir")
+	var save_options: Dictionary = _make_batch_save_options(
+		options,
+		overwrite_existing,
+		normalized_output_dir
+	)
+	if issues.is_empty():
+		for plan_entry: Dictionary in plan:
+			var contract_path: String = _get_record_string(plan_entry, "contract_path")
+			var output_path: String = _get_record_string(plan_entry, "output_path")
+			var contract: GFNetworkContract = _variant_to_contract(
+				GFVariantData.get_option_value(plan_entry, "contract")
+			)
+			var source: String = _get_record_string(plan_entry, "source")
+			var artifact_report: Dictionary = save_source_with_report(
+				output_path,
+				source,
+				_make_artifact_report_options(save_options, contract)
+			)
+			artifact_reports.append(artifact_report)
+			var artifact_status: StringName = GFVariantData.get_option_string_name(artifact_report, "status", &"")
+			var error: Error = _GENERATED_ARTIFACT_REPORT_SCRIPT.get_error_code(artifact_report)
+			generated.append({
+				"contract_path": contract_path,
+				"output_path": output_path,
+				"status": String(artifact_status),
+				"written": GFVariantData.get_option_bool(artifact_report, "written"),
+				"changed": GFVariantData.get_option_bool(artifact_report, "changed"),
+				"error": error,
+				"error_name": error_string(error),
+				"artifact_report": artifact_report,
 			})
-			continue
-
-		var class_name_value: String = _resolve_class_name(contract, options)
-		var output_path: String = output_dir.path_join("%s.gd" % class_name_value.to_snake_case())
-		var artifact_report: Dictionary = generate_with_report(contract, output_path, save_options)
-		artifact_reports.append(artifact_report)
-		var artifact_status: StringName = GFVariantData.get_option_string_name(artifact_report, "status", &"")
-		var error: Error = _GENERATED_ARTIFACT_REPORT_SCRIPT.get_error_code(artifact_report)
-		generated.append({
-			"contract_path": contract_path,
-			"output_path": output_path,
-			"status": String(artifact_status),
-			"written": GFVariantData.get_option_bool(artifact_report, "written"),
-			"changed": GFVariantData.get_option_bool(artifact_report, "changed"),
-			"error": error,
-			"error_name": error_string(error),
-			"artifact_report": artifact_report,
-		})
-		if artifact_status == _GENERATED_ARTIFACT_REPORT_SCRIPT.STATUS_FAILED:
-			issues.append({
-				"severity": "error",
-				"kind": "generate_failed",
-				"path": contract_path,
-				"message": _get_artifact_error_message(artifact_report),
-			})
+			if artifact_status == _GENERATED_ARTIFACT_REPORT_SCRIPT.STATUS_FAILED:
+				issues.append({
+					"severity": "error",
+					"kind": "generate_failed",
+					"path": contract_path,
+					"message": _get_artifact_error_message(artifact_report),
+				})
 
 	var artifact_summary: Dictionary = _GENERATED_ARTIFACT_REPORT_SCRIPT.summarize_reports(
 		artifact_reports,
@@ -180,6 +243,7 @@ func generate_many(
 		"artifact_reports": artifact_reports,
 		"generated": generated,
 		"issues": issues,
+		"plan_fingerprint": GFVariantData.get_option_string(plan_result, "plan_fingerprint"),
 	}
 	return _GF_VALIDATION_REPORT_DICTIONARY.finalize_report(report, "Network contract generation", {
 		"include_issue_count": true,
@@ -192,6 +256,8 @@ func generate_many(
 ## 构建契约访问器源码。测试或项目工具可直接调用该方法。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @param contract: 网络契约资源。
 ## [br]
@@ -223,6 +289,8 @@ func build_source(contract: GFNetworkContract, options: Dictionary = {}) -> Stri
 ## 保存生成源码到指定路径。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @param output_path: 输出脚本路径。
 ## [br]
@@ -262,6 +330,308 @@ func save_source_with_report(output_path: String, source: String, options: Dicti
 
 
 # --- 私有/辅助方法 ---
+
+func _build_many_plan(
+	contract_paths: PackedStringArray,
+	output_dir: String,
+	options: Dictionary
+) -> Dictionary:
+	var entries: Array[Dictionary] = []
+	var issues: Array[Dictionary] = []
+	var used_output_paths: Dictionary = {}
+	var normalized_output_dir: String = _GF_PATH_TOOLS_SCRIPT.normalize_root_path(output_dir)
+	var budgets: Dictionary = _resolve_generation_budgets(options)
+	if not GFVariantData.get_option_bool(budgets, "ok"):
+		issues.append(GFVariantData.get_option_dictionary(budgets, "issue"))
+		return _make_many_plan_result(entries, issues, normalized_output_dir)
+	var max_contracts: int = GFVariantData.get_option_int(budgets, "max_contracts")
+	if contract_paths.size() > max_contracts:
+		issues.append(_make_generation_budget_issue(
+			"contract_count",
+			max_contracts,
+			contract_paths.size()
+		))
+		return _make_many_plan_result(entries, issues, normalized_output_dir)
+	if normalized_output_dir.is_empty():
+		issues.append({
+			"severity": "error",
+			"kind": "invalid_generation_output_root",
+			"path": output_dir,
+			"message": "Network contract output_dir must be a non-empty resource root.",
+		})
+		return _make_many_plan_result(entries, issues, normalized_output_dir)
+	var total_source_bytes: int = 0
+	for contract_path_value: String in contract_paths:
+		var contract_path: String = _GF_PATH_TOOLS_SCRIPT.normalize_resource_path(
+			contract_path_value
+		)
+		if contract_path.length() > _MAX_CONTRACT_PATH_LENGTH:
+			issues.append(_make_generation_budget_issue(
+				"contract_path_length",
+				_MAX_CONTRACT_PATH_LENGTH,
+				contract_path.length(),
+				contract_path.left(128)
+			))
+			continue
+		var contract: GFNetworkContract = _variant_to_contract(load(contract_path))
+		if contract == null:
+			issues.append({
+				"severity": "error",
+				"kind": "invalid_contract_resource",
+				"path": contract_path,
+				"resource_path": contract_path,
+				"message": "Contract resource is not a GFNetworkContract resource.",
+			})
+			continue
+		var contract_budget_issue: Dictionary = _get_contract_generation_budget_issue(
+			contract,
+			contract_path,
+			budgets,
+			options
+		)
+		if not contract_budget_issue.is_empty():
+			issues.append(contract_budget_issue)
+			continue
+		var validation: Dictionary = contract.validate_contract()
+		if not GFVariantData.get_option_bool(validation, "ok"):
+			issues.append({
+				"severity": "error",
+				"kind": "invalid_contract_definition",
+				"path": contract_path,
+				"resource_path": contract_path,
+				"message": "Network contract validation failed before generation planning.",
+			})
+			continue
+		var class_name_value: String = _resolve_class_name(contract, options)
+		var output_path: String = _GF_PATH_TOOLS_SCRIPT.normalize_resource_path(
+			normalized_output_dir.path_join("%s.gd" % class_name_value.to_snake_case())
+		)
+		var output_identity: String = output_path.to_lower()
+		if used_output_paths.has(output_identity):
+			issues.append({
+				"severity": "error",
+				"kind": "duplicate_output_path",
+				"path": contract_path,
+				"resource_path": contract_path,
+				"output_path": output_path,
+				"first_contract_path": GFVariantData.get_option_string(
+					GFVariantData.as_dictionary(used_output_paths[output_identity]),
+					"contract_path"
+				),
+				"message": "Multiple network contracts map to the same canonical output path.",
+			})
+			continue
+		var source: String = build_source(contract, options)
+		var source_bytes: int = source.to_utf8_buffer().size()
+		var max_source_bytes: int = GFVariantData.get_option_int(budgets, "max_source_bytes")
+		if source_bytes > max_source_bytes:
+			issues.append(_make_generation_budget_issue(
+				"source_bytes",
+				max_source_bytes,
+				source_bytes,
+				contract_path
+			))
+			continue
+		total_source_bytes += source_bytes
+		var max_total_source_bytes: int = GFVariantData.get_option_int(
+			budgets,
+			"max_total_source_bytes"
+		)
+		if total_source_bytes > max_total_source_bytes:
+			issues.append(_make_generation_budget_issue(
+				"total_source_bytes",
+				max_total_source_bytes,
+				total_source_bytes,
+				contract_path
+			))
+			continue
+		var entry: Dictionary = {
+			"contract_path": contract_path,
+			"contract": contract,
+			"class_name": class_name_value,
+			"output_path": output_path,
+			"source": source,
+			"content_sha256": source.sha256_text(),
+		}
+		used_output_paths[output_identity] = entry
+		entries.append(entry)
+	return _make_many_plan_result(entries, issues, normalized_output_dir)
+
+
+func _make_many_plan_result(
+	entries: Array[Dictionary],
+	issues: Array[Dictionary],
+	output_dir: String
+) -> Dictionary:
+	return {
+		"ok": issues.is_empty(),
+		"output_dir": output_dir,
+		"entries": entries,
+		"issues": issues,
+		"plan_fingerprint": _make_plan_fingerprint(entries),
+	}
+
+
+func _resolve_generation_budgets(options: Dictionary) -> Dictionary:
+	var specifications: Array[Dictionary] = [
+		{
+			"key": "max_contracts",
+			"default": _DEFAULT_MAX_CONTRACTS,
+			"absolute": _ABSOLUTE_MAX_CONTRACTS,
+		},
+		{
+			"key": "max_messages_per_contract",
+			"default": _DEFAULT_MAX_MESSAGES_PER_CONTRACT,
+			"absolute": _ABSOLUTE_MAX_MESSAGES_PER_CONTRACT,
+		},
+		{
+			"key": "max_fields_per_message",
+			"default": _DEFAULT_MAX_FIELDS_PER_MESSAGE,
+			"absolute": _ABSOLUTE_MAX_FIELDS_PER_MESSAGE,
+		},
+		{
+			"key": "max_identifier_length",
+			"default": _DEFAULT_MAX_IDENTIFIER_LENGTH,
+			"absolute": _ABSOLUTE_MAX_IDENTIFIER_LENGTH,
+		},
+		{
+			"key": "max_source_bytes",
+			"default": _DEFAULT_MAX_SOURCE_BYTES,
+			"absolute": _ABSOLUTE_MAX_SOURCE_BYTES,
+		},
+		{
+			"key": "max_total_source_bytes",
+			"default": _DEFAULT_MAX_TOTAL_SOURCE_BYTES,
+			"absolute": _ABSOLUTE_MAX_TOTAL_SOURCE_BYTES,
+		},
+	]
+	var budgets: Dictionary = { "ok": true }
+	for specification: Dictionary in specifications:
+		var key: String = GFVariantData.get_option_string(specification, "key")
+		var default_value: int = GFVariantData.get_option_int(specification, "default")
+		var absolute_value: int = GFVariantData.get_option_int(specification, "absolute")
+		var has_value: bool = options.has(key) or options.has(StringName(key))
+		var raw_value: Variant = GFVariantData.get_option_value(options, key, default_value)
+		var budget_value: int = raw_value if raw_value is int else -1
+		if has_value and budget_value <= 0:
+			return {
+				"ok": false,
+				"issue": {
+					"severity": "error",
+					"kind": "invalid_generation_options",
+					"path": key,
+					"message": "%s must be a positive integer." % key,
+				},
+			}
+		budgets[key] = mini(budget_value, absolute_value)
+	return budgets
+
+
+func _get_contract_generation_budget_issue(
+	contract: GFNetworkContract,
+	contract_path: String,
+	budgets: Dictionary,
+	options: Dictionary
+) -> Dictionary:
+	var max_identifier_length: int = GFVariantData.get_option_int(
+		budgets,
+		"max_identifier_length"
+	)
+	var configured_class_name: String = GFVariantData.get_option_string(
+		options,
+		"class_name"
+	).strip_edges()
+	if configured_class_name.length() > max_identifier_length:
+		return _make_generation_budget_issue(
+			"class_name_length",
+			max_identifier_length,
+			configured_class_name.length(),
+			contract_path
+		)
+	if String(contract.contract_id).length() > max_identifier_length:
+		return _make_generation_budget_issue(
+			"contract_id_length",
+			max_identifier_length,
+			String(contract.contract_id).length(),
+			contract_path
+		)
+	var max_messages: int = GFVariantData.get_option_int(
+		budgets,
+		"max_messages_per_contract"
+	)
+	if contract.messages.size() > max_messages:
+		return _make_generation_budget_issue(
+			"message_count",
+			max_messages,
+			contract.messages.size(),
+			contract_path
+		)
+	var max_fields: int = GFVariantData.get_option_int(budgets, "max_fields_per_message")
+	for message_contract: GFNetworkContractMessage in contract.messages:
+		if message_contract == null:
+			continue
+		if String(message_contract.message_type).length() > max_identifier_length:
+			return _make_generation_budget_issue(
+				"message_type_length",
+				max_identifier_length,
+				String(message_contract.message_type).length(),
+				contract_path
+			)
+		if message_contract.fields.size() > max_fields:
+			return _make_generation_budget_issue(
+				"field_count",
+				max_fields,
+				message_contract.fields.size(),
+				contract_path
+			)
+		for field: GFNetworkContractField in message_contract.fields:
+			if field != null and String(field.field_name).length() > max_identifier_length:
+				return _make_generation_budget_issue(
+					"field_name_length",
+					max_identifier_length,
+					String(field.field_name).length(),
+					contract_path
+				)
+	return {}
+
+
+func _make_generation_budget_issue(
+	budget_name: String,
+	expected_value: int,
+	actual_value: int,
+	path: String = ""
+) -> Dictionary:
+	return {
+		"severity": "error",
+		"kind": "generation_budget_exceeded",
+		"path": path,
+		"budget": budget_name,
+		"expected_value": expected_value,
+		"actual_value": actual_value,
+		"message": "Network contract generation exceeded the %s budget." % budget_name,
+	}
+
+
+func _make_plan_fingerprint(entries: Array[Dictionary]) -> String:
+	var records: Array[Dictionary] = []
+	for entry: Dictionary in entries:
+		records.append({
+			"contract_path": _get_record_string(entry, "contract_path"),
+			"output_path": _get_record_string(entry, "output_path"),
+			"content_sha256": _get_record_string(entry, "content_sha256"),
+		})
+	return JSON.stringify(records).sha256_text()
+
+
+func _make_batch_save_options(
+	options: Dictionary,
+	overwrite_existing: bool,
+	output_dir: String
+) -> Dictionary:
+	var save_options: Dictionary = _merge_generation_save_options(options, overwrite_existing)
+	if not save_options.has("allowed_roots") and not save_options.has(&"allowed_roots"):
+		save_options["allowed_roots"] = PackedStringArray([output_dir])
+	return save_options
 
 func _merge_generation_save_options(options: Dictionary, overwrite_existing: bool) -> Dictionary:
 	var save_options: Dictionary = options.duplicate(true)
@@ -341,6 +711,7 @@ func _build_field_records(
 ) -> Array[Dictionary]:
 	var records: Array[Dictionary] = []
 	var used_parameters: Dictionary = {}
+	var used_accessor_suffixes: Dictionary = {}
 	used_parameters["options"] = true
 	used_parameters["network"] = true
 	used_parameters["peer_id"] = true
@@ -360,7 +731,8 @@ func _build_field_records(
 		records.append({
 			"field": field,
 			"field_constant": field_constant,
-			"parameter_name": _make_unique_name(_to_snake_identifier(String(field.field_name), "field"), used_parameters),
+			"parameter_name": _allocate_identifier(String(field.field_name), "field", used_parameters, true),
+			"accessor_suffix": _allocate_identifier(String(field.field_name), "field", used_accessor_suffixes),
 		})
 	return records
 
@@ -386,6 +758,12 @@ func _append_constants(
 ) -> void:
 	builder.section("常量")
 	var contract_version: Dictionary = contract.get_contract_version()
+	builder.line("const _GF_NETWORK_CONTRACT_VERSION_VALIDATOR_SCRIPT = preload(")
+	builder.indent()
+	builder.line("\"res://addons/gf/extensions/network/contracts/gf_network_contract_version_validator.gd\"")
+	builder.dedent()
+	builder.line(")")
+	builder.blank()
 	builder.line("const CONTRACT_ID: StringName = &\"%s\"" % String(contract.contract_id).c_escape())
 	builder.line("const CONTRACT_VERSION_MAJOR: int = %d" % contract.contract_version_major)
 	builder.line("const CONTRACT_VERSION_MINOR: int = %d" % contract.contract_version_minor)
@@ -441,104 +819,13 @@ func _append_version_methods(builder: GFSourceBuilder) -> void:
 	builder.doc("校验对端声明的契约版本。")
 	builder.line("static func validate_peer_contract_version(peer_version: Dictionary, options: Dictionary = {}) -> Dictionary:")
 	builder.indent()
-	builder.line("var issues: Array[Dictionary] = []")
-	builder.line("var severity: String = GFVariantData.get_option_string(options, \"severity\", \"error\")")
-	builder.line("var require_contract_id: bool = GFVariantData.get_option_bool(options, \"require_contract_id\", true)")
-	builder.line("var require_schema_digest: bool = GFVariantData.get_option_bool(options, \"require_schema_digest\", false)")
-	builder.line("var peer_contract_id: StringName = GFVariantData.get_option_string_name(peer_version, \"contract_id\")")
-	builder.blank()
-	builder.line("if require_contract_id and CONTRACT_ID != &\"\":")
+	builder.line("return _GF_NETWORK_CONTRACT_VERSION_VALIDATOR_SCRIPT.validate(")
 	builder.indent()
-	builder.line("if peer_contract_id == &\"\":")
-	builder.indent()
-	builder.line("issues.append(_make_version_issue(severity, \"contract_id_missing\", \"Peer network contract version is missing contract_id.\", {")
-	builder.indent()
-	builder.line("\"expected_value\": CONTRACT_ID,")
-	builder.line("\"actual_value\": peer_contract_id,")
+	builder.line("get_contract_version(),")
+	builder.line("peer_version,")
+	builder.line("options")
 	builder.dedent()
-	builder.line("}))")
-	builder.dedent()
-	builder.line("elif peer_contract_id != CONTRACT_ID:")
-	builder.indent()
-	builder.line("issues.append(_make_version_issue(severity, \"contract_id_mismatch\", \"Peer network contract_id does not match.\", {")
-	builder.indent()
-	builder.line("\"expected_value\": CONTRACT_ID,")
-	builder.line("\"actual_value\": peer_contract_id,")
-	builder.dedent()
-	builder.line("}))")
-	builder.dedent()
-	builder.dedent()
-	builder.blank()
-	builder.line("if not peer_version.has(\"version_major\"):")
-	builder.indent()
-	builder.line("issues.append(_make_version_issue(severity, \"contract_version_major_missing\", \"Peer network contract version is missing version_major.\", {")
-	builder.indent()
-	builder.line("\"expected_value\": CONTRACT_VERSION_MAJOR,")
-	builder.line("\"actual_value\": null,")
-	builder.dedent()
-	builder.line("}))")
-	builder.dedent()
-	builder.line("else:")
-	builder.indent()
-	builder.line("var peer_major: int = GFVariantData.get_option_int(peer_version, \"version_major\", -1)")
-	builder.line("if peer_major != CONTRACT_VERSION_MAJOR:")
-	builder.indent()
-	builder.line("issues.append(_make_version_issue(severity, \"contract_version_major_mismatch\", \"Peer network contract major version does not match.\", {")
-	builder.indent()
-	builder.line("\"expected_value\": CONTRACT_VERSION_MAJOR,")
-	builder.line("\"actual_value\": peer_major,")
-	builder.dedent()
-	builder.line("}))")
-	builder.dedent()
-	builder.dedent()
-	builder.blank()
-	builder.line("if require_schema_digest:")
-	builder.indent()
-	builder.line("var peer_digest: String = GFVariantData.get_option_string(peer_version, \"schema_digest\").strip_edges()")
-	builder.line("if peer_digest.is_empty():")
-	builder.indent()
-	builder.line("issues.append(_make_version_issue(severity, \"contract_schema_digest_missing\", \"Peer network contract version is missing schema_digest.\", {")
-	builder.indent()
-	builder.line("\"expected_value\": CONTRACT_SCHEMA_DIGEST,")
-	builder.line("\"actual_value\": peer_digest,")
-	builder.dedent()
-	builder.line("}))")
-	builder.dedent()
-	builder.line("elif CONTRACT_SCHEMA_DIGEST.is_empty():")
-	builder.indent()
-	builder.line("issues.append(_make_version_issue(severity, \"contract_schema_digest_unavailable\", \"Local network contract schema_digest is unavailable.\", {")
-	builder.indent()
-	builder.line("\"expected_value\": \"non-empty schema_digest\",")
-	builder.line("\"actual_value\": CONTRACT_SCHEMA_DIGEST,")
-	builder.dedent()
-	builder.line("}))")
-	builder.dedent()
-	builder.line("elif peer_digest != CONTRACT_SCHEMA_DIGEST:")
-	builder.indent()
-	builder.line("issues.append(_make_version_issue(severity, \"contract_schema_digest_mismatch\", \"Peer network contract schema_digest does not match.\", {")
-	builder.indent()
-	builder.line("\"expected_value\": CONTRACT_SCHEMA_DIGEST,")
-	builder.line("\"actual_value\": peer_digest,")
-	builder.dedent()
-	builder.line("}))")
-	builder.dedent()
-	builder.dedent()
-	builder.blank()
-	builder.line("return GFValidationReportDictionary.finalize_report({")
-	builder.indent()
-	builder.line("\"subject\": \"Network contract version\",")
-	builder.line("\"local_version\": get_contract_version(),")
-	builder.line("\"peer_version\": peer_version.duplicate(true),")
-	builder.line("\"issues\": issues,")
-	builder.dedent()
-	builder.line("}, \"Network contract version\", {")
-	builder.indent()
-	builder.line("\"include_issue_count\": true,")
-	builder.line("\"next_actions\": _get_version_next_actions(),")
-	builder.line("\"fallback_action\": \"Review the first network contract version mismatch.\",")
-	builder.line("\"no_action\": \"Network contract version is compatible.\",")
-	builder.dedent()
-	builder.line("})")
+	builder.line(")")
 	builder.dedent()
 	builder.blank(2)
 
@@ -623,8 +910,8 @@ func _append_field_getter(builder: GFSourceBuilder, suffix: String, field_record
 	var field: GFNetworkContractField = _get_record_field(field_record)
 	if field == null:
 		return
-	var field_suffix: String = _to_snake_identifier(String(field.field_name), "field")
-	var return_type: String = _get_gdscript_type(field)
+	var field_suffix: String = _get_record_string(field_record, "accessor_suffix", "field")
+	var return_type: String = _get_accessor_return_type(field)
 	var default_literal: String = _get_default_literal(field)
 	builder.doc("读取 %s 字段。" % String(field.field_name))
 	builder.line("static func get_%s_%s(message: GFNetworkMessage, default_value: %s = %s) -> %s:" % [
@@ -636,6 +923,11 @@ func _append_field_getter(builder: GFSourceBuilder, suffix: String, field_record
 	])
 	builder.indent()
 	builder.line("var value: Variant = _get_payload_value(message, %s, default_value)" % _get_record_string(field_record, "field_constant"))
+	if field.allow_null:
+		builder.line("if value == null:")
+		builder.indent()
+		builder.line("return null")
+		builder.dedent()
 	match field.value_type:
 		GFNetworkContractField.ValueType.VARIANT:
 			builder.line("return value")
@@ -675,37 +967,6 @@ func _append_field_getter(builder: GFSourceBuilder, suffix: String, field_record
 
 func _append_private_helpers(builder: GFSourceBuilder) -> void:
 	builder.section("私有/辅助方法")
-	builder.line("static func _make_version_issue(severity: String, kind: String, message: String, fields: Dictionary) -> Dictionary:")
-	builder.indent()
-	builder.line("var issue: Dictionary = {")
-	builder.indent()
-	builder.line("\"severity\": severity,")
-	builder.line("\"kind\": kind,")
-	builder.line("\"contract_id\": CONTRACT_ID,")
-	builder.line("\"message\": message,")
-	builder.dedent()
-	builder.line("}")
-	builder.line("var _merge_result: Dictionary = GFVariantData.merge_dictionary(issue, fields, true)")
-	builder.line("return issue")
-	builder.dedent()
-	builder.blank(2)
-
-	builder.line("static func _get_version_next_actions() -> Dictionary:")
-	builder.indent()
-	builder.line("return {")
-	builder.indent()
-	builder.line("\"contract_id_missing\": \"Send contract_id with the peer network contract version or disable require_contract_id.\",")
-	builder.line("\"contract_id_mismatch\": \"Use the same network contract resource on both peers, or connect to the matching protocol endpoint.\",")
-	builder.line("\"contract_version_major_missing\": \"Send version_major with the peer network contract version.\",")
-	builder.line("\"contract_version_major_mismatch\": \"Update one side to the same compatible network contract major version.\",")
-	builder.line("\"contract_schema_digest_missing\": \"Send schema_digest or disable require_schema_digest for this preflight.\",")
-	builder.line("\"contract_schema_digest_unavailable\": \"Ensure the local network contract schema only uses deterministic Variant values.\",")
-	builder.line("\"contract_schema_digest_mismatch\": \"Regenerate or sync the network contract schema before exchanging messages.\",")
-	builder.dedent()
-	builder.line("}")
-	builder.dedent()
-	builder.blank(2)
-
 	builder.line("static func _get_payload_value(message: GFNetworkMessage, field_name: StringName, default_value: Variant = null) -> Variant:")
 	builder.indent()
 	builder.line("if message == null:")
@@ -961,9 +1222,13 @@ func _get_gdscript_type(field: GFNetworkContractField) -> String:
 
 
 func _get_parameter_type(field: GFNetworkContractField) -> String:
-	if _should_omit_null_optional_parameter(field):
+	if field.allow_null or _should_omit_null_optional_parameter(field):
 		return "Variant"
 	return _get_gdscript_type(field)
+
+
+func _get_accessor_return_type(field: GFNetworkContractField) -> String:
+	return "Variant" if field.allow_null else _get_gdscript_type(field)
 
 
 func _get_parameter_default_literal(field: GFNetworkContractField) -> String:
@@ -1016,6 +1281,13 @@ func _get_default_literal(field: GFNetworkContractField) -> String:
 
 
 func _variant_literal(value: Variant) -> String:
+	var transport_report: Dictionary = _NETWORK_TRANSPORT_VALUE_VALIDATOR_SCRIPT.validate(value)
+	if not GFVariantData.get_option_bool(transport_report, "ok"):
+		return ""
+	return _variant_literal_unchecked(value)
+
+
+func _variant_literal_unchecked(value: Variant) -> String:
 	if value == null:
 		return "null"
 	match typeof(value):
@@ -1052,13 +1324,50 @@ func _variant_literal(value: Variant) -> String:
 			]
 		TYPE_NODE_PATH:
 			return "NodePath(\"%s\")" % GFVariantData.to_text(value).c_escape()
+		TYPE_DICTIONARY:
+			return _dictionary_literal(GFVariantData.as_dictionary(value))
+		TYPE_ARRAY:
+			return _array_literal(GFVariantData.as_array(value))
 		_:
+			return var_to_str(value)
+
+
+func _dictionary_literal(value: Dictionary) -> String:
+	var entries: Array[Dictionary] = []
+	for key: Variant in value:
+		var key_literal: String = _variant_literal_unchecked(key)
+		var value_literal: String = _variant_literal_unchecked(value[key])
+		if key_literal.is_empty() or value_literal.is_empty():
 			return ""
+		entries.append({
+			"key": key_literal,
+			"value": value_literal,
+		})
+	entries.sort_custom(func(first: Dictionary, second: Dictionary) -> bool:
+		return GFVariantData.get_option_string(first, "key") < GFVariantData.get_option_string(second, "key")
+	)
+	var parts: PackedStringArray = PackedStringArray()
+	for entry: Dictionary in entries:
+		_append_packed_string(parts, "%s: %s" % [
+			GFVariantData.get_option_string(entry, "key"),
+			GFVariantData.get_option_string(entry, "value"),
+		])
+	return "{%s}" % ", ".join(parts)
+
+
+func _array_literal(value: Array) -> String:
+	var parts: PackedStringArray = PackedStringArray()
+	for item: Variant in value:
+		var item_literal: String = _variant_literal_unchecked(item)
+		if item_literal.is_empty():
+			return ""
+		_append_packed_string(parts, item_literal)
+	return "[%s]" % ", ".join(parts)
 
 
 func _float_literal(value: float) -> String:
 	var text: String = str(value)
-	return text if text.contains(".") else text + ".0"
+	return text if text.contains(".") or text.contains("e") else text + ".0"
 
 
 func _to_pascal_identifier(value: String, fallback: String) -> String:
@@ -1111,9 +1420,26 @@ func _make_unique_name(base_name: String, used_names: Dictionary) -> String:
 	return candidate
 
 
+func _allocate_identifier(
+	value: String,
+	fallback: String,
+	used_names: Dictionary,
+	avoid_reserved: bool = false
+) -> String:
+	var base_name: String = _to_snake_identifier(value, fallback)
+	if avoid_reserved and _GDSCRIPT_RESERVED_IDENTIFIERS.has(base_name):
+		base_name = "%s_%s" % [fallback.to_snake_case().to_lower(), base_name]
+	return _make_unique_name(base_name, used_names)
+
+
 func _get_generation_next_actions() -> Dictionary:
 	return {
 		"invalid_contract_resource": "Check that the configured path points to a GFNetworkContract resource.",
+		"invalid_contract_definition": "Fix every contract definition error before generating the batch.",
+		"duplicate_output_path": "Use unique contract IDs and omit a shared class_name override for multi-contract batches.",
+		"generation_budget_exceeded": "Reduce the batch, schema size, identifier length, or generated source size before retrying.",
+		"invalid_generation_options": "Use positive integer generation budgets; caller budgets are clamped to framework hard caps.",
+		"invalid_generation_output_root": "Use a non-empty res:// or user:// output directory.",
 		"generate_failed": "Review the output path, overwrite setting, and filesystem error.",
 	}
 

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSupportReportUtility" path="addons/gf/standard/utilities/debug/gf_support_report_utility.gd" module="standard" extends="GFUtility" classDigest="701e7067285920a0c41a1046fa7395416b970b26ac2a957847e778c402a65499">
+<class name="GFSupportReportUtility" path="addons/gf/standard/utilities/debug/gf_support_report_utility.gd" module="standard" extends="GFUtility" classDigest="1bc600e1ea3d40f35f7b024a9d92c3a578d81dc91907f7b313f512712a8b6363">
 	<description>GFSupportReportUtility: 通用支持报告构建工具。
 聚合用户描述、项目元数据、诊断快照、日志和可扩展分区，并提供 JSON / Markdown 导出与回调提交入口。
 它不绑定任何工单系统、上传服务或反馈 UI。</description>
@@ -161,10 +161,11 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">section_id: 分区标识。</tag>
-				<tag name="param">provider: 分区回调，建议签名为 func(options: Dictionary) -&gt; Variant。</tag>
+				<tag name="param">provider: 受信同步分区回调，必须接受一个 Dictionary 并直接返回 Variant；不得阻塞、await 或依赖框架隔离脚本错误。</tag>
 				<tag name="param">options: 分区元数据，支持 label、metadata。</tag>
 				<tag name="return">注册成功返回 true。</tag>
 				<tag name="schema">options: Dictionary，支持 label、metadata。</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="unregister_section">
@@ -225,8 +226,9 @@
 				<tag name="api">public</tag>
 				<tag name="param">options: 传给每个 provider 的选项。</tag>
 				<tag name="return">分区结果字典。</tag>
-				<tag name="schema">options: Dictionary，原样传给各分区 provider。</tag>
+				<tag name="schema">options: Dictionary，隔离副本传给各受信同步分区 provider。</tag>
 				<tag name="schema">return: Dictionary[StringName, Dictionary]，每个值包含 label、metadata、value、ok、error。</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="collect_attachments">
@@ -288,8 +290,9 @@
 				<tag name="api">public</tag>
 				<tag name="param">report: 报告字典。</tag>
 				<tag name="param">path: 目标路径。</tag>
-				<tag name="return">Godot 错误码。</tag>
+				<tag name="return">Godot 错误码；目标替换成功但旧 backup 清理失败时也返回对应错误，不能视为 clean success。</tag>
 				<tag name="schema">report: Dictionary，build_report() 返回结构。</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="build_and_save_report">
@@ -310,12 +313,13 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">report: 报告字典。</tag>
-				<tag name="param">transport: 提交回调，签名为 func(report: Dictionary, options: Dictionary) -&gt; Variant。</tag>
+				<tag name="param">transport: 受信同步提交回调，必须接受 report/options 两个 Dictionary 并直接返回 Variant；不得阻塞或 await。</tag>
 				<tag name="param">options: 提交选项。</tag>
 				<tag name="return">提交结果字典。</tag>
 				<tag name="schema">report: Dictionary，build_report() 返回结构。</tag>
 				<tag name="schema">options: Dictionary，提交回调使用的选项。</tag>
 				<tag name="schema">return: Dictionary，包含 ok、value、error、metadata，可选 submitted_at_unix。</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_debug_snapshot">

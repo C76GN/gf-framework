@@ -42,7 +42,7 @@ static func calculate_submersion_ratio(signed_depth: float, immersion_radius: fl
 | `signed_depth` | 采样点相对流体表面的有符号深度。 |
 | `immersion_radius` | 从半浸没到完全浸没所需的距离，必须大于 0。 |
 
-返回：0 到 1 的浸没比例；输入无效时返回 0。
+返回：0 到 1 的浸没比例；端点计算不依赖 `2 * immersion_radius`，输入无效时返回 0。
 
 <a id="member-gfbuoyancymath3d-methods-calculate_buoyancy_force"></a>
 

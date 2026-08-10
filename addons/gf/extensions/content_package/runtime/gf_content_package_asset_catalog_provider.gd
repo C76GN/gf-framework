@@ -64,7 +64,7 @@ func configure_catalog(
 ## [br]
 ## @schema options: Dictionary with optional PackedStringArray field-name lists for title_fields, description_fields, tag_fields, category_fields, and preview_path_fields.
 ## [br]
-## @return 转换后的资产目录；内容包目录无效时返回 null。
+## @return: 转换后的资产目录；内容包目录无效、条目无效或 asset ID 碰撞时返回 null。
 func build_catalog(options: Dictionary = {}) -> GFAssetCatalog:
 	var query_result: GFContentPackageQueryResult = _content_catalog.query_packages(_query)
 	if not query_result.is_successful():
@@ -74,8 +74,11 @@ func build_catalog(options: Dictionary = {}) -> GFAssetCatalog:
 		for resource_record: Dictionary in manifest.get_normalized_resources():
 			var entry: GFAssetCatalogEntry = _make_asset_entry(manifest, resource_record, options)
 			if entry == null:
-				continue
-			var _entry_set: bool = result.set_entry(entry)
+				return null
+			if result.has_entry(entry.asset_id):
+				return null
+			if not result.set_entry(entry):
+				return null
 	return result
 
 
@@ -91,7 +94,7 @@ func build_catalog(options: Dictionary = {}) -> GFAssetCatalog:
 func get_debug_snapshot() -> Dictionary:
 	var result: Dictionary = super.get_debug_snapshot()
 	result["content_catalog"] = _content_catalog.get_debug_snapshot()
-	result["query"] = _query.to_dict()
+	result["query"] = _query.to_report_dictionary()
 	return result
 
 

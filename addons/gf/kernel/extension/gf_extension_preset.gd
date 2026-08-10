@@ -71,6 +71,15 @@ const _FORBIDDEN_PACKAGE_FIELDS: Array[String] = [
 	"repository",
 	"sha256",
 ]
+const _STRING_FIELDS: Array[String] = [
+	"description",
+	"display_name",
+	"id",
+]
+const _STRING_ARRAY_FIELDS: Array[String] = [
+	"extension_ids",
+	"tags",
+]
 
 
 # --- 公共变量 ---
@@ -121,6 +130,7 @@ var source_path: String = ""
 # --- 私有变量 ---
 
 var _source_field_names: Array[String] = []
+var _source_schema_errors: Array[String] = []
 
 
 # --- 公共方法 ---
@@ -141,6 +151,7 @@ var _source_field_names: Array[String] = []
 static func from_dictionary(data: Dictionary, preset_source_path: String = "") -> GFExtensionPreset:
 	var preset: GFExtensionPreset = GFExtensionPreset.new()
 	preset._source_field_names = _normalize_field_name_list(data.keys())
+	preset._source_schema_errors = _get_source_schema_errors(data)
 	preset.id = StringName(_normalize_text(_GF_VARIANT_ACCESS_SCRIPT.get_option_string(data, "id")))
 	preset.display_name = _normalize_text(_GF_VARIANT_ACCESS_SCRIPT.get_option_string(
 		data,
@@ -245,7 +256,7 @@ func is_valid() -> bool:
 ## [br]
 ## @return 错误消息列表。
 func get_validation_errors() -> Array[String]:
-	var errors: Array[String] = []
+	var errors: Array[String] = _source_schema_errors.duplicate()
 	_append_unsupported_field_errors(errors)
 	var id_error: String = _GF_EXTENSION_MANIFEST_SCRIPT.get_extension_id_validation_error(String(id))
 	if not id_error.is_empty():
@@ -279,6 +290,34 @@ static func _from_json_file_object_report(path: String) -> Dictionary:
 
 static func _normalize_text(value: String) -> String:
 	return value.strip_edges()
+
+
+static func _get_source_schema_errors(data: Dictionary) -> Array[String]:
+	var errors: Array[String] = []
+	for field_name: String in _STRING_FIELDS:
+		if not _has_dictionary_key(data, field_name):
+			continue
+		var raw_value: Variant = _GF_VARIANT_ACCESS_SCRIPT.get_option_value(data, field_name)
+		if not (raw_value is String or raw_value is StringName):
+			errors.append("preset %s must be a string" % field_name)
+	for field_name: String in _STRING_ARRAY_FIELDS:
+		if not _has_dictionary_key(data, field_name):
+			continue
+		var raw_value: Variant = _GF_VARIANT_ACCESS_SCRIPT.get_option_value(data, field_name)
+		if not (raw_value is Array or raw_value is PackedStringArray):
+			errors.append("preset %s must be an array of strings" % field_name)
+			continue
+		if raw_value is Array:
+			var raw_values: Array = raw_value
+			if raw_values.any(func(item: Variant) -> bool:
+				return not (item is String or item is StringName)
+			):
+				errors.append("preset %s must contain only strings" % field_name)
+	return errors
+
+
+static func _has_dictionary_key(data: Dictionary, key: String) -> bool:
+	return data.has(key) or data.has(StringName(key))
 
 
 static func _normalize_field_name_list(values: Array) -> Array[String]:

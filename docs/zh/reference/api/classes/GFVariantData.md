@@ -685,7 +685,7 @@ static func diff_variant(before: Variant, after: Variant, options: Dictionary = 
 |---|---|
 | `before` | 变更前的 Variant 值。 |
 | `after` | 变更后的 Variant 值。 |
-| `options` | 可选项。支持 max_changes、max_diagnostics、copy_values。 |
+| `options` | 可选项。支持 max_changes、max_diagnostics、copy_values、max_depth、max_nodes 和 max_collection_items；所有资源预算 <=0 表示不限制。 |
 
 返回：差异报告。内容差异与遍历诊断分别存放在 changes 和 diagnostics。
 
@@ -693,8 +693,8 @@ static func diff_variant(before: Variant, after: Variant, options: Dictionary = 
 
 - `before`: 待比较的 Variant 值。
 - `after`: 待比较的 Variant 值。
-- `options`: Dictionary，可选字段：max_changes 为最多记录差异数，默认 1024；max_diagnostics 为最多记录遍历诊断数，默认 1024；两者 <=0 表示不限；copy_values 默认为 true。
-- `return`: Dictionary；changes 每项包含 kind、path、path_segments、old_value、new_value、old_type、new_type，kind 仅为 added、removed、changed 或 type_changed；diagnostics 每项包含 kind、path、path_segments，循环重入 kind 为 cycle_detected。changed 不受 diagnostics 影响。
+- `options`: Dictionary，可选字段：max_changes 为最多记录差异数，默认 1024；max_diagnostics 为最多记录遍历诊断数，默认 1024；max_depth、max_nodes 和 max_collection_items 分别限制递归深度、访问节点数和集合元素工作量；所有预算 <=0 表示不限；copy_values 默认为 true。
+- `return`: Dictionary；changes 每项包含 kind、path、path_segments、old_value、new_value、old_type、new_type，kind 仅为 added、removed、changed 或 type_changed；diagnostics 每项包含 kind、path、path_segments，循环重入 kind 为 cycle_detected，资源预算耗尽 kind 为 traversal_budget_exceeded 并包含 reason；complete/traversal_truncated 独立描述遍历完整性，changed 不受 diagnostics 或不完整状态影响。
 
 <a id="member-gfvariantdata-methods-get_option_value"></a>
 

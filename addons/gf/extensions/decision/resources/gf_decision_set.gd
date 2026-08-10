@@ -119,7 +119,11 @@ func clear_decisions() -> void:
 ## [br]
 ## @api public
 ## [br]
+## @since 4.3.0
+## [br]
 ## @param context: 决策上下文。
+## [br]
+## 本次调用会冻结候选数组成员与 include-disabled 开关；评分回调对 live 数组的修改只影响后续调用。
 ## [br]
 ## @return: 按分数降序排列的评分结果。
 ## [br]
@@ -127,14 +131,16 @@ func clear_decisions() -> void:
 func score_all(context: GFDecisionContext) -> Array[GFDecisionScore]:
 	var scores: Array[GFDecisionScore] = []
 	var seen_decisions: Dictionary = {}
-	for index: int in range(decisions.size()):
-		var decision: GFDecisionOption = decisions[index]
+	var decision_snapshot: Array[GFDecisionOption] = decisions.duplicate()
+	var include_disabled: bool = include_disabled_in_reports
+	for index: int in range(decision_snapshot.size()):
+		var decision: GFDecisionOption = decision_snapshot[index]
 		if decision == null:
 			continue
 		if decision.decision_id == &"" or seen_decisions.has(decision.decision_id):
 			continue
 		seen_decisions[decision.decision_id] = true
-		if not decision.enabled and not include_disabled_in_reports:
+		if not decision.enabled and not include_disabled:
 			continue
 		var candidate_score: GFDecisionScore = decision.score(context)
 		candidate_score.decision_order = index
@@ -161,16 +167,26 @@ func select_best(context: GFDecisionContext) -> GFDecisionScore:
 ## [br]
 ## @since 8.0.0
 ## [br]
-## @param scores: 已计算的候选评分。
+## @param scores: 已计算的候选评分；可为任意顺序，非法或非有限评分会被忽略。
 ## [br]
 ## @return: 最佳评分结果；没有可选候选时返回 rejected score。
 ## [br]
-## @schema scores: Array[GFDecisionScore]，通常来自 score_all() 或 GFDecisionEvaluation.scores。
+## @schema scores: Array[GFDecisionScore]，通常来自 score_all() 或 GFDecisionEvaluation.scores；不要求预排序。
 func select_best_from_scores(scores: Array[GFDecisionScore]) -> GFDecisionScore:
 	var required_score: float = _normalized_minimum_score()
+	var best_score: GFDecisionScore = null
 	for candidate_score: GFDecisionScore in scores:
-		if candidate_score != null and candidate_score.accepted and candidate_score.score >= required_score:
-			return candidate_score
+		if (
+			candidate_score == null
+			or not candidate_score.accepted
+			or not _GF_DECISION_NUMERIC_POLICY.is_valid_score(candidate_score.score)
+			or candidate_score.score < required_score
+		):
+			continue
+		if best_score == null or _sort_score_desc(candidate_score, best_score):
+			best_score = candidate_score
+	if best_score != null:
+		return best_score
 	return GFDecisionScore.new(null, 0.0, [], false)
 
 
@@ -217,7 +233,7 @@ func get_debug_snapshot(context: GFDecisionContext = null, scores: Variant = nul
 		"decision_count": decisions.size(),
 		"minimum_score": _normalized_minimum_score(),
 		"scores": score_dictionaries,
-		"metadata": metadata.duplicate(true),
+		"metadata": _copy_dictionary(metadata),
 	})
 
 
@@ -268,6 +284,10 @@ func _sort_score_desc(left: GFDecisionScore, right: GFDecisionScore) -> bool:
 		return false
 	if right == null:
 		return true
+	var left_is_valid: bool = _GF_DECISION_NUMERIC_POLICY.is_valid_score(left.score)
+	var right_is_valid: bool = _GF_DECISION_NUMERIC_POLICY.is_valid_score(right.score)
+	if left_is_valid != right_is_valid:
+		return left_is_valid
 	if left.score != right.score:
 		return left.score > right.score
 	return _normalized_order(left.decision_order) < _normalized_order(right.decision_order)
@@ -295,6 +315,14 @@ func _resolve_score_snapshot(context: GFDecisionContext, scores: Variant) -> Arr
 			var candidate_score: GFDecisionScore = score_value
 			result.append(candidate_score)
 	return result
+
+
+func _copy_dictionary(source: Dictionary) -> Dictionary:
+	var copied: Variant = GFVariantData.duplicate_variant(source)
+	if copied is Dictionary:
+		var copied_dictionary: Dictionary = copied
+		return copied_dictionary
+	return {}
 
 
 func _append_option_validation_issues(

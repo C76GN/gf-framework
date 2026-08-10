@@ -180,6 +180,10 @@ static func execute(request: Dictionary, options: Dictionary = {}) -> Dictionary
 		return _rollback_after_failure(active_root, journal, operation, write_count, delete_count, issues)
 	if not _commit_lockfile(active_root, journal, issues):
 		return _rollback_after_failure(active_root, journal, operation, write_count, delete_count, issues)
+	var committed_verify_issues: PackedStringArray = PackedStringArray()
+	if not _verify_committed_state(journal, committed_verify_issues):
+		_append_string_array(issues, committed_verify_issues)
+		return _rollback_after_failure(active_root, journal, operation, write_count, delete_count, issues)
 	if _should_inject_crash(options, "after_lockfile_replace"):
 		_mark_abandoned(active_root, journal)
 		return _make_report(false, transaction_id, operation, _PHASE_COMMITTING, _OUTCOME_PENDING_RECOVERY, write_count, delete_count, true, false, false, true, issues)
@@ -265,7 +269,7 @@ static func recover_pending(project_root: String, options: Dictionary = {}) -> D
 		_append_string_array(recovery_warnings, committed_verify_issues)
 
 	var rollback_issues: PackedStringArray = PackedStringArray()
-	var rollback_ok: bool = _rollback_state(active_root, journal, rollback_issues)
+	var rollback_ok: bool = _rollback_state(active_root, journal, rollback_issues, recovery_warnings)
 	_append_string_array(issues, rollback_issues)
 	if rollback_ok:
 		var cleanup_ok: bool = _cleanup_active_transaction(active_root, journal, issues)
@@ -358,6 +362,7 @@ static func _normalize_request(request: Dictionary, issues: PackedStringArray) -
 	if not lockfile_path.is_empty() and _is_path_inside(transaction_root, lockfile_path):
 		var _append_internal_lock: bool = issues.append("Package lockfile cannot be stored inside the package transaction directory.")
 	var planned_lockfile: Dictionary = _GF_VARIANT_ACCESS.get_option_dictionary(request, "planned_lockfile")
+	var lockfile_identity: String = _absolute_portable_path_identity(lockfile_path)
 
 	var normalized_writes: Array[Dictionary] = []
 	var normalized_deletes: Array[Dictionary] = []
@@ -378,6 +383,10 @@ static func _normalize_request(request: Dictionary, issues: PackedStringArray) -
 			continue
 		seen_paths[path_identity] = true
 		var target_path: String = project_root.path_join(relative_path).replace("\\", "/").simplify_path()
+		if _absolute_portable_path_identity(target_path) == lockfile_identity:
+			var _append_lockfile_alias: bool = issues.append(
+				"Package transaction lockfile aliases package payload: %s" % relative_path
+			)
 		if _path_has_link_component(target_path):
 			var _append_target_link: bool = issues.append("Package transaction payload target crosses a filesystem link: %s" % relative_path)
 		normalized_writes.append({ "relative_path": relative_path, "source_path": source_path })
@@ -396,6 +405,10 @@ static func _normalize_request(request: Dictionary, issues: PackedStringArray) -
 			continue
 		seen_paths[path_identity] = true
 		var target_path: String = project_root.path_join(relative_path).replace("\\", "/").simplify_path()
+		if _absolute_portable_path_identity(target_path) == lockfile_identity:
+			var _append_lockfile_alias: bool = issues.append(
+				"Package transaction lockfile aliases package payload: %s" % relative_path
+			)
 		if _path_has_link_component(target_path):
 			var _append_target_link: bool = issues.append("Package transaction payload target crosses a filesystem link: %s" % relative_path)
 		normalized_deletes.append({ "relative_path": relative_path })
@@ -412,6 +425,11 @@ static func _normalize_request(request: Dictionary, issues: PackedStringArray) -
 			continue
 		if _path_has_link_component(cleanup_path):
 			var _append_cleanup_link: bool = issues.append("Package transaction cleanup path crosses a filesystem link: %s" % raw_path)
+			continue
+		if _portable_absolute_paths_overlap(cleanup_path, lockfile_path):
+			var _append_cleanup_lockfile: bool = issues.append(
+				"Package transaction cleanup path overlaps the package lockfile: %s" % raw_path
+			)
 			continue
 		if not _packed_array_has_portable_path(normalized_cleanup_paths, cleanup_path):
 			var _append_cleanup_path: bool = normalized_cleanup_paths.append(cleanup_path)
@@ -526,7 +544,7 @@ static func _prepare_transaction(
 
 
 static func _prepare_payload_entry(
-	active_root: String,
+	_active_root: String,
 	journal: Dictionary,
 	entry: Dictionary,
 	action: String,
@@ -555,13 +573,21 @@ static func _prepare_payload_entry(
 	}
 	if not original_exists:
 		return prepared
-	var backup_relative_path: String = _BACKUP_DIRECTORY_NAME.path_join(relative_path)
-	var backup_path: String = active_root.path_join(backup_relative_path)
-	if not _copy_file(target_path, backup_path, issues, "backup package payload %s" % relative_path):
+	var original_size_before: int = _file_size(target_path)
+	var original_sha: String = FileAccess.get_sha256(target_path).to_lower()
+	var original_size_after: int = _file_size(target_path)
+	if (
+		original_size_before < 0
+		or original_size_before != original_size_after
+		or not _is_sha256(original_sha)
+		or _path_has_link_component(target_path)
+	):
+		var _append_changed: bool = issues.append(
+			"Package transaction payload changed while preparing its baseline: %s" % relative_path
+		)
 		return {}
-	prepared["original_sha256"] = FileAccess.get_sha256(backup_path).to_lower()
-	prepared["original_size_bytes"] = _file_size(backup_path)
-	prepared["backup_relative_path"] = backup_relative_path
+	prepared["original_sha256"] = original_sha
+	prepared["original_size_bytes"] = original_size_after
 	return prepared
 
 
@@ -621,20 +647,42 @@ static func _apply_write(
 		var _append_changed: bool = issues.append("Package transaction staged source changed after preparation: %s" % source_path)
 		return false
 	var target_path: String = _payload_target_path(journal, entry)
-	var temp_path: String = _payload_temp_path(target_path, _GF_VARIANT_ACCESS.get_option_string(journal, "transaction_id"))
-	if _path_has_link_component(target_path) or _path_has_link_component(temp_path):
+	var transaction_id: String = _GF_VARIANT_ACCESS.get_option_string(journal, "transaction_id")
+	var temp_path: String = _payload_temp_path(target_path, transaction_id)
+	var ownership_path: String = _payload_ownership_path(target_path, transaction_id)
+	if (
+		_path_has_link_component(target_path)
+		or _path_has_link_component(temp_path)
+		or _path_has_link_component(ownership_path)
+	):
 		var _append_target_link: bool = issues.append("Package transaction write target crosses a filesystem link: %s" % target_path)
+		return false
+	if (
+		not _transaction_sidecar_path_is_disjoint(journal, temp_path, issues, "payload temp")
+		or not _transaction_sidecar_path_is_disjoint(journal, ownership_path, issues, "payload ownership")
+	):
+		return false
+	if _path_exists(temp_path) or _path_exists(ownership_path):
+		var _append_sidecar: bool = issues.append(
+			"Package transaction write sidecar already exists: %s" % _GF_VARIANT_ACCESS.get_option_string(entry, "relative_path")
+		)
 		return false
 	if not _copy_file(source_path, temp_path, issues, "stage package payload %s" % _GF_VARIANT_ACCESS.get_option_string(entry, "relative_path")):
 		return false
-	if _path_has_link_component(target_path) or _path_has_link_component(temp_path):
+	if (
+		_path_has_link_component(target_path)
+		or _path_has_link_component(temp_path)
+		or _path_has_link_component(ownership_path)
+	):
 		var _append_changed_link: bool = issues.append("Package transaction write path became a filesystem link: %s" % target_path)
 		return false
-	if FileAccess.file_exists(target_path):
-		var remove_error: Error = DirAccess.remove_absolute(target_path)
-		if remove_error != OK:
-			var _append_remove: bool = issues.append("Could not replace package payload: %s" % error_string(remove_error))
-			return false
+	if not _claim_payload_ownership(journal, entry, target_path, ownership_path, issues):
+		return false
+	if _path_exists(target_path):
+		var _append_reappeared: bool = issues.append(
+			"Package transaction payload target appeared after ownership claim: %s" % _GF_VARIANT_ACCESS.get_option_string(entry, "relative_path")
+		)
+		return false
 	var rename_error: Error = DirAccess.rename_absolute(temp_path, target_path)
 	if rename_error != OK:
 		var _append_rename: bool = issues.append("Could not commit package payload: %s" % error_string(rename_error))
@@ -647,38 +695,67 @@ static func _apply_write(
 
 static func _apply_delete(journal: Dictionary, entry: Dictionary, issues: PackedStringArray) -> bool:
 	var target_path: String = _payload_target_path(journal, entry)
-	if _path_has_link_component(target_path):
+	var transaction_id: String = _GF_VARIANT_ACCESS.get_option_string(journal, "transaction_id")
+	var ownership_path: String = _payload_ownership_path(target_path, transaction_id)
+	if _path_has_link_component(target_path) or _path_has_link_component(ownership_path):
 		var _append_target_link: bool = issues.append("Package transaction delete target crosses a filesystem link: %s" % target_path)
+		return false
+	if not _transaction_sidecar_path_is_disjoint(journal, ownership_path, issues, "payload ownership"):
 		return false
 	if DirAccess.dir_exists_absolute(target_path):
 		var _append_directory: bool = issues.append("Refusing to delete directory as package payload: %s" % target_path)
 		return false
-	if not FileAccess.file_exists(target_path):
+	if not _GF_VARIANT_ACCESS.get_option_bool(entry, "original_exists", false):
+		if _path_exists(target_path):
+			var _append_changed: bool = issues.append(
+				"Package transaction delete target changed after preparation: %s" % _GF_VARIANT_ACCESS.get_option_string(entry, "relative_path")
+			)
+			return false
 		return true
-	var remove_error: Error = DirAccess.remove_absolute(target_path)
-	if remove_error != OK:
-		var _append_remove: bool = issues.append("Could not delete package payload: %s (%s)" % [target_path, error_string(remove_error)])
+	if _path_exists(ownership_path):
+		var _append_sidecar: bool = issues.append(
+			"Package transaction delete ownership sidecar already exists: %s" % _GF_VARIANT_ACCESS.get_option_string(entry, "relative_path")
+		)
 		return false
-	return true
+	return _claim_payload_ownership(journal, entry, target_path, ownership_path, issues)
 
 
 static func _commit_lockfile(active_root: String, journal: Dictionary, issues: PackedStringArray) -> bool:
 	var planned_path: String = active_root.path_join(_LOCKFILE_PLANNED_NAME)
 	var lockfile_path: String = _GF_VARIANT_ACCESS.get_option_string(journal, "lockfile_path")
-	var temp_path: String = _lockfile_temp_path(lockfile_path, _GF_VARIANT_ACCESS.get_option_string(journal, "transaction_id"))
-	if _path_has_link_component(planned_path) or _path_has_link_component(lockfile_path) or _path_has_link_component(temp_path):
+	var transaction_id: String = _GF_VARIANT_ACCESS.get_option_string(journal, "transaction_id")
+	var temp_path: String = _lockfile_temp_path(lockfile_path, transaction_id)
+	var ownership_path: String = _lockfile_ownership_path(lockfile_path, transaction_id)
+	if (
+		_path_has_link_component(planned_path)
+		or _path_has_link_component(lockfile_path)
+		or _path_has_link_component(temp_path)
+		or _path_has_link_component(ownership_path)
+	):
 		var _append_lock_link: bool = issues.append("Package transaction lockfile path crosses a filesystem link.")
+		return false
+	if (
+		not _transaction_sidecar_path_is_disjoint(journal, temp_path, issues, "lockfile temp")
+		or not _transaction_sidecar_path_is_disjoint(journal, ownership_path, issues, "lockfile ownership")
+	):
+		return false
+	if _path_exists(temp_path) or _path_exists(ownership_path):
+		var _append_sidecar: bool = issues.append("Package transaction lockfile sidecar already exists.")
 		return false
 	if not _copy_file(planned_path, temp_path, issues, "stage package lockfile"):
 		return false
-	if _path_has_link_component(lockfile_path) or _path_has_link_component(temp_path):
+	if (
+		_path_has_link_component(lockfile_path)
+		or _path_has_link_component(temp_path)
+		or _path_has_link_component(ownership_path)
+	):
 		var _append_changed_link: bool = issues.append("Package transaction lockfile path became a filesystem link.")
 		return false
-	if FileAccess.file_exists(lockfile_path):
-		var remove_error: Error = DirAccess.remove_absolute(lockfile_path)
-		if remove_error != OK:
-			var _append_remove: bool = issues.append("Could not replace package lockfile: %s" % error_string(remove_error))
-			return false
+	if not _claim_lockfile_ownership(journal, lockfile_path, ownership_path, issues):
+		return false
+	if _path_exists(lockfile_path):
+		var _append_reappeared: bool = issues.append("Package transaction lockfile appeared after ownership claim.")
+		return false
 	var rename_error: Error = DirAccess.rename_absolute(temp_path, lockfile_path)
 	if rename_error != OK:
 		var _append_rename: bool = issues.append("Could not commit package lockfile: %s" % error_string(rename_error))
@@ -686,6 +763,116 @@ static func _commit_lockfile(active_root: String, journal: Dictionary, issues: P
 	if not _file_matches(lockfile_path, _GF_VARIANT_ACCESS.get_option_string(journal, "lockfile_planned_sha256"), _file_size(planned_path)):
 		var _append_verify: bool = issues.append("Committed package lockfile failed verification: %s" % lockfile_path)
 		return false
+	return true
+
+
+static func _claim_payload_ownership(
+	_journal: Dictionary,
+	entry: Dictionary,
+	target_path: String,
+	ownership_path: String,
+	issues: PackedStringArray
+) -> bool:
+	var relative_path: String = _GF_VARIANT_ACCESS.get_option_string(entry, "relative_path")
+	if _GF_VARIANT_ACCESS.get_option_bool(entry, "original_exists", false):
+		if not _payload_matches_original_state(target_path, entry):
+			var _append_changed: bool = issues.append(
+				"Package transaction payload changed after preparation: %s" % relative_path
+			)
+			return false
+		return _move_original_to_ownership(
+			target_path,
+			ownership_path,
+			_GF_VARIANT_ACCESS.get_option_string(entry, "original_sha256"),
+			_GF_VARIANT_ACCESS.get_option_int(entry, "original_size_bytes", -1),
+			issues,
+			"package payload %s" % relative_path
+		)
+	if _path_exists(target_path):
+		var _append_created: bool = issues.append(
+			"Package transaction payload appeared after preparation: %s" % relative_path
+		)
+		return false
+	return true
+
+
+static func _claim_lockfile_ownership(
+	journal: Dictionary,
+	lockfile_path: String,
+	ownership_path: String,
+	issues: PackedStringArray
+) -> bool:
+	if _GF_VARIANT_ACCESS.get_option_bool(journal, "lockfile_had_original", false):
+		if not _lockfile_matches_original_state(lockfile_path, journal):
+			var _append_changed: bool = issues.append("Package transaction lockfile changed after preparation.")
+			return false
+		return _move_original_to_ownership(
+			lockfile_path,
+			ownership_path,
+			_GF_VARIANT_ACCESS.get_option_string(journal, "lockfile_original_sha256"),
+			-1,
+			issues,
+			"package lockfile"
+		)
+	if _path_exists(lockfile_path):
+		var _append_created: bool = issues.append("Package transaction lockfile appeared after preparation.")
+		return false
+	return true
+
+
+static func _move_original_to_ownership(
+	target_path: String,
+	ownership_path: String,
+	expected_sha: String,
+	expected_size: int,
+	issues: PackedStringArray,
+	context: String
+) -> bool:
+	var rename_error: Error = DirAccess.rename_absolute(target_path, ownership_path)
+	if rename_error != OK:
+		var _append_rename: bool = issues.append(
+			"Could not claim transaction ownership of %s: %s" % [context, error_string(rename_error)]
+		)
+		return false
+	if _file_matches(ownership_path, expected_sha, expected_size):
+		return true
+	if not _path_exists(target_path) and not _path_has_link_component(target_path) and not _path_has_link_component(ownership_path):
+		var _restore_error: Error = DirAccess.rename_absolute(ownership_path, target_path)
+		if _restore_error != OK:
+			var _append_restore: bool = issues.append(
+				"Could not restore concurrently changed %s after ownership verification failed: %s" % [context, error_string(_restore_error)]
+			)
+	var _append_changed: bool = issues.append(
+		"Package transaction %s changed while claiming ownership." % context
+	)
+	return false
+
+
+static func _transaction_sidecar_path_is_disjoint(
+	journal: Dictionary,
+	sidecar_path: String,
+	issues: PackedStringArray,
+	context: String
+) -> bool:
+	var sidecar_identity: String = _absolute_portable_path_identity(sidecar_path)
+	var lockfile_identity: String = _absolute_portable_path_identity(
+		_GF_VARIANT_ACCESS.get_option_string(journal, "lockfile_path")
+	)
+	if sidecar_identity == lockfile_identity:
+		var _append_lockfile: bool = issues.append(
+			"Package transaction %s aliases the package lockfile." % context
+		)
+		return false
+	var entries: Array = _GF_VARIANT_ACCESS.get_option_array(journal, "writes") + _GF_VARIANT_ACCESS.get_option_array(journal, "deletes")
+	for raw_value: Variant in entries:
+		if not raw_value is Dictionary:
+			continue
+		var entry: Dictionary = raw_value
+		if sidecar_identity == _absolute_portable_path_identity(_payload_target_path(journal, entry)):
+			var _append_payload: bool = issues.append(
+				"Package transaction %s aliases a package payload target." % context
+			)
+			return false
 	return true
 
 
@@ -701,7 +888,8 @@ static func _rollback_after_failure(
 	var _phase_written: bool = _write_phase(active_root, journal, _PHASE_ROLLING_BACK, phase_issues)
 	_append_string_array(issues, phase_issues)
 	var rollback_issues: PackedStringArray = PackedStringArray()
-	var rollback_ok: bool = _rollback_state(active_root, journal, rollback_issues)
+	var rollback_warnings: PackedStringArray = PackedStringArray()
+	var rollback_ok: bool = _rollback_state(active_root, journal, rollback_issues, rollback_warnings)
 	_append_string_array(issues, rollback_issues)
 	if rollback_ok:
 		rollback_ok = _cleanup_active_transaction(active_root, journal, issues)
@@ -709,10 +897,15 @@ static func _rollback_after_failure(
 		var recovery_phase_issues: PackedStringArray = PackedStringArray()
 		var _recovery_phase_written: bool = _write_phase(active_root, journal, _PHASE_RECOVERY_FAILED, recovery_phase_issues)
 		_append_string_array(issues, recovery_phase_issues)
-	return _make_report(false, _GF_VARIANT_ACCESS.get_option_string(journal, "transaction_id"), operation, _GF_VARIANT_ACCESS.get_option_string(journal, "phase"), _OUTCOME_ROLLED_BACK if rollback_ok else _OUTCOME_RECOVERY_FAILED, write_count, delete_count, false, rollback_ok, false, not rollback_ok, issues)
+	return _make_report(false, _GF_VARIANT_ACCESS.get_option_string(journal, "transaction_id"), operation, _GF_VARIANT_ACCESS.get_option_string(journal, "phase"), _OUTCOME_ROLLED_BACK if rollback_ok else _OUTCOME_RECOVERY_FAILED, write_count, delete_count, false, rollback_ok, false, not rollback_ok, issues, rollback_warnings)
 
 
-static func _rollback_state(active_root: String, journal: Dictionary, issues: PackedStringArray) -> bool:
+static func _rollback_state(
+	active_root: String,
+	journal: Dictionary,
+	issues: PackedStringArray,
+	warnings: PackedStringArray = PackedStringArray()
+) -> bool:
 	if _append_rollback_conflict_issues(journal, issues):
 		return false
 	var entries: Array = _GF_VARIANT_ACCESS.get_option_array(journal, "deletes") + _GF_VARIANT_ACCESS.get_option_array(journal, "writes")
@@ -722,9 +915,9 @@ static func _rollback_state(active_root: String, journal: Dictionary, issues: Pa
 			var _append_entry: bool = issues.append("Package transaction journal contains an invalid payload entry.")
 			continue
 		var entry: Dictionary = raw_value
-		_restore_payload_entry(active_root, journal, entry, issues)
-	_restore_lockfile(active_root, journal, issues)
-	if not _verify_original_state(journal, issues):
+		_restore_payload_entry(active_root, journal, entry, issues, warnings)
+	_restore_lockfile(active_root, journal, issues, warnings)
+	if not _verify_original_state(journal, issues, warnings):
 		return false
 	return issues.is_empty()
 
@@ -733,44 +926,163 @@ static func _restore_payload_entry(
 	active_root: String,
 	journal: Dictionary,
 	entry: Dictionary,
-	issues: PackedStringArray
+	issues: PackedStringArray,
+	warnings: PackedStringArray
 ) -> void:
 	var target_path: String = _payload_target_path(journal, entry)
-	var temp_path: String = _payload_temp_path(target_path, _GF_VARIANT_ACCESS.get_option_string(journal, "transaction_id"))
-	_remove_file_if_exists(temp_path, issues, "remove transaction payload temp")
-	if _payload_matches_original_state(target_path, entry):
+	var transaction_id: String = _GF_VARIANT_ACCESS.get_option_string(journal, "transaction_id")
+	var temp_path: String = _payload_temp_path(target_path, transaction_id)
+	var ownership_path: String = _payload_ownership_path(target_path, transaction_id)
+	if _GF_VARIANT_ACCESS.get_option_string(entry, "action") == "write":
+		var _temp_removed: bool = _remove_matching_file_if_exists(
+			temp_path,
+			_GF_VARIANT_ACCESS.get_option_string(entry, "expected_sha256"),
+			_GF_VARIANT_ACCESS.get_option_int(entry, "expected_size_bytes", -1),
+			issues,
+			"remove transaction payload temp"
+		)
+	if not _path_exists(ownership_path):
+		var backup_relative_path: String = _GF_VARIANT_ACCESS.get_option_string(entry, "backup_relative_path")
+		if (
+			_GF_VARIANT_ACCESS.get_option_bool(entry, "original_exists", false)
+			and not backup_relative_path.is_empty()
+		):
+			_restore_original_from_ownership(
+				target_path,
+				active_root.path_join(backup_relative_path).replace("\\", "/").simplify_path(),
+				_GF_VARIANT_ACCESS.get_option_string(entry, "original_sha256"),
+				_GF_VARIANT_ACCESS.get_option_int(entry, "original_size_bytes", -1),
+				_GF_VARIANT_ACCESS.get_option_string(entry, "expected_sha256") if _GF_VARIANT_ACCESS.get_option_string(entry, "action") == "write" else "",
+				_GF_VARIANT_ACCESS.get_option_int(entry, "expected_size_bytes", -1) if _GF_VARIANT_ACCESS.get_option_string(entry, "action") == "write" else -1,
+				issues,
+				"restore package payload from legacy transaction backup"
+			)
+			return
+		if (
+			not _GF_VARIANT_ACCESS.get_option_bool(entry, "original_exists", false)
+			and _payload_matches_planned_state(target_path, entry)
+		):
+			var _planned_target_removed: bool = _remove_matching_file_if_exists(
+				target_path,
+				_GF_VARIANT_ACCESS.get_option_string(entry, "expected_sha256"),
+				_GF_VARIANT_ACCESS.get_option_int(entry, "expected_size_bytes", -1),
+				issues,
+				"remove newly created package payload"
+			)
+			_remove_empty_parents(target_path.get_base_dir(), _GF_VARIANT_ACCESS.get_option_string(journal, "project_root"))
+		elif not _payload_matches_original_state(target_path, entry):
+			var warning: String = (
+				"Package rollback preserved payload changed before transaction ownership: %s"
+				% _GF_VARIANT_ACCESS.get_option_string(entry, "relative_path")
+			)
+			if not warnings.has(warning):
+				var _append_warning: bool = warnings.append(warning)
 		return
-	if not _payload_matches_planned_state(target_path, entry):
-		var _append_conflict: bool = issues.append(
-			"Package rollback target changed outside the transaction: %s" % _GF_VARIANT_ACCESS.get_option_string(entry, "relative_path")
+	if not _payload_ownership_matches(journal, entry, ownership_path):
+		var _append_ownership: bool = issues.append(
+			"Package rollback ownership sidecar changed outside the transaction: %s" % _GF_VARIANT_ACCESS.get_option_string(entry, "relative_path")
 		)
 		return
 	if _GF_VARIANT_ACCESS.get_option_bool(entry, "original_exists", false):
-		var backup_path: String = active_root.path_join(_GF_VARIANT_ACCESS.get_option_string(entry, "backup_relative_path"))
-		_restore_file_from_snapshot(backup_path, target_path, _GF_VARIANT_ACCESS.get_option_string(journal, "transaction_id"), issues, "restore package payload")
+		_restore_original_from_ownership(
+			target_path,
+			ownership_path,
+			_GF_VARIANT_ACCESS.get_option_string(entry, "original_sha256"),
+			_GF_VARIANT_ACCESS.get_option_int(entry, "original_size_bytes", -1),
+			_GF_VARIANT_ACCESS.get_option_string(entry, "expected_sha256") if _GF_VARIANT_ACCESS.get_option_string(entry, "action") == "write" else "",
+			_GF_VARIANT_ACCESS.get_option_int(entry, "expected_size_bytes", -1) if _GF_VARIANT_ACCESS.get_option_string(entry, "action") == "write" else -1,
+			issues,
+			"restore package payload"
+		)
 		return
-	_remove_file_if_exists(target_path, issues, "remove newly created package payload")
+	if _payload_matches_planned_state(target_path, entry):
+		var _owned_target_removed: bool = _remove_matching_file_if_exists(
+			target_path,
+			_GF_VARIANT_ACCESS.get_option_string(entry, "expected_sha256"),
+			_GF_VARIANT_ACCESS.get_option_int(entry, "expected_size_bytes", -1),
+			issues,
+			"remove newly created package payload"
+		)
+	var _ownership_claim_removed: bool = _remove_matching_ownership_file_if_exists(
+		journal,
+		target_path,
+		ownership_path,
+		issues,
+		"remove package payload ownership claim"
+	)
 	_remove_empty_parents(target_path.get_base_dir(), _GF_VARIANT_ACCESS.get_option_string(journal, "project_root"))
 
 
-static func _restore_lockfile(active_root: String, journal: Dictionary, issues: PackedStringArray) -> void:
+static func _restore_lockfile(
+	_active_root: String,
+	journal: Dictionary,
+	issues: PackedStringArray,
+	warnings: PackedStringArray
+) -> void:
 	var lockfile_path: String = _GF_VARIANT_ACCESS.get_option_string(journal, "lockfile_path")
-	var temp_path: String = _lockfile_temp_path(lockfile_path, _GF_VARIANT_ACCESS.get_option_string(journal, "transaction_id"))
-	_remove_file_if_exists(temp_path, issues, "remove transaction lockfile temp")
-	if _lockfile_matches_original_state(lockfile_path, journal):
+	var transaction_id: String = _GF_VARIANT_ACCESS.get_option_string(journal, "transaction_id")
+	var temp_path: String = _lockfile_temp_path(lockfile_path, transaction_id)
+	var ownership_path: String = _lockfile_ownership_path(lockfile_path, transaction_id)
+	var _temp_removed: bool = _remove_matching_file_if_exists(
+		temp_path,
+		_GF_VARIANT_ACCESS.get_option_string(journal, "lockfile_planned_sha256"),
+		-1,
+		issues,
+		"remove transaction lockfile temp"
+	)
+	if not _path_exists(ownership_path):
+		if (
+			not _GF_VARIANT_ACCESS.get_option_bool(journal, "lockfile_had_original", false)
+			and _lockfile_matches_planned_state(lockfile_path, journal)
+		):
+			var _planned_lockfile_removed: bool = _remove_matching_file_if_exists(
+				lockfile_path,
+				_GF_VARIANT_ACCESS.get_option_string(journal, "lockfile_planned_sha256"),
+				-1,
+				issues,
+				"remove newly created package lockfile"
+			)
+		elif not _lockfile_matches_original_state(lockfile_path, journal):
+			var warning: String = "Package rollback preserved lockfile changed before transaction ownership."
+			if not warnings.has(warning):
+				var _append_warning: bool = warnings.append(warning)
 		return
-	if not _lockfile_matches_planned_state(lockfile_path, journal):
-		var _append_conflict: bool = issues.append("Package rollback lockfile changed outside the transaction.")
+	if not _lockfile_ownership_matches(journal, ownership_path):
+		var _append_ownership: bool = issues.append("Package rollback lockfile ownership sidecar changed outside the transaction.")
 		return
 	if _GF_VARIANT_ACCESS.get_option_bool(journal, "lockfile_had_original", false):
-		_restore_file_from_snapshot(active_root.path_join(_LOCKFILE_ORIGINAL_NAME), lockfile_path, _GF_VARIANT_ACCESS.get_option_string(journal, "transaction_id"), issues, "restore package lockfile")
+		_restore_original_from_ownership(
+			lockfile_path,
+			ownership_path,
+			_GF_VARIANT_ACCESS.get_option_string(journal, "lockfile_original_sha256"),
+			-1,
+			_GF_VARIANT_ACCESS.get_option_string(journal, "lockfile_planned_sha256"),
+			-1,
+			issues,
+			"restore package lockfile"
+		)
 		return
-	_remove_file_if_exists(lockfile_path, issues, "remove newly created package lockfile")
+	if _lockfile_matches_planned_state(lockfile_path, journal):
+		var _owned_lockfile_removed: bool = _remove_matching_file_if_exists(
+			lockfile_path,
+			_GF_VARIANT_ACCESS.get_option_string(journal, "lockfile_planned_sha256"),
+			-1,
+			issues,
+			"remove newly created package lockfile"
+		)
+	var _ownership_claim_removed: bool = _remove_matching_ownership_file_if_exists(
+		journal,
+		lockfile_path,
+		ownership_path,
+		issues,
+		"remove package lockfile ownership claim"
+	)
 
 
 static func _append_rollback_conflict_issues(journal: Dictionary, issues: PackedStringArray) -> bool:
 	var original_issue_count: int = issues.size()
 	var entries: Array = _GF_VARIANT_ACCESS.get_option_array(journal, "writes") + _GF_VARIANT_ACCESS.get_option_array(journal, "deletes")
+	var transaction_id: String = _GF_VARIANT_ACCESS.get_option_string(journal, "transaction_id")
 	for raw_value: Variant in entries:
 		if not raw_value is Dictionary:
 			var _append_entry: bool = issues.append("Package transaction journal contains an invalid payload entry.")
@@ -778,18 +1090,66 @@ static func _append_rollback_conflict_issues(journal: Dictionary, issues: Packed
 		var entry: Dictionary = raw_value
 		var target_path: String = _payload_target_path(journal, entry)
 		var relative_path: String = _GF_VARIANT_ACCESS.get_option_string(entry, "relative_path")
-		if _path_has_link_component(target_path):
+		var ownership_path: String = _payload_ownership_path(target_path, transaction_id)
+		var temp_path: String = _payload_temp_path(target_path, transaction_id)
+		if _path_has_link_component(target_path) or _path_has_link_component(ownership_path) or _path_has_link_component(temp_path):
 			var _append_link: bool = issues.append("Package rollback target crosses a filesystem link: %s" % relative_path)
 			continue
-		if not _payload_matches_original_state(target_path, entry) and not _payload_matches_planned_state(target_path, entry):
+		if not _transaction_sidecar_path_is_disjoint(journal, ownership_path, issues, "payload ownership"):
+			continue
+		if not _transaction_sidecar_path_is_disjoint(journal, temp_path, issues, "payload temp"):
+			continue
+		if _path_exists(temp_path) and (
+			_GF_VARIANT_ACCESS.get_option_string(entry, "action") != "write"
+			or not _file_matches(
+				temp_path,
+				_GF_VARIANT_ACCESS.get_option_string(entry, "expected_sha256"),
+				_GF_VARIANT_ACCESS.get_option_int(entry, "expected_size_bytes", -1)
+			)
+		):
+			var _append_temp: bool = issues.append(
+				"Package rollback payload temp changed outside the transaction: %s" % relative_path
+			)
+		if not _path_exists(ownership_path):
+			continue
+		if not _payload_ownership_matches(journal, entry, ownership_path):
+			var _append_ownership: bool = issues.append(
+				"Package rollback payload ownership sidecar changed outside the transaction: %s" % relative_path
+			)
+			continue
+		if (
+			not _payload_matches_original_state(target_path, entry)
+			and not _payload_matches_planned_state(target_path, entry)
+			and _path_exists(target_path)
+		):
 			var _append_conflict: bool = issues.append(
 				"Package rollback conflict; target matches neither original nor planned state: %s" % relative_path
 			)
 	var lockfile_path: String = _GF_VARIANT_ACCESS.get_option_string(journal, "lockfile_path")
-	if _path_has_link_component(lockfile_path):
+	var lockfile_ownership_path: String = _lockfile_ownership_path(lockfile_path, transaction_id)
+	var lockfile_temp_path: String = _lockfile_temp_path(lockfile_path, transaction_id)
+	if (
+		_path_has_link_component(lockfile_path)
+		or _path_has_link_component(lockfile_ownership_path)
+		or _path_has_link_component(lockfile_temp_path)
+	):
 		var _append_lock_link: bool = issues.append("Package rollback lockfile path crosses a filesystem link.")
-	elif not _lockfile_matches_original_state(lockfile_path, journal) and not _lockfile_matches_planned_state(lockfile_path, journal):
-		var _append_lock_conflict: bool = issues.append("Package rollback conflict; lockfile matches neither original nor planned state.")
+	else:
+		if _path_exists(lockfile_temp_path) and not _file_matches(
+			lockfile_temp_path,
+			_GF_VARIANT_ACCESS.get_option_string(journal, "lockfile_planned_sha256"),
+			-1
+		):
+			var _append_lock_temp: bool = issues.append("Package rollback lockfile temp changed outside the transaction.")
+		if _path_exists(lockfile_ownership_path):
+			if not _lockfile_ownership_matches(journal, lockfile_ownership_path):
+				var _append_lock_ownership: bool = issues.append("Package rollback lockfile ownership sidecar changed outside the transaction.")
+			elif (
+				not _lockfile_matches_original_state(lockfile_path, journal)
+				and not _lockfile_matches_planned_state(lockfile_path, journal)
+				and _path_exists(lockfile_path)
+			):
+				var _append_lock_conflict: bool = issues.append("Package rollback conflict; lockfile matches neither original nor planned state.")
 	return issues.size() > original_issue_count
 
 
@@ -823,33 +1183,117 @@ static func _lockfile_matches_planned_state(lockfile_path: String, journal: Dict
 	return _file_matches(lockfile_path, _GF_VARIANT_ACCESS.get_option_string(journal, "lockfile_planned_sha256"), -1)
 
 
-static func _restore_file_from_snapshot(
-	snapshot_path: String,
+static func _payload_ownership_matches(
+	journal: Dictionary,
+	entry: Dictionary,
+	ownership_path: String
+) -> bool:
+	if _GF_VARIANT_ACCESS.get_option_bool(entry, "original_exists", false):
+		return _file_matches(
+			ownership_path,
+			_GF_VARIANT_ACCESS.get_option_string(entry, "original_sha256"),
+			_GF_VARIANT_ACCESS.get_option_int(entry, "original_size_bytes", -1)
+		)
+	return _ownership_claim_matches(journal, _payload_target_path(journal, entry), ownership_path)
+
+
+static func _lockfile_ownership_matches(journal: Dictionary, ownership_path: String) -> bool:
+	if _GF_VARIANT_ACCESS.get_option_bool(journal, "lockfile_had_original", false):
+		return _file_matches(
+			ownership_path,
+			_GF_VARIANT_ACCESS.get_option_string(journal, "lockfile_original_sha256"),
+			-1
+		)
+	return _ownership_claim_matches(
+		journal,
+		_GF_VARIANT_ACCESS.get_option_string(journal, "lockfile_path"),
+		ownership_path
+	)
+
+
+static func _ownership_claim_matches(
+	journal: Dictionary,
 	target_path: String,
-	transaction_id: String,
+	ownership_path: String
+) -> bool:
+	var claim_text: String = _ownership_claim_text(journal, target_path)
+	return _file_matches(
+		ownership_path,
+		claim_text.sha256_text(),
+		claim_text.to_utf8_buffer().size()
+	)
+
+
+static func _ownership_claim_text(journal: Dictionary, target_path: String) -> String:
+	return "GF package transaction ownership v1\n%s\n%s\n" % [
+		_GF_VARIANT_ACCESS.get_option_string(journal, "transaction_id"),
+		_absolute_portable_path_identity(target_path),
+	]
+
+
+static func _restore_original_from_ownership(
+	target_path: String,
+	ownership_path: String,
+	original_sha: String,
+	original_size: int,
+	planned_sha: String,
+	planned_size: int,
 	issues: PackedStringArray,
 	context: String
 ) -> void:
-	if _path_has_link_component(snapshot_path) or _path_has_link_component(target_path):
+	if _path_has_link_component(ownership_path) or _path_has_link_component(target_path):
 		var _append_link: bool = issues.append("Filesystem link blocked while attempting to %s." % context)
 		return
-	if not FileAccess.file_exists(snapshot_path):
-		var _append_missing: bool = issues.append("Missing transaction snapshot while attempting to %s: %s" % [context, snapshot_path])
+	if not _file_matches(ownership_path, original_sha, original_size):
+		var _append_missing: bool = issues.append("Missing or changed ownership snapshot while attempting to %s: %s" % [context, ownership_path])
 		return
-	var temp_path: String = target_path + ".gf-package-restore-" + transaction_id + ".tmp"
-	if not _copy_file(snapshot_path, temp_path, issues, context):
+	if _file_matches(target_path, original_sha, original_size):
+		var _duplicate_ownership_removed: bool = _remove_matching_file_if_exists(
+			ownership_path,
+			original_sha,
+			original_size,
+			issues,
+			"remove duplicate ownership snapshot after %s" % context
+		)
 		return
-	if _path_has_link_component(snapshot_path) or _path_has_link_component(target_path) or _path_has_link_component(temp_path):
-		var _append_changed_link: bool = issues.append("Filesystem link appeared while attempting to %s." % context)
-		return
-	if FileAccess.file_exists(target_path):
-		var remove_error: Error = DirAccess.remove_absolute(target_path)
-		if remove_error != OK:
-			var _append_remove: bool = issues.append("Could not replace target while attempting to %s: %s" % [context, error_string(remove_error)])
+	if _path_exists(target_path):
+		if planned_sha.is_empty() or not _file_matches(target_path, planned_sha, planned_size):
+			var _append_conflict: bool = issues.append("Target changed outside the transaction while attempting to %s." % context)
 			return
-	var rename_error: Error = DirAccess.rename_absolute(temp_path, target_path)
+		if not _remove_matching_file_if_exists(
+			target_path,
+			planned_sha,
+			planned_size,
+			issues,
+			"remove planned target before %s" % context
+		):
+			return
+	if _path_exists(target_path):
+		var _append_reappeared: bool = issues.append("Target appeared while attempting to %s." % context)
+		return
+	var rename_error: Error = DirAccess.rename_absolute(ownership_path, target_path)
 	if rename_error != OK:
 		var _append_rename: bool = issues.append("Could not finish %s: %s" % [context, error_string(rename_error)])
+		return
+	if not _file_matches(target_path, original_sha, original_size):
+		var _append_verify: bool = issues.append("Restored target failed verification while attempting to %s." % context)
+
+
+static func _remove_matching_ownership_file_if_exists(
+	journal: Dictionary,
+	target_path: String,
+	ownership_path: String,
+	issues: PackedStringArray,
+	context: String
+) -> bool:
+	var claim_text: String = _ownership_claim_text(journal, target_path)
+	return _remove_matching_file_if_exists(
+		ownership_path,
+		claim_text.sha256_text(),
+		claim_text.to_utf8_buffer().size(),
+		issues,
+		context
+	)
 
 
 static func _verify_committed_state(journal: Dictionary, issues: PackedStringArray) -> bool:
@@ -871,13 +1315,18 @@ static func _verify_committed_state(journal: Dictionary, issues: PackedStringArr
 			var _append_entry: bool = issues.append("Committed package transaction contains an invalid delete entry.")
 			return false
 		var entry: Dictionary = raw_value
-		if FileAccess.file_exists(_payload_target_path(journal, entry)):
+		if _path_exists(_payload_target_path(journal, entry)):
 			var _append_delete: bool = issues.append("Committed package delete target still exists: %s" % _GF_VARIANT_ACCESS.get_option_string(entry, "relative_path"))
 			return false
 	return true
 
 
-static func _verify_original_state(journal: Dictionary, issues: PackedStringArray) -> bool:
+static func _verify_original_state(
+	journal: Dictionary,
+	issues: PackedStringArray,
+	warnings: PackedStringArray
+) -> bool:
+	var transaction_id: String = _GF_VARIANT_ACCESS.get_option_string(journal, "transaction_id")
 	var entries: Array = _GF_VARIANT_ACCESS.get_option_array(journal, "writes") + _GF_VARIANT_ACCESS.get_option_array(journal, "deletes")
 	for raw_value: Variant in entries:
 		if not raw_value is Dictionary:
@@ -885,17 +1334,31 @@ static func _verify_original_state(journal: Dictionary, issues: PackedStringArra
 			continue
 		var entry: Dictionary = raw_value
 		var target_path: String = _payload_target_path(journal, entry)
-		if _GF_VARIANT_ACCESS.get_option_bool(entry, "original_exists", false):
-			if not _file_matches(target_path, _GF_VARIANT_ACCESS.get_option_string(entry, "original_sha256"), _GF_VARIANT_ACCESS.get_option_int(entry, "original_size_bytes", -1)):
-				var _append_restore: bool = issues.append("Rolled-back package payload does not match original snapshot: %s" % _GF_VARIANT_ACCESS.get_option_string(entry, "relative_path"))
-		elif FileAccess.file_exists(target_path):
-			var _append_created: bool = issues.append("Rolled-back package payload still exists: %s" % _GF_VARIANT_ACCESS.get_option_string(entry, "relative_path"))
+		var ownership_path: String = _payload_ownership_path(target_path, transaction_id)
+		var temp_path: String = _payload_temp_path(target_path, transaction_id)
+		if _path_exists(ownership_path):
+			var _append_ownership: bool = issues.append(
+				"Rolled-back package payload still has an ownership sidecar: %s" % _GF_VARIANT_ACCESS.get_option_string(entry, "relative_path")
+			)
+		if _path_exists(temp_path):
+			var _append_temp: bool = issues.append(
+				"Rolled-back package payload still has a transaction temp: %s" % _GF_VARIANT_ACCESS.get_option_string(entry, "relative_path")
+			)
+		if not _payload_matches_original_state(target_path, entry):
+			var warning: String = "Package rollback preserved payload changed before transaction ownership: %s" % _GF_VARIANT_ACCESS.get_option_string(entry, "relative_path")
+			if not warnings.has(warning):
+				var _append_warning: bool = warnings.append(warning)
 	var lockfile_path: String = _GF_VARIANT_ACCESS.get_option_string(journal, "lockfile_path")
-	if _GF_VARIANT_ACCESS.get_option_bool(journal, "lockfile_had_original", false):
-		if not _file_matches(lockfile_path, _GF_VARIANT_ACCESS.get_option_string(journal, "lockfile_original_sha256"), -1):
-			var _append_lockfile: bool = issues.append("Rolled-back package lockfile does not match original snapshot.")
-	elif FileAccess.file_exists(lockfile_path):
-		var _append_new_lockfile: bool = issues.append("Rolled-back package lockfile still exists.")
+	var lockfile_ownership_path: String = _lockfile_ownership_path(lockfile_path, transaction_id)
+	var lockfile_temp_path: String = _lockfile_temp_path(lockfile_path, transaction_id)
+	if _path_exists(lockfile_ownership_path):
+		var _append_lock_ownership: bool = issues.append("Rolled-back package lockfile still has an ownership sidecar.")
+	if _path_exists(lockfile_temp_path):
+		var _append_lock_temp: bool = issues.append("Rolled-back package lockfile still has a transaction temp.")
+	if not _lockfile_matches_original_state(lockfile_path, journal):
+		var warning: String = "Package rollback preserved lockfile changed before transaction ownership."
+		if not warnings.has(warning):
+			var _append_warning: bool = warnings.append(warning)
 	return issues.is_empty()
 
 
@@ -914,12 +1377,27 @@ static func _cleanup_active_transaction(active_root: String, journal: Dictionary
 		if cleanup_path.is_empty():
 			var _append_cleanup_path: bool = issues.append("Package transaction journal contains an unsafe cleanup path: %s" % raw_cleanup_path)
 			continue
+		if _portable_absolute_paths_overlap(
+			cleanup_path,
+			_GF_VARIANT_ACCESS.get_option_string(journal, "lockfile_path")
+		):
+			var _append_cleanup_lockfile: bool = issues.append(
+				"Package transaction cleanup path overlaps the package lockfile: %s" % cleanup_path
+			)
+			continue
 		var _append_validated: bool = validated_cleanup_paths.append(cleanup_path)
 	if validated_cleanup_paths.size() != _GF_VARIANT_ACCESS.get_option_array(journal, "cleanup_paths").size():
 		return false
 	if _path_has_link_component(active_root) or _tree_has_link(active_root):
 		var _append_active_link: bool = issues.append("Active package transaction directory contains a filesystem link: %s" % active_root)
 		return false
+	if not _cleanup_transaction_sidecars(journal, issues):
+		return false
+	for cleanup_path: String in validated_cleanup_paths:
+		var cleanup_issues: PackedStringArray = PackedStringArray()
+		if not _remove_tree(cleanup_path, cleanup_issues):
+			_append_string_array(issues, cleanup_issues)
+			return false
 	var cleanup_root: String = transaction_root.path_join(
 		_CLEANUP_PREFIX + _GF_VARIANT_ACCESS.get_option_string(journal, "transaction_id")
 	)
@@ -933,12 +1411,6 @@ static func _cleanup_active_transaction(active_root: String, journal: Dictionary
 		var _append_finalize: bool = issues.append("Could not finalize package transaction directory: %s" % error_string(finalize_error))
 		return false
 	var ok: bool = true
-	for cleanup_path: String in validated_cleanup_paths:
-		var cleanup_issues: PackedStringArray = PackedStringArray()
-		var cleanup_ok: bool = _remove_tree(cleanup_path, cleanup_issues)
-		if not cleanup_ok:
-			_append_string_array(issues, cleanup_issues)
-			ok = false
 	var cleanup_directory_issues: PackedStringArray = PackedStringArray()
 	var cleanup_directory_removed: bool = _remove_tree(cleanup_root, cleanup_directory_issues)
 	if not cleanup_directory_removed:
@@ -946,6 +1418,77 @@ static func _cleanup_active_transaction(active_root: String, journal: Dictionary
 		ok = false
 	_remove_empty_directory(transaction_root)
 	return ok
+
+
+static func _cleanup_transaction_sidecars(journal: Dictionary, issues: PackedStringArray) -> bool:
+	if _GF_VARIANT_ACCESS.get_option_string(journal, "phase") == _PHASE_PREPARING:
+		return true
+	var original_issue_count: int = issues.size()
+	var transaction_id: String = _GF_VARIANT_ACCESS.get_option_string(journal, "transaction_id")
+	var entries: Array = _GF_VARIANT_ACCESS.get_option_array(journal, "writes") + _GF_VARIANT_ACCESS.get_option_array(journal, "deletes")
+	for raw_value: Variant in entries:
+		if not raw_value is Dictionary:
+			var _append_entry: bool = issues.append("Package transaction journal contains an invalid payload entry during cleanup.")
+			continue
+		var entry: Dictionary = raw_value
+		var target_path: String = _payload_target_path(journal, entry)
+		var ownership_path: String = _payload_ownership_path(target_path, transaction_id)
+		if _GF_VARIANT_ACCESS.get_option_string(entry, "action") == "write":
+			var _payload_temp_removed: bool = _remove_matching_file_if_exists(
+				_payload_temp_path(target_path, transaction_id),
+				_GF_VARIANT_ACCESS.get_option_string(entry, "expected_sha256"),
+				_GF_VARIANT_ACCESS.get_option_int(entry, "expected_size_bytes", -1),
+				issues,
+				"remove package payload temp during transaction cleanup"
+			)
+		if not _path_exists(ownership_path):
+			continue
+		if _GF_VARIANT_ACCESS.get_option_bool(entry, "original_exists", false):
+			var _payload_ownership_removed: bool = _remove_matching_file_if_exists(
+				ownership_path,
+				_GF_VARIANT_ACCESS.get_option_string(entry, "original_sha256"),
+				_GF_VARIANT_ACCESS.get_option_int(entry, "original_size_bytes", -1),
+				issues,
+				"remove package payload ownership snapshot during transaction cleanup"
+			)
+		else:
+			var _payload_claim_removed: bool = _remove_matching_ownership_file_if_exists(
+				journal,
+				target_path,
+				ownership_path,
+				issues,
+				"remove package payload ownership claim during transaction cleanup"
+			)
+
+	var lockfile_path: String = _GF_VARIANT_ACCESS.get_option_string(journal, "lockfile_path")
+	var lockfile_planned_sha: String = _GF_VARIANT_ACCESS.get_option_string(journal, "lockfile_planned_sha256")
+	if not lockfile_planned_sha.is_empty():
+		var _lockfile_temp_removed: bool = _remove_matching_file_if_exists(
+			_lockfile_temp_path(lockfile_path, transaction_id),
+			lockfile_planned_sha,
+			-1,
+			issues,
+			"remove package lockfile temp during transaction cleanup"
+		)
+	var lockfile_ownership_path: String = _lockfile_ownership_path(lockfile_path, transaction_id)
+	if _path_exists(lockfile_ownership_path):
+		if _GF_VARIANT_ACCESS.get_option_bool(journal, "lockfile_had_original", false):
+			var _lockfile_ownership_removed: bool = _remove_matching_file_if_exists(
+				lockfile_ownership_path,
+				_GF_VARIANT_ACCESS.get_option_string(journal, "lockfile_original_sha256"),
+				-1,
+				issues,
+				"remove package lockfile ownership snapshot during transaction cleanup"
+			)
+		else:
+			var _lockfile_claim_removed: bool = _remove_matching_ownership_file_if_exists(
+				journal,
+				lockfile_path,
+				lockfile_ownership_path,
+				issues,
+				"remove package lockfile ownership claim during transaction cleanup"
+			)
+	return issues.size() == original_issue_count
 
 
 static func _write_phase(
@@ -1117,6 +1660,10 @@ static func _validate_journal(
 		if cleanup_path.is_empty():
 			var _append_cleanup: bool = issues.append("Package transaction journal cleanup path is unsafe: %s" % raw_cleanup_path)
 			continue
+		if _portable_absolute_paths_overlap(cleanup_path, lockfile_path):
+			var _append_cleanup_lockfile: bool = issues.append(
+				"Package transaction journal cleanup path overlaps the package lockfile: %s" % raw_cleanup_path
+			)
 		var cleanup_identity: String = _absolute_portable_path_identity(cleanup_path)
 		if seen_cleanup_paths.has(cleanup_identity):
 			var _append_cleanup_duplicate: bool = issues.append("Package transaction journal cleanup path is duplicated: %s" % raw_cleanup_path)
@@ -1162,6 +1709,14 @@ static func _validate_journal(
 		_validate_journal_payload_entry(raw_write, "write", project_root, normalized_active_root, seen_payload_paths, issues)
 	for raw_delete: Variant in deletes:
 		_validate_journal_payload_entry(raw_delete, "delete", project_root, normalized_active_root, seen_payload_paths, issues)
+	for raw_entry: Variant in writes + deletes:
+		if not raw_entry is Dictionary:
+			continue
+		var entry: Dictionary = raw_entry
+		if _absolute_portable_path_identity(_payload_target_path(journal, entry)) == _absolute_portable_path_identity(lockfile_path):
+			var _append_lockfile_alias: bool = issues.append(
+				"Package transaction journal lockfile aliases package payload: %s" % _GF_VARIANT_ACCESS.get_option_string(entry, "relative_path")
+			)
 	return issues.is_empty()
 
 
@@ -1210,21 +1765,25 @@ static func _validate_journal_payload_entry(
 		var _append_backup_type: bool = issues.append("Package transaction journal backup path is invalid: %s" % relative_path)
 		return
 	if _GF_VARIANT_ACCESS.get_option_bool(entry, "original_exists", false):
-		var expected_backup: String = _BACKUP_DIRECTORY_NAME.path_join(relative_path).replace("\\", "/")
-		var backup_path: String = active_root.path_join(backup_relative_path).replace("\\", "/").simplify_path()
-		if backup_relative_path != expected_backup or not _is_path_inside(active_root, backup_path):
-			var _append_backup_root: bool = issues.append("Package transaction journal backup path is not bound to its payload: %s" % relative_path)
-		elif (
-			_path_has_link_component(backup_path)
-			or not _is_sha256(_GF_VARIANT_ACCESS.get_option_string(entry, "original_sha256"))
+		if (
+			not _is_sha256(_GF_VARIANT_ACCESS.get_option_string(entry, "original_sha256"))
 			or _GF_VARIANT_ACCESS.get_option_int(entry, "original_size_bytes", -1) < 0
-			or not _file_matches(
-				backup_path,
-				_GF_VARIANT_ACCESS.get_option_string(entry, "original_sha256"),
-				_GF_VARIANT_ACCESS.get_option_int(entry, "original_size_bytes", -1)
-			)
 		):
-			var _append_backup: bool = issues.append("Package transaction journal backup snapshot is missing or invalid: %s" % relative_path)
+			var _append_original: bool = issues.append("Package transaction journal original metadata is invalid: %s" % relative_path)
+		elif not backup_relative_path.is_empty():
+			var expected_backup: String = _BACKUP_DIRECTORY_NAME.path_join(relative_path).replace("\\", "/")
+			var backup_path: String = active_root.path_join(backup_relative_path).replace("\\", "/").simplify_path()
+			if backup_relative_path != expected_backup or not _is_path_inside(active_root, backup_path):
+				var _append_backup_root: bool = issues.append("Package transaction journal backup path is not bound to its payload: %s" % relative_path)
+			elif (
+				_path_has_link_component(backup_path)
+				or not _file_matches(
+					backup_path,
+					_GF_VARIANT_ACCESS.get_option_string(entry, "original_sha256"),
+					_GF_VARIANT_ACCESS.get_option_int(entry, "original_size_bytes", -1)
+				)
+			):
+				var _append_backup: bool = issues.append("Package transaction journal backup snapshot is missing or invalid: %s" % relative_path)
 	elif (
 		not _GF_VARIANT_ACCESS.get_option_string(entry, "original_sha256").is_empty()
 		or _GF_VARIANT_ACCESS.get_option_int(entry, "original_size_bytes", 0) != 0
@@ -1360,8 +1919,16 @@ static func _payload_temp_path(target_path: String, transaction_id: String) -> S
 	return target_path + ".gf-package-" + transaction_id + ".tmp"
 
 
+static func _payload_ownership_path(target_path: String, transaction_id: String) -> String:
+	return target_path + ".gf-package-" + transaction_id + ".owner"
+
+
 static func _lockfile_temp_path(lockfile_path: String, transaction_id: String) -> String:
 	return lockfile_path + ".gf-package-" + transaction_id + ".tmp"
+
+
+static func _lockfile_ownership_path(lockfile_path: String, transaction_id: String) -> String:
+	return lockfile_path + ".gf-package-" + transaction_id + ".owner"
 
 
 static func _normalize_project_root(path: String) -> String:
@@ -1424,6 +1991,18 @@ static func _portable_path_identity(path: String) -> String:
 
 static func _absolute_portable_path_identity(path: String) -> String:
 	return _normalize_absolute_path(path).to_lower()
+
+
+static func _portable_absolute_paths_overlap(left: String, right: String) -> bool:
+	var left_identity: String = _absolute_portable_path_identity(left)
+	var right_identity: String = _absolute_portable_path_identity(right)
+	if left_identity.is_empty() or right_identity.is_empty():
+		return false
+	return (
+		left_identity == right_identity
+		or left_identity.begins_with(right_identity + "/")
+		or right_identity.begins_with(left_identity + "/")
+	)
 
 
 static func _packed_array_has_portable_path(values: PackedStringArray, path: String) -> bool:
@@ -1728,15 +2307,25 @@ static func _file_size(path: String) -> int:
 	return result
 
 
-static func _remove_file_if_exists(path: String, issues: PackedStringArray, context: String) -> void:
-	if _path_has_link_component(path):
-		var _append_link: bool = issues.append("Could not %s because the path crosses a filesystem link." % context)
-		return
-	if not FileAccess.file_exists(path):
-		return
+static func _remove_matching_file_if_exists(
+	path: String,
+	expected_sha: String,
+	expected_size: int,
+	issues: PackedStringArray,
+	context: String
+) -> bool:
+	if not _path_exists(path):
+		return true
+	if not _file_matches(path, expected_sha, expected_size):
+		var _append_mismatch: bool = issues.append(
+			"Could not %s because the file no longer matches transaction-owned bytes: %s" % [context, path]
+		)
+		return false
 	var remove_error: Error = DirAccess.remove_absolute(path)
 	if remove_error != OK:
 		var _append_remove: bool = issues.append("Could not %s: %s" % [context, error_string(remove_error)])
+		return false
+	return true
 
 
 static func _remove_tree(path: String, issues: PackedStringArray) -> bool:

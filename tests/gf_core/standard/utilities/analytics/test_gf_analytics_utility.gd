@@ -379,6 +379,7 @@ func test_queue_respects_max_size() -> void:
 	_analytics.track(&"third")
 
 	assert_eq(_analytics.get_queue_size(), 2, "队列不应超过 max_queue_size。")
+	assert_eq(_analytics.get_dropped_event_count(), 1, "丢弃最旧事件必须计入统一累计值。")
 
 
 ## 验证失败批次回灌后仍遵守队列上限。
@@ -418,6 +419,73 @@ func test_analytics_headers_reject_invalid_entries() -> void:
 	assert_true(headers.has("X-Ok: yes"), "合法 Header 应保留。")
 	assert_push_warning("[GFAnalyticsConfig] 忽略非法 HTTP Header：X-Bad\\r\\nInjected")
 	assert_push_warning("[GFAnalyticsConfig] 忽略非法 HTTP Header：")
+
+
+func test_analytics_headers_enforce_http_field_grammar() -> void:
+	var config: GFAnalyticsConfig = GFAnalyticsConfig.new()
+	config.headers = {
+		"X:Colon": "no",
+		"X Space": "no",
+		"X-Control": "bad\u0001value",
+		"X-Tab": "one\ttwo",
+		"X-Utf8": "中文",
+	}
+
+	var headers: PackedStringArray = config.build_headers()
+
+	assert_eq(headers.size(), 3, "只应保留默认 Header 和两个协议合法字段。")
+	assert_true(headers.has("X-Tab: one\ttwo"), "字段值应允许 HTTP 线性制表符。")
+	assert_true(headers.has("X-Utf8: 中文"), "无控制字符的 UTF-8 字段值应保持。")
+	assert_push_warning("[GFAnalyticsConfig] 忽略非法 HTTP Header：X:Colon")
+	assert_push_warning("[GFAnalyticsConfig] 忽略非法 HTTP Header：X Space")
+	assert_push_warning("[GFAnalyticsConfig] 忽略非法 HTTP Header：X-Control")
+
+
+func test_analytics_headers_apply_bounded_custom_header_budget() -> void:
+	var config: GFAnalyticsConfig = GFAnalyticsConfig.new()
+	for index: int in range(65):
+		config.headers["X-Budget-%d" % index] = "value"
+
+	var headers: PackedStringArray = config.build_headers()
+
+	assert_eq(headers.size(), 65, "结果最多应包含默认 Header 和 64 个自定义 Header。")
+	assert_push_warning("[GFAnalyticsConfig] 自定义 HTTP Header 数量超过 64，已忽略剩余字段。")
+
+
+func test_analytics_headers_apply_byte_budgets() -> void:
+	var oversized_config: GFAnalyticsConfig = GFAnalyticsConfig.new()
+	oversized_config.headers = {
+		"X-Oversized": "s".repeat(8193),
+	}
+
+	var oversized_headers: PackedStringArray = oversized_config.build_headers()
+
+	assert_eq(oversized_headers.size(), 1, "超过单字段字节预算的 Header 不得进入请求。")
+	assert_push_warning("[GFAnalyticsConfig] 忽略非法 HTTP Header：X-Oversized")
+
+	var total_config: GFAnalyticsConfig = GFAnalyticsConfig.new()
+	for index: int in range(9):
+		total_config.headers["X-Total-%d" % index] = "v".repeat(8100)
+
+	var total_headers: PackedStringArray = total_config.build_headers()
+
+	assert_eq(total_headers.size(), 9, "总预算应只允许默认 Header 和前八个大字段。")
+	assert_push_warning("[GFAnalyticsConfig] 自定义 HTTP Header 总字节数超过 65536，已忽略剩余字段。")
+
+
+func test_analytics_headers_reject_case_insensitive_duplicates() -> void:
+	var config: GFAnalyticsConfig = GFAnalyticsConfig.new()
+	config.headers = {
+		"X-Trace": "first",
+		"x-trace": "second",
+	}
+
+	var headers: PackedStringArray = config.build_headers()
+
+	assert_eq(headers.size(), 2, "同名 Header 只能保留一个大小写变体。")
+	assert_true(headers.has("X-Trace: first"), "应保留第一个合法 Header。")
+	assert_false(headers.has("x-trace: second"), "后续大小写重复字段必须拒绝。")
+	assert_push_warning("[GFAnalyticsConfig] 忽略重复 HTTP Header：x-trace")
 
 
 ## 验证启用压缩时会固定 Content-Encoding，避免自定义 Header 和请求体不一致。
@@ -1060,6 +1128,33 @@ func test_response_parser_non_dictionary_fails_closed_and_requeues_batch() -> vo
 	analytics.dispose()
 
 
+func test_non_success_http_response_does_not_expose_response_body() -> void:
+	var analytics: PendingHTTPResponseAnalyticsUtility = PendingHTTPResponseAnalyticsUtility.new()
+	analytics.init()
+	analytics.config.auto_capture_context = false
+	analytics.config.flush_interval_seconds = 0.0
+	var failures: Array[Dictionary] = []
+	var _failure_connected: Error = analytics.flush_failed.connect(
+		func(result: Dictionary) -> void:
+			failures.append(result.duplicate(true))
+	) as Error
+	analytics.track(&"server_failure")
+	analytics.flush()
+
+	analytics.complete_response("secret-canary\r\nInjected: value", 503)
+
+	assert_eq(failures.size(), 1, "非成功 HTTP 响应应产生一次结构化失败。")
+	if failures.is_empty():
+		analytics.dispose()
+		return
+	var failure: Dictionary = failures[0]
+	assert_eq(GFVariantData.get_option_string(failure, "error"), "HTTP 503", "公开错误只应包含稳定状态。")
+	assert_eq(GFVariantData.get_option_int(failure, "response_code"), 503, "HTTP 状态码应作为结构化字段公开。")
+	assert_false(JSON.stringify(failure).contains("secret-canary"), "远端响应正文不得进入公共失败信号。")
+	assert_eq(analytics.get_queue_size(), 1, "HTTP 失败后原批次仍应回灌。")
+	analytics.dispose()
+
+
 func test_response_parser_state_change_cannot_finish_a_new_generation() -> void:
 	var analytics: PendingHTTPResponseAnalyticsUtility = PendingHTTPResponseAnalyticsUtility.new()
 	analytics.init()
@@ -1250,10 +1345,10 @@ class PendingHTTPResponseAnalyticsUtility extends GFAnalyticsUtility:
 		_active_http_generation = _flush_generation
 
 
-	func complete_response(body_text: String) -> void:
+	func complete_response(body_text: String, response_code: int = 200) -> void:
 		_on_request_completed(
 			HTTPRequest.RESULT_SUCCESS,
-			200,
+			response_code,
 			PackedStringArray(),
 			body_text.to_utf8_buffer()
 		)

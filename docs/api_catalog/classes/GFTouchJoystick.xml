@@ -1,7 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFTouchJoystick" path="addons/gf/standard/input/touch/gf_touch_joystick.gd" module="standard" extends="GFTouchControl2D" classDigest="e44c8e66d4d15a690f7e84cc39556ac3496b6c6a8e1403e5ae147b016a81ef3b">
+<class name="GFTouchJoystick" path="addons/gf/standard/input/touch/gf_touch_joystick.gd" module="standard" extends="GFTouchControl2D" classDigest="d389fd92434e75ab60036485e436b5f2e9817b84c0c07e0e5f84360c8092eb75">
 	<description>GFTouchJoystick: 通用触屏虚拟摇杆节点。
-可直接发出摇杆向量信号，也可选择映射到 Godot InputMap 动作。</description>
+可直接发出摇杆向量信号，也可选择映射到 Godot InputMap 动作。
+每次 gesture 会冻结 begin-time 定位模式、action 与虚拟 joypad lane；
+运行时配置修改从下一次 gesture 生效。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">runtime_service</tag>

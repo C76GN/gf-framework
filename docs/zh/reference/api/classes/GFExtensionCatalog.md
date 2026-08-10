@@ -16,9 +16,9 @@ GF 扩展 manifest 发现与读取辅助。 扫描 GF 内置扩展目录和项�
 | 类型 | 名称 | 签名 |
 |---|---|---|
 | 常量 | [`EXTENSIONS_PATH`](#member-gfextensioncatalog-constants-extensions_path) | `const EXTENSIONS_PATH: String = "res://addons/gf/extensions"` |
-| 方法 | [`load_extension_manifests`](#member-gfextensioncatalog-methods-load_extension_manifests) | `static func load_extension_manifests() -> Array[GFExtensionManifest]:` |
-| 方法 | [`load_all_manifests`](#member-gfextensioncatalog-methods-load_all_manifests) | `static func load_all_manifests(extra_root_paths: Array[String] = []) -> Array[GFExtensionManifest]:` |
-| 方法 | [`load_manifests_in`](#member-gfextensioncatalog-methods-load_manifests_in) | `static func load_manifests_in(root_path: String) -> Array[GFExtensionManifest]:` |
+| 方法 | [`load_extension_manifests`](#member-gfextensioncatalog-methods-load_extension_manifests) | `static func load_extension_manifests(options: Dictionary = {}) -> Array[GFExtensionManifest]:` |
+| 方法 | [`load_all_manifests`](#member-gfextensioncatalog-methods-load_all_manifests) | `static func load_all_manifests( extra_root_paths: Array[String] = [], options: Dictionary = {} ) -> Array[GFExtensionManifest]:` |
+| 方法 | [`load_manifests_in`](#member-gfextensioncatalog-methods-load_manifests_in) | `static func load_manifests_in( root_path: String, options: Dictionary = {} ) -> Array[GFExtensionManifest]:` |
 | 方法 | [`get_manifest_paths`](#member-gfextensioncatalog-methods-get_manifest_paths) | `static func get_manifest_paths(root_path: String) -> Array[String]:` |
 
 ## 常量
@@ -42,23 +42,35 @@ GF 内置可选扩展根目录。
 ### `load_extension_manifests`
 
 - API：`public`
+- 首次版本：`3.6.0`
 
 ```gdscript
-static func load_extension_manifests() -> Array[GFExtensionManifest]:
+static func load_extension_manifests(options: Dictionary = {}) -> Array[GFExtensionManifest]:
 ```
 
 读取 GF 内置可选扩展 manifest。
 
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `options` | 可选 JSON 预算，只能收紧框架硬上限。 |
+
 返回：扩展 manifest 列表。
+
+结构：
+
+- `options`: Dictionary，支持 max_json_file_bytes、max_json_total_bytes 和 max_json_depth。
 
 <a id="member-gfextensioncatalog-methods-load_all_manifests"></a>
 
 ### `load_all_manifests`
 
 - API：`public`
+- 首次版本：`3.6.0`
 
 ```gdscript
-static func load_all_manifests(extra_root_paths: Array[String] = []) -> Array[GFExtensionManifest]:
+static func load_all_manifests( extra_root_paths: Array[String] = [], options: Dictionary = {} ) -> Array[GFExtensionManifest]:
 ```
 
 读取所有 GF 可选扩展 manifest。
@@ -68,17 +80,23 @@ static func load_all_manifests(extra_root_paths: Array[String] = []) -> Array[GF
 | 名称 | 说明 |
 |---|---|
 | `extra_root_paths` | 额外扩展集合根目录列表，每个根目录下一层为独立扩展目录。 |
+| `options` | 可选 JSON 预算，只能收紧框架硬上限。 |
 
 返回：扩展 manifest 列表。
+
+结构：
+
+- `options`: Dictionary，支持 max_json_file_bytes、max_json_total_bytes 和 max_json_depth。
 
 <a id="member-gfextensioncatalog-methods-load_manifests_in"></a>
 
 ### `load_manifests_in`
 
 - API：`public`
+- 首次版本：`3.6.0`
 
 ```gdscript
-static func load_manifests_in(root_path: String) -> Array[GFExtensionManifest]:
+static func load_manifests_in( root_path: String, options: Dictionary = {} ) -> Array[GFExtensionManifest]:
 ```
 
 读取指定根目录下一层扩展目录中的 manifest。
@@ -88,8 +106,13 @@ static func load_manifests_in(root_path: String) -> Array[GFExtensionManifest]:
 | 名称 | 说明 |
 |---|---|
 | `root_path` | 扩展集合根目录。 |
+| `options` | 可选 JSON 预算，只能收紧框架硬上限。 |
 
 返回：扩展 manifest 列表。
+
+结构：
+
+- `options`: Dictionary，支持 max_json_file_bytes、max_json_total_bytes 和 max_json_depth。
 
 <a id="member-gfextensioncatalog-methods-get_manifest_paths"></a>
 

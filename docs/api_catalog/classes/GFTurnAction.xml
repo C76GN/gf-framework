@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFTurnAction" path="addons/gf/extensions/turn_based/runtime/gf_turn_action.gd" module="extensions/turn_based" extends="RefCounted" classDigest="33b3ced8b4ee3259bcb5c9397f8a184280bf70fcae7f508e97b65eb4a1508e07">
+<class name="GFTurnAction" path="addons/gf/extensions/turn_based/runtime/gf_turn_action.gd" module="extensions/turn_based" extends="RefCounted" classDigest="e26aede9afbe561aaac0d1d75cecb416e36f2b9a92bf3b8028d00942573c0157">
 	<description>GFTurnAction: 通用回合行动基类。
 行动只描述“谁执行、对谁执行、排序值与载荷”，具体效果由子类重写 `_resolve()`。</description>
 	<tags>
@@ -54,7 +54,8 @@
 		</member>
 		<member kind="property" name="sort_value">
 			<signature>var sort_value: float:</signature>
-			<description>次排序值，值越大越先处理。</description>
+			<description>次排序值。默认比较器中，有限值越大越先处理；NaN 与正负 Infinity
+统一排在有限值之后，并按入队顺序稳定处理。自定义比较器自行定义完整总序。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="since">3.17.0</tag>

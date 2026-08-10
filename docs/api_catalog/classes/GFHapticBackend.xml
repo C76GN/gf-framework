@@ -1,8 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFHapticBackend" path="addons/gf/extensions/feedback/runtime/gf_haptic_backend.gd" module="extensions/feedback" extends="RefCounted" classDigest="70dac3998978228ebfb2bfbf49543578198b10dfe3616f5bf606f323526f4a70">
+<class name="GFHapticBackend" path="addons/gf/extensions/feedback/runtime/gf_haptic_backend.gd" module="extensions/feedback" extends="RefCounted" classDigest="761993172c8deec1629c0622adb59431e6bbd8e901fa98396d1e045d50fe4430">
 	<description>GFHapticBackend: 震动输出后端协议。
 项目可实现该协议，把 GFHapticUtility 的采样输出路由到平台 SDK、远程设备、
-测试替身或自定义输入系统。该协议只承载输出能力，不定义播放策略。</description>
+测试替身或自定义输入系统。该协议只承载输出能力，不定义播放策略。实现必须成对
+支持 start_output() 与 stop_output()；成功 start 的同一实例拥有后续 refresh/stop。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">protocol</tag>
@@ -22,9 +23,9 @@
 				<tag name="param">target_id: 玩家索引或设备 ID。</tag>
 				<tag name="param">weak_magnitude: 弱马达强度。</tag>
 				<tag name="param">strong_magnitude: 强马达强度。</tag>
-				<tag name="param">duration_seconds: 输出持续时间。</tag>
+				<tag name="param">duration_seconds: 有限正输出持续时间。</tag>
 				<tag name="param">metadata: 输出元数据。</tag>
-				<tag name="return">后端接受输出时返回 true。</tag>
+				<tag name="return">后端接受输出并承担后续 refresh/stop 所有权时返回 true。</tag>
 				<tag name="schema">metadata: Dictionary copied from GFHapticUtility output target metadata.</tag>
 				<tag name="since">8.0.0</tag>
 			</tags>
@@ -51,9 +52,9 @@
 				<tag name="param">_target_id: 玩家索引或设备 ID。</tag>
 				<tag name="param">_weak_magnitude: 弱马达强度。</tag>
 				<tag name="param">_strong_magnitude: 强马达强度。</tag>
-				<tag name="param">_duration_seconds: 输出持续时间。</tag>
+				<tag name="param">_duration_seconds: 有限正输出持续时间。</tag>
 				<tag name="param">_metadata: 输出元数据。</tag>
-				<tag name="return">后端接受输出时返回 true。</tag>
+				<tag name="return">后端接受输出并承担后续 refresh/stop 所有权时返回 true。</tag>
 				<tag name="schema">_metadata: Dictionary copied from GFHapticUtility output target metadata.</tag>
 				<tag name="since">8.0.0</tag>
 			</tags>

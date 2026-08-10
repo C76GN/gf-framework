@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSaveGraphUtility" path="addons/gf/extensions/save/graph/gf_save_graph_utility.gd" module="extensions/save" extends="GFUtility" classDigest="cc518b67fbfd594d75e7273f06ed044c12701f8cc424b77d07e683d4a6d048ed">
+<class name="GFSaveGraphUtility" path="addons/gf/extensions/save/graph/gf_save_graph_utility.gd" module="extensions/save" extends="GFUtility" classDigest="47e3e42158b3864da22426940488207e7e9c1d75cbdf947be78b22bfdefd57dd">
 	<description>GFSaveGraphUtility: 通用节点存档图编排工具。
 负责遍历 GFSaveScope/GFSaveSource，采集、应用和落盘存档图。具体数据结构
 由 Source、Serializer 或项目继承类决定，Utility 本身不绑定业务字段。</description>
@@ -186,7 +186,7 @@
 				<tag name="param">strict: 为 true 时缺失 Source/Scope 会记录错误。</tag>
 				<tag name="return">apply_scope() 结果。</tag>
 				<tag name="schema">context: Dictionary accepted by apply_scope().</tag>
-				<tag name="schema">return: Dictionary with ok, applied, errors, missing, and optional pipeline_trace.</tag>
+				<tag name="schema">return: Dictionary with ok, applied, errors, missing, rollback_failures, atomicity_restored, and optional pipeline_trace.</tag>
 				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>
@@ -215,7 +215,7 @@
 				<tag name="param">strict: 为 true 时缺失 Source/Scope 会记录错误。</tag>
 				<tag name="return">apply_section() 结果。</tag>
 				<tag name="schema">context: Dictionary accepted by apply_scope().</tag>
-				<tag name="schema">return: Dictionary with ok, applied, errors, missing, and optional pipeline_trace.</tag>
+				<tag name="schema">return: Dictionary with ok, applied, errors, missing, rollback_failures, atomicity_restored, and optional pipeline_trace.</tag>
 				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>
@@ -293,7 +293,8 @@
 				<tag name="return">结果字典。</tag>
 				<tag name="schema">payload: Dictionary，存档图载荷，包含 format、format_version、scope、sources、scopes，可选 metadata 与 pipeline_trace。</tag>
 				<tag name="schema">context: Dictionary，可包含 pipeline_context、pipeline_shared、include_pipeline_trace、transactional_apply 及项目自定义键。</tag>
-				<tag name="schema">return: Dictionary，包含 ok、applied、errors、missing，可选 pipeline_trace。</tag>
+				<tag name="schema">return: Dictionary，包含 ok、applied、errors、missing、rollback_failures、atomicity_restored，可选 pipeline_trace。</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="save_scope">
@@ -308,6 +309,7 @@
 				<tag name="return">Godot 错误码。</tag>
 				<tag name="schema">metadata: Dictionary，写入载荷 metadata 字段的项目元信息。</tag>
 				<tag name="schema">context: Dictionary，可包含 pipeline_context、pipeline_shared、include_pipeline_trace 及项目自定义键。</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="load_scope">
@@ -321,7 +323,8 @@
 				<tag name="param">strict: 为 true 时缺失 Source/Scope 会记录错误。</tag>
 				<tag name="return">结果字典。</tag>
 				<tag name="schema">context: Dictionary，可包含 pipeline_context、pipeline_shared、include_pipeline_trace、transactional_apply 及项目自定义键。</tag>
-				<tag name="schema">return: Dictionary，包含 ok、applied、errors、missing，可选 pipeline_trace。</tag>
+				<tag name="schema">return: Dictionary，包含 ok、applied、errors、missing、rollback_failures、atomicity_restored，可选 pipeline_trace。</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 	</methods>

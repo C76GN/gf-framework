@@ -283,13 +283,13 @@ func restart_level(clear_runtime: bool = true) -> Dictionary:
 	if current_level_id == &"":
 		return {}
 
-	if clear_runtime:
-		clear_level_runtime()
-
 	var next_data: Dictionary = _resolve_level_data(current_level_id)
 	if fail_on_missing_level_data and next_data.is_empty():
 		push_error("[GFLevelUtility] 找不到关卡数据：%s" % GFVariantData.to_text(current_level_id))
 		return {}
+
+	if clear_runtime:
+		clear_level_runtime()
 
 	current_level_data = next_data
 	level_restarted.emit(current_level_id, current_level_data.duplicate(true))
@@ -310,9 +310,11 @@ func win_current_level() -> void:
 ## [br]
 ## @api public
 ## [br]
+## @since 11.0.0
+## [br]
 ## @param result: 项目层结果数据。
 ## [br]
-## @param unlock_next: 是否解锁目录中的后续关卡。
+## @param unlock_next: 是否额外解锁目录顺序中的相邻后续关卡；不影响条目声明的 unlocks_on_complete。
 ## [br]
 ## @param emit_win_signal: 是否发出 level_won。
 ## [br]

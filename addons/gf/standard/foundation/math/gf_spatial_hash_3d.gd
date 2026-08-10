@@ -25,6 +25,8 @@ const _CELL_BOUNDARY_EPSILON_RATIO: float = 0.000001
 const _DEFAULT_CELL_SIZE: float = 4.0
 const _MIN_CELL_SIZE: float = 0.0001
 const _MAX_SAFE_CELL_COORDINATE: float = 9.0e18
+const _MIN_VECTOR3I_COMPONENT: int = -2147483648
+const _MAX_VECTOR3I_COMPONENT: int = 2147483647
 const _SPATIAL_BOUNDS_MATH = preload("res://addons/gf/standard/foundation/math/gf_spatial_bounds_math.gd")
 
 
@@ -358,15 +360,17 @@ func query_cell(cell: Vector3i) -> Array[Variant]:
 ## @schema return: Array entity values restored from spatial hash records.
 func query_cell_range(center_cell: Vector3i, radius: Vector3i = Vector3i.ZERO) -> Array[Variant]:
 	prune_invalid_entities()
-	var safe_radius: Vector3i = Vector3i(absi(radius.x), absi(radius.y), absi(radius.z))
 	var result: Array[Variant] = []
-	if _get_cell_range_count(safe_radius) > _max_covered_cells:
+	var span: Array[Vector3i] = _get_cell_range_span(center_cell, radius)
+	if not _is_cell_span_within_limit(span):
 		return result
 
+	var min_cell: Vector3i = span[0]
+	var max_cell: Vector3i = span[1]
 	var seen: Dictionary = {}
-	for x: int in range(center_cell.x - safe_radius.x, center_cell.x + safe_radius.x + 1):
-		for y: int in range(center_cell.y - safe_radius.y, center_cell.y + safe_radius.y + 1):
-			for z: int in range(center_cell.z - safe_radius.z, center_cell.z + safe_radius.z + 1):
+	for x: int in range(min_cell.x, max_cell.x + 1):
+		for y: int in range(min_cell.y, max_cell.y + 1):
+			for z: int in range(min_cell.z, max_cell.z + 1):
 				_append_cell_entities(Vector3i(x, y, z), result, seen)
 	return result
 
@@ -525,11 +529,29 @@ func _is_cell_span_within_limit(span: Array[Vector3i]) -> bool:
 	return z_count <= _divide_truncated(_max_covered_cells, xy_count)
 
 
-func _get_cell_range_count(radius: Vector3i) -> int:
-	var x_count: int = radius.x * 2 + 1
-	var y_count: int = radius.y * 2 + 1
-	var z_count: int = radius.z * 2 + 1
-	return x_count * y_count * z_count
+func _get_cell_range_span(center_cell: Vector3i, radius: Vector3i) -> Array[Vector3i]:
+	var radius_x: int = absi(int(radius.x))
+	var radius_y: int = absi(int(radius.y))
+	var radius_z: int = absi(int(radius.z))
+	var min_x: int = int(center_cell.x) - radius_x
+	var min_y: int = int(center_cell.y) - radius_y
+	var min_z: int = int(center_cell.z) - radius_z
+	var max_x: int = int(center_cell.x) + radius_x
+	var max_y: int = int(center_cell.y) + radius_y
+	var max_z: int = int(center_cell.z) + radius_z
+	if (
+		min_x < _MIN_VECTOR3I_COMPONENT
+		or min_y < _MIN_VECTOR3I_COMPONENT
+		or min_z < _MIN_VECTOR3I_COMPONENT
+		or max_x > _MAX_VECTOR3I_COMPONENT
+		or max_y > _MAX_VECTOR3I_COMPONENT
+		or max_z > _MAX_VECTOR3I_COMPONENT
+	):
+		return []
+	return [
+		Vector3i(min_x, min_y, min_z),
+		Vector3i(max_x, max_y, max_z),
+	]
 
 
 func _world_to_cell(position: Vector3) -> Vector3i:

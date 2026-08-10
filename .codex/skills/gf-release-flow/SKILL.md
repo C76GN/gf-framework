@@ -11,7 +11,7 @@ Use this skill only when the user has explicitly moved the task into release, co
 
 - Follow `AI_MAINTENANCE.md` release rules exactly.
 - Use tag names without `v`, for example `4.2.0`.
-- Prepare a stable version on `release/<version>` or `hotfix/<version>`. Ordinary feature, fix, and maintenance branches keep the governed `X.Y.Z-dev.N` source identity.
+- For an ordinary release, finalize the stable version on the already reviewed short-lived internal branch and merge that release commit to `main`; do not create a `release/<version>` branch merely to change version metadata. Use `release/<version>` only for a real stabilization freeze. Use `hotfix/<version>` only for an urgent fix created from the affected immutable stable tag, then merge the verified fix forward through a PR.
 - Do not commit, tag, or push unless the user explicitly asks for that action.
 - If a release commit was already pushed and fixes are needed, create a new forward commit. Do not rewrite remote history unless the user explicitly requests it and accepts the risk.
 - Release packages must come from one `tools/build_gf_release_artifacts.py` invocation and its SHA-256 manifest, not GitHub source archives or independently rebuilt outputs.

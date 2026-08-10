@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFInventoryOperationResult" path="addons/gf/extensions/domain/inventory/gf_inventory_operation_result.gd" module="extensions/domain" extends="RefCounted" classDigest="8db037f50c24e488ebdf8c489b8e54e3c41f5d8730bfa1b1ad72257b9b4cb18b">
+<class name="GFInventoryOperationResult" path="addons/gf/extensions/domain/inventory/gf_inventory_operation_result.gd" module="extensions/domain" extends="RefCounted" classDigest="6215f933ea5eb36d20dbf06d9bba511080c0caf23986d64d9473dd59b88f4226">
 	<description>GFInventoryOperationResult: 通用库存操作结果。
 描述一次添加、移除、移动或合并操作的接受数量、剩余数量和失败原因。</description>
 	<tags>
@@ -83,10 +83,11 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">result_item_id: 物品标识。</tag>
-				<tag name="param">amount: 处理数量。</tag>
+				<tag name="param">amount: 处理数量；必须大于 0，否则返回规范化失败结果。</tag>
 				<tag name="param">result_source_slot: 源槽位。</tag>
 				<tag name="param">result_target_slot: 目标槽位。</tag>
 				<tag name="return">操作结果。</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="partial">

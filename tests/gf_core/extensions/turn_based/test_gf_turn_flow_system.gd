@@ -140,6 +140,20 @@ class SharedManualFinishPhase extends GFTurnPhase:
 		exited_contexts.append(context)
 
 
+class ConcurrentResolutionPhase extends GFTurnPhase:
+	signal completed
+
+	var system: GFTurnFlowSystem = null
+
+	func _init(p_system: GFTurnFlowSystem) -> void:
+		system = p_system
+
+	func _execute(_context: GFTurnContext) -> Variant:
+		@warning_ignore("missing_await")
+		system.resolve_actions()
+		return completed
+
+
 class InjectionCollisionAction extends GFTurnAction:
 	var collision_inject_called: bool = false
 	var resolved: bool = false
@@ -162,6 +176,16 @@ class ExplicitInjectionAction extends GFTurnAction:
 	func _resolve(_context: GFTurnContext) -> Variant:
 		resolved = true
 		return null
+
+
+class CompatibleTurnValueActor extends Object:
+	func get_turn_value(key: StringName, fallback: Variant) -> Variant:
+		return 9 if key == &"initiative" else fallback
+
+
+class WrongArityTurnValueActor extends Object:
+	func get_turn_value(_key: StringName) -> Variant:
+		return 99
 
 
 # --- 测试方法 ---
@@ -271,6 +295,32 @@ func test_turn_flow_can_restart_from_completed_stop_notification() -> void:
 
 	assert_true(restarted[0], "flow_stopped 应观察到已完成的 stopped 状态并可启动新周期。")
 	assert_true(system.is_running, "旧 stop 调用链不得在通知返回后覆盖重入启动的新周期。")
+
+
+func test_stop_true_clears_actions_even_when_already_stopped() -> void:
+	var system: GFTurnFlowSystem = GFTurnFlowSystem.new()
+	var action: GFTurnAction = GFTurnAction.new()
+	system.enqueue_action(action)
+
+	system.stop(true)
+
+	assert_eq(system.get_action_count(), 0, "stopped 状态的 clear policy 仍必须收敛队列。")
+	assert_true(action.is_sealed(), "被 stopped cleanup 丢弃的 action 必须永久封存。")
+
+
+func test_stop_true_upgrades_completed_stop_false_restore() -> void:
+	var order: Array[String] = []
+	var system: GFTurnFlowSystem = GFTurnFlowSystem.new()
+	var pending_action: RecordingAction = RecordingAction.new("pending", 0, 0.0, order)
+	system.enqueue_action(StopAction.new(system, false, order))
+	system.enqueue_action(pending_action)
+	await system.resolve_actions()
+	assert_eq(system.get_action_count(), 1)
+
+	system.stop(true)
+
+	assert_eq(system.get_action_count(), 0, "stop(false) 恢复后必须允许升级为 clear。")
+	assert_true(pending_action.is_sealed(), "升级清理必须封存已恢复的一次性 action。")
 
 
 func test_phase_signal_timeout_aborts_without_exit() -> void:
@@ -503,6 +553,14 @@ func test_stop_without_clearing_restores_awaited_current_action() -> void:
 	assert_eq(String(system.get_actions()[1].action_id), "next", "后续 action 应按原顺序恢复。")
 
 
+func test_cross_channel_stop_policy_converges_when_phase_finishes_first() -> void:
+	await _assert_cross_channel_stop_policy_converges(true)
+
+
+func test_cross_channel_stop_policy_converges_when_action_finishes_first() -> void:
+	await _assert_cross_channel_stop_policy_converges(false)
+
+
 func test_start_reentry_during_action_is_rejected_without_dropping_pending_actions() -> void:
 	var order: Array[String] = []
 	var system: GFTurnFlowSystem = GFTurnFlowSystem.new()
@@ -581,10 +639,9 @@ func test_action_constructor_filters_invalid_and_duplicate_targets() -> void:
 	var target: Node = Node.new()
 	var stale_target: Node = Node.new()
 	var system: GFTurnFlowSystem = GFTurnFlowSystem.new()
-	var action: GFTurnAction = GFTurnAction.new(null, [target, target, null])
-	action.targets.append(stale_target)
-	stale_target.free()
+	var action: GFTurnAction = GFTurnAction.new(null, [target, target, stale_target, null])
 	system.enqueue_action(action)
+	stale_target.free()
 
 	await system.resolve_actions()
 
@@ -703,6 +760,21 @@ func test_turn_context_reads_actor_value() -> void:
 	actor.free()
 
 
+func test_turn_context_preflights_get_turn_value_signature() -> void:
+	var compatible: CompatibleTurnValueActor = CompatibleTurnValueActor.new()
+	var incompatible: WrongArityTurnValueActor = WrongArityTurnValueActor.new()
+	var context: GFTurnContext = GFTurnContext.new()
+
+	assert_eq(GFVariantData.to_int(context.get_actor_value(compatible, &"initiative", 3), -1), 9)
+	assert_eq(
+		GFVariantData.to_int(context.get_actor_value(incompatible, &"initiative", 3), -1),
+		3,
+		"同名但不接受两个参数的方法必须稳定返回 fallback，不能直接错误调用。"
+	)
+	compatible.free()
+	incompatible.free()
+
+
 func test_turn_context_cleanup_invalid_actors() -> void:
 	var actor: Node = Node.new()
 	var context: GFTurnContext = GFTurnContext.new()
@@ -728,3 +800,41 @@ func _has_property(object: Object, property_name: StringName) -> bool:
 		if StringName(GFVariantData.get_option_string(property_info, "name")) == property_name:
 			return true
 	return false
+
+
+func _assert_cross_channel_stop_policy_converges(phase_finishes_first: bool) -> void:
+	var actor: Node = Node.new()
+	var system: GFTurnFlowSystem = GFTurnFlowSystem.new()
+	var phase: ConcurrentResolutionPhase = ConcurrentResolutionPhase.new(system)
+	var action: ManualAction = ManualAction.new([])
+	action.actor = actor
+	system.set_phases([phase])
+	system.enqueue_action(action)
+	var stopped_count: Array[int] = [0]
+	var _stopped_connection: Error = system.flow_stopped.connect(
+		func(_context: GFTurnContext) -> void:
+			stopped_count[0] += 1
+	) as Error
+	system.start()
+	@warning_ignore("missing_await")
+	system.advance_phase()
+	await get_tree().process_frame
+
+	system.stop(false)
+	system.stop(true)
+	if phase_finishes_first:
+		phase.completed.emit()
+		await get_tree().process_frame
+		action.completed.emit()
+	else:
+		action.completed.emit()
+		await get_tree().process_frame
+		phase.completed.emit()
+	await get_tree().process_frame
+
+	assert_eq(stopped_count[0], 1, "cross-channel 重复 stop 不得重复通知。")
+	assert_eq(system.get_action_count(), 0, "更强 clear policy 必须覆盖仍在途的 restore policy。")
+	assert_true(action.is_sealed(), "最终 clear policy 必须封存 in-flight action。")
+	assert_null(system.context.current_actor)
+	phase.system = null
+	actor.free()

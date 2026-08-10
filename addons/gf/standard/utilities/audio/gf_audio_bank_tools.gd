@@ -53,6 +53,34 @@ const DEFAULT_MAX_SCAN_DEPTH: int = 32
 ## @api public
 const DEFAULT_MAX_AUDIO_PATHS: int = 10000
 
+## 默认单次扫描检查的目录项总数上限。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+const DEFAULT_MAX_SCANNED_ENTRIES: int = 100000
+
+## 单次扫描递归深度的框架绝对硬上限。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+const ABSOLUTE_MAX_SCAN_DEPTH: int = 64
+
+## 单次扫描收集音频路径数量的框架绝对硬上限。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+const ABSOLUTE_MAX_AUDIO_PATHS: int = 100000
+
+## 单次扫描检查目录项总数的框架绝对硬上限。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+const ABSOLUTE_MAX_SCANNED_ENTRIES: int = 1000000
+
 # --- 公共方法 ---
 
 ## 判断路径是否指向 GF 默认支持的音频扩展名。
@@ -73,21 +101,44 @@ static func is_audio_path(path: String, extensions: PackedStringArray = AUDIO_EX
 ## [br]
 ## @api public
 ## [br]
+## @since 5.0.0
+## [br]
 ## @param root_path: 扫描起点，通常是 res:// 下的目录。
 ## [br]
-## @param options: 可选项，支持 recursive、include_addons、excluded_paths、extensions、max_scan_depth 与 max_audio_paths。
+## 默认跳过 DirAccess 可识别的 symbolic link。三个 `max_*` 预算始终受框架
+## 绝对上限约束：正数会被 clamp，0 表示请求框架绝对上限，负数恢复默认值。
+## [br]
+## @param options: 可选项，支持 recursive、include_addons、excluded_paths、extensions、
+## max_scan_depth、max_audio_paths 与 max_scanned_entries。
 ## [br]
 ## @return: 按字典序排序的音频路径。
 ## [br]
-## @schema options: Dictionary，可包含 recursive、include_addons、excluded_paths、extensions、max_scan_depth 和 max_audio_paths 字段。
+## @schema options: Dictionary，可包含 recursive、include_addons、excluded_paths、extensions、max_scan_depth、max_audio_paths 和 max_scanned_entries 字段。
 static func scan_audio_paths(root_path: String = "res://", options: Dictionary = {}) -> PackedStringArray:
 	var result: PackedStringArray = PackedStringArray()
 	var normalized_root: String = _normalize_dir_path(root_path)
 	var extensions: PackedStringArray = _get_extensions(options)
 	var recursive: bool = GFVariantData.get_option_bool(options, "recursive", true)
 	var excluded_paths: PackedStringArray = _get_excluded_paths(options)
-	var max_scan_depth: int = maxi(GFVariantData.get_option_int(options, "max_scan_depth", DEFAULT_MAX_SCAN_DEPTH), 0)
-	var max_audio_paths: int = maxi(GFVariantData.get_option_int(options, "max_audio_paths", DEFAULT_MAX_AUDIO_PATHS), 0)
+	var max_scan_depth: int = _resolve_scan_limit(
+		GFVariantData.get_option_int(options, "max_scan_depth", DEFAULT_MAX_SCAN_DEPTH),
+		DEFAULT_MAX_SCAN_DEPTH,
+		ABSOLUTE_MAX_SCAN_DEPTH
+	)
+	var max_audio_paths: int = _resolve_scan_limit(
+		GFVariantData.get_option_int(options, "max_audio_paths", DEFAULT_MAX_AUDIO_PATHS),
+		DEFAULT_MAX_AUDIO_PATHS,
+		ABSOLUTE_MAX_AUDIO_PATHS
+	)
+	var max_scanned_entries: int = _resolve_scan_limit(
+		GFVariantData.get_option_int(
+			options,
+			"max_scanned_entries",
+			DEFAULT_MAX_SCANNED_ENTRIES
+		),
+		DEFAULT_MAX_SCANNED_ENTRIES,
+		ABSOLUTE_MAX_SCANNED_ENTRIES
+	)
 	var scan_state: Dictionary = _make_scan_state()
 	_scan_audio_paths_recursive(
 		normalized_root,
@@ -98,6 +149,7 @@ static func scan_audio_paths(root_path: String = "res://", options: Dictionary =
 		0,
 		max_scan_depth,
 		max_audio_paths,
+		max_scanned_entries,
 		scan_state
 	)
 	result.sort()
@@ -370,6 +422,7 @@ static func _scan_audio_paths_recursive(
 	depth: int,
 	max_scan_depth: int,
 	max_audio_paths: int,
+	max_scanned_entries: int,
 	scan_state: Dictionary
 ) -> void:
 	if not _can_collect_more_audio_paths(result, max_audio_paths):
@@ -388,6 +441,8 @@ static func _scan_audio_paths_recursive(
 
 	var entry: String = dir.get_next()
 	while not entry.is_empty():
+		if not _try_consume_scan_entry(max_scanned_entries, scan_state):
+			break
 		if not _can_collect_more_audio_paths(result, max_audio_paths):
 			_warn_audio_path_limit(max_audio_paths, scan_state)
 			break
@@ -397,6 +452,10 @@ static func _scan_audio_paths_recursive(
 			continue
 
 		var child_path: String = dir_path.path_join(entry)
+		if dir.is_link(entry):
+			_warn_scan_link_skipped(child_path, scan_state)
+			entry = dir.get_next()
+			continue
 		if dir.current_is_dir():
 			if recursive:
 				if _can_scan_deeper(child_path, depth, max_scan_depth, scan_state):
@@ -409,6 +468,7 @@ static func _scan_audio_paths_recursive(
 						depth + 1,
 						max_scan_depth,
 						max_audio_paths,
+						max_scanned_entries,
 						scan_state
 					)
 		elif is_audio_path(entry, extensions):
@@ -418,35 +478,87 @@ static func _scan_audio_paths_recursive(
 
 
 static func _can_scan_deeper(path: String, current_depth: int, max_scan_depth: int, scan_state: Dictionary) -> bool:
-	if max_scan_depth <= 0 or current_depth < max_scan_depth:
+	if current_depth < max_scan_depth:
 		return true
 	_warn_scan_depth_limit(path, max_scan_depth, scan_state)
 	return false
 
 
 static func _can_collect_more_audio_paths(result: PackedStringArray, max_audio_paths: int) -> bool:
-	return max_audio_paths <= 0 or result.size() < max_audio_paths
+	return result.size() < max_audio_paths
 
 
 static func _make_scan_state() -> Dictionary:
 	return {
+		"scanned_entry_count": 0,
 		"count_warning_emitted": false,
 		"depth_warning_emitted": false,
+		"entry_warning_emitted": false,
+		"link_warning_emitted": false,
 	}
 
 
 static func _warn_audio_path_limit(max_audio_paths: int, scan_state: Dictionary) -> void:
-	if max_audio_paths <= 0 or GFVariantData.get_option_bool(scan_state, "count_warning_emitted"):
+	if GFVariantData.get_option_bool(scan_state, "count_warning_emitted"):
 		return
 	scan_state["count_warning_emitted"] = true
 	push_warning("[GFAudioBankTools] scan_audio_paths 已达到 max_audio_paths=%d，后续音频已跳过。" % max_audio_paths)
 
 
 static func _warn_scan_depth_limit(path: String, max_scan_depth: int, scan_state: Dictionary) -> void:
-	if max_scan_depth <= 0 or GFVariantData.get_option_bool(scan_state, "depth_warning_emitted"):
+	if GFVariantData.get_option_bool(scan_state, "depth_warning_emitted"):
 		return
 	scan_state["depth_warning_emitted"] = true
 	push_warning("[GFAudioBankTools] scan_audio_paths 已达到 max_scan_depth=%d，已跳过更深目录：%s。" % [max_scan_depth, path])
+
+
+static func _try_consume_scan_entry(
+	max_scanned_entries: int,
+	scan_state: Dictionary
+) -> bool:
+	var scanned_entry_count: int = GFVariantData.get_option_int(
+		scan_state,
+		"scanned_entry_count"
+	)
+	if scanned_entry_count >= max_scanned_entries:
+		_warn_scanned_entry_limit(max_scanned_entries, scan_state)
+		return false
+	scan_state["scanned_entry_count"] = scanned_entry_count + 1
+	return true
+
+
+static func _warn_scanned_entry_limit(
+	max_scanned_entries: int,
+	scan_state: Dictionary
+) -> void:
+	if GFVariantData.get_option_bool(scan_state, "entry_warning_emitted"):
+		return
+	scan_state["entry_warning_emitted"] = true
+	push_warning(
+		"[GFAudioBankTools] scan_audio_paths 已达到 max_scanned_entries=%d，后续目录项已跳过。"
+		% max_scanned_entries
+	)
+
+
+static func _warn_scan_link_skipped(path: String, scan_state: Dictionary) -> void:
+	if GFVariantData.get_option_bool(scan_state, "link_warning_emitted"):
+		return
+	scan_state["link_warning_emitted"] = true
+	push_warning(
+		"[GFAudioBankTools] scan_audio_paths 默认跳过 symbolic link：%s。" % path
+	)
+
+
+static func _resolve_scan_limit(
+	requested_limit: int,
+	default_limit: int,
+	absolute_limit: int
+) -> int:
+	if requested_limit < 0:
+		return default_limit
+	if requested_limit == 0:
+		return absolute_limit
+	return mini(requested_limit, absolute_limit)
 
 
 static func _get_extensions(options: Dictionary) -> PackedStringArray:

@@ -195,7 +195,7 @@ static func from_dict(data: Dictionary) -> GFFixedDecimal:
 
 | 名称 | 说明 |
 |---|---|
-| `data` | `to_dict()` 输出的状态字典。 |
+| `data` | \`to_dict()\` 输出的状态字典。 |
 
 返回：定点数实例。
 
@@ -220,7 +220,7 @@ static func from_bytes(data: PackedByteArray) -> GFFixedDecimal:
 
 | 名称 | 说明 |
 |---|---|
-| `data` | `to_bytes()` 输出的字节序列。 |
+| `data` | \`to_bytes()\` 输出的字节序列。 |
 
 返回：定点数实例。
 
@@ -306,6 +306,7 @@ func rescaled( target_decimal_places: int, rounding_mode: RoundingMode = Roundin
 ### `compare_to`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func compare_to(other: GFFixedDecimal) -> int:
@@ -319,7 +320,7 @@ func compare_to(other: GFFixedDecimal) -> int:
 |---|---|
 | `other` | 另一个定点数。 |
 
-返回：大于返回 1，小于返回 -1，相等返回 0。
+返回：大于返回 1，小于返回 -1，相等返回 0；跨小数位比较不会先把 raw 值饱和对齐。
 
 <a id="member-gffixeddecimal-methods-add"></a>
 
@@ -388,6 +389,7 @@ func multiply( other: GFFixedDecimal, target_decimal_places: int = -1, rounding_
 ### `divide`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func divide( other: GFFixedDecimal, target_decimal_places: int = -1, rounding_mode: RoundingMode = RoundingMode.HALF_UP ) -> GFFixedDecimal:
@@ -403,7 +405,7 @@ func divide( other: GFFixedDecimal, target_decimal_places: int = -1, rounding_mo
 | `target_decimal_places` | 结果小数位；传 -1 时取两者较大值。 |
 | `rounding_mode` | 除法舍入策略。 |
 
-返回：相除结果。
+返回：相除结果；中间缩放使用可容纳精确值的路径，舍入与钳制只作用于最终 raw。
 
 <a id="member-gffixeddecimal-methods-to_float"></a>
 
@@ -489,7 +491,7 @@ func apply_dict(data: Dictionary) -> bool:
 
 | 名称 | 说明 |
 |---|---|
-| `data` | `to_dict()` 输出的状态字典。 |
+| `data` | \`to_dict()\` 输出的状态字典。 |
 
 返回：状态有效并已应用时返回 true。
 
@@ -529,6 +531,6 @@ func apply_bytes(data: PackedByteArray) -> bool:
 
 | 名称 | 说明 |
 |---|---|
-| `data` | `to_bytes()` 输出的字节序列。 |
+| `data` | \`to_bytes()\` 输出的字节序列。 |
 
 返回：字节序列有效并已应用时返回 true。

@@ -59,6 +59,42 @@ func test_job_queue_pause_cancel_and_run_failure() -> void:
 	utility.dispose()
 
 
+func test_terminal_transition_removes_waiting_job_from_all_queues() -> void:
+	var utility: GFJobQueueUtility = GFJobQueueUtility.new()
+	utility.init()
+	var completed: GFJob = utility.enqueue(&"main", null)
+	var failed: GFJob = utility.enqueue(&"main", null)
+	completed.queue_name = &"mutated_public_name"
+
+	assert_true(utility.complete_job(completed.job_id), "waiting job 应可直接完成。")
+	assert_true(utility.fail_job(failed.job_id, "failed"), "waiting job 应可直接失败。")
+
+	assert_true(utility.get_waiting_jobs(&"main").is_empty(), "终态任务不得继续留在原等待队列。")
+	assert_null(utility.start_next_job(&"main"), "队列不得再次取出已经终结的任务。")
+	utility.dispose()
+
+
+func test_cancelled_job_history_is_bounded() -> void:
+	var utility: GFJobQueueUtility = GFJobQueueUtility.new()
+	utility.max_cancelled_jobs = 2
+	utility.init()
+	var first: GFJob = utility.enqueue(&"main")
+	var second: GFJob = utility.enqueue(&"main")
+	var third: GFJob = utility.enqueue(&"main")
+
+	assert_true(utility.cancel_job(first.job_id))
+	assert_true(utility.cancel_job(second.job_id))
+	assert_true(utility.cancel_job(third.job_id))
+	var snapshot: Dictionary = utility.get_debug_snapshot()
+
+	assert_null(utility.get_job(first.job_id), "超过取消历史上限时应清理最旧记录。")
+	assert_not_null(utility.get_job(second.job_id), "窗口内取消记录应保留。")
+	assert_not_null(utility.get_job(third.job_id), "最新取消记录应保留。")
+	assert_eq(GFVariantData.get_option_int(snapshot, "cancelled_count"), 2, "调试快照应报告有界取消历史。")
+	assert_eq(GFVariantData.get_option_int(snapshot, "job_count"), 2, "取消任务不得在 registry 中无限累积。")
+	utility.dispose()
+
+
 func test_clear_all_cancels_active_jobs_before_dropping_registry() -> void:
 	var utility: GFJobQueueUtility = GFJobQueueUtility.new()
 	utility.init()

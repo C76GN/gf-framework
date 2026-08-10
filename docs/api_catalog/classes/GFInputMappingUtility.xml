@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFInputMappingUtility" path="addons/gf/standard/input/runtime/gf_input_mapping_utility.gd" module="standard" extends="GFUtility" classDigest="65acd0ab4cd04d2fe9864c21173a38c9f633d941554580f8ce0452b7dffcff2a">
+<class name="GFInputMappingUtility" path="addons/gf/standard/input/runtime/gf_input_mapping_utility.gd" module="standard" extends="GFUtility" classDigest="4e92159e40478c3a8c26e03c3d0f7d5535abf9b7c23fa7ec0bc5f521387e0d1a">
 	<description>GFInputMappingUtility: 资源化输入上下文与动作映射运行时。
 负责把 Godot InputEvent 转换为项目定义的抽象动作状态，并支持上下文优先级、
 运行时重绑定、动作值查询和一次性触发消费。</description>
@@ -242,7 +242,7 @@
 				<tag name="param">value: 动作值。</tag>
 				<tag name="param">source_id: 虚拟输入源标识。</tag>
 				<tag name="param">player_index: 玩家索引；小于 0 时只写入全局动作状态。</tag>
-				<tag name="return">写入成功返回 true。</tag>
+				<tag name="return">写入成功返回 true；非有限数值会被拒绝并保持旧贡献不变。</tag>
 				<tag name="schema">value: Variant，要转换为动作运行时向量贡献的 bool、float、Vector2 或 Vector3 值。</tag>
 				<tag name="since">2.6.0</tag>
 			</tags>
@@ -274,6 +274,18 @@
 				<tag name="param">source_id: 虚拟输入源标识。</tag>
 				<tag name="return">快照字典。</tag>
 				<tag name="schema">return: Dictionary，包含 source_id 和 actions: Array[Dictionary]，action 条目包含 action_id 与 value。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_virtual_source_snapshot_for_player">
+			<signature>func get_virtual_source_snapshot_for_player( source_id: StringName = &amp;"virtual", player_index: int = -1 ) -&gt; Dictionary:</signature>
+			<description>获取指定虚拟输入源与玩家身份的状态快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">source_id: 虚拟输入源标识。</tag>
+				<tag name="param">player_index: 玩家索引；小于 0 时读取仅全局身份。</tag>
+				<tag name="return">玩家作用域快照字典。</tag>
+				<tag name="schema">return: Dictionary，包含 source_id、player_index 和 actions: Array[Dictionary]，action 条目包含 action_id 与 value。</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_action_value">

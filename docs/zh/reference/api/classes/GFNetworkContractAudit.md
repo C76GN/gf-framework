@@ -38,7 +38,7 @@ func audit_contract(contract: GFNetworkContract, options: Dictionary = {}) -> Di
 | 名称 | 说明 |
 |---|---|
 | `contract` | 网络契约。 |
-| `options` | 审计选项，支持 known_channel_ids、require_contract_id、require_version、require_channel_ids、warn_variant_fields、warn_unbounded_collections、max_messages 和 max_fields_per_message。 |
+| `options` | 审计选项，支持 known_channel_ids、require_contract_id、require_version、require_channel_ids、warn_variant_fields、warn_collection_bounds_review、max_messages、max_fields_per_message、max_known_channel_ids 和 max_channel_id_length。 |
 
 返回：GFValidationReportDictionary 兼容报告。
 
@@ -65,7 +65,7 @@ func audit_paths(contract_paths: PackedStringArray, options: Dictionary = {}) ->
 | 名称 | 说明 |
 |---|---|
 | `contract_paths` | 契约资源路径列表。 |
-| `options` | 审计选项。 |
+| `options` | 审计选项，另支持正整数 max_contract_paths、max_known_channel_ids 和 max_channel_id_length；调用方预算受框架硬上限约束。 |
 
 返回：GFValidationReportDictionary 兼容报告。
 

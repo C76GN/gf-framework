@@ -160,8 +160,8 @@ static func find_pairs_bruteforce(bodies: Array, options: Dictionary = {}) -> Ar
 
 | 名称 | 说明 |
 |---|---|
-| `bodies` | body 字典数组，建议由 `make_body()` 创建。 |
-| `options` | 可选控制，支持 `include_touching`、`use_collision_masks`、`enabled_only` 与 `max_pairs`。 |
+| `bodies` | body 字典数组，建议由 \`make_body()\` 创建。 |
+| `options` | 可选控制，支持 \`include_touching\`、\`use_collision_masks\`、\`enabled_only\` 与 \`max_pairs\`。 |
 
 返回：候选对数组。
 
@@ -188,8 +188,8 @@ static func find_pairs_sap(bodies: Array, options: Dictionary = {}) -> Array[Dic
 
 | 名称 | 说明 |
 |---|---|
-| `bodies` | body 字典数组，建议由 `make_body()` 创建。 |
-| `options` | 可选控制，支持 `include_touching`、`use_collision_masks`、`enabled_only` 与 `max_pairs`。 |
+| `bodies` | body 字典数组，建议由 \`make_body()\` 创建。 |
+| `options` | 可选控制，支持 \`include_touching\`、\`use_collision_masks\`、\`enabled_only\` 与 \`max_pairs\`。 |
 
 返回：候选对数组。
 
@@ -216,8 +216,8 @@ static func find_pairs_quadtree(bodies: Array, options: Dictionary = {}) -> Arra
 
 | 名称 | 说明 |
 |---|---|
-| `bodies` | body 字典数组，建议由 `make_body()` 创建。 |
-| `options` | 可选控制，支持 `world_bounds: Rect2`、`quadtree_max_depth`、`quadtree_capacity`、`include_touching`、`use_collision_masks`、`enabled_only` 与 `max_pairs`。 |
+| `bodies` | body 字典数组，建议由 \`make_body()\` 创建。 |
+| `options` | 可选控制，支持 \`world_bounds: Rect2\`、\`quadtree_max_depth\`、\`quadtree_capacity\`、\`include_touching\`、\`use_collision_masks\`、\`enabled_only\` 与 \`max_pairs\`。 |
 
 返回：候选对数组。
 
@@ -244,8 +244,8 @@ static func find_pairs_combined(bodies: Array, options: Dictionary = {}) -> Arra
 
 | 名称 | 说明 |
 |---|---|
-| `bodies` | body 字典数组，建议由 `make_body()` 创建。 |
-| `options` | 可选控制，支持 `algorithm: StringName` 以及各算法选项。 |
+| `bodies` | body 字典数组，建议由 \`make_body()\` 创建。 |
+| `options` | 可选控制，支持 \`algorithm: StringName\` 以及各算法选项。 |
 
 返回：候选对数组。
 
@@ -272,8 +272,8 @@ static func build_pair_report(bodies: Array, options: Dictionary = {}) -> Dictio
 
 | 名称 | 说明 |
 |---|---|
-| `bodies` | body 字典数组，建议由 `make_body()` 创建。 |
-| `options` | 可选控制，支持 `algorithm: StringName` 以及各算法选项。 |
+| `bodies` | body 字典数组，建议由 \`make_body()\` 创建。 |
+| `options` | 可选控制，支持 \`algorithm: StringName\` 以及各算法选项。 |
 
 返回：broadphase 报告。
 

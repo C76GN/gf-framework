@@ -4,7 +4,7 @@
 
 Schema 只做通用类型、必填、默认值、枚举值和数值范围校验，不负责业务权限；真正的入口权限仍由项目层决定。
 
-参数类型必须来自内置白名单：`any` / `variant`、`bool`、`int`、`float` / `number`、`string`、`string_name`、`node_path`、`dictionary`、`array`、`packed_string_array`、`vector2`、`vector3`、`color` 或 `object`（以及文档化别名）。schema 顶层必须是 `Dictionary`；`parameters` 为 Array 时每项必须是 `Dictionary`，为参数名映射时每个 value 也必须是 `Dictionary`。未知类型、畸形容器、重复参数名和保留认证字段 `auth_token` / `_auth_token` 会在注册阶段拒绝，执行阶段也保持 fail-closed。认证字段只供入口校验，验证后会在参数规范化和回调执行前剥离；无论调用方用 `String` 还是 `StringName` 作为参数键，命令 callback 都不会收到 token。
+参数类型必须来自内置白名单：`any` / `variant`、`bool`、`int`、`float` / `number`、`string`、`string_name`、`node_path`、`dictionary`、`array`、`packed_string_array`、`vector2`、`vector3`、`color` 或 `object`（以及文档化别名）。`allow_null=true` 是所有具体类型之前的显式终止分支：传入 `null` 时直接接受并保持原值，不再执行 concrete type、allowed values 或数值范围校验；`allow_null=false` 则返回 `null_parameter`。schema 顶层必须是 `Dictionary`；`parameters` 为 Array 时每项必须是 `Dictionary`，为参数名映射时每个 value 也必须是 `Dictionary`。未知类型、畸形容器、重复参数名和保留认证字段 `auth_token` / `_auth_token` 会在注册阶段拒绝，执行阶段也保持 fail-closed。认证字段只供入口校验，验证后会在参数规范化和回调执行前剥离；无论调用方用 `String` 还是 `StringName` 作为参数键，命令 callback 都不会收到 token。
 
 ```gdscript
 diagnostics.register_command(

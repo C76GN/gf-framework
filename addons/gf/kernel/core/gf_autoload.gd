@@ -28,7 +28,7 @@ const _GF_VARIANT_ACCESS_SCRIPT = preload("res://addons/gf/kernel/core/gf_varian
 static var _tree_exit_scope_depth: int = 0
 
 
-# --- 公共方法 ---
+# --- 框架内部方法 ---
 
 ## 开始 Gf AutoLoad 的同步退出作用域。
 ## 节点型 Utility 在此作用域内不应主动 remove_child，避免重入修改正在拆除子节点的父节点。

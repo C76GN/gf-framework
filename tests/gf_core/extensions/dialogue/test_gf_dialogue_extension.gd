@@ -620,6 +620,7 @@ func test_dialogue_resource_validation_reports_automatic_cycles() -> void:
 
 	assert_false(GFVariantData.get_option_bool(report, "ok"), "自动 JUMP/MUTATION 循环应在资源校验阶段失败。")
 	assert_true(_has_issue_kind(issues, "automatic_cycle"), "自动循环应进入校验报告。")
+	assert_eq(_count_issue_kind(issues, "automatic_cycle"), 1, "同一个自动循环只应生成一条稳定诊断。")
 
 
 func test_dialogue_resource_validation_allows_conditionally_exitable_automatic_cycle() -> void:
@@ -853,6 +854,318 @@ func test_dialogue_runner_fails_closed_when_resource_identity_is_not_stable() ->
 	assert_push_error("GFDialogueRunner refused an incomplete resource identity (unsupported_variant")
 
 
+func test_dialogue_condition_reentry_preserves_replacement_session() -> void:
+	var original: GFDialogueResource = GFDialogueResource.new()
+	original.start_line_id = &"guarded"
+	var guarded: GFDialogueLine = _make_text_line(&"guarded", "Guarded", &"")
+	guarded.condition_id = &"replace"
+	original.set_line(guarded)
+	var replacement: GFDialogueResource = GFDialogueResource.new()
+	replacement.start_line_id = &"replacement"
+	replacement.set_line(_make_text_line(&"replacement", "Replacement", &""))
+	var runner: GFDialogueRunner = GFDialogueRunner.new()
+	var replaced: Array[bool] = [false]
+	var context: GFDialogueContext = GFDialogueContext.new()
+	context.condition_handler = func(
+		_condition_id: StringName,
+		_payload: Variant,
+		_subject: Variant,
+		_context: GFDialogueContext
+	) -> bool:
+		if not replaced[0]:
+			replaced[0] = true
+			var _replacement_line: GFDialogueLine = runner.start(replacement)
+		return true
+
+	var stale_result: GFDialogueLine = runner.start(original, &"", context)
+
+	assert_null(stale_result, "condition 回调替换会话后旧推进必须返回 null。")
+	assert_true(runner.is_running(), "旧 condition 调用栈不得终止替换会话。")
+	var replacement_line: GFDialogueLine = runner.get_current_line()
+	assert_not_null(replacement_line, "替换会话必须保留自己的当前行。")
+	if replacement_line != null:
+		assert_eq(replacement_line.line_id, &"replacement", "替换会话必须保留自己的当前行。")
+
+
+func test_dialogue_missing_line_blocked_reentry_preserves_replacement_session() -> void:
+	var original: GFDialogueResource = GFDialogueResource.new()
+	original.start_line_id = &"start"
+	original.set_line(_make_text_line(&"start", "Start", &"missing"))
+	var replacement: GFDialogueResource = GFDialogueResource.new()
+	replacement.start_line_id = &"replacement"
+	replacement.set_line(_make_text_line(&"replacement", "Replacement", &""))
+	var runner: GFDialogueRunner = GFDialogueRunner.new()
+	var _original_line: GFDialogueLine = runner.start(original)
+	var replaced: Array[bool] = [false]
+	var on_blocked: Callable = func(_line_id: StringName, _reason: StringName) -> void:
+		if replaced[0]:
+			return
+		replaced[0] = true
+		var _replacement_line: GFDialogueLine = runner.start(replacement)
+	var _connected: Error = runner.line_blocked.connect(on_blocked) as Error
+
+	var stale_result: GFDialogueLine = runner.advance()
+	runner.line_blocked.disconnect(on_blocked)
+
+	assert_null(stale_result, "line_blocked 回调替换会话后旧推进必须返回 null。")
+	assert_true(runner.is_running(), "旧 missing-line 调用栈不得终止替换会话。")
+	var replacement_line: GFDialogueLine = runner.get_current_line()
+	assert_not_null(replacement_line, "替换会话当前行不得被旧阻断路径清空。")
+	if replacement_line != null:
+		assert_eq(replacement_line.line_id, &"replacement", "替换会话当前行不得被旧阻断路径清空。")
+
+
+func test_dialogue_line_reached_reentry_returns_stale_null() -> void:
+	var original: GFDialogueResource = GFDialogueResource.new()
+	original.start_line_id = &"original"
+	original.set_line(_make_text_line(&"original", "Original", &""))
+	var replacement: GFDialogueResource = GFDialogueResource.new()
+	replacement.start_line_id = &"replacement"
+	replacement.set_line(_make_text_line(&"replacement", "Replacement", &""))
+	var runner: GFDialogueRunner = GFDialogueRunner.new()
+	var replaced: Array[bool] = [false]
+	var on_line_reached: Callable = func(_line: GFDialogueLine) -> void:
+		if replaced[0]:
+			return
+		replaced[0] = true
+		var _replacement_line: GFDialogueLine = runner.start(replacement)
+	var _connected: Error = runner.line_reached.connect(on_line_reached) as Error
+
+	var stale_result: GFDialogueLine = runner.start(original)
+	runner.line_reached.disconnect(on_line_reached)
+
+	assert_null(stale_result, "line_reached 回调替换会话后旧 start 必须返回 null。")
+	assert_true(runner.is_running(), "line_reached 旧调用栈不得终止替换会话。")
+	var replacement_line: GFDialogueLine = runner.get_current_line()
+	assert_not_null(replacement_line, "替换会话应保持当前行。")
+	if replacement_line != null:
+		assert_eq(replacement_line.line_id, &"replacement", "替换会话应保持当前行。")
+
+
+func test_dialogue_response_condition_reentry_preserves_replacement_session() -> void:
+	var original: GFDialogueResource = GFDialogueResource.new()
+	original.start_line_id = &"start"
+	var start: GFDialogueLine = _make_text_line(&"start", "Start", &"")
+	var response: GFDialogueResponse = GFDialogueResponse.new()
+	response.response_id = &"pick"
+	response.condition_id = &"replace"
+	response.next_line_id = &"old_done"
+	start.responses.append(response)
+	original.set_line(start)
+	original.set_line(_make_text_line(&"old_done", "Old", &""))
+	var replacement: GFDialogueResource = GFDialogueResource.new()
+	replacement.start_line_id = &"replacement"
+	replacement.set_line(_make_text_line(&"replacement", "Replacement", &""))
+	var runner: GFDialogueRunner = GFDialogueRunner.new()
+	var replaced: Array[bool] = [false]
+	var context: GFDialogueContext = GFDialogueContext.new()
+	context.condition_handler = func(
+		_condition_id: StringName,
+		_payload: Variant,
+		_subject: Variant,
+		_context: GFDialogueContext
+	) -> bool:
+		if not replaced[0]:
+			replaced[0] = true
+			var _replacement_line: GFDialogueLine = runner.start(replacement)
+		return true
+	var _original_line: GFDialogueLine = runner.start(original, &"", context)
+
+	var stale_result: GFDialogueLine = runner.choose_response(&"pick")
+
+	assert_null(stale_result, "响应 condition 替换会话后旧选择必须返回 null。")
+	assert_true(runner.is_running(), "旧响应 condition 调用栈不得结束替换会话。")
+	var replacement_line: GFDialogueLine = runner.get_current_line()
+	assert_not_null(replacement_line, "替换会话不得被旧 response 后继覆盖。")
+	if replacement_line != null:
+		assert_eq(replacement_line.line_id, &"replacement", "替换会话不得被旧 response 后继覆盖。")
+
+
+func test_dialogue_step_budget_counts_only_non_display_transitions() -> void:
+	var resource: GFDialogueResource = GFDialogueResource.new()
+	resource.start_line_id = &"jump"
+	var jump: GFDialogueLine = GFDialogueLine.new()
+	jump.line_id = &"jump"
+	jump.kind = GFDialogueLine.LineKind.JUMP
+	jump.jump_line_id = &"visible"
+	resource.set_line(jump)
+	resource.set_line(_make_text_line(&"visible", "Visible", &""))
+	var runner: GFDialogueRunner = GFDialogueRunner.new()
+	runner.max_steps_per_advance = 1
+	watch_signals(runner)
+
+	var reached: GFDialogueLine = runner.start(resource)
+
+	assert_not_null(reached, "一个 JUMP 后的 TEXT 应在一步非展示预算内可达。")
+	if reached != null:
+		assert_eq(reached.line_id, &"visible", "TEXT 本身不得占用非展示步骤预算。")
+	assert_signal_not_emitted(runner, "line_blocked", "恰好耗尽预算后到达 TEXT 不应触发阻断。")
+
+
+func test_dialogue_step_budget_blocks_before_second_non_display_transition() -> void:
+	var resource: GFDialogueResource = GFDialogueResource.new()
+	resource.start_line_id = &"jump_a"
+	var jump_a: GFDialogueLine = GFDialogueLine.new()
+	jump_a.line_id = &"jump_a"
+	jump_a.kind = GFDialogueLine.LineKind.JUMP
+	jump_a.jump_line_id = &"jump_b"
+	var jump_b: GFDialogueLine = GFDialogueLine.new()
+	jump_b.line_id = &"jump_b"
+	jump_b.kind = GFDialogueLine.LineKind.JUMP
+	jump_b.jump_line_id = &"visible"
+	resource.set_line(jump_a)
+	resource.set_line(jump_b)
+	resource.set_line(_make_text_line(&"visible", "Visible", &""))
+	var runner: GFDialogueRunner = GFDialogueRunner.new()
+	runner.max_steps_per_advance = 1
+	watch_signals(runner)
+
+	var reached: GFDialogueLine = runner.start(resource)
+
+	assert_null(reached, "第二个非展示 transition 不得越过一步预算。")
+	assert_signal_emitted_with_parameters(runner, "line_blocked", [&"jump_b", &"max_steps_reached"])
+
+
+func test_dialogue_zero_step_budget_keeps_unlimited_semantics() -> void:
+	var resource: GFDialogueResource = GFDialogueResource.new()
+	resource.start_line_id = &"jump_a"
+	var jump_a: GFDialogueLine = GFDialogueLine.new()
+	jump_a.line_id = &"jump_a"
+	jump_a.kind = GFDialogueLine.LineKind.JUMP
+	jump_a.jump_line_id = &"jump_b"
+	var jump_b: GFDialogueLine = GFDialogueLine.new()
+	jump_b.line_id = &"jump_b"
+	jump_b.kind = GFDialogueLine.LineKind.JUMP
+	jump_b.jump_line_id = &"visible"
+	resource.set_line(jump_a)
+	resource.set_line(jump_b)
+	resource.set_line(_make_text_line(&"visible", "Visible", &""))
+	var runner: GFDialogueRunner = GFDialogueRunner.new()
+	runner.max_steps_per_advance = 0
+
+	var reached: GFDialogueLine = runner.start(resource)
+
+	assert_not_null(reached, "零预算配置应保留既有的 unlimited 语义。")
+	if reached != null:
+		assert_eq(reached.line_id, &"visible", "无限步数模式仍应到达稳定 TEXT。")
+
+
+func test_dialogue_resource_validation_rejects_empty_graph() -> void:
+	var resource: GFDialogueResource = GFDialogueResource.new()
+
+	var report: Dictionary = resource.validate_resource()
+	var issues: Array = GFVariantData.get_option_array(report, "issues")
+
+	assert_false(GFVariantData.get_option_bool(report, "ok"), "没有可运行起点的空对话不得报告为健康。")
+	assert_true(_has_issue_kind(issues, "empty_dialogue"), "空图应产生稳定 empty_dialogue issue。")
+
+
+func test_dialogue_identity_failure_path_redacts_dictionary_keys() -> void:
+	var canary_key: String = "DIALOGUE_SECRET_CANARY\r\n" + "x".repeat(8192)
+	var resource: GFDialogueResource = GFDialogueResource.new()
+	resource.metadata[canary_key] = self
+
+	var report: Dictionary = resource.build_identity_report()
+	var failure_path: String = GFVariantData.get_option_string(report, "path")
+
+	assert_false(GFVariantData.get_option_bool(report, "ok"), "不稳定对象必须让完整身份复制失败。")
+	assert_false(failure_path.contains("DIALOGUE_SECRET_CANARY"), "身份失败路径不得泄漏任意字典键。")
+	assert_false(failure_path.contains("\r"), "失败路径不得保留回车控制字符。")
+	assert_false(failure_path.contains("\n"), "失败路径不得保留换行控制字符。")
+	assert_lt(failure_path.length(), 256, "攻击者控制的键长度不得放大诊断路径。")
+
+
+func test_dialogue_identity_is_canonical_across_dictionary_insertion_order() -> void:
+	var first_nested: Dictionary = {}
+	first_nested[&"beta"] = 2
+	first_nested["alpha"] = 1
+	first_nested[7] = "seven"
+	var second_nested: Dictionary = {}
+	second_nested[7] = "seven"
+	second_nested["alpha"] = 1
+	second_nested[&"beta"] = 2
+	var first_metadata: Dictionary = {}
+	first_metadata["zeta"] = first_nested
+	first_metadata[&"alpha"] = true
+	var second_metadata: Dictionary = {}
+	second_metadata[&"alpha"] = true
+	second_metadata["zeta"] = second_nested
+	var first_resource: GFDialogueResource = GFDialogueResource.new()
+	first_resource.start_line_id = &"line"
+	first_resource.metadata = first_metadata
+	first_resource.set_line(_make_text_line(&"line", "Line", &""))
+	var second_resource: GFDialogueResource = GFDialogueResource.new()
+	second_resource.start_line_id = &"line"
+	second_resource.metadata = second_metadata
+	second_resource.set_line(_make_text_line(&"line", "Line", &""))
+	var first_runner: GFDialogueRunner = GFDialogueRunner.new()
+	var _first_line: GFDialogueLine = first_runner.start(first_resource)
+	var snapshot: Dictionary = first_runner.create_runtime_snapshot()
+	var first_fingerprint: String = GFVariantData.get_option_string(snapshot, "resource_fingerprint")
+	var second_runner: GFDialogueRunner = GFDialogueRunner.new()
+	var _second_line: GFDialogueLine = second_runner.start(second_resource)
+	var second_fingerprint: String = GFVariantData.get_option_string(
+		second_runner.create_runtime_snapshot(),
+		"resource_fingerprint"
+	)
+	var restored_runner: GFDialogueRunner = GFDialogueRunner.new()
+	var restored: GFDialogueLine = restored_runner.restore_runtime_snapshot(second_resource, snapshot)
+
+	assert_eq(first_fingerprint, second_fingerprint, "无序 Dictionary 的插入顺序不得改变资源身份。")
+	assert_not_null(restored, "语义相同但插入顺序不同的资源应能交叉恢复快照。")
+
+
+func test_dialogue_identity_encoding_cannot_hash_traversal_limit_marker() -> void:
+	var first_payload: Array = []
+	var _first_resize_error: Error = first_payload.resize(20_000) as Error
+	first_payload.fill(0)
+	var second_payload: Array = first_payload.duplicate()
+	second_payload[19_999] = 1
+	var first_resource: GFDialogueResource = GFDialogueResource.new()
+	first_resource.start_line_id = &"line"
+	var first_line: GFDialogueLine = _make_text_line(&"line", "Line", &"")
+	first_line.mutation_payload = first_payload
+	first_resource.set_line(first_line)
+	var second_resource: GFDialogueResource = GFDialogueResource.new()
+	second_resource.start_line_id = &"line"
+	var second_line: GFDialogueLine = _make_text_line(&"line", "Line", &"")
+	second_line.mutation_payload = second_payload
+	second_resource.set_line(second_line)
+	var first_runner: GFDialogueRunner = GFDialogueRunner.new()
+	var _first_reached: GFDialogueLine = first_runner.start(first_resource)
+	var first_fingerprint: String = GFVariantData.get_option_string(
+		first_runner.create_runtime_snapshot(),
+		"resource_fingerprint"
+	)
+	var second_runner: GFDialogueRunner = GFDialogueRunner.new()
+	var _second_reached: GFDialogueLine = second_runner.start(second_resource)
+	var second_fingerprint: String = GFVariantData.get_option_string(
+		second_runner.create_runtime_snapshot(),
+		"resource_fingerprint"
+	)
+
+	assert_false(first_fingerprint.is_empty(), "完整有界资源必须生成身份。")
+	assert_ne(first_fingerprint, second_fingerprint, "codec 遍历 marker 不得伪装成完整内容身份。")
+
+
+func test_dialogue_invalid_line_kind_fails_closed_with_stable_reason() -> void:
+	var resource: GFDialogueResource = GFDialogueResource.new()
+	resource.start_line_id = &"invalid"
+	var invalid_line: GFDialogueLine = _make_text_line(&"invalid", "Invalid", &"")
+	invalid_line.set(&"kind", 99)
+	resource.set_line(invalid_line)
+	var report: Dictionary = resource.validate_resource()
+	var issues: Array = GFVariantData.get_option_array(report, "issues")
+	var runner: GFDialogueRunner = GFDialogueRunner.new()
+	watch_signals(runner)
+
+	var reached: GFDialogueLine = runner.start(resource)
+
+	assert_true(_has_issue_kind(issues, "invalid_line_kind"), "validator 应拒绝未知 LineKind。")
+	assert_null(reached, "Runner 不得执行未知 LineKind。")
+	assert_signal_emitted_with_parameters(runner, "line_blocked", [&"invalid", &"invalid_line_kind"])
+
+
 # --- 私有/辅助方法 ---
 
 func _make_text_line(line_id: StringName, text: String, next_line_id: StringName) -> GFDialogueLine:
@@ -877,6 +1190,15 @@ func _has_issue_kind(issues: Array, kind: String) -> bool:
 		if GFVariantData.get_option_string(issue_dictionary, "kind") == kind:
 			return true
 	return false
+
+
+func _count_issue_kind(issues: Array, kind: String) -> int:
+	var count: int = 0
+	for issue: Variant in issues:
+		var issue_dictionary: Dictionary = GFVariantData.as_dictionary(issue)
+		if GFVariantData.get_option_string(issue_dictionary, "kind") == kind:
+			count += 1
+	return count
 
 
 func _dictionary_contains_value(root: Dictionary, expected: Variant) -> bool:

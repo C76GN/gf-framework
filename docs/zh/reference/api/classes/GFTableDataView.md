@@ -20,7 +20,7 @@
 | 信号 | [`view_rebuild_failed`](#member-gftabledataview-signals-view_rebuild_failed) | `signal view_rebuild_failed(result: GFTableViewRebuildResult)` |
 | 信号 | [`filter_changed`](#member-gftabledataview-signals-filter_changed) | `signal filter_changed(query: String, visible_count: int)` |
 | 信号 | [`sort_changed`](#member-gftabledataview-signals-sort_changed) | `signal sort_changed(column_id: StringName, ascending: bool)` |
-| 信号 | [`cell_value_committed`](#member-gftabledataview-signals-cell_value_committed) | `signal cell_value_committed(` |
+| 信号 | [`cell_value_committed`](#member-gftabledataview-signals-cell_value_committed) | `signal cell_value_committed( row_index: int, row_id: Variant, column_id: StringName, old_value: Variant, new_value: Variant )` |
 | 常量 | [`MAX_ROW_PREDICATE_COUNT`](#member-gftabledataview-constants-max_row_predicate_count) | `const MAX_ROW_PREDICATE_COUNT: int = 64` |
 | 方法 | [`set_row_id_column`](#member-gftabledataview-methods-set_row_id_column) | `func set_row_id_column(column_id: StringName) -> GFTableViewRebuildResult:` |
 | 方法 | [`get_row_id_column`](#member-gftabledataview-methods-get_row_id_column) | `func get_row_id_column() -> StringName:` |
@@ -182,7 +182,7 @@ signal sort_changed(column_id: StringName, ascending: bool)
 - 首次版本：`5.2.0`
 
 ```gdscript
-signal cell_value_committed(
+signal cell_value_committed( row_index: int, row_id: Variant, column_id: StringName, old_value: Variant, new_value: Variant )
 ```
 
 单元格成功提交后发出。

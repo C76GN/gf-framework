@@ -16,6 +16,8 @@ var cache_hash := signature.to_hash()
 
 `GFCacheDiagnostics` 是轻量缓存计数器，可记录命中、未命中、写入、淘汰和失效原因，并输出 `get_debug_snapshot()`。它不持有缓存内容，也不会决定何时淘汰；实际策略仍由调用方实现。
 
+所有计数使用 int64 饱和加法：达到上界后保持 `INT64_MAX`，不会回绕为负数。发生无法表示的继续增长时，快照中的 `counter_saturated` 为 `true`；`reset()` 会同时清除计数与该诊断标记。
+
 ```gdscript
 var diagnostics := GFCacheDiagnostics.new()
 diagnostics.cache_id = &"thumbnail_cache"

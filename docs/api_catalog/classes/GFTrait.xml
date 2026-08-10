@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFTrait" path="addons/gf/extensions/domain/traits/gf_trait.gd" module="extensions/domain" extends="Resource" classDigest="6764992471587c93de8f07b5bee1a251f88a4fb4fbdd5272cec7dbded627b43b">
+<class name="GFTrait" path="addons/gf/extensions/domain/traits/gf_trait.gd" module="extensions/domain" extends="Resource" classDigest="3e7d7b6da2aff86ed6fa283d1ab720e3209679e8428cc1c77a5a1933dc70f77a">
 	<description>GFTrait: 通用被动特征数据。
 用于描述“某个来源对某个目标键产生的数值或标记影响”。
 它不限定属性、伤害、装备等业务语义。</description>
@@ -14,16 +14,12 @@
 			<signature>enum CombineMode {
 	## 与当前值相加。
 	ADD,
-
 	## 与当前值相乘。
 	MULTIPLY,
-
 	## 直接覆盖当前值。
 	SET,
-
 	## 取当前值与特征值中的较大值。
 	MAX,
-
 	## 取当前值与特征值中的较小值。
 	MIN,
 }</signature>

@@ -12,7 +12,7 @@ const _GF_REPORT_VALUE_CODEC_SCRIPT = preload("res://addons/gf/kernel/core/gf_re
 const _DEFAULT_MAX_COLLECTION_ITEMS: int = 1024
 
 
-# --- 公共方法 ---
+# --- 框架内部方法 ---
 
 ## 将固定 object schema 的 Dictionary 投影为单次编码的报告 Dictionary。
 ## [br]

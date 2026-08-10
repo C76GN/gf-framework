@@ -50,6 +50,11 @@ func test_patch_script_path_annotation_returns_artifact_report() -> void:
 	assert_eq(remove_error, OK, "测试应清理临时脚本。")
 	assert_true(GF_VARIANT_ACCESS.get_option_bool(result, "ok"), "文件补丁应成功。")
 	assert_eq(GF_VARIANT_ACCESS.get_option_string_name(artifact_report, "status"), GFGeneratedArtifactReport.STATUS_CHANGED, "文件写回应报告 changed。")
+	assert_eq(
+		GF_VARIANT_ACCESS.get_option_string(artifact_report, "expected_previous_sha256"),
+		GF_VARIANT_ACCESS.get_option_string(artifact_report, "previous_sha256"),
+		"脚本补丁应把读取快照绑定为保存基线。"
+	)
 	assert_true(text.begins_with("@tool\n## Example"), "@tool 应插入文件头部。")
 
 

@@ -26,7 +26,7 @@ const STAGE_ID: String = "gf.config.target.godot_resource"
 ## @api public
 ## [br]
 ## @since 9.0.0
-const IMPLEMENTATION_VERSION: int = 1
+const IMPLEMENTATION_VERSION: int = 2
 
 const _JSON_EXPORT_FORMAT: String = "gf.config.database"
 const _JSON_EXPORT_VERSION: int = 1
@@ -34,6 +34,12 @@ const _ARTIFACT_OWNER: String = "gf.tool.config_pipeline"
 const _JSON_VARIANT_TYPE_KEY: String = "__gf_variant_type"
 const _JSON_VARIANT_VALUE_KEY: String = "value"
 const _DEFAULT_JSON_INDENT: String = "\t"
+const _DEFAULT_MAX_JSON_DEPTH: int = 256
+const _ABSOLUTE_MAX_JSON_DEPTH: int = 256
+const _DEFAULT_MAX_JSON_NODES: int = 100000
+const _ABSOLUTE_MAX_JSON_NODES: int = 1000000
+const _DEFAULT_MAX_JSON_OUTPUT_BYTES: int = 64 * 1024 * 1024
+const _ABSOLUTE_MAX_JSON_OUTPUT_BYTES: int = 256 * 1024 * 1024
 
 
 # --- 公共方法 ---
@@ -160,7 +166,7 @@ func materialize_database(
 ## [br]
 ## @param options: JSON 目标选项。
 ## [br]
-## @schema options: Dictionary，可包含 include_schema、include_indexes 和 max_depth。
+## @schema options: Dictionary，可包含 include_schema、include_indexes、max_depth、max_nodes 和 max_output_bytes；调用方值会被框架绝对上限约束。
 ## [br]
 ## @return: JSON 兼容导出结果。
 ## [br]
@@ -212,7 +218,7 @@ func make_database_export(
 ## [br]
 ## @param options: JSON 目标选项。
 ## [br]
-## @schema options: Dictionary，可包含 include_schema、include_indexes、max_depth、indent 和 sort_keys。
+## @schema options: Dictionary，可包含 include_schema、include_indexes、max_depth、max_nodes、max_output_bytes、indent 和 sort_keys；调用方值会被框架绝对上限约束。
 ## [br]
 ## @return: JSON 目标结果。
 ## [br]
@@ -230,14 +236,32 @@ func make_database_json(
 			"error": GFVariantData.get_option_string(export_result, "error"),
 		}
 	var export_data: Dictionary = GFVariantData.get_option_dictionary(export_result, "data")
+	var json_text: String = JSON.stringify(
+		export_data,
+		GFVariantData.get_option_string(options, "indent", _DEFAULT_JSON_INDENT),
+		GFVariantData.get_option_bool(options, "sort_keys", true)
+	)
+	var max_output_bytes: int = _resolve_json_limit(
+		options,
+		"max_output_bytes",
+		_DEFAULT_MAX_JSON_OUTPUT_BYTES,
+		_ABSOLUTE_MAX_JSON_OUTPUT_BYTES
+	)
+	var output_bytes: int = json_text.to_utf8_buffer().size()
+	if output_bytes > max_output_bytes:
+		return {
+			"success": false,
+			"data": {},
+			"text": "",
+			"error": "配置数据库 JSON 导出超过 max_output_bytes：%d > %d。" % [
+				output_bytes,
+				max_output_bytes,
+			],
+		}
 	return {
 		"success": true,
 		"data": export_data,
-		"text": JSON.stringify(
-			export_data,
-			GFVariantData.get_option_string(options, "indent", _DEFAULT_JSON_INDENT),
-			GFVariantData.get_option_bool(options, "sort_keys", true)
-		),
+		"text": json_text,
 		"error": "",
 	}
 
@@ -250,11 +274,19 @@ func make_database_json(
 ## [br]
 ## @return: 阶段描述。
 ## [br]
-## @schema return: Dictionary，包含 stage_id、implementation_version、input_contracts 和 output_contracts。
+## @schema return: Dictionary，包含 stage_id、implementation_version、implementation_dependencies、input_contracts 和 output_contracts。
 func get_stage_descriptor() -> Dictionary:
 	return {
 		"stage_id": STAGE_ID,
 		"implementation_version": IMPLEMENTATION_VERSION,
+		"implementation_dependencies": [
+			"res://addons/gf/tools/config_pipeline/gf_config_pipeline_ir.gd",
+			"res://addons/gf/tools/config_pipeline/gf_config_pipeline_table_ir.gd",
+			"res://addons/gf/standard/utilities/config/gf_config_database_resource.gd",
+			"res://addons/gf/standard/utilities/config/gf_config_table_resource.gd",
+			"res://addons/gf/standard/utilities/config/gf_config_validation_report.gd",
+			"res://addons/gf/standard/foundation/variant/gf_variant_data.gd",
+		],
 		"input_contracts": [
 			"%s@%d" % [GFConfigPipelineTableIR.FORMAT, GFConfigPipelineTableIR.FORMAT_VERSION],
 			"%s@%d" % [GFConfigPipelineIR.FORMAT, GFConfigPipelineIR.FORMAT_VERSION],
@@ -326,7 +358,27 @@ func _make_json_state(options: Dictionary) -> Dictionary:
 	return {
 		"success": true,
 		"error": "",
-		"max_depth": maxi(GFVariantData.get_option_int(options, "max_depth", 256), 1),
+		"max_depth": _resolve_json_limit(
+			options,
+			"max_depth",
+			_DEFAULT_MAX_JSON_DEPTH,
+			_ABSOLUTE_MAX_JSON_DEPTH
+		),
+		"max_nodes": _resolve_json_limit(
+			options,
+			"max_nodes",
+			_DEFAULT_MAX_JSON_NODES,
+			_ABSOLUTE_MAX_JSON_NODES
+		),
+		"max_output_bytes": _resolve_json_limit(
+			options,
+			"max_output_bytes",
+			_DEFAULT_MAX_JSON_OUTPUT_BYTES,
+			_ABSOLUTE_MAX_JSON_OUTPUT_BYTES
+		),
+		"node_count": 0,
+		"estimated_bytes": 0,
+		"active_containers": [],
 	}
 
 
@@ -335,6 +387,8 @@ func _to_json_compatible(value: Variant, state: Dictionary, depth: int) -> Varia
 		return null
 	if depth > GFVariantData.get_option_int(state, "max_depth", 256):
 		return _fail_json_export(state, "配置数据库 JSON 导出结构超过 max_depth。")
+	if not _reserve_json_nodes(state, 1):
+		return null
 
 	match typeof(value):
 		TYPE_NIL:
@@ -352,13 +406,21 @@ func _to_json_compatible(value: Variant, state: Dictionary, depth: int) -> Varia
 			return float_value
 		TYPE_STRING:
 			var string_value: String = value
+			if not _reserve_json_bytes(state, string_value.to_utf8_buffer().size()):
+				return null
 			return string_value
 		TYPE_STRING_NAME:
 			var string_name_value: StringName = value
-			return String(string_name_value)
+			var string_name_text: String = String(string_name_value)
+			if not _reserve_json_bytes(state, string_name_text.to_utf8_buffer().size()):
+				return null
+			return string_name_text
 		TYPE_NODE_PATH:
 			var node_path_value: NodePath = value
-			return String(node_path_value)
+			var node_path_text: String = String(node_path_value)
+			if not _reserve_json_bytes(state, node_path_text.to_utf8_buffer().size()):
+				return null
+			return node_path_text
 		TYPE_VECTOR2:
 			var vector_2: Vector2 = value
 			if not _are_finite_floats([vector_2.x, vector_2.y]):
@@ -386,13 +448,13 @@ func _to_json_compatible(value: Variant, state: Dictionary, depth: int) -> Varia
 			return _dictionary_to_json_compatible(value, state, depth)
 		TYPE_PACKED_STRING_ARRAY:
 			var packed_strings: PackedStringArray = value
-			return _packed_string_array_to_json(packed_strings)
+			return _packed_string_array_to_json(packed_strings, state)
 		TYPE_PACKED_INT32_ARRAY:
 			var packed_int32: PackedInt32Array = value
-			return _packed_int32_array_to_json(packed_int32)
+			return _packed_int32_array_to_json(packed_int32, state)
 		TYPE_PACKED_INT64_ARRAY:
 			var packed_int64: PackedInt64Array = value
-			return _packed_int64_array_to_json(packed_int64)
+			return _packed_int64_array_to_json(packed_int64, state)
 		TYPE_PACKED_FLOAT32_ARRAY:
 			var packed_float32: PackedFloat32Array = value
 			return _packed_float32_array_to_json(packed_float32, state)
@@ -405,27 +467,37 @@ func _to_json_compatible(value: Variant, state: Dictionary, depth: int) -> Varia
 
 func _array_to_json_compatible(value: Variant, state: Dictionary, depth: int) -> Array:
 	var source: Array = GFVariantData.as_array(value)
+	if not _enter_json_container(source, state):
+		return []
 	var result: Array = []
 	for item: Variant in source:
 		result.append(_to_json_compatible(item, state, depth + 1))
 		if not GFVariantData.get_option_bool(state, "success", true):
+			_leave_json_container(state)
 			return []
+	_leave_json_container(state)
 	return result
 
 
 func _dictionary_to_json_compatible(value: Variant, state: Dictionary, depth: int) -> Dictionary:
 	var source: Dictionary = GFVariantData.as_dictionary(value)
+	if not _enter_json_container(source, state):
+		return {}
 	var result: Dictionary = {}
 	for key: Variant in source.keys():
 		var key_text: String = _json_key_to_text(key, state)
 		if not GFVariantData.get_option_bool(state, "success", true):
+			_leave_json_container(state)
 			return {}
 		if result.has(key_text):
 			var _failed_duplicate_key: Variant = _fail_json_export(state, "配置数据库 JSON 导出遇到重复 JSON key：%s。" % key_text)
+			_leave_json_container(state)
 			return {}
 		result[key_text] = _to_json_compatible(source[key], state, depth + 1)
 		if not GFVariantData.get_option_bool(state, "success", true):
+			_leave_json_container(state)
 			return {}
+	_leave_json_container(state)
 	return result
 
 
@@ -433,10 +505,15 @@ func _json_key_to_text(key: Variant, state: Dictionary) -> String:
 	match typeof(key):
 		TYPE_STRING:
 			var string_key: String = key
+			if not _reserve_json_bytes(state, string_key.to_utf8_buffer().size()):
+				return ""
 			return string_key
 		TYPE_STRING_NAME:
 			var string_name_key: StringName = key
-			return String(string_name_key)
+			var string_name_text: String = String(string_name_key)
+			if not _reserve_json_bytes(state, string_name_text.to_utf8_buffer().size()):
+				return ""
+			return string_name_text
 		TYPE_INT:
 			var int_key: int = key
 			return str(int_key)
@@ -444,22 +521,30 @@ func _json_key_to_text(key: Variant, state: Dictionary) -> String:
 	return ""
 
 
-func _packed_string_array_to_json(values: PackedStringArray) -> Array:
+func _packed_string_array_to_json(values: PackedStringArray, state: Dictionary) -> Array:
 	var result: Array = []
+	if not _reserve_json_nodes(state, values.size()):
+		return result
 	for value: String in values:
+		if not _reserve_json_bytes(state, value.to_utf8_buffer().size()):
+			return []
 		result.append(value)
 	return result
 
 
-func _packed_int32_array_to_json(values: PackedInt32Array) -> Array:
+func _packed_int32_array_to_json(values: PackedInt32Array, state: Dictionary) -> Array:
 	var result: Array = []
+	if not _reserve_json_nodes(state, values.size()):
+		return result
 	for value: int in values:
 		result.append(value)
 	return result
 
 
-func _packed_int64_array_to_json(values: PackedInt64Array) -> Array:
+func _packed_int64_array_to_json(values: PackedInt64Array, state: Dictionary) -> Array:
 	var result: Array = []
+	if not _reserve_json_nodes(state, values.size()):
+		return result
 	for value: int in values:
 		result.append(value)
 	return result
@@ -467,6 +552,8 @@ func _packed_int64_array_to_json(values: PackedInt64Array) -> Array:
 
 func _packed_float32_array_to_json(values: PackedFloat32Array, state: Dictionary) -> Array:
 	var result: Array = []
+	if not _reserve_json_nodes(state, values.size()):
+		return result
 	for value: float in values:
 		if is_nan(value) or is_inf(value):
 			var _failed_non_finite: Variant = _fail_json_export(state, "配置数据库 JSON 导出不支持 NaN 或 Inf。")
@@ -477,6 +564,8 @@ func _packed_float32_array_to_json(values: PackedFloat32Array, state: Dictionary
 
 func _packed_float64_array_to_json(values: PackedFloat64Array, state: Dictionary) -> Array:
 	var result: Array = []
+	if not _reserve_json_nodes(state, values.size()):
+		return result
 	for value: float in values:
 		if is_nan(value) or is_inf(value):
 			var _failed_non_finite: Variant = _fail_json_export(state, "配置数据库 JSON 导出不支持 NaN 或 Inf。")
@@ -500,6 +589,92 @@ func _are_finite_floats(values: Array) -> bool:
 		if is_nan(float_value) or is_inf(float_value):
 			return false
 	return true
+
+
+func _resolve_json_limit(
+	options: Dictionary,
+	key: String,
+	default_value: int,
+	absolute_maximum: int
+) -> int:
+	var requested: int = GFVariantData.get_option_int(
+		options,
+		key,
+		default_value
+	)
+	return clampi(requested, 1, absolute_maximum)
+
+
+func _reserve_json_nodes(state: Dictionary, count: int) -> bool:
+	if count < 0:
+		var _invalid_count_failure: Variant = _fail_json_export(
+			state,
+			"配置数据库 JSON 导出节点预算计数无效。"
+		)
+		return false
+	var node_count: int = GFVariantData.get_option_int(state, "node_count")
+	var max_nodes: int = GFVariantData.get_option_int(
+		state,
+		"max_nodes",
+		_DEFAULT_MAX_JSON_NODES
+	)
+	if count > max_nodes - node_count:
+		var _node_budget_failure: Variant = _fail_json_export(
+			state,
+			"配置数据库 JSON 导出结构超过 max_nodes。"
+		)
+		return false
+	state["node_count"] = node_count + count
+	return true
+
+
+func _reserve_json_bytes(state: Dictionary, count: int) -> bool:
+	var estimated_bytes: int = GFVariantData.get_option_int(
+		state,
+		"estimated_bytes"
+	)
+	var max_output_bytes: int = GFVariantData.get_option_int(
+		state,
+		"max_output_bytes",
+		_DEFAULT_MAX_JSON_OUTPUT_BYTES
+	)
+	if count < 0 or count > max_output_bytes - estimated_bytes:
+		var _byte_budget_failure: Variant = _fail_json_export(
+			state,
+			"配置数据库 JSON 导出结构超过 max_output_bytes。"
+		)
+		return false
+	state["estimated_bytes"] = estimated_bytes + count
+	return true
+
+
+func _enter_json_container(container: Variant, state: Dictionary) -> bool:
+	var active_value: Variant = state.get("active_containers", [])
+	if not active_value is Array:
+		var _state_failure: Variant = _fail_json_export(
+			state,
+			"配置数据库 JSON 导出循环检测状态无效。"
+		)
+		return false
+	var active_containers: Array = active_value
+	for active_container: Variant in active_containers:
+		if is_same(active_container, container):
+			var _cycle_failure: Variant = _fail_json_export(
+				state,
+				"配置数据库 JSON 导出不支持循环 Array/Dictionary。"
+			)
+			return false
+	active_containers.append(container)
+	return true
+
+
+func _leave_json_container(state: Dictionary) -> void:
+	var active_value: Variant = state.get("active_containers", [])
+	if not active_value is Array:
+		return
+	var active_containers: Array = active_value
+	if not active_containers.is_empty():
+		var _removed_container: Variant = active_containers.pop_back()
 
 
 func _fail_json_export(state: Dictionary, message: String) -> Variant:

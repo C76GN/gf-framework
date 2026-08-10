@@ -19,6 +19,7 @@
 | 属性 | [`mode`](#member-gfnodestateconditiongroup-properties-mode) | `var mode: MatchMode = MatchMode.ALL` |
 | 属性 | [`conditions`](#member-gfnodestateconditiongroup-properties-conditions) | `var conditions: Array[Resource] = []` |
 | 属性 | [`empty_result`](#member-gfnodestateconditiongroup-properties-empty_result) | `var empty_result: bool = true` |
+| 方法 | [`evaluate`](#member-gfnodestateconditiongroup-methods-evaluate) | `func evaluate( state: GFNodeState, phase: StringName, peer_state: StringName = &"", args: Dictionary = {} ) -> bool:` |
 | 方法 | [`_evaluate`](#member-gfnodestateconditiongroup-methods-_evaluate) | `func _evaluate( state: GFNodeState, phase: StringName, peer_state: StringName = &"", args: Dictionary = {} ) -> bool:` |
 
 ## 枚举
@@ -89,6 +90,34 @@ var empty_result: bool = true
 没有有效子条件时返回的结果。
 
 ## 方法
+
+<a id="member-gfnodestateconditiongroup-methods-evaluate"></a>
+
+### `evaluate`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func evaluate( state: GFNodeState, phase: StringName, peer_state: StringName = &"", args: Dictionary = {} ) -> bool:
+```
+
+评估条件组。递归条件图出现循环、超过深度或工作量上限时始终失败，invert 不会反转该失败。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `state` | 当前条件所属状态。 |
+| `phase` | 条件阶段，通常为 enter 或 exit。 |
+| `peer_state` | 进入时为来源状态名，退出时为目标状态名。 |
+| `args` | 状态切换参数。 |
+
+返回：条件图有效且组合结果通过时返回 true。
+
+结构：
+
+- `args`: 状态切换参数 Dictionary；键和值由调用方约定。
 
 <a id="member-gfnodestateconditiongroup-methods-_evaluate"></a>
 

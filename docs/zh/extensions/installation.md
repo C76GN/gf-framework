@@ -20,9 +20,18 @@
 
 外部扩展根目录只是一种发现机制，不是项目目录规范。GF 不要求项目把玩法代码、资源或业务脚本放进这些目录；只有希望被 GF 扩展管理器发现、启用、导出过滤或贡献编辑器入口的独立扩展，才需要提供 manifest。
 
-## Preset 与依赖
+## 两类 Preset 与依赖
 
-Preset 是安装向导或项目工具使用的启用组合，例如把 Save、Dialogue、Domain 一次写入显式启用列表。Preset 不会写入扩展 manifest，也不代表这些扩展之间存在硬依赖。
+GF 有两类消费方和两套稳定 ID，不能互换：
+
+| 任务 | 消费方 | Preset / 成员 ID | 是否写文件 |
+| --- | --- | --- | --- |
+| 选择已经存在于项目中的扩展 | `GF Extensions` / `GFExtensionPreset` | 扩展选择 preset，例如成员 `gf.save` | 只写扩展启用设置，不下载 package |
+| 安装模块化 package 闭包 | `GF Package Manager` / package CLI | package 安装 preset，例如 `gf.preset.save`，成员 `gf.extension.save` | 经过预览与事务校验后写 package 文件和 lockfile |
+
+Save 是最小映射示例：扩展 manifest ID 是 `gf.save`，承载其文件的 package ID 是 `gf.extension.save`，官方 package 安装 preset ID 是 `gf.preset.save`。其他扩展也必须分别从扩展 manifest、package manifest 和 package preset 读取实际 ID，不能靠名称拼接推断。需要下载、更新、卸载、registry、offline bundle 或供应链校验时，使用内置 [Package Manager](../editor/workspace.md#package-manager)；本页其余“preset”均特指扩展选择 preset。
+
+扩展选择 preset 是安装向导或项目工具使用的启用组合，例如把 Save、Dialogue、Domain 一次写入显式启用列表。它不会写入扩展 manifest，也不代表这些扩展之间存在硬依赖。
 
 `GFExtensionPreset` 是 preset JSON 对应的结构化描述。GF 内置只提供动态基础组合，例如默认选择、全部关闭和全部可发现扩展。业务组合由项目或 `addons/gf` 外的独立插件提供 preset JSON，并把路径写入 `gf/extensions/preset_paths`：
 
@@ -40,11 +49,11 @@ Preset 是安装向导或项目工具使用的启用组合，例如把 Save、Di
 
 `GFExtensionPresetDiscovery` 是项目工具需要直接读取 preset 诊断时的底层快照入口。它会把内置动态 preset、项目 JSON preset、重复 ID、无效文件和未知扩展 ID 汇总到同一个 report，并根据 manifest、preset 路径和 preset 文件内容自动失效。
 
-Preset JSON 使用字段白名单，只描述 `id`、`display_name`、`description`、`extension_ids` 和 `tags`；`name`、`summary`、`extensions` 等旧别名字段会被拒绝。`dependencies`、`optional_dependencies`、`load_after` 等软关系字段，以及 `download_url`、`packages`、`registry`、`installer_paths` 等下载包或装配覆盖字段会被 `GFExtensionPreset.get_validation_errors()` 拒绝。GF 内置安装和扩展管理流程不处理网络下载、包仓库、第三方 registry 或复杂包安装；这些能力只能由 `addons/gf` 外的独立插件或项目自管工具承担。GF 官方安装向导应只写入本地 ProjectSettings、preset 启用状态，并提示导出审计。
+扩展选择 preset JSON 使用字段白名单，只描述 `id`、`display_name`、`description`、`extension_ids` 和 `tags`；`name`、`summary`、`extensions` 等旧别名字段会被拒绝。`dependencies`、`optional_dependencies`、`load_after` 等软关系字段，以及 `download_url`、`packages`、`registry`、`installer_paths` 等 package 下载或装配覆盖字段会被 `GFExtensionPreset.get_validation_errors()` 拒绝。这条边界只适用于 `GFExtensionPreset`：它负责本地扩展选择，网络下载、package registry、离线包、完整性校验与安装事务由内置 Package Manager 负责。项目自定义下载器或私有供应链集成仍应放在 `addons/gf` 外，并复用公开 package 协议，而不是把下载字段塞进扩展选择 preset。
 
 `GFExtensionPreset.from_json_file()` 只在 preset 文件可读、JSON 为对象且校验通过时返回对象。编辑器或项目工具需要展示诊断时，应使用 `from_json_file_report()`，它返回 JSON-safe 的 `preset_data` 与错误列表，适合直接进入日志、CI 报告或工具输出。
 
-Manifest、preset 和 tool contribution 的 JSON object 文件读取由 `GFExtensionJsonFileReader` 统一，扩展 ID 语法由 `GFExtensionIdValidator` 统一。`GFExtensionToolContribution` 负责 `editor/gf_tool_contribution.json` 的严格 schema v2：只接受版本、所属扩展 ID 和已声明的路径字段，schema v1、未来版本与未知字段都会被拒绝。项目工具通常应通过 `GFExtensionManifest`、`GFExtensionPreset`、`GFExtensionPresetDiscovery`、`GFExtensionSelectionDiscovery` 和 `GFExtensionSettings` 这些更高层入口读取，不需要重复实现底层解析、ID 正则或贡献字段兼容分支。
+Manifest、preset 和 tool contribution 的 JSON object 文件读取由 `GFExtensionJsonFileReader` 统一，扩展 ID 语法由 `GFExtensionIdValidator` 统一。三类输入都会在规范化前区分“字段缺失”和“字段类型错误”，并受单文件、累计字节与嵌套深度硬预算约束；签名与解析共享同一次发现预算。`GFExtensionToolContribution` 负责 `editor/gf_tool_contribution.json` 的严格 schema v2：只接受版本、所属扩展 ID 和已声明的路径字段，schema v1、未来版本与未知字段都会被拒绝。项目工具通常应通过 `GFExtensionManifest`、`GFExtensionPreset`、`GFExtensionPresetDiscovery`、`GFExtensionSelectionDiscovery` 和 `GFExtensionSettings` 这些更高层入口读取，不需要重复实现底层解析、ID 正则或贡献字段兼容分支。
 
 扩展级 `EditorDebuggerPlugin` 必须在 tool contribution 中显式声明，不能写入运行时 manifest：
 
@@ -68,7 +77,7 @@ Domain、Combat 这类业务型内置扩展按外置候选治理：随 GF 包分
 
 `GFExtensionSettings.get_enabled_extension_ids()` 返回当前有效启用 ID。`default` 模式下，有效列表从当前可发现 manifest 的 `enabled_by_default` 派生；`explicit` 模式下，有效列表来自 `gf/extensions/enabled`。
 
-启用状态解析只会产生当前可发现的 manifest ID。项目设置中如果残留不存在的扩展 ID，`GFExtensionSettings.get_extension_selection_report()` 会在 `unknown_enabled_ids` 中报告，并且这些 ID 不会进入最终启用集合。报告中的 `selection_mode` 表示当前模式，`explicit_ids` 表示显式列表原始存储值，`configured_ids` 表示参与本次解析的有效配置来源。
+启用状态解析只会产生当前可发现的 manifest ID。项目设置中如果残留不存在的扩展 ID，`GFExtensionSettings.get_extension_selection_report()` 会在 `unknown_enabled_ids` 中报告，并且这些 ID 不会进入最终启用集合。此时报告状态为 `partial`：未知 ID 不产生副作用，已验证的已知扩展仍可装配。已存在但无效的 tool contribution 同样形成 `partial`，错误通过 `tool_contribution_errors` 暴露且其无效路径不会注册；manifest 图错误则形成 `invalid` 并阻断全部扩展路径。调用方应检查 `status` 和 `paths_allowed`，不要自行从 `ok` 推断路径授权。报告中的 `selection_mode` 表示当前模式，`explicit_ids` 表示显式列表原始存储值，`configured_ids` 表示参与本次解析的有效配置来源。
 
 通过 `set_enabled_extension_ids()` 或扩展管理器保存显式选择时，也会只写回当前可发现的扩展 ID。需要回到 manifest 默认派生时，使用扩展管理器的“恢复默认”或调用 `GFExtensionSettings.use_default_extension_selection()`；这不会改写显式列表，只会把 `gf/extensions/selection_mode` 切回 `default`。
 

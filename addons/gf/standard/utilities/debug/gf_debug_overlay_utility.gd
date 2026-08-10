@@ -430,6 +430,8 @@ func get_panel_snapshot(include_hidden: bool = false) -> Array[Dictionary]:
 ## [br]
 ## @schema options: Dictionary，支持 label、group、visible、max_samples、timestamp_seconds、metadata 和 sample_metadata。
 func record_metric_sample(metric_id: StringName, value: float, options: Dictionary = {}) -> bool:
+	if is_nan(value) or is_inf(value):
+		return false
 	var series: GFMetricSeries = get_or_create_metric_series(metric_id, options)
 	if series == null:
 		return false

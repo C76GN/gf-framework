@@ -45,9 +45,12 @@ const _DIRECTION_3D_KEY: StringName = &"homing_direction_3d"
 ## @api public
 @export var arrival_distance: float = 0.0
 
-## 是否每帧重新朝向当前目标。关闭后只在首次解析目标时锁定方向。
+## 是否每帧重新朝向当前目标。关闭后只在首次解析目标时锁定方向；
+## 对象目标随后释放时仍沿缓存方向继续移动，不再执行距离到达夹取。
 ## [br]
 ## @api public
+## [br]
+## @since 11.0.0
 @export var track_target: bool = true
 
 ## 到达目标范围时是否停止并夹住位移，避免越过目标。
@@ -110,6 +113,8 @@ func _step_2d(projectile: Node2D, delta: float, projectile_context: Dictionary) 
 	var target_position_variant: Variant = _get_target_position_2d(projectile, projectile_context)
 	if not (target_position_variant is Vector2):
 		projectile_context["target_missing"] = true
+		if not track_target and _step_locked_direction_2d(projectile, delta, projectile_context):
+			return
 		projectile_context["velocity_2d"] = Vector2.ZERO
 		return
 
@@ -161,6 +166,8 @@ func _step_3d(projectile: Node3D, delta: float, projectile_context: Dictionary) 
 	var target_position_variant: Variant = _get_target_position_3d(projectile, projectile_context)
 	if not (target_position_variant is Vector3):
 		projectile_context["target_missing"] = true
+		if not track_target and _step_locked_direction_3d(projectile, delta, projectile_context):
+			return
 		projectile_context["velocity_3d"] = Vector3.ZERO
 		return
 
@@ -206,6 +213,64 @@ func _step_3d(projectile: Node3D, delta: float, projectile_context: Dictionary) 
 	projectile_context["velocity_3d"] = velocity
 	if _is_arrived(distance - travel_distance):
 		projectile_context["target_reached"] = true
+
+
+func _step_locked_direction_2d(
+	projectile: Node2D,
+	delta: float,
+	projectile_context: Dictionary
+) -> bool:
+	var direction: Vector2 = _get_direction_2d(Vector2.ZERO, projectile_context)
+	if direction.is_zero_approx():
+		return false
+	if stop_when_reached and GFVariantData.get_option_bool(projectile_context, "target_reached"):
+		projectile_context["velocity_2d"] = Vector2.ZERO
+		return true
+
+	var current_position: Vector2 = _get_projectile_position_2d(projectile)
+	var travel_distance: float = speed * delta
+	var velocity: Vector2 = direction * (travel_distance / delta)
+	var next_position: Vector2 = current_position + direction * travel_distance
+	if (
+		not _GF_COMBAT_FINITE_MATH.is_finite_vector2(current_position)
+		or not _GF_COMBAT_FINITE_MATH.is_finite_float(travel_distance)
+		or not _GF_COMBAT_FINITE_MATH.is_finite_vector2(velocity)
+		or not _GF_COMBAT_FINITE_MATH.is_finite_vector2(next_position)
+	):
+		_reject_motion_2d(projectile_context)
+		return true
+	_set_projectile_position_2d(projectile, next_position)
+	projectile_context["velocity_2d"] = velocity
+	return true
+
+
+func _step_locked_direction_3d(
+	projectile: Node3D,
+	delta: float,
+	projectile_context: Dictionary
+) -> bool:
+	var direction: Vector3 = _get_direction_3d(Vector3.ZERO, projectile_context)
+	if direction.is_zero_approx():
+		return false
+	if stop_when_reached and GFVariantData.get_option_bool(projectile_context, "target_reached"):
+		projectile_context["velocity_3d"] = Vector3.ZERO
+		return true
+
+	var current_position: Vector3 = _get_projectile_position_3d(projectile)
+	var travel_distance: float = speed * delta
+	var velocity: Vector3 = direction * (travel_distance / delta)
+	var next_position: Vector3 = current_position + direction * travel_distance
+	if (
+		not _GF_COMBAT_FINITE_MATH.is_finite_vector3(current_position)
+		or not _GF_COMBAT_FINITE_MATH.is_finite_float(travel_distance)
+		or not _GF_COMBAT_FINITE_MATH.is_finite_vector3(velocity)
+		or not _GF_COMBAT_FINITE_MATH.is_finite_vector3(next_position)
+	):
+		_reject_motion_3d(projectile_context)
+		return true
+	_set_projectile_position_3d(projectile, next_position)
+	projectile_context["velocity_3d"] = velocity
+	return true
 
 
 func _cache_direction_2d(projectile: Node2D, projectile_context: Dictionary) -> void:

@@ -16,7 +16,9 @@ extends Resource
 
 const _GF_VALIDATION_REPORT_DICTIONARY = preload("res://addons/gf/standard/foundation/validation/gf_validation_report_dictionary.gd")
 const _SCHEMA_DESCRIPTOR_VERSION: int = 1
-const _VERSION_REPORT_SUBJECT: String = "Network contract version"
+const _NETWORK_CONTRACT_VERSION_VALIDATOR = preload(
+	"res://addons/gf/extensions/network/contracts/gf_network_contract_version_validator.gd"
+)
 
 
 # --- 导出变量 ---
@@ -298,69 +300,11 @@ func get_contract_version() -> Dictionary:
 ## [br]
 ## @schema return: Dictionary，包含 ok、local_version、peer_version、issues、issue_count 和 next_actions。
 func validate_peer_contract_version(peer_version: Dictionary, options: Dictionary = {}) -> Dictionary:
-	var issues: Array[Dictionary] = []
-	var severity: String = GFVariantData.get_option_string(options, "severity", "error")
-	var require_contract_id: bool = GFVariantData.get_option_bool(options, "require_contract_id", true)
-	var require_schema_digest: bool = GFVariantData.get_option_bool(options, "require_schema_digest", false)
-	var peer_contract_id: StringName = GFVariantData.get_option_string_name(peer_version, "contract_id")
-
-	if require_contract_id and contract_id != &"":
-		if peer_contract_id == &"":
-			issues.append(_make_version_issue(severity, "contract_id_missing", "Peer network contract version is missing contract_id.", {
-				"expected_value": contract_id,
-				"actual_value": peer_contract_id,
-			}))
-		elif peer_contract_id != contract_id:
-			issues.append(_make_version_issue(severity, "contract_id_mismatch", "Peer network contract_id does not match.", {
-				"expected_value": contract_id,
-				"actual_value": peer_contract_id,
-			}))
-
-	if not peer_version.has("version_major"):
-		issues.append(_make_version_issue(severity, "contract_version_major_missing", "Peer network contract version is missing version_major.", {
-			"expected_value": contract_version_major,
-			"actual_value": null,
-		}))
-	else:
-		var peer_major: int = GFVariantData.get_option_int(peer_version, "version_major", -1)
-		if peer_major != contract_version_major:
-			issues.append(_make_version_issue(severity, "contract_version_major_mismatch", "Peer network contract major version does not match.", {
-				"expected_value": contract_version_major,
-				"actual_value": peer_major,
-			}))
-
-	if require_schema_digest:
-		var local_digest: String = get_schema_digest()
-		var peer_digest: String = GFVariantData.get_option_string(peer_version, "schema_digest").strip_edges()
-		if peer_digest.is_empty():
-			issues.append(_make_version_issue(severity, "contract_schema_digest_missing", "Peer network contract version is missing schema_digest.", {
-				"expected_value": local_digest,
-				"actual_value": peer_digest,
-			}))
-		elif local_digest.is_empty():
-			issues.append(_make_version_issue(severity, "contract_schema_digest_unavailable", "Local network contract schema_digest is unavailable.", {
-				"expected_value": "non-empty schema_digest",
-				"actual_value": local_digest,
-			}))
-		elif peer_digest != local_digest:
-			issues.append(_make_version_issue(severity, "contract_schema_digest_mismatch", "Peer network contract schema_digest does not match.", {
-				"expected_value": local_digest,
-				"actual_value": peer_digest,
-			}))
-
-	var report: Dictionary = {
-		"subject": _VERSION_REPORT_SUBJECT,
-		"contract_id": contract_id,
-		"local_version": get_contract_version(),
-		"peer_version": peer_version.duplicate(true),
-		"issues": issues,
-	}
-	return _GF_VALIDATION_REPORT_DICTIONARY.finalize_report(report, _VERSION_REPORT_SUBJECT, {
-		"include_issue_count": true,
-		"next_actions": _get_version_next_actions(),
-		"fallback_action": "Review the first network contract version mismatch.",
-		"no_action": "Network contract version is compatible.",
-	})
+	return _NETWORK_CONTRACT_VERSION_VALIDATOR.validate(
+		get_contract_version(),
+		peer_version,
+		options
+	)
 
 
 # --- 私有/辅助方法 ---
@@ -377,17 +321,6 @@ func _make_issue(severity: String, kind: String, message: String, key: String = 
 		issue["path"] = key
 	elif contract_id != &"":
 		issue["path"] = String(contract_id)
-	return issue
-
-
-func _make_version_issue(severity: String, kind: String, message: String, fields: Dictionary) -> Dictionary:
-	var issue: Dictionary = {
-		"severity": severity,
-		"kind": kind,
-		"contract_id": contract_id,
-		"message": message,
-	}
-	var _merge_result: Dictionary = GFVariantData.merge_dictionary(issue, fields, true)
 	return issue
 
 
@@ -445,16 +378,4 @@ func _get_validation_next_actions() -> Dictionary:
 		"type_mismatch": "Send a value matching the declared network contract field type.",
 		"class_name_mismatch": "Send an Object or Resource matching class_name_hint.",
 		"message_type_mismatch": "Validate the message against a contract with the same message_type.",
-	}
-
-
-func _get_version_next_actions() -> Dictionary:
-	return {
-		"contract_id_missing": "Send contract_id with the peer network contract version or disable require_contract_id.",
-		"contract_id_mismatch": "Use the same network contract resource on both peers, or connect to the matching protocol endpoint.",
-		"contract_version_major_missing": "Send version_major with the peer network contract version.",
-		"contract_version_major_mismatch": "Update one side to the same compatible network contract major version.",
-		"contract_schema_digest_missing": "Send schema_digest or disable require_schema_digest for this preflight.",
-		"contract_schema_digest_unavailable": "Ensure the local network contract schema only uses deterministic Variant values.",
-		"contract_schema_digest_mismatch": "Regenerate or sync the network contract schema before exchanging messages.",
 	}

@@ -225,12 +225,13 @@ func get_field_names() -> PackedStringArray:
 ### `build_defaults`
 
 - API：`public`
+- 首次版本：`4.4.0`
 
 ```gdscript
 func build_defaults(include_optional: bool = true) -> Dictionary:
 ```
 
-创建默认 Dictionary。
+创建默认 Dictionary。 只写入可表达的默认值：default_value 非 null，或字段允许 null。没有可用默认值的 non-nullable 字段保持缺失，不会被注入一个随后无法通过 schema 的 null。
 
 参数：
 
@@ -249,12 +250,13 @@ func build_defaults(include_optional: bool = true) -> Dictionary:
 ### `apply_defaults`
 
 - API：`public`
+- 首次版本：`4.4.0`
 
 ```gdscript
 func apply_defaults(values: Dictionary, include_optional: bool = true, should_coerce: bool = true) -> Dictionary:
 ```
 
-为输入 Dictionary 补齐默认值。
+为输入 Dictionary 补齐默认值。 只为缺失字段写入可表达的默认值；没有可用默认值的 non-nullable 字段保持缺失。
 
 参数：
 

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFExtensionToolContribution" path="addons/gf/kernel/extension/gf_extension_tool_contribution.gd" module="kernel" extends="RefCounted" classDigest="7edec53de3012233e7a5e02ec414963d720713702b9b394b7b97cab55d53d7a3">
+<class name="GFExtensionToolContribution" path="addons/gf/kernel/extension/gf_extension_tool_contribution.gd" module="kernel" extends="RefCounted" classDigest="cd7b3c0458d11c2625c065c1fc2daeacadd97f10a6eab248da8147b2117721e9">
 	<description>GFExtensionToolContribution: 扩展编辑器工具贡献文件的稳定 schema 解析器。
 该类型只定义贡献文件协议，不负责加载脚本、验证资源存在性或管理编辑器生命周期。</description>
 	<tags>
@@ -20,7 +20,16 @@
 			</tags>
 		</member>
 		<member kind="const" name="PATH_FIELDS">
-			<signature>const PATH_FIELDS: Array[String] = [</signature>
+			<signature>const PATH_FIELDS: Array[String] = [
+	"access_generator_extension_paths",
+	"debugger_plugin_paths",
+	"editor_action_paths",
+	"editor_dock_paths",
+	"editor_inspector_paths",
+	"export_plugin_paths",
+	"gltf_document_extension_paths",
+	"import_plugin_paths",
+]</signature>
 			<description>所有可声明的工具贡献路径字段。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -28,7 +37,18 @@
 			</tags>
 		</member>
 		<member kind="const" name="ALLOWED_FIELDS">
-			<signature>const ALLOWED_FIELDS: Array[String] = [</signature>
+			<signature>const ALLOWED_FIELDS: Array[String] = [
+	"schema_version",
+	"extension_id",
+	"access_generator_extension_paths",
+	"debugger_plugin_paths",
+	"editor_action_paths",
+	"editor_dock_paths",
+	"editor_inspector_paths",
+	"export_plugin_paths",
+	"gltf_document_extension_paths",
+	"import_plugin_paths",
+]</signature>
 			<description>工具贡献文件允许的全部顶层字段。</description>
 			<tags>
 				<tag name="api">public</tag>

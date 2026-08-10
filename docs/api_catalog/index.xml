@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<apiCatalog schemaVersion="2" name="GF Framework" sourceRoot="addons/gf" sourceDigest="ed3d23f7e398c81482c86ff30b102bfe90ff6cce850ef68a7495fbfcb159d9e0" classCount="813" methodCount="7405">
-	<module id="kernel" label="Kernel" classCount="74" methodCount="793">
+<apiCatalog schemaVersion="2" name="GF Framework" sourceRoot="addons/gf" sourceDigest="e238562480f263582b4041c0f17fb0ad1d9f50b2e49e1c9e972b360f3f45a551" classCount="813" methodCount="7428">
+	<module id="kernel" label="Kernel" classCount="74" methodCount="799">
 		<class name="GFAccessGenerator" path="classes/GFAccessGenerator.xml" sourcePath="addons/gf/kernel/editor/gf_access_generator.gd" extends="RefCounted" />
 		<class name="GFArchitecture" path="classes/GFArchitecture.xml" sourcePath="addons/gf/kernel/core/gf_architecture.gd" extends="Object" />
 		<class name="GFArchitectureShutdownResult" path="classes/GFArchitectureShutdownResult.xml" sourcePath="addons/gf/kernel/core/gf_architecture_shutdown_result.gd" extends="RefCounted" />
@@ -76,7 +76,7 @@
 		<class name="GFUtility" path="classes/GFUtility.xml" sourcePath="addons/gf/kernel/base/gf_utility.gd" extends="Object" />
 		<class name="GFWeakMethodInvocation" path="classes/GFWeakMethodInvocation.xml" sourcePath="addons/gf/kernel/core/gf_weak_method_invocation.gd" extends="RefCounted" />
 	</module>
-	<module id="standard" label="Standard" classCount="454" methodCount="4582">
+	<module id="standard" label="Standard" classCount="454" methodCount="4593">
 		<class name="GFActivationTransaction" path="classes/GFActivationTransaction.xml" sourcePath="addons/gf/standard/foundation/policy/gf_activation_transaction.gd" extends="RefCounted" />
 		<class name="GFAnalyticsConfig" path="classes/GFAnalyticsConfig.xml" sourcePath="addons/gf/standard/utilities/analytics/gf_analytics_config.gd" extends="Resource" />
 		<class name="GFAnalyticsEventSchema" path="classes/GFAnalyticsEventSchema.xml" sourcePath="addons/gf/standard/utilities/analytics/gf_analytics_event_schema.gd" extends="Resource" />
@@ -655,7 +655,7 @@
 		<class name="GFSkillTargetingUtility2D" path="classes/GFSkillTargetingUtility2D.xml" sourcePath="addons/gf/extensions/combat/skills/gf_skill_targeting_utility_2d.gd" extends="GFUtility" />
 		<class name="GFTagComponent" path="classes/GFTagComponent.xml" sourcePath="addons/gf/extensions/combat/tags/gf_tag_component.gd" extends="RefCounted" />
 	</module>
-	<module id="extensions/content_package" label="Extensions / Content Package" classCount="7" methodCount="70">
+	<module id="extensions/content_package" label="Extensions / Content Package" classCount="7" methodCount="71">
 		<class name="GFContentPackageAssetCatalogProvider" path="classes/GFContentPackageAssetCatalogProvider.xml" sourcePath="addons/gf/extensions/content_package/runtime/gf_content_package_asset_catalog_provider.gd" extends="GFAssetCatalogSourceProvider" />
 		<class name="GFContentPackageCatalog" path="classes/GFContentPackageCatalog.xml" sourcePath="addons/gf/extensions/content_package/runtime/gf_content_package_catalog.gd" extends="RefCounted" />
 		<class name="GFContentPackageExportPlan" path="classes/GFContentPackageExportPlan.xml" sourcePath="addons/gf/extensions/content_package/runtime/gf_content_package_export_plan.gd" extends="RefCounted" />
@@ -664,7 +664,7 @@
 		<class name="GFContentPackageQueryResult" path="classes/GFContentPackageQueryResult.xml" sourcePath="addons/gf/extensions/content_package/runtime/gf_content_package_query_result.gd" extends="RefCounted" />
 		<class name="GFContentPackageUtility" path="classes/GFContentPackageUtility.xml" sourcePath="addons/gf/extensions/content_package/runtime/gf_content_package_utility.gd" extends="GFUtility" />
 	</module>
-	<module id="extensions/decision" label="Decision" classCount="8" methodCount="61">
+	<module id="extensions/decision" label="Decision" classCount="8" methodCount="62">
 		<class name="GFDecisionBlackboard" path="classes/GFDecisionBlackboard.xml" sourcePath="addons/gf/extensions/decision/runtime/gf_decision_blackboard.gd" extends="RefCounted" />
 		<class name="GFDecisionConsideration" path="classes/GFDecisionConsideration.xml" sourcePath="addons/gf/extensions/decision/resources/gf_decision_consideration.gd" extends="Resource" />
 		<class name="GFDecisionContext" path="classes/GFDecisionContext.xml" sourcePath="addons/gf/extensions/decision/runtime/gf_decision_context.gd" extends="RefCounted" />
@@ -701,7 +701,7 @@
 		<class name="GFTrait" path="classes/GFTrait.xml" sourcePath="addons/gf/extensions/domain/traits/gf_trait.gd" extends="Resource" />
 		<class name="GFTraitSet" path="classes/GFTraitSet.xml" sourcePath="addons/gf/extensions/domain/traits/gf_trait_set.gd" extends="Resource" />
 	</module>
-	<module id="extensions/feedback" label="Feedback" classCount="8" methodCount="64">
+	<module id="extensions/feedback" label="Feedback" classCount="8" methodCount="65">
 		<class name="GFHapticBackend" path="classes/GFHapticBackend.xml" sourcePath="addons/gf/extensions/feedback/runtime/gf_haptic_backend.gd" extends="RefCounted" />
 		<class name="GFHapticPreset" path="classes/GFHapticPreset.xml" sourcePath="addons/gf/extensions/feedback/resources/gf_haptic_preset.gd" extends="Resource" />
 		<class name="GFHapticUtility" path="classes/GFHapticUtility.xml" sourcePath="addons/gf/extensions/feedback/runtime/gf_haptic_utility.gd" extends="GFUtility" />
@@ -774,7 +774,7 @@
 		<class name="GFGravityField3D" path="classes/GFGravityField3D.xml" sourcePath="addons/gf/extensions/physics/nodes/gf_gravity_field_3d.gd" extends="Node3D" />
 		<class name="GFGravityProbe3D" path="classes/GFGravityProbe3D.xml" sourcePath="addons/gf/extensions/physics/nodes/gf_gravity_probe_3d.gd" extends="Node3D" />
 	</module>
-	<module id="extensions/save" label="Save" classCount="52" methodCount="413">
+	<module id="extensions/save" label="Save" classCount="52" methodCount="414">
 		<class name="GFNodeAnimationPlayerSerializer" path="classes/GFNodeAnimationPlayerSerializer.xml" sourcePath="addons/gf/extensions/save/serializers/gf_node_animation_player_serializer.gd" extends="GFNodeSerializer" />
 		<class name="GFNodeAudioStreamPlayerSerializer" path="classes/GFNodeAudioStreamPlayerSerializer.xml" sourcePath="addons/gf/extensions/save/serializers/gf_node_audio_stream_player_serializer.gd" extends="GFNodeSerializer" />
 		<class name="GFNodeCanvasItemSerializer" path="classes/GFNodeCanvasItemSerializer.xml" sourcePath="addons/gf/extensions/save/serializers/gf_node_canvas_item_serializer.gd" extends="GFNodeSerializer" />
@@ -834,7 +834,7 @@
 		<class name="GFTurnFlowSystem" path="classes/GFTurnFlowSystem.xml" sourcePath="addons/gf/extensions/turn_based/runtime/gf_turn_flow_system.gd" extends="GFSystem" />
 		<class name="GFTurnPhase" path="classes/GFTurnPhase.xml" sourcePath="addons/gf/extensions/turn_based/resources/gf_turn_phase.gd" extends="Resource" />
 	</module>
-	<module id="tools" label="Tool Packages" classCount="17" methodCount="86">
+	<module id="tools" label="Tool Packages" classCount="17" methodCount="88">
 		<class name="GFConfigAccessGenerator" path="classes/GFConfigAccessGenerator.xml" sourcePath="addons/gf/tools/config_pipeline/gf_config_access_generator.gd" extends="RefCounted" />
 		<class name="GFConfigPipeline" path="classes/GFConfigPipeline.xml" sourcePath="addons/gf/tools/config_pipeline/gf_config_pipeline.gd" extends="RefCounted" />
 		<class name="GFConfigPipelineArtifactManifest" path="classes/GFConfigPipelineArtifactManifest.xml" sourcePath="addons/gf/tools/config_pipeline/gf_config_pipeline_artifact_manifest.gd" extends="RefCounted" />

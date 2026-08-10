@@ -333,3 +333,50 @@ func test_divide_large_positive_shift_uses_exact_integer_path() -> void:
 
 	assert_eq(result.raw_value, 1_000_000_000_000_000_000, "大位移除法在可表示范围内应保持精确 raw 值。")
 	assert_eq(result.to_decimal_string(), "1.000000000000000000", "大位移除法结果应保留目标精度。")
+
+
+func test_divide_uses_wide_intermediate_when_scaled_numerator_would_overflow() -> void:
+	var one: GFFixedDecimal = GFFixedDecimal.new(1_000_000_000_000_000_000, 18)
+	var positive: GFFixedDecimal = one.divide(one, 18, GFFixedDecimal.RoundingMode.HALF_UP)
+	var negative: GFFixedDecimal = one.negated().divide(
+		one,
+		18,
+		GFFixedDecimal.RoundingMode.TRUNCATE
+	)
+
+	assert_eq(positive.raw_value, 1_000_000_000_000_000_000, "中间缩放溢出不得破坏 x / x == 1。")
+	assert_eq(positive.decimal_places, 18)
+	assert_eq(negative.raw_value, -1_000_000_000_000_000_000, "宽中间值路径必须保留符号和截断语义。")
+
+
+func test_divide_uses_wide_intermediate_when_scaled_denominator_would_overflow() -> void:
+	var scaled_left: GFFixedDecimal = GFFixedDecimal.new(9_223_372_036_854_775_807, 18)
+	var unscaled_right: GFFixedDecimal = GFFixedDecimal.new(9_223_372_036_854_775_807, 0)
+	var truncated: GFFixedDecimal = scaled_left.divide(
+		unscaled_right,
+		0,
+		GFFixedDecimal.RoundingMode.TRUNCATE
+	)
+	var ceiled: GFFixedDecimal = scaled_left.divide(
+		unscaled_right,
+		0,
+		GFFixedDecimal.RoundingMode.CEIL
+	)
+
+	assert_eq(truncated.raw_value, 0, "负 shift 的 denominator 扩大也不能先饱和成错误商。")
+	assert_eq(ceiled.raw_value, 1, "宽 denominator 路径必须保留最终余数舍入信息。")
+
+
+func test_compare_to_preserves_total_order_across_scales_near_raw_limits() -> void:
+	var largest: GFFixedDecimal = GFFixedDecimal.new(9_223_372_036_854_775_807, 0)
+	var tenth: GFFixedDecimal = GFFixedDecimal.new(9_223_372_036_854_775_807, 1)
+	var hundredth: GFFixedDecimal = GFFixedDecimal.new(9_223_372_036_854_775_807, 2)
+	var negative_largest: GFFixedDecimal = largest.negated()
+	var negative_tenth: GFFixedDecimal = tenth.negated()
+
+	assert_eq(largest.compare_to(tenth), 1, "跨 scale 比较不得因中间对齐饱和而把不同值判为相等。")
+	assert_eq(tenth.compare_to(largest), -1, "跨 scale 比较必须满足反对称性。")
+	assert_eq(tenth.compare_to(hundredth), 1)
+	assert_eq(largest.compare_to(hundredth), 1, "极值三元组必须保持传递性。")
+	assert_eq(negative_largest.compare_to(negative_tenth), -1, "负值比较必须按绝对值顺序反转。")
+	assert_eq(negative_tenth.compare_to(negative_largest), 1)

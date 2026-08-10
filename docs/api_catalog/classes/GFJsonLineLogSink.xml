@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFJsonLineLogSink" path="addons/gf/standard/utilities/logging/gf_json_line_log_sink.gd" module="standard" extends="GFLogSink" classDigest="cc7623e89e639e3c6b5a54fa8dfd42ceb6df86205a74bec6e8a5bf20347615a8">
+<class name="GFJsonLineLogSink" path="addons/gf/standard/utilities/logging/gf_json_line_log_sink.gd" module="standard" extends="GFLogSink" classDigest="de145022a23534fb1494e8a315f3ea38892e2d3b834a750c2ed9d34d34de84ac">
 	<description>GFJsonLineLogSink: 把结构化日志条目写入 JSON Lines 文件。
 该 sink 只负责把 GFLogUtility 传入的条目序列化为一行一个 JSON 对象，
 不规定采集服务、上传时机或业务字段 schema。</description>
@@ -30,9 +30,10 @@
 	<properties>
 		<member kind="property" name="file_path" decorators="@export">
 			<signature>var file_path: String = ""</signature>
-			<description>输出文件路径。留空时会根据 GFLogUtility 当前日志文件派生同名 `.jsonl` 文件。</description>
+			<description>输出文件路径。留空时会根据 GFLogUtility 当前日志文件和 sink 实例派生独占 `.jsonl` 文件。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="omit_formatted_text" decorators="@export">
@@ -98,6 +99,15 @@
 				<tag name="api">public</tag>
 				<tag name="param">entry: 日志条目字典。</tag>
 				<tag name="schema">entry: Dictionary log entry produced by GFLogUtility.</tag>
+			</tags>
+		</member>
+		<member kind="method" name="tick">
+			<signature>func tick(delta: float) -&gt; void:</signature>
+			<description>推进自动 flush 计时；由持有该 sink 的 GFLogUtility 调用。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">delta: 本帧时间增量（秒）；非有限或非正数不会推进状态。</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 		<member kind="method" name="flush">

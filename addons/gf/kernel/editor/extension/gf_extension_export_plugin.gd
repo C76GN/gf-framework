@@ -144,6 +144,7 @@ func _warn_disabled_extension_references() -> void:
 		return
 
 	var report: Dictionary = GFExtensionUsageAuditBase.audit_disabled_extensions(_disabled_manifests, {
+		"additional_ignored_roots": ["res://ai_analysis"],
 		"max_references_per_extension": 8,
 	})
 	if _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(report, "ok", true):

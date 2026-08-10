@@ -230,8 +230,11 @@ func get_capability(receiver: Object, capability_type: Script) -> Object:
 
 
 ## 获取对象当前拥有的所有能力类型。
+## 该查询不会为了表示空结果而向未注册 receiver 写入能力元数据。
 ## [br]
 ## @api public
+## [br]
+## @since 1.10.0
 ## [br]
 ## @param receiver: 能力接收对象。
 ## [br]
@@ -242,7 +245,7 @@ func get_capability_types(receiver: Object) -> Array[Script]:
 	if not is_instance_valid(receiver):
 		return _empty_script_array()
 
-	return _get_capability_type_list(receiver).duplicate()
+	return _read_capability_type_list(receiver).duplicate()
 
 
 ## 获取所有拥有指定能力的 receiver。
@@ -280,6 +283,7 @@ func get_receivers_with(capability_type: Script, include_subclasses: bool = true
 ## receiver 必须拥有 required_capability_types 中的所有能力，
 ## 且不能拥有 rejected_capability_types 中的任意能力。
 ## required_capability_types 为空时，会从当前已索引 receiver 或指定分组中筛选。
+## 任一条件列表包含 null 时视为非法查询，整次失败关闭为空结果。
 ## [br]
 ## @api public
 ## [br]
@@ -306,6 +310,12 @@ func get_receivers_matching_capabilities(
 	include_subclasses: bool = true,
 	group_name: StringName = &""
 ) -> Array[Object]:
+	if not _validate_query_script_lists(
+		required_capability_types,
+		rejected_capability_types,
+		"get_receivers_matching_capabilities"
+	):
+		return _empty_object_array()
 	_prune_invalid_receivers()
 
 	var required_types: Array[Script] = _deduplicate_script_list(required_capability_types)
@@ -359,6 +369,7 @@ func get_receivers_matching_query(query: GFCapabilityQuery) -> Array[Object]:
 
 
 ## 判断指定 receiver 是否满足资源化查询条件。
+## query 的 required/rejected 列表包含 null 时失败关闭为 false。
 ## [br]
 ## @api public
 ## [br]
@@ -373,6 +384,12 @@ func get_receivers_matching_query(query: GFCapabilityQuery) -> Array[Object]:
 ## @return: receiver 当前有效且满足查询时返回 true。
 func receiver_matches_query(receiver: Object, query: GFCapabilityQuery) -> bool:
 	if not is_instance_valid(receiver) or query == null:
+		return false
+	if not _validate_query_script_lists(
+		query.required_capability_types,
+		query.rejected_capability_types,
+		"receiver_matches_query"
+	):
 		return false
 
 	_prune_invalid_receivers()
@@ -537,7 +554,6 @@ func get_receivers_in_group_with(
 	if group_name == &"" or capability_type == null:
 		return _empty_object_array()
 
-	_prune_invalid_receivers()
 	var result: Array[Object] = []
 	var group_receivers: Dictionary = _get_dictionary_ref(_receiver_groups, group_name)
 	for receiver: Object in get_receivers_with(capability_type, include_subclasses):
@@ -673,8 +689,12 @@ func add_scene_capability(receiver: Node, scene: PackedScene, as_type: Script = 
 
 
 ## 设置对象上指定能力的启停状态。
+## Node 能力树会在写状态前完成有界预检；超出 max_capability_tree_nodes 时保持原状态，
+## 不调用 active Hook，也不发出 capability_active_changed。
 ## [br]
 ## @api public
+## [br]
+## @since 1.11.0
 ## [br]
 ## @param receiver: 能力接收对象。
 ## [br]
@@ -694,7 +714,10 @@ func set_capability_active(receiver: Object, capability_type: Script, active: bo
 	if _read_capability_active(capability) == active:
 		return
 
-	_apply_capability_active_state(receiver, capability, active, true)
+	if not _apply_capability_active_state(receiver, capability, active, true):
+		return
+	if not is_instance_valid(receiver) or not is_instance_valid(capability):
+		return
 	capability_active_changed.emit(receiver, registered_type, capability, active)
 
 
@@ -1143,7 +1166,7 @@ func _dispose_receiver_capabilities(receiver: Object) -> void:
 	if not is_instance_valid(receiver):
 		return
 
-	var capability_types: Array[Script] = _get_capability_type_list(receiver).duplicate()
+	var capability_types: Array[Script] = _read_capability_type_list(receiver).duplicate()
 	while not capability_types.is_empty():
 		var removed_any: bool = false
 		for capability_type: Script in capability_types.duplicate():
@@ -1179,30 +1202,41 @@ func _remove_capability(receiver: Object, capability_type: Script, free_instance
 			% _get_script_key(registered_type)
 		)
 		return false
-	if not _begin_registration_transition(
+	var transition_key: String = _begin_registration_transition(
 		receiver,
 		registered_type,
 		_REGISTRATION_STATE_REMOVING,
 		"remove_capability"
-	):
+	)
+	if transition_key.is_empty():
 		return false
 
 	var dependency_types: Array[Script] = _get_dependency_types(receiver, registered_type)
-	var dependency_removal_policy: int = _get_dependency_removal_policy(capability)
 	var owns_instance: bool = _owns_capability_instance(receiver, registered_type)
 	var should_ignore_scene_capability: bool = _should_ignore_removed_scene_capability(receiver, capability, owns_instance)
+	var dependency_removal_policy: int = _get_dependency_removal_policy(capability)
+	if not is_instance_valid(receiver) or not is_instance_valid(capability):
+		_end_registration_transition(transition_key)
+		push_error("[GFCapabilityUtility] remove_capability 失败：依赖清理策略回调释放了 receiver 或 capability。")
+		return false
+
 	_remove_capability_record(receiver, registered_type)
 	if should_ignore_scene_capability:
 		_mark_scene_capability_ignored(receiver, registered_type, true)
 	_remove_dependency_links(receiver, registered_type)
 	_call_removed_hook(receiver, capability)
-	_set_capability_receiver(capability, null)
-	capability_removed.emit(receiver, registered_type, capability)
-	if free_instance and owns_instance:
+	if is_instance_valid(capability):
+		_set_capability_receiver(capability, null)
+	if is_instance_valid(receiver) and is_instance_valid(capability):
+		capability_removed.emit(receiver, registered_type, capability)
+	if free_instance and owns_instance and is_instance_valid(capability):
 		_free_registered_capability(capability)
-	if dependency_removal_policy == DependencyRemovalPolicy.REMOVE_AUTO_DEPENDENCIES:
+	if (
+		is_instance_valid(receiver)
+		and dependency_removal_policy == DependencyRemovalPolicy.REMOVE_AUTO_DEPENDENCIES
+	):
 		_remove_unused_auto_dependencies(receiver, dependency_types)
-	_end_registration_transition(receiver, registered_type)
+	_end_registration_transition(transition_key)
 	return true
 
 
@@ -1221,7 +1255,7 @@ func _apply_recipe_entry(
 		_append_recipe_failure(result, index, "invalid_entry", "Recipe entry requires capability_type or scene.")
 		return
 
-	var before_types: Array[Script] = _get_capability_type_list(receiver).duplicate()
+	var before_types: Array[Script] = _read_capability_type_list(receiver).duplicate()
 	var capability_type: Script = entry.capability_type
 	var capability: Object = null
 	if entry.scene != null:
@@ -1249,7 +1283,7 @@ func _apply_recipe_entry(
 	if registered_type != null:
 		set_capability_active(receiver, registered_type, entry.active)
 
-	var created_types: Array[Script] = _get_created_capability_types(before_types, _get_capability_type_list(receiver))
+	var created_types: Array[Script] = _get_created_capability_types(before_types, _read_capability_type_list(receiver))
 	for created_type: Script in created_types:
 		if created_type != null and not added_types.has(created_type):
 			added_types.append(created_type)
@@ -1429,15 +1463,27 @@ func _add_capability_instance(
 	if _creation_stack.has(creation_key):
 		push_error("[GFCapabilityUtility] 检测到循环能力依赖：%s" % _describe_creation_stack(creation_key))
 		return null
-	if not _begin_registration_transition(receiver, capability_type, _REGISTRATION_STATE_ADDING, context):
+	var transition_key: String = _begin_registration_transition(
+		receiver,
+		capability_type,
+		_REGISTRATION_STATE_ADDING,
+		context
+	)
+	if transition_key.is_empty():
 		return null
 
 	_creation_stack.append(creation_key)
 	var dependency_result: Dictionary = _ensure_required_capabilities(receiver, capability)
 	if not GFVariantData.get_option_bool(dependency_result, "ok", false):
-		_rollback_created_dependencies(receiver, GFVariantData.get_option_array(dependency_result, "created_types"))
+		if is_instance_valid(receiver):
+			_rollback_created_dependencies(receiver, GFVariantData.get_option_array(dependency_result, "created_types"))
 		_creation_stack.pop_back()
-		_end_registration_transition(receiver, capability_type)
+		_end_registration_transition(transition_key)
+		return null
+	if not is_instance_valid(receiver) or not is_instance_valid(capability):
+		_creation_stack.pop_back()
+		_end_registration_transition(transition_key)
+		push_error("[GFCapabilityUtility] %s 失败：依赖解析回调释放了 receiver 或 capability。" % context)
 		return null
 
 	var dependency_types: Array[Script] = _get_script_array_value(
@@ -1451,13 +1497,14 @@ func _add_capability_instance(
 		owns_instance,
 		dependency_types
 	)
-	_call_added_hook(receiver, capability)
+	if is_instance_valid(receiver) and is_instance_valid(capability):
+		_call_added_hook(receiver, capability)
 	if is_instance_valid(receiver) and is_instance_valid(capability):
 		capability_added.emit(receiver, capability_type, capability)
 	else:
 		push_error("[GFCapabilityUtility] %s 失败：added hook 释放了 receiver 或 capability。" % context)
 	_creation_stack.pop_back()
-	_end_registration_transition(receiver, capability_type)
+	_end_registration_transition(transition_key)
 	if not is_instance_valid(receiver) or not is_instance_valid(capability):
 		return null
 	return capability
@@ -1506,7 +1553,7 @@ func _ensure_required_capabilities(receiver: Object, capability: Object) -> Dict
 				"created_types": created_types,
 			}
 
-		var before_types: Array[Script] = _get_capability_type_list(receiver).duplicate()
+		var before_types: Array[Script] = _read_capability_type_list(receiver).duplicate()
 		var required_capability: Object = add_required_capability(receiver, required_type)
 		if required_capability == null:
 			return {
@@ -1514,7 +1561,7 @@ func _ensure_required_capabilities(receiver: Object, capability: Object) -> Dict
 				"types": resolved_types,
 				"created_types": created_types,
 			}
-		_append_unique_scripts(created_types, _get_created_capability_types(before_types, _get_capability_type_list(receiver)))
+		_append_unique_scripts(created_types, _get_created_capability_types(before_types, _read_capability_type_list(receiver)))
 		var required_record: Dictionary = _find_capability_record(receiver, required_type)
 		var registered_required_type: Script = _get_script_value(GFVariantData.get_option_value(required_record, "type", required_type))
 		resolved_types.append(registered_required_type if registered_required_type != null else required_type)
@@ -1587,7 +1634,12 @@ func _commit_capability_registration(
 	_set_capability_receiver(capability, receiver)
 	_inject_if_needed(capability)
 	_attach_node_capability(receiver, capability)
-	_apply_capability_active_state(receiver, capability, _read_capability_active(capability), false)
+	var _active_state_applied: bool = _apply_capability_active_state(
+		receiver,
+		capability,
+		_read_capability_active(capability),
+		false
+	)
 
 
 func _get_capability_type_list(receiver: Object) -> Array[Script]:
@@ -1597,6 +1649,12 @@ func _get_capability_type_list(receiver: Object) -> Array[Script]:
 	var types: Array[Script] = _get_script_array_value(receiver.get_meta(_META_CAPABILITY_TYPES))
 	receiver.set_meta(_META_CAPABILITY_TYPES, types)
 	return types
+
+
+func _read_capability_type_list(receiver: Object) -> Array[Script]:
+	if not is_instance_valid(receiver) or not receiver.has_meta(_META_CAPABILITY_TYPES):
+		return _empty_script_array()
+	return _get_script_array_value(receiver.get_meta(_META_CAPABILITY_TYPES))
 
 
 func _remove_capability_type_from_meta(receiver: Object, capability_type: Script) -> void:
@@ -1880,7 +1938,7 @@ func _get_matching_capability_records(receiver: Object, capability_type: Script)
 		})
 		return result
 
-	for registered_type: Script in _get_capability_type_list(receiver):
+	for registered_type: Script in _read_capability_type_list(receiver):
 		if registered_type == capability_type:
 			continue
 		if _script_extends_or_equals(registered_type, capability_type):
@@ -2107,28 +2165,32 @@ func _read_capability_active(capability: Object) -> bool:
 	return true
 
 
-func _apply_capability_active_state(receiver: Object, capability: Object, active: bool, notify_hook: bool) -> void:
-	if capability == null:
-		return
+func _apply_capability_active_state(receiver: Object, capability: Object, active: bool, notify_hook: bool) -> bool:
+	if not is_instance_valid(receiver) or not is_instance_valid(capability):
+		return false
+
+	var capability_nodes: Array[Node] = []
+	if capability is Node:
+		var capability_node: Node = capability
+		capability_nodes = _collect_capability_node_tree(
+			capability_node,
+			true,
+			false,
+			"set active state"
+		)
+		if capability_nodes.is_empty():
+			return false
 
 	if "active" in capability:
 		capability.set("active", active)
 	capability.set_meta(_META_CAPABILITY_ACTIVE, active)
-	if capability is Node:
-		var capability_node: Node = capability
-		_set_node_tree_active_state(capability_node, active)
+	for tree_node: Node in capability_nodes:
+		_set_node_active_state(tree_node, active)
 	if notify_hook:
 		_call_active_changed_hook(receiver, capability, active)
-
-
-func _set_node_tree_active_state(node: Node, active: bool) -> void:
-	for tree_node: Node in _collect_capability_node_tree(
-		node,
-		true,
-		false,
-		"set active state"
-	):
-		_set_node_active_state(tree_node, active)
+		if not is_instance_valid(receiver) or not is_instance_valid(capability):
+			return false
+	return true
 
 
 func _set_node_active_state(node: Node, active: bool) -> void:
@@ -2182,6 +2244,26 @@ func _deduplicate_script_list(source: Array[Script]) -> Array[Script]:
 		seen[script_type] = true
 		result.append(script_type)
 	return result
+
+
+func _validate_query_script_lists(
+	required_types: Array[Script],
+	rejected_types: Array[Script],
+	context: String
+) -> bool:
+	if required_types.has(null):
+		push_error(
+			"[GFCapabilityUtility] %s 失败：required_capability_types 包含 null。"
+			% context
+		)
+		return false
+	if rejected_types.has(null):
+		push_error(
+			"[GFCapabilityUtility] %s 失败：rejected_capability_types 包含 null。"
+			% context
+		)
+		return false
+	return true
 
 
 func _get_capability_query_candidate_ids(
@@ -2279,7 +2361,7 @@ func _receiver_has_capability_type(
 	if not include_subclasses:
 		return false
 
-	for registered_type: Script in _get_capability_type_list(receiver):
+	for registered_type: Script in _read_capability_type_list(receiver):
 		if registered_type == capability_type:
 			continue
 		if _script_extends_or_equals(registered_type, capability_type):
@@ -2612,24 +2694,24 @@ func _begin_registration_transition(
 	capability_type: Script,
 	state: int,
 	context: String
-) -> bool:
+) -> String:
 	if not is_instance_valid(receiver) or capability_type == null:
-		return false
+		return ""
 	var key: String = _get_creation_key(receiver, capability_type)
 	if _registration_states.has(key):
 		push_error(
 			"[GFCapabilityUtility] %s 失败：能力正在执行另一项生命周期事务：%s。"
 			% [context, _get_script_key(capability_type)]
 		)
-		return false
+		return ""
 	_registration_states[key] = state
-	return true
+	return key
 
 
-func _end_registration_transition(receiver: Object, capability_type: Script) -> void:
-	if not is_instance_valid(receiver) or capability_type == null:
+func _end_registration_transition(transition_key: String) -> void:
+	if transition_key.is_empty():
 		return
-	_erase_dictionary_key(_registration_states, _get_creation_key(receiver, capability_type))
+	_erase_dictionary_key(_registration_states, transition_key)
 
 
 func _get_registration_state(receiver: Object, capability_type: Script) -> int:

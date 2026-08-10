@@ -29,6 +29,8 @@
 | 方法 | [`get_debug_snapshot`](#member-gfeditorcommand-methods-get_debug_snapshot) | `func get_debug_snapshot() -> Dictionary:` |
 | 方法 | [`_do_it`](#member-gfeditorcommand-methods-_do_it) | `func _do_it() -> Error:` |
 | 方法 | [`_undo_it`](#member-gfeditorcommand-methods-_undo_it) | `func _undo_it() -> Error:` |
+| 方法 | [`_get_undo_context`](#member-gfeditorcommand-methods-_get_undo_context) | `func _get_undo_context() -> Object:` |
+| 方法 | [`_get_undo_targets`](#member-gfeditorcommand-methods-_get_undo_targets) | `func _get_undo_targets() -> Array[Object]:` |
 | 方法 | [`_can_change_configuration`](#member-gfeditorcommand-methods-_can_change_configuration) | `func _can_change_configuration(field_name: String) -> bool:` |
 | 方法 | [`_seal_configuration_for_execution`](#member-gfeditorcommand-methods-_seal_configuration_for_execution) | `func _seal_configuration_for_execution() -> void:` |
 
@@ -249,6 +251,36 @@ func _undo_it() -> Error:
 撤销具体编辑器操作，供子类重写。
 
 返回：Godot 错误码。
+
+<a id="member-gfeditorcommand-methods-_get_undo_context"></a>
+
+### `_get_undo_context`
+
+- API：`protected`
+- 首次版本：`unreleased`
+
+```gdscript
+func _get_undo_context() -> Object:
+```
+
+返回用于 EditorUndoRedoManager 历史路由的实际变更上下文。 修改 Node 或 Resource 的命令应返回被修改对象，而不是命令自身。没有明确目标、 或使用普通 UndoRedo 兼容对象时可返回 null。
+
+返回：用于选择 UndoRedo history 的对象。
+
+<a id="member-gfeditorcommand-methods-_get_undo_targets"></a>
+
+### `_get_undo_targets`
+
+- API：`protected`
+- 首次版本：`unreleased`
+
+```gdscript
+func _get_undo_targets() -> Array[Object]:
+```
+
+返回命令会修改的全部对象，用于拒绝跨 UndoRedo history 的混合事务。 默认只包含 `_get_undo_context()`。多目标命令应返回所有实际目标。
+
+返回：命令的全部变更目标。
 
 <a id="member-gfeditorcommand-methods-_can_change_configuration"></a>
 

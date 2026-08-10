@@ -303,10 +303,7 @@ func load_text(source_key: String, caller_span: Variant = null) -> Dictionary:
 
 	var cache_key: String = GFVariantData.get_option_string(resolved, "cache_key")
 	if cache_enabled and _cache.has(cache_key):
-		var cached: Dictionary = GFVariantData.get_option_dictionary(_cache, cache_key)
-		cached["from_cache"] = true
-		cached["report"] = duplicate_report()
-		return GFResultDictionary.normalize(cached, true)
+		return _get_cached_result(cache_key, caller_span)
 
 	var result: Dictionary
 	if GFVariantData.get_option_bool(resolved, "registered", false):
@@ -395,9 +392,14 @@ func _load_file_text(path: String, resolved: Dictionary, caller_span: Variant) -
 		file.close()
 		return _failure(&"file_too_large", "Source text file exceeds max_bytes.", caller_span, resolved)
 
-	var text: String = file.get_as_text()
+	var bytes: PackedByteArray = file.get_buffer(byte_size)
+	var read_error: Error = file.get_error()
 	file.close()
-	return _make_loaded_result(text, resolved, false, false, caller_span)
+	if bytes.size() != byte_size or (read_error != OK and read_error != ERR_FILE_EOF):
+		return _failure(&"read_failed", "Source text file could not be read completely.", caller_span, resolved)
+	if not _is_valid_utf8_bytes(bytes):
+		return _failure(&"invalid_utf8", "Source text file is not valid UTF-8.", caller_span, resolved)
+	return _make_loaded_result(bytes.get_string_from_utf8(), resolved, false, false, caller_span)
 
 
 func _load_custom_text(source_key: String, caller_span: Variant) -> Dictionary:
@@ -406,10 +408,7 @@ func _load_custom_text(source_key: String, caller_span: Variant) -> Dictionary:
 
 	var cache_key: String = _make_custom_cache_key(source_key)
 	if cache_enabled and _cache.has(cache_key):
-		var cached: Dictionary = GFVariantData.get_option_dictionary(_cache, cache_key)
-		cached["from_cache"] = true
-		cached["report"] = duplicate_report()
-		return GFResultDictionary.normalize(cached, true)
+		return _get_cached_result(cache_key, caller_span)
 
 	for loader_index: int in range(_custom_loaders.size()):
 		var entry: Dictionary = GFVariantData.as_dictionary(_custom_loaders[loader_index])
@@ -483,7 +482,7 @@ func _normalize_custom_loader_result(
 		return _make_custom_loaded_result(text, {}, source_key, cache_key, loader_index, caller_span, loader_metadata)
 	if raw_result is PackedByteArray:
 		var bytes: PackedByteArray = raw_result
-		return _make_custom_loaded_result(bytes.get_string_from_utf8(), {}, source_key, cache_key, loader_index, caller_span, loader_metadata)
+		return _make_custom_bytes_loaded_result(bytes, {}, source_key, cache_key, loader_index, caller_span, loader_metadata)
 	if raw_result is Dictionary:
 		var data: Dictionary = GFVariantData.as_dictionary(raw_result)
 		if data.has("handled") and not GFVariantData.get_option_bool(data, "handled", false):
@@ -524,12 +523,38 @@ func _make_custom_text_value_result(
 		return _make_custom_loaded_result(text, data, source_key, cache_key, loader_index, caller_span, loader_metadata)
 	if text_value is PackedByteArray:
 		var bytes: PackedByteArray = text_value
-		return _make_custom_loaded_result(bytes.get_string_from_utf8(), data, source_key, cache_key, loader_index, caller_span, loader_metadata)
+		return _make_custom_bytes_loaded_result(bytes, data, source_key, cache_key, loader_index, caller_span, loader_metadata)
 	return _failure(&"invalid_custom_loader_result", "Custom source text loader text must be String or PackedByteArray.", caller_span, {
 		"source_key": source_key,
 		"custom_loader": true,
 		"loader_index": loader_index,
 	})
+
+
+func _make_custom_bytes_loaded_result(
+	bytes: PackedByteArray,
+	data: Dictionary,
+	source_key: String,
+	cache_key: String,
+	loader_index: int,
+	caller_span: Variant,
+	loader_metadata: Dictionary
+) -> Dictionary:
+	if not _is_valid_utf8_bytes(bytes):
+		return _failure(&"invalid_utf8", "Custom source text loader returned invalid UTF-8 bytes.", caller_span, {
+			"source_key": source_key,
+			"custom_loader": true,
+			"loader_index": loader_index,
+		})
+	return _make_custom_loaded_result(
+		bytes.get_string_from_utf8(),
+		data,
+		source_key,
+		cache_key,
+		loader_index,
+		caller_span,
+		loader_metadata
+	)
 
 
 func _make_custom_loaded_result(
@@ -584,6 +609,75 @@ func _failure(reason: StringName, message: String, caller_span: Variant, fields:
 	var result: Dictionary = fields.duplicate(true)
 	result["report"] = duplicate_report()
 	return GFResultDictionary.make_rejected(reason, message, result)
+
+
+func _get_cached_result(cache_key: String, caller_span: Variant) -> Dictionary:
+	var cached: Dictionary = GFVariantData.get_option_dictionary(_cache, cache_key)
+	var byte_size: int = GFVariantData.get_option_int(cached, "byte_size", -1)
+	if max_bytes > 0 and byte_size > max_bytes:
+		var _cache_erase_result: bool = _cache.erase(cache_key)
+		return _failure(&"text_too_large", "Cached source text exceeds max_bytes.", caller_span, {
+			"source_key": GFVariantData.get_option_string(cached, "source_key"),
+			"resolved_path": GFVariantData.get_option_string(cached, "resolved_path"),
+			"cache_key": cache_key,
+			"registered": GFVariantData.get_option_bool(cached, "registered"),
+			"custom_loader": GFVariantData.get_option_bool(cached, "custom_loader"),
+		})
+	cached["from_cache"] = true
+	cached["report"] = duplicate_report()
+	return GFResultDictionary.normalize(cached, true)
+
+
+static func _is_valid_utf8_bytes(bytes: PackedByteArray) -> bool:
+	var index: int = 0
+	while index < bytes.size():
+		var first: int = bytes[index]
+		if first <= 0x7f:
+			index += 1
+			continue
+		if first >= 0xc2 and first <= 0xdf:
+			if index + 1 >= bytes.size() or not _is_utf8_continuation(bytes[index + 1]):
+				return false
+			index += 2
+			continue
+		if first >= 0xe0 and first <= 0xef:
+			if index + 2 >= bytes.size():
+				return false
+			var second: int = bytes[index + 1]
+			var third: int = bytes[index + 2]
+			if not _is_utf8_continuation(third):
+				return false
+			if first == 0xe0 and (second < 0xa0 or second > 0xbf):
+				return false
+			if first == 0xed and (second < 0x80 or second > 0x9f):
+				return false
+			if first != 0xe0 and first != 0xed and not _is_utf8_continuation(second):
+				return false
+			index += 3
+			continue
+		if first >= 0xf0 and first <= 0xf4:
+			if index + 3 >= bytes.size():
+				return false
+			var second: int = bytes[index + 1]
+			if first == 0xf0 and (second < 0x90 or second > 0xbf):
+				return false
+			if first == 0xf4 and (second < 0x80 or second > 0x8f):
+				return false
+			if first != 0xf0 and first != 0xf4 and not _is_utf8_continuation(second):
+				return false
+			if (
+				not _is_utf8_continuation(bytes[index + 2])
+				or not _is_utf8_continuation(bytes[index + 3])
+			):
+				return false
+			index += 4
+			continue
+		return false
+	return true
+
+
+static func _is_utf8_continuation(value: int) -> bool:
+	return value >= 0x80 and value <= 0xbf
 
 
 func _add_error(reason: StringName, message: String, caller_span: Variant, fields: Dictionary) -> void:

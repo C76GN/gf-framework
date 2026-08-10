@@ -14,9 +14,11 @@ extends GFUtility
 
 # --- 信号 ---
 
-## 拖拽开始时发出。
+## 会话写入注册表后同步发出。监听器可以取消该会话；此时 start_drag() 返回 -1。
 ## [br]
 ## @api public
+## [br]
+## @since 11.0.0
 ## [br]
 ## @param session_id: 会话 ID。
 ## [br]
@@ -34,9 +36,11 @@ signal drag_started(session_id: int, drag_type: StringName)
 ## @param delta: 本次位移。
 signal drag_moved(session_id: int, position: Vector2, delta: Vector2)
 
-## 拖拽成功释放到落点时发出。
+## 会话提交成功终态并从注册表移除后同步发出。
 ## [br]
 ## @api public
+## [br]
+## @since 11.0.0
 ## [br]
 ## @param session_id: 会话 ID。
 ## [br]
@@ -47,18 +51,23 @@ signal drag_moved(session_id: int, position: Vector2, delta: Vector2)
 ## @schema result: Dictionary，由 drop() 规范化，包含 ok、session_id、zone_id、reason 和可选 value。
 signal drag_dropped(session_id: int, zone_id: StringName, result: Dictionary)
 
-## 拖拽释放被拒绝时发出。
+## 拖拽释放被拒绝时同步发出。callback 拒绝与落点变化会保留会话，
+## no_drop_zone 则是已经移除会话的终态拒绝。
 ## [br]
 ## @api public
+## [br]
+## @since 11.0.0
 ## [br]
 ## @param session_id: 会话 ID。
 ## [br]
 ## @param reason: 拒绝原因。
 signal drag_drop_rejected(session_id: int, reason: StringName)
 
-## 拖拽取消时发出。
+## 会话从注册表移除后同步发出。
 ## [br]
 ## @api public
+## [br]
+## @since 11.0.0
 ## [br]
 ## @param session_id: 会话 ID。
 signal drag_cancelled(session_id: int)
@@ -82,6 +91,7 @@ signal drop_zone_unregistered(zone_id: StringName)
 
 var _session_serial: int = 0
 var _sessions: Dictionary = {}
+var _resolving_sessions: Dictionary = {}
 var _zones: Dictionary = {}
 
 
@@ -98,8 +108,12 @@ func dispose() -> void:
 # --- 公共方法 ---
 
 ## 注册落点。
+## 同 ID 替换会先移除旧落点并发出注销信号；若同步回调取得同一 ID，
+## 本次 outer 注册失败且不会覆盖回调的新注册。
 ## [br]
 ## @api public
+## [br]
+## @since 11.0.0
 ## [br]
 ## @param zone: 落点规则。
 ## [br]
@@ -107,11 +121,15 @@ func dispose() -> void:
 func register_zone(zone: GFDropZone) -> bool:
 	if zone == null or zone.zone_id == &"":
 		return false
-	if _zones.has(zone.zone_id):
-		drop_zone_unregistered.emit(zone.zone_id)
-	_zones[zone.zone_id] = zone
-	drop_zone_registered.emit(zone.zone_id)
-	return true
+	var zone_id: StringName = zone.zone_id
+	if _zones.has(zone_id):
+		var _removed_previous: bool = _zones.erase(zone_id)
+		drop_zone_unregistered.emit(zone_id)
+		if _zones.has(zone_id) or zone.zone_id != zone_id:
+			return false
+	_zones[zone_id] = zone
+	drop_zone_registered.emit(zone_id)
+	return _is_registered_zone(zone_id, zone)
 
 
 ## 注册矩形落点。
@@ -191,13 +209,21 @@ func get_zone(zone_id: StringName) -> GFDropZone:
 	return _variant_to_drop_zone(GFVariantData.get_option_value(_zones, zone_id))
 
 
-## 清空落点。
+## 清空调用开始时存在的落点。同步注销回调中新注册的落点会保留。
 ## [br]
 ## @api public
+## [br]
+## @since 11.0.0
 func clear_zones() -> void:
-	for zone_id: StringName in _zones.keys():
-		drop_zone_unregistered.emit(zone_id)
-	_zones.clear()
+	var zones_at_start: Dictionary = _zones.duplicate()
+	for zone_id_variant: Variant in zones_at_start.keys():
+		var zone_id: StringName = GFVariantData.to_string_name(zone_id_variant)
+		var zone: GFDropZone = _variant_to_drop_zone(
+			GFVariantData.get_option_value(zones_at_start, zone_id)
+		)
+		if not _is_registered_zone(zone_id, zone):
+			continue
+		var _unregistered: bool = unregister_zone(zone_id)
 
 
 ## 主动剪枝已失效的落点。
@@ -212,6 +238,8 @@ func prune_stale_zones() -> int:
 
 
 ## 开始拖拽。
+## 会话先提交到注册表，再同步发出 drag_started；若监听器在回调内取消或
+## 替换该会话，本方法返回 -1。
 ## [br]
 ## @param drag_type: 拖拽类型。
 ## [br]
@@ -227,6 +255,8 @@ func prune_stale_zones() -> int:
 ## [br]
 ## @api public
 ## [br]
+## @since 11.0.0
+## [br]
 ## @schema payload: Variant，透传给 drop zone 的项目侧拖拽载荷。
 ## [br]
 ## @schema metadata: Dictionary，复制到拖拽会话中的项目侧元数据。
@@ -241,11 +271,12 @@ func start_drag(
 		return -1
 
 	_session_serial += 1
+	var session_id: int = _session_serial
 	var session: GFDragSession = GFDragSession.new()
-	session.setup(_session_serial, drag_type, payload, position, source, metadata)
-	_sessions[session.session_id] = session
-	drag_started.emit(session.session_id, drag_type)
-	return session.session_id
+	session.setup(session_id, drag_type, payload, position, source, metadata)
+	_sessions[session_id] = session
+	drag_started.emit(session_id, drag_type)
+	return session_id if _is_current_session(session_id, session) else -1
 
 
 ## 更新拖拽位置。
@@ -267,8 +298,12 @@ func update_drag(session_id: int, position: Vector2) -> bool:
 
 
 ## 将拖拽释放到当前位置匹配到的最佳落点。
+## contains/can_accept/drop 均为可重入项目回调：同一会话的递归 drop 会以
+## session_resolving 拒绝；回调内取消优先于 outer drop，且每个会话只提交一个终态。
 ## [br]
 ## @api public
+## [br]
+## @since 11.0.0
 ## [br]
 ## @param session_id: 会话 ID。
 ## [br]
@@ -281,22 +316,43 @@ func drop(session_id: int, position: Vector2) -> Dictionary:
 	var session: GFDragSession = get_session(session_id)
 	if session == null:
 		return _make_result(false, session_id, &"", &"missing_session")
+	if _is_session_resolving(session_id, session):
+		return _make_result(false, session_id, &"", &"session_resolving")
 
+	_resolving_sessions[session_id] = session
 	session.update_position(position)
 	var zone: GFDropZone = get_best_drop_zone(session_id, position)
+	if not _is_current_session(session_id, session):
+		_release_resolving_session(session_id, session)
+		return _make_result(false, session_id, &"", &"session_cancelled")
 	if zone == null:
-		var _removed_no_zone: bool = _sessions.erase(session_id)
+		_release_resolving_session(session_id, session)
+		if not _erase_current_session(session_id, session):
+			return _make_result(false, session_id, &"", &"session_cancelled")
 		drag_drop_rejected.emit(session_id, &"no_drop_zone")
 		return _make_result(false, session_id, &"", &"no_drop_zone")
 
+	var zone_id: StringName = _find_registered_zone_id(zone)
+	if zone_id == &"" or not _is_registered_zone(zone_id, zone):
+		_release_resolving_session(session_id, session)
+		var changed_result: Dictionary = _make_result(false, session_id, &"", &"drop_zone_changed")
+		drag_drop_rejected.emit(session_id, &"drop_zone_changed")
+		return changed_result
+
 	var raw_result: Variant = zone.drop(session, position)
-	var result: Dictionary = _normalize_drop_result(raw_result, session_id, zone.zone_id)
+	if not _is_current_session(session_id, session):
+		_release_resolving_session(session_id, session)
+		return _make_result(false, session_id, zone_id, &"session_cancelled")
+	var result: Dictionary = _normalize_drop_result(raw_result, session_id, zone_id)
 	if not GFVariantData.get_option_bool(result, "ok"):
+		_release_resolving_session(session_id, session)
 		drag_drop_rejected.emit(session_id, GFVariantData.get_option_string_name(result, "reason", &"drop_rejected"))
 		return result
 
-	var _removed: bool = _sessions.erase(session_id)
-	drag_dropped.emit(session_id, zone.zone_id, result)
+	_release_resolving_session(session_id, session)
+	if not _erase_current_session(session_id, session):
+		return _make_result(false, session_id, zone_id, &"session_cancelled")
+	drag_dropped.emit(session_id, zone_id, result)
 	return result
 
 
@@ -308,9 +364,12 @@ func drop(session_id: int, position: Vector2) -> Dictionary:
 ## [br]
 ## @return 找到并取消时返回 true。
 func cancel_drag(session_id: int) -> bool:
-	if not _sessions.has(session_id):
+	var session: GFDragSession = get_session(session_id)
+	if session == null:
 		return false
-	var _removed: bool = _sessions.erase(session_id)
+	if not _erase_current_session(session_id, session):
+		return false
+	_release_resolving_session(session_id, session)
 	drag_cancelled.emit(session_id)
 	return true
 
@@ -338,6 +397,7 @@ func has_active_session(session_id: int) -> bool:
 
 
 ## 获取当前位置命中的落点候选。
+## 任意项目回调若取消或替换当前 session，本次查询立即失败关闭为空数组。
 ## [br]
 ## @param session_id: 会话 ID。
 ## [br]
@@ -348,6 +408,8 @@ func has_active_session(session_id: int) -> bool:
 ## @return 按优先级排序的落点列表。
 ## [br]
 ## @api public
+## [br]
+## @since 11.0.0
 func get_drop_candidates(
 	session_id: int,
 	position: Vector2,
@@ -360,12 +422,21 @@ func get_drop_candidates(
 
 	var result: Array[GFDropZone] = []
 	for zone_variant: Variant in _zones.values():
+		if not _is_current_session(session_id, session):
+			return []
 		var zone: GFDropZone = _variant_to_drop_zone(zone_variant)
 		if zone == null:
 			continue
-		if only_accepting and not zone.can_accept(session):
-			continue
-		if not zone.contains(position, session):
+		if only_accepting:
+			var accepts_session: bool = zone.can_accept(session)
+			if not _is_current_session(session_id, session):
+				return []
+			if not accepts_session:
+				continue
+		var contains_position: bool = zone.contains(position, session)
+		if not _is_current_session(session_id, session):
+			return []
+		if not contains_position:
 			continue
 		result.append(zone)
 	result.sort_custom(_sort_zones)
@@ -373,8 +444,11 @@ func get_drop_candidates(
 
 
 ## 获取当前位置最佳落点。
+## 任意项目回调若取消或替换当前 session，本次查询立即失败关闭为 null。
 ## [br]
 ## @api public
+## [br]
+## @since 11.0.0
 ## [br]
 ## @param session_id: 会话 ID。
 ## [br]
@@ -389,22 +463,36 @@ func get_best_drop_zone(session_id: int, position: Vector2) -> GFDropZone:
 
 	var best_zone: GFDropZone = null
 	for zone_variant: Variant in _zones.values():
+		if not _is_current_session(session_id, session):
+			return null
 		var zone: GFDropZone = _variant_to_drop_zone(zone_variant)
-		if zone == null or not zone.can_accept(session) or not zone.contains(position, session):
+		if zone == null:
+			continue
+		var accepts_session: bool = zone.can_accept(session)
+		if not _is_current_session(session_id, session):
+			return null
+		if not accepts_session:
+			continue
+		var contains_position: bool = zone.contains(position, session)
+		if not _is_current_session(session_id, session):
+			return null
+		if not contains_position:
 			continue
 		if best_zone == null or _sort_zones(zone, best_zone):
 			best_zone = zone
 	return best_zone
 
 
-## 清空拖拽会话。
+## 清空调用开始时存在的拖拽会话。同步取消回调中新建的会话会保留。
 ## [br]
 ## @api public
+## [br]
+## @since 11.0.0
 func clear_sessions() -> void:
-	for session_id_variant: Variant in _sessions.keys():
+	var session_ids: Array = _sessions.keys()
+	for session_id_variant: Variant in session_ids:
 		var session_id: int = GFVariantData.to_int(session_id_variant)
-		drag_cancelled.emit(session_id)
-	_sessions.clear()
+		var _cancelled: bool = cancel_drag(session_id)
 
 
 ## 获取调试快照。
@@ -450,7 +538,8 @@ func _sort_zones(left: GFDropZone, right: GFDropZone) -> bool:
 
 func _normalize_drop_result(raw_result: Variant, session_id: int, zone_id: StringName) -> Dictionary:
 	if raw_result is Dictionary:
-		var result_dictionary: Dictionary = GFVariantData.to_dictionary(raw_result)
+		var copied_result: Variant = GFVariantData.duplicate_variant(raw_result)
+		var result_dictionary: Dictionary = copied_result if copied_result is Dictionary else {}
 		if not result_dictionary.has("ok"):
 			result_dictionary["ok"] = true
 		result_dictionary["session_id"] = session_id
@@ -481,17 +570,63 @@ func _make_result(ok: bool, session_id: int, zone_id: StringName, reason: String
 
 
 func _prune_stale_zones() -> int:
-	var removed_zone_ids: Array[StringName] = []
+	var stale_zones: Dictionary = {}
 	for zone_id_variant: Variant in _zones.keys():
 		var zone_id: StringName = GFVariantData.to_string_name(zone_id_variant)
 		var zone: GFDropZone = _variant_to_drop_zone(GFVariantData.get_option_value(_zones, zone_id))
 		if zone != null and zone.is_stale():
-			removed_zone_ids.append(zone_id)
+			stale_zones[zone_id] = zone
 
-	for zone_id: StringName in removed_zone_ids:
-		var _removed: bool = _zones.erase(zone_id)
-		drop_zone_unregistered.emit(zone_id)
-	return removed_zone_ids.size()
+	var removed_count: int = 0
+	for zone_id_variant: Variant in stale_zones.keys():
+		var zone_id: StringName = GFVariantData.to_string_name(zone_id_variant)
+		var zone: GFDropZone = _variant_to_drop_zone(
+			GFVariantData.get_option_value(stale_zones, zone_id)
+		)
+		if not _is_registered_zone(zone_id, zone):
+			continue
+		if unregister_zone(zone_id):
+			removed_count += 1
+	return removed_count
+
+
+func _is_current_session(session_id: int, session: GFDragSession) -> bool:
+	if session == null or not _sessions.has(session_id):
+		return false
+	return is_same(GFVariantData.get_option_value(_sessions, session_id), session)
+
+
+func _erase_current_session(session_id: int, session: GFDragSession) -> bool:
+	if not _is_current_session(session_id, session):
+		return false
+	return _sessions.erase(session_id)
+
+
+func _is_session_resolving(session_id: int, session: GFDragSession) -> bool:
+	if not _resolving_sessions.has(session_id):
+		return false
+	return is_same(GFVariantData.get_option_value(_resolving_sessions, session_id), session)
+
+
+func _release_resolving_session(session_id: int, session: GFDragSession) -> void:
+	if _is_session_resolving(session_id, session):
+		var _removed: bool = _resolving_sessions.erase(session_id)
+
+
+func _find_registered_zone_id(zone: GFDropZone) -> StringName:
+	if zone == null:
+		return &""
+	for zone_id_variant: Variant in _zones.keys():
+		var zone_id: StringName = GFVariantData.to_string_name(zone_id_variant)
+		if _is_registered_zone(zone_id, zone):
+			return zone_id
+	return &""
+
+
+func _is_registered_zone(zone_id: StringName, zone: GFDropZone) -> bool:
+	if zone == null or not _zones.has(zone_id):
+		return false
+	return is_same(GFVariantData.get_option_value(_zones, zone_id), zone)
 
 
 func _variant_to_drag_session(value: Variant) -> GFDragSession:

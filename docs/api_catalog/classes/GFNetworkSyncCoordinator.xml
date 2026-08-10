@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFNetworkSyncCoordinator" path="addons/gf/extensions/network/simulation/gf_network_sync_coordinator.gd" module="extensions/network" extends="RefCounted" classDigest="5679b45ca00c1ba32a22ef1d7c52fef9be8f65eb07a7f95cc9e50b6182d41b2a">
+<class name="GFNetworkSyncCoordinator" path="addons/gf/extensions/network/simulation/gf_network_sync_coordinator.gd" module="extensions/network" extends="RefCounted" classDigest="0a614970b6fe87aa5af58b47a87f1cd0a98c10e2110ea3b31ed3e7e49e584b33">
 	<description>GFNetworkSyncCoordinator: 有界的权威快照与预测纠偏协调器。
 协调器在项目模拟 Adapter 与 GFNetworkMessage 之间编排固定 tick、输入顺序、
 全量权威快照、有限历史和事务式预测重放。它不创建 transport、不扫描节点树、
@@ -42,7 +42,7 @@
 			</tags>
 		</member>
 		<member kind="signal" name="authoritative_snapshot_applied">
-			<signature>signal authoritative_snapshot_applied(</signature>
+			<signature>signal authoritative_snapshot_applied( snapshot: GFNetworkSnapshot, corrected: bool, replayed_tick_count: int )</signature>
 			<description>Replica 原子应用权威快照后发出。</description>
 			<tags>
 				<tag name="api">public</tag>

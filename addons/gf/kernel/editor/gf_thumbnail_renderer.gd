@@ -15,6 +15,30 @@ class_name GFThumbnailRenderer
 extends Node
 
 
+# --- 常量 ---
+
+## 单边允许的最大渲染像素数。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+const MAX_TARGET_DIMENSION: int = 1024
+
+## 单个缩略图允许的最大总像素数。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+const MAX_TARGET_PIXELS: int = 1_048_576
+
+## 等待执行的最大任务数；超出后新任务立即失败。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+const MAX_PENDING_TASKS: int = 256
+
+
 # --- 私有变量 ---
 
 var _viewport: SubViewport
@@ -226,6 +250,15 @@ func render_mesh_texture(
 ## @return 可取消、可等待的渲染任务。
 func submit_render_request(request: GFThumbnailRenderRequest) -> GFThumbnailRenderTask:
 	var task: GFThumbnailRenderTask = GFThumbnailRenderTask.new(request, _take_task_id())
+	var validation_error: String = _get_request_validation_error(request)
+	if not validation_error.is_empty():
+		var _failed_request: bool = task.fail(validation_error)
+		return task
+	if _pending_tasks.size() >= MAX_PENDING_TASKS:
+		var _failed_queue: bool = task.fail(
+			"Thumbnail render queue reached its %d-task limit." % MAX_PENDING_TASKS
+		)
+		return task
 	_pending_tasks.append(task)
 	_schedule_task_queue()
 	return task
@@ -698,7 +731,27 @@ func _cancel_all_tasks(reason: StringName) -> void:
 		var _cancelled_pending: bool = task.cancel(reason)
 	_pending_tasks.clear()
 	if _active_task != null:
-		var _cancelled_active: bool = _active_task.cancel(reason)
+		var active_task: GFThumbnailRenderTask = _active_task
+		_active_task = null
+		var _cancelled_active: bool = active_task.cancel(reason)
+		var _finished_active: bool = active_task.finish_cancelled(reason)
+
+
+func _get_request_validation_error(request: GFThumbnailRenderRequest) -> String:
+	if request == null or not request.is_valid():
+		return "Invalid thumbnail render request."
+	var size: Vector2i = _normalize_render_size(request.get_size())
+	if size.x > MAX_TARGET_DIMENSION or size.y > MAX_TARGET_DIMENSION:
+		return (
+			"Thumbnail target exceeds the %d-pixel dimension limit."
+			% MAX_TARGET_DIMENSION
+		)
+	if size.x * size.y > MAX_TARGET_PIXELS:
+		return (
+			"Thumbnail target exceeds the %d-pixel area limit."
+			% MAX_TARGET_PIXELS
+		)
+	return ""
 
 
 func _take_task_id() -> int:

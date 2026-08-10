@@ -39,12 +39,13 @@ var required_action_id: StringName = &""
 ### `player_scoped`
 
 - API：`public`
+- 首次版本：`11.0.0`
 
 ```gdscript
 var player_scoped: bool = true
 ```
 
-玩家级动作是否只检查同一玩家。
+玩家级动作是否只检查同一玩家。启用且 player_index 有效时，runtime 缺少 player-specific 查询会 fail closed，不回落到全局动作。
 
 ## 方法
 

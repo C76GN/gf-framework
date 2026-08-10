@@ -84,6 +84,27 @@ func test_pointer_gesture_ends_when_last_pointer_releases() -> void:
 	assert_signal_emitted(utility, "gesture_ended", "手势结束应发出信号。")
 
 
+func test_pointer_gesture_keeps_mouse_and_touch_zero_in_separate_identity_namespaces() -> void:
+	var utility: Object = _make_utility()
+	watch_signals(utility)
+	var mouse_press: InputEventMouseButton = _make_mouse_button_event(true, Vector2(2.0, 3.0))
+	var touch_press: InputEventScreenTouch = _make_touch_event(0, true, Vector2(8.0, 9.0))
+	var touch_release: InputEventScreenTouch = _make_touch_event(0, false, Vector2(8.0, 9.0))
+	var mouse_release: InputEventMouseButton = _make_mouse_button_event(false, Vector2(2.0, 3.0))
+
+	assert_true(_handle_input_event(utility, mouse_press))
+	assert_true(_handle_input_event(utility, touch_press))
+	assert_eq(_get_active_pointer_count(utility), 2, "鼠标与 touch index 0 必须占用不同活动身份。")
+
+	assert_true(_handle_input_event(utility, touch_release))
+	assert_eq(_get_active_pointer_count(utility), 1, "释放 touch 0 不得同时释放仍按住的鼠标。")
+	assert_signal_emit_count(utility, "gesture_ended", 0, "仍有鼠标活动时不得结束手势。")
+
+	assert_true(_handle_input_event(utility, mouse_release))
+	assert_eq(_get_active_pointer_count(utility), 0, "最后释放鼠标后才应清空活动指针。")
+	assert_signal_emit_count(utility, "gesture_ended", 1, "最后一个独立来源释放时只应结束一次。")
+
+
 # --- 私有/辅助方法 ---
 
 func _make_utility() -> Object:
@@ -107,6 +128,14 @@ func _get_active_pointer_count(utility: Object) -> int:
 func _make_touch_event(pointer_id: int, pressed: bool, position: Vector2) -> InputEventScreenTouch:
 	var event: InputEventScreenTouch = InputEventScreenTouch.new()
 	event.index = pointer_id
+	event.pressed = pressed
+	event.position = position
+	return event
+
+
+func _make_mouse_button_event(pressed: bool, position: Vector2) -> InputEventMouseButton:
+	var event: InputEventMouseButton = InputEventMouseButton.new()
+	event.button_index = MOUSE_BUTTON_LEFT
 	event.pressed = pressed
 	event.position = position
 	return event

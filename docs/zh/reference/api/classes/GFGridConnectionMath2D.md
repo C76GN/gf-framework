@@ -39,7 +39,7 @@ static func can_connect_with_max_turns( grid_size: Vector2i, start: Vector2i, go
 | `grid_size` | 网格尺寸。 |
 | `start` | 起点格子。 |
 | `goal` | 终点格子。 |
-| `is_walkable` | 可通行回调，签名为 `func(cell: Vector2i) -> bool`；起点与终点可不通行。 |
+| `is_walkable` | 可通行回调，签名为 \`func(cell: Vector2i) -> bool\`；起点与终点可不通行。 |
 | `max_turns` | 最大转折次数，连连看常用值为 2。 |
 | `allow_outer_border` | 是否允许路径经过网格外一圈虚拟空格。 |
 

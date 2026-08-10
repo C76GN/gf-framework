@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFAudioPitchAnalysisTools" path="addons/gf/standard/utilities/audio/gf_audio_pitch_analysis_tools.gd" module="standard" extends="RefCounted" classDigest="23fafcc30dc440fcb5cd5524421cf3b127401a48a2cebe8a5e837106f8a4fde9">
+<class name="GFAudioPitchAnalysisTools" path="addons/gf/standard/utilities/audio/gf_audio_pitch_analysis_tools.gd" module="standard" extends="RefCounted" classDigest="4442bb62824bbb3aa2b5b5b5d13964bb9ef4b4cf068143ab287dbd7f42149a40">
 	<description>GFAudioPitchAnalysisTools: 纯样本音高分析工具。
 对调用方提供的 mono 或 stereo 样本做能量与基频估计，返回频率、音名、
 cents 偏差和置信度报告。它不读取麦克风、不创建节点，也不接管音频采集流程。</description>
@@ -89,7 +89,7 @@ cents 偏差和置信度报告。它不读取麦克风、不创建节点，也�
 				<tag name="return">分析报告。</tag>
 				<tag name="schema">samples: PackedFloat32Array mono samples in -1..1 range.</tag>
 				<tag name="schema">options: Dictionary，可包含 min_frequency_hz、max_frequency_hz、min_rms、confidence_threshold、start_index、sample_count、max_sample_count、max_lag_count 和 max_correlation_operations。</tag>
-				<tag name="schema">return: Dictionary with ok, detected, frequency_hz, confidence, rms, lag, note_number, note_name, cents, issues, and issue_count.</tag>
+				<tag name="schema">return: Dictionary with ok, detected, frequency_hz, confidence, rms, lag, note_number, note_name, cents, correlation_operation_budget, minimum_required_correlation_operations, correlation_operations, truncated, issues, and issue_count.</tag>
 				<tag name="since">6.0.0</tag>
 			</tags>
 		</member>

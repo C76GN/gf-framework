@@ -49,7 +49,7 @@ var operation_report := failover.get_last_operation_report()
 
 需要把两个后端做一次通用字典同步时，可以注册或直接创建 `GFStorageSyncUtility`。它只读取 `GFStorageBackend.load_data()`、调用 `save_data()` 写回，并按策略处理文件级冲突。
 
-默认策略会根据元数据中的 revision 或 timestamp 判断较新记录，无法判断时保留冲突并返回结构化报告。项目可以显式选择本地优先、远端优先、手动处理，或提供 resolver 回调生成合并结果：
+默认策略会根据元数据中的 revision 或 timestamp 判断较新记录，无法判断时保留冲突并返回结构化报告。参与排序的数值必须有限；任一实际参与比较的值是 `NaN`、`INF` 或 `-INF` 时，本次冲突保持 unresolved，且不会写回任一后端。项目可以显式选择本地优先、远端优先、手动处理，或提供 resolver 回调生成合并结果：
 
 ```gdscript
 var sync := Gf.get_utility(GFStorageSyncUtility) as GFStorageSyncUtility
@@ -88,5 +88,7 @@ var payload := cache.build_payload(&"profile")
 storage.save_data("profile_patch.json", payload)
 cache.mark_clean(&"profile", payload["dirty_sections"])
 ```
+
+scope identity 是每次调用时 `scope_id` 的序列化值，而不是 Array/Dictionary 对象身份；修改复合值内容会形成另一个 scope，原记录仍可通过原值的等价副本定位和驱逐。长期作用域应使用稳定的 `String`、`StringName` 或 `int`，避免调用方遗失旧值。
 
 `build_payload(scope_id, false)` 默认只输出脏分区；`include_clean = true` 时可输出完整 scope 快照。它不替代 `GFStorageUtility.save_data_group()` 的事务语义，也不负责字段冲突解析；需要跨后端同步时仍由 `GFStorageSyncUtility` 或项目 resolver 决定写回策略。

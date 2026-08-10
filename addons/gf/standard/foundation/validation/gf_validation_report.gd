@@ -326,9 +326,12 @@ func add_source_error(
 	return add_source_issue(GFValidationIssue.Severity.ERROR, kind, message, source_span, key, path, issue_metadata)
 
 
-## 合并另一个报告或报告字典。
+## 合并另一个报告或报告字典。与自身合并，或来源与目标共享同一个 issues Array 时，
+## issues 合并视为幂等空操作；其他 metadata 仍按来源类型的正常规则处理。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @param source: GFValidationReport 或包含 issues 的字典。
 ## [br]
@@ -340,8 +343,11 @@ func add_source_error(
 func merge(source: Variant, include_metadata: bool = true) -> RefCounted:
 	if source is GFValidationReport:
 		var source_report: GFValidationReport = source
-		for issue_variant: Variant in source_report.issues:
-			_add_issue_if_valid(issue_variant)
+		if is_same(source_report, self):
+			return self
+		if not is_same(source_report.issues, issues):
+			for issue_variant: Variant in source_report.issues:
+				_add_issue_if_valid(issue_variant)
 		if include_metadata:
 			for key: Variant in source_report.metadata.keys():
 				metadata[key] = GFVariantData.duplicate_variant(source_report.metadata[key])
@@ -350,8 +356,9 @@ func merge(source: Variant, include_metadata: bool = true) -> RefCounted:
 	elif source is Dictionary:
 		var source_dict: Dictionary = source
 		var source_issues: Array = GFVariantData.as_array(GFVariantData.get_option_value(source_dict, "issues", []))
-		for issue_variant: Variant in source_issues:
-			_add_issue_if_valid(issue_variant)
+		if not is_same(source_issues, issues):
+			for issue_variant: Variant in source_issues:
+				_add_issue_if_valid(issue_variant)
 		var source_metadata_value: Variant = GFVariantData.get_option_value(source_dict, "metadata")
 		if include_metadata and source_metadata_value is Dictionary:
 			var source_metadata: Dictionary = GFVariantData.as_dictionary(source_metadata_value)

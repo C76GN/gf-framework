@@ -157,6 +157,8 @@ func track_handle(
 		"snapshot": {},
 		"snapshot_entry_count": 0,
 		"snapshot_truncated": false,
+		"snapshot_stale": false,
+		"snapshot_attempted_msec": 0,
 		"snapshot_refreshed_msec": 0,
 		"snapshot_error": "",
 		"stack_trace": _capture_stack_trace() if stack_trace_enabled else "",
@@ -264,7 +266,7 @@ func check_and_reset_dirty() -> bool:
 ## [br]
 ## @return 刷新报告。
 ## [br]
-## @schema return: Dictionary，包含 ok、tracking_id、refreshed、error、entry_count 和 truncated。
+## @schema return: Dictionary，包含 ok、tracking_id、refreshed、error、entry_count、truncated、stale 和 attempted_msec。
 func refresh_snapshot(tracking_id: int) -> Dictionary:
 	var report: Dictionary = {
 		"ok": false,
@@ -273,22 +275,37 @@ func refresh_snapshot(tracking_id: int) -> Dictionary:
 		"error": "",
 		"entry_count": 0,
 		"truncated": false,
+		"stale": false,
+		"attempted_msec": Time.get_ticks_msec(),
 	}
 	if not _records.has(tracking_id):
 		report["error"] = "tracking_record_not_found"
 		return report
-	if _refreshing_tracking_ids.has(tracking_id):
-		report["error"] = "snapshot_provider_reentrant"
-		return report
 
 	var record: Dictionary = GFVariantData.as_dictionary(_records[tracking_id])
+	if _refreshing_tracking_ids.has(tracking_id):
+		return _record_snapshot_refresh_failure(
+			tracking_id,
+			record,
+			"snapshot_provider_reentrant",
+			report
+		)
+
 	if not _record_handle_is_valid(record):
-		report["error"] = "tracked_handle_invalid"
-		return report
+		return _record_snapshot_refresh_failure(
+			tracking_id,
+			record,
+			"tracked_handle_invalid",
+			report
+		)
 	var snapshot_provider: Callable = _resolve_snapshot_provider(record)
 	if not snapshot_provider.is_valid():
-		report["error"] = "snapshot_provider_unavailable"
-		return report
+		return _record_snapshot_refresh_failure(
+			tracking_id,
+			record,
+			"snapshot_provider_unavailable",
+			report
+		)
 
 	_refreshing_tracking_ids[tracking_id] = true
 	var snapshot_value: Variant = snapshot_provider.call()
@@ -309,6 +326,11 @@ func refresh_snapshot(tracking_id: int) -> Dictionary:
 	)
 	record["snapshot_entry_count"] = entry_count
 	record["snapshot_truncated"] = truncated
+	record["snapshot_stale"] = false
+	record["snapshot_attempted_msec"] = GFVariantData.get_option_int(
+		report,
+		"attempted_msec"
+	)
 	record["snapshot_refreshed_msec"] = Time.get_ticks_msec()
 	record["snapshot_error"] = ""
 	_records[tracking_id] = record
@@ -317,6 +339,7 @@ func refresh_snapshot(tracking_id: int) -> Dictionary:
 	report["refreshed"] = true
 	report["entry_count"] = entry_count
 	report["truncated"] = truncated
+	report["stale"] = false
 	return report
 
 
@@ -340,10 +363,19 @@ func refresh_snapshots(max_provider_calls: int = DEFAULT_MAX_PROVIDER_CALLS) -> 
 	var refreshed_count: int = 0
 	var failed_count: int = 0
 	for tracking_id: int in tracking_ids:
-		if provider_call_count >= call_budget:
-			break
 		var record: Dictionary = GFVariantData.as_dictionary(_records[tracking_id])
+		var provider_ref: Dictionary = GFVariantData.get_option_dictionary(
+			record,
+			"snapshot_provider_ref"
+		)
+		if provider_ref.is_empty():
+			continue
 		if not _resolve_snapshot_provider(record).is_valid():
+			var unavailable_report: Dictionary = refresh_snapshot(tracking_id)
+			reports.append(unavailable_report)
+			failed_count += 1
+			continue
+		if provider_call_count >= call_budget:
 			continue
 		provider_call_count += 1
 		var refresh_report: Dictionary = refresh_snapshot(tracking_id)
@@ -374,7 +406,7 @@ func refresh_snapshots(max_provider_calls: int = DEFAULT_MAX_PROVIDER_CALLS) -> 
 ## [br]
 ## @return 追踪记录数组。
 ## [br]
-## @schema return: Array[Dictionary]，每项包含 tracking_id、label、valid、age_msec、metadata 和可选 snapshot / stack_trace。
+## @schema return: Array[Dictionary]，每项包含 tracking_id、label、valid、age_msec、metadata、snapshot_entry_count、snapshot_truncated、snapshot_stale、snapshot_attempted_msec、snapshot_refreshed_msec 和可选 snapshot、snapshot_error、stack_trace。
 func get_active_records(include_invalid: bool = false) -> Array[Dictionary]:
 	if not include_invalid:
 		var _cleared_invalid_count: int = clear_invalid()
@@ -433,11 +465,41 @@ func _record_to_snapshot(record: Dictionary, is_valid_record: bool) -> Dictionar
 		result["snapshot"] = snapshot
 	result["snapshot_entry_count"] = GFVariantData.get_option_int(record, "snapshot_entry_count")
 	result["snapshot_truncated"] = GFVariantData.get_option_bool(record, "snapshot_truncated")
+	result["snapshot_stale"] = GFVariantData.get_option_bool(record, "snapshot_stale")
+	result["snapshot_attempted_msec"] = GFVariantData.get_option_int(
+		record,
+		"snapshot_attempted_msec"
+	)
 	result["snapshot_refreshed_msec"] = GFVariantData.get_option_int(record, "snapshot_refreshed_msec")
 	var snapshot_error: String = GFVariantData.get_option_string(record, "snapshot_error")
 	if not snapshot_error.is_empty():
 		result["snapshot_error"] = snapshot_error
 	return result
+
+
+func _record_snapshot_refresh_failure(
+	tracking_id: int,
+	record: Dictionary,
+	error: String,
+	report: Dictionary
+) -> Dictionary:
+	var attempted_msec: int = GFVariantData.get_option_int(
+		report,
+		"attempted_msec",
+		Time.get_ticks_msec()
+	)
+	var stale: bool = (
+		GFVariantData.get_option_int(record, "snapshot_refreshed_msec") > 0
+		or not GFVariantData.get_option_dictionary(record, "snapshot").is_empty()
+	)
+	record["snapshot_stale"] = stale
+	record["snapshot_attempted_msec"] = attempted_msec
+	record["snapshot_error"] = error
+	_records[tracking_id] = record
+	_dirty = true
+	report["error"] = error
+	report["stale"] = stale
+	return report
 
 
 func _make_bounded_snapshot(snapshot: Dictionary) -> Dictionary:

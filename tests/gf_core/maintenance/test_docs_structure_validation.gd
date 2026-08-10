@@ -259,8 +259,13 @@ func test_readme_language_switches_and_doc_links_are_present() -> void:
 		issues.append("README.md must link to README.zh.md")
 	if not chinese_readme.contains("[English](README.md) | 简体中文"):
 		issues.append("README.zh.md must link back to README.md")
-	if not addon_readme.contains("../../README.md") or not addon_readme.contains("../../README.zh.md"):
-		issues.append("addons/gf/README.md must point to both root README languages")
+	if (
+		not addon_readme.contains("https://github.com/C76GN/gf-framework/blob/main/README.md")
+		or not addon_readme.contains("https://github.com/C76GN/gf-framework/blob/main/README.zh.md")
+	):
+		issues.append("addons/gf/README.md must point to both repository README languages with distributable HTTPS links")
+	if addon_readme.contains("](../"):
+		issues.append("addons/gf/README.md must not depend on files outside the distributable addon")
 
 	var required_fragments: Array[String] = [
 		READTHEDOCS_URL,

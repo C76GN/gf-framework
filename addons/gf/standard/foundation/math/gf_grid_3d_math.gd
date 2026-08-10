@@ -107,16 +107,35 @@ static func get_surface_neighbors(
 	horizontal_directions: Array[Vector3i] = []
 ) -> Array[Vector3i]:
 	var result: Array[Vector3i] = []
-	if not is_walkable.is_valid():
+	if (
+		not is_walkable.is_valid()
+		or grid_size.x <= 0
+		or grid_size.y <= 0
+		or grid_size.z <= 0
+	):
 		return result
 
 	var directions: Array[Vector3i] = horizontal_directions if not horizontal_directions.is_empty() else _SURFACE_DIRECTIONS
+	var vertical_span: Array[int] = _get_vertical_scan_span(
+		cell.y,
+		maxi(max_step_up, 0),
+		maxi(max_step_down, 0),
+		grid_size.y
+	)
+	if vertical_span.is_empty():
+		return result
 	for direction: Vector3i in directions:
-		var base_cell: Vector3i = Vector3i(cell.x + direction.x, cell.y, cell.z + direction.z)
-		for y_offset: int in range(maxi(max_step_up, 0), -maxi(max_step_down, 0) - 1, -1):
-			var candidate: Vector3i = Vector3i(base_cell.x, base_cell.y + y_offset, base_cell.z)
-			if not is_in_bounds(candidate, grid_size):
-				continue
+		var candidate_x: int = int(cell.x) + int(direction.x)
+		var candidate_z: int = int(cell.z) + int(direction.z)
+		if (
+			candidate_x < 0
+			or candidate_x >= grid_size.x
+			or candidate_z < 0
+			or candidate_z >= grid_size.z
+		):
+			continue
+		for candidate_y: int in range(vertical_span[1], vertical_span[0] - 1, -1):
+			var candidate: Vector3i = Vector3i(candidate_x, candidate_y, candidate_z)
 			if _call_cell_bool(is_walkable, candidate):
 				result.append(candidate)
 				break
@@ -366,6 +385,26 @@ static func find_surface_path_a_star(
 
 
 # --- 私有/辅助方法 ---
+
+static func _get_vertical_scan_span(
+	center_y: int,
+	max_step_up: int,
+	max_step_down: int,
+	grid_height: int
+) -> Array[int]:
+	var maximum_y: int = grid_height - 1
+	if center_y < 0 and max_step_up < -int(center_y):
+		return []
+	if center_y > maximum_y and max_step_down < int(center_y) - maximum_y:
+		return []
+
+	var minimum_candidate_y: int = 0
+	if center_y > 0 and max_step_down < center_y:
+		minimum_candidate_y = center_y - max_step_down
+	var maximum_candidate_y: int = maximum_y
+	if center_y < maximum_y and max_step_up < maximum_y - center_y:
+		maximum_candidate_y = center_y + max_step_up
+	return [minimum_candidate_y, maximum_candidate_y]
 
 static func _get_directions(allow_diagonal: bool) -> Array[Vector3i]:
 	if not allow_diagonal:

@@ -203,6 +203,8 @@ func to_dictionary() -> Dictionary:
 	return _SNAPSHOT_COPY.copy_snapshot_dictionary(create_serialization_source())
 
 
+# --- 框架内部方法 ---
+
 ## 创建对话序列化操作的原始结构。
 ##
 ## 返回值只供资源级复制器在同一次共享预算操作中消费；调用方不得将其视为隔离快照。

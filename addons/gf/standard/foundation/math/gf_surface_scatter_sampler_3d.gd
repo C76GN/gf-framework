@@ -343,6 +343,13 @@ static func _make_settings(options: Dictionary) -> Dictionary:
 		maxf(raw_scale_min.y, raw_scale_max.y),
 		maxf(raw_scale_min.z, raw_scale_max.z)
 	)
+	var max_random_attempts: int = GFVariantData.get_option_int(
+		options,
+		"max_random_attempts",
+		DEFAULT_MAX_RANDOM_ATTEMPTS
+	)
+	if max_random_attempts <= 0:
+		max_random_attempts = DEFAULT_MAX_RANDOM_ATTEMPTS
 
 	return {
 		"seed": GFVariantData.get_option_int(options, "seed", 0),
@@ -350,10 +357,7 @@ static func _make_settings(options: Dictionary) -> Dictionary:
 			GFVariantData.get_option_int(options, "max_attempt_multiplier", DEFAULT_MAX_ATTEMPT_MULTIPLIER),
 			1
 		),
-		"max_random_attempts": maxi(
-			GFVariantData.get_option_int(options, "max_random_attempts", DEFAULT_MAX_RANDOM_ATTEMPTS),
-			0
-		),
+		"max_random_attempts": max_random_attempts,
 		"height_min": height_min,
 		"height_max": height_max,
 		"slope_min": slope_min,
@@ -373,7 +377,7 @@ static func _get_random_max_attempts(target_count: int, settings: Dictionary) ->
 	if target_count <= 0:
 		return 0
 
-	var attempt_count: int = target_count * GFVariantData.get_option_int(
+	var attempt_multiplier: int = GFVariantData.get_option_int(
 		settings,
 		"max_attempt_multiplier",
 		DEFAULT_MAX_ATTEMPT_MULTIPLIER
@@ -384,8 +388,15 @@ static func _get_random_max_attempts(target_count: int, settings: Dictionary) ->
 		DEFAULT_MAX_RANDOM_ATTEMPTS
 	)
 	if max_random_attempts <= 0:
-		return attempt_count
-	return mini(attempt_count, max_random_attempts)
+		max_random_attempts = DEFAULT_MAX_RANDOM_ATTEMPTS
+	if target_count > _divide_truncated(max_random_attempts, attempt_multiplier):
+		return max_random_attempts
+	return target_count * attempt_multiplier
+
+
+static func _divide_truncated(numerator: int, denominator: int) -> int:
+	@warning_ignore("integer_division")
+	return numerator / denominator
 
 
 static func _evaluate_candidate(

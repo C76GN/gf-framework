@@ -259,7 +259,7 @@ func sample_point( world_position: Vector3, point_velocity: Vector3, displaced_v
 | `immersion_radius` | 从半浸没到完全浸没所需距离。 |
 | `gravity_acceleration` | 当前排水点的重力加速度向量。 |
 
-返回：采样结果字典。
+返回：采样结果字典；有限分量相加溢出时总 force 失败关闭为零，分量与几何状态仍保留。
 
 结构：
 

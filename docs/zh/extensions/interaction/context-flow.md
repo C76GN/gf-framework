@@ -13,6 +13,6 @@ var command := DealDamageCommand.new()
 GFInteractions.with_sender(player).to(enemy).with_payload({ "amount": 10 }).execute(command)
 ```
 
-`execute(command)` 会优先通过当前架构发送命令，找不到架构时才回退直接调用命令的 `execute()`。`send_event(event)` 必须依赖当前或全局架构，没有架构时不会派发。命令或事件可通过 `interaction_context` 属性或 `set_interaction_context(context)` 方法接收上下文。
+`execute(command)` 会优先通过当前架构发送命令，找不到架构时才回退直接调用命令的 `execute()`。`send_event(event)` 必须依赖当前或全局架构，没有架构时不会派发。命令或事件可通过 `interaction_context` 属性或 `set_interaction_context(context)` 方法接收上下文。对于方法协议，Flow 会在调用前验证参数数量与 `GFInteractionContext` 类型兼容性；同名但要求其他类型的方法会被忽略，不会因名称碰撞产生脚本错误。
 
 Interaction 扩展只组织一次性交互上下文。能力查询、冷却、权限、目标合法性或效果结算应由项目、外部扩展或独立插件显式装配。

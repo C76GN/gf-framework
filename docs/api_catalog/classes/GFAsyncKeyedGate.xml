@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFAsyncKeyedGate" path="addons/gf/standard/common/gf_async_keyed_gate.gd" module="standard" extends="RefCounted" classDigest="c0a91377c7d0c7e731c985845d3444be8d9e0e5e5b043afe8da25e53f7a2368f">
+<class name="GFAsyncKeyedGate" path="addons/gf/standard/common/gf_async_keyed_gate.gd" module="standard" extends="RefCounted" classDigest="fd83813735bfad6acf56005a2a72174f79d838b77ee275e577396415b349e978">
 	<description>GFAsyncKeyedGate: 按 key 仲裁异步并发槽位。
 用于把“同一个资源、槽位、存档、玩家或编辑器目标”的异步操作限制在可控并发内。
 gate 只负责排队、发放租约、释放后推进队列，以及记录取消/超时诊断；
@@ -351,7 +351,7 @@ GFAsyncCompletion。队列推进后 completion 会成功并携带 lease。</desc
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">key: 并发仲裁 key。</tag>
-				<tag name="param">options: 请求选项，支持 metadata、max_concurrency、timeout_msec、lease_timeout_msec 和 cancel_token。max_concurrency 只约束当前请求，不会写入持久 key 配置。</tag>
+				<tag name="param">options: 请求选项，支持 metadata、max_concurrency、timeout_msec、lease_timeout_msec 和 cancel_token。max_concurrency 只约束当前请求，不会写入持久 key 配置；正 timeout 的 deadline 超出 int64 时饱和到 int64 上限。</tag>
 				<tag name="return">请求结果字典。</tag>
 				<tag name="schema">key: Variant，必须是 GFVariantKeyCodec 接受的稳定 key。</tag>
 				<tag name="schema">options: Dictionary，可包含 metadata: Dictionary、max_concurrency: int、timeout_msec: int、lease_timeout_msec: int、cancel_token: GFCancellationToken。</tag>

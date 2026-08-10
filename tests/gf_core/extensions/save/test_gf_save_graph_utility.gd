@@ -256,6 +256,72 @@ class RecordingAfterLoadSource extends GFSaveSource:
 		order.append("after_source:%s" % String(source_key))
 
 
+class StaticReadStorage extends GFStorageUtility:
+	var next_result: GFStorageReadResult = null
+
+	func load_data(_file_name: String) -> GFStorageReadResult:
+		return next_result.duplicate_result() if next_result != null else GFStorageReadResult.new()
+
+
+class ReentrantApplySource extends GFSaveSource:
+	var utility: GFSaveGraphUtility = null
+	var root_scope: GFSaveScope = null
+	var nested_payload: Dictionary = {}
+	var nested_result: Dictionary = {}
+
+	func _apply_save_data(
+		_data: Variant,
+		_context: Dictionary = {},
+		_serializer_registry: GFNodeSerializerRegistry = null
+	) -> Dictionary:
+		nested_result = utility.apply_scope(root_scope, nested_payload)
+		return nested_result
+
+
+class RollbackFailingStateSource extends GFSaveSource:
+	var value: int = 0
+	var apply_count: int = 0
+
+	func _gather_save_data(
+		_context: Dictionary = {},
+		_serializer_registry: GFNodeSerializerRegistry = null
+	) -> Variant:
+		return { "value": value }
+
+	func _apply_save_data(
+		data: Variant,
+		_context: Dictionary = {},
+		_serializer_registry: GFNodeSerializerRegistry = null
+	) -> Dictionary:
+		apply_count += 1
+		if apply_count > 1:
+			return { "ok": false, "errors": ["source_rollback_failed"] }
+		value = GFVariantData.get_option_int(GFVariantData.as_dictionary(data), "value")
+		return { "ok": true, "errors": [] }
+
+
+class ApplyFailingThenRestorableSource extends GFSaveSource:
+	var apply_count: int = 0
+
+	func _gather_save_data(
+		_context: Dictionary = {},
+		_serializer_registry: GFNodeSerializerRegistry = null
+	) -> Variant:
+		return { "value": 0 }
+
+	func _apply_save_data(
+		_data: Variant,
+		_context: Dictionary = {},
+		_serializer_registry: GFNodeSerializerRegistry = null
+	) -> Dictionary:
+		apply_count += 1
+		return (
+			{ "ok": false, "errors": ["apply_failed"] }
+			if apply_count == 1
+			else { "ok": true, "errors": [] }
+		)
+
+
 # --- 私有变量 ---
 
 var _utility: GFSaveGraphUtility
@@ -327,7 +393,10 @@ func test_save_scope_persists_canonical_document_and_loads_it() -> void:
 		assert_eq(document.get_schema_id(), GFSaveGraphUtility.DOCUMENT_SCHEMA_ID)
 		assert_true(document.has_section(GFSaveGraphUtility.DOCUMENT_SECTION_ID))
 		assert_eq(GFVariantData.get_option_string(document.get_metadata(), "checkpoint"), "start")
-	assert_true(GFVariantData.get_option_bool(load_result, "ok"), "规范文档应能重新应用。")
+	assert_true(
+		GFVariantData.get_option_bool(load_result, "ok"),
+		"规范文档应能重新应用：%s" % [load_result]
+	)
 
 	var _delete_result: Error = storage.delete_file("graph_document.sav")
 	_utility.release_dependencies()
@@ -354,6 +423,27 @@ func test_load_scope_rejects_legacy_bare_graph_payload() -> void:
 	assert_true(errors[0].contains("document_format_mismatch"))
 
 	var _delete_result: Error = storage.delete_file("legacy_graph.sav")
+	_utility.release_dependencies()
+	architecture.dispose()
+
+
+func test_load_scope_rejects_success_result_with_invalid_integrity() -> void:
+	var document: GFSaveDocument = _utility.gather_document(_scope)
+	assert_not_null(document)
+	var storage: StaticReadStorage = StaticReadStorage.new()
+	storage.next_result = GFStorageReadResult.new().configure_success(document.to_dict())
+	storage.next_result.integrity_status = GFStorageReadResult.IntegrityStatus.INVALID
+	var architecture: GFArchitecture = GFArchitecture.new()
+	assert_true(await architecture.register_utility(GFStorageUtility, storage))
+	_utility.inject_dependencies(architecture)
+
+	var result: Dictionary = _utility.load_scope("invalid_integrity.sav", _scope)
+
+	assert_false(GFVariantData.get_option_bool(result, "ok"))
+	assert_true(
+		GFVariantData.to_text(GFVariantData.get_option_array(result, "errors")).contains("integrity"),
+		"Graph 读取入口必须独立拒绝明确无效的完整性状态。"
+	)
 	_utility.release_dependencies()
 	architecture.dispose()
 
@@ -939,6 +1029,43 @@ func test_apply_scope_rejects_future_format_before_mutating_sources() -> void:
 	assert_true(GFVariantData.to_text(GFVariantData.get_option_array(result, "errors")).contains("future format"), "错误应指出未来格式版本。")
 
 
+func test_graph_format_version_requires_exact_current_integer() -> void:
+	var order: Array[String] = []
+	_scope.add_child(RecordingApplySource.new(&"state", order))
+	var cases: Array[Dictionary] = [
+		{ "label": "missing" },
+		{ "label": "zero", "value": 0 },
+		{ "label": "negative", "value": -1 },
+		{ "label": "coercive_string", "value": "1" },
+		{ "label": "future", "value": GFSaveGraphUtility.FORMAT_VERSION + 1 },
+	]
+	for case: Dictionary in cases:
+		var payload: Dictionary = {
+			"format": GFSaveGraphUtility.FORMAT_ID,
+			"scope": {},
+			"sources": {
+				"state": { "descriptor": {}, "data": {} },
+			},
+			"scopes": {},
+		}
+		if case.has("value"):
+			payload["format_version"] = case["value"]
+		order.clear()
+
+		var validation: Dictionary = _utility.validate_payload_for_scope(_scope, payload)
+		var result: Dictionary = _utility.apply_scope(_scope, payload)
+
+		assert_false(
+			GFVariantData.get_option_bool(validation, "ok"),
+			"非当前精确版本必须校验失败：%s" % GFVariantData.get_option_string(case, "label")
+		)
+		assert_false(
+			GFVariantData.get_option_bool(result, "ok"),
+			"非当前精确版本必须应用失败：%s" % GFVariantData.get_option_string(case, "label")
+		)
+		assert_true(order.is_empty(), "格式门禁必须发生在 Source mutation 前。")
+
+
 func test_apply_scope_rejects_duplicate_source_keys_before_mutating_sources() -> void:
 	var target_a: Node2D = Node2D.new()
 	target_a.name = "TargetA"
@@ -1056,6 +1183,161 @@ func test_apply_scope_rolls_back_registered_transaction_participants_on_prepare_
 	assert_false(GFVariantData.get_option_bool(result, "ok"), "事务参与者 prepare 失败时 apply_scope 应失败。")
 	assert_eq(order, expected_order, "prepare 失败应触发统一 rollback。")
 	assert_true(GFVariantData.to_text(errors).contains("prepare_failed"), "结果错误应包含事务参与者失败原因。")
+
+
+func test_apply_scope_exposes_rollback_failure_without_optional_trace() -> void:
+	var order: Array[String] = []
+	var participant: RecordingTransactionParticipant = RecordingTransactionParticipant.new(
+		&"external",
+		order
+	)
+	participant.prepare_ok = false
+	participant.rollback_ok = false
+	_scope.add_child(TransactionParticipantSource.new(&"external_state", participant))
+	var payload: Dictionary = {
+		"format": GFSaveGraphUtility.FORMAT_ID,
+		"format_version": GFSaveGraphUtility.FORMAT_VERSION,
+		"scope": {},
+		"sources": {
+			"external_state": { "descriptor": {}, "data": {} },
+		},
+		"scopes": {},
+	}
+
+	var result: Dictionary = _utility.apply_scope(_scope, payload)
+	var rollback_failures: Array = GFVariantData.get_option_array(result, "rollback_failures")
+
+	assert_false(GFVariantData.get_option_bool(result, "ok"))
+	assert_false(
+		GFVariantData.get_option_bool(result, "atomicity_restored", true),
+		"rollback 失败必须成为默认终态证据。"
+	)
+	assert_eq(rollback_failures.size(), 1)
+	assert_eq(
+		GFVariantData.get_option_string_name(
+			GFVariantData.as_dictionary(rollback_failures[0]),
+			"kind"
+		),
+		&"transaction_participant"
+	)
+	assert_eq(order, ["prepare:external", "rollback:external"])
+
+
+func test_apply_scope_exposes_source_snapshot_rollback_failure() -> void:
+	var first: RollbackFailingStateSource = RollbackFailingStateSource.new()
+	first.name = "First"
+	first.source_key = &"a_state"
+	_scope.add_child(first)
+	var second: ApplyFailingThenRestorableSource = ApplyFailingThenRestorableSource.new()
+	second.name = "Second"
+	second.source_key = &"b_state"
+	_scope.add_child(second)
+	var payload: Dictionary = {
+		"format": GFSaveGraphUtility.FORMAT_ID,
+		"format_version": GFSaveGraphUtility.FORMAT_VERSION,
+		"scope": {},
+		"sources": {
+			"a_state": { "descriptor": {}, "data": { "value": 8 } },
+			"b_state": { "descriptor": {}, "data": { "value": 9 } },
+		},
+		"scopes": {},
+	}
+
+	var result: Dictionary = _utility.apply_scope(_scope, payload)
+	var rollback_failures: Array = GFVariantData.get_option_array(result, "rollback_failures")
+
+	assert_false(GFVariantData.get_option_bool(result, "ok"))
+	assert_false(GFVariantData.get_option_bool(result, "atomicity_restored", true))
+	assert_eq(rollback_failures.size(), 1)
+	assert_eq(
+		GFVariantData.get_option_string_name(
+			GFVariantData.as_dictionary(rollback_failures[0]),
+			"kind"
+		),
+		&"source"
+	)
+	assert_eq(first.value, 8, "回滚失败后残留状态必须与 atomicity 证据一致。")
+
+
+func test_apply_scope_internal_state_cannot_be_forged_by_context_keys() -> void:
+	var target_a: Node2D = Node2D.new()
+	target_a.name = "TargetA"
+	_scope.add_child(target_a)
+	var target_b: Node2D = Node2D.new()
+	target_b.name = "TargetB"
+	_scope.add_child(target_b)
+	_scope.add_child(_make_source(&"a_state", NodePath("../TargetA")))
+	_scope.add_child(_make_source(&"b_state", NodePath("../TargetB")))
+	var payload: Dictionary = {
+		"format": GFSaveGraphUtility.FORMAT_ID,
+		"format_version": GFSaveGraphUtility.FORMAT_VERSION,
+		"scope": {},
+		"sources": {
+			"a_state": {
+				"descriptor": {},
+				"data": { "serializers": [{
+					"id": &"gf.transform_2d",
+					"data": {
+						"position": Vector2(8.0, 1.0),
+						"rotation": 0.0,
+						"scale": Vector2.ONE,
+					},
+				}] },
+			},
+			"b_state": {
+				"descriptor": {},
+				"data": { "serializers": [{
+					"id": &"gf.transform_2d",
+					"data": [],
+				}] },
+			},
+		},
+		"scopes": {},
+	}
+	var context: Dictionary = {
+		"_gf_save_graph_transaction_boundary": true,
+		"_gf_save_graph_source_snapshots": [],
+		"_gf_save_graph_created_entities": [],
+		"_gf_save_graph_after_load_queue": [],
+	}
+
+	var result: Dictionary = _utility.apply_scope(_scope, payload, context, true)
+
+	assert_false(GFVariantData.get_option_bool(result, "ok"))
+	assert_eq(target_a.position, Vector2.ZERO, "调用方键不得关闭 Source snapshot rollback。")
+	assert_eq(target_b.position, Vector2.ZERO)
+	assert_true(
+		GFVariantData.get_option_bool(context, "_gf_save_graph_transaction_boundary"),
+		"框架不得借用或删除调用方的同名自定义字段。"
+	)
+
+
+func test_apply_scope_rejects_synchronous_same_utility_reentry() -> void:
+	var source: ReentrantApplySource = ReentrantApplySource.new()
+	source.name = "Reentrant"
+	source.source_key = &"state"
+	source.utility = _utility
+	source.root_scope = _scope
+	_scope.add_child(source)
+	var payload: Dictionary = {
+		"format": GFSaveGraphUtility.FORMAT_ID,
+		"format_version": GFSaveGraphUtility.FORMAT_VERSION,
+		"scope": {},
+		"sources": {
+			"state": { "descriptor": {}, "data": {} },
+		},
+		"scopes": {},
+	}
+	source.nested_payload = payload
+
+	var result: Dictionary = _utility.apply_scope(_scope, payload)
+
+	assert_false(GFVariantData.get_option_bool(result, "ok"))
+	assert_false(GFVariantData.get_option_bool(source.nested_result, "ok"))
+	assert_true(
+		GFVariantData.to_text(GFVariantData.get_option_array(result, "errors")).contains("reentrant"),
+		"同步重入应返回稳定错误而不是继续递归。"
+	)
 
 
 func test_nested_after_load_callbacks_run_only_after_outer_commit_in_post_order() -> void:

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFExtensionManifestDiscovery" path="addons/gf/kernel/extension/gf_extension_manifest_discovery.gd" module="kernel" extends="RefCounted" classDigest="fbe9a078f3e5e3ceea3f6c776866e96cdeb493744b19c37ceb20e6f57d682060">
+<class name="GFExtensionManifestDiscovery" path="addons/gf/kernel/extension/gf_extension_manifest_discovery.gd" module="kernel" extends="RefCounted" classDigest="03968653a566686a36abbe79583fc65e3440cf8573b3d8174a9bd8985c7258e7">
 	<description>GFExtensionManifestDiscovery: GF 扩展 manifest 发现快照缓存。
 在 `GFExtensionCatalog` 的无状态 manifest 读取能力之上维护快照缓存，
 并通过扩展根目录、manifest 路径和 manifest 内容摘要自动判断缓存是否仍然有效。</description>
@@ -24,7 +24,7 @@
 				<tag name="param">extra_root_paths: 额外扩展集合根目录列表，每个根目录下一层为独立扩展目录。</tag>
 				<tag name="param">options: 发现选项。</tag>
 				<tag name="return">manifest 发现快照。</tag>
-				<tag name="schema">options: Dictionary，支持 force_refresh；为 true 时跳过现有缓存并重新扫描。</tag>
+				<tag name="schema">options: Dictionary，支持 force_refresh、max_json_file_bytes、max_json_total_bytes 和 max_json_depth；预算只能收紧框架硬上限。</tag>
 				<tag name="schema">return: Dictionary，包含 ok、manifests、manifest_load_errors、manifest_validation_errors、invalid_manifests、external_roots、discovery_roots、signature、signature_hash、revision、manual、manifest_count、valid_manifest_count 和 invalid_manifest_count；错误条目包含 stage、extension_id、source_path 和 errors。</tag>
 				<tag name="since">8.0.0</tag>
 			</tags>

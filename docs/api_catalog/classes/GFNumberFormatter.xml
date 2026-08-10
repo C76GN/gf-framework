@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFNumberFormatter" path="addons/gf/standard/foundation/formatting/gf_number_formatter.gd" module="standard" extends="RefCounted" classDigest="530067ef2537b1dbee04e580026b01d8ba80857c965ca9dc131a6b203bea18f6">
+<class name="GFNumberFormatter" path="addons/gf/standard/foundation/formatting/gf_number_formatter.gd" module="standard" extends="RefCounted" classDigest="d5067b6743ac2bd2d721febc7651c76d62f256ef9a940b84ac422e7b0994ce36">
 	<description>GFNumberFormatter: 统一的数字显示格式化工具。
 负责普通数字、定点小数与大数值对象在 UI 中的显示转换，
 提供完整显示、紧凑缩写、科学计数法、工程计数法与自动模式。</description>
@@ -61,7 +61,7 @@
 			<description>统一入口：按指定记法格式化一个数字值。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="param">value: 支持 int/float/String/GFBigNumber/GFFixedDecimal。</tag>
+				<tag name="param">value: 支持 int/float/String/GFBigNumber/GFFixedDecimal；普通十进制 String 会在文本域精确应用小数位与舍入参数。</tag>
 				<tag name="param">notation: 目标记法。</tag>
 				<tag name="param">decimal_places: 小数位数。</tag>
 				<tag name="param">trim_zeroes: 是否裁掉尾部 0。</tag>
@@ -69,6 +69,7 @@
 				<tag name="param">scientific_style: 科学计数法的输出风格。</tag>
 				<tag name="return">格式化后的字符串。</tag>
 				<tag name="schema">value: Variant numeric value accepted by the formatter.</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="format_full">

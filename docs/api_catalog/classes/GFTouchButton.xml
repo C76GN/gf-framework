@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFTouchButton" path="addons/gf/standard/input/touch/gf_touch_button.gd" module="standard" extends="GFTouchControl2D" classDigest="13ba7856dcc2845ab603e331d0d5ceae16cccd35bb0a30d3dc4dcb73a2b18fd1">
+<class name="GFTouchButton" path="addons/gf/standard/input/touch/gf_touch_button.gd" module="standard" extends="GFTouchControl2D" classDigest="32d5cd06d45f4d84584dbebc3d9c868b4974ae0be4757100cfbb1b8023c42572">
 	<description>GFTouchButton: 通用触屏虚拟按钮节点。
-可直接发送按下/释放信号，也可映射到 Godot InputMap 动作或虚拟手柄按钮事件。</description>
+可直接发送按下/释放信号，也可映射到 Godot InputMap 动作或虚拟手柄按钮事件。
+每次 press 会冻结当时的 action 与虚拟 joypad lane；运行时配置修改从下一次 press 生效。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">runtime_service</tag>
@@ -48,10 +49,12 @@
 			</tags>
 		</member>
 		<member kind="property" name="accept_mouse_input" decorators="@export_group(&quot;Input&quot;) @export">
-			<signature>var accept_mouse_input: bool = false</signature>
-			<description>是否允许鼠标左键模拟触屏。默认关闭，避免触屏控件在桌面端隐式接管鼠标输入。</description>
+			<signature>var accept_mouse_input: bool = false:</signature>
+			<description>是否允许鼠标左键模拟触屏。默认关闭，避免触屏控件在桌面端隐式接管鼠标输入。
+活动 mouse press 期间关闭该选项会先完成当前 press 的 release。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="action_name" decorators="@export">

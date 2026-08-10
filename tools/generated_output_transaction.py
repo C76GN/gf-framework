@@ -4,10 +4,25 @@
 from __future__ import annotations
 
 import os
+import re
 import shutil
 import stat
 import tempfile
+import unicodedata
 from pathlib import Path
+from pathlib import PureWindowsPath
+from typing import Callable
+
+
+WINDOWS_RESERVED_NAMES = {
+	"CON",
+	"PRN",
+	"AUX",
+	"NUL",
+	*(f"COM{index}" for index in range(1, 10)),
+	*(f"LPT{index}" for index in range(1, 10)),
+}
+WINDOWS_INVALID_COMPONENT_PATTERN = re.compile(r'[<>:"|?*]|[\x00-\x1f]')
 
 
 class GeneratedOutputTransactionError(RuntimeError):
@@ -71,7 +86,10 @@ def validate_controlled_path(path: Path, containment_root: Path) -> Path:
 	return controlled_path
 
 
-def replace_generated_trees(outputs: list[tuple[Path, dict[str, str]]]) -> None:
+GeneratedContent = str | bytes | None
+
+
+def replace_generated_trees(outputs: list[tuple[Path, dict[str, GeneratedContent]]]) -> None:
 	"""Stage every output tree, then replace all roots with rollback on failure."""
 	normalized_outputs = _normalize_outputs(outputs)
 	staging_roots: dict[Path, Path] = {}
@@ -145,8 +163,42 @@ def replace_generated_trees(outputs: list[tuple[Path, dict[str, str]]]) -> None:
 				shutil.rmtree(backup_parent, ignore_errors=True)
 
 
-def _normalize_outputs(outputs: list[tuple[Path, dict[str, str]]]) -> list[tuple[Path, dict[str, str]]]:
-	normalized: list[tuple[Path, dict[str, str]]] = []
+def compare_generated_tree(
+	root: Path,
+	desired: dict[str, str],
+	normalize_expected: Callable[[str], str] | None = None,
+) -> list[str]:
+	"""Compare a generated tree without mutating it."""
+	_validate_relative_paths(desired)
+	mismatches: list[str] = []
+	for relative_path in sorted(desired):
+		path = root.joinpath(*relative_path.split("/"))
+		if not path.exists():
+			mismatches.append(f"missing: {relative_path}")
+			continue
+		if not path.is_file():
+			mismatches.append(f"stale: {relative_path}")
+			continue
+		expected = desired[relative_path]
+		if normalize_expected is not None:
+			expected = normalize_expected(expected)
+		if path.read_text(encoding="utf-8") != expected:
+			mismatches.append(f"stale: {relative_path}")
+
+	existing = {
+		path.relative_to(root).as_posix()
+		for path in root.rglob("*")
+		if path.is_file()
+	} if root.exists() else set()
+	for extra in sorted(existing - set(desired)):
+		mismatches.append(f"extra: {extra}")
+	return mismatches
+
+
+def _normalize_outputs(
+	outputs: list[tuple[Path, dict[str, GeneratedContent]]],
+) -> list[tuple[Path, dict[str, GeneratedContent]]]:
+	normalized: list[tuple[Path, dict[str, GeneratedContent]]] = []
 	seen_roots: set[Path] = set()
 	for raw_root, files in outputs:
 		root = lexical_absolute_path(raw_root)
@@ -161,18 +213,124 @@ def _normalize_outputs(outputs: list[tuple[Path, dict[str, str]]]) -> list[tuple
 	return normalized
 
 
-def _validate_relative_paths(files: dict[str, str]) -> None:
-	for relative_path in files:
-		path = Path(relative_path)
-		if not relative_path or path.is_absolute() or ".." in path.parts:
-			raise ValueError(f"Generated output path must stay relative to its root: {relative_path!r}")
+def validate_generated_entries(files: dict[str, GeneratedContent]) -> None:
+	"""Validate portable relative identities before a generated tree is staged."""
+	_validate_relative_paths(files)
 
 
-def _write_staging_tree(staging_root: Path, files: dict[str, str]) -> None:
+def path_is_link_or_junction(path: Path) -> bool:
+	"""Return whether a path is a symlink, junction, or other reparse point."""
+	return _path_is_link_or_junction(path)
+
+
+def _validate_relative_paths(files: dict[str, GeneratedContent]) -> None:
+	portable_identities: dict[str, str] = {}
+	portable_components: dict[str, str] = {}
 	for relative_path, content in files.items():
-		path = staging_root / relative_path
+		if not isinstance(relative_path, str) or not isinstance(content, (str, bytes, type(None))):
+			raise TypeError(
+				"Generated output paths must be strings and contents must be strings, bytes, or None"
+			)
+		windows_path = PureWindowsPath(relative_path)
+		if (
+			not relative_path
+			or "\\" in relative_path
+			or relative_path.startswith("/")
+			or windows_path.drive
+			or windows_path.root
+		):
+			raise ValueError(
+				f"Generated output path must stay relative to its root: {relative_path!r}"
+			)
+
+		components = relative_path.split("/")
+		if any(component in {"", ".", ".."} for component in components):
+			raise ValueError(
+				f"Generated output path contains an unsafe component: {relative_path!r}"
+			)
+		for component in components:
+			if (
+				WINDOWS_INVALID_COMPONENT_PATTERN.search(component) is not None
+				or component.endswith((" ", "."))
+			):
+				raise ValueError(
+					f"Generated output path is not portable: {relative_path!r}"
+				)
+			reserved_stem = component.split(".", 1)[0].upper()
+			if reserved_stem in WINDOWS_RESERVED_NAMES:
+				raise ValueError(
+					f"Generated output path uses a reserved name: {relative_path!r}"
+				)
+
+		try:
+			relative_path.encode("utf-8", errors="strict")
+		except UnicodeEncodeError as error:
+			raise ValueError(
+				f"Generated output path is not valid UTF-8 text: {relative_path!r}"
+			) from error
+
+		portable_parts: list[str] = []
+		for component in components:
+			portable_parts.append(unicodedata.normalize("NFC", component).casefold())
+			portable_prefix = "/".join(portable_parts)
+			literal_prefix = "/".join(components[:len(portable_parts)])
+			previous_prefix = portable_components.get(portable_prefix)
+			if previous_prefix is not None and previous_prefix != literal_prefix:
+				raise ValueError(
+					"Generated output portable path collision: "
+					f"{previous_prefix!r} and {literal_prefix!r}"
+				)
+			portable_components[portable_prefix] = literal_prefix
+
+		portable_identity = "/".join(portable_parts)
+		previous = portable_identities.get(portable_identity)
+		if previous is not None:
+			raise ValueError(
+				"Generated output portable path collision: "
+				f"{previous!r} and {relative_path!r}"
+			)
+		portable_identities[portable_identity] = relative_path
+
+	content_by_portable_identity = {
+		"/".join(
+			unicodedata.normalize("NFC", component).casefold()
+			for component in relative_path.split("/")
+		): content
+		for relative_path, content in files.items()
+	}
+	for relative_path, content in files.items():
+		components = relative_path.split("/")
+		for index in range(1, len(components)):
+			parent_identity = "/".join(
+				unicodedata.normalize("NFC", component).casefold()
+				for component in components[:index]
+			)
+			if (
+				parent_identity in content_by_portable_identity
+				and content_by_portable_identity[parent_identity] is not None
+			):
+				raise ValueError(
+					"Generated output file cannot also be an ancestor directory: "
+					f"{'/'.join(components[:index])!r} for {relative_path!r}"
+				)
+		if content is None:
+			continue
+
+
+def _write_staging_tree(staging_root: Path, files: dict[str, GeneratedContent]) -> None:
+	for relative_path, content in sorted(
+		files.items(),
+		key=lambda item: (item[0].count("/"), item[0]),
+	):
+		path = staging_root.joinpath(*relative_path.split("/"))
+		if content is None:
+			path.mkdir(parents=True, exist_ok=True)
+			continue
 		path.parent.mkdir(parents=True, exist_ok=True)
-		path.write_text(content, encoding="utf-8", newline="\n")
+		if isinstance(content, bytes):
+			path.write_bytes(content)
+		else:
+			path.write_text(content, encoding="utf-8", newline="\n")
 
 
 def _nearest_existing_ancestor(path: Path) -> Path:

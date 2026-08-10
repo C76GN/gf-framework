@@ -119,11 +119,10 @@ def manifest_segment_matches(value: str, pattern: str) -> bool:
 def manifest_path_matches(path: str, raw_pattern: str) -> bool:
 	"""Match portable Godot paths with identical case-sensitive semantics on every OS."""
 	normalized_path = normalize_manifest_path(path)
-	pattern = normalize_manifest_path(raw_pattern)
+	pattern = raw_pattern
 	if (
 		not portable_literal_path_identity(normalized_path)
-		or not pattern
-		or not manifest_pattern_is_supported(pattern)
+		or not portable_manifest_path_identity(pattern)
 	):
 		return False
 	path_parts = normalized_path.split("/")
@@ -162,8 +161,8 @@ class ManifestPathIndex:
 		self._fallback: list[tuple[int, dict[str, str]]] = []
 		self._matches_by_path: dict[str, list[dict[str, str]]] = {}
 		for order, entry in enumerate(entries):
-			pattern = normalize_manifest_path(entry.get(pattern_field, ""))
-			if not pattern or not portable_manifest_path_identity(pattern):
+			pattern = entry.get(pattern_field, "")
+			if not isinstance(pattern, str) or not portable_manifest_path_identity(pattern):
 				continue
 			indexed_entry = (order, entry)
 			if pattern.endswith("/**") and not manifest_pattern_has_magic(pattern[:-3]):

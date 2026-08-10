@@ -32,9 +32,11 @@ quest.add_completion_blocker(&"gated_progress", func(quest_id: StringName, repor
 
 `start_quest()` 仍是“一步开始监听”的兼容入口；需要先声明再接取时，可用 `define_quest()` / `accept_quest()`，并通过 `get_quest_status()`、`get_quests_by_status()`、`get_quest_report()` 和 `get_debug_snapshot()` 查询运行时状态。
 
+`quest_started` 是提交后信号：监听器收到它时，正目标任务已经进入 active 并完成目标事件订阅，所以回调中同步发送目标事件不会丢失。回调中同步取消或失败同一任务时，已经提交的终态优先，外层开始/接取流程不会重新附着监听器或覆盖终态。
+
 `add_acceptance_condition()` 可在接取前执行通用条件检查，返回 `false` 或 `{ "ok": false, "reason": "..." }` 时会发出 `quest_acceptance_blocked` 并保持 available。
 
-`add_completion_blocker()` 只决定能否从 active 进入 completed，不发奖励、不解锁关卡、不解释原因含义。`fail_quest()` 会把任务置为 `STATUS_FAILED` 并注销事件监听，`cancel_quest()` 也只更新任务状态。完成、失败或取消某事件上的最后一个 active 任务时，工具会注销对应 simple event 监听器，避免空任务列表继续接收事件。
+`add_completion_blocker()` 只决定能否从 active 进入 completed，不发奖励、不解锁关卡、不解释原因含义。条件或阻塞器是同步项目回调；如果它在执行期间先取消、失败或清空任务，GF 会在继续转换前重新核对任务身份与状态，避免同一任务提交两个互斥终态。`fail_quest()` 会把任务置为 `STATUS_FAILED` 并注销事件监听，`cancel_quest()` 也只更新任务状态。完成、失败或取消某事件上的最后一个 active 任务时，工具会注销对应 simple event 监听器，避免空任务列表继续接收事件。
 
 ## 任务树
 

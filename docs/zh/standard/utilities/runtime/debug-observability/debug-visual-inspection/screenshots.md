@@ -53,7 +53,9 @@ var report := await screenshots.capture_burst({
 
 `capture_burst()` 会临时切换窗口尺寸和 `TranslationServer` 语言，等待渲染帧后保存截图，并在结束时恢复原始窗口尺寸、语言和暂停状态。它不隐藏项目 UI，也不判断哪些界面适合截图；需要隐藏调试层、打开指定菜单、上传或打包到发布流水线时，应在项目层控制调用前后的状态。
 
-批量截图默认最多执行 `GFScreenshotUtility.DEFAULT_MAX_BURST_CAPTURES` 张，组合数量由 `locales * resolutions * formats` 决定。项目确实需要更大批量时可以通过 `max_captures` 调高，传入 `0` 表示不限制；超限时返回报告会包含 `error = "max_captures_exceeded"`、`planned_count` 与 `max_captures`，不会切换语言或窗口尺寸。
+批量截图默认最多执行 `GFScreenshotUtility.DEFAULT_MAX_BURST_CAPTURES` 张，组合数量由 `locales * resolutions * formats` 决定。项目确实需要更大批量时可以通过 `max_captures` 调高，传入 `0` 表示不限制；当前没有另一个不可关闭的总工作量或墙钟上限，所以该模式只适合受信内部自动化，不应把 `max_captures` 直接交给玩家或第三方插件。超限时返回报告会包含 `error = "max_captures_exceeded"`、`planned_count` 与 `max_captures`，不会切换语言或窗口尺寸。
+
+`frame_delay_seconds` 必须是有限值；NaN 或 Infinity 会在解析 Viewport、切换语言/窗口和等待渲染之前返回 `error = "invalid_frame_delay_seconds"`。有限但极大的延迟仍由取消 token 和调用方调度策略负责。
 
 ## 使用边界
 

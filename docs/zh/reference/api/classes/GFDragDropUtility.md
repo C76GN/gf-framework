@@ -48,12 +48,13 @@
 ### `drag_started`
 
 - API：`public`
+- 首次版本：`11.0.0`
 
 ```gdscript
 signal drag_started(session_id: int, drag_type: StringName)
 ```
 
-拖拽开始时发出。
+会话写入注册表后同步发出。监听器可以取消该会话；此时 start_drag() 返回 -1。
 
 参数：
 
@@ -87,12 +88,13 @@ signal drag_moved(session_id: int, position: Vector2, delta: Vector2)
 ### `drag_dropped`
 
 - API：`public`
+- 首次版本：`11.0.0`
 
 ```gdscript
 signal drag_dropped(session_id: int, zone_id: StringName, result: Dictionary)
 ```
 
-拖拽成功释放到落点时发出。
+会话提交成功终态并从注册表移除后同步发出。
 
 参数：
 
@@ -111,12 +113,13 @@ signal drag_dropped(session_id: int, zone_id: StringName, result: Dictionary)
 ### `drag_drop_rejected`
 
 - API：`public`
+- 首次版本：`11.0.0`
 
 ```gdscript
 signal drag_drop_rejected(session_id: int, reason: StringName)
 ```
 
-拖拽释放被拒绝时发出。
+拖拽释放被拒绝时同步发出。callback 拒绝与落点变化会保留会话， no_drop_zone 则是已经移除会话的终态拒绝。
 
 参数：
 
@@ -130,12 +133,13 @@ signal drag_drop_rejected(session_id: int, reason: StringName)
 ### `drag_cancelled`
 
 - API：`public`
+- 首次版本：`11.0.0`
 
 ```gdscript
 signal drag_cancelled(session_id: int)
 ```
 
-拖拽取消时发出。
+会话从注册表移除后同步发出。
 
 参数：
 
@@ -198,12 +202,13 @@ func dispose() -> void:
 ### `register_zone`
 
 - API：`public`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func register_zone(zone: GFDropZone) -> bool:
 ```
 
-注册落点。
+注册落点。 同 ID 替换会先移除旧落点并发出注销信号；若同步回调取得同一 ID， 本次 outer 注册失败且不会覆盖回调的新注册。
 
 参数：
 
@@ -312,12 +317,13 @@ func get_zone(zone_id: StringName) -> GFDropZone:
 ### `clear_zones`
 
 - API：`public`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func clear_zones() -> void:
 ```
 
-清空落点。
+清空调用开始时存在的落点。同步注销回调中新注册的落点会保留。
 
 <a id="member-gfdragdroputility-methods-prune_stale_zones"></a>
 
@@ -339,12 +345,13 @@ func prune_stale_zones() -> int:
 ### `start_drag`
 
 - API：`public`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func start_drag( drag_type: StringName, payload: Variant, position: Vector2, source: Object = null, metadata: Dictionary = {} ) -> int:
 ```
 
-开始拖拽。
+开始拖拽。 会话先提交到注册表，再同步发出 drag_started；若监听器在回调内取消或 替换该会话，本方法返回 -1。
 
 参数：
 
@@ -389,12 +396,13 @@ func update_drag(session_id: int, position: Vector2) -> bool:
 ### `drop`
 
 - API：`public`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func drop(session_id: int, position: Vector2) -> Dictionary:
 ```
 
-将拖拽释放到当前位置匹配到的最佳落点。
+将拖拽释放到当前位置匹配到的最佳落点。 contains/can_accept/drop 均为可重入项目回调：同一会话的递归 drop 会以 session_resolving 拒绝；回调内取消优先于 outer drop，且每个会话只提交一个终态。
 
 参数：
 
@@ -474,12 +482,13 @@ func has_active_session(session_id: int) -> bool:
 ### `get_drop_candidates`
 
 - API：`public`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_drop_candidates( session_id: int, position: Vector2, only_accepting: bool = true ) -> Array[GFDropZone]:
 ```
 
-获取当前位置命中的落点候选。
+获取当前位置命中的落点候选。 任意项目回调若取消或替换当前 session，本次查询立即失败关闭为空数组。
 
 参数：
 
@@ -496,12 +505,13 @@ func get_drop_candidates( session_id: int, position: Vector2, only_accepting: bo
 ### `get_best_drop_zone`
 
 - API：`public`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_best_drop_zone(session_id: int, position: Vector2) -> GFDropZone:
 ```
 
-获取当前位置最佳落点。
+获取当前位置最佳落点。 任意项目回调若取消或替换当前 session，本次查询立即失败关闭为 null。
 
 参数：
 
@@ -517,12 +527,13 @@ func get_best_drop_zone(session_id: int, position: Vector2) -> GFDropZone:
 ### `clear_sessions`
 
 - API：`public`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func clear_sessions() -> void:
 ```
 
-清空拖拽会话。
+清空调用开始时存在的拖拽会话。同步取消回调中新建的会话会保留。
 
 <a id="member-gfdragdroputility-methods-get_debug_snapshot"></a>
 

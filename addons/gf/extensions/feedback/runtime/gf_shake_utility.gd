@@ -150,6 +150,9 @@ func tick(delta: float) -> void:
 			var _finished_id_appended: bool = finished_ids.append(shake_id)
 			continue
 		var duration: float = preset.get_duration_seconds()
+		if duration <= 0.0:
+			var _invalid_duration_id_appended: bool = finished_ids.append(shake_id)
+			continue
 		if next_elapsed >= duration:
 			if previous_elapsed <= 0.0 and safe_delta > 0.0:
 				state["elapsed_seconds"] = duration * 0.25

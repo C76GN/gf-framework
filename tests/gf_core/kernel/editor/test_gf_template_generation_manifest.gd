@@ -126,3 +126,59 @@ func test_template_manifest_rejects_unsafe_paths() -> void:
 	assert_false(GF_VARIANT_ACCESS.get_option_bool(local_path_manifest, "valid"), "本地绝对路径或相对路径应无效。")
 	assert_true(local_errors.has("template_path 必须使用 res:// 或 user:// 路径。"), "template_path 应要求资源协议。")
 	assert_true(local_errors.has("output_path 必须使用 res:// 或 user:// 路径。"), "output_path 应要求资源协议。")
+
+
+func test_template_manifest_rejects_oversized_and_deep_json_before_parse() -> void:
+	var oversized: Dictionary = GF_TEMPLATE_GENERATION_MANIFEST_SCRIPT.from_json_text(
+		"x".repeat(GF_TEMPLATE_GENERATION_MANIFEST_SCRIPT.MAX_JSON_BYTES + 1)
+	)
+	var deep_json: String = (
+		"{\"payload\":"
+		+ "[".repeat(GF_TEMPLATE_GENERATION_MANIFEST_SCRIPT.MAX_JSON_DEPTH)
+		+ "0"
+		+ "]".repeat(GF_TEMPLATE_GENERATION_MANIFEST_SCRIPT.MAX_JSON_DEPTH)
+		+ "}"
+	)
+	var too_deep: Dictionary = GF_TEMPLATE_GENERATION_MANIFEST_SCRIPT.from_json_text(
+		deep_json
+	)
+
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(oversized, "valid"), "超大 JSON 文本必须失败。")
+	assert_eq(
+		GF_VARIANT_ACCESS.get_option_string_name(oversized, "status"),
+		GF_TEMPLATE_GENERATION_MANIFEST_SCRIPT.STATUS_PARSE_FAILED,
+		"超大内存文本属于输入解析失败。"
+	)
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(too_deep, "valid"), "过深 JSON 文本必须失败。")
+	assert_eq(
+		GF_VARIANT_ACCESS.get_option_string_name(too_deep, "status"),
+		GF_TEMPLATE_GENERATION_MANIFEST_SCRIPT.STATUS_PARSE_FAILED,
+		"过深输入应在 JSON.parse 前失败关闭。"
+	)
+
+
+func test_template_manifest_sidecar_enforces_file_byte_budget() -> void:
+	var sidecar_path: String = "user://gf_template_generation_manifest_oversized.json"
+	var file: FileAccess = FileAccess.open(sidecar_path, FileAccess.WRITE)
+	assert_not_null(file, "测试应能创建超大 sidecar。")
+	if file == null:
+		return
+	var _store_result: Variant = file.store_string(
+		"x".repeat(GF_TEMPLATE_GENERATION_MANIFEST_SCRIPT.MAX_JSON_BYTES + 1)
+	)
+	file.close()
+
+	var manifest: Dictionary = GF_TEMPLATE_GENERATION_MANIFEST_SCRIPT.load_sidecar(
+		sidecar_path
+	)
+	var remove_error: Error = DirAccess.remove_absolute(
+		ProjectSettings.globalize_path(sidecar_path)
+	)
+
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(manifest, "valid"), "超大 sidecar 必须失败。")
+	assert_eq(
+		GF_VARIANT_ACCESS.get_option_string_name(manifest, "status"),
+		GF_TEMPLATE_GENERATION_MANIFEST_SCRIPT.STATUS_LOAD_FAILED,
+		"文件字节预算失败应属于 load_failed。"
+	)
+	assert_eq(remove_error, OK, "测试应清理超大 sidecar。")

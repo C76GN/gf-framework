@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFDecisionConsideration" path="addons/gf/extensions/decision/resources/gf_decision_consideration.gd" module="extensions/decision" extends="Resource" classDigest="30f7fd1eceae7c74fc2b729281b432c55874d8d30f1e89661b13a5fd652519ed">
+<class name="GFDecisionConsideration" path="addons/gf/extensions/decision/resources/gf_decision_consideration.gd" module="extensions/decision" extends="Resource" classDigest="288a2fcff6e7d51bafc3a5d0eeddebda280b6ee44748e753650dc00fae346438">
 	<description>GFDecisionConsideration: 单个效用评分考虑项。
 从决策上下文读取一个输入值，将它映射为 0 到 1 的效用分数。
 子类可以重写 `_score()` 扩展项目自己的评分逻辑。</description>
@@ -119,12 +119,26 @@
 		</member>
 		<member kind="method" name="get_debug_snapshot">
 			<signature>func get_debug_snapshot(context: GFDecisionContext) -&gt; Dictionary:</signature>
-			<description>获取考虑项调试快照。</description>
+			<description>现场评分并获取考虑项调试快照。
+该入口会执行一次 score()，因此自定义 _score() 的项目逻辑也会执行。
+已有预计算分数时应使用 get_debug_snapshot_from_score()，避免观察阶段重放评分。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">context: 决策上下文。</tag>
 				<tag name="return">调试快照字典。</tag>
 				<tag name="schema">return: 包含 consideration_id、enabled、score、weight、input_source 和 input_key 字段的 Dictionary。</tag>
+				<tag name="since">4.3.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_debug_snapshot_from_score">
+			<signature>func get_debug_snapshot_from_score(score_value: float) -&gt; Dictionary:</signature>
+			<description>从预计算分数获取考虑项调试快照，不执行自定义评分逻辑。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">score_value: 已计算的考虑项分数。</tag>
+				<tag name="return">调试快照字典。</tag>
+				<tag name="schema">return: 包含 consideration_id、enabled、score、weight、input_source 和 input_key 字段的 Dictionary。</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_validation_report">

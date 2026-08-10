@@ -18,6 +18,43 @@ func test_debug_draw_records_and_expires_items() -> void:
 	assert_eq(utility.get_item_count(), 0, "超过生命周期后绘制命令应被清理。")
 
 
+func test_debug_draw_rejects_non_finite_lifetime_and_delta() -> void:
+	var utility: GFDebugDrawUtility = GFDebugDrawUtility.new()
+	utility.init()
+
+	var nan_id: int = utility.push_item({
+		"type": GFDebugDrawUtility.PrimitiveType.CUSTOM,
+		"lifetime_seconds": NAN,
+	})
+	var infinity_id: int = utility.push_item({
+		"type": GFDebugDrawUtility.PrimitiveType.CUSTOM,
+		"lifetime_seconds": INF,
+	})
+
+	assert_eq(nan_id, 0, "NaN lifetime 应被稳定拒绝。")
+	assert_eq(infinity_id, 0, "Infinity lifetime 应被稳定拒绝。")
+	assert_eq(utility.get_item_count(), 0, "被拒绝的生命周期不得留下永久命令。")
+	utility.default_lifetime_seconds = NAN
+	assert_eq(
+		utility.default_lifetime_seconds,
+		0.0,
+		"非有限默认生命周期不得污染后续命令。"
+	)
+
+	var valid_id: int = utility.draw_line_2d(
+		Vector2.ZERO,
+		Vector2.ONE,
+		Color.WHITE,
+		0.1
+	)
+	assert_gt(valid_id, 0, "有效命令应继续注册。")
+	utility.tick(NAN)
+	utility.tick(INF)
+	assert_eq(utility.get_item_count(), 1, "非有限 delta 不得腐坏 remaining_seconds。")
+	utility.tick(0.11)
+	assert_eq(utility.get_item_count(), 0, "后续有限 delta 应正常清理命令。")
+
+
 func test_debug_draw_filters_disabled_channels() -> void:
 	var utility: GFDebugDrawUtility = GFDebugDrawUtility.new()
 	utility.init()

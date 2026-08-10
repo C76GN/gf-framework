@@ -16,12 +16,22 @@ extends Resource
 ## 开始时间，单位秒。
 ## [br]
 ## @api public
-@export var start_time: float = 0.0
+## [br]
+## @since 3.17.0
+@export var start_time: float = 0.0:
+	set(value):
+		start_time = _normalize_time_seconds(value)
+		if end_time < start_time:
+			end_time = start_time
 
 ## 结束时间，单位秒。
 ## [br]
 ## @api public
-@export var end_time: float = 0.0
+## [br]
+## @since 3.17.0
+@export var end_time: float = 0.0:
+	set(value):
+		end_time = maxf(_normalize_time_seconds(value), start_time)
 
 ## 文本内容。
 ## [br]

@@ -47,6 +47,8 @@ router.back()
 
 如果面板实现 `set_route_params(params)` 或 `set_route_metadata(metadata)`，Router 会在入栈前传入副本。`back()` 只弹出当前 UI 栈顶且属于路由历史的面板；项目直接在同层压入普通面板后，应先关闭普通面板。
 
+每次打开都会在入口冻结 route id、场景路径、逻辑层、默认选项、参数和 metadata。`route_open_requested` 回调或其他项目代码随后修改已注册的 `GFUIRoute`，只影响未来请求，不会改变正在执行的请求身份、完成关联或历史记录。同步与异步 `replace` 都只在新面板确认打开后提交 Router 历史；打开失败时保留旧历史和旧当前路由。
+
 ## 类型化异步打开
 
 `push_route_async()` 与 `replace_route_async()` 始终返回 `GFUIRouteOperation`。输入校验失败也会返回已经完成的句柄，不再要求调用方从 warning 文本推断结果：

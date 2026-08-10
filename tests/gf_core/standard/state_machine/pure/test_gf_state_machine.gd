@@ -84,6 +84,27 @@ class GuardedState:
 		return allow_exit
 
 
+class GuardRedirectState:
+	extends TrackingState
+
+	var target_state_name: StringName = &""
+	var redirect_on_enter_guard: bool = false
+	var redirect_on_exit_guard: bool = false
+	var has_redirected: bool = false
+
+	func can_enter(_previous_state: StringName = &"", _msg: Dictionary = {}) -> bool:
+		if redirect_on_enter_guard and not has_redirected:
+			has_redirected = true
+			change_state(target_state_name)
+		return true
+
+	func can_exit(_next_state: StringName = &"", _msg: Dictionary = {}) -> bool:
+		if redirect_on_exit_guard and not has_redirected:
+			has_redirected = true
+			change_state(target_state_name)
+		return true
+
+
 class EventHandlingState:
 	extends TrackingState
 
@@ -94,6 +115,17 @@ class EventHandlingState:
 			events.append("handle:%s:%s" % [state_id, event_id])
 			return true
 		events.append("miss:%s:%s" % [state_id, event_id])
+		return false
+
+
+class EventRedirectState:
+	extends EventHandlingState
+
+	var target_state_name: StringName = &""
+
+	func handle_state_event(event_id: StringName, _payload: Variant = null) -> bool:
+		events.append("redirect:%s:%s" % [state_id, event_id])
+		change_state(target_state_name)
 		return false
 
 
@@ -452,6 +484,44 @@ func test_hierarchical_transition_guard_blocks_before_exit() -> void:
 	assert_signal_emitted_with_parameters(_fsm, "transition_blocked", [&"Idle", &"Run", { "reason": "test" }, &"enter_guard"])
 
 
+func test_enter_guard_redirect_invalidates_outer_transition() -> void:
+	var idle: TrackingState = TrackingState.new()
+	var redirect: GuardRedirectState = GuardRedirectState.new()
+	var run: TrackingState = TrackingState.new()
+	redirect.target_state_name = &"Run"
+	redirect.redirect_on_enter_guard = true
+	_fsm.add_state(&"Idle", idle)
+	_fsm.add_state(&"Redirect", redirect)
+	_fsm.add_state(&"Run", run)
+	_fsm.start(&"Idle")
+
+	_fsm.change_state(&"Redirect")
+
+	assert_eq(_fsm.current_state_name, &"Run", "enter 守卫中的嵌套切换应成为最终状态。")
+	assert_eq(idle.exit_count, 1, "外层过时计划不得再次退出原状态。")
+	assert_eq(redirect.enter_count, 0, "外层过时计划不得进入原目标状态。")
+	assert_eq(run.enter_count, 1, "嵌套目标应只进入一次。")
+
+
+func test_exit_guard_redirect_invalidates_outer_transition() -> void:
+	var idle: GuardRedirectState = GuardRedirectState.new()
+	var attack: TrackingState = TrackingState.new()
+	var run: TrackingState = TrackingState.new()
+	idle.target_state_name = &"Run"
+	idle.redirect_on_exit_guard = true
+	_fsm.add_state(&"Idle", idle)
+	_fsm.add_state(&"Attack", attack)
+	_fsm.add_state(&"Run", run)
+	_fsm.start(&"Idle")
+
+	_fsm.change_state(&"Attack")
+
+	assert_eq(_fsm.current_state_name, &"Run", "exit 守卫中的嵌套切换应成为最终状态。")
+	assert_eq(idle.exit_count, 1, "外层过时计划不得重复退出原状态。")
+	assert_eq(attack.enter_count, 0, "外层过时计划不得进入原目标状态。")
+	assert_eq(run.enter_count, 1, "嵌套目标应只进入一次。")
+
+
 func test_state_event_bubbles_from_leaf_to_parent() -> void:
 	var parent: EventHandlingState = EventHandlingState.new(&"Parent")
 	var child: EventHandlingState = EventHandlingState.new(&"Child")
@@ -469,6 +539,31 @@ func test_state_event_bubbles_from_leaf_to_parent() -> void:
 	assert_eq(child.events, ["miss:Child:hit"], "事件应先交给叶子状态。")
 	assert_eq(parent.events, ["handle:Parent:hit"], "叶子未处理时应上抛给父状态。")
 	assert_signal_emitted_with_parameters(_fsm, "state_event_handled", [&"hit", &"Parent", { "damage": 3 }])
+
+
+func test_state_event_stops_when_handler_changes_activation() -> void:
+	var parent: EventHandlingState = EventHandlingState.new(&"Parent")
+	var child: EventRedirectState = EventRedirectState.new()
+	var other: EventHandlingState = EventHandlingState.new(&"Other")
+	child.state_id = &"Child"
+	child.target_state_name = &"Other"
+	parent.handled_events.append(&"hit")
+	other.handled_events.append(&"hit")
+	_fsm.add_state(&"Parent", parent)
+	_fsm.add_state(&"Child", child, &"Parent")
+	_fsm.add_state(&"Other", other)
+	_fsm.start(&"Child")
+	parent.events.clear()
+	child.events.clear()
+	watch_signals(_fsm)
+
+	var handled: bool = _fsm.dispatch_state_event(&"hit")
+
+	assert_false(handled, "激活路径变化后原事件派发应终止并报告未处理。")
+	assert_eq(_fsm.current_state_name, &"Other", "事件处理器请求的切换应正常生效。")
+	assert_eq(parent.events, ["exit:Parent"], "已退出的父状态不得再接收原事件。")
+	assert_false(other.events.has("handle:Other:hit"), "新激活状态不得接收旧激活周期的事件。")
+	assert_signal_not_emitted(_fsm, "state_event_handled", "中止的派发不得报告事件已处理。")
 
 
 func test_update_can_include_ancestor_states() -> void:

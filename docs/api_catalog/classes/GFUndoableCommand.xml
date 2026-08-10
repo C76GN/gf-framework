@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFUndoableCommand" path="addons/gf/standard/command/gf_undoable_command.gd" module="standard" extends="GFCommand" classDigest="0ee6f1ca87f73693335f7cfd44717afafe9f60621c652b98be6174ea71d7bfed">
+<class name="GFUndoableCommand" path="addons/gf/standard/command/gf_undoable_command.gd" module="standard" extends="GFCommand" classDigest="fa2f50c841d69a11a802819c29456d09bbc86d9dd079003fef8194af50f9bf00">
 	<description>GFUndoableCommand: 可撤销命令的抽象基类。
 继承自 GFCommand，在标准命令的基础上新增撤销能力。
 子类须在 execute() 执行前通过 set_snapshot() 保存当前状态快照，
@@ -12,7 +12,18 @@
 	</tags>
 	<signals />
 	<enums />
-	<constants />
+	<constants>
+		<member kind="const" name="MAX_SNAPSHOT_BYTES">
+			<signature>const MAX_SNAPSHOT_BYTES: int = 16 * 1024 * 1024</signature>
+			<description>单个命令快照允许的最大保守内存成本估算，单位字节。
+估算覆盖容器节点、String/StringName/NodePath 和全部 PackedArray 载荷，
+防止少量超大 Variant 绕过节点预算。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</constants>
 	<properties>
 		<member kind="property" name="action_name">
 			<signature>var action_name: String = ""</signature>
@@ -79,12 +90,13 @@
 			<signature>func set_snapshot(data: Variant) -&gt; bool:</signature>
 			<description>保存执行前的状态快照。应在 execute() 内部、修改数据之前调用。
 快照只接受不含 Object、Callable、Signal 或 RID 的纯 Variant 值；复杂运行时对象应先投影为数据。
-校验失败时保留原快照，不产生半更新状态。</description>
+深度、项目数或 [constant MAX_SNAPSHOT_BYTES] 成本预算校验失败时保留原快照，
+不产生半更新状态。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">data: 任意可序列化的快照数据（如字典、数值、数组）。</tag>
 				<tag name="return">快照通过校验并保存时返回 true。</tag>
-				<tag name="schema">data: Pure Variant snapshot value without Object, Callable, Signal, or RID references.</tag>
+				<tag name="schema">data: Pure Variant snapshot value without Object, Callable, Signal, or RID references, bounded to 128 levels, 100000 visited values, and MAX_SNAPSHOT_BYTES estimated bytes.</tag>
 				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>

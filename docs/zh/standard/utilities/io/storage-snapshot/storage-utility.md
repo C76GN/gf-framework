@@ -8,7 +8,7 @@
 
 同时原生支持 Godot 的 `Resource` 类型保存，例如 `.tres` 或 `.res`。读取 Resource 会进入 Godot `ResourceLoader`，因此默认关闭；项目必须先显式启用 `allow_resource_loads`，配置 `allowed_resource_load_type_hints` 与扩展名 allowlist，并用存储路径策略收窄加载边界。`load_resource()` 会在加载后再次确认实际资源实例匹配 `type_hint`，这个入口只面向项目生成或项目已确认来源与格式的本地文件，不是沙盒化的资源导入器；对用户下载、导入或可被篡改的资源，项目层应先做来源检查、格式转换，或改用纯 `Dictionary` / JSON 载荷。
 
-`GFStorageCodec` 的 JSON 格式会自动通过 `GFVariantJsonCodec` 把 Vector、Color、PackedArray、AABB、Transform 和 `NaN` / `INF` / `-INF` 等值转换为 JSON 安全标记，再在读取时恢复为 Godot Variant；不会把非有限值直接交给 `JSON.stringify()` 后静默变成 `null`。需要保存 Resource 或 Node 引用时，仍应使用 `GFVariantReferenceCodec` 的显式引用标记，或由 SaveGraph 属性序列化器代为处理。
+`GFStorageCodec` 的 JSON 格式会自动通过 `GFVariantJsonCodec` 把 Vector、Color、PackedArray、AABB、Transform 和 `NaN` / `INF` / `-INF` 等值转换为 JSON 安全标记，再在读取时恢复为 Godot Variant；不会把非有限值直接交给 `JSON.stringify()` 后静默变成 `null`。若编码超过 Variant 遍历预算，codec 会把它视为编码失败，`GFStorageUtility` 的同步与异步事务都会拒绝提交并保留已有文件，不会把内部 `TraversalLimit` 标记当作业务存档落盘。需要保存 Resource 或 Node 引用时，仍应使用 `GFVariantReferenceCodec` 的显式引用标记，或由 SaveGraph 属性序列化器代为处理。
 
 如果确实需要把受控 `Resource` 属性图编码成字典，再使用 `GFSafeResourceCodec` 与 `GFSafeResourceCodecPolicy`。默认策略不会实例化任何对象，项目必须显式允许类、脚本路径和外部资源路径：
 
@@ -21,7 +21,7 @@ var encoded := GFSafeResourceCodec.encode(my_resource, policy)
 var decoded := GFSafeResourceCodec.decode(encoded.data, policy)
 ```
 
-安全 codec 只处理 allowlist 内的存储属性、集合、重复引用和可选外部资源路径。类型化 `Array` / `Dictionary` 会连同元素、键和值的类型约束一起往返；类型约束引用脚本时，该脚本路径及脚本的原生基类都必须分别进入 policy 的脚本与类 allowlist。解码还会拒绝非正数、非整数或重复的对象编号，并通过报告式属性写入返回类型不匹配，而不是把伪造值直接交给对象。
+安全 codec 只处理 allowlist 内的存储属性、集合、重复引用和可选外部资源路径。类型化 `Array` / `Dictionary` 会连同元素、键和值的类型约束一起往返；类型约束引用脚本时，该脚本路径及脚本的原生基类都必须分别进入 policy 的脚本与类 allowlist。解码还会拒绝非正数、非整数或重复的对象编号，并通过报告式属性写入返回类型不匹配，而不是把伪造值直接交给对象。`max_items` 同时是处理预算：Array 的元素、Dictionary 的键和值以及 Object 的属性值会在扫描或暂存完整容器形状前按直接子节点基数预检；嵌套节点仍在递归入口逐项消费预算。
 
 它不注册 Godot ResourceFormatLoader/Saver，不执行表达式，也不把未知内容变成可直接使用的对象；面对用户下载内容或网络载荷时，应先在项目层完成格式收窄和风险处理。成功解码出的非 `RefCounted` 对象（例如 `Node`）由调用方负责持有和释放。allowlist 内脚本在附加时仍会按 Godot 语义执行初始化，因此只应允许项目已信任的脚本；失败清理会回滚 codec 已写属性并释放本次创建的对象，但不能撤销脚本初始化对外部系统产生的副作用。
 

@@ -120,6 +120,38 @@ func test_save_text_replaces_existing_file_without_temp_artifacts() -> void:
 	assert_eq(backup_count, 0, "成功替换后不应残留备份文件。")
 
 
+func test_save_text_rejects_stale_expected_previous_hash() -> void:
+	var path: String = "user://gf_generated_artifact_report_conflict_%d.txt" % Time.get_ticks_usec()
+	var first_report: Dictionary = GFGeneratedArtifactReport.save_text(path, "current", {
+		"scan_filesystem": false,
+	})
+	var conflict_report: Dictionary = GFGeneratedArtifactReport.save_text(path, "replacement", {
+		"expected_previous_sha256": "stale-baseline",
+		"scan_filesystem": false,
+	})
+	var content: String = _read_user_text(path)
+	var temp_count: int = _count_user_files_with_prefix("%s.tmp." % path.get_file())
+	var remove_error: Error = DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
+
+	assert_true(GF_VARIANT_ACCESS.get_option_bool(first_report, "success"), "基线文件应创建成功。")
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(conflict_report, "success"), "基线冲突必须失败关闭。")
+	assert_true(GF_VARIANT_ACCESS.get_option_bool(conflict_report, "conflict"), "报告应结构化标记冲突。")
+	assert_eq(
+		GFGeneratedArtifactReport.get_error_code(conflict_report),
+		ERR_FILE_ALREADY_IN_USE,
+		"基线冲突应返回稳定错误码。"
+	)
+	assert_eq(
+		GF_VARIANT_ACCESS.get_option_string(conflict_report, "expected_previous_sha256"),
+		"stale-baseline",
+		"报告应保留调用方期望的基线。"
+	)
+	assert_eq(content, "current", "冲突不得覆盖当前内容。")
+	assert_eq(temp_count, 0, "冲突不得遗留临时文件。")
+	assert_eq(remove_error, OK, "测试应清理临时产物。")
+	assert_push_error("[GFGeneratedArtifactReport] 目标文件已偏离调用方读取基线，已拒绝写入：%s" % path)
+
+
 func test_save_text_rejects_absolute_path_and_outside_allowed_roots() -> void:
 	var absolute_path: String = ProjectSettings.globalize_path("user://gf_generated_artifact_absolute.txt").replace("\\", "/")
 	var allowed_root: String = "user://gf_generated_artifact_report_roots/generated"

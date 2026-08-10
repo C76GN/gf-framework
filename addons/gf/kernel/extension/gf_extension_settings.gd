@@ -900,7 +900,7 @@ static func get_manifest_graph_report(
 ## [br]
 ## @return 诊断字典。
 ## [br]
-## @schema return: Dictionary containing selection_mode, external_roots, configured_ids, explicit_ids, resolved_ids, unknown_enabled_ids, graph status, and extension counts.
+## @schema return: Dictionary containing selection_mode, external_roots, configured_ids, explicit_ids, resolved_ids, unknown_enabled_ids, status, partial, paths_allowed, tool_contribution_errors, graph status, and extension counts.
 static func get_extension_selection_report() -> Dictionary:
 	var manifests: Array[GFExtensionManifest] = get_all_manifests()
 	var selection_snapshot: Dictionary = _get_selection_snapshot(manifests)
@@ -920,6 +920,22 @@ static func get_extension_selection_report() -> Dictionary:
 		"invalid_manifests": _GF_VARIANT_ACCESS_SCRIPT.get_option_array(graph_report, "invalid_manifests", []),
 		"graph_ok": graph_ok,
 		"ok": _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(selection_snapshot, "ok", true),
+		"status": _GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(
+			selection_snapshot,
+			"status",
+			GFExtensionSelectionDiscoveryBase.STATUS_VALID
+		),
+		"partial": _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(selection_snapshot, "partial"),
+		"paths_allowed": _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+			selection_snapshot,
+			"paths_allowed",
+			graph_ok
+		),
+		"tool_contribution_errors": _GF_VARIANT_ACCESS_SCRIPT.get_option_array(
+			selection_snapshot,
+			"tool_contribution_errors",
+			[]
+		),
 		"enabled_count": _GF_VARIANT_ACCESS_SCRIPT.get_option_string_array(selection_snapshot, "resolved_ids").size(),
 		"extension_count": manifests.size(),
 	}
@@ -1157,7 +1173,8 @@ static func _get_selection_snapshot(manifests: Array[GFExtensionManifest] = []) 
 
 
 static func _selection_snapshot_allows_runtime_paths(snapshot: Dictionary, context: String) -> bool:
-	if _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(snapshot, "graph_ok", true):
+	var graph_ok: bool = _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(snapshot, "graph_ok", true)
+	if _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(snapshot, "paths_allowed", graph_ok):
 		return true
 	var graph_report: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(snapshot, "graph_report")
 	push_warning("[GFExtensionSettings] %s blocked: %s" % [context, _summarize_manifest_graph_report(graph_report)])

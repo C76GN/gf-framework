@@ -600,6 +600,41 @@ func test_deserialize_history() -> void:
 	assert_eq(_history.redo_count, 1, "撤销后正常推入重做栈。")
 
 
+func test_deserialize_history_failure_preserves_existing_stacks() -> void:
+	var first: GFUndoableCommand = GFUndoableCommand.new()
+	var second: GFUndoableCommand = GFUndoableCommand.new()
+	_history.record(first)
+	_history.record(second)
+	assert_true(_history.undo_last(), "测试前置应建立 undo/redo 两个非空栈。")
+	var undo_before: Array[GFUndoableCommand] = _history.get_undo_history()
+	var redo_before: Array[GFUndoableCommand] = _history.get_redo_history()
+
+	_history.deserialize_history([{ "snapshot": 1 }], Callable())
+
+	_assert_history_identity(undo_before, redo_before, "无效 builder")
+	assert_push_error("[GFCommandHistoryUtility] deserialize_history 失败：传入的 builder Callable 无效。")
+
+	var builder_state: Dictionary = { "build_count": 0 }
+	var late_failure_builder: Callable = func(_data: Dictionary) -> Variant:
+		var build_count: int = GFVariantData.get_option_int(builder_state, "build_count") + 1
+		builder_state["build_count"] = build_count
+		return GFUndoableCommand.new() if build_count == 1 else null
+	_history.deserialize_history(
+		[{ "snapshot": 1 }, { "snapshot": 2 }],
+		late_failure_builder
+	)
+
+	_assert_history_identity(undo_before, redo_before, "中途构建失败")
+	assert_push_error("[GFCommandHistoryUtility] deserialize_history 失败：builder 未返回 GFUndoableCommand。")
+
+	var valid_builder: Callable = func(_data: Dictionary) -> GFUndoableCommand:
+		return GFUndoableCommand.new()
+	_history.deserialize_history([{ "snapshot": 1 }, "invalid"], valid_builder)
+
+	_assert_history_identity(undo_before, redo_before, "非法条目")
+	assert_push_error("[GFCommandHistoryUtility] deserialize_history 失败：历史条目必须是 Dictionary。")
+
+
 ## 验证 max_history_size 超限清理 (FIFO抛弃)。
 func test_serialize_full_history_roundtrip() -> void:
 	var cmd1: GFUndoableCommand = GFUndoableCommand.new()
@@ -620,6 +655,36 @@ func test_serialize_full_history_roundtrip() -> void:
 
 	assert_eq(restored.undo_count, 1, "完整历史恢复后应保留 undo 栈。")
 	assert_eq(restored.redo_count, 1, "完整历史恢复后应保留 redo 栈。")
+
+
+func test_deserialize_full_history_failure_preserves_existing_stacks() -> void:
+	var first: GFUndoableCommand = GFUndoableCommand.new()
+	var second: GFUndoableCommand = GFUndoableCommand.new()
+	_history.record(first)
+	_history.record(second)
+	assert_true(_history.undo_last(), "测试前置应建立 undo/redo 两个非空栈。")
+	var undo_before: Array[GFUndoableCommand] = _history.get_undo_history()
+	var redo_before: Array[GFUndoableCommand] = _history.get_redo_history()
+	_history.deserialize_full_history({ "undo": [] }, Callable())
+	_assert_history_identity(undo_before, redo_before, "完整历史无效 builder")
+	assert_push_error("[GFCommandHistoryUtility] deserialize_full_history 失败：传入的 builder Callable 无效。")
+
+	var builder_state: Dictionary = { "build_count": 0 }
+	var late_failure_builder: Callable = func(_data: Dictionary) -> Variant:
+		var build_count: int = GFVariantData.get_option_int(builder_state, "build_count") + 1
+		builder_state["build_count"] = build_count
+		return GFUndoableCommand.new() if build_count == 1 else null
+
+	_history.deserialize_full_history(
+		{
+			"undo": [{ "snapshot": 1 }],
+			"redo": [{ "snapshot": 2 }],
+		},
+		late_failure_builder
+	)
+
+	_assert_history_identity(undo_before, redo_before, "完整历史中途构建失败")
+	assert_push_error("[GFCommandHistoryUtility] deserialize_full_history 失败：builder 未返回 GFUndoableCommand。")
 
 
 func test_history_size_limit() -> void:
@@ -691,6 +756,58 @@ func test_snapshot_rejects_runtime_references_transactionally() -> void:
 	assert_eq(preserved_snapshot, { "value": 7 }, "无效快照不应覆盖最近一次有效快照。")
 
 
+func test_snapshot_enforces_type_aware_cumulative_byte_budget() -> void:
+	var cmd: GFUndoableCommand = GFUndoableCommand.new()
+	assert_true(cmd.set_snapshot({ "value": 7 }), "测试应先保存一个有效快照。")
+	var oversized_text: String = "x".repeat(
+		int(GFUndoableCommand.MAX_SNAPSHOT_BYTES / 4.0) + 1
+	)
+
+	assert_false(cmd.set_snapshot(oversized_text), "超出累计字节预算的单个 String 必须被拒绝。")
+	assert_push_error("[GFUndoableCommand] 快照必须是有界的纯 Variant 数据，不能包含运行时引用或递归结构。")
+	var preserved_snapshot: Dictionary = GFVariantData.as_dictionary(cmd.get_snapshot())
+	assert_eq(preserved_snapshot, { "value": 7 }, "字节预算失败不得覆盖最近一次有效快照。")
+
+	var bounded_values: Array = [
+		"x",
+		&"x",
+		NodePath("x"),
+		PackedByteArray([1]),
+		PackedInt32Array([1]),
+		PackedInt64Array([1]),
+		PackedFloat32Array([1.0]),
+		PackedFloat64Array([1.0]),
+		PackedStringArray(["x"]),
+		PackedVector2Array([Vector2.ONE]),
+		PackedVector3Array([Vector3.ONE]),
+		PackedVector4Array([Vector4.ONE]),
+		PackedColorArray([Color.WHITE]),
+	]
+	for value: Variant in bounded_values:
+		var exhausted_state: Dictionary = {
+			"bytes": GFUndoableCommand.MAX_SNAPSHOT_BYTES - 64,
+			"items": 0,
+		}
+		assert_false(
+			cmd._is_snapshot_value_supported(value, 0, exhausted_state),
+			"%s 的载荷成本必须进入累计字节预算。" % type_string(typeof(value))
+		)
+
+	var exact_boundary_state: Dictionary = {
+		"bytes": GFUndoableCommand.MAX_SNAPSHOT_BYTES - 68,
+		"items": 0,
+	}
+	assert_true(
+		cmd._is_snapshot_value_supported("x", 0, exact_boundary_state),
+		"固定节点成本加一个字符的保守成本恰好命中边界时应被接受。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(exact_boundary_state, "bytes"),
+		GFUndoableCommand.MAX_SNAPSHOT_BYTES,
+		"边界校验应准确消费完整 byte budget。"
+	)
+
+
 func _assert_same_history(
 	actual: Array[GFUndoableCommand],
 	expected: Array[GFUndoableCommand],
@@ -701,6 +818,23 @@ func _assert_same_history(
 		return
 	for index: int in range(expected.size()):
 		assert_same(actual[index], expected[index], "%s（索引 %d）" % [message, index])
+
+
+func _assert_history_identity(
+	undo_expected: Array[GFUndoableCommand],
+	redo_expected: Array[GFUndoableCommand],
+	context: String
+) -> void:
+	_assert_same_history(
+		_history.get_undo_history(),
+		undo_expected,
+		"%s不得改变撤销栈" % context
+	)
+	_assert_same_history(
+		_history.get_redo_history(),
+		redo_expected,
+		"%s不得改变重做栈" % context
+	)
 
 
 func _assert_same_history_ids(

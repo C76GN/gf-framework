@@ -307,6 +307,7 @@ func dispose() -> void:
 ### `register_section`
 
 - API：`public`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func register_section(section_id: StringName, provider: Callable, options: Dictionary = {}) -> bool:
@@ -319,7 +320,7 @@ func register_section(section_id: StringName, provider: Callable, options: Dicti
 | 名称 | 说明 |
 |---|---|
 | `section_id` | 分区标识。 |
-| `provider` | 分区回调，建议签名为 func(options: Dictionary) -> Variant。 |
+| `provider` | 受信同步分区回调，必须接受一个 Dictionary 并直接返回 Variant；不得阻塞、await 或依赖框架隔离脚本错误。 |
 | `options` | 分区元数据，支持 label、metadata。 |
 
 返回：注册成功返回 true。
@@ -441,6 +442,7 @@ func collect_runtime_snapshot(detail: RuntimeDetail = RuntimeDetail.MINIMAL) -> 
 ### `collect_sections`
 
 - API：`public`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func collect_sections(options: Dictionary = {}) -> Dictionary:
@@ -458,7 +460,7 @@ func collect_sections(options: Dictionary = {}) -> Dictionary:
 
 结构：
 
-- `options`: Dictionary，原样传给各分区 provider。
+- `options`: Dictionary，隔离副本传给各受信同步分区 provider。
 - `return`: Dictionary[StringName, Dictionary]，每个值包含 label、metadata、value、ok、error。
 
 <a id="member-gfsupportreportutility-methods-collect_attachments"></a>
@@ -574,6 +576,7 @@ func export_report_markdown(report: Dictionary, options: Dictionary = {}) -> Str
 ### `save_report`
 
 - API：`public`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func save_report(report: Dictionary, path: String) -> Error:
@@ -588,7 +591,7 @@ func save_report(report: Dictionary, path: String) -> Error:
 | `report` | 报告字典。 |
 | `path` | 目标路径。 |
 
-返回：Godot 错误码。
+返回：Godot 错误码；目标替换成功但旧 backup 清理失败时也返回对应错误，不能视为 clean success。
 
 结构：
 
@@ -625,6 +628,7 @@ func build_and_save_report(path: String, description: String = "", options: Dict
 ### `submit_report`
 
 - API：`public`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func submit_report(report: Dictionary, transport: Callable, options: Dictionary = {}) -> Dictionary:
@@ -637,7 +641,7 @@ func submit_report(report: Dictionary, transport: Callable, options: Dictionary 
 | 名称 | 说明 |
 |---|---|
 | `report` | 报告字典。 |
-| `transport` | 提交回调，签名为 func(report: Dictionary, options: Dictionary) -> Variant。 |
+| `transport` | 受信同步提交回调，必须接受 report/options 两个 Dictionary 并直接返回 Variant；不得阻塞或 await。 |
 | `options` | 提交选项。 |
 
 返回：提交结果字典。

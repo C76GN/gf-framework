@@ -16,7 +16,8 @@ const _INSTANCE_GUARD = preload("res://addons/gf/kernel/core/gf_instance_guard.g
 
 # --- 导出变量 ---
 
-## 目标 Node2D 路径；为空时优先使用自身，其次使用父节点。
+## 目标 Node2D 路径；为空时优先使用自身，其次使用父节点。路径目标暂时不存在或被
+## 重建时，receiver 会继续解析同一路径，并为新目标重新建立基准。
 ## [br]
 ## @api public
 ## [br]
@@ -103,6 +104,8 @@ func _ready() -> void:
 
 
 func _process(_delta: float) -> void:
+	if get_target() == null:
+		_rebind_target(capture_on_ready)
 	var _apply_current_sample_result_83: Variant = apply_current_sample()
 
 

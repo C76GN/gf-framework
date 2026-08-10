@@ -140,6 +140,78 @@ class EmptyReportDispatchNode extends Node:
 		return {}
 
 
+class ConfigurableInvalidReportDispatchNode extends Node:
+	var result: Variant = {}
+
+	func send_to(
+		_receiver: Object,
+		_payload_override: Variant = null,
+		_id_override: StringName = &""
+	) -> Variant:
+		return result
+
+
+class WrongTypedDispatchNode extends Node:
+	var called: bool = false
+
+	func send_to(
+		_receiver: int,
+		_payload_override: Variant = null,
+		_id_override: StringName = &""
+	) -> Dictionary:
+		called = true
+		return {}
+
+
+class WrongTypedInteractionReceiver extends Node:
+	var called: bool = false
+
+	func receive_interaction(
+		_context: int,
+		_interaction_id: StringName = &""
+	) -> Dictionary:
+		called = true
+		return {}
+
+
+class ZeroArgumentCandidateProvider extends RefCounted:
+	var called: bool = false
+
+	func get_candidate_objects() -> Array:
+		called = true
+		return []
+
+
+class ArrayCandidateProvider extends RefCounted:
+	var candidates: Array = []
+
+	func get_candidate_objects(_options: Dictionary) -> Array:
+		return candidates
+
+
+class FreeingInteractionReceiver extends GFInteractionReceiver:
+	var receiver_to_free: Node = null
+	var receive_count: int = 0
+
+	func receive_interaction(
+		context: GFInteractionContext,
+		interaction_id: StringName = &""
+	) -> Dictionary:
+		receive_count += 1
+		if receiver_to_free != null and is_instance_valid(receiver_to_free):
+			receiver_to_free.free()
+		receiver_to_free = null
+		return super.receive_interaction(context, interaction_id)
+
+
+class ValidationCallbackOwner extends Node:
+	func validate_interaction(
+		_context: GFInteractionContext,
+		_report: Dictionary
+	) -> bool:
+		return true
+
+
 class ForgedMarkerInteractionReceiver extends GFInteractionReceiver:
 	func receive_interaction_raw_for_framework(
 		_context: GFInteractionContext,
@@ -359,6 +431,73 @@ func test_receiver_report_metadata_is_encoded_once_at_public_boundary() -> void:
 	assert_false(JSON.stringify(report).is_empty(), "Receiver 公共报告必须可直接 JSON.stringify。")
 
 
+func test_pointer_finalizes_framework_receiver_report_exactly_once() -> void:
+	var root: Node = Node.new()
+	var pointer: GFPointerInteraction3D = GFPointerInteraction3D.new()
+	var receiver: GFInteractionReceiver = GFInteractionReceiver.new()
+	add_child_autofree(root)
+	root.add_child(pointer)
+	root.add_child(receiver)
+	receiver.name = "Receiver"
+	pointer.receiver_path = NodePath("../Receiver")
+	receiver.metadata = {
+		"object": receiver,
+		"name": &"receiver_name",
+		"tags": PackedStringArray(["alpha", "beta"]),
+	}
+
+	var report: Dictionary = pointer.send_pointer_interaction(&"clicked", {}, &"inspect")
+	var report_metadata: Dictionary = GFVariantData.get_option_dictionary(report, "metadata")
+
+	assert_eq(_report_marker_type(report_metadata.get("object")), "Object")
+	assert_eq(_report_marker_type(report_metadata.get("name")), "StringName")
+	assert_eq(_report_marker_type(report_metadata.get("tags")), "PackedArray")
+	assert_false(_contains_live_object(report), "Pointer 最终报告不得残留 live Object。")
+	assert_false(JSON.stringify(report).is_empty(), "Pointer 最终报告必须可直接 JSON.stringify。")
+
+
+func test_pointer_rejects_receiver_with_incompatible_argument_types() -> void:
+	var root: Node = Node.new()
+	var pointer: GFPointerInteraction3D = GFPointerInteraction3D.new()
+	var receiver: WrongTypedInteractionReceiver = WrongTypedInteractionReceiver.new()
+	add_child_autofree(root)
+	root.add_child(pointer)
+	root.add_child(receiver)
+	receiver.name = "Receiver"
+	pointer.receiver_path = NodePath("../Receiver")
+
+	var report: Dictionary = pointer.send_pointer_interaction(&"clicked", {}, &"inspect")
+
+	assert_false(GFVariantData.get_option_bool(report, "ok"), "Pointer 不得调用参数类型不兼容的 receiver。")
+	assert_eq(GFVariantData.get_option_string(report, "reason"), "invalid_receiver")
+	assert_false(receiver.called, "Pointer 应在调用前拒绝不兼容的 duck-typed receiver。")
+
+
+func test_nested_framework_receiver_finalizes_report_exactly_once() -> void:
+	var root: Node = Node.new()
+	var sensor: GFInteractionSensor = GFInteractionSensor.new()
+	var outer_receiver: GFInteractionReceiver = GFInteractionReceiver.new()
+	var inner_receiver: GFInteractionReceiver = GFInteractionReceiver.new()
+	add_child_autofree(root)
+	root.add_child(sensor)
+	root.add_child(outer_receiver)
+	root.add_child(inner_receiver)
+	inner_receiver.name = "InnerReceiver"
+	outer_receiver.receiver_path = NodePath("../InnerReceiver")
+	inner_receiver.metadata = {
+		"object": inner_receiver,
+		"tags": PackedStringArray(["nested"]),
+	}
+
+	var report: Dictionary = sensor.send_to(outer_receiver, null, &"inspect")
+	var report_metadata: Dictionary = GFVariantData.get_option_dictionary(report, "metadata")
+
+	assert_eq(_report_marker_type(report_metadata.get("object")), "Object")
+	assert_eq(_report_marker_type(report_metadata.get("tags")), "PackedArray")
+	assert_false(_contains_live_object(report), "嵌套 Receiver 最终报告不得残留 live Object。")
+	assert_false(JSON.stringify(report).is_empty(), "嵌套 Receiver 最终报告必须可直接 JSON.stringify。")
+
+
 func test_sensor_does_not_trust_forged_report_marker_shape() -> void:
 	var sensor: GFInteractionSensor = GFInteractionSensor.new()
 	var receiver: ForgedMarkerInteractionReceiver = ForgedMarkerInteractionReceiver.new()
@@ -536,6 +675,28 @@ func test_receiver_filters_interaction_ids() -> void:
 	assert_true(GFVariantData.get_option_bool(accepted, "ok"), "允许的交互 ID 应通过基础过滤。")
 
 
+func test_receiver_fails_closed_when_configured_validator_owner_is_freed() -> void:
+	var root: Node = Node.new()
+	var receiver: GFInteractionReceiver = GFInteractionReceiver.new()
+	var validation_owner: ValidationCallbackOwner = ValidationCallbackOwner.new()
+	add_child_autofree(root)
+	root.add_child(receiver)
+	root.add_child(validation_owner)
+	receiver.validation_callback = Callable(validation_owner, "validate_interaction")
+	validation_owner.free()
+	watch_signals(receiver)
+
+	var report: Dictionary = receiver.receive_interaction(
+		GFInteractionContext.new(null, receiver),
+		&"inspect"
+	)
+
+	assert_false(receiver.can_receive_interaction(&"inspect"), "失效校验器存在时预检也必须失败关闭。")
+	assert_false(GFVariantData.get_option_bool(report, "ok"), "已配置但失效的校验器不得静默放行交互。")
+	assert_eq(GFVariantData.get_option_string(report, "reason"), "invalid_validator")
+	assert_signal_emitted(receiver, "interaction_rejected", "失效校验器应产生可观测拒绝结果。")
+
+
 func test_receiver_path_forwards_interaction_to_business_receiver() -> void:
 	var root: Node = Node.new()
 	var bridge: GFInteractionReceiver = GFInteractionReceiver.new()
@@ -560,6 +721,29 @@ func test_receiver_path_forwards_interaction_to_business_receiver() -> void:
 	assert_eq(_receiver_instance_id(report), business_receiver.get_instance_id(), "最终报告摘要应来自业务接收器。")
 	assert_true(GFVariantData.get_option_bool(report_metadata, "business"), "业务接收器返回的报告应成为最终报告。")
 	assert_signal_emitted(bridge, "interaction_received", "业务接收成功后桥接节点应发出接收信号。")
+
+
+func test_receiver_path_rejects_delegate_with_incompatible_argument_types() -> void:
+	var root: Node = Node.new()
+	var bridge: GFInteractionReceiver = GFInteractionReceiver.new()
+	var business_receiver: WrongTypedInteractionReceiver = WrongTypedInteractionReceiver.new()
+	add_child_autofree(root)
+	root.add_child(bridge)
+	root.add_child(business_receiver)
+	business_receiver.name = "BusinessReceiver"
+	bridge.receiver_path = NodePath("../BusinessReceiver")
+	watch_signals(bridge)
+
+	var report: Dictionary = bridge.receive_interaction(
+		GFInteractionContext.new(null, bridge),
+		&"use"
+	)
+
+	assert_false(bridge.can_receive_interaction(&"use"), "签名不兼容的 delegate 不应被报告为可接收。")
+	assert_false(GFVariantData.get_option_bool(report, "ok"), "签名不兼容的 delegate 必须失败关闭。")
+	assert_eq(GFVariantData.get_option_string(report, "reason"), "invalid_receiver")
+	assert_false(business_receiver.called, "桥接 Receiver 不得调用参数类型不兼容的 delegate。")
+	assert_signal_emitted(bridge, "interaction_rejected")
 
 
 func test_receiver_path_accepts_side_effect_business_receiver() -> void:
@@ -637,6 +821,19 @@ func test_sensor_rejects_invalid_receiver() -> void:
 	assert_eq(GFVariantData.get_option_string(report, "reason"), "invalid_receiver")
 
 
+func test_sensor_rejects_receiver_with_incompatible_argument_types() -> void:
+	var sensor: GFInteractionSensor = GFInteractionSensor.new()
+	var receiver: WrongTypedInteractionReceiver = WrongTypedInteractionReceiver.new()
+	add_child_autofree(sensor)
+	add_child_autofree(receiver)
+
+	var report: Dictionary = sensor.send_to(receiver, null, &"inspect")
+
+	assert_false(GFVariantData.get_option_bool(report, "ok"), "参数类型不兼容的 receive_interaction() 不得被调用。")
+	assert_eq(GFVariantData.get_option_string(report, "reason"), "invalid_receiver")
+	assert_false(receiver.called, "框架应在调用前拒绝不兼容的 duck-typed receiver。")
+
+
 func test_sensor_broadcast_to_group_sends_to_receivers() -> void:
 	var sensor: GFInteractionSensor = GFInteractionSensor.new()
 	var receiver_a: RecordingReceiver = RecordingReceiver.new()
@@ -679,6 +876,18 @@ func test_sensor_send_to_best_candidate_uses_candidate_provider_priority() -> vo
 	assert_eq(low_receiver.validate_count, 0, "低优先级候选不应被 send_to_best_candidate 调用。")
 
 
+func test_sensor_rejects_candidate_provider_with_incompatible_signature() -> void:
+	var sensor: GFInteractionSensor = GFInteractionSensor.new()
+	var provider: ZeroArgumentCandidateProvider = ZeroArgumentCandidateProvider.new()
+	add_child_autofree(sensor)
+
+	var report: Dictionary = sensor.send_to_best_candidate(provider)
+
+	assert_false(GFVariantData.get_option_bool(report, "ok"), "不兼容的候选 provider 应安全返回 missing_receiver。")
+	assert_eq(GFVariantData.get_option_string(report, "reason"), "missing_receiver")
+	assert_false(provider.called, "框架不得以错误参数数量调用候选 provider。")
+
+
 func test_sensor_broadcast_to_candidates_uses_candidate_provider() -> void:
 	var registry: RefCounted = GF_OBJECT_CANDIDATE_REGISTRY_SCRIPT.new()
 	var sensor: GFInteractionSensor = GFInteractionSensor.new()
@@ -695,6 +904,72 @@ func test_sensor_broadcast_to_candidates_uses_candidate_provider() -> void:
 
 	assert_eq(reports.size(), 2, "候选 provider 广播应发送给全部匹配候选。")
 	assert_eq(receiver_a.validate_count + receiver_b.validate_count, 2, "每个候选接收器都应收到一次交互。")
+
+
+func test_sensor_candidate_broadcast_revalidates_receiver_before_dispatch() -> void:
+	var root: Node = Node.new()
+	var sensor: GFInteractionSensor = GFInteractionSensor.new()
+	var first_receiver: FreeingInteractionReceiver = FreeingInteractionReceiver.new()
+	var second_receiver: RecordingReceiver = RecordingReceiver.new()
+	var provider: ArrayCandidateProvider = ArrayCandidateProvider.new()
+	add_child_autofree(root)
+	root.add_child(sensor)
+	root.add_child(first_receiver)
+	root.add_child(second_receiver)
+	first_receiver.receiver_to_free = second_receiver
+	provider.candidates = [first_receiver, second_receiver]
+
+	var reports: Array[Dictionary] = sensor.broadcast_to_candidates(provider)
+
+	assert_eq(first_receiver.receive_count, 1, "首个候选应正常完成一次分发。")
+	assert_eq(reports.size(), 1, "在使用前已经失效的后续候选应被安全跳过。")
+	if not reports.is_empty():
+		assert_true(GFVariantData.get_option_bool(reports[0], "ok"), "有效候选的报告必须保留。")
+
+
+func test_sensor_candidate_broadcast_revalidates_dispatch_host_before_each_call() -> void:
+	var root: Node = Node.new()
+	var sensor: GFInteractionSensor = GFInteractionSensor.new()
+	var sender: RecordingDispatchNode = RecordingDispatchNode.new()
+	var receiver_a: RecordingReceiver = RecordingReceiver.new()
+	var receiver_b: RecordingReceiver = RecordingReceiver.new()
+	var provider: ArrayCandidateProvider = ArrayCandidateProvider.new()
+	var sender_ref: WeakRef = weakref(sender)
+	add_child_autofree(root)
+	root.add_child(sensor)
+	root.add_child(sender)
+	root.add_child(receiver_a)
+	root.add_child(receiver_b)
+	sender.name = "Sender"
+	sensor.sender_path = NodePath("../Sender")
+	provider.candidates = [receiver_a, receiver_b]
+	var _interaction_sent_connected: Error = sensor.interaction_sent.connect(
+		func(_context: GFInteractionContext, _receiver: Object, _report: Dictionary) -> void:
+			var sender_value: Variant = sender_ref.get_ref()
+			if sender_value != null:
+				var live_sender: Node = sender_value
+				live_sender.free()
+	) as Error
+
+	var reports: Array[Dictionary] = sensor.broadcast_to_candidates(provider)
+
+	assert_eq(reports.size(), 2, "dispatch host 失效后，剩余候选应安全回退到 Sensor 标准发送。")
+	assert_eq(receiver_a.validate_count, 0, "首个候选由业务 sender 接管时不应隐式调用 Receiver。")
+	assert_eq(receiver_b.validate_count, 1, "失效 sender 后的候选应由 Sensor 完成分发。")
+
+
+func test_sensor_candidate_broadcast_deduplicates_receiver_identity() -> void:
+	var sensor: GFInteractionSensor = GFInteractionSensor.new()
+	var receiver: RecordingReceiver = RecordingReceiver.new()
+	var provider: ArrayCandidateProvider = ArrayCandidateProvider.new()
+	add_child_autofree(sensor)
+	add_child_autofree(receiver)
+	provider.candidates = [receiver, receiver, receiver]
+
+	var reports: Array[Dictionary] = sensor.broadcast_to_candidates(provider)
+
+	assert_eq(reports.size(), 1, "同一 receiver 实例在单次候选广播中只能分发一次。")
+	assert_eq(receiver.validate_count, 1, "候选去重必须发生在分发之前。")
 
 
 func test_sensor_broadcast_to_candidates_max_count_counts_accepted_receivers() -> void:
@@ -924,6 +1199,29 @@ func test_sensor_ignores_sender_send_to_override_with_invalid_signature() -> voi
 	assert_same(receiver.received_context.sender, invalid_sender, "上下文 sender 仍应来自 sender_path。")
 
 
+func test_sensor_ignores_sender_override_with_incompatible_argument_types() -> void:
+	var root: Node = Node.new()
+	var sensor: GFInteractionSensor = GFInteractionSensor.new()
+	var invalid_sender: WrongTypedDispatchNode = WrongTypedDispatchNode.new()
+	var receiver: RecordingReceiver = RecordingReceiver.new()
+	add_child_autofree(root)
+	root.add_child(sensor)
+	root.add_child(invalid_sender)
+	root.add_child(receiver)
+	invalid_sender.name = "InvalidSender"
+	sensor.group_name = &"targets"
+	sensor.sender_path = NodePath("../InvalidSender")
+	receiver.add_to_group("targets")
+
+	var reports: Array[Dictionary] = sensor.broadcast_to_group()
+
+	assert_eq(reports.size(), 1, "参数类型不兼容的 sender override 应回退到 Sensor 标准发送。")
+	if not reports.is_empty():
+		assert_true(GFVariantData.get_option_bool(reports[0], "ok"), "回退路径应保留有效接收结果。")
+	assert_false(invalid_sender.called, "框架不得把 Object 传给要求 int 的 send_to()。")
+	assert_eq(receiver.validate_count, 1, "回退路径应调用标准交互接收器。")
+
+
 func test_sensor_ignores_sender_override_with_excess_required_arguments() -> void:
 	var root: Node = Node.new()
 	var sensor: GFInteractionSensor = GFInteractionSensor.new()
@@ -1074,6 +1372,39 @@ func test_sensor_area_2d_signal_receives_normalized_override_report() -> void:
 		assert_eq(signal_report, reports[0], "Area2D 信号和返回值必须共享同一规范化报告。")
 
 
+func test_sensor_area_2d_converts_every_invalid_override_result_to_report() -> void:
+	var root: Node2D = Node2D.new()
+	var sensor: GFInteractionSensor = GFInteractionSensor.new()
+	var sender: ConfigurableInvalidReportDispatchNode = ConfigurableInvalidReportDispatchNode.new()
+	var query_area: Area2D = Area2D.new()
+	var receiver_area: InteractionCollisionArea2D = InteractionCollisionArea2D.new()
+	add_child_autofree(root)
+	root.add_child(sensor)
+	root.add_child(sender)
+	root.add_child(query_area)
+	root.add_child(receiver_area)
+	sender.name = "Sender"
+	sensor.sender_path = NodePath("../Sender")
+	_add_area_2d_shape(query_area)
+	_add_area_2d_shape(receiver_area)
+	watch_signals(sensor)
+	await get_tree().physics_frame
+	await get_tree().physics_frame
+
+	sender.result = {}
+	var empty_reports: Array[Dictionary] = sensor.broadcast_to_area_2d(query_area, 0, null, &"inspect")
+	sender.result = 42
+	var non_dictionary_reports: Array[Dictionary] = sensor.broadcast_to_area_2d(query_area, 0, null, &"inspect")
+
+	assert_eq(empty_reports.size(), 1, "Area2D 的空 Dictionary 返回值必须转换为一个失败报告。")
+	assert_eq(non_dictionary_reports.size(), 1, "Area2D 的非 Dictionary 返回值不得被静默丢弃。")
+	if not empty_reports.is_empty():
+		_assert_complete_invalid_report(empty_reports[0], &"inspect")
+	if not non_dictionary_reports.is_empty():
+		_assert_complete_invalid_report(non_dictionary_reports[0], &"inspect")
+	assert_signal_emit_count(sensor, "interaction_rejected", 2, "每次 Area2D 失败分发都必须可观测。")
+
+
 func test_sensor_area_3d_signal_receives_normalized_override_report() -> void:
 	var root: Node3D = Node3D.new()
 	var sensor: GFInteractionSensor = GFInteractionSensor.new()
@@ -1109,6 +1440,39 @@ func test_sensor_area_3d_signal_receives_normalized_override_report() -> void:
 		assert_eq(signal_report, reports[0], "Area3D 信号和返回值必须共享同一规范化报告。")
 
 
+func test_sensor_area_3d_converts_every_invalid_override_result_to_report() -> void:
+	var root: Node3D = Node3D.new()
+	var sensor: GFInteractionSensor = GFInteractionSensor.new()
+	var sender: ConfigurableInvalidReportDispatchNode = ConfigurableInvalidReportDispatchNode.new()
+	var query_area: Area3D = Area3D.new()
+	var receiver_area: InteractionCollisionArea3D = InteractionCollisionArea3D.new()
+	add_child_autofree(root)
+	root.add_child(sensor)
+	root.add_child(sender)
+	root.add_child(query_area)
+	root.add_child(receiver_area)
+	sender.name = "Sender"
+	sensor.sender_path = NodePath("../Sender")
+	_add_area_3d_shape(query_area)
+	_add_area_3d_shape(receiver_area)
+	watch_signals(sensor)
+	await get_tree().physics_frame
+	await get_tree().physics_frame
+
+	sender.result = {}
+	var empty_reports: Array[Dictionary] = sensor.broadcast_to_area_3d(query_area, 0, null, &"inspect")
+	sender.result = 42
+	var non_dictionary_reports: Array[Dictionary] = sensor.broadcast_to_area_3d(query_area, 0, null, &"inspect")
+
+	assert_eq(empty_reports.size(), 1, "Area3D 的空 Dictionary 返回值必须转换为一个失败报告。")
+	assert_eq(non_dictionary_reports.size(), 1, "Area3D 的非 Dictionary 返回值不得被静默丢弃。")
+	if not empty_reports.is_empty():
+		_assert_complete_invalid_report(empty_reports[0], &"inspect")
+	if not non_dictionary_reports.is_empty():
+		_assert_complete_invalid_report(non_dictionary_reports[0], &"inspect")
+	assert_signal_emit_count(sensor, "interaction_rejected", 2, "每次 Area3D 失败分发都必须可观测。")
+
+
 func test_pointer_interaction_3d_sends_click_context_to_receiver() -> void:
 	var root: Node3D = Node3D.new()
 	var body: StaticBody3D = StaticBody3D.new()
@@ -1138,6 +1502,38 @@ func test_pointer_interaction_3d_sends_click_context_to_receiver() -> void:
 	assert_false(received_payload.has("pointer_camera"), "pointer payload 不应携带 Camera3D 原始对象。")
 	assert_false(received_payload.has("pointer_input_event"), "pointer payload 不应携带 InputEvent 原始对象。")
 	assert_eq(GFVariantData.get_option_string(received_payload, "pointer_input_event_class"), "InputEventMouseButton", "pointer payload 应保留事件类型快照。")
+
+
+func test_pointer_interaction_3d_tracks_pressed_state_per_button() -> void:
+	var pointer: GFPointerInteraction3D = GFPointerInteraction3D.new()
+	add_child_autofree(pointer)
+	pointer.send_on_clicked = false
+	watch_signals(pointer)
+
+	pointer._on_collision_input_event(null, _make_mouse_button(MOUSE_BUTTON_LEFT, true), Vector3.ZERO, Vector3.UP, 0)
+	pointer._on_collision_input_event(null, _make_mouse_button(MOUSE_BUTTON_RIGHT, true), Vector3.ZERO, Vector3.UP, 0)
+	pointer._on_collision_input_event(null, _make_mouse_button(MOUSE_BUTTON_RIGHT, false), Vector3.ZERO, Vector3.UP, 0)
+	pointer._on_collision_input_event(null, _make_mouse_button(MOUSE_BUTTON_LEFT, false), Vector3.ZERO, Vector3.UP, 0)
+	pointer._on_collision_input_event(null, _make_mouse_button(MOUSE_BUTTON_LEFT, true, 1), Vector3.ZERO, Vector3.UP, 0)
+	pointer._on_collision_input_event(null, _make_mouse_button(MOUSE_BUTTON_LEFT, true, 2), Vector3.ZERO, Vector3.UP, 0)
+	pointer._on_collision_input_event(null, _make_mouse_button(MOUSE_BUTTON_LEFT, false, 2), Vector3.ZERO, Vector3.UP, 0)
+	pointer._on_collision_input_event(null, _make_mouse_button(MOUSE_BUTTON_LEFT, false, 1), Vector3.ZERO, Vector3.UP, 0)
+
+	assert_signal_emit_count(pointer, "pointer_clicked", 4, "并行按钮及不同设备上的同名按钮应各自完成一次点击。")
+	pointer._reset_pointer_state(false)
+	for device: int in range(GFPointerInteraction3D._MAX_ACTIVE_PRESSED_BUTTONS + 1):
+		pointer._on_collision_input_event(
+			null,
+			_make_mouse_button(MOUSE_BUTTON_LEFT, true, device),
+			Vector3.ZERO,
+			Vector3.UP,
+			0
+		)
+	assert_eq(
+		pointer._pressed_buttons.size(),
+		GFPointerInteraction3D._MAX_ACTIVE_PRESSED_BUTTONS,
+		"未完成 pressed 状态必须受硬上限约束。"
+	)
 
 
 func test_pointer_interaction_3d_emits_hover_without_sending_by_default() -> void:
@@ -1234,11 +1630,32 @@ func _add_area_3d_shape(area: Area3D) -> void:
 	area.add_child(collision_shape)
 
 
-func _make_mouse_button(button_index: MouseButton, pressed: bool) -> InputEventMouseButton:
+func _make_mouse_button(
+	button_index: MouseButton,
+	pressed: bool,
+	device: int = 0,
+	window_id: int = 0
+) -> InputEventMouseButton:
 	var event: InputEventMouseButton = InputEventMouseButton.new()
 	event.button_index = button_index
 	event.pressed = pressed
+	event.device = device
+	event.window_id = window_id
 	return event
+
+
+func _assert_complete_invalid_report(report: Dictionary, expected_id: StringName) -> void:
+	assert_false(GFVariantData.get_option_bool(report, "ok"), "无效分发结果必须失败关闭。")
+	assert_eq(
+		_encoded_string_name(GFVariantData.get_option_value(report, "interaction_id")),
+		expected_id
+	)
+	assert_eq(GFVariantData.get_option_string(report, "reason"), "invalid_report")
+	assert_true(report.has("receiver"), "失败报告必须保留 receiver 字段。")
+	assert_true(report.has("message"), "失败报告必须保留 message 字段。")
+	assert_true(report.has("metadata"), "失败报告必须保留 metadata 字段。")
+	assert_false(_contains_live_object(report), "失败报告必须保持 JSON-safe。")
+	assert_false(JSON.stringify(report).is_empty(), "失败报告必须可直接 JSON.stringify。")
 
 
 func _receiver_instance_id(report: Dictionary) -> int:
@@ -1255,7 +1672,30 @@ func _report_marker(value: Variant) -> Dictionary:
 
 
 func _report_marker_type(value: Variant) -> String:
-	return GFVariantData.get_option_string(_report_marker(value), "type")
+	var report_marker: Dictionary = _report_marker(value)
+	if not report_marker.is_empty():
+		return GFVariantData.get_option_string(report_marker, "type")
+	var variant_marker: Dictionary = GFVariantData.get_option_dictionary(
+		GFVariantData.as_dictionary(value),
+		"__gf_variant__"
+	)
+	return GFVariantData.get_option_string(variant_marker, "type")
+
+
+func _encoded_string_name(value: Variant) -> StringName:
+	if value is StringName:
+		var string_name_value: StringName = value
+		return string_name_value
+	if value is String:
+		var string_value: String = value
+		return StringName(string_value)
+	var variant_marker: Dictionary = GFVariantData.get_option_dictionary(
+		GFVariantData.as_dictionary(value),
+		"__gf_variant__"
+	)
+	if GFVariantData.get_option_string(variant_marker, "type") != "StringName":
+		return &""
+	return StringName(GFVariantData.get_option_string(variant_marker, "value"))
 
 
 func _contains_live_object(value: Variant) -> bool:

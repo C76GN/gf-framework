@@ -11,6 +11,9 @@
 - `GFRuntimeTaskGroup`：把多个任务组合为顺序、等待全部或竞速完成。
 - `GFRuntimeTaskScheduler`：负责调度、冲突仲裁、默认任务恢复和活动任务查询。
 
+`GFCallableRuntimeTask.finished_callable` 必须返回 `bool`。其他类型不会执行 truthiness
+转换，而是每个调度代至多告警一次并按 `false` 失败关闭，避免回调签名错误静默表现为异常完成。
+
 ## Requirement 仲裁
 
 同一个 requirement 同一时间只会归一个任务所有。新任务请求已占用的 requirement 时：
@@ -22,7 +25,17 @@ Requirement 可以是项目认为需要互斥占用的任意 `Object`，例如�
 
 任务进入调度器后不能再修改 requirement；需要变更占用对象时，应取消任务并重新调度。任务组在调度前会按子任务当前 requirement 重建聚合占用；并行任务组会拒绝包含重复 requirement 的子任务，避免组内绕过同一对象的互斥规则。
 
+任务组的子任务必须构成树：不允许 self-cycle、祖先回边或同一实例从多个位置可达。树的最大深度为
+256，包含根组在内最多 4096 个任务实例。外层组成功 schedule 时会在同一提交中预留并冻结整棵
+子任务树，包括顺序模式中尚未初始化的未来子任务；因此这些后代不能同时进入同一或其他调度器，
+也不能在等待轮次期间修改 requirement。任务组被拒绝或结束时会对称释放预留。
+
 活动任务及其仍有效的 requirement 是唯一事实源。调度器只把 requirement owner 索引作为派生缓存：在调度、结束和推进边界先完整构建候选索引，确认不存在重复 owner 后才一次性提交。释放中的 `Node` 会从下一次重建和诊断快照中消失；旧任务被可中断替换时，新活动集合与 owner 索引会在执行旧任务的 `end(true)` 回调前一并提交。仲裁回调和 `dispose()` 回调运行期间，调度器会拒绝调度、取消、默认任务注册及其他状态推进，避免回调重入破坏已经提交的活动集合与派生索引。
+
+每次成功 schedule 都会为任务分配新的内部 generation。`initialize()`、`tick()`、
+`physics_tick()` 和 `is_finished()` 等用户回调返回后，调度器都会验证对象仍属于同一 generation。
+任务在 `end()` 中同步重新调度自身是允许的，但新一代最早在下一次推进快照中重新 initialize；
+旧一代不能跳过初始化、继续推进或结束新一代。
 
 ## 默认任务
 

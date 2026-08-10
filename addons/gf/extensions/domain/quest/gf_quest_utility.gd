@@ -175,15 +175,16 @@ func start_quest(quest_id: StringName, target_event: StringName, target_count: i
 	var data: _QuestData = _create_quest_data(quest_id, target_event, target_count, {})
 	data._status = STATUS_ACTIVE
 	_quests[quest_id] = data
+	if data._target_count > 0:
+		_attach_quest_to_event(data)
 
 	quest_started.emit(quest_id)
-
-	if target_count <= 0:
-		quest_progressed.emit(quest_id, data._current_count, data._target_count)
-		var _completed: bool = _try_complete_quest(data)
+	if not _is_current_active_quest(data):
 		return
 
-	_attach_quest_to_event(data)
+	if data._target_count <= 0:
+		quest_progressed.emit(quest_id, data._current_count, data._target_count)
+		var _completed: bool = _try_complete_quest(data)
 
 
 ## 定义一个可接取任务，但暂不开始监听事件。
@@ -235,17 +236,21 @@ func accept_quest(quest_id: StringName) -> bool:
 		push_error("[GFQuestUtility] accept_quest 失败：target_event 为空。")
 		return false
 	var acceptance_result: Dictionary = _check_conditions(data._acceptance_conditions, data)
+	if not _is_current_quest_in_status(data, STATUS_AVAILABLE):
+		return false
 	if not GFVariantData.get_option_bool(acceptance_result, "ok", true):
 		quest_acceptance_blocked.emit(quest_id, GFVariantData.get_option_string(acceptance_result, "reason", "blocked"))
 		return false
 
 	data._status = STATUS_ACTIVE
+	if data._target_count > 0:
+		_attach_quest_to_event(data)
 	quest_started.emit(quest_id)
+	if not _is_current_active_quest(data):
+		return true
 	if data._target_count <= 0:
 		quest_progressed.emit(quest_id, data._current_count, data._target_count)
 		var _completed: bool = _try_complete_quest(data)
-	else:
-		_attach_quest_to_event(data)
 	return true
 
 
@@ -676,10 +681,12 @@ func _detach_quest_from_event(data: _QuestData) -> void:
 
 
 func _try_complete_quest(data: _QuestData) -> bool:
-	if data == null or data._is_completed or data._status != STATUS_ACTIVE:
+	if not _is_current_active_quest(data) or data._is_completed:
 		return false
 
 	var blocker_result: Dictionary = _check_conditions(data._completion_blockers, data)
+	if not _is_current_active_quest(data) or data._is_completed:
+		return false
 	if not GFVariantData.get_option_bool(blocker_result, "ok", true):
 		quest_completion_blocked.emit(data._quest_id, GFVariantData.get_option_string(blocker_result, "reason", "blocked"))
 		return false
@@ -815,6 +822,16 @@ func _get_report_dictionary_ref(reports: Dictionary, quest_id: StringName) -> Di
 
 func _get_quest_data(quest_id: StringName) -> _QuestData:
 	return _variant_to_quest_data(GFVariantData.get_option_value(_quests, quest_id))
+
+
+func _is_current_quest_in_status(data: _QuestData, expected_status: StringName) -> bool:
+	if data == null:
+		return false
+	return _get_quest_data(data._quest_id) == data and data._status == expected_status
+
+
+func _is_current_active_quest(data: _QuestData) -> bool:
+	return _is_current_quest_in_status(data, STATUS_ACTIVE)
 
 
 func _get_event_handler(event_id: StringName) -> GFEventListener:

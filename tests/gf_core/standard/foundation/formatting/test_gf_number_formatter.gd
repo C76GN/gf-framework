@@ -59,6 +59,29 @@ func test_format_full_groups_positive_signed_text() -> void:
 	assert_eq(text, "+1,234,567.5", "千分位分组应保留显式正号。")
 
 
+func test_format_full_applies_precision_options_to_plain_numeric_text() -> void:
+	assert_eq(
+		GFNumberFormatter.format_full("1.239", 2, false, false, true),
+		"1.23",
+		"普通数值文本必须遵守截断和小数位参数。"
+	)
+	assert_eq(
+		GFNumberFormatter.format_full("1.239", 2, false, false, false),
+		"1.24",
+		"普通数值文本必须在字符串域精确舍入。"
+	)
+	assert_eq(GFNumberFormatter.format_full("1.200", 2, true), "1.2", "trim_zeroes 必须作用于文本输入。")
+	assert_eq(GFNumberFormatter.format_full("1.200", 2, false), "1.20", "关闭 trim 时必须补齐目标精度。")
+
+
+func test_format_full_keeps_large_numeric_text_out_of_float_path() -> void:
+	assert_eq(
+		GFNumberFormatter.format_full("9007199254740993.125", 2, false),
+		"9007199254740993.13",
+		"超过 float 精确整数范围的文本也必须逐位舍入。"
+	)
+
+
 func test_format_full_returns_stable_fallback_for_non_finite_floats() -> void:
 	assert_eq(GFNumberFormatter.format_full(INF, 2), "0", "INF 不应泄漏为引擎相关格式文本。")
 	assert_push_error("[GFDecimalStringFormatter] 只能格式化有限浮点值。")

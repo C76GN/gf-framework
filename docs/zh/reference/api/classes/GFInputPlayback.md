@@ -87,12 +87,13 @@ signal playback_finished
 ### `event_applied`
 
 - API：`public`
+- 首次版本：`11.0.0`
 
 ```gdscript
 signal event_applied(event: Dictionary)
 ```
 
-一个录制事件已被应用。
+一个录制事件已被应用。事件索引会先提交再同步发出本信号；handler 可以调用 start/stop/reset/seek，旧 tick 会在 handler 返回后停止，不再推进新会话。
 
 参数：
 
@@ -263,12 +264,13 @@ var elapsed_seconds: float = 0.0
 ### `start`
 
 - API：`public`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func start( next_recording: GFInputRecording, next_source: GFVirtualInputSource, restart: bool = true ) -> bool:
 ```
 
-开始回放。
+开始回放。每次成功调用都会创建新的回放代际；同步回调中启动的新代际不会被 旧 tick 的索引、完成状态或后续事件覆盖。
 
 参数：
 
@@ -285,12 +287,13 @@ func start( next_recording: GFInputRecording, next_source: GFVirtualInputSource,
 ### `stop`
 
 - API：`public`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func stop(clear_source: bool = false) -> void:
 ```
 
-停止回放。
+停止回放。调用会先使当前代际失效，再按需清理 source 和发出停止信号。
 
 参数：
 
@@ -315,12 +318,13 @@ func reset() -> void:
 ### `tick`
 
 - API：`public`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func tick(delta: float) -> int:
 ```
 
-推进回放并应用到期事件。
+推进回放并应用到期事件。一次调用只向进入 tick 时绑定的 recording/source 提交；同步回调改变会话或 source 后，剩余到期事件留给新会话或后续显式操作。
 
 参数：
 

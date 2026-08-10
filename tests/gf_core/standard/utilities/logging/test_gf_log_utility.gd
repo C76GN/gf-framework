@@ -384,6 +384,28 @@ func test_sink_receives_structured_entries_and_lifecycle() -> void:
 	assert_eq(sink.shutdown_count, 1, "remove_sink 默认应关闭 sink。")
 
 
+func test_log_utility_tick_forwards_idle_progress_to_sinks() -> void:
+	var sink: CapturingLogSink = CapturingLogSink.new()
+	_log_util.add_sink(sink)
+
+	_log_util.tick(0.25)
+
+	assert_eq(sink.tick_count, 1, "每次 GF tick 应把时间推进一次转发给 sink。")
+	assert_eq(sink.last_tick_delta, 0.25, "sink 应收到未改写的帧间隔。")
+	_log_util.remove_sink(sink)
+
+
+func test_log_utility_tick_flushes_idle_builtin_file() -> void:
+	_log_util.flush_immediately = false
+	_log_util.flush_interval_msec = 100_000
+	_log_util.info("IdleFlush", "builtin file")
+
+	assert_true(_log_util._file_has_unflushed_data, "写入后应存在尚未 flush 的内置日志。")
+	_log_util.tick(100.0)
+
+	assert_false(_log_util._file_has_unflushed_data, "达到空闲间隔后应 flush 内置日志。")
+
+
 func test_log_utility_init_is_idempotent_for_file_and_sinks() -> void:
 	var sink: CapturingLogSink = CapturingLogSink.new()
 	_log_util.add_sink(sink)
@@ -548,6 +570,46 @@ func test_json_line_log_sink_derives_path_and_cleans_old_default_files() -> void
 	assert_true(count <= 2, "默认 JSONL 文件数量应按 max_jsonl_files 清理。")
 
 
+func test_json_line_log_sinks_derive_distinct_default_paths() -> void:
+	var first_sink: GFJsonLineLogSink = GFJsonLineLogSink.new()
+	var second_sink: GFJsonLineLogSink = GFJsonLineLogSink.new()
+	first_sink.max_jsonl_files = 100
+	second_sink.max_jsonl_files = 100
+	first_sink.flush_immediately = true
+	second_sink.flush_immediately = true
+
+	_log_util.add_sink(first_sink)
+	_log_util.add_sink(second_sink)
+	var first_path: String = first_sink.get_file_path()
+	var second_path: String = second_sink.get_file_path()
+	_log_util.info("JsonSink", "independent writers")
+	_log_util.remove_sink(first_sink)
+	_log_util.remove_sink(second_sink)
+
+	assert_ne(first_path, second_path, "两个活动默认 JSONL sink 不得共享同一个可写文件。")
+	assert_true(FileAccess.file_exists(first_path), "第一个默认 sink 应拥有自己的文件。")
+	assert_true(FileAccess.file_exists(second_path), "第二个默认 sink 应拥有自己的文件。")
+	var _first_remove_error: Error = DirAccess.remove_absolute(first_path)
+	var _second_remove_error: Error = DirAccess.remove_absolute(second_path)
+
+
+func test_json_line_log_sink_flushes_idle_file_on_utility_tick() -> void:
+	var sink: GFJsonLineLogSink = GFJsonLineLogSink.new()
+	sink.max_jsonl_files = 100
+	sink.flush_interval_msec = 100_000
+
+	_log_util.add_sink(sink)
+	_log_util.info("JsonSink", "idle flush")
+	assert_true(sink._has_unflushed_data, "JSONL 写入后应保持待 flush 状态。")
+
+	_log_util.tick(100.0)
+
+	assert_false(sink._has_unflushed_data, "GF tick 达到间隔后应 flush JSONL 文件。")
+	var sink_path: String = sink.get_file_path()
+	_log_util.remove_sink(sink)
+	var _remove_error: Error = DirAccess.remove_absolute(sink_path)
+
+
 func test_json_line_log_sink_reports_parent_directory_errors() -> void:
 	var blocker_path: String = _LOG_DIR + "jsonl_parent_blocker"
 	var _remove_blocker_error: Error = DirAccess.remove_absolute(blocker_path)
@@ -603,6 +665,44 @@ func test_batched_log_sink_flushes_to_callback_and_signal() -> void:
 	assert_eq(sink.get_pending_count(), 0, "完整批次发送后队列应清空。")
 
 	_log_util.remove_sink(sink)
+
+
+func test_batched_log_sink_flushes_idle_partial_batch_on_utility_tick() -> void:
+	var sink: GFBatchedLogSink = GFBatchedLogSink.new()
+	sink.batch_size = 10
+	sink.flush_interval_msec = 1000
+	var payloads: Array[Dictionary] = []
+	sink.sender_callback = func(payload: Dictionary) -> Dictionary:
+		payloads.append(payload.duplicate(true))
+		return { "ok": true }
+
+	_log_util.add_sink(sink)
+	_log_util.info("Batch", "idle partial")
+	assert_eq(sink.get_pending_count(), 1, "未达到 batch_size 的日志应先保留。")
+	_log_util.tick(1.0)
+
+	assert_eq(payloads.size(), 1, "达到 flush 间隔后，即使没有新日志也应发送部分批次。")
+	assert_eq(sink.get_pending_count(), 0, "空闲间隔 flush 后队列应清空。")
+	_log_util.remove_sink(sink)
+
+
+func test_batched_log_sink_shutdown_drains_all_synchronous_batches() -> void:
+	var sink: GFBatchedLogSink = GFBatchedLogSink.new()
+	sink.batch_size = 10
+	sink.flush_interval_msec = 0
+	var payloads: Array[Dictionary] = []
+	sink.sender_callback = func(payload: Dictionary) -> Dictionary:
+		payloads.append(payload.duplicate(true))
+		return { "ok": true }
+
+	_log_util.add_sink(sink)
+	for index: int in range(5):
+		_log_util.info("Batch", "shutdown-%d" % index)
+	sink.batch_size = 2
+	_log_util.remove_sink(sink)
+
+	assert_eq(payloads.size(), 3, "shutdown 应连续发送全部同步批次，而不是只处理第一批。")
+	assert_eq(sink.get_pending_count(), 0, "成功的 shutdown drain 不得留下不可达日志。")
 
 
 func test_batched_log_sink_receives_privacy_encoded_context() -> void:
@@ -1000,6 +1100,8 @@ class CapturingLogSink extends GFLogSink:
 	var init_count: int = 0
 	var flush_count: int = 0
 	var shutdown_count: int = 0
+	var tick_count: int = 0
+	var last_tick_delta: float = 0.0
 	var owner_instance: Object
 	var entries: Array[Dictionary] = []
 
@@ -1012,6 +1114,10 @@ class CapturingLogSink extends GFLogSink:
 
 	func flush() -> void:
 		flush_count += 1
+
+	func tick(delta: float) -> void:
+		tick_count += 1
+		last_tick_delta = delta
 
 	func shutdown() -> void:
 		shutdown_count += 1
