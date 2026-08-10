@@ -1503,6 +1503,8 @@ func _run_project_installers(
 		installer_scope = GFAsyncScope.new()
 		architecture_instance.track_framework_async_scope(installer_scope)
 	var installers_completed: bool = await _apply_project_installers(architecture_instance, installer_scope)
+	if not installers_completed:
+		_settle_project_installers_failure(architecture_instance, installer_scope)
 	if owns_installer_scope:
 		architecture_instance.untrack_framework_async_scope(installer_scope)
 		if installers_completed:
@@ -1538,7 +1540,11 @@ func _apply_project_installers(architecture_instance: GFArchitecture, installer_
 			return false
 
 	architecture_instance.finish_project_installers()
-	return true
+	return (
+		architecture_instance.has_project_installers_applied()
+		and not architecture_instance.is_project_installers_running()
+		and not architecture_instance.has_initialization_failed()
+	)
 
 
 func _await_project_installer_install(
@@ -1640,14 +1646,15 @@ func _wait_for_project_installer_step(
 	var timeout_msec: int = int(timeout_seconds * 1000.0)
 	while not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(completion_state, "done", false):
 		if installer_scope.is_cancel_requested():
+			_block_stale_project_installer_write(completion_state, architecture_instance)
 			return false
 		if architecture_instance.has_initialization_failed() or not architecture_instance.is_project_installers_running():
+			_block_stale_project_installer_write(completion_state, architecture_instance)
 			var _cancelled_stopped_scope: bool = installer_scope.cancel(_get_project_installer_cancel_reason(architecture_instance))
 			return false
 		var elapsed_msec: int = Time.get_ticks_msec() - start_msec
 		if elapsed_msec >= timeout_msec:
-			completion_state["write_blocked"] = true
-			architecture_instance._begin_stale_async_write_block()
+			_block_stale_project_installer_write(completion_state, architecture_instance)
 			var timeout_reason: String = "[GF] 项目 Installer 超时：%s 的 %s() 超过 %.2f 秒。" % [
 				path,
 				stage,
@@ -1658,6 +1665,27 @@ func _wait_for_project_installer_step(
 			return false
 		await scene_tree.process_frame
 	return not architecture_instance.has_initialization_failed() and not installer_scope.is_cancel_requested()
+
+
+func _block_stale_project_installer_write(
+	completion_state: Dictionary,
+	architecture_instance: GFArchitecture
+) -> void:
+	if _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(completion_state, "write_blocked", false):
+		return
+	completion_state["write_blocked"] = true
+	architecture_instance._begin_stale_async_write_block()
+
+
+func _settle_project_installers_failure(
+	architecture_instance: GFArchitecture,
+	installer_scope: GFAsyncScope
+) -> void:
+	if not architecture_instance.is_project_installers_running():
+		return
+	architecture_instance.fail_initialization(
+		_get_project_installer_failure_reason(architecture_instance, installer_scope)
+	)
 
 
 func _get_project_installer_paths() -> Array[String]:
@@ -1699,6 +1727,17 @@ func _get_project_installer_cancel_reason(architecture_instance: GFArchitecture)
 	if not architecture_instance.is_project_installers_running():
 		return "[GF] 项目 Installer 流程已停止。"
 	return "[GF] 项目 Installer 已取消。"
+
+
+func _get_project_installer_failure_reason(
+	architecture_instance: GFArchitecture,
+	installer_scope: GFAsyncScope
+) -> String:
+	if installer_scope != null and installer_scope.is_cancel_requested():
+		var scope_reason: String = String(installer_scope.get_cancel_reason())
+		if not scope_reason.is_empty():
+			return scope_reason
+	return _get_project_installer_cancel_reason(architecture_instance)
 
 
 func _get_scene_tree_or_null() -> SceneTree:

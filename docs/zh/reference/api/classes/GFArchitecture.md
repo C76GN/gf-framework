@@ -196,12 +196,13 @@ signal shutdown_finished(result: GFArchitectureShutdownResult)
 ### `project_installers_finished`
 
 - API：`public`
+- 首次版本：`1.14.1`
 
 ```gdscript
 signal project_installers_finished
 ```
 
-当项目级 Installer 应用完成或被 dispose() 中断后发出。
+当一轮项目级 Installer 成功提交、失败回滚完成或被 dispose() 中断后发出。
 
 ## 枚举
 
@@ -652,38 +653,41 @@ func is_project_installers_running() -> bool:
 ### `begin_project_installers`
 
 - API：`public`
+- 首次版本：`1.14.1`
 
 ```gdscript
 func begin_project_installers() -> bool:
 ```
 
-标记项目级 Installer 已开始应用。
+标记项目级 Installer 已开始应用。 失败结算、迟到写屏障或 quiesce/dispose 期间会拒绝开始。
 
-返回：成功开始返回 true；已经完成或正在运行时返回 false。
+返回：成功开始返回 true；已经完成、正在运行或生命周期拒绝准入时返回 false。
 
 <a id="member-gfarchitecture-methods-mark_project_installers_applied"></a>
 
 ### `mark_project_installers_applied`
 
 - API：`public`
+- 首次版本：`1.14.1`
 
 ```gdscript
 func mark_project_installers_applied() -> void:
 ```
 
-标记项目级 Installer 已应用。由 Gf 启动入口调用。
+标记项目级 Installer 已应用。由 Gf 启动入口调用。失败结算、迟到写屏障、 初始化失败或 quiesce/dispose 期间保持 no-op。
 
 <a id="member-gfarchitecture-methods-finish_project_installers"></a>
 
 ### `finish_project_installers`
 
 - API：`public`
+- 首次版本：`1.14.1`
 
 ```gdscript
 func finish_project_installers() -> void:
 ```
 
-标记项目级 Installer 应用完成并唤醒等待方。
+标记项目级 Installer 应用完成并唤醒等待方；准入已关闭时保持 no-op。
 
 <a id="member-gfarchitecture-methods-create_binder"></a>
 
@@ -714,7 +718,7 @@ func create_binder() -> GFBinder:
 func init(cancellation_token: GFCancellationToken = null) -> bool:
 ```
 
-初始化架构及所有注册的组件（四阶段）。 阶段一：按声明依赖 DAG 调用模块的 init()，用于初始化自身内部变量。 阶段二：按同一 DAG 串行 await 模块的 async_init()，用于异步准备。 阶段三：调用模块的 ready()；当前模块声明的依赖已 ready，未声明依赖无可用保证。 阶段四：按声明依赖顺序调用 begin_activation()，全部成功后才提交 READY。 并发调用复用同一初始化事务；首个调用拥有共享流程的取消策略，后续调用的 token 只取消自身等待，不会中断共享初始化。架构已经 READY 时幂等成功优先于 调用方 token 的取消状态。
+初始化架构及所有注册的组件（四阶段）。 阶段一：按声明依赖 DAG 调用模块的 init()，用于初始化自身内部变量。 阶段二：按同一 DAG 串行 await 模块的 async_init()，用于异步准备。 阶段三：调用模块的 ready()；当前模块声明的依赖已 ready，未声明依赖无可用保证。 阶段四：按声明依赖顺序调用 begin_activation()，全部成功后才提交 READY。 并发调用复用同一初始化事务；首个调用拥有共享流程的取消策略，后续调用的 token 只取消自身等待，不会中断共享初始化。架构已经 READY 时幂等成功优先于 调用方 token 的取消状态。初始化失败尚在回滚与终态通知期间时，同步重入会 返回 false，待结算完成后才允许安全重试。
 
 参数：
 
