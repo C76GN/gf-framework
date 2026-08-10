@@ -100,6 +100,85 @@ func test_registration_uses_exact_ordered_provider_topology_and_rejects_overlap(
 	assert_true(_profile_utility.get_profile_state_snapshot(partial_profile.profile_id).is_empty())
 
 
+func test_unregister_inactive_profile_after_shared_domain_transaction_settles() -> void:
+	var provider: GFSaveProfileTransactionTestSupport.MemorySectionProvider = (
+		GFSaveProfileTransactionTestSupport.make_provider(&"state", 0)
+	)
+	var providers: Array[GFSaveSectionProvider] = [provider]
+	var active_profile: GFSaveProfile = GFSaveProfileTransactionTestSupport.make_profile(
+		&"session.unregister.active",
+		providers
+	)
+	var inactive_profile: GFSaveProfile = GFSaveProfileTransactionTestSupport.make_profile(
+		&"session.unregister.inactive",
+		providers
+	)
+	assert_true(_register(active_profile))
+	assert_true(_register(inactive_profile))
+
+	var activation: GFSaveProfileTransactionOperation = _coordinator.activate_profile(
+		active_profile.profile_id
+	)
+	_profile_utility.tick(0.0)
+	assert_eq(_storage.get_pending_load_count(), 1)
+	assert_false(
+		_coordinator.unregister_profile(inactive_profile.profile_id),
+		"共享 domain 的事务尚未结算时仍不得注销空闲成员。"
+	)
+	assert_false(
+		_coordinator.get_domain_state_snapshot(inactive_profile.profile_id).is_empty()
+	)
+	_storage.complete_next_load(GFSaveProfileTransactionTestSupport.read_success(
+		GFSaveProfileTransactionTestSupport.make_document(
+			active_profile,
+			{ &"state": { "value": 17 } }
+		)
+	))
+	assert_true(activation.is_completed())
+	assert_true(activation.get_result().is_successful())
+
+	var domain_before: Dictionary = _coordinator.get_domain_state_snapshot(
+		active_profile.profile_id
+	)
+	var domain_id: int = GFVariantData.get_option_int(domain_before, "domain_id")
+	assert_eq(
+		_coordinator.get_active_profile_id(inactive_profile.profile_id),
+		active_profile.profile_id
+	)
+	assert_true(
+		_coordinator.unregister_profile(inactive_profile.profile_id),
+		"活动 sibling 不应阻止注销已空闲的非活动 Profile。"
+	)
+	assert_true(
+		_coordinator.get_domain_state_snapshot(inactive_profile.profile_id).is_empty()
+	)
+	assert_true(
+		_profile_utility.get_profile_state_snapshot(inactive_profile.profile_id).is_empty()
+	)
+	var domain_after: Dictionary = _coordinator.get_domain_state_snapshot(
+		active_profile.profile_id
+	)
+	assert_eq(GFVariantData.get_option_int(domain_after, "domain_id"), domain_id)
+	assert_eq(
+		GFVariantData.get_option_string_name(domain_after, "active_profile_id"),
+		active_profile.profile_id
+	)
+	assert_eq(
+		GFVariantData.get_option_packed_string_array(domain_after, "profile_ids"),
+		PackedStringArray([String(active_profile.profile_id)])
+	)
+	assert_false(
+		_coordinator.unregister_profile(active_profile.profile_id),
+		"当前活动 Profile 自身仍必须拒绝注销。"
+	)
+	assert_false(
+		_coordinator.get_domain_state_snapshot(active_profile.profile_id).is_empty()
+	)
+	assert_false(
+		_profile_utility.get_profile_state_snapshot(active_profile.profile_id).is_empty()
+	)
+
+
 func test_disjoint_provider_domains_activate_concurrently() -> void:
 	var first_provider: GFSaveProfileTransactionTestSupport.MemorySectionProvider = (
 		GFSaveProfileTransactionTestSupport.make_provider(&"first", 0)
