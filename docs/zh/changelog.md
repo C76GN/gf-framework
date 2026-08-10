@@ -124,6 +124,7 @@
 - 修复共享 Provider 的 Profile 切换由项目拼接 flush/load 时缺少原子活动身份、目标失败后
   可能遗留部分应用状态的问题；新 Coordinator 在精确 domain 锁内完成源屏障、逆序恢复
   与单次身份提交。
+- 修复 `GFSaveProfileTransactionCoordinator.unregister_profile()` 因 domain 存在任意活动身份而拒绝注销空闲非活动 Profile 的问题；活动目标、进行中的事务和 reconcile fence 仍失败关闭。
 - 修复 section 修改与保存分离时，已知写入失败、未知提交和生命周期关闭之间没有统一
   所有权的问题；类型化 mutation 现在区分可逆确定失败与必须 fence 的未知结果。
 - 修复异步 UI 的全局完成遥测缺少请求身份，可能被同键重入或旧生命周期迟到回调误关联的问题；Router 现在在发出可重入信号前原子移除旧 pending，并以单调 request ID 与精确底层句柄双重校验终态。
