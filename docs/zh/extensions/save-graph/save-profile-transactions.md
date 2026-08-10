@@ -33,6 +33,8 @@ Profile 应通过 Coordinator 的 `register_profile()` / `unregister_profile()` 
 `flush_profile()`，供普通游戏状态与自动保存继续使用；直接 `load_profile()`、非活动
 Profile 的 save/flush，以及事务或 reconcile fence 期间的全部直接原语都会被拒绝。
 活动身份变更和原子 section 修改必须经 Coordinator，否则无法维持 domain 串行化。
+同一 domain 已有活动身份时，仍可注销空闲的非活动成员；活动成员、进行中的事务或
+reconcile fence 仍拒绝注销，成功注销会使该 domain 的 recovery lease 失效。
 
 ## 严格激活与切换
 

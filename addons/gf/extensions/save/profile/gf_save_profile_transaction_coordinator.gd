@@ -373,7 +373,7 @@ func unregister_profile(profile_id: StringName) -> bool:
 		or _notification_depth > 0
 		or profile == null
 		or domain == null
-		or domain.active_profile_id != &""
+		or domain.active_profile_id == profile_id
 		or domain.current_transaction != null
 		or domain.reconcile_lease != null
 	):
